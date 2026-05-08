@@ -1,0 +1,22 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1e1b4b"/>
+      <stop offset="55%" stop-color="#312e81"/>
+      <stop offset="100%" stop-color="#4f46e5"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="60" cy="60" r="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#818cf8" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#4f46e5" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="url(#bg)"/>
+  <rect width="256" height="256" rx="56" fill="url(#glow)"/>
+  <!-- 2×2 terminal pane grid — OXESpace core metaphor -->
+  <rect x="44" y="44" width="74" height="74" rx="13" fill="white" opacity="0.95"/>
+  <rect x="138" y="44" width="74" height="74" rx="13" fill="white" opacity="0.55"/>
+  <rect x="44" y="138" width="74" height="74" rx="13" fill="white" opacity="0.35"/>
+  <rect x="138" y="138" width="74" height="74" rx="13" fill="white" opacity="0.15"/>
+  <!-- Terminal cursor in top-left pane (identity detail) -->
+  <rect x="57" y="97" width="28" height="8" rx="4" fill="#312e81" opacity="0.7"/>
+</svg>

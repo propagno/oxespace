@@ -1,0 +1,29 @@
+appId: com.oxespace.app
+productName: OXESpace
+directories:
+  output: dist
+files:
+  - out/**/*
+  - package.json
+  - from: electron/main/db/migrations
+    to: out/main/migrations
+extraResources:
+  - from: resources/icon.ico
+    to: icon.ico
+asar: true
+asarUnpack:
+  - node_modules/better-sqlite3/**/*
+  - node_modules/node-pty/**/*
+win:
+  icon: resources/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: OXESpace-${version}-${arch}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true

@@ -1,0 +1,10 @@
+node_modules/
+out/
+dist/
+.github/*
+!.github/
+!.github/workflows/
+!.github/workflows/*.yml
+
+# OXE (oxe-cc) — pasta de estado local; não versionar
+.oxe/
