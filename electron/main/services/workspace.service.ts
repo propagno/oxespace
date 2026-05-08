@@ -7,6 +7,7 @@ import type {
   PaneType,
   Workspace,
   WorkspaceLayout,
+  UpdateWorkspaceEditorStateInput,
   WorkspacePane
 } from '../../../shared/types/workspace'
 
@@ -18,6 +19,9 @@ interface WorkspaceRow {
   default_shell_profile_id: string
   auto_start: number
   is_active: number
+  editor_visible: number
+  editor_expanded: number
+  editor_width_percent: number
 }
 
 interface PaneRow {
@@ -88,7 +92,12 @@ export class WorkspaceService {
 
   list(): Workspace[] {
     const rows = this.db
-      .prepare('SELECT id, name, root_path, layout, default_shell_profile_id, auto_start, is_active FROM workspaces ORDER BY created_at ASC')
+      .prepare(
+        `SELECT id, name, root_path, layout, default_shell_profile_id, auto_start, is_active,
+          editor_visible, editor_expanded, editor_width_percent
+         FROM workspaces
+         ORDER BY created_at ASC`
+      )
       .all() as WorkspaceRow[]
 
     return rows.map((row) => this.mapWorkspace(row))
@@ -96,7 +105,12 @@ export class WorkspaceService {
 
   get(id: string): Workspace | null {
     const row = this.db
-      .prepare('SELECT id, name, root_path, layout, default_shell_profile_id, auto_start, is_active FROM workspaces WHERE id = ?')
+      .prepare(
+        `SELECT id, name, root_path, layout, default_shell_profile_id, auto_start, is_active,
+          editor_visible, editor_expanded, editor_width_percent
+         FROM workspaces
+         WHERE id = ?`
+      )
       .get(id) as WorkspaceRow | undefined
 
     return row ? this.mapWorkspace(row) : null
@@ -136,6 +150,35 @@ export class WorkspaceService {
     this.db.prepare("UPDATE panes SET type = ?, status = 'idle' WHERE id = ?").run(type, paneId)
     const workspace = this.get(paneRow.workspace_id)
     if (!workspace) throw new Error('Workspace not found after pane type update')
+    return workspace
+  }
+
+  updateEditorState(input: UpdateWorkspaceEditorStateInput): Workspace {
+    const current = this.get(input.workspaceId)
+    if (!current) throw new Error(`Workspace ${input.workspaceId} not found`)
+
+    const editorVisible = input.editorVisible ?? current.editorVisible ?? false
+    const editorExpanded = input.editorExpanded ?? current.editorExpanded ?? false
+    const editorWidthPercent = clampEditorWidth(input.editorWidthPercent ?? current.editorWidthPercent ?? 40)
+
+    this.db
+      .prepare(
+        `UPDATE workspaces
+         SET editor_visible = @editorVisible,
+             editor_expanded = @editorExpanded,
+             editor_width_percent = @editorWidthPercent,
+             updated_at = datetime('now')
+         WHERE id = @workspaceId`
+      )
+      .run({
+        workspaceId: input.workspaceId,
+        editorVisible: editorVisible ? 1 : 0,
+        editorExpanded: editorExpanded ? 1 : 0,
+        editorWidthPercent
+      })
+
+    const workspace = this.get(input.workspaceId)
+    if (!workspace) throw new Error('Workspace not found after editor state update')
     return workspace
   }
 
@@ -200,6 +243,9 @@ export class WorkspaceService {
       defaultShellProfileId: row.default_shell_profile_id,
       autoStart: row.auto_start === 1,
       isActive: row.is_active === 1,
+      editorVisible: row.editor_visible === 1,
+      editorExpanded: row.editor_expanded === 1,
+      editorWidthPercent: row.editor_width_percent || 40,
       panes: this.listPanes(row.id)
     }
   }
@@ -224,6 +270,11 @@ export class WorkspaceService {
       status: row.status
     }))
   }
+}
+
+function clampEditorWidth(width: number): number {
+  if (!Number.isFinite(width)) return 40
+  return Math.min(70, Math.max(25, Math.round(width)))
 }
 
 const LAYOUT_UPGRADE_VERTICAL: Partial<Record<WorkspaceLayout, WorkspaceLayout>> = {

@@ -15,6 +15,9 @@ const workspace: Workspace = {
   defaultShellProfileId: 'builtin-claude',
   autoStart: false,
   isActive: true,
+  editorVisible: false,
+  editorExpanded: false,
+  editorWidthPercent: 40,
   panes: [
     { id: 'pane-1', workspaceId: 'workspace-1', type: 'terminal', rowIndex: 0, columnIndex: 0, shellProfileId: 'builtin-claude', status: 'idle' }
   ]
@@ -39,6 +42,9 @@ describe('workspace.store', () => {
         setActive: vi.fn().mockResolvedValue(workspace),
         delete: vi.fn().mockResolvedValue(undefined),
         closePane: vi.fn().mockResolvedValue(undefined),
+        splitPane: vi.fn().mockResolvedValue(workspace),
+        updatePaneType: vi.fn().mockResolvedValue(workspace),
+        updateEditorState: vi.fn().mockResolvedValue({ ...workspace, editorVisible: true }),
         pickFolder: vi.fn().mockResolvedValue(null)
       },
       terminal: {
@@ -49,7 +55,10 @@ describe('workspace.store', () => {
         restart: vi.fn(),
         onData: vi.fn(),
         onExit: vi.fn()
-      }
+      },
+      agent: {} as never,
+      tasks: {} as never,
+      fs: {} as never
     }
   })
 
@@ -74,5 +83,17 @@ describe('workspace.store', () => {
 
     expect(window.oxe.workspace.create).toHaveBeenCalledWith({ rootPath: 'C:/projects/repo', layout: '2x2' })
     expect(result.current.activeWorkspaceId).toBe('workspace-1')
+  })
+
+  test('persists editor layout state for a workspace', async () => {
+    useWorkspaceStore.setState({ workspaces: [workspace], activeWorkspaceId: 'workspace-1' })
+    const { result } = renderHook(() => useWorkspaceStore())
+
+    await act(async () => {
+      await result.current.updateEditorState({ workspaceId: 'workspace-1', editorVisible: true })
+    })
+
+    expect(window.oxe.workspace.updateEditorState).toHaveBeenCalledWith({ workspaceId: 'workspace-1', editorVisible: true })
+    expect(result.current.workspaces[0]?.editorVisible).toBe(true)
   })
 })

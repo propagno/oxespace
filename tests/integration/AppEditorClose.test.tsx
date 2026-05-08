@@ -7,13 +7,19 @@ import { useEditorStore } from '../../src/store/editor.store'
 import { useWorkspaceStore } from '../../src/store/workspace.store'
 
 vi.mock('../../src/components/Sidebar/Sidebar', () => ({
-  Sidebar: () => <aside data-testid="sidebar" />
+  Sidebar: ({ onCloseWorkspace }: { onCloseWorkspace: (workspaceId: string) => void }) => (
+    <aside data-testid="sidebar">
+      <button type="button" onClick={() => onCloseWorkspace('workspace-1')}>
+        close workspace
+      </button>
+    </aside>
+  )
 }))
 
-vi.mock('../../src/components/Grid/WorkspaceGrid', () => ({
-  WorkspaceGrid: ({ onClosePane }: { onClosePane: (paneId: string) => void }) => (
+vi.mock('../../src/components/Workspace/WorkspaceSurface', () => ({
+  WorkspaceSurface: ({ onClosePane }: { onClosePane: (paneId: string) => void }) => (
     <button type="button" onClick={() => onClosePane('pane-1')}>
-      close editor pane
+      close terminal pane
     </button>
   )
 }))
@@ -39,10 +45,11 @@ describe('App editor close guard', () => {
         list: vi.fn().mockResolvedValue([createWorkspace()]),
         create: vi.fn(),
         setActive: vi.fn(),
-        delete: vi.fn(),
+        delete: vi.fn().mockResolvedValue(undefined),
         closePane: vi.fn().mockResolvedValue(undefined),
         splitPane: vi.fn(),
         updatePaneType: vi.fn(),
+        updateEditorState: vi.fn(),
         pickFolder: vi.fn(),
         shellProfiles: vi.fn().mockResolvedValue([])
       },
@@ -74,8 +81,7 @@ describe('App editor close guard', () => {
     })
     useEditorStore.setState({
       files: {
-        'pane-1': {
-          paneId: 'pane-1',
+        'workspace-1': {
           workspaceId: 'workspace-1',
           rootPath: 'C:/repo',
           relativePath: 'README.md',
@@ -92,28 +98,40 @@ describe('App editor close guard', () => {
     })
   })
 
-  test('cancel keeps a dirty editor pane open', async () => {
+  test('closing a terminal pane does not prompt for a workspace editor dirty file', async () => {
+    const user = userEvent.setup()
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: 'close terminal pane' }))
+
+    expect(confirm).not.toHaveBeenCalled()
+    expect(window.oxe.workspace.closePane).toHaveBeenCalledWith('pane-1')
+    expect(useEditorStore.getState().files['workspace-1']).toBeDefined()
+  })
+
+  test('cancel keeps a dirty workspace editor open when closing workspace', async () => {
     const user = userEvent.setup()
     vi.spyOn(window, 'confirm').mockReturnValue(false)
 
     render(<App />)
-    await user.click(await screen.findByRole('button', { name: 'close editor pane' }))
+    await user.click(await screen.findByRole('button', { name: 'close workspace' }))
 
     expect(window.confirm).toHaveBeenCalledWith('Discard unsaved editor changes?')
-    expect(window.oxe.workspace.closePane).not.toHaveBeenCalled()
-    expect(useEditorStore.getState().files['pane-1']).toBeDefined()
+    expect(window.oxe.workspace.delete).not.toHaveBeenCalled()
+    expect(useEditorStore.getState().files['workspace-1']).toBeDefined()
   })
 
-  test('confirm closes a dirty editor pane and clears editor state', async () => {
+  test('confirm closes workspace and clears dirty editor state', async () => {
     const user = userEvent.setup()
     vi.spyOn(window, 'confirm').mockReturnValue(true)
 
     render(<App />)
-    await user.click(await screen.findByRole('button', { name: 'close editor pane' }))
+    await user.click(await screen.findByRole('button', { name: 'close workspace' }))
 
     expect(window.oxe.fs.unwatchFile).toHaveBeenCalledWith({ watchId: 'watch-1' })
-    expect(window.oxe.workspace.closePane).toHaveBeenCalledWith('pane-1')
-    expect(useEditorStore.getState().files['pane-1']).toBeUndefined()
+    expect(window.oxe.workspace.delete).toHaveBeenCalledWith('workspace-1')
+    expect(useEditorStore.getState().files['workspace-1']).toBeUndefined()
   })
 })
 
@@ -126,11 +144,14 @@ function createWorkspace(): Workspace {
     defaultShellProfileId: 'builtin-claude',
     autoStart: false,
     isActive: true,
+    editorVisible: true,
+    editorExpanded: false,
+    editorWidthPercent: 40,
     panes: [
       {
         id: 'pane-1',
         workspaceId: 'workspace-1',
-        type: 'editor',
+        type: 'terminal',
         rowIndex: 0,
         columnIndex: 0,
         shellProfileId: null,

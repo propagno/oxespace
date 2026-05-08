@@ -3,7 +3,7 @@ import type { AppDatabase } from '../db/index'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import { ShellProfileService } from '../services/shell-profile.service'
 import { WorkspaceService } from '../services/workspace.service'
-import { parseId, parseSplitPaneInput, parseUpdatePaneTypeInput, parseWorkspaceCreateInput } from './validation'
+import { parseId, parseSplitPaneInput, parseUpdatePaneTypeInput, parseUpdateWorkspaceEditorStateInput, parseWorkspaceCreateInput } from './validation'
 
 interface WorkspaceLifecycleController {
   stop(input: { paneId: string }): Promise<void> | void
@@ -38,6 +38,9 @@ export function registerWorkspaceIpc(db: AppDatabase, lifecycle?: WorkspaceLifec
     if (type !== 'terminal') lifecycle?.stop({ paneId })
     return workspaceService.updatePaneType(paneId, type)
   })
+  ipcMain.handle(IPC_CHANNELS.workspace.updateEditorState, (_event, input: unknown) =>
+    workspaceService.updateEditorState(parseUpdateWorkspaceEditorStateInput(input))
+  )
   ipcMain.handle(IPC_CHANNELS.workspace.pickFolder, async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     const result = await dialog.showOpenDialog(win ?? BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0], { properties: ['openDirectory'] })

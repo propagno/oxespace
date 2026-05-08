@@ -1,4 +1,4 @@
-import { FileCode2, Maximize2, Minimize2, PanelBottom, PanelRight, X } from 'lucide-react'
+import { Maximize2, Minimize2, PanelBottom, PanelRight, X } from 'lucide-react'
 import type { ReactElement } from 'react'
 import type { WorkspacePane } from '../../../shared/types/workspace'
 import { PaneContent } from '../Panes/PaneContent'
@@ -10,7 +10,6 @@ interface PaneContainerProps {
   isMaximized: boolean
   onToggleMaximize: (paneId: string) => void
   onClose?: (paneId: string) => void
-  onOpenEditor?: (paneId: string) => void
   onSplitVertical?: (paneId: string) => void
   onSplitHorizontal?: (paneId: string) => void
 }
@@ -21,7 +20,7 @@ function statusClass(status: WorkspacePane['status']): string {
   return ''
 }
 
-export function PaneContainer({ autoStart, isMaximized, onClose, onOpenEditor, onSplitHorizontal, onSplitVertical, onToggleMaximize, pane, workspaceId }: PaneContainerProps): ReactElement {
+export function PaneContainer({ autoStart, isMaximized, onClose, onSplitHorizontal, onSplitVertical, onToggleMaximize, pane, workspaceId }: PaneContainerProps): ReactElement {
   return (
     <section className="pane-container" data-testid="pane-container">
       <header className="pane-header">
@@ -30,16 +29,6 @@ export function PaneContainer({ autoStart, isMaximized, onClose, onOpenEditor, o
           <span className="pane-title">{pane.type}</span>
         </div>
         <div className="pane-actions">
-          <button
-            type="button"
-            className="tile-btn pane-editor-button"
-            aria-label="Open editor in pane"
-            title="Open editor"
-            onClick={() => onOpenEditor?.(pane.id)}
-          >
-            <FileCode2 size={12} aria-hidden="true" />
-            <span>Editor</span>
-          </button>
           <button
             type="button"
             className="tile-btn"

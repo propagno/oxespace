@@ -1,36 +1,34 @@
 import Editor from '@monaco-editor/react'
-import { useEffect, useState, type ReactElement } from 'react'
+import { useEffect, useRef, useState, type ReactElement } from 'react'
 import type { FileTreeNode } from '../../../shared/types/ipc'
-import type { WorkspacePane } from '../../../shared/types/workspace'
 import { useEditorStore } from '../../store/editor.store'
-import { useWorkspaceStore } from '../../store/workspace.store'
 import { ConflictDiff } from './ConflictDiff'
 import { FileBrowser } from './FileBrowser'
 
 interface EditorPaneProps {
-  pane: WorkspacePane
   workspaceId: string
+  rootPath: string
 }
 
-export function EditorPane({ pane, workspaceId }: EditorPaneProps): ReactElement {
-  const workspace = useWorkspaceStore((state) => state.workspaces.find((item) => item.id === workspaceId) ?? null)
-  const file = useEditorStore((state) => state.files[pane.id] ?? null)
+export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactElement {
+  const file = useEditorStore((state) => state.files[workspaceId] ?? null)
   const { markExternalChange, openFile, saveFile, updateContent } = useEditorStore()
+  const monacoHostRef = useRef<HTMLDivElement | null>(null)
   const [tree, setTree] = useState<FileTreeNode[]>([])
   const [treeError, setTreeError] = useState<string | null>(null)
   const [isLoadingTree, setIsLoadingTree] = useState(false)
+  const [editorSize, setEditorSize] = useState({ width: 0, height: 0 })
 
   useEffect(() => {
     return window.oxe.fs.onFileChanged((event) => markExternalChange(event))
   }, [markExternalChange])
 
   useEffect(() => {
-    if (!workspace) return
     let cancelled = false
     setIsLoadingTree(true)
     setTreeError(null)
     void window.oxe.fs
-      .listTree({ workspaceId: workspace.id, rootPath: workspace.rootPath })
+      .listTree({ workspaceId, rootPath })
       .then((nodes) => {
         if (!cancelled) setTree(nodes)
       })
@@ -43,28 +41,58 @@ export function EditorPane({ pane, workspaceId }: EditorPaneProps): ReactElement
     return () => {
       cancelled = true
     }
-  }, [workspace])
+  }, [rootPath, workspaceId])
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent): void {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's' && file) {
         event.preventDefault()
-        void saveFile(pane.id)
+        void saveFile(workspaceId)
       }
     }
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [file, pane.id, saveFile])
+  }, [file, saveFile, workspaceId])
+
+  useEffect(() => {
+    const element = monacoHostRef.current
+    if (!element) return undefined
+
+    const updateSize = (): void => {
+      const rect = element.getBoundingClientRect()
+      const width = Math.floor(rect.width)
+      const height = Math.floor(rect.height)
+      setEditorSize((current) => {
+        if (Math.abs(current.width - width) < 2 && Math.abs(current.height - height) < 2) return current
+        return { width, height }
+      })
+    }
+
+    updateSize()
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateSize)
+      return () => window.removeEventListener('resize', updateSize)
+    }
+
+    const observer = new ResizeObserver(updateSize)
+    observer.observe(element)
+    window.addEventListener('resize', updateSize)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', updateSize)
+    }
+  }, [file?.relativePath])
 
   const isDirty = Boolean(file && file.content !== file.lastSavedContent)
+  const editorWidth = editorSize.width > 0 ? editorSize.width : '100%'
+  const editorHeight = editorSize.height > 0 ? editorSize.height : '100%'
 
   const handleOpenFile = (relativePath: string): void => {
-    if (!workspace) return
     void openFile({
-      paneId: pane.id,
-      workspaceId: workspace.id,
-      rootPath: workspace.rootPath,
+      workspaceId,
+      rootPath,
       relativePath
     })
   }
@@ -82,26 +110,37 @@ export function EditorPane({ pane, workspaceId }: EditorPaneProps): ReactElement
           <span className="editor-path">{file?.relativePath ?? 'No file selected'}</span>
           <span className={`editor-dirty${isDirty ? ' active' : ''}`}>{file?.isSaving ? 'saving' : isDirty ? 'dirty' : 'saved'}</span>
         </header>
-        {file?.error ? <div className="editor-error">{file.error}</div> : null}
-        {file?.conflict ? <ConflictDiff localContent={file.content} externalContent={file.conflict.externalContent} /> : null}
-        {file ? (
-          <Editor
-            theme="vs-dark"
-            language={file.language}
-            value={file.content}
-            loading={<div className="editor-loading">Loading</div>}
-            options={{
-              minimap: { enabled: false },
-              fontSize: 13,
-              fontFamily: 'Cascadia Code, JetBrains Mono, Fira Code, monospace',
-              automaticLayout: true,
-              scrollBeyondLastLine: false
-            }}
-            onChange={(value) => updateContent(pane.id, value ?? '')}
-          />
-        ) : (
-          <div className="editor-empty">Select a file</div>
-        )}
+        <div className="editor-body">
+          {file?.error ? <div className="editor-error">{file.error}</div> : null}
+          {file?.conflict ? <ConflictDiff localContent={file.content} externalContent={file.conflict.externalContent} /> : null}
+          {file ? (
+            <div className="editor-monaco-host" ref={monacoHostRef}>
+              <Editor
+                height={editorHeight}
+                width={editorWidth}
+                theme="vs-dark"
+                language={file.language}
+                value={file.content}
+                loading={<div className="editor-loading">Loading</div>}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 13,
+                  fontFamily: 'Cascadia Code, JetBrains Mono, Fira Code, monospace',
+                  automaticLayout: true,
+                  scrollBeyondLastLine: false,
+                  scrollbar: {
+                    alwaysConsumeMouseWheel: true,
+                    horizontal: 'visible',
+                    vertical: 'visible'
+                  }
+                }}
+                onChange={(value) => updateContent(workspaceId, value ?? '')}
+              />
+            </div>
+          ) : (
+            <div className="editor-empty">Select a file</div>
+          )}
+        </div>
       </section>
     </div>
   )

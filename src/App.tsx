@@ -2,10 +2,10 @@ import { LayoutGrid, Plus } from 'lucide-react'
 import { useEffect, useState, type ReactElement } from 'react'
 import type { AgentProfile } from '../shared/types/agent'
 import { AgentConfigModal } from './components/Agents/AgentConfigModal'
-import { WorkspaceGrid } from './components/Grid/WorkspaceGrid'
 import { SettingsModal } from './components/Settings/SettingsModal'
 import { Sidebar } from './components/Sidebar/Sidebar'
 import { NewWorkspaceModal } from './components/Workspace/NewWorkspaceModal'
+import { WorkspaceSurface } from './components/Workspace/WorkspaceSurface'
 import { useAgentStore } from './store/agent.store'
 import { useEditorStore } from './store/editor.store'
 import { useUIStore } from './store/ui.store'
@@ -24,7 +24,7 @@ export function App(): ReactElement {
     setActiveWorkspace,
     shellProfiles,
     splitPane,
-    updatePaneType,
+    updateEditorState,
     workspaces
   } = useWorkspaceStore()
   const { clearEditor, hasDirtyEditor } = useEditorStore()
@@ -53,11 +53,15 @@ export function App(): ReactElement {
   }, [loadProfiles, loadReadiness])
 
   const handleClosePane = (paneId: string): void => {
-    if (hasDirtyEditor(paneId) && !window.confirm('Discard unsaved editor changes?')) {
+    void closePane(paneId)
+  }
+
+  const handleCloseWorkspace = (workspaceId: string): void => {
+    if (hasDirtyEditor(workspaceId) && !window.confirm('Discard unsaved editor changes?')) {
       return
     }
-    clearEditor(paneId)
-    void closePane(paneId)
+    clearEditor(workspaceId)
+    void closeWorkspace(workspaceId)
   }
 
   return (
@@ -68,7 +72,7 @@ export function App(): ReactElement {
         appVersion={window.oxe.app.version}
         onNewWorkspace={openNewWorkspace}
         onSelectWorkspace={(id) => void setActiveWorkspace(id)}
-        onCloseWorkspace={(id) => void closeWorkspace(id)}
+        onCloseWorkspace={handleCloseWorkspace}
         isSettingsOpen={isSettingsOpen}
         onToggleSettings={toggleSettings}
         isCollapsed={isSidebarCollapsed}
@@ -81,13 +85,13 @@ export function App(): ReactElement {
             <h3>Loading workspaces</h3>
           </div>
         ) : activeWorkspace ? (
-          <WorkspaceGrid
+          <WorkspaceSurface
             workspace={activeWorkspace}
             maximizedPaneId={maximizedPaneId}
             onClosePane={handleClosePane}
-            onOpenEditor={(paneId) => void updatePaneType(paneId, 'editor')}
             onToggleMaximize={(paneId) => setMaximizedPane(maximizedPaneId === paneId ? null : paneId)}
             onSplitPane={(paneId, dir) => void splitPane(paneId, dir)}
+            onUpdateEditorState={(input) => void updateEditorState(input)}
           />
         ) : (
           <div className="empty-state">

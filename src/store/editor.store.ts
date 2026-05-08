@@ -8,7 +8,6 @@ interface EditorConflict {
 }
 
 export interface EditorFileState {
-  paneId: string
   workspaceId: string
   rootPath: string
   relativePath: string
@@ -23,7 +22,6 @@ export interface EditorFileState {
 }
 
 interface OpenFileInput {
-  paneId: string
   workspaceId: string
   rootPath: string
   relativePath: string
@@ -32,18 +30,18 @@ interface OpenFileInput {
 interface EditorState {
   files: Record<string, EditorFileState>
   openFile: (input: OpenFileInput) => Promise<void>
-  updateContent: (paneId: string, content: string) => void
-  saveFile: (paneId: string) => Promise<void>
+  updateContent: (workspaceId: string, content: string) => void
+  saveFile: (workspaceId: string) => Promise<void>
   markExternalChange: (event: FileSystemFileChangedEvent) => void
-  clearEditor: (paneId: string) => void
-  hasDirtyEditor: (paneId: string) => boolean
+  clearEditor: (workspaceId: string) => void
+  hasDirtyEditor: (workspaceId: string) => boolean
 }
 
 export const useEditorStore = create<EditorState>((set, get) => ({
   files: {},
 
   openFile: async (input) => {
-    const existing = get().files[input.paneId]
+    const existing = get().files[input.workspaceId]
     if (existing?.watchId) {
       await window.oxe.fs.unwatchFile({ watchId: existing.watchId }).catch(() => undefined)
     }
@@ -51,8 +49,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set((state) => ({
       files: {
         ...state.files,
-        [input.paneId]: {
-          paneId: input.paneId,
+        [input.workspaceId]: {
           workspaceId: input.workspaceId,
           rootPath: input.rootPath,
           relativePath: input.relativePath,
@@ -74,8 +71,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       set((state) => ({
         files: {
           ...state.files,
-          [input.paneId]: {
-            ...state.files[input.paneId],
+          [input.workspaceId]: {
+            ...state.files[input.workspaceId],
             content: result.content,
             lastSavedContent: result.content,
             language: detectEditorLanguage(result.relativePath),
@@ -91,8 +88,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       set((state) => ({
         files: {
           ...state.files,
-          [input.paneId]: {
-            ...state.files[input.paneId],
+          [input.workspaceId]: {
+            ...state.files[input.workspaceId],
             isLoading: false,
             error: toMessage(error)
           }
@@ -101,24 +98,24 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }
   },
 
-  updateContent: (paneId, content) => {
+  updateContent: (workspaceId, content) => {
     set((state) => {
-      const file = state.files[paneId]
+      const file = state.files[workspaceId]
       if (!file) return state
       return {
         files: {
           ...state.files,
-          [paneId]: { ...file, content }
+          [workspaceId]: { ...file, content }
         }
       }
     })
   },
 
-  saveFile: async (paneId) => {
-    const file = get().files[paneId]
+  saveFile: async (workspaceId) => {
+    const file = get().files[workspaceId]
     if (!file) return
 
-    set((state) => ({ files: { ...state.files, [paneId]: { ...file, isSaving: true, error: null } } }))
+    set((state) => ({ files: { ...state.files, [workspaceId]: { ...file, isSaving: true, error: null } } }))
     try {
       await window.oxe.fs.writeFile({
         workspaceId: file.workspaceId,
@@ -129,9 +126,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       set((state) => ({
         files: {
           ...state.files,
-          [paneId]: {
-            ...state.files[paneId],
-            lastSavedContent: state.files[paneId].content,
+          [workspaceId]: {
+            ...state.files[workspaceId],
+            lastSavedContent: state.files[workspaceId].content,
             isSaving: false,
             error: null,
             conflict: null
@@ -142,7 +139,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       set((state) => ({
         files: {
           ...state.files,
-          [paneId]: { ...state.files[paneId], isSaving: false, error: toMessage(error) }
+          [workspaceId]: { ...state.files[workspaceId], isSaving: false, error: toMessage(error) }
         }
       }))
     }
@@ -152,13 +149,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set((state) => {
       const entry = Object.entries(state.files).find(([, file]) => file.watchId === event.watchId)
       if (!entry) return state
-      const [paneId, file] = entry
+      const [workspaceId, file] = entry
       const isDirty = file.content !== file.lastSavedContent
 
       return {
         files: {
           ...state.files,
-          [paneId]: isDirty
+          [workspaceId]: isDirty
             ? {
                 ...file,
                 conflict: {
@@ -177,20 +174,20 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     })
   },
 
-  clearEditor: (paneId) => {
-    const file = get().files[paneId]
+  clearEditor: (workspaceId) => {
+    const file = get().files[workspaceId]
     if (file?.watchId) {
       void window.oxe.fs.unwatchFile({ watchId: file.watchId })
     }
     set((state) => {
       const nextFiles = { ...state.files }
-      delete nextFiles[paneId]
+      delete nextFiles[workspaceId]
       return { files: nextFiles }
     })
   },
 
-  hasDirtyEditor: (paneId) => {
-    const file = get().files[paneId]
+  hasDirtyEditor: (workspaceId) => {
+    const file = get().files[workspaceId]
     return Boolean(file && file.content !== file.lastSavedContent)
   }
 }))

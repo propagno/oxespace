@@ -1,5 +1,5 @@
-import { ChevronDown, FileText, Folder } from 'lucide-react'
-import type { ReactElement } from 'react'
+import { ChevronDown, ChevronRight, FileText, Folder } from 'lucide-react'
+import { useState, type ReactElement } from 'react'
 import type { FileTreeNode } from '../../../shared/types/ipc'
 
 interface FileBrowserProps {
@@ -29,19 +29,29 @@ interface FileNodeProps {
 }
 
 function FileNode({ node, onOpenFile, selectedPath }: FileNodeProps): ReactElement {
+  const [isExpanded, setIsExpanded] = useState(true)
+
   if (node.type === 'directory') {
     return (
       <div className="editor-browser-node">
-        <div className="editor-browser-directory">
-          <ChevronDown size={12} aria-hidden="true" />
+        <button
+          type="button"
+          className="editor-browser-directory"
+          aria-expanded={isExpanded}
+          onClick={() => setIsExpanded((current) => !current)}
+          title={node.relativePath}
+        >
+          {isExpanded ? <ChevronDown size={12} aria-hidden="true" /> : <ChevronRight size={12} aria-hidden="true" />}
           <Folder size={13} aria-hidden="true" />
           <span>{node.name}</span>
-        </div>
-        <div className="editor-browser-children">
-          {(node.children ?? []).map((child) => (
-            <FileNode key={child.relativePath} node={child} selectedPath={selectedPath} onOpenFile={onOpenFile} />
-          ))}
-        </div>
+        </button>
+        {isExpanded ? (
+          <div className="editor-browser-children">
+            {(node.children ?? []).map((child) => (
+              <FileNode key={child.relativePath} node={child} selectedPath={selectedPath} onOpenFile={onOpenFile} />
+            ))}
+          </div>
+        ) : null}
       </div>
     )
   }

@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { WorkspacePane } from '../../shared/types/workspace'
 import { PaneContent } from '../../src/components/Panes/PaneContent'
+import { useWorkspaceStore } from '../../src/store/workspace.store'
 
 vi.mock('../../src/components/Panes/TerminalPane', () => ({
   TerminalPane: () => <div data-testid="terminal-pane">Terminal</div>
@@ -23,6 +24,7 @@ describe('PaneContent', () => {
         closePane: vi.fn(),
         splitPane: vi.fn(),
         updatePaneType: vi.fn(),
+        updateEditorState: vi.fn(),
         pickFolder: vi.fn(),
         shellProfiles: vi.fn()
       },
@@ -41,6 +43,24 @@ describe('PaneContent', () => {
       disconnect(): void {}
       unobserve(): void {}
     }
+    useWorkspaceStore.setState({
+      workspaces: [
+        {
+          id: 'workspace-1',
+          name: 'repo',
+          rootPath: 'C:/repo',
+          layout: '1x1',
+          defaultShellProfileId: 'builtin-claude',
+          autoStart: false,
+          isActive: true,
+          panes: []
+        }
+      ],
+      activeWorkspaceId: 'workspace-1',
+      shellProfiles: [],
+      isLoading: false,
+      error: null
+    })
   })
 
   test('renders terminal panes and future pane stubs', () => {

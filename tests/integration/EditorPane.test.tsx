@@ -2,14 +2,14 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { FileTreeNode } from '../../shared/types/ipc'
-import type { Workspace, WorkspacePane } from '../../shared/types/workspace'
+import type { Workspace } from '../../shared/types/workspace'
 import { EditorPane } from '../../src/components/Editor/EditorPane'
 import { useEditorStore } from '../../src/store/editor.store'
 import { useWorkspaceStore } from '../../src/store/workspace.store'
 
 vi.mock('@monaco-editor/react', () => ({
-  default: ({ language, onChange, value }: { language: string; onChange: (value: string) => void; value: string }) => (
-    <textarea aria-label={`monaco-${language}`} value={value} onChange={(event) => onChange(event.currentTarget.value)} />
+  default: ({ height, language, onChange, value, width }: { height?: number | string; language: string; onChange: (value: string) => void; value: string; width?: number | string }) => (
+    <textarea aria-label={`monaco-${language}`} data-height={height} data-width={width} value={value} onChange={(event) => onChange(event.currentTarget.value)} />
   )
 }))
 
@@ -51,10 +51,14 @@ describe('EditorPane', () => {
 
   test('lists files, opens in Monaco and marks dirty/saved', async () => {
     const user = userEvent.setup()
-    render(<EditorPane pane={createPane()} workspaceId="workspace-1" />)
+    render(<EditorPane workspaceId="workspace-1" rootPath="C:/repo" />)
 
     await user.click(await screen.findByRole('button', { name: /index\.ts/i }))
-    expect(await screen.findByLabelText('monaco-typescript')).toHaveValue('const a = 1')
+    const monaco = await screen.findByLabelText('monaco-typescript')
+    expect(monaco).toHaveValue('const a = 1')
+    expect(monaco).toHaveAttribute('data-height', '100%')
+    expect(monaco).toHaveAttribute('data-width', '100%')
+    expect(document.querySelector('.editor-browser')).toBeInTheDocument()
 
     await user.clear(screen.getByLabelText('monaco-typescript'))
     await user.type(screen.getByLabelText('monaco-typescript'), 'const a = 2')
@@ -65,9 +69,29 @@ describe('EditorPane', () => {
     expect(screen.getByText('saved')).toBeInTheDocument()
   })
 
+  test('collapses and expands directories without losing file selection behavior', async () => {
+    const user = userEvent.setup()
+    render(<EditorPane workspaceId="workspace-1" rootPath="C:/repo" />)
+
+    const directory = await screen.findByRole('button', { name: /src/i })
+    expect(directory).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('button', { name: /index\.ts/i })).toBeInTheDocument()
+
+    await user.click(directory)
+    expect(directory).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('button', { name: /index\.ts/i })).not.toBeInTheDocument()
+
+    await user.click(directory)
+    await user.click(screen.getByRole('button', { name: /index\.ts/i }))
+
+    expect(await screen.findByLabelText('monaco-typescript')).toHaveValue('const a = 1')
+    expect(document.querySelector('.editor-body')).toBeInTheDocument()
+    expect(document.querySelector('.editor-monaco-host')).toBeInTheDocument()
+  })
+
   test('shows conflict without overwriting dirty content', async () => {
     const user = userEvent.setup()
-    render(<EditorPane pane={createPane()} workspaceId="workspace-1" />)
+    render(<EditorPane workspaceId="workspace-1" rootPath="C:/repo" />)
 
     await user.click(await screen.findByRole('button', { name: /index\.ts/i }))
     await user.clear(screen.getByLabelText('monaco-typescript'))
@@ -97,18 +121,9 @@ function createWorkspace(): Workspace {
     defaultShellProfileId: 'builtin-claude',
     autoStart: false,
     isActive: true,
-    panes: [createPane()]
-  }
-}
-
-function createPane(): WorkspacePane {
-  return {
-    id: 'pane-1',
-    workspaceId: 'workspace-1',
-    type: 'editor',
-    rowIndex: 0,
-    columnIndex: 0,
-    shellProfileId: 'builtin-claude',
-    status: 'idle'
+    editorVisible: true,
+    editorExpanded: false,
+    editorWidthPercent: 40,
+    panes: []
   }
 }

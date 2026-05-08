@@ -30,6 +30,9 @@ export interface Workspace {
   defaultShellProfileId: string
   autoStart: boolean
   isActive: boolean
+  editorVisible?: boolean
+  editorExpanded?: boolean
+  editorWidthPercent?: number
   panes: WorkspacePane[]
 }
 
@@ -39,4 +42,11 @@ export interface CreateWorkspaceInput {
   defaultShellProfileId?: string
   autoStart?: boolean
   name?: string
+}
+
+export interface UpdateWorkspaceEditorStateInput {
+  workspaceId: string
+  editorVisible?: boolean
+  editorExpanded?: boolean
+  editorWidthPercent?: number
 }

@@ -23,29 +23,27 @@ describe('editor.store', () => {
 
   test('opens, edits and saves a file', async () => {
     await useEditorStore.getState().openFile({
-      paneId: 'pane-1',
       workspaceId: 'workspace-1',
       rootPath: 'C:/repo',
       relativePath: 'src/index.ts'
     })
-    expect(useEditorStore.getState().files['pane-1']).toMatchObject({ content: 'one', language: 'typescript' })
+    expect(useEditorStore.getState().files['workspace-1']).toMatchObject({ content: 'one', language: 'typescript' })
 
-    useEditorStore.getState().updateContent('pane-1', 'two')
-    expect(useEditorStore.getState().hasDirtyEditor('pane-1')).toBe(true)
+    useEditorStore.getState().updateContent('workspace-1', 'two')
+    expect(useEditorStore.getState().hasDirtyEditor('workspace-1')).toBe(true)
 
-    await useEditorStore.getState().saveFile('pane-1')
+    await useEditorStore.getState().saveFile('workspace-1')
     expect(window.oxe.fs.writeFile).toHaveBeenCalledWith(expect.objectContaining({ content: 'two' }))
-    expect(useEditorStore.getState().hasDirtyEditor('pane-1')).toBe(false)
+    expect(useEditorStore.getState().hasDirtyEditor('workspace-1')).toBe(false)
   })
 
   test('marks external changes as conflict when local file is dirty', async () => {
     await useEditorStore.getState().openFile({
-      paneId: 'pane-1',
       workspaceId: 'workspace-1',
       rootPath: 'C:/repo',
       relativePath: 'src/index.ts'
     })
-    useEditorStore.getState().updateContent('pane-1', 'local')
+    useEditorStore.getState().updateContent('workspace-1', 'local')
     useEditorStore.getState().markExternalChange({
       watchId: 'watch-1',
       workspaceId: 'workspace-1',
@@ -55,7 +53,7 @@ describe('editor.store', () => {
       mtimeMs: 3
     })
 
-    expect(useEditorStore.getState().files['pane-1'].content).toBe('local')
-    expect(useEditorStore.getState().files['pane-1'].conflict?.externalContent).toBe('external')
+    expect(useEditorStore.getState().files['workspace-1'].content).toBe('local')
+    expect(useEditorStore.getState().files['workspace-1'].conflict?.externalContent).toBe('external')
   })
 })

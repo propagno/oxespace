@@ -55,6 +55,11 @@ export function runMigrations(db: AppDatabase): void {
 
   if (currentVersion < 5) {
     db.exec(readMigration('005_agent_shell_settings.sql'))
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
+
+  if (currentVersion < 6) {
+    db.exec(readMigration('006_workspace_editor_state.sql'))
   }
 }
 

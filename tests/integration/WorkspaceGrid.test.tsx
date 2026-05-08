@@ -31,16 +31,12 @@ describe('WorkspaceGrid', () => {
     expect(screen.getByLabelText('Restore pane')).toBeInTheDocument()
   })
 
-  test('emits open editor action for the selected pane', async () => {
-    const user = userEvent.setup()
-    const onOpenEditor = vi.fn()
+  test('does not render editor controls inside terminal panes', () => {
     const workspace = createWorkspace('1x1')
 
-    render(<WorkspaceGrid workspace={workspace} maximizedPaneId={null} onToggleMaximize={() => undefined} onOpenEditor={onOpenEditor} />)
+    render(<WorkspaceGrid workspace={workspace} maximizedPaneId={null} onToggleMaximize={() => undefined} />)
 
-    expect(screen.getByRole('button', { name: 'Open editor in pane' })).toHaveTextContent('Editor')
-    await user.click(screen.getByLabelText('Open editor in pane'))
-    expect(onOpenEditor).toHaveBeenCalledWith('pane-0-0')
+    expect(screen.queryByRole('button', { name: 'Open editor in pane' })).not.toBeInTheDocument()
   })
 })
 

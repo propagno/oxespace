@@ -4,6 +4,7 @@ import {
   parseTaskReorderInput,
   parseTerminalResizeInput,
   parseTerminalWriteInput,
+  parseUpdateWorkspaceEditorStateInput,
   parseWorkspaceCreateInput
 } from '../../electron/main/ipc/validation'
 
@@ -13,6 +14,7 @@ describe('ipc contracts', () => {
     expect(IPC_CHANNELS.workspace.shellProfiles).toBe('workspace:shell-profiles')
     expect(IPC_CHANNELS.workspace.closePane).toBe('workspace:close-pane')
     expect(IPC_CHANNELS.workspace.updatePaneType).toBe('workspace:update-pane-type')
+    expect(IPC_CHANNELS.workspace.updateEditorState).toBe('workspace:update-editor-state')
     expect(IPC_CHANNELS.workspace.pickFolder).toBe('workspace:pick-folder')
     expect(IPC_CHANNELS.terminal.write).toBe('terminal:write')
     expect(IPC_CHANNELS.terminal.resize).toBe('terminal:resize')
@@ -71,6 +73,16 @@ describe('ipc contracts', () => {
       rows: 32
     })
     expect(() => parseTerminalResizeInput({ paneId: 'pane-1', cols: 0, rows: 32 })).toThrow('cols')
+  })
+
+  test('validates workspace editor state payloads', () => {
+    expect(parseUpdateWorkspaceEditorStateInput({ workspaceId: 'workspace-1', editorVisible: true, editorWidthPercent: 40 })).toEqual({
+      workspaceId: 'workspace-1',
+      editorVisible: true,
+      editorExpanded: undefined,
+      editorWidthPercent: 40
+    })
+    expect(() => parseUpdateWorkspaceEditorStateInput({ workspaceId: 'workspace-1', editorWidthPercent: 90 })).toThrow('editorWidthPercent')
   })
 
   test('validates task reorder payloads', () => {

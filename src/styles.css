@@ -465,9 +465,108 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 /* ─── Grid ──────────────────────────────────────────────────────────────── */
 .workspace-grid {
   flex: 1;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
   min-height: 0;
   overflow: hidden;
   background: #000;
+}
+
+.workspace-surface-frame {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #000;
+}
+
+.workspace-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 34px;
+  flex: 0 0 34px;
+  min-width: 0;
+  padding: 4px 8px;
+  border-bottom: 1px solid #161616;
+  background: #000;
+}
+
+.workspace-topbar-spacer {
+  flex: 1;
+  min-width: 0;
+}
+
+.workspace-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.workspace-toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 26px;
+  min-width: 160px;
+  padding: 0 16px;
+  border: 1px solid #232323;
+  border-radius: 999px;
+  background: #181818;
+  color: #d8dce0;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.workspace-toolbar-button:hover,
+.workspace-toolbar-button.active {
+  border-color: #343434;
+  background: #202020;
+  color: #fff;
+}
+
+.workspace-toolbar-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  color: #8fb5ff;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.workspace-surface-content,
+.workspace-surface-layout {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #000;
+}
+
+.workspace-surface-content > [data-panel-group],
+.workspace-surface-layout > [data-panel-group] {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.workspace-surface-content [data-panel],
+.workspace-surface-layout [data-panel] {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .workspace-grid-maximized {
@@ -480,6 +579,68 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 .resize-handle[data-resize-handle-active], .resize-handle:hover { background: rgba(255,255,255,0.28); }
 .resize-handle-vertical { width: 2px; }
 .resize-handle-horizontal { height: 2px; }
+
+.workspace-editor-resize {
+  background: #161616;
+}
+
+.workspace-editor-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #000;
+  border-left: 1px solid #252525;
+}
+
+.workspace-editor-content {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workspace-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--tile-header-h);
+  padding: 5px 8px;
+  background: #000;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.workspace-editor-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 0;
+  flex: 1;
+  height: 29px;
+  border: 1px solid #252525;
+  border-radius: 999px;
+  background: #181818;
+  color: #d8dce0;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.workspace-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 29px;
+  border: 1px solid #202020;
+  border-radius: 999px;
+  background: #151515;
+  padding: 0 5px;
+}
 
 /* ─── Pane tile ─────────────────────────────────────────────────────────── */
 .pane-container {
@@ -609,22 +770,29 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 
 /* ─── Editor pane ───────────────────────────────────────────────────────── */
 .editor-pane {
-  display: grid;
-  grid-template-columns: minmax(150px, 220px) minmax(0, 1fr);
+  display: flex;
+  align-items: stretch;
+  flex: 1 1 0;
   width: 100%;
-  height: 100%;
+  min-width: 0;
   min-height: 0;
+  overflow: hidden;
   background: #000;
 }
 
 .editor-sidebar {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 220px;
   min-width: 0;
-  overflow: auto;
+  min-height: 0;
+  overflow: hidden;
   border-right: 1px solid var(--bd-divider);
   background: #050505;
 }
 
 .editor-sidebar-title {
+  flex: 0 0 auto;
   padding: 9px 10px;
   color: var(--tx-label);
   font-size: 10px;
@@ -635,8 +803,13 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 .editor-browser {
   display: flex;
   flex-direction: column;
+  flex: 1;
   gap: 1px;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 0 6px 8px;
+  overscroll-behavior: contain;
 }
 
 .editor-browser-directory,
@@ -656,8 +829,12 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   text-align: left;
 }
 
-.editor-browser-file { cursor: pointer; }
+.editor-browser-directory,
+.editor-browser-file {
+  cursor: pointer;
+}
 
+.editor-browser-directory:hover,
 .editor-browser-file:hover,
 .editor-browser-file.active {
   color: var(--tx-primary);
@@ -676,22 +853,28 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 .editor-browser-empty,
 .editor-empty,
 .editor-loading {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
   padding: 12px;
   color: var(--tx-muted);
   font-size: 12px;
 }
 
 .editor-main {
-  display: grid;
-  grid-template-rows: 34px minmax(0, 1fr);
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
 }
 
 .editor-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex: 0 0 34px;
   min-width: 0;
   border-bottom: 1px solid var(--bd-divider);
   padding: 0 10px;
@@ -720,6 +903,28 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 .editor-dirty.active {
   border-color: #f97316;
   color: #f97316;
+}
+
+.editor-body {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.editor-monaco-host {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.editor-monaco-host > .monaco-editor,
+.editor-monaco-host > .monaco-editor .overflow-guard {
+  min-width: 0;
+  min-height: 0;
 }
 
 .editor-error {

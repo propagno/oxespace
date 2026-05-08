@@ -1,5 +1,6 @@
 import type {
   SplitPaneInput,
+  UpdateWorkspaceEditorStateInput,
   UpdatePaneTypeInput,
   TerminalResizeInput,
   TerminalStartInput,
@@ -88,6 +89,16 @@ export function parseUpdatePaneTypeInput(value: unknown): UpdatePaneTypeInput {
   return {
     paneId: expectNonEmptyString(input.paneId, 'paneId'),
     type: expectPaneType(input.type)
+  }
+}
+
+export function parseUpdateWorkspaceEditorStateInput(value: unknown): UpdateWorkspaceEditorStateInput {
+  const input = expectRecord(value, 'workspace:update-editor-state input')
+  return {
+    workspaceId: expectNonEmptyString(input.workspaceId, 'workspaceId'),
+    editorVisible: input.editorVisible === undefined ? undefined : expectBoolean(input.editorVisible, 'editorVisible'),
+    editorExpanded: input.editorExpanded === undefined ? undefined : expectBoolean(input.editorExpanded, 'editorExpanded'),
+    editorWidthPercent: input.editorWidthPercent === undefined ? undefined : expectEditorWidth(input.editorWidthPercent)
   }
 }
 
@@ -247,6 +258,20 @@ function expectStringArray(value: unknown, label: string): string[] {
     throw new Error(`${label} must be an array of strings`)
   }
   return value
+}
+
+function expectBoolean(value: unknown, label: string): boolean {
+  if (typeof value !== 'boolean') {
+    throw new Error(`${label} must be a boolean`)
+  }
+  return value
+}
+
+function expectEditorWidth(value: unknown): number {
+  if (!Number.isFinite(value) || Number(value) < 25 || Number(value) > 70) {
+    throw new Error('editorWidthPercent must be between 25 and 70')
+  }
+  return Number(value)
 }
 
 function expectPositiveInteger(value: unknown, label: string): number {
