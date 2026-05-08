@@ -13,12 +13,6 @@ interface AgentConfigModalProps {
   onClose: () => void
 }
 
-function validateCommandTemplate(template: string): string | null {
-  if (!template.trim()) return 'Command template is required'
-  if (!/\{\{task\}\}/.test(template)) return 'Template must contain {{task}}'
-  return null
-}
-
 export function AgentConfigModal({
   profile,
   readiness,
@@ -30,24 +24,15 @@ export function AgentConfigModal({
 }: AgentConfigModalProps): ReactElement {
   const [name, setName] = useState(profile.name)
   const [command, setCommand] = useState(profile.command)
-  const [commandTemplate, setCommandTemplate] = useState(profile.commandTemplate)
-  const [model, setModel] = useState(profile.model ?? '')
-  const [role, setRole] = useState(profile.role ?? '')
   const [isSubmitting, setSubmitting] = useState(false)
   const [isDeleting, setDeleting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
-  const [templateError, setTemplateError] = useState<string | null>(null)
-
-  const handleTemplateChange = (value: string): void => {
-    setCommandTemplate(value)
-    setTemplateError(validateCommandTemplate(value))
-  }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault()
-    const tplError = validateCommandTemplate(commandTemplate)
-    if (tplError) {
-      setTemplateError(tplError)
+    const nextCommand = command.trim()
+    if (!nextCommand) {
+      setSubmitError('Command is required')
       return
     }
     setSubmitting(true)
@@ -55,10 +40,7 @@ export function AgentConfigModal({
     try {
       await onSave(profile.agentProfileId, {
         name: name.trim() || profile.name,
-        command: command.trim() || profile.command,
-        commandTemplate: commandTemplate.trim(),
-        model: model.trim() || undefined,
-        role: role.trim() || undefined
+        command: nextCommand
       })
       onClose()
     } catch (err) {
@@ -131,47 +113,9 @@ export function AgentConfigModal({
             <input
               type="text"
               value={command}
-              disabled={profile.isBuiltin}
               onChange={(e) => setCommand(e.target.value)}
               placeholder="claude"
               data-testid="input-agent-command"
-            />
-          </label>
-
-          <label className="field">
-            <span>Command template</span>
-            <textarea
-              value={commandTemplate}
-              onChange={(e) => handleTemplateChange(e.target.value)}
-              placeholder="{{task}}"
-              className={templateError ? 'field-error' : undefined}
-              data-testid="input-agent-template"
-            />
-            {templateError ? (
-              <span className="field-hint error" role="alert">{templateError}</span>
-            ) : (
-              <span className="field-hint">Must contain <code>{'{{task}}'}</code></span>
-            )}
-          </label>
-
-          <label className="field">
-            <span>Model <span style={{ color: 'var(--tx-muted)', fontWeight: 400 }}>(optional)</span></span>
-            <input
-              type="text"
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              placeholder="claude-opus-4-7"
-              data-testid="input-agent-model"
-            />
-          </label>
-
-          <label className="field">
-            <span>Role / system prompt <span style={{ color: 'var(--tx-muted)', fontWeight: 400 }}>(optional)</span></span>
-            <textarea
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              placeholder="You are a helpful software engineer..."
-              data-testid="input-agent-role"
             />
           </label>
 
@@ -201,7 +145,7 @@ export function AgentConfigModal({
             <button
               type="submit"
               className="primary-action"
-              disabled={isSubmitting || !!templateError}
+              disabled={isSubmitting}
               data-testid="btn-save-agent"
             >
               Save

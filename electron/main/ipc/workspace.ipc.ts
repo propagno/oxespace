@@ -3,7 +3,7 @@ import type { AppDatabase } from '../db/index'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import { ShellProfileService } from '../services/shell-profile.service'
 import { WorkspaceService } from '../services/workspace.service'
-import { parseId, parseSplitPaneInput, parseWorkspaceCreateInput } from './validation'
+import { parseId, parseSplitPaneInput, parseUpdatePaneTypeInput, parseWorkspaceCreateInput } from './validation'
 
 interface WorkspaceLifecycleController {
   stop(input: { paneId: string }): Promise<void> | void
@@ -32,6 +32,11 @@ export function registerWorkspaceIpc(db: AppDatabase, lifecycle?: WorkspaceLifec
   ipcMain.handle(IPC_CHANNELS.workspace.splitPane, (_event, input: unknown) => {
     const { paneId, direction } = parseSplitPaneInput(input)
     return workspaceService.splitPane(paneId, direction)
+  })
+  ipcMain.handle(IPC_CHANNELS.workspace.updatePaneType, (_event, input: unknown) => {
+    const { paneId, type } = parseUpdatePaneTypeInput(input)
+    if (type !== 'terminal') lifecycle?.stop({ paneId })
+    return workspaceService.updatePaneType(paneId, type)
   })
   ipcMain.handle(IPC_CHANNELS.workspace.pickFolder, async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)

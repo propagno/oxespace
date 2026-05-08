@@ -1,7 +1,92 @@
-import type { CreateWorkspaceInput, ShellProfile, Workspace } from './workspace'
+import type { CreateWorkspaceInput, PaneType, ShellProfile, Workspace } from './workspace'
 import type { AgentProfile, AgentReadiness, CreateAgentProfileInput, UpdateAgentProfileInput } from './agent'
+import type {
+  CreateTaskInput,
+  ReorderTasksInput,
+  RunTaskInput,
+  Task,
+  TaskExecution,
+  TaskVerifyOutputEvent,
+  UpdateTaskInput,
+  VerifyTaskInput
+} from './task'
 
 export type { ShellProfile, Workspace, AgentProfile, AgentReadiness }
+export type { Task, TaskExecution, TaskVerifyOutputEvent }
+
+export type FileTreeNodeType = 'file' | 'directory'
+
+export interface FileTreeNode {
+  name: string
+  relativePath: string
+  type: FileTreeNodeType
+  size: number | null
+  children?: FileTreeNode[]
+}
+
+export interface FileSystemListTreeInput {
+  workspaceId: string
+  rootPath: string
+  relativePath?: string
+}
+
+export interface FileSystemReadFileInput {
+  workspaceId: string
+  rootPath: string
+  relativePath: string
+}
+
+export interface FileSystemReadFileResult {
+  relativePath: string
+  content: string
+  size: number
+  mtimeMs: number
+}
+
+export interface FileSystemWriteFileInput {
+  workspaceId: string
+  rootPath: string
+  relativePath: string
+  content: string
+}
+
+export interface FileSystemWriteFileResult {
+  relativePath: string
+  size: number
+  mtimeMs: number
+}
+
+export interface FileSystemWatchFileInput {
+  workspaceId: string
+  rootPath: string
+  relativePath: string
+}
+
+export interface FileSystemUnwatchFileInput {
+  watchId: string
+}
+
+export interface FileSystemWatchFileResult {
+  watchId: string
+}
+
+export interface FileSystemFileChangedEvent {
+  watchId: string
+  workspaceId: string
+  relativePath: string
+  content: string
+  size: number
+  mtimeMs: number
+}
+
+export interface FileSystemApi {
+  listTree(input: FileSystemListTreeInput): Promise<FileTreeNode[]>
+  readFile(input: FileSystemReadFileInput): Promise<FileSystemReadFileResult>
+  writeFile(input: FileSystemWriteFileInput): Promise<FileSystemWriteFileResult>
+  watchFile(input: FileSystemWatchFileInput): Promise<FileSystemWatchFileResult>
+  unwatchFile(input: FileSystemUnwatchFileInput): Promise<void>
+  onFileChanged(listener: (event: FileSystemFileChangedEvent) => void): () => void
+}
 
 export const IPC_CHANNELS = {
   workspace: {
@@ -11,6 +96,7 @@ export const IPC_CHANNELS = {
     delete: 'workspace:delete',
     closePane: 'workspace:close-pane',
     splitPane: 'workspace:split-pane',
+    updatePaneType: 'workspace:update-pane-type',
     pickFolder: 'workspace:pick-folder',
     shellProfiles: 'workspace:shell-profiles'
   },
@@ -30,6 +116,25 @@ export const IPC_CHANNELS = {
     delete:      'agent:delete',
     discover:    'agent:discover',
     getReadiness:'agent:get-readiness'
+  },
+  tasks: {
+    list: 'tasks:list',
+    create: 'tasks:create',
+    update: 'tasks:update',
+    delete: 'tasks:delete',
+    reorder: 'tasks:reorder',
+    run: 'tasks:run',
+    verify: 'tasks:verify',
+    executions: 'tasks:executions',
+    onVerifyOutput: 'tasks:verify-output'
+  },
+  fs: {
+    listTree: 'fs:list-tree',
+    readFile: 'fs:read-file',
+    writeFile: 'fs:write-file',
+    watchFile: 'fs:watch-file',
+    unwatchFile: 'fs:unwatch-file',
+    onFileChanged: 'fs:file-changed'
   }
 } as const
 
@@ -68,6 +173,11 @@ export interface SplitPaneInput {
   direction: 'vertical' | 'horizontal'
 }
 
+export interface UpdatePaneTypeInput {
+  paneId: string
+  type: PaneType
+}
+
 export interface WorkspaceApi {
   list(): Promise<Workspace[]>
   create(input: CreateWorkspaceInput): Promise<Workspace>
@@ -75,6 +185,7 @@ export interface WorkspaceApi {
   delete(id: string): Promise<void>
   closePane(id: string): Promise<void>
   splitPane(input: SplitPaneInput): Promise<Workspace>
+  updatePaneType(input: UpdatePaneTypeInput): Promise<Workspace>
   pickFolder(): Promise<string | null>
   shellProfiles(): Promise<ShellProfile[]>
 }
@@ -98,6 +209,18 @@ export interface AgentApi {
   getReadiness(): Promise<AgentReadiness[]>
 }
 
+export interface TaskApi {
+  list(workspaceId: string): Promise<Task[]>
+  create(input: CreateTaskInput): Promise<Task>
+  update(id: string, input: UpdateTaskInput): Promise<Task>
+  delete(id: string): Promise<void>
+  reorder(input: ReorderTasksInput): Promise<Task[]>
+  run(input: RunTaskInput): Promise<Task>
+  verify(input: VerifyTaskInput): Promise<Task>
+  executions(taskId: string): Promise<TaskExecution[]>
+  onVerifyOutput(listener: (event: TaskVerifyOutputEvent) => void): () => void
+}
+
 export interface OxeApi {
   app: {
     version: string
@@ -105,4 +228,6 @@ export interface OxeApi {
   workspace: WorkspaceApi
   terminal: TerminalApi
   agent: AgentApi
+  tasks: TaskApi
+  fs: FileSystemApi
 }

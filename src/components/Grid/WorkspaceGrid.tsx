@@ -8,11 +8,12 @@ interface WorkspaceGridProps {
   workspace: Workspace
   maximizedPaneId: string | null
   onClosePane?: (paneId: string) => void
+  onOpenEditor?: (paneId: string) => void
   onToggleMaximize: (paneId: string) => void
   onSplitPane?: (paneId: string, direction: 'vertical' | 'horizontal') => void
 }
 
-export function WorkspaceGrid({ maximizedPaneId, onClosePane, onSplitPane, onToggleMaximize, workspace }: WorkspaceGridProps): ReactElement {
+export function WorkspaceGrid({ maximizedPaneId, onClosePane, onOpenEditor, onSplitPane, onToggleMaximize, workspace }: WorkspaceGridProps): ReactElement {
   const maximizedPane = maximizedPaneId ? workspace.panes.find((pane) => pane.id === maximizedPaneId) : null
 
   if (maximizedPane) {
@@ -24,6 +25,7 @@ export function WorkspaceGrid({ maximizedPaneId, onClosePane, onSplitPane, onTog
           autoStart={workspace.autoStart}
           isMaximized
           onClose={onClosePane}
+          onOpenEditor={onOpenEditor}
           onToggleMaximize={onToggleMaximize}
           onSplitVertical={(id) => onSplitPane?.(id, 'vertical')}
           onSplitHorizontal={(id) => onSplitPane?.(id, 'horizontal')}
@@ -53,6 +55,7 @@ export function WorkspaceGrid({ maximizedPaneId, onClosePane, onSplitPane, onTog
                             autoStart={workspace.autoStart}
                             isMaximized={false}
                             onClose={onClosePane}
+                            onOpenEditor={onOpenEditor}
                             onToggleMaximize={onToggleMaximize}
                             onSplitVertical={(id) => onSplitPane?.(id, 'vertical')}
                             onSplitHorizontal={(id) => onSplitPane?.(id, 'horizontal')}

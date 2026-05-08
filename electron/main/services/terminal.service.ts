@@ -64,13 +64,18 @@ export class TerminalManager {
       throw new Error(`Shell profile ${pane.shellProfileId ?? workspace.defaultShellProfileId} not found`)
     }
 
-    const ptyProcess = this.pty.spawn(resolveExecutable(shellProfile.executable, this.env, this.platform), shellProfile.args, {
-      name: 'xterm-256color',
-      cwd: workspace.rootPath,
-      cols: 80,
-      rows: 24,
-      env: this.env
-    })
+    let ptyProcess: IPty
+    try {
+      ptyProcess = this.pty.spawn(resolveExecutable(shellProfile.executable, this.env, this.platform), shellProfile.args, {
+        name: 'xterm-256color',
+        cwd: workspace.rootPath,
+        cols: 80,
+        rows: 24,
+        env: this.env
+      })
+    } catch (error) {
+      throw new Error(`Unable to start ${shellProfile.name}. Check Settings > Agents command "${shellProfile.executable}". ${toMessage(error)}`)
+    }
 
     ptyProcess.onData((data) => this.emitData({ paneId: input.paneId, data }))
     ptyProcess.onExit(({ exitCode }) => {
@@ -164,4 +169,8 @@ export function resolveExecutable(
   }
 
   return executable
+}
+
+function toMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Terminal process failed'
 }

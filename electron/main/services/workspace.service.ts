@@ -127,6 +127,18 @@ export class WorkspaceService {
     this.db.prepare('DELETE FROM panes WHERE id = ?').run(id)
   }
 
+  updatePaneType(paneId: string, type: PaneType): Workspace {
+    const paneRow = this.db
+      .prepare('SELECT id, workspace_id, type, row_index, column_index, shell_profile_id, status FROM panes WHERE id = ?')
+      .get(paneId) as PaneRow | undefined
+    if (!paneRow) throw new Error(`Pane ${paneId} not found`)
+
+    this.db.prepare("UPDATE panes SET type = ?, status = 'idle' WHERE id = ?").run(type, paneId)
+    const workspace = this.get(paneRow.workspace_id)
+    if (!workspace) throw new Error('Workspace not found after pane type update')
+    return workspace
+  }
+
   splitPane(paneId: string, direction: 'vertical' | 'horizontal'): Workspace {
     const paneRow = this.db
       .prepare('SELECT id, workspace_id, type, row_index, column_index, shell_profile_id, status FROM panes WHERE id = ?')

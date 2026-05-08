@@ -1,21 +1,17 @@
-import { ChevronDown, ChevronsLeft, ChevronsRight, Plus } from 'lucide-react'
+import { ChevronDown, ChevronsLeft, ChevronsRight, Plus, Settings } from 'lucide-react'
 import type { ReactElement } from 'react'
-import type { AgentProfile, AgentReadiness } from '../../../shared/types/agent'
 import type { Workspace } from '../../../shared/types/workspace'
-import { AgentSection } from './AgentSection'
 import { WorkspaceItem } from './WorkspaceItem'
 
 interface SidebarProps {
   workspaces: Workspace[]
   activeWorkspaceId: string | null
+  appVersion: string
   onNewWorkspace: () => void
   onSelectWorkspace: (id: string) => void
   onCloseWorkspace: (id: string) => void
-  agentProfiles: AgentProfile[]
-  agentReadiness: AgentReadiness[]
-  isDiscoveringAgents: boolean
-  onDiscoverAgents: () => void
-  onConfigureAgent: (profile: AgentProfile) => void
+  isSettingsOpen: boolean
+  onToggleSettings: () => void
   isCollapsed: boolean
   onToggleCollapse: () => void
 }
@@ -46,15 +42,13 @@ function OxeLogo(): ReactElement {
 
 export function Sidebar({
   activeWorkspaceId,
-  agentProfiles = [],
-  agentReadiness = [],
+  appVersion,
   isCollapsed,
-  isDiscoveringAgents = false,
   onCloseWorkspace,
-  onConfigureAgent = () => undefined,
-  onDiscoverAgents = () => undefined,
   onNewWorkspace,
   onSelectWorkspace,
+  isSettingsOpen,
+  onToggleSettings,
   onToggleCollapse,
   workspaces
 }: SidebarProps): ReactElement {
@@ -111,20 +105,22 @@ export function Sidebar({
               ))
             )}
           </nav>
-
-          <div className="sidebar-divider" />
-
-          <AgentSection
-            profiles={agentProfiles}
-            readiness={agentReadiness}
-            isDiscovering={isDiscoveringAgents}
-            onDiscover={onDiscoverAgents}
-            onConfigure={onConfigureAgent}
-          />
         </>
       )}
 
       <div className="sidebar-footer">
+        {!isCollapsed ? <span className="sidebar-version">v{appVersion}</span> : null}
+        <button
+          type="button"
+          className={`sidebar-settings-button${isSettingsOpen ? ' active' : ''}`}
+          aria-pressed={isSettingsOpen}
+          aria-label="Open settings"
+          title="Settings"
+          onClick={onToggleSettings}
+        >
+          <Settings size={14} aria-hidden="true" />
+          {!isCollapsed ? <span>Settings</span> : null}
+        </button>
         <button
           type="button"
           className="sidebar-collapse-btn"

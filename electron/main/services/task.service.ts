@@ -1,0 +1,377 @@
+import { spawn } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
+import type { AppDatabase } from '../db/index'
+import type {
+  CreateTaskInput,
+  ReorderTasksInput,
+  RunTaskInput,
+  Task,
+  TaskColumn,
+  TaskExecution,
+  TaskRunStatus,
+  TaskVerifyOutputEvent,
+  UpdateTaskInput,
+  VerifyTaskInput
+} from '../../../shared/types/task'
+
+interface TaskServiceOptions {
+  isTerminalRunning?: (paneId: string) => boolean
+  terminalWrite?: (input: { paneId: string; data: string }) => void | Promise<void>
+  emitVerifyOutput?: (event: TaskVerifyOutputEvent) => void
+  spawnProcess?: typeof spawn
+}
+
+interface TaskRow {
+  id: string
+  workspace_id: string
+  title: string
+  description: string
+  context: string
+  verify_command: string
+  allowed_files_json: string
+  column_name: string
+  run_status: string
+  position: number
+  created_at: number
+  updated_at: number
+}
+
+interface TaskExecutionRow {
+  id: string
+  task_id: string
+  type: string
+  agent_profile_id: string | null
+  prompt: string
+  output: string
+  exit_code: number | null
+  started_at: number
+  completed_at: number | null
+}
+
+interface WorkspaceRow {
+  id: string
+  root_path: string
+}
+
+interface PaneRow {
+  id: string
+  status: string
+}
+
+interface AgentProfileRow {
+  agent_profile_id: string
+  command_template: string
+}
+
+const COLUMNS: TaskColumn[] = ['backlog', 'ready', 'running', 'review', 'done']
+const STATUSES: TaskRunStatus[] = ['idle', 'running', 'verifying', 'passed', 'failed']
+const MAX_STREAM_CHUNK = 500
+
+export class TaskService {
+  private readonly isTerminalRunning: (paneId: string) => boolean
+  private readonly terminalWrite: (input: { paneId: string; data: string }) => void | Promise<void>
+  private readonly emitVerifyOutput: (event: TaskVerifyOutputEvent) => void
+  private readonly spawnProcess: typeof spawn
+
+  constructor(private readonly db: AppDatabase, options: TaskServiceOptions = {}) {
+    this.isTerminalRunning = options.isTerminalRunning ?? (() => false)
+    this.terminalWrite = options.terminalWrite ?? (() => undefined)
+    this.emitVerifyOutput = options.emitVerifyOutput ?? (() => undefined)
+    this.spawnProcess = options.spawnProcess ?? spawn
+  }
+
+  list(workspaceId: string): Task[] {
+    const rows = this.db
+      .prepare('SELECT * FROM tasks WHERE workspace_id = ? ORDER BY column_name ASC, position ASC, created_at ASC')
+      .all(workspaceId) as TaskRow[]
+    return rows.map(mapTask)
+  }
+
+  create(input: CreateTaskInput): Task {
+    const now = Date.now()
+    const column = input.column ?? 'backlog'
+    const position = this.nextPosition(input.workspaceId, column)
+    const id = randomUUID()
+
+    this.db.prepare(`
+      INSERT INTO tasks
+        (id, workspace_id, title, description, context, verify_command, allowed_files_json, column_name, run_status, position, created_at, updated_at)
+      VALUES
+        (?, ?, ?, ?, ?, ?, ?, ?, 'idle', ?, ?, ?)
+    `).run(
+      id,
+      input.workspaceId,
+      input.title,
+      input.description ?? '',
+      input.context ?? '',
+      input.verifyCommand ?? '',
+      JSON.stringify(input.allowedFiles ?? []),
+      column,
+      position,
+      now,
+      now
+    )
+
+    return this.getOrThrow(id)
+  }
+
+  update(id: string, input: UpdateTaskInput): Task {
+    const task = this.getOrThrow(id)
+    const nextColumn = input.column ?? task.column
+    const nextStatus = input.runStatus ?? task.runStatus
+    if (!COLUMNS.includes(nextColumn)) throw new Error(`Invalid task column: ${nextColumn}`)
+    if (!STATUSES.includes(nextStatus)) throw new Error(`Invalid task status: ${nextStatus}`)
+
+    this.db.prepare(`
+      UPDATE tasks
+      SET title = ?, description = ?, context = ?, verify_command = ?, allowed_files_json = ?,
+          column_name = ?, run_status = ?, updated_at = ?
+      WHERE id = ?
+    `).run(
+      input.title ?? task.title,
+      input.description ?? task.description,
+      input.context ?? task.context,
+      input.verifyCommand ?? task.verifyCommand,
+      JSON.stringify(input.allowedFiles ?? task.allowedFiles),
+      nextColumn,
+      nextStatus,
+      Date.now(),
+      id
+    )
+    return this.getOrThrow(id)
+  }
+
+  delete(id: string): void {
+    this.db.prepare('DELETE FROM tasks WHERE id = ?').run(id)
+  }
+
+  reorder(input: ReorderTasksInput): Task[] {
+    if (!COLUMNS.includes(input.column)) throw new Error(`Invalid task column: ${input.column}`)
+    const updateMany = this.db.transaction(() => {
+      const update = this.db.prepare(`
+        UPDATE tasks
+        SET column_name = ?, position = ?, updated_at = ?
+        WHERE id = ? AND workspace_id = ?
+      `)
+      const now = Date.now()
+      input.orderedIds.forEach((id, position) => {
+        update.run(input.column, position, now, id, input.workspaceId)
+      })
+    })
+    updateMany()
+    return this.list(input.workspaceId)
+  }
+
+  async run(input: RunTaskInput): Promise<Task> {
+    const task = this.getOrThrow(input.taskId)
+    const paneId = this.findRunningPane(task.workspaceId)
+    if (!paneId) throw new Error('Nenhum terminal ativo')
+
+    const agent = this.getAgentProfile(input.agentProfileId)
+    if (!agent) throw new Error('Configure um agente primeiro')
+
+    const promptPayload = buildPromptPayload(task)
+    const prompt = agent.command_template.replace('{{task}}', promptPayload)
+    await this.terminalWrite({ paneId, data: `${prompt}\r` })
+
+    const now = Date.now()
+    this.db.prepare(`
+      INSERT INTO task_executions
+        (id, task_id, type, agent_profile_id, prompt, output, exit_code, started_at, completed_at)
+      VALUES
+        (?, ?, 'run', ?, ?, '', NULL, ?, ?)
+    `).run(randomUUID(), task.id, agent.agent_profile_id, prompt, now, now)
+
+    this.db.prepare(`
+      UPDATE tasks SET column_name = 'running', run_status = 'running', updated_at = ? WHERE id = ?
+    `).run(now, task.id)
+    return this.getOrThrow(task.id)
+  }
+
+  async verify(input: VerifyTaskInput): Promise<Task> {
+    const task = this.getOrThrow(input.taskId)
+    if (task.verifyCommand.trim() === '') throw new Error('Verify command is empty')
+
+    const workspace = this.getWorkspace(task.workspaceId)
+    const { file, args } = parseVerifyCommand(task.verifyCommand)
+    const executionId = randomUUID()
+    const startedAt = Date.now()
+    let output = ''
+
+    this.db.prepare(`
+      INSERT INTO task_executions
+        (id, task_id, type, agent_profile_id, prompt, output, exit_code, started_at, completed_at)
+      VALUES
+        (?, ?, 'verify', NULL, '', '', NULL, ?, NULL)
+    `).run(executionId, task.id, startedAt)
+    this.db.prepare("UPDATE tasks SET run_status = 'verifying', updated_at = ? WHERE id = ?").run(startedAt, task.id)
+
+    let exitCode: number | null = null
+    try {
+      exitCode = await new Promise<number | null>((resolve, reject) => {
+        const child = this.spawnProcess(file, args, {
+          cwd: workspace.root_path,
+          shell: false,
+          windowsHide: true
+        })
+
+        const append = (chunk: Buffer | string): void => {
+          const text = chunk.toString()
+          output += text
+          this.emitVerifyOutput({
+            taskId: task.id,
+            executionId,
+            chunk: text.slice(0, MAX_STREAM_CHUNK),
+            done: false
+          })
+        }
+
+        child.stdout?.on('data', append)
+        child.stderr?.on('data', append)
+        child.on('error', reject)
+        child.on('close', (code) => resolve(code))
+      })
+    } catch (error) {
+      output += toMessage(error)
+      exitCode = 1
+    }
+
+    const completedAt = Date.now()
+    const passed = exitCode === 0
+    this.db.prepare(`
+      UPDATE task_executions
+      SET output = ?, exit_code = ?, completed_at = ?
+      WHERE id = ?
+    `).run(output, exitCode, completedAt, executionId)
+    this.db.prepare(`
+      UPDATE tasks
+      SET run_status = ?, column_name = ?, updated_at = ?
+      WHERE id = ?
+    `).run(passed ? 'passed' : 'failed', passed ? 'done' : 'review', completedAt, task.id)
+
+    this.emitVerifyOutput({
+      taskId: task.id,
+      executionId,
+      chunk: '',
+      done: true,
+      exitCode
+    })
+
+    return this.getOrThrow(task.id)
+  }
+
+  executions(taskId: string): TaskExecution[] {
+    const rows = this.db
+      .prepare('SELECT * FROM task_executions WHERE task_id = ? ORDER BY started_at DESC')
+      .all(taskId) as TaskExecutionRow[]
+    return rows.map(mapExecution)
+  }
+
+  private getOrThrow(id: string): Task {
+    const row = this.db.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as TaskRow | undefined
+    if (!row) throw new Error(`Task not found: ${id}`)
+    return mapTask(row)
+  }
+
+  private nextPosition(workspaceId: string, column: TaskColumn): number {
+    const row = this.db
+      .prepare('SELECT COALESCE(MAX(position), -1) + 1 AS next_position FROM tasks WHERE workspace_id = ? AND column_name = ?')
+      .get(workspaceId, column) as { next_position: number }
+    return row.next_position
+  }
+
+  private findRunningPane(workspaceId: string): string | null {
+    const rows = this.db
+      .prepare('SELECT id, status FROM panes WHERE workspace_id = ? ORDER BY row_index ASC, column_index ASC')
+      .all(workspaceId) as PaneRow[]
+    const pane = rows.find((row) => this.isTerminalRunning(row.id) || row.status === 'running')
+    return pane?.id ?? null
+  }
+
+  private getAgentProfile(id?: string): AgentProfileRow | null {
+    if (id) {
+      const row = this.db
+        .prepare('SELECT agent_profile_id, command_template FROM agent_profiles WHERE agent_profile_id = ?')
+        .get(id) as AgentProfileRow | undefined
+      return row ?? null
+    }
+    const row = this.db
+      .prepare('SELECT agent_profile_id, command_template FROM agent_profiles ORDER BY is_builtin DESC, name ASC LIMIT 1')
+      .get() as AgentProfileRow | undefined
+    return row ?? null
+  }
+
+  private getWorkspace(workspaceId: string): WorkspaceRow {
+    const row = this.db
+      .prepare('SELECT id, root_path FROM workspaces WHERE id = ?')
+      .get(workspaceId) as WorkspaceRow | undefined
+    if (!row) throw new Error(`Workspace not found: ${workspaceId}`)
+    return row
+  }
+}
+
+export function parseVerifyCommand(command: string): { file: string; args: string[] } {
+  const parts = command.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) throw new Error('Verify command is empty')
+  const [file, ...args] = parts
+  return { file, args }
+}
+
+export function buildPromptPayload(task: Task): string {
+  return [
+    `# Task: ${task.title}`,
+    '',
+    '## Description',
+    task.description,
+    '',
+    '## Context',
+    task.context,
+    '',
+    '## Allowed Files',
+    task.allowedFiles.join('\n')
+  ].join('\n')
+}
+
+function mapTask(row: TaskRow): Task {
+  return {
+    id: row.id,
+    workspaceId: row.workspace_id,
+    title: row.title,
+    description: row.description,
+    context: row.context,
+    verifyCommand: row.verify_command,
+    allowedFiles: parseAllowedFiles(row.allowed_files_json),
+    column: row.column_name as TaskColumn,
+    runStatus: row.run_status as TaskRunStatus,
+    position: row.position,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  }
+}
+
+function mapExecution(row: TaskExecutionRow): TaskExecution {
+  return {
+    id: row.id,
+    taskId: row.task_id,
+    type: row.type as TaskExecution['type'],
+    agentProfileId: row.agent_profile_id,
+    prompt: row.prompt,
+    output: row.output,
+    exitCode: row.exit_code,
+    startedAt: row.started_at,
+    completedAt: row.completed_at
+  }
+}
+
+function parseAllowedFiles(value: string): string[] {
+  try {
+    const parsed = JSON.parse(value) as unknown
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+function toMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Verify process failed'
+}

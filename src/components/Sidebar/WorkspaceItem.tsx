@@ -34,7 +34,6 @@ export function WorkspaceItem({ workspace, isActive, onSelect, onClose }: Worksp
       >
         <span className={`ws-dot ${dotColor}`} aria-hidden="true" />
         <span className="ws-name">{workspace.name}</span>
-        <span className="ws-path">{workspace.rootPath}</span>
         {workspace.panes.length > 0 ? (
           <span className="ws-badge">{workspace.panes.length}</span>
         ) : null}

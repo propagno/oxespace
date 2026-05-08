@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
 import {
+  parseTaskReorderInput,
   parseTerminalResizeInput,
   parseTerminalWriteInput,
   parseWorkspaceCreateInput
@@ -11,6 +12,7 @@ describe('ipc contracts', () => {
     expect(IPC_CHANNELS.workspace.create).toBe('workspace:create')
     expect(IPC_CHANNELS.workspace.shellProfiles).toBe('workspace:shell-profiles')
     expect(IPC_CHANNELS.workspace.closePane).toBe('workspace:close-pane')
+    expect(IPC_CHANNELS.workspace.updatePaneType).toBe('workspace:update-pane-type')
     expect(IPC_CHANNELS.workspace.pickFolder).toBe('workspace:pick-folder')
     expect(IPC_CHANNELS.terminal.write).toBe('terminal:write')
     expect(IPC_CHANNELS.terminal.resize).toBe('terminal:resize')
@@ -23,6 +25,27 @@ describe('ipc contracts', () => {
     expect(IPC_CHANNELS.agent.delete).toBe('agent:delete')
     expect(IPC_CHANNELS.agent.discover).toBe('agent:discover')
     expect(IPC_CHANNELS.agent.getReadiness).toBe('agent:get-readiness')
+  })
+
+  test('uses stable tasks channel names', () => {
+    expect(IPC_CHANNELS.tasks.list).toBe('tasks:list')
+    expect(IPC_CHANNELS.tasks.create).toBe('tasks:create')
+    expect(IPC_CHANNELS.tasks.update).toBe('tasks:update')
+    expect(IPC_CHANNELS.tasks.delete).toBe('tasks:delete')
+    expect(IPC_CHANNELS.tasks.reorder).toBe('tasks:reorder')
+    expect(IPC_CHANNELS.tasks.run).toBe('tasks:run')
+    expect(IPC_CHANNELS.tasks.verify).toBe('tasks:verify')
+    expect(IPC_CHANNELS.tasks.executions).toBe('tasks:executions')
+    expect(IPC_CHANNELS.tasks.onVerifyOutput).toBe('tasks:verify-output')
+  })
+
+  test('uses stable filesystem channel names', () => {
+    expect(IPC_CHANNELS.fs.listTree).toBe('fs:list-tree')
+    expect(IPC_CHANNELS.fs.readFile).toBe('fs:read-file')
+    expect(IPC_CHANNELS.fs.writeFile).toBe('fs:write-file')
+    expect(IPC_CHANNELS.fs.watchFile).toBe('fs:watch-file')
+    expect(IPC_CHANNELS.fs.unwatchFile).toBe('fs:unwatch-file')
+    expect(IPC_CHANNELS.fs.onFileChanged).toBe('fs:file-changed')
   })
 
   test('validates workspace create payloads', () => {
@@ -48,5 +71,14 @@ describe('ipc contracts', () => {
       rows: 32
     })
     expect(() => parseTerminalResizeInput({ paneId: 'pane-1', cols: 0, rows: 32 })).toThrow('cols')
+  })
+
+  test('validates task reorder payloads', () => {
+    expect(parseTaskReorderInput({ workspaceId: 'workspace-1', column: 'done', orderedIds: ['a', 'b'] })).toEqual({
+      workspaceId: 'workspace-1',
+      column: 'done',
+      orderedIds: ['a', 'b']
+    })
+    expect(() => parseTaskReorderInput({ workspaceId: 'workspace-1', column: 'later', orderedIds: [] })).toThrow('column')
   })
 })

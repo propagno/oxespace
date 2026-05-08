@@ -8,11 +8,13 @@ interface WorkspaceState {
   isLoading: boolean
   error: string | null
   bootstrap: () => Promise<void>
+  loadShellProfiles: () => Promise<void>
   createWorkspace: (input: CreateWorkspaceInput) => Promise<Workspace>
   setActiveWorkspace: (id: string) => Promise<void>
   closeWorkspace: (id: string) => Promise<void>
   closePane: (id: string) => Promise<void>
   splitPane: (paneId: string, direction: 'vertical' | 'horizontal') => Promise<void>
+  updatePaneType: (paneId: string, type: Workspace['panes'][number]['type']) => Promise<void>
   clearError: () => void
 }
 
@@ -35,6 +37,15 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       })
     } catch (error) {
       set({ error: toMessage(error), isLoading: false })
+    }
+  },
+
+  loadShellProfiles: async () => {
+    try {
+      const shellProfiles = await window.oxe.workspace.shellProfiles()
+      set({ shellProfiles, error: null })
+    } catch (error) {
+      set({ error: toMessage(error) })
     }
   },
 
@@ -81,6 +92,14 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   splitPane: async (paneId, direction) => {
     const workspace = await window.oxe.workspace.splitPane({ paneId, direction })
+    set((state) => ({
+      workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)),
+      error: null
+    }))
+  },
+
+  updatePaneType: async (paneId, type) => {
+    const workspace = await window.oxe.workspace.updatePaneType({ paneId, type })
     set((state) => ({
       workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)),
       error: null

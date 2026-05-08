@@ -1,5 +1,7 @@
-import { execFileSync } from 'node:child_process'
+import { execFileSync as nodeExecFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
+import { existsSync } from 'node:fs'
+import { delimiter, extname, isAbsolute, join } from 'node:path'
 import type { AppDatabase } from '../db/index'
 import type {
   AgentProfile,
@@ -10,14 +12,12 @@ import type {
 } from '../../../shared/types/agent'
 
 const CACHE_TTL_MS = 1_800_000 // 30 minutes
-
-const PROVIDERS: Array<{ provider: AgentProvider; command: string }> = [
-  { provider: 'claude',     command: 'claude'  },
-  { provider: 'gh-copilot', command: 'gh'      },
-  { provider: 'codex',      command: 'codex'   },
-  { provider: 'gemini',     command: 'gemini'  },
-  { provider: 'cursor',     command: 'cursor'  },
-]
+const OFFICIAL_PROVIDERS: AgentProvider[] = ['claude', 'copilot']
+const WINDOWS_SCRIPT_EXTENSIONS = new Set(['.cmd', '.bat'])
+const SHELL_PROFILE_BY_PROVIDER: Partial<Record<AgentProvider, string>> = {
+  claude: 'builtin-claude',
+  copilot: 'builtin-copilot'
+}
 
 interface AgentProfileRow {
   agent_profile_id: string
@@ -38,12 +38,25 @@ interface ReadinessCacheRow {
   checked_at: number
 }
 
+interface AgentServiceOptions {
+  execFileSync?: typeof nodeExecFileSync
+}
+
 export class AgentService {
-  constructor(private readonly db: AppDatabase) {}
+  private readonly execFileSync: typeof nodeExecFileSync
+
+  constructor(private readonly db: AppDatabase, options: AgentServiceOptions = {}) {
+    this.execFileSync = options.execFileSync ?? nodeExecFileSync
+  }
 
   list(): AgentProfile[] {
     const rows = this.db
-      .prepare('SELECT * FROM agent_profiles ORDER BY is_builtin DESC, name ASC')
+      .prepare(`
+        SELECT *
+        FROM agent_profiles
+        WHERE is_builtin = 1 AND provider IN ('claude', 'copilot')
+        ORDER BY CASE provider WHEN 'claude' THEN 0 WHEN 'copilot' THEN 1 ELSE 2 END
+      `)
       .all() as AgentProfileRow[]
     return rows.map(mapProfile)
   }
@@ -61,35 +74,65 @@ export class AgentService {
 
   update(id: string, input: UpdateAgentProfileInput): AgentProfile {
     const profile = this.getOrThrow(id)
-    this.db.prepare(`
-      UPDATE agent_profiles
-      SET name = ?, command = ?, command_template = ?, model = ?, role = ?
-      WHERE agent_profile_id = ?
-    `).run(
-      input.name ?? profile.name,
-      input.command ?? profile.command,
-      input.commandTemplate ?? profile.commandTemplate,
-      input.model !== undefined ? input.model ?? null : profile.model ?? null,
-      input.role !== undefined ? input.role ?? null : profile.role ?? null,
-      id
-    )
+    const nextCommand = input.command ?? profile.command
+
+    const updateProfile = this.db.transaction(() => {
+      this.db.prepare(`
+        UPDATE agent_profiles
+        SET name = ?, command = ?, command_template = ?, model = ?, role = ?
+        WHERE agent_profile_id = ?
+      `).run(
+        profile.isBuiltin ? profile.name : input.name ?? profile.name,
+        nextCommand,
+        input.commandTemplate ?? profile.commandTemplate,
+        input.model !== undefined ? input.model ?? null : profile.model ?? null,
+        input.role !== undefined ? input.role ?? null : profile.role ?? null,
+        id
+      )
+
+      const shellProfileId = SHELL_PROFILE_BY_PROVIDER[profile.provider]
+      if (profile.isBuiltin && shellProfileId) {
+        this.db.prepare(`
+          UPDATE shell_profiles
+          SET executable = ?, args_json = '[]'
+          WHERE id = ?
+        `).run(nextCommand, shellProfileId)
+      }
+
+      this.db.prepare('DELETE FROM agent_readiness_cache WHERE provider = ?').run(profile.provider)
+    })
+    updateProfile()
+
     return this.getOrThrow(id)
   }
 
   delete(id: string): void {
+    const profile = this.getOrThrow(id)
+    if (profile.isBuiltin) {
+      throw new Error('Built-in agent profiles cannot be deleted')
+    }
     this.db.prepare('DELETE FROM agent_profiles WHERE agent_profile_id = ?').run(id)
   }
 
   getCachedReadiness(): AgentReadiness[] {
+    const profiles = this.list()
+    if (profiles.length === 0) return []
+
     const cutoff = Date.now() - CACHE_TTL_MS
     const rows = this.db
-      .prepare('SELECT * FROM agent_readiness_cache WHERE checked_at > ?')
+      .prepare(`
+        SELECT *
+        FROM agent_readiness_cache
+        WHERE checked_at > ? AND provider IN ('claude', 'copilot')
+      `)
       .all(cutoff) as ReadinessCacheRow[]
 
-    if (rows.length === PROVIDERS.length) {
-      return rows.map(mapReadiness)
-    }
-    return []
+    if (rows.length !== profiles.length) return []
+
+    const commandByProvider = new Map(profiles.map((profile) => [profile.provider, profile.command]))
+    return rows
+      .sort((a, b) => OFFICIAL_PROVIDERS.indexOf(a.provider as AgentProvider) - OFFICIAL_PROVIDERS.indexOf(b.provider as AgentProvider))
+      .map((row) => mapReadiness(row, commandByProvider.get(row.provider as AgentProvider) ?? row.provider))
   }
 
   discover(forceRefresh = false): AgentReadiness[] {
@@ -98,9 +141,7 @@ export class AgentService {
       if (cached.length > 0) return cached
     }
 
-    const results: AgentReadiness[] = PROVIDERS.map(({ provider, command }) =>
-      this.checkProvider(provider, command)
-    )
+    const results: AgentReadiness[] = this.list().map((profile) => this.checkProvider(profile.provider, profile.command))
 
     const upsert = this.db.prepare(`
       INSERT INTO agent_readiness_cache (provider, status, version, details, checked_at)
@@ -125,23 +166,12 @@ export class AgentService {
 
   private checkProvider(provider: AgentProvider, command: string): AgentReadiness {
     try {
-      const output = execFileSync(command, ['--version'], {
-        timeout: 2000,
-        encoding: 'utf8',
-        windowsHide: true
-      })
+      const resolved = resolveCommand(command, this.execFileSync)
+      const output = runCommand(this.execFileSync, resolved.file, ['--version'], resolved.env)
       const version = output.trim().split('\n')[0] ?? undefined
-
-      if (provider === 'claude') {
-        const apiKey = process.env.ANTHROPIC_API_KEY
-        if (!apiKey || apiKey.trim() === '') {
-          return { provider, command, status: 'partial', version, details: 'Installed but not authenticated' }
-        }
-      }
-
       return { provider, command, status: 'ready', version }
-    } catch {
-      return { provider, command, status: 'missing' }
+    } catch (error) {
+      return { provider, command, status: 'missing', details: toMessage(error) }
     }
   }
 
@@ -152,6 +182,87 @@ export class AgentService {
     if (!row) throw new Error(`Agent profile not found: ${id}`)
     return mapProfile(row)
   }
+}
+
+function runCommand(
+  execFileSync: typeof nodeExecFileSync,
+  command: string,
+  args: string[],
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  if (process.platform === 'win32' && WINDOWS_SCRIPT_EXTENSIONS.has(extname(command).toLowerCase())) {
+    return execFileSync(command, args, {
+      timeout: 2000,
+      encoding: 'utf8',
+      shell: true,
+      windowsHide: true,
+      env
+    })
+  }
+
+  return execFileSync(command, args, {
+        timeout: 2000,
+        encoding: 'utf8',
+    windowsHide: true,
+    env
+      })
+}
+
+function resolveCommand(command: string, execFileSync: typeof nodeExecFileSync): { file: string; env: NodeJS.ProcessEnv } {
+  if (process.platform !== 'win32') return { file: command, env: process.env }
+  const env = { ...process.env, PATH: augmentWindowsPath(process.env.PATH ?? '') }
+  if (isAbsolute(command) && existsSync(command)) return { file: command, env }
+
+  const fromWhere = findWithWhere(command, execFileSync, env)
+  if (fromWhere.length > 0) return { file: preferWindowsShim(fromWhere), env }
+
+  const fromPath = findOnWindowsPath(command, env.PATH ?? '')
+  return { file: fromPath ?? command, env }
+}
+
+function augmentWindowsPath(pathValue: string): string {
+  const extras = [
+    process.env.APPDATA ? join(process.env.APPDATA, 'npm') : null,
+    process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, 'Programs') : null
+  ].filter((value): value is string => Boolean(value))
+
+  const parts = pathValue.split(delimiter).filter(Boolean)
+  for (const extra of extras) {
+    if (!parts.some((part) => part.toLowerCase() === extra.toLowerCase())) parts.push(extra)
+  }
+  return parts.join(delimiter)
+}
+
+function findWithWhere(command: string, execFileSync: typeof nodeExecFileSync, env: NodeJS.ProcessEnv): string[] {
+  try {
+    return execFileSync('where.exe', [command], {
+      timeout: 2000,
+      encoding: 'utf8',
+      windowsHide: true,
+      env
+    }).split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+  } catch {
+    return []
+  }
+}
+
+function findOnWindowsPath(command: string, pathValue: string): string | null {
+  const extensions = ['', '.exe', '.cmd', '.bat', '.ps1']
+  const hasExtension = extname(command) !== ''
+  for (const pathPart of pathValue.split(delimiter).filter(Boolean)) {
+    const base = join(pathPart, command)
+    const candidates = hasExtension ? [base] : extensions.map((extension) => `${base}${extension}`)
+    for (const candidate of candidates) {
+      if (existsSync(candidate)) return candidate
+    }
+  }
+  return null
+}
+
+function preferWindowsShim(candidates: string[]): string {
+  return candidates.find((candidate) => extname(candidate).toLowerCase() === '.cmd')
+    ?? candidates.find((candidate) => extname(candidate).toLowerCase() === '.exe')
+    ?? candidates[0]
 }
 
 function mapProfile(row: AgentProfileRow): AgentProfile {
@@ -167,12 +278,16 @@ function mapProfile(row: AgentProfileRow): AgentProfile {
   }
 }
 
-function mapReadiness(row: ReadinessCacheRow): AgentReadiness {
+function mapReadiness(row: ReadinessCacheRow, command: string): AgentReadiness {
   return {
     provider: row.provider as AgentProvider,
-    command: PROVIDERS.find(p => p.provider === row.provider)?.command ?? row.provider,
+    command,
     status: row.status as AgentReadiness['status'],
     version: row.version ?? undefined,
     details: row.details ?? undefined
   }
+}
+
+function toMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Command failed'
 }

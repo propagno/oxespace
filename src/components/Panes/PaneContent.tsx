@@ -1,5 +1,7 @@
 import type { ReactElement } from 'react'
 import type { WorkspacePane } from '../../../shared/types/workspace'
+import { EditorPane } from '../Editor/EditorPane'
+import { TasksPane } from '../Tasks/TasksPane'
 import { TerminalPane } from './TerminalPane'
 
 interface PaneContentProps {
@@ -13,9 +15,9 @@ export function PaneContent({ autoStart, pane, workspaceId }: PaneContentProps):
     case 'terminal':
       return <TerminalPane pane={pane} workspaceId={workspaceId} autoStart={autoStart} />
     case 'tasks':
-      return <StubPane label="Tasks" />
+      return <TasksPane workspaceId={workspaceId} />
     case 'editor':
-      return <StubPane label="Editor" />
+      return <EditorPane pane={pane} workspaceId={workspaceId} />
     case 'swarm':
       return <StubPane label="Swarm" />
     case 'inspector':

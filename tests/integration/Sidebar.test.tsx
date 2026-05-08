@@ -24,20 +24,27 @@ describe('Sidebar', () => {
     const onNewWorkspace = vi.fn()
     const onSelectWorkspace = vi.fn()
     const onCloseWorkspace = vi.fn()
+    const onToggleSettings = vi.fn()
+    const onToggleCollapse = vi.fn()
 
     render(
       <Sidebar
-        version="0.1.0"
         workspaces={[workspace]}
         activeWorkspaceId="workspace-1"
+        appVersion="0.1.2"
         onNewWorkspace={onNewWorkspace}
         onSelectWorkspace={onSelectWorkspace}
         onCloseWorkspace={onCloseWorkspace}
+        isSettingsOpen={false}
+        onToggleSettings={onToggleSettings}
+        isCollapsed={false}
+        onToggleCollapse={onToggleCollapse}
       />
     )
 
     expect(screen.getByText('repo')).toBeInTheDocument()
-    expect(screen.getByText('C:/projects/repo')).toBeInTheDocument()
+    expect(screen.getByText('v0.1.2')).toBeInTheDocument()
+    expect(screen.queryByText('C:/projects/repo')).not.toBeInTheDocument()
     expect(screen.getByText('2')).toBeInTheDocument()
 
     await user.click(screen.getByTestId('btn-new-workspace'))
@@ -48,5 +55,34 @@ describe('Sidebar', () => {
 
     await user.click(screen.getByLabelText('Close repo'))
     expect(onCloseWorkspace).toHaveBeenCalledWith('workspace-1')
+
+    await user.click(screen.getByLabelText('Open settings'))
+    expect(onToggleSettings).toHaveBeenCalled()
+  })
+
+  test('keeps settings available when collapsed', async () => {
+    const user = userEvent.setup()
+    const onToggleSettings = vi.fn()
+
+    render(
+      <Sidebar
+        workspaces={[workspace]}
+        activeWorkspaceId="workspace-1"
+        appVersion="0.1.2"
+        onNewWorkspace={vi.fn()}
+        onSelectWorkspace={vi.fn()}
+        onCloseWorkspace={vi.fn()}
+        isSettingsOpen={false}
+        onToggleSettings={onToggleSettings}
+        isCollapsed
+        onToggleCollapse={vi.fn()}
+      />
+    )
+
+    expect(screen.getByLabelText('Open settings')).toBeInTheDocument()
+    expect(screen.queryByText('Settings')).not.toBeInTheDocument()
+
+    await user.click(screen.getByLabelText('Open settings'))
+    expect(onToggleSettings).toHaveBeenCalled()
   })
 })

@@ -14,7 +14,12 @@ export class ShellProfileService {
 
   list(): ShellProfile[] {
     const rows = this.db
-      .prepare('SELECT id, name, executable, args_json, is_builtin FROM shell_profiles ORDER BY is_builtin DESC, name ASC')
+      .prepare(`
+        SELECT id, name, executable, args_json, is_builtin
+        FROM shell_profiles
+        WHERE id IN ('builtin-claude', 'builtin-copilot')
+        ORDER BY CASE id WHEN 'builtin-claude' THEN 0 WHEN 'builtin-copilot' THEN 1 ELSE 2 END
+      `)
       .all() as ShellProfileRow[]
 
     return rows.map(mapShellProfile)

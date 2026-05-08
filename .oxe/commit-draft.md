@@ -1,20 +1,26 @@
-style: align workspace UI with reference design
+feat: add editor pane and workspace tooling
 
-Redesigns the Electron workspace shell toward the provided dark reference:
-compact black sidebar, colored workspace rows, pill-style pane headers, pure
-black terminal surfaces, and a darker blue modal/control system.
+Adds a real workspace editor pane backed by Monaco, a secure main-process
+filesystem bridge, workspace file browsing, language detection, Ctrl+S save,
+dirty state protection, and external-change conflict handling. The pane header
+now exposes a visible Editor action so the generated app makes the feature
+discoverable in normal terminal layouts.
 
-Preserves the workspace creation flow, native folder picker, claude/copilot
-shell choices, pane split controls, and terminal autostart behavior.
+Also includes the accumulated workspace delivery work from this cycle:
+task/Kanban support, settings and agent configuration refinements, native
+runtime handling for packaged builds, shell profile updates, and the 0.1.5
+package version used for the latest generated installer.
 
 Validation:
+- npm test -- WorkspaceGrid
 - npm run typecheck
-- npm run test -- --runInBand tests/integration/Sidebar.test.tsx tests/integration/WorkspaceGrid.test.tsx tests/integration/TerminalPane.test.tsx tests/integration/NewWorkspaceModal.test.tsx
 - npm run build
-- npm run test:e2e
+- npm run dist
+- oxe-cc runtime verify: 19/19 checks passed, 100% evidence coverage
 
-Known residual:
-- Full npm test currently has unrelated agent discovery expectation failures in agent.service.test.ts.
+Residual risk:
+- EditorPane tests still emit React act(...) warnings although the suite passes.
+- The installer is unsigned because no signing certificate is configured.
 
 ---
 OXE: spec-driven workflow

@@ -40,10 +40,21 @@ export function runMigrations(db: AppDatabase): void {
 
   if (currentVersion < 2) {
     db.exec(readMigration('002_shell_profiles.sql'))
+    currentVersion = db.pragma('user_version', { simple: true }) as number
   }
 
   if (currentVersion < 3) {
     db.exec(readMigration('003_agents.sql'))
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
+
+  if (currentVersion < 4) {
+    db.exec(readMigration('004_tasks.sql'))
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
+
+  if (currentVersion < 5) {
+    db.exec(readMigration('005_agent_shell_settings.sql'))
   }
 }
 

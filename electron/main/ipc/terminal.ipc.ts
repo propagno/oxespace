@@ -13,6 +13,7 @@ export interface TerminalIpcController {
   resize(input: ReturnType<typeof parseTerminalResizeInput>): Promise<void> | void
   stop(input: ReturnType<typeof parseTerminalStopInput>): Promise<void> | void
   restart(input: ReturnType<typeof parseTerminalStopInput>): Promise<void> | void
+  hasSession?(paneId: string): boolean
 }
 
 export function registerTerminalIpc(controller: TerminalIpcController = createPendingTerminalController()): void {

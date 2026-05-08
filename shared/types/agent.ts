@@ -1,4 +1,4 @@
-export type AgentProvider = 'claude' | 'gh-copilot' | 'codex' | 'gemini' | 'cursor' | 'custom'
+export type AgentProvider = 'claude' | 'copilot' | 'gh-copilot' | 'codex' | 'gemini' | 'cursor' | 'custom'
 
 export interface AgentProfile {
   agentProfileId: string
@@ -14,7 +14,7 @@ export interface AgentProfile {
 export interface AgentReadiness {
   provider: AgentProvider
   command: string
-  status: 'ready' | 'partial' | 'missing'
+  status: 'ready' | 'partial' | 'missing' | 'unknown'
   version?: string
   details?: string
 }

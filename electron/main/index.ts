@@ -4,6 +4,8 @@ import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { openDatabase } from './db/index'
 import { registerAgentIpc } from './ipc/agent.ipc'
+import { registerFileSystemIpc } from './ipc/file-system.ipc'
+import { registerTaskIpc } from './ipc/task.ipc'
 import { registerTerminalIpc } from './ipc/terminal.ipc'
 import { registerWorkspaceIpc } from './ipc/workspace.ipc'
 import { TerminalManager } from './services/terminal.service'
@@ -48,7 +50,12 @@ function registerIpcHandlers(): void {
   registerWorkspaceIpc(db, terminalManager)
   registerTerminalIpc(terminalManager)
   registerAgentIpc(db)
-  app.once('before-quit', () => terminalManager.stopAll())
+  registerTaskIpc(db, terminalManager)
+  const fileSystemService = registerFileSystemIpc()
+  app.once('before-quit', () => {
+    fileSystemService.closeAll()
+    terminalManager.stopAll()
+  })
   ipcRegistered = true
 }
 
@@ -67,6 +74,8 @@ function registerNativeFailureIpcHandlers(message: string): void {
   ipcMain.handle(IPC_CHANNELS.workspace.setActive, fail)
   ipcMain.handle(IPC_CHANNELS.workspace.delete, fail)
   ipcMain.handle(IPC_CHANNELS.workspace.closePane, fail)
+  ipcMain.handle(IPC_CHANNELS.workspace.splitPane, fail)
+  ipcMain.handle(IPC_CHANNELS.workspace.updatePaneType, fail)
   ipcMain.handle(IPC_CHANNELS.workspace.pickFolder, async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender) ?? BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
     const result = await dialog.showOpenDialog(win, { properties: ['openDirectory'] })
@@ -83,6 +92,19 @@ function registerNativeFailureIpcHandlers(message: string): void {
   ipcMain.handle(IPC_CHANNELS.agent.create, fail)
   ipcMain.handle(IPC_CHANNELS.agent.update, fail)
   ipcMain.handle(IPC_CHANNELS.agent.delete, fail)
+  ipcMain.handle(IPC_CHANNELS.tasks.list, () => [])
+  ipcMain.handle(IPC_CHANNELS.tasks.create, fail)
+  ipcMain.handle(IPC_CHANNELS.tasks.update, fail)
+  ipcMain.handle(IPC_CHANNELS.tasks.delete, fail)
+  ipcMain.handle(IPC_CHANNELS.tasks.reorder, fail)
+  ipcMain.handle(IPC_CHANNELS.tasks.run, fail)
+  ipcMain.handle(IPC_CHANNELS.tasks.verify, fail)
+  ipcMain.handle(IPC_CHANNELS.tasks.executions, () => [])
+  ipcMain.handle(IPC_CHANNELS.fs.listTree, fail)
+  ipcMain.handle(IPC_CHANNELS.fs.readFile, fail)
+  ipcMain.handle(IPC_CHANNELS.fs.writeFile, fail)
+  ipcMain.handle(IPC_CHANNELS.fs.watchFile, fail)
+  ipcMain.handle(IPC_CHANNELS.fs.unwatchFile, fail)
 }
 
 function registerE2eMockIpcHandlers(): void {
@@ -126,6 +148,22 @@ function registerE2eMockIpcHandlers(): void {
       workspace.panes = workspace.panes.filter((pane) => pane.id !== paneId)
     }
   })
+  ipcMain.handle(IPC_CHANNELS.workspace.splitPane, (_event: IpcMainInvokeEvent, input: { paneId: string }) => {
+    const workspace = workspaces.find((item) => item.panes.some((pane) => pane.id === input.paneId))
+    if (!workspace) throw new Error(`Pane ${input.paneId} not found`)
+    return workspace
+  })
+  ipcMain.handle(IPC_CHANNELS.workspace.updatePaneType, (_event: IpcMainInvokeEvent, input: { paneId: string; type: Workspace['panes'][number]['type'] }) => {
+    for (const workspace of workspaces) {
+      const pane = workspace.panes.find((item) => item.id === input.paneId)
+      if (pane) {
+        pane.type = input.type
+        pane.status = 'idle'
+        return workspace
+      }
+    }
+    throw new Error(`Pane ${input.paneId} not found`)
+  })
   ipcMain.handle(IPC_CHANNELS.workspace.pickFolder, () => null)
   ipcMain.handle(IPC_CHANNELS.terminal.start, (_event: IpcMainInvokeEvent, input: { paneId: string }) => {
     for (const window of BrowserWindow.getAllWindows()) {
@@ -146,6 +184,25 @@ function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.agent.create, () => undefined)
   ipcMain.handle(IPC_CHANNELS.agent.update, () => undefined)
   ipcMain.handle(IPC_CHANNELS.agent.delete, () => undefined)
+  ipcMain.handle(IPC_CHANNELS.tasks.list, () => [])
+  ipcMain.handle(IPC_CHANNELS.tasks.create, () => undefined)
+  ipcMain.handle(IPC_CHANNELS.tasks.update, () => undefined)
+  ipcMain.handle(IPC_CHANNELS.tasks.delete, () => undefined)
+  ipcMain.handle(IPC_CHANNELS.tasks.reorder, () => [])
+  ipcMain.handle(IPC_CHANNELS.tasks.run, () => undefined)
+  ipcMain.handle(IPC_CHANNELS.tasks.verify, () => undefined)
+  ipcMain.handle(IPC_CHANNELS.tasks.executions, () => [])
+  ipcMain.handle(IPC_CHANNELS.fs.listTree, () => [])
+  ipcMain.handle(IPC_CHANNELS.fs.readFile, () => {
+    throw new Error('File system API is not available in E2E mock mode')
+  })
+  ipcMain.handle(IPC_CHANNELS.fs.writeFile, () => {
+    throw new Error('File system API is not available in E2E mock mode')
+  })
+  ipcMain.handle(IPC_CHANNELS.fs.watchFile, () => {
+    throw new Error('File system API is not available in E2E mock mode')
+  })
+  ipcMain.handle(IPC_CHANNELS.fs.unwatchFile, () => undefined)
 }
 
 function createMockPanes(workspaceId: string, layout: WorkspaceLayout): Workspace['panes'] {

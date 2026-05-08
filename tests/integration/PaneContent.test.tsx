@@ -7,6 +7,10 @@ vi.mock('../../src/components/Panes/TerminalPane', () => ({
   TerminalPane: () => <div data-testid="terminal-pane">Terminal</div>
 }))
 
+vi.mock('../../src/components/Editor/EditorPane', () => ({
+  EditorPane: () => <div data-testid="editor-pane">EditorPane</div>
+}))
+
 describe('PaneContent', () => {
   beforeEach(() => {
     window.oxe = {
@@ -17,6 +21,8 @@ describe('PaneContent', () => {
         setActive: vi.fn(),
         delete: vi.fn(),
         closePane: vi.fn(),
+        splitPane: vi.fn(),
+        updatePaneType: vi.fn(),
         pickFolder: vi.fn(),
         shellProfiles: vi.fn()
       },
@@ -42,8 +48,7 @@ describe('PaneContent', () => {
     expect(screen.getByTestId('terminal-pane')).toHaveTextContent('Terminal')
 
     render(<PaneContent pane={createPane('editor')} workspaceId="workspace-1" autoStart={false} />)
-    expect(screen.getByText('Editor')).toBeInTheDocument()
-    expect(screen.getByText('Coming soon')).toBeInTheDocument()
+    expect(screen.getByTestId('editor-pane')).toHaveTextContent('EditorPane')
   })
 })
 

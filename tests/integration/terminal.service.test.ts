@@ -55,6 +55,30 @@ describe('TerminalManager', () => {
       rmSync(binDir, { recursive: true, force: true })
     }
   })
+
+  test('reports configured agent command failures without creating a session', () => {
+    const db = openInMemoryDatabase()
+    const workspaceService = new WorkspaceService(db)
+    const workspace = workspaceService.create({
+      rootPath: 'C:/repo',
+      layout: '1x1',
+      defaultShellProfileId: 'builtin-copilot',
+      autoStart: false
+    })
+    const pty = {
+      spawn: vi.fn(() => {
+        throw new Error('ENOENT')
+      })
+    }
+    const manager = new TerminalManager(db, { pty, platform: 'linux' })
+
+    expect(() => manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id })).toThrow(
+      /Check Settings > Agents command "copilot"/
+    )
+    expect(manager.hasSession(workspace.panes[0].id)).toBe(false)
+
+    db.close()
+  })
 })
 
 function createFakePtyModule() {

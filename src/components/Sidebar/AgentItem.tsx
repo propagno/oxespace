@@ -9,7 +9,7 @@ interface AgentItemProps {
 }
 
 function ReadinessBadge({ status }: { status: AgentReadiness['status'] | undefined }): ReactElement {
-  if (!status) return <span className="agent-badge missing">?</span>
+  if (!status) return <span className="agent-badge unknown">unknown</span>
   return <span className={`agent-badge ${status}`}>{status}</span>
 }
 
@@ -17,7 +17,10 @@ export function AgentItem({ profile, readiness, onConfigure }: AgentItemProps): 
   return (
     <div className="agent-item" data-testid="sidebar-agent-item">
       <div className="agent-item-info">
-        <span className="agent-item-name">{profile.name}</span>
+        <div className="agent-item-text">
+          <span className="agent-item-name">{profile.name}</span>
+          <span className="agent-item-command">{profile.command}</span>
+        </div>
         <ReadinessBadge status={readiness?.status} />
       </div>
       <button

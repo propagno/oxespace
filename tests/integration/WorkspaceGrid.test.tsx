@@ -30,6 +30,18 @@ describe('WorkspaceGrid', () => {
     expect(screen.getAllByTestId('pane-container')).toHaveLength(1)
     expect(screen.getByLabelText('Restore pane')).toBeInTheDocument()
   })
+
+  test('emits open editor action for the selected pane', async () => {
+    const user = userEvent.setup()
+    const onOpenEditor = vi.fn()
+    const workspace = createWorkspace('1x1')
+
+    render(<WorkspaceGrid workspace={workspace} maximizedPaneId={null} onToggleMaximize={() => undefined} onOpenEditor={onOpenEditor} />)
+
+    expect(screen.getByRole('button', { name: 'Open editor in pane' })).toHaveTextContent('Editor')
+    await user.click(screen.getByLabelText('Open editor in pane'))
+    expect(onOpenEditor).toHaveBeenCalledWith('pane-0-0')
+  })
 })
 
 function createWorkspace(layout: Workspace['layout']): Workspace {

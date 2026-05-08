@@ -1,14 +1,9 @@
-import { describe, expect, test, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { openInMemoryDatabase } from '../../electron/main/db/index'
 import { AgentService } from '../../electron/main/services/agent.service'
+import { ShellProfileService } from '../../electron/main/services/shell-profile.service'
 
-vi.mock('node:child_process', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:child_process')>()
-  return { ...actual, execFileSync: vi.fn() }
-})
-
-import { execFileSync } from 'node:child_process'
-const mockExec = vi.mocked(execFileSync)
+const mockExec = vi.fn()
 
 describe('AgentService', () => {
   beforeEach(() => {
@@ -16,102 +11,99 @@ describe('AgentService', () => {
     delete process.env.ANTHROPIC_API_KEY
   })
 
-  test('list returns empty array when no profiles exist', () => {
+  test('list returns official built-in profiles in a new database', () => {
     const db = openInMemoryDatabase()
-    const service = new AgentService(db)
-    expect(service.list()).toEqual([])
+    const service = new AgentService(db, { execFileSync: mockExec })
+
+    expect(service.list()).toEqual([
+      expect.objectContaining({ name: 'Claude', provider: 'claude', command: 'claude', isBuiltin: true }),
+      expect.objectContaining({ name: 'Copilot', provider: 'copilot', command: 'copilot', isBuiltin: true })
+    ])
+
     db.close()
   })
 
-  test('create and list a custom agent profile', () => {
+  test('list hides legacy providers without deleting them', () => {
     const db = openInMemoryDatabase()
-    const service = new AgentService(db)
+    const service = new AgentService(db, { execFileSync: mockExec })
 
-    const profile = service.create({
-      name: 'My Codex',
+    service.create({
+      name: 'Legacy Codex',
       provider: 'codex',
       command: 'codex',
-      commandTemplate: 'codex {{task}}',
-      model: 'o4-mini'
-    })
-
-    expect(profile.agentProfileId).toBeTruthy()
-    expect(profile.name).toBe('My Codex')
-    expect(profile.provider).toBe('codex')
-    expect(profile.command).toBe('codex')
-    expect(profile.commandTemplate).toBe('codex {{task}}')
-    expect(profile.model).toBe('o4-mini')
-    expect(profile.isBuiltin).toBe(false)
-
-    expect(service.list()).toHaveLength(1)
-    db.close()
-  })
-
-  test('update changes mutable fields', () => {
-    const db = openInMemoryDatabase()
-    const service = new AgentService(db)
-
-    const created = service.create({
-      name: 'Draft',
-      provider: 'custom',
-      command: 'my-agent',
       commandTemplate: '{{task}}'
     })
 
-    const updated = service.update(created.agentProfileId, {
-      name: 'Production',
-      commandTemplate: 'my-agent run {{task}}'
-    })
+    expect(service.list().map((profile) => profile.provider)).toEqual(['claude', 'copilot'])
+    expect(db.prepare("SELECT COUNT(*) AS count FROM agent_profiles WHERE provider = 'codex'").get()).toEqual({ count: 1 })
 
-    expect(updated.name).toBe('Production')
-    expect(updated.commandTemplate).toBe('my-agent run {{task}}')
-    expect(updated.command).toBe('my-agent')
     db.close()
   })
 
-  test('delete removes the profile', () => {
+  test('update syncs official agent command to shell profile', () => {
     const db = openInMemoryDatabase()
-    const service = new AgentService(db)
+    const service = new AgentService(db, { execFileSync: mockExec })
+    const shellProfiles = new ShellProfileService(db)
+    const claude = service.list().find((profile) => profile.provider === 'claude')
 
-    const profile = service.create({
-      name: 'Temp',
-      provider: 'custom',
-      command: 'tmp',
-      commandTemplate: '{{task}}'
-    })
+    expect(claude).toBeTruthy()
+    const updated = service.update(claude!.agentProfileId, { command: 'claude-custom' })
 
-    service.delete(profile.agentProfileId)
-    expect(service.list()).toHaveLength(0)
+    expect(updated.command).toBe('claude-custom')
+    expect(shellProfiles.get('builtin-claude')).toEqual(
+      expect.objectContaining({ executable: 'claude-custom', args: [] })
+    )
+
     db.close()
   })
 
-  test('discover returns ready when command succeeds and API key is set', () => {
-    process.env.ANTHROPIC_API_KEY = 'sk-test-key'
-    mockExec.mockReturnValue('claude 2.1.133\n' as unknown as Buffer)
+  test('delete rejects built-in profiles', () => {
+    const db = openInMemoryDatabase()
+    const service = new AgentService(db, { execFileSync: mockExec })
+    const claude = service.list().find((profile) => profile.provider === 'claude')
+
+    expect(() => service.delete(claude!.agentProfileId)).toThrow(/built-in/i)
+    expect(service.list()).toHaveLength(2)
+
+    db.close()
+  })
+
+  test('discover returns ready and version when command succeeds', () => {
+    mockExec.mockImplementation((cmd: string, args: string[]) => {
+      if (cmd === 'where.exe') throw new Error(`${args[0]} not found`)
+      return `${cmd} 1.0.0\n`
+    })
 
     const db = openInMemoryDatabase()
-    const service = new AgentService(db)
+    const service = new AgentService(db, { execFileSync: mockExec })
     const results = service.discover(true)
 
-    const claude = results.find((r) => r.provider === 'claude')
-    expect(claude?.status).toBe('ready')
-    expect(claude?.version).toBe('claude 2.1.133')
+    expect(results).toEqual([
+      expect.objectContaining({ provider: 'claude', status: 'ready' }),
+      expect.objectContaining({ provider: 'copilot', status: 'ready' })
+    ])
+
     db.close()
   })
 
-  test('discover returns partial for claude when API key is missing', () => {
-    mockExec.mockImplementation((cmd: string) => {
-      if (cmd === 'claude') return 'claude 2.1.133\n' as unknown as Buffer
-      throw new Error('not found')
+  test('discover resolves Windows command shims before running readiness checks', () => {
+    mockExec.mockImplementation((cmd: string, args: string[], options?: { shell?: boolean }) => {
+      if (cmd === 'where.exe' && args[0] === 'claude') return 'C:\\Users\\dudu-\\.local\\bin\\claude.exe\r\n'
+      if (cmd === 'where.exe' && args[0] === 'copilot') return 'C:\\Users\\dudu-\\AppData\\Roaming\\npm\\copilot.cmd\r\n'
+      if (cmd === 'C:\\Users\\dudu-\\.local\\bin\\claude.exe') return '2.1.133 (Claude Code)\n'
+      if (cmd === 'C:\\Users\\dudu-\\AppData\\Roaming\\npm\\copilot.cmd' && args[0] === '--version' && options?.shell === true) return 'GitHub Copilot v1.0.43\n'
+      throw new Error(`unexpected command: ${cmd} ${args.join(' ')}`)
     })
 
     const db = openInMemoryDatabase()
-    const service = new AgentService(db)
+    const service = new AgentService(db, { execFileSync: mockExec })
     const results = service.discover(true)
 
-    const claude = results.find((r) => r.provider === 'claude')
-    expect(claude?.status).toBe('partial')
-    expect(claude?.details).toMatch(/not authenticated/i)
+    expect(results).toEqual([
+      expect.objectContaining({ provider: 'claude', status: 'ready', version: '2.1.133 (Claude Code)' }),
+      expect.objectContaining({ provider: 'copilot', status: 'ready', version: 'GitHub Copilot v1.0.43' })
+    ])
+
     db.close()
   })
 
@@ -119,30 +111,41 @@ describe('AgentService', () => {
     mockExec.mockImplementation(() => { throw new Error('not found') })
 
     const db = openInMemoryDatabase()
-    const service = new AgentService(db)
+    const service = new AgentService(db, { execFileSync: mockExec })
     const results = service.discover(true)
 
-    expect(results.every((r) => r.status === 'missing')).toBe(true)
+    expect(results).toEqual([
+      expect.objectContaining({ provider: 'claude', status: 'missing' }),
+      expect.objectContaining({ provider: 'copilot', status: 'missing' })
+    ])
+
     db.close()
   })
 
-  test('getCachedReadiness returns empty before first discover', () => {
+  test('discover never returns partial for missing API keys', () => {
+    mockExec.mockImplementation((cmd: string) => `${cmd} 1.0.0\n`)
+
     const db = openInMemoryDatabase()
-    const service = new AgentService(db)
-    expect(service.getCachedReadiness()).toEqual([])
+    const service = new AgentService(db, { execFileSync: mockExec })
+    const results = service.discover(true)
+
+    expect(results.some((result) => result.status === 'partial')).toBe(false)
+    expect(results.every((result) => result.status === 'ready')).toBe(true)
+
     db.close()
   })
 
-  test('getCachedReadiness returns results after discover', () => {
-    process.env.ANTHROPIC_API_KEY = 'sk-test-key'
-    mockExec.mockReturnValue('1.0.0\n' as unknown as Buffer)
+  test('getCachedReadiness returns official results after discover', () => {
+    mockExec.mockImplementation((cmd: string) => `${cmd} 1.0.0\n`)
 
     const db = openInMemoryDatabase()
-    const service = new AgentService(db)
+    const service = new AgentService(db, { execFileSync: mockExec })
     service.discover(true)
 
     const cached = service.getCachedReadiness()
-    expect(cached.length).toBeGreaterThan(0)
+    expect(cached).toHaveLength(2)
+    expect(cached.map((result) => result.provider)).toEqual(['claude', 'copilot'])
+
     db.close()
   })
 })
