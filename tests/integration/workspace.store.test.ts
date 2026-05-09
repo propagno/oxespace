@@ -12,6 +12,9 @@ const workspace: Workspace = {
   name: 'repo',
   rootPath: 'C:/projects/repo',
   layout: '2x2',
+  layoutPreset: 4,
+  themeId: 'midnight',
+  uiDensity: 'compact',
   defaultShellProfileId: 'builtin-claude',
   autoStart: false,
   isActive: true,
@@ -45,6 +48,7 @@ describe('workspace.store', () => {
         splitPane: vi.fn().mockResolvedValue(workspace),
         updatePaneType: vi.fn().mockResolvedValue(workspace),
         updateEditorState: vi.fn().mockResolvedValue({ ...workspace, editorVisible: true }),
+        updateSettings: vi.fn().mockResolvedValue({ ...workspace, themeId: 'nord', layoutPreset: 6, layout: '2x3' }),
         pickFolder: vi.fn().mockResolvedValue(null)
       },
       terminal: {
@@ -95,5 +99,18 @@ describe('workspace.store', () => {
 
     expect(window.oxe.workspace.updateEditorState).toHaveBeenCalledWith({ workspaceId: 'workspace-1', editorVisible: true })
     expect(result.current.workspaces[0]?.editorVisible).toBe(true)
+  })
+
+  test('persists workspace settings', async () => {
+    useWorkspaceStore.setState({ workspaces: [workspace], activeWorkspaceId: 'workspace-1' })
+    const { result } = renderHook(() => useWorkspaceStore())
+
+    await act(async () => {
+      await result.current.updateSettings({ workspaceId: 'workspace-1', themeId: 'nord', layoutPreset: 6 })
+    })
+
+    expect(window.oxe.workspace.updateSettings).toHaveBeenCalledWith({ workspaceId: 'workspace-1', themeId: 'nord', layoutPreset: 6 })
+    expect(result.current.workspaces[0]?.themeId).toBe('nord')
+    expect(result.current.workspaces[0]?.layoutPreset).toBe(6)
   })
 })

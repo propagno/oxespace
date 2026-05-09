@@ -12,6 +12,7 @@ interface PaneContainerProps {
   onClose?: (paneId: string) => void
   onSplitVertical?: (paneId: string) => void
   onSplitHorizontal?: (paneId: string) => void
+  onActivate?: (paneId: string) => void
 }
 
 function statusClass(status: WorkspacePane['status']): string {
@@ -20,9 +21,9 @@ function statusClass(status: WorkspacePane['status']): string {
   return ''
 }
 
-export function PaneContainer({ autoStart, isMaximized, onClose, onSplitHorizontal, onSplitVertical, onToggleMaximize, pane, workspaceId }: PaneContainerProps): ReactElement {
+export function PaneContainer({ autoStart, isMaximized, onActivate, onClose, onSplitHorizontal, onSplitVertical, onToggleMaximize, pane, workspaceId }: PaneContainerProps): ReactElement {
   return (
-    <section className="pane-container" data-testid="pane-container">
+    <section className="pane-container" data-testid="pane-container" tabIndex={-1} onFocus={() => onActivate?.(pane.id)} onPointerDown={() => onActivate?.(pane.id)}>
       <header className="pane-header">
         <div className="pane-header-left">
           <span className={`pane-status-dot ${statusClass(pane.status)}`} aria-hidden="true" />

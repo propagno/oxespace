@@ -23,7 +23,16 @@ vi.mock('../../src/components/Workspace/WorkspaceEditorPanel', () => ({
 
 describe('WorkspaceSurface', () => {
   test('renders editor as a separate region when visible', () => {
-    render(<WorkspaceSurface workspace={createWorkspace({ editorVisible: true })} maximizedPaneId={null} onToggleMaximize={() => undefined} onUpdateEditorState={() => undefined} />)
+    render(
+      <WorkspaceSurface
+        workspace={createWorkspace({ editorVisible: true })}
+        maximizedPaneId={null}
+        onToggleMaximize={() => undefined}
+        onOpenCommandPalette={() => undefined}
+        onOpenWorkspaceSettings={() => undefined}
+        onUpdateEditorState={() => undefined}
+      />
+    )
 
     expect(screen.getByTestId('workspace-grid')).toBeInTheDocument()
     expect(screen.getByTestId('workspace-editor-panel')).toBeInTheDocument()
@@ -33,7 +42,16 @@ describe('WorkspaceSurface', () => {
   test('shows a topbar editor control and persists visibility when collapsed', async () => {
     const user = userEvent.setup()
     const onUpdateEditorState = vi.fn()
-    render(<WorkspaceSurface workspace={createWorkspace({ editorVisible: false })} maximizedPaneId={null} onToggleMaximize={() => undefined} onUpdateEditorState={onUpdateEditorState} />)
+    render(
+      <WorkspaceSurface
+        workspace={createWorkspace({ editorVisible: false })}
+        maximizedPaneId={null}
+        onToggleMaximize={() => undefined}
+        onOpenCommandPalette={() => undefined}
+        onOpenWorkspaceSettings={() => undefined}
+        onUpdateEditorState={onUpdateEditorState}
+      />
+    )
 
     expect(document.querySelector('.workspace-editor-rail')).not.toBeInTheDocument()
 
@@ -45,7 +63,16 @@ describe('WorkspaceSurface', () => {
   test('persists expanded and collapsed editor state', async () => {
     const user = userEvent.setup()
     const onUpdateEditorState = vi.fn()
-    render(<WorkspaceSurface workspace={createWorkspace({ editorVisible: true })} maximizedPaneId={null} onToggleMaximize={() => undefined} onUpdateEditorState={onUpdateEditorState} />)
+    render(
+      <WorkspaceSurface
+        workspace={createWorkspace({ editorVisible: true })}
+        maximizedPaneId={null}
+        onToggleMaximize={() => undefined}
+        onOpenCommandPalette={() => undefined}
+        onOpenWorkspaceSettings={() => undefined}
+        onUpdateEditorState={onUpdateEditorState}
+      />
+    )
 
     await user.click(screen.getByText('Expand editor'))
     await user.click(screen.getByText('Collapse editor'))
@@ -61,6 +88,9 @@ function createWorkspace(overrides: Partial<Workspace> = {}): Workspace {
     name: 'repo',
     rootPath: 'C:/repo',
     layout: '1x1',
+    layoutPreset: 1,
+    themeId: 'midnight',
+    uiDensity: 'compact',
     defaultShellProfileId: 'builtin-claude',
     autoStart: false,
     isActive: true,

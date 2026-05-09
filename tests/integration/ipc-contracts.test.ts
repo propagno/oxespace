@@ -5,6 +5,7 @@ import {
   parseTerminalResizeInput,
   parseTerminalWriteInput,
   parseUpdateWorkspaceEditorStateInput,
+  parseUpdateWorkspaceSettingsInput,
   parseWorkspaceCreateInput
 } from '../../electron/main/ipc/validation'
 
@@ -15,6 +16,7 @@ describe('ipc contracts', () => {
     expect(IPC_CHANNELS.workspace.closePane).toBe('workspace:close-pane')
     expect(IPC_CHANNELS.workspace.updatePaneType).toBe('workspace:update-pane-type')
     expect(IPC_CHANNELS.workspace.updateEditorState).toBe('workspace:update-editor-state')
+    expect(IPC_CHANNELS.workspace.updateSettings).toBe('workspace:update-settings')
     expect(IPC_CHANNELS.workspace.pickFolder).toBe('workspace:pick-folder')
     expect(IPC_CHANNELS.terminal.write).toBe('terminal:write')
     expect(IPC_CHANNELS.terminal.resize).toBe('terminal:resize')
@@ -54,12 +56,21 @@ describe('ipc contracts', () => {
     expect(parseWorkspaceCreateInput({ rootPath: 'C:/repo', layout: '2x2', autoStart: true })).toEqual({
       rootPath: 'C:/repo',
       layout: '2x2',
+      layoutPreset: undefined,
       defaultShellProfileId: undefined,
       name: undefined,
+      themeId: undefined,
+      uiDensity: undefined,
       autoStart: true
     })
 
     expect(() => parseWorkspaceCreateInput({ rootPath: 'C:/repo', layout: '8x8' })).toThrow('layout')
+    expect(parseWorkspaceCreateInput({ rootPath: 'C:/repo', layoutPreset: 6, themeId: 'nord', uiDensity: 'comfortable' })).toMatchObject({
+      rootPath: 'C:/repo',
+      layoutPreset: 6,
+      themeId: 'nord',
+      uiDensity: 'comfortable'
+    })
   })
 
   test('validates terminal payloads', () => {
@@ -83,6 +94,19 @@ describe('ipc contracts', () => {
       editorWidthPercent: 40
     })
     expect(() => parseUpdateWorkspaceEditorStateInput({ workspaceId: 'workspace-1', editorWidthPercent: 90 })).toThrow('editorWidthPercent')
+  })
+
+  test('validates workspace settings payloads', () => {
+    expect(parseUpdateWorkspaceSettingsInput({ workspaceId: 'workspace-1', themeId: 'amber', uiDensity: 'comfortable', layoutPreset: 10 })).toEqual({
+      workspaceId: 'workspace-1',
+      themeId: 'amber',
+      uiDensity: 'comfortable',
+      defaultShellProfileId: undefined,
+      layoutPreset: 10,
+      applyShellToIdlePanes: undefined
+    })
+    expect(() => parseUpdateWorkspaceSettingsInput({ workspaceId: 'workspace-1', themeId: 'wrong' })).toThrow('themeId')
+    expect(() => parseUpdateWorkspaceSettingsInput({ workspaceId: 'workspace-1', layoutPreset: 3 })).toThrow('layoutPreset')
   })
 
   test('validates task reorder payloads', () => {

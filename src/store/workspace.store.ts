@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { CreateWorkspaceInput, ShellProfile, UpdateWorkspaceEditorStateInput, Workspace } from '../../shared/types/workspace'
+import type { CreateWorkspaceInput, ShellProfile, UpdateWorkspaceEditorStateInput, UpdateWorkspaceSettingsInput, Workspace } from '../../shared/types/workspace'
 
 interface WorkspaceState {
   workspaces: Workspace[]
@@ -16,6 +16,7 @@ interface WorkspaceState {
   splitPane: (paneId: string, direction: 'vertical' | 'horizontal') => Promise<void>
   updatePaneType: (paneId: string, type: Workspace['panes'][number]['type']) => Promise<void>
   updateEditorState: (input: UpdateWorkspaceEditorStateInput) => Promise<void>
+  updateSettings: (input: UpdateWorkspaceSettingsInput) => Promise<void>
   clearError: () => void
 }
 
@@ -109,6 +110,14 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   updateEditorState: async (input) => {
     const workspace = await window.oxe.workspace.updateEditorState(input)
+    set((state) => ({
+      workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)),
+      error: null
+    }))
+  },
+
+  updateSettings: async (input) => {
+    const workspace = await window.oxe.workspace.updateSettings(input)
     set((state) => ({
       workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)),
       error: null
