@@ -5,7 +5,7 @@ describe('migrations', () => {
   test('runs migrations and seeds built-in shell profiles', () => {
     const db = openInMemoryDatabase()
 
-    expect(db.pragma('user_version', { simple: true })).toBe(6)
+    expect(db.pragma('user_version', { simple: true })).toBe(7)
 
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
@@ -25,7 +25,7 @@ describe('migrations', () => {
 
     const workspaceColumns = db.prepare("PRAGMA table_info('workspaces')").all() as Array<{ name: string }>
     expect(workspaceColumns.map((column) => column.name)).toEqual(
-      expect.arrayContaining(['editor_visible', 'editor_expanded', 'editor_width_percent'])
+      expect.arrayContaining(['editor_visible', 'editor_expanded', 'editor_width_percent', 'theme_id', 'ui_density', 'layout_preset'])
     )
 
     const profiles = db.prepare('SELECT id FROM shell_profiles ORDER BY id').all() as Array<{ id: string }>

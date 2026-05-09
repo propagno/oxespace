@@ -1,4 +1,4 @@
-import type { CreateWorkspaceInput, PaneType, ShellProfile, UpdateWorkspaceEditorStateInput, Workspace } from './workspace'
+import type { CreateWorkspaceInput, PaneType, ShellProfile, UpdateWorkspaceEditorStateInput, UpdateWorkspaceSettingsInput, Workspace } from './workspace'
 import type { AgentProfile, AgentReadiness, CreateAgentProfileInput, UpdateAgentProfileInput } from './agent'
 import type {
   CreateTaskInput,
@@ -11,7 +11,7 @@ import type {
   VerifyTaskInput
 } from './task'
 
-export type { ShellProfile, Workspace, UpdateWorkspaceEditorStateInput, AgentProfile, AgentReadiness }
+export type { ShellProfile, Workspace, UpdateWorkspaceEditorStateInput, UpdateWorkspaceSettingsInput, AgentProfile, AgentReadiness }
 export type { Task, TaskExecution, TaskVerifyOutputEvent }
 
 export type FileTreeNodeType = 'file' | 'directory'
@@ -98,6 +98,7 @@ export const IPC_CHANNELS = {
     splitPane: 'workspace:split-pane',
     updatePaneType: 'workspace:update-pane-type',
     updateEditorState: 'workspace:update-editor-state',
+    updateSettings: 'workspace:update-settings',
     pickFolder: 'workspace:pick-folder',
     shellProfiles: 'workspace:shell-profiles'
   },
@@ -188,6 +189,7 @@ export interface WorkspaceApi {
   splitPane(input: SplitPaneInput): Promise<Workspace>
   updatePaneType(input: UpdatePaneTypeInput): Promise<Workspace>
   updateEditorState(input: UpdateWorkspaceEditorStateInput): Promise<Workspace>
+  updateSettings(input: UpdateWorkspaceSettingsInput): Promise<Workspace>
   pickFolder(): Promise<string | null>
   shellProfiles(): Promise<ShellProfile[]>
 }

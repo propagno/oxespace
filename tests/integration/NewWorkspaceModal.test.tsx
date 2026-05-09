@@ -19,15 +19,17 @@ describe('NewWorkspaceModal', () => {
     render(<NewWorkspaceModal shellProfiles={shellProfiles} onCreate={onCreate} onPickFolder={onPickFolder} onClose={onClose} />)
 
     await user.click(screen.getByLabelText('Browse folder'))
-    await user.click(screen.getByTestId('layout-4x4'))
+    await user.click(screen.getByTestId('layout-16'))
     await user.selectOptions(screen.getByLabelText('Shell'), 'builtin-copilot')
     await user.click(screen.getByTestId('btn-create-workspace'))
 
     expect(onPickFolder).toHaveBeenCalled()
     expect(onCreate).toHaveBeenCalledWith({
       rootPath: 'C:/projects/repo',
-      layout: '4x4',
+      layoutPreset: 16,
       defaultShellProfileId: 'builtin-copilot',
+      themeId: 'midnight',
+      uiDensity: 'compact',
       autoStart: true
     })
     expect(onClose).toHaveBeenCalled()

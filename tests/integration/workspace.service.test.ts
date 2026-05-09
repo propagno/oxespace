@@ -9,13 +9,16 @@ describe('WorkspaceService', () => {
 
     const workspace = service.create({
       rootPath: 'C:/projects/oxespace',
-      layout: '4x4',
+      layoutPreset: 16,
       autoStart: false
     })
 
     expect(workspace.name).toBe('oxespace')
     expect(workspace.rootPath).toBe('C:/projects/oxespace')
     expect(workspace.layout).toBe('4x4')
+    expect(workspace.layoutPreset).toBe(16)
+    expect(workspace.themeId).toBe('midnight')
+    expect(workspace.uiDensity).toBe('compact')
     expect(workspace.autoStart).toBe(false)
     expect(workspace.isActive).toBe(true)
     expect(workspace.defaultShellProfileId).toBe('builtin-claude')
@@ -45,7 +48,35 @@ describe('WorkspaceService', () => {
     expect(getPanePositions('1x1')).toHaveLength(1)
     expect(getPanePositions('1x2')).toHaveLength(2)
     expect(getPanePositions('2x2')).toHaveLength(4)
+    expect(getPanePositions('2x3')).toHaveLength(6)
+    expect(getPanePositions('2x5')).toHaveLength(10)
+    expect(getPanePositions('2x7')).toHaveLength(14)
     expect(getPanePositions('3x4')).toHaveLength(12)
     expect(getPanePositions('4x4')).toHaveLength(16)
+  })
+
+  test('updates workspace settings and resizes panes by preset', () => {
+    const db = openInMemoryDatabase()
+    const service = new WorkspaceService(db)
+    const workspace = service.create({ rootPath: 'C:/projects/repo', layoutPreset: 4 })
+
+    const updated = service.updateSettings({
+      workspaceId: workspace.id,
+      themeId: 'nord',
+      uiDensity: 'comfortable',
+      layoutPreset: 6,
+      defaultShellProfileId: 'builtin-copilot',
+      applyShellToIdlePanes: true
+    })
+
+    expect(updated.themeId).toBe('nord')
+    expect(updated.uiDensity).toBe('comfortable')
+    expect(updated.layout).toBe('2x3')
+    expect(updated.layoutPreset).toBe(6)
+    expect(updated.defaultShellProfileId).toBe('builtin-copilot')
+    expect(updated.panes).toHaveLength(6)
+    expect(updated.panes.every((pane) => pane.shellProfileId === 'builtin-copilot')).toBe(true)
+
+    db.close()
   })
 })

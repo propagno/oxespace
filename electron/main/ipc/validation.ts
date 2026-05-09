@@ -1,6 +1,7 @@
 import type {
   SplitPaneInput,
   UpdateWorkspaceEditorStateInput,
+  UpdateWorkspaceSettingsInput,
   UpdatePaneTypeInput,
   TerminalResizeInput,
   TerminalStartInput,
@@ -16,9 +17,12 @@ import type {
   UpdateTaskInput,
   VerifyTaskInput
 } from '../../../shared/types/task'
-import type { CreateWorkspaceInput, PaneType, WorkspaceLayout } from '../../../shared/types/workspace'
+import type { CreateWorkspaceInput, PaneType, WorkspaceDensity, WorkspaceLayout, WorkspaceLayoutPreset, WorkspaceThemeId } from '../../../shared/types/workspace'
 
-const LAYOUTS = new Set<WorkspaceLayout>(['1x1', '1x2', '2x1', '2x2', '3x4', '4x4'])
+const LAYOUTS = new Set<WorkspaceLayout>(['1x1', '1x2', '2x1', '2x2', '2x3', '2x4', '2x5', '2x7', '3x4', '4x4'])
+const LAYOUT_PRESETS = new Set<WorkspaceLayoutPreset>([1, 2, 4, 6, 8, 10, 12, 14, 16])
+const THEMES = new Set<WorkspaceThemeId>(['midnight', 'nord', 'dracula', 'ocean', 'monokai', 'amber'])
+const DENSITIES = new Set<WorkspaceDensity>(['compact', 'comfortable'])
 const TASK_COLUMNS = new Set<TaskColumn>(['backlog', 'ready', 'running', 'review', 'done'])
 const TASK_STATUSES = new Set<TaskRunStatus>(['idle', 'running', 'verifying', 'passed', 'failed'])
 const PANE_TYPES = new Set<PaneType>(['terminal', 'tasks', 'editor', 'swarm', 'inspector'])
@@ -26,7 +30,8 @@ const PANE_TYPES = new Set<PaneType>(['terminal', 'tasks', 'editor', 'swarm', 'i
 export function parseWorkspaceCreateInput(value: unknown): CreateWorkspaceInput {
   const input = expectRecord(value, 'workspace:create input')
   const rootPath = expectNonEmptyString(input.rootPath, 'rootPath')
-  const layout = expectLayout(input.layout)
+  const layout = input.layout === undefined ? undefined : expectLayout(input.layout)
+  const layoutPreset = input.layoutPreset === undefined ? undefined : expectLayoutPreset(input.layoutPreset)
   const defaultShellProfileId =
     input.defaultShellProfileId === undefined ? undefined : expectNonEmptyString(input.defaultShellProfileId, 'defaultShellProfileId')
   const name = input.name === undefined ? undefined : expectNonEmptyString(input.name, 'name')
@@ -34,8 +39,11 @@ export function parseWorkspaceCreateInput(value: unknown): CreateWorkspaceInput 
   return {
     rootPath,
     layout,
+    layoutPreset,
     defaultShellProfileId,
     name,
+    themeId: input.themeId === undefined ? undefined : expectTheme(input.themeId),
+    uiDensity: input.uiDensity === undefined ? undefined : expectDensity(input.uiDensity),
     autoStart: input.autoStart === true
   }
 }
@@ -99,6 +107,18 @@ export function parseUpdateWorkspaceEditorStateInput(value: unknown): UpdateWork
     editorVisible: input.editorVisible === undefined ? undefined : expectBoolean(input.editorVisible, 'editorVisible'),
     editorExpanded: input.editorExpanded === undefined ? undefined : expectBoolean(input.editorExpanded, 'editorExpanded'),
     editorWidthPercent: input.editorWidthPercent === undefined ? undefined : expectEditorWidth(input.editorWidthPercent)
+  }
+}
+
+export function parseUpdateWorkspaceSettingsInput(value: unknown): UpdateWorkspaceSettingsInput {
+  const input = expectRecord(value, 'workspace:update-settings input')
+  return {
+    workspaceId: expectNonEmptyString(input.workspaceId, 'workspaceId'),
+    themeId: input.themeId === undefined ? undefined : expectTheme(input.themeId),
+    uiDensity: input.uiDensity === undefined ? undefined : expectDensity(input.uiDensity),
+    defaultShellProfileId: input.defaultShellProfileId === undefined ? undefined : expectNonEmptyString(input.defaultShellProfileId, 'defaultShellProfileId'),
+    layoutPreset: input.layoutPreset === undefined ? undefined : expectLayoutPreset(input.layoutPreset),
+    applyShellToIdlePanes: input.applyShellToIdlePanes === undefined ? undefined : expectBoolean(input.applyShellToIdlePanes, 'applyShellToIdlePanes')
   }
 }
 
@@ -212,9 +232,30 @@ function expectDirection(value: unknown): 'vertical' | 'horizontal' {
 
 function expectLayout(value: unknown): WorkspaceLayout {
   if (typeof value !== 'string' || !LAYOUTS.has(value as WorkspaceLayout)) {
-    throw new Error('layout must be one of 1x1, 1x2, 2x2, 3x4, 4x4')
+    throw new Error('layout must be a supported workspace grid')
   }
   return value as WorkspaceLayout
+}
+
+function expectLayoutPreset(value: unknown): WorkspaceLayoutPreset {
+  if (!Number.isInteger(value) || !LAYOUT_PRESETS.has(Number(value) as WorkspaceLayoutPreset)) {
+    throw new Error('layoutPreset must be one of 1, 2, 4, 6, 8, 10, 12, 14, 16')
+  }
+  return Number(value) as WorkspaceLayoutPreset
+}
+
+function expectTheme(value: unknown): WorkspaceThemeId {
+  if (typeof value !== 'string' || !THEMES.has(value as WorkspaceThemeId)) {
+    throw new Error('themeId must be one of midnight, nord, dracula, ocean, monokai, amber')
+  }
+  return value as WorkspaceThemeId
+}
+
+function expectDensity(value: unknown): WorkspaceDensity {
+  if (typeof value !== 'string' || !DENSITIES.has(value as WorkspaceDensity)) {
+    throw new Error('uiDensity must be compact or comfortable')
+  }
+  return value as WorkspaceDensity
 }
 
 function expectTaskColumn(value: unknown): TaskColumn {

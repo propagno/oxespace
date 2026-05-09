@@ -10,7 +10,7 @@ import { registerTerminalIpc } from './ipc/terminal.ipc'
 import { registerWorkspaceIpc } from './ipc/workspace.ipc'
 import { TerminalManager } from './services/terminal.service'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
-import type { ShellProfile, Workspace, WorkspaceLayout } from '../../shared/types/workspace'
+import type { ShellProfile, Workspace, WorkspaceLayout, WorkspaceLayoutPreset } from '../../shared/types/workspace'
 
 log.initialize()
 
@@ -116,18 +116,22 @@ function registerE2eMockIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.workspace.list, () => workspaces)
   ipcMain.handle(IPC_CHANNELS.workspace.shellProfiles, () => shellProfiles)
-  ipcMain.handle(IPC_CHANNELS.workspace.create, (_event: IpcMainInvokeEvent, input: { rootPath: string; layout: WorkspaceLayout; defaultShellProfileId?: string; autoStart?: boolean }) => {
+  ipcMain.handle(IPC_CHANNELS.workspace.create, (_event: IpcMainInvokeEvent, input: { rootPath: string; layout?: WorkspaceLayout; layoutPreset?: WorkspaceLayoutPreset; defaultShellProfileId?: string; autoStart?: boolean }) => {
+    const layout = input.layout ?? presetToLayout(input.layoutPreset ?? 4)
     const workspace: Workspace = {
       id: randomUUID(),
       name: input.rootPath.replaceAll('\\', '/').split('/').filter(Boolean).at(-1) ?? 'workspace',
       rootPath: input.rootPath,
-      layout: input.layout,
+      layout,
+      layoutPreset: input.layoutPreset ?? layoutToPreset(layout),
+      themeId: 'midnight',
+      uiDensity: 'compact',
       defaultShellProfileId: input.defaultShellProfileId ?? 'builtin-claude',
       autoStart: input.autoStart !== false,
       isActive: true,
       panes: []
     }
-    workspace.panes = createMockPanes(workspace.id, input.layout)
+    workspace.panes = createMockPanes(workspace.id, layout)
 
     for (const item of workspaces) item.isActive = false
     workspaces.unshift(workspace)
@@ -163,6 +167,19 @@ function registerE2eMockIpcHandlers(): void {
       }
     }
     throw new Error(`Pane ${input.paneId} not found`)
+  })
+  ipcMain.handle(IPC_CHANNELS.workspace.updateSettings, (_event: IpcMainInvokeEvent, input: { workspaceId: string; themeId?: Workspace['themeId']; uiDensity?: Workspace['uiDensity']; defaultShellProfileId?: string; layoutPreset?: WorkspaceLayoutPreset }) => {
+    const workspace = workspaces.find((item) => item.id === input.workspaceId)
+    if (!workspace) throw new Error(`Workspace ${input.workspaceId} not found`)
+    workspace.themeId = input.themeId ?? workspace.themeId
+    workspace.uiDensity = input.uiDensity ?? workspace.uiDensity
+    workspace.defaultShellProfileId = input.defaultShellProfileId ?? workspace.defaultShellProfileId
+    if (input.layoutPreset) {
+      workspace.layoutPreset = input.layoutPreset
+      workspace.layout = presetToLayout(input.layoutPreset)
+      workspace.panes = createMockPanes(workspace.id, workspace.layout)
+    }
+    return workspace
   })
   ipcMain.handle(IPC_CHANNELS.workspace.pickFolder, () => null)
   ipcMain.handle(IPC_CHANNELS.terminal.start, (_event: IpcMainInvokeEvent, input: { paneId: string }) => {
@@ -220,6 +237,36 @@ function createMockPanes(workspaceId: string, layout: WorkspaceLayout): Workspac
       status: 'idle'
     }
   })
+}
+
+function presetToLayout(preset: WorkspaceLayoutPreset): WorkspaceLayout {
+  const layouts: Record<WorkspaceLayoutPreset, WorkspaceLayout> = {
+    1: '1x1',
+    2: '1x2',
+    4: '2x2',
+    6: '2x3',
+    8: '2x4',
+    10: '2x5',
+    12: '3x4',
+    14: '2x7',
+    16: '4x4'
+  }
+  return layouts[preset]
+}
+
+function layoutToPreset(layout: WorkspaceLayout): WorkspaceLayoutPreset {
+  const preset = Object.entries({
+    1: '1x1',
+    2: '1x2',
+    4: '2x2',
+    6: '2x3',
+    8: '2x4',
+    10: '2x5',
+    12: '3x4',
+    14: '2x7',
+    16: '4x4'
+  }).find(([, value]) => value === layout)?.[0]
+  return (Number(preset ?? 4) as WorkspaceLayoutPreset)
 }
 
 function toMessage(error: unknown): string {

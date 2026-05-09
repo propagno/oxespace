@@ -1,16 +1,17 @@
 import { FolderOpen, X } from 'lucide-react'
 import { type FormEvent, type ReactElement, useMemo, useState } from 'react'
-import type { ShellProfile, WorkspaceLayout } from '../../../shared/types/workspace'
-
-const LAYOUTS: WorkspaceLayout[] = ['1x1', '1x2', '2x2', '3x4', '4x4']
+import type { ShellProfile, WorkspaceDensity, WorkspaceLayoutPreset, WorkspaceThemeId } from '../../../shared/types/workspace'
+import { LAYOUT_PRESETS, WORKSPACE_DENSITIES, WORKSPACE_TEMPLATES, WORKSPACE_THEMES } from './workspaceOptions'
 
 interface NewWorkspaceModalProps {
   shellProfiles: ShellProfile[]
   onCreate: (input: {
     rootPath: string
-    layout: WorkspaceLayout
+    layoutPreset: WorkspaceLayoutPreset
     defaultShellProfileId?: string
     autoStart: boolean
+    themeId: WorkspaceThemeId
+    uiDensity: WorkspaceDensity
   }) => Promise<unknown>
   onPickFolder: () => Promise<string | null>
   onClose: () => void
@@ -19,7 +20,9 @@ interface NewWorkspaceModalProps {
 export function NewWorkspaceModal({ shellProfiles, onCreate, onClose, onPickFolder }: NewWorkspaceModalProps): ReactElement {
   const defaultShell = shellProfiles[0]?.id
   const [rootPath, setRootPath] = useState('')
-  const [layout, setLayout] = useState<WorkspaceLayout>('2x2')
+  const [layoutPreset, setLayoutPreset] = useState<WorkspaceLayoutPreset>(4)
+  const [themeId, setThemeId] = useState<WorkspaceThemeId>('midnight')
+  const [uiDensity, setUiDensity] = useState<WorkspaceDensity>('compact')
   const [shellProfileId, setShellProfileId] = useState(defaultShell ?? '')
   const [isSubmitting, setSubmitting] = useState(false)
   const [isPickingFolder, setPickingFolder] = useState(false)
@@ -35,8 +38,10 @@ export function NewWorkspaceModal({ shellProfiles, onCreate, onClose, onPickFold
     try {
       await onCreate({
         rootPath: rootPath.trim(),
-        layout,
+        layoutPreset,
         defaultShellProfileId: shellProfileId || undefined,
+        themeId,
+        uiDensity,
         autoStart: true
       })
       onClose()
@@ -93,20 +98,63 @@ export function NewWorkspaceModal({ shellProfiles, onCreate, onClose, onPickFold
           </label>
 
           <label className="field">
+            <span>Template</span>
+            <div className="workspace-template-grid">
+              {WORKSPACE_TEMPLATES.map((template) => (
+                <button
+                  key={template.id}
+                  type="button"
+                  className={`workspace-template-card${layoutPreset === template.layoutPreset && themeId === template.themeId ? ' active' : ''}`}
+                  onClick={() => {
+                    setLayoutPreset(template.layoutPreset)
+                    setThemeId(template.themeId)
+                    setUiDensity(template.uiDensity)
+                  }}
+                >
+                  <strong>{template.label}</strong>
+                  <span>{template.description}</span>
+                </button>
+              ))}
+            </div>
+          </label>
+
+          <label className="field">
             <span>Layout</span>
-            <div className="segmented">
-              {LAYOUTS.map((item) => (
+            <div className="segmented segmented-wrap">
+              {LAYOUT_PRESETS.map((item) => (
                 <button
                   key={item}
                   type="button"
-                  className={layout === item ? 'segment segment-active' : 'segment'}
+                  className={layoutPreset === item ? 'segment segment-active' : 'segment'}
                   data-testid={`layout-${item}`}
-                  onClick={() => setLayout(item)}
+                  onClick={() => setLayoutPreset(item)}
                 >
                   {item}
                 </button>
               ))}
             </div>
+          </label>
+
+          <label className="field">
+            <span>Theme</span>
+            <select value={themeId} onChange={(event) => setThemeId(event.target.value as WorkspaceThemeId)}>
+              {WORKSPACE_THEMES.map((theme) => (
+                <option key={theme.id} value={theme.id}>
+                  {theme.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Density</span>
+            <select value={uiDensity} onChange={(event) => setUiDensity(event.target.value as WorkspaceDensity)}>
+              {WORKSPACE_DENSITIES.map((density) => (
+                <option key={density.id} value={density.id}>
+                  {density.label}
+                </option>
+              ))}
+            </select>
           </label>
 
           <label className="field">

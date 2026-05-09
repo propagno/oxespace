@@ -1,4 +1,5 @@
 import { useRef, type ReactElement } from 'react'
+import { Command, Settings2 } from 'lucide-react'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import type { Workspace } from '../../../shared/types/workspace'
 import { WorkspaceGrid } from '../Grid/WorkspaceGrid'
@@ -10,6 +11,9 @@ interface WorkspaceSurfaceProps {
   onClosePane?: (paneId: string) => void
   onToggleMaximize: (paneId: string) => void
   onSplitPane?: (paneId: string, direction: 'vertical' | 'horizontal') => void
+  onActivatePane?: (paneId: string) => void
+  onOpenCommandPalette: () => void
+  onOpenWorkspaceSettings: () => void
   onUpdateEditorState: (input: {
     workspaceId: string
     editorVisible?: boolean
@@ -23,6 +27,9 @@ const DEFAULT_EDITOR_WIDTH = 40
 export function WorkspaceSurface({
   maximizedPaneId,
   onClosePane,
+  onActivatePane,
+  onOpenCommandPalette,
+  onOpenWorkspaceSettings,
   onSplitPane,
   onToggleMaximize,
   onUpdateEditorState,
@@ -41,6 +48,7 @@ export function WorkspaceSurface({
       onClosePane={onClosePane}
       onToggleMaximize={onToggleMaximize}
       onSplitPane={onSplitPane}
+      onActivatePane={onActivatePane}
     />
   )
 
@@ -48,6 +56,12 @@ export function WorkspaceSurface({
     <header className="workspace-topbar" aria-label="Workspace tools">
       <div className="workspace-topbar-spacer" />
       <div className="workspace-toolbar-actions" aria-label="Workspace actions">
+        <button type="button" className="workspace-toolbar-icon-button" aria-label="Open command palette" title="Command palette" onClick={onOpenCommandPalette}>
+          <Command size={13} aria-hidden="true" />
+        </button>
+        <button type="button" className="workspace-toolbar-icon-button" aria-label="Open workspace settings" title="Workspace settings" onClick={onOpenWorkspaceSettings}>
+          <Settings2 size={13} aria-hidden="true" />
+        </button>
         <button
           type="button"
           className={`workspace-toolbar-button${editorVisible ? ' active' : ''}`}
