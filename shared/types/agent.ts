@@ -1,4 +1,4 @@
-export type AgentProvider = 'claude' | 'copilot' | 'gh-copilot' | 'codex' | 'gemini' | 'cursor' | 'custom'
+export type AgentProvider = 'claude' | 'copilot' | 'gh-copilot' | 'codex' | 'gemini' | 'cursor' | 'oxe' | 'custom'
 
 export interface AgentProfile {
   agentProfileId: string
@@ -9,6 +9,8 @@ export interface AgentProfile {
   model?: string
   role?: string
   isBuiltin: boolean
+  systemPrompt?: string
+  parentProvider?: AgentProvider
 }
 
 export interface AgentReadiness {
@@ -26,6 +28,8 @@ export interface CreateAgentProfileInput {
   commandTemplate: string
   model?: string
   role?: string
+  systemPrompt?: string
+  parentProvider?: AgentProvider
 }
 
 export type UpdateAgentProfileInput = Partial<Omit<CreateAgentProfileInput, 'provider'>>

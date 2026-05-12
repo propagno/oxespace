@@ -6,7 +6,7 @@ export type WorkspaceThemeId = 'midnight' | 'nord' | 'dracula' | 'ocean' | 'mono
 
 export type WorkspaceDensity = 'compact' | 'comfortable'
 
-export type PaneType = 'terminal' | 'tasks' | 'editor' | 'swarm' | 'inspector'
+export type PaneType = 'terminal' | 'tasks' | 'editor' | 'swarm' | 'inspector' | 'graph' | 'review'
 
 export type PaneStatus = 'idle' | 'running' | 'exited'
 
@@ -26,6 +26,15 @@ export interface WorkspacePane {
   columnIndex: number
   shellProfileId: string | null
   status: PaneStatus
+  agentProfileId: string | null
+  agentName: string | null
+  displayName: string | null
+}
+
+export interface PaneAgentBinding {
+  paneIndex: number
+  agentProfileId: string
+  agentName: string
 }
 
 export interface Workspace {
@@ -42,6 +51,15 @@ export interface Workspace {
   editorVisible?: boolean
   editorExpanded?: boolean
   editorWidthPercent?: number
+  oxePanelVisible?: boolean
+  oxePanelExpanded?: boolean
+  oxePanelWidthPercent?: number
+  agentsPanelVisible?: boolean
+  agentsPanelExpanded?: boolean
+  agentsPanelWidthPercent?: number
+  reviewPanelVisible?: boolean
+  reviewPanelExpanded?: boolean
+  reviewPanelWidthPercent?: number
   panes: WorkspacePane[]
 }
 
@@ -54,6 +72,7 @@ export interface CreateWorkspaceInput {
   name?: string
   themeId?: WorkspaceThemeId
   uiDensity?: WorkspaceDensity
+  agentBindings?: PaneAgentBinding[]
 }
 
 export interface UpdateWorkspaceEditorStateInput {
@@ -61,6 +80,27 @@ export interface UpdateWorkspaceEditorStateInput {
   editorVisible?: boolean
   editorExpanded?: boolean
   editorWidthPercent?: number
+}
+
+export interface UpdateWorkspaceOxeStateInput {
+  workspaceId: string
+  oxePanelVisible?: boolean
+  oxePanelExpanded?: boolean
+  oxePanelWidthPercent?: number
+}
+
+export interface UpdateWorkspaceAgentsStateInput {
+  workspaceId: string
+  agentsPanelVisible?: boolean
+  agentsPanelExpanded?: boolean
+  agentsPanelWidthPercent?: number
+}
+
+export interface UpdateWorkspaceReviewStateInput {
+  workspaceId: string
+  reviewPanelVisible?: boolean
+  reviewPanelExpanded?: boolean
+  reviewPanelWidthPercent?: number
 }
 
 export interface UpdateWorkspaceSettingsInput {

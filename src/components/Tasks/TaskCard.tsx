@@ -1,6 +1,7 @@
 import type { DragEvent, ReactElement } from 'react'
-import { CheckCircle2, FilePenLine, Play, ShieldCheck, Trash2 } from 'lucide-react'
+import { CheckCircle2, FilePenLine, MessageSquareText, Play, ShieldCheck, Trash2, UsersRound } from 'lucide-react'
 import type { Task } from '../../../shared/types/task'
+import { useAgentWorkflowStore } from '../../store/agent-workflow.store'
 import { useTasksStore } from '../../store/tasks.store'
 
 interface TaskCardProps {
@@ -14,6 +15,8 @@ export function TaskCard({ onDropTask, onEdit, task }: TaskCardProps): ReactElem
   const runTask = useTasksStore((state) => state.runTask)
   const verifyTask = useTasksStore((state) => state.verifyTask)
   const verifyOutput = useTasksStore((state) => state.verifyOutputByTask[task.id] ?? '')
+  const createTaskRun = useAgentWorkflowStore((state) => state.createTaskRun)
+  const prepareStep = useAgentWorkflowStore((state) => state.prepareStep)
 
   const handleDragStart = (event: DragEvent<HTMLElement>): void => {
     event.dataTransfer.setData('text/task-id', task.id)
@@ -55,6 +58,18 @@ export function TaskCard({ onDropTask, onEdit, task }: TaskCardProps): ReactElem
       <footer className="task-card-actions">
         <button type="button" title="Run" onClick={handleRun}>
           <Play size={12} />
+        </button>
+        <button type="button" title="Create Multi-Agent Run" onClick={() => void createTaskRun(task)}>
+          <UsersRound size={12} />
+        </button>
+        <button type="button" title="Ask Rubber Duck" onClick={() => void createTaskRun(task).then((details) => prepareStep({ runId: details.run.id, role: 'rubber_duck' }))}>
+          <MessageSquareText size={12} />
+        </button>
+        <button type="button" title="Plan with Agent" onClick={() => void createTaskRun(task).then((details) => prepareStep({ runId: details.run.id, role: 'planner' }))}>
+          <FilePenLine size={12} />
+        </button>
+        <button type="button" title="Review Task" onClick={() => void createTaskRun(task).then((details) => prepareStep({ runId: details.run.id, role: 'reviewer' }))}>
+          <ShieldCheck size={12} />
         </button>
         <button type="button" title="Verify" disabled={!task.verifyCommand} onClick={handleVerify}>
           {task.runStatus === 'passed' ? <CheckCircle2 size={12} /> : <ShieldCheck size={12} />}

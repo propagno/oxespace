@@ -2,9 +2,14 @@ import { describe, expect, test } from 'vitest'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
 import {
   parseTaskReorderInput,
+  parseOxeWorkspaceInput,
+  parsePrepareAgentWorkflowStepInput,
   parseTerminalResizeInput,
   parseTerminalWriteInput,
+  parseUpdateWorkspaceAgentsStateInput,
+  parseUpdateWorkspaceAgentRoleBindingsInput,
   parseUpdateWorkspaceEditorStateInput,
+  parseUpdateWorkspaceOxeStateInput,
   parseUpdateWorkspaceSettingsInput,
   parseWorkspaceCreateInput
 } from '../../electron/main/ipc/validation'
@@ -16,6 +21,9 @@ describe('ipc contracts', () => {
     expect(IPC_CHANNELS.workspace.closePane).toBe('workspace:close-pane')
     expect(IPC_CHANNELS.workspace.updatePaneType).toBe('workspace:update-pane-type')
     expect(IPC_CHANNELS.workspace.updateEditorState).toBe('workspace:update-editor-state')
+    expect(IPC_CHANNELS.workspace.updateOxeState).toBe('workspace:update-oxe-state')
+    expect(IPC_CHANNELS.workspace.updateAgentsState).toBe('workspace:update-agents-state')
+    expect(IPC_CHANNELS.workspace.updateReviewState).toBe('workspace:update-review-state')
     expect(IPC_CHANNELS.workspace.updateSettings).toBe('workspace:update-settings')
     expect(IPC_CHANNELS.workspace.pickFolder).toBe('workspace:pick-folder')
     expect(IPC_CHANNELS.terminal.write).toBe('terminal:write')
@@ -29,6 +37,18 @@ describe('ipc contracts', () => {
     expect(IPC_CHANNELS.agent.delete).toBe('agent:delete')
     expect(IPC_CHANNELS.agent.discover).toBe('agent:discover')
     expect(IPC_CHANNELS.agent.getReadiness).toBe('agent:get-readiness')
+  })
+
+  test('uses stable agent workflow channel names', () => {
+    expect(IPC_CHANNELS.agentWorkflow.listRuns).toBe('agent-workflow:list-runs')
+    expect(IPC_CHANNELS.agentWorkflow.createRun).toBe('agent-workflow:create-run')
+    expect(IPC_CHANNELS.agentWorkflow.getRun).toBe('agent-workflow:get-run')
+    expect(IPC_CHANNELS.agentWorkflow.updateRoleBindings).toBe('agent-workflow:update-role-bindings')
+    expect(IPC_CHANNELS.agentWorkflow.getRoleBindings).toBe('agent-workflow:get-role-bindings')
+    expect(IPC_CHANNELS.agentWorkflow.prepareStep).toBe('agent-workflow:prepare-step')
+    expect(IPC_CHANNELS.agentWorkflow.runStep).toBe('agent-workflow:run-step')
+    expect(IPC_CHANNELS.agentWorkflow.completeManualStep).toBe('agent-workflow:complete-manual-step')
+    expect(IPC_CHANNELS.agentWorkflow.appendArtifact).toBe('agent-workflow:append-artifact')
   })
 
   test('uses stable tasks channel names', () => {
@@ -50,6 +70,15 @@ describe('ipc contracts', () => {
     expect(IPC_CHANNELS.fs.watchFile).toBe('fs:watch-file')
     expect(IPC_CHANNELS.fs.unwatchFile).toBe('fs:unwatch-file')
     expect(IPC_CHANNELS.fs.onFileChanged).toBe('fs:file-changed')
+  })
+
+  test('uses stable OXE channel names', () => {
+    expect(IPC_CHANNELS.oxe.getStatus).toBe('oxe:get-status')
+    expect(IPC_CHANNELS.oxe.getStatusJson).toBe('oxe:get-status-json')
+    expect(IPC_CHANNELS.oxe.listArtifacts).toBe('oxe:list-artifacts')
+    expect(IPC_CHANNELS.oxe.listArtifactsRich).toBe('oxe:list-artifacts-rich')
+    expect(IPC_CHANNELS.oxe.getFreshness).toBe('oxe:get-freshness')
+    expect(IPC_CHANNELS.oxe.onWorkspaceDrift).toBe('oxe:workspace-drift')
   })
 
   test('validates workspace create payloads', () => {
@@ -96,6 +125,38 @@ describe('ipc contracts', () => {
     expect(() => parseUpdateWorkspaceEditorStateInput({ workspaceId: 'workspace-1', editorWidthPercent: 90 })).toThrow('editorWidthPercent')
   })
 
+  test('validates workspace OXE state payloads', () => {
+    expect(parseUpdateWorkspaceOxeStateInput({ workspaceId: 'workspace-1', oxePanelVisible: true, oxePanelWidthPercent: 40 })).toEqual({
+      workspaceId: 'workspace-1',
+      oxePanelVisible: true,
+      oxePanelExpanded: undefined,
+      oxePanelWidthPercent: 40
+    })
+    expect(() => parseUpdateWorkspaceOxeStateInput({ workspaceId: 'workspace-1', oxePanelWidthPercent: 90 })).toThrow('editorWidthPercent')
+  })
+
+  test('validates workspace Agents state payloads', () => {
+    expect(parseUpdateWorkspaceAgentsStateInput({ workspaceId: 'workspace-1', agentsPanelVisible: true, agentsPanelWidthPercent: 40 })).toEqual({
+      workspaceId: 'workspace-1',
+      agentsPanelVisible: true,
+      agentsPanelExpanded: undefined,
+      agentsPanelWidthPercent: 40
+    })
+    expect(() => parseUpdateWorkspaceAgentsStateInput({ workspaceId: 'workspace-1', agentsPanelWidthPercent: 90 })).toThrow('editorWidthPercent')
+  })
+
+  test('validates agent workflow payloads', () => {
+    expect(parsePrepareAgentWorkflowStepInput({ runId: 'run-1', role: 'rubber_duck' })).toEqual({
+      runId: 'run-1',
+      role: 'rubber_duck'
+    })
+    expect(parseUpdateWorkspaceAgentRoleBindingsInput({ workspaceId: 'workspace-1', bindings: [{ role: 'planner', enabled: true }] })).toEqual({
+      workspaceId: 'workspace-1',
+      bindings: [{ role: 'planner', agentProfileId: null, shellProfileId: null, model: null, enabled: true }]
+    })
+    expect(() => parsePrepareAgentWorkflowStepInput({ runId: 'run-1', role: 'bad' })).toThrow('role')
+  })
+
   test('validates workspace settings payloads', () => {
     expect(parseUpdateWorkspaceSettingsInput({ workspaceId: 'workspace-1', themeId: 'amber', uiDensity: 'comfortable', layoutPreset: 10 })).toEqual({
       workspaceId: 'workspace-1',
@@ -116,5 +177,13 @@ describe('ipc contracts', () => {
       orderedIds: ['a', 'b']
     })
     expect(() => parseTaskReorderInput({ workspaceId: 'workspace-1', column: 'later', orderedIds: [] })).toThrow('column')
+  })
+
+  test('validates OXE workspace payloads', () => {
+    expect(parseOxeWorkspaceInput({ workspaceId: 'workspace-1', rootPath: 'C:/repo' })).toEqual({
+      workspaceId: 'workspace-1',
+      rootPath: 'C:/repo'
+    })
+    expect(() => parseOxeWorkspaceInput({ workspaceId: '', rootPath: 'C:/repo' })).toThrow('workspaceId')
   })
 })

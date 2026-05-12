@@ -7,13 +7,14 @@ import { PaneContainer } from './PaneContainer'
 interface WorkspaceGridProps {
   workspace: Workspace
   maximizedPaneId: string | null
+  activePaneId?: string | null
   onClosePane?: (paneId: string) => void
   onToggleMaximize: (paneId: string) => void
   onSplitPane?: (paneId: string, direction: 'vertical' | 'horizontal') => void
   onActivatePane?: (paneId: string) => void
 }
 
-export function WorkspaceGrid({ maximizedPaneId, onActivatePane, onClosePane, onSplitPane, onToggleMaximize, workspace }: WorkspaceGridProps): ReactElement {
+export function WorkspaceGrid({ activePaneId, maximizedPaneId, onActivatePane, onClosePane, onSplitPane, onToggleMaximize, workspace }: WorkspaceGridProps): ReactElement {
   const maximizedPane = maximizedPaneId ? workspace.panes.find((pane) => pane.id === maximizedPaneId) : null
 
   if (maximizedPane) {
@@ -24,6 +25,7 @@ export function WorkspaceGrid({ maximizedPaneId, onActivatePane, onClosePane, on
           workspaceId={workspace.id}
           autoStart={workspace.autoStart}
           isMaximized
+          isActive={maximizedPane.id === activePaneId}
           onClose={onClosePane}
           onToggleMaximize={onToggleMaximize}
           onActivate={onActivatePane}
@@ -54,6 +56,7 @@ export function WorkspaceGrid({ maximizedPaneId, onActivatePane, onClosePane, on
                             workspaceId={workspace.id}
                             autoStart={workspace.autoStart}
                             isMaximized={false}
+                            isActive={pane.id === activePaneId}
                             onClose={onClosePane}
                             onToggleMaximize={onToggleMaximize}
                             onActivate={onActivatePane}

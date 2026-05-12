@@ -3,7 +3,7 @@ import type { AppDatabase } from '../db/index'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import { ShellProfileService } from '../services/shell-profile.service'
 import { WorkspaceService } from '../services/workspace.service'
-import { parseId, parseSplitPaneInput, parseUpdatePaneTypeInput, parseUpdateWorkspaceEditorStateInput, parseUpdateWorkspaceSettingsInput, parseWorkspaceCreateInput } from './validation'
+import { parseId, parseSplitPaneInput, parseUpdatePaneNameInput, parseUpdatePaneTypeInput, parseUpdateWorkspaceAgentsStateInput, parseUpdateWorkspaceEditorStateInput, parseUpdateWorkspaceOxeStateInput, parseUpdateWorkspaceReviewStateInput, parseUpdateWorkspaceSettingsInput, parseWorkspaceCreateInput } from './validation'
 
 interface WorkspaceLifecycleController {
   stop(input: { paneId: string }): Promise<void> | void
@@ -38,8 +38,21 @@ export function registerWorkspaceIpc(db: AppDatabase, lifecycle?: WorkspaceLifec
     if (type !== 'terminal') lifecycle?.stop({ paneId })
     return workspaceService.updatePaneType(paneId, type)
   })
+  ipcMain.handle(IPC_CHANNELS.workspace.updatePaneName, (_event, input: unknown) => {
+    const { paneId, displayName } = parseUpdatePaneNameInput(input)
+    return workspaceService.updatePaneName(paneId, displayName)
+  })
   ipcMain.handle(IPC_CHANNELS.workspace.updateEditorState, (_event, input: unknown) =>
     workspaceService.updateEditorState(parseUpdateWorkspaceEditorStateInput(input))
+  )
+  ipcMain.handle(IPC_CHANNELS.workspace.updateOxeState, (_event, input: unknown) =>
+    workspaceService.updateOxeState(parseUpdateWorkspaceOxeStateInput(input))
+  )
+  ipcMain.handle(IPC_CHANNELS.workspace.updateAgentsState, (_event, input: unknown) =>
+    workspaceService.updateAgentsState(parseUpdateWorkspaceAgentsStateInput(input))
+  )
+  ipcMain.handle(IPC_CHANNELS.workspace.updateReviewState, (_event, input: unknown) =>
+    workspaceService.updateReviewState(parseUpdateWorkspaceReviewStateInput(input))
   )
   ipcMain.handle(IPC_CHANNELS.workspace.updateSettings, (_event, input: unknown) =>
     workspaceService.updateSettings(parseUpdateWorkspaceSettingsInput(input))

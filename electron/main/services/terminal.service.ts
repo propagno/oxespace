@@ -24,6 +24,7 @@ interface TerminalSession {
   paneId: string
   workspaceId: string
   pty: IPty
+  agentCommand?: string
 }
 
 export class TerminalManager {
@@ -64,9 +65,14 @@ export class TerminalManager {
       throw new Error(`Shell profile ${pane.shellProfileId ?? workspace.defaultShellProfileId} not found`)
     }
 
+    const executable = input.agentCommand
+      ? resolveExecutable(input.agentCommand, this.env, this.platform)
+      : resolveExecutable(shellProfile.executable, this.env, this.platform)
+    const args = input.agentCommand ? [] : shellProfile.args
+
     let ptyProcess: IPty
     try {
-      ptyProcess = this.pty.spawn(resolveExecutable(shellProfile.executable, this.env, this.platform), shellProfile.args, {
+      ptyProcess = this.pty.spawn(executable, args, {
         name: 'xterm-256color',
         cwd: workspace.rootPath,
         cols: 80,
@@ -74,7 +80,10 @@ export class TerminalManager {
         env: this.env
       })
     } catch (error) {
-      throw new Error(`Unable to start ${shellProfile.name}. Check Settings > Agents command "${shellProfile.executable}". ${toMessage(error)}`)
+      if (input.agentCommand) {
+        throw new Error(`Unable to start agent "${input.agentCommand}". ${toMessage(error)}`)
+      }
+      throw new Error(`Unable to start ${shellProfile.name}. Check Settings > Shell profiles executable "${shellProfile.executable}". ${toMessage(error)}`)
     }
 
     ptyProcess.onData((data) => this.emitData({ paneId: input.paneId, data }))
@@ -83,10 +92,24 @@ export class TerminalManager {
       this.emitExit({ paneId: input.paneId, exitCode })
     })
 
+    if (input.initialPrompt) {
+      let sent = false
+      ptyProcess.onData(() => {
+        if (sent) return
+        sent = true
+        setTimeout(() => {
+          if (this.sessions.has(input.paneId)) {
+            ptyProcess.write(input.initialPrompt! + '\r')
+          }
+        }, 800)
+      })
+    }
+
     this.sessions.set(input.paneId, {
       paneId: input.paneId,
       workspaceId: input.workspaceId,
-      pty: ptyProcess
+      pty: ptyProcess,
+      agentCommand: input.agentCommand
     })
   }
 
@@ -109,7 +132,7 @@ export class TerminalManager {
     const session = this.sessions.get(input.paneId)
     if (!session) return
     this.stop(input)
-    this.start({ paneId: input.paneId, workspaceId: session.workspaceId })
+    this.start({ paneId: input.paneId, workspaceId: session.workspaceId, agentCommand: session.agentCommand })
   }
 
   stopWorkspace(workspaceId: string): void {

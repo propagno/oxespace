@@ -1,10 +1,23 @@
+import { cpSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [
+      externalizeDepsPlugin(),
+      {
+        name: 'copy-db-migrations',
+        closeBundle() {
+          cpSync(
+            resolve(__dirname, 'electron/main/db/migrations'),
+            resolve(__dirname, 'out/main/migrations'),
+            { recursive: true }
+          )
+        }
+      }
+    ],
     build: {
       rollupOptions: {
         external: ['better-sqlite3', 'node-pty'],

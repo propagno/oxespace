@@ -65,6 +65,41 @@ export function runMigrations(db: AppDatabase): void {
 
   if (currentVersion < 7) {
     db.exec(readMigration('007_workspace_customization.sql'))
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
+
+  if (currentVersion < 8) {
+    db.exec(readMigration('008_workspace_oxe_state.sql'))
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
+
+  if (currentVersion < 9) {
+    db.exec(readMigration('009_agent_workflows.sql'))
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
+
+  if (currentVersion < 10) {
+    db.exec(readMigration('010_copilot_shell_profile.sql'))
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
+
+  if (currentVersion < 11) {
+    db.exec(readMigration('011_pane_agent.sql'))
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
+
+  if (currentVersion < 12) {
+    db.exec(readMigration('012_pane_display_name.sql'))
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
+
+  if (currentVersion < 13) {
+    db.exec(readMigration('013_workspace_review_state.sql'))
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
+
+  if (currentVersion < 14) {
+    db.exec(readMigration('014_agent_skills.sql'))
   }
 }
 

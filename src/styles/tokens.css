@@ -1,0 +1,185 @@
+/* ─── Design tokens ──────────────────────────────────────────────────────── */
+:root {
+  /* Backgrounds */
+  --bg-app:           #000;
+  --bg-sidebar:       #050505;
+  --bg-elevated:      #121212;
+  --bg-tile:          #000;
+  --bg-tile-header:   #171717;
+  --bg-tile-agent:    #000;
+  --bg-tile-content:  #000;
+  --bg-statusbar:     #070707;
+  --bg-ws-active:     #061f16;
+  --bg-ws-hover:      #0d0d0d;
+  --bg-modal:         #0a111a;
+  --bg-input:         #020407;
+  --bg-segment:       #07111c;
+
+  /* Borders */
+  --bd-tile:          1px solid #161616;
+  --bd-divider:       #151515;
+  --bd-sidebar:       #141414;
+  --bd-ws-active:     #12c79a;
+  --bd-input:         rgba(99, 95, 255, 0.30);
+  --bd-input-focus:   rgba(129, 140, 248, 0.70);
+  --bd-subtle:        rgba(255, 255, 255, 0.06);
+  --bd-base:          rgba(255, 255, 255, 0.12);
+
+  /* Text */
+  --tx-primary:       #f1f5f9;
+  --tx-secondary:     #a8adb4;
+  --tx-muted:         #636b75;
+  --tx-label:         #6d737a;
+  --tx-agent-meta:    #858b94;
+
+  /* Status dots */
+  --dot-green:        #34d474;
+  --dot-orange:       #f97316;
+  --dot-yellow:       #fbbf24;
+  --dot-blue:         #60a5fa;
+  --dot-purple:       #c084fc;
+  --dot-gray:         #3b4260;
+  --dot-red:          #f87171;
+
+  /* Brand — OXESpace identity */
+  --brand:            #4f46e5;
+  --brand-light:      #818cf8;
+  --brand-lightest:   #c7d2fe;
+  --brand-dark:       #1e1b4b;
+  --brand-glow:       rgba(79, 70, 229, 0.35);
+
+  /* Provider icons */
+  --provider-claude:  #b5694a;
+  --provider-copilot: #238636;
+  --provider-gemini:  #1a73e8;
+  --provider-codex:   #10a37f;
+  --provider-cursor:  #6366f1;
+  --provider-oxe:     #4f46e5;
+  --provider-custom:  #475569;
+
+  /* Avatar palette */
+  --avatar-1: #2563eb;
+  --avatar-2: #7c3aed;
+  --avatar-3: #db2777;
+  --avatar-4: #d97706;
+  --avatar-5: #059669;
+  --avatar-6: #0891b2;
+
+  /* Pane active state */
+  --bg-pane-active-header: rgba(79, 70, 229, 0.08);
+  --bd-pane-active:        rgba(79, 70, 229, 0.40);
+  --glow-pane-active:      0 0 0 2px rgba(79, 70, 229, 0.25);
+
+  /* Badge / status surfaces */
+  --bg-badge-running:  rgba(52, 212, 116, 0.12);
+  --bg-badge-error:    rgba(248, 113, 113, 0.12);
+  --bg-badge-idle:     rgba(99, 107, 117, 0.12);
+
+  /* Accents */
+  --accent:           #4f46e5;
+  --accent-hover:     #818cf8;
+  --badge-bg:         #28190e;
+  --badge-text:       #fff;
+
+  /* Sizing */
+  --sidebar-w:        282px;
+  --sidebar-w-collapsed: 48px;
+  --tile-header-h:    40px;
+  --tile-agent-h:     80px;
+  --tile-statusbar-h: 28px;
+  --ws-item-h:        40px;
+
+  /* Fonts */
+  --font-ui:   'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+
+  color: var(--tx-primary);
+  background: var(--bg-app);
+  font-family: var(--font-ui);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+:root[data-theme='nord'] {
+  --bg-app: #0b1119;
+  --bg-sidebar: #101722;
+  --bg-elevated: #182230;
+  --bg-tile-content: #0b1119;
+  --bd-divider: #223044;
+  --bd-sidebar: #253449;
+  --tx-primary: #eceff4;
+  --tx-secondary: #c4cfdf;
+  --tx-muted: #7f8da3;
+  --accent: #88c0d0;
+  --accent-hover: #8fbcbb;
+  --bd-ws-active: #88c0d0;
+}
+
+:root[data-theme='dracula'] {
+  --bg-app: #151320;
+  --bg-sidebar: #1d1a2b;
+  --bg-elevated: #282a36;
+  --bg-tile-content: #151320;
+  --bd-divider: #383a59;
+  --bd-sidebar: #34364f;
+  --tx-primary: #f8f8f2;
+  --tx-secondary: #cfc7f8;
+  --tx-muted: #807996;
+  --accent: #bd93f9;
+  --accent-hover: #ff79c6;
+  --bd-ws-active: #bd93f9;
+}
+
+:root[data-theme='ocean'] {
+  --bg-app: #001318;
+  --bg-sidebar: #031f26;
+  --bg-elevated: #082b33;
+  --bg-tile-content: #001318;
+  --bd-divider: #12414d;
+  --bd-sidebar: #103943;
+  --tx-primary: #e6fbff;
+  --tx-secondary: #98dce8;
+  --tx-muted: #5b8c96;
+  --accent: #22d3ee;
+  --accent-hover: #67e8f9;
+  --bd-ws-active: #22d3ee;
+}
+
+:root[data-theme='monokai'] {
+  --bg-app: #11110d;
+  --bg-sidebar: #17170f;
+  --bg-elevated: #24251a;
+  --bg-tile-content: #11110d;
+  --bd-divider: #343522;
+  --bd-sidebar: #2b2c1c;
+  --tx-primary: #f8f8f2;
+  --tx-secondary: #d6d7b8;
+  --tx-muted: #8b8c6b;
+  --accent: #a6e22e;
+  --accent-hover: #f4bf75;
+  --bd-ws-active: #a6e22e;
+}
+
+:root[data-theme='amber'] {
+  --bg-app: #130d05;
+  --bg-sidebar: #1a1107;
+  --bg-elevated: #27190a;
+  --bg-tile-content: #130d05;
+  --bd-divider: #3b260d;
+  --bd-sidebar: #33200a;
+  --tx-primary: #fff7ed;
+  --tx-secondary: #fed7aa;
+  --tx-muted: #a67b50;
+  --accent: #f59e0b;
+  --accent-hover: #fbbf24;
+  --bd-ws-active: #f59e0b;
+}
+
+:root[data-density='comfortable'] {
+  --tile-header-h: 46px;
+  --tile-agent-h: 92px;
+  --tile-statusbar-h: 34px;
+  --ws-item-h: 46px;
+}
+

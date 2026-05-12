@@ -43,6 +43,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_panes_workspace_position ON panes(workspac
 INSERT OR IGNORE INTO shell_profiles (id, name, executable, args_json, is_builtin)
 VALUES
   ('builtin-claude', 'claude', 'claude', '[]', 1),
-  ('builtin-copilot', 'copilot', 'copilot', '[]', 1);
+  ('builtin-copilot', 'copilot shell', 'powershell.exe', '["-NoLogo"]', 1);
 
 PRAGMA user_version = 2;

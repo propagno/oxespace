@@ -1,7 +1,7 @@
 INSERT OR IGNORE INTO shell_profiles (id, name, executable, args_json, is_builtin)
 VALUES
   ('builtin-claude', 'claude', 'claude', '[]', 1),
-  ('builtin-copilot', 'copilot', 'copilot', '[]', 1);
+  ('builtin-copilot', 'copilot shell', 'powershell.exe', '["-NoLogo"]', 1);
 
 UPDATE workspaces
 SET default_shell_profile_id = 'builtin-claude'

@@ -1,16 +1,31 @@
 import { X } from 'lucide-react'
-import { useState, type FormEvent, type ReactElement } from 'react'
+import { useEffect, useState, type FormEvent, type ReactElement } from 'react'
+import type { AgentProfile } from '../../../shared/types/agent'
+import type { AgentRole, WorkspaceAgentRoleBinding } from '../../../shared/types/agent-workflow'
 import type { ShellProfile, UpdateWorkspaceSettingsInput, Workspace, WorkspaceDensity, WorkspaceLayoutPreset, WorkspaceThemeId } from '../../../shared/types/workspace'
+import { useAgentWorkflowStore } from '../../store/agent-workflow.store'
 import { LAYOUT_PRESETS, WORKSPACE_DENSITIES, WORKSPACE_THEMES } from './workspaceOptions'
 
 interface WorkspaceSettingsModalProps {
   workspace: Workspace
+  agentProfiles: AgentProfile[]
   shellProfiles: ShellProfile[]
   onClose: () => void
   onSave: (input: UpdateWorkspaceSettingsInput) => Promise<void>
 }
 
-export function WorkspaceSettingsModal({ onClose, onSave, shellProfiles, workspace }: WorkspaceSettingsModalProps): ReactElement {
+const AGENT_ROLES: AgentRole[] = ['rubber_duck', 'planner', 'executor', 'reviewer', 'verifier', 'publisher']
+
+const ROLE_LABELS: Record<AgentRole, string> = {
+  rubber_duck: 'Rubber Duck',
+  planner: 'Planner',
+  executor: 'Executor',
+  reviewer: 'Reviewer',
+  verifier: 'Verifier',
+  publisher: 'Publisher'
+}
+
+export function WorkspaceSettingsModal({ agentProfiles, onClose, onSave, shellProfiles, workspace }: WorkspaceSettingsModalProps): ReactElement {
   const [themeId, setThemeId] = useState<WorkspaceThemeId>(workspace.themeId)
   const [uiDensity, setUiDensity] = useState<WorkspaceDensity>(workspace.uiDensity)
   const [layoutPreset, setLayoutPreset] = useState<WorkspaceLayoutPreset>(workspace.layoutPreset)
@@ -18,6 +33,18 @@ export function WorkspaceSettingsModal({ onClose, onSave, shellProfiles, workspa
   const [applyShellToIdlePanes, setApplyShellToIdlePanes] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setSaving] = useState(false)
+  const bindings = useAgentWorkflowStore((state) => state.bindingsByWorkspace[workspace.id] ?? [])
+  const loadRoleBindings = useAgentWorkflowStore((state) => state.loadRoleBindings)
+  const updateRoleBindings = useAgentWorkflowStore((state) => state.updateRoleBindings)
+  const [roleBindings, setRoleBindings] = useState<Record<AgentRole, WorkspaceAgentRoleBinding | undefined>>({} as Record<AgentRole, WorkspaceAgentRoleBinding | undefined>)
+
+  useEffect(() => {
+    void loadRoleBindings(workspace.id)
+  }, [loadRoleBindings, workspace.id])
+
+  useEffect(() => {
+    setRoleBindings(Object.fromEntries(bindings.map((binding) => [binding.role, binding])) as Record<AgentRole, WorkspaceAgentRoleBinding>)
+  }, [bindings])
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault()
@@ -31,6 +58,16 @@ export function WorkspaceSettingsModal({ onClose, onSave, shellProfiles, workspa
         layoutPreset,
         defaultShellProfileId,
         applyShellToIdlePanes
+      })
+      await updateRoleBindings({
+        workspaceId: workspace.id,
+        bindings: AGENT_ROLES.map((role) => ({
+          role,
+          agentProfileId: roleBindings[role]?.agentProfileId ?? null,
+          shellProfileId: roleBindings[role]?.shellProfileId ?? null,
+          model: roleBindings[role]?.model ?? null,
+          enabled: roleBindings[role]?.enabled ?? role !== 'publisher'
+        }))
       })
       onClose()
     } catch (err) {
@@ -99,6 +136,64 @@ export function WorkspaceSettingsModal({ onClose, onSave, shellProfiles, workspa
             <input type="checkbox" checked={applyShellToIdlePanes} onChange={(event) => setApplyShellToIdlePanes(event.currentTarget.checked)} />
             <span>Apply shell to idle panes</span>
           </label>
+
+          <section className="workspace-role-settings" aria-label="Agent role bindings">
+            <h3>Agent roles</h3>
+            {AGENT_ROLES.map((role) => {
+              const binding = roleBindings[role]
+              return (
+                <div key={role} className="workspace-role-row">
+                  <label className="checkbox-field workspace-role-label">
+                    <input
+                      type="checkbox"
+                      checked={binding?.enabled ?? role !== 'publisher'}
+                      onChange={(event) =>
+                        setRoleBindings((current) => ({
+                          ...current,
+                          [role]: { ...current[role], workspaceId: workspace.id, role, enabled: event.currentTarget.checked, agentProfileId: current[role]?.agentProfileId ?? null, shellProfileId: current[role]?.shellProfileId ?? null }
+                        }))
+                      }
+                    />
+                    <span>{ROLE_LABELS[role]}</span>
+                  </label>
+                  <div className="workspace-role-selects">
+                    <select
+                      value={binding?.agentProfileId ?? ''}
+                      onChange={(event) =>
+                        setRoleBindings((current) => ({
+                          ...current,
+                          [role]: { ...current[role], workspaceId: workspace.id, role, enabled: current[role]?.enabled ?? true, agentProfileId: event.target.value || null, shellProfileId: current[role]?.shellProfileId ?? null }
+                        }))
+                      }
+                    >
+                      <option value="">Manual/OXE</option>
+                      {agentProfiles.map((profile) => (
+                        <option key={profile.agentProfileId} value={profile.agentProfileId}>
+                          {profile.name}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={binding?.shellProfileId ?? ''}
+                      onChange={(event) =>
+                        setRoleBindings((current) => ({
+                          ...current,
+                          [role]: { ...current[role], workspaceId: workspace.id, role, enabled: current[role]?.enabled ?? true, agentProfileId: current[role]?.agentProfileId ?? null, shellProfileId: event.target.value || null }
+                        }))
+                      }
+                    >
+                      <option value="">No terminal</option>
+                      {shellProfiles.map((profile) => (
+                        <option key={profile.id} value={profile.id}>
+                          {profile.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )
+            })}
+          </section>
 
           {error ? <div className="modal-error" role="alert">{error}</div> : null}
 

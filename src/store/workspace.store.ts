@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { CreateWorkspaceInput, ShellProfile, UpdateWorkspaceEditorStateInput, UpdateWorkspaceSettingsInput, Workspace } from '../../shared/types/workspace'
+import type { CreateWorkspaceInput, ShellProfile, UpdateWorkspaceAgentsStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceOxeStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, Workspace } from '../../shared/types/workspace'
 
 interface WorkspaceState {
   workspaces: Workspace[]
@@ -15,7 +15,11 @@ interface WorkspaceState {
   closePane: (id: string) => Promise<void>
   splitPane: (paneId: string, direction: 'vertical' | 'horizontal') => Promise<void>
   updatePaneType: (paneId: string, type: Workspace['panes'][number]['type']) => Promise<void>
+  updatePaneName: (paneId: string, displayName: string | null) => Promise<void>
   updateEditorState: (input: UpdateWorkspaceEditorStateInput) => Promise<void>
+  updateOxeState: (input: UpdateWorkspaceOxeStateInput) => Promise<void>
+  updateAgentsState: (input: UpdateWorkspaceAgentsStateInput) => Promise<void>
+  updateReviewState: (input: UpdateWorkspaceReviewStateInput) => Promise<void>
   updateSettings: (input: UpdateWorkspaceSettingsInput) => Promise<void>
   clearError: () => void
 }
@@ -108,12 +112,48 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     }))
   },
 
+  updatePaneName: async (paneId, displayName) => {
+    const workspace = await window.oxe.workspace.updatePaneName({ paneId, displayName })
+    set((state) => ({
+      workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)),
+      error: null
+    }))
+  },
+
   updateEditorState: async (input) => {
     const workspace = await window.oxe.workspace.updateEditorState(input)
     set((state) => ({
       workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)),
       error: null
     }))
+  },
+
+  updateOxeState: async (input) => {
+    const workspace = await window.oxe.workspace.updateOxeState(input)
+    set((state) => ({
+      workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)),
+      error: null
+    }))
+  },
+
+  updateAgentsState: async (input) => {
+    const workspace = await window.oxe.workspace.updateAgentsState(input)
+    set((state) => ({
+      workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)),
+      error: null
+    }))
+  },
+
+  updateReviewState: async (input) => {
+    try {
+      const workspace = await window.oxe.workspace.updateReviewState(input)
+      set((state) => ({
+        workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)),
+        error: null
+      }))
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : 'Failed to update review state' })
+    }
   },
 
   updateSettings: async (input) => {

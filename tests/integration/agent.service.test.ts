@@ -57,6 +57,23 @@ describe('AgentService', () => {
     db.close()
   })
 
+  test('copilot command changes do not replace the interactive shell profile', () => {
+    const db = openInMemoryDatabase()
+    const service = new AgentService(db, { execFileSync: mockExec })
+    const shellProfiles = new ShellProfileService(db)
+    const copilot = service.list().find((profile) => profile.provider === 'copilot')
+
+    expect(copilot).toBeTruthy()
+    const updated = service.update(copilot!.agentProfileId, { command: 'gh' })
+
+    expect(updated.command).toBe('gh')
+    expect(shellProfiles.get('builtin-copilot')).toEqual(
+      expect.objectContaining({ executable: 'powershell.exe', args: ['-NoLogo'] })
+    )
+
+    db.close()
+  })
+
   test('delete rejects built-in profiles', () => {
     const db = openInMemoryDatabase()
     const service = new AgentService(db, { execFileSync: mockExec })

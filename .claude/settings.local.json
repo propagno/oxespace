@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/dudu-/Estudos/oxe-build/**)",
+      "Bash(dir /s /b)",
+      "PowerShell(head *)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\dudu-\\\\Estudos\\\\oxespace\\\\src\" -Recurse -Depth 2 -Force | Select-Object @{Name=\"Path\";Expression={$_.FullName.Replace\\(\"C:\\\\Users\\\\dudu-\\\\Estudos\\\\oxespace\\\\\", \"\"\\)}} | Format-List)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\dudu-\\\\Estudos\\\\oxespace\\\\electron\" -Recurse -Depth 3 -Force | Select-Object @{Name=\"Path\";Expression={$_.FullName.Replace\\(\"C:\\\\Users\\\\dudu-\\\\Estudos\\\\oxespace\\\\\", \"\"\\)}} | Format-List)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(find C:\\\\\\\\Users\\\\\\\\dudu-\\\\\\\\Estudos\\\\\\\\clideck-main *)",
+      "Bash(ls *)",
+      "Bash(node -e \"const p = require\\('./node_modules/@xterm/xterm/package.json'\\); console.log\\(p.version\\)\")",
+      "Bash(node -e ' *)"
+    ]
+  }
+}

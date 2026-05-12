@@ -8,7 +8,6 @@ interface SettingsModalProps {
   isDiscoveringAgents: boolean
   onClose: () => void
   onDiscoverAgents: () => void
-  onConfigureAgent: (profile: AgentProfile) => void
 }
 
 function readinessFor(profile: AgentProfile, readiness: AgentReadiness[]): AgentReadiness | undefined {
@@ -24,7 +23,6 @@ export function SettingsModal({
   agentReadiness,
   isDiscoveringAgents,
   onClose,
-  onConfigureAgent,
   onDiscoverAgents
 }: SettingsModalProps): ReactElement {
   return (
@@ -38,16 +36,16 @@ export function SettingsModal({
           <nav>
             <button type="button" className="settings-nav-item active" aria-current="page">
               <Bot size={14} aria-hidden="true" />
-              <span>Agents</span>
+              <span>AI Providers</span>
             </button>
           </nav>
         </aside>
 
-        <section className="settings-modal-content" aria-labelledby="settings-agents-title">
+        <section className="settings-modal-content" aria-labelledby="settings-providers-title">
           <header className="settings-content-header">
             <div>
-              <span>Configuration</span>
-              <h2 id="settings-agents-title">Agents</h2>
+              <span>Status</span>
+              <h2 id="settings-providers-title">AI Providers</h2>
             </div>
             <div className="settings-content-actions">
               <button
@@ -61,7 +59,7 @@ export function SettingsModal({
               >
                 <RefreshCw size={14} aria-hidden="true" className={isDiscoveringAgents ? 'spin' : undefined} />
               </button>
-              <button type="button" className="icon-button" aria-label="Close settings" onClick={onClose}>
+              <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
                 <X size={16} aria-hidden="true" />
               </button>
             </div>
@@ -69,7 +67,7 @@ export function SettingsModal({
 
           <div className="settings-agent-table">
             {agentProfiles.length === 0 ? (
-              <p className="workspace-list-empty">No agent profiles.</p>
+              <p className="workspace-list-empty">No providers found. Run a health check.</p>
             ) : (
               agentProfiles.map((profile) => {
                 const readiness = readinessFor(profile, agentReadiness)
@@ -83,14 +81,6 @@ export function SettingsModal({
                       <ReadinessBadge status={readiness?.status} />
                       {readiness?.version ? <span className="readiness-version">{readiness.version}</span> : null}
                     </div>
-                    <button
-                      type="button"
-                      className="secondary-action compact-action"
-                      aria-label={`Configure ${profile.name}`}
-                      onClick={() => onConfigureAgent(profile)}
-                    >
-                      Configure
-                    </button>
                   </article>
                 )
               })

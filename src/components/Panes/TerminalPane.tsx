@@ -1,6 +1,7 @@
 import { Play } from 'lucide-react'
 import { useCallback, useEffect, type ReactElement } from 'react'
 import type { WorkspacePane } from '../../../shared/types/workspace'
+import { useAgentStore } from '../../store/agent.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { TerminalView } from '../Terminal/TerminalView'
 
@@ -11,19 +12,34 @@ interface TerminalPaneProps {
 }
 
 export function TerminalPane({ autoStart, pane, workspaceId }: TerminalPaneProps): ReactElement {
-  const { getStatus, setStatus } = useTerminalStore()
+  const { getStatus, setStatus, consumePendingCommand } = useTerminalStore()
+  const allProfiles = useAgentStore((s) => s.allProfiles)
   const state = getStatus(pane.id)
   const isRunning = state.status === 'running' || state.status === 'starting'
+
+  const resolveAgentInfo = useCallback((): { command: string | undefined; initialPrompt: string | undefined } => {
+    const pending = consumePendingCommand(pane.id)
+    if (pending) return { command: pending, initialPrompt: undefined }
+    if (!pane.agentProfileId) return { command: undefined, initialPrompt: undefined }
+    const profile = allProfiles.find((p) => p.agentProfileId === pane.agentProfileId)
+    if (!profile) return { command: undefined, initialPrompt: undefined }
+    if (profile.parentProvider) {
+      const parent = allProfiles.find((p) => p.provider === profile.parentProvider)
+      return { command: parent?.command, initialPrompt: profile.systemPrompt }
+    }
+    return { command: profile.command, initialPrompt: undefined }
+  }, [consumePendingCommand, pane.id, pane.agentProfileId, allProfiles])
 
   const start = useCallback(async (): Promise<void> => {
     setStatus(pane.id, 'starting')
     try {
-      await window.oxe.terminal.start({ paneId: pane.id, workspaceId })
+      const { command: agentCommand, initialPrompt } = resolveAgentInfo()
+      await window.oxe.terminal.start({ paneId: pane.id, workspaceId, agentCommand, initialPrompt })
       setStatus(pane.id, 'running')
     } catch (error) {
       setStatus(pane.id, 'error', toMessage(error))
     }
-  }, [pane.id, setStatus, workspaceId])
+  }, [resolveAgentInfo, pane.id, setStatus, workspaceId])
 
   useEffect(() => {
     if (autoStart && state.status === 'idle') {
@@ -39,7 +55,9 @@ export function TerminalPane({ autoStart, pane, workspaceId }: TerminalPaneProps
   const restart = async (): Promise<void> => {
     setStatus(pane.id, 'starting')
     try {
-      await window.oxe.terminal.restart({ paneId: pane.id })
+      const { command: agentCommand, initialPrompt } = resolveAgentInfo()
+      await window.oxe.terminal.stop({ paneId: pane.id })
+      await window.oxe.terminal.start({ paneId: pane.id, workspaceId, agentCommand, initialPrompt })
       setStatus(pane.id, 'running')
     } catch (error) {
       setStatus(pane.id, 'error', toMessage(error))

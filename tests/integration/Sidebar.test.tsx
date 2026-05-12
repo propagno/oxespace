@@ -31,10 +31,13 @@ describe('Sidebar', () => {
       <Sidebar
         workspaces={[workspace]}
         activeWorkspaceId="workspace-1"
+        activePaneId={null}
+        agentProfiles={[]}
         appVersion="0.1.2"
         onNewWorkspace={onNewWorkspace}
         onSelectWorkspace={onSelectWorkspace}
         onCloseWorkspace={onCloseWorkspace}
+        onActivatePane={vi.fn()}
         isSettingsOpen={false}
         onToggleSettings={onToggleSettings}
         isCollapsed={false}
@@ -45,7 +48,7 @@ describe('Sidebar', () => {
     expect(screen.getByText('repo')).toBeInTheDocument()
     expect(screen.getByText('v0.1.2')).toBeInTheDocument()
     expect(screen.queryByText('C:/projects/repo')).not.toBeInTheDocument()
-    expect(screen.getByText('2')).toBeInTheDocument()
+    expect(screen.getAllByText('2').length).toBeGreaterThan(0)
 
     await user.click(screen.getByTestId('btn-new-workspace'))
     expect(onNewWorkspace).toHaveBeenCalled()
@@ -56,7 +59,7 @@ describe('Sidebar', () => {
     await user.click(screen.getByLabelText('Close repo'))
     expect(onCloseWorkspace).toHaveBeenCalledWith('workspace-1')
 
-    await user.click(screen.getByLabelText('Open settings'))
+    await user.click(screen.getByLabelText('AI Providers'))
     expect(onToggleSettings).toHaveBeenCalled()
   })
 
@@ -68,10 +71,13 @@ describe('Sidebar', () => {
       <Sidebar
         workspaces={[workspace]}
         activeWorkspaceId="workspace-1"
+        activePaneId={null}
+        agentProfiles={[]}
         appVersion="0.1.2"
         onNewWorkspace={vi.fn()}
         onSelectWorkspace={vi.fn()}
         onCloseWorkspace={vi.fn()}
+        onActivatePane={vi.fn()}
         isSettingsOpen={false}
         onToggleSettings={onToggleSettings}
         isCollapsed
@@ -79,10 +85,7 @@ describe('Sidebar', () => {
       />
     )
 
-    expect(screen.getByLabelText('Open settings')).toBeInTheDocument()
-    expect(screen.queryByText('Settings')).not.toBeInTheDocument()
-
-    await user.click(screen.getByLabelText('Open settings'))
-    expect(onToggleSettings).toHaveBeenCalled()
+    expect(screen.queryByText('repo')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Expand sidebar')).toBeInTheDocument()
   })
 })

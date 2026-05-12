@@ -15,8 +15,7 @@ const CACHE_TTL_MS = 1_800_000 // 30 minutes
 const OFFICIAL_PROVIDERS: AgentProvider[] = ['claude', 'copilot']
 const WINDOWS_SCRIPT_EXTENSIONS = new Set(['.cmd', '.bat'])
 const SHELL_PROFILE_BY_PROVIDER: Partial<Record<AgentProvider, string>> = {
-  claude: 'builtin-claude',
-  copilot: 'builtin-copilot'
+  claude: 'builtin-claude'
 }
 
 interface AgentProfileRow {
@@ -28,6 +27,8 @@ interface AgentProfileRow {
   model: string | null
   role: string | null
   is_builtin: number
+  system_prompt: string | null
+  parent_provider: string | null
 }
 
 interface ReadinessCacheRow {
@@ -66,9 +67,9 @@ export class AgentService {
     const now = Date.now()
     this.db.prepare(`
       INSERT INTO agent_profiles
-        (agent_profile_id, name, provider, command, command_template, model, role, is_builtin, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)
-    `).run(id, input.name, input.provider, input.command, input.commandTemplate, input.model ?? null, input.role ?? null, now)
+        (agent_profile_id, name, provider, command, command_template, model, role, is_builtin, system_prompt, parent_provider, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
+    `).run(id, input.name, input.provider, input.command, input.commandTemplate, input.model ?? null, input.role ?? null, input.systemPrompt ?? null, input.parentProvider ?? null, now)
     return this.getOrThrow(id)
   }
 
@@ -79,7 +80,7 @@ export class AgentService {
     const updateProfile = this.db.transaction(() => {
       this.db.prepare(`
         UPDATE agent_profiles
-        SET name = ?, command = ?, command_template = ?, model = ?, role = ?
+        SET name = ?, command = ?, command_template = ?, model = ?, role = ?, system_prompt = ?, parent_provider = ?
         WHERE agent_profile_id = ?
       `).run(
         profile.isBuiltin ? profile.name : input.name ?? profile.name,
@@ -87,6 +88,8 @@ export class AgentService {
         input.commandTemplate ?? profile.commandTemplate,
         input.model !== undefined ? input.model ?? null : profile.model ?? null,
         input.role !== undefined ? input.role ?? null : profile.role ?? null,
+        input.systemPrompt !== undefined ? input.systemPrompt ?? null : profile.systemPrompt ?? null,
+        input.parentProvider !== undefined ? input.parentProvider ?? null : profile.parentProvider ?? null,
         id
       )
 
@@ -274,7 +277,9 @@ function mapProfile(row: AgentProfileRow): AgentProfile {
     commandTemplate: row.command_template,
     model: row.model ?? undefined,
     role: row.role ?? undefined,
-    isBuiltin: row.is_builtin === 1
+    isBuiltin: row.is_builtin === 1,
+    systemPrompt: row.system_prompt ?? undefined,
+    parentProvider: (row.parent_provider as AgentProvider) ?? undefined
   }
 }
 

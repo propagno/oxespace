@@ -15,7 +15,7 @@ WHERE agent_profile_id = 'builtin-agent-copilot';
 INSERT OR IGNORE INTO shell_profiles (id, name, executable, args_json, is_builtin)
 VALUES
   ('builtin-claude', 'claude', 'claude', '[]', 1),
-  ('builtin-copilot', 'copilot', 'copilot', '[]', 1);
+  ('builtin-copilot', 'copilot shell', 'powershell.exe', '["-NoLogo"]', 1);
 
 UPDATE shell_profiles
 SET
@@ -27,9 +27,9 @@ WHERE id = 'builtin-claude';
 
 UPDATE shell_profiles
 SET
-  name = 'copilot',
-  executable = COALESCE((SELECT command FROM agent_profiles WHERE agent_profile_id = 'builtin-agent-copilot'), executable),
-  args_json = '[]',
+  name = 'copilot shell',
+  executable = 'powershell.exe',
+  args_json = '["-NoLogo"]',
   is_builtin = 1
 WHERE id = 'builtin-copilot';
 

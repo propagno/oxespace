@@ -1,9 +1,14 @@
-import type { ReactElement } from 'react'
+import { lazy, Suspense, type ReactElement } from 'react'
 import type { WorkspacePane } from '../../../shared/types/workspace'
 import { EditorPane } from '../Editor/EditorPane'
+import { ReviewPane } from '../Review/ReviewPane'
 import { TasksPane } from '../Tasks/TasksPane'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { TerminalPane } from './TerminalPane'
+
+const LazyOxeGraphPanel = lazy(() =>
+  import('../Oxe/OxeGraphPanel').then(m => ({ default: m.OxeGraphPanel }))
+)
 
 interface PaneContentProps {
   pane: WorkspacePane
@@ -25,6 +30,14 @@ export function PaneContent({ autoStart, pane, workspaceId }: PaneContentProps):
       return <StubPane label="Swarm" />
     case 'inspector':
       return <StubPane label="Inspector" />
+    case 'graph':
+      return workspace ? (
+        <Suspense fallback={<StubPane label="Graph" />}>
+          <LazyOxeGraphPanel workspaceId={workspaceId} rootPath={workspace.rootPath} />
+        </Suspense>
+      ) : <StubPane label="Graph" />
+    case 'review':
+      return workspace ? <ReviewPane workspaceId={workspaceId} rootPath={workspace.rootPath} /> : <StubPane label="Review" />
     default:
       return <StubPane label="Pane" />
   }

@@ -56,7 +56,7 @@ describe('TerminalManager', () => {
     }
   })
 
-  test('reports configured agent command failures without creating a session', () => {
+  test('reports shell profile failures without creating a session', () => {
     const db = openInMemoryDatabase()
     const workspaceService = new WorkspaceService(db)
     const workspace = workspaceService.create({
@@ -73,7 +73,7 @@ describe('TerminalManager', () => {
     const manager = new TerminalManager(db, { pty, platform: 'linux' })
 
     expect(() => manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id })).toThrow(
-      /Check Settings > Agents command "copilot"/
+      /Check Settings > Shell profiles executable "powershell\.exe"/
     )
     expect(manager.hasSession(workspace.panes[0].id)).toBe(false)
 

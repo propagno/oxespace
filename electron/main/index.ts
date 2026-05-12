@@ -4,7 +4,11 @@ import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { openDatabase } from './db/index'
 import { registerAgentIpc } from './ipc/agent.ipc'
+import { registerAgentWorkflowIpc } from './ipc/agent-workflow.ipc'
 import { registerFileSystemIpc } from './ipc/file-system.ipc'
+import { registerOxeIpc } from './ipc/oxe.ipc'
+import { registerOxeGraphIpc } from './ipc/oxe-graph.ipc'
+import { registerGitIpc } from './ipc/git.ipc'
 import { registerTaskIpc } from './ipc/task.ipc'
 import { registerTerminalIpc } from './ipc/terminal.ipc'
 import { registerWorkspaceIpc } from './ipc/workspace.ipc'
@@ -50,7 +54,11 @@ function registerIpcHandlers(): void {
   registerWorkspaceIpc(db, terminalManager)
   registerTerminalIpc(terminalManager)
   registerAgentIpc(db)
+  registerAgentWorkflowIpc(db, { terminalWrite: (input) => terminalManager.write(input) })
   registerTaskIpc(db, terminalManager)
+  registerOxeIpc()
+  registerOxeGraphIpc()
+  registerGitIpc()
   const fileSystemService = registerFileSystemIpc()
   app.once('before-quit', () => {
     fileSystemService.closeAll()
@@ -76,6 +84,10 @@ function registerNativeFailureIpcHandlers(message: string): void {
   ipcMain.handle(IPC_CHANNELS.workspace.closePane, fail)
   ipcMain.handle(IPC_CHANNELS.workspace.splitPane, fail)
   ipcMain.handle(IPC_CHANNELS.workspace.updatePaneType, fail)
+  ipcMain.handle(IPC_CHANNELS.workspace.updateEditorState, fail)
+  ipcMain.handle(IPC_CHANNELS.workspace.updateOxeState, fail)
+  ipcMain.handle(IPC_CHANNELS.workspace.updateAgentsState, fail)
+  ipcMain.handle(IPC_CHANNELS.workspace.updateSettings, fail)
   ipcMain.handle(IPC_CHANNELS.workspace.pickFolder, async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender) ?? BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
     const result = await dialog.showOpenDialog(win, { properties: ['openDirectory'] })
@@ -92,6 +104,15 @@ function registerNativeFailureIpcHandlers(message: string): void {
   ipcMain.handle(IPC_CHANNELS.agent.create, fail)
   ipcMain.handle(IPC_CHANNELS.agent.update, fail)
   ipcMain.handle(IPC_CHANNELS.agent.delete, fail)
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.listRuns, () => [])
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.createRun, fail)
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.getRun, fail)
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.updateRoleBindings, fail)
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.getRoleBindings, () => [])
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.prepareStep, fail)
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.runStep, fail)
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.completeManualStep, fail)
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.appendArtifact, fail)
   ipcMain.handle(IPC_CHANNELS.tasks.list, () => [])
   ipcMain.handle(IPC_CHANNELS.tasks.create, fail)
   ipcMain.handle(IPC_CHANNELS.tasks.update, fail)
@@ -105,6 +126,8 @@ function registerNativeFailureIpcHandlers(message: string): void {
   ipcMain.handle(IPC_CHANNELS.fs.writeFile, fail)
   ipcMain.handle(IPC_CHANNELS.fs.watchFile, fail)
   ipcMain.handle(IPC_CHANNELS.fs.unwatchFile, fail)
+  ipcMain.handle(IPC_CHANNELS.oxe.getStatus, fail)
+  ipcMain.handle(IPC_CHANNELS.oxe.listArtifacts, fail)
 }
 
 function registerE2eMockIpcHandlers(): void {
@@ -129,6 +152,15 @@ function registerE2eMockIpcHandlers(): void {
       defaultShellProfileId: input.defaultShellProfileId ?? 'builtin-claude',
       autoStart: input.autoStart !== false,
       isActive: true,
+      editorVisible: false,
+      editorExpanded: false,
+      editorWidthPercent: 40,
+      oxePanelVisible: false,
+      oxePanelExpanded: false,
+      oxePanelWidthPercent: 40,
+      agentsPanelVisible: false,
+      agentsPanelExpanded: false,
+      agentsPanelWidthPercent: 36,
       panes: []
     }
     workspace.panes = createMockPanes(workspace.id, layout)
@@ -168,6 +200,30 @@ function registerE2eMockIpcHandlers(): void {
     }
     throw new Error(`Pane ${input.paneId} not found`)
   })
+  ipcMain.handle(IPC_CHANNELS.workspace.updateEditorState, (_event: IpcMainInvokeEvent, input: { workspaceId: string; editorVisible?: boolean; editorExpanded?: boolean; editorWidthPercent?: number }) => {
+    const workspace = workspaces.find((item) => item.id === input.workspaceId)
+    if (!workspace) throw new Error(`Workspace ${input.workspaceId} not found`)
+    workspace.editorVisible = input.editorVisible ?? workspace.editorVisible
+    workspace.editorExpanded = input.editorExpanded ?? workspace.editorExpanded
+    workspace.editorWidthPercent = input.editorWidthPercent ?? workspace.editorWidthPercent
+    return workspace
+  })
+  ipcMain.handle(IPC_CHANNELS.workspace.updateOxeState, (_event: IpcMainInvokeEvent, input: { workspaceId: string; oxePanelVisible?: boolean; oxePanelExpanded?: boolean; oxePanelWidthPercent?: number }) => {
+    const workspace = workspaces.find((item) => item.id === input.workspaceId)
+    if (!workspace) throw new Error(`Workspace ${input.workspaceId} not found`)
+    workspace.oxePanelVisible = input.oxePanelVisible ?? workspace.oxePanelVisible
+    workspace.oxePanelExpanded = input.oxePanelExpanded ?? workspace.oxePanelExpanded
+    workspace.oxePanelWidthPercent = input.oxePanelWidthPercent ?? workspace.oxePanelWidthPercent
+    return workspace
+  })
+  ipcMain.handle(IPC_CHANNELS.workspace.updateAgentsState, (_event: IpcMainInvokeEvent, input: { workspaceId: string; agentsPanelVisible?: boolean; agentsPanelExpanded?: boolean; agentsPanelWidthPercent?: number }) => {
+    const workspace = workspaces.find((item) => item.id === input.workspaceId)
+    if (!workspace) throw new Error(`Workspace ${input.workspaceId} not found`)
+    workspace.agentsPanelVisible = input.agentsPanelVisible ?? workspace.agentsPanelVisible
+    workspace.agentsPanelExpanded = input.agentsPanelExpanded ?? workspace.agentsPanelExpanded
+    workspace.agentsPanelWidthPercent = input.agentsPanelWidthPercent ?? workspace.agentsPanelWidthPercent
+    return workspace
+  })
   ipcMain.handle(IPC_CHANNELS.workspace.updateSettings, (_event: IpcMainInvokeEvent, input: { workspaceId: string; themeId?: Workspace['themeId']; uiDensity?: Workspace['uiDensity']; defaultShellProfileId?: string; layoutPreset?: WorkspaceLayoutPreset }) => {
     const workspace = workspaces.find((item) => item.id === input.workspaceId)
     if (!workspace) throw new Error(`Workspace ${input.workspaceId} not found`)
@@ -201,6 +257,27 @@ function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.agent.create, () => undefined)
   ipcMain.handle(IPC_CHANNELS.agent.update, () => undefined)
   ipcMain.handle(IPC_CHANNELS.agent.delete, () => undefined)
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.listRuns, () => [])
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.createRun, () => {
+    throw new Error('Agent workflow API is not available in E2E mock mode')
+  })
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.getRun, () => {
+    throw new Error('Agent workflow API is not available in E2E mock mode')
+  })
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.updateRoleBindings, () => [])
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.getRoleBindings, () => [])
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.prepareStep, () => {
+    throw new Error('Agent workflow API is not available in E2E mock mode')
+  })
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.runStep, () => {
+    throw new Error('Agent workflow API is not available in E2E mock mode')
+  })
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.completeManualStep, () => {
+    throw new Error('Agent workflow API is not available in E2E mock mode')
+  })
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.appendArtifact, () => {
+    throw new Error('Agent workflow API is not available in E2E mock mode')
+  })
   ipcMain.handle(IPC_CHANNELS.tasks.list, () => [])
   ipcMain.handle(IPC_CHANNELS.tasks.create, () => undefined)
   ipcMain.handle(IPC_CHANNELS.tasks.update, () => undefined)
@@ -220,6 +297,17 @@ function registerE2eMockIpcHandlers(): void {
     throw new Error('File system API is not available in E2E mock mode')
   })
   ipcMain.handle(IPC_CHANNELS.fs.unwatchFile, () => undefined)
+  ipcMain.handle(IPC_CHANNELS.oxe.getStatus, (_event: IpcMainInvokeEvent, input: { workspaceId: string; rootPath: string }) => ({
+    workspaceId: input.workspaceId,
+    rootPath: input.rootPath,
+    isOxeProject: false,
+    engine: { available: false, version: null, command: 'oxe-cc', message: 'E2E mock mode' },
+    state: null,
+    artifacts: [],
+    warnings: [],
+    updatedAt: new Date().toISOString()
+  }))
+  ipcMain.handle(IPC_CHANNELS.oxe.listArtifacts, () => [])
 }
 
 function createMockPanes(workspaceId: string, layout: WorkspaceLayout): Workspace['panes'] {
@@ -234,7 +322,10 @@ function createMockPanes(workspaceId: string, layout: WorkspaceLayout): Workspac
       rowIndex,
       columnIndex,
       shellProfileId: 'builtin-claude',
-      status: 'idle'
+      status: 'idle',
+      agentProfileId: null,
+      agentName: null,
+      displayName: null
     }
   })
 }

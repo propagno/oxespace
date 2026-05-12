@@ -48,6 +48,7 @@ describe('workspace.store', () => {
         splitPane: vi.fn().mockResolvedValue(workspace),
         updatePaneType: vi.fn().mockResolvedValue(workspace),
         updateEditorState: vi.fn().mockResolvedValue({ ...workspace, editorVisible: true }),
+        updateAgentsState: vi.fn().mockResolvedValue({ ...workspace, agentsPanelVisible: true }),
         updateSettings: vi.fn().mockResolvedValue({ ...workspace, themeId: 'nord', layoutPreset: 6, layout: '2x3' }),
         pickFolder: vi.fn().mockResolvedValue(null)
       },
@@ -99,6 +100,18 @@ describe('workspace.store', () => {
 
     expect(window.oxe.workspace.updateEditorState).toHaveBeenCalledWith({ workspaceId: 'workspace-1', editorVisible: true })
     expect(result.current.workspaces[0]?.editorVisible).toBe(true)
+  })
+
+  test('persists agents panel layout state for a workspace', async () => {
+    useWorkspaceStore.setState({ workspaces: [workspace], activeWorkspaceId: 'workspace-1' })
+    const { result } = renderHook(() => useWorkspaceStore())
+
+    await act(async () => {
+      await result.current.updateAgentsState({ workspaceId: 'workspace-1', agentsPanelVisible: true })
+    })
+
+    expect(window.oxe.workspace.updateAgentsState).toHaveBeenCalledWith({ workspaceId: 'workspace-1', agentsPanelVisible: true })
+    expect(result.current.workspaces[0]?.agentsPanelVisible).toBe(true)
   })
 
   test('persists workspace settings', async () => {

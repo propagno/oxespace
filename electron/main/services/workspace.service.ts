@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../db/index'
 import type {
   CreateWorkspaceInput,
+  PaneAgentBinding,
   PaneStatus,
   PaneType,
   Workspace,
@@ -12,6 +13,9 @@ import type {
   WorkspaceThemeId,
   UpdateWorkspaceSettingsInput,
   UpdateWorkspaceEditorStateInput,
+  UpdateWorkspaceAgentsStateInput,
+  UpdateWorkspaceOxeStateInput,
+  UpdateWorkspaceReviewStateInput,
   WorkspacePane
 } from '../../../shared/types/workspace'
 
@@ -29,6 +33,15 @@ interface WorkspaceRow {
   editor_visible: number
   editor_expanded: number
   editor_width_percent: number
+  oxe_panel_visible: number
+  oxe_panel_expanded: number
+  oxe_panel_width_percent: number
+  agents_panel_visible: number
+  agents_panel_expanded: number
+  agents_panel_width_percent: number
+  review_panel_visible: number
+  review_panel_expanded: number
+  review_panel_width_percent: number
 }
 
 interface PaneRow {
@@ -39,6 +52,9 @@ interface PaneRow {
   column_index: number
   shell_profile_id: string | null
   status: PaneStatus
+  agent_profile_id: string | null
+  agent_name: string | null
+  display_name: string | null
 }
 
 const DEFAULT_SHELL_PROFILE_ID = 'builtin-claude'
@@ -94,18 +110,22 @@ export class WorkspaceService {
 
       const insertPane = this.db.prepare(
         `INSERT INTO panes
-          (id, workspace_id, type, row_index, column_index, shell_profile_id, status)
+          (id, workspace_id, type, row_index, column_index, shell_profile_id, status, agent_profile_id, agent_name)
          VALUES
-          (@id, @workspaceId, 'terminal', @rowIndex, @columnIndex, @shellProfileId, 'idle')`
+          (@id, @workspaceId, 'terminal', @rowIndex, @columnIndex, @shellProfileId, 'idle', @agentProfileId, @agentName)`
       )
 
-      for (const position of getPanePositions(layout)) {
+      const bindings = buildBindingMap(input.agentBindings)
+      for (const [index, position] of getPanePositions(layout).entries()) {
+        const binding = bindings.get(index)
         insertPane.run({
           id: randomUUID(),
           workspaceId,
           rowIndex: position.rowIndex,
           columnIndex: position.columnIndex,
-          shellProfileId
+          shellProfileId,
+          agentProfileId: binding?.agentProfileId ?? null,
+          agentName: binding?.agentName ?? null
         })
       }
     })
@@ -122,7 +142,9 @@ export class WorkspaceService {
     const rows = this.db
       .prepare(
         `SELECT id, name, root_path, layout, layout_preset, theme_id, ui_density, default_shell_profile_id, auto_start, is_active,
-          editor_visible, editor_expanded, editor_width_percent
+          editor_visible, editor_expanded, editor_width_percent, oxe_panel_visible, oxe_panel_expanded, oxe_panel_width_percent,
+          agents_panel_visible, agents_panel_expanded, agents_panel_width_percent,
+          review_panel_visible, review_panel_expanded, review_panel_width_percent
          FROM workspaces
          ORDER BY created_at ASC`
       )
@@ -135,7 +157,9 @@ export class WorkspaceService {
     const row = this.db
       .prepare(
         `SELECT id, name, root_path, layout, layout_preset, theme_id, ui_density, default_shell_profile_id, auto_start, is_active,
-          editor_visible, editor_expanded, editor_width_percent
+          editor_visible, editor_expanded, editor_width_percent, oxe_panel_visible, oxe_panel_expanded, oxe_panel_width_percent,
+          agents_panel_visible, agents_panel_expanded, agents_panel_width_percent,
+          review_panel_visible, review_panel_expanded, review_panel_width_percent
          FROM workspaces
          WHERE id = ?`
       )
@@ -207,6 +231,93 @@ export class WorkspaceService {
 
     const workspace = this.get(input.workspaceId)
     if (!workspace) throw new Error('Workspace not found after editor state update')
+    return workspace
+  }
+
+  updateOxeState(input: UpdateWorkspaceOxeStateInput): Workspace {
+    const current = this.get(input.workspaceId)
+    if (!current) throw new Error(`Workspace ${input.workspaceId} not found`)
+
+    const oxePanelVisible = input.oxePanelVisible ?? current.oxePanelVisible ?? false
+    const oxePanelExpanded = input.oxePanelExpanded ?? current.oxePanelExpanded ?? false
+    const oxePanelWidthPercent = clampPanelWidth(input.oxePanelWidthPercent ?? current.oxePanelWidthPercent ?? 40)
+
+    this.db
+      .prepare(
+        `UPDATE workspaces
+         SET oxe_panel_visible = @oxePanelVisible,
+             oxe_panel_expanded = @oxePanelExpanded,
+             oxe_panel_width_percent = @oxePanelWidthPercent,
+             updated_at = datetime('now')
+         WHERE id = @workspaceId`
+      )
+      .run({
+        workspaceId: input.workspaceId,
+        oxePanelVisible: oxePanelVisible ? 1 : 0,
+        oxePanelExpanded: oxePanelExpanded ? 1 : 0,
+        oxePanelWidthPercent
+      })
+
+    const workspace = this.get(input.workspaceId)
+    if (!workspace) throw new Error('Workspace not found after OXE state update')
+    return workspace
+  }
+
+  updateAgentsState(input: UpdateWorkspaceAgentsStateInput): Workspace {
+    const current = this.get(input.workspaceId)
+    if (!current) throw new Error(`Workspace ${input.workspaceId} not found`)
+
+    const agentsPanelVisible = input.agentsPanelVisible ?? current.agentsPanelVisible ?? false
+    const agentsPanelExpanded = input.agentsPanelExpanded ?? current.agentsPanelExpanded ?? false
+    const agentsPanelWidthPercent = clampPanelWidth(input.agentsPanelWidthPercent ?? current.agentsPanelWidthPercent ?? 36)
+
+    this.db
+      .prepare(
+        `UPDATE workspaces
+         SET agents_panel_visible = @agentsPanelVisible,
+             agents_panel_expanded = @agentsPanelExpanded,
+             agents_panel_width_percent = @agentsPanelWidthPercent,
+             updated_at = datetime('now')
+         WHERE id = @workspaceId`
+      )
+      .run({
+        workspaceId: input.workspaceId,
+        agentsPanelVisible: agentsPanelVisible ? 1 : 0,
+        agentsPanelExpanded: agentsPanelExpanded ? 1 : 0,
+        agentsPanelWidthPercent
+      })
+
+    const workspace = this.get(input.workspaceId)
+    if (!workspace) throw new Error('Workspace not found after Agents state update')
+    return workspace
+  }
+
+  updateReviewState(input: UpdateWorkspaceReviewStateInput): Workspace {
+    const current = this.get(input.workspaceId)
+    if (!current) throw new Error(`Workspace ${input.workspaceId} not found`)
+
+    const reviewPanelVisible = input.reviewPanelVisible ?? current.reviewPanelVisible ?? false
+    const reviewPanelExpanded = input.reviewPanelExpanded ?? current.reviewPanelExpanded ?? false
+    const reviewPanelWidthPercent = clampPanelWidth(input.reviewPanelWidthPercent ?? current.reviewPanelWidthPercent ?? 36)
+
+    this.db
+      .prepare(
+        `UPDATE workspaces
+         SET review_panel_visible = @reviewPanelVisible,
+             review_panel_expanded = @reviewPanelExpanded,
+             review_panel_width_percent = @reviewPanelWidthPercent,
+             updated_at = datetime('now')
+         WHERE id = @workspaceId`
+      )
+      .run({
+        workspaceId: input.workspaceId,
+        reviewPanelVisible: reviewPanelVisible ? 1 : 0,
+        reviewPanelExpanded: reviewPanelExpanded ? 1 : 0,
+        reviewPanelWidthPercent
+      })
+
+    const workspace = this.get(input.workspaceId)
+    if (!workspace) throw new Error('Workspace not found after Review state update')
     return workspace
   }
 
@@ -346,14 +457,35 @@ export class WorkspaceService {
       editorVisible: row.editor_visible === 1,
       editorExpanded: row.editor_expanded === 1,
       editorWidthPercent: row.editor_width_percent || 40,
+      oxePanelVisible: row.oxe_panel_visible === 1,
+      oxePanelExpanded: row.oxe_panel_expanded === 1,
+      oxePanelWidthPercent: row.oxe_panel_width_percent || 40,
+      agentsPanelVisible: row.agents_panel_visible === 1,
+      agentsPanelExpanded: row.agents_panel_expanded === 1,
+      agentsPanelWidthPercent: row.agents_panel_width_percent || 36,
+      reviewPanelVisible: row.review_panel_visible === 1,
+      reviewPanelExpanded: row.review_panel_expanded === 1,
+      reviewPanelWidthPercent: row.review_panel_width_percent || 36,
       panes: this.listPanes(row.id)
     }
+  }
+
+  updatePaneName(paneId: string, displayName: string | null): Workspace {
+    const paneRow = this.db
+      .prepare('SELECT workspace_id FROM panes WHERE id = ?')
+      .get(paneId) as Pick<PaneRow, 'workspace_id'> | undefined
+    if (!paneRow) throw new Error(`Pane ${paneId} not found`)
+
+    this.db.prepare("UPDATE panes SET display_name = ?, updated_at = datetime('now') WHERE id = ?").run(displayName, paneId)
+    const workspace = this.get(paneRow.workspace_id)
+    if (!workspace) throw new Error('Workspace not found after pane name update')
+    return workspace
   }
 
   private listPanes(workspaceId: string): WorkspacePane[] {
     const rows = this.db
       .prepare(
-        `SELECT id, workspace_id, type, row_index, column_index, shell_profile_id, status
+        `SELECT id, workspace_id, type, row_index, column_index, shell_profile_id, status, agent_profile_id, agent_name, display_name
          FROM panes
          WHERE workspace_id = ?
          ORDER BY row_index ASC, column_index ASC`
@@ -367,12 +499,19 @@ export class WorkspaceService {
       rowIndex: row.row_index,
       columnIndex: row.column_index,
       shellProfileId: row.shell_profile_id,
-      status: row.status
+      status: row.status,
+      agentProfileId: row.agent_profile_id,
+      agentName: row.agent_name,
+      displayName: row.display_name ?? null
     }))
   }
 }
 
 function clampEditorWidth(width: number): number {
+  return clampPanelWidth(width)
+}
+
+function clampPanelWidth(width: number): number {
   if (!Number.isFinite(width)) return 40
   return Math.min(70, Math.max(25, Math.round(width)))
 }
@@ -414,4 +553,10 @@ function layoutToPreset(layout: WorkspaceLayout | undefined): WorkspaceLayoutPre
 
 function positionKey(position: { rowIndex: number; columnIndex: number }): string {
   return `${position.rowIndex}:${position.columnIndex}`
+}
+
+function buildBindingMap(bindings: PaneAgentBinding[] | undefined): Map<number, PaneAgentBinding> {
+  const map = new Map<number, PaneAgentBinding>()
+  for (const b of bindings ?? []) map.set(b.paneIndex, b)
+  return map
 }
