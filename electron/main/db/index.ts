@@ -117,8 +117,22 @@ export function runMigrations(db: AppDatabase): void {
     currentVersion = db.pragma('user_version', { simple: true }) as number
   }
 
+  if (currentVersion < 19) {
+    if (!hasColumn(db, 'panes', 'root_path')) {
+      db.exec(readMigration('019_pane_root_path.sql'))
+    } else {
+      db.pragma('user_version = 19')
+    }
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
+
   if (currentVersion < 20) {
     db.exec(readMigration('020_more_providers.sql'))
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
+
+  if (currentVersion < 21 || !hasTable(db, 'background_jobs')) {
+    db.exec(readMigration('021_background_jobs.sql'))
     currentVersion = db.pragma('user_version', { simple: true }) as number
   }
 }
@@ -130,4 +144,11 @@ function readMigration(name: string): string {
 function hasColumn(db: AppDatabase, table: string, column: string): boolean {
   const columns = db.prepare(`PRAGMA table_info('${table}')`).all() as Array<{ name: string }>
   return columns.some((item) => item.name === column)
+}
+
+function hasTable(db: AppDatabase, table: string): boolean {
+  const row = db
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
+    .get(table) as { name: string } | undefined
+  return Boolean(row)
 }

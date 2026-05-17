@@ -13,4 +13,4 @@ CREATE TABLE IF NOT EXISTS background_jobs (
 
 CREATE INDEX IF NOT EXISTS idx_background_jobs_workspace ON background_jobs(workspace_id, started_at DESC);
 
-PRAGMA user_version = 20;
+PRAGMA user_version = 21;
