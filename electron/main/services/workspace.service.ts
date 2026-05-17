@@ -14,6 +14,7 @@ import type {
   UpdateWorkspaceSettingsInput,
   UpdateWorkspaceEditorStateInput,
   UpdateWorkspaceAgentsStateInput,
+  UpdateWorkspaceGitHubStateInput,
   UpdateWorkspaceOxeStateInput,
   UpdateWorkspaceReviewStateInput,
   WorkspacePane
@@ -42,6 +43,10 @@ interface WorkspaceRow {
   review_panel_visible: number
   review_panel_expanded: number
   review_panel_width_percent: number
+  github_panel_visible: number
+  github_panel_expanded: number
+  github_panel_width_percent: number
+  github_active_tab: Workspace['githubActiveTab']
 }
 
 interface PaneRow {
@@ -55,6 +60,9 @@ interface PaneRow {
   agent_profile_id: string | null
   agent_name: string | null
   display_name: string | null
+  created_at: string | null
+  model_override: string | null
+  root_path: string | null
 }
 
 const DEFAULT_SHELL_PROFILE_ID = 'builtin-claude'
@@ -144,7 +152,8 @@ export class WorkspaceService {
         `SELECT id, name, root_path, layout, layout_preset, theme_id, ui_density, default_shell_profile_id, auto_start, is_active,
           editor_visible, editor_expanded, editor_width_percent, oxe_panel_visible, oxe_panel_expanded, oxe_panel_width_percent,
           agents_panel_visible, agents_panel_expanded, agents_panel_width_percent,
-          review_panel_visible, review_panel_expanded, review_panel_width_percent
+          review_panel_visible, review_panel_expanded, review_panel_width_percent,
+          github_panel_visible, github_panel_expanded, github_panel_width_percent, github_active_tab
          FROM workspaces
          ORDER BY created_at ASC`
       )
@@ -159,7 +168,8 @@ export class WorkspaceService {
         `SELECT id, name, root_path, layout, layout_preset, theme_id, ui_density, default_shell_profile_id, auto_start, is_active,
           editor_visible, editor_expanded, editor_width_percent, oxe_panel_visible, oxe_panel_expanded, oxe_panel_width_percent,
           agents_panel_visible, agents_panel_expanded, agents_panel_width_percent,
-          review_panel_visible, review_panel_expanded, review_panel_width_percent
+          review_panel_visible, review_panel_expanded, review_panel_width_percent,
+          github_panel_visible, github_panel_expanded, github_panel_width_percent, github_active_tab
          FROM workspaces
          WHERE id = ?`
       )
@@ -321,6 +331,38 @@ export class WorkspaceService {
     return workspace
   }
 
+  updateGitHubState(input: UpdateWorkspaceGitHubStateInput): Workspace {
+    const current = this.get(input.workspaceId)
+    if (!current) throw new Error(`Workspace ${input.workspaceId} not found`)
+
+    const githubPanelVisible = input.githubPanelVisible ?? current.githubPanelVisible ?? false
+    const githubPanelExpanded = input.githubPanelExpanded ?? current.githubPanelExpanded ?? false
+    const githubPanelWidthPercent = clampPanelWidth(input.githubPanelWidthPercent ?? current.githubPanelWidthPercent ?? 40)
+    const githubActiveTab = input.githubActiveTab ?? current.githubActiveTab ?? 'status'
+
+    this.db
+      .prepare(
+        `UPDATE workspaces
+         SET github_panel_visible = @githubPanelVisible,
+             github_panel_expanded = @githubPanelExpanded,
+             github_panel_width_percent = @githubPanelWidthPercent,
+             github_active_tab = @githubActiveTab,
+             updated_at = datetime('now')
+         WHERE id = @workspaceId`
+      )
+      .run({
+        workspaceId: input.workspaceId,
+        githubPanelVisible: githubPanelVisible ? 1 : 0,
+        githubPanelExpanded: githubPanelExpanded ? 1 : 0,
+        githubPanelWidthPercent,
+        githubActiveTab
+      })
+
+    const workspace = this.get(input.workspaceId)
+    if (!workspace) throw new Error('Workspace not found after GitHub state update')
+    return workspace
+  }
+
   updateSettings(input: UpdateWorkspaceSettingsInput): Workspace {
     const current = this.get(input.workspaceId)
     if (!current) throw new Error(`Workspace ${input.workspaceId} not found`)
@@ -388,6 +430,18 @@ export class WorkspaceService {
     const workspace = this.get(input.workspaceId)
     if (!workspace) throw new Error('Workspace not found after settings update')
     return workspace
+  }
+
+  createGitHubTerminalPane(workspaceId: string): { id: string } {
+    const id = randomUUID()
+    this.db.prepare(
+      `INSERT OR IGNORE INTO panes (id, workspace_id, type, row_index, column_index, shell_profile_id, status)
+       VALUES (?, ?, 'terminal', -1, -1, 'builtin-copilot', 'idle')`
+    ).run(id, workspaceId)
+    const pane = this.db.prepare(
+      `SELECT id FROM panes WHERE workspace_id = ? AND row_index = -1 AND column_index = -1`
+    ).get(workspaceId) as { id: string }
+    return pane
   }
 
   splitPane(paneId: string, direction: 'vertical' | 'horizontal'): Workspace {
@@ -466,6 +520,10 @@ export class WorkspaceService {
       reviewPanelVisible: row.review_panel_visible === 1,
       reviewPanelExpanded: row.review_panel_expanded === 1,
       reviewPanelWidthPercent: row.review_panel_width_percent || 36,
+      githubPanelVisible: row.github_panel_visible === 1,
+      githubPanelExpanded: row.github_panel_expanded === 1,
+      githubPanelWidthPercent: row.github_panel_width_percent || 40,
+      githubActiveTab: row.github_active_tab || 'status',
       panes: this.listPanes(row.id)
     }
   }
@@ -485,7 +543,7 @@ export class WorkspaceService {
   private listPanes(workspaceId: string): WorkspacePane[] {
     const rows = this.db
       .prepare(
-        `SELECT id, workspace_id, type, row_index, column_index, shell_profile_id, status, agent_profile_id, agent_name, display_name
+        `SELECT id, workspace_id, type, row_index, column_index, shell_profile_id, status, agent_profile_id, agent_name, display_name, created_at, model_override, root_path
          FROM panes
          WHERE workspace_id = ?
          ORDER BY row_index ASC, column_index ASC`
@@ -502,8 +560,42 @@ export class WorkspaceService {
       status: row.status,
       agentProfileId: row.agent_profile_id,
       agentName: row.agent_name,
-      displayName: row.display_name ?? null
+      displayName: row.display_name ?? null,
+      createdAt: row.created_at ? new Date(row.created_at).getTime() : null,
+      modelOverride: row.model_override ?? null,
+      rootPath: row.root_path ?? null
     }))
+  }
+
+  setPaneModelOverride(paneId: string, modelId: string | null): Workspace {
+    const exists = this.db.prepare('SELECT workspace_id FROM panes WHERE id = ?').get(paneId) as { workspace_id: string } | undefined
+    if (!exists) throw new Error(`Pane ${paneId} not found`)
+    this.db.prepare("UPDATE panes SET model_override = ?, updated_at = datetime('now') WHERE id = ?").run(modelId, paneId)
+    const workspace = this.get(exists.workspace_id)
+    if (!workspace) throw new Error('Workspace not found after model override update')
+    return workspace
+  }
+
+  setPaneAgent(paneId: string, agentProfileId: string | null, agentName: string | null): Workspace {
+    const exists = this.db.prepare('SELECT workspace_id FROM panes WHERE id = ?').get(paneId) as { workspace_id: string } | undefined
+    if (!exists) throw new Error(`Pane ${paneId} not found`)
+    this.db
+      .prepare("UPDATE panes SET agent_profile_id = ?, agent_name = ?, updated_at = datetime('now') WHERE id = ?")
+      .run(agentProfileId, agentName, paneId)
+    const workspace = this.get(exists.workspace_id)
+    if (!workspace) throw new Error('Workspace not found after agent update')
+    return workspace
+  }
+
+  setPaneRootPath(paneId: string, rootPath: string | null): Workspace {
+    const exists = this.db.prepare('SELECT workspace_id FROM panes WHERE id = ?').get(paneId) as { workspace_id: string } | undefined
+    if (!exists) throw new Error(`Pane ${paneId} not found`)
+    this.db
+      .prepare("UPDATE panes SET root_path = ?, updated_at = datetime('now') WHERE id = ?")
+      .run(rootPath, paneId)
+    const workspace = this.get(exists.workspace_id)
+    if (!workspace) throw new Error('Workspace not found after rootPath update')
+    return workspace
   }
 }
 

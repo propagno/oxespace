@@ -32,12 +32,33 @@ describe('AgentWorkflowService', () => {
     const prepared = service.prepareStep({ runId: details.run.id, role: 'rubber_duck' })
     const duckStep = prepared.steps.find((step) => step.role === 'rubber_duck')
 
-    expect(duckStep?.status).toBe('waiting_user')
+    expect(duckStep?.status).toBe('prepared')
     expect(duckStep?.prompt).toContain('You are the Rubber Duck')
     expect(terminalWrite).not.toHaveBeenCalled()
 
     await service.runStep({ stepId: duckStep!.id, paneId: workspace.panes[0].id })
     expect(terminalWrite).toHaveBeenCalledWith({ paneId: workspace.panes[0].id, data: expect.stringContaining('You are the Rubber Duck') })
+    expect(service.getRun(details.run.id).steps.find((step) => step.id === duckStep!.id)?.status).toBe('sent_to_terminal')
+
+    db.close()
+  })
+
+  test('requires an approved plan before sending executor prompt', async () => {
+    const db = openInMemoryDatabase()
+    const workspace = new WorkspaceService(db).create({ rootPath: 'C:/repo', layoutPreset: 4 })
+    const terminalWrite = vi.fn()
+    const service = new AgentWorkflowService(db, { terminalWrite })
+    const details = service.createRun({ workspaceId: workspace.id, title: 'Gate execution', initialPrompt: 'Implement the feature' })
+    const executor = details.steps.find((step) => step.role === 'executor')!
+
+    await expect(service.sendApprovedExecution({ stepId: executor.id, paneId: workspace.panes[0].id })).rejects.toThrow('Approve a plan before execution')
+
+    const approved = service.approvePlan({ runId: details.run.id, planContent: '1. Update the UI\n2. Run checks' })
+    const approvedExecutor = approved.steps.find((step) => step.role === 'executor')!
+    await service.sendApprovedExecution({ stepId: approvedExecutor.id, paneId: workspace.panes[0].id })
+
+    expect(terminalWrite).toHaveBeenCalledWith({ paneId: workspace.panes[0].id, data: expect.stringContaining('Implement only the approved plan') })
+    expect(service.getRun(details.run.id).artifacts.some((artifact) => artifact.kind === 'execution_prompt')).toBe(true)
 
     db.close()
   })

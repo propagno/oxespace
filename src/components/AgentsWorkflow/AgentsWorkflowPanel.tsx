@@ -1,7 +1,7 @@
-import { useEffect, useState, type ReactElement } from 'react'
-import { ClipboardCheck, MessageSquareText, Play, Plus, Send, ShieldCheck } from 'lucide-react'
-import type { AgentRole, AgentWorkflowStep } from '../../../shared/types/agent-workflow'
-import { getRoleLabel, useAgentWorkflowStore } from '../../store/agent-workflow.store'
+import { useEffect, useMemo, useState, type ReactElement } from 'react'
+import { Bot, Check, ChevronDown, ChevronRight, ClipboardCheck, FileText, Play, Plus, Send, ShieldCheck } from 'lucide-react'
+import type { AgentWorkflowArtifact, AgentWorkflowRunDetails, AgentWorkflowStep, WorkflowArtifactKind } from '../../../shared/types/agent-workflow'
+import { useAgentWorkflowStore } from '../../store/agent-workflow.store'
 
 interface AgentsWorkflowPanelProps {
   workspaceId: string
@@ -9,14 +9,16 @@ interface AgentsWorkflowPanelProps {
   onOpenArtifact: (content: string, title: string) => void
 }
 
-const STEP_ACTION_LABEL: Record<AgentRole, string> = {
-  rubber_duck: 'Ask Duck',
-  planner: 'Plan',
-  executor: 'Execute',
-  reviewer: 'Review',
-  verifier: 'Verify',
-  publisher: 'Publish'
-}
+type WizardStage = 'draft' | 'plan' | 'exec' | 'result' | 'verify' | 'done'
+
+const STAGES: Array<{ id: WizardStage; label: string }> = [
+  { id: 'draft', label: 'Draft' },
+  { id: 'plan', label: 'Plan' },
+  { id: 'exec', label: 'Exec' },
+  { id: 'result', label: 'Result' },
+  { id: 'verify', label: 'Verify' },
+  { id: 'done', label: 'Done' }
+]
 
 export function AgentsWorkflowPanel({ activePaneId, onOpenArtifact, workspaceId }: AgentsWorkflowPanelProps): ReactElement {
   const runs = useAgentWorkflowStore((state) => state.runsByWorkspace[workspaceId] ?? [])
@@ -24,11 +26,27 @@ export function AgentsWorkflowPanel({ activePaneId, onOpenArtifact, workspaceId 
   const details = useAgentWorkflowStore((state) => activeRunId ? state.detailsByRun[activeRunId] : undefined)
   const isLoading = useAgentWorkflowStore((state) => state.isLoading)
   const error = useAgentWorkflowStore((state) => state.error)
-  const { completeManualStep, createRun, loadRun, loadRuns, prepareStep, runStep, setActiveRun } = useAgentWorkflowStore()
-  const [newRunTitle, setNewRunTitle] = useState('')
-  const [newRunPrompt, setNewRunPrompt] = useState('')
-  const [manualOutputByStep, setManualOutputByStep] = useState<Record<string, string>>({})
-  const [selectedArtifact, setSelectedArtifact] = useState<{ title: string; content: string } | null>(null)
+  const {
+    advanceRun,
+    approvePlan,
+    createRun,
+    loadRun,
+    loadRuns,
+    prepareStep,
+    recordExecutionEvidence,
+    requestPlanChanges,
+    runStep,
+    sendApprovedExecution,
+    setActiveRun
+  } = useAgentWorkflowStore()
+
+  const [draftInput, setDraftInput] = useState('')
+  const [planDraft, setPlanDraft] = useState('')
+  const [resultDraft, setResultDraft] = useState('')
+  const [verifyDraft, setVerifyDraft] = useState('')
+  const [planFeedback, setPlanFeedback] = useState('')
+  const [advancedOpen, setAdvancedOpen] = useState(false)
+  const [panelError, setPanelError] = useState<string | null>(null)
 
   useEffect(() => {
     void loadRuns(workspaceId)
@@ -38,122 +56,425 @@ export function AgentsWorkflowPanel({ activePaneId, onOpenArtifact, workspaceId 
     if (activeRunId) void loadRun(activeRunId)
   }, [activeRunId, loadRun])
 
-  const handleCreateRun = async (): Promise<void> => {
-    const title = newRunTitle.trim()
-    if (!title) return
-    await createRun({ workspaceId, title, sourceType: 'manual', initialPrompt: newRunPrompt })
-    setNewRunTitle('')
-    setNewRunPrompt('')
+  const artifacts = details?.artifacts ?? []
+  const initialInput = useMemo(() => latestArtifact(artifacts, 'clarification'), [artifacts])
+  const latestPlan = useMemo(() => latestArtifact(artifacts, 'approved_plan') ?? latestArtifact(artifacts, 'plan'), [artifacts])
+  const approvedPlan = useMemo(() => latestArtifact(artifacts, 'approved_plan'), [artifacts])
+  const executionPrompt = useMemo(() => latestArtifact(artifacts, 'execution_prompt'), [artifacts])
+  const executionEvidence = useMemo(() => latestArtifact(artifacts, 'execution_evidence'), [artifacts])
+  const verificationReport = useMemo(() => latestArtifact(artifacts, 'verification_report'), [artifacts])
+  const plannerStep = details?.steps.find((step) => step.role === 'planner') ?? null
+  const executorStep = details?.steps.find((step) => step.role === 'executor') ?? null
+  const verifierStep = details?.steps.find((step) => step.role === 'verifier') ?? null
+  const stage = getStage({ details, approvedPlan, executionPrompt, executionEvidence, verificationReport })
+
+  useEffect(() => {
+    setPlanDraft(latestPlan?.content ?? initialInput?.content ?? '')
+    setResultDraft('')
+    setVerifyDraft('')
+    setPlanFeedback('')
+    setAdvancedOpen(false)
+  }, [details?.run.id, initialInput?.id, latestPlan?.id])
+
+  const runAction = async (action: () => Promise<unknown>): Promise<void> => {
+    setPanelError(null)
+    try {
+      await action()
+    } catch (actionError) {
+      setPanelError(toFriendlyMessage(actionError))
+    }
   }
 
-  const handleRunStep = async (step: AgentWorkflowStep): Promise<void> => {
-    const prepared = step.prompt.trim() ? details : await prepareStep({ runId: step.runId, role: step.role })
-    const preparedStep = prepared?.steps.find((item) => item.role === step.role) ?? step
+  const createDraft = async (): Promise<void> => {
+    const prompt = draftInput.trim()
+    if (!prompt) return
+    await runAction(async () => {
+      await createRun({
+        workspaceId,
+        title: titleFromPrompt(prompt),
+        sourceType: 'manual',
+        initialPrompt: prompt
+      })
+      setDraftInput('')
+    })
+  }
+
+  const sendPlannerPrompt = async (): Promise<void> => {
+    if (!details || !plannerStep) return
     if (!activePaneId) {
-      window.alert('Nenhum terminal ativo para receber o prompt.')
+      setPanelError('Select or start a terminal before sending the planner prompt.')
       return
     }
-    await runStep({ stepId: preparedStep.id, paneId: activePaneId })
+    await runAction(async () => {
+      const prepared = (await prepareStep({ runId: details.run.id, role: 'planner' })).steps.find((step) => step.role === 'planner') ?? plannerStep
+      await runStep({ stepId: prepared.id, paneId: activePaneId })
+    })
   }
 
   return (
-    <div className="agents-workflow-panel">
-      <section className="agents-run-create" aria-label="Create multi-agent run">
-        <input value={newRunTitle} onChange={(event) => setNewRunTitle(event.target.value)} placeholder="New multi-agent run" />
-        <textarea value={newRunPrompt} onChange={(event) => setNewRunPrompt(event.target.value)} placeholder="Idea, bug, task or context" />
-        <button type="button" onClick={() => { void handleCreateRun() }} disabled={!newRunTitle.trim()}>
-          <Plus size={12} aria-hidden="true" />
-          New run
-        </button>
-      </section>
-
+    <div className="agents-workflow-panel plan-exec-panel plan-exec-wizard">
       {error ? <div className="agents-workflow-error" role="alert">{error}</div> : null}
-      {isLoading ? <div className="agents-workflow-empty">Loading workflows</div> : null}
+      {panelError ? <div className="agents-workflow-error" role="alert">{panelError}</div> : null}
+      {isLoading ? <div className="agents-workflow-empty">Loading Plan/Exec runs</div> : null}
 
-      <div className="agents-workflow-layout">
-        <aside className="agents-run-list" aria-label="Multi-agent runs">
-          {runs.length === 0 ? <div className="agents-workflow-empty">No runs yet</div> : null}
+      <div className="plan-exec-wizard-layout">
+        <aside className="plan-exec-run-rail" aria-label="Plan/Exec runs">
+          <header className="plan-exec-rail-header">
+            <span>Runs</span>
+            <button type="button" title="New run" onClick={() => setActiveRun(workspaceId, null)}>
+              <Plus size={12} aria-hidden="true" />
+            </button>
+          </header>
+          {runs.length === 0 ? <div className="agents-workflow-empty">No runs</div> : null}
           {runs.map((run) => (
-            <button key={run.id} type="button" className={run.id === activeRunId ? 'agents-run-item active' : 'agents-run-item'} onClick={() => setActiveRun(workspaceId, run.id)}>
+            <button key={run.id} type="button" className={run.id === activeRunId ? 'plan-exec-run-card active' : 'plan-exec-run-card'} onClick={() => setActiveRun(workspaceId, run.id)}>
               <strong>{run.title}</strong>
               <span>{run.status}</span>
             </button>
           ))}
         </aside>
 
-        <section className="agents-run-detail" aria-label="Selected multi-agent run">
+        <main className="plan-exec-main" aria-label="Plan/Exec workspace">
           {!details ? (
-            <div className="agents-workflow-empty">Select or create a run</div>
+            <DraftStep draftInput={draftInput} onChange={setDraftInput} onCreate={() => { void createDraft() }} />
           ) : (
             <>
-              <header className="agents-run-detail-header">
-                <strong>{details.run.title}</strong>
-                <span>{details.run.status}</span>
-              </header>
-              <div className="agents-step-list">
-                {details.steps.map((step) => {
-                  const output = manualOutputByStep[step.id] ?? ''
-                  return (
-                    <article key={step.id} className={`agents-step-card status-${step.status}`}>
-                      <header>
-                        <span>{getRoleLabel(step.role)}</span>
-                        <small>{step.status}</small>
-                      </header>
-                      {step.error ? <div className="agents-workflow-error">{step.error}</div> : null}
-                      {step.prompt ? <pre>{step.prompt.slice(0, 900)}</pre> : <p>Prompt not prepared</p>}
-                      <div className="agents-step-actions">
-                        <button type="button" onClick={() => { void prepareStep({ runId: details.run.id, role: step.role }) }}>
-                          <ClipboardCheck size={12} aria-hidden="true" />
-                          Prepare
-                        </button>
-                        <button type="button" onClick={() => { void handleRunStep(step) }}>
-                          <Send size={12} aria-hidden="true" />
-                          Send
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const artifact = { title: `${STEP_ACTION_LABEL[step.role]} artifact`, content: step.output || step.prompt }
-                            setSelectedArtifact(artifact)
-                            onOpenArtifact(artifact.content, artifact.title)
-                          }}
-                        >
-                          <MessageSquareText size={12} aria-hidden="true" />
-                          Open
-                        </button>
-                      </div>
-                      <textarea
-                        value={output}
-                        onChange={(event) => setManualOutputByStep((current) => ({ ...current, [step.id]: event.target.value }))}
-                        placeholder="Paste agent output to complete this gated step"
-                      />
-                      <div className="agents-step-actions">
-                        <button type="button" onClick={() => { void completeManualStep({ stepId: step.id, output, status: 'passed' }) }} disabled={!output.trim()}>
-                          <ShieldCheck size={12} aria-hidden="true" />
-                          Complete
-                        </button>
-                        <button type="button" onClick={() => { void completeManualStep({ stepId: step.id, output, status: 'failed' }) }} disabled={!output.trim()}>
-                          <Play size={12} aria-hidden="true" />
-                          Mark failed
-                        </button>
-                      </div>
-                    </article>
-                  )
-                })}
-              </div>
-              {selectedArtifact ? (
-                <section className="agents-artifact-preview" aria-label="Workflow artifact preview">
-                  <header>
-                    <strong>{selectedArtifact.title}</strong>
-                    <button type="button" onClick={() => setSelectedArtifact(null)}>Close</button>
-                  </header>
-                  <pre>{selectedArtifact.content}</pre>
-                </section>
+              <RunHeader details={details} stage={stage} />
+              <StageProgress stage={stage} />
+              {stage === 'plan' ? (
+                <PlanStep
+                  artifacts={artifacts}
+                  details={details}
+                  initialInput={initialInput}
+                  planDraft={planDraft}
+                  feedback={planFeedback}
+                  advancedOpen={advancedOpen}
+                  onAdvancedToggle={() => setAdvancedOpen((value) => !value)}
+                  onFeedbackChange={setPlanFeedback}
+                  onOpenArtifact={onOpenArtifact}
+                  onPlanChange={setPlanDraft}
+                  onApprove={() => runAction(() => approvePlan({ runId: details.run.id, planContent: planDraft }))}
+                  onRequestChanges={() => runAction(() => requestPlanChanges({ runId: details.run.id, feedback: planFeedback }))}
+                  onSendPlannerPrompt={sendPlannerPrompt}
+                />
+              ) : null}
+              {stage === 'exec' ? (
+                <ExecStep
+                  activePaneId={activePaneId}
+                  approvedPlan={approvedPlan}
+                  executorStep={executorStep}
+                  onOpenArtifact={onOpenArtifact}
+                  onSend={() => runAction(async () => {
+                    if (!executorStep) throw new Error('Executor step is missing for this run.')
+                    if (!activePaneId) throw new Error('Select or start a terminal before sending execution.')
+                    await sendApprovedExecution({ stepId: executorStep.id, paneId: activePaneId })
+                  })}
+                />
+              ) : null}
+              {stage === 'result' ? (
+                <ResultStep
+                  executionPrompt={executionPrompt}
+                  executorStep={executorStep}
+                  resultDraft={resultDraft}
+                  onChange={setResultDraft}
+                  onOpenArtifact={onOpenArtifact}
+                  onRecord={() => runAction(async () => {
+                    if (!executorStep) throw new Error('Executor step is missing for this run.')
+                    await recordExecutionEvidence({ stepId: executorStep.id, output: resultDraft })
+                  })}
+                />
+              ) : null}
+              {stage === 'verify' ? (
+                <VerifyStep
+                  verifierStep={verifierStep}
+                  verifyDraft={verifyDraft}
+                  onChange={setVerifyDraft}
+                  onComplete={() => runAction(async () => {
+                    if (verifierStep && verifyDraft.trim()) {
+                      await recordExecutionEvidence({ stepId: verifierStep.id, output: verifyDraft })
+                      return
+                    }
+                    await advanceRun({ runId: details.run.id, targetStatus: 'done', overrideReason: 'Marked complete from Plan/Exec after execution evidence was recorded.' })
+                  })}
+                />
+              ) : null}
+              {stage === 'done' ? (
+                <DoneStep artifacts={[approvedPlan, executionEvidence, verificationReport]} onOpenArtifact={onOpenArtifact} />
               ) : null}
             </>
           )}
-        </section>
+        </main>
       </div>
     </div>
   )
+}
+
+function DraftStep(props: { draftInput: string; onChange: (value: string) => void; onCreate: () => void }): ReactElement {
+  return (
+    <section className="plan-exec-step-card plan-exec-draft-step">
+      <div className="plan-exec-step-title">
+        <FileText size={18} aria-hidden="true" />
+        <div>
+          <strong>Start a Plan/Exec run</strong>
+          <span>Describe the task once. The next screen turns it into an approved plan before anything reaches a terminal.</span>
+        </div>
+      </div>
+      <textarea value={props.draftInput} onChange={(event) => props.onChange(event.target.value)} placeholder="Task, bug, idea or context" autoFocus />
+      <button type="button" className="plan-exec-primary-action" onClick={props.onCreate} disabled={!props.draftInput.trim()} title={!props.draftInput.trim() ? 'Describe the task before creating a run.' : undefined}>
+        <Plus size={14} aria-hidden="true" />
+        Create Plan/Exec
+      </button>
+    </section>
+  )
+}
+
+function RunHeader({ details, stage }: { details: AgentWorkflowRunDetails; stage: WizardStage }): ReactElement {
+  return (
+    <header className="plan-exec-run-header">
+      <div>
+        <strong>{details.run.title}</strong>
+        <span>{details.run.sourceType}{details.run.sourceId ? `:${details.run.sourceId}` : ''}</span>
+      </div>
+      <span>{stage}</span>
+    </header>
+  )
+}
+
+function StageProgress({ stage }: { stage: WizardStage }): ReactElement {
+  const currentIndex = STAGES.findIndex((item) => item.id === stage)
+  return (
+    <nav className="plan-exec-progress" aria-label="Plan/Exec progress">
+      {STAGES.map((item, index) => (
+        <span key={item.id} className={index < currentIndex ? 'done' : item.id === stage ? 'active' : ''}>
+          {item.label}
+        </span>
+      ))}
+    </nav>
+  )
+}
+
+function PlanStep(props: {
+  artifacts: AgentWorkflowArtifact[]
+  details: AgentWorkflowRunDetails
+  initialInput: AgentWorkflowArtifact | undefined
+  planDraft: string
+  feedback: string
+  advancedOpen: boolean
+  onAdvancedToggle: () => void
+  onFeedbackChange: (value: string) => void
+  onOpenArtifact: (content: string, title: string) => void
+  onPlanChange: (value: string) => void
+  onApprove: () => Promise<void>
+  onRequestChanges: () => Promise<void>
+  onSendPlannerPrompt: () => Promise<void>
+}): ReactElement {
+  return (
+    <section className="plan-exec-step-card plan-exec-plan-step">
+      <div className="plan-exec-step-title">
+        <ClipboardCheck size={18} aria-hidden="true" />
+        <div>
+          <strong>Approve the plan</strong>
+          <span>This text becomes the canonical plan and will be sent to execution exactly as approved.</span>
+        </div>
+      </div>
+
+      {props.initialInput ? (
+        <ContextButton artifact={props.initialInput} onOpenArtifact={props.onOpenArtifact} />
+      ) : null}
+
+      <textarea className="plan-exec-large-editor" value={props.planDraft} onChange={(event) => props.onPlanChange(event.target.value)} placeholder="Write or paste the implementation plan here." />
+      <button type="button" className="plan-exec-primary-action" onClick={() => { void props.onApprove() }} disabled={!props.planDraft.trim()} title={!props.planDraft.trim() ? 'Write a plan before approving.' : undefined}>
+        <Check size={14} aria-hidden="true" />
+        Approve Plan
+      </button>
+
+      <AdvancedPlanActions
+        artifacts={props.artifacts}
+        feedback={props.feedback}
+        open={props.advancedOpen}
+        onFeedbackChange={props.onFeedbackChange}
+        onOpenArtifact={props.onOpenArtifact}
+        onRequestChanges={props.onRequestChanges}
+        onSendPlannerPrompt={props.onSendPlannerPrompt}
+        onToggle={props.onAdvancedToggle}
+      />
+    </section>
+  )
+}
+
+function ExecStep(props: {
+  activePaneId: string | null
+  approvedPlan: AgentWorkflowArtifact | undefined
+  executorStep: AgentWorkflowStep | null
+  onOpenArtifact: (content: string, title: string) => void
+  onSend: () => Promise<void>
+}): ReactElement {
+  const disabledReason = !props.executorStep ? 'Executor step is missing for this run.' : !props.activePaneId ? 'Select or start a terminal before sending execution.' : null
+  return (
+    <section className="plan-exec-step-card">
+      <div className="plan-exec-step-title">
+        <Send size={18} aria-hidden="true" />
+        <div>
+          <strong>Send execution</strong>
+          <span>{props.activePaneId ? `Target terminal: ${props.activePaneId.slice(0, 8)}` : 'No active terminal selected.'}</span>
+        </div>
+      </div>
+      {props.approvedPlan ? <ContextButton artifact={props.approvedPlan} onOpenArtifact={props.onOpenArtifact} /> : null}
+      <div className="plan-exec-helper-box">
+        The execution prompt is generated from the approved plan and current run context. No execution is sent until this button is clicked.
+      </div>
+      {disabledReason ? <p className="plan-exec-disabled-reason">{disabledReason}</p> : null}
+      <button type="button" className="plan-exec-primary-action" onClick={() => { void props.onSend() }} disabled={Boolean(disabledReason)} title={disabledReason ?? undefined}>
+        <Send size={14} aria-hidden="true" />
+        Send Execution
+      </button>
+    </section>
+  )
+}
+
+function ResultStep(props: {
+  executionPrompt: AgentWorkflowArtifact | undefined
+  executorStep: AgentWorkflowStep | null
+  resultDraft: string
+  onChange: (value: string) => void
+  onOpenArtifact: (content: string, title: string) => void
+  onRecord: () => Promise<void>
+}): ReactElement {
+  return (
+    <section className="plan-exec-step-card">
+      <div className="plan-exec-step-title">
+        <Play size={18} aria-hidden="true" />
+        <div>
+          <strong>Record result</strong>
+          <span>Paste the terminal result, changed files and checks already run.</span>
+        </div>
+      </div>
+      {props.executionPrompt ? <ContextButton artifact={props.executionPrompt} onOpenArtifact={props.onOpenArtifact} /> : null}
+      <textarea value={props.resultDraft} onChange={(event) => props.onChange(event.target.value)} placeholder="Execution output, changed files, commands and notes" />
+      <button type="button" className="plan-exec-primary-action" onClick={() => { void props.onRecord() }} disabled={!props.executorStep || !props.resultDraft.trim()} title={!props.resultDraft.trim() ? 'Record execution evidence before verification.' : undefined}>
+        <Check size={14} aria-hidden="true" />
+        Record Result
+      </button>
+    </section>
+  )
+}
+
+function VerifyStep(props: { verifierStep: AgentWorkflowStep | null; verifyDraft: string; onChange: (value: string) => void; onComplete: () => Promise<void> }): ReactElement {
+  return (
+    <section className="plan-exec-step-card">
+      <div className="plan-exec-step-title">
+        <ShieldCheck size={18} aria-hidden="true" />
+        <div>
+          <strong>Verify and complete</strong>
+          <span>Add validation evidence. If left empty, OXESpace records an explicit manual completion override.</span>
+        </div>
+      </div>
+      <textarea value={props.verifyDraft} onChange={(event) => props.onChange(event.target.value)} placeholder="Typecheck, tests, build output or manual verification notes" />
+      <button type="button" className="plan-exec-primary-action" onClick={() => { void props.onComplete() }}>
+        <ShieldCheck size={14} aria-hidden="true" />
+        Complete
+      </button>
+    </section>
+  )
+}
+
+function DoneStep(props: { artifacts: Array<AgentWorkflowArtifact | undefined>; onOpenArtifact: (content: string, title: string) => void }): ReactElement {
+  return (
+    <section className="plan-exec-step-card">
+      <div className="plan-exec-step-title">
+        <Check size={18} aria-hidden="true" />
+        <div>
+          <strong>Done</strong>
+          <span>The run has an approved plan, execution evidence and verification report.</span>
+        </div>
+      </div>
+      <div className="plan-exec-artifact-list">
+        {props.artifacts.filter((artifact): artifact is AgentWorkflowArtifact => Boolean(artifact)).map((artifact) => (
+          <ContextButton key={artifact.id} artifact={artifact} onOpenArtifact={props.onOpenArtifact} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function AdvancedPlanActions(props: {
+  artifacts: AgentWorkflowArtifact[]
+  feedback: string
+  open: boolean
+  onFeedbackChange: (value: string) => void
+  onOpenArtifact: (content: string, title: string) => void
+  onRequestChanges: () => Promise<void>
+  onSendPlannerPrompt: () => Promise<void>
+  onToggle: () => void
+}): ReactElement {
+  return (
+    <section className="plan-exec-advanced">
+      <button type="button" className="plan-exec-advanced-toggle" onClick={props.onToggle}>
+        {props.open ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />}
+        Advanced planner actions
+      </button>
+      {props.open ? (
+        <div className="plan-exec-advanced-body">
+          <div className="plan-exec-context-grid">
+            {props.artifacts.slice(-5).map((artifact) => (
+              <ContextButton key={artifact.id} artifact={artifact} onOpenArtifact={props.onOpenArtifact} />
+            ))}
+          </div>
+          <textarea value={props.feedback} onChange={(event) => props.onFeedbackChange(event.target.value)} placeholder="Feedback for planner changes" />
+          <div className="plan-exec-secondary-actions">
+            <button type="button" onClick={() => { void props.onSendPlannerPrompt() }}>
+              <Bot size={13} aria-hidden="true" />
+              Ask Planner
+            </button>
+            <button type="button" onClick={() => { void props.onRequestChanges() }} disabled={!props.feedback.trim()} title={!props.feedback.trim() ? 'Write feedback before requesting changes.' : undefined}>
+              Request plan changes
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  )
+}
+
+function ContextButton({ artifact, onOpenArtifact }: { artifact: AgentWorkflowArtifact; onOpenArtifact: (content: string, title: string) => void }): ReactElement {
+  return (
+    <button type="button" className="plan-exec-context-button" onClick={() => onOpenArtifact(artifact.content, artifact.title)}>
+      <FileText size={12} aria-hidden="true" />
+      <span>{artifact.title}</span>
+    </button>
+  )
+}
+
+function latestArtifact(artifacts: AgentWorkflowArtifact[], kind: WorkflowArtifactKind): AgentWorkflowArtifact | undefined {
+  return [...artifacts].reverse().find((artifact) => artifact.kind === kind)
+}
+
+function getStage(input: {
+  details: AgentWorkflowRunDetails | undefined
+  approvedPlan: AgentWorkflowArtifact | undefined
+  executionPrompt: AgentWorkflowArtifact | undefined
+  executionEvidence: AgentWorkflowArtifact | undefined
+  verificationReport: AgentWorkflowArtifact | undefined
+}): WizardStage {
+  if (!input.details) return 'draft'
+  if (!input.approvedPlan) return 'plan'
+  if (!input.executionPrompt && input.details.steps.find((step) => step.role === 'executor')?.status !== 'sent_to_terminal') return 'exec'
+  if (!input.executionEvidence) return 'result'
+  if (!input.verificationReport) return 'verify'
+  return 'done'
+}
+
+function titleFromPrompt(prompt: string): string {
+  const firstLine = prompt.split(/\r?\n/).find((line) => line.trim())?.trim() ?? 'Plan/Exec run'
+  return firstLine.length > 58 ? `${firstLine.slice(0, 55)}...` : firstLine
+}
+
+function toFriendlyMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : 'Plan/Exec action failed.'
+  if (message.includes('No handler registered')) {
+    return 'OXESpace precisa reiniciar para carregar os novos handlers do Plan/Exec.'
+  }
+  return message
+    .replace(/^Error invoking remote method '[^']+':\s*/i, '')
+    .replace(/^Error:\s*/i, '')
 }

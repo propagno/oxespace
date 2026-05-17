@@ -1,54 +1,86 @@
-import type { ReactElement } from 'react'
+import { useId, type ReactElement } from 'react'
 
 interface OxeLogoProps {
   size?: number
   variant?: 'full' | 'compact'
 }
 
+/**
+ * OXESpace mark — a 270° orbital arc with an agent node.
+ *
+ * Concept: an AI agent (node) orbiting a terminal workspace.
+ * The arc opens at the bottom-right, suggesting forward motion.
+ *
+ * variant="full"    — arc on dark rounded-square background (app icon, collapsed sidebar)
+ * variant="compact" — arc on transparent background (inline use on dark surfaces)
+ */
 export function OxeLogo({ size = 28, variant = 'full' }: OxeLogoProps): ReactElement {
-  const r = Math.round(size * 0.25)
-  const idSuffix = `${size}-${variant}`
+  const uid = useId()
+
+  const cx = size / 2
+  const cy = size / 2
+  const arcR = size * 0.32
+  const f = 0.7071 // cos/sin 45°
+
+  // Arc endpoints
+  // Start: bottom-left  (225° in standard coords → SVG bottom-left)
+  const sx = cx - arcR * f
+  const sy = cy + arcR * f
+  // End: top-right (315° in standard coords → SVG top-right)
+  const ex = cx + arcR * f
+  const ey = cy - arcR * f
+
+  const sw = Math.max(1.4, size * 0.051)
+  const nodeR = Math.max(1.4, size * 0.087)
+  const coreR = Math.max(0.7, size * 0.046)
+
+  // M startX startY A r r 0 large-arc sweep endX endY
+  // large-arc=1, sweep=1 (clockwise) → 270° arc through left/top, gap at bottom-right
+  const arcPath = `M ${sx.toFixed(2)} ${sy.toFixed(2)} A ${arcR.toFixed(2)} ${arcR.toFixed(2)} 0 1 1 ${ex.toFixed(2)} ${ey.toFixed(2)}`
+
+  const arcGradId = `${uid}-arc`
+  const bgGradId  = `${uid}-bg`
+  const ambGradId = `${uid}-amb`
 
   if (variant === 'compact') {
-    const s = size
-    const cell = Math.round(s * 0.33)
-    const gap = Math.round(s * 0.08)
-    const x2 = Math.round(s * 0.58)
-    const y2 = Math.round(s * 0.58)
     return (
-      <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`} fill="none" aria-hidden="true">
-        <rect x="0" y="0" width={cell} height={cell} rx="1" fill="white" opacity="0.9"/>
-        <rect x={x2 - gap} y="0" width={cell} height={cell} rx="1" fill="white" opacity="0.55"/>
-        <rect x="0" y={y2 - gap} width={cell} height={cell} rx="1" fill="white" opacity="0.35"/>
-        <rect x={x2 - gap} y={y2 - gap} width={cell} height={cell} rx="1" fill="white" opacity="0.15"/>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} fill="none" aria-hidden="true">
+        <defs>
+          <linearGradient id={arcGradId} x1={sx} y1={sy} x2={ex} y2={ey} gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#12C79A"/>
+            <stop offset="100%" stopColor="#38BDF8"/>
+          </linearGradient>
+        </defs>
+        <path d={arcPath} stroke={`url(#${arcGradId})`} strokeWidth={sw} fill="none" strokeLinecap="round"/>
+        <circle cx={ex} cy={ey} r={nodeR} fill="#38BDF8"/>
+        <circle cx={ex} cy={ey} r={coreR} fill="white"/>
       </svg>
     )
   }
 
-  const pad = Math.round(size * 0.18)
-  const cellSize = Math.round(size * 0.286)
-  const gap = Math.round(size * 0.036)
-  const col2 = pad + cellSize + gap
-  const row2 = pad + cellSize + gap
+  const rx = size * 0.22
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <defs>
-        <linearGradient id={`oxe-bg-${idSuffix}`} x1="0" y1="0" x2={size} y2={size} gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="var(--brand-dark, #1e1b4b)"/>
-          <stop offset="100%" stopColor="var(--brand, #4f46e5)"/>
+        <linearGradient id={bgGradId} x1="0" y1="0" x2={size} y2={size} gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#0E1F30"/>
+          <stop offset="100%" stopColor="#070F1A"/>
         </linearGradient>
-        <radialGradient id={`oxe-glow-${idSuffix}`} cx={Math.round(size * 0.25)} cy={Math.round(size * 0.25)} r={Math.round(size * 0.5)} gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="var(--brand-light, #818cf8)" stopOpacity="0.5"/>
-          <stop offset="100%" stopColor="var(--brand, #4f46e5)" stopOpacity="0"/>
+        <radialGradient id={ambGradId} cx={cx} cy={cy} r={size * 0.35} gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#12C79A" stopOpacity="0.10"/>
+          <stop offset="100%" stopColor="#12C79A" stopOpacity="0"/>
         </radialGradient>
+        <linearGradient id={arcGradId} x1={sx} y1={sy} x2={ex} y2={ey} gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#12C79A"/>
+          <stop offset="100%" stopColor="#38BDF8"/>
+        </linearGradient>
       </defs>
-      <rect width={size} height={size} rx={r} fill={`url(#oxe-bg-${idSuffix})`}/>
-      <rect width={size} height={size} rx={r} fill={`url(#oxe-glow-${idSuffix})`}/>
-      <rect x={pad} y={pad} width={cellSize} height={cellSize} rx="1.5" fill="white" opacity="0.95"/>
-      <rect x={col2} y={pad} width={cellSize} height={cellSize} rx="1.5" fill="white" opacity="0.55"/>
-      <rect x={pad} y={row2} width={cellSize} height={cellSize} rx="1.5" fill="white" opacity="0.35"/>
-      <rect x={col2} y={row2} width={cellSize} height={cellSize} rx="1.5" fill="white" opacity="0.15"/>
+      <rect width={size} height={size} rx={rx} fill={`url(#${bgGradId})`}/>
+      <rect width={size} height={size} rx={rx} fill={`url(#${ambGradId})`}/>
+      <path d={arcPath} stroke={`url(#${arcGradId})`} strokeWidth={sw} fill="none" strokeLinecap="round"/>
+      <circle cx={ex} cy={ey} r={nodeR} fill="#38BDF8"/>
+      <circle cx={ex} cy={ey} r={coreR} fill="white"/>
     </svg>
   )
 }

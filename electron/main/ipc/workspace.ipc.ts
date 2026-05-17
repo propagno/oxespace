@@ -1,9 +1,10 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron'
 import type { AppDatabase } from '../db/index'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
+import { AgentService } from '../services/agent.service'
 import { ShellProfileService } from '../services/shell-profile.service'
 import { WorkspaceService } from '../services/workspace.service'
-import { parseId, parseSplitPaneInput, parseUpdatePaneNameInput, parseUpdatePaneTypeInput, parseUpdateWorkspaceAgentsStateInput, parseUpdateWorkspaceEditorStateInput, parseUpdateWorkspaceOxeStateInput, parseUpdateWorkspaceReviewStateInput, parseUpdateWorkspaceSettingsInput, parseWorkspaceCreateInput } from './validation'
+import { parseId, parseSetPaneAgentInput, parseSetPaneModelOverrideInput, parseSetPaneRootPathInput, parseSplitPaneInput, parseUpdatePaneNameInput, parseUpdatePaneTypeInput, parseUpdateWorkspaceAgentsStateInput, parseUpdateWorkspaceEditorStateInput, parseUpdateWorkspaceGitHubStateInput, parseUpdateWorkspaceOxeStateInput, parseUpdateWorkspaceReviewStateInput, parseUpdateWorkspaceSettingsInput, parseWorkspaceCreateInput } from './validation'
 
 interface WorkspaceLifecycleController {
   stop(input: { paneId: string }): Promise<void> | void
@@ -13,6 +14,7 @@ interface WorkspaceLifecycleController {
 export function registerWorkspaceIpc(db: AppDatabase, lifecycle?: WorkspaceLifecycleController): void {
   const workspaceService = new WorkspaceService(db)
   const shellProfileService = new ShellProfileService(db)
+  const agentService = new AgentService(db)
 
   ipcMain.handle(IPC_CHANNELS.workspace.list, () => workspaceService.list())
   ipcMain.handle(IPC_CHANNELS.workspace.create, (_event, input: unknown) =>
@@ -42,6 +44,28 @@ export function registerWorkspaceIpc(db: AppDatabase, lifecycle?: WorkspaceLifec
     const { paneId, displayName } = parseUpdatePaneNameInput(input)
     return workspaceService.updatePaneName(paneId, displayName)
   })
+  ipcMain.handle(IPC_CHANNELS.workspace.setPaneModelOverride, (_event, input: unknown) => {
+    const { paneId, modelId } = parseSetPaneModelOverrideInput(input)
+    return workspaceService.setPaneModelOverride(paneId, modelId)
+  })
+  ipcMain.handle(IPC_CHANNELS.workspace.setPaneAgent, (_event, input: unknown) => {
+    const { paneId, agentProfileId } = parseSetPaneAgentInput(input)
+    let agentName: string | null = null
+    if (agentProfileId) {
+      const profile = agentService.list().find((p) => p.agentProfileId === agentProfileId)
+      if (!profile) throw new Error(`Agent profile ${agentProfileId} not found`)
+      agentName = profile.name
+    }
+    // Stop pane before switching so the new agent starts fresh on next launch
+    lifecycle?.stop({ paneId })
+    return workspaceService.setPaneAgent(paneId, agentProfileId, agentName)
+  })
+  ipcMain.handle(IPC_CHANNELS.workspace.setPaneRootPath, (_event, input: unknown) => {
+    const { paneId, rootPath } = parseSetPaneRootPathInput(input)
+    // Stop the pane so it picks up the new cwd on next start
+    lifecycle?.stop({ paneId })
+    return workspaceService.setPaneRootPath(paneId, rootPath)
+  })
   ipcMain.handle(IPC_CHANNELS.workspace.updateEditorState, (_event, input: unknown) =>
     workspaceService.updateEditorState(parseUpdateWorkspaceEditorStateInput(input))
   )
@@ -54,6 +78,9 @@ export function registerWorkspaceIpc(db: AppDatabase, lifecycle?: WorkspaceLifec
   ipcMain.handle(IPC_CHANNELS.workspace.updateReviewState, (_event, input: unknown) =>
     workspaceService.updateReviewState(parseUpdateWorkspaceReviewStateInput(input))
   )
+  ipcMain.handle(IPC_CHANNELS.workspace.updateGitHubState, (_event, input: unknown) =>
+    workspaceService.updateGitHubState(parseUpdateWorkspaceGitHubStateInput(input))
+  )
   ipcMain.handle(IPC_CHANNELS.workspace.updateSettings, (_event, input: unknown) =>
     workspaceService.updateSettings(parseUpdateWorkspaceSettingsInput(input))
   )
@@ -63,4 +90,7 @@ export function registerWorkspaceIpc(db: AppDatabase, lifecycle?: WorkspaceLifec
     return result.canceled ? null : result.filePaths[0] ?? null
   })
   ipcMain.handle(IPC_CHANNELS.workspace.shellProfiles, () => shellProfileService.list())
+  ipcMain.handle(IPC_CHANNELS.workspace.createGitHubTerminalPane, (_event, id: unknown) =>
+    workspaceService.createGitHubTerminalPane(parseId(id))
+  )
 }

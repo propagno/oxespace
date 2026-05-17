@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { CreateWorkspaceInput, ShellProfile, UpdateWorkspaceAgentsStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceOxeStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, Workspace } from '../../shared/types/workspace'
+import type { CreateWorkspaceInput, ShellProfile, UpdateWorkspaceAgentsStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceOxeStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, Workspace } from '../../shared/types/workspace'
 
 interface WorkspaceState {
   workspaces: Workspace[]
@@ -16,10 +16,14 @@ interface WorkspaceState {
   splitPane: (paneId: string, direction: 'vertical' | 'horizontal') => Promise<void>
   updatePaneType: (paneId: string, type: Workspace['panes'][number]['type']) => Promise<void>
   updatePaneName: (paneId: string, displayName: string | null) => Promise<void>
+  setPaneModelOverride: (paneId: string, modelId: string | null) => Promise<void>
+  setPaneAgent: (paneId: string, agentProfileId: string | null) => Promise<void>
+  setPaneRootPath: (paneId: string, rootPath: string | null) => Promise<void>
   updateEditorState: (input: UpdateWorkspaceEditorStateInput) => Promise<void>
   updateOxeState: (input: UpdateWorkspaceOxeStateInput) => Promise<void>
   updateAgentsState: (input: UpdateWorkspaceAgentsStateInput) => Promise<void>
   updateReviewState: (input: UpdateWorkspaceReviewStateInput) => Promise<void>
+  updateGitHubState: (input: UpdateWorkspaceGitHubStateInput) => Promise<void>
   updateSettings: (input: UpdateWorkspaceSettingsInput) => Promise<void>
   clearError: () => void
 }
@@ -120,6 +124,30 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     }))
   },
 
+  setPaneModelOverride: async (paneId, modelId) => {
+    const workspace = await window.oxe.workspace.setPaneModelOverride({ paneId, modelId })
+    set((state) => ({
+      workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)),
+      error: null
+    }))
+  },
+
+  setPaneAgent: async (paneId, agentProfileId) => {
+    const workspace = await window.oxe.workspace.setPaneAgent({ paneId, agentProfileId })
+    set((state) => ({
+      workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)),
+      error: null
+    }))
+  },
+
+  setPaneRootPath: async (paneId, rootPath) => {
+    const workspace = await window.oxe.workspace.setPaneRootPath({ paneId, rootPath })
+    set((state) => ({
+      workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)),
+      error: null
+    }))
+  },
+
   updateEditorState: async (input) => {
     const workspace = await window.oxe.workspace.updateEditorState(input)
     set((state) => ({
@@ -153,6 +181,18 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       }))
     } catch (err) {
       set({ error: err instanceof Error ? err.message : 'Failed to update review state' })
+    }
+  },
+
+  updateGitHubState: async (input) => {
+    try {
+      const workspace = await window.oxe.workspace.updateGitHubState(input)
+      set((state) => ({
+        workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)),
+        error: null
+      }))
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : 'Failed to update GitHub panel state' })
     }
   },
 

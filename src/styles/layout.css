@@ -682,6 +682,7 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
+  position: relative;
 }
 
 .workspace-toolbar-button {
@@ -745,6 +746,101 @@
   height: 16px;
   background: #202020;
   flex-shrink: 0;
+}
+
+.tools-menu-root {
+  position: relative;
+}
+
+.tools-menu-trigger {
+  min-width: 92px;
+}
+
+.tools-menu-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 200;
+  width: 296px;
+  max-height: min(72vh, 680px);
+  overflow: auto;
+  padding: 10px 0;
+  border: 1px solid #242638;
+  border-radius: 8px;
+  background: #111119;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+}
+
+.tools-menu-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #202030;
+}
+
+.tools-menu-group:last-child {
+  border-bottom: 0;
+}
+
+.tools-menu-group h3 {
+  margin: 0 0 6px;
+  color: #8791aa;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.tools-menu-item {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 31px;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #c7cce0;
+  text-align: left;
+}
+
+.tools-menu-item:hover,
+.tools-menu-item.active {
+  background: rgba(0, 214, 201, 0.09);
+  color: #f4f7ff;
+}
+
+.tools-menu-item:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.tools-menu-item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #00d6c9;
+}
+
+.tools-menu-item-label {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tools-menu-item-detail {
+  color: #8991a7;
+  font-size: 11px;
+}
+
+.tool-item-symbol {
+  font-size: 13px;
+  line-height: 1;
 }
 
 .workspace-surface-content,
@@ -847,4 +943,3 @@
   background: #151515;
   padding: 0 5px;
 }
-

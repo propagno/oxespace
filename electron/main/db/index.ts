@@ -100,9 +100,34 @@ export function runMigrations(db: AppDatabase): void {
 
   if (currentVersion < 14) {
     db.exec(readMigration('014_agent_skills.sql'))
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
+
+  if (currentVersion < 15) {
+    db.exec(readMigration('015_github_tools.sql'))
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
+
+  if (currentVersion < 18) {
+    if (!hasColumn(db, 'panes', 'model_override')) {
+      db.exec(readMigration('018_pane_model_override.sql'))
+    } else {
+      db.pragma('user_version = 18')
+    }
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
+
+  if (currentVersion < 20) {
+    db.exec(readMigration('020_more_providers.sql'))
+    currentVersion = db.pragma('user_version', { simple: true }) as number
   }
 }
 
 function readMigration(name: string): string {
   return readFileSync(join(__dirname, 'migrations', name), 'utf8')
+}
+
+function hasColumn(db: AppDatabase, table: string, column: string): boolean {
+  const columns = db.prepare(`PRAGMA table_info('${table}')`).all() as Array<{ name: string }>
+  return columns.some((item) => item.name === column)
 }

@@ -8,6 +8,8 @@ export type WorkspaceDensity = 'compact' | 'comfortable'
 
 export type PaneType = 'terminal' | 'tasks' | 'editor' | 'swarm' | 'inspector' | 'graph' | 'review'
 
+export type GitHubPanelTab = import('./github').GitHubPanelTab
+
 export type PaneStatus = 'idle' | 'running' | 'exited'
 
 export interface ShellProfile {
@@ -29,6 +31,11 @@ export interface WorkspacePane {
   agentProfileId: string | null
   agentName: string | null
   displayName: string | null
+  createdAt: number | null
+  /** Overrides the agent profile's default model. Null = use profile default. */
+  modelOverride: string | null
+  /** Per-pane working directory override (e.g. git worktree). Null = use workspace rootPath. */
+  rootPath: string | null
 }
 
 export interface PaneAgentBinding {
@@ -60,6 +67,10 @@ export interface Workspace {
   reviewPanelVisible?: boolean
   reviewPanelExpanded?: boolean
   reviewPanelWidthPercent?: number
+  githubPanelVisible?: boolean
+  githubPanelExpanded?: boolean
+  githubPanelWidthPercent?: number
+  githubActiveTab?: GitHubPanelTab
   panes: WorkspacePane[]
 }
 
@@ -101,6 +112,14 @@ export interface UpdateWorkspaceReviewStateInput {
   reviewPanelVisible?: boolean
   reviewPanelExpanded?: boolean
   reviewPanelWidthPercent?: number
+}
+
+export interface UpdateWorkspaceGitHubStateInput {
+  workspaceId: string
+  githubPanelVisible?: boolean
+  githubPanelExpanded?: boolean
+  githubPanelWidthPercent?: number
+  githubActiveTab?: GitHubPanelTab
 }
 
 export interface UpdateWorkspaceSettingsInput {

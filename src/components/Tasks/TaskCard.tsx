@@ -3,6 +3,7 @@ import { CheckCircle2, FilePenLine, MessageSquareText, Play, ShieldCheck, Trash2
 import type { Task } from '../../../shared/types/task'
 import { useAgentWorkflowStore } from '../../store/agent-workflow.store'
 import { useTasksStore } from '../../store/tasks.store'
+import { useWorkspaceStore } from '../../store/workspace.store'
 
 interface TaskCardProps {
   task: Task
@@ -17,6 +18,7 @@ export function TaskCard({ onDropTask, onEdit, task }: TaskCardProps): ReactElem
   const verifyOutput = useTasksStore((state) => state.verifyOutputByTask[task.id] ?? '')
   const createTaskRun = useAgentWorkflowStore((state) => state.createTaskRun)
   const prepareStep = useAgentWorkflowStore((state) => state.prepareStep)
+  const updateAgentsState = useWorkspaceStore((state) => state.updateAgentsState)
 
   const handleDragStart = (event: DragEvent<HTMLElement>): void => {
     event.dataTransfer.setData('text/task-id', task.id)
@@ -33,7 +35,12 @@ export function TaskCard({ onDropTask, onEdit, task }: TaskCardProps): ReactElem
   }
 
   const handleRun = (): void => {
-    void runTask({ taskId: task.id }).catch(() => undefined)
+    void createTaskRun(task)
+      .then((details) => Promise.all([
+        prepareStep({ runId: details.run.id, role: 'planner' }),
+        updateAgentsState({ workspaceId: task.workspaceId, agentsPanelVisible: true })
+      ]))
+      .catch(() => undefined)
   }
 
   const handleVerify = (): void => {
@@ -56,7 +63,7 @@ export function TaskCard({ onDropTask, onEdit, task }: TaskCardProps): ReactElem
       {task.description ? <p>{task.description}</p> : null}
       {verifyOutput ? <pre className="task-output">{verifyOutput.slice(-500)}</pre> : null}
       <footer className="task-card-actions">
-        <button type="button" title="Run" onClick={handleRun}>
+        <button type="button" title="Plan/Exec" onClick={handleRun}>
           <Play size={12} />
         </button>
         <button type="button" title="Create Multi-Agent Run" onClick={() => void createTaskRun(task)}>
@@ -73,6 +80,9 @@ export function TaskCard({ onDropTask, onEdit, task }: TaskCardProps): ReactElem
         </button>
         <button type="button" title="Verify" disabled={!task.verifyCommand} onClick={handleVerify}>
           {task.runStatus === 'passed' ? <CheckCircle2 size={12} /> : <ShieldCheck size={12} />}
+        </button>
+        <button type="button" title="Run legacy/direct" onClick={() => void runTask({ taskId: task.id }).catch(() => undefined)}>
+          <Play size={12} />
         </button>
         <button type="button" title="Edit" onClick={onEdit}>
           <FilePenLine size={12} />

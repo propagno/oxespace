@@ -3,11 +3,17 @@ import type {
   AgentRole,
   AgentWorkflowRun,
   AgentWorkflowRunDetails,
+  AdvanceAgentWorkflowRunInput,
   AppendAgentWorkflowArtifactInput,
+  ApproveAgentWorkflowPlanInput,
   CompleteManualAgentWorkflowStepInput,
   CreateAgentWorkflowRunInput,
   PrepareAgentWorkflowStepInput,
+  RecordAgentWorkflowExecutionEvidenceInput,
+  RejectAgentWorkflowPlanInput,
+  RequestAgentWorkflowPlanChangesInput,
   RunAgentWorkflowStepInput,
+  SendApprovedAgentWorkflowExecutionInput,
   UpdateWorkspaceAgentRoleBindingsInput,
   WorkspaceAgentRoleBinding
 } from '../../shared/types/agent-workflow'
@@ -26,6 +32,12 @@ interface AgentWorkflowState {
   updateRoleBindings: (input: UpdateWorkspaceAgentRoleBindingsInput) => Promise<WorkspaceAgentRoleBinding[]>
   prepareStep: (input: PrepareAgentWorkflowStepInput) => Promise<AgentWorkflowRunDetails>
   runStep: (input: RunAgentWorkflowStepInput) => Promise<AgentWorkflowRunDetails>
+  approvePlan: (input: ApproveAgentWorkflowPlanInput) => Promise<AgentWorkflowRunDetails>
+  rejectPlan: (input: RejectAgentWorkflowPlanInput) => Promise<AgentWorkflowRunDetails>
+  requestPlanChanges: (input: RequestAgentWorkflowPlanChangesInput) => Promise<AgentWorkflowRunDetails>
+  sendApprovedExecution: (input: SendApprovedAgentWorkflowExecutionInput) => Promise<AgentWorkflowRunDetails>
+  recordExecutionEvidence: (input: RecordAgentWorkflowExecutionEvidenceInput) => Promise<AgentWorkflowRunDetails>
+  advanceRun: (input: AdvanceAgentWorkflowRunInput) => Promise<AgentWorkflowRunDetails>
   completeManualStep: (input: CompleteManualAgentWorkflowStepInput) => Promise<AgentWorkflowRunDetails>
   appendArtifact: (input: AppendAgentWorkflowArtifactInput) => Promise<AgentWorkflowRunDetails>
   setActiveRun: (workspaceId: string, runId: string | null) => void
@@ -102,6 +114,50 @@ export const useAgentWorkflowStore = create<AgentWorkflowState>((set, get) => ({
     return details
   },
 
+  approvePlan: async (input) => {
+    const details = await window.oxe.agentWorkflow.approvePlan(input).catch((error) => {
+      throw new Error(toMessage(error))
+    })
+    setRunDetails(set, details)
+    return details
+  },
+
+  rejectPlan: async (input) => {
+    const details = await window.oxe.agentWorkflow.rejectPlan(input)
+    setRunDetails(set, details)
+    return details
+  },
+
+  requestPlanChanges: async (input) => {
+    const details = await window.oxe.agentWorkflow.requestPlanChanges(input).catch((error) => {
+      throw new Error(toMessage(error))
+    })
+    setRunDetails(set, details)
+    return details
+  },
+
+  sendApprovedExecution: async (input) => {
+    const details = await window.oxe.agentWorkflow.sendApprovedExecution(input).catch((error) => {
+      throw new Error(toMessage(error))
+    })
+    setRunDetails(set, details)
+    return details
+  },
+
+  recordExecutionEvidence: async (input) => {
+    const details = await window.oxe.agentWorkflow.recordExecutionEvidence(input).catch((error) => {
+      throw new Error(toMessage(error))
+    })
+    setRunDetails(set, details)
+    return details
+  },
+
+  advanceRun: async (input) => {
+    const details = await window.oxe.agentWorkflow.advanceRun(input)
+    setRunDetails(set, details)
+    return details
+  },
+
   completeManualStep: async (input) => {
     const details = await window.oxe.agentWorkflow.completeManualStep(input)
     setRunDetails(set, details)
@@ -173,5 +229,11 @@ function setRunDetails(
 }
 
 function toMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Unexpected agent workflow error'
+  const message = error instanceof Error ? error.message : 'Unexpected agent workflow error'
+  if (message.includes('No handler registered')) {
+    return 'OXESpace precisa reiniciar para carregar os novos handlers do Plan/Exec.'
+  }
+  return message
+    .replace(/^Error invoking remote method '[^']+':\s*/i, '')
+    .replace(/^Error:\s*/i, '')
 }

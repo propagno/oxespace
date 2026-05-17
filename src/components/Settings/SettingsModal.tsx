@@ -66,10 +66,12 @@ export function SettingsModal({
           </header>
 
           <div className="settings-agent-table">
-            {agentProfiles.length === 0 ? (
-              <p className="workspace-list-empty">No providers found. Run a health check.</p>
-            ) : (
-              agentProfiles.map((profile) => {
+            {(() => {
+              const providers = agentProfiles.filter((profile) => profile.provider !== 'oxe')
+              if (providers.length === 0) {
+                return <p className="workspace-list-empty">No providers found. Run a health check.</p>
+              }
+              return providers.map((profile) => {
                 const readiness = readinessFor(profile, agentReadiness)
                 return (
                   <article className="settings-agent-row" key={profile.agentProfileId}>
@@ -84,7 +86,7 @@ export function SettingsModal({
                   </article>
                 )
               })
-            )}
+            })()}
           </div>
         </section>
       </section>

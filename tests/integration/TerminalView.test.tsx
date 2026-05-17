@@ -6,7 +6,10 @@ const terminalState = {
   onData: null as ((data: string) => void) | null,
   write: vi.fn(),
   focus: vi.fn(),
-  dispose: vi.fn()
+  dispose: vi.fn(),
+  paste: vi.fn(),
+  scrollLines: vi.fn(),
+  attachCustomKeyEventHandler: vi.fn()
 }
 
 vi.mock('@xterm/xterm', () => ({
@@ -18,6 +21,12 @@ vi.mock('@xterm/xterm', () => ({
     write: terminalState.write,
     focus: terminalState.focus,
     dispose: terminalState.dispose,
+    paste: terminalState.paste,
+    scrollLines: terminalState.scrollLines,
+    attachCustomKeyEventHandler: terminalState.attachCustomKeyEventHandler,
+    buffer: {
+      active: { baseY: 0, viewportY: 0, cursorY: 0, length: 0, getLine: vi.fn(() => null) }
+    },
     onData: vi.fn((handler: (data: string) => void) => {
       terminalState.onData = handler
       return { dispose: vi.fn() }
@@ -41,6 +50,9 @@ describe('TerminalView', () => {
     terminalState.write.mockClear()
     terminalState.focus.mockClear()
     terminalState.dispose.mockClear()
+    terminalState.paste.mockClear()
+    terminalState.scrollLines.mockClear()
+    terminalState.attachCustomKeyEventHandler.mockClear()
 
     global.ResizeObserver = class {
       constructor(private readonly callback: ResizeObserverCallback) {}
@@ -54,6 +66,13 @@ describe('TerminalView', () => {
       }
     }
 
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        readText: vi.fn().mockResolvedValue('')
+      }
+    })
+
     window.oxe = {
       app: { version: '0.1.0' },
       workspace: {
@@ -64,7 +83,7 @@ describe('TerminalView', () => {
         closePane: vi.fn(),
         pickFolder: vi.fn(),
         shellProfiles: vi.fn()
-      },
+      } as unknown as typeof window.oxe.workspace,
       terminal: {
         start: vi.fn(),
         write: vi.fn(),
@@ -73,8 +92,11 @@ describe('TerminalView', () => {
         restart: vi.fn(),
         onData: vi.fn(() => vi.fn()),
         onExit: vi.fn(() => vi.fn())
+      },
+      clipboard: {
+        saveImageToTemp: vi.fn().mockResolvedValue(null)
       }
-    }
+    } as unknown as typeof window.oxe
   })
 
   test('wires xterm input, resize and terminal events', () => {
@@ -86,6 +108,7 @@ describe('TerminalView', () => {
 
     expect(screen.getByTestId('terminal-view')).toBeInTheDocument()
     expect(onResize).toHaveBeenCalledWith(120, 32)
+    expect(terminalState.attachCustomKeyEventHandler).toHaveBeenCalled()
 
     terminalState.onData?.('a')
     expect(onInput).toHaveBeenCalledWith('a')
@@ -98,5 +121,51 @@ describe('TerminalView', () => {
     exitListener({ paneId: 'pane-1', exitCode: 0 })
     expect(onExit).toHaveBeenCalledWith(0)
     expect(terminalState.focus).toHaveBeenCalled()
+  })
+
+  test('sends Kitty Shift+Enter sequence on keydown and blocks keypress', () => {
+    const onInput = vi.fn()
+    render(<TerminalView paneId="pane-1" isRunning onInput={onInput} onResize={vi.fn()} />)
+
+    const handler = terminalState.attachCustomKeyEventHandler.mock.calls[0][0] as (event: KeyboardEvent) => boolean
+
+    const keydown = handler(new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true }))
+    expect(keydown).toBe(false)
+    expect(onInput).toHaveBeenCalledWith('\x1b[13;2u')
+
+    onInput.mockClear()
+
+    // keypress must also be blocked so xterm cannot send \r (submit)
+    const keypress = handler(new KeyboardEvent('keypress', { key: 'Enter', shiftKey: true }))
+    expect(keypress).toBe(false)
+    expect(onInput).not.toHaveBeenCalled()
+
+    expect(terminalState.paste).not.toHaveBeenCalled()
+  })
+
+  test('Ctrl+V prefers clipboard image over clipboard text', async () => {
+    vi.spyOn(navigator.clipboard, 'readText').mockResolvedValue('copied text')
+    vi.mocked(window.oxe.clipboard.saveImageToTemp).mockResolvedValue('C:\\Temp\\image.png')
+
+    render(<TerminalView paneId="pane-1" isRunning onInput={vi.fn()} onResize={vi.fn()} />)
+
+    const handler = terminalState.attachCustomKeyEventHandler.mock.calls[0][0] as (event: KeyboardEvent) => boolean
+    const handled = handler(new KeyboardEvent('keydown', { key: 'v', ctrlKey: true }))
+
+    expect(handled).toBe(false)
+    await vi.waitFor(() => {
+      expect(terminalState.paste).toHaveBeenCalledWith('C:\\Temp\\image.png ')
+    })
+    expect(navigator.clipboard.readText).not.toHaveBeenCalled()
+  })
+
+  test('Alt+V passes through to PTY so Claude Code handles it natively', () => {
+    render(<TerminalView paneId="pane-1" isRunning onInput={vi.fn()} onResize={vi.fn()} />)
+
+    const handler = terminalState.attachCustomKeyEventHandler.mock.calls[0][0] as (event: KeyboardEvent) => boolean
+    const handled = handler(new KeyboardEvent('keydown', { key: 'v', altKey: true }))
+
+    expect(handled).toBe(true)
+    expect(terminalState.paste).not.toHaveBeenCalled()
   })
 })

@@ -1,7 +1,15 @@
 import { RefreshCw, Trash2, X } from 'lucide-react'
 import { type FormEvent, type ReactElement, useState } from 'react'
 import type { AgentProfile, AgentProvider, AgentReadiness } from '../../../shared/types/agent'
-import type { UpdateAgentProfileInput } from '../../../shared/types/agent'
+import { BUILTIN_PROVIDERS, type UpdateAgentProfileInput } from '../../../shared/types/agent'
+
+const PROVIDER_LABEL: Record<(typeof BUILTIN_PROVIDERS)[number], string> = {
+  claude: 'Claude',
+  copilot: 'Copilot',
+  codex: 'Codex',
+  gemini: 'Gemini',
+  cursor: 'Cursor'
+}
 
 interface AgentConfigModalProps {
   profile: AgentProfile
@@ -148,8 +156,9 @@ export function AgentConfigModal({
                   onChange={(e) => setParentProvider(e.target.value as AgentProvider)}
                   data-testid="select-parent-provider"
                 >
-                  <option value="claude">Claude</option>
-                  <option value="copilot">Copilot</option>
+                  {BUILTIN_PROVIDERS.map((provider) => (
+                    <option key={provider} value={provider}>{PROVIDER_LABEL[provider]}</option>
+                  ))}
                 </select>
               </label>
 

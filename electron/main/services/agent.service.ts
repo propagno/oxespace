@@ -3,19 +3,30 @@ import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { delimiter, extname, isAbsolute, join } from 'node:path'
 import type { AppDatabase } from '../db/index'
-import type {
-  AgentProfile,
-  AgentProvider,
-  AgentReadiness,
-  CreateAgentProfileInput,
-  UpdateAgentProfileInput
+import {
+  BUILTIN_PROVIDERS,
+  type AgentProfile,
+  type AgentProvider,
+  type AgentReadiness,
+  type CreateAgentProfileInput,
+  type UpdateAgentProfileInput
 } from '../../../shared/types/agent'
 
 const CACHE_TTL_MS = 1_800_000 // 30 minutes
-const OFFICIAL_PROVIDERS: AgentProvider[] = ['claude', 'copilot']
+const OFFICIAL_PROVIDERS: readonly AgentProvider[] = BUILTIN_PROVIDERS
+const PROVIDER_ORDER: ReadonlyMap<AgentProvider, number> = new Map(
+  OFFICIAL_PROVIDERS.map((provider, index) => [provider, index])
+)
+const PROVIDER_PLACEHOLDERS = OFFICIAL_PROVIDERS.map(() => '?').join(', ')
 const WINDOWS_SCRIPT_EXTENSIONS = new Set(['.cmd', '.bat'])
+// Providers whose CLI is the shell itself (executable === command). When the user edits
+// the agent command, we sync the shell_profile executable so terminals stay in sync.
+// Copilot is intentionally absent — its shell wraps powershell, see migration 005/010.
 const SHELL_PROFILE_BY_PROVIDER: Partial<Record<AgentProvider, string>> = {
-  claude: 'builtin-claude'
+  claude: 'builtin-claude',
+  codex: 'builtin-codex',
+  gemini: 'builtin-gemini',
+  cursor: 'builtin-cursor'
 }
 
 interface AgentProfileRow {
@@ -55,11 +66,12 @@ export class AgentService {
       .prepare(`
         SELECT *
         FROM agent_profiles
-        WHERE is_builtin = 1 AND provider IN ('claude', 'copilot')
-        ORDER BY CASE provider WHEN 'claude' THEN 0 WHEN 'copilot' THEN 1 ELSE 2 END
+        WHERE is_builtin = 1 AND provider IN (${PROVIDER_PLACEHOLDERS})
       `)
-      .all() as AgentProfileRow[]
-    return rows.map(mapProfile)
+      .all(...OFFICIAL_PROVIDERS) as AgentProfileRow[]
+    return rows
+      .sort((a, b) => providerRank(a.provider as AgentProvider) - providerRank(b.provider as AgentProvider))
+      .map(mapProfile)
   }
 
   create(input: CreateAgentProfileInput): AgentProfile {
@@ -126,15 +138,15 @@ export class AgentService {
       .prepare(`
         SELECT *
         FROM agent_readiness_cache
-        WHERE checked_at > ? AND provider IN ('claude', 'copilot')
+        WHERE checked_at > ? AND provider IN (${PROVIDER_PLACEHOLDERS})
       `)
-      .all(cutoff) as ReadinessCacheRow[]
+      .all(cutoff, ...OFFICIAL_PROVIDERS) as ReadinessCacheRow[]
 
     if (rows.length !== profiles.length) return []
 
     const commandByProvider = new Map(profiles.map((profile) => [profile.provider, profile.command]))
     return rows
-      .sort((a, b) => OFFICIAL_PROVIDERS.indexOf(a.provider as AgentProvider) - OFFICIAL_PROVIDERS.indexOf(b.provider as AgentProvider))
+      .sort((a, b) => providerRank(a.provider as AgentProvider) - providerRank(b.provider as AgentProvider))
       .map((row) => mapReadiness(row, commandByProvider.get(row.provider as AgentProvider) ?? row.provider))
   }
 
@@ -295,4 +307,8 @@ function mapReadiness(row: ReadinessCacheRow, command: string): AgentReadiness {
 
 function toMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Command failed'
+}
+
+function providerRank(provider: AgentProvider): number {
+  return PROVIDER_ORDER.get(provider) ?? PROVIDER_ORDER.size
 }

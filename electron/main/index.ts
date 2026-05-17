@@ -1,6 +1,8 @@
-import { app, BrowserWindow, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
 import log from 'electron-log/main.js'
 import { randomUUID } from 'node:crypto'
+import { writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDatabase } from './db/index'
 import { registerAgentIpc } from './ipc/agent.ipc'
@@ -9,11 +11,16 @@ import { registerFileSystemIpc } from './ipc/file-system.ipc'
 import { registerOxeIpc } from './ipc/oxe.ipc'
 import { registerOxeGraphIpc } from './ipc/oxe-graph.ipc'
 import { registerGitIpc } from './ipc/git.ipc'
+import { registerGitHubIpc } from './ipc/github.ipc'
+import { registerUsageIpc } from './ipc/usage.ipc'
+import { registerBackgroundIpc } from './ipc/background.ipc'
 import { registerTaskIpc } from './ipc/task.ipc'
 import { registerTerminalIpc } from './ipc/terminal.ipc'
 import { registerWorkspaceIpc } from './ipc/workspace.ipc'
+import { BackgroundManager } from './services/background.service'
 import { TerminalManager } from './services/terminal.service'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
+import type { AgentWorkflowRunDetails } from '../../shared/types/agent-workflow'
 import type { ShellProfile, Workspace, WorkspaceLayout, WorkspaceLayoutPreset } from '../../shared/types/workspace'
 
 log.initialize()
@@ -59,6 +66,28 @@ function registerIpcHandlers(): void {
   registerOxeIpc()
   registerOxeGraphIpc()
   registerGitIpc()
+  registerGitHubIpc(db)
+  registerUsageIpc()
+  const backgroundManager = new BackgroundManager(db, {
+    emitOutput: (event) => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        window.webContents.send(IPC_CHANNELS.background.onOutput, event)
+      }
+    },
+    emitUpdate: (event) => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        window.webContents.send(IPC_CHANNELS.background.onUpdate, event)
+      }
+    }
+  })
+  registerBackgroundIpc(backgroundManager)
+  ipcMain.handle(IPC_CHANNELS.clipboard.saveImageToTemp, async () => {
+    const image = clipboard.readImage()
+    if (image.isEmpty()) return null
+    const filePath = join(tmpdir(), `oxe-paste-${randomUUID()}.png`)
+    await writeFile(filePath, image.toPNG())
+    return filePath
+  })
   const fileSystemService = registerFileSystemIpc()
   app.once('before-quit', () => {
     fileSystemService.closeAll()
@@ -87,6 +116,8 @@ function registerNativeFailureIpcHandlers(message: string): void {
   ipcMain.handle(IPC_CHANNELS.workspace.updateEditorState, fail)
   ipcMain.handle(IPC_CHANNELS.workspace.updateOxeState, fail)
   ipcMain.handle(IPC_CHANNELS.workspace.updateAgentsState, fail)
+  ipcMain.handle(IPC_CHANNELS.workspace.updateReviewState, fail)
+  ipcMain.handle(IPC_CHANNELS.workspace.updateGitHubState, fail)
   ipcMain.handle(IPC_CHANNELS.workspace.updateSettings, fail)
   ipcMain.handle(IPC_CHANNELS.workspace.pickFolder, async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender) ?? BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
@@ -111,6 +142,12 @@ function registerNativeFailureIpcHandlers(message: string): void {
   ipcMain.handle(IPC_CHANNELS.agentWorkflow.getRoleBindings, () => [])
   ipcMain.handle(IPC_CHANNELS.agentWorkflow.prepareStep, fail)
   ipcMain.handle(IPC_CHANNELS.agentWorkflow.runStep, fail)
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.approvePlan, fail)
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.rejectPlan, fail)
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.requestPlanChanges, fail)
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.sendApprovedExecution, fail)
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.recordExecutionEvidence, fail)
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.advanceRun, fail)
   ipcMain.handle(IPC_CHANNELS.agentWorkflow.completeManualStep, fail)
   ipcMain.handle(IPC_CHANNELS.agentWorkflow.appendArtifact, fail)
   ipcMain.handle(IPC_CHANNELS.tasks.list, () => [])
@@ -128,6 +165,9 @@ function registerNativeFailureIpcHandlers(message: string): void {
   ipcMain.handle(IPC_CHANNELS.fs.unwatchFile, fail)
   ipcMain.handle(IPC_CHANNELS.oxe.getStatus, fail)
   ipcMain.handle(IPC_CHANNELS.oxe.listArtifacts, fail)
+  for (const channel of Object.values(IPC_CHANNELS.github)) {
+    ipcMain.handle(channel, fail)
+  }
 }
 
 function registerE2eMockIpcHandlers(): void {
@@ -136,6 +176,7 @@ function registerE2eMockIpcHandlers(): void {
     { id: 'builtin-copilot', name: 'copilot', executable: 'copilot', args: [], isBuiltin: true }
   ]
   const workspaces: Workspace[] = []
+  const workflowDetails = new Map<string, AgentWorkflowRunDetails>()
 
   ipcMain.handle(IPC_CHANNELS.workspace.list, () => workspaces)
   ipcMain.handle(IPC_CHANNELS.workspace.shellProfiles, () => shellProfiles)
@@ -161,6 +202,13 @@ function registerE2eMockIpcHandlers(): void {
       agentsPanelVisible: false,
       agentsPanelExpanded: false,
       agentsPanelWidthPercent: 36,
+      reviewPanelVisible: false,
+      reviewPanelExpanded: false,
+      reviewPanelWidthPercent: 40,
+      githubPanelVisible: false,
+      githubPanelExpanded: false,
+      githubPanelWidthPercent: 40,
+      githubActiveTab: 'status',
       panes: []
     }
     workspace.panes = createMockPanes(workspace.id, layout)
@@ -224,6 +272,23 @@ function registerE2eMockIpcHandlers(): void {
     workspace.agentsPanelWidthPercent = input.agentsPanelWidthPercent ?? workspace.agentsPanelWidthPercent
     return workspace
   })
+  ipcMain.handle(IPC_CHANNELS.workspace.updateReviewState, (_event: IpcMainInvokeEvent, input: { workspaceId: string; reviewPanelVisible?: boolean; reviewPanelExpanded?: boolean; reviewPanelWidthPercent?: number }) => {
+    const workspace = workspaces.find((item) => item.id === input.workspaceId)
+    if (!workspace) throw new Error(`Workspace ${input.workspaceId} not found`)
+    workspace.reviewPanelVisible = input.reviewPanelVisible ?? workspace.reviewPanelVisible
+    workspace.reviewPanelExpanded = input.reviewPanelExpanded ?? workspace.reviewPanelExpanded
+    workspace.reviewPanelWidthPercent = input.reviewPanelWidthPercent ?? workspace.reviewPanelWidthPercent
+    return workspace
+  })
+  ipcMain.handle(IPC_CHANNELS.workspace.updateGitHubState, (_event: IpcMainInvokeEvent, input: { workspaceId: string; githubPanelVisible?: boolean; githubPanelExpanded?: boolean; githubPanelWidthPercent?: number; githubActiveTab?: Workspace['githubActiveTab'] }) => {
+    const workspace = workspaces.find((item) => item.id === input.workspaceId)
+    if (!workspace) throw new Error(`Workspace ${input.workspaceId} not found`)
+    workspace.githubPanelVisible = input.githubPanelVisible ?? workspace.githubPanelVisible
+    workspace.githubPanelExpanded = input.githubPanelExpanded ?? workspace.githubPanelExpanded
+    workspace.githubPanelWidthPercent = input.githubPanelWidthPercent ?? workspace.githubPanelWidthPercent
+    workspace.githubActiveTab = input.githubActiveTab ?? workspace.githubActiveTab
+    return workspace
+  })
   ipcMain.handle(IPC_CHANNELS.workspace.updateSettings, (_event: IpcMainInvokeEvent, input: { workspaceId: string; themeId?: Workspace['themeId']; uiDensity?: Workspace['uiDensity']; defaultShellProfileId?: string; layoutPreset?: WorkspaceLayoutPreset }) => {
     const workspace = workspaces.find((item) => item.id === input.workspaceId)
     if (!workspace) throw new Error(`Workspace ${input.workspaceId} not found`)
@@ -257,26 +322,144 @@ function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.agent.create, () => undefined)
   ipcMain.handle(IPC_CHANNELS.agent.update, () => undefined)
   ipcMain.handle(IPC_CHANNELS.agent.delete, () => undefined)
-  ipcMain.handle(IPC_CHANNELS.agentWorkflow.listRuns, () => [])
-  ipcMain.handle(IPC_CHANNELS.agentWorkflow.createRun, () => {
-    throw new Error('Agent workflow API is not available in E2E mock mode')
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.listRuns, (_event: IpcMainInvokeEvent, workspaceId: string) => {
+    return [...workflowDetails.values()]
+      .map((details) => details.run)
+      .filter((run) => run.workspaceId === workspaceId)
+      .sort((a, b) => b.updatedAt - a.updatedAt)
   })
-  ipcMain.handle(IPC_CHANNELS.agentWorkflow.getRun, () => {
-    throw new Error('Agent workflow API is not available in E2E mock mode')
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.createRun, (_event: IpcMainInvokeEvent, input: { workspaceId: string; title: string; sourceType?: 'manual' | 'task' | 'oxe'; sourceId?: string | null; initialPrompt?: string }) => {
+    const now = Date.now()
+    const runId = randomUUID()
+    const details: AgentWorkflowRunDetails = {
+      run: {
+        id: runId,
+        workspaceId: input.workspaceId,
+        sourceType: input.sourceType ?? 'manual',
+        sourceId: input.sourceId ?? null,
+        title: input.title,
+        status: 'draft',
+        createdAt: now,
+        updatedAt: now
+      },
+      steps: ['rubber_duck', 'planner', 'executor', 'reviewer', 'verifier', 'publisher'].map((role) => ({
+        id: randomUUID(),
+        runId,
+        role: role as AgentWorkflowRunDetails['steps'][number]['role'],
+        agentProfileId: null,
+        shellProfileId: null,
+        status: 'pending',
+        prompt: '',
+        output: '',
+        error: null,
+        startedAt: null,
+        completedAt: null
+      })),
+      artifacts: input.initialPrompt ? [{
+        id: randomUUID(),
+        runId,
+        stepId: null,
+        kind: 'clarification',
+        title: 'Initial input',
+        content: input.initialPrompt,
+        createdAt: now
+      }] : []
+    }
+    workflowDetails.set(runId, details)
+    return details
+  })
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.getRun, (_event: IpcMainInvokeEvent, runId: string) => {
+    const details = workflowDetails.get(runId)
+    if (!details) throw new Error(`Workflow run not found: ${runId}`)
+    return details
   })
   ipcMain.handle(IPC_CHANNELS.agentWorkflow.updateRoleBindings, () => [])
   ipcMain.handle(IPC_CHANNELS.agentWorkflow.getRoleBindings, () => [])
-  ipcMain.handle(IPC_CHANNELS.agentWorkflow.prepareStep, () => {
-    throw new Error('Agent workflow API is not available in E2E mock mode')
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.prepareStep, (_event: IpcMainInvokeEvent, input: { runId: string; role: AgentWorkflowRunDetails['steps'][number]['role'] }) => {
+    const details = getMockWorkflow(workflowDetails, input.runId)
+    const step = details.steps.find((item) => item.role === input.role)
+    if (!step) throw new Error(`Workflow step not found: ${input.role}`)
+    const prompt = `# ${input.role} step for ${details.run.title}\n\n${details.artifacts.map((artifact) => `## ${artifact.title}\n${artifact.content}`).join('\n\n')}`.trim()
+    step.status = 'prepared'
+    step.prompt = prompt
+    details.run.status = input.role === 'executor' ? 'executing' : input.role === 'verifier' ? 'verifying' : 'planned'
+    details.run.updatedAt = Date.now()
+    return details
   })
-  ipcMain.handle(IPC_CHANNELS.agentWorkflow.runStep, () => {
-    throw new Error('Agent workflow API is not available in E2E mock mode')
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.runStep, (_event: IpcMainInvokeEvent, input: { stepId: string; paneId: string }) => {
+    const { details, step } = getMockWorkflowStep(workflowDetails, input.stepId)
+    step.status = 'sent_to_terminal'
+    step.startedAt = Date.now()
+    details.artifacts.push({ id: randomUUID(), runId: details.run.id, stepId: step.id, kind: 'execution_prompt', title: 'Prompt sent', content: step.prompt, createdAt: Date.now() })
+    return details
   })
-  ipcMain.handle(IPC_CHANNELS.agentWorkflow.completeManualStep, () => {
-    throw new Error('Agent workflow API is not available in E2E mock mode')
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.approvePlan, (_event: IpcMainInvokeEvent, input: { runId: string; planContent: string }) => {
+    const details = getMockWorkflow(workflowDetails, input.runId)
+    const step = details.steps.find((item) => item.role === 'planner')
+    if (step) {
+      step.status = 'approved'
+      step.output = input.planContent
+      step.completedAt = Date.now()
+    }
+    details.artifacts.push({ id: randomUUID(), runId: details.run.id, stepId: step?.id ?? null, kind: 'approved_plan', title: 'Approved plan', content: input.planContent, createdAt: Date.now() })
+    details.run.status = 'planned'
+    details.run.updatedAt = Date.now()
+    return details
   })
-  ipcMain.handle(IPC_CHANNELS.agentWorkflow.appendArtifact, () => {
-    throw new Error('Agent workflow API is not available in E2E mock mode')
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.rejectPlan, (_event: IpcMainInvokeEvent, input: { runId: string; reason: string }) => {
+    const details = getMockWorkflow(workflowDetails, input.runId)
+    details.run.status = 'blocked'
+    details.artifacts.push({ id: randomUUID(), runId: details.run.id, stepId: null, kind: 'rejection', title: 'Plan rejected', content: input.reason, createdAt: Date.now() })
+    return details
+  })
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.requestPlanChanges, (_event: IpcMainInvokeEvent, input: { runId: string; feedback: string }) => {
+    const details = getMockWorkflow(workflowDetails, input.runId)
+    details.artifacts.push({ id: randomUUID(), runId: details.run.id, stepId: null, kind: 'plan_feedback', title: 'Requested plan changes', content: input.feedback, createdAt: Date.now() })
+    details.run.updatedAt = Date.now()
+    return details
+  })
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.sendApprovedExecution, (_event: IpcMainInvokeEvent, input: { stepId: string; paneId: string }) => {
+    const { details, step } = getMockWorkflowStep(workflowDetails, input.stepId)
+    const approved = [...details.artifacts].reverse().find((artifact) => artifact.kind === 'approved_plan')
+    if (!approved) throw new Error('Approve a plan before execution')
+    const prompt = `# Execute approved plan\n\n${approved.content}`
+    step.status = 'sent_to_terminal'
+    step.prompt = prompt
+    step.startedAt = Date.now()
+    details.artifacts.push({ id: randomUUID(), runId: details.run.id, stepId: step.id, kind: 'execution_prompt', title: 'Approved execution prompt', content: prompt, createdAt: Date.now() })
+    details.run.status = 'executing'
+    details.run.updatedAt = Date.now()
+    return details
+  })
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.recordExecutionEvidence, (_event: IpcMainInvokeEvent, input: { stepId: string; output: string }) => {
+    const { details, step } = getMockWorkflowStep(workflowDetails, input.stepId)
+    step.status = 'completed'
+    step.output = input.output
+    step.completedAt = Date.now()
+    const kind = step.role === 'verifier' ? 'verification_report' : step.role === 'reviewer' ? 'review_findings' : 'execution_evidence'
+    details.artifacts.push({ id: randomUUID(), runId: details.run.id, stepId: step.id, kind, title: `${step.role} evidence`, content: input.output, createdAt: Date.now() })
+    details.run.status = step.role === 'verifier' ? 'done' : step.role === 'executor' ? 'verifying' : details.run.status
+    details.run.updatedAt = Date.now()
+    return details
+  })
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.advanceRun, (_event: IpcMainInvokeEvent, input: { runId: string; targetStatus: AgentWorkflowRunDetails['run']['status']; overrideReason?: string }) => {
+    const details = getMockWorkflow(workflowDetails, input.runId)
+    if (input.overrideReason) details.artifacts.push({ id: randomUUID(), runId: details.run.id, stepId: null, kind: 'verification_report', title: 'Verification override', content: input.overrideReason, createdAt: Date.now() })
+    details.run.status = input.targetStatus
+    details.run.updatedAt = Date.now()
+    return details
+  })
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.completeManualStep, (_event: IpcMainInvokeEvent, input: { stepId: string; output: string }) => {
+    const { details, step } = getMockWorkflowStep(workflowDetails, input.stepId)
+    step.status = 'completed'
+    step.output = input.output
+    return details
+  })
+  ipcMain.handle(IPC_CHANNELS.agentWorkflow.appendArtifact, (_event: IpcMainInvokeEvent, input: { runId: string; stepId?: string | null; kind: AgentWorkflowRunDetails['artifacts'][number]['kind']; title: string; content: string }) => {
+    const details = getMockWorkflow(workflowDetails, input.runId)
+    details.artifacts.push({ id: randomUUID(), runId: details.run.id, stepId: input.stepId ?? null, kind: input.kind, title: input.title, content: input.content, createdAt: Date.now() })
+    details.run.updatedAt = Date.now()
+    return details
   })
   ipcMain.handle(IPC_CHANNELS.tasks.list, () => [])
   ipcMain.handle(IPC_CHANNELS.tasks.create, () => undefined)
@@ -308,6 +491,76 @@ function registerE2eMockIpcHandlers(): void {
     updatedAt: new Date().toISOString()
   }))
   ipcMain.handle(IPC_CHANNELS.oxe.listArtifacts, () => [])
+  ipcMain.handle(IPC_CHANNELS.github.getCliStatus, () => ({ available: false, authenticated: false, user: null, host: null, message: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.github.getWorkspaceStatus, (_event: IpcMainInvokeEvent, input: { workspaceId: string; rootPath: string }) => ({
+    cli: { available: false, authenticated: false, user: null, host: null, message: 'E2E mock mode' },
+    repository: { owner: null, name: null, fullName: null, url: null, isPrivate: null, defaultBranch: null, remoteName: null, remoteUrl: null, detected: false },
+    isGitRepository: false,
+    branch: null,
+    lastCommit: null,
+    lastCommitRelative: null,
+    lastPushRelative: null,
+    staged: 0,
+    modified: 0,
+    untracked: 0,
+    ahead: 0,
+    behind: 0,
+    hasUncommittedChanges: false,
+    workspaceId: input.workspaceId,
+    rootPath: input.rootPath
+  }))
+  ipcMain.handle(IPC_CHANNELS.github.listBranches, () => [])
+  ipcMain.handle(IPC_CHANNELS.github.listPullRequests, () => [])
+  ipcMain.handle(IPC_CHANNELS.github.listCommits, () => [])
+  ipcMain.handle(IPC_CHANNELS.github.listReleases, () => [])
+  ipcMain.handle(IPC_CHANNELS.github.listWorkflows, () => [])
+  ipcMain.handle(IPC_CHANNELS.github.listWorkflowRuns, () => [])
+  ipcMain.handle(IPC_CHANNELS.github.listCheckpoints, () => [])
+  ipcMain.handle(IPC_CHANNELS.github.listConnectedRepositories, () => [])
+  ipcMain.handle(IPC_CHANNELS.github.fetch, () => ({ ok: true, message: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.github.stageAll, () => ({ ok: true, message: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.github.commit, () => ({ ok: true, message: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.github.push, () => ({ ok: true, message: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.github.commitAndPush, () => ({ ok: true, message: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.github.createBranch, () => ({ ok: true, message: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.github.checkoutBranch, () => ({ ok: true, message: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.github.createPullRequest, () => ({ ok: true, message: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.github.createRelease, () => ({ ok: true, message: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.github.runWorkflow, () => ({ ok: true, message: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.github.createCheckpoint, (_event: IpcMainInvokeEvent, input: { workspaceId: string; name: string; description?: string }) => ({
+    id: randomUUID(),
+    workspaceId: input.workspaceId,
+    name: input.name,
+    description: input.description ?? null,
+    branch: null,
+    baseCommit: null,
+    patch: '',
+    untrackedFiles: [],
+    createdAt: Date.now()
+  }))
+  ipcMain.handle(IPC_CHANNELS.github.restoreCheckpoint, () => ({ ok: true, message: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.github.deleteCheckpoint, () => ({ ok: true, message: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.github.connectRepository, (_event: IpcMainInvokeEvent, input: { workspaceId: string; fullName: string; url?: string | null }) => ({
+    id: randomUUID(),
+    workspaceId: input.workspaceId,
+    fullName: input.fullName,
+    url: input.url ?? null,
+    createdAt: Date.now()
+  }))
+}
+
+function getMockWorkflow(workflows: Map<string, AgentWorkflowRunDetails>, runId: string): AgentWorkflowRunDetails {
+  const details = workflows.get(runId)
+  if (!details) throw new Error(`Workflow run not found: ${runId}`)
+  return details
+}
+
+function getMockWorkflowStep(workflows: Map<string, AgentWorkflowRunDetails>, stepId: string): { details: AgentWorkflowRunDetails; step: AgentWorkflowRunDetails['steps'][number] } {
+  for (const details of workflows.values()) {
+    const step = details.steps.find((item) => item.id === stepId)
+    if (step) return { details, step }
+  }
+  throw new Error(`Workflow step not found: ${stepId}`)
 }
 
 function createMockPanes(workspaceId: string, layout: WorkspaceLayout): Workspace['panes'] {
@@ -325,7 +578,10 @@ function createMockPanes(workspaceId: string, layout: WorkspaceLayout): Workspac
       status: 'idle',
       agentProfileId: null,
       agentName: null,
-      displayName: null
+      displayName: null,
+      createdAt: null,
+      modelOverride: null,
+      rootPath: null
     }
   })
 }

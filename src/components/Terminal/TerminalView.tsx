@@ -62,27 +62,28 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId }: T
       convertEol: true,
       fontFamily: 'Cascadia Mono, Consolas, monospace',
       fontSize: 14,
-      scrollback: 2_147_483_647,
+      scrollback: 100_000,
+      scrollOnUserInput: false,
       theme: {
         background:         tok('--bg-tile-content', '#000000'),
         foreground:         tok('--tx-primary',       '#f1f5f9'),
-        cursor:             tok('--brand-light',      '#818cf8'),
-        selectionBackground:tok('--brand-glow',       'rgba(79,70,229,0.35)'),
+        cursor:             tok('--brand-light',      '#6EEBD4'),
+        selectionBackground:tok('--brand-glow',       'rgba(18,199,154,0.28)'),
         black:              tok('--dot-gray',          '#3b4260'),
         red:                tok('--dot-red',           '#f87171'),
         green:              tok('--dot-green',         '#34d474'),
         yellow:             tok('--dot-yellow',        '#fbbf24'),
         blue:               tok('--dot-blue',          '#60a5fa'),
         magenta:            tok('--dot-purple',        '#c084fc'),
-        cyan:               tok('--brand-light',      '#818cf8'),
+        cyan:               tok('--brand-light',      '#6EEBD4'),
         white:              tok('--tx-primary',       '#f1f5f9'),
         brightBlack:        tok('--tx-muted',          '#636b75'),
         brightRed:          tok('--dot-red',           '#f87171'),
         brightGreen:        tok('--dot-green',         '#34d399'),
         brightYellow:       tok('--dot-orange',        '#f97316'),
-        brightBlue:         tok('--brand-light',      '#818cf8'),
+        brightBlue:         tok('--brand-light',      '#6EEBD4'),
         brightMagenta:      tok('--dot-purple',        '#c084fc'),
-        brightCyan:         tok('--brand-lightest',   '#c7d2fe'),
+        brightCyan:         tok('--brand-lightest',   '#B4F5E8'),
         brightWhite:        tok('--tx-primary',       '#f1f5f9'),
       }
     })
@@ -112,13 +113,37 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId }: T
     }
     pasteRef.current = pasteText
 
+    const pasteClipboardContents = async (): Promise<void> => {
+      // Always check for image first: agent CLIs (Claude Code, Copilot) prefer file-path
+      // references and readText() can return stale/unrelated text even when clipboard has an image.
+      const imagePath = await window.oxe.clipboard.saveImageToTemp().catch(() => null)
+      if (imagePath) {
+        pasteText(`${imagePath} `)
+        return
+      }
+      const text = await navigator.clipboard.readText().catch(() => '')
+      if (text) pasteText(text)
+    }
+
     terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key === 'v' && event.type === 'keydown') {
-        void navigator.clipboard.readText().then((text) => {
-          if (text) pasteText(text)
-        })
+      const key = event.key.toLowerCase()
+
+      if ((event.ctrlKey || event.metaKey) && key === 'v' && event.type === 'keydown') {
+        void pasteClipboardContents()
         return false
       }
+
+      if (event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey && event.key === 'Enter') {
+        // Block both keydown AND keypress — Enter fires both in browsers, and the keypress
+        // would otherwise reach xterm and send \r (submit) even if keydown was intercepted.
+        if (event.type === 'keydown') {
+          // Send Kitty Keyboard Protocol Shift+Enter (\x1b[13;2u).
+          // Claude Code and GitHub Copilot recognize this as "insert newline without submitting".
+          onInputRef.current('\x1b[13;2u')
+        }
+        return false
+      }
+
       return true
     })
 
@@ -127,6 +152,14 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId }: T
       if (text) {
         event.preventDefault()
         pasteText(text)
+        return
+      }
+      const hasImage = Array.from(event.clipboardData?.items ?? []).some((item) => item.type.startsWith('image/'))
+      if (hasImage) {
+        event.preventDefault()
+        void window.oxe.clipboard.saveImageToTemp().then((imagePath) => {
+          if (imagePath) pasteText(`${imagePath} `)
+        }).catch(() => undefined)
       }
     }
     hostRef.current.addEventListener('paste', handlePaste)
@@ -157,6 +190,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId }: T
     const unsubscribeData = window.oxe.terminal.onData((event) => {
       if (event.paneId !== paneId) return
       terminal.write(event.data)
+      useTerminalStore.getState().updateActivity(paneId, event.data)
       if (previewTimer) clearTimeout(previewTimer)
       previewTimer = setTimeout(() => {
         previewTimer = null
@@ -186,6 +220,16 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId }: T
   useEffect(() => {
     if (isRunning) terminalRef.current?.focus()
   }, [isRunning])
+
+  useEffect(() => {
+    const handler = (e: Event): void => {
+      if ((e as CustomEvent<{ paneId: string }>).detail.paneId === paneId) {
+        terminalRef.current?.focus()
+      }
+    }
+    window.addEventListener('oxe:focus-pane', handler)
+    return () => window.removeEventListener('oxe:focus-pane', handler)
+  }, [paneId])
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>): void => {
     e.preventDefault()

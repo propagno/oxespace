@@ -10,6 +10,7 @@ body {
   min-width: 900px;
   overflow: hidden;
   background: var(--bg-app);
+  color-scheme: dark;
 }
 
 button, input, select, textarea { font: inherit; }

@@ -6,6 +6,12 @@ import { DesignSystemPage } from './components/DesignSystem/DesignSystemPage'
 import { SettingsModal } from './components/Settings/SettingsModal'
 import { ThemeProvider } from './components/Theme/ThemeProvider'
 import { CommandPalette, type CommandPaletteAction } from './components/CommandPalette/CommandPalette'
+import { SlashOverlay } from './components/SlashOverlay/SlashOverlay'
+import { ModelSelector } from './components/Model/ModelSelector'
+import { ContextUsagePopover } from './components/Usage/ContextUsagePopover'
+import { WorktreeMenu } from './components/Worktree/WorktreeMenu'
+import { useSlashDispatcher } from './lib/useSlashDispatcher'
+import { useUsageStore } from './store/usage.store'
 import { Sidebar } from './components/Sidebar/Sidebar'
 import { NewWorkspaceModal, type WizardLaunchInput } from './components/Workspace/NewWorkspaceModal'
 import { WorkspaceSettingsModal } from './components/Workspace/WorkspaceSettingsModal'
@@ -34,7 +40,9 @@ export function App(): ReactElement {
     shellProfiles,
     splitPane,
     updatePaneType,
+    setPaneModelOverride,
     updateAgentsState,
+    updateGitHubState,
     updateReviewState,
     updateEditorState,
     updateOxeState,
@@ -45,7 +53,6 @@ export function App(): ReactElement {
   const { createRun: createAgentWorkflowRun } = useAgentWorkflowStore()
   const getTerminalStatus = useTerminalStore((state) => state.getStatus)
   const setPendingCommand = useTerminalStore((state) => state.setPendingCommand)
-  const updateTerminalActivity = useTerminalStore((state) => state.updateActivity)
   const activeWorkspace = useWorkspaceStore(selectActiveWorkspace)
   const {
     closeNewWorkspace,
@@ -57,8 +64,17 @@ export function App(): ReactElement {
     isSidebarCollapsed,
     isNewWorkspaceOpen,
     isWorkspaceSettingsOpen,
+    slashOverlayPaneId,
+    modelSelectorPaneId,
+    contextUsagePaneId,
+    worktreeMenuPaneId,
     openCommandPalette,
     openWorkspaceSettings,
+    openSlashOverlay,
+    closeSlashOverlay,
+    closeModelSelector,
+    closeContextUsage,
+    closeWorktreeMenu,
     maximizedPaneId,
     setActivePane,
     openNewWorkspace,
@@ -70,21 +86,52 @@ export function App(): ReactElement {
   const [configuredAgent, setConfiguredAgent] = useState<AgentProfile | null>(null)
   const [isDesignSystemOpen, setDesignSystemOpen] = useState(false)
   const activePane = activeWorkspace?.panes.find((pane) => pane.id === activePaneId) ?? activeWorkspace?.panes[0] ?? null
+  const slashPane = slashOverlayPaneId ? activeWorkspace?.panes.find((pane) => pane.id === slashOverlayPaneId) ?? null : null
+  const modelSelectorPane = modelSelectorPaneId ? activeWorkspace?.panes.find((pane) => pane.id === modelSelectorPaneId) ?? null : null
+  const contextUsagePane = contextUsagePaneId ? activeWorkspace?.panes.find((pane) => pane.id === contextUsagePaneId) ?? null : null
+  const worktreeMenuPane = worktreeMenuPaneId ? activeWorkspace?.panes.find((pane) => pane.id === worktreeMenuPaneId) ?? null : null
+  const dispatchSlashCommand = useSlashDispatcher({ workspace: activeWorkspace ?? null, pane: slashPane })
+  // Read model override directly from the workspace state — single source of truth (DB-backed).
+
+  const modelSelectorProvider = (() => {
+    if (!modelSelectorPane) return null
+    if (modelSelectorPane.agentProfileId) {
+      const profile = agentProfiles.find((p) => p.agentProfileId === modelSelectorPane.agentProfileId)
+      if (profile?.parentProvider) return profile.parentProvider
+      return profile?.provider ?? null
+    }
+    return null
+  })()
 
   useEffect(() => {
     void bootstrap()
   }, [bootstrap])
 
   useEffect(() => {
-    return window.oxe.terminal.onData((event) => {
-      updateTerminalActivity(event.paneId, event.data)
-    })
-  }, [updateTerminalActivity])
-
-  useEffect(() => {
     void loadProfiles()
     void loadReadiness()
+    void useUsageStore.getState().loadSupportedProviders()
   }, [loadProfiles, loadReadiness])
+
+  // Poll usage per (workspace, provider). One poll loop per distinct provider used by the
+  // workspace's panes — keeps Claude & Codex stats fresh in parallel. The popover triggers
+  // faster polling while open (5s); background poll is 8s.
+  useEffect(() => {
+    if (!activeWorkspace) return
+    const providersInUse = new Set<import('../shared/types/agent').AgentProvider>()
+    for (const pane of activeWorkspace.panes) {
+      if (pane.type !== 'terminal' || !pane.agentProfileId) continue
+      const profile = agentProfiles.find((p) => p.agentProfileId === pane.agentProfileId)
+      if (!profile) continue
+      const provider = profile.parentProvider ?? profile.provider
+      providersInUse.add(provider)
+    }
+    const stops: Array<() => void> = []
+    for (const provider of providersInUse) {
+      stops.push(useUsageStore.getState().startPolling(activeWorkspace.id, activeWorkspace.rootPath, provider, 8_000))
+    }
+    return () => stops.forEach((stop) => stop())
+  }, [activeWorkspace?.id, activeWorkspace?.rootPath, activeWorkspace?.panes, agentProfiles])
 
   const handleLaunch = async (input: WizardLaunchInput): Promise<void> => {
     const workspace = await createWorkspace({
@@ -140,6 +187,15 @@ export function App(): ReactElement {
     })
   }
 
+  const toggleGitHubPanel = (): void => {
+    if (!activeWorkspace) return
+    void updateGitHubState({
+      workspaceId: activeWorkspace.id,
+      githubPanelVisible: !activeWorkspace.githubPanelVisible,
+      githubPanelExpanded: activeWorkspace.githubPanelVisible ? false : activeWorkspace.githubPanelExpanded
+    })
+  }
+
   const splitActivePane = (direction: 'vertical' | 'horizontal'): void => {
     if (!activePane) return
     void splitPane(activePane.id, direction)
@@ -166,12 +222,12 @@ export function App(): ReactElement {
     void navigator.clipboard?.writeText(content).catch(() => undefined)
   }
 
-  const runOxeCommandInTerminal = async (command: string): Promise<void> => {
+  const runCommandInTerminal = async (command: string): Promise<void> => {
     const terminalPanes = activeWorkspace?.panes.filter((pane) => pane.type === 'terminal') ?? []
     const runningPane = terminalPanes.find((pane) => getTerminalStatus(pane.id).status === 'running') ?? null
     const targetPane = activePane?.type === 'terminal' ? activePane : runningPane ?? terminalPanes[0] ?? null
     if (!targetPane) {
-      window.alert('Nenhum terminal visível para executar o comando OXE.')
+      window.alert('Nenhum terminal visível para executar o comando.')
       return
     }
     setActivePane(targetPane.id)
@@ -187,23 +243,24 @@ export function App(): ReactElement {
     { id: 'workspace-settings', title: 'Open workspace settings', run: openWorkspaceSettings, disabled: !activeWorkspace },
     { id: 'new-workspace', title: 'Create workspace', run: openNewWorkspace },
     { id: 'toggle-editor', title: 'Toggle editor', run: toggleEditor, disabled: !activeWorkspace },
+    { id: 'github-open-panel', title: 'GitHub: Open tools panel', run: toggleGitHubPanel, disabled: !activeWorkspace },
     { id: 'toggle-oxe-panel', title: 'OXE: Open panel', run: toggleOxePanel, disabled: !activeWorkspace },
-    { id: 'toggle-agents-panel', title: 'Agents: Open workflow panel', run: toggleAgentsPanel, disabled: !activeWorkspace },
+    { id: 'toggle-agents-panel', title: 'Plan/Exec: Open panel', run: toggleAgentsPanel, disabled: !activeWorkspace },
     {
       id: 'agents-new-run',
-      title: 'Agents: New multi-agent run',
+      title: 'Plan/Exec: New run',
       disabled: !activeWorkspace,
       run: () => {
         if (!activeWorkspace) return
         void updateAgentsState({ workspaceId: activeWorkspace.id, agentsPanelVisible: true })
-        void createAgentWorkflowRun({ workspaceId: activeWorkspace.id, title: 'New multi-agent run', sourceType: 'manual' })
+        void createAgentWorkflowRun({ workspaceId: activeWorkspace.id, title: 'New Plan/Exec run', sourceType: 'manual' })
       }
     },
-    { id: 'agents-ask-duck', title: 'Agents: Ask Rubber Duck', run: toggleAgentsPanel, disabled: !activeWorkspace },
-    { id: 'agents-run-planner', title: 'Agents: Run planner', run: toggleAgentsPanel, disabled: !activeWorkspace },
-    { id: 'agents-run-reviewer', title: 'Agents: Run reviewer', run: toggleAgentsPanel, disabled: !activeWorkspace },
-    { id: 'agents-run-verifier', title: 'Agents: Verify run', run: toggleAgentsPanel, disabled: !activeWorkspace },
-    { id: 'oxe-status-terminal', title: 'OXE: Status in terminal', subtitle: 'Runs in visible terminal', run: () => void runOxeCommandInTerminal('npx oxe-cc status --json'), disabled: !activeWorkspace },
+    { id: 'agents-approve-plan', title: 'Plan/Exec: Approve plan', run: toggleAgentsPanel, disabled: !activeWorkspace },
+    { id: 'agents-run-execution', title: 'Plan/Exec: Run execution', run: toggleAgentsPanel, disabled: !activeWorkspace },
+    { id: 'agents-request-changes', title: 'Plan/Exec: Request changes', run: toggleAgentsPanel, disabled: !activeWorkspace },
+    { id: 'agents-run-verifier', title: 'Plan/Exec: Verify', run: toggleAgentsPanel, disabled: !activeWorkspace },
+    { id: 'oxe-status-terminal', title: 'OXE: Status in terminal', subtitle: 'Runs in visible terminal', run: () => void runCommandInTerminal('npx oxe-cc status --json'), disabled: !activeWorkspace },
     { id: 'toggle-sidebar', title: 'Toggle sidebar', run: toggleSidebar },
     ...WORKSPACE_THEMES.map((theme) => ({
       id: `theme-${theme.id}`,
@@ -287,12 +344,17 @@ export function App(): ReactElement {
       if ((event.ctrlKey || event.metaKey) && key === 'r' && activePane?.type === 'terminal') {
         event.preventDefault()
         void window.oxe.terminal.restart({ paneId: activePane.id })
+        return
+      }
+      if ((event.ctrlKey || event.metaKey) && event.key === '/' && activePane?.type === 'terminal') {
+        event.preventDefault()
+        openSlashOverlay(activePane.id)
       }
     }
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [activePane, activeWorkspace, maximizedPaneId, openCommandPalette, openWorkspaceSettings, splitPane, toggleSidebar, updateEditorState])
+  }, [activePane, activeWorkspace, maximizedPaneId, openCommandPalette, openSlashOverlay, openWorkspaceSettings, splitPane, toggleSidebar, updateEditorState])
 
   return (
     <ThemeProvider themeId={activeWorkspace?.themeId} density={activeWorkspace?.uiDensity}>
@@ -332,8 +394,9 @@ export function App(): ReactElement {
             onUpdateOxeState={(input) => void updateOxeState(input)}
             onUpdateAgentsState={(input) => void updateAgentsState(input)}
             onUpdateReviewState={(input) => void updateReviewState(input)}
+            onUpdateGitHubState={(input) => void updateGitHubState(input)}
             onOpenOxeArtifact={openOxeArtifact}
-            onRunOxeCommand={(command) => void runOxeCommandInTerminal(command)}
+            onRunCommand={(command) => void runCommandInTerminal(command)}
             onOpenWorkflowArtifact={openWorkflowArtifact}
             activePaneId={activePane?.id ?? null}
           />
@@ -361,6 +424,53 @@ export function App(): ReactElement {
         />
       ) : null}
       {isCommandPaletteOpen ? <CommandPalette actions={commandActions} onClose={closeCommandPalette} /> : null}
+      {slashPane ? (
+        <SlashOverlay
+          paneId={slashPane.id}
+          paneLabel={slashPane.displayName ?? slashPane.agentName ?? `Pane ${slashPane.rowIndex + 1}.${slashPane.columnIndex + 1}`}
+          onClose={closeSlashOverlay}
+          onExecute={dispatchSlashCommand}
+        />
+      ) : null}
+      {modelSelectorPane ? (
+        <ModelSelector
+          paneId={modelSelectorPane.id}
+          paneLabel={modelSelectorPane.displayName ?? modelSelectorPane.agentName ?? `Pane ${modelSelectorPane.rowIndex + 1}.${modelSelectorPane.columnIndex + 1}`}
+          provider={modelSelectorProvider}
+          currentModelId={modelSelectorPane.modelOverride}
+          onSelect={(paneId, modelId) => {
+            void setPaneModelOverride(paneId, modelId).then(() => {
+              // Restart so the new model takes effect (only if there was a change)
+              if (modelId) void window.oxe.terminal.restart({ paneId })
+            })
+          }}
+          onClose={closeModelSelector}
+        />
+      ) : null}
+      {contextUsagePane && activeWorkspace ? (() => {
+        const profile = contextUsagePane.agentProfileId
+          ? agentProfiles.find((p) => p.agentProfileId === contextUsagePane.agentProfileId)
+          : null
+        const provider = profile?.parentProvider ?? profile?.provider ?? null
+        if (!provider) return null
+        return (
+          <ContextUsagePopover
+            workspaceId={activeWorkspace.id}
+            workspaceRootPath={activeWorkspace.rootPath}
+            provider={provider}
+            paneLabel={contextUsagePane.displayName ?? contextUsagePane.agentName ?? `Pane ${contextUsagePane.rowIndex + 1}.${contextUsagePane.columnIndex + 1}`}
+            onClose={closeContextUsage}
+          />
+        )
+      })() : null}
+      {worktreeMenuPane && activeWorkspace ? (
+        <WorktreeMenu
+          pane={worktreeMenuPane}
+          workspaceId={activeWorkspace.id}
+          workspaceRootPath={activeWorkspace.rootPath}
+          onClose={closeWorktreeMenu}
+        />
+      ) : null}
       {isWorkspaceSettingsOpen && activeWorkspace ? (
         <WorkspaceSettingsModal
           workspace={activeWorkspace}

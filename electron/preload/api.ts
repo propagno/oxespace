@@ -9,6 +9,18 @@ import {
   type FileSystemWatchFileResult,
   type FileSystemWriteFileResult,
   type FileTreeNode,
+  type GitHubBranch,
+  type GitHubCheckpoint,
+  type GitHubCliStatus,
+  type GitHubCommit,
+  type GitHubCommitDetails,
+  type GitHubConnectedRepository,
+  type GitHubMessageResult,
+  type GitHubPullRequest,
+  type GitHubRelease,
+  type GitHubWorkflow,
+  type GitHubWorkflowRun,
+  type GitHubWorkspaceStatus,
   type OxeApi,
   type ShellProfile,
   type Task,
@@ -40,13 +52,19 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       splitPane: (input) => ipc.invoke(IPC_CHANNELS.workspace.splitPane, input) as Promise<Workspace>,
       updatePaneType: (input) => ipc.invoke(IPC_CHANNELS.workspace.updatePaneType, input) as Promise<Workspace>,
       updatePaneName: (input) => ipc.invoke(IPC_CHANNELS.workspace.updatePaneName, input) as Promise<Workspace>,
+      setPaneModelOverride: (input) => ipc.invoke(IPC_CHANNELS.workspace.setPaneModelOverride, input) as Promise<Workspace>,
+      setPaneAgent: (input) => ipc.invoke(IPC_CHANNELS.workspace.setPaneAgent, input) as Promise<Workspace>,
+      setPaneRootPath: (input) => ipc.invoke(IPC_CHANNELS.workspace.setPaneRootPath, input) as Promise<Workspace>,
       updateEditorState: (input) => ipc.invoke(IPC_CHANNELS.workspace.updateEditorState, input) as Promise<Workspace>,
       updateOxeState: (input) => ipc.invoke(IPC_CHANNELS.workspace.updateOxeState, input) as Promise<Workspace>,
       updateAgentsState: (input) => ipc.invoke(IPC_CHANNELS.workspace.updateAgentsState, input) as Promise<Workspace>,
       updateReviewState: (input) => ipc.invoke(IPC_CHANNELS.workspace.updateReviewState, input) as Promise<Workspace>,
+      updateGitHubState: (input) => ipc.invoke(IPC_CHANNELS.workspace.updateGitHubState, input) as Promise<Workspace>,
       updateSettings: (input) => ipc.invoke(IPC_CHANNELS.workspace.updateSettings, input) as Promise<Workspace>,
       pickFolder: () => ipc.invoke(IPC_CHANNELS.workspace.pickFolder) as Promise<string | null>,
-      shellProfiles: () => ipc.invoke(IPC_CHANNELS.workspace.shellProfiles) as Promise<ShellProfile[]>
+      shellProfiles: () => ipc.invoke(IPC_CHANNELS.workspace.shellProfiles) as Promise<ShellProfile[]>,
+      createGitHubTerminalPane: (workspaceId) =>
+        ipc.invoke(IPC_CHANNELS.workspace.createGitHubTerminalPane, workspaceId) as Promise<{ id: string }>
     },
     terminal: {
       start: (input) => ipc.invoke(IPC_CHANNELS.terminal.start, input) as Promise<void>,
@@ -73,6 +91,12 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       getRoleBindings: (workspaceId) => ipc.invoke(IPC_CHANNELS.agentWorkflow.getRoleBindings, workspaceId) as Promise<import('../../shared/types/ipc').WorkspaceAgentRoleBinding[]>,
       prepareStep: (input) => ipc.invoke(IPC_CHANNELS.agentWorkflow.prepareStep, input) as Promise<import('../../shared/types/ipc').AgentWorkflowRunDetails>,
       runStep: (input) => ipc.invoke(IPC_CHANNELS.agentWorkflow.runStep, input) as Promise<import('../../shared/types/ipc').AgentWorkflowRunDetails>,
+      approvePlan: (input) => ipc.invoke(IPC_CHANNELS.agentWorkflow.approvePlan, input) as Promise<import('../../shared/types/ipc').AgentWorkflowRunDetails>,
+      rejectPlan: (input) => ipc.invoke(IPC_CHANNELS.agentWorkflow.rejectPlan, input) as Promise<import('../../shared/types/ipc').AgentWorkflowRunDetails>,
+      requestPlanChanges: (input) => ipc.invoke(IPC_CHANNELS.agentWorkflow.requestPlanChanges, input) as Promise<import('../../shared/types/ipc').AgentWorkflowRunDetails>,
+      sendApprovedExecution: (input) => ipc.invoke(IPC_CHANNELS.agentWorkflow.sendApprovedExecution, input) as Promise<import('../../shared/types/ipc').AgentWorkflowRunDetails>,
+      recordExecutionEvidence: (input) => ipc.invoke(IPC_CHANNELS.agentWorkflow.recordExecutionEvidence, input) as Promise<import('../../shared/types/ipc').AgentWorkflowRunDetails>,
+      advanceRun: (input) => ipc.invoke(IPC_CHANNELS.agentWorkflow.advanceRun, input) as Promise<import('../../shared/types/ipc').AgentWorkflowRunDetails>,
       completeManualStep: (input) => ipc.invoke(IPC_CHANNELS.agentWorkflow.completeManualStep, input) as Promise<import('../../shared/types/ipc').AgentWorkflowRunDetails>,
       appendArtifact: (input) => ipc.invoke(IPC_CHANNELS.agentWorkflow.appendArtifact, input) as Promise<import('../../shared/types/ipc').AgentWorkflowRunDetails>
     },
@@ -108,6 +132,54 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     git: {
       getDiff: (input) => ipc.invoke(IPC_CHANNELS.git.getDiff, input) as Promise<GitDiff>,
       onDiffUpdate: (listener) => subscribe<GitDiff>(ipc, IPC_CHANNELS.git.onDiffUpdate, listener)
+    },
+    clipboard: {
+      saveImageToTemp: () => ipc.invoke(IPC_CHANNELS.clipboard.saveImageToTemp) as Promise<string | null>
+    },
+    github: {
+      getCliStatus: (input) => ipc.invoke(IPC_CHANNELS.github.getCliStatus, input) as Promise<GitHubCliStatus>,
+      getWorkspaceStatus: (input) => ipc.invoke(IPC_CHANNELS.github.getWorkspaceStatus, input) as Promise<GitHubWorkspaceStatus>,
+      fetch: (input) => ipc.invoke(IPC_CHANNELS.github.fetch, input) as Promise<GitHubMessageResult>,
+      stageAll: (input) => ipc.invoke(IPC_CHANNELS.github.stageAll, input) as Promise<GitHubMessageResult>,
+      commit: (input) => ipc.invoke(IPC_CHANNELS.github.commit, input) as Promise<GitHubMessageResult>,
+      generateCommitMessage: (input) => ipc.invoke(IPC_CHANNELS.github.generateCommitMessage, input) as Promise<GitHubMessageResult>,
+      push: (input) => ipc.invoke(IPC_CHANNELS.github.push, input) as Promise<GitHubMessageResult>,
+      commitAndPush: (input) => ipc.invoke(IPC_CHANNELS.github.commitAndPush, input) as Promise<GitHubMessageResult>,
+      listBranches: (input) => ipc.invoke(IPC_CHANNELS.github.listBranches, input) as Promise<GitHubBranch[]>,
+      createBranch: (input) => ipc.invoke(IPC_CHANNELS.github.createBranch, input) as Promise<GitHubMessageResult>,
+      checkoutBranch: (input) => ipc.invoke(IPC_CHANNELS.github.checkoutBranch, input) as Promise<GitHubMessageResult>,
+      listWorktrees: (input) => ipc.invoke(IPC_CHANNELS.github.listWorktrees, input) as Promise<import('../../shared/types/github').GitHubWorktree[]>,
+      createWorktree: (input) => ipc.invoke(IPC_CHANNELS.github.createWorktree, input) as Promise<GitHubMessageResult>,
+      removeWorktree: (input) => ipc.invoke(IPC_CHANNELS.github.removeWorktree, input) as Promise<GitHubMessageResult>,
+      listPullRequests: (input) => ipc.invoke(IPC_CHANNELS.github.listPullRequests, input) as Promise<GitHubPullRequest[]>,
+      createPullRequest: (input) => ipc.invoke(IPC_CHANNELS.github.createPullRequest, input) as Promise<GitHubMessageResult>,
+      listCommits: (input) => ipc.invoke(IPC_CHANNELS.github.listCommits, input) as Promise<GitHubCommit[]>,
+      getCommitDetails: (input) => ipc.invoke(IPC_CHANNELS.github.getCommitDetails, input) as Promise<GitHubCommitDetails>,
+      listReleases: (input) => ipc.invoke(IPC_CHANNELS.github.listReleases, input) as Promise<GitHubRelease[]>,
+      createRelease: (input) => ipc.invoke(IPC_CHANNELS.github.createRelease, input) as Promise<GitHubMessageResult>,
+      listWorkflows: (input) => ipc.invoke(IPC_CHANNELS.github.listWorkflows, input) as Promise<GitHubWorkflow[]>,
+      listWorkflowRuns: (input) => ipc.invoke(IPC_CHANNELS.github.listWorkflowRuns, input) as Promise<GitHubWorkflowRun[]>,
+      runWorkflow: (input) => ipc.invoke(IPC_CHANNELS.github.runWorkflow, input) as Promise<GitHubMessageResult>,
+      listCheckpoints: (input) => ipc.invoke(IPC_CHANNELS.github.listCheckpoints, input) as Promise<GitHubCheckpoint[]>,
+      createCheckpoint: (input) => ipc.invoke(IPC_CHANNELS.github.createCheckpoint, input) as Promise<GitHubCheckpoint>,
+      restoreCheckpoint: (input) => ipc.invoke(IPC_CHANNELS.github.restoreCheckpoint, input) as Promise<GitHubMessageResult>,
+      deleteCheckpoint: (input) => ipc.invoke(IPC_CHANNELS.github.deleteCheckpoint, input) as Promise<GitHubMessageResult>,
+      listConnectedRepositories: (input) => ipc.invoke(IPC_CHANNELS.github.listConnectedRepositories, input) as Promise<GitHubConnectedRepository[]>,
+      connectRepository: (input) => ipc.invoke(IPC_CHANNELS.github.connectRepository, input) as Promise<GitHubConnectedRepository>
+    },
+    usage: {
+      getContextUsage: (input) => ipc.invoke(IPC_CHANNELS.usage.getContextUsage, input) as Promise<import('../../shared/types/usage').ContextUsageSnapshot>,
+      getSnapshotFor: (input) => ipc.invoke(IPC_CHANNELS.usage.getSnapshotFor, input) as Promise<import('../../shared/types/usage').ContextUsageSnapshot>,
+      listSessions: (input) => ipc.invoke(IPC_CHANNELS.usage.listSessions, input) as Promise<import('../../shared/types/usage/sessions').UsageSessionMetadata[]>,
+      supportedProviders: () => ipc.invoke(IPC_CHANNELS.usage.supportedProviders) as Promise<import('../../shared/types/agent').AgentProvider[]>
+    },
+    background: {
+      list: (workspaceId) => ipc.invoke(IPC_CHANNELS.background.list, workspaceId) as Promise<import('../../shared/types/background').BackgroundJob[]>,
+      start: (input) => ipc.invoke(IPC_CHANNELS.background.start, input) as Promise<import('../../shared/types/background').BackgroundJob>,
+      stop: (jobId) => ipc.invoke(IPC_CHANNELS.background.stop, jobId) as Promise<void>,
+      getOutput: (jobId) => ipc.invoke(IPC_CHANNELS.background.getOutput, jobId) as Promise<import('../../shared/types/background').BackgroundJobOutputChunk>,
+      onOutput: (listener) => subscribe<import('../../shared/types/background').BackgroundJobOutputEvent>(ipc, IPC_CHANNELS.background.onOutput, listener),
+      onUpdate: (listener) => subscribe<import('../../shared/types/background').BackgroundJobUpdateEvent>(ipc, IPC_CHANNELS.background.onUpdate, listener)
     }
   }
 }

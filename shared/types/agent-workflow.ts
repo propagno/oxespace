@@ -14,7 +14,19 @@ export type WorkflowRunStatus =
   | 'failed'
   | 'blocked'
 
-export type WorkflowStepStatus = 'pending' | 'waiting_user' | 'running' | 'passed' | 'failed' | 'skipped' | 'blocked'
+export type WorkflowStepStatus =
+  | 'pending'
+  | 'prepared'
+  | 'waiting_user'
+  | 'approved'
+  | 'running'
+  | 'sent_to_terminal'
+  | 'completed'
+  | 'passed'
+  | 'failed'
+  | 'skipped'
+  | 'blocked'
+  | 'rejected'
 
 export type WorkflowSourceType = 'manual' | 'task' | 'oxe'
 
@@ -22,10 +34,17 @@ export type WorkflowArtifactKind =
   | 'question_set'
   | 'clarification'
   | 'plan'
+  | 'approved_plan'
   | 'execution_notes'
+  | 'execution_prompt'
+  | 'execution_evidence'
   | 'review'
+  | 'review_findings'
   | 'verification'
+  | 'verification_report'
   | 'publish_notes'
+  | 'rejection'
+  | 'plan_feedback'
 
 export interface WorkspaceAgentRoleBinding {
   workspaceId: string
@@ -104,6 +123,37 @@ export interface PrepareAgentWorkflowStepInput {
 export interface RunAgentWorkflowStepInput {
   stepId: string
   paneId: string
+}
+
+export interface ApproveAgentWorkflowPlanInput {
+  runId: string
+  planContent: string
+}
+
+export interface RejectAgentWorkflowPlanInput {
+  runId: string
+  reason: string
+}
+
+export interface RequestAgentWorkflowPlanChangesInput {
+  runId: string
+  feedback: string
+}
+
+export interface SendApprovedAgentWorkflowExecutionInput {
+  stepId: string
+  paneId: string
+}
+
+export interface RecordAgentWorkflowExecutionEvidenceInput {
+  stepId: string
+  output: string
+}
+
+export interface AdvanceAgentWorkflowRunInput {
+  runId: string
+  targetStatus: WorkflowRunStatus
+  overrideReason?: string
 }
 
 export interface CompleteManualAgentWorkflowStepInput {

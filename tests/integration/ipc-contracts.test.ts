@@ -11,7 +11,11 @@ import {
   parseUpdateWorkspaceEditorStateInput,
   parseUpdateWorkspaceOxeStateInput,
   parseUpdateWorkspaceSettingsInput,
-  parseWorkspaceCreateInput
+  parseWorkspaceCreateInput,
+  parseGitHubWorkspaceInput,
+  parseGitHubCommitInput,
+  parseGitHubCreateCheckpointInput,
+  parseGitHubDeleteCheckpointInput
 } from '../../electron/main/ipc/validation'
 
 describe('ipc contracts', () => {
@@ -132,7 +136,7 @@ describe('ipc contracts', () => {
       oxePanelExpanded: undefined,
       oxePanelWidthPercent: 40
     })
-    expect(() => parseUpdateWorkspaceOxeStateInput({ workspaceId: 'workspace-1', oxePanelWidthPercent: 90 })).toThrow('editorWidthPercent')
+    expect(() => parseUpdateWorkspaceOxeStateInput({ workspaceId: 'workspace-1', oxePanelWidthPercent: 150 })).toThrow('panel width')
   })
 
   test('validates workspace Agents state payloads', () => {
@@ -142,7 +146,7 @@ describe('ipc contracts', () => {
       agentsPanelExpanded: undefined,
       agentsPanelWidthPercent: 40
     })
-    expect(() => parseUpdateWorkspaceAgentsStateInput({ workspaceId: 'workspace-1', agentsPanelWidthPercent: 90 })).toThrow('editorWidthPercent')
+    expect(() => parseUpdateWorkspaceAgentsStateInput({ workspaceId: 'workspace-1', agentsPanelWidthPercent: 150 })).toThrow('panel width')
   })
 
   test('validates agent workflow payloads', () => {
@@ -185,5 +189,50 @@ describe('ipc contracts', () => {
       rootPath: 'C:/repo'
     })
     expect(() => parseOxeWorkspaceInput({ workspaceId: '', rootPath: 'C:/repo' })).toThrow('workspaceId')
+  })
+
+  test('uses stable github channel names', () => {
+    expect(IPC_CHANNELS.github.getCliStatus).toBe('github:get-cli-status')
+    expect(IPC_CHANNELS.github.getWorkspaceStatus).toBe('github:get-workspace-status')
+    expect(IPC_CHANNELS.github.fetch).toBe('github:fetch')
+    expect(IPC_CHANNELS.github.stageAll).toBe('github:stage-all')
+    expect(IPC_CHANNELS.github.commit).toBe('github:commit')
+    expect(IPC_CHANNELS.github.generateCommitMessage).toBe('github:generate-commit-message')
+    expect(IPC_CHANNELS.github.push).toBe('github:push')
+    expect(IPC_CHANNELS.github.commitAndPush).toBe('github:commit-and-push')
+    expect(IPC_CHANNELS.github.listBranches).toBe('github:list-branches')
+    expect(IPC_CHANNELS.github.createBranch).toBe('github:create-branch')
+    expect(IPC_CHANNELS.github.checkoutBranch).toBe('github:checkout-branch')
+    expect(IPC_CHANNELS.github.listPullRequests).toBe('github:list-pull-requests')
+    expect(IPC_CHANNELS.github.createPullRequest).toBe('github:create-pull-request')
+    expect(IPC_CHANNELS.github.listCommits).toBe('github:list-commits')
+    expect(IPC_CHANNELS.github.getCommitDetails).toBe('github:get-commit-details')
+    expect(IPC_CHANNELS.github.listReleases).toBe('github:list-releases')
+    expect(IPC_CHANNELS.github.createRelease).toBe('github:create-release')
+    expect(IPC_CHANNELS.github.listWorkflows).toBe('github:list-workflows')
+    expect(IPC_CHANNELS.github.listWorkflowRuns).toBe('github:list-workflow-runs')
+    expect(IPC_CHANNELS.github.runWorkflow).toBe('github:run-workflow')
+    expect(IPC_CHANNELS.github.listCheckpoints).toBe('github:list-checkpoints')
+    expect(IPC_CHANNELS.github.createCheckpoint).toBe('github:create-checkpoint')
+    expect(IPC_CHANNELS.github.restoreCheckpoint).toBe('github:restore-checkpoint')
+    expect(IPC_CHANNELS.github.deleteCheckpoint).toBe('github:delete-checkpoint')
+    expect(IPC_CHANNELS.github.listConnectedRepositories).toBe('github:list-connected-repositories')
+    expect(IPC_CHANNELS.github.connectRepository).toBe('github:connect-repository')
+  })
+
+  test('validates github payloads', () => {
+    expect(parseGitHubWorkspaceInput({ workspaceId: 'w-1', rootPath: 'C:/repo' })).toEqual({ workspaceId: 'w-1', rootPath: 'C:/repo' })
+    expect(() => parseGitHubWorkspaceInput({ workspaceId: '', rootPath: 'C:/repo' })).toThrow('workspaceId')
+
+    expect(parseGitHubCommitInput({ workspaceId: 'w-1', rootPath: 'C:/repo', message: 'init' })).toEqual({ workspaceId: 'w-1', rootPath: 'C:/repo', message: 'init' })
+    expect(() => parseGitHubCommitInput({ workspaceId: 'w-1', rootPath: 'C:/repo', message: '' })).toThrow('message')
+
+    expect(parseGitHubCreateCheckpointInput({ workspaceId: 'w-1', rootPath: 'C:/repo', name: 'snap' })).toEqual({
+      workspaceId: 'w-1', rootPath: 'C:/repo', name: 'snap', description: undefined
+    })
+    expect(() => parseGitHubCreateCheckpointInput({ workspaceId: 'w-1', rootPath: 'C:/repo', name: '' })).toThrow('name')
+
+    expect(parseGitHubDeleteCheckpointInput({ checkpointId: 'cp-1' })).toEqual({ checkpointId: 'cp-1' })
+    expect(() => parseGitHubDeleteCheckpointInput({ checkpointId: '' })).toThrow('checkpointId')
   })
 })

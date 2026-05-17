@@ -41,6 +41,16 @@ describe('agent-workflow.store', () => {
         getRoleBindings: vi.fn().mockResolvedValue(bindings),
         prepareStep: vi.fn().mockResolvedValue(details),
         runStep: vi.fn().mockResolvedValue(details),
+        approvePlan: vi.fn().mockResolvedValue({
+          ...details,
+          run: { ...details.run, status: 'planned' },
+          artifacts: [{ id: 'artifact-1', runId: 'run-1', stepId: null, kind: 'approved_plan', title: 'Approved plan', content: 'Approved', createdAt: 2 }]
+        }),
+        rejectPlan: vi.fn().mockResolvedValue(details),
+        requestPlanChanges: vi.fn().mockResolvedValue(details),
+        sendApprovedExecution: vi.fn().mockResolvedValue(details),
+        recordExecutionEvidence: vi.fn().mockResolvedValue(details),
+        advanceRun: vi.fn().mockResolvedValue(details),
         completeManualStep: vi.fn().mockResolvedValue(details),
         appendArtifact: vi.fn().mockResolvedValue(details)
       }
@@ -69,5 +79,25 @@ describe('agent-workflow.store', () => {
     expect(window.oxe.agentWorkflow.createRun).toHaveBeenCalledWith(expect.objectContaining({ sourceType: 'task', sourceId: 'task-1' }))
     expect(result.current.detailsByRun['run-1']).toEqual(details)
     expect(result.current.bindingsByWorkspace['workspace-1']).toEqual(bindings)
+  })
+
+  test('approves the canonical plan through the required IPC handler', async () => {
+    const { result } = renderHook(() => useAgentWorkflowStore())
+
+    await act(async () => {
+      await result.current.approvePlan({ runId: 'run-1', planContent: 'Approved' })
+    })
+
+    expect(window.oxe.agentWorkflow.approvePlan).toHaveBeenCalledWith({ runId: 'run-1', planContent: 'Approved' })
+    expect(result.current.detailsByRun['run-1']?.run.status).toBe('planned')
+    expect(result.current.detailsByRun['run-1']?.artifacts[0]?.kind).toBe('approved_plan')
+  })
+
+  test('normalizes missing handler errors instead of falling back silently', async () => {
+    vi.mocked(window.oxe.agentWorkflow.approvePlan).mockRejectedValueOnce(new Error("Error invoking remote method 'agent-workflow:approve-plan': Error: No handler registered for 'agent-workflow:approve-plan'"))
+    const { result } = renderHook(() => useAgentWorkflowStore())
+
+    await expect(result.current.approvePlan({ runId: 'run-1', planContent: 'Approved' })).rejects.toThrow('OXESpace precisa reiniciar')
+    expect(window.oxe.agentWorkflow.appendArtifact).not.toHaveBeenCalled()
   })
 })

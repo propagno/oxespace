@@ -1,14 +1,20 @@
-import type { CreateWorkspaceInput, PaneType, ShellProfile, UpdateWorkspaceAgentsStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceOxeStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, Workspace } from './workspace'
+import type { CreateWorkspaceInput, PaneType, ShellProfile, UpdateWorkspaceAgentsStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceOxeStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, Workspace } from './workspace'
 import type { AgentProfile, AgentReadiness, CreateAgentProfileInput, UpdateAgentProfileInput } from './agent'
 import type {
   AgentWorkflowArtifact,
   AgentWorkflowRun,
   AgentWorkflowRunDetails,
+  AdvanceAgentWorkflowRunInput,
   AppendAgentWorkflowArtifactInput,
+  ApproveAgentWorkflowPlanInput,
   CompleteManualAgentWorkflowStepInput,
   CreateAgentWorkflowRunInput,
   PrepareAgentWorkflowStepInput,
+  RecordAgentWorkflowExecutionEvidenceInput,
+  RejectAgentWorkflowPlanInput,
+  RequestAgentWorkflowPlanChangesInput,
   RunAgentWorkflowStepInput,
+  SendApprovedAgentWorkflowExecutionInput,
   UpdateWorkspaceAgentRoleBindingsInput,
   WorkspaceAgentRoleBinding
 } from './agent-workflow'
@@ -22,12 +28,41 @@ import type {
   UpdateTaskInput,
   VerifyTaskInput
 } from './task'
+import type {
+  GitHubBranch,
+  GitHubCheckoutBranchInput,
+  GitHubCheckpoint,
+  GitHubCliStatus,
+  GitHubCommit,
+  GitHubCommitDetails,
+  GitHubCommitDetailsInput,
+  GitHubCommitInput,
+  GitHubConnectRepositoryInput,
+  GitHubConnectedRepository,
+  GitHubCreateBranchInput,
+  GitHubCreateCheckpointInput,
+  GitHubCreatePullRequestInput,
+  GitHubCreateReleaseInput,
+  GitHubDeleteCheckpointInput,
+  GitHubMessageResult,
+  GitHubPullRequest,
+  GitHubPullRequestListInput,
+  GitHubRelease,
+  GitHubRepositorySummary,
+  GitHubRestoreCheckpointInput,
+  GitHubWorkflow,
+  GitHubWorkflowRun,
+  GitHubWorkflowRunInput,
+  GitHubWorkspaceInput,
+  GitHubWorkspaceStatus
+} from './github'
 
-export type { ShellProfile, Workspace, UpdateWorkspaceAgentsStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceOxeStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, AgentProfile, AgentReadiness }
+export type { ShellProfile, Workspace, UpdateWorkspaceAgentsStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceOxeStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, AgentProfile, AgentReadiness }
 export type { Task, TaskExecution, TaskVerifyOutputEvent }
 export type { AgentWorkflowArtifact, AgentWorkflowRun, AgentWorkflowRunDetails, WorkspaceAgentRoleBinding }
 export type { OxeGraphNode, OxeGraphEdge, OxeExecutionGraph, OxeExecutionGraphMeta, NodeType, EdgeType, NodeStatus } from './oxe-graph'
 export type { GitDiff, GitDiffFile, GitDiffHunk, GitDiffLine, GitDiffInput, GitLineType } from './git'
+export type { GitHubBranch, GitHubCheckpoint, GitHubCliStatus, GitHubCommit, GitHubCommitDetails, GitHubConnectedRepository, GitHubMessageResult, GitHubPanelTab, GitHubPullRequest, GitHubRelease, GitHubRepositorySummary, GitHubWorkflow, GitHubWorkflowRun, GitHubWorkspaceStatus } from './github'
 
 export type FileTreeNodeType = 'file' | 'directory'
 
@@ -196,13 +231,18 @@ export const IPC_CHANNELS = {
     splitPane: 'workspace:split-pane',
     updatePaneType: 'workspace:update-pane-type',
     updatePaneName: 'workspace:update-pane-name',
+    setPaneModelOverride: 'workspace:set-pane-model-override',
+    setPaneAgent: 'workspace:set-pane-agent',
+    setPaneRootPath: 'workspace:set-pane-root-path',
     updateEditorState: 'workspace:update-editor-state',
     updateOxeState: 'workspace:update-oxe-state',
     updateAgentsState: 'workspace:update-agents-state',
     updateReviewState: 'workspace:update-review-state',
+    updateGitHubState: 'workspace:update-github-state',
     updateSettings: 'workspace:update-settings',
     pickFolder: 'workspace:pick-folder',
-    shellProfiles: 'workspace:shell-profiles'
+    shellProfiles: 'workspace:shell-profiles',
+    createGitHubTerminalPane: 'workspace:create-github-terminal-pane'
   },
   terminal: {
     start: 'terminal:start',
@@ -258,12 +298,66 @@ export const IPC_CHANNELS = {
     getRoleBindings: 'agent-workflow:get-role-bindings',
     prepareStep: 'agent-workflow:prepare-step',
     runStep: 'agent-workflow:run-step',
+    approvePlan: 'agent-workflow:approve-plan',
+    rejectPlan: 'agent-workflow:reject-plan',
+    requestPlanChanges: 'agent-workflow:request-plan-changes',
+    sendApprovedExecution: 'agent-workflow:send-approved-execution',
+    recordExecutionEvidence: 'agent-workflow:record-execution-evidence',
+    advanceRun: 'agent-workflow:advance-run',
     completeManualStep: 'agent-workflow:complete-manual-step',
     appendArtifact: 'agent-workflow:append-artifact'
   },
   git: {
     getDiff: 'git:get-diff',
     onDiffUpdate: 'git:diff-update'
+  },
+  clipboard: {
+    saveImageToTemp: 'clipboard:save-image-to-temp'
+  },
+  usage: {
+    getContextUsage: 'usage:get-context-usage',
+    getSnapshotFor: 'usage:get-snapshot-for',
+    listSessions: 'usage:list-sessions',
+    supportedProviders: 'usage:supported-providers'
+  },
+  background: {
+    list: 'background:list',
+    start: 'background:start',
+    stop: 'background:stop',
+    getOutput: 'background:get-output',
+    onOutput: 'background:on-output',
+    onUpdate: 'background:on-update'
+  },
+  github: {
+    getCliStatus: 'github:get-cli-status',
+    getWorkspaceStatus: 'github:get-workspace-status',
+    fetch: 'github:fetch',
+    stageAll: 'github:stage-all',
+    commit: 'github:commit',
+    generateCommitMessage: 'github:generate-commit-message',
+    push: 'github:push',
+    commitAndPush: 'github:commit-and-push',
+    listBranches: 'github:list-branches',
+    listWorktrees: 'github:list-worktrees',
+    createWorktree: 'github:create-worktree',
+    removeWorktree: 'github:remove-worktree',
+    createBranch: 'github:create-branch',
+    checkoutBranch: 'github:checkout-branch',
+    listPullRequests: 'github:list-pull-requests',
+    createPullRequest: 'github:create-pull-request',
+    listCommits: 'github:list-commits',
+    getCommitDetails: 'github:get-commit-details',
+    listReleases: 'github:list-releases',
+    createRelease: 'github:create-release',
+    listWorkflows: 'github:list-workflows',
+    listWorkflowRuns: 'github:list-workflow-runs',
+    runWorkflow: 'github:run-workflow',
+    listCheckpoints: 'github:list-checkpoints',
+    createCheckpoint: 'github:create-checkpoint',
+    restoreCheckpoint: 'github:restore-checkpoint',
+    deleteCheckpoint: 'github:delete-checkpoint',
+    listConnectedRepositories: 'github:list-connected-repositories',
+    connectRepository: 'github:connect-repository'
   }
 } as const
 
@@ -271,6 +365,7 @@ export interface TerminalStartInput {
   paneId: string
   workspaceId: string
   agentCommand?: string
+  agentArgs?: string[]
   initialPrompt?: string
 }
 
@@ -323,13 +418,18 @@ export interface WorkspaceApi {
   splitPane(input: SplitPaneInput): Promise<Workspace>
   updatePaneType(input: UpdatePaneTypeInput): Promise<Workspace>
   updatePaneName(input: UpdatePaneNameInput): Promise<Workspace>
+  setPaneModelOverride(input: { paneId: string; modelId: string | null }): Promise<Workspace>
+  setPaneAgent(input: { paneId: string; agentProfileId: string | null }): Promise<Workspace>
+  setPaneRootPath(input: { paneId: string; rootPath: string | null }): Promise<Workspace>
   updateEditorState(input: UpdateWorkspaceEditorStateInput): Promise<Workspace>
   updateOxeState(input: UpdateWorkspaceOxeStateInput): Promise<Workspace>
   updateAgentsState(input: UpdateWorkspaceAgentsStateInput): Promise<Workspace>
   updateReviewState(input: UpdateWorkspaceReviewStateInput): Promise<Workspace>
+  updateGitHubState(input: UpdateWorkspaceGitHubStateInput): Promise<Workspace>
   updateSettings(input: UpdateWorkspaceSettingsInput): Promise<Workspace>
   pickFolder(): Promise<string | null>
   shellProfiles(): Promise<ShellProfile[]>
+  createGitHubTerminalPane(workspaceId: string): Promise<{ id: string }>
 }
 
 export interface TerminalApi {
@@ -359,6 +459,12 @@ export interface AgentWorkflowApi {
   getRoleBindings(workspaceId: string): Promise<WorkspaceAgentRoleBinding[]>
   prepareStep(input: PrepareAgentWorkflowStepInput): Promise<AgentWorkflowRunDetails>
   runStep(input: RunAgentWorkflowStepInput): Promise<AgentWorkflowRunDetails>
+  approvePlan(input: ApproveAgentWorkflowPlanInput): Promise<AgentWorkflowRunDetails>
+  rejectPlan(input: RejectAgentWorkflowPlanInput): Promise<AgentWorkflowRunDetails>
+  requestPlanChanges(input: RequestAgentWorkflowPlanChangesInput): Promise<AgentWorkflowRunDetails>
+  sendApprovedExecution(input: SendApprovedAgentWorkflowExecutionInput): Promise<AgentWorkflowRunDetails>
+  recordExecutionEvidence(input: RecordAgentWorkflowExecutionEvidenceInput): Promise<AgentWorkflowRunDetails>
+  advanceRun(input: AdvanceAgentWorkflowRunInput): Promise<AgentWorkflowRunDetails>
   completeManualStep(input: CompleteManualAgentWorkflowStepInput): Promise<AgentWorkflowRunDetails>
   appendArtifact(input: AppendAgentWorkflowArtifactInput): Promise<AgentWorkflowRunDetails>
 }
@@ -380,6 +486,42 @@ export interface GitApi {
   onDiffUpdate(listener: (diff: import('./git').GitDiff) => void): () => void
 }
 
+export interface GitHubApi {
+  getCliStatus(input: GitHubWorkspaceInput): Promise<GitHubCliStatus>
+  getWorkspaceStatus(input: GitHubWorkspaceInput): Promise<GitHubWorkspaceStatus>
+  fetch(input: GitHubWorkspaceInput): Promise<GitHubMessageResult>
+  stageAll(input: GitHubWorkspaceInput): Promise<GitHubMessageResult>
+  commit(input: GitHubCommitInput): Promise<GitHubMessageResult>
+  generateCommitMessage(input: GitHubWorkspaceInput): Promise<GitHubMessageResult>
+  push(input: GitHubWorkspaceInput): Promise<GitHubMessageResult>
+  commitAndPush(input: GitHubCommitInput): Promise<GitHubMessageResult>
+  listBranches(input: GitHubWorkspaceInput): Promise<GitHubBranch[]>
+  createBranch(input: GitHubCreateBranchInput): Promise<GitHubMessageResult>
+  checkoutBranch(input: GitHubCheckoutBranchInput): Promise<GitHubMessageResult>
+  listWorktrees(input: GitHubWorkspaceInput): Promise<import('./github').GitHubWorktree[]>
+  createWorktree(input: import('./github').GitHubCreateWorktreeInput): Promise<GitHubMessageResult>
+  removeWorktree(input: import('./github').GitHubRemoveWorktreeInput): Promise<GitHubMessageResult>
+  listPullRequests(input: GitHubPullRequestListInput): Promise<GitHubPullRequest[]>
+  createPullRequest(input: GitHubCreatePullRequestInput): Promise<GitHubMessageResult>
+  listCommits(input: GitHubWorkspaceInput): Promise<GitHubCommit[]>
+  getCommitDetails(input: GitHubCommitDetailsInput): Promise<GitHubCommitDetails>
+  listReleases(input: GitHubWorkspaceInput): Promise<GitHubRelease[]>
+  createRelease(input: GitHubCreateReleaseInput): Promise<GitHubMessageResult>
+  listWorkflows(input: GitHubWorkspaceInput): Promise<GitHubWorkflow[]>
+  listWorkflowRuns(input: GitHubWorkspaceInput): Promise<GitHubWorkflowRun[]>
+  runWorkflow(input: GitHubWorkflowRunInput): Promise<GitHubMessageResult>
+  listCheckpoints(input: GitHubWorkspaceInput): Promise<GitHubCheckpoint[]>
+  createCheckpoint(input: GitHubCreateCheckpointInput): Promise<GitHubCheckpoint>
+  restoreCheckpoint(input: GitHubRestoreCheckpointInput): Promise<GitHubMessageResult>
+  deleteCheckpoint(input: GitHubDeleteCheckpointInput): Promise<GitHubMessageResult>
+  listConnectedRepositories(input: GitHubWorkspaceInput): Promise<GitHubConnectedRepository[]>
+  connectRepository(input: GitHubConnectRepositoryInput): Promise<GitHubConnectedRepository>
+}
+
+export interface ClipboardApi {
+  saveImageToTemp(): Promise<string | null>
+}
+
 export interface OxeApi {
   app: {
     version: string
@@ -392,4 +534,24 @@ export interface OxeApi {
   fs: FileSystemApi
   oxe: OxeWorkspaceApi
   git: GitApi
+  github: GitHubApi
+  clipboard: ClipboardApi
+  usage: UsageApi
+  background: BackgroundApi
+}
+
+export interface UsageApi {
+  getContextUsage(input: { workspaceRootPath: string }): Promise<import('./usage').ContextUsageSnapshot>
+  getSnapshotFor(input: { provider: import('./agent').AgentProvider; workspaceRootPath: string; sessionId?: string | null }): Promise<import('./usage').ContextUsageSnapshot>
+  listSessions(input: { provider: import('./agent').AgentProvider; workspaceRootPath: string }): Promise<import('./usage/sessions').UsageSessionMetadata[]>
+  supportedProviders(): Promise<import('./agent').AgentProvider[]>
+}
+
+export interface BackgroundApi {
+  list(workspaceId: string): Promise<import('./background').BackgroundJob[]>
+  start(input: import('./background').StartBackgroundJobInput): Promise<import('./background').BackgroundJob>
+  stop(jobId: string): Promise<void>
+  getOutput(jobId: string): Promise<import('./background').BackgroundJobOutputChunk>
+  onOutput(listener: (event: import('./background').BackgroundJobOutputEvent) => void): () => void
+  onUpdate(listener: (event: import('./background').BackgroundJobUpdateEvent) => void): () => void
 }

@@ -44,6 +44,7 @@ function stripAnsi(str: string): string {
 
 // Module-level timers so they survive re-renders
 const workingTimers = new Map<string, ReturnType<typeof setTimeout>>()
+const lastActivitySetTime = new Map<string, number>()
 
 export const useTerminalStore = create<TerminalState>((set, get) => ({
   panes: {},
@@ -69,20 +70,25 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     const lastLine = stripped.split('\n').map(l => l.trim()).filter(Boolean).at(-1) ?? null
     if (!lastLine) return
 
-    set(state => ({
-      panes: {
-        ...state.panes,
-        [paneId]: {
-          ...(state.panes[paneId] ?? DEFAULT_STATE),
-          lastActivityAt: Date.now(),
-          lastOutput: lastLine.slice(0, 80),
-          isWorking: true,
-          hasUnread: true
+    const now = Date.now()
+    const lastTime = lastActivitySetTime.get(paneId) ?? 0
+    if (now - lastTime >= 100) {
+      lastActivitySetTime.set(paneId, now)
+      set(state => ({
+        panes: {
+          ...state.panes,
+          [paneId]: {
+            ...(state.panes[paneId] ?? DEFAULT_STATE),
+            lastActivityAt: now,
+            lastOutput: lastLine.slice(0, 80),
+            isWorking: true,
+            hasUnread: true
+          }
         }
-      }
-    }))
+      }))
+    }
 
-    // Reset isWorking after 1.5s of silence
+    // Always reset isWorking timer regardless of throttle
     const existing = workingTimers.get(paneId)
     if (existing) clearTimeout(existing)
     workingTimers.set(paneId, setTimeout(() => {

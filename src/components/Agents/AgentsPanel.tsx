@@ -1,4 +1,4 @@
-import { Bot, GitBranch, Plus, RefreshCw } from 'lucide-react'
+import { Bot, Plus, RefreshCw, Settings2 } from 'lucide-react'
 import { useState, type ReactElement } from 'react'
 import type { AgentProfile, AgentReadiness } from '../../../shared/types/agent'
 import type { Workspace } from '../../../shared/types/workspace'
@@ -6,7 +6,7 @@ import { BUILTIN_AGENTS, useAgentStore } from '../../store/agent.store'
 import { AgentsWorkflowPanel } from '../AgentsWorkflow/AgentsWorkflowPanel'
 import { AgentConfigModal } from './AgentConfigModal'
 
-type Tab = 'agents' | 'workflow'
+type View = 'workflow' | 'settings'
 
 interface AgentsPanelProps {
   workspace: Workspace
@@ -59,7 +59,7 @@ function AgentRow({ profile, readiness, onConfigure }: {
 
 export function AgentsPanel({ activePaneId, onOpenArtifact, workspace }: AgentsPanelProps): ReactElement {
   const { profiles, readiness, isDiscovering, discover, loadProfiles, loadReadiness, createProfile, deleteProfile, updateProfile } = useAgentStore()
-  const [tab, setTab] = useState<Tab>('agents')
+  const [view, setView] = useState<View>('workflow')
   const [configuring, setConfiguring] = useState<AgentProfile | null>(null)
 
   const connectedProfiles = profiles.filter((p) => p.provider !== 'custom' && p.provider !== 'oxe')
@@ -68,26 +68,22 @@ export function AgentsPanel({ activePaneId, onOpenArtifact, workspace }: AgentsP
   return (
     <>
       <div className="agents-panel-root">
-        <div className="agents-panel-tabs">
+        <div className="agents-panel-toolbar">
+          <div className="agents-panel-toolbar-title">
+            <Bot size={13} aria-hidden="true" />
+            <span>Plan/Exec</span>
+          </div>
           <button
             type="button"
-            className={`agents-panel-tab ${tab === 'agents' ? 'active' : ''}`}
-            onClick={() => { setTab('agents') }}
+            className="agents-panel-settings-button"
+            onClick={() => { setView((current) => current === 'settings' ? 'workflow' : 'settings') }}
           >
-            <Bot size={12} aria-hidden="true" />
-            Agents
-          </button>
-          <button
-            type="button"
-            className={`agents-panel-tab ${tab === 'workflow' ? 'active' : ''}`}
-            onClick={() => { setTab('workflow') }}
-          >
-            <GitBranch size={12} aria-hidden="true" />
-            Workflow
+            <Settings2 size={12} aria-hidden="true" />
+            Agent Settings
           </button>
         </div>
 
-        {tab === 'agents' && (
+        {view === 'settings' && (
           <div className="agents-panel-agents">
             <div className="agents-panel-section">
               <div className="agents-panel-section-header">
@@ -155,7 +151,7 @@ export function AgentsPanel({ activePaneId, onOpenArtifact, workspace }: AgentsP
           </div>
         )}
 
-        {tab === 'workflow' && (
+        {view === 'workflow' && (
           <div className="agents-panel-workflow">
             <AgentsWorkflowPanel workspaceId={workspace.id} activePaneId={activePaneId} onOpenArtifact={onOpenArtifact} />
           </div>

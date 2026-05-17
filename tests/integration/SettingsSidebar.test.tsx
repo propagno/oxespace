@@ -30,10 +30,9 @@ const readiness: AgentReadiness[] = [
 ]
 
 describe('Settings agents UI', () => {
-  test('renders settings as a modal with Agents section and official profiles', async () => {
+  test('renders settings as a modal with AI Providers section and official profiles', async () => {
     const user = userEvent.setup()
     const onDiscoverAgents = vi.fn()
-    const onConfigureAgent = vi.fn()
     const onClose = vi.fn()
 
     render(
@@ -43,12 +42,11 @@ describe('Settings agents UI', () => {
         isDiscoveringAgents={false}
         onClose={onClose}
         onDiscoverAgents={onDiscoverAgents}
-        onConfigureAgent={onConfigureAgent}
       />
     )
 
     expect(screen.getByRole('dialog', { name: 'Settings' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Agents/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /AI Providers/i })).toBeInTheDocument()
     expect(screen.getByText('Claude')).toBeInTheDocument()
     expect(screen.getByText('Copilot')).toBeInTheDocument()
     expect(screen.getByText('claude')).toBeInTheDocument()
@@ -57,10 +55,7 @@ describe('Settings agents UI', () => {
     await user.click(screen.getByTestId('btn-discover-agents'))
     expect(onDiscoverAgents).toHaveBeenCalled()
 
-    await user.click(screen.getByLabelText('Configure Claude'))
-    expect(onConfigureAgent).toHaveBeenCalledWith(profiles[0])
-
-    await user.click(screen.getByLabelText('Close settings'))
+    await user.click(screen.getByLabelText('Close'))
     expect(onClose).toHaveBeenCalled()
   })
 

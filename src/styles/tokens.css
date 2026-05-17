@@ -20,8 +20,8 @@
   --bd-divider:       #151515;
   --bd-sidebar:       #141414;
   --bd-ws-active:     #12c79a;
-  --bd-input:         rgba(99, 95, 255, 0.30);
-  --bd-input-focus:   rgba(129, 140, 248, 0.70);
+  --bd-input:         rgba(18, 199, 154, 0.22);
+  --bd-input-focus:   rgba(18, 199, 154, 0.58);
   --bd-subtle:        rgba(255, 255, 255, 0.06);
   --bd-base:          rgba(255, 255, 255, 0.12);
 
@@ -42,11 +42,11 @@
   --dot-red:          #f87171;
 
   /* Brand — OXESpace identity */
-  --brand:            #4f46e5;
-  --brand-light:      #818cf8;
-  --brand-lightest:   #c7d2fe;
-  --brand-dark:       #1e1b4b;
-  --brand-glow:       rgba(79, 70, 229, 0.35);
+  --brand:            #12C79A;
+  --brand-light:      #6EEBD4;
+  --brand-lightest:   #B4F5E8;
+  --brand-dark:       #062D22;
+  --brand-glow:       rgba(18, 199, 154, 0.28);
 
   /* Provider icons */
   --provider-claude:  #b5694a;
@@ -54,7 +54,7 @@
   --provider-gemini:  #1a73e8;
   --provider-codex:   #10a37f;
   --provider-cursor:  #6366f1;
-  --provider-oxe:     #4f46e5;
+  --provider-oxe:     #12C79A;
   --provider-custom:  #475569;
 
   /* Avatar palette */
@@ -66,9 +66,9 @@
   --avatar-6: #0891b2;
 
   /* Pane active state */
-  --bg-pane-active-header: rgba(79, 70, 229, 0.08);
-  --bd-pane-active:        rgba(79, 70, 229, 0.40);
-  --glow-pane-active:      0 0 0 2px rgba(79, 70, 229, 0.25);
+  --bg-pane-active-header: rgba(18, 199, 154, 0.06);
+  --bd-pane-active:        rgba(18, 199, 154, 0.36);
+  --glow-pane-active:      0 0 0 2px rgba(18, 199, 154, 0.18);
 
   /* Badge / status surfaces */
   --bg-badge-running:  rgba(52, 212, 116, 0.12);
@@ -76,8 +76,8 @@
   --bg-badge-idle:     rgba(99, 107, 117, 0.12);
 
   /* Accents */
-  --accent:           #4f46e5;
-  --accent-hover:     #818cf8;
+  --accent:           #12C79A;
+  --accent-hover:     #6EEBD4;
   --badge-bg:         #28190e;
   --badge-text:       #fff;
 

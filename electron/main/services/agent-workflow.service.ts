@@ -7,11 +7,17 @@ import type {
   AgentWorkflowRun,
   AgentWorkflowRunDetails,
   AgentWorkflowStep,
+  AdvanceAgentWorkflowRunInput,
   AppendAgentWorkflowArtifactInput,
+  ApproveAgentWorkflowPlanInput,
   CompleteManualAgentWorkflowStepInput,
   CreateAgentWorkflowRunInput,
   PrepareAgentWorkflowStepInput,
+  RecordAgentWorkflowExecutionEvidenceInput,
+  RejectAgentWorkflowPlanInput,
+  RequestAgentWorkflowPlanChangesInput,
   RunAgentWorkflowStepInput,
+  SendApprovedAgentWorkflowExecutionInput,
   UpdateWorkspaceAgentRoleBindingsInput,
   WorkflowArtifactKind,
   WorkflowRunStatus,
@@ -88,7 +94,16 @@ const ROLE_STATUS: Record<AgentRole, WorkflowRunStatus> = {
 const ROLE_ARTIFACT_KIND: Record<AgentRole, WorkflowArtifactKind> = {
   rubber_duck: 'question_set',
   planner: 'plan',
-  executor: 'execution_notes',
+  executor: 'execution_evidence',
+  reviewer: 'review_findings',
+  verifier: 'verification_report',
+  publisher: 'publish_notes'
+}
+
+const ROLE_PROMPT_ARTIFACT_KIND: Record<AgentRole, WorkflowArtifactKind> = {
+  rubber_duck: 'question_set',
+  planner: 'plan',
+  executor: 'execution_prompt',
   reviewer: 'review',
   verifier: 'verification',
   publisher: 'publish_notes'
@@ -202,54 +217,143 @@ export class AgentWorkflowService {
   }
 
   prepareStep(input: PrepareAgentWorkflowStepInput): AgentWorkflowRunDetails {
-    const step = this.findStep(input.runId, input.role)
-    if (!step) throw new Error(`Workflow step not found for role ${input.role}`)
-    const run = this.getRunOrThrow(input.runId)
-    const binding = this.getBinding(run.workspaceId, input.role)
-    if (!binding?.enabled) throw new Error(`${ROLE_LABEL[input.role]} role is disabled`)
-
-    const agent = binding.agentProfileId ? this.getAgent(binding.agentProfileId) : null
-    const artifacts = this.listArtifacts(input.runId)
-    const prompt = buildPrompt({
-      role: input.role,
-      run,
-      provider: agent?.provider as AgentProvider | undefined,
-      model: binding.model ?? agent?.model ?? null,
-      artifacts
-    })
-    const now = Date.now()
-
-    const prepare = this.db.transaction(() => {
-      this.db.prepare(`
-        UPDATE agent_workflow_steps
-        SET agent_profile_id = ?, shell_profile_id = ?, status = 'waiting_user', prompt = ?, output = '', error = NULL, started_at = NULL, completed_at = NULL
-        WHERE id = ?
-      `).run(binding.agentProfileId, binding.shellProfileId, prompt, step.id)
-      this.db.prepare(`
-        INSERT INTO agent_workflow_artifacts (id, run_id, step_id, kind, title, content, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(randomUUID(), input.runId, step.id, ROLE_ARTIFACT_KIND[input.role], `${ROLE_LABEL[input.role]} prompt`, prompt, now)
-      this.db.prepare('UPDATE agent_workflow_runs SET status = ?, updated_at = ? WHERE id = ?').run(ROLE_STATUS[input.role], now, input.runId)
-    })
-    prepare()
-
+    this.prepareRoleStep(input.runId, input.role)
     return this.getRun(input.runId)
   }
 
   async runStep(input: RunAgentWorkflowStepInput): Promise<AgentWorkflowRunDetails> {
     const step = this.getStepOrThrow(input.stepId)
-    if (step.prompt.trim() === '') throw new Error('Prepare the workflow step before running it')
+    if (step.role === 'executor') {
+      return this.sendApprovedExecution(input)
+    }
+    if (step.role === 'reviewer' && !this.hasArtifact(step.runId, 'execution_evidence')) {
+      throw new Error('Record execution evidence before running review')
+    }
+    if (step.role === 'verifier' && !this.hasArtifact(step.runId, 'execution_evidence')) {
+      throw new Error('Record execution evidence before running verification')
+    }
+    return this.sendStepToTerminal(step, input.paneId)
+  }
+
+  approvePlan(input: ApproveAgentWorkflowPlanInput): AgentWorkflowRunDetails {
+    const run = this.getRunOrThrow(input.runId)
+    const step = this.findStep(input.runId, 'planner')
+    if (!step) throw new Error('Planner step not found')
+    const now = Date.now()
+    const approve = this.db.transaction(() => {
+      this.db.prepare(`
+        UPDATE agent_workflow_steps
+        SET status = 'approved', output = ?, error = NULL, completed_at = ?
+        WHERE id = ?
+      `).run(input.planContent, now, step.id)
+      this.insertArtifact(input.runId, step.id, 'approved_plan', 'Approved plan', input.planContent, now)
+      this.db.prepare('UPDATE agent_workflow_runs SET status = ?, updated_at = ? WHERE id = ?').run('planned', now, run.id)
+    })
+    approve()
+    return this.getRun(run.id)
+  }
+
+  rejectPlan(input: RejectAgentWorkflowPlanInput): AgentWorkflowRunDetails {
+    const run = this.getRunOrThrow(input.runId)
+    const step = this.findStep(input.runId, 'planner')
+    if (!step) throw new Error('Planner step not found')
+    const now = Date.now()
+    const reject = this.db.transaction(() => {
+      this.db.prepare(`
+        UPDATE agent_workflow_steps
+        SET status = 'rejected', error = ?, completed_at = ?
+        WHERE id = ?
+      `).run(input.reason, now, step.id)
+      this.insertArtifact(input.runId, step.id, 'rejection', 'Plan rejected', input.reason, now)
+      this.db.prepare('UPDATE agent_workflow_runs SET status = ?, updated_at = ? WHERE id = ?').run('blocked', now, run.id)
+    })
+    reject()
+    return this.getRun(run.id)
+  }
+
+  requestPlanChanges(input: RequestAgentWorkflowPlanChangesInput): AgentWorkflowRunDetails {
+    const run = this.getRunOrThrow(input.runId)
+    const step = this.findStep(input.runId, 'planner')
+    if (!step) throw new Error('Planner step not found')
+    const now = Date.now()
+    const requestChanges = this.db.transaction(() => {
+      this.db.prepare(`
+        UPDATE agent_workflow_steps
+        SET status = 'waiting_user', error = NULL, completed_at = NULL
+        WHERE id = ?
+      `).run(step.id)
+      this.insertArtifact(input.runId, step.id, 'plan_feedback', 'Requested plan changes', input.feedback, now)
+      this.db.prepare('UPDATE agent_workflow_runs SET status = ?, updated_at = ? WHERE id = ?').run('draft', now, run.id)
+    })
+    requestChanges()
+    return this.getRun(run.id)
+  }
+
+  async sendApprovedExecution(input: SendApprovedAgentWorkflowExecutionInput): Promise<AgentWorkflowRunDetails> {
+    const step = this.getStepOrThrow(input.stepId)
+    if (step.role !== 'executor') throw new Error('Only executor steps can run approved execution')
+    if (!this.hasArtifact(step.runId, 'approved_plan')) throw new Error('Approve a plan before execution')
+    const prepared = this.prepareRoleStep(step.runId, 'executor')
+    const result = await this.sendStepToTerminal(prepared, input.paneId)
+    const refreshed = this.getStepOrThrow(prepared.id)
+    const now = Date.now()
+    this.insertArtifact(step.runId, prepared.id, 'execution_prompt', 'Approved execution prompt', refreshed.prompt, now)
+    void result
+    return this.getRun(step.runId)
+  }
+
+  recordExecutionEvidence(input: RecordAgentWorkflowExecutionEvidenceInput): AgentWorkflowRunDetails {
+    const step = this.getStepOrThrow(input.stepId)
+    const now = Date.now()
+    const kind = ROLE_ARTIFACT_KIND[step.role]
+    const nextRunStatus: WorkflowRunStatus =
+      step.role === 'executor' ? 'reviewing' :
+      step.role === 'reviewer' ? 'verifying' :
+      step.role === 'verifier' ? 'done' :
+      ROLE_STATUS[step.role]
+    const record = this.db.transaction(() => {
+      this.db.prepare(`
+        UPDATE agent_workflow_steps
+        SET status = 'completed', output = ?, error = NULL, completed_at = ?
+        WHERE id = ?
+      `).run(input.output, now, input.stepId)
+      this.insertArtifact(step.runId, step.id, kind, `${ROLE_LABEL[step.role]} evidence`, input.output, now)
+      this.db.prepare('UPDATE agent_workflow_runs SET status = ?, updated_at = ? WHERE id = ?').run(nextRunStatus, now, step.runId)
+    })
+    record()
+    return this.getRun(step.runId)
+  }
+
+  advanceRun(input: AdvanceAgentWorkflowRunInput): AgentWorkflowRunDetails {
+    const run = this.getRunOrThrow(input.runId)
+    if (input.targetStatus === 'done' && !this.hasArtifact(input.runId, 'verification_report') && !input.overrideReason) {
+      throw new Error('Verification report is required before marking the workflow done')
+    }
+    const now = Date.now()
+    const advance = this.db.transaction(() => {
+      if (input.targetStatus === 'done' && input.overrideReason) {
+        this.insertArtifact(input.runId, null, 'verification_report', 'Verification override', input.overrideReason, now)
+      }
+      this.db.prepare('UPDATE agent_workflow_runs SET status = ?, updated_at = ? WHERE id = ?').run(input.targetStatus, now, run.id)
+    })
+    advance()
+    return this.getRun(run.id)
+  }
+
+  private async sendStepToTerminal(step: AgentWorkflowStep, paneId: string): Promise<AgentWorkflowRunDetails> {
+    const prepared = step.prompt.trim() ? step : this.prepareRoleStep(step.runId, step.role)
+    if (prepared.prompt.trim() === '') throw new Error('Prepare the workflow step before running it')
     const startedAt = Date.now()
-    this.db.prepare("UPDATE agent_workflow_steps SET status = 'running', started_at = ?, error = NULL WHERE id = ?").run(startedAt, input.stepId)
+    this.db.prepare("UPDATE agent_workflow_steps SET status = 'running', started_at = ?, error = NULL WHERE id = ?").run(startedAt, prepared.id)
 
     try {
-      await this.terminalWrite({ paneId: input.paneId, data: `${step.prompt}\r` })
-      this.db.prepare("UPDATE agent_workflow_steps SET status = 'waiting_user', error = NULL WHERE id = ?").run(input.stepId)
+      await this.terminalWrite({ paneId, data: `${prepared.prompt}\r` })
+      this.db.prepare("UPDATE agent_workflow_steps SET status = 'sent_to_terminal', error = NULL WHERE id = ?").run(prepared.id)
     } catch (error) {
-      this.db.prepare("UPDATE agent_workflow_steps SET status = 'failed', error = ?, completed_at = ? WHERE id = ?").run(toMessage(error), Date.now(), input.stepId)
+      this.db.prepare("UPDATE agent_workflow_steps SET status = 'failed', error = ?, completed_at = ? WHERE id = ?").run(toMessage(error), Date.now(), prepared.id)
     }
 
-    return this.getRun(step.runId)
+    return this.getRun(prepared.runId)
   }
 
   completeManualStep(input: CompleteManualAgentWorkflowStepInput): AgentWorkflowRunDetails {
@@ -279,6 +383,51 @@ export class AgentWorkflowService {
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(randomUUID(), input.runId, input.stepId ?? null, input.kind, input.title, input.content, Date.now())
     return this.getRun(run.id)
+  }
+
+  private prepareRoleStep(runId: string, role: AgentRole): AgentWorkflowStep {
+    const step = this.findStep(runId, role)
+    if (!step) throw new Error(`Workflow step not found for role ${role}`)
+    const run = this.getRunOrThrow(runId)
+    const binding = this.getBinding(run.workspaceId, role)
+    if (!binding?.enabled) throw new Error(`${ROLE_LABEL[role]} role is disabled`)
+
+    const agent = binding.agentProfileId ? this.getAgent(binding.agentProfileId) : null
+    const artifacts = this.listArtifacts(runId)
+    const prompt = buildPrompt({
+      role,
+      run,
+      provider: agent?.provider as AgentProvider | undefined,
+      model: binding.model ?? agent?.model ?? null,
+      artifacts
+    })
+    const now = Date.now()
+
+    const prepare = this.db.transaction(() => {
+      this.db.prepare(`
+        UPDATE agent_workflow_steps
+        SET agent_profile_id = ?, shell_profile_id = ?, status = 'prepared', prompt = ?, output = '', error = NULL, started_at = NULL, completed_at = NULL
+        WHERE id = ?
+      `).run(binding.agentProfileId, binding.shellProfileId, prompt, step.id)
+      this.insertArtifact(runId, step.id, ROLE_PROMPT_ARTIFACT_KIND[role], `${ROLE_LABEL[role]} prompt`, prompt, now)
+      this.db.prepare('UPDATE agent_workflow_runs SET status = ?, updated_at = ? WHERE id = ?').run(ROLE_STATUS[role], now, runId)
+    })
+    prepare()
+    return this.getStepOrThrow(step.id)
+  }
+
+  private insertArtifact(runId: string, stepId: string | null, kind: WorkflowArtifactKind, title: string, content: string, createdAt: number): void {
+    this.db.prepare(`
+      INSERT INTO agent_workflow_artifacts (id, run_id, step_id, kind, title, content, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(randomUUID(), runId, stepId, kind, title, content, createdAt)
+  }
+
+  private hasArtifact(runId: string, kind: WorkflowArtifactKind): boolean {
+    const row = this.db
+      .prepare('SELECT id FROM agent_workflow_artifacts WHERE run_id = ? AND kind = ? LIMIT 1')
+      .get(runId, kind) as { id: string } | undefined
+    return Boolean(row)
   }
 
   private updateRunStatusForCompletedStep(runId: string, role: AgentRole, status: WorkflowStepStatus, now: number): void {

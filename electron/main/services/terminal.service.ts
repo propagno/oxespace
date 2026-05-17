@@ -65,16 +65,22 @@ export class TerminalManager {
       throw new Error(`Shell profile ${pane.shellProfileId ?? workspace.defaultShellProfileId} not found`)
     }
 
-    const executable = input.agentCommand
-      ? resolveExecutable(input.agentCommand, this.env, this.platform)
+    const agentParts = input.agentCommand ? input.agentCommand.trim().split(/\s+/) : null
+    const executable = agentParts
+      ? resolveExecutable(agentParts[0], this.env, this.platform)
       : resolveExecutable(shellProfile.executable, this.env, this.platform)
-    const args = input.agentCommand ? [] : shellProfile.args
+    const args = agentParts
+      ? agentParts.slice(1)
+      : [...shellProfile.args, ...(input.agentArgs ?? [])]
+
+    // Pane-level rootPath overrides the workspace root — used by git worktree panes.
+    const cwd = pane.rootPath && existsSync(pane.rootPath) ? pane.rootPath : workspace.rootPath
 
     let ptyProcess: IPty
     try {
       ptyProcess = this.pty.spawn(executable, args, {
         name: 'xterm-256color',
-        cwd: workspace.rootPath,
+        cwd,
         cols: 80,
         rows: 24,
         env: this.env
@@ -114,11 +120,11 @@ export class TerminalManager {
   }
 
   write(input: TerminalWriteInput): void {
-    this.requireSession(input.paneId).pty.write(input.data)
+    this.sessions.get(input.paneId)?.pty.write(input.data)
   }
 
   resize(input: TerminalResizeInput): void {
-    this.requireSession(input.paneId).pty.resize(input.cols, input.rows)
+    this.sessions.get(input.paneId)?.pty.resize(input.cols, input.rows)
   }
 
   stop(input: TerminalStopInput): void {

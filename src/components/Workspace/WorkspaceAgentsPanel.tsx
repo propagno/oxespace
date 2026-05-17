@@ -25,19 +25,19 @@ export function WorkspaceAgentsPanel({
       <header className="workspace-editor-header">
         <div className="workspace-editor-title">
           <UsersRound size={13} aria-hidden="true" />
-          <span>Agents</span>
+          <span>Plan/Exec</span>
         </div>
-        <div className="workspace-editor-actions" aria-label="Agents actions">
+        <div className="workspace-editor-actions" aria-label="Plan/Exec actions">
           <button
             type="button"
             className="tile-btn"
-            aria-label={isExpanded ? 'Restore Agents panel width' : 'Expand Agents panel'}
-            title={isExpanded ? 'Restore Agents panel width' : 'Expand Agents panel'}
+            aria-label={isExpanded ? 'Restore Plan/Exec panel width' : 'Expand Plan/Exec panel'}
+            title={isExpanded ? 'Restore Plan/Exec panel width' : 'Expand Plan/Exec panel'}
             onClick={onToggleExpanded}
           >
             {isExpanded ? <Minimize2 size={12} aria-hidden="true" /> : <Maximize2 size={12} aria-hidden="true" />}
           </button>
-          <button type="button" className="tile-btn" aria-label="Collapse Agents panel" title="Collapse Agents panel" onClick={onCollapse}>
+          <button type="button" className="tile-btn" aria-label="Collapse Plan/Exec panel" title="Collapse Plan/Exec panel" onClick={onCollapse}>
             <ChevronsRight size={13} aria-hidden="true" />
           </button>
         </div>
