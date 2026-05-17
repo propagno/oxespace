@@ -108,7 +108,7 @@ export function runMigrations(db: AppDatabase): void {
     currentVersion = db.pragma('user_version', { simple: true }) as number
   }
 
-  if (currentVersion < 18) {
+  if (currentVersion < 18 || !hasColumn(db, 'panes', 'model_override')) {
     if (!hasColumn(db, 'panes', 'model_override')) {
       db.exec(readMigration('018_pane_model_override.sql'))
     } else {
@@ -117,7 +117,7 @@ export function runMigrations(db: AppDatabase): void {
     currentVersion = db.pragma('user_version', { simple: true }) as number
   }
 
-  if (currentVersion < 19) {
+  if (currentVersion < 19 || !hasColumn(db, 'panes', 'root_path')) {
     if (!hasColumn(db, 'panes', 'root_path')) {
       db.exec(readMigration('019_pane_root_path.sql'))
     } else {
