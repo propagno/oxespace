@@ -5,7 +5,7 @@ describe('migrations', () => {
   test('runs migrations and seeds built-in shell profiles', () => {
     const db = openInMemoryDatabase()
 
-    expect(db.pragma('user_version', { simple: true })).toBe(26)
+    expect(db.pragma('user_version', { simple: true })).toBe(30)
 
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
@@ -41,12 +41,15 @@ describe('migrations', () => {
         'agents_panel_width_percent',
         'github_panel_visible',
         'github_panel_expanded',
-        'github_panel_width_percent'
+        'github_panel_width_percent',
+        'background_panel_visible',
+        'background_panel_expanded',
+        'background_panel_width_percent'
       ])
     )
 
     const paneColumns = db.prepare("PRAGMA table_info('panes')").all() as Array<{ name: string }>
-    expect(paneColumns.map((column) => column.name)).toContain('model_override')
+    expect(paneColumns.map((column) => column.name)).not.toContain('model_override')
     expect(paneColumns.map((column) => column.name)).toContain('root_path')
 
     const mcpColumns = db.prepare("PRAGMA table_info('mcp_servers')").all() as Array<{ name: string }>

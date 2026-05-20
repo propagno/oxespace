@@ -24,16 +24,28 @@ jobs:
         run: npm ci
 
       - name: Type check
-        run: npm run typecheck
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          npm run typecheck
 
       - name: Unit and integration tests
-        run: npm run test
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          npm run test
 
       - name: Build
-        run: npm run build
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          npm run build
 
       - name: Rebuild native modules for Electron
         run: npm run rebuild:native
 
       - name: E2E smoke
-        run: npm run test:e2e
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          npm run test:e2e

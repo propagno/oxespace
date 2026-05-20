@@ -26,6 +26,8 @@ jobs:
 
       - name: Verify
         run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           npm run typecheck
           npm run test
           npm run build
@@ -35,6 +37,8 @@ jobs:
 
       - name: E2E smoke
         run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           npm run test:e2e
 
       - name: Build NSIS installer

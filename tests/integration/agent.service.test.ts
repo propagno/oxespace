@@ -177,8 +177,8 @@ describe('AgentService', () => {
     service.discover(true)
 
     const cached = service.getCachedReadiness()
-    expect(cached).toHaveLength(2)
-    expect(cached.map((result) => result.provider)).toEqual(['claude', 'copilot'])
+    expect(cached).toHaveLength(5)
+    expect(cached.map((result) => result.provider)).toEqual(['claude', 'copilot', 'codex', 'gemini', 'cursor'])
 
     db.close()
   })

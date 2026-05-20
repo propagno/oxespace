@@ -17,10 +17,10 @@ describe('WorkspaceService', () => {
     expect(workspace.rootPath).toBe('C:/projects/oxespace')
     expect(workspace.layout).toBe('4x4')
     expect(workspace.layoutPreset).toBe(16)
-    expect(workspace.themeId).toBe('midnight')
+    expect(workspace.themeId).toBe('dracula')
     expect(workspace.uiDensity).toBe('compact')
-    expect(workspace.agentsPanelVisible).toBe(false)
-    expect(workspace.agentsPanelWidthPercent).toBe(36)
+    expect(workspace.backgroundPanelVisible).toBe(false)
+    expect(workspace.backgroundPanelWidthPercent).toBe(36)
     expect(workspace.autoStart).toBe(false)
     expect(workspace.isActive).toBe(true)
     expect(workspace.defaultShellProfileId).toBe('builtin-claude')
@@ -82,21 +82,21 @@ describe('WorkspaceService', () => {
     db.close()
   })
 
-  test('persists Agents panel layout state per workspace', () => {
+  test('persists Background panel layout state per workspace', () => {
     const db = openInMemoryDatabase()
     const service = new WorkspaceService(db)
     const workspace = service.create({ rootPath: 'C:/projects/repo', layoutPreset: 4 })
 
-    const updated = service.updateAgentsState({
+    const updated = service.updateBackgroundState({
       workspaceId: workspace.id,
-      agentsPanelVisible: true,
-      agentsPanelExpanded: true,
-      agentsPanelWidthPercent: 70
+      backgroundPanelVisible: true,
+      backgroundPanelExpanded: true,
+      backgroundPanelWidthPercent: 70
     })
 
-    expect(updated.agentsPanelVisible).toBe(true)
-    expect(updated.agentsPanelExpanded).toBe(true)
-    expect(updated.agentsPanelWidthPercent).toBe(70)
+    expect(updated.backgroundPanelVisible).toBe(true)
+    expect(updated.backgroundPanelExpanded).toBe(true)
+    expect(updated.backgroundPanelWidthPercent).toBe(70)
 
     db.close()
   })
