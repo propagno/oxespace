@@ -36,7 +36,7 @@ jobs:
         run: npm run rebuild:native
 
       - name: Build NSIS installer
-        run: npm run dist -- --win nsis
+        run: npm run dist -- --win nsis --publish never
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
