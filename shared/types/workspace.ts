@@ -6,7 +6,7 @@ export type WorkspaceThemeId = 'midnight' | 'nord' | 'dracula' | 'ocean' | 'mono
 
 export type WorkspaceDensity = 'compact' | 'comfortable'
 
-export type PaneType = 'terminal' | 'tasks' | 'editor' | 'swarm' | 'inspector' | 'graph' | 'review'
+export type PaneType = 'terminal' | 'tasks' | 'editor' | 'review'
 
 export type GitHubPanelTab = import('./github').GitHubPanelTab
 
@@ -32,8 +32,6 @@ export interface WorkspacePane {
   agentName: string | null
   displayName: string | null
   createdAt: number | null
-  /** Overrides the agent profile's default model. Null = use profile default. */
-  modelOverride: string | null
   /** Per-pane working directory override (e.g. git worktree). Null = use workspace rootPath. */
   rootPath: string | null
 }
@@ -58,12 +56,6 @@ export interface Workspace {
   editorVisible?: boolean
   editorExpanded?: boolean
   editorWidthPercent?: number
-  oxePanelVisible?: boolean
-  oxePanelExpanded?: boolean
-  oxePanelWidthPercent?: number
-  agentsPanelVisible?: boolean
-  agentsPanelExpanded?: boolean
-  agentsPanelWidthPercent?: number
   reviewPanelVisible?: boolean
   reviewPanelExpanded?: boolean
   reviewPanelWidthPercent?: number
@@ -71,6 +63,9 @@ export interface Workspace {
   githubPanelExpanded?: boolean
   githubPanelWidthPercent?: number
   githubActiveTab?: GitHubPanelTab
+  backgroundPanelVisible?: boolean
+  backgroundPanelExpanded?: boolean
+  backgroundPanelWidthPercent?: number
   panes: WorkspacePane[]
 }
 
@@ -93,20 +88,6 @@ export interface UpdateWorkspaceEditorStateInput {
   editorWidthPercent?: number
 }
 
-export interface UpdateWorkspaceOxeStateInput {
-  workspaceId: string
-  oxePanelVisible?: boolean
-  oxePanelExpanded?: boolean
-  oxePanelWidthPercent?: number
-}
-
-export interface UpdateWorkspaceAgentsStateInput {
-  workspaceId: string
-  agentsPanelVisible?: boolean
-  agentsPanelExpanded?: boolean
-  agentsPanelWidthPercent?: number
-}
-
 export interface UpdateWorkspaceReviewStateInput {
   workspaceId: string
   reviewPanelVisible?: boolean
@@ -120,6 +101,13 @@ export interface UpdateWorkspaceGitHubStateInput {
   githubPanelExpanded?: boolean
   githubPanelWidthPercent?: number
   githubActiveTab?: GitHubPanelTab
+}
+
+export interface UpdateWorkspaceBackgroundStateInput {
+  workspaceId: string
+  backgroundPanelVisible?: boolean
+  backgroundPanelExpanded?: boolean
+  backgroundPanelWidthPercent?: number
 }
 
 export interface UpdateWorkspaceSettingsInput {

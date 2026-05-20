@@ -215,7 +215,6 @@ function providerLabel(provider: AgentProvider): string {
     case 'copilot': return 'Copilot'
     case 'gh-copilot': return 'GH Copilot'
     case 'cursor': return 'Cursor'
-    case 'oxe': return 'OXE'
     case 'custom': return 'Custom'
     default: return provider
   }

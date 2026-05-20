@@ -1,7 +1,6 @@
-import { Activity, Cpu, FolderTree, Play, Slash } from 'lucide-react'
+import { Activity, FolderTree, Play, Slash } from 'lucide-react'
 import { useCallback, useEffect, type ReactElement } from 'react'
 import type { WorkspacePane } from '../../../shared/types/workspace'
-import { getModelById, providerSupportsModelSwitch } from '../../../shared/types/model'
 import { useAgentStore } from '../../store/agent.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useUIStore } from '../../store/ui.store'
@@ -22,24 +21,16 @@ export function TerminalPane({ autoStart, pane, workspaceId }: TerminalPaneProps
 
   const resolveAgentInfo = useCallback((): { command: string | undefined; initialPrompt: string | undefined } => {
     const pending = consumePendingCommand(pane.id)
-    const overrideModelId = pane.modelOverride
-    const overrideModel = overrideModelId ? getModelById(overrideModelId) : null
-    const augment = (cmd: string | undefined): string | undefined => {
-      if (!cmd || !overrideModel) return cmd
-      // Only append --model if the user-supplied command doesn't already include one.
-      if (/\s--model\s/.test(cmd)) return cmd
-      return `${cmd} --model ${overrideModel.cliFlag}`
-    }
-    if (pending) return { command: augment(pending), initialPrompt: undefined }
+    if (pending) return { command: pending, initialPrompt: undefined }
     if (!pane.agentProfileId) return { command: undefined, initialPrompt: undefined }
     const profile = allProfiles.find((p) => p.agentProfileId === pane.agentProfileId)
     if (!profile) return { command: undefined, initialPrompt: undefined }
     if (profile.parentProvider) {
       const parent = allProfiles.find((p) => p.provider === profile.parentProvider)
-      return { command: augment(parent?.command), initialPrompt: profile.systemPrompt }
+      return { command: parent?.command, initialPrompt: profile.systemPrompt }
     }
-    return { command: augment(profile.command), initialPrompt: undefined }
-  }, [consumePendingCommand, pane.id, pane.agentProfileId, pane.modelOverride, allProfiles])
+    return { command: profile.command, initialPrompt: undefined }
+  }, [consumePendingCommand, pane.id, pane.agentProfileId, allProfiles])
 
   const start = useCallback(async (): Promise<void> => {
     setStatus(pane.id, 'starting')
@@ -95,18 +86,13 @@ export function TerminalPane({ autoStart, pane, workspaceId }: TerminalPaneProps
     : ''
 
   const openSlashOverlay = useUIStore((s) => s.openSlashOverlay)
-  const openModelSelector = useUIStore((s) => s.openModelSelector)
   const openContextUsage = useUIStore((s) => s.openContextUsage)
   const openWorktreeMenu = useUIStore((s) => s.openWorktreeMenu)
   const worktreeLabel = pane.rootPath ? deriveWorktreeLabel(pane.rootPath) : 'main'
   const isWorktreeOverride = pane.rootPath !== null
-  const overrideModelId = pane.modelOverride
-  const overrideModel = overrideModelId ? getModelById(overrideModelId) : null
 
   const paneProfile = pane.agentProfileId ? allProfiles.find((p) => p.agentProfileId === pane.agentProfileId) : null
   const paneProvider = paneProfile?.parentProvider ?? paneProfile?.provider ?? null
-  const canSwitchModel = paneProvider !== null && providerSupportsModelSwitch(paneProvider)
-  const modelLabel = overrideModel?.label ?? paneProfile?.model ?? 'default'
 
   // Context usage is per (workspace, provider) — keyed so two panes with different agents
   // in the same workspace don't share token counts.
@@ -176,19 +162,6 @@ export function TerminalPane({ autoStart, pane, workspaceId }: TerminalPaneProps
             <span>{usagePct}%</span>
             <span className="usage-chip-divider" aria-hidden="true">·</span>
             <span>${usage.estimatedCostUsd.toFixed(2)}</span>
-          </button>
-        ) : null}
-
-        {canSwitchModel ? (
-          <button
-            type="button"
-            className={`statusbar-chip model-chip${overrideModel ? ' overridden' : ''}`}
-            aria-label={`Modelo: ${modelLabel}. Clique para trocar.`}
-            title={`Modelo: ${modelLabel}`}
-            onClick={() => openModelSelector(pane.id)}
-          >
-            <Cpu size={10} aria-hidden="true" />
-            <span>{modelLabel}</span>
           </button>
         ) : null}
 

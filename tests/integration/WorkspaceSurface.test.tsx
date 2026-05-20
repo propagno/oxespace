@@ -12,49 +12,8 @@ vi.mock('../../src/components/Grid/WorkspaceGrid', () => ({
 vi.mock('../../src/components/Workspace/WorkspaceEditorPanel', () => ({
   WorkspaceEditorPanel: ({ onCollapse, onToggleExpanded }: { onCollapse: () => void; onToggleExpanded: () => void }) => (
     <section data-testid="workspace-editor-panel">
-      <button type="button" onClick={onToggleExpanded}>
-        Expand editor
-      </button>
-      <button type="button" onClick={onCollapse}>
-        Collapse editor
-      </button>
-    </section>
-  )
-}))
-
-vi.mock('../../src/components/Workspace/WorkspaceOxePanel', () => ({
-  WorkspaceOxePanel: ({
-    onCollapse,
-    onOpenArtifact,
-    onToggleExpanded
-  }: {
-    onCollapse: () => void
-    onOpenArtifact: (relativePath: string) => void
-    onToggleExpanded: () => void
-  }) => (
-    <section data-testid="workspace-oxe-panel">
-      <button type="button" onClick={onToggleExpanded}>
-        Expand OXE
-      </button>
-      <button type="button" onClick={() => onOpenArtifact('.oxe/PLAN.md')}>
-        Open PLAN
-      </button>
-      <button type="button" onClick={onCollapse}>
-        Collapse OXE
-      </button>
-    </section>
-  )
-}))
-
-vi.mock('../../src/components/Workspace/WorkspaceAgentsPanel', () => ({
-  WorkspaceAgentsPanel: ({ onCollapse, onToggleExpanded }: { onCollapse: () => void; onToggleExpanded: () => void }) => (
-    <section data-testid="workspace-agents-panel">
-      <button type="button" onClick={onToggleExpanded}>
-        Expand Agents
-      </button>
-      <button type="button" onClick={onCollapse}>
-        Collapse Agents
-      </button>
+      <button type="button" onClick={onToggleExpanded}>Expand editor</button>
+      <button type="button" onClick={onCollapse}>Collapse editor</button>
     </section>
   )
 }))
@@ -62,36 +21,51 @@ vi.mock('../../src/components/Workspace/WorkspaceAgentsPanel', () => ({
 vi.mock('../../src/components/Workspace/WorkspaceGitHubPanel', () => ({
   WorkspaceGitHubPanel: ({ onCollapse, onToggleExpanded }: { onCollapse: () => void; onToggleExpanded: () => void }) => (
     <section data-testid="workspace-github-panel">
-      <button type="button" onClick={onToggleExpanded}>
-        Expand GitHub
-      </button>
-      <button type="button" onClick={onCollapse}>
-        Collapse GitHub
-      </button>
+      <button type="button" onClick={onToggleExpanded}>Expand GitHub</button>
+      <button type="button" onClick={onCollapse}>Collapse GitHub</button>
+    </section>
+  )
+}))
+
+vi.mock('../../src/components/Workspace/WorkspaceBackgroundPanel', () => ({
+  WorkspaceBackgroundPanel: ({ onCollapse, onToggleExpanded }: { onCollapse: () => void; onToggleExpanded: () => void }) => (
+    <section data-testid="workspace-background-panel">
+      <button type="button" onClick={onToggleExpanded}>Expand Background</button>
+      <button type="button" onClick={onCollapse}>Collapse Background</button>
+    </section>
+  )
+}))
+
+vi.mock('../../src/components/Workspace/WorkspaceScriptsPanel', () => ({
+  WorkspaceScriptsPanel: ({ onCollapse, onToggleExpanded }: { onCollapse: () => void; onToggleExpanded: () => void }) => (
+    <section data-testid="workspace-scripts-panel">
+      <button type="button" onClick={onToggleExpanded}>Expand Scripts</button>
+      <button type="button" onClick={onCollapse}>Collapse Scripts</button>
+    </section>
+  )
+}))
+
+vi.mock('../../src/components/Workspace/WorkspaceWebPreviewPanel', () => ({
+  WorkspaceWebPreviewPanel: ({ onCollapse, onToggleExpanded }: { onCollapse: () => void; onToggleExpanded: () => void }) => (
+    <section data-testid="workspace-web-preview-panel">
+      <button type="button" onClick={onToggleExpanded}>Expand Web Preview</button>
+      <button type="button" onClick={onCollapse}>Collapse Web Preview</button>
+    </section>
+  )
+}))
+
+vi.mock('../../src/components/Workspace/WorkspaceReviewPanel', () => ({
+  WorkspaceReviewPanel: ({ onCollapse, onToggleExpanded }: { onCollapse: () => void; onToggleExpanded: () => void }) => (
+    <section data-testid="workspace-review-panel">
+      <button type="button" onClick={onToggleExpanded}>Expand Review</button>
+      <button type="button" onClick={onCollapse}>Collapse Review</button>
     </section>
   )
 }))
 
 describe('WorkspaceSurface', () => {
   test('renders editor as a separate region when visible', () => {
-    render(
-      <WorkspaceSurface
-        workspace={createWorkspace({ editorVisible: true })}
-        maximizedPaneId={null}
-        onToggleMaximize={() => undefined}
-        onOpenCommandPalette={() => undefined}
-        onOpenWorkspaceSettings={() => undefined}
-        onUpdateEditorState={() => undefined}
-        onUpdateOxeState={() => undefined}
-        onUpdateAgentsState={() => undefined}
-        onUpdateReviewState={() => undefined}
-        onUpdateGitHubState={() => undefined}
-        onOpenOxeArtifact={() => undefined}
-        onRunOxeCommand={() => undefined}
-        onOpenWorkflowArtifact={() => undefined}
-        activePaneId={null}
-      />
-    )
+    renderSurface(createWorkspace({ editorVisible: true }))
 
     expect(screen.getByTestId('workspace-grid')).toBeInTheDocument()
     expect(screen.getByTestId('workspace-editor-panel')).toBeInTheDocument()
@@ -101,26 +75,7 @@ describe('WorkspaceSurface', () => {
   test('shows a topbar editor control and persists visibility when collapsed', async () => {
     const user = userEvent.setup()
     const onUpdateEditorState = vi.fn()
-    render(
-      <WorkspaceSurface
-        workspace={createWorkspace({ editorVisible: false })}
-        maximizedPaneId={null}
-        onToggleMaximize={() => undefined}
-        onOpenCommandPalette={() => undefined}
-        onOpenWorkspaceSettings={() => undefined}
-        onUpdateEditorState={onUpdateEditorState}
-        onUpdateOxeState={() => undefined}
-        onUpdateAgentsState={() => undefined}
-        onUpdateReviewState={() => undefined}
-        onUpdateGitHubState={() => undefined}
-        onOpenOxeArtifact={() => undefined}
-        onRunOxeCommand={() => undefined}
-        onOpenWorkflowArtifact={() => undefined}
-        activePaneId={null}
-      />
-    )
-
-    expect(document.querySelector('.workspace-editor-rail')).not.toBeInTheDocument()
+    renderSurface(createWorkspace({ editorVisible: false }), { onUpdateEditorState })
 
     await user.click(screen.getByRole('button', { name: 'Tools' }))
     await user.click(screen.getByRole('menuitem', { name: /Editor/ }))
@@ -131,24 +86,7 @@ describe('WorkspaceSurface', () => {
   test('persists expanded and collapsed editor state', async () => {
     const user = userEvent.setup()
     const onUpdateEditorState = vi.fn()
-    render(
-      <WorkspaceSurface
-        workspace={createWorkspace({ editorVisible: true })}
-        maximizedPaneId={null}
-        onToggleMaximize={() => undefined}
-        onOpenCommandPalette={() => undefined}
-        onOpenWorkspaceSettings={() => undefined}
-        onUpdateEditorState={onUpdateEditorState}
-        onUpdateOxeState={() => undefined}
-        onUpdateAgentsState={() => undefined}
-        onUpdateReviewState={() => undefined}
-        onUpdateGitHubState={() => undefined}
-        onOpenOxeArtifact={() => undefined}
-        onRunOxeCommand={() => undefined}
-        onOpenWorkflowArtifact={() => undefined}
-        activePaneId={null}
-      />
-    )
+    renderSurface(createWorkspace({ editorVisible: true }), { onUpdateEditorState })
 
     await user.click(screen.getByText('Expand editor'))
     await user.click(screen.getByText('Collapse editor'))
@@ -157,145 +95,72 @@ describe('WorkspaceSurface', () => {
     expect(onUpdateEditorState).toHaveBeenCalledWith({ workspaceId: 'workspace-1', editorVisible: false, editorExpanded: false })
   })
 
-  test('renders OXE panel as a separate region and persists visibility', async () => {
+  test('renders Scripts and Web Preview as separate workspace regions', async () => {
     const user = userEvent.setup()
-    const onUpdateOxeState = vi.fn()
-    render(
-      <WorkspaceSurface
-        workspace={createWorkspace({ oxePanelVisible: true })}
-        maximizedPaneId={null}
-        onToggleMaximize={() => undefined}
-        onOpenCommandPalette={() => undefined}
-        onOpenWorkspaceSettings={() => undefined}
-        onUpdateEditorState={() => undefined}
-        onUpdateOxeState={onUpdateOxeState}
-        onUpdateAgentsState={() => undefined}
-        onUpdateReviewState={() => undefined}
-        onUpdateGitHubState={() => undefined}
-        onOpenOxeArtifact={() => undefined}
-        onRunOxeCommand={() => undefined}
-        onOpenWorkflowArtifact={() => undefined}
-        activePaneId={null}
-      />
-    )
+    const onCloseScripts = vi.fn()
+    const onCloseWebPreview = vi.fn()
+    renderSurface(createWorkspace(), { scriptsVisible: true, webPreviewVisible: true, onCloseScripts, onCloseWebPreview })
 
     expect(screen.getByTestId('workspace-grid')).toBeInTheDocument()
-    expect(screen.getByTestId('workspace-oxe-panel')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Collapse OXE' })).toBeInTheDocument()
+    expect(screen.getByTestId('workspace-scripts-panel')).toBeInTheDocument()
+    expect(screen.getByTestId('workspace-web-preview-panel')).toBeInTheDocument()
 
-    await user.click(screen.getByText('Expand OXE'))
-    await user.click(screen.getByText('Collapse OXE'))
+    await user.click(screen.getByText('Collapse Scripts'))
+    await user.click(screen.getByText('Collapse Web Preview'))
 
-    expect(onUpdateOxeState).toHaveBeenCalledWith({ workspaceId: 'workspace-1', oxePanelExpanded: true, oxePanelWidthPercent: 70 })
-    expect(onUpdateOxeState).toHaveBeenCalledWith({ workspaceId: 'workspace-1', oxePanelVisible: false, oxePanelExpanded: false })
+    expect(onCloseScripts).toHaveBeenCalled()
+    expect(onCloseWebPreview).toHaveBeenCalled()
   })
 
-  test('renders Agents panel as a separate workspace region and persists visibility', async () => {
-    const user = userEvent.setup()
-    const onUpdateAgentsState = vi.fn()
-    render(
-      <WorkspaceSurface
-        workspace={createWorkspace({ agentsPanelVisible: true })}
-        maximizedPaneId={null}
-        onToggleMaximize={() => undefined}
-        onOpenCommandPalette={() => undefined}
-        onOpenWorkspaceSettings={() => undefined}
-        onUpdateEditorState={() => undefined}
-        onUpdateOxeState={() => undefined}
-        onUpdateAgentsState={onUpdateAgentsState}
-        onUpdateReviewState={() => undefined}
-        onUpdateGitHubState={() => undefined}
-        onOpenOxeArtifact={() => undefined}
-        onRunOxeCommand={() => undefined}
-        onOpenWorkflowArtifact={() => undefined}
-        activePaneId={null}
-      />
-    )
-
-    expect(screen.getByTestId('workspace-grid')).toBeInTheDocument()
-    expect(screen.getByTestId('workspace-agents-panel')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Collapse Agents' })).toBeInTheDocument()
-
-    await user.click(screen.getByText('Expand Agents'))
-    await user.click(screen.getByText('Collapse Agents'))
-
-    expect(onUpdateAgentsState).toHaveBeenCalledWith({ workspaceId: 'workspace-1', agentsPanelExpanded: true, agentsPanelWidthPercent: 70 })
-    expect(onUpdateAgentsState).toHaveBeenCalledWith({ workspaceId: 'workspace-1', agentsPanelVisible: false, agentsPanelExpanded: false })
-  })
-
-  test('keeps grid visible after collapsing OXE panel from expanded layout', async () => {
+  test('renders GitHub panel separately and never exposes removed OXE tools', async () => {
     const user = userEvent.setup()
     render(<ControlledSurface />)
 
     expect(screen.getByTestId('workspace-grid')).toBeInTheDocument()
-    expect(screen.getByTestId('workspace-oxe-panel')).toBeInTheDocument()
+    expect(screen.getByTestId('workspace-github-panel')).toBeInTheDocument()
 
-    await user.click(screen.getByText('Collapse OXE'))
-
+    await user.click(screen.getByText('Collapse GitHub'))
     expect(screen.getByTestId('workspace-grid')).toBeInTheDocument()
-    expect(screen.queryByTestId('workspace-oxe-panel')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('workspace-github-panel')).not.toBeInTheDocument()
+
     await user.click(screen.getByRole('button', { name: 'Tools' }))
-    expect(screen.getByRole('menuitem', { name: /OXE/ })).toBeInTheDocument()
-  })
-
-  test('keeps grid and editor visible after opening an OXE artifact then collapsing OXE', async () => {
-    const user = userEvent.setup()
-    render(<ControlledOxeArtifactSurface />)
-
-    await user.click(screen.getByText('Open PLAN'))
-    await user.click(screen.getByText('Collapse OXE'))
-
-    expect(screen.getByTestId('workspace-grid')).toBeInTheDocument()
-    expect(screen.getByTestId('workspace-editor-panel')).toBeInTheDocument()
-    expect(screen.queryByTestId('workspace-oxe-panel')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Tools' }))
-    expect(screen.getByRole('menuitem', { name: /OXE/ })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /OXE/ })).not.toBeInTheDocument()
   })
 })
 
-function ControlledSurface(): ReactElement {
-  const [workspace, setWorkspace] = useState(
-    createWorkspace({
-      editorVisible: true,
-      editorExpanded: true,
-      editorWidthPercent: 70,
-      oxePanelVisible: true,
-      oxePanelExpanded: true,
-      oxePanelWidthPercent: 70
-    })
-  )
-
-  return (
+function renderSurface(
+  workspace: Workspace,
+  overrides: Partial<Parameters<typeof WorkspaceSurface>[0]> = {}
+): void {
+  render(
     <WorkspaceSurface
       workspace={workspace}
       maximizedPaneId={null}
       onToggleMaximize={() => undefined}
       onOpenCommandPalette={() => undefined}
       onOpenWorkspaceSettings={() => undefined}
-      onUpdateEditorState={(input) => setWorkspace((current) => ({ ...current, ...input }))}
-      onUpdateOxeState={(input) => setWorkspace((current) => ({ ...current, ...input }))}
-      onUpdateAgentsState={(input) => setWorkspace((current) => ({ ...current, ...input }))}
-      onUpdateReviewState={(input) => setWorkspace((current) => ({ ...current, ...input }))}
-      onUpdateGitHubState={(input) => setWorkspace((current) => ({ ...current, ...input }))}
-      onOpenOxeArtifact={() => undefined}
-      onRunOxeCommand={() => undefined}
-      onOpenWorkflowArtifact={() => undefined}
+      onOpenHistory={() => undefined}
+      onOpenMcp={() => undefined}
+      onOpenSkills={() => undefined}
+      onOpenScripts={() => undefined}
+      onOpenWebPreview={() => undefined}
+      scriptsVisible={false}
+      webPreviewVisible={false}
+      onCloseScripts={() => undefined}
+      onCloseWebPreview={() => undefined}
+      onRunCommand={() => undefined}
+      onUpdateEditorState={() => undefined}
+      onUpdateReviewState={() => undefined}
+      onUpdateGitHubState={() => undefined}
+      onUpdateBackgroundState={() => undefined}
       activePaneId={null}
+      {...overrides}
     />
   )
 }
 
-function ControlledOxeArtifactSurface(): ReactElement {
-  const [workspace, setWorkspace] = useState(
-    createWorkspace({
-      editorVisible: false,
-      editorExpanded: true,
-      editorWidthPercent: 70,
-      oxePanelVisible: true,
-      oxePanelExpanded: false,
-      oxePanelWidthPercent: 36
-    })
-  )
+function ControlledSurface(): ReactElement {
+  const [workspace, setWorkspace] = useState(createWorkspace({ githubPanelVisible: true, githubPanelExpanded: true, githubPanelWidthPercent: 70 }))
 
   return (
     <WorkspaceSurface
@@ -304,21 +169,20 @@ function ControlledOxeArtifactSurface(): ReactElement {
       onToggleMaximize={() => undefined}
       onOpenCommandPalette={() => undefined}
       onOpenWorkspaceSettings={() => undefined}
-      onUpdateEditorState={(input) =>
-        setWorkspace((current) => ({
-          ...current,
-          ...input,
-          editorWidthPercent: input.editorWidthPercent ?? (input.editorVisible ? 40 : current.editorWidthPercent),
-          editorExpanded: input.editorExpanded ?? (input.editorVisible ? false : current.editorExpanded)
-        }))
-      }
-      onUpdateOxeState={(input) => setWorkspace((current) => ({ ...current, ...input }))}
-      onUpdateAgentsState={(input) => setWorkspace((current) => ({ ...current, ...input }))}
+      onOpenHistory={() => undefined}
+      onOpenMcp={() => undefined}
+      onOpenSkills={() => undefined}
+      onOpenScripts={() => undefined}
+      onOpenWebPreview={() => undefined}
+      scriptsVisible={false}
+      webPreviewVisible={false}
+      onCloseScripts={() => undefined}
+      onCloseWebPreview={() => undefined}
+      onRunCommand={() => undefined}
+      onUpdateEditorState={(input) => setWorkspace((current) => ({ ...current, ...input }))}
       onUpdateReviewState={(input) => setWorkspace((current) => ({ ...current, ...input }))}
       onUpdateGitHubState={(input) => setWorkspace((current) => ({ ...current, ...input }))}
-      onOpenOxeArtifact={() => setWorkspace((current) => ({ ...current, editorVisible: true, editorExpanded: false, editorWidthPercent: 40 }))}
-      onRunOxeCommand={() => undefined}
-      onOpenWorkflowArtifact={() => undefined}
+      onUpdateBackgroundState={(input) => setWorkspace((current) => ({ ...current, ...input }))}
       activePaneId={null}
     />
   )
@@ -339,12 +203,6 @@ function createWorkspace(overrides: Partial<Workspace> = {}): Workspace {
     editorVisible: false,
     editorExpanded: false,
     editorWidthPercent: 40,
-    oxePanelVisible: false,
-    oxePanelExpanded: false,
-    oxePanelWidthPercent: 36,
-    agentsPanelVisible: false,
-    agentsPanelExpanded: false,
-    agentsPanelWidthPercent: 36,
     reviewPanelVisible: false,
     reviewPanelExpanded: false,
     reviewPanelWidthPercent: 36,
@@ -352,6 +210,9 @@ function createWorkspace(overrides: Partial<Workspace> = {}): Workspace {
     githubPanelExpanded: false,
     githubPanelWidthPercent: 40,
     githubActiveTab: 'status',
+    backgroundPanelVisible: false,
+    backgroundPanelExpanded: false,
+    backgroundPanelWidthPercent: 36,
     panes: [
       {
         id: 'pane-1',
@@ -360,7 +221,13 @@ function createWorkspace(overrides: Partial<Workspace> = {}): Workspace {
         rowIndex: 0,
         columnIndex: 0,
         shellProfileId: 'builtin-claude',
-        status: 'idle'
+        status: 'idle',
+        agentProfileId: null,
+        agentName: null,
+        displayName: null,
+        createdAt: null,
+        modelOverride: null,
+        rootPath: null
       }
     ],
     ...overrides

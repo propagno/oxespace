@@ -93,6 +93,7 @@ export function ColorPalette({ theme, onThemeChange }: ColorPaletteProps): React
                 onClick={() => { onThemeChange(t) }}
               >
                 {t}
+                {t === 'dracula' ? <span className="ds-chip-tag">default</span> : null}
               </button>
             ))}
           </div>

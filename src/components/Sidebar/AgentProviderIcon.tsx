@@ -1,7 +1,6 @@
 import { Bot, Code2, Github, MousePointer2, Sparkles } from 'lucide-react'
 import type { ReactElement } from 'react'
 import type { AgentProvider } from '../../../shared/types/agent'
-import { OxeLogo } from '../Brand/OxeLogo'
 
 interface AgentProviderIconProps {
   provider: AgentProvider
@@ -22,7 +21,6 @@ const PROVIDER_TOKENS: Record<AgentProvider, { bg: string; icon: ReactElement }>
   gemini:       { bg: 'var(--provider-gemini)',  icon: <Sparkles size={10} color="white" /> },
   codex:        { bg: 'var(--provider-codex)',   icon: <Code2 size={10} color="white" /> },
   cursor:       { bg: 'var(--provider-cursor)',  icon: <MousePointer2 size={10} color="white" /> },
-  oxe:          { bg: 'var(--provider-oxe)',     icon: <OxeLogo size={12} variant="compact" /> },
   custom:       { bg: 'var(--provider-custom)',  icon: <Bot size={10} color="white" /> },
 }
 

@@ -1,11 +1,9 @@
 import type {
   SplitPaneInput,
+  UpdateWorkspaceBackgroundStateInput,
   UpdateWorkspaceEditorStateInput,
   UpdateWorkspaceGitHubStateInput,
-  UpdateWorkspaceAgentsStateInput,
-  UpdateWorkspaceOxeStateInput,
   UpdateWorkspaceReviewStateInput,
-  OxeWorkspaceInput,
   UpdateWorkspaceSettingsInput,
   UpdatePaneTypeInput,
   UpdatePaneNameInput,
@@ -38,25 +36,6 @@ import {
   type UpdateAgentProfileInput
 } from '../../../shared/types/agent'
 import type {
-  AgentRole,
-  AdvanceAgentWorkflowRunInput,
-  AppendAgentWorkflowArtifactInput,
-  ApproveAgentWorkflowPlanInput,
-  CompleteManualAgentWorkflowStepInput,
-  CreateAgentWorkflowRunInput,
-  PrepareAgentWorkflowStepInput,
-  RecordAgentWorkflowExecutionEvidenceInput,
-  RejectAgentWorkflowPlanInput,
-  RequestAgentWorkflowPlanChangesInput,
-  RunAgentWorkflowStepInput,
-  SendApprovedAgentWorkflowExecutionInput,
-  UpdateWorkspaceAgentRoleBindingsInput,
-  WorkflowArtifactKind,
-  WorkflowRunStatus,
-  WorkflowSourceType,
-  WorkflowStepStatus
-} from '../../../shared/types/agent-workflow'
-import type {
   CreateTaskInput,
   ReorderTasksInput,
   RunTaskInput,
@@ -73,30 +52,10 @@ const THEMES = new Set<WorkspaceThemeId>(['midnight', 'nord', 'dracula', 'ocean'
 const DENSITIES = new Set<WorkspaceDensity>(['compact', 'comfortable'])
 const TASK_COLUMNS = new Set<TaskColumn>(['backlog', 'ready', 'running', 'review', 'done'])
 const TASK_STATUSES = new Set<TaskRunStatus>(['idle', 'running', 'verifying', 'passed', 'failed'])
-const PANE_TYPES = new Set<PaneType>(['terminal', 'tasks', 'editor', 'swarm', 'inspector', 'graph', 'review'])
+const PANE_TYPES = new Set<PaneType>(['terminal', 'tasks', 'editor', 'review'])
 const GITHUB_TABS = new Set<GitHubPanelTab>(['status', 'checkpoints', 'repos', 'branches', 'prs', 'commits', 'releases', 'actions', 'settings'])
 const PR_STATES = new Set<GitHubPullRequestListInput['state']>(['open', 'closed', 'all'])
-const AGENT_ROLES = new Set<AgentRole>(['rubber_duck', 'planner', 'executor', 'reviewer', 'verifier', 'publisher'])
 const AGENT_PROVIDERS = new Set<AgentProvider>(ALL_PROVIDERS)
-const WORKFLOW_SOURCE_TYPES = new Set<WorkflowSourceType>(['manual', 'task', 'oxe'])
-const WORKFLOW_RUN_STATUSES = new Set<WorkflowRunStatus>(['draft', 'clarifying', 'planned', 'executing', 'reviewing', 'verifying', 'ready_to_publish', 'done', 'failed', 'blocked'])
-const WORKFLOW_ARTIFACT_KINDS = new Set<WorkflowArtifactKind>([
-  'question_set',
-  'clarification',
-  'plan',
-  'approved_plan',
-  'execution_notes',
-  'execution_prompt',
-  'execution_evidence',
-  'review',
-  'review_findings',
-  'verification',
-  'verification_report',
-  'publish_notes',
-  'rejection',
-  'plan_feedback'
-])
-const MANUAL_STEP_STATUSES = new Set<Extract<WorkflowStepStatus, 'passed' | 'failed' | 'blocked'>>(['passed', 'failed', 'blocked'])
 
 export function parseWorkspaceCreateInput(value: unknown): CreateWorkspaceInput {
   const input = expectRecord(value, 'workspace:create input')
@@ -196,16 +155,6 @@ export function parseUpdatePaneNameInput(value: unknown): UpdatePaneNameInput {
   }
 }
 
-export function parseSetPaneModelOverrideInput(value: unknown): { paneId: string; modelId: string | null } {
-  const input = expectRecord(value, 'workspace:set-pane-model-override input')
-  return {
-    paneId: expectNonEmptyString(input.paneId, 'paneId'),
-    modelId: input.modelId === null || input.modelId === undefined
-      ? null
-      : expectNonEmptyString(input.modelId, 'modelId')
-  }
-}
-
 export function parseSetPaneAgentInput(value: unknown): { paneId: string; agentProfileId: string | null } {
   const input = expectRecord(value, 'workspace:set-pane-agent input')
   return {
@@ -236,25 +185,6 @@ export function parseUpdateWorkspaceEditorStateInput(value: unknown): UpdateWork
   }
 }
 
-export function parseUpdateWorkspaceOxeStateInput(value: unknown): UpdateWorkspaceOxeStateInput {
-  const input = expectRecord(value, 'workspace:update-oxe-state input')
-  return {
-    workspaceId: expectNonEmptyString(input.workspaceId, 'workspaceId'),
-    oxePanelVisible: input.oxePanelVisible === undefined ? undefined : expectBoolean(input.oxePanelVisible, 'oxePanelVisible'),
-    oxePanelExpanded: input.oxePanelExpanded === undefined ? undefined : expectBoolean(input.oxePanelExpanded, 'oxePanelExpanded'),
-    oxePanelWidthPercent: input.oxePanelWidthPercent === undefined ? undefined : expectPanelWidth(input.oxePanelWidthPercent)
-  }
-}
-
-export function parseUpdateWorkspaceAgentsStateInput(value: unknown): UpdateWorkspaceAgentsStateInput {
-  const input = expectRecord(value, 'workspace:update-agents-state input')
-  return {
-    workspaceId: expectNonEmptyString(input.workspaceId, 'workspaceId'),
-    agentsPanelVisible: input.agentsPanelVisible === undefined ? undefined : expectBoolean(input.agentsPanelVisible, 'agentsPanelVisible'),
-    agentsPanelExpanded: input.agentsPanelExpanded === undefined ? undefined : expectBoolean(input.agentsPanelExpanded, 'agentsPanelExpanded'),
-    agentsPanelWidthPercent: input.agentsPanelWidthPercent === undefined ? undefined : expectPanelWidth(input.agentsPanelWidthPercent)
-  }
-}
 
 export function parseUpdateWorkspaceReviewStateInput(value: unknown): UpdateWorkspaceReviewStateInput {
   const input = expectRecord(value, 'workspace:update-review-state input')
@@ -274,6 +204,16 @@ export function parseUpdateWorkspaceGitHubStateInput(value: unknown): UpdateWork
     githubPanelExpanded: input.githubPanelExpanded === undefined ? undefined : expectBoolean(input.githubPanelExpanded, 'githubPanelExpanded'),
     githubPanelWidthPercent: input.githubPanelWidthPercent === undefined ? undefined : expectPanelWidth(input.githubPanelWidthPercent),
     githubActiveTab: input.githubActiveTab === undefined ? undefined : expectGitHubTab(input.githubActiveTab)
+  }
+}
+
+export function parseUpdateWorkspaceBackgroundStateInput(value: unknown): UpdateWorkspaceBackgroundStateInput {
+  const input = expectRecord(value, 'workspace:update-background-state input')
+  return {
+    workspaceId: expectNonEmptyString(input.workspaceId, 'workspaceId'),
+    backgroundPanelVisible: input.backgroundPanelVisible === undefined ? undefined : expectBoolean(input.backgroundPanelVisible, 'backgroundPanelVisible'),
+    backgroundPanelExpanded: input.backgroundPanelExpanded === undefined ? undefined : expectBoolean(input.backgroundPanelExpanded, 'backgroundPanelExpanded'),
+    backgroundPanelWidthPercent: input.backgroundPanelWidthPercent === undefined ? undefined : expectPanelWidth(input.backgroundPanelWidthPercent)
   }
 }
 
@@ -383,14 +323,6 @@ export function parseFileSystemUnwatchFileInput(value: unknown) {
   }
 }
 
-export function parseOxeWorkspaceInput(value: unknown): OxeWorkspaceInput {
-  const input = expectRecord(value, 'oxe workspace input')
-  return {
-    workspaceId: expectNonEmptyString(input.workspaceId, 'workspaceId'),
-    rootPath: expectNonEmptyString(input.rootPath, 'rootPath')
-  }
-}
-
 export function parseCreateAgentProfileInput(value: unknown): CreateAgentProfileInput {
   const input = expectRecord(value, 'agent:create input')
   return {
@@ -418,128 +350,28 @@ export function parseUpdateAgentProfileInput(value: unknown): UpdateAgentProfile
   }
 }
 
-export function parseCreateAgentWorkflowRunInput(value: unknown): CreateAgentWorkflowRunInput {
-  const input = expectRecord(value, 'agent-workflow:create-run input')
-  return {
-    workspaceId: expectNonEmptyString(input.workspaceId, 'workspaceId'),
-    title: expectNonEmptyString(input.title, 'title'),
-    sourceType: input.sourceType === undefined ? undefined : expectWorkflowSourceType(input.sourceType),
-    sourceId: input.sourceId === undefined || input.sourceId === null ? null : expectNonEmptyString(input.sourceId, 'sourceId'),
-    initialPrompt: input.initialPrompt === undefined ? undefined : expectString(input.initialPrompt, 'initialPrompt')
-  }
-}
-
-export function parseUpdateWorkspaceAgentRoleBindingsInput(value: unknown): UpdateWorkspaceAgentRoleBindingsInput {
-  const input = expectRecord(value, 'agent-workflow:update-role-bindings input')
-  if (!Array.isArray(input.bindings)) throw new Error('bindings must be an array')
-  return {
-    workspaceId: expectNonEmptyString(input.workspaceId, 'workspaceId'),
-    bindings: input.bindings.map((item, index) => {
-      const binding = expectRecord(item, `bindings[${index}]`)
-      return {
-        role: expectAgentRole(binding.role),
-        agentProfileId: binding.agentProfileId === undefined || binding.agentProfileId === null ? null : expectNonEmptyString(binding.agentProfileId, 'agentProfileId'),
-        shellProfileId: binding.shellProfileId === undefined || binding.shellProfileId === null ? null : expectNonEmptyString(binding.shellProfileId, 'shellProfileId'),
-        model: binding.model === undefined || binding.model === null ? null : expectString(binding.model, 'model'),
-        enabled: binding.enabled === undefined ? undefined : expectBoolean(binding.enabled, 'enabled')
-      }
-    })
-  }
-}
-
-export function parsePrepareAgentWorkflowStepInput(value: unknown): PrepareAgentWorkflowStepInput {
-  const input = expectRecord(value, 'agent-workflow:prepare-step input')
-  return {
-    runId: expectNonEmptyString(input.runId, 'runId'),
-    role: expectAgentRole(input.role)
-  }
-}
-
-export function parseRunAgentWorkflowStepInput(value: unknown): RunAgentWorkflowStepInput {
-  const input = expectRecord(value, 'agent-workflow:run-step input')
-  return {
-    stepId: expectNonEmptyString(input.stepId, 'stepId'),
-    paneId: expectNonEmptyString(input.paneId, 'paneId')
-  }
-}
-
-export function parseApproveAgentWorkflowPlanInput(value: unknown): ApproveAgentWorkflowPlanInput {
-  const input = expectRecord(value, 'agent-workflow:approve-plan input')
-  return {
-    runId: expectNonEmptyString(input.runId, 'runId'),
-    planContent: expectNonEmptyString(input.planContent, 'planContent')
-  }
-}
-
-export function parseRejectAgentWorkflowPlanInput(value: unknown): RejectAgentWorkflowPlanInput {
-  const input = expectRecord(value, 'agent-workflow:reject-plan input')
-  return {
-    runId: expectNonEmptyString(input.runId, 'runId'),
-    reason: expectNonEmptyString(input.reason, 'reason')
-  }
-}
-
-export function parseRequestAgentWorkflowPlanChangesInput(value: unknown): RequestAgentWorkflowPlanChangesInput {
-  const input = expectRecord(value, 'agent-workflow:request-plan-changes input')
-  return {
-    runId: expectNonEmptyString(input.runId, 'runId'),
-    feedback: expectNonEmptyString(input.feedback, 'feedback')
-  }
-}
-
-export function parseSendApprovedAgentWorkflowExecutionInput(value: unknown): SendApprovedAgentWorkflowExecutionInput {
-  const input = expectRecord(value, 'agent-workflow:send-approved-execution input')
-  return {
-    stepId: expectNonEmptyString(input.stepId, 'stepId'),
-    paneId: expectNonEmptyString(input.paneId, 'paneId')
-  }
-}
-
-export function parseRecordAgentWorkflowExecutionEvidenceInput(value: unknown): RecordAgentWorkflowExecutionEvidenceInput {
-  const input = expectRecord(value, 'agent-workflow:record-execution-evidence input')
-  return {
-    stepId: expectNonEmptyString(input.stepId, 'stepId'),
-    output: expectNonEmptyString(input.output, 'output')
-  }
-}
-
-export function parseAdvanceAgentWorkflowRunInput(value: unknown): AdvanceAgentWorkflowRunInput {
-  const input = expectRecord(value, 'agent-workflow:advance-run input')
-  return {
-    runId: expectNonEmptyString(input.runId, 'runId'),
-    targetStatus: expectWorkflowRunStatus(input.targetStatus),
-    overrideReason: input.overrideReason === undefined ? undefined : expectNonEmptyString(input.overrideReason, 'overrideReason')
-  }
-}
-
-export function parseCompleteManualAgentWorkflowStepInput(value: unknown): CompleteManualAgentWorkflowStepInput {
-  const input = expectRecord(value, 'agent-workflow:complete-manual-step input')
-  return {
-    stepId: expectNonEmptyString(input.stepId, 'stepId'),
-    output: expectString(input.output, 'output'),
-    status: input.status === undefined ? undefined : expectManualStepStatus(input.status)
-  }
-}
-
-export function parseAppendAgentWorkflowArtifactInput(value: unknown): AppendAgentWorkflowArtifactInput {
-  const input = expectRecord(value, 'agent-workflow:append-artifact input')
-  return {
-    runId: expectNonEmptyString(input.runId, 'runId'),
-    stepId: input.stepId === undefined || input.stepId === null ? null : expectNonEmptyString(input.stepId, 'stepId'),
-    kind: expectWorkflowArtifactKind(input.kind),
-    title: expectNonEmptyString(input.title, 'title'),
-    content: expectString(input.content, 'content')
-  }
-}
-
 export function parseGitDiffInput(value: unknown): GitDiffInput {
   const input = expectRecord(value, 'git:get-diff input')
   return {
     workspaceId: expectNonEmptyString(input.workspaceId, 'workspaceId'),
     rootPath: expectNonEmptyString(input.rootPath, 'rootPath'),
-    base: expectNonEmptyString(input.base, 'base'),
+    base: expectGitRef(input.base, 'base'),
     includeUncommitted: typeof input.includeUncommitted === 'boolean' ? input.includeUncommitted : true
   }
+}
+
+// Subset of git's check-ref-format rules — accepts the characters legal in branch
+// names, tags, SHAs, and short refspecs we actually surface (HEAD~3, origin/main, v1.2.3).
+// Rejects shell metacharacters that would be dangerous if a future caller forgets
+// `shell:false`.
+const GIT_REF_PATTERN = /^[A-Za-z0-9_./@~^-]+$/
+
+function expectGitRef(value: unknown, label: string): string {
+  const text = expectNonEmptyString(value, label)
+  if (!GIT_REF_PATTERN.test(text) || text.includes('..') || text.startsWith('-')) {
+    throw new Error(`${label} must be a valid git ref (alphanumerics, ._/@~^-)`)
+  }
+  return text
 }
 
 export function parseGitHubWorkspaceInput(value: unknown): GitHubWorkspaceInput {
@@ -716,7 +548,7 @@ function expectTaskStatus(value: unknown): TaskRunStatus {
 
 function expectPaneType(value: unknown): PaneType {
   if (typeof value !== 'string' || !PANE_TYPES.has(value as PaneType)) {
-    throw new Error('type must be one of terminal, tasks, editor, swarm, inspector')
+    throw new Error('type must be one of terminal, tasks, editor, review')
   }
   return value as PaneType
 }
@@ -756,41 +588,6 @@ function expectAgentProvider(value: unknown): AgentProvider {
     throw new Error('provider must be one of ' + ALL_PROVIDERS.join(', '))
   }
   return value as AgentProvider
-}
-
-function expectAgentRole(value: unknown): AgentRole {
-  if (typeof value !== 'string' || !AGENT_ROLES.has(value as AgentRole)) {
-    throw new Error('role must be one of rubber_duck, planner, executor, reviewer, verifier, publisher')
-  }
-  return value as AgentRole
-}
-
-function expectWorkflowSourceType(value: unknown): WorkflowSourceType {
-  if (typeof value !== 'string' || !WORKFLOW_SOURCE_TYPES.has(value as WorkflowSourceType)) {
-    throw new Error('sourceType must be one of manual, task, oxe')
-  }
-  return value as WorkflowSourceType
-}
-
-function expectWorkflowRunStatus(value: unknown): WorkflowRunStatus {
-  if (typeof value !== 'string' || !WORKFLOW_RUN_STATUSES.has(value as WorkflowRunStatus)) {
-    throw new Error('targetStatus must be a supported workflow run status')
-  }
-  return value as WorkflowRunStatus
-}
-
-function expectWorkflowArtifactKind(value: unknown): WorkflowArtifactKind {
-  if (typeof value !== 'string' || !WORKFLOW_ARTIFACT_KINDS.has(value as WorkflowArtifactKind)) {
-    throw new Error('kind must be a supported workflow artifact kind')
-  }
-  return value as WorkflowArtifactKind
-}
-
-function expectManualStepStatus(value: unknown): Extract<WorkflowStepStatus, 'passed' | 'failed' | 'blocked'> {
-  if (typeof value !== 'string' || !MANUAL_STEP_STATUSES.has(value as Extract<WorkflowStepStatus, 'passed' | 'failed' | 'blocked'>)) {
-    throw new Error('status must be passed, failed or blocked')
-  }
-  return value as Extract<WorkflowStepStatus, 'passed' | 'failed' | 'blocked'>
 }
 
 function expectNonEmptyString(value: unknown, label: string): string {

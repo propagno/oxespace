@@ -1,6 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
+import { resolve } from 'node:path'
 import type { AppDatabase } from '../db/index'
 import { killProcess } from '../utils/process-cleanup'
 import type {
@@ -76,8 +77,17 @@ export class BackgroundManager {
   }
 
   start(input: StartBackgroundJobInput): BackgroundJob {
+    if (input.confirmed !== true) {
+      throw new Error('Background jobs require explicit user confirmation.')
+    }
     const id = randomUUID()
-    const cwd = input.paneRootPath && existsSync(input.paneRootPath) ? input.paneRootPath : input.workspaceRootPath
+    const workspace = this.db.prepare('SELECT root_path FROM workspaces WHERE id = ?').get(input.workspaceId) as { root_path: string } | undefined
+    if (!workspace) throw new Error(`Workspace ${input.workspaceId} not found`)
+    const workspaceRoot = resolve(workspace.root_path)
+    const requestedPaneRoot = input.paneRootPath ? resolve(input.paneRootPath) : null
+    const cwd = requestedPaneRoot && existsSync(requestedPaneRoot) && isInsideOrEqual(requestedPaneRoot, workspaceRoot)
+      ? requestedPaneRoot
+      : workspaceRoot
     const label = input.label?.trim() || deriveLabel(input.command)
     const startedAt = Date.now()
 
@@ -160,6 +170,21 @@ export class BackgroundManager {
     this.transitionJob(jobId, 'killed', null)
   }
 
+  /**
+   * Removes a non-running job from history. Refuses to remove a job that is
+   * still running — the caller must `stop()` it first. Deletes the DB row and
+   * the in-memory runtime. The renderer drops the row by re-reading list().
+   */
+  remove(jobId: string): void {
+    const runtime = this.jobs.get(jobId)
+    const status = runtime?.job.status
+    if (status === 'running' || status === 'pending') {
+      throw new Error('Stop the job before removing it.')
+    }
+    this.jobs.delete(jobId)
+    this.db.prepare('DELETE FROM background_jobs WHERE id = ?').run(jobId)
+  }
+
   stopAll(): void {
     for (const id of this.jobs.keys()) this.stop(id)
   }
@@ -192,6 +217,12 @@ export class BackgroundManager {
       .prepare("UPDATE background_jobs SET status = 'failed', finished_at = ? WHERE status IN ('pending', 'running')")
       .run(Date.now())
   }
+}
+
+function isInsideOrEqual(candidate: string, root: string): boolean {
+  const normalizedCandidate = candidate.toLowerCase()
+  const normalizedRoot = root.toLowerCase()
+  return normalizedCandidate === normalizedRoot || normalizedCandidate.startsWith(`${normalizedRoot}\\`) || normalizedCandidate.startsWith(`${normalizedRoot}/`)
 }
 
 function mapJobRow(row: JobRow): BackgroundJob {

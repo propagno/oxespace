@@ -37,7 +37,10 @@ describe('FileSystemService', () => {
     expect(names).not.toContain('node_modules')
     expect(names).not.toContain('.git')
     expect(names).not.toContain('dist')
-    expect(tree.find((node) => node.name === 'src')?.children?.[0]).toMatchObject({
+    expect(tree.find((node) => node.name === 'src')?.children).toBeUndefined()
+
+    const srcTree = await service.listTree({ workspaceId: 'workspace-1', rootPath, relativePath: 'src' })
+    expect(srcTree[0]).toMatchObject({
       name: 'index.ts',
       relativePath: 'src/index.ts',
       type: 'file'

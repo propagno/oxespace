@@ -49,6 +49,7 @@ interface GitHubStoreState {
   createPullRequest: (input: GitHubCreatePullRequestInput) => Promise<void>
   createRelease: (input: GitHubCreateReleaseInput) => Promise<void>
   runWorkflow: (input: GitHubWorkspaceInput & { workflowId: string; ref?: string; fields?: Record<string, string> }) => Promise<void>
+  rerunRun: (input: GitHubWorkspaceInput & { runId: number; failedOnly: boolean }) => Promise<void>
   createCheckpoint: (input: GitHubWorkspaceInput & { name: string; description?: string }) => Promise<void>
   restoreCheckpoint: (input: GitHubWorkspaceInput & { checkpointId: string }) => Promise<void>
   deleteCheckpoint: (workspaceId: string, checkpointId: string) => Promise<void>
@@ -79,9 +80,8 @@ const EMPTY: GitHubWorkspaceState = {
 const statusFetchedAt = new Map<string, number>()
 const STATUS_STALE_MS = 10_000
 
-// Per-workspace AbortController for the most recent in-flight loadTab.
-// When the user switches tabs or workspaces rapidly, we cancel the previous fetch
-// so stale data doesn't overwrite fresh data.
+// Per-workspace+tab AbortController. Parallel prefetches can run without
+// cancelling each other, while repeated loads of the same tab still cancel stale work.
 const tabAbortControllers = new Map<string, AbortController>()
 
 // Track tabs already prefetched for a workspace to avoid duplicate prefetch on remount.
@@ -109,12 +109,11 @@ export const useGitHubStore = create<GitHubStoreState>((set, get) => ({
   },
 
   loadTab: async (input, tab) => {
-    // Cancel previous fetch for this workspace if any. The aborted request's results
-    // are discarded via the workspaceId+signal checks below.
-    const previousAbort = tabAbortControllers.get(input.workspaceId)
+    const controllerKey = `${input.workspaceId}:${tab}`
+    const previousAbort = tabAbortControllers.get(controllerKey)
     if (previousAbort) previousAbort.abort()
     const controller = new AbortController()
-    tabAbortControllers.set(input.workspaceId, controller)
+    tabAbortControllers.set(controllerKey, controller)
     const { signal } = controller
 
     const current = get().byWorkspace[input.workspaceId] ?? EMPTY
@@ -157,8 +156,8 @@ export const useGitHubStore = create<GitHubStoreState>((set, get) => ({
       setWorkspace(set, input.workspaceId, { loading: false, refreshing: false, error: sanitizeIpcError(error) })
     } finally {
       // Clear the controller reference if it's still the current one.
-      if (tabAbortControllers.get(input.workspaceId) === controller) {
-        tabAbortControllers.delete(input.workspaceId)
+      if (tabAbortControllers.get(controllerKey) === controller) {
+        tabAbortControllers.delete(controllerKey)
       }
     }
   },
@@ -202,6 +201,7 @@ export const useGitHubStore = create<GitHubStoreState>((set, get) => ({
   createPullRequest: async (input) => runMutation(set, input.workspaceId, () => window.oxe.github.createPullRequest(input), () => get().loadTab(input, 'prs')),
   createRelease: async (input) => runMutation(set, input.workspaceId, () => window.oxe.github.createRelease(input), () => get().loadTab(input, 'releases')),
   runWorkflow: async (input) => runMutation(set, input.workspaceId, () => window.oxe.github.runWorkflow(input), () => get().loadTab(input, 'actions')),
+  rerunRun: async (input) => runMutation(set, input.workspaceId, () => window.oxe.github.rerunRun({ rootPath: input.rootPath, runId: input.runId, failedOnly: input.failedOnly }), () => get().loadTab(input, 'actions')),
   createCheckpoint: async (input) => runMutation(set, input.workspaceId, async () => {
     await window.oxe.github.createCheckpoint(input)
     return { ok: true, message: 'Checkpoint criado.' }

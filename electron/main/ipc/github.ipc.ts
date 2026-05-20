@@ -90,6 +90,20 @@ export function registerGitHubIpc(db: AppDatabase, service = new GitHubService(d
   ipcMain.handle(IPC_CHANNELS.github.runWorkflow, (_event, input: unknown) =>
     service.runWorkflow(parseGitHubWorkflowRunInput(input))
   )
+  ipcMain.handle(IPC_CHANNELS.github.rerunRun, (_event, input: unknown) => {
+    if (!input || typeof input !== 'object') throw new Error('Invalid rerun input')
+    const { rootPath, runId, failedOnly } = input as { rootPath?: unknown; runId?: unknown; failedOnly?: unknown }
+    if (typeof rootPath !== 'string' || !rootPath) throw new Error('rootPath is required')
+    if (typeof runId !== 'number' || !Number.isFinite(runId)) throw new Error('runId must be a number')
+    return service.rerunRun({ rootPath, runId, failedOnly: failedOnly === true })
+  })
+  ipcMain.handle(IPC_CHANNELS.github.getRunLogs, (_event, input: unknown) => {
+    if (!input || typeof input !== 'object') throw new Error('Invalid run-logs input')
+    const { rootPath, runId, failedOnly } = input as { rootPath?: unknown; runId?: unknown; failedOnly?: unknown }
+    if (typeof rootPath !== 'string' || !rootPath) throw new Error('rootPath is required')
+    if (typeof runId !== 'number' || !Number.isFinite(runId)) throw new Error('runId must be a number')
+    return service.getRunLogs({ rootPath, runId, failedOnly: failedOnly === true })
+  })
   ipcMain.handle(IPC_CHANNELS.github.listCheckpoints, (_event, input: unknown) =>
     service.listCheckpoints(parseGitHubWorkspaceInput(input))
   )

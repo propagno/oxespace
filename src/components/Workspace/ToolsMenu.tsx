@@ -1,32 +1,41 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react'
-import { Bot, ChevronDown, Code2, Command, Github, GitCompareArrows, ListChecks, MonitorPlay, PanelLeft, Settings2, Workflow } from 'lucide-react'
+import { Activity, ChevronDown, Code2, Command, Github, GitCompareArrows, History, ListChecks, MonitorPlay, PanelLeft, Settings2, Sparkles, Wrench } from 'lucide-react'
 
 interface ToolsMenuProps {
   active: {
     github: boolean
     editor: boolean
-    oxe: boolean
-    agents: boolean
     review: boolean
+    background: boolean
+    scripts: boolean
+    webPreview: boolean
   }
   onOpenCommandPalette: () => void
   onOpenWorkspaceSettings: () => void
-  onToggleAgents: () => void
   onToggleEditor: () => void
   onToggleGitHub: () => void
-  onToggleOxe: () => void
   onToggleReview: () => void
+  onToggleBackground: () => void
+  onOpenScripts: () => void
+  onOpenWebPreview: () => void
+  onOpenHistory: () => void
+  onOpenMcp: () => void
+  onOpenSkills: () => void
 }
 
 export function ToolsMenu({
   active,
   onOpenCommandPalette,
   onOpenWorkspaceSettings,
-  onToggleAgents,
   onToggleEditor,
   onToggleGitHub,
-  onToggleOxe,
-  onToggleReview
+  onToggleReview,
+  onToggleBackground,
+  onOpenScripts,
+  onOpenWebPreview,
+  onOpenHistory,
+  onOpenMcp,
+  onOpenSkills
 }: ToolsMenuProps): ReactElement {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement | null>(null)
@@ -59,15 +68,17 @@ export function ToolsMenu({
           </ToolsGroup>
           <ToolsGroup title="Development">
             <ToolItem active={active.github} icon={<Github size={14} />} label="GitHub" detail="Github" onClick={() => run(onToggleGitHub)} />
-            <ToolItem icon={<Code2 size={14} />} label="Scripts" detail="ScriptLauncher" disabled />
-            <ToolItem icon={<MonitorPlay size={14} />} label="Web Preview" detail="WebPreview" disabled />
+            <ToolItem active={active.scripts} icon={<Code2 size={14} />} label="Scripts" detail="ScriptLauncher" onClick={() => run(onOpenScripts)} />
+            <ToolItem active={active.webPreview} icon={<MonitorPlay size={14} />} label="Web Preview" detail="WebPreview" onClick={() => run(onOpenWebPreview)} />
+            <ToolItem active={active.background} icon={<Activity size={14} />} label="Background Jobs" detail="Right dock" onClick={() => run(onToggleBackground)} />
           </ToolsGroup>
           <ToolsGroup title="AI & Agents">
-            <ToolItem active={active.agents} icon={<Bot size={14} />} label="Plan/Exec" detail="Gated workflow" onClick={() => run(onToggleAgents)} />
+            <ToolItem icon={<History size={14} />} label="History" detail="Ctrl+Shift+H" onClick={() => run(onOpenHistory)} />
+            <ToolItem icon={<Wrench size={14} />} label="MCP Servers" detail="Tools" onClick={() => run(onOpenMcp)} />
+            <ToolItem icon={<Sparkles size={14} />} label="Skills" detail="Markdown" onClick={() => run(onOpenSkills)} />
           </ToolsGroup>
           <ToolsGroup title="System">
             <ToolItem active={active.editor} icon={<span className="tool-item-symbol">⌘</span>} label="Editor" detail="Editor" onClick={() => run(onToggleEditor)} />
-            <ToolItem active={active.oxe} icon={<Workflow size={14} />} label="OXE" detail="OXE" onClick={() => run(onToggleOxe)} />
             <ToolItem active={active.review} icon={<GitCompareArrows size={14} />} label="Review" detail="Review" onClick={() => run(onToggleReview)} />
             <ToolItem icon={<Command size={14} />} label="Command Palette" detail="Palette" onClick={() => run(onOpenCommandPalette)} />
             <ToolItem icon={<PanelLeft size={14} />} label="Workspace Settings" detail="Settings" onClick={() => run(onOpenWorkspaceSettings)} />

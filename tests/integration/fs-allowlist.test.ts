@@ -5,12 +5,16 @@ import { describe, expect, test } from 'vitest'
 const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/file-system.service.ts',
   'electron/main/services/agent.service.ts',
-  'electron/main/services/oxe.service.ts',
-  'electron/main/services/oxe-graph.parser.ts',
-  'electron/main/services/oxe-graph.service.ts',
+  'electron/main/services/background.service.ts',
   'electron/main/services/git.service.ts',
+  'electron/main/services/github.service.ts',
+  'electron/main/services/session.service.ts',
   'electron/main/services/shell-profile.service.ts',
+  'electron/main/services/skill.service.ts',
   'electron/main/services/terminal.service.ts',
+  'electron/main/services/usage/claudeProvider.ts',
+  'electron/main/services/usage/codexProvider.ts',
+  'electron/main/index.ts',
   'electron/main/db/index.ts'
 ])
 

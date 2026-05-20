@@ -13,9 +13,8 @@ import type {
   WorkspaceThemeId,
   UpdateWorkspaceSettingsInput,
   UpdateWorkspaceEditorStateInput,
-  UpdateWorkspaceAgentsStateInput,
   UpdateWorkspaceGitHubStateInput,
-  UpdateWorkspaceOxeStateInput,
+  UpdateWorkspaceBackgroundStateInput,
   UpdateWorkspaceReviewStateInput,
   WorkspacePane
 } from '../../../shared/types/workspace'
@@ -34,12 +33,6 @@ interface WorkspaceRow {
   editor_visible: number
   editor_expanded: number
   editor_width_percent: number
-  oxe_panel_visible: number
-  oxe_panel_expanded: number
-  oxe_panel_width_percent: number
-  agents_panel_visible: number
-  agents_panel_expanded: number
-  agents_panel_width_percent: number
   review_panel_visible: number
   review_panel_expanded: number
   review_panel_width_percent: number
@@ -47,6 +40,9 @@ interface WorkspaceRow {
   github_panel_expanded: number
   github_panel_width_percent: number
   github_active_tab: Workspace['githubActiveTab']
+  background_panel_visible: number
+  background_panel_expanded: number
+  background_panel_width_percent: number
 }
 
 interface PaneRow {
@@ -61,12 +57,11 @@ interface PaneRow {
   agent_name: string | null
   display_name: string | null
   created_at: string | null
-  model_override: string | null
   root_path: string | null
 }
 
 const DEFAULT_SHELL_PROFILE_ID = 'builtin-claude'
-const DEFAULT_THEME_ID: WorkspaceThemeId = 'midnight'
+const DEFAULT_THEME_ID: WorkspaceThemeId = 'dracula'
 const DEFAULT_UI_DENSITY: WorkspaceDensity = 'compact'
 const DEFAULT_LAYOUT_PRESET: WorkspaceLayoutPreset = 4
 
@@ -150,10 +145,10 @@ export class WorkspaceService {
     const rows = this.db
       .prepare(
         `SELECT id, name, root_path, layout, layout_preset, theme_id, ui_density, default_shell_profile_id, auto_start, is_active,
-          editor_visible, editor_expanded, editor_width_percent, oxe_panel_visible, oxe_panel_expanded, oxe_panel_width_percent,
-          agents_panel_visible, agents_panel_expanded, agents_panel_width_percent,
+          editor_visible, editor_expanded, editor_width_percent,
           review_panel_visible, review_panel_expanded, review_panel_width_percent,
-          github_panel_visible, github_panel_expanded, github_panel_width_percent, github_active_tab
+          github_panel_visible, github_panel_expanded, github_panel_width_percent, github_active_tab,
+          background_panel_visible, background_panel_expanded, background_panel_width_percent
          FROM workspaces
          ORDER BY created_at ASC`
       )
@@ -166,10 +161,10 @@ export class WorkspaceService {
     const row = this.db
       .prepare(
         `SELECT id, name, root_path, layout, layout_preset, theme_id, ui_density, default_shell_profile_id, auto_start, is_active,
-          editor_visible, editor_expanded, editor_width_percent, oxe_panel_visible, oxe_panel_expanded, oxe_panel_width_percent,
-          agents_panel_visible, agents_panel_expanded, agents_panel_width_percent,
+          editor_visible, editor_expanded, editor_width_percent,
           review_panel_visible, review_panel_expanded, review_panel_width_percent,
-          github_panel_visible, github_panel_expanded, github_panel_width_percent, github_active_tab
+          github_panel_visible, github_panel_expanded, github_panel_width_percent, github_active_tab,
+          background_panel_visible, background_panel_expanded, background_panel_width_percent
          FROM workspaces
          WHERE id = ?`
       )
@@ -244,64 +239,6 @@ export class WorkspaceService {
     return workspace
   }
 
-  updateOxeState(input: UpdateWorkspaceOxeStateInput): Workspace {
-    const current = this.get(input.workspaceId)
-    if (!current) throw new Error(`Workspace ${input.workspaceId} not found`)
-
-    const oxePanelVisible = input.oxePanelVisible ?? current.oxePanelVisible ?? false
-    const oxePanelExpanded = input.oxePanelExpanded ?? current.oxePanelExpanded ?? false
-    const oxePanelWidthPercent = clampPanelWidth(input.oxePanelWidthPercent ?? current.oxePanelWidthPercent ?? 40)
-
-    this.db
-      .prepare(
-        `UPDATE workspaces
-         SET oxe_panel_visible = @oxePanelVisible,
-             oxe_panel_expanded = @oxePanelExpanded,
-             oxe_panel_width_percent = @oxePanelWidthPercent,
-             updated_at = datetime('now')
-         WHERE id = @workspaceId`
-      )
-      .run({
-        workspaceId: input.workspaceId,
-        oxePanelVisible: oxePanelVisible ? 1 : 0,
-        oxePanelExpanded: oxePanelExpanded ? 1 : 0,
-        oxePanelWidthPercent
-      })
-
-    const workspace = this.get(input.workspaceId)
-    if (!workspace) throw new Error('Workspace not found after OXE state update')
-    return workspace
-  }
-
-  updateAgentsState(input: UpdateWorkspaceAgentsStateInput): Workspace {
-    const current = this.get(input.workspaceId)
-    if (!current) throw new Error(`Workspace ${input.workspaceId} not found`)
-
-    const agentsPanelVisible = input.agentsPanelVisible ?? current.agentsPanelVisible ?? false
-    const agentsPanelExpanded = input.agentsPanelExpanded ?? current.agentsPanelExpanded ?? false
-    const agentsPanelWidthPercent = clampPanelWidth(input.agentsPanelWidthPercent ?? current.agentsPanelWidthPercent ?? 36)
-
-    this.db
-      .prepare(
-        `UPDATE workspaces
-         SET agents_panel_visible = @agentsPanelVisible,
-             agents_panel_expanded = @agentsPanelExpanded,
-             agents_panel_width_percent = @agentsPanelWidthPercent,
-             updated_at = datetime('now')
-         WHERE id = @workspaceId`
-      )
-      .run({
-        workspaceId: input.workspaceId,
-        agentsPanelVisible: agentsPanelVisible ? 1 : 0,
-        agentsPanelExpanded: agentsPanelExpanded ? 1 : 0,
-        agentsPanelWidthPercent
-      })
-
-    const workspace = this.get(input.workspaceId)
-    if (!workspace) throw new Error('Workspace not found after Agents state update')
-    return workspace
-  }
-
   updateReviewState(input: UpdateWorkspaceReviewStateInput): Workspace {
     const current = this.get(input.workspaceId)
     if (!current) throw new Error(`Workspace ${input.workspaceId} not found`)
@@ -360,6 +297,35 @@ export class WorkspaceService {
 
     const workspace = this.get(input.workspaceId)
     if (!workspace) throw new Error('Workspace not found after GitHub state update')
+    return workspace
+  }
+
+  updateBackgroundState(input: UpdateWorkspaceBackgroundStateInput): Workspace {
+    const current = this.get(input.workspaceId)
+    if (!current) throw new Error(`Workspace ${input.workspaceId} not found`)
+
+    const backgroundPanelVisible = input.backgroundPanelVisible ?? current.backgroundPanelVisible ?? false
+    const backgroundPanelExpanded = input.backgroundPanelExpanded ?? current.backgroundPanelExpanded ?? false
+    const backgroundPanelWidthPercent = clampPanelWidth(input.backgroundPanelWidthPercent ?? current.backgroundPanelWidthPercent ?? 36)
+
+    this.db
+      .prepare(
+        `UPDATE workspaces
+         SET background_panel_visible = @backgroundPanelVisible,
+             background_panel_expanded = @backgroundPanelExpanded,
+             background_panel_width_percent = @backgroundPanelWidthPercent,
+             updated_at = datetime('now')
+         WHERE id = @workspaceId`
+      )
+      .run({
+        workspaceId: input.workspaceId,
+        backgroundPanelVisible: backgroundPanelVisible ? 1 : 0,
+        backgroundPanelExpanded: backgroundPanelExpanded ? 1 : 0,
+        backgroundPanelWidthPercent
+      })
+
+    const workspace = this.get(input.workspaceId)
+    if (!workspace) throw new Error('Workspace not found after Background state update')
     return workspace
   }
 
@@ -511,12 +477,6 @@ export class WorkspaceService {
       editorVisible: row.editor_visible === 1,
       editorExpanded: row.editor_expanded === 1,
       editorWidthPercent: row.editor_width_percent || 40,
-      oxePanelVisible: row.oxe_panel_visible === 1,
-      oxePanelExpanded: row.oxe_panel_expanded === 1,
-      oxePanelWidthPercent: row.oxe_panel_width_percent || 40,
-      agentsPanelVisible: row.agents_panel_visible === 1,
-      agentsPanelExpanded: row.agents_panel_expanded === 1,
-      agentsPanelWidthPercent: row.agents_panel_width_percent || 36,
       reviewPanelVisible: row.review_panel_visible === 1,
       reviewPanelExpanded: row.review_panel_expanded === 1,
       reviewPanelWidthPercent: row.review_panel_width_percent || 36,
@@ -524,6 +484,9 @@ export class WorkspaceService {
       githubPanelExpanded: row.github_panel_expanded === 1,
       githubPanelWidthPercent: row.github_panel_width_percent || 40,
       githubActiveTab: row.github_active_tab || 'status',
+      backgroundPanelVisible: row.background_panel_visible === 1,
+      backgroundPanelExpanded: row.background_panel_expanded === 1,
+      backgroundPanelWidthPercent: row.background_panel_width_percent || 36,
       panes: this.listPanes(row.id)
     }
   }
@@ -543,7 +506,7 @@ export class WorkspaceService {
   private listPanes(workspaceId: string): WorkspacePane[] {
     const rows = this.db
       .prepare(
-        `SELECT id, workspace_id, type, row_index, column_index, shell_profile_id, status, agent_profile_id, agent_name, display_name, created_at, model_override, root_path
+        `SELECT id, workspace_id, type, row_index, column_index, shell_profile_id, status, agent_profile_id, agent_name, display_name, created_at, root_path
          FROM panes
          WHERE workspace_id = ?
          ORDER BY row_index ASC, column_index ASC`
@@ -562,18 +525,8 @@ export class WorkspaceService {
       agentName: row.agent_name,
       displayName: row.display_name ?? null,
       createdAt: row.created_at ? new Date(row.created_at).getTime() : null,
-      modelOverride: row.model_override ?? null,
       rootPath: row.root_path ?? null
     }))
-  }
-
-  setPaneModelOverride(paneId: string, modelId: string | null): Workspace {
-    const exists = this.db.prepare('SELECT workspace_id FROM panes WHERE id = ?').get(paneId) as { workspace_id: string } | undefined
-    if (!exists) throw new Error(`Pane ${paneId} not found`)
-    this.db.prepare("UPDATE panes SET model_override = ?, updated_at = datetime('now') WHERE id = ?").run(modelId, paneId)
-    const workspace = this.get(exists.workspace_id)
-    if (!workspace) throw new Error('Workspace not found after model override update')
-    return workspace
   }
 
   setPaneAgent(paneId: string, agentProfileId: string | null, agentName: string | null): Workspace {

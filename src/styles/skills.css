@@ -1,0 +1,557 @@
+/* ─── Skills browser ───────────────────────────────────────────────────── */
+
+.skills-browser-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 145;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 80px;
+  background: radial-gradient(ellipse at top, rgba(110, 235, 212, 0.04) 0%, rgba(0, 0, 0, 0.62) 60%);
+  backdrop-filter: blur(8px);
+  animation: model-selector-fade 140ms ease-out;
+}
+
+.skills-browser {
+  width: min(720px, calc(100vw - 48px));
+  max-height: min(720px, calc(100vh - 140px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(18, 199, 154, 0.22);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(14, 31, 48, 0.97) 0%, rgba(7, 15, 26, 0.98) 100%);
+  box-shadow:
+    0 28px 80px rgba(0, 0, 0, 0.78),
+    0 0 0 1px rgba(18, 199, 154, 0.08),
+    0 0 28px rgba(18, 199, 154, 0.10) inset;
+  animation: slash-overlay-pop 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.skills-browser-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.skills-browser-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #6EEBD4;
+}
+
+.skills-browser-title strong { color: var(--tx-primary); font-size: 14px; font-weight: 700; }
+
+.skills-browser-count {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(18, 199, 154, 0.10);
+  color: #6EEBD4;
+  font-size: 10.5px;
+  font-weight: 700;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+}
+
+.skills-browser-actions { display: inline-flex; align-items: center; gap: 4px; }
+
+.skills-browser-search {
+  padding: 10px 16px 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.skills-browser-search input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--tx-primary);
+  font-size: 12.5px;
+  outline: none;
+  transition: border-color 100ms;
+}
+
+.skills-browser-search input:focus { border-color: rgba(18, 199, 154, 0.55); }
+
+.skills-browser-error {
+  padding: 9px 16px;
+  background: rgba(244, 91, 105, 0.10);
+  color: #FFB1B8;
+  font-size: 11.5px;
+  border-bottom: 1px solid rgba(244, 91, 105, 0.20);
+}
+
+.skills-browser-notice {
+  padding: 8px 16px;
+  background: rgba(18, 199, 154, 0.08);
+  color: #6EEBD4;
+  font-size: 11.5px;
+  border-bottom: 1px solid rgba(18, 199, 154, 0.16);
+}
+
+.skills-browser-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+}
+
+.skills-section-label {
+  padding: 8px 6px 4px;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.skill-row {
+  display: flex;
+  align-items: stretch;
+  margin-bottom: 5px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.02);
+  transition: border-color 80ms, background 80ms;
+}
+
+.skill-row:hover { background: rgba(18, 199, 154, 0.04); border-color: rgba(18, 199, 154, 0.18); }
+
+.skill-row.source-workspace {
+  border-color: rgba(255, 200, 100, 0.20);
+  background: rgba(255, 200, 100, 0.04);
+}
+
+.skill-row-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+
+.skill-row-title { display: inline-flex; align-items: center; gap: 6px; color: var(--tx-primary); }
+
+.skill-row-title strong {
+  color: #6EEBD4;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+}
+
+.source-workspace .skill-row-title strong { color: #FFE082; }
+
+.skill-row-category {
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.skill-row-description { color: var(--tx-secondary); font-size: 12px; line-height: 1.4; }
+
+.skill-row-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--tx-muted);
+  font-size: 10.5px;
+}
+
+.skill-row-agents {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+}
+
+.skill-row-path {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skill-row-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  margin-top: 7px;
+}
+
+.skill-row-controls input {
+  min-width: 0;
+  height: 28px;
+  padding: 0 9px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.24);
+  color: var(--tx-primary);
+  font-size: 11.5px;
+  outline: none;
+}
+
+.skill-row-controls input:focus {
+  border-color: rgba(18, 199, 154, 0.52);
+}
+
+.skill-row-buttons {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.skill-row-buttons .primary-btn,
+.skill-row-buttons .ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.skill-row-buttons .primary-btn {
+  border: 0;
+  background: #12C79A;
+  color: #061a14;
+}
+
+.skill-row-buttons .ghost-btn {
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--tx-secondary);
+}
+
+.skill-row-buttons button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+@media (max-width: 720px) {
+  .skill-row-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .skill-row-buttons {
+    justify-content: flex-end;
+  }
+}
+
+.skills-browser-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 38px 24px;
+  text-align: center;
+  color: var(--tx-muted);
+}
+
+.skills-browser-empty svg { opacity: 0.45; margin-bottom: 4px; }
+.skills-browser-empty strong { color: var(--tx-primary); font-size: 13px; }
+
+.skills-browser-empty span {
+  font-size: 11.5px;
+  line-height: 1.5;
+  max-width: 420px;
+}
+
+.skills-browser-empty code {
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(18, 199, 154, 0.10);
+  color: #6EEBD4;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 10.5px;
+}
+
+.skills-browser-example {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid rgba(18, 199, 154, 0.15);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.32);
+  color: var(--tx-secondary);
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 10.5px;
+  line-height: 1.6;
+  text-align: left;
+  white-space: pre;
+  max-width: 500px;
+}
+
+.skills-browser-footer {
+  padding: 9px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(0, 0, 0, 0.20);
+  color: rgba(255, 255, 255, 0.40);
+  font-size: 10.5px;
+}
+
+.skills-browser-footer kbd {
+  padding: 1px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--tx-secondary);
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 10px;
+}
+
+/* ─── Background jobs panel (full view) ────────────────────────────────── */
+
+.bg-jobs-panel-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 145;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 80px;
+  background: radial-gradient(ellipse at top, rgba(255, 200, 100, 0.04) 0%, rgba(0, 0, 0, 0.62) 60%);
+  backdrop-filter: blur(8px);
+  animation: model-selector-fade 140ms ease-out;
+}
+
+.bg-jobs-panel {
+  width: min(720px, calc(100vw - 48px));
+  max-height: min(720px, calc(100vh - 140px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(255, 200, 100, 0.22);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(36, 28, 14, 0.97) 0%, rgba(16, 12, 6, 0.98) 100%);
+  box-shadow:
+    0 28px 80px rgba(0, 0, 0, 0.78),
+    0 0 0 1px rgba(255, 200, 100, 0.08),
+    0 0 28px rgba(255, 200, 100, 0.10) inset;
+  animation: slash-overlay-pop 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.bg-jobs-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.bg-jobs-panel-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #FFE082;
+}
+
+.bg-jobs-panel-title strong { color: var(--tx-primary); font-size: 14px; font-weight: 700; }
+
+.bg-jobs-panel-count {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 200, 100, 0.10);
+  color: #FFE082;
+  font-size: 10.5px;
+  font-weight: 700;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+}
+
+.bg-jobs-panel-actions { display: inline-flex; align-items: center; gap: 4px; }
+
+.bg-jobs-panel-filters {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.bg-jobs-panel-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--tx-muted);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 100ms;
+}
+
+.bg-jobs-panel-filter:hover { color: var(--tx-primary); border-color: rgba(255, 200, 100, 0.18); }
+
+.bg-jobs-panel-filter.active {
+  color: #FFE082;
+  border-color: rgba(255, 200, 100, 0.45);
+  background: rgba(255, 200, 100, 0.08);
+}
+
+.bg-jobs-panel-filter-count {
+  padding: 0 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 9.5px;
+  font-weight: 700;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+}
+
+.bg-jobs-panel-filter.active .bg-jobs-panel-filter-count {
+  background: rgba(255, 200, 100, 0.18);
+  color: #FFE082;
+}
+
+.bg-jobs-panel-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bg-jobs-panel-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 42px 24px;
+  text-align: center;
+  color: var(--tx-muted);
+}
+
+.bg-jobs-panel-empty svg { opacity: 0.42; margin-bottom: 4px; }
+.bg-jobs-panel-empty strong { color: var(--tx-primary); font-size: 13px; }
+.bg-jobs-panel-empty span { font-size: 11.5px; line-height: 1.5; max-width: 380px; }
+.bg-jobs-panel-empty kbd {
+  padding: 1px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 10px;
+}
+
+.bg-jobs-panel-empty code {
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(255, 200, 100, 0.10);
+  color: #FFE082;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 10.5px;
+}
+
+.bg-jobs-panel-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.bg-jobs-panel-card.status-running { border-color: rgba(255, 200, 100, 0.22); background: rgba(255, 200, 100, 0.04); }
+.bg-jobs-panel-card.status-exited { border-color: rgba(18, 199, 154, 0.16); }
+.bg-jobs-panel-card.status-failed { border-color: rgba(244, 91, 105, 0.22); background: rgba(244, 91, 105, 0.04); }
+
+.bg-jobs-panel-card-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+
+.bg-jobs-panel-card-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--tx-primary);
+}
+
+.bg-jobs-panel-card-row strong {
+  color: var(--tx-primary);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.bg-jobs-panel-card-elapsed {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--tx-secondary);
+  font-size: 10.5px;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+}
+
+.bg-jobs-panel-card-exit {
+  color: var(--tx-muted);
+  font-size: 10.5px;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+}
+
+.bg-jobs-panel-card-cmd {
+  color: var(--tx-secondary);
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bg-jobs-panel-card-cwd {
+  color: var(--tx-muted);
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bg-jobs-panel-stop {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border: 1px solid rgba(244, 91, 105, 0.22);
+  border-radius: 6px;
+  background: transparent;
+  color: #FFB1B8;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 100ms;
+}
+
+.bg-jobs-panel-stop:hover {
+  background: rgba(244, 91, 105, 0.12);
+  border-color: rgba(244, 91, 105, 0.55);
+}
+
+.bg-jobs-panel-footer {
+  padding: 9px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(0, 0, 0, 0.20);
+  color: rgba(255, 255, 255, 0.40);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.bg-jobs-panel-footer code {
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(255, 200, 100, 0.10);
+  color: #FFE082;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 10px;
+}

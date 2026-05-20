@@ -40,6 +40,7 @@ export function AgentConfigModal({
   const [isSubmitting, setSubmitting] = useState(false)
   const [isDeleting, setDeleting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault()
@@ -90,7 +91,10 @@ export function AgentConfigModal({
   }
 
   const handleDelete = async (): Promise<void> => {
-    if (!confirm(`Delete agent profile "${profile.name}"?`)) return
+    if (!confirmDelete) {
+      setConfirmDelete(true)
+      return
+    }
     setDeleting(true)
     try {
       await onDelete(profile.agentProfileId)
@@ -192,6 +196,7 @@ export function AgentConfigModal({
 
           {!profile.isBuiltin && !isNew ? (
             <div className="danger-zone">
+              {confirmDelete ? <div className="modal-error">Click Delete profile again to remove "{profile.name}".</div> : null}
               <button
                 type="button"
                 className="danger-action"

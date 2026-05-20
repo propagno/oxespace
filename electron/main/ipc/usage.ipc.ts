@@ -3,7 +3,7 @@ import { UsageService } from '../services/usage.service'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { AgentProvider } from '../../../shared/types/agent'
 
-const VALID_PROVIDERS: AgentProvider[] = ['claude', 'copilot', 'gh-copilot', 'codex', 'gemini', 'cursor', 'oxe', 'custom']
+const VALID_PROVIDERS: AgentProvider[] = ['claude', 'copilot', 'gh-copilot', 'codex', 'gemini', 'cursor', 'custom']
 
 export function registerUsageIpc(service = new UsageService()): UsageService {
   ipcMain.handle(IPC_CHANNELS.usage.getContextUsage, (_event, input: unknown) => {

@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
 import type { AgentProfile } from '../../shared/types/agent'
@@ -24,7 +24,7 @@ const mockShellProfiles: ShellProfile[] = [
   { id: 'sh-1', name: 'PowerShell', executable: 'pwsh', args: [], isBuiltin: true }
 ]
 
-function renderWizard(overrides?: Partial<Parameters<typeof NewWorkspaceModal>[0]>) {
+function renderModal(overrides?: Partial<Parameters<typeof NewWorkspaceModal>[0]>) {
   const onLaunch = vi.fn().mockResolvedValue(undefined)
   const onPickFolder = vi.fn().mockResolvedValue(null)
   const onClose = vi.fn()
@@ -41,159 +41,85 @@ function renderWizard(overrides?: Partial<Parameters<typeof NewWorkspaceModal>[0
   return { onLaunch, onPickFolder, onClose }
 }
 
-describe('NewWorkspaceModal wizard', () => {
-  test('A1: renders modal with 2 step dots; CANCEL closes modal', async () => {
+// Onda 3 redesigned this modal from a 2-step wizard into a single-page form.
+// All the steps fit on one screen now: folder picker → layout cards → agent
+// chips → Create button. There is no "Configure Agents" advance button and no
+// step indicator anymore.
+describe('NewWorkspaceModal (single-page)', () => {
+  test('renders title and Cancel button closes', async () => {
     const user = userEvent.setup()
-    const { onClose } = renderWizard()
+    const { onClose } = renderModal()
 
-    const dots = screen.getAllByLabelText(/Step \d/)
-    expect(dots).toHaveLength(2)
-
+    expect(screen.getByRole('heading', { name: /Create new workspace/i })).toBeInTheDocument()
     await user.click(screen.getByText('Cancel'))
     expect(onClose).toHaveBeenCalledOnce()
   })
 
-  test('A6: CONFIGURE AGENTS disabled without rootPath; enabled with rootPath; advances to step 2', async () => {
+  test('Create button is disabled without a folder and enables once typed', async () => {
     const user = userEvent.setup()
-    renderWizard()
+    renderModal()
 
-    const configBtn = screen.getByTestId('wizard-configure-agents-btn')
-    expect(configBtn).toBeDisabled()
+    const launchBtn = screen.getByTestId('wizard-launch-btn')
+    expect(launchBtn).toBeDisabled()
 
-    const dirInput = screen.getByTestId('wizard-dir-input')
-    await user.type(dirInput, 'C:/projects/repo')
-    expect(configBtn).not.toBeDisabled()
-
-    await user.click(configBtn)
-    expect(screen.getByTestId('wizard-launch-btn')).toBeInTheDocument()
+    await user.type(screen.getByTestId('wizard-dir-input'), 'C:/projects/repo')
+    expect(launchBtn).not.toBeDisabled()
   })
 
-  test('A7: title shows correct N terminal sessions', async () => {
-    const user = userEvent.setup()
-    renderWizard()
-
-    await user.click(screen.getByTestId('wizard-layout-card-6'))
-    const dirInput = screen.getByTestId('wizard-dir-input')
-    await user.type(dirInput, 'C:/repo')
-    await user.click(screen.getByTestId('wizard-configure-agents-btn'))
-
-    expect(screen.getByText(/6 terminal sessions/i)).toBeInTheDocument()
-  })
-
-  test('A8: counter − does not go below 0; + increments', async () => {
-    const user = userEvent.setup()
-    renderWizard()
-
-    const dirInput = screen.getByTestId('wizard-dir-input')
-    await user.type(dirInput, 'C:/repo')
-    await user.click(screen.getByTestId('wizard-configure-agents-btn'))
-
-    const decBtn = screen.getByTestId('agent-dec-p-claude')
-    const countEl = screen.getByTestId('agent-count-p-claude')
-    const incBtn = screen.getByTestId('agent-inc-p-claude')
-
-    expect(countEl).toHaveTextContent('0')
-    expect(decBtn).toBeDisabled()
-
-    await user.click(incBtn)
-    expect(countEl).toHaveTextContent('1')
-
-    await user.click(decBtn)
-    expect(countEl).toHaveTextContent('0')
-    expect(decBtn).toBeDisabled()
-  })
-
-  test('A9: SELECT ALL fills first agent; FILL EVENLY distributes; 1 EACH = 1 per agent; CLEAR zeros', async () => {
-    const user = userEvent.setup()
-    renderWizard()
-
-    const dirInput = screen.getByTestId('wizard-dir-input')
-    await user.type(dirInput, 'C:/repo')
-    await user.click(screen.getByTestId('wizard-layout-card-6'))
-    await user.click(screen.getByTestId('wizard-configure-agents-btn'))
-
-    const fleetCount = screen.getByTestId('fleet-count')
-
-    await user.click(screen.getByText('Select All'))
-    expect(fleetCount).toHaveTextContent('6')
-
-    await user.click(screen.getByText('Clear'))
-    expect(fleetCount).toHaveTextContent('0')
-
-    await user.click(screen.getByText('Fill Evenly'))
-    expect(fleetCount).toHaveTextContent('6')
-
-    await user.click(screen.getByText('Clear'))
-    await user.click(screen.getByText('1 Each'))
-    expect(fleetCount).toHaveTextContent('5')
-  })
-
-  test('A10: fleet count updates; shows "No agents selected" when 0', async () => {
-    const user = userEvent.setup()
-    renderWizard()
-
-    const dirInput = screen.getByTestId('wizard-dir-input')
-    await user.type(dirInput, 'C:/repo')
-    await user.click(screen.getByTestId('wizard-configure-agents-btn'))
-
-    expect(screen.getByTestId('fleet-status')).toHaveTextContent('No agents selected')
-
-    await user.click(screen.getByTestId('agent-inc-p-claude'))
-    expect(screen.getByTestId('fleet-count')).toHaveTextContent('1')
-    expect(screen.getByTestId('fleet-status')).not.toHaveTextContent('No agents selected')
-  })
-
-  test('A13: BACK from step 2 preserves rootPath and layout selection', async () => {
-    const user = userEvent.setup()
-    renderWizard()
-
-    const dirInput = screen.getByTestId('wizard-dir-input')
-    await user.type(dirInput, 'C:/my/project')
-    await user.click(screen.getByTestId('wizard-layout-card-8'))
-    await user.click(screen.getByTestId('wizard-configure-agents-btn'))
-
-    await user.click(screen.getByTestId('wizard-back-btn'))
-
-    expect(screen.getByTestId('wizard-dir-input')).toHaveValue('C:/my/project')
-    expect(screen.getByTestId('wizard-layout-card-8')).toHaveClass('active')
-  })
-
-  test('Browse folder fills rootPath and enables CONFIGURE AGENTS', async () => {
+  test('Browse delegates to onPickFolder and fills the input', async () => {
     const user = userEvent.setup()
     const onPickFolder = vi.fn().mockResolvedValue('C:/selected/path')
-    renderWizard({ onPickFolder })
+    renderModal({ onPickFolder })
 
     await user.click(screen.getByText('Browse'))
     expect(onPickFolder).toHaveBeenCalled()
     expect(screen.getByTestId('wizard-dir-input')).toHaveValue('C:/selected/path')
-    expect(screen.getByTestId('wizard-configure-agents-btn')).not.toBeDisabled()
+    expect(screen.getByTestId('wizard-launch-btn')).not.toBeDisabled()
   })
 
-  test('terminal GO input updates rootPath', async () => {
+  test('agent chip + and − increment/decrement count and the chip toggles selected state', async () => {
     const user = userEvent.setup()
-    renderWizard()
+    renderModal()
+    await user.type(screen.getByTestId('wizard-dir-input'), 'C:/repo')
 
-    const termInput = screen.getByTestId('wizard-terminal-input')
-    await user.type(termInput, 'C:/terminal/path')
-    await user.click(screen.getByText('GO'))
+    // First click on the chip body adds the first slot — the +/− stepper then renders.
+    await user.click(screen.getByLabelText('Add Claude'))
+    expect(screen.getByTestId('agent-count-p-claude')).toHaveTextContent('1')
 
-    expect(screen.getByTestId('wizard-dir-input')).toHaveValue('C:/terminal/path')
-    expect(screen.getByTestId('wizard-configure-agents-btn')).not.toBeDisabled()
+    // Increment again via stepper +.
+    await user.click(screen.getByTestId('agent-inc-p-claude'))
+    expect(screen.getByTestId('agent-count-p-claude')).toHaveTextContent('2')
+
+    // Decrement back to 0 — the stepper disappears since the chip un-selects.
+    await user.click(screen.getByTestId('agent-dec-p-claude'))
+    await user.click(screen.getByTestId('agent-dec-p-claude'))
+    expect(screen.queryByTestId('agent-count-p-claude')).not.toBeInTheDocument()
   })
 
-  test('LAUNCH calls onLaunch with correct agentSlots', async () => {
+  test('chip is disabled when all slots are filled', async () => {
+    const user = userEvent.setup()
+    renderModal()
+    await user.type(screen.getByTestId('wizard-dir-input'), 'C:/repo')
+    await user.click(screen.getByTestId('wizard-layout-card-2'))
+
+    await user.click(screen.getByLabelText('Add Claude'))
+    await user.click(screen.getByLabelText('Add another Claude'))
+    expect(screen.getByTestId('agent-count-p-claude')).toHaveTextContent('2')
+
+    // Slot total now equals layout (2) — other agents can't be added.
+    expect(screen.getByLabelText('Add Codex')).toBeDisabled()
+  })
+
+  test('Create dispatches onLaunch with correct agentSlots', async () => {
     const user = userEvent.setup()
     const onLaunch = vi.fn().mockResolvedValue(undefined)
-    renderWizard({ onLaunch })
+    renderModal({ onLaunch })
 
-    const dirInput = screen.getByTestId('wizard-dir-input')
-    await user.type(dirInput, 'C:/repo')
+    await user.type(screen.getByTestId('wizard-dir-input'), 'C:/repo')
     await user.click(screen.getByTestId('wizard-layout-card-4'))
-    await user.click(screen.getByTestId('wizard-configure-agents-btn'))
-
+    await user.click(screen.getByLabelText('Add Claude'))
     await user.click(screen.getByTestId('agent-inc-p-claude'))
-    await user.click(screen.getByTestId('agent-inc-p-claude'))
-    await user.click(screen.getByTestId('agent-inc-p-gemini'))
+    await user.click(screen.getByLabelText('Add Gemini'))
 
     await user.click(screen.getByTestId('wizard-launch-btn'))
 
@@ -202,6 +128,19 @@ describe('NewWorkspaceModal wizard', () => {
       layoutPreset: 4,
       agentSlots: expect.arrayContaining(['claude', 'gemini'])
     }))
+  })
+
+  test('Clear selection wipes agent counts', async () => {
+    const user = userEvent.setup()
+    renderModal()
+    await user.type(screen.getByTestId('wizard-dir-input'), 'C:/repo')
+
+    await user.click(screen.getByLabelText('Add Claude'))
+    await user.click(screen.getByLabelText('Add Gemini'))
+    expect(screen.getByText(/2\/4 slots/)).toBeInTheDocument()
+
+    await user.click(screen.getByText('Clear selection'))
+    expect(screen.queryByTestId('agent-count-p-claude')).not.toBeInTheDocument()
   })
 })
 

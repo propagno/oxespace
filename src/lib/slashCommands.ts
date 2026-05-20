@@ -33,13 +33,6 @@ export const SLASH_COMMANDS: SlashCommandDefinition[] = [
     description: 'Encerra o processo em execução neste pane.'
   },
   {
-    id: 'model',
-    label: '/model',
-    hint: 'Trocar modelo',
-    description: 'Abre o seletor de modelo de IA para este pane.',
-    requiresArgument: false
-  },
-  {
     id: 'agent',
     label: '/agent',
     hint: 'Trocar agente',
@@ -56,6 +49,26 @@ export const SLASH_COMMANDS: SlashCommandDefinition[] = [
     argumentPlaceholder: 'novo nome'
   },
   {
+    id: 'bg',
+    label: '/bg',
+    hint: 'Background',
+    description: 'Executa um comando em background (build, test, watch) sem ocupar o pane.',
+    requiresArgument: true,
+    argumentPlaceholder: 'npm run build'
+  },
+  {
+    id: 'worktree',
+    label: '/worktree',
+    hint: 'Worktrees',
+    description: 'Abre o seletor de git worktrees para este pane.'
+  },
+  {
+    id: 'mcp',
+    label: '/mcp',
+    hint: 'MCP servers',
+    description: 'Gerencia servidores Model Context Protocol (Anthropic).'
+  },
+  {
     id: 'help',
     label: '/help',
     hint: 'Ajuda',
@@ -63,16 +76,34 @@ export const SLASH_COMMANDS: SlashCommandDefinition[] = [
   }
 ]
 
-export function findSlashCommand(query: string): SlashCommandDefinition | null {
+import type { SkillDefinition } from '../../shared/types/skill'
+
+export function findSlashCommand(query: string, skills: SkillDefinition[] = []): SlashCommandDefinition | null {
   const normalized = query.trim().replace(/^\//, '').toLowerCase()
   if (!normalized) return null
-  return SLASH_COMMANDS.find((cmd) => cmd.id === normalized) ?? null
+  const builtIn = SLASH_COMMANDS.find((cmd) => cmd.id === normalized)
+  if (builtIn) return builtIn
+  const skill = skills.find((s) => s.name.toLowerCase() === normalized)
+  return skill ? skillToCommand(skill) : null
 }
 
-export function filterSlashCommands(query: string): SlashCommandDefinition[] {
+export function filterSlashCommands(query: string, skills: SkillDefinition[] = []): SlashCommandDefinition[] {
+  const merged = [...SLASH_COMMANDS, ...skills.filter((s) => !s.hidden).map(skillToCommand)]
   const normalized = query.trim().replace(/^\//, '').toLowerCase()
-  if (!normalized) return SLASH_COMMANDS
-  return SLASH_COMMANDS.filter((cmd) =>
-    cmd.id.startsWith(normalized) || cmd.label.toLowerCase().includes(normalized) || cmd.description.toLowerCase().includes(normalized)
+  if (!normalized) return merged
+  return merged.filter((cmd) =>
+    String(cmd.id).startsWith(normalized) || cmd.label.toLowerCase().includes(normalized) || cmd.description.toLowerCase().includes(normalized)
   )
+}
+
+function skillToCommand(skill: SkillDefinition): SlashCommandDefinition {
+  return {
+    id: skill.name,
+    label: `/${skill.name}`,
+    hint: skill.source === 'workspace' ? 'Skill (workspace)' : 'Skill',
+    description: skill.description || '(sem descrição)',
+    requiresArgument: skill.body.includes('{{argument}}'),
+    argumentPlaceholder: 'argumento opcional',
+    skillName: skill.name
+  }
 }

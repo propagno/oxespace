@@ -63,6 +63,30 @@ describe('App editor close guard', () => {
         getReadiness: vi.fn().mockResolvedValue([])
       },
       tasks: {} as never,
+      background: {
+        list: vi.fn().mockResolvedValue([]),
+        start: vi.fn(),
+        stop: vi.fn(),
+        getOutput: vi.fn(),
+        onOutput: vi.fn(() => vi.fn()),
+        onUpdate: vi.fn(() => vi.fn())
+      },
+      mcp: {
+        list: vi.fn().mockResolvedValue([]),
+        create: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+        start: vi.fn(),
+        stop: vi.fn(),
+        callTool: vi.fn(),
+        onHealth: vi.fn(() => vi.fn())
+      },
+      skill: {
+        list: vi.fn().mockResolvedValue([]),
+        get: vi.fn(),
+        invoke: vi.fn(),
+        onChange: vi.fn(() => vi.fn())
+      },
       fs: {
         listTree: vi.fn(),
         readFile: vi.fn(),
@@ -100,31 +124,33 @@ describe('App editor close guard', () => {
 
   test('closing a terminal pane does not prompt for a workspace editor dirty file', async () => {
     const user = userEvent.setup()
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
 
     render(<App />)
     await user.click(await screen.findByRole('button', { name: 'close terminal pane' }))
 
-    expect(confirm).not.toHaveBeenCalled()
     expect(window.oxe.workspace.closePane).toHaveBeenCalledWith('pane-1')
     expect(useEditorStore.getState().files['workspace-1']).toBeDefined()
   })
 
-  test('cancel keeps a dirty workspace editor open when closing workspace', async () => {
+  test('dirty workspace close is blocked inline without native confirm', async () => {
     const user = userEvent.setup()
-    vi.spyOn(window, 'confirm').mockReturnValue(false)
 
     render(<App />)
     await user.click(await screen.findByRole('button', { name: 'close workspace' }))
 
-    expect(window.confirm).toHaveBeenCalledWith('Discard unsaved editor changes?')
+    expect(await screen.findByText(/unsaved editor changes/i)).toBeInTheDocument()
     expect(window.oxe.workspace.delete).not.toHaveBeenCalled()
     expect(useEditorStore.getState().files['workspace-1']).toBeDefined()
   })
 
-  test('confirm closes workspace and clears dirty editor state', async () => {
+  test('closes workspace and clears clean editor state', async () => {
     const user = userEvent.setup()
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    useEditorStore.setState((state) => ({
+      files: {
+        ...state.files,
+        'workspace-1': state.files['workspace-1'] ? { ...state.files['workspace-1'], content: 'dirty', lastSavedContent: 'dirty' } : null
+      }
+    }))
 
     render(<App />)
     await user.click(await screen.findByRole('button', { name: 'close workspace' }))

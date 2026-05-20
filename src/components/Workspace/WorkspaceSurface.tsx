@@ -1,12 +1,13 @@
-import { Fragment, useEffect, useRef, type ReactElement } from 'react'
+import { Fragment, useEffect, useRef, useState, type ReactElement } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from 'react-resizable-panels'
-import type { UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, Workspace } from '../../../shared/types/workspace'
+import type { UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, Workspace } from '../../../shared/types/workspace'
 import { WorkspaceGrid } from '../Grid/WorkspaceGrid'
-import { WorkspaceAgentsPanel } from './WorkspaceAgentsPanel'
+import { WorkspaceBackgroundPanel } from './WorkspaceBackgroundPanel'
 import { WorkspaceEditorPanel } from './WorkspaceEditorPanel'
 import { WorkspaceGitHubPanel } from './WorkspaceGitHubPanel'
-import { WorkspaceOxePanel } from './WorkspaceOxePanel'
 import { WorkspaceReviewPanel } from './WorkspaceReviewPanel'
+import { WorkspaceScriptsPanel } from './WorkspaceScriptsPanel'
+import { WorkspaceWebPreviewPanel } from './WorkspaceWebPreviewPanel'
 import { ToolsMenu } from './ToolsMenu'
 
 interface WorkspaceSurfaceProps {
@@ -18,37 +19,32 @@ interface WorkspaceSurfaceProps {
   onActivatePane?: (paneId: string) => void
   onOpenCommandPalette: () => void
   onOpenWorkspaceSettings: () => void
+  onOpenHistory: () => void
+  onOpenMcp: () => void
+  onOpenSkills: () => void
+  onOpenScripts: () => void
+  onOpenWebPreview: () => void
+  scriptsVisible: boolean
+  webPreviewVisible: boolean
+  onCloseScripts: () => void
+  onCloseWebPreview: () => void
   onUpdateEditorState: (input: {
     workspaceId: string
     editorVisible?: boolean
     editorExpanded?: boolean
     editorWidthPercent?: number
   }) => void
-  onUpdateOxeState: (input: {
-    workspaceId: string
-    oxePanelVisible?: boolean
-    oxePanelExpanded?: boolean
-    oxePanelWidthPercent?: number
-  }) => void
-  onUpdateAgentsState: (input: {
-    workspaceId: string
-    agentsPanelVisible?: boolean
-    agentsPanelExpanded?: boolean
-    agentsPanelWidthPercent?: number
-  }) => void
   onUpdateReviewState: (input: UpdateWorkspaceReviewStateInput) => void
   onUpdateGitHubState: (input: UpdateWorkspaceGitHubStateInput) => void
-  onOpenOxeArtifact: (relativePath: string) => void
+  onUpdateBackgroundState: (input: UpdateWorkspaceBackgroundStateInput) => void
   onRunCommand: (command: string) => void
-  onOpenWorkflowArtifact: (content: string, title: string) => void
   activePaneId: string | null
 }
 
 const DEFAULT_EDITOR_WIDTH = 40
-const DEFAULT_OXE_WIDTH = 36
-const DEFAULT_AGENTS_WIDTH = 36
 const DEFAULT_REVIEW_WIDTH = 36
 const DEFAULT_GITHUB_WIDTH = 40
+const DEFAULT_BACKGROUND_WIDTH = 36
 const INNER_MIN_SIZE = 10
 
 interface SidePanelEntry {
@@ -64,25 +60,30 @@ export function WorkspaceSurface({
   onActivatePane,
   activePaneId,
   onOpenCommandPalette,
-  onOpenOxeArtifact,
-  onOpenWorkflowArtifact,
   onOpenWorkspaceSettings,
+  onOpenHistory,
+  onOpenMcp,
+  onOpenSkills,
+  onOpenScripts,
+  onOpenWebPreview,
+  scriptsVisible,
+  webPreviewVisible,
+  onCloseScripts,
+  onCloseWebPreview,
   onRunCommand,
   onSplitPane,
   onToggleMaximize,
   onUpdateEditorState,
-  onUpdateAgentsState,
   onUpdateGitHubState,
-  onUpdateOxeState,
   onUpdateReviewState,
+  onUpdateBackgroundState,
   workspace
 }: WorkspaceSurfaceProps): ReactElement {
 
   const lastPersistedWidth = useRef(workspace.editorWidthPercent ?? DEFAULT_EDITOR_WIDTH)
-  const lastPersistedOxeWidth = useRef(workspace.oxePanelWidthPercent ?? DEFAULT_OXE_WIDTH)
-  const lastPersistedAgentsWidth = useRef(workspace.agentsPanelWidthPercent ?? DEFAULT_AGENTS_WIDTH)
   const lastPersistedReviewWidth = useRef(workspace.reviewPanelWidthPercent ?? DEFAULT_REVIEW_WIDTH)
   const lastPersistedGitHubWidth = useRef(workspace.githubPanelWidthPercent ?? DEFAULT_GITHUB_WIDTH)
+  const lastPersistedBackgroundWidth = useRef(workspace.backgroundPanelWidthPercent ?? DEFAULT_BACKGROUND_WIDTH)
 
   // Outer "sides" panel — tracks actual rendered size for inner % ↔ total % conversion
   const outerSidePanelRef = useRef<ImperativePanelHandle>(null)
@@ -91,32 +92,35 @@ export function WorkspaceSurface({
   const editorVisible = workspace.editorVisible === true
   const editorExpanded = workspace.editorExpanded === true
   const editorWidth = editorExpanded ? 70 : workspace.editorWidthPercent ?? DEFAULT_EDITOR_WIDTH
-  const oxeVisible = workspace.oxePanelVisible === true
-  const oxeExpanded = workspace.oxePanelExpanded === true
-  const oxeWidth = oxeExpanded ? 70 : workspace.oxePanelWidthPercent ?? DEFAULT_OXE_WIDTH
-  const agentsVisible = workspace.agentsPanelVisible === true
-  const agentsExpanded = workspace.agentsPanelExpanded === true
-  const agentsWidth = agentsExpanded ? 70 : workspace.agentsPanelWidthPercent ?? DEFAULT_AGENTS_WIDTH
   const reviewVisible = workspace.reviewPanelVisible === true
   const reviewExpanded = workspace.reviewPanelExpanded === true
   const reviewWidth = reviewExpanded ? 70 : workspace.reviewPanelWidthPercent ?? DEFAULT_REVIEW_WIDTH
   const githubVisible = workspace.githubPanelVisible === true
   const githubExpanded = workspace.githubPanelExpanded === true
   const githubWidth = githubExpanded ? 70 : workspace.githubPanelWidthPercent ?? DEFAULT_GITHUB_WIDTH
+  const backgroundVisible = workspace.backgroundPanelVisible === true
+  const backgroundExpanded = workspace.backgroundPanelExpanded === true
+  const backgroundWidth = backgroundExpanded ? 70 : workspace.backgroundPanelWidthPercent ?? DEFAULT_BACKGROUND_WIDTH
+  const [scriptsExpanded, setScriptsExpanded] = useState(false)
+  const [webPreviewExpanded, setWebPreviewExpanded] = useState(false)
+  const scriptsWidth = scriptsExpanded ? 70 : DEFAULT_GITHUB_WIDTH
+  const webPreviewWidth = webPreviewExpanded ? 70 : DEFAULT_GITHUB_WIDTH
 
-  const hasSidePanels = editorVisible || oxeVisible || agentsVisible || reviewVisible || githubVisible
+  const hasSidePanels = editorVisible || reviewVisible || githubVisible || backgroundVisible || scriptsVisible || webPreviewVisible
 
   const layoutSizes = getWorkspacePanelSizes({
     editorVisible,
     editorWidth,
-    agentsVisible,
-    agentsWidth,
     githubVisible,
     githubWidth,
-    oxeVisible,
-    oxeWidth,
     reviewVisible,
-    reviewWidth
+    reviewWidth,
+    backgroundVisible,
+    backgroundWidth,
+    scriptsVisible,
+    scriptsWidth,
+    webPreviewVisible,
+    webPreviewWidth
   })
 
   // Total width of all side panels combined (as % of workspace)
@@ -142,9 +146,10 @@ export function WorkspaceSurface({
     workspace.id,
     githubVisible ? 'gh' : '_', githubExpanded ? 'GH' : '_',
     reviewVisible ? 're' : '_', reviewExpanded ? 'RE' : '_',
-    agentsVisible ? 'ag' : '_', agentsExpanded ? 'AG' : '_',
     editorVisible ? 'ed' : '_', editorExpanded ? 'ED' : '_',
-    oxeVisible ? 'ox' : '_', oxeExpanded ? 'OX' : '_',
+    backgroundVisible ? 'bg' : '_', backgroundExpanded ? 'BG' : '_',
+    scriptsVisible ? 'sc' : '_',
+    webPreviewVisible ? 'wp' : '_',
   ].join('')
 
   // Convert a total-workspace percentage to a percentage of the combined side area
@@ -200,29 +205,6 @@ export function WorkspaceSurface({
     })
   }
 
-  if (agentsVisible) {
-    sidePanels.push({
-      id: 'agents',
-      defaultSize: toInnerPct(layoutSizes.agents),
-      onResize: (size) => {
-        const nextWidth = Math.round(size * outerSideSizeRef.current / 100)
-        if (Math.abs(nextWidth - lastPersistedAgentsWidth.current) < 2) return
-        lastPersistedAgentsWidth.current = nextWidth
-        onUpdateAgentsState({ workspaceId: workspace.id, agentsPanelWidthPercent: nextWidth, agentsPanelExpanded: nextWidth >= 68 })
-      },
-      content: (
-        <WorkspaceAgentsPanel
-          workspace={workspace}
-          activePaneId={activePaneId}
-          isExpanded={agentsExpanded}
-          onCollapse={() => onUpdateAgentsState({ workspaceId: workspace.id, agentsPanelVisible: false, agentsPanelExpanded: false })}
-          onToggleExpanded={() => onUpdateAgentsState({ workspaceId: workspace.id, agentsPanelExpanded: !agentsExpanded, agentsPanelWidthPercent: agentsExpanded ? DEFAULT_AGENTS_WIDTH : 70 })}
-          onOpenArtifact={onOpenWorkflowArtifact}
-        />
-      )
-    })
-  }
-
   if (editorVisible) {
     sidePanels.push({
       id: 'editor',
@@ -244,24 +226,56 @@ export function WorkspaceSurface({
     })
   }
 
-  if (oxeVisible) {
+  if (backgroundVisible) {
     sidePanels.push({
-      id: 'oxe',
-      defaultSize: toInnerPct(layoutSizes.oxe),
+      id: 'background',
+      defaultSize: toInnerPct(layoutSizes.background),
       onResize: (size) => {
         const nextWidth = Math.round(size * outerSideSizeRef.current / 100)
-        if (Math.abs(nextWidth - lastPersistedOxeWidth.current) < 2) return
-        lastPersistedOxeWidth.current = nextWidth
-        onUpdateOxeState({ workspaceId: workspace.id, oxePanelWidthPercent: nextWidth, oxePanelExpanded: nextWidth >= 68 })
+        if (Math.abs(nextWidth - lastPersistedBackgroundWidth.current) < 2) return
+        lastPersistedBackgroundWidth.current = nextWidth
+        onUpdateBackgroundState({ workspaceId: workspace.id, backgroundPanelWidthPercent: nextWidth, backgroundPanelExpanded: nextWidth >= 68 })
       },
       content: (
-        <WorkspaceOxePanel
+        <WorkspaceBackgroundPanel
           workspace={workspace}
-          isExpanded={oxeExpanded}
-          onCollapse={() => onUpdateOxeState({ workspaceId: workspace.id, oxePanelVisible: false, oxePanelExpanded: false })}
-          onToggleExpanded={() => onUpdateOxeState({ workspaceId: workspace.id, oxePanelExpanded: !oxeExpanded, oxePanelWidthPercent: oxeExpanded ? DEFAULT_OXE_WIDTH : 70 })}
-          onOpenArtifact={onOpenOxeArtifact}
-          onRunOxeCommand={onRunCommand}
+          isExpanded={backgroundExpanded}
+          onCollapse={() => onUpdateBackgroundState({ workspaceId: workspace.id, backgroundPanelVisible: false, backgroundPanelExpanded: false })}
+          onToggleExpanded={() => onUpdateBackgroundState({ workspaceId: workspace.id, backgroundPanelExpanded: !backgroundExpanded, backgroundPanelWidthPercent: backgroundExpanded ? DEFAULT_BACKGROUND_WIDTH : 70 })}
+        />
+      )
+    })
+  }
+
+  if (scriptsVisible) {
+    sidePanels.push({
+      id: 'scripts',
+      defaultSize: toInnerPct(layoutSizes.scripts),
+      onResize: () => undefined,
+      content: (
+        <WorkspaceScriptsPanel
+          workspace={workspace}
+          isExpanded={scriptsExpanded}
+          onCollapse={onCloseScripts}
+          onToggleExpanded={() => setScriptsExpanded((value) => !value)}
+          onOpenBackground={() => onUpdateBackgroundState({ workspaceId: workspace.id, backgroundPanelVisible: true, backgroundPanelExpanded: workspace.backgroundPanelExpanded ?? false })}
+        />
+      )
+    })
+  }
+
+  if (webPreviewVisible) {
+    sidePanels.push({
+      id: 'web-preview',
+      defaultSize: toInnerPct(layoutSizes.webPreview),
+      onResize: () => undefined,
+      content: (
+        <WorkspaceWebPreviewPanel
+          workspace={workspace}
+          isExpanded={webPreviewExpanded}
+          onCollapse={onCloseWebPreview}
+          onToggleExpanded={() => setWebPreviewExpanded((value) => !value)}
+          onRunCommand={onRunCommand}
         />
       )
     })
@@ -284,14 +298,18 @@ export function WorkspaceSurface({
       <div className="workspace-topbar-spacer" />
       <div className="workspace-toolbar-actions" aria-label="Workspace actions">
         <ToolsMenu
-          active={{ github: githubVisible, editor: editorVisible, oxe: oxeVisible, agents: agentsVisible, review: reviewVisible }}
+          active={{ github: githubVisible, editor: editorVisible, review: reviewVisible, background: backgroundVisible, scripts: scriptsVisible, webPreview: webPreviewVisible }}
           onOpenCommandPalette={onOpenCommandPalette}
           onOpenWorkspaceSettings={onOpenWorkspaceSettings}
-          onToggleAgents={() => onUpdateAgentsState({ workspaceId: workspace.id, agentsPanelVisible: !agentsVisible, agentsPanelExpanded: agentsVisible ? false : workspace.agentsPanelExpanded })}
           onToggleEditor={() => onUpdateEditorState({ workspaceId: workspace.id, editorVisible: !editorVisible, editorExpanded: editorVisible ? false : workspace.editorExpanded })}
           onToggleGitHub={() => onUpdateGitHubState({ workspaceId: workspace.id, githubPanelVisible: !githubVisible, githubPanelExpanded: githubVisible ? false : workspace.githubPanelExpanded })}
-          onToggleOxe={() => onUpdateOxeState({ workspaceId: workspace.id, oxePanelVisible: !oxeVisible, oxePanelExpanded: oxeVisible ? false : workspace.oxePanelExpanded })}
           onToggleReview={() => onUpdateReviewState({ workspaceId: workspace.id, reviewPanelVisible: !reviewVisible, reviewPanelExpanded: reviewVisible ? false : workspace.reviewPanelExpanded })}
+          onToggleBackground={() => onUpdateBackgroundState({ workspaceId: workspace.id, backgroundPanelVisible: !backgroundVisible, backgroundPanelExpanded: backgroundVisible ? false : workspace.backgroundPanelExpanded })}
+          onOpenScripts={onOpenScripts}
+          onOpenWebPreview={onOpenWebPreview}
+          onOpenHistory={onOpenHistory}
+          onOpenMcp={onOpenMcp}
+          onOpenSkills={onOpenSkills}
         />
       </div>
     </header>
@@ -362,59 +380,76 @@ export function WorkspaceSurface({
 interface WorkspacePanelSizeInput {
   editorVisible: boolean
   editorWidth: number
-  agentsVisible: boolean
-  agentsWidth: number
   githubVisible: boolean
   githubWidth: number
-  oxeVisible: boolean
-  oxeWidth: number
   reviewVisible: boolean
   reviewWidth: number
+  backgroundVisible: boolean
+  backgroundWidth: number
+  scriptsVisible: boolean
+  scriptsWidth: number
+  webPreviewVisible: boolean
+  webPreviewWidth: number
 }
 
-function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): { grid: number; gridMinSize: number; editor: number; agents: number; github: number; oxe: number; review: number } {
+interface WorkspacePanelSizeOutput {
+  grid: number
+  gridMinSize: number
+  editor: number
+  github: number
+  review: number
+  background: number
+  scripts: number
+  webPreview: number
+}
+
+function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelSizeOutput {
   const editor = input.editorVisible ? clampPanelSize(input.editorWidth, 25, 70) : 0
-  const agents = input.agentsVisible ? clampPanelSize(input.agentsWidth, 24, 70) : 0
   const github = input.githubVisible ? clampPanelSize(input.githubWidth, 25, 70) : 0
-  const oxe = input.oxeVisible ? clampPanelSize(input.oxeWidth, 24, 70) : 0
   const review = input.reviewVisible ? clampPanelSize(input.reviewWidth, 24, 70) : 0
-  const visibleSideCount = Number(input.editorVisible) + Number(input.agentsVisible) + Number(input.githubVisible) + Number(input.oxeVisible) + Number(input.reviewVisible)
+  const background = input.backgroundVisible ? clampPanelSize(input.backgroundWidth, 24, 70) : 0
+  const scripts = input.scriptsVisible ? clampPanelSize(input.scriptsWidth, 25, 70) : 0
+  const webPreview = input.webPreviewVisible ? clampPanelSize(input.webPreviewWidth, 25, 70) : 0
+  const visibleSideCount = Number(input.editorVisible) + Number(input.githubVisible) + Number(input.reviewVisible) + Number(input.backgroundVisible) + Number(input.scriptsVisible) + Number(input.webPreviewVisible)
 
   if (visibleSideCount === 0) {
-    return { grid: 100, gridMinSize: 30, editor: 0, agents: 0, github: 0, oxe: 0, review: 0 }
+    return { grid: 100, gridMinSize: 30, editor: 0, github: 0, review: 0, background: 0, scripts: 0, webPreview: 0 }
   }
 
   if (visibleSideCount === 1) {
-    const side = input.editorVisible ? editor : input.agentsVisible ? agents : input.githubVisible ? github : input.oxeVisible ? oxe : review
+    const side = input.editorVisible ? editor : input.githubVisible ? github : input.reviewVisible ? review : input.backgroundVisible ? background : input.scriptsVisible ? scripts : webPreview
     return {
       grid: 100 - side,
       gridMinSize: 30,
       editor,
-      agents,
       github,
-      oxe,
-      review
+      review,
+      background,
+      scripts,
+      webPreview
     }
   }
 
   const maxCombinedSideWidth = 70
-  const combined = editor + agents + github + oxe + review
+  const combined = editor + github + review + background + scripts + webPreview
   const scale = combined > maxCombinedSideWidth ? maxCombinedSideWidth / combined : 1
   const normalizedEditor = input.editorVisible ? Math.max(25, Math.round(editor * scale)) : 0
-  const normalizedAgents = input.agentsVisible ? Math.max(24, Math.round(agents * scale)) : 0
   const normalizedGitHub = input.githubVisible ? Math.max(25, Math.round(github * scale)) : 0
-  const normalizedOxe = input.oxeVisible ? Math.max(24, Math.round(oxe * scale)) : 0
   const normalizedReview = input.reviewVisible ? Math.max(24, Math.round(review * scale)) : 0
-  const normalizedCombined = normalizedEditor + normalizedAgents + normalizedGitHub + normalizedOxe + normalizedReview
+  const normalizedBackground = input.backgroundVisible ? Math.max(24, Math.round(background * scale)) : 0
+  const normalizedScripts = input.scriptsVisible ? Math.max(25, Math.round(scripts * scale)) : 0
+  const normalizedWebPreview = input.webPreviewVisible ? Math.max(25, Math.round(webPreview * scale)) : 0
+  const normalizedCombined = normalizedEditor + normalizedGitHub + normalizedReview + normalizedBackground + normalizedScripts + normalizedWebPreview
 
   return {
     grid: Math.max(30, 100 - normalizedCombined),
     gridMinSize: 30,
     editor: normalizedEditor,
-    agents: normalizedAgents,
     github: normalizedGitHub,
-    oxe: normalizedOxe,
-    review: normalizedReview
+    review: normalizedReview,
+    background: normalizedBackground,
+    scripts: normalizedScripts,
+    webPreview: normalizedWebPreview
   }
 }
 

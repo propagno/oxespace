@@ -5,7 +5,7 @@ describe('migrations', () => {
   test('runs migrations and seeds built-in shell profiles', () => {
     const db = openInMemoryDatabase()
 
-    expect(db.pragma('user_version', { simple: true })).toBe(20)
+    expect(db.pragma('user_version', { simple: true })).toBe(26)
 
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
@@ -19,7 +19,11 @@ describe('migrations', () => {
         'agent_profiles',
         'agent_readiness_cache',
         'tasks',
-        'task_executions'
+        'task_executions',
+        'background_jobs',
+        'session_forks',
+        'task_dependencies',
+        'mcp_servers'
       ])
     )
 
@@ -32,14 +36,21 @@ describe('migrations', () => {
         'theme_id',
         'ui_density',
         'layout_preset',
-        'oxe_panel_visible',
-        'oxe_panel_expanded',
-        'oxe_panel_width_percent'
+        'agents_panel_visible',
+        'agents_panel_expanded',
+        'agents_panel_width_percent',
+        'github_panel_visible',
+        'github_panel_expanded',
+        'github_panel_width_percent'
       ])
     )
 
     const paneColumns = db.prepare("PRAGMA table_info('panes')").all() as Array<{ name: string }>
     expect(paneColumns.map((column) => column.name)).toContain('model_override')
+    expect(paneColumns.map((column) => column.name)).toContain('root_path')
+
+    const mcpColumns = db.prepare("PRAGMA table_info('mcp_servers')").all() as Array<{ name: string }>
+    expect(mcpColumns.map((column) => column.name)).toContain('trusted')
 
     const profiles = db
       .prepare('SELECT id, name, executable, args_json FROM shell_profiles ORDER BY id')

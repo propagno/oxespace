@@ -25,6 +25,9 @@ interface TasksState {
   verifyTask: (input: VerifyTaskInput) => Promise<Task>
   loadExecutions: (taskId: string) => Promise<void>
   attachVerifyOutputListener: () => () => void
+  addDependency: (taskId: string, dependsOnTaskId: string) => Promise<void>
+  removeDependency: (taskId: string, dependsOnTaskId: string) => Promise<void>
+  runPipeline: (workspaceId: string) => Promise<{ dispatched: string[]; pending: string[] }>
   clearError: () => void
 }
 
@@ -125,6 +128,52 @@ export const useTasksStore = create<TasksState>((set, get) => ({
         }
       }))
     }),
+
+  addDependency: async (taskId, dependsOnTaskId) => {
+    try {
+      const task = await window.oxe.tasks.addDependency({ taskId, dependsOnTaskId })
+      set((state) => ({ tasksByWorkspace: upsertTask(state.tasksByWorkspace, task), error: null }))
+    } catch (err) {
+      set({ error: toMessage(err) })
+      throw err
+    }
+  },
+
+  removeDependency: async (taskId, dependsOnTaskId) => {
+    try {
+      const task = await window.oxe.tasks.removeDependency({ taskId, dependsOnTaskId })
+      set((state) => ({ tasksByWorkspace: upsertTask(state.tasksByWorkspace, task), error: null }))
+    } catch (err) {
+      set({ error: toMessage(err) })
+      throw err
+    }
+  },
+
+  runPipeline: async (workspaceId) => {
+    try {
+      const readyIds = await window.oxe.tasks.getReady(workspaceId)
+      const dispatched: string[] = []
+      const pending: string[] = []
+      for (const taskId of readyIds) {
+        try {
+          await window.oxe.tasks.run({ taskId })
+          dispatched.push(taskId)
+        } catch (err) {
+          // Most common case: no running pane available; record and continue
+          if (err instanceof Error && /no running terminal/i.test(err.message)) {
+            pending.push(taskId)
+          } else {
+            throw err
+          }
+        }
+      }
+      await get().loadTasks(workspaceId)
+      return { dispatched, pending }
+    } catch (err) {
+      set({ error: toMessage(err) })
+      throw err
+    }
+  },
 
   clearError: () => set({ error: null })
 }))

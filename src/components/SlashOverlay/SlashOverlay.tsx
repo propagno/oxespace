@@ -1,16 +1,18 @@
 import { ChevronRight, Slash, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
-import type { SlashCommandDefinition, SlashCommandId } from '../../../shared/types/slash'
+import type { SlashCommandDefinition } from '../../../shared/types/slash'
+import type { SkillDefinition } from '../../../shared/types/skill'
 import { filterSlashCommands } from '../../lib/slashCommands'
 
 interface SlashOverlayProps {
   paneId: string
   paneLabel: string
+  skills?: SkillDefinition[]
   onClose: () => void
-  onExecute: (commandId: SlashCommandId, argument: string) => Promise<void> | void
+  onExecute: (command: SlashCommandDefinition, argument: string) => Promise<void> | void
 }
 
-export function SlashOverlay({ paneId, paneLabel, onClose, onExecute }: SlashOverlayProps): ReactElement {
+export function SlashOverlay({ paneId, paneLabel, skills = [], onClose, onExecute }: SlashOverlayProps): ReactElement {
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [pendingCommand, setPendingCommand] = useState<SlashCommandDefinition | null>(null)
@@ -19,7 +21,7 @@ export function SlashOverlay({ paneId, paneLabel, onClose, onExecute }: SlashOve
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
-  const filtered = useMemo(() => filterSlashCommands(query), [query])
+  const filtered = useMemo(() => filterSlashCommands(query, skills), [query, skills])
 
   useEffect(() => {
     setSelectedIndex(0)
@@ -43,7 +45,7 @@ export function SlashOverlay({ paneId, paneLabel, onClose, onExecute }: SlashOve
     if (executing) return
     setExecuting(true)
     try {
-      await onExecute(cmd.id, arg)
+      await onExecute(cmd, arg)
     } finally {
       setExecuting(false)
       onClose()

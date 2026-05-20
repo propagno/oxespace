@@ -67,7 +67,7 @@ export function SettingsModal({
 
           <div className="settings-agent-table">
             {(() => {
-              const providers = agentProfiles.filter((profile) => profile.provider !== 'oxe')
+              const providers = agentProfiles
               if (providers.length === 0) {
                 return <p className="workspace-list-empty">No providers found. Run a health check.</p>
               }

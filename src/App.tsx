@@ -1,15 +1,21 @@
-import { LayoutGrid, Plus } from 'lucide-react'
+import { Activity, Bot, FilePlus2, FolderOpen, Github, Grid2x2, History, LayoutDashboard, Maximize, Palette, Plus, RotateCw, Settings2, Sliders, Split, Square, StopCircle, Wrench } from 'lucide-react'
 import { useEffect, useState, type ReactElement } from 'react'
 import type { AgentProfile } from '../shared/types/agent'
 import { AgentConfigModal } from './components/Agents/AgentConfigModal'
+import { OxeLogo } from './components/Brand/OxeLogo'
 import { DesignSystemPage } from './components/DesignSystem/DesignSystemPage'
 import { SettingsModal } from './components/Settings/SettingsModal'
 import { ThemeProvider } from './components/Theme/ThemeProvider'
 import { CommandPalette, type CommandPaletteAction } from './components/CommandPalette/CommandPalette'
 import { SlashOverlay } from './components/SlashOverlay/SlashOverlay'
-import { ModelSelector } from './components/Model/ModelSelector'
 import { ContextUsagePopover } from './components/Usage/ContextUsagePopover'
 import { WorktreeMenu } from './components/Worktree/WorktreeMenu'
+import { HistoryPanel } from './components/History/HistoryPanel'
+import { McpPanel } from './components/MCP/McpPanel'
+import { SkillsBrowser } from './components/Skills/SkillsBrowser'
+import { useBackgroundStore } from './store/background.store'
+import { useMcpStore } from './store/mcp.store'
+import { useSkillStore } from './store/skill.store'
 import { useSlashDispatcher } from './lib/useSlashDispatcher'
 import { useUsageStore } from './store/usage.store'
 import { Sidebar } from './components/Sidebar/Sidebar'
@@ -18,13 +24,10 @@ import { WorkspaceSettingsModal } from './components/Workspace/WorkspaceSettings
 import { WorkspaceSurface } from './components/Workspace/WorkspaceSurface'
 import { LAYOUT_PRESETS, WORKSPACE_DENSITIES, WORKSPACE_THEMES } from './components/Workspace/workspaceOptions'
 import { useAgentStore } from './store/agent.store'
-import { useAgentWorkflowStore } from './store/agent-workflow.store'
 import { useEditorStore } from './store/editor.store'
 import { useTerminalStore } from './store/terminal.store'
 import { useUIStore } from './store/ui.store'
 import { selectActiveWorkspace, useWorkspaceStore } from './store/workspace.store'
-
-const DEFAULT_ARTIFACT_EDITOR_WIDTH = 40
 
 export function App(): ReactElement {
   const {
@@ -40,19 +43,17 @@ export function App(): ReactElement {
     shellProfiles,
     splitPane,
     updatePaneType,
-    setPaneModelOverride,
-    updateAgentsState,
     updateGitHubState,
     updateReviewState,
     updateEditorState,
-    updateOxeState,
+    updateBackgroundState,
     updateSettings,
     workspaces
   } = useWorkspaceStore()
-  const { clearEditor, hasDirtyEditor, openFile } = useEditorStore()
-  const { createRun: createAgentWorkflowRun } = useAgentWorkflowStore()
+  const { clearEditor, hasDirtyEditor } = useEditorStore()
   const getTerminalStatus = useTerminalStore((state) => state.getStatus)
   const setPendingCommand = useTerminalStore((state) => state.setPendingCommand)
+  const setActiveTerminalPaneId = useTerminalStore((state) => state.setActivePaneId)
   const activeWorkspace = useWorkspaceStore(selectActiveWorkspace)
   const {
     closeNewWorkspace,
@@ -65,16 +66,29 @@ export function App(): ReactElement {
     isNewWorkspaceOpen,
     isWorkspaceSettingsOpen,
     slashOverlayPaneId,
-    modelSelectorPaneId,
     contextUsagePaneId,
     worktreeMenuPaneId,
+    isHistoryPanelOpen,
+    isMcpPanelOpen,
+    isSkillsBrowserOpen,
+    isScriptsPanelOpen,
+    isWebPreviewOpen,
     openCommandPalette,
     openWorkspaceSettings,
     openSlashOverlay,
     closeSlashOverlay,
-    closeModelSelector,
     closeContextUsage,
     closeWorktreeMenu,
+    openHistoryPanel,
+    closeHistoryPanel,
+    openMcpPanel,
+    closeMcpPanel,
+    openSkillsBrowser,
+    closeSkillsBrowser,
+    openScriptsPanel,
+    closeScriptsPanel,
+    openWebPreview,
+    closeWebPreview,
     maximizedPaneId,
     setActivePane,
     openNewWorkspace,
@@ -85,23 +99,13 @@ export function App(): ReactElement {
   const { allProfiles: agentProfiles, readiness: agentReadiness, isDiscovering, discover, loadProfiles, loadReadiness, updateProfile, deleteProfile } = useAgentStore()
   const [configuredAgent, setConfiguredAgent] = useState<AgentProfile | null>(null)
   const [isDesignSystemOpen, setDesignSystemOpen] = useState(false)
+  const [appNotice, setAppNotice] = useState<string | null>(null)
   const activePane = activeWorkspace?.panes.find((pane) => pane.id === activePaneId) ?? activeWorkspace?.panes[0] ?? null
   const slashPane = slashOverlayPaneId ? activeWorkspace?.panes.find((pane) => pane.id === slashOverlayPaneId) ?? null : null
-  const modelSelectorPane = modelSelectorPaneId ? activeWorkspace?.panes.find((pane) => pane.id === modelSelectorPaneId) ?? null : null
+  const skills = useSkillStore((s) => s.skills)
   const contextUsagePane = contextUsagePaneId ? activeWorkspace?.panes.find((pane) => pane.id === contextUsagePaneId) ?? null : null
   const worktreeMenuPane = worktreeMenuPaneId ? activeWorkspace?.panes.find((pane) => pane.id === worktreeMenuPaneId) ?? null : null
   const dispatchSlashCommand = useSlashDispatcher({ workspace: activeWorkspace ?? null, pane: slashPane })
-  // Read model override directly from the workspace state — single source of truth (DB-backed).
-
-  const modelSelectorProvider = (() => {
-    if (!modelSelectorPane) return null
-    if (modelSelectorPane.agentProfileId) {
-      const profile = agentProfiles.find((p) => p.agentProfileId === modelSelectorPane.agentProfileId)
-      if (profile?.parentProvider) return profile.parentProvider
-      return profile?.provider ?? null
-    }
-    return null
-  })()
 
   useEffect(() => {
     void bootstrap()
@@ -111,7 +115,31 @@ export function App(): ReactElement {
     void loadProfiles()
     void loadReadiness()
     void useUsageStore.getState().loadSupportedProviders()
+    void useSkillStore.getState().refresh()
+    void useMcpStore.getState().load(null)
+    // Subscribe once to background job + skill change + mcp health streams.
+    const unsubscribe = useBackgroundStore.getState().subscribe()
+    const unsubscribeSkills = useSkillStore.getState().subscribe()
+    const unsubscribeMcp = useMcpStore.getState().subscribe()
+    return () => { unsubscribe(); unsubscribeSkills(); unsubscribeMcp() }
   }, [loadProfiles, loadReadiness])
+
+  // Reload skills (including workspace-scoped ones) when switching workspaces.
+  useEffect(() => {
+    if (!activeWorkspace) return
+    void useSkillStore.getState().refresh(activeWorkspace.rootPath)
+    void useMcpStore.getState().load(activeWorkspace.id)
+  }, [activeWorkspace?.id, activeWorkspace?.rootPath])
+
+  // Hydrate background jobs for the active workspace
+  useEffect(() => {
+    if (!activeWorkspaceId) return
+    void useBackgroundStore.getState().loadJobs(activeWorkspaceId)
+  }, [activeWorkspaceId])
+
+  useEffect(() => {
+    setActiveTerminalPaneId(activePane?.id ?? null)
+  }, [activePane?.id, setActiveTerminalPaneId])
 
   // Poll usage per (workspace, provider). One poll loop per distinct provider used by the
   // workspace's panes — keeps Claude & Codex stats fresh in parallel. The popover triggers
@@ -153,7 +181,8 @@ export function App(): ReactElement {
   }
 
   const handleCloseWorkspace = (workspaceId: string): void => {
-    if (hasDirtyEditor(workspaceId) && !window.confirm('Discard unsaved editor changes?')) {
+    if (hasDirtyEditor(workspaceId)) {
+      setAppNotice('Workspace has unsaved editor changes. Save or close the file before closing the workspace.')
       return
     }
     clearEditor(workspaceId)
@@ -166,24 +195,6 @@ export function App(): ReactElement {
       workspaceId: activeWorkspace.id,
       editorVisible: !activeWorkspace.editorVisible,
       editorExpanded: activeWorkspace.editorVisible ? false : activeWorkspace.editorExpanded
-    })
-  }
-
-  const toggleOxePanel = (): void => {
-    if (!activeWorkspace) return
-    void updateOxeState({
-      workspaceId: activeWorkspace.id,
-      oxePanelVisible: !activeWorkspace.oxePanelVisible,
-      oxePanelExpanded: activeWorkspace.oxePanelVisible ? false : activeWorkspace.oxePanelExpanded
-    })
-  }
-
-  const toggleAgentsPanel = (): void => {
-    if (!activeWorkspace) return
-    void updateAgentsState({
-      workspaceId: activeWorkspace.id,
-      agentsPanelVisible: !activeWorkspace.agentsPanelVisible,
-      agentsPanelExpanded: activeWorkspace.agentsPanelVisible ? false : activeWorkspace.agentsPanelExpanded
     })
   }
 
@@ -206,28 +217,12 @@ export function App(): ReactElement {
     setMaximizedPane(maximizedPaneId === activePane.id ? null : activePane.id)
   }
 
-  const openOxeArtifact = (relativePath: string): void => {
-    if (!activeWorkspace) return
-    void updateEditorState({
-      workspaceId: activeWorkspace.id,
-      editorVisible: true,
-      editorExpanded: false,
-      editorWidthPercent: DEFAULT_ARTIFACT_EDITOR_WIDTH
-    })
-    void openFile({ workspaceId: activeWorkspace.id, rootPath: activeWorkspace.rootPath, relativePath })
-  }
-
-  const openWorkflowArtifact = (content: string, title: string): void => {
-    void title
-    void navigator.clipboard?.writeText(content).catch(() => undefined)
-  }
-
   const runCommandInTerminal = async (command: string): Promise<void> => {
     const terminalPanes = activeWorkspace?.panes.filter((pane) => pane.type === 'terminal') ?? []
     const runningPane = terminalPanes.find((pane) => getTerminalStatus(pane.id).status === 'running') ?? null
     const targetPane = activePane?.type === 'terminal' ? activePane : runningPane ?? terminalPanes[0] ?? null
     if (!targetPane) {
-      window.alert('Nenhum terminal visível para executar o comando.')
+      setAppNotice('Nenhum terminal visível para executar o comando.')
       return
     }
     setActivePane(targetPane.id)
@@ -239,61 +234,85 @@ export function App(): ReactElement {
   }
 
   const commandActions: CommandPaletteAction[] = [
-    { id: 'design-system', title: 'Design System: Open Viewer', subtitle: 'Ctrl+Shift+D', run: () => { setDesignSystemOpen(true) } },
-    { id: 'workspace-settings', title: 'Open workspace settings', run: openWorkspaceSettings, disabled: !activeWorkspace },
-    { id: 'new-workspace', title: 'Create workspace', run: openNewWorkspace },
-    { id: 'toggle-editor', title: 'Toggle editor', run: toggleEditor, disabled: !activeWorkspace },
-    { id: 'github-open-panel', title: 'GitHub: Open tools panel', run: toggleGitHubPanel, disabled: !activeWorkspace },
-    { id: 'toggle-oxe-panel', title: 'OXE: Open panel', run: toggleOxePanel, disabled: !activeWorkspace },
-    { id: 'toggle-agents-panel', title: 'Plan/Exec: Open panel', run: toggleAgentsPanel, disabled: !activeWorkspace },
+    // Workspace
+    { id: 'new-workspace', title: 'Create workspace', subtitle: 'Open the New Workspace wizard', icon: FilePlus2, category: 'Workspace', keywords: ['new', 'open', 'project'], run: openNewWorkspace },
+    { id: 'workspace-settings', title: 'Open workspace settings', subtitle: 'Theme, layout, density, shell', icon: Sliders, category: 'Workspace', disabled: !activeWorkspace, run: openWorkspaceSettings },
+    { id: 'toggle-sidebar', title: 'Toggle sidebar', subtitle: 'Ctrl+B', icon: LayoutDashboard, category: 'Workspace', run: toggleSidebar },
+
+    // AI & Agents
+    { id: 'open-settings', title: 'Open Agent Settings', subtitle: 'Configure CLIs and discovery', icon: Bot, category: 'AI & Agents', keywords: ['ai', 'provider', 'discovery'], run: toggleSettings },
+    { id: 'open-history', title: 'Open session history', subtitle: 'Ctrl+Shift+H', icon: History, category: 'AI & Agents', keywords: ['session', 'resume'], run: openHistoryPanel },
+    { id: 'open-mcp', title: 'Open MCP servers', subtitle: 'Model Context Protocol tools', icon: Wrench, category: 'AI & Agents', keywords: ['mcp', 'tools'], run: openMcpPanel },
+    { id: 'open-skills', title: 'Open Skills', subtitle: 'Browse markdown skill prompts', icon: Activity, category: 'AI & Agents', keywords: ['skill', 'slash'], run: openSkillsBrowser },
+
+    // View
+    { id: 'toggle-editor', title: 'Toggle editor', subtitle: 'Ctrl+E', icon: LayoutDashboard, category: 'View', disabled: !activeWorkspace, run: toggleEditor },
+    { id: 'github-open-panel', title: 'GitHub: Open tools panel', icon: Github, category: 'View', keywords: ['git', 'pr', 'workflow', 'actions'], disabled: !activeWorkspace, run: toggleGitHubPanel },
     {
-      id: 'agents-new-run',
-      title: 'Plan/Exec: New run',
+      id: 'toggle-background-dock',
+      title: 'Background jobs: Toggle dock',
+      subtitle: 'Right-side panel',
+      icon: Activity,
+      category: 'View',
+      keywords: ['bg', 'job', 'task'],
       disabled: !activeWorkspace,
       run: () => {
         if (!activeWorkspace) return
-        void updateAgentsState({ workspaceId: activeWorkspace.id, agentsPanelVisible: true })
-        void createAgentWorkflowRun({ workspaceId: activeWorkspace.id, title: 'New Plan/Exec run', sourceType: 'manual' })
+        void updateBackgroundState({
+          workspaceId: activeWorkspace.id,
+          backgroundPanelVisible: !activeWorkspace.backgroundPanelVisible,
+          backgroundPanelExpanded: activeWorkspace.backgroundPanelVisible ? false : activeWorkspace.backgroundPanelExpanded
+        })
       }
     },
-    { id: 'agents-approve-plan', title: 'Plan/Exec: Approve plan', run: toggleAgentsPanel, disabled: !activeWorkspace },
-    { id: 'agents-run-execution', title: 'Plan/Exec: Run execution', run: toggleAgentsPanel, disabled: !activeWorkspace },
-    { id: 'agents-request-changes', title: 'Plan/Exec: Request changes', run: toggleAgentsPanel, disabled: !activeWorkspace },
-    { id: 'agents-run-verifier', title: 'Plan/Exec: Verify', run: toggleAgentsPanel, disabled: !activeWorkspace },
-    { id: 'oxe-status-terminal', title: 'OXE: Status in terminal', subtitle: 'Runs in visible terminal', run: () => void runCommandInTerminal('npx oxe-cc status --json'), disabled: !activeWorkspace },
-    { id: 'toggle-sidebar', title: 'Toggle sidebar', run: toggleSidebar },
+    { id: 'design-system', title: 'Design System: Open Viewer', subtitle: 'Ctrl+Shift+D', icon: Palette, category: 'View', run: () => { setDesignSystemOpen(true) } },
+
+    // Theme
     ...WORKSPACE_THEMES.map((theme) => ({
       id: `theme-${theme.id}`,
       title: `Theme: ${theme.label}`,
       subtitle: 'Workspace theme',
+      icon: Palette,
+      category: 'Theme',
+      keywords: [theme.id, 'color', 'palette'],
       disabled: !activeWorkspace,
       run: () => {
         if (activeWorkspace) void updateSettings({ workspaceId: activeWorkspace.id, themeId: theme.id })
       }
     })),
+
+    // Density
     ...WORKSPACE_DENSITIES.map((density) => ({
       id: `density-${density.id}`,
       title: `Density: ${density.label}`,
       subtitle: 'Workspace density',
+      icon: Sliders,
+      category: 'Theme',
       disabled: !activeWorkspace,
       run: () => {
         if (activeWorkspace) void updateSettings({ workspaceId: activeWorkspace.id, uiDensity: density.id })
       }
     })),
+
+    // Layout
     ...LAYOUT_PRESETS.map((preset) => ({
       id: `layout-${preset}`,
       title: `Layout: ${preset} panes`,
       subtitle: 'Workspace layout preset',
+      icon: Grid2x2,
+      category: 'Layout',
       disabled: !activeWorkspace,
       run: () => {
         if (activeWorkspace) void updateSettings({ workspaceId: activeWorkspace.id, layoutPreset: preset })
       }
     })),
-    { id: 'split-vertical', title: 'Split active pane vertical', disabled: !activePane, run: () => splitActivePane('vertical') },
-    { id: 'split-horizontal', title: 'Split active pane horizontal', disabled: !activePane, run: () => splitActivePane('horizontal') },
-    { id: 'maximize-pane', title: 'Maximize or restore active pane', disabled: !activePane, run: toggleActivePaneMaximize },
-    { id: 'restart-terminal', title: 'Restart active terminal', disabled: !activePane || activePane.type !== 'terminal', run: () => activePane && void window.oxe.terminal.restart({ paneId: activePane.id }) },
-    { id: 'stop-terminal', title: 'Stop active terminal', disabled: !activePane || activePane.type !== 'terminal', run: () => activePane && void window.oxe.terminal.stop({ paneId: activePane.id }) }
+
+    // Terminal
+    { id: 'split-vertical', title: 'Split active pane (vertical)', subtitle: 'Ctrl+Shift+\\', icon: Split, category: 'Terminal', disabled: !activePane, run: () => splitActivePane('vertical') },
+    { id: 'split-horizontal', title: 'Split active pane (horizontal)', subtitle: 'Ctrl+Shift+-', icon: Split, category: 'Terminal', disabled: !activePane, run: () => splitActivePane('horizontal') },
+    { id: 'maximize-pane', title: 'Maximize / restore active pane', subtitle: 'Ctrl+Shift+Enter', icon: Maximize, category: 'Terminal', disabled: !activePane, run: toggleActivePaneMaximize },
+    { id: 'restart-terminal', title: 'Restart active terminal', subtitle: 'Ctrl+R', icon: RotateCw, category: 'Terminal', disabled: !activePane || activePane.type !== 'terminal', run: () => activePane && void window.oxe.terminal.restart({ paneId: activePane.id }) },
+    { id: 'stop-terminal', title: 'Stop active terminal', icon: StopCircle, category: 'Terminal', disabled: !activePane || activePane.type !== 'terminal', run: () => activePane && void window.oxe.terminal.stop({ paneId: activePane.id }) }
   ]
 
   useEffect(() => {
@@ -349,12 +368,17 @@ export function App(): ReactElement {
       if ((event.ctrlKey || event.metaKey) && event.key === '/' && activePane?.type === 'terminal') {
         event.preventDefault()
         openSlashOverlay(activePane.id)
+        return
+      }
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && key === 'h') {
+        event.preventDefault()
+        openHistoryPanel()
       }
     }
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [activePane, activeWorkspace, maximizedPaneId, openCommandPalette, openSlashOverlay, openWorkspaceSettings, splitPane, toggleSidebar, updateEditorState])
+  }, [activePane, activeWorkspace, maximizedPaneId, openCommandPalette, openSlashOverlay, openHistoryPanel, openWorkspaceSettings, splitPane, toggleSidebar, updateEditorState])
 
   return (
     <ThemeProvider themeId={activeWorkspace?.themeId} density={activeWorkspace?.uiDensity}>
@@ -369,13 +393,17 @@ export function App(): ReactElement {
         onSelectWorkspace={(id) => void setActiveWorkspace(id)}
         onCloseWorkspace={handleCloseWorkspace}
         onActivatePane={setActivePane}
-        isSettingsOpen={isSettingsOpen}
-        onToggleSettings={toggleSettings}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={toggleSidebar}
       />
       <section className="workspace-surface">
         {error ? <div className="error-banner">{error}</div> : null}
+        {appNotice ? (
+          <div className="error-banner">
+            <span>{appNotice}</span>
+            <button type="button" className="ghost-btn small" onClick={() => setAppNotice(null)}>Dismiss</button>
+          </div>
+        ) : null}
         {isLoading ? (
           <div className="empty-state">
             <h3>Loading workspaces</h3>
@@ -390,22 +418,25 @@ export function App(): ReactElement {
             onActivatePane={setActivePane}
             onOpenCommandPalette={openCommandPalette}
             onOpenWorkspaceSettings={openWorkspaceSettings}
+            onOpenHistory={openHistoryPanel}
+            onOpenMcp={openMcpPanel}
+            onOpenSkills={openSkillsBrowser}
+            onOpenScripts={openScriptsPanel}
+            onOpenWebPreview={openWebPreview}
+            scriptsVisible={isScriptsPanelOpen}
+            webPreviewVisible={isWebPreviewOpen}
+            onCloseScripts={closeScriptsPanel}
+            onCloseWebPreview={closeWebPreview}
             onUpdateEditorState={(input) => void updateEditorState(input)}
-            onUpdateOxeState={(input) => void updateOxeState(input)}
-            onUpdateAgentsState={(input) => void updateAgentsState(input)}
             onUpdateReviewState={(input) => void updateReviewState(input)}
             onUpdateGitHubState={(input) => void updateGitHubState(input)}
-            onOpenOxeArtifact={openOxeArtifact}
+            onUpdateBackgroundState={(input) => void updateBackgroundState(input)}
             onRunCommand={(command) => void runCommandInTerminal(command)}
-            onOpenWorkflowArtifact={openWorkflowArtifact}
             activePaneId={activePane?.id ?? null}
           />
         ) : (
           <div className="empty-state">
-            <div className="empty-state-icon">
-              <LayoutGrid size={24} aria-hidden="true" />
-            </div>
-            <h3>No workspace open</h3>
+            <OxeLogo size={72} variant="hero" />
             <p>Select a folder to start your first agentic terminal workspace.</p>
             <button type="button" className="empty-state-cta" onClick={openNewWorkspace}>
               <Plus size={14} aria-hidden="true" />
@@ -428,23 +459,9 @@ export function App(): ReactElement {
         <SlashOverlay
           paneId={slashPane.id}
           paneLabel={slashPane.displayName ?? slashPane.agentName ?? `Pane ${slashPane.rowIndex + 1}.${slashPane.columnIndex + 1}`}
+          skills={skills}
           onClose={closeSlashOverlay}
           onExecute={dispatchSlashCommand}
-        />
-      ) : null}
-      {modelSelectorPane ? (
-        <ModelSelector
-          paneId={modelSelectorPane.id}
-          paneLabel={modelSelectorPane.displayName ?? modelSelectorPane.agentName ?? `Pane ${modelSelectorPane.rowIndex + 1}.${modelSelectorPane.columnIndex + 1}`}
-          provider={modelSelectorProvider}
-          currentModelId={modelSelectorPane.modelOverride}
-          onSelect={(paneId, modelId) => {
-            void setPaneModelOverride(paneId, modelId).then(() => {
-              // Restart so the new model takes effect (only if there was a change)
-              if (modelId) void window.oxe.terminal.restart({ paneId })
-            })
-          }}
-          onClose={closeModelSelector}
         />
       ) : null}
       {contextUsagePane && activeWorkspace ? (() => {
@@ -471,10 +488,45 @@ export function App(): ReactElement {
           onClose={closeWorktreeMenu}
         />
       ) : null}
+      {isHistoryPanelOpen && activeWorkspace ? (
+        <HistoryPanel
+          workspaceId={activeWorkspace.id}
+          workspaceRootPath={activeWorkspace.rootPath}
+          activePaneId={activePaneId}
+          onClose={closeHistoryPanel}
+        />
+      ) : null}
+      {isMcpPanelOpen ? (
+        <McpPanel
+          workspaceId={activeWorkspace?.id ?? null}
+          onClose={closeMcpPanel}
+        />
+      ) : null}
+      {isSkillsBrowserOpen ? (
+        <SkillsBrowser
+          workspaceId={activeWorkspace?.id ?? null}
+          workspaceRootPath={activeWorkspace?.rootPath ?? null}
+          activePaneId={activePane?.type === 'terminal' ? activePane.id : null}
+          onOpenEditor={(relativePath) => {
+            if (!activeWorkspace) return
+            void updateEditorState({
+              workspaceId: activeWorkspace.id,
+              editorVisible: true,
+              editorExpanded: false,
+              editorWidthPercent: activeWorkspace.editorWidthPercent ?? 40
+            })
+            void useEditorStore.getState().openFile({
+              workspaceId: activeWorkspace.id,
+              rootPath: activeWorkspace.rootPath,
+              relativePath
+            })
+          }}
+          onClose={closeSkillsBrowser}
+        />
+      ) : null}
       {isWorkspaceSettingsOpen && activeWorkspace ? (
         <WorkspaceSettingsModal
           workspace={activeWorkspace}
-          agentProfiles={agentProfiles}
           shellProfiles={shellProfiles}
           onClose={closeWorkspaceSettings}
           onSave={updateSettings}

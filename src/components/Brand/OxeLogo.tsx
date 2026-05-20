@@ -2,7 +2,7 @@ import { useId, type ReactElement } from 'react'
 
 interface OxeLogoProps {
   size?: number
-  variant?: 'full' | 'compact'
+  variant?: 'full' | 'compact' | 'wordmark' | 'hero'
 }
 
 /**
@@ -11,10 +11,39 @@ interface OxeLogoProps {
  * Concept: an AI agent (node) orbiting a terminal workspace.
  * The arc opens at the bottom-right, suggesting forward motion.
  *
- * variant="full"    — arc on dark rounded-square background (app icon, collapsed sidebar)
- * variant="compact" — arc on transparent background (inline use on dark surfaces)
+ * variant="full"     — arc on dark rounded-square background (app icon, collapsed sidebar)
+ * variant="compact"  — arc on transparent background (inline use on dark surfaces)
+ * variant="wordmark" — logo + "OXESpace" text inline, for sidebar header / about / settings
+ * variant="hero"     — large logo + wordmark stacked, used in empty-states and splash
  */
 export function OxeLogo({ size = 28, variant = 'full' }: OxeLogoProps): ReactElement {
+  if (variant === 'wordmark') {
+    return (
+      <span className="oxe-wordmark" aria-label="OXESpace">
+        <OxeLogo size={size} variant="compact" />
+        <span className="oxe-wordmark-text" style={{ fontSize: `${Math.round(size * 0.62)}px` }}>
+          <span className="oxe-wordmark-strong">OXE</span>Space
+        </span>
+      </span>
+    )
+  }
+
+  if (variant === 'hero') {
+    return (
+      <span className="oxe-hero" aria-label="OXESpace">
+        <OxeLogo size={size} variant="full" />
+        <span className="oxe-hero-text" style={{ fontSize: `${Math.round(size * 0.45)}px` }}>
+          <span className="oxe-wordmark-strong">OXE</span>Space
+        </span>
+        <span className="oxe-hero-tagline">Agentic Terminal Workspace</span>
+      </span>
+    )
+  }
+
+  return <OxeMark size={size} variant={variant} />
+}
+
+function OxeMark({ size, variant }: { size: number; variant: 'full' | 'compact' }): ReactElement {
   const uid = useId()
 
   const cx = size / 2

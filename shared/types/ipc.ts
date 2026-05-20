@@ -1,23 +1,5 @@
-import type { CreateWorkspaceInput, PaneType, ShellProfile, UpdateWorkspaceAgentsStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceOxeStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, Workspace } from './workspace'
+import type { CreateWorkspaceInput, PaneType, ShellProfile, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, Workspace } from './workspace'
 import type { AgentProfile, AgentReadiness, CreateAgentProfileInput, UpdateAgentProfileInput } from './agent'
-import type {
-  AgentWorkflowArtifact,
-  AgentWorkflowRun,
-  AgentWorkflowRunDetails,
-  AdvanceAgentWorkflowRunInput,
-  AppendAgentWorkflowArtifactInput,
-  ApproveAgentWorkflowPlanInput,
-  CompleteManualAgentWorkflowStepInput,
-  CreateAgentWorkflowRunInput,
-  PrepareAgentWorkflowStepInput,
-  RecordAgentWorkflowExecutionEvidenceInput,
-  RejectAgentWorkflowPlanInput,
-  RequestAgentWorkflowPlanChangesInput,
-  RunAgentWorkflowStepInput,
-  SendApprovedAgentWorkflowExecutionInput,
-  UpdateWorkspaceAgentRoleBindingsInput,
-  WorkspaceAgentRoleBinding
-} from './agent-workflow'
 import type {
   CreateTaskInput,
   ReorderTasksInput,
@@ -57,10 +39,8 @@ import type {
   GitHubWorkspaceStatus
 } from './github'
 
-export type { ShellProfile, Workspace, UpdateWorkspaceAgentsStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceOxeStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, AgentProfile, AgentReadiness }
+export type { ShellProfile, Workspace, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, AgentProfile, AgentReadiness }
 export type { Task, TaskExecution, TaskVerifyOutputEvent }
-export type { AgentWorkflowArtifact, AgentWorkflowRun, AgentWorkflowRunDetails, WorkspaceAgentRoleBinding }
-export type { OxeGraphNode, OxeGraphEdge, OxeExecutionGraph, OxeExecutionGraphMeta, NodeType, EdgeType, NodeStatus } from './oxe-graph'
 export type { GitDiff, GitDiffFile, GitDiffHunk, GitDiffLine, GitDiffInput, GitLineType } from './git'
 export type { GitHubBranch, GitHubCheckpoint, GitHubCliStatus, GitHubCommit, GitHubCommitDetails, GitHubConnectedRepository, GitHubMessageResult, GitHubPanelTab, GitHubPullRequest, GitHubRelease, GitHubRepositorySummary, GitHubWorkflow, GitHubWorkflowRun, GitHubWorkspaceStatus } from './github'
 
@@ -138,89 +118,6 @@ export interface FileSystemApi {
   onFileChanged(listener: (event: FileSystemFileChangedEvent) => void): () => void
 }
 
-export type OxeArtifactKind = 'state' | 'spec' | 'plan' | 'verify' | 'activeRun' | 'events' | 'summary' | 'other'
-export type OxeArtifactGroup = 'operational' | 'rationality' | 'runtime' | 'evidence' | 'context' | 'product' | 'release'
-export type OxeViewFreshness = 'fresh' | 'stale' | 'dirty' | 'unknown'
-
-export interface OxeSuggestedAction {
-  label: string
-  command: string
-  mode: 'terminal' | 'copy' | 'open_file'
-}
-
-export interface OxeWorkspaceInput {
-  workspaceId: string
-  rootPath: string
-}
-
-export interface OxeArtifactSummary {
-  kind: OxeArtifactKind
-  label: string
-  relativePath: string
-  exists: boolean
-  size: number | null
-  mtimeMs: number | null
-  group?: OxeArtifactGroup
-  priority?: number
-}
-
-export interface OxeEngineStatus {
-  available: boolean
-  version: string | null
-  command: string
-  message: string | null
-}
-
-export interface OxeStateSummary {
-  status: string | null
-  runId: string | null
-  runtimeStatus: string | null
-  lifecycleStatus: string | null
-  nextStep: string | null
-}
-
-export interface OxeFreshness {
-  state: OxeViewFreshness
-  reason: string | null
-  lastStatusAt: string | null
-  latestWorkspaceMtimeMs: number | null
-  dirtyFiles: string[]
-  suggestedActions: OxeSuggestedAction[]
-}
-
-export interface OxeStatus {
-  workspaceId: string
-  rootPath: string
-  isOxeProject: boolean
-  engine: OxeEngineStatus
-  state: OxeStateSummary | null
-  artifacts: OxeArtifactSummary[]
-  warnings: string[]
-  updatedAt: string
-  rawStatusJson?: unknown
-  healthStatus?: string | null
-  nextStep?: string | null
-  cursorCmd?: string | null
-  executionRationality?: unknown
-  activeRun?: unknown
-  contextQuality?: unknown
-  diagnostics?: unknown
-  semanticsDrift?: unknown
-  packFreshness?: unknown
-  freshness?: OxeFreshness
-}
-
-export interface OxeWorkspaceApi {
-  getStatus(input: OxeWorkspaceInput): Promise<OxeStatus>
-  getStatusJson(input: OxeWorkspaceInput): Promise<OxeStatus>
-  listArtifacts(input: OxeWorkspaceInput): Promise<OxeArtifactSummary[]>
-  listArtifactsRich(input: OxeWorkspaceInput): Promise<OxeArtifactSummary[]>
-  getFreshness(input: OxeWorkspaceInput): Promise<OxeFreshness>
-  onWorkspaceDrift(listener: (event: OxeFreshness & { workspaceId: string }) => void): () => void
-  getGraph(input: OxeWorkspaceInput): Promise<import('./oxe-graph').OxeExecutionGraph>
-  onGraphUpdate(listener: (graph: import('./oxe-graph').OxeExecutionGraph) => void): () => void
-}
-
 export const IPC_CHANNELS = {
   workspace: {
     list: 'workspace:list',
@@ -231,13 +128,11 @@ export const IPC_CHANNELS = {
     splitPane: 'workspace:split-pane',
     updatePaneType: 'workspace:update-pane-type',
     updatePaneName: 'workspace:update-pane-name',
-    setPaneModelOverride: 'workspace:set-pane-model-override',
     setPaneAgent: 'workspace:set-pane-agent',
     setPaneRootPath: 'workspace:set-pane-root-path',
     updateEditorState: 'workspace:update-editor-state',
-    updateOxeState: 'workspace:update-oxe-state',
-    updateAgentsState: 'workspace:update-agents-state',
     updateReviewState: 'workspace:update-review-state',
+    updateBackgroundState: 'workspace:update-background-state',
     updateGitHubState: 'workspace:update-github-state',
     updateSettings: 'workspace:update-settings',
     pickFolder: 'workspace:pick-folder',
@@ -270,7 +165,10 @@ export const IPC_CHANNELS = {
     run: 'tasks:run',
     verify: 'tasks:verify',
     executions: 'tasks:executions',
-    onVerifyOutput: 'tasks:verify-output'
+    onVerifyOutput: 'tasks:verify-output',
+    addDependency: 'tasks:add-dependency',
+    removeDependency: 'tasks:remove-dependency',
+    getReady: 'tasks:get-ready'
   },
   fs: {
     listTree: 'fs:list-tree',
@@ -279,33 +177,6 @@ export const IPC_CHANNELS = {
     watchFile: 'fs:watch-file',
     unwatchFile: 'fs:unwatch-file',
     onFileChanged: 'fs:file-changed'
-  },
-  oxe: {
-    getStatus: 'oxe:get-status',
-    getStatusJson: 'oxe:get-status-json',
-    listArtifacts: 'oxe:list-artifacts',
-    listArtifactsRich: 'oxe:list-artifacts-rich',
-    getFreshness: 'oxe:get-freshness',
-    onWorkspaceDrift: 'oxe:workspace-drift',
-    getGraph: 'oxe:get-graph',
-    onGraphUpdate: 'oxe:graph-update'
-  },
-  agentWorkflow: {
-    listRuns: 'agent-workflow:list-runs',
-    createRun: 'agent-workflow:create-run',
-    getRun: 'agent-workflow:get-run',
-    updateRoleBindings: 'agent-workflow:update-role-bindings',
-    getRoleBindings: 'agent-workflow:get-role-bindings',
-    prepareStep: 'agent-workflow:prepare-step',
-    runStep: 'agent-workflow:run-step',
-    approvePlan: 'agent-workflow:approve-plan',
-    rejectPlan: 'agent-workflow:reject-plan',
-    requestPlanChanges: 'agent-workflow:request-plan-changes',
-    sendApprovedExecution: 'agent-workflow:send-approved-execution',
-    recordExecutionEvidence: 'agent-workflow:record-execution-evidence',
-    advanceRun: 'agent-workflow:advance-run',
-    completeManualStep: 'agent-workflow:complete-manual-step',
-    appendArtifact: 'agent-workflow:append-artifact'
   },
   git: {
     getDiff: 'git:get-diff',
@@ -324,9 +195,31 @@ export const IPC_CHANNELS = {
     list: 'background:list',
     start: 'background:start',
     stop: 'background:stop',
+    remove: 'background:remove',
     getOutput: 'background:get-output',
     onOutput: 'background:on-output',
     onUpdate: 'background:on-update'
+  },
+  session: {
+    list: 'session:list',
+    fork: 'session:fork',
+    delete: 'session:delete'
+  },
+  skill: {
+    list: 'skill:list',
+    get: 'skill:get',
+    invoke: 'skill:invoke',
+    onChange: 'skill:on-change'
+  },
+  mcp: {
+    list: 'mcp:list',
+    create: 'mcp:create',
+    update: 'mcp:update',
+    delete: 'mcp:delete',
+    start: 'mcp:start',
+    stop: 'mcp:stop',
+    callTool: 'mcp:call-tool',
+    onHealth: 'mcp:on-health'
   },
   github: {
     getCliStatus: 'github:get-cli-status',
@@ -352,6 +245,8 @@ export const IPC_CHANNELS = {
     listWorkflows: 'github:list-workflows',
     listWorkflowRuns: 'github:list-workflow-runs',
     runWorkflow: 'github:run-workflow',
+    rerunRun: 'github:rerun-run',
+    getRunLogs: 'github:get-run-logs',
     listCheckpoints: 'github:list-checkpoints',
     createCheckpoint: 'github:create-checkpoint',
     restoreCheckpoint: 'github:restore-checkpoint',
@@ -418,13 +313,11 @@ export interface WorkspaceApi {
   splitPane(input: SplitPaneInput): Promise<Workspace>
   updatePaneType(input: UpdatePaneTypeInput): Promise<Workspace>
   updatePaneName(input: UpdatePaneNameInput): Promise<Workspace>
-  setPaneModelOverride(input: { paneId: string; modelId: string | null }): Promise<Workspace>
   setPaneAgent(input: { paneId: string; agentProfileId: string | null }): Promise<Workspace>
   setPaneRootPath(input: { paneId: string; rootPath: string | null }): Promise<Workspace>
   updateEditorState(input: UpdateWorkspaceEditorStateInput): Promise<Workspace>
-  updateOxeState(input: UpdateWorkspaceOxeStateInput): Promise<Workspace>
-  updateAgentsState(input: UpdateWorkspaceAgentsStateInput): Promise<Workspace>
   updateReviewState(input: UpdateWorkspaceReviewStateInput): Promise<Workspace>
+  updateBackgroundState(input: UpdateWorkspaceBackgroundStateInput): Promise<Workspace>
   updateGitHubState(input: UpdateWorkspaceGitHubStateInput): Promise<Workspace>
   updateSettings(input: UpdateWorkspaceSettingsInput): Promise<Workspace>
   pickFolder(): Promise<string | null>
@@ -451,24 +344,6 @@ export interface AgentApi {
   getReadiness(): Promise<AgentReadiness[]>
 }
 
-export interface AgentWorkflowApi {
-  listRuns(workspaceId: string): Promise<AgentWorkflowRun[]>
-  createRun(input: CreateAgentWorkflowRunInput): Promise<AgentWorkflowRunDetails>
-  getRun(runId: string): Promise<AgentWorkflowRunDetails>
-  updateRoleBindings(input: UpdateWorkspaceAgentRoleBindingsInput): Promise<WorkspaceAgentRoleBinding[]>
-  getRoleBindings(workspaceId: string): Promise<WorkspaceAgentRoleBinding[]>
-  prepareStep(input: PrepareAgentWorkflowStepInput): Promise<AgentWorkflowRunDetails>
-  runStep(input: RunAgentWorkflowStepInput): Promise<AgentWorkflowRunDetails>
-  approvePlan(input: ApproveAgentWorkflowPlanInput): Promise<AgentWorkflowRunDetails>
-  rejectPlan(input: RejectAgentWorkflowPlanInput): Promise<AgentWorkflowRunDetails>
-  requestPlanChanges(input: RequestAgentWorkflowPlanChangesInput): Promise<AgentWorkflowRunDetails>
-  sendApprovedExecution(input: SendApprovedAgentWorkflowExecutionInput): Promise<AgentWorkflowRunDetails>
-  recordExecutionEvidence(input: RecordAgentWorkflowExecutionEvidenceInput): Promise<AgentWorkflowRunDetails>
-  advanceRun(input: AdvanceAgentWorkflowRunInput): Promise<AgentWorkflowRunDetails>
-  completeManualStep(input: CompleteManualAgentWorkflowStepInput): Promise<AgentWorkflowRunDetails>
-  appendArtifact(input: AppendAgentWorkflowArtifactInput): Promise<AgentWorkflowRunDetails>
-}
-
 export interface TaskApi {
   list(workspaceId: string): Promise<Task[]>
   create(input: CreateTaskInput): Promise<Task>
@@ -479,6 +354,9 @@ export interface TaskApi {
   verify(input: VerifyTaskInput): Promise<Task>
   executions(taskId: string): Promise<TaskExecution[]>
   onVerifyOutput(listener: (event: TaskVerifyOutputEvent) => void): () => void
+  addDependency(input: { taskId: string; dependsOnTaskId: string }): Promise<Task>
+  removeDependency(input: { taskId: string; dependsOnTaskId: string }): Promise<Task>
+  getReady(workspaceId: string): Promise<string[]>
 }
 
 export interface GitApi {
@@ -510,6 +388,8 @@ export interface GitHubApi {
   listWorkflows(input: GitHubWorkspaceInput): Promise<GitHubWorkflow[]>
   listWorkflowRuns(input: GitHubWorkspaceInput): Promise<GitHubWorkflowRun[]>
   runWorkflow(input: GitHubWorkflowRunInput): Promise<GitHubMessageResult>
+  rerunRun(input: { rootPath: string; runId: number; failedOnly: boolean }): Promise<GitHubMessageResult>
+  getRunLogs(input: { rootPath: string; runId: number; failedOnly: boolean }): Promise<{ logs: string; truncated: boolean; bytes: number }>
   listCheckpoints(input: GitHubWorkspaceInput): Promise<GitHubCheckpoint[]>
   createCheckpoint(input: GitHubCreateCheckpointInput): Promise<GitHubCheckpoint>
   restoreCheckpoint(input: GitHubRestoreCheckpointInput): Promise<GitHubMessageResult>
@@ -529,15 +409,16 @@ export interface OxeApi {
   workspace: WorkspaceApi
   terminal: TerminalApi
   agent: AgentApi
-  agentWorkflow: AgentWorkflowApi
   tasks: TaskApi
   fs: FileSystemApi
-  oxe: OxeWorkspaceApi
   git: GitApi
   github: GitHubApi
   clipboard: ClipboardApi
   usage: UsageApi
   background: BackgroundApi
+  session: SessionApi
+  skill: SkillApi
+  mcp: McpApi
 }
 
 export interface UsageApi {
@@ -551,7 +432,32 @@ export interface BackgroundApi {
   list(workspaceId: string): Promise<import('./background').BackgroundJob[]>
   start(input: import('./background').StartBackgroundJobInput): Promise<import('./background').BackgroundJob>
   stop(jobId: string): Promise<void>
+  remove(jobId: string): Promise<void>
   getOutput(jobId: string): Promise<import('./background').BackgroundJobOutputChunk>
   onOutput(listener: (event: import('./background').BackgroundJobOutputEvent) => void): () => void
   onUpdate(listener: (event: import('./background').BackgroundJobUpdateEvent) => void): () => void
+}
+
+export interface SessionApi {
+  list(input: { workspaceId: string; workspaceRootPath: string; provider: import('./agent').AgentProvider }): Promise<import('./session').SessionSummary[]>
+  fork(input: import('./session').ForkSessionInput): Promise<import('./session').ForkSessionResult>
+  delete(input: { workspaceRootPath: string; sessionId: string; provider: import('./agent').AgentProvider }): Promise<boolean>
+}
+
+export interface SkillApi {
+  list(input?: { workspaceRootPath?: string }): Promise<import('./skill').SkillDefinition[]>
+  get(name: string): Promise<import('./skill').SkillDefinition | null>
+  invoke(input: import('./skill').InvokeSkillInput): Promise<void>
+  onChange(listener: () => void): () => void
+}
+
+export interface McpApi {
+  list(workspaceId: string | null): Promise<import('./mcp').McpServer[]>
+  create(input: import('./mcp').CreateMcpServerInput): Promise<import('./mcp').McpServer>
+  update(input: import('./mcp').UpdateMcpServerInput): Promise<import('./mcp').McpServer>
+  delete(id: string): Promise<void>
+  start(id: string): Promise<import('./mcp').McpToolDescriptor[]>
+  stop(id: string): Promise<void>
+  callTool(input: import('./mcp').McpCallToolInput): Promise<import('./mcp').McpCallToolResult>
+  onHealth(listener: (event: import('./mcp').McpServerHealthEvent) => void): () => void
 }

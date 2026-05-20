@@ -47,6 +47,7 @@ export interface SpawnAsyncOptions {
   shell?: boolean
   timeout?: number
   windowsHide?: boolean
+  env?: NodeJS.ProcessEnv
 }
 
 interface CheckpointRow {
@@ -83,7 +84,8 @@ function defaultSpawnAsync(command: string, args: string[], options: SpawnAsyncO
     const spawnOpts: SpawnOptions = {
       cwd: options.cwd,
       shell: options.shell ?? false,
-      windowsHide: options.windowsHide ?? true
+      windowsHide: options.windowsHide ?? true,
+      env: options.env ? { ...process.env, ...options.env } : process.env
     }
     const child = spawn(command, args, spawnOpts)
     let stdout = ''
@@ -416,7 +418,11 @@ export class GitHubService {
   }
 
   async listWorkflowRuns(input: GitHubWorkspaceInput): Promise<GitHubWorkflowRun[]> {
-    const raw = await this.runGh(['run', 'list', '--limit', '30', '--json', 'databaseId,name,displayTitle,status,conclusion,event,headBranch,actor,url,createdAt'], input.rootPath)
+    // `actor` was dropped from `gh run list --json` in recent gh releases (the
+    // CLI returns the list of valid fields in its error). We keep the `actor`
+    // shape on the response for backwards compatibility but always return null
+    // — getRunDetails could fetch the actor via `gh api` if we ever need it.
+    const raw = await this.runGh(['run', 'list', '--limit', '30', '--json', 'databaseId,name,displayTitle,status,conclusion,event,headBranch,url,createdAt'], input.rootPath)
     return parseJsonArray<Record<string, unknown>>(raw).map((item) => ({
       databaseId: toNumber(item.databaseId),
       name: nullableString(item.name),
@@ -425,7 +431,7 @@ export class GitHubService {
       conclusion: nullableString(item.conclusion),
       event: nullableString(item.event),
       branch: nullableString(item.headBranch),
-      actor: readLogin(item.actor),
+      actor: null,
       url: nullableString(item.url),
       createdAt: nullableString(item.createdAt)
     }))
@@ -437,6 +443,59 @@ export class GitHubService {
     for (const [key, value] of Object.entries(input.fields ?? {})) args.push('-f', `${key}=${value}`)
     await this.runGh(args, input.rootPath)
     return ok('Workflow disparado.')
+  }
+
+  /**
+   * Re-runs a workflow run. `failedOnly` maps to `--failed` which re-runs only
+   * the failed jobs (Wave 5: matches the VS Code GitHub Actions extension's
+   * "Re-run failed jobs" affordance).
+   */
+  async rerunRun(input: { rootPath: string; runId: number; failedOnly: boolean }): Promise<GitHubMessageResult> {
+    const args = ['run', 'rerun', String(input.runId)]
+    if (input.failedOnly) args.push('--failed')
+    await this.runGh(args, input.rootPath)
+    return ok(input.failedOnly ? 'Failed jobs re-disparados.' : 'Run re-disparado.')
+  }
+
+  /**
+   * Fetches the assembled logs of a workflow run via `gh run view --log` (or
+   * `--log-failed`). The output is capped to keep the renderer responsive —
+   * when the cap is hit we return the tail with a header. ANSI escapes are
+   * stripped server-side; the frontend just renders monospace text.
+   *
+   * GitHub bundles run logs into a zip and `gh` downloads + assembles them;
+   * for a CI run with several jobs and 4–5 minutes of output this commonly
+   * takes 20–90s. The 60s default we use for other `gh` calls is too short
+   * here, so this method bumps the timeout to 240s. `GH_PAGER=` disables any
+   * pager that would otherwise hold stdout open waiting for a TTY.
+   */
+  async getRunLogs(input: { rootPath: string; runId: number; failedOnly: boolean }): Promise<{ logs: string; truncated: boolean; bytes: number }> {
+    const status = await this.detectCli(input.rootPath)
+    if (!status.available || !status.authenticated) throw new Error(status.message ?? 'GitHub CLI indisponível.')
+    const args = ['run', 'view', String(input.runId), input.failedOnly ? '--log-failed' : '--log']
+    const result = await this.spawn(
+      status.path ?? 'gh',
+      args,
+      input.rootPath,
+      undefined,
+      240_000,
+      { GH_PAGER: '', PAGER: '', NO_COLOR: '1' }
+    )
+    if (result.status !== 0 || result.error) {
+      throw new Error(sanitizeError(result.stderr || result.stdout || result.error?.message || 'Falha ao buscar logs.'))
+    }
+    const stripped = stripAnsi(result.stdout ?? '')
+    const bytes = Buffer.byteLength(stripped, 'utf8')
+    const MAX_LOG_BYTES = 2 * 1024 * 1024 // 2 MB
+    if (bytes > MAX_LOG_BYTES) {
+      const tail = stripped.slice(-MAX_LOG_BYTES)
+      return {
+        logs: `… ${(bytes - MAX_LOG_BYTES).toLocaleString()} bytes truncated — showing last ${MAX_LOG_BYTES.toLocaleString()} bytes …\n\n${tail}`,
+        truncated: true,
+        bytes
+      }
+    }
+    return { logs: stripped, truncated: false, bytes }
   }
 
   listCheckpoints(input: GitHubWorkspaceInput): GitHubCheckpoint[] {
@@ -533,8 +592,8 @@ export class GitHubService {
 
     // gh --version is implicit in resolveGhExecutable; check auth + user in parallel
     const [auth, user] = await Promise.all([
-      this.spawn(gh, ['auth', 'status'], cwd),
-      this.spawn(gh, ['api', 'user', '--jq', '.login'], cwd)
+      this.spawn(gh, ['auth', 'status'], cwd, undefined, 30_000),
+      this.spawn(gh, ['api', 'user', '--jq', '.login'], cwd, undefined, 30_000)
     ])
     if (auth.status !== 0) {
       return {
@@ -623,12 +682,12 @@ export class GitHubService {
   }
 
   private async tryGit(args: string[], cwd: string): Promise<string> {
-    const result = await this.spawn('git', args, cwd)
+    const result = await this.spawn('git', args, cwd, undefined, 12_000)
     return result.status === 0 ? result.stdout ?? '' : ''
   }
 
   private async runGit(args: string[], cwd: string, input?: string): Promise<string> {
-    const result = await this.spawn('git', args, cwd, input)
+    const result = await this.spawn('git', args, cwd, input, 30_000)
     if (result.status !== 0 || result.error) throw new Error(sanitizeError(result.stderr || result.stdout || result.error?.message || 'Falha ao executar git.'))
     return result.stdout ?? ''
   }
@@ -636,18 +695,19 @@ export class GitHubService {
   private async runGh(args: string[], cwd: string): Promise<string> {
     const status = await this.detectCli(cwd)
     if (!status.available || !status.authenticated) throw new Error(status.message ?? 'GitHub CLI indisponível.')
-    const result = await this.spawn(status.path ?? 'gh', args, cwd)
+    const result = await this.spawn(status.path ?? 'gh', args, cwd, undefined, 60_000)
     if (result.status !== 0 || result.error) throw new Error(sanitizeError(result.stderr || result.stdout || result.error?.message || 'Falha ao executar gh.'))
     return result.stdout ?? ''
   }
 
-  private spawn(command: string, args: string[], cwd: string, input?: string): Promise<SpawnResult> {
+  private spawn(command: string, args: string[], cwd: string, input?: string, timeout = 15_000, env?: NodeJS.ProcessEnv): Promise<SpawnResult> {
     return this.spawnCommand(command, args, {
       cwd,
       input,
       shell: isCommandScript(command),
-      timeout: 15000,
-      windowsHide: true
+      timeout,
+      windowsHide: true,
+      env
     })
   }
 
@@ -784,6 +844,7 @@ function normalizeCommitBody(body: string | undefined, subject: string | undefin
 
 function getGhCandidates(): string[] {
   const candidates = [
+    process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, 'Programs', 'GitHub CLI', 'gh.exe') : '',
     process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, 'GitHub CLI', 'gh.exe') : '',
     process.env.ProgramFiles ? join(process.env.ProgramFiles, 'GitHub CLI', 'gh.exe') : '',
     process.env['ProgramFiles(x86)'] ? join(process.env['ProgramFiles(x86)']!, 'GitHub CLI', 'gh.exe') : '',
@@ -884,4 +945,19 @@ function parseWorktreePorcelain(raw: string, mainRootPath: string): GitHubWorktr
   }
 
   return worktrees
+}
+
+/**
+ * Strips ANSI escape sequences from gh CLI output so the renderer can display
+ * logs as plain text. Covers the most common SGR (color) + control sequences;
+ * good enough for `gh run view --log`, which uses standard escapes.
+ */
+function stripAnsi(text: string): string {
+  // CSI (Control Sequence Introducer) — `\x1b[ ... letter` (most colors/cursors)
+  // OSC (Operating System Command) — `\x1b] ... BEL` or `\x1b] ... ST`
+  // Other Fe escapes (single-byte after ESC)
+  return text
+    .replace(/\x1B\[[\x3C-\x3F]*[\d;]*[\x20-\x2F]*[\x40-\x7E]/g, '')
+    .replace(/\x1B\][^\x07\x1B]*(?:\x07|\x1B\\)/g, '')
+    .replace(/\x1B[@-_]/g, '')
 }

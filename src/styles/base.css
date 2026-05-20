@@ -32,3 +32,42 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   grid-template-columns: var(--sidebar-w-collapsed) minmax(0, 1fr);
 }
 
+/* ─── Brand (logo + wordmark) ───────────────────────────────────────────── */
+.oxe-wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1;
+}
+.oxe-wordmark-text {
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--tx-primary);
+}
+.oxe-wordmark-strong {
+  font-weight: 700;
+  background: linear-gradient(90deg, var(--brand) 0%, var(--brand-light) 60%, #38BDF8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.oxe-hero {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  line-height: 1.1;
+}
+.oxe-hero-text {
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  margin-top: 4px;
+  color: var(--tx-primary);
+}
+.oxe-hero-tagline {
+  font-size: var(--fs-sm);
+  color: var(--tx-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+

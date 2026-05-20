@@ -27,6 +27,7 @@ export function WorktreeMenu({ pane, workspaceId, workspaceRootPath, onClose }: 
   const [createNewBranch, setCreateNewBranch] = useState(true)
   const [busy, setBusy] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
+  const [confirmRemovePath, setConfirmRemovePath] = useState<string | null>(null)
 
   useEffect(() => {
     void refresh(workspaceId, workspaceRootPath)
@@ -63,11 +64,15 @@ export function WorktreeMenu({ pane, workspaceId, workspaceRootPath, onClose }: 
   }
 
   const handleRemove = async (path: string): Promise<void> => {
-    if (!confirm(`Remover worktree em ${path}?`)) return
+    if (confirmRemovePath !== path) {
+      setConfirmRemovePath(path)
+      return
+    }
     setBusy(true)
     setLocalError(null)
     try {
       await removeWorktree(workspaceRootPath, path, true)
+      setConfirmRemovePath(null)
       // If this pane was using that worktree, reset to workspace root
       if (pane.rootPath === path) await setPaneRootPath(pane.id, null)
     } catch (err) {
@@ -148,7 +153,8 @@ export function WorktreeMenu({ pane, workspaceId, workspaceRootPath, onClose }: 
                       <button
                         type="button"
                         className="icon-button worktree-menu-remove"
-                        aria-label="Remover worktree"
+                        aria-label={confirmRemovePath === wt.path ? 'Confirmar remoção do worktree' : 'Remover worktree'}
+                        title={confirmRemovePath === wt.path ? 'Clique novamente para remover' : 'Remover worktree'}
                         onClick={(event) => { event.stopPropagation(); void handleRemove(wt.path) }}
                         disabled={busy}
                       >

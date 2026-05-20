@@ -23,13 +23,12 @@ const BRAND_TOKENS = [
   { name: '--brand-dark',    label: 'Brand Dark' },
 ]
 
-const PROVIDER_ENTRIES: Array<{ provider: 'claude' | 'gh-copilot' | 'gemini' | 'codex' | 'cursor' | 'oxe' | 'custom'; label: string }> = [
+const PROVIDER_ENTRIES: Array<{ provider: 'claude' | 'gh-copilot' | 'gemini' | 'codex' | 'cursor' | 'custom'; label: string }> = [
   { provider: 'claude',    label: 'Claude' },
   { provider: 'gh-copilot',label: 'Copilot' },
   { provider: 'gemini',    label: 'Gemini' },
   { provider: 'codex',     label: 'Codex' },
   { provider: 'cursor',    label: 'Cursor' },
-  { provider: 'oxe',       label: 'OXE' },
   { provider: 'custom',    label: 'Custom' },
 ]
 
@@ -47,22 +46,36 @@ function BrandSection(): ReactElement {
     <div className="ds-showcase" style={{ gap: 32 }}>
       <section className="ds-showcase-section">
         <p className="ds-section-subtitle">Logo</p>
-        <div className="ds-showcase-row" style={{ gap: 24, alignItems: 'center' }}>
+        <div className="ds-showcase-row" style={{ gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
             <OxeLogo size={28} />
-            <span style={{ fontSize: 10, color: 'var(--tx-muted)' }}>28px sidebar</span>
+            <span style={{ fontSize: 11, color: 'var(--tx-muted)' }}>28px · full</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
             <OxeLogo size={48} />
-            <span style={{ fontSize: 10, color: 'var(--tx-muted)' }}>48px featured</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-            <OxeLogo size={64} />
-            <span style={{ fontSize: 10, color: 'var(--tx-muted)' }}>64px display</span>
+            <span style={{ fontSize: 11, color: 'var(--tx-muted)' }}>48px · full</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
             <OxeLogo size={24} variant="compact" />
-            <span style={{ fontSize: 10, color: 'var(--tx-muted)' }}>24px compact</span>
+            <span style={{ fontSize: 11, color: 'var(--tx-muted)' }}>24px · compact</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="ds-showcase-section">
+        <p className="ds-section-subtitle">Wordmark + Hero</p>
+        <div className="ds-showcase-row" style={{ gap: 32, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+            <OxeLogo size={22} variant="wordmark" />
+            <span style={{ fontSize: 11, color: 'var(--tx-muted)' }}>22px · wordmark (sidebar)</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+            <OxeLogo size={28} variant="wordmark" />
+            <span style={{ fontSize: 11, color: 'var(--tx-muted)' }}>28px · wordmark (header)</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+            <OxeLogo size={72} variant="hero" />
+            <span style={{ fontSize: 11, color: 'var(--tx-muted)' }}>72px · hero (empty state / splash)</span>
           </div>
         </div>
       </section>

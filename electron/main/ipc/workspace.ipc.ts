@@ -4,7 +4,7 @@ import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import { AgentService } from '../services/agent.service'
 import { ShellProfileService } from '../services/shell-profile.service'
 import { WorkspaceService } from '../services/workspace.service'
-import { parseId, parseSetPaneAgentInput, parseSetPaneModelOverrideInput, parseSetPaneRootPathInput, parseSplitPaneInput, parseUpdatePaneNameInput, parseUpdatePaneTypeInput, parseUpdateWorkspaceAgentsStateInput, parseUpdateWorkspaceEditorStateInput, parseUpdateWorkspaceGitHubStateInput, parseUpdateWorkspaceOxeStateInput, parseUpdateWorkspaceReviewStateInput, parseUpdateWorkspaceSettingsInput, parseWorkspaceCreateInput } from './validation'
+import { parseId, parseSetPaneAgentInput, parseSetPaneRootPathInput, parseSplitPaneInput, parseUpdatePaneNameInput, parseUpdatePaneTypeInput, parseUpdateWorkspaceBackgroundStateInput, parseUpdateWorkspaceEditorStateInput, parseUpdateWorkspaceGitHubStateInput, parseUpdateWorkspaceReviewStateInput, parseUpdateWorkspaceSettingsInput, parseWorkspaceCreateInput } from './validation'
 
 interface WorkspaceLifecycleController {
   stop(input: { paneId: string }): Promise<void> | void
@@ -44,10 +44,6 @@ export function registerWorkspaceIpc(db: AppDatabase, lifecycle?: WorkspaceLifec
     const { paneId, displayName } = parseUpdatePaneNameInput(input)
     return workspaceService.updatePaneName(paneId, displayName)
   })
-  ipcMain.handle(IPC_CHANNELS.workspace.setPaneModelOverride, (_event, input: unknown) => {
-    const { paneId, modelId } = parseSetPaneModelOverrideInput(input)
-    return workspaceService.setPaneModelOverride(paneId, modelId)
-  })
   ipcMain.handle(IPC_CHANNELS.workspace.setPaneAgent, (_event, input: unknown) => {
     const { paneId, agentProfileId } = parseSetPaneAgentInput(input)
     let agentName: string | null = null
@@ -69,17 +65,14 @@ export function registerWorkspaceIpc(db: AppDatabase, lifecycle?: WorkspaceLifec
   ipcMain.handle(IPC_CHANNELS.workspace.updateEditorState, (_event, input: unknown) =>
     workspaceService.updateEditorState(parseUpdateWorkspaceEditorStateInput(input))
   )
-  ipcMain.handle(IPC_CHANNELS.workspace.updateOxeState, (_event, input: unknown) =>
-    workspaceService.updateOxeState(parseUpdateWorkspaceOxeStateInput(input))
-  )
-  ipcMain.handle(IPC_CHANNELS.workspace.updateAgentsState, (_event, input: unknown) =>
-    workspaceService.updateAgentsState(parseUpdateWorkspaceAgentsStateInput(input))
-  )
   ipcMain.handle(IPC_CHANNELS.workspace.updateReviewState, (_event, input: unknown) =>
     workspaceService.updateReviewState(parseUpdateWorkspaceReviewStateInput(input))
   )
   ipcMain.handle(IPC_CHANNELS.workspace.updateGitHubState, (_event, input: unknown) =>
     workspaceService.updateGitHubState(parseUpdateWorkspaceGitHubStateInput(input))
+  )
+  ipcMain.handle(IPC_CHANNELS.workspace.updateBackgroundState, (_event, input: unknown) =>
+    workspaceService.updateBackgroundState(parseUpdateWorkspaceBackgroundStateInput(input))
   )
   ipcMain.handle(IPC_CHANNELS.workspace.updateSettings, (_event, input: unknown) =>
     workspaceService.updateSettings(parseUpdateWorkspaceSettingsInput(input))

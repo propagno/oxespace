@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
-import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronDown, Clock, Copy, ExternalLink, Github, GitPullRequest, Link2, RefreshCw, Tag, Terminal, TrendingUp } from 'lucide-react'
-import type { GitHubBranch, GitHubCliStatus, GitHubCommit, GitHubCommitDetails, GitHubConnectedRepository, GitHubPanelTab, GitHubPullRequest, GitHubRelease, GitHubWorkspaceStatus } from '../../../shared/types/github'
+import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronDown, ChevronRight, Clock, Copy, ExternalLink, Github, GitPullRequest, Link2, Play, RefreshCw, Tag, Terminal, TrendingUp } from 'lucide-react'
+import type { GitHubBranch, GitHubCliStatus, GitHubCommit, GitHubCommitDetails, GitHubConnectedRepository, GitHubPanelTab, GitHubPullRequest, GitHubRelease, GitHubWorkflow, GitHubWorkflowRun, GitHubWorkspaceStatus } from '../../../shared/types/github'
 import { selectGitHubWorkspace, useGitHubStore } from '../../store/github.store'
 import { TerminalView } from '../Terminal/TerminalView'
 
@@ -25,6 +25,7 @@ const TABS: Array<{ id: GitHubPanelTab; label: string; remote?: boolean }> = [
   { id: 'prs', label: 'PRs', remote: true },
   { id: 'commits', label: 'Commits' },
   { id: 'releases', label: 'Releases', remote: true },
+  { id: 'actions', label: 'Actions', remote: true },
   { id: 'settings', label: 'Settings' }
 ]
 
@@ -95,7 +96,7 @@ export function GitHubPanel({ activeTab: propTab, onTabChange, rootPath, workspa
               <StatusTab
                 loading={state.loading}
                 status={status}
-                onStageAll={() => requestConfirm('Stage all', 'Adicionar todas as mudanças ao stage.', () => useGitHubStore.getState().stageAll(input))}
+                onStageAll={() => requestConfirm('Stage all', buildStageAllPreview(status), () => useGitHubStore.getState().stageAll(input))}
                 onCommit={(msg) => requestConfirm('Commit', msg, () => useGitHubStore.getState().commit({ ...input, message: msg }))}
                 onGenerateMessage={() => useGitHubStore.getState().generateCommitMessage(input)}
                 onRefresh={() => void useGitHubStore.getState().loadTab(input, 'status')}
@@ -158,6 +159,17 @@ export function GitHubPanel({ activeTab: propTab, onTabChange, rootPath, workspa
                 loading={state.loading}
                 onCreate={(release) => requestConfirm('Criar release', release.tagName, () => useGitHubStore.getState().createRelease({ ...input, ...release }))}
                 onRefresh={() => void useGitHubStore.getState().loadTab(input, 'releases')}
+              />
+            )}
+            {activeTab === 'actions' && (
+              <ActionsTab
+                workflows={state.workflows}
+                workflowRuns={state.workflowRuns}
+                loading={state.loading}
+                rootPath={rootPath}
+                onRun={(workflowId, ref, fields) => requestConfirm('Run workflow', workflowId, () => useGitHubStore.getState().runWorkflow({ ...input, workflowId, ref, fields }))}
+                onRerun={(runId, failedOnly) => requestConfirm(failedOnly ? 'Re-run failed jobs' : 'Re-run workflow', `Run #${runId}`, () => useGitHubStore.getState().rerunRun({ ...input, runId, failedOnly }))}
+                onRefresh={() => void useGitHubStore.getState().loadTab(input, 'actions')}
               />
             )}
             {activeTab === 'settings' && (
@@ -252,7 +264,7 @@ function StatusTab({ loading, status, onStageAll, onCommit, onGenerateMessage, o
         </button>
         <label className="github-auto-row">
           <input type="checkbox" checked={autoGenerate} disabled={generating || loading} onChange={(e) => void handleAutoGenerate(e.target.checked)} />
-          <span>Auto-generate commit message with Claude</span>
+          <span>Auto-generate commit message</span>
         </label>
         <textarea className="github-commit-ta" value={message} placeholder="Commit message..." onChange={(e) => setMessage(e.target.value)} />
         <button type="button" className="github-commit-submit" disabled={loading || !commitMessage} onClick={() => onCommit(commitMessage)}>
@@ -834,6 +846,384 @@ function ReleasesTab({ releases, status, loading, onCreate, onRefresh }: {
 
 // ─── Settings ──────────────────────────────────────────────────────────────
 
+// Onda 5: rewritten as a tree (workflows → runs) + right-side run detail panel,
+// matching the VS Code GitHub Actions extension layout.
+function ActionsTab({ workflows, workflowRuns, loading, rootPath, onRun, onRerun, onRefresh }: {
+  workflows: GitHubWorkflow[]
+  workflowRuns: GitHubWorkflowRun[]
+  loading: boolean
+  rootPath: string
+  onRun: (workflowId: string, ref?: string, fields?: Record<string, string>) => void
+  onRerun: (runId: number, failedOnly: boolean) => void
+  onRefresh: () => void
+}): ReactElement {
+  const [filter, setFilter] = useState<'all' | 'failed' | 'in_progress'>('all')
+  const [selectedRunId, setSelectedRunId] = useState<number | null>(null)
+  const [collapsedWorkflows, setCollapsedWorkflows] = useState<Set<string>>(new Set())
+  const [showRunForm, setShowRunForm] = useState(false)
+
+  // Group runs under their workflow. gh's `--json name` returns the workflow
+  // display name on each run — we match against the workflow list and bucket.
+  // Workflows with zero runs still appear (empty parent) so users can spot
+  // workflows that never ran.
+  const groups = useMemo(() => {
+    const filtered = workflowRuns.filter((run) => {
+      if (filter === 'failed') return run.conclusion === 'failure' || run.status === 'failure'
+      if (filter === 'in_progress') return run.status === 'in_progress' || run.status === 'queued'
+      return true
+    })
+    const byWorkflow = new Map<string, GitHubWorkflowRun[]>()
+    for (const run of filtered) {
+      const key = run.name ?? 'Unknown workflow'
+      const bucket = byWorkflow.get(key) ?? []
+      bucket.push(run)
+      byWorkflow.set(key, bucket)
+    }
+    const out: Array<{ workflow: GitHubWorkflow | { id: number; name: string; path: string; state: string }; runs: GitHubWorkflowRun[] }> = []
+    for (const workflow of workflows) {
+      out.push({ workflow, runs: (byWorkflow.get(workflow.name) ?? []).sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')) })
+      byWorkflow.delete(workflow.name)
+    }
+    // Surface runs from workflows not in the workflow list (e.g. renamed/deleted)
+    for (const [name, runs] of byWorkflow) {
+      out.push({ workflow: { id: -1, name, path: '', state: 'unknown' }, runs })
+    }
+    return out
+  }, [workflows, workflowRuns, filter])
+
+  const selectedRun = workflowRuns.find((r) => r.databaseId === selectedRunId) ?? null
+
+  const toggleWorkflow = (name: string): void => {
+    setCollapsedWorkflows((prev) => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name); else next.add(name)
+      return next
+    })
+  }
+
+  return (
+    <div className="github-actions-v2">
+      <header className="github-actions-v2-toolbar">
+        <div className="github-actions-v2-title">
+          <Play size={14} aria-hidden="true" />
+          <span>Actions</span>
+        </div>
+        <div className="github-actions-v2-filters">
+          {(['all', 'failed', 'in_progress'] as const).map((f) => (
+            <button
+              key={f}
+              type="button"
+              className={`github-actions-v2-filter${filter === f ? ' active' : ''}`}
+              onClick={() => setFilter(f)}
+            >
+              {f === 'all' ? 'All' : f === 'failed' ? 'Failed' : 'In progress'}
+            </button>
+          ))}
+          <button type="button" className="gh-icon-btn" title="Refresh" onClick={onRefresh}>
+            <RefreshCw size={13} aria-hidden="true" className={loading ? 'usage-spin' : undefined} />
+          </button>
+          <button type="button" className="gh-icon-btn" title="Run workflow" onClick={() => setShowRunForm((v) => !v)}>
+            <Play size={13} aria-hidden="true" />
+          </button>
+        </div>
+      </header>
+
+      {showRunForm ? (
+        <RunWorkflowForm
+          workflows={workflows}
+          loading={loading}
+          onRun={(id, ref, fields) => { onRun(id, ref, fields); setShowRunForm(false) }}
+          onCancel={() => setShowRunForm(false)}
+        />
+      ) : null}
+
+      <div className="github-actions-v2-split">
+        <aside className="github-actions-v2-tree">
+          {groups.length === 0 ? (
+            <div className="github-empty">No workflows found.</div>
+          ) : (
+            groups.map(({ workflow, runs }) => {
+              const collapsed = collapsedWorkflows.has(workflow.name)
+              return (
+                <div key={workflow.name} className="github-actions-v2-workflow">
+                  <button
+                    type="button"
+                    className="github-actions-v2-workflow-row"
+                    onClick={() => toggleWorkflow(workflow.name)}
+                  >
+                    {collapsed ? <ChevronRight size={11} aria-hidden="true" /> : <ChevronDown size={11} aria-hidden="true" />}
+                    <RunStatusIcon status="workflow" conclusion={null} />
+                    <span className="github-actions-v2-workflow-name">{workflow.name}</span>
+                    <span className="github-actions-v2-workflow-meta">{runs.length}</span>
+                  </button>
+                  {!collapsed && (
+                    runs.length === 0 ? (
+                      <div className="github-actions-v2-empty">No runs</div>
+                    ) : (
+                      runs.map((run) => (
+                        <button
+                          key={run.databaseId}
+                          type="button"
+                          className={`github-actions-v2-run-row${selectedRunId === run.databaseId ? ' selected' : ''}`}
+                          onClick={() => setSelectedRunId(run.databaseId)}
+                        >
+                          <RunStatusIcon status={run.status} conclusion={run.conclusion} />
+                          <span className="github-actions-v2-run-title">
+                            {run.displayTitle ?? `Run ${run.databaseId}`}
+                          </span>
+                          {run.branch ? <span className="github-actions-v2-run-branch">{run.branch}</span> : null}
+                          {run.createdAt ? <span className="github-actions-v2-run-time">{formatRelative(run.createdAt)}</span> : null}
+                        </button>
+                      ))
+                    )
+                  )}
+                </div>
+              )
+            })
+          )}
+        </aside>
+
+        <section className="github-actions-v2-detail">
+          {selectedRun ? (
+            <RunDetail run={selectedRun} rootPath={rootPath} onRerun={(failedOnly) => onRerun(selectedRun.databaseId, failedOnly)} />
+          ) : (
+            <div className="github-empty">Select a workflow run to view details.</div>
+          )}
+        </section>
+      </div>
+    </div>
+  )
+}
+
+function RunDetail({ run, rootPath, onRerun }: { run: GitHubWorkflowRun; rootPath: string; onRerun: (failedOnly: boolean) => void }): ReactElement {
+  const isFailed = run.conclusion === 'failure' || run.status === 'failure'
+  const [logs, setLogs] = useState<{ text: string; truncated: boolean } | null>(null)
+  const [logsLoading, setLogsLoading] = useState(false)
+  const [logsError, setLogsError] = useState<string | null>(null)
+  const [logsMode, setLogsMode] = useState<'all' | 'failed' | null>(null)
+  const [logsElapsed, setLogsElapsed] = useState(0)
+
+  // Reset logs when the selected run changes — otherwise the viewer keeps the
+  // previous run's text up until the next fetch.
+  useEffect(() => {
+    setLogs(null)
+    setLogsError(null)
+    setLogsMode(null)
+    setLogsElapsed(0)
+  }, [run.databaseId])
+
+  // Tick a counter while the download is in flight so the UI doesn't look
+  // frozen. `gh run view --log` can take 30–90s for a multi-job CI run.
+  useEffect(() => {
+    if (!logsLoading) return
+    setLogsElapsed(0)
+    const start = Date.now()
+    const id = window.setInterval(() => setLogsElapsed(Math.floor((Date.now() - start) / 1000)), 1000)
+    return () => window.clearInterval(id)
+  }, [logsLoading])
+
+  const fetchLogs = async (mode: 'all' | 'failed'): Promise<void> => {
+    setLogsLoading(true)
+    setLogsError(null)
+    setLogsMode(mode)
+    try {
+      // Defensive: if the preload hasn't been refreshed (running on an older
+      // build) this property will be undefined. Surface that explicitly instead
+      // of letting the renderer swallow a silent TypeError.
+      const api = window.oxe?.github as { getRunLogs?: (input: { rootPath: string; runId: number; failedOnly: boolean }) => Promise<{ logs: string; truncated: boolean; bytes: number }> } | undefined
+      if (!api?.getRunLogs) {
+        throw new Error('Log fetching is not available in this build. Restart the app to load the latest preload.')
+      }
+      console.info('[GitHubActions] fetching logs', { runId: run.databaseId, mode })
+      const result = await api.getRunLogs({ rootPath, runId: run.databaseId, failedOnly: mode === 'failed' })
+      console.info('[GitHubActions] logs received', { bytes: result.bytes, truncated: result.truncated })
+      setLogs({ text: result.logs, truncated: result.truncated })
+    } catch (err) {
+      console.error('[GitHubActions] fetch logs failed', err)
+      setLogsError(err instanceof Error ? err.message : String(err))
+      setLogs(null)
+    } finally {
+      setLogsLoading(false)
+    }
+  }
+
+  return (
+    <div className="github-actions-v2-detail-body">
+      <header className="github-actions-v2-detail-header">
+        <RunStatusIcon status={run.status} conclusion={run.conclusion} size={16} />
+        <div className="github-actions-v2-detail-title">
+          <strong>{run.displayTitle ?? run.name ?? `Run ${run.databaseId}`}</strong>
+          <span>{[run.status, run.conclusion, run.event, run.actor].filter(Boolean).join(' · ')}</span>
+        </div>
+      </header>
+
+      <dl className="github-actions-v2-detail-meta">
+        {run.branch ? (<><dt>Branch</dt><dd>{run.branch}</dd></>) : null}
+        {run.actor ? (<><dt>Actor</dt><dd>{run.actor}</dd></>) : null}
+        {run.event ? (<><dt>Event</dt><dd>{run.event}</dd></>) : null}
+        {run.createdAt ? (<><dt>Created</dt><dd>{formatDate(run.createdAt)}</dd></>) : null}
+      </dl>
+
+      <div className="github-actions-v2-detail-actions">
+        <button type="button" className="ghost-btn" onClick={() => onRerun(false)}>
+          <RefreshCw size={11} aria-hidden="true" /> Re-run all
+        </button>
+        {isFailed ? (
+          <button type="button" className="ghost-btn" onClick={() => onRerun(true)}>
+            <RefreshCw size={11} aria-hidden="true" /> Re-run failed
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className={`ghost-btn${logsMode === 'all' ? ' active' : ''}`}
+          disabled={logsLoading}
+          onClick={() => void fetchLogs('all')}
+        >
+          <Terminal size={11} aria-hidden="true" /> {logsLoading && logsMode === 'all' ? `Loading… ${logsElapsed}s` : 'View logs'}
+        </button>
+        {isFailed ? (
+          <button
+            type="button"
+            className={`ghost-btn${logsMode === 'failed' ? ' active' : ''}`}
+            disabled={logsLoading}
+            onClick={() => void fetchLogs('failed')}
+          >
+            <Terminal size={11} aria-hidden="true" /> {logsLoading && logsMode === 'failed' ? `Loading… ${logsElapsed}s` : 'Failed-only logs'}
+          </button>
+        ) : null}
+        {run.url ? (
+          <button type="button" className="ghost-btn" onClick={() => window.open(run.url ?? '', '_blank')}>
+            <ExternalLink size={11} aria-hidden="true" /> Open in GitHub
+          </button>
+        ) : null}
+      </div>
+
+      {logsError ? <div className="github-actions-v2-logs-error">{logsError}</div> : null}
+
+      {logsLoading && !logs ? (
+        <div className="github-actions-v2-logs-progress">
+          Fetching logs from GitHub via <code>gh</code>… elapsed {logsElapsed}s.
+          {logsElapsed >= 30 ? ' Large runs can take 30–90s.' : null}
+          {logsElapsed >= 120 ? ' Still working — will time out at 240s.' : null}
+        </div>
+      ) : null}
+
+      {logs ? (
+        <div className="github-actions-v2-logs-viewer">
+          <header className="github-actions-v2-logs-header">
+            <span>{logsMode === 'failed' ? 'Failed-step logs' : 'Full run logs'}</span>
+            <div className="github-actions-v2-logs-header-actions">
+              {logs.truncated ? <span className="github-actions-v2-logs-truncated">truncated</span> : null}
+              <button
+                type="button"
+                className="ghost-btn small"
+                onClick={() => void navigator.clipboard?.writeText(logs.text).catch(() => undefined)}
+                title="Copy logs to clipboard"
+              >
+                <Copy size={10} aria-hidden="true" /> Copy
+              </button>
+              <button
+                type="button"
+                className="ghost-btn small"
+                onClick={() => { setLogs(null); setLogsMode(null) }}
+                aria-label="Close logs"
+              >
+                Hide
+              </button>
+            </div>
+          </header>
+          <pre className="github-actions-v2-logs-body">{logs.text}</pre>
+        </div>
+      ) : null}
+
+      {!logs && !logsLoading && !logsError ? (
+        <div className="github-actions-v2-detail-hint">
+          Click <strong>View logs</strong> to fetch the run's full output inline (large logs are tailed to ~2&nbsp;MB).
+          GitHub's web UI has the per-job/per-step breakdown if you need to drill deeper.
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function RunWorkflowForm({ workflows, loading, onRun, onCancel }: {
+  workflows: GitHubWorkflow[]
+  loading: boolean
+  onRun: (workflowId: string, ref?: string, fields?: Record<string, string>) => void
+  onCancel: () => void
+}): ReactElement {
+  const [workflowId, setWorkflowId] = useState('')
+  const [ref, setRef] = useState('')
+  const [fieldsText, setFieldsText] = useState('')
+  const selected = workflows.find((w) => String(w.id) === workflowId)
+  const fields = useMemo(() => {
+    const out: Record<string, string> = {}
+    for (const line of fieldsText.split(/\r?\n/)) {
+      const trimmed = line.trim()
+      if (!trimmed || !trimmed.includes('=')) continue
+      const eq = trimmed.indexOf('=')
+      out[trimmed.slice(0, eq).trim()] = trimmed.slice(eq + 1).trim()
+    }
+    return out
+  }, [fieldsText])
+
+  return (
+    <div className="github-actions-v2-runform">
+      <div className="github-actions-v2-runform-row">
+        <select value={workflowId} onChange={(e) => setWorkflowId(e.currentTarget.value)}>
+          <option value="">Select workflow…</option>
+          {workflows.map((w) => <option key={w.id} value={String(w.id)}>{w.name}</option>)}
+        </select>
+        <input value={ref} placeholder="ref (optional)" onChange={(e) => setRef(e.currentTarget.value)} />
+      </div>
+      <textarea
+        value={fieldsText}
+        placeholder="inputs (optional) — one key=value per line"
+        rows={3}
+        onChange={(e) => setFieldsText(e.currentTarget.value)}
+      />
+      <div className="github-actions-v2-runform-actions">
+        <button type="button" className="ghost-btn" onClick={onCancel}>Cancel</button>
+        <button
+          type="button"
+          className="github-full-primary-btn"
+          disabled={loading || !selected}
+          onClick={() => selected ? onRun(String(selected.id), ref.trim() || undefined, Object.keys(fields).length > 0 ? fields : undefined) : undefined}
+        >
+          Run workflow
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function RunStatusIcon({ status, conclusion, size = 12 }: { status: string; conclusion: string | null; size?: number }): ReactElement {
+  if (status === 'workflow') return <Play size={size} aria-hidden="true" className="github-actions-v2-icon-neutral" />
+  if (status === 'in_progress' || status === 'queued') {
+    return <Clock size={size} aria-hidden="true" className="github-actions-v2-icon-running usage-spin" />
+  }
+  if (conclusion === 'success') return <CheckCircle2 size={size} aria-hidden="true" className="github-actions-v2-icon-success" />
+  if (conclusion === 'failure' || status === 'failure') return <AlertTriangle size={size} aria-hidden="true" className="github-actions-v2-icon-failed" />
+  if (conclusion === 'cancelled') return <AlertTriangle size={size} aria-hidden="true" className="github-actions-v2-icon-cancelled" />
+  if (conclusion === 'skipped') return <ExternalLink size={size} aria-hidden="true" className="github-actions-v2-icon-neutral" />
+  return <Clock size={size} aria-hidden="true" className="github-actions-v2-icon-neutral" />
+}
+
+function formatRelative(iso: string): string {
+  try {
+    const diff = Date.now() - new Date(iso).getTime()
+    const sec = Math.floor(diff / 1000)
+    if (sec < 60) return `${sec}s ago`
+    const min = Math.floor(sec / 60)
+    if (min < 60) return `${min}m ago`
+    const hr = Math.floor(min / 60)
+    if (hr < 24) return `${hr}h ago`
+    return `${Math.floor(hr / 24)}d ago`
+  } catch {
+    return iso
+  }
+}
+
 function SettingsTab({ status, rootPath, connectedRepositories, onRunCommand, onRefresh }: {
   status: GitHubWorkspaceStatus | null
   rootPath: string
@@ -1040,6 +1430,15 @@ function formatDate(value: string | number | null | undefined): string {
   const date = typeof value === 'number' ? new Date(value) : new Date(value)
   if (Number.isNaN(date.getTime())) return String(value)
   return date.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })
+}
+
+function buildStageAllPreview(status: GitHubWorkspaceStatus | null): string {
+  const staged = status?.staged ?? 0
+  const modified = status?.modified ?? 0
+  const untracked = status?.untracked ?? 0
+  const parts = [`staged ${staged}`, `modified ${modified}`, `untracked ${untracked}`]
+  const warning = untracked > 0 ? ' Untracked files will also be added; review secrets before confirming.' : ''
+  return `Stage all changes (${parts.join(', ')}).${warning}`
 }
 
 // ─── Skeleton ───────────────────────────────────────────────────────────────

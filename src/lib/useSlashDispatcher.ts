@@ -1,8 +1,10 @@
 import { useCallback } from 'react'
 import type { AgentProfile } from '../../shared/types/agent'
-import type { SlashCommandId } from '../../shared/types/slash'
+import type { SlashCommandDefinition, SlashCommandId } from '../../shared/types/slash'
 import type { Workspace, WorkspacePane } from '../../shared/types/workspace'
 import { useAgentStore } from '../store/agent.store'
+import { useBackgroundStore } from '../store/background.store'
+import { useSkillStore } from '../store/skill.store'
 import { useUIStore } from '../store/ui.store'
 import { useWorkspaceStore } from '../store/workspace.store'
 
@@ -11,17 +13,28 @@ interface UseSlashDispatcherArgs {
   pane: WorkspacePane | null
 }
 
-export function useSlashDispatcher({ workspace, pane }: UseSlashDispatcherArgs): (id: SlashCommandId, argument: string) => Promise<void> {
+export function useSlashDispatcher({ workspace, pane }: UseSlashDispatcherArgs): (command: SlashCommandDefinition, argument: string) => Promise<void> {
   const splitPane = useWorkspaceStore((s) => s.splitPane)
   const updatePaneName = useWorkspaceStore((s) => s.updatePaneName)
   const setPaneAgent = useWorkspaceStore((s) => s.setPaneAgent)
   const allProfiles = useAgentStore((s) => s.allProfiles)
-  const openModelSelector = useUIStore((s) => s.openModelSelector)
   const openContextUsage = useUIStore((s) => s.openContextUsage)
+  const openWorktreeMenu = useUIStore((s) => s.openWorktreeMenu)
+  const openMcpPanel = useUIStore((s) => s.openMcpPanel)
+  const startBackgroundJob = useBackgroundStore((s) => s.startJob)
+  const invokeSkill = useSkillStore((s) => s.invoke)
 
-  return useCallback(async (id: SlashCommandId, argument: string): Promise<void> => {
+  return useCallback(async (command: SlashCommandDefinition, argument: string): Promise<void> => {
     if (!pane || !workspace) return
     const paneId = pane.id
+
+    // User-defined skill — write the rendered prompt to the pane.
+    if (command.skillName) {
+      await invokeSkill(command.skillName, paneId, argument)
+      return
+    }
+
+    const id = command.id as SlashCommandId
     switch (id) {
       case 'clear':
         // ANSI clear: ESC [ 2 J (erase whole screen) + ESC [ H (cursor home)
@@ -42,9 +55,6 @@ export function useSlashDispatcher({ workspace, pane }: UseSlashDispatcherArgs):
       case 'stop':
         await window.oxe.terminal.stop({ paneId })
         return
-      case 'model':
-        openModelSelector(paneId)
-        return
       case 'agent': {
         const arg = argument.trim()
         if (!arg) return
@@ -60,6 +70,24 @@ export function useSlashDispatcher({ workspace, pane }: UseSlashDispatcherArgs):
       case 'rename':
         if (argument.trim()) await updatePaneName(paneId, argument.trim())
         return
+      case 'bg': {
+        const command = argument.trim()
+        if (!command) throw new Error('/bg requer um comando, ex: /bg npm run build')
+        await startBackgroundJob({
+          workspaceId: workspace.id,
+          workspaceRootPath: workspace.rootPath,
+          command,
+          paneRootPath: pane.rootPath ?? null,
+          confirmed: true
+        })
+        return
+      }
+      case 'worktree':
+        openWorktreeMenu(paneId)
+        return
+      case 'mcp':
+        openMcpPanel()
+        return
       case 'help':
         // No-op — the overlay itself is the help screen.
         return
@@ -68,7 +96,7 @@ export function useSlashDispatcher({ workspace, pane }: UseSlashDispatcherArgs):
         throw new Error(`Unhandled slash command: ${String(exhaustive)}`)
       }
     }
-  }, [pane, workspace, splitPane, updatePaneName, setPaneAgent, allProfiles, openModelSelector, openContextUsage])
+  }, [pane, workspace, splitPane, updatePaneName, setPaneAgent, allProfiles, openContextUsage, openWorktreeMenu, openMcpPanel, startBackgroundJob, invokeSkill])
 }
 
 /**

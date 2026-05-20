@@ -54,7 +54,6 @@
   --provider-gemini:  #1a73e8;
   --provider-codex:   #10a37f;
   --provider-cursor:  #6366f1;
-  --provider-oxe:     #12C79A;
   --provider-custom:  #475569;
 
   /* Avatar palette */
@@ -90,15 +89,34 @@
   --ws-item-h:        40px;
 
   /* Fonts */
-  --font-ui:   'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-ui:   'Inter Variable', 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --font-mono: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+
+  /* Type scale — mirrors Codex Desktop baseline (14px primary). */
+  --fs-base:   14px;  /* body, primary UI text */
+  --fs-lg:     15px;  /* primary headings inside panels */
+  --fs-sm:     13px;  /* secondary UI text, sidebar list items */
+  --fs-xs:     12px;  /* metadata, hint text, badges */
+  --fs-2xs:    11px;  /* dense status chips, last resort */
+  --lh-base:   1.5;
+  --lh-tight:  1.35;
 
   color: var(--tx-primary);
   background: var(--bg-app);
   font-family: var(--font-ui);
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+}
+
+:root[data-density='comfortable'] {
+  --fs-base:   15px;
+  --fs-lg:     16px;
+  --fs-sm:     14px;
+  --fs-xs:     13px;
+  --fs-2xs:    12px;
 }
 
 :root[data-theme='nord'] {

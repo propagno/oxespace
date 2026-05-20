@@ -18,6 +18,7 @@ export interface StartBackgroundJobInput {
   command: string
   label?: string
   paneRootPath?: string | null
+  confirmed?: boolean
 }
 
 export interface BackgroundJobOutputChunk {

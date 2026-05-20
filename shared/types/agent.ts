@@ -1,10 +1,10 @@
-export type AgentProvider = 'claude' | 'copilot' | 'gh-copilot' | 'codex' | 'gemini' | 'cursor' | 'oxe' | 'custom'
+export type AgentProvider = 'claude' | 'copilot' | 'gh-copilot' | 'codex' | 'gemini' | 'cursor' | 'custom'
 
 export const BUILTIN_PROVIDERS = ['claude', 'copilot', 'codex', 'gemini', 'cursor'] as const
 
 export type BuiltinProvider = (typeof BUILTIN_PROVIDERS)[number]
 
-export const ALL_PROVIDERS: readonly AgentProvider[] = [...BUILTIN_PROVIDERS, 'gh-copilot', 'oxe', 'custom']
+export const ALL_PROVIDERS: readonly AgentProvider[] = [...BUILTIN_PROVIDERS, 'gh-copilot', 'custom']
 
 export interface AgentProfile {
   agentProfileId: string

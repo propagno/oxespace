@@ -20,3 +20,9 @@
 @import './styles/components.css';
 @import './styles/features.css';
 @import './styles/worktree.css';
+@import './styles/background.css';
+@import './styles/history.css';
+@import './styles/tasks-deps.css';
+@import './styles/mcp.css';
+@import './styles/skills.css';
+@import './styles/scripts-webpreview.css';

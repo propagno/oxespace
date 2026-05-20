@@ -103,7 +103,7 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
         <div className="editor-sidebar-title">Files</div>
         {isLoadingTree ? <div className="editor-browser-empty">Loading</div> : null}
         {treeError ? <div className="editor-error">{treeError}</div> : null}
-        {!isLoadingTree && !treeError ? <FileBrowser nodes={tree} rootPath={rootPath} selectedPath={file?.relativePath ?? null} onOpenFile={handleOpenFile} /> : null}
+        {!isLoadingTree && !treeError ? <FileBrowser nodes={tree} rootPath={rootPath} workspaceId={workspaceId} selectedPath={file?.relativePath ?? null} onOpenFile={handleOpenFile} /> : null}
       </aside>
       <section className="editor-main" aria-label="Editor">
         <header className="editor-toolbar">

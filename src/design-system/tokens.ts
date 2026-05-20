@@ -66,6 +66,13 @@ export const TOKENS = {
     ui:   '--font-ui',
     mono: '--font-mono',
   },
+  fontSize: {
+    base: '--fs-base',
+    lg:   '--fs-lg',
+    sm:   '--fs-sm',
+    xs:   '--fs-xs',
+    xs2:  '--fs-2xs',
+  },
   size: {
     sidebarW:          '--sidebar-w',
     sidebarWCollapsed: '--sidebar-w-collapsed',

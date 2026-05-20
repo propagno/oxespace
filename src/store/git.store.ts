@@ -1,17 +1,25 @@
 import { create } from 'zustand'
 import type { GitDiff, GitDiffFile } from '../../shared/types/git'
 
+export type DiffMode = 'unified' | 'side-by-side'
+
 interface WorkspaceGitState {
   diff: GitDiff | null
   isLoading: boolean
   error: string | null
   base: string
   includeUncommitted: boolean
-  readFiles: string[]
+  reviewedFiles: string[]
   selectedFile: string | null
-  viewMode: 'structured' | 'flat'
+  treeMode: 'structured' | 'flat'
+  /** Diff render mode — added in Wave 5 to match Codex Desktop's split-view toggle. */
+  diffMode: DiffMode
   sortBy: 'last-edit' | 'name'
   search: string
+  /** Hide files the user already ticked "Reviewed". */
+  hideReviewed: boolean
+  /** Collapsed directory paths in the tree. Persistent across selection. */
+  collapsedDirs: string[]
 }
 
 interface GitStoreState {
@@ -20,9 +28,13 @@ interface GitStoreState {
   subscribeToUpdates(workspaceId: string): () => void
   setBase(workspaceId: string, base: string): void
   setIncludeUncommitted(workspaceId: string, value: boolean): void
-  markRead(workspaceId: string, filePath: string): void
+  toggleReviewed(workspaceId: string, filePath: string): void
+  clearReviewed(workspaceId: string): void
+  setHideReviewed(workspaceId: string, value: boolean): void
   selectFile(workspaceId: string, filePath: string | null): void
-  setViewMode(workspaceId: string, mode: 'structured' | 'flat'): void
+  setTreeMode(workspaceId: string, mode: 'structured' | 'flat'): void
+  setDiffMode(workspaceId: string, mode: DiffMode): void
+  toggleDirCollapsed(workspaceId: string, dir: string): void
   setSortBy(workspaceId: string, sortBy: 'last-edit' | 'name'): void
   setSearch(workspaceId: string, query: string): void
 }
@@ -33,11 +45,14 @@ const DEFAULT_STATE: WorkspaceGitState = {
   error: null,
   base: 'origin/main',
   includeUncommitted: true,
-  readFiles: [],
+  reviewedFiles: [],
   selectedFile: null,
-  viewMode: 'structured',
+  treeMode: 'structured',
+  diffMode: 'unified',
   sortBy: 'last-edit',
-  search: ''
+  search: '',
+  hideReviewed: false,
+  collapsedDirs: []
 }
 
 function patch(
@@ -80,14 +95,25 @@ export const useGitStore = create<GitStoreState>((set, get) => ({
 
   setBase: (workspaceId, base) => patch(set, workspaceId, { base }),
   setIncludeUncommitted: (workspaceId, value) => patch(set, workspaceId, { includeUncommitted: value }),
-  markRead: (workspaceId, filePath) => {
+  toggleReviewed: (workspaceId, filePath) => {
     const ws = get().byWorkspaceId[workspaceId] ?? DEFAULT_STATE
-    if (!ws.readFiles.includes(filePath)) {
-      patch(set, workspaceId, { readFiles: [...ws.readFiles, filePath] })
-    }
+    const reviewed = ws.reviewedFiles.includes(filePath)
+      ? ws.reviewedFiles.filter((p) => p !== filePath)
+      : [...ws.reviewedFiles, filePath]
+    patch(set, workspaceId, { reviewedFiles: reviewed })
   },
+  clearReviewed: (workspaceId) => patch(set, workspaceId, { reviewedFiles: [] }),
+  setHideReviewed: (workspaceId, value) => patch(set, workspaceId, { hideReviewed: value }),
   selectFile: (workspaceId, filePath) => patch(set, workspaceId, { selectedFile: filePath }),
-  setViewMode: (workspaceId, mode) => patch(set, workspaceId, { viewMode: mode }),
+  setTreeMode: (workspaceId, mode) => patch(set, workspaceId, { treeMode: mode }),
+  setDiffMode: (workspaceId, mode) => patch(set, workspaceId, { diffMode: mode }),
+  toggleDirCollapsed: (workspaceId, dir) => {
+    const ws = get().byWorkspaceId[workspaceId] ?? DEFAULT_STATE
+    const collapsed = ws.collapsedDirs.includes(dir)
+      ? ws.collapsedDirs.filter((d) => d !== dir)
+      : [...ws.collapsedDirs, dir]
+    patch(set, workspaceId, { collapsedDirs: collapsed })
+  },
   setSortBy: (workspaceId, sortBy) => patch(set, workspaceId, { sortBy }),
   setSearch: (workspaceId, query) => patch(set, workspaceId, { search: query })
 }))
@@ -97,26 +123,11 @@ export function selectGitState(workspaceId: string) {
     state.byWorkspaceId[workspaceId] ?? DEFAULT_STATE
 }
 
-export function selectFilteredFiles(workspaceId: string, readFilter?: boolean) {
-  return (state: GitStoreState): GitDiffFile[] => {
-    const ws = state.byWorkspaceId[workspaceId] ?? DEFAULT_STATE
-    if (!ws.diff) return []
-    let files = ws.diff.files
-    if (ws.search) {
-      const q = ws.search.toLowerCase()
-      files = files.filter((f) => f.path.toLowerCase().includes(q))
-    }
-    if (readFilter) {
-      files = files.filter((f) => !ws.readFiles.includes(f.path))
-    }
-    if (ws.sortBy === 'name') {
-      files = [...files].sort((a, b) => a.path.localeCompare(b.path))
-    } else {
-      files = [...files].sort((a, b) => (b.mtime ?? 0) - (a.mtime ?? 0))
-    }
-    return files
-  }
-}
+// (selectFilteredFiles was removed — the filtering+sorting that used to live
+// here as a Zustand selector created a fresh array on every call, which under
+// React 19 + useSyncExternalStore could enter a runaway re-render loop. The
+// logic now runs inside ReviewPane via useMemo, scoped to the slices it
+// actually depends on.)
 
 function toMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Unexpected git error'

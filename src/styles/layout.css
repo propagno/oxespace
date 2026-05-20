@@ -40,6 +40,30 @@
   border-bottom: 1px solid #121212;
 }
 
+.sidebar-brand-collapsed {
+  position: relative;
+}
+
+.sidebar-rail-unread {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--brand);
+  color: #020617;
+  box-shadow: 0 0 0 1px var(--bg-sidebar), 0 0 12px rgb(0 229 192 / 35%);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  pointer-events: none;
+}
+
 .sidebar-brand-text {
   font-size: 13px;
   font-weight: 600;

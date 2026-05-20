@@ -1,7 +1,8 @@
-import { ChevronsLeft, ChevronsRight, Plus, Search, Settings } from 'lucide-react'
+import { ChevronsLeft, ChevronsRight, Plus, Search } from 'lucide-react'
 import { useState, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { Workspace } from '../../../shared/types/workspace'
+import { useTerminalStore } from '../../store/terminal.store'
 import { OxeLogo } from '../Brand/OxeLogo'
 import { WorkspaceGroup } from './WorkspaceGroup'
 
@@ -15,8 +16,6 @@ interface SidebarProps {
   onSelectWorkspace: (id: string) => void
   onCloseWorkspace: (id: string) => void
   onActivatePane: (paneId: string) => void
-  isSettingsOpen: boolean
-  onToggleSettings: () => void
   isCollapsed: boolean
   onToggleCollapse: () => void
 }
@@ -28,23 +27,41 @@ export function Sidebar({
   agentProfiles,
   appVersion,
   isCollapsed,
-  isSettingsOpen,
   onActivatePane,
   onCloseWorkspace,
   onNewWorkspace,
   onSelectWorkspace,
   onToggleCollapse,
-  onToggleSettings,
   workspaces,
 }: SidebarProps): ReactElement {
   const [searchQuery, setSearchQuery] = useState('')
-  const [activeTab, setActiveTab] = useState<'all' | 'active'>('all')
+  const [activeTab, setActiveTab] = useState<'all' | 'unread'>('all')
+  // Subscribe to terminal store so the filter recomputes when hasUnread toggles.
+  // Idle-marker detection (TerminalView) flips hasUnread; markRead clears it.
+  const terminalPanes = useTerminalStore((state) => state.panes)
+
+  const hasUnread = (paneId: string): boolean => terminalPanes[paneId]?.hasUnread === true
+  const unreadCount = workspaces.reduce(
+    (n, ws) => n + ws.panes.filter(p => hasUnread(p.id)).length,
+    0,
+  )
+
+  const handleActivatePane = (paneId: string): void => {
+    const wasUnread = hasUnread(paneId)
+    onActivatePane(paneId)
+    if (wasUnread && activeTab === 'unread') setActiveTab('all')
+  }
 
   if (isCollapsed) {
     return (
       <aside className="sidebar sidebar-collapsed">
-        <div className="sidebar-brand">
+        <div className="sidebar-brand sidebar-brand-collapsed">
           <OxeLogo />
+          {unreadCount > 0 ? (
+            <span className="sidebar-rail-unread" aria-label={`${unreadCount} unread pane${unreadCount === 1 ? '' : 's'}`}>
+              {unreadCount}
+            </span>
+          ) : null}
         </div>
         <div className="sidebar-footer">
           <button
@@ -61,11 +78,6 @@ export function Sidebar({
     )
   }
 
-  const activeCount = workspaces.reduce(
-    (n, ws) => n + ws.panes.filter(p => p.status === 'running').length,
-    0,
-  )
-
   const filtered = workspaces.filter(ws => {
     const matchesSearch =
       !searchQuery ||
@@ -74,14 +86,14 @@ export function Sidebar({
         (p.agentName ?? p.type).toLowerCase().includes(searchQuery.toLowerCase()),
       )
     const matchesTab =
-      activeTab === 'all' || ws.panes.some(p => p.status === 'running')
+      activeTab === 'all' || ws.panes.some(p => hasUnread(p.id))
     return matchesSearch && matchesTab
   })
 
   return (
     <aside className="sidebar">
       <div className="sidebar-header-bar">
-        <OxeLogo size={20} variant="full" />
+        <OxeLogo size={22} variant="wordmark" />
         <div className="sidebar-actions">
           <button
             type="button"
@@ -92,16 +104,6 @@ export function Sidebar({
             onClick={onNewWorkspace}
           >
             <Plus size={13} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className={`sidebar-icon-btn${isSettingsOpen ? ' active' : ''}`}
-            aria-label="AI Providers"
-            title="AI Providers"
-            aria-pressed={isSettingsOpen}
-            onClick={onToggleSettings}
-          >
-            <Settings size={13} aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -130,11 +132,11 @@ export function Sidebar({
         <button
           type="button"
           role="tab"
-          aria-selected={activeTab === 'active'}
-          onClick={() => setActiveTab('active')}
+          aria-selected={activeTab === 'unread'}
+          onClick={() => setActiveTab('unread')}
         >
-          Active
-          {activeCount > 0 && <span className="tab-badge">{activeCount}</span>}
+          Unread
+          {unreadCount > 0 && <span className="tab-badge">{unreadCount}</span>}
         </button>
       </div>
 
@@ -152,7 +154,7 @@ export function Sidebar({
               defaultExpanded={ws.id === activeWorkspaceId}
               onSelect={onSelectWorkspace}
               onClose={onCloseWorkspace}
-              onActivatePane={onActivatePane}
+              onActivatePane={handleActivatePane}
             />
           ))
         )}

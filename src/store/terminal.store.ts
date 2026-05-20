@@ -14,7 +14,9 @@ interface TerminalStateEntry {
 interface TerminalState {
   panes: Record<string, TerminalStateEntry>
   pendingCommands: Record<string, string>
+  activePaneId: string | null
   setStatus: (paneId: string, status: TerminalPaneStatus, error?: string | null) => void
+  setActivePaneId: (paneId: string | null) => void
   getStatus: (paneId: string) => TerminalStateEntry
   updateActivity: (paneId: string, rawData: string) => void
   updatePreview: (paneId: string, preview: string) => void
@@ -49,6 +51,7 @@ const lastActivitySetTime = new Map<string, number>()
 export const useTerminalStore = create<TerminalState>((set, get) => ({
   panes: {},
   pendingCommands: {},
+  activePaneId: null,
 
   setStatus: (paneId, status, error = null) =>
     set((state) => ({
@@ -64,6 +67,19 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     })),
 
   getStatus: (paneId) => get().panes[paneId] ?? DEFAULT_STATE,
+
+  setActivePaneId: (paneId) => {
+    set((state) => {
+      if (state.activePaneId === paneId) return state
+      const nextPanes = paneId && state.panes[paneId]?.hasUnread
+        ? {
+            ...state.panes,
+            [paneId]: { ...state.panes[paneId], hasUnread: false }
+          }
+        : state.panes
+      return { activePaneId: paneId, panes: nextPanes }
+    })
+  },
 
   updateActivity: (paneId, rawData) => {
     const stripped = stripAnsi(rawData)
@@ -82,7 +98,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
             lastActivityAt: now,
             lastOutput: lastLine.slice(0, 80),
             isWorking: true,
-            hasUnread: true
+            hasUnread: state.activePaneId === paneId ? false : true
           }
         }
       }))
