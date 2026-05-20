@@ -1,36 +1,194 @@
 # OXESpace
 
-OXESpace is an agentic terminal workspace manager for Windows. It combines Electron, React, SQLite, native PTY terminal panes, a workspace editor, task tracking, workspace themes, layout presets, keyboard shortcuts, and a command palette.
+OXESpace is a Windows desktop workspace for agentic development. It combines terminal panes, project tools, a file editor, GitHub workflows, background jobs, MCP servers, scripts, web preview, tasks, and review utilities in one Electron app.
 
 ## Download
 
-Windows installer:
+Current Windows release:
 
 [Download OXESpace 0.1.12 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.12/OXESpace-0.1.12-x64.exe)
 
-All releases are available at:
+Release page:
+
+[OXESpace v0.1.12](https://github.com/propagno/oxespace/releases/tag/v0.1.12)
+
+All releases:
 
 [https://github.com/propagno/oxespace/releases](https://github.com/propagno/oxespace/releases)
 
-## Main Features
+## What It Does
 
-- Multiple workspaces, each mapped to a Windows project folder.
-- Real PTY-backed terminal panes with split, maximize, stop, and restart controls.
-- Workspace-level editor panel with file browser, Monaco editor, dirty state, save with `Ctrl+S`, and external file watching.
-- Per-workspace shell profile, theme, UI density, editor state, and layout preset.
-- Visual workspace templates for quick workspace creation.
-- Layout presets for `1`, `2`, `4`, `6`, `8`, `10`, `12`, `14`, and `16` panes.
-- Command palette for common workspace and terminal actions.
-- Settings modal for configuring supported agents and shell commands.
+OXESpace maps each workspace to one Windows project folder. The terminal grid stays available as the main work surface, while tools open as workspace-level side panels that can be expanded, collapsed, or combined with terminals.
 
-## Basic Usage
+Core capabilities:
 
-1. Install OXESpace using the Windows installer linked above.
-2. Open the app and create a workspace from a local project folder.
-3. Choose a visual template or select the layout, shell, theme, and density manually.
-4. Use terminal panes to run agents or shell commands in the workspace folder.
-5. Use the top-right workspace toolbar to open the editor, workspace settings, or command palette.
-6. Use the editor panel to browse and edit files from the active workspace folder.
+- Multi-pane PTY terminals for Claude, Copilot, shells, and custom commands.
+- Workspace-level Tools menu for development utilities.
+- Monaco-based editor with file browser, language detection, save, dirty state, and external change detection.
+- GitHub Hub for local Git status, branches, commits, checkpoints, PRs, releases, and GitHub Actions.
+- Scripts panel for discovering and running `.ps1` and `.sh` automation scripts from the active workspace.
+- Web Preview panel with browser-style address bar, navigation, reload, zoom, and external-open controls.
+- Background Jobs panel for long-running commands without occupying terminal panes.
+- MCP panel for trusted stdio MCP servers and exposed tools.
+- Agent Skills browser for installed user/workspace skills.
+- Review panel for diffs and code review workflow.
+- Task board with dependencies, drag/drop ordering, and terminal execution entry points.
+- Per-workspace theme, density, shell profile, layout, side panel state, and versioned SQLite migrations.
+
+## Tools Menu
+
+The top workspace toolbar centralizes OXESpace functionality under Tools.
+
+Available tool areas:
+
+- Terminal: keep terminal panes visible and interactive.
+- Editor: browse and edit files in the workspace folder.
+- GitHub: operate local Git and GitHub CLI backed features.
+- Scripts: run project automation scripts as background jobs.
+- Web Preview: preview local web apps and proposed UI changes.
+- Background Jobs: inspect, stop, and review command output.
+- MCP: configure trusted Model Context Protocol stdio servers.
+- Skills: inspect available agent skills.
+- Review: inspect diffs and review changes.
+- History: resume supported agent sessions.
+- Workspace Settings: configure layout, shell, agents, theme, and density.
+
+## GitHub Hub
+
+The GitHub Hub is designed to work partially without `gh` and fully with GitHub CLI installed.
+
+Local Git features:
+
+- Status cards for last commit, last push, staged, modified, untracked, ahead, and behind.
+- Stage all, commit, push, and commit-and-push actions.
+- Local and remote branch views.
+- Commit list and commit detail view.
+- Local checkpoints backed by Git patches.
+- Repository detection from the active workspace folder.
+
+GitHub CLI features:
+
+- Pull request list and creation.
+- Release list and creation.
+- GitHub Actions workflows and runs.
+- Auth and setup diagnostics.
+
+Install GitHub CLI from:
+
+[https://cli.github.com](https://cli.github.com)
+
+Then authenticate:
+
+```powershell
+gh auth login
+gh auth status
+```
+
+OXESpace does not store GitHub tokens. Authentication remains delegated to `gh`.
+
+## Scripts
+
+The Scripts panel recursively discovers `.ps1` and `.sh` files in the current workspace, while skipping heavy folders such as `node_modules`, `.git`, `dist`, `out`, `build`, `coverage`, `.next`, and `test-results`.
+
+Supported behavior:
+
+- Search scripts by name or path.
+- Run PowerShell scripts with `powershell.exe -NoProfile -ExecutionPolicy Bypass`.
+- Run shell scripts through Git Bash on Windows when available.
+- Execute scripts as background jobs so terminal panes remain free.
+
+Example test scripts are included:
+
+```text
+scripts/oxespace-smoke.ps1
+scripts/oxespace-smoke.sh
+```
+
+## Web Preview
+
+Web Preview provides a compact browser-like surface inside the workspace.
+
+It includes:
+
+- Back, forward, and reload.
+- URL input and Go button.
+- Zoom controls.
+- Favorite/menu/monitor/capture/open-external controls prepared for iterative UI work.
+- Dark empty state when no page is loaded.
+
+Typical use:
+
+1. Start a local dev server in a terminal or background job.
+2. Open Web Preview from Tools.
+3. Enter a URL such as `http://localhost:3000`.
+4. Use the visual preview while agents or terminals continue working.
+
+## MCP
+
+OXESpace supports stdio MCP servers. Servers must be marked trusted before start.
+
+The MCP panel:
+
+- Adds workspace or global MCP servers.
+- Resolves common Windows executable paths such as `npx.cmd`.
+- Starts and stops trusted servers.
+- Lists exposed tools.
+- Keeps sensitive environment keys blocked unless the server is explicitly trusted.
+
+For Playwright MCP, use the bundled template or configure:
+
+```text
+command: npx
+args: -y @playwright/mcp@latest
+```
+
+## Background Jobs
+
+Background Jobs are for commands that should run without occupying a terminal pane, such as builds, test runs, watchers, and scripts.
+
+Features:
+
+- Start jobs from slash commands or tool panels.
+- Track running, exited, failed, and killed jobs.
+- Stop running jobs.
+- Open a job to inspect formatted output.
+- Preserve job records through SQLite.
+
+Example slash command:
+
+```text
+/bg npm run build
+```
+
+## Editor
+
+The editor is separate from terminal panes. It opens as a workspace-level panel and uses the active workspace root as the file browser root.
+
+Features:
+
+- Monaco editor.
+- File tree with lazy directory loading.
+- Language detection by file extension.
+- `Ctrl+S` save.
+- Dirty indicator.
+- Confirmation before closing dirty files.
+- External file watching.
+
+## Workspace Customization
+
+Each workspace can store:
+
+- Theme.
+- UI density.
+- Default shell profile.
+- Layout preset.
+- Editor panel state.
+- GitHub panel state.
+- Scripts panel state.
+- Web Preview panel state.
+- Background Jobs panel state.
+
+Changing the default shell profile does not restart running terminals.
 
 ## Keyboard Shortcuts
 
@@ -47,17 +205,20 @@ All releases are available at:
 | `Ctrl+R` | Restart active terminal |
 | `Ctrl+S` | Save active editor file |
 
-## Workspace Customization
+## Requirements
 
-Each workspace stores its own:
+Runtime:
 
-- Theme: `midnight`, `nord`, `dracula`, `ocean`, `monokai`, or `amber`.
-- Density: `compact` or `comfortable`.
-- Default shell profile.
-- Layout preset.
-- Editor visibility, expanded state, and width.
+- Windows x64.
+- Git for Git-backed features.
+- GitHub CLI for PRs, releases, Actions, and authenticated GitHub operations.
+- Git Bash for `.sh` script execution on Windows.
 
-Changing the default shell does not restart running terminals. The workspace settings modal can apply the selected shell to idle panes.
+Development:
+
+- Node.js 22.
+- npm.
+- Windows build tooling capable of rebuilding Electron native modules.
 
 ## Development
 
@@ -76,32 +237,34 @@ npm run build
 npm run test:e2e
 ```
 
-The Playwright E2E smoke uses `OXESPACE_E2E_MOCK_NATIVE=1` to exercise Electron, preload, and renderer flows without depending on local native module ABI.
+Useful focused checks:
 
-## Build The Installer Locally
+```powershell
+npm test -- WorkspaceSurface TasksPane KanbanBoard
+npm test -- fs-allowlist external-url ipc-contracts preload-api
+```
+
+## Build Installer Locally
 
 ```powershell
 npm run dist
 ```
 
-The installer is emitted under `dist/` as:
+The installer is emitted under:
 
 ```text
 dist/OXESpace-<version>-x64.exe
 ```
 
-Native modules are prepared for Electron by `npm run fix:native`, which is included in the `dist` script.
+Native modules are prepared by `npm run fix:native`, which is included in `npm run dist`.
 
-## Publish A GitHub Release
+If Windows reports `EPERM` while replacing `better_sqlite3.node`, close running OXESpace/Electron processes or restart Windows, then run `npm run dist` again.
 
-The repository includes a GitHub Actions release workflow. `main` is protected, so release changes should go through a pull request first.
+## Publish A Release
 
-```powershell
-git switch -c codex/workspace-customization-release
-git push -u origin codex/workspace-customization-release
-```
+The repository includes a GitHub Actions release workflow at `.github/workflows/release.yml`.
 
-Open a pull request, merge it into `main`, then tag the merged commit:
+Release flow:
 
 ```powershell
 git switch main
@@ -110,14 +273,31 @@ git tag v0.1.12
 git push origin v0.1.12
 ```
 
-When the tag is pushed, GitHub Actions builds the Windows installer and uploads `dist/OXESpace-0.1.12-x64.exe` to the release.
+When the tag is pushed, GitHub Actions:
+
+1. Installs dependencies.
+2. Rebuilds native modules.
+3. Runs typecheck, tests, build, and E2E.
+4. Builds the Windows NSIS installer.
+5. Uploads `dist/OXESpace-*.exe` to the GitHub release.
 
 ## Tech Stack
 
 - Electron
+- Electron Vite
 - React
 - TypeScript
 - SQLite via `better-sqlite3`
 - `node-pty`
 - xterm.js
 - Monaco Editor
+- Zustand
+- GitHub CLI integration
+
+## Version
+
+Current release: `0.1.12`
+
+Installer asset:
+
+[OXESpace-0.1.12-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.12/OXESpace-0.1.12-x64.exe)
