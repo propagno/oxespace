@@ -8,6 +8,7 @@ interface PaneContainerProps {
   workspaceId: string
   autoStart: boolean
   isMaximized: boolean
+  isActive?: boolean
   onToggleMaximize: (paneId: string) => void
   onClose?: (paneId: string) => void
   onSplitVertical?: (paneId: string) => void
@@ -21,13 +22,18 @@ function statusClass(status: WorkspacePane['status']): string {
   return ''
 }
 
-export function PaneContainer({ autoStart, isMaximized, onActivate, onClose, onSplitHorizontal, onSplitVertical, onToggleMaximize, pane, workspaceId }: PaneContainerProps): ReactElement {
+export function PaneContainer({ autoStart, isActive, isMaximized, onActivate, onClose, onSplitHorizontal, onSplitVertical, onToggleMaximize, pane, workspaceId }: PaneContainerProps): ReactElement {
   return (
-    <section className="pane-container" data-testid="pane-container" tabIndex={-1} onFocus={() => onActivate?.(pane.id)} onPointerDown={() => onActivate?.(pane.id)}>
+    <section className={`pane-container${isActive ? ' active' : ''}`} data-testid="pane-container" tabIndex={-1} onFocus={() => onActivate?.(pane.id)} onPointerDown={() => onActivate?.(pane.id)}>
       <header className="pane-header">
         <div className="pane-header-left">
           <span className={`pane-status-dot ${statusClass(pane.status)}`} aria-hidden="true" />
-          <span className="pane-title">{pane.type}</span>
+          {pane.displayName
+            ? <span className="pane-agent-chip" title={pane.displayName}>{pane.displayName}</span>
+            : pane.agentName
+              ? <span className="pane-agent-chip" title={pane.agentName}>{pane.agentName}</span>
+              : <span className="pane-title">{pane.type}</span>
+          }
         </div>
         <div className="pane-actions">
           <button

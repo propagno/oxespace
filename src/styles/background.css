@@ -1,0 +1,306 @@
+/* Onda 4: Background jobs render as a right-side dock now. The previous
+   .bg-jobs-banner / .bg-jobs-panel modal styles are gone. Everything below
+   is scoped to .bg-jobs-dock-* which lives inside WorkspaceBackgroundPanel
+   (which reuses the .workspace-editor-panel chrome). */
+
+.bg-jobs-dock {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.bg-jobs-dock-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--bd-subtle);
+}
+
+.bg-jobs-dock-count {
+  font-size: var(--fs-xs);
+  color: var(--tx-muted);
+  font-weight: 500;
+}
+
+.bg-jobs-dock-filters {
+  display: flex;
+  gap: 4px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--bd-subtle);
+  flex-wrap: wrap;
+}
+
+.bg-jobs-dock-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: var(--fs-xs);
+  background: transparent;
+  color: var(--tx-muted);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 120ms, border-color 120ms;
+}
+
+.bg-jobs-dock-filter:hover { color: var(--tx-primary); }
+
+.bg-jobs-dock-filter.active {
+  color: var(--accent);
+  border-color: var(--bd-input);
+  background: var(--bg-pane-active-header);
+}
+
+.bg-jobs-dock-filter-count {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: var(--bg-tile);
+}
+
+.bg-jobs-dock-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.bg-jobs-dock-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--tx-muted);
+  font-size: var(--fs-xs);
+}
+
+.bg-jobs-dock-empty strong {
+  color: var(--tx-secondary);
+  font-size: var(--fs-sm);
+}
+
+.bg-jobs-dock-empty kbd {
+  display: inline-flex;
+  padding: 1px 5px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  background: var(--bg-tile);
+  border: 1px solid var(--bd-subtle);
+  border-radius: 3px;
+}
+
+.bg-jobs-dock-empty code {
+  font-family: var(--font-mono);
+  color: var(--tx-secondary);
+}
+
+/* Job card */
+.bg-jobs-dock-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg-tile);
+  border: 1px solid var(--bd-subtle);
+  border-radius: 6px;
+}
+
+.bg-jobs-dock-card-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bg-jobs-dock-card-main:hover .bg-jobs-dock-card-row strong {
+  color: var(--accent);
+}
+
+.bg-jobs-dock-card.status-failed { border-left: 2px solid var(--dot-red); }
+.bg-jobs-dock-card.status-running { border-left: 2px solid var(--dot-green); }
+.bg-jobs-dock-card.status-killed { border-left: 2px solid var(--dot-gray); }
+.bg-jobs-dock-card.status-exited { border-left: 2px solid var(--dot-blue); }
+
+.bg-jobs-dock-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.bg-jobs-dock-card-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-sm);
+}
+
+.bg-jobs-dock-card-row strong {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+  color: var(--tx-primary);
+}
+
+.bg-jobs-dock-card-elapsed {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--tx-muted);
+}
+
+.bg-jobs-dock-card-exit {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--bg-app);
+  color: var(--tx-secondary);
+}
+
+.bg-jobs-dock-card-cwd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--tx-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bg-jobs-dock-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bg-jobs-dock-stop {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: var(--bg-app);
+  color: var(--tx-primary);
+  border: 1px solid var(--bd-subtle);
+  border-radius: 4px;
+  font-size: 10px;
+  cursor: pointer;
+}
+.bg-jobs-dock-stop:hover:not(:disabled) { border-color: var(--dot-red); color: var(--dot-red); }
+.bg-jobs-dock-stop:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.bg-jobs-dock-remove {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  background: transparent;
+  color: var(--tx-muted);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.bg-jobs-dock-remove:hover:not(:disabled) {
+  border-color: var(--bd-subtle);
+  color: var(--dot-red);
+}
+.bg-jobs-dock-remove:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.bg-jobs-dock-output {
+  grid-column: 1 / -1;
+  margin-top: 4px;
+  border-top: 1px solid var(--bd-subtle);
+  padding-top: 8px;
+  min-width: 0;
+}
+
+.bg-jobs-dock-output-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  color: var(--tx-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.bg-jobs-dock-output-header code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--tx-secondary);
+  font-family: var(--font-mono);
+}
+
+.bg-jobs-dock-output pre {
+  max-height: 320px;
+  margin: 0;
+  padding: 10px 12px;
+  overflow: auto;
+  border: 1px solid var(--bd-subtle);
+  border-radius: 5px;
+  background: #020403;
+  color: #d6fbe8;
+  font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.55;
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+  tab-size: 2;
+}
+
+.bg-jobs-dock-output pre::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.bg-jobs-dock-output pre::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.bg-jobs-dock-output pre::-webkit-scrollbar-thumb {
+  background: rgba(18, 199, 154, 0.35);
+  border-radius: 999px;
+}
+
+.bg-jobs-dock-output-empty {
+  padding: 10px;
+  border: 1px dashed var(--bd-subtle);
+  border-radius: 5px;
+  color: var(--tx-muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+/* Pulse animation for running jobs */
+.bg-jobs-pulse.status-running { animation: bg-jobs-pulse 1.4s ease-in-out infinite; color: var(--dot-green); }
+.status-exited { color: var(--dot-blue); }
+.status-failed { color: var(--dot-red); }
+.status-killed { color: var(--dot-gray); }
+
+@keyframes bg-jobs-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}

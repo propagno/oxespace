@@ -33,4 +33,23 @@ export function registerTaskIpc(db: AppDatabase, terminal: TerminalIpcController
   ipcMain.handle(IPC_CHANNELS.tasks.run, (_event, input: unknown) => taskService.run(parseTaskRunInput(input)))
   ipcMain.handle(IPC_CHANNELS.tasks.verify, (_event, input: unknown) => taskService.verify(parseTaskVerifyInput(input)))
   ipcMain.handle(IPC_CHANNELS.tasks.executions, (_event, taskId: unknown) => taskService.executions(parseId(taskId, 'taskId')))
+  ipcMain.handle(IPC_CHANNELS.tasks.addDependency, (_event, input: unknown) => {
+    const { taskId, dependsOnTaskId } = parseDependencyInput(input)
+    return taskService.addDependency(taskId, dependsOnTaskId)
+  })
+  ipcMain.handle(IPC_CHANNELS.tasks.removeDependency, (_event, input: unknown) => {
+    const { taskId, dependsOnTaskId } = parseDependencyInput(input)
+    return taskService.removeDependency(taskId, dependsOnTaskId)
+  })
+  ipcMain.handle(IPC_CHANNELS.tasks.getReady, (_event, workspaceId: unknown) =>
+    taskService.getReadyTaskIds(parseId(workspaceId, 'workspaceId'))
+  )
+}
+
+function parseDependencyInput(value: unknown): { taskId: string; dependsOnTaskId: string } {
+  if (!value || typeof value !== 'object') throw new Error('Invalid dependency input')
+  const { taskId, dependsOnTaskId } = value as { taskId?: unknown; dependsOnTaskId?: unknown }
+  if (typeof taskId !== 'string' || !taskId) throw new Error('taskId is required')
+  if (typeof dependsOnTaskId !== 'string' || !dependsOnTaskId) throw new Error('dependsOnTaskId is required')
+  return { taskId, dependsOnTaskId }
 }

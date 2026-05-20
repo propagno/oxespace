@@ -16,6 +16,7 @@ import type {
 import { safeJoin } from '../utils/safe-join'
 
 export const MAX_TEXT_FILE_BYTES = 2 * 1024 * 1024
+export const MAX_DIRECTORY_ENTRIES = 500
 export const DEFAULT_EXCLUDED_DIRS = new Set(['node_modules', '.git', 'dist', 'out', 'coverage', '.next', 'build'])
 
 interface WatchEntry {
@@ -115,10 +116,11 @@ export class FileSystemService {
   }
 
   private async listDirectory(rootPath: string, directoryPath: string): Promise<FileTreeNode[]> {
-    const entries = await readdir(directoryPath, { withFileTypes: true })
+    const entries = (await readdir(directoryPath, { withFileTypes: true }))
+      .filter((entry) => !entry.isDirectory() || !DEFAULT_EXCLUDED_DIRS.has(entry.name))
+      .slice(0, MAX_DIRECTORY_ENTRIES)
     const nodes = await Promise.all(
       entries
-        .filter((entry) => !entry.isDirectory() || !DEFAULT_EXCLUDED_DIRS.has(entry.name))
         .map(async (entry) => {
           const absolutePath = safeJoin(directoryPath, entry.name)
           const entryStat = await stat(absolutePath)
@@ -130,7 +132,7 @@ export class FileSystemService {
               relativePath,
               type: 'directory' as const,
               size: null,
-              children: await this.listDirectory(rootPath, absolutePath)
+              children: undefined
             }
           }
 

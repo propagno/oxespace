@@ -1,4 +1,4 @@
-import type { CreateWorkspaceInput, PaneType, ShellProfile, UpdateWorkspaceEditorStateInput, UpdateWorkspaceSettingsInput, Workspace } from './workspace'
+import type { CreateWorkspaceInput, PaneType, ShellProfile, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, Workspace } from './workspace'
 import type { AgentProfile, AgentReadiness, CreateAgentProfileInput, UpdateAgentProfileInput } from './agent'
 import type {
   CreateTaskInput,
@@ -10,9 +10,39 @@ import type {
   UpdateTaskInput,
   VerifyTaskInput
 } from './task'
+import type {
+  GitHubBranch,
+  GitHubCheckoutBranchInput,
+  GitHubCheckpoint,
+  GitHubCliStatus,
+  GitHubCommit,
+  GitHubCommitDetails,
+  GitHubCommitDetailsInput,
+  GitHubCommitInput,
+  GitHubConnectRepositoryInput,
+  GitHubConnectedRepository,
+  GitHubCreateBranchInput,
+  GitHubCreateCheckpointInput,
+  GitHubCreatePullRequestInput,
+  GitHubCreateReleaseInput,
+  GitHubDeleteCheckpointInput,
+  GitHubMessageResult,
+  GitHubPullRequest,
+  GitHubPullRequestListInput,
+  GitHubRelease,
+  GitHubRepositorySummary,
+  GitHubRestoreCheckpointInput,
+  GitHubWorkflow,
+  GitHubWorkflowRun,
+  GitHubWorkflowRunInput,
+  GitHubWorkspaceInput,
+  GitHubWorkspaceStatus
+} from './github'
 
-export type { ShellProfile, Workspace, UpdateWorkspaceEditorStateInput, UpdateWorkspaceSettingsInput, AgentProfile, AgentReadiness }
+export type { ShellProfile, Workspace, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, AgentProfile, AgentReadiness }
 export type { Task, TaskExecution, TaskVerifyOutputEvent }
+export type { GitDiff, GitDiffFile, GitDiffHunk, GitDiffLine, GitDiffInput, GitLineType } from './git'
+export type { GitHubBranch, GitHubCheckpoint, GitHubCliStatus, GitHubCommit, GitHubCommitDetails, GitHubConnectedRepository, GitHubMessageResult, GitHubPanelTab, GitHubPullRequest, GitHubRelease, GitHubRepositorySummary, GitHubWorkflow, GitHubWorkflowRun, GitHubWorkspaceStatus } from './github'
 
 export type FileTreeNodeType = 'file' | 'directory'
 
@@ -97,10 +127,17 @@ export const IPC_CHANNELS = {
     closePane: 'workspace:close-pane',
     splitPane: 'workspace:split-pane',
     updatePaneType: 'workspace:update-pane-type',
+    updatePaneName: 'workspace:update-pane-name',
+    setPaneAgent: 'workspace:set-pane-agent',
+    setPaneRootPath: 'workspace:set-pane-root-path',
     updateEditorState: 'workspace:update-editor-state',
+    updateReviewState: 'workspace:update-review-state',
+    updateBackgroundState: 'workspace:update-background-state',
+    updateGitHubState: 'workspace:update-github-state',
     updateSettings: 'workspace:update-settings',
     pickFolder: 'workspace:pick-folder',
-    shellProfiles: 'workspace:shell-profiles'
+    shellProfiles: 'workspace:shell-profiles',
+    createGitHubTerminalPane: 'workspace:create-github-terminal-pane'
   },
   terminal: {
     start: 'terminal:start',
@@ -128,7 +165,10 @@ export const IPC_CHANNELS = {
     run: 'tasks:run',
     verify: 'tasks:verify',
     executions: 'tasks:executions',
-    onVerifyOutput: 'tasks:verify-output'
+    onVerifyOutput: 'tasks:verify-output',
+    addDependency: 'tasks:add-dependency',
+    removeDependency: 'tasks:remove-dependency',
+    getReady: 'tasks:get-ready'
   },
   fs: {
     listTree: 'fs:list-tree',
@@ -137,12 +177,91 @@ export const IPC_CHANNELS = {
     watchFile: 'fs:watch-file',
     unwatchFile: 'fs:unwatch-file',
     onFileChanged: 'fs:file-changed'
+  },
+  git: {
+    getDiff: 'git:get-diff',
+    onDiffUpdate: 'git:diff-update'
+  },
+  clipboard: {
+    saveImageToTemp: 'clipboard:save-image-to-temp'
+  },
+  usage: {
+    getContextUsage: 'usage:get-context-usage',
+    getSnapshotFor: 'usage:get-snapshot-for',
+    listSessions: 'usage:list-sessions',
+    supportedProviders: 'usage:supported-providers'
+  },
+  background: {
+    list: 'background:list',
+    start: 'background:start',
+    stop: 'background:stop',
+    remove: 'background:remove',
+    getOutput: 'background:get-output',
+    onOutput: 'background:on-output',
+    onUpdate: 'background:on-update'
+  },
+  session: {
+    list: 'session:list',
+    fork: 'session:fork',
+    delete: 'session:delete'
+  },
+  skill: {
+    list: 'skill:list',
+    get: 'skill:get',
+    invoke: 'skill:invoke',
+    onChange: 'skill:on-change'
+  },
+  mcp: {
+    list: 'mcp:list',
+    create: 'mcp:create',
+    update: 'mcp:update',
+    delete: 'mcp:delete',
+    start: 'mcp:start',
+    stop: 'mcp:stop',
+    callTool: 'mcp:call-tool',
+    onHealth: 'mcp:on-health'
+  },
+  github: {
+    getCliStatus: 'github:get-cli-status',
+    getWorkspaceStatus: 'github:get-workspace-status',
+    fetch: 'github:fetch',
+    stageAll: 'github:stage-all',
+    commit: 'github:commit',
+    generateCommitMessage: 'github:generate-commit-message',
+    push: 'github:push',
+    commitAndPush: 'github:commit-and-push',
+    listBranches: 'github:list-branches',
+    listWorktrees: 'github:list-worktrees',
+    createWorktree: 'github:create-worktree',
+    removeWorktree: 'github:remove-worktree',
+    createBranch: 'github:create-branch',
+    checkoutBranch: 'github:checkout-branch',
+    listPullRequests: 'github:list-pull-requests',
+    createPullRequest: 'github:create-pull-request',
+    listCommits: 'github:list-commits',
+    getCommitDetails: 'github:get-commit-details',
+    listReleases: 'github:list-releases',
+    createRelease: 'github:create-release',
+    listWorkflows: 'github:list-workflows',
+    listWorkflowRuns: 'github:list-workflow-runs',
+    runWorkflow: 'github:run-workflow',
+    rerunRun: 'github:rerun-run',
+    getRunLogs: 'github:get-run-logs',
+    listCheckpoints: 'github:list-checkpoints',
+    createCheckpoint: 'github:create-checkpoint',
+    restoreCheckpoint: 'github:restore-checkpoint',
+    deleteCheckpoint: 'github:delete-checkpoint',
+    listConnectedRepositories: 'github:list-connected-repositories',
+    connectRepository: 'github:connect-repository'
   }
 } as const
 
 export interface TerminalStartInput {
   paneId: string
   workspaceId: string
+  agentCommand?: string
+  agentArgs?: string[]
+  initialPrompt?: string
 }
 
 export interface TerminalWriteInput {
@@ -180,6 +299,11 @@ export interface UpdatePaneTypeInput {
   type: PaneType
 }
 
+export interface UpdatePaneNameInput {
+  paneId: string
+  displayName: string | null
+}
+
 export interface WorkspaceApi {
   list(): Promise<Workspace[]>
   create(input: CreateWorkspaceInput): Promise<Workspace>
@@ -188,10 +312,17 @@ export interface WorkspaceApi {
   closePane(id: string): Promise<void>
   splitPane(input: SplitPaneInput): Promise<Workspace>
   updatePaneType(input: UpdatePaneTypeInput): Promise<Workspace>
+  updatePaneName(input: UpdatePaneNameInput): Promise<Workspace>
+  setPaneAgent(input: { paneId: string; agentProfileId: string | null }): Promise<Workspace>
+  setPaneRootPath(input: { paneId: string; rootPath: string | null }): Promise<Workspace>
   updateEditorState(input: UpdateWorkspaceEditorStateInput): Promise<Workspace>
+  updateReviewState(input: UpdateWorkspaceReviewStateInput): Promise<Workspace>
+  updateBackgroundState(input: UpdateWorkspaceBackgroundStateInput): Promise<Workspace>
+  updateGitHubState(input: UpdateWorkspaceGitHubStateInput): Promise<Workspace>
   updateSettings(input: UpdateWorkspaceSettingsInput): Promise<Workspace>
   pickFolder(): Promise<string | null>
   shellProfiles(): Promise<ShellProfile[]>
+  createGitHubTerminalPane(workspaceId: string): Promise<{ id: string }>
 }
 
 export interface TerminalApi {
@@ -223,6 +354,52 @@ export interface TaskApi {
   verify(input: VerifyTaskInput): Promise<Task>
   executions(taskId: string): Promise<TaskExecution[]>
   onVerifyOutput(listener: (event: TaskVerifyOutputEvent) => void): () => void
+  addDependency(input: { taskId: string; dependsOnTaskId: string }): Promise<Task>
+  removeDependency(input: { taskId: string; dependsOnTaskId: string }): Promise<Task>
+  getReady(workspaceId: string): Promise<string[]>
+}
+
+export interface GitApi {
+  getDiff(input: import('./git').GitDiffInput): Promise<import('./git').GitDiff>
+  onDiffUpdate(listener: (diff: import('./git').GitDiff) => void): () => void
+}
+
+export interface GitHubApi {
+  getCliStatus(input: GitHubWorkspaceInput): Promise<GitHubCliStatus>
+  getWorkspaceStatus(input: GitHubWorkspaceInput): Promise<GitHubWorkspaceStatus>
+  fetch(input: GitHubWorkspaceInput): Promise<GitHubMessageResult>
+  stageAll(input: GitHubWorkspaceInput): Promise<GitHubMessageResult>
+  commit(input: GitHubCommitInput): Promise<GitHubMessageResult>
+  generateCommitMessage(input: GitHubWorkspaceInput): Promise<GitHubMessageResult>
+  push(input: GitHubWorkspaceInput): Promise<GitHubMessageResult>
+  commitAndPush(input: GitHubCommitInput): Promise<GitHubMessageResult>
+  listBranches(input: GitHubWorkspaceInput): Promise<GitHubBranch[]>
+  createBranch(input: GitHubCreateBranchInput): Promise<GitHubMessageResult>
+  checkoutBranch(input: GitHubCheckoutBranchInput): Promise<GitHubMessageResult>
+  listWorktrees(input: GitHubWorkspaceInput): Promise<import('./github').GitHubWorktree[]>
+  createWorktree(input: import('./github').GitHubCreateWorktreeInput): Promise<GitHubMessageResult>
+  removeWorktree(input: import('./github').GitHubRemoveWorktreeInput): Promise<GitHubMessageResult>
+  listPullRequests(input: GitHubPullRequestListInput): Promise<GitHubPullRequest[]>
+  createPullRequest(input: GitHubCreatePullRequestInput): Promise<GitHubMessageResult>
+  listCommits(input: GitHubWorkspaceInput): Promise<GitHubCommit[]>
+  getCommitDetails(input: GitHubCommitDetailsInput): Promise<GitHubCommitDetails>
+  listReleases(input: GitHubWorkspaceInput): Promise<GitHubRelease[]>
+  createRelease(input: GitHubCreateReleaseInput): Promise<GitHubMessageResult>
+  listWorkflows(input: GitHubWorkspaceInput): Promise<GitHubWorkflow[]>
+  listWorkflowRuns(input: GitHubWorkspaceInput): Promise<GitHubWorkflowRun[]>
+  runWorkflow(input: GitHubWorkflowRunInput): Promise<GitHubMessageResult>
+  rerunRun(input: { rootPath: string; runId: number; failedOnly: boolean }): Promise<GitHubMessageResult>
+  getRunLogs(input: { rootPath: string; runId: number; failedOnly: boolean }): Promise<{ logs: string; truncated: boolean; bytes: number }>
+  listCheckpoints(input: GitHubWorkspaceInput): Promise<GitHubCheckpoint[]>
+  createCheckpoint(input: GitHubCreateCheckpointInput): Promise<GitHubCheckpoint>
+  restoreCheckpoint(input: GitHubRestoreCheckpointInput): Promise<GitHubMessageResult>
+  deleteCheckpoint(input: GitHubDeleteCheckpointInput): Promise<GitHubMessageResult>
+  listConnectedRepositories(input: GitHubWorkspaceInput): Promise<GitHubConnectedRepository[]>
+  connectRepository(input: GitHubConnectRepositoryInput): Promise<GitHubConnectedRepository>
+}
+
+export interface ClipboardApi {
+  saveImageToTemp(): Promise<string | null>
 }
 
 export interface OxeApi {
@@ -234,4 +411,53 @@ export interface OxeApi {
   agent: AgentApi
   tasks: TaskApi
   fs: FileSystemApi
+  git: GitApi
+  github: GitHubApi
+  clipboard: ClipboardApi
+  usage: UsageApi
+  background: BackgroundApi
+  session: SessionApi
+  skill: SkillApi
+  mcp: McpApi
+}
+
+export interface UsageApi {
+  getContextUsage(input: { workspaceRootPath: string }): Promise<import('./usage').ContextUsageSnapshot>
+  getSnapshotFor(input: { provider: import('./agent').AgentProvider; workspaceRootPath: string; sessionId?: string | null }): Promise<import('./usage').ContextUsageSnapshot>
+  listSessions(input: { provider: import('./agent').AgentProvider; workspaceRootPath: string }): Promise<import('./usage/sessions').UsageSessionMetadata[]>
+  supportedProviders(): Promise<import('./agent').AgentProvider[]>
+}
+
+export interface BackgroundApi {
+  list(workspaceId: string): Promise<import('./background').BackgroundJob[]>
+  start(input: import('./background').StartBackgroundJobInput): Promise<import('./background').BackgroundJob>
+  stop(jobId: string): Promise<void>
+  remove(jobId: string): Promise<void>
+  getOutput(jobId: string): Promise<import('./background').BackgroundJobOutputChunk>
+  onOutput(listener: (event: import('./background').BackgroundJobOutputEvent) => void): () => void
+  onUpdate(listener: (event: import('./background').BackgroundJobUpdateEvent) => void): () => void
+}
+
+export interface SessionApi {
+  list(input: { workspaceId: string; workspaceRootPath: string; provider: import('./agent').AgentProvider }): Promise<import('./session').SessionSummary[]>
+  fork(input: import('./session').ForkSessionInput): Promise<import('./session').ForkSessionResult>
+  delete(input: { workspaceRootPath: string; sessionId: string; provider: import('./agent').AgentProvider }): Promise<boolean>
+}
+
+export interface SkillApi {
+  list(input?: { workspaceRootPath?: string }): Promise<import('./skill').SkillDefinition[]>
+  get(name: string): Promise<import('./skill').SkillDefinition | null>
+  invoke(input: import('./skill').InvokeSkillInput): Promise<void>
+  onChange(listener: () => void): () => void
+}
+
+export interface McpApi {
+  list(workspaceId: string | null): Promise<import('./mcp').McpServer[]>
+  create(input: import('./mcp').CreateMcpServerInput): Promise<import('./mcp').McpServer>
+  update(input: import('./mcp').UpdateMcpServerInput): Promise<import('./mcp').McpServer>
+  delete(id: string): Promise<void>
+  start(id: string): Promise<import('./mcp').McpToolDescriptor[]>
+  stop(id: string): Promise<void>
+  callTool(input: import('./mcp').McpCallToolInput): Promise<import('./mcp').McpCallToolResult>
+  onHealth(listener: (event: import('./mcp').McpServerHealthEvent) => void): () => void
 }

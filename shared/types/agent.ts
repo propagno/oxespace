@@ -1,5 +1,11 @@
 export type AgentProvider = 'claude' | 'copilot' | 'gh-copilot' | 'codex' | 'gemini' | 'cursor' | 'custom'
 
+export const BUILTIN_PROVIDERS = ['claude', 'copilot', 'codex', 'gemini', 'cursor'] as const
+
+export type BuiltinProvider = (typeof BUILTIN_PROVIDERS)[number]
+
+export const ALL_PROVIDERS: readonly AgentProvider[] = [...BUILTIN_PROVIDERS, 'gh-copilot', 'custom']
+
 export interface AgentProfile {
   agentProfileId: string
   name: string
@@ -9,6 +15,8 @@ export interface AgentProfile {
   model?: string
   role?: string
   isBuiltin: boolean
+  systemPrompt?: string
+  parentProvider?: AgentProvider
 }
 
 export interface AgentReadiness {
@@ -26,6 +34,8 @@ export interface CreateAgentProfileInput {
   commandTemplate: string
   model?: string
   role?: string
+  systemPrompt?: string
+  parentProvider?: AgentProvider
 }
 
 export type UpdateAgentProfileInput = Partial<Omit<CreateAgentProfileInput, 'provider'>>

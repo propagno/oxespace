@@ -24,6 +24,7 @@ interface TerminalSession {
   paneId: string
   workspaceId: string
   pty: IPty
+  agentCommand?: string
 }
 
 export class TerminalManager {
@@ -64,17 +65,31 @@ export class TerminalManager {
       throw new Error(`Shell profile ${pane.shellProfileId ?? workspace.defaultShellProfileId} not found`)
     }
 
+    const agentParts = input.agentCommand ? input.agentCommand.trim().split(/\s+/) : null
+    const executable = agentParts
+      ? resolveExecutable(agentParts[0], this.env, this.platform)
+      : resolveExecutable(shellProfile.executable, this.env, this.platform)
+    const args = agentParts
+      ? agentParts.slice(1)
+      : [...shellProfile.args, ...(input.agentArgs ?? [])]
+
+    // Pane-level rootPath overrides the workspace root — used by git worktree panes.
+    const cwd = pane.rootPath && existsSync(pane.rootPath) ? pane.rootPath : workspace.rootPath
+
     let ptyProcess: IPty
     try {
-      ptyProcess = this.pty.spawn(resolveExecutable(shellProfile.executable, this.env, this.platform), shellProfile.args, {
+      ptyProcess = this.pty.spawn(executable, args, {
         name: 'xterm-256color',
-        cwd: workspace.rootPath,
+        cwd,
         cols: 80,
         rows: 24,
         env: this.env
       })
     } catch (error) {
-      throw new Error(`Unable to start ${shellProfile.name}. Check Settings > Agents command "${shellProfile.executable}". ${toMessage(error)}`)
+      if (input.agentCommand) {
+        throw new Error(`Unable to start agent "${input.agentCommand}". ${toMessage(error)}`)
+      }
+      throw new Error(`Unable to start ${shellProfile.name}. Check Settings > Shell profiles executable "${shellProfile.executable}". ${toMessage(error)}`)
     }
 
     ptyProcess.onData((data) => this.emitData({ paneId: input.paneId, data }))
@@ -83,19 +98,33 @@ export class TerminalManager {
       this.emitExit({ paneId: input.paneId, exitCode })
     })
 
+    if (input.initialPrompt) {
+      let sent = false
+      ptyProcess.onData(() => {
+        if (sent) return
+        sent = true
+        setTimeout(() => {
+          if (this.sessions.has(input.paneId)) {
+            ptyProcess.write(input.initialPrompt! + '\r')
+          }
+        }, 800)
+      })
+    }
+
     this.sessions.set(input.paneId, {
       paneId: input.paneId,
       workspaceId: input.workspaceId,
-      pty: ptyProcess
+      pty: ptyProcess,
+      agentCommand: input.agentCommand
     })
   }
 
   write(input: TerminalWriteInput): void {
-    this.requireSession(input.paneId).pty.write(input.data)
+    this.sessions.get(input.paneId)?.pty.write(input.data)
   }
 
   resize(input: TerminalResizeInput): void {
-    this.requireSession(input.paneId).pty.resize(input.cols, input.rows)
+    this.sessions.get(input.paneId)?.pty.resize(input.cols, input.rows)
   }
 
   stop(input: TerminalStopInput): void {
@@ -109,7 +138,7 @@ export class TerminalManager {
     const session = this.sessions.get(input.paneId)
     if (!session) return
     this.stop(input)
-    this.start({ paneId: input.paneId, workspaceId: session.workspaceId })
+    this.start({ paneId: input.paneId, workspaceId: session.workspaceId, agentCommand: session.agentCommand })
   }
 
   stopWorkspace(workspaceId: string): void {

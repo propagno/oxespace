@@ -19,6 +19,8 @@ describe('WorkspaceService', () => {
     expect(workspace.layoutPreset).toBe(16)
     expect(workspace.themeId).toBe('midnight')
     expect(workspace.uiDensity).toBe('compact')
+    expect(workspace.agentsPanelVisible).toBe(false)
+    expect(workspace.agentsPanelWidthPercent).toBe(36)
     expect(workspace.autoStart).toBe(false)
     expect(workspace.isActive).toBe(true)
     expect(workspace.defaultShellProfileId).toBe('builtin-claude')
@@ -76,6 +78,44 @@ describe('WorkspaceService', () => {
     expect(updated.defaultShellProfileId).toBe('builtin-copilot')
     expect(updated.panes).toHaveLength(6)
     expect(updated.panes.every((pane) => pane.shellProfileId === 'builtin-copilot')).toBe(true)
+
+    db.close()
+  })
+
+  test('persists Agents panel layout state per workspace', () => {
+    const db = openInMemoryDatabase()
+    const service = new WorkspaceService(db)
+    const workspace = service.create({ rootPath: 'C:/projects/repo', layoutPreset: 4 })
+
+    const updated = service.updateAgentsState({
+      workspaceId: workspace.id,
+      agentsPanelVisible: true,
+      agentsPanelExpanded: true,
+      agentsPanelWidthPercent: 70
+    })
+
+    expect(updated.agentsPanelVisible).toBe(true)
+    expect(updated.agentsPanelExpanded).toBe(true)
+    expect(updated.agentsPanelWidthPercent).toBe(70)
+
+    db.close()
+  })
+
+  test('persists Review panel layout state per workspace', () => {
+    const db = openInMemoryDatabase()
+    const service = new WorkspaceService(db)
+    const workspace = service.create({ rootPath: 'C:/projects/repo', layoutPreset: 4 })
+
+    const updated = service.updateReviewState({
+      workspaceId: workspace.id,
+      reviewPanelVisible: true,
+      reviewPanelExpanded: true,
+      reviewPanelWidthPercent: 60
+    })
+
+    expect(updated.reviewPanelVisible).toBe(true)
+    expect(updated.reviewPanelExpanded).toBe(true)
+    expect(updated.reviewPanelWidthPercent).toBe(60)
 
     db.close()
   })

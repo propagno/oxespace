@@ -1,14 +1,27 @@
-import { app, BrowserWindow, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
 import log from 'electron-log/main.js'
 import { randomUUID } from 'node:crypto'
+import { writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDatabase } from './db/index'
 import { registerAgentIpc } from './ipc/agent.ipc'
 import { registerFileSystemIpc } from './ipc/file-system.ipc'
+import { registerGitIpc } from './ipc/git.ipc'
+import { registerGitHubIpc } from './ipc/github.ipc'
+import { registerUsageIpc } from './ipc/usage.ipc'
+import { registerBackgroundIpc } from './ipc/background.ipc'
+import { registerSessionIpc } from './ipc/session.ipc'
+import { broadcastSkillChange, registerSkillIpc } from './ipc/skill.ipc'
+import { broadcastMcpHealth, registerMcpIpc } from './ipc/mcp.ipc'
+import { SkillService } from './services/skill.service'
+import { McpManager } from './services/mcp.service'
 import { registerTaskIpc } from './ipc/task.ipc'
 import { registerTerminalIpc } from './ipc/terminal.ipc'
 import { registerWorkspaceIpc } from './ipc/workspace.ipc'
+import { BackgroundManager } from './services/background.service'
 import { TerminalManager } from './services/terminal.service'
+import { isSafeExternalUrl } from './utils/external-url'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
 import type { ShellProfile, Workspace, WorkspaceLayout, WorkspaceLayoutPreset } from '../../shared/types/workspace'
 
@@ -16,6 +29,8 @@ log.initialize()
 
 const isDev = !app.isPackaged
 let ipcRegistered = false
+const clipboardImageTempFiles = new Set<string>()
+const CLIPBOARD_IMAGE_TTL_MS = 30 * 60 * 1000
 
 function registerIpcHandlers(): void {
   if (ipcRegistered) return
@@ -51,10 +66,47 @@ function registerIpcHandlers(): void {
   registerTerminalIpc(terminalManager)
   registerAgentIpc(db)
   registerTaskIpc(db, terminalManager)
+  registerGitIpc()
+  registerGitHubIpc(db)
+  registerUsageIpc()
+  const backgroundManager = new BackgroundManager(db, {
+    emitOutput: (event) => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        window.webContents.send(IPC_CHANNELS.background.onOutput, event)
+      }
+    },
+    emitUpdate: (event) => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        window.webContents.send(IPC_CHANNELS.background.onUpdate, event)
+      }
+    }
+  })
+  registerBackgroundIpc(backgroundManager)
+  registerSessionIpc(db)
+  const skillService = new SkillService({ onChange: broadcastSkillChange })
+  registerSkillIpc(skillService, (input) => terminalManager.write(input))
+  const mcpManager = new McpManager(db, { emitHealth: broadcastMcpHealth })
+  registerMcpIpc(mcpManager)
+  ipcMain.handle(IPC_CHANNELS.clipboard.saveImageToTemp, async () => {
+    const image = clipboard.readImage()
+    if (image.isEmpty()) return null
+    const filePath = join(tmpdir(), `oxe-paste-${randomUUID()}.png`)
+    await writeFile(filePath, image.toPNG())
+    clipboardImageTempFiles.add(filePath)
+    const timer = setTimeout(() => {
+      void cleanupTempFile(filePath)
+    }, CLIPBOARD_IMAGE_TTL_MS)
+    timer.unref?.()
+    return filePath
+  })
   const fileSystemService = registerFileSystemIpc()
   app.once('before-quit', () => {
+    for (const filePath of clipboardImageTempFiles) void cleanupTempFile(filePath)
     fileSystemService.closeAll()
     terminalManager.stopAll()
+    backgroundManager.stopAll()
+    skillService.dispose()
+    mcpManager.stopAll()
   })
   ipcRegistered = true
 }
@@ -76,6 +128,10 @@ function registerNativeFailureIpcHandlers(message: string): void {
   ipcMain.handle(IPC_CHANNELS.workspace.closePane, fail)
   ipcMain.handle(IPC_CHANNELS.workspace.splitPane, fail)
   ipcMain.handle(IPC_CHANNELS.workspace.updatePaneType, fail)
+  ipcMain.handle(IPC_CHANNELS.workspace.updateEditorState, fail)
+  ipcMain.handle(IPC_CHANNELS.workspace.updateReviewState, fail)
+  ipcMain.handle(IPC_CHANNELS.workspace.updateGitHubState, fail)
+  ipcMain.handle(IPC_CHANNELS.workspace.updateSettings, fail)
   ipcMain.handle(IPC_CHANNELS.workspace.pickFolder, async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender) ?? BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
     const result = await dialog.showOpenDialog(win, { properties: ['openDirectory'] })
@@ -105,6 +161,47 @@ function registerNativeFailureIpcHandlers(message: string): void {
   ipcMain.handle(IPC_CHANNELS.fs.writeFile, fail)
   ipcMain.handle(IPC_CHANNELS.fs.watchFile, fail)
   ipcMain.handle(IPC_CHANNELS.fs.unwatchFile, fail)
+  for (const channel of Object.values(IPC_CHANNELS.github)) {
+    ipcMain.handle(channel, fail)
+  }
+  // Wave 2-6 channels — degrade gracefully so the renderer doesn't spam
+  // "No handler registered" errors when native startup failed. Listing channels
+  // return empty data; mutating channels throw via `fail` so the user sees the
+  // root cause in any action they try.
+  ipcMain.handle(IPC_CHANNELS.usage.getContextUsage, () => null)
+  ipcMain.handle(IPC_CHANNELS.usage.getSnapshotFor, () => null)
+  ipcMain.handle(IPC_CHANNELS.usage.supportedProviders, () => [])
+  ipcMain.handle(IPC_CHANNELS.usage.listSessions, () => [])
+  ipcMain.handle(IPC_CHANNELS.background.list, () => [])
+  ipcMain.handle(IPC_CHANNELS.background.start, fail)
+  ipcMain.handle(IPC_CHANNELS.background.stop, fail)
+  ipcMain.handle(IPC_CHANNELS.background.remove, fail)
+  ipcMain.handle(IPC_CHANNELS.background.getOutput, () => ({ jobId: '', startSequence: 0, lines: [] }))
+  ipcMain.handle(IPC_CHANNELS.session.list, () => [])
+  ipcMain.handle(IPC_CHANNELS.session.fork, fail)
+  ipcMain.handle(IPC_CHANNELS.session.delete, fail)
+  ipcMain.handle(IPC_CHANNELS.skill.list, () => [])
+  ipcMain.handle(IPC_CHANNELS.skill.get, () => null)
+  ipcMain.handle(IPC_CHANNELS.skill.invoke, fail)
+  ipcMain.handle(IPC_CHANNELS.mcp.list, () => [])
+  ipcMain.handle(IPC_CHANNELS.mcp.create, fail)
+  ipcMain.handle(IPC_CHANNELS.mcp.update, fail)
+  ipcMain.handle(IPC_CHANNELS.mcp.delete, fail)
+  ipcMain.handle(IPC_CHANNELS.mcp.start, fail)
+  ipcMain.handle(IPC_CHANNELS.mcp.stop, fail)
+  ipcMain.handle(IPC_CHANNELS.mcp.callTool, fail)
+  if ('setTrust' in IPC_CHANNELS.mcp) {
+    ipcMain.handle((IPC_CHANNELS.mcp as Record<string, string>).setTrust, fail)
+  }
+  ipcMain.handle(IPC_CHANNELS.workspace.updateBackgroundState, fail)
+  ipcMain.handle(IPC_CHANNELS.workspace.setPaneAgent, fail)
+  ipcMain.handle(IPC_CHANNELS.workspace.setPaneRootPath, fail)
+  ipcMain.handle(IPC_CHANNELS.workspace.updatePaneName, fail)
+  ipcMain.handle(IPC_CHANNELS.workspace.createGitHubTerminalPane, fail)
+  ipcMain.handle(IPC_CHANNELS.tasks.onVerifyOutput, () => undefined)
+  ipcMain.handle(IPC_CHANNELS.tasks.addDependency, fail)
+  ipcMain.handle(IPC_CHANNELS.tasks.removeDependency, fail)
+  ipcMain.handle(IPC_CHANNELS.tasks.getReady, () => [])
 }
 
 function registerE2eMockIpcHandlers(): void {
@@ -129,6 +226,16 @@ function registerE2eMockIpcHandlers(): void {
       defaultShellProfileId: input.defaultShellProfileId ?? 'builtin-claude',
       autoStart: input.autoStart !== false,
       isActive: true,
+      editorVisible: false,
+      editorExpanded: false,
+      editorWidthPercent: 40,
+      reviewPanelVisible: false,
+      reviewPanelExpanded: false,
+      reviewPanelWidthPercent: 40,
+      githubPanelVisible: false,
+      githubPanelExpanded: false,
+      githubPanelWidthPercent: 40,
+      githubActiveTab: 'status',
       panes: []
     }
     workspace.panes = createMockPanes(workspace.id, layout)
@@ -167,6 +274,31 @@ function registerE2eMockIpcHandlers(): void {
       }
     }
     throw new Error(`Pane ${input.paneId} not found`)
+  })
+  ipcMain.handle(IPC_CHANNELS.workspace.updateEditorState, (_event: IpcMainInvokeEvent, input: { workspaceId: string; editorVisible?: boolean; editorExpanded?: boolean; editorWidthPercent?: number }) => {
+    const workspace = workspaces.find((item) => item.id === input.workspaceId)
+    if (!workspace) throw new Error(`Workspace ${input.workspaceId} not found`)
+    workspace.editorVisible = input.editorVisible ?? workspace.editorVisible
+    workspace.editorExpanded = input.editorExpanded ?? workspace.editorExpanded
+    workspace.editorWidthPercent = input.editorWidthPercent ?? workspace.editorWidthPercent
+    return workspace
+  })
+  ipcMain.handle(IPC_CHANNELS.workspace.updateReviewState, (_event: IpcMainInvokeEvent, input: { workspaceId: string; reviewPanelVisible?: boolean; reviewPanelExpanded?: boolean; reviewPanelWidthPercent?: number }) => {
+    const workspace = workspaces.find((item) => item.id === input.workspaceId)
+    if (!workspace) throw new Error(`Workspace ${input.workspaceId} not found`)
+    workspace.reviewPanelVisible = input.reviewPanelVisible ?? workspace.reviewPanelVisible
+    workspace.reviewPanelExpanded = input.reviewPanelExpanded ?? workspace.reviewPanelExpanded
+    workspace.reviewPanelWidthPercent = input.reviewPanelWidthPercent ?? workspace.reviewPanelWidthPercent
+    return workspace
+  })
+  ipcMain.handle(IPC_CHANNELS.workspace.updateGitHubState, (_event: IpcMainInvokeEvent, input: { workspaceId: string; githubPanelVisible?: boolean; githubPanelExpanded?: boolean; githubPanelWidthPercent?: number; githubActiveTab?: Workspace['githubActiveTab'] }) => {
+    const workspace = workspaces.find((item) => item.id === input.workspaceId)
+    if (!workspace) throw new Error(`Workspace ${input.workspaceId} not found`)
+    workspace.githubPanelVisible = input.githubPanelVisible ?? workspace.githubPanelVisible
+    workspace.githubPanelExpanded = input.githubPanelExpanded ?? workspace.githubPanelExpanded
+    workspace.githubPanelWidthPercent = input.githubPanelWidthPercent ?? workspace.githubPanelWidthPercent
+    workspace.githubActiveTab = input.githubActiveTab ?? workspace.githubActiveTab
+    return workspace
   })
   ipcMain.handle(IPC_CHANNELS.workspace.updateSettings, (_event: IpcMainInvokeEvent, input: { workspaceId: string; themeId?: Workspace['themeId']; uiDensity?: Workspace['uiDensity']; defaultShellProfileId?: string; layoutPreset?: WorkspaceLayoutPreset }) => {
     const workspace = workspaces.find((item) => item.id === input.workspaceId)
@@ -220,6 +352,62 @@ function registerE2eMockIpcHandlers(): void {
     throw new Error('File system API is not available in E2E mock mode')
   })
   ipcMain.handle(IPC_CHANNELS.fs.unwatchFile, () => undefined)
+  ipcMain.handle(IPC_CHANNELS.github.getCliStatus, () => ({ available: false, authenticated: false, user: null, host: null, message: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.github.getWorkspaceStatus, (_event: IpcMainInvokeEvent, input: { workspaceId: string; rootPath: string }) => ({
+    cli: { available: false, authenticated: false, user: null, host: null, message: 'E2E mock mode' },
+    repository: { owner: null, name: null, fullName: null, url: null, isPrivate: null, defaultBranch: null, remoteName: null, remoteUrl: null, detected: false },
+    isGitRepository: false,
+    branch: null,
+    lastCommit: null,
+    lastCommitRelative: null,
+    lastPushRelative: null,
+    staged: 0,
+    modified: 0,
+    untracked: 0,
+    ahead: 0,
+    behind: 0,
+    hasUncommittedChanges: false,
+    workspaceId: input.workspaceId,
+    rootPath: input.rootPath
+  }))
+  ipcMain.handle(IPC_CHANNELS.github.listBranches, () => [])
+  ipcMain.handle(IPC_CHANNELS.github.listPullRequests, () => [])
+  ipcMain.handle(IPC_CHANNELS.github.listCommits, () => [])
+  ipcMain.handle(IPC_CHANNELS.github.listReleases, () => [])
+  ipcMain.handle(IPC_CHANNELS.github.listWorkflows, () => [])
+  ipcMain.handle(IPC_CHANNELS.github.listWorkflowRuns, () => [])
+  ipcMain.handle(IPC_CHANNELS.github.listCheckpoints, () => [])
+  ipcMain.handle(IPC_CHANNELS.github.listConnectedRepositories, () => [])
+  ipcMain.handle(IPC_CHANNELS.github.fetch, () => ({ ok: true, message: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.github.stageAll, () => ({ ok: true, message: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.github.commit, () => ({ ok: true, message: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.github.push, () => ({ ok: true, message: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.github.commitAndPush, () => ({ ok: true, message: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.github.createBranch, () => ({ ok: true, message: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.github.checkoutBranch, () => ({ ok: true, message: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.github.createPullRequest, () => ({ ok: true, message: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.github.createRelease, () => ({ ok: true, message: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.github.runWorkflow, () => ({ ok: true, message: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.github.createCheckpoint, (_event: IpcMainInvokeEvent, input: { workspaceId: string; name: string; description?: string }) => ({
+    id: randomUUID(),
+    workspaceId: input.workspaceId,
+    name: input.name,
+    description: input.description ?? null,
+    branch: null,
+    baseCommit: null,
+    patch: '',
+    untrackedFiles: [],
+    createdAt: Date.now()
+  }))
+  ipcMain.handle(IPC_CHANNELS.github.restoreCheckpoint, () => ({ ok: true, message: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.github.deleteCheckpoint, () => ({ ok: true, message: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.github.connectRepository, (_event: IpcMainInvokeEvent, input: { workspaceId: string; fullName: string; url?: string | null }) => ({
+    id: randomUUID(),
+    workspaceId: input.workspaceId,
+    fullName: input.fullName,
+    url: input.url ?? null,
+    createdAt: Date.now()
+  }))
 }
 
 function createMockPanes(workspaceId: string, layout: WorkspaceLayout): Workspace['panes'] {
@@ -234,7 +422,12 @@ function createMockPanes(workspaceId: string, layout: WorkspaceLayout): Workspac
       rowIndex,
       columnIndex,
       shellProfileId: 'builtin-claude',
-      status: 'idle'
+      status: 'idle',
+      agentProfileId: null,
+      agentName: null,
+      displayName: null,
+      createdAt: null,
+      rootPath: null
     }
   })
 }
@@ -273,6 +466,16 @@ function toMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Unknown native startup error'
 }
 
+async function cleanupTempFile(filePath: string): Promise<void> {
+  clipboardImageTempFiles.delete(filePath)
+  try {
+    const { unlink } = await import('node:fs/promises')
+    await unlink(filePath)
+  } catch {
+    // Temp file may already be gone.
+  }
+}
+
 function createMainWindow(): BrowserWindow {
   const iconPath = isDev
     ? join(process.cwd(), 'resources', 'icon.ico')
@@ -291,6 +494,9 @@ function createMainWindow(): BrowserWindow {
       preload: join(__dirname, '../preload/index.mjs'),
       contextIsolation: true,
       nodeIntegration: false,
+      // Sandbox remains disabled while native PTY/SQLite packaging is bridged
+      // through preload. Renderer isolation stays enabled; all privileged access
+      // must pass validated IPC handlers.
       sandbox: false
     }
   })
@@ -300,7 +506,7 @@ function createMainWindow(): BrowserWindow {
   })
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url)
+    if (isSafeExternalUrl(url)) void shell.openExternal(url)
     return { action: 'deny' }
   })
 

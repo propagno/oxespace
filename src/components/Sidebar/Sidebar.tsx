@@ -1,137 +1,175 @@
-import { ChevronDown, ChevronsLeft, ChevronsRight, Plus, Settings } from 'lucide-react'
-import type { ReactElement } from 'react'
+import { ChevronsLeft, ChevronsRight, Plus, Search } from 'lucide-react'
+import { useState, type ReactElement } from 'react'
+import type { AgentProfile } from '../../../shared/types/agent'
 import type { Workspace } from '../../../shared/types/workspace'
-import { WorkspaceItem } from './WorkspaceItem'
+import { useTerminalStore } from '../../store/terminal.store'
+import { OxeLogo } from '../Brand/OxeLogo'
+import { WorkspaceGroup } from './WorkspaceGroup'
 
 interface SidebarProps {
   workspaces: Workspace[]
   activeWorkspaceId: string | null
+  activePaneId: string | null
+  agentProfiles: AgentProfile[]
   appVersion: string
   onNewWorkspace: () => void
   onSelectWorkspace: (id: string) => void
   onCloseWorkspace: (id: string) => void
-  isSettingsOpen: boolean
-  onToggleSettings: () => void
+  onActivatePane: (paneId: string) => void
   isCollapsed: boolean
   onToggleCollapse: () => void
 }
 
-function OxeLogo(): ReactElement {
-  return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <defs>
-        <linearGradient id="oxe-bg" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#1e1b4b"/>
-          <stop offset="100%" stopColor="#4f46e5"/>
-        </linearGradient>
-        <radialGradient id="oxe-glow" cx="7" cy="7" r="14" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#818cf8" stopOpacity="0.5"/>
-          <stop offset="100%" stopColor="#4f46e5" stopOpacity="0"/>
-        </radialGradient>
-      </defs>
-      <rect width="28" height="28" rx="7" fill="url(#oxe-bg)"/>
-      <rect width="28" height="28" rx="7" fill="url(#oxe-glow)"/>
-      <rect x="5" y="5" width="8" height="8" rx="1.5" fill="white" opacity="0.95"/>
-      <rect x="15" y="5" width="8" height="8" rx="1.5" fill="white" opacity="0.55"/>
-      <rect x="5" y="15" width="8" height="8" rx="1.5" fill="white" opacity="0.35"/>
-      <rect x="15" y="15" width="8" height="8" rx="1.5" fill="white" opacity="0.15"/>
-      <rect x="6.5" y="11" width="4" height="1.5" rx="0.75" fill="#312e81" opacity="0.8"/>
-    </svg>
-  )
-}
 
 export function Sidebar({
   activeWorkspaceId,
+  activePaneId,
+  agentProfiles,
   appVersion,
   isCollapsed,
+  onActivatePane,
   onCloseWorkspace,
   onNewWorkspace,
   onSelectWorkspace,
-  isSettingsOpen,
-  onToggleSettings,
   onToggleCollapse,
-  workspaces
+  workspaces,
 }: SidebarProps): ReactElement {
+  const [searchQuery, setSearchQuery] = useState('')
+  const [activeTab, setActiveTab] = useState<'all' | 'unread'>('all')
+  // Subscribe to terminal store so the filter recomputes when hasUnread toggles.
+  // Idle-marker detection (TerminalView) flips hasUnread; markRead clears it.
+  const terminalPanes = useTerminalStore((state) => state.panes)
+
+  const hasUnread = (paneId: string): boolean => terminalPanes[paneId]?.hasUnread === true
+  const unreadCount = workspaces.reduce(
+    (n, ws) => n + ws.panes.filter(p => hasUnread(p.id)).length,
+    0,
+  )
+
+  const handleActivatePane = (paneId: string): void => {
+    const wasUnread = hasUnread(paneId)
+    onActivatePane(paneId)
+    if (wasUnread && activeTab === 'unread') setActiveTab('all')
+  }
+
+  if (isCollapsed) {
+    return (
+      <aside className="sidebar sidebar-collapsed">
+        <div className="sidebar-brand sidebar-brand-collapsed">
+          <OxeLogo />
+          {unreadCount > 0 ? (
+            <span className="sidebar-rail-unread" aria-label={`${unreadCount} unread pane${unreadCount === 1 ? '' : 's'}`}>
+              {unreadCount}
+            </span>
+          ) : null}
+        </div>
+        <div className="sidebar-footer">
+          <button
+            type="button"
+            className="sidebar-collapse-btn"
+            aria-label="Expand sidebar"
+            title="Expand sidebar"
+            onClick={onToggleCollapse}
+          >
+            <ChevronsRight size={14} aria-hidden="true" />
+          </button>
+        </div>
+      </aside>
+    )
+  }
+
+  const filtered = workspaces.filter(ws => {
+    const matchesSearch =
+      !searchQuery ||
+      ws.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      ws.panes.some(p =>
+        (p.agentName ?? p.type).toLowerCase().includes(searchQuery.toLowerCase()),
+      )
+    const matchesTab =
+      activeTab === 'all' || ws.panes.some(p => hasUnread(p.id))
+    return matchesSearch && matchesTab
+  })
+
   return (
-    <aside className={`sidebar${isCollapsed ? ' sidebar-collapsed' : ''}`}>
-      <div className="sidebar-brand">
-        <OxeLogo />
-        {!isCollapsed && (
-          <span className="sidebar-wordmark">
-            <span className="wordmark-oxe">OXE</span>
-            <span className="wordmark-space">space</span>
-          </span>
-        )}
+    <aside className="sidebar">
+      <div className="sidebar-header-bar">
+        <OxeLogo size={22} variant="wordmark" />
+        <div className="sidebar-actions">
+          <button
+            type="button"
+            className="sidebar-icon-btn"
+            aria-label="New workspace"
+            title="New workspace"
+            data-testid="btn-new-workspace"
+            onClick={onNewWorkspace}
+          >
+            <Plus size={13} aria-hidden="true" />
+          </button>
+        </div>
       </div>
 
-      {!isCollapsed && (
-        <>
-          <div className="sidebar-header">
-            <span className="sidebar-section-label">WORKSPACES</span>
-            <div className="sidebar-header-actions">
-              <button
-                type="button"
-                className="sidebar-btn"
-                aria-label="New workspace"
-                title="New workspace"
-                data-testid="btn-new-workspace"
-                onClick={onNewWorkspace}
-              >
-                <Plus size={11} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                className="sidebar-btn"
-                aria-label="More options"
-                title="More options"
-              >
-                <ChevronDown size={11} aria-hidden="true" />
-              </button>
-            </div>
-          </div>
+      <div className="sidebar-search-wrap">
+        <Search size={11} className="sidebar-search-icon" aria-hidden="true" />
+        <input
+          type="text"
+          className="sidebar-search-input"
+          placeholder="Search"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          aria-label="Search workspaces"
+        />
+      </div>
 
-          <nav className="workspace-list" aria-label="Workspaces">
-            {workspaces.length === 0 ? (
-              <p className="workspace-list-empty">No workspaces yet.</p>
-            ) : (
-              workspaces.map((workspace) => (
-                <WorkspaceItem
-                  key={workspace.id}
-                  workspace={workspace}
-                  isActive={workspace.id === activeWorkspaceId}
-                  onSelect={onSelectWorkspace}
-                  onClose={onCloseWorkspace}
-                />
-              ))
-            )}
-          </nav>
-        </>
-      )}
-
-      <div className="sidebar-footer">
-        {!isCollapsed ? <span className="sidebar-version">v{appVersion}</span> : null}
+      <div className="sidebar-tabs" role="tablist">
         <button
           type="button"
-          className={`sidebar-settings-button${isSettingsOpen ? ' active' : ''}`}
-          aria-pressed={isSettingsOpen}
-          aria-label="Open settings"
-          title="Settings"
-          onClick={onToggleSettings}
+          role="tab"
+          aria-selected={activeTab === 'all'}
+          onClick={() => setActiveTab('all')}
         >
-          <Settings size={14} aria-hidden="true" />
-          {!isCollapsed ? <span>Settings</span> : null}
+          All
         </button>
         <button
           type="button"
+          role="tab"
+          aria-selected={activeTab === 'unread'}
+          onClick={() => setActiveTab('unread')}
+        >
+          Unread
+          {unreadCount > 0 && <span className="tab-badge">{unreadCount}</span>}
+        </button>
+      </div>
+
+      <nav className="ws-group-list" aria-label="Workspaces">
+        {filtered.length === 0 ? (
+          <p className="sidebar-empty">No workspaces.</p>
+        ) : (
+          filtered.map(ws => (
+            <WorkspaceGroup
+              key={ws.id}
+              workspace={ws}
+              isActive={ws.id === activeWorkspaceId}
+              activePaneId={activePaneId}
+              agentProfiles={agentProfiles}
+              defaultExpanded={ws.id === activeWorkspaceId}
+              onSelect={onSelectWorkspace}
+              onClose={onCloseWorkspace}
+              onActivatePane={handleActivatePane}
+            />
+          ))
+        )}
+      </nav>
+
+      <div className="sidebar-footer">
+        <span className="sidebar-version">v{appVersion}</span>
+        <button
+          type="button"
           className="sidebar-collapse-btn"
-          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label="Collapse sidebar"
+          title="Collapse sidebar"
           onClick={onToggleCollapse}
         >
-          {isCollapsed
-            ? <ChevronsRight size={14} aria-hidden="true" />
-            : <ChevronsLeft size={14} aria-hidden="true" />
-          }
+          <ChevronsLeft size={14} aria-hidden="true" />
         </button>
       </div>
     </aside>

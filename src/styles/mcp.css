@@ -1,0 +1,467 @@
+/* ─── MCP panel ─────────────────────────────────────────────────────────── */
+
+.mcp-panel-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 145;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 52px 24px 24px;
+  background: radial-gradient(ellipse at top, rgba(110, 235, 212, 0.04) 0%, rgba(0, 0, 0, 0.62) 60%);
+  backdrop-filter: blur(8px);
+  animation: model-selector-fade 140ms ease-out;
+  overflow: hidden;
+}
+
+.mcp-panel {
+  width: min(780px, calc(100vw - 48px));
+  max-height: calc(100vh - 76px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid rgba(110, 235, 212, 0.22);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(10, 24, 38, 0.97) 0%, rgba(5, 12, 22, 0.98) 100%);
+  box-shadow:
+    0 28px 80px rgba(0, 0, 0, 0.78),
+    0 0 0 1px rgba(110, 235, 212, 0.08),
+    0 0 28px rgba(110, 235, 212, 0.10) inset;
+  animation: slash-overlay-pop 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.mcp-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  flex: 0 0 auto;
+}
+
+.mcp-panel-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #6EEBD4;
+}
+
+.mcp-panel-title strong { color: var(--tx-primary); font-size: 14px; font-weight: 700; }
+
+.mcp-panel-scope {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(110, 235, 212, 0.10);
+  color: #6EEBD4;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.mcp-panel-actions { display: inline-flex; align-items: center; gap: 4px; }
+
+.mcp-panel-error {
+  padding: 9px 16px;
+  background: rgba(244, 91, 105, 0.10);
+  border-bottom: 1px solid rgba(244, 91, 105, 0.20);
+  color: #FFB1B8;
+  font-size: 11.5px;
+  flex: 0 0 auto;
+}
+
+.mcp-panel-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 10px 14px 6px;
+  padding: 10px;
+  border: 1px dashed rgba(110, 235, 212, 0.22);
+  border-radius: 8px;
+  background: transparent;
+  color: #6EEBD4;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 100ms;
+  flex: 0 0 auto;
+}
+
+.mcp-panel-add:hover {
+  background: rgba(110, 235, 212, 0.05);
+  border-color: rgba(110, 235, 212, 0.45);
+}
+
+.mcp-panel-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mcp-panel-list::-webkit-scrollbar,
+.mcp-server-detail::-webkit-scrollbar {
+  width: 8px;
+}
+
+.mcp-panel-list::-webkit-scrollbar-track,
+.mcp-server-detail::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.mcp-panel-list::-webkit-scrollbar-thumb,
+.mcp-server-detail::-webkit-scrollbar-thumb {
+  background: rgba(110, 235, 212, 0.24);
+  border-radius: 999px;
+}
+
+.mcp-panel-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 38px 28px;
+  text-align: center;
+  color: var(--tx-muted);
+}
+
+.mcp-panel-empty svg { opacity: 0.42; margin-bottom: 4px; }
+.mcp-panel-empty strong { color: var(--tx-primary); font-size: 13px; }
+.mcp-panel-empty span { font-size: 11.5px; line-height: 1.5; max-width: 360px; }
+
+.mcp-server-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: stretch;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+  transition: border-color 90ms, background 90ms;
+  flex: 0 0 auto;
+}
+
+.mcp-server-row:hover { border-color: rgba(110, 235, 212, 0.16); }
+.mcp-server-row.health-healthy { border-color: rgba(18, 199, 154, 0.22); }
+.mcp-server-row.health-unhealthy { border-color: rgba(244, 91, 105, 0.20); }
+.mcp-server-row.expanded { grid-template-columns: 1fr; }
+
+.mcp-server-main {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.mcp-server-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+
+.mcp-server-body strong {
+  color: var(--tx-primary);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+}
+
+.mcp-server-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--tx-muted);
+  font-size: 11px;
+}
+
+.mcp-server-tag {
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.mcp-server-tag.scope-ws { background: rgba(255, 200, 100, 0.10); color: #FFE082; }
+.mcp-server-tag.scope-global { background: rgba(110, 235, 212, 0.10); color: #6EEBD4; }
+
+.mcp-server-err {
+  color: #FFB1B8;
+  font-size: 10.5px;
+  font-style: italic;
+}
+
+.mcp-server-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-left: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.mcp-server-actions .primary-btn,
+.mcp-server-actions .ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 9px;
+  font-size: 10.5px;
+  font-weight: 600;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.mcp-server-actions .ghost-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  color: var(--tx-secondary);
+}
+
+.mcp-server-actions .ghost-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--tx-primary);
+}
+
+.mcp-server-actions .primary-btn {
+  background: #12C79A;
+  border: 0;
+  color: #061a14;
+}
+
+.mcp-server-actions .primary-btn:hover:not(:disabled) { background: #6EEBD4; }
+.mcp-server-actions button:disabled { opacity: 0.4; cursor: default; }
+
+.mcp-server-detail {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  max-height: min(440px, calc(100vh - 300px));
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(0, 0, 0, 0.20);
+}
+
+.mcp-server-trust-box,
+.mcp-inline-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 200, 100, 0.18);
+  border-radius: 7px;
+  background: rgba(255, 200, 100, 0.06);
+  color: #FFE082;
+  font-size: 11px;
+}
+
+.mcp-inline-confirm {
+  justify-content: flex-end;
+  color: var(--tx-secondary);
+}
+
+.mcp-inline-confirm span {
+  margin-right: auto;
+}
+
+.mcp-inline-confirm .ghost-btn,
+.mcp-inline-confirm .primary-btn {
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 5px;
+  font-size: 10.5px;
+}
+
+.mcp-inline-confirm .ghost-btn {
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: transparent;
+  color: var(--tx-secondary);
+}
+
+.mcp-inline-confirm .primary-btn {
+  border: 0;
+  background: #12C79A;
+  color: #061a14;
+}
+
+.mcp-server-config {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.mcp-server-config code {
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 11px;
+  color: var(--tx-secondary);
+  word-break: break-all;
+}
+
+.mcp-server-config code strong {
+  color: #6EEBD4;
+  font-weight: 700;
+  margin-right: 4px;
+}
+
+.mcp-server-tools-header {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.mcp-tool-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 10px;
+  margin-bottom: 4px;
+  border: 1px solid rgba(110, 235, 212, 0.10);
+  border-radius: 6px;
+  background: rgba(110, 235, 212, 0.04);
+}
+
+.mcp-tool-card strong {
+  color: #6EEBD4;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+}
+
+.mcp-tool-card span { color: var(--tx-muted); font-size: 11px; line-height: 1.4; }
+
+.mcp-server-no-tools {
+  padding: 8px;
+  color: var(--tx-muted);
+  font-size: 11px;
+  font-style: italic;
+  text-align: center;
+}
+
+.mcp-panel-footer {
+  padding: 10px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(0, 0, 0, 0.20);
+  color: rgba(255, 255, 255, 0.40);
+  font-size: 10.5px;
+  line-height: 1.5;
+  flex: 0 0 auto;
+}
+
+.mcp-panel-footer code {
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(110, 235, 212, 0.10);
+  color: #6EEBD4;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 10px;
+}
+
+/* MCP create form */
+.mcp-create-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 6px 14px 14px;
+  padding: 14px;
+  max-height: min(520px, calc(100vh - 210px));
+  overflow-y: auto;
+  border: 1px solid rgba(110, 235, 212, 0.20);
+  border-radius: 10px;
+  background: rgba(110, 235, 212, 0.03);
+  flex: 0 0 auto;
+}
+
+.mcp-create-row { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
+
+.mcp-create-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.mcp-create-form input,
+.mcp-create-form select,
+.mcp-create-form textarea {
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.30);
+  color: var(--tx-primary);
+  font-size: 12px;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  outline: none;
+  transition: border-color 100ms;
+  resize: vertical;
+}
+
+.mcp-create-form input:focus,
+.mcp-create-form select:focus,
+.mcp-create-form textarea:focus { border-color: rgba(110, 235, 212, 0.55); }
+
+.mcp-create-error {
+  padding: 7px 10px;
+  border-radius: 6px;
+  background: rgba(244, 91, 105, 0.10);
+  color: #FFB1B8;
+  font-size: 11px;
+}
+
+.mcp-create-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+.mcp-create-actions .ghost-btn,
+.mcp-create-actions .primary-btn {
+  height: 28px;
+  padding: 0 14px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.mcp-create-actions .ghost-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  color: var(--tx-secondary);
+}
+
+.mcp-create-actions .primary-btn {
+  background: #12C79A;
+  border: 0;
+  color: #061a14;
+}
+
+.mcp-create-actions .primary-btn:disabled { opacity: 0.4; cursor: default; }
+
+/* Onda 6: template picker hint inside the create form */
+.mcp-create-template-hint {
+  display: block;
+  font-size: 10px;
+  color: var(--tx-muted);
+  margin-top: 4px;
+  font-style: italic;
+}

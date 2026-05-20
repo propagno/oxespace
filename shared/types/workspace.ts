@@ -6,7 +6,9 @@ export type WorkspaceThemeId = 'midnight' | 'nord' | 'dracula' | 'ocean' | 'mono
 
 export type WorkspaceDensity = 'compact' | 'comfortable'
 
-export type PaneType = 'terminal' | 'tasks' | 'editor' | 'swarm' | 'inspector'
+export type PaneType = 'terminal' | 'tasks' | 'editor' | 'review'
+
+export type GitHubPanelTab = import('./github').GitHubPanelTab
 
 export type PaneStatus = 'idle' | 'running' | 'exited'
 
@@ -26,6 +28,18 @@ export interface WorkspacePane {
   columnIndex: number
   shellProfileId: string | null
   status: PaneStatus
+  agentProfileId: string | null
+  agentName: string | null
+  displayName: string | null
+  createdAt: number | null
+  /** Per-pane working directory override (e.g. git worktree). Null = use workspace rootPath. */
+  rootPath: string | null
+}
+
+export interface PaneAgentBinding {
+  paneIndex: number
+  agentProfileId: string
+  agentName: string
 }
 
 export interface Workspace {
@@ -42,6 +56,16 @@ export interface Workspace {
   editorVisible?: boolean
   editorExpanded?: boolean
   editorWidthPercent?: number
+  reviewPanelVisible?: boolean
+  reviewPanelExpanded?: boolean
+  reviewPanelWidthPercent?: number
+  githubPanelVisible?: boolean
+  githubPanelExpanded?: boolean
+  githubPanelWidthPercent?: number
+  githubActiveTab?: GitHubPanelTab
+  backgroundPanelVisible?: boolean
+  backgroundPanelExpanded?: boolean
+  backgroundPanelWidthPercent?: number
   panes: WorkspacePane[]
 }
 
@@ -54,6 +78,7 @@ export interface CreateWorkspaceInput {
   name?: string
   themeId?: WorkspaceThemeId
   uiDensity?: WorkspaceDensity
+  agentBindings?: PaneAgentBinding[]
 }
 
 export interface UpdateWorkspaceEditorStateInput {
@@ -61,6 +86,28 @@ export interface UpdateWorkspaceEditorStateInput {
   editorVisible?: boolean
   editorExpanded?: boolean
   editorWidthPercent?: number
+}
+
+export interface UpdateWorkspaceReviewStateInput {
+  workspaceId: string
+  reviewPanelVisible?: boolean
+  reviewPanelExpanded?: boolean
+  reviewPanelWidthPercent?: number
+}
+
+export interface UpdateWorkspaceGitHubStateInput {
+  workspaceId: string
+  githubPanelVisible?: boolean
+  githubPanelExpanded?: boolean
+  githubPanelWidthPercent?: number
+  githubActiveTab?: GitHubPanelTab
+}
+
+export interface UpdateWorkspaceBackgroundStateInput {
+  workspaceId: string
+  backgroundPanelVisible?: boolean
+  backgroundPanelExpanded?: boolean
+  backgroundPanelWidthPercent?: number
 }
 
 export interface UpdateWorkspaceSettingsInput {

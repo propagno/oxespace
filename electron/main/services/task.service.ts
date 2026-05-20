@@ -84,7 +84,8 @@ export class TaskService {
     const rows = this.db
       .prepare('SELECT * FROM tasks WHERE workspace_id = ? ORDER BY column_name ASC, position ASC, created_at ASC')
       .all(workspaceId) as TaskRow[]
-    return rows.map(mapTask)
+    const deps = this.loadDependenciesFor(workspaceId)
+    return rows.map((row) => mapTask(row, deps.get(row.id) ?? []))
   }
 
   create(input: CreateTaskInput): Task {
@@ -270,7 +271,92 @@ export class TaskService {
   private getOrThrow(id: string): Task {
     const row = this.db.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as TaskRow | undefined
     if (!row) throw new Error(`Task not found: ${id}`)
-    return mapTask(row)
+    const deps = this.loadDependenciesForTask(id)
+    return mapTask(row, deps)
+  }
+
+  private loadDependenciesForTask(taskId: string): string[] {
+    const rows = this.db
+      .prepare('SELECT depends_on_task_id FROM task_dependencies WHERE task_id = ?')
+      .all(taskId) as Array<{ depends_on_task_id: string }>
+    return rows.map((r) => r.depends_on_task_id)
+  }
+
+  private loadDependenciesFor(workspaceId: string): Map<string, string[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT td.task_id, td.depends_on_task_id
+         FROM task_dependencies td
+         JOIN tasks t ON t.id = td.task_id
+         WHERE t.workspace_id = ?`
+      )
+      .all(workspaceId) as Array<{ task_id: string; depends_on_task_id: string }>
+    const map = new Map<string, string[]>()
+    for (const row of rows) {
+      const existing = map.get(row.task_id) ?? []
+      existing.push(row.depends_on_task_id)
+      map.set(row.task_id, existing)
+    }
+    return map
+  }
+
+  /**
+   * Adds a dependency edge from `taskId` to `dependsOnTaskId`. Rejects cycles by walking
+   * the existing dependency graph forward from the proposed target.
+   */
+  addDependency(taskId: string, dependsOnTaskId: string): Task {
+    if (taskId === dependsOnTaskId) throw new Error('Tarefa não pode depender de si mesma')
+    const taskRow = this.db.prepare('SELECT workspace_id FROM tasks WHERE id = ?').get(taskId) as { workspace_id: string } | undefined
+    const depRow = this.db.prepare('SELECT workspace_id FROM tasks WHERE id = ?').get(dependsOnTaskId) as { workspace_id: string } | undefined
+    if (!taskRow) throw new Error(`Task ${taskId} not found`)
+    if (!depRow) throw new Error(`Task ${dependsOnTaskId} not found`)
+    if (taskRow.workspace_id !== depRow.workspace_id) {
+      throw new Error('Dependências precisam estar no mesmo workspace')
+    }
+    if (this.wouldCreateCycle(taskId, dependsOnTaskId)) {
+      throw new Error('Essa dependência criaria um ciclo')
+    }
+    this.db
+      .prepare('INSERT OR IGNORE INTO task_dependencies (task_id, depends_on_task_id) VALUES (?, ?)')
+      .run(taskId, dependsOnTaskId)
+    return this.getOrThrow(taskId)
+  }
+
+  removeDependency(taskId: string, dependsOnTaskId: string): Task {
+    this.db
+      .prepare('DELETE FROM task_dependencies WHERE task_id = ? AND depends_on_task_id = ?')
+      .run(taskId, dependsOnTaskId)
+    return this.getOrThrow(taskId)
+  }
+
+  /** Returns ids of tasks where all dependencies are in `passed` runStatus. */
+  getReadyTaskIds(workspaceId: string): string[] {
+    const tasks = this.list(workspaceId)
+    const byId = new Map(tasks.map((t) => [t.id, t]))
+    const ready: string[] = []
+    for (const task of tasks) {
+      if (task.runStatus === 'running' || task.runStatus === 'verifying') continue
+      if (task.runStatus === 'passed') continue
+      if (task.column === 'done') continue
+      const allDepsPassed = task.dependsOn.every((depId) => byId.get(depId)?.runStatus === 'passed')
+      if (allDepsPassed) ready.push(task.id)
+    }
+    return ready
+  }
+
+  private wouldCreateCycle(taskId: string, newDependsOnTaskId: string): boolean {
+    // BFS forward from newDependsOnTaskId: if we hit taskId, it's a cycle.
+    const visited = new Set<string>()
+    const stack: string[] = [newDependsOnTaskId]
+    while (stack.length > 0) {
+      const current = stack.pop() as string
+      if (current === taskId) return true
+      if (visited.has(current)) continue
+      visited.add(current)
+      const deps = this.loadDependenciesForTask(current)
+      for (const depId of deps) stack.push(depId)
+    }
+    return false
   }
 
   private nextPosition(workspaceId: string, column: TaskColumn): number {
@@ -332,7 +418,7 @@ export function buildPromptPayload(task: Task): string {
   ].join('\n')
 }
 
-function mapTask(row: TaskRow): Task {
+function mapTask(row: TaskRow, dependsOn: string[] = []): Task {
   return {
     id: row.id,
     workspaceId: row.workspace_id,
@@ -345,7 +431,8 @@ function mapTask(row: TaskRow): Task {
     runStatus: row.run_status as TaskRunStatus,
     position: row.position,
     createdAt: row.created_at,
-    updatedAt: row.updated_at
+    updatedAt: row.updated_at,
+    dependsOn
   }
 }
 

@@ -1,8 +1,8 @@
 import { ipcMain } from 'electron'
 import type { AppDatabase } from '../db/index'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
-import type { CreateAgentProfileInput, UpdateAgentProfileInput } from '../../../shared/types/agent'
 import { AgentService } from '../services/agent.service'
+import { parseCreateAgentProfileInput, parseId, parseUpdateAgentProfileInput } from './validation'
 
 export function registerAgentIpc(db: AppDatabase): void {
   const agentService = new AgentService(db)
@@ -12,15 +12,15 @@ export function registerAgentIpc(db: AppDatabase): void {
   )
 
   ipcMain.handle(IPC_CHANNELS.agent.create, (_event, input: unknown) =>
-    agentService.create(input as CreateAgentProfileInput)
+    agentService.create(parseCreateAgentProfileInput(input))
   )
 
   ipcMain.handle(IPC_CHANNELS.agent.update, (_event, id: unknown, input: unknown) =>
-    agentService.update(id as string, input as UpdateAgentProfileInput)
+    agentService.update(parseId(id, 'agentProfileId'), parseUpdateAgentProfileInput(input))
   )
 
   ipcMain.handle(IPC_CHANNELS.agent.delete, (_event, id: unknown) =>
-    agentService.delete(id as string)
+    agentService.delete(parseId(id, 'agentProfileId'))
   )
 
   ipcMain.handle(IPC_CHANNELS.agent.discover, (_event, forceRefresh: unknown) =>

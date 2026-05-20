@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../db/index'
 import type {
   CreateWorkspaceInput,
+  PaneAgentBinding,
   PaneStatus,
   PaneType,
   Workspace,
@@ -12,6 +13,9 @@ import type {
   WorkspaceThemeId,
   UpdateWorkspaceSettingsInput,
   UpdateWorkspaceEditorStateInput,
+  UpdateWorkspaceGitHubStateInput,
+  UpdateWorkspaceBackgroundStateInput,
+  UpdateWorkspaceReviewStateInput,
   WorkspacePane
 } from '../../../shared/types/workspace'
 
@@ -29,6 +33,16 @@ interface WorkspaceRow {
   editor_visible: number
   editor_expanded: number
   editor_width_percent: number
+  review_panel_visible: number
+  review_panel_expanded: number
+  review_panel_width_percent: number
+  github_panel_visible: number
+  github_panel_expanded: number
+  github_panel_width_percent: number
+  github_active_tab: Workspace['githubActiveTab']
+  background_panel_visible: number
+  background_panel_expanded: number
+  background_panel_width_percent: number
 }
 
 interface PaneRow {
@@ -39,10 +53,15 @@ interface PaneRow {
   column_index: number
   shell_profile_id: string | null
   status: PaneStatus
+  agent_profile_id: string | null
+  agent_name: string | null
+  display_name: string | null
+  created_at: string | null
+  root_path: string | null
 }
 
 const DEFAULT_SHELL_PROFILE_ID = 'builtin-claude'
-const DEFAULT_THEME_ID: WorkspaceThemeId = 'midnight'
+const DEFAULT_THEME_ID: WorkspaceThemeId = 'dracula'
 const DEFAULT_UI_DENSITY: WorkspaceDensity = 'compact'
 const DEFAULT_LAYOUT_PRESET: WorkspaceLayoutPreset = 4
 
@@ -94,18 +113,22 @@ export class WorkspaceService {
 
       const insertPane = this.db.prepare(
         `INSERT INTO panes
-          (id, workspace_id, type, row_index, column_index, shell_profile_id, status)
+          (id, workspace_id, type, row_index, column_index, shell_profile_id, status, agent_profile_id, agent_name)
          VALUES
-          (@id, @workspaceId, 'terminal', @rowIndex, @columnIndex, @shellProfileId, 'idle')`
+          (@id, @workspaceId, 'terminal', @rowIndex, @columnIndex, @shellProfileId, 'idle', @agentProfileId, @agentName)`
       )
 
-      for (const position of getPanePositions(layout)) {
+      const bindings = buildBindingMap(input.agentBindings)
+      for (const [index, position] of getPanePositions(layout).entries()) {
+        const binding = bindings.get(index)
         insertPane.run({
           id: randomUUID(),
           workspaceId,
           rowIndex: position.rowIndex,
           columnIndex: position.columnIndex,
-          shellProfileId
+          shellProfileId,
+          agentProfileId: binding?.agentProfileId ?? null,
+          agentName: binding?.agentName ?? null
         })
       }
     })
@@ -122,7 +145,10 @@ export class WorkspaceService {
     const rows = this.db
       .prepare(
         `SELECT id, name, root_path, layout, layout_preset, theme_id, ui_density, default_shell_profile_id, auto_start, is_active,
-          editor_visible, editor_expanded, editor_width_percent
+          editor_visible, editor_expanded, editor_width_percent,
+          review_panel_visible, review_panel_expanded, review_panel_width_percent,
+          github_panel_visible, github_panel_expanded, github_panel_width_percent, github_active_tab,
+          background_panel_visible, background_panel_expanded, background_panel_width_percent
          FROM workspaces
          ORDER BY created_at ASC`
       )
@@ -135,7 +161,10 @@ export class WorkspaceService {
     const row = this.db
       .prepare(
         `SELECT id, name, root_path, layout, layout_preset, theme_id, ui_density, default_shell_profile_id, auto_start, is_active,
-          editor_visible, editor_expanded, editor_width_percent
+          editor_visible, editor_expanded, editor_width_percent,
+          review_panel_visible, review_panel_expanded, review_panel_width_percent,
+          github_panel_visible, github_panel_expanded, github_panel_width_percent, github_active_tab,
+          background_panel_visible, background_panel_expanded, background_panel_width_percent
          FROM workspaces
          WHERE id = ?`
       )
@@ -210,6 +239,96 @@ export class WorkspaceService {
     return workspace
   }
 
+  updateReviewState(input: UpdateWorkspaceReviewStateInput): Workspace {
+    const current = this.get(input.workspaceId)
+    if (!current) throw new Error(`Workspace ${input.workspaceId} not found`)
+
+    const reviewPanelVisible = input.reviewPanelVisible ?? current.reviewPanelVisible ?? false
+    const reviewPanelExpanded = input.reviewPanelExpanded ?? current.reviewPanelExpanded ?? false
+    const reviewPanelWidthPercent = clampPanelWidth(input.reviewPanelWidthPercent ?? current.reviewPanelWidthPercent ?? 36)
+
+    this.db
+      .prepare(
+        `UPDATE workspaces
+         SET review_panel_visible = @reviewPanelVisible,
+             review_panel_expanded = @reviewPanelExpanded,
+             review_panel_width_percent = @reviewPanelWidthPercent,
+             updated_at = datetime('now')
+         WHERE id = @workspaceId`
+      )
+      .run({
+        workspaceId: input.workspaceId,
+        reviewPanelVisible: reviewPanelVisible ? 1 : 0,
+        reviewPanelExpanded: reviewPanelExpanded ? 1 : 0,
+        reviewPanelWidthPercent
+      })
+
+    const workspace = this.get(input.workspaceId)
+    if (!workspace) throw new Error('Workspace not found after Review state update')
+    return workspace
+  }
+
+  updateGitHubState(input: UpdateWorkspaceGitHubStateInput): Workspace {
+    const current = this.get(input.workspaceId)
+    if (!current) throw new Error(`Workspace ${input.workspaceId} not found`)
+
+    const githubPanelVisible = input.githubPanelVisible ?? current.githubPanelVisible ?? false
+    const githubPanelExpanded = input.githubPanelExpanded ?? current.githubPanelExpanded ?? false
+    const githubPanelWidthPercent = clampPanelWidth(input.githubPanelWidthPercent ?? current.githubPanelWidthPercent ?? 40)
+    const githubActiveTab = input.githubActiveTab ?? current.githubActiveTab ?? 'status'
+
+    this.db
+      .prepare(
+        `UPDATE workspaces
+         SET github_panel_visible = @githubPanelVisible,
+             github_panel_expanded = @githubPanelExpanded,
+             github_panel_width_percent = @githubPanelWidthPercent,
+             github_active_tab = @githubActiveTab,
+             updated_at = datetime('now')
+         WHERE id = @workspaceId`
+      )
+      .run({
+        workspaceId: input.workspaceId,
+        githubPanelVisible: githubPanelVisible ? 1 : 0,
+        githubPanelExpanded: githubPanelExpanded ? 1 : 0,
+        githubPanelWidthPercent,
+        githubActiveTab
+      })
+
+    const workspace = this.get(input.workspaceId)
+    if (!workspace) throw new Error('Workspace not found after GitHub state update')
+    return workspace
+  }
+
+  updateBackgroundState(input: UpdateWorkspaceBackgroundStateInput): Workspace {
+    const current = this.get(input.workspaceId)
+    if (!current) throw new Error(`Workspace ${input.workspaceId} not found`)
+
+    const backgroundPanelVisible = input.backgroundPanelVisible ?? current.backgroundPanelVisible ?? false
+    const backgroundPanelExpanded = input.backgroundPanelExpanded ?? current.backgroundPanelExpanded ?? false
+    const backgroundPanelWidthPercent = clampPanelWidth(input.backgroundPanelWidthPercent ?? current.backgroundPanelWidthPercent ?? 36)
+
+    this.db
+      .prepare(
+        `UPDATE workspaces
+         SET background_panel_visible = @backgroundPanelVisible,
+             background_panel_expanded = @backgroundPanelExpanded,
+             background_panel_width_percent = @backgroundPanelWidthPercent,
+             updated_at = datetime('now')
+         WHERE id = @workspaceId`
+      )
+      .run({
+        workspaceId: input.workspaceId,
+        backgroundPanelVisible: backgroundPanelVisible ? 1 : 0,
+        backgroundPanelExpanded: backgroundPanelExpanded ? 1 : 0,
+        backgroundPanelWidthPercent
+      })
+
+    const workspace = this.get(input.workspaceId)
+    if (!workspace) throw new Error('Workspace not found after Background state update')
+    return workspace
+  }
+
   updateSettings(input: UpdateWorkspaceSettingsInput): Workspace {
     const current = this.get(input.workspaceId)
     if (!current) throw new Error(`Workspace ${input.workspaceId} not found`)
@@ -279,6 +398,18 @@ export class WorkspaceService {
     return workspace
   }
 
+  createGitHubTerminalPane(workspaceId: string): { id: string } {
+    const id = randomUUID()
+    this.db.prepare(
+      `INSERT OR IGNORE INTO panes (id, workspace_id, type, row_index, column_index, shell_profile_id, status)
+       VALUES (?, ?, 'terminal', -1, -1, 'builtin-copilot', 'idle')`
+    ).run(id, workspaceId)
+    const pane = this.db.prepare(
+      `SELECT id FROM panes WHERE workspace_id = ? AND row_index = -1 AND column_index = -1`
+    ).get(workspaceId) as { id: string }
+    return pane
+  }
+
   splitPane(paneId: string, direction: 'vertical' | 'horizontal'): Workspace {
     const paneRow = this.db
       .prepare('SELECT id, workspace_id, type, row_index, column_index, shell_profile_id, status FROM panes WHERE id = ?')
@@ -346,14 +477,36 @@ export class WorkspaceService {
       editorVisible: row.editor_visible === 1,
       editorExpanded: row.editor_expanded === 1,
       editorWidthPercent: row.editor_width_percent || 40,
+      reviewPanelVisible: row.review_panel_visible === 1,
+      reviewPanelExpanded: row.review_panel_expanded === 1,
+      reviewPanelWidthPercent: row.review_panel_width_percent || 36,
+      githubPanelVisible: row.github_panel_visible === 1,
+      githubPanelExpanded: row.github_panel_expanded === 1,
+      githubPanelWidthPercent: row.github_panel_width_percent || 40,
+      githubActiveTab: row.github_active_tab || 'status',
+      backgroundPanelVisible: row.background_panel_visible === 1,
+      backgroundPanelExpanded: row.background_panel_expanded === 1,
+      backgroundPanelWidthPercent: row.background_panel_width_percent || 36,
       panes: this.listPanes(row.id)
     }
+  }
+
+  updatePaneName(paneId: string, displayName: string | null): Workspace {
+    const paneRow = this.db
+      .prepare('SELECT workspace_id FROM panes WHERE id = ?')
+      .get(paneId) as Pick<PaneRow, 'workspace_id'> | undefined
+    if (!paneRow) throw new Error(`Pane ${paneId} not found`)
+
+    this.db.prepare("UPDATE panes SET display_name = ?, updated_at = datetime('now') WHERE id = ?").run(displayName, paneId)
+    const workspace = this.get(paneRow.workspace_id)
+    if (!workspace) throw new Error('Workspace not found after pane name update')
+    return workspace
   }
 
   private listPanes(workspaceId: string): WorkspacePane[] {
     const rows = this.db
       .prepare(
-        `SELECT id, workspace_id, type, row_index, column_index, shell_profile_id, status
+        `SELECT id, workspace_id, type, row_index, column_index, shell_profile_id, status, agent_profile_id, agent_name, display_name, created_at, root_path
          FROM panes
          WHERE workspace_id = ?
          ORDER BY row_index ASC, column_index ASC`
@@ -367,12 +520,43 @@ export class WorkspaceService {
       rowIndex: row.row_index,
       columnIndex: row.column_index,
       shellProfileId: row.shell_profile_id,
-      status: row.status
+      status: row.status,
+      agentProfileId: row.agent_profile_id,
+      agentName: row.agent_name,
+      displayName: row.display_name ?? null,
+      createdAt: row.created_at ? new Date(row.created_at).getTime() : null,
+      rootPath: row.root_path ?? null
     }))
+  }
+
+  setPaneAgent(paneId: string, agentProfileId: string | null, agentName: string | null): Workspace {
+    const exists = this.db.prepare('SELECT workspace_id FROM panes WHERE id = ?').get(paneId) as { workspace_id: string } | undefined
+    if (!exists) throw new Error(`Pane ${paneId} not found`)
+    this.db
+      .prepare("UPDATE panes SET agent_profile_id = ?, agent_name = ?, updated_at = datetime('now') WHERE id = ?")
+      .run(agentProfileId, agentName, paneId)
+    const workspace = this.get(exists.workspace_id)
+    if (!workspace) throw new Error('Workspace not found after agent update')
+    return workspace
+  }
+
+  setPaneRootPath(paneId: string, rootPath: string | null): Workspace {
+    const exists = this.db.prepare('SELECT workspace_id FROM panes WHERE id = ?').get(paneId) as { workspace_id: string } | undefined
+    if (!exists) throw new Error(`Pane ${paneId} not found`)
+    this.db
+      .prepare("UPDATE panes SET root_path = ?, updated_at = datetime('now') WHERE id = ?")
+      .run(rootPath, paneId)
+    const workspace = this.get(exists.workspace_id)
+    if (!workspace) throw new Error('Workspace not found after rootPath update')
+    return workspace
   }
 }
 
 function clampEditorWidth(width: number): number {
+  return clampPanelWidth(width)
+}
+
+function clampPanelWidth(width: number): number {
   if (!Number.isFinite(width)) return 40
   return Math.min(70, Math.max(25, Math.round(width)))
 }
@@ -414,4 +598,10 @@ function layoutToPreset(layout: WorkspaceLayout | undefined): WorkspaceLayoutPre
 
 function positionKey(position: { rowIndex: number; columnIndex: number }): string {
   return `${position.rowIndex}:${position.columnIndex}`
+}
+
+function buildBindingMap(bindings: PaneAgentBinding[] | undefined): Map<number, PaneAgentBinding> {
+  const map = new Map<number, PaneAgentBinding>()
+  for (const b of bindings ?? []) map.set(b.paneIndex, b)
+  return map
 }

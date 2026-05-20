@@ -20,7 +20,7 @@ vi.mock('../../src/components/Terminal/TerminalView', () => ({
 
 describe('TerminalPane', () => {
   beforeEach(() => {
-    useTerminalStore.setState({ panes: {} })
+    useTerminalStore.setState({ panes: {}, pendingCommands: {}, activePaneId: null })
     window.oxe = {
       app: { version: '0.1.0' },
       workspace: {
@@ -59,6 +59,20 @@ describe('TerminalPane', () => {
 
     await user.click(screen.getByLabelText('Stop terminal'))
     expect(window.oxe.terminal.stop).toHaveBeenCalledWith({ paneId: 'pane-1' })
+  })
+
+  test('marks output unread only when pane is not active', () => {
+    const store = useTerminalStore.getState()
+
+    store.setActivePaneId('pane-1')
+    store.updateActivity('pane-1', 'active output')
+    expect(useTerminalStore.getState().panes['pane-1']?.hasUnread).toBe(false)
+
+    store.updateActivity('pane-2', 'background output')
+    expect(useTerminalStore.getState().panes['pane-2']?.hasUnread).toBe(true)
+
+    useTerminalStore.getState().setActivePaneId('pane-2')
+    expect(useTerminalStore.getState().panes['pane-2']?.hasUnread).toBe(false)
   })
 })
 

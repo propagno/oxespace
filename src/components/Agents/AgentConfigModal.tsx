@@ -1,7 +1,15 @@
 import { RefreshCw, Trash2, X } from 'lucide-react'
 import { type FormEvent, type ReactElement, useState } from 'react'
-import type { AgentProfile, AgentReadiness } from '../../../shared/types/agent'
-import type { UpdateAgentProfileInput } from '../../../shared/types/agent'
+import type { AgentProfile, AgentProvider, AgentReadiness } from '../../../shared/types/agent'
+import { BUILTIN_PROVIDERS, type UpdateAgentProfileInput } from '../../../shared/types/agent'
+
+const PROVIDER_LABEL: Record<(typeof BUILTIN_PROVIDERS)[number], string> = {
+  claude: 'Claude',
+  copilot: 'Copilot',
+  codex: 'Codex',
+  gemini: 'Gemini',
+  cursor: 'Cursor'
+}
 
 interface AgentConfigModalProps {
   profile: AgentProfile
@@ -22,14 +30,46 @@ export function AgentConfigModal({
   onHealthCheck,
   onClose
 }: AgentConfigModalProps): ReactElement {
+  const isCustom = profile.provider === 'custom'
+  const isNew = profile.agentProfileId === ''
+
   const [name, setName] = useState(profile.name)
   const [command, setCommand] = useState(profile.command)
+  const [parentProvider, setParentProvider] = useState<AgentProvider>(profile.parentProvider ?? 'claude')
+  const [systemPrompt, setSystemPrompt] = useState(profile.systemPrompt ?? '')
   const [isSubmitting, setSubmitting] = useState(false)
   const [isDeleting, setDeleting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault()
+
+    if (isCustom) {
+      const trimmedPrompt = systemPrompt.trim()
+      if (!trimmedPrompt) {
+        setSubmitError('Skill prompt is required')
+        return
+      }
+      setSubmitting(true)
+      setSubmitError(null)
+      try {
+        await onSave(profile.agentProfileId, {
+          name: name.trim() || profile.name,
+          command: '',
+          commandTemplate: '',
+          parentProvider,
+          systemPrompt: trimmedPrompt
+        })
+        onClose()
+      } catch (err) {
+        setSubmitError(err instanceof Error ? err.message : 'Failed to save agent profile')
+      } finally {
+        setSubmitting(false)
+      }
+      return
+    }
+
     const nextCommand = command.trim()
     if (!nextCommand) {
       setSubmitError('Command is required')
@@ -51,7 +91,10 @@ export function AgentConfigModal({
   }
 
   const handleDelete = async (): Promise<void> => {
-    if (!confirm(`Delete agent profile "${profile.name}"?`)) return
+    if (!confirmDelete) {
+      setConfirmDelete(true)
+      return
+    }
     setDeleting(true)
     try {
       await onDelete(profile.agentProfileId)
@@ -66,13 +109,13 @@ export function AgentConfigModal({
     <div className="modal-backdrop" role="presentation">
       <section className="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="agent-config-title">
         <header className="modal-header">
-          <h2 id="agent-config-title">Configure agent</h2>
+          <h2 id="agent-config-title">{isNew ? 'New custom agent' : 'Configure agent'}</h2>
           <button type="button" className="icon-button" aria-label="Close modal" onClick={onClose}>
             <X size={16} aria-hidden="true" />
           </button>
         </header>
 
-        {readiness ? (
+        {readiness && !isCustom ? (
           <div className="readiness-row" style={{ margin: '0 18px', marginTop: '14px' }}>
             <span className={`agent-badge ${readiness.status}`}>{readiness.status}</span>
             {readiness.details ? (
@@ -108,23 +151,52 @@ export function AgentConfigModal({
             />
           </label>
 
-          <label className="field">
-            <span>Command</span>
-            <input
-              type="text"
-              value={command}
-              onChange={(e) => setCommand(e.target.value)}
-              placeholder="claude"
-              data-testid="input-agent-command"
-            />
-          </label>
+          {isCustom ? (
+            <>
+              <label className="field">
+                <span>Parent provider</span>
+                <select
+                  value={parentProvider}
+                  onChange={(e) => setParentProvider(e.target.value as AgentProvider)}
+                  data-testid="select-parent-provider"
+                >
+                  {BUILTIN_PROVIDERS.map((provider) => (
+                    <option key={provider} value={provider}>{PROVIDER_LABEL[provider]}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="field">
+                <span>Skill prompt</span>
+                <textarea
+                  value={systemPrompt}
+                  onChange={(e) => setSystemPrompt(e.target.value)}
+                  placeholder="You are a Java 8+ expert. Review this code for best practices, performance, and correctness."
+                  rows={5}
+                  data-testid="textarea-system-prompt"
+                />
+              </label>
+            </>
+          ) : (
+            <label className="field">
+              <span>Command</span>
+              <input
+                type="text"
+                value={command}
+                onChange={(e) => setCommand(e.target.value)}
+                placeholder="claude"
+                data-testid="input-agent-command"
+              />
+            </label>
+          )}
 
           {submitError ? (
             <div className="modal-error" role="alert">{submitError}</div>
           ) : null}
 
-          {!profile.isBuiltin ? (
+          {!profile.isBuiltin && !isNew ? (
             <div className="danger-zone">
+              {confirmDelete ? <div className="modal-error">Click Delete profile again to remove "{profile.name}".</div> : null}
               <button
                 type="button"
                 className="danger-action"
@@ -148,7 +220,7 @@ export function AgentConfigModal({
               disabled={isSubmitting}
               data-testid="btn-save-agent"
             >
-              Save
+              {isNew ? 'Create' : 'Save'}
             </button>
           </footer>
         </form>
