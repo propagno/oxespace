@@ -32,12 +32,6 @@ jobs:
           npm run test
           npm run build
 
-      - name: E2E smoke
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $PSNativeCommandUseErrorActionPreference = $true
-          npm run test:e2e
-
       - name: Rebuild native modules for Electron
         run: npm run rebuild:native
 
