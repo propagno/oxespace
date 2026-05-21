@@ -81,4 +81,53 @@ describe('GitHubService', () => {
 
     db.close()
   })
+
+  test('returns workflow run details with runtime jobs and steps', async () => {
+    const runPayload = JSON.stringify({
+      databaseId: 42,
+      name: 'Workflow Sandbox',
+      displayTitle: 'Workflow Sandbox #60',
+      status: 'in_progress',
+      conclusion: null,
+      event: 'workflow_dispatch',
+      headBranch: 'feature/test',
+      url: 'https://github.com/org/repo/actions/runs/42',
+      createdAt: '2026-05-20T17:32:00Z',
+      jobs: [
+        {
+          databaseId: 10,
+          name: 'call-build / Mend',
+          status: 'in_progress',
+          conclusion: null,
+          startedAt: '2026-05-20T17:33:00Z',
+          completedAt: null,
+          steps: [
+            { number: 1, name: 'Set up Maven', status: 'completed', conclusion: 'success', startedAt: '2026-05-20T17:33:01Z', completedAt: '2026-05-20T17:33:10Z' },
+            { number: 2, name: 'Mend Scan', status: 'in_progress', conclusion: null, startedAt: '2026-05-20T17:33:11Z', completedAt: null }
+          ]
+        }
+      ]
+    })
+    const spawn = vi.fn(async (_command: string, args: string[]) => {
+      if (args[0] === '--version') return { stdout: 'gh version 2.0.0', stderr: '', status: 0, error: undefined }
+      if (args[0] === 'auth') return { stdout: '', stderr: '', status: 0, error: undefined }
+      if (args[0] === 'api') return { stdout: 'dudu\n', stderr: '', status: 0, error: undefined }
+      if (args[0] === 'run' && args[1] === 'view') return { stdout: runPayload, stderr: '', status: 0, error: undefined }
+      return { stdout: '', stderr: '', status: 0, error: undefined }
+    })
+    const service = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: spawn })
+
+    const details = await service.getWorkflowRunDetails({ rootPath: 'C:/projects/repo', runId: 42 })
+
+    expect(details.databaseId).toBe(42)
+    expect(details.status).toBe('in_progress')
+    expect(details.jobs).toHaveLength(1)
+    expect(details.jobs[0].name).toBe('call-build / Mend')
+    expect(details.jobs[0].steps[1]).toMatchObject({ name: 'Mend Scan', status: 'in_progress', conclusion: null })
+    expect(spawn).toHaveBeenCalledWith(
+      'gh',
+      expect.arrayContaining(['run', 'view', '42', '--json']),
+      expect.objectContaining({ cwd: 'C:/projects/repo' })
+    )
+  })
 })

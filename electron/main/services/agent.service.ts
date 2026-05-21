@@ -62,15 +62,28 @@ export class AgentService {
   }
 
   list(): AgentProfile[] {
+    // Built-in providers (claude/copilot/codex/gemini/cursor) + user-created
+    // custom agents. Customs live with provider='custom' and a parent_provider
+    // pointing at the CLI they wrap — they need to surface in Settings so the
+    // user can edit/delete them and in PaneSessionRow so the icon resolves.
     const rows = this.db
       .prepare(`
         SELECT *
         FROM agent_profiles
-        WHERE is_builtin = 1 AND provider IN (${PROVIDER_PLACEHOLDERS})
+        WHERE (is_builtin = 1 AND provider IN (${PROVIDER_PLACEHOLDERS}))
+           OR (is_builtin = 0 AND provider = 'custom')
       `)
       .all(...OFFICIAL_PROVIDERS) as AgentProfileRow[]
     return rows
-      .sort((a, b) => providerRank(a.provider as AgentProvider) - providerRank(b.provider as AgentProvider))
+      .sort((a, b) => {
+        // Built-ins first (ordered by official provider order), then customs
+        // alphabetically — customs share the bottom rank so the order is
+        // stable as the user adds more.
+        const rankA = providerRank(a.provider as AgentProvider)
+        const rankB = providerRank(b.provider as AgentProvider)
+        if (rankA !== rankB) return rankA - rankB
+        return a.name.localeCompare(b.name)
+      })
       .map(mapProfile)
   }
 

@@ -5,7 +5,7 @@ describe('migrations', () => {
   test('runs migrations and seeds built-in shell profiles', () => {
     const db = openInMemoryDatabase()
 
-    expect(db.pragma('user_version', { simple: true })).toBe(30)
+    expect(db.pragma('user_version', { simple: true })).toBe(31)
 
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
@@ -60,8 +60,16 @@ describe('migrations', () => {
       'builtin-codex',
       'builtin-copilot',
       'builtin-cursor',
-      'builtin-gemini'
+      'builtin-gemini',
+      'builtin-powershell'
     ])
+    expect(profiles.find((profile) => profile.id === 'builtin-powershell')).toEqual(
+      expect.objectContaining({
+        name: 'PowerShell',
+        executable: 'powershell.exe',
+        args_json: '["-NoLogo"]'
+      })
+    )
     expect(profiles.find((profile) => profile.id === 'builtin-copilot')).toEqual(
       expect.objectContaining({
         name: 'copilot shell',

@@ -17,8 +17,8 @@ export class ShellProfileService {
       .prepare(`
         SELECT id, name, executable, args_json, is_builtin
         FROM shell_profiles
-        WHERE id IN ('builtin-claude', 'builtin-copilot')
-        ORDER BY CASE id WHEN 'builtin-claude' THEN 0 WHEN 'builtin-copilot' THEN 1 ELSE 2 END
+        WHERE id IN ('builtin-powershell', 'builtin-claude', 'builtin-copilot')
+        ORDER BY CASE id WHEN 'builtin-powershell' THEN 0 WHEN 'builtin-claude' THEN 1 WHEN 'builtin-copilot' THEN 2 ELSE 3 END
       `)
       .all() as ShellProfileRow[]
 

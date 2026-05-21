@@ -29,7 +29,7 @@ export function registerWorkspaceIpc(db: AppDatabase, lifecycle?: WorkspaceLifec
   ipcMain.handle(IPC_CHANNELS.workspace.closePane, (_event, id: unknown) => {
     const paneId = parseId(id, 'paneId')
     lifecycle?.stop({ paneId })
-    workspaceService.closePane(paneId)
+    return workspaceService.closePane(paneId)
   })
   ipcMain.handle(IPC_CHANNELS.workspace.splitPane, (_event, input: unknown) => {
     const { paneId, direction } = parseSplitPaneInput(input)
@@ -45,15 +45,16 @@ export function registerWorkspaceIpc(db: AppDatabase, lifecycle?: WorkspaceLifec
     return workspaceService.updatePaneName(paneId, displayName)
   })
   ipcMain.handle(IPC_CHANNELS.workspace.setPaneAgent, (_event, input: unknown) => {
-    const { paneId, agentProfileId } = parseSetPaneAgentInput(input)
+    const { paneId, agentProfileId, preserveSession } = parseSetPaneAgentInput(input)
     let agentName: string | null = null
     if (agentProfileId) {
       const profile = agentService.list().find((p) => p.agentProfileId === agentProfileId)
       if (!profile) throw new Error(`Agent profile ${agentProfileId} not found`)
       agentName = profile.name
     }
-    // Stop pane before switching so the new agent starts fresh on next launch
-    lifecycle?.stop({ paneId })
+    // Explicit user switches restart the pane. Auto-detection from a running
+    // shell only updates metadata so the current PTY is not interrupted.
+    if (!preserveSession) lifecycle?.stop({ paneId })
     return workspaceService.setPaneAgent(paneId, agentProfileId, agentName)
   })
   ipcMain.handle(IPC_CHANNELS.workspace.setPaneRootPath, (_event, input: unknown) => {

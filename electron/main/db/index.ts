@@ -205,6 +205,11 @@ export function runMigrations(db: AppDatabase): void {
     }
     currentVersion = db.pragma('user_version', { simple: true }) as number
   }
+
+  if (currentVersion < 31) {
+    db.exec(readMigration('031_powershell_shell_profile.sql'))
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
 }
 
 function readMigration(name: string): string {

@@ -99,7 +99,7 @@ export function SlashOverlay({ paneId, paneLabel, skills = [], onClose, onExecut
         className="slash-overlay"
         role="dialog"
         aria-modal="true"
-        aria-label={`Comandos para ${paneLabel}`}
+        aria-label={`Commands for ${paneLabel}`}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header className="slash-overlay-header">
@@ -107,7 +107,7 @@ export function SlashOverlay({ paneId, paneLabel, skills = [], onClose, onExecut
             <Slash size={11} aria-hidden="true" />
             <span>{paneLabel}</span>
           </div>
-          <button type="button" className="icon-button" aria-label="Fechar" onClick={onClose}>
+          <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
             <X size={14} aria-hidden="true" />
           </button>
         </header>
@@ -122,14 +122,14 @@ export function SlashOverlay({ paneId, paneLabel, skills = [], onClose, onExecut
               ref={inputRef}
               autoFocus
               className="slash-overlay-input"
-              placeholder={pendingCommand.argumentPlaceholder ?? 'argumento'}
+              placeholder={pendingCommand.argumentPlaceholder ?? 'argument'}
               value={argument}
               onChange={(event) => setArgument(event.currentTarget.value)}
               onKeyDown={handleKeyDown}
             />
             <div className="slash-overlay-hint">
-              <span>Enter para executar</span>
-              <span>Esc para voltar</span>
+              <span>Enter to run</span>
+              <span>Esc to go back</span>
             </div>
           </div>
         ) : (
@@ -140,7 +140,7 @@ export function SlashOverlay({ paneId, paneLabel, skills = [], onClose, onExecut
                 ref={inputRef}
                 autoFocus
                 className="slash-overlay-input"
-                placeholder="Digite um comando…"
+                placeholder="Type a command…"
                 value={query}
                 onChange={(event) => setQuery(event.currentTarget.value)}
                 onKeyDown={handleKeyDown}
@@ -170,15 +170,15 @@ export function SlashOverlay({ paneId, paneLabel, skills = [], onClose, onExecut
                 </button>
               ))}
               {filtered.length === 0 ? (
-                <div className="slash-overlay-empty">Nenhum comando encontrado para “{query}”</div>
+                <div className="slash-overlay-empty">No command found for “{query}”</div>
               ) : null}
             </div>
 
             <footer className="slash-overlay-footer">
-              <span>↑↓ navegar</span>
-              <span>↵ executar</span>
-              <span>Tab autocompletar</span>
-              <span>Esc fechar</span>
+              <span>↑↓ navigate</span>
+              <span>↵ run</span>
+              <span>Tab autocomplete</span>
+              <span>Esc close</span>
             </footer>
           </>
         )}

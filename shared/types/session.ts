@@ -22,6 +22,7 @@ export interface SessionSummary {
   /** First non-system user message of the session, truncated. Null when the
    *  provider doesn't expose a readable transcript or the preview failed. */
   firstMessagePreview: string | null
+  workspaceRootPath?: string | null
 }
 
 export interface ForkSessionInput {

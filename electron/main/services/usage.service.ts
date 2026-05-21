@@ -3,6 +3,7 @@ import { EMPTY_CONTEXT_USAGE } from '../../../shared/types/usage'
 import type { AgentProvider } from '../../../shared/types/agent'
 import { ClaudeUsageProvider } from './usage/claudeProvider'
 import { CodexUsageProvider } from './usage/codexProvider'
+import { CopilotUsageProvider } from './usage/copilotProvider'
 import { GeminiUsageProvider } from './usage/geminiProvider'
 import { CursorUsageProvider } from './usage/cursorProvider'
 import type { SessionMetadata, UsageProvider } from './usage/types'
@@ -20,6 +21,7 @@ export class UsageService {
     const defaults: UsageProvider[] = providers ?? [
       new ClaudeUsageProvider(),
       new CodexUsageProvider(),
+      new CopilotUsageProvider(),
       new GeminiUsageProvider(),
       new CursorUsageProvider()
     ]
@@ -46,14 +48,14 @@ export class UsageService {
 
   /** Targeted query for a specific provider + optional session id. */
   getSnapshotFor(provider: AgentProvider, workspaceRootPath: string, sessionId?: string | null): ContextUsageSnapshot {
-    const p = this.providers.get(provider)
+    const p = this.providers.get(resolveProvider(provider))
     if (!p) return EMPTY_CONTEXT_USAGE
     return p.getSnapshot(workspaceRootPath, sessionId)
   }
 
   /** All known sessions for a given provider in a given workspace. */
   listSessionsFor(provider: AgentProvider, workspaceRootPath: string): SessionMetadata[] {
-    const p = this.providers.get(provider)
+    const p = this.providers.get(resolveProvider(provider))
     if (!p) return []
     return p.listSessions(workspaceRootPath)
   }
@@ -62,4 +64,8 @@ export class UsageService {
   supportedProviders(): AgentProvider[] {
     return Array.from(this.providers.keys())
   }
+}
+
+function resolveProvider(provider: AgentProvider): AgentProvider {
+  return provider === 'gh-copilot' ? 'copilot' : provider
 }

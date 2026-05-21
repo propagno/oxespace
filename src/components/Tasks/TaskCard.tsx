@@ -78,8 +78,8 @@ export function TaskCard({ onDropTask, onEdit, task }: TaskCardProps): ReactElem
         {isBlocked ? (
           <span
             className="task-card-blocked"
-            title={`Bloqueada por: ${blockingDeps.map((d) => d.title).join(', ')}`}
-            aria-label="Bloqueada por dependências"
+            title={`Blocked by: ${blockingDeps.map((d) => d.title).join(', ')}`}
+            aria-label="Blocked by dependencies"
           >
             <Lock size={11} aria-hidden="true" />
             {blockingDeps.length}

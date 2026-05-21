@@ -100,7 +100,7 @@ export function ScriptsPanel({ embedded = false, onClose, onOpenBackground, work
 
       <div className="scripts-panel-search">
         <Search size={13} aria-hidden="true" />
-        <input value={query} placeholder="Buscar scripts .ps1 ou .sh..." onChange={(event) => setQuery(event.currentTarget.value)} />
+        <input value={query} placeholder="Search .ps1 or .sh scripts..." onChange={(event) => setQuery(event.currentTarget.value)} />
       </div>
 
       {error ? <div className="scripts-panel-error">{error}</div> : null}
@@ -109,8 +109,8 @@ export function ScriptsPanel({ embedded = false, onClose, onOpenBackground, work
         {filtered.length === 0 ? (
           <div className="scripts-panel-empty">
             <FileCode2 size={32} aria-hidden="true" />
-            <strong>{loading ? 'Carregando scripts' : 'Nenhum script encontrado'}</strong>
-            <span>Coloque arquivos <code>.ps1</code> ou <code>.sh</code> no workspace para executá-los como background jobs.</span>
+            <strong>{loading ? 'Loading scripts' : 'No script found'}</strong>
+            <span>Drop <code>.ps1</code> or <code>.sh</code> files in the workspace to run them as background jobs.</span>
           </div>
         ) : filtered.map((script) => (
           <div key={script.id} className="scripts-panel-card">

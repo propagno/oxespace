@@ -35,6 +35,29 @@ export function registerSkillIpc(
     const prompt = renderSkillPrompt(skill.body, typeof argument === 'string' ? argument : '')
     terminalWrite({ paneId, data: prompt + '\r' })
   })
+
+  ipcMain.handle(IPC_CHANNELS.skill.create, (_event, input: unknown) => {
+    if (!input || typeof input !== 'object') throw new Error('Invalid skill create input')
+    const raw = input as Record<string, unknown>
+    const name = typeof raw.name === 'string' ? raw.name : ''
+    const description = typeof raw.description === 'string' ? raw.description : ''
+    const scope = raw.scope === 'workspace' ? 'workspace' : 'user'
+    const agents = Array.isArray(raw.agents)
+      ? raw.agents.filter((a): a is string => typeof a === 'string')
+      : []
+    const category = typeof raw.category === 'string' ? raw.category : undefined
+    const body = typeof raw.body === 'string' ? raw.body : undefined
+    const workspaceRootPath = typeof raw.workspaceRootPath === 'string' ? raw.workspaceRootPath : undefined
+    return service.createSkill({
+      name,
+      description,
+      scope,
+      agents: agents as import('../../../shared/types/agent').AgentProvider[],
+      category,
+      body,
+      workspaceRootPath
+    })
+  })
 }
 
 /** Broadcasts skill changes to all renderer windows. Called by SkillService.onChange. */

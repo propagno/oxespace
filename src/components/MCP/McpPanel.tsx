@@ -88,19 +88,26 @@ export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement 
             <button
               type="button"
               className="icon-button"
-              aria-label="Atualizar"
+              aria-label="Refresh"
               disabled={loading}
               onClick={() => void load(workspaceId)}
             >
               <RotateCw size={13} className={loading ? 'usage-spin' : ''} aria-hidden="true" />
             </button>
-            <button type="button" className="icon-button" aria-label="Fechar" onClick={onClose}>
+            <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
               <X size={14} aria-hidden="true" />
             </button>
           </div>
         </header>
 
         {error ? <div className="mcp-panel-error">{error}</div> : null}
+
+        <p className="mcp-panel-sync-note">
+          Servers enabled here are written to <code>.mcp.json</code> at the
+          workspace root. Claude Code and Copilot CLI (v1.0+) discover the
+          file automatically — restart the agent session to pick up added or
+          removed tools.
+        </p>
 
         {creating ? (
           <McpCreateForm
@@ -111,7 +118,7 @@ export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement 
         ) : (
           <button type="button" className="mcp-panel-add" onClick={() => setCreating(true)}>
             <Plus size={12} aria-hidden="true" />
-            Adicionar MCP server (stdio)
+            Add MCP server (stdio)
           </button>
         )}
 
@@ -119,8 +126,8 @@ export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement 
           {servers.length === 0 && !creating ? (
             <div className="mcp-panel-empty">
               <Wrench size={32} aria-hidden="true" />
-              <strong>Nenhum MCP server configurado</strong>
-              <span>Adicione um server para expor tools de filesystem, GitHub, bancos etc. para os agentes.</span>
+              <strong>No MCP server configured</strong>
+              <span>Add a server to expose filesystem, GitHub, database tools to your agents.</span>
             </div>
           ) : (
             servers.map((server) => (
@@ -144,8 +151,8 @@ export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement 
         </div>
 
         <footer className="mcp-panel-footer">
-          Tools dos servers ativos ficam disponíveis para agentes via spec MCP (Anthropic).
-          Apenas transporte <code>stdio</code> nesta versão.
+          Tools from running servers become available to agents via the MCP spec (Anthropic).
+          Only <code>stdio</code> transport in this version.
         </footer>
       </section>
     </div>
@@ -188,15 +195,15 @@ function McpServerRow({ server, busy, expanded, trustPrompt, removePrompt, onTog
 
       <div className="mcp-server-actions">
         {isRunning ? (
-          <button type="button" className="ghost-btn small" disabled={busy} onClick={onStop} title="Parar">
+          <button type="button" className="ghost-btn small" disabled={busy} onClick={onStop} title="Stop">
             <Square size={11} aria-hidden="true" /> Stop
           </button>
         ) : (
-          <button type="button" className="primary-btn small" disabled={busy} onClick={onStart} title="Iniciar handshake">
+          <button type="button" className="primary-btn small" disabled={busy} onClick={onStart} title="Start handshake">
             <Play size={11} aria-hidden="true" /> Start
           </button>
         )}
-        <button type="button" className="icon-button" aria-label="Remover" disabled={busy} onClick={onRemove}>
+        <button type="button" className="icon-button" aria-label="Remove" disabled={busy} onClick={onRemove}>
           <Trash2 size={11} aria-hidden="true" />
         </button>
       </div>
@@ -206,19 +213,19 @@ function McpServerRow({ server, busy, expanded, trustPrompt, removePrompt, onTog
           {!server.trusted ? (
             <div className="mcp-server-trust-box">
               <ShieldCheck size={13} aria-hidden="true" />
-              <span>Revise comando, args e env antes de iniciar. MCP servers podem executar código local.</span>
+              <span>Review command, args and env before starting. MCP servers can execute local code.</span>
             </div>
           ) : null}
           {trustPrompt ? (
             <div className="mcp-inline-confirm">
-              <span>Confiar neste server e iniciar agora?</span>
+              <span>Trust this server and start now?</span>
               <button type="button" className="ghost-btn small" disabled={busy} onClick={onCancelTrust}>Cancel</button>
               <button type="button" className="primary-btn small" disabled={busy} onClick={onTrustAndStart}>Trust and start</button>
             </div>
           ) : null}
           {removePrompt ? (
             <div className="mcp-inline-confirm">
-              <span>Remover "{server.name}"?</span>
+              <span>Remove "{server.name}"?</span>
               <button type="button" className="ghost-btn small" disabled={busy} onClick={onCancelRemove}>Cancel</button>
               <button type="button" className="primary-btn small" disabled={busy} onClick={onRemove}>Remove</button>
             </div>
@@ -238,7 +245,7 @@ function McpServerRow({ server, busy, expanded, trustPrompt, removePrompt, onTog
           </div>
           {server.tools.length > 0 ? (
             <div className="mcp-server-tools">
-              <div className="mcp-server-tools-header">Tools expostas</div>
+              <div className="mcp-server-tools-header">Exposed tools</div>
               {server.tools.map((tool) => (
                 <div key={tool.name} className="mcp-tool-card">
                   <strong>{tool.name}</strong>
@@ -248,7 +255,7 @@ function McpServerRow({ server, busy, expanded, trustPrompt, removePrompt, onTog
             </div>
           ) : (
             <div className="mcp-server-no-tools">
-              {isRunning ? 'Carregando tools…' : 'Inicie o server para descobrir tools.'}
+              {isRunning ? 'Loading tools…' : 'Start the server to discover tools.'}
             </div>
           )}
         </div>
@@ -330,7 +337,7 @@ function McpCreateForm({ workspaceId, onCancel, onCreated }: McpCreateFormProps)
   const handleSubmit = async (): Promise<void> => {
     setError(null)
     if (!name.trim() || !command.trim()) {
-      setError('Nome e comando são obrigatórios.')
+      setError('Name and command are required.')
       return
     }
     setBusy(true)
@@ -372,33 +379,33 @@ function McpCreateForm({ workspaceId, onCancel, onCreated }: McpCreateFormProps)
       </div>
       <div className="mcp-create-row">
         <label>
-          Nome
+          Name
           <input value={name} onChange={(event) => setName(event.currentTarget.value)} placeholder="filesystem" disabled={busy} />
         </label>
         <label>
-          Escopo
+          Scope
           <select value={scope} onChange={(event) => setScope(event.currentTarget.value as typeof scope)} disabled={busy || !workspaceId}>
             <option value="global">Global</option>
-            {workspaceId ? <option value="workspace">Apenas este workspace</option> : null}
+            {workspaceId ? <option value="workspace">This workspace only</option> : null}
           </select>
         </label>
       </div>
       <label>
-        Comando
+        Command
         <input value={command} onChange={(event) => setCommand(event.currentTarget.value)} placeholder="npx" disabled={busy} />
       </label>
       <label>
-        Args (separados por espaço)
+        Args (space-separated)
         <input value={argsText} onChange={(event) => setArgsText(event.currentTarget.value)} placeholder="-y @modelcontextprotocol/server-filesystem /tmp" disabled={busy} />
       </label>
       <label>
-        Env (KEY=VAL, uma por linha — opcional)
+        Env (KEY=VAL, one per line — optional)
         <textarea value={envText} onChange={(event) => setEnvText(event.currentTarget.value)} placeholder={'GITHUB_TOKEN=ghp_...\nDEBUG=1'} rows={3} disabled={busy} />
       </label>
       {error ? <div className="mcp-create-error">{error}</div> : null}
       <div className="mcp-create-actions">
-        <button type="button" className="ghost-btn" onClick={onCancel} disabled={busy}>Cancelar</button>
-        <button type="submit" className="primary-btn" disabled={busy || !name.trim() || !command.trim()}>Adicionar server</button>
+        <button type="button" className="ghost-btn" onClick={onCancel} disabled={busy}>Cancel</button>
+        <button type="submit" className="primary-btn" disabled={busy || !name.trim() || !command.trim()}>Add server</button>
       </div>
     </form>
   )

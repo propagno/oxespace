@@ -146,6 +146,29 @@ export interface GitHubWorkflowRun {
   createdAt: string | null
 }
 
+export interface GitHubWorkflowStep {
+  number: number | null
+  name: string
+  status: string
+  conclusion: string | null
+  startedAt: string | null
+  completedAt: string | null
+}
+
+export interface GitHubWorkflowJob {
+  databaseId: number | null
+  name: string
+  status: string
+  conclusion: string | null
+  startedAt: string | null
+  completedAt: string | null
+  steps: GitHubWorkflowStep[]
+}
+
+export interface GitHubWorkflowRunDetails extends GitHubWorkflowRun {
+  jobs: GitHubWorkflowJob[]
+}
+
 export interface GitHubCheckpoint {
   id: string
   workspaceId: string

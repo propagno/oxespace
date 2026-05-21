@@ -86,6 +86,7 @@ export const useBackgroundStore = create<BackgroundStoreState>((set, get) => ({
   setExpanded: (jobId) => set({ expandedJobId: jobId }),
 
   subscribe: () => {
+    if (!window.oxe?.background?.onOutput || !window.oxe?.background?.onUpdate) return () => undefined
     const offOutput = window.oxe.background.onOutput((event: BackgroundJobOutputEvent) => {
       set((s) => {
         const current = s.outputByJob[event.jobId] ?? []

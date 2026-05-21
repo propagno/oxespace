@@ -1,8 +1,8 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, watch, type FSWatcher } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, watch, writeFileSync, type FSWatcher } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import type { AgentProvider } from '../../../shared/types/agent'
-import type { SkillDefinition, SkillMetadata } from '../../../shared/types/skill'
+import { ALL_PROVIDERS, type AgentProvider } from '../../../shared/types/agent'
+import type { CreateSkillInput, SkillDefinition, SkillMetadata } from '../../../shared/types/skill'
 
 /**
  * Loads agent skills from `~/.oxe/skills/<name>.md` (user-scoped, applies to all workspaces)
@@ -79,6 +79,62 @@ export class SkillService {
     return this.skills.get(name) ?? null
   }
 
+  /**
+   * Writes a new skill markdown file under `~/.oxe/skills` (user) or
+   * `<workspace>/.oxe/skills` (workspace). Refuses to overwrite existing files
+   * — the user must edit those directly. Returns the freshly-loaded skill
+   * definition so the caller can navigate to it / open it in the editor.
+   */
+  createSkill(input: CreateSkillInput): SkillDefinition {
+    const name = input.name.trim()
+    if (!/^[a-z0-9][a-z0-9-]*$/i.test(name)) {
+      throw new Error('Skill name must be kebab-case (letters, digits, hyphens) and start with a letter or digit.')
+    }
+    const description = input.description.trim()
+    if (!description) throw new Error('Skill description is required.')
+
+    // Validate provider names against the canonical set so a malformed
+    // frontmatter doesn't slip through here.
+    const validAgents = (input.agents ?? []).filter((agent): agent is AgentProvider =>
+      typeof agent === 'string' && (ALL_PROVIDERS as readonly string[]).includes(agent)
+    )
+
+    let targetDir: string
+    if (input.scope === 'workspace') {
+      if (!input.workspaceRootPath) throw new Error('workspaceRootPath is required for workspace-scoped skills.')
+      targetDir = join(input.workspaceRootPath, '.oxe', 'skills')
+    } else {
+      targetDir = this.userRoot
+    }
+
+    mkdirSync(targetDir, { recursive: true })
+    const filePath = join(targetDir, `${name}.md`)
+    if (existsSync(filePath)) {
+      throw new Error(`Skill "${name}" already exists at ${filePath}. Open the existing file to edit it.`)
+    }
+
+    const body = (input.body && input.body.trim().length > 0)
+      ? input.body
+      : DEFAULT_SKILL_BODY
+
+    const fileContent = renderSkillFile({
+      name,
+      description,
+      agents: validAgents,
+      category: input.category?.trim() || undefined
+    }, body)
+
+    writeFileSync(filePath, fileContent, 'utf8')
+    // Bypass the fs watcher — synchronous load guarantees the new skill is in
+    // the registry before this call returns (callers immediately re-render).
+    this.loadFile(filePath, input.scope)
+    this.emitChange()
+
+    const loaded = this.skills.get(name)
+    if (!loaded) throw new Error('Skill was written but failed to load. Check the file for syntax issues.')
+    return loaded
+  }
+
   dispose(): void {
     this.userWatcher?.close()
     for (const watcher of this.workspaceWatchers.values()) watcher.close()
@@ -138,6 +194,24 @@ export class SkillService {
   private emitChange(): void {
     if (this.onChange) this.onChange()
   }
+}
+
+const DEFAULT_SKILL_BODY = `You are a helpful assistant working in this codebase. Replace this placeholder with the persona, constraints, and step-by-step instructions you want the agent to follow when this skill is invoked.
+
+Tips:
+- Reference \`{{argument}}\` to inject the free-text argument the user types after the slash command.
+- Keep the prompt focused: one skill = one job.
+`
+
+function renderSkillFile(meta: { name: string; description: string; agents: AgentProvider[]; category?: string }, body: string): string {
+  const lines: string[] = ['---', `name: ${meta.name}`, `description: ${meta.description}`]
+  // Always emit the agents key — empty list = all providers, explicit set =
+  // filter to those providers. Writing it explicitly makes the file
+  // self-documenting for a user editing later.
+  lines.push(`agents: [${meta.agents.join(', ')}]`)
+  if (meta.category) lines.push(`category: ${meta.category}`)
+  lines.push('---', '', body.trimEnd(), '')
+  return lines.join('\n')
 }
 
 /**

@@ -437,6 +437,27 @@
   gap: 8px;
 }
 
+.settings-new-agent-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 14px 18px 16px;
+  padding: 8px 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--tx-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms, color 120ms;
+}
+
+.settings-new-agent-btn:hover {
+  background: rgba(0, 229, 192, 0.06);
+  border-color: rgba(0, 229, 192, 0.32);
+  color: var(--tx-primary);
+}
+
 .compact-action {
   min-width: 86px;
   height: 30px;

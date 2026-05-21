@@ -1,4 +1,5 @@
 import { FitAddon } from '@xterm/addon-fit'
+import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
@@ -43,6 +44,8 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId }: T
   const onExitRef = useRef(onExit)
   const onInputRef = useRef(onInput)
   const onResizeRef = useRef(onResize)
+  const fitFrameRef = useRef<number | null>(null)
+  const refreshFrameRef = useRef<number | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
 
   onExitRef.current = onExit
@@ -58,10 +61,14 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId }: T
     }
 
     const terminal = new Terminal({
+      allowProposedApi: true,
       cursorBlink: true,
       convertEol: true,
       fontFamily: 'Cascadia Mono, Consolas, monospace',
       fontSize: 14,
+      lineHeight: 1.2,
+      letterSpacing: 0,
+      rescaleOverlappingGlyphs: true,
       scrollback: 100_000,
       scrollOnUserInput: false,
       theme: {
@@ -88,10 +95,24 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId }: T
       }
     })
     const fitAddon = new FitAddon()
+    const unicodeAddon = new Unicode11Addon()
 
     terminal.loadAddon(fitAddon)
+    terminal.loadAddon(unicodeAddon)
     terminal.loadAddon(new WebLinksAddon())
     terminal.open(hostRef.current)
+    // Unicode 11 width tables live behind xterm's "proposed API" gate. In some
+    // Vite-bundled dev builds the proposed-API check throws even with
+    // allowProposedApi: true (xterm exports get duplicated across module
+    // resolutions, breaking the option lookup on Terminal.unicode). The error
+    // cascades through React's error boundary, unmounts the pane, and the PTY
+    // never gets the input it needed — so the agent CLI exits with code 1.
+    // Falling back to the default width tables keeps the terminal usable.
+    try {
+      terminal.unicode.activeVersion = '11'
+    } catch (err) {
+      console.warn('[OXESpace] Unicode 11 activation failed, using default widths', err)
+    }
     terminal.write('Idle\r\n')
 
     const dataDisposable = terminal.onData((data) => onInputRef.current(data))
@@ -166,30 +187,64 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId }: T
 
     const fitTerminal = (): void => {
       try {
-        // Preserve scroll position — fitAddon.fit() can reset ydisp on resize
+        // Preserve absolute scroll position. A relative scroll after fit can jump
+        // when Copilot prints wide tables and the terminal reflows lines.
         const buf = terminal.buffer.active
-        const linesFromBottom = buf.baseY - buf.viewportY
+        const viewportY = buf.viewportY
+        const wasAtBottom = viewportY >= buf.baseY
 
         fitAddon.fit()
         onResizeRef.current(terminal.cols, terminal.rows)
 
-        if (linesFromBottom > 0) {
-          terminal.scrollLines(-linesFromBottom)
-        }
+        if (wasAtBottom) terminal.scrollToBottom()
+        else terminal.scrollToLine(Math.min(viewportY, terminal.buffer.active.baseY))
       } catch {
         // xterm may not have measurable dimensions during first layout.
       }
     }
 
-    const resizeObserver = new ResizeObserver(fitTerminal)
+    const scheduleFit = (): void => {
+      if (fitFrameRef.current !== null) return
+      fitFrameRef.current = window.requestAnimationFrame(() => {
+        fitFrameRef.current = null
+        fitTerminal()
+      })
+    }
+
+    const scheduleRefresh = (): void => {
+      if (refreshFrameRef.current !== null) return
+      refreshFrameRef.current = window.requestAnimationFrame(() => {
+        refreshFrameRef.current = null
+        terminal.refresh(0, terminal.rows - 1)
+      })
+    }
+
+    const resizeObserver = new ResizeObserver(scheduleFit)
     resizeObserver.observe(hostRef.current)
-    fitTerminal()
+    scheduleFit()
+    void document.fonts?.ready.then(scheduleFit).catch(() => undefined)
 
     let previewTimer: ReturnType<typeof setTimeout> | null = null
 
     const unsubscribeData = window.oxe.terminal.onData((event) => {
       if (event.paneId !== paneId) return
-      terminal.write(event.data)
+      // Smart scrollback: when the user has scrolled up to read history, new
+      // streaming output from the agent shouldn't yank them back to the bottom.
+      // xterm's default behavior on write() is "scroll to bottom on every
+      // chunk", which makes it impossible to keep a scroll position while
+      // Copilot/Claude are emitting tokens. We capture viewportY before the
+      // write and restore it from the write callback if the user wasn't
+      // already pinned at the bottom.
+      const preBuf = terminal.buffer.active
+      const preViewportY = preBuf.viewportY
+      const wasAtBottom = preViewportY >= preBuf.baseY
+      terminal.write(event.data, () => {
+        if (!wasAtBottom) {
+          const postBuf = terminal.buffer.active
+          terminal.scrollToLine(Math.min(preViewportY, postBuf.baseY))
+        }
+      })
+      scheduleRefresh()
       useTerminalStore.getState().updateActivity(paneId, event.data)
       if (previewTimer) clearTimeout(previewTimer)
       previewTimer = setTimeout(() => {
@@ -205,6 +260,14 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId }: T
     })
 
     return () => {
+      if (fitFrameRef.current !== null) {
+        window.cancelAnimationFrame(fitFrameRef.current)
+        fitFrameRef.current = null
+      }
+      if (refreshFrameRef.current !== null) {
+        window.cancelAnimationFrame(refreshFrameRef.current)
+        refreshFrameRef.current = null
+      }
       if (previewTimer) clearTimeout(previewTimer)
       unsubscribeData()
       unsubscribeExit()

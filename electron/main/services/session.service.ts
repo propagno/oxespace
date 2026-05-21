@@ -60,6 +60,7 @@ export class SessionService {
       const filePath = provider === 'claude'
         ? join(this.claudeProjectsRoot, encodeClaudePath(workspaceRootPath), `${session.sessionId}.jsonl`)
         : null
+      const firstMessagePreview = filePath ? readFirstMessagePreview(filePath) : session.summary ?? null
 
       return {
         sessionId: session.sessionId,
@@ -74,7 +75,8 @@ export class SessionService {
         isFork: fork !== undefined,
         parentSessionId: fork?.parent_session_id ?? null,
         label: fork?.label ?? null,
-        firstMessagePreview: filePath ? readFirstMessagePreview(filePath) : null
+        firstMessagePreview,
+        workspaceRootPath: session.workspaceRootPath ?? null
       }
     })
   }

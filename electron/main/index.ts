@@ -28,6 +28,9 @@ import type { ShellProfile, Workspace, WorkspaceLayout, WorkspaceLayoutPreset } 
 log.initialize()
 
 const isDev = !app.isPackaged
+if (isDev) {
+  app.setPath('userData', join(app.getPath('appData'), 'oxespace-dev'))
+}
 let ipcRegistered = false
 const clipboardImageTempFiles = new Set<string>()
 const CLIPBOARD_IMAGE_TTL_MS = 30 * 60 * 1000
@@ -113,6 +116,7 @@ function registerIpcHandlers(): void {
 
 function registerNativeFailureIpcHandlers(message: string): void {
   const shellProfiles: ShellProfile[] = [
+    { id: 'builtin-powershell', name: 'PowerShell', executable: 'powershell.exe', args: ['-NoLogo'], isBuiltin: true },
     { id: 'builtin-claude', name: 'claude', executable: 'claude', args: [], isBuiltin: true },
     { id: 'builtin-copilot', name: 'copilot', executable: 'copilot', args: [], isBuiltin: true }
   ]
@@ -183,6 +187,7 @@ function registerNativeFailureIpcHandlers(message: string): void {
   ipcMain.handle(IPC_CHANNELS.skill.list, () => [])
   ipcMain.handle(IPC_CHANNELS.skill.get, () => null)
   ipcMain.handle(IPC_CHANNELS.skill.invoke, fail)
+  ipcMain.handle(IPC_CHANNELS.skill.create, fail)
   ipcMain.handle(IPC_CHANNELS.mcp.list, () => [])
   ipcMain.handle(IPC_CHANNELS.mcp.create, fail)
   ipcMain.handle(IPC_CHANNELS.mcp.update, fail)
@@ -206,6 +211,7 @@ function registerNativeFailureIpcHandlers(message: string): void {
 
 function registerE2eMockIpcHandlers(): void {
   const shellProfiles: ShellProfile[] = [
+    { id: 'builtin-powershell', name: 'PowerShell', executable: 'powershell.exe', args: ['-NoLogo'], isBuiltin: true },
     { id: 'builtin-claude', name: 'claude', executable: 'claude', args: [], isBuiltin: true },
     { id: 'builtin-copilot', name: 'copilot', executable: 'copilot', args: [], isBuiltin: true }
   ]
@@ -256,12 +262,39 @@ function registerE2eMockIpcHandlers(): void {
   })
   ipcMain.handle(IPC_CHANNELS.workspace.closePane, (_event: IpcMainInvokeEvent, paneId: string) => {
     for (const workspace of workspaces) {
+      const before = workspace.panes.length
       workspace.panes = workspace.panes.filter((pane) => pane.id !== paneId)
+      if (workspace.panes.length !== before) return workspace
     }
+    return null
   })
-  ipcMain.handle(IPC_CHANNELS.workspace.splitPane, (_event: IpcMainInvokeEvent, input: { paneId: string }) => {
+  ipcMain.handle(IPC_CHANNELS.workspace.splitPane, (_event: IpcMainInvokeEvent, input: { paneId: string; direction?: 'vertical' | 'horizontal' }) => {
     const workspace = workspaces.find((item) => item.panes.some((pane) => pane.id === input.paneId))
     if (!workspace) throw new Error(`Pane ${input.paneId} not found`)
+    const source = workspace.panes.find((pane) => pane.id === input.paneId)
+    if (!source) throw new Error(`Pane ${input.paneId} not found`)
+    const [rows, columns] = workspace.layout.split('x').map(Number)
+    const targetRow = input.direction === 'horizontal' ? source.rowIndex + 1 : source.rowIndex
+    const targetColumn = input.direction === 'horizontal' ? source.columnIndex : source.columnIndex + 1
+    const nextLayout = input.direction === 'horizontal'
+      ? `${Math.max(rows, targetRow + 1)}x${columns}` as WorkspaceLayout
+      : `${rows}x${Math.max(columns, targetColumn + 1)}` as WorkspaceLayout
+    workspace.layout = nextLayout
+    workspace.layoutPreset = layoutToPreset(nextLayout)
+    workspace.panes.push({
+      id: randomUUID(),
+      workspaceId: workspace.id,
+      type: 'terminal',
+      rowIndex: targetRow,
+      columnIndex: targetColumn,
+      shellProfileId: 'builtin-powershell',
+      status: 'idle',
+      agentProfileId: null,
+      agentName: null,
+      displayName: null,
+      createdAt: null,
+      rootPath: null
+    })
     return workspace
   })
   ipcMain.handle(IPC_CHANNELS.workspace.updatePaneType, (_event: IpcMainInvokeEvent, input: { paneId: string; type: Workspace['panes'][number]['type'] }) => {
@@ -312,6 +345,16 @@ function registerE2eMockIpcHandlers(): void {
       workspace.panes = createMockPanes(workspace.id, workspace.layout)
     }
     return workspace
+  })
+  ipcMain.handle(IPC_CHANNELS.workspace.setPaneAgent, (_event: IpcMainInvokeEvent, input: { paneId: string; agentProfileId: string | null }) => {
+    for (const workspace of workspaces) {
+      const pane = workspace.panes.find((item) => item.id === input.paneId)
+      if (!pane) continue
+      pane.agentProfileId = input.agentProfileId
+      pane.agentName = input.agentProfileId === 'agent-copilot' ? 'Copilot' : input.agentProfileId === 'agent-claude' ? 'Claude' : null
+      return workspace
+    }
+    throw new Error(`Pane ${input.paneId} not found`)
   })
   ipcMain.handle(IPC_CHANNELS.workspace.pickFolder, () => null)
   ipcMain.handle(IPC_CHANNELS.terminal.start, (_event: IpcMainInvokeEvent, input: { paneId: string }) => {
@@ -376,6 +419,19 @@ function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.github.listReleases, () => [])
   ipcMain.handle(IPC_CHANNELS.github.listWorkflows, () => [])
   ipcMain.handle(IPC_CHANNELS.github.listWorkflowRuns, () => [])
+  ipcMain.handle(IPC_CHANNELS.github.getWorkflowRunDetails, (_event: IpcMainInvokeEvent, input: { runId: number }) => ({
+    databaseId: input.runId,
+    name: 'E2E mock workflow',
+    displayTitle: 'E2E mock workflow',
+    status: 'completed',
+    conclusion: 'success',
+    event: 'workflow_dispatch',
+    branch: 'main',
+    actor: null,
+    url: null,
+    createdAt: new Date().toISOString(),
+    jobs: []
+  }))
   ipcMain.handle(IPC_CHANNELS.github.listCheckpoints, () => [])
   ipcMain.handle(IPC_CHANNELS.github.listConnectedRepositories, () => [])
   ipcMain.handle(IPC_CHANNELS.github.fetch, () => ({ ok: true, message: 'E2E mock mode' }))
@@ -510,10 +566,31 @@ function createMainWindow(): BrowserWindow {
     return { action: 'deny' }
   })
 
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    log.error('Renderer failed to load', { errorCode, errorDescription, validatedURL })
+    if (isDev) console.error('[OXESpace] Renderer failed to load', { errorCode, errorDescription, validatedURL })
+  })
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    log.error('Renderer process gone', details)
+    if (isDev) console.error('[OXESpace] Renderer process gone', details)
+  })
+  mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+    if (isDev && level >= 2) console.error(`[OXESpace renderer:${level}] ${message} (${sourceId}:${line})`)
+  })
+
   if (isDev && process.env.ELECTRON_RENDERER_URL) {
-    void mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
+    const rendererUrl = process.env.ELECTRON_RENDERER_URL
+    console.log(`[OXESpace] Loading renderer ${rendererUrl}`)
+    void mainWindow.loadURL(rendererUrl).catch((error) => {
+      log.error('Renderer loadURL failed', error)
+      console.error('[OXESpace] Renderer loadURL failed', error)
+    })
   } else {
-    void mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    const rendererFile = join(__dirname, '../renderer/index.html')
+    void mainWindow.loadFile(rendererFile).catch((error) => {
+      log.error('Renderer loadFile failed', error)
+      if (isDev) console.error('[OXESpace] Renderer loadFile failed', error)
+    })
   }
 
   return mainWindow

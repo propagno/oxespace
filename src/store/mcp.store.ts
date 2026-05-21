@@ -119,6 +119,7 @@ export const useMcpStore = create<McpStoreState>((set, get) => ({
   },
 
   subscribe: () => {
+    if (!window.oxe?.mcp?.onHealth) return () => undefined
     return window.oxe.mcp.onHealth((event) => {
       get().applyHealth(event)
     })

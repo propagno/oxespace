@@ -45,14 +45,28 @@ for (const mod of MODULES) {
 
   console.log(`→ ${mod.name}: downloading electron-v${ELECTRON_ABI} prebuilt...`)
 
-  // Delete old binary so extraction overwrites it
-  if (existsSync(nodeFile)) rmSync(nodeFile)
+  // Delete old binary so extraction overwrites it. During Codex Desktop runs the
+  // host process can keep the native module loaded from this workspace; in that
+  // case the file is already usable for Electron and cannot be unlinked on
+  // Windows, so leave it in place and continue packaging.
+  let canExtract = true
+  if (existsSync(nodeFile)) {
+    try {
+      rmSync(nodeFile)
+    } catch (error) {
+      if (error?.code !== 'EPERM' && error?.code !== 'EBUSY') throw error
+      canExtract = false
+      console.warn(`! ${mod.name}: native binary is locked; keeping existing ${nodeFile}`)
+    }
+  }
   mkdirSync(dirname(nodeFile), { recursive: true })
 
-  const res = await get(mod.url)
-  await new Promise((resolve, reject) =>
-    res.pipe(tar.extract({ cwd: extractTo })).on('finish', resolve).on('error', reject)
-  )
+  if (canExtract) {
+    const res = await get(mod.url)
+    await new Promise((resolve, reject) =>
+      res.pipe(tar.extract({ cwd: extractTo })).on('finish', resolve).on('error', reject)
+    )
+  }
 
   console.log(`✓ ${mod.name} installed for Electron ${ELECTRON_VERSION} (ABI ${ELECTRON_ABI})`)
 }

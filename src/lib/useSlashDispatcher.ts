@@ -60,7 +60,7 @@ export function useSlashDispatcher({ workspace, pane }: UseSlashDispatcherArgs):
         if (!arg) return
         const match = findAgentProfile(allProfiles, arg)
         if (!match) {
-          throw new Error(`Agent "${arg}" não encontrado. Tente: ${allProfiles.map((p) => p.name).slice(0, 4).join(', ')}…`)
+          throw new Error(`Agent "${arg}" not found. Try: ${allProfiles.map((p) => p.name).slice(0, 4).join(', ')}…`)
         }
         await setPaneAgent(paneId, match.agentProfileId)
         // Restart pane so the new agent's CLI is launched
