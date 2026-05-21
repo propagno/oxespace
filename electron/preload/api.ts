@@ -20,6 +20,7 @@ import {
   type GitHubRelease,
   type GitHubWorkflow,
   type GitHubWorkflowRun,
+  type GitHubWorkflowRunDetails,
   type GitHubWorkspaceStatus,
   type OxeApi,
   type ShellProfile,
@@ -48,7 +49,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       create: (input) => ipc.invoke(IPC_CHANNELS.workspace.create, input) as Promise<Workspace>,
       setActive: (id) => ipc.invoke(IPC_CHANNELS.workspace.setActive, id) as Promise<Workspace>,
       delete: (id) => ipc.invoke(IPC_CHANNELS.workspace.delete, id) as Promise<void>,
-      closePane: (id) => ipc.invoke(IPC_CHANNELS.workspace.closePane, id) as Promise<void>,
+      closePane: (id) => ipc.invoke(IPC_CHANNELS.workspace.closePane, id) as Promise<Workspace | null>,
       splitPane: (input) => ipc.invoke(IPC_CHANNELS.workspace.splitPane, input) as Promise<Workspace>,
       updatePaneType: (input) => ipc.invoke(IPC_CHANNELS.workspace.updatePaneType, input) as Promise<Workspace>,
       updatePaneName: (input) => ipc.invoke(IPC_CHANNELS.workspace.updatePaneName, input) as Promise<Workspace>,
@@ -133,6 +134,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       createRelease: (input) => ipc.invoke(IPC_CHANNELS.github.createRelease, input) as Promise<GitHubMessageResult>,
       listWorkflows: (input) => ipc.invoke(IPC_CHANNELS.github.listWorkflows, input) as Promise<GitHubWorkflow[]>,
       listWorkflowRuns: (input) => ipc.invoke(IPC_CHANNELS.github.listWorkflowRuns, input) as Promise<GitHubWorkflowRun[]>,
+      getWorkflowRunDetails: (input) => ipc.invoke(IPC_CHANNELS.github.getWorkflowRunDetails, input) as Promise<GitHubWorkflowRunDetails>,
       runWorkflow: (input) => ipc.invoke(IPC_CHANNELS.github.runWorkflow, input) as Promise<GitHubMessageResult>,
       rerunRun: (input) => ipc.invoke(IPC_CHANNELS.github.rerunRun, input) as Promise<GitHubMessageResult>,
       getRunLogs: (input) => ipc.invoke(IPC_CHANNELS.github.getRunLogs, input) as Promise<{ logs: string; truncated: boolean; bytes: number }>,
@@ -167,6 +169,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       list: (input) => ipc.invoke(IPC_CHANNELS.skill.list, input ?? {}) as Promise<import('../../shared/types/skill').SkillDefinition[]>,
       get: (name) => ipc.invoke(IPC_CHANNELS.skill.get, name) as Promise<import('../../shared/types/skill').SkillDefinition | null>,
       invoke: (input) => ipc.invoke(IPC_CHANNELS.skill.invoke, input) as Promise<void>,
+      create: (input) => ipc.invoke(IPC_CHANNELS.skill.create, input) as Promise<import('../../shared/types/skill').SkillDefinition>,
       onChange: (listener) => subscribe<void>(ipc, IPC_CHANNELS.skill.onChange, () => listener())
     },
     mcp: {

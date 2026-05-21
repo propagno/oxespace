@@ -61,6 +61,7 @@ interface PaneRow {
 }
 
 const DEFAULT_SHELL_PROFILE_ID = 'builtin-claude'
+const DEFAULT_SPLIT_SHELL_PROFILE_ID = 'builtin-powershell'
 const DEFAULT_THEME_ID: WorkspaceThemeId = 'dracula'
 const DEFAULT_UI_DENSITY: WorkspaceDensity = 'compact'
 const DEFAULT_LAYOUT_PRESET: WorkspaceLayoutPreset = 4
@@ -194,8 +195,52 @@ export class WorkspaceService {
     this.db.prepare('DELETE FROM workspaces WHERE id = ?').run(id)
   }
 
-  closePane(id: string): void {
-    this.db.prepare('DELETE FROM panes WHERE id = ?').run(id)
+  closePane(id: string): Workspace | null {
+    const paneRow = this.db
+      .prepare('SELECT workspace_id, row_index FROM panes WHERE id = ?')
+      .get(id) as { workspace_id: string; row_index: number } | undefined
+    if (!paneRow) {
+      this.db.prepare('DELETE FROM panes WHERE id = ?').run(id)
+      return null
+    }
+    const workspaceId = paneRow.workspace_id
+
+    const compact = this.db.transaction(() => {
+      this.db.prepare('DELETE FROM panes WHERE id = ?').run(id)
+      // Off-grid panes (e.g. the GitHub helper pane uses row=-1, col=-1) live
+      // outside the layout and must not be repacked. Only repack the regular
+      // in-grid panes so closing one reflows the visible grid.
+      const gridPanes = this.db
+        .prepare(
+          `SELECT id, row_index, column_index FROM panes
+           WHERE workspace_id = ? AND row_index >= 0
+           ORDER BY row_index ASC, column_index ASC`
+        )
+        .all(workspaceId) as Array<{ id: string; row_index: number; column_index: number }>
+
+      const remaining = gridPanes.length
+      if (remaining === 0) return
+
+      const nextPreset = findSmallestPresetFor(remaining)
+      const nextLayout = PRESET_LAYOUTS[nextPreset]
+      const positions = getPanePositions(nextLayout)
+      const updatePane = this.db.prepare(
+        "UPDATE panes SET row_index = ?, column_index = ?, updated_at = datetime('now') WHERE id = ?"
+      )
+      for (let i = 0; i < gridPanes.length; i += 1) {
+        const target = positions[i]
+        if (!target) break
+        if (gridPanes[i].row_index !== target.rowIndex || gridPanes[i].column_index !== target.columnIndex) {
+          updatePane.run(target.rowIndex, target.columnIndex, gridPanes[i].id)
+        }
+      }
+      this.db
+        .prepare("UPDATE workspaces SET layout = ?, layout_preset = ?, updated_at = datetime('now') WHERE id = ?")
+        .run(nextLayout, nextPreset, workspaceId)
+    })
+
+    compact()
+    return this.get(workspaceId)
   }
 
   updatePaneType(paneId: string, type: PaneType): Workspace {
@@ -443,16 +488,15 @@ export class WorkspaceService {
       }
       this.db
         .prepare(
-          `INSERT INTO panes (id, workspace_id, type, row_index, column_index, shell_profile_id, status)
-           VALUES (@id, @workspaceId, @type, @rowIndex, @columnIndex, @shellProfileId, 'idle')`
+          `INSERT INTO panes (id, workspace_id, type, row_index, column_index, shell_profile_id, status, agent_profile_id, agent_name, display_name)
+           VALUES (@id, @workspaceId, 'terminal', @rowIndex, @columnIndex, @shellProfileId, 'idle', NULL, NULL, NULL)`
         )
         .run({
           id: randomUUID(),
           workspaceId: paneRow.workspace_id,
-          type: paneRow.type,
           rowIndex: targetRow,
           columnIndex: targetCol,
-          shellProfileId: paneRow.shell_profile_id
+          shellProfileId: DEFAULT_SPLIT_SHELL_PROFILE_ID
         })
     })
 
@@ -588,6 +632,20 @@ export function getPanePositions(layout: WorkspaceLayout): Array<{ rowIndex: num
   }
 
   return positions
+}
+
+/**
+ * Pick the smallest preset whose cell count fits `remaining` panes. The preset
+ * key is itself the cell count, so the smallest key >= remaining wins. Caps at
+ * the largest preset (16 = 4x4) — if a workspace ever exceeds that, we keep
+ * the largest layout rather than throwing.
+ */
+function findSmallestPresetFor(remaining: number): WorkspaceLayoutPreset {
+  const presets = Object.keys(PRESET_LAYOUTS).map((k) => Number(k) as WorkspaceLayoutPreset).sort((a, b) => a - b)
+  for (const preset of presets) {
+    if (preset >= remaining) return preset
+  }
+  return presets[presets.length - 1]
 }
 
 function layoutToPreset(layout: WorkspaceLayout | undefined): WorkspaceLayoutPreset | null {

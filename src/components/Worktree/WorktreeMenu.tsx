@@ -103,13 +103,13 @@ export function WorktreeMenu({ pane, workspaceId, workspaceRootPath, onClose }: 
             <button
               type="button"
               className="icon-button"
-              aria-label="Atualizar"
+              aria-label="Refresh"
               onClick={() => void refresh(workspaceId, workspaceRootPath)}
               disabled={loading}
             >
               <RotateCw size={13} className={loading ? 'usage-spin' : ''} aria-hidden="true" />
             </button>
-            <button type="button" className="icon-button" aria-label="Fechar" onClick={onClose}>
+            <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
               <X size={14} aria-hidden="true" />
             </button>
           </div>
@@ -123,8 +123,8 @@ export function WorktreeMenu({ pane, workspaceId, workspaceRootPath, onClose }: 
           {worktrees.length === 0 && !loading ? (
             <div className="worktree-menu-empty">
               <FolderTree size={32} aria-hidden="true" />
-              <strong>Nenhum worktree</strong>
-              <span>Crie um worktree abaixo para isolar o trabalho em outra branch sem afetar este pane.</span>
+              <strong>No worktrees</strong>
+              <span>Create a worktree below to isolate work on another branch without affecting this pane.</span>
             </div>
           ) : (
             worktrees.map((wt) => {
@@ -153,8 +153,8 @@ export function WorktreeMenu({ pane, workspaceId, workspaceRootPath, onClose }: 
                       <button
                         type="button"
                         className="icon-button worktree-menu-remove"
-                        aria-label={confirmRemovePath === wt.path ? 'Confirmar remoção do worktree' : 'Remover worktree'}
-                        title={confirmRemovePath === wt.path ? 'Clique novamente para remover' : 'Remover worktree'}
+                        aria-label={confirmRemovePath === wt.path ? 'Confirm worktree removal' : 'Remove worktree'}
+                        title={confirmRemovePath === wt.path ? 'Click again to remove' : 'Remove worktree'}
                         onClick={(event) => { event.stopPropagation(); void handleRemove(wt.path) }}
                         disabled={busy}
                       >
@@ -177,7 +177,7 @@ export function WorktreeMenu({ pane, workspaceId, workspaceRootPath, onClose }: 
                 autoFocus
                 value={newBranch}
                 onChange={(event) => setNewBranch(event.currentTarget.value)}
-                placeholder="feat/nova-feature"
+                placeholder="feat/new-feature"
                 disabled={busy}
               />
             </div>
@@ -187,7 +187,7 @@ export function WorktreeMenu({ pane, workspaceId, workspaceRootPath, onClose }: 
                 id="wt-path"
                 value={newPath}
                 onChange={(event) => setNewPath(event.currentTarget.value)}
-                placeholder="../oxespace-feat-nova"
+                placeholder="../oxespace-feat-new"
                 disabled={busy}
               />
             </div>
@@ -198,11 +198,11 @@ export function WorktreeMenu({ pane, workspaceId, workspaceRootPath, onClose }: 
                 onChange={(event) => setCreateNewBranch(event.currentTarget.checked)}
                 disabled={busy}
               />
-              <span>Criar branch nova (`-b`)</span>
+              <span>Create new branch (`-b`)</span>
             </label>
             <div className="worktree-menu-create-actions">
               <button type="button" className="ghost-btn" onClick={() => { setCreating(false); setLocalError(null) }} disabled={busy}>
-                Cancelar
+                Cancel
               </button>
               <button
                 type="button"
@@ -210,7 +210,7 @@ export function WorktreeMenu({ pane, workspaceId, workspaceRootPath, onClose }: 
                 onClick={() => void handleCreate()}
                 disabled={busy || !newBranch.trim() || !newPath.trim()}
               >
-                Criar worktree
+                Create worktree
               </button>
             </div>
           </div>
@@ -222,12 +222,12 @@ export function WorktreeMenu({ pane, workspaceId, workspaceRootPath, onClose }: 
             disabled={busy}
           >
             <Plus size={12} aria-hidden="true" />
-            <span>Novo worktree</span>
+            <span>New worktree</span>
           </button>
         )}
 
         <footer className="worktree-menu-footer">
-          <span>Selecione um worktree para usá-lo como <code>cwd</code> deste pane. Restart automático após selecionar.</span>
+          <span>Select a worktree to use it as this pane's <code>cwd</code>. Automatic restart after selection.</span>
         </footer>
       </section>
     </div>

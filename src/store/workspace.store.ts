@@ -16,7 +16,7 @@ interface WorkspaceState {
   splitPane: (paneId: string, direction: 'vertical' | 'horizontal') => Promise<void>
   updatePaneType: (paneId: string, type: Workspace['panes'][number]['type']) => Promise<void>
   updatePaneName: (paneId: string, displayName: string | null) => Promise<void>
-  setPaneAgent: (paneId: string, agentProfileId: string | null) => Promise<void>
+  setPaneAgent: (paneId: string, agentProfileId: string | null, options?: { preserveSession?: boolean }) => Promise<void>
   setPaneRootPath: (paneId: string, rootPath: string | null) => Promise<void>
   updateEditorState: (input: UpdateWorkspaceEditorStateInput) => Promise<void>
   updateReviewState: (input: UpdateWorkspaceReviewStateInput) => Promise<void>
@@ -88,12 +88,14 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   closePane: async (id) => {
-    await window.oxe.workspace.closePane(id)
+    const updated = await window.oxe.workspace.closePane(id)
     set((state) => ({
-      workspaces: state.workspaces.map((workspace) => ({
-        ...workspace,
-        panes: workspace.panes.filter((pane) => pane.id !== id)
-      })),
+      workspaces: state.workspaces.map((workspace) => {
+        if (updated && workspace.id === updated.id) return updated
+        // Fallback for when the pane was already gone server-side: still drop it
+        // from the local store so the UI doesn't keep a stale row.
+        return { ...workspace, panes: workspace.panes.filter((pane) => pane.id !== id) }
+      }),
       error: null
     }))
   },
@@ -122,8 +124,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     }))
   },
 
-  setPaneAgent: async (paneId, agentProfileId) => {
-    const workspace = await window.oxe.workspace.setPaneAgent({ paneId, agentProfileId })
+  setPaneAgent: async (paneId, agentProfileId, options) => {
+    const workspace = await window.oxe.workspace.setPaneAgent({ paneId, agentProfileId, preserveSession: options?.preserveSession })
     set((state) => ({
       workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)),
       error: null

@@ -39,9 +39,9 @@ export function KanbanBoard({ onEdit, tasks, workspaceId }: KanbanBoardProps): R
     try {
       const result = await runPipeline(workspaceId)
       const parts: string[] = []
-      if (result.dispatched.length > 0) parts.push(`${result.dispatched.length} disparada(s)`)
-      if (result.pending.length > 0) parts.push(`${result.pending.length} pendente(s) (terminal não encontrado)`)
-      setMessage(parts.length > 0 ? parts.join(' · ') : 'Nenhuma tarefa pronta para rodar.')
+      if (result.dispatched.length > 0) parts.push(`${result.dispatched.length} dispatched`)
+      if (result.pending.length > 0) parts.push(`${result.pending.length} pending (terminal not found)`)
+      setMessage(parts.length > 0 ? parts.join(' · ') : 'No task ready to run.')
     } catch (err) {
       setMessage(err instanceof Error ? err.message : String(err))
     } finally {

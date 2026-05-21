@@ -87,6 +87,13 @@ export function registerGitHubIpc(db: AppDatabase, service = new GitHubService(d
   ipcMain.handle(IPC_CHANNELS.github.listWorkflowRuns, (_event, input: unknown) =>
     service.listWorkflowRuns(parseGitHubWorkspaceInput(input))
   )
+  ipcMain.handle(IPC_CHANNELS.github.getWorkflowRunDetails, (_event, input: unknown) => {
+    if (!input || typeof input !== 'object') throw new Error('Invalid workflow run details input')
+    const { rootPath, runId } = input as { rootPath?: unknown; runId?: unknown }
+    if (typeof rootPath !== 'string' || !rootPath) throw new Error('rootPath is required')
+    if (typeof runId !== 'number' || !Number.isFinite(runId)) throw new Error('runId must be a number')
+    return service.getWorkflowRunDetails({ rootPath, runId })
+  })
   ipcMain.handle(IPC_CHANNELS.github.runWorkflow, (_event, input: unknown) =>
     service.runWorkflow(parseGitHubWorkflowRunInput(input))
   )

@@ -4,6 +4,7 @@ import type { AgentProfile } from '../../../shared/types/agent'
 import type { Workspace } from '../../../shared/types/workspace'
 import { useTerminalStore } from '../../store/terminal.store'
 import { OxeLogo } from '../Brand/OxeLogo'
+import { AgentProviderIcon } from './AgentProviderIcon'
 import { WorkspaceGroup } from './WorkspaceGroup'
 
 interface SidebarProps {
@@ -63,6 +64,47 @@ export function Sidebar({
             </span>
           ) : null}
         </div>
+        <nav className="sidebar-rail-list" aria-label="Collapsed workspaces">
+          {workspaces.map((workspace) => {
+            const workspaceUnread = workspace.panes.some((pane) => hasUnread(pane.id))
+            return (
+              <div key={workspace.id} className={`sidebar-rail-workspace${workspace.id === activeWorkspaceId ? ' active' : ''}`}>
+                <button
+                  type="button"
+                  className="sidebar-rail-workspace-btn"
+                  title={workspace.name}
+                  aria-label={workspace.name}
+                  onClick={() => onSelectWorkspace(workspace.id)}
+                >
+                  <span>{workspace.name.slice(0, 2).toUpperCase()}</span>
+                  {workspaceUnread ? <i aria-hidden="true" /> : null}
+                </button>
+                <div className="sidebar-rail-panes">
+                  {workspace.panes.map((pane, index) => {
+                    const profile = pane.agentProfileId
+                      ? agentProfiles.find((item) => item.agentProfileId === pane.agentProfileId) ?? null
+                      : null
+                    return (
+                      <button
+                        key={pane.id}
+                        type="button"
+                        className={`sidebar-rail-pane${pane.id === activePaneId ? ' active' : ''}${hasUnread(pane.id) ? ' unread' : ''}`}
+                        title={pane.agentName ?? pane.displayName ?? `${pane.type} ${index + 1}`}
+                        aria-label={pane.agentName ?? pane.displayName ?? `${pane.type} ${index + 1}`}
+                        onClick={() => {
+                          onSelectWorkspace(workspace.id)
+                          handleActivatePane(pane.id)
+                        }}
+                      >
+                        {profile ? <AgentProviderIcon provider={profile.provider} /> : <span>{index + 1}</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+        </nav>
         <div className="sidebar-footer">
           <button
             type="button"

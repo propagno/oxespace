@@ -15,6 +15,7 @@ import type {
   McpTransport,
   UpdateMcpServerInput
 } from '../../../shared/types/mcp'
+import { McpConfigSync } from './mcp-sync.service'
 
 interface McpServerRow {
   id: string
@@ -57,9 +58,31 @@ const WINDOWS_EXECUTABLE_EXTENSIONS = ['.cmd', '.exe', '.bat', '.ps1']
 export class McpManager {
   private readonly runtimes = new Map<string, RuntimeServer>()
   private readonly emitHealth: (event: McpServerHealthEvent) => void
+  private readonly configSync: McpConfigSync
 
   constructor(private readonly db: AppDatabase, options: McpManagerOptions = {}) {
     this.emitHealth = options.emitHealth ?? (() => undefined)
+    this.configSync = new McpConfigSync(db)
+    // Refresh every workspace's .mcp.json on startup so the file stays in sync
+    // when the user has been editing MCPs across sessions (the file may be
+    // stale if it was hand-edited or if a previous OXESpace version didn't
+    // write it). Sync errors are non-fatal — the manager still starts.
+    try {
+      this.configSync.syncAll()
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('[mcp] initial .mcp.json sync failed:', err instanceof Error ? err.message : err)
+    }
+  }
+
+  /** Re-materializes `.mcp.json` for the workspace (or all workspaces if global). */
+  private syncFile(workspaceId: string | null): void {
+    try {
+      this.configSync.syncForServer(workspaceId)
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('[mcp] failed to sync .mcp.json:', err instanceof Error ? err.message : err)
+    }
   }
 
   list(workspaceId: string | null): McpServer[] {
@@ -89,6 +112,7 @@ export class McpManager {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(id, input.workspaceId, input.name.trim(), input.transport, JSON.stringify(input.config), input.enabled === false ? 0 : 1, input.trusted === true ? 1 : 0, now, now)
+    this.syncFile(input.workspaceId)
     return this.get(id)!
   }
 
@@ -120,12 +144,15 @@ export class McpManager {
       )
     // If runtime is running, restart so changes take effect
     this.stopRuntime(input.id)
+    this.syncFile(current.workspaceId)
     return this.get(input.id)!
   }
 
   delete(id: string): void {
+    const current = this.get(id)
     this.stopRuntime(id)
     this.db.prepare('DELETE FROM mcp_servers WHERE id = ?').run(id)
+    if (current) this.syncFile(current.workspaceId)
   }
 
   /** Starts (or restarts) a server and runs its handshake. Returns the live tools list. */

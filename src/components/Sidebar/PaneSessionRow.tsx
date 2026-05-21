@@ -51,21 +51,28 @@ export function PaneSessionRow({ pane, paneIndex, isActive, agentProfiles, onCli
   const markRead = useTerminalStore(s => s.markRead)
   const terminalState = getStatus(pane.id)
   const updatePaneName = useWorkspaceStore(s => s.updatePaneName)
+  const closePane = useWorkspaceStore(s => s.closePane)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const agentProfile = pane.agentProfileId
     ? agentProfiles.find(p => p.agentProfileId === pane.agentProfileId) ?? null
     : null
-  const hasAgent = pane.agentName !== null
-  const baseLabel = hasAgent ? pane.agentName! : `${pane.type} ${paneIndex + 1}`
+  // Prefer the persisted agentName; fall back to the profile's name when the
+  // pane has a profile bound but agentName wasn't recorded (legacy rows /
+  // restored panes whose agentName was lost on a prior write).
+  const resolvedAgentName = pane.agentName ?? agentProfile?.name ?? null
+  const hasAgent = resolvedAgentName !== null
+  const baseLabel = hasAgent ? resolvedAgentName! : `${pane.type} ${paneIndex + 1}`
   const label = pane.displayName ?? baseLabel
   const avatarColor = pickAvatarColor(pane.id)
 
   const { status, lastActivityAt, lastOutput, isWorking, hasUnread } = terminalState
   const isRunning = status === 'running'
   const isStarting = status === 'starting'
+  const canStopTerminal = pane.type === 'terminal' && (isRunning || isStarting)
   const isExited = status === 'exited'
   const isError = status === 'error'
   const isRecent = lastActivityAt !== null && Date.now() - lastActivityAt < RECENT_MS
@@ -76,9 +83,19 @@ export function PaneSessionRow({ pane, paneIndex, isActive, agentProfiles, onCli
   }, [isActive, hasUnread, markRead, pane.id])
 
   function handleClick(): void {
+    if (menu) {
+      setMenu(null)
+      return
+    }
     onClick()
     onActivatePane(pane.id)
     markRead(pane.id)
+  }
+
+  function handleContextMenu(e: React.MouseEvent): void {
+    e.preventDefault()
+    e.stopPropagation()
+    setMenu({ x: e.clientX, y: e.clientY })
   }
 
   function handleDoubleClick(e: React.MouseEvent): void {
@@ -103,6 +120,39 @@ export function PaneSessionRow({ pane, paneIndex, isActive, agentProfiles, onCli
     if (e.key === 'Escape') setEditing(false)
   }
 
+  async function stopTerminal(): Promise<void> {
+    setMenu(null)
+    if (pane.type !== 'terminal') return
+    try {
+      await window.oxe.terminal.stop({ paneId: pane.id })
+    } catch {
+      // The pane may already be stopped; the close action should stay available.
+    }
+  }
+
+  async function closeTerminal(): Promise<void> {
+    setMenu(null)
+    if (canStopTerminal) {
+      try {
+        await window.oxe.terminal.stop({ paneId: pane.id })
+      } catch {
+        // Keep closing the pane even if the PTY was already gone.
+      }
+    }
+    await closePane(pane.id)
+  }
+
+  useEffect(() => {
+    if (!menu) return
+    const close = (): void => setMenu(null)
+    window.addEventListener('click', close)
+    window.addEventListener('keydown', close)
+    return () => {
+      window.removeEventListener('click', close)
+      window.removeEventListener('keydown', close)
+    }
+  }, [menu])
+
   const showUnreadDot = hasUnread && !isActive && isRunning
 
   return (
@@ -111,6 +161,7 @@ export function PaneSessionRow({ pane, paneIndex, isActive, agentProfiles, onCli
       role="button"
       tabIndex={0}
       onClick={handleClick}
+      onContextMenu={handleContextMenu}
       onKeyDown={e => !editing && e.key === 'Enter' && handleClick()}
     >
       {/* Left icon */}
@@ -184,6 +235,23 @@ export function PaneSessionRow({ pane, paneIndex, isActive, agentProfiles, onCli
           {showUnreadDot && <span className="pane-unread-dot" aria-label="Unread output" />}
         </div>
       </div>
+      {menu ? (
+        <div
+          className="pane-session-context-menu"
+          style={{ left: menu.x, top: menu.y }}
+          role="menu"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {canStopTerminal ? (
+            <button type="button" role="menuitem" onClick={() => void stopTerminal()}>
+              Stop terminal
+            </button>
+          ) : null}
+          <button type="button" role="menuitem" className="danger" onClick={() => void closeTerminal()}>
+            Close terminal
+          </button>
+        </div>
+      ) : null}
     </div>
   )
 }

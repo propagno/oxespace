@@ -4,4 +4,5 @@ export interface UsageSessionMetadata {
   sessionStartedAtMs: number
   modelId: string | null
   requestCount: number
+  workspaceRootPath?: string | null
 }

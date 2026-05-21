@@ -1,5 +1,6 @@
-import { Copy, Edit3, FileText, FolderOpen, Play, RotateCw, Sparkles, X } from 'lucide-react'
+import { Copy, Edit3, FileText, FolderOpen, Play, Plus, RotateCw, Sparkles, X } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactElement } from 'react'
+import { BUILTIN_PROVIDERS, type AgentProvider } from '../../../shared/types/agent'
 import type { SkillDefinition } from '../../../shared/types/skill'
 import { useSkillStore } from '../../store/skill.store'
 
@@ -17,10 +18,12 @@ export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId
   const error = useSkillStore((s) => s.error)
   const refresh = useSkillStore((s) => s.refresh)
   const invoke = useSkillStore((s) => s.invoke)
+  const createSkill = useSkillStore((s) => s.createSkill)
   const [filter, setFilter] = useState('')
   const [argumentBySkill, setArgumentBySkill] = useState<Record<string, string>>({})
   const [notice, setNotice] = useState<string | null>(null)
   const [busySkill, setBusySkill] = useState<string | null>(null)
+  const [creating, setCreating] = useState(false)
 
   useEffect(() => {
     void refresh(workspaceRootPath ?? undefined)
@@ -61,24 +64,24 @@ export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId
     const prompt = renderSkillPrompt(skill.body, argument)
     try {
       await navigator.clipboard.writeText(prompt)
-      setNotice(`Prompt de /${skill.name} copiado.`)
+      setNotice(`Prompt for /${skill.name} copied.`)
     } catch {
-      setNotice('Não foi possível copiar o prompt.')
+      setNotice('Could not copy the prompt.')
     }
   }
 
   const handleEditSkill = (skill: SkillDefinition): void => {
     if (!workspaceId || !workspaceRootPath) {
-      setNotice('Para editar no OXESpace, abra um workspace primeiro.')
+      setNotice('Open a workspace first to edit in OXESpace.')
       return
     }
     const relativePath = toWorkspaceRelativePath(workspaceRootPath, skill.filePath)
     if (!relativePath) {
-      setNotice('Esta skill é global. Para editar no editor do workspace, crie uma versão em <workspace>/.oxe/skills/.')
+      setNotice('This is a global skill. Copy it into <workspace>/.oxe/skills/ to edit in the workspace editor.')
       return
     }
     onOpenEditor(relativePath)
-    setNotice(`Abrindo /${skill.name} no editor.`)
+    setNotice(`Opening /${skill.name} in the editor.`)
   }
 
   return (
@@ -100,22 +103,52 @@ export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId
             <button
               type="button"
               className="icon-button"
-              aria-label="Atualizar"
+              aria-label="New skill"
+              title="New skill"
+              disabled={creating}
+              onClick={() => setCreating(true)}
+              data-testid="btn-new-skill"
+            >
+              <Plus size={13} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Refresh"
               disabled={loading}
               onClick={() => void refresh(workspaceRootPath ?? undefined)}
             >
               <RotateCw size={13} className={loading ? 'usage-spin' : ''} aria-hidden="true" />
             </button>
-            <button type="button" className="icon-button" aria-label="Fechar" onClick={onClose}>
+            <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
               <X size={14} aria-hidden="true" />
             </button>
           </div>
         </header>
 
+        {creating ? (
+          <CreateSkillForm
+            workspaceRootPath={workspaceRootPath}
+            onCancel={() => setCreating(false)}
+            onCreate={async (input) => {
+              const created = await createSkill(input)
+              setCreating(false)
+              setNotice(`/${created.name} created at ${compactPath(created.filePath)}`)
+              // Open workspace skills in the editor right away — gets the user
+              // into the file to flesh out the prompt body. User skills can't
+              // be opened in the workspace editor since they live outside it.
+              if (created.source === 'workspace' && workspaceRootPath && workspaceId) {
+                const relativePath = toWorkspaceRelativePath(workspaceRootPath, created.filePath)
+                if (relativePath) onOpenEditor(relativePath)
+              }
+            }}
+          />
+        ) : null}
+
         <div className="skills-browser-search">
           <input
             type="search"
-            placeholder="Buscar por nome, descrição ou categoria…"
+            placeholder="Search by name, description or category…"
             value={filter}
             onChange={(event) => setFilter(event.currentTarget.value)}
           />
@@ -168,26 +201,26 @@ export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId
           {filtered.length === 0 && !loading ? (
             <div className="skills-browser-empty">
               <Sparkles size={32} aria-hidden="true" />
-              <strong>Sem skills</strong>
+              <strong>No skills</strong>
               <span>
-                Crie arquivos <code>.md</code> em <code>~/.oxe/skills/</code> ou em{' '}
-                <code>&lt;workspace&gt;/.oxe/skills/</code> com YAML frontmatter para extender os agentes.
+                Create <code>.md</code> files in <code>~/.oxe/skills/</code> or{' '}
+                <code>&lt;workspace&gt;/.oxe/skills/</code> with YAML frontmatter to extend your agents.
               </span>
               <pre className="skills-browser-example">{`---
 name: refactor
-description: Refatora código no estilo do projeto
+description: Refactor code in the project's style
 agents: [claude, codex]
 category: refactor
 ---
 
-Você é um refatorador. Analise {{argument}} e proponha melhorias.`}</pre>
+You are a refactorer. Analyze {{argument}} and propose improvements.`}</pre>
             </div>
           ) : null}
         </div>
 
         <footer className="skills-browser-footer">
           <span>
-            Skills aparecem no <kbd>Ctrl+/</kbd> automaticamente. Workspace skills sobrescrevem user skills com mesmo nome.
+            Skills appear in <kbd>Ctrl+/</kbd> automatically. Workspace skills override user skills with the same name.
           </span>
         </footer>
       </section>
@@ -216,12 +249,12 @@ function SkillRow({ argument, busy, canEdit, canUse, onArgumentChange, onCopy, o
           <strong>/{skill.name}</strong>
           {skill.category ? <span className="skill-row-category">{skill.category}</span> : null}
         </div>
-        <span className="skill-row-description">{skill.description || '(sem descrição)'}</span>
+        <span className="skill-row-description">{skill.description || '(no description)'}</span>
         <div className="skill-row-meta">
           {skill.agents.length > 0 ? (
             <span className="skill-row-agents">{skill.agents.join(', ')}</span>
           ) : (
-            <span className="skill-row-agents">todos os agents</span>
+            <span className="skill-row-agents">all agents</span>
           )}
           <span className="skill-row-path" title={skill.filePath}>
             <FolderOpen size={9} aria-hidden="true" /> {compactPath(skill.filePath)}
@@ -232,17 +265,17 @@ function SkillRow({ argument, busy, canEdit, canUse, onArgumentChange, onCopy, o
             type="text"
             value={argument}
             onChange={(event) => onArgumentChange(event.currentTarget.value)}
-            placeholder="Argumento opcional para a skill..."
-            aria-label={`Argumento para /${skill.name}`}
+            placeholder="Optional skill argument..."
+            aria-label={`Argument for /${skill.name}`}
           />
           <div className="skill-row-buttons">
-            <button type="button" className="primary-btn small" disabled={!canUse || busy} onClick={onUse} title={canUse ? 'Enviar para o terminal ativo' : 'Selecione um terminal ativo'}>
+            <button type="button" className="primary-btn small" disabled={!canUse || busy} onClick={onUse} title={canUse ? 'Send to the active terminal' : 'Select an active terminal'}>
               <Play size={11} aria-hidden="true" /> Use
             </button>
-            <button type="button" className="ghost-btn small" disabled={busy} onClick={onCopy} title="Copiar prompt renderizado">
+            <button type="button" className="ghost-btn small" disabled={busy} onClick={onCopy} title="Copy rendered prompt">
               <Copy size={11} aria-hidden="true" /> Copy
             </button>
-            <button type="button" className="ghost-btn small" disabled={!canEdit || busy} onClick={onEdit} title={skill.source === 'workspace' ? 'Editar no editor' : 'Skills globais precisam ser copiadas para o workspace para edição no editor'}>
+            <button type="button" className="ghost-btn small" disabled={!canEdit || busy} onClick={onEdit} title={skill.source === 'workspace' ? 'Edit in the editor' : 'Global skills must be copied into the workspace before editing'}>
               <Edit3 size={11} aria-hidden="true" /> Edit
             </button>
           </div>
@@ -272,6 +305,155 @@ function toWorkspaceRelativePath(workspaceRootPath: string, filePath: string): s
   if (comparableFile === normalizedRoot) return null
   if (!comparableFile.startsWith(`${normalizedRoot}/`)) return null
   return normalizedFile.slice(workspaceRootPath.replace(/\\/g, '/').replace(/\/+$/, '').length + 1)
+}
+
+interface CreateSkillFormProps {
+  workspaceRootPath: string | null
+  onCancel: () => void
+  onCreate: (input: import('../../../shared/types/skill').CreateSkillInput) => Promise<void>
+}
+
+function CreateSkillForm({ onCancel, onCreate, workspaceRootPath }: CreateSkillFormProps): ReactElement {
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [category, setCategory] = useState('')
+  const [scope, setScope] = useState<'user' | 'workspace'>(workspaceRootPath ? 'workspace' : 'user')
+  const [agents, setAgents] = useState<AgentProvider[]>([])
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+
+  const toggleAgent = (agent: AgentProvider): void => {
+    setAgents((current) => current.includes(agent)
+      ? current.filter((a) => a !== agent)
+      : [...current, agent])
+  }
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault()
+    setSubmitError(null)
+    const trimmedName = name.trim()
+    if (!/^[a-z0-9][a-z0-9-]*$/i.test(trimmedName)) {
+      setSubmitError('Name must be kebab-case (letters, digits, hyphens). Starts with a letter or digit.')
+      return
+    }
+    if (!description.trim()) {
+      setSubmitError('Description is required.')
+      return
+    }
+    if (scope === 'workspace' && !workspaceRootPath) {
+      setSubmitError('Open a workspace before creating a workspace-scoped skill.')
+      return
+    }
+    setSubmitting(true)
+    try {
+      await onCreate({
+        name: trimmedName,
+        description: description.trim(),
+        scope,
+        agents,
+        category: category.trim() || undefined,
+        workspaceRootPath: scope === 'workspace' ? workspaceRootPath ?? undefined : undefined
+      })
+    } catch (err) {
+      setSubmitError(toMessage(err))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <form className="skills-create-form" onSubmit={(e) => void handleSubmit(e)}>
+      <header className="skills-create-header">
+        <strong>New skill</strong>
+        <span>The file is written to disk; you can edit the prompt body afterwards.</span>
+      </header>
+
+      <div className="skills-create-grid">
+        <label className="skills-create-field">
+          <span>Name (kebab-case)</span>
+          <input
+            type="text"
+            value={name}
+            placeholder="refactor-react"
+            onChange={(e) => setName(e.currentTarget.value)}
+            autoFocus
+          />
+        </label>
+
+        <label className="skills-create-field">
+          <span>Category (optional)</span>
+          <input
+            type="text"
+            value={category}
+            placeholder="refactor"
+            onChange={(e) => setCategory(e.currentTarget.value)}
+          />
+        </label>
+      </div>
+
+      <label className="skills-create-field">
+        <span>Description</span>
+        <input
+          type="text"
+          value={description}
+          placeholder="Refactor React components in the project's style"
+          onChange={(e) => setDescription(e.currentTarget.value)}
+        />
+      </label>
+
+      <fieldset className="skills-create-field">
+        <legend>Scope</legend>
+        <label className="skills-create-radio">
+          <input
+            type="radio"
+            name="skill-scope"
+            value="user"
+            checked={scope === 'user'}
+            onChange={() => setScope('user')}
+          />
+          User — <code>~/.oxe/skills/</code> (every workspace sees it)
+        </label>
+        <label className={`skills-create-radio${!workspaceRootPath ? ' disabled' : ''}`}>
+          <input
+            type="radio"
+            name="skill-scope"
+            value="workspace"
+            checked={scope === 'workspace'}
+            disabled={!workspaceRootPath}
+            onChange={() => setScope('workspace')}
+          />
+          Workspace — <code>&lt;root&gt;/.oxe/skills/</code> (overrides user skills with the same name)
+        </label>
+      </fieldset>
+
+      <fieldset className="skills-create-field">
+        <legend>Providers (empty = all)</legend>
+        <div className="skills-create-providers">
+          {BUILTIN_PROVIDERS.map((provider) => (
+            <label key={provider} className="skills-create-checkbox">
+              <input
+                type="checkbox"
+                checked={agents.includes(provider)}
+                onChange={() => toggleAgent(provider)}
+              />
+              {provider}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      {submitError ? <div className="skills-create-error">{submitError}</div> : null}
+
+      <footer className="skills-create-actions">
+        <button type="button" className="ghost-btn small" disabled={submitting} onClick={onCancel}>
+          Cancel
+        </button>
+        <button type="submit" className="primary-btn small" disabled={submitting}>
+          {submitting ? 'Creating…' : 'Create skill'}
+        </button>
+      </footer>
+    </form>
+  )
 }
 
 function toMessage(error: unknown): string {

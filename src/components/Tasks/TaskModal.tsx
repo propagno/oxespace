@@ -85,11 +85,11 @@ export function TaskModal({ onClose, task, workspaceId }: TaskModalProps): React
 
         {task ? (
           <section className="task-deps">
-            <strong>Dependências</strong>
-            <span className="task-deps-hint">Tarefas que precisam estar <code>passed</code> antes desta rodar.</span>
+            <strong>Dependencies</strong>
+            <span className="task-deps-hint">Tasks that must be <code>passed</code> before this one runs.</span>
             {depError ? <div className="task-deps-error">{depError}</div> : null}
             {dependsOn.length === 0 ? (
-              <span className="task-deps-empty">Nenhuma dependência</span>
+              <span className="task-deps-empty">No dependencies</span>
             ) : (
               <ul className="task-deps-list">
                 {dependsOn.map((depId) => {
@@ -110,7 +110,7 @@ export function TaskModal({ onClose, task, workspaceId }: TaskModalProps): React
                 value=""
                 onChange={(event) => { void handleAddDep(event.target.value); event.currentTarget.value = '' }}
               >
-                <option value="">+ Adicionar dependência…</option>
+                <option value="">+ Add dependency…</option>
                 {candidates.map((t) => (
                   <option key={t.id} value={t.id}>{t.title}</option>
                 ))}

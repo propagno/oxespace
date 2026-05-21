@@ -39,7 +39,32 @@ export default defineConfig({
   },
   renderer: {
     root: '.',
-    plugins: [react()],
+    plugins: [
+      react(),
+      {
+        name: 'inject-prod-csp',
+        apply: 'build',
+        transformIndexHtml(html) {
+          const csp = [
+            "default-src 'self'",
+            "script-src 'self'",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data: blob:",
+            "font-src 'self' data:",
+            "worker-src 'self' blob:",
+            "connect-src 'self'",
+            "frame-src http://localhost:* https://localhost:*",
+            "object-src 'none'",
+            "base-uri 'self'",
+            "form-action 'none'"
+          ].join('; ')
+          return html.replace(
+            '<meta charset="UTF-8" />',
+            `<meta charset="UTF-8" />\n    <meta http-equiv="Content-Security-Policy" content="${csp}">`
+          )
+        }
+      }
+    ],
     resolve: {
       alias: {
         '@renderer': resolve(__dirname, 'src'),

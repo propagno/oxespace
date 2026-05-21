@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { WorkspacePane } from '../../shared/types/workspace'
 import { TerminalPane } from '../../src/components/Panes/TerminalPane'
+import { useAgentStore } from '../../src/store/agent.store'
 import { useTerminalStore } from '../../src/store/terminal.store'
 
 vi.mock('../../src/components/Terminal/TerminalView', () => ({
@@ -10,6 +11,9 @@ vi.mock('../../src/components/Terminal/TerminalView', () => ({
     <div data-testid="terminal-view">
       <button type="button" onClick={() => onInput('a')}>
         input
+      </button>
+      <button type="button" onClick={() => onInput('copilot\r')}>
+        copilot command
       </button>
       <button type="button" onClick={() => onResize(120, 32)}>
         resize
@@ -21,6 +25,23 @@ vi.mock('../../src/components/Terminal/TerminalView', () => ({
 describe('TerminalPane', () => {
   beforeEach(() => {
     useTerminalStore.setState({ panes: {}, pendingCommands: {}, activePaneId: null })
+    useAgentStore.setState({
+      profiles: [],
+      allProfiles: [
+        {
+          agentProfileId: 'agent-copilot',
+          name: 'Copilot',
+          provider: 'copilot',
+          command: 'copilot',
+          commandTemplate: 'copilot',
+          isBuiltin: true
+        }
+      ],
+      readiness: [],
+      isLoading: false,
+      isDiscovering: false,
+      error: null
+    })
     window.oxe = {
       app: { version: '0.1.0' },
       workspace: {
@@ -30,7 +51,8 @@ describe('TerminalPane', () => {
         delete: vi.fn(),
         closePane: vi.fn(),
         pickFolder: vi.fn(),
-        shellProfiles: vi.fn()
+        shellProfiles: vi.fn(),
+        setPaneAgent: vi.fn().mockResolvedValue({ id: 'workspace-1', panes: [] })
       },
       terminal: {
         start: vi.fn().mockResolvedValue(undefined),
@@ -59,6 +81,26 @@ describe('TerminalPane', () => {
 
     await user.click(screen.getByLabelText('Stop terminal'))
     expect(window.oxe.terminal.stop).toHaveBeenCalledWith({ paneId: 'pane-1' })
+  })
+
+  test('marks pane identity when a provider command is launched from a neutral terminal', async () => {
+    const user = userEvent.setup()
+    useTerminalStore.setState({
+      panes: { 'pane-1': { status: 'running', lastActivityAt: Date.now(), lastOutput: null, isWorking: false, hasUnread: false, error: null } },
+      pendingCommands: {},
+      activePaneId: 'pane-1'
+    })
+
+    render(<TerminalPane pane={{ ...createPane(), shellProfileId: 'builtin-powershell', agentProfileId: null }} workspaceId="workspace-1" autoStart={false} />)
+
+    await user.click(screen.getByText('copilot command'))
+
+    expect(window.oxe.workspace.setPaneAgent).toHaveBeenCalledWith({
+      paneId: 'pane-1',
+      agentProfileId: 'agent-copilot',
+      preserveSession: true
+    })
+    expect(window.oxe.terminal.write).toHaveBeenCalledWith({ paneId: 'pane-1', data: 'copilot\r' })
   })
 
   test('marks output unread only when pane is not active', () => {

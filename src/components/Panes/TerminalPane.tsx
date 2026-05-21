@@ -1,10 +1,12 @@
 import { Activity, FolderTree, Play, Slash } from 'lucide-react'
-import { useCallback, useEffect, type ReactElement } from 'react'
+import { useCallback, useEffect, useRef, type ReactElement } from 'react'
+import type { AgentProfile } from '../../../shared/types/agent'
 import type { WorkspacePane } from '../../../shared/types/workspace'
 import { useAgentStore } from '../../store/agent.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useUIStore } from '../../store/ui.store'
 import { selectContextUsage, useUsageStore } from '../../store/usage.store'
+import { useWorkspaceStore } from '../../store/workspace.store'
 import { TerminalView } from '../Terminal/TerminalView'
 
 interface TerminalPaneProps {
@@ -15,9 +17,11 @@ interface TerminalPaneProps {
 
 export function TerminalPane({ autoStart, pane, workspaceId }: TerminalPaneProps): ReactElement {
   const { getStatus, setStatus, consumePendingCommand } = useTerminalStore()
+  const setPaneAgent = useWorkspaceStore((s) => s.setPaneAgent)
   const allProfiles = useAgentStore((s) => s.allProfiles)
   const state = getStatus(pane.id)
   const isRunning = state.status === 'running' || state.status === 'starting'
+  const typedCommandRef = useRef('')
 
   const resolveAgentInfo = useCallback((): { command: string | undefined; initialPrompt: string | undefined } => {
     const pending = consumePendingCommand(pane.id)
@@ -36,18 +40,51 @@ export function TerminalPane({ autoStart, pane, workspaceId }: TerminalPaneProps
     setStatus(pane.id, 'starting')
     try {
       const { command: agentCommand, initialPrompt } = resolveAgentInfo()
+      const profile = inferAgentProfile(agentCommand ?? '', allProfiles)
+      if (profile && profile.agentProfileId !== pane.agentProfileId) {
+        void setPaneAgent(pane.id, profile.agentProfileId, { preserveSession: true })
+      }
       await window.oxe.terminal.start({ paneId: pane.id, workspaceId, agentCommand, initialPrompt })
       setStatus(pane.id, 'running')
     } catch (error) {
       setStatus(pane.id, 'error', toMessage(error))
     }
-  }, [resolveAgentInfo, pane.id, setStatus, workspaceId])
+  }, [allProfiles, pane.agentProfileId, pane.id, resolveAgentInfo, setPaneAgent, setStatus, workspaceId])
+
+  const identifyAgentFromInput = useCallback((data: string): void => {
+    for (const char of data) {
+      if (char === '\u0003') {
+        typedCommandRef.current = ''
+        continue
+      }
+      if (char === '\b' || char === '\x7f') {
+        typedCommandRef.current = typedCommandRef.current.slice(0, -1)
+        continue
+      }
+      if (char === '\r' || char === '\n') {
+        const command = typedCommandRef.current.trim()
+        typedCommandRef.current = ''
+        const profile = inferAgentProfile(command, allProfiles)
+        if (profile && profile.agentProfileId !== pane.agentProfileId) {
+          void setPaneAgent(pane.id, profile.agentProfileId, { preserveSession: true })
+        }
+        continue
+      }
+      if (char >= ' ' && char !== '\x1b') typedCommandRef.current += char
+    }
+  }, [allProfiles, pane.agentProfileId, pane.id, setPaneAgent])
 
   useEffect(() => {
-    if (autoStart && state.status === 'idle') {
-      void start()
-    }
-  }, [autoStart, start, state.status])
+    if (!autoStart || state.status !== 'idle') return
+    // Restore-time race: workspaces hydrate before agent profiles. If this pane
+    // has an agent binding persisted but profiles aren't loaded yet,
+    // resolveAgentInfo() returns no command and terminal.service falls back to
+    // shell_profile_id — which on the first pane is 'builtin-claude' and ends
+    // up launching Claude instead of the persisted Copilot/Codex/etc. Wait for
+    // profiles before auto-starting bound panes.
+    if (pane.agentProfileId && allProfiles.length === 0) return
+    void start()
+  }, [autoStart, start, state.status, pane.agentProfileId, allProfiles.length])
 
   const stop = async (): Promise<void> => {
     await window.oxe.terminal.stop({ paneId: pane.id })
@@ -58,13 +95,17 @@ export function TerminalPane({ autoStart, pane, workspaceId }: TerminalPaneProps
     setStatus(pane.id, 'starting')
     try {
       const { command: agentCommand, initialPrompt } = resolveAgentInfo()
+      const profile = inferAgentProfile(agentCommand ?? '', allProfiles)
+      if (profile && profile.agentProfileId !== pane.agentProfileId) {
+        void setPaneAgent(pane.id, profile.agentProfileId, { preserveSession: true })
+      }
       await window.oxe.terminal.stop({ paneId: pane.id })
       await window.oxe.terminal.start({ paneId: pane.id, workspaceId, agentCommand, initialPrompt })
       setStatus(pane.id, 'running')
     } catch (error) {
       setStatus(pane.id, 'error', toMessage(error))
     }
-  }, [resolveAgentInfo, pane.id, setStatus, workspaceId])
+  }, [allProfiles, pane.agentProfileId, pane.id, resolveAgentInfo, setPaneAgent, setStatus, workspaceId])
 
   useEffect(() => {
     const handler = (e: Event): void => {
@@ -99,7 +140,9 @@ export function TerminalPane({ autoStart, pane, workspaceId }: TerminalPaneProps
   const usageSelector = useCallback(selectContextUsage(workspaceId, paneProvider), [workspaceId, paneProvider])
   const usage = useUsageStore(usageSelector)
   const supportedProviders = useUsageStore((s) => s.supportedProviders)
-  const providerSupportsUsage = paneProvider !== null && supportedProviders.includes(paneProvider)
+  // Context usage is intentionally gated to Claude panes only — other providers'
+  // session logs are read-only stubs and would surface misleading numbers.
+  const providerSupportsUsage = paneProvider === 'claude' && supportedProviders.includes(paneProvider)
   const showsUsageChip = providerSupportsUsage && usage.available
   // Context % is based on the LAST turn (current window), not cumulative session totals.
   const currentContextTokens = usage.lastTurnInputTokens + usage.lastTurnCacheCreationTokens + usage.lastTurnCacheReadTokens + usage.lastTurnOutputTokens
@@ -119,7 +162,9 @@ export function TerminalPane({ autoStart, pane, workspaceId }: TerminalPaneProps
             paneId={pane.id}
             isRunning={isRunning}
             onInput={(data) => {
-              if (isRunning) void window.oxe.terminal.write({ paneId: pane.id, data })
+              if (!isRunning) return
+              identifyAgentFromInput(data)
+              void window.oxe.terminal.write({ paneId: pane.id, data })
             }}
             onResize={(cols, rows) => {
               if (isRunning) void window.oxe.terminal.resize({ paneId: pane.id, cols, rows })
@@ -154,8 +199,8 @@ export function TerminalPane({ autoStart, pane, workspaceId }: TerminalPaneProps
           <button
             type="button"
             className={`statusbar-chip usage-chip${usagePct > 80 ? ' danger' : usagePct > 60 ? ' warning' : ''}`}
-            aria-label={`Contexto: ${usagePct}% usado. ${usage.requestCount} requests, ~$${usage.estimatedCostUsd.toFixed(2)}.`}
-            title={`Contexto atual: ${formatStatusbarTokens(currentContextTokens)} / ${formatStatusbarTokens(usage.contextLimit ?? 0)} · Sessão: ~$${usage.estimatedCostUsd.toFixed(2)} (API-equiv)`}
+            aria-label={`Context: ${usagePct}% used. ${usage.requestCount} requests, ~$${usage.estimatedCostUsd.toFixed(2)}.`}
+            title={`Current context: ${formatStatusbarTokens(currentContextTokens)} / ${formatStatusbarTokens(usage.contextLimit ?? 0)} · Session: ~$${usage.estimatedCostUsd.toFixed(2)} (API-equiv)`}
             onClick={() => openContextUsage(pane.id)}
           >
             <Activity size={10} aria-hidden="true" />
@@ -225,4 +270,19 @@ function deriveWorktreeLabel(rootPath: string): string {
   // Show just the final directory segment (e.g. "oxespace-feat-x" → "feat-x" if prefix matches)
   const segments = rootPath.split(/[\\/]/).filter(Boolean)
   return segments[segments.length - 1] ?? rootPath
+}
+
+function inferAgentProfile(command: string, profiles: AgentProfile[]): AgentProfile | null {
+  if (!command) return null
+  const match = command.match(/^(?:&\s*)?(?:"([^"]+)"|'([^']+)'|([^\s]+))/)
+  const first = match?.[1] ?? match?.[2] ?? match?.[3]
+    ?? ''
+  const normalized = first.replace(/\\/g, '/').split('/').pop()?.replace(/\.(cmd|exe|bat|ps1)$/i, '').toLowerCase()
+  if (!normalized) return null
+
+  return profiles.find((profile) => {
+    const profileCommand = profile.command.trim().split(/\s+/)[0]
+    const profileExecutable = profileCommand.replace(/\\/g, '/').split('/').pop()?.replace(/\.(cmd|exe|bat|ps1)$/i, '').toLowerCase()
+    return profileExecutable === normalized || profile.provider === normalized || profile.parentProvider === normalized
+  }) ?? null
 }

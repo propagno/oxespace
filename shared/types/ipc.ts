@@ -33,6 +33,7 @@ import type {
   GitHubRepositorySummary,
   GitHubRestoreCheckpointInput,
   GitHubWorkflow,
+  GitHubWorkflowRunDetails,
   GitHubWorkflowRun,
   GitHubWorkflowRunInput,
   GitHubWorkspaceInput,
@@ -42,7 +43,7 @@ import type {
 export type { ShellProfile, Workspace, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, AgentProfile, AgentReadiness }
 export type { Task, TaskExecution, TaskVerifyOutputEvent }
 export type { GitDiff, GitDiffFile, GitDiffHunk, GitDiffLine, GitDiffInput, GitLineType } from './git'
-export type { GitHubBranch, GitHubCheckpoint, GitHubCliStatus, GitHubCommit, GitHubCommitDetails, GitHubConnectedRepository, GitHubMessageResult, GitHubPanelTab, GitHubPullRequest, GitHubRelease, GitHubRepositorySummary, GitHubWorkflow, GitHubWorkflowRun, GitHubWorkspaceStatus } from './github'
+export type { GitHubBranch, GitHubCheckpoint, GitHubCliStatus, GitHubCommit, GitHubCommitDetails, GitHubConnectedRepository, GitHubMessageResult, GitHubPanelTab, GitHubPullRequest, GitHubRelease, GitHubRepositorySummary, GitHubWorkflow, GitHubWorkflowRun, GitHubWorkflowRunDetails, GitHubWorkspaceStatus } from './github'
 
 export type FileTreeNodeType = 'file' | 'directory'
 
@@ -209,6 +210,7 @@ export const IPC_CHANNELS = {
     list: 'skill:list',
     get: 'skill:get',
     invoke: 'skill:invoke',
+    create: 'skill:create',
     onChange: 'skill:on-change'
   },
   mcp: {
@@ -244,6 +246,7 @@ export const IPC_CHANNELS = {
     createRelease: 'github:create-release',
     listWorkflows: 'github:list-workflows',
     listWorkflowRuns: 'github:list-workflow-runs',
+    getWorkflowRunDetails: 'github:get-workflow-run-details',
     runWorkflow: 'github:run-workflow',
     rerunRun: 'github:rerun-run',
     getRunLogs: 'github:get-run-logs',
@@ -309,11 +312,11 @@ export interface WorkspaceApi {
   create(input: CreateWorkspaceInput): Promise<Workspace>
   setActive(id: string): Promise<Workspace>
   delete(id: string): Promise<void>
-  closePane(id: string): Promise<void>
+  closePane(id: string): Promise<Workspace | null>
   splitPane(input: SplitPaneInput): Promise<Workspace>
   updatePaneType(input: UpdatePaneTypeInput): Promise<Workspace>
   updatePaneName(input: UpdatePaneNameInput): Promise<Workspace>
-  setPaneAgent(input: { paneId: string; agentProfileId: string | null }): Promise<Workspace>
+  setPaneAgent(input: { paneId: string; agentProfileId: string | null; preserveSession?: boolean }): Promise<Workspace>
   setPaneRootPath(input: { paneId: string; rootPath: string | null }): Promise<Workspace>
   updateEditorState(input: UpdateWorkspaceEditorStateInput): Promise<Workspace>
   updateReviewState(input: UpdateWorkspaceReviewStateInput): Promise<Workspace>
@@ -387,6 +390,7 @@ export interface GitHubApi {
   createRelease(input: GitHubCreateReleaseInput): Promise<GitHubMessageResult>
   listWorkflows(input: GitHubWorkspaceInput): Promise<GitHubWorkflow[]>
   listWorkflowRuns(input: GitHubWorkspaceInput): Promise<GitHubWorkflowRun[]>
+  getWorkflowRunDetails(input: { rootPath: string; runId: number }): Promise<GitHubWorkflowRunDetails>
   runWorkflow(input: GitHubWorkflowRunInput): Promise<GitHubMessageResult>
   rerunRun(input: { rootPath: string; runId: number; failedOnly: boolean }): Promise<GitHubMessageResult>
   getRunLogs(input: { rootPath: string; runId: number; failedOnly: boolean }): Promise<{ logs: string; truncated: boolean; bytes: number }>
@@ -448,6 +452,7 @@ export interface SkillApi {
   list(input?: { workspaceRootPath?: string }): Promise<import('./skill').SkillDefinition[]>
   get(name: string): Promise<import('./skill').SkillDefinition | null>
   invoke(input: import('./skill').InvokeSkillInput): Promise<void>
+  create(input: import('./skill').CreateSkillInput): Promise<import('./skill').SkillDefinition>
   onChange(listener: () => void): () => void
 }
 

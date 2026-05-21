@@ -93,6 +93,117 @@
   border-bottom: 1px solid rgba(18, 199, 154, 0.16);
 }
 
+.skills-create-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 10px 14px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.skills-create-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.skills-create-header strong {
+  font-size: 12.5px;
+  color: var(--tx-primary);
+}
+
+.skills-create-header span {
+  font-size: 11px;
+  color: var(--tx-muted);
+}
+
+.skills-create-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.skills-create-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: none;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.skills-create-field > span,
+.skills-create-field > legend {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--tx-secondary, var(--tx-muted));
+}
+
+.skills-create-field input[type="text"] {
+  background: rgba(0, 0, 0, 0.32);
+  color: var(--tx-primary);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 6px;
+  padding: 6px 9px;
+  font-size: 12px;
+  min-width: 0;
+}
+
+.skills-create-field input[type="text"]:focus {
+  outline: none;
+  border-color: rgba(18, 199, 154, 0.55);
+}
+
+.skills-create-radio,
+.skills-create-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--tx-primary);
+  cursor: pointer;
+}
+
+.skills-create-radio.disabled {
+  color: var(--tx-muted);
+  cursor: not-allowed;
+}
+
+.skills-create-radio code,
+.skills-create-radio + .skills-create-radio code {
+  font-size: 10.5px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.skills-create-providers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+}
+
+.skills-create-error {
+  padding: 8px 10px;
+  background: rgba(244, 91, 105, 0.10);
+  border: 1px solid rgba(244, 91, 105, 0.22);
+  border-radius: 6px;
+  color: #FFB1B8;
+  font-size: 11.5px;
+}
+
+.skills-create-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 10px;
+}
+
 .skills-browser-list {
   flex: 1;
   overflow-y: auto;

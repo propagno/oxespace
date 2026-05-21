@@ -21,6 +21,108 @@
   justify-content: center;
 }
 
+.sidebar-rail-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 5px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* Keep button column width stable when a scrollbar appears, so icons don't
+     get clipped against the 54px rail. */
+  scrollbar-gutter: stable;
+}
+
+.sidebar-rail-workspace {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.sidebar-rail-workspace-btn,
+.sidebar-rail-pane {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--tx-muted);
+  cursor: pointer;
+}
+
+.sidebar-rail-workspace-btn span {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.sidebar-rail-workspace.active .sidebar-rail-workspace-btn {
+  color: var(--tx-primary);
+  border-color: rgba(0, 229, 192, 0.35);
+  background: rgba(0, 229, 192, 0.09);
+}
+
+.sidebar-rail-workspace-btn:hover,
+.sidebar-rail-pane:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--tx-primary);
+}
+
+.sidebar-rail-workspace-btn i,
+.sidebar-rail-pane.unread::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand);
+  box-shadow: 0 0 7px rgb(0 229 192 / 70%);
+}
+
+.sidebar-rail-panes {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.sidebar-rail-pane {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+}
+
+.sidebar-rail-pane.active {
+  border-color: rgba(96, 165, 250, 0.5);
+  background: rgba(96, 165, 250, 0.14);
+}
+
+.sidebar-rail-pane > span {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--tx-primary);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.sidebar-rail-pane .agent-provider-icon {
+  width: 22px;
+  height: 22px;
+}
+
 /* ─── Header bar ────────────────────────────────────────────────────────── */
 .sidebar-header-bar {
   display: flex;
@@ -283,6 +385,7 @@
   display: flex;
   align-items: flex-start;
   gap: 8px;
+  position: relative;
   padding: 6px 8px 6px 16px;
   cursor: pointer;
   border-radius: 6px;
@@ -428,6 +531,41 @@
 /* Exited row: dimmed icon + label */
 .pane-session-row.exited .pane-row-icon { opacity: 0.4; }
 .pane-session-row.exited .pane-session-label { color: var(--tx-muted); }
+
+.pane-session-context-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 150px;
+  padding: 5px;
+  border: 1px solid var(--bd-default);
+  border-radius: 7px;
+  background: var(--bg-elevated);
+  box-shadow: 0 12px 28px rgb(0 0 0 / 45%);
+}
+
+.pane-session-context-menu button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 28px;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--tx-primary);
+  font-size: var(--fs-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.pane-session-context-menu button:hover {
+  background: var(--bg-ws-hover);
+}
+
+.pane-session-context-menu button.danger {
+  color: var(--dot-red);
+}
 
 /* Recent timestamp (< 15 min) — green like Clideck */
 .pane-row-time.recent { color: #5cbd6d; }
@@ -592,6 +730,24 @@
   min-width: 0;
   height: 100%;
   background: var(--bg-app);
+  position: relative;
+}
+
+/* Each workspace gets its own host that stays mounted across workspace
+   switches. Non-active hosts are hidden via visibility (keeping their layout
+   intact) so the xterm Terminal instances don't get torn down — full-screen
+   TUIs like GitHub Copilot need their altbuf + cursor state preserved, and
+   tearing the Terminal down on every switch loses both (visible as a
+   "frozen scroll" + corrupted formatting after returning). */
+.workspace-host {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+.workspace-host.workspace-host-hidden {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .empty-state {

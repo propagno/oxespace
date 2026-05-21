@@ -155,13 +155,14 @@ export function parseUpdatePaneNameInput(value: unknown): UpdatePaneNameInput {
   }
 }
 
-export function parseSetPaneAgentInput(value: unknown): { paneId: string; agentProfileId: string | null } {
+export function parseSetPaneAgentInput(value: unknown): { paneId: string; agentProfileId: string | null; preserveSession: boolean } {
   const input = expectRecord(value, 'workspace:set-pane-agent input')
   return {
     paneId: expectNonEmptyString(input.paneId, 'paneId'),
     agentProfileId: input.agentProfileId === null || input.agentProfileId === undefined
       ? null
-      : expectNonEmptyString(input.agentProfileId, 'agentProfileId')
+      : expectNonEmptyString(input.agentProfileId, 'agentProfileId'),
+    preserveSession: input.preserveSession === undefined ? false : expectBoolean(input.preserveSession, 'preserveSession')
   }
 }
 

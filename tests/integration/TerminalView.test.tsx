@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
+import { Terminal } from '@xterm/xterm'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { TerminalView } from '../../src/components/Terminal/TerminalView'
 
@@ -8,7 +9,10 @@ const terminalState = {
   focus: vi.fn(),
   dispose: vi.fn(),
   paste: vi.fn(),
+  refresh: vi.fn(),
   scrollLines: vi.fn(),
+  scrollToBottom: vi.fn(),
+  scrollToLine: vi.fn(),
   attachCustomKeyEventHandler: vi.fn()
 }
 
@@ -22,7 +26,11 @@ vi.mock('@xterm/xterm', () => ({
     focus: terminalState.focus,
     dispose: terminalState.dispose,
     paste: terminalState.paste,
+    refresh: terminalState.refresh,
     scrollLines: terminalState.scrollLines,
+    unicode: { activeVersion: '6' },
+    scrollToBottom: terminalState.scrollToBottom,
+    scrollToLine: terminalState.scrollToLine,
     attachCustomKeyEventHandler: terminalState.attachCustomKeyEventHandler,
     buffer: {
       active: { baseY: 0, viewportY: 0, cursorY: 0, length: 0, getLine: vi.fn(() => null) }
@@ -40,6 +48,10 @@ vi.mock('@xterm/addon-fit', () => ({
   }))
 }))
 
+vi.mock('@xterm/addon-unicode11', () => ({
+  Unicode11Addon: vi.fn()
+}))
+
 vi.mock('@xterm/addon-web-links', () => ({
   WebLinksAddon: vi.fn()
 }))
@@ -51,7 +63,10 @@ describe('TerminalView', () => {
     terminalState.focus.mockClear()
     terminalState.dispose.mockClear()
     terminalState.paste.mockClear()
+    terminalState.refresh.mockClear()
     terminalState.scrollLines.mockClear()
+    terminalState.scrollToBottom.mockClear()
+    terminalState.scrollToLine.mockClear()
     terminalState.attachCustomKeyEventHandler.mockClear()
 
     global.ResizeObserver = class {
@@ -99,7 +114,7 @@ describe('TerminalView', () => {
     } as unknown as typeof window.oxe
   })
 
-  test('wires xterm input, resize and terminal events', () => {
+  test('wires xterm input, resize and terminal events', async () => {
     const onInput = vi.fn()
     const onExit = vi.fn()
     const onResize = vi.fn()
@@ -107,7 +122,8 @@ describe('TerminalView', () => {
     render(<TerminalView paneId="pane-1" isRunning onExit={onExit} onInput={onInput} onResize={onResize} />)
 
     expect(screen.getByTestId('terminal-view')).toBeInTheDocument()
-    expect(onResize).toHaveBeenCalledWith(120, 32)
+    expect(Terminal).toHaveBeenCalledWith(expect.objectContaining({ allowProposedApi: true }))
+    await waitFor(() => expect(onResize).toHaveBeenCalledWith(120, 32))
     expect(terminalState.attachCustomKeyEventHandler).toHaveBeenCalled()
 
     terminalState.onData?.('a')
@@ -115,7 +131,9 @@ describe('TerminalView', () => {
 
     const dataListener = vi.mocked(window.oxe.terminal.onData).mock.calls[0][0]
     dataListener({ paneId: 'pane-1', data: 'hello' })
-    expect(terminalState.write).toHaveBeenCalledWith('hello')
+    // Smart-scrollback passes a callback as the 2nd arg to terminal.write so
+    // the viewport can be restored after the chunk is rendered.
+    expect(terminalState.write).toHaveBeenCalledWith('hello', expect.any(Function))
 
     const exitListener = vi.mocked(window.oxe.terminal.onExit).mock.calls[0][0]
     exitListener({ paneId: 'pane-1', exitCode: 0 })

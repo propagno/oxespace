@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { Workspace } from '../../shared/types/workspace'
@@ -25,6 +25,17 @@ const workspace: Workspace = {
 describe('Sidebar', () => {
   beforeEach(() => {
     useTerminalStore.setState({ panes: {}, pendingCommands: {}, activePaneId: null })
+    Object.defineProperty(window, 'oxe', {
+      configurable: true,
+      value: {
+        terminal: {
+          stop: vi.fn().mockResolvedValue(undefined)
+        },
+        workspace: {
+          closePane: vi.fn().mockResolvedValue(undefined)
+        }
+      }
+    })
   })
 
   test('renders workspace metadata and dispatches actions', async () => {
@@ -70,7 +81,11 @@ describe('Sidebar', () => {
     expect(screen.queryByLabelText('AI Providers')).not.toBeInTheDocument()
   })
 
-  test('collapsed sidebar exposes only the expand affordance', () => {
+  test('collapsed sidebar keeps workspaces and panes available on the rail', async () => {
+    const user = userEvent.setup()
+    const onSelectWorkspace = vi.fn()
+    const onActivatePane = vi.fn()
+
     render(
       <Sidebar
         workspaces={[workspace]}
@@ -79,16 +94,23 @@ describe('Sidebar', () => {
         agentProfiles={[]}
         appVersion="0.1.2"
         onNewWorkspace={vi.fn()}
-        onSelectWorkspace={vi.fn()}
+        onSelectWorkspace={onSelectWorkspace}
         onCloseWorkspace={vi.fn()}
-        onActivatePane={vi.fn()}
+        onActivatePane={onActivatePane}
         isCollapsed
         onToggleCollapse={vi.fn()}
       />
     )
 
     expect(screen.queryByText('repo')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('repo')).toBeInTheDocument()
+    expect(screen.getByLabelText('terminal 1')).toBeInTheDocument()
+    expect(screen.getByLabelText('terminal 2')).toBeInTheDocument()
     expect(screen.getByLabelText('Expand sidebar')).toBeInTheDocument()
+
+    await user.click(screen.getByLabelText('terminal 2'))
+    expect(onSelectWorkspace).toHaveBeenCalledWith('workspace-1')
+    expect(onActivatePane).toHaveBeenCalledWith('pane-2')
   })
 
   test('filters unread panes, clears unread on activation and returns to all tab', async () => {
@@ -166,5 +188,54 @@ describe('Sidebar', () => {
     )
 
     expect(screen.getByLabelText('1 unread pane')).toHaveTextContent('1')
+  })
+
+  test('right-clicking a terminal row can stop and close it', async () => {
+    const user = userEvent.setup()
+    const closePane = vi.fn().mockResolvedValue(undefined)
+    const stop = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(window, 'oxe', {
+      configurable: true,
+      value: {
+        terminal: { stop },
+        workspace: { closePane }
+      }
+    })
+    useTerminalStore.setState({
+      panes: {
+        'pane-1': {
+          status: 'running',
+          lastActivityAt: Date.now(),
+          lastOutput: 'Logged in',
+          isWorking: false,
+          hasUnread: false,
+          error: null
+        }
+      },
+      pendingCommands: {},
+      activePaneId: 'pane-1'
+    })
+
+    render(
+      <Sidebar
+        workspaces={[workspace]}
+        activeWorkspaceId="workspace-1"
+        activePaneId="pane-1"
+        agentProfiles={[]}
+        appVersion="0.1.2"
+        onNewWorkspace={vi.fn()}
+        onSelectWorkspace={vi.fn()}
+        onCloseWorkspace={vi.fn()}
+        onActivatePane={vi.fn()}
+        isCollapsed={false}
+        onToggleCollapse={vi.fn()}
+      />
+    )
+
+    fireEvent.contextMenu(screen.getByText('terminal 1'))
+    await user.click(screen.getByRole('menuitem', { name: /close terminal/i }))
+
+    await waitFor(() => expect(stop).toHaveBeenCalledWith({ paneId: 'pane-1' }))
+    expect(closePane).toHaveBeenCalledWith('pane-1')
   })
 })

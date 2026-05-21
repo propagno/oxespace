@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronDown, ChevronRight, Clock, Copy, ExternalLink, Github, GitPullRequest, Link2, Play, RefreshCw, Tag, Terminal, TrendingUp } from 'lucide-react'
-import type { GitHubBranch, GitHubCliStatus, GitHubCommit, GitHubCommitDetails, GitHubConnectedRepository, GitHubPanelTab, GitHubPullRequest, GitHubRelease, GitHubWorkflow, GitHubWorkflowRun, GitHubWorkspaceStatus } from '../../../shared/types/github'
+import type { GitHubBranch, GitHubCliStatus, GitHubCommit, GitHubCommitDetails, GitHubConnectedRepository, GitHubPanelTab, GitHubPullRequest, GitHubRelease, GitHubWorkflow, GitHubWorkflowJob, GitHubWorkflowRun, GitHubWorkflowRunDetails, GitHubWorkspaceStatus } from '../../../shared/types/github'
 import { selectGitHubWorkspace, useGitHubStore } from '../../store/github.store'
 import { TerminalView } from '../Terminal/TerminalView'
 
@@ -65,6 +65,10 @@ export function GitHubPanel({ activeTab: propTab, onTabChange, rootPath, workspa
   const requestConfirm = (title: string, detail: string, run: () => Promise<void>): void => setConfirmAction({ title, detail, run })
 
   const runCommand = (command: string): void => setPendingCommand(command)
+  const loadWorkflowRunDetails = useCallback(
+    (runId: number) => useGitHubStore.getState().loadWorkflowRunDetails({ ...input, runId }),
+    [input]
+  )
 
   return (
     <section className="github-panel">
@@ -118,8 +122,8 @@ export function GitHubPanel({ activeTab: propTab, onTabChange, rootPath, workspa
                 rootPath={rootPath}
                 workspaceId={workspaceId}
                 status={status}
-                onConnect={(fullName) => requestConfirm('Conectar repositório', fullName, () => useGitHubStore.getState().connectRepository({ ...input, fullName }))}
-                onPush={() => requestConfirm('Push para GitHub', 'Enviar branch atual para o remoto.', () => useGitHubStore.getState().push(input))}
+                onConnect={(fullName) => requestConfirm('Connect repository', fullName, () => useGitHubStore.getState().connectRepository({ ...input, fullName }))}
+                onPush={() => requestConfirm('Push to GitHub', 'Send the current branch to the remote.', () => useGitHubStore.getState().push(input))}
                 onRefresh={() => void useGitHubStore.getState().loadTab(input, 'repos')}
               />
             )}
@@ -165,8 +169,11 @@ export function GitHubPanel({ activeTab: propTab, onTabChange, rootPath, workspa
               <ActionsTab
                 workflows={state.workflows}
                 workflowRuns={state.workflowRuns}
+                workflowRunDetails={state.workflowRunDetails}
                 loading={state.loading}
+                workspaceId={workspaceId}
                 rootPath={rootPath}
+                onLoadRunDetails={loadWorkflowRunDetails}
                 onRun={(workflowId, ref, fields) => requestConfirm('Run workflow', workflowId, () => useGitHubStore.getState().runWorkflow({ ...input, workflowId, ref, fields }))}
                 onRerun={(runId, failedOnly) => requestConfirm(failedOnly ? 'Re-run failed jobs' : 'Re-run workflow', `Run #${runId}`, () => useGitHubStore.getState().rerunRun({ ...input, runId, failedOnly }))}
                 onRefresh={() => void useGitHubStore.getState().loadTab(input, 'actions')}
@@ -848,11 +855,14 @@ function ReleasesTab({ releases, status, loading, onCreate, onRefresh }: {
 
 // Onda 5: rewritten as a tree (workflows → runs) + right-side run detail panel,
 // matching the VS Code GitHub Actions extension layout.
-function ActionsTab({ workflows, workflowRuns, loading, rootPath, onRun, onRerun, onRefresh }: {
+function ActionsTab({ workflows, workflowRuns, workflowRunDetails, loading, workspaceId, rootPath, onLoadRunDetails, onRun, onRerun, onRefresh }: {
   workflows: GitHubWorkflow[]
   workflowRuns: GitHubWorkflowRun[]
+  workflowRunDetails: Record<number, GitHubWorkflowRunDetails>
   loading: boolean
+  workspaceId: string
   rootPath: string
+  onLoadRunDetails: (runId: number) => Promise<GitHubWorkflowRunDetails>
   onRun: (workflowId: string, ref?: string, fields?: Record<string, string>) => void
   onRerun: (runId: number, failedOnly: boolean) => void
   onRefresh: () => void
@@ -892,6 +902,26 @@ function ActionsTab({ workflows, workflowRuns, loading, rootPath, onRun, onRerun
   }, [workflows, workflowRuns, filter])
 
   const selectedRun = workflowRuns.find((r) => r.databaseId === selectedRunId) ?? null
+  const selectedDetails = selectedRunId !== null ? workflowRunDetails[selectedRunId] ?? null : null
+
+  useEffect(() => {
+    if (selectedRunId !== null || workflowRuns.length === 0) return
+    setSelectedRunId(workflowRuns[0].databaseId)
+  }, [selectedRunId, workflowRuns])
+
+  useEffect(() => {
+    if (!selectedRun) return
+    void onLoadRunDetails(selectedRun.databaseId).catch(() => undefined)
+  }, [onLoadRunDetails, selectedRun?.databaseId])
+
+  useEffect(() => {
+    if (!selectedRun || (selectedRun.status !== 'in_progress' && selectedRun.status !== 'queued')) return
+    const id = window.setInterval(() => {
+      void onLoadRunDetails(selectedRun.databaseId).catch(() => undefined)
+      onRefresh()
+    }, 5000)
+    return () => window.clearInterval(id)
+  }, [onLoadRunDetails, onRefresh, selectedRun?.databaseId, selectedRun?.status])
 
   const toggleWorkflow = (name: string): void => {
     setCollapsedWorkflows((prev) => {
@@ -985,7 +1015,14 @@ function ActionsTab({ workflows, workflowRuns, loading, rootPath, onRun, onRerun
 
         <section className="github-actions-v2-detail">
           {selectedRun ? (
-            <RunDetail run={selectedRun} rootPath={rootPath} onRerun={(failedOnly) => onRerun(selectedRun.databaseId, failedOnly)} />
+            <RunDetail
+              run={selectedRun}
+              details={selectedDetails}
+              rootPath={rootPath}
+              workspaceId={workspaceId}
+              onRefresh={() => void onLoadRunDetails(selectedRun.databaseId)}
+              onRerun={(failedOnly) => onRerun(selectedRun.databaseId, failedOnly)}
+            />
           ) : (
             <div className="github-empty">Select a workflow run to view details.</div>
           )}
@@ -995,7 +1032,14 @@ function ActionsTab({ workflows, workflowRuns, loading, rootPath, onRun, onRerun
   )
 }
 
-function RunDetail({ run, rootPath, onRerun }: { run: GitHubWorkflowRun; rootPath: string; onRerun: (failedOnly: boolean) => void }): ReactElement {
+function RunDetail({ run, details, rootPath, workspaceId, onRefresh, onRerun }: {
+  run: GitHubWorkflowRun
+  details: GitHubWorkflowRunDetails | null
+  rootPath: string
+  workspaceId: string
+  onRefresh: () => void
+  onRerun: (failedOnly: boolean) => void
+}): ReactElement {
   const isFailed = run.conclusion === 'failure' || run.status === 'failure'
   const [logs, setLogs] = useState<{ text: string; truncated: boolean } | null>(null)
   const [logsLoading, setLogsLoading] = useState(false)
@@ -1096,7 +1140,12 @@ function RunDetail({ run, rootPath, onRerun }: { run: GitHubWorkflowRun; rootPat
             <ExternalLink size={11} aria-hidden="true" /> Open in GitHub
           </button>
         ) : null}
+        <button type="button" className="ghost-btn" onClick={onRefresh}>
+          <RefreshCw size={11} aria-hidden="true" /> Refresh steps
+        </button>
       </div>
+
+      <WorkflowRuntimeTree run={details ?? run} jobs={details?.jobs ?? []} workspaceId={workspaceId} />
 
       {logsError ? <div className="github-actions-v2-logs-error">{logsError}</div> : null}
 
@@ -1138,10 +1187,67 @@ function RunDetail({ run, rootPath, onRerun }: { run: GitHubWorkflowRun; rootPat
 
       {!logs && !logsLoading && !logsError ? (
         <div className="github-actions-v2-detail-hint">
-          Click <strong>View logs</strong> to fetch the run's full output inline (large logs are tailed to ~2&nbsp;MB).
-          GitHub's web UI has the per-job/per-step breakdown if you need to drill deeper.
+          Steps update while the run is active. Use <strong>View logs</strong> only for completed output or deeper text diagnostics.
         </div>
       ) : null}
+    </div>
+  )
+}
+
+function WorkflowRuntimeTree({ run, jobs, workspaceId }: { run: GitHubWorkflowRun; jobs: GitHubWorkflowJob[]; workspaceId: string }): ReactElement {
+  const [collapsedJobs, setCollapsedJobs] = useState<Set<string>>(new Set())
+  const toggleJob = (name: string): void => {
+    setCollapsedJobs((prev) => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name); else next.add(name)
+      return next
+    })
+  }
+
+  if (jobs.length === 0) {
+    return (
+      <div className="github-actions-runtime-empty">
+        <Clock size={14} aria-hidden="true" />
+        <span>Loading runtime jobs and steps…</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="github-actions-runtime" aria-label="Workflow runtime steps">
+      <div className="github-actions-runtime-heading">
+        <span>Runtime pipeline</span>
+        <small>{run.status}{run.conclusion ? ` · ${run.conclusion}` : ''}</small>
+      </div>
+      {jobs.map((job) => {
+        const key = `${workspaceId}:${job.databaseId ?? job.name}`
+        const collapsed = collapsedJobs.has(key)
+        return (
+          <div key={key} className="github-actions-job">
+            <button type="button" className="github-actions-job-row" onClick={() => toggleJob(key)}>
+              {collapsed ? <ChevronRight size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}
+              <RunStatusIcon status={job.status} conclusion={job.conclusion} />
+              <span className="github-actions-job-name">{job.name}</span>
+              <span className="github-actions-job-meta">{job.steps.length} steps</span>
+            </button>
+            {!collapsed ? (
+              <div className="github-actions-step-list">
+                {job.steps.length === 0 ? (
+                  <span className="github-actions-step-empty">No steps reported yet.</span>
+                ) : (
+                  job.steps.map((step) => (
+                    <div key={`${key}:${step.number ?? step.name}`} className="github-actions-step-row">
+                      <RunStatusIcon status={step.status} conclusion={step.conclusion} />
+                      <span className="github-actions-step-name">{step.name}</span>
+                      <span className="github-actions-step-state">{step.conclusion ?? step.status}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            ) : null}
+          </div>
+        )
+      })}
     </div>
   )
 }

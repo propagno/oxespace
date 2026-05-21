@@ -1,4 +1,4 @@
-import { Bot, RefreshCw, X } from 'lucide-react'
+import { Bot, Plus, RefreshCw, Settings2, X } from 'lucide-react'
 import type { ReactElement } from 'react'
 import type { AgentProfile, AgentReadiness } from '../../../shared/types/agent'
 
@@ -8,6 +8,8 @@ interface SettingsModalProps {
   isDiscoveringAgents: boolean
   onClose: () => void
   onDiscoverAgents: () => void
+  onConfigureAgent: (profile: AgentProfile) => void
+  onNewCustomAgent: () => void
 }
 
 function readinessFor(profile: AgentProfile, readiness: AgentReadiness[]): AgentReadiness | undefined {
@@ -23,7 +25,9 @@ export function SettingsModal({
   agentReadiness,
   isDiscoveringAgents,
   onClose,
-  onDiscoverAgents
+  onDiscoverAgents,
+  onConfigureAgent,
+  onNewCustomAgent
 }: SettingsModalProps): ReactElement {
   return (
     <div className="modal-backdrop" role="presentation">
@@ -73,21 +77,48 @@ export function SettingsModal({
               }
               return providers.map((profile) => {
                 const readiness = readinessFor(profile, agentReadiness)
+                const isCustom = profile.provider === 'custom'
                 return (
                   <article className="settings-agent-row" key={profile.agentProfileId}>
                     <div className="settings-agent-main">
                       <strong>{profile.name}</strong>
-                      <span>{profile.command}</span>
+                      <span>
+                        {isCustom
+                          ? `custom · ${profile.parentProvider ?? '—'}`
+                          : profile.command}
+                      </span>
                     </div>
                     <div className="settings-agent-state">
-                      <ReadinessBadge status={readiness?.status} />
-                      {readiness?.version ? <span className="readiness-version">{readiness.version}</span> : null}
+                      {/* Custom agents have no readiness probe of their own —
+                          they inherit their parent provider's status. */}
+                      {!isCustom ? <ReadinessBadge status={readiness?.status} /> : null}
+                      {readiness?.version && !isCustom ? <span className="readiness-version">{readiness.version}</span> : null}
+                      <button
+                        type="button"
+                        className="icon-button"
+                        aria-label={`Configure ${profile.name}`}
+                        title="Configure"
+                        onClick={() => onConfigureAgent(profile)}
+                        data-testid={`btn-configure-agent-${profile.provider}`}
+                      >
+                        <Settings2 size={13} aria-hidden="true" />
+                      </button>
                     </div>
                   </article>
                 )
               })
             })()}
           </div>
+
+          <button
+            type="button"
+            className="settings-new-agent-btn"
+            onClick={onNewCustomAgent}
+            data-testid="btn-new-custom-agent"
+          >
+            <Plus size={13} aria-hidden="true" />
+            New custom agent
+          </button>
         </section>
       </section>
     </div>

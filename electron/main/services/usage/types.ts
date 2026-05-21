@@ -18,4 +18,6 @@ export interface SessionMetadata {
   sessionStartedAtMs: number
   modelId: string | null
   requestCount: number
+  summary?: string | null
+  workspaceRootPath?: string | null
 }

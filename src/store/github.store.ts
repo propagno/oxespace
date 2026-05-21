@@ -11,6 +11,7 @@ import type {
   GitHubRelease,
   GitHubWorkflow,
   GitHubWorkflowRun,
+  GitHubWorkflowRunDetails,
   GitHubWorkspaceInput,
   GitHubWorkspaceStatus
 } from '../../shared/types/github'
@@ -24,6 +25,7 @@ interface GitHubWorkspaceState {
   releases: GitHubRelease[]
   workflows: GitHubWorkflow[]
   workflowRuns: GitHubWorkflowRun[]
+  workflowRunDetails: Record<number, GitHubWorkflowRunDetails>
   checkpoints: GitHubCheckpoint[]
   connectedRepositories: GitHubConnectedRepository[]
   loadedTabs: Record<string, boolean>
@@ -55,6 +57,7 @@ interface GitHubStoreState {
   deleteCheckpoint: (workspaceId: string, checkpointId: string) => Promise<void>
   connectRepository: (input: GitHubWorkspaceInput & { fullName: string; url?: string | null }) => Promise<void>
   loadCommitDetails: (input: GitHubWorkspaceInput & { oid: string }) => Promise<GitHubCommitDetails>
+  loadWorkflowRunDetails: (input: GitHubWorkspaceInput & { runId: number }) => Promise<GitHubWorkflowRunDetails>
   clearError: (workspaceId: string) => void
 }
 
@@ -67,6 +70,7 @@ const EMPTY: GitHubWorkspaceState = {
   releases: [],
   workflows: [],
   workflowRuns: [],
+  workflowRunDetails: {},
   checkpoints: [],
   connectedRepositories: [],
   loadedTabs: {},
@@ -231,6 +235,26 @@ export const useGitHubStore = create<GitHubStoreState>((set, get) => ({
       throw new Error(message)
     }
   },
+  loadWorkflowRunDetails: async (input) => {
+    const hasCached = get().byWorkspace[input.workspaceId]?.workflowRunDetails?.[input.runId] != null
+    setWorkspace(set, input.workspaceId, hasCached
+      ? { refreshing: true, error: null }
+      : { loading: true, error: null })
+    try {
+      const details = await window.oxe.github.getWorkflowRunDetails({ rootPath: input.rootPath, runId: input.runId })
+      const current = get().byWorkspace[input.workspaceId]?.workflowRunDetails ?? {}
+      setWorkspace(set, input.workspaceId, {
+        loading: false,
+        refreshing: false,
+        workflowRunDetails: { ...current, [input.runId]: details }
+      })
+      return details
+    } catch (error) {
+      const message = sanitizeIpcError(error)
+      setWorkspace(set, input.workspaceId, { loading: false, refreshing: false, error: message })
+      throw new Error(message)
+    }
+  },
   clearError: (workspaceId) => setWorkspace(set, workspaceId, { error: null })
 }))
 
@@ -301,8 +325,8 @@ export function sanitizeIpcError(error: unknown): string {
   message = message.replace(/^Error invoking remote method '[^']+':\s*/i, '')
   message = message.replace(/^Error:\s*/i, '')
   message = message.replace(/\s+/g, ' ').trim()
-  if (/GitHub CLI n[aã]o encontrado|gh .*not.*found|spawn gh ENOENT/i.test(message)) {
-    return 'GitHub CLI não encontrado. Instale em cli.github.com e execute gh auth login.'
+  if (/GitHub CLI not found|gh .*not.*found|spawn gh ENOENT/i.test(message)) {
+    return 'GitHub CLI not found. Install it from cli.github.com and run gh auth login.'
   }
   return message || 'Unexpected GitHub error'
 }

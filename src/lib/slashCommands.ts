@@ -5,54 +5,54 @@ export const SLASH_COMMANDS: SlashCommandDefinition[] = [
     id: 'clear',
     label: '/clear',
     hint: 'Ctrl+L',
-    description: 'Limpa a tela do terminal (preserva sessão).'
+    description: 'Clear the terminal screen (keeps the session).'
   },
   {
     id: 'new',
     label: '/new',
     hint: 'Reset',
-    description: 'Reinicia o terminal com uma sessão limpa (sem resume).',
+    description: 'Restart the terminal with a clean session (no resume).',
     destructive: true
   },
   {
     id: 'restart',
     label: '/restart',
     hint: 'Ctrl+R',
-    description: 'Reinicia o terminal mantendo o agente atual.'
+    description: 'Restart the terminal keeping the current agent.'
   },
   {
     id: 'fork',
     label: '/fork',
-    hint: 'Duplicar',
-    description: 'Cria um novo pane no workspace com o mesmo agente.'
+    hint: 'Duplicate',
+    description: 'Create a new pane in the workspace with the same agent.'
   },
   {
     id: 'stop',
     label: '/stop',
-    hint: 'Parar',
-    description: 'Encerra o processo em execução neste pane.'
+    hint: 'Stop',
+    description: 'Stop the process running in this pane.'
   },
   {
     id: 'agent',
     label: '/agent',
-    hint: 'Trocar agente',
-    description: 'Define o agente de IA usado neste pane.',
+    hint: 'Switch agent',
+    description: 'Set the AI agent used in this pane.',
     requiresArgument: true,
-    argumentPlaceholder: 'nome do agente'
+    argumentPlaceholder: 'agent name'
   },
   {
     id: 'rename',
     label: '/rename',
-    hint: 'Renomear',
-    description: 'Renomeia o pane.',
+    hint: 'Rename',
+    description: 'Rename the pane.',
     requiresArgument: true,
-    argumentPlaceholder: 'novo nome'
+    argumentPlaceholder: 'new name'
   },
   {
     id: 'bg',
     label: '/bg',
     hint: 'Background',
-    description: 'Executa um comando em background (build, test, watch) sem ocupar o pane.',
+    description: 'Run a command in the background (build, test, watch) without holding the pane.',
     requiresArgument: true,
     argumentPlaceholder: 'npm run build'
   },
@@ -60,19 +60,19 @@ export const SLASH_COMMANDS: SlashCommandDefinition[] = [
     id: 'worktree',
     label: '/worktree',
     hint: 'Worktrees',
-    description: 'Abre o seletor de git worktrees para este pane.'
+    description: 'Open the git worktree picker for this pane.'
   },
   {
     id: 'mcp',
     label: '/mcp',
     hint: 'MCP servers',
-    description: 'Gerencia servidores Model Context Protocol (Anthropic).'
+    description: 'Manage Model Context Protocol servers (Anthropic).'
   },
   {
     id: 'help',
     label: '/help',
-    hint: 'Ajuda',
-    description: 'Mostra a lista de comandos disponíveis.'
+    hint: 'Help',
+    description: 'Show the list of available commands.'
   }
 ]
 
@@ -101,9 +101,9 @@ function skillToCommand(skill: SkillDefinition): SlashCommandDefinition {
     id: skill.name,
     label: `/${skill.name}`,
     hint: skill.source === 'workspace' ? 'Skill (workspace)' : 'Skill',
-    description: skill.description || '(sem descrição)',
+    description: skill.description || '(no description)',
     requiresArgument: skill.body.includes('{{argument}}'),
-    argumentPlaceholder: 'argumento opcional',
+    argumentPlaceholder: 'optional argument',
     skillName: skill.name
   }
 }

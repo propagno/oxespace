@@ -46,6 +46,29 @@ describe('WorkspaceService', () => {
     db.close()
   })
 
+  test('split panes start as neutral PowerShell terminals', () => {
+    const db = openInMemoryDatabase()
+    const service = new WorkspaceService(db)
+    const workspace = service.create({ rootPath: 'C:/projects/repo', layoutPreset: 1 })
+
+    const updated = service.splitPane(workspace.panes[0].id, 'vertical')
+    const splitPane = updated.panes.find((pane) => pane.id !== workspace.panes[0].id)
+
+    expect(updated.layout).toBe('1x2')
+    expect(splitPane).toEqual(
+      expect.objectContaining({
+        type: 'terminal',
+        shellProfileId: 'builtin-powershell',
+        agentProfileId: null,
+        agentName: null,
+        displayName: null,
+        status: 'idle'
+      })
+    )
+
+    db.close()
+  })
+
   test('calculates pane positions from fixed layouts', () => {
     expect(getPanePositions('1x1')).toHaveLength(1)
     expect(getPanePositions('1x2')).toHaveLength(2)

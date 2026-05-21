@@ -30,6 +30,7 @@ import { useUIStore } from './store/ui.store'
 import { selectActiveWorkspace, useWorkspaceStore } from './store/workspace.store'
 
 export function App(): ReactElement {
+  const appVersion = window.oxe?.app?.version ?? 'dev'
   const {
     activeWorkspaceId,
     bootstrap,
@@ -96,10 +97,24 @@ export function App(): ReactElement {
     toggleSettings,
     toggleSidebar
   } = useUIStore()
-  const { allProfiles: agentProfiles, readiness: agentReadiness, isDiscovering, discover, loadProfiles, loadReadiness, updateProfile, deleteProfile } = useAgentStore()
+  const { allProfiles: agentProfiles, readiness: agentReadiness, isDiscovering, discover, loadProfiles, loadReadiness, updateProfile, createProfile, deleteProfile } = useAgentStore()
   const [configuredAgent, setConfiguredAgent] = useState<AgentProfile | null>(null)
   const [isDesignSystemOpen, setDesignSystemOpen] = useState(false)
   const [appNotice, setAppNotice] = useState<string | null>(null)
+  // Track workspaces that have been visited at least once. Visited workspaces
+  // stay mounted (hidden via CSS) so the xterm Terminal instances persist
+  // across workspace switches — required so full-screen Copilot/Claude TUIs
+  // keep their altbuf state and scrollback when the user returns to them.
+  const [visitedWorkspaceIds, setVisitedWorkspaceIds] = useState<Set<string>>(() => new Set())
+  useEffect(() => {
+    if (!activeWorkspaceId) return
+    setVisitedWorkspaceIds((prev) => {
+      if (prev.has(activeWorkspaceId)) return prev
+      const next = new Set(prev)
+      next.add(activeWorkspaceId)
+      return next
+    })
+  }, [activeWorkspaceId])
   const activePane = activeWorkspace?.panes.find((pane) => pane.id === activePaneId) ?? activeWorkspace?.panes[0] ?? null
   const slashPane = slashOverlayPaneId ? activeWorkspace?.panes.find((pane) => pane.id === slashOverlayPaneId) ?? null : null
   const skills = useSkillStore((s) => s.skills)
@@ -186,6 +201,12 @@ export function App(): ReactElement {
       return
     }
     clearEditor(workspaceId)
+    setVisitedWorkspaceIds((prev) => {
+      if (!prev.has(workspaceId)) return prev
+      const next = new Set(prev)
+      next.delete(workspaceId)
+      return next
+    })
     void closeWorkspace(workspaceId)
   }
 
@@ -222,7 +243,7 @@ export function App(): ReactElement {
     const runningPane = terminalPanes.find((pane) => getTerminalStatus(pane.id).status === 'running') ?? null
     const targetPane = activePane?.type === 'terminal' ? activePane : runningPane ?? terminalPanes[0] ?? null
     if (!targetPane) {
-      setAppNotice('Nenhum terminal visível para executar o comando.')
+      setAppNotice('No visible terminal to run the command.')
       return
     }
     setActivePane(targetPane.id)
@@ -388,7 +409,7 @@ export function App(): ReactElement {
         activeWorkspaceId={activeWorkspaceId}
         activePaneId={activePaneId}
         agentProfiles={agentProfiles}
-        appVersion={window.oxe.app.version}
+        appVersion={appVersion}
         onNewWorkspace={openNewWorkspace}
         onSelectWorkspace={(id) => void setActiveWorkspace(id)}
         onCloseWorkspace={handleCloseWorkspace}
@@ -409,31 +430,46 @@ export function App(): ReactElement {
             <h3>Loading workspaces</h3>
           </div>
         ) : activeWorkspace ? (
-          <WorkspaceSurface
-            workspace={activeWorkspace}
-            maximizedPaneId={maximizedPaneId}
-            onClosePane={handleClosePane}
-            onToggleMaximize={(paneId) => setMaximizedPane(maximizedPaneId === paneId ? null : paneId)}
-            onSplitPane={(paneId, dir) => void splitPane(paneId, dir)}
-            onActivatePane={setActivePane}
-            onOpenCommandPalette={openCommandPalette}
-            onOpenWorkspaceSettings={openWorkspaceSettings}
-            onOpenHistory={openHistoryPanel}
-            onOpenMcp={openMcpPanel}
-            onOpenSkills={openSkillsBrowser}
-            onOpenScripts={openScriptsPanel}
-            onOpenWebPreview={openWebPreview}
-            scriptsVisible={isScriptsPanelOpen}
-            webPreviewVisible={isWebPreviewOpen}
-            onCloseScripts={closeScriptsPanel}
-            onCloseWebPreview={closeWebPreview}
-            onUpdateEditorState={(input) => void updateEditorState(input)}
-            onUpdateReviewState={(input) => void updateReviewState(input)}
-            onUpdateGitHubState={(input) => void updateGitHubState(input)}
-            onUpdateBackgroundState={(input) => void updateBackgroundState(input)}
-            onRunCommand={(command) => void runCommandInTerminal(command)}
-            activePaneId={activePane?.id ?? null}
-          />
+          <>
+            {workspaces
+              .filter((ws) => visitedWorkspaceIds.has(ws.id))
+              .map((ws) => {
+                const isActive = ws.id === activeWorkspaceId
+                return (
+                  <div
+                    key={ws.id}
+                    className={`workspace-host${isActive ? '' : ' workspace-host-hidden'}`}
+                    aria-hidden={!isActive}
+                  >
+                    <WorkspaceSurface
+                      workspace={ws}
+                      maximizedPaneId={isActive ? maximizedPaneId : null}
+                      onClosePane={handleClosePane}
+                      onToggleMaximize={(paneId) => setMaximizedPane(maximizedPaneId === paneId ? null : paneId)}
+                      onSplitPane={(paneId, dir) => void splitPane(paneId, dir)}
+                      onActivatePane={setActivePane}
+                      onOpenCommandPalette={openCommandPalette}
+                      onOpenWorkspaceSettings={openWorkspaceSettings}
+                      onOpenHistory={openHistoryPanel}
+                      onOpenMcp={openMcpPanel}
+                      onOpenSkills={openSkillsBrowser}
+                      onOpenScripts={openScriptsPanel}
+                      onOpenWebPreview={openWebPreview}
+                      scriptsVisible={isActive && isScriptsPanelOpen}
+                      webPreviewVisible={isActive && isWebPreviewOpen}
+                      onCloseScripts={closeScriptsPanel}
+                      onCloseWebPreview={closeWebPreview}
+                      onUpdateEditorState={(input) => void updateEditorState(input)}
+                      onUpdateReviewState={(input) => void updateReviewState(input)}
+                      onUpdateGitHubState={(input) => void updateGitHubState(input)}
+                      onUpdateBackgroundState={(input) => void updateBackgroundState(input)}
+                      onRunCommand={(command) => void runCommandInTerminal(command)}
+                      activePaneId={isActive ? activePane?.id ?? null : null}
+                    />
+                  </div>
+                )
+              })}
+          </>
         ) : (
           <div className="empty-state">
             <OxeLogo size={72} variant="hero" />
@@ -469,7 +505,7 @@ export function App(): ReactElement {
           ? agentProfiles.find((p) => p.agentProfileId === contextUsagePane.agentProfileId)
           : null
         const provider = profile?.parentProvider ?? profile?.provider ?? null
-        if (!provider) return null
+        if (provider !== 'claude') return null
         return (
           <ContextUsagePopover
             workspaceId={activeWorkspace.id}
@@ -538,6 +574,19 @@ export function App(): ReactElement {
           agentReadiness={agentReadiness}
           isDiscoveringAgents={isDiscovering}
           onDiscoverAgents={() => void discover(true)}
+          onConfigureAgent={(profile) => setConfiguredAgent(profile)}
+          onNewCustomAgent={() => setConfiguredAgent({
+            // Blank profile for the modal's "isNew" branch. agentProfileId === ''
+            // is what AgentConfigModal uses to switch its UI to "create" mode.
+            agentProfileId: '',
+            name: '',
+            provider: 'custom',
+            command: '',
+            commandTemplate: '',
+            isBuiltin: false,
+            parentProvider: 'claude',
+            systemPrompt: ''
+          })}
           onClose={toggleSettings}
         />
       ) : null}
@@ -548,7 +597,23 @@ export function App(): ReactElement {
           readiness={agentReadiness.find((r) => r.provider === configuredAgent.provider)}
           isDiscovering={isDiscovering}
           onSave={async (id, input) => {
-            await updateProfile(id, input)
+            // Empty id = "+ New custom agent" path. AgentConfigModal sets the
+            // isNew flag from the empty id but routes every save through the
+            // same callback, so we branch here on the id.
+            if (id === '') {
+              await createProfile({
+                name: input.name ?? configuredAgent.name,
+                provider: 'custom',
+                command: input.command ?? '',
+                commandTemplate: input.commandTemplate ?? '',
+                model: input.model,
+                role: input.role,
+                systemPrompt: input.systemPrompt,
+                parentProvider: input.parentProvider ?? configuredAgent.parentProvider
+              })
+            } else {
+              await updateProfile(id, input)
+            }
             await loadShellProfiles()
             await discover(true)
           }}

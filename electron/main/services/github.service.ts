@@ -26,7 +26,9 @@ import type {
   GitHubRepositorySummary,
   GitHubRestoreCheckpointInput,
   GitHubWorkflow,
+  GitHubWorkflowJob,
   GitHubWorkflowRun,
+  GitHubWorkflowRunDetails,
   GitHubWorkflowRunInput,
   GitHubWorkspaceInput,
   GitHubWorkspaceStatus
@@ -435,6 +437,30 @@ export class GitHubService {
       url: nullableString(item.url),
       createdAt: nullableString(item.createdAt)
     }))
+  }
+
+  async getWorkflowRunDetails(input: { rootPath: string; runId: number }): Promise<GitHubWorkflowRunDetails> {
+    const raw = await this.runGh([
+      'run',
+      'view',
+      String(input.runId),
+      '--json',
+      'databaseId,name,displayTitle,status,conclusion,event,headBranch,url,createdAt,jobs'
+    ], input.rootPath)
+    const item = JSON.parse(raw) as Record<string, unknown>
+    return {
+      databaseId: toNumber(item.databaseId) || input.runId,
+      name: nullableString(item.name),
+      displayTitle: nullableString(item.displayTitle),
+      status: toStringValue(item.status),
+      conclusion: nullableString(item.conclusion),
+      event: nullableString(item.event),
+      branch: nullableString(item.headBranch),
+      actor: null,
+      url: nullableString(item.url),
+      createdAt: nullableString(item.createdAt),
+      jobs: parseWorkflowJobs(item.jobs)
+    }
   }
 
   async runWorkflow(input: GitHubWorkflowRunInput): Promise<GitHubMessageResult> {
@@ -884,6 +910,43 @@ function toStringValue(value: unknown): string {
 
 function toNumber(value: unknown): number {
   return typeof value === 'number' ? value : Number.parseInt(String(value), 10) || 0
+}
+
+function toNullableNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  const parsed = Number.parseInt(String(value), 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
+function parseWorkflowJobs(value: unknown): GitHubWorkflowJob[] {
+  if (!Array.isArray(value)) return []
+  return value.map((item) => {
+    const row = typeof item === 'object' && item !== null ? item as Record<string, unknown> : {}
+    return {
+      databaseId: toNullableNumber(row.databaseId),
+      name: toStringValue(row.name),
+      status: toStringValue(row.status),
+      conclusion: nullableString(row.conclusion),
+      startedAt: nullableString(row.startedAt),
+      completedAt: nullableString(row.completedAt),
+      steps: parseWorkflowSteps(row.steps)
+    }
+  })
+}
+
+function parseWorkflowSteps(value: unknown): GitHubWorkflowJob['steps'] {
+  if (!Array.isArray(value)) return []
+  return value.map((item) => {
+    const row = typeof item === 'object' && item !== null ? item as Record<string, unknown> : {}
+    return {
+      number: toNullableNumber(row.number),
+      name: toStringValue(row.name),
+      status: toStringValue(row.status),
+      conclusion: nullableString(row.conclusion),
+      startedAt: nullableString(row.startedAt),
+      completedAt: nullableString(row.completedAt)
+    }
+  })
 }
 
 function isAbsolutePath(p: string): boolean {

@@ -64,13 +64,13 @@ export function ContextUsagePopover({ workspaceId, workspaceRootPath, provider, 
         className="usage-popover"
         role="dialog"
         aria-modal="true"
-        aria-label={`Uso de contexto — ${paneLabel}`}
+        aria-label={`Context usage — ${paneLabel}`}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header className="usage-popover-header">
           <div className="usage-popover-title">
             <Activity size={14} aria-hidden="true" />
-            <strong>Uso de contexto</strong>
+            <strong>Context usage</strong>
             <span className="usage-popover-pane">{paneLabel}</span>
             <span className="usage-popover-provider">{providerLabel(provider)}</span>
           </div>
@@ -78,13 +78,13 @@ export function ContextUsagePopover({ workspaceId, workspaceRootPath, provider, 
             <button
               type="button"
               className="icon-button"
-              aria-label="Atualizar"
+              aria-label="Refresh"
               onClick={() => void refresh(workspaceId, workspaceRootPath, provider)}
               disabled={isLoading}
             >
               <RefreshCw size={13} className={isLoading ? 'usage-spin' : ''} aria-hidden="true" />
             </button>
-            <button type="button" className="icon-button" aria-label="Fechar" onClick={onClose}>
+            <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
               <X size={14} aria-hidden="true" />
             </button>
           </div>
@@ -92,13 +92,13 @@ export function ContextUsagePopover({ workspaceId, workspaceRootPath, provider, 
 
         {sessions.length > 1 ? (
           <div className="usage-popover-session-picker">
-            <label htmlFor="usage-session-select">Sessão</label>
+            <label htmlFor="usage-session-select">Session</label>
             <select
               id="usage-session-select"
               value={activeSessionId ?? ''}
               onChange={handleSessionChange}
             >
-              <option value="">Mais recente</option>
+              <option value="">Most recent</option>
               {sessions.map((s) => (
                 <option key={s.sessionId} value={s.sessionId}>
                   {s.modelId ? s.modelId.replace(/^claude-/, '') : 'unknown'} · {s.requestCount} req · {formatRelative(s.lastUpdatedMs)}
@@ -111,18 +111,18 @@ export function ContextUsagePopover({ workspaceId, workspaceRootPath, provider, 
         {!data || !data.available ? (
           <div className="usage-popover-empty">
             <BarChart3 size={36} aria-hidden="true" />
-            <strong>Sem sessão {providerLabel(provider)} ativa</strong>
+            <strong>No active {providerLabel(provider)} session</strong>
             <span>
-              Inicie uma sessão com <code>{providerCli(provider)}</code> neste workspace para ver tokens consumidos,
-              custo estimado e modelo em uso.
+              Start a session with <code>{providerCli(provider)}</code> in this workspace to see consumed tokens,
+              estimated cost and active model.
             </span>
-            <span className="usage-popover-empty-hint">Lendo <code>{providerSourcePath(provider)}</code></span>
+            <span className="usage-popover-empty-hint">Reading <code>{providerSourcePath(provider)}</code></span>
           </div>
         ) : (
           <>
             <div className="usage-popover-meter">
               <div className="usage-popover-meter-header">
-                <span className="usage-popover-meter-label">Contexto atual (último turn)</span>
+                <span className="usage-popover-meter-label">Current context (last turn)</span>
                 <span className="usage-popover-meter-value">
                   <strong>{formatTokens(currentContext)}</strong>
                   <span>/ {formatTokens(data.contextLimit ?? 0)}</span>
@@ -137,7 +137,7 @@ export function ContextUsagePopover({ workspaceId, workspaceRootPath, provider, 
               </div>
             </div>
 
-            <div className="usage-popover-section-label">Último turn</div>
+            <div className="usage-popover-section-label">Last turn</div>
             <div className="usage-popover-grid">
               <UsageStat icon={Zap} label="Input" value={formatTokens(data.lastTurnInputTokens)} />
               <UsageStat icon={Layers} label="Cache read" value={formatTokens(data.lastTurnCacheReadTokens)} accent="cache" />
@@ -145,7 +145,7 @@ export function ContextUsagePopover({ workspaceId, workspaceRootPath, provider, 
               <UsageStat icon={Zap} label="Output" value={formatTokens(data.lastTurnOutputTokens)} accent="output" />
             </div>
 
-            <div className="usage-popover-section-label">Acumulado da sessão ({formatTokens(cumulativeTotal)} tokens)</div>
+            <div className="usage-popover-section-label">Session totals ({formatTokens(cumulativeTotal)} tokens)</div>
             <div className="usage-popover-grid">
               <UsageStat icon={Zap} label="Total input" value={formatTokens(data.inputTokens)} />
               <UsageStat icon={Layers} label="Total cache" value={formatTokens(data.cacheCreationTokens + data.cacheReadTokens)} accent="cache" />
@@ -157,19 +157,19 @@ export function ContextUsagePopover({ workspaceId, workspaceRootPath, provider, 
               <div className="usage-popover-cost">
                 <DollarSign size={13} aria-hidden="true" />
                 <strong>${data.estimatedCostUsd.toFixed(2)}</strong>
-                <span>API-equivalente</span>
+                <span>API-equivalent</span>
               </div>
               <div className="usage-popover-meta">
                 {data.modelId ? <span className="usage-popover-model">{data.modelId.replace(/^claude-/, '')}</span> : null}
               </div>
             </div>
             <div className="usage-popover-disclaimer">
-              Cálculo baseado em preços públicos da Anthropic. Em <strong>Claude Pro</strong> você paga o plano mensal — este número é apenas referência do consumo.
+              Estimated using Anthropic public pricing. On <strong>Claude Pro</strong> you pay the monthly plan — this number is a usage reference only.
             </div>
 
             <div className="usage-popover-timeline">
-              {data.sessionStartedAtMs ? <span>iniciada {formatRelative(data.sessionStartedAtMs)}</span> : null}
-              {data.lastUpdatedMs ? <span>atualizada {formatRelative(data.lastUpdatedMs)}</span> : null}
+              {data.sessionStartedAtMs ? <span>started {formatRelative(data.sessionStartedAtMs)}</span> : null}
+              {data.lastUpdatedMs ? <span>updated {formatRelative(data.lastUpdatedMs)}</span> : null}
               <span className="usage-popover-poll">auto-refresh 5s</span>
             </div>
           </>
@@ -199,12 +199,12 @@ function formatTokens(value: number): string {
 
 function formatRelative(ms: number): string {
   const diffSec = Math.max(0, Math.floor((Date.now() - ms) / 1000))
-  if (diffSec < 60) return `${diffSec}s atrás`
+  if (diffSec < 60) return `${diffSec}s ago`
   const diffMin = Math.floor(diffSec / 60)
-  if (diffMin < 60) return `${diffMin}min atrás`
+  if (diffMin < 60) return `${diffMin}min ago`
   const diffH = Math.floor(diffMin / 60)
-  if (diffH < 24) return `${diffH}h atrás`
-  return `${Math.floor(diffH / 24)}d atrás`
+  if (diffH < 24) return `${diffH}h ago`
+  return `${Math.floor(diffH / 24)}d ago`
 }
 
 function providerLabel(provider: AgentProvider): string {
@@ -236,6 +236,8 @@ function providerSourcePath(provider: AgentProvider): string {
   switch (provider) {
     case 'claude': return '~/.claude/projects/'
     case 'codex': return '~/.codex/sessions/'
+    case 'copilot':
+    case 'gh-copilot': return '~/.copilot/session-store.db'
     case 'gemini': return '(sem session log)'
     default: return '(sem session log)'
   }

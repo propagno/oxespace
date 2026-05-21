@@ -11,6 +11,12 @@ describe('ShellProfileService', () => {
 
     expect(profiles).toEqual(
       [
+        expect.objectContaining({
+          id: 'builtin-powershell',
+          name: 'PowerShell',
+          executable: 'powershell.exe',
+          args: ['-NoLogo']
+        }),
         expect.objectContaining({ id: 'builtin-claude', name: 'claude', executable: 'claude', args: [] }),
         expect.objectContaining({
           id: 'builtin-copilot',
