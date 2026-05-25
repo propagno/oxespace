@@ -88,6 +88,36 @@
   --tile-statusbar-h: 28px;
   --ws-item-h:        40px;
 
+  /* Radii — standardized after Claude-style redesign (replaces ad-hoc 5/7/10/12 values) */
+  --radius-sm:        8px;
+  --radius-md:        12px;
+  --radius-lg:        16px;
+  --radius-pill:      999px;
+
+  /* Spacing scale — anchor primitives to a consistent vertical rhythm */
+  --space-xs:         4px;
+  --space-sm:         8px;
+  --space-md:         12px;
+  --space-lg:         16px;
+  --space-xl:         24px;
+  --space-2xl:        32px;
+
+  /* Shadows — Claude-style: low elevation, very gentle, never saturated */
+  --shadow-sm:        0 1px 2px rgba(0, 0, 0, 0.20);
+  --shadow-md:        0 4px 12px rgba(0, 0, 0, 0.28);
+  --shadow-lg:        0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-modal:     0 12px 40px rgba(0, 0, 0, 0.40), 0 0 0 1px rgba(255, 255, 255, 0.04);
+
+  /* Motion — slower than the original 80–100ms feel, matches Claude's ease-out */
+  --transition-fast:  120ms ease-out;
+  --transition-base:  200ms ease-out;
+  --transition-slow:  320ms ease-out;
+
+  /* Translucent surfaces — reuse instead of sprinkling rgba literals across files */
+  --surface-quiet:    rgba(255, 255, 255, 0.03);
+  --surface-hover:    rgba(255, 255, 255, 0.06);
+  --surface-active:   rgba(255, 255, 255, 0.08);
+
   /* Fonts */
   --font-ui:   'Inter Variable', 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --font-mono: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;

@@ -9,7 +9,7 @@ import { registerAgentIpc } from './ipc/agent.ipc'
 import { registerFileSystemIpc } from './ipc/file-system.ipc'
 import { registerGitIpc } from './ipc/git.ipc'
 import { registerGitHubIpc } from './ipc/github.ipc'
-import { registerUsageIpc } from './ipc/usage.ipc'
+import { registerIntegrationIpc } from './ipc/integration.ipc'
 import { registerBackgroundIpc } from './ipc/background.ipc'
 import { registerSessionIpc } from './ipc/session.ipc'
 import { broadcastSkillChange, registerSkillIpc } from './ipc/skill.ipc'
@@ -71,7 +71,7 @@ function registerIpcHandlers(): void {
   registerTaskIpc(db, terminalManager)
   registerGitIpc()
   registerGitHubIpc(db)
-  registerUsageIpc()
+  registerIntegrationIpc(db)
   const backgroundManager = new BackgroundManager(db, {
     emitOutput: (event) => {
       for (const window of BrowserWindow.getAllWindows()) {
@@ -168,14 +168,22 @@ function registerNativeFailureIpcHandlers(message: string): void {
   for (const channel of Object.values(IPC_CHANNELS.github)) {
     ipcMain.handle(channel, fail)
   }
+  ipcMain.handle(IPC_CHANNELS.integration.listGroups, () => [])
+  ipcMain.handle(IPC_CHANNELS.integration.createGroup, fail)
+  ipcMain.handle(IPC_CHANNELS.integration.updateGroup, fail)
+  ipcMain.handle(IPC_CHANNELS.integration.deleteGroup, fail)
+  ipcMain.handle(IPC_CHANNELS.integration.addMember, fail)
+  ipcMain.handle(IPC_CHANNELS.integration.updateMember, fail)
+  ipcMain.handle(IPC_CHANNELS.integration.removeMember, fail)
+  ipcMain.handle(IPC_CHANNELS.integration.attachSession, fail)
+  ipcMain.handle(IPC_CHANNELS.integration.listHandoffs, () => [])
+  ipcMain.handle(IPC_CHANNELS.integration.createHandoff, fail)
+  ipcMain.handle(IPC_CHANNELS.integration.updateHandoff, fail)
+  ipcMain.handle(IPC_CHANNELS.integration.buildContext, fail)
   // Wave 2-6 channels — degrade gracefully so the renderer doesn't spam
   // "No handler registered" errors when native startup failed. Listing channels
   // return empty data; mutating channels throw via `fail` so the user sees the
   // root cause in any action they try.
-  ipcMain.handle(IPC_CHANNELS.usage.getContextUsage, () => null)
-  ipcMain.handle(IPC_CHANNELS.usage.getSnapshotFor, () => null)
-  ipcMain.handle(IPC_CHANNELS.usage.supportedProviders, () => [])
-  ipcMain.handle(IPC_CHANNELS.usage.listSessions, () => [])
   ipcMain.handle(IPC_CHANNELS.background.list, () => [])
   ipcMain.handle(IPC_CHANNELS.background.start, fail)
   ipcMain.handle(IPC_CHANNELS.background.stop, fail)
@@ -464,6 +472,65 @@ function registerE2eMockIpcHandlers(): void {
     url: input.url ?? null,
     createdAt: Date.now()
   }))
+  const integrationGroups: Array<import('../../shared/types/integration').IntegrationGroup> = []
+  const integrationHandoffs: Record<string, import('../../shared/types/integration').IntegrationHandoff[]> = {}
+  ipcMain.handle(IPC_CHANNELS.integration.listGroups, () => integrationGroups)
+  ipcMain.handle(IPC_CHANNELS.integration.createGroup, (_event: IpcMainInvokeEvent, input: { name: string; goal: string; description?: string | null; activeWorkspaceId?: string | null }) => {
+    const now = Date.now()
+    const group: import('../../shared/types/integration').IntegrationGroup = {
+      id: randomUUID(),
+      name: input.name,
+      goal: input.goal,
+      description: input.description ?? null,
+      status: 'active',
+      activeWorkspaceId: input.activeWorkspaceId ?? null,
+      createdAt: now,
+      updatedAt: now,
+      members: []
+    }
+    integrationGroups.unshift(group)
+    return group
+  })
+  ipcMain.handle(IPC_CHANNELS.integration.addMember, (_event: IpcMainInvokeEvent, input: { groupId: string; workspaceId: string; role: import('../../shared/types/integration').IntegrationRole; alias?: string | null; paneId?: string | null; rootPath?: string | null }) => {
+    const group = integrationGroups.find((item) => item.id === input.groupId)
+    if (!group) throw new Error('Integration group not found')
+    const workspace = workspaces.find((item) => item.id === input.workspaceId)
+    if (!workspace) throw new Error('Workspace not found')
+    group.members.push({
+      id: randomUUID(),
+      groupId: group.id,
+      workspaceId: workspace.id,
+      workspaceName: workspace.name,
+      workspaceRootPath: workspace.rootPath,
+      paneId: input.paneId ?? null,
+      rootPath: input.rootPath ?? workspace.rootPath,
+      role: input.role,
+      alias: input.alias ?? input.role.toUpperCase(),
+      branch: 'main',
+      activeProvider: null,
+      activeSessionId: null,
+      lastIntent: null,
+      lastResult: null,
+      blockers: null,
+      updatedAt: Date.now()
+    })
+    return group
+  })
+  ipcMain.handle(IPC_CHANNELS.integration.updateGroup, () => integrationGroups[0])
+  ipcMain.handle(IPC_CHANNELS.integration.deleteGroup, () => undefined)
+  ipcMain.handle(IPC_CHANNELS.integration.updateMember, () => integrationGroups[0])
+  ipcMain.handle(IPC_CHANNELS.integration.removeMember, () => integrationGroups[0])
+  ipcMain.handle(IPC_CHANNELS.integration.attachSession, () => ({ id: randomUUID(), updatedAt: Date.now() }))
+  ipcMain.handle(IPC_CHANNELS.integration.listHandoffs, (_event: IpcMainInvokeEvent, groupId: string) => integrationHandoffs[groupId] ?? [])
+  ipcMain.handle(IPC_CHANNELS.integration.createHandoff, (_event: IpcMainInvokeEvent, input: { groupId: string; fromMemberId: string; toMemberId: string; title: string; content: string; status?: 'draft' | 'sent' | 'saved' }) => {
+    const handoff = { id: randomUUID(), groupId: input.groupId, fromMemberId: input.fromMemberId, toMemberId: input.toMemberId, title: input.title, content: input.content, status: input.status ?? 'draft', createdAt: Date.now() }
+    integrationHandoffs[input.groupId] = [handoff, ...(integrationHandoffs[input.groupId] ?? [])]
+    return handoff
+  })
+  ipcMain.handle(IPC_CHANNELS.integration.buildContext, (_event: IpcMainInvokeEvent, input: { groupId: string }) => {
+    const group = integrationGroups.find((item) => item.id === input.groupId)
+    return { groupId: input.groupId, text: group ? `# Integration context: ${group.name}\n\nGoal: ${group.goal}` : '' }
+  })
 }
 
 function createMockPanes(workspaceId: string, layout: WorkspaceLayout): Workspace['panes'] {

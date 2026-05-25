@@ -361,6 +361,14 @@ export function parseGitDiffInput(value: unknown): GitDiffInput {
   }
 }
 
+export function parseGitBranchInput(value: unknown): { workspaceId: string; rootPath: string } {
+  const input = expectRecord(value, 'git:get-branch input')
+  return {
+    workspaceId: expectNonEmptyString(input.workspaceId, 'workspaceId'),
+    rootPath: expectNonEmptyString(input.rootPath, 'rootPath')
+  }
+}
+
 // Subset of git's check-ref-format rules — accepts the characters legal in branch
 // names, tags, SHAs, and short refspecs we actually surface (HEAD~3, origin/main, v1.2.3).
 // Rejects shell metacharacters that would be dangerous if a future caller forgets

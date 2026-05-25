@@ -8,13 +8,13 @@ interface UIState {
   isCommandPaletteOpen: boolean
   isWorkspaceSettingsOpen: boolean
   slashOverlayPaneId: string | null
-  contextUsagePaneId: string | null
   worktreeMenuPaneId: string | null
   isHistoryPanelOpen: boolean
   isMcpPanelOpen: boolean
   isSkillsBrowserOpen: boolean
   isScriptsPanelOpen: boolean
   isWebPreviewOpen: boolean
+  isIntegrationPanelOpen: boolean
   activePaneId: string | null
   openNewWorkspace: () => void
   closeNewWorkspace: () => void
@@ -26,8 +26,6 @@ interface UIState {
   closeWorkspaceSettings: () => void
   openSlashOverlay: (paneId: string) => void
   closeSlashOverlay: () => void
-  openContextUsage: (paneId: string) => void
-  closeContextUsage: () => void
   openWorktreeMenu: (paneId: string) => void
   closeWorktreeMenu: () => void
   openHistoryPanel: () => void
@@ -40,6 +38,8 @@ interface UIState {
   closeScriptsPanel: () => void
   openWebPreview: () => void
   closeWebPreview: () => void
+  openIntegrationPanel: () => void
+  closeIntegrationPanel: () => void
   toggleSettings: () => void
   toggleSidebar: () => void
 }
@@ -52,13 +52,13 @@ export const useUIStore = create<UIState>((set) => ({
   isCommandPaletteOpen: false,
   isWorkspaceSettingsOpen: false,
   slashOverlayPaneId: null,
-  contextUsagePaneId: null,
   worktreeMenuPaneId: null,
   isHistoryPanelOpen: false,
   isMcpPanelOpen: false,
   isSkillsBrowserOpen: false,
   isScriptsPanelOpen: false,
   isWebPreviewOpen: false,
+  isIntegrationPanelOpen: false,
   activePaneId: null,
   openNewWorkspace: () => set({ isNewWorkspaceOpen: true }),
   closeNewWorkspace: () => set({ isNewWorkspaceOpen: false }),
@@ -70,8 +70,6 @@ export const useUIStore = create<UIState>((set) => ({
   closeWorkspaceSettings: () => set({ isWorkspaceSettingsOpen: false }),
   openSlashOverlay: (paneId) => set({ slashOverlayPaneId: paneId }),
   closeSlashOverlay: () => set({ slashOverlayPaneId: null }),
-  openContextUsage: (paneId) => set({ contextUsagePaneId: paneId }),
-  closeContextUsage: () => set({ contextUsagePaneId: null }),
   openWorktreeMenu: (paneId) => set({ worktreeMenuPaneId: paneId }),
   closeWorktreeMenu: () => set({ worktreeMenuPaneId: null }),
   openHistoryPanel: () => set({ isHistoryPanelOpen: true }),
@@ -84,6 +82,8 @@ export const useUIStore = create<UIState>((set) => ({
   closeScriptsPanel: () => set({ isScriptsPanelOpen: false }),
   openWebPreview: () => set({ isWebPreviewOpen: true }),
   closeWebPreview: () => set({ isWebPreviewOpen: false }),
+  openIntegrationPanel: () => set({ isIntegrationPanelOpen: true }),
+  closeIntegrationPanel: () => set({ isIntegrationPanelOpen: false }),
   toggleSettings: () => set((s) => ({ isSettingsOpen: !s.isSettingsOpen })),
   toggleSidebar: () => set((s) => ({ isSidebarCollapsed: !s.isSidebarCollapsed }))
 }))

@@ -5,7 +5,7 @@ describe('migrations', () => {
   test('runs migrations and seeds built-in shell profiles', () => {
     const db = openInMemoryDatabase()
 
-    expect(db.pragma('user_version', { simple: true })).toBe(31)
+    expect(db.pragma('user_version', { simple: true })).toBe(32)
 
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
@@ -23,7 +23,11 @@ describe('migrations', () => {
         'background_jobs',
         'session_forks',
         'task_dependencies',
-        'mcp_servers'
+        'mcp_servers',
+        'integration_groups',
+        'integration_group_members',
+        'integration_group_sessions',
+        'integration_handoffs'
       ])
     )
 

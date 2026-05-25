@@ -14,8 +14,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 12px;
-  border-bottom: 1px solid var(--bd-subtle);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--bd-divider);
 }
 
 .bg-jobs-dock-count {
@@ -26,9 +26,9 @@
 
 .bg-jobs-dock-filters {
   display: flex;
-  gap: 4px;
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--bd-subtle);
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--bd-divider);
   flex-wrap: wrap;
 }
 
@@ -36,30 +36,35 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
+  padding: 5px 12px;
   font-size: var(--fs-xs);
   background: transparent;
   color: var(--tx-muted);
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   cursor: pointer;
-  transition: color 120ms, border-color 120ms;
+  transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
 }
 
-.bg-jobs-dock-filter:hover { color: var(--tx-primary); }
+.bg-jobs-dock-filter:hover {
+  color: var(--tx-secondary);
+  background: var(--surface-hover);
+}
 
 .bg-jobs-dock-filter.active {
-  color: var(--accent);
-  border-color: var(--bd-input);
-  background: var(--bg-pane-active-header);
+  /* Filter chip "active" is a UI state, not a brand statement — use neutral
+     primary text on quiet surface. */
+  color: var(--tx-primary);
+  border-color: var(--bd-base);
+  background: var(--surface-active);
 }
 
 .bg-jobs-dock-filter-count {
   font-size: 10px;
   font-weight: 600;
-  padding: 1px 5px;
-  border-radius: 6px;
-  background: var(--bg-tile);
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-active);
 }
 
 .bg-jobs-dock-list {
@@ -108,18 +113,24 @@
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: start;
-  gap: 8px;
-  padding: 8px 10px;
-  background: var(--bg-tile);
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background: var(--surface-quiet);
   border: 1px solid var(--bd-subtle);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
+  transition: background var(--transition-base), border-color var(--transition-base);
+}
+
+.bg-jobs-dock-card:hover {
+  background: var(--surface-hover);
+  border-color: var(--bd-base);
 }
 
 .bg-jobs-dock-card-main {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: start;
-  gap: 8px;
+  gap: var(--space-sm);
   min-width: 0;
   padding: 0;
   border: 0;
@@ -130,13 +141,15 @@
 }
 
 .bg-jobs-dock-card-main:hover .bg-jobs-dock-card-row strong {
-  color: var(--accent);
+  color: var(--tx-primary);
 }
 
-.bg-jobs-dock-card.status-failed { border-left: 2px solid var(--dot-red); }
-.bg-jobs-dock-card.status-running { border-left: 2px solid var(--dot-green); }
-.bg-jobs-dock-card.status-killed { border-left: 2px solid var(--dot-gray); }
-.bg-jobs-dock-card.status-exited { border-left: 2px solid var(--dot-blue); }
+/* Status edge — inset shadow keeps the card border consistent and only the
+   left edge expresses the status colour. */
+.bg-jobs-dock-card.status-failed  { box-shadow: inset 3px 0 0 0 var(--dot-red); }
+.bg-jobs-dock-card.status-running { box-shadow: inset 3px 0 0 0 var(--dot-green); }
+.bg-jobs-dock-card.status-killed  { box-shadow: inset 3px 0 0 0 var(--dot-gray); }
+.bg-jobs-dock-card.status-exited  { box-shadow: inset 3px 0 0 0 var(--dot-blue); }
 
 .bg-jobs-dock-card-body {
   display: flex;

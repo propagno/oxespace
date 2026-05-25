@@ -8,7 +8,6 @@ import { SettingsModal } from './components/Settings/SettingsModal'
 import { ThemeProvider } from './components/Theme/ThemeProvider'
 import { CommandPalette, type CommandPaletteAction } from './components/CommandPalette/CommandPalette'
 import { SlashOverlay } from './components/SlashOverlay/SlashOverlay'
-import { ContextUsagePopover } from './components/Usage/ContextUsagePopover'
 import { WorktreeMenu } from './components/Worktree/WorktreeMenu'
 import { HistoryPanel } from './components/History/HistoryPanel'
 import { McpPanel } from './components/MCP/McpPanel'
@@ -17,7 +16,6 @@ import { useBackgroundStore } from './store/background.store'
 import { useMcpStore } from './store/mcp.store'
 import { useSkillStore } from './store/skill.store'
 import { useSlashDispatcher } from './lib/useSlashDispatcher'
-import { useUsageStore } from './store/usage.store'
 import { Sidebar } from './components/Sidebar/Sidebar'
 import { NewWorkspaceModal, type WizardLaunchInput } from './components/Workspace/NewWorkspaceModal'
 import { WorkspaceSettingsModal } from './components/Workspace/WorkspaceSettingsModal'
@@ -28,6 +26,7 @@ import { useEditorStore } from './store/editor.store'
 import { useTerminalStore } from './store/terminal.store'
 import { useUIStore } from './store/ui.store'
 import { selectActiveWorkspace, useWorkspaceStore } from './store/workspace.store'
+import { useIntegrationStore } from './store/integration.store'
 
 export function App(): ReactElement {
   const appVersion = window.oxe?.app?.version ?? 'dev'
@@ -67,18 +66,17 @@ export function App(): ReactElement {
     isNewWorkspaceOpen,
     isWorkspaceSettingsOpen,
     slashOverlayPaneId,
-    contextUsagePaneId,
     worktreeMenuPaneId,
     isHistoryPanelOpen,
     isMcpPanelOpen,
     isSkillsBrowserOpen,
     isScriptsPanelOpen,
     isWebPreviewOpen,
+    isIntegrationPanelOpen,
     openCommandPalette,
     openWorkspaceSettings,
     openSlashOverlay,
     closeSlashOverlay,
-    closeContextUsage,
     closeWorktreeMenu,
     openHistoryPanel,
     closeHistoryPanel,
@@ -90,6 +88,8 @@ export function App(): ReactElement {
     closeScriptsPanel,
     openWebPreview,
     closeWebPreview,
+    openIntegrationPanel,
+    closeIntegrationPanel,
     maximizedPaneId,
     setActivePane,
     openNewWorkspace,
@@ -98,6 +98,7 @@ export function App(): ReactElement {
     toggleSidebar
   } = useUIStore()
   const { allProfiles: agentProfiles, readiness: agentReadiness, isDiscovering, discover, loadProfiles, loadReadiness, updateProfile, createProfile, deleteProfile } = useAgentStore()
+  const integrationGroups = useIntegrationStore((state) => state.groups)
   const [configuredAgent, setConfiguredAgent] = useState<AgentProfile | null>(null)
   const [isDesignSystemOpen, setDesignSystemOpen] = useState(false)
   const [appNotice, setAppNotice] = useState<string | null>(null)
@@ -118,7 +119,6 @@ export function App(): ReactElement {
   const activePane = activeWorkspace?.panes.find((pane) => pane.id === activePaneId) ?? activeWorkspace?.panes[0] ?? null
   const slashPane = slashOverlayPaneId ? activeWorkspace?.panes.find((pane) => pane.id === slashOverlayPaneId) ?? null : null
   const skills = useSkillStore((s) => s.skills)
-  const contextUsagePane = contextUsagePaneId ? activeWorkspace?.panes.find((pane) => pane.id === contextUsagePaneId) ?? null : null
   const worktreeMenuPane = worktreeMenuPaneId ? activeWorkspace?.panes.find((pane) => pane.id === worktreeMenuPaneId) ?? null : null
   const dispatchSlashCommand = useSlashDispatcher({ workspace: activeWorkspace ?? null, pane: slashPane })
 
@@ -129,7 +129,6 @@ export function App(): ReactElement {
   useEffect(() => {
     void loadProfiles()
     void loadReadiness()
-    void useUsageStore.getState().loadSupportedProviders()
     void useSkillStore.getState().refresh()
     void useMcpStore.getState().load(null)
     // Subscribe once to background job + skill change + mcp health streams.
@@ -144,6 +143,7 @@ export function App(): ReactElement {
     if (!activeWorkspace) return
     void useSkillStore.getState().refresh(activeWorkspace.rootPath)
     void useMcpStore.getState().load(activeWorkspace.id)
+    void useIntegrationStore.getState().load(null)
   }, [activeWorkspace?.id, activeWorkspace?.rootPath])
 
   // Hydrate background jobs for the active workspace
@@ -155,26 +155,6 @@ export function App(): ReactElement {
   useEffect(() => {
     setActiveTerminalPaneId(activePane?.id ?? null)
   }, [activePane?.id, setActiveTerminalPaneId])
-
-  // Poll usage per (workspace, provider). One poll loop per distinct provider used by the
-  // workspace's panes — keeps Claude & Codex stats fresh in parallel. The popover triggers
-  // faster polling while open (5s); background poll is 8s.
-  useEffect(() => {
-    if (!activeWorkspace) return
-    const providersInUse = new Set<import('../shared/types/agent').AgentProvider>()
-    for (const pane of activeWorkspace.panes) {
-      if (pane.type !== 'terminal' || !pane.agentProfileId) continue
-      const profile = agentProfiles.find((p) => p.agentProfileId === pane.agentProfileId)
-      if (!profile) continue
-      const provider = profile.parentProvider ?? profile.provider
-      providersInUse.add(provider)
-    }
-    const stops: Array<() => void> = []
-    for (const provider of providersInUse) {
-      stops.push(useUsageStore.getState().startPolling(activeWorkspace.id, activeWorkspace.rootPath, provider, 8_000))
-    }
-    return () => stops.forEach((stop) => stop())
-  }, [activeWorkspace?.id, activeWorkspace?.rootPath, activeWorkspace?.panes, agentProfiles])
 
   const handleLaunch = async (input: WizardLaunchInput): Promise<void> => {
     const workspace = await createWorkspace({
@@ -265,6 +245,7 @@ export function App(): ReactElement {
     { id: 'open-history', title: 'Open session history', subtitle: 'Ctrl+Shift+H', icon: History, category: 'AI & Agents', keywords: ['session', 'resume'], run: openHistoryPanel },
     { id: 'open-mcp', title: 'Open MCP servers', subtitle: 'Model Context Protocol tools', icon: Wrench, category: 'AI & Agents', keywords: ['mcp', 'tools'], run: openMcpPanel },
     { id: 'open-skills', title: 'Open Skills', subtitle: 'Browse markdown skill prompts', icon: Activity, category: 'AI & Agents', keywords: ['skill', 'slash'], run: openSkillsBrowser },
+    { id: 'open-integration', title: 'Open integration command center', subtitle: 'Multi-repo context and handoff', icon: Grid2x2, category: 'Workspace', keywords: ['integration', 'srv', 'bff', 'fed', 'handoff'], disabled: !activeWorkspace, run: openIntegrationPanel },
 
     // View
     { id: 'toggle-editor', title: 'Toggle editor', subtitle: 'Ctrl+E', icon: LayoutDashboard, category: 'View', disabled: !activeWorkspace, run: toggleEditor },
@@ -416,6 +397,7 @@ export function App(): ReactElement {
         onActivatePane={setActivePane}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={toggleSidebar}
+        integrationGroups={integrationGroups}
       />
       <section className="workspace-surface">
         {error ? <div className="error-banner">{error}</div> : null}
@@ -443,6 +425,7 @@ export function App(): ReactElement {
                   >
                     <WorkspaceSurface
                       workspace={ws}
+                      agentProfiles={agentProfiles}
                       maximizedPaneId={isActive ? maximizedPaneId : null}
                       onClosePane={handleClosePane}
                       onToggleMaximize={(paneId) => setMaximizedPane(maximizedPaneId === paneId ? null : paneId)}
@@ -455,10 +438,15 @@ export function App(): ReactElement {
                       onOpenSkills={openSkillsBrowser}
                       onOpenScripts={openScriptsPanel}
                       onOpenWebPreview={openWebPreview}
+                      onOpenIntegration={openIntegrationPanel}
                       scriptsVisible={isActive && isScriptsPanelOpen}
                       webPreviewVisible={isActive && isWebPreviewOpen}
+                      integrationVisible={isActive && isIntegrationPanelOpen}
                       onCloseScripts={closeScriptsPanel}
                       onCloseWebPreview={closeWebPreview}
+                      onCloseIntegration={closeIntegrationPanel}
+                      onSelectWorkspace={(id) => void setActiveWorkspace(id)}
+                      workspaces={workspaces}
                       onUpdateEditorState={(input) => void updateEditorState(input)}
                       onUpdateReviewState={(input) => void updateReviewState(input)}
                       onUpdateGitHubState={(input) => void updateGitHubState(input)}
@@ -500,22 +488,6 @@ export function App(): ReactElement {
           onExecute={dispatchSlashCommand}
         />
       ) : null}
-      {contextUsagePane && activeWorkspace ? (() => {
-        const profile = contextUsagePane.agentProfileId
-          ? agentProfiles.find((p) => p.agentProfileId === contextUsagePane.agentProfileId)
-          : null
-        const provider = profile?.parentProvider ?? profile?.provider ?? null
-        if (provider !== 'claude') return null
-        return (
-          <ContextUsagePopover
-            workspaceId={activeWorkspace.id}
-            workspaceRootPath={activeWorkspace.rootPath}
-            provider={provider}
-            paneLabel={contextUsagePane.displayName ?? contextUsagePane.agentName ?? `Pane ${contextUsagePane.rowIndex + 1}.${contextUsagePane.columnIndex + 1}`}
-            onClose={closeContextUsage}
-          />
-        )
-      })() : null}
       {worktreeMenuPane && activeWorkspace ? (
         <WorktreeMenu
           pane={worktreeMenuPane}

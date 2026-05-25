@@ -6,11 +6,11 @@ OXESpace is a Windows desktop workspace for agentic development. It combines ter
 
 Current Windows release:
 
-[Download OXESpace 0.1.14 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.14/OXESpace-0.1.14-x64.exe)
+[Download OXESpace 0.1.15 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.15/OXESpace-0.1.15-x64.exe)
 
 Release page:
 
-[OXESpace v0.1.14](https://github.com/propagno/oxespace/releases/tag/v0.1.14)
+[OXESpace v0.1.15](https://github.com/propagno/oxespace/releases/tag/v0.1.15)
 
 All releases:
 
@@ -269,8 +269,8 @@ Release flow:
 ```powershell
 git switch main
 git pull origin main
-git tag v0.1.14
-git push origin v0.1.14
+git tag v0.1.15
+git push origin v0.1.15
 ```
 
 When the tag is pushed, GitHub Actions:
@@ -296,21 +296,17 @@ When the tag is pushed, GitHub Actions:
 
 ## Version
 
-Current release: `0.1.14`
+Current release: `0.1.15`
 
-Highlights since `0.1.13`:
+Highlights since `0.1.14`:
 
-- Workspaces stay mounted across switches so full-screen agent TUIs (Copilot, Claude) keep their altbuf state and scrollback.
-- Sidebar collapsed rail shows workspace + pane icons (no longer clipped).
-- Split panes always open as a clean PowerShell terminal; provider is auto-detected when the user runs `claude`, `copilot`, `codex`, etc. and the sidebar icon updates live.
-- Restore: panes bound to a non-Claude provider now restart with the correct CLI instead of falling back to the default shell while agent profiles load.
-- Closing a pane compacts the grid into the smallest preset that holds the remaining panes.
-- Smart scrollback in the xterm host: streaming output no longer yanks the viewport back to the bottom while the user reads history.
-- History panel shows the workspace name on each session row.
-- MCP servers enabled in OXESpace are materialized to `<workspace>/.mcp.json` so Claude Code and Copilot CLI ≥ 1.0 discover them on session start (workspace and global scopes both supported; manual entries are preserved via a managed-names snapshot).
-- Custom agents can now be created from Settings (parent provider + system prompt), and skills can be created from the Skills browser (kebab-case name, scope, providers multi-select) without editing markdown files by hand.
+- Skills browser now includes a one-click SDLC pack with 10 complete agent skills: requirements, architecture, planning, execution, review, verification, security, DevOps/release, integration and documentation.
+- New skill creation supports templates that prefill the command name, description, category, providers and markdown prompt body.
+- MCP setup includes popular vibe-coding server templates and improved trusted-server handling.
+- Sidebar/session cards use more compact operational summaries with less duplicated provider/path noise.
+- Integration, background jobs, scripts, web preview, terminal scrollback and GitHub/Actions flows received stability and UX refinements.
+- Version metadata and release links now point to the `0.1.15` Windows installer.
 
 Installer asset:
 
-[OXESpace-0.1.14-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.14/OXESpace-0.1.14-x64.exe)
-
+[OXESpace-0.1.15-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.15/OXESpace-0.1.15-x64.exe)

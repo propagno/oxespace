@@ -69,6 +69,14 @@ export const SLASH_COMMANDS: SlashCommandDefinition[] = [
     description: 'Manage Model Context Protocol servers (Anthropic).'
   },
   {
+    id: 'integration',
+    label: '/integration',
+    hint: 'Cross-repo',
+    description: 'Inject sibling-repos context, list members, or send a handoff. Use without args to paste the full context; `members` to list; `handoff <role> <message>` to relay.',
+    requiresArgument: false,
+    argumentPlaceholder: 'members | handoff <role> <message>'
+  },
+  {
     id: 'help',
     label: '/help',
     hint: 'Help',

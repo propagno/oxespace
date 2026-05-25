@@ -9,10 +9,11 @@ import { TerminalPane } from './TerminalPane'
 interface PaneContentProps {
   pane: WorkspacePane
   workspaceId: string
+  workspaceRootPath: string
   autoStart: boolean
 }
 
-export function PaneContent({ autoStart, pane, workspaceId }: PaneContentProps): ReactElement {
+export function PaneContent({ autoStart, pane, workspaceId, workspaceRootPath }: PaneContentProps): ReactElement {
   const workspace = useWorkspaceStore((state) => state.workspaces.find((item) => item.id === workspaceId) ?? null)
 
   switch (pane.type) {
@@ -21,16 +22,16 @@ export function PaneContent({ autoStart, pane, workspaceId }: PaneContentProps):
     case 'editor':
       return workspace
         ? <EditorPane workspaceId={workspaceId} rootPath={workspace.rootPath} />
-        : <TerminalPane pane={pane} workspaceId={workspaceId} autoStart={autoStart} />
+        : <TerminalPane pane={pane} workspaceId={workspaceId} workspaceRootPath={workspaceRootPath} autoStart={autoStart} />
     case 'review':
       return workspace
         ? <ReviewPane workspaceId={workspaceId} rootPath={workspace.rootPath} />
-        : <TerminalPane pane={pane} workspaceId={workspaceId} autoStart={autoStart} />
+        : <TerminalPane pane={pane} workspaceId={workspaceId} workspaceRootPath={workspaceRootPath} autoStart={autoStart} />
     case 'terminal':
     default:
       // Legacy panes persisted with deprecated types (graph/swarm/inspector) are
       // migrated to 'terminal' by 025_drop_legacy_pane_types.sql; this default
       // catches anything that survives a partial migration.
-      return <TerminalPane pane={pane} workspaceId={workspaceId} autoStart={autoStart} />
+      return <TerminalPane pane={pane} workspaceId={workspaceId} workspaceRootPath={workspaceRootPath} autoStart={autoStart} />
   }
 }

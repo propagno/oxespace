@@ -51,6 +51,55 @@ describe('McpPanel — template picker (Onda 6)', () => {
     expect((screen.getByLabelText(/Args/) as HTMLInputElement).value).toContain('@modelcontextprotocol/server-filesystem')
   })
 
+  test('popular vibe-coding templates are available from the picker', async () => {
+    const user = userEvent.setup()
+    render(<McpPanel workspaceId={null} onClose={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: /Add MCP server/i }))
+
+    const templateSelect = screen.getByLabelText('Template') as HTMLSelectElement
+    const options = [...templateSelect.options].map((option) => option.value)
+
+    expect(options).toEqual(expect.arrayContaining([
+      'filesystem',
+      'github',
+      'git',
+      'playwright',
+      'context7',
+      'fetch',
+      'sequential-thinking',
+      'memory',
+      'postgres'
+    ]))
+  })
+
+  test('Context7 and Sequential Thinking templates fill their npm commands', async () => {
+    const user = userEvent.setup()
+    render(<McpPanel workspaceId={null} onClose={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: /Add MCP server/i }))
+
+    await user.selectOptions(screen.getByLabelText('Template') as HTMLSelectElement, 'context7')
+    expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('context7')
+    expect((screen.getByLabelText(/Args/) as HTMLInputElement).value).toBe('-y @upstash/context7-mcp')
+
+    await user.selectOptions(screen.getByLabelText('Template') as HTMLSelectElement, 'sequential-thinking')
+    expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('sequential-thinking')
+    expect((screen.getByLabelText(/Args/) as HTMLInputElement).value).toBe('-y @modelcontextprotocol/server-sequential-thinking')
+  })
+
+  test('empty env values from templates are not persisted as sensitive env', async () => {
+    const user = userEvent.setup()
+    const createSpy = vi.fn().mockResolvedValue(undefined)
+    ;(window.oxe.mcp.create as ReturnType<typeof vi.fn>) = createSpy
+
+    render(<McpPanel workspaceId={null} onClose={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: /Add MCP server/i }))
+    await user.selectOptions(screen.getByLabelText('Template') as HTMLSelectElement, 'github')
+    await user.click(screen.getByRole('button', { name: /Add server/i }))
+
+    expect(createSpy).toHaveBeenCalledTimes(1)
+    expect(createSpy.mock.calls[0][0].config.env).toEqual({})
+  })
+
   test('Custom template leaves fields empty', async () => {
     const user = userEvent.setup()
     render(<McpPanel workspaceId={null} onClose={vi.fn()} />)

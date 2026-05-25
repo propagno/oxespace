@@ -1,27 +1,36 @@
-import { Activity, FolderTree, Play, Slash } from 'lucide-react'
+import { FolderTree, Play, Slash } from 'lucide-react'
 import { useCallback, useEffect, useRef, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { WorkspacePane } from '../../../shared/types/workspace'
+import { useGitBranch } from '../../hooks/useGitBranch'
 import { useAgentStore } from '../../store/agent.store'
+import { findMemberForPane, useIntegrationStore } from '../../store/integration.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useUIStore } from '../../store/ui.store'
-import { selectContextUsage, useUsageStore } from '../../store/usage.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { TerminalView } from '../Terminal/TerminalView'
 
 interface TerminalPaneProps {
   pane: WorkspacePane
   workspaceId: string
+  workspaceRootPath: string
   autoStart: boolean
 }
 
-export function TerminalPane({ autoStart, pane, workspaceId }: TerminalPaneProps): ReactElement {
+export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }: TerminalPaneProps): ReactElement {
   const { getStatus, setStatus, consumePendingCommand } = useTerminalStore()
+  const setLastIntent = useTerminalStore((s) => s.setLastIntent)
   const setPaneAgent = useWorkspaceStore((s) => s.setPaneAgent)
   const allProfiles = useAgentStore((s) => s.allProfiles)
   const state = getStatus(pane.id)
   const isRunning = state.status === 'running' || state.status === 'starting'
   const typedCommandRef = useRef('')
+  const effectiveRootPath = pane.rootPath ?? workspaceRootPath
+  // Shared cache via useGitBranch — replaces the previous local state +
+  // per-pane setInterval(10s). Now N panes in the same workspace share one
+  // IPC poll per rootPath, and the sidebar chip + this status bar always
+  // read from the same source-of-truth.
+  const branchStatus = useGitBranch(workspaceId, effectiveRootPath)
 
   const resolveAgentInfo = useCallback((): { command: string | undefined; initialPrompt: string | undefined } => {
     const pending = consumePendingCommand(pane.id)
@@ -36,10 +45,36 @@ export function TerminalPane({ autoStart, pane, workspaceId }: TerminalPaneProps
     return { command: profile.command, initialPrompt: undefined }
   }, [consumePendingCommand, pane.id, pane.agentProfileId, allProfiles])
 
+  /**
+   * Async resolver that adds the integration context (if any) on top of the
+   * agent's systemPrompt. Runs at `start`/`restart` time only — once the pane
+   * is up, slash commands handle further injection. The integration check is
+   * a synchronous store read; the IPC only fires when there's a member to
+   * resolve, so panes outside any integration pay zero cost.
+   */
+  const resolveWithIntegrationContext = useCallback(async (): Promise<{ command: string | undefined; initialPrompt: string | undefined }> => {
+    const base = resolveAgentInfo()
+    const groups = useIntegrationStore.getState().groups
+    const member = findMemberForPane(groups, workspaceId, pane.id)
+    if (!member) return base
+    try {
+      const context = await useIntegrationStore.getState().buildContext(member.groupId, member.memberId)
+      const prefix = `${context.text}\n\n---\n\n`
+      return {
+        ...base,
+        initialPrompt: prefix + (base.initialPrompt ?? '')
+      }
+    } catch {
+      // Build context failed (group deleted between mounts, IPC error, etc.)
+      // — fall through to the base prompt rather than blocking the start.
+      return base
+    }
+  }, [resolveAgentInfo, workspaceId, pane.id])
+
   const start = useCallback(async (): Promise<void> => {
     setStatus(pane.id, 'starting')
     try {
-      const { command: agentCommand, initialPrompt } = resolveAgentInfo()
+      const { command: agentCommand, initialPrompt } = await resolveWithIntegrationContext()
       const profile = inferAgentProfile(agentCommand ?? '', allProfiles)
       if (profile && profile.agentProfileId !== pane.agentProfileId) {
         void setPaneAgent(pane.id, profile.agentProfileId, { preserveSession: true })
@@ -49,7 +84,7 @@ export function TerminalPane({ autoStart, pane, workspaceId }: TerminalPaneProps
     } catch (error) {
       setStatus(pane.id, 'error', toMessage(error))
     }
-  }, [allProfiles, pane.agentProfileId, pane.id, resolveAgentInfo, setPaneAgent, setStatus, workspaceId])
+  }, [allProfiles, pane.agentProfileId, pane.id, resolveWithIntegrationContext, setPaneAgent, setStatus, workspaceId])
 
   const identifyAgentFromInput = useCallback((data: string): void => {
     for (const char of data) {
@@ -64,15 +99,22 @@ export function TerminalPane({ autoStart, pane, workspaceId }: TerminalPaneProps
       if (char === '\r' || char === '\n') {
         const command = typedCommandRef.current.trim()
         typedCommandRef.current = ''
-        const profile = inferAgentProfile(command, allProfiles)
-        if (profile && profile.agentProfileId !== pane.agentProfileId) {
-          void setPaneAgent(pane.id, profile.agentProfileId, { preserveSession: true })
+        // Record what the user just sent so the pane header + sidebar row can
+        // surface "the intent" instead of "Terminal N". When the typed command
+        // matches a provider CLI (e.g. `claude`, `copilot`) treat it as setup
+        // and re-bind the pane agent instead of treating the string itself as
+        // an intent — typing "claude" to spawn the CLI isn't a task.
+        const matchedProfile = inferAgentProfile(command, allProfiles)
+        if (matchedProfile && matchedProfile.agentProfileId !== pane.agentProfileId) {
+          void setPaneAgent(pane.id, matchedProfile.agentProfileId, { preserveSession: true })
+        } else if (command) {
+          setLastIntent(pane.id, command)
         }
         continue
       }
       if (char >= ' ' && char !== '\x1b') typedCommandRef.current += char
     }
-  }, [allProfiles, pane.agentProfileId, pane.id, setPaneAgent])
+  }, [allProfiles, pane.agentProfileId, pane.id, setPaneAgent, setLastIntent])
 
   useEffect(() => {
     if (!autoStart || state.status !== 'idle') return
@@ -94,7 +136,7 @@ export function TerminalPane({ autoStart, pane, workspaceId }: TerminalPaneProps
   const restart = useCallback(async (): Promise<void> => {
     setStatus(pane.id, 'starting')
     try {
-      const { command: agentCommand, initialPrompt } = resolveAgentInfo()
+      const { command: agentCommand, initialPrompt } = await resolveWithIntegrationContext()
       const profile = inferAgentProfile(agentCommand ?? '', allProfiles)
       if (profile && profile.agentProfileId !== pane.agentProfileId) {
         void setPaneAgent(pane.id, profile.agentProfileId, { preserveSession: true })
@@ -105,7 +147,7 @@ export function TerminalPane({ autoStart, pane, workspaceId }: TerminalPaneProps
     } catch (error) {
       setStatus(pane.id, 'error', toMessage(error))
     }
-  }, [allProfiles, pane.agentProfileId, pane.id, resolveAgentInfo, setPaneAgent, setStatus, workspaceId])
+  }, [allProfiles, pane.agentProfileId, pane.id, resolveWithIntegrationContext, setPaneAgent, setStatus, workspaceId])
 
   useEffect(() => {
     const handler = (e: Event): void => {
@@ -127,30 +169,25 @@ export function TerminalPane({ autoStart, pane, workspaceId }: TerminalPaneProps
     : ''
 
   const openSlashOverlay = useUIStore((s) => s.openSlashOverlay)
-  const openContextUsage = useUIStore((s) => s.openContextUsage)
   const openWorktreeMenu = useUIStore((s) => s.openWorktreeMenu)
-  const worktreeLabel = pane.rootPath ? deriveWorktreeLabel(pane.rootPath) : 'main'
+  // Compose the chip label from the branch hook's payload. Beyond "branch
+  // name / detached SHA", the label now also surfaces the *specific* reason
+  // when git couldn't read the ref — previously it just said "no branch"
+  // even when git itself was missing or the path wasn't a repo, which sent
+  // the user looking in the wrong place. Each short label maps to a real
+  // failure mode of `git.service.getBranch`.
+  const fallbackWorktreeLabel = isWorktreePath(effectiveRootPath)
+    ? deriveWorktreeLabel(effectiveRootPath)
+    : 'no branch'
+  const branchErrorReason = branchStatus?.error ?? null
+  const worktreeLabel = !branchStatus
+    ? 'branch…'
+    : branchStatus.branch
+      ? branchStatus.branch
+      : branchStatus.shortSha
+        ? `detached ${branchStatus.shortSha}`
+        : summarizeBranchError(branchErrorReason, fallbackWorktreeLabel)
   const isWorktreeOverride = pane.rootPath !== null
-
-  const paneProfile = pane.agentProfileId ? allProfiles.find((p) => p.agentProfileId === pane.agentProfileId) : null
-  const paneProvider = paneProfile?.parentProvider ?? paneProfile?.provider ?? null
-
-  // Context usage is per (workspace, provider) — keyed so two panes with different agents
-  // in the same workspace don't share token counts.
-  const usageSelector = useCallback(selectContextUsage(workspaceId, paneProvider), [workspaceId, paneProvider])
-  const usage = useUsageStore(usageSelector)
-  const supportedProviders = useUsageStore((s) => s.supportedProviders)
-  // Context usage is intentionally gated to Claude panes only — other providers'
-  // session logs are read-only stubs and would surface misleading numbers.
-  const providerSupportsUsage = paneProvider === 'claude' && supportedProviders.includes(paneProvider)
-  const showsUsageChip = providerSupportsUsage && usage.available
-  // Context % is based on the LAST turn (current window), not cumulative session totals.
-  const currentContextTokens = usage.lastTurnInputTokens + usage.lastTurnCacheCreationTokens + usage.lastTurnCacheReadTokens + usage.lastTurnOutputTokens
-  const usagePct = usage.contextLimit
-    ? Math.min(100, Math.round((currentContextTokens / usage.contextLimit) * 100))
-    : 0
-
-  // Polling for usage happens at the workspace level (see WorkspaceSurface).
 
   return (
     <div className="terminal-pane" data-testid="terminal-pane">
@@ -195,26 +232,13 @@ export function TerminalPane({ autoStart, pane, workspaceId }: TerminalPaneProps
 
         <div className="terminal-statusbar-spacer" />
 
-        {showsUsageChip ? (
-          <button
-            type="button"
-            className={`statusbar-chip usage-chip${usagePct > 80 ? ' danger' : usagePct > 60 ? ' warning' : ''}`}
-            aria-label={`Context: ${usagePct}% used. ${usage.requestCount} requests, ~$${usage.estimatedCostUsd.toFixed(2)}.`}
-            title={`Current context: ${formatStatusbarTokens(currentContextTokens)} / ${formatStatusbarTokens(usage.contextLimit ?? 0)} · Session: ~$${usage.estimatedCostUsd.toFixed(2)} (API-equiv)`}
-            onClick={() => openContextUsage(pane.id)}
-          >
-            <Activity size={10} aria-hidden="true" />
-            <span>{usagePct}%</span>
-            <span className="usage-chip-divider" aria-hidden="true">·</span>
-            <span>${usage.estimatedCostUsd.toFixed(2)}</span>
-          </button>
-        ) : null}
-
         <button
           type="button"
-          className={`statusbar-chip worktree-chip${isWorktreeOverride ? ' overridden' : ''}`}
-          aria-label={`Worktree: ${worktreeLabel}. Clique para gerenciar.`}
-          title={`Worktree: ${worktreeLabel}${pane.rootPath ? ` (${pane.rootPath})` : ''}`}
+          className={`statusbar-chip worktree-chip${isWorktreeOverride ? ' overridden' : ''}${branchErrorReason ? ' branch-error' : ''}`}
+          aria-label={`Worktree: ${worktreeLabel}. Click to manage.`}
+          title={branchErrorReason
+            ? `Branch could not be read: ${branchErrorReason} (${effectiveRootPath})`
+            : `Branch/worktree: ${worktreeLabel} (${effectiveRootPath})`}
           onClick={() => openWorktreeMenu(pane.id)}
         >
           <FolderTree size={10} aria-hidden="true" />
@@ -256,20 +280,39 @@ export function TerminalPane({ autoStart, pane, workspaceId }: TerminalPaneProps
   )
 }
 
+/**
+ * Maps `git.service.getBranch` failure reasons to short labels that fit in
+ * the statusbar chip (≤ ~14 chars). Each branch is keyed off the actual
+ * error string returned by the service so the visible label tells the user
+ * what to fix, not just "no branch".
+ *
+ * Keep these strings synchronized with the messages produced by
+ * `electron/main/services/git.service.ts`.
+ */
+function summarizeBranchError(error: string | null, fallback: string): string {
+  if (!error) return fallback
+  const lower = error.toLowerCase()
+  if (lower.includes('git executable not found')) return 'git not found'
+  if (lower.includes('not inside a git work tree')) return 'not a git repo'
+  if (lower.includes('git ipc not available')) return 'git ipc off'
+  if (lower.includes('timed out')) return 'git timed out'
+  if (lower.includes('permission denied')) return 'git denied'
+  return 'branch error'
+}
+
+function isWorktreePath(path: string): boolean {
+  return /[\\/]worktrees[\\/]/i.test(path)
+}
+
+function deriveWorktreeLabel(path: string): string {
+  const normalized = path.replace(/\\/g, '/')
+  const parts = normalized.split('/').filter(Boolean)
+  const idx = parts.findIndex((part) => part.toLowerCase() === 'worktrees')
+  return idx >= 0 && parts[idx + 1] ? parts[idx + 1] : parts.at(-1) ?? 'worktree'
+}
+
 function toMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Terminal error'
-}
-
-function formatStatusbarTokens(value: number): string {
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`
-  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}k`
-  return value.toString()
-}
-
-function deriveWorktreeLabel(rootPath: string): string {
-  // Show just the final directory segment (e.g. "oxespace-feat-x" → "feat-x" if prefix matches)
-  const segments = rootPath.split(/[\\/]/).filter(Boolean)
-  return segments[segments.length - 1] ?? rootPath
 }
 
 function inferAgentProfile(command: string, profiles: AgentProfile[]): AgentProfile | null {

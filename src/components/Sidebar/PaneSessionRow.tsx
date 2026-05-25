@@ -1,57 +1,43 @@
+import { GitBranch } from 'lucide-react'
 import { useState, useRef, useEffect, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
-import type { WorkspacePane } from '../../../shared/types/workspace'
+import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
+import { useGitBranch } from '../../hooks/useGitBranch'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { formatActivityTime } from '../../utils/formatTime'
+import { derivePaneDisplayState } from '../../utils/paneDisplay'
+import { ActivityDot } from '../Indicators/ActivityDot'
 import { AgentProviderIcon } from './AgentProviderIcon'
 
 interface PaneSessionRowProps {
   pane: WorkspacePane
   paneIndex: number
+  workspace: Workspace
   isActive: boolean
   agentProfiles: AgentProfile[]
   onClick: () => void
   onActivatePane: (paneId: string) => void
 }
 
-const AVATAR_TOKENS = [
-  'var(--avatar-1)', 'var(--avatar-2)', 'var(--avatar-3)',
-  'var(--avatar-4)', 'var(--avatar-5)', 'var(--avatar-6)',
-]
-
 const RECENT_MS = 15 * 60 * 1000
 
-function pickAvatarColor(id: string): string {
-  let hash = 0
-  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) | 0
-  return AVATAR_TOKENS[Math.abs(hash) % AVATAR_TOKENS.length]
-}
-
-function WorkingIndicator(): ReactElement {
-  return (
-    <span className="session-working-indicator" aria-label="Working">
-      <span />
-      <span />
-      <span />
-    </span>
-  )
-}
-
-function DormantIndicator(): ReactElement {
-  return (
-    <span className="session-dormant-indicator" aria-label="Idle">
-      z<sup>z</sup>Z
-    </span>
-  )
-}
-
-export function PaneSessionRow({ pane, paneIndex, isActive, agentProfiles, onClick, onActivatePane }: PaneSessionRowProps): ReactElement {
+export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProfiles, onClick, onActivatePane }: PaneSessionRowProps): ReactElement {
   const getStatus = useTerminalStore(s => s.getStatus)
   const markRead = useTerminalStore(s => s.markRead)
   const terminalState = getStatus(pane.id)
   const updatePaneName = useWorkspaceStore(s => s.updatePaneName)
   const closePane = useWorkspaceStore(s => s.closePane)
+  // Branch from the shared `useGitBranch` hook — backed by `git.getBranch`
+  // IPC, not the github.store. The github store is loaded lazily when the
+  // GitHub panel opens, so depending on it left the sidebar branch chip
+  // permanently blank in normal use. The hook caches per rootPath so N
+  // sidebar rows + the pane statusbar share a single fetch every 10s.
+  const branchRootPath = pane.rootPath ?? workspace.rootPath
+  const branchStatus = useGitBranch(workspace.id, branchRootPath)
+  const currentBranch = branchStatus?.branch ?? null
+  const branchLabel = formatBranch(currentBranch)
+  const rowContextLabel = branchLabel ?? displayBranchFromWorktreePath(pane.rootPath)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
@@ -67,15 +53,16 @@ export function PaneSessionRow({ pane, paneIndex, isActive, agentProfiles, onCli
   const hasAgent = resolvedAgentName !== null
   const baseLabel = hasAgent ? resolvedAgentName! : `${pane.type} ${paneIndex + 1}`
   const label = pane.displayName ?? baseLabel
-  const avatarColor = pickAvatarColor(pane.id)
 
-  const { status, lastActivityAt, lastOutput, isWorking, hasUnread } = terminalState
+  const { status, lastActivityAt, hasUnread } = terminalState
   const isRunning = status === 'running'
   const isStarting = status === 'starting'
   const canStopTerminal = pane.type === 'terminal' && (isRunning || isStarting)
   const isExited = status === 'exited'
   const isError = status === 'error'
   const isRecent = lastActivityAt !== null && Date.now() - lastActivityAt < RECENT_MS
+  const display = derivePaneDisplayState({ pane, workspace, terminal: terminalState, profile: agentProfile, paneIndex })
+  const hasTopContext = Boolean(rowContextLabel) || editing
 
   // Mark read when the row becomes active
   useEffect(() => {
@@ -142,6 +129,19 @@ export function PaneSessionRow({ pane, paneIndex, isActive, agentProfiles, onCli
     await closePane(pane.id)
   }
 
+  function startRename(): void {
+    setMenu(null)
+    setDraft(label)
+    setEditing(true)
+    setTimeout(() => inputRef.current?.select(), 0)
+  }
+
+  function copyContext(): void {
+    setMenu(null)
+    const context = `${display.meta}\n${display.title}\n${display.subtitle}`
+    void navigator.clipboard?.writeText(context)
+  }
+
   useEffect(() => {
     if (!menu) return
     const close = (): void => setMenu(null)
@@ -160,76 +160,84 @@ export function PaneSessionRow({ pane, paneIndex, isActive, agentProfiles, onCli
       className={`pane-session-row${isActive ? ' active' : ''}${isExited ? ' exited' : ''}`}
       role="button"
       tabIndex={0}
+      data-testid="pane-session-row"
       onClick={handleClick}
       onContextMenu={handleContextMenu}
       onKeyDown={e => !editing && e.key === 'Enter' && handleClick()}
     >
-      {/* Left icon */}
-      <div className={`pane-row-icon${isExited ? ' dimmed' : ''}`}>
-        {agentProfile ? (
-          <AgentProviderIcon provider={agentProfile.provider} />
-        ) : (
-          <div className="pane-avatar" style={{ background: avatarColor }}>
-            {paneIndex + 1}
-          </div>
-        )}
+      {/* Left status indicator — pure activity dot.
+          Previously rendered "✓" or a 1-based pane index, which read as a
+          checkbox/selection affordance and competed with the agent provider
+          icon shown later in the row. A dot communicates "this pane is in
+          state X" without implying an action. */}
+      <div className={`pane-row-icon${isExited ? ' dimmed' : ''}`} aria-hidden="true">
+        <span className={`pane-activity-dot activity-${display.statusTone}`} />
       </div>
 
       {/* Body */}
-      <div className="pane-session-body">
-        <div className="pane-row-top">
-          {editing ? (
-            <input
-              ref={inputRef}
-              className="pane-session-rename"
-              value={draft}
-              autoFocus
-              onChange={e => setDraft(e.target.value)}
-              onBlur={handleSave}
-              onKeyDown={handleKeyDown}
-              onClick={e => e.stopPropagation()}
-            />
-          ) : (
-            <span
-              className={`pane-session-label${isExited ? ' dimmed' : ''}`}
-              onDoubleClick={handleDoubleClick}
-            >
-              {label}
-            </span>
-          )}
-          {lastActivityAt && !editing && (
-            <span className={`pane-row-time${isRecent ? ' recent' : ''}`}>
+      <div className={`pane-session-body${hasTopContext ? '' : ' compact'}`}>
+        {hasTopContext ? (
+          <div className="pane-row-top">
+            {rowContextLabel ? (
+              <span className="pane-row-context" title={currentBranch ?? pane.rootPath ?? workspace.rootPath}>
+                <GitBranch size={10} aria-hidden="true" />
+                {rowContextLabel}
+              </span>
+            ) : null}
+            {editing ? (
+              <input
+                ref={inputRef}
+                className="pane-session-rename"
+                value={draft}
+                autoFocus
+                onChange={e => setDraft(e.target.value)}
+                onBlur={handleSave}
+                onKeyDown={handleKeyDown}
+                onClick={e => e.stopPropagation()}
+              />
+            ) : null}
+            {lastActivityAt && !editing ? (
+              <span className={`pane-row-time${isRecent ? ' recent' : ''}`}>
+                {formatActivityTime(lastActivityAt)}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div className="pane-row-title-line">
+          <span
+            className={`pane-row-title${display.title === terminalState.lastIntent ? ' pane-row-intent' : ''}`}
+            title={display.title}
+            onDoubleClick={handleDoubleClick}
+          >
+            {display.title}
+          </span>
+          {lastActivityAt && !editing && !hasTopContext ? (
+            <span className={`pane-row-time title-time${isRecent ? ' recent' : ''}`}>
               {formatActivityTime(lastActivityAt)}
             </span>
-          )}
+          ) : null}
         </div>
 
         <div className="pane-row-bottom">
-          {/* Status indicator */}
-          {isRunning && (
+          {/* Status indicator — 3-tier activity (thinking/awaiting/idle).
+              Starting and error keep their dedicated cues so they aren't
+              conflated with the 3 normal states. */}
+          {(isRunning || isStarting) && !isError && (
             <span className="pane-row-status-indicator">
-              {isWorking ? <WorkingIndicator /> : <DormantIndicator />}
-            </span>
-          )}
-          {isStarting && (
-            <span className="pane-row-status-indicator">
-              <span className="session-starting-dot" />
+              {isStarting
+                ? <span className="session-starting-dot" />
+                : <ActivityDot level={display.statusTone} />}
             </span>
           )}
           {isError && (
             <span className="pane-row-status-indicator session-error-dot" />
           )}
 
+          {agentProfile ? <AgentProviderIcon provider={agentProfile.provider} /> : null}
+
           {/* Preview text */}
-          {isExited ? (
-            <span className="pane-session-resume">Resume →</span>
-          ) : lastOutput ? (
-            <span className="pane-row-preview">{lastOutput}</span>
-          ) : (
-            <span className="pane-row-preview pane-row-preview-empty">
-              {isStarting ? 'Starting…' : isRunning ? 'Running' : 'Idle'}
-            </span>
-          )}
+          <span className="pane-row-preview">{display.subtitle}</span>
 
           {/* Unread dot */}
           {showUnreadDot && <span className="pane-unread-dot" aria-label="Unread output" />}
@@ -242,6 +250,12 @@ export function PaneSessionRow({ pane, paneIndex, isActive, agentProfiles, onCli
           role="menu"
           onClick={(e) => e.stopPropagation()}
         >
+          <button type="button" role="menuitem" onClick={startRename}>
+            Rename
+          </button>
+          <button type="button" role="menuitem" onClick={copyContext}>
+            Copy context
+          </button>
           {canStopTerminal ? (
             <button type="button" role="menuitem" onClick={() => void stopTerminal()}>
               Stop terminal
@@ -254,4 +268,32 @@ export function PaneSessionRow({ pane, paneIndex, isActive, agentProfiles, onCli
       ) : null}
     </div>
   )
+}
+
+/**
+ * Truncate a branch name to ~18 chars so it fits next to the provider chip on
+ * the third line without pushing the unread dot off the row. Splits on `/`
+ * and keeps the trailing segment when it's a slash-prefixed branch (e.g.
+ * `codex/workspace-customization-release` → `…ization-release`). Long single
+ * names just get a trailing ellipsis.
+ */
+function formatBranch(branch: string | null): string | null {
+  if (!branch) return null
+  if (branch.length <= 18) return branch
+  // Slash-prefixed conventional branches: drop the prefix (feat/, codex/,
+  // chore/…) and keep the descriptive tail.
+  const slashIdx = branch.indexOf('/')
+  if (slashIdx > 0 && slashIdx < branch.length - 1) {
+    const tail = branch.slice(slashIdx + 1)
+    if (tail.length <= 16) return tail
+    return tail.slice(0, 15) + '…'
+  }
+  return branch.slice(0, 17) + '…'
+}
+
+function displayBranchFromWorktreePath(path: string | null): string | null {
+  if (!path) return null
+  const match = path.match(/[\\/]worktrees[\\/]([^\\/]+)/i)
+  if (!match?.[1]) return null
+  return formatBranch(match[1])
 }

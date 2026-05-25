@@ -62,13 +62,18 @@ describe('TerminalPane', () => {
         restart: vi.fn().mockResolvedValue(undefined),
         onData: vi.fn(() => vi.fn()),
         onExit: vi.fn(() => vi.fn())
+      },
+      git: {
+        getBranch: vi.fn().mockResolvedValue({ branch: 'feature/test', detached: false, shortSha: null }),
+        getDiff: vi.fn(),
+        onDiffUpdate: vi.fn(() => vi.fn())
       }
     }
   })
 
   test('starts, writes, resizes and stops a terminal', async () => {
     const user = userEvent.setup()
-    render(<TerminalPane pane={createPane()} workspaceId="workspace-1" autoStart={false} />)
+    render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
 
     await user.click(screen.getByLabelText('Start terminal'))
     await waitFor(() => expect(window.oxe.terminal.start).toHaveBeenCalledWith({ paneId: 'pane-1', workspaceId: 'workspace-1' }))
@@ -91,7 +96,7 @@ describe('TerminalPane', () => {
       activePaneId: 'pane-1'
     })
 
-    render(<TerminalPane pane={{ ...createPane(), shellProfileId: 'builtin-powershell', agentProfileId: null }} workspaceId="workspace-1" autoStart={false} />)
+    render(<TerminalPane pane={{ ...createPane(), shellProfileId: 'builtin-powershell', agentProfileId: null }} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
 
     await user.click(screen.getByText('copilot command'))
 
@@ -101,6 +106,45 @@ describe('TerminalPane', () => {
       preserveSession: true
     })
     expect(window.oxe.terminal.write).toHaveBeenCalledWith({ paneId: 'pane-1', data: 'copilot\r' })
+  })
+
+  test('surfaces a branch lookup failure with a clear fallback label', async () => {
+    window.oxe.git.getBranch = vi.fn().mockRejectedValue(new Error('lookup failed'))
+
+    render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
+
+    // summarizeBranchError() maps known git failure messages to short labels
+    // (git not found / not a git repo / etc). An unknown failure ("lookup
+    // failed") falls back to the generic but still diagnostic "branch error"
+    // — never the legacy "branch unavailable" which sounded like a transient
+    // network issue. The full error text remains in the chip's title.
+    await waitFor(() => expect(screen.getByText('branch error')).toBeInTheDocument())
+    const chip = screen.getByLabelText(/Worktree: branch error/i)
+    expect(chip.getAttribute('title')).toMatch(/lookup failed/)
+  })
+
+  test('maps "Git executable not found" to "git not found"', async () => {
+    window.oxe.git.getBranch = vi.fn().mockResolvedValue({
+      branch: null,
+      detached: false,
+      shortSha: null,
+      error: 'Git executable not found'
+    })
+
+    render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
+    await waitFor(() => expect(screen.getByText('git not found')).toBeInTheDocument())
+  })
+
+  test('maps "Not inside a Git work tree" to "not a git repo"', async () => {
+    window.oxe.git.getBranch = vi.fn().mockResolvedValue({
+      branch: null,
+      detached: false,
+      shortSha: null,
+      error: 'Not inside a Git work tree'
+    })
+
+    render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
+    await waitFor(() => expect(screen.getByText('not a git repo')).toBeInTheDocument())
   })
 
   test('marks output unread only when pane is not active', () => {

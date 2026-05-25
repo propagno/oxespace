@@ -6,7 +6,9 @@
   background: var(--bg-sidebar);
   border-right: 1px solid var(--bd-sidebar);
   overflow: hidden;
-  box-shadow: 20px 0 45px rgb(0 0 0 / 50%);
+  /* Was 20px 0 45px rgba(0,0,0,50%) — too dramatic. Claude-style: barely-there
+     shadow that hints at depth without competing with the main surface. */
+  box-shadow: var(--shadow-md);
 }
 
 /* Collapsed variant */
@@ -48,13 +50,14 @@
   width: 30px;
   height: 30px;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background: transparent;
   color: var(--tx-muted);
   cursor: pointer;
+  transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
 }
 
 .sidebar-rail-workspace-btn span {
@@ -71,7 +74,7 @@
 
 .sidebar-rail-workspace-btn:hover,
 .sidebar-rail-pane:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--surface-hover);
   color: var(--tx-primary);
 }
 
@@ -85,7 +88,7 @@
   height: 6px;
   border-radius: 50%;
   background: var(--brand);
-  box-shadow: 0 0 7px rgb(0 229 192 / 70%);
+  /* No more box-shadow glow — quiet dot, like Claude's unread markers. */
 }
 
 .sidebar-rail-panes {
@@ -128,8 +131,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 12px 8px;
-  gap: 8px;
+  padding: var(--space-md) var(--space-md) var(--space-sm);
+  gap: var(--space-sm);
   flex-shrink: 0;
 }
 
@@ -153,15 +156,16 @@
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background: var(--brand);
   color: #020617;
-  box-shadow: 0 0 0 1px var(--bg-sidebar), 0 0 12px rgb(0 229 192 / 35%);
+  /* Single inset ring against the sidebar surface — drops the outer teal glow. */
+  box-shadow: 0 0 0 1px var(--bg-sidebar);
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1;
   pointer-events: none;
 }
@@ -179,9 +183,9 @@
 }
 
 .sidebar-icon-btn {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
   border: none;
   display: flex;
   align-items: center;
@@ -189,11 +193,11 @@
   color: var(--tx-muted);
   background: transparent;
   cursor: pointer;
-  transition: background 100ms, color 100ms;
+  transition: background var(--transition-base), color var(--transition-base);
 }
 
 .sidebar-icon-btn:hover {
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--surface-hover);
   color: var(--tx-primary);
 }
 
@@ -219,23 +223,30 @@
 
 .sidebar-search-input {
   width: 100%;
-  padding: 5px 8px 5px 26px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 7px;
+  height: 32px;
+  padding: 0 var(--space-md) 0 28px;
+  background: var(--surface-quiet);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
   color: var(--tx-primary);
   font-size: 12px;
   outline: none;
   box-sizing: border-box;
+  transition: background var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base);
 }
 
 .sidebar-search-input::placeholder {
   color: var(--tx-muted);
 }
 
+.sidebar-search-input:hover {
+  background: var(--surface-hover);
+}
+
 .sidebar-search-input:focus {
-  box-shadow: var(--glow-pane-active);
-  border-color: transparent;
+  background: var(--surface-hover);
+  border-color: var(--bd-input-focus);
+  box-shadow: 0 0 0 3px rgba(18, 199, 154, 0.12);
 }
 
 /* ─── Filter tabs ───────────────────────────────────────────────────────── */
@@ -248,7 +259,7 @@
 
 .sidebar-tabs button {
   flex: 0;
-  padding: 4px 10px;
+  padding: 6px 12px;
   font-size: 11px;
   font-weight: 500;
   color: var(--tx-muted);
@@ -265,7 +276,9 @@
 
 .sidebar-tabs button[aria-selected='true'] {
   color: var(--tx-primary);
-  border-bottom-color: var(--brand);
+  /* Underline is the brand, but slightly translucent so it reads as accent
+     rather than neon. */
+  border-bottom-color: rgba(18, 199, 154, 0.7);
 }
 
 .tab-badge {
@@ -291,46 +304,87 @@
 .ws-group-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 2px; }
 
 .ws-group {
-  margin-bottom: 2px;
+  margin: 0 6px 10px;
 }
 
 .ws-group-header {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 8px;
+  gap: var(--space-sm);
+  /* Always visible card — bg, border and slightly bigger padding signal
+     "this is a clickable region" without needing the hover. Previously the
+     header faded into the sidebar surface and the chevron+count looked like
+     static metadata. */
+  padding: var(--space-md) var(--space-md);
   cursor: pointer;
-  border-radius: 6px;
-  margin: 1px 4px;
+  border-radius: var(--radius-md);
+  background: var(--surface-quiet);
+  border: 1px solid var(--bd-subtle);
+  margin: 0;
   user-select: none;
-  transition: background 100ms;
+  transition: background var(--transition-base), border-color var(--transition-base);
 }
 
 .ws-group-header:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--surface-hover);
+  border-color: var(--bd-base);
 }
 
+/* Active workspace gets the brand-edge treatment used elsewhere (mcp rows,
+   background dock cards): a 3px inset on the left, plus a stronger surface.
+   Combined, the active group reads "you are here" without needing a giant
+   colour fill. */
 .ws-group.active > .ws-group-header {
-  background: var(--bg-pane-active-header);
+  background: var(--surface-active);
+  border-color: var(--bd-base);
+  box-shadow: inset 3px 0 0 var(--brand);
 }
 
 .ws-group-chevron {
-  color: var(--tx-muted);
-  transition: transform 150ms;
+  /* Bumped from 14px and muted to 16px in tx-secondary so the affordance
+     reads as "interactive" instead of decorative. */
+  color: var(--tx-secondary);
+  width: 16px;
+  height: 16px;
+  transition: transform 200ms ease-out, color var(--transition-base);
   flex-shrink: 0;
+  transform: rotate(-90deg);
+}
+
+.ws-group-header:hover .ws-group-chevron,
+.ws-group.active > .ws-group-header .ws-group-chevron {
+  color: var(--tx-primary);
 }
 
 .ws-group-chevron.open {
-  transform: rotate(90deg);
+  transform: rotate(0deg);
+  color: var(--tx-primary);
+}
+
+.ws-group-title-block {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 2px;
 }
 
 .ws-group-name {
-  flex: 1;
-  font-size: 11px;
-  font-weight: 600;
+  /* Slight size + weight bump so it competes with the action items below.
+     The previous 11/750 was visually identical to other secondary labels in
+     the sidebar; 12.5/700 in tx-primary positions this as a heading. */
+  font-size: 12.5px;
+  font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  color: var(--tx-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-group-root {
   color: var(--tx-muted);
+  font-size: 10px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -341,14 +395,63 @@
 }
 
 .ws-group-count {
+  /* Pill-shaped count chip — gives the "4 panes" badge enough visual weight
+     to be read as a status, not as muted dataitem text. */
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--tx-secondary);
+  background: var(--surface-quiet);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-pill);
+  padding: 2px 10px;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+/* Integration badge — shown when this workspace participates in >=1 group.
+   Discrete by default (icon + muted) so it doesn't compete with the pane
+   count; on hover or active state it lights up brand to signal "click me to
+   open the integration panel for this workspace". */
+.ws-group-integration-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  margin-left: auto;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--bd-subtle);
+  background: transparent;
+  color: var(--tx-muted);
   font-size: 10px;
   font-weight: 600;
-  color: var(--tx-muted);
-  background: rgba(255, 255, 255, 0.07);
-  border-radius: 8px;
-  padding: 0 5px;
-  line-height: 16px;
+  cursor: pointer;
+  transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
   flex-shrink: 0;
+}
+
+.ws-group-integration-badge:hover,
+.ws-group.active > .ws-group-header .ws-group-integration-badge {
+  color: var(--brand);
+  border-color: var(--bd-input-focus);
+  background: var(--surface-hover);
+}
+
+.ws-group-integration-count {
+  font-variant-numeric: tabular-nums;
+}
+
+/* When both the integration badge and the count are present, the count needs
+   to drop its `margin-left: auto` so the two chips sit shoulder-to-shoulder.
+   The badge already claimed `margin-left: auto`. */
+.ws-group-integration-badge + .ws-group-count {
+  margin-left: var(--space-xs);
+}
+
+.ws-group.active > .ws-group-header .ws-group-count {
+  color: var(--tx-primary);
+  background: var(--surface-active);
+  border-color: var(--bd-base);
 }
 
 .ws-group-close {
@@ -383,44 +486,76 @@
 /* ─── Pane session row ──────────────────────────────────────────────────── */
 .pane-session-row {
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 8px;
   position: relative;
-  padding: 6px 8px 6px 16px;
+  padding: 7px 9px;
   cursor: pointer;
-  border-radius: 6px;
-  margin: 1px 4px;
-  transition: background 100ms;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  margin: 5px 4px;
+  background: rgba(255, 255, 255, 0.022);
+  transition: background 120ms, border-color 120ms, box-shadow 120ms;
 }
 
 .pane-session-row:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 .pane-session-row.active {
-  background: var(--bg-pane-active-header);
+  background: var(--surface-active);
+  border-color: var(--bd-base);
+  /* Left-edge brand accent replaces the previous hardcoded green
+     (rgba(92,189,109,0.75)) that wasn't aligned with the OXESpace teal. */
+  box-shadow: inset 2px 0 0 var(--brand);
 }
 .pane-session-row.active .pane-session-label {
-  color: var(--brand-light);
+  color: var(--tx-primary);
 }
 
 /* Icon slot (provider icon or numeric avatar) */
 .pane-row-icon {
-  width: 28px;
-  height: 28px;
+  /* Slightly wider slot so the dot can have a bit of breathing room and the
+     row reads as "<status dot> <body>" instead of glued to the edge. */
+  width: 14px;
+  height: auto;
   flex-shrink: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
+  padding-top: 6px;
 }
 
 .agent-provider-icon {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+.pane-session-row .agent-provider-icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+}
+
+.pane-session-row .agent-provider-icon svg {
+  width: 8px;
+  height: 8px;
+}
+
+.pane-row-bottom .agent-provider-icon {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.pane-row-bottom .agent-provider-icon svg {
+  width: 7px;
+  height: 7px;
 }
 
 .pane-avatar {
@@ -443,47 +578,79 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+}
+
+.pane-session-body.compact {
+  gap: 5px;
+  justify-content: center;
 }
 
 .pane-row-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 4px;
+  gap: 5px;
   min-width: 0;
 }
 
 .pane-row-bottom {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 4px;
+  justify-content: flex-start;
+  gap: 6px;
   min-width: 0;
 }
 
+.pane-row-title-line {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pane-row-context {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--tx-secondary);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .pane-session-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--tx-primary);
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--tx-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   line-height: 1.3;
 }
 
 .pane-row-time {
-  font-size: 10px;
+  font-size: 9.5px;
   color: var(--tx-muted);
   flex-shrink: 0;
   line-height: 1.3;
   white-space: nowrap;
+  margin-left: auto;
+}
+
+.pane-row-time.title-time {
+  align-self: flex-start;
+  padding-top: 1px;
 }
 
 .pane-row-preview {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--tx-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -491,6 +658,76 @@
   flex: 1;
   min-width: 0;
   line-height: 1.3;
+}
+
+.pane-row-title {
+  display: block;
+  min-width: 0;
+  flex: 1;
+  color: var(--tx-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.32;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pane-row-title.pane-row-intent {
+  color: var(--tx-primary);
+}
+
+.pane-row-state-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--tx-muted);
+  font-size: 8.5px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* Thinking: pulse the avatar background so a moving pane is easy to spot in
+   a sidebar with many rows. */
+.pane-row-state-mark.activity-thinking {
+  border-color: rgba(52, 212, 116, 0.22);
+  background: rgba(52, 212, 116, 0.12);
+  color: var(--dot-green);
+  animation: oxe-activity-pulse 1.4s ease-in-out infinite;
+}
+
+/* Awaiting: solid brand-accent ring so it reads as "your turn", distinct from
+   the pulsing green of an actively-streaming agent. */
+.pane-row-state-mark.activity-awaiting {
+  border-color: rgba(18, 199, 154, 0.35);
+  background: rgba(18, 199, 154, 0.14);
+  color: var(--brand);
+}
+
+.pane-row-state-mark.activity-starting {
+  border-color: rgba(251, 191, 36, 0.22);
+  background: rgba(251, 191, 36, 0.12);
+  color: var(--dot-yellow);
+  animation: oxe-activity-pulse 1.6s ease-in-out infinite;
+}
+
+.pane-row-state-mark.activity-exited {
+  border-color: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--tx-muted);
+  opacity: 0.55;
+}
+
+.pane-row-state-mark.error,
+.pane-row-state-mark.activity-error {
+  border-color: rgba(248, 113, 113, 0.22);
+  background: rgba(248, 113, 113, 0.12);
+  color: var(--dot-red);
 }
 
 .pane-row-preview-empty {
@@ -568,7 +805,10 @@
 }
 
 /* Recent timestamp (< 15 min) — green like Clideck */
-.pane-row-time.recent { color: #5cbd6d; }
+/* Recent activity timestamp — uses the brand teal at full strength so it
+   reads as "fresh" without introducing a third green accent (the previous
+   #5CBD6D didn't match either the brand or the dot-green status token). */
+.pane-row-time.recent { color: var(--brand); }
 
 /* Status indicator slot (left of preview) */
 .pane-row-status-indicator {
@@ -629,14 +869,44 @@
   background: var(--dot-red, #f87171);
 }
 
-/* Unread dot */
+/* Unread dot — solid brand teal, no halo. The previous blue (#3B82F6 with
+   glow) was off-palette: introduced a third accent that competed with the
+   existing brand teal and the orange/yellow used for warning states. */
 .pane-unread-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #3b82f6;
+  background: var(--brand);
   flex-shrink: 0;
-  box-shadow: 0 0 4px rgba(59, 130, 246, 0.7);
+}
+
+/* Branch chip on the third line of the pane row. Sits right of the
+   "Provider · status" subtitle so the row reads as "what the agent is
+   doing · where it's working from". Truncation is handled by formatBranch
+   in PaneSessionRow.tsx — the chip itself doesn't need to ellide. */
+.pane-row-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-quiet);
+  border: 1px solid var(--bd-subtle);
+  color: var(--tx-secondary);
+  font-size: 10px;
+  font-weight: 500;
+  font-family: var(--font-mono);
+  letter-spacing: 0;
+  flex-shrink: 0;
+  max-width: 130px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.pane-row-branch svg {
+  flex-shrink: 0;
+  opacity: 0.75;
 }
 
 .pane-status-dot {
@@ -715,6 +985,246 @@
   line-height: 1.5;
 }
 
+.sidebar-section-kicker {
+  padding: 8px 14px 6px;
+  color: var(--tx-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Sidebar Integration section — modeled on the workspace group row pattern
+   so the two sections share the same scanning rhythm. */
+.sidebar-integration-list {
+  border-bottom: 1px solid var(--bd-divider);
+  margin-bottom: 8px;
+  padding: 0 0 6px;
+}
+
+.sidebar-integration-row {
+  margin: 0 8px 2px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  transition: background var(--transition-base);
+}
+
+.sidebar-integration-row:hover {
+  background: var(--surface-hover);
+}
+
+.sidebar-integration-row.active {
+  background: rgba(0, 214, 201, 0.05);
+}
+
+.sidebar-integration-row.open {
+  background: var(--surface-quiet);
+}
+
+.sidebar-integration-row-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--tx-secondary);
+  font-size: 11.5px;
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--transition-base);
+}
+
+.sidebar-integration-row-header:hover {
+  color: var(--tx-primary);
+}
+
+.sidebar-integration-row-chevron {
+  color: var(--tx-muted);
+  transition: transform 160ms ease;
+  flex-shrink: 0;
+}
+
+.sidebar-integration-row-chevron.open {
+  transform: rotate(0deg);
+}
+
+.sidebar-integration-row-chevron:not(.open) {
+  transform: rotate(-90deg);
+}
+
+.sidebar-integration-row-icon {
+  color: var(--brand);
+  flex-shrink: 0;
+}
+
+.sidebar-integration-row-name {
+  flex: 1;
+  color: var(--tx-primary);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.sidebar-integration-row-status {
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-active);
+  color: var(--tx-muted);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.sidebar-integration-row-status.status-active { background: rgba(52, 212, 116, 0.14); color: var(--dot-green); }
+.sidebar-integration-row-status.status-paused { background: rgba(251, 191, 36, 0.14); color: var(--dot-yellow); }
+.sidebar-integration-row-status.status-done { background: rgba(255, 255, 255, 0.05); color: var(--tx-muted); }
+
+.sidebar-integration-row-members {
+  list-style: none;
+  margin: 0;
+  padding: 2px 0 6px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sidebar-integration-row-empty {
+  padding: 4px 8px;
+  color: var(--tx-muted);
+  font-size: 10.5px;
+  font-style: italic;
+}
+
+.sidebar-integration-row-member {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 2px 8px;
+  width: calc(100% - 8px);
+  margin-right: 8px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--tx-secondary);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-base), color var(--transition-base);
+  position: relative;
+}
+
+.sidebar-integration-row-member::before {
+  content: '';
+  position: absolute;
+  left: -10px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--bd-subtle);
+}
+
+.sidebar-integration-row-member:hover {
+  background: var(--surface-hover);
+  color: var(--tx-primary);
+}
+
+.sidebar-integration-row-member.active {
+  background: rgba(0, 214, 201, 0.08);
+  color: var(--tx-primary);
+  box-shadow: inset 2px 0 0 var(--brand);
+}
+
+.sidebar-integration-row-role {
+  grid-row: span 2;
+  min-width: 36px;
+  padding: 2px 7px;
+  border: 1px solid rgba(0, 214, 201, 0.30);
+  border-radius: var(--radius-pill);
+  background: rgba(0, 214, 201, 0.16);
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.sidebar-integration-row-alias {
+  color: var(--tx-primary);
+  font-size: 11px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.sidebar-integration-row-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--tx-muted);
+  font-size: 9.5px;
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.sidebar-rail-integration {
+  display: grid;
+  place-items: center;
+  gap: 5px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--bd-divider);
+}
+
+.sidebar-rail-integration > span {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(0, 214, 201, 0.1);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.sidebar-rail-integration.active > span {
+  box-shadow: inset 0 0 0 1px rgba(0, 214, 201, 0.35);
+}
+
+.sidebar-rail-integration-member {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--bd-subtle);
+  border-radius: 7px;
+  background: var(--surface-quiet);
+  color: var(--tx-secondary);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.sidebar-rail-integration-member:hover,
+.sidebar-rail-integration-member.active {
+  border-color: rgba(0, 214, 201, 0.45);
+  background: rgba(0, 214, 201, 0.14);
+  color: var(--tx-primary);
+}
+
 /* Used by SettingsModal and other components */
 .workspace-list-empty {
   padding: 12px 14px;
@@ -756,28 +1266,28 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: var(--space-md);
   text-align: center;
-  padding: 40px;
+  padding: var(--space-2xl);
 }
 
 .empty-state-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-quiet);
+  border: 1px solid var(--bd-subtle);
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--tx-muted);
-  margin-bottom: 4px;
+  margin-bottom: var(--space-sm);
 }
 
 .empty-state h3 {
   margin: 0;
-  color: var(--tx-secondary);
-  font-size: 16px;
+  color: var(--tx-primary);
+  font-size: 17px;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
@@ -786,28 +1296,28 @@
   margin: 0;
   font-size: 13px;
   color: var(--tx-muted);
-  max-width: 260px;
-  line-height: 1.5;
+  max-width: 320px;
+  line-height: 1.55;
 }
 
 .empty-state-cta {
-  margin-top: 8px;
+  margin-top: var(--space-sm);
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  height: 34px;
-  padding: 0 14px;
-  border-radius: 7px;
-  border: 1px solid rgba(52, 212, 116, 0.3);
-  background: rgba(52, 212, 116, 0.08);
-  color: var(--accent);
+  gap: var(--space-sm);
+  height: 36px;
+  padding: 0 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--bd-subtle);
+  background: var(--surface-quiet);
+  color: var(--tx-primary);
   font-size: 13px;
   font-weight: 500;
-  transition: all 100ms;
+  transition: background var(--transition-base), border-color var(--transition-base);
 }
 .empty-state-cta:hover {
-  background: rgba(52, 212, 116, 0.15);
-  border-color: rgba(52, 212, 116, 0.5);
+  background: var(--surface-hover);
+  border-color: var(--bd-input-focus);
 }
 
 .error-banner {
@@ -844,12 +1354,12 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  height: 34px;
-  flex: 0 0 34px;
+  height: 36px;
+  flex: 0 0 36px;
   min-width: 0;
-  padding: 4px 8px;
-  border-bottom: 1px solid #161616;
-  background: #000;
+  padding: 4px var(--space-md);
+  border-bottom: 1px solid var(--bd-divider);
+  background: var(--bg-app);
 }
 
 .workspace-topbar-spacer {
@@ -870,15 +1380,16 @@
   align-items: center;
   justify-content: center;
   gap: 7px;
-  height: 26px;
+  height: 28px;
   min-width: 160px;
-  padding: 0 16px;
-  border: 1px solid #232323;
-  border-radius: 999px;
-  background: #181818;
-  color: #d8dce0;
+  padding: 0 14px;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-quiet);
+  color: var(--tx-secondary);
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 500;
+  transition: background var(--transition-base), border-color var(--transition-base), color var(--transition-base);
 }
 
 .workspace-toolbar-button-compact {
@@ -887,9 +1398,9 @@
 
 .workspace-toolbar-button:hover,
 .workspace-toolbar-button.active {
-  border-color: #343434;
-  background: #202020;
-  color: #fff;
+  border-color: var(--bd-base);
+  background: var(--surface-hover);
+  color: var(--tx-primary);
 }
 
 .workspace-toolbar-icon {
@@ -898,9 +1409,15 @@
   justify-content: center;
   width: 14px;
   height: 14px;
-  color: var(--brand-light);
+  color: var(--tx-muted);
   font-size: 13px;
   line-height: 1;
+  transition: color var(--transition-base);
+}
+
+.workspace-toolbar-button:hover .workspace-toolbar-icon,
+.workspace-toolbar-button.active .workspace-toolbar-icon {
+  color: var(--tx-secondary);
 }
 
 .workspace-toolbar-icon-button {
@@ -908,23 +1425,24 @@
   align-items: center;
   justify-content: center;
   width: 28px;
-  height: 26px;
-  border: 1px solid #232323;
-  border-radius: 999px;
-  background: #181818;
+  height: 28px;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-quiet);
   color: var(--tx-secondary);
+  transition: background var(--transition-base), border-color var(--transition-base), color var(--transition-base);
 }
 
 .workspace-toolbar-icon-button:hover {
-  border-color: #343434;
-  background: #202020;
-  color: #fff;
+  border-color: var(--bd-base);
+  background: var(--surface-hover);
+  color: var(--tx-primary);
 }
 
 .workspace-toolbar-sep {
   width: 1px;
   height: 16px;
-  background: #202020;
+  background: var(--bd-subtle);
   flex-shrink: 0;
 }
 
@@ -944,19 +1462,19 @@
   width: 296px;
   max-height: min(72vh, 680px);
   overflow: auto;
-  padding: 10px 0;
-  border: 1px solid #242638;
-  border-radius: 8px;
-  background: #111119;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  padding: var(--space-sm) 0;
+  border: 1px solid var(--bd-base);
+  border-radius: var(--radius-md);
+  background: var(--bg-modal);
+  box-shadow: var(--shadow-lg);
 }
 
 .tools-menu-group {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 8px 10px;
-  border-bottom: 1px solid #202030;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--bd-subtle);
 }
 
 .tools-menu-group:last-child {
@@ -964,11 +1482,11 @@
 }
 
 .tools-menu-group h3 {
-  margin: 0 0 6px;
-  color: #8791aa;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0;
+  margin: 0 0 var(--space-xs);
+  color: var(--tx-muted);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -976,21 +1494,24 @@
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 7px;
+  gap: var(--space-sm);
   width: 100%;
-  min-height: 31px;
-  padding: 5px 8px;
+  min-height: 32px;
+  padding: 6px var(--space-sm);
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: #c7cce0;
+  color: var(--tx-secondary);
   text-align: left;
+  transition: background var(--transition-base), color var(--transition-base);
 }
 
 .tools-menu-item:hover,
 .tools-menu-item.active {
-  background: rgba(0, 214, 201, 0.09);
-  color: #f4f7ff;
+  /* Was rgba(0,214,201,0.09) — teal-ish. Now a neutral hover that doesn't
+     compete with the menu surface for attention. */
+  background: var(--surface-hover);
+  color: var(--tx-primary);
 }
 
 .tools-menu-item:disabled {
@@ -1002,19 +1523,25 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #00d6c9;
+  color: var(--tx-muted);
+  transition: color var(--transition-base);
+}
+
+.tools-menu-item:hover .tools-menu-item-icon,
+.tools-menu-item.active .tools-menu-item-icon {
+  color: var(--tx-secondary);
 }
 
 .tools-menu-item-label {
   overflow: hidden;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .tools-menu-item-detail {
-  color: #8991a7;
+  color: var(--tx-muted);
   font-size: 11px;
 }
 
@@ -1057,13 +1584,13 @@
   z-index: 50;
 }
 
-.resize-handle { background: #080808; }
-.resize-handle[data-resize-handle-active], .resize-handle:hover { background: rgba(255,255,255,0.28); }
+.resize-handle { background: transparent; transition: background var(--transition-base); }
+.resize-handle[data-resize-handle-active], .resize-handle:hover { background: var(--surface-active); }
 .resize-handle-vertical { width: 2px; }
 .resize-handle-horizontal { height: 2px; }
 
 .workspace-editor-resize {
-  background: #161616;
+  background: var(--bd-divider);
 }
 
 .workspace-editor-panel {
@@ -1074,8 +1601,8 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: #000;
-  border-left: 1px solid #252525;
+  background: var(--bg-app);
+  border-left: 1px solid var(--bd-divider);
 }
 
 .workspace-editor-content {
@@ -1091,35 +1618,43 @@
   align-items: center;
   justify-content: space-between;
   height: var(--tile-header-h);
-  padding: 5px 8px;
-  background: #000;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-app);
   flex-shrink: 0;
-  gap: 8px;
+  gap: var(--space-sm);
+  border-bottom: 1px solid var(--bd-divider);
 }
 
 .workspace-editor-title {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
+  gap: var(--space-sm);
   min-width: 0;
   flex: 1;
-  height: 29px;
-  border: 1px solid #252525;
-  border-radius: 999px;
-  background: #181818;
-  color: #d8dce0;
+  height: 30px;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-quiet);
+  color: var(--tx-secondary);
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 500;
+  transition: background var(--transition-base), border-color var(--transition-base), color var(--transition-base);
+}
+
+.workspace-editor-title:hover {
+  background: var(--surface-hover);
+  border-color: var(--bd-base);
+  color: var(--tx-primary);
 }
 
 .workspace-editor-actions {
   display: flex;
   align-items: center;
   gap: 2px;
-  height: 29px;
-  border: 1px solid #202020;
-  border-radius: 999px;
-  background: #151515;
-  padding: 0 5px;
+  height: 30px;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-quiet);
+  padding: 0 6px;
 }

@@ -1,8 +1,9 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { Workspace } from '../../shared/types/workspace'
 import { Sidebar } from '../../src/components/Sidebar/Sidebar'
+import { __resetGitBranchCacheForTests } from '../../src/hooks/useGitBranch'
 import { useTerminalStore } from '../../src/store/terminal.store'
 
 const workspace: Workspace = {
@@ -24,6 +25,7 @@ const workspace: Workspace = {
 
 describe('Sidebar', () => {
   beforeEach(() => {
+    __resetGitBranchCacheForTests()
     useTerminalStore.setState({ panes: {}, pendingCommands: {}, activePaneId: null })
     Object.defineProperty(window, 'oxe', {
       configurable: true,
@@ -33,6 +35,9 @@ describe('Sidebar', () => {
         },
         workspace: {
           closePane: vi.fn().mockResolvedValue(undefined)
+        },
+        git: {
+          getBranch: vi.fn().mockResolvedValue({ branch: 'feature/sidebar', detached: false, shortSha: null })
         }
       }
     })
@@ -64,7 +69,15 @@ describe('Sidebar', () => {
     expect(screen.getByText('repo')).toBeInTheDocument()
     expect(screen.getByText('v0.1.2')).toBeInTheDocument()
     expect(screen.queryByText('C:/projects/repo')).not.toBeInTheDocument()
-    expect(screen.getAllByText('2').length).toBeGreaterThan(0)
+    // Both panes render as rows. We assert by data-testid because the old
+    // assertion relied on the numeric "2" label printed by pane-row-state-mark
+    // — that text was removed when the left avatar became a pure activity dot
+    // (no number, no checkmark) so future regressions in the index→dot mapping
+    // get caught by the count check below instead.
+    expect(screen.getAllByTestId('pane-session-row')).toHaveLength(2)
+    const firstPaneRow = screen.getAllByTestId('pane-session-row')[0]
+    await waitFor(() => expect(within(firstPaneRow).getByText('feature/sidebar')).toBeInTheDocument())
+    expect(within(firstPaneRow).queryByText('~/repo')).not.toBeInTheDocument()
 
     await user.click(screen.getByTestId('btn-new-workspace'))
     expect(onNewWorkspace).toHaveBeenCalled()
@@ -148,7 +161,7 @@ describe('Sidebar', () => {
     )
 
     await user.click(screen.getByRole('tab', { name: /unread/i }))
-    await user.click(screen.getByText('terminal 2'))
+    await user.click(screen.getByText('new output'))
 
     expect(onActivatePane).toHaveBeenCalledWith('pane-2')
     expect(useTerminalStore.getState().panes['pane-2']?.hasUnread).toBe(false)
@@ -232,7 +245,7 @@ describe('Sidebar', () => {
       />
     )
 
-    fireEvent.contextMenu(screen.getByText('terminal 1'))
+    fireEvent.contextMenu(screen.getByText('Logged in'))
     await user.click(screen.getByRole('menuitem', { name: /close terminal/i }))
 
     await waitFor(() => expect(stop).toHaveBeenCalledWith({ paneId: 'pane-1' }))
