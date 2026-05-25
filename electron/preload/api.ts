@@ -105,6 +105,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       onFileChanged: (listener) => subscribe<FileSystemFileChangedEvent>(ipc, IPC_CHANNELS.fs.onFileChanged, listener)
     },
     git: {
+      getBranch: (input) => ipc.invoke(IPC_CHANNELS.git.getBranch, input) as Promise<import('../../shared/types/git').GitBranchStatus>,
       getDiff: (input) => ipc.invoke(IPC_CHANNELS.git.getDiff, input) as Promise<GitDiff>,
       onDiffUpdate: (listener) => subscribe<GitDiff>(ipc, IPC_CHANNELS.git.onDiffUpdate, listener)
     },
@@ -145,11 +146,19 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       listConnectedRepositories: (input) => ipc.invoke(IPC_CHANNELS.github.listConnectedRepositories, input) as Promise<GitHubConnectedRepository[]>,
       connectRepository: (input) => ipc.invoke(IPC_CHANNELS.github.connectRepository, input) as Promise<GitHubConnectedRepository>
     },
-    usage: {
-      getContextUsage: (input) => ipc.invoke(IPC_CHANNELS.usage.getContextUsage, input) as Promise<import('../../shared/types/usage').ContextUsageSnapshot>,
-      getSnapshotFor: (input) => ipc.invoke(IPC_CHANNELS.usage.getSnapshotFor, input) as Promise<import('../../shared/types/usage').ContextUsageSnapshot>,
-      listSessions: (input) => ipc.invoke(IPC_CHANNELS.usage.listSessions, input) as Promise<import('../../shared/types/usage/sessions').UsageSessionMetadata[]>,
-      supportedProviders: () => ipc.invoke(IPC_CHANNELS.usage.supportedProviders) as Promise<import('../../shared/types/agent').AgentProvider[]>
+    integration: {
+      listGroups: (input) => ipc.invoke(IPC_CHANNELS.integration.listGroups, input ?? {}) as Promise<import('../../shared/types/integration').IntegrationGroup[]>,
+      createGroup: (input) => ipc.invoke(IPC_CHANNELS.integration.createGroup, input) as Promise<import('../../shared/types/integration').IntegrationGroup>,
+      updateGroup: (input) => ipc.invoke(IPC_CHANNELS.integration.updateGroup, input) as Promise<import('../../shared/types/integration').IntegrationGroup>,
+      deleteGroup: (groupId) => ipc.invoke(IPC_CHANNELS.integration.deleteGroup, groupId) as Promise<void>,
+      addMember: (input) => ipc.invoke(IPC_CHANNELS.integration.addMember, input) as Promise<import('../../shared/types/integration').IntegrationGroup>,
+      updateMember: (input) => ipc.invoke(IPC_CHANNELS.integration.updateMember, input) as Promise<import('../../shared/types/integration').IntegrationGroup>,
+      removeMember: (memberId) => ipc.invoke(IPC_CHANNELS.integration.removeMember, memberId) as Promise<import('../../shared/types/integration').IntegrationGroup>,
+      attachSession: (input) => ipc.invoke(IPC_CHANNELS.integration.attachSession, input) as Promise<import('../../shared/types/integration').IntegrationSession>,
+      listHandoffs: (groupId) => ipc.invoke(IPC_CHANNELS.integration.listHandoffs, groupId) as Promise<import('../../shared/types/integration').IntegrationHandoff[]>,
+      createHandoff: (input) => ipc.invoke(IPC_CHANNELS.integration.createHandoff, input) as Promise<import('../../shared/types/integration').IntegrationHandoff>,
+      updateHandoff: (input) => ipc.invoke(IPC_CHANNELS.integration.updateHandoff, input) as Promise<import('../../shared/types/integration').IntegrationHandoff>,
+      buildContext: (input) => ipc.invoke(IPC_CHANNELS.integration.buildContext, input) as Promise<import('../../shared/types/integration').IntegrationContextResult>
     },
     background: {
       list: (workspaceId) => ipc.invoke(IPC_CHANNELS.background.list, workspaceId) as Promise<import('../../shared/types/background').BackgroundJob[]>,

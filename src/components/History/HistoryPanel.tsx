@@ -71,6 +71,10 @@ export function HistoryPanel({ workspaceId, workspaceRootPath, activePaneId, onC
   }, [workspaceId, workspaceRootPath, provider, loadSessions])
 
   const sorted = useMemo(() => [...sessions].sort((a, b) => b.lastUpdatedMs - a.lastUpdatedMs), [sessions])
+  // Group by recency (Claude Desktop pattern): Today / Yesterday / Last 7 days /
+  // Older. The grouping is purely presentational — `sorted` is already in the
+  // right order, we just slice it into labeled buckets.
+  const grouped = useMemo(() => groupSessionsByRecency(sorted), [sorted])
 
   const handleResume = async (session: SessionSummary): Promise<void> => {
     setError(null)
@@ -222,16 +226,21 @@ export function HistoryPanel({ workspaceId, workspaceRootPath, activePaneId, onC
               </span>
             </div>
           ) : (
-            sorted.map((session) => (
-              <SessionRow
-                key={session.sessionId}
-                session={session}
-                workspaceName={workspaceName}
-                busy={busy}
-                canResume={canResume}
-                onResumeHere={() => void handleResume(session)}
-                onFork={() => { setForkTarget(session); setForkMessageCount(''); setForkLabel('') }}
-              />
+            grouped.map((group) => (
+              <section key={group.label} className="history-group" aria-label={group.label}>
+                <div className="history-section-label">{group.label}</div>
+                {group.sessions.map((session) => (
+                  <SessionRow
+                    key={session.sessionId}
+                    session={session}
+                    workspaceName={workspaceName}
+                    busy={busy}
+                    canResume={canResume}
+                    onResumeHere={() => void handleResume(session)}
+                    onFork={() => { setForkTarget(session); setForkMessageCount(''); setForkLabel('') }}
+                  />
+                ))}
+              </section>
             ))
           )}
         </div>
@@ -327,4 +336,37 @@ function formatRelative(ms: number): string {
 function formatWorkspacePath(path: string): string {
   const parts = path.split(/[\\/]/).filter(Boolean)
   return parts.slice(-2).join('/') || path
+}
+
+interface SessionGroup {
+  label: 'Today' | 'Yesterday' | 'Last 7 days' | 'Older'
+  sessions: SessionSummary[]
+}
+
+/**
+ * Buckets sessions by how recent `lastUpdatedMs` is, using the start of today
+ * (local time) as the anchor. Empty buckets are dropped so the panel doesn't
+ * render a section label with nothing under it. Input must already be sorted
+ * desc by `lastUpdatedMs` — this just slices.
+ */
+function groupSessionsByRecency(sessions: SessionSummary[]): SessionGroup[] {
+  if (sessions.length === 0) return []
+  const now = new Date()
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const startOfYesterday = startOfToday - 86_400_000
+  const sevenDaysAgo = startOfToday - 7 * 86_400_000
+
+  const buckets: SessionGroup[] = [
+    { label: 'Today',       sessions: [] },
+    { label: 'Yesterday',   sessions: [] },
+    { label: 'Last 7 days', sessions: [] },
+    { label: 'Older',       sessions: [] }
+  ]
+  for (const s of sessions) {
+    if (s.lastUpdatedMs >= startOfToday) buckets[0].sessions.push(s)
+    else if (s.lastUpdatedMs >= startOfYesterday) buckets[1].sessions.push(s)
+    else if (s.lastUpdatedMs >= sevenDaysAgo) buckets[2].sessions.push(s)
+    else buckets[3].sessions.push(s)
+  }
+  return buckets.filter((b) => b.sessions.length > 0)
 }

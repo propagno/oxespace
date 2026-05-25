@@ -22,6 +22,7 @@ describe('preload api', () => {
     await api.fs.writeFile({ workspaceId: 'workspace-1', rootPath: 'C:/repo', relativePath: 'README.md', content: 'ok' })
     await api.fs.watchFile({ workspaceId: 'workspace-1', rootPath: 'C:/repo', relativePath: 'README.md' })
     await api.fs.unwatchFile({ watchId: 'watch-1' })
+    await api.git.getBranch({ workspaceId: 'workspace-1', rootPath: 'C:/repo' })
 
     await api.github.getCliStatus({ workspaceId: 'workspace-1', rootPath: 'C:/repo' })
     await api.github.getWorkspaceStatus({ workspaceId: 'workspace-1', rootPath: 'C:/repo' })
@@ -72,6 +73,7 @@ describe('preload api', () => {
     })
     expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.fs.watchFile, { workspaceId: 'workspace-1', rootPath: 'C:/repo', relativePath: 'README.md' })
     expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.fs.unwatchFile, { watchId: 'watch-1' })
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.git.getBranch, { workspaceId: 'workspace-1', rootPath: 'C:/repo' })
     expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.github.getCliStatus, { workspaceId: 'workspace-1', rootPath: 'C:/repo' })
     expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.github.getWorkspaceStatus, { workspaceId: 'workspace-1', rootPath: 'C:/repo' })
     expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.github.fetch, { workspaceId: 'workspace-1', rootPath: 'C:/repo' })

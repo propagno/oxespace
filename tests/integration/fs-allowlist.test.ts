@@ -8,6 +8,7 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/background.service.ts',
   'electron/main/services/git.service.ts',
   'electron/main/services/github.service.ts',
+  'electron/main/services/integration.service.ts',
   'electron/main/services/mcp-sync.service.ts',
   'electron/main/services/session.service.ts',
   'electron/main/services/shell-profile.service.ts',

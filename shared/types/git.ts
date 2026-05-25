@@ -33,3 +33,15 @@ export interface GitDiffInput {
   base: string
   includeUncommitted: boolean
 }
+
+export interface GitBranchInput {
+  workspaceId: string
+  rootPath: string
+}
+
+export interface GitBranchStatus {
+  branch: string | null
+  detached: boolean
+  shortSha: string | null
+  error?: string | null
+}

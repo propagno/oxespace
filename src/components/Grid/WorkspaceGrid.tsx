@@ -1,11 +1,13 @@
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { Fragment, type ReactElement } from 'react'
+import type { AgentProfile } from '../../../shared/types/agent'
 import type { Workspace } from '../../../shared/types/workspace'
 import { getPaneAt, LAYOUTS } from './layouts'
 import { PaneContainer } from './PaneContainer'
 
 interface WorkspaceGridProps {
   workspace: Workspace
+  agentProfiles?: AgentProfile[]
   maximizedPaneId: string | null
   activePaneId?: string | null
   onClosePane?: (paneId: string) => void
@@ -14,7 +16,7 @@ interface WorkspaceGridProps {
   onActivatePane?: (paneId: string) => void
 }
 
-export function WorkspaceGrid({ activePaneId, maximizedPaneId, onActivatePane, onClosePane, onSplitPane, onToggleMaximize, workspace }: WorkspaceGridProps): ReactElement {
+export function WorkspaceGrid({ activePaneId, agentProfiles = [], maximizedPaneId, onActivatePane, onClosePane, onSplitPane, onToggleMaximize, workspace }: WorkspaceGridProps): ReactElement {
   const maximizedPane = maximizedPaneId ? workspace.panes.find((pane) => pane.id === maximizedPaneId) : null
 
   if (maximizedPane) {
@@ -22,7 +24,8 @@ export function WorkspaceGrid({ activePaneId, maximizedPaneId, onActivatePane, o
       <div className="workspace-grid workspace-grid-maximized" data-testid="workspace-grid">
         <PaneContainer
           pane={maximizedPane}
-          workspaceId={workspace.id}
+          workspace={workspace}
+          agentProfile={getAgentProfile(agentProfiles, maximizedPane.agentProfileId)}
           autoStart={workspace.autoStart}
           isMaximized
           isActive={maximizedPane.id === activePaneId}
@@ -53,7 +56,8 @@ export function WorkspaceGrid({ activePaneId, maximizedPaneId, onActivatePane, o
                         {pane ? (
                           <PaneContainer
                             pane={pane}
-                            workspaceId={workspace.id}
+                            workspace={workspace}
+                            agentProfile={getAgentProfile(agentProfiles, pane.agentProfileId)}
                             autoStart={workspace.autoStart}
                             isMaximized={false}
                             isActive={pane.id === activePaneId}
@@ -77,4 +81,9 @@ export function WorkspaceGrid({ activePaneId, maximizedPaneId, onActivatePane, o
       </PanelGroup>
     </div>
   )
+}
+
+function getAgentProfile(agentProfiles: AgentProfile[], agentProfileId: string | null): AgentProfile | null {
+  if (!agentProfileId) return null
+  return agentProfiles.find((profile) => profile.agentProfileId === agentProfileId) ?? null
 }

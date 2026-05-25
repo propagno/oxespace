@@ -1,12 +1,17 @@
 import { create } from 'zustand'
+import { sanitizeTerminalPreview, stripTerminalControl } from '../utils/paneDisplay'
 
 export type TerminalPaneStatus = 'idle' | 'starting' | 'running' | 'exited' | 'error'
 
-interface TerminalStateEntry {
+export interface TerminalStateEntry {
   status: TerminalPaneStatus
   error: string | null
   lastActivityAt: number | null
   lastOutput: string | null
+  /** Last full line the user typed in this pane (committed on Enter). */
+  lastIntent: string | null
+  /** Wall-clock when `lastIntent` was committed, used to derive 'awaiting' state. */
+  lastIntentAt: number | null
   isWorking: boolean
   hasUnread: boolean
 }
@@ -20,6 +25,8 @@ interface TerminalState {
   getStatus: (paneId: string) => TerminalStateEntry
   updateActivity: (paneId: string, rawData: string) => void
   updatePreview: (paneId: string, preview: string) => void
+  /** Record the user's most recent committed (Enter-terminated) input. */
+  setLastIntent: (paneId: string, intent: string) => void
   markRead: (paneId: string) => void
   setPendingCommand: (paneId: string, command: string) => void
   consumePendingCommand: (paneId: string) => string | null
@@ -30,18 +37,10 @@ const DEFAULT_STATE: TerminalStateEntry = {
   error: null,
   lastActivityAt: null,
   lastOutput: null,
+  lastIntent: null,
+  lastIntentAt: null,
   isWorking: false,
   hasUnread: false
-}
-
-function stripAnsi(str: string): string {
-  return str
-    .replace(/\x1B\[[\x3C-\x3F]*[\d;]*[\x20-\x2F]*[\x40-\x7E]/g, '') // CSI (incl. ?/>/<)
-    .replace(/\x1B\][^\x07\x1B]*(?:\x07|\x1B\\)/g, '')                // OSC
-    .replace(/\x1B[PX^_][^\x1B]*\x1B\\/g, '')                         // DCS/SOS/PM/APC
-    .replace(/\x1B[@-_]/g, '')                                          // Fe two-char
-    .replace(/\x1B[()][AB012]/g, '')                                    // charset
-    .replace(/\r/g, '')
 }
 
 // Module-level timers so they survive re-renders
@@ -82,9 +81,10 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   },
 
   updateActivity: (paneId, rawData) => {
-    const stripped = stripAnsi(rawData)
-    const lastLine = stripped.split('\n').map(l => l.trim()).filter(Boolean).at(-1) ?? null
-    if (!lastLine) return
+    const stripped = stripTerminalControl(rawData)
+    const hasOutput = stripped.split('\n').some((line) => line.trim().length > 0)
+    if (!hasOutput) return
+    const preview = sanitizeTerminalPreview(rawData)
 
     const now = Date.now()
     const lastTime = lastActivitySetTime.get(paneId) ?? 0
@@ -96,7 +96,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
           [paneId]: {
             ...(state.panes[paneId] ?? DEFAULT_STATE),
             lastActivityAt: now,
-            lastOutput: lastLine.slice(0, 80),
+            lastOutput: preview ?? state.panes[paneId]?.lastOutput ?? null,
             isWorking: true,
             hasUnread: state.activePaneId === paneId ? false : true
           }
@@ -118,13 +118,33 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     }, 1500))
   },
 
-  updatePreview: (paneId, preview) =>
+  updatePreview: (paneId, preview) => {
+    const sanitized = sanitizeTerminalPreview(preview)
+    if (!sanitized) return
     set(state => ({
       panes: {
         ...state.panes,
-        [paneId]: { ...(state.panes[paneId] ?? DEFAULT_STATE), lastOutput: preview }
+        [paneId]: { ...(state.panes[paneId] ?? DEFAULT_STATE), lastOutput: sanitized }
       }
-    })),
+    }))
+  },
+
+  setLastIntent: (paneId, intent) => {
+    const trimmed = intent.trim()
+    if (!trimmed) return
+    set(state => ({
+      panes: {
+        ...state.panes,
+        [paneId]: {
+          ...(state.panes[paneId] ?? DEFAULT_STATE),
+          // Cap at 120 chars so a long prompt doesn't blow up the sidebar/header.
+          // The full input still went to the PTY — this is just the display tag.
+          lastIntent: trimmed.length > 120 ? trimmed.slice(0, 117) + '…' : trimmed,
+          lastIntentAt: Date.now()
+        }
+      }
+    }))
+  },
 
   markRead: (paneId) =>
     set(state => ({
@@ -150,3 +170,30 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     return cmd
   }
 }))
+
+/**
+ * Three-tier activity level for vibe-coding awareness:
+ * - `thinking`: agent is streaming output right now (isWorking timer alive).
+ * - `awaiting`: agent paused after the user's last intent (recent activity,
+ *   running status, has an intent on record). Visually = "check me".
+ * - `idle`: everything else — never started, exited, or no recent activity.
+ *
+ * Pure function so it can be called inside selectors without re-render churn.
+ */
+export type ActivityLevel = 'thinking' | 'awaiting' | 'idle'
+export function deriveActivityLevel(entry: TerminalStateEntry | undefined): ActivityLevel {
+  if (!entry) return 'idle'
+  if (entry.isWorking) return 'thinking'
+  const isRunning = entry.status === 'running' || entry.status === 'starting'
+  if (!isRunning) return 'idle'
+  // "Awaiting" is the post-response window where the user typed something
+  // recently and the agent already finished printing. Five minutes feels
+  // about right for a vibe-coding cadence — long enough to read a long
+  // answer, short enough to not stay marked as "needs attention" forever.
+  const hasFreshIntent = entry.lastIntent !== null
+  const lastTouchMs = Math.max(entry.lastActivityAt ?? 0, entry.lastIntentAt ?? 0)
+  if (hasFreshIntent && lastTouchMs && Date.now() - lastTouchMs < 5 * 60_000) {
+    return 'awaiting'
+  }
+  return 'idle'
+}

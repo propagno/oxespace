@@ -18,7 +18,7 @@
   min-height: 0;
   overflow: hidden;
   color: var(--tx-primary);
-  background: #050609;
+  background: var(--bg-app);
 }
 
 .github-panel * {
@@ -29,10 +29,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  min-height: 45px;
-  padding: 8px 12px;
-  border-bottom: 1px solid #1f2230;
+  gap: var(--space-md);
+  min-height: 48px;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--bd-divider);
 }
 
 .github-panel-repo {
@@ -57,8 +57,8 @@
 
 .github-panel-repo-text span {
   overflow: hidden;
-  color: #8892aa;
-  font-size: 10px;
+  color: var(--tx-muted);
+  font-size: 10.5px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -73,49 +73,43 @@
 .github-badge {
   display: inline-flex;
   align-items: center;
-  height: 18px;
-  padding: 0 6px;
-  border: 1px solid rgba(255, 200, 0, 0.35);
-  border-radius: 5px;
-  color: #ffd45a;
+  height: 20px;
+  padding: 0 8px;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--surface-quiet);
+  color: var(--tx-secondary);
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 .github-badge-muted {
-  border-color: #30384c;
-  color: #9da8c0;
+  border-color: var(--bd-subtle);
+  color: var(--tx-muted);
 }
 
 .github-cli-pill {
   flex: 0 0 auto;
-  height: 18px;
-  padding: 0 7px;
-  border: 1px solid #30384c;
-  border-radius: 999px;
-  color: #aeb8ce;
+  height: 20px;
+  padding: 0 10px;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--surface-quiet);
+  color: var(--tx-secondary);
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
-.github-cli-pill.ready {
-  border-color: rgba(31, 191, 127, 0.38);
-  color: #8ef0bc;
-}
-
-.github-cli-pill.warning {
-  border-color: rgba(255, 195, 0, 0.36);
-  color: #ffd45a;
-}
-
-.github-cli-pill.missing {
-  border-color: rgba(255, 85, 85, 0.32);
-  color: #ffb4b4;
-}
+/* Status pills keep only the LEFT-edge accent via inset shadow, so the row
+   reads as quiet text first and the colour second. */
+.github-cli-pill.ready    { box-shadow: inset 2px 0 0 0 rgba(52, 212, 116, 0.6); color: var(--tx-primary); }
+.github-cli-pill.warning  { box-shadow: inset 2px 0 0 0 rgba(251, 191, 36, 0.6); color: var(--tx-primary); }
+.github-cli-pill.missing  { box-shadow: inset 2px 0 0 0 rgba(248, 113, 113, 0.6); color: var(--tx-primary); }
 
 .github-muted {
-  color: #8892aa;
+  color: var(--tx-muted);
   font-size: 11px;
 }
 
@@ -123,28 +117,33 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  min-height: 42px;
-  padding: 0 8px;
-  border-bottom: 1px solid #1f2230;
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  border-bottom: 1px solid var(--bd-divider);
   overflow-x: auto;
 }
 
 .github-tab {
   flex: 0 0 auto;
-  height: 38px;
-  padding: 0 9px;
+  height: 40px;
+  padding: 0 12px;
   border: 0;
   border-bottom: 2px solid transparent;
   background: transparent;
-  color: #a8b0c5;
+  color: var(--tx-muted);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500;
+  transition: color var(--transition-base), border-bottom-color var(--transition-base);
 }
 
-.github-tab:hover,
+.github-tab:hover {
+  color: var(--tx-secondary);
+}
+
 .github-tab.active {
-  color: #00d6c9;
-  border-bottom-color: #00d6c9;
+  color: var(--tx-primary);
+  /* Match sidebar tabs — brand underline with alpha 0.7, not full neon. */
+  border-bottom-color: rgba(18, 199, 154, 0.7);
 }
 
 .github-refreshing {
@@ -153,10 +152,10 @@
   gap: 4px;
   margin-left: auto;
   padding: 2px 8px;
-  color: #8892aa;
+  color: var(--tx-muted);
   font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   opacity: 0.85;
 }
@@ -2813,16 +2812,17 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  border: var(--bd-tile);
-  background: var(--bg-tile-content);
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 10px;
+  background: #050505;
 }
 .pane-container:focus-within {
-  border-color: rgba(240, 246, 252, 0.78);
-  box-shadow: inset 0 0 0 1px rgba(240,246,252,0.12);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.035);
 }
 .pane-container.active > .pane-header {
-  background: var(--bg-pane-active-header);
-  border-bottom: 1px solid var(--bd-pane-active);
+  background: rgba(255, 255, 255, 0.035);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 .pane-container.active > .pane-header .pane-status-dot {
   box-shadow: var(--glow-pane-active);
@@ -2832,10 +2832,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: var(--tile-header-h);
-  padding: 5px 7px 5px 10px;
-  background: #000;
-  border-bottom: 0;
+  height: 38px;
+  padding: 5px 7px 5px 8px;
+  background: #0a0a0a;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
   flex-shrink: 0;
   gap: 8px;
 }
@@ -2843,16 +2843,18 @@
 .pane-header-left {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--space-sm);
   min-width: 0;
   flex: 1;
-  height: 29px;
-  max-width: 68%;
-  border: 1px solid #252525;
+  height: 28px;
+  /* Allow the intent text to take the full header width when present —
+     a 4-pane vibe-coding grid wins from showing "Fix the auth race…" in the
+     header instead of an empty pill that says "Terminal". */
+  max-width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 999px;
-  background: #181818;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
-  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.045);
+  padding: 0 10px;
 }
 
 .pane-status-dot {
@@ -2928,35 +2930,59 @@
 .pane-agent-chip {
   display: inline-flex;
   align-items: center;
-  max-width: 160px;
-  height: 20px;
-  padding: 0 8px;
-  border-radius: 999px;
-  background: var(--bg-pane-active-header);
-  border: 1px solid var(--bd-pane-active);
-  color: var(--brand-light);
+  flex-shrink: 0;
+  max-width: 116px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--tx-primary);
   font-size: 11px;
   font-weight: 600;
+  letter-spacing: 0;
+  text-transform: capitalize;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* The user's last typed prompt — what this pane is currently working on.
+   This is the headline of the pane: bigger than the chip, primary text colour,
+   and allowed to occupy the rest of the row so vibe coders can scan 4 panes
+   and instantly read "what is each agent doing right now". */
+.pane-intent {
+  min-width: 0;
+  flex: 1;
+  color: var(--tx-primary);
+  font-size: 12.5px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* When the sidebar row shows the user's intent instead of raw output we lift
+   the colour and slightly bump the weight so it reads as a task, not as noise. */
+.pane-row-preview.pane-row-intent {
+  color: var(--tx-primary);
+  font-weight: 500;
+}
+
 .pane-actions {
   display: flex;
   align-items: center;
-  gap: 2px;
-  height: 29px;
-  border: 1px solid #202020;
+  gap: 1px;
+  height: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 999px;
-  background: #151515;
-  padding: 0 5px;
+  background: rgba(255, 255, 255, 0.045);
+  padding: 0 4px;
   flex-shrink: 0;
 }
 
 .tile-btn {
-  width: 23px;
-  height: 23px;
+  width: 22px;
+  height: 22px;
   border-radius: 999px;
   display: flex;
   align-items: center;
@@ -3332,25 +3358,25 @@
 .statusbar-chip {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 0 8px;
-  height: 20px;
+  gap: 6px;
+  padding: 0 10px;
+  height: 22px;
   font-size: 10px;
   font-weight: 600;
   font-family: var(--font-mono);
   color: rgba(255, 255, 255, 0.55);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 4px;
+  background: var(--surface-quiet);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   letter-spacing: 0.2px;
-  transition: color 80ms, background 80ms, border-color 80ms;
+  transition: color var(--transition-base), background var(--transition-base), border-color var(--transition-base);
 }
 
 .statusbar-chip:hover {
   color: var(--tx-primary);
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.14);
+  background: var(--surface-hover);
+  border-color: var(--bd-base);
 }
 
 .statusbar-chip svg {
@@ -3398,44 +3424,6 @@
 .worktree-chip.overridden:hover {
   background: rgba(255, 200, 100, 0.14);
   border-color: rgba(255, 200, 100, 0.38);
-}
-
-.usage-chip {
-  color: rgba(255, 255, 255, 0.7);
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.usage-chip:hover {
-  color: var(--tx-primary);
-  background: rgba(18, 199, 154, 0.06);
-  border-color: rgba(18, 199, 154, 0.20);
-}
-
-.usage-chip.warning {
-  color: #FFD180;
-  background: rgba(255, 200, 100, 0.07);
-  border-color: rgba(255, 200, 100, 0.18);
-}
-
-.usage-chip.warning:hover {
-  background: rgba(255, 200, 100, 0.12);
-  border-color: rgba(255, 200, 100, 0.32);
-}
-
-.usage-chip.danger {
-  color: #FFB1B8;
-  background: rgba(244, 91, 105, 0.10);
-  border-color: rgba(244, 91, 105, 0.28);
-}
-
-.usage-chip.danger:hover {
-  background: rgba(244, 91, 105, 0.18);
-  border-color: rgba(244, 91, 105, 0.45);
-}
-
-.usage-chip-divider {
-  opacity: 0.4;
-  margin: 0 1px;
 }
 
 .terminal-idle {
@@ -5530,3 +5518,1161 @@
 .github-actions-v2-icon-cancelled { color: var(--dot-orange); }
 .github-actions-v2-icon-running { color: var(--dot-yellow); }
 .github-actions-v2-icon-neutral { color: var(--tx-muted); }
+
+/* Integration Command Center */
+.workspace-integration-panel {
+  background: var(--bg-app);
+}
+
+.integration-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+  padding: 10px;
+  color: var(--tx-secondary);
+}
+
+.integration-create-card,
+.integration-create-card {
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-quiet);
+  padding: 10px;
+}
+
+.integration-create-grid,
+.integration-ledger-form,
+.integration-handoff-form {
+  display: grid;
+  gap: 8px;
+}
+
+.integration-create-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+}
+
+.integration-panel input,
+.integration-panel select,
+.integration-panel textarea {
+  min-width: 0;
+  width: 100%;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-app);
+  color: var(--tx-primary);
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 12px;
+}
+
+.integration-panel textarea {
+  min-height: 86px;
+  resize: vertical;
+}
+
+.integration-error,
+.integration-notice {
+  border: 1px solid rgba(248, 113, 113, 0.28);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  color: #ff9a9a;
+  background: rgba(248, 113, 113, 0.08);
+  font-size: 12px;
+}
+
+.integration-notice {
+  border-color: rgba(0, 214, 201, 0.25);
+  color: var(--accent);
+  background: rgba(0, 214, 201, 0.07);
+}
+
+.integration-group-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.integration-group-tabs button,
+.integration-actions button {
+  white-space: nowrap;
+}
+
+.integration-group-tabs button {
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-quiet);
+  color: var(--tx-secondary);
+  padding: 7px 10px;
+  font-size: 12px;
+}
+
+.integration-group-tabs button.active {
+  color: var(--accent);
+  border-color: rgba(0, 214, 201, 0.35);
+  background: rgba(0, 214, 201, 0.08);
+}
+
+.integration-empty {
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  min-height: 150px;
+  color: var(--tx-muted);
+  text-align: center;
+  font-size: 12px;
+}
+
+.integration-muted {
+  color: var(--tx-muted);
+  font-size: 12px;
+}
+
+.integration-member-edit-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--tx-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition-base), background var(--transition-base), color var(--transition-base);
+}
+
+.integration-member-row:hover .integration-member-edit-btn,
+.integration-member-edit-btn.active,
+.integration-member-edit-btn:focus {
+  opacity: 1;
+}
+
+.integration-member-edit-btn:hover {
+  background: var(--surface-active);
+  color: var(--tx-primary);
+}
+
+.integration-member-edit-btn.active {
+  color: var(--accent);
+  background: rgba(0, 214, 201, 0.10);
+}
+
+/* Inline editor sits beneath the card, sharing its left+right borders so the
+   pair reads as a single expanded element. */
+.integration-member-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border: 1px solid rgba(0, 214, 201, 0.32);
+  border-top: none;
+  border-bottom-left-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-sm);
+  background: var(--surface-quiet);
+}
+
+.integration-member-editor-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 130px;
+  gap: var(--space-sm);
+}
+
+.integration-member-editor-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.integration-member-editor-field > span {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tx-muted);
+}
+
+.integration-member-editor-field input,
+.integration-member-editor-field select,
+.integration-member-editor-field textarea {
+  width: 100%;
+  padding: 6px 9px;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-app);
+  color: var(--tx-primary);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color var(--transition-base);
+}
+
+.integration-member-editor-field input:focus,
+.integration-member-editor-field select:focus,
+.integration-member-editor-field textarea:focus {
+  border-color: var(--bd-input-focus);
+}
+
+.integration-member-editor-field textarea {
+  resize: vertical;
+  min-height: 48px;
+  line-height: 1.5;
+}
+
+.integration-member-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-xs);
+}
+
+/* Status filter chips above the group tabs. Active chip gets the brand
+   accent so the user always knows which subset of groups is in view. */
+.integration-status-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-quiet);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-pill);
+}
+
+.integration-status-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--tx-muted);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-base), color var(--transition-base);
+}
+
+.integration-status-filter-chip:hover {
+  color: var(--tx-secondary);
+}
+
+.integration-status-filter-chip.active {
+  background: var(--surface-active);
+  color: var(--tx-primary);
+}
+
+.integration-status-filter-count {
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+
+/* Group tab status pill — a lowercase chip next to the group name so the
+   tab list reads "Feature X · active". */
+.integration-group-tab-status {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-quiet);
+  color: var(--tx-muted);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.integration-group-tab-status.status-active { color: var(--dot-green); background: rgba(52, 212, 116, 0.10); }
+.integration-group-tab-status.status-paused { color: var(--dot-yellow); background: rgba(251, 191, 36, 0.10); }
+.integration-group-tab-status.status-done { color: var(--tx-muted); background: rgba(255, 255, 255, 0.04); }
+
+/* Handoff inbox layout. */
+.integration-handoff-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.integration-handoff-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.integration-handoff-history {
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px dashed var(--bd-subtle);
+  opacity: 0.85;
+}
+
+.integration-handoff-toggle {
+  align-self: flex-start;
+  margin-top: var(--space-sm);
+}
+
+.integration-handoff-row {
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-quiet);
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.integration-handoff-row.status-sent {
+  border-color: rgba(0, 214, 201, 0.32);
+  background: rgba(0, 214, 201, 0.04);
+}
+
+.integration-handoff-row.status-saved {
+  opacity: 0.7;
+}
+
+.integration-handoff-row.for-you {
+  /* Brand left edge for "this is yours to act on". */
+  box-shadow: inset 3px 0 0 var(--brand);
+}
+
+.integration-handoff-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 11px;
+}
+
+.integration-handoff-pill {
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-active);
+  border: 1px solid transparent;
+  color: var(--tx-primary);
+  font-size: 10.5px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: background var(--transition-base);
+}
+
+.integration-handoff-pill:hover {
+  background: var(--surface-hover);
+  border-color: var(--bd-base);
+}
+
+.integration-handoff-arrow {
+  color: var(--tx-muted);
+  font-size: 12px;
+}
+
+.integration-handoff-status {
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-quiet);
+  color: var(--tx-muted);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.integration-handoff-row.status-sent .integration-handoff-status {
+  background: rgba(0, 214, 201, 0.12);
+  color: var(--accent-hover);
+}
+
+.integration-handoff-time {
+  margin-left: auto;
+  color: var(--tx-muted);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.integration-handoff-title {
+  color: var(--tx-primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.integration-handoff-body {
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  background: var(--bg-app);
+  color: var(--tx-secondary);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.integration-handoff-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+.integration-handoff-hint {
+  margin-right: auto;
+  color: var(--tx-muted);
+  font-size: 10.5px;
+  font-style: italic;
+}
+
+.integration-empty-inline {
+  padding: var(--space-md);
+  text-align: left;
+  border: 1px dashed var(--bd-subtle);
+  border-radius: var(--radius-md);
+  color: var(--tx-muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.integration-empty-inline code {
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-active);
+  color: var(--tx-primary);
+  font-size: 10.5px;
+}
+
+.integration-handoff-list strong {
+  display: block;
+  min-width: 0;
+  color: var(--tx-primary);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.integration-session-linker {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.integration-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.integration-context-preview {
+  min-height: 120px;
+  width: 100%;
+  max-height: 260px;
+  overflow: auto;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-app);
+  color: var(--tx-secondary);
+  padding: 10px;
+  resize: vertical;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.integration-context-preview:focus {
+  border-color: rgba(0, 214, 201, 0.45);
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(0, 214, 201, 0.16);
+}
+
+@media (max-width: 900px) {
+  .integration-create-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Integration member status row — pairs the activity dot with the
+   provider/state label so a glance reads "claude · Awaiting". Sits inside
+   the existing member card layout, no extra wrapping. */
+.integration-member-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--tx-muted);
+  min-width: 0;
+  font-size: 11px;
+}
+
+.integration-member-status > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ─── IntegrationPanel — compact redesign ─────────────────────────────── */
+
+.integration-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.integration-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.integration-toolbar-spacer {
+  flex: 1;
+}
+
+.integration-toolbar-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--surface-quiet);
+  color: var(--tx-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
+}
+
+.integration-toolbar-action:hover {
+  background: var(--surface-hover);
+  color: var(--tx-primary);
+  border-color: var(--bd-base);
+}
+
+.integration-toolbar-action.active {
+  background: rgba(0, 214, 201, 0.10);
+  border-color: rgba(0, 214, 201, 0.32);
+  color: var(--accent-hover);
+}
+
+/* No overflow:hidden here — the native <select> popover inside the
+   add-member row needs to escape; we clip rounded corners on the first
+   and last children instead. */
+.integration-active-group {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-quiet);
+}
+
+.integration-active-group > :first-child {
+  border-top-left-radius: var(--radius-md);
+  border-top-right-radius: var(--radius-md);
+}
+
+.integration-active-group > :last-child {
+  border-bottom-left-radius: var(--radius-md);
+  border-bottom-right-radius: var(--radius-md);
+}
+
+.integration-active-group .integration-member-rows {
+  background: var(--surface-quiet);
+}
+
+.integration-active-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--bd-subtle);
+}
+
+.integration-active-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.integration-active-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.integration-active-title-row strong {
+  color: var(--tx-primary);
+  font-size: 13.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.integration-active-icon {
+  color: var(--brand);
+  flex-shrink: 0;
+}
+
+.integration-active-goal {
+  color: var(--tx-muted);
+  font-size: 11.5px;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.integration-active-actions {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.integration-icon-btn {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--tx-muted);
+  cursor: pointer;
+  transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
+}
+
+.integration-icon-btn:hover {
+  background: var(--surface-hover);
+  color: var(--tx-primary);
+  border-color: var(--bd-base);
+}
+
+.integration-icon-btn.active {
+  background: var(--surface-active);
+  color: var(--tx-primary);
+  border-color: var(--bd-base);
+}
+
+.integration-active-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid var(--bd-base);
+  border-radius: var(--radius-md);
+  background: var(--bg-app);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.40);
+}
+
+.integration-active-menu-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 6px 8px;
+  border-bottom: 1px solid var(--bd-subtle);
+  margin-bottom: 2px;
+}
+
+.integration-active-menu-label {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tx-muted);
+}
+
+.integration-status-segments {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--surface-quiet);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-pill);
+}
+
+.integration-status-segment {
+  flex: 1;
+  padding: 3px 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--tx-muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background var(--transition-base), color var(--transition-base);
+}
+
+.integration-status-segment:hover {
+  color: var(--tx-secondary);
+}
+
+.integration-status-segment.active.status-active {
+  background: rgba(52, 212, 116, 0.16);
+  color: var(--dot-green);
+}
+
+.integration-status-segment.active.status-paused {
+  background: rgba(251, 191, 36, 0.16);
+  color: var(--dot-yellow);
+}
+
+.integration-status-segment.active.status-done {
+  background: var(--surface-active);
+  color: var(--tx-primary);
+}
+
+.integration-active-menu-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--tx-secondary);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-base), color var(--transition-base);
+}
+
+.integration-active-menu-item:hover {
+  background: var(--surface-hover);
+  color: var(--tx-primary);
+}
+
+.integration-active-menu-item.danger {
+  color: var(--tx-muted);
+}
+
+.integration-active-menu-item.danger:hover,
+.integration-active-menu-item.danger.confirming {
+  background: rgba(248, 113, 113, 0.10);
+  color: var(--dot-red);
+}
+
+.integration-member-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.integration-member-row {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--bd-subtle);
+  transition: background var(--transition-base);
+}
+
+.integration-member-row:last-child {
+  border-bottom: none;
+}
+
+.integration-member-row:hover {
+  background: var(--surface-hover);
+}
+
+.integration-member-row.current {
+  background: rgba(0, 214, 201, 0.06);
+  box-shadow: inset 3px 0 0 var(--brand);
+}
+
+.integration-member-row.editing {
+  background: rgba(0, 214, 201, 0.08);
+}
+
+.integration-member-trigger {
+  flex: 1;
+  display: grid;
+  /* role | alias | branch | status — alias gets the most room, branch and
+     status get equal share but with a min so the activity dot isn't pushed
+     into the branch label. Right padding leaves the edit-pencil's area
+     untouched. */
+  grid-template-columns: auto minmax(0, 1.6fr) minmax(70px, 1fr) minmax(80px, auto);
+  align-items: center;
+  gap: 12px;
+  padding: 9px 36px 9px 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.integration-member-role {
+  min-width: 38px;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  background: rgba(0, 214, 201, 0.12);
+  color: var(--accent);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.integration-member-name {
+  color: var(--tx-primary);
+  font-size: 12.5px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.integration-member-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--tx-muted);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.integration-member-row .integration-member-edit-btn {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+}
+
+.integration-member-blockers-strip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 12px 8px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: rgba(251, 191, 36, 0.08);
+  color: var(--dot-yellow);
+  font-size: 10.5px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.integration-member-row .integration-member-editor {
+  margin: 0;
+  border-left: 0;
+  border-right: 0;
+  border-radius: 0;
+  background: var(--surface-quiet);
+  border-top: 1px solid rgba(0, 214, 201, 0.25);
+  border-bottom: 1px solid var(--bd-subtle);
+  width: 100%;
+}
+
+.integration-add-member-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 100px auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px dashed var(--bd-subtle);
+  background: transparent;
+}
+
+.integration-add-icon {
+  color: var(--tx-muted);
+}
+
+.integration-add-select {
+  /* Use min-height + auto so the select grows to fit the selected option
+     instead of clipping descenders. Native <select> on Chromium/Windows
+     ignores explicit height in odd ways when font-size doesn't match the
+     control's internal padding — letting it auto-size avoids that. */
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-app);
+  color: var(--tx-secondary);
+  font-size: 12px;
+  line-height: 20px;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.integration-add-select:focus {
+  border-color: var(--bd-input-focus);
+}
+
+.integration-add-select.compact {
+  font-weight: 600;
+}
+
+.integration-add-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+  padding: 4px 12px;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-quiet);
+  color: var(--tx-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-base), border-color var(--transition-base);
+}
+
+.integration-add-action:hover {
+  background: var(--surface-hover);
+  border-color: var(--bd-base);
+}
+
+.integration-disclosure {
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-quiet);
+  overflow: hidden;
+}
+
+.integration-disclosure-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--tx-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition-base), color var(--transition-base);
+}
+
+.integration-disclosure-header:hover {
+  background: var(--surface-hover);
+  color: var(--tx-primary);
+}
+
+.integration-disclosure.open .integration-disclosure-header {
+  border-bottom: 1px solid var(--bd-subtle);
+}
+
+.integration-disclosure-badge {
+  margin-left: auto;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(0, 214, 201, 0.14);
+  color: var(--accent-hover);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.integration-disclosure-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.integration-empty-link {
+  border: 0;
+  background: transparent;
+  color: var(--accent-hover);
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* ─── End IntegrationPanel redesign ───────────────────────────────────── */
+
+/* ─── Activity dots (3-tier: thinking / awaiting / idle) ─────────────────── */
+
+/* Shared base for the activity dot used in sidebar rows and pane header.
+   Three states are expressed with the same shape — only colour and animation
+   vary, so the user sees a consistent visual vocabulary across surfaces. */
+.pane-activity-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Thinking: agent is streaming output right now — pulse at 1.2s. */
+.pane-activity-dot.activity-thinking,
+.pane-status-dot.activity-thinking {
+  background: var(--dot-green);
+  animation: oxe-activity-pulse 1.2s ease-in-out infinite;
+}
+
+/* Awaiting: agent paused after the user's last intent — solid brand dot.
+   Quiet but visible, like "your turn". */
+.pane-activity-dot.activity-awaiting,
+.pane-status-dot.activity-awaiting {
+  background: var(--brand);
+  box-shadow: 0 0 0 2px rgba(18, 199, 154, 0.18);
+}
+
+/* Idle: nothing happening — flat muted dot, no animation. */
+.pane-activity-dot.activity-idle,
+.pane-status-dot.activity-idle {
+  background: var(--tx-muted);
+  opacity: 0.55;
+}
+
+.pane-activity-dot.activity-error,
+.pane-status-dot.activity-error {
+  background: var(--dot-red);
+}
+
+.pane-activity-dot.activity-starting,
+.pane-status-dot.activity-starting {
+  background: var(--dot-yellow);
+  animation: oxe-activity-pulse 1.4s ease-in-out infinite;
+}
+
+.pane-activity-dot.activity-exited,
+.pane-status-dot.activity-exited {
+  background: var(--tx-muted);
+  opacity: 0.4;
+}
+
+@keyframes oxe-activity-pulse {
+  0%, 100% { opacity: 0.45; transform: scale(0.85); }
+  50%      { opacity: 1;    transform: scale(1.05); }
+}
+
+/* ─── Workspace status summary in the topbar ─────────────────────────────── */
+
+.workspace-status-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding-left: var(--space-md);
+  min-width: 0;
+  color: var(--tx-secondary);
+  font-size: 11.5px;
+  letter-spacing: 0.01em;
+}
+
+.workspace-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  height: 22px;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--surface-quiet);
+  color: var(--tx-primary);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.workspace-status-pill strong {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace-status-pill-label {
+  color: var(--tx-muted);
+  font-weight: 500;
+}
+
+.workspace-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  height: 22px;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--tx-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace-status-chip.activity-awaiting {
+  color: var(--tx-primary);
+}
+
+.workspace-status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.workspace-status-dot.activity-thinking {
+  background: var(--dot-green);
+  animation: oxe-activity-pulse 1.2s ease-in-out infinite;
+}
+
+.workspace-status-dot.activity-awaiting {
+  background: var(--brand);
+}
+
+.workspace-status-dot.activity-idle {
+  background: var(--tx-muted);
+  opacity: 0.55;
+}
+
+.workspace-status-clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  color: var(--tx-muted);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tighter spacing when the topbar gets crowded — workspaces with many panes
+   can produce 4+ chips that compete with the Tools button. */
+@media (max-width: 1100px) {
+  .workspace-status-summary {
+    gap: var(--space-xs);
+  }
+  .workspace-status-pill-label {
+    display: none;
+  }
+}

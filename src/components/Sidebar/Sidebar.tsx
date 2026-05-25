@@ -1,10 +1,13 @@
 import { ChevronsLeft, ChevronsRight, Plus, Search } from 'lucide-react'
 import { useState, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
+import type { IntegrationGroup } from '../../../shared/types/integration'
 import type { Workspace } from '../../../shared/types/workspace'
+import { useIntegrationStore } from '../../store/integration.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { OxeLogo } from '../Brand/OxeLogo'
 import { AgentProviderIcon } from './AgentProviderIcon'
+import { SidebarIntegrationRow } from './SidebarIntegrationRow'
 import { WorkspaceGroup } from './WorkspaceGroup'
 
 interface SidebarProps {
@@ -19,6 +22,7 @@ interface SidebarProps {
   onActivatePane: (paneId: string) => void
   isCollapsed: boolean
   onToggleCollapse: () => void
+  integrationGroups?: IntegrationGroup[]
 }
 
 
@@ -33,6 +37,7 @@ export function Sidebar({
   onNewWorkspace,
   onSelectWorkspace,
   onToggleCollapse,
+  integrationGroups = [],
   workspaces,
 }: SidebarProps): ReactElement {
   const [searchQuery, setSearchQuery] = useState('')
@@ -40,6 +45,10 @@ export function Sidebar({
   // Subscribe to terminal store so the filter recomputes when hasUnread toggles.
   // Idle-marker detection (TerminalView) flips hasUnread; markRead clears it.
   const terminalPanes = useTerminalStore((state) => state.panes)
+  const activeIntegrationGroupId = useIntegrationStore((state) => state.activeGroupId)
+  const activeIntegrationMemberId = useIntegrationStore((state) => state.activeMemberId)
+  const setActiveIntegrationGroup = useIntegrationStore((state) => state.setActiveGroup)
+  const setActiveIntegrationMember = useIntegrationStore((state) => state.setActiveMember)
 
   const hasUnread = (paneId: string): boolean => terminalPanes[paneId]?.hasUnread === true
   const unreadCount = workspaces.reduce(
@@ -65,6 +74,26 @@ export function Sidebar({
           ) : null}
         </div>
         <nav className="sidebar-rail-list" aria-label="Collapsed workspaces">
+          {integrationGroups.map((group) => (
+            <div key={group.id} className={`sidebar-rail-integration${group.id === activeIntegrationGroupId ? ' active' : ''}`} title={group.name}>
+              <span>{group.name.slice(0, 1).toUpperCase()}</span>
+              {group.members.slice(0, 4).map((member) => (
+                <button
+                  key={member.id}
+                  type="button"
+                  className={`sidebar-rail-integration-member${member.id === activeIntegrationMemberId ? ' active' : ''}`}
+                  title={`${member.role.toUpperCase()} · ${member.alias}`}
+                  onClick={() => {
+                    setActiveIntegrationGroup(group.id)
+                    setActiveIntegrationMember(member.id)
+                    onSelectWorkspace(member.workspaceId)
+                  }}
+                >
+                  {member.role.slice(0, 1).toUpperCase()}
+                </button>
+              ))}
+            </div>
+          ))}
           {workspaces.map((workspace) => {
             const workspaceUnread = workspace.panes.some((pane) => hasUnread(pane.id))
             return (
@@ -183,6 +212,25 @@ export function Sidebar({
       </div>
 
       <nav className="ws-group-list" aria-label="Workspaces">
+        {integrationGroups.length > 0 ? (
+          <section className="sidebar-integration-list" aria-label="Integration groups">
+            <div className="sidebar-section-kicker">Integration</div>
+            {integrationGroups.map((group) => (
+              <SidebarIntegrationRow
+                key={group.id}
+                group={group}
+                isActive={group.id === activeIntegrationGroupId}
+                activeMemberId={activeIntegrationMemberId}
+                defaultExpanded={group.id === activeIntegrationGroupId}
+                onSelectMember={(groupId, memberId, workspaceId) => {
+                  setActiveIntegrationGroup(groupId)
+                  setActiveIntegrationMember(memberId)
+                  onSelectWorkspace(workspaceId)
+                }}
+              />
+            ))}
+          </section>
+        ) : null}
         {filtered.length === 0 ? (
           <p className="sidebar-empty">No workspaces.</p>
         ) : (

@@ -39,11 +39,25 @@ import type {
   GitHubWorkspaceInput,
   GitHubWorkspaceStatus
 } from './github'
+import type {
+  AddIntegrationMemberInput,
+  AttachIntegrationSessionInput,
+  CreateIntegrationGroupInput,
+  CreateIntegrationHandoffInput,
+  IntegrationContextInput,
+  IntegrationContextResult,
+  IntegrationGroup,
+  IntegrationHandoff,
+  IntegrationSession,
+  UpdateIntegrationGroupInput,
+  UpdateIntegrationMemberInput
+} from './integration'
 
 export type { ShellProfile, Workspace, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, AgentProfile, AgentReadiness }
 export type { Task, TaskExecution, TaskVerifyOutputEvent }
-export type { GitDiff, GitDiffFile, GitDiffHunk, GitDiffLine, GitDiffInput, GitLineType } from './git'
+export type { GitBranchInput, GitBranchStatus, GitDiff, GitDiffFile, GitDiffHunk, GitDiffLine, GitDiffInput, GitLineType } from './git'
 export type { GitHubBranch, GitHubCheckpoint, GitHubCliStatus, GitHubCommit, GitHubCommitDetails, GitHubConnectedRepository, GitHubMessageResult, GitHubPanelTab, GitHubPullRequest, GitHubRelease, GitHubRepositorySummary, GitHubWorkflow, GitHubWorkflowRun, GitHubWorkflowRunDetails, GitHubWorkspaceStatus } from './github'
+export type { IntegrationGroup, IntegrationMember, IntegrationHandoff, IntegrationRole, IntegrationSession, IntegrationStatus } from './integration'
 
 export type FileTreeNodeType = 'file' | 'directory'
 
@@ -180,17 +194,12 @@ export const IPC_CHANNELS = {
     onFileChanged: 'fs:file-changed'
   },
   git: {
+    getBranch: 'git:get-branch',
     getDiff: 'git:get-diff',
     onDiffUpdate: 'git:diff-update'
   },
   clipboard: {
     saveImageToTemp: 'clipboard:save-image-to-temp'
-  },
-  usage: {
-    getContextUsage: 'usage:get-context-usage',
-    getSnapshotFor: 'usage:get-snapshot-for',
-    listSessions: 'usage:list-sessions',
-    supportedProviders: 'usage:supported-providers'
   },
   background: {
     list: 'background:list',
@@ -256,6 +265,20 @@ export const IPC_CHANNELS = {
     deleteCheckpoint: 'github:delete-checkpoint',
     listConnectedRepositories: 'github:list-connected-repositories',
     connectRepository: 'github:connect-repository'
+  },
+  integration: {
+    listGroups: 'integration:list-groups',
+    createGroup: 'integration:create-group',
+    updateGroup: 'integration:update-group',
+    deleteGroup: 'integration:delete-group',
+    addMember: 'integration:add-member',
+    updateMember: 'integration:update-member',
+    removeMember: 'integration:remove-member',
+    attachSession: 'integration:attach-session',
+    listHandoffs: 'integration:list-handoffs',
+    createHandoff: 'integration:create-handoff',
+    updateHandoff: 'integration:update-handoff',
+    buildContext: 'integration:build-context'
   }
 } as const
 
@@ -363,6 +386,7 @@ export interface TaskApi {
 }
 
 export interface GitApi {
+  getBranch(input: import('./git').GitBranchInput): Promise<import('./git').GitBranchStatus>
   getDiff(input: import('./git').GitDiffInput): Promise<import('./git').GitDiff>
   onDiffUpdate(listener: (diff: import('./git').GitDiff) => void): () => void
 }
@@ -417,19 +441,27 @@ export interface OxeApi {
   fs: FileSystemApi
   git: GitApi
   github: GitHubApi
+  integration: IntegrationApi
   clipboard: ClipboardApi
-  usage: UsageApi
   background: BackgroundApi
   session: SessionApi
   skill: SkillApi
   mcp: McpApi
 }
 
-export interface UsageApi {
-  getContextUsage(input: { workspaceRootPath: string }): Promise<import('./usage').ContextUsageSnapshot>
-  getSnapshotFor(input: { provider: import('./agent').AgentProvider; workspaceRootPath: string; sessionId?: string | null }): Promise<import('./usage').ContextUsageSnapshot>
-  listSessions(input: { provider: import('./agent').AgentProvider; workspaceRootPath: string }): Promise<import('./usage/sessions').UsageSessionMetadata[]>
-  supportedProviders(): Promise<import('./agent').AgentProvider[]>
+export interface IntegrationApi {
+  listGroups(input?: { workspaceId?: string | null }): Promise<IntegrationGroup[]>
+  createGroup(input: CreateIntegrationGroupInput): Promise<IntegrationGroup>
+  updateGroup(input: UpdateIntegrationGroupInput): Promise<IntegrationGroup>
+  deleteGroup(groupId: string): Promise<void>
+  addMember(input: AddIntegrationMemberInput): Promise<IntegrationGroup>
+  updateMember(input: UpdateIntegrationMemberInput): Promise<IntegrationGroup>
+  removeMember(memberId: string): Promise<IntegrationGroup>
+  attachSession(input: AttachIntegrationSessionInput): Promise<IntegrationSession>
+  listHandoffs(groupId: string): Promise<IntegrationHandoff[]>
+  createHandoff(input: CreateIntegrationHandoffInput): Promise<IntegrationHandoff>
+  updateHandoff(input: import('./integration').UpdateIntegrationHandoffInput): Promise<IntegrationHandoff>
+  buildContext(input: IntegrationContextInput): Promise<IntegrationContextResult>
 }
 
 export interface BackgroundApi {

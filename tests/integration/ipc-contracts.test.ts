@@ -152,6 +152,12 @@ describe('ipc contracts', () => {
     expect(IPC_CHANNELS.github.connectRepository).toBe('github:connect-repository')
   })
 
+  test('uses stable git channel names', () => {
+    expect(IPC_CHANNELS.git.getBranch).toBe('git:get-branch')
+    expect(IPC_CHANNELS.git.getDiff).toBe('git:get-diff')
+    expect(IPC_CHANNELS.git.onDiffUpdate).toBe('git:diff-update')
+  })
+
   test('validates github payloads', () => {
     expect(parseGitHubWorkspaceInput({ workspaceId: 'w-1', rootPath: 'C:/repo' })).toEqual({ workspaceId: 'w-1', rootPath: 'C:/repo' })
     expect(() => parseGitHubWorkspaceInput({ workspaceId: '', rootPath: 'C:/repo' })).toThrow('workspaceId')

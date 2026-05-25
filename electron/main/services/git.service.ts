@@ -1,7 +1,7 @@
-import { watch as fsWatch, type FSWatcher } from 'node:fs'
+import { existsSync, watch as fsWatch, type FSWatcher } from 'node:fs'
 import { spawn, type SpawnOptions } from 'node:child_process'
 import { join } from 'node:path'
-import type { GitDiff, GitDiffFile, GitDiffInput } from '../../../shared/types/git'
+import type { GitBranchStatus, GitDiff, GitDiffFile, GitDiffInput } from '../../../shared/types/git'
 
 export interface SpawnGitResult {
   stdout: string
@@ -22,11 +22,20 @@ interface WatchEntry {
 const MAX_FILES = 300
 const MAX_LINES_PER_FILE = 2000
 const SPAWN_TIMEOUT_MS = 30_000
+const RESOLVE_TIMEOUT_MS = 5_000
+// Cache strategy: cache POSITIVE resolutions forever (git path doesn't move
+// at runtime). Negative results (git not found) cache only for the duration
+// of the in-flight resolve and are NOT persisted — the user may install git
+// while the app is running and we want the next call to retry. Previously
+// `cachedGitCommand = null` was persisted, leaving the entire UI permanently
+// reporting "branch unavailable" even after git became available.
+let cachedGitCommand: string | undefined
+let gitResolveInFlight: Promise<string | null> | null = null
 
-function spawnGitAsync(args: string[], cwd: string): Promise<SpawnGitResult> {
+function spawnCommandAsync(command: string, args: string[], cwd: string, timeoutMs: number): Promise<SpawnGitResult> {
   return new Promise((resolve) => {
     const opts: SpawnOptions = { cwd, shell: false, windowsHide: true }
-    const child = spawn('git', args, opts)
+    const child = spawn(command, args, opts)
     let stdout = ''
     let stderr = ''
     let settled = false
@@ -34,8 +43,8 @@ function spawnGitAsync(args: string[], cwd: string): Promise<SpawnGitResult> {
       if (settled) return
       settled = true
       try { child.kill() } catch { /* already exited */ }
-      resolve({ stdout, stderr: stderr || `git ${args[0]} timed out after ${SPAWN_TIMEOUT_MS}ms`, status: null })
-    }, SPAWN_TIMEOUT_MS)
+      resolve({ stdout, stderr: stderr || `${command} ${args[0]} timed out after ${timeoutMs}ms`, status: null })
+    }, timeoutMs)
 
     child.stdout?.setEncoding('utf8')
     child.stderr?.setEncoding('utf8')
@@ -54,6 +63,63 @@ function spawnGitAsync(args: string[], cwd: string): Promise<SpawnGitResult> {
       resolve({ stdout, stderr, status: code })
     })
   })
+}
+
+async function resolveGitCommand(cwd: string): Promise<string | null> {
+  if (cachedGitCommand !== undefined) return cachedGitCommand
+  if (gitResolveInFlight) return gitResolveInFlight
+
+  gitResolveInFlight = (async () => {
+    const direct = await spawnCommandAsync('git', ['--version'], cwd, RESOLVE_TIMEOUT_MS)
+    if (direct.status === 0) return 'git'
+
+    if (process.platform === 'win32') {
+      const where = await spawnCommandAsync('where.exe', ['git'], cwd, RESOLVE_TIMEOUT_MS)
+      const found = where.status === 0
+        ? where.stdout.split(/\r?\n/).map((line) => line.trim()).find(Boolean)
+        : null
+      if (found) return found
+
+      const candidates = [
+        process.env.ProgramFiles ? join(process.env.ProgramFiles, 'Git', 'cmd', 'git.exe') : '',
+        process.env.ProgramFiles ? join(process.env.ProgramFiles, 'Git', 'bin', 'git.exe') : '',
+        process.env['ProgramFiles(x86)'] ? join(process.env['ProgramFiles(x86)']!, 'Git', 'cmd', 'git.exe') : '',
+        process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, 'Programs', 'Git', 'cmd', 'git.exe') : ''
+      ].filter(Boolean)
+
+      for (const candidate of candidates) {
+        if (existsSync(candidate)) return candidate
+      }
+    }
+
+    return null
+  })()
+
+  try {
+    const resolved = await gitResolveInFlight
+    // Only memoize success. Returning null is treated as "unknown for now"
+    // so a subsequent call (after the user installs git, after a Windows
+    // PATH refresh, etc.) gets a fresh attempt.
+    if (resolved !== null) cachedGitCommand = resolved
+    return resolved
+  } finally {
+    gitResolveInFlight = null
+  }
+}
+
+/** Test-only: reset the resolved git command cache so each test gets a fresh
+ *  resolution attempt. Not exported in production paths. */
+export function __resetGitCommandCacheForTests(): void {
+  cachedGitCommand = undefined
+  gitResolveInFlight = null
+}
+
+async function spawnGitAsync(args: string[], cwd: string): Promise<SpawnGitResult> {
+  const git = await resolveGitCommand(cwd)
+  if (!git) {
+    return { stdout: '', stderr: 'Git executable not found', status: null }
+  }
+  return spawnCommandAsync(git, args, cwd, SPAWN_TIMEOUT_MS)
 }
 
 function parseDiffOutput(raw: string): GitDiffFile[] {
@@ -176,6 +242,41 @@ export class GitService {
 
   constructor(options?: { spawnGit?: SpawnGitFn }) {
     this.spawnGit = options?.spawnGit ?? spawnGitAsync
+  }
+
+  async getBranch(rootPath: string): Promise<GitBranchStatus> {
+    const inside = await this.spawnGit(['rev-parse', '--is-inside-work-tree'], rootPath)
+    if (inside.status !== 0 || inside.stdout.trim() !== 'true') {
+      return {
+        branch: null,
+        detached: false,
+        shortSha: null,
+        error: inside.stderr || 'Not inside a Git work tree'
+      }
+    }
+
+    const branchCommands = [
+      ['branch', '--show-current'],
+      ['rev-parse', '--abbrev-ref', 'HEAD'],
+      ['symbolic-ref', '--quiet', '--short', 'HEAD']
+    ]
+
+    for (const args of branchCommands) {
+      const branch = await this.spawnGit(args, rootPath)
+      const name = branch.status === 0 ? branch.stdout.trim() : ''
+      if (name && name !== 'HEAD') {
+        return { branch: name, detached: false, shortSha: null, error: null }
+      }
+    }
+
+    const sha = await this.spawnGit(['rev-parse', '--short', 'HEAD'], rootPath)
+    const shortSha = sha.status === 0 ? sha.stdout.trim() : ''
+    return {
+      branch: null,
+      detached: Boolean(shortSha),
+      shortSha: shortSha || null,
+      error: shortSha ? null : sha.stderr || 'Unable to read Git branch'
+    }
   }
 
   async buildDiff(rootPath: string, base: string, includeUncommitted: boolean): Promise<GitDiff> {

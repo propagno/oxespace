@@ -10,6 +10,7 @@ export type SlashCommandId =
   | 'bg'
   | 'worktree'
   | 'mcp'
+  | 'integration'
 
 export interface SlashCommandDefinition {
   id: SlashCommandId | string  // built-in id OR custom skill name

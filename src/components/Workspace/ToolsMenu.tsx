@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react'
-import { Activity, ChevronDown, Code2, Command, Github, GitCompareArrows, History, ListChecks, MonitorPlay, PanelLeft, Settings2, Sparkles, Wrench } from 'lucide-react'
+import { Activity, ChevronDown, Code2, Command, Github, GitCompareArrows, History, ListChecks, MonitorPlay, Network, PanelLeft, Settings2, Sparkles, Wrench } from 'lucide-react'
 
 interface ToolsMenuProps {
   active: {
@@ -9,6 +9,7 @@ interface ToolsMenuProps {
     background: boolean
     scripts: boolean
     webPreview: boolean
+    integration: boolean
   }
   onOpenCommandPalette: () => void
   onOpenWorkspaceSettings: () => void
@@ -18,6 +19,7 @@ interface ToolsMenuProps {
   onToggleBackground: () => void
   onOpenScripts: () => void
   onOpenWebPreview: () => void
+  onOpenIntegration: () => void
   onOpenHistory: () => void
   onOpenMcp: () => void
   onOpenSkills: () => void
@@ -33,6 +35,7 @@ export function ToolsMenu({
   onToggleBackground,
   onOpenScripts,
   onOpenWebPreview,
+  onOpenIntegration,
   onOpenHistory,
   onOpenMcp,
   onOpenSkills
@@ -65,6 +68,7 @@ export function ToolsMenu({
         <div className="tools-menu-popover" role="menu">
           <ToolsGroup title="Project Management">
             <ToolItem icon={<ListChecks size={14} />} label="Issues" detail="Issues" disabled />
+            <ToolItem active={active.integration} icon={<Network size={14} />} label="Integration" detail="Multi-repo" onClick={() => run(onOpenIntegration)} />
           </ToolsGroup>
           <ToolsGroup title="Development">
             <ToolItem active={active.github} icon={<Github size={14} />} label="GitHub" detail="Github" onClick={() => run(onToggleGitHub)} />
