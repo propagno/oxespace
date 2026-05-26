@@ -130,4 +130,49 @@ describe('GitHubService', () => {
       expect.objectContaining({ cwd: 'C:/projects/repo' })
     )
   })
+
+  test('listWorktrees marks the main worktree as isMain even when workspace.rootPath uses backslashes', async () => {
+    // Reproduces the bug seen on Windows: the workspace was saved with
+    // backslash separators ("C:\\Users\\dudu-") but `git worktree list
+    // --porcelain` emits forward slashes ("C:/Users/dudu-"). Without
+    // normalizing, isMain is never true and the renderer offered a remove
+    // button for the primary worktree.
+    const porcelain = [
+      'worktree C:/Users/dudu-',
+      'HEAD abc123',
+      'branch refs/heads/master',
+      '',
+      'worktree C:/Users/dudu-feat',
+      'HEAD def456',
+      'branch refs/heads/feat/x'
+    ].join('\n')
+    const spawn = vi.fn().mockResolvedValue({ stdout: porcelain, stderr: '', status: 0, error: undefined })
+    const service = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: spawn })
+
+    const trees = await service.listWorktrees({ rootPath: 'C:\\Users\\dudu-' })
+    expect(trees).toHaveLength(2)
+    expect(trees[0]).toMatchObject({ branch: 'master', isMain: true })
+    expect(trees[1]).toMatchObject({ branch: 'feat/x', isMain: false })
+  })
+
+  test('listWorktrees falls back to the first worktree as main when paths cannot be matched', async () => {
+    // Safety net: if normalization still fails to align, porcelain emits
+    // the main worktree first — never present a state with zero mains.
+    const porcelain = [
+      'worktree /tmp/symlink-target',
+      'HEAD abc123',
+      'branch refs/heads/main',
+      '',
+      'worktree /tmp/symlink-target-feat',
+      'HEAD def456',
+      'branch refs/heads/feat'
+    ].join('\n')
+    const spawn = vi.fn().mockResolvedValue({ stdout: porcelain, stderr: '', status: 0, error: undefined })
+    const service = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: spawn })
+
+    const trees = await service.listWorktrees({ rootPath: '/some/other/path' })
+    expect(trees).toHaveLength(2)
+    expect(trees[0].isMain).toBe(true)
+    expect(trees[1].isMain).toBe(false)
+  })
 })

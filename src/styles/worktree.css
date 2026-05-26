@@ -1,84 +1,167 @@
-/* ─── Worktree Menu ──────────────────────────────────────────────────────── */
+/* ─── Worktree side panel ─────────────────────────────────────────────────
+   The legacy modal selectors (.worktree-menu-backdrop / .worktree-menu /
+   .worktree-menu-header / -title / -sub / -actions / -footer) were removed
+   when the feature graduated to a workspace-scoped right dock. The body
+   selectors below are reused inside WorktreePanelBody so the visual rhythm
+   (list rows, create form, empty state) stays consistent with what users
+   had before. */
 
-.worktree-menu-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 145;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 100px;
-  background: radial-gradient(ellipse at top, rgba(255, 200, 100, 0.04) 0%, rgba(0, 0, 0, 0.55) 60%);
-  backdrop-filter: blur(8px);
-  animation: model-selector-fade 140ms ease-out;
-}
+.workspace-worktree-panel { /* uses .workspace-editor-panel base; this hook
+   exists so panel-specific overrides can land here without touching the
+   shared base class. */ }
 
-.worktree-menu {
-  width: min(560px, calc(100vw - 48px));
-  max-height: min(640px, calc(100vh - 160px));
+.worktree-panel-body {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  border: 1px solid rgba(255, 200, 100, 0.22);
-  border-radius: 14px;
-  background: linear-gradient(180deg, rgba(36, 28, 14, 0.97) 0%, rgba(16, 12, 6, 0.98) 100%);
-  box-shadow:
-    0 28px 80px rgba(0, 0, 0, 0.75),
-    0 0 0 1px rgba(255, 200, 100, 0.08),
-    0 0 28px rgba(255, 200, 100, 0.10) inset;
-  animation: slash-overlay-pop 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  gap: 8px;
+  /* `flex: 1` + `width: 100%` makes the body fill the workspace-editor-
+     content row-flex parent. Without this the body hugs its intrinsic
+     content width and the right half of the panel sits empty. Internal
+     overflow stays on .worktree-menu-list so the create form + sticky
+     active-pane header don't scroll with the list. */
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  padding: 10px 12px;
 }
 
-.worktree-menu-header {
+/* Sticky "Active pane" header — first thing the vibe coder sees in the
+   panel: which pane is being targeted, and which worktree it is in. Brand
+   accent matches the chip pill so the two ambient signals reinforce each
+   other. */
+.worktree-panel-active-pane {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(0, 214, 201, 0.18);
+  border-radius: var(--radius-sm);
+  background: rgba(0, 214, 201, 0.04);
 }
 
-.worktree-menu-title {
+.worktree-panel-active-row {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  color: #FFE082;
+  gap: 6px;
+  min-width: 0;
+  color: var(--tx-secondary);
+  font-size: 11.5px;
+  flex: 1;
 }
 
-.worktree-menu-title strong {
-  color: var(--tx-primary);
-  font-size: 13px;
-  font-weight: 700;
-}
+.worktree-panel-active-row svg { color: var(--accent); flex-shrink: 0; }
 
-.worktree-menu-sub {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(255, 200, 100, 0.10);
-  color: #FFE082;
-  font-size: 10px;
+.worktree-panel-active-label {
+  color: var(--tx-muted);
+  font-size: 9.5px;
   font-weight: 700;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
-.worktree-menu-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+.worktree-panel-active-row strong {
+  color: var(--tx-primary);
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
+.worktree-panel-active-arrow { color: var(--tx-muted); }
+
+.worktree-panel-active-worktree {
+  color: var(--accent);
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 11.5px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.worktree-panel-active-worktree em {
+  margin-left: 4px;
+  color: var(--tx-muted);
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.worktree-panel-active-hint {
+  color: var(--tx-muted);
+  font-size: 11.5px;
+  font-style: italic;
+}
+
+.worktree-panel-refresh { flex-shrink: 0; }
+
+/* Error banner inside the panel — same hue as the original modal so users
+   recognise it, plus a dismiss button so a transient git failure doesn't
+   block the panel until the user reloads. */
 .worktree-menu-error {
-  padding: 9px 14px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(244, 91, 105, 0.22);
+  border-radius: var(--radius-sm);
   background: rgba(244, 91, 105, 0.10);
   color: #FFB1B8;
   font-size: 11.5px;
-  border-bottom: 1px solid rgba(244, 91, 105, 0.20);
+  line-height: 1.4;
 }
+
+.worktree-menu-error > span { min-width: 0; flex: 1; }
+
+.worktree-menu-error-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: rgba(255, 177, 184, 0.7);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--transition-base), color var(--transition-base);
+}
+
+.worktree-menu-error-dismiss:hover {
+  background: rgba(244, 91, 105, 0.18);
+  color: #FFB1B8;
+}
+
+/* Helpful note when only `master` exists — points to "+ New worktree". */
+.worktree-panel-solo-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 11px;
+  border: 1px dashed var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-quiet);
+  color: var(--tx-muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.worktree-panel-solo-hint svg { color: var(--accent); flex-shrink: 0; margin-top: 1px; }
 
 .worktree-menu-list {
   flex: 1;
   overflow-y: auto;
-  padding: 8px 10px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -90,7 +173,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 32px 24px;
+  padding: 24px 16px;
   text-align: center;
   color: var(--tx-muted);
 }
@@ -105,22 +188,29 @@
   justify-content: space-between;
   gap: 12px;
   width: 100%;
-  padding: 10px 13px;
+  padding: 10px 12px;
   border: 1px solid transparent;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.02);
+  border-radius: var(--radius-sm);
+  background: var(--surface-quiet);
   text-align: left;
   cursor: pointer;
-  transition: background 90ms, border-color 90ms;
+  transition: background var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base);
 }
 
-.worktree-menu-item:hover { background: rgba(255, 200, 100, 0.05); border-color: rgba(255, 200, 100, 0.16); }
-.worktree-menu-item.active { background: rgba(255, 200, 100, 0.10); border-color: rgba(255, 200, 100, 0.32); }
+.worktree-menu-item:hover { background: var(--surface-hover); border-color: var(--bd-base); }
+.worktree-menu-item.active { background: rgba(0, 214, 201, 0.06); border-color: rgba(0, 214, 201, 0.32); }
+.worktree-menu-item.is-active-pane { box-shadow: inset 3px 0 0 var(--brand); }
 .worktree-menu-item.prunable { opacity: 0.55; }
+.worktree-menu-item:disabled { cursor: not-allowed; }
 
 .worktree-menu-item-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
-.worktree-menu-item-row { display: inline-flex; align-items: center; gap: 6px; color: rgba(255,255,255,0.8); }
-.worktree-menu-item-row strong { color: var(--tx-primary); font-size: 13px; font-weight: 600; font-family: 'Fira Code', 'Cascadia Code', monospace; }
+.worktree-menu-item-row { display: inline-flex; align-items: center; gap: 6px; color: var(--tx-secondary); }
+.worktree-menu-item-row strong {
+  color: var(--tx-primary);
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+}
 
 .worktree-tag {
   display: inline-flex;
@@ -134,7 +224,7 @@
   text-transform: uppercase;
 }
 
-.worktree-tag.main { background: rgba(18, 199, 154, 0.14); color: #6EEBD4; }
+.worktree-tag.main { background: rgba(0, 214, 201, 0.14); color: var(--accent); }
 .worktree-tag.locked { background: rgba(255, 255, 255, 0.06); color: rgba(255, 255, 255, 0.65); }
 .worktree-tag.prunable { background: rgba(244, 91, 105, 0.12); color: #FFB1B8; }
 
@@ -156,49 +246,51 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: rgba(255, 200, 100, 0.20);
-  color: #FFE082;
+  background: rgba(0, 214, 201, 0.20);
+  color: var(--accent);
 }
 
 .worktree-menu-remove { color: rgba(255, 177, 184, 0.7); }
 .worktree-menu-remove:hover { background: rgba(244, 91, 105, 0.15); color: #FFB1B8; }
 
+/* Create form (and its dashed-border trigger) sit at the bottom of the
+   panel — same as the modal, minus the modal's footer band. */
 .worktree-menu-create-trigger {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  margin: 4px 10px 10px;
   padding: 10px;
-  border: 1px dashed rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
+  border: 1px dashed var(--bd-subtle);
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--tx-muted);
   font-size: 11.5px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 100ms;
+  transition: border-color var(--transition-base), color var(--transition-base), background var(--transition-base);
 }
 
 .worktree-menu-create-trigger:hover {
-  border-color: rgba(255, 200, 100, 0.32);
-  color: #FFE082;
-  background: rgba(255, 200, 100, 0.04);
+  border-color: rgba(0, 214, 201, 0.32);
+  color: var(--accent);
+  background: rgba(0, 214, 201, 0.04);
 }
 
 .worktree-menu-create {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 12px 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  background: rgba(0, 0, 0, 0.18);
+  padding: 12px;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-quiet);
 }
 
 .worktree-menu-create-field { display: flex; flex-direction: column; gap: 4px; }
 
 .worktree-menu-create-field label {
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--tx-muted);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.5px;
@@ -207,42 +299,212 @@
 
 .worktree-menu-create-field input {
   padding: 8px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: 7px;
-  background: rgba(0, 0, 0, 0.30);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-app);
   color: var(--tx-primary);
   font-size: 12px;
   font-family: 'Fira Code', 'Cascadia Code', monospace;
   outline: none;
-  transition: border-color 100ms;
+  transition: border-color var(--transition-base);
 }
 
-.worktree-menu-create-field input:focus { border-color: rgba(255, 200, 100, 0.55); }
+.worktree-menu-create-field input:focus { border-color: var(--bd-input-focus); }
+
+/* Path field gets a sibling browse button so the user doesn't have to type
+   the full destination by hand. The input grows to fill remaining space;
+   the button hugs the right edge. */
+.worktree-menu-create-path-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.worktree-menu-create-path-row > input {
+  flex: 1;
+  min-width: 0;
+}
+
+.worktree-menu-create-browse {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-quiet);
+  color: var(--tx-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--transition-base), border-color var(--transition-base), color var(--transition-base);
+}
+
+.worktree-menu-create-browse:hover {
+  background: var(--surface-hover);
+  border-color: var(--bd-base);
+  color: var(--tx-primary);
+}
+
+.worktree-menu-create-browse:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.worktree-menu-create-hint {
+  margin-top: 2px;
+  color: var(--tx-muted);
+  font-size: 10.5px;
+  line-height: 1.4;
+  font-style: italic;
+}
+
+.worktree-menu-create-hint code {
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--surface-active);
+  color: var(--tx-primary);
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 10px;
+  font-style: normal;
+}
+
+/* Path preview row — shows where the worktree will land without forcing
+   the user into the Path field. Truncates with ellipsis so long Windows
+   paths don't blow out the panel. */
+.worktree-menu-create-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  background: rgba(0, 214, 201, 0.04);
+  min-width: 0;
+}
+
+.worktree-menu-create-preview-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tx-muted);
+  flex-shrink: 0;
+}
+
+.worktree-menu-create-preview code {
+  flex: 1;
+  min-width: 0;
+  color: var(--accent);
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Disclosure toggle for the rarely-used path / existing-branch options.
+   Visual: muted, low contrast — signals "you usually don't need this." */
+.worktree-menu-create-advanced-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--tx-muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-base), color var(--transition-base);
+}
+
+.worktree-menu-create-advanced-toggle:hover {
+  background: var(--surface-hover);
+  color: var(--tx-secondary);
+}
+
+.worktree-menu-create-advanced {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 6px;
+  margin-top: -2px;
+  border-top: 1px dashed var(--bd-subtle);
+}
+
+.worktree-menu-create-reset {
+  align-self: flex-start;
+  margin-top: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--accent-hover);
+  font: inherit;
+  font-size: 10px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+
+.worktree-menu-create-reset:hover { color: var(--accent); }
 
 .worktree-menu-create-check {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--tx-secondary);
   font-size: 11.5px;
   cursor: pointer;
 }
 
 .worktree-menu-create-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
-.worktree-menu-footer {
-  padding: 9px 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
-  background: rgba(0, 0, 0, 0.20);
-  color: rgba(255, 255, 255, 0.40);
-  font-size: 10.5px;
+/* ─── Ambient signal #1: "wt" pill inside the branch chip ─────────────── */
+.worktree-chip-tag {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 5px;
+  padding: 0 5px;
+  height: 13px;
+  border-radius: 999px;
+  background: rgba(0, 214, 201, 0.18);
+  color: var(--accent);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
-.worktree-menu-footer code {
-  padding: 1px 5px;
-  border-radius: 3px;
-  background: rgba(255, 200, 100, 0.10);
-  color: #FFE082;
-  font-family: 'Fira Code', 'Cascadia Code', monospace;
-  font-size: 10px;
+/* ─── Ambient signal #2: "Nwt" badge on the sidebar workspace row ─────── */
+/* Worktree indicator — minimum footprint. Single icon when N=1, icon +
+   tiny number when N>1. The previous "wt" suffix was redundant once the
+   icon carries the meaning, and ate ~20px of horizontal space the user
+   needs for long workspace names. */
+.ws-group-worktree-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 18px;
+  padding: 0 5px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: rgba(0, 214, 201, 0.14);
+  color: var(--accent);
+  font-size: 9.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--transition-base), color var(--transition-base);
 }
+
+.ws-group-worktree-count:hover {
+  background: rgba(0, 214, 201, 0.24);
+  color: var(--accent-hover);
+}
+
+.ws-group-worktree-count svg { flex-shrink: 0; }

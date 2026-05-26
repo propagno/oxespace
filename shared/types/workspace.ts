@@ -66,6 +66,9 @@ export interface Workspace {
   backgroundPanelVisible?: boolean
   backgroundPanelExpanded?: boolean
   backgroundPanelWidthPercent?: number
+  worktreePanelVisible?: boolean
+  worktreePanelExpanded?: boolean
+  worktreePanelWidthPercent?: number
   panes: WorkspacePane[]
 }
 
@@ -108,6 +111,13 @@ export interface UpdateWorkspaceBackgroundStateInput {
   backgroundPanelVisible?: boolean
   backgroundPanelExpanded?: boolean
   backgroundPanelWidthPercent?: number
+}
+
+export interface UpdateWorkspaceWorktreeStateInput {
+  workspaceId: string
+  worktreePanelVisible?: boolean
+  worktreePanelExpanded?: boolean
+  worktreePanelWidthPercent?: number
 }
 
 export interface UpdateWorkspaceSettingsInput {

@@ -215,6 +215,16 @@ export function runMigrations(db: AppDatabase): void {
     db.exec(readMigration('032_integration_groups.sql'))
     currentVersion = db.pragma('user_version', { simple: true }) as number
   }
+
+  if (currentVersion < 33 || !hasColumn(db, 'workspaces', 'worktree_panel_visible')) {
+    // ADD COLUMN is not idempotent — guard so partial upgrades can re-run safely.
+    if (!hasColumn(db, 'workspaces', 'worktree_panel_visible')) {
+      db.exec(readMigration('033_workspace_worktree_panel.sql'))
+    } else {
+      db.pragma('user_version = 33')
+    }
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
 }
 
 function readMigration(name: string): string {

@@ -8,7 +8,6 @@ interface UIState {
   isCommandPaletteOpen: boolean
   isWorkspaceSettingsOpen: boolean
   slashOverlayPaneId: string | null
-  worktreeMenuPaneId: string | null
   isHistoryPanelOpen: boolean
   isMcpPanelOpen: boolean
   isSkillsBrowserOpen: boolean
@@ -26,8 +25,6 @@ interface UIState {
   closeWorkspaceSettings: () => void
   openSlashOverlay: (paneId: string) => void
   closeSlashOverlay: () => void
-  openWorktreeMenu: (paneId: string) => void
-  closeWorktreeMenu: () => void
   openHistoryPanel: () => void
   closeHistoryPanel: () => void
   openMcpPanel: () => void
@@ -52,7 +49,6 @@ export const useUIStore = create<UIState>((set) => ({
   isCommandPaletteOpen: false,
   isWorkspaceSettingsOpen: false,
   slashOverlayPaneId: null,
-  worktreeMenuPaneId: null,
   isHistoryPanelOpen: false,
   isMcpPanelOpen: false,
   isSkillsBrowserOpen: false,
@@ -70,8 +66,6 @@ export const useUIStore = create<UIState>((set) => ({
   closeWorkspaceSettings: () => set({ isWorkspaceSettingsOpen: false }),
   openSlashOverlay: (paneId) => set({ slashOverlayPaneId: paneId }),
   closeSlashOverlay: () => set({ slashOverlayPaneId: null }),
-  openWorktreeMenu: (paneId) => set({ worktreeMenuPaneId: paneId }),
-  closeWorktreeMenu: () => set({ worktreeMenuPaneId: null }),
   openHistoryPanel: () => set({ isHistoryPanelOpen: true }),
   closeHistoryPanel: () => set({ isHistoryPanelOpen: false }),
   openMcpPanel: () => set({ isMcpPanelOpen: true }),

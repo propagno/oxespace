@@ -59,6 +59,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       updateReviewState: (input) => ipc.invoke(IPC_CHANNELS.workspace.updateReviewState, input) as Promise<Workspace>,
       updateGitHubState: (input) => ipc.invoke(IPC_CHANNELS.workspace.updateGitHubState, input) as Promise<Workspace>,
       updateBackgroundState: (input) => ipc.invoke(IPC_CHANNELS.workspace.updateBackgroundState, input) as Promise<Workspace>,
+      updateWorktreeState: (input) => ipc.invoke(IPC_CHANNELS.workspace.updateWorktreeState, input) as Promise<Workspace>,
       updateSettings: (input) => ipc.invoke(IPC_CHANNELS.workspace.updateSettings, input) as Promise<Workspace>,
       pickFolder: () => ipc.invoke(IPC_CHANNELS.workspace.pickFolder) as Promise<string | null>,
       shellProfiles: () => ipc.invoke(IPC_CHANNELS.workspace.shellProfiles) as Promise<ShellProfile[]>,

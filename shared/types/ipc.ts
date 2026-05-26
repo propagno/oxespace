@@ -1,4 +1,4 @@
-import type { CreateWorkspaceInput, PaneType, ShellProfile, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, Workspace } from './workspace'
+import type { CreateWorkspaceInput, PaneType, ShellProfile, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, UpdateWorkspaceWorktreeStateInput, Workspace } from './workspace'
 import type { AgentProfile, AgentReadiness, CreateAgentProfileInput, UpdateAgentProfileInput } from './agent'
 import type {
   CreateTaskInput,
@@ -53,7 +53,7 @@ import type {
   UpdateIntegrationMemberInput
 } from './integration'
 
-export type { ShellProfile, Workspace, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, AgentProfile, AgentReadiness }
+export type { ShellProfile, Workspace, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, UpdateWorkspaceWorktreeStateInput, AgentProfile, AgentReadiness }
 export type { Task, TaskExecution, TaskVerifyOutputEvent }
 export type { GitBranchInput, GitBranchStatus, GitDiff, GitDiffFile, GitDiffHunk, GitDiffLine, GitDiffInput, GitLineType } from './git'
 export type { GitHubBranch, GitHubCheckpoint, GitHubCliStatus, GitHubCommit, GitHubCommitDetails, GitHubConnectedRepository, GitHubMessageResult, GitHubPanelTab, GitHubPullRequest, GitHubRelease, GitHubRepositorySummary, GitHubWorkflow, GitHubWorkflowRun, GitHubWorkflowRunDetails, GitHubWorkspaceStatus } from './github'
@@ -148,6 +148,7 @@ export const IPC_CHANNELS = {
     updateEditorState: 'workspace:update-editor-state',
     updateReviewState: 'workspace:update-review-state',
     updateBackgroundState: 'workspace:update-background-state',
+    updateWorktreeState: 'workspace:update-worktree-state',
     updateGitHubState: 'workspace:update-github-state',
     updateSettings: 'workspace:update-settings',
     pickFolder: 'workspace:pick-folder',
@@ -344,6 +345,7 @@ export interface WorkspaceApi {
   updateEditorState(input: UpdateWorkspaceEditorStateInput): Promise<Workspace>
   updateReviewState(input: UpdateWorkspaceReviewStateInput): Promise<Workspace>
   updateBackgroundState(input: UpdateWorkspaceBackgroundStateInput): Promise<Workspace>
+  updateWorktreeState(input: UpdateWorkspaceWorktreeStateInput): Promise<Workspace>
   updateGitHubState(input: UpdateWorkspaceGitHubStateInput): Promise<Workspace>
   updateSettings(input: UpdateWorkspaceSettingsInput): Promise<Workspace>
   pickFolder(): Promise<string | null>

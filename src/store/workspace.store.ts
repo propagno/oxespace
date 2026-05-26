@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { CreateWorkspaceInput, ShellProfile, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, Workspace } from '../../shared/types/workspace'
+import type { CreateWorkspaceInput, ShellProfile, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, UpdateWorkspaceWorktreeStateInput, Workspace } from '../../shared/types/workspace'
 
 interface WorkspaceState {
   workspaces: Workspace[]
@@ -22,6 +22,7 @@ interface WorkspaceState {
   updateReviewState: (input: UpdateWorkspaceReviewStateInput) => Promise<void>
   updateGitHubState: (input: UpdateWorkspaceGitHubStateInput) => Promise<void>
   updateBackgroundState: (input: UpdateWorkspaceBackgroundStateInput) => Promise<void>
+  updateWorktreeState: (input: UpdateWorkspaceWorktreeStateInput) => Promise<void>
   updateSettings: (input: UpdateWorkspaceSettingsInput) => Promise<void>
   clearError: () => void
 }
@@ -181,6 +182,18 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       }))
     } catch (err) {
       set({ error: err instanceof Error ? err.message : 'Failed to update Background panel state' })
+    }
+  },
+
+  updateWorktreeState: async (input) => {
+    try {
+      const workspace = await window.oxe.workspace.updateWorktreeState(input)
+      set((state) => ({
+        workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)),
+        error: null
+      }))
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : 'Failed to update Worktree panel state' })
     }
   },
 

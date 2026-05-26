@@ -8,7 +8,6 @@ import { SettingsModal } from './components/Settings/SettingsModal'
 import { ThemeProvider } from './components/Theme/ThemeProvider'
 import { CommandPalette, type CommandPaletteAction } from './components/CommandPalette/CommandPalette'
 import { SlashOverlay } from './components/SlashOverlay/SlashOverlay'
-import { WorktreeMenu } from './components/Worktree/WorktreeMenu'
 import { HistoryPanel } from './components/History/HistoryPanel'
 import { McpPanel } from './components/MCP/McpPanel'
 import { SkillsBrowser } from './components/Skills/SkillsBrowser'
@@ -47,6 +46,7 @@ export function App(): ReactElement {
     updateReviewState,
     updateEditorState,
     updateBackgroundState,
+    updateWorktreeState,
     updateSettings,
     workspaces
   } = useWorkspaceStore()
@@ -66,7 +66,6 @@ export function App(): ReactElement {
     isNewWorkspaceOpen,
     isWorkspaceSettingsOpen,
     slashOverlayPaneId,
-    worktreeMenuPaneId,
     isHistoryPanelOpen,
     isMcpPanelOpen,
     isSkillsBrowserOpen,
@@ -77,7 +76,6 @@ export function App(): ReactElement {
     openWorkspaceSettings,
     openSlashOverlay,
     closeSlashOverlay,
-    closeWorktreeMenu,
     openHistoryPanel,
     closeHistoryPanel,
     openMcpPanel,
@@ -119,7 +117,6 @@ export function App(): ReactElement {
   const activePane = activeWorkspace?.panes.find((pane) => pane.id === activePaneId) ?? activeWorkspace?.panes[0] ?? null
   const slashPane = slashOverlayPaneId ? activeWorkspace?.panes.find((pane) => pane.id === slashOverlayPaneId) ?? null : null
   const skills = useSkillStore((s) => s.skills)
-  const worktreeMenuPane = worktreeMenuPaneId ? activeWorkspace?.panes.find((pane) => pane.id === worktreeMenuPaneId) ?? null : null
   const dispatchSlashCommand = useSlashDispatcher({ workspace: activeWorkspace ?? null, pane: slashPane })
 
   useEffect(() => {
@@ -451,6 +448,7 @@ export function App(): ReactElement {
                       onUpdateReviewState={(input) => void updateReviewState(input)}
                       onUpdateGitHubState={(input) => void updateGitHubState(input)}
                       onUpdateBackgroundState={(input) => void updateBackgroundState(input)}
+                      onUpdateWorktreeState={(input) => void updateWorktreeState(input)}
                       onRunCommand={(command) => void runCommandInTerminal(command)}
                       activePaneId={isActive ? activePane?.id ?? null : null}
                     />
@@ -486,14 +484,6 @@ export function App(): ReactElement {
           skills={skills}
           onClose={closeSlashOverlay}
           onExecute={dispatchSlashCommand}
-        />
-      ) : null}
-      {worktreeMenuPane && activeWorkspace ? (
-        <WorktreeMenu
-          pane={worktreeMenuPane}
-          workspaceId={activeWorkspace.id}
-          workspaceRootPath={activeWorkspace.rootPath}
-          onClose={closeWorktreeMenu}
         />
       ) : null}
       {isHistoryPanelOpen && activeWorkspace ? (
