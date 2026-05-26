@@ -6,11 +6,11 @@ OXESpace is a Windows desktop workspace for agentic development. It combines ter
 
 Current Windows release:
 
-[Download OXESpace 0.1.15 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.15/OXESpace-0.1.15-x64.exe)
+[Download OXESpace 0.1.16 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.16/OXESpace-0.1.16-x64.exe)
 
 Release page:
 
-[OXESpace v0.1.15](https://github.com/propagno/oxespace/releases/tag/v0.1.15)
+[OXESpace v0.1.16](https://github.com/propagno/oxespace/releases/tag/v0.1.16)
 
 All releases:
 
@@ -269,8 +269,8 @@ Release flow:
 ```powershell
 git switch main
 git pull origin main
-git tag v0.1.15
-git push origin v0.1.15
+git tag v0.1.16
+git push origin v0.1.16
 ```
 
 When the tag is pushed, GitHub Actions:
@@ -296,17 +296,16 @@ When the tag is pushed, GitHub Actions:
 
 ## Version
 
-Current release: `0.1.15`
+Current release: `0.1.16`
 
-Highlights since `0.1.14`:
+Highlights since `0.1.15`:
 
-- Skills browser now includes a one-click SDLC pack with 10 complete agent skills: requirements, architecture, planning, execution, review, verification, security, DevOps/release, integration and documentation.
-- New skill creation supports templates that prefill the command name, description, category, providers and markdown prompt body.
-- MCP setup includes popular vibe-coding server templates and improved trusted-server handling.
-- Sidebar/session cards use more compact operational summaries with less duplicated provider/path noise.
-- Integration, background jobs, scripts, web preview, terminal scrollback and GitHub/Actions flows received stability and UX refinements.
-- Version metadata and release links now point to the `0.1.15` Windows installer.
+- Worktrees now open as a workspace-scoped side panel with persistent visibility, expanded state, and width.
+- Worktree creation now derives safer branch-based paths and supports advanced path selection without stale branch names.
+- Main worktree detection is more reliable on Windows path separators, preventing accidental remove affordances on the primary worktree.
+- Workspace migration `033_workspace_worktree_panel` stores the Worktrees panel state.
+- Version metadata and release links now point to the `0.1.16` Windows installer.
 
 Installer asset:
 
-[OXESpace-0.1.15-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.15/OXESpace-0.1.15-x64.exe)
+[OXESpace-0.1.16-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.16/OXESpace-0.1.16-x64.exe)
