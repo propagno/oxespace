@@ -169,7 +169,9 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
     : ''
 
   const openSlashOverlay = useUIStore((s) => s.openSlashOverlay)
-  const openWorktreeMenu = useUIStore((s) => s.openWorktreeMenu)
+  const setActivePane = useUIStore((s) => s.setActivePane)
+  const updateWorktreeState = useWorkspaceStore((s) => s.updateWorktreeState)
+  const workspace = useWorkspaceStore((s) => s.workspaces.find((w) => w.id === workspaceId) ?? null)
   // Compose the chip label from the branch hook's payload. Beyond "branch
   // name / detached SHA", the label now also surfaces the *specific* reason
   // when git couldn't read the ref — previously it just said "no branch"
@@ -235,14 +237,22 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         <button
           type="button"
           className={`statusbar-chip worktree-chip${isWorktreeOverride ? ' overridden' : ''}${branchErrorReason ? ' branch-error' : ''}`}
-          aria-label={`Worktree: ${worktreeLabel}. Click to manage.`}
+          aria-label={`Worktree: ${worktreeLabel}. ${isWorktreeOverride ? 'This pane is in a worktree. ' : ''}Click to manage.`}
           title={branchErrorReason
             ? `Branch could not be read: ${branchErrorReason} (${effectiveRootPath})`
             : `Branch/worktree: ${worktreeLabel} (${effectiveRootPath})`}
-          onClick={() => openWorktreeMenu(pane.id)}
+          onClick={() => {
+            setActivePane(pane.id)
+            void updateWorktreeState({
+              workspaceId,
+              worktreePanelVisible: true,
+              worktreePanelExpanded: workspace?.worktreePanelExpanded ?? false
+            })
+          }}
         >
           <FolderTree size={10} aria-hidden="true" />
           <span>{worktreeLabel}</span>
+          {isWorktreeOverride ? <span className="worktree-chip-tag" aria-hidden="true">wt</span> : null}
         </button>
 
         <button

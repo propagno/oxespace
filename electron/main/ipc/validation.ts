@@ -5,6 +5,7 @@ import type {
   UpdateWorkspaceGitHubStateInput,
   UpdateWorkspaceReviewStateInput,
   UpdateWorkspaceSettingsInput,
+  UpdateWorkspaceWorktreeStateInput,
   UpdatePaneTypeInput,
   UpdatePaneNameInput,
   TerminalResizeInput,
@@ -215,6 +216,16 @@ export function parseUpdateWorkspaceBackgroundStateInput(value: unknown): Update
     backgroundPanelVisible: input.backgroundPanelVisible === undefined ? undefined : expectBoolean(input.backgroundPanelVisible, 'backgroundPanelVisible'),
     backgroundPanelExpanded: input.backgroundPanelExpanded === undefined ? undefined : expectBoolean(input.backgroundPanelExpanded, 'backgroundPanelExpanded'),
     backgroundPanelWidthPercent: input.backgroundPanelWidthPercent === undefined ? undefined : expectPanelWidth(input.backgroundPanelWidthPercent)
+  }
+}
+
+export function parseUpdateWorkspaceWorktreeStateInput(value: unknown): UpdateWorkspaceWorktreeStateInput {
+  const input = expectRecord(value, 'workspace:update-worktree-state input')
+  return {
+    workspaceId: expectNonEmptyString(input.workspaceId, 'workspaceId'),
+    worktreePanelVisible: input.worktreePanelVisible === undefined ? undefined : expectBoolean(input.worktreePanelVisible, 'worktreePanelVisible'),
+    worktreePanelExpanded: input.worktreePanelExpanded === undefined ? undefined : expectBoolean(input.worktreePanelExpanded, 'worktreePanelExpanded'),
+    worktreePanelWidthPercent: input.worktreePanelWidthPercent === undefined ? undefined : expectPanelWidth(input.worktreePanelWidthPercent)
   }
 }
 

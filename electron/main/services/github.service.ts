@@ -972,7 +972,15 @@ function isAbsolutePath(p: string): boolean {
 function parseWorktreePorcelain(raw: string, mainRootPath: string): GitHubWorktree[] {
   const records = raw.split(/\r?\n\r?\n/).map((block) => block.trim()).filter(Boolean)
   const worktrees: GitHubWorktree[] = []
-  const normalizedMain = mainRootPath.replace(/[\\/]+$/, '').toLowerCase()
+  // Cross-platform path equality: collapse all separators to `/`, strip
+  // trailing slash, lowercase. Without the backslash-to-slash step,
+  // workspace.rootPath stored as `C:\Users\repo` would never match git's
+  // porcelain output `C:/Users/repo`, leaving every worktree as isMain=false.
+  // That bug surfaced as the trash icon appearing next to the main worktree
+  // and the sidebar badge counting the main as a non-main worktree.
+  const normalizePath = (p: string): string =>
+    p.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+  const normalizedMain = normalizePath(mainRootPath)
 
   for (const block of records) {
     let path = ''
@@ -996,7 +1004,7 @@ function parseWorktreePorcelain(raw: string, mainRootPath: string): GitHubWorktr
     }
 
     if (!path) continue
-    const normalized = path.replace(/[\\/]+$/, '').toLowerCase()
+    const normalized = normalizePath(path)
     worktrees.push({
       path,
       branch: detached ? null : branch,
@@ -1005,6 +1013,16 @@ function parseWorktreePorcelain(raw: string, mainRootPath: string): GitHubWorktr
       locked,
       prunable
     })
+  }
+
+  // Safety net: if the comparison above missed (workspace.rootPath may be a
+  // subdirectory of a parent .git, or the user passed a normalized form
+  // git can't echo back), fall back to porcelain's documented contract —
+  // "the main worktree comes first" — so we never present a state where
+  // every worktree is non-main and the user can accidentally try to remove
+  // their primary checkout.
+  if (worktrees.length > 0 && !worktrees.some((wt) => wt.isMain)) {
+    worktrees[0].isMain = true
   }
 
   return worktrees

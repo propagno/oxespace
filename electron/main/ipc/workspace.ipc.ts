@@ -4,7 +4,7 @@ import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import { AgentService } from '../services/agent.service'
 import { ShellProfileService } from '../services/shell-profile.service'
 import { WorkspaceService } from '../services/workspace.service'
-import { parseId, parseSetPaneAgentInput, parseSetPaneRootPathInput, parseSplitPaneInput, parseUpdatePaneNameInput, parseUpdatePaneTypeInput, parseUpdateWorkspaceBackgroundStateInput, parseUpdateWorkspaceEditorStateInput, parseUpdateWorkspaceGitHubStateInput, parseUpdateWorkspaceReviewStateInput, parseUpdateWorkspaceSettingsInput, parseWorkspaceCreateInput } from './validation'
+import { parseId, parseSetPaneAgentInput, parseSetPaneRootPathInput, parseSplitPaneInput, parseUpdatePaneNameInput, parseUpdatePaneTypeInput, parseUpdateWorkspaceBackgroundStateInput, parseUpdateWorkspaceEditorStateInput, parseUpdateWorkspaceGitHubStateInput, parseUpdateWorkspaceReviewStateInput, parseUpdateWorkspaceSettingsInput, parseUpdateWorkspaceWorktreeStateInput, parseWorkspaceCreateInput } from './validation'
 
 interface WorkspaceLifecycleController {
   stop(input: { paneId: string }): Promise<void> | void
@@ -74,6 +74,9 @@ export function registerWorkspaceIpc(db: AppDatabase, lifecycle?: WorkspaceLifec
   )
   ipcMain.handle(IPC_CHANNELS.workspace.updateBackgroundState, (_event, input: unknown) =>
     workspaceService.updateBackgroundState(parseUpdateWorkspaceBackgroundStateInput(input))
+  )
+  ipcMain.handle(IPC_CHANNELS.workspace.updateWorktreeState, (_event, input: unknown) =>
+    workspaceService.updateWorktreeState(parseUpdateWorkspaceWorktreeStateInput(input))
   )
   ipcMain.handle(IPC_CHANNELS.workspace.updateSettings, (_event, input: unknown) =>
     workspaceService.updateSettings(parseUpdateWorkspaceSettingsInput(input))

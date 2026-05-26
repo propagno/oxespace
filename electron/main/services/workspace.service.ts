@@ -15,6 +15,7 @@ import type {
   UpdateWorkspaceEditorStateInput,
   UpdateWorkspaceGitHubStateInput,
   UpdateWorkspaceBackgroundStateInput,
+  UpdateWorkspaceWorktreeStateInput,
   UpdateWorkspaceReviewStateInput,
   WorkspacePane
 } from '../../../shared/types/workspace'
@@ -43,6 +44,9 @@ interface WorkspaceRow {
   background_panel_visible: number
   background_panel_expanded: number
   background_panel_width_percent: number
+  worktree_panel_visible: number
+  worktree_panel_expanded: number
+  worktree_panel_width_percent: number
 }
 
 interface PaneRow {
@@ -149,7 +153,8 @@ export class WorkspaceService {
           editor_visible, editor_expanded, editor_width_percent,
           review_panel_visible, review_panel_expanded, review_panel_width_percent,
           github_panel_visible, github_panel_expanded, github_panel_width_percent, github_active_tab,
-          background_panel_visible, background_panel_expanded, background_panel_width_percent
+          background_panel_visible, background_panel_expanded, background_panel_width_percent,
+          worktree_panel_visible, worktree_panel_expanded, worktree_panel_width_percent
          FROM workspaces
          ORDER BY created_at ASC`
       )
@@ -165,7 +170,8 @@ export class WorkspaceService {
           editor_visible, editor_expanded, editor_width_percent,
           review_panel_visible, review_panel_expanded, review_panel_width_percent,
           github_panel_visible, github_panel_expanded, github_panel_width_percent, github_active_tab,
-          background_panel_visible, background_panel_expanded, background_panel_width_percent
+          background_panel_visible, background_panel_expanded, background_panel_width_percent,
+          worktree_panel_visible, worktree_panel_expanded, worktree_panel_width_percent
          FROM workspaces
          WHERE id = ?`
       )
@@ -374,6 +380,35 @@ export class WorkspaceService {
     return workspace
   }
 
+  updateWorktreeState(input: UpdateWorkspaceWorktreeStateInput): Workspace {
+    const current = this.get(input.workspaceId)
+    if (!current) throw new Error(`Workspace ${input.workspaceId} not found`)
+
+    const worktreePanelVisible = input.worktreePanelVisible ?? current.worktreePanelVisible ?? false
+    const worktreePanelExpanded = input.worktreePanelExpanded ?? current.worktreePanelExpanded ?? false
+    const worktreePanelWidthPercent = clampPanelWidth(input.worktreePanelWidthPercent ?? current.worktreePanelWidthPercent ?? 36)
+
+    this.db
+      .prepare(
+        `UPDATE workspaces
+         SET worktree_panel_visible = @worktreePanelVisible,
+             worktree_panel_expanded = @worktreePanelExpanded,
+             worktree_panel_width_percent = @worktreePanelWidthPercent,
+             updated_at = datetime('now')
+         WHERE id = @workspaceId`
+      )
+      .run({
+        workspaceId: input.workspaceId,
+        worktreePanelVisible: worktreePanelVisible ? 1 : 0,
+        worktreePanelExpanded: worktreePanelExpanded ? 1 : 0,
+        worktreePanelWidthPercent
+      })
+
+    const workspace = this.get(input.workspaceId)
+    if (!workspace) throw new Error('Workspace not found after Worktree state update')
+    return workspace
+  }
+
   updateSettings(input: UpdateWorkspaceSettingsInput): Workspace {
     const current = this.get(input.workspaceId)
     if (!current) throw new Error(`Workspace ${input.workspaceId} not found`)
@@ -531,6 +566,9 @@ export class WorkspaceService {
       backgroundPanelVisible: row.background_panel_visible === 1,
       backgroundPanelExpanded: row.background_panel_expanded === 1,
       backgroundPanelWidthPercent: row.background_panel_width_percent || 36,
+      worktreePanelVisible: row.worktree_panel_visible === 1,
+      worktreePanelExpanded: row.worktree_panel_expanded === 1,
+      worktreePanelWidthPercent: row.worktree_panel_width_percent || 36,
       panes: this.listPanes(row.id)
     }
   }

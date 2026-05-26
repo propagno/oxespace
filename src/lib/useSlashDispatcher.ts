@@ -24,8 +24,9 @@ export function useSlashDispatcher({ workspace, pane }: UseSlashDispatcherArgs):
   // case), so the binding was effectively dead. Keeping this comment so a
   // future "/usage" slash command doesn't get re-wired to a missing store
   // method by accident.
-  const openWorktreeMenu = useUIStore((s) => s.openWorktreeMenu)
   const openMcpPanel = useUIStore((s) => s.openMcpPanel)
+  const setActivePane = useUIStore((s) => s.setActivePane)
+  const updateWorktreeState = useWorkspaceStore((s) => s.updateWorktreeState)
   const startBackgroundJob = useBackgroundStore((s) => s.startJob)
   const invokeSkill = useSkillStore((s) => s.invoke)
 
@@ -88,7 +89,16 @@ export function useSlashDispatcher({ workspace, pane }: UseSlashDispatcherArgs):
         return
       }
       case 'worktree':
-        openWorktreeMenu(paneId)
+        // Worktrees graduated from a per-pane modal to a workspace-scoped
+        // right dock. We set the active pane so the panel's sticky header
+        // tracks the slash-dispatching pane, then flip the panel to visible
+        // (idempotent — already-open stays open).
+        setActivePane(paneId)
+        await updateWorktreeState({
+          workspaceId: workspace.id,
+          worktreePanelVisible: true,
+          worktreePanelExpanded: workspace.worktreePanelExpanded ?? false
+        })
         return
       case 'mcp':
         openMcpPanel()
@@ -112,7 +122,7 @@ export function useSlashDispatcher({ workspace, pane }: UseSlashDispatcherArgs):
         throw new Error(`Unhandled slash command: ${String(exhaustive)}`)
       }
     }
-  }, [pane, workspace, splitPane, updatePaneName, setPaneAgent, allProfiles, openWorktreeMenu, openMcpPanel, startBackgroundJob, invokeSkill])
+  }, [pane, workspace, splitPane, updatePaneName, setPaneAgent, allProfiles, openMcpPanel, setActivePane, updateWorktreeState, startBackgroundJob, invokeSkill])
 }
 
 /**

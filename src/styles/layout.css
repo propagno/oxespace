@@ -311,11 +311,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  /* Always visible card — bg, border and slightly bigger padding signal
-     "this is a clickable region" without needing the hover. Previously the
-     header faded into the sidebar surface and the chevron+count looked like
-     static metadata. */
-  padding: var(--space-md) var(--space-md);
+  /* Single-line title — back to slim padding so workspaces stack densely. */
+  padding: 6px 10px;
   cursor: pointer;
   border-radius: var(--radius-md);
   background: var(--surface-quiet);
@@ -341,11 +338,11 @@
 }
 
 .ws-group-chevron {
-  /* Bumped from 14px and muted to 16px in tx-secondary so the affordance
-     reads as "interactive" instead of decorative. */
+  /* 14px is enough for the affordance once the surrounding padding is
+     tight — bigger sizes started to dominate the slim row. */
   color: var(--tx-secondary);
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   transition: transform 200ms ease-out, color var(--transition-base);
   flex-shrink: 0;
   transform: rotate(-90deg);
@@ -362,52 +359,37 @@
 }
 
 .ws-group-title-block {
-  display: grid;
+  /* The path used to live below the name but was usually just a lowercase
+     copy of the name itself — pure visual noise. Dropped in favour of a
+     tooltip ("name\n~/path"); the user navigates by name, full stop. */
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-width: 0;
-  gap: 2px;
 }
 
 .ws-group-name {
-  /* Slight size + weight bump so it competes with the action items below.
-     The previous 11/750 was visually identical to other secondary labels in
-     the sidebar; 12.5/700 in tx-primary positions this as a heading. */
-  font-size: 12.5px;
+  /* Single-line — the row stays slim. Long names truncate with ellipsis;
+     the full value lives in the tooltip (`title` attribute on the span).
+     The worktree badge was slimmed in parallel (icon + number, no "wt"
+     text) so this name field always has the lion's share of the row. */
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--tx-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.ws-group-root {
-  color: var(--tx-muted);
-  font-size: 10px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.25;
+  min-width: 0;
 }
 
 .ws-group.active > .ws-group-header .ws-group-name {
   color: var(--tx-primary);
 }
 
-.ws-group-count {
-  /* Pill-shaped count chip — gives the "4 panes" badge enough visual weight
-     to be read as a status, not as muted dataitem text. */
-  margin-left: auto;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--tx-secondary);
-  background: var(--surface-quiet);
-  border: 1px solid var(--bd-subtle);
-  border-radius: var(--radius-pill);
-  padding: 2px 10px;
-  line-height: 1.4;
-  flex-shrink: 0;
-}
+/* `.ws-group-count` (pane count pill) removed — was eating horizontal
+   space the user needs for long workspace names. The pane count is still
+   visible inside the expanded workspace via the list of pane rows. */
 
 /* Integration badge — shown when this workspace participates in >=1 group.
    Discrete by default (icon + muted) so it doesn't compete with the pane
@@ -444,16 +426,6 @@
 /* When both the integration badge and the count are present, the count needs
    to drop its `margin-left: auto` so the two chips sit shoulder-to-shoulder.
    The badge already claimed `margin-left: auto`. */
-.ws-group-integration-badge + .ws-group-count {
-  margin-left: var(--space-xs);
-}
-
-.ws-group.active > .ws-group-header .ws-group-count {
-  color: var(--tx-primary);
-  background: var(--surface-active);
-  border-color: var(--bd-base);
-}
-
 .ws-group-close {
   width: 18px;
   height: 18px;
@@ -493,9 +465,27 @@
   cursor: pointer;
   border: 1px solid transparent;
   border-radius: 8px;
-  margin: 5px 4px;
-  background: rgba(255, 255, 255, 0.022);
+  /* Indented from the workspace card so the parent-child relationship
+     reads at a glance. Transparent background by default — the workspace
+     card has its own surface + border, so the pane row reads as a nested
+     list item, not another card. Hover/active states give it texture. */
+  margin: 2px 4px 2px 18px;
+  background: transparent;
   transition: background 120ms, border-color 120ms, box-shadow 120ms;
+}
+
+/* Subtle vertical guide line that ties pane rows back to their workspace
+   — same visual idiom used in the sidebar Integration members. Helps the
+   user scan "where does this pane belong" without reading the card title. */
+.pane-session-row::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--bd-subtle);
+  pointer-events: none;
 }
 
 .pane-session-row:hover {

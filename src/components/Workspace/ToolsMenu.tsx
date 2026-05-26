@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react'
-import { Activity, ChevronDown, Code2, Command, Github, GitCompareArrows, History, ListChecks, MonitorPlay, Network, PanelLeft, Settings2, Sparkles, Wrench } from 'lucide-react'
+import { Activity, ChevronDown, Code2, Command, FolderTree, Github, GitCompareArrows, History, ListChecks, MonitorPlay, Network, PanelLeft, Settings2, Sparkles, Wrench } from 'lucide-react'
 
 interface ToolsMenuProps {
   active: {
@@ -7,6 +7,7 @@ interface ToolsMenuProps {
     editor: boolean
     review: boolean
     background: boolean
+    worktree: boolean
     scripts: boolean
     webPreview: boolean
     integration: boolean
@@ -17,6 +18,7 @@ interface ToolsMenuProps {
   onToggleGitHub: () => void
   onToggleReview: () => void
   onToggleBackground: () => void
+  onToggleWorktree: () => void
   onOpenScripts: () => void
   onOpenWebPreview: () => void
   onOpenIntegration: () => void
@@ -33,6 +35,7 @@ export function ToolsMenu({
   onToggleGitHub,
   onToggleReview,
   onToggleBackground,
+  onToggleWorktree,
   onOpenScripts,
   onOpenWebPreview,
   onOpenIntegration,
@@ -72,6 +75,7 @@ export function ToolsMenu({
           </ToolsGroup>
           <ToolsGroup title="Development">
             <ToolItem active={active.github} icon={<Github size={14} />} label="GitHub" detail="Github" onClick={() => run(onToggleGitHub)} />
+            <ToolItem active={active.worktree} icon={<FolderTree size={14} />} label="Worktrees" detail="Git" onClick={() => run(onToggleWorktree)} />
             <ToolItem active={active.scripts} icon={<Code2 size={14} />} label="Scripts" detail="ScriptLauncher" onClick={() => run(onOpenScripts)} />
             <ToolItem active={active.webPreview} icon={<MonitorPlay size={14} />} label="Web Preview" detail="WebPreview" onClick={() => run(onOpenWebPreview)} />
             <ToolItem active={active.background} icon={<Activity size={14} />} label="Background Jobs" detail="Right dock" onClick={() => run(onToggleBackground)} />

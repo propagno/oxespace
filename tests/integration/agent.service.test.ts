@@ -118,8 +118,12 @@ describe('AgentService', () => {
       if (cmd === 'where.exe') throw new Error(`${args[0]} not found`)
       if (cmd === 'C:\\Users\\dudu-\\.local\\bin\\claude.exe') return '2.1.133 (Claude Code)\n'
       if (cmd === 'C:\\Users\\dudu-\\AppData\\Roaming\\npm\\copilot.cmd' && args[0] === '--version' && options?.shell === true) return 'GitHub Copilot v1.0.43\n'
-      // Codex/Gemini/Cursor fall back to PATH resolution after `where.exe` failure
-      if (cmd === 'codex' || cmd === 'gemini' || cmd === 'cursor-agent') return `${cmd} 1.0.0\n`
+      // Codex/Gemini/Cursor fall back to PATH resolution after `where.exe` failure.
+      // On developer machines the command may resolve to a real .cmd shim already
+      // present on PATH, so assert by executable basename rather than exact path.
+      if (/[\\/]?codex(?:\.cmd|\.exe)?$/i.test(cmd)) return 'codex 1.0.0\n'
+      if (/[\\/]?gemini(?:\.cmd|\.exe)?$/i.test(cmd)) return 'gemini 1.0.0\n'
+      if (/[\\/]?cursor-agent(?:\.cmd|\.exe)?$/i.test(cmd)) return 'cursor-agent 1.0.0\n'
       throw new Error(`unexpected command: ${cmd} ${args.join(' ')}`)
     })
 
