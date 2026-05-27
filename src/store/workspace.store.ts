@@ -23,6 +23,7 @@ interface WorkspaceState {
   updateGitHubState: (input: UpdateWorkspaceGitHubStateInput) => Promise<void>
   updateBackgroundState: (input: UpdateWorkspaceBackgroundStateInput) => Promise<void>
   updateWorktreeState: (input: UpdateWorkspaceWorktreeStateInput) => Promise<void>
+  reorderWorkspaces: (orderedIds: string[]) => Promise<void>
   updateSettings: (input: UpdateWorkspaceSettingsInput) => Promise<void>
   clearError: () => void
 }
@@ -194,6 +195,28 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       }))
     } catch (err) {
       set({ error: err instanceof Error ? err.message : 'Failed to update Worktree panel state' })
+    }
+  },
+
+  reorderWorkspaces: async (orderedIds) => {
+    // Optimistic update — reorder the local cache immediately so the
+    // sidebar doesn't flash back to the old order while the IPC roundtrips.
+    // The IPC response replaces the cache so any concurrent writes (e.g.
+    // a workspace being added during the drag) reconcile correctly.
+    const previous = get().workspaces
+    const indexById = new Map(orderedIds.map((id, index) => [id, index]))
+    const optimistic = [...previous].sort((a, b) => {
+      const ai = indexById.get(a.id) ?? Number.MAX_SAFE_INTEGER
+      const bi = indexById.get(b.id) ?? Number.MAX_SAFE_INTEGER
+      return ai - bi
+    })
+    set({ workspaces: optimistic, error: null })
+    try {
+      const fresh = await window.oxe.workspace.reorder(orderedIds)
+      set({ workspaces: fresh, error: null })
+    } catch (err) {
+      // Roll back on failure so the UI doesn't lie about persistence.
+      set({ workspaces: previous, error: err instanceof Error ? err.message : 'Failed to reorder workspaces' })
     }
   },
 

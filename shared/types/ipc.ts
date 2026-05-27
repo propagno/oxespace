@@ -149,6 +149,7 @@ export const IPC_CHANNELS = {
     updateReviewState: 'workspace:update-review-state',
     updateBackgroundState: 'workspace:update-background-state',
     updateWorktreeState: 'workspace:update-worktree-state',
+    reorder: 'workspace:reorder',
     updateGitHubState: 'workspace:update-github-state',
     updateSettings: 'workspace:update-settings',
     pickFolder: 'workspace:pick-folder',
@@ -346,6 +347,7 @@ export interface WorkspaceApi {
   updateReviewState(input: UpdateWorkspaceReviewStateInput): Promise<Workspace>
   updateBackgroundState(input: UpdateWorkspaceBackgroundStateInput): Promise<Workspace>
   updateWorktreeState(input: UpdateWorkspaceWorktreeStateInput): Promise<Workspace>
+  reorder(orderedIds: string[]): Promise<Workspace[]>
   updateGitHubState(input: UpdateWorkspaceGitHubStateInput): Promise<Workspace>
   updateSettings(input: UpdateWorkspaceSettingsInput): Promise<Workspace>
   pickFolder(): Promise<string | null>

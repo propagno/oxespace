@@ -6,11 +6,11 @@ OXESpace is a Windows desktop workspace for agentic development. It combines ter
 
 Current Windows release:
 
-[Download OXESpace 0.1.16 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.16/OXESpace-0.1.16-x64.exe)
+[Download OXESpace 0.1.17 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.17/OXESpace-0.1.17-x64.exe)
 
 Release page:
 
-[OXESpace v0.1.16](https://github.com/propagno/oxespace/releases/tag/v0.1.16)
+[OXESpace v0.1.17](https://github.com/propagno/oxespace/releases/tag/v0.1.17)
 
 All releases:
 
@@ -269,8 +269,8 @@ Release flow:
 ```powershell
 git switch main
 git pull origin main
-git tag v0.1.16
-git push origin v0.1.16
+git tag v0.1.17
+git push origin v0.1.17
 ```
 
 When the tag is pushed, GitHub Actions:
@@ -296,16 +296,17 @@ When the tag is pushed, GitHub Actions:
 
 ## Version
 
-Current release: `0.1.16`
+Current release: `0.1.17`
 
-Highlights since `0.1.15`:
+Highlights since `0.1.16`:
 
-- Worktrees now open as a workspace-scoped side panel with persistent visibility, expanded state, and width.
-- Worktree creation now derives safer branch-based paths and supports advanced path selection without stale branch names.
-- Main worktree detection is more reliable on Windows path separators, preventing accidental remove affordances on the primary worktree.
-- Workspace migration `033_workspace_worktree_panel` stores the Worktrees panel state.
-- Version metadata and release links now point to the `0.1.16` Windows installer.
+- Workspaces can be manually reordered in the sidebar with persisted ordering.
+- Workspace settings can update the workspace display name without changing the project folder path.
+- Sidebar workspace removal now uses an explicit context-menu confirmation flow.
+- Skills browser received expanded UI and interaction refinements for installed and template skills.
+- Workspace migration `034_workspace_sort_order` stores sidebar ordering.
+- Version metadata and release links now point to the `0.1.17` Windows installer.
 
 Installer asset:
 
-[OXESpace-0.1.16-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.16/OXESpace-0.1.16-x64.exe)
+[OXESpace-0.1.17-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.17/OXESpace-0.1.17-x64.exe)

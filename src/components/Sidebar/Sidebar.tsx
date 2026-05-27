@@ -5,6 +5,7 @@ import type { IntegrationGroup } from '../../../shared/types/integration'
 import type { Workspace } from '../../../shared/types/workspace'
 import { useIntegrationStore } from '../../store/integration.store'
 import { useTerminalStore } from '../../store/terminal.store'
+import { useWorkspaceStore } from '../../store/workspace.store'
 import { OxeLogo } from '../Brand/OxeLogo'
 import { AgentProviderIcon } from './AgentProviderIcon'
 import { SidebarIntegrationRow } from './SidebarIntegrationRow'
@@ -42,6 +43,13 @@ export function Sidebar({
 }: SidebarProps): ReactElement {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState<'all' | 'unread'>('all')
+  // Drag-and-drop workspace reorder state. We don't use HTML5 dragstart
+  // payload because Electron's renderer has quirks with cross-process
+  // data transfer — instead we track the source/target ids in component
+  // state and only consult dataTransfer for the dragImage / effectAllowed.
+  const [dragSourceId, setDragSourceId] = useState<string | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
+  const [dropPosition, setDropPosition] = useState<'before' | 'after' | null>(null)
   // Subscribe to terminal store so the filter recomputes when hasUnread toggles.
   // Idle-marker detection (TerminalView) flips hasUnread; markRead clears it.
   const terminalPanes = useTerminalStore((state) => state.panes)
@@ -49,12 +57,33 @@ export function Sidebar({
   const activeIntegrationMemberId = useIntegrationStore((state) => state.activeMemberId)
   const setActiveIntegrationGroup = useIntegrationStore((state) => state.setActiveGroup)
   const setActiveIntegrationMember = useIntegrationStore((state) => state.setActiveMember)
+  const reorderWorkspaces = useWorkspaceStore((state) => state.reorderWorkspaces)
 
   const hasUnread = (paneId: string): boolean => terminalPanes[paneId]?.hasUnread === true
   const unreadCount = workspaces.reduce(
     (n, ws) => n + ws.panes.filter(p => hasUnread(p.id)).length,
     0,
   )
+
+  const handleDropOnWorkspace = (targetId: string): void => {
+    if (!dragSourceId || dragSourceId === targetId || !dropPosition) {
+      setDragSourceId(null)
+      setDragOverId(null)
+      setDropPosition(null)
+      return
+    }
+    // Build the new order by removing the source and re-inserting it at
+    // the position computed from the cursor's Y relative to the target.
+    const currentOrder = workspaces.map((w) => w.id)
+    const without = currentOrder.filter((id) => id !== dragSourceId)
+    const targetIndex = without.indexOf(targetId)
+    const insertAt = dropPosition === 'before' ? targetIndex : targetIndex + 1
+    const next = [...without.slice(0, insertAt), dragSourceId, ...without.slice(insertAt)]
+    setDragSourceId(null)
+    setDragOverId(null)
+    setDropPosition(null)
+    void reorderWorkspaces(next)
+  }
 
   const handleActivatePane = (paneId: string): void => {
     const wasUnread = hasUnread(paneId)
@@ -245,6 +274,13 @@ export function Sidebar({
               onSelect={onSelectWorkspace}
               onClose={onCloseWorkspace}
               onActivatePane={handleActivatePane}
+              isDragging={dragSourceId === ws.id}
+              dropPosition={dragOverId === ws.id ? dropPosition : null}
+              onDragStart={() => setDragSourceId(ws.id)}
+              onDragOver={(position) => { setDragOverId(ws.id); setDropPosition(position) }}
+              onDragLeave={() => { if (dragOverId === ws.id) { setDragOverId(null); setDropPosition(null) } }}
+              onDrop={() => handleDropOnWorkspace(ws.id)}
+              onDragEnd={() => { setDragSourceId(null); setDragOverId(null); setDropPosition(null) }}
             />
           ))
         )}

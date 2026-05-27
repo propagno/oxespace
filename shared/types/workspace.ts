@@ -122,6 +122,7 @@ export interface UpdateWorkspaceWorktreeStateInput {
 
 export interface UpdateWorkspaceSettingsInput {
   workspaceId: string
+  name?: string
   themeId?: WorkspaceThemeId
   uiDensity?: WorkspaceDensity
   defaultShellProfileId?: string

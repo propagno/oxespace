@@ -225,6 +225,15 @@ export function runMigrations(db: AppDatabase): void {
     }
     currentVersion = db.pragma('user_version', { simple: true }) as number
   }
+
+  if (currentVersion < 34 || !hasColumn(db, 'workspaces', 'sort_order')) {
+    if (!hasColumn(db, 'workspaces', 'sort_order')) {
+      db.exec(readMigration('034_workspace_sort_order.sql'))
+    } else {
+      db.pragma('user_version = 34')
+    }
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
 }
 
 function readMigration(name: string): string {
