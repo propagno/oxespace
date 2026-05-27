@@ -233,6 +233,7 @@ export function parseUpdateWorkspaceSettingsInput(value: unknown): UpdateWorkspa
   const input = expectRecord(value, 'workspace:update-settings input')
   return {
     workspaceId: expectNonEmptyString(input.workspaceId, 'workspaceId'),
+    name: input.name === undefined ? undefined : expectNonEmptyString(input.name, 'name'),
     themeId: input.themeId === undefined ? undefined : expectTheme(input.themeId),
     uiDensity: input.uiDensity === undefined ? undefined : expectDensity(input.uiDensity),
     defaultShellProfileId: input.defaultShellProfileId === undefined ? undefined : expectNonEmptyString(input.defaultShellProfileId, 'defaultShellProfileId'),

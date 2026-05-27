@@ -85,11 +85,11 @@ describe('SkillsBrowser — SDLC skill templates', () => {
     await waitFor(() => expect(window.oxe.skill.create).toHaveBeenCalledTimes(1))
     expect(window.oxe.skill.create).toHaveBeenCalledWith(expect.objectContaining({
       name: 'code-reviewer',
-      description: expect.stringContaining('Review diffs'),
+      description: expect.stringContaining('Severity-graded review'),
       category: 'sdlc-review',
       scope: 'workspace',
       workspaceRootPath: 'C:/repo',
-      body: expect.stringMatching(/You are a strict code reviewer/)
+      body: expect.stringMatching(/You are the senior reviewer/)
     }))
     expect(onOpenEditor).toHaveBeenCalledWith('.oxe/skills/code-reviewer.md')
   })

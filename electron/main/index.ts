@@ -208,6 +208,7 @@ function registerNativeFailureIpcHandlers(message: string): void {
   }
   ipcMain.handle(IPC_CHANNELS.workspace.updateBackgroundState, fail)
   ipcMain.handle(IPC_CHANNELS.workspace.updateWorktreeState, fail)
+  ipcMain.handle(IPC_CHANNELS.workspace.reorder, fail)
   ipcMain.handle(IPC_CHANNELS.workspace.setPaneAgent, fail)
   ipcMain.handle(IPC_CHANNELS.workspace.setPaneRootPath, fail)
   ipcMain.handle(IPC_CHANNELS.workspace.updatePaneName, fail)

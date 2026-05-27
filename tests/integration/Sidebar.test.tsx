@@ -85,7 +85,12 @@ describe('Sidebar', () => {
     await user.click(screen.getByTestId('sidebar-workspace-select'))
     expect(onSelectWorkspace).toHaveBeenCalledWith('workspace-1')
 
-    await user.click(screen.getByLabelText('Close repo'))
+    // Workspace removal moved off the always-visible X button and onto the
+    // right-click context menu → confirmation modal. Two clicks (menuitem +
+    // modal confirm) replace the old single-click destructive flow.
+    fireEvent.contextMenu(screen.getByTestId('sidebar-workspace-select'))
+    await user.click(screen.getByRole('menuitem', { name: /remove workspace/i }))
+    await user.click(screen.getByRole('button', { name: /remove workspace/i }))
     expect(onCloseWorkspace).toHaveBeenCalledWith('workspace-1')
 
     // The AI Providers button was removed from the sidebar header in Wave 2 —

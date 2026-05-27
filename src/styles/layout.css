@@ -337,6 +337,44 @@
   box-shadow: inset 3px 0 0 var(--brand);
 }
 
+/* ─── Drag-and-drop reorder feedback ─────────────────────────────────────
+   `.dragging` fades the source row so the user sees what they're moving.
+   `.drop-before` / `.drop-after` render a thin brand-colored line via a
+   pseudo-element on the matching edge so the drop target is unambiguous. */
+.ws-group {
+  position: relative;
+  transition: opacity var(--transition-base);
+}
+
+.ws-group.dragging {
+  opacity: 0.4;
+}
+
+.ws-group.drop-before::before,
+.ws-group.drop-after::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  height: 2px;
+  background: var(--brand);
+  border-radius: 2px;
+  box-shadow: 0 0 6px rgba(0, 214, 201, 0.6);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.ws-group.drop-before::before { top: -1px; }
+.ws-group.drop-after::after { bottom: -1px; }
+
+.ws-group-header {
+  cursor: grab;
+}
+
+.ws-group.dragging .ws-group-header {
+  cursor: grabbing;
+}
+
 .ws-group-chevron {
   /* 14px is enough for the affordance once the surrounding padding is
      tight — bigger sizes started to dominate the slim row. */
@@ -426,33 +464,165 @@
 /* When both the integration badge and the count are present, the count needs
    to drop its `margin-left: auto` so the two chips sit shoulder-to-shoulder.
    The badge already claimed `margin-left: auto`. */
-.ws-group-close {
-  width: 18px;
-  height: 18px;
-  border-radius: 4px;
+/* `.ws-group-close` removed — workspace removal is now reached via the
+   right-click context menu on the card, which opens a confirm modal.
+   Avoids accidental closures from a misclicked X near the chevron. */
+
+/* Inline rename input — sits inside `.ws-group-title-block`, same metrics
+   as `.ws-group-name` so the row doesn't shift when entering edit mode. */
+.ws-group-rename-input {
+  width: 100%;
+  padding: 1px 4px;
+  margin: -2px -4px;
+  border: 1px solid rgba(0, 214, 201, 0.45);
+  border-radius: var(--radius-sm);
+  background: var(--bg-app);
+  color: var(--tx-primary);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  outline: none;
+}
+
+.ws-group-rename-input:focus {
+  border-color: var(--bd-input-focus);
+  box-shadow: 0 0 0 1px rgba(0, 214, 201, 0.18);
+}
+
+/* Floating context menu — same visual language as .pane-session-context-menu
+   for consistency, plus icons on the menuitems so the actions are scannable. */
+.ws-group-context-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 200px;
+  padding: 5px;
+  border: 1px solid var(--bd-default);
+  border-radius: 7px;
+  background: var(--bg-elevated);
+  box-shadow: 0 12px 28px rgb(0 0 0 / 45%);
+}
+
+.ws-group-context-menu button {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--tx-primary);
+  font-size: var(--fs-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.ws-group-context-menu button:hover {
+  background: var(--bg-ws-hover);
+}
+
+.ws-group-context-menu button.danger {
+  color: var(--dot-red);
+}
+
+.ws-group-context-menu button.danger:hover {
+  background: rgba(244, 91, 105, 0.10);
+}
+
+/* Remove-workspace confirmation modal. Full-screen backdrop + centered
+   dialog — same backdrop motif used by the worktree menu (now retired)
+   so the affordance feels consistent across the app. */
+.ws-remove-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--tx-muted);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 100ms, color 80ms, background 80ms;
-  flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  animation: model-selector-fade 140ms ease-out;
 }
 
-.ws-group-header:hover .ws-group-close {
-  opacity: 0.6;
+.ws-remove-modal {
+  width: min(420px, calc(100vw - 48px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px 14px;
+  border: 1px solid var(--bd-base);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
 }
 
-.ws-group.active .ws-group-header:hover .ws-group-close {
-  opacity: 1;
+.ws-remove-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-.ws-group-close:hover {
+.ws-remove-modal-header h2 {
+  margin: 0;
   color: var(--tx-primary);
-  background: rgba(255, 255, 255, 0.08);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.ws-remove-modal-close {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--tx-muted);
+  cursor: pointer;
+}
+
+.ws-remove-modal-close:hover {
+  background: var(--surface-hover);
+  color: var(--tx-primary);
+}
+
+.ws-remove-modal-body {
+  margin: 0;
+  color: var(--tx-secondary);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.ws-remove-modal-body strong { color: var(--tx-primary); }
+.ws-remove-modal-body em { color: var(--accent); font-style: normal; }
+
+.ws-remove-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ws-remove-modal-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 14px;
+  border: 1px solid rgba(244, 91, 105, 0.45);
+  border-radius: var(--radius-sm);
+  background: rgba(244, 91, 105, 0.16);
+  color: #FFB1B8;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-base), border-color var(--transition-base);
+}
+
+.ws-remove-modal-confirm:hover {
+  background: rgba(244, 91, 105, 0.24);
+  border-color: rgba(244, 91, 105, 0.65);
+  color: #FFCED2;
 }
 
 /* ─── Pane session row ──────────────────────────────────────────────────── */

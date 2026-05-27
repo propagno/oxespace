@@ -78,6 +78,16 @@ export function registerWorkspaceIpc(db: AppDatabase, lifecycle?: WorkspaceLifec
   ipcMain.handle(IPC_CHANNELS.workspace.updateWorktreeState, (_event, input: unknown) =>
     workspaceService.updateWorktreeState(parseUpdateWorkspaceWorktreeStateInput(input))
   )
+  ipcMain.handle(IPC_CHANNELS.workspace.reorder, (_event, input: unknown) => {
+    if (!Array.isArray(input)) throw new Error('workspace:reorder input must be an array of ids')
+    const ids = input.map((value, index) => {
+      if (typeof value !== 'string' || !value.trim()) {
+        throw new Error(`workspace:reorder ids[${index}] must be a non-empty string`)
+      }
+      return value
+    })
+    return workspaceService.reorderWorkspaces(ids)
+  })
   ipcMain.handle(IPC_CHANNELS.workspace.updateSettings, (_event, input: unknown) =>
     workspaceService.updateSettings(parseUpdateWorkspaceSettingsInput(input))
   )

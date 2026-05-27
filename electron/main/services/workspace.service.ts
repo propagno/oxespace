@@ -47,6 +47,7 @@ interface WorkspaceRow {
   worktree_panel_visible: number
   worktree_panel_expanded: number
   worktree_panel_width_percent: number
+  sort_order: number | null
 }
 
 interface PaneRow {
@@ -154,9 +155,13 @@ export class WorkspaceService {
           review_panel_visible, review_panel_expanded, review_panel_width_percent,
           github_panel_visible, github_panel_expanded, github_panel_width_percent, github_active_tab,
           background_panel_visible, background_panel_expanded, background_panel_width_percent,
-          worktree_panel_visible, worktree_panel_expanded, worktree_panel_width_percent
+          worktree_panel_visible, worktree_panel_expanded, worktree_panel_width_percent,
+          sort_order
          FROM workspaces
-         ORDER BY created_at ASC`
+         /* sort_order is the user-managed drag order (nulls go last); we
+            tie-break on created_at so newly added workspaces still appear
+            after the existing ones until the user drags them. */
+         ORDER BY sort_order IS NULL ASC, sort_order ASC, created_at ASC`
       )
       .all() as WorkspaceRow[]
 
@@ -171,7 +176,8 @@ export class WorkspaceService {
           review_panel_visible, review_panel_expanded, review_panel_width_percent,
           github_panel_visible, github_panel_expanded, github_panel_width_percent, github_active_tab,
           background_panel_visible, background_panel_expanded, background_panel_width_percent,
-          worktree_panel_visible, worktree_panel_expanded, worktree_panel_width_percent
+          worktree_panel_visible, worktree_panel_expanded, worktree_panel_width_percent,
+          sort_order
          FROM workspaces
          WHERE id = ?`
       )
@@ -409,6 +415,23 @@ export class WorkspaceService {
     return workspace
   }
 
+  /**
+   * Applies a user-supplied drag-and-drop order. Sets sort_order to the
+   * index for each ID; any workspace whose ID isn't in the list keeps its
+   * current sort_order (lets the renderer omit IDs that weren't visible).
+   * Wrapped in a transaction so partial reorders don't leave half-state.
+   */
+  reorderWorkspaces(orderedIds: string[]): Workspace[] {
+    const update = this.db.prepare('UPDATE workspaces SET sort_order = ? WHERE id = ?')
+    const apply = this.db.transaction((ids: string[]) => {
+      ids.forEach((id, index) => {
+        update.run(index, id)
+      })
+    })
+    apply(orderedIds)
+    return this.list()
+  }
+
   updateSettings(input: UpdateWorkspaceSettingsInput): Workspace {
     const current = this.get(input.workspaceId)
     if (!current) throw new Error(`Workspace ${input.workspaceId} not found`)
@@ -424,11 +447,17 @@ export class WorkspaceService {
       throw new Error('Cannot reduce layout while removed panes are running')
     }
 
+    // Allow renaming the workspace's display label without touching its
+    // root_path on disk. `name?.trim() || current.name` falls back so an
+    // accidental empty submit doesn't wipe the label.
+    const nextName = input.name !== undefined ? (input.name.trim() || current.name) : current.name
+
     const updateWorkspace = this.db.transaction(() => {
       this.db
         .prepare(
           `UPDATE workspaces
-           SET theme_id = @themeId,
+           SET name = @name,
+               theme_id = @themeId,
                ui_density = @uiDensity,
                default_shell_profile_id = @defaultShellProfileId,
                layout = @layout,
@@ -438,6 +467,7 @@ export class WorkspaceService {
         )
         .run({
           workspaceId: input.workspaceId,
+          name: nextName,
           themeId: input.themeId ?? current.themeId,
           uiDensity: input.uiDensity ?? current.uiDensity,
           defaultShellProfileId: nextShellProfileId,
