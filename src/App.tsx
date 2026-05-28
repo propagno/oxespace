@@ -1,5 +1,5 @@
-import { Activity, Bot, FilePlus2, FolderOpen, Github, Grid2x2, History, LayoutDashboard, Maximize, Palette, Plus, RotateCw, Settings2, Sliders, Split, Square, StopCircle, Wrench } from 'lucide-react'
-import { useEffect, useState, type ReactElement } from 'react'
+import { Activity, Bot, FilePlus2, FolderOpen, Github, Grid2x2, History, LayoutDashboard, Maximize, Mic, Palette, Plus, RotateCw, Settings2, Sliders, Split, Square, StopCircle, Wrench } from 'lucide-react'
+import { useEffect, useRef, useState, type ReactElement } from 'react'
 import type { AgentProfile } from '../shared/types/agent'
 import { AgentConfigModal } from './components/Agents/AgentConfigModal'
 import { OxeLogo } from './components/Brand/OxeLogo'
@@ -26,6 +26,33 @@ import { useTerminalStore } from './store/terminal.store'
 import { useUIStore } from './store/ui.store'
 import { selectActiveWorkspace, useWorkspaceStore } from './store/workspace.store'
 import { useIntegrationStore } from './store/integration.store'
+import { useWorktreeStore } from './store/worktree.store'
+import { useVoiceStore } from './store/voice.store'
+
+/**
+ * How many workspaces to keep mounted in the DOM at once. The active workspace
+ * always counts as 1; the remaining N-1 slots cache the most-recent past
+ * workspaces so quick "back to my last repo" feels instant. Beyond that, the
+ * oldest visited workspace unmounts — releasing its xterm scrollback, IPC
+ * subscriptions, and git pollers. 3 strikes a balance for typical multi-repo
+ * vibe coding without growing memory unbounded over a long session.
+ */
+const VISITED_WORKSPACES_CAP = 3
+
+/** Match a KeyboardEvent against a hotkey string like "Ctrl+Shift+Space". */
+function matchesHotkey(event: KeyboardEvent, hotkey: string): boolean {
+  const parts = hotkey.toLowerCase().split('+').map((p) => p.trim()).filter(Boolean)
+  const mods = new Set(['ctrl', 'shift', 'alt', 'meta', 'cmd'])
+  const mainKey = parts.find((p) => !mods.has(p)) ?? ''
+  const eventKey = event.key === ' ' ? 'space' : event.key.toLowerCase()
+  return (
+    event.ctrlKey === parts.includes('ctrl') &&
+    event.shiftKey === parts.includes('shift') &&
+    event.altKey === parts.includes('alt') &&
+    event.metaKey === (parts.includes('meta') || parts.includes('cmd')) &&
+    eventKey === mainKey
+  )
+}
 
 export function App(): ReactElement {
   const appVersion = window.oxe?.app?.version ?? 'dev'
@@ -104,17 +131,25 @@ export function App(): ReactElement {
   // stay mounted (hidden via CSS) so the xterm Terminal instances persist
   // across workspace switches — required so full-screen Copilot/Claude TUIs
   // keep their altbuf state and scrollback when the user returns to them.
-  const [visitedWorkspaceIds, setVisitedWorkspaceIds] = useState<Set<string>>(() => new Set())
+  // MRU list of visited workspaces (most-recently-visited at the end). Kept
+  // mounted in DOM so xterm scrollback and altbuf state survive workspace
+  // switches. Capped to VISITED_WORKSPACES_CAP — when the cap is exceeded
+  // the oldest entry is evicted, its WorkspaceSurface unmounts, and its
+  // panes' xterm + IPC subscriptions + git pollers are torn down. Trade
+  // memory + render time against scrollback retention for stale workspaces.
+  const [visitedWorkspaceIds, setVisitedWorkspaceIds] = useState<string[]>([])
   useEffect(() => {
     if (!activeWorkspaceId) return
     setVisitedWorkspaceIds((prev) => {
-      if (prev.has(activeWorkspaceId)) return prev
-      const next = new Set(prev)
-      next.add(activeWorkspaceId)
-      return next
+      const without = prev.filter((id) => id !== activeWorkspaceId)
+      const next = [...without, activeWorkspaceId]
+      return next.length > VISITED_WORKSPACES_CAP
+        ? next.slice(-VISITED_WORKSPACES_CAP)
+        : next
     })
   }, [activeWorkspaceId])
   const activePane = activeWorkspace?.panes.find((pane) => pane.id === activePaneId) ?? activeWorkspace?.panes[0] ?? null
+  const pttHotkey = useVoiceStore((s) => s.pttHotkey)
   const slashPane = slashOverlayPaneId ? activeWorkspace?.panes.find((pane) => pane.id === slashOverlayPaneId) ?? null : null
   const skills = useSkillStore((s) => s.skills)
   const dispatchSlashCommand = useSlashDispatcher({ workspace: activeWorkspace ?? null, pane: slashPane })
@@ -128,6 +163,12 @@ export function App(): ReactElement {
     void loadReadiness()
     void useSkillStore.getState().refresh()
     void useMcpStore.getState().load(null)
+    // Integration store is workspace-agnostic (load(null) returns ALL
+    // groups). Load it once at boot — re-running on every workspace switch
+    // was the source of the "Loading integration groups…" flash that made
+    // sidebar member clicks feel laggy. Add/remove/update actions in the
+    // store keep the cache fresh without a network round-trip.
+    void useIntegrationStore.getState().load(null)
     // Subscribe once to background job + skill change + mcp health streams.
     const unsubscribe = useBackgroundStore.getState().subscribe()
     const unsubscribeSkills = useSkillStore.getState().subscribe()
@@ -140,7 +181,6 @@ export function App(): ReactElement {
     if (!activeWorkspace) return
     void useSkillStore.getState().refresh(activeWorkspace.rootPath)
     void useMcpStore.getState().load(activeWorkspace.id)
-    void useIntegrationStore.getState().load(null)
   }, [activeWorkspace?.id, activeWorkspace?.rootPath])
 
   // Hydrate background jobs for the active workspace
@@ -152,6 +192,34 @@ export function App(): ReactElement {
   useEffect(() => {
     setActiveTerminalPaneId(activePane?.id ?? null)
   }, [activePane?.id, setActiveTerminalPaneId])
+
+  // Top-level listener for `oxespace_open_web_preview` tool calls. Lives
+  // here (not inside WebPreviewPanel) so it fires even when the panel is
+  // closed — agent says "open localhost:3000" → we auto-open the panel +
+  // queue the URL → panel consumes the pending URL on mount.
+  useEffect(() => {
+    const api = window.oxe?.mcpInternal
+    if (!api) return
+    const unsubscribe = api.onWebPreview((event) => {
+      useUIStore.setState({
+        pendingWebPreview: { workspaceId: event.workspaceId, url: event.url },
+        isWebPreviewOpen: true
+      })
+    })
+    return unsubscribe
+  }, [])
+
+  // Top-level listener for worktree mutations driven by the MCP tools. The
+  // store keys worktrees by rootPath, so a refresh re-renders both the
+  // Worktree panel and the sidebar `Nwt` badge without a manual reload.
+  useEffect(() => {
+    const api = window.oxe?.mcpInternal
+    if (!api) return
+    const unsubscribe = api.onWorktreeChanged((event) => {
+      void useWorktreeStore.getState().refresh(event.workspaceId, event.rootPath)
+    })
+    return unsubscribe
+  }, [])
 
   const handleLaunch = async (input: WizardLaunchInput): Promise<void> => {
     const workspace = await createWorkspace({
@@ -178,12 +246,7 @@ export function App(): ReactElement {
       return
     }
     clearEditor(workspaceId)
-    setVisitedWorkspaceIds((prev) => {
-      if (!prev.has(workspaceId)) return prev
-      const next = new Set(prev)
-      next.delete(workspaceId)
-      return next
-    })
+    setVisitedWorkspaceIds((prev) => prev.filter((id) => id !== workspaceId))
     void closeWorkspace(workspaceId)
   }
 
@@ -213,6 +276,13 @@ export function App(): ReactElement {
   const toggleActivePaneMaximize = (): void => {
     if (!activePane) return
     setMaximizedPane(maximizedPaneId === activePane.id ? null : activePane.id)
+  }
+
+  const toggleActivePaneVoice = (): void => {
+    if (!activePane || activePane.type !== 'terminal') return
+    window.dispatchEvent(new CustomEvent('oxe:terminal-toggle-voice', {
+      detail: { paneId: activePane.id }
+    }))
   }
 
   const runCommandInTerminal = async (command: string): Promise<void> => {
@@ -310,6 +380,7 @@ export function App(): ReactElement {
     { id: 'split-vertical', title: 'Split active pane (vertical)', subtitle: 'Ctrl+Shift+\\', icon: Split, category: 'Terminal', disabled: !activePane, run: () => splitActivePane('vertical') },
     { id: 'split-horizontal', title: 'Split active pane (horizontal)', subtitle: 'Ctrl+Shift+-', icon: Split, category: 'Terminal', disabled: !activePane, run: () => splitActivePane('horizontal') },
     { id: 'maximize-pane', title: 'Maximize / restore active pane', subtitle: 'Ctrl+Shift+Enter', icon: Maximize, category: 'Terminal', disabled: !activePane, run: toggleActivePaneMaximize },
+    { id: 'toggle-oxevoice', title: 'Toggle OXEVoice for active terminal', subtitle: 'Speak text into the prompt without Enter', icon: Mic, category: 'Terminal', keywords: ['voice', 'speech', 'microphone', 'dictation'], disabled: !activePane || activePane.type !== 'terminal' || getTerminalStatus(activePane.id).status !== 'running', run: toggleActivePaneVoice },
     { id: 'restart-terminal', title: 'Restart active terminal', subtitle: 'Ctrl+R', icon: RotateCw, category: 'Terminal', disabled: !activePane || activePane.type !== 'terminal', run: () => activePane && void window.oxe.terminal.restart({ paneId: activePane.id }) },
     { id: 'stop-terminal', title: 'Stop active terminal', icon: StopCircle, category: 'Terminal', disabled: !activePane || activePane.type !== 'terminal', run: () => activePane && void window.oxe.terminal.stop({ paneId: activePane.id }) }
   ]
@@ -379,14 +450,46 @@ export function App(): ReactElement {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [activePane, activeWorkspace, maximizedPaneId, openCommandPalette, openSlashOverlay, openHistoryPanel, openWorkspaceSettings, splitPane, toggleSidebar, updateEditorState])
 
+  // Push-to-talk: hold the configured hotkey to dictate into the active
+  // terminal, release to transcribe + insert. Works even while the terminal
+  // is focused (window-level listener). Auto-repeat is guarded so holding
+  // doesn't restart capture each tick.
+  useEffect(() => {
+    let holding = false
+    const dispatch = (type: 'start' | 'end'): void => {
+      if (!activePane || activePane.type !== 'terminal') return
+      window.dispatchEvent(new CustomEvent(`oxe:terminal-voice-hold-${type}`, {
+        detail: { paneId: activePane.id }
+      }))
+    }
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.repeat || holding) return
+      if (!matchesHotkey(event, pttHotkey)) return
+      event.preventDefault()
+      holding = true
+      dispatch('start')
+    }
+    const onKeyUp = (): void => {
+      if (!holding) return
+      holding = false
+      dispatch('end')
+    }
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    window.addEventListener('blur', onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('blur', onKeyUp)
+    }
+  }, [activePane, pttHotkey])
+
   return (
     <ThemeProvider themeId={activeWorkspace?.themeId} density={activeWorkspace?.uiDensity}>
       <main className={`app-shell${isSidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
       <Sidebar
         workspaces={workspaces}
         activeWorkspaceId={activeWorkspaceId}
-        activePaneId={activePaneId}
-        agentProfiles={agentProfiles}
         appVersion={appVersion}
         onNewWorkspace={openNewWorkspace}
         onSelectWorkspace={(id) => void setActiveWorkspace(id)}
@@ -411,7 +514,7 @@ export function App(): ReactElement {
         ) : activeWorkspace ? (
           <>
             {workspaces
-              .filter((ws) => visitedWorkspaceIds.has(ws.id))
+              .filter((ws) => visitedWorkspaceIds.includes(ws.id))
               .map((ws) => {
                 const isActive = ws.id === activeWorkspaceId
                 return (

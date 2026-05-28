@@ -203,6 +203,12 @@ export const IPC_CHANNELS = {
   clipboard: {
     saveImageToTemp: 'clipboard:save-image-to-temp'
   },
+  voice: {
+    transcribe: 'voice:transcribe',
+    getModelStatus: 'voice:get-model-status',
+    ensureModel: 'voice:ensure-model',
+    onModelProgress: 'voice:on-model-progress'
+  },
   background: {
     list: 'background:list',
     start: 'background:start',
@@ -281,6 +287,15 @@ export const IPC_CHANNELS = {
     createHandoff: 'integration:create-handoff',
     updateHandoff: 'integration:update-handoff',
     buildContext: 'integration:build-context'
+  },
+  mcpInternal: {
+    getStatus: 'mcp-internal:get-status',
+    regenerateToken: 'mcp-internal:regenerate-token',
+    onWebPreview: 'mcp-internal:on-web-preview',
+    onWorktreeChanged: 'mcp-internal:on-worktree-changed'
+  },
+  oxeContext: {
+    buildPaneManifest: 'oxe-context:build-pane-manifest'
   }
 } as const
 
@@ -434,6 +449,22 @@ export interface ClipboardApi {
   saveImageToTemp(): Promise<string | null>
 }
 
+export interface VoiceApi {
+  transcribe(
+    wav: Uint8Array,
+    options?: import('./voice').VoiceTranscribeOptions
+  ): Promise<import('./voice').VoiceTranscribeResult>
+  getModelStatus(
+    size?: import('./voice').VoiceModelSize
+  ): Promise<import('./voice').VoiceModelStatus>
+  ensureModel(
+    size?: import('./voice').VoiceModelSize
+  ): Promise<import('./voice').VoiceModelStatus>
+  onModelProgress(
+    listener: (event: import('./voice').VoiceModelProgressEvent) => void
+  ): () => void
+}
+
 export interface OxeApi {
   app: {
     version: string
@@ -447,10 +478,24 @@ export interface OxeApi {
   github: GitHubApi
   integration: IntegrationApi
   clipboard: ClipboardApi
+  voice: VoiceApi
   background: BackgroundApi
   session: SessionApi
   skill: SkillApi
   mcp: McpApi
+  mcpInternal: McpInternalApi
+  oxeContext: OxeContextApi
+}
+
+export interface McpInternalApi {
+  getStatus(): Promise<import('./mcp-internal').InternalMcpStatus>
+  regenerateToken(): Promise<import('./mcp-internal').InternalMcpStatus>
+  onWebPreview(listener: (event: import('./mcp-internal').InternalMcpWebPreviewEvent) => void): () => void
+  onWorktreeChanged(listener: (event: import('./mcp-internal').InternalMcpWorktreeChangedEvent) => void): () => void
+}
+
+export interface OxeContextApi {
+  buildPaneManifest(input: { workspaceId: string; paneId: string }): Promise<string>
 }
 
 export interface IntegrationApi {

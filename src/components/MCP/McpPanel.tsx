@@ -24,8 +24,50 @@ export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement 
   const [busy, setBusy] = useState<string | null>(null)
   const [trustPromptId, setTrustPromptId] = useState<string | null>(null)
   const [removePromptId, setRemovePromptId] = useState<string | null>(null)
+  // Built-in OXESpace MCP — the global row OXESpace auto-creates on boot.
+  // Rendered as a special read-only card at the top of the list so users
+  // see its status + can regenerate its token but can't delete it.
+  const [builtInStatus, setBuiltInStatus] = useState<import('../../../shared/types/mcp-internal').InternalMcpStatus | null>(null)
+  const [builtInBusy, setBuiltInBusy] = useState(false)
+  const [builtInNotice, setBuiltInNotice] = useState<string | null>(null)
 
   useEffect(() => { void load(workspaceId) }, [workspaceId, load])
+
+  useEffect(() => {
+    // Poll every 5s — the built-in server is steady-state, no need to flood
+    // the IPC channel. Was 2s; cumulative cost added measurable jank when
+    // combined with other workspace-switch refreshes. The status pill is
+    // still responsive to start/stop within ~5s, which is plenty for the
+    // dashboard read.
+    const tick = (): void => {
+      const api = window.oxe?.mcpInternal
+      if (!api) return
+      void api.getStatus().then(setBuiltInStatus).catch(() => undefined)
+    }
+    tick()
+    const interval = setInterval(tick, 5000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const handleRegenerateToken = async (): Promise<void> => {
+    setBuiltInBusy(true)
+    setBuiltInNotice(null)
+    try {
+      const next = await window.oxe.mcpInternal.regenerateToken()
+      setBuiltInStatus(next)
+      setBuiltInNotice('Token regenerated. Restart open agent panes to pick up the new env.')
+    } catch (err) {
+      setBuiltInNotice(err instanceof Error ? err.message : 'Failed to regenerate token')
+    } finally {
+      setBuiltInBusy(false)
+    }
+  }
+
+  // The built-in row is global (workspaceId NULL) + name === 'oxespace'.
+  // Pull it out of the regular list so the special card renders once and
+  // the rest of the panel doesn't try to edit/delete it.
+  const builtInServer = servers.find((s) => s.workspaceId === null && s.name === 'oxespace') ?? null
+  const otherServers = builtInServer ? servers.filter((s) => s.id !== builtInServer.id) : servers
 
   const handleStart = async (server: McpServer): Promise<void> => {
     if (!server.trusted) {
@@ -124,14 +166,26 @@ export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement 
         )}
 
         <div className="mcp-panel-list">
-          {servers.length === 0 && !creating ? (
+          <McpBuiltinCard
+            status={builtInStatus}
+            busy={builtInBusy}
+            notice={builtInNotice}
+            // Prefer the live status (always reflects TOOL_REGISTRY.length).
+            // The DB row only has `tools` populated AFTER `manager.start(id)`
+            // ran the handshake — and we don't auto-start the internal one
+            // because the bridge is spawned by agent CLIs, not by McpManager.
+            toolCount={builtInStatus?.toolCount ?? builtInServer?.tools.length ?? 0}
+            onRegenerate={() => void handleRegenerateToken()}
+            onDismissNotice={() => setBuiltInNotice(null)}
+          />
+          {otherServers.length === 0 && !creating ? (
             <div className="mcp-panel-empty">
               <Wrench size={32} aria-hidden="true" />
               <strong>No MCP server configured</strong>
               <span>Add a server to expose filesystem, GitHub, database tools to your agents.</span>
             </div>
           ) : (
-            servers.map((server) => (
+            otherServers.map((server) => (
               <McpServerRow
                 key={server.id}
                 server={server}
@@ -156,6 +210,86 @@ export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement 
           Only <code>stdio</code> transport in this version.
         </footer>
       </section>
+    </div>
+  )
+}
+
+interface McpBuiltinCardProps {
+  status: import('../../../shared/types/mcp-internal').InternalMcpStatus | null
+  busy: boolean
+  notice: string | null
+  toolCount: number
+  onRegenerate: () => void
+  onDismissNotice: () => void
+}
+
+function McpBuiltinCard({ status, busy, notice, toolCount, onRegenerate, onDismissNotice }: McpBuiltinCardProps): ReactElement {
+  const [expanded, setExpanded] = useState(false)
+  const running = status?.running === true
+  const port = status?.port ?? null
+  const lastError = status?.lastError ?? null
+  const tools = status?.tools ?? []
+  const pillClass = lastError ? 'health-error' : running ? 'health-healthy' : 'health-idle'
+  const pillText = lastError
+    ? 'error'
+    : running
+      ? port !== null
+        ? `running · :${port}`
+        : 'running'
+      : 'stopped'
+  return (
+    <div className={`mcp-server-row mcp-builtin-row ${pillClass}${expanded ? ' expanded' : ''}`}>
+      <button
+        type="button"
+        className="mcp-server-main"
+        aria-label="OXESpace built-in MCP server"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((value) => !value)}
+      >
+        <HealthIndicator status={lastError ? 'unhealthy' : running ? 'healthy' : 'unknown'} />
+        <div className="mcp-server-body">
+          <strong>OXESpace built-in <span className="mcp-server-tag scope-global">auto</span></strong>
+          <span className="mcp-server-meta">
+            <span className={`mcp-server-tag mcp-builtin-status ${running ? 'on' : 'off'}`}>{pillText}</span>
+            <span className="mcp-server-tag">stdio</span>
+            <span className="mcp-server-tag">trusted</span>
+            <span>{toolCount} tool{toolCount === 1 ? '' : 's'}</span>
+            {lastError ? <span className="mcp-server-err">{lastError}</span> : null}
+          </span>
+        </div>
+        {expanded ? <ChevronDown size={12} aria-hidden="true" /> : <ChevronRight size={12} aria-hidden="true" />}
+      </button>
+      <button
+        type="button"
+        className="mcp-builtin-regen"
+        onClick={(e) => { e.stopPropagation(); onRegenerate() }}
+        disabled={busy}
+        title="Generate a new auth token. Open agent panes need to restart to pick it up."
+      >
+        <RotateCw size={11} className={busy ? 'usage-spin' : ''} aria-hidden="true" />
+        {busy ? 'Regenerating…' : 'Regenerate token'}
+      </button>
+      {expanded && tools.length > 0 ? (
+        <div className="mcp-builtin-tools">
+          <div className="mcp-builtin-tools-title">Tools exposed to agent CLIs (call via MCP)</div>
+          <ul>
+            {tools.map((tool) => (
+              <li key={tool.name}>
+                <code>{tool.name}</code>
+                <span>{tool.description}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {notice ? (
+        <div className="mcp-builtin-notice" role="status">
+          <span>{notice}</span>
+          <button type="button" onClick={onDismissNotice} aria-label="Dismiss notice">
+            <X size={11} aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
     </div>
   )
 }

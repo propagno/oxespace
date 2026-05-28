@@ -14,8 +14,15 @@ import { registerBackgroundIpc } from './ipc/background.ipc'
 import { registerSessionIpc } from './ipc/session.ipc'
 import { broadcastSkillChange, registerSkillIpc } from './ipc/skill.ipc'
 import { broadcastMcpHealth, registerMcpIpc } from './ipc/mcp.ipc'
+import { registerMcpInternalIpc } from './ipc/mcp-internal.ipc'
+import { registerVoiceIpc } from './ipc/voice.ipc'
+import { registerOxeContextIpc } from './ipc/oxe-context.ipc'
 import { SkillService } from './services/skill.service'
 import { McpManager } from './services/mcp.service'
+import { WorkspaceService } from './services/workspace.service'
+import { GitHubService } from './services/github.service'
+import { GitService } from './services/git.service'
+import { createInternalMcpHandle, type InternalMcpHandle } from './mcp-internal/bootstrap'
 import { registerTaskIpc } from './ipc/task.ipc'
 import { registerTerminalIpc } from './ipc/terminal.ipc'
 import { registerWorkspaceIpc } from './ipc/workspace.ipc'
@@ -102,7 +109,36 @@ function registerIpcHandlers(): void {
     timer.unref?.()
     return filePath
   })
+  registerVoiceIpc()
   const fileSystemService = registerFileSystemIpc()
+  // Internal oxespace MCP server — auto-starts on app boot, registers a
+  // global row in mcp_servers, syncs to every workspace's .mcp.json. The
+  // bridge script lives under <userData>/bin/ and is spawned by each
+  // agent CLI separately (Claude Code, Copilot, …). See plan section 3.
+  const internalMcpWorkspaceServ = new WorkspaceService(db)
+  const internalMcpGithub = new GitHubService(db)
+  const internalMcpGit = new GitService()
+  const internalMcp: InternalMcpHandle = createInternalMcpHandle({
+    db,
+    mcpManager,
+    workspaceServ: internalMcpWorkspaceServ,
+    github: internalMcpGithub,
+    background: backgroundManager,
+    fileSystem: fileSystemService
+  })
+  registerMcpInternalIpc(internalMcp)
+  void internalMcp.start()
+  // OXESpace context manifest — prepended to the agent's initial prompt on
+  // pane spawn so the CLI knows the workspace state without calling any MCP
+  // tool. Read shortcut; MCP is still the action path (see oxe-context.service.ts).
+  registerOxeContextIpc({
+    db,
+    workspaceServ: internalMcpWorkspaceServ,
+    github: internalMcpGithub,
+    git: internalMcpGit,
+    background: backgroundManager,
+    fileSystem: fileSystemService
+  })
   app.once('before-quit', () => {
     for (const filePath of clipboardImageTempFiles) void cleanupTempFile(filePath)
     fileSystemService.closeAll()
@@ -110,6 +146,7 @@ function registerIpcHandlers(): void {
     backgroundManager.stopAll()
     skillService.dispose()
     mcpManager.stopAll()
+    void internalMcp.stop()
   })
   ipcRegistered = true
 }
@@ -146,6 +183,9 @@ function registerNativeFailureIpcHandlers(message: string): void {
   ipcMain.handle(IPC_CHANNELS.terminal.resize, fail)
   ipcMain.handle(IPC_CHANNELS.terminal.stop, fail)
   ipcMain.handle(IPC_CHANNELS.terminal.restart, fail)
+  ipcMain.handle(IPC_CHANNELS.voice.transcribe, fail)
+  ipcMain.handle(IPC_CHANNELS.voice.getModelStatus, () => ({ size: 'base', ready: false, path: '', engineReady: false }))
+  ipcMain.handle(IPC_CHANNELS.voice.ensureModel, fail)
   ipcMain.handle(IPC_CHANNELS.agent.list, () => [])
   ipcMain.handle(IPC_CHANNELS.agent.discover, () => [])
   ipcMain.handle(IPC_CHANNELS.agent.getReadiness, () => [])
@@ -206,6 +246,18 @@ function registerNativeFailureIpcHandlers(message: string): void {
   if ('setTrust' in IPC_CHANNELS.mcp) {
     ipcMain.handle((IPC_CHANNELS.mcp as Record<string, string>).setTrust, fail)
   }
+  ipcMain.handle(IPC_CHANNELS.mcpInternal.getStatus, () => ({
+    running: false,
+    port: null,
+    bridgePath: null,
+    serverRowId: null,
+    lastError: 'native startup failed',
+    uptimeMs: 0,
+    toolCount: 0,
+    tools: []
+  }))
+  ipcMain.handle(IPC_CHANNELS.mcpInternal.regenerateToken, fail)
+  ipcMain.handle(IPC_CHANNELS.oxeContext.buildPaneManifest, () => '')
   ipcMain.handle(IPC_CHANNELS.workspace.updateBackgroundState, fail)
   ipcMain.handle(IPC_CHANNELS.workspace.updateWorktreeState, fail)
   ipcMain.handle(IPC_CHANNELS.workspace.reorder, fail)
@@ -380,6 +432,9 @@ function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.terminal.resize, () => undefined)
   ipcMain.handle(IPC_CHANNELS.terminal.stop, () => undefined)
   ipcMain.handle(IPC_CHANNELS.terminal.restart, () => undefined)
+  ipcMain.handle(IPC_CHANNELS.voice.transcribe, () => ({ text: '', durationMs: 0 }))
+  ipcMain.handle(IPC_CHANNELS.voice.getModelStatus, () => ({ size: 'base', ready: false, path: '', engineReady: false }))
+  ipcMain.handle(IPC_CHANNELS.voice.ensureModel, () => ({ size: 'base', ready: false, path: '', engineReady: false }))
   ipcMain.handle(IPC_CHANNELS.agent.list, () => [])
   ipcMain.handle(IPC_CHANNELS.agent.discover, () => [])
   ipcMain.handle(IPC_CHANNELS.agent.getReadiness, () => [])
@@ -626,8 +681,44 @@ function createMainWindow(): BrowserWindow {
     }
   })
 
+  mainWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback, details) => {
+    const isMainWindow = webContents === mainWindow.webContents
+    const isMainFrame = details.isMainFrame !== false
+    callback(isMainWindow && isMainFrame && permission === 'media')
+  })
+
   mainWindow.once('ready-to-show', () => {
     mainWindow.show()
+  })
+
+  // Relax frame-blocking headers ONLY for sub-frames (the Web Preview iframe).
+  // Sites like Google send `X-Frame-Options: SAMEORIGIN` / CSP
+  // `frame-ancestors`, which makes the preview render blank. We scope the
+  // strip to resourceType === 'subFrame' so OXESpace's own top-level document
+  // keeps its CSP fully intact — only content the user explicitly loads into
+  // the preview pane gets the relaxation. Acceptable for a local dev tool:
+  // the user chose the URL, and OXESpace itself is never embedded by anyone.
+  mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    if (details.resourceType !== 'subFrame' || !details.responseHeaders) {
+      callback({ responseHeaders: details.responseHeaders })
+      return
+    }
+    const next: Record<string, string[]> = {}
+    for (const [key, value] of Object.entries(details.responseHeaders)) {
+      const lower = key.toLowerCase()
+      if (lower === 'x-frame-options') continue // drop entirely
+      if (lower === 'content-security-policy') {
+        // Keep the CSP but remove just the frame-ancestors directive that
+        // would block embedding; leave script-src / connect-src / etc alone.
+        const values = Array.isArray(value) ? value : [value]
+        next[key] = values
+          .map((v) => v.split(';').filter((d) => !d.trim().toLowerCase().startsWith('frame-ancestors')).join(';').trim())
+          .filter((v) => v.length > 0)
+        continue
+      }
+      next[key] = Array.isArray(value) ? value : [value]
+    }
+    callback({ responseHeaders: next })
   })
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {

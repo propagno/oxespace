@@ -70,12 +70,46 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   setActiveWorkspace: async (id) => {
-    const workspace = await window.oxe.workspace.setActive(id)
+    // Optimistic switch — flip the active id in the local cache BEFORE the
+    // IPC roundtrips. Previously we awaited the SQLite transaction + full
+    // workspace re-fetch before updating, which made every sidebar click
+    // pay 100-300ms of "loading" lag for the workspace-host CSS swap.
+    // The IPC is now fire-and-reconcile: persistence still happens (so a
+    // restart picks the right active workspace) but the UI doesn't wait.
+    const previousActiveId = get().activeWorkspaceId
+    if (previousActiveId === id) return
     set((state) => ({
-      workspaces: state.workspaces.map((item) => (item.id === id ? workspace : { ...item, isActive: false })),
+      workspaces: state.workspaces.map((item) =>
+        item.id === id
+          ? { ...item, isActive: true }
+          : item.isActive
+            ? { ...item, isActive: false }
+            : item
+      ),
       activeWorkspaceId: id,
       error: null
     }))
+    try {
+      const workspace = await window.oxe.workspace.setActive(id)
+      // Reconcile with the authoritative row in case the backend mutated
+      // anything we don't track locally (updated_at, last-active, etc.).
+      set((state) => ({
+        workspaces: state.workspaces.map((item) => (item.id === id ? workspace : item))
+      }))
+    } catch (err) {
+      // Rollback the optimistic flip so the UI doesn't lie about state.
+      set((state) => ({
+        workspaces: state.workspaces.map((item) =>
+          item.id === previousActiveId
+            ? { ...item, isActive: true }
+            : item.isActive
+              ? { ...item, isActive: false }
+              : item
+        ),
+        activeWorkspaceId: previousActiveId,
+        error: err instanceof Error ? err.message : 'Failed to switch workspace'
+      }))
+    }
   },
 
   closeWorkspace: async (id) => {

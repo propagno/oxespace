@@ -18,7 +18,11 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/usage/codexProvider.ts',
   'electron/main/services/usage/copilotProvider.ts',
   'electron/main/index.ts',
-  'electron/main/db/index.ts'
+  'electron/main/db/index.ts',
+  // Internal MCP bootstrap: materializes the bridge script under
+  // <userData>/bin and hash-checks it against the packaged source. Needs
+  // raw fs to do that atomically on every boot.
+  'electron/main/mcp-internal/bootstrap.ts'
 ])
 
 describe('workspace fs allowlist', () => {

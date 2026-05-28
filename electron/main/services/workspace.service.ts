@@ -363,7 +363,7 @@ export class WorkspaceService {
 
     const backgroundPanelVisible = input.backgroundPanelVisible ?? current.backgroundPanelVisible ?? false
     const backgroundPanelExpanded = input.backgroundPanelExpanded ?? current.backgroundPanelExpanded ?? false
-    const backgroundPanelWidthPercent = clampPanelWidth(input.backgroundPanelWidthPercent ?? current.backgroundPanelWidthPercent ?? 36)
+    const backgroundPanelWidthPercent = clampPanelWidth(input.backgroundPanelWidthPercent ?? current.backgroundPanelWidthPercent ?? 28)
 
     this.db
       .prepare(
@@ -595,7 +595,7 @@ export class WorkspaceService {
       githubActiveTab: row.github_active_tab || 'status',
       backgroundPanelVisible: row.background_panel_visible === 1,
       backgroundPanelExpanded: row.background_panel_expanded === 1,
-      backgroundPanelWidthPercent: row.background_panel_width_percent || 36,
+      backgroundPanelWidthPercent: row.background_panel_width_percent || 28,
       worktreePanelVisible: row.worktree_panel_visible === 1,
       worktreePanelExpanded: row.worktree_panel_expanded === 1,
       worktreePanelWidthPercent: row.worktree_panel_width_percent || 36,

@@ -6,16 +6,21 @@
   background: var(--bg-sidebar);
   border-right: 1px solid var(--bd-sidebar);
   overflow: hidden;
-  /* Was 20px 0 45px rgba(0,0,0,50%) — too dramatic. Claude-style: barely-there
-     shadow that hints at depth without competing with the main surface. */
   box-shadow: var(--shadow-md);
+  /* Subtle top-to-bottom gradient overlay for depth */
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.02) 0%,
+    transparent 40%,
+    transparent 100%
+  );
 }
 
 /* Collapsed variant */
 .sidebar-collapsed .sidebar-brand {
   justify-content: center;
   padding: 13px 0 11px;
-  border-bottom: 1px solid #121212;
+  border-bottom: 1px solid var(--bd-sidebar);
 }
 
 .sidebar-collapsed .sidebar-footer {
@@ -42,6 +47,32 @@
   flex-direction: column;
   align-items: center;
   gap: 5px;
+  position: relative;
+}
+
+.sidebar-rail-workspace::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  top: 15px; /* Centered on the 30px high workspace button */
+  transform: translateY(-50%) scaleY(0.3);
+  width: 3px;
+  height: 12px;
+  border-radius: 0 4px 4px 0;
+  background: var(--brand);
+  opacity: 0;
+  transition: transform var(--transition-base), opacity var(--transition-base), height var(--transition-base);
+}
+
+.sidebar-rail-workspace:hover::before {
+  opacity: 0.5;
+  transform: translateY(-50%) scaleY(0.7);
+}
+
+.sidebar-rail-workspace.active::before {
+  opacity: 1;
+  transform: translateY(-50%) scaleY(1);
+  height: 20px;
 }
 
 .sidebar-rail-workspace-btn,
@@ -57,7 +88,7 @@
   background: transparent;
   color: var(--tx-muted);
   cursor: pointer;
-  transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
+  transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base), transform var(--transition-fast);
 }
 
 .sidebar-rail-workspace-btn span {
@@ -68,14 +99,19 @@
 
 .sidebar-rail-workspace.active .sidebar-rail-workspace-btn {
   color: var(--tx-primary);
-  border-color: rgba(0, 229, 192, 0.35);
-  background: rgba(0, 229, 192, 0.09);
+  border-color: rgba(18, 199, 154, 0.2);
+  background: rgba(18, 199, 154, 0.04);
 }
 
 .sidebar-rail-workspace-btn:hover,
 .sidebar-rail-pane:hover {
   background: var(--surface-hover);
   color: var(--tx-primary);
+}
+
+.sidebar-rail-workspace-btn:active,
+.sidebar-rail-pane:active {
+  transform: scale(0.92);
 }
 
 .sidebar-rail-workspace-btn i,
@@ -100,7 +136,7 @@
 .sidebar-rail-pane {
   width: 26px;
   height: 26px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
 }
 
 .sidebar-rail-pane.active {
@@ -111,7 +147,7 @@
 .sidebar-rail-pane > span {
   width: 20px;
   height: 20px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -208,7 +244,7 @@
 /* ─── Search ────────────────────────────────────────────────────────────── */
 .sidebar-search-wrap {
   position: relative;
-  margin: 0 8px 4px;
+  margin: 0 8px 8px;
   flex-shrink: 0;
 }
 
@@ -252,16 +288,17 @@
 /* ─── Filter tabs ───────────────────────────────────────────────────────── */
 .sidebar-tabs {
   display: flex;
-  margin: 0 8px 6px;
+  margin: 0 8px 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
+  gap: 2px;
 }
 
 .sidebar-tabs button {
   flex: 0;
   padding: 6px 12px;
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--tx-muted);
   background: none;
   border: none;
@@ -271,14 +308,19 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  transition: color 100ms;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  transition: color var(--transition-base), background var(--transition-base);
+}
+
+.sidebar-tabs button:hover {
+  color: var(--tx-secondary);
+  background: var(--surface-quiet);
 }
 
 .sidebar-tabs button[aria-selected='true'] {
   color: var(--tx-primary);
-  /* Underline is the brand, but slightly translucent so it reads as accent
-     rather than neon. */
-  border-bottom-color: rgba(18, 199, 154, 0.7);
+  border-bottom-color: var(--brand);
+  background: rgba(18, 199, 154, 0.06);
 }
 
 .tab-badge {
@@ -304,37 +346,47 @@
 .ws-group-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 2px; }
 
 .ws-group {
-  margin: 0 6px 10px;
+  margin: 0 6px 6px;
 }
 
 .ws-group-header {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  /* Single-line title — back to slim padding so workspaces stack densely. */
-  padding: 6px 10px;
+  padding: 8px 10px 8px 12px;
   cursor: pointer;
   border-radius: var(--radius-md);
   background: var(--surface-quiet);
   border: 1px solid var(--bd-subtle);
+  border-left: 3px solid transparent;
   margin: 0;
   user-select: none;
-  transition: background var(--transition-base), border-color var(--transition-base);
+  transition: background var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base), transform var(--transition-fast);
 }
 
 .ws-group-header:hover {
   background: var(--surface-hover);
   border-color: var(--bd-base);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  transform: translateX(2px);
 }
 
-/* Active workspace gets the brand-edge treatment used elsewhere (mcp rows,
-   background dock cards): a 3px inset on the left, plus a stronger surface.
-   Combined, the active group reads "you are here" without needing a giant
-   colour fill. */
+.ws-group-header:active {
+  transform: scale(0.98);
+}
+
+/* Active workspace — prominent left pill + gradient brand tint so the user
+   can immediately see which workspace is selected at a glance. */
 .ws-group.active > .ws-group-header {
-  background: var(--surface-active);
-  border-color: var(--bd-base);
-  box-shadow: inset 3px 0 0 var(--brand);
+  background: linear-gradient(90deg, rgba(18, 199, 154, 0.12) 0%, var(--surface-active) 100%);
+  border-color: rgba(18, 199, 154, 0.25);
+  border-left: 3px solid var(--brand);
+  box-shadow: 0 0 12px rgba(18, 199, 154, 0.08), inset 0 0 0 1px rgba(18, 199, 154, 0.06);
+}
+
+.ws-group.active > .ws-group-header:hover {
+  background: linear-gradient(90deg, rgba(18, 199, 154, 0.18) 0%, var(--surface-active) 100%);
+  box-shadow: 0 2px 12px rgba(18, 199, 154, 0.15);
 }
 
 /* ─── Drag-and-drop reorder feedback ─────────────────────────────────────
@@ -411,18 +463,24 @@
      the full value lives in the tooltip (`title` attribute on the span).
      The worktree badge was slimmed in parallel (icon + number, no "wt"
      text) so this name field always has the lion's share of the row. */
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 700;
-  color: var(--tx-primary);
+  color: var(--tx-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   line-height: 1.25;
   min-width: 0;
+  transition: color var(--transition-base);
+}
+
+.ws-group-header:hover .ws-group-name {
+  color: var(--tx-primary);
 }
 
 .ws-group.active > .ws-group-header .ws-group-name {
   color: var(--tx-primary);
+  letter-spacing: 0.01em;
 }
 
 /* `.ws-group-count` (pane count pill) removed — was eating horizontal
@@ -446,8 +504,14 @@
   font-size: 10px;
   font-weight: 600;
   cursor: pointer;
-  transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
+  transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base), opacity var(--transition-base);
   flex-shrink: 0;
+  opacity: 0.5;
+}
+
+.ws-group:hover .ws-group-integration-badge,
+.ws-group.active .ws-group-integration-badge {
+  opacity: 1;
 }
 
 .ws-group-integration-badge:hover,
@@ -1143,6 +1207,42 @@
   font-size: 12px;
   color: var(--tx-muted);
   line-height: 1.5;
+}
+
+/* Custom scrollbars for sidebar lists */
+.ws-group-list::-webkit-scrollbar,
+.sidebar-rail-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ws-group-list::-webkit-scrollbar-track,
+.sidebar-rail-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ws-group-list::-webkit-scrollbar-thumb,
+.sidebar-rail-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+
+.ws-group-list:hover::-webkit-scrollbar-thumb,
+.sidebar-rail-list:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+/* Clutter reduction for secondary badges in workspace row */
+.ws-group-integration-badge,
+.ws-group-worktree-count {
+  opacity: 0.4;
+  transition: opacity var(--transition-base);
+}
+
+.ws-group:hover .ws-group-integration-badge,
+.ws-group:hover .ws-group-worktree-count,
+.ws-group.active .ws-group-integration-badge,
+.ws-group.active .ws-group-worktree-count {
+  opacity: 1;
 }
 
 .sidebar-section-kicker {

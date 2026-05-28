@@ -10,6 +10,15 @@ files:
 extraResources:
   - from: resources/icon.ico
     to: icon.ico
+  # Internal MCP bridge spawned by agent CLIs at runtime — must be on disk
+  # next to the packaged app so .mcp.json's `args: ["<absolute path>"]`
+  # resolves whether the user runs the installed build or a portable copy.
+  - from: resources/mcp-bridge
+    to: mcp-bridge
+  # OXEVoice engine — bundled whisper.cpp CLI spawned at runtime by
+  # voice.service.ts. Lands at <resourcesPath>/whisper/whisper-cli.exe.
+  - from: resources/whisper/win-x64
+    to: whisper
 asar: true
 asarUnpack:
   - node_modules/better-sqlite3/**/*

@@ -171,7 +171,142 @@
    colouring the entire border. Less neon, still legible. */
 .mcp-server-row.health-healthy { box-shadow: inset 3px 0 0 0 rgba(52, 212, 116, 0.55); }
 .mcp-server-row.health-unhealthy { box-shadow: inset 3px 0 0 0 rgba(248, 113, 113, 0.55); }
+.mcp-server-row.health-error { box-shadow: inset 3px 0 0 0 rgba(248, 113, 113, 0.55); }
+.mcp-server-row.health-idle { box-shadow: inset 3px 0 0 0 rgba(180, 180, 180, 0.35); }
 .mcp-server-row.expanded { grid-template-columns: 1fr; }
+
+/* Built-in OXESpace server card — auto-started, can't be deleted/edited but
+   IS expandable to reveal the tool catalogue. Layout overrides the parent
+   row's 2-col grid because we need to stack: [main + regen] / [tools] /
+   [notice], with the latter two only when expanded / when a notice exists. */
+.mcp-builtin-row {
+  display: flex;
+  flex-direction: column;
+  background: rgba(0, 214, 201, 0.04);
+  border-color: rgba(0, 214, 201, 0.20);
+}
+.mcp-builtin-row:hover { border-color: rgba(0, 214, 201, 0.32); background: rgba(0, 214, 201, 0.06); }
+
+.mcp-builtin-row .mcp-server-main {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.mcp-builtin-row .mcp-builtin-regen {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+}
+.mcp-builtin-row { position: relative; }
+
+.mcp-builtin-status {
+  background: rgba(0, 214, 201, 0.12);
+  color: var(--accent);
+  font-family: var(--font-mono);
+}
+.mcp-builtin-status.off {
+  background: rgba(180, 180, 180, 0.12);
+  color: var(--tx-muted);
+}
+
+.mcp-builtin-regen {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-quiet);
+  color: var(--tx-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
+}
+.mcp-builtin-regen:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--tx-primary);
+  border-color: var(--bd-base);
+}
+.mcp-builtin-regen:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.mcp-builtin-notice {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px;
+  border-top: 1px solid rgba(0, 214, 201, 0.18);
+  background: rgba(0, 214, 201, 0.05);
+  color: var(--accent-hover);
+  font-size: 11px;
+}
+.mcp-builtin-notice button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+}
+.mcp-builtin-notice button:hover { background: rgba(0, 214, 201, 0.15); }
+
+/* Tool catalogue — visible when the user expands the built-in card. */
+.mcp-builtin-tools {
+  padding: 8px 14px 12px;
+  border-top: 1px solid rgba(0, 214, 201, 0.18);
+  background: rgba(0, 214, 201, 0.025);
+}
+
+.mcp-builtin-tools-title {
+  margin-bottom: 6px;
+  color: var(--tx-muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.mcp-builtin-tools ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mcp-builtin-tools li {
+  display: grid;
+  grid-template-columns: minmax(0, 0.45fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+  padding: 4px 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.04);
+}
+.mcp-builtin-tools li:last-child { border-bottom: 0; }
+
+.mcp-builtin-tools li code {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mcp-builtin-tools li span {
+  color: var(--tx-secondary);
+  font-size: 11px;
+  line-height: 1.4;
+}
 
 .mcp-server-main {
   display: grid;

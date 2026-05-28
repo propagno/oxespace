@@ -86,20 +86,32 @@ export class McpConfigSync {
     const mcpPath = join(workspaceRoot, MCP_FILE)
     const snapshotPath = join(workspaceRoot, SNAPSHOT_DIR, SNAPSHOT_FILE)
 
+    // Resolve the workspace id up front — needed to inject
+    // OXESPACE_WORKSPACE_ID into the internal MCP bridge's env so the
+    // bridge knows which workspace it represents on its tool calls.
+    const workspaceRow = this.db
+      .prepare('SELECT id FROM workspaces WHERE root_path = ?')
+      .get(workspaceRoot) as { id: string } | undefined
+
     // Servers visible to this workspace = global + own + enabled.
     const rows = this.db
       .prepare(
         `SELECT id, workspace_id, name, transport, config_json, enabled
          FROM mcp_servers
          WHERE enabled = 1
-           AND (workspace_id IS NULL OR workspace_id = (SELECT id FROM workspaces WHERE root_path = ?))`
+           AND (workspace_id IS NULL OR workspace_id = ?)`
       )
-      .all(workspaceRoot) as ManagedRow[]
+      .all(workspaceRow?.id ?? null) as ManagedRow[]
 
     const desiredEntries = new Map<string, unknown>()
     const desiredNames: string[] = []
     for (const row of rows) {
-      const entry = serializeConfig(row.config_json)
+      const entry = serializeConfig(row.config_json, {
+        injectWorkspaceId:
+          row.name === 'oxespace' && row.workspace_id === null && workspaceRow?.id
+            ? workspaceRow.id
+            : null
+      })
       if (!entry) continue
       const key = sanitizeKey(row.name)
       // If two servers share a sanitized name we suffix to disambiguate.
@@ -142,7 +154,11 @@ export class McpConfigSync {
   }
 }
 
-function serializeConfig(configJson: string): unknown {
+interface SerializeOptions {
+  injectWorkspaceId: string | null
+}
+
+function serializeConfig(configJson: string, options: SerializeOptions): unknown {
   let parsed: McpServerConfig
   try {
     parsed = JSON.parse(configJson) as McpServerConfig
@@ -151,11 +167,18 @@ function serializeConfig(configJson: string): unknown {
   }
   if (parsed.transport === 'stdio') {
     const cfg = parsed as McpStdioConfig
+    const env: Record<string, string> = { ...(cfg.env ?? {}) }
+    // The internal "oxespace" MCP bridge needs to know its workspace at
+    // spawn time — and the env varies per workspace, so we patch it here
+    // (the DB row keeps only port + token, common across workspaces).
+    if (options.injectWorkspaceId) {
+      env.OXESPACE_WORKSPACE_ID = options.injectWorkspaceId
+    }
     const entry: Record<string, unknown> = {
       command: cfg.command,
       args: cfg.args ?? []
     }
-    if (cfg.env && Object.keys(cfg.env).length > 0) entry.env = cfg.env
+    if (Object.keys(env).length > 0) entry.env = env
     return entry
   }
   const cfg = parsed as McpHttpConfig

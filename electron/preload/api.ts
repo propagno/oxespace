@@ -114,6 +114,16 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     clipboard: {
       saveImageToTemp: () => ipc.invoke(IPC_CHANNELS.clipboard.saveImageToTemp) as Promise<string | null>
     },
+    voice: {
+      transcribe: (wav, options) =>
+        ipc.invoke(IPC_CHANNELS.voice.transcribe, wav, options) as Promise<import('../../shared/types/voice').VoiceTranscribeResult>,
+      getModelStatus: (size) =>
+        ipc.invoke(IPC_CHANNELS.voice.getModelStatus, size) as Promise<import('../../shared/types/voice').VoiceModelStatus>,
+      ensureModel: (size) =>
+        ipc.invoke(IPC_CHANNELS.voice.ensureModel, size) as Promise<import('../../shared/types/voice').VoiceModelStatus>,
+      onModelProgress: (listener) =>
+        subscribe<import('../../shared/types/voice').VoiceModelProgressEvent>(ipc, IPC_CHANNELS.voice.onModelProgress, listener)
+    },
     github: {
       getCliStatus: (input) => ipc.invoke(IPC_CHANNELS.github.getCliStatus, input) as Promise<GitHubCliStatus>,
       getWorkspaceStatus: (input) => ipc.invoke(IPC_CHANNELS.github.getWorkspaceStatus, input) as Promise<GitHubWorkspaceStatus>,
@@ -192,6 +202,15 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       stop: (id) => ipc.invoke(IPC_CHANNELS.mcp.stop, id) as Promise<void>,
       callTool: (input) => ipc.invoke(IPC_CHANNELS.mcp.callTool, input) as Promise<import('../../shared/types/mcp').McpCallToolResult>,
       onHealth: (listener) => subscribe<import('../../shared/types/mcp').McpServerHealthEvent>(ipc, IPC_CHANNELS.mcp.onHealth, listener)
+    },
+    mcpInternal: {
+      getStatus: () => ipc.invoke(IPC_CHANNELS.mcpInternal.getStatus) as Promise<import('../../shared/types/mcp-internal').InternalMcpStatus>,
+      regenerateToken: () => ipc.invoke(IPC_CHANNELS.mcpInternal.regenerateToken) as Promise<import('../../shared/types/mcp-internal').InternalMcpStatus>,
+      onWebPreview: (listener) => subscribe<import('../../shared/types/mcp-internal').InternalMcpWebPreviewEvent>(ipc, IPC_CHANNELS.mcpInternal.onWebPreview, listener),
+      onWorktreeChanged: (listener) => subscribe<import('../../shared/types/mcp-internal').InternalMcpWorktreeChangedEvent>(ipc, IPC_CHANNELS.mcpInternal.onWorktreeChanged, listener)
+    },
+    oxeContext: {
+      buildPaneManifest: (input) => ipc.invoke(IPC_CHANNELS.oxeContext.buildPaneManifest, input) as Promise<string>
     }
   }
 }

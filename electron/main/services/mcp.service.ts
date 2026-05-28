@@ -36,7 +36,17 @@ interface RuntimeServer {
   pending: Map<number, { resolve: (value: unknown) => void; reject: (err: Error) => void }>
   requestSeq: number
   initialized: boolean
+  // Ring of last stderr lines. When the server dies before responding to
+  // `initialize`, this is the only honest signal about WHY it died — npm
+  // packages like @modelcontextprotocol/server-github abort with "X env var
+  // required" on stderr and exit with code null on Windows (the wrapper
+  // shell loses the original code). Surfacing it in healthMessage gives
+  // the user something actionable instead of "exited (null)".
+  stderr: string[]
 }
+
+const STDERR_RING_SIZE = 10
+const STDERR_LINE_MAX = 240
 
 interface McpManagerOptions {
   emitHealth?: (event: McpServerHealthEvent) => void
@@ -229,7 +239,8 @@ export class McpManager {
       buffer: '',
       pending: new Map(),
       requestSeq: 0,
-      initialized: false
+      initialized: false,
+      stderr: []
     }
     this.runtimes.set(server.id, runtime)
 
@@ -250,12 +261,22 @@ export class McpManager {
     child.stderr.on('data', (chunk: string) => {
       // eslint-disable-next-line no-console
       console.warn(`[mcp:${server.name}] stderr:`, chunk.toString().slice(0, 500))
+      for (const rawLine of chunk.split(/\r?\n/)) {
+        const line = rawLine.trim()
+        if (!line) continue
+        runtime.stderr.push(line.slice(0, STDERR_LINE_MAX))
+        if (runtime.stderr.length > STDERR_RING_SIZE) runtime.stderr.shift()
+      }
     })
     child.on('exit', (code) => {
       runtime.pending.forEach(({ reject }) => reject(new Error(`MCP server exited with code ${code}`)))
       runtime.pending.clear()
       this.runtimes.delete(server.id)
-      this.emitHealth({ serverId: server.id, status: 'unhealthy', message: `exited (${code})` })
+      this.emitHealth({
+        serverId: server.id,
+        status: 'unhealthy',
+        message: formatExitMessage(code, runtime.stderr)
+      })
     })
 
     try {
@@ -283,10 +304,12 @@ export class McpManager {
       this.emitHealth({ serverId: server.id, status: 'healthy', message: `${tools.length} tool(s)` })
       return tools
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
+      const baseMessage = err instanceof Error ? err.message : String(err)
+      const stderrTail = runtime.stderr.length > 0 ? ` — stderr: "${runtime.stderr.slice(-3).join(' | ')}"` : ''
+      const enriched = baseMessage + stderrTail
       this.stopRuntime(server.id)
-      this.emitHealth({ serverId: server.id, status: 'unhealthy', message })
-      throw err
+      this.emitHealth({ serverId: server.id, status: 'unhealthy', message: enriched })
+      throw new Error(enriched)
     }
   }
 
@@ -463,6 +486,26 @@ function shouldUseWindowsCommandShell(command: string): boolean {
   if (process.platform !== 'win32') return false
   const ext = path.extname(command).toLowerCase()
   return ext === '.cmd' || ext === '.bat'
+}
+
+/**
+ * Builds a useful exit message for the UI. `code === null` happens routinely
+ * on Windows when spawn used `shell: true` — the wrapper cmd.exe consumed the
+ * actual exit code on its way out. We swap the cryptic "exited (null)" for the
+ * tail of stderr, which is usually the real cause (missing env var, missing
+ * dep, etc.). Falls back to the original code+signal when nothing useful was
+ * written to stderr.
+ */
+function formatExitMessage(code: number | null, stderrLines: string[]): string {
+  const last = stderrLines.slice(-3).filter(Boolean)
+  if (last.length > 0) {
+    const joined = last.join(' | ')
+    return code === null ? `Exited unexpectedly — ${joined}` : `Exited with code ${code} — ${joined}`
+  }
+  if (code === null) {
+    return 'Exited without an explicit code (often: missing required env var or dependency). Check the server\'s stderr.'
+  }
+  return `Exited with code ${code}`
 }
 
 function formatSpawnError(command: string, err: unknown): string {

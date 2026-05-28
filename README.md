@@ -6,11 +6,11 @@ OXESpace is a Windows desktop workspace for agentic development. It combines ter
 
 Current Windows release:
 
-[Download OXESpace 0.1.17 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.17/OXESpace-0.1.17-x64.exe)
+[Download OXESpace 0.1.18 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.18/OXESpace-0.1.18-x64.exe)
 
 Release page:
 
-[OXESpace v0.1.17](https://github.com/propagno/oxespace/releases/tag/v0.1.17)
+[OXESpace v0.1.18](https://github.com/propagno/oxespace/releases/tag/v0.1.18)
 
 All releases:
 
@@ -269,8 +269,8 @@ Release flow:
 ```powershell
 git switch main
 git pull origin main
-git tag v0.1.17
-git push origin v0.1.17
+git tag v0.1.18
+git push origin v0.1.18
 ```
 
 When the tag is pushed, GitHub Actions:
@@ -296,17 +296,17 @@ When the tag is pushed, GitHub Actions:
 
 ## Version
 
-Current release: `0.1.17`
+Current release: `0.1.18`
 
-Highlights since `0.1.16`:
+Highlights since `0.1.17`:
 
-- Workspaces can be manually reordered in the sidebar with persisted ordering.
-- Workspace settings can update the workspace display name without changing the project folder path.
-- Sidebar workspace removal now uses an explicit context-menu confirmation flow.
-- Skills browser received expanded UI and interaction refinements for installed and template skills.
-- Workspace migration `034_workspace_sort_order` stores sidebar ordering.
-- Version metadata and release links now point to the `0.1.17` Windows installer.
+- OXEVoice adds voice input for terminal prompts without automatically pressing Enter.
+- Internal MCP/context plumbing and web preview integration improve agent tooling inside workspaces.
+- Background Jobs opens as a more compact side dock with persisted compact defaults.
+- Terminal paste handling avoids duplicated pasted text.
+- Workspace and sidebar UI refinements improve dense multi-pane use.
+- Version metadata and release links now point to the `0.1.18` Windows installer.
 
 Installer asset:
 
-[OXESpace-0.1.17-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.17/OXESpace-0.1.17-x64.exe)
+[OXESpace-0.1.18-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.18/OXESpace-0.1.18-x64.exe)
