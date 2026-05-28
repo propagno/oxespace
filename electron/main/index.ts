@@ -97,6 +97,10 @@ function registerIpcHandlers(): void {
   registerSkillIpc(skillService, (input) => terminalManager.write(input))
   const mcpManager = new McpManager(db, { emitHealth: broadcastMcpHealth })
   registerMcpIpc(mcpManager)
+  // Read clipboard text in main (Electron's clipboard module needs no renderer
+  // permission), so terminal Ctrl+V paste never depends on navigator.clipboard
+  // being granted clipboard-read.
+  ipcMain.handle(IPC_CHANNELS.clipboard.readText, () => clipboard.readText())
   ipcMain.handle(IPC_CHANNELS.clipboard.saveImageToTemp, async () => {
     const image = clipboard.readImage()
     if (image.isEmpty()) return null
@@ -681,10 +685,20 @@ function createMainWindow(): BrowserWindow {
     }
   })
 
+  // `media` allows microphone for OXEVoice. `clipboard-read` / `clipboard-sanitized-write`
+  // allow terminal Ctrl+V paste, which reads via navigator.clipboard.readText(). A
+  // media-only handler silently denied clipboard-read, which is what broke paste.
+  const ALLOWED_PERMISSIONS = new Set(['media', 'clipboard-read', 'clipboard-sanitized-write'])
   mainWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback, details) => {
     const isMainWindow = webContents === mainWindow.webContents
     const isMainFrame = details.isMainFrame !== false
-    callback(isMainWindow && isMainFrame && permission === 'media')
+    callback(isMainWindow && isMainFrame && ALLOWED_PERMISSIONS.has(permission))
+  })
+  // Some clipboard reads go through the synchronous check handler rather than
+  // the async request handler; allow the same set there so Ctrl+V never stalls.
+  mainWindow.webContents.session.setPermissionCheckHandler((webContents, permission) => {
+    const isMainWindow = webContents === null || webContents === mainWindow.webContents
+    return isMainWindow && ALLOWED_PERMISSIONS.has(permission)
   })
 
   mainWindow.once('ready-to-show', () => {

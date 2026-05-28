@@ -201,7 +201,8 @@ export const IPC_CHANNELS = {
     onDiffUpdate: 'git:diff-update'
   },
   clipboard: {
-    saveImageToTemp: 'clipboard:save-image-to-temp'
+    saveImageToTemp: 'clipboard:save-image-to-temp',
+    readText: 'clipboard:read-text'
   },
   voice: {
     transcribe: 'voice:transcribe',
@@ -447,6 +448,7 @@ export interface GitHubApi {
 
 export interface ClipboardApi {
   saveImageToTemp(): Promise<string | null>
+  readText(): Promise<string>
 }
 
 export interface VoiceApi {
