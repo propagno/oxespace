@@ -109,7 +109,8 @@ describe('TerminalView', () => {
         onExit: vi.fn(() => vi.fn())
       },
       clipboard: {
-        saveImageToTemp: vi.fn().mockResolvedValue(null)
+        saveImageToTemp: vi.fn().mockResolvedValue(null),
+        readText: vi.fn().mockResolvedValue('')
       }
     } as unknown as typeof window.oxe
   })
@@ -248,6 +249,23 @@ describe('TerminalView', () => {
       expect(terminalState.paste).toHaveBeenCalledWith('clipboard text')
     })
     expect(navigator.clipboard.readText).toHaveBeenCalled()
+  })
+
+  test('Ctrl+V reads clipboard text from main (permission-free) before the web API', async () => {
+    vi.mocked(window.oxe.clipboard.saveImageToTemp).mockResolvedValue(null)
+    vi.mocked(window.oxe.clipboard.readText).mockResolvedValue('text from main')
+    vi.mocked(navigator.clipboard.readText).mockResolvedValue('text from web')
+
+    render(<TerminalView paneId="pane-1" isRunning onInput={vi.fn()} onResize={vi.fn()} />)
+
+    const handler = terminalState.attachCustomKeyEventHandler.mock.calls[0][0] as (event: KeyboardEvent) => boolean
+    handler(new KeyboardEvent('keydown', { key: 'v', ctrlKey: true, cancelable: true }))
+
+    await vi.waitFor(() => {
+      expect(terminalState.paste).toHaveBeenCalledWith('text from main')
+    })
+    // Main returned text, so the web API (which can be permission-denied) is never hit.
+    expect(navigator.clipboard.readText).not.toHaveBeenCalled()
   })
 
   test('Alt+V passes through to PTY so Claude Code handles it natively', () => {

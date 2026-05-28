@@ -112,7 +112,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       onDiffUpdate: (listener) => subscribe<GitDiff>(ipc, IPC_CHANNELS.git.onDiffUpdate, listener)
     },
     clipboard: {
-      saveImageToTemp: () => ipc.invoke(IPC_CHANNELS.clipboard.saveImageToTemp) as Promise<string | null>
+      saveImageToTemp: () => ipc.invoke(IPC_CHANNELS.clipboard.saveImageToTemp) as Promise<string | null>,
+      readText: () => ipc.invoke(IPC_CHANNELS.clipboard.readText) as Promise<string>
     },
     voice: {
       transcribe: (wav, options) =>

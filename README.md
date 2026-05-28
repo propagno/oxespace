@@ -6,11 +6,11 @@ OXESpace is a Windows desktop workspace for agentic development. It combines ter
 
 Current Windows release:
 
-[Download OXESpace 0.1.18 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.18/OXESpace-0.1.18-x64.exe)
+[Download OXESpace 0.1.19 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.19/OXESpace-0.1.19-x64.exe)
 
 Release page:
 
-[OXESpace v0.1.18](https://github.com/propagno/oxespace/releases/tag/v0.1.18)
+[OXESpace v0.1.19](https://github.com/propagno/oxespace/releases/tag/v0.1.19)
 
 All releases:
 
@@ -269,8 +269,8 @@ Release flow:
 ```powershell
 git switch main
 git pull origin main
-git tag v0.1.18
-git push origin v0.1.18
+git tag v0.1.19
+git push origin v0.1.19
 ```
 
 When the tag is pushed, GitHub Actions:
@@ -296,17 +296,15 @@ When the tag is pushed, GitHub Actions:
 
 ## Version
 
-Current release: `0.1.18`
+Current release: `0.1.19`
 
-Highlights since `0.1.17`:
+Highlights since `0.1.18`:
 
-- OXEVoice adds voice input for terminal prompts without automatically pressing Enter.
-- Internal MCP/context plumbing and web preview integration improve agent tooling inside workspaces.
-- Background Jobs opens as a more compact side dock with persisted compact defaults.
-- Terminal paste handling avoids duplicated pasted text.
-- Workspace and sidebar UI refinements improve dense multi-pane use.
-- Version metadata and release links now point to the `0.1.18` Windows installer.
+- Terminal Ctrl+V paste now reads text through Electron main first, avoiding renderer `clipboard-read` permission failures.
+- Clipboard permission handling now covers the app window alongside microphone permissions for OXEVoice.
+- Duplicate paste prevention remains in the terminal input path while preserving image paste support.
+- Version metadata and release links now point to the `0.1.19` Windows installer.
 
 Installer asset:
 
-[OXESpace-0.1.18-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.18/OXESpace-0.1.18-x64.exe)
+[OXESpace-0.1.19-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.19/OXESpace-0.1.19-x64.exe)

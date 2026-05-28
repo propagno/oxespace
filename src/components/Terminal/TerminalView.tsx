@@ -142,7 +142,11 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId }: T
         pasteText(`${imagePath} `)
         return
       }
-      const text = await navigator.clipboard.readText().catch(() => '')
+      // Read via main (Electron clipboard, no renderer permission) first; fall
+      // back to the web API. The main path is what keeps Ctrl+V working even if
+      // navigator.clipboard's clipboard-read permission is denied.
+      let text = await window.oxe.clipboard.readText().catch(() => '')
+      if (!text) text = await navigator.clipboard.readText().catch(() => '')
       if (text) pasteText(text)
     }
 
