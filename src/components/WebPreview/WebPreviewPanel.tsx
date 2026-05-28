@@ -1,6 +1,7 @@
 import { ArrowLeft, ArrowRight, Camera, ExternalLink, Menu, Minus, Monitor, MonitorPlay, Plus, RotateCw, Star, X } from 'lucide-react'
-import { useMemo, useState, type CSSProperties, type ReactElement } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
+import { useUIStore } from '../../store/ui.store'
 
 interface WebPreviewPanelProps {
   workspace: Workspace
@@ -58,6 +59,31 @@ export function WebPreviewPanel({ embedded = false, onClose, workspace }: WebPre
   }
 
   const reload = (): void => setFrameKey((value) => value + 1)
+
+  // Watch the ui store's pendingWebPreview slot — populated by App.tsx when
+  // `oxespace_open_web_preview` tool was invoked. Two layers: (a) the panel
+  // may be already mounted and listening live; (b) the panel may have just
+  // mounted because of the auto-open in App.tsx — in either case, this hook
+  // sees the new pending URL and loads it. Pending entry cleared on consume
+  // so re-mounts don't replay stale URLs.
+  const pendingWebPreview = useUIStore((s) => s.pendingWebPreview)
+  const setPendingWebPreview = useUIStore((s) => s.setPendingWebPreview)
+  useEffect(() => {
+    if (!pendingWebPreview) return
+    if (pendingWebPreview.workspaceId !== workspace.id) return
+    const nextUrl = normalizeUrl(pendingWebPreview.url)
+    setPendingWebPreview(null)
+    if (!nextUrl) return
+    setDraftUrl(pendingWebPreview.url)
+    setUrl(nextUrl)
+    setHistory((current) => {
+      const next = current.slice(0, historyIndex + 1)
+      if (next[next.length - 1] !== nextUrl) next.push(nextUrl)
+      setHistoryIndex(next.length - 1)
+      return next
+    })
+    setFrameKey((value) => value + 1)
+  }, [pendingWebPreview, workspace.id, historyIndex, setPendingWebPreview])
   const zoomOut = (): void => setZoom((value) => Math.max(50, value - 10))
   const zoomIn = (): void => setZoom((value) => Math.min(150, value + 10))
   const openExternal = (): void => { if (url) window.open(url, '_blank', 'noopener,noreferrer') }

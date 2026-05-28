@@ -59,7 +59,7 @@ const BASE_WORKSPACE: Workspace = {
   githubActiveTab: 'status',
   backgroundPanelVisible: false,
   backgroundPanelExpanded: false,
-  backgroundPanelWidthPercent: 36,
+  backgroundPanelWidthPercent: 28,
   panes: []
 }
 

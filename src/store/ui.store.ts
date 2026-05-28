@@ -13,6 +13,11 @@ interface UIState {
   isSkillsBrowserOpen: boolean
   isScriptsPanelOpen: boolean
   isWebPreviewOpen: boolean
+  /** Workspace + URL pushed by `oxespace_open_web_preview`. The WebPreview
+   *  panel watches this and loads the URL when it mounts (covers the case
+   *  where the panel was closed when the agent called the tool). Cleared
+   *  by the panel after consuming. */
+  pendingWebPreview: { workspaceId: string; url: string } | null
   isIntegrationPanelOpen: boolean
   activePaneId: string | null
   openNewWorkspace: () => void
@@ -35,6 +40,7 @@ interface UIState {
   closeScriptsPanel: () => void
   openWebPreview: () => void
   closeWebPreview: () => void
+  setPendingWebPreview: (value: { workspaceId: string; url: string } | null) => void
   openIntegrationPanel: () => void
   closeIntegrationPanel: () => void
   toggleSettings: () => void
@@ -54,6 +60,7 @@ export const useUIStore = create<UIState>((set) => ({
   isSkillsBrowserOpen: false,
   isScriptsPanelOpen: false,
   isWebPreviewOpen: false,
+  pendingWebPreview: null,
   isIntegrationPanelOpen: false,
   activePaneId: null,
   openNewWorkspace: () => set({ isNewWorkspaceOpen: true }),
@@ -76,6 +83,7 @@ export const useUIStore = create<UIState>((set) => ({
   closeScriptsPanel: () => set({ isScriptsPanelOpen: false }),
   openWebPreview: () => set({ isWebPreviewOpen: true }),
   closeWebPreview: () => set({ isWebPreviewOpen: false }),
+  setPendingWebPreview: (value) => set({ pendingWebPreview: value }),
   openIntegrationPanel: () => set({ isIntegrationPanelOpen: true }),
   closeIntegrationPanel: () => set({ isIntegrationPanelOpen: false }),
   toggleSettings: () => set((s) => ({ isSettingsOpen: !s.isSettingsOpen })),

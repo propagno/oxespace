@@ -5,7 +5,7 @@ describe('migrations', () => {
   test('runs migrations and seeds built-in shell profiles', () => {
     const db = openInMemoryDatabase()
 
-    expect(db.pragma('user_version', { simple: true })).toBe(34)
+    expect(db.pragma('user_version', { simple: true })).toBe(36)
 
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")

@@ -22,6 +22,12 @@ interface BranchEntry {
 
 const cache = new Map<string, BranchEntry>()
 const listeners = new Map<string, Set<() => void>>()
+// One refcounted poller per unique rootPath. Previously each useGitBranch()
+// caller (every TerminalPane statusbar, every sidebar row) created its own
+// setInterval — so with N panes in a worktree, N git processes spawned every
+// 10s. Now the first subscriber for a rootPath starts the poller; the last
+// to leave stops it. Cost: O(unique rootPaths) instead of O(panes).
+const pollers = new Map<string, { intervalId: number; subscribers: number; workspaceId: string }>()
 const REFRESH_INTERVAL_MS = 10_000
 
 function notify(rootPath: string): void {
@@ -122,15 +128,34 @@ export function useGitBranch(workspaceId: string, rootPath: string | null): GitB
 
     // Kick off (or piggyback on) a fetch for this rootPath.
     void fetchBranch(workspaceId, rootPath)
-    const interval = window.setInterval(() => {
-      void fetchBranch(workspaceId, rootPath)
-    }, REFRESH_INTERVAL_MS)
+
+    // Refcounted shared poller: only the first subscriber for a rootPath
+    // creates the setInterval; subsequent ones piggyback. The last to leave
+    // tears it down. This keeps the actual git-spawn count at O(unique
+    // rootPaths), not O(panes).
+    const existing = pollers.get(rootPath)
+    if (existing) {
+      existing.subscribers += 1
+    } else {
+      const intervalId = window.setInterval(() => {
+        const poller = pollers.get(rootPath)
+        if (poller) void fetchBranch(poller.workspaceId, rootPath)
+      }, REFRESH_INTERVAL_MS)
+      pollers.set(rootPath, { intervalId, subscribers: 1, workspaceId })
+    }
 
     return () => {
       cancelled = true
       set!.delete(subscriber)
       if (set!.size === 0) listeners.delete(rootPath)
-      window.clearInterval(interval)
+      const poller = pollers.get(rootPath)
+      if (poller) {
+        poller.subscribers -= 1
+        if (poller.subscribers <= 0) {
+          window.clearInterval(poller.intervalId)
+          pollers.delete(rootPath)
+        }
+      }
     }
   }, [workspaceId, rootPath])
 
@@ -153,4 +178,6 @@ export function __resetGitBranchCacheForTests(): void {
   cache.clear()
   listeners.clear()
   loggedFailures.clear()
+  for (const poller of pollers.values()) window.clearInterval(poller.intervalId)
+  pollers.clear()
 }

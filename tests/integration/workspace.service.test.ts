@@ -20,7 +20,7 @@ describe('WorkspaceService', () => {
     expect(workspace.themeId).toBe('dracula')
     expect(workspace.uiDensity).toBe('compact')
     expect(workspace.backgroundPanelVisible).toBe(false)
-    expect(workspace.backgroundPanelWidthPercent).toBe(36)
+    expect(workspace.backgroundPanelWidthPercent).toBe(28)
     expect(workspace.autoStart).toBe(false)
     expect(workspace.isActive).toBe(true)
     expect(workspace.defaultShellProfileId).toBe('builtin-claude')

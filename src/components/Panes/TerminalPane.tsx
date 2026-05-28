@@ -1,10 +1,12 @@
-import { FolderTree, Play, Slash } from 'lucide-react'
-import { useCallback, useEffect, useRef, type ReactElement } from 'react'
+import { FolderTree, Mic, MicOff, Play, Slash, Wrench } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { WorkspacePane } from '../../../shared/types/workspace'
 import { useGitBranch } from '../../hooks/useGitBranch'
+import { useOxeVoice } from '../../hooks/useOxeVoice'
 import { useAgentStore } from '../../store/agent.store'
 import { findMemberForPane, useIntegrationStore } from '../../store/integration.store'
+import { selectMcpServers, useMcpStore } from '../../store/mcp.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
@@ -24,8 +26,52 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
   const allProfiles = useAgentStore((s) => s.allProfiles)
   const state = getStatus(pane.id)
   const isRunning = state.status === 'running' || state.status === 'starting'
+  const canUseVoice = state.status === 'running'
   const typedCommandRef = useRef('')
   const effectiveRootPath = pane.rootPath ?? workspaceRootPath
+  const insertVoiceText = useCallback((text: string): void => {
+    window.dispatchEvent(new CustomEvent('oxe:terminal-insert-text', {
+      detail: { paneId: pane.id, text }
+    }))
+  }, [pane.id])
+  const voice = useOxeVoice({ enabled: canUseVoice, onFinalText: insertVoiceText })
+  const isVoiceActive = voice.status === 'listening' || voice.status === 'transcribing'
+
+  // Mic chip gestures: a quick tap toggles hands-free mode; press-and-hold is
+  // push-to-talk (record while held, transcribe on release).
+  const holdTimerRef = useRef<number | null>(null)
+  const holdingRef = useRef(false)
+  const HOLD_THRESHOLD_MS = 220
+  const onVoicePointerDown = useCallback((): void => {
+    if (!canUseVoice || !voice.isSupported) return
+    holdingRef.current = false
+    holdTimerRef.current = window.setTimeout(() => {
+      holdingRef.current = true
+      voice.startHold()
+    }, HOLD_THRESHOLD_MS)
+  }, [canUseVoice, voice])
+  const onVoicePointerEnd = useCallback((): void => {
+    if (holdTimerRef.current !== null) {
+      clearTimeout(holdTimerRef.current)
+      holdTimerRef.current = null
+    }
+    if (holdingRef.current) {
+      holdingRef.current = false
+      voice.endHold()
+    } else {
+      voice.toggle()
+    }
+  }, [voice])
+  const onVoicePointerCancel = useCallback((): void => {
+    if (holdTimerRef.current !== null) {
+      clearTimeout(holdTimerRef.current)
+      holdTimerRef.current = null
+    }
+    if (holdingRef.current) {
+      holdingRef.current = false
+      voice.endHold()
+    }
+  }, [voice])
   // Shared cache via useGitBranch — replaces the previous local state +
   // per-pane setInterval(10s). Now N panes in the same workspace share one
   // IPC poll per rootPath, and the sidebar chip + this status bar always
@@ -70,6 +116,18 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
       return base
     }
   }, [resolveAgentInfo, workspaceId, pane.id])
+
+  // Pane startup deliberately does NOT auto-inject the OXESpace context
+  // manifest anymore. Two reasons:
+  //   1. It leaks into the agent's conversation as a visible "user" turn
+  //      on CLIs like Claude Code — invasive UX.
+  //   2. Different agents (Copilot CLI ≥ 1.0, Gemini) handle initialPrompt
+  //      inconsistently; some ignore it entirely.
+  // Native MCP discovery via `.mcp.json` is the supported path: any MCP-aware
+  // CLI reads the file, spawns the oxespace bridge, and surfaces tools through
+  // standard tools/list. The buildPaneManifest service is kept in place for
+  // on-demand callers (e.g. a future `/oxe-context` slash skill) but is no
+  // longer fired by default. See plan: "MCP-only as native path".
 
   const start = useCallback(async (): Promise<void> => {
     setStatus(pane.id, 'starting')
@@ -163,13 +221,48 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
     return () => window.removeEventListener('oxe:start-pane', handler)
   }, [pane.id, getStatus, start])
 
+  useEffect(() => {
+    const forThisPane = (e: Event): boolean => {
+      const { paneId: targetId } = (e as CustomEvent<{ paneId: string }>).detail
+      return targetId === pane.id && canUseVoice && voice.isSupported
+    }
+    const onToggle = (e: Event): void => { if (forThisPane(e)) voice.toggle() }
+    const onHoldStart = (e: Event): void => { if (forThisPane(e)) voice.startHold() }
+    const onHoldEnd = (e: Event): void => { if (forThisPane(e)) voice.endHold() }
+    window.addEventListener('oxe:terminal-toggle-voice', onToggle)
+    window.addEventListener('oxe:terminal-voice-hold-start', onHoldStart)
+    window.addEventListener('oxe:terminal-voice-hold-end', onHoldEnd)
+    return () => {
+      window.removeEventListener('oxe:terminal-toggle-voice', onToggle)
+      window.removeEventListener('oxe:terminal-voice-hold-start', onHoldStart)
+      window.removeEventListener('oxe:terminal-voice-hold-end', onHoldEnd)
+    }
+  }, [canUseVoice, pane.id, voice])
+
   const statusDotClass = state.status === 'running' ? 'green'
     : state.status === 'starting' ? 'yellow'
     : state.status === 'error' ? 'red'
     : ''
 
   const openSlashOverlay = useUIStore((s) => s.openSlashOverlay)
+  const openMcpPanel = useUIStore((s) => s.openMcpPanel)
   const setActivePane = useUIStore((s) => s.setActivePane)
+  // MCPs the agent CLI in this pane will see via `.mcp.json` — global rows
+  // plus this workspace's own, enabled only. The chip shows the count; the
+  // tooltip lists the names so the user can verify which servers their agent
+  // is wired to without opening the panel.
+  const mcpSelector = useMemo(() => selectMcpServers(workspaceId), [workspaceId])
+  const allMcpServers = useMcpStore(mcpSelector)
+  const enabledMcpServers = useMemo(
+    () => allMcpServers.filter((server) => server.enabled),
+    [allMcpServers]
+  )
+  const mcpChipLabel = enabledMcpServers.length === 1
+    ? '1 MCP'
+    : `${enabledMcpServers.length} MCPs`
+  const mcpChipTooltip = enabledMcpServers.length === 0
+    ? 'No MCP servers enabled — click to add one.'
+    : `Available to the agent via .mcp.json:\n${enabledMcpServers.map((s) => `• ${s.name}${s.workspaceId === null ? ' (global)' : ''}`).join('\n')}\n\nClick to manage.`
   const updateWorktreeState = useWorkspaceStore((s) => s.updateWorktreeState)
   const workspace = useWorkspaceStore((s) => s.workspaces.find((w) => w.id === workspaceId) ?? null)
   // Compose the chip label from the branch hook's payload. Beyond "branch
@@ -212,6 +305,32 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
               setStatus(pane.id, 'exited', exitCode === null ? undefined : `Exited with code ${exitCode}`)
             }}
           />
+          {voice.status === 'listening' || voice.status === 'transcribing' || voice.status === 'downloading' || voice.error ? (
+            <div className={`oxe-voice-hud ${voice.error ? 'error' : voice.status}`} role="status" aria-live="polite">
+              {voice.status === 'listening' && !voice.error ? (
+                <span className="oxe-voice-meter" aria-hidden="true">
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <span
+                      key={i}
+                      className="oxe-voice-bar"
+                      style={{ transform: `scaleY(${Math.max(0.18, Math.min(1, voice.level * (1.4 - Math.abs(i - 2) * 0.25)))})` }}
+                    />
+                  ))}
+                </span>
+              ) : (
+                <span className={`oxe-voice-pulse${voice.status === 'transcribing' ? ' spin' : ''}`} aria-hidden="true" />
+              )}
+              <span>
+                {voice.error
+                  ? voice.error
+                  : voice.status === 'downloading'
+                    ? `Baixando modelo de voz… ${voice.modelProgress !== null ? Math.round(voice.modelProgress * 100) : 0}%`
+                    : voice.status === 'transcribing'
+                      ? 'Transcrevendo…'
+                      : 'Ouvindo… solte para inserir'}
+              </span>
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="terminal-idle">
@@ -257,6 +376,20 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
 
         <button
           type="button"
+          className={`statusbar-chip mcp-chip${enabledMcpServers.length === 0 ? ' empty' : ''}`}
+          aria-label={`MCP servers available to the agent: ${enabledMcpServers.length}. Click to manage.`}
+          title={mcpChipTooltip}
+          onClick={() => {
+            setActivePane(pane.id)
+            openMcpPanel()
+          }}
+        >
+          <Wrench size={10} aria-hidden="true" />
+          <span>{mcpChipLabel}</span>
+        </button>
+
+        <button
+          type="button"
           className="statusbar-chip slash-chip"
           aria-label="Abrir comandos (Ctrl+/)"
           title="Comandos (Ctrl+/)"
@@ -264,6 +397,29 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         >
           <Slash size={10} aria-hidden="true" />
           <span>commands</span>
+        </button>
+
+        <button
+          type="button"
+          className={`statusbar-chip voice-chip ${voice.error ? 'error' : voice.status}`}
+          aria-label={voice.isSupported ? 'OXEVoice: tap to toggle, hold to push-to-talk' : 'OXEVoice is not available'}
+          aria-pressed={isVoiceActive}
+          title={voice.isSupported
+            ? 'OXEVoice — toque para alternar, segure para falar (push-to-talk). O texto vai pro terminal sem Enter.'
+            : 'OXEVoice indisponível neste runtime'}
+          disabled={!canUseVoice || !voice.isSupported}
+          onPointerDown={onVoicePointerDown}
+          onPointerUp={onVoicePointerEnd}
+          onPointerLeave={onVoicePointerCancel}
+        >
+          {isVoiceActive
+            ? <MicOff size={10} aria-hidden="true" />
+            : <Mic size={10} aria-hidden="true" />}
+          <span>
+            {voice.status === 'downloading' ? 'baixando…'
+              : voice.status === 'transcribing' ? 'transcrevendo…'
+                : voice.status === 'listening' ? 'ouvindo' : 'voice'}
+          </span>
         </button>
 
         {isRunning ? (

@@ -67,9 +67,20 @@ describe('TerminalPane', () => {
         getBranch: vi.fn().mockResolvedValue({ branch: 'feature/test', detached: false, shortSha: null }),
         getDiff: vi.fn(),
         onDiffUpdate: vi.fn(() => vi.fn())
+      },
+      voice: {
+        transcribe: vi.fn().mockResolvedValue({ text: '', durationMs: 0 }),
+        getModelStatus: vi.fn().mockResolvedValue({ size: 'base', ready: true, path: 'x', engineReady: true }),
+        ensureModel: vi.fn().mockResolvedValue({ size: 'base', ready: true, path: 'x', engineReady: true }),
+        onModelProgress: vi.fn(() => vi.fn())
       }
     }
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia: vi.fn() }
+    })
   })
+
 
   test('starts, writes, resizes and stops a terminal', async () => {
     const user = userEvent.setup()
@@ -159,6 +170,22 @@ describe('TerminalPane', () => {
 
     useTerminalStore.getState().setActivePaneId('pane-2')
     expect(useTerminalStore.getState().panes['pane-2']?.hasUnread).toBe(false)
+  })
+
+  test('shows enabled OXEVoice control when the terminal is running and voice is supported', async () => {
+    useTerminalStore.getState().setStatus('pane-1', 'running')
+
+    render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
+
+    const voiceButton = screen.getByRole('button', { name: /OXEVoice/i })
+    expect(voiceButton).toBeEnabled()
+    expect(voiceButton).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  test('disables OXEVoice control when the terminal is idle', () => {
+    render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
+
+    expect(screen.getByRole('button', { name: /OXEVoice/i })).toBeDisabled()
   })
 })
 

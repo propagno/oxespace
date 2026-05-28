@@ -1,22 +1,16 @@
-import { Check, ChevronDown, FolderTree, Network, Pencil, Trash2, X } from 'lucide-react'
+import { Check, FolderTree, Network, Pencil, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
-import type { AgentProfile } from '../../../shared/types/agent'
 import type { Workspace } from '../../../shared/types/workspace'
 import { selectIntegrationsForWorkspace, useIntegrationStore } from '../../store/integration.store'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { selectWorktrees, useWorktreeStore } from '../../store/worktree.store'
-import { PaneSessionRow } from './PaneSessionRow'
 
 interface WorkspaceGroupProps {
   workspace: Workspace
   isActive: boolean
-  activePaneId: string | null
-  agentProfiles: AgentProfile[]
-  defaultExpanded: boolean
   onSelect: (id: string) => void
   onClose: (id: string) => void
-  onActivatePane: (paneId: string) => void
   // Drag-and-drop handles managed by the parent Sidebar so the parent owns
   // the cross-row state (which row is the source, which is the drop target,
   // what side of the target the cursor sits on).
@@ -32,12 +26,8 @@ interface WorkspaceGroupProps {
 export function WorkspaceGroup({
   workspace,
   isActive,
-  activePaneId,
-  agentProfiles,
-  defaultExpanded,
   onSelect,
   onClose,
-  onActivatePane,
   isDragging = false,
   dropPosition = null,
   onDragStart,
@@ -46,7 +36,6 @@ export function WorkspaceGroup({
   onDrop,
   onDragEnd,
 }: WorkspaceGroupProps): ReactElement {
-  const [expanded, setExpanded] = useState(defaultExpanded)
   const rootLabel = compactRootLabel(workspace.rootPath)
   const integrations = useIntegrationStore(selectIntegrationsForWorkspace(workspace.id))
   const openIntegrationPanel = useUIStore((s) => s.openIntegrationPanel)
@@ -89,7 +78,9 @@ export function WorkspaceGroup({
 
   function handleHeaderClick() {
     if (renaming) return
-    setExpanded(prev => !prev)
+    // Sidebar no longer expands to show pane rows — the workspace card is
+    // a pure activation target. Pane rename + per-pane actions moved to
+    // the terminal title bar where they belong contextually.
     onSelect(workspace.id)
   }
 
@@ -165,7 +156,7 @@ export function WorkspaceGroup({
 
   return (
     <div
-      className={`ws-group${isActive ? ' active' : ''}${expanded ? ' open' : ''}${isDragging ? ' dragging' : ''}${dropClass}`}
+      className={`ws-group${isActive ? ' active' : ''}${isDragging ? ' dragging' : ''}${dropClass}`}
       data-testid="sidebar-workspace-item"
       draggable={Boolean(onDragStart) && !renaming}
       onDragStart={(event) => {
@@ -258,25 +249,7 @@ export function WorkspaceGroup({
             {nonMainWorktreeCount > 1 ? <span>{nonMainWorktreeCount}</span> : null}
           </button>
         ) : null}
-        <ChevronDown
-          size={12}
-          className={`ws-group-chevron${expanded ? ' open' : ''}`}
-          aria-hidden="true"
-        />
       </div>
-      {expanded &&
-        workspace.panes.map((pane, index) => (
-          <PaneSessionRow
-            key={pane.id}
-            pane={pane}
-            paneIndex={index}
-            workspace={workspace}
-            isActive={pane.id === activePaneId}
-            agentProfiles={agentProfiles}
-            onClick={() => onSelect(workspace.id)}
-            onActivatePane={onActivatePane}
-          />
-        ))}
 
       {menu ? (
         <div

@@ -161,20 +161,93 @@ describe('TerminalView', () => {
     expect(terminalState.paste).not.toHaveBeenCalled()
   })
 
-  test('Ctrl+V prefers clipboard image over clipboard text', async () => {
-    vi.spyOn(navigator.clipboard, 'readText').mockResolvedValue('copied text')
+  test('paste event sends text once and blocks xterm native paste handling', () => {
+    const stopPropagation = vi.fn()
+    const stopImmediatePropagation = vi.fn()
+
+    render(<TerminalView paneId="pane-1" isRunning onInput={vi.fn()} onResize={vi.fn()} />)
+
+    const pasteEvent = new Event('paste', { bubbles: true, cancelable: true }) as ClipboardEvent
+    Object.defineProperty(pasteEvent, 'clipboardData', {
+      value: {
+        getData: vi.fn((type: string) => type === 'text/plain' ? 'copied text' : ''),
+        items: []
+      }
+    })
+    pasteEvent.stopPropagation = stopPropagation
+    pasteEvent.stopImmediatePropagation = stopImmediatePropagation
+
+    screen.getByTestId('terminal-view').dispatchEvent(pasteEvent)
+
+    expect(pasteEvent.defaultPrevented).toBe(true)
+    expect(stopPropagation).toHaveBeenCalled()
+    expect(stopImmediatePropagation).toHaveBeenCalled()
+    expect(terminalState.paste).toHaveBeenCalledTimes(1)
+    expect(terminalState.paste).toHaveBeenCalledWith('copied text')
+  })
+
+  test('paste event prefers clipboard image over clipboard text', async () => {
     vi.mocked(window.oxe.clipboard.saveImageToTemp).mockResolvedValue('C:\\Temp\\image.png')
 
     render(<TerminalView paneId="pane-1" isRunning onInput={vi.fn()} onResize={vi.fn()} />)
 
-    const handler = terminalState.attachCustomKeyEventHandler.mock.calls[0][0] as (event: KeyboardEvent) => boolean
-    const handled = handler(new KeyboardEvent('keydown', { key: 'v', ctrlKey: true }))
+    const pasteEvent = new Event('paste', { bubbles: true, cancelable: true }) as ClipboardEvent
+    Object.defineProperty(pasteEvent, 'clipboardData', {
+      value: {
+        getData: vi.fn(() => ''),
+        items: [{ type: 'image/png' }]
+      }
+    })
+    screen.getByTestId('terminal-view').dispatchEvent(pasteEvent)
 
-    expect(handled).toBe(false)
     await vi.waitFor(() => {
       expect(terminalState.paste).toHaveBeenCalledWith('C:\\Temp\\image.png ')
     })
     expect(navigator.clipboard.readText).not.toHaveBeenCalled()
+  })
+
+  test('programmatic terminal insert pastes text for the matching pane', () => {
+    render(<TerminalView paneId="pane-1" isRunning onInput={vi.fn()} onResize={vi.fn()} />)
+
+    window.dispatchEvent(new CustomEvent('oxe:terminal-insert-text', {
+      detail: { paneId: 'pane-1', text: 'voice text' }
+    }))
+
+    expect(terminalState.focus).toHaveBeenCalled()
+    expect(terminalState.paste).toHaveBeenCalledTimes(1)
+    expect(terminalState.paste).toHaveBeenCalledWith('voice text')
+  })
+
+  test('programmatic terminal insert ignores other panes', () => {
+    render(<TerminalView paneId="pane-1" isRunning onInput={vi.fn()} onResize={vi.fn()} />)
+
+    window.dispatchEvent(new CustomEvent('oxe:terminal-insert-text', {
+      detail: { paneId: 'pane-2', text: 'wrong pane' }
+    }))
+
+    expect(terminalState.paste).not.toHaveBeenCalled()
+  })
+
+  test('Ctrl+V explicitly reads the clipboard and pastes via terminal.paste', async () => {
+    vi.mocked(window.oxe.clipboard.saveImageToTemp).mockResolvedValue(null)
+    vi.mocked(navigator.clipboard.readText).mockResolvedValue('clipboard text')
+
+    render(<TerminalView paneId="pane-1" isRunning onInput={vi.fn()} onResize={vi.fn()} />)
+
+    const handler = terminalState.attachCustomKeyEventHandler.mock.calls[0][0] as (event: KeyboardEvent) => boolean
+    const event = new KeyboardEvent('keydown', { key: 'v', ctrlKey: true, cancelable: true })
+    const handled = handler(event)
+
+    // Returning false tells xterm not to forward to the PTY. We also
+    // preventDefault() so the OS doesn't emit a follow-up `paste` event
+    // (which would double-input via the hostRef listener).
+    expect(handled).toBe(false)
+    expect(event.defaultPrevented).toBe(true)
+
+    await vi.waitFor(() => {
+      expect(terminalState.paste).toHaveBeenCalledWith('clipboard text')
+    })
+    expect(navigator.clipboard.readText).toHaveBeenCalled()
   })
 
   test('Alt+V passes through to PTY so Claude Code handles it natively', () => {

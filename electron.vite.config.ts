@@ -1,4 +1,4 @@
-import { cpSync } from 'node:fs'
+import { cpSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
@@ -15,6 +15,33 @@ export default defineConfig({
             resolve(__dirname, 'out/main/migrations'),
             { recursive: true }
           )
+        }
+      },
+      {
+        // Mirror resources/mcp-bridge into out/main/mcp-bridge so the
+        // bootstrap (`__dirname/mcp-bridge/oxespace-mcp.js`) finds the
+        // bridge script in dev. The packaged build picks it up via the
+        // electron-builder extraResources entry, not this plugin.
+        name: 'copy-mcp-bridge',
+        closeBundle() {
+          cpSync(
+            resolve(__dirname, 'resources/mcp-bridge'),
+            resolve(__dirname, 'out/main/mcp-bridge'),
+            { recursive: true }
+          )
+        }
+      },
+      {
+        // Mirror the bundled whisper.cpp binary into out/main/whisper so the
+        // voice service (`__dirname/whisper/whisper-cli.exe`) resolves it in
+        // dev. The packaged build picks it up via the electron-builder
+        // extraResources entry. No-op until the binary is present.
+        name: 'copy-whisper',
+        closeBundle() {
+          const src = resolve(__dirname, 'resources/whisper/win-x64')
+          if (existsSync(src)) {
+            cpSync(src, resolve(__dirname, 'out/main/whisper'), { recursive: true })
+          }
         }
       }
     ],
@@ -53,7 +80,11 @@ export default defineConfig({
             "font-src 'self' data:",
             "worker-src 'self' blob:",
             "connect-src 'self'",
-            "frame-src http://localhost:* https://localhost:*",
+            // The Web Preview pane is meant to embed arbitrary URLs (the user's
+            // dev server AND external sites opened via oxespace_open_web_preview).
+            // Restricting frame-src to localhost blocked external previews in the
+            // packaged build. http:/https: scoping still bars data:/file: frames.
+            "frame-src http: https:",
             "object-src 'none'",
             "base-uri 'self'",
             "form-action 'none'"

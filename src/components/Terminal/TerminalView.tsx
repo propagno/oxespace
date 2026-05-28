@@ -149,7 +149,18 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId }: T
     terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
       const key = event.key.toLowerCase()
 
-      if ((event.ctrlKey || event.metaKey) && key === 'v' && event.type === 'keydown') {
+      // Explicit Ctrl/Cmd+V interception. Relying on the browser-native
+      // `paste` event alone is unreliable in Electron — xterm's hidden
+      // textarea sometimes swallows it before it bubbles to our listener,
+      // depending on focus state. This path reads the clipboard via
+      // navigator.clipboard.readText() and writes via terminal.paste(),
+      // guaranteeing Ctrl+V works no matter who's holding focus inside the
+      // terminal pane.
+      // `preventDefault()` is essential: returning false alone doesn't stop
+      // the browser from emitting a `paste` event next, which would cause
+      // a second paste via our hostRef listener (double-input bug).
+      if ((event.ctrlKey || event.metaKey) && key === 'v' && event.type === 'keydown' && !event.altKey && !event.shiftKey) {
+        event.preventDefault()
         void pasteClipboardContents()
         return false
       }
@@ -172,18 +183,30 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId }: T
       const text = event.clipboardData?.getData('text/plain')
       if (text) {
         event.preventDefault()
+        event.stopPropagation()
+        event.stopImmediatePropagation()
         pasteText(text)
         return
       }
       const hasImage = Array.from(event.clipboardData?.items ?? []).some((item) => item.type.startsWith('image/'))
       if (hasImage) {
         event.preventDefault()
+        event.stopPropagation()
+        event.stopImmediatePropagation()
         void window.oxe.clipboard.saveImageToTemp().then((imagePath) => {
           if (imagePath) pasteText(`${imagePath} `)
         }).catch(() => undefined)
       }
     }
-    hostRef.current.addEventListener('paste', handlePaste)
+    hostRef.current.addEventListener('paste', handlePaste, { capture: true })
+
+    const handleProgrammaticInsert = (event: Event): void => {
+      const detail = (event as CustomEvent<{ paneId?: string; text?: string }>).detail
+      if (detail?.paneId !== paneId || !detail.text) return
+      terminal.focus()
+      pasteText(detail.text)
+    }
+    window.addEventListener('oxe:terminal-insert-text', handleProgrammaticInsert)
 
     const fitTerminal = (): void => {
       try {
@@ -273,7 +296,8 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId }: T
       unsubscribeExit()
       resizeObserver.disconnect()
       dataDisposable.dispose()
-      hostRef.current?.removeEventListener('paste', handlePaste)
+      hostRef.current?.removeEventListener('paste', handlePaste, { capture: true })
+      window.removeEventListener('oxe:terminal-insert-text', handleProgrammaticInsert)
       pasteRef.current = null
       terminal.dispose()
       terminalRef.current = null

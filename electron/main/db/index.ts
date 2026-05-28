@@ -234,6 +234,16 @@ export function runMigrations(db: AppDatabase): void {
     }
     currentVersion = db.pragma('user_version', { simple: true }) as number
   }
+
+  if (currentVersion < 35 || !hasTable(db, 'internal_mcp_meta')) {
+    db.exec(readMigration('035_internal_mcp_meta.sql'))
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
+
+  if (currentVersion < 36) {
+    db.exec(readMigration('036_compact_background_panel.sql'))
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
 }
 
 function readMigration(name: string): string {

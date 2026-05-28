@@ -6,15 +6,20 @@
 .bg-jobs-dock {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
   height: 100%;
   overflow: hidden;
+  container-type: inline-size;
 }
 
 .bg-jobs-dock-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-sm) var(--space-md);
+  min-height: 36px;
+  padding: 6px 10px;
   border-bottom: 1px solid var(--bd-divider);
 }
 
@@ -26,18 +31,24 @@
 
 .bg-jobs-dock-filters {
   display: flex;
-  gap: var(--space-xs);
-  padding: var(--space-sm) var(--space-md);
+  gap: 4px;
+  padding: 6px 8px;
   border-bottom: 1px solid var(--bd-divider);
-  flex-wrap: wrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.bg-jobs-dock-filters::-webkit-scrollbar {
+  display: none;
 }
 
 .bg-jobs-dock-filter {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  font-size: var(--fs-xs);
+  gap: 4px;
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  font-size: 11px;
   background: transparent;
   color: var(--tx-muted);
   border: 1px solid transparent;
@@ -62,7 +73,7 @@
 .bg-jobs-dock-filter-count {
   font-size: 10px;
   font-weight: 600;
-  padding: 1px 6px;
+  padding: 1px 5px;
   border-radius: var(--radius-pill);
   background: var(--surface-active);
 }
@@ -70,8 +81,8 @@
 .bg-jobs-dock-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 10px;
+  gap: 5px;
+  padding: 8px;
   overflow-y: auto;
   flex: 1;
 }
@@ -81,8 +92,9 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 32px 16px;
+  gap: 6px;
+  min-height: 180px;
+  padding: 24px 10px;
   text-align: center;
   color: var(--tx-muted);
   font-size: var(--fs-xs);
@@ -90,7 +102,12 @@
 
 .bg-jobs-dock-empty strong {
   color: var(--tx-secondary);
-  font-size: var(--fs-sm);
+  font-size: 12px;
+}
+
+.bg-jobs-dock-empty span {
+  max-width: 240px;
+  line-height: 1.45;
 }
 
 .bg-jobs-dock-empty kbd {
@@ -113,8 +130,8 @@
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: start;
-  gap: var(--space-sm);
-  padding: var(--space-md);
+  gap: 6px;
+  padding: 9px;
   background: var(--surface-quiet);
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
@@ -130,7 +147,7 @@
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: start;
-  gap: var(--space-sm);
+  gap: 7px;
   min-width: 0;
   padding: 0;
   border: 0;
@@ -161,8 +178,9 @@
 .bg-jobs-dock-card-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: var(--fs-sm);
+  gap: 5px;
+  font-size: 12px;
+  min-width: 0;
 }
 
 .bg-jobs-dock-card-row strong {
@@ -178,6 +196,7 @@
   font-family: var(--font-mono);
   font-size: 10px;
   color: var(--tx-muted);
+  flex: 0 0 auto;
 }
 
 .bg-jobs-dock-card-exit {
@@ -202,6 +221,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  align-self: center;
 }
 
 .bg-jobs-dock-stop {
@@ -253,6 +273,7 @@
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  min-width: 0;
 }
 
 .bg-jobs-dock-output-header code {
@@ -305,6 +326,27 @@
   color: var(--tx-muted);
   font-size: 11px;
   text-align: center;
+}
+
+.workspace-background-panel .workspace-editor-header {
+  height: 42px;
+  padding: 6px 8px;
+}
+
+.workspace-background-panel .workspace-editor-title {
+  height: 28px;
+  font-size: 12px;
+}
+
+.workspace-background-panel .workspace-editor-actions {
+  height: 28px;
+  padding: 0 4px;
+}
+
+@container (max-width: 360px) {
+  .bg-jobs-dock-filter {
+    padding-inline: 7px;
+  }
 }
 
 /* Pulse animation for running jobs */

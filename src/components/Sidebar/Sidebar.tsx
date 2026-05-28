@@ -1,21 +1,17 @@
 import { ChevronsLeft, ChevronsRight, Plus, Search } from 'lucide-react'
 import { useState, type ReactElement } from 'react'
-import type { AgentProfile } from '../../../shared/types/agent'
 import type { IntegrationGroup } from '../../../shared/types/integration'
 import type { Workspace } from '../../../shared/types/workspace'
 import { useIntegrationStore } from '../../store/integration.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { OxeLogo } from '../Brand/OxeLogo'
-import { AgentProviderIcon } from './AgentProviderIcon'
 import { SidebarIntegrationRow } from './SidebarIntegrationRow'
 import { WorkspaceGroup } from './WorkspaceGroup'
 
 interface SidebarProps {
   workspaces: Workspace[]
   activeWorkspaceId: string | null
-  activePaneId: string | null
-  agentProfiles: AgentProfile[]
   appVersion: string
   onNewWorkspace: () => void
   onSelectWorkspace: (id: string) => void
@@ -29,8 +25,6 @@ interface SidebarProps {
 
 export function Sidebar({
   activeWorkspaceId,
-  activePaneId,
-  agentProfiles,
   appVersion,
   isCollapsed,
   onActivatePane,
@@ -88,7 +82,22 @@ export function Sidebar({
   const handleActivatePane = (paneId: string): void => {
     const wasUnread = hasUnread(paneId)
     onActivatePane(paneId)
+    useTerminalStore.getState().markRead(paneId)
     if (wasUnread && activeTab === 'unread') setActiveTab('all')
+  }
+
+  // Clicking a workspace card in the sidebar activates it. Previously the
+  // user reached individual panes through expanded pane-rows; now that the
+  // rows are gone we forward "go to first unread pane" semantics here so
+  // the unread tab still has a clear action. When no unread pane exists,
+  // we simply activate the workspace without touching pane selection.
+  const handleSelectWorkspace = (workspaceId: string): void => {
+    const target = workspaces.find((ws) => ws.id === workspaceId)
+    const firstUnreadPane = target?.panes.find((pane) => hasUnread(pane.id))
+    if (firstUnreadPane) {
+      handleActivatePane(firstUnreadPane.id)
+    }
+    onSelectWorkspace(workspaceId)
   }
 
   if (isCollapsed) {
@@ -132,33 +141,11 @@ export function Sidebar({
                   className="sidebar-rail-workspace-btn"
                   title={workspace.name}
                   aria-label={workspace.name}
-                  onClick={() => onSelectWorkspace(workspace.id)}
+                  onClick={() => handleSelectWorkspace(workspace.id)}
                 >
                   <span>{workspace.name.slice(0, 2).toUpperCase()}</span>
                   {workspaceUnread ? <i aria-hidden="true" /> : null}
                 </button>
-                <div className="sidebar-rail-panes">
-                  {workspace.panes.map((pane, index) => {
-                    const profile = pane.agentProfileId
-                      ? agentProfiles.find((item) => item.agentProfileId === pane.agentProfileId) ?? null
-                      : null
-                    return (
-                      <button
-                        key={pane.id}
-                        type="button"
-                        className={`sidebar-rail-pane${pane.id === activePaneId ? ' active' : ''}${hasUnread(pane.id) ? ' unread' : ''}`}
-                        title={pane.agentName ?? pane.displayName ?? `${pane.type} ${index + 1}`}
-                        aria-label={pane.agentName ?? pane.displayName ?? `${pane.type} ${index + 1}`}
-                        onClick={() => {
-                          onSelectWorkspace(workspace.id)
-                          handleActivatePane(pane.id)
-                        }}
-                      >
-                        {profile ? <AgentProviderIcon provider={profile.provider} /> : <span>{index + 1}</span>}
-                      </button>
-                    )
-                  })}
-                </div>
               </div>
             )
           })}
@@ -268,12 +255,8 @@ export function Sidebar({
               key={ws.id}
               workspace={ws}
               isActive={ws.id === activeWorkspaceId}
-              activePaneId={activePaneId}
-              agentProfiles={agentProfiles}
-              defaultExpanded={ws.id === activeWorkspaceId}
-              onSelect={onSelectWorkspace}
+              onSelect={handleSelectWorkspace}
               onClose={onCloseWorkspace}
-              onActivatePane={handleActivatePane}
               isDragging={dragSourceId === ws.id}
               dropPosition={dragOverId === ws.id ? dropPosition : null}
               onDragStart={() => setDragSourceId(ws.id)}

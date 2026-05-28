@@ -12,7 +12,7 @@ interface WorkspaceBackgroundPanelProps {
 
 export function WorkspaceBackgroundPanel({ isExpanded, onCollapse, onToggleExpanded, workspace }: WorkspaceBackgroundPanelProps): ReactElement {
   return (
-    <section className="workspace-editor-panel" data-testid="workspace-background-panel">
+    <section className="workspace-editor-panel workspace-background-panel" data-testid="workspace-background-panel">
       <header className="workspace-editor-header">
         <div className="workspace-editor-title">
           <Activity size={12} aria-hidden="true" />

@@ -212,7 +212,7 @@ function createWorkspace(overrides: Partial<Workspace> = {}): Workspace {
     githubActiveTab: 'status',
     backgroundPanelVisible: false,
     backgroundPanelExpanded: false,
-    backgroundPanelWidthPercent: 36,
+    backgroundPanelWidthPercent: 28,
     panes: [
       {
         id: 'pane-1',
