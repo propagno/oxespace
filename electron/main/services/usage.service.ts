@@ -4,14 +4,14 @@ import type { AgentProvider } from '../../../shared/types/agent'
 import { ClaudeUsageProvider } from './usage/claudeProvider'
 import { CodexUsageProvider } from './usage/codexProvider'
 import { CopilotUsageProvider } from './usage/copilotProvider'
-import { GeminiUsageProvider } from './usage/geminiProvider'
+import { AntigravityUsageProvider } from './usage/antigravityProvider'
 import { CursorUsageProvider } from './usage/cursorProvider'
 import type { SessionMetadata, UsageProvider } from './usage/types'
 
 /**
  * Dispatches usage queries across registered providers. Claude and Codex have real
- * JSONL backends; Gemini and Cursor are stubs that return EMPTY snapshots so the UI
- * chip hides automatically but provider='gemini'|'cursor' is still acknowledged as
+ * JSONL backends; Antigravity and Cursor are stubs that return EMPTY snapshots so the UI
+ * chip hides automatically but provider='antigravity'|'cursor' is still acknowledged as
  * supported. Wire a real backend when those vendors expose session logs.
  */
 export class UsageService {
@@ -22,7 +22,7 @@ export class UsageService {
       new ClaudeUsageProvider(),
       new CodexUsageProvider(),
       new CopilotUsageProvider(),
-      new GeminiUsageProvider(),
+      new AntigravityUsageProvider(),
       new CursorUsageProvider()
     ]
     this.providers = new Map(defaults.map((p) => [p.provider, p]))

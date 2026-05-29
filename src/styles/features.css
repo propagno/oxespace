@@ -2815,14 +2815,23 @@
   border: 1px solid rgba(255, 255, 255, 0.075);
   border-radius: 10px;
   background: #050505;
+  transition: border-color 0.15s ease-out, box-shadow 0.15s ease-out;
 }
 .pane-container:focus-within {
   border-color: rgba(255, 255, 255, 0.22);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.035);
 }
+.pane-container.active {
+  border-color: var(--bd-pane-active) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3), 0 0 0 1px var(--bd-pane-active);
+}
 .pane-container.active > .pane-header {
   background: rgba(255, 255, 255, 0.035);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.pane-container.active > .pane-header .pane-header-left {
+  border-color: color-mix(in srgb, var(--accent) 25%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 .pane-container.active > .pane-header .pane-status-dot {
   box-shadow: var(--glow-pane-active);
@@ -2934,16 +2943,57 @@
   max-width: 116px;
   height: 18px;
   padding: 0 6px;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--tx-primary);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-transform: capitalize;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--tx-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: all 0.15s ease-in-out;
+}
+
+.pane-agent-chip.provider-claude {
+  background: rgba(181, 105, 74, 0.15);
+  border-color: rgba(181, 105, 74, 0.3);
+  color: #ff9f75;
+}
+.pane-agent-chip.provider-copilot {
+  background: rgba(36, 178, 213, 0.15);
+  border-color: rgba(36, 178, 213, 0.3);
+  color: #24b2d5;
+}
+.pane-agent-chip.provider-antigravity {
+  background: rgba(26, 115, 232, 0.15);
+  border-color: rgba(26, 115, 232, 0.3);
+  color: #64b5f6;
+}
+.pane-agent-chip.provider-codex {
+  background: rgba(16, 163, 127, 0.15);
+  border-color: rgba(16, 163, 127, 0.3);
+  color: #26e6b4;
+}
+.pane-agent-chip.provider-cursor {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.3);
+  color: #818cf8;
+}
+.pane-agent-chip.provider-custom {
+  background: rgba(71, 85, 105, 0.15);
+  border-color: rgba(71, 85, 105, 0.3);
+  color: #94a3b8;
+}
+
+.pane-header-divider {
+  color: var(--tx-muted);
+  opacity: 0.35;
+  font-size: 11px;
+  font-weight: 500;
+  user-select: none;
 }
 
 /* The user's last typed prompt — what this pane is currently working on.
@@ -3778,7 +3828,8 @@
 .ws-settings-hint {
   margin: 6px 0 0;
   font-size: 11.5px;
-  color: var(--text-muted, #8a97a8);
+  color: var(--tx-muted);
+  font-style: italic;
 }
 
 .terminal-view {
@@ -5065,8 +5116,13 @@
   color: var(--tx-primary);
   border: 1px solid var(--bd-input);
   border-radius: 6px;
+  transition: border-color var(--transition-base), box-shadow var(--transition-base);
 }
-.new-workspace-folder-input:focus { outline: none; border-color: var(--bd-input-focus); }
+.new-workspace-folder-input:focus {
+  outline: none;
+  border-color: var(--bd-input-focus);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+}
 .new-workspace-folder-browse {
   display: inline-flex;
   align-items: center;
@@ -5098,12 +5154,21 @@
   border: 1px solid var(--bd-subtle);
   border-radius: 8px;
   cursor: pointer;
-  transition: border-color 120ms, background 120ms;
+  transition: border-color var(--transition-base), background var(--transition-base), transform var(--transition-base), box-shadow var(--transition-base);
 }
-.new-workspace-layout-card:hover { border-color: var(--bd-base); }
+.new-workspace-layout-card:hover {
+  border-color: var(--bd-base);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
 .new-workspace-layout-card.selected {
   border-color: var(--accent);
   background: var(--bg-pane-active-header);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 20%, transparent), inset 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.new-workspace-layout-card.selected:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25), 0 0 10px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 .new-workspace-layout-preview {
   display: grid;
@@ -5143,12 +5208,21 @@
   background: var(--bg-tile);
   border: 1px solid var(--bd-subtle);
   border-radius: 999px;
-  transition: border-color 120ms;
+  transition: border-color var(--transition-base), background var(--transition-base), box-shadow var(--transition-base), transform var(--transition-base);
 }
-.new-workspace-agent-chip:hover { border-color: var(--bd-base); }
+.new-workspace-agent-chip:hover {
+  border-color: var(--bd-base);
+  background: var(--surface-hover);
+  transform: translateY(-1px);
+}
 .new-workspace-agent-chip.selected {
   border-color: var(--accent);
   background: var(--bg-pane-active-header);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.new-workspace-agent-chip.selected:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 25%, transparent);
 }
 .new-workspace-agent-chip-body {
   display: inline-flex;
@@ -6978,6 +7052,7 @@
 .pane-status-dot.activity-thinking {
   background: var(--dot-green);
   animation: oxe-activity-pulse 1.2s ease-in-out infinite;
+  box-shadow: 0 0 6px rgba(52, 212, 116, 0.65);
 }
 
 /* Awaiting: agent paused after the user's last intent — solid brand dot.
@@ -6985,7 +7060,7 @@
 .pane-activity-dot.activity-awaiting,
 .pane-status-dot.activity-awaiting {
   background: var(--brand);
-  box-shadow: 0 0 0 2px rgba(18, 199, 154, 0.18);
+  box-shadow: 0 0 0 2px rgba(18, 199, 154, 0.18), 0 0 6px rgba(18, 199, 154, 0.65);
 }
 
 /* Idle: nothing happening — flat muted dot, no animation. */
@@ -6998,12 +7073,14 @@
 .pane-activity-dot.activity-error,
 .pane-status-dot.activity-error {
   background: var(--dot-red);
+  box-shadow: 0 0 6px rgba(248, 113, 113, 0.65);
 }
 
 .pane-activity-dot.activity-starting,
 .pane-status-dot.activity-starting {
   background: var(--dot-yellow);
   animation: oxe-activity-pulse 1.4s ease-in-out infinite;
+  box-shadow: 0 0 6px rgba(251, 191, 36, 0.65);
 }
 
 .pane-activity-dot.activity-exited,

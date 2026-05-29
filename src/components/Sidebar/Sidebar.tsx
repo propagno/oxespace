@@ -1,5 +1,5 @@
 import { ChevronsLeft, ChevronsRight, Plus, Search } from 'lucide-react'
-import { useState, type ReactElement } from 'react'
+import { useEffect, useRef, useState, type ReactElement } from 'react'
 import type { IntegrationGroup } from '../../../shared/types/integration'
 import type { Workspace } from '../../../shared/types/workspace'
 import { useIntegrationStore } from '../../store/integration.store'
@@ -34,6 +34,19 @@ export function Sidebar({
   workspaces,
 }: SidebarProps): ReactElement {
   const [searchQuery, setSearchQuery] = useState('')
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+        e.preventDefault()
+        searchInputRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   // Drag-and-drop workspace reorder state. We don't use HTML5 dragstart
   // payload because Electron's renderer has quirks with cross-process
   // data transfer — instead we track the source/target ids in component
@@ -154,6 +167,7 @@ export function Sidebar({
       <div className="sidebar-search-wrap">
         <Search size={11} className="sidebar-search-icon" aria-hidden="true" />
         <input
+          ref={searchInputRef}
           type="text"
           className="sidebar-search-input"
           placeholder="Search"
@@ -161,6 +175,7 @@ export function Sidebar({
           onChange={e => setSearchQuery(e.target.value)}
           aria-label="Search workspaces"
         />
+        <kbd className="sidebar-search-kbd">/</kbd>
       </div>
 
       <nav className="ws-group-list" aria-label="Workspaces">

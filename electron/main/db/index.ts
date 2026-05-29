@@ -244,6 +244,16 @@ export function runMigrations(db: AppDatabase): void {
     db.exec(readMigration('036_compact_background_panel.sql'))
     currentVersion = db.pragma('user_version', { simple: true }) as number
   }
+
+  if (currentVersion < 37) {
+    db.exec(readMigration('037_change_gemini_to_antigravity.sql'))
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
+
+  if (currentVersion < 38) {
+    db.exec(readMigration('038_force_antigravity_command_agy.sql'))
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
 }
 
 function readMigration(name: string): string {

@@ -6,7 +6,12 @@ export const WORKSPACE_THEMES: Array<{ id: WorkspaceThemeId; label: string }> = 
   { id: 'dracula', label: 'Dracula' },
   { id: 'ocean', label: 'Ocean' },
   { id: 'monokai', label: 'Monokai' },
-  { id: 'amber', label: 'Amber' }
+  { id: 'amber', label: 'Amber' },
+  { id: 'rose-pine', label: 'Rose Pine' },
+  { id: 'gruvbox', label: 'Gruvbox' },
+  { id: 'one-dark', label: 'One Dark' },
+  { id: 'synthwave84', label: "Synthwave '84" },
+  { id: 'github-dark', label: 'GitHub Dark' }
 ]
 
 export const WORKSPACE_DENSITIES: Array<{ id: WorkspaceDensity; label: string }> = [

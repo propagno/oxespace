@@ -32,7 +32,12 @@ const THEME_PALETTES: Record<WorkspaceThemeId, ThemePalette> = {
   dracula:  { bg: '#151320', elevated: '#282a36', tx: '#f8f8f2', muted: '#807996', accent: '#bd93f9' },
   ocean:    { bg: '#001318', elevated: '#082b33', tx: '#e6fbff', muted: '#5b8c96', accent: '#22d3ee' },
   monokai:  { bg: '#11110d', elevated: '#24251a', tx: '#f8f8f2', muted: '#8b8c6b', accent: '#a6e22e' },
-  amber:    { bg: '#130d05', elevated: '#27190a', tx: '#fff7ed', muted: '#a67b50', accent: '#f59e0b' }
+  amber:    { bg: '#130d05', elevated: '#27190a', tx: '#fff7ed', muted: '#a67b50', accent: '#f59e0b' },
+  'rose-pine': { bg: '#191724', elevated: '#1f1d2e', tx: '#e0def4', muted: '#908caa', accent: '#ebbcba' },
+  gruvbox:     { bg: '#1d2021', elevated: '#282828', tx: '#ebdbb2', muted: '#928374', accent: '#fabd2f' },
+  'one-dark':  { bg: '#282c34', elevated: '#21252b', tx: '#abb2bf', muted: '#5c6370', accent: '#61afef' },
+  synthwave84: { bg: '#2b213a', elevated: '#241b2f', tx: '#f0efe1', muted: '#848b94', accent: '#ff7edb' },
+  'github-dark': { bg: '#0d1117', elevated: '#161b22', tx: '#c9d1d9', muted: '#8b949e', accent: '#58a6ff' }
 }
 
 const CURSOR_OPTIONS: Array<{ value: TerminalCursorStyle; label: string }> = [
@@ -62,6 +67,7 @@ export function WorkspaceSettingsModal({ onClose, onSave, shellProfiles, workspa
   // Resolved terminal prefs (global ← workspace override) — drives the preview
   // live as the user edits the Terminal section below.
   const terminalPrefs = useResolvedTerminalPrefs(workspace.id)
+  const activePal = THEME_PALETTES[themeId]
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault()
@@ -90,7 +96,15 @@ export function WorkspaceSettingsModal({ onClose, onSave, shellProfiles, workspa
           </button>
         </header>
 
-        <form className="ws-settings-form-v2" onSubmit={handleSubmit}>
+        <form
+          className="ws-settings-form-v2"
+          onSubmit={handleSubmit}
+          style={{
+            '--accent': activePal.accent,
+            '--brand-glow': `${activePal.accent}33`,
+            '--bd-pane-active': activePal.accent
+          } as React.CSSProperties}
+        >
           <div className="ws-settings-body">
             <div className="ws-settings-main">
               <section className="ws-settings-section" aria-labelledby="ws-section-appearance">
@@ -113,10 +127,22 @@ export function WorkspaceSettingsModal({ onClose, onSave, shellProfiles, workspa
                         className={`theme-card${selected ? ' selected' : ''}`}
                         onClick={() => setThemeId(theme.id)}
                       >
-                        <div className="theme-card-preview" style={{ background: pal.bg }} aria-hidden="true">
-                          <span className="theme-card-accent" style={{ background: pal.accent }} />
-                          <span className="theme-card-line" style={{ background: pal.muted }} />
-                          <span className="theme-card-line short" style={{ background: pal.muted }} />
+                        <div className="theme-card-preview" style={{ background: pal.bg, padding: 0 }} aria-hidden="true">
+                          {/* Mini Sidebar */}
+                          <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: '12px', background: pal.elevated, borderRight: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '6px', gap: '3px' }}>
+                            <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: pal.accent }} />
+                            <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'rgba(255,255,255,0.15)' }} />
+                            <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'rgba(255,255,255,0.15)' }} />
+                          </div>
+                          {/* Mini Editor content */}
+                          <div style={{ marginLeft: '12px', height: '100%', display: 'flex', flexDirection: 'column', gap: '4px', padding: '10px 8px 6px', justifyContent: 'flex-end' }}>
+                            <div style={{ display: 'flex', gap: '2px', width: '100%', height: '14px', marginBottom: 'auto' }}>
+                              <div style={{ flex: 1, background: pal.elevated, borderRadius: '2px', border: `1px solid ${pal.accent}4d` }} />
+                              <div style={{ flex: 1, background: pal.elevated, borderRadius: '2px' }} />
+                            </div>
+                            <span className="theme-card-line" style={{ background: pal.muted, opacity: 0.4 }} />
+                            <span className="theme-card-line short" style={{ background: pal.muted, opacity: 0.4 }} />
+                          </div>
                         </div>
                         <div className="theme-card-meta">
                           <span className="theme-card-name">{theme.label}</span>

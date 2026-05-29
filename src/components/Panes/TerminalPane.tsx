@@ -124,7 +124,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
   // manifest anymore. Two reasons:
   //   1. It leaks into the agent's conversation as a visible "user" turn
   //      on CLIs like Claude Code — invasive UX.
-  //   2. Different agents (Copilot CLI ≥ 1.0, Gemini) handle initialPrompt
+  //   2. Different agents (Copilot CLI ≥ 1.0, Antigravity) handle initialPrompt
   //      inconsistently; some ignore it entirely.
   // Native MCP discovery via `.mcp.json` is the supported path: any MCP-aware
   // CLI reads the file, spawns the oxespace bridge, and surfaces tools through

@@ -5,7 +5,7 @@ describe('migrations', () => {
   test('runs migrations and seeds built-in shell profiles', () => {
     const db = openInMemoryDatabase()
 
-    expect(db.pragma('user_version', { simple: true })).toBe(36)
+    expect(db.pragma('user_version', { simple: true })).toBe(38)
 
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
@@ -64,11 +64,11 @@ describe('migrations', () => {
       .prepare('SELECT id, name, executable, args_json FROM shell_profiles ORDER BY id')
       .all() as Array<{ id: string; name: string; executable: string; args_json: string }>
     expect(profiles.map((profile) => profile.id)).toEqual([
+      'builtin-antigravity',
       'builtin-claude',
       'builtin-codex',
       'builtin-copilot',
       'builtin-cursor',
-      'builtin-gemini',
       'builtin-powershell'
     ])
     expect(profiles.find((profile) => profile.id === 'builtin-powershell')).toEqual(
@@ -91,11 +91,11 @@ describe('migrations', () => {
 
     const agents = db.prepare('SELECT provider, command FROM agent_profiles WHERE is_builtin = 1 ORDER BY provider').all()
     expect(agents).toEqual([
-      { provider: 'claude',  command: 'claude' },
-      { provider: 'codex',   command: 'codex' },
-      { provider: 'copilot', command: 'copilot' },
-      { provider: 'cursor',  command: 'cursor-agent' },
-      { provider: 'gemini',  command: 'gemini' }
+      { provider: 'antigravity', command: 'agy' },
+      { provider: 'claude',      command: 'claude' },
+      { provider: 'codex',       command: 'codex' },
+      { provider: 'copilot',     command: 'copilot' },
+      { provider: 'cursor',      command: 'cursor-agent' }
     ])
 
     db.close()

@@ -1,4 +1,4 @@
-import { Check, FolderTree, Network, Pencil, Trash2, X } from 'lucide-react'
+import { Check, FolderTree, GripVertical, Network, Pencil, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import { selectIntegrationsForWorkspace, useIntegrationStore } from '../../store/integration.store'
@@ -197,13 +197,18 @@ export function WorkspaceGroup({
         onContextMenu={handleContextMenu}
         data-testid="sidebar-workspace-select"
       >
-        {activity.dominant ? (
-          <span
-            className={`ws-group-dot pane-activity-dot activity-${activity.dominant}`}
-            title={activitySummary(activity)}
+        {!renaming && (
+          <GripVertical
+            size={11}
+            className="ws-group-grip"
             aria-hidden="true"
           />
-        ) : null}
+        )}
+        <span
+          className={`ws-group-dot pane-activity-dot ${activity.dominant ? `activity-${activity.dominant}` : 'activity-placeholder'}`}
+          title={activity.dominant ? activitySummary(activity) : undefined}
+          aria-hidden="true"
+        />
         <div className="ws-group-title-block">
           {renaming ? (
             <input
@@ -224,12 +229,17 @@ export function WorkspaceGroup({
               aria-label={`Rename workspace ${workspace.name}`}
             />
           ) : (
-            <span
-              className="ws-group-name"
-              title={`${workspace.name}\n~/${rootLabel}\n(right-click for options)`}
-            >
-              {workspace.name}
-            </span>
+            <>
+              <span
+                className="ws-group-name"
+                title={`${workspace.name}\n${workspace.rootPath}\n(right-click for options)`}
+              >
+                {workspace.name}
+              </span>
+              <span className="ws-group-path" title={workspace.rootPath}>
+                {getCompactPath(workspace.rootPath)}
+              </span>
+            </>
           )}
         </div>
         {integrations.length > 0 ? (
@@ -368,4 +378,12 @@ function activitySummary(a: WorkspaceActivity): string {
 function compactRootLabel(rootPath: string): string {
   const parts = rootPath.split(/[\\/]/).filter(Boolean)
   return parts.at(-1) ?? 'workspace'
+}
+
+function getCompactPath(rootPath: string): string {
+  const parts = rootPath.split(/[\\/]/).filter(Boolean)
+  if (parts.length >= 2) {
+    return `${parts.at(-2)}/${parts.at(-1)}`
+  }
+  return parts.at(-1) ?? ''
 }

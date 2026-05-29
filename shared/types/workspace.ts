@@ -2,7 +2,7 @@ export type WorkspaceLayout = '1x1' | '1x2' | '2x1' | '2x2' | '2x3' | '2x4' | '2
 
 export type WorkspaceLayoutPreset = 1 | 2 | 4 | 6 | 8 | 10 | 12 | 14 | 16
 
-export type WorkspaceThemeId = 'midnight' | 'nord' | 'dracula' | 'ocean' | 'monokai' | 'amber'
+export type WorkspaceThemeId = 'midnight' | 'nord' | 'dracula' | 'ocean' | 'monokai' | 'amber' | 'rose-pine' | 'gruvbox' | 'one-dark' | 'synthwave84' | 'github-dark'
 
 export type WorkspaceDensity = 'compact' | 'comfortable'
 

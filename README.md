@@ -6,11 +6,11 @@ OXESpace is a Windows desktop workspace for agentic development. It combines ter
 
 Current Windows release:
 
-[Download OXESpace 0.1.20 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.20/OXESpace-0.1.20-x64.exe)
+[Download OXESpace 0.1.21 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.21/OXESpace-0.1.21-x64.exe)
 
 Release page:
 
-[OXESpace v0.1.20](https://github.com/propagno/oxespace/releases/tag/v0.1.20)
+[OXESpace v0.1.21](https://github.com/propagno/oxespace/releases/tag/v0.1.21)
 
 All releases:
 
@@ -269,8 +269,8 @@ Release flow:
 ```powershell
 git switch main
 git pull origin main
-git tag v0.1.20
-git push origin v0.1.20
+git tag v0.1.21
+git push origin v0.1.21
 ```
 
 When the tag is pushed, GitHub Actions:
@@ -296,18 +296,15 @@ When the tag is pushed, GitHub Actions:
 
 ## Version
 
-Current release: `0.1.20`
+Current release: `0.1.21`
 
-Highlights since `0.1.19`:
+Highlights since `0.1.20`:
 
-- Terminal text copy: `Ctrl+C` (with a selection) and `Ctrl+Shift+C` copy through the Electron main clipboard, with no renderer permission dependency.
-- Native desktop notifications when a background agent finishes, needs input, or errors — clicking one focuses the originating pane.
-- Terminal customization: font family, size, line height, letter spacing, cursor style and blink, plus live font zoom (`Ctrl +` / `Ctrl -` / `Ctrl 0`), global defaults with per-workspace overrides.
-- Workspace theme changes now re-color open terminals live instead of only new ones.
-- Workspace Settings redesign: two-column layout with a live preview of theme, layout, density, and terminal font/cursor.
-- Sidebar: workspace cards show a dominant agent-activity status dot; added a "Workspaces" section label; removed the Unread tabs in favor of the status signaling.
-- Fixes: native dropdowns render in dark mode (no white popup); worktree removal releases the pane holding the folder before deleting and refreshes on partial failure; a cleanly-exited terminal shows the gray "exited" indicator instead of red "error".
+- New built-in agent provider **Antigravity** (`agy` command), replacing the previous Gemini provider; migrated via `agent_profiles`/`shell_profiles` schema updates.
+- Agent-awaiting desktop notifications are far quieter: they only fire when the OXESpace window is unfocused, are rate-limited to once per pane per 5 minutes, and require a longer stable pause before firing.
+- Sidebar: press `/` to focus the workspace search.
+- Release CI modernized for the Node 24 actions runtime.
 
 Installer asset:
 
-[OXESpace-0.1.20-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.20/OXESpace-0.1.20-x64.exe)
+[OXESpace-0.1.21-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.21/OXESpace-0.1.21-x64.exe)

@@ -34,7 +34,7 @@ interface ForkRow {
  * Fork creation is currently Claude-only (the only provider that exposes a copyable
  * per-session JSONL transcript). Codex sessions can be listed and resumed via the CLI
  * directly but not forked at a specific message index since their file layout per-day
- * makes that lossy. Gemini/Cursor are listed-only (provider stubs).
+ * makes that lossy. Antigravity/Cursor are listed-only (provider stubs).
  */
 export class SessionService {
   constructor(

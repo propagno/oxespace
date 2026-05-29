@@ -119,7 +119,7 @@ export function NewWorkspaceModal({
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header className="new-workspace-header">
-          <OxeLogo size={20} variant="wordmark" />
+          <OxeLogo size={20} variant="compact" />
           <h2 id="new-workspace-title">Create new workspace</h2>
           <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
             <X size={14} aria-hidden="true" />

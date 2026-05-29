@@ -23,10 +23,10 @@ const BRAND_TOKENS = [
   { name: '--brand-dark',    label: 'Brand Dark' },
 ]
 
-const PROVIDER_ENTRIES: Array<{ provider: 'claude' | 'gh-copilot' | 'gemini' | 'codex' | 'cursor' | 'custom'; label: string }> = [
+const PROVIDER_ENTRIES: Array<{ provider: 'claude' | 'gh-copilot' | 'antigravity' | 'codex' | 'cursor' | 'custom'; label: string }> = [
   { provider: 'claude',    label: 'Claude' },
   { provider: 'gh-copilot',label: 'Copilot' },
-  { provider: 'gemini',    label: 'Gemini' },
+  { provider: 'antigravity', label: 'Antigravity' },
   { provider: 'codex',     label: 'Codex' },
   { provider: 'cursor',    label: 'Cursor' },
   { provider: 'custom',    label: 'Custom' },
