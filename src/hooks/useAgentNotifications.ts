@@ -8,25 +8,33 @@ import { deriveStatusTone, type PaneDisplayTone } from '../utils/paneDisplay'
  * Horizon 1 · item 1+2 — native desktop notifications driven by the fine-grained
  * agent state machine (`deriveStatusTone`).
  *
- * Polls every POLL_MS and fires a notification when a pane the user is NOT
- * watching transitions to a state that wants attention:
+ * Polls every POLL_MS and fires a notification when a pane wants attention:
  *   - `awaiting`  → the agent finished and is waiting for input (the big one)
  *   - `exited`    → the agent's terminal closed
  *   - `error`     → the agent hit an error
  *
- * The `awaiting` signal has a stability gate: an agent that merely pauses
- * mid-stream for a moment flips through `awaiting` briefly before resuming, so
- * we only notify once it has stayed `awaiting` for AWAITING_STABLE_MS. This is
- * what keeps notifications meaningful instead of spammy.
+ * Anti-spam, in layers (an agent streams with frequent >1.5s pauses, so the
+ * tone naturally flaps thinking↔awaiting — without these guards it would ping
+ * constantly):
+ *   1. Away-only: `awaiting` only notifies when the OXESpace window is NOT
+ *      focused. While you're in the app, the sidebar/pane status dots already
+ *      signal "your turn" — an OS notification would just be noise. OS pings
+ *      are for when you've switched to another window.
+ *   2. Per-pane cooldown: at most one notification per pane per COOLDOWN_MS,
+ *      regardless of how often the tone flaps.
+ *   3. Stability gate: only notify after the pane has held `awaiting` for
+ *      AWAITING_STABLE_MS — a real "done, prompting you" pause, not a token gap.
  */
 
 const POLL_MS = 1500
-const AWAITING_STABLE_MS = 4000
+const AWAITING_STABLE_MS = 10_000
+const COOLDOWN_MS = 5 * 60_000
 
 interface PaneTrack {
   tone: PaneDisplayTone
   awaitingSince: number | null
   notifiedAwaiting: boolean
+  lastNotifiedAt: number | null
 }
 
 export function useAgentNotifications(): void {
@@ -54,13 +62,21 @@ export function useAgentNotifications(): void {
           const existing = tracks.get(pane.id)
           // First sighting — record state, never notify (avoids a burst on load).
           if (!existing) {
-            tracks.set(pane.id, { tone, awaitingSince: tone === 'awaiting' ? now : null, notifiedAwaiting: false })
+            tracks.set(pane.id, { tone, awaitingSince: tone === 'awaiting' ? now : null, notifiedAwaiting: false, lastNotifiedAt: null })
             continue
           }
 
           // Don't ping about the pane the user is actively looking at.
           const isViewing = windowFocused && activePaneId === pane.id
           const label = (pane.displayName || pane.agentName || 'Agente').trim()
+          // Global per-pane rate limit: at most one ping per cooldown window,
+          // whatever the tone does in between.
+          const onCooldown = existing.lastNotifiedAt !== null && now - existing.lastNotifiedAt < COOLDOWN_MS
+          const notify = (title: string, body: string): void => {
+            if (onCooldown) return
+            existing.lastNotifiedAt = now
+            fire(title, body, pane.id, ws.id)
+          }
 
           if (tone === 'awaiting') {
             if (existing.tone !== 'awaiting') {
@@ -71,10 +87,11 @@ export function useAgentNotifications(): void {
               !existing.notifiedAwaiting &&
               existing.awaitingSince !== null &&
               now - existing.awaitingSince >= AWAITING_STABLE_MS &&
-              !isViewing
+              // Away-only: while OXESpace is focused the status dots cover it.
+              !windowFocused
             ) {
               existing.notifiedAwaiting = true
-              fire(`${label} — aguardando você`, `${ws.name}: o agente terminou e espera sua resposta.`, pane.id, ws.id)
+              notify(`${label} — aguardando você`, `${ws.name}: o agente terminou e espera sua resposta.`)
             }
           } else {
             existing.awaitingSince = null
@@ -84,9 +101,9 @@ export function useAgentNotifications(): void {
           // exited / error fire once on the transition into that tone.
           if (tone !== existing.tone && !isViewing) {
             if (tone === 'exited') {
-              fire(`${label} — sessão encerrada`, `${ws.name}: o terminal do agente foi finalizado.`, pane.id, ws.id)
+              notify(`${label} — sessão encerrada`, `${ws.name}: o terminal do agente foi finalizado.`)
             } else if (tone === 'error') {
-              fire(`${label} — precisa de atenção`, `${ws.name}: ${entry.error ?? 'o agente encontrou um erro.'}`, pane.id, ws.id)
+              notify(`${label} — precisa de atenção`, `${ws.name}: ${entry.error ?? 'o agente encontrou um erro.'}`)
             }
           }
 
