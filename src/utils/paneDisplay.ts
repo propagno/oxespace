@@ -159,7 +159,7 @@ export function formatPaneStatus(tone: PaneDisplayTone): string {
   return 'Idle'
 }
 
-function deriveStatusTone(entry: PaneDisplayTerminalState): PaneDisplayTone {
+export function deriveStatusTone(entry: PaneDisplayTerminalState): PaneDisplayTone {
   if (entry.status === 'error' || entry.error) return 'error'
   if (entry.status === 'exited') return 'exited'
   if (entry.status === 'starting') return 'starting'

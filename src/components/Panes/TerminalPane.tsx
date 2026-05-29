@@ -10,6 +10,7 @@ import { selectMcpServers, useMcpStore } from '../../store/mcp.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
+import { useResolvedTerminalPrefs } from '../../store/terminal-prefs.store'
 import { TerminalView } from '../Terminal/TerminalView'
 
 interface TerminalPaneProps {
@@ -24,6 +25,8 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
   const setLastIntent = useTerminalStore((s) => s.setLastIntent)
   const setPaneAgent = useWorkspaceStore((s) => s.setPaneAgent)
   const allProfiles = useAgentStore((s) => s.allProfiles)
+  const workspaceThemeId = useWorkspaceStore((s) => s.workspaces.find((w) => w.id === workspaceId)?.themeId ?? 'dracula')
+  const terminalPrefs = useResolvedTerminalPrefs(workspaceId)
   const state = getStatus(pane.id)
   const isRunning = state.status === 'running' || state.status === 'starting'
   const canUseVoice = state.status === 'running'
@@ -293,6 +296,8 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
           <TerminalView
             paneId={pane.id}
             isRunning={isRunning}
+            themeId={workspaceThemeId}
+            prefs={terminalPrefs}
             onInput={(data) => {
               if (!isRunning) return
               identifyAgentFromInput(data)
@@ -302,7 +307,11 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
               if (isRunning) void window.oxe.terminal.resize({ paneId: pane.id, cols, rows })
             }}
             onExit={(exitCode) => {
-              setStatus(pane.id, 'exited', exitCode === null ? undefined : `Exited with code ${exitCode}`)
+              // Only attach an error message for a NON-zero exit. A clean exit
+              // (code 0) must leave `error` empty so deriveStatusTone resolves to
+              // the gray 'exited' tone instead of the red 'error' tone (which
+              // checks `entry.error` first). exitCode 0 is falsy → undefined.
+              setStatus(pane.id, 'exited', exitCode ? `Exited with code ${exitCode}` : undefined)
             }}
           />
           {voice.status === 'listening' || voice.status === 'transcribing' || voice.status === 'downloading' || voice.error ? (

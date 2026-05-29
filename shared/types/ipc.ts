@@ -202,13 +202,18 @@ export const IPC_CHANNELS = {
   },
   clipboard: {
     saveImageToTemp: 'clipboard:save-image-to-temp',
-    readText: 'clipboard:read-text'
+    readText: 'clipboard:read-text',
+    writeText: 'clipboard:write-text'
   },
   voice: {
     transcribe: 'voice:transcribe',
     getModelStatus: 'voice:get-model-status',
     ensureModel: 'voice:ensure-model',
     onModelProgress: 'voice:on-model-progress'
+  },
+  notifications: {
+    notify: 'notifications:notify',
+    onActivate: 'notifications:on-activate'
   },
   background: {
     list: 'background:list',
@@ -449,6 +454,7 @@ export interface GitHubApi {
 export interface ClipboardApi {
   saveImageToTemp(): Promise<string | null>
   readText(): Promise<string>
+  writeText(text: string): Promise<boolean>
 }
 
 export interface VoiceApi {
@@ -467,6 +473,19 @@ export interface VoiceApi {
   ): () => void
 }
 
+export interface AgentNotificationPayload {
+  title: string
+  body: string
+  /** Pane to focus when the user clicks the notification. */
+  paneId: string
+  workspaceId: string
+}
+
+export interface NotificationsApi {
+  notify(payload: AgentNotificationPayload): Promise<boolean>
+  onActivate(listener: (payload: { paneId: string; workspaceId: string }) => void): () => void
+}
+
 export interface OxeApi {
   app: {
     version: string
@@ -481,6 +500,7 @@ export interface OxeApi {
   integration: IntegrationApi
   clipboard: ClipboardApi
   voice: VoiceApi
+  notifications: NotificationsApi
   background: BackgroundApi
   session: SessionApi
   skill: SkillApi

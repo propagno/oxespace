@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { Workspace } from '../../shared/types/workspace'
@@ -58,7 +58,6 @@ describe('Sidebar', () => {
         onNewWorkspace={onNewWorkspace}
         onSelectWorkspace={onSelectWorkspace}
         onCloseWorkspace={onCloseWorkspace}
-        onActivatePane={vi.fn()}
         isCollapsed={false}
         onToggleCollapse={onToggleCollapse}
       />
@@ -69,8 +68,7 @@ describe('Sidebar', () => {
     expect(screen.queryByText('C:/projects/repo')).not.toBeInTheDocument()
     // Sidebar no longer expands to expose individual pane rows — clean
     // workspace-only list. Per-pane controls (rename, activate) moved into
-    // the terminal pane header. Asserting the absence here so the pane
-    // cards don't sneak back in by accident.
+    // the terminal pane header.
     expect(screen.queryAllByTestId('pane-session-row')).toHaveLength(0)
 
     await user.click(screen.getByTestId('btn-new-workspace'))
@@ -80,23 +78,21 @@ describe('Sidebar', () => {
     expect(onSelectWorkspace).toHaveBeenCalledWith('workspace-1')
 
     // Workspace removal moved off the always-visible X button and onto the
-    // right-click context menu → confirmation modal. Two clicks (menuitem +
-    // modal confirm) replace the old single-click destructive flow.
+    // right-click context menu → confirmation modal.
     fireEvent.contextMenu(screen.getByTestId('sidebar-workspace-select'))
     await user.click(screen.getByRole('menuitem', { name: /remove workspace/i }))
     await user.click(screen.getByRole('button', { name: /remove workspace/i }))
     expect(onCloseWorkspace).toHaveBeenCalledWith('workspace-1')
 
-    // The AI Providers button was removed from the sidebar header in Wave 2 —
-    // agent discovery is now reached through the Command Palette
-    // ("Open Agent Settings"). We assert its absence here so it stays gone.
     expect(screen.queryByLabelText('AI Providers')).not.toBeInTheDocument()
+    // The All/Unread tabs were removed — the activity dot conveys per-workspace
+    // state now. Assert they're gone so they don't sneak back.
+    expect(screen.queryByRole('tab', { name: /unread/i })).not.toBeInTheDocument()
   })
 
-  test('collapsed sidebar keeps workspaces and panes available on the rail', async () => {
+  test('collapsed sidebar keeps workspaces available on the rail', async () => {
     const user = userEvent.setup()
     const onSelectWorkspace = vi.fn()
-    const onActivatePane = vi.fn()
 
     render(
       <Sidebar
@@ -106,109 +102,18 @@ describe('Sidebar', () => {
         onNewWorkspace={vi.fn()}
         onSelectWorkspace={onSelectWorkspace}
         onCloseWorkspace={vi.fn()}
-        onActivatePane={onActivatePane}
         isCollapsed
         onToggleCollapse={vi.fn()}
       />
     )
 
-    // Collapsed rail now shows a single button per workspace — per-pane
-    // mini-buttons were removed so the rail mirrors the expanded sidebar's
-    // "one row per workspace" model. Clicking the workspace button selects
-    // the workspace; if it has unread panes, the handler auto-activates the
-    // first one (covered by the "filters unread panes" test).
+    // Collapsed rail shows a single button per workspace; clicking it selects
+    // the workspace (pane navigation lives in the grid).
     expect(screen.queryByText('repo')).not.toBeInTheDocument()
     expect(screen.getByLabelText('repo')).toBeInTheDocument()
-    expect(screen.queryByLabelText('terminal 1')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('terminal 2')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Expand sidebar')).toBeInTheDocument()
 
     await user.click(screen.getByLabelText('repo'))
     expect(onSelectWorkspace).toHaveBeenCalledWith('workspace-1')
-    expect(onActivatePane).not.toHaveBeenCalled()
   })
-
-  test('filters unread panes, clears unread on activation and returns to all tab', async () => {
-    const user = userEvent.setup()
-    const onActivatePane = vi.fn()
-    useTerminalStore.setState({
-      panes: {
-        'pane-2': {
-          status: 'running',
-          lastActivityAt: Date.now(),
-          lastOutput: 'new output',
-          isWorking: true,
-          hasUnread: true,
-          error: null
-        }
-      },
-      pendingCommands: {},
-      activePaneId: 'pane-1'
-    })
-
-    render(
-      <Sidebar
-        workspaces={[workspace]}
-        activeWorkspaceId="workspace-1"
-        appVersion="0.1.2"
-        onNewWorkspace={vi.fn()}
-        onSelectWorkspace={vi.fn()}
-        onCloseWorkspace={vi.fn()}
-        onActivatePane={onActivatePane}
-        isCollapsed={false}
-        onToggleCollapse={vi.fn()}
-      />
-    )
-
-    await user.click(screen.getByRole('tab', { name: /unread/i }))
-    // The unread tab now filters at the workspace level (per-pane rows
-    // were removed from the sidebar). Clicking the workspace card surfaces
-    // the first unread pane automatically — handleSelectWorkspace in
-    // Sidebar.tsx maps "select workspace with unread" to "activate that
-    // pane and clear unread".
-    await user.click(screen.getByTestId('sidebar-workspace-select'))
-
-    expect(onActivatePane).toHaveBeenCalledWith('pane-2')
-    expect(useTerminalStore.getState().panes['pane-2']?.hasUnread).toBe(false)
-    expect(screen.getByRole('tab', { name: /^all$/i })).toHaveAttribute('aria-selected', 'true')
-  })
-
-  test('collapsed sidebar shows unread badge on the rail', () => {
-    useTerminalStore.setState({
-      panes: {
-        'pane-2': {
-          status: 'running',
-          lastActivityAt: Date.now(),
-          lastOutput: 'new output',
-          isWorking: true,
-          hasUnread: true,
-          error: null
-        }
-      },
-      pendingCommands: {},
-      activePaneId: 'pane-1'
-    })
-
-    render(
-      <Sidebar
-        workspaces={[workspace]}
-        activeWorkspaceId="workspace-1"
-        appVersion="0.1.2"
-        onNewWorkspace={vi.fn()}
-        onSelectWorkspace={vi.fn()}
-        onCloseWorkspace={vi.fn()}
-        onActivatePane={vi.fn()}
-        isCollapsed
-        onToggleCollapse={vi.fn()}
-      />
-    )
-
-    expect(screen.getByLabelText('1 unread pane')).toHaveTextContent('1')
-  })
-
-  // The "right-click a terminal row to stop and close" flow was removed in
-  // sidebar Onda 6: pane rows no longer render inside workspace cards.
-  // Per-pane stop/close lives on the terminal pane header (X button) and
-  // the slash overlay (/stop, /restart). The unread/activation behaviour
-  // covered by the prior tests stays intact via handleSelectWorkspace.
 })

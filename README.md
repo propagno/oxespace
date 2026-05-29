@@ -6,11 +6,11 @@ OXESpace is a Windows desktop workspace for agentic development. It combines ter
 
 Current Windows release:
 
-[Download OXESpace 0.1.19 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.19/OXESpace-0.1.19-x64.exe)
+[Download OXESpace 0.1.20 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.20/OXESpace-0.1.20-x64.exe)
 
 Release page:
 
-[OXESpace v0.1.19](https://github.com/propagno/oxespace/releases/tag/v0.1.19)
+[OXESpace v0.1.20](https://github.com/propagno/oxespace/releases/tag/v0.1.20)
 
 All releases:
 
@@ -269,8 +269,8 @@ Release flow:
 ```powershell
 git switch main
 git pull origin main
-git tag v0.1.19
-git push origin v0.1.19
+git tag v0.1.20
+git push origin v0.1.20
 ```
 
 When the tag is pushed, GitHub Actions:
@@ -296,15 +296,18 @@ When the tag is pushed, GitHub Actions:
 
 ## Version
 
-Current release: `0.1.19`
+Current release: `0.1.20`
 
-Highlights since `0.1.18`:
+Highlights since `0.1.19`:
 
-- Terminal Ctrl+V paste now reads text through Electron main first, avoiding renderer `clipboard-read` permission failures.
-- Clipboard permission handling now covers the app window alongside microphone permissions for OXEVoice.
-- Duplicate paste prevention remains in the terminal input path while preserving image paste support.
-- Version metadata and release links now point to the `0.1.19` Windows installer.
+- Terminal text copy: `Ctrl+C` (with a selection) and `Ctrl+Shift+C` copy through the Electron main clipboard, with no renderer permission dependency.
+- Native desktop notifications when a background agent finishes, needs input, or errors — clicking one focuses the originating pane.
+- Terminal customization: font family, size, line height, letter spacing, cursor style and blink, plus live font zoom (`Ctrl +` / `Ctrl -` / `Ctrl 0`), global defaults with per-workspace overrides.
+- Workspace theme changes now re-color open terminals live instead of only new ones.
+- Workspace Settings redesign: two-column layout with a live preview of theme, layout, density, and terminal font/cursor.
+- Sidebar: workspace cards show a dominant agent-activity status dot; added a "Workspaces" section label; removed the Unread tabs in favor of the status signaling.
+- Fixes: native dropdowns render in dark mode (no white popup); worktree removal releases the pane holding the folder before deleting and refreshes on partial failure; a cleanly-exited terminal shows the gray "exited" indicator instead of red "error".
 
 Installer asset:
 
-[OXESpace-0.1.19-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.19/OXESpace-0.1.19-x64.exe)
+[OXESpace-0.1.20-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.20/OXESpace-0.1.20-x64.exe)

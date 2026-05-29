@@ -113,7 +113,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     },
     clipboard: {
       saveImageToTemp: () => ipc.invoke(IPC_CHANNELS.clipboard.saveImageToTemp) as Promise<string | null>,
-      readText: () => ipc.invoke(IPC_CHANNELS.clipboard.readText) as Promise<string>
+      readText: () => ipc.invoke(IPC_CHANNELS.clipboard.readText) as Promise<string>,
+      writeText: (text) => ipc.invoke(IPC_CHANNELS.clipboard.writeText, text) as Promise<boolean>
     },
     voice: {
       transcribe: (wav, options) =>
@@ -124,6 +125,11 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
         ipc.invoke(IPC_CHANNELS.voice.ensureModel, size) as Promise<import('../../shared/types/voice').VoiceModelStatus>,
       onModelProgress: (listener) =>
         subscribe<import('../../shared/types/voice').VoiceModelProgressEvent>(ipc, IPC_CHANNELS.voice.onModelProgress, listener)
+    },
+    notifications: {
+      notify: (payload) => ipc.invoke(IPC_CHANNELS.notifications.notify, payload) as Promise<boolean>,
+      onActivate: (listener) =>
+        subscribe<{ paneId: string; workspaceId: string }>(ipc, IPC_CHANNELS.notifications.onActivate, listener)
     },
     github: {
       getCliStatus: (input) => ipc.invoke(IPC_CHANNELS.github.getCliStatus, input) as Promise<GitHubCliStatus>,

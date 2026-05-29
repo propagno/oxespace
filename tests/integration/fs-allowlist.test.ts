@@ -22,7 +22,11 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Internal MCP bootstrap: materializes the bridge script under
   // <userData>/bin and hash-checks it against the packaged source. Needs
   // raw fs to do that atomically on every boot.
-  'electron/main/mcp-internal/bootstrap.ts'
+  'electron/main/mcp-internal/bootstrap.ts',
+  // OXEVoice engine: downloads the Whisper model to <userData>/models and
+  // writes a temp WAV for the CLI — outside the workspace tree, so raw fs is
+  // appropriate here rather than the workspace-scoped FileSystemService.
+  'electron/main/services/voice.service.ts'
 ])
 
 describe('workspace fs allowlist', () => {

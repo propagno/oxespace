@@ -483,6 +483,21 @@
   letter-spacing: 0.01em;
 }
 
+/* ─── Workspace card activity signaling ──────────────────────────────────
+   A leading dot shows the dominant agent tone (reusing .pane-activity-dot
+   colors + pulse). The card stays name-only — the breakdown lives in the
+   dot's tooltip and the topbar status summary. */
+.ws-group-dot {
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+/* Collapsed-rail status pip — recolor the existing absolute dot by tone. */
+.sidebar-rail-pip.activity-thinking { background: var(--dot-green); }
+.sidebar-rail-pip.activity-awaiting { background: var(--brand); }
+.sidebar-rail-pip.activity-starting { background: var(--dot-yellow); }
+.sidebar-rail-pip.activity-error { background: var(--dot-red); }
+
 /* `.ws-group-count` (pane count pill) removed — was eating horizontal
    space the user needs for long workspace names. The pane count is still
    visible inside the expanded workspace via the list of pane rows. */

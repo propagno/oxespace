@@ -4,10 +4,47 @@ import { WebLinksAddon } from '@xterm/addon-web-links'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
 import { useEffect, useRef, useState, type ReactElement } from 'react'
+import type { ITheme } from '@xterm/xterm'
+import type { WorkspaceThemeId } from '../../../shared/types/workspace'
+import type { TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useTerminalStore } from '../../store/terminal.store'
 
 // Claude Code uses ⏺ (U+23FA) on Mac and ● (U+25CF) on Windows
 const AGENT_MARKERS = ['⏺', '●']
+
+/**
+ * Build the xterm color theme from the live CSS design tokens. Read at
+ * construction AND re-read whenever the workspace theme changes (so switching
+ * Midnight → Dracula re-colors open terminals instead of only new ones).
+ */
+function buildTerminalTheme(): ITheme {
+  const tok = (name: string, fallback: string): string => {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+    return v || fallback
+  }
+  return {
+    background:          tok('--bg-tile-content', '#000000'),
+    foreground:          tok('--tx-primary',       '#f1f5f9'),
+    cursor:              tok('--brand-light',      '#6EEBD4'),
+    selectionBackground: tok('--brand-glow',       'rgba(18,199,154,0.28)'),
+    black:               tok('--dot-gray',          '#3b4260'),
+    red:                 tok('--dot-red',           '#f87171'),
+    green:               tok('--dot-green',         '#34d474'),
+    yellow:              tok('--dot-yellow',        '#fbbf24'),
+    blue:                tok('--dot-blue',          '#60a5fa'),
+    magenta:             tok('--dot-purple',        '#c084fc'),
+    cyan:                tok('--brand-light',      '#6EEBD4'),
+    white:               tok('--tx-primary',       '#f1f5f9'),
+    brightBlack:         tok('--tx-muted',          '#636b75'),
+    brightRed:           tok('--dot-red',           '#f87171'),
+    brightGreen:         tok('--dot-green',         '#34d399'),
+    brightYellow:        tok('--dot-orange',        '#f97316'),
+    brightBlue:          tok('--brand-light',      '#6EEBD4'),
+    brightMagenta:       tok('--dot-purple',        '#c084fc'),
+    brightCyan:          tok('--brand-lightest',   '#B4F5E8'),
+    brightWhite:         tok('--tx-primary',       '#f1f5f9')
+  }
+}
 
 function readAgentPreview(terminal: Terminal): string {
   const buf = terminal.buffer.active
@@ -35,12 +72,19 @@ interface TerminalViewProps {
   onInput: (data: string) => void
   onResize: (cols: number, rows: number) => void
   onExit?: (exitCode: number | null) => void
+  /** Workspace theme — re-applies terminal colors live when it changes. */
+  themeId: WorkspaceThemeId
+  /** Resolved terminal prefs (global ← per-workspace override). */
+  prefs: TerminalPrefs
 }
 
-export function TerminalView({ isRunning, onExit, onInput, onResize, paneId }: TerminalViewProps): ReactElement {
+export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, themeId, prefs }: TerminalViewProps): ReactElement {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const terminalRef = useRef<Terminal | null>(null)
   const pasteRef = useRef<((text: string) => void) | null>(null)
+  const refitRef = useRef<(() => void) | null>(null)
+  const prefsRef = useRef(prefs)
+  prefsRef.current = prefs
   const onExitRef = useRef(onExit)
   const onInputRef = useRef(onInput)
   const onResizeRef = useRef(onResize)
@@ -55,44 +99,20 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId }: T
   useEffect(() => {
     if (!hostRef.current) return
 
-    const tok = (name: string, fallback: string): string => {
-      const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-      return v || fallback
-    }
-
+    const initial = prefsRef.current
     const terminal = new Terminal({
       allowProposedApi: true,
-      cursorBlink: true,
+      cursorBlink: initial.cursorBlink,
+      cursorStyle: initial.cursorStyle,
       convertEol: true,
-      fontFamily: 'Cascadia Mono, Consolas, monospace',
-      fontSize: 14,
-      lineHeight: 1.2,
-      letterSpacing: 0,
+      fontFamily: initial.fontFamily,
+      fontSize: initial.fontSize,
+      lineHeight: initial.lineHeight,
+      letterSpacing: initial.letterSpacing,
       rescaleOverlappingGlyphs: true,
-      scrollback: 100_000,
+      scrollback: initial.scrollback,
       scrollOnUserInput: false,
-      theme: {
-        background:         tok('--bg-tile-content', '#000000'),
-        foreground:         tok('--tx-primary',       '#f1f5f9'),
-        cursor:             tok('--brand-light',      '#6EEBD4'),
-        selectionBackground:tok('--brand-glow',       'rgba(18,199,154,0.28)'),
-        black:              tok('--dot-gray',          '#3b4260'),
-        red:                tok('--dot-red',           '#f87171'),
-        green:              tok('--dot-green',         '#34d474'),
-        yellow:             tok('--dot-yellow',        '#fbbf24'),
-        blue:               tok('--dot-blue',          '#60a5fa'),
-        magenta:            tok('--dot-purple',        '#c084fc'),
-        cyan:               tok('--brand-light',      '#6EEBD4'),
-        white:              tok('--tx-primary',       '#f1f5f9'),
-        brightBlack:        tok('--tx-muted',          '#636b75'),
-        brightRed:          tok('--dot-red',           '#f87171'),
-        brightGreen:        tok('--dot-green',         '#34d399'),
-        brightYellow:       tok('--dot-orange',        '#f97316'),
-        brightBlue:         tok('--brand-light',      '#6EEBD4'),
-        brightMagenta:      tok('--dot-purple',        '#c084fc'),
-        brightCyan:         tok('--brand-lightest',   '#B4F5E8'),
-        brightWhite:        tok('--tx-primary',       '#f1f5f9'),
-      }
+      theme: buildTerminalTheme()
     })
     const fitAddon = new FitAddon()
     const unicodeAddon = new Unicode11Addon()
@@ -134,6 +154,14 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId }: T
     }
     pasteRef.current = pasteText
 
+    const copyText = async (text: string): Promise<void> => {
+      if (!text) return
+      // Write via main (Electron clipboard, no renderer permission) first; fall
+      // back to the web API. Keeps copy working even if clipboard-write is denied.
+      const ok = await window.oxe.clipboard.writeText(text).catch(() => false)
+      if (!ok) await navigator.clipboard.writeText(text).catch(() => undefined)
+    }
+
     const pasteClipboardContents = async (): Promise<void> => {
       // Always check for image first: agent CLIs (Claude Code, Copilot) prefer file-path
       // references and readText() can return stale/unrelated text even when clipboard has an image.
@@ -152,6 +180,23 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId }: T
 
     terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
       const key = event.key.toLowerCase()
+
+      // Copy selected text. Ctrl+Shift+C always copies (no PTY conflict).
+      // Ctrl+C copies only when there's a selection — otherwise it must fall
+      // through to the PTY as SIGINT (interrupt), the expected terminal behavior.
+      if ((event.ctrlKey || event.metaKey) && key === 'c' && event.type === 'keydown' && !event.altKey) {
+        const selection = terminal.getSelection()
+        if (event.shiftKey) {
+          if (selection) { void copyText(selection); terminal.clearSelection() }
+          return false
+        }
+        if (selection) {
+          void copyText(selection)
+          terminal.clearSelection()
+          return false // we copied — don't also send SIGINT
+        }
+        return true // no selection → let Ctrl+C reach the PTY (interrupt)
+      }
 
       // Explicit Ctrl/Cmd+V interception. Relying on the browser-native
       // `paste` event alone is unreliable in Electron — xterm's hidden
@@ -229,6 +274,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId }: T
         // xterm may not have measurable dimensions during first layout.
       }
     }
+    refitRef.current = fitTerminal
 
     const scheduleFit = (): void => {
       if (fitFrameRef.current !== null) return
@@ -303,10 +349,51 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId }: T
       hostRef.current?.removeEventListener('paste', handlePaste, { capture: true })
       window.removeEventListener('oxe:terminal-insert-text', handleProgrammaticInsert)
       pasteRef.current = null
+      refitRef.current = null
       terminal.dispose()
       terminalRef.current = null
     }
   }, [paneId])
+
+  // Apply prefs + theme to the live terminal without recreating it. Font/cursor
+  // changes are immediate; the theme is re-read on the next frame so the
+  // workspace's `data-theme` (set by ThemeProvider) has already settled.
+  useEffect(() => {
+    const term = terminalRef.current
+    if (!term) return
+    const fontChanged =
+      term.options.fontFamily !== prefs.fontFamily ||
+      term.options.fontSize !== prefs.fontSize ||
+      term.options.lineHeight !== prefs.lineHeight ||
+      term.options.letterSpacing !== prefs.letterSpacing
+    term.options.fontFamily = prefs.fontFamily
+    term.options.fontSize = prefs.fontSize
+    term.options.lineHeight = prefs.lineHeight
+    term.options.letterSpacing = prefs.letterSpacing
+    term.options.cursorStyle = prefs.cursorStyle
+    term.options.cursorBlink = prefs.cursorBlink
+    term.options.scrollback = prefs.scrollback
+
+    const raf = window.requestAnimationFrame(() => {
+      const t = terminalRef.current
+      if (!t) return
+      t.options.theme = buildTerminalTheme()
+      // Font metrics changed → re-fit (recomputes cols/rows + notifies the PTY)
+      // and repaint so glyphs render at the new size.
+      if (fontChanged) refitRef.current?.()
+      t.refresh(0, t.rows - 1)
+    })
+    return () => window.cancelAnimationFrame(raf)
+  }, [
+    themeId,
+    prefs.fontFamily,
+    prefs.fontSize,
+    prefs.lineHeight,
+    prefs.letterSpacing,
+    prefs.cursorStyle,
+    prefs.cursorBlink,
+    prefs.scrollback
+  ])
 
   useEffect(() => {
     if (isRunning) terminalRef.current?.focus()

@@ -16,6 +16,7 @@ import { broadcastSkillChange, registerSkillIpc } from './ipc/skill.ipc'
 import { broadcastMcpHealth, registerMcpIpc } from './ipc/mcp.ipc'
 import { registerMcpInternalIpc } from './ipc/mcp-internal.ipc'
 import { registerVoiceIpc } from './ipc/voice.ipc'
+import { registerNotificationsIpc } from './ipc/notifications.ipc'
 import { registerOxeContextIpc } from './ipc/oxe-context.ipc'
 import { SkillService } from './services/skill.service'
 import { McpManager } from './services/mcp.service'
@@ -101,6 +102,10 @@ function registerIpcHandlers(): void {
   // permission), so terminal Ctrl+V paste never depends on navigator.clipboard
   // being granted clipboard-read.
   ipcMain.handle(IPC_CHANNELS.clipboard.readText, () => clipboard.readText())
+  ipcMain.handle(IPC_CHANNELS.clipboard.writeText, (_e, text: string) => {
+    clipboard.writeText(typeof text === 'string' ? text : '')
+    return true
+  })
   ipcMain.handle(IPC_CHANNELS.clipboard.saveImageToTemp, async () => {
     const image = clipboard.readImage()
     if (image.isEmpty()) return null
@@ -114,6 +119,7 @@ function registerIpcHandlers(): void {
     return filePath
   })
   registerVoiceIpc()
+  registerNotificationsIpc()
   const fileSystemService = registerFileSystemIpc()
   // Internal oxespace MCP server — auto-starts on app boot, registers a
   // global row in mcp_servers, syncs to every workspace's .mcp.json. The
@@ -190,6 +196,7 @@ function registerNativeFailureIpcHandlers(message: string): void {
   ipcMain.handle(IPC_CHANNELS.voice.transcribe, fail)
   ipcMain.handle(IPC_CHANNELS.voice.getModelStatus, () => ({ size: 'base', ready: false, path: '', engineReady: false }))
   ipcMain.handle(IPC_CHANNELS.voice.ensureModel, fail)
+  ipcMain.handle(IPC_CHANNELS.notifications.notify, () => false)
   ipcMain.handle(IPC_CHANNELS.agent.list, () => [])
   ipcMain.handle(IPC_CHANNELS.agent.discover, () => [])
   ipcMain.handle(IPC_CHANNELS.agent.getReadiness, () => [])
@@ -439,6 +446,7 @@ function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.voice.transcribe, () => ({ text: '', durationMs: 0 }))
   ipcMain.handle(IPC_CHANNELS.voice.getModelStatus, () => ({ size: 'base', ready: false, path: '', engineReady: false }))
   ipcMain.handle(IPC_CHANNELS.voice.ensureModel, () => ({ size: 'base', ready: false, path: '', engineReady: false }))
+  ipcMain.handle(IPC_CHANNELS.notifications.notify, () => false)
   ipcMain.handle(IPC_CHANNELS.agent.list, () => [])
   ipcMain.handle(IPC_CHANNELS.agent.discover, () => [])
   ipcMain.handle(IPC_CHANNELS.agent.getReadiness, () => [])

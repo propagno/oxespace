@@ -5,6 +5,7 @@ import { selectIntegrationsForWorkspace, useIntegrationStore } from '../../store
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { selectWorktrees, useWorktreeStore } from '../../store/worktree.store'
+import { useWorkspaceActivity, type WorkspaceActivity } from '../../hooks/useWorkspaceActivity'
 
 interface WorkspaceGroupProps {
   workspace: Workspace
@@ -46,6 +47,7 @@ export function WorkspaceGroup({
   const updateWorktreeState = useWorkspaceStore((s) => s.updateWorktreeState)
   const updateSettings = useWorkspaceStore((s) => s.updateSettings)
   const nonMainWorktreeCount = worktrees.filter((wt) => !wt.isMain).length
+  const activity = useWorkspaceActivity(workspace)
 
   // Context-menu state lives next to the rename + confirm-remove state since
   // the menu triggers both. Menu coordinates are absolute viewport pixels so
@@ -195,6 +197,13 @@ export function WorkspaceGroup({
         onContextMenu={handleContextMenu}
         data-testid="sidebar-workspace-select"
       >
+        {activity.dominant ? (
+          <span
+            className={`ws-group-dot pane-activity-dot activity-${activity.dominant}`}
+            title={activitySummary(activity)}
+            aria-hidden="true"
+          />
+        ) : null}
         <div className="ws-group-title-block">
           {renaming ? (
             <input
@@ -342,6 +351,18 @@ function RemoveWorkspaceModal({ workspaceName, onCancel, onConfirm }: RemoveWork
       </div>
     </div>
   )
+}
+
+function activitySummary(a: WorkspaceActivity): string {
+  if (!a.total) return ''
+  const parts: string[] = []
+  if (a.counts.thinking) parts.push(`${a.counts.thinking} thinking`)
+  if (a.counts.awaiting) parts.push(`${a.counts.awaiting} awaiting`)
+  if (a.counts.starting) parts.push(`${a.counts.starting} starting`)
+  if (a.counts.error) parts.push(`${a.counts.error} error`)
+  if (a.counts.idle) parts.push(`${a.counts.idle} idle`)
+  if (a.counts.exited) parts.push(`${a.counts.exited} exited`)
+  return `${a.total} agent${a.total === 1 ? '' : 's'}${parts.length ? ` · ${parts.join(', ')}` : ''}`
 }
 
 function compactRootLabel(rootPath: string): string {

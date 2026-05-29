@@ -46,13 +46,27 @@ const DEFAULT_STATE: TerminalStateEntry = {
 // Module-level timers so they survive re-renders
 const workingTimers = new Map<string, ReturnType<typeof setTimeout>>()
 const lastActivitySetTime = new Map<string, number>()
+// One-shot timers that decay the 'awaiting' tone to 'idle'. deriveStatusTone is
+// pure (computed in render), so without a re-render at the window boundary the
+// teal "your turn" dot would linger past its 5-minute life. Must match the
+// window in paneDisplay.ts deriveStatusTone.
+const awaitingTimers = new Map<string, ReturnType<typeof setTimeout>>()
+const AWAITING_WINDOW_MS = 5 * 60_000
+
+function clearAwaitingTimer(paneId: string): void {
+  const t = awaitingTimers.get(paneId)
+  if (t) { clearTimeout(t); awaitingTimers.delete(paneId) }
+}
 
 export const useTerminalStore = create<TerminalState>((set, get) => ({
   panes: {},
   pendingCommands: {},
   activePaneId: null,
 
-  setStatus: (paneId, status, error = null) =>
+  setStatus: (paneId, status, error = null) => {
+    // A status change recomputes the tone immediately → cancel any pending
+    // awaiting-decay so a stale timer can't bump an unrelated later state.
+    clearAwaitingTimer(paneId)
     set((state) => ({
       panes: {
         ...state.panes,
@@ -63,7 +77,8 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
           isWorking: status !== 'running' ? false : (state.panes[paneId]?.isWorking ?? false)
         }
       }
-    })),
+    }))
+  },
 
   getStatus: (paneId) => get().panes[paneId] ?? DEFAULT_STATE,
 
@@ -104,9 +119,11 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       }))
     }
 
-    // Always reset isWorking timer regardless of throttle
+    // Always reset isWorking timer regardless of throttle. New output also
+    // resets any pending awaiting-decay — the window restarts from this touch.
     const existing = workingTimers.get(paneId)
     if (existing) clearTimeout(existing)
+    clearAwaitingTimer(paneId)
     workingTimers.set(paneId, setTimeout(() => {
       workingTimers.delete(paneId)
       set(state => ({
@@ -115,6 +132,17 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
           [paneId]: { ...(state.panes[paneId] ?? DEFAULT_STATE), isWorking: false }
         }
       }))
+      // Streaming stopped → the pane is now 'awaiting' (if running + has intent).
+      // Schedule a no-op refresh at the window boundary so the tone decays to
+      // 'idle' on its own. The fresh entry reference forces a re-render.
+      awaitingTimers.set(paneId, setTimeout(() => {
+        awaitingTimers.delete(paneId)
+        set(state => {
+          const entry = state.panes[paneId]
+          if (!entry) return state
+          return { panes: { ...state.panes, [paneId]: { ...entry } } }
+        })
+      }, AWAITING_WINDOW_MS))
     }, 1500))
   },
 
@@ -170,30 +198,3 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     return cmd
   }
 }))
-
-/**
- * Three-tier activity level for vibe-coding awareness:
- * - `thinking`: agent is streaming output right now (isWorking timer alive).
- * - `awaiting`: agent paused after the user's last intent (recent activity,
- *   running status, has an intent on record). Visually = "check me".
- * - `idle`: everything else — never started, exited, or no recent activity.
- *
- * Pure function so it can be called inside selectors without re-render churn.
- */
-export type ActivityLevel = 'thinking' | 'awaiting' | 'idle'
-export function deriveActivityLevel(entry: TerminalStateEntry | undefined): ActivityLevel {
-  if (!entry) return 'idle'
-  if (entry.isWorking) return 'thinking'
-  const isRunning = entry.status === 'running' || entry.status === 'starting'
-  if (!isRunning) return 'idle'
-  // "Awaiting" is the post-response window where the user typed something
-  // recently and the agent already finished printing. Five minutes feels
-  // about right for a vibe-coding cadence — long enough to read a long
-  // answer, short enough to not stay marked as "needs attention" forever.
-  const hasFreshIntent = entry.lastIntent !== null
-  const lastTouchMs = Math.max(entry.lastActivityAt ?? 0, entry.lastIntentAt ?? 0)
-  if (hasFreshIntent && lastTouchMs && Date.now() - lastTouchMs < 5 * 60_000) {
-    return 'awaiting'
-  }
-  return 'idle'
-}

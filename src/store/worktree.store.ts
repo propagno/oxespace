@@ -42,9 +42,17 @@ export const useWorktreeStore = create<WorktreeStoreState>((set, get) => ({
   },
 
   remove: async (rootPath, path, force = false) => {
-    await window.oxe.github.removeWorktree({ rootPath, path, force })
-    const worktrees = await window.oxe.github.listWorktrees({ workspaceId: '', rootPath })
-    set((s) => ({ byRoot: { ...s.byRoot, [rootPath]: worktrees } }))
+    // `git worktree remove` can de-register the worktree yet still fail (non-zero
+    // exit) when the OS refuses to delete the folder — on Windows that happens
+    // when a pane's shell still holds the directory as its cwd. Refresh the list
+    // in `finally` so the UI reflects git's actual state even on a partial
+    // failure, then re-throw so the caller can surface a helpful message.
+    try {
+      await window.oxe.github.removeWorktree({ rootPath, path, force })
+    } finally {
+      const worktrees = await window.oxe.github.listWorktrees({ workspaceId: '', rootPath }).catch(() => null)
+      if (worktrees) set((s) => ({ byRoot: { ...s.byRoot, [rootPath]: worktrees } }))
+    }
   }
 }))
 

@@ -139,6 +139,17 @@
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  /* Render native controls (select popups, scrollbars, pickers) in dark mode
+     so <select> dropdown lists don't open with a white background. */
+  color-scheme: dark;
+}
+
+/* Belt-and-suspenders: explicit dark option colors for the native dropdown
+   popup, since some Chromium builds ignore color-scheme for <option> bg. */
+select option,
+select optgroup {
+  background-color: var(--bg-elevated);
+  color: var(--tx-primary);
 }
 
 :root[data-density='comfortable'] {
