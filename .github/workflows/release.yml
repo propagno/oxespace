@@ -5,6 +5,12 @@ on:
     tags:
       - "v*.*.*"
 
+# GitHub is removing the Node 20 runtime that JS actions run on. Force any
+# action still pinned to Node 20 (e.g. softprops/action-gh-release@v2) onto
+# Node 24 so the release keeps working past the deprecation deadline.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   release:
     name: Build installer
@@ -13,10 +19,10 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "22"
           cache: npm
