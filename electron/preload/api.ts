@@ -142,6 +142,9 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       unwatchEvents: (rootPath) => ipc.invoke(IPC_CHANNELS.oxe.unwatchEvents, rootPath) as Promise<{ ok: boolean }>,
       onEventsChanged: (listener) => subscribe<{ rootPath: string }>(ipc, IPC_CHANNELS.oxe.onEventsChanged, listener)
     },
+    copilot: {
+      credits: (force) => ipc.invoke(IPC_CHANNELS.copilot.credits, force) as Promise<import('../../shared/types/copilot').CopilotCredits>
+    },
     github: {
       getCliStatus: (input) => ipc.invoke(IPC_CHANNELS.github.getCliStatus, input) as Promise<GitHubCliStatus>,
       getWorkspaceStatus: (input) => ipc.invoke(IPC_CHANNELS.github.getWorkspaceStatus, input) as Promise<GitHubWorkspaceStatus>,

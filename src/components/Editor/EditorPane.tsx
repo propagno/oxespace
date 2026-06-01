@@ -1,5 +1,9 @@
 import Editor from '@monaco-editor/react'
 import { useEffect, useRef, useState, type ReactElement } from 'react'
+// Side-effect: self-host Monaco (loader.config + local workers) so the Editor
+// never reaches for the jsdelivr CDN — works behind corporate VPN/proxy and
+// satisfies the packaged-build CSP. Must run before <Editor> mounts.
+import '../../lib/monacoSetup'
 import type { FileTreeNode } from '../../../shared/types/ipc'
 import { useEditorStore } from '../../store/editor.store'
 import { ConflictDiff } from './ConflictDiff'

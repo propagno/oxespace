@@ -215,6 +215,9 @@ export const IPC_CHANNELS = {
     notify: 'notifications:notify',
     onActivate: 'notifications:on-activate'
   },
+  copilot: {
+    credits: 'copilot:credits'
+  },
   oxe: {
     detect: 'oxe:detect',
     status: 'oxe:status',
@@ -514,6 +517,11 @@ export interface OxeIntegrationApi {
   onEventsChanged(listener: (payload: { rootPath: string }) => void): () => void
 }
 
+export interface CopilotApi {
+  /** Global Copilot AI-Credits snapshot for the gh-authenticated account. */
+  credits(force?: boolean): Promise<import('./copilot').CopilotCredits>
+}
+
 export interface OxeApi {
   app: {
     version: string
@@ -530,6 +538,7 @@ export interface OxeApi {
   voice: VoiceApi
   notifications: NotificationsApi
   oxe: OxeIntegrationApi
+  copilot: CopilotApi
   background: BackgroundApi
   session: SessionApi
   skill: SkillApi

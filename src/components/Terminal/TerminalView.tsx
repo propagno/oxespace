@@ -13,6 +13,25 @@ import { useTerminalStore } from '../../store/terminal.store'
 // Claude Code uses ⏺ (U+23FA) on Mac and ● (U+25CF) on Windows
 const AGENT_MARKERS = ['⏺', '●']
 
+/**
+ * Preflight: can we actually get a WebGL2 context? @xterm/addon-webgl needs one,
+ * and on GPU-less hosts (corporate VMs, RDP, some VPN/remote desktops) its
+ * failure surfaces asynchronously and crashes the pane. Only load the addon when
+ * a real context is obtainable; otherwise stay on xterm's DOM renderer.
+ */
+function supportsWebgl2(): boolean {
+  try {
+    const canvas = document.createElement('canvas')
+    const gl = canvas.getContext('webgl2')
+    if (!gl) return false
+    // Release the probe context so we don't hold a GPU slot.
+    gl.getExtension('WEBGL_lose_context')?.loseContext()
+    return true
+  } catch {
+    return false
+  }
+}
+
 // readAgentPreview only needs the most recent agent line. Cap how far back it
 // scans so it stays O(1) regardless of scrollback depth — without this it walks
 // the entire buffer (up to 100k lines) on every output burst when no marker is
@@ -146,20 +165,32 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
     // GPU-accelerated renderer. The default DOM renderer repaints every visible
     // row each frame and degrades badly with large scrollback (and several open
     // panes), which is what makes the terminal — and selection/copy — feel
-    // sluggish "after a while of use". WebGL offloads that to the GPU. It can
-    // fail (no GL context, driver loss): swallow the error and let xterm fall
-    // back to the DOM renderer so the pane stays usable.
+    // sluggish "after a while of use". WebGL offloads that to the GPU.
+    //
+    // In GPU-less environments (corporate VMs, RDP, some VPN/remote desktops)
+    // WebGL is unavailable or unstable. The @xterm/addon-webgl failure surfaces
+    // ASYNCHRONOUSLY (render tick / context loss), so a synchronous try/catch
+    // around loadAddon can't contain it — the classic "Cannot read properties
+    // of undefined (reading '_isDisposed')" then escapes and (without a boundary)
+    // blanks the whole app. So we PREFLIGHT a real WebGL2 context first and only
+    // load the addon when it actually works; otherwise we stay on the DOM
+    // renderer. Disposal is also guarded so teardown can never throw.
     let webglAddon: WebglAddon | null = null
-    try {
-      webglAddon = new WebglAddon()
-      webglAddon.onContextLoss(() => {
-        webglAddon?.dispose()
+    if (supportsWebgl2()) {
+      try {
+        const addon = new WebglAddon()
+        addon.onContextLoss(() => {
+          try { addon.dispose() } catch { /* already torn down */ }
+          if (webglAddon === addon) webglAddon = null
+        })
+        terminal.loadAddon(addon)
+        webglAddon = addon
+      } catch (err) {
+        console.warn('[OXESpace] WebGL renderer unavailable, using DOM renderer', err)
         webglAddon = null
-      })
-      terminal.loadAddon(webglAddon)
-    } catch (err) {
-      console.warn('[OXESpace] WebGL renderer unavailable, using DOM renderer', err)
-      webglAddon = null
+      }
+    } else {
+      console.warn('[OXESpace] WebGL2 not available, using DOM renderer')
     }
     // Unicode 11 width tables live behind xterm's "proposed API" gate. In some
     // Vite-bundled dev builds the proposed-API check throws even with
@@ -412,7 +443,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       resizeObserver.disconnect()
       dataDisposable.dispose()
       selectionDisposable.dispose()
-      webglAddon?.dispose()
+      try { webglAddon?.dispose() } catch { /* WebGL addon teardown raced — ignore */ }
       hostRef.current?.removeEventListener('paste', handlePaste, { capture: true })
       window.removeEventListener('oxe:terminal-insert-text', handleProgrammaticInsert)
       pasteRef.current = null

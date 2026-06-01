@@ -6,6 +6,7 @@ import { useIntegrationStore } from '../../store/integration.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { useWorkspaceActivity } from '../../hooks/useWorkspaceActivity'
 import { OxeLogo } from '../Brand/OxeLogo'
+import { CopilotCreditsChip } from './CopilotCreditsChip'
 import { SidebarIntegrationRow } from './SidebarIntegrationRow'
 import { WorkspaceGroup } from './WorkspaceGroup'
 
@@ -123,6 +124,7 @@ export function Sidebar({
           ))}
         </nav>
         <div className="sidebar-footer">
+          <CopilotCreditsChip compact />
           <button
             type="button"
             className="sidebar-collapse-btn"
@@ -223,6 +225,7 @@ export function Sidebar({
 
       <div className="sidebar-footer">
         <span className="sidebar-version">v{appVersion}</span>
+        <CopilotCreditsChip />
         <button
           type="button"
           className="sidebar-collapse-btn"

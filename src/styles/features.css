@@ -4036,6 +4036,24 @@
   background: var(--surface-quiet);
 }
 
+/* ErrorBoundary fallback — keeps a single component crash from blanking the app. */
+.error-boundary-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 16px;
+  height: 100%;
+  color: var(--tx-secondary);
+  font-size: 12px;
+}
+.error-boundary-fallback code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #fca5a5;
+  word-break: break-word;
+}
+
 .terminal-view {
   width: 100%;
   height: 100%;

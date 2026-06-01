@@ -12,6 +12,7 @@ import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { useResolvedTerminalPrefs } from '../../store/terminal-prefs.store'
 import { TerminalView } from '../Terminal/TerminalView'
+import { ErrorBoundary } from '../common/ErrorBoundary'
 
 interface TerminalPaneProps {
   pane: WorkspacePane
@@ -293,6 +294,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
 
       {isRunning ? (
         <div className="terminal-content">
+          <ErrorBoundary label="o terminal">
           <TerminalView
             paneId={pane.id}
             isRunning={isRunning}
@@ -314,6 +316,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
               setStatus(pane.id, 'exited', exitCode ? `Exited with code ${exitCode}` : undefined)
             }}
           />
+          </ErrorBoundary>
           {voice.status === 'listening' || voice.status === 'transcribing' || voice.status === 'downloading' || voice.error ? (
             <div className={`oxe-voice-hud ${voice.error ? 'error' : voice.status}`} role="status" aria-live="polite">
               {voice.status === 'listening' && !voice.error ? (
