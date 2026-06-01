@@ -1,5 +1,6 @@
 import { FitAddon } from '@xterm/addon-fit'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
+import { WebglAddon } from '@xterm/addon-webgl'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
@@ -11,6 +12,20 @@ import { useTerminalStore } from '../../store/terminal.store'
 
 // Claude Code uses ⏺ (U+23FA) on Mac and ● (U+25CF) on Windows
 const AGENT_MARKERS = ['⏺', '●']
+
+// readAgentPreview only needs the most recent agent line. Cap how far back it
+// scans so it stays O(1) regardless of scrollback depth — without this it walks
+// the entire buffer (up to 100k lines) on every output burst when no marker is
+// found, janking the renderer and making selection/copy unreliable over time.
+const AGENT_PREVIEW_SCAN_LINES = 300
+
+// How long a just-cleared selection is still considered copyable. xterm wipes
+// the selection when the scrollback trims, the buffer toggles (TUI alt-screen),
+// or the user types — so a selection can vanish in the moment between the user
+// selecting text and pressing Ctrl/Cmd+C. We remember the last non-empty
+// selection briefly so the copy still lands instead of silently turning into a
+// SIGINT. Reset whenever the user actually types into the PTY.
+const RECENT_SELECTION_MS = 2000
 
 /**
  * Build the xterm color theme from the live CSS design tokens. Read at
@@ -48,7 +63,9 @@ function buildTerminalTheme(): ITheme {
 
 function readAgentPreview(terminal: Terminal): string {
   const buf = terminal.buffer.active
-  for (let y = buf.baseY + buf.cursorY; y >= 0; y--) {
+  const top = buf.baseY + buf.cursorY
+  const stop = Math.max(0, top - AGENT_PREVIEW_SCAN_LINES)
+  for (let y = top; y >= stop; y--) {
     const line = buf.getLine(y)
     if (!line) continue
     let text = ''
@@ -83,6 +100,10 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
   const terminalRef = useRef<Terminal | null>(null)
   const pasteRef = useRef<((text: string) => void) | null>(null)
   const refitRef = useRef<(() => void) | null>(null)
+  // Last non-empty selection + when it was seen, so a copy can still fire if
+  // xterm cleared the live selection (scrollback trim / buffer toggle) just
+  // before the keypress. See RECENT_SELECTION_MS.
+  const lastSelectionRef = useRef<{ text: string; at: number } | null>(null)
   const prefsRef = useRef(prefs)
   prefsRef.current = prefs
   const onExitRef = useRef(onExit)
@@ -121,6 +142,25 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
     terminal.loadAddon(unicodeAddon)
     terminal.loadAddon(new WebLinksAddon())
     terminal.open(hostRef.current)
+
+    // GPU-accelerated renderer. The default DOM renderer repaints every visible
+    // row each frame and degrades badly with large scrollback (and several open
+    // panes), which is what makes the terminal — and selection/copy — feel
+    // sluggish "after a while of use". WebGL offloads that to the GPU. It can
+    // fail (no GL context, driver loss): swallow the error and let xterm fall
+    // back to the DOM renderer so the pane stays usable.
+    let webglAddon: WebglAddon | null = null
+    try {
+      webglAddon = new WebglAddon()
+      webglAddon.onContextLoss(() => {
+        webglAddon?.dispose()
+        webglAddon = null
+      })
+      terminal.loadAddon(webglAddon)
+    } catch (err) {
+      console.warn('[OXESpace] WebGL renderer unavailable, using DOM renderer', err)
+      webglAddon = null
+    }
     // Unicode 11 width tables live behind xterm's "proposed API" gate. In some
     // Vite-bundled dev builds the proposed-API check throws even with
     // allowProposedApi: true (xterm exports get duplicated across module
@@ -135,7 +175,19 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
     }
     terminal.write('Idle\r\n')
 
-    const dataDisposable = terminal.onData((data) => onInputRef.current(data))
+    const dataDisposable = terminal.onData((data) => {
+      // The user typed into the PTY — any earlier selection is no longer a copy
+      // candidate, so a later Ctrl+C correctly falls through to SIGINT.
+      lastSelectionRef.current = null
+      onInputRef.current(data)
+    })
+    // Remember the last non-empty selection. onSelectionChange also fires with
+    // an empty selection when xterm clears it (trim / buffer toggle); we keep
+    // the previous value so a copy issued right after still has something.
+    const selectionDisposable = terminal.onSelectionChange(() => {
+      const sel = terminal.getSelection()
+      if (sel) lastSelectionRef.current = { text: sel, at: Date.now() }
+    })
     terminalRef.current = terminal
 
     const pasteText = (text: string): void => {
@@ -178,6 +230,18 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       if (text) pasteText(text)
     }
 
+    // Resolve what to copy: the live selection, or — if xterm just cleared it
+    // (scrollback trim / TUI buffer toggle) — the last selection seen within
+    // RECENT_SELECTION_MS. Without the fallback, copy silently fails while an
+    // agent streams output, which is the "copy stops working after a while" bug.
+    const effectiveSelection = (): string => {
+      const live = terminal.getSelection()
+      if (live) return live
+      const recent = lastSelectionRef.current
+      if (recent && Date.now() - recent.at <= RECENT_SELECTION_MS) return recent.text
+      return ''
+    }
+
     terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
       const key = event.key.toLowerCase()
 
@@ -185,14 +249,15 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       // Ctrl+C copies only when there's a selection — otherwise it must fall
       // through to the PTY as SIGINT (interrupt), the expected terminal behavior.
       if ((event.ctrlKey || event.metaKey) && key === 'c' && event.type === 'keydown' && !event.altKey) {
-        const selection = terminal.getSelection()
+        const selection = effectiveSelection()
         if (event.shiftKey) {
-          if (selection) { void copyText(selection); terminal.clearSelection() }
+          if (selection) { void copyText(selection); terminal.clearSelection(); lastSelectionRef.current = null }
           return false
         }
         if (selection) {
           void copyText(selection)
           terminal.clearSelection()
+          lastSelectionRef.current = null
           return false // we copied — don't also send SIGINT
         }
         return true // no selection → let Ctrl+C reach the PTY (interrupt)
@@ -346,10 +411,13 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       unsubscribeExit()
       resizeObserver.disconnect()
       dataDisposable.dispose()
+      selectionDisposable.dispose()
+      webglAddon?.dispose()
       hostRef.current?.removeEventListener('paste', handlePaste, { capture: true })
       window.removeEventListener('oxe:terminal-insert-text', handleProgrammaticInsert)
       pasteRef.current = null
       refitRef.current = null
+      lastSelectionRef.current = null
       terminal.dispose()
       terminalRef.current = null
     }

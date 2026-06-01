@@ -6,11 +6,11 @@ OXESpace is a Windows desktop workspace for agentic development. It combines ter
 
 Current Windows release:
 
-[Download OXESpace 0.1.21 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.21/OXESpace-0.1.21-x64.exe)
+[Download OXESpace 0.1.22 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.22/OXESpace-0.1.22-x64.exe)
 
 Release page:
 
-[OXESpace v0.1.21](https://github.com/propagno/oxespace/releases/tag/v0.1.21)
+[OXESpace v0.1.22](https://github.com/propagno/oxespace/releases/tag/v0.1.22)
 
 All releases:
 
@@ -269,8 +269,8 @@ Release flow:
 ```powershell
 git switch main
 git pull origin main
-git tag v0.1.21
-git push origin v0.1.21
+git tag v0.1.22
+git push origin v0.1.22
 ```
 
 When the tag is pushed, GitHub Actions:
@@ -296,15 +296,15 @@ When the tag is pushed, GitHub Actions:
 
 ## Version
 
-Current release: `0.1.21`
+Current release: `0.1.22`
 
-Highlights since `0.1.20`:
+Highlights since `0.1.21`:
 
-- New built-in agent provider **Antigravity** (`agy` command), replacing the previous Gemini provider; migrated via `agent_profiles`/`shell_profiles` schema updates.
-- Agent-awaiting desktop notifications are far quieter: they only fire when the OXESpace window is unfocused, are rate-limited to once per pane per 5 minutes, and require a longer stable pause before firing.
-- Sidebar: press `/` to focus the workspace search.
-- Release CI modernized for the Node 24 actions runtime.
+- Native **OXE (oxe-cc) integration** is now reactive and self-updating: the OXE panel reads the cheap `status --json --summary` and refreshes on its own as the agent progresses (it watches the workspace's `.oxe/` for changes), instead of needing a manual refresh.
+- **Skills onboarding**: when an agent (Copilot, Codex, …) is missing its `/oxe-*` skills in a workspace, the panel surfaces a one-click "install skills" action — closing the "Failed to load skills" gap before you launch the agent.
+- **Embedded dashboard**: the OXE dashboard now opens inside OXESpace (managed local server) rather than the external browser.
+- Requires `oxe-cc` ≥ 1.14 for the new surfaces; older versions degrade gracefully.
 
 Installer asset:
 
-[OXESpace-0.1.21-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.21/OXESpace-0.1.21-x64.exe)
+[OXESpace-0.1.22-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.22/OXESpace-0.1.22-x64.exe)

@@ -131,6 +131,17 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       onActivate: (listener) =>
         subscribe<{ paneId: string; workspaceId: string }>(ipc, IPC_CHANNELS.notifications.onActivate, listener)
     },
+    oxe: {
+      detect: (force) => ipc.invoke(IPC_CHANNELS.oxe.detect, force) as Promise<import('../../shared/types/oxe').OxeDetect>,
+      status: (rootPath, force) => ipc.invoke(IPC_CHANNELS.oxe.status, rootPath, force) as Promise<import('../../shared/types/oxe').OxeStatusResult>,
+      statusSummary: (rootPath, force) => ipc.invoke(IPC_CHANNELS.oxe.statusSummary, rootPath, force) as Promise<import('../../shared/types/oxe').OxeSummaryResult>,
+      openDashboard: (rootPath) => ipc.invoke(IPC_CHANNELS.oxe.openDashboard, rootPath) as Promise<{ ok: boolean; error: string | null }>,
+      startDashboard: (rootPath) => ipc.invoke(IPC_CHANNELS.oxe.startDashboard, rootPath) as Promise<import('../../shared/types/oxe').OxeDashboardHandle>,
+      stopDashboard: (rootPath) => ipc.invoke(IPC_CHANNELS.oxe.stopDashboard, rootPath) as Promise<{ ok: boolean }>,
+      watchEvents: (rootPath) => ipc.invoke(IPC_CHANNELS.oxe.watchEvents, rootPath) as Promise<{ ok: boolean }>,
+      unwatchEvents: (rootPath) => ipc.invoke(IPC_CHANNELS.oxe.unwatchEvents, rootPath) as Promise<{ ok: boolean }>,
+      onEventsChanged: (listener) => subscribe<{ rootPath: string }>(ipc, IPC_CHANNELS.oxe.onEventsChanged, listener)
+    },
     github: {
       getCliStatus: (input) => ipc.invoke(IPC_CHANNELS.github.getCliStatus, input) as Promise<GitHubCliStatus>,
       getWorkspaceStatus: (input) => ipc.invoke(IPC_CHANNELS.github.getWorkspaceStatus, input) as Promise<GitHubWorkspaceStatus>,

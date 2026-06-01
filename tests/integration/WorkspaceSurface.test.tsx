@@ -112,7 +112,7 @@ describe('WorkspaceSurface', () => {
     expect(onCloseWebPreview).toHaveBeenCalled()
   })
 
-  test('renders GitHub panel separately and never exposes removed OXE tools', async () => {
+  test('renders GitHub panel separately and exposes the OXE tool', async () => {
     const user = userEvent.setup()
     render(<ControlledSurface />)
 
@@ -123,8 +123,9 @@ describe('WorkspaceSurface', () => {
     expect(screen.getByTestId('workspace-grid')).toBeInTheDocument()
     expect(screen.queryByTestId('workspace-github-panel')).not.toBeInTheDocument()
 
+    // OXE is now a first-class, opt-in tool (decoupled oxe-cc integration).
     await user.click(screen.getByRole('button', { name: 'Tools' }))
-    expect(screen.queryByRole('menuitem', { name: /OXE/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /OXE/ })).toBeInTheDocument()
   })
 })
 
@@ -144,10 +145,13 @@ function renderSurface(
       onOpenSkills={() => undefined}
       onOpenScripts={() => undefined}
       onOpenWebPreview={() => undefined}
+      onToggleOxe={() => undefined}
       scriptsVisible={false}
       webPreviewVisible={false}
+      oxeVisible={false}
       onCloseScripts={() => undefined}
       onCloseWebPreview={() => undefined}
+      onCloseOxe={() => undefined}
       onRunCommand={() => undefined}
       onUpdateEditorState={() => undefined}
       onUpdateReviewState={() => undefined}
@@ -174,10 +178,13 @@ function ControlledSurface(): ReactElement {
       onOpenSkills={() => undefined}
       onOpenScripts={() => undefined}
       onOpenWebPreview={() => undefined}
+      onToggleOxe={() => undefined}
       scriptsVisible={false}
       webPreviewVisible={false}
+      oxeVisible={false}
       onCloseScripts={() => undefined}
       onCloseWebPreview={() => undefined}
+      onCloseOxe={() => undefined}
       onRunCommand={() => undefined}
       onUpdateEditorState={(input) => setWorkspace((current) => ({ ...current, ...input }))}
       onUpdateReviewState={(input) => setWorkspace((current) => ({ ...current, ...input }))}

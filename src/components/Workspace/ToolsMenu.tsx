@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react'
-import { Activity, ChevronDown, Code2, Command, FolderTree, Github, GitCompareArrows, History, ListChecks, MonitorPlay, Network, PanelLeft, Settings2, Sparkles, Wrench } from 'lucide-react'
+import { Activity, ChevronDown, Code2, Command, Compass, FolderTree, Github, GitCompareArrows, History, ListChecks, MonitorPlay, Network, PanelLeft, Settings2, Sparkles, Wrench } from 'lucide-react'
 
 interface ToolsMenuProps {
   active: {
@@ -11,6 +11,7 @@ interface ToolsMenuProps {
     scripts: boolean
     webPreview: boolean
     integration: boolean
+    oxe: boolean
   }
   onOpenCommandPalette: () => void
   onOpenWorkspaceSettings: () => void
@@ -25,6 +26,7 @@ interface ToolsMenuProps {
   onOpenHistory: () => void
   onOpenMcp: () => void
   onOpenSkills: () => void
+  onToggleOxe: () => void
 }
 
 export function ToolsMenu({
@@ -41,7 +43,8 @@ export function ToolsMenu({
   onOpenIntegration,
   onOpenHistory,
   onOpenMcp,
-  onOpenSkills
+  onOpenSkills,
+  onToggleOxe
 }: ToolsMenuProps): ReactElement {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement | null>(null)
@@ -84,6 +87,7 @@ export function ToolsMenu({
             <ToolItem icon={<History size={14} />} label="History" detail="Ctrl+Shift+H" onClick={() => run(onOpenHistory)} />
             <ToolItem icon={<Wrench size={14} />} label="MCP Servers" detail="Tools" onClick={() => run(onOpenMcp)} />
             <ToolItem icon={<Sparkles size={14} />} label="Skills" detail="Markdown" onClick={() => run(onOpenSkills)} />
+            <ToolItem active={active.oxe} icon={<Compass size={14} />} label="OXE" detail="SDLC" onClick={() => run(onToggleOxe)} />
           </ToolsGroup>
           <ToolsGroup title="System">
             <ToolItem active={active.editor} icon={<span className="tool-item-symbol">⌘</span>} label="Editor" detail="Editor" onClick={() => run(onToggleEditor)} />

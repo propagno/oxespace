@@ -3832,6 +3832,210 @@
   font-style: italic;
 }
 
+/* ─── OXE panel ───────────────────────────────────────────────────── */
+.oxe-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 12px;
+  overflow-y: auto;
+  height: 100%;
+}
+.oxe-panel-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 100%;
+  color: var(--tx-muted);
+  font-size: 12px;
+}
+.oxe-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.oxe-panel-version {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tx-muted);
+}
+.oxe-panel-state {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+}
+.oxe-health-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  background: var(--tx-muted);
+}
+.oxe-health-dot.oxe-health-healthy { background: var(--dot-green); }
+.oxe-health-dot.oxe-health-warning { background: var(--dot-yellow); }
+.oxe-health-dot.oxe-health-critical { background: var(--dot-red); }
+.oxe-health-label { text-transform: capitalize; color: var(--tx-primary); }
+.oxe-panel-meta { color: var(--tx-muted); font-size: 11px; }
+
+.oxe-panel-section { display: flex; flex-direction: column; gap: 6px; }
+.oxe-panel-kicker {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tx-muted);
+}
+.oxe-nextstep {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(18, 199, 154, 0.3);
+  border-radius: var(--radius-md);
+  background: rgba(18, 199, 154, 0.08);
+  color: var(--brand-light);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition-base), border-color var(--transition-base);
+}
+.oxe-nextstep:hover:not(:disabled) { background: rgba(18, 199, 154, 0.14); border-color: var(--brand); }
+.oxe-nextstep:disabled { opacity: 0.5; cursor: default; }
+.oxe-nextstep code { font-family: var(--font-mono); font-size: 12px; }
+.oxe-nextstep-reason { margin: 0; font-size: 11px; color: var(--tx-muted); line-height: 1.45; }
+.oxe-panel-hint { margin: 0; font-size: 11px; color: var(--tx-muted); }
+.oxe-panel-error { margin: 0; font-size: 11px; color: #fca5a5; }
+
+.oxe-diagnostics { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.oxe-diagnostics li {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--tx-secondary);
+}
+.oxe-diagnostics svg { color: var(--dot-yellow); flex: 0 0 auto; margin-top: 1px; }
+
+.oxe-panel-actions { display: flex; gap: 8px; margin-top: auto; }
+.oxe-panel-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border: 1px solid var(--bd-base);
+  border-radius: var(--radius-sm);
+  background: var(--surface-quiet);
+  color: var(--tx-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background var(--transition-base), color var(--transition-base);
+}
+.oxe-panel-action:hover:not(:disabled) { background: var(--surface-hover); color: var(--tx-primary); }
+.oxe-panel-action:disabled { opacity: 0.5; cursor: default; }
+.oxe-panel-action.primary { border-color: var(--brand); color: var(--brand-light); background: rgba(18, 199, 154, 0.1); }
+
+.oxe-onboarding {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  padding: 18px 12px;
+}
+.oxe-onboarding-icon {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: var(--surface-quiet);
+  color: var(--brand-light);
+}
+.oxe-onboarding strong { color: var(--tx-primary); font-size: 13px; }
+.oxe-onboarding p { margin: 0; font-size: 11.5px; line-height: 1.5; color: var(--tx-muted); }
+.oxe-onboarding-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--tx-muted);
+  text-decoration: none;
+}
+.oxe-onboarding-link:hover { color: var(--brand-light); }
+.oxe-onboarding-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  font-size: 11px;
+  color: var(--tx-secondary);
+  cursor: pointer;
+}
+.oxe-onboarding-retry:hover:not(:disabled) { color: var(--brand-light); }
+.oxe-onboarding-retry:disabled { opacity: 0.5; cursor: default; }
+
+/* Live indicator — pulses when a fresh summary lands. */
+.oxe-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-left: auto;
+  margin-right: 6px;
+  background: var(--tx-muted);
+  opacity: 0.4;
+  transition: opacity var(--transition-base);
+}
+.oxe-live-dot.live {
+  background: var(--dot-green);
+  opacity: 1;
+  animation: oxe-live-pulse 1.2s ease-out;
+}
+@keyframes oxe-live-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(18, 199, 154, 0.5); }
+  100% { box-shadow: 0 0 0 6px rgba(18, 199, 154, 0); }
+}
+
+/* Per-agent skills onboarding cards. */
+.oxe-skills { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.oxe-skill-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--dot-yellow);
+  border-radius: var(--radius-sm);
+  background: rgba(234, 179, 8, 0.08);
+}
+.oxe-skill-info { display: flex; align-items: center; gap: 7px; font-size: 11.5px; line-height: 1.4; color: var(--tx-secondary); }
+.oxe-skill-info code { font-family: var(--font-mono); font-size: 11px; }
+.oxe-skill-info strong { color: var(--tx-primary); }
+.oxe-skill-badge { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.oxe-skill-badge.missing { background: var(--dot-yellow); }
+
+/* Embedded dashboard. */
+.oxe-dashboard-section { flex: 1 1 auto; min-height: 220px; }
+.oxe-dashboard-bar { display: flex; align-items: center; justify-content: space-between; }
+.oxe-dashboard-frame {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 200px;
+  height: 100%;
+  border: 1px solid var(--bd-base);
+  border-radius: var(--radius-sm);
+  background: var(--surface-quiet);
+}
+
 .terminal-view {
   width: 100%;
   height: 100%;

@@ -26,7 +26,10 @@ const ALLOWED_FS_IMPORTS = new Set([
   // OXEVoice engine: downloads the Whisper model to <userData>/models and
   // writes a temp WAV for the CLI — outside the workspace tree, so raw fs is
   // appropriate here rather than the workspace-scoped FileSystemService.
-  'electron/main/services/voice.service.ts'
+  'electron/main/services/voice.service.ts',
+  // OXE integration: existsSync(`<root>/.oxe`) to decide onboarding vs status —
+  // a read-only project probe, not a workspace file operation.
+  'electron/main/services/oxe.service.ts'
 ])
 
 describe('workspace fs allowlist', () => {

@@ -215,6 +215,17 @@ export const IPC_CHANNELS = {
     notify: 'notifications:notify',
     onActivate: 'notifications:on-activate'
   },
+  oxe: {
+    detect: 'oxe:detect',
+    status: 'oxe:status',
+    statusSummary: 'oxe:status-summary',
+    openDashboard: 'oxe:open-dashboard',
+    startDashboard: 'oxe:start-dashboard',
+    stopDashboard: 'oxe:stop-dashboard',
+    watchEvents: 'oxe:watch-events',
+    unwatchEvents: 'oxe:unwatch-events',
+    onEventsChanged: 'oxe:on-events-changed'
+  },
   background: {
     list: 'background:list',
     start: 'background:start',
@@ -486,6 +497,23 @@ export interface NotificationsApi {
   onActivate(listener: (payload: { paneId: string; workspaceId: string }) => void): () => void
 }
 
+export interface OxeIntegrationApi {
+  detect(force?: boolean): Promise<import('./oxe').OxeDetect>
+  status(rootPath: string, force?: boolean): Promise<import('./oxe').OxeStatusResult>
+  /** Cheap, versioned summary for the hot path (oxe-cc ≥ 1.13; falls back to full status detection otherwise). */
+  statusSummary(rootPath: string, force?: boolean): Promise<import('./oxe').OxeSummaryResult>
+  /** Legacy fire-and-forget: opens the dashboard in the external browser. */
+  openDashboard(rootPath: string): Promise<{ ok: boolean; error: string | null }>
+  /** Start (or reuse) an embedded dashboard server and return its URL/port (oxe-cc ≥ 1.14). */
+  startDashboard(rootPath: string): Promise<import('./oxe').OxeDashboardHandle>
+  /** Kill the embedded dashboard server for a workspace root. */
+  stopDashboard(rootPath: string): Promise<{ ok: boolean }>
+  /** Watch the workspace's .oxe/ for changes; fires onEventsChanged. */
+  watchEvents(rootPath: string): Promise<{ ok: boolean }>
+  unwatchEvents(rootPath: string): Promise<{ ok: boolean }>
+  onEventsChanged(listener: (payload: { rootPath: string }) => void): () => void
+}
+
 export interface OxeApi {
   app: {
     version: string
@@ -501,6 +529,7 @@ export interface OxeApi {
   clipboard: ClipboardApi
   voice: VoiceApi
   notifications: NotificationsApi
+  oxe: OxeIntegrationApi
   background: BackgroundApi
   session: SessionApi
   skill: SkillApi

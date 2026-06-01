@@ -100,6 +100,7 @@ export function App(): ReactElement {
     isSkillsBrowserOpen,
     isScriptsPanelOpen,
     isWebPreviewOpen,
+    isOxePanelOpen,
     isIntegrationPanelOpen,
     openCommandPalette,
     openWorkspaceSettings,
@@ -113,6 +114,8 @@ export function App(): ReactElement {
     closeSkillsBrowser,
     openScriptsPanel,
     closeScriptsPanel,
+    openOxePanel,
+    closeOxePanel,
     openWebPreview,
     closeWebPreview,
     openIntegrationPanel,
@@ -573,12 +576,15 @@ export function App(): ReactElement {
                       onOpenScripts={openScriptsPanel}
                       onOpenWebPreview={openWebPreview}
                       onOpenIntegration={openIntegrationPanel}
+                      onToggleOxe={() => (isOxePanelOpen ? closeOxePanel() : openOxePanel())}
                       scriptsVisible={isActive && isScriptsPanelOpen}
                       webPreviewVisible={isActive && isWebPreviewOpen}
                       integrationVisible={isActive && isIntegrationPanelOpen}
+                      oxeVisible={isActive && isOxePanelOpen}
                       onCloseScripts={closeScriptsPanel}
                       onCloseWebPreview={closeWebPreview}
                       onCloseIntegration={closeIntegrationPanel}
+                      onCloseOxe={closeOxePanel}
                       onSelectWorkspace={(id) => void setActiveWorkspace(id)}
                       workspaces={workspaces}
                       onUpdateEditorState={(input) => void updateEditorState(input)}

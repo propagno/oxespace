@@ -16,7 +16,8 @@ const terminalState = {
   scrollToLine: vi.fn(),
   attachCustomKeyEventHandler: vi.fn(),
   getSelection: vi.fn(() => ''),
-  clearSelection: vi.fn()
+  clearSelection: vi.fn(),
+  onSelectionChange: vi.fn(() => ({ dispose: vi.fn() }))
 }
 
 vi.mock('@xterm/xterm', () => ({
@@ -38,6 +39,7 @@ vi.mock('@xterm/xterm', () => ({
     attachCustomKeyEventHandler: terminalState.attachCustomKeyEventHandler,
     getSelection: terminalState.getSelection,
     clearSelection: terminalState.clearSelection,
+    onSelectionChange: terminalState.onSelectionChange,
     buffer: {
       active: { baseY: 0, viewportY: 0, cursorY: 0, length: 0, getLine: vi.fn(() => null) }
     },
@@ -62,6 +64,13 @@ vi.mock('@xterm/addon-web-links', () => ({
   WebLinksAddon: vi.fn()
 }))
 
+vi.mock('@xterm/addon-webgl', () => ({
+  WebglAddon: vi.fn().mockImplementation(() => ({
+    onContextLoss: vi.fn(),
+    dispose: vi.fn()
+  }))
+}))
+
 describe('TerminalView', () => {
   beforeEach(() => {
     terminalState.onData = null
@@ -77,6 +86,7 @@ describe('TerminalView', () => {
     terminalState.getSelection.mockReset()
     terminalState.getSelection.mockReturnValue('')
     terminalState.clearSelection.mockClear()
+    terminalState.onSelectionChange.mockClear()
 
     global.ResizeObserver = class {
       constructor(private readonly callback: ResizeObserverCallback) {}
@@ -311,6 +321,42 @@ describe('TerminalView', () => {
     const handled = handler(new KeyboardEvent('keydown', { key: 'c', ctrlKey: true }))
 
     expect(handled).toBe(true) // no selection → interrupt reaches the shell
+    expect(window.oxe.clipboard.writeText).not.toHaveBeenCalled()
+  })
+
+  test('Ctrl+C copies a just-cleared selection via the recent-selection fallback', async () => {
+    terminalState.getSelection.mockReturnValue('streamed output line')
+    render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
+
+    // The user makes a selection (xterm fires onSelectionChange) …
+    const onSelectionChange = terminalState.onSelectionChange.mock.calls[0][0] as () => void
+    onSelectionChange()
+    // … then xterm clears it (scrollback trim / buffer toggle) before Ctrl+C.
+    terminalState.getSelection.mockReturnValue('')
+
+    const handler = terminalState.attachCustomKeyEventHandler.mock.calls[0][0] as (event: KeyboardEvent) => boolean
+    const handled = handler(new KeyboardEvent('keydown', { key: 'c', ctrlKey: true }))
+
+    expect(handled).toBe(false) // we still copied — don't send SIGINT
+    await vi.waitFor(() => {
+      expect(window.oxe.clipboard.writeText).toHaveBeenCalledWith('streamed output line')
+    })
+  })
+
+  test('typing invalidates the recent selection so Ctrl+C becomes SIGINT again', () => {
+    terminalState.getSelection.mockReturnValue('old selection')
+    render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
+
+    const onSelectionChange = terminalState.onSelectionChange.mock.calls[0][0] as () => void
+    onSelectionChange()
+    // User types into the PTY — the stored selection must be discarded.
+    terminalState.onData?.('x')
+    terminalState.getSelection.mockReturnValue('')
+
+    const handler = terminalState.attachCustomKeyEventHandler.mock.calls[0][0] as (event: KeyboardEvent) => boolean
+    const handled = handler(new KeyboardEvent('keydown', { key: 'c', ctrlKey: true }))
+
+    expect(handled).toBe(true) // no live or recent selection → interrupt
     expect(window.oxe.clipboard.writeText).not.toHaveBeenCalled()
   })
 
