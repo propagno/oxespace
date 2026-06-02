@@ -24,7 +24,7 @@ export const useCopilotCreditsStore = create<CopilotCreditsState>((set, get) => 
       set({ credits, loading: false })
     } catch (err) {
       set({
-        credits: { available: false, installed: false, plan: null, sku: null, premium: null, resetDate: null, tokenBasedBilling: false, error: err instanceof Error ? err.message : String(err) },
+        credits: { available: false, installed: false, plan: null, sku: null, credits: null, resetDate: null, tokenBasedBilling: false, error: err instanceof Error ? err.message : String(err) },
         loading: false
       })
     }

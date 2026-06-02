@@ -13,7 +13,9 @@ import { EMPTY_COPILOT_CREDITS } from '../../../shared/types/copilot'
  * on those networks.
  */
 
-const TTL_MS = 5 * 60_000
+// Short TTL so the indicator reflects credit usage within ~a minute (the chip
+// also polls on this cadence) — the old 5-min cache made it look frozen.
+const TTL_MS = 60_000
 const TIMEOUT_MS = 15_000
 
 interface SpawnResult {
@@ -95,6 +97,9 @@ export class CopilotCreditsService {
 
 interface RawBucket {
   percent_remaining?: number
+  /** Fractional remaining credits (e.g. 180.8) — the precise AI-Credits figure. */
+  quota_remaining?: number
+  /** Integer floor of remaining; fallback when quota_remaining is absent. */
   remaining?: number
   entitlement?: number
   unlimited?: boolean
@@ -114,23 +119,37 @@ function toBucket(raw: RawBucket | undefined): CopilotQuotaBucket | null {
   const pctRemaining = typeof raw.percent_remaining === 'number' ? raw.percent_remaining : 100
   return {
     usedPct: clampPct(100 - pctRemaining),
-    remaining: numberOr(raw.remaining, 0),
+    // Prefer the fractional `quota_remaining` (matches the Copilot CLI's
+    // "AI Credits: 18.8"); fall back to the integer `remaining`.
+    remaining: numberOr(raw.quota_remaining, numberOr(raw.remaining, 0)),
     entitlement: numberOr(raw.entitlement, 0),
     unlimited: Boolean(raw.unlimited),
     overagePermitted: Boolean(raw.overage_permitted)
   }
 }
 
+/** AI-Credits bucket: premium on paid plans, else the free metered allowance. */
+function pickCreditsBucket(premium: CopilotQuotaBucket | null, chat: CopilotQuotaBucket | null): CopilotQuotaBucket | null {
+  if (premium && premium.entitlement > 0) return premium
+  if (chat && chat.entitlement > 0) return chat
+  return premium ?? chat ?? null
+}
+
 function parseCopilotUser(stdout: string): CopilotCredits | null {
   const data = extractJson<RawCopilotUser>(stdout)
   if (!data || typeof data !== 'object') return null
-  const premium = toBucket(data.quota_snapshots?.premium_interactions)
+  const snapshots = data.quota_snapshots ?? {}
+  const premium = toBucket(snapshots.premium_interactions)
+  const chat = toBucket(snapshots.chat)
+  // "AI Credits": premium on paid plans; the free metered allowance (chat, 200)
+  // otherwise. Pick the first bucket that actually has an allowance.
+  const credits = pickCreditsBucket(premium, chat)
   return {
     available: true,
     installed: true,
     plan: typeof data.copilot_plan === 'string' ? data.copilot_plan : null,
     sku: typeof data.access_type_sku === 'string' ? data.access_type_sku : null,
-    premium,
+    credits,
     resetDate: data.quota_reset_date ?? data.quota_reset_date_utc ?? null,
     tokenBasedBilling: Boolean(data.token_based_billing),
     error: null

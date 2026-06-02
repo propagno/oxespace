@@ -12,6 +12,7 @@ import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { useResolvedTerminalPrefs } from '../../store/terminal-prefs.store'
 import { TerminalView } from '../Terminal/TerminalView'
+import { CopilotCreditsStatus } from '../Terminal/CopilotCreditsStatus'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 
 interface TerminalPaneProps {
@@ -31,6 +32,12 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
   const state = getStatus(pane.id)
   const isRunning = state.status === 'running' || state.status === 'starting'
   const canUseVoice = state.status === 'running'
+  // Copilot panes get the account-wide AI-Credits indicator in their status bar.
+  const isCopilotPane = useMemo(() => {
+    const profile = allProfiles.find((p) => p.agentProfileId === pane.agentProfileId)
+    const providers = [profile?.provider, profile?.parentProvider]
+    return providers.includes('copilot') || providers.includes('gh-copilot')
+  }, [allProfiles, pane.agentProfileId])
   const typedCommandRef = useRef('')
   const effectiveRootPath = pane.rootPath ?? workspaceRootPath
   const insertVoiceText = useCallback((text: string): void => {
@@ -189,11 +196,6 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
     if (pane.agentProfileId && allProfiles.length === 0) return
     void start()
   }, [autoStart, start, state.status, pane.agentProfileId, allProfiles.length])
-
-  const stop = async (): Promise<void> => {
-    await window.oxe.terminal.stop({ paneId: pane.id })
-    setStatus(pane.id, 'idle')
-  }
 
   const restart = useCallback(async (): Promise<void> => {
     setStatus(pane.id, 'starting')
@@ -365,6 +367,8 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
 
         <div className="terminal-statusbar-spacer" />
 
+        {isCopilotPane ? <CopilotCreditsStatus /> : null}
+
         <button
           type="button"
           className={`statusbar-chip worktree-chip${isWorktreeOverride ? ' overridden' : ''}${branchErrorReason ? ' branch-error' : ''}`}
@@ -434,16 +438,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
           </span>
         </button>
 
-        {isRunning ? (
-          <button
-            type="button"
-            className="statusbar-action"
-            aria-label="Stop terminal"
-            onClick={() => void stop()}
-          >
-            stop
-          </button>
-        ) : state.status === 'exited' ? (
+        {state.status === 'exited' ? (
           <button
             type="button"
             className="statusbar-action"

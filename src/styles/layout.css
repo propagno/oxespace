@@ -1265,65 +1265,6 @@
   padding: 0 4px 2px;
 }
 
-/* Copilot AI-Credits chip (sidebar footer) — OXESpace analogue of VS Code's
-   "Credits X% used". Hidden by the component when there's nothing to show. */
-.copilot-credits-chip {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0 6px;
-  padding: 3px 6px;
-  border: 1px solid var(--bd-base);
-  border-radius: var(--radius-sm);
-  background: var(--surface-quiet);
-  color: var(--tx-muted);
-  cursor: pointer;
-  font-size: 10px;
-  line-height: 1;
-}
-.copilot-credits-chip:hover:not(:disabled) { color: var(--tx-primary); }
-.copilot-credits-chip:disabled { opacity: 0.6; cursor: default; }
-.copilot-credits-label { font-weight: 600; letter-spacing: 0.02em; }
-.copilot-credits-bar {
-  flex: 1 1 auto;
-  min-width: 24px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--bd-divider);
-  overflow: hidden;
-}
-.copilot-credits-fill {
-  display: block;
-  height: 100%;
-  background: var(--brand);
-  transition: width var(--transition-base);
-}
-.copilot-credits-pct { font-variant-numeric: tabular-nums; }
-
-.copilot-credits-chip.tone-warning .copilot-credits-fill,
-.copilot-credits-pip.tone-warning { background: var(--dot-yellow); }
-.copilot-credits-chip.tone-critical .copilot-credits-fill,
-.copilot-credits-pip.tone-critical { background: var(--dot-red); }
-
-.copilot-credits-pip {
-  border: none;
-  background: transparent;
-  color: var(--tx-muted);
-  font-size: 9px;
-  font-variant-numeric: tabular-nums;
-  padding: 2px 3px;
-  cursor: pointer;
-  line-height: 1;
-}
-.copilot-credits-pip.tone-warning { background: transparent; color: var(--dot-yellow); }
-.copilot-credits-pip.tone-critical { background: transparent; color: var(--dot-red); }
-
-/* Free / no-premium plans: muted pill naming the plan, no % bar. */
-.copilot-credits-muted { color: var(--tx-muted); text-transform: capitalize; }
-.copilot-credits-chip.tone-idle { opacity: 0.85; }
-
 .sidebar-collapse-btn {
   width: 32px;
   height: 32px;

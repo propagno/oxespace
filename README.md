@@ -6,11 +6,11 @@ OXESpace is a Windows desktop workspace for agentic development. It combines ter
 
 Current Windows release:
 
-[Download OXESpace 0.1.23 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.23/OXESpace-0.1.23-x64.exe)
+[Download OXESpace 0.1.24 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.24/OXESpace-0.1.24-x64.exe)
 
 Release page:
 
-[OXESpace v0.1.23](https://github.com/propagno/oxespace/releases/tag/v0.1.23)
+[OXESpace v0.1.24](https://github.com/propagno/oxespace/releases/tag/v0.1.24)
 
 All releases:
 
@@ -269,8 +269,8 @@ Release flow:
 ```powershell
 git switch main
 git pull origin main
-git tag v0.1.23
-git push origin v0.1.23
+git tag v0.1.24
+git push origin v0.1.24
 ```
 
 When the tag is pushed, GitHub Actions:
@@ -296,14 +296,14 @@ When the tag is pushed, GitHub Actions:
 
 ## Version
 
-Current release: `0.1.23`
+Current release: `0.1.24`
 
-Highlights since `0.1.22`:
+Highlights since `0.1.23`:
 
-- **Copilot AI-Credits counter** in the sidebar footer — mirrors VS Code's "Credits X% used · resets …", sourced from `gh api copilot_internal/user`. Shows the premium-credit % on paid plans (and a muted plan pill otherwise); hides when Copilot isn't reachable.
-- **Editor works behind corporate proxies/VPN**: Monaco is now self-hosted (bundled) instead of fetched from the `cdn.jsdelivr.net` CDN — fixes the Editor never opening behind an enterprise VPN, and complies with the packaged-build CSP.
-- **Terminal no longer black-screens on GPU-less hosts** (VMs/RDP/VPN): the xterm WebGL renderer is preflighted and falls back to the DOM renderer, and a new error boundary contains any pane crash instead of unmounting the whole app.
+- **Copilot AI-Credits indicator moved to the Copilot terminal status bar** (was the sidebar). It shows only in Copilot panes, is account-wide (same figure across panes), and is a passive indicator (no longer a button).
+- **Real AI-Credits from the logged-in GitHub account** (not an estimate): reads the dynamic allowance from `gh api copilot_internal/user` — `premium_interactions` on paid plans, the free metered allowance otherwise — using the fractional `quota_remaining` so it matches the Copilot CLI's "AI Credits" figure (e.g. `19.2/200`). Refreshes ~every 60s.
+- **Removed the "stop" control** from the terminal status bar (only "restart" remains, on exit).
 
 Installer asset:
 
-[OXESpace-0.1.23-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.23/OXESpace-0.1.23-x64.exe)
+[OXESpace-0.1.24-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.24/OXESpace-0.1.24-x64.exe)

@@ -28,8 +28,13 @@ export interface CopilotCredits {
   plan: string | null
   /** access_type_sku, e.g. 'free_limited_copilot'. */
   sku: string | null
-  /** premium_interactions bucket — the "AI Credits" the new plan meters. */
-  premium: CopilotQuotaBucket | null
+  /**
+   * The account's AI-Credits bucket, chosen dynamically from quota_snapshots:
+   * `premium_interactions` on paid plans (e.g. Business 0/300), else the free
+   * plan's metered allowance (`chat`, e.g. 0/200). NOT `completions` — that's
+   * inline suggestions, a separate axis. Null when no allowance is reported.
+   */
+  credits: CopilotQuotaBucket | null
   /** quota_reset_date (YYYY-MM-DD) — the "Resets …" line. */
   resetDate: string | null
   tokenBasedBilling: boolean
@@ -42,7 +47,7 @@ export const EMPTY_COPILOT_CREDITS: CopilotCredits = {
   installed: false,
   plan: null,
   sku: null,
-  premium: null,
+  credits: null,
   resetDate: null,
   tokenBasedBilling: false,
   error: null

@@ -52,15 +52,31 @@ const BUSINESS_RESPONSE = JSON.stringify({
 describe('CopilotCreditsService', () => {
   beforeEach(() => { h.runs = []; h.spawnMock.mockClear() })
 
-  test('parses premium_interactions into used% + reset date', async () => {
+  test('paid plan: credits = premium_interactions bucket', async () => {
     h.runs = [{ stdout: BUSINESS_RESPONSE, code: 0 }]
     const result = await new CopilotCreditsService().getCredits()
     expect(result.available).toBe(true)
-    expect(result.installed).toBe(true)
     expect(result.plan).toBe('business')
-    expect(result.premium).toEqual({ usedPct: 23, remaining: 231, entitlement: 300, unlimited: false, overagePermitted: true })
+    expect(result.credits).toEqual({ usedPct: 23, remaining: 231, entitlement: 300, unlimited: false, overagePermitted: true })
     expect(result.resetDate).toBe('2026-07-01')
     expect(result.error).toBeNull()
+  })
+
+  test('free plan: credits falls back to the chat allowance (200), not completions (2000)', async () => {
+    const free = JSON.stringify({
+      copilot_plan: 'individual',
+      access_type_sku: 'free_limited_copilot',
+      quota_reset_date: '2026-07-01',
+      quota_snapshots: {
+        premium_interactions: { percent_remaining: 0, remaining: 0, entitlement: 0, unlimited: false },
+        // After spending ~19 credits: fractional quota_remaining must be preferred over the int.
+        chat: { percent_remaining: 90.4, quota_remaining: 180.8, remaining: 180, entitlement: 200, unlimited: false },
+        completions: { percent_remaining: 100, remaining: 2000, entitlement: 2000, unlimited: false }
+      }
+    })
+    h.runs = [{ stdout: free, code: 0 }]
+    const result = await new CopilotCreditsService().getCredits()
+    expect(result.credits).toEqual({ usedPct: 10, remaining: 180.8, entitlement: 200, unlimited: false, overagePermitted: false })
   })
 
   test('reports gh not installed when the binary is missing', async () => {
@@ -68,7 +84,7 @@ describe('CopilotCreditsService', () => {
     const result = await new CopilotCreditsService().getCredits(true)
     expect(result.installed).toBe(false)
     expect(result.available).toBe(false)
-    expect(result.premium).toBeNull()
+    expect(result.credits).toBeNull()
   })
 
   test('handles a non-zero gh exit (not authed / no access) without throwing', async () => {
