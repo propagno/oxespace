@@ -28,6 +28,8 @@ import { selectActiveWorkspace, useWorkspaceStore } from './store/workspace.stor
 import { useIntegrationStore } from './store/integration.store'
 import { useWorktreeStore } from './store/worktree.store'
 import { useVoiceStore } from './store/voice.store'
+import { useAgentNotifications } from './hooks/useAgentNotifications'
+import { useTerminalPrefsStore, TERMINAL_PREFS_DEFAULTS, FONT_SIZE_MIN, FONT_SIZE_MAX } from './store/terminal-prefs.store'
 
 /**
  * How many workspaces to keep mounted in the DOM at once. The active workspace
@@ -98,6 +100,7 @@ export function App(): ReactElement {
     isSkillsBrowserOpen,
     isScriptsPanelOpen,
     isWebPreviewOpen,
+    isOxePanelOpen,
     isIntegrationPanelOpen,
     openCommandPalette,
     openWorkspaceSettings,
@@ -111,6 +114,8 @@ export function App(): ReactElement {
     closeSkillsBrowser,
     openScriptsPanel,
     closeScriptsPanel,
+    openOxePanel,
+    closeOxePanel,
     openWebPreview,
     closeWebPreview,
     openIntegrationPanel,
@@ -220,6 +225,21 @@ export function App(): ReactElement {
     })
     return unsubscribe
   }, [])
+
+  // Native desktop notifications when a background agent finishes / needs you.
+  useAgentNotifications()
+
+  // Clicking a notification focuses the originating pane (window focus + restore
+  // is handled in main); here we switch to its workspace and select the pane.
+  useEffect(() => {
+    const api = window.oxe?.notifications
+    if (!api) return
+    return api.onActivate(({ paneId, workspaceId }) => {
+      const current = useWorkspaceStore.getState().workspaces.find((w) => w.isActive)
+      if (current?.id !== workspaceId) void setActiveWorkspace(workspaceId)
+      setActiveTerminalPaneId(paneId)
+    })
+  }, [setActiveWorkspace, setActiveTerminalPaneId])
 
   const handleLaunch = async (input: WizardLaunchInput): Promise<void> => {
     const workspace = await createWorkspace({
@@ -443,6 +463,24 @@ export function App(): ReactElement {
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && key === 'h') {
         event.preventDefault()
         openHistoryPanel()
+        return
+      }
+      // Live terminal font zoom: Ctrl/Cmd +, Ctrl/Cmd -, Ctrl/Cmd 0 (reset).
+      // Adjusts the GLOBAL font-size pref, which propagates to every open pane.
+      if ((event.ctrlKey || event.metaKey) && !event.altKey) {
+        const isPlus = key === '=' || key === '+'
+        const isMinus = key === '-' || key === '_'
+        const isZero = key === '0'
+        if (isPlus || isMinus || isZero) {
+          event.preventDefault()
+          const store = useTerminalPrefsStore.getState()
+          if (isZero) {
+            store.setGlobal({ fontSize: TERMINAL_PREFS_DEFAULTS.fontSize })
+          } else {
+            const next = store.global.fontSize + (isPlus ? 1 : -1)
+            store.setGlobal({ fontSize: Math.max(FONT_SIZE_MIN, Math.min(FONT_SIZE_MAX, next)) })
+          }
+        }
       }
     }
 
@@ -494,7 +532,6 @@ export function App(): ReactElement {
         onNewWorkspace={openNewWorkspace}
         onSelectWorkspace={(id) => void setActiveWorkspace(id)}
         onCloseWorkspace={handleCloseWorkspace}
-        onActivatePane={setActivePane}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={toggleSidebar}
         integrationGroups={integrationGroups}
@@ -539,12 +576,15 @@ export function App(): ReactElement {
                       onOpenScripts={openScriptsPanel}
                       onOpenWebPreview={openWebPreview}
                       onOpenIntegration={openIntegrationPanel}
+                      onToggleOxe={() => (isOxePanelOpen ? closeOxePanel() : openOxePanel())}
                       scriptsVisible={isActive && isScriptsPanelOpen}
                       webPreviewVisible={isActive && isWebPreviewOpen}
                       integrationVisible={isActive && isIntegrationPanelOpen}
+                      oxeVisible={isActive && isOxePanelOpen}
                       onCloseScripts={closeScriptsPanel}
                       onCloseWebPreview={closeWebPreview}
                       onCloseIntegration={closeIntegrationPanel}
+                      onCloseOxe={closeOxePanel}
                       onSelectWorkspace={(id) => void setActiveWorkspace(id)}
                       workspaces={workspaces}
                       onUpdateEditorState={(input) => void updateEditorState(input)}

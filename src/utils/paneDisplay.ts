@@ -159,7 +159,7 @@ export function formatPaneStatus(tone: PaneDisplayTone): string {
   return 'Idle'
 }
 
-function deriveStatusTone(entry: PaneDisplayTerminalState): PaneDisplayTone {
+export function deriveStatusTone(entry: PaneDisplayTerminalState): PaneDisplayTone {
   if (entry.status === 'error' || entry.error) return 'error'
   if (entry.status === 'exited') return 'exited'
   if (entry.status === 'starting') return 'starting'
@@ -177,7 +177,7 @@ function fallbackForStatus(tone: PaneDisplayTone, pane: WorkspacePane, paneIndex
   if (tone === 'starting') return 'Starting terminal'
   if (tone === 'error') return 'Needs attention'
   if (tone === 'exited') return 'Resume session'
-  return pane.displayName ?? pane.agentName ?? `${pane.type === 'terminal' ? 'Terminal' : pane.type} ${paneIndex + 1}`
+  return pane.displayName ?? `${pane.type === 'terminal' ? 'Terminal' : pane.type} ${paneIndex + 1}`
 }
 
 function compactPreview(value: string): string {

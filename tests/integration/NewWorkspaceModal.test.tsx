@@ -15,7 +15,7 @@ import {
 const mockAgents: AgentProfile[] = [
   { agentProfileId: 'p-claude',   name: 'Claude',   provider: 'claude',   command: 'claude',   commandTemplate: 'claude', isBuiltin: true  },
   { agentProfileId: 'p-codex',    name: 'Codex',    provider: 'codex',    command: 'codex',    commandTemplate: 'codex',  isBuiltin: true  },
-  { agentProfileId: 'p-gemini',   name: 'Gemini',   provider: 'gemini',   command: 'gemini',   commandTemplate: 'gemini', isBuiltin: true  },
+  { agentProfileId: 'p-antigravity', name: 'Antigravity', provider: 'antigravity', command: 'agy', commandTemplate: 'agy', isBuiltin: true  },
   { agentProfileId: 'p-opencode', name: 'OpenCode', provider: 'custom',   command: 'opencode', commandTemplate: 'opencode', isBuiltin: false },
   { agentProfileId: 'p-cursor',   name: 'Cursor',   provider: 'cursor',   command: 'cursor',   commandTemplate: 'cursor', isBuiltin: true  }
 ]
@@ -119,14 +119,14 @@ describe('NewWorkspaceModal (single-page)', () => {
     await user.click(screen.getByTestId('wizard-layout-card-4'))
     await user.click(screen.getByLabelText('Add Claude'))
     await user.click(screen.getByTestId('agent-inc-p-claude'))
-    await user.click(screen.getByLabelText('Add Gemini'))
+    await user.click(screen.getByLabelText('Add Antigravity'))
 
     await user.click(screen.getByTestId('wizard-launch-btn'))
 
     expect(onLaunch).toHaveBeenCalledWith(expect.objectContaining({
       rootPath: 'C:/repo',
       layoutPreset: 4,
-      agentSlots: expect.arrayContaining(['claude', 'gemini'])
+      agentSlots: expect.arrayContaining(['claude', 'agy'])
     }))
   })
 
@@ -136,7 +136,7 @@ describe('NewWorkspaceModal (single-page)', () => {
     await user.type(screen.getByTestId('wizard-dir-input'), 'C:/repo')
 
     await user.click(screen.getByLabelText('Add Claude'))
-    await user.click(screen.getByLabelText('Add Gemini'))
+    await user.click(screen.getByLabelText('Add Antigravity'))
     expect(screen.getByText(/2\/4 slots/)).toBeInTheDocument()
 
     await user.click(screen.getByText('Clear selection'))

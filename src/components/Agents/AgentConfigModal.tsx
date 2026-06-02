@@ -7,7 +7,7 @@ const PROVIDER_LABEL: Record<(typeof BUILTIN_PROVIDERS)[number], string> = {
   claude: 'Claude',
   copilot: 'Copilot',
   codex: 'Codex',
-  gemini: 'Gemini',
+  antigravity: 'Antigravity',
   cursor: 'Cursor'
 }
 

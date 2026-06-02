@@ -1,9 +1,7 @@
 import { Activity, Clock } from 'lucide-react'
 import { useMemo, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
-import { useAgentStore } from '../../store/agent.store'
-import { useTerminalStore } from '../../store/terminal.store'
-import { derivePaneDisplayState } from '../../utils/paneDisplay'
+import { useWorkspaceActivity } from '../../hooks/useWorkspaceActivity'
 
 interface WorkspaceStatusSummaryProps {
   workspace: Workspace
@@ -19,47 +17,15 @@ interface WorkspaceStatusSummaryProps {
  * already has.
  */
 export function WorkspaceStatusSummary({ workspace }: WorkspaceStatusSummaryProps): ReactElement | null {
-  // Subscribe narrowly: only the pane states for this workspace's panes.
-  // Filtering inside the selector would be wasted work since pane lists move
-  // rarely; we do it here so the component re-renders on any pane's activity
-  // change but not on unrelated panes elsewhere in the store.
-  const panesState = useTerminalStore((s) => s.panes)
-  const allProfiles = useAgentStore((s) => s.allProfiles)
-
+  // Shared aggregator — same per-pane tone machine the sidebar card dots use,
+  // so the topbar summary and the sidebar signaling never disagree. The summary
+  // only distinguishes thinking / awaiting / (everything else = idle).
+  const activity = useWorkspaceActivity(workspace)
   const counts = useMemo(() => {
-    let thinking = 0
-    let awaiting = 0
-    let idle = 0
-    let total = 0
-    for (const pane of workspace.panes) {
-      if (pane.type !== 'terminal') continue
-      total += 1
-      const profile = pane.agentProfileId
-        ? allProfiles.find((p) => p.agentProfileId === pane.agentProfileId) ?? null
-        : null
-      const terminal = panesState[pane.id] ?? {
-        status: 'idle' as const,
-        error: null,
-        lastActivityAt: null,
-        lastOutput: null,
-        lastIntent: null,
-        lastIntentAt: null,
-        isWorking: false,
-        hasUnread: false
-      }
-      const { statusTone } = derivePaneDisplayState({
-        pane,
-        workspace,
-        terminal,
-        profile,
-        paneIndex: 0
-      })
-      if (statusTone === 'thinking') thinking += 1
-      else if (statusTone === 'awaiting') awaiting += 1
-      else idle += 1
-    }
-    return { thinking, awaiting, idle, total }
-  }, [workspace, panesState, allProfiles])
+    const thinking = activity.counts.thinking
+    const awaiting = activity.counts.awaiting
+    return { thinking, awaiting, idle: activity.total - thinking - awaiting, total: activity.total }
+  }, [activity])
 
   if (counts.total === 0) return null
 

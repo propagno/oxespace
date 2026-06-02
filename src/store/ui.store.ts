@@ -12,6 +12,7 @@ interface UIState {
   isMcpPanelOpen: boolean
   isSkillsBrowserOpen: boolean
   isScriptsPanelOpen: boolean
+  isOxePanelOpen: boolean
   isWebPreviewOpen: boolean
   /** Workspace + URL pushed by `oxespace_open_web_preview`. The WebPreview
    *  panel watches this and loads the URL when it mounts (covers the case
@@ -38,6 +39,8 @@ interface UIState {
   closeSkillsBrowser: () => void
   openScriptsPanel: () => void
   closeScriptsPanel: () => void
+  openOxePanel: () => void
+  closeOxePanel: () => void
   openWebPreview: () => void
   closeWebPreview: () => void
   setPendingWebPreview: (value: { workspaceId: string; url: string } | null) => void
@@ -59,6 +62,7 @@ export const useUIStore = create<UIState>((set) => ({
   isMcpPanelOpen: false,
   isSkillsBrowserOpen: false,
   isScriptsPanelOpen: false,
+  isOxePanelOpen: false,
   isWebPreviewOpen: false,
   pendingWebPreview: null,
   isIntegrationPanelOpen: false,
@@ -81,6 +85,8 @@ export const useUIStore = create<UIState>((set) => ({
   closeSkillsBrowser: () => set({ isSkillsBrowserOpen: false }),
   openScriptsPanel: () => set({ isScriptsPanelOpen: true }),
   closeScriptsPanel: () => set({ isScriptsPanelOpen: false }),
+  openOxePanel: () => set({ isOxePanelOpen: true }),
+  closeOxePanel: () => set({ isOxePanelOpen: false }),
   openWebPreview: () => set({ isWebPreviewOpen: true }),
   closeWebPreview: () => set({ isWebPreviewOpen: false }),
   setPendingWebPreview: (value) => set({ pendingWebPreview: value }),

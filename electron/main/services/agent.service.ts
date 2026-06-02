@@ -25,7 +25,7 @@ const WINDOWS_SCRIPT_EXTENSIONS = new Set(['.cmd', '.bat'])
 const SHELL_PROFILE_BY_PROVIDER: Partial<Record<AgentProvider, string>> = {
   claude: 'builtin-claude',
   codex: 'builtin-codex',
-  gemini: 'builtin-gemini',
+  antigravity: 'builtin-antigravity',
   cursor: 'builtin-cursor'
 }
 
@@ -62,7 +62,7 @@ export class AgentService {
   }
 
   list(): AgentProfile[] {
-    // Built-in providers (claude/copilot/codex/gemini/cursor) + user-created
+    // Built-in providers (claude/copilot/codex/antigravity/cursor) + user-created
     // custom agents. Customs live with provider='custom' and a parent_provider
     // pointing at the CLI they wrap — they need to surface in Settings so the
     // user can edit/delete them and in PaneSessionRow so the icon resolves.

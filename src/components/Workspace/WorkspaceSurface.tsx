@@ -8,6 +8,7 @@ import { WorkspaceEditorPanel } from './WorkspaceEditorPanel'
 import { WorkspaceGitHubPanel } from './WorkspaceGitHubPanel'
 import { WorkspaceIntegrationPanel } from './WorkspaceIntegrationPanel'
 import { WorkspaceReviewPanel } from './WorkspaceReviewPanel'
+import { WorkspaceOxePanel } from './WorkspaceOxePanel'
 import { WorkspaceScriptsPanel } from './WorkspaceScriptsPanel'
 import { WorkspaceWebPreviewPanel } from './WorkspaceWebPreviewPanel'
 import { WorkspaceWorktreePanel } from './WorkspaceWorktreePanel'
@@ -30,12 +31,15 @@ interface WorkspaceSurfaceProps {
   onOpenScripts: () => void
   onOpenWebPreview: () => void
   onOpenIntegration: () => void
+  onToggleOxe: () => void
   scriptsVisible: boolean
   webPreviewVisible: boolean
   integrationVisible: boolean
+  oxeVisible: boolean
   onCloseScripts: () => void
   onCloseWebPreview: () => void
   onCloseIntegration: () => void
+  onCloseOxe: () => void
   onSelectWorkspace: (workspaceId: string) => void
   workspaces: Workspace[]
   onUpdateEditorState: (input: {
@@ -80,12 +84,15 @@ export function WorkspaceSurface({
   onOpenScripts,
   onOpenWebPreview,
   onOpenIntegration,
+  onToggleOxe,
   scriptsVisible,
   webPreviewVisible,
   integrationVisible,
+  oxeVisible,
   onCloseScripts,
   onCloseWebPreview,
   onCloseIntegration,
+  onCloseOxe,
   onRunCommand,
   onSplitPane,
   onToggleMaximize,
@@ -127,11 +134,13 @@ export function WorkspaceSurface({
   const [scriptsExpanded, setScriptsExpanded] = useState(false)
   const [webPreviewExpanded, setWebPreviewExpanded] = useState(false)
   const [integrationExpanded, setIntegrationExpanded] = useState(false)
+  const [oxeExpanded, setOxeExpanded] = useState(false)
   const scriptsWidth = scriptsExpanded ? 70 : DEFAULT_GITHUB_WIDTH
   const webPreviewWidth = webPreviewExpanded ? 70 : DEFAULT_GITHUB_WIDTH
   const integrationWidth = integrationExpanded ? 70 : DEFAULT_GITHUB_WIDTH
+  const oxeWidth = oxeExpanded ? 70 : DEFAULT_WORKTREE_WIDTH
 
-  const hasSidePanels = editorVisible || reviewVisible || githubVisible || backgroundVisible || worktreeVisible || scriptsVisible || webPreviewVisible || integrationVisible
+  const hasSidePanels = editorVisible || reviewVisible || githubVisible || backgroundVisible || worktreeVisible || scriptsVisible || webPreviewVisible || integrationVisible || oxeVisible
 
   const layoutSizes = getWorkspacePanelSizes({
     editorVisible,
@@ -149,7 +158,9 @@ export function WorkspaceSurface({
     webPreviewVisible,
     webPreviewWidth,
     integrationVisible,
-    integrationWidth
+    integrationWidth,
+    oxeVisible,
+    oxeWidth
   })
 
   // Total width of all side panels combined (as % of workspace)
@@ -181,6 +192,7 @@ export function WorkspaceSurface({
     scriptsVisible ? 'sc' : '_',
     webPreviewVisible ? 'wp' : '_',
     integrationVisible ? 'in' : '_',
+    oxeVisible ? 'ox' : '_', oxeExpanded ? 'OX' : '_',
   ].join('')
 
   // Convert a total-workspace percentage to a percentage of the combined side area
@@ -334,6 +346,22 @@ export function WorkspaceSurface({
     })
   }
 
+  if (oxeVisible) {
+    sidePanels.push({
+      id: 'oxe',
+      defaultSize: toInnerPct(layoutSizes.oxe),
+      onResize: () => undefined,
+      content: (
+        <WorkspaceOxePanel
+          workspace={workspace}
+          isExpanded={oxeExpanded}
+          onCollapse={onCloseOxe}
+          onToggleExpanded={() => setOxeExpanded((value) => !value)}
+        />
+      )
+    })
+  }
+
   if (integrationVisible) {
     sidePanels.push({
       id: 'integration',
@@ -376,7 +404,7 @@ export function WorkspaceSurface({
       <div className="workspace-topbar-spacer" />
       <div className="workspace-toolbar-actions" aria-label="Workspace actions">
         <ToolsMenu
-          active={{ github: githubVisible, editor: editorVisible, review: reviewVisible, background: backgroundVisible, worktree: worktreeVisible, scripts: scriptsVisible, webPreview: webPreviewVisible, integration: integrationVisible }}
+          active={{ github: githubVisible, editor: editorVisible, review: reviewVisible, background: backgroundVisible, worktree: worktreeVisible, scripts: scriptsVisible, webPreview: webPreviewVisible, integration: integrationVisible, oxe: oxeVisible }}
           onOpenCommandPalette={onOpenCommandPalette}
           onOpenWorkspaceSettings={onOpenWorkspaceSettings}
           onToggleEditor={() => onUpdateEditorState({ workspaceId: workspace.id, editorVisible: !editorVisible, editorExpanded: editorVisible ? false : workspace.editorExpanded })}
@@ -390,6 +418,7 @@ export function WorkspaceSurface({
           onOpenHistory={onOpenHistory}
           onOpenMcp={onOpenMcp}
           onOpenSkills={onOpenSkills}
+          onToggleOxe={onToggleOxe}
         />
       </div>
     </header>
@@ -474,6 +503,8 @@ interface WorkspacePanelSizeInput {
   webPreviewWidth: number
   integrationVisible: boolean
   integrationWidth: number
+  oxeVisible: boolean
+  oxeWidth: number
 }
 
 interface WorkspacePanelSizeOutput {
@@ -487,6 +518,7 @@ interface WorkspacePanelSizeOutput {
   scripts: number
   webPreview: number
   integration: number
+  oxe: number
 }
 
 function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelSizeOutput {
@@ -498,10 +530,11 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
   const scripts = input.scriptsVisible ? clampPanelSize(input.scriptsWidth, 25, 70) : 0
   const webPreview = input.webPreviewVisible ? clampPanelSize(input.webPreviewWidth, 25, 70) : 0
   const integration = input.integrationVisible ? clampPanelSize(input.integrationWidth, 25, 70) : 0
-  const visibleSideCount = Number(input.editorVisible) + Number(input.githubVisible) + Number(input.reviewVisible) + Number(input.backgroundVisible) + Number(input.worktreeVisible) + Number(input.scriptsVisible) + Number(input.webPreviewVisible) + Number(input.integrationVisible)
+  const oxe = input.oxeVisible ? clampPanelSize(input.oxeWidth, 25, 70) : 0
+  const visibleSideCount = Number(input.editorVisible) + Number(input.githubVisible) + Number(input.reviewVisible) + Number(input.backgroundVisible) + Number(input.worktreeVisible) + Number(input.scriptsVisible) + Number(input.webPreviewVisible) + Number(input.integrationVisible) + Number(input.oxeVisible)
 
   if (visibleSideCount === 0) {
-    return { grid: 100, gridMinSize: 30, editor: 0, github: 0, review: 0, background: 0, worktree: 0, scripts: 0, webPreview: 0, integration: 0 }
+    return { grid: 100, gridMinSize: 30, editor: 0, github: 0, review: 0, background: 0, worktree: 0, scripts: 0, webPreview: 0, integration: 0, oxe: 0 }
   }
 
   if (visibleSideCount === 1) {
@@ -512,7 +545,8 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
             : input.worktreeVisible ? worktree
               : input.scriptsVisible ? scripts
                 : input.webPreviewVisible ? webPreview
-                  : integration
+                  : input.integrationVisible ? integration
+                    : oxe
     return {
       grid: 100 - side,
       gridMinSize: 30,
@@ -523,12 +557,13 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
       worktree,
       scripts,
       webPreview,
-      integration
+      integration,
+      oxe
     }
   }
 
   const maxCombinedSideWidth = 70
-  const combined = editor + github + review + background + worktree + scripts + webPreview + integration
+  const combined = editor + github + review + background + worktree + scripts + webPreview + integration + oxe
   const scale = combined > maxCombinedSideWidth ? maxCombinedSideWidth / combined : 1
   const normalizedEditor = input.editorVisible ? Math.max(25, Math.round(editor * scale)) : 0
   const normalizedGitHub = input.githubVisible ? Math.max(25, Math.round(github * scale)) : 0
@@ -538,7 +573,8 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
   const normalizedScripts = input.scriptsVisible ? Math.max(25, Math.round(scripts * scale)) : 0
   const normalizedWebPreview = input.webPreviewVisible ? Math.max(25, Math.round(webPreview * scale)) : 0
   const normalizedIntegration = input.integrationVisible ? Math.max(25, Math.round(integration * scale)) : 0
-  const normalizedCombined = normalizedEditor + normalizedGitHub + normalizedReview + normalizedBackground + normalizedWorktree + normalizedScripts + normalizedWebPreview + normalizedIntegration
+  const normalizedOxe = input.oxeVisible ? Math.max(25, Math.round(oxe * scale)) : 0
+  const normalizedCombined = normalizedEditor + normalizedGitHub + normalizedReview + normalizedBackground + normalizedWorktree + normalizedScripts + normalizedWebPreview + normalizedIntegration + normalizedOxe
 
   return {
     grid: Math.max(30, 100 - normalizedCombined),
@@ -550,7 +586,8 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
     worktree: normalizedWorktree,
     scripts: normalizedScripts,
     webPreview: normalizedWebPreview,
-    integration: normalizedIntegration
+    integration: normalizedIntegration,
+    oxe: normalizedOxe
   }
 }
 

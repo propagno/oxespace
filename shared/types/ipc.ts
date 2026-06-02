@@ -202,13 +202,32 @@ export const IPC_CHANNELS = {
   },
   clipboard: {
     saveImageToTemp: 'clipboard:save-image-to-temp',
-    readText: 'clipboard:read-text'
+    readText: 'clipboard:read-text',
+    writeText: 'clipboard:write-text'
   },
   voice: {
     transcribe: 'voice:transcribe',
     getModelStatus: 'voice:get-model-status',
     ensureModel: 'voice:ensure-model',
     onModelProgress: 'voice:on-model-progress'
+  },
+  notifications: {
+    notify: 'notifications:notify',
+    onActivate: 'notifications:on-activate'
+  },
+  copilot: {
+    credits: 'copilot:credits'
+  },
+  oxe: {
+    detect: 'oxe:detect',
+    status: 'oxe:status',
+    statusSummary: 'oxe:status-summary',
+    openDashboard: 'oxe:open-dashboard',
+    startDashboard: 'oxe:start-dashboard',
+    stopDashboard: 'oxe:stop-dashboard',
+    watchEvents: 'oxe:watch-events',
+    unwatchEvents: 'oxe:unwatch-events',
+    onEventsChanged: 'oxe:on-events-changed'
   },
   background: {
     list: 'background:list',
@@ -449,6 +468,7 @@ export interface GitHubApi {
 export interface ClipboardApi {
   saveImageToTemp(): Promise<string | null>
   readText(): Promise<string>
+  writeText(text: string): Promise<boolean>
 }
 
 export interface VoiceApi {
@@ -467,6 +487,41 @@ export interface VoiceApi {
   ): () => void
 }
 
+export interface AgentNotificationPayload {
+  title: string
+  body: string
+  /** Pane to focus when the user clicks the notification. */
+  paneId: string
+  workspaceId: string
+}
+
+export interface NotificationsApi {
+  notify(payload: AgentNotificationPayload): Promise<boolean>
+  onActivate(listener: (payload: { paneId: string; workspaceId: string }) => void): () => void
+}
+
+export interface OxeIntegrationApi {
+  detect(force?: boolean): Promise<import('./oxe').OxeDetect>
+  status(rootPath: string, force?: boolean): Promise<import('./oxe').OxeStatusResult>
+  /** Cheap, versioned summary for the hot path (oxe-cc ≥ 1.13; falls back to full status detection otherwise). */
+  statusSummary(rootPath: string, force?: boolean): Promise<import('./oxe').OxeSummaryResult>
+  /** Legacy fire-and-forget: opens the dashboard in the external browser. */
+  openDashboard(rootPath: string): Promise<{ ok: boolean; error: string | null }>
+  /** Start (or reuse) an embedded dashboard server and return its URL/port (oxe-cc ≥ 1.14). */
+  startDashboard(rootPath: string): Promise<import('./oxe').OxeDashboardHandle>
+  /** Kill the embedded dashboard server for a workspace root. */
+  stopDashboard(rootPath: string): Promise<{ ok: boolean }>
+  /** Watch the workspace's .oxe/ for changes; fires onEventsChanged. */
+  watchEvents(rootPath: string): Promise<{ ok: boolean }>
+  unwatchEvents(rootPath: string): Promise<{ ok: boolean }>
+  onEventsChanged(listener: (payload: { rootPath: string }) => void): () => void
+}
+
+export interface CopilotApi {
+  /** Global Copilot AI-Credits snapshot for the gh-authenticated account. */
+  credits(force?: boolean): Promise<import('./copilot').CopilotCredits>
+}
+
 export interface OxeApi {
   app: {
     version: string
@@ -481,6 +536,9 @@ export interface OxeApi {
   integration: IntegrationApi
   clipboard: ClipboardApi
   voice: VoiceApi
+  notifications: NotificationsApi
+  oxe: OxeIntegrationApi
+  copilot: CopilotApi
   background: BackgroundApi
   session: SessionApi
   skill: SkillApi

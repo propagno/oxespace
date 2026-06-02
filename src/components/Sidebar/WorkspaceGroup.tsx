@@ -1,10 +1,11 @@
-import { Check, FolderTree, Network, Pencil, Trash2, X } from 'lucide-react'
+import { Check, FolderTree, GripVertical, Network, Pencil, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import { selectIntegrationsForWorkspace, useIntegrationStore } from '../../store/integration.store'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { selectWorktrees, useWorktreeStore } from '../../store/worktree.store'
+import { useWorkspaceActivity, type WorkspaceActivity } from '../../hooks/useWorkspaceActivity'
 
 interface WorkspaceGroupProps {
   workspace: Workspace
@@ -46,6 +47,7 @@ export function WorkspaceGroup({
   const updateWorktreeState = useWorkspaceStore((s) => s.updateWorktreeState)
   const updateSettings = useWorkspaceStore((s) => s.updateSettings)
   const nonMainWorktreeCount = worktrees.filter((wt) => !wt.isMain).length
+  const activity = useWorkspaceActivity(workspace)
 
   // Context-menu state lives next to the rename + confirm-remove state since
   // the menu triggers both. Menu coordinates are absolute viewport pixels so
@@ -195,6 +197,18 @@ export function WorkspaceGroup({
         onContextMenu={handleContextMenu}
         data-testid="sidebar-workspace-select"
       >
+        {!renaming && (
+          <GripVertical
+            size={11}
+            className="ws-group-grip"
+            aria-hidden="true"
+          />
+        )}
+        <span
+          className={`ws-group-dot pane-activity-dot ${activity.dominant ? `activity-${activity.dominant}` : 'activity-placeholder'}`}
+          title={activity.dominant ? activitySummary(activity) : undefined}
+          aria-hidden="true"
+        />
         <div className="ws-group-title-block">
           {renaming ? (
             <input
@@ -215,12 +229,17 @@ export function WorkspaceGroup({
               aria-label={`Rename workspace ${workspace.name}`}
             />
           ) : (
-            <span
-              className="ws-group-name"
-              title={`${workspace.name}\n~/${rootLabel}\n(right-click for options)`}
-            >
-              {workspace.name}
-            </span>
+            <>
+              <span
+                className="ws-group-name"
+                title={`${workspace.name}\n${workspace.rootPath}\n(right-click for options)`}
+              >
+                {workspace.name}
+              </span>
+              <span className="ws-group-path" title={workspace.rootPath}>
+                {getCompactPath(workspace.rootPath)}
+              </span>
+            </>
           )}
         </div>
         {integrations.length > 0 ? (
@@ -344,7 +363,27 @@ function RemoveWorkspaceModal({ workspaceName, onCancel, onConfirm }: RemoveWork
   )
 }
 
+function activitySummary(a: WorkspaceActivity): string {
+  if (!a.total) return ''
+  const parts: string[] = []
+  if (a.counts.thinking) parts.push(`${a.counts.thinking} thinking`)
+  if (a.counts.awaiting) parts.push(`${a.counts.awaiting} awaiting`)
+  if (a.counts.starting) parts.push(`${a.counts.starting} starting`)
+  if (a.counts.error) parts.push(`${a.counts.error} error`)
+  if (a.counts.idle) parts.push(`${a.counts.idle} idle`)
+  if (a.counts.exited) parts.push(`${a.counts.exited} exited`)
+  return `${a.total} agent${a.total === 1 ? '' : 's'}${parts.length ? ` · ${parts.join(', ')}` : ''}`
+}
+
 function compactRootLabel(rootPath: string): string {
   const parts = rootPath.split(/[\\/]/).filter(Boolean)
   return parts.at(-1) ?? 'workspace'
+}
+
+function getCompactPath(rootPath: string): string {
+  const parts = rootPath.split(/[\\/]/).filter(Boolean)
+  if (parts.length >= 2) {
+    return `${parts.at(-2)}/${parts.at(-1)}`
+  }
+  return parts.at(-1) ?? ''
 }

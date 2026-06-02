@@ -98,7 +98,10 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
       <header className="pane-header">
         <div className="pane-header-left">
           <span className={`pane-status-dot ${statusClass(pane.status)} activity-${display.statusTone}`} aria-hidden="true" />
-          <span className="pane-agent-chip" title={display.subtitle}>{display.providerLabel}</span>
+          <span className={`pane-agent-chip provider-${display.providerLabel.toLowerCase()}`} title={display.subtitle}>
+            {display.providerLabel}
+          </span>
+          <span className="pane-header-divider" aria-hidden="true">/</span>
           {renaming ? (
             <input
               ref={renameInputRef}

@@ -10,7 +10,10 @@ import { selectMcpServers, useMcpStore } from '../../store/mcp.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
+import { useResolvedTerminalPrefs } from '../../store/terminal-prefs.store'
 import { TerminalView } from '../Terminal/TerminalView'
+import { CopilotCreditsStatus } from '../Terminal/CopilotCreditsStatus'
+import { ErrorBoundary } from '../common/ErrorBoundary'
 
 interface TerminalPaneProps {
   pane: WorkspacePane
@@ -24,9 +27,17 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
   const setLastIntent = useTerminalStore((s) => s.setLastIntent)
   const setPaneAgent = useWorkspaceStore((s) => s.setPaneAgent)
   const allProfiles = useAgentStore((s) => s.allProfiles)
+  const workspaceThemeId = useWorkspaceStore((s) => s.workspaces.find((w) => w.id === workspaceId)?.themeId ?? 'dracula')
+  const terminalPrefs = useResolvedTerminalPrefs(workspaceId)
   const state = getStatus(pane.id)
   const isRunning = state.status === 'running' || state.status === 'starting'
   const canUseVoice = state.status === 'running'
+  // Copilot panes get the account-wide AI-Credits indicator in their status bar.
+  const isCopilotPane = useMemo(() => {
+    const profile = allProfiles.find((p) => p.agentProfileId === pane.agentProfileId)
+    const providers = [profile?.provider, profile?.parentProvider]
+    return providers.includes('copilot') || providers.includes('gh-copilot')
+  }, [allProfiles, pane.agentProfileId])
   const typedCommandRef = useRef('')
   const effectiveRootPath = pane.rootPath ?? workspaceRootPath
   const insertVoiceText = useCallback((text: string): void => {
@@ -121,7 +132,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
   // manifest anymore. Two reasons:
   //   1. It leaks into the agent's conversation as a visible "user" turn
   //      on CLIs like Claude Code — invasive UX.
-  //   2. Different agents (Copilot CLI ≥ 1.0, Gemini) handle initialPrompt
+  //   2. Different agents (Copilot CLI ≥ 1.0, Antigravity) handle initialPrompt
   //      inconsistently; some ignore it entirely.
   // Native MCP discovery via `.mcp.json` is the supported path: any MCP-aware
   // CLI reads the file, spawns the oxespace bridge, and surfaces tools through
@@ -185,11 +196,6 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
     if (pane.agentProfileId && allProfiles.length === 0) return
     void start()
   }, [autoStart, start, state.status, pane.agentProfileId, allProfiles.length])
-
-  const stop = async (): Promise<void> => {
-    await window.oxe.terminal.stop({ paneId: pane.id })
-    setStatus(pane.id, 'idle')
-  }
 
   const restart = useCallback(async (): Promise<void> => {
     setStatus(pane.id, 'starting')
@@ -290,9 +296,12 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
 
       {isRunning ? (
         <div className="terminal-content">
+          <ErrorBoundary label="o terminal">
           <TerminalView
             paneId={pane.id}
             isRunning={isRunning}
+            themeId={workspaceThemeId}
+            prefs={terminalPrefs}
             onInput={(data) => {
               if (!isRunning) return
               identifyAgentFromInput(data)
@@ -302,9 +311,14 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
               if (isRunning) void window.oxe.terminal.resize({ paneId: pane.id, cols, rows })
             }}
             onExit={(exitCode) => {
-              setStatus(pane.id, 'exited', exitCode === null ? undefined : `Exited with code ${exitCode}`)
+              // Only attach an error message for a NON-zero exit. A clean exit
+              // (code 0) must leave `error` empty so deriveStatusTone resolves to
+              // the gray 'exited' tone instead of the red 'error' tone (which
+              // checks `entry.error` first). exitCode 0 is falsy → undefined.
+              setStatus(pane.id, 'exited', exitCode ? `Exited with code ${exitCode}` : undefined)
             }}
           />
+          </ErrorBoundary>
           {voice.status === 'listening' || voice.status === 'transcribing' || voice.status === 'downloading' || voice.error ? (
             <div className={`oxe-voice-hud ${voice.error ? 'error' : voice.status}`} role="status" aria-live="polite">
               {voice.status === 'listening' && !voice.error ? (
@@ -352,6 +366,8 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         <span className="statusbar-text">{state.status}</span>
 
         <div className="terminal-statusbar-spacer" />
+
+        {isCopilotPane ? <CopilotCreditsStatus /> : null}
 
         <button
           type="button"
@@ -422,16 +438,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
           </span>
         </button>
 
-        {isRunning ? (
-          <button
-            type="button"
-            className="statusbar-action"
-            aria-label="Stop terminal"
-            onClick={() => void stop()}
-          >
-            stop
-          </button>
-        ) : state.status === 'exited' ? (
+        {state.status === 'exited' ? (
           <button
             type="button"
             className="statusbar-action"

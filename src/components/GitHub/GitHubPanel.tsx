@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } 
 import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronDown, ChevronRight, Clock, Copy, ExternalLink, Github, GitPullRequest, Link2, Play, RefreshCw, Tag, Terminal, TrendingUp } from 'lucide-react'
 import type { GitHubBranch, GitHubCliStatus, GitHubCommit, GitHubCommitDetails, GitHubConnectedRepository, GitHubPanelTab, GitHubPullRequest, GitHubRelease, GitHubWorkflow, GitHubWorkflowJob, GitHubWorkflowRun, GitHubWorkflowRunDetails, GitHubWorkspaceStatus } from '../../../shared/types/github'
 import { selectGitHubWorkspace, useGitHubStore } from '../../store/github.store'
+import { useWorkspaceStore } from '../../store/workspace.store'
+import { useResolvedTerminalPrefs } from '../../store/terminal-prefs.store'
 import { TerminalView } from '../Terminal/TerminalView'
 
 interface GitHubPanelProps {
@@ -1472,6 +1474,8 @@ function GitHubEmbeddedTerminal({ command, workspaceId, onDismiss }: {
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const commandSentRef = useRef(false)
+  const terminalPrefs = useResolvedTerminalPrefs(workspaceId)
+  const themeId = useWorkspaceStore((s) => s.workspaces.find((w) => w.id === workspaceId)?.themeId ?? 'dracula')
 
   useEffect(() => {
     let cancelled = false
@@ -1511,6 +1515,8 @@ function GitHubEmbeddedTerminal({ command, workspaceId, onDismiss }: {
         <TerminalView
           paneId={paneId}
           isRunning={running}
+          themeId={themeId}
+          prefs={terminalPrefs}
           onInput={(data) => { void window.oxe.terminal.write({ paneId, data }) }}
           onResize={(cols, rows) => { void window.oxe.terminal.resize({ paneId, cols, rows }) }}
           onExit={() => setRunning(false)}

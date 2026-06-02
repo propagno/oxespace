@@ -1,10 +1,10 @@
 import { ChevronsLeft, ChevronsRight, Plus, Search } from 'lucide-react'
-import { useState, type ReactElement } from 'react'
+import { useEffect, useRef, useState, type ReactElement } from 'react'
 import type { IntegrationGroup } from '../../../shared/types/integration'
 import type { Workspace } from '../../../shared/types/workspace'
 import { useIntegrationStore } from '../../store/integration.store'
-import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
+import { useWorkspaceActivity } from '../../hooks/useWorkspaceActivity'
 import { OxeLogo } from '../Brand/OxeLogo'
 import { SidebarIntegrationRow } from './SidebarIntegrationRow'
 import { WorkspaceGroup } from './WorkspaceGroup'
@@ -16,7 +16,6 @@ interface SidebarProps {
   onNewWorkspace: () => void
   onSelectWorkspace: (id: string) => void
   onCloseWorkspace: (id: string) => void
-  onActivatePane: (paneId: string) => void
   isCollapsed: boolean
   onToggleCollapse: () => void
   integrationGroups?: IntegrationGroup[]
@@ -27,7 +26,6 @@ export function Sidebar({
   activeWorkspaceId,
   appVersion,
   isCollapsed,
-  onActivatePane,
   onCloseWorkspace,
   onNewWorkspace,
   onSelectWorkspace,
@@ -36,7 +34,19 @@ export function Sidebar({
   workspaces,
 }: SidebarProps): ReactElement {
   const [searchQuery, setSearchQuery] = useState('')
-  const [activeTab, setActiveTab] = useState<'all' | 'unread'>('all')
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+        e.preventDefault()
+        searchInputRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   // Drag-and-drop workspace reorder state. We don't use HTML5 dragstart
   // payload because Electron's renderer has quirks with cross-process
   // data transfer — instead we track the source/target ids in component
@@ -44,20 +54,11 @@ export function Sidebar({
   const [dragSourceId, setDragSourceId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   const [dropPosition, setDropPosition] = useState<'before' | 'after' | null>(null)
-  // Subscribe to terminal store so the filter recomputes when hasUnread toggles.
-  // Idle-marker detection (TerminalView) flips hasUnread; markRead clears it.
-  const terminalPanes = useTerminalStore((state) => state.panes)
   const activeIntegrationGroupId = useIntegrationStore((state) => state.activeGroupId)
   const activeIntegrationMemberId = useIntegrationStore((state) => state.activeMemberId)
   const setActiveIntegrationGroup = useIntegrationStore((state) => state.setActiveGroup)
   const setActiveIntegrationMember = useIntegrationStore((state) => state.setActiveMember)
   const reorderWorkspaces = useWorkspaceStore((state) => state.reorderWorkspaces)
-
-  const hasUnread = (paneId: string): boolean => terminalPanes[paneId]?.hasUnread === true
-  const unreadCount = workspaces.reduce(
-    (n, ws) => n + ws.panes.filter(p => hasUnread(p.id)).length,
-    0,
-  )
 
   const handleDropOnWorkspace = (targetId: string): void => {
     if (!dragSourceId || dragSourceId === targetId || !dropPosition) {
@@ -79,24 +80,9 @@ export function Sidebar({
     void reorderWorkspaces(next)
   }
 
-  const handleActivatePane = (paneId: string): void => {
-    const wasUnread = hasUnread(paneId)
-    onActivatePane(paneId)
-    useTerminalStore.getState().markRead(paneId)
-    if (wasUnread && activeTab === 'unread') setActiveTab('all')
-  }
-
-  // Clicking a workspace card in the sidebar activates it. Previously the
-  // user reached individual panes through expanded pane-rows; now that the
-  // rows are gone we forward "go to first unread pane" semantics here so
-  // the unread tab still has a clear action. When no unread pane exists,
-  // we simply activate the workspace without touching pane selection.
+  // Clicking a workspace card in the sidebar activates it. Pane-level
+  // navigation lives in the grid; per-pane state reads from the status dot.
   const handleSelectWorkspace = (workspaceId: string): void => {
-    const target = workspaces.find((ws) => ws.id === workspaceId)
-    const firstUnreadPane = target?.panes.find((pane) => hasUnread(pane.id))
-    if (firstUnreadPane) {
-      handleActivatePane(firstUnreadPane.id)
-    }
     onSelectWorkspace(workspaceId)
   }
 
@@ -105,11 +91,6 @@ export function Sidebar({
       <aside className="sidebar sidebar-collapsed">
         <div className="sidebar-brand sidebar-brand-collapsed">
           <OxeLogo />
-          {unreadCount > 0 ? (
-            <span className="sidebar-rail-unread" aria-label={`${unreadCount} unread pane${unreadCount === 1 ? '' : 's'}`}>
-              {unreadCount}
-            </span>
-          ) : null}
         </div>
         <nav className="sidebar-rail-list" aria-label="Collapsed workspaces">
           {integrationGroups.map((group) => (
@@ -132,23 +113,14 @@ export function Sidebar({
               ))}
             </div>
           ))}
-          {workspaces.map((workspace) => {
-            const workspaceUnread = workspace.panes.some((pane) => hasUnread(pane.id))
-            return (
-              <div key={workspace.id} className={`sidebar-rail-workspace${workspace.id === activeWorkspaceId ? ' active' : ''}`}>
-                <button
-                  type="button"
-                  className="sidebar-rail-workspace-btn"
-                  title={workspace.name}
-                  aria-label={workspace.name}
-                  onClick={() => handleSelectWorkspace(workspace.id)}
-                >
-                  <span>{workspace.name.slice(0, 2).toUpperCase()}</span>
-                  {workspaceUnread ? <i aria-hidden="true" /> : null}
-                </button>
-              </div>
-            )
-          })}
+          {workspaces.map((workspace) => (
+            <RailWorkspace
+              key={workspace.id}
+              workspace={workspace}
+              isActive={workspace.id === activeWorkspaceId}
+              onSelect={() => handleSelectWorkspace(workspace.id)}
+            />
+          ))}
         </nav>
         <div className="sidebar-footer">
           <button
@@ -166,15 +138,12 @@ export function Sidebar({
   }
 
   const filtered = workspaces.filter(ws => {
-    const matchesSearch =
-      !searchQuery ||
-      ws.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ws.panes.some(p =>
-        (p.agentName ?? p.type).toLowerCase().includes(searchQuery.toLowerCase()),
-      )
-    const matchesTab =
-      activeTab === 'all' || ws.panes.some(p => hasUnread(p.id))
-    return matchesSearch && matchesTab
+    if (!searchQuery) return true
+    const q = searchQuery.toLowerCase()
+    return (
+      ws.name.toLowerCase().includes(q) ||
+      ws.panes.some((p) => (p.agentName ?? p.type).toLowerCase().includes(q))
+    )
   })
 
   return (
@@ -198,6 +167,7 @@ export function Sidebar({
       <div className="sidebar-search-wrap">
         <Search size={11} className="sidebar-search-icon" aria-hidden="true" />
         <input
+          ref={searchInputRef}
           type="text"
           className="sidebar-search-input"
           placeholder="Search"
@@ -205,26 +175,7 @@ export function Sidebar({
           onChange={e => setSearchQuery(e.target.value)}
           aria-label="Search workspaces"
         />
-      </div>
-
-      <div className="sidebar-tabs" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'all'}
-          onClick={() => setActiveTab('all')}
-        >
-          All
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'unread'}
-          onClick={() => setActiveTab('unread')}
-        >
-          Unread
-          {unreadCount > 0 && <span className="tab-badge">{unreadCount}</span>}
-        </button>
+        <kbd className="sidebar-search-kbd">/</kbd>
       </div>
 
       <nav className="ws-group-list" aria-label="Workspaces">
@@ -247,6 +198,7 @@ export function Sidebar({
             ))}
           </section>
         ) : null}
+        <div className="sidebar-section-kicker">Workspaces</div>
         {filtered.length === 0 ? (
           <p className="sidebar-empty">No workspaces.</p>
         ) : (
@@ -282,5 +234,33 @@ export function Sidebar({
         </button>
       </div>
     </aside>
+  )
+}
+
+/**
+ * Collapsed-rail workspace button. Its status pip is colored by the dominant
+ * agent activity tone — same vocabulary as the expanded cards.
+ */
+function RailWorkspace({ workspace, isActive, onSelect }: {
+  workspace: Workspace
+  isActive: boolean
+  onSelect: () => void
+}): ReactElement {
+  const activity = useWorkspaceActivity(workspace)
+  const tone = activity.dominant
+  const showPip = tone !== null && tone !== 'idle' && tone !== 'exited'
+  return (
+    <div className={`sidebar-rail-workspace${isActive ? ' active' : ''}`}>
+      <button
+        type="button"
+        className="sidebar-rail-workspace-btn"
+        title={workspace.name}
+        aria-label={workspace.name}
+        onClick={onSelect}
+      >
+        <span>{workspace.name.slice(0, 2).toUpperCase()}</span>
+        {showPip ? <i className={`sidebar-rail-pip activity-${tone}`} aria-hidden="true" /> : null}
+      </button>
+    </div>
   )
 }

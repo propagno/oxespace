@@ -82,7 +82,7 @@ describe('TerminalPane', () => {
   })
 
 
-  test('starts, writes, resizes and stops a terminal', async () => {
+  test('starts, writes and resizes a terminal', async () => {
     const user = userEvent.setup()
     render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
 
@@ -95,8 +95,8 @@ describe('TerminalPane', () => {
     expect(window.oxe.terminal.write).toHaveBeenCalledWith({ paneId: 'pane-1', data: 'a' })
     expect(window.oxe.terminal.resize).toHaveBeenCalledWith({ paneId: 'pane-1', cols: 120, rows: 32 })
 
-    await user.click(screen.getByLabelText('Stop terminal'))
-    expect(window.oxe.terminal.stop).toHaveBeenCalledWith({ paneId: 'pane-1' })
+    // The Stop control was removed from the status bar — only Restart (on exit) remains.
+    expect(screen.queryByLabelText('Stop terminal')).not.toBeInTheDocument()
   })
 
   test('marks pane identity when a provider command is launched from a neutral terminal', async () => {

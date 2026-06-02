@@ -126,19 +126,33 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
     setBusy(true)
     setLocalError(null)
     try {
+      // Release any pane whose cwd is inside the target worktree FIRST. On
+      // Windows a directory can't be deleted while a process (the pane's shell)
+      // holds it as cwd — git de-registers the worktree but fails with
+      // "Permission denied" on the file delete. Move those panes back to the
+      // main worktree and stop their terminals so the handle is freed, then
+      // give the OS a beat to release it before asking git to remove.
+      const workspace = useWorkspaceStore.getState().workspaces.find((w) => w.id === workspaceId)
+      const panesInTree = (workspace?.panes ?? []).filter((p) => isPathWithin(p.rootPath, path))
+      for (const p of panesInTree) {
+        await setPaneRootPath(p.id, null)
+        try { await window.oxe.terminal.stop({ paneId: p.id }) } catch { /* maybe already idle */ }
+      }
+      if (panesInTree.length > 0) await new Promise((resolve) => setTimeout(resolve, 450))
+
       await removeWorktree(workspaceRootPath, path, true)
       setConfirmRemovePath(null)
-      if (activePane && activePane.rootPath === path) {
-        await setPaneRootPath(activePane.id, null)
-      }
     } catch (err) {
-      // Surface the most common case (user tried to remove the main) with a
-      // friendlier message — the raw git "fatal: 'X' is a main working tree"
-      // is correct but cryptic and looks like an internal bug to non-git users.
       const raw = err instanceof Error ? err.message : String(err)
-      const friendly = /main working tree/i.test(raw)
-        ? 'This is the main worktree — it can\'t be removed from inside the app. Remove other worktrees first, or delete the repo from disk.'
-        : raw
+      let friendly = raw
+      if (/main working tree/i.test(raw)) {
+        // Removing the main is intentionally blocked by git.
+        friendly = 'This is the main worktree — it can\'t be removed from inside the app. Remove other worktrees first, or delete the repo from disk.'
+      } else if (/permission denied/i.test(raw) || /failed to delete/i.test(raw) || /being used by another process/i.test(raw)) {
+        // git de-registered it (the list refreshes regardless) but couldn't
+        // delete the folder because something still has it open.
+        friendly = 'Worktree removed from git, but its folder couldn\'t be fully deleted — something still has it open (an editor, file explorer, or another terminal). Close those and delete the folder manually if it remains.'
+      }
       setLocalError(friendly)
     } finally {
       setBusy(false)
@@ -406,6 +420,20 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
       )}
     </div>
   )
+}
+
+/**
+ * True when `candidate` is the same directory as `target` or nested inside it.
+ * Separator- and case-insensitive so a pane's rootPath (`C:\…\wt`) matches
+ * git's porcelain path (`C:/…/wt`). `null` candidate (main worktree) is never
+ * "within" a removable worktree.
+ */
+function isPathWithin(candidate: string | null | undefined, target: string): boolean {
+  if (!candidate) return false
+  const norm = (p: string): string => p.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+  const c = norm(candidate)
+  const t = norm(target)
+  return c === t || c.startsWith(`${t}/`)
 }
 
 /**

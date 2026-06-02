@@ -13,6 +13,10 @@ vi.mock('@monaco-editor/react', () => ({
   )
 }))
 
+// Self-hosting setup pulls real monaco-editor + ?worker modules; stub it out so
+// the EditorPane render test stays light and headless.
+vi.mock('../../src/lib/monacoSetup', () => ({}))
+
 describe('EditorPane', () => {
   beforeEach(() => {
     const tree: FileTreeNode[] = [

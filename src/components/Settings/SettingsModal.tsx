@@ -1,8 +1,10 @@
-import { Bot, Mic, Plus, RefreshCw, Settings2, X } from 'lucide-react'
+import { Bell, Bot, Mic, Plus, RefreshCw, Settings2, SquareTerminal, X } from 'lucide-react'
 import { useEffect, useState, type ReactElement } from 'react'
 import type { AgentProfile, AgentReadiness } from '../../../shared/types/agent'
 import type { VoiceModelSize, VoiceModelStatus } from '../../../shared/types/voice'
 import { useVoiceStore } from '../../store/voice.store'
+import { useSettingsStore } from '../../store/settings.store'
+import { useTerminalPrefsStore, type TerminalCursorStyle } from '../../store/terminal-prefs.store'
 
 interface SettingsModalProps {
   agentProfiles: AgentProfile[]
@@ -31,7 +33,7 @@ export function SettingsModal({
   onConfigureAgent,
   onNewCustomAgent
 }: SettingsModalProps): ReactElement {
-  const [section, setSection] = useState<'providers' | 'voice'>('providers')
+  const [section, setSection] = useState<'providers' | 'terminal' | 'voice' | 'notifications'>('providers')
   return (
     <div className="modal-backdrop" role="presentation">
       <section className="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
@@ -52,6 +54,15 @@ export function SettingsModal({
             </button>
             <button
               type="button"
+              className={`settings-nav-item${section === 'terminal' ? ' active' : ''}`}
+              aria-current={section === 'terminal' ? 'page' : undefined}
+              onClick={() => setSection('terminal')}
+            >
+              <SquareTerminal size={14} aria-hidden="true" />
+              <span>Terminal</span>
+            </button>
+            <button
+              type="button"
               className={`settings-nav-item${section === 'voice' ? ' active' : ''}`}
               aria-current={section === 'voice' ? 'page' : undefined}
               onClick={() => setSection('voice')}
@@ -59,11 +70,24 @@ export function SettingsModal({
               <Mic size={14} aria-hidden="true" />
               <span>Voice</span>
             </button>
+            <button
+              type="button"
+              className={`settings-nav-item${section === 'notifications' ? ' active' : ''}`}
+              aria-current={section === 'notifications' ? 'page' : undefined}
+              onClick={() => setSection('notifications')}
+            >
+              <Bell size={14} aria-hidden="true" />
+              <span>Notifications</span>
+            </button>
           </nav>
         </aside>
 
-        {section === 'voice' ? (
+        {section === 'terminal' ? (
+          <TerminalSettingsSection onClose={onClose} />
+        ) : section === 'voice' ? (
           <VoiceSettingsSection onClose={onClose} />
+        ) : section === 'notifications' ? (
+          <NotificationsSettingsSection onClose={onClose} />
         ) : (
         <section className="settings-modal-content" aria-labelledby="settings-providers-title">
           <header className="settings-content-header">
@@ -249,6 +273,133 @@ function VoiceSettingsSection({ onClose }: { onClose: () => void }): ReactElemen
         <p className="settings-voice-hint">
           O reconhecimento roda 100% local (whisper.cpp) em <strong>português do Brasil</strong> — nenhum áudio sai da sua máquina.
           Segure o atalho para falar e solte para inserir no terminal; um toque no microfone alterna o modo mãos-livres.
+        </p>
+      </div>
+    </section>
+  )
+}
+
+const CURSOR_OPTIONS: Array<{ value: TerminalCursorStyle; label: string }> = [
+  { value: 'block', label: 'Bloco' },
+  { value: 'bar', label: 'Barra' },
+  { value: 'underline', label: 'Sublinhado' }
+]
+
+const FONT_PRESETS = [
+  'Cascadia Mono, Consolas, monospace',
+  'Cascadia Code, monospace',
+  'JetBrains Mono, monospace',
+  'Fira Code, monospace',
+  'Consolas, monospace',
+  'monospace'
+]
+
+function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactElement {
+  const global = useTerminalPrefsStore((s) => s.global)
+  const setGlobal = useTerminalPrefsStore((s) => s.setGlobal)
+
+  return (
+    <section className="settings-modal-content" aria-labelledby="settings-terminal-title">
+      <header className="settings-content-header">
+        <div>
+          <span>Aparência</span>
+          <h2 id="settings-terminal-title">Terminal</h2>
+        </div>
+        <div className="settings-content-actions">
+          <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
+            <X size={16} aria-hidden="true" />
+          </button>
+        </div>
+      </header>
+
+      <div className="settings-voice-form">
+        <label className="settings-field">
+          <span>Fonte</span>
+          <select value={global.fontFamily} onChange={(e) => setGlobal({ fontFamily: e.target.value })}>
+            {FONT_PRESETS.map((f) => <option key={f} value={f}>{f.split(',')[0]}</option>)}
+            {FONT_PRESETS.includes(global.fontFamily) ? null : <option value={global.fontFamily}>{global.fontFamily.split(',')[0]}</option>}
+          </select>
+        </label>
+
+        <label className="settings-field">
+          <span>Tamanho da fonte — {global.fontSize}px <small>(Ctrl + / Ctrl − / Ctrl 0)</small></span>
+          <input type="range" min={8} max={32} step={1} value={global.fontSize}
+            onChange={(e) => setGlobal({ fontSize: Number(e.target.value) })} />
+        </label>
+
+        <label className="settings-field">
+          <span>Altura de linha — {global.lineHeight.toFixed(1)}</span>
+          <input type="range" min={1} max={2} step={0.1} value={global.lineHeight}
+            onChange={(e) => setGlobal({ lineHeight: Number(e.target.value) })} />
+        </label>
+
+        <label className="settings-field">
+          <span>Espaçamento entre letras — {global.letterSpacing}px</span>
+          <input type="range" min={0} max={4} step={0.5} value={global.letterSpacing}
+            onChange={(e) => setGlobal({ letterSpacing: Number(e.target.value) })} />
+        </label>
+
+        <label className="settings-field">
+          <span>Cursor</span>
+          <select value={global.cursorStyle} onChange={(e) => setGlobal({ cursorStyle: e.target.value as TerminalCursorStyle })}>
+            {CURSOR_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </label>
+
+        <label className="settings-toggle-row">
+          <span><strong>Cursor piscante</strong></span>
+          <input type="checkbox" checked={global.cursorBlink} onChange={(e) => setGlobal({ cursorBlink: e.target.checked })} />
+        </label>
+
+        <label className="settings-field">
+          <span>Histórico de rolagem (linhas) — {global.scrollback.toLocaleString('pt-BR')}</span>
+          <input type="range" min={1000} max={200000} step={1000} value={global.scrollback}
+            onChange={(e) => setGlobal({ scrollback: Number(e.target.value) })} />
+        </label>
+
+        <p className="settings-voice-hint">
+          Estas são as preferências <strong>globais</strong>. Cada workspace pode sobrescrevê-las nas
+          configurações do workspace. As cores seguem o tema do workspace.
+        </p>
+      </div>
+    </section>
+  )
+}
+
+function NotificationsSettingsSection({ onClose }: { onClose: () => void }): ReactElement {
+  const notificationsEnabled = useSettingsStore((s) => s.notificationsEnabled)
+  const setNotificationsEnabled = useSettingsStore((s) => s.setNotificationsEnabled)
+
+  return (
+    <section className="settings-modal-content" aria-labelledby="settings-notifications-title">
+      <header className="settings-content-header">
+        <div>
+          <span>Sistema</span>
+          <h2 id="settings-notifications-title">Notifications</h2>
+        </div>
+        <div className="settings-content-actions">
+          <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
+            <X size={16} aria-hidden="true" />
+          </button>
+        </div>
+      </header>
+
+      <div className="settings-voice-form">
+        <label className="settings-toggle-row">
+          <span>
+            <strong>Notificar quando um agente precisar de você</strong>
+            <small>Avisa quando um agente em segundo plano termina, encerra ou dá erro. Clicar foca o terminal.</small>
+          </span>
+          <input
+            type="checkbox"
+            checked={notificationsEnabled}
+            onChange={(e) => setNotificationsEnabled(e.target.checked)}
+          />
+        </label>
+
+        <p className="settings-voice-hint">
+          As notificações só disparam para terminais que você <strong>não está olhando</strong> no momento —
+          enquanto você acompanha um agente, ele não te interrompe.
         </p>
       </div>
     </section>

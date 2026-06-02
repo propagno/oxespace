@@ -50,8 +50,8 @@
 
   /* Provider icons */
   --provider-claude:  #b5694a;
-  --provider-copilot: #238636;
-  --provider-gemini:  #1a73e8;
+  --provider-copilot: #24b2d5;
+  --provider-antigravity: #1a73e8;
   --provider-codex:   #10a37f;
   --provider-cursor:  #6366f1;
   --provider-custom:  #475569;
@@ -65,9 +65,9 @@
   --avatar-6: #0891b2;
 
   /* Pane active state */
-  --bg-pane-active-header: rgba(18, 199, 154, 0.06);
-  --bd-pane-active:        rgba(18, 199, 154, 0.36);
-  --glow-pane-active:      0 0 0 2px rgba(18, 199, 154, 0.18);
+  --bg-pane-active-header: color-mix(in srgb, var(--accent) 6%, transparent);
+  --bd-pane-active:        color-mix(in srgb, var(--accent) 36%, transparent);
+  --glow-pane-active:      0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
 
   /* Badge / status surfaces */
   --bg-badge-running:  rgba(52, 212, 116, 0.12);
@@ -139,6 +139,17 @@
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  /* Render native controls (select popups, scrollbars, pickers) in dark mode
+     so <select> dropdown lists don't open with a white background. */
+  color-scheme: dark;
+}
+
+/* Belt-and-suspenders: explicit dark option colors for the native dropdown
+   popup, since some Chromium builds ignore color-scheme for <option> bg. */
+select option,
+select optgroup {
+  background-color: var(--bg-elevated);
+  color: var(--tx-primary);
 }
 
 :root[data-density='comfortable'] {
@@ -222,6 +233,81 @@
   --accent: #f59e0b;
   --accent-hover: #fbbf24;
   --bd-ws-active: #f59e0b;
+}
+
+:root[data-theme='rose-pine'] {
+  --bg-app: #191724;
+  --bg-sidebar: #1f1d2e;
+  --bg-elevated: #26233a;
+  --bg-tile-content: #191724;
+  --bd-divider: #2a2837;
+  --bd-sidebar: #312f42;
+  --tx-primary: #e0def4;
+  --tx-secondary: #c4a7e7;
+  --tx-muted: #908caa;
+  --accent: #ebbcba;
+  --accent-hover: #f6c177;
+  --bd-ws-active: #ebbcba;
+}
+
+:root[data-theme='gruvbox'] {
+  --bg-app: #1d2021;
+  --bg-sidebar: #282828;
+  --bg-elevated: #3c3836;
+  --bg-tile-content: #1d2021;
+  --bd-divider: #504945;
+  --bd-sidebar: #665c54;
+  --tx-primary: #ebdbb2;
+  --tx-secondary: #d5c4a1;
+  --tx-muted: #928374;
+  --accent: #fabd2f;
+  --accent-hover: #fe8019;
+  --bd-ws-active: #fabd2f;
+}
+
+:root[data-theme='one-dark'] {
+  --bg-app: #282c34;
+  --bg-sidebar: #21252b;
+  --bg-elevated: #282c34;
+  --bg-tile-content: #282c34;
+  --bd-divider: #181a1f;
+  --bd-sidebar: #181a1f;
+  --tx-primary: #abb2bf;
+  --tx-secondary: #828997;
+  --tx-muted: #5c6370;
+  --accent: #61afef;
+  --accent-hover: #98c379;
+  --bd-ws-active: #61afef;
+}
+
+:root[data-theme='synthwave84'] {
+  --bg-app: #2b213a;
+  --bg-sidebar: #241b2f;
+  --bg-elevated: #372948;
+  --bg-tile-content: #2b213a;
+  --bd-divider: #44355b;
+  --bd-sidebar: #382c4a;
+  --tx-primary: #f0efe1;
+  --tx-secondary: #fdfdfd;
+  --tx-muted: #848b94;
+  --accent: #ff7edb;
+  --accent-hover: #36ade2;
+  --bd-ws-active: #ff7edb;
+}
+
+:root[data-theme='github-dark'] {
+  --bg-app: #0d1117;
+  --bg-sidebar: #161b22;
+  --bg-elevated: #21262d;
+  --bg-tile-content: #0d1117;
+  --bd-divider: #30363d;
+  --bd-sidebar: #21262d;
+  --tx-primary: #c9d1d9;
+  --tx-secondary: #8b949e;
+  --tx-muted: #8b949e;
+  --accent: #58a6ff;
+  --accent-hover: #1f6feb;
+  --bd-ws-active: #58a6ff;
 }
 
 :root[data-density='comfortable'] {
