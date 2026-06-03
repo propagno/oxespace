@@ -75,7 +75,8 @@ function registerIpcHandlers(): void {
       for (const window of BrowserWindow.getAllWindows()) {
         window.webContents.send(IPC_CHANNELS.terminal.onExit, event)
       }
-    }
+    },
+    userDataPath: app.getPath('userData')
   })
   registerWorkspaceIpc(db, terminalManager)
   registerTerminalIpc(terminalManager)

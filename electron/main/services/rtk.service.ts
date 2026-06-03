@@ -1,4 +1,4 @@
-import { app } from 'electron'
+
 import { join } from 'node:path'
 import { existsSync, mkdirSync, createWriteStream } from 'node:fs'
 import { execFile } from 'node:child_process'
@@ -46,10 +46,15 @@ function downloadFile(url: string, dest: string): Promise<void> {
 export class RtkService {
   private _binDir: string | null = null
   private downloadPromise: Promise<string> | null = null
+  private readonly userDataPath: string
+
+  constructor(userDataPath: string) {
+    this.userDataPath = userDataPath
+  }
 
   private get binDir(): string {
     if (!this._binDir) {
-      this._binDir = join(app.getPath('userData'), 'bin')
+      this._binDir = join(this.userDataPath, 'bin')
       if (!existsSync(this._binDir)) {
         mkdirSync(this._binDir, { recursive: true })
       }

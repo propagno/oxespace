@@ -17,6 +17,7 @@ interface TerminalManagerOptions {
   pty?: PtyModule
   env?: NodeJS.ProcessEnv
   platform?: NodeJS.Platform
+  userDataPath?: string
   emitData?: (event: TerminalDataEvent) => void
   emitExit?: (event: TerminalExitEvent) => void
 }
@@ -38,7 +39,7 @@ export class TerminalManager {
   private readonly platform: NodeJS.Platform
   private readonly emitData: (event: TerminalDataEvent) => void
   private readonly emitExit: (event: TerminalExitEvent) => void
-  private readonly rtkService = new RtkService()
+  private readonly rtkService: RtkService
 
   constructor(db: AppDatabase, options: TerminalManagerOptions = {}) {
     this.pty = options.pty ?? { spawn }
@@ -48,6 +49,11 @@ export class TerminalManager {
     this.shellProfileService = new ShellProfileService(db)
     this.emitData = options.emitData ?? (() => undefined)
     this.emitExit = options.emitExit ?? (() => undefined)
+
+    // In production, app.getPath is available via electron.
+    // In tests, we pass userDataPath explicitly to avoid depending on electron.app.
+    const userDataPath = options.userDataPath ?? require('electron').app?.getPath('userData') ?? ''
+    this.rtkService = new RtkService(userDataPath)
   }
 
   async start(input: TerminalStartInput): Promise<void> {
