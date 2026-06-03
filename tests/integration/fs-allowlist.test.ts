@@ -17,6 +17,11 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/usage/claudeProvider.ts',
   'electron/main/services/usage/codexProvider.ts',
   'electron/main/services/usage/copilotProvider.ts',
+  // AI usage/credits chips: read account-wide quota from outside the
+  // workspace tree (~/.codex rollout logs, ~/.claude credentials) — a
+  // read-only probe, not a workspace file operation.
+  'electron/main/services/agentCredits/codexCredits.service.ts',
+  'electron/main/services/agentCredits/claudeCredits.service.ts',
   'electron/main/index.ts',
   'electron/main/db/index.ts',
   // Internal MCP bootstrap: materializes the bridge script under

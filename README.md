@@ -6,11 +6,11 @@ OXESpace is a Windows desktop workspace for agentic development. It combines ter
 
 Current Windows release:
 
-[Download OXESpace 0.1.24 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.24/OXESpace-0.1.24-x64.exe)
+[Download OXESpace 0.1.25 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.25/OXESpace-0.1.25-x64.exe)
 
 Release page:
 
-[OXESpace v0.1.24](https://github.com/propagno/oxespace/releases/tag/v0.1.24)
+[OXESpace v0.1.25](https://github.com/propagno/oxespace/releases/tag/v0.1.25)
 
 All releases:
 
@@ -269,8 +269,8 @@ Release flow:
 ```powershell
 git switch main
 git pull origin main
-git tag v0.1.24
-git push origin v0.1.24
+git tag v0.1.25
+git push origin v0.1.25
 ```
 
 When the tag is pushed, GitHub Actions:
@@ -296,14 +296,13 @@ When the tag is pushed, GitHub Actions:
 
 ## Version
 
-Current release: `0.1.24`
+Current release: `0.1.25`
 
-Highlights since `0.1.23`:
+Highlights since `0.1.24`:
 
-- **Copilot AI-Credits indicator moved to the Copilot terminal status bar** (was the sidebar). It shows only in Copilot panes, is account-wide (same figure across panes), and is a passive indicator (no longer a button).
-- **Real AI-Credits from the logged-in GitHub account** (not an estimate): reads the dynamic allowance from `gh api copilot_internal/user` — `premium_interactions` on paid plans, the free metered allowance otherwise — using the fractional `quota_remaining` so it matches the Copilot CLI's "AI Credits" figure (e.g. `19.2/200`). Refreshes ~every 60s.
-- **Removed the "stop" control** from the terminal status bar (only "restart" remains, on exit).
+- **AI usage/credits indicator for Claude and Codex** in the terminal status bar — the counterpart to the existing Copilot AI-Credits chip. Each Claude/Codex pane shows its account's weekly subscription-quota usage (`XX%`), with a tooltip detailing the 5h + weekly windows and reset times.
+- **Codex** reads the `rate_limits` written into the local `~/.codex` rollout logs (no auth, no network). **Claude** reads live from the OAuth usage endpoint using the local Claude Code credentials. Both hide gracefully when the data isn't available; Antigravity stays a stub until it exposes a machine-readable source.
 
 Installer asset:
 
-[OXESpace-0.1.24-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.24/OXESpace-0.1.24-x64.exe)
+[OXESpace-0.1.25-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.25/OXESpace-0.1.25-x64.exe)
