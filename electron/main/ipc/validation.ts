@@ -385,12 +385,12 @@ export function parseGitBranchInput(value: unknown): { workspaceId: string; root
 // names, tags, SHAs, and short refspecs we actually surface (HEAD~3, origin/main, v1.2.3).
 // Rejects shell metacharacters that would be dangerous if a future caller forgets
 // `shell:false`.
-const GIT_REF_PATTERN = /^[A-Za-z0-9_./@~^-]+$/
+const GIT_REF_PATTERN = /^[A-Za-z0-9_./@~^{}-]+$/
 
 function expectGitRef(value: unknown, label: string): string {
   const text = expectNonEmptyString(value, label)
   if (!GIT_REF_PATTERN.test(text) || text.includes('..') || text.startsWith('-')) {
-    throw new Error(`${label} must be a valid git ref (alphanumerics, ._/@~^-)`)
+    throw new Error(`${label} must be a valid git ref (alphanumerics, ._/@~^{}-)`)
   }
   return text
 }
@@ -641,8 +641,8 @@ function expectBoolean(value: unknown, label: string): boolean {
 }
 
 function expectEditorWidth(value: unknown): number {
-  if (!Number.isFinite(value) || Number(value) < 25 || Number(value) > 70) {
-    throw new Error('editorWidthPercent must be between 25 and 70')
+  if (!Number.isFinite(value) || Number(value) < 0 || Number(value) > 100) {
+    throw new Error('editorWidthPercent must be between 0 and 100')
   }
   return Number(value)
 }

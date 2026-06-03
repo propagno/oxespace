@@ -42,11 +42,11 @@ export function ContextUsageStatus({ provider, rootPath }: { provider: AgentProv
   return (
     <span
       className={`statusbar-chip context-usage-chip tone-${tone}`}
-      title={title}
+      data-tooltip={title}
       aria-label={`Context window: ${pct}%`}
     >
       <Gauge size={10} aria-hidden="true" />
-      <span>ctx {pct}%</span>
+      <span className="chip-label">ctx {pct}%</span>
     </span>
   )
 }

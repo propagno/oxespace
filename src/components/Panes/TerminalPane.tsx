@@ -394,7 +394,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
           type="button"
           className={`statusbar-chip worktree-chip${isWorktreeOverride ? ' overridden' : ''}${branchErrorReason ? ' branch-error' : ''}`}
           aria-label={`Worktree: ${worktreeLabel}. ${isWorktreeOverride ? 'This pane is in a worktree. ' : ''}Click to manage.`}
-          title={branchErrorReason
+          data-tooltip={branchErrorReason
             ? `Branch could not be read: ${branchErrorReason} (${effectiveRootPath})`
             : `Branch/worktree: ${worktreeLabel} (${effectiveRootPath})`}
           onClick={() => {
@@ -407,7 +407,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
           }}
         >
           <FolderTree size={10} aria-hidden="true" />
-          <span>{worktreeLabel}</span>
+          <span className="chip-label">{worktreeLabel}</span>
           {isWorktreeOverride ? <span className="worktree-chip-tag" aria-hidden="true">wt</span> : null}
         </button>
 
@@ -415,25 +415,25 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
           type="button"
           className={`statusbar-chip mcp-chip${enabledMcpServers.length === 0 ? ' empty' : ''}`}
           aria-label={`MCP servers available to the agent: ${enabledMcpServers.length}. Click to manage.`}
-          title={mcpChipTooltip}
+          data-tooltip={mcpChipTooltip}
           onClick={() => {
             setActivePane(pane.id)
             openMcpPanel()
           }}
         >
           <Wrench size={10} aria-hidden="true" />
-          <span>{mcpChipLabel}</span>
+          <span className="chip-label">{mcpChipLabel}</span>
         </button>
 
         <button
           type="button"
           className="statusbar-chip slash-chip"
           aria-label="Abrir comandos (Ctrl+/)"
-          title="Comandos (Ctrl+/)"
+          data-tooltip="Comandos (Ctrl+/)"
           onClick={() => openSlashOverlay(pane.id)}
         >
           <Slash size={10} aria-hidden="true" />
-          <span>commands</span>
+          <span className="chip-label">commands</span>
         </button>
 
         <button
@@ -441,7 +441,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
           className={`statusbar-chip voice-chip ${voice.error ? 'error' : voice.status}`}
           aria-label={voice.isSupported ? 'OXEVoice: tap to toggle, hold to push-to-talk' : 'OXEVoice is not available'}
           aria-pressed={isVoiceActive}
-          title={voice.isSupported
+          data-tooltip={voice.isSupported
             ? 'OXEVoice — toque para alternar, segure para falar (push-to-talk). O texto vai pro terminal sem Enter.'
             : 'OXEVoice indisponível neste runtime'}
           disabled={!canUseVoice || !voice.isSupported}
@@ -452,7 +452,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
           {isVoiceActive
             ? <MicOff size={10} aria-hidden="true" />
             : <Mic size={10} aria-hidden="true" />}
-          <span>
+          <span className="chip-label">
             {voice.status === 'downloading' ? 'baixando…'
               : voice.status === 'transcribing' ? 'transcrevendo…'
                 : voice.status === 'listening' ? 'ouvindo' : 'voice'}

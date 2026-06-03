@@ -43,11 +43,11 @@ export function AgentCreditsStatus({ provider }: { provider: AgentProvider }): R
   return (
     <span
       className={`statusbar-chip agent-credits-chip tone-${tone}`}
-      title={title}
+      data-tooltip={title}
       aria-label={`${name} credits: ${pct}%`}
     >
       <Icon size={10} aria-hidden="true" />
-      <span>{pct}%</span>
+      <span className="chip-label">{pct}%</span>
     </span>
   )
 }

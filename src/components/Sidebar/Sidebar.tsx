@@ -200,7 +200,11 @@ export function Sidebar({
         ) : null}
         <div className="sidebar-section-kicker">Workspaces</div>
         {filtered.length === 0 ? (
-          <p className="sidebar-empty">No workspaces.</p>
+          <div className="sidebar-empty-state">
+            <div className="sidebar-empty-icon">📁</div>
+            <p>No workspaces found.</p>
+            {!searchQuery && <button type="button" className="sidebar-empty-btn" onClick={onNewWorkspace}>Create your first workspace</button>}
+          </div>
         ) : (
           filtered.map(ws => (
             <WorkspaceGroup
