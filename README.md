@@ -6,11 +6,11 @@ OXESpace is a Windows desktop workspace for agentic development. It combines ter
 
 Current Windows release:
 
-[Download OXESpace 0.1.25 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.25/OXESpace-0.1.25-x64.exe)
+[Download OXESpace 0.1.26 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.26/OXESpace-0.1.26-x64.exe)
 
 Release page:
 
-[OXESpace v0.1.25](https://github.com/propagno/oxespace/releases/tag/v0.1.25)
+[OXESpace v0.1.26](https://github.com/propagno/oxespace/releases/tag/v0.1.26)
 
 All releases:
 
@@ -269,8 +269,8 @@ Release flow:
 ```powershell
 git switch main
 git pull origin main
-git tag v0.1.25
-git push origin v0.1.25
+git tag v0.1.26
+git push origin v0.1.26
 ```
 
 When the tag is pushed, GitHub Actions:
@@ -296,13 +296,13 @@ When the tag is pushed, GitHub Actions:
 
 ## Version
 
-Current release: `0.1.25`
+Current release: `0.1.26`
 
-Highlights since `0.1.24`:
+Highlights since `0.1.25`:
 
-- **AI usage/credits indicator for Claude and Codex** in the terminal status bar — the counterpart to the existing Copilot AI-Credits chip. Each Claude/Codex pane shows its account's weekly subscription-quota usage (`XX%`), with a tooltip detailing the 5h + weekly windows and reset times.
-- **Codex** reads the `rate_limits` written into the local `~/.codex` rollout logs (no auth, no network). **Claude** reads live from the OAuth usage endpoint using the local Claude Code credentials. Both hide gracefully when the data isn't available; Antigravity stays a stub until it exposes a machine-readable source.
+- **Live context-window % chip** in the terminal status bar for Claude, Codex and Copilot — the `/context` meter, so you can see how full the current conversation is and know when to `/compact` or `/clear`. Shows `ctx XX%` (yellow at 70%, red at 85%) and updates ~every 5s, with a tooltip of used/limit tokens.
+- All local, no network: **Claude/Codex** reuse the transcript token counts (last-turn fill ÷ the model's context window); **Copilot** reads the `Utilization X% (used/limit tokens)` line its CLI logs each turn (real 128k window + auto-compact threshold). Antigravity/Cursor expose no tokens, so the chip hides there.
 
 Installer asset:
 
-[OXESpace-0.1.25-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.25/OXESpace-0.1.25-x64.exe)
+[OXESpace-0.1.26-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.26/OXESpace-0.1.26-x64.exe)
