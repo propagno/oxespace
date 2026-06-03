@@ -22,6 +22,7 @@ export interface TerminalPrefs {
   cursorBlink: boolean
   scrollback: number
   rtkHookEnabled: boolean
+  cavemanModeEnabled: boolean
 }
 
 export const TERMINAL_PREFS_DEFAULTS: TerminalPrefs = {
@@ -32,7 +33,8 @@ export const TERMINAL_PREFS_DEFAULTS: TerminalPrefs = {
   cursorStyle: 'block',
   cursorBlink: true,
   scrollback: 100_000,
-  rtkHookEnabled: true
+  rtkHookEnabled: true,
+  cavemanModeEnabled: false
 }
 
 export const FONT_SIZE_MIN = 8

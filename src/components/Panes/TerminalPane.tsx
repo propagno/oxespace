@@ -1,4 +1,4 @@
-import { FolderTree, Mic, MicOff, Play, Slash, Wrench, Zap } from 'lucide-react'
+import { FolderTree, Mic, MicOff, Play, Slash, Wrench, Zap, Bone } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { WorkspacePane } from '../../../shared/types/workspace'
@@ -168,7 +168,14 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
       if (profile && profile.agentProfileId !== pane.agentProfileId) {
         void setPaneAgent(pane.id, profile.agentProfileId, { preserveSession: true })
       }
-      await window.oxe.terminal.start({ paneId: pane.id, workspaceId, agentCommand, initialPrompt, disableRtk: !terminalPrefs.rtkHookEnabled })
+
+      let p = initialPrompt
+      if (terminalPrefs.cavemanModeEnabled) {
+        const CAVEMAN_PROMPT = `Respond terse like smart caveman. All technical substance stay. Only fluff die. Drop articles, filler, pleasantries. Fragments OK. Technical terms exact. Code blocks unchanged. Errors quoted exact. Pattern: [thing] [action] [reason]. [next step]. Not: "Sure! I'd be happy to help you with that. The issue you're experiencing is likely caused by..." Yes: "Bug in auth middleware. Token expiry check use \`<\` not \`<=\`. Fix:"`
+        p = p ? `${CAVEMAN_PROMPT}\n\n${p}` : CAVEMAN_PROMPT
+      }
+
+      await window.oxe.terminal.start({ paneId: pane.id, workspaceId, agentCommand, initialPrompt: p, disableRtk: !terminalPrefs.rtkHookEnabled })
       setStatus(pane.id, 'running')
     } catch (error) {
       setStatus(pane.id, 'error', toMessage(error))
@@ -448,6 +455,19 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         >
           <Zap size={10} aria-hidden="true" style={{ opacity: terminalPrefs.rtkHookEnabled ? 1 : 0.4 }} />
           <span className="chip-label" style={{ opacity: terminalPrefs.rtkHookEnabled ? 1 : 0.4 }}>rtk</span>
+        </button>
+
+        <button
+          type="button"
+          className={`statusbar-chip caveman-chip ${!terminalPrefs.cavemanModeEnabled ? 'disabled' : ''}`}
+          aria-label={`Caveman Mode: ${terminalPrefs.cavemanModeEnabled ? 'Enabled' : 'Disabled'}. Click to toggle.`}
+          data-tooltip={terminalPrefs.cavemanModeEnabled
+            ? 'Caveman Mode: Ativado (O LLM fala o mínimo possível). Clique para desativar.'
+            : 'Caveman Mode: Desativado (Respostas normais do LLM). Clique para ativar.'}
+          onClick={() => setTerminalOverride(workspaceId, 'cavemanModeEnabled', !terminalPrefs.cavemanModeEnabled)}
+        >
+          <Bone size={10} aria-hidden="true" style={{ opacity: terminalPrefs.cavemanModeEnabled ? 1 : 0.4 }} />
+          <span className="chip-label" style={{ opacity: terminalPrefs.cavemanModeEnabled ? 1 : 0.4 }}>caveman</span>
         </button>
 
         <button
