@@ -13,6 +13,7 @@ import { useWorkspaceStore } from '../../store/workspace.store'
 import { useResolvedTerminalPrefs } from '../../store/terminal-prefs.store'
 import { TerminalView } from '../Terminal/TerminalView'
 import { CopilotCreditsStatus } from '../Terminal/CopilotCreditsStatus'
+import { AgentCreditsStatus } from '../Terminal/AgentCreditsStatus'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 
 interface TerminalPaneProps {
@@ -37,6 +38,14 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
     const profile = allProfiles.find((p) => p.agentProfileId === pane.agentProfileId)
     const providers = [profile?.provider, profile?.parentProvider]
     return providers.includes('copilot') || providers.includes('gh-copilot')
+  }, [allProfiles, pane.agentProfileId])
+  // Claude/Codex panes get the equivalent per-provider quota chip (weekly usage).
+  const agentCreditsProvider = useMemo(() => {
+    const profile = allProfiles.find((p) => p.agentProfileId === pane.agentProfileId)
+    const providers = [profile?.provider, profile?.parentProvider]
+    if (providers.includes('claude')) return 'claude' as const
+    if (providers.includes('codex')) return 'codex' as const
+    return null
   }, [allProfiles, pane.agentProfileId])
   const typedCommandRef = useRef('')
   const effectiveRootPath = pane.rootPath ?? workspaceRootPath
@@ -368,6 +377,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         <div className="terminal-statusbar-spacer" />
 
         {isCopilotPane ? <CopilotCreditsStatus /> : null}
+        {agentCreditsProvider ? <AgentCreditsStatus provider={agentCreditsProvider} /> : null}
 
         <button
           type="button"
