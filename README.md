@@ -296,7 +296,7 @@ When the tag is pushed, GitHub Actions:
 
 ## Version
 
-Current release: `0.1.32`
+Current release: `0.1.33`
 
 Highlights since `0.1.28`:
 
@@ -306,4 +306,4 @@ Highlights since `0.1.28`:
 
 Installer asset:
 
-[OXESpace-0.1.32-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.32/OXESpace-0.1.32-x64.exe)
+[OXESpace-0.1.33-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.33/OXESpace-0.1.33-x64.exe)
