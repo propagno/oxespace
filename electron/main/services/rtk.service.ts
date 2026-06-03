@@ -112,7 +112,9 @@ export class RtkService {
       log.info('[RtkService] RTK archive downloaded, extracting...')
 
       if (isZip) {
-        await execFileAsync('powershell', ['-Command', `Expand-Archive -Path "${archivePath}" -DestinationPath "${this.binDir}" -Force`])
+        // Windows 10+ includes tar natively, which can extract zip files using libarchive.
+        // It's much faster and avoids powershell/AV blocking issues.
+        await execFileAsync('tar', ['-xf', archivePath, '-C', this.binDir])
       } else {
         await execFileAsync('tar', ['-xzf', archivePath, '-C', this.binDir])
       }
