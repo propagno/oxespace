@@ -14,6 +14,7 @@ import { useResolvedTerminalPrefs } from '../../store/terminal-prefs.store'
 import { TerminalView } from '../Terminal/TerminalView'
 import { CopilotCreditsStatus } from '../Terminal/CopilotCreditsStatus'
 import { AgentCreditsStatus } from '../Terminal/AgentCreditsStatus'
+import { ContextUsageStatus } from '../Terminal/ContextUsageStatus'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 
 interface TerminalPaneProps {
@@ -45,6 +46,15 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
     const providers = [profile?.provider, profile?.parentProvider]
     if (providers.includes('claude')) return 'claude' as const
     if (providers.includes('codex')) return 'codex' as const
+    return null
+  }, [allProfiles, pane.agentProfileId])
+  // Live context-window % (/context meter) — providers that expose token data.
+  const contextProvider = useMemo(() => {
+    const profile = allProfiles.find((p) => p.agentProfileId === pane.agentProfileId)
+    const providers = [profile?.provider, profile?.parentProvider]
+    if (providers.includes('claude')) return 'claude' as const
+    if (providers.includes('codex')) return 'codex' as const
+    if (providers.includes('copilot') || providers.includes('gh-copilot')) return 'copilot' as const
     return null
   }, [allProfiles, pane.agentProfileId])
   const typedCommandRef = useRef('')
@@ -376,6 +386,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
 
         <div className="terminal-statusbar-spacer" />
 
+        {contextProvider ? <ContextUsageStatus provider={contextProvider} rootPath={effectiveRootPath} /> : null}
         {isCopilotPane ? <CopilotCreditsStatus /> : null}
         {agentCreditsProvider ? <AgentCreditsStatus provider={agentCreditsProvider} /> : null}
 

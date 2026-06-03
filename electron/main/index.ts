@@ -20,6 +20,7 @@ import { registerNotificationsIpc } from './ipc/notifications.ipc'
 import { registerOxeIpc } from './ipc/oxe.ipc'
 import { registerCopilotIpc } from './ipc/copilot.ipc'
 import { registerAgentCreditsIpc } from './ipc/agentCredits.ipc'
+import { registerContextUsageIpc } from './ipc/contextUsage.ipc'
 import { registerOxeContextIpc } from './ipc/oxe-context.ipc'
 import { SkillService } from './services/skill.service'
 import { McpManager } from './services/mcp.service'
@@ -125,6 +126,7 @@ function registerIpcHandlers(): void {
   registerNotificationsIpc()
   registerCopilotIpc()
   registerAgentCreditsIpc()
+  registerContextUsageIpc()
   const oxeService = registerOxeIpc()
   const fileSystemService = registerFileSystemIpc()
   // Internal oxespace MCP server — auto-starts on app boot, registers a

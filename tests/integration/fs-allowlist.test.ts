@@ -22,6 +22,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   // read-only probe, not a workspace file operation.
   'electron/main/services/agentCredits/codexCredits.service.ts',
   'electron/main/services/agentCredits/claudeCredits.service.ts',
+  // Context-window % chip: reads Copilot's process logs (~/.copilot/logs) and
+  // session workspace.yaml — outside the workspace tree, read-only.
+  'electron/main/services/contextUsage/copilotContext.ts',
   'electron/main/index.ts',
   'electron/main/db/index.ts',
   // Internal MCP bootstrap: materializes the bridge script under

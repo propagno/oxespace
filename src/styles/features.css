@@ -3506,17 +3506,23 @@
 /* AI-Credits indicators (Copilot + per-provider Claude/Codex) — passive status
    chips (not buttons). */
 .statusbar-chip.copilot-credits-chip,
-.statusbar-chip.agent-credits-chip { cursor: default; font-variant-numeric: tabular-nums; }
+.statusbar-chip.agent-credits-chip,
+.statusbar-chip.context-usage-chip { cursor: default; font-variant-numeric: tabular-nums; }
 .statusbar-chip.copilot-credits-chip:hover,
-.statusbar-chip.agent-credits-chip:hover { background: var(--surface-quiet); border-color: var(--bd-subtle); }
+.statusbar-chip.agent-credits-chip:hover,
+.statusbar-chip.context-usage-chip:hover { background: var(--surface-quiet); border-color: var(--bd-subtle); }
 .statusbar-chip.copilot-credits-chip.tone-warning,
 .statusbar-chip.copilot-credits-chip.tone-warning:hover,
 .statusbar-chip.agent-credits-chip.tone-warning,
-.statusbar-chip.agent-credits-chip.tone-warning:hover { color: var(--dot-yellow); }
+.statusbar-chip.agent-credits-chip.tone-warning:hover,
+.statusbar-chip.context-usage-chip.tone-warning,
+.statusbar-chip.context-usage-chip.tone-warning:hover { color: var(--dot-yellow); }
 .statusbar-chip.copilot-credits-chip.tone-critical,
 .statusbar-chip.copilot-credits-chip.tone-critical:hover,
 .statusbar-chip.agent-credits-chip.tone-critical,
-.statusbar-chip.agent-credits-chip.tone-critical:hover { color: var(--dot-red); }
+.statusbar-chip.agent-credits-chip.tone-critical:hover,
+.statusbar-chip.context-usage-chip.tone-critical,
+.statusbar-chip.context-usage-chip.tone-critical:hover { color: var(--dot-red); }
 .statusbar-chip.copilot-credits-chip.tone-idle,
 .statusbar-chip.agent-credits-chip.tone-idle { opacity: 0.7; text-transform: capitalize; }
 

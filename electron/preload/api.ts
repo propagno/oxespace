@@ -148,6 +148,9 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     agentCredits: {
       get: (input) => ipc.invoke(IPC_CHANNELS.agentCredits.get, input) as Promise<import('../../shared/types/agentCredits').AgentCreditsSnapshot>
     },
+    contextUsage: {
+      get: (input) => ipc.invoke(IPC_CHANNELS.contextUsage.get, input) as Promise<import('../../shared/types/contextUsage').ContextUsageChip>
+    },
     github: {
       getCliStatus: (input) => ipc.invoke(IPC_CHANNELS.github.getCliStatus, input) as Promise<GitHubCliStatus>,
       getWorkspaceStatus: (input) => ipc.invoke(IPC_CHANNELS.github.getWorkspaceStatus, input) as Promise<GitHubWorkspaceStatus>,

@@ -221,6 +221,9 @@ export const IPC_CHANNELS = {
   agentCredits: {
     get: 'agent-credits:get'
   },
+  contextUsage: {
+    get: 'context-usage:get'
+  },
   oxe: {
     detect: 'oxe:detect',
     status: 'oxe:status',
@@ -530,6 +533,11 @@ export interface AgentCreditsApi {
   get(input: import('./agentCredits').AgentCreditsInput): Promise<import('./agentCredits').AgentCreditsSnapshot>
 }
 
+export interface ContextUsageApi {
+  /** Live context-window % for a pane's provider (Claude/Codex/Copilot). */
+  get(input: import('./contextUsage').ContextUsageInput): Promise<import('./contextUsage').ContextUsageChip>
+}
+
 export interface OxeApi {
   app: {
     version: string
@@ -548,6 +556,7 @@ export interface OxeApi {
   oxe: OxeIntegrationApi
   copilot: CopilotApi
   agentCredits: AgentCreditsApi
+  contextUsage: ContextUsageApi
   background: BackgroundApi
   session: SessionApi
   skill: SkillApi
