@@ -37,7 +37,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/voice.service.ts',
   // OXE integration: existsSync(`<root>/.oxe`) to decide onboarding vs status —
   // a read-only project probe, not a workspace file operation.
-  'electron/main/services/oxe.service.ts'
+  'electron/main/services/oxe.service.ts',
+  // RTK Service: downloads rtk.exe to <userData>/bin for token savings.
+  'electron/main/services/rtk.service.ts'
 ])
 
 describe('workspace fs allowlist', () => {

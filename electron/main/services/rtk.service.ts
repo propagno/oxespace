@@ -44,14 +44,17 @@ function downloadFile(url: string, dest: string): Promise<void> {
 }
 
 export class RtkService {
-  private readonly binDir: string
+  private _binDir: string | null = null
   private downloadPromise: Promise<string> | null = null
 
-  constructor() {
-    this.binDir = join(app.getPath('userData'), 'bin')
-    if (!existsSync(this.binDir)) {
-      mkdirSync(this.binDir, { recursive: true })
+  private get binDir(): string {
+    if (!this._binDir) {
+      this._binDir = join(app.getPath('userData'), 'bin')
+      if (!existsSync(this._binDir)) {
+        mkdirSync(this._binDir, { recursive: true })
+      }
     }
+    return this._binDir
   }
 
   /**
