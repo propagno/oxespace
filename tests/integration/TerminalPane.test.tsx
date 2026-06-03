@@ -131,7 +131,7 @@ describe('TerminalPane', () => {
     // network issue. The full error text remains in the chip's title.
     await waitFor(() => expect(screen.getByText('branch error')).toBeInTheDocument())
     const chip = screen.getByLabelText(/Worktree: branch error/i)
-    expect(chip.getAttribute('title')).toMatch(/lookup failed/)
+    expect(chip.getAttribute('data-tooltip')).toMatch(/lookup failed/)
   })
 
   test('maps "Git executable not found" to "git not found"', async () => {

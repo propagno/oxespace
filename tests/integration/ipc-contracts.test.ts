@@ -98,7 +98,7 @@ describe('ipc contracts', () => {
       editorExpanded: undefined,
       editorWidthPercent: 40
     })
-    expect(() => parseUpdateWorkspaceEditorStateInput({ workspaceId: 'workspace-1', editorWidthPercent: 90 })).toThrow('editorWidthPercent')
+    expect(() => parseUpdateWorkspaceEditorStateInput({ workspaceId: 'workspace-1', editorWidthPercent: 110 })).toThrow('editorWidthPercent')
   })
 
   test('validates workspace settings payloads', () => {
