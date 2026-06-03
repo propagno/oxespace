@@ -87,7 +87,7 @@ describe('TerminalPane', () => {
     render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
 
     await user.click(screen.getByLabelText('Start terminal'))
-    await waitFor(() => expect(window.oxe.terminal.start).toHaveBeenCalledWith({ paneId: 'pane-1', workspaceId: 'workspace-1' }))
+    await waitFor(() => expect(window.oxe.terminal.start).toHaveBeenCalledWith(expect.objectContaining({ paneId: 'pane-1', workspaceId: 'workspace-1' })))
 
     await user.click(screen.getByText('input'))
     await user.click(screen.getByText('resize'))

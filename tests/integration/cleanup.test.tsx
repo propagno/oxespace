@@ -19,9 +19,9 @@ describe('cleanup flows', () => {
     const pty = createFakePtyModule()
     const manager = new TerminalManager(db, { pty })
 
-    manager.start({ workspaceId: first.id, paneId: first.panes[0].id })
-    manager.start({ workspaceId: first.id, paneId: first.panes[1].id })
-    manager.start({ workspaceId: second.id, paneId: second.panes[0].id })
+    await manager.start({ workspaceId: first.id, paneId: first.panes[0].id })
+    await manager.start({ workspaceId: first.id, paneId: first.panes[1].id })
+    await manager.start({ workspaceId: second.id, paneId: second.panes[0].id })
     manager.stopWorkspace(first.id)
 
     expect(pty.instances[0].kill).toHaveBeenCalled()

@@ -331,6 +331,7 @@ export interface TerminalStartInput {
   agentCommand?: string
   agentArgs?: string[]
   initialPrompt?: string
+  disableRtk?: boolean
 }
 
 export interface TerminalWriteInput {

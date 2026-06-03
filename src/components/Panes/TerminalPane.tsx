@@ -1,4 +1,4 @@
-import { FolderTree, Mic, MicOff, Play, Slash, Wrench } from 'lucide-react'
+import { FolderTree, Mic, MicOff, Play, Slash, Wrench, Zap } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { WorkspacePane } from '../../../shared/types/workspace'
@@ -10,7 +10,7 @@ import { selectMcpServers, useMcpStore } from '../../store/mcp.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
-import { useResolvedTerminalPrefs } from '../../store/terminal-prefs.store'
+import { useResolvedTerminalPrefs, useTerminalPrefsStore } from '../../store/terminal-prefs.store'
 import { TerminalView } from '../Terminal/TerminalView'
 import { CopilotCreditsStatus } from '../Terminal/CopilotCreditsStatus'
 import { AgentCreditsStatus } from '../Terminal/AgentCreditsStatus'
@@ -30,6 +30,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
   const setPaneAgent = useWorkspaceStore((s) => s.setPaneAgent)
   const allProfiles = useAgentStore((s) => s.allProfiles)
   const workspaceThemeId = useWorkspaceStore((s) => s.workspaces.find((w) => w.id === workspaceId)?.themeId ?? 'dracula')
+  const setTerminalOverride = useTerminalPrefsStore((s) => s.setOverride)
   const terminalPrefs = useResolvedTerminalPrefs(workspaceId)
   const state = getStatus(pane.id)
   const isRunning = state.status === 'running' || state.status === 'starting'
@@ -167,7 +168,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
       if (profile && profile.agentProfileId !== pane.agentProfileId) {
         void setPaneAgent(pane.id, profile.agentProfileId, { preserveSession: true })
       }
-      await window.oxe.terminal.start({ paneId: pane.id, workspaceId, agentCommand, initialPrompt })
+      await window.oxe.terminal.start({ paneId: pane.id, workspaceId, agentCommand, initialPrompt, disableRtk: !terminalPrefs.rtkHookEnabled })
       setStatus(pane.id, 'running')
     } catch (error) {
       setStatus(pane.id, 'error', toMessage(error))
@@ -434,6 +435,19 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         >
           <Slash size={10} aria-hidden="true" />
           <span className="chip-label">commands</span>
+        </button>
+
+        <button
+          type="button"
+          className={`statusbar-chip rtk-chip ${!terminalPrefs.rtkHookEnabled ? 'disabled' : ''}`}
+          aria-label={`RTK Terminal Hook: ${terminalPrefs.rtkHookEnabled ? 'Enabled' : 'Disabled'}. Click to toggle.`}
+          data-tooltip={terminalPrefs.rtkHookEnabled
+            ? 'RTK: Hook ativado (economiza tokens). Clique para desativar.'
+            : 'RTK: Hook desativado. Clique para ativar.'}
+          onClick={() => setTerminalOverride(workspaceId, 'rtkHookEnabled', !terminalPrefs.rtkHookEnabled)}
+        >
+          <Zap size={10} aria-hidden="true" style={{ opacity: terminalPrefs.rtkHookEnabled ? 1 : 0.4 }} />
+          <span className="chip-label" style={{ opacity: terminalPrefs.rtkHookEnabled ? 1 : 0.4 }}>rtk</span>
         </button>
 
         <button
