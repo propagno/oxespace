@@ -6,11 +6,11 @@ OXESpace is a Windows desktop workspace for agentic development. It combines ter
 
 Current Windows release:
 
-[Download OXESpace 0.1.28 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.28/OXESpace-0.1.28-x64.exe)
+[Download OXESpace 0.1.31 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.31/OXESpace-0.1.31-x64.exe)
 
 Release page:
 
-[OXESpace v0.1.28](https://github.com/propagno/oxespace/releases/tag/v0.1.28)
+[OXESpace v0.1.31](https://github.com/propagno/oxespace/releases/tag/v0.1.31)
 
 All releases:
 
@@ -269,8 +269,8 @@ Release flow:
 ```powershell
 git switch main
 git pull origin main
-git tag v0.1.28
-git push origin v0.1.28
+git tag v0.1.31
+git push origin v0.1.31
 ```
 
 When the tag is pushed, GitHub Actions:
@@ -296,13 +296,14 @@ When the tag is pushed, GitHub Actions:
 
 ## Version
 
-Current release: `0.1.28`
+Current release: `0.1.31`
 
-Highlights since `0.1.25`:
+Highlights since `0.1.28`:
 
-- **Live context-window % chip** in the terminal status bar for Claude, Codex and Copilot — the `/context` meter, so you can see how full the current conversation is and know when to `/compact` or `/clear`. Shows `ctx XX%` (yellow at 70%, red at 85%) and updates ~every 5s, with a tooltip of used/limit tokens.
-- All local, no network: **Claude/Codex** reuse the transcript token counts (last-turn fill ÷ the model's context window); **Copilot** reads the `Utilization X% (used/limit tokens)` line its CLI logs each turn (real 128k window + auto-compact threshold). Antigravity/Cursor expose no tokens, so the chip hides there.
+- **Premium Edge-Lit Glassmorphism UI**: Significant aesthetic upgrades to terminal status bar and interactive chips.
+- **RTK Native Integration**: Automatic, silent zero-setup download of RTK (`rtk-ai/rtk`) for drastic input token savings on CLI execution. Accessible via the Lightning Bolt toggle.
+- **Caveman Mode**: Built-in, zero-setup output compression prompt injection. Shrinks output text by ~75% without compromising technical accuracy. Accessible via the Bone toggle.
 
 Installer asset:
 
-[OXESpace-0.1.28-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.28/OXESpace-0.1.28-x64.exe)
+[OXESpace-0.1.31-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.31/OXESpace-0.1.31-x64.exe)
