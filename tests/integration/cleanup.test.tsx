@@ -11,7 +11,7 @@ vi.mock('../../src/components/Panes/PaneContent', () => ({
 }))
 
 describe('cleanup flows', () => {
-  test('stops all terminal sessions for a closed workspace', () => {
+  test('stops all terminal sessions for a closed workspace', async () => {
     const db = openInMemoryDatabase()
     const workspaceService = new WorkspaceService(db)
     const first = workspaceService.create({ rootPath: 'C:/repo-a', layout: '1x2' })
