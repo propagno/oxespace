@@ -6,11 +6,11 @@ OXESpace is a Windows desktop workspace for agentic development. It combines ter
 
 Current Windows release:
 
-[Download OXESpace 0.1.24 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.24/OXESpace-0.1.24-x64.exe)
+[Download OXESpace 0.1.35 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.35/OXESpace-0.1.35-x64.exe)
 
 Release page:
 
-[OXESpace v0.1.24](https://github.com/propagno/oxespace/releases/tag/v0.1.24)
+[OXESpace v0.1.35](https://github.com/propagno/oxespace/releases/tag/v0.1.35)
 
 All releases:
 
@@ -269,8 +269,8 @@ Release flow:
 ```powershell
 git switch main
 git pull origin main
-git tag v0.1.24
-git push origin v0.1.24
+git tag v0.1.32
+git push origin v0.1.32
 ```
 
 When the tag is pushed, GitHub Actions:
@@ -296,14 +296,14 @@ When the tag is pushed, GitHub Actions:
 
 ## Version
 
-Current release: `0.1.24`
+Current release: `0.1.35`
 
-Highlights since `0.1.23`:
+Highlights since `0.1.28`:
 
-- **Copilot AI-Credits indicator moved to the Copilot terminal status bar** (was the sidebar). It shows only in Copilot panes, is account-wide (same figure across panes), and is a passive indicator (no longer a button).
-- **Real AI-Credits from the logged-in GitHub account** (not an estimate): reads the dynamic allowance from `gh api copilot_internal/user` — `premium_interactions` on paid plans, the free metered allowance otherwise — using the fractional `quota_remaining` so it matches the Copilot CLI's "AI Credits" figure (e.g. `19.2/200`). Refreshes ~every 60s.
-- **Removed the "stop" control** from the terminal status bar (only "restart" remains, on exit).
+- **Premium Edge-Lit Glassmorphism UI**: Significant aesthetic upgrades to terminal status bar and interactive chips.
+- **RTK Native Integration**: Automatic, silent zero-setup download of RTK (`rtk-ai/rtk`) for drastic input token savings on CLI execution. Accessible via the Lightning Bolt toggle.
+- **Caveman Mode**: Built-in, zero-setup output compression prompt injection. Shrinks output text by ~75% without compromising technical accuracy. Accessible via the Bone toggle.
 
 Installer asset:
 
-[OXESpace-0.1.24-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.24/OXESpace-0.1.24-x64.exe)
+[OXESpace-0.1.35-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.35/OXESpace-0.1.35-x64.exe)

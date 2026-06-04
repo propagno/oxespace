@@ -11,7 +11,7 @@ vi.mock('../../src/components/Panes/PaneContent', () => ({
 }))
 
 describe('cleanup flows', () => {
-  test('stops all terminal sessions for a closed workspace', () => {
+  test('stops all terminal sessions for a closed workspace', async () => {
     const db = openInMemoryDatabase()
     const workspaceService = new WorkspaceService(db)
     const first = workspaceService.create({ rootPath: 'C:/repo-a', layout: '1x2' })
@@ -19,9 +19,9 @@ describe('cleanup flows', () => {
     const pty = createFakePtyModule()
     const manager = new TerminalManager(db, { pty })
 
-    manager.start({ workspaceId: first.id, paneId: first.panes[0].id })
-    manager.start({ workspaceId: first.id, paneId: first.panes[1].id })
-    manager.start({ workspaceId: second.id, paneId: second.panes[0].id })
+    await manager.start({ workspaceId: first.id, paneId: first.panes[0].id })
+    await manager.start({ workspaceId: first.id, paneId: first.panes[1].id })
+    await manager.start({ workspaceId: second.id, paneId: second.panes[0].id })
     manager.stopWorkspace(first.id)
 
     expect(pty.instances[0].kill).toHaveBeenCalled()

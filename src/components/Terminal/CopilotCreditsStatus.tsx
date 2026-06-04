@@ -56,11 +56,11 @@ export function CopilotCreditsStatus(): ReactElement | null {
   return (
     <span
       className={`statusbar-chip copilot-credits-chip tone-${tone}`}
-      title={title}
+      data-tooltip={title}
       aria-label={`Copilot credits: ${label}`}
     >
       <Bot size={10} aria-hidden="true" />
-      <span>{label}</span>
+      <span className="chip-label">{label}</span>
     </span>
   )
 }

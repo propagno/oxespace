@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "oxespace": {
+      "command": "node",
+      "args": [
+        "C:\\Users\\dudu-\\AppData\\Roaming\\oxespace-dev\\bin\\oxespace-mcp.cjs"
+      ],
+      "env": {
+        "OXESPACE_MCP_PORT": "62781",
+        "OXESPACE_MCP_TOKEN": "6835233253d6219c2746251b15bb6dbc3e1892d6a74a575fd1427e604ff9d2fb",
+        "OXESPACE_WORKSPACE_ID": "e3dd0c10-9db6-4ef9-99f4-4d01ca7aee18"
+      }
+    },
+    "codegraph": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@colbymchenry/codegraph",
+        "serve",
+        "--mcp"
+      ]
+    }
+  }
+}

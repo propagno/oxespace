@@ -6,6 +6,7 @@ import type { AppDatabase } from '../db/index'
 import { WorkspaceService } from './workspace.service'
 import { ShellProfileService } from './shell-profile.service'
 import { killProcess } from '../utils/process-cleanup'
+import { RtkService } from './rtk.service'
 import type { TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStartInput, TerminalStopInput, TerminalWriteInput } from '../../../shared/types/ipc'
 
 interface PtyModule {
@@ -16,6 +17,7 @@ interface TerminalManagerOptions {
   pty?: PtyModule
   env?: NodeJS.ProcessEnv
   platform?: NodeJS.Platform
+  userDataPath?: string
   emitData?: (event: TerminalDataEvent) => void
   emitExit?: (event: TerminalExitEvent) => void
 }
@@ -25,6 +27,7 @@ interface TerminalSession {
   workspaceId: string
   pty: IPty
   agentCommand?: string
+  disableRtk?: boolean
 }
 
 export class TerminalManager {
@@ -36,6 +39,7 @@ export class TerminalManager {
   private readonly platform: NodeJS.Platform
   private readonly emitData: (event: TerminalDataEvent) => void
   private readonly emitExit: (event: TerminalExitEvent) => void
+  private readonly rtkService: RtkService
 
   constructor(db: AppDatabase, options: TerminalManagerOptions = {}) {
     this.pty = options.pty ?? { spawn }
@@ -45,9 +49,14 @@ export class TerminalManager {
     this.shellProfileService = new ShellProfileService(db)
     this.emitData = options.emitData ?? (() => undefined)
     this.emitExit = options.emitExit ?? (() => undefined)
+
+    // In production, app.getPath is available via electron.
+    // In tests, we pass userDataPath explicitly to avoid depending on electron.app.
+    const userDataPath = options.userDataPath ?? require('electron').app?.getPath('userData') ?? ''
+    this.rtkService = new RtkService(userDataPath)
   }
 
-  start(input: TerminalStartInput): void {
+  async start(input: TerminalStartInput): Promise<void> {
     if (this.sessions.has(input.paneId)) return
 
     const workspace = this.workspaceService.get(input.workspaceId)
@@ -76,6 +85,18 @@ export class TerminalManager {
     // Pane-level rootPath overrides the workspace root — used by git worktree panes.
     const cwd = pane.rootPath && existsSync(pane.rootPath) ? pane.rootPath : workspace.rootPath
 
+    let finalEnv = this.env
+    if (!input.disableRtk) {
+      try {
+        const rtkBin = await this.rtkService.ensureRtk()
+        finalEnv = { ...this.env, PATH: `${rtkBin}${delimiter}${this.env.PATH ?? ''}` }
+      } catch (err) {
+        // Fall back gracefully if download fails
+      }
+    } else {
+      finalEnv = { ...this.env, RTK_DISABLED: '1' }
+    }
+
     let ptyProcess: IPty
     try {
       ptyProcess = this.pty.spawn(executable, args, {
@@ -83,7 +104,7 @@ export class TerminalManager {
         cwd,
         cols: 80,
         rows: 24,
-        env: this.env
+        env: finalEnv
       })
     } catch (error) {
       if (input.agentCommand) {
@@ -115,7 +136,8 @@ export class TerminalManager {
       paneId: input.paneId,
       workspaceId: input.workspaceId,
       pty: ptyProcess,
-      agentCommand: input.agentCommand
+      agentCommand: input.agentCommand,
+      disableRtk: input.disableRtk
     })
   }
 
@@ -134,11 +156,11 @@ export class TerminalManager {
     this.sessions.delete(input.paneId)
   }
 
-  restart(input: TerminalStopInput): void {
+  async restart(input: TerminalStopInput): Promise<void> {
     const session = this.sessions.get(input.paneId)
     if (!session) return
     this.stop(input)
-    this.start({ paneId: input.paneId, workspaceId: session.workspaceId, agentCommand: session.agentCommand })
+    await this.start({ paneId: input.paneId, workspaceId: session.workspaceId, agentCommand: session.agentCommand, disableRtk: session.disableRtk })
   }
 
   stopWorkspace(workspaceId: string): void {

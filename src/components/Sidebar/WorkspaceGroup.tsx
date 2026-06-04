@@ -1,4 +1,4 @@
-import { Check, FolderTree, GripVertical, Network, Pencil, Trash2, X } from 'lucide-react'
+import { Check, FolderTree, GripVertical, Network, Pencil, Settings, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import { selectIntegrationsForWorkspace, useIntegrationStore } from '../../store/integration.store'
@@ -268,6 +268,18 @@ export function WorkspaceGroup({
             {nonMainWorktreeCount > 1 ? <span>{nonMainWorktreeCount}</span> : null}
           </button>
         ) : null}
+        {!renaming && (
+          <button
+            type="button"
+            className="ws-group-settings-btn"
+            title="Options"
+            aria-label="Workspace options"
+            onClick={handleContextMenu}
+            data-testid="ws-group-settings-btn"
+          >
+            <Settings size={13} aria-hidden="true" />
+          </button>
+        )}
       </div>
 
       {menu ? (

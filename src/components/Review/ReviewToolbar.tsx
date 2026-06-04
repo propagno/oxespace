@@ -2,7 +2,7 @@ import { Check, ChevronLeft, ChevronRight, Columns2, Rows3 } from 'lucide-react'
 import { type ReactElement } from 'react'
 import type { DiffMode } from '../../store/git.store'
 
-const BASE_OPTIONS = ['origin/main', 'origin/master', 'HEAD~1', 'HEAD~5']
+const BASE_OPTIONS = ['origin/main', 'origin/master', '@{upstream}', 'HEAD~1', 'HEAD~5']
 
 interface ReviewToolbarProps {
   base: string

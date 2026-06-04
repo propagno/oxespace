@@ -7,7 +7,7 @@ import { WorkspaceService } from '../../electron/main/services/workspace.service
 import { TerminalManager, resolveExecutable } from '../../electron/main/services/terminal.service'
 
 describe('TerminalManager', () => {
-  test('spawns isolated ptys with workspace cwd and shell profile', () => {
+  test('spawns isolated ptys with workspace cwd and shell profile', async () => {
     const db = openInMemoryDatabase()
     const workspaceService = new WorkspaceService(db)
     const workspace = workspaceService.create({ rootPath: 'C:/repo', layout: '1x2', autoStart: false })
@@ -15,8 +15,8 @@ describe('TerminalManager', () => {
     const emitData = vi.fn()
     const manager = new TerminalManager(db, { pty, emitData, platform: 'linux' })
 
-    manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id })
-    manager.start({ workspaceId: workspace.id, paneId: workspace.panes[1].id })
+    await manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id })
+    await manager.start({ workspaceId: workspace.id, paneId: workspace.panes[1].id })
 
     expect(pty.spawn).toHaveBeenCalledTimes(2)
     expect(pty.spawn).toHaveBeenNthCalledWith(
@@ -56,7 +56,7 @@ describe('TerminalManager', () => {
     }
   })
 
-  test('reports shell profile failures without creating a session', () => {
+  test('reports shell profile failures without creating a session', async () => {
     const db = openInMemoryDatabase()
     const workspaceService = new WorkspaceService(db)
     const workspace = workspaceService.create({
@@ -72,7 +72,7 @@ describe('TerminalManager', () => {
     }
     const manager = new TerminalManager(db, { pty, platform: 'linux' })
 
-    expect(() => manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id })).toThrow(
+    await expect(manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id })).rejects.toThrow(
       /Check Settings > Shell profiles executable "powershell\.exe"/
     )
     expect(manager.hasSession(workspace.panes[0].id)).toBe(false)

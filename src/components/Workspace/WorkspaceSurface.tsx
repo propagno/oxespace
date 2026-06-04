@@ -13,6 +13,7 @@ import { WorkspaceScriptsPanel } from './WorkspaceScriptsPanel'
 import { WorkspaceWebPreviewPanel } from './WorkspaceWebPreviewPanel'
 import { WorkspaceWorktreePanel } from './WorkspaceWorktreePanel'
 import { ToolsMenu } from './ToolsMenu'
+import { IntegrationsStatusChips } from './IntegrationsStatusChips'
 import { WorkspaceStatusSummary } from './WorkspaceStatusSummary'
 
 interface WorkspaceSurfaceProps {
@@ -209,6 +210,7 @@ export function WorkspaceSurface({
       id: 'github',
       defaultSize: toInnerPct(layoutSizes.github),
       onResize: (size) => {
+        if (Math.abs(size - toInnerPct(layoutSizes.github)) < 1) return
         const nextWidth = Math.round(size * outerSideSizeRef.current / 100)
         if (Math.abs(nextWidth - lastPersistedGitHubWidth.current) < 2) return
         lastPersistedGitHubWidth.current = nextWidth
@@ -232,6 +234,7 @@ export function WorkspaceSurface({
       id: 'review',
       defaultSize: toInnerPct(layoutSizes.review),
       onResize: (size) => {
+        if (Math.abs(size - toInnerPct(layoutSizes.review)) < 1) return
         const nextWidth = Math.round(size * outerSideSizeRef.current / 100)
         if (Math.abs(nextWidth - lastPersistedReviewWidth.current) < 2) return
         lastPersistedReviewWidth.current = nextWidth
@@ -253,6 +256,7 @@ export function WorkspaceSurface({
       id: 'editor',
       defaultSize: toInnerPct(layoutSizes.editor),
       onResize: (size) => {
+        if (Math.abs(size - toInnerPct(layoutSizes.editor)) < 1) return
         const nextWidth = Math.round(size * outerSideSizeRef.current / 100)
         if (Math.abs(nextWidth - lastPersistedWidth.current) < 2) return
         lastPersistedWidth.current = nextWidth
@@ -274,6 +278,7 @@ export function WorkspaceSurface({
       id: 'background',
       defaultSize: toInnerPct(layoutSizes.background),
       onResize: (size) => {
+        if (Math.abs(size - toInnerPct(layoutSizes.background)) < 1) return
         const nextWidth = Math.round(size * outerSideSizeRef.current / 100)
         if (Math.abs(nextWidth - lastPersistedBackgroundWidth.current) < 2) return
         lastPersistedBackgroundWidth.current = nextWidth
@@ -295,6 +300,7 @@ export function WorkspaceSurface({
       id: 'worktree',
       defaultSize: toInnerPct(layoutSizes.worktree),
       onResize: (size) => {
+        if (Math.abs(size - toInnerPct(layoutSizes.worktree)) < 1) return
         const nextWidth = Math.round(size * outerSideSizeRef.current / 100)
         if (Math.abs(nextWidth - lastPersistedWorktreeWidth.current) < 2) return
         lastPersistedWorktreeWidth.current = nextWidth
@@ -402,6 +408,7 @@ export function WorkspaceSurface({
           summary so multi-agent vibe coding becomes scannable in 1s. */}
       <WorkspaceStatusSummary workspace={workspace} />
       <div className="workspace-topbar-spacer" />
+      <IntegrationsStatusChips workspace={workspace} />
       <div className="workspace-toolbar-actions" aria-label="Workspace actions">
         <ToolsMenu
           active={{ github: githubVisible, editor: editorVisible, review: reviewVisible, background: backgroundVisible, worktree: worktreeVisible, scripts: scriptsVisible, webPreview: webPreviewVisible, integration: integrationVisible, oxe: oxeVisible }}

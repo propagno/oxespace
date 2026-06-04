@@ -1,7 +1,7 @@
 {
   "name": "oxespace",
-  "version": "0.1.24",
-  "description": "Agentic Terminal Workspace Manager",
+  "version": "0.1.35",
+  "description": "An open source, AI-native workspace and terminal",
   "repository": {
     "type": "git",
     "url": "https://github.com/propagno/oxespace.git"

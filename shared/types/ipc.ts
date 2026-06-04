@@ -218,6 +218,12 @@ export const IPC_CHANNELS = {
   copilot: {
     credits: 'copilot:credits'
   },
+  agentCredits: {
+    get: 'agent-credits:get'
+  },
+  contextUsage: {
+    get: 'context-usage:get'
+  },
   oxe: {
     detect: 'oxe:detect',
     status: 'oxe:status',
@@ -325,6 +331,7 @@ export interface TerminalStartInput {
   agentCommand?: string
   agentArgs?: string[]
   initialPrompt?: string
+  disableRtk?: boolean
 }
 
 export interface TerminalWriteInput {
@@ -522,6 +529,16 @@ export interface CopilotApi {
   credits(force?: boolean): Promise<import('./copilot').CopilotCredits>
 }
 
+export interface AgentCreditsApi {
+  /** Per-provider quota snapshot (Claude/Codex). Hidden for unsupported providers. */
+  get(input: import('./agentCredits').AgentCreditsInput): Promise<import('./agentCredits').AgentCreditsSnapshot>
+}
+
+export interface ContextUsageApi {
+  /** Live context-window % for a pane's provider (Claude/Codex/Copilot). */
+  get(input: import('./contextUsage').ContextUsageInput): Promise<import('./contextUsage').ContextUsageChip>
+}
+
 export interface OxeApi {
   app: {
     version: string
@@ -539,6 +556,8 @@ export interface OxeApi {
   notifications: NotificationsApi
   oxe: OxeIntegrationApi
   copilot: CopilotApi
+  agentCredits: AgentCreditsApi
+  contextUsage: ContextUsageApi
   background: BackgroundApi
   session: SessionApi
   skill: SkillApi

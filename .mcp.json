@@ -1,11 +1,15 @@
 {
   "mcpServers": {
-    "playwright": {
-      "command": "npx",
+    "oxespace": {
+      "command": "node",
       "args": [
-        "-y",
-        "@playwright/mcp@latest"
-      ]
+        "C:\\Users\\dudu-\\AppData\\Roaming\\oxespace-dev\\bin\\oxespace-mcp.cjs"
+      ],
+      "env": {
+        "OXESPACE_MCP_PORT": "62781",
+        "OXESPACE_MCP_TOKEN": "6835233253d6219c2746251b15bb6dbc3e1892d6a74a575fd1427e604ff9d2fb",
+        "OXESPACE_WORKSPACE_ID": "d40b53ec-23ec-422d-8b4f-bd9244edfa6d"
+      }
     }
   }
 }

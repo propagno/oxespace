@@ -17,6 +17,14 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/usage/claudeProvider.ts',
   'electron/main/services/usage/codexProvider.ts',
   'electron/main/services/usage/copilotProvider.ts',
+  // AI usage/credits chips: read account-wide quota from outside the
+  // workspace tree (~/.codex rollout logs, ~/.claude credentials) — a
+  // read-only probe, not a workspace file operation.
+  'electron/main/services/agentCredits/codexCredits.service.ts',
+  'electron/main/services/agentCredits/claudeCredits.service.ts',
+  // Context-window % chip: reads Copilot's process logs (~/.copilot/logs) and
+  // session workspace.yaml — outside the workspace tree, read-only.
+  'electron/main/services/contextUsage/copilotContext.ts',
   'electron/main/index.ts',
   'electron/main/db/index.ts',
   // Internal MCP bootstrap: materializes the bridge script under
@@ -29,7 +37,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/voice.service.ts',
   // OXE integration: existsSync(`<root>/.oxe`) to decide onboarding vs status —
   // a read-only project probe, not a workspace file operation.
-  'electron/main/services/oxe.service.ts'
+  'electron/main/services/oxe.service.ts',
+  // RTK Service: downloads rtk.exe to <userData>/bin for token savings.
+  'electron/main/services/rtk.service.ts'
 ])
 
 describe('workspace fs allowlist', () => {

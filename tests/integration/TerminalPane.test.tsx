@@ -87,7 +87,7 @@ describe('TerminalPane', () => {
     render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
 
     await user.click(screen.getByLabelText('Start terminal'))
-    await waitFor(() => expect(window.oxe.terminal.start).toHaveBeenCalledWith({ paneId: 'pane-1', workspaceId: 'workspace-1' }))
+    await waitFor(() => expect(window.oxe.terminal.start).toHaveBeenCalledWith(expect.objectContaining({ paneId: 'pane-1', workspaceId: 'workspace-1' })))
 
     await user.click(screen.getByText('input'))
     await user.click(screen.getByText('resize'))
@@ -131,7 +131,7 @@ describe('TerminalPane', () => {
     // network issue. The full error text remains in the chip's title.
     await waitFor(() => expect(screen.getByText('branch error')).toBeInTheDocument())
     const chip = screen.getByLabelText(/Worktree: branch error/i)
-    expect(chip.getAttribute('title')).toMatch(/lookup failed/)
+    expect(chip.getAttribute('data-tooltip')).toMatch(/lookup failed/)
   })
 
   test('maps "Git executable not found" to "git not found"', async () => {

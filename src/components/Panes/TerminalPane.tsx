@@ -1,4 +1,4 @@
-import { FolderTree, Mic, MicOff, Play, Slash, Wrench } from 'lucide-react'
+import { FolderTree, Mic, MicOff, Play, Slash, Wrench, Zap, Bone } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { WorkspacePane } from '../../../shared/types/workspace'
@@ -10,9 +10,11 @@ import { selectMcpServers, useMcpStore } from '../../store/mcp.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
-import { useResolvedTerminalPrefs } from '../../store/terminal-prefs.store'
+import { useResolvedTerminalPrefs, useTerminalPrefsStore } from '../../store/terminal-prefs.store'
 import { TerminalView } from '../Terminal/TerminalView'
 import { CopilotCreditsStatus } from '../Terminal/CopilotCreditsStatus'
+import { AgentCreditsStatus } from '../Terminal/AgentCreditsStatus'
+import { ContextUsageStatus } from '../Terminal/ContextUsageStatus'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 
 interface TerminalPaneProps {
@@ -28,6 +30,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
   const setPaneAgent = useWorkspaceStore((s) => s.setPaneAgent)
   const allProfiles = useAgentStore((s) => s.allProfiles)
   const workspaceThemeId = useWorkspaceStore((s) => s.workspaces.find((w) => w.id === workspaceId)?.themeId ?? 'dracula')
+  const setTerminalOverride = useTerminalPrefsStore((s) => s.setOverride)
   const terminalPrefs = useResolvedTerminalPrefs(workspaceId)
   const state = getStatus(pane.id)
   const isRunning = state.status === 'running' || state.status === 'starting'
@@ -37,6 +40,23 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
     const profile = allProfiles.find((p) => p.agentProfileId === pane.agentProfileId)
     const providers = [profile?.provider, profile?.parentProvider]
     return providers.includes('copilot') || providers.includes('gh-copilot')
+  }, [allProfiles, pane.agentProfileId])
+  // Claude/Codex panes get the equivalent per-provider quota chip (weekly usage).
+  const agentCreditsProvider = useMemo(() => {
+    const profile = allProfiles.find((p) => p.agentProfileId === pane.agentProfileId)
+    const providers = [profile?.provider, profile?.parentProvider]
+    if (providers.includes('claude')) return 'claude' as const
+    if (providers.includes('codex')) return 'codex' as const
+    return null
+  }, [allProfiles, pane.agentProfileId])
+  // Live context-window % (/context meter) — providers that expose token data.
+  const contextProvider = useMemo(() => {
+    const profile = allProfiles.find((p) => p.agentProfileId === pane.agentProfileId)
+    const providers = [profile?.provider, profile?.parentProvider]
+    if (providers.includes('claude')) return 'claude' as const
+    if (providers.includes('codex')) return 'codex' as const
+    if (providers.includes('copilot') || providers.includes('gh-copilot')) return 'copilot' as const
+    return null
   }, [allProfiles, pane.agentProfileId])
   const typedCommandRef = useRef('')
   const effectiveRootPath = pane.rootPath ?? workspaceRootPath
@@ -148,7 +168,14 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
       if (profile && profile.agentProfileId !== pane.agentProfileId) {
         void setPaneAgent(pane.id, profile.agentProfileId, { preserveSession: true })
       }
-      await window.oxe.terminal.start({ paneId: pane.id, workspaceId, agentCommand, initialPrompt })
+
+      let p = initialPrompt
+      if (terminalPrefs.cavemanModeEnabled) {
+        const CAVEMAN_PROMPT = `Respond terse like smart caveman. All technical substance stay. Only fluff die. Drop articles, filler, pleasantries. Fragments OK. Technical terms exact. Code blocks unchanged. Errors quoted exact. Pattern: [thing] [action] [reason]. [next step]. Not: "Sure! I'd be happy to help you with that. The issue you're experiencing is likely caused by..." Yes: "Bug in auth middleware. Token expiry check use \`<\` not \`<=\`. Fix:"`
+        p = p ? `${CAVEMAN_PROMPT}\n\n${p}` : CAVEMAN_PROMPT
+      }
+
+      await window.oxe.terminal.start({ paneId: pane.id, workspaceId, agentCommand, initialPrompt: p, disableRtk: !terminalPrefs.rtkHookEnabled })
       setStatus(pane.id, 'running')
     } catch (error) {
       setStatus(pane.id, 'error', toMessage(error))
@@ -367,13 +394,15 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
 
         <div className="terminal-statusbar-spacer" />
 
+        {contextProvider ? <ContextUsageStatus provider={contextProvider} rootPath={effectiveRootPath} /> : null}
         {isCopilotPane ? <CopilotCreditsStatus /> : null}
+        {agentCreditsProvider ? <AgentCreditsStatus provider={agentCreditsProvider} /> : null}
 
         <button
           type="button"
           className={`statusbar-chip worktree-chip${isWorktreeOverride ? ' overridden' : ''}${branchErrorReason ? ' branch-error' : ''}`}
           aria-label={`Worktree: ${worktreeLabel}. ${isWorktreeOverride ? 'This pane is in a worktree. ' : ''}Click to manage.`}
-          title={branchErrorReason
+          data-tooltip={branchErrorReason
             ? `Branch could not be read: ${branchErrorReason} (${effectiveRootPath})`
             : `Branch/worktree: ${worktreeLabel} (${effectiveRootPath})`}
           onClick={() => {
@@ -386,7 +415,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
           }}
         >
           <FolderTree size={10} aria-hidden="true" />
-          <span>{worktreeLabel}</span>
+          <span className="chip-label">{worktreeLabel}</span>
           {isWorktreeOverride ? <span className="worktree-chip-tag" aria-hidden="true">wt</span> : null}
         </button>
 
@@ -394,25 +423,51 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
           type="button"
           className={`statusbar-chip mcp-chip${enabledMcpServers.length === 0 ? ' empty' : ''}`}
           aria-label={`MCP servers available to the agent: ${enabledMcpServers.length}. Click to manage.`}
-          title={mcpChipTooltip}
+          data-tooltip={mcpChipTooltip}
           onClick={() => {
             setActivePane(pane.id)
             openMcpPanel()
           }}
         >
           <Wrench size={10} aria-hidden="true" />
-          <span>{mcpChipLabel}</span>
+          <span className="chip-label">{mcpChipLabel}</span>
         </button>
 
         <button
           type="button"
           className="statusbar-chip slash-chip"
           aria-label="Abrir comandos (Ctrl+/)"
-          title="Comandos (Ctrl+/)"
+          data-tooltip="Comandos (Ctrl+/)"
           onClick={() => openSlashOverlay(pane.id)}
         >
           <Slash size={10} aria-hidden="true" />
-          <span>commands</span>
+          <span className="chip-label">commands</span>
+        </button>
+
+        <button
+          type="button"
+          className={`statusbar-chip rtk-chip ${!terminalPrefs.rtkHookEnabled ? 'disabled' : ''}`}
+          aria-label={`RTK Terminal Hook: ${terminalPrefs.rtkHookEnabled ? 'Enabled' : 'Disabled'}. Click to toggle.`}
+          data-tooltip={terminalPrefs.rtkHookEnabled
+            ? 'RTK: Hook ativado (economiza tokens). Clique para desativar.'
+            : 'RTK: Hook desativado. Clique para ativar.'}
+          onClick={() => setTerminalOverride(workspaceId, 'rtkHookEnabled', !terminalPrefs.rtkHookEnabled)}
+        >
+          <Zap size={10} aria-hidden="true" style={{ opacity: terminalPrefs.rtkHookEnabled ? 1 : 0.4 }} />
+          <span className="chip-label" style={{ opacity: terminalPrefs.rtkHookEnabled ? 1 : 0.4 }}>rtk</span>
+        </button>
+
+        <button
+          type="button"
+          className={`statusbar-chip caveman-chip ${!terminalPrefs.cavemanModeEnabled ? 'disabled' : ''}`}
+          aria-label={`Caveman Mode: ${terminalPrefs.cavemanModeEnabled ? 'Enabled' : 'Disabled'}. Click to toggle.`}
+          data-tooltip={terminalPrefs.cavemanModeEnabled
+            ? 'Caveman Mode: Ativado (O LLM fala o mínimo possível). Clique para desativar.'
+            : 'Caveman Mode: Desativado (Respostas normais do LLM). Clique para ativar.'}
+          onClick={() => setTerminalOverride(workspaceId, 'cavemanModeEnabled', !terminalPrefs.cavemanModeEnabled)}
+        >
+          <Bone size={10} aria-hidden="true" style={{ opacity: terminalPrefs.cavemanModeEnabled ? 1 : 0.4 }} />
+          <span className="chip-label" style={{ opacity: terminalPrefs.cavemanModeEnabled ? 1 : 0.4 }}>caveman</span>
         </button>
 
         <button
@@ -420,7 +475,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
           className={`statusbar-chip voice-chip ${voice.error ? 'error' : voice.status}`}
           aria-label={voice.isSupported ? 'OXEVoice: tap to toggle, hold to push-to-talk' : 'OXEVoice is not available'}
           aria-pressed={isVoiceActive}
-          title={voice.isSupported
+          data-tooltip={voice.isSupported
             ? 'OXEVoice — toque para alternar, segure para falar (push-to-talk). O texto vai pro terminal sem Enter.'
             : 'OXEVoice indisponível neste runtime'}
           disabled={!canUseVoice || !voice.isSupported}
@@ -431,7 +486,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
           {isVoiceActive
             ? <MicOff size={10} aria-hidden="true" />
             : <Mic size={10} aria-hidden="true" />}
-          <span>
+          <span className="chip-label">
             {voice.status === 'downloading' ? 'baixando…'
               : voice.status === 'transcribing' ? 'transcrevendo…'
                 : voice.status === 'listening' ? 'ouvindo' : 'voice'}
