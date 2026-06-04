@@ -7,6 +7,7 @@ import type { BackgroundManager } from '../services/background.service'
 import type { FileSystemService } from '../services/file-system.service'
 import type { GitHubService } from '../services/github.service'
 import type { McpManager } from '../services/mcp.service'
+import type { SemanticService } from '../services/semantic.service'
 import type { WorkspaceService } from '../services/workspace.service'
 import type {
   InternalMcpStatus,
@@ -56,6 +57,7 @@ export interface InternalMcpDeps {
   github: GitHubService
   background: BackgroundManager
   fileSystem: FileSystemService
+  semantic: SemanticService
 }
 
 export interface InternalMcpHandle {
@@ -80,6 +82,7 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
     github: deps.github,
     background: deps.background,
     fileSystem: deps.fileSystem,
+    semantic: deps.semantic,
     webPreview,
     worktree
   })

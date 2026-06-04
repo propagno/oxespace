@@ -6,11 +6,11 @@ OXESpace is a Windows desktop workspace for agentic development. It combines ter
 
 Current Windows release:
 
-[Download OXESpace 0.1.35 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.35/OXESpace-0.1.35-x64.exe)
+[Download OXESpace 0.1.36 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.36/OXESpace-0.1.36-x64.exe)
 
 Release page:
 
-[OXESpace v0.1.35](https://github.com/propagno/oxespace/releases/tag/v0.1.35)
+[OXESpace v0.1.36](https://github.com/propagno/oxespace/releases/tag/v0.1.36)
 
 All releases:
 
@@ -296,14 +296,15 @@ When the tag is pushed, GitHub Actions:
 
 ## Version
 
-Current release: `0.1.35`
+Current release: `0.1.36`
 
 Highlights since `0.1.28`:
 
 - **Premium Edge-Lit Glassmorphism UI**: Significant aesthetic upgrades to terminal status bar and interactive chips.
 - **RTK Native Integration**: Automatic, silent zero-setup download of RTK (`rtk-ai/rtk`) for drastic input token savings on CLI execution. Accessible via the Lightning Bolt toggle.
 - **Caveman Mode**: Built-in, zero-setup output compression prompt injection. Shrinks output text by ~75% without compromising technical accuracy. Accessible via the Bone toggle.
+- **Local Semantic Search**: On-device vector index (transformers.js / MiniLM) that lets agents retrieve only the few files relevant to a request instead of broad context — large input-token savings. Chunked, best-chunk ranking; toggled via the Brain chip; exposed to agents as the `oxespace_semantic_search` MCP tool.
 
 Installer asset:
 
-[OXESpace-0.1.35-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.35/OXESpace-0.1.35-x64.exe)
+[OXESpace-0.1.36-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.36/OXESpace-0.1.36-x64.exe)

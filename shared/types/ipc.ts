@@ -322,6 +322,10 @@ export const IPC_CHANNELS = {
   },
   oxeContext: {
     buildPaneManifest: 'oxe-context:build-pane-manifest'
+  },
+  semantic: {
+    getStatus: 'semantic:get-status',
+    setEnabled: 'semantic:set-enabled'
   }
 } as const
 
@@ -564,6 +568,20 @@ export interface OxeApi {
   mcp: McpApi
   mcpInternal: McpInternalApi
   oxeContext: OxeContextApi
+  semantic: SemanticApi
+}
+
+export interface SemanticStatus {
+  enabled: boolean
+  workerReady: boolean
+  indexing: boolean
+  count: number
+  lastError: string | null
+}
+
+export interface SemanticApi {
+  getStatus(workspaceId: string): Promise<SemanticStatus>
+  setEnabled(input: { workspaceId: string; enabled: boolean }): Promise<SemanticStatus>
 }
 
 export interface McpInternalApi {

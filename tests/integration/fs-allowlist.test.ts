@@ -39,7 +39,12 @@ const ALLOWED_FS_IMPORTS = new Set([
   // a read-only project probe, not a workspace file operation.
   'electron/main/services/oxe.service.ts',
   // RTK Service: downloads rtk.exe to <userData>/bin for token savings.
-  'electron/main/services/rtk.service.ts'
+  'electron/main/services/rtk.service.ts',
+  // Semantic Service: indexes the workspace tree for local embeddings (reads
+  // arbitrary files to embed) and creates the transformers.js model cache under
+  // <userData>/models. Background indexing outside the workspace-scoped
+  // FileSystemService, like rtk/voice above.
+  'electron/main/services/semantic.service.ts'
 ])
 
 describe('workspace fs allowlist', () => {

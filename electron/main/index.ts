@@ -27,10 +27,12 @@ import { McpManager } from './services/mcp.service'
 import { WorkspaceService } from './services/workspace.service'
 import { GitHubService } from './services/github.service'
 import { GitService } from './services/git.service'
+import { SemanticService } from './services/semantic.service'
 import { createInternalMcpHandle, type InternalMcpHandle } from './mcp-internal/bootstrap'
 import { registerTaskIpc } from './ipc/task.ipc'
 import { registerTerminalIpc } from './ipc/terminal.ipc'
 import { registerWorkspaceIpc } from './ipc/workspace.ipc'
+import { registerSemanticIpc } from './ipc/semantic.ipc'
 import { BackgroundManager } from './services/background.service'
 import { TerminalManager } from './services/terminal.service'
 import { isSafeExternalUrl } from './utils/external-url'
@@ -78,7 +80,12 @@ function registerIpcHandlers(): void {
     },
     userDataPath: app.getPath('userData')
   })
-  registerWorkspaceIpc(db, terminalManager)
+  
+  // Semantic search service
+  const semanticService = new SemanticService(db)
+
+  registerWorkspaceIpc(db, semanticService, terminalManager)
+  registerSemanticIpc(semanticService)
   registerTerminalIpc(terminalManager)
   registerAgentIpc(db)
   registerTaskIpc(db, terminalManager)
@@ -137,13 +144,15 @@ function registerIpcHandlers(): void {
   const internalMcpWorkspaceServ = new WorkspaceService(db)
   const internalMcpGithub = new GitHubService(db)
   const internalMcpGit = new GitService()
+
   const internalMcp: InternalMcpHandle = createInternalMcpHandle({
     db,
     mcpManager,
     workspaceServ: internalMcpWorkspaceServ,
     github: internalMcpGithub,
     background: backgroundManager,
-    fileSystem: fileSystemService
+    fileSystem: fileSystemService,
+    semantic: semanticService
   })
   registerMcpInternalIpc(internalMcp)
   void internalMcp.start()
@@ -166,6 +175,7 @@ function registerIpcHandlers(): void {
     skillService.dispose()
     mcpManager.stopAll()
     oxeService.disposeAll()
+    semanticService.destroy()
     void internalMcp.stop()
   })
   ipcRegistered = true
@@ -281,6 +291,8 @@ function registerNativeFailureIpcHandlers(message: string): void {
     tools: []
   }))
   ipcMain.handle(IPC_CHANNELS.mcpInternal.regenerateToken, fail)
+  ipcMain.handle(IPC_CHANNELS.semantic.getStatus, () => ({ enabled: false, workerReady: false, indexing: false, count: 0, lastError: 'native startup failed' }))
+  ipcMain.handle(IPC_CHANNELS.semantic.setEnabled, () => ({ enabled: false, workerReady: false, indexing: false, count: 0, lastError: 'native startup failed' }))
   ipcMain.handle(IPC_CHANNELS.oxeContext.buildPaneManifest, () => '')
   ipcMain.handle(IPC_CHANNELS.workspace.updateBackgroundState, fail)
   ipcMain.handle(IPC_CHANNELS.workspace.updateWorktreeState, fail)
@@ -443,6 +455,8 @@ function registerE2eMockIpcHandlers(): void {
     throw new Error(`Pane ${input.paneId} not found`)
   })
   ipcMain.handle(IPC_CHANNELS.workspace.pickFolder, () => null)
+  ipcMain.handle(IPC_CHANNELS.semantic.getStatus, () => ({ enabled: true, workerReady: false, indexing: false, count: 0, lastError: null }))
+  ipcMain.handle(IPC_CHANNELS.semantic.setEnabled, (_event: IpcMainInvokeEvent, input: { enabled: boolean }) => ({ enabled: input?.enabled ?? true, workerReady: false, indexing: false, count: 0, lastError: null }))
   ipcMain.handle(IPC_CHANNELS.terminal.start, (_event: IpcMainInvokeEvent, input: { paneId: string }) => {
     for (const window of BrowserWindow.getAllWindows()) {
       window.webContents.send(IPC_CHANNELS.terminal.onData, { paneId: input.paneId, data: 'PS> ' })

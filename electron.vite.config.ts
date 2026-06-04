@@ -49,7 +49,8 @@ export default defineConfig({
       rollupOptions: {
         external: ['better-sqlite3', 'node-pty'],
         input: {
-          index: resolve(__dirname, 'electron/main/index.ts')
+          index: resolve(__dirname, 'electron/main/index.ts'),
+          'semantic-worker': resolve(__dirname, 'electron/main/workers/semantic-worker.ts')
         }
       }
     }

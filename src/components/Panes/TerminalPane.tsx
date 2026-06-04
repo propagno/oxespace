@@ -1,4 +1,4 @@
-import { FolderTree, Mic, MicOff, Play, Slash, Wrench, Zap, Bone } from 'lucide-react'
+import { FolderTree, Mic, MicOff, Play, Slash, Wrench, Zap, Bone, Brain } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { WorkspacePane } from '../../../shared/types/workspace'
@@ -468,6 +468,23 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         >
           <Bone size={10} aria-hidden="true" style={{ opacity: terminalPrefs.cavemanModeEnabled ? 1 : 0.4 }} />
           <span className="chip-label" style={{ opacity: terminalPrefs.cavemanModeEnabled ? 1 : 0.4 }}>caveman</span>
+        </button>
+
+        <button
+          type="button"
+          className={`statusbar-chip semantic-chip ${!terminalPrefs.semanticSearchEnabled ? 'disabled' : ''}`}
+          aria-label={`Semantic Search: ${terminalPrefs.semanticSearchEnabled ? 'Enabled' : 'Disabled'}. Click to toggle.`}
+          data-tooltip={terminalPrefs.semanticSearchEnabled
+            ? 'Busca Semântica: ativa (agente lê menos arquivos). Clique para desativar.'
+            : 'Busca Semântica: desativada. Clique para ativar.'}
+          onClick={() => {
+            const next = !terminalPrefs.semanticSearchEnabled
+            setTerminalOverride(workspaceId, 'semanticSearchEnabled', next)
+            void window.oxe.semantic?.setEnabled({ workspaceId, enabled: next }).catch(() => undefined)
+          }}
+        >
+          <Brain size={10} aria-hidden="true" style={{ opacity: terminalPrefs.semanticSearchEnabled ? 1 : 0.4 }} />
+          <span className="chip-label" style={{ opacity: terminalPrefs.semanticSearchEnabled ? 1 : 0.4 }}>semantic</span>
         </button>
 
         <button

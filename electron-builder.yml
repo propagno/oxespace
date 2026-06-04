@@ -23,6 +23,12 @@ asar: true
 asarUnpack:
   - node_modules/better-sqlite3/**/*
   - node_modules/node-pty/**/*
+  # Semantic search worker loads the ONNX runtime native binding through
+  # @xenova/transformers; native .node files cannot be loaded from inside the
+  # asar archive, so they must stay unpacked on disk.
+  - node_modules/@xenova/transformers/**/*
+  - node_modules/onnxruntime-node/**/*
+  - node_modules/sharp/**/*
 win:
   icon: resources/icon.ico
   target:

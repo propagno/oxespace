@@ -238,6 +238,10 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     },
     oxeContext: {
       buildPaneManifest: (input) => ipc.invoke(IPC_CHANNELS.oxeContext.buildPaneManifest, input) as Promise<string>
+    },
+    semantic: {
+      getStatus: (workspaceId) => ipc.invoke(IPC_CHANNELS.semantic.getStatus, workspaceId) as Promise<import('../../shared/types/ipc').SemanticStatus>,
+      setEnabled: (input) => ipc.invoke(IPC_CHANNELS.semantic.setEnabled, input) as Promise<import('../../shared/types/ipc').SemanticStatus>
     }
   }
 }

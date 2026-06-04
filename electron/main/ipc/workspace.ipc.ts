@@ -5,13 +5,14 @@ import { AgentService } from '../services/agent.service'
 import { ShellProfileService } from '../services/shell-profile.service'
 import { WorkspaceService } from '../services/workspace.service'
 import { parseId, parseSetPaneAgentInput, parseSetPaneRootPathInput, parseSplitPaneInput, parseUpdatePaneNameInput, parseUpdatePaneTypeInput, parseUpdateWorkspaceBackgroundStateInput, parseUpdateWorkspaceEditorStateInput, parseUpdateWorkspaceGitHubStateInput, parseUpdateWorkspaceReviewStateInput, parseUpdateWorkspaceSettingsInput, parseUpdateWorkspaceWorktreeStateInput, parseWorkspaceCreateInput } from './validation'
+import type { SemanticService } from '../services/semantic.service'
 
 interface WorkspaceLifecycleController {
   stop(input: { paneId: string }): Promise<void> | void
   stopWorkspace(workspaceId: string): Promise<void> | void
 }
 
-export function registerWorkspaceIpc(db: AppDatabase, lifecycle?: WorkspaceLifecycleController): void {
+export function registerWorkspaceIpc(db: AppDatabase, semanticService: SemanticService, lifecycle?: WorkspaceLifecycleController): void {
   const workspaceService = new WorkspaceService(db)
   const shellProfileService = new ShellProfileService(db)
   const agentService = new AgentService(db)
@@ -20,10 +21,19 @@ export function registerWorkspaceIpc(db: AppDatabase, lifecycle?: WorkspaceLifec
   ipcMain.handle(IPC_CHANNELS.workspace.create, (_event, input: unknown) =>
     workspaceService.create(parseWorkspaceCreateInput(input))
   )
-  ipcMain.handle(IPC_CHANNELS.workspace.setActive, (_event, id: unknown) => workspaceService.setActive(parseId(id)))
+  ipcMain.handle(IPC_CHANNELS.workspace.setActive, (_event, id: unknown) => {
+    const workspaceId = parseId(id)
+    const workspace = workspaceService.setActive(workspaceId)
+    // Index the workspace's canonical root for semantic search. Per-pane
+    // rootPath is only an optional worktree override, so the workspace root is
+    // the right tree to watch.
+    if (workspace.rootPath) semanticService.watchWorkspace(workspaceId, workspace.rootPath)
+    return workspace
+  })
   ipcMain.handle(IPC_CHANNELS.workspace.delete, (_event, id: unknown) => {
     const workspaceId = parseId(id)
     lifecycle?.stopWorkspace(workspaceId)
+    semanticService.unwatchWorkspace(workspaceId)
     workspaceService.delete(workspaceId)
   })
   ipcMain.handle(IPC_CHANNELS.workspace.closePane, (_event, id: unknown) => {

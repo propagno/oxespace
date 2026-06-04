@@ -197,6 +197,73 @@ async function openWebPreview(args: unknown, ctx: ToolContext): Promise<Internal
   return textResult({ opened: true, workspaceId: ws.id, url })
 }
 
+async function semanticSearch(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
+  const { id } = await requireWorkspace(ctx)
+  if (!ctx.semantic.isEnabled(id)) {
+    return textResult('Semantic search is disabled for this workspace.')
+  }
+  const input = asRecord(args)
+  const query = expectString(input.query, 'query')
+  const limit = typeof input.limit === 'number' ? input.limit : 5
+
+  try {
+    const results = await ctx.semantic.query(id, query, limit)
+    if (results.length === 0) {
+      return textResult('No semantic matches found.')
+    }
+    const formatted = results.map((r, i) => `${i + 1}. ${r.filePath} (score: ${r.score.toFixed(3)})`).join('\n')
+    return textResult(`Top semantic matches for "${query}":\n\n${formatted}`)
+  } catch (err) {
+    return errorResult(`Semantic search failed: ${err instanceof Error ? err.message : String(err)}`)
+  }
+}
+
+async function captureWebPreview(_args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
+  const ws = await requireWorkspace(ctx)
+  
+  // Find the primary app window (OXESpace uses one BrowserWindow)
+  const { BrowserWindow } = require('electron')
+  const win = BrowserWindow.getAllWindows()[0]
+  if (!win) return errorResult('No application window found')
+
+  // Execute JS in the renderer to find the Web Preview iframe rect
+  const rectJson = await win.webContents.executeJavaScript(`
+    (() => {
+      const iframe = document.querySelector('iframe[title="Workspace web preview"]')
+      if (!iframe) return null
+      const rect = iframe.getBoundingClientRect()
+      return JSON.stringify({ x: rect.x, y: rect.y, width: rect.width, height: rect.height })
+    })()
+  `).catch(() => null)
+
+  if (!rectJson) {
+    return errorResult('Web Preview is not active or could not be found.')
+  }
+
+  const rect = JSON.parse(rectJson)
+  if (rect.width === 0 || rect.height === 0) {
+    return errorResult('Web Preview is not visible.')
+  }
+
+  // Capture the region matching the iframe
+  const nativeImage = await win.webContents.capturePage({
+    x: Math.round(rect.x),
+    y: Math.round(rect.y),
+    width: Math.round(rect.width),
+    height: Math.round(rect.height)
+  })
+
+  const base64Data = nativeImage.toPNG().toString('base64')
+  return {
+    content: [{
+      type: 'image',
+      data: base64Data,
+      mimeType: 'image/png'
+    }],
+    isError: false
+  }
+}
+
 export const handlers = {
   listWorkspaces,
   listPanes,
@@ -208,5 +275,7 @@ export const handlers = {
   listBackgroundJobs,
   stopBackgroundJob,
   getJobOutput,
-  openWebPreview
+  openWebPreview,
+  captureWebPreview,
+  semanticSearch
 }

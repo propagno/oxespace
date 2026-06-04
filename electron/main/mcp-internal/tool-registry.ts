@@ -23,12 +23,15 @@ import type { WorktreeEventBus } from './worktree-event-bus'
  * validator here would force a new dep without observable benefit. Validation
  * happens inline in each handler.
  */
+import type { SemanticService } from '../services/semantic.service'
+
 export interface ToolContext {
   workspaceId: string | null
   workspaceServ: WorkspaceService
   github: GitHubService
   background: BackgroundManager
   fileSystem: FileSystemService
+  semantic: SemanticService
   webPreview: WebPreviewBus
   worktree: WorktreeEventBus
 }
@@ -174,16 +177,44 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   {
     descriptor: {
       name: 'oxespace_open_web_preview',
-      description: 'Open a URL in the OXESpace web preview panel for the current workspace. Use for localhost dev servers.',
+      description: 'Open the Web Preview panel in OXESpace pointing to the given URL.',
       inputSchema: {
         type: 'object',
-        properties: { url: { type: 'string', description: 'Absolute URL (http/https). Localhost preferred.' } },
+        properties: {
+          url: { type: 'string', description: 'The HTTP/HTTPS URL to preview (e.g., http://localhost:5173).' }
+        },
         required: ['url'],
         additionalProperties: false
       }
     },
     requiresWorkspace: true,
     handler: handlers.openWebPreview
+  },
+  {
+    descriptor: {
+      name: 'oxespace_capture_web_preview',
+      description: 'Capture a screenshot of the active Web Preview panel in the current workspace. Returns a base64 PNG image block.',
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false }
+    },
+    requiresWorkspace: true,
+    handler: handlers.captureWebPreview
+  },
+  {
+    descriptor: {
+      name: 'oxespace_semantic_search',
+      description: 'Search the entire workspace codebase using local vector embeddings (Semantic Search). Finds contextually related code even if exact keywords don\'t match.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'The natural language query to search for.' },
+          limit: { type: 'number', description: 'Maximum number of files to return (default 5).' }
+        },
+        required: ['query'],
+        additionalProperties: false
+      }
+    },
+    requiresWorkspace: true,
+    handler: handlers.semanticSearch
   }
 ]
 

@@ -65,10 +65,9 @@ export interface InternalMcpToolDescriptor {
 }
 
 /** Content block returned in a `tools/call` result (MCP spec content array). */
-export interface InternalMcpContentBlock {
-  type: 'text'
-  text: string
-}
+export type InternalMcpContentBlock =
+  | { type: 'text'; text: string }
+  | { type: 'image'; data: string; mimeType: string }
 
 export interface InternalMcpToolCallResult {
   content: InternalMcpContentBlock[]
