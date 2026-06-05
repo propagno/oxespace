@@ -244,6 +244,7 @@ export class SemanticService {
    * main-process indexing/tool respect the user's per-workspace preference.
    */
   public setEnabled(workspaceId: string, enabled: boolean, rootPath?: string) {
+    const wasEnabled = this.enabled.get(workspaceId);
     this.enabled.set(workspaceId, enabled);
     if (rootPath) this.roots.set(workspaceId, rootPath);
     if (enabled) {
@@ -252,8 +253,10 @@ export class SemanticService {
       const root = this.resolveRoot(workspaceId);
       if (root) this.startWatching(workspaceId, root);
     } else {
-      this.log('info', 'Semantic search disabled for workspace.', { workspaceId });
-      this.stopWatching(workspaceId);
+      if (wasEnabled === true) {
+        this.log('info', 'Semantic search disabled for workspace.', { workspaceId });
+        this.stopWatching(workspaceId);
+      }
     }
   }
 

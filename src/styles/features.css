@@ -3512,7 +3512,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 0 12px;
+  padding: 0 8px;
   height: 24px;
   font-size: 11px;
   font-weight: 600;
@@ -3539,26 +3539,12 @@
   opacity: 0.75;
 }
 
-.statusbar-chip.slash-chip .chip-label,
-.statusbar-chip.voice-chip .chip-label,
-.statusbar-chip.mcp-chip .chip-label {
+.statusbar-chip .chip-label {
   display: none;
 }
 
-.statusbar-chip.worktree-chip .chip-label {
-  max-width: 140px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-@container statusbar (max-width: 500px) {
-  .statusbar-chip .chip-label {
-    display: none;
-  }
-  .statusbar-chip {
-    padding: 0 6px;
-  }
+.statusbar-chip {
+  padding: 0 8px;
 }
 
 /* AI-Credits indicators (Copilot + per-provider Claude/Codex) — passive status
