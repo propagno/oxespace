@@ -89,7 +89,9 @@ export class TerminalManager {
       ...this.env,
       // Force CLIs to use dark-mode syntax highlighting since OXESpace uses a dark terminal theme
       COLORFGBG: '15;0',
-      COLORTERM: 'truecolor'
+      COLORTERM: 'truecolor',
+      GLAMOUR_STYLE: 'dark',
+      BAT_THEME: 'TwoDark'
     }
 
     if (!input.disableRtk) {

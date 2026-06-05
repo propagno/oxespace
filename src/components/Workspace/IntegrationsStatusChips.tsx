@@ -108,28 +108,28 @@ export function IntegrationsStatusChips({ workspace }: IntegrationsStatusChipsPr
       <span className={`workspace-status-chip ${githubStatus?.loggedIn ? 'activity-thinking' : 'activity-idle'}`} title={`GitHub: ${githubStatus?.loggedIn ? 'Connected' : 'Disconnected'}`}>
         <Github size={11} aria-hidden="true" style={{ marginRight: 2 }} />
         <span className={`workspace-status-dot ${githubStatus?.loggedIn ? 'activity-thinking' : 'activity-idle'}`} aria-hidden="true" />
-        GitHub
+        <span className="chip-label">GitHub</span>
       </span>
 
       {/* MCP Chip */}
       <span className={`workspace-status-chip ${totalRunningMcp > 0 ? 'activity-thinking' : 'activity-idle'}`} title={`MCP Servers: ${totalRunningMcp} running`}>
         <Server size={11} aria-hidden="true" style={{ marginRight: 2 }} />
         <span className={`workspace-status-dot ${totalRunningMcp > 0 ? 'activity-thinking' : 'activity-idle'}`} aria-hidden="true" />
-        {totalRunningMcp} MCP
+        <span className="chip-label">{totalRunningMcp} MCP</span>
       </span>
 
       {/* RTK Chip */}
       <span className={`workspace-status-chip ${rtkActive ? 'activity-thinking' : 'activity-idle'}`} title={`RTK: ${rtkActive ? 'Active' : 'Disabled'}`}>
         <Zap size={11} aria-hidden="true" style={{ marginRight: 2 }} />
         <span className={`workspace-status-dot ${rtkActive ? 'activity-thinking' : 'activity-idle'}`} aria-hidden="true" />
-        RTK
+        <span className="chip-label">RTK</span>
       </span>
 
       {/* Caveman Chip */}
       <span className={`workspace-status-chip ${cavemanActive ? 'activity-awaiting' : 'activity-idle'}`} title={`Caveman Mode: ${cavemanActive ? 'Active' : 'Disabled'}`}>
         <Activity size={11} aria-hidden="true" style={{ marginRight: 2 }} />
         <span className={`workspace-status-dot ${cavemanActive ? 'activity-awaiting' : 'activity-idle'}`} aria-hidden="true" />
-        Caveman
+        <span className="chip-label">Caveman</span>
       </span>
 
       {/* Semantic Search Chip — clickable toggle with real status */}
@@ -138,11 +138,11 @@ export function IntegrationsStatusChips({ workspace }: IntegrationsStatusChipsPr
         className={`workspace-status-chip ${semanticClass}`}
         title={`${semanticTitle} (clique para ${semanticEnabled ? 'desativar' : 'ativar'})`}
         onClick={() => setOverride(workspace.id, 'semanticSearchEnabled', !semanticEnabled)}
-        style={{ background: 'none', border: 'none', font: 'inherit', cursor: 'pointer' }}
+        style={{ cursor: 'pointer' }}
       >
         <Brain size={11} aria-hidden="true" style={{ marginRight: 2 }} />
         <span className={`workspace-status-dot ${semanticClass}`} aria-hidden="true" />
-        Semantic
+        <span className="chip-label">Semantic</span>
       </button>
     </div>
   )
