@@ -56,6 +56,10 @@ describe('workspace fs allowlist', () => {
     for (const file of files) {
       const rel = relative(root, file).replaceAll('\\', '/')
       if (!rel.endsWith('.ts')) continue
+      // Vendored third-party code (electron/main/vendor/**, e.g. the embedded
+      // CodeGraph engine) is not workspace-scoped file I/O and is outside this
+      // sandbox policy — it manages its own .oxe/codegraph.db + cache.
+      if (rel.includes('/vendor/')) continue
       const source = await readFile(file, 'utf8')
       const importsFs = /from ['"]node:fs/.test(source) || /from ['"]fs/.test(source)
       if (importsFs && !ALLOWED_FS_IMPORTS.has(rel)) {
