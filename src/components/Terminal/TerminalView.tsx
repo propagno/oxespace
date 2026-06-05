@@ -149,6 +149,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       fontSize: initial.fontSize,
       lineHeight: initial.lineHeight,
       letterSpacing: initial.letterSpacing,
+      minimumContrastRatio: 4.5,
       rescaleOverlappingGlyphs: true,
       scrollback: initial.scrollback,
       scrollOnUserInput: false,
