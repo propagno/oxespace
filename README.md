@@ -296,15 +296,15 @@ When the tag is pushed, GitHub Actions:
 
 ## Version
 
-Current release: `0.1.39`
+Current release: `0.1.40`
 
 Highlights since `0.1.28`:
 
-- **Premium Edge-Lit Glassmorphism UI**: Significant aesthetic upgrades to terminal status bar and interactive chips.
+- **Premium Edge-Lit Glassmorphism UI**: Significant aesthetic upgrades to terminal status bar and interactive chips. W3C Contrast validation added to terminal engine.
 - **RTK Native Integration**: Automatic, silent zero-setup download of RTK (`rtk-ai/rtk`) for drastic input token savings on CLI execution. Accessible via the Lightning Bolt toggle.
 - **Caveman Mode**: Built-in, zero-setup output compression prompt injection. Shrinks output text by ~75% without compromising technical accuracy. Accessible via the Bone toggle.
-- **Local Semantic Search**: On-device, multilingual vector index (transformers.js / `multilingual-e5-small`, bundled offline so it works on locked-down networks) that lets agents retrieve only the few files relevant to a request instead of broad context — large input-token savings. Chunked, best-chunk ranking; opt-in via the Brain chip; exposed to agents as the `oxespace_semantic_search` MCP tool. Live processing is observable under Tools → Semantic Activity.
+- **Local Semantic Search**: On-device, multilingual vector index (`transformers.js` / `multilingual-e5-small`, bundled offline so it works on locked-down networks) that lets agents retrieve only the few files relevant to a request instead of broad context — large input-token savings. Chunked, best-chunk ranking; opt-in via the Brain chip; exposed to agents as the `oxespace_semantic_search` MCP tool. Live processing is observable under Tools → Semantic Activity.
 
 Installer asset:
 
-[OXESpace-0.1.39-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.39/OXESpace-0.1.39-x64.exe)
+[OXESpace-0.1.40-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.40/OXESpace-0.1.40-x64.exe)
