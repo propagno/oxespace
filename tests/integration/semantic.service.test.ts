@@ -51,37 +51,38 @@ describe('SemanticService indexing startup', () => {
   beforeEach(() => watchMock.mockClear())
   afterEach(() => vi.clearAllMocks())
 
-  test('watches the active workspace on construction (boot path)', () => {
+  test('does NOT watch on construction — opt-in / off by default', () => {
+    // Semantic is opt-in: even with an active workspace, boot must not start
+    // indexing until the user (renderer) enables it.
     const db = makeFakeDb([
       { id: 'ws-active', root_path: '/projects/active', is_active: 1 },
       { id: 'ws-other', root_path: '/projects/other', is_active: 0 }
     ])
     const svc = new SemanticService(db)
     try {
-      expect(watchMock).toHaveBeenCalledTimes(1)
-      expect(watchMock.mock.calls[0][0]).toBe('/projects/active')
-      // chokidar must receive the function predicate, not a glob array
-      // (chokidar v5 dropped glob support).
-      const opts = watchMock.mock.calls[0][1] as { ignored: unknown }
-      expect(typeof opts.ignored).toBe('function')
+      expect(watchMock).not.toHaveBeenCalled()
+      expect(svc.isEnabled('ws-active')).toBe(false)
     } finally {
       svc.destroy()
     }
   })
 
   test('setEnabled(true) without a rootPath resolves the root from the DB and starts watching', () => {
-    // No active workspace -> nothing watched at construction.
     const db = makeFakeDb([{ id: 'ws-1', root_path: '/projects/app', is_active: 0 }])
     const svc = new SemanticService(db)
     try {
       expect(watchMock).not.toHaveBeenCalled()
 
-      // This mirrors the renderer chip's mount effect, which passes only
-      // { workspaceId, enabled } — the regression that left the index empty.
+      // Mirrors the renderer chip's mount effect, which passes only
+      // { workspaceId, enabled } (no rootPath).
       svc.setEnabled('ws-1', true)
 
       expect(watchMock).toHaveBeenCalledTimes(1)
       expect(watchMock.mock.calls[0][0]).toBe('/projects/app')
+      // chokidar must receive the function predicate, not a glob array
+      // (chokidar v5 dropped glob support).
+      const opts = watchMock.mock.calls[0][1] as { ignored: unknown }
+      expect(typeof opts.ignored).toBe('function')
     } finally {
       svc.destroy()
     }
@@ -103,8 +104,9 @@ describe('SemanticService indexing startup', () => {
     const db = makeFakeDb([{ id: 'ws-active', root_path: '/projects/active', is_active: 1 }])
     const svc = new SemanticService(db)
     try {
-      expect(watchMock).toHaveBeenCalledTimes(1) // from construction
-      svc.setEnabled('ws-active', true) // idempotent
+      svc.setEnabled('ws-active', true) // enable -> first watcher
+      expect(watchMock).toHaveBeenCalledTimes(1)
+      svc.setEnabled('ws-active', true) // idempotent -> no second watcher
       expect(watchMock).toHaveBeenCalledTimes(1)
     } finally {
       svc.destroy()
