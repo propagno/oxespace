@@ -1,4 +1,4 @@
-import { Clock, DollarSign, GitFork, History, MessageSquare, RotateCw, X, Zap } from 'lucide-react'
+import { Clock, DollarSign, GitFork, History, MessageSquare, RotateCw, Trash2, X, Zap } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
 import type { AgentProvider } from '../../../shared/types/agent'
 import type { SessionSummary } from '../../../shared/types/session'
@@ -65,6 +65,7 @@ export function HistoryPanel({ workspaceId, workspaceRootPath, activePaneId, onC
   const loading = useSessionStore((s) => s.loading[loadingKey] === true)
   const loadSessions = useSessionStore((s) => s.load)
   const forkSession = useSessionStore((s) => s.fork)
+  const cleanupSessions = useSessionStore((s) => s.cleanup)
 
   useEffect(() => {
     void loadSessions(workspaceId, workspaceRootPath, provider)
@@ -93,6 +94,18 @@ export function HistoryPanel({ workspaceId, workspaceRootPath, activePaneId, onC
       await window.oxe.terminal.stop({ paneId: activePaneId })
       await window.oxe.terminal.start({ paneId: activePaneId, workspaceId, agentCommand: cliFlag })
       onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleCleanup = async (): Promise<void> => {
+    setError(null)
+    setBusy(true)
+    try {
+      await cleanupSessions(workspaceId, workspaceRootPath, provider)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -145,6 +158,16 @@ export function HistoryPanel({ workspaceId, workspaceRootPath, activePaneId, onC
             <span className="history-panel-count">{sorted.length}</span>
           </div>
           <div className="history-panel-actions">
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Clean up empty sessions"
+              disabled={loading || busy || provider !== 'claude'}
+              title="Clean up empty sessions"
+              onClick={() => void handleCleanup()}
+            >
+              <Trash2 size={13} aria-hidden="true" />
+            </button>
             <button
               type="button"
               className="icon-button"

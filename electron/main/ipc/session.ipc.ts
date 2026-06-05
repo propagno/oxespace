@@ -44,6 +44,11 @@ export function registerSessionIpc(db: AppDatabase, service = new SessionService
     return service.deleteSession(workspaceRootPath, sessionId, provider as AgentProvider)
   })
 
+  ipcMain.handle(IPC_CHANNELS.session.cleanup, (_event, input: unknown) => {
+    const { workspaceId, workspaceRootPath, provider } = readListInput(input)
+    return service.cleanupUnusedSessions(workspaceId, workspaceRootPath, provider)
+  })
+
   return service
 }
 

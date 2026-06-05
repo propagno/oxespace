@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
@@ -146,6 +146,39 @@ export class SessionService {
       .prepare('DELETE FROM session_forks WHERE fork_session_id = ? OR parent_session_id = ?')
       .run(sessionId, sessionId)
     return (result.changes ?? 0) > 0
+  }
+
+  /**
+   * Cleans up (deletes) unused history files for a workspace. A session is considered
+   * unused if it has 0 requests (e.g. agent was started but no message was sent).
+   * Also cleans up any fork bookkeeping associated with the deleted sessions.
+   * Returns the number of files deleted.
+   */
+  cleanupUnusedSessions(workspaceId: string, workspaceRootPath: string, provider: AgentProvider): number {
+    if (provider !== 'claude') return 0
+    let cleaned = 0
+    const projectDir = join(this.claudeProjectsRoot, encodeClaudePath(workspaceRootPath))
+    if (!existsSync(projectDir)) return 0
+
+    const sessions = this.usage.listSessionsFor(provider, workspaceRootPath)
+    for (const session of sessions) {
+      if (session.requestCount === 0) {
+        const filePath = join(projectDir, `${session.sessionId}.jsonl`)
+        if (existsSync(filePath)) {
+          try {
+            unlinkSync(filePath)
+            // Remove any fork records pointing to or from this session
+            this.db
+              .prepare('DELETE FROM session_forks WHERE fork_session_id = ? OR parent_session_id = ?')
+              .run(session.sessionId, session.sessionId)
+            cleaned++
+          } catch {
+            // Ignore if we can't delete the file (e.g. permissions)
+          }
+        }
+      }
+    }
+    return cleaned
   }
 }
 
