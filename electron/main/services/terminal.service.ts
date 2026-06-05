@@ -85,7 +85,7 @@ export class TerminalManager {
     // Pane-level rootPath overrides the workspace root — used by git worktree panes.
     const cwd = pane.rootPath && existsSync(pane.rootPath) ? pane.rootPath : workspace.rootPath
 
-    let finalEnv = {
+    let finalEnv: Record<string, string> = {
       ...this.env,
       // Force CLIs to use dark-mode syntax highlighting since OXESpace uses a dark terminal theme
       COLORFGBG: '15;0',
