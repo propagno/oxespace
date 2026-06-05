@@ -34,9 +34,12 @@ export const TERMINAL_PREFS_DEFAULTS: TerminalPrefs = {
   cursorStyle: 'block',
   cursorBlink: true,
   scrollback: 100_000,
-  rtkHookEnabled: true,
+  // RTK, Caveman and Semantic are opt-in developer features — off by default so
+  // a fresh workspace does no extra token transforms or background indexing.
+  // The user enables them via the toolbar chips when wanted.
+  rtkHookEnabled: false,
   cavemanModeEnabled: false,
-  semanticSearchEnabled: true
+  semanticSearchEnabled: false
 }
 
 export const FONT_SIZE_MIN = 8

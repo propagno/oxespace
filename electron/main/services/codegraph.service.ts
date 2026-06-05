@@ -14,26 +14,11 @@ export class CodeGraphService {
     if (!process.env.CODEGRAPH_ASSET_DIR) {
       process.env.CODEGRAPH_ASSET_DIR = path.join(app.getAppPath(), 'out', 'main')
     }
-    // We could listen to workspace changes to open/close instances,
-    // but CodeGraph is fast enough to just open lazily.
-    // For hot reload, we will initialize the active workspace immediately.
-    this.bootstrapActiveWorkspace()
-  }
-
-  /** Watch the workspace flagged active in the DB, so indexing begins at launch. */
-  private bootstrapActiveWorkspace(): void {
-    try {
-      const row = this.db
-        .prepare('SELECT id, root_path FROM workspaces WHERE is_active = 1 LIMIT 1')
-        .get() as { id?: string; root_path?: string } | undefined
-      if (row?.root_path) {
-        this.ensureInstance(row.root_path).catch(err => {
-          console.error(`[CodeGraphService] Error bootstrapping workspace:`, err)
-        })
-      }
-    } catch {
-      // Table may be absent during very early boot
-    }
+    // Opt-in: do NOT index on boot. CodeGraph (like RTK/Caveman/Semantic) is an
+    // optional developer feature, so opening a workspace must not trigger a heavy
+    // full-repo index. The graph is built lazily on the first
+    // `oxespace_hybrid_explore` call for a workspace (see ensureInstance), and
+    // cached in .oxe/codegraph.db thereafter.
   }
 
   /** 

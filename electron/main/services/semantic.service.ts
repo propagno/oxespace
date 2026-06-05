@@ -223,9 +223,13 @@ export class SemanticService {
     });
   }
 
-  /** True unless the workspace was explicitly disabled (default-on). */
+  /**
+   * Opt-in: off until the renderer/user explicitly enables it (default-off).
+   * This keeps boot from auto-indexing — the renderer mirrors the user's chip
+   * preference via setEnabled, and the MCP tool reports disabled until then.
+   */
   public isEnabled(workspaceId: string): boolean {
-    return this.enabled.get(workspaceId) ?? true;
+    return this.enabled.get(workspaceId) ?? false;
   }
 
   /**
