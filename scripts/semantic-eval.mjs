@@ -27,7 +27,7 @@ const RESULTS_DIR = join(ROOT, 'tests', 'token-bench', 'results')
 const SCAN_DIRS = ['electron', 'src', 'shared']
 const TOP_K = 5
 
-const MODEL_ID = 'Xenova/multilingual-e5-base'
+const MODEL_ID = 'Xenova/multilingual-e5-small'
 const QUERY_PREFIX = 'query: '
 const PASSAGE_PREFIX = 'passage: '
 const CHUNK_CHARS = 1500

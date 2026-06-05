@@ -19,7 +19,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "dist": "npm run build && npm run fix:native && electron-builder --win --config.npmRebuild=false",
+    "prepare:model": "node scripts/fetch-semantic-model.mjs",
+    "dist": "npm run prepare:model && npm run build && npm run fix:native && electron-builder --win --config.npmRebuild=false",
     "rebuild:native": "electron-rebuild -f -w node-pty,better-sqlite3",
     "fix:native": "node scripts/fix-native-modules.mjs",
     "generate:icon": "node scripts/generate-icon.mjs"

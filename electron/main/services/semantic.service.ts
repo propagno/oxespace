@@ -117,8 +117,14 @@ export class SemanticService {
       const cacheDir = path.join(app.getPath('userData'), 'models');
       try { mkdirSync(cacheDir, { recursive: true }); } catch { /* best effort */ }
 
-      this.worker = new Worker(workerPath, { workerData: { cacheDir } });
-      this.log('info', `Loading embedding model (first run downloads it to ${cacheDir}) …`);
+      // Model bundled with the app (offline-first). Packaged: <resources>/models;
+      // dev: <repo>/resources/models (populated by scripts/fetch-semantic-model.mjs).
+      const localModelPath = app.isPackaged
+        ? path.join(process.resourcesPath, 'models')
+        : path.join(app.getAppPath(), 'resources', 'models');
+
+      this.worker = new Worker(workerPath, { workerData: { cacheDir, localModelPath } });
+      this.log('info', `Loading embedding model (bundled at ${localModelPath}; cache ${cacheDir}) …`);
 
       this.worker.on('message', (msg) => {
         if (msg.type === 'ready') {

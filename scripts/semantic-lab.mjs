@@ -6,7 +6,7 @@
  * Unlike token-reduction-bench.mjs (a synthetic 2^3 factorial whose "semantic"
  * result files are hand-picked in the corpus), this lab runs the REAL semantic
  * pipeline the app ships:
- *   - same model:      Xenova/all-MiniLM-L6-v2 (quantized)
+ *   - same model:      Xenova/multilingual-e5-small (quantized)
  *   - same embedding:  mean pooling + L2 normalize  (see electron/main/workers/semantic-worker.ts)
  *   - same ranking:    cosine similarity            (see electron/main/services/semantic.service.ts)
  *   - same file gate:  CODE_EXTENSIONS / IGNORED_SEGMENTS / 256KB cap
@@ -45,8 +45,8 @@ const REQUEST = process.argv[2] ||
 const TOP_K = Number(process.env.LAB_TOPK || 5)
 const SCAN_DIRS = ['electron', 'src', 'shared']
 // Mirrors electron/main/services/semantic-model.ts + semantic-chunk.ts so the
-// lab ranks like the shipped feature: multilingual-e5-base, E5 prefixes, chunked.
-const MODEL_ID = 'Xenova/multilingual-e5-base'
+// lab ranks like the shipped feature: multilingual-e5-small, E5 prefixes, chunked.
+const MODEL_ID = 'Xenova/multilingual-e5-small'
 const QUERY_PREFIX = 'query: '
 const PASSAGE_PREFIX = 'passage: '
 const CHUNK_CHARS = 1500
@@ -214,7 +214,7 @@ const files = []
 for (const d of SCAN_DIRS) walk(join(ROOT, d), files)
 log(`[lab] ${files.length} indexable files`)
 
-log(`[lab] loading model Xenova/all-MiniLM-L6-v2 (quantized) …`)
+log(`[lab] loading model Xenova/multilingual-e5-small (quantized) …`)
 const { pipeline, env } = await import('@xenova/transformers')
 env.allowRemoteModels = true
 const extractor = await pipeline('feature-extraction', MODEL_ID, { quantized: true })

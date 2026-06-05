@@ -2,10 +2,18 @@ import { parentPort, workerData } from 'node:worker_threads'
 import { pipeline, env } from '@xenova/transformers'
 import { SEMANTIC_MODEL_ID } from '../services/semantic-model'
 
-// Cache downloaded model weights in a writable location (passed from the main
-// process). Without this, a packaged build tries to write into the read-only
-// asar and the model never loads. Remote download stays enabled so the first
-// run can fetch the model (multilingual-e5-base, ~280MB quantized) into the cache.
+// Prefer the model bundled with the app (localModelPath) so semantic search
+// works fully OFFLINE / on locked-down corporate networks — no huggingface.co
+// fetch at runtime (which fails with "fetch failed" when egress is blocked).
+// The bundled layout is <localModelPath>/<owner>/<model>/… (see
+// scripts/fetch-semantic-model.mjs + electron-builder extraResources).
+if (workerData?.localModelPath) {
+  env.localModelPath = workerData.localModelPath
+  env.allowLocalModels = true
+}
+// Cache for any remote download in a writable location (the bundle is read-only
+// in a packaged build). Remote stays enabled only as a FALLBACK — used in dev
+// when the model wasn't pre-fetched, or to self-heal a missing bundle.
 if (workerData?.cacheDir) {
   env.cacheDir = workerData.cacheDir
 }
