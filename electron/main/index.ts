@@ -28,6 +28,7 @@ import { WorkspaceService } from './services/workspace.service'
 import { GitHubService } from './services/github.service'
 import { GitService } from './services/git.service'
 import { SemanticService } from './services/semantic.service'
+import { CodeGraphService } from './services/codegraph.service'
 import { createInternalMcpHandle, type InternalMcpHandle } from './mcp-internal/bootstrap'
 import { registerTaskIpc } from './ipc/task.ipc'
 import { registerTerminalIpc } from './ipc/terminal.ipc'
@@ -151,6 +152,7 @@ function registerIpcHandlers(): void {
   const internalMcpWorkspaceServ = new WorkspaceService(db)
   const internalMcpGithub = new GitHubService(db)
   const internalMcpGit = new GitService()
+  const codeGraphService = new CodeGraphService(db)
 
   const internalMcp: InternalMcpHandle = createInternalMcpHandle({
     db,
@@ -159,7 +161,8 @@ function registerIpcHandlers(): void {
     github: internalMcpGithub,
     background: backgroundManager,
     fileSystem: fileSystemService,
-    semantic: semanticService
+    semantic: semanticService,
+    codegraph: codeGraphService
   })
   registerMcpInternalIpc(internalMcp)
   void internalMcp.start()
@@ -722,7 +725,7 @@ function createMainWindow(): BrowserWindow {
     icon: iconPath,
     backgroundColor: '#0d0f14',
     webPreferences: {
-      preload: join(__dirname, '../preload/index.mjs'),
+      preload: join(app.getAppPath(), 'out', 'preload', 'index.mjs'),
       contextIsolation: true,
       nodeIntegration: false,
       // Sandbox remains disabled while native PTY/SQLite packaging is bridged
@@ -807,7 +810,7 @@ function createMainWindow(): BrowserWindow {
       console.error('[OXESpace] Renderer loadURL failed', error)
     })
   } else {
-    const rendererFile = join(__dirname, '../renderer/index.html')
+    const rendererFile = join(app.getAppPath(), 'out', 'renderer', 'index.html')
     void mainWindow.loadFile(rendererFile).catch((error) => {
       log.error('Renderer loadFile failed', error)
       if (isDev) console.error('[OXESpace] Renderer loadFile failed', error)

@@ -58,6 +58,7 @@ export interface InternalMcpDeps {
   background: BackgroundManager
   fileSystem: FileSystemService
   semantic: SemanticService
+  codegraph: import('../services/codegraph.service').CodeGraphService
 }
 
 export interface InternalMcpHandle {
@@ -83,6 +84,7 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
     background: deps.background,
     fileSystem: deps.fileSystem,
     semantic: deps.semantic,
+    codegraph: deps.codegraph,
     webPreview,
     worktree
   })

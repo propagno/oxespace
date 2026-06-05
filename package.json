@@ -38,11 +38,16 @@
     "chokidar": "^5.0.0",
     "electron-log": "^5.4.3",
     "electron-store": "^8.2.0",
+    "ignore": "^7.0.5",
+    "jsonc-parser": "^3.3.1",
     "lucide-react": "^0.468.0",
     "monaco-editor": "^0.55.1",
+    "picomatch": "^4.0.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-resizable-panels": "^2.1.7",
+    "tree-sitter-wasms": "^0.1.13",
+    "web-tree-sitter": "^0.26.9",
     "zustand": "^4.5.5"
   },
   "optionalDependencies": {

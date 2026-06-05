@@ -264,6 +264,53 @@ async function captureWebPreview(_args: unknown, ctx: ToolContext): Promise<Inte
   }
 }
 
+import { basename } from 'node:path'
+
+async function hybridExplore(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
+  const ws = await requireWorkspace(ctx)
+  const input = asRecord(args) as any
+  const query = expectString(input.query, 'query')
+  const maxFiles = typeof input.maxFiles === 'number' ? input.maxFiles : 12
+
+  let text = ''
+
+  // 1. Semantic Search (Hybrid Hinting)
+  let fileHints = ''
+  try {
+    const semanticResults = await ctx.semantic.query(ws.id, query, 3)
+    if (semanticResults.length > 0) {
+      fileHints = semanticResults.map(r => basename(r.filePath)).join(' ')
+      text += `[Hybrid RAG: Semantic Hints]\nTop conceptually related files:\n${semanticResults.map(r => `- ${r.filePath} (score: ${r.score.toFixed(3)})`).join('\n')}\n\n`
+    }
+  } catch (err) {
+    console.warn('[Hybrid RAG] Semantic search failed:', err)
+  }
+
+  // 2. CodeGraph Explore
+  try {
+    const cg = await ctx.codegraph.ensureInstance(ws.rootPath)
+    const { ToolHandler } = await import('../vendor/codegraph/mcp/tools')
+    const handler = new ToolHandler(cg as any)
+
+    const augmentedQuery = fileHints ? `${query} ${fileHints}` : query
+    const cgResult = await handler.execute('codegraph_explore', {
+      query: augmentedQuery,
+      maxFiles
+    })
+
+    if (cgResult.content && cgResult.content[0] && cgResult.content[0].type === 'text') {
+      text += `[Hybrid RAG: Structural AST (CodeGraph)]\n${cgResult.content[0].text}`
+    } else {
+      text += `[Hybrid RAG: Structural AST (CodeGraph)]\nNo structural results found.`
+    }
+  } catch (err) {
+    console.warn('[Hybrid RAG] CodeGraph explore failed:', err)
+    text += `[Hybrid RAG: Structural AST (CodeGraph)]\nError: ${err instanceof Error ? err.message : String(err)}`
+  }
+
+  return textResult(text)
+}
+
 export const handlers = {
   listWorkspaces,
   listPanes,
@@ -277,5 +324,6 @@ export const handlers = {
   getJobOutput,
   openWebPreview,
   captureWebPreview,
-  semanticSearch
+  semanticSearch,
+  hybridExplore
 }

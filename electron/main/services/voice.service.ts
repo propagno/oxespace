@@ -66,8 +66,9 @@ export class VoiceService {
     for (const name of BINARY_NAMES) {
       // Packaged: process.resourcesPath/whisper/<name>
       if (process.resourcesPath) candidates.push(join(process.resourcesPath, 'whisper', name))
-      // Dev mirror: out/main/whisper/<name> (electron.vite copy-whisper plugin)
-      candidates.push(join(__dirname, 'whisper', name))
+      // Dev mirror: out/main/whisper/<name> (electron.vite copy-whisper plugin).
+      // Resolve via app.getAppPath() — the ESM bundle has no __dirname.
+      candidates.push(join(app.getAppPath(), 'out', 'main', 'whisper', name))
       // Repo source (dev fallback)
       candidates.push(join(app.getAppPath(), 'resources', 'whisper', 'win-x64', name))
     }

@@ -32,6 +32,7 @@ export interface ToolContext {
   background: BackgroundManager
   fileSystem: FileSystemService
   semantic: SemanticService
+  codegraph: import('../services/codegraph.service').CodeGraphService
   webPreview: WebPreviewBus
   worktree: WorktreeEventBus
 }
@@ -215,6 +216,29 @@ export const TOOL_REGISTRY: ToolEntry[] = [
     },
     requiresWorkspace: true,
     handler: handlers.semanticSearch
+  },
+  {
+    descriptor: {
+      name: 'oxespace_hybrid_explore',
+      description: 'PRIMARY TOOL — call FIRST for almost any question: how does X work, architecture, a bug, where/what is X, or surveying an area. Fuses local Vector Semantic Search with Structural AST Traversal (CodeGraph). Returns verbatim source of relevant symbols. Query can be natural language.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'Natural language question or symbol names to explore (e.g., "How does authentication work?", "AuthService loginUser").'
+          },
+          maxFiles: {
+            type: 'number',
+            description: 'Maximum number of files to include source code from (default: 12)'
+          }
+        },
+        required: ['query'],
+        additionalProperties: false
+      }
+    },
+    requiresWorkspace: true,
+    handler: handlers.hybridExplore
   }
 ]
 

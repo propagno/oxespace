@@ -43,6 +43,23 @@ export default defineConfig({
             cpSync(src, resolve(__dirname, 'out/main/whisper'), { recursive: true })
           }
         }
+      },
+      {
+        name: 'copy-codegraph-assets',
+        closeBundle() {
+          const schemaSrc = resolve(__dirname, 'electron/main/vendor/codegraph/db/schema.sql')
+          if (existsSync(schemaSrc)) {
+            cpSync(schemaSrc, resolve(__dirname, 'out/main/schema.sql'))
+          }
+          const wasmSrc = resolve(__dirname, 'electron/main/vendor/codegraph/extraction/wasm')
+          if (existsSync(wasmSrc)) {
+            cpSync(wasmSrc, resolve(__dirname, 'out/main/wasm'), { recursive: true })
+          }
+          const tsWasmsSrc = resolve(__dirname, 'node_modules/tree-sitter-wasms/out')
+          if (existsSync(tsWasmsSrc)) {
+            cpSync(tsWasmsSrc, resolve(__dirname, 'out/main/wasm'), { recursive: true })
+          }
+        }
       }
     ],
     build: {
@@ -50,7 +67,11 @@ export default defineConfig({
         external: ['better-sqlite3', 'node-pty'],
         input: {
           index: resolve(__dirname, 'electron/main/index.ts'),
-          'semantic-worker': resolve(__dirname, 'electron/main/workers/semantic-worker.ts')
+          'semantic-worker': resolve(__dirname, 'electron/main/workers/semantic-worker.ts'),
+          // CodeGraph parsing worker — keeps tree-sitter parsing off the main
+          // thread so it doesn't block (and time out) semantic embedding on the
+          // initial index. extraction/index.ts loads it from out/main/parse-worker.js.
+          'parse-worker': resolve(__dirname, 'electron/main/vendor/codegraph/extraction/parse-worker.ts')
         }
       }
     }

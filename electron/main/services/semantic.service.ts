@@ -47,6 +47,8 @@ export class SemanticService {
   private enabled = new Map<string, boolean>();
   /** In-flight embedding count per workspace, for the "indexing" status. */
   private indexingCount = new Map<string, number>();
+  /** Serializes file indexing so the single worker isn't flooded (see startWatching). */
+  private indexChain: Promise<void> = Promise.resolve();
   private workerReady = false;
   private lastError: string | null = null;
   /** Callers blocked in getEmbedding waiting for the model to finish loading. */
@@ -282,8 +284,13 @@ export class SemanticService {
       ignoreInitial: false
     });
 
-    watcher.on('add', (filePath) => this.queueFileForEmbedding(workspaceId, filePath));
-    watcher.on('change', (filePath) => this.queueFileForEmbedding(workspaceId, filePath));
+    // Serialize indexing through a single chain. The initial scan emits `add`
+    // for every file at once; without this they'd all post embed requests
+    // concurrently, and since the embed timeout starts at enqueue (not when the
+    // single worker actually picks the request up) the backlog would time out en
+    // masse — especially while CodeGraph's parser also competes for CPU.
+    watcher.on('add', (filePath) => this.enqueueIndex(workspaceId, filePath));
+    watcher.on('change', (filePath) => this.enqueueIndex(workspaceId, filePath));
     watcher.on('unlink', (filePath) => {
       try {
         this.db.prepare('DELETE FROM semantic_embeddings WHERE workspace_id = ? AND file_path = ?').run(workspaceId, filePath);
@@ -321,6 +328,11 @@ export class SemanticService {
       count,
       lastError: this.lastError
     };
+  }
+
+  /** Append a file to the serialized index chain (one file embedded at a time). */
+  private enqueueIndex(workspaceId: string, filePath: string): void {
+    this.indexChain = this.indexChain.then(() => this.queueFileForEmbedding(workspaceId, filePath));
   }
 
   private async queueFileForEmbedding(workspaceId: string, filePath: string) {
