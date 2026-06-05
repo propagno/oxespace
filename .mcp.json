@@ -3,12 +3,12 @@
     "oxespace": {
       "command": "node",
       "args": [
-        "C:\\Users\\dudu-\\AppData\\Roaming\\oxespace-dev\\bin\\oxespace-mcp.cjs"
+        "C:\\Users\\dudu-\\AppData\\Roaming\\oxespace\\bin\\oxespace-mcp.cjs"
       ],
       "env": {
-        "OXESPACE_MCP_PORT": "62781",
-        "OXESPACE_MCP_TOKEN": "6835233253d6219c2746251b15bb6dbc3e1892d6a74a575fd1427e604ff9d2fb",
-        "OXESPACE_WORKSPACE_ID": "d40b53ec-23ec-422d-8b4f-bd9244edfa6d"
+        "OXESPACE_MCP_PORT": "65494",
+        "OXESPACE_MCP_TOKEN": "0b1658c9e7877a6eaa1c1613f8cadb1b5be7b822d1e593429228050a4aac03bc",
+        "OXESPACE_WORKSPACE_ID": "f642b09a-13c9-4028-9720-362e4adbf6b0"
       }
     }
   }

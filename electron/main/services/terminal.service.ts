@@ -85,16 +85,22 @@ export class TerminalManager {
     // Pane-level rootPath overrides the workspace root — used by git worktree panes.
     const cwd = pane.rootPath && existsSync(pane.rootPath) ? pane.rootPath : workspace.rootPath
 
-    let finalEnv = this.env
+    let finalEnv = {
+      ...this.env,
+      // Force CLIs to use dark-mode syntax highlighting since OXESpace uses a dark terminal theme
+      COLORFGBG: '15;0',
+      COLORTERM: 'truecolor'
+    }
+
     if (!input.disableRtk) {
       try {
         const rtkBin = await this.rtkService.ensureRtk()
-        finalEnv = { ...this.env, PATH: `${rtkBin}${delimiter}${this.env.PATH ?? ''}` }
+        finalEnv = { ...finalEnv, PATH: `${rtkBin}${delimiter}${finalEnv.PATH ?? ''}` }
       } catch (err) {
         // Fall back gracefully if download fails
       }
     } else {
-      finalEnv = { ...this.env, RTK_DISABLED: '1' }
+      finalEnv = { ...finalEnv, RTK_DISABLED: '1' }
     }
 
     let ptyProcess: IPty
