@@ -7,6 +7,8 @@ import type { AppDatabase } from '../db'
 import chokidar, { FSWatcher } from 'chokidar'
 import { makeIgnoreFilter } from './semantic-ignore'
 import { bestChunkScore, chunkText } from './semantic-chunk'
+import { PASSAGE_PREFIX, QUERY_PREFIX, SEMANTIC_MODEL_ID } from './semantic-model'
+import type { SemanticLogEntry, SemanticLogLevel } from '../../../shared/types/ipc'
 
 export interface SemanticStatus {
   enabled: boolean
@@ -15,6 +17,14 @@ export interface SemanticStatus {
   count: number
   lastError: string | null
 }
+
+export interface SemanticServiceOptions {
+  /** Broadcast a log line to the renderer (see registerSemanticIpc / index.ts). */
+  emitLog?: (entry: SemanticLogEntry) => void
+}
+
+/** How many recent log lines to retain for the Tools → Semantic Activity panel. */
+const LOG_RING_SIZE = 1000
 
 // Only embed source/text files. Embedding binaries or huge assets wastes the
 // worker and pollutes results, so the watcher is broad but indexing is filtered.
@@ -41,14 +51,38 @@ export class SemanticService {
   private lastError: string | null = null;
   /** Callers blocked in getEmbedding waiting for the model to finish loading. */
   private readyWaiters: { resolve: () => void; reject: (err: Error) => void }[] = [];
+  /** Rolling activity log surfaced via Tools → Semantic Activity. */
+  private logs: SemanticLogEntry[] = [];
+  private readonly emitLog?: (entry: SemanticLogEntry) => void;
 
-  constructor(private readonly db: AppDatabase) {
+  constructor(private readonly db: AppDatabase, options: SemanticServiceOptions = {}) {
+    this.emitLog = options.emitLog;
+    this.log('info', `Semantic engine starting · model ${SEMANTIC_MODEL_ID}`);
     this.initWorker();
     // Start indexing the already-active workspace on boot. The renderer only
     // calls workspace.setActive when the user *switches* workspaces, so without
     // this the active workspace on launch would never get watched and the index
     // would stay empty.
     this.bootstrapActiveWorkspace();
+  }
+
+  /**
+   * Append a line to the activity log (ring-buffered) and broadcast it. This is
+   * the single place semantic processing is made observable to the user, so the
+   * Tools panel and the console stay in sync.
+   */
+  private log(level: SemanticLogLevel, message: string, meta?: { workspaceId?: string; file?: string }): void {
+    const entry: SemanticLogEntry = { ts: Date.now(), level, message, ...meta };
+    this.logs.push(entry);
+    if (this.logs.length > LOG_RING_SIZE) this.logs.splice(0, this.logs.length - LOG_RING_SIZE);
+    try { this.emitLog?.(entry); } catch { /* renderer gone */ }
+    // eslint-disable-next-line no-console
+    console[level === 'debug' ? 'log' : level](`[SemanticService] ${message}`);
+  }
+
+  /** Recent activity log lines (oldest first) for the Tools panel. */
+  public getLogs(): SemanticLogEntry[] {
+    return [...this.logs];
   }
 
   /** Watch the workspace flagged active in the DB, so indexing begins at launch. */
@@ -80,20 +114,21 @@ export class SemanticService {
       try { mkdirSync(cacheDir, { recursive: true }); } catch { /* best effort */ }
 
       this.worker = new Worker(workerPath, { workerData: { cacheDir } });
+      this.log('info', `Loading embedding model (first run downloads it to ${cacheDir}) …`);
 
       this.worker.on('message', (msg) => {
         if (msg.type === 'ready') {
           this.workerReady = true;
           this.lastError = null;
           this.flushReadyWaiters();
-          // eslint-disable-next-line no-console
-          console.log('[SemanticService] Worker initialized and ready.');
+          this.log('info', 'Model loaded and ready.');
         } else if (msg.type === 'result' || msg.type === 'error') {
           if (msg.type === 'error' && !msg.id) {
             // An init-time error (e.g. model failed to load) carries no request id.
             this.lastError = msg.error;
             this.workerReady = false;
             this.rejectReadyWaiters(new Error(msg.error));
+            this.log('error', `Model failed to load: ${msg.error}`);
             return;
           }
           const pending = this.pendingRequests.get(msg.id);
@@ -112,8 +147,7 @@ export class SemanticService {
         const error = err instanceof Error ? err : new Error(String(err));
         this.rejectAllPending(error);
         this.rejectReadyWaiters(error);
-        // eslint-disable-next-line no-console
-        console.error('[SemanticService] Worker error:', err);
+        this.log('error', `Worker error: ${this.lastError}`);
       });
 
       this.worker.on('exit', (code) => {
@@ -121,8 +155,7 @@ export class SemanticService {
         const error = new Error(`Semantic worker exited (code ${code})`);
         this.rejectAllPending(error);
         this.rejectReadyWaiters(error);
-        // eslint-disable-next-line no-console
-        console.log(`[SemanticService] Worker stopped with exit code ${code}`);
+        this.log('warn', `Worker stopped (exit code ${code}).`);
       });
 
       // Send init command
@@ -130,8 +163,7 @@ export class SemanticService {
 
     } catch (err) {
       this.lastError = err instanceof Error ? err.message : String(err);
-      // eslint-disable-next-line no-console
-      console.error('[SemanticService] Failed to initialize worker', err);
+      this.log('error', `Failed to initialize worker: ${this.lastError}`);
     }
   }
 
@@ -157,9 +189,9 @@ export class SemanticService {
 
   /**
    * Resolve once the worker's model has loaded. The initial directory scan can
-   * emit `add` events before the ~30MB MiniLM model finishes loading; without
-   * this gate those embeds would fail with "Model not initialized" and the
-   * files would silently never be indexed.
+   * emit `add` events before the model finishes loading; without this gate those
+   * embeds would fail with "Model not initialized" and the files would silently
+   * never be indexed.
    */
   private waitForReady(): Promise<void> {
     if (this.workerReady) return Promise.resolve();
@@ -206,6 +238,7 @@ export class SemanticService {
       const root = this.resolveRoot(workspaceId);
       if (root) this.startWatching(workspaceId, root);
     } else {
+      this.log('info', 'Semantic search disabled for workspace.', { workspaceId });
       this.stopWatching(workspaceId);
     }
   }
@@ -237,6 +270,7 @@ export class SemanticService {
   private startWatching(workspaceId: string, rootPath: string) {
     if (this.watchers.has(workspaceId)) return;
 
+    this.log('info', `Watching workspace for indexing: ${rootPath}`, { workspaceId });
     const watcher = chokidar.watch(rootPath, {
       // Ignore heavy/irrelevant directories and dotfiles. Per-file extension
       // filtering happens in queueFileForEmbedding so directories aren't dropped
@@ -300,20 +334,23 @@ export class SemanticService {
       const content = await fs.readFile(filePath, 'utf-8');
 
       const { createHash } = await import('node:crypto');
-      const checksum = createHash('md5').update(content).digest('hex');
+      // Stamp the model into the checksum so switching models (e.g. MiniLM →
+      // e5-base) invalidates every row and forces a re-index — content alone is
+      // unchanged, so without this the stale-dimension vectors would linger.
+      const checksum = createHash('md5').update(SEMANTIC_MODEL_ID).update('\n').update(content).digest('hex');
       const existing = this.db.prepare('SELECT checksum FROM semantic_embeddings WHERE workspace_id = ? AND file_path = ?').get(workspaceId, filePath) as any;
 
       if (existing && existing.checksum === checksum) return; // Skip if unchanged
 
       this.indexingCount.set(workspaceId, (this.indexingCount.get(workspaceId) ?? 0) + 1);
       try {
-        // Embed each ~256-token window so a query can match logic anywhere in
-        // the file, not just its header. Stored as number[][] (one vector per
-        // chunk); query ranks by a file's best-matching chunk.
+        // Embed each window (E5 "passage:" prefix) so a query can match logic
+        // anywhere in the file, not just its header. Stored as number[][] (one
+        // vector per chunk); query ranks by a file's best-matching chunk.
         const chunks = chunkText(content);
         const embeddings: number[][] = [];
         for (const chunk of chunks) {
-          embeddings.push(await this.getEmbedding(chunk));
+          embeddings.push(await this.getEmbedding(PASSAGE_PREFIX + chunk));
         }
         if (embeddings.length === 0) return;
 
@@ -325,16 +362,21 @@ export class SemanticService {
             embedding_json = excluded.embedding_json,
             updated_at = excluded.updated_at
         `).run(workspaceId, filePath, checksum, JSON.stringify(embeddings), Date.now());
+        this.log('debug', `Indexed ${path.basename(filePath)} (${embeddings.length} chunk${embeddings.length === 1 ? '' : 's'}).`, { workspaceId, file: filePath });
       } finally {
         this.indexingCount.set(workspaceId, Math.max(0, (this.indexingCount.get(workspaceId) ?? 1) - 1));
       }
-    } catch {
-      // Ignore binary files, unreadable files, or transient worker failures.
+    } catch (err) {
+      // Binary files, unreadable files, or transient worker failures. Log at
+      // debug so the panel can show why a file didn't index without alarming.
+      this.log('debug', `Skipped ${path.basename(filePath)}: ${err instanceof Error ? err.message : String(err)}`, { workspaceId, file: filePath });
     }
   }
 
   public async query(workspaceId: string, text: string, limit = 5): Promise<{ filePath: string, score: number }[]> {
-    const queryEmbedding = await this.getEmbedding(text);
+    const startedAt = Date.now();
+    // E5 "query:" prefix — must mirror the "passage:" prefix used at index time.
+    const queryEmbedding = await this.getEmbedding(QUERY_PREFIX + text);
 
     const rows = this.db.prepare('SELECT file_path, embedding_json FROM semantic_embeddings WHERE workspace_id = ?').all(workspaceId) as any[];
 
@@ -349,7 +391,10 @@ export class SemanticService {
     }
 
     results.sort((a, b) => b.score - a.score);
-    return results.slice(0, limit);
+    const top = results.slice(0, limit);
+    const snippet = text.length > 60 ? `${text.slice(0, 60)}…` : text;
+    this.log('info', `Query "${snippet}" → ${top.length}/${rows.length} matches in ${Date.now() - startedAt}ms${top[0] ? ` (top ${path.basename(top[0].filePath)} ${top[0].score.toFixed(3)})` : ''}.`, { workspaceId });
+    return top;
   }
 
   public destroy() {

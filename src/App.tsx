@@ -10,6 +10,7 @@ import { CommandPalette, type CommandPaletteAction } from './components/CommandP
 import { SlashOverlay } from './components/SlashOverlay/SlashOverlay'
 import { HistoryPanel } from './components/History/HistoryPanel'
 import { McpPanel } from './components/MCP/McpPanel'
+import { SemanticActivityPanel } from './components/Semantic/SemanticActivityPanel'
 import { SkillsBrowser } from './components/Skills/SkillsBrowser'
 import { useBackgroundStore } from './store/background.store'
 import { useMcpStore } from './store/mcp.store'
@@ -131,6 +132,7 @@ export function App(): ReactElement {
   const integrationGroups = useIntegrationStore((state) => state.groups)
   const [configuredAgent, setConfiguredAgent] = useState<AgentProfile | null>(null)
   const [isDesignSystemOpen, setDesignSystemOpen] = useState(false)
+  const [isSemanticActivityOpen, setSemanticActivityOpen] = useState(false)
   const [appNotice, setAppNotice] = useState<string | null>(null)
   // Track workspaces that have been visited at least once. Visited workspaces
   // stay mounted (hidden via CSS) so the xterm Terminal instances persist
@@ -581,6 +583,7 @@ export function App(): ReactElement {
                       onOpenHistory={openHistoryPanel}
                       onOpenMcp={openMcpPanel}
                       onOpenSkills={openSkillsBrowser}
+                      onOpenSemanticLogs={() => setSemanticActivityOpen(true)}
                       onOpenScripts={openScriptsPanel}
                       onOpenWebPreview={openWebPreview}
                       onOpenIntegration={openIntegrationPanel}
@@ -704,6 +707,12 @@ export function App(): ReactElement {
         />
       ) : null}
       {isDesignSystemOpen ? <DesignSystemPage onClose={() => { setDesignSystemOpen(false) }} /> : null}
+      {isSemanticActivityOpen ? (
+        <SemanticActivityPanel
+          workspaceId={activeWorkspace?.id ?? null}
+          onClose={() => { setSemanticActivityOpen(false) }}
+        />
+      ) : null}
       {configuredAgent ? (
         <AgentConfigModal
           profile={configuredAgent}

@@ -44,10 +44,13 @@ const REQUEST = process.argv[2] ||
   'Como o servidor MCP entra em hibernação por inatividade e onde fica o timer de sleep?'
 const TOP_K = Number(process.env.LAB_TOPK || 5)
 const SCAN_DIRS = ['electron', 'src', 'shared']
-// Chunking — mirrors electron/main/services/semantic-chunk.ts so the lab ranks
-// like the shipped feature: embed ~256-token windows, rank by a file's best chunk.
-const CHUNK_CHARS = 800
-const CHUNK_OVERLAP = 100
+// Mirrors electron/main/services/semantic-model.ts + semantic-chunk.ts so the
+// lab ranks like the shipped feature: multilingual-e5-base, E5 prefixes, chunked.
+const MODEL_ID = 'Xenova/multilingual-e5-base'
+const QUERY_PREFIX = 'query: '
+const PASSAGE_PREFIX = 'passage: '
+const CHUNK_CHARS = 1500
+const CHUNK_OVERLAP = 200
 const MAX_CHUNKS = 60
 function chunkText(text) {
   const t = text ?? ''
@@ -214,7 +217,7 @@ log(`[lab] ${files.length} indexable files`)
 log(`[lab] loading model Xenova/all-MiniLM-L6-v2 (quantized) …`)
 const { pipeline, env } = await import('@xenova/transformers')
 env.allowRemoteModels = true
-const extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', { quantized: true })
+const extractor = await pipeline('feature-extraction', MODEL_ID, { quantized: true })
 
 async function embed(text) {
   const out = await extractor(text, { pooling: 'mean', normalize: true })
@@ -230,7 +233,7 @@ for (const f of files) {
   try { content = readFileSync(f, 'utf-8') } catch { continue }
   if (!content.trim()) continue
   const vecs = []
-  for (const chunk of chunkText(content)) vecs.push(await embed(chunk))
+  for (const chunk of chunkText(content)) vecs.push(await embed(PASSAGE_PREFIX + chunk))
   if (vecs.length === 0) continue
   totalChunks += vecs.length
   records.push({ file: f, rel: relative(ROOT, f).split(sep).join('/'), content, vecs })
@@ -239,7 +242,7 @@ for (const f of files) {
 log(`[lab] embedded ${records.length} files / ${totalChunks} chunks`)
 
 log(`[lab] querying: ${REQUEST}`)
-const qvec = await embed(REQUEST)
+const qvec = await embed(QUERY_PREFIX + REQUEST)
 const ranked = records
   .map((r) => ({ ...r, score: Math.max(...r.vecs.map((v) => cosine(qvec, v))) }))
   .sort((a, b) => b.score - a.score)
@@ -286,7 +289,7 @@ const f1 = (n) => n.toFixed(1)
 let md = ''
 md += `# Semantic-Search Lab — one request, with vs without\n\n`
 md += `**Request:** _${REQUEST}_\n\n`
-md += `- Model: **Xenova/all-MiniLM-L6-v2** (quantized) · same pipeline the app ships\n`
+md += `- Model: **${MODEL_ID}** (quantized) · same pipeline the app ships\n`
 md += `- Corpus: **${records.length}** indexable files / **${totalChunks}** chunks under \`${SCAN_DIRS.join('`, `')}\` · Tokenizer: **${tokenizerName}**\n`
 md += `- Ranking: chunked (~${CHUNK_CHARS} chars/chunk), best-chunk cosine — same as the shipped service\n`
 md += `- Top-K returned by semantic search: **${TOP_K}**\n\n`
@@ -331,9 +334,9 @@ md += `\n## Ranking quality\n\n`
 md += `Top hit ${top[0].score.toFixed(3)}, #${TOP_K} ${top[TOP_K - 1].score.toFixed(3)}. `
 md += `Chunked best-chunk ranking lets a query match logic anywhere in a file (not just its header), `
 md += `which the previous whole-file embedding could not.\n\n`
-md += `Remaining consideration: \`all-MiniLM-L6-v2\` is English-centric, so a Portuguese query against English `
-md += `code still retrieves a bit weaker than an English query would — swapping in a multilingual MiniLM would `
-md += `close that gap. The token-saving accounting above is independent of ranking order.\n`
+md += `Model is now multilingual (\`${MODEL_ID}\`, 768-dim, 512-token window), which closes the `
+md += `Portuguese-query-vs-English-code gap the English-only MiniLM had. The token-saving accounting above is `
+md += `independent of ranking order.\n`
 md += `\n> Token counts are an offline estimate (the cross-strategy comparison is the signal). `
 md += `Semantic ranking is real; the verbose/terse answer pair is illustrative.\n`
 

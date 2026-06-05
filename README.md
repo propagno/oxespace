@@ -303,7 +303,7 @@ Highlights since `0.1.28`:
 - **Premium Edge-Lit Glassmorphism UI**: Significant aesthetic upgrades to terminal status bar and interactive chips.
 - **RTK Native Integration**: Automatic, silent zero-setup download of RTK (`rtk-ai/rtk`) for drastic input token savings on CLI execution. Accessible via the Lightning Bolt toggle.
 - **Caveman Mode**: Built-in, zero-setup output compression prompt injection. Shrinks output text by ~75% without compromising technical accuracy. Accessible via the Bone toggle.
-- **Local Semantic Search**: On-device vector index (transformers.js / MiniLM) that lets agents retrieve only the few files relevant to a request instead of broad context — large input-token savings. Chunked, best-chunk ranking; toggled via the Brain chip; exposed to agents as the `oxespace_semantic_search` MCP tool.
+- **Local Semantic Search**: On-device, multilingual vector index (transformers.js / `multilingual-e5-base`) that lets agents retrieve only the few files relevant to a request instead of broad context — large input-token savings. Chunked, best-chunk ranking; toggled via the Brain chip; exposed to agents as the `oxespace_semantic_search` MCP tool. Live processing is observable under Tools → Semantic Activity.
 
 Installer asset:
 

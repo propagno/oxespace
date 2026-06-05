@@ -27,8 +27,11 @@ const RESULTS_DIR = join(ROOT, 'tests', 'token-bench', 'results')
 const SCAN_DIRS = ['electron', 'src', 'shared']
 const TOP_K = 5
 
-const CHUNK_CHARS = 800
-const CHUNK_OVERLAP = 100
+const MODEL_ID = 'Xenova/multilingual-e5-base'
+const QUERY_PREFIX = 'query: '
+const PASSAGE_PREFIX = 'passage: '
+const CHUNK_CHARS = 1500
+const CHUNK_OVERLAP = 200
 const MAX_CHUNKS = 60
 function chunkText(text) {
   const t = text ?? ''
@@ -101,7 +104,7 @@ log(`[eval] ${files.length} files`)
 
 const { pipeline, env } = await import('@xenova/transformers')
 env.allowRemoteModels = true
-const extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', { quantized: true })
+const extractor = await pipeline('feature-extraction', MODEL_ID, { quantized: true })
 const embed = async (t) => Array.from((await extractor(t, { pooling: 'mean', normalize: true })).data)
 
 log(`[eval] embedding (chunked) …`)
@@ -112,7 +115,7 @@ for (const f of files) {
   try { content = readFileSync(f, 'utf-8') } catch { continue }
   if (!content.trim()) continue
   const vecs = []
-  for (const c of chunkText(content)) vecs.push(await embed(c))
+  for (const c of chunkText(content)) vecs.push(await embed(PASSAGE_PREFIX + c))
   if (!vecs.length) continue
   chunks += vecs.length
   records.push({ rel: relative(ROOT, f).split(sep).join('/'), content, vecs })
@@ -135,7 +138,7 @@ function rankOfTarget(ranked, targets) {
 
 const rows = []
 for (const { q, target } of QUERIES) {
-  const qvec = await embed(q)
+  const qvec = await embed(QUERY_PREFIX + q)
   const w = rankFor(qvec, wholeScore)
   const c = rankFor(qvec, chunkedScore)
   rows.push({
@@ -162,7 +165,7 @@ const f0 = (x) => Math.round(x).toLocaleString('en-US')
 
 let md = ''
 md += `# Semantic-Search Evaluation — whole-file vs chunked\n\n`
-md += `- Queries: **${QUERIES.length}** (labeled, Portuguese → English code) · Corpus: **${records.length}** files / **${chunks}** chunks · Top-K: **${TOP_K}**\n`
+md += `- Model: **${MODEL_ID}** · Queries: **${QUERIES.length}** (labeled, Portuguese → English code) · Corpus: **${records.length}** files / **${chunks}** chunks · Top-K: **${TOP_K}**\n`
 md += `- whole-file = file head only (old behaviour proxy) · chunked = best-chunk over the whole file (new)\n\n`
 
 md += `## Retrieval quality (higher is better)\n\n`

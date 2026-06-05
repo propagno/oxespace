@@ -1,10 +1,11 @@
 import { parentPort, workerData } from 'node:worker_threads'
 import { pipeline, env } from '@xenova/transformers'
+import { SEMANTIC_MODEL_ID } from '../services/semantic-model'
 
 // Cache downloaded model weights in a writable location (passed from the main
 // process). Without this, a packaged build tries to write into the read-only
 // asar and the model never loads. Remote download stays enabled so the first
-// run can fetch the ~30MB MiniLM model into the cache.
+// run can fetch the model (multilingual-e5-base, ~280MB quantized) into the cache.
 if (workerData?.cacheDir) {
   env.cacheDir = workerData.cacheDir
 }
@@ -28,8 +29,8 @@ class SemanticWorker {
 
   async init() {
     try {
-      // Use the lightweight MiniLM model
-      this.extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', {
+      // Multilingual embedding model (id centralised in semantic-model.ts).
+      this.extractor = await pipeline('feature-extraction', SEMANTIC_MODEL_ID, {
         quantized: true,
       });
       parentPort?.postMessage({ type: 'ready' });

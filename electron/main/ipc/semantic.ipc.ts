@@ -27,4 +27,8 @@ export function registerSemanticIpc(semantic: SemanticService): void {
     semantic.setEnabled(workspaceId, enabled)
     return semantic.getStatus(workspaceId)
   })
+
+  // Recent activity log for Tools → Semantic Activity. Live updates arrive on
+  // the IPC_CHANNELS.semantic.onLog channel (broadcast from index.ts).
+  ipcMain.handle(IPC_CHANNELS.semantic.getLogs, () => semantic.getLogs())
 }

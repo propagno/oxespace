@@ -29,6 +29,7 @@ interface WorkspaceSurfaceProps {
   onOpenHistory: () => void
   onOpenMcp: () => void
   onOpenSkills: () => void
+  onOpenSemanticLogs: () => void
   onOpenScripts: () => void
   onOpenWebPreview: () => void
   onOpenIntegration: () => void
@@ -82,6 +83,7 @@ export function WorkspaceSurface({
   onOpenHistory,
   onOpenMcp,
   onOpenSkills,
+  onOpenSemanticLogs,
   onOpenScripts,
   onOpenWebPreview,
   onOpenIntegration,
@@ -425,6 +427,7 @@ export function WorkspaceSurface({
           onOpenHistory={onOpenHistory}
           onOpenMcp={onOpenMcp}
           onOpenSkills={onOpenSkills}
+          onOpenSemanticLogs={onOpenSemanticLogs}
           onToggleOxe={onToggleOxe}
         />
       </div>

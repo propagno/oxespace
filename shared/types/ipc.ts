@@ -325,7 +325,9 @@ export const IPC_CHANNELS = {
   },
   semantic: {
     getStatus: 'semantic:get-status',
-    setEnabled: 'semantic:set-enabled'
+    setEnabled: 'semantic:set-enabled',
+    getLogs: 'semantic:get-logs',
+    onLog: 'semantic:log'
   }
 } as const
 
@@ -579,9 +581,22 @@ export interface SemanticStatus {
   lastError: string | null
 }
 
+export type SemanticLogLevel = 'debug' | 'info' | 'warn' | 'error'
+
+/** One line of the semantic engine's activity log, surfaced for transparency. */
+export interface SemanticLogEntry {
+  ts: number
+  level: SemanticLogLevel
+  message: string
+  workspaceId?: string
+  file?: string
+}
+
 export interface SemanticApi {
   getStatus(workspaceId: string): Promise<SemanticStatus>
   setEnabled(input: { workspaceId: string; enabled: boolean }): Promise<SemanticStatus>
+  getLogs(): Promise<SemanticLogEntry[]>
+  onLog(callback: (entry: SemanticLogEntry) => void): () => void
 }
 
 export interface McpInternalApi {

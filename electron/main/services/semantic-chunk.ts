@@ -1,18 +1,18 @@
 /**
  * Text chunking for semantic indexing.
  *
- * The embedding model (all-MiniLM-L6-v2) only processes ~256 tokens per call,
- * so embedding a whole file collapses to its first few hundred tokens — the
- * imports/header — and misses the logic deeper in the file. Splitting the file
- * into overlapping windows and embedding each one lets a query match the
- * relevant region wherever it lives; ranking then uses a file's best chunk.
+ * The embedding model only processes a few hundred tokens per call, so embedding
+ * a whole file collapses to its first chunk — the imports/header — and misses
+ * the logic deeper in the file. Splitting the file into overlapping windows and
+ * embedding each one lets a query match the relevant region wherever it lives;
+ * ranking then uses a file's best chunk.
  *
- * Sizes are in characters (the main process has no tokenizer). ~700 chars ≈ the
- * model's ~256-token window for source code; the overlap keeps a construct that
- * straddles a boundary intact in at least one chunk.
+ * Sizes are in characters (the main process has no tokenizer). ~1500 chars stays
+ * within multilingual-e5-base's 512-token window for source code; the overlap
+ * keeps a construct that straddles a boundary intact in at least one chunk.
  */
-export const CHUNK_CHARS = 800
-export const CHUNK_OVERLAP = 100
+export const CHUNK_CHARS = 1500
+export const CHUNK_OVERLAP = 200
 export const MAX_CHUNKS = 60
 
 export function chunkText(text: string): string[] {

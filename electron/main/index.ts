@@ -81,8 +81,15 @@ function registerIpcHandlers(): void {
     userDataPath: app.getPath('userData')
   })
   
-  // Semantic search service
-  const semanticService = new SemanticService(db)
+  // Semantic search service. emitLog broadcasts each activity-log line to every
+  // renderer window so Tools → Semantic Activity can show processing live.
+  const semanticService = new SemanticService(db, {
+    emitLog: (entry) => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.semantic.onLog, entry)
+      }
+    }
+  })
 
   registerWorkspaceIpc(db, semanticService, terminalManager)
   registerSemanticIpc(semanticService)
@@ -293,6 +300,7 @@ function registerNativeFailureIpcHandlers(message: string): void {
   ipcMain.handle(IPC_CHANNELS.mcpInternal.regenerateToken, fail)
   ipcMain.handle(IPC_CHANNELS.semantic.getStatus, () => ({ enabled: false, workerReady: false, indexing: false, count: 0, lastError: 'native startup failed' }))
   ipcMain.handle(IPC_CHANNELS.semantic.setEnabled, () => ({ enabled: false, workerReady: false, indexing: false, count: 0, lastError: 'native startup failed' }))
+  ipcMain.handle(IPC_CHANNELS.semantic.getLogs, () => [])
   ipcMain.handle(IPC_CHANNELS.oxeContext.buildPaneManifest, () => '')
   ipcMain.handle(IPC_CHANNELS.workspace.updateBackgroundState, fail)
   ipcMain.handle(IPC_CHANNELS.workspace.updateWorktreeState, fail)
@@ -457,6 +465,7 @@ function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.workspace.pickFolder, () => null)
   ipcMain.handle(IPC_CHANNELS.semantic.getStatus, () => ({ enabled: true, workerReady: false, indexing: false, count: 0, lastError: null }))
   ipcMain.handle(IPC_CHANNELS.semantic.setEnabled, (_event: IpcMainInvokeEvent, input: { enabled: boolean }) => ({ enabled: input?.enabled ?? true, workerReady: false, indexing: false, count: 0, lastError: null }))
+  ipcMain.handle(IPC_CHANNELS.semantic.getLogs, () => [])
   ipcMain.handle(IPC_CHANNELS.terminal.start, (_event: IpcMainInvokeEvent, input: { paneId: string }) => {
     for (const window of BrowserWindow.getAllWindows()) {
       window.webContents.send(IPC_CHANNELS.terminal.onData, { paneId: input.paneId, data: 'PS> ' })
