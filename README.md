@@ -6,11 +6,11 @@ OXESpace is a Windows desktop workspace for agentic development. It combines ter
 
 Current Windows release:
 
-[Download OXESpace 0.1.37 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.37/OXESpace-0.1.37-x64.exe)
+[Download OXESpace 0.1.38 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.1.38/OXESpace-0.1.38-x64.exe)
 
 Release page:
 
-[OXESpace v0.1.37](https://github.com/propagno/oxespace/releases/tag/v0.1.37)
+[OXESpace v0.1.38](https://github.com/propagno/oxespace/releases/tag/v0.1.38)
 
 All releases:
 
@@ -296,7 +296,7 @@ When the tag is pushed, GitHub Actions:
 
 ## Version
 
-Current release: `0.1.37`
+Current release: `0.1.38`
 
 Highlights since `0.1.28`:
 
@@ -307,4 +307,4 @@ Highlights since `0.1.28`:
 
 Installer asset:
 
-[OXESpace-0.1.37-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.37/OXESpace-0.1.37-x64.exe)
+[OXESpace-0.1.38-x64.exe](https://github.com/propagno/oxespace/releases/download/v0.1.38/OXESpace-0.1.38-x64.exe)
