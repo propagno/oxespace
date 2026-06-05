@@ -100,11 +100,13 @@ export class SemanticService {
 
   private initWorker() {
     try {
-      // In production, the worker script is at app.getAppPath()/out/main/semantic-worker.js
-      // In development, it's relative to __dirname (which is out/main)
-      const workerPath = app.isPackaged
-        ? path.join(app.getAppPath(), 'out', 'main', 'semantic-worker.js')
-        : path.join(__dirname, 'semantic-worker.js');
+      // Resolve the worker via app.getAppPath() (= app root in dev, app.asar in
+      // prod) rather than __dirname: the main bundle is ESM (package.json
+      // "type":"module"), and electron-vite does not rewrite __dirname inside
+      // imported modules, so a bare __dirname is undefined here at runtime and
+      // the worker silently fails to start. out/main/semantic-worker.js sits
+      // under the app path in both dev and packaged builds.
+      const workerPath = path.join(app.getAppPath(), 'out', 'main', 'semantic-worker.js');
 
       // The transformers.js model cache must live somewhere writable. Inside a
       // packaged build node_modules sits in a read-only asar, so point the cache
