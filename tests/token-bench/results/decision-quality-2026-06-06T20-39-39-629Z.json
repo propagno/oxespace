@@ -1,0 +1,317 @@
+{
+  "e1": [
+    {
+      "sym": "SemanticService",
+      "gt": 6,
+      "idxRecall": 0.6666666666666666,
+      "viewRecall": 0.6666666666666666,
+      "missTest": 1,
+      "missConfig": 0,
+      "missSource": 1
+    },
+    {
+      "sym": "bestChunkScore",
+      "gt": 2,
+      "idxRecall": 1,
+      "viewRecall": 1,
+      "missTest": 0,
+      "missConfig": 0,
+      "missSource": 0
+    },
+    {
+      "sym": "makeIgnoreFilter",
+      "gt": 2,
+      "idxRecall": 1,
+      "viewRecall": 1,
+      "missTest": 0,
+      "missConfig": 0,
+      "missSource": 0
+    },
+    {
+      "sym": "rebindServerRow",
+      "gt": 0,
+      "idxRecall": null,
+      "viewRecall": null,
+      "missTest": 0,
+      "missConfig": 0,
+      "missSource": 0
+    },
+    {
+      "sym": "loadOrCreateMeta",
+      "gt": 0,
+      "idxRecall": null,
+      "viewRecall": null,
+      "missTest": 0,
+      "missConfig": 0,
+      "missSource": 0
+    },
+    {
+      "sym": "McpConfigSync",
+      "gt": 1,
+      "idxRecall": 1,
+      "viewRecall": 1,
+      "missTest": 0,
+      "missConfig": 0,
+      "missSource": 0
+    },
+    {
+      "sym": "chunkText",
+      "gt": 3,
+      "idxRecall": 0.6666666666666666,
+      "viewRecall": 0.6666666666666666,
+      "missTest": 0,
+      "missConfig": 0,
+      "missSource": 1
+    },
+    {
+      "sym": "cosineSimilarity",
+      "gt": 1,
+      "idxRecall": 1,
+      "viewRecall": 1,
+      "missTest": 0,
+      "missConfig": 0,
+      "missSource": 0
+    },
+    {
+      "sym": "ensureServerRow",
+      "gt": 0,
+      "idxRecall": null,
+      "viewRecall": null,
+      "missTest": 0,
+      "missConfig": 0,
+      "missSource": 0
+    },
+    {
+      "sym": "RtkService",
+      "gt": 1,
+      "idxRecall": 1,
+      "viewRecall": 1,
+      "missTest": 0,
+      "missConfig": 0,
+      "missSource": 0
+    },
+    {
+      "sym": "ShellProfileService",
+      "gt": 4,
+      "idxRecall": 0.25,
+      "viewRecall": 0.5,
+      "missTest": 2,
+      "missConfig": 0,
+      "missSource": 0
+    },
+    {
+      "sym": "createLocalRpcServer",
+      "gt": 2,
+      "idxRecall": 1,
+      "viewRecall": 1,
+      "missTest": 0,
+      "missConfig": 0,
+      "missSource": 0
+    },
+    {
+      "sym": "WorktreeEventBus",
+      "gt": 4,
+      "idxRecall": 0.25,
+      "viewRecall": 0.5,
+      "missTest": 2,
+      "missConfig": 0,
+      "missSource": 0
+    },
+    {
+      "sym": "WebPreviewBus",
+      "gt": 4,
+      "idxRecall": 0.25,
+      "viewRecall": 0.25,
+      "missTest": 1,
+      "missConfig": 0,
+      "missSource": 2
+    },
+    {
+      "sym": "serializeConfig",
+      "gt": 0,
+      "idxRecall": null,
+      "viewRecall": null,
+      "missTest": 0,
+      "missConfig": 0,
+      "missSource": 0
+    },
+    {
+      "sym": "TerminalManager",
+      "gt": 4,
+      "idxRecall": 0,
+      "viewRecall": 0,
+      "missTest": 2,
+      "missConfig": 0,
+      "missSource": 2
+    },
+    {
+      "sym": "CodeGraphService",
+      "gt": 4,
+      "idxRecall": 0,
+      "viewRecall": 0,
+      "missTest": 0,
+      "missConfig": 0,
+      "missSource": 4
+    }
+  ],
+  "e2": [
+    {
+      "strat": "hybrid",
+      "suff": 0.16666666666666666,
+      "recall": 0.5138888888888888
+    },
+    {
+      "strat": "semantic@5",
+      "suff": 0.08333333333333333,
+      "recall": 0.34722222222222227
+    },
+    {
+      "strat": "semantic@10",
+      "suff": 0.16666666666666666,
+      "recall": 0.4583333333333333
+    },
+    {
+      "strat": "grep",
+      "suff": 0.75,
+      "recall": 0.857638888888889
+    }
+  ],
+  "commits": [
+    {
+      "sha": "e5adbe40",
+      "subj": "fix(mcp): deliver tools to Claude Code — auto-approve + keep port fresh",
+      "files": [
+        "electron/main/mcp-internal/bootstrap.ts",
+        "electron/main/services/mcp-sync.service.ts"
+      ]
+    },
+    {
+      "sha": "2486efc6",
+      "subj": "fix(hybrid): union semantic + plain CodeGraph (stop query augmentation)",
+      "files": [
+        "electron/main/mcp-internal/tool-handlers.ts",
+        "scripts/hybrid-eval.ts"
+      ]
+    },
+    {
+      "sha": "87af9886",
+      "subj": "fix(codegraph): index 100% — web-tree-sitter 0.25.9 + grammar wasm loading",
+      "files": [
+        "electron.vite.config.ts",
+        "electron/main/vendor/codegraph/extraction/grammars.ts",
+        "electron/main/vendor/codegraph/extraction/index.ts",
+        "electron/main/vendor/codegraph/index.ts",
+        "scripts/semantic-eval.mjs",
+        "scripts/semantic-lab.mjs"
+      ]
+    },
+    {
+      "sha": "02347129",
+      "subj": "feat: premium vibe coding aesthetics and terminal contrast fixes (v0.1.40)",
+      "files": [
+        "electron/main/services/terminal.service.ts",
+        "src/components/Terminal/TerminalView.tsx",
+        "src/components/Workspace/IntegrationsStatusChips.tsx"
+      ]
+    },
+    {
+      "sha": "61d02127",
+      "subj": "feat(semantic): switch to multilingual-e5-small + bundle the model offline",
+      "files": [
+        "electron/main/services/semantic-model.ts",
+        "electron/main/services/semantic.service.ts",
+        "electron/main/workers/semantic-worker.ts",
+        "scripts/fetch-semantic-model.mjs",
+        "scripts/semantic-eval.mjs",
+        "scripts/semantic-lab.mjs"
+      ]
+    },
+    {
+      "sha": "418c4c95",
+      "subj": "feat: implement history session cleanup optimization",
+      "files": [
+        "electron/main/ipc/session.ipc.ts",
+        "electron/main/services/session.service.ts",
+        "electron/preload/api.ts",
+        "shared/types/ipc.ts",
+        "src/components/History/HistoryPanel.tsx",
+        "src/store/session.store.ts"
+      ]
+    },
+    {
+      "sha": "9706ab73",
+      "subj": "feat: make RTK, Caveman, Semantic (and CodeGraph) opt-in / off by default",
+      "files": [
+        "electron/main/services/codegraph.service.ts",
+        "electron/main/services/semantic.service.ts",
+        "src/store/terminal-prefs.store.ts"
+      ]
+    },
+    {
+      "sha": "2ae81a9e",
+      "subj": "fix: resolve TypeError in app.getPath by passing userDataPath (v0.1.33)",
+      "files": [
+        "electron/main/index.ts",
+        "electron/main/services/rtk.service.ts",
+        "electron/main/services/terminal.service.ts"
+      ]
+    },
+    {
+      "sha": "7dd8a43f",
+      "subj": "fix: resolve test failures for RTK and background service (v0.1.31)",
+      "files": [
+        "electron/main/services/rtk.service.ts",
+        "tests/integration/background.service.test.ts",
+        "tests/integration/fs-allowlist.test.ts"
+      ]
+    },
+    {
+      "sha": "b195a130",
+      "subj": "feat(terminal): native Caveman mode integration and UI toggle (v0.1.30)",
+      "files": [
+        "src/components/Panes/TerminalPane.tsx",
+        "src/store/terminal-prefs.store.ts"
+      ]
+    },
+    {
+      "sha": "282edbae",
+      "subj": "test: fix assertions for new editor limits and tooltips",
+      "files": [
+        "tests/integration/TerminalPane.test.tsx",
+        "tests/integration/ipc-contracts.test.ts"
+      ]
+    },
+    {
+      "sha": "dc242a84",
+      "subj": "feat(ui): upgrade aesthetics to Premium Edge-Lit Glassmorphism & fix validations",
+      "files": [
+        "electron/main/ipc/validation.ts",
+        "src/components/Panes/TerminalPane.tsx",
+        "src/components/Review/ReviewToolbar.tsx",
+        "src/components/Sidebar/Sidebar.tsx",
+        "src/components/Sidebar/WorkspaceGroup.tsx",
+        "src/components/Terminal/AgentCreditsStatus.tsx",
+        "src/components/Terminal/ContextUsageStatus.tsx",
+        "src/components/Terminal/CopilotCreditsStatus.tsx"
+      ]
+    }
+  ],
+  "e3": [
+    {
+      "mode": "Test files excluded (no \"test\" in query)",
+      "detail": "chunkText: GT test files=1; explore(\"chunkText\") shows 1; explore(\"chunkText test\") shows 1"
+    },
+    {
+      "mode": "Config/JSON/YAML not indexed",
+      "detail": "\"better-sqlite3\": referenced in 4 config files (README.md, electron-builder.yml, package-lock.json); explore surfaces 0 of them"
+    },
+    {
+      "mode": "Blast-radius cap (large fan-in)",
+      "detail": "SemanticService: 6 real reference files; explore shows 67% of them"
+    },
+    {
+      "mode": "Same-name symbol collision",
+      "detail": "\"start\" is defined in 6 files (electron/main/mcp-internal/bootstrap.ts, electron/main/services/background.service.ts, electron/main/services/mcp.service.ts…) — explore must guess which one's callers to show"
+    }
+  ]
+}
