@@ -264,8 +264,6 @@ async function captureWebPreview(_args: unknown, ctx: ToolContext): Promise<Inte
   }
 }
 
-import { basename } from 'node:path'
-
 async function hybridExplore(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
   const ws = await requireWorkspace(ctx)
   const input = asRecord(args) as any
@@ -274,27 +272,29 @@ async function hybridExplore(args: unknown, ctx: ToolContext): Promise<InternalM
 
   let text = ''
 
-  // 1. Semantic Search (Hybrid Hinting)
-  let fileHints = ''
+  // 1. Semantic Search — listed as a complementary set (UNION with the
+  //    structural results below). We deliberately DON'T fold these filename
+  //    hints into the CodeGraph query: benchmarking showed query augmentation
+  //    dilutes the structural search and drops recall (50% vs 70% on its own).
+  //    Keeping the two retrievals independent and unioning them is what raises
+  //    recall while staying token-cheap.
   try {
     const semanticResults = await ctx.semantic.query(ws.id, query, 3)
     if (semanticResults.length > 0) {
-      fileHints = semanticResults.map(r => basename(r.filePath)).join(' ')
       text += `[Hybrid RAG: Semantic Hints]\nTop conceptually related files:\n${semanticResults.map(r => `- ${r.filePath} (score: ${r.score.toFixed(3)})`).join('\n')}\n\n`
     }
   } catch (err) {
     console.warn('[Hybrid RAG] Semantic search failed:', err)
   }
 
-  // 2. CodeGraph Explore
+  // 2. CodeGraph Explore — on the PLAIN query (not augmented).
   try {
     const cg = await ctx.codegraph.ensureInstance(ws.rootPath)
     const { ToolHandler } = await import('../vendor/codegraph/mcp/tools')
     const handler = new ToolHandler(cg as any)
 
-    const augmentedQuery = fileHints ? `${query} ${fileHints}` : query
     const cgResult = await handler.execute('codegraph_explore', {
-      query: augmentedQuery,
+      query,
       maxFiles
     })
 
