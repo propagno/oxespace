@@ -739,7 +739,9 @@ export class ExtractionOrchestrator {
     async function ensureWorker(): Promise<import('worker_threads').Worker> {
       if (parseWorker) return parseWorker;
       log('Spawning new parse worker...');
-      parseWorker = new WorkerClass!(parseWorkerPath);
+      // Pass env explicitly so CODEGRAPH_ASSET_DIR reaches the worker (it needs
+      // it to locate the runtime + grammar wasm), regardless of spawn timing.
+      parseWorker = new WorkerClass!(parseWorkerPath, { env: process.env });
       attachWorkerHandlers(parseWorker);
 
       // Load grammars in the new worker

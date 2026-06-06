@@ -104,6 +104,7 @@ log(`[eval] ${files.length} files`)
 
 const { pipeline, env } = await import('@xenova/transformers')
 env.allowRemoteModels = true
+  env.cacheDir = join(ROOT, 'resources', 'models')
 const extractor = await pipeline('feature-extraction', MODEL_ID, { quantized: true })
 const embed = async (t) => Array.from((await extractor(t, { pooling: 'mean', normalize: true })).data)
 

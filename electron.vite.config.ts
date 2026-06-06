@@ -59,6 +59,15 @@ export default defineConfig({
           if (existsSync(tsWasmsSrc)) {
             cpSync(tsWasmsSrc, resolve(__dirname, 'out/main/wasm'), { recursive: true })
           }
+          // web-tree-sitter's core runtime wasm — Parser.init()'s locateFile()
+          // resolves it from out/main (assetDir). The filename differs by major:
+          // 0.25.x ships `tree-sitter.wasm`, 0.26.x ships `web-tree-sitter.wasm`.
+          // Copy whichever exists so the worker can load the runtime; without it
+          // grammar loading fails and CodeGraph indexes nothing.
+          for (const name of ['tree-sitter.wasm', 'web-tree-sitter.wasm']) {
+            const coreWasm = resolve(__dirname, 'node_modules/web-tree-sitter', name)
+            if (existsSync(coreWasm)) cpSync(coreWasm, resolve(__dirname, 'out/main', name))
+          }
         }
       }
     ],

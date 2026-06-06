@@ -29,6 +29,7 @@ import {
   createDirectory,
   removeDirectory,
   validateDirectory,
+  getCodeGraphDir,
 } from './directory';
 import {
   ExtractionOrchestrator,
@@ -151,7 +152,10 @@ export class CodeGraph {
     this.queries = queries;
     this.projectRoot = projectRoot;
     this.fileLock = new FileLock(
-      path.join(projectRoot, '.codegraph', 'codegraph.lock')
+      // Use the configured CodeGraph dir (.oxe) — was hardcoded '.codegraph',
+      // which no longer exists since the DB moved to .oxe, so lock acquisition
+      // failed with "Could not acquire file lock" and indexing never ran.
+      path.join(getCodeGraphDir(projectRoot), 'codegraph.lock')
     );
     this.orchestrator = new ExtractionOrchestrator(projectRoot, queries);
     this.resolver = createResolver(projectRoot, queries);

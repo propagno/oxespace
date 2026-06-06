@@ -217,6 +217,7 @@ log(`[lab] ${files.length} indexable files`)
 log(`[lab] loading model Xenova/multilingual-e5-small (quantized) …`)
 const { pipeline, env } = await import('@xenova/transformers')
 env.allowRemoteModels = true
+env.cacheDir = join(ROOT, 'resources', 'models')
 const extractor = await pipeline('feature-extraction', MODEL_ID, { quantized: true })
 
 async function embed(text) {

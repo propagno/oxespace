@@ -153,7 +153,12 @@ let parserInitialized = false;
 export async function initGrammars(): Promise<void> {
   if (parserInitialized) return;
 
-  await Parser.init();
+  // Tell web-tree-sitter where its core runtime wasm lives. Without this it
+  // resolves `new URL('web-tree-sitter.wasm', import.meta.url)`, which fails in
+  // the bundled parse worker → Parser stays uninitialised → every Language.load
+  // throws. assetDir() points at out/main (set via CODEGRAPH_ASSET_DIR), where
+  // the build copies web-tree-sitter.wasm.
+  await Parser.init({ locateFile: (file: string) => path.join(assetDir(), file) });
 
   parserInitialized = true;
 }
@@ -190,8 +195,10 @@ export async function loadGrammarsForLanguages(languages: Language[]): Promise<v
       const language = await WasmLanguage.load(wasmPath);
       languageCache.set(lang, language);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.warn(`[CodeGraph] Failed to load ${lang} grammar — parsing will be unavailable: ${message}`);
+      // Surface a non-empty diagnostic: web-tree-sitter often throws errors with
+      // an empty `.message`, which hid the real cause (missing runtime wasm).
+      const message = (error instanceof Error && (error.message || error.stack)) || String(error) || 'unknown error'
+      console.warn(`[CodeGraph] Failed to load ${lang} grammar (${wasmFile}) — parsing will be unavailable: ${message}`);
       unavailableGrammarErrors.set(lang, message);
     }
   }

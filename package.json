@@ -48,7 +48,7 @@
     "react-dom": "^19.0.0",
     "react-resizable-panels": "^2.1.7",
     "tree-sitter-wasms": "^0.1.13",
-    "web-tree-sitter": "^0.26.9",
+    "web-tree-sitter": "0.25.9",
     "zustand": "^4.5.5"
   },
   "optionalDependencies": {
