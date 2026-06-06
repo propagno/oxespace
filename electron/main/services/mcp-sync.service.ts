@@ -1,4 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { AppDatabase } from '../db/index'
 import type { McpHttpConfig, McpServerConfig, McpStdioConfig } from '../../../shared/types/mcp'
@@ -150,7 +151,66 @@ export class McpConfigSync {
       writeFileSync(gitignorePath, '# OXESpace internal state — do not commit\n*\n', 'utf8')
     }
 
+    // Claude Code does NOT load project-scoped .mcp.json servers until the user
+    // approves them — without this the server is listed but its tools never
+    // appear (the reported "oxespace_hybrid_explore not available"). Approve our
+    // managed servers for this project so they load on the next session.
+    approveProjectServersInClaude(workspaceRoot, desiredNames)
+
     return mcpPath
+  }
+}
+
+/**
+ * Add our managed servers to Claude Code's per-project approval list
+ * (`~/.claude.json` → projects.<root>.enabledMcpjsonServers). No-op if Claude
+ * isn't set up. Atomic write, fresh read, only when something actually changes
+ * (Claude rewrites this file too, so we minimise races).
+ */
+function approveProjectServersInClaude(workspaceRoot: string, serverNames: string[]): void {
+  if (serverNames.length === 0) return
+  const configPath = join(homedir(), '.claude.json')
+  if (!existsSync(configPath)) return
+
+  let doc: Record<string, unknown>
+  try {
+    const parsed = JSON.parse(readFileSync(configPath, 'utf8'))
+    if (!isRecord(parsed)) return
+    doc = parsed
+  } catch {
+    return
+  }
+
+  const projects = isRecord(doc.projects) ? { ...(doc.projects as Record<string, unknown>) } : {}
+  // Claude keys projects by absolute path and stores forward slashes on Windows.
+  const norm = (s: string) => s.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+  const wantKey = workspaceRoot.replace(/\\/g, '/')
+  const existingKey = Object.keys(projects).find((k) => norm(k) === norm(wantKey))
+  const key = existingKey ?? wantKey
+  const proj = isRecord(projects[key]) ? { ...(projects[key] as Record<string, unknown>) } : {}
+
+  const strArr = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [])
+  const enabled = new Set(strArr(proj.enabledMcpjsonServers))
+  const disabled = new Set(strArr(proj.disabledMcpjsonServers))
+
+  let changed = !existingKey
+  for (const name of serverNames) {
+    if (!enabled.has(name)) { enabled.add(name); changed = true }
+    if (disabled.has(name)) { disabled.delete(name); changed = true }
+  }
+  if (!changed) return
+
+  proj.enabledMcpjsonServers = [...enabled]
+  proj.disabledMcpjsonServers = [...disabled]
+  projects[key] = proj
+  doc.projects = projects
+
+  try {
+    const tmp = `${configPath}.oxespace.tmp`
+    writeFileSync(tmp, JSON.stringify(doc, null, 2) + '\n', 'utf8')
+    renameSync(tmp, configPath)
+  } catch {
+    // Best-effort: a transient lock from a running Claude shouldn't crash sync.
   }
 }
 

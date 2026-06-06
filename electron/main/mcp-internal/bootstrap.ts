@@ -124,8 +124,13 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
       }
       if (bound !== meta.port) {
         updateMetaPort(deps.db, bound)
-        rebindServerRow(deps.mcpManager, serverRowId, bridgePath, bound, meta.token)
       }
+      // ALWAYS rebind the row with the ACTUAL bound port — even when it matches
+      // meta.port. This forces mcp-sync to rewrite every workspace's .mcp.json
+      // with the live port; a previous run that bound a different port could
+      // otherwise leave .mcp.json pointing at a dead port (the bridge then
+      // fails every tool call with ECONNREFUSED).
+      rebindServerRow(deps.mcpManager, serverRowId, bridgePath, bound, meta.token)
       activePort = bound
       lastError = null
       // eslint-disable-next-line no-console
