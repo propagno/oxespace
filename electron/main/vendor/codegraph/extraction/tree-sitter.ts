@@ -4,7 +4,8 @@
  * Handles parsing source code and extracting structural information.
  */
 
-import { Node as SyntaxNode, Tree } from 'web-tree-sitter';
+import type { SyntaxNode } from './syntax-node';
+import type { Tree } from 'web-tree-sitter';
 import * as path from 'path';
 import {
   Language,
@@ -220,10 +221,14 @@ export class TreeSitterExtractor {
       // `namespace` node wrapping every top-level declaration so their
       // qualifiedName carries the FQN — required for cross-file import
       // resolution on JVM languages where filename ≠ class name.
-      const packageNodeId = this.extractFilePackage(this.tree.rootNode);
+      // Raw→view conversion at the single parse boundary: web-tree-sitter 0.25.x
+      // types children as nullable; SyntaxNode (our non-null view) threads through
+      // everything below, so the only cast needed is here on the root.
+      const rootNode = this.tree.rootNode as unknown as SyntaxNode;
+      const packageNodeId = this.extractFilePackage(rootNode);
       if (packageNodeId) this.nodeStack.push(packageNodeId);
 
-      this.visitNode(this.tree.rootNode);
+      this.visitNode(rootNode);
 
       if (packageNodeId) this.nodeStack.pop();
       this.nodeStack.pop();

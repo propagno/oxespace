@@ -6,7 +6,7 @@
  * Extracted to a leaf module to avoid circular imports.
  */
 
-import { Node as SyntaxNode } from 'web-tree-sitter';
+import type { SyntaxNode } from './syntax-node';
 import {
   Node,
   NodeKind,
