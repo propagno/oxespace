@@ -1761,11 +1761,19 @@ export class ToolHandler {
     // an architecture question. Skip when the query itself is about tests — the
     // legitimate "explore the tests" case — and only cut if ≥2 non-test candidates
     // remain (else tests are the only signal for this area).
+    //
+    // The decision-quality analysis confirmed tests must NOT be promoted into the
+    // source budget (doing so crowded out real consumers and dropped recall
+    // 66%→19%). Instead we DON'T hide their existence: `omittedTestFiles` is
+    // surfaced as a one-line signal at the end so the agent knows to re-query
+    // with "test" (or grep) before a refactor.
+    let omittedTestFiles = 0;
     {
       const queryMentionsTests = /\b(test|tests|testing|spec|verify|verifies)\b/i.test(query);
       if (!queryMentionsTests) {
         const nonLow = relevantFiles.filter(([p]) => !isLowValue(p));
         if (nonLow.length >= 2) {
+          omittedTestFiles = relevantFiles.length - nonLow.length;
           relevantFiles = nonLow;
         }
       }
@@ -2496,7 +2504,14 @@ export class ToolHandler {
     // vscode explore did exactly this in the n=4 A/B). So allow a little
     // necessary overflow above the 24K budget, but hard-stop at 25K — never into
     // externalize territory.
-    const output = flow.text + lines.join('\n');
+    // Don't HIDE test omission — surface it cheaply so the agent can recover the
+    // contracts before a refactor (decision-quality analysis: tests were the most
+    // omitted class of crucial references, but promoting them into the budget
+    // regressed navigation recall — a signal is the safe middle ground).
+    const testSignal = omittedTestFiles > 0
+      ? `\n\n> WARNING: ${omittedTestFiles} test file(s) reference this area but were omitted to protect the budget. Before a refactor/rename, re-run with "test" in the query (or grep) to see the contracts they assert.`
+      : '';
+    const output = flow.text + lines.join('\n') + testSignal;
     const hardCeiling = Math.min(Math.round(budget.maxOutputChars * 1.5), 25000);
     if (output.length > hardCeiling) {
       // Cut at a FILE-SECTION boundary (the last `#### ` header before the

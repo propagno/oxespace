@@ -220,7 +220,7 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   {
     descriptor: {
       name: 'oxespace_hybrid_explore',
-      description: 'PRIMARY TOOL — call FIRST for almost any question: how does X work, architecture, a bug, where/what is X, or surveying an area. Fuses local Vector Semantic Search with Structural AST Traversal (CodeGraph). Returns verbatim source of relevant symbols. Query can be natural language.',
+      description: 'EXPLORE-FIRST tool for UNDERSTANDING/NAVIGATION: how does X work, architecture, a bug, where/what is X, surveying an area. Fuses local Vector Semantic Search with Structural AST Traversal (CodeGraph) and returns verbatim source of the most relevant symbols — fast and token-cheap. IMPORTANT: results are RANKED and BEST-EFFORT, NOT exhaustive. For refactors/renames or any "find ALL callers/usages" task, treat this as a starting point and CONFIRM completeness with grep/ripgrep — config files (.json/.yaml/.env), some test files, dynamic dispatch, and very large fan-ins may not all be surfaced. Query can be natural language.',
       inputSchema: {
         type: 'object',
         properties: {
