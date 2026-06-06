@@ -106,12 +106,11 @@ export class McpConfigSync {
 
     const desiredEntries = new Map<string, unknown>()
     const desiredNames: string[] = []
+    let internalServerKey: string | null = null
     for (const row of rows) {
+      const isInternal = row.name === 'oxespace' && row.workspace_id === null
       const entry = serializeConfig(row.config_json, {
-        injectWorkspaceId:
-          row.name === 'oxespace' && row.workspace_id === null && workspaceRow?.id
-            ? workspaceRow.id
-            : null
+        injectWorkspaceId: isInternal && workspaceRow?.id ? workspaceRow.id : null
       })
       if (!entry) continue
       const key = sanitizeKey(row.name)
@@ -119,6 +118,7 @@ export class McpConfigSync {
       const finalKey = ensureUniqueKey(key, desiredEntries)
       desiredEntries.set(finalKey, entry)
       desiredNames.push(finalKey)
+      if (isInternal) internalServerKey = finalKey
     }
 
     // Merge: read existing .mcp.json (if any), preserve keys the user added
@@ -156,6 +156,13 @@ export class McpConfigSync {
     // appear (the reported "oxespace_hybrid_explore not available"). Approve our
     // managed servers for this project so they load on the next session.
     approveProjectServersInClaude(workspaceRoot, desiredNames)
+
+    // Copilot CLI loads the server automatically but prompts once per tool
+    // before running it. Pre-approve our read-only retrieval tools so the user
+    // gets zero-friction access (mirrors the Claude approval above).
+    if (internalServerKey) {
+      approveOxespaceToolsInCopilot(workspaceRoot, internalServerKey, OXESPACE_COPILOT_TOOLS)
+    }
 
     return mcpPath
   }
@@ -211,6 +218,69 @@ function approveProjectServersInClaude(workspaceRoot: string, serverNames: strin
     renameSync(tmp, configPath)
   } catch {
     // Best-effort: a transient lock from a running Claude shouldn't crash sync.
+  }
+}
+
+// The internal oxespace MCP's read-only retrieval tools — safe to auto-approve
+// for Copilot execution. Deliberately excludes side-effecting tools (e.g. web
+// preview capture), which the user should still approve interactively.
+const OXESPACE_COPILOT_TOOLS = ['oxespace_hybrid_explore', 'oxespace_semantic_search']
+
+/**
+ * Pre-approve our read-only tools for Copilot CLI so it doesn't prompt on first
+ * use. Copilot stores per-location approvals in `~/.copilot/permissions-config.json`
+ * keyed by the native (backslash) path. No-op if Copilot isn't set up. Atomic,
+ * fresh-read, only writes when something changes.
+ */
+function approveOxespaceToolsInCopilot(workspaceRoot: string, serverName: string, toolNames: string[]): void {
+  if (toolNames.length === 0) return
+  const copilotHome = process.env.COPILOT_HOME || join(homedir(), '.copilot')
+  if (!existsSync(copilotHome)) return // Copilot not installed
+  const configPath = join(copilotHome, 'permissions-config.json')
+
+  let doc: Record<string, unknown> = {}
+  if (existsSync(configPath)) {
+    try {
+      const parsed = JSON.parse(readFileSync(configPath, 'utf8'))
+      if (isRecord(parsed)) doc = parsed
+    } catch {
+      return // don't clobber a file we can't parse
+    }
+  }
+
+  const locations = isRecord(doc.locations) ? { ...(doc.locations as Record<string, unknown>) } : {}
+  // Copilot keys locations by the native path (backslashes on Windows). Match an
+  // existing key case/separator-insensitively, else use the root as-is.
+  const norm = (s: string) => s.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+  const existingKey = Object.keys(locations).find((k) => norm(k) === norm(workspaceRoot))
+  const key = existingKey ?? workspaceRoot
+  const loc = isRecord(locations[key]) ? { ...(locations[key] as Record<string, unknown>) } : {}
+  const approvals = Array.isArray(loc.tool_approvals)
+    ? (loc.tool_approvals as unknown[]).filter(isRecord)
+    : []
+
+  const has = (tool: string) =>
+    approvals.some((a) => a.kind === 'mcp' && a.serverName === serverName && a.toolName === tool)
+
+  let changed = !existingKey
+  for (const tool of toolNames) {
+    if (!has(tool)) {
+      approvals.push({ kind: 'mcp', serverName, toolName: tool })
+      changed = true
+    }
+  }
+  if (!changed) return
+
+  loc.tool_approvals = approvals
+  locations[key] = loc
+  doc.locations = locations
+
+  try {
+    const tmp = `${configPath}.oxespace.tmp`
+    writeFileSync(tmp, JSON.stringify(doc, null, 2) + '\n', 'utf8')
+    renameSync(tmp, configPath)
+  } catch {
+    // Best-effort: a transient lock from a running Copilot shouldn't crash sync.
   }
 }
 
