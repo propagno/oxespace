@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="docs/assets/banner.png" alt="OXESpace Banner" width="100%" style="border-radius: 8px; margin-bottom: 20px;" />
+  <img src="docs/assets/banner.png" alt="OXESpace Banner" width="800" style="border-radius: 8px; margin-bottom: 20px;" />
 
   <h1>OXESpace</h1>
   
@@ -47,7 +47,7 @@ A built-in editor that uses the active workspace root as a lazy-loaded file brow
 ## 🚀 Quick Start
 
 **1. Download the latest release**  
-[Download OXESpace 0.2.2 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.2.2/OXESpace-0.2.2-x64.exe)
+[Download OXESpace 0.2.3 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.2.3/OXESpace-0.2.3-x64.exe)
 
 **2. Prerequisites**  
 - Windows x64
