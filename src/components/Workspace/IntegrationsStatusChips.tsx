@@ -125,10 +125,11 @@ export function IntegrationsStatusChips({ workspace }: IntegrationsStatusChipsPr
         <span className="chip-label">RTK</span>
       </span>
 
-      {/* Caveman Chip */}
-      <span className={`workspace-status-chip ${cavemanActive ? 'activity-awaiting' : 'activity-idle'}`} title={`Caveman Mode: ${cavemanActive ? 'Active' : 'Disabled'}`}>
+      {/* Caveman Chip — green when active, matching RTK/MCP (it's a plain on/off
+          toggle with no runtime "awaiting" state, so amber was misleading). */}
+      <span className={`workspace-status-chip ${cavemanActive ? 'activity-thinking' : 'activity-idle'}`} title={`Caveman Mode: ${cavemanActive ? 'Active' : 'Disabled'}`}>
         <Activity size={11} aria-hidden="true" style={{ marginRight: 2 }} />
-        <span className={`workspace-status-dot ${cavemanActive ? 'activity-awaiting' : 'activity-idle'}`} aria-hidden="true" />
+        <span className={`workspace-status-dot ${cavemanActive ? 'activity-thinking' : 'activity-idle'}`} aria-hidden="true" />
         <span className="chip-label">Caveman</span>
       </span>
 
