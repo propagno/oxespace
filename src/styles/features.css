@@ -3459,12 +3459,13 @@
   padding: 0 16px;
   background: linear-gradient(0deg, rgba(10, 10, 12, 0.95) 0%, rgba(20, 20, 22, 0.85) 100%);
   border-top: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
   flex-shrink: 0;
   container-type: inline-size;
   container-name: statusbar;
+  position: relative;
   z-index: 10;
 }
 
@@ -3512,7 +3513,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 0 8px;
+  padding: 0 12px;
   height: 24px;
   font-size: 11px;
   font-weight: 600;
@@ -7511,28 +7512,27 @@
 .workspace-status-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
+  gap: 5px;
+  padding: 2px 8px;
   height: 24px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.03);
   color: var(--tx-secondary);
   font-size: 11px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
-  transition: all 0.2s ease;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  white-space: nowrap;
+  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  flex-shrink: 0;
 }
 
-button.workspace-status-chip:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.15);
-  color: var(--tx-primary);
+.workspace-status-chip:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #fff;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .workspace-status-chip.activity-awaiting {
@@ -7552,6 +7552,7 @@ button.workspace-status-chip:hover {
   background: #22c55e;
   box-shadow: 0 0 8px #22c55e;
   animation: oxe-activity-pulse 1.2s ease-in-out infinite;
+  box-shadow: 0 0 8px 1px var(--dot-green);
 }
 
 .workspace-status-dot.activity-awaiting {

@@ -93,7 +93,7 @@ export class TerminalManager {
       GLAMOUR_STYLE: 'dark',
       BAT_THEME: 'TwoDark'
     }
-
+    
     if (!input.disableRtk) {
       try {
         const rtkBin = await this.rtkService.ensureRtk()

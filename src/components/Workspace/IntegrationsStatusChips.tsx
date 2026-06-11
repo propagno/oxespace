@@ -129,7 +129,7 @@ export function IntegrationsStatusChips({ workspace }: IntegrationsStatusChipsPr
           toggle with no runtime "awaiting" state, so amber was misleading). */}
       <span className={`workspace-status-chip ${cavemanActive ? 'activity-thinking' : 'activity-idle'}`} title={`Caveman Mode: ${cavemanActive ? 'Active' : 'Disabled'}`}>
         <Activity size={11} aria-hidden="true" style={{ marginRight: 2 }} />
-        <span className={`workspace-status-dot ${cavemanActive ? 'activity-thinking' : 'activity-idle'}`} aria-hidden="true" />
+        <span className={`workspace-status-dot ${cavemanActive ? 'activity-awaiting' : 'activity-idle'}`} aria-hidden="true" />
         <span className="chip-label">Caveman</span>
       </span>
 
