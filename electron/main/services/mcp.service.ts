@@ -43,6 +43,8 @@ interface RuntimeServer {
   // shell loses the original code). Surfacing it in healthMessage gives
   // the user something actionable instead of "exited (null)".
   stderr: string[]
+  lastActivity: number
+  sleepTimer?: NodeJS.Timeout
 }
 
 const STDERR_RING_SIZE = 10
@@ -55,6 +57,7 @@ interface McpManagerOptions {
 const PROTOCOL_VERSION = '2025-06-18'
 const INIT_TIMEOUT_MS = 15_000
 const REQUEST_TIMEOUT_MS = 30_000
+const SLEEP_TIMEOUT_MS = 15 * 60 * 1000
 const WINDOWS_EXECUTABLE_EXTENSIONS = ['.cmd', '.exe', '.bat', '.ps1']
 
 /**
@@ -182,9 +185,20 @@ export class McpManager {
     for (const id of [...this.runtimes.keys()]) this.stopRuntime(id)
   }
 
+  private touchRuntime(runtime: RuntimeServer): void {
+    runtime.lastActivity = Date.now()
+    if (runtime.sleepTimer) clearTimeout(runtime.sleepTimer)
+    runtime.sleepTimer = setTimeout(() => {
+      // eslint-disable-next-line no-console
+      console.log(`[mcp] hibernating server ${runtime.server.name} (${runtime.server.id}) due to inactivity`)
+      this.stopRuntime(runtime.server.id)
+    }, SLEEP_TIMEOUT_MS)
+  }
+
   stopRuntime(id: string): void {
     const runtime = this.runtimes.get(id)
     if (!runtime) return
+    if (runtime.sleepTimer) clearTimeout(runtime.sleepTimer)
     try { runtime.process?.kill() } catch { /* ignore */ }
     runtime.pending.forEach(({ reject }) => reject(new Error('MCP server stopped')))
     runtime.pending.clear()
@@ -201,6 +215,8 @@ export class McpManager {
     }
     if (!runtime || !runtime.initialized) throw new Error('MCP server not initialized')
     if (!runtime.server.trusted) throw new Error('MCP server is not trusted')
+
+    this.touchRuntime(runtime)
 
     const result = await this.request<McpCallToolResult>(runtime, 'tools/call', {
       name: input.toolName,
@@ -240,9 +256,11 @@ export class McpManager {
       pending: new Map(),
       requestSeq: 0,
       initialized: false,
-      stderr: []
+      stderr: [],
+      lastActivity: Date.now()
     }
     this.runtimes.set(server.id, runtime)
+    this.touchRuntime(runtime)
 
     const spawnError = new Promise<never>((_, reject) => {
       child.once('error', (err) => {

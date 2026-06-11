@@ -1,5 +1,8 @@
 import Editor from '@monaco-editor/react'
-import { useEffect, useRef, useState, type ReactElement } from 'react'
+import { useEffect, useRef, useState, useCallback, type ReactElement } from 'react'
+import { Mic, MicOff } from 'lucide-react'
+import type { editor as monacoEditor } from 'monaco-editor'
+import { useOxeVoice } from '../../hooks/useOxeVoice'
 // Side-effect: self-host Monaco (loader.config + local workers) so the Editor
 // never reaches for the jsdelivr CDN — works behind corporate VPN/proxy and
 // satisfies the packaged-build CSP. Must run before <Editor> mounts.
@@ -22,6 +25,79 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
   const [treeError, setTreeError] = useState<string | null>(null)
   const [isLoadingTree, setIsLoadingTree] = useState(false)
   const [editorSize, setEditorSize] = useState({ width: 0, height: 0 })
+  const editorRef = useRef<monacoEditor.IStandaloneCodeEditor | null>(null)
+
+  const insertVoiceText = useCallback((text: string): void => {
+    const editor = editorRef.current
+    if (!editor) return
+    const position = editor.getPosition()
+    if (!position) return
+    
+    editor.executeEdits('oxevoice', [{
+      range: {
+        startLineNumber: position.lineNumber,
+        startColumn: position.column,
+        endLineNumber: position.lineNumber,
+        endColumn: position.column
+      },
+      text: text + ' ',
+      forceMoveMarkers: true
+    }])
+    editor.focus()
+  }, [])
+
+  const voice = useOxeVoice({ enabled: true, onFinalText: insertVoiceText })
+  const isVoiceActive = voice.status === 'listening' || voice.status === 'transcribing'
+
+  const holdTimerRef = useRef<number | null>(null)
+  const holdingRef = useRef(false)
+  const HOLD_THRESHOLD_MS = 220
+
+  const onVoicePointerDown = useCallback((): void => {
+    if (!voice.isSupported) return
+    holdingRef.current = false
+    holdTimerRef.current = window.setTimeout(() => {
+      holdingRef.current = true
+      voice.startHold()
+    }, HOLD_THRESHOLD_MS)
+  }, [voice])
+
+  const onVoicePointerEnd = useCallback((): void => {
+    if (holdTimerRef.current !== null) {
+      clearTimeout(holdTimerRef.current)
+      holdTimerRef.current = null
+    }
+    if (holdingRef.current) {
+      holdingRef.current = false
+      voice.endHold()
+    } else {
+      voice.toggle()
+    }
+  }, [voice])
+
+  const onVoicePointerCancel = useCallback((): void => {
+    if (holdTimerRef.current !== null) {
+      clearTimeout(holdTimerRef.current)
+      holdTimerRef.current = null
+    }
+    holdingRef.current = false
+  }, [])
+
+  useEffect(() => {
+    const onToggle = () => voice.toggle()
+    const onHoldStart = () => voice.startHold()
+    const onHoldEnd = () => voice.endHold()
+
+    window.addEventListener('oxe:editor-toggle-voice', onToggle)
+    window.addEventListener('oxe:editor-voice-hold-start', onHoldStart)
+    window.addEventListener('oxe:editor-voice-hold-end', onHoldEnd)
+
+    return () => {
+      window.removeEventListener('oxe:editor-toggle-voice', onToggle)
+      window.removeEventListener('oxe:editor-voice-hold-start', onHoldStart)
+      window.removeEventListener('oxe:editor-voice-hold-end', onHoldEnd)
+    }
+  }, [voice])
 
   useEffect(() => {
     return window.oxe.fs.onFileChanged((event) => markExternalChange(event))
@@ -112,7 +188,37 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
       <section className="editor-main" aria-label="Editor">
         <header className="editor-toolbar">
           <span className="editor-path">{file?.relativePath ?? 'No file selected'}</span>
-          <span className={`editor-dirty${isDirty ? ' active' : ''}`}>{file?.isSaving ? 'saving' : isDirty ? 'dirty' : 'saved'}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span className={`editor-dirty${isDirty ? ' active' : ''}`}>{file?.isSaving ? 'saving' : isDirty ? 'dirty' : 'saved'}</span>
+            
+            {voice.isSupported && (
+              <button
+                type="button"
+                className={`tile-btn ${isVoiceActive ? 'active pulse' : ''}`}
+                onPointerDown={onVoicePointerDown}
+                onPointerUp={onVoicePointerEnd}
+                onPointerCancel={onVoicePointerCancel}
+                onContextMenu={(e) => e.preventDefault()}
+                title="Tap to toggle dictation. Hold for push-to-talk."
+                style={{ position: 'relative' }}
+              >
+                {isVoiceActive ? <Mic size={12} aria-hidden="true" /> : <MicOff size={12} aria-hidden="true" />}
+                {isVoiceActive && (
+                  <span
+                    style={{
+                      position: 'absolute',
+                      bottom: -2,
+                      left: 0,
+                      height: 2,
+                      background: 'var(--accent)',
+                      width: `${Math.min(100, Math.max(0, voice.level * 100))}%`,
+                      transition: 'width 50ms linear'
+                    }}
+                  />
+                )}
+              </button>
+            )}
+          </div>
         </header>
         <div className="editor-body">
           {file?.error ? <div className="editor-error">{file.error}</div> : null}
@@ -137,6 +243,9 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
                     horizontal: 'visible',
                     vertical: 'visible'
                   }
+                }}
+                onMount={(editor) => {
+                  editorRef.current = editor
                 }}
                 onChange={(value) => updateContent(workspaceId, value ?? '')}
               />

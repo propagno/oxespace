@@ -211,7 +211,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     session: {
       list: (input) => ipc.invoke(IPC_CHANNELS.session.list, input) as Promise<import('../../shared/types/session').SessionSummary[]>,
       fork: (input) => ipc.invoke(IPC_CHANNELS.session.fork, input) as Promise<import('../../shared/types/session').ForkSessionResult>,
-      delete: (input) => ipc.invoke(IPC_CHANNELS.session.delete, input) as Promise<boolean>
+      delete: (input) => ipc.invoke(IPC_CHANNELS.session.delete, input) as Promise<boolean>,
+      cleanup: (input) => ipc.invoke(IPC_CHANNELS.session.cleanup, input) as Promise<number>
     },
     skill: {
       list: (input) => ipc.invoke(IPC_CHANNELS.skill.list, input ?? {}) as Promise<import('../../shared/types/skill').SkillDefinition[]>,
@@ -238,6 +239,12 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     },
     oxeContext: {
       buildPaneManifest: (input) => ipc.invoke(IPC_CHANNELS.oxeContext.buildPaneManifest, input) as Promise<string>
+    },
+    semantic: {
+      getStatus: (workspaceId) => ipc.invoke(IPC_CHANNELS.semantic.getStatus, workspaceId) as Promise<import('../../shared/types/ipc').SemanticStatus>,
+      setEnabled: (input) => ipc.invoke(IPC_CHANNELS.semantic.setEnabled, input) as Promise<import('../../shared/types/ipc').SemanticStatus>,
+      getLogs: () => ipc.invoke(IPC_CHANNELS.semantic.getLogs) as Promise<import('../../shared/types/ipc').SemanticLogEntry[]>,
+      onLog: (listener) => subscribe<import('../../shared/types/ipc').SemanticLogEntry>(ipc, IPC_CHANNELS.semantic.onLog, listener)
     }
   }
 }

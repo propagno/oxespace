@@ -138,7 +138,17 @@ export function createLocalRpcServer(deps: LocalRpcDeps): LocalRpcServer {
         }
       }
       try {
-        const ctx: ToolContext = { ...deps, workspaceId }
+        const ctx: ToolContext = {
+          workspaceId,
+          workspaceServ: deps.workspaceServ,
+          github: deps.github,
+          background: deps.background,
+          fileSystem: deps.fileSystem,
+          semantic: deps.semantic,
+          codegraph: deps.codegraph,
+          webPreview: deps.webPreview,
+          worktree: deps.worktree
+        }
         const result = await tool.handler(params.arguments, ctx)
         return { jsonrpc: '2.0', id, result }
       } catch (caught) {

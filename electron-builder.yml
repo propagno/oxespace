@@ -19,10 +19,26 @@ extraResources:
   # voice.service.ts. Lands at <resourcesPath>/whisper/whisper-cli.exe.
   - from: resources/whisper/win-x64
     to: whisper
+  # Semantic search model (multilingual-e5-small) bundled so it loads OFFLINE —
+  # no huggingface.co download at runtime (fails on locked-down networks). Lands
+  # at <resourcesPath>/models/Xenova/multilingual-e5-small/. Populated at build
+  # time by `npm run prepare:model` (scripts/fetch-semantic-model.mjs).
+  - from: resources/models
+    to: models
 asar: true
 asarUnpack:
   - node_modules/better-sqlite3/**/*
   - node_modules/node-pty/**/*
+  # Semantic search worker loads the ONNX runtime native binding through
+  # @xenova/transformers; native .node files cannot be loaded from inside the
+  # asar archive, so they must stay unpacked on disk.
+  - node_modules/@xenova/transformers/**/*
+  - node_modules/onnxruntime-node/**/*
+  - node_modules/sharp/**/*
+  # CodeGraph parses with web-tree-sitter (wasm). The parse worker reads these
+  # as real files, which is impossible from inside the asar — keep them unpacked.
+  - node_modules/web-tree-sitter/**/*
+  - node_modules/tree-sitter-wasms/**/*
 win:
   icon: resources/icon.ico
   target:

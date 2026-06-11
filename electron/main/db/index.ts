@@ -254,6 +254,14 @@ export function runMigrations(db: AppDatabase): void {
     db.exec(readMigration('038_force_antigravity_command_agy.sql'))
     currentVersion = db.pragma('user_version', { simple: true }) as number
   }
+
+  // Guard on the table too: the embeddings table is required for the Semantic
+  // search service, and a partial upgrade (version bumped but table missing)
+  // would otherwise leave the service permanently broken.
+  if (currentVersion < 39 || !hasTable(db, 'semantic_embeddings')) {
+    db.exec(readMigration('039_semantic_embeddings.sql'))
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
 }
 
 function readMigration(name: string): string {

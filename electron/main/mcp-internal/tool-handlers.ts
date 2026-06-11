@@ -197,6 +197,120 @@ async function openWebPreview(args: unknown, ctx: ToolContext): Promise<Internal
   return textResult({ opened: true, workspaceId: ws.id, url })
 }
 
+async function semanticSearch(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
+  const { id } = await requireWorkspace(ctx)
+  if (!ctx.semantic.isEnabled(id)) {
+    return textResult('Semantic search is disabled for this workspace.')
+  }
+  const input = asRecord(args)
+  const query = expectString(input.query, 'query')
+  const limit = typeof input.limit === 'number' ? input.limit : 5
+
+  try {
+    const results = await ctx.semantic.query(id, query, limit)
+    if (results.length === 0) {
+      return textResult('No semantic matches found.')
+    }
+    const formatted = results.map((r, i) => `${i + 1}. ${r.filePath} (score: ${r.score.toFixed(3)})`).join('\n')
+    return textResult(`Top semantic matches for "${query}":\n\n${formatted}`)
+  } catch (err) {
+    return errorResult(`Semantic search failed: ${err instanceof Error ? err.message : String(err)}`)
+  }
+}
+
+async function captureWebPreview(_args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
+  const ws = await requireWorkspace(ctx)
+  
+  // Find the primary app window (OXESpace uses one BrowserWindow)
+  const { BrowserWindow } = require('electron')
+  const win = BrowserWindow.getAllWindows()[0]
+  if (!win) return errorResult('No application window found')
+
+  // Execute JS in the renderer to find the Web Preview iframe rect
+  const rectJson = await win.webContents.executeJavaScript(`
+    (() => {
+      const iframe = document.querySelector('iframe[title="Workspace web preview"]')
+      if (!iframe) return null
+      const rect = iframe.getBoundingClientRect()
+      return JSON.stringify({ x: rect.x, y: rect.y, width: rect.width, height: rect.height })
+    })()
+  `).catch(() => null)
+
+  if (!rectJson) {
+    return errorResult('Web Preview is not active or could not be found.')
+  }
+
+  const rect = JSON.parse(rectJson)
+  if (rect.width === 0 || rect.height === 0) {
+    return errorResult('Web Preview is not visible.')
+  }
+
+  // Capture the region matching the iframe
+  const nativeImage = await win.webContents.capturePage({
+    x: Math.round(rect.x),
+    y: Math.round(rect.y),
+    width: Math.round(rect.width),
+    height: Math.round(rect.height)
+  })
+
+  const base64Data = nativeImage.toPNG().toString('base64')
+  return {
+    content: [{
+      type: 'image',
+      data: base64Data,
+      mimeType: 'image/png'
+    }],
+    isError: false
+  }
+}
+
+async function hybridExplore(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
+  const ws = await requireWorkspace(ctx)
+  const input = asRecord(args) as any
+  const query = expectString(input.query, 'query')
+  const maxFiles = typeof input.maxFiles === 'number' ? input.maxFiles : 12
+
+  let text = ''
+
+  // 1. Semantic Search — listed as a complementary set (UNION with the
+  //    structural results below). We deliberately DON'T fold these filename
+  //    hints into the CodeGraph query: benchmarking showed query augmentation
+  //    dilutes the structural search and drops recall (50% vs 70% on its own).
+  //    Keeping the two retrievals independent and unioning them is what raises
+  //    recall while staying token-cheap.
+  try {
+    const semanticResults = await ctx.semantic.query(ws.id, query, 3)
+    if (semanticResults.length > 0) {
+      text += `[Hybrid RAG: Semantic Hints]\nTop conceptually related files:\n${semanticResults.map(r => `- ${r.filePath} (score: ${r.score.toFixed(3)})`).join('\n')}\n\n`
+    }
+  } catch (err) {
+    console.warn('[Hybrid RAG] Semantic search failed:', err)
+  }
+
+  // 2. CodeGraph Explore — on the PLAIN query (not augmented).
+  try {
+    const cg = await ctx.codegraph.ensureInstance(ws.rootPath)
+    const { ToolHandler } = await import('../vendor/codegraph/mcp/tools')
+    const handler = new ToolHandler(cg as any)
+
+    const cgResult = await handler.execute('codegraph_explore', {
+      query,
+      maxFiles
+    })
+
+    if (cgResult.content && cgResult.content[0] && cgResult.content[0].type === 'text') {
+      text += `[Hybrid RAG: Structural AST (CodeGraph)]\n${cgResult.content[0].text}`
+    } else {
+      text += `[Hybrid RAG: Structural AST (CodeGraph)]\nNo structural results found.`
+    }
+  } catch (err) {
+    console.warn('[Hybrid RAG] CodeGraph explore failed:', err)
+    text += `[Hybrid RAG: Structural AST (CodeGraph)]\nError: ${err instanceof Error ? err.message : String(err)}`
+  }
+
+  return textResult(text)
+}
+
 export const handlers = {
   listWorkspaces,
   listPanes,
@@ -208,5 +322,8 @@ export const handlers = {
   listBackgroundJobs,
   stopBackgroundJob,
   getJobOutput,
-  openWebPreview
+  openWebPreview,
+  captureWebPreview,
+  semanticSearch,
+  hybridExplore
 }

@@ -3540,26 +3540,12 @@
   opacity: 0.75;
 }
 
-.statusbar-chip.slash-chip .chip-label,
-.statusbar-chip.voice-chip .chip-label,
-.statusbar-chip.mcp-chip .chip-label {
+.statusbar-chip .chip-label {
   display: none;
 }
 
-.statusbar-chip.worktree-chip .chip-label {
-  max-width: 140px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-@container statusbar (max-width: 500px) {
-  .statusbar-chip .chip-label {
-    display: none;
-  }
-  .statusbar-chip {
-    padding: 0 6px;
-  }
+.statusbar-chip {
+  padding: 0 8px;
 }
 
 /* AI-Credits indicators (Copilot + per-provider Claude/Codex) — passive status
@@ -7479,7 +7465,7 @@
 /* ─── Workspace status summary in the topbar ─────────────────────────────── */
 
 .workspace-status-summary {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: var(--space-sm);
   padding-left: var(--space-md);
@@ -7487,20 +7473,30 @@
   color: var(--tx-secondary);
   font-size: 11.5px;
   letter-spacing: 0.01em;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.workspace-status-summary::-webkit-scrollbar {
+  display: none;
 }
 
 .workspace-status-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 2px 10px;
-  height: 22px;
-  border: 1px solid var(--bd-subtle);
-  border-radius: var(--radius-pill);
-  background: var(--surface-quiet);
-  color: var(--tx-primary);
-  font-size: 11px;
+  padding: 4px 12px;
+  height: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 13px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
+  color: #fff;
+  font-size: 12px;
   font-weight: 600;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 2px 8px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .workspace-status-pill strong {
@@ -7545,35 +7541,46 @@
 
 .workspace-status-dot {
   display: inline-block;
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
+  transition: all 0.3s ease;
 }
 
 .workspace-status-dot.activity-thinking {
-  background: var(--dot-green);
+  background: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
   animation: oxe-activity-pulse 1.2s ease-in-out infinite;
   box-shadow: 0 0 8px 1px var(--dot-green);
 }
 
 .workspace-status-dot.activity-awaiting {
-  background: var(--brand);
+  background: #eab308;
+  box-shadow: 0 0 8px #eab308;
 }
 
 .workspace-status-dot.activity-idle {
   background: var(--tx-muted);
+  box-shadow: none;
   opacity: 0.55;
 }
 
 .workspace-status-clock {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   margin-left: auto;
+  padding: 4px 10px;
+  height: 24px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.03);
   color: var(--tx-muted);
-  font-size: 10.5px;
+  font-size: 11px;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
 /* Tighter spacing when the topbar gets crowded — workspaces with many panes

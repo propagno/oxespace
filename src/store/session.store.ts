@@ -10,6 +10,7 @@ interface SessionStoreState {
   load: (workspaceId: string, workspaceRootPath: string, provider: AgentProvider) => Promise<void>
   fork: (input: ForkSessionInput) => Promise<string>
   remove: (workspaceId: string, workspaceRootPath: string, provider: AgentProvider, sessionId: string) => Promise<void>
+  cleanup: (workspaceId: string, workspaceRootPath: string, provider: AgentProvider) => Promise<number>
 }
 
 export const useSessionStore = create<SessionStoreState>((set, get) => ({
@@ -43,6 +44,14 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
   remove: async (workspaceId, workspaceRootPath, provider, sessionId) => {
     await window.oxe.session.delete({ workspaceRootPath, sessionId, provider })
     await get().load(workspaceId, workspaceRootPath, provider)
+  },
+
+  cleanup: async (workspaceId, workspaceRootPath, provider) => {
+    const count = await window.oxe.session.cleanup({ workspaceId, workspaceRootPath, provider })
+    if (count > 0) {
+      await get().load(workspaceId, workspaceRootPath, provider)
+    }
+    return count
   }
 }))
 

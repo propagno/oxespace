@@ -13,6 +13,13 @@ import { useTerminalStore } from '../../store/terminal.store'
 // Claude Code uses ⏺ (U+23FA) on Mac and ● (U+25CF) on Windows
 const AGENT_MARKERS = ['⏺', '●']
 
+let activeWebglContexts = 0
+// Browsers cap WebGL contexts per tab (Chrome: 16). When exceeded, the oldest
+// context is lost, unexpectedly breaking older terminals. By capping at 14, we
+// leave room for other components and gracefully fall back to the DOM renderer
+// for new terminals instead of crashing existing ones.
+const MAX_WEBGL_CONTEXTS = 14
+
 /**
  * Preflight: can we actually get a WebGL2 context? @xterm/addon-webgl needs one,
  * and on GPU-less hosts (corporate VMs, RDP, some VPN/remote desktops) its
@@ -177,15 +184,42 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
     // load the addon when it actually works; otherwise we stay on the DOM
     // renderer. Disposal is also guarded so teardown can never throw.
     let webglAddon: WebglAddon | null = null
-    if (supportsWebgl2()) {
+    let webglContextCounted = false
+    
+    if (activeWebglContexts >= MAX_WEBGL_CONTEXTS) {
+      console.warn(`[OXESpace] WebGL context limit reached (${MAX_WEBGL_CONTEXTS}), using DOM renderer`)
+    } else if (supportsWebgl2()) {
       try {
         const addon = new WebglAddon()
         addon.onContextLoss(() => {
           try { addon.dispose() } catch { /* already torn down */ }
-          if (webglAddon === addon) webglAddon = null
+          if (webglAddon === addon) {
+             webglAddon = null
+             if (webglContextCounted) {
+               activeWebglContexts--
+               webglContextCounted = false
+             }
+             
+             // The WebGL canvas has just been removed. We need to force xterm
+             // to fall back to the DOM renderer immediately, otherwise the
+             // terminal stays completely blank.
+             setTimeout(() => {
+               try {
+                 const t = terminalRef.current
+                 if (t) {
+                   // A dummy assignment to options triggers xterm's internal theme
+                   // rebuild for the DOM renderer, guaranteeing colors apply correctly.
+                   t.options.theme = t.options.theme
+                   t.refresh(0, t.rows - 1)
+                 }
+               } catch { /* ignore if already unmounted */ }
+             }, 50)
+          }
         })
         terminal.loadAddon(addon)
         webglAddon = addon
+        activeWebglContexts++
+        webglContextCounted = true
       } catch (err) {
         console.warn('[OXESpace] WebGL renderer unavailable, using DOM renderer', err)
         webglAddon = null
@@ -444,7 +478,16 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       resizeObserver.disconnect()
       dataDisposable.dispose()
       selectionDisposable.dispose()
-      try { webglAddon?.dispose() } catch { /* WebGL addon teardown raced — ignore */ }
+      try { 
+        if (webglAddon) {
+          webglAddon.dispose()
+          webglAddon = null
+        }
+      } catch { /* WebGL addon teardown raced — ignore */ }
+      if (webglContextCounted) {
+        activeWebglContexts--
+        webglContextCounted = false
+      }
       hostRef.current?.removeEventListener('paste', handlePaste, { capture: true })
       window.removeEventListener('oxe:terminal-insert-text', handleProgrammaticInsert)
       pasteRef.current = null

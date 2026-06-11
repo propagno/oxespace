@@ -1,0 +1,202 @@
+{
+  "queries": 10,
+  "corpus": 259,
+  "chunks": 1425,
+  "whole": {
+    "recall1": 0.3,
+    "recall5": 0.5,
+    "mrr": 0.40413614163614164,
+    "meanTopScore": 0.816025462933807,
+    "meanCtx": 25547
+  },
+  "chunked": {
+    "recall1": 0.5,
+    "recall5": 0.9,
+    "mrr": 0.6434848484848483,
+    "meanTopScore": 0.837145328904443,
+    "meanCtx": 25547
+  },
+  "rows": [
+    {
+      "q": "Como o servidor MCP entra em hibernação por inatividade e onde fica o timer de sleep?",
+      "target": [
+        "services/mcp.service.ts"
+      ],
+      "whole": {
+        "rank": 7,
+        "top1": "electron/main/ipc/mcp.ipc.ts",
+        "topScore": 0.8245690614979003,
+        "ctxTokens": 19634
+      },
+      "chunked": {
+        "rank": 1,
+        "top1": "electron/main/services/mcp.service.ts",
+        "topScore": 0.8721027311267473,
+        "ctxTokens": 19634
+      }
+    },
+    {
+      "q": "Onde os embeddings da busca semântica são gerados pelo worker?",
+      "target": [
+        "workers/semantic-worker.ts",
+        "services/semantic.service.ts"
+      ],
+      "whole": {
+        "rank": 1,
+        "top1": "electron/main/workers/semantic-worker.ts",
+        "topScore": 0.8093573166207384,
+        "ctxTokens": 17956
+      },
+      "chunked": {
+        "rank": 1,
+        "top1": "electron/main/services/semantic.service.ts",
+        "topScore": 0.8182451522819469,
+        "ctxTokens": 17956
+      }
+    },
+    {
+      "q": "Como o terminal PTY é criado usando o perfil de shell?",
+      "target": [
+        "services/terminal.service.ts"
+      ],
+      "whole": {
+        "rank": 1,
+        "top1": "electron/main/services/terminal.service.ts",
+        "topScore": 0.8102072302016247,
+        "ctxTokens": 13793
+      },
+      "chunked": {
+        "rank": 4,
+        "top1": "src/components/Oxe/OxePanelBody.tsx",
+        "topScore": 0.82130305944913,
+        "ctxTokens": 13793
+      }
+    },
+    {
+      "q": "Onde fica a validação de allowlist de operações no sistema de arquivos do workspace?",
+      "target": [
+        "services/file-system.service.ts"
+      ],
+      "whole": {
+        "rank": 104,
+        "top1": "electron/main/ipc/task.ipc.ts",
+        "topScore": 0.821441787657618,
+        "ctxTokens": 27013
+      },
+      "chunked": {
+        "rank": 55,
+        "top1": "electron/main/services/github.service.ts",
+        "topScore": 0.8356267005362344,
+        "ctxTokens": 27013
+      }
+    },
+    {
+      "q": "Como os atalhos de teclado para dividir o pane ativo são tratados?",
+      "target": [
+        "src/App.tsx"
+      ],
+      "whole": {
+        "rank": 45,
+        "top1": "src/components/Grid/WorkspaceGrid.tsx",
+        "topScore": 0.8044938954097169,
+        "ctxTokens": 21094
+      },
+      "chunked": {
+        "rank": 1,
+        "top1": "src/App.tsx",
+        "topScore": 0.8176171781500605,
+        "ctxTokens": 21094
+      }
+    },
+    {
+      "q": "Onde a integração com o GitHub conecta e lista repositórios?",
+      "target": [
+        "services/github.service.ts"
+      ],
+      "whole": {
+        "rank": 4,
+        "top1": "shared/types/github.ts",
+        "topScore": 0.8227536485945524,
+        "ctxTokens": 83442
+      },
+      "chunked": {
+        "rank": 2,
+        "top1": "src/components/GitHub/GitHubPanel.tsx",
+        "topScore": 0.8416327940822341,
+        "ctxTokens": 83442
+      }
+    },
+    {
+      "q": "Como o RTK baixa o binário rtk.exe para a pasta de dados do usuário?",
+      "target": [
+        "services/rtk.service.ts"
+      ],
+      "whole": {
+        "rank": 1,
+        "top1": "electron/main/services/rtk.service.ts",
+        "topScore": 0.8066445915715714,
+        "ctxTokens": 15064
+      },
+      "chunked": {
+        "rank": 1,
+        "top1": "electron/main/services/rtk.service.ts",
+        "topScore": 0.8536076349196253,
+        "ctxTokens": 15064
+      }
+    },
+    {
+      "q": "Onde está o registro das ferramentas internas expostas via MCP?",
+      "target": [
+        "mcp-internal/tool-registry.ts"
+      ],
+      "whole": {
+        "rank": 10,
+        "top1": "electron/main/ipc/mcp-internal.ipc.ts",
+        "topScore": 0.7996642737021515,
+        "ctxTokens": 16809
+      },
+      "chunked": {
+        "rank": 3,
+        "top1": "shared/types/mcp-internal.ts",
+        "topScore": 0.8182438353349516,
+        "ctxTokens": 16809
+      }
+    },
+    {
+      "q": "Como um workspace é criado com um pane por célula do layout?",
+      "target": [
+        "services/workspace.service.ts"
+      ],
+      "whole": {
+        "rank": 60,
+        "top1": "src/components/Grid/layouts.ts",
+        "topScore": 0.8406058895469504,
+        "ctxTokens": 26461
+      },
+      "chunked": {
+        "rank": 3,
+        "top1": "src/components/Grid/layouts.ts",
+        "topScore": 0.8406058895469504,
+        "ctxTokens": 26461
+      }
+    },
+    {
+      "q": "Onde o áudio é transcrito usando o Whisper na funcionalidade de voz?",
+      "target": [
+        "services/voice.service.ts"
+      ],
+      "whole": {
+        "rank": 2,
+        "top1": "shared/types/voice.ts",
+        "topScore": 0.8205169345352447,
+        "ctxTokens": 14204
+      },
+      "chunked": {
+        "rank": 1,
+        "top1": "electron/main/services/voice.service.ts",
+        "topScore": 0.8524683136165492,
+        "ctxTokens": 14204
+      }
+    }
+  ]
+}

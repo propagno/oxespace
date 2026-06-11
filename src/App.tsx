@@ -10,6 +10,7 @@ import { CommandPalette, type CommandPaletteAction } from './components/CommandP
 import { SlashOverlay } from './components/SlashOverlay/SlashOverlay'
 import { HistoryPanel } from './components/History/HistoryPanel'
 import { McpPanel } from './components/MCP/McpPanel'
+import { SemanticActivityPanel } from './components/Semantic/SemanticActivityPanel'
 import { SkillsBrowser } from './components/Skills/SkillsBrowser'
 import { useBackgroundStore } from './store/background.store'
 import { useMcpStore } from './store/mcp.store'
@@ -131,6 +132,7 @@ export function App(): ReactElement {
   const integrationGroups = useIntegrationStore((state) => state.groups)
   const [configuredAgent, setConfiguredAgent] = useState<AgentProfile | null>(null)
   const [isDesignSystemOpen, setDesignSystemOpen] = useState(false)
+  const [isSemanticActivityOpen, setSemanticActivityOpen] = useState(false)
   const [appNotice, setAppNotice] = useState<string | null>(null)
   // Track workspaces that have been visited at least once. Visited workspaces
   // stay mounted (hidden via CSS) so the xterm Terminal instances persist
@@ -299,10 +301,13 @@ export function App(): ReactElement {
   }
 
   const toggleActivePaneVoice = (): void => {
-    if (!activePane || activePane.type !== 'terminal') return
-    window.dispatchEvent(new CustomEvent('oxe:terminal-toggle-voice', {
-      detail: { paneId: activePane.id }
-    }))
+    if (activeWorkspace?.editorVisible) {
+      window.dispatchEvent(new CustomEvent('oxe:editor-toggle-voice'))
+    } else if (activePane && activePane.type === 'terminal') {
+      window.dispatchEvent(new CustomEvent('oxe:terminal-toggle-voice', {
+        detail: { paneId: activePane.id }
+      }))
+    }
   }
 
   const runCommandInTerminal = async (command: string): Promise<void> => {
@@ -400,7 +405,7 @@ export function App(): ReactElement {
     { id: 'split-vertical', title: 'Split active pane (vertical)', subtitle: 'Ctrl+Shift+\\', icon: Split, category: 'Terminal', disabled: !activePane, run: () => splitActivePane('vertical') },
     { id: 'split-horizontal', title: 'Split active pane (horizontal)', subtitle: 'Ctrl+Shift+-', icon: Split, category: 'Terminal', disabled: !activePane, run: () => splitActivePane('horizontal') },
     { id: 'maximize-pane', title: 'Maximize / restore active pane', subtitle: 'Ctrl+Shift+Enter', icon: Maximize, category: 'Terminal', disabled: !activePane, run: toggleActivePaneMaximize },
-    { id: 'toggle-oxevoice', title: 'Toggle OXEVoice for active terminal', subtitle: 'Speak text into the prompt without Enter', icon: Mic, category: 'Terminal', keywords: ['voice', 'speech', 'microphone', 'dictation'], disabled: !activePane || activePane.type !== 'terminal' || getTerminalStatus(activePane.id).status !== 'running', run: toggleActivePaneVoice },
+    { id: 'toggle-oxevoice', title: 'Toggle OXEVoice for active context', subtitle: 'Speak directly into terminal or editor', icon: Mic, category: 'Terminal', keywords: ['voice', 'speech', 'microphone', 'dictation'], disabled: !activeWorkspace?.editorVisible && (!activePane || activePane.type !== 'terminal' || getTerminalStatus(activePane.id).status !== 'running'), run: toggleActivePaneVoice },
     { id: 'restart-terminal', title: 'Restart active terminal', subtitle: 'Ctrl+R', icon: RotateCw, category: 'Terminal', disabled: !activePane || activePane.type !== 'terminal', run: () => activePane && void window.oxe.terminal.restart({ paneId: activePane.id }) },
     { id: 'stop-terminal', title: 'Stop active terminal', icon: StopCircle, category: 'Terminal', disabled: !activePane || activePane.type !== 'terminal', run: () => activePane && void window.oxe.terminal.stop({ paneId: activePane.id }) }
   ]
@@ -443,6 +448,11 @@ export function App(): ReactElement {
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'Enter') {
         event.preventDefault()
         toggleActivePaneMaximize()
+        return
+      }
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && key === 'v') {
+        event.preventDefault()
+        toggleActivePaneVoice()
         return
       }
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && key === 'd') {
@@ -573,6 +583,7 @@ export function App(): ReactElement {
                       onOpenHistory={openHistoryPanel}
                       onOpenMcp={openMcpPanel}
                       onOpenSkills={openSkillsBrowser}
+                      onOpenSemanticLogs={() => setSemanticActivityOpen(true)}
                       onOpenScripts={openScriptsPanel}
                       onOpenWebPreview={openWebPreview}
                       onOpenIntegration={openIntegrationPanel}
@@ -696,6 +707,12 @@ export function App(): ReactElement {
         />
       ) : null}
       {isDesignSystemOpen ? <DesignSystemPage onClose={() => { setDesignSystemOpen(false) }} /> : null}
+      {isSemanticActivityOpen ? (
+        <SemanticActivityPanel
+          workspaceId={activeWorkspace?.id ?? null}
+          onClose={() => { setSemanticActivityOpen(false) }}
+        />
+      ) : null}
       {configuredAgent ? (
         <AgentConfigModal
           profile={configuredAgent}

@@ -23,6 +23,7 @@ export interface TerminalPrefs {
   scrollback: number
   rtkHookEnabled: boolean
   cavemanModeEnabled: boolean
+  semanticSearchEnabled: boolean
 }
 
 export const TERMINAL_PREFS_DEFAULTS: TerminalPrefs = {
@@ -33,8 +34,12 @@ export const TERMINAL_PREFS_DEFAULTS: TerminalPrefs = {
   cursorStyle: 'block',
   cursorBlink: true,
   scrollback: 100_000,
-  rtkHookEnabled: true,
-  cavemanModeEnabled: false
+  // RTK, Caveman and Semantic are opt-in developer features — off by default so
+  // a fresh workspace does no extra token transforms or background indexing.
+  // The user enables them via the toolbar chips when wanted.
+  rtkHookEnabled: false,
+  cavemanModeEnabled: false,
+  semanticSearchEnabled: false
 }
 
 export const FONT_SIZE_MIN = 8
@@ -76,7 +81,27 @@ export const useTerminalPrefsStore = create<TerminalPrefsState>()(
     }),
     {
       name: 'oxe-terminal-prefs',
-      version: 1,
+      version: 2,
+      // v2: RTK/Caveman/Semantic became opt-in (off by default). Existing users
+      // have a persisted `global` from when RTK/Semantic defaulted to ON, and
+      // `merge` spreads persisted over defaults — so without this migration the
+      // old always-on values would stick. Reset those two flags once (in the
+      // global default and in any per-workspace override) so a fresh workspace
+      // starts with them off; the user re-enables per workspace via the chips.
+      migrate: (persisted) => {
+        const p = (persisted ?? {}) as Partial<TerminalPrefsState>
+        const global = { ...TERMINAL_PREFS_DEFAULTS, ...(p.global ?? {}) }
+        global.rtkHookEnabled = false
+        global.semanticSearchEnabled = false
+        const overrides: Record<string, Partial<TerminalPrefs>> = {}
+        for (const [ws, ov] of Object.entries(p.overrides ?? {})) {
+          const next = { ...(ov as Partial<TerminalPrefs>) }
+          delete next.rtkHookEnabled
+          delete next.semanticSearchEnabled
+          if (Object.keys(next).length > 0) overrides[ws] = next
+        }
+        return { ...p, global, overrides }
+      },
       // Merge persisted partials over defaults so a new pref key added in a
       // future version still has a value for users with older saved state.
       merge: (persisted, current) => {

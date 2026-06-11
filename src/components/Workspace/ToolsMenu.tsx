@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react'
-import { Activity, ChevronDown, Code2, Command, Compass, FolderTree, Github, GitCompareArrows, History, ListChecks, MonitorPlay, Network, PanelLeft, Settings2, Sparkles, Wrench } from 'lucide-react'
+import { Activity, Brain, ChevronDown, Code2, Command, Compass, FolderTree, Github, GitCompareArrows, History, ListChecks, MonitorPlay, Network, PanelLeft, Settings2, Sparkles, Wrench, Slash } from 'lucide-react'
+import { useUIStore } from '../../store/ui.store'
 
 interface ToolsMenuProps {
   active: {
@@ -26,6 +27,7 @@ interface ToolsMenuProps {
   onOpenHistory: () => void
   onOpenMcp: () => void
   onOpenSkills: () => void
+  onOpenSemanticLogs: () => void
   onToggleOxe: () => void
 }
 
@@ -44,10 +46,13 @@ export function ToolsMenu({
   onOpenHistory,
   onOpenMcp,
   onOpenSkills,
+  onOpenSemanticLogs,
   onToggleOxe
 }: ToolsMenuProps): ReactElement {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement | null>(null)
+  const activePaneId = useUIStore((s) => s.activePaneId)
+  const openSlashOverlay = useUIStore((s) => s.openSlashOverlay)
 
   useEffect(() => {
     if (!open) return
@@ -85,8 +90,10 @@ export function ToolsMenu({
           </ToolsGroup>
           <ToolsGroup title="AI & Agents">
             <ToolItem icon={<History size={14} />} label="History" detail="Ctrl+Shift+H" onClick={() => run(onOpenHistory)} />
+            <ToolItem icon={<Slash size={14} />} label="Terminal Commands" detail="Ctrl+/" onClick={() => { if (activePaneId) run(() => openSlashOverlay(activePaneId)) }} disabled={!activePaneId} />
             <ToolItem icon={<Wrench size={14} />} label="MCP Servers" detail="Tools" onClick={() => run(onOpenMcp)} />
             <ToolItem icon={<Sparkles size={14} />} label="Skills" detail="Markdown" onClick={() => run(onOpenSkills)} />
+            <ToolItem icon={<Brain size={14} />} label="Semantic Activity" detail="Logs" onClick={() => run(onOpenSemanticLogs)} />
             <ToolItem active={active.oxe} icon={<Compass size={14} />} label="OXE" detail="SDLC" onClick={() => run(onToggleOxe)} />
           </ToolsGroup>
           <ToolsGroup title="System">

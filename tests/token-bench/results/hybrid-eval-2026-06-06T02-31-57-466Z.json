@@ -1,0 +1,130 @@
+{
+  "grep": {
+    "tok": 188583.3,
+    "recall": 0.8
+  },
+  "semantic": {
+    "tok": 19339.8,
+    "recall": 0.7
+  },
+  "codegraph": {
+    "tok": 5444.5,
+    "recall": 0.7
+  },
+  "hybrid": {
+    "tok": 5476.2,
+    "recall": 0.7
+  },
+  "rows": [
+    {
+      "q": "Como o servidor MCP entra em hibernação por inatividade e onde fica o timer de sleep?",
+      "grepTok": 60254,
+      "grepHit": true,
+      "semTok": 18650,
+      "semHit": true,
+      "cgTok": 5019,
+      "cgHit": true,
+      "hybTok": 5053,
+      "hybHit": true
+    },
+    {
+      "q": "Onde os embeddings da busca semântica são gerados pelo worker?",
+      "grepTok": 64017,
+      "grepHit": true,
+      "semTok": 10591,
+      "semHit": true,
+      "cgTok": 5938,
+      "cgHit": true,
+      "hybTok": 5973,
+      "hybHit": true
+    },
+    {
+      "q": "Como o terminal PTY é criado usando o perfil de shell?",
+      "grepTok": 297960,
+      "grepHit": true,
+      "semTok": 23618,
+      "semHit": true,
+      "cgTok": 6222,
+      "cgHit": true,
+      "hybTok": 6254,
+      "hybHit": true
+    },
+    {
+      "q": "Onde fica a validação de allowlist do sistema de arquivos do workspace?",
+      "grepTok": 396730,
+      "grepHit": true,
+      "semTok": 19969,
+      "semHit": false,
+      "cgTok": 5553,
+      "cgHit": false,
+      "hybTok": 5584,
+      "hybHit": false
+    },
+    {
+      "q": "Como os atalhos de teclado para dividir o pane ativo são tratados?",
+      "grepTok": 364424,
+      "grepHit": true,
+      "semTok": 18680,
+      "semHit": false,
+      "cgTok": 5608,
+      "cgHit": false,
+      "hybTok": 5645,
+      "hybHit": false
+    },
+    {
+      "q": "Onde a integração com o GitHub conecta e lista repositórios?",
+      "grepTok": 245781,
+      "grepHit": true,
+      "semTok": 34143,
+      "semHit": true,
+      "cgTok": 4544,
+      "cgHit": true,
+      "hybTok": 4572,
+      "hybHit": true
+    },
+    {
+      "q": "Como o RTK baixa o binário rtk.exe para a pasta de dados do usuário?",
+      "grepTok": 13904,
+      "grepHit": false,
+      "semTok": 21098,
+      "semHit": true,
+      "cgTok": 5943,
+      "cgHit": true,
+      "hybTok": 5970,
+      "hybHit": true
+    },
+    {
+      "q": "Onde está o registro das ferramentas internas expostas via MCP?",
+      "grepTok": 7169,
+      "grepHit": false,
+      "semTok": 16299,
+      "semHit": false,
+      "cgTok": 5835,
+      "cgHit": false,
+      "hybTok": 5869,
+      "hybHit": false
+    },
+    {
+      "q": "Como um workspace é criado com um pane por célula do layout?",
+      "grepTok": 426968,
+      "grepHit": true,
+      "semTok": 16050,
+      "semHit": true,
+      "cgTok": 3716,
+      "cgHit": true,
+      "hybTok": 3748,
+      "hybHit": true
+    },
+    {
+      "q": "Onde o áudio é transcrito usando o Whisper na funcionalidade de voz?",
+      "grepTok": 8626,
+      "grepHit": true,
+      "semTok": 14300,
+      "semHit": true,
+      "cgTok": 6067,
+      "cgHit": true,
+      "hybTok": 6094,
+      "hybHit": true
+    }
+  ]
+}

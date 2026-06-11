@@ -7,6 +7,7 @@ import type { BackgroundManager } from '../services/background.service'
 import type { FileSystemService } from '../services/file-system.service'
 import type { GitHubService } from '../services/github.service'
 import type { McpManager } from '../services/mcp.service'
+import type { SemanticService } from '../services/semantic.service'
 import type { WorkspaceService } from '../services/workspace.service'
 import type {
   InternalMcpStatus,
@@ -56,6 +57,8 @@ export interface InternalMcpDeps {
   github: GitHubService
   background: BackgroundManager
   fileSystem: FileSystemService
+  semantic: SemanticService
+  codegraph: import('../services/codegraph.service').CodeGraphService
 }
 
 export interface InternalMcpHandle {
@@ -80,6 +83,8 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
     github: deps.github,
     background: deps.background,
     fileSystem: deps.fileSystem,
+    semantic: deps.semantic,
+    codegraph: deps.codegraph,
     webPreview,
     worktree
   })
@@ -119,8 +124,13 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
       }
       if (bound !== meta.port) {
         updateMetaPort(deps.db, bound)
-        rebindServerRow(deps.mcpManager, serverRowId, bridgePath, bound, meta.token)
       }
+      // ALWAYS rebind the row with the ACTUAL bound port — even when it matches
+      // meta.port. This forces mcp-sync to rewrite every workspace's .mcp.json
+      // with the live port; a previous run that bound a different port could
+      // otherwise leave .mcp.json pointing at a dead port (the bridge then
+      // fails every tool call with ECONNREFUSED).
+      rebindServerRow(deps.mcpManager, serverRowId, bridgePath, bound, meta.token)
       activePort = bound
       lastError = null
       // eslint-disable-next-line no-console

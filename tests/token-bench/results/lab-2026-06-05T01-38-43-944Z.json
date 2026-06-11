@@ -1,0 +1,111 @@
+{
+  "request": "Como o servidor MCP entra em hibernação por inatividade e onde fica o timer de sleep?",
+  "tokenizer": "gpt-tokenizer (o200k_base — approximates Anthropic)",
+  "corpusFiles": 380,
+  "topK": 5,
+  "topHits": [
+    {
+      "file": "electron/main/services/mcp.service.ts",
+      "score": 0.8721027311267473
+    },
+    {
+      "file": "src/components/Workspace/IntegrationsStatusChips.tsx",
+      "score": 0.8446090389278428
+    },
+    {
+      "file": "src/components/Panes/TerminalPane.tsx",
+      "score": 0.831770583831539
+    },
+    {
+      "file": "src/components/Terminal/AgentCreditsStatus.tsx",
+      "score": 0.8297337794064102
+    },
+    {
+      "file": "src/styles/mcp.css",
+      "score": 0.8290507466774549
+    }
+  ],
+  "keywords": [
+    "servidor",
+    "hibernação",
+    "inatividade",
+    "timer",
+    "sleep"
+  ],
+  "context": {
+    "repoDump": 843260,
+    "grep": {
+      "files": 20,
+      "tokens": 102705
+    },
+    "semantic": 19684
+  },
+  "rtk": {
+    "raw": 506,
+    "compressed": 237
+  },
+  "caveman": {
+    "verbose": 261,
+    "terse": 47
+  },
+  "combos": [
+    {
+      "key": "···",
+      "input": 103232,
+      "output": 261,
+      "total": 103493,
+      "reductionPct": 0
+    },
+    {
+      "key": "··S",
+      "input": 20211,
+      "output": 261,
+      "total": 20472,
+      "reductionPct": 80.21895200641589
+    },
+    {
+      "key": "·C·",
+      "input": 103232,
+      "output": 47,
+      "total": 103279,
+      "reductionPct": 0.20677726996028717
+    },
+    {
+      "key": "·CS",
+      "input": 20211,
+      "output": 47,
+      "total": 20258,
+      "reductionPct": 80.42572927637617
+    },
+    {
+      "key": "R··",
+      "input": 102963,
+      "output": 261,
+      "total": 103224,
+      "reductionPct": 0.2599209608379311
+    },
+    {
+      "key": "R·S",
+      "input": 19942,
+      "output": 261,
+      "total": 20203,
+      "reductionPct": 80.47887296725382
+    },
+    {
+      "key": "RC·",
+      "input": 102963,
+      "output": 47,
+      "total": 103010,
+      "reductionPct": 0.46669823079821826
+    },
+    {
+      "key": "RCS",
+      "input": 19942,
+      "output": 47,
+      "total": 19989,
+      "reductionPct": 80.68565023721412
+    }
+  ],
+  "baselineTotal": 103493,
+  "allOnTotal": 19989
+}

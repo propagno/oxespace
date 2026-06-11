@@ -1,4 +1,4 @@
-import { FolderTree, Mic, MicOff, Play, Slash, Wrench, Zap, Bone } from 'lucide-react'
+import { FolderTree, Mic, MicOff, Play, Bone, Brain, Zap } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { WorkspacePane } from '../../../shared/types/workspace'
@@ -6,7 +6,7 @@ import { useGitBranch } from '../../hooks/useGitBranch'
 import { useOxeVoice } from '../../hooks/useOxeVoice'
 import { useAgentStore } from '../../store/agent.store'
 import { findMemberForPane, useIntegrationStore } from '../../store/integration.store'
-import { selectMcpServers, useMcpStore } from '../../store/mcp.store'
+
 import { useTerminalStore } from '../../store/terminal.store'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
@@ -277,25 +277,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
     : state.status === 'error' ? 'red'
     : ''
 
-  const openSlashOverlay = useUIStore((s) => s.openSlashOverlay)
-  const openMcpPanel = useUIStore((s) => s.openMcpPanel)
   const setActivePane = useUIStore((s) => s.setActivePane)
-  // MCPs the agent CLI in this pane will see via `.mcp.json` — global rows
-  // plus this workspace's own, enabled only. The chip shows the count; the
-  // tooltip lists the names so the user can verify which servers their agent
-  // is wired to without opening the panel.
-  const mcpSelector = useMemo(() => selectMcpServers(workspaceId), [workspaceId])
-  const allMcpServers = useMcpStore(mcpSelector)
-  const enabledMcpServers = useMemo(
-    () => allMcpServers.filter((server) => server.enabled),
-    [allMcpServers]
-  )
-  const mcpChipLabel = enabledMcpServers.length === 1
-    ? '1 MCP'
-    : `${enabledMcpServers.length} MCPs`
-  const mcpChipTooltip = enabledMcpServers.length === 0
-    ? 'No MCP servers enabled — click to add one.'
-    : `Available to the agent via .mcp.json:\n${enabledMcpServers.map((s) => `• ${s.name}${s.workspaceId === null ? ' (global)' : ''}`).join('\n')}\n\nClick to manage.`
   const updateWorktreeState = useWorkspaceStore((s) => s.updateWorktreeState)
   const workspace = useWorkspaceStore((s) => s.workspaces.find((w) => w.id === workspaceId) ?? null)
   // Compose the chip label from the branch hook's payload. Beyond "branch
@@ -419,30 +401,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
           {isWorktreeOverride ? <span className="worktree-chip-tag" aria-hidden="true">wt</span> : null}
         </button>
 
-        <button
-          type="button"
-          className={`statusbar-chip mcp-chip${enabledMcpServers.length === 0 ? ' empty' : ''}`}
-          aria-label={`MCP servers available to the agent: ${enabledMcpServers.length}. Click to manage.`}
-          data-tooltip={mcpChipTooltip}
-          onClick={() => {
-            setActivePane(pane.id)
-            openMcpPanel()
-          }}
-        >
-          <Wrench size={10} aria-hidden="true" />
-          <span className="chip-label">{mcpChipLabel}</span>
-        </button>
 
-        <button
-          type="button"
-          className="statusbar-chip slash-chip"
-          aria-label="Abrir comandos (Ctrl+/)"
-          data-tooltip="Comandos (Ctrl+/)"
-          onClick={() => openSlashOverlay(pane.id)}
-        >
-          <Slash size={10} aria-hidden="true" />
-          <span className="chip-label">commands</span>
-        </button>
 
         <button
           type="button"
@@ -468,6 +427,23 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         >
           <Bone size={10} aria-hidden="true" style={{ opacity: terminalPrefs.cavemanModeEnabled ? 1 : 0.4 }} />
           <span className="chip-label" style={{ opacity: terminalPrefs.cavemanModeEnabled ? 1 : 0.4 }}>caveman</span>
+        </button>
+
+        <button
+          type="button"
+          className={`statusbar-chip semantic-chip ${!terminalPrefs.semanticSearchEnabled ? 'disabled' : ''}`}
+          aria-label={`Semantic Search: ${terminalPrefs.semanticSearchEnabled ? 'Enabled' : 'Disabled'}. Click to toggle.`}
+          data-tooltip={terminalPrefs.semanticSearchEnabled
+            ? 'Busca Semântica: ativa (agente lê menos arquivos). Clique para desativar.'
+            : 'Busca Semântica: desativada. Clique para ativar.'}
+          onClick={() => {
+            const next = !terminalPrefs.semanticSearchEnabled
+            setTerminalOverride(workspaceId, 'semanticSearchEnabled', next)
+            void window.oxe.semantic?.setEnabled({ workspaceId, enabled: next }).catch(() => undefined)
+          }}
+        >
+          <Brain size={10} aria-hidden="true" style={{ opacity: terminalPrefs.semanticSearchEnabled ? 1 : 0.4 }} />
+          <span className="chip-label" style={{ opacity: terminalPrefs.semanticSearchEnabled ? 1 : 0.4 }}>semantic</span>
         </button>
 
         <button
