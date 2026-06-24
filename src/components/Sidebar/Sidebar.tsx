@@ -1,5 +1,5 @@
 import { ChevronsLeft, ChevronsRight, Plus, Search } from 'lucide-react'
-import { useEffect, useRef, useState, type ReactElement } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { IntegrationGroup } from '../../../shared/types/integration'
 import type { Workspace } from '../../../shared/types/workspace'
 import { useIntegrationStore } from '../../store/integration.store'
@@ -59,6 +59,19 @@ export function Sidebar({
   const setActiveIntegrationGroup = useIntegrationStore((state) => state.setActiveGroup)
   const setActiveIntegrationMember = useIntegrationStore((state) => state.setActiveMember)
   const reorderWorkspaces = useWorkspaceStore((state) => state.reorderWorkspaces)
+
+  // Memoized so the O(workspaces × panes) search filter only recomputes when the
+  // list or query actually changes — not on every re-render triggered by
+  // unrelated terminal-store activity. Declared before the collapsed early
+  // return to keep hook order stable.
+  const filtered = useMemo(() => {
+    if (!searchQuery) return workspaces
+    const q = searchQuery.toLowerCase()
+    return workspaces.filter((ws) =>
+      ws.name.toLowerCase().includes(q) ||
+      ws.panes.some((p) => (p.agentName ?? p.type).toLowerCase().includes(q))
+    )
+  }, [workspaces, searchQuery])
 
   const handleDropOnWorkspace = (targetId: string): void => {
     if (!dragSourceId || dragSourceId === targetId || !dropPosition) {
@@ -136,15 +149,6 @@ export function Sidebar({
       </aside>
     )
   }
-
-  const filtered = workspaces.filter(ws => {
-    if (!searchQuery) return true
-    const q = searchQuery.toLowerCase()
-    return (
-      ws.name.toLowerCase().includes(q) ||
-      ws.panes.some((p) => (p.agentName ?? p.type).toLowerCase().includes(q))
-    )
-  })
 
   return (
     <aside className="sidebar">

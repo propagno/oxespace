@@ -196,12 +196,28 @@ export function WorkspaceSettingsModal({ onClose, onSave, shellProfiles, workspa
                   <SquareTerminal size={14} aria-hidden="true" />
                   <h3 id="ws-section-shell">Default shell</h3>
                 </header>
-                <label className="field">
-                  <span>Shell profile</span>
-                  <select value={defaultShellProfileId} onChange={(event) => setDefaultShellProfileId(event.target.value)}>
-                    {shellProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
-                  </select>
-                </label>
+                <div className="ws-settings-field-label">Shell profile</div>
+                <div className="shell-card-grid" role="radiogroup" aria-label="Default shell profile">
+                  {shellProfiles.map((profile) => {
+                    const selected = defaultShellProfileId === profile.id
+                    return (
+                      <button
+                        key={profile.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        className={`shell-card${selected ? ' selected' : ''}`}
+                        onClick={() => setDefaultShellProfileId(profile.id)}
+                      >
+                        <div className="shell-card-content">
+                          <span className="shell-card-name">{profile.name}</span>
+                          <span className="shell-card-exe">{profile.executable}</span>
+                        </div>
+                        {selected ? <Check size={14} aria-hidden="true" className="shell-card-check" /> : null}
+                      </button>
+                    )
+                  })}
+                </div>
                 <label className="checkbox-field">
                   <input type="checkbox" checked={applyShellToIdlePanes} onChange={(event) => setApplyShellToIdlePanes(event.currentTarget.checked)} />
                   <span>Apply this shell to existing idle panes</span>

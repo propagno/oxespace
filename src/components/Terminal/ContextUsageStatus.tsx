@@ -3,7 +3,11 @@ import { useEffect, type ReactElement } from 'react'
 import type { AgentProvider } from '../../../shared/types/agent'
 import { contextUsageKey, useContextUsageStore } from '../../store/contextUsage.store'
 
-const REFRESH_INTERVAL_MS = 5_000
+// 30s background poll: the context fill only moves after an agent turn (tens of
+// seconds to minutes apart), so 5s spawned 6× the IPC/provider work for no extra
+// signal. The focus listener below still refreshes immediately when the user
+// returns to the window, keeping the meter snappy where it matters.
+const REFRESH_INTERVAL_MS = 30_000
 
 /**
  * Live "context window %" indicator for the terminal status bar — the `/context`

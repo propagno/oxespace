@@ -182,8 +182,20 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
     }
   }, [allProfiles, pane.agentProfileId, pane.id, resolveWithIntegrationContext, setPaneAgent, setStatus, workspaceId])
 
+  const inEscapeRef = useRef(false)
   const identifyAgentFromInput = useCallback((data: string): void => {
-    for (const char of data) {
+    for (let i = 0; i < data.length; i++) {
+      const char = data[i]
+      if (inEscapeRef.current) {
+        if ((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || char === '~') {
+          inEscapeRef.current = false
+        }
+        continue
+      }
+      if (char === '\x1b') {
+        inEscapeRef.current = true
+        continue
+      }
       if (char === '\u0003') {
         typedCommandRef.current = ''
         continue
@@ -195,11 +207,6 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
       if (char === '\r' || char === '\n') {
         const command = typedCommandRef.current.trim()
         typedCommandRef.current = ''
-        // Record what the user just sent so the pane header + sidebar row can
-        // surface "the intent" instead of "Terminal N". When the typed command
-        // matches a provider CLI (e.g. `claude`, `copilot`) treat it as setup
-        // and re-bind the pane agent instead of treating the string itself as
-        // an intent — typing "claude" to spawn the CLI isn't a task.
         const matchedProfile = inferAgentProfile(command, allProfiles)
         if (matchedProfile && matchedProfile.agentProfileId !== pane.agentProfileId) {
           void setPaneAgent(pane.id, matchedProfile.agentProfileId, { preserveSession: true })
@@ -208,7 +215,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         }
         continue
       }
-      if (char >= ' ' && char !== '\x1b') typedCommandRef.current += char
+      if (char >= ' ') typedCommandRef.current += char
     }
   }, [allProfiles, pane.agentProfileId, pane.id, setPaneAgent, setLastIntent])
 

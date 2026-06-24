@@ -24,6 +24,15 @@ interface BackgroundStoreState {
 
 const OUTPUT_LIMIT = 1000
 
+// Coalesce high-frequency output: verbose jobs (builds/tests) emit 100-1000
+// lines/s. Doing a Zustand set() — which spreads the whole outputByJob — per
+// line caused a re-render storm. Instead we buffer incoming lines per job and
+// flush them in a single set() on a ~50ms timer. setTimeout (not rAF) so output
+// still flushes while the OXESpace window is in the background.
+const FLUSH_INTERVAL_MS = 50
+const pendingOutput = new Map<string, string[]>()
+let flushTimer: ReturnType<typeof setTimeout> | null = null
+
 export const useBackgroundStore = create<BackgroundStoreState>((set, get) => ({
   jobsByWorkspace: {},
   outputByJob: {},
@@ -62,6 +71,8 @@ export const useBackgroundStore = create<BackgroundStoreState>((set, get) => ({
 
   removeJob: async (workspaceId, jobId) => {
     await window.oxe.background.remove(jobId)
+    // Drop any buffered-but-unflushed output so it can't recreate the entry.
+    pendingOutput.delete(jobId)
     set((s) => {
       const list = s.jobsByWorkspace[workspaceId] ?? []
       const nextOutput = { ...s.outputByJob }
@@ -87,13 +98,28 @@ export const useBackgroundStore = create<BackgroundStoreState>((set, get) => ({
 
   subscribe: () => {
     if (!window.oxe?.background?.onOutput || !window.oxe?.background?.onUpdate) return () => undefined
-    const offOutput = window.oxe.background.onOutput((event: BackgroundJobOutputEvent) => {
+
+    const flush = (): void => {
+      flushTimer = null
+      if (pendingOutput.size === 0) return
+      const batch = new Map(pendingOutput)
+      pendingOutput.clear()
       set((s) => {
-        const current = s.outputByJob[event.jobId] ?? []
-        const next = [...current, event.data]
-        if (next.length > OUTPUT_LIMIT) next.splice(0, next.length - OUTPUT_LIMIT)
-        return { outputByJob: { ...s.outputByJob, [event.jobId]: next } }
+        const nextOutput = { ...s.outputByJob }
+        for (const [jobId, lines] of batch) {
+          const merged = [...(nextOutput[jobId] ?? []), ...lines]
+          if (merged.length > OUTPUT_LIMIT) merged.splice(0, merged.length - OUTPUT_LIMIT)
+          nextOutput[jobId] = merged
+        }
+        return { outputByJob: nextOutput }
       })
+    }
+
+    const offOutput = window.oxe.background.onOutput((event: BackgroundJobOutputEvent) => {
+      const buffered = pendingOutput.get(event.jobId)
+      if (buffered) buffered.push(event.data)
+      else pendingOutput.set(event.jobId, [event.data])
+      if (!flushTimer) flushTimer = setTimeout(flush, FLUSH_INTERVAL_MS)
     })
     const offUpdate = window.oxe.background.onUpdate((event: BackgroundJobUpdateEvent) => {
       set((s) => {
@@ -104,6 +130,11 @@ export const useBackgroundStore = create<BackgroundStoreState>((set, get) => ({
     return () => {
       offOutput()
       offUpdate()
+      if (flushTimer) {
+        clearTimeout(flushTimer)
+        flushTimer = null
+      }
+      pendingOutput.clear()
     }
   }
 }))

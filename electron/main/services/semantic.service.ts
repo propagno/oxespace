@@ -36,6 +36,9 @@ const CODE_EXTENSIONS = new Set([
 ])
 const MAX_INDEXABLE_BYTES = 256 * 1024
 const EMBED_TIMEOUT_MS = 30_000
+/** Delay before the boot-time crawl of the active workspace, so the initial
+ *  chokidar scan doesn't compete with first paint / terminal startup. */
+const BOOTSTRAP_WATCH_DELAY_MS = 4_000
 
 export class SemanticService {
   private worker: Worker | null = null;
@@ -65,7 +68,13 @@ export class SemanticService {
     // calls workspace.setActive when the user *switches* workspaces, so without
     // this the active workspace on launch would never get watched and the index
     // would stay empty.
-    this.bootstrapActiveWorkspace();
+    //
+    // Deferred a few seconds: the initial chokidar crawl (ignoreInitial:false)
+    // fans out fs-stat + per-file DB lookups that compete with first paint and
+    // terminal startup on large repos. unref() so it never keeps the process
+    // alive on its own.
+    const bootstrapTimer = setTimeout(() => this.bootstrapActiveWorkspace(), BOOTSTRAP_WATCH_DELAY_MS);
+    bootstrapTimer.unref?.();
   }
 
   /**

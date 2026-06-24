@@ -50,12 +50,17 @@ let ipcRegistered = false
 const clipboardImageTempFiles = new Set<string>()
 const CLIPBOARD_IMAGE_TTL_MS = 30 * 60 * 1000
 
-function registerIpcHandlers(): void {
-  if (ipcRegistered) return
+// Returns a `deferredInit` callback for non-critical, potentially slow startup
+// work (internal MCP server: RPC port bind + .mcp.json rewrites across all
+// workspaces). The caller runs it AFTER the main window is shown so the first
+// paint isn't blocked behind it. No-op for the mock/native-failure paths.
+function registerIpcHandlers(): () => void {
+  const noop = (): void => {}
+  if (ipcRegistered) return noop
   if (process.env.OXESPACE_E2E_MOCK_NATIVE === '1') {
     registerE2eMockIpcHandlers()
     ipcRegistered = true
-    return
+    return noop
   }
 
   let db: ReturnType<typeof openDatabase>
@@ -65,7 +70,7 @@ function registerIpcHandlers(): void {
     log.error('Native startup failed', error)
     registerNativeFailureIpcHandlers(toMessage(error))
     ipcRegistered = true
-    return
+    return noop
   }
 
   const terminalManager = new TerminalManager(db, {
@@ -165,7 +170,6 @@ function registerIpcHandlers(): void {
     codegraph: codeGraphService
   })
   registerMcpInternalIpc(internalMcp)
-  void internalMcp.start()
   // OXESpace context manifest — prepended to the agent's initial prompt on
   // pane spawn so the CLI knows the workspace state without calling any MCP
   // tool. Read shortcut; MCP is still the action path (see oxe-context.service.ts).
@@ -189,6 +193,11 @@ function registerIpcHandlers(): void {
     void internalMcp.stop()
   })
   ipcRegistered = true
+  // Deferred until after the window is shown — the RPC port bind and the
+  // per-workspace .mcp.json rewrites inside start() must not block first paint.
+  return () => {
+    void internalMcp.start()
+  }
 }
 
 function registerNativeFailureIpcHandlers(message: string): void {
@@ -826,8 +835,14 @@ if (!gotLock) {
   app.quit()
 } else {
   app.whenReady().then(() => {
-    registerIpcHandlers()
-    createMainWindow()
+    const deferredInit = registerIpcHandlers()
+    const mainWindow = createMainWindow()
+    // Kick off the heavy, non-critical startup work only once the window is
+    // painting. setImmediate yields back to the event loop so the first frame
+    // lands before the internal MCP server binds its port / rewrites configs.
+    mainWindow.once('ready-to-show', () => {
+      setImmediate(deferredInit)
+    })
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {

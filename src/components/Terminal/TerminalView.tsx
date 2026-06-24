@@ -151,7 +151,6 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       allowProposedApi: true,
       cursorBlink: initial.cursorBlink,
       cursorStyle: initial.cursorStyle,
-      convertEol: true,
       fontFamily: initial.fontFamily,
       fontSize: initial.fontSize,
       lineHeight: initial.lineHeight,
