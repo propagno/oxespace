@@ -14,7 +14,7 @@ env:
 jobs:
   release:
     name: Build installer
-    runs-on: windows-latest
+    runs-on: windows-2022
     permissions:
       contents: write
 
