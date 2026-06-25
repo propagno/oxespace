@@ -59,6 +59,10 @@ export class SemanticService {
   /** Rolling activity log surfaced via Tools → Semantic Activity. */
   private logs: SemanticLogEntry[] = [];
   private readonly emitLog?: (entry: SemanticLogEntry) => void;
+  /** Deferred boot-crawl timer; cleared in destroy() so it can't fire post-teardown. */
+  private bootstrapTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Set in destroy() so the deferred bootstrap can't touch a closed DB. */
+  private destroyed = false;
 
   constructor(private readonly db: AppDatabase, options: SemanticServiceOptions = {}) {
     this.emitLog = options.emitLog;
@@ -73,8 +77,12 @@ export class SemanticService {
     // fans out fs-stat + per-file DB lookups that compete with first paint and
     // terminal startup on large repos. unref() so it never keeps the process
     // alive on its own.
-    const bootstrapTimer = setTimeout(() => this.bootstrapActiveWorkspace(), BOOTSTRAP_WATCH_DELAY_MS);
-    bootstrapTimer.unref?.();
+    this.bootstrapTimer = setTimeout(() => {
+      this.bootstrapTimer = null;
+      if (this.destroyed) return;
+      this.bootstrapActiveWorkspace();
+    }, BOOTSTRAP_WATCH_DELAY_MS);
+    this.bootstrapTimer.unref?.();
   }
 
   /**
@@ -434,6 +442,8 @@ export class SemanticService {
   }
 
   public destroy() {
+    this.destroyed = true;
+    if (this.bootstrapTimer) { clearTimeout(this.bootstrapTimer); this.bootstrapTimer = null; }
     for (const watcher of this.watchers.values()) watcher.close();
     this.watchers.clear();
     this.rejectAllPending(new Error('Semantic service destroyed'));

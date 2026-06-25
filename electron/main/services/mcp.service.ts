@@ -59,6 +59,11 @@ const INIT_TIMEOUT_MS = 15_000
 const REQUEST_TIMEOUT_MS = 30_000
 const SLEEP_TIMEOUT_MS = 15 * 60 * 1000
 const WINDOWS_EXECUTABLE_EXTENSIONS = ['.cmd', '.exe', '.bat', '.ps1']
+// Anti-OOM guard for the line-delimited stdout buffer: a misbehaving server that
+// streams a huge blob without a newline would otherwise grow `runtime.buffer`
+// unbounded. If an incomplete line passes this, we drop it and resync on the
+// next newline rather than accumulate forever.
+const MAX_STDOUT_BUFFER_BYTES = 5 * 1024 * 1024
 
 /**
  * MCP (Model Context Protocol) cliente — speaks JSON-RPC 2.0 over child-process stdio.
@@ -76,10 +81,20 @@ export class McpManager {
   constructor(private readonly db: AppDatabase, options: McpManagerOptions = {}) {
     this.emitHealth = options.emitHealth ?? (() => undefined)
     this.configSync = new McpConfigSync(db)
-    // Refresh every workspace's .mcp.json on startup so the file stays in sync
-    // when the user has been editing MCPs across sessions (the file may be
-    // stale if it was hand-edited or if a previous OXESpace version didn't
-    // write it). Sync errors are non-fatal — the manager still starts.
+    // NOTE: the initial .mcp.json sync is deferred — see primeConfigs(), called
+    // from the deferred startup hook after the window paints. syncAll() does
+    // N workspaces × (DB reads + sync file writes), which previously blocked
+    // first paint when run here in the constructor.
+  }
+
+  /**
+   * Refresh every workspace's .mcp.json so the file stays in sync when the user
+   * has been editing MCPs across sessions (it may be stale if hand-edited or
+   * written by an older OXESpace). Idempotent and non-fatal — safe to call once
+   * after boot. Must run BEFORE the internal MCP server's start() so start()'s
+   * live-port rewrite of its own row lands last.
+   */
+  primeConfigs(): void {
     try {
       this.configSync.syncAll()
     } catch (err) {
@@ -395,6 +410,14 @@ export class McpManager {
           pending.resolve(parsed.result)
         }
       }
+    }
+    // After draining complete lines, what remains is a single incomplete line.
+    // If it has run away past the cap, drop it (resync on the next newline) so a
+    // server streaming a giant unframed blob can't OOM the main process.
+    if (runtime.buffer.length > MAX_STDOUT_BUFFER_BYTES) {
+      // eslint-disable-next-line no-console
+      console.warn(`[mcp] dropping oversized stdout buffer (${runtime.buffer.length} bytes) for server ${runtime.server.id}`)
+      runtime.buffer = ''
     }
   }
 }

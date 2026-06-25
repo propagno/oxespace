@@ -193,9 +193,15 @@ function registerIpcHandlers(): () => void {
     void internalMcp.stop()
   })
   ipcRegistered = true
-  // Deferred until after the window is shown — the RPC port bind and the
-  // per-workspace .mcp.json rewrites inside start() must not block first paint.
+  // Deferred until after the window is shown — all of this is non-critical for
+  // first paint and was previously blocking it (sync .mcp.json rewrites, skill
+  // folder scan, orphan-job UPDATE, RPC port bind). Order matters: primeConfigs()
+  // writes each workspace's .mcp.json from the table; internalMcp.start() then
+  // rewrites its own row with the live port last.
   return () => {
+    mcpManager.primeConfigs()
+    skillService.init()
+    backgroundManager.init()
     void internalMcp.start()
   }
 }
@@ -837,12 +843,20 @@ if (!gotLock) {
   app.whenReady().then(() => {
     const deferredInit = registerIpcHandlers()
     const mainWindow = createMainWindow()
-    // Kick off the heavy, non-critical startup work only once the window is
-    // painting. setImmediate yields back to the event loop so the first frame
-    // lands before the internal MCP server binds its port / rewrites configs.
-    mainWindow.once('ready-to-show', () => {
+    // Kick off the heavy, non-critical startup work once the window is painting.
+    // Idempotent + fallback: if ready-to-show never fires (renderer fails to load,
+    // render-process-gone, or a slow first paint), a 3s timer still runs the
+    // deferred init so the internal MCP server / config sync don't silently never
+    // start. setImmediate yields so the first frame lands before the heavy work.
+    let kicked = false
+    const kick = (): void => {
+      if (kicked) return
+      kicked = true
       setImmediate(deferredInit)
-    })
+    }
+    mainWindow.once('ready-to-show', kick)
+    const fallbackTimer = setTimeout(kick, 3000)
+    fallbackTimer.unref?.()
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {

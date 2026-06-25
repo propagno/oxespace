@@ -40,6 +40,10 @@ interface BackgroundManagerOptions {
 }
 
 const RING_BUFFER_LIMIT = 1000
+// Per-line cap: a single line (e.g. a base64/binary dump with no newline) could
+// be megabytes, blowing up the ring buffer's memory and the IPC payload. Truncate
+// at ingestion; the ring-buffer LINE COUNT cap doesn't bound per-line length.
+const MAX_LINE_LENGTH = 8 * 1024
 
 /**
  * Runs commands in the background, decoupled from any terminal pane.
@@ -55,7 +59,14 @@ export class BackgroundManager {
   constructor(private readonly db: AppDatabase, options: BackgroundManagerOptions = {}) {
     this.emitOutput = options.emitOutput ?? (() => undefined)
     this.emitUpdate = options.emitUpdate ?? (() => undefined)
-    // Restore metadata for orphaned jobs from previous run (mark as failed).
+    // Orphan cleanup is deferred to init() so the UPDATE doesn't run on the
+    // critical boot path. background:list shows the prior state for a beat —
+    // cosmetic and acceptable.
+  }
+
+  /** Deferred from the constructor: mark jobs left 'pending'/'running' by a
+   *  previous run as failed. Called from the deferred startup hook. */
+  init(): void {
     this.markOrphansAsFailed()
   }
 
@@ -132,8 +143,11 @@ export class BackgroundManager {
     const handleData = (chunk: Buffer): void => {
       const text = chunk.toString('utf8')
       const lines = text.split(/\r?\n/)
-      for (const line of lines) {
-        if (line.length === 0) continue
+      for (const rawLine of lines) {
+        if (rawLine.length === 0) continue
+        const line = rawLine.length > MAX_LINE_LENGTH
+          ? rawLine.slice(0, MAX_LINE_LENGTH) + ' … (linha truncada)'
+          : rawLine
         runtime.totalLines += 1
         runtime.ringBuffer.push(line)
         if (runtime.ringBuffer.length > RING_BUFFER_LIMIT) runtime.ringBuffer.shift()

@@ -88,6 +88,10 @@ export const useBackgroundStore = create<BackgroundStoreState>((set, get) => ({
   loadOutput: async (jobId) => {
     try {
       const chunk = await window.oxe.background.getOutput(jobId)
+      // Drop any buffered-but-unflushed lines for this job: the snapshot already
+      // includes them (it's the authoritative ring buffer from main), so letting
+      // a later flush append them would duplicate/reorder lines in the UI.
+      pendingOutput.delete(jobId)
       set((s) => ({ outputByJob: { ...s.outputByJob, [jobId]: chunk.lines } }))
     } catch {
       // ignore
@@ -130,6 +134,10 @@ export const useBackgroundStore = create<BackgroundStoreState>((set, get) => ({
     return () => {
       offOutput()
       offUpdate()
+      // Flush any buffered lines before tearing down so a job's final output
+      // (which may have arrived in the last <50ms) isn't lost. flush() clears
+      // the timer and pendingOutput itself.
+      flush()
       if (flushTimer) {
         clearTimeout(flushTimer)
         flushTimer = null
@@ -138,6 +146,15 @@ export const useBackgroundStore = create<BackgroundStoreState>((set, get) => ({
     }
   }
 }))
+
+/** Test-only: clear the module-level output coalescing buffer/timer between tests. */
+export function __resetBackgroundOutputBufferForTests(): void {
+  if (flushTimer) {
+    clearTimeout(flushTimer)
+    flushTimer = null
+  }
+  pendingOutput.clear()
+}
 
 export function selectJobs(workspaceId: string): (state: BackgroundStoreState) => BackgroundJob[] {
   return (state) => state.jobsByWorkspace[workspaceId] ?? []
