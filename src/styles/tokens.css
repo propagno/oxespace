@@ -8,6 +8,12 @@
   --bg-tile-header:   #171717;
   --bg-tile-agent:    #000;
   --bg-tile-content:  #000;
+  /* Terminal "surface": a touch lifted from pure black so the terminal reads as
+     a soft chat-like panel instead of a raw console. Follows each theme's
+     --bg-elevated (lazily substituted), so it re-colors per theme automatically.
+     Used in BOTH the xterm canvas theme and the CSS padding gutter so there's no
+     seam between the text area and its breathing room. */
+  --bg-terminal-surface: var(--bg-elevated);
   --bg-statusbar:     #070707;
   --bg-ws-active:     #061f16;
   --bg-ws-hover:      #0d0d0d;

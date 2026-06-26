@@ -1,11 +1,17 @@
 import Database from 'better-sqlite3'
 import type { Database as DatabaseHandle } from 'better-sqlite3'
 import { app } from 'electron'
-import { mkdirSync, readFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, readFileSync, readdirSync, unlinkSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
+
+/** Highest migration's user_version — bump when adding a migration. Drives the
+ *  pre-migration backup (only back up when an upgrade will actually run). */
+const LATEST_DB_VERSION = 40
+/** How many pre-migration backups to retain. */
+const MAX_DB_BACKUPS = 5
 
 export type AppDatabase = DatabaseHandle
 
@@ -19,8 +25,38 @@ export function openDatabase(databasePath = resolveAppDatabasePath()): AppDataba
   const db = new Database(databasePath)
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
+  // Back up before an upgrade so a bad migration or corruption can't silently
+  // lose every workspace. Only when an existing DB is actually behind.
+  const fromVersion = db.pragma('user_version', { simple: true }) as number
+  if (fromVersion > 0 && fromVersion < LATEST_DB_VERSION) {
+    backupBeforeMigration(db, databasePath, fromVersion)
+  }
   runMigrations(db)
   return db
+}
+
+/**
+ * Copy the SQLite file to `<userData>/db-backups/` before migrating. WAL-checkpoint
+ * first so the main file is complete, then prune to the most recent N. Best-effort:
+ * a failed backup logs but never blocks startup.
+ */
+function backupBeforeMigration(db: AppDatabase, databasePath: string, fromVersion: number): void {
+  try {
+    db.pragma('wal_checkpoint(TRUNCATE)')
+    const dir = join(dirname(databasePath), 'db-backups')
+    mkdirSync(dir, { recursive: true })
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+    copyFileSync(databasePath, join(dir, `oxespace-v${fromVersion}-${stamp}.sqlite3`))
+    const backups = readdirSync(dir).filter((f) => f.startsWith('oxespace-v') && f.endsWith('.sqlite3')).sort()
+    for (const stale of backups.slice(0, Math.max(0, backups.length - MAX_DB_BACKUPS))) {
+      try { unlinkSync(join(dir, stale)) } catch { /* ignore */ }
+    }
+    // eslint-disable-next-line no-console
+    console.log(`[db] backed up before migration v${fromVersion}→${LATEST_DB_VERSION}`)
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[db] pre-migration backup failed (continuing):', err instanceof Error ? err.message : err)
+  }
 }
 
 export function openInMemoryDatabase(): AppDatabase {
@@ -262,20 +298,45 @@ export function runMigrations(db: AppDatabase): void {
     db.exec(readMigration('039_semantic_embeddings.sql'))
     currentVersion = db.pragma('user_version', { simple: true }) as number
   }
+
+  // 040: binary Float32 embedding storage (additive columns; legacy JSON rows
+  // keep working and migrate lazily as files re-index).
+  if (currentVersion < 40 || !hasColumn(db, 'semantic_embeddings', 'embedding_blob')) {
+    db.exec(readMigration('040_semantic_embedding_blob.sql'))
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
 }
 
+// Schema-introspection cache. On a fully-migrated DB every migration guard still
+// evaluates hasColumn/hasTable (the `currentVersion < X` operand is false, so the
+// `|| !hasColumn(...)` side runs) — ~20+ PRAGMA scans per boot. We memoize them
+// and invalidate only when a migration is actually read (about to be applied),
+// so post-migration checks re-query correctly while the steady state pays one
+// scan per table instead of N.
+let schemaGen = 0
+const columnCache = new Map<string, { gen: number; cols: Set<string> }>()
+const tableCache = new Map<string, { gen: number; exists: boolean }>()
+
 function readMigration(name: string): string {
+  schemaGen++
   return readFileSync(join(__dirname, 'migrations', name), 'utf8')
 }
 
 function hasColumn(db: AppDatabase, table: string, column: string): boolean {
-  const columns = db.prepare(`PRAGMA table_info('${table}')`).all() as Array<{ name: string }>
-  return columns.some((item) => item.name === column)
+  const cached = columnCache.get(table)
+  if (cached && cached.gen === schemaGen) return cached.cols.has(column)
+  const cols = new Set((db.prepare(`PRAGMA table_info('${table}')`).all() as Array<{ name: string }>).map((c) => c.name))
+  columnCache.set(table, { gen: schemaGen, cols })
+  return cols.has(column)
 }
 
 function hasTable(db: AppDatabase, table: string): boolean {
+  const cached = tableCache.get(table)
+  if (cached && cached.gen === schemaGen) return cached.exists
   const row = db
     .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
     .get(table) as { name: string } | undefined
-  return Boolean(row)
+  const exists = Boolean(row)
+  tableCache.set(table, { gen: schemaGen, exists })
+  return exists
 }

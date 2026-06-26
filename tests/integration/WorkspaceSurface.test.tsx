@@ -64,11 +64,12 @@ vi.mock('../../src/components/Workspace/WorkspaceReviewPanel', () => ({
 }))
 
 describe('WorkspaceSurface', () => {
-  test('renders editor as a separate region when visible', () => {
+  test('renders editor as a separate region when visible', async () => {
     renderSurface(createWorkspace({ editorVisible: true }))
 
     expect(screen.getByTestId('workspace-grid')).toBeInTheDocument()
-    expect(screen.getByTestId('workspace-editor-panel')).toBeInTheDocument()
+    // Panels are lazy-loaded — await the async import boundary.
+    expect(await screen.findByTestId('workspace-editor-panel')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Collapse editor' })).toBeInTheDocument()
   })
 
@@ -102,8 +103,8 @@ describe('WorkspaceSurface', () => {
     renderSurface(createWorkspace(), { scriptsVisible: true, webPreviewVisible: true, onCloseScripts, onCloseWebPreview })
 
     expect(screen.getByTestId('workspace-grid')).toBeInTheDocument()
-    expect(screen.getByTestId('workspace-scripts-panel')).toBeInTheDocument()
-    expect(screen.getByTestId('workspace-web-preview-panel')).toBeInTheDocument()
+    expect(await screen.findByTestId('workspace-scripts-panel')).toBeInTheDocument()
+    expect(await screen.findByTestId('workspace-web-preview-panel')).toBeInTheDocument()
 
     await user.click(screen.getByText('Collapse Scripts'))
     await user.click(screen.getByText('Collapse Web Preview'))
@@ -117,7 +118,7 @@ describe('WorkspaceSurface', () => {
     render(<ControlledSurface />)
 
     expect(screen.getByTestId('workspace-grid')).toBeInTheDocument()
-    expect(screen.getByTestId('workspace-github-panel')).toBeInTheDocument()
+    expect(await screen.findByTestId('workspace-github-panel')).toBeInTheDocument()
 
     await user.click(screen.getByText('Collapse GitHub'))
     expect(screen.getByTestId('workspace-grid')).toBeInTheDocument()

@@ -1,24 +1,29 @@
 import { Activity, Bot, FilePlus2, FolderOpen, Github, Grid2x2, History, LayoutDashboard, Maximize, Mic, Palette, Plus, RotateCw, Settings2, Sliders, Split, Square, StopCircle, Wrench } from 'lucide-react'
-import { useEffect, useRef, useState, type ReactElement } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState, type ReactElement } from 'react'
 import type { AgentProfile } from '../shared/types/agent'
-import { AgentConfigModal } from './components/Agents/AgentConfigModal'
 import { OxeLogo } from './components/Brand/OxeLogo'
-import { DesignSystemPage } from './components/DesignSystem/DesignSystemPage'
-import { SettingsModal } from './components/Settings/SettingsModal'
+import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { ThemeProvider } from './components/Theme/ThemeProvider'
-import { CommandPalette, type CommandPaletteAction } from './components/CommandPalette/CommandPalette'
 import { SlashOverlay } from './components/SlashOverlay/SlashOverlay'
-import { HistoryPanel } from './components/History/HistoryPanel'
-import { McpPanel } from './components/MCP/McpPanel'
-import { SemanticActivityPanel } from './components/Semantic/SemanticActivityPanel'
-import { SkillsBrowser } from './components/Skills/SkillsBrowser'
+import type { CommandPaletteAction } from './components/CommandPalette/CommandPalette'
+// Modals/overlays are user-triggered and infrequent — lazy-load them so they're
+// not in the first-paint bundle.
+const AgentConfigModal = lazy(() => import('./components/Agents/AgentConfigModal').then((m) => ({ default: m.AgentConfigModal })))
+const DesignSystemPage = lazy(() => import('./components/DesignSystem/DesignSystemPage').then((m) => ({ default: m.DesignSystemPage })))
+const SettingsModal = lazy(() => import('./components/Settings/SettingsModal').then((m) => ({ default: m.SettingsModal })))
+const CommandPalette = lazy(() => import('./components/CommandPalette/CommandPalette').then((m) => ({ default: m.CommandPalette })))
+const HistoryPanel = lazy(() => import('./components/History/HistoryPanel').then((m) => ({ default: m.HistoryPanel })))
+const McpPanel = lazy(() => import('./components/MCP/McpPanel').then((m) => ({ default: m.McpPanel })))
+const SemanticActivityPanel = lazy(() => import('./components/Semantic/SemanticActivityPanel').then((m) => ({ default: m.SemanticActivityPanel })))
+const SkillsBrowser = lazy(() => import('./components/Skills/SkillsBrowser').then((m) => ({ default: m.SkillsBrowser })))
 import { useBackgroundStore } from './store/background.store'
 import { useMcpStore } from './store/mcp.store'
 import { useSkillStore } from './store/skill.store'
 import { useSlashDispatcher } from './lib/useSlashDispatcher'
 import { Sidebar } from './components/Sidebar/Sidebar'
-import { NewWorkspaceModal, type WizardLaunchInput } from './components/Workspace/NewWorkspaceModal'
-import { WorkspaceSettingsModal } from './components/Workspace/WorkspaceSettingsModal'
+import type { WizardLaunchInput } from './components/Workspace/NewWorkspaceModal'
+const NewWorkspaceModal = lazy(() => import('./components/Workspace/NewWorkspaceModal').then((m) => ({ default: m.NewWorkspaceModal })))
+const WorkspaceSettingsModal = lazy(() => import('./components/Workspace/WorkspaceSettingsModal').then((m) => ({ default: m.WorkspaceSettingsModal })))
 import { WorkspaceSurface } from './components/Workspace/WorkspaceSurface'
 import { LAYOUT_PRESETS, WORKSPACE_DENSITIES, WORKSPACE_THEMES } from './components/Workspace/workspaceOptions'
 import { useAgentStore } from './store/agent.store'
@@ -621,6 +626,8 @@ export function App(): ReactElement {
           </div>
         )}
       </section>
+      <ErrorBoundary label="esta janela">
+      <Suspense fallback={null}>
       {isNewWorkspaceOpen ? (
         <NewWorkspaceModal
           agentProfiles={agentProfiles}
@@ -744,6 +751,8 @@ export function App(): ReactElement {
           onClose={() => setConfiguredAgent(null)}
         />
       ) : null}
+      </Suspense>
+      </ErrorBoundary>
       </main>
     </ThemeProvider>
   )

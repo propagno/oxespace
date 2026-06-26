@@ -1,6 +1,11 @@
 node_modules/
 out/
 dist/
+
+# Test/e2e transient artifacts
+test-results/
+e2e/out/
+e2e/screenshots/
 .github/*
 !.github/
 !.github/workflows/
@@ -8,6 +13,11 @@ dist/
 
 # OXE (oxe-cc) — pasta de estado local; não versionar
 .oxe/
+
+# OXESpace writes the internal MCP bridge config here with a live local token —
+# never commit it (secret). The app also auto-appends this to each workspace's
+# .gitignore when it writes the file (see mcp-sync.service.ts).
+.mcp.json
 
 # Bundled semantic model — fetched at build time (npm run prepare:model),
 # ~120MB, not versioned. See scripts/fetch-semantic-model.mjs.

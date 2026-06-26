@@ -3386,6 +3386,7 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  /* Dark backdrop for the floating terminal card (see .terminal-content). */
   background: var(--bg-tile-content);
 }
 
@@ -3447,7 +3448,12 @@
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+  /* Dark backdrop the lifted terminal card floats on. The padding is the gap
+     around the card that reveals this backdrop (margin on the FitAddon host
+     would desync the grid, so the gap lives here instead). */
   background: var(--bg-tile-content);
+  padding: 10px;
+  box-sizing: border-box;
   position: relative;
 }
 
@@ -4157,10 +4163,19 @@
 .terminal-view {
   width: 100%;
   height: 100%;
-  padding: 8px 10px;
+  /* Floating chat-like card: the host element itself is the lifted surface. Big
+     internal padding gives the text real breathing room; the dark backdrop
+     behind (.terminal-content) plus the gap, border, radius and shadow make it
+     read as a panel rather than a raw console. The FitAddon reads this host's
+     content box (padding excluded) so the monospace grid stays correct. */
+  padding: 20px 22px;
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
+  background: var(--bg-terminal-surface);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
   transition: box-shadow 0.1s;
 }
 
@@ -4173,6 +4188,10 @@
   font-variant-ligatures: none;
   font-feature-settings: "liga" 0, "calt" 0;
   font-synthesis: none;
+  /* The breathing room now lives on .terminal-view (the card). The canvas just
+     fills it transparently so the card surface shows through with no seam. */
+  background: transparent;
+  padding: 0;
 }
 .terminal-view .xterm-viewport {
   background-color: transparent !important;

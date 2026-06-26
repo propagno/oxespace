@@ -21,13 +21,14 @@ test('creates a workspace and starts a terminal pane', async () => {
   try {
     const page = await electronApp.firstWindow()
     await page.getByTestId('btn-new-workspace').click()
-    await page.getByTestId('input-workspace-path').fill(workspaceRoot)
-    await page.getByTestId('layout-1x1').click()
-    await page.getByTestId('btn-create-workspace').click()
+    await page.getByTestId('wizard-dir-input').fill(workspaceRoot)
+    await page.getByTestId('wizard-layout-card-1').click()
+    await page.getByTestId('wizard-launch-btn').click()
 
     await expect(page.getByTestId('sidebar-workspace-item')).toContainText('repo')
     await expect(page.getByTestId('workspace-grid')).toBeVisible()
-    await expect(page.locator('.statusbar-text')).toHaveText(/running|exited/, { timeout: 5000 })
+    // A terminal pane is mounted for the single-cell layout.
+    await expect(page.getByTestId('terminal-pane').first()).toBeVisible()
   } finally {
     await electronApp.close()
   }

@@ -64,7 +64,7 @@ function buildTerminalTheme(): ITheme {
     return v || fallback
   }
   return {
-    background:          tok('--bg-tile-content', '#000000'),
+    background:          tok('--bg-terminal-surface', '#121212'),
     foreground:          tok('--tx-primary',       '#f1f5f9'),
     cursor:              tok('--brand-light',      '#6EEBD4'),
     selectionBackground: tok('--brand-glow',       'rgba(18,199,154,0.28)'),

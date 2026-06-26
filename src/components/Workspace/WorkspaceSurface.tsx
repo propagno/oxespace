@@ -1,20 +1,43 @@
-import { Fragment, useEffect, useRef, useState, type ReactElement } from 'react'
+import { Fragment, Suspense, lazy, useEffect, useRef, useState, type ReactElement } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from 'react-resizable-panels'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceWorktreeStateInput, Workspace } from '../../../shared/types/workspace'
 import { WorkspaceGrid } from '../Grid/WorkspaceGrid'
-import { WorkspaceBackgroundPanel } from './WorkspaceBackgroundPanel'
-import { WorkspaceEditorPanel } from './WorkspaceEditorPanel'
-import { WorkspaceGitHubPanel } from './WorkspaceGitHubPanel'
-import { WorkspaceIntegrationPanel } from './WorkspaceIntegrationPanel'
-import { WorkspaceReviewPanel } from './WorkspaceReviewPanel'
-import { WorkspaceOxePanel } from './WorkspaceOxePanel'
-import { WorkspaceScriptsPanel } from './WorkspaceScriptsPanel'
-import { WorkspaceWebPreviewPanel } from './WorkspaceWebPreviewPanel'
-import { WorkspaceWorktreePanel } from './WorkspaceWorktreePanel'
+// Side panels are lazy-loaded: they only mount when the user opens them, so
+// keeping them out of the initial bundle cuts first-paint parse/exec time. The
+// Editor pulls in Monaco (the single heaviest dep), so its split matters most.
+const WorkspaceBackgroundPanel = lazy(() => import('./WorkspaceBackgroundPanel').then((m) => ({ default: m.WorkspaceBackgroundPanel })))
+const WorkspaceEditorPanel = lazy(() => import('./WorkspaceEditorPanel').then((m) => ({ default: m.WorkspaceEditorPanel })))
+const WorkspaceGitHubPanel = lazy(() => import('./WorkspaceGitHubPanel').then((m) => ({ default: m.WorkspaceGitHubPanel })))
+const WorkspaceIntegrationPanel = lazy(() => import('./WorkspaceIntegrationPanel').then((m) => ({ default: m.WorkspaceIntegrationPanel })))
+const WorkspaceReviewPanel = lazy(() => import('./WorkspaceReviewPanel').then((m) => ({ default: m.WorkspaceReviewPanel })))
+const WorkspaceOxePanel = lazy(() => import('./WorkspaceOxePanel').then((m) => ({ default: m.WorkspaceOxePanel })))
+const WorkspaceScriptsPanel = lazy(() => import('./WorkspaceScriptsPanel').then((m) => ({ default: m.WorkspaceScriptsPanel })))
+const WorkspaceWebPreviewPanel = lazy(() => import('./WorkspaceWebPreviewPanel').then((m) => ({ default: m.WorkspaceWebPreviewPanel })))
+const WorkspaceWorktreePanel = lazy(() => import('./WorkspaceWorktreePanel').then((m) => ({ default: m.WorkspaceWorktreePanel })))
+
+// Warm the lazy panel chunks during idle AFTER first paint (triggered from a
+// mount effect) so the first open of a panel is instant — without putting these
+// back on the startup critical path. Monaco (editor) is heaviest, prefetched last.
+let panelsPrefetched = false
+function prefetchPanelChunks(): void {
+  if (panelsPrefetched) return
+  panelsPrefetched = true
+  const run = (): void => {
+    void import('./WorkspaceGitHubPanel'); void import('./WorkspaceReviewPanel')
+    void import('./WorkspaceWorktreePanel'); void import('./WorkspaceBackgroundPanel')
+    void import('./WorkspaceScriptsPanel'); void import('./WorkspaceWebPreviewPanel')
+    void import('./WorkspaceOxePanel'); void import('./WorkspaceIntegrationPanel')
+    void import('./WorkspaceEditorPanel') // Monaco — heaviest, last
+  }
+  const ric = (globalThis as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => void }).requestIdleCallback
+  if (ric) ric(run, { timeout: 5000 })
+  else setTimeout(run, 2000)
+}
 import { ToolsMenu } from './ToolsMenu'
 import { IntegrationsStatusChips } from './IntegrationsStatusChips'
 import { WorkspaceStatusSummary } from './WorkspaceStatusSummary'
+import { ErrorBoundary } from '../common/ErrorBoundary'
 
 interface WorkspaceSurfaceProps {
   workspace: Workspace
@@ -172,6 +195,10 @@ export function WorkspaceSurface({
   // Resize outer sides Panel imperatively when combined side size changes.
   // This happens when panels are toggled or expanded — the inner PanelGroup remounts
   // but the outer Panel must reflect the new total side width.
+  // Once the surface is shown (post first paint), warm the lazy panel chunks on
+  // idle so the first panel open is instant.
+  useEffect(() => { prefetchPanelChunks() }, [])
+
   useEffect(() => {
     if (hasSidePanels && combinedSideSize > 0) {
       try {
@@ -482,7 +509,11 @@ export function WorkspaceSurface({
                         defaultSize={panel.defaultSize}
                         onResize={panel.onResize}
                       >
-                        {panel.content}
+                        <ErrorBoundary label="este painel">
+                          <Suspense fallback={<div className="workspace-editor-panel" data-testid="panel-loading" />}>
+                            {panel.content}
+                          </Suspense>
+                        </ErrorBoundary>
                       </Panel>
                     </Fragment>
                   ))}

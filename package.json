@@ -1,6 +1,6 @@
 {
   "name": "oxespace",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "An open source, AI-native workspace and terminal",
   "repository": {
     "type": "git",
@@ -19,6 +19,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "bench:cpu": "vitest bench --run tests/bench/hotpaths.bench.ts",
+    "bench:ui": "playwright test --config playwright.tools.config.ts perf-benchmark.spec.ts",
+    "shots:ui": "playwright test --config playwright.tools.config.ts screenshots.spec.ts",
     "prepare:model": "node scripts/fetch-semantic-model.mjs",
     "dist": "npm run prepare:model && npm run build && npm run fix:native && electron-builder --win --config.npmRebuild=false",
     "rebuild:native": "electron-rebuild -f -w node-pty,better-sqlite3",
@@ -39,6 +42,7 @@
     "chokidar": "^5.0.0",
     "electron-log": "^5.4.3",
     "electron-store": "^8.2.0",
+    "electron-updater": "^6.8.9",
     "ignore": "^7.0.5",
     "jsonc-parser": "^3.3.1",
     "lucide-react": "^0.468.0",

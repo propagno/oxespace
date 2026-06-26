@@ -41,7 +41,7 @@ test('captures all surfaces for design review', async () => {
 
     // 3. Fill modal, choose layout, launch
     await page.getByTestId('wizard-dir-input').fill(workspaceRoot)
-    await page.getByTestId('layout-4').click().catch(() => undefined) // 2x2
+    await page.getByTestId('wizard-layout-card-4').click().catch(() => undefined) // 2x2
     await shot(page, '03-new-workspace-modal-filled')
     await page.getByTestId('wizard-launch-btn').click()
     await page.waitForSelector('[data-testid="workspace-grid"]', { timeout: 8000 })

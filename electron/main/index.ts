@@ -1,5 +1,6 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
 import log from 'electron-log/main.js'
+import { initAutoUpdater } from './updater'
 import { randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -41,6 +42,27 @@ import { IPC_CHANNELS } from '../../shared/types/ipc'
 import type { ShellProfile, Workspace, WorkspaceLayout, WorkspaceLayoutPreset } from '../../shared/types/workspace'
 
 log.initialize()
+
+// Local crash capture: writes minidumps to <userData>/Crashpad on a renderer/GPU/
+// main crash. uploadToServer:false keeps them on-device (privacy) — a future
+// telemetry endpoint can flip this. Must be called before `app` is ready.
+try {
+  crashReporter.start({ submitURL: '', uploadToServer: false, compress: true })
+} catch (err) {
+  log.warn('[main] crashReporter init failed:', err instanceof Error ? err.message : err)
+}
+
+// Global safety net: a stray throw or rejected promise in the main process must
+// be logged (electron-log writes to userData/logs/main.log) rather than crash the
+// app or vanish silently. These are last-resort catches — handlers should still
+// deal with their own errors; this just keeps a single bug from taking the app
+// down and gives us a forensic trail.
+process.on('uncaughtException', (error) => {
+  log.error('[main] uncaughtException', error)
+})
+process.on('unhandledRejection', (reason) => {
+  log.error('[main] unhandledRejection', reason)
+})
 
 const isDev = !app.isPackaged
 if (isDev) {
@@ -203,6 +225,7 @@ function registerIpcHandlers(): () => void {
     skillService.init()
     backgroundManager.init()
     void internalMcp.start()
+    initAutoUpdater()
   }
 }
 
@@ -657,6 +680,30 @@ function registerE2eMockIpcHandlers(): void {
     const group = integrationGroups.find((item) => item.id === input.groupId)
     return { groupId: input.groupId, text: group ? `# Integration context: ${group.name}\n\nGoal: ${group.goal}` : '' }
   })
+
+  // ── Catch-all safety net (E2E) ──────────────────────────────────────────────
+  // Any IPC channel NOT explicitly mocked above gets a safe, shaped empty default
+  // so an unstubbed feature (Worktrees, Background jobs, Scripts, Web Preview, …)
+  // can't crash the app under test by invoking a handler that doesn't exist.
+  // Shapes satisfy the common consumers: lists do .map(), outputs read .lines,
+  // statuses read props. ipcMain.handle throws on a duplicate channel, so the
+  // try/catch lets the explicit mocks above win and only fills the gaps.
+  const channelDefault = (channel: string): unknown => {
+    if (/get-output/i.test(channel)) return { jobId: '', startSequence: 0, lines: [] }
+    if (/(^|:|-)list|executions|get-ready|profiles|branches|worktrees|releases|commits|workflows|checkpoints|repositories|groups|handoffs|logs/i.test(channel)) return []
+    if (/status|usage|credits|summary|detect|get-state|getStatus/i.test(channel)) return {}
+    if (/manifest|build-pane/i.test(channel)) return ''
+    return null
+  }
+  const flattenChannels = (obj: Record<string, unknown>): string[] =>
+    Object.values(obj).flatMap((v) => (typeof v === 'string' ? [v] : flattenChannels(v as Record<string, unknown>)))
+  for (const channel of flattenChannels(IPC_CHANNELS as unknown as Record<string, unknown>)) {
+    try {
+      ipcMain.handle(channel, () => channelDefault(channel))
+    } catch {
+      // Already registered by an explicit mock above — keep that one.
+    }
+  }
 }
 
 function createMockPanes(workspaceId: string, layout: WorkspaceLayout): Workspace['panes'] {

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { AppDatabase } from '../db/index'
@@ -139,13 +139,18 @@ export class McpConfigSync {
     const nextDoc = { ...(existing as object), mcpServers }
     writeFileSync(mcpPath, JSON.stringify(nextDoc, null, 2) + '\n', 'utf8')
 
+    // .mcp.json carries the internal bridge's machine-local token + port —
+    // committing it leaks a secret AND is useless to teammates (their local
+    // bridge has a different token). Keep it out of VCS in git repos.
+    ensureGitignored(workspaceRoot, MCP_FILE)
+
     const snapshot: ManagedSnapshot = { names: desiredNames, updatedAtMs: Date.now() }
     const snapshotDir = join(workspaceRoot, SNAPSHOT_DIR)
     mkdirSync(snapshotDir, { recursive: true })
     writeFileSync(snapshotPath, JSON.stringify(snapshot, null, 2) + '\n', 'utf8')
     // Self-contained .gitignore so the snapshot dir never enters version
-    // control — the snapshot is local state for OXESpace, while .mcp.json
-    // itself is meant to be committed alongside the project.
+    // control — the snapshot is local state for OXESpace. (.mcp.json is kept out
+    // of VCS separately via ensureGitignored above — it holds a local token.)
     const gitignorePath = join(snapshotDir, '.gitignore')
     if (!existsSync(gitignorePath)) {
       writeFileSync(gitignorePath, '# OXESpace internal state — do not commit\n*\n', 'utf8')
@@ -318,6 +323,24 @@ function serializeConfig(configJson: string, options: SerializeOptions): unknown
   }
   if (cfg.headers && Object.keys(cfg.headers).length > 0) entry.headers = cfg.headers
   return entry
+}
+
+/**
+ * Idempotently ensure `entry` is in the workspace's .gitignore. Only acts on git
+ * repos (presence of `.git`) so non-versioned folders aren't littered. Best-effort:
+ * never throws — .gitignore hygiene must not break MCP sync.
+ */
+function ensureGitignored(workspaceRoot: string, entry: string): void {
+  try {
+    if (!existsSync(join(workspaceRoot, '.git'))) return
+    const gitignorePath = join(workspaceRoot, '.gitignore')
+    const content = existsSync(gitignorePath) ? readFileSync(gitignorePath, 'utf8') : ''
+    if (content.split(/\r?\n/).some((line) => line.trim() === entry)) return
+    const sep = content.length === 0 ? '' : content.endsWith('\n') ? '' : '\n'
+    appendFileSync(gitignorePath, `${sep}\n# OXESpace internal MCP config — machine-local token, do not commit\n${entry}\n`)
+  } catch {
+    // Best-effort.
+  }
 }
 
 function sanitizeKey(name: string): string {

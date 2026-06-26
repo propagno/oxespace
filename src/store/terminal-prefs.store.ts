@@ -29,10 +29,13 @@ export interface TerminalPrefs {
 export const TERMINAL_PREFS_DEFAULTS: TerminalPrefs = {
   fontFamily: 'Cascadia Mono, Consolas, monospace',
   fontSize: 14,
-  lineHeight: 1.2,
+  // Looser leading + a non-blinking bar caret make the terminal read like a
+  // chat/editor surface rather than a raw console. See features.css for the
+  // matching padded, lifted, rounded panel treatment.
+  lineHeight: 1.4,
   letterSpacing: 0,
-  cursorStyle: 'block',
-  cursorBlink: true,
+  cursorStyle: 'bar',
+  cursorBlink: false,
   scrollback: 100_000,
   // RTK, Caveman and Semantic are opt-in developer features — off by default so
   // a fresh workspace does no extra token transforms or background indexing.
@@ -81,7 +84,7 @@ export const useTerminalPrefsStore = create<TerminalPrefsState>()(
     }),
     {
       name: 'oxe-terminal-prefs',
-      version: 2,
+      version: 3,
       // v2: RTK/Caveman/Semantic became opt-in (off by default). Existing users
       // have a persisted `global` from when RTK/Semantic defaulted to ON, and
       // `merge` spreads persisted over defaults — so without this migration the
@@ -93,6 +96,12 @@ export const useTerminalPrefsStore = create<TerminalPrefsState>()(
         const global = { ...TERMINAL_PREFS_DEFAULTS, ...(p.global ?? {}) }
         global.rtkHookEnabled = false
         global.semanticSearchEnabled = false
+        // v3 (chat-like terminal): roll the new soft look forward ONLY for users
+        // who never customized these — preserve deliberate choices. Anyone still
+        // on the old hard-console defaults gets the bar caret / looser leading.
+        if (global.cursorStyle === 'block') global.cursorStyle = 'bar'
+        if (global.cursorBlink === true) global.cursorBlink = false
+        if (global.lineHeight === 1.2) global.lineHeight = 1.4
         const overrides: Record<string, Partial<TerminalPrefs>> = {}
         for (const [ws, ov] of Object.entries(p.overrides ?? {})) {
           const next = { ...(ov as Partial<TerminalPrefs>) }

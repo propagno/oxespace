@@ -6,7 +6,7 @@ import { app } from 'electron'
 import type { AppDatabase } from '../db'
 import chokidar, { FSWatcher } from 'chokidar'
 import { makeIgnoreFilter } from './semantic-ignore'
-import { bestChunkScore, chunkText } from './semantic-chunk'
+import { bestChunkScore, bestChunkScoreBlob, chunkText, encodeEmbeddings } from './semantic-chunk'
 import { PASSAGE_PREFIX, QUERY_PREFIX, SEMANTIC_MODEL_ID } from './semantic-model'
 import type { SemanticLogEntry, SemanticLogLevel } from '../../../shared/types/ipc'
 
@@ -398,14 +398,21 @@ export class SemanticService {
         }
         if (embeddings.length === 0) return;
 
+        // Binary Float32 storage (040): the query path reads embedding_blob and
+        // scores via typed arrays — no JSON.parse. embedding_json kept as '' to
+        // satisfy the legacy NOT NULL column; legacy rows still carry real JSON
+        // and are read via the fallback path until they re-index.
+        const { blob, dim } = encodeEmbeddings(embeddings);
         this.db.prepare(`
-          INSERT INTO semantic_embeddings (workspace_id, file_path, checksum, embedding_json, updated_at)
-          VALUES (?, ?, ?, ?, ?)
+          INSERT INTO semantic_embeddings (workspace_id, file_path, checksum, embedding_json, embedding_blob, dim, updated_at)
+          VALUES (?, ?, ?, '', ?, ?, ?)
           ON CONFLICT(workspace_id, file_path) DO UPDATE SET
             checksum = excluded.checksum,
-            embedding_json = excluded.embedding_json,
+            embedding_json = '',
+            embedding_blob = excluded.embedding_blob,
+            dim = excluded.dim,
             updated_at = excluded.updated_at
-        `).run(workspaceId, filePath, checksum, JSON.stringify(embeddings), Date.now());
+        `).run(workspaceId, filePath, checksum, blob, dim, Date.now());
         this.log('debug', `Indexed ${path.basename(filePath)} (${embeddings.length} chunk${embeddings.length === 1 ? '' : 's'}).`, { workspaceId, file: filePath });
       } finally {
         this.indexingCount.set(workspaceId, Math.max(0, (this.indexingCount.get(workspaceId) ?? 1) - 1));
@@ -421,13 +428,17 @@ export class SemanticService {
     const startedAt = Date.now();
     // E5 "query:" prefix — must mirror the "passage:" prefix used at index time.
     const queryEmbedding = await this.getEmbedding(QUERY_PREFIX + text);
+    const queryF32 = Float32Array.from(queryEmbedding);
 
-    const rows = this.db.prepare('SELECT file_path, embedding_json FROM semantic_embeddings WHERE workspace_id = ?').all(workspaceId) as any[];
+    const rows = this.db.prepare('SELECT file_path, embedding_json, embedding_blob, dim FROM semantic_embeddings WHERE workspace_id = ?').all(workspaceId) as any[];
 
     const results: { filePath: string, score: number }[] = [];
     for (const row of rows) {
       try {
-        const score = bestChunkScore(queryEmbedding, JSON.parse(row.embedding_json));
+        // Fast path: binary blob (no JSON.parse). Fallback: legacy JSON rows.
+        const score = row.embedding_blob && row.dim
+          ? bestChunkScoreBlob(queryF32, row.embedding_blob as Buffer, row.dim as number)
+          : bestChunkScore(queryEmbedding, JSON.parse(row.embedding_json));
         if (score !== null) results.push({ filePath: row.file_path, score });
       } catch {
         // Skip rows with malformed or dimension-mismatched embeddings.

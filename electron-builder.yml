@@ -2,6 +2,12 @@ appId: com.oxespace.app
 productName: OXESpace
 directories:
   output: dist
+# Update feed for electron-updater (and where `electron-builder --publish`
+# uploads). The app reads GitHub Releases for `latest.yml` + the installer.
+publish:
+  provider: github
+  owner: propagno
+  repo: oxespace
 files:
   - out/**/*
   - package.json
