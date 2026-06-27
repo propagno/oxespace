@@ -47,7 +47,9 @@ A built-in editor that uses the active workspace root as a lazy-loaded file brow
 ## 🚀 Quick Start
 
 **1. Download the latest release**  
-[Download OXESpace 0.2.3 for Windows x64](https://github.com/propagno/oxespace/releases/download/v0.2.3/OXESpace-0.2.3-x64.exe)
+[**Download OXESpace for Windows x64**](https://github.com/propagno/oxespace/releases/latest) — grab the `OXESpace-<version>-x64.exe` asset from the latest release. The app then keeps itself up to date automatically (auto-update from GitHub Releases).
+
+> The build is currently unsigned, so Windows SmartScreen may show a warning on first install — choose *More info → Run anyway*.
 
 **2. Prerequisites**  
 - Windows x64
