@@ -5,7 +5,13 @@ describe('migrations', () => {
   test('runs migrations and seeds built-in shell profiles', () => {
     const db = openInMemoryDatabase()
 
-    expect(db.pragma('user_version', { simple: true })).toBe(39)
+    expect(db.pragma('user_version', { simple: true })).toBe(40)
+
+    // 040: binary Float32 embedding storage columns.
+    const semanticColumns = db.prepare("PRAGMA table_info('semantic_embeddings')").all() as Array<{ name: string }>
+    expect(semanticColumns.map((column) => column.name)).toEqual(
+      expect.arrayContaining(['embedding_json', 'embedding_blob', 'dim'])
+    )
 
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
