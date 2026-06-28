@@ -20,7 +20,14 @@ export function initAutoUpdater(): void {
   if (!app.isPackaged) return
   void (async () => {
     try {
-      const { autoUpdater } = await import('electron-updater')
+      // electron-updater is CommonJS; under the ESM main bundle the named export
+      // lands on `.default`, so reach it through either shape.
+      const mod = (await import('electron-updater')) as unknown as {
+        autoUpdater?: typeof import('electron-updater').autoUpdater
+        default?: { autoUpdater?: typeof import('electron-updater').autoUpdater }
+      }
+      const autoUpdater = mod.autoUpdater ?? mod.default?.autoUpdater
+      if (!autoUpdater) { log.warn('[updater] autoUpdater export not found'); return }
       autoUpdater.logger = log
       autoUpdater.autoDownload = true
       autoUpdater.autoInstallOnAppQuit = true

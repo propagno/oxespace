@@ -4163,12 +4163,11 @@
 .terminal-view {
   width: 100%;
   height: 100%;
-  /* Floating chat-like card: the host element itself is the lifted surface. Big
-     internal padding gives the text real breathing room; the dark backdrop
-     behind (.terminal-content) plus the gap, border, radius and shadow make it
-     read as a panel rather than a raw console. The FitAddon reads this host's
-     content box (padding excluded) so the monospace grid stays correct. */
-  padding: 20px 22px;
+  /* Floating chat-like card: this host is the lifted surface (bg, border, radius,
+     shadow) and the dark backdrop behind it (.terminal-content) plus the gap make
+     it read as a panel. The breathing room lives on .xterm (NOT here): the
+     FitAddon reads padding off the .xterm element to size the grid — padding on
+     this host desynced cols and clipped the edge columns. */
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
@@ -4185,13 +4184,16 @@
 .terminal-view .xterm {
   width: 100%;
   height: 100%;
+  box-sizing: border-box;
   font-variant-ligatures: none;
   font-feature-settings: "liga" 0, "calt" 0;
   font-synthesis: none;
-  /* The breathing room now lives on .terminal-view (the card). The canvas just
-     fills it transparently so the card surface shows through with no seam. */
   background: transparent;
-  padding: 0;
+  /* Breathing room INSIDE the card. The FitAddon subtracts this padding (read
+     off the .xterm element) when computing cols/rows, so the monospace grid stays
+     aligned and no edge column is clipped. box-sizing:border-box keeps width:100%
+     from overflowing by the padding. */
+  padding: 14px 18px;
 }
 .terminal-view .xterm-viewport {
   background-color: transparent !important;
