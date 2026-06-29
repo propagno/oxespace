@@ -370,44 +370,40 @@ export function runMigrations(db: AppDatabase): void {
     currentVersion = db.pragma('user_version', { simple: true }) as number
   }
 
-  // 040: binary Float32 embedding storage (additive columns; legacy JSON rows
-  // keep working and migrate lazily as files re-index).
-  if (currentVersion < 40 || !hasColumn(db, 'semantic_embeddings', 'embedding_blob')) {
-    db.exec(readMigration('040_semantic_embedding_blob.sql'))
-    currentVersion = db.pragma('user_version', { simple: true }) as number
+  // 040: binary Float32 embedding storage (additive columns). Idempotent + atomic:
+  // a prior PARTIAL apply (columns added but user_version not bumped — e.g. a crash
+  // or disk-I/O between the ALTERs and the PRAGMA) otherwise wedges every future
+  // boot with "duplicate column name: embedding_blob". Add each column only when
+  // missing and bump the version in ONE transaction so it can't half-apply again.
+  if (currentVersion < 40 || !hasColumn(db, 'semantic_embeddings', 'embedding_blob') || !hasColumn(db, 'semantic_embeddings', 'dim')) {
+    db.transaction(() => {
+      if (!hasColumn(db, 'semantic_embeddings', 'embedding_blob')) {
+        db.exec('ALTER TABLE semantic_embeddings ADD COLUMN embedding_blob BLOB')
+      }
+      if (!hasColumn(db, 'semantic_embeddings', 'dim')) {
+        db.exec('ALTER TABLE semantic_embeddings ADD COLUMN dim INTEGER')
+      }
+      db.pragma('user_version = 40')
+    })()
+    currentVersion = 40
   }
 }
 
-// Schema-introspection cache. On a fully-migrated DB every migration guard still
-// evaluates hasColumn/hasTable (the `currentVersion < X` operand is false, so the
-// `|| !hasColumn(...)` side runs) — ~20+ PRAGMA scans per boot. We memoize them
-// and invalidate only when a migration is actually read (about to be applied),
-// so post-migration checks re-query correctly while the steady state pays one
-// scan per table instead of N.
-let schemaGen = 0
-const columnCache = new Map<string, { gen: number; cols: Set<string> }>()
-const tableCache = new Map<string, { gen: number; exists: boolean }>()
-
 function readMigration(name: string): string {
-  schemaGen++
   return readFileSync(join(__dirname, 'migrations', name), 'utf8')
 }
 
+// Direct introspection — no caching. (A memoized variant shipped in v0.2.6 was
+// reverted: a stale/mismatched cache entry could make a guard re-run a migration
+// it should have skipped. The ~1ms saved per boot isn't worth that risk.)
 function hasColumn(db: AppDatabase, table: string, column: string): boolean {
-  const cached = columnCache.get(table)
-  if (cached && cached.gen === schemaGen) return cached.cols.has(column)
-  const cols = new Set((db.prepare(`PRAGMA table_info('${table}')`).all() as Array<{ name: string }>).map((c) => c.name))
-  columnCache.set(table, { gen: schemaGen, cols })
-  return cols.has(column)
+  const columns = db.prepare(`PRAGMA table_info('${table}')`).all() as Array<{ name: string }>
+  return columns.some((c) => c.name === column)
 }
 
 function hasTable(db: AppDatabase, table: string): boolean {
-  const cached = tableCache.get(table)
-  if (cached && cached.gen === schemaGen) return cached.exists
   const row = db
     .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
     .get(table) as { name: string } | undefined
-  const exists = Boolean(row)
-  tableCache.set(table, { gen: schemaGen, exists })
-  return exists
+  return Boolean(row)
 }
