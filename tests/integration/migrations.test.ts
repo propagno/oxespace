@@ -1,7 +1,23 @@
 import { describe, expect, test } from 'vitest'
-import { openInMemoryDatabase } from '../../electron/main/db/index'
+import { openInMemoryDatabase, runMigrations } from '../../electron/main/db/index'
 
 describe('migrations', () => {
+  test('migration 040 self-heals a partial apply (columns exist but user_version < 40)', () => {
+    // Reproduces the v0.2.6/0.2.7 upgrade-crash state: 040 added embedding_blob/dim
+    // but a crash/disk-I/O kept user_version at 39. The old non-idempotent 040 then
+    // threw "duplicate column name: embedding_blob" on EVERY boot, bricking the app.
+    const db = openInMemoryDatabase() // fully migrated (v40, columns present)
+    db.pragma('user_version = 39') // simulate the partial-apply state
+    expect(db.pragma('user_version', { simple: true })).toBe(39)
+
+    // The fixed 040 must NOT throw (idempotent) and must finish the version bump.
+    expect(() => runMigrations(db)).not.toThrow()
+    expect(db.pragma('user_version', { simple: true })).toBe(40)
+    const cols = (db.prepare("PRAGMA table_info('semantic_embeddings')").all() as Array<{ name: string }>).map((c) => c.name)
+    expect(cols).toEqual(expect.arrayContaining(['embedding_blob', 'dim']))
+    db.close()
+  })
+
   test('runs migrations and seeds built-in shell profiles', () => {
     const db = openInMemoryDatabase()
 
