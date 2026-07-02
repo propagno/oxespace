@@ -187,6 +187,62 @@ describe('TerminalPane', () => {
 
     expect(screen.getByRole('button', { name: /OXEVoice/i })).toBeDisabled()
   })
+
+  test('chat composer pastes the message into the pane and submits it with \\r once TerminalView confirms the paste landed', async () => {
+    const user = userEvent.setup()
+    useTerminalStore.getState().setStatus('pane-1', 'running')
+
+    const inserted: Array<{ paneId?: string; text?: string }> = []
+    // Real TerminalView dispatches 'oxe:terminal-insert-text-done' once the
+    // (possibly chunked) paste has actually landed in the pty; simulate that
+    // hand-off here since TerminalView is mocked in this suite.
+    const onInsert = (e: Event): void => {
+      const detail = (e as CustomEvent<{ paneId?: string; text?: string }>).detail
+      inserted.push(detail)
+      window.dispatchEvent(new CustomEvent('oxe:terminal-insert-text-done', { detail: { paneId: detail.paneId } }))
+    }
+    window.addEventListener('oxe:terminal-insert-text', onInsert)
+
+    try {
+      render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
+
+      const composer = screen.getByTestId('terminal-chat-input')
+      await user.type(composer, 'corrige o bug{Enter}')
+
+      // The message text goes through the bracketed-paste path (insert event)…
+      expect(inserted).toEqual([{ paneId: 'pane-1', text: 'corrige o bug' }])
+      expect(composer).toHaveValue('')
+      // …and the submit \r follows once the paste has landed.
+      await waitFor(() => expect(window.oxe.terminal.write).toHaveBeenCalledWith({ paneId: 'pane-1', data: '\r' }))
+    } finally {
+      window.removeEventListener('oxe:terminal-insert-text', onInsert)
+    }
+  })
+
+  test('chat composer does not submit \\r before TerminalView confirms the paste landed', async () => {
+    // Regression for the old fixed-delay race: the submit used to fire from a
+    // hardcoded setTimeout guessed from the chunk count, so it could land
+    // before a large paste actually finished (worse under load, with more
+    // panes/agents contending for the main thread). Now it must wait for the
+    // real completion signal — without it, \r must never be sent.
+    const user = userEvent.setup()
+    useTerminalStore.getState().setStatus('pane-1', 'running')
+
+    // Deliberately do NOT dispatch 'oxe:terminal-insert-text-done'.
+    render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
+
+    const composer = screen.getByTestId('terminal-chat-input')
+    await user.type(composer, 'mensagem grande{Enter}')
+
+    expect(composer).toHaveValue('')
+    expect(window.oxe.terminal.write).not.toHaveBeenCalledWith({ paneId: 'pane-1', data: '\r' })
+  })
+
+  test('chat composer is disabled while the terminal is idle', () => {
+    render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
+
+    expect(screen.getByTestId('terminal-chat-input')).toBeDisabled()
+  })
 })
 
 function createPane(): WorkspacePane {

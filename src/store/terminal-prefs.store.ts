@@ -21,13 +21,20 @@ export interface TerminalPrefs {
   cursorStyle: TerminalCursorStyle
   cursorBlink: boolean
   scrollback: number
+  /** 1 = opaque card. Below 1 the terminal surface goes translucent (blur behind). */
+  backgroundOpacity: number
+  /** Chat-style message box below the output (Claude Desktop look). */
+  chatInputEnabled: boolean
   rtkHookEnabled: boolean
   cavemanModeEnabled: boolean
   semanticSearchEnabled: boolean
 }
 
+/** Pre-v4 default, matched in the v4 migration to roll users forward. */
+const LEGACY_DEFAULT_FONT = 'Cascadia Mono, Consolas, monospace'
+
 export const TERMINAL_PREFS_DEFAULTS: TerminalPrefs = {
-  fontFamily: 'Cascadia Mono, Consolas, monospace',
+  fontFamily: 'JetBrains Mono, Cascadia Mono, Consolas, monospace',
   fontSize: 14,
   // Looser leading + a non-blinking bar caret make the terminal read like a
   // chat/editor surface rather than a raw console. See features.css for the
@@ -37,6 +44,8 @@ export const TERMINAL_PREFS_DEFAULTS: TerminalPrefs = {
   cursorStyle: 'bar',
   cursorBlink: false,
   scrollback: 100_000,
+  backgroundOpacity: 1,
+  chatInputEnabled: true,
   // RTK, Caveman and Semantic are opt-in developer features — off by default so
   // a fresh workspace does no extra token transforms or background indexing.
   // The user enables them via the toolbar chips when wanted.
@@ -84,7 +93,7 @@ export const useTerminalPrefsStore = create<TerminalPrefsState>()(
     }),
     {
       name: 'oxe-terminal-prefs',
-      version: 3,
+      version: 4,
       // v2: RTK/Caveman/Semantic became opt-in (off by default). Existing users
       // have a persisted `global` from when RTK/Semantic defaulted to ON, and
       // `merge` spreads persisted over defaults — so without this migration the
@@ -102,6 +111,9 @@ export const useTerminalPrefsStore = create<TerminalPrefsState>()(
         if (global.cursorStyle === 'block') global.cursorStyle = 'bar'
         if (global.cursorBlink === true) global.cursorBlink = false
         if (global.lineHeight === 1.2) global.lineHeight = 1.4
+        // v4 (modern terminal card): prefer JetBrains Mono for users who never
+        // picked a font themselves — anyone with a custom stack keeps it.
+        if (global.fontFamily === LEGACY_DEFAULT_FONT) global.fontFamily = TERMINAL_PREFS_DEFAULTS.fontFamily
         const overrides: Record<string, Partial<TerminalPrefs>> = {}
         for (const [ws, ov] of Object.entries(p.overrides ?? {})) {
           const next = { ...(ov as Partial<TerminalPrefs>) }

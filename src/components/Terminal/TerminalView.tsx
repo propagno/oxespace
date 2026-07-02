@@ -1,10 +1,12 @@
 import { FitAddon } from '@xterm/addon-fit'
+import { SearchAddon } from '@xterm/addon-search'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { WebglAddon } from '@xterm/addon-webgl'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
-import { useEffect, useRef, useState, type ReactElement } from 'react'
+import { ArrowDown, ArrowUp, X } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
 import type { ITheme } from '@xterm/xterm'
 import type { WorkspaceThemeId } from '../../../shared/types/workspace'
 import type { TerminalPrefs } from '../../store/terminal-prefs.store'
@@ -53,18 +55,34 @@ const AGENT_PREVIEW_SCAN_LINES = 300
 // SIGINT. Reset whenever the user actually types into the PTY.
 const RECENT_SELECTION_MS = 2000
 
+// Search-match highlight colors passed to @xterm/addon-search. The decorations
+// are what make Ctrl+F usable: every match gets a subtle wash, the active one a
+// stronger accent + overview-ruler mark.
+const SEARCH_DECORATIONS = {
+  matchBackground: '#12c79a33',
+  matchOverviewRuler: '#12c79a66',
+  activeMatchBackground: '#12c79a66',
+  activeMatchColorOverviewRuler: '#12c79a'
+} as const
+
 /**
  * Build the xterm color theme from the live CSS design tokens. Read at
  * construction AND re-read whenever the workspace theme changes (so switching
  * Midnight → Dracula re-colors open terminals instead of only new ones).
+ * With `translucent`, the cell background goes fully transparent so the
+ * host's CSS background (color-mix + backdrop blur) shows through.
+ *
+ * The background is --bg-tile-content (the pane surface), NOT a distinct
+ * "card" color: the chat-style terminal is one seamless flat surface from
+ * topbar to statusbar, like Claude Desktop / Cursor — no console card.
  */
-function buildTerminalTheme(): ITheme {
+function buildTerminalTheme(translucent: boolean): ITheme {
   const tok = (name: string, fallback: string): string => {
     const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
     return v || fallback
   }
   return {
-    background:          tok('--bg-terminal-surface', '#121212'),
+    background:          translucent ? '#00000000' : tok('--bg-tile-content', '#0d1117'),
     foreground:          tok('--tx-primary',       '#f1f5f9'),
     cursor:              tok('--brand-light',      '#6EEBD4'),
     selectionBackground: tok('--brand-glow',       'rgba(18,199,154,0.28)'),
@@ -124,7 +142,7 @@ interface TerminalViewProps {
 export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, themeId, prefs }: TerminalViewProps): ReactElement {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const terminalRef = useRef<Terminal | null>(null)
-  const pasteRef = useRef<((text: string) => void) | null>(null)
+  const pasteRef = useRef<((text: string, onComplete?: () => void) => void) | null>(null)
   const refitRef = useRef<(() => void) | null>(null)
   // Last non-empty selection + when it was seen, so a copy can still fire if
   // xterm cleared the live selection (scrollback trim / buffer toggle) just
@@ -138,6 +156,12 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
   const fitFrameRef = useRef<number | null>(null)
   const refreshFrameRef = useRef<number | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
+  // Ctrl+F search overlay (powered by @xterm/addon-search).
+  const searchAddonRef = useRef<SearchAddon | null>(null)
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<{ resultIndex: number; resultCount: number } | null>(null)
 
   onExitRef.current = onExit
   onInputRef.current = onInput
@@ -147,8 +171,10 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
     if (!hostRef.current) return
 
     const initial = prefsRef.current
+    const initialTranslucent = initial.backgroundOpacity < 1
     const terminal = new Terminal({
       allowProposedApi: true,
+      allowTransparency: initialTranslucent,
       cursorBlink: initial.cursorBlink,
       cursorStyle: initial.cursorStyle,
       fontFamily: initial.fontFamily,
@@ -159,14 +185,18 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       rescaleOverlappingGlyphs: true,
       scrollback: initial.scrollback,
       scrollOnUserInput: false,
-      theme: buildTerminalTheme()
+      theme: buildTerminalTheme(initialTranslucent)
     })
     const fitAddon = new FitAddon()
     const unicodeAddon = new Unicode11Addon()
+    const searchAddon = new SearchAddon()
 
     terminal.loadAddon(fitAddon)
     terminal.loadAddon(unicodeAddon)
     terminal.loadAddon(new WebLinksAddon())
+    terminal.loadAddon(searchAddon)
+    searchAddonRef.current = searchAddon
+    const searchResultsDisposable = searchAddon.onDidChangeResults((results) => setSearchResults(results))
     terminal.open(hostRef.current)
 
     // GPU-accelerated renderer. The default DOM renderer repaints every visible
@@ -255,17 +285,45 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
     })
     terminalRef.current = terminal
 
-    const pasteText = (text: string): void => {
+    // onComplete fires once the text has actually landed in the pty — callers
+    // that need to do something AFTER the paste (e.g. the chat composer
+    // submitting with \r) must wait for it instead of guessing a delay: a
+    // fixed-time guess drifts under load (more panes/agents = more main-
+    // thread contention = more setTimeout jitter), so a hardcoded timer either
+    // fires the follow-up too early (truncating/corrupting a large paste) or
+    // needlessly late. This is what made large chat messages unreliable
+    // specifically under heavier usage.
+    const pasteText = (text: string, onComplete?: () => void): void => {
       const CHUNK = 4096
       if (text.length <= CHUNK) {
         terminal.paste(text)
+        onComplete?.()
         return
       }
+      // terminal.paste() wraps EVERY call in the shell's bracketed-paste
+      // markers (\x1b[200~ … \x1b[201~) when bracketed paste mode is on
+      // (true for PowerShell/PSReadLine, bash/zsh, and agent CLIs like
+      // Claude Code). Calling paste() once per chunk sends N separate paste
+      // "envelopes" instead of one continuous block — readline-based
+      // consumers treat each \x1b[201~ as "end of paste, process now", so an
+      // embedded newline that lands right after a chunk boundary gets read
+      // as a literal Enter and the shell submits early, corrupting/truncating
+      // large pastes. Fix: wrap the whole payload in a single marker pair and
+      // feed the raw chunks through terminal.input(), which injects data the
+      // same way paste() does internally but without re-wrapping each call.
+      const bracketed = terminal.modes.bracketedPasteMode && !terminal.options.ignoreBracketedPasteMode
+      const normalized = text.replace(/\r?\n/g, '\r') // same normalization terminal.paste() applies
+      if (bracketed) terminal.input('\x1b[200~', false)
       let offset = 0
       const send = (): void => {
-        terminal.paste(text.slice(offset, offset + CHUNK))
+        terminal.input(normalized.slice(offset, offset + CHUNK), true)
         offset += CHUNK
-        if (offset < text.length) setTimeout(send, 10)
+        if (offset < normalized.length) {
+          setTimeout(send, 10)
+          return
+        }
+        if (bracketed) terminal.input('\x1b[201~', false)
+        onComplete?.()
       }
       send()
     }
@@ -309,6 +367,14 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
 
     terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
       const key = event.key.toLowerCase()
+
+      // Ctrl/Cmd+F opens the in-terminal search overlay instead of reaching
+      // the PTY. (Shift/Alt variants pass through for TUIs that bind them.)
+      if ((event.ctrlKey || event.metaKey) && key === 'f' && event.type === 'keydown' && !event.altKey && !event.shiftKey) {
+        event.preventDefault()
+        setSearchOpen(true)
+        return false
+      }
 
       // Copy selected text. Ctrl+Shift+C always copies (no PTY conflict).
       // Ctrl+C copies only when there's a selection — otherwise it must fall
@@ -383,9 +449,30 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       const detail = (event as CustomEvent<{ paneId?: string; text?: string }>).detail
       if (detail?.paneId !== paneId || !detail.text) return
       terminal.focus()
-      pasteText(detail.text)
+      // Callers like the chat composer (TerminalPane) need to know when the
+      // paste has actually finished landing before submitting with \r.
+      pasteText(detail.text, () => {
+        window.dispatchEvent(new CustomEvent('oxe:terminal-insert-text-done', { detail: { paneId } }))
+      })
     }
     window.addEventListener('oxe:terminal-insert-text', handleProgrammaticInsert)
+
+    // Topbar actions (TerminalPane) arrive as pane-scoped window events, the
+    // same pattern as insert-text/focus-pane.
+    const handleClearRequest = (event: Event): void => {
+      const detail = (event as CustomEvent<{ paneId?: string }>).detail
+      if (detail?.paneId !== paneId) return
+      terminal.clear()
+      terminal.focus()
+    }
+    window.addEventListener('oxe:terminal-clear', handleClearRequest)
+
+    const handleOpenSearchRequest = (event: Event): void => {
+      const detail = (event as CustomEvent<{ paneId?: string }>).detail
+      if (detail?.paneId !== paneId) return
+      setSearchOpen(true)
+    }
+    window.addEventListener('oxe:terminal-open-search', handleOpenSearchRequest)
 
     const fitTerminal = (): void => {
       try {
@@ -438,9 +525,22 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       // Copilot/Claude are emitting tokens. We capture viewportY before the
       // write and restore it from the write callback if the user wasn't
       // already pinned at the bottom.
+      //
+      // Same reasoning applies while the user is mid mouse-drag selecting text
+      // at the bottom of an actively streaming terminal (e.g. copying the
+      // agent's latest output): if we let write() auto-scroll on every chunk,
+      // the rows shift under the cursor mid-drag and the selection never
+      // stabilizes, so Ctrl+C keeps landing on nothing — this is the "can't
+      // copy during a long CLI session" bug. Pin the viewport whenever there's
+      // a live or very-recently-made selection, even if the user was at the
+      // bottom, so new tokens don't fight an in-progress or just-finished copy.
       const preBuf = terminal.buffer.active
       const preViewportY = preBuf.viewportY
-      const wasAtBottom = preViewportY >= preBuf.baseY
+      const recentSelection = lastSelectionRef.current
+      const hasActiveOrRecentSelection =
+        !!terminal.getSelection() ||
+        (recentSelection !== null && Date.now() - recentSelection.at <= RECENT_SELECTION_MS)
+      const wasAtBottom = !hasActiveOrRecentSelection && preViewportY >= preBuf.baseY
       terminal.write(event.data, () => {
         if (!wasAtBottom) {
           const postBuf = terminal.buffer.active
@@ -477,6 +577,10 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       resizeObserver.disconnect()
       dataDisposable.dispose()
       selectionDisposable.dispose()
+      searchResultsDisposable.dispose()
+      searchAddonRef.current = null
+      window.removeEventListener('oxe:terminal-clear', handleClearRequest)
+      window.removeEventListener('oxe:terminal-open-search', handleOpenSearchRequest)
       try { 
         if (webglAddon) {
           webglAddon.dispose()
@@ -519,7 +623,13 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
     const raf = window.requestAnimationFrame(() => {
       const t = terminalRef.current
       if (!t) return
-      t.options.theme = buildTerminalTheme()
+      const translucent = prefsRef.current.backgroundOpacity < 1
+      // allowTransparency toggles the renderer's alpha path — settable live in
+      // xterm 5, but guarded in case a renderer swap races the update.
+      try {
+        if (t.options.allowTransparency !== translucent) t.options.allowTransparency = translucent
+      } catch { /* applies on next terminal creation */ }
+      t.options.theme = buildTerminalTheme(translucent)
       // Font metrics changed → re-fit (recomputes cols/rows + notifies the PTY)
       // and repaint so glyphs render at the new size.
       if (fontChanged) refitRef.current?.()
@@ -534,7 +644,8 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
     prefs.letterSpacing,
     prefs.cursorStyle,
     prefs.cursorBlink,
-    prefs.scrollback
+    prefs.scrollback,
+    prefs.backgroundOpacity
   ])
 
   useEffect(() => {
@@ -550,6 +661,41 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
     window.addEventListener('oxe:focus-pane', handler)
     return () => window.removeEventListener('oxe:focus-pane', handler)
   }, [paneId])
+
+  // Focus the search input as soon as the overlay opens (Ctrl+F / topbar).
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus()
+  }, [searchOpen])
+
+  const runSearch = useCallback((query: string, direction: 'next' | 'prev', incremental = false): void => {
+    const addon = searchAddonRef.current
+    if (!addon) return
+    if (!query) {
+      addon.clearDecorations()
+      setSearchResults(null)
+      return
+    }
+    const options = { decorations: SEARCH_DECORATIONS, incremental }
+    if (direction === 'next') addon.findNext(query, options)
+    else addon.findPrevious(query, options)
+  }, [])
+
+  const closeSearch = useCallback((): void => {
+    setSearchOpen(false)
+    setSearchQuery('')
+    setSearchResults(null)
+    searchAddonRef.current?.clearDecorations()
+    terminalRef.current?.focus()
+  }, [])
+
+  // The addon caps highlight decorations at 1000 and reports -1 beyond that.
+  const searchCountLabel = !searchQuery
+    ? ''
+    : !searchResults || searchResults.resultCount === 0
+      ? '0'
+      : searchResults.resultCount === -1
+        ? `${searchResults.resultIndex + 1}/999+`
+        : `${searchResults.resultIndex + 1}/${searchResults.resultCount}`
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>): void => {
     e.preventDefault()
@@ -573,14 +719,57 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
     }
   }
 
+  const translucent = prefs.backgroundOpacity < 1
+
   return (
-    <div
-      ref={hostRef}
-      className={`terminal-view${isDragOver ? ' terminal-drop-active' : ''}`}
-      data-testid="terminal-view"
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    />
+    <>
+      <div
+        ref={hostRef}
+        className={`terminal-view${isDragOver ? ' terminal-drop-active' : ''}`}
+        data-testid="terminal-view"
+        data-translucent={translucent ? 'true' : undefined}
+        style={translucent ? { ['--term-bg-mix' as never]: `${Math.round(prefs.backgroundOpacity * 100)}%` } : undefined}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      />
+      {searchOpen ? (
+        <div className="terminal-search" role="search" data-testid="terminal-search">
+          <input
+            ref={searchInputRef}
+            type="text"
+            className="terminal-search-input"
+            placeholder="Buscar no terminal…"
+            aria-label="Search terminal"
+            value={searchQuery}
+            onChange={(e) => {
+              const value = e.currentTarget.value
+              setSearchQuery(value)
+              runSearch(value, 'next', true)
+            }}
+            onKeyDown={(e) => {
+              e.stopPropagation()
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                runSearch(searchQuery, e.shiftKey ? 'prev' : 'next')
+              } else if (e.key === 'Escape') {
+                e.preventDefault()
+                closeSearch()
+              }
+            }}
+          />
+          <span className="terminal-search-count" aria-live="polite">{searchCountLabel}</span>
+          <button type="button" className="terminal-search-btn" aria-label="Previous match" title="Anterior (Shift+Enter)" onClick={() => runSearch(searchQuery, 'prev')}>
+            <ArrowUp size={12} aria-hidden="true" />
+          </button>
+          <button type="button" className="terminal-search-btn" aria-label="Next match" title="Próximo (Enter)" onClick={() => runSearch(searchQuery, 'next')}>
+            <ArrowDown size={12} aria-hidden="true" />
+          </button>
+          <button type="button" className="terminal-search-btn" aria-label="Close search" title="Fechar (Esc)" onClick={closeSearch}>
+            <X size={12} aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
+    </>
   )
 }

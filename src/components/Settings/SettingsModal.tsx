@@ -286,6 +286,7 @@ const CURSOR_OPTIONS: Array<{ value: TerminalCursorStyle; label: string }> = [
 ]
 
 const FONT_PRESETS = [
+  'JetBrains Mono, Cascadia Mono, Consolas, monospace',
   'Cascadia Mono, Consolas, monospace',
   'Cascadia Code, monospace',
   'JetBrains Mono, monospace',
@@ -355,6 +356,12 @@ function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactEle
           <span>Histórico de rolagem (linhas) — {global.scrollback.toLocaleString('pt-BR')}</span>
           <input type="range" min={1000} max={200000} step={1000} value={global.scrollback}
             onChange={(e) => setGlobal({ scrollback: Number(e.target.value) })} />
+        </label>
+
+        <label className="settings-field">
+          <span>Opacidade do fundo — {Math.round(global.backgroundOpacity * 100)}%{global.backgroundOpacity < 1 ? ' (translúcido)' : ''}</span>
+          <input type="range" min={0.6} max={1} step={0.05} value={global.backgroundOpacity}
+            onChange={(e) => setGlobal({ backgroundOpacity: Number(e.target.value) })} />
         </label>
 
         <p className="settings-voice-hint">
