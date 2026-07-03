@@ -23,8 +23,6 @@ export interface TerminalPrefs {
   scrollback: number
   /** 1 = opaque card. Below 1 the terminal surface goes translucent (blur behind). */
   backgroundOpacity: number
-  /** Chat-style message box below the output (Claude Desktop look). */
-  chatInputEnabled: boolean
   rtkHookEnabled: boolean
   cavemanModeEnabled: boolean
   semanticSearchEnabled: boolean
@@ -45,7 +43,6 @@ export const TERMINAL_PREFS_DEFAULTS: TerminalPrefs = {
   cursorBlink: false,
   scrollback: 100_000,
   backgroundOpacity: 1,
-  chatInputEnabled: true,
   // RTK, Caveman and Semantic are opt-in developer features — off by default so
   // a fresh workspace does no extra token transforms or background indexing.
   // The user enables them via the toolbar chips when wanted.

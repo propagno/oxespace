@@ -142,7 +142,7 @@ interface TerminalViewProps {
 export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, themeId, prefs }: TerminalViewProps): ReactElement {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const terminalRef = useRef<Terminal | null>(null)
-  const pasteRef = useRef<((text: string, onComplete?: () => void) => void) | null>(null)
+  const pasteRef = useRef<((text: string) => void) | null>(null)
   const refitRef = useRef<(() => void) | null>(null)
   // Last non-empty selection + when it was seen, so a copy can still fire if
   // xterm cleared the live selection (scrollback trim / buffer toggle) just
@@ -155,6 +155,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
   const onResizeRef = useRef(onResize)
   const fitFrameRef = useRef<number | null>(null)
   const refreshFrameRef = useRef<number | null>(null)
+  const settleFitTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([])
   const [isDragOver, setIsDragOver] = useState(false)
   // Ctrl+F search overlay (powered by @xterm/addon-search).
   const searchAddonRef = useRef<SearchAddon | null>(null)
@@ -285,19 +286,10 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
     })
     terminalRef.current = terminal
 
-    // onComplete fires once the text has actually landed in the pty — callers
-    // that need to do something AFTER the paste (e.g. the chat composer
-    // submitting with \r) must wait for it instead of guessing a delay: a
-    // fixed-time guess drifts under load (more panes/agents = more main-
-    // thread contention = more setTimeout jitter), so a hardcoded timer either
-    // fires the follow-up too early (truncating/corrupting a large paste) or
-    // needlessly late. This is what made large chat messages unreliable
-    // specifically under heavier usage.
-    const pasteText = (text: string, onComplete?: () => void): void => {
+    const pasteText = (text: string): void => {
       const CHUNK = 4096
       if (text.length <= CHUNK) {
         terminal.paste(text)
-        onComplete?.()
         return
       }
       // terminal.paste() wraps EVERY call in the shell's bracketed-paste
@@ -323,7 +315,6 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
           return
         }
         if (bracketed) terminal.input('\x1b[201~', false)
-        onComplete?.()
       }
       send()
     }
@@ -449,11 +440,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       const detail = (event as CustomEvent<{ paneId?: string; text?: string }>).detail
       if (detail?.paneId !== paneId || !detail.text) return
       terminal.focus()
-      // Callers like the chat composer (TerminalPane) need to know when the
-      // paste has actually finished landing before submitting with \r.
-      pasteText(detail.text, () => {
-        window.dispatchEvent(new CustomEvent('oxe:terminal-insert-text-done', { detail: { paneId } }))
-      })
+      pasteText(detail.text)
     }
     window.addEventListener('oxe:terminal-insert-text', handleProgrammaticInsert)
 
@@ -513,6 +500,18 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
     resizeObserver.observe(hostRef.current)
     scheduleFit()
     void document.fonts?.ready.then(scheduleFit).catch(() => undefined)
+    // Belt-and-suspenders re-fits shortly after mount. The pane's own layout
+    // (topbar + status bar) can still be settling — sibling CSS transitions,
+    // late font metric changes, etc. — after ResizeObserver's first callback,
+    // and if that first measurement is even slightly stale xterm computes the
+    // wrong cols and the terminal renders text past the visible edge until
+    // something forces another fit (previously only a manual window resize
+    // did). --transition-base across the app is 200ms, so 250/700ms covers a
+    // settle window with margin.
+    settleFitTimersRef.current = [
+      setTimeout(scheduleFit, 250),
+      setTimeout(scheduleFit, 700)
+    ]
 
     let previewTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -571,6 +570,8 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
         window.cancelAnimationFrame(refreshFrameRef.current)
         refreshFrameRef.current = null
       }
+      for (const t of settleFitTimersRef.current) clearTimeout(t)
+      settleFitTimersRef.current = []
       if (previewTimer) clearTimeout(previewTimer)
       unsubscribeData()
       unsubscribeExit()

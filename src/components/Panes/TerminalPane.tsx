@@ -1,5 +1,5 @@
-import { ArrowUp, Eraser, FolderTree, MessageSquare, Mic, MicOff, Play, Bone, Brain, RotateCcw, Search, Terminal as TerminalIcon, Zap } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { Eraser, FolderTree, Mic, MicOff, Play, Bone, Brain, RotateCcw, Search, Terminal as TerminalIcon, Zap } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { WorkspacePane } from '../../../shared/types/workspace'
 import { useGitBranch } from '../../hooks/useGitBranch'
@@ -294,62 +294,6 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
     (p) => p.id === (pane.shellProfileId ?? workspace?.defaultShellProfileId)
   )?.name ?? 'Shell'
 
-  // Chat-style composer: the message is pasted into the PTY (bracketed paste,
-  // so agent CLIs like Claude Code treat embedded newlines as literal text and
-  // don't submit early) and then a single \r submits it — exactly what typing
-  // into the TUI would do, but with a Claude-Desktop-style input box.
-  const [chatDraft, setChatDraft] = useState('')
-  const chatTextareaRef = useRef<HTMLTextAreaElement | null>(null)
-  const chatSubmitTimerRef = useRef<number | null>(null)
-  const chatDoneListenerRef = useRef<((event: Event) => void) | null>(null)
-  useEffect(() => () => {
-    if (chatSubmitTimerRef.current !== null) clearTimeout(chatSubmitTimerRef.current)
-    if (chatDoneListenerRef.current) window.removeEventListener('oxe:terminal-insert-text-done', chatDoneListenerRef.current)
-  }, [])
-
-  const sendChatMessage = useCallback((): void => {
-    const text = chatDraft.replace(/\s+$/, '')
-    if (!text || !isRunning) return
-
-    const finish = (): void => {
-      if (chatSubmitTimerRef.current !== null) {
-        clearTimeout(chatSubmitTimerRef.current)
-        chatSubmitTimerRef.current = null
-      }
-      if (chatDoneListenerRef.current) {
-        window.removeEventListener('oxe:terminal-insert-text-done', chatDoneListenerRef.current)
-        chatDoneListenerRef.current = null
-      }
-      void window.oxe.terminal.write({ paneId: pane.id, data: '\r' })
-    }
-    // Wait for TerminalView's actual paste-completion signal instead of
-    // guessing a fixed delay from the chunk count: a hardcoded timer drifts
-    // under load (more panes/agents running = more main-thread contention =
-    // more setTimeout jitter), so it can fire the \r before the last chunk
-    // has landed — cutting off/corrupting large messages. This is exactly
-    // the kind of bug that gets worse the more the app is used.
-    const onDone = (event: Event): void => {
-      const detail = (event as CustomEvent<{ paneId?: string }>).detail
-      if (detail?.paneId !== pane.id) return
-      finish()
-    }
-    chatDoneListenerRef.current = onDone
-    window.addEventListener('oxe:terminal-insert-text-done', onDone)
-
-    window.dispatchEvent(new CustomEvent('oxe:terminal-insert-text', {
-      detail: { paneId: pane.id, text }
-    }))
-
-    // Safety net only — covers the (should-never-happen) case where the
-    // completion event is lost, e.g. the pane unmounts mid-paste. Sized well
-    // above any realistic chunk-send time so it never fires under normal use.
-    chatSubmitTimerRef.current = window.setTimeout(finish, 3000)
-
-    setChatDraft('')
-    // The programmatic insert focuses the terminal; pull focus back so the
-    // user can keep composing the next message.
-    chatTextareaRef.current?.focus()
-  }, [chatDraft, isRunning, pane.id])
   // Compose the chip label from the branch hook's payload. Beyond "branch
   // name / detached SHA", the label now also surfaces the *specific* reason
   // when git couldn't read the ref — previously it just said "no branch"
@@ -382,15 +326,6 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
 
         <div className="terminal-topbar-spacer" />
 
-        <button
-          type="button"
-          className={`terminal-topbar-btn${terminalPrefs.chatInputEnabled ? ' active' : ''}`}
-          aria-label="Toggle chat input"
-          title={terminalPrefs.chatInputEnabled ? 'Ocultar caixa de mensagem' : 'Mostrar caixa de mensagem'}
-          onClick={() => setTerminalOverride(workspaceId, 'chatInputEnabled', !terminalPrefs.chatInputEnabled)}
-        >
-          <MessageSquare size={12} aria-hidden="true" />
-        </button>
         <button
           type="button"
           className="terminal-topbar-btn"
@@ -489,40 +424,6 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
           </button>
         </div>
       )}
-
-      {terminalPrefs.chatInputEnabled ? (
-        <div className="terminal-chat-bar">
-          <div className="terminal-chat-box">
-            <textarea
-              ref={chatTextareaRef}
-              className="terminal-chat-textarea"
-              data-testid="terminal-chat-input"
-              rows={1}
-              placeholder={isRunning ? 'Enviar mensagem… (Enter envia · Shift+Enter nova linha)' : 'Inicie o terminal para enviar mensagens'}
-              aria-label="Message the terminal"
-              disabled={!isRunning}
-              value={chatDraft}
-              onChange={(e) => setChatDraft(e.currentTarget.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  sendChatMessage()
-                }
-              }}
-            />
-            <button
-              type="button"
-              className="terminal-chat-send"
-              aria-label="Send message"
-              title="Enviar (Enter)"
-              disabled={!isRunning || !chatDraft.trim()}
-              onClick={sendChatMessage}
-            >
-              <ArrowUp size={16} aria-hidden="true" />
-            </button>
-          </div>
-        </div>
-      ) : null}
 
       <div className="terminal-statusbar">
         <span className={`statusbar-dot ${statusDotClass}`} aria-hidden="true" />
