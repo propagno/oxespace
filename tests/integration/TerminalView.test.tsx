@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { Terminal } from '@xterm/xterm'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { TerminalView } from '../../src/components/Terminal/TerminalView'
@@ -10,7 +10,9 @@ const terminalState = {
   focus: vi.fn(),
   dispose: vi.fn(),
   paste: vi.fn(),
+  input: vi.fn(),
   refresh: vi.fn(),
+  clear: vi.fn(),
   scrollLines: vi.fn(),
   scrollToBottom: vi.fn(),
   scrollToLine: vi.fn(),
@@ -18,6 +20,12 @@ const terminalState = {
   getSelection: vi.fn(() => ''),
   clearSelection: vi.fn(),
   onSelectionChange: vi.fn(() => ({ dispose: vi.fn() }))
+}
+
+const searchState = {
+  findNext: vi.fn(),
+  findPrevious: vi.fn(),
+  clearDecorations: vi.fn()
 }
 
 vi.mock('@xterm/xterm', () => ({
@@ -31,7 +39,10 @@ vi.mock('@xterm/xterm', () => ({
     focus: terminalState.focus,
     dispose: terminalState.dispose,
     paste: terminalState.paste,
+    input: terminalState.input,
+    modes: { bracketedPasteMode: true },
     refresh: terminalState.refresh,
+    clear: terminalState.clear,
     scrollLines: terminalState.scrollLines,
     unicode: { activeVersion: '6' },
     scrollToBottom: terminalState.scrollToBottom,
@@ -71,6 +82,16 @@ vi.mock('@xterm/addon-webgl', () => ({
   }))
 }))
 
+vi.mock('@xterm/addon-search', () => ({
+  SearchAddon: vi.fn().mockImplementation(() => ({
+    findNext: searchState.findNext,
+    findPrevious: searchState.findPrevious,
+    clearDecorations: searchState.clearDecorations,
+    onDidChangeResults: vi.fn(() => ({ dispose: vi.fn() })),
+    dispose: vi.fn()
+  }))
+}))
+
 describe('TerminalView', () => {
   beforeEach(() => {
     terminalState.onData = null
@@ -78,6 +99,7 @@ describe('TerminalView', () => {
     terminalState.focus.mockClear()
     terminalState.dispose.mockClear()
     terminalState.paste.mockClear()
+    terminalState.input.mockClear()
     terminalState.refresh.mockClear()
     terminalState.scrollLines.mockClear()
     terminalState.scrollToBottom.mockClear()
@@ -87,6 +109,10 @@ describe('TerminalView', () => {
     terminalState.getSelection.mockReturnValue('')
     terminalState.clearSelection.mockClear()
     terminalState.onSelectionChange.mockClear()
+    terminalState.clear.mockClear()
+    searchState.findNext.mockClear()
+    searchState.findPrevious.mockClear()
+    searchState.clearDecorations.mockClear()
 
     global.ResizeObserver = class {
       constructor(private readonly callback: ResizeObserverCallback) {}
@@ -151,13 +177,13 @@ describe('TerminalView', () => {
     terminalState.onData?.('a')
     expect(onInput).toHaveBeenCalledWith('a')
 
-    const dataListener = vi.mocked(window.oxe.terminal.onData).mock.calls[0][0]
+    const dataListener = vi.mocked(window.oxe.terminal.onData).mock.calls[0][1]
     dataListener({ paneId: 'pane-1', data: 'hello' })
     // Smart-scrollback passes a callback as the 2nd arg to terminal.write so
     // the viewport can be restored after the chunk is rendered.
     expect(terminalState.write).toHaveBeenCalledWith('hello', expect.any(Function))
 
-    const exitListener = vi.mocked(window.oxe.terminal.onExit).mock.calls[0][0]
+    const exitListener = vi.mocked(window.oxe.terminal.onExit).mock.calls[0][1]
     exitListener({ paneId: 'pane-1', exitCode: 0 })
     expect(onExit).toHaveBeenCalledWith(0)
     expect(terminalState.focus).toHaveBeenCalled()
@@ -240,6 +266,41 @@ describe('TerminalView', () => {
     expect(terminalState.paste).toHaveBeenCalledWith('voice text')
   })
 
+  test('large paste sends one bracketed-paste envelope instead of one per chunk', () => {
+    // Regression for the "large pastes randomly fail" bug: terminal.paste()
+    // wraps EVERY call in \x1b[200~ / \x1b[201~. Chunking by calling paste()
+    // repeatedly used to emit N separate envelopes, which readline-based
+    // shells/CLIs can misread as N separate pastes (an embedded newline right
+    // after a chunk boundary gets treated as a literal Enter). The fix sends
+    // a single opening/closing marker and feeds the raw chunks through
+    // terminal.input() instead.
+    vi.useFakeTimers()
+    render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
+
+    const bigText = 'a'.repeat(9000) // > one 4096 chunk, < three
+    window.dispatchEvent(new CustomEvent('oxe:terminal-insert-text', {
+      detail: { paneId: 'pane-1', text: bigText }
+    }))
+    vi.runAllTimers()
+    vi.useRealTimers()
+
+    // terminal.paste() (which self-wraps) must not be used for the chunked path.
+    expect(terminalState.paste).not.toHaveBeenCalled()
+
+    const calls = terminalState.input.mock.calls
+    expect(calls[0]).toEqual(['\x1b[200~', false])
+    expect(calls[calls.length - 1]).toEqual(['\x1b[201~', false])
+
+    // Exactly one opening and one closing marker, regardless of chunk count.
+    const markerCalls = calls.filter((c) => c[0] === '\x1b[200~' || c[0] === '\x1b[201~')
+    expect(markerCalls).toHaveLength(2)
+
+    // The raw chunks between the markers reassemble to the original text.
+    const contentChunks = calls.slice(1, -1)
+    expect(contentChunks.every((c) => c[1] === true)).toBe(true)
+    expect(contentChunks.map((c) => c[0]).join('')).toBe(bigText)
+  })
+
   test('programmatic terminal insert ignores other panes', () => {
     render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
 
@@ -313,6 +374,21 @@ describe('TerminalView', () => {
     expect(terminalState.clearSelection).toHaveBeenCalled()
   })
 
+  test('native copy events preserve a long terminal selection', async () => {
+    const selection = 'curl https://api.example.test ' + 'x'.repeat(20_000)
+    terminalState.getSelection.mockReturnValue(selection)
+    render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
+
+    const copyEvent = new Event('copy', { bubbles: true, cancelable: true }) as ClipboardEvent
+    const setData = vi.fn()
+    Object.defineProperty(copyEvent, 'clipboardData', { value: { setData } })
+    screen.getByTestId('terminal-view').dispatchEvent(copyEvent)
+
+    expect(copyEvent.defaultPrevented).toBe(true)
+    expect(setData).toHaveBeenCalledWith('text/plain', selection)
+    await vi.waitFor(() => expect(window.oxe.clipboard.writeText).toHaveBeenCalledWith(selection))
+  })
+
   test('Ctrl+C without a selection passes through to the PTY as SIGINT', () => {
     terminalState.getSelection.mockReturnValue('')
     render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
@@ -343,6 +419,29 @@ describe('TerminalView', () => {
     })
   })
 
+  test('streamed output pins the viewport instead of auto-scrolling while a selection is live', () => {
+    // Reproduces the "can't copy during a long CLI session" bug: with an
+    // active selection, new PTY output must not be allowed to auto-scroll the
+    // terminal to the bottom (as xterm does by default), because that yanks
+    // the rows out from under an in-progress mouse-drag or a just-finished
+    // one, so the selection never has a chance to survive to Ctrl+C.
+    terminalState.getSelection.mockReturnValue('selected output')
+    render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
+
+    const dataListener = vi.mocked(window.oxe.terminal.onData).mock.calls[0][1]
+    dataListener({ paneId: 'pane-1', data: 'more streamed tokens\r\n' })
+
+    const writeCall = terminalState.write.mock.calls.find((call) => call[0] === 'more streamed tokens\r\n')
+    expect(writeCall).toBeDefined()
+    const onWritten = writeCall![1] as () => void
+    onWritten()
+
+    // Even though the mock buffer reports viewportY >= baseY ("at the
+    // bottom"), the live selection must force the viewport to be restored
+    // rather than left to xterm's default auto-scroll-to-bottom.
+    expect(terminalState.scrollToLine).toHaveBeenCalledWith(0)
+  })
+
   test('typing invalidates the recent selection so Ctrl+C becomes SIGINT again', () => {
     terminalState.getSelection.mockReturnValue('old selection')
     render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
@@ -371,5 +470,56 @@ describe('TerminalView', () => {
     await vi.waitFor(() => {
       expect(window.oxe.clipboard.writeText).toHaveBeenCalledWith('log line')
     })
+  })
+
+  test('Ctrl+F opens the search overlay; typing runs incremental search; Escape closes it', () => {
+    render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
+
+    expect(screen.queryByTestId('terminal-search')).not.toBeInTheDocument()
+
+    const handler = terminalState.attachCustomKeyEventHandler.mock.calls[0][0] as (event: KeyboardEvent) => boolean
+    const event = new KeyboardEvent('keydown', { key: 'f', ctrlKey: true, cancelable: true })
+    let handled = true
+    act(() => { handled = handler(event) })
+
+    expect(handled).toBe(false) // must not reach the PTY
+    expect(event.defaultPrevented).toBe(true)
+    expect(screen.getByTestId('terminal-search')).toBeInTheDocument()
+
+    const input = screen.getByLabelText('Search terminal')
+    fireEvent.change(input, { target: { value: 'error' } })
+    expect(searchState.findNext).toHaveBeenCalledWith('error', expect.objectContaining({ incremental: true }))
+
+    fireEvent.keyDown(input, { key: 'Enter', shiftKey: true })
+    expect(searchState.findPrevious).toHaveBeenCalledWith('error', expect.objectContaining({ incremental: false }))
+
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(screen.queryByTestId('terminal-search')).not.toBeInTheDocument()
+    expect(searchState.clearDecorations).toHaveBeenCalled()
+    expect(terminalState.focus).toHaveBeenCalled()
+  })
+
+  test('oxe:terminal-open-search event opens the overlay for the matching pane only', () => {
+    render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent('oxe:terminal-open-search', { detail: { paneId: 'pane-2' } }))
+    })
+    expect(screen.queryByTestId('terminal-search')).not.toBeInTheDocument()
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent('oxe:terminal-open-search', { detail: { paneId: 'pane-1' } }))
+    })
+    expect(screen.getByTestId('terminal-search')).toBeInTheDocument()
+  })
+
+  test('oxe:terminal-clear event clears the matching pane only', () => {
+    render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
+
+    window.dispatchEvent(new CustomEvent('oxe:terminal-clear', { detail: { paneId: 'pane-2' } }))
+    expect(terminalState.clear).not.toHaveBeenCalled()
+
+    window.dispatchEvent(new CustomEvent('oxe:terminal-clear', { detail: { paneId: 'pane-1' } }))
+    expect(terminalState.clear).toHaveBeenCalledTimes(1)
   })
 })

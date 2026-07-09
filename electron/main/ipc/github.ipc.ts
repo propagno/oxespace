@@ -30,6 +30,9 @@ export function registerGitHubIpc(db: AppDatabase, service = new GitHubService(d
   ipcMain.handle(IPC_CHANNELS.github.fetch, (_event, input: unknown) =>
     service.fetch(parseGitHubWorkspaceInput(input))
   )
+  ipcMain.handle(IPC_CHANNELS.github.pullFfOnly, (_event, input: unknown) =>
+    service.pullFfOnly(parseGitHubWorkspaceInput(input))
+  )
   ipcMain.handle(IPC_CHANNELS.github.stageAll, (_event, input: unknown) =>
     service.stageAll(parseGitHubWorkspaceInput(input))
   )

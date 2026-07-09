@@ -14,7 +14,7 @@ env:
 jobs:
   release:
     name: Build installer
-    runs-on: windows-latest
+    runs-on: windows-2022
     permissions:
       contents: write
 
@@ -47,6 +47,11 @@ jobs:
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/OXESpace-*.exe
+          # Include latest.yml + .blockmap so electron-updater can detect and
+          # diff-download new versions — without them auto-update can't work.
+          files: |
+            dist/OXESpace-*.exe
+            dist/latest.yml
+            dist/*.blockmap
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}

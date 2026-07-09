@@ -57,4 +57,21 @@ describe('terminal-prefs opt-in migration (v1 → v2)', () => {
     expect(resolved.rtkHookEnabled).toBe(false)
     expect(resolved.semanticSearchEnabled).toBe(false)
   })
+
+  test('rolls the old 100k scrollback default down to the responsive limit', async () => {
+    localStorage.setItem(KEY, JSON.stringify({
+      version: 4,
+      state: {
+        global: { scrollback: 100_000 },
+        overrides: { 'ws-old-default': { scrollback: 100_000 }, 'ws-custom': { scrollback: 150_000 } }
+      }
+    }))
+
+    const { useTerminalPrefsStore, TERMINAL_PREFS_DEFAULTS } = await import('../../src/store/terminal-prefs.store')
+    const state = useTerminalPrefsStore.getState()
+
+    expect(state.global.scrollback).toBe(TERMINAL_PREFS_DEFAULTS.scrollback)
+    expect(state.overrides['ws-old-default']).toEqual({ scrollback: TERMINAL_PREFS_DEFAULTS.scrollback })
+    expect(state.overrides['ws-custom']).toEqual({ scrollback: 150_000 })
+  })
 })

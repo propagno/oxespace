@@ -1,10 +1,10 @@
-import { Check, FolderTree, GripVertical, Network, Pencil, Settings, Trash2, X } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
+import { Check, GitBranch, GripVertical, Network, Pencil, Settings, Trash2, X } from 'lucide-react'
+import { useEffect, useRef, useState, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import { selectIntegrationsForWorkspace, useIntegrationStore } from '../../store/integration.store'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
-import { selectWorktrees, useWorktreeStore } from '../../store/worktree.store'
+import { useGitBranch } from '../../hooks/useGitBranch'
 import { useWorkspaceActivity, type WorkspaceActivity } from '../../hooks/useWorkspaceActivity'
 
 interface WorkspaceGroupProps {
@@ -37,17 +37,14 @@ export function WorkspaceGroup({
   onDrop,
   onDragEnd,
 }: WorkspaceGroupProps): ReactElement {
-  const rootLabel = compactRootLabel(workspace.rootPath)
   const integrations = useIntegrationStore(selectIntegrationsForWorkspace(workspace.id))
   const openIntegrationPanel = useUIStore((s) => s.openIntegrationPanel)
   const setActiveIntegrationGroup = useIntegrationStore((s) => s.setActiveGroup)
-  const worktreeSelector = useCallback(selectWorktrees(workspace.rootPath), [workspace.rootPath])
-  const worktrees = useWorktreeStore(worktreeSelector)
-  const refreshWorktrees = useWorktreeStore((s) => s.refresh)
-  const updateWorktreeState = useWorkspaceStore((s) => s.updateWorktreeState)
   const updateSettings = useWorkspaceStore((s) => s.updateSettings)
-  const nonMainWorktreeCount = worktrees.filter((wt) => !wt.isMain).length
   const activity = useWorkspaceActivity(workspace)
+  const branchStatus = useGitBranch(workspace.id, workspace.rootPath)
+  const branchLabel = branchStatus?.branch
+    ?? (branchStatus?.shortSha ? `detached ${branchStatus.shortSha}` : null)
 
   // Context-menu state lives next to the rename + confirm-remove state since
   // the menu triggers both. Menu coordinates are absolute viewport pixels so
@@ -60,10 +57,6 @@ export function WorkspaceGroup({
   // Guards commitRename so the blur-on-unmount that fires when we close the
   // input doesn't trigger a second async update with the same draft value.
   const commitGuardRef = useRef(false)
-
-  useEffect(() => {
-    void refreshWorktrees(workspace.id, workspace.rootPath)
-  }, [workspace.id, workspace.rootPath, refreshWorktrees])
 
   // Close the floating context menu on any outside click / Escape.
   useEffect(() => {
@@ -138,16 +131,6 @@ export function WorkspaceGroup({
     setActiveIntegrationGroup(integrations[0].id)
     onSelect(workspace.id)
     openIntegrationPanel()
-  }
-
-  function handleWorktreeBadgeClick(e: React.MouseEvent): void {
-    e.stopPropagation()
-    onSelect(workspace.id)
-    void updateWorktreeState({
-      workspaceId: workspace.id,
-      worktreePanelVisible: true,
-      worktreePanelExpanded: workspace.worktreePanelExpanded ?? false
-    })
   }
 
   const dropClass = dropPosition === 'before'
@@ -236,50 +219,44 @@ export function WorkspaceGroup({
               >
                 {workspace.name}
               </span>
-              <span className="ws-group-path" title={workspace.rootPath}>
-                {getCompactPath(workspace.rootPath)}
-              </span>
+              {branchLabel ? (
+                <div className="ws-group-meta" data-testid="ws-group-meta">
+                  <span className="ws-group-meta-chip" title={`Branch: ${branchLabel}`}>
+                    <GitBranch size={10} aria-hidden="true" />
+                    {branchLabel}
+                  </span>
+                </div>
+              ) : null}
             </>
           )}
         </div>
-        {integrations.length > 0 ? (
-          <button
-            type="button"
-            className="ws-group-integration-badge"
-            title={`Part of: ${integrations.map((g) => g.name).join(' · ')}`}
-            aria-label={`Workspace is part of ${integrations.length} integration${integrations.length === 1 ? '' : 's'}`}
-            onClick={handleIntegrationBadgeClick}
-            data-testid="ws-group-integration-badge"
-          >
-            <Network size={11} aria-hidden="true" />
-            {integrations.length > 1 ? <span className="ws-group-integration-count">{integrations.length}</span> : null}
-          </button>
-        ) : null}
-        {nonMainWorktreeCount > 0 ? (
-          <button
-            type="button"
-            className="ws-group-worktree-count"
-            title={`${nonMainWorktreeCount} active worktree${nonMainWorktreeCount === 1 ? '' : 's'} — click to open worktree panel`}
-            aria-label={`Open worktree panel — ${nonMainWorktreeCount} active worktree${nonMainWorktreeCount === 1 ? '' : 's'}`}
-            onClick={handleWorktreeBadgeClick}
-            data-testid="ws-group-worktree-badge"
-          >
-            <FolderTree size={11} aria-hidden="true" />
-            {nonMainWorktreeCount > 1 ? <span>{nonMainWorktreeCount}</span> : null}
-          </button>
-        ) : null}
-        {!renaming && (
-          <button
-            type="button"
-            className="ws-group-settings-btn"
-            title="Options"
-            aria-label="Workspace options"
-            onClick={handleContextMenu}
-            data-testid="ws-group-settings-btn"
-          >
-            <Settings size={13} aria-hidden="true" />
-          </button>
-        )}
+        <div className="ws-group-trailing">
+          {integrations.length > 0 ? (
+            <button
+              type="button"
+              className="ws-group-integration-badge"
+              title={`Part of: ${integrations.map((g) => g.name).join(' · ')}`}
+              aria-label={`Workspace is part of ${integrations.length} integration${integrations.length === 1 ? '' : 's'}`}
+              onClick={handleIntegrationBadgeClick}
+              data-testid="ws-group-integration-badge"
+            >
+              <Network size={11} aria-hidden="true" />
+              {integrations.length > 1 ? <span className="ws-group-integration-count">{integrations.length}</span> : null}
+            </button>
+          ) : null}
+          {!renaming && (
+            <button
+              type="button"
+              className="ws-group-settings-btn"
+              title="Options"
+              aria-label="Workspace options"
+              onClick={handleContextMenu}
+              data-testid="ws-group-settings-btn"
+            >
+              <Settings size={13} aria-hidden="true" />
+            </button>
+          )}
+        </div>
       </div>
 
       {menu ? (
@@ -387,15 +364,4 @@ function activitySummary(a: WorkspaceActivity): string {
   return `${a.total} agent${a.total === 1 ? '' : 's'}${parts.length ? ` · ${parts.join(', ')}` : ''}`
 }
 
-function compactRootLabel(rootPath: string): string {
-  const parts = rootPath.split(/[\\/]/).filter(Boolean)
-  return parts.at(-1) ?? 'workspace'
-}
 
-function getCompactPath(rootPath: string): string {
-  const parts = rootPath.split(/[\\/]/).filter(Boolean)
-  if (parts.length >= 2) {
-    return `${parts.at(-2)}/${parts.at(-1)}`
-  }
-  return parts.at(-1) ?? ''
-}

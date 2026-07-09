@@ -41,7 +41,7 @@ test('captures all surfaces for design review', async () => {
 
     // 3. Fill modal, choose layout, launch
     await page.getByTestId('wizard-dir-input').fill(workspaceRoot)
-    await page.getByTestId('layout-4').click().catch(() => undefined) // 2x2
+    await page.getByTestId('wizard-layout-card-4').click().catch(() => undefined) // 2x2
     await shot(page, '03-new-workspace-modal-filled')
     await page.getByTestId('wizard-launch-btn').click()
     await page.waitForSelector('[data-testid="workspace-grid"]', { timeout: 8000 })
@@ -57,8 +57,8 @@ test('captures all surfaces for design review', async () => {
     await page.keyboard.press('Control+b')
     await page.waitForTimeout(300)
 
-    // 6. Tools menu open (click trigger)
-    await page.locator('.tools-menu-trigger').first().click().catch(() => undefined)
+    // 6. Tools modal open (sidebar gear)
+    await page.getByTestId('btn-open-tools').click().catch(() => undefined)
     await page.waitForTimeout(200)
     await shot(page, '06-tools-menu-open')
     await page.keyboard.press('Escape')
@@ -126,10 +126,10 @@ test('captures all surfaces for design review', async () => {
     await page.keyboard.press('Control+e')
     await page.waitForTimeout(300)
 
-    // 15. Open GitHub panel via tools menu
-    await page.locator('.tools-menu-trigger').first().click().catch(() => undefined)
+    // 15. Open GitHub panel via Tools modal
+    await page.getByTestId('btn-open-tools').click().catch(() => undefined)
     await page.waitForTimeout(200)
-    await page.locator('text=GitHub').first().click().catch(() => undefined)
+    await page.getByRole('menuitem', { name: /GitHub/i }).click().catch(() => undefined)
     await page.waitForTimeout(400)
     await shot(page, '15-github-panel')
 
@@ -158,31 +158,31 @@ test('captures all surfaces for design review', async () => {
     await page.keyboard.press('Escape')
     await page.waitForTimeout(200)
 
-    // 18. Scripts panel via tools menu
-    await page.locator('.tools-menu-trigger').first().click().catch(() => undefined)
+    // 18. Scripts panel via Tools modal
+    await page.getByTestId('btn-open-tools').click().catch(() => undefined)
     await page.waitForTimeout(200)
-    await page.locator('text=Scripts').first().click().catch(() => undefined)
+    await page.getByRole('menuitem', { name: /Scripts/i }).click().catch(() => undefined)
     await page.waitForTimeout(400)
     await shot(page, '18-scripts-panel')
 
     // 19. Web preview panel
-    await page.locator('.tools-menu-trigger').first().click().catch(() => undefined)
+    await page.getByTestId('btn-open-tools').click().catch(() => undefined)
     await page.waitForTimeout(200)
-    await page.locator('text=Web Preview').first().click().catch(() => undefined)
+    await page.getByRole('menuitem', { name: /Web Preview/i }).click().catch(() => undefined)
     await page.waitForTimeout(400)
     await shot(page, '19-web-preview-panel')
 
     // 20. Background dock
-    await page.locator('.tools-menu-trigger').first().click().catch(() => undefined)
+    await page.getByTestId('btn-open-tools').click().catch(() => undefined)
     await page.waitForTimeout(200)
-    await page.locator('text=Background').first().click().catch(() => undefined)
+    await page.getByRole('menuitem', { name: /Background Jobs/i }).click().catch(() => undefined)
     await page.waitForTimeout(400)
     await shot(page, '20-background-dock')
 
     // 21. Review panel
-    await page.locator('.tools-menu-trigger').first().click().catch(() => undefined)
+    await page.getByTestId('btn-open-tools').click().catch(() => undefined)
     await page.waitForTimeout(200)
-    await page.locator('text=Review').first().click().catch(() => undefined)
+    await page.getByRole('menuitem', { name: /^Review/i }).click().catch(() => undefined)
     await page.waitForTimeout(400)
     await shot(page, '21-review-panel')
   } finally {

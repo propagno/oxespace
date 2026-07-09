@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
-import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronDown, ChevronRight, Clock, Copy, ExternalLink, Github, GitPullRequest, Link2, Play, RefreshCw, Tag, Terminal, TrendingUp } from 'lucide-react'
+import { AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowUpFromLine, CheckCircle2, ChevronDown, ChevronRight, CircleDot, Clock, Copy, Download, ExternalLink, Github, GitBranch, GitPullRequest, Link2, Play, RefreshCw, Tag, Terminal, TrendingUp } from 'lucide-react'
 import type { GitHubBranch, GitHubCliStatus, GitHubCommit, GitHubCommitDetails, GitHubConnectedRepository, GitHubPanelTab, GitHubPullRequest, GitHubRelease, GitHubWorkflow, GitHubWorkflowJob, GitHubWorkflowRun, GitHubWorkflowRunDetails, GitHubWorkspaceStatus } from '../../../shared/types/github'
 import { selectGitHubWorkspace, useGitHubStore } from '../../store/github.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
@@ -102,6 +102,21 @@ export function GitHubPanel({ activeTab: propTab, onTabChange, rootPath, workspa
               <StatusTab
                 loading={state.loading}
                 status={status}
+                onFetch={() => void useGitHubStore.getState().fetch(input)}
+                onPullFfOnly={() => requestConfirm(
+                  'Pull (fast-forward)',
+                  status?.behind
+                    ? `Baixar ${status.behind} commit${status.behind === 1 ? '' : 's'} do remoto (git pull --ff-only).`
+                    : 'Atualizar a branch local a partir do remoto (fast-forward only).',
+                  () => useGitHubStore.getState().pullFfOnly(input)
+                )}
+                onPush={() => requestConfirm(
+                  'Push to remote',
+                  status?.ahead
+                    ? `Enviar ${status.ahead} commit${status.ahead === 1 ? '' : 's'} para o remoto.`
+                    : 'Enviar a branch atual para o remoto.',
+                  () => useGitHubStore.getState().push(input)
+                )}
                 onStageAll={() => requestConfirm('Stage all', buildStageAllPreview(status), () => useGitHubStore.getState().stageAll(input))}
                 onCommit={(msg) => requestConfirm('Commit', msg, () => useGitHubStore.getState().commit({ ...input, message: msg }))}
                 onGenerateMessage={() => useGitHubStore.getState().generateCommitMessage(input)}
@@ -218,9 +233,12 @@ export function GitHubPanel({ activeTab: propTab, onTabChange, rootPath, workspa
 
 // ─── Status ────────────────────────────────────────────────────────────────
 
-function StatusTab({ loading, status, onStageAll, onCommit, onGenerateMessage, onRefresh }: {
+function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll, onCommit, onGenerateMessage, onRefresh }: {
   loading: boolean
   status: GitHubWorkspaceStatus | null
+  onFetch: () => void
+  onPullFfOnly: () => void
+  onPush: () => void
   onStageAll: () => void
   onCommit: (msg: string) => void
   onGenerateMessage: () => Promise<string>
@@ -231,6 +249,22 @@ function StatusTab({ loading, status, onStageAll, onCommit, onGenerateMessage, o
   const [generating, setGenerating] = useState(false)
   const commitMessage = message.trim()
   const totalFiles = (status?.staged ?? 0) + (status?.modified ?? 0) + (status?.untracked ?? 0)
+  const ahead = status?.ahead ?? 0
+  const behind = status?.behind ?? 0
+  const dirty = status?.hasUncommittedChanges === true
+  const canPull = behind > 0 && !dirty && !loading
+  const canPush = ahead > 0 && !loading
+  const sync = describeSyncState({ ahead, behind, dirty, hasRemote: Boolean(status?.lastPushRelative || status?.repository?.remoteUrl) })
+
+  const pullTitle = behind <= 0
+    ? 'Nada para puxar — rode Fetch se o remoto pode ter mudado.'
+    : dirty
+      ? 'Há mudanças locais sem commit. Commit ou stash antes do Pull.'
+      : `Baixar ${behind} commit${behind === 1 ? '' : 's'} (git pull --ff-only)`
+
+  const pushTitle = ahead <= 0
+    ? 'Nada para enviar — faça commit local primeiro.'
+    : `Enviar ${ahead} commit${ahead === 1 ? '' : 's'} para o remoto`
 
   const handleAutoGenerate = async (checked: boolean): Promise<void> => {
     setAutoGenerate(checked)
@@ -251,24 +285,123 @@ function StatusTab({ loading, status, onStageAll, onCommit, onGenerateMessage, o
       <div className="github-tab-scroll">
         <div className="github-tab-header">
           <div className="github-tab-header-title">
-            <TrendingUp size={14} aria-hidden="true" />
+            <GitBranch size={14} aria-hidden="true" />
             <span>{status?.branch ?? 'no branch'}</span>
           </div>
-          <button type="button" className="gh-icon-btn" title="Refresh" onClick={onRefresh}><RefreshCw size={13} aria-hidden="true" /></button>
+          <div className="github-tab-header-actions">
+            <button
+              type="button"
+              className="gh-icon-btn"
+              title="Atualizar contadores locais"
+              aria-label="Refresh status"
+              disabled={loading}
+              onClick={onRefresh}
+            >
+              <RefreshCw size={13} aria-hidden="true" />
+            </button>
+          </div>
         </div>
         <div className="github-tab-sep" />
-        <div className="github-stats-row github-stats-2">
-          <StatCard label="Last Commit" value={status?.lastCommitRelative ?? 'never'} />
-          <StatCard label="Last Push" value={status?.lastPushRelative ?? 'no remote'} />
-        </div>
-        <div className="github-stats-row github-stats-3">
-          <StatCard label="Staged" value={String(status?.staged ?? 0)} />
-          <StatCard label="Modified" value={String(status?.modified ?? 0)} />
-          <StatCard label="Untracked" value={String(status?.untracked ?? 0)} accent="blue" />
-        </div>
+
+        {/* Sync block — primary, VS Code-like: what to do with the remote */}
+        <section
+          className={`github-sync-card state-${sync.kind}`}
+          data-testid="github-sync-banner"
+          aria-live="polite"
+        >
+          <div className="github-sync-card-main">
+            <span className={`github-sync-icon state-${sync.kind}`} aria-hidden="true">
+              {sync.kind === 'behind' || sync.kind === 'diverged' ? <ArrowDownToLine size={18} />
+                : sync.kind === 'ahead' ? <ArrowUpFromLine size={18} />
+                  : sync.kind === 'dirty-behind' ? <AlertTriangle size={18} />
+                    : <CheckCircle2 size={18} />}
+            </span>
+            <div className="github-sync-copy">
+              <strong data-testid="github-sync-title">{sync.title}</strong>
+              <span data-testid="github-sync-detail">{sync.detail}</span>
+              {(ahead > 0 || behind > 0) ? (
+                <div className="github-sync-pills" aria-label="Commits vs remote">
+                  <span className={`github-sync-pill${ahead > 0 ? ' active up' : ''}`} title="Commits locais ainda não enviados">
+                    <ArrowUpFromLine size={11} aria-hidden="true" />
+                    {ahead} outgoing
+                  </span>
+                  <span className={`github-sync-pill${behind > 0 ? ' active down' : ''}`} title="Commits no remoto ainda não baixados">
+                    <ArrowDownToLine size={11} aria-hidden="true" />
+                    {behind} incoming
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          </div>
+          <div className="github-sync-actions">
+            <button
+              type="button"
+              className="github-sync-btn secondary"
+              data-testid="github-status-fetch"
+              disabled={loading || !status?.isGitRepository}
+              title="Buscar novidades no remoto (git fetch) — não altera seus arquivos"
+              onClick={onFetch}
+            >
+              <Download size={13} aria-hidden="true" />
+              Fetch
+            </button>
+            <button
+              type="button"
+              className={`github-sync-btn${behind > 0 ? ' primary' : ' secondary'}`}
+              data-testid="github-status-update"
+              disabled={!canPull}
+              title={pullTitle}
+              onClick={onPullFfOnly}
+            >
+              <ArrowDownToLine size={13} aria-hidden="true" />
+              Pull{behind > 0 ? ` ${behind}` : ''}
+            </button>
+            <button
+              type="button"
+              className={`github-sync-btn${ahead > 0 && behind === 0 ? ' primary' : ' secondary'}`}
+              data-testid="github-status-push"
+              disabled={!canPush}
+              title={pushTitle}
+              onClick={onPush}
+            >
+              <ArrowUpFromLine size={13} aria-hidden="true" />
+              Push{ahead > 0 ? ` ${ahead}` : ''}
+            </button>
+          </div>
+        </section>
+
+        {/* Local working tree — secondary, like VS Code "Changes" */}
+        <section className="github-changes-card" data-testid="github-changes-card">
+          <div className="github-changes-header">
+            <CircleDot size={14} aria-hidden="true" />
+            <strong>Changes</strong>
+            <span className={`github-changes-total${totalFiles > 0 ? ' has-changes' : ''}`}>
+              {totalFiles === 0 ? 'No local changes' : `${totalFiles} file${totalFiles === 1 ? '' : 's'}`}
+            </span>
+          </div>
+          <div className="github-changes-rows">
+            <div className="github-changes-row">
+              <span>Staged</span>
+              <strong>{status?.staged ?? 0}</strong>
+            </div>
+            <div className="github-changes-row">
+              <span>Modified</span>
+              <strong className={(status?.modified ?? 0) > 0 ? 'warn' : undefined}>{status?.modified ?? 0}</strong>
+            </div>
+            <div className="github-changes-row">
+              <span>Untracked</span>
+              <strong className={(status?.untracked ?? 0) > 0 ? 'info' : undefined}>{status?.untracked ?? 0}</strong>
+            </div>
+          </div>
+          <div className="github-changes-meta">
+            <span>Last commit {status?.lastCommitRelative ?? '—'}</span>
+            <span>·</span>
+            <span>Upstream {status?.lastPushRelative ?? 'not set'}</span>
+          </div>
+        </section>
       </div>
       <div className="github-status-footer">
-        <button type="button" className="github-stage-all-btn" disabled={loading} onClick={onStageAll}>
+        <button type="button" className="github-stage-all-btn" disabled={loading || totalFiles === 0} onClick={onStageAll}>
           Stage All{totalFiles > 0 ? ` (${totalFiles} files)` : ''}
         </button>
         <label className="github-auto-row">
@@ -282,6 +415,57 @@ function StatusTab({ loading, status, onStageAll, onCommit, onGenerateMessage, o
       </div>
     </div>
   )
+}
+
+function describeSyncState(input: {
+  ahead: number
+  behind: number
+  dirty: boolean
+  hasRemote: boolean
+}): { kind: 'ok' | 'behind' | 'ahead' | 'diverged' | 'dirty-behind' | 'unknown'; title: string; detail: string } {
+  const { ahead, behind, dirty, hasRemote } = input
+  if (!hasRemote && ahead === 0 && behind === 0) {
+    return {
+      kind: 'unknown',
+      title: 'Sem tracking remoto claro',
+      detail: 'Rode Fetch. Se a branch não tiver upstream, o Ahead/Behind fica 0 mesmo com novidades no GitHub.'
+    }
+  }
+  if (behind > 0 && ahead > 0) {
+    return {
+      kind: 'diverged',
+      title: 'Branch divergiu do remoto',
+      detail: `${behind} para puxar · ${ahead} para enviar. Pull ff-only pode falhar — use o terminal se precisar de rebase/merge.`
+    }
+  }
+  if (behind > 0 && dirty) {
+    return {
+      kind: 'dirty-behind',
+      title: `${behind} commit${behind === 1 ? '' : 's'} para puxar`,
+      detail: 'Há alterações locais sem commit. Commit ou stash antes do Pull, para não misturar com o remoto.'
+    }
+  }
+  if (behind > 0) {
+    return {
+      kind: 'behind',
+      title: `${behind} commit${behind === 1 ? '' : 's'} para puxar`,
+      detail: 'O remoto tem commits que você ainda não tem. Pull baixa com fast-forward (seguro).'
+    }
+  }
+  if (ahead > 0) {
+    return {
+      kind: 'ahead',
+      title: `${ahead} commit${ahead === 1 ? '' : 's'} para enviar`,
+      detail: 'Seus commits locais ainda não estão no remoto. Push publica a branch.'
+    }
+  }
+  return {
+    kind: 'ok',
+    title: 'Em dia com o remoto',
+    detail: dirty
+      ? 'Nada para puxar/enviar. Você tem mudanças locais — stage e commit abaixo.'
+      : 'Nada para puxar nem enviar. Use Fetch de vez em quando para conferir o remoto.'
+  }
 }
 
 // ─── Checkpoints ───────────────────────────────────────────────────────────

@@ -72,9 +72,23 @@ export function parseWorkspaceCreateInput(value: unknown): CreateWorkspaceInput 
         if (typeof b !== 'object' || b === null) return []
         const binding = b as Record<string, unknown>
         if (typeof binding.paneIndex !== 'number') return []
-        if (typeof binding.agentProfileId !== 'string' || !binding.agentProfileId) return []
-        if (typeof binding.agentName !== 'string' || !binding.agentName) return []
-        return [{ paneIndex: binding.paneIndex, agentProfileId: binding.agentProfileId, agentName: binding.agentName }]
+        const agentProfileId = typeof binding.agentProfileId === 'string' && binding.agentProfileId
+          ? binding.agentProfileId
+          : undefined
+        const agentName = typeof binding.agentName === 'string' && binding.agentName
+          ? binding.agentName
+          : undefined
+        const hasAgent = Boolean(agentProfileId && agentName)
+        const shellProfileId = typeof binding.shellProfileId === 'string' && binding.shellProfileId
+          ? binding.shellProfileId
+          : undefined
+        if (!hasAgent && !shellProfileId) return []
+        return [{
+          paneIndex: binding.paneIndex,
+          agentProfileId: hasAgent ? agentProfileId : undefined,
+          agentName: hasAgent ? agentName : undefined,
+          shellProfileId
+        }]
       })
     : undefined
 

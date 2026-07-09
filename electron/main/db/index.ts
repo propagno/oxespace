@@ -1,11 +1,17 @@
 import Database from 'better-sqlite3'
 import type { Database as DatabaseHandle } from 'better-sqlite3'
 import { app } from 'electron'
-import { mkdirSync, readFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, unlinkSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
+
+/** Highest migration's user_version — bump when adding a migration. Drives the
+ *  pre-migration backup (only back up when an upgrade will actually run). */
+const LATEST_DB_VERSION = 40
+/** How many pre-migration backups to retain. */
+const MAX_DB_BACKUPS = 5
 
 export type AppDatabase = DatabaseHandle
 
@@ -14,13 +20,114 @@ export function resolveAppDatabasePath(): string {
   return join(app.getPath('userData'), 'oxespace.sqlite3')
 }
 
+/** Retry the open on TRANSIENT errors (a stale instance or antivirus briefly
+ *  locking the file during an upgrade surfaces as SQLITE_IOERR/BUSY). Without
+ *  this, a one-off lock permanently dropped the app into "native runtime
+ *  unavailable" for the whole session. Real errors (ABI mismatch, corruption)
+ *  are NOT retried — they fail fast so the user sees the actual cause. */
+const OPEN_MAX_ATTEMPTS = 5
+const OPEN_RETRY_BASE_MS = 150
+
 export function openDatabase(databasePath = resolveAppDatabasePath()): AppDatabase {
   mkdirSync(dirname(databasePath), { recursive: true })
+  let lastErr: unknown
+  for (let attempt = 1; attempt <= OPEN_MAX_ATTEMPTS; attempt++) {
+    try {
+      return openAndMigrate(databasePath)
+    } catch (err) {
+      lastErr = err
+      if (!isTransientDbError(err)) break // corruption/ABI — retrying won't help
+      if (attempt < OPEN_MAX_ATTEMPTS) {
+        // eslint-disable-next-line no-console
+        console.warn(`[db] open attempt ${attempt}/${OPEN_MAX_ATTEMPTS} failed (${dbErrLabel(err)}); retrying…`)
+        sleepSync(OPEN_RETRY_BASE_MS * attempt)
+      }
+    }
+  }
+  // Last resort: a wedged/corrupt -wal or -shm sidecar can keep the DB from
+  // opening. Move them aside (to .bak, recoverable) and try once more.
+  if (isTransientDbError(lastErr) && quarantineWalSidecars(databasePath)) {
+    try { return openAndMigrate(databasePath) } catch (err) { lastErr = err }
+  }
+  throw lastErr
+}
+
+function openAndMigrate(databasePath: string): AppDatabase {
   const db = new Database(databasePath)
-  db.pragma('journal_mode = WAL')
-  db.pragma('foreign_keys = ON')
-  runMigrations(db)
-  return db
+  try {
+    db.pragma('journal_mode = WAL')
+    db.pragma('foreign_keys = ON')
+    // Back up before an upgrade so a bad migration or corruption can't silently
+    // lose every workspace. Only when an existing DB is actually behind.
+    const fromVersion = db.pragma('user_version', { simple: true }) as number
+    if (fromVersion > 0 && fromVersion < LATEST_DB_VERSION) {
+      backupBeforeMigration(db, databasePath, fromVersion)
+    }
+    runMigrations(db)
+    return db
+  } catch (err) {
+    try { db.close() } catch { /* ignore */ }
+    throw err
+  }
+}
+
+function isTransientDbError(err: unknown): boolean {
+  const code = (err as { code?: string } | null)?.code ?? ''
+  const msg = (err as Error | null)?.message ?? ''
+  return /SQLITE_IOERR|SQLITE_BUSY|SQLITE_LOCKED|SQLITE_PROTOCOL/.test(code) ||
+    /disk i\/o error|database is locked/i.test(msg)
+}
+
+function dbErrLabel(err: unknown): string {
+  return (err as { code?: string } | null)?.code || (err as Error | null)?.message || 'unknown'
+}
+
+/** Brief synchronous sleep (startup-only) so a transient lock can clear. */
+function sleepSync(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+}
+
+/** Move the -wal/-shm sidecars to .bak so a wedged WAL can't block the open.
+ *  Uncheckpointed WAL changes would be lost, but at this point the app is
+ *  otherwise unusable; the .bak keeps them recoverable. Returns true if moved. */
+function quarantineWalSidecars(databasePath: string): boolean {
+  let moved = false
+  const stamp = Date.now()
+  for (const suffix of ['-wal', '-shm']) {
+    const p = databasePath + suffix
+    try {
+      if (existsSync(p)) { renameSync(p, `${p}.corrupt-${stamp}.bak`); moved = true }
+    } catch { /* ignore */ }
+  }
+  if (moved) {
+    // eslint-disable-next-line no-console
+    console.warn('[db] quarantined WAL sidecars (.bak) after repeated I/O errors — retrying open')
+  }
+  return moved
+}
+
+/**
+ * Copy the SQLite file to `<userData>/db-backups/` before migrating. WAL-checkpoint
+ * first so the main file is complete, then prune to the most recent N. Best-effort:
+ * a failed backup logs but never blocks startup.
+ */
+function backupBeforeMigration(db: AppDatabase, databasePath: string, fromVersion: number): void {
+  try {
+    db.pragma('wal_checkpoint(TRUNCATE)')
+    const dir = join(dirname(databasePath), 'db-backups')
+    mkdirSync(dir, { recursive: true })
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+    copyFileSync(databasePath, join(dir, `oxespace-v${fromVersion}-${stamp}.sqlite3`))
+    const backups = readdirSync(dir).filter((f) => f.startsWith('oxespace-v') && f.endsWith('.sqlite3')).sort()
+    for (const stale of backups.slice(0, Math.max(0, backups.length - MAX_DB_BACKUPS))) {
+      try { unlinkSync(join(dir, stale)) } catch { /* ignore */ }
+    }
+    // eslint-disable-next-line no-console
+    console.log(`[db] backed up before migration v${fromVersion}→${LATEST_DB_VERSION}`)
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[db] pre-migration backup failed (continuing):', err instanceof Error ? err.message : err)
+  }
 }
 
 export function openInMemoryDatabase(): AppDatabase {
@@ -262,15 +369,40 @@ export function runMigrations(db: AppDatabase): void {
     db.exec(readMigration('039_semantic_embeddings.sql'))
     currentVersion = db.pragma('user_version', { simple: true }) as number
   }
+
+  // 040: binary Float32 embedding storage (additive columns). Idempotent + atomic:
+  // a prior PARTIAL apply (columns added but user_version not bumped — e.g. a crash
+  // or disk-I/O between the ALTERs and the PRAGMA) otherwise wedges every future
+  // boot with "duplicate column name: embedding_blob". Add each column only when
+  // missing and bump the version in ONE transaction so it can't half-apply again.
+  if (currentVersion < 40 || !hasColumn(db, 'semantic_embeddings', 'embedding_blob') || !hasColumn(db, 'semantic_embeddings', 'dim')) {
+    db.transaction(() => {
+      if (!hasColumn(db, 'semantic_embeddings', 'embedding_blob')) {
+        db.exec('ALTER TABLE semantic_embeddings ADD COLUMN embedding_blob BLOB')
+      }
+      if (!hasColumn(db, 'semantic_embeddings', 'dim')) {
+        db.exec('ALTER TABLE semantic_embeddings ADD COLUMN dim INTEGER')
+      }
+      db.pragma('user_version = 40')
+    })()
+    currentVersion = 40
+  }
+
+  if (currentVersion < 41) {
+    db.exec(readMigration('041_grok_cli.sql'))
+  }
 }
 
 function readMigration(name: string): string {
   return readFileSync(join(__dirname, 'migrations', name), 'utf8')
 }
 
+// Direct introspection — no caching. (A memoized variant shipped in v0.2.6 was
+// reverted: a stale/mismatched cache entry could make a guard re-run a migration
+// it should have skipped. The ~1ms saved per boot isn't worth that risk.)
 function hasColumn(db: AppDatabase, table: string, column: string): boolean {
   const columns = db.prepare(`PRAGMA table_info('${table}')`).all() as Array<{ name: string }>
-  return columns.some((item) => item.name === column)
+  return columns.some((c) => c.name === column)
 }
 
 function hasTable(db: AppDatabase, table: string): boolean {

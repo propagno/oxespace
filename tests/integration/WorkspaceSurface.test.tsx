@@ -64,23 +64,20 @@ vi.mock('../../src/components/Workspace/WorkspaceReviewPanel', () => ({
 }))
 
 describe('WorkspaceSurface', () => {
-  test('renders editor as a separate region when visible', () => {
+  test('renders editor as a separate region when visible', async () => {
     renderSurface(createWorkspace({ editorVisible: true }))
 
     expect(screen.getByTestId('workspace-grid')).toBeInTheDocument()
-    expect(screen.getByTestId('workspace-editor-panel')).toBeInTheDocument()
+    // Panels are lazy-loaded — await the async import boundary.
+    expect(await screen.findByTestId('workspace-editor-panel')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Collapse editor' })).toBeInTheDocument()
   })
 
-  test('shows a topbar editor control and persists visibility when collapsed', async () => {
-    const user = userEvent.setup()
-    const onUpdateEditorState = vi.fn()
-    renderSurface(createWorkspace({ editorVisible: false }), { onUpdateEditorState })
+  test('does not render the removed topbar Tools dropdown', () => {
+    renderSurface(createWorkspace())
 
-    await user.click(screen.getByRole('button', { name: 'Tools' }))
-    await user.click(screen.getByRole('menuitem', { name: /Editor/ }))
-
-    expect(onUpdateEditorState).toHaveBeenCalledWith({ workspaceId: 'workspace-1', editorVisible: true, editorExpanded: false })
+    expect(screen.queryByRole('button', { name: 'Tools' })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Workspace status')).toBeInTheDocument()
   })
 
   test('persists expanded and collapsed editor state', async () => {
@@ -102,8 +99,8 @@ describe('WorkspaceSurface', () => {
     renderSurface(createWorkspace(), { scriptsVisible: true, webPreviewVisible: true, onCloseScripts, onCloseWebPreview })
 
     expect(screen.getByTestId('workspace-grid')).toBeInTheDocument()
-    expect(screen.getByTestId('workspace-scripts-panel')).toBeInTheDocument()
-    expect(screen.getByTestId('workspace-web-preview-panel')).toBeInTheDocument()
+    expect(await screen.findByTestId('workspace-scripts-panel')).toBeInTheDocument()
+    expect(await screen.findByTestId('workspace-web-preview-panel')).toBeInTheDocument()
 
     await user.click(screen.getByText('Collapse Scripts'))
     await user.click(screen.getByText('Collapse Web Preview'))
@@ -112,20 +109,16 @@ describe('WorkspaceSurface', () => {
     expect(onCloseWebPreview).toHaveBeenCalled()
   })
 
-  test('renders GitHub panel separately and exposes the OXE tool', async () => {
+  test('renders GitHub panel separately and collapses it', async () => {
     const user = userEvent.setup()
     render(<ControlledSurface />)
 
     expect(screen.getByTestId('workspace-grid')).toBeInTheDocument()
-    expect(screen.getByTestId('workspace-github-panel')).toBeInTheDocument()
+    expect(await screen.findByTestId('workspace-github-panel')).toBeInTheDocument()
 
     await user.click(screen.getByText('Collapse GitHub'))
     expect(screen.getByTestId('workspace-grid')).toBeInTheDocument()
     expect(screen.queryByTestId('workspace-github-panel')).not.toBeInTheDocument()
-
-    // OXE is now a first-class, opt-in tool (decoupled oxe-cc integration).
-    await user.click(screen.getByRole('button', { name: 'Tools' }))
-    expect(screen.getByRole('menuitem', { name: /OXE/ })).toBeInTheDocument()
   })
 })
 
@@ -138,25 +131,22 @@ function renderSurface(
       workspace={workspace}
       maximizedPaneId={null}
       onToggleMaximize={() => undefined}
-      onOpenCommandPalette={() => undefined}
-      onOpenWorkspaceSettings={() => undefined}
-      onOpenHistory={() => undefined}
-      onOpenMcp={() => undefined}
-      onOpenSkills={() => undefined}
-      onOpenScripts={() => undefined}
-      onOpenWebPreview={() => undefined}
-      onToggleOxe={() => undefined}
       scriptsVisible={false}
       webPreviewVisible={false}
+      integrationVisible={false}
       oxeVisible={false}
       onCloseScripts={() => undefined}
       onCloseWebPreview={() => undefined}
+      onCloseIntegration={() => undefined}
       onCloseOxe={() => undefined}
       onRunCommand={() => undefined}
       onUpdateEditorState={() => undefined}
       onUpdateReviewState={() => undefined}
       onUpdateGitHubState={() => undefined}
       onUpdateBackgroundState={() => undefined}
+      onUpdateWorktreeState={() => undefined}
+      onSelectWorkspace={() => undefined}
+      workspaces={[workspace]}
       activePaneId={null}
       {...overrides}
     />
@@ -171,25 +161,22 @@ function ControlledSurface(): ReactElement {
       workspace={workspace}
       maximizedPaneId={null}
       onToggleMaximize={() => undefined}
-      onOpenCommandPalette={() => undefined}
-      onOpenWorkspaceSettings={() => undefined}
-      onOpenHistory={() => undefined}
-      onOpenMcp={() => undefined}
-      onOpenSkills={() => undefined}
-      onOpenScripts={() => undefined}
-      onOpenWebPreview={() => undefined}
-      onToggleOxe={() => undefined}
       scriptsVisible={false}
       webPreviewVisible={false}
+      integrationVisible={false}
       oxeVisible={false}
       onCloseScripts={() => undefined}
       onCloseWebPreview={() => undefined}
+      onCloseIntegration={() => undefined}
       onCloseOxe={() => undefined}
       onRunCommand={() => undefined}
       onUpdateEditorState={(input) => setWorkspace((current) => ({ ...current, ...input }))}
       onUpdateReviewState={(input) => setWorkspace((current) => ({ ...current, ...input }))}
       onUpdateGitHubState={(input) => setWorkspace((current) => ({ ...current, ...input }))}
       onUpdateBackgroundState={(input) => setWorkspace((current) => ({ ...current, ...input }))}
+      onUpdateWorktreeState={(input) => setWorkspace((current) => ({ ...current, ...input }))}
+      onSelectWorkspace={() => undefined}
+      workspaces={[workspace]}
       activePaneId={null}
     />
   )

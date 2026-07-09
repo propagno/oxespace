@@ -47,5 +47,16 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           npm run test:e2e
 
+      # Performance regression visibility. Informational for now (the CPU
+      # micro-benchmarks are deterministic); promote to a hard gate once we
+      # baseline thresholds. The full runtime-fluidity harness lives in
+      # e2e/perf-benchmark.spec.ts for local/manual runs.
+      - name: Performance benchmark (informational)
+        continue-on-error: true
+        run: npx vitest bench --run tests/bench/hotpaths.bench.ts
+
+      # Validates the native rebuild used for packaging still succeeds on the CI
+      # toolchain (npm run dist relies on it). Last because nothing else here
+      # needs the Electron ABI (unit tests use the Node ABI; e2e runs mock-native).
       - name: Rebuild native modules for Electron
         run: npm run rebuild:native

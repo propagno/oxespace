@@ -20,7 +20,8 @@ describe('AgentService', () => {
       expect.objectContaining({ name: 'Copilot', provider: 'copilot', command: 'copilot',       isBuiltin: true }),
       expect.objectContaining({ name: 'Codex',   provider: 'codex',   command: 'codex',         isBuiltin: true }),
       expect.objectContaining({ name: 'Antigravity', provider: 'antigravity', command: 'agy', isBuiltin: true }),
-      expect.objectContaining({ name: 'Cursor',  provider: 'cursor',  command: 'cursor-agent',  isBuiltin: true })
+      expect.objectContaining({ name: 'Cursor',  provider: 'cursor',  command: 'cursor-agent',  isBuiltin: true }),
+      expect.objectContaining({ name: 'Grok CLI', provider: 'grok',   command: 'grok',          isBuiltin: true })
     ])
 
     db.close()
@@ -38,7 +39,7 @@ describe('AgentService', () => {
     })
 
     expect(service.list().map((profile) => profile.provider)).toEqual([
-      'claude', 'copilot', 'codex', 'antigravity', 'cursor'
+      'claude', 'copilot', 'codex', 'antigravity', 'cursor', 'grok'
     ])
     expect(db.prepare("SELECT COUNT(*) AS count FROM agent_profiles WHERE provider = 'codex'").get()).toEqual({ count: 2 })
 
@@ -85,7 +86,7 @@ describe('AgentService', () => {
     const claude = service.list().find((profile) => profile.provider === 'claude')
 
     expect(() => service.delete(claude!.agentProfileId)).toThrow(/built-in/i)
-    expect(service.list()).toHaveLength(5)
+    expect(service.list()).toHaveLength(6)
 
     db.close()
   })
@@ -105,7 +106,8 @@ describe('AgentService', () => {
       expect.objectContaining({ provider: 'copilot', status: 'ready' }),
       expect.objectContaining({ provider: 'codex',   status: 'ready' }),
       expect.objectContaining({ provider: 'antigravity', status: 'ready' }),
-      expect.objectContaining({ provider: 'cursor',  status: 'ready' })
+      expect.objectContaining({ provider: 'cursor',  status: 'ready' }),
+      expect.objectContaining({ provider: 'grok',    status: 'ready' })
     ])
 
     db.close()
@@ -118,12 +120,13 @@ describe('AgentService', () => {
       if (cmd === 'where.exe') throw new Error(`${args[0]} not found`)
       if (cmd === 'C:\\Users\\dudu-\\.local\\bin\\claude.exe') return '2.1.133 (Claude Code)\n'
       if (cmd === 'C:\\Users\\dudu-\\AppData\\Roaming\\npm\\copilot.cmd' && args[0] === '--version' && options?.shell === true) return 'GitHub Copilot v1.0.43\n'
-      // Codex/Antigravity/Cursor fall back to PATH resolution after `where.exe` failure.
+      // Codex/Antigravity/Cursor/Grok fall back to PATH resolution after `where.exe` failure.
       // On developer machines the command may resolve to a real .cmd shim already
       // present on PATH, so assert by executable basename rather than exact path.
       if (/[\\/]?codex(?:\.cmd|\.exe)?$/i.test(cmd)) return 'codex 1.0.0\n'
       if (/[\\/]?agy(?:\.cmd|\.exe)?$/i.test(cmd)) return 'antigravity 1.0.0\n'
       if (/[\\/]?cursor-agent(?:\.cmd|\.exe)?$/i.test(cmd)) return 'cursor-agent 1.0.0\n'
+      if (/[\\/]?grok(?:\.cmd|\.exe)?$/i.test(cmd)) return 'grok 1.0.0\n'
       throw new Error(`unexpected command: ${cmd} ${args.join(' ')}`)
     })
 
@@ -136,7 +139,8 @@ describe('AgentService', () => {
       expect.objectContaining({ provider: 'copilot', status: 'ready', version: 'GitHub Copilot v1.0.43' }),
       expect.objectContaining({ provider: 'codex',   status: 'ready', version: 'codex 1.0.0' }),
       expect.objectContaining({ provider: 'antigravity', status: 'ready', version: 'antigravity 1.0.0' }),
-      expect.objectContaining({ provider: 'cursor',  status: 'ready', version: 'cursor-agent 1.0.0' })
+      expect.objectContaining({ provider: 'cursor',  status: 'ready', version: 'cursor-agent 1.0.0' }),
+      expect.objectContaining({ provider: 'grok',    status: 'ready', version: 'grok 1.0.0' })
     ])
 
     db.close()
@@ -154,7 +158,8 @@ describe('AgentService', () => {
       expect.objectContaining({ provider: 'copilot', status: 'missing' }),
       expect.objectContaining({ provider: 'codex',   status: 'missing' }),
       expect.objectContaining({ provider: 'antigravity', status: 'missing' }),
-      expect.objectContaining({ provider: 'cursor',  status: 'missing' })
+      expect.objectContaining({ provider: 'cursor',  status: 'missing' }),
+      expect.objectContaining({ provider: 'grok',    status: 'missing' })
     ])
 
     db.close()
@@ -181,8 +186,8 @@ describe('AgentService', () => {
     service.discover(true)
 
     const cached = service.getCachedReadiness()
-    expect(cached).toHaveLength(5)
-    expect(cached.map((result) => result.provider)).toEqual(['claude', 'copilot', 'codex', 'antigravity', 'cursor'])
+    expect(cached).toHaveLength(6)
+    expect(cached.map((result) => result.provider)).toEqual(['claude', 'copilot', 'codex', 'antigravity', 'cursor', 'grok'])
 
     db.close()
   })

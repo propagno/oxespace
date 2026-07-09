@@ -6,7 +6,9 @@ import type { AppDatabase } from '../db/index'
 import { WorkspaceService } from './workspace.service'
 import { ShellProfileService } from './shell-profile.service'
 import { killProcess } from '../utils/process-cleanup'
-import { RtkService } from './rtk.service'
+import { getRtkService, type RtkService } from './rtk.service'
+import { PtyInputQueue } from './pty-input-queue'
+import { PtyOutputBatcher } from './pty-output-batcher'
 import type { TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStartInput, TerminalStopInput, TerminalWriteInput } from '../../../shared/types/ipc'
 
 interface PtyModule {
@@ -28,6 +30,8 @@ interface TerminalSession {
   pty: IPty
   agentCommand?: string
   disableRtk?: boolean
+  inputQueue: PtyInputQueue
+  outputBatcher: PtyOutputBatcher
 }
 
 export class TerminalManager {
@@ -53,7 +57,7 @@ export class TerminalManager {
     // In production, app.getPath is available via electron.
     // In tests, we pass userDataPath explicitly to avoid depending on electron.app.
     const userDataPath = options.userDataPath ?? require('electron').app?.getPath('userData') ?? ''
-    this.rtkService = new RtkService(userDataPath)
+    this.rtkService = getRtkService(userDataPath)
   }
 
   async start(input: TerminalStartInput): Promise<void> {
@@ -121,8 +125,19 @@ export class TerminalManager {
       throw new Error(`Unable to start ${shellProfile.name}. Check Settings > Shell profiles executable "${shellProfile.executable}". ${toMessage(error)}`)
     }
 
-    ptyProcess.onData((data) => this.emitData({ paneId: input.paneId, data }))
+    this.sessions.set(input.paneId, {
+      paneId: input.paneId,
+      workspaceId: input.workspaceId,
+      pty: ptyProcess,
+      agentCommand: input.agentCommand,
+      disableRtk: input.disableRtk,
+      inputQueue: new PtyInputQueue(ptyProcess),
+      outputBatcher: new PtyOutputBatcher(input.paneId, this.emitData)
+    })
+
+    ptyProcess.onData((data) => this.sessions.get(input.paneId)?.outputBatcher.push(data))
     ptyProcess.onExit(({ exitCode }) => {
+      this.sessions.get(input.paneId)?.outputBatcher.flush()
       this.sessions.delete(input.paneId)
       this.emitExit({ paneId: input.paneId, exitCode })
     })
@@ -134,23 +149,19 @@ export class TerminalManager {
         sent = true
         setTimeout(() => {
           if (this.sessions.has(input.paneId)) {
-            ptyProcess.write(input.initialPrompt! + '\r')
+            this.sessions.get(input.paneId)?.inputQueue.enqueue(input.initialPrompt! + '\r')
           }
         }, 800)
       })
     }
 
-    this.sessions.set(input.paneId, {
-      paneId: input.paneId,
-      workspaceId: input.workspaceId,
-      pty: ptyProcess,
-      agentCommand: input.agentCommand,
-      disableRtk: input.disableRtk
-    })
   }
 
-  write(input: TerminalWriteInput): void {
-    this.sessions.get(input.paneId)?.pty.write(input.data)
+  async write(input: TerminalWriteInput): Promise<void> {
+    const session = this.sessions.get(input.paneId)
+    if (!session || !input.data) return
+
+    await session.inputQueue.enqueue(input.data)
   }
 
   resize(input: TerminalResizeInput): void {
@@ -160,6 +171,8 @@ export class TerminalManager {
   stop(input: TerminalStopInput): void {
     const session = this.sessions.get(input.paneId)
     if (!session) return
+    session.inputQueue.dispose()
+    session.outputBatcher.dispose()
     killProcess(session.pty)
     this.sessions.delete(input.paneId)
   }
@@ -196,6 +209,7 @@ export class TerminalManager {
     }
     return session
   }
+
 }
 
 export function resolveExecutable(

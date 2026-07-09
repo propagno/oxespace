@@ -26,7 +26,8 @@ const SHELL_PROFILE_BY_PROVIDER: Partial<Record<AgentProvider, string>> = {
   claude: 'builtin-claude',
   codex: 'builtin-codex',
   antigravity: 'builtin-antigravity',
-  cursor: 'builtin-cursor'
+  cursor: 'builtin-cursor',
+  grok: 'builtin-grok'
 }
 
 interface AgentProfileRow {

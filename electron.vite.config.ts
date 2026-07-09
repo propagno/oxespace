@@ -135,7 +135,21 @@ export default defineConfig({
     },
     build: {
       rollupOptions: {
-        input: resolve(__dirname, 'index.html')
+        input: resolve(__dirname, 'index.html'),
+        output: {
+          // Split heavy vendors out of the entry chunk so first paint doesn't
+          // parse/execute Monaco, xterm, etc. Combined with the React.lazy panel
+          // splits, this shrinks the initial bundle (was a ~9MB monolith).
+          manualChunks(id: string) {
+            if (!id.includes('node_modules')) return undefined
+            if (id.includes('monaco-editor')) return 'monaco'
+            if (id.includes('@xterm')) return 'xterm'
+            if (id.includes('react-dom') || id.includes('/scheduler/') || /[\\/]react[\\/]/.test(id)) return 'react-vendor'
+            if (id.includes('lucide-react')) return 'icons'
+            if (id.includes('@xenova') || id.includes('onnxruntime')) return 'ml'
+            return 'vendor'
+          }
+        }
       }
     }
   }

@@ -5,6 +5,8 @@ interface UIState {
   maximizedPaneId: string | null
   isSidebarCollapsed: boolean
   isSettingsOpen: boolean
+  /** Tools hub modal (sidebar gear) — distinct from agent Settings. */
+  isToolsOpen: boolean
   isCommandPaletteOpen: boolean
   isWorkspaceSettingsOpen: boolean
   slashOverlayPaneId: string | null
@@ -46,6 +48,8 @@ interface UIState {
   setPendingWebPreview: (value: { workspaceId: string; url: string } | null) => void
   openIntegrationPanel: () => void
   closeIntegrationPanel: () => void
+  openTools: () => void
+  closeTools: () => void
   toggleSettings: () => void
   toggleSidebar: () => void
 }
@@ -55,6 +59,7 @@ export const useUIStore = create<UIState>((set) => ({
   maximizedPaneId: null,
   isSidebarCollapsed: false,
   isSettingsOpen: false,
+  isToolsOpen: false,
   isCommandPaletteOpen: false,
   isWorkspaceSettingsOpen: false,
   slashOverlayPaneId: null,
@@ -92,6 +97,8 @@ export const useUIStore = create<UIState>((set) => ({
   setPendingWebPreview: (value) => set({ pendingWebPreview: value }),
   openIntegrationPanel: () => set({ isIntegrationPanelOpen: true }),
   closeIntegrationPanel: () => set({ isIntegrationPanelOpen: false }),
+  openTools: () => set({ isToolsOpen: true }),
+  closeTools: () => set({ isToolsOpen: false }),
   toggleSettings: () => set((s) => ({ isSettingsOpen: !s.isSettingsOpen })),
   toggleSidebar: () => set((s) => ({ isSidebarCollapsed: !s.isSidebarCollapsed }))
 }))

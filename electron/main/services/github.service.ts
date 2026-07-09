@@ -219,6 +219,18 @@ export class GitHubService {
     return ok('Fetch concluído.')
   }
 
+  /**
+   * Fast-forward only pull. Safe default for the Status "Update" action —
+   * diverged branches fail with a clear error instead of creating a merge.
+   */
+  async pullFfOnly(input: GitHubWorkspaceInput): Promise<GitHubMessageResult> {
+    if (await this.hasWorkingTreeChanges(input.rootPath)) {
+      throw new Error('Working tree possui mudanças. Faça commit ou stash antes de atualizar a branch.')
+    }
+    await this.runGit(['pull', '--ff-only'], input.rootPath)
+    return ok('Branch atualizada (fast-forward).')
+  }
+
   async stageAll(input: GitHubWorkspaceInput): Promise<GitHubMessageResult> {
     await this.runGit(['add', '-A'], input.rootPath)
     return ok('Arquivos adicionados ao stage.')

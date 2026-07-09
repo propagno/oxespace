@@ -30,10 +30,12 @@ const readiness: AgentReadiness[] = [
 ]
 
 describe('Settings agents UI', () => {
-  test('renders settings as a modal with AI Providers section and official profiles', async () => {
+  test('renders Agent Settings modal with AI Providers and official profiles', async () => {
     const user = userEvent.setup()
     const onDiscoverAgents = vi.fn()
     const onClose = vi.fn()
+    const onConfigureAgent = vi.fn()
+    const onNewCustomAgent = vi.fn()
 
     render(
       <SettingsModal
@@ -42,21 +44,117 @@ describe('Settings agents UI', () => {
         isDiscoveringAgents={false}
         onClose={onClose}
         onDiscoverAgents={onDiscoverAgents}
+        onConfigureAgent={onConfigureAgent}
+        onNewCustomAgent={onNewCustomAgent}
       />
     )
 
-    expect(screen.getByRole('dialog', { name: 'Settings' })).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Agent Settings' })).toBeInTheDocument()
+    expect(screen.getByTestId('settings-modal')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /AI Providers/i })).toBeInTheDocument()
     expect(screen.getByText('Claude')).toBeInTheDocument()
-    expect(screen.getByText('Copilot')).toBeInTheDocument()
-    expect(screen.getByText('claude')).toBeInTheDocument()
-    expect(screen.getByText('copilot')).toBeInTheDocument()
+    expect(screen.getByText('Ready')).toBeInTheDocument()
+    expect(screen.getByText('claude 2.1.132')).toBeInTheDocument()
+    // Missing CLIs are collapsed by default
+    expect(screen.queryByText('Copilot')).not.toBeInTheDocument()
+    expect(screen.getByTestId('btn-toggle-missing-providers')).toHaveTextContent(/1 not installed/i)
+    expect(screen.getByRole('button', { name: /Health check/i })).toBeInTheDocument()
+    expect(screen.getByTestId('providers-summary')).toHaveTextContent(/1 ready/i)
+
+    // Already has readiness — do not auto-probe again on open
+    expect(onDiscoverAgents).not.toHaveBeenCalled()
 
     await user.click(screen.getByTestId('btn-discover-agents'))
-    expect(onDiscoverAgents).toHaveBeenCalled()
+    expect(onDiscoverAgents).toHaveBeenCalledTimes(1)
+
+    await user.click(screen.getByTestId('btn-configure-agent-claude'))
+    expect(onConfigureAgent).toHaveBeenCalledWith(profiles[0])
+
+    await user.click(screen.getByTestId('btn-toggle-missing-providers'))
+    expect(screen.getByText('Copilot')).toBeInTheDocument()
+    expect(screen.getByText('Not installed')).toBeInTheDocument()
+    expect(screen.getByTestId('btn-configure-agent-copilot')).toHaveTextContent(/Fix path/i)
+
+    await user.click(screen.getByTestId('btn-new-custom-agent'))
+    expect(onNewCustomAgent).toHaveBeenCalled()
 
     await user.click(screen.getByLabelText('Close'))
     expect(onClose).toHaveBeenCalled()
+  })
+
+  test('auto-runs health check when readiness is unknown', () => {
+    const onDiscoverAgents = vi.fn()
+
+    render(
+      <SettingsModal
+        agentProfiles={profiles}
+        agentReadiness={[]}
+        isDiscoveringAgents={false}
+        onClose={vi.fn()}
+        onDiscoverAgents={onDiscoverAgents}
+        onConfigureAgent={vi.fn()}
+        onNewCustomAgent={vi.fn()}
+      />
+    )
+
+    expect(onDiscoverAgents).toHaveBeenCalledTimes(1)
+    expect(screen.getByTestId('providers-summary')).toHaveTextContent(/Not checked yet|Detecting/i)
+  })
+
+  test('Escape closes the modal', async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+
+    render(
+      <SettingsModal
+        agentProfiles={profiles}
+        agentReadiness={readiness}
+        isDiscoveringAgents={false}
+        onClose={onClose}
+        onDiscoverAgents={vi.fn()}
+        onConfigureAgent={vi.fn()}
+        onNewCustomAgent={vi.fn()}
+      />
+    )
+
+    await user.keyboard('{Escape}')
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  test('navigates between settings sections', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <SettingsModal
+        agentProfiles={profiles}
+        agentReadiness={readiness}
+        isDiscoveringAgents={false}
+        onClose={vi.fn()}
+        onDiscoverAgents={vi.fn()}
+        onConfigureAgent={vi.fn()}
+        onNewCustomAgent={vi.fn()}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /^Terminal$/i }))
+    expect(screen.getByRole('heading', { name: 'Terminal' })).toBeInTheDocument()
+    expect(screen.getByText(/terminal preview/i)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /^Notifications$/i }))
+    expect(screen.getByRole('heading', { name: 'Notifications' })).toBeInTheDocument()
+    expect(screen.getByRole('switch', { name: /Notify when an agent needs you/i })).toBeInTheDocument()
+    expect(screen.getByTestId('btn-test-notification')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /^Updates$/i }))
+    expect(screen.getByRole('heading', { name: 'Updates' })).toBeInTheDocument()
+    expect(screen.getByTestId('settings-app-update')).toBeInTheDocument()
+    // Default store is disabled/dev until packaged bootstrap — honest UX
+    expect(screen.getByTestId('app-update-pill')).toHaveTextContent(/Dev build/i)
+    expect(screen.getByTestId('btn-check-app-updates')).toBeDisabled()
+    expect(screen.getByTestId('btn-check-app-updates')).toHaveTextContent(/Unavailable in dev/i)
+    expect(screen.getByTestId('settings-rtk-update')).toBeInTheDocument()
+    expect(screen.getByTestId('btn-update-rtk')).toBeInTheDocument()
+    expect(screen.getByTestId('settings-bundled-tools')).toBeInTheDocument()
   })
 
   test('built-in modal allows command edits without delete or secret fields', async () => {

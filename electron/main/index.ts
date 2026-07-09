@@ -1,5 +1,7 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
 import log from 'electron-log/main.js'
+import { initAutoUpdater, registerAppUpdateIpc } from './updater'
+import { getRtkService } from './services/rtk.service'
 import { randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -42,6 +44,27 @@ import type { ShellProfile, Workspace, WorkspaceLayout, WorkspaceLayoutPreset } 
 
 log.initialize()
 
+// Local crash capture: writes minidumps to <userData>/Crashpad on a renderer/GPU/
+// main crash. uploadToServer:false keeps them on-device (privacy) — a future
+// telemetry endpoint can flip this. Must be called before `app` is ready.
+try {
+  crashReporter.start({ submitURL: '', uploadToServer: false, compress: true })
+} catch (err) {
+  log.warn('[main] crashReporter init failed:', err instanceof Error ? err.message : err)
+}
+
+// Global safety net: a stray throw or rejected promise in the main process must
+// be logged (electron-log writes to userData/logs/main.log) rather than crash the
+// app or vanish silently. These are last-resort catches — handlers should still
+// deal with their own errors; this just keeps a single bug from taking the app
+// down and gives us a forensic trail.
+process.on('uncaughtException', (error) => {
+  log.error('[main] uncaughtException', error)
+})
+process.on('unhandledRejection', (reason) => {
+  log.error('[main] unhandledRejection', reason)
+})
+
 const isDev = !app.isPackaged
 if (isDev) {
   app.setPath('userData', join(app.getPath('appData'), 'oxespace-dev'))
@@ -50,12 +73,23 @@ let ipcRegistered = false
 const clipboardImageTempFiles = new Set<string>()
 const CLIPBOARD_IMAGE_TTL_MS = 30 * 60 * 1000
 
-function registerIpcHandlers(): void {
-  if (ipcRegistered) return
+// Returns a `deferredInit` callback for non-critical, potentially slow startup
+// work (internal MCP server: RPC port bind + .mcp.json rewrites across all
+// workspaces). The caller runs it AFTER the main window is shown so the first
+// paint isn't blocked behind it. No-op for the mock/native-failure paths.
+function registerIpcHandlers(): () => void {
+  const noop = (): void => {}
+  if (ipcRegistered) return noop
+
+  // App update + RTK sidecar IPC are always registered (even on native failure
+  // / e2e mocks below) so Settings and the update banner keep working.
+  registerAppUpdateIpc()
+  registerRtkIpc()
+
   if (process.env.OXESPACE_E2E_MOCK_NATIVE === '1') {
     registerE2eMockIpcHandlers()
     ipcRegistered = true
-    return
+    return noop
   }
 
   let db: ReturnType<typeof openDatabase>
@@ -65,7 +99,7 @@ function registerIpcHandlers(): void {
     log.error('Native startup failed', error)
     registerNativeFailureIpcHandlers(toMessage(error))
     ipcRegistered = true
-    return
+    return noop
   }
 
   const terminalManager = new TerminalManager(db, {
@@ -165,7 +199,6 @@ function registerIpcHandlers(): void {
     codegraph: codeGraphService
   })
   registerMcpInternalIpc(internalMcp)
-  void internalMcp.start()
   // OXESpace context manifest — prepended to the agent's initial prompt on
   // pane spawn so the CLI knows the workspace state without calling any MCP
   // tool. Read shortcut; MCP is still the action path (see oxe-context.service.ts).
@@ -189,6 +222,18 @@ function registerIpcHandlers(): void {
     void internalMcp.stop()
   })
   ipcRegistered = true
+  // Deferred until after the window is shown — all of this is non-critical for
+  // first paint and was previously blocking it (sync .mcp.json rewrites, skill
+  // folder scan, orphan-job UPDATE, RPC port bind). Order matters: primeConfigs()
+  // writes each workspace's .mcp.json from the table; internalMcp.start() then
+  // rewrites its own row with the live port last.
+  return () => {
+    mcpManager.primeConfigs()
+    skillService.init()
+    backgroundManager.init()
+    void internalMcp.start()
+    initAutoUpdater()
+  }
 }
 
 function registerNativeFailureIpcHandlers(message: string): void {
@@ -351,6 +396,12 @@ function registerE2eMockIpcHandlers(): void {
       githubPanelExpanded: false,
       githubPanelWidthPercent: 40,
       githubActiveTab: 'status',
+      backgroundPanelVisible: false,
+      backgroundPanelExpanded: false,
+      backgroundPanelWidthPercent: 28,
+      worktreePanelVisible: false,
+      worktreePanelExpanded: false,
+      worktreePanelWidthPercent: 36,
       panes: []
     }
     workspace.panes = createMockPanes(workspace.id, layout)
@@ -440,6 +491,22 @@ function registerE2eMockIpcHandlers(): void {
     workspace.githubPanelExpanded = input.githubPanelExpanded ?? workspace.githubPanelExpanded
     workspace.githubPanelWidthPercent = input.githubPanelWidthPercent ?? workspace.githubPanelWidthPercent
     workspace.githubActiveTab = input.githubActiveTab ?? workspace.githubActiveTab
+    return workspace
+  })
+  ipcMain.handle(IPC_CHANNELS.workspace.updateBackgroundState, (_event: IpcMainInvokeEvent, input: { workspaceId: string; backgroundPanelVisible?: boolean; backgroundPanelExpanded?: boolean; backgroundPanelWidthPercent?: number }) => {
+    const workspace = workspaces.find((item) => item.id === input.workspaceId)
+    if (!workspace) throw new Error(`Workspace ${input.workspaceId} not found`)
+    workspace.backgroundPanelVisible = input.backgroundPanelVisible ?? workspace.backgroundPanelVisible
+    workspace.backgroundPanelExpanded = input.backgroundPanelExpanded ?? workspace.backgroundPanelExpanded
+    workspace.backgroundPanelWidthPercent = input.backgroundPanelWidthPercent ?? workspace.backgroundPanelWidthPercent
+    return workspace
+  })
+  ipcMain.handle(IPC_CHANNELS.workspace.updateWorktreeState, (_event: IpcMainInvokeEvent, input: { workspaceId: string; worktreePanelVisible?: boolean; worktreePanelExpanded?: boolean; worktreePanelWidthPercent?: number }) => {
+    const workspace = workspaces.find((item) => item.id === input.workspaceId)
+    if (!workspace) throw new Error(`Workspace ${input.workspaceId} not found`)
+    workspace.worktreePanelVisible = input.worktreePanelVisible ?? workspace.worktreePanelVisible
+    workspace.worktreePanelExpanded = input.worktreePanelExpanded ?? workspace.worktreePanelExpanded
+    workspace.worktreePanelWidthPercent = input.worktreePanelWidthPercent ?? workspace.worktreePanelWidthPercent
     return workspace
   })
   ipcMain.handle(IPC_CHANNELS.workspace.updateSettings, (_event: IpcMainInvokeEvent, input: { workspaceId: string; themeId?: Workspace['themeId']; uiDensity?: Workspace['uiDensity']; defaultShellProfileId?: string; layoutPreset?: WorkspaceLayoutPreset }) => {
@@ -554,6 +621,7 @@ function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.github.listCheckpoints, () => [])
   ipcMain.handle(IPC_CHANNELS.github.listConnectedRepositories, () => [])
   ipcMain.handle(IPC_CHANNELS.github.fetch, () => ({ ok: true, message: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.github.pullFfOnly, () => ({ ok: true, message: 'E2E mock mode' }))
   ipcMain.handle(IPC_CHANNELS.github.stageAll, () => ({ ok: true, message: 'E2E mock mode' }))
   ipcMain.handle(IPC_CHANNELS.github.commit, () => ({ ok: true, message: 'E2E mock mode' }))
   ipcMain.handle(IPC_CHANNELS.github.push, () => ({ ok: true, message: 'E2E mock mode' }))
@@ -642,6 +710,30 @@ function registerE2eMockIpcHandlers(): void {
     const group = integrationGroups.find((item) => item.id === input.groupId)
     return { groupId: input.groupId, text: group ? `# Integration context: ${group.name}\n\nGoal: ${group.goal}` : '' }
   })
+
+  // ── Catch-all safety net (E2E) ──────────────────────────────────────────────
+  // Any IPC channel NOT explicitly mocked above gets a safe, shaped empty default
+  // so an unstubbed feature (Worktrees, Background jobs, Scripts, Web Preview, …)
+  // can't crash the app under test by invoking a handler that doesn't exist.
+  // Shapes satisfy the common consumers: lists do .map(), outputs read .lines,
+  // statuses read props. ipcMain.handle throws on a duplicate channel, so the
+  // try/catch lets the explicit mocks above win and only fills the gaps.
+  const channelDefault = (channel: string): unknown => {
+    if (/get-output/i.test(channel)) return { jobId: '', startSequence: 0, lines: [] }
+    if (/(^|:|-)list|executions|get-ready|profiles|branches|worktrees|releases|commits|workflows|checkpoints|repositories|groups|handoffs|logs/i.test(channel)) return []
+    if (/status|usage|credits|summary|detect|get-state|getStatus/i.test(channel)) return {}
+    if (/manifest|build-pane/i.test(channel)) return ''
+    return null
+  }
+  const flattenChannels = (obj: Record<string, unknown>): string[] =>
+    Object.values(obj).flatMap((v) => (typeof v === 'string' ? [v] : flattenChannels(v as Record<string, unknown>)))
+  for (const channel of flattenChannels(IPC_CHANNELS as unknown as Record<string, unknown>)) {
+    try {
+      ipcMain.handle(channel, () => channelDefault(channel))
+    } catch {
+      // Already registered by an explicit mock above — keep that one.
+    }
+  }
 }
 
 function createMockPanes(workspaceId: string, layout: WorkspaceLayout): Workspace['panes'] {
@@ -694,6 +786,20 @@ function layoutToPreset(layout: WorkspaceLayout): WorkspaceLayoutPreset {
     16: '4x4'
   }).find(([, value]) => value === layout)?.[0]
   return (Number(preset ?? 4) as WorkspaceLayoutPreset)
+}
+
+function registerRtkIpc(): void {
+  const rtk = getRtkService(app.getPath('userData'))
+  ipcMain.handle(IPC_CHANNELS.rtk.getStatus, () => rtk.getStatus())
+  ipcMain.handle(IPC_CHANNELS.rtk.checkForUpdate, () => rtk.checkForUpdate(true))
+  ipcMain.handle(IPC_CHANNELS.rtk.updateToLatest, async () => {
+    try {
+      return await rtk.updateToLatest()
+    } catch (err) {
+      // Surface structured status with error rather than rejecting — UI can show it.
+      return rtk.getStatus()
+    }
+  })
 }
 
 function toMessage(error: unknown): string {
@@ -826,8 +932,22 @@ if (!gotLock) {
   app.quit()
 } else {
   app.whenReady().then(() => {
-    registerIpcHandlers()
-    createMainWindow()
+    const deferredInit = registerIpcHandlers()
+    const mainWindow = createMainWindow()
+    // Kick off the heavy, non-critical startup work once the window is painting.
+    // Idempotent + fallback: if ready-to-show never fires (renderer fails to load,
+    // render-process-gone, or a slow first paint), a 3s timer still runs the
+    // deferred init so the internal MCP server / config sync don't silently never
+    // start. setImmediate yields so the first frame lands before the heavy work.
+    let kicked = false
+    const kick = (): void => {
+      if (kicked) return
+      kicked = true
+      setImmediate(deferredInit)
+    }
+    mainWindow.once('ready-to-show', kick)
+    const fallbackTimer = setTimeout(kick, 3000)
+    fallbackTimer.unref?.()
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {

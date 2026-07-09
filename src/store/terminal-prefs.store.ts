@@ -21,19 +21,31 @@ export interface TerminalPrefs {
   cursorStyle: TerminalCursorStyle
   cursorBlink: boolean
   scrollback: number
+  /** 1 = opaque card. Below 1 the terminal surface goes translucent (blur behind). */
+  backgroundOpacity: number
   rtkHookEnabled: boolean
   cavemanModeEnabled: boolean
   semanticSearchEnabled: boolean
 }
 
+/** Pre-v4 default, matched in the v4 migration to roll users forward. */
+const LEGACY_DEFAULT_FONT = 'Cascadia Mono, Consolas, monospace'
+
 export const TERMINAL_PREFS_DEFAULTS: TerminalPrefs = {
-  fontFamily: 'Cascadia Mono, Consolas, monospace',
+  fontFamily: 'JetBrains Mono, Cascadia Mono, Consolas, monospace',
   fontSize: 14,
-  lineHeight: 1.2,
+  // Looser leading + a non-blinking bar caret make the terminal read like a
+  // chat/editor surface rather than a raw console. See features.css for the
+  // matching padded, lifted, rounded panel treatment.
+  lineHeight: 1.4,
   letterSpacing: 0,
-  cursorStyle: 'block',
-  cursorBlink: true,
-  scrollback: 100_000,
+  cursorStyle: 'bar',
+  cursorBlink: false,
+  // 100k retained lines per mounted pane makes xterm selection and clipboard
+  // operations noticeably unreliable in long-lived agent sessions. 50k still
+  // retains extensive history while keeping the terminal responsive.
+  scrollback: 50_000,
+  backgroundOpacity: 1,
   // RTK, Caveman and Semantic are opt-in developer features — off by default so
   // a fresh workspace does no extra token transforms or background indexing.
   // The user enables them via the toolbar chips when wanted.
@@ -81,7 +93,7 @@ export const useTerminalPrefsStore = create<TerminalPrefsState>()(
     }),
     {
       name: 'oxe-terminal-prefs',
-      version: 2,
+      version: 5,
       // v2: RTK/Caveman/Semantic became opt-in (off by default). Existing users
       // have a persisted `global` from when RTK/Semantic defaulted to ON, and
       // `merge` spreads persisted over defaults — so without this migration the
@@ -93,11 +105,24 @@ export const useTerminalPrefsStore = create<TerminalPrefsState>()(
         const global = { ...TERMINAL_PREFS_DEFAULTS, ...(p.global ?? {}) }
         global.rtkHookEnabled = false
         global.semanticSearchEnabled = false
+        // v3 (chat-like terminal): roll the new soft look forward ONLY for users
+        // who never customized these — preserve deliberate choices. Anyone still
+        // on the old hard-console defaults gets the bar caret / looser leading.
+        if (global.cursorStyle === 'block') global.cursorStyle = 'bar'
+        if (global.cursorBlink === true) global.cursorBlink = false
+        if (global.lineHeight === 1.2) global.lineHeight = 1.4
+        // v4 (modern terminal card): prefer JetBrains Mono for users who never
+        // picked a font themselves — anyone with a custom stack keeps it.
+        if (global.fontFamily === LEGACY_DEFAULT_FONT) global.fontFamily = TERMINAL_PREFS_DEFAULTS.fontFamily
+        // v5: roll the old 100k default forward. Explicitly larger/smaller
+        // values remain untouched as a deliberate user preference.
+        if (global.scrollback === 100_000) global.scrollback = TERMINAL_PREFS_DEFAULTS.scrollback
         const overrides: Record<string, Partial<TerminalPrefs>> = {}
         for (const [ws, ov] of Object.entries(p.overrides ?? {})) {
           const next = { ...(ov as Partial<TerminalPrefs>) }
           delete next.rtkHookEnabled
           delete next.semanticSearchEnabled
+          if (next.scrollback === 100_000) next.scrollback = TERMINAL_PREFS_DEFAULTS.scrollback
           if (Object.keys(next).length > 0) overrides[ws] = next
         }
         return { ...p, global, overrides }

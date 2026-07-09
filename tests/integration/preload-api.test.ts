@@ -27,6 +27,7 @@ describe('preload api', () => {
     await api.github.getCliStatus({ workspaceId: 'workspace-1', rootPath: 'C:/repo' })
     await api.github.getWorkspaceStatus({ workspaceId: 'workspace-1', rootPath: 'C:/repo' })
     await api.github.fetch({ workspaceId: 'workspace-1', rootPath: 'C:/repo' })
+    await api.github.pullFfOnly({ workspaceId: 'workspace-1', rootPath: 'C:/repo' })
     await api.github.stageAll({ workspaceId: 'workspace-1', rootPath: 'C:/repo' })
     await api.github.commit({ workspaceId: 'workspace-1', rootPath: 'C:/repo', message: 'init' })
     await api.github.generateCommitMessage({ workspaceId: 'workspace-1', rootPath: 'C:/repo' })
@@ -77,6 +78,7 @@ describe('preload api', () => {
     expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.github.getCliStatus, { workspaceId: 'workspace-1', rootPath: 'C:/repo' })
     expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.github.getWorkspaceStatus, { workspaceId: 'workspace-1', rootPath: 'C:/repo' })
     expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.github.fetch, { workspaceId: 'workspace-1', rootPath: 'C:/repo' })
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.github.pullFfOnly, { workspaceId: 'workspace-1', rootPath: 'C:/repo' })
     expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.github.stageAll, { workspaceId: 'workspace-1', rootPath: 'C:/repo' })
     expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.github.commit, { workspaceId: 'workspace-1', rootPath: 'C:/repo', message: 'init' })
     expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.github.generateCommitMessage, { workspaceId: 'workspace-1', rootPath: 'C:/repo' })
@@ -106,7 +108,7 @@ describe('preload api', () => {
   test('returns unsubscribe functions for terminal and task listeners', () => {
     const ipc = createFakeIpc()
     const api = createOxeApi(ipc)
-    const unsubscribe = api.terminal.onData(() => undefined)
+    const unsubscribe = api.terminal.onData('pane-1', () => undefined)
     const unsubscribeTask = api.tasks.onVerifyOutput(() => undefined)
     const unsubscribeFs = api.fs.onFileChanged(() => undefined)
 
@@ -120,6 +122,26 @@ describe('preload api', () => {
     expect(ipc.removeListener).toHaveBeenCalledWith(IPC_CHANNELS.tasks.onVerifyOutput, expect.any(Function))
     expect(ipc.on).toHaveBeenCalledWith(IPC_CHANNELS.fs.onFileChanged, expect.any(Function))
     expect(ipc.removeListener).toHaveBeenCalledWith(IPC_CHANNELS.fs.onFileChanged, expect.any(Function))
+  })
+
+  test('shares one IPC subscription while routing terminal events by pane', () => {
+    const ipc = createFakeIpc()
+    const api = createOxeApi(ipc)
+    const first = vi.fn()
+    const second = vi.fn()
+    const unsubscribeFirst = api.terminal.onData('pane-1', first)
+    const unsubscribeSecond = api.terminal.onData('pane-2', second)
+
+    expect(ipc.on).toHaveBeenCalledTimes(1)
+    const listener = vi.mocked(ipc.on).mock.calls[0][1]
+    listener({} as never, { paneId: 'pane-2', data: 'only second' })
+
+    expect(first).not.toHaveBeenCalled()
+    expect(second).toHaveBeenCalledWith({ paneId: 'pane-2', data: 'only second' })
+    unsubscribeFirst()
+    expect(ipc.removeListener).not.toHaveBeenCalled()
+    unsubscribeSecond()
+    expect(ipc.removeListener).toHaveBeenCalledTimes(1)
   })
 })
 

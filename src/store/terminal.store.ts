@@ -28,6 +28,7 @@ interface TerminalState {
   /** Record the user's most recent committed (Enter-terminated) input. */
   setLastIntent: (paneId: string, intent: string) => void
   markRead: (paneId: string) => void
+  removePane: (paneId: string) => void
   setPendingCommand: (paneId: string, command: string) => void
   consumePendingCommand: (paneId: string) => string | null
 }
@@ -96,15 +97,20 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   },
 
   updateActivity: (paneId, rawData) => {
+    // stripTerminalControl is needed on every chunk because `hasOutput` gates
+    // the isWorking timer reset below. The pricier sanitizeTerminalPreview pass,
+    // however, only feeds the throttled set() — so we defer it behind the 100ms
+    // gate. During agent streaming (dozens of chunks/s × up to 16 panes) ~9 of
+    // 10 chunks are throttled, so this skips that second regex on most of them.
     const stripped = stripTerminalControl(rawData)
-    const hasOutput = stripped.split('\n').some((line) => line.trim().length > 0)
+    const hasOutput = /\S/.test(stripped) // any non-whitespace char (no array alloc)
     if (!hasOutput) return
-    const preview = sanitizeTerminalPreview(rawData)
 
     const now = Date.now()
     const lastTime = lastActivitySetTime.get(paneId) ?? 0
     if (now - lastTime >= 100) {
       lastActivitySetTime.set(paneId, now)
+      const preview = sanitizeTerminalPreview(rawData)
       set(state => ({
         panes: {
           ...state.panes,
@@ -181,6 +187,23 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
         [paneId]: { ...(state.panes[paneId] ?? DEFAULT_STATE), hasUnread: false }
       }
     })),
+
+  removePane: (paneId) => {
+    const working = workingTimers.get(paneId)
+    if (working) clearTimeout(working)
+    workingTimers.delete(paneId)
+    clearAwaitingTimer(paneId)
+    lastActivitySetTime.delete(paneId)
+    set((state) => {
+      const { [paneId]: _pane, ...panes } = state.panes
+      const { [paneId]: _pending, ...pendingCommands } = state.pendingCommands
+      return {
+        panes,
+        pendingCommands,
+        activePaneId: state.activePaneId === paneId ? null : state.activePaneId
+      }
+    })
+  },
 
   setPendingCommand: (paneId, command) =>
     set((state) => ({

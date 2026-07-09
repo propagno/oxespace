@@ -2,11 +2,24 @@ appId: com.oxespace.app
 productName: OXESpace
 directories:
   output: dist
+# Update feed for electron-updater (and where `electron-builder --publish`
+# uploads). The app reads GitHub Releases for `latest.yml` + the installer.
+publish:
+  provider: github
+  owner: propagno
+  repo: oxespace
 files:
   - out/**/*
   - package.json
   - from: electron/main/db/migrations
     to: out/main/migrations
+  # Dead weight: transformers.js download cache (MiniLM / e5-base leftovers).
+  # The shipped model is resources/models → multilingual-e5-small only.
+  - "!**/node_modules/@xenova/transformers/.cache/**"
+  # Windows x64 product — drop ONNX native binaries for other OS/arch.
+  - "!**/node_modules/onnxruntime-node/bin/napi-v3/darwin/**"
+  - "!**/node_modules/onnxruntime-node/bin/napi-v3/linux/**"
+  - "!**/node_modules/onnxruntime-node/bin/napi-v3/win32/arm64/**"
 extraResources:
   - from: resources/icon.ico
     to: icon.ico
@@ -32,6 +45,7 @@ asarUnpack:
   # Semantic search worker loads the ONNX runtime native binding through
   # @xenova/transformers; native .node files cannot be loaded from inside the
   # asar archive, so they must stay unpacked on disk.
+  # (.cache is already excluded via files filters + scripts/slim-pack-deps.mjs)
   - node_modules/@xenova/transformers/**/*
   - node_modules/onnxruntime-node/**/*
   - node_modules/sharp/**/*

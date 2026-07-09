@@ -20,6 +20,7 @@ const PROVIDER_LABELS: Record<AgentProvider, string> = {
   'gh-copilot': 'GH Copilot',
   antigravity: 'Antigravity',
   cursor: 'Cursor',
+  grok: 'Grok',
   custom: 'Custom'
 }
 

@@ -38,8 +38,9 @@ export interface WorkspacePane {
 
 export interface PaneAgentBinding {
   paneIndex: number
-  agentProfileId: string
-  agentName: string
+  agentProfileId?: string
+  agentName?: string
+  shellProfileId?: string
 }
 
 export interface Workspace {

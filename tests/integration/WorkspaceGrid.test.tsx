@@ -38,6 +38,30 @@ describe('WorkspaceGrid', () => {
 
     expect(screen.queryByRole('button', { name: 'Open editor in pane' })).not.toBeInTheDocument()
   })
+
+  test('keeps only search + expand visible; secondary actions live in ⋯ menu', async () => {
+    const user = userEvent.setup()
+    const workspace = createWorkspace('1x1')
+
+    render(<WorkspaceGrid workspace={workspace} maximizedPaneId={null} onToggleMaximize={() => undefined} />)
+
+    expect(screen.getByLabelText('Search in terminal')).toBeInTheDocument()
+    expect(screen.getByLabelText('Maximize pane')).toBeInTheDocument()
+    expect(screen.getByLabelText('More pane actions')).toBeInTheDocument()
+
+    // Hidden until the kebab is opened.
+    expect(screen.queryByRole('menuitem', { name: /Limpar terminal/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /Nova sessão/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /Dividir vertical/i })).not.toBeInTheDocument()
+
+    await user.click(screen.getByLabelText('More pane actions'))
+
+    expect(screen.getByTestId('pane-actions-menu')).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /Limpar terminal/i })).toBeDisabled()
+    expect(screen.getByRole('menuitem', { name: /Nova sessão/i })).toBeEnabled()
+    expect(screen.getByRole('menuitem', { name: /Dividir vertical/i })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /Dividir horizontal/i })).toBeInTheDocument()
+  })
 })
 
 function createWorkspace(layout: Workspace['layout']): Workspace {

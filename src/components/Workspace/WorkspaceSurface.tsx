@@ -1,20 +1,52 @@
-import { Fragment, useEffect, useRef, useState, type ReactElement } from 'react'
+import { Fragment, Suspense, lazy, useEffect, useRef, useState, type ReactElement } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from 'react-resizable-panels'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceWorktreeStateInput, Workspace } from '../../../shared/types/workspace'
 import { WorkspaceGrid } from '../Grid/WorkspaceGrid'
-import { WorkspaceBackgroundPanel } from './WorkspaceBackgroundPanel'
-import { WorkspaceEditorPanel } from './WorkspaceEditorPanel'
-import { WorkspaceGitHubPanel } from './WorkspaceGitHubPanel'
-import { WorkspaceIntegrationPanel } from './WorkspaceIntegrationPanel'
-import { WorkspaceReviewPanel } from './WorkspaceReviewPanel'
-import { WorkspaceOxePanel } from './WorkspaceOxePanel'
-import { WorkspaceScriptsPanel } from './WorkspaceScriptsPanel'
-import { WorkspaceWebPreviewPanel } from './WorkspaceWebPreviewPanel'
-import { WorkspaceWorktreePanel } from './WorkspaceWorktreePanel'
-import { ToolsMenu } from './ToolsMenu'
+// Side panels are lazy-loaded: they only mount when the user opens them, so
+// keeping them out of the initial bundle cuts first-paint parse/exec time. The
+// Editor pulls in Monaco (the single heaviest dep), so its split matters most.
+const WorkspaceBackgroundPanel = lazy(() => import('./WorkspaceBackgroundPanel').then((m) => ({ default: m.WorkspaceBackgroundPanel })))
+const WorkspaceEditorPanel = lazy(() => import('./WorkspaceEditorPanel').then((m) => ({ default: m.WorkspaceEditorPanel })))
+const WorkspaceGitHubPanel = lazy(() => import('./WorkspaceGitHubPanel').then((m) => ({ default: m.WorkspaceGitHubPanel })))
+const WorkspaceIntegrationPanel = lazy(() => import('./WorkspaceIntegrationPanel').then((m) => ({ default: m.WorkspaceIntegrationPanel })))
+const WorkspaceReviewPanel = lazy(() => import('./WorkspaceReviewPanel').then((m) => ({ default: m.WorkspaceReviewPanel })))
+const WorkspaceOxePanel = lazy(() => import('./WorkspaceOxePanel').then((m) => ({ default: m.WorkspaceOxePanel })))
+const WorkspaceScriptsPanel = lazy(() => import('./WorkspaceScriptsPanel').then((m) => ({ default: m.WorkspaceScriptsPanel })))
+const WorkspaceWebPreviewPanel = lazy(() => import('./WorkspaceWebPreviewPanel').then((m) => ({ default: m.WorkspaceWebPreviewPanel })))
+const WorkspaceWorktreePanel = lazy(() => import('./WorkspaceWorktreePanel').then((m) => ({ default: m.WorkspaceWorktreePanel })))
+
+// Warm common panel chunks just after first paint. The earlier idle-only strategy
+// often waited until after the first click, leaving the initial open on the slow
+// lazy-load path. Monaco remains deferred because it is substantially heavier.
+let panelsPrefetched = false
+function prefetchPanelChunks(): void {
+  if (panelsPrefetched) return
+  panelsPrefetched = true
+
+  const prefetchCommonPanels = (): void => {
+    void import('./WorkspaceGitHubPanel'); void import('./WorkspaceReviewPanel')
+    void import('./WorkspaceWorktreePanel'); void import('./WorkspaceBackgroundPanel')
+    void import('./WorkspaceScriptsPanel'); void import('./WorkspaceWebPreviewPanel')
+    void import('./WorkspaceOxePanel'); void import('./WorkspaceIntegrationPanel')
+  }
+
+  const prefetchEditor = (): void => { void import('./WorkspaceEditorPanel') }
+  const ric = (globalThis as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => void }).requestIdleCallback
+  const afterFirstPaint = (): void => {
+    prefetchCommonPanels()
+    if (ric) ric(prefetchEditor, { timeout: 2000 })
+    else setTimeout(prefetchEditor, 1500)
+  }
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(() => requestAnimationFrame(afterFirstPaint))
+  } else {
+    setTimeout(afterFirstPaint, 0)
+  }
+}
 import { IntegrationsStatusChips } from './IntegrationsStatusChips'
 import { WorkspaceStatusSummary } from './WorkspaceStatusSummary'
+import { ErrorBoundary } from '../common/ErrorBoundary'
 
 interface WorkspaceSurfaceProps {
   workspace: Workspace
@@ -24,16 +56,6 @@ interface WorkspaceSurfaceProps {
   onToggleMaximize: (paneId: string) => void
   onSplitPane?: (paneId: string, direction: 'vertical' | 'horizontal') => void
   onActivatePane?: (paneId: string) => void
-  onOpenCommandPalette: () => void
-  onOpenWorkspaceSettings: () => void
-  onOpenHistory: () => void
-  onOpenMcp: () => void
-  onOpenSkills: () => void
-  onOpenSemanticLogs: () => void
-  onOpenScripts: () => void
-  onOpenWebPreview: () => void
-  onOpenIntegration: () => void
-  onToggleOxe: () => void
   scriptsVisible: boolean
   webPreviewVisible: boolean
   integrationVisible: boolean
@@ -78,16 +100,6 @@ export function WorkspaceSurface({
   onActivatePane,
   activePaneId,
   agentProfiles = [],
-  onOpenCommandPalette,
-  onOpenWorkspaceSettings,
-  onOpenHistory,
-  onOpenMcp,
-  onOpenSkills,
-  onOpenSemanticLogs,
-  onOpenScripts,
-  onOpenWebPreview,
-  onOpenIntegration,
-  onToggleOxe,
   scriptsVisible,
   webPreviewVisible,
   integrationVisible,
@@ -172,6 +184,10 @@ export function WorkspaceSurface({
   // Resize outer sides Panel imperatively when combined side size changes.
   // This happens when panels are toggled or expanded — the inner PanelGroup remounts
   // but the outer Panel must reflect the new total side width.
+  // Once the surface is shown (post first paint), warm the lazy panel chunks on
+  // idle so the first panel open is instant.
+  useEffect(() => { prefetchPanelChunks() }, [])
+
   useEffect(() => {
     if (hasSidePanels && combinedSideSize > 0) {
       try {
@@ -404,33 +420,13 @@ export function WorkspaceSurface({
   )
 
   const toolbar = (
-    <header className="workspace-topbar" aria-label="Workspace tools">
-      {/* Aggregate workspace status — fills what used to be empty topbar
-          space with a glanceable "N agents · X thinking · Y awaiting · $Z"
-          summary so multi-agent vibe coding becomes scannable in 1s. */}
+    <header className="workspace-topbar" aria-label="Workspace status">
+      {/* Aggregate workspace status — glanceable multi-agent summary.
+          Tools hub lives on the sidebar footer (gear → modal), so this
+          bar only carries status + integration chips. */}
       <WorkspaceStatusSummary workspace={workspace} />
       <div className="workspace-topbar-spacer" />
       <IntegrationsStatusChips workspace={workspace} />
-      <div className="workspace-toolbar-actions" aria-label="Workspace actions">
-        <ToolsMenu
-          active={{ github: githubVisible, editor: editorVisible, review: reviewVisible, background: backgroundVisible, worktree: worktreeVisible, scripts: scriptsVisible, webPreview: webPreviewVisible, integration: integrationVisible, oxe: oxeVisible }}
-          onOpenCommandPalette={onOpenCommandPalette}
-          onOpenWorkspaceSettings={onOpenWorkspaceSettings}
-          onToggleEditor={() => onUpdateEditorState({ workspaceId: workspace.id, editorVisible: !editorVisible, editorExpanded: editorVisible ? false : workspace.editorExpanded })}
-          onToggleGitHub={() => onUpdateGitHubState({ workspaceId: workspace.id, githubPanelVisible: !githubVisible, githubPanelExpanded: githubVisible ? false : workspace.githubPanelExpanded })}
-          onToggleReview={() => onUpdateReviewState({ workspaceId: workspace.id, reviewPanelVisible: !reviewVisible, reviewPanelExpanded: reviewVisible ? false : workspace.reviewPanelExpanded })}
-          onToggleBackground={() => onUpdateBackgroundState({ workspaceId: workspace.id, backgroundPanelVisible: !backgroundVisible, backgroundPanelExpanded: backgroundVisible ? false : workspace.backgroundPanelExpanded })}
-          onToggleWorktree={() => onUpdateWorktreeState({ workspaceId: workspace.id, worktreePanelVisible: !worktreeVisible, worktreePanelExpanded: worktreeVisible ? false : workspace.worktreePanelExpanded })}
-          onOpenScripts={onOpenScripts}
-          onOpenWebPreview={onOpenWebPreview}
-          onOpenIntegration={onOpenIntegration}
-          onOpenHistory={onOpenHistory}
-          onOpenMcp={onOpenMcp}
-          onOpenSkills={onOpenSkills}
-          onOpenSemanticLogs={onOpenSemanticLogs}
-          onToggleOxe={onToggleOxe}
-        />
-      </div>
     </header>
   )
 
@@ -482,7 +478,11 @@ export function WorkspaceSurface({
                         defaultSize={panel.defaultSize}
                         onResize={panel.onResize}
                       >
-                        {panel.content}
+                        <ErrorBoundary label="este painel">
+                          <Suspense fallback={<div className="workspace-editor-panel" data-testid="panel-loading" />}>
+                            {panel.content}
+                          </Suspense>
+                        </ErrorBoundary>
                       </Panel>
                     </Fragment>
                   ))}

@@ -1,6 +1,6 @@
 {
   "name": "oxespace",
-  "version": "0.1.40",
+  "version": "0.2.11",
   "description": "An open source, AI-native workspace and terminal",
   "repository": {
     "type": "git",
@@ -19,10 +19,16 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "bench:cpu": "vitest bench --run tests/bench/hotpaths.bench.ts",
+    "bench:ui": "playwright test --config playwright.tools.config.ts perf-benchmark.spec.ts",
+    "shots:ui": "playwright test --config playwright.tools.config.ts screenshots.spec.ts",
     "prepare:model": "node scripts/fetch-semantic-model.mjs",
-    "dist": "npm run prepare:model && npm run build && npm run fix:native && electron-builder --win --config.npmRebuild=false",
+    "postinstall": "npm run rebuild:native",
+    "dist": "npm run prepare:model && npm run build && npm run fix:native && npm run slim:pack && electron-builder --win --config.npmRebuild=false",
     "rebuild:native": "electron-rebuild -f -w node-pty,better-sqlite3",
+    "verify:native": "node scripts/run-native-verification.mjs",
     "fix:native": "node scripts/fix-native-modules.mjs",
+    "slim:pack": "node scripts/slim-pack-deps.mjs",
     "generate:icon": "node scripts/generate-icon.mjs"
   },
   "dependencies": {
@@ -31,6 +37,7 @@
     "@monaco-editor/react": "^4.7.0",
     "@xenova/transformers": "^2.17.2",
     "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-search": "^0.15.0",
     "@xterm/addon-unicode11": "^0.8.0",
     "@xterm/addon-web-links": "^0.11.0",
     "@xterm/addon-webgl": "^0.19.0",
@@ -39,6 +46,7 @@
     "chokidar": "^5.0.0",
     "electron-log": "^5.4.3",
     "electron-store": "^8.2.0",
+    "electron-updater": "^6.8.9",
     "ignore": "^7.0.5",
     "jsonc-parser": "^3.3.1",
     "lucide-react": "^0.468.0",

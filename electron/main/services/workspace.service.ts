@@ -132,7 +132,7 @@ export class WorkspaceService {
           workspaceId,
           rowIndex: position.rowIndex,
           columnIndex: position.columnIndex,
-          shellProfileId,
+          shellProfileId: binding?.shellProfileId ?? shellProfileId,
           agentProfileId: binding?.agentProfileId ?? null,
           agentName: binding?.agentName ?? null
         })

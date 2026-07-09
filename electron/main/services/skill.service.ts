@@ -40,8 +40,17 @@ export class SkillService {
       try { mkdirSync(this.userRoot, { recursive: true }) } catch { /* ignore */ }
     }
 
-    this.loadFolder(this.userRoot, 'user')
+    // The watcher attaches immediately (cheap), but the initial folder scan
+    // (readFileSync/statSync/parse per skill) is deferred to init() so it
+    // doesn't block first paint. skill:list returns [] until init() runs.
     this.userWatcher = this.attachWatcher(this.userRoot, 'user')
+  }
+
+  /** Deferred from the constructor: scan the user skills folder. Idempotent —
+   *  loadFolder upserts into the same Map, so a re-call is harmless. Called from
+   *  the deferred startup hook after the window paints. */
+  init(): void {
+    this.loadFolder(this.userRoot, 'user')
   }
 
   /** Registers a workspace's `.oxe/skills` folder for live reload. */
