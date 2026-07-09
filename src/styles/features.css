@@ -4073,6 +4073,20 @@
   cursor: not-allowed;
 }
 
+.statusbar-more-label {
+  flex: 1;
+}
+
+.statusbar-more-check {
+  color: var(--brand-light, #5eead4);
+  flex-shrink: 0;
+}
+
+.statusbar-more-menu button[aria-checked='true'] {
+  color: var(--tx-primary);
+  background: rgba(255, 255, 255, 0.04);
+}
+
 .statusbar-dot {
   width: 5px;
   height: 5px;

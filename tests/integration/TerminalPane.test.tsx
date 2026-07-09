@@ -106,6 +106,10 @@ describe('TerminalPane', () => {
         getModelStatus: vi.fn().mockResolvedValue({ size: 'base', ready: true, path: 'x', engineReady: true }),
         ensureModel: vi.fn().mockResolvedValue({ size: 'base', ready: true, path: 'x', engineReady: true }),
         onModelProgress: vi.fn(() => vi.fn())
+      },
+      semantic: {
+        setEnabled: vi.fn().mockResolvedValue({ enabled: true, workerReady: true, indexing: false, count: 0, lastError: null }),
+        getStatus: vi.fn().mockResolvedValue({ enabled: false, workerReady: true, indexing: false, count: 0, lastError: null })
       }
     } as unknown as typeof window.oxe
     Object.defineProperty(navigator, 'mediaDevices', {
@@ -148,13 +152,9 @@ describe('TerminalPane', () => {
     expect(identity).toHaveAttribute('data-kind', 'agent')
     expect(identity).toHaveTextContent('Codex')
     expect(identity).not.toHaveTextContent('Claude')
-    expect(screen.getByTestId('btn-terminal-restart')).toBeInTheDocument()
-    expect(screen.getByTestId('btn-terminal-stop')).toBeInTheDocument()
-    // Workspace toggles / always-visible voice removed from slim status bar
-    expect(screen.queryByRole('button', { name: /OXEVoice/i })).not.toBeInTheDocument()
-    expect(screen.queryByText('rtk')).not.toBeInTheDocument()
-    expect(screen.queryByText('caveman')).not.toBeInTheDocument()
-    expect(screen.queryByText('semantic')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('btn-terminal-restart')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('btn-terminal-stop')).not.toBeInTheDocument()
+    expect(screen.getByTestId('btn-terminal-more')).toBeInTheDocument()
   })
 
   test('shows shell identity when no agent is bound', () => {
@@ -211,26 +211,19 @@ describe('TerminalPane', () => {
     expect(useTerminalStore.getState().panes['pane-2']?.hasUnread).toBe(false)
   })
 
-  test('more menu exposes worktree and voice actions', async () => {
+  test('more menu toggles RTK, Caveman and Semantic', async () => {
     const user = userEvent.setup()
     useTerminalStore.getState().setStatus('pane-1', 'running')
     render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
 
     await user.click(screen.getByTestId('btn-terminal-more'))
     expect(screen.getByTestId('terminal-more-menu')).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: /Worktrees panel/i })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: /OXEVoice|Voice unavailable/i })).toBeInTheDocument()
-  })
+    expect(screen.getByTestId('menu-toggle-rtk')).toBeInTheDocument()
+    expect(screen.getByTestId('menu-toggle-caveman')).toBeInTheDocument()
+    expect(screen.getByTestId('menu-toggle-semantic')).toBeInTheDocument()
 
-  test('stop button stops a running terminal', async () => {
-    const user = userEvent.setup()
-    useTerminalStore.getState().setStatus('pane-1', 'running')
-    render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
-
-    await user.click(screen.getByTestId('btn-terminal-stop'))
-    await waitFor(() => {
-      expect(window.oxe.terminal.stop).toHaveBeenCalledWith({ paneId: 'pane-1' })
-    })
+    await user.click(screen.getByTestId('menu-toggle-rtk'))
+    expect(screen.getByTestId('menu-toggle-rtk')).toHaveAttribute('aria-checked', 'true')
   })
 
   test('oxe:terminal-new-session restarts a running terminal', async () => {

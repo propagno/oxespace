@@ -1,4 +1,4 @@
-import { FolderTree, Mic, MicOff, MoreHorizontal, Play, RotateCw, Square, Terminal as TerminalIcon } from 'lucide-react'
+import { Bone, Brain, Check, MoreHorizontal, Play, Terminal as TerminalIcon, Zap } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { WorkspacePane } from '../../../shared/types/workspace'
@@ -7,7 +7,6 @@ import { useAgentStore } from '../../store/agent.store'
 import { findMemberForPane, useIntegrationStore } from '../../store/integration.store'
 
 import { useTerminalStore } from '../../store/terminal.store'
-import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { useResolvedTerminalPrefs, useTerminalPrefsStore } from '../../store/terminal-prefs.store'
 import { TerminalView } from '../Terminal/TerminalView'
@@ -294,10 +293,8 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
     : state.status === 'error' ? 'red'
     : ''
 
-  const setActivePane = useUIStore((s) => s.setActivePane)
-  const updateWorktreeState = useWorkspaceStore((s) => s.updateWorktreeState)
-  const workspace = useWorkspaceStore((s) => s.workspaces.find((w) => w.id === workspaceId) ?? null)
   const shellProfiles = useWorkspaceStore((s) => s.shellProfiles)
+  const workspace = useWorkspaceStore((s) => s.workspaces.find((w) => w.id === workspaceId) ?? null)
   const shellName = shellProfiles.find(
     (p) => p.id === (pane.shellProfileId ?? workspace?.defaultShellProfileId)
   )?.name ?? 'Shell'
@@ -338,15 +335,6 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
       document.removeEventListener('keydown', onKey)
     }
   }, [moreOpen])
-
-  const stop = useCallback(async (): Promise<void> => {
-    try {
-      await window.oxe.terminal.stop({ paneId: pane.id })
-      setStatus(pane.id, 'exited')
-    } catch (error) {
-      setStatus(pane.id, 'error', toMessage(error))
-    }
-  }, [pane.id, setStatus])
 
   return (
     <div className="terminal-pane" data-testid="terminal-pane">
@@ -443,39 +431,13 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         {isCopilotPane ? <CopilotCreditsStatus /> : null}
         {agentCreditsProvider ? <AgentCreditsStatus provider={agentCreditsProvider} /> : null}
 
-        {state.status === 'running' || state.status === 'starting' ? (
-          <button
-            type="button"
-            className="statusbar-icon-btn"
-            aria-label="Stop terminal"
-            title="Stop this session"
-            data-testid="btn-terminal-stop"
-            disabled={state.status === 'starting'}
-            onClick={() => void stop()}
-          >
-            <Square size={11} aria-hidden="true" />
-          </button>
-        ) : null}
-
-        <button
-          type="button"
-          className="statusbar-icon-btn"
-          aria-label="Restart terminal"
-          title="Restart session (same agent)"
-          data-testid="btn-terminal-restart"
-          disabled={state.status === 'starting'}
-          onClick={() => void (state.status === 'running' || state.status === 'exited' || state.status === 'error' ? restart() : start())}
-        >
-          <RotateCw size={11} aria-hidden="true" />
-        </button>
-
         <div className="statusbar-more" ref={moreRef}>
           <button
             type="button"
             className={`statusbar-icon-btn${moreOpen ? ' open' : ''}`}
-            aria-label="More pane actions"
+            aria-label="Toggle pane tools"
             aria-expanded={moreOpen}
-            title="More"
+            title="RTK · Caveman · Semantic"
             data-testid="btn-terminal-more"
             onClick={() => setMoreOpen((v) => !v)}
           >
@@ -485,42 +447,44 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
             <div className="statusbar-more-menu" role="menu" data-testid="terminal-more-menu">
               <button
                 type="button"
-                role="menuitem"
+                role="menuitemcheckbox"
+                aria-checked={terminalPrefs.rtkHookEnabled}
+                data-testid="menu-toggle-rtk"
                 onClick={() => {
-                  setMoreOpen(false)
-                  setActivePane(pane.id)
-                  void updateWorktreeState({
-                    workspaceId,
-                    worktreePanelVisible: true,
-                    worktreePanelExpanded: workspace?.worktreePanelExpanded ?? false
-                  })
+                  setTerminalOverride(workspaceId, 'rtkHookEnabled', !terminalPrefs.rtkHookEnabled)
                 }}
               >
-                <FolderTree size={12} aria-hidden="true" />
-                Worktrees panel
+                <Zap size={12} aria-hidden="true" />
+                <span className="statusbar-more-label">RTK</span>
+                {terminalPrefs.rtkHookEnabled ? <Check size={12} className="statusbar-more-check" aria-hidden="true" /> : null}
               </button>
               <button
                 type="button"
-                role="menuitem"
-                disabled={!canUseVoice || !voice.isSupported}
+                role="menuitemcheckbox"
+                aria-checked={terminalPrefs.cavemanModeEnabled}
+                data-testid="menu-toggle-caveman"
                 onClick={() => {
-                  setMoreOpen(false)
-                  voice.toggle()
+                  setTerminalOverride(workspaceId, 'cavemanModeEnabled', !terminalPrefs.cavemanModeEnabled)
                 }}
               >
-                {isVoiceActive ? <MicOff size={12} aria-hidden="true" /> : <Mic size={12} aria-hidden="true" />}
-                {voice.isSupported ? (isVoiceActive ? 'Stop voice' : 'OXEVoice') : 'Voice unavailable'}
+                <Bone size={12} aria-hidden="true" />
+                <span className="statusbar-more-label">Caveman</span>
+                {terminalPrefs.cavemanModeEnabled ? <Check size={12} className="statusbar-more-check" aria-hidden="true" /> : null}
               </button>
               <button
                 type="button"
-                role="menuitem"
+                role="menuitemcheckbox"
+                aria-checked={terminalPrefs.semanticSearchEnabled}
+                data-testid="menu-toggle-semantic"
                 onClick={() => {
-                  setMoreOpen(false)
-                  window.dispatchEvent(new CustomEvent('oxe:terminal-clear', { detail: { paneId: pane.id } }))
+                  const next = !terminalPrefs.semanticSearchEnabled
+                  setTerminalOverride(workspaceId, 'semanticSearchEnabled', next)
+                  void window.oxe.semantic?.setEnabled({ workspaceId, enabled: next }).catch(() => undefined)
                 }}
               >
-                <TerminalIcon size={12} aria-hidden="true" />
-                Clear scrollback
+                <Brain size={12} aria-hidden="true" />
+                <span className="statusbar-more-label">Semantic</span>
+                {terminalPrefs.semanticSearchEnabled ? <Check size={12} className="statusbar-more-check" aria-hidden="true" /> : null}
               </button>
             </div>
           ) : null}
