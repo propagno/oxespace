@@ -3994,34 +3994,6 @@
   text-overflow: ellipsis;
 }
 
-.statusbar-branch {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  max-width: 14ch;
-  font-size: 10.5px;
-  font-family: var(--font-mono);
-  color: var(--tx-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  opacity: 0.9;
-}
-
-.statusbar-branch.error {
-  color: #fbbf24;
-}
-
-.statusbar-branch-tag {
-  font-size: 9px;
-  padding: 0 4px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--tx-muted);
-  text-transform: lowercase;
-}
-
 .statusbar-icon-btn {
   display: inline-flex;
   align-items: center;

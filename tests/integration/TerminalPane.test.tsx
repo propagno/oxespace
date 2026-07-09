@@ -191,43 +191,10 @@ describe('TerminalPane', () => {
     expect(window.oxe.terminal.write).toHaveBeenCalledWith({ paneId: 'pane-1', data: 'copilot\r' })
   })
 
-  test('shows branch as text, not a worktree action button', async () => {
+  test('does not show branch in the status bar (sidebar owns that)', () => {
     render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
-    await waitFor(() => expect(screen.getByTestId('terminal-branch')).toHaveTextContent('feature/test'))
+    expect(screen.queryByTestId('terminal-branch')).not.toBeInTheDocument()
     expect(screen.queryByLabelText(/Worktree:/i)).not.toBeInTheDocument()
-  })
-
-  test('surfaces a branch lookup failure with a clear fallback label', async () => {
-    window.oxe.git.getBranch = vi.fn().mockRejectedValue(new Error('lookup failed'))
-
-    render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
-
-    await waitFor(() => expect(screen.getByTestId('terminal-branch')).toHaveTextContent('branch error'))
-    expect(screen.getByTestId('terminal-branch').getAttribute('title')).toMatch(/lookup failed/)
-  })
-
-  test('maps "Git executable not found" to "git not found"', async () => {
-    window.oxe.git.getBranch = vi.fn().mockResolvedValue({
-      branch: null,
-      detached: false,
-      shortSha: null,
-      error: 'Git executable not found'
-    })
-
-    render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
-    await waitFor(() => expect(screen.getByTestId('terminal-branch')).toHaveTextContent('git not found'))
-  })
-
-  test('maps "Not inside a Git work tree" to "not a git repo"', async () => {
-    window.oxe.git.getBranch = vi.fn().mockResolvedValue({
-      branch: null,
-      detached: false,
-      shortSha: null,
-      error: 'Not inside a Git work tree'
-    })
-
-    render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
-    await waitFor(() => expect(screen.getByTestId('terminal-branch')).toHaveTextContent('not a git repo'))
   })
 
   test('marks output unread only when pane is not active', () => {

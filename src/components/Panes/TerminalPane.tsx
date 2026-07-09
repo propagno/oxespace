@@ -1,8 +1,7 @@
-import { FolderTree, GitBranch, Mic, MicOff, MoreHorizontal, Play, RotateCw, Square, Terminal as TerminalIcon } from 'lucide-react'
+import { FolderTree, Mic, MicOff, MoreHorizontal, Play, RotateCw, Square, Terminal as TerminalIcon } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { WorkspacePane } from '../../../shared/types/workspace'
-import { useGitBranch } from '../../hooks/useGitBranch'
 import { useOxeVoice } from '../../hooks/useOxeVoice'
 import { useAgentStore } from '../../store/agent.store'
 import { findMemberForPane, useIntegrationStore } from '../../store/integration.store'
@@ -104,11 +103,6 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
       voice.endHold()
     }
   }, [voice])
-  // Shared cache via useGitBranch — replaces the previous local state +
-  // per-pane setInterval(10s). Now N panes in the same workspace share one
-  // IPC poll per rootPath, and the sidebar chip + this status bar always
-  // read from the same source-of-truth.
-  const branchStatus = useGitBranch(workspaceId, effectiveRootPath)
 
   const resolveAgentInfo = useCallback((): { command: string | undefined; initialPrompt: string | undefined } => {
     const pending = consumePendingCommand(pane.id)
@@ -326,19 +320,6 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
     ? `Agent: ${agentLabel}${boundAgent?.command ? ` · ${boundAgent.command}` : ''}`
     : `Shell: ${shellName}`
 
-  // Branch as read-only context (not a worktree action button).
-  const fallbackWorktreeLabel = isWorktreePath(effectiveRootPath)
-    ? deriveWorktreeLabel(effectiveRootPath)
-    : 'no branch'
-  const branchErrorReason = branchStatus?.error ?? null
-  const worktreeLabel = !branchStatus
-    ? '…'
-    : branchStatus.branch
-      ? branchStatus.branch
-      : branchStatus.shortSha
-        ? `detached ${branchStatus.shortSha}`
-        : summarizeBranchError(branchErrorReason, fallbackWorktreeLabel)
-  const isWorktreeOverride = pane.rootPath !== null
   const [moreOpen, setMoreOpen] = useState(false)
   const moreRef = useRef<HTMLDivElement | null>(null)
 
@@ -456,20 +437,6 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
           <span className="statusbar-identity-label">{identityLabel}</span>
         </span>
 
-        {branchStatus || branchErrorReason ? (
-          <span
-            className={`statusbar-branch${branchErrorReason ? ' error' : ''}${isWorktreeOverride ? ' worktree' : ''}`}
-            title={branchErrorReason
-              ? `Branch could not be read: ${branchErrorReason} (${effectiveRootPath})`
-              : `Branch: ${worktreeLabel} · ${effectiveRootPath}`}
-            data-testid="terminal-branch"
-          >
-            <GitBranch size={10} aria-hidden="true" />
-            <span>{worktreeLabel}</span>
-            {isWorktreeOverride ? <span className="statusbar-branch-tag">wt</span> : null}
-          </span>
-        ) : null}
-
         <div className="terminal-statusbar-spacer" />
 
         {contextProvider ? <ContextUsageStatus provider={contextProvider} rootPath={effectiveRootPath} /> : null}
@@ -561,37 +528,6 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
       </div>
     </div>
   )
-}
-
-/**
- * Maps `git.service.getBranch` failure reasons to short labels that fit in
- * the statusbar chip (≤ ~14 chars). Each branch is keyed off the actual
- * error string returned by the service so the visible label tells the user
- * what to fix, not just "no branch".
- *
- * Keep these strings synchronized with the messages produced by
- * `electron/main/services/git.service.ts`.
- */
-function summarizeBranchError(error: string | null, fallback: string): string {
-  if (!error) return fallback
-  const lower = error.toLowerCase()
-  if (lower.includes('git executable not found')) return 'git not found'
-  if (lower.includes('not inside a git work tree')) return 'not a git repo'
-  if (lower.includes('git ipc not available')) return 'git ipc off'
-  if (lower.includes('timed out')) return 'git timed out'
-  if (lower.includes('permission denied')) return 'git denied'
-  return 'branch error'
-}
-
-function isWorktreePath(path: string): boolean {
-  return /[\\/]worktrees[\\/]/i.test(path)
-}
-
-function deriveWorktreeLabel(path: string): string {
-  const normalized = path.replace(/\\/g, '/')
-  const parts = normalized.split('/').filter(Boolean)
-  const idx = parts.findIndex((part) => part.toLowerCase() === 'worktrees')
-  return idx >= 0 && parts[idx + 1] ? parts[idx + 1] : parts.at(-1) ?? 'worktree'
 }
 
 function toMessage(error: unknown): string {
