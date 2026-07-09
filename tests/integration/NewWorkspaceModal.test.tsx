@@ -82,18 +82,19 @@ describe('NewWorkspaceModal (single-page)', () => {
     renderModal()
     await user.type(screen.getByTestId('wizard-dir-input'), 'C:/repo')
 
-    // First click on the chip body adds the first slot — the +/− stepper then renders.
+    // Steppers are always visible (count starts at 0).
+    expect(screen.getByTestId('agent-count-p-claude')).toHaveTextContent('0')
+
     await user.click(screen.getByLabelText('Add Claude'))
     expect(screen.getByTestId('agent-count-p-claude')).toHaveTextContent('1')
 
-    // Increment again via stepper +.
     await user.click(screen.getByTestId('agent-inc-p-claude'))
     expect(screen.getByTestId('agent-count-p-claude')).toHaveTextContent('2')
 
-    // Decrement back to 0 — the stepper disappears since the chip un-selects.
+    // Decrement back to 0 — steppers stay, count returns to zero.
     await user.click(screen.getByTestId('agent-dec-p-claude'))
     await user.click(screen.getByTestId('agent-dec-p-claude'))
-    expect(screen.queryByTestId('agent-count-p-claude')).not.toBeInTheDocument()
+    expect(screen.getByTestId('agent-count-p-claude')).toHaveTextContent('0')
   })
 
   test('chip is disabled when all slots are filled', async () => {
@@ -137,10 +138,31 @@ describe('NewWorkspaceModal (single-page)', () => {
 
     await user.click(screen.getByLabelText('Add Claude'))
     await user.click(screen.getByLabelText('Add Antigravity'))
-    expect(screen.getByText(/2\/4 slots/)).toBeInTheDocument()
+    expect(screen.getByText(/2\/4 slots filled/i)).toBeInTheDocument()
 
     await user.click(screen.getByText('Clear selection'))
-    expect(screen.queryByTestId('agent-count-p-claude')).not.toBeInTheDocument()
+    expect(screen.getByTestId('agent-count-p-claude')).toHaveTextContent('0')
+  })
+
+  test('PowerShell can be combined with an agent in the same workspace', async () => {
+    const user = userEvent.setup()
+    const onLaunch = vi.fn().mockResolvedValue(undefined)
+    const grok: AgentProfile = { agentProfileId: 'p-grok', name: 'Grok CLI', provider: 'grok', command: 'grok', commandTemplate: 'grok', isBuiltin: true }
+    renderModal({ onLaunch, agentProfiles: [...mockAgents, grok] })
+
+    await user.type(screen.getByTestId('wizard-dir-input'), 'C:/repo')
+    await user.click(screen.getByTestId('wizard-layout-card-2'))
+    await user.click(screen.getByLabelText('Add Grok CLI'))
+    await user.click(screen.getByLabelText('Add PowerShell'))
+    await user.click(screen.getByTestId('wizard-launch-btn'))
+
+    expect(onLaunch).toHaveBeenCalledWith(expect.objectContaining({
+      agentSlots: ['grok', ''],
+      agentBindings: [
+        { paneIndex: 0, agentProfileId: 'p-grok', agentName: 'Grok CLI' },
+        { paneIndex: 1, shellProfileId: 'sh-1' }
+      ]
+    }))
   })
 })
 

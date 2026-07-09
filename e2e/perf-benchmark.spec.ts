@@ -49,7 +49,14 @@ async function launchApp(): Promise<{ app: ElectronApplication; page: Page; pid?
   return { app, page, pid }
 }
 async function killApp(app: ElectronApplication, pid?: number): Promise<void> {
-  await Promise.race([app.close().catch(() => undefined), new Promise((r) => setTimeout(r, 3000))])
+  let closed = false
+  await Promise.race([
+    app.close().then(() => { closed = true }).catch(() => undefined),
+    new Promise((r) => setTimeout(r, 3000))
+  ])
+  // Only force-stop a hung isolated test process. Killing unconditionally can
+  // terminate a concurrently running Electron instance on Windows.
+  if (closed) return
   if (pid) { try { process.kill(pid, 'SIGKILL') } catch { /* dead */ } }
 }
 async function createWorkspace(page: Page): Promise<void> {
@@ -61,27 +68,26 @@ async function createWorkspace(page: Page): Promise<void> {
   await page.getByTestId('workspace-grid').waitFor({ state: 'visible' })
 }
 async function timePanelToggle(page: Page, label: string, panelTestId: string, wantVisible: boolean): Promise<number> {
-  const res = await page.evaluate(
-    async ({ label, panelTestId, wantVisible }) => {
-      const vis = (el: Element | null): boolean => !!el && (el as HTMLElement).offsetParent !== null
-      const nf = (): Promise<void> => new Promise((r) => requestAnimationFrame(() => r()))
-      const trigger = document.querySelector('.tools-menu-trigger') as HTMLElement | null
-      if (!trigger) return { error: 'no trigger' }
-      if (!document.querySelector('.tools-menu-popover')) trigger.click()
-      await nf()
-      const item = (Array.from(document.querySelectorAll('.tools-menu-item')) as HTMLElement[])
-        .find((b) => b.querySelector('.tools-menu-item-label')?.textContent?.trim() === label)
-      if (!item) return { error: `no item: ${label}` }
-      const sel = `[data-testid="${panelTestId}"]`
-      const t0 = performance.now()
-      item.click()
-      await new Promise<void>((res) => { const c = (): void => { if (vis(document.querySelector(sel)) === wantVisible) res(); else requestAnimationFrame(c) }; requestAnimationFrame(c) })
-      return { ms: performance.now() - t0 }
+  const modal = page.getByTestId('tools-modal')
+  if (!await modal.isVisible().catch(() => false)) {
+    await page.locator('[data-testid="btn-open-tools"]:visible').click()
+    await modal.waitFor({ state: 'visible' })
+  }
+  const item = modal.getByRole('menuitem', { name: label, exact: true })
+  await item.waitFor({ state: 'visible' })
+
+  const t0 = await page.evaluate(() => performance.now())
+  await item.click()
+  await page.waitForFunction(
+    ({ panelTestId, wantVisible }) => {
+      const panel = document.querySelector(`[data-testid="${panelTestId}"]`) as HTMLElement | null
+      // Resizable panels may be rendered beneath layout wrappers without an
+      // offset parent. Their DOM lifecycle is the reliable completion signal.
+      return wantVisible ? panel !== null : panel === null
     },
-    { label, panelTestId, wantVisible }
+    { panelTestId, wantVisible }
   )
-  if ('error' in res) throw new Error(res.error)
-  return res.ms
+  return await page.evaluate((start) => performance.now() - start, t0)
 }
 
 test('boot + workspace create', async () => {
@@ -114,30 +120,21 @@ for (const { label, testId } of PANELS) {
   test(`panel: ${label}`, async () => {
     test.setTimeout(45_000)
     const { app, page, pid } = await launchApp()
-    let crashed = false
     try {
       await createWorkspace(page)
       await page.waitForTimeout(250)
       const openS: number[] = []
       const closeS: number[] = []
       for (let i = 0; i < REPEATS; i++) {
-        try {
-          openS.push(await timePanelToggle(page, label, testId, true))
-          await page.waitForTimeout(30)
-          closeS.push(await timePanelToggle(page, label, testId, false))
-          await page.waitForTimeout(30)
-        } catch (err) {
-          crashed = /exited|closed|Target page/.test((err as Error).message)
-          // eslint-disable-next-line no-console
-          console.log(`[RESULT] panel ${label.padEnd(20)} ${crashed ? '🔴 CRASHED app on open' : 'error: ' + (err as Error).message} (rep ${i})`)
-          break
-        }
+        openS.push(await timePanelToggle(page, label, testId, true))
+        await page.waitForTimeout(30)
+        closeS.push(await timePanelToggle(page, label, testId, false))
+        await page.waitForTimeout(30)
       }
       if (openS.length) report(`panel open:  ${label}`, openS)
       if (closeS.length) report(`panel close: ${label}`, closeS)
     } finally {
-      if (!crashed) await killApp(app, pid)
-      else if (pid) { try { process.kill(pid, 'SIGKILL') } catch { /* dead */ } }
+      await killApp(app, pid)
     }
   })
 }

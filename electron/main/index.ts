@@ -1,6 +1,7 @@
 import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
 import log from 'electron-log/main.js'
-import { initAutoUpdater } from './updater'
+import { initAutoUpdater, registerAppUpdateIpc } from './updater'
+import { getRtkService } from './services/rtk.service'
 import { randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -79,6 +80,12 @@ const CLIPBOARD_IMAGE_TTL_MS = 30 * 60 * 1000
 function registerIpcHandlers(): () => void {
   const noop = (): void => {}
   if (ipcRegistered) return noop
+
+  // App update + RTK sidecar IPC are always registered (even on native failure
+  // / e2e mocks below) so Settings and the update banner keep working.
+  registerAppUpdateIpc()
+  registerRtkIpc()
+
   if (process.env.OXESPACE_E2E_MOCK_NATIVE === '1') {
     registerE2eMockIpcHandlers()
     ipcRegistered = true
@@ -389,6 +396,12 @@ function registerE2eMockIpcHandlers(): void {
       githubPanelExpanded: false,
       githubPanelWidthPercent: 40,
       githubActiveTab: 'status',
+      backgroundPanelVisible: false,
+      backgroundPanelExpanded: false,
+      backgroundPanelWidthPercent: 28,
+      worktreePanelVisible: false,
+      worktreePanelExpanded: false,
+      worktreePanelWidthPercent: 36,
       panes: []
     }
     workspace.panes = createMockPanes(workspace.id, layout)
@@ -478,6 +491,22 @@ function registerE2eMockIpcHandlers(): void {
     workspace.githubPanelExpanded = input.githubPanelExpanded ?? workspace.githubPanelExpanded
     workspace.githubPanelWidthPercent = input.githubPanelWidthPercent ?? workspace.githubPanelWidthPercent
     workspace.githubActiveTab = input.githubActiveTab ?? workspace.githubActiveTab
+    return workspace
+  })
+  ipcMain.handle(IPC_CHANNELS.workspace.updateBackgroundState, (_event: IpcMainInvokeEvent, input: { workspaceId: string; backgroundPanelVisible?: boolean; backgroundPanelExpanded?: boolean; backgroundPanelWidthPercent?: number }) => {
+    const workspace = workspaces.find((item) => item.id === input.workspaceId)
+    if (!workspace) throw new Error(`Workspace ${input.workspaceId} not found`)
+    workspace.backgroundPanelVisible = input.backgroundPanelVisible ?? workspace.backgroundPanelVisible
+    workspace.backgroundPanelExpanded = input.backgroundPanelExpanded ?? workspace.backgroundPanelExpanded
+    workspace.backgroundPanelWidthPercent = input.backgroundPanelWidthPercent ?? workspace.backgroundPanelWidthPercent
+    return workspace
+  })
+  ipcMain.handle(IPC_CHANNELS.workspace.updateWorktreeState, (_event: IpcMainInvokeEvent, input: { workspaceId: string; worktreePanelVisible?: boolean; worktreePanelExpanded?: boolean; worktreePanelWidthPercent?: number }) => {
+    const workspace = workspaces.find((item) => item.id === input.workspaceId)
+    if (!workspace) throw new Error(`Workspace ${input.workspaceId} not found`)
+    workspace.worktreePanelVisible = input.worktreePanelVisible ?? workspace.worktreePanelVisible
+    workspace.worktreePanelExpanded = input.worktreePanelExpanded ?? workspace.worktreePanelExpanded
+    workspace.worktreePanelWidthPercent = input.worktreePanelWidthPercent ?? workspace.worktreePanelWidthPercent
     return workspace
   })
   ipcMain.handle(IPC_CHANNELS.workspace.updateSettings, (_event: IpcMainInvokeEvent, input: { workspaceId: string; themeId?: Workspace['themeId']; uiDensity?: Workspace['uiDensity']; defaultShellProfileId?: string; layoutPreset?: WorkspaceLayoutPreset }) => {
@@ -592,6 +621,7 @@ function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.github.listCheckpoints, () => [])
   ipcMain.handle(IPC_CHANNELS.github.listConnectedRepositories, () => [])
   ipcMain.handle(IPC_CHANNELS.github.fetch, () => ({ ok: true, message: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.github.pullFfOnly, () => ({ ok: true, message: 'E2E mock mode' }))
   ipcMain.handle(IPC_CHANNELS.github.stageAll, () => ({ ok: true, message: 'E2E mock mode' }))
   ipcMain.handle(IPC_CHANNELS.github.commit, () => ({ ok: true, message: 'E2E mock mode' }))
   ipcMain.handle(IPC_CHANNELS.github.push, () => ({ ok: true, message: 'E2E mock mode' }))
@@ -756,6 +786,20 @@ function layoutToPreset(layout: WorkspaceLayout): WorkspaceLayoutPreset {
     16: '4x4'
   }).find(([, value]) => value === layout)?.[0]
   return (Number(preset ?? 4) as WorkspaceLayoutPreset)
+}
+
+function registerRtkIpc(): void {
+  const rtk = getRtkService(app.getPath('userData'))
+  ipcMain.handle(IPC_CHANNELS.rtk.getStatus, () => rtk.getStatus())
+  ipcMain.handle(IPC_CHANNELS.rtk.checkForUpdate, () => rtk.checkForUpdate(true))
+  ipcMain.handle(IPC_CHANNELS.rtk.updateToLatest, async () => {
+    try {
+      return await rtk.updateToLatest()
+    } catch (err) {
+      // Surface structured status with error rather than rejecting — UI can show it.
+      return rtk.getStatus()
+    }
+  })
 }
 
 function toMessage(error: unknown): string {

@@ -175,4 +175,40 @@ describe('GitHubService', () => {
     expect(trees[0].isMain).toBe(true)
     expect(trees[1].isMain).toBe(false)
   })
+
+  test('fetch runs git fetch --all --prune', async () => {
+    const spawn = vi.fn().mockResolvedValue({ stdout: '', stderr: '', status: 0, error: undefined })
+    const service = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: spawn })
+
+    const result = await service.fetch({ workspaceId: 'ws-1', rootPath: 'C:/projects/repo' })
+    expect(result.ok).toBe(true)
+    expect(spawn).toHaveBeenCalledWith(
+      'git',
+      ['fetch', '--all', '--prune'],
+      expect.objectContaining({ cwd: 'C:/projects/repo' })
+    )
+  })
+
+  test('pullFfOnly rejects dirty working trees and pulls when clean', async () => {
+    const dirtySpawn = vi.fn(async (_cmd: string, args: string[]) => {
+      if (args[0] === 'status') return { stdout: ' M src/a.ts\n', stderr: '', status: 0, error: undefined }
+      return { stdout: '', stderr: '', status: 0, error: undefined }
+    })
+    const dirtyService = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: dirtySpawn })
+    await expect(dirtyService.pullFfOnly({ workspaceId: 'ws-1', rootPath: 'C:/projects/repo' }))
+      .rejects.toThrow(/commit ou stash/i)
+
+    const cleanSpawn = vi.fn(async (_cmd: string, args: string[]) => {
+      if (args[0] === 'status') return { stdout: '', stderr: '', status: 0, error: undefined }
+      return { stdout: '', stderr: '', status: 0, error: undefined }
+    })
+    const cleanService = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: cleanSpawn })
+    const result = await cleanService.pullFfOnly({ workspaceId: 'ws-1', rootPath: 'C:/projects/repo' })
+    expect(result.ok).toBe(true)
+    expect(cleanSpawn).toHaveBeenCalledWith(
+      'git',
+      ['pull', '--ff-only'],
+      expect.objectContaining({ cwd: 'C:/projects/repo' })
+    )
+  })
 })

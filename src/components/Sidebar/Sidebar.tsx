@@ -1,4 +1,4 @@
-import { ChevronsLeft, ChevronsRight, Plus, Search } from 'lucide-react'
+import { ChevronsLeft, ChevronsRight, Plus, Search, Settings2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { IntegrationGroup } from '../../../shared/types/integration'
 import type { Workspace } from '../../../shared/types/workspace'
@@ -18,6 +18,8 @@ interface SidebarProps {
   onCloseWorkspace: (id: string) => void
   isCollapsed: boolean
   onToggleCollapse: () => void
+  /** Opens the Tools hub modal (workspace panels, MCP, history, …). */
+  onOpenTools: () => void
   integrationGroups?: IntegrationGroup[]
 }
 
@@ -28,6 +30,7 @@ export function Sidebar({
   isCollapsed,
   onCloseWorkspace,
   onNewWorkspace,
+  onOpenTools,
   onSelectWorkspace,
   onToggleCollapse,
   integrationGroups = [],
@@ -135,7 +138,17 @@ export function Sidebar({
             />
           ))}
         </nav>
-        <div className="sidebar-footer">
+        <div className="sidebar-footer sidebar-footer-collapsed">
+          <button
+            type="button"
+            className="sidebar-tools-btn"
+            aria-label="Open tools"
+            title="Tools"
+            data-testid="btn-open-tools"
+            onClick={onOpenTools}
+          >
+            <Settings2 size={14} aria-hidden="true" />
+          </button>
           <button
             type="button"
             className="sidebar-collapse-btn"
@@ -153,33 +166,51 @@ export function Sidebar({
   return (
     <aside className="sidebar">
       <div className="sidebar-header-bar">
-        <OxeLogo size={22} variant="wordmark" />
+        <div className="sidebar-header-brand">
+          <OxeLogo size={22} variant="wordmark" />
+          <span className="sidebar-version-badge" title={`OXESpace ${appVersion}`}>
+            v{appVersion}
+          </span>
+        </div>
         <div className="sidebar-actions">
           <button
             type="button"
-            className="sidebar-icon-btn"
+            className="sidebar-icon-btn sidebar-new-btn"
             aria-label="New workspace"
             title="New workspace"
             data-testid="btn-new-workspace"
             onClick={onNewWorkspace}
           >
-            <Plus size={13} aria-hidden="true" />
+            <Plus size={14} aria-hidden="true" />
           </button>
         </div>
       </div>
 
       <div className="sidebar-search-wrap">
-        <Search size={11} className="sidebar-search-icon" aria-hidden="true" />
+        <Search size={13} className="sidebar-search-icon" aria-hidden="true" />
         <input
           ref={searchInputRef}
-          type="text"
+          type="search"
           className="sidebar-search-input"
-          placeholder="Search"
+          placeholder="Search workspaces…"
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           aria-label="Search workspaces"
+          autoComplete="off"
+          spellCheck={false}
         />
-        <kbd className="sidebar-search-kbd">/</kbd>
+        {searchQuery ? (
+          <button
+            type="button"
+            className="sidebar-search-clear"
+            aria-label="Clear search"
+            onClick={() => setSearchQuery('')}
+          >
+            <span aria-hidden="true">×</span>
+          </button>
+        ) : (
+          <kbd className="sidebar-search-kbd">/</kbd>
+        )}
       </div>
 
       <nav className="ws-group-list" aria-label="Workspaces">
@@ -230,7 +261,17 @@ export function Sidebar({
       </nav>
 
       <div className="sidebar-footer">
-        <span className="sidebar-version">v{appVersion}</span>
+        <button
+          type="button"
+          className="sidebar-tools-btn sidebar-tools-btn-labeled"
+          aria-label="Open tools"
+          title="Tools — panels, MCP, history…"
+          data-testid="btn-open-tools"
+          onClick={onOpenTools}
+        >
+          <Settings2 size={14} aria-hidden="true" />
+          <span>Tools</span>
+        </button>
         <button
           type="button"
           className="sidebar-collapse-btn"

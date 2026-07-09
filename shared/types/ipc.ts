@@ -134,6 +134,17 @@ export interface FileSystemApi {
 }
 
 export const IPC_CHANNELS = {
+  app: {
+    getUpdateState: 'app:get-update-state',
+    checkForUpdates: 'app:check-for-updates',
+    quitAndInstall: 'app:quit-and-install',
+    onUpdateState: 'app:update-state'
+  },
+  rtk: {
+    getStatus: 'rtk:get-status',
+    checkForUpdate: 'rtk:check-for-update',
+    updateToLatest: 'rtk:update-to-latest'
+  },
   workspace: {
     list: 'workspace:list',
     create: 'workspace:create',
@@ -271,6 +282,7 @@ export const IPC_CHANNELS = {
     getCliStatus: 'github:get-cli-status',
     getWorkspaceStatus: 'github:get-workspace-status',
     fetch: 'github:fetch',
+    pullFfOnly: 'github:pull-ff-only',
     stageAll: 'github:stage-all',
     commit: 'github:commit',
     generateCommitMessage: 'github:generate-commit-message',
@@ -410,8 +422,8 @@ export interface TerminalApi {
   resize(input: TerminalResizeInput): Promise<void>
   stop(input: TerminalStopInput): Promise<void>
   restart(input: TerminalStopInput): Promise<void>
-  onData(listener: (event: TerminalDataEvent) => void): () => void
-  onExit(listener: (event: TerminalExitEvent) => void): () => void
+  onData(paneId: string, listener: (event: TerminalDataEvent) => void): () => void
+  onExit(paneId: string, listener: (event: TerminalExitEvent) => void): () => void
 }
 
 export interface AgentApi {
@@ -448,6 +460,7 @@ export interface GitHubApi {
   getCliStatus(input: GitHubWorkspaceInput): Promise<GitHubCliStatus>
   getWorkspaceStatus(input: GitHubWorkspaceInput): Promise<GitHubWorkspaceStatus>
   fetch(input: GitHubWorkspaceInput): Promise<GitHubMessageResult>
+  pullFfOnly(input: GitHubWorkspaceInput): Promise<GitHubMessageResult>
   stageAll(input: GitHubWorkspaceInput): Promise<GitHubMessageResult>
   commit(input: GitHubCommitInput): Promise<GitHubMessageResult>
   generateCommitMessage(input: GitHubWorkspaceInput): Promise<GitHubMessageResult>
@@ -546,10 +559,24 @@ export interface ContextUsageApi {
   get(input: import('./contextUsage').ContextUsageInput): Promise<import('./contextUsage').ContextUsageChip>
 }
 
+export interface AppUpdateApi {
+  getUpdateState(): Promise<import('./updater').AppUpdateState>
+  checkForUpdates(): Promise<import('./updater').AppUpdateState>
+  quitAndInstall(): Promise<boolean>
+  onUpdateState(listener: (state: import('./updater').AppUpdateState) => void): () => void
+}
+
+export interface RtkApi {
+  getStatus(): Promise<import('./updater').RtkUpdateState>
+  checkForUpdate(): Promise<import('./updater').RtkUpdateState>
+  updateToLatest(): Promise<import('./updater').RtkUpdateState>
+}
+
 export interface OxeApi {
   app: {
     version: string
-  }
+  } & AppUpdateApi
+  rtk: RtkApi
   workspace: WorkspaceApi
   terminal: TerminalApi
   agent: AgentApi

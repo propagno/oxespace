@@ -14,6 +14,16 @@ import {
 } from '../../electron/main/ipc/validation'
 
 describe('ipc contracts', () => {
+  test('uses stable app update and rtk channel names', () => {
+    expect(IPC_CHANNELS.app.getUpdateState).toBe('app:get-update-state')
+    expect(IPC_CHANNELS.app.checkForUpdates).toBe('app:check-for-updates')
+    expect(IPC_CHANNELS.app.quitAndInstall).toBe('app:quit-and-install')
+    expect(IPC_CHANNELS.app.onUpdateState).toBe('app:update-state')
+    expect(IPC_CHANNELS.rtk.getStatus).toBe('rtk:get-status')
+    expect(IPC_CHANNELS.rtk.checkForUpdate).toBe('rtk:check-for-update')
+    expect(IPC_CHANNELS.rtk.updateToLatest).toBe('rtk:update-to-latest')
+  })
+
   test('uses stable workspace and terminal channel names', () => {
     expect(IPC_CHANNELS.workspace.create).toBe('workspace:create')
     expect(IPC_CHANNELS.workspace.shellProfiles).toBe('workspace:shell-profiles')
@@ -76,6 +86,13 @@ describe('ipc contracts', () => {
       themeId: 'nord',
       uiDensity: 'comfortable'
     })
+
+    expect(parseWorkspaceCreateInput({
+      rootPath: 'C:/repo',
+      agentBindings: [{ paneIndex: 1, shellProfileId: 'builtin-powershell' }]
+    })).toMatchObject({
+      agentBindings: [{ paneIndex: 1, shellProfileId: 'builtin-powershell' }]
+    })
   })
 
   test('validates terminal payloads', () => {
@@ -127,6 +144,7 @@ describe('ipc contracts', () => {
     expect(IPC_CHANNELS.github.getCliStatus).toBe('github:get-cli-status')
     expect(IPC_CHANNELS.github.getWorkspaceStatus).toBe('github:get-workspace-status')
     expect(IPC_CHANNELS.github.fetch).toBe('github:fetch')
+    expect(IPC_CHANNELS.github.pullFfOnly).toBe('github:pull-ff-only')
     expect(IPC_CHANNELS.github.stageAll).toBe('github:stage-all')
     expect(IPC_CHANNELS.github.commit).toBe('github:commit')
     expect(IPC_CHANNELS.github.generateCommitMessage).toBe('github:generate-commit-message')

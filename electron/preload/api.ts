@@ -40,9 +40,21 @@ export interface PreloadIpc {
 }
 
 export function createOxeApi(ipc: PreloadIpc): OxeApi {
+  const terminalData = createPaneSubscriber<TerminalDataEvent>(ipc, IPC_CHANNELS.terminal.onData)
+  const terminalExit = createPaneSubscriber<TerminalExitEvent>(ipc, IPC_CHANNELS.terminal.onExit)
+
   return {
     app: {
-      version: packageJson.version
+      version: packageJson.version,
+      getUpdateState: () => ipc.invoke(IPC_CHANNELS.app.getUpdateState) as Promise<import('../../shared/types/updater').AppUpdateState>,
+      checkForUpdates: () => ipc.invoke(IPC_CHANNELS.app.checkForUpdates) as Promise<import('../../shared/types/updater').AppUpdateState>,
+      quitAndInstall: () => ipc.invoke(IPC_CHANNELS.app.quitAndInstall) as Promise<boolean>,
+      onUpdateState: (listener) => subscribe(ipc, IPC_CHANNELS.app.onUpdateState, listener)
+    },
+    rtk: {
+      getStatus: () => ipc.invoke(IPC_CHANNELS.rtk.getStatus) as Promise<import('../../shared/types/updater').RtkUpdateState>,
+      checkForUpdate: () => ipc.invoke(IPC_CHANNELS.rtk.checkForUpdate) as Promise<import('../../shared/types/updater').RtkUpdateState>,
+      updateToLatest: () => ipc.invoke(IPC_CHANNELS.rtk.updateToLatest) as Promise<import('../../shared/types/updater').RtkUpdateState>
     },
     workspace: {
       list: () => ipc.invoke(IPC_CHANNELS.workspace.list) as Promise<Workspace[]>,
@@ -73,8 +85,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       resize: (input) => ipc.invoke(IPC_CHANNELS.terminal.resize, input) as Promise<void>,
       stop: (input) => ipc.invoke(IPC_CHANNELS.terminal.stop, input) as Promise<void>,
       restart: (input) => ipc.invoke(IPC_CHANNELS.terminal.restart, input) as Promise<void>,
-      onData: (listener) => subscribe<TerminalDataEvent>(ipc, IPC_CHANNELS.terminal.onData, listener),
-      onExit: (listener) => subscribe<TerminalExitEvent>(ipc, IPC_CHANNELS.terminal.onExit, listener)
+      onData: terminalData,
+      onExit: terminalExit
     },
     agent: {
       list: () => ipc.invoke(IPC_CHANNELS.agent.list) as Promise<AgentProfile[]>,
@@ -155,6 +167,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       getCliStatus: (input) => ipc.invoke(IPC_CHANNELS.github.getCliStatus, input) as Promise<GitHubCliStatus>,
       getWorkspaceStatus: (input) => ipc.invoke(IPC_CHANNELS.github.getWorkspaceStatus, input) as Promise<GitHubWorkspaceStatus>,
       fetch: (input) => ipc.invoke(IPC_CHANNELS.github.fetch, input) as Promise<GitHubMessageResult>,
+      pullFfOnly: (input) => ipc.invoke(IPC_CHANNELS.github.pullFfOnly, input) as Promise<GitHubMessageResult>,
       stageAll: (input) => ipc.invoke(IPC_CHANNELS.github.stageAll, input) as Promise<GitHubMessageResult>,
       commit: (input) => ipc.invoke(IPC_CHANNELS.github.commit, input) as Promise<GitHubMessageResult>,
       generateCommitMessage: (input) => ipc.invoke(IPC_CHANNELS.github.generateCommitMessage, input) as Promise<GitHubMessageResult>,
@@ -245,6 +258,42 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       setEnabled: (input) => ipc.invoke(IPC_CHANNELS.semantic.setEnabled, input) as Promise<import('../../shared/types/ipc').SemanticStatus>,
       getLogs: () => ipc.invoke(IPC_CHANNELS.semantic.getLogs) as Promise<import('../../shared/types/ipc').SemanticLogEntry[]>,
       onLog: (listener) => subscribe<import('../../shared/types/ipc').SemanticLogEntry>(ipc, IPC_CHANNELS.semantic.onLog, listener)
+    }
+  }
+}
+
+function createPaneSubscriber<TPayload extends { paneId: string }>(
+  ipc: PreloadIpc,
+  channel: string
+): (paneId: string, listener: (event: TPayload) => void) => () => void {
+  const listeners = new Map<string, Set<(event: TPayload) => void>>()
+  let wrapped: ((event: IpcRendererEvent, payload: unknown) => void) | null = null
+
+  return (paneId, listener) => {
+    let paneListeners = listeners.get(paneId)
+    if (!paneListeners) {
+      paneListeners = new Set()
+      listeners.set(paneId, paneListeners)
+    }
+    paneListeners.add(listener)
+
+    if (!wrapped) {
+      wrapped = (_event, payload) => {
+        const event = payload as TPayload
+        for (const target of listeners.get(event.paneId) ?? []) target(event)
+      }
+      ipc.on(channel, wrapped)
+    }
+
+    return () => {
+      const targets = listeners.get(paneId)
+      if (!targets) return
+      targets.delete(listener)
+      if (targets.size === 0) listeners.delete(paneId)
+      if (listeners.size === 0 && wrapped) {
+        ipc.removeListener(channel, wrapped)
+        wrapped = null
+      }
     }
   }
 }

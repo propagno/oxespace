@@ -1,4 +1,4 @@
-import { Bot, Code2, Github, MousePointer2, Sparkles } from 'lucide-react'
+import { Bot, Code2, Github, MousePointer2, Sparkles, Zap } from 'lucide-react'
 import type { ReactElement } from 'react'
 import type { AgentProvider } from '../../../shared/types/agent'
 
@@ -21,6 +21,7 @@ const PROVIDER_TOKENS: Record<AgentProvider, { bg: string; icon: ReactElement }>
   antigravity:  { bg: 'var(--provider-antigravity)', icon: <Sparkles size={10} color="white" /> },
   codex:        { bg: 'var(--provider-codex)',   icon: <Code2 size={10} color="white" /> },
   cursor:       { bg: 'var(--provider-cursor)',  icon: <MousePointer2 size={10} color="white" /> },
+  grok:         { bg: 'var(--provider-grok)',    icon: <Zap size={10} color="white" /> },
   custom:       { bg: 'var(--provider-custom)',  icon: <Bot size={10} color="white" /> },
 }
 

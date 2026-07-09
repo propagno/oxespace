@@ -11,6 +11,7 @@ import type { CommandPaletteAction } from './components/CommandPalette/CommandPa
 const AgentConfigModal = lazy(() => import('./components/Agents/AgentConfigModal').then((m) => ({ default: m.AgentConfigModal })))
 const DesignSystemPage = lazy(() => import('./components/DesignSystem/DesignSystemPage').then((m) => ({ default: m.DesignSystemPage })))
 const SettingsModal = lazy(() => import('./components/Settings/SettingsModal').then((m) => ({ default: m.SettingsModal })))
+const ToolsModal = lazy(() => import('./components/Workspace/ToolsModal').then((m) => ({ default: m.ToolsModal })))
 const CommandPalette = lazy(() => import('./components/CommandPalette/CommandPalette').then((m) => ({ default: m.CommandPalette })))
 const HistoryPanel = lazy(() => import('./components/History/HistoryPanel').then((m) => ({ default: m.HistoryPanel })))
 const McpPanel = lazy(() => import('./components/MCP/McpPanel').then((m) => ({ default: m.McpPanel })))
@@ -25,6 +26,7 @@ import type { WizardLaunchInput } from './components/Workspace/NewWorkspaceModal
 const NewWorkspaceModal = lazy(() => import('./components/Workspace/NewWorkspaceModal').then((m) => ({ default: m.NewWorkspaceModal })))
 const WorkspaceSettingsModal = lazy(() => import('./components/Workspace/WorkspaceSettingsModal').then((m) => ({ default: m.WorkspaceSettingsModal })))
 import { WorkspaceSurface } from './components/Workspace/WorkspaceSurface'
+import { UpdateBanner } from './components/Updates/UpdateBanner'
 import { LAYOUT_PRESETS, WORKSPACE_DENSITIES, WORKSPACE_THEMES } from './components/Workspace/workspaceOptions'
 import { useAgentStore } from './store/agent.store'
 import { useEditorStore } from './store/editor.store'
@@ -89,6 +91,7 @@ export function App(): ReactElement {
   const getTerminalStatus = useTerminalStore((state) => state.getStatus)
   const setPendingCommand = useTerminalStore((state) => state.setPendingCommand)
   const setActiveTerminalPaneId = useTerminalStore((state) => state.setActivePaneId)
+  const removeTerminalPane = useTerminalStore((state) => state.removePane)
   const activeWorkspace = useWorkspaceStore(selectActiveWorkspace)
   const {
     closeNewWorkspace,
@@ -97,6 +100,7 @@ export function App(): ReactElement {
     activePaneId,
     isCommandPaletteOpen,
     isSettingsOpen,
+    isToolsOpen,
     isSidebarCollapsed,
     isNewWorkspaceOpen,
     isWorkspaceSettingsOpen,
@@ -126,6 +130,8 @@ export function App(): ReactElement {
     closeWebPreview,
     openIntegrationPanel,
     closeIntegrationPanel,
+    openTools,
+    closeTools,
     maximizedPaneId,
     setActivePane,
     openNewWorkspace,
@@ -150,16 +156,26 @@ export function App(): ReactElement {
   // panes' xterm + IPC subscriptions + git pollers are torn down. Trade
   // memory + render time against scrollback retention for stale workspaces.
   const [visitedWorkspaceIds, setVisitedWorkspaceIds] = useState<string[]>([])
+  const workspacesRef = useRef(workspaces)
+  workspacesRef.current = workspaces
   useEffect(() => {
     if (!activeWorkspaceId) return
     setVisitedWorkspaceIds((prev) => {
       const without = prev.filter((id) => id !== activeWorkspaceId)
       const next = [...without, activeWorkspaceId]
-      return next.length > VISITED_WORKSPACES_CAP
-        ? next.slice(-VISITED_WORKSPACES_CAP)
-        : next
+      const evictedWorkspaceId = next.length > VISITED_WORKSPACES_CAP ? next[0] : null
+      if (evictedWorkspaceId) {
+        const workspace = workspacesRef.current.find((item) => item.id === evictedWorkspaceId)
+        for (const pane of workspace?.panes ?? []) {
+          // An evicted workspace has no xterm instance or output consumer. Stop
+          // its PTYs rather than letting agents run invisibly and lose output.
+          void window.oxe.terminal.stop({ paneId: pane.id }).catch(() => undefined)
+          removeTerminalPane(pane.id)
+        }
+      }
+      return evictedWorkspaceId ? next.slice(1) : next
     })
-  }, [activeWorkspaceId])
+  }, [activeWorkspaceId, removeTerminalPane])
   const activePane = activeWorkspace?.panes.find((pane) => pane.id === activePaneId) ?? activeWorkspace?.panes[0] ?? null
   const pttHotkey = useVoiceStore((s) => s.pttHotkey)
   const slashPane = slashOverlayPaneId ? activeWorkspace?.panes.find((pane) => pane.id === slashOverlayPaneId) ?? null : null
@@ -264,7 +280,7 @@ export function App(): ReactElement {
   }
 
   const handleClosePane = (paneId: string): void => {
-    void closePane(paneId)
+    void closePane(paneId).then(() => removeTerminalPane(paneId))
   }
 
   const handleCloseWorkspace = (workspaceId: string): void => {
@@ -272,6 +288,8 @@ export function App(): ReactElement {
       setAppNotice('Workspace has unsaved editor changes. Save or close the file before closing the workspace.')
       return
     }
+    const workspace = workspaces.find((item) => item.id === workspaceId)
+    for (const pane of workspace?.panes ?? []) removeTerminalPane(pane.id)
     clearEditor(workspaceId)
     setVisitedWorkspaceIds((prev) => prev.filter((id) => id !== workspaceId))
     void closeWorkspace(workspaceId)
@@ -293,6 +311,48 @@ export function App(): ReactElement {
       githubPanelVisible: !activeWorkspace.githubPanelVisible,
       githubPanelExpanded: activeWorkspace.githubPanelVisible ? false : activeWorkspace.githubPanelExpanded
     })
+  }
+
+  const toggleReviewPanel = (): void => {
+    if (!activeWorkspace) return
+    void updateReviewState({
+      workspaceId: activeWorkspace.id,
+      reviewPanelVisible: !activeWorkspace.reviewPanelVisible,
+      reviewPanelExpanded: activeWorkspace.reviewPanelVisible ? false : activeWorkspace.reviewPanelExpanded
+    })
+  }
+
+  const toggleBackgroundPanel = (): void => {
+    if (!activeWorkspace) return
+    void updateBackgroundState({
+      workspaceId: activeWorkspace.id,
+      backgroundPanelVisible: !activeWorkspace.backgroundPanelVisible,
+      backgroundPanelExpanded: activeWorkspace.backgroundPanelVisible ? false : activeWorkspace.backgroundPanelExpanded
+    })
+  }
+
+  const toggleWorktreePanel = (): void => {
+    if (!activeWorkspace) return
+    void updateWorktreeState({
+      workspaceId: activeWorkspace.id,
+      worktreePanelVisible: !activeWorkspace.worktreePanelVisible,
+      worktreePanelExpanded: activeWorkspace.worktreePanelVisible ? false : activeWorkspace.worktreePanelExpanded
+    })
+  }
+
+  const toggleOxePanel = (): void => {
+    if (isOxePanelOpen) closeOxePanel()
+    else openOxePanel()
+  }
+
+  const toggleScriptsPanel = (): void => {
+    if (isScriptsPanelOpen) closeScriptsPanel()
+    else openScriptsPanel()
+  }
+
+  const toggleWebPreviewPanel = (): void => {
+    if (isWebPreviewOpen) closeWebPreview()
+    else openWebPreview()
   }
 
   const splitActivePane = (direction: 'vertical' | 'horizontal'): void => {
@@ -336,6 +396,7 @@ export function App(): ReactElement {
     { id: 'new-workspace', title: 'Create workspace', subtitle: 'Open the New Workspace wizard', icon: FilePlus2, category: 'Workspace', keywords: ['new', 'open', 'project'], run: openNewWorkspace },
     { id: 'workspace-settings', title: 'Open workspace settings', subtitle: 'Theme, layout, density, shell', icon: Sliders, category: 'Workspace', disabled: !activeWorkspace, run: openWorkspaceSettings },
     { id: 'toggle-sidebar', title: 'Toggle sidebar', subtitle: 'Ctrl+B', icon: LayoutDashboard, category: 'Workspace', run: toggleSidebar },
+    { id: 'open-tools', title: 'Open Tools', subtitle: 'Panels, MCP, history, workspace tools', icon: Settings2, category: 'Workspace', keywords: ['tools', 'panels', 'mcp', 'gear'], run: openTools },
 
     // AI & Agents
     { id: 'open-settings', title: 'Open Agent Settings', subtitle: 'Configure CLIs and discovery', icon: Bot, category: 'AI & Agents', keywords: ['ai', 'provider', 'discovery'], run: toggleSettings },
@@ -549,9 +610,11 @@ export function App(): ReactElement {
         onCloseWorkspace={handleCloseWorkspace}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={toggleSidebar}
+        onOpenTools={openTools}
         integrationGroups={integrationGroups}
       />
       <section className="workspace-surface">
+        <UpdateBanner />
         {error ? <div className="error-banner">{error}</div> : null}
         {appNotice ? (
           <div className="error-banner">
@@ -583,16 +646,6 @@ export function App(): ReactElement {
                       onToggleMaximize={(paneId) => setMaximizedPane(maximizedPaneId === paneId ? null : paneId)}
                       onSplitPane={(paneId, dir) => void splitPane(paneId, dir)}
                       onActivatePane={setActivePane}
-                      onOpenCommandPalette={openCommandPalette}
-                      onOpenWorkspaceSettings={openWorkspaceSettings}
-                      onOpenHistory={openHistoryPanel}
-                      onOpenMcp={openMcpPanel}
-                      onOpenSkills={openSkillsBrowser}
-                      onOpenSemanticLogs={() => setSemanticActivityOpen(true)}
-                      onOpenScripts={openScriptsPanel}
-                      onOpenWebPreview={openWebPreview}
-                      onOpenIntegration={openIntegrationPanel}
-                      onToggleOxe={() => (isOxePanelOpen ? closeOxePanel() : openOxePanel())}
                       scriptsVisible={isActive && isScriptsPanelOpen}
                       webPreviewVisible={isActive && isWebPreviewOpen}
                       integrationVisible={isActive && isIntegrationPanelOpen}
@@ -711,6 +764,38 @@ export function App(): ReactElement {
             systemPrompt: ''
           })}
           onClose={toggleSettings}
+        />
+      ) : null}
+      {isToolsOpen ? (
+        <ToolsModal
+          active={{
+            github: activeWorkspace?.githubPanelVisible === true,
+            editor: activeWorkspace?.editorVisible === true,
+            review: activeWorkspace?.reviewPanelVisible === true,
+            background: activeWorkspace?.backgroundPanelVisible === true,
+            worktree: activeWorkspace?.worktreePanelVisible === true,
+            scripts: isScriptsPanelOpen,
+            webPreview: isWebPreviewOpen,
+            integration: isIntegrationPanelOpen,
+            oxe: isOxePanelOpen
+          }}
+          onClose={closeTools}
+          onOpenCommandPalette={openCommandPalette}
+          onOpenWorkspaceSettings={openWorkspaceSettings}
+          onOpenAgentSettings={toggleSettings}
+          onToggleEditor={toggleEditor}
+          onToggleGitHub={toggleGitHubPanel}
+          onToggleReview={toggleReviewPanel}
+          onToggleBackground={toggleBackgroundPanel}
+          onToggleWorktree={toggleWorktreePanel}
+          onToggleScripts={toggleScriptsPanel}
+          onToggleWebPreview={toggleWebPreviewPanel}
+          onOpenIntegration={openIntegrationPanel}
+          onOpenHistory={openHistoryPanel}
+          onOpenMcp={openMcpPanel}
+          onOpenSkills={openSkillsBrowser}
+          onOpenSemanticLogs={() => setSemanticActivityOpen(true)}
+          onToggleOxe={toggleOxePanel}
         />
       ) : null}
       {isDesignSystemOpen ? <DesignSystemPage onClose={() => { setDesignSystemOpen(false) }} /> : null}

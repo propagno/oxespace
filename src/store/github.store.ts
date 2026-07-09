@@ -41,6 +41,7 @@ interface GitHubStoreState {
   loadTab: (input: GitHubWorkspaceInput, tab: string) => Promise<void>
   prefetchOnOpen: (input: GitHubWorkspaceInput) => Promise<void>
   fetch: (input: GitHubWorkspaceInput) => Promise<void>
+  pullFfOnly: (input: GitHubWorkspaceInput) => Promise<void>
   stageAll: (input: GitHubWorkspaceInput) => Promise<void>
   commit: (input: GitHubWorkspaceInput & { message: string }) => Promise<void>
   generateCommitMessage: (input: GitHubWorkspaceInput) => Promise<string>
@@ -181,6 +182,7 @@ export const useGitHubStore = create<GitHubStoreState>((set, get) => ({
   },
 
   fetch: async (input) => runMutation(set, input.workspaceId, () => window.oxe.github.fetch(input), () => get().loadStatus(input)),
+  pullFfOnly: async (input) => runMutation(set, input.workspaceId, () => window.oxe.github.pullFfOnly(input), () => get().loadStatus(input)),
   stageAll: async (input) => runMutation(set, input.workspaceId, () => window.oxe.github.stageAll(input), () => get().loadStatus(input)),
   commit: async (input) => runMutation(set, input.workspaceId, () => window.oxe.github.commit(input), () => get().loadStatus(input)),
   generateCommitMessage: async (input) => {

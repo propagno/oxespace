@@ -4,7 +4,7 @@ import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { AgentProvider } from '../../../shared/types/agent'
 import { SessionService } from '../services/session.service'
 
-const VALID_PROVIDERS: AgentProvider[] = ['claude', 'codex', 'antigravity', 'copilot', 'gh-copilot', 'cursor', 'custom']
+const VALID_PROVIDERS: AgentProvider[] = ['claude', 'codex', 'antigravity', 'copilot', 'gh-copilot', 'cursor', 'grok', 'custom']
 
 export function registerSessionIpc(db: AppDatabase, service = new SessionService(db)): SessionService {
   ipcMain.handle(IPC_CHANNELS.session.list, (_event, input: unknown) => {

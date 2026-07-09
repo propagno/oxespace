@@ -177,13 +177,13 @@ describe('TerminalView', () => {
     terminalState.onData?.('a')
     expect(onInput).toHaveBeenCalledWith('a')
 
-    const dataListener = vi.mocked(window.oxe.terminal.onData).mock.calls[0][0]
+    const dataListener = vi.mocked(window.oxe.terminal.onData).mock.calls[0][1]
     dataListener({ paneId: 'pane-1', data: 'hello' })
     // Smart-scrollback passes a callback as the 2nd arg to terminal.write so
     // the viewport can be restored after the chunk is rendered.
     expect(terminalState.write).toHaveBeenCalledWith('hello', expect.any(Function))
 
-    const exitListener = vi.mocked(window.oxe.terminal.onExit).mock.calls[0][0]
+    const exitListener = vi.mocked(window.oxe.terminal.onExit).mock.calls[0][1]
     exitListener({ paneId: 'pane-1', exitCode: 0 })
     expect(onExit).toHaveBeenCalledWith(0)
     expect(terminalState.focus).toHaveBeenCalled()
@@ -374,6 +374,21 @@ describe('TerminalView', () => {
     expect(terminalState.clearSelection).toHaveBeenCalled()
   })
 
+  test('native copy events preserve a long terminal selection', async () => {
+    const selection = 'curl https://api.example.test ' + 'x'.repeat(20_000)
+    terminalState.getSelection.mockReturnValue(selection)
+    render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
+
+    const copyEvent = new Event('copy', { bubbles: true, cancelable: true }) as ClipboardEvent
+    const setData = vi.fn()
+    Object.defineProperty(copyEvent, 'clipboardData', { value: { setData } })
+    screen.getByTestId('terminal-view').dispatchEvent(copyEvent)
+
+    expect(copyEvent.defaultPrevented).toBe(true)
+    expect(setData).toHaveBeenCalledWith('text/plain', selection)
+    await vi.waitFor(() => expect(window.oxe.clipboard.writeText).toHaveBeenCalledWith(selection))
+  })
+
   test('Ctrl+C without a selection passes through to the PTY as SIGINT', () => {
     terminalState.getSelection.mockReturnValue('')
     render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
@@ -413,7 +428,7 @@ describe('TerminalView', () => {
     terminalState.getSelection.mockReturnValue('selected output')
     render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
 
-    const dataListener = vi.mocked(window.oxe.terminal.onData).mock.calls[0][0]
+    const dataListener = vi.mocked(window.oxe.terminal.onData).mock.calls[0][1]
     dataListener({ paneId: 'pane-1', data: 'more streamed tokens\r\n' })
 
     const writeCall = terminalState.write.mock.calls.find((call) => call[0] === 'more streamed tokens\r\n')

@@ -4,6 +4,7 @@ import type { Workspace } from '../../../shared/types/workspace'
 import type { SemanticStatus } from '../../../shared/types/ipc'
 import { useResolvedTerminalPrefs, useTerminalPrefsStore } from '../../store/terminal-prefs.store'
 import { selectMcpServers, useMcpStore } from '../../store/mcp.store'
+import { useUpdaterStore } from '../../store/updater.store'
 
 interface IntegrationsStatusChipsProps {
   workspace: Workspace
@@ -17,6 +18,7 @@ export function IntegrationsStatusChips({ workspace }: IntegrationsStatusChipsPr
   const terminalPrefs = useResolvedTerminalPrefs(workspace.id)
   const setOverride = useTerminalPrefsStore((s) => s.setOverride)
   const rtkActive = terminalPrefs.rtkHookEnabled
+  const rtk = useUpdaterStore((s) => s.rtk)
   const cavemanActive = terminalPrefs.cavemanModeEnabled
   const semanticEnabled = terminalPrefs.semanticSearchEnabled
 
@@ -119,10 +121,17 @@ export function IntegrationsStatusChips({ workspace }: IntegrationsStatusChipsPr
       </span>
 
       {/* RTK Chip */}
-      <span className={`workspace-status-chip ${rtkActive ? 'activity-thinking' : 'activity-idle'}`} title={`RTK: ${rtkActive ? 'Active' : 'Disabled'}`}>
+      <span
+        className={`workspace-status-chip ${rtk.updateAvailable ? 'activity-awaiting' : rtkActive ? 'activity-thinking' : 'activity-idle'}`}
+        title={
+          rtk.updateAvailable
+            ? `RTK: update ${rtk.latestVersion} available (installed ${rtk.version ?? 'legacy'}) — Settings → Updates`
+            : `RTK: ${rtkActive ? 'Active' : 'Disabled'}${rtk.version ? ` · ${rtk.version}` : ''}`
+        }
+      >
         <Zap size={11} aria-hidden="true" style={{ marginRight: 2 }} />
-        <span className={`workspace-status-dot ${rtkActive ? 'activity-thinking' : 'activity-idle'}`} aria-hidden="true" />
-        <span className="chip-label">RTK</span>
+        <span className={`workspace-status-dot ${rtk.updateAvailable ? 'activity-awaiting' : rtkActive ? 'activity-thinking' : 'activity-idle'}`} aria-hidden="true" />
+        <span className="chip-label">RTK{rtk.updateAvailable ? ' ↑' : ''}</span>
       </span>
 
       {/* Caveman Chip — green when active, matching RTK/MCP (it's a plain on/off

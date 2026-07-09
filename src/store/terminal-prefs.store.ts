@@ -41,7 +41,10 @@ export const TERMINAL_PREFS_DEFAULTS: TerminalPrefs = {
   letterSpacing: 0,
   cursorStyle: 'bar',
   cursorBlink: false,
-  scrollback: 100_000,
+  // 100k retained lines per mounted pane makes xterm selection and clipboard
+  // operations noticeably unreliable in long-lived agent sessions. 50k still
+  // retains extensive history while keeping the terminal responsive.
+  scrollback: 50_000,
   backgroundOpacity: 1,
   // RTK, Caveman and Semantic are opt-in developer features — off by default so
   // a fresh workspace does no extra token transforms or background indexing.
@@ -90,7 +93,7 @@ export const useTerminalPrefsStore = create<TerminalPrefsState>()(
     }),
     {
       name: 'oxe-terminal-prefs',
-      version: 4,
+      version: 5,
       // v2: RTK/Caveman/Semantic became opt-in (off by default). Existing users
       // have a persisted `global` from when RTK/Semantic defaulted to ON, and
       // `merge` spreads persisted over defaults — so without this migration the
@@ -111,11 +114,15 @@ export const useTerminalPrefsStore = create<TerminalPrefsState>()(
         // v4 (modern terminal card): prefer JetBrains Mono for users who never
         // picked a font themselves — anyone with a custom stack keeps it.
         if (global.fontFamily === LEGACY_DEFAULT_FONT) global.fontFamily = TERMINAL_PREFS_DEFAULTS.fontFamily
+        // v5: roll the old 100k default forward. Explicitly larger/smaller
+        // values remain untouched as a deliberate user preference.
+        if (global.scrollback === 100_000) global.scrollback = TERMINAL_PREFS_DEFAULTS.scrollback
         const overrides: Record<string, Partial<TerminalPrefs>> = {}
         for (const [ws, ov] of Object.entries(p.overrides ?? {})) {
           const next = { ...(ov as Partial<TerminalPrefs>) }
           delete next.rtkHookEnabled
           delete next.semanticSearchEnabled
+          if (next.scrollback === 100_000) next.scrollback = TERMINAL_PREFS_DEFAULTS.scrollback
           if (Object.keys(next).length > 0) overrides[ws] = next
         }
         return { ...p, global, overrides }

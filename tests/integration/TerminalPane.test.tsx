@@ -188,6 +188,25 @@ describe('TerminalPane', () => {
     expect(screen.getByRole('button', { name: /OXEVoice/i })).toBeDisabled()
   })
 
+  test('oxe:terminal-new-session restarts a running terminal', async () => {
+    useTerminalStore.getState().setStatus('pane-1', 'running')
+    render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
+
+    window.dispatchEvent(new CustomEvent('oxe:terminal-new-session', { detail: { paneId: 'pane-1' } }))
+
+    await waitFor(() => {
+      expect(window.oxe.terminal.stop).toHaveBeenCalledWith({ paneId: 'pane-1' })
+      expect(window.oxe.terminal.start).toHaveBeenCalledWith(
+        expect.objectContaining({ paneId: 'pane-1', workspaceId: 'workspace-1' })
+      )
+    })
+  })
+
+  test('does not render the removed terminal topbar', () => {
+    render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
+    expect(screen.queryByTestId('terminal-topbar')).not.toBeInTheDocument()
+  })
+
 })
 
 function createPane(): WorkspacePane {

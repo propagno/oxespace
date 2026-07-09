@@ -154,7 +154,6 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
   const onInputRef = useRef(onInput)
   const onResizeRef = useRef(onResize)
   const fitFrameRef = useRef<number | null>(null)
-  const refreshFrameRef = useRef<number | null>(null)
   const settleFitTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([])
   const [isDragOver, setIsDragOver] = useState(false)
   // Ctrl+F search overlay (powered by @xterm/addon-search).
@@ -356,6 +355,20 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       return ''
     }
 
+    // Electron does not always route Ctrl+C through xterm's custom key handler
+    // after a long canvas selection. Capture the native copy event as a second
+    // path so keyboard shortcuts and context-menu copy both preserve the full
+    // selected command/output.
+    const handleCopy = (event: ClipboardEvent): void => {
+      const selection = effectiveSelection()
+      if (!selection) return
+      event.preventDefault()
+      event.clipboardData?.setData('text/plain', selection)
+      void copyText(selection)
+      terminal.clearSelection()
+      lastSelectionRef.current = null
+    }
+
     terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
       const key = event.key.toLowerCase()
 
@@ -435,6 +448,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       }
     }
     hostRef.current.addEventListener('paste', handlePaste, { capture: true })
+    hostRef.current.addEventListener('copy', handleCopy, { capture: true })
 
     const handleProgrammaticInsert = (event: Event): void => {
       const detail = (event as CustomEvent<{ paneId?: string; text?: string }>).detail
@@ -488,14 +502,6 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       })
     }
 
-    const scheduleRefresh = (): void => {
-      if (refreshFrameRef.current !== null) return
-      refreshFrameRef.current = window.requestAnimationFrame(() => {
-        refreshFrameRef.current = null
-        terminal.refresh(0, terminal.rows - 1)
-      })
-    }
-
     const resizeObserver = new ResizeObserver(scheduleFit)
     resizeObserver.observe(hostRef.current)
     scheduleFit()
@@ -515,8 +521,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
 
     let previewTimer: ReturnType<typeof setTimeout> | null = null
 
-    const unsubscribeData = window.oxe.terminal.onData((event) => {
-      if (event.paneId !== paneId) return
+    const unsubscribeData = window.oxe.terminal.onData(paneId, (event) => {
       // Smart scrollback: when the user has scrolled up to read history, new
       // streaming output from the agent shouldn't yank them back to the bottom.
       // xterm's default behavior on write() is "scroll to bottom on every
@@ -546,7 +551,6 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
           terminal.scrollToLine(Math.min(preViewportY, postBuf.baseY))
         }
       })
-      scheduleRefresh()
       useTerminalStore.getState().updateActivity(paneId, event.data)
       if (previewTimer) clearTimeout(previewTimer)
       previewTimer = setTimeout(() => {
@@ -555,8 +559,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
         if (preview) useTerminalStore.getState().updatePreview(paneId, preview)
       }, 300)
     })
-    const unsubscribeExit = window.oxe.terminal.onExit((event) => {
-      if (event.paneId !== paneId) return
+    const unsubscribeExit = window.oxe.terminal.onExit(paneId, (event) => {
       terminal.write(`\r\n[process exited ${event.exitCode ?? ''}]\r\n`)
       onExitRef.current?.(event.exitCode)
     })
@@ -565,10 +568,6 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       if (fitFrameRef.current !== null) {
         window.cancelAnimationFrame(fitFrameRef.current)
         fitFrameRef.current = null
-      }
-      if (refreshFrameRef.current !== null) {
-        window.cancelAnimationFrame(refreshFrameRef.current)
-        refreshFrameRef.current = null
       }
       for (const t of settleFitTimersRef.current) clearTimeout(t)
       settleFitTimersRef.current = []
@@ -593,6 +592,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
         webglContextCounted = false
       }
       hostRef.current?.removeEventListener('paste', handlePaste, { capture: true })
+      hostRef.current?.removeEventListener('copy', handleCopy, { capture: true })
       window.removeEventListener('oxe:terminal-insert-text', handleProgrammaticInsert)
       pasteRef.current = null
       refitRef.current = null

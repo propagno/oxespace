@@ -28,6 +28,7 @@ interface TerminalState {
   /** Record the user's most recent committed (Enter-terminated) input. */
   setLastIntent: (paneId: string, intent: string) => void
   markRead: (paneId: string) => void
+  removePane: (paneId: string) => void
   setPendingCommand: (paneId: string, command: string) => void
   consumePendingCommand: (paneId: string) => string | null
 }
@@ -186,6 +187,23 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
         [paneId]: { ...(state.panes[paneId] ?? DEFAULT_STATE), hasUnread: false }
       }
     })),
+
+  removePane: (paneId) => {
+    const working = workingTimers.get(paneId)
+    if (working) clearTimeout(working)
+    workingTimers.delete(paneId)
+    clearAwaitingTimer(paneId)
+    lastActivitySetTime.delete(paneId)
+    set((state) => {
+      const { [paneId]: _pane, ...panes } = state.panes
+      const { [paneId]: _pending, ...pendingCommands } = state.pendingCommands
+      return {
+        panes,
+        pendingCommands,
+        activePaneId: state.activePaneId === paneId ? null : state.activePaneId
+      }
+    })
+  },
 
   setPendingCommand: (paneId, command) =>
     set((state) => ({

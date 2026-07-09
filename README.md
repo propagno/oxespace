@@ -24,23 +24,31 @@ Every workspace maps to a local Windows project folder, giving you total control
 ## ✨ Core Features
 
 ### 🖥️ Multi-Pane Terminal
-A robust, GPU-accelerated (WebGL) terminal grid powered by `xterm.js`. Keep Claude, Copilot, standard shells, and custom agents running side-by-side. Layouts, density, and shell profiles are completely customizable per workspace.
+A robust, GPU-accelerated (WebGL) terminal grid powered by `xterm.js`. Keep Claude, Copilot, standard shells, and custom agents running side-by-side. Layouts, density, and shell profiles are completely customizable per workspace (fonts, cursor, scrollback, background opacity).
+
+### 🧰 Tools Hub & Agent Settings
+- **Tools modal** (sidebar gear): one place for panels (GitHub, editor, review, scripts, web preview, OXE), MCP, history, skills, and a featured **Agent Settings** entry.
+- **Agent Settings**: AI provider health checks (ready / not installed), terminal appearance with live preview, local voice STT, desktop notifications, and app/RTK update controls.
+- **Honest update UX**: packaged installs auto-update from GitHub Releases; dev builds clearly mark app updates as unavailable while **RTK install/update still works**.
 
 ### 🧠 Local Semantic Brain (CodeGraph)
 Forget blind code searches. OXESpace features an on-device, multilingual vector index using `transformers.js` (`multilingual-e5-small`) and `web-tree-sitter`. It processes structural and semantic queries locally—working offline and on locked-down networks—exposing highly relevant, chunked file context to agents via the `oxespace_semantic_search` MCP tool. 
 
 ### ⚡ Agent Integrations & MCP
-Model Context Protocol is deeply integrated. OXESpace auto-discovers, manages, and seamlessly exposes your workspace tools to CLIs like **Claude Code** and **Copilot CLI** out of the box, keeping ports fresh and eliminating manual setup friction.
+Model Context Protocol is deeply integrated. OXESpace auto-discovers, manages, and seamlessly exposes your workspace tools to CLIs like **Claude Code**, **Copilot CLI**, **Codex**, **Cursor**, **Grok CLI**, and more—keeping ports fresh and eliminating manual setup friction.
 
 ### 🦴 Caveman & RTK Modes
 - **Caveman Mode**: A built-in, zero-setup output compression layer. Shrinks terminal output text by ~75% without compromising technical accuracy, drastically saving LLM input tokens.
-- **RTK Native Integration**: Automatic, silent zero-setup download of RTK (`rtk-ai/rtk`) for lightning-fast token savings on CLI execution.
+- **RTK Native Integration**: Automatic, silent zero-setup download of RTK (`rtk-ai/rtk`) for lightning-fast token savings on CLI execution. Check or reinstall from **Agent Settings → Updates**.
 
 ### 🐙 Integrated GitHub Hub
-Automate without context switching. The GitHub Hub works natively with the GitHub CLI (`gh`) to handle local Git status, branch management, checkpoints (backed by Git patches), Pull Requests, and Releases all inside the app.
+Automate without context switching. The GitHub Hub works natively with the GitHub CLI (`gh`) for local Git **status** (fetch / pull ff-only / push context), branch management, checkpoints (backed by Git patches), Pull Requests, and Releases—all inside the app.
 
 ### 📝 Integrated Monaco Editor
 A built-in editor that uses the active workspace root as a lazy-loaded file browser. Features language detection, dirty state indicators, `Ctrl+S` saving, and external file watching—perfect for quick tweaks without opening a heavy IDE.
+
+### 🗂️ Workspace sidebar
+Slim workspace cards (name + git branch), version badge next to the OXESpace brand, and a clear **Tools** entry in the footer.
 
 ---
 

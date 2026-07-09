@@ -1,4 +1,4 @@
-import { Eraser, FolderTree, Mic, MicOff, Play, Bone, Brain, RotateCcw, Search, Terminal as TerminalIcon, Zap } from 'lucide-react'
+import { FolderTree, Mic, MicOff, Play, Bone, Brain, Terminal as TerminalIcon, Zap } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { WorkspacePane } from '../../../shared/types/workspace'
@@ -261,6 +261,21 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
     return () => window.removeEventListener('oxe:start-pane', handler)
   }, [pane.id, getStatus, start])
 
+  // Header chrome (PaneContainer) dispatches this for search/clear/new-session
+  // tools that used to live on the terminal topbar. Keep restart/start logic
+  // here so agent resolution + integration context stay in one place.
+  useEffect(() => {
+    const handler = (e: Event): void => {
+      const { paneId: targetId } = (e as CustomEvent<{ paneId: string }>).detail
+      if (targetId !== pane.id) return
+      if (getStatus(pane.id).status === 'starting') return
+      const s = getStatus(pane.id).status
+      void (s === 'running' ? restart() : start())
+    }
+    window.addEventListener('oxe:terminal-new-session', handler)
+    return () => window.removeEventListener('oxe:terminal-new-session', handler)
+  }, [pane.id, getStatus, restart, start])
+
   useEffect(() => {
     const forThisPane = (e: Event): boolean => {
       const { paneId: targetId } = (e as CustomEvent<{ paneId: string }>).detail
@@ -288,7 +303,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
   const updateWorktreeState = useWorkspaceStore((s) => s.updateWorktreeState)
   const workspace = useWorkspaceStore((s) => s.workspaces.find((w) => w.id === workspaceId) ?? null)
   const shellProfiles = useWorkspaceStore((s) => s.shellProfiles)
-  // Active-shell indicator for the topbar: the pane's own profile, else the
+  // Active-shell indicator in the statusbar: the pane's own profile, else the
   // workspace default (same resolution terminal.service uses in main).
   const shellName = shellProfiles.find(
     (p) => p.id === (pane.shellProfileId ?? workspace?.defaultShellProfileId)
@@ -316,47 +331,6 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
   return (
     <div className="terminal-pane" data-testid="terminal-pane">
       {state.error ? <div className="terminal-error-bar">{state.error}</div> : null}
-
-      <div className="terminal-topbar" data-testid="terminal-topbar">
-        <span className={`statusbar-dot ${statusDotClass}`} aria-hidden="true" />
-        <span className="terminal-topbar-shell" title={`Shell ativo: ${shellName}`}>
-          <TerminalIcon size={11} aria-hidden="true" />
-          {shellName}
-        </span>
-
-        <div className="terminal-topbar-spacer" />
-
-        <button
-          type="button"
-          className="terminal-topbar-btn"
-          aria-label="Search in terminal"
-          title="Buscar (Ctrl+F)"
-          disabled={!isRunning}
-          onClick={() => window.dispatchEvent(new CustomEvent('oxe:terminal-open-search', { detail: { paneId: pane.id } }))}
-        >
-          <Search size={12} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className="terminal-topbar-btn"
-          aria-label="Clear terminal"
-          title="Limpar terminal"
-          disabled={!isRunning}
-          onClick={() => window.dispatchEvent(new CustomEvent('oxe:terminal-clear', { detail: { paneId: pane.id } }))}
-        >
-          <Eraser size={12} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className="terminal-topbar-btn"
-          aria-label="New session"
-          title="Nova sessão (reinicia o shell)"
-          disabled={state.status === 'starting'}
-          onClick={() => void (isRunning ? restart() : start())}
-        >
-          <RotateCcw size={12} aria-hidden="true" />
-        </button>
-      </div>
 
       {isRunning ? (
         <div className="terminal-content">
@@ -428,6 +402,10 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
       <div className="terminal-statusbar">
         <span className={`statusbar-dot ${statusDotClass}`} aria-hidden="true" />
         <span className="statusbar-text">{state.status}</span>
+        <span className="statusbar-shell" title={`Shell ativo: ${shellName}`}>
+          <TerminalIcon size={10} aria-hidden="true" />
+          {shellName}
+        </span>
 
         <div className="terminal-statusbar-spacer" />
 

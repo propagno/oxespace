@@ -1,4 +1,4 @@
-import { Maximize2, Minimize2, PanelBottom, PanelRight, Pencil, X } from 'lucide-react'
+import { Eraser, Maximize2, Minimize2, MoreHorizontal, PanelBottom, PanelRight, Pencil, RotateCcw, Search, X } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
@@ -42,6 +42,9 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
   const terminalState = useTerminalStore((s) => s.panes[pane.id] ?? EMPTY_TERMINAL_STATE)
   const display = derivePaneDisplayState({ pane, workspace, terminal: terminalState, profile: agentProfile, paneIndex: pane.rowIndex + pane.columnIndex })
   const updatePaneName = useWorkspaceStore((s) => s.updatePaneName)
+  const isTerminalPane = pane.type === 'terminal'
+  const terminalCanMutate = terminalState.status === 'running'
+  const terminalCanRestart = terminalState.status !== 'starting'
 
   // Inline rename state for the pane's title. The sidebar no longer exposes
   // per-pane rows, so renaming lives in the header where the user already
@@ -51,6 +54,11 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
   const renameInputRef = useRef<HTMLInputElement | null>(null)
   const commitGuardRef = useRef(false)
 
+  // Overflow menu (⋯) holds secondary actions so the header stays compact:
+  // only Search + Expand stay visible; clear/session/split/close live here.
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement | null>(null)
+
   useEffect(() => {
     if (renaming) {
       setTimeout(() => {
@@ -59,6 +67,25 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
       }, 0)
     }
   }, [renaming])
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const onPointerDown = (event: PointerEvent): void => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setMenuOpen(false)
+    }
+    // Capture phase so we close even if a pane stops propagation on bubble.
+    document.addEventListener('pointerdown', onPointerDown, true)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [menuOpen])
 
   function startRename(event?: React.MouseEvent): void {
     if (event) {
@@ -91,6 +118,11 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
     commitGuardRef.current = true
     setRenaming(false)
     setDraftName('')
+  }
+
+  function runMenuAction(action: () => void): void {
+    setMenuOpen(false)
+    action()
   }
 
   return (
@@ -135,44 +167,129 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
           )}
         </div>
         <div className="pane-actions">
+          {isTerminalPane ? (
+            <button
+              type="button"
+              className="tile-btn"
+              aria-label="Search in terminal"
+              title="Buscar (Ctrl+F)"
+              disabled={!terminalCanMutate}
+              onClick={(e) => {
+                e.stopPropagation()
+                window.dispatchEvent(new CustomEvent('oxe:terminal-open-search', { detail: { paneId: pane.id } }))
+              }}
+            >
+              <Search size={12} aria-hidden="true" />
+            </button>
+          ) : null}
           <button
             type="button"
             className="tile-btn"
             aria-label={isMaximized ? 'Restore pane' : 'Maximize pane'}
             title={isMaximized ? 'Restore' : 'Expand'}
-            onClick={() => onToggleMaximize(pane.id)}
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleMaximize(pane.id)
+            }}
           >
             {isMaximized ? <Minimize2 size={12} aria-hidden="true" /> : <Maximize2 size={12} aria-hidden="true" />}
           </button>
-          <button
-            type="button"
-            className="tile-btn"
-            aria-label="Split vertical"
-            title="Split vertical"
-            onClick={() => onSplitVertical?.(pane.id)}
-          >
-            <PanelRight size={12} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="tile-btn"
-            aria-label="Split horizontal"
-            title="Split horizontal"
-            onClick={() => onSplitHorizontal?.(pane.id)}
-          >
-            <PanelBottom size={12} aria-hidden="true" />
-          </button>
-          {onClose ? (
+          <div className="pane-actions-menu" ref={menuRef}>
             <button
               type="button"
-              className="tile-btn close"
-              aria-label="Close pane"
-              title="Close pane"
-              onClick={() => onClose(pane.id)}
+              className={`tile-btn${menuOpen ? ' active' : ''}`}
+              aria-label="More pane actions"
+              title="Mais ações"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              onClick={(e) => {
+                e.stopPropagation()
+                setMenuOpen((open) => !open)
+              }}
             >
-              <X size={12} aria-hidden="true" />
+              <MoreHorizontal size={12} aria-hidden="true" />
             </button>
-          ) : null}
+            {menuOpen ? (
+              <div className="pane-actions-popover" role="menu" data-testid="pane-actions-menu">
+                {isTerminalPane ? (
+                  <>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="pane-actions-popover-item"
+                      disabled={!terminalCanMutate}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        runMenuAction(() => {
+                          window.dispatchEvent(new CustomEvent('oxe:terminal-clear', { detail: { paneId: pane.id } }))
+                        })
+                      }}
+                    >
+                      <Eraser size={13} aria-hidden="true" />
+                      Limpar terminal
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="pane-actions-popover-item"
+                      disabled={!terminalCanRestart}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        runMenuAction(() => {
+                          window.dispatchEvent(new CustomEvent('oxe:terminal-new-session', { detail: { paneId: pane.id } }))
+                        })
+                      }}
+                    >
+                      <RotateCcw size={13} aria-hidden="true" />
+                      Nova sessão
+                    </button>
+                    <div className="pane-actions-popover-sep" aria-hidden="true" />
+                  </>
+                ) : null}
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="pane-actions-popover-item"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    runMenuAction(() => onSplitVertical?.(pane.id))
+                  }}
+                >
+                  <PanelRight size={13} aria-hidden="true" />
+                  Dividir vertical
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="pane-actions-popover-item"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    runMenuAction(() => onSplitHorizontal?.(pane.id))
+                  }}
+                >
+                  <PanelBottom size={13} aria-hidden="true" />
+                  Dividir horizontal
+                </button>
+                {onClose ? (
+                  <>
+                    <div className="pane-actions-popover-sep" aria-hidden="true" />
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="pane-actions-popover-item danger"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        runMenuAction(() => onClose(pane.id))
+                      }}
+                    >
+                      <X size={13} aria-hidden="true" />
+                      Fechar pane
+                    </button>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         </div>
       </header>
       <PaneContent pane={pane} workspaceId={workspace.id} workspaceRootPath={workspace.rootPath} autoStart={autoStart} />

@@ -6,13 +6,13 @@ describe('migrations', () => {
     // Reproduces the v0.2.6/0.2.7 upgrade-crash state: 040 added embedding_blob/dim
     // but a crash/disk-I/O kept user_version at 39. The old non-idempotent 040 then
     // threw "duplicate column name: embedding_blob" on EVERY boot, bricking the app.
-    const db = openInMemoryDatabase() // fully migrated (v40, columns present)
+    const db = openInMemoryDatabase() // fully migrated, columns present
     db.pragma('user_version = 39') // simulate the partial-apply state
     expect(db.pragma('user_version', { simple: true })).toBe(39)
 
     // The fixed 040 must NOT throw (idempotent) and must finish the version bump.
     expect(() => runMigrations(db)).not.toThrow()
-    expect(db.pragma('user_version', { simple: true })).toBe(40)
+    expect(db.pragma('user_version', { simple: true })).toBe(41)
     const cols = (db.prepare("PRAGMA table_info('semantic_embeddings')").all() as Array<{ name: string }>).map((c) => c.name)
     expect(cols).toEqual(expect.arrayContaining(['embedding_blob', 'dim']))
     db.close()
@@ -21,7 +21,7 @@ describe('migrations', () => {
   test('runs migrations and seeds built-in shell profiles', () => {
     const db = openInMemoryDatabase()
 
-    expect(db.pragma('user_version', { simple: true })).toBe(40)
+    expect(db.pragma('user_version', { simple: true })).toBe(41)
 
     // 040: binary Float32 embedding storage columns.
     const semanticColumns = db.prepare("PRAGMA table_info('semantic_embeddings')").all() as Array<{ name: string }>
@@ -91,6 +91,7 @@ describe('migrations', () => {
       'builtin-codex',
       'builtin-copilot',
       'builtin-cursor',
+      'builtin-grok',
       'builtin-powershell'
     ])
     expect(profiles.find((profile) => profile.id === 'builtin-powershell')).toEqual(
@@ -117,7 +118,8 @@ describe('migrations', () => {
       { provider: 'claude',      command: 'claude' },
       { provider: 'codex',       command: 'codex' },
       { provider: 'copilot',     command: 'copilot' },
-      { provider: 'cursor',      command: 'cursor-agent' }
+      { provider: 'cursor',      command: 'cursor-agent' },
+      { provider: 'grok',        command: 'grok' }
     ])
 
     db.close()

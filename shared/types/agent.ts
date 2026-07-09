@@ -1,6 +1,6 @@
-export type AgentProvider = 'claude' | 'copilot' | 'gh-copilot' | 'codex' | 'antigravity' | 'cursor' | 'custom'
+export type AgentProvider = 'claude' | 'copilot' | 'gh-copilot' | 'codex' | 'antigravity' | 'cursor' | 'grok' | 'custom'
 
-export const BUILTIN_PROVIDERS = ['claude', 'copilot', 'codex', 'antigravity', 'cursor'] as const
+export const BUILTIN_PROVIDERS = ['claude', 'copilot', 'codex', 'antigravity', 'cursor', 'grok'] as const
 
 export type BuiltinProvider = (typeof BUILTIN_PROVIDERS)[number]
 

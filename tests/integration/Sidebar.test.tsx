@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { Workspace } from '../../shared/types/workspace'
@@ -50,6 +50,8 @@ describe('Sidebar', () => {
     const onCloseWorkspace = vi.fn()
     const onToggleCollapse = vi.fn()
 
+    const onOpenTools = vi.fn()
+
     render(
       <Sidebar
         workspaces={[workspace]}
@@ -60,12 +62,20 @@ describe('Sidebar', () => {
         onCloseWorkspace={onCloseWorkspace}
         isCollapsed={false}
         onToggleCollapse={onToggleCollapse}
+        onOpenTools={onOpenTools}
       />
     )
 
     expect(screen.getByText('repo')).toBeInTheDocument()
     expect(screen.getByText('v0.1.2')).toBeInTheDocument()
+    // Path is not shown on the card (lives in the name tooltip only).
     expect(screen.queryByText('C:/projects/repo')).not.toBeInTheDocument()
+    expect(screen.queryByText('projects/repo')).not.toBeInTheDocument()
+    // Card meta surfaces the git branch when available.
+    await waitFor(() => {
+      expect(screen.getByTestId('ws-group-meta')).toBeInTheDocument()
+      expect(screen.getByText('feature/sidebar')).toBeInTheDocument()
+    })
     // Sidebar no longer expands to expose individual pane rows — clean
     // workspace-only list. Per-pane controls (rename, activate) moved into
     // the terminal pane header.
@@ -88,11 +98,16 @@ describe('Sidebar', () => {
     // The All/Unread tabs were removed — the activity dot conveys per-workspace
     // state now. Assert they're gone so they don't sneak back.
     expect(screen.queryByRole('tab', { name: /unread/i })).not.toBeInTheDocument()
+
+    // Tools hub entry lives in the sidebar footer (not the workspace topbar).
+    await user.click(screen.getByTestId('btn-open-tools'))
+    expect(onOpenTools).toHaveBeenCalled()
   })
 
   test('collapsed sidebar keeps workspaces available on the rail', async () => {
     const user = userEvent.setup()
     const onSelectWorkspace = vi.fn()
+    const onOpenTools = vi.fn()
 
     render(
       <Sidebar
@@ -104,6 +119,7 @@ describe('Sidebar', () => {
         onCloseWorkspace={vi.fn()}
         isCollapsed
         onToggleCollapse={vi.fn()}
+        onOpenTools={onOpenTools}
       />
     )
 
@@ -112,8 +128,12 @@ describe('Sidebar', () => {
     expect(screen.queryByText('repo')).not.toBeInTheDocument()
     expect(screen.getByLabelText('repo')).toBeInTheDocument()
     expect(screen.getByLabelText('Expand sidebar')).toBeInTheDocument()
+    expect(screen.getByTestId('btn-open-tools')).toBeInTheDocument()
 
     await user.click(screen.getByLabelText('repo'))
     expect(onSelectWorkspace).toHaveBeenCalledWith('workspace-1')
+
+    await user.click(screen.getByTestId('btn-open-tools'))
+    expect(onOpenTools).toHaveBeenCalled()
   })
 })

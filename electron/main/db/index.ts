@@ -387,6 +387,10 @@ export function runMigrations(db: AppDatabase): void {
     })()
     currentVersion = 40
   }
+
+  if (currentVersion < 41) {
+    db.exec(readMigration('041_grok_cli.sql'))
+  }
 }
 
 function readMigration(name: string): string {

@@ -8,7 +8,8 @@ const PROVIDER_LABEL: Record<(typeof BUILTIN_PROVIDERS)[number], string> = {
   copilot: 'Copilot',
   codex: 'Codex',
   antigravity: 'Antigravity',
-  cursor: 'Cursor'
+  cursor: 'Cursor',
+  grok: 'Grok CLI'
 }
 
 interface AgentConfigModalProps {

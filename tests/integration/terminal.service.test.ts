@@ -29,6 +29,8 @@ describe('TerminalManager', () => {
     pty.instances[0].emitData('A')
     pty.instances[1].emitData('B')
 
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
     expect(emitData).toHaveBeenCalledWith({ paneId: workspace.panes[0].id, data: 'A' })
     expect(emitData).toHaveBeenCalledWith({ paneId: workspace.panes[1].id, data: 'B' })
 
