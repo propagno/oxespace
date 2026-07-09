@@ -3886,19 +3886,17 @@
   min-height: 0;
   min-width: 0;
   overflow: hidden;
-  /* Dark backdrop the lifted terminal card floats on. The padding is the gap
-     around the card that reveals this backdrop (margin on the FitAddon host
-     would desync the grid, so the gap lives here instead). */
-  background: var(--bg-tile-content);
-  padding: 10px;
+  /* Terminal fills the pane edge-to-edge (no card gutter). */
+  background: #050505;
+  padding: 0;
   box-sizing: border-box;
   position: relative;
 }
 
 .terminal-search {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: 8px;
+  right: 8px;
   z-index: 20;
   display: flex;
   align-items: center;
@@ -4668,18 +4666,15 @@
 .terminal-view {
   width: 100%;
   height: 100%;
-  /* Floating chat-like card: this host is the lifted surface (bg, border, radius,
-     shadow) and the dark backdrop behind it (.terminal-content) plus the gap make
-     it read as a panel. The breathing room lives on .xterm (NOT here): the
-     FitAddon reads padding off the .xterm element to size the grid — padding on
-     this host desynced cols and clipped the edge columns. */
+  /* Flush terminal surface — no floating card chrome (matches flat pane splits).
+     Breathing room stays on .xterm so FitAddon keeps cols/rows correct. */
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
-  background: var(--bg-terminal-surface);
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  background: #050505;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
   transition: box-shadow 0.1s;
 }
 
@@ -4694,17 +4689,15 @@
   font-feature-settings: "liga" 0, "calt" 0;
   font-synthesis: none;
   background: transparent;
-  /* Breathing room INSIDE the card. The FitAddon subtracts this padding (read
-     off the .xterm element) when computing cols/rows, so the monospace grid stays
-     aligned and no edge column is clipped. box-sizing:border-box keeps width:100%
-     from overflowing by the padding. */
-  padding: 14px 18px;
+  /* Minimal inset so glyphs aren't glued to the cell edge; FitAddon accounts
+     for this padding when computing the grid. */
+  padding: 6px 8px;
 }
 .terminal-view .xterm-viewport {
   background-color: transparent !important;
   overflow-y: auto !important;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.15) transparent;
+  scrollbar-color: rgba(255,255,255,0.12) transparent;
 }
 .terminal-view .xterm-screen {
   max-width: 100%;
@@ -4714,13 +4707,13 @@
   letter-spacing: 0 !important;
 }
 .terminal-view .xterm-viewport::-webkit-scrollbar {
-  width: 4px;
+  width: 3px;
 }
 .terminal-view .xterm-viewport::-webkit-scrollbar-track {
   background: transparent;
 }
 .terminal-view .xterm-viewport::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.12);
   border-radius: 2px;
 }
 .terminal-view .xterm-viewport::-webkit-scrollbar-thumb:hover {
