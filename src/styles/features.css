@@ -3956,20 +3956,149 @@
   text-overflow: ellipsis;
 }
 
-/* Shell label relocated from the removed terminal topbar (~32px reclaimed). */
-.statusbar-shell {
+/* Agent/shell identity — source of truth is agentProfileId, not shell profile. */
+.statusbar-identity {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 16ch;
+  padding: 0 8px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 11px;
+  font-weight: 650;
+  font-family: var(--font-mono);
+  color: var(--tx-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.statusbar-identity.is-agent {
+  border-color: color-mix(in srgb, var(--brand) 28%, rgba(255, 255, 255, 0.06));
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  color: var(--tx-primary);
+}
+
+.statusbar-identity .agent-provider-icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.statusbar-identity-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.statusbar-branch {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   min-width: 0;
-  max-width: 12ch;
-  font-size: 11px;
+  max-width: 14ch;
+  font-size: 10.5px;
   font-family: var(--font-mono);
   color: var(--tx-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  opacity: 0.85;
+  opacity: 0.9;
+}
+
+.statusbar-branch.error {
+  color: #fbbf24;
+}
+
+.statusbar-branch-tag {
+  font-size: 9px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--tx-muted);
+  text-transform: lowercase;
+}
+
+.statusbar-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--tx-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 80ms, background 80ms, border-color 80ms;
+}
+
+.statusbar-icon-btn:hover:not(:disabled) {
+  color: var(--tx-primary);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.statusbar-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.statusbar-icon-btn.open {
+  color: var(--tx-primary);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.statusbar-more {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.statusbar-more-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  z-index: 40;
+  min-width: 168px;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(18, 18, 22, 0.98);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.statusbar-more-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--tx-secondary);
+  font-size: 12px;
+  font-weight: 550;
+  text-align: left;
+  cursor: pointer;
+}
+
+.statusbar-more-menu button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--tx-primary);
+}
+
+.statusbar-more-menu button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .statusbar-dot {
@@ -7024,6 +7153,38 @@
   padding: 10px;
 }
 
+.integration-create-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: var(--space-md);
+}
+
+.integration-create-intro strong {
+  color: var(--tx-primary);
+  font-size: var(--fs-sm);
+}
+
+.integration-create-intro span,
+.integration-member-editor-help {
+  color: var(--tx-muted);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+}
+
+.integration-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.integration-field > span {
+  color: var(--tx-secondary);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
 .integration-create-grid,
 .integration-ledger-form,
 .integration-handoff-form {
@@ -7032,7 +7193,12 @@
 }
 
 .integration-create-grid {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+}
+
+.integration-create-grid .primary-btn {
+  justify-content: center;
 }
 
 .integration-panel input,
@@ -7279,6 +7445,46 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
+}
+
+.integration-handoff-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border: 1px solid rgba(0, 214, 201, 0.28);
+  border-radius: var(--radius-md);
+  background: rgba(0, 214, 201, 0.035);
+}
+
+.integration-handoff-composer-header strong {
+  display: block;
+  color: var(--tx-primary);
+  font-size: var(--fs-sm);
+}
+
+.integration-handoff-composer-header span,
+.integration-handoff-composer-hint {
+  display: block;
+  margin: 2px 0 0;
+  color: var(--tx-muted);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+}
+
+.integration-handoff-composer-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm);
+}
+
+.integration-handoff-composer textarea {
+  min-height: 74px;
+}
+
+.integration-handoff-composer-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .integration-handoff-list {
@@ -7881,7 +8087,7 @@
 
 .integration-add-member-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) 100px auto;
+  grid-template-columns: auto minmax(0, 1.4fr) minmax(132px, 1fr) minmax(150px, 1fr) auto;
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
@@ -7988,6 +8194,22 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
+}
+
+@media (max-width: 720px) {
+  .integration-create-grid,
+  .integration-handoff-composer-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .integration-add-member-row {
+    grid-template-columns: auto minmax(0, 1fr) minmax(125px, 0.8fr);
+  }
+
+  .integration-add-action {
+    grid-column: 2 / -1;
+    justify-content: center;
+  }
 }
 
 .integration-empty-link {
