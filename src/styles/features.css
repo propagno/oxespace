@@ -3140,6 +3140,8 @@
 }
 
 /* ─── Pane tile ─────────────────────────────────────────────────────────── */
+/* Flat split cells (VS Code / iTerm): no card chrome around the terminal.
+   Separation comes from resize-handle hairlines + the pane header only. */
 .pane-container {
   display: flex;
   flex-direction: column;
@@ -3148,26 +3150,28 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.075);
-  border-radius: 10px;
+  border: none;
+  border-radius: 0;
   background: #050505;
-  transition: border-color 0.15s ease-out, box-shadow 0.15s ease-out;
+  box-shadow: none;
+  transition: background 0.12s ease-out;
 }
 .pane-container:focus-within {
-  border-color: rgba(255, 255, 255, 0.22);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.035);
+  /* Focus is carried by the header bar, not a full-frame outline. */
+  box-shadow: none;
 }
 .pane-container.active {
-  border-color: var(--bd-pane-active) !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3), 0 0 0 1px var(--bd-pane-active);
+  border: none !important;
+  box-shadow: none !important;
 }
 .pane-container.active > .pane-header {
-  background: rgba(255, 255, 255, 0.035);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 2px 0 0 var(--accent, #12c79a);
 }
 .pane-container.active > .pane-header .pane-header-left {
-  border-color: color-mix(in srgb, var(--accent) 25%, transparent);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 .pane-container.active > .pane-header .pane-status-dot {
   box-shadow: var(--glow-pane-active);
@@ -3177,12 +3181,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 38px;
-  padding: 5px 7px 5px 8px;
-  background: #0a0a0a;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+  height: 34px;
+  padding: 4px 8px 4px 10px;
+  background: #080808;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
   gap: 8px;
+  transition: background 0.12s ease-out, border-color 0.12s ease-out, box-shadow 0.12s ease-out;
 }
 
 .pane-header-left {
@@ -7385,8 +7390,36 @@
 
 .integration-member-editor-actions {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: var(--space-xs);
+}
+
+.integration-member-remove-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: auto;
+  padding: 5px 8px;
+  border: 1px solid rgba(248, 113, 113, 0.30);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--tx-muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.integration-member-remove-btn:hover,
+.integration-member-remove-btn.confirming {
+  border-color: rgba(248, 113, 113, 0.58);
+  background: rgba(248, 113, 113, 0.10);
+  color: var(--dot-red);
+}
+
+.integration-member-remove-btn:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 
 /* Status filter chips above the group tabs. Active chip gets the brand
