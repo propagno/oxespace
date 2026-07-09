@@ -6,8 +6,10 @@ import {
   ChevronDown,
   ChevronRight,
   Download,
+  ExternalLink,
   Mic,
   Package,
+  Play,
   Plus,
   RefreshCw,
   Settings2,
@@ -16,9 +18,10 @@ import {
   Zap
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
-import type { AgentProfile, AgentReadiness } from '../../../shared/types/agent'
+import type { AgentProfile, AgentProvider, AgentReadiness } from '../../../shared/types/agent'
 import type { VoiceModelSize, VoiceModelStatus } from '../../../shared/types/voice'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
+import { useAgentStore } from '../../store/agent.store'
 import { useVoiceStore } from '../../store/voice.store'
 import { useSettingsStore } from '../../store/settings.store'
 import { useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
@@ -32,6 +35,31 @@ interface SettingsModalProps {
   onDiscoverAgents: () => void
   onConfigureAgent: (profile: AgentProfile) => void
   onNewCustomAgent: () => void
+  /** Bind a ready agent to the active terminal pane and restart it. */
+  onUseProviderInPane?: (profile: AgentProfile) => void | Promise<void>
+}
+
+/** Official install / docs links for built-in agent CLIs (opened externally). */
+export const PROVIDER_INSTALL_DOCS: Partial<Record<AgentProvider, { label: string; url: string }>> = {
+  claude: { label: 'Install Claude Code', url: 'https://docs.anthropic.com/en/docs/claude-code/overview' },
+  copilot: { label: 'Install Copilot CLI', url: 'https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli' },
+  codex: { label: 'Install Codex CLI', url: 'https://github.com/openai/codex' },
+  cursor: { label: 'Cursor CLI docs', url: 'https://cursor.com/docs' },
+  antigravity: { label: 'Antigravity (agy)', url: 'https://github.com/search?q=antigravity+cli+agy&type=repositories' },
+  grok: { label: 'Grok CLI docs', url: 'https://docs.x.ai/' }
+}
+
+function openInstallDocs(url: string): void {
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
+
+function formatCheckedAgo(ts: number | null): string | null {
+  if (ts == null) return null
+  const sec = Math.max(0, Math.floor((Date.now() - ts) / 1000))
+  if (sec < 45) return 'Checked just now'
+  if (sec < 3600) return `Checked ${Math.floor(sec / 60)} min ago`
+  if (sec < 86400) return `Checked ${Math.floor(sec / 3600)} h ago`
+  return `Checked ${Math.floor(sec / 86400)} d ago`
 }
 
 type SettingsSection = 'providers' | 'terminal' | 'voice' | 'notifications' | 'updates'
@@ -112,7 +140,8 @@ export function SettingsModal({
   onClose,
   onDiscoverAgents,
   onConfigureAgent,
-  onNewCustomAgent
+  onNewCustomAgent,
+  onUseProviderInPane
 }: SettingsModalProps): ReactElement {
   const [section, setSection] = useState<SettingsSection>('providers')
 
@@ -188,6 +217,7 @@ export function SettingsModal({
             onDiscoverAgents={onDiscoverAgents}
             onConfigureAgent={onConfigureAgent}
             onNewCustomAgent={onNewCustomAgent}
+            onUseProviderInPane={onUseProviderInPane}
           />
         )}
       </section>
@@ -231,7 +261,8 @@ function ProvidersSettingsSection({
   onClose,
   onDiscoverAgents,
   onConfigureAgent,
-  onNewCustomAgent
+  onNewCustomAgent,
+  onUseProviderInPane
 }: {
   agentProfiles: AgentProfile[]
   agentReadiness: AgentReadiness[]
@@ -240,9 +271,13 @@ function ProvidersSettingsSection({
   onDiscoverAgents: () => void
   onConfigureAgent: (profile: AgentProfile) => void
   onNewCustomAgent: () => void
+  onUseProviderInPane?: (profile: AgentProfile) => void | Promise<void>
 }): ReactElement {
   const autoCheckedRef = useRef(false)
   const [showMissing, setShowMissing] = useState(false)
+  const [usingId, setUsingId] = useState<string | null>(null)
+  const lastHealthCheckAt = useAgentStore((s) => s.lastHealthCheckAt)
+  const checkedLabel = formatCheckedAgo(lastHealthCheckAt)
 
   // Auto-run health check once when the section opens with no useful readiness data.
   useEffect(() => {
@@ -279,6 +314,7 @@ function ProvidersSettingsSection({
   const customCount = enriched.filter((e) => e.status === 'custom').length
   const primary = enriched.filter((e) => e.status !== 'missing')
   const missing = enriched.filter((e) => e.status === 'missing')
+  const allMissing = readyCount === 0 && missingCount > 0 && !isDiscoveringAgents
 
   const summaryPrimary = (() => {
     if (agentProfiles.length === 0) return 'No providers yet'
@@ -290,10 +326,20 @@ function ProvidersSettingsSection({
 
   const summarySecondary = (() => {
     if (isDiscoveringAgents) return 'Probing each agent command with --version'
-    if (readyCount > 0) return 'Ready CLIs can be used in terminal panes'
-    if (missingCount > 0) return 'Install a CLI or fix the command path via Configure'
+    if (readyCount > 0) return 'Ready CLIs can be bound to a terminal pane'
+    if (missingCount > 0) return 'Install a CLI below, then run Health check again'
     return 'Detect which agent CLIs are available on this machine'
   })()
+
+  const handleUseInPane = async (profile: AgentProfile): Promise<void> => {
+    if (!onUseProviderInPane) return
+    setUsingId(profile.agentProfileId)
+    try {
+      await onUseProviderInPane(profile)
+    } finally {
+      setUsingId(null)
+    }
+  }
 
   const renderCard = ({
     profile,
@@ -305,6 +351,7 @@ function ProvidersSettingsSection({
     status: ProviderStatus
   }): ReactElement => {
     const isCustom = profile.provider === 'custom'
+    const install = !isCustom ? PROVIDER_INSTALL_DOCS[profile.provider] : undefined
     const detail = isCustom
       ? `skill · parent ${profile.parentProvider ?? '—'}`
       : readiness?.details && status === 'missing'
@@ -337,7 +384,7 @@ function ProvidersSettingsSection({
               Available
             </span>
           ) : status === 'missing' ? (
-            <span className="settings-provider-hint muted">Not on PATH — set command if installed elsewhere</span>
+            <span className="settings-provider-hint muted">Not on PATH — install or Fix path</span>
           ) : status === 'checking' ? (
             <span className="settings-provider-hint muted">Probing…</span>
           ) : status === 'custom' ? (
@@ -345,17 +392,46 @@ function ProvidersSettingsSection({
           ) : (
             <span className="settings-provider-hint muted">Run health check to detect</span>
           )}
-          <button
-            type="button"
-            className="settings-btn ghost"
-            aria-label={`Configure ${profile.name}`}
-            title="Configure command path or skill"
-            onClick={() => onConfigureAgent(profile)}
-            data-testid={`btn-configure-agent-${profile.provider}`}
-          >
-            <Settings2 size={13} aria-hidden="true" />
-            {status === 'missing' ? 'Fix path' : 'Configure'}
-          </button>
+          <div className="settings-provider-card-btns">
+            {status === 'ready' && onUseProviderInPane ? (
+              <button
+                type="button"
+                className="settings-btn primary"
+                aria-label={`Use ${profile.name} in active pane`}
+                title="Bind this agent to the active terminal and restart it"
+                disabled={usingId === profile.agentProfileId}
+                onClick={() => void handleUseInPane(profile)}
+                data-testid={`btn-use-agent-${profile.provider}`}
+              >
+                <Play size={13} aria-hidden="true" />
+                {usingId === profile.agentProfileId ? 'Starting…' : 'Use in pane'}
+              </button>
+            ) : null}
+            {status === 'missing' && install ? (
+              <button
+                type="button"
+                className="settings-btn ghost"
+                aria-label={install.label}
+                title={install.url}
+                onClick={() => openInstallDocs(install.url)}
+                data-testid={`btn-install-docs-${profile.provider}`}
+              >
+                <ExternalLink size={13} aria-hidden="true" />
+                Install guide
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="settings-btn ghost"
+              aria-label={`Configure ${profile.name}`}
+              title="Configure command path or skill"
+              onClick={() => onConfigureAgent(profile)}
+              data-testid={`btn-configure-agent-${profile.provider}`}
+            >
+              <Settings2 size={13} aria-hidden="true" />
+              {status === 'missing' ? 'Fix path' : 'Configure'}
+            </button>
+          </div>
         </div>
       </article>
     )
@@ -389,6 +465,11 @@ function ProvidersSettingsSection({
           <div className="settings-providers-hero-text">
             <strong>{summaryPrimary}</strong>
             <span>{summarySecondary}</span>
+            {checkedLabel ? (
+              <span className="settings-providers-checked" data-testid="providers-last-checked">
+                {checkedLabel}
+              </span>
+            ) : null}
           </div>
           <div className="settings-providers-stats" aria-label="Provider counts">
             <span className="settings-stat ready">
@@ -406,6 +487,45 @@ function ProvidersSettingsSection({
             ) : null}
           </div>
         </div>
+
+        {allMissing ? (
+          <div className="settings-onboarding" data-testid="providers-onboarding" role="status">
+            <Bot size={22} aria-hidden="true" />
+            <div>
+              <p>Get an agent CLI on this machine</p>
+              <span>
+                OXESpace launches agents as local CLIs. Install one of the guides below, ensure the command is on PATH,
+                then run <strong>Health check</strong>.
+              </span>
+            </div>
+            <div className="settings-onboarding-links">
+              {(Object.entries(PROVIDER_INSTALL_DOCS) as Array<[AgentProvider, { label: string; url: string }]>).map(
+                ([id, doc]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    className="settings-btn ghost"
+                    onClick={() => openInstallDocs(doc.url)}
+                    data-testid={`btn-onboarding-install-${id}`}
+                  >
+                    <ExternalLink size={12} aria-hidden="true" />
+                    {doc.label}
+                  </button>
+                )
+              )}
+            </div>
+            <button
+              type="button"
+              className="settings-btn primary"
+              disabled={isDiscoveringAgents}
+              onClick={onDiscoverAgents}
+              data-testid="btn-onboarding-health-check"
+            >
+              <RefreshCw size={13} aria-hidden="true" className={isDiscoveringAgents ? 'spin' : undefined} />
+              {isDiscoveringAgents ? 'Checking…' : 'Detect CLIs'}
+            </button>
+          </div>
+        ) : null}
 
         {agentProfiles.length === 0 ? (
           <div className="settings-empty" role="status">
@@ -435,28 +555,21 @@ function ProvidersSettingsSection({
                 <button
                   type="button"
                   className="settings-provider-missing-toggle"
-                  aria-expanded={showMissing}
+                  aria-expanded={showMissing || allMissing}
                   data-testid="btn-toggle-missing-providers"
                   onClick={() => setShowMissing((v) => !v)}
                 >
-                  {showMissing ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
+                  {(showMissing || allMissing) ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
                   <span>
                     {missing.length} not installed
                   </span>
-                  <em>optional — expand to fix paths</em>
+                  <em>install guides · fix paths</em>
                 </button>
-                {showMissing ? (
+                {(showMissing || allMissing) ? (
                   <div className="settings-provider-grid dimmed" data-testid="providers-missing-list">
                     {missing.map(renderCard)}
                   </div>
                 ) : null}
-              </div>
-            ) : null}
-
-            {primary.length === 0 && missing.length > 0 && !showMissing ? (
-              <div className="settings-empty compact" role="status">
-                <p>No agent CLIs found on PATH</p>
-                <span>Install Claude, Copilot, Codex, etc., or expand “not installed” to set a custom command path.</span>
               </div>
             ) : null}
           </>

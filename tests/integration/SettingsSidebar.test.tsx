@@ -101,6 +101,55 @@ describe('Settings agents UI', () => {
     expect(screen.getByTestId('providers-summary')).toHaveTextContent(/Not checked yet|Detecting/i)
   })
 
+  test('onboarding when all CLIs are missing shows install guides', async () => {
+    const user = userEvent.setup()
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
+
+    render(
+      <SettingsModal
+        agentProfiles={profiles}
+        agentReadiness={[
+          { provider: 'claude', command: 'claude', status: 'missing' },
+          { provider: 'copilot', command: 'copilot', status: 'missing' }
+        ]}
+        isDiscoveringAgents={false}
+        onClose={vi.fn()}
+        onDiscoverAgents={vi.fn()}
+        onConfigureAgent={vi.fn()}
+        onNewCustomAgent={vi.fn()}
+      />
+    )
+
+    expect(screen.getByTestId('providers-onboarding')).toBeInTheDocument()
+    expect(screen.getByTestId('btn-onboarding-health-check')).toBeInTheDocument()
+    expect(screen.getByTestId('providers-missing-list')).toBeInTheDocument()
+
+    await user.click(screen.getByTestId('btn-onboarding-install-claude'))
+    expect(openSpy).toHaveBeenCalled()
+    openSpy.mockRestore()
+  })
+
+  test('Use in pane is offered for ready providers', async () => {
+    const user = userEvent.setup()
+    const onUseProviderInPane = vi.fn()
+
+    render(
+      <SettingsModal
+        agentProfiles={profiles}
+        agentReadiness={readiness}
+        isDiscoveringAgents={false}
+        onClose={vi.fn()}
+        onDiscoverAgents={vi.fn()}
+        onConfigureAgent={vi.fn()}
+        onNewCustomAgent={vi.fn()}
+        onUseProviderInPane={onUseProviderInPane}
+      />
+    )
+
+    await user.click(screen.getByTestId('btn-use-agent-claude'))
+    expect(onUseProviderInPane).toHaveBeenCalledWith(profiles[0])
+  })
+
   test('Escape closes the modal', async () => {
     const user = userEvent.setup()
     const onClose = vi.fn()

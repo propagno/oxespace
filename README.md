@@ -91,16 +91,29 @@ npm run dev
 ### Verification & Testing
 ```powershell
 npm run typecheck
+# Service/integration tests need native modules built for *Node* (not Electron ABI):
+npm run rebuild:native:node
 npm run test
+# Before `npm run dev` / packaged builds, switch back to Electron ABI:
+npm run rebuild:native:electron
 npm run build
 npm run test:e2e
+npm run test:smoke   # Tools + Agent Settings hub smoke
 ```
 
 ### Building the Installer Locally
 ```powershell
 npm run dist
 ```
-*The installer will be emitted to `dist/OXESpace-<version>-x64.exe`.*
+*The installer will be emitted to `dist/OXESpace-<version>-x64.exe` (~221 MB after slim:pack).*
+
+### Release checklist
+1. Bump `package.json` / `package-lock.json` version  
+2. `npm run typecheck` + `npm run rebuild:native:node && npm run test`  
+3. `npm run rebuild:native:electron && npm run dist` (runs `slim:pack` automatically)  
+4. Push commit + tag `vX.Y.Z`  
+5. GitHub Release with `OXESpace-X.Y.Z-x64.exe`, `.blockmap`, and `latest.yml`  
+6. Confirm auto-update feed (`latest.yml` size/sha match the `.exe`)
 
 ---
 

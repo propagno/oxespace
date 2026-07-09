@@ -26,10 +26,13 @@
     "postinstall": "npm run rebuild:native",
     "dist": "npm run prepare:model && npm run build && npm run fix:native && npm run slim:pack && electron-builder --win --config.npmRebuild=false",
     "rebuild:native": "electron-rebuild -f -w node-pty,better-sqlite3",
+    "rebuild:native:electron": "electron-rebuild -f -w node-pty,better-sqlite3",
+    "rebuild:native:node": "npm rebuild better-sqlite3 node-pty",
     "verify:native": "node scripts/run-native-verification.mjs",
     "fix:native": "node scripts/fix-native-modules.mjs",
     "slim:pack": "node scripts/slim-pack-deps.mjs",
-    "generate:icon": "node scripts/generate-icon.mjs"
+    "generate:icon": "node scripts/generate-icon.mjs",
+    "test:smoke": "playwright test e2e/smoke-hub.spec.ts"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",

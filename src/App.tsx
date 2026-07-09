@@ -763,6 +763,41 @@ export function App(): ReactElement {
             parentProvider: 'claude',
             systemPrompt: ''
           })}
+          onUseProviderInPane={async (profile) => {
+            const paneId =
+              activePane?.id ??
+              activeWorkspace?.panes.find((p) => p.type === 'terminal')?.id ??
+              null
+            if (!paneId || !activeWorkspace) {
+              setAppNotice('Open a workspace with a terminal pane first.')
+              return
+            }
+            try {
+              await useWorkspaceStore.getState().setPaneAgent(paneId, profile.agentProfileId)
+              setActivePane(paneId)
+              setActiveTerminalPaneId(paneId)
+              useTerminalStore.getState().setStatus(paneId, 'idle')
+              try {
+                await window.oxe.terminal.stop({ paneId })
+              } catch {
+                /* may already be stopped */
+              }
+              const agentCommand =
+                profile.parentProvider
+                  ? agentProfiles.find((p) => p.provider === profile.parentProvider)?.command
+                  : profile.command
+              await window.oxe.terminal.start({
+                paneId,
+                workspaceId: activeWorkspace.id,
+                agentCommand: agentCommand || undefined,
+                initialPrompt: profile.systemPrompt || undefined
+              })
+              useTerminalStore.getState().setStatus(paneId, 'running')
+              toggleSettings()
+            } catch (err) {
+              setAppNotice(err instanceof Error ? err.message : 'Failed to start agent in pane')
+            }
+          }}
           onClose={toggleSettings}
         />
       ) : null}

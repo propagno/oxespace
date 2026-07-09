@@ -2,12 +2,35 @@ import { create } from 'zustand'
 import type { AgentProfile, AgentReadiness } from '../../shared/types/agent'
 import type { CreateAgentProfileInput, UpdateAgentProfileInput } from '../../shared/types/agent'
 
+const LAST_HEALTH_KEY = 'oxe-last-agent-health-check-at'
+
+function readLastHealthCheckAt(): number | null {
+  try {
+    const raw = localStorage.getItem(LAST_HEALTH_KEY)
+    if (!raw) return null
+    const n = Number(raw)
+    return Number.isFinite(n) && n > 0 ? n : null
+  } catch {
+    return null
+  }
+}
+
+function writeLastHealthCheckAt(ts: number): void {
+  try {
+    localStorage.setItem(LAST_HEALTH_KEY, String(ts))
+  } catch {
+    /* private mode / SSR */
+  }
+}
+
 interface AgentState {
   profiles: AgentProfile[]
   allProfiles: AgentProfile[]
   readiness: AgentReadiness[]
   isLoading: boolean
   isDiscovering: boolean
+  /** Epoch ms of last successful health check (persisted). */
+  lastHealthCheckAt: number | null
   error: string | null
   loadProfiles: () => Promise<void>
   loadReadiness: () => Promise<void>
@@ -24,6 +47,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   readiness: [],
   isLoading: false,
   isDiscovering: false,
+  lastHealthCheckAt: typeof localStorage !== 'undefined' ? readLastHealthCheckAt() : null,
   error: null,
 
   loadProfiles: async () => {
@@ -49,7 +73,9 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     set({ isDiscovering: true, error: null })
     try {
       const readiness = await window.oxe.agent.discover(forceRefresh)
-      set({ readiness, isDiscovering: false })
+      const lastHealthCheckAt = Date.now()
+      writeLastHealthCheckAt(lastHealthCheckAt)
+      set({ readiness, isDiscovering: false, lastHealthCheckAt })
     } catch (error) {
       set({ error: toMessage(error), isDiscovering: false })
     }
