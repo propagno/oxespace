@@ -3824,8 +3824,8 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  /* Dark backdrop for the floating terminal card (see .terminal-content). */
-  background: var(--bg-tile-content);
+  /* Flush with the pane cell — no floating-card backdrop. */
+  background: #050505;
 }
 
 .agent-info-card {
