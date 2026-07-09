@@ -24,10 +24,11 @@
     "shots:ui": "playwright test --config playwright.tools.config.ts screenshots.spec.ts",
     "prepare:model": "node scripts/fetch-semantic-model.mjs",
     "postinstall": "npm run rebuild:native",
-    "dist": "npm run prepare:model && npm run build && npm run fix:native && electron-builder --win --config.npmRebuild=false",
+    "dist": "npm run prepare:model && npm run build && npm run fix:native && npm run slim:pack && electron-builder --win --config.npmRebuild=false",
     "rebuild:native": "electron-rebuild -f -w node-pty,better-sqlite3",
     "verify:native": "node scripts/run-native-verification.mjs",
     "fix:native": "node scripts/fix-native-modules.mjs",
+    "slim:pack": "node scripts/slim-pack-deps.mjs",
     "generate:icon": "node scripts/generate-icon.mjs"
   },
   "dependencies": {
