@@ -4,6 +4,27 @@
 
 .semantic-activity { width: min(760px, 92vw); max-height: 82vh; display: flex; flex-direction: column; }
 
+.semantic-activity-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 14px 0;
+  font-size: 12px;
+  color: var(--tx-muted);
+}
+
+.semantic-activity-meta strong {
+  color: var(--tx-secondary);
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.semantic-activity-meta-hint {
+  font-size: 11px;
+  opacity: 0.85;
+}
+
 .semantic-activity-toolbar {
   display: flex;
   align-items: center;

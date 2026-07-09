@@ -111,9 +111,10 @@ npm run dist
 1. Bump `package.json` / `package-lock.json` version  
 2. `npm run typecheck` + `npm run rebuild:native:node && npm run test`  
 3. `npm run rebuild:native:electron && npm run dist` (runs `slim:pack` automatically)  
-4. Push commit + tag `vX.Y.Z`  
-5. GitHub Release with `OXESpace-X.Y.Z-x64.exe`, `.blockmap`, and `latest.yml`  
-6. Confirm auto-update feed (`latest.yml` size/sha match the `.exe`)
+4. `npm run release:checksums` — paste SHA-256 lines into the GitHub Release notes  
+5. Push commit + tag `vX.Y.Z`  
+6. GitHub Release with `OXESpace-X.Y.Z-x64.exe`, `.blockmap`, and `latest.yml`  
+7. Confirm auto-update feed (`latest.yml` size/sha match the `.exe`)
 
 ---
 

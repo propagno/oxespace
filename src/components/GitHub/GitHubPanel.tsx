@@ -252,19 +252,21 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
   const ahead = status?.ahead ?? 0
   const behind = status?.behind ?? 0
   const dirty = status?.hasUncommittedChanges === true
+  const hasRemote = Boolean(status?.repository?.remoteUrl || status?.lastPushRelative)
   const canPull = behind > 0 && !dirty && !loading
   const canPush = ahead > 0 && !loading
-  const sync = describeSyncState({ ahead, behind, dirty, hasRemote: Boolean(status?.lastPushRelative || status?.repository?.remoteUrl) })
+  const sync = describeSyncState({ ahead, behind, dirty, hasRemote, totalFiles })
+  const headline = buildStatusHeadline({ ahead, behind, dirty, totalFiles, hasRemote })
 
   const pullTitle = behind <= 0
-    ? 'Nada para puxar — rode Fetch se o remoto pode ter mudado.'
+    ? 'Nothing to pull — Fetch if the remote may have changed.'
     : dirty
-      ? 'Há mudanças locais sem commit. Commit ou stash antes do Pull.'
-      : `Baixar ${behind} commit${behind === 1 ? '' : 's'} (git pull --ff-only)`
+      ? 'Local uncommitted changes. Commit or stash before Pull.'
+      : `Pull ${behind} commit${behind === 1 ? '' : 's'} (git pull --ff-only)`
 
   const pushTitle = ahead <= 0
-    ? 'Nada para enviar — faça commit local primeiro.'
-    : `Enviar ${ahead} commit${ahead === 1 ? '' : 's'} para o remoto`
+    ? 'Nothing to push — commit locally first.'
+    : `Push ${ahead} commit${ahead === 1 ? '' : 's'} to the remote`
 
   const handleAutoGenerate = async (checked: boolean): Promise<void> => {
     setAutoGenerate(checked)
@@ -292,8 +294,9 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
             <button
               type="button"
               className="gh-icon-btn"
-              title="Atualizar contadores locais"
+              title="Refresh status (branch, ahead/behind, changes)"
               aria-label="Refresh status"
+              data-testid="github-status-refresh"
               disabled={loading}
               onClick={onRefresh}
             >
@@ -302,6 +305,10 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
           </div>
         </div>
         <div className="github-tab-sep" />
+
+        <p className="github-status-headline" data-testid="github-status-headline">
+          {headline}
+        </p>
 
         {/* Sync block — primary, VS Code-like: what to do with the remote */}
         <section
@@ -314,18 +321,19 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
               {sync.kind === 'behind' || sync.kind === 'diverged' ? <ArrowDownToLine size={18} />
                 : sync.kind === 'ahead' ? <ArrowUpFromLine size={18} />
                   : sync.kind === 'dirty-behind' ? <AlertTriangle size={18} />
-                    : <CheckCircle2 size={18} />}
+                    : sync.kind === 'no-remote' ? <AlertTriangle size={18} />
+                      : <CheckCircle2 size={18} />}
             </span>
             <div className="github-sync-copy">
               <strong data-testid="github-sync-title">{sync.title}</strong>
               <span data-testid="github-sync-detail">{sync.detail}</span>
               {(ahead > 0 || behind > 0) ? (
                 <div className="github-sync-pills" aria-label="Commits vs remote">
-                  <span className={`github-sync-pill${ahead > 0 ? ' active up' : ''}`} title="Commits locais ainda não enviados">
+                  <span className={`github-sync-pill${ahead > 0 ? ' active up' : ''}`} title="Local commits not pushed">
                     <ArrowUpFromLine size={11} aria-hidden="true" />
                     {ahead} outgoing
                   </span>
-                  <span className={`github-sync-pill${behind > 0 ? ' active down' : ''}`} title="Commits no remoto ainda não baixados">
+                  <span className={`github-sync-pill${behind > 0 ? ' active down' : ''}`} title="Remote commits not pulled">
                     <ArrowDownToLine size={11} aria-hidden="true" />
                     {behind} incoming
                   </span>
@@ -338,8 +346,8 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
               type="button"
               className="github-sync-btn secondary"
               data-testid="github-status-fetch"
-              disabled={loading || !status?.isGitRepository}
-              title="Buscar novidades no remoto (git fetch) — não altera seus arquivos"
+              disabled={loading || !status?.isGitRepository || !hasRemote}
+              title="Fetch remote updates without changing your files"
               onClick={onFetch}
             >
               <Download size={13} aria-hidden="true" />
@@ -347,7 +355,7 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
             </button>
             <button
               type="button"
-              className={`github-sync-btn${behind > 0 ? ' primary' : ' secondary'}`}
+              className={`github-sync-btn${behind > 0 && !dirty ? ' primary' : ' secondary'}`}
               data-testid="github-status-update"
               disabled={!canPull}
               title={pullTitle}
@@ -368,6 +376,23 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
               Push{ahead > 0 ? ` ${ahead}` : ''}
             </button>
           </div>
+          {sync.kind === 'dirty-behind' ? (
+            <div className="github-sync-callout" data-testid="github-dirty-behind-callout" role="status">
+              <AlertTriangle size={13} aria-hidden="true" />
+              <span>
+                Pull is blocked while you have uncommitted changes. Stage + Commit below (or stash in the terminal), then Pull.
+              </span>
+            </div>
+          ) : null}
+          {sync.kind === 'no-remote' ? (
+            <div className="github-sync-callout" data-testid="github-no-remote-callout" role="status">
+              <AlertTriangle size={13} aria-hidden="true" />
+              <span>
+                No remote configured. In a terminal: <code>git remote -v</code> then{' '}
+                <code>git remote add origin &lt;url&gt;</code>.
+              </span>
+            </div>
+          ) : null}
         </section>
 
         {/* Local working tree — secondary, like VS Code "Changes" */}
@@ -417,54 +442,74 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
   )
 }
 
-function describeSyncState(input: {
+export function buildStatusHeadline(input: {
+  ahead: number
+  behind: number
+  dirty: boolean
+  totalFiles: number
+  hasRemote: boolean
+}): string {
+  const { ahead, behind, dirty, totalFiles, hasRemote } = input
+  if (!hasRemote) return 'No remote · configure origin to sync'
+  const parts: string[] = []
+  if (behind > 0) parts.push(`${behind} to pull`)
+  if (ahead > 0) parts.push(`${ahead} to push`)
+  if (dirty || totalFiles > 0) {
+    parts.push(`${totalFiles} file${totalFiles === 1 ? '' : 's'} changed`)
+  }
+  if (parts.length === 0) return 'Up to date with remote · clean working tree'
+  return parts.join(' · ')
+}
+
+export function describeSyncState(input: {
   ahead: number
   behind: number
   dirty: boolean
   hasRemote: boolean
-}): { kind: 'ok' | 'behind' | 'ahead' | 'diverged' | 'dirty-behind' | 'unknown'; title: string; detail: string } {
+  totalFiles?: number
+}): { kind: 'ok' | 'behind' | 'ahead' | 'diverged' | 'dirty-behind' | 'no-remote' | 'unknown'; title: string; detail: string } {
   const { ahead, behind, dirty, hasRemote } = input
-  if (!hasRemote && ahead === 0 && behind === 0) {
+  if (!hasRemote) {
     return {
-      kind: 'unknown',
-      title: 'Sem tracking remoto claro',
-      detail: 'Rode Fetch. Se a branch não tiver upstream, o Ahead/Behind fica 0 mesmo com novidades no GitHub.'
+      kind: 'no-remote',
+      title: 'No remote configured',
+      detail: 'Fetch/Pull/Push need an origin. Add one with git remote add, then Refresh.'
     }
   }
   if (behind > 0 && ahead > 0) {
     return {
       kind: 'diverged',
-      title: 'Branch divergiu do remoto',
-      detail: `${behind} para puxar · ${ahead} para enviar. Pull ff-only pode falhar — use o terminal se precisar de rebase/merge.`
+      title: 'Branch diverged from remote',
+      detail: `${behind} to pull · ${ahead} to push. Fast-forward Pull may fail — use the terminal for rebase/merge if needed.`
     }
   }
   if (behind > 0 && dirty) {
     return {
       kind: 'dirty-behind',
-      title: `${behind} commit${behind === 1 ? '' : 's'} para puxar`,
-      detail: 'Há alterações locais sem commit. Commit ou stash antes do Pull, para não misturar com o remoto.'
+      title: `${behind} commit${behind === 1 ? '' : 's'} to pull`,
+      detail: 'You also have local uncommitted changes. Commit or stash first so Pull does not mix remote history with a dirty tree.'
     }
   }
   if (behind > 0) {
     return {
       kind: 'behind',
-      title: `${behind} commit${behind === 1 ? '' : 's'} para puxar`,
-      detail: 'O remoto tem commits que você ainda não tem. Pull baixa com fast-forward (seguro).'
+      title: `${behind} commit${behind === 1 ? '' : 's'} to pull`,
+      detail: 'Remote is ahead of you. Pull downloads with fast-forward only (safe).'
     }
   }
   if (ahead > 0) {
     return {
       kind: 'ahead',
-      title: `${ahead} commit${ahead === 1 ? '' : 's'} para enviar`,
-      detail: 'Seus commits locais ainda não estão no remoto. Push publica a branch.'
+      title: `${ahead} commit${ahead === 1 ? '' : 's'} to push`,
+      detail: 'Your local commits are not on the remote yet. Push publishes this branch.'
     }
   }
   return {
     kind: 'ok',
-    title: 'Em dia com o remoto',
+    title: 'In sync with remote',
     detail: dirty
-      ? 'Nada para puxar/enviar. Você tem mudanças locais — stage e commit abaixo.'
-      : 'Nada para puxar nem enviar. Use Fetch de vez em quando para conferir o remoto.'
+      ? 'Nothing to pull or push. You have local changes — stage and commit below.'
+      : 'Nothing to pull or push. Fetch occasionally to check for remote updates.'
   }
 }
 

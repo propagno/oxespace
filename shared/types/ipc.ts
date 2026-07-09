@@ -339,6 +339,7 @@ export const IPC_CHANNELS = {
   semantic: {
     getStatus: 'semantic:get-status',
     setEnabled: 'semantic:set-enabled',
+    reindex: 'semantic:reindex',
     getLogs: 'semantic:get-logs',
     onLog: 'semantic:log'
   }
@@ -607,6 +608,8 @@ export interface SemanticStatus {
   indexing: boolean
   count: number
   lastError: string | null
+  /** Embedding model id (e.g. Xenova/multilingual-e5-small). */
+  modelId?: string
 }
 
 export type SemanticLogLevel = 'debug' | 'info' | 'warn' | 'error'
@@ -623,6 +626,7 @@ export interface SemanticLogEntry {
 export interface SemanticApi {
   getStatus(workspaceId: string): Promise<SemanticStatus>
   setEnabled(input: { workspaceId: string; enabled: boolean }): Promise<SemanticStatus>
+  reindex(workspaceId: string): Promise<SemanticStatus>
   getLogs(): Promise<SemanticLogEntry[]>
   onLog(callback: (entry: SemanticLogEntry) => void): () => void
 }

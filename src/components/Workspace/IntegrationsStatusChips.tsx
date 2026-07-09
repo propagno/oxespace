@@ -89,18 +89,24 @@ export function IntegrationsStatusChips({ workspace }: IntegrationsStatusChipsPr
   const totalRunningMcp = runningMcpServers + (builtInMcpRunning ? 1 : 0)
 
   // Derive the Semantic chip's visual state + tooltip from enabled + worker health.
+  const modelHint = semanticStatus?.modelId ?? 'multilingual-e5-small'
   let semanticClass = 'activity-idle'
-  let semanticTitle = 'Cérebro Local (Busca Semântica): Desativado'
+  let semanticTitle = `Semantic search: off · model ${modelHint}`
   if (semanticEnabled) {
     if (semanticStatus?.lastError) {
       semanticClass = 'activity-idle'
-      semanticTitle = `Busca Semântica: erro — ${semanticStatus.lastError}`
+      semanticTitle = `Semantic: error — ${semanticStatus.lastError}`
     } else if (semanticStatus && (semanticStatus.indexing || !semanticStatus.workerReady)) {
       semanticClass = 'activity-awaiting'
-      semanticTitle = semanticStatus.workerReady ? 'Busca Semântica: indexando…' : 'Busca Semântica: carregando modelo…'
+      semanticTitle = semanticStatus.workerReady
+        ? `Semantic: indexing… (${semanticStatus.count} files) · ${modelHint}`
+        : `Semantic: loading model… · ${modelHint}`
     } else {
       semanticClass = 'activity-thinking'
-      semanticTitle = `Busca Semântica: ativa (${semanticStatus?.count ?? 0} arquivos)`
+      const n = semanticStatus?.count ?? 0
+      semanticTitle = n === 0
+        ? `Semantic: ready · empty index · ${modelHint}`
+        : `Semantic: ready · ${n} files · ${modelHint}`
     }
   }
 
@@ -146,13 +152,20 @@ export function IntegrationsStatusChips({ workspace }: IntegrationsStatusChipsPr
       <button
         type="button"
         className={`workspace-status-chip ${semanticClass}`}
-        title={`${semanticTitle} (clique para ${semanticEnabled ? 'desativar' : 'ativar'})`}
+        title={`${semanticTitle} (click to ${semanticEnabled ? 'disable' : 'enable'})`}
         onClick={() => setOverride(workspace.id, 'semanticSearchEnabled', !semanticEnabled)}
         style={{ cursor: 'pointer' }}
+        data-testid="chip-semantic"
       >
         <Brain size={11} aria-hidden="true" style={{ marginRight: 2 }} />
         <span className={`workspace-status-dot ${semanticClass}`} aria-hidden="true" />
-        <span className="chip-label">Semantic</span>
+        <span className="chip-label">
+          Semantic
+          {semanticEnabled && semanticStatus?.indexing ? ' …' : ''}
+          {semanticEnabled && semanticStatus && !semanticStatus.indexing && semanticStatus.workerReady
+            ? ` ${semanticStatus.count}`
+            : ''}
+        </span>
       </button>
     </div>
   )

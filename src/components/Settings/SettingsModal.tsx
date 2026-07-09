@@ -948,6 +948,8 @@ function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactEle
 function NotificationsSettingsSection({ onClose }: { onClose: () => void }): ReactElement {
   const notificationsEnabled = useSettingsStore((s) => s.notificationsEnabled)
   const setNotificationsEnabled = useSettingsStore((s) => s.setNotificationsEnabled)
+  const visitedWorkspacesCap = useSettingsStore((s) => s.visitedWorkspacesCap)
+  const setVisitedWorkspacesCap = useSettingsStore((s) => s.setVisitedWorkspacesCap)
 
   const sendTest = (): void => {
     void window.oxe?.notifications?.notify({
@@ -998,6 +1000,29 @@ function NotificationsSettingsSection({ onClose }: { onClose: () => void }): Rea
           <Bell size={13} aria-hidden="true" />
           Send test notification
         </button>
+
+        <div className="settings-form-group">
+          <h3 className="settings-form-group-title">Performance</h3>
+          <label className="settings-field">
+            <span className="settings-field-label-row">
+              Keep recent workspaces mounted
+              <em data-testid="visited-workspaces-cap-value">{visitedWorkspacesCap}</em>
+            </span>
+            <input
+              type="range"
+              min={1}
+              max={5}
+              step={1}
+              value={visitedWorkspacesCap}
+              onChange={(e) => setVisitedWorkspacesCap(Number(e.target.value))}
+              data-testid="visited-workspaces-cap"
+              aria-label="Number of workspaces to keep mounted"
+            />
+            <span className="settings-field-hint">
+              Higher = faster switch-back, more memory (terminals stay alive). Active workspace always counts as 1.
+            </span>
+          </label>
+        </div>
       </div>
     </section>
   )

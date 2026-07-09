@@ -38,16 +38,7 @@ import { useWorktreeStore } from './store/worktree.store'
 import { useVoiceStore } from './store/voice.store'
 import { useAgentNotifications } from './hooks/useAgentNotifications'
 import { useTerminalPrefsStore, TERMINAL_PREFS_DEFAULTS, FONT_SIZE_MIN, FONT_SIZE_MAX } from './store/terminal-prefs.store'
-
-/**
- * How many workspaces to keep mounted in the DOM at once. The active workspace
- * always counts as 1; the remaining N-1 slots cache the most-recent past
- * workspaces so quick "back to my last repo" feels instant. Beyond that, the
- * oldest visited workspace unmounts — releasing its xterm scrollback, IPC
- * subscriptions, and git pollers. 3 strikes a balance for typical multi-repo
- * vibe coding without growing memory unbounded over a long session.
- */
-const VISITED_WORKSPACES_CAP = 3
+import { useSettingsStore } from './store/settings.store'
 
 /** Match a KeyboardEvent against a hotkey string like "Ctrl+Shift+Space". */
 function matchesHotkey(event: KeyboardEvent, hotkey: string): boolean {
@@ -140,6 +131,7 @@ export function App(): ReactElement {
     toggleSidebar
   } = useUIStore()
   const { allProfiles: agentProfiles, readiness: agentReadiness, isDiscovering, discover, loadProfiles, loadReadiness, updateProfile, createProfile, deleteProfile } = useAgentStore()
+  const visitedWorkspacesCap = useSettingsStore((s) => s.visitedWorkspacesCap)
   const integrationGroups = useIntegrationStore((state) => state.groups)
   const [configuredAgent, setConfiguredAgent] = useState<AgentProfile | null>(null)
   const [isDesignSystemOpen, setDesignSystemOpen] = useState(false)
@@ -151,10 +143,9 @@ export function App(): ReactElement {
   // keep their altbuf state and scrollback when the user returns to them.
   // MRU list of visited workspaces (most-recently-visited at the end). Kept
   // mounted in DOM so xterm scrollback and altbuf state survive workspace
-  // switches. Capped to VISITED_WORKSPACES_CAP — when the cap is exceeded
-  // the oldest entry is evicted, its WorkspaceSurface unmounts, and its
-  // panes' xterm + IPC subscriptions + git pollers are torn down. Trade
-  // memory + render time against scrollback retention for stale workspaces.
+  // switches. Capped by visitedWorkspacesCap (Settings) — when exceeded the
+  // oldest entry is evicted, its WorkspaceSurface unmounts, and its panes'
+  // xterm + IPC + git pollers are torn down.
   const [visitedWorkspaceIds, setVisitedWorkspaceIds] = useState<string[]>([])
   const workspacesRef = useRef(workspaces)
   workspacesRef.current = workspaces
@@ -163,7 +154,8 @@ export function App(): ReactElement {
     setVisitedWorkspaceIds((prev) => {
       const without = prev.filter((id) => id !== activeWorkspaceId)
       const next = [...without, activeWorkspaceId]
-      const evictedWorkspaceId = next.length > VISITED_WORKSPACES_CAP ? next[0] : null
+      const cap = Math.max(1, Math.min(5, visitedWorkspacesCap || 3))
+      const evictedWorkspaceId = next.length > cap ? next[0] : null
       if (evictedWorkspaceId) {
         const workspace = workspacesRef.current.find((item) => item.id === evictedWorkspaceId)
         for (const pane of workspace?.panes ?? []) {
@@ -175,7 +167,7 @@ export function App(): ReactElement {
       }
       return evictedWorkspaceId ? next.slice(1) : next
     })
-  }, [activeWorkspaceId, removeTerminalPane])
+  }, [activeWorkspaceId, removeTerminalPane, visitedWorkspacesCap])
   const activePane = activeWorkspace?.panes.find((pane) => pane.id === activePaneId) ?? activeWorkspace?.panes[0] ?? null
   const pttHotkey = useVoiceStore((s) => s.pttHotkey)
   const slashPane = slashOverlayPaneId ? activeWorkspace?.panes.find((pane) => pane.id === slashOverlayPaneId) ?? null : null

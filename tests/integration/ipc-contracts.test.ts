@@ -22,6 +22,10 @@ describe('ipc contracts', () => {
     expect(IPC_CHANNELS.rtk.getStatus).toBe('rtk:get-status')
     expect(IPC_CHANNELS.rtk.checkForUpdate).toBe('rtk:check-for-update')
     expect(IPC_CHANNELS.rtk.updateToLatest).toBe('rtk:update-to-latest')
+    expect(IPC_CHANNELS.semantic.getStatus).toBe('semantic:get-status')
+    expect(IPC_CHANNELS.semantic.setEnabled).toBe('semantic:set-enabled')
+    expect(IPC_CHANNELS.semantic.reindex).toBe('semantic:reindex')
+    expect(IPC_CHANNELS.semantic.getLogs).toBe('semantic:get-logs')
   })
 
   test('uses stable workspace and terminal channel names', () => {

@@ -989,6 +989,15 @@
   flex-shrink: 0;
 }
 
+.github-status-headline {
+  margin: 0 12px 10px;
+  padding: 0 2px;
+  color: var(--tx-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
 /* VS Code-like sync card — primary “what should I do with remote?” */
 .github-sync-card {
   display: flex;
@@ -999,6 +1008,32 @@
   border-radius: 12px;
   border: 1px solid var(--gh-card-border);
   background: var(--gh-card-bg);
+}
+
+.github-sync-card.state-no-remote {
+  border-color: rgba(255, 180, 70, 0.35);
+  background: linear-gradient(180deg, rgba(255, 180, 70, 0.08) 0%, #0a0c12 70%);
+}
+
+.github-sync-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 180, 70, 0.28);
+  background: rgba(255, 180, 70, 0.08);
+  color: var(--tx-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.github-sync-callout code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.28);
 }
 
 .github-sync-card.state-behind,

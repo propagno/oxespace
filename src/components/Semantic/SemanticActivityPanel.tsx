@@ -1,4 +1,4 @@
-import { Brain, Copy, Download, Pause, Play, Trash2, X } from 'lucide-react'
+import { Brain, Copy, Download, Pause, Play, RefreshCw, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { SemanticLogEntry, SemanticLogLevel, SemanticStatus } from '../../../shared/types/ipc'
 
@@ -22,6 +22,7 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
   const [paused, setPaused] = useState(false)
   const [autoScroll, setAutoScroll] = useState(true)
   const [hidden, setHidden] = useState<Set<SemanticLogLevel>>(new Set())
+  const [reindexing, setReindexing] = useState(false)
   const pausedRef = useRef(paused)
   pausedRef.current = paused
   const endRef = useRef<HTMLDivElement | null>(null)
@@ -80,14 +81,33 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
   }
 
   const statusLabel = !status
-    ? 'sem workspace ativo'
+    ? 'no active workspace'
     : status.lastError
-      ? `erro: ${status.lastError}`
-      : !status.workerReady
-        ? 'carregando modelo…'
-        : status.indexing
-          ? `indexando… · ${status.count} arquivos`
-          : `pronto · ${status.count} arquivos`
+      ? `error: ${status.lastError}`
+      : !status.enabled
+        ? 'disabled · enable the Semantic chip'
+        : !status.workerReady
+          ? 'loading model…'
+          : status.indexing
+            ? `indexing… · ${status.count} files`
+            : status.count === 0
+              ? 'ready · empty index (waiting for files)'
+              : `ready · ${status.count} files`
+
+  const modelLabel = status?.modelId ?? 'Xenova/multilingual-e5-small'
+
+  const handleReindex = async (): Promise<void> => {
+    if (!workspaceId || reindexing) return
+    setReindexing(true)
+    try {
+      const next = await window.oxe.semantic.reindex(workspaceId)
+      setStatus(next)
+    } catch {
+      /* status poll will surface errors */
+    } finally {
+      setReindexing(false)
+    }
+  }
 
   return (
     <div className="mcp-panel-backdrop" role="presentation" onMouseDown={onClose}>
@@ -102,19 +122,30 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
           <div className="mcp-panel-title">
             <Brain size={14} aria-hidden="true" />
             <strong>Semantic Activity</strong>
-            <span className="mcp-panel-scope">{statusLabel}</span>
+            <span className="mcp-panel-scope" data-testid="semantic-status-label">{statusLabel}</span>
           </div>
           <div className="mcp-panel-actions">
-            <button type="button" className="icon-button" aria-label={paused ? 'Resume' : 'Pause'} title={paused ? 'Retomar stream' : 'Pausar stream'} onClick={() => setPaused((p) => !p)}>
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Reindex workspace"
+              title="Clear embeddings and re-crawl this workspace"
+              data-testid="btn-semantic-reindex"
+              disabled={!workspaceId || reindexing}
+              onClick={() => void handleReindex()}
+            >
+              <RefreshCw size={13} aria-hidden="true" className={reindexing ? 'spin' : undefined} />
+            </button>
+            <button type="button" className="icon-button" aria-label={paused ? 'Resume' : 'Pause'} title={paused ? 'Resume stream' : 'Pause stream'} onClick={() => setPaused((p) => !p)}>
               {paused ? <Play size={13} aria-hidden="true" /> : <Pause size={13} aria-hidden="true" />}
             </button>
-            <button type="button" className="icon-button" aria-label="Copy logs" title="Copiar logs visíveis" onClick={handleCopy}>
+            <button type="button" className="icon-button" aria-label="Copy logs" title="Copy visible logs" onClick={handleCopy}>
               <Copy size={13} aria-hidden="true" />
             </button>
-            <button type="button" className="icon-button" aria-label="Export logs" title="Exportar logs (.log)" onClick={handleExport}>
+            <button type="button" className="icon-button" aria-label="Export logs" title="Export logs (.log)" onClick={handleExport}>
               <Download size={13} aria-hidden="true" />
             </button>
-            <button type="button" className="icon-button" aria-label="Clear view" title="Limpar visualização" onClick={() => setLogs([])}>
+            <button type="button" className="icon-button" aria-label="Clear view" title="Clear view" onClick={() => setLogs([])}>
               <Trash2 size={13} aria-hidden="true" />
             </button>
             <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
@@ -123,8 +154,13 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
           </div>
         </header>
 
+        <div className="semantic-activity-meta" data-testid="semantic-model-label">
+          Model: <strong>{modelLabel}</strong>
+          <span className="semantic-activity-meta-hint">offline · local embeddings</span>
+        </div>
+
         <div className="semantic-activity-toolbar">
-          <div className="semantic-activity-filters" role="group" aria-label="Filtrar por nível">
+          <div className="semantic-activity-filters" role="group" aria-label="Filter by level">
             {LEVELS.map((level) => (
               <button
                 key={level}
@@ -141,12 +177,14 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
             <input type="checkbox" checked={autoScroll} onChange={(e) => setAutoScroll(e.target.checked)} />
             Auto-scroll
           </label>
-          <span className="semantic-activity-count">{visible.length} / {logs.length} linhas</span>
+          <span className="semantic-activity-count">{visible.length} / {logs.length} lines</span>
         </div>
 
         <div className="semantic-activity-log" role="log" aria-live="polite">
           {visible.length === 0 ? (
-            <div className="semantic-activity-empty">Nenhuma atividade ainda. Edite/abra arquivos ou rode uma busca semântica para ver o processamento aqui.</div>
+            <div className="semantic-activity-empty">
+              No activity yet. Enable the Semantic chip, edit files, or run a semantic search to see processing here.
+            </div>
           ) : (
             visible.map((l, i) => (
               <div key={`${l.ts}-${i}`} className={`semantic-activity-line semantic-log--${l.level}`}>

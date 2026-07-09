@@ -32,7 +32,8 @@
     "fix:native": "node scripts/fix-native-modules.mjs",
     "slim:pack": "node scripts/slim-pack-deps.mjs",
     "generate:icon": "node scripts/generate-icon.mjs",
-    "test:smoke": "playwright test e2e/smoke-hub.spec.ts"
+    "test:smoke": "playwright test e2e/smoke-hub.spec.ts",
+    "release:checksums": "node scripts/release-checksums.mjs"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",
