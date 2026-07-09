@@ -1,4 +1,4 @@
-import { Bone, Brain, Check, MoreHorizontal, Play, Terminal as TerminalIcon, Zap } from 'lucide-react'
+import { Bone, Brain, Check, MoreHorizontal, Play, Zap } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { WorkspacePane } from '../../../shared/types/workspace'
@@ -14,8 +14,6 @@ import { CopilotCreditsStatus } from '../Terminal/CopilotCreditsStatus'
 import { AgentCreditsStatus } from '../Terminal/AgentCreditsStatus'
 import { ContextUsageStatus } from '../Terminal/ContextUsageStatus'
 import { ErrorBoundary } from '../common/ErrorBoundary'
-import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
-
 interface TerminalPaneProps {
   pane: WorkspacePane
   workspaceId: string
@@ -293,30 +291,6 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
     : state.status === 'error' ? 'red'
     : ''
 
-  const shellProfiles = useWorkspaceStore((s) => s.shellProfiles)
-  const workspace = useWorkspaceStore((s) => s.workspaces.find((w) => w.id === workspaceId) ?? null)
-  const shellName = shellProfiles.find(
-    (p) => p.id === (pane.shellProfileId ?? workspace?.defaultShellProfileId)
-  )?.name ?? 'Shell'
-
-  // Identity: agent binding is the source of truth for "what runs in this pane".
-  // Shell profile is only shown when no agent is bound (plain shell).
-  const boundAgent = useMemo(() => {
-    if (pane.agentProfileId) {
-      return allProfiles.find((p) => p.agentProfileId === pane.agentProfileId) ?? null
-    }
-    return null
-  }, [allProfiles, pane.agentProfileId])
-
-  const agentLabel = boundAgent?.name
-    ?? pane.agentName
-    ?? null
-  const showAsAgent = Boolean(agentLabel)
-  const identityLabel = showAsAgent ? agentLabel! : shellName
-  const identityTitle = showAsAgent
-    ? `Agent: ${agentLabel}${boundAgent?.command ? ` · ${boundAgent.command}` : ''}`
-    : `Shell: ${shellName}`
-
   const [moreOpen, setMoreOpen] = useState(false)
   const moreRef = useRef<HTMLDivElement | null>(null)
 
@@ -410,20 +384,6 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
       <div className="terminal-statusbar" data-testid="terminal-statusbar">
         <span className={`statusbar-dot ${statusDotClass}`} aria-hidden="true" />
         <span className="statusbar-text" data-testid="terminal-status-label">{state.status}</span>
-
-        <span
-          className={`statusbar-identity${showAsAgent ? ' is-agent' : ' is-shell'}`}
-          title={identityTitle}
-          data-testid="terminal-identity"
-          data-kind={showAsAgent ? 'agent' : 'shell'}
-        >
-          {showAsAgent && boundAgent ? (
-            <AgentProviderIcon provider={boundAgent.provider} />
-          ) : (
-            <TerminalIcon size={11} aria-hidden="true" />
-          )}
-          <span className="statusbar-identity-label">{identityLabel}</span>
-        </span>
 
         <div className="terminal-statusbar-spacer" />
 

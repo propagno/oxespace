@@ -132,7 +132,7 @@ describe('TerminalPane', () => {
     expect(window.oxe.terminal.resize).toHaveBeenCalledWith({ paneId: 'pane-1', cols: 120, rows: 32 })
   })
 
-  test('shows bound agent identity, not shell profile name', async () => {
+  test('status bar has no provider identity chip (header owns that)', () => {
     useTerminalStore.getState().setStatus('pane-1', 'running')
     render(
       <TerminalPane
@@ -147,28 +147,8 @@ describe('TerminalPane', () => {
         autoStart={false}
       />
     )
-
-    const identity = screen.getByTestId('terminal-identity')
-    expect(identity).toHaveAttribute('data-kind', 'agent')
-    expect(identity).toHaveTextContent('Codex')
-    expect(identity).not.toHaveTextContent('Claude')
-    expect(screen.queryByTestId('btn-terminal-restart')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('btn-terminal-stop')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('terminal-identity')).not.toBeInTheDocument()
     expect(screen.getByTestId('btn-terminal-more')).toBeInTheDocument()
-  })
-
-  test('shows shell identity when no agent is bound', () => {
-    render(
-      <TerminalPane
-        pane={{ ...createPane(), shellProfileId: 'builtin-powershell', agentProfileId: null, agentName: null }}
-        workspaceId="workspace-1"
-        workspaceRootPath="C:/repo"
-        autoStart={false}
-      />
-    )
-    const identity = screen.getByTestId('terminal-identity')
-    expect(identity).toHaveAttribute('data-kind', 'shell')
-    expect(identity).toHaveTextContent('PowerShell')
   })
 
   test('marks pane identity when a provider command is launched from a neutral terminal', async () => {

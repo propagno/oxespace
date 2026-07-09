@@ -20,7 +20,10 @@ export interface PaneDisplayState {
   meta: string
   statusLabel: string
   statusTone: PaneDisplayTone
+  /** Human-facing name for the header chip (e.g. "Codex", "PowerShell"). */
   providerLabel: string
+  /** Stable key for CSS (e.g. "codex", "shell", "claude"). */
+  providerKey: string
   branchLabel: string | null
   attentionReason: string | null
 }
@@ -115,9 +118,11 @@ export function derivePaneDisplayState(input: {
   terminal: PaneDisplayTerminalState
   profile: AgentProfile | null
   paneIndex: number
+  /** Resolved shell profile display name (from workspace.shellProfiles). */
+  shellProfileName?: string | null
 }): PaneDisplayState {
-  const { pane, workspace, terminal, profile, paneIndex } = input
-  const providerLabel = profile?.provider ?? (pane.shellProfileId ? 'Shell' : 'Local')
+  const { pane, workspace, terminal, profile, paneIndex, shellProfileName } = input
+  const identity = resolvePaneIdentity({ pane, profile, shellProfileName })
   const statusTone = deriveStatusTone(terminal)
   const statusLabel = formatPaneStatus(statusTone)
   const branchLabel = extractBranchLabel(pane.rootPath ?? workspace.rootPath)
@@ -127,8 +132,7 @@ export function derivePaneDisplayState(input: {
   const fallbackTitle = fallbackForStatus(statusTone, pane, paneIndex)
   const title = explicitTitle ?? intentTitle ?? outputTitle ?? fallbackTitle
   const rootLabel = compactPathLabel(pane.rootPath ?? workspace.rootPath)
-  const providerName = pane.agentName ?? profile?.name ?? providerLabel
-  const subtitle = `${providerName} · ${statusLabel}`
+  const subtitle = `${identity.label} · ${statusLabel}`
   const meta = `~/${rootLabel}${branchLabel ? ` · ${branchLabel}` : ''}`
   const attentionReason = terminal.hasUnread
     ? 'Unread output'
@@ -144,10 +148,74 @@ export function derivePaneDisplayState(input: {
     meta,
     statusLabel,
     statusTone,
-    providerLabel,
+    providerLabel: identity.label,
+    providerKey: identity.key,
     branchLabel,
     attentionReason
   }
+}
+
+/**
+ * What runs in this pane for header chips: bound agent first, else shell.
+ * Never prefer shell profile over agentProfileId/agentName.
+ */
+export function resolvePaneIdentity(input: {
+  pane: WorkspacePane
+  profile: AgentProfile | null
+  shellProfileName?: string | null
+}): { label: string; key: string } {
+  const { pane, profile, shellProfileName } = input
+  if (profile) {
+    return {
+      label: profile.name?.trim() || titleCase(profile.provider),
+      key: profile.provider
+    }
+  }
+  if (pane.agentName?.trim()) {
+    return { label: pane.agentName.trim(), key: 'custom' }
+  }
+
+  const shellId = (pane.shellProfileId ?? '').toLowerCase()
+  const shellName = shellProfileName?.trim() ?? ''
+
+  // Agent-launcher shell profiles (workspace default often builtin-claude)
+  if (shellId.includes('claude') || /^claude$/i.test(shellName)) {
+    return { label: shellName || 'Claude', key: 'claude' }
+  }
+  if (shellId.includes('copilot') || /copilot/i.test(shellName)) {
+    return { label: shellName || 'Copilot', key: 'copilot' }
+  }
+  if (shellId.includes('codex') || /codex/i.test(shellName)) {
+    return { label: shellName || 'Codex', key: 'codex' }
+  }
+  if (shellId.includes('cursor') || /cursor/i.test(shellName)) {
+    return { label: shellName || 'Cursor', key: 'cursor' }
+  }
+  if (shellId.includes('grok') || /grok/i.test(shellName)) {
+    return { label: shellName || 'Grok', key: 'grok' }
+  }
+  if (shellId.includes('antigravity') || shellId.includes('agy') || /antigravity|agy/i.test(shellName)) {
+    return { label: shellName || 'Antigravity', key: 'antigravity' }
+  }
+
+  if (shellId.includes('powershell') || shellId.includes('pwsh') || /powershell|pwsh/i.test(shellName)) {
+    return { label: shellName || 'PowerShell', key: 'shell' }
+  }
+  if (shellId.includes('bash') || /bash|git bash/i.test(shellName)) {
+    return { label: shellName || 'Bash', key: 'shell' }
+  }
+  if (shellId.includes('cmd') || /^cmd$/i.test(shellName)) {
+    return { label: shellName || 'CMD', key: 'shell' }
+  }
+
+  if (shellName) return { label: shellName, key: 'shell' }
+  if (pane.shellProfileId) return { label: 'Shell', key: 'shell' }
+  return { label: 'Local', key: 'shell' }
+}
+
+function titleCase(value: string): string {
+  if (!value) return value
+  return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
 export function formatPaneStatus(tone: PaneDisplayTone): string {

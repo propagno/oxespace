@@ -1,11 +1,12 @@
 import { Eraser, Maximize2, Minimize2, MoreHorizontal, PanelBottom, PanelRight, Pencil, RotateCcw, Search, X } from 'lucide-react'
-import { useEffect, useRef, useState, type ReactElement } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { derivePaneDisplayState } from '../../utils/paneDisplay'
 import { PaneContent } from '../Panes/PaneContent'
+import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 
 interface PaneContainerProps {
   pane: WorkspacePane
@@ -40,7 +41,19 @@ function statusClass(status: WorkspacePane['status']): string {
 
 export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, onActivate, onClose, onSplitHorizontal, onSplitVertical, onToggleMaximize, pane, workspace }: PaneContainerProps): ReactElement {
   const terminalState = useTerminalStore((s) => s.panes[pane.id] ?? EMPTY_TERMINAL_STATE)
-  const display = derivePaneDisplayState({ pane, workspace, terminal: terminalState, profile: agentProfile, paneIndex: pane.rowIndex + pane.columnIndex })
+  const shellProfiles = useWorkspaceStore((s) => s.shellProfiles)
+  const shellProfileName = useMemo(() => {
+    const id = pane.shellProfileId ?? workspace.defaultShellProfileId
+    return shellProfiles.find((p) => p.id === id)?.name ?? null
+  }, [pane.shellProfileId, shellProfiles, workspace.defaultShellProfileId])
+  const display = derivePaneDisplayState({
+    pane,
+    workspace,
+    terminal: terminalState,
+    profile: agentProfile,
+    paneIndex: pane.rowIndex + pane.columnIndex,
+    shellProfileName
+  })
   const updatePaneName = useWorkspaceStore((s) => s.updatePaneName)
   const isTerminalPane = pane.type === 'terminal'
   const terminalCanMutate = terminalState.status === 'running'
@@ -130,8 +143,16 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
       <header className="pane-header">
         <div className="pane-header-left">
           <span className={`pane-status-dot ${statusClass(pane.status)} activity-${display.statusTone}`} aria-hidden="true" />
-          <span className={`pane-agent-chip provider-${display.providerLabel.toLowerCase()}`} title={display.subtitle}>
-            {display.providerLabel}
+          <span
+            className={`pane-agent-chip provider-${display.providerKey}`}
+            title={display.subtitle}
+            data-testid="pane-provider-chip"
+            data-provider={display.providerKey}
+          >
+            {agentProfile ? (
+              <AgentProviderIcon provider={agentProfile.provider} />
+            ) : null}
+            <span className="pane-agent-chip-label">{display.providerLabel}</span>
           </span>
           <span className="pane-header-divider" aria-hidden="true">/</span>
           {renaming ? (
