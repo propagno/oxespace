@@ -3955,17 +3955,18 @@
   color: var(--tx-secondary);
 }
 
+/* Flat footer — same surface as the terminal, hairline only (no gradient/shadow/blur). */
 .terminal-statusbar {
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 38px;
-  padding: 0 16px;
-  background: linear-gradient(0deg, rgba(10, 10, 12, 0.95) 0%, rgba(20, 20, 22, 0.85) 100%);
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  height: var(--tile-statusbar-h, 28px);
+  padding: 0 10px;
+  background: #050505;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   flex-shrink: 0;
   container-type: inline-size;
   container-name: statusbar;
@@ -3974,7 +3975,7 @@
 }
 
 .statusbar-text {
-  font-size: 12px;
+  font-size: 11px;
   font-family: var(--font-mono);
   color: var(--tx-muted);
   white-space: nowrap;
@@ -4024,10 +4025,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 7px;
+  width: 22px;
+  height: 22px;
+  border: 1px solid transparent;
+  border-radius: 5px;
   background: transparent;
   color: var(--tx-muted);
   cursor: pointer;
@@ -4038,7 +4039,7 @@
 .statusbar-icon-btn:hover:not(:disabled) {
   color: var(--tx-primary);
   background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 .statusbar-icon-btn:disabled {
@@ -4049,6 +4050,7 @@
 .statusbar-icon-btn.open {
   color: var(--tx-primary);
   background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 .statusbar-more {
@@ -4059,11 +4061,11 @@
 .statusbar-more-menu {
   position: absolute;
   right: 0;
-  bottom: calc(100% + 6px);
+  bottom: calc(100% + 4px);
   z-index: 40;
   min-width: 168px;
   padding: 4px;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(18, 18, 22, 0.98);
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55);
@@ -4148,27 +4150,27 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 0 12px;
-  height: 24px;
+  padding: 0 8px;
+  height: 20px;
   font-size: 11px;
   font-weight: 600;
   font-family: var(--font-mono);
   color: rgba(255, 255, 255, 0.65);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
   cursor: pointer;
   letter-spacing: 0.2px;
-  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  transition: color 80ms, background 80ms, border-color 80ms;
+  box-shadow: none;
 }
 
 .statusbar-chip:hover {
   color: #fff;
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.15);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
+  transform: none;
+  box-shadow: none;
 }
 
 .statusbar-chip svg {
@@ -4177,10 +4179,6 @@
 
 .statusbar-chip .chip-label {
   display: none;
-}
-
-.statusbar-chip {
-  padding: 0 8px;
 }
 
 /* AI-Credits indicators (Copilot + per-provider Claude/Codex) — passive status
