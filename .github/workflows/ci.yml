@@ -187,13 +187,26 @@ jobs:
         continue-on-error: true
         run: npx vitest bench --run tests/bench/hotpaths.bench.ts
 
+      # prepare:model pulls @xenova/transformers → sharp. npm ci --ignore-scripts
+      # leaves the sharp native binary missing; rebuild it for the Node ABI only.
+      - name: Install sharp native bindings for model prepare
+        if: steps.plan.outputs.should_release == 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          npm rebuild sharp
+
       - name: Build NSIS installer
         if: steps.plan.outputs.should_release == 'true'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          npm run dist
+          # build + fix:native already ran above; only prepare model, slim, package.
+          npm run prepare:model
+          npm run slim:pack
+          npx electron-builder --win --config.npmRebuild=false --publish never
 
       - name: Generate production dependency SBOM
         if: steps.plan.outputs.should_release == 'true'
