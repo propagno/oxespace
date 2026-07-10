@@ -55,6 +55,9 @@ asarUnpack:
   - node_modules/tree-sitter-wasms/**/*
 win:
   icon: resources/icon.ico
+  # Produce channel-specific manifests (for example beta.yml) so prerelease
+  # builds cannot replace the stable latest.yml update feed.
+  generateUpdatesFilesForAllChannels: true
   target:
     - target: nsis
       arch:

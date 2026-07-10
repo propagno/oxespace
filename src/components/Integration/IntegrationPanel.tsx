@@ -1,7 +1,7 @@
 import { ChevronDown, ChevronRight, GitBranch, Link2, MoreHorizontal, Network, Plus, Send, Trash2, X, Zap } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { IntegrationGroup, IntegrationRole, IntegrationStatus } from '../../../shared/types/integration'
-import type { Workspace } from '../../../shared/types/workspace'
+import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
 import { useIntegrationStore } from '../../store/integration.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { derivePaneDisplayState, formatPaneStatus, type PaneDisplayTone } from '../../utils/paneDisplay'
@@ -19,6 +19,21 @@ interface IntegrationPanelProps {
 
 const ROLES: IntegrationRole[] = ['fed', 'bff', 'srv', 'api', 'apim', 'mktapi', 'aut', 'lib', 'db', 'infra', 'docs', 'other']
 
+const ROLE_LABELS: Record<IntegrationRole, string> = {
+  fed: 'Frontend (FED)',
+  bff: 'Backend-for-Frontend (BFF)',
+  srv: 'Service (SRV)',
+  api: 'API',
+  apim: 'API management',
+  mktapi: 'Marketing API',
+  aut: 'Automation',
+  lib: 'Shared library',
+  db: 'Database',
+  infra: 'Infrastructure',
+  docs: 'Documentation',
+  other: 'Other responsibility'
+}
+
 /**
  * Compact, single-column layout. The previous version stacked five
  * `section-card` boxes which competed for vertical space and broke the
@@ -33,24 +48,29 @@ const ROLES: IntegrationRole[] = ['fed', 'bff', 'srv', 'api', 'apim', 'mktapi', 
  *      buttons so empty states don't pay rent for vertical pixels.
  */
 export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorkspace, workspace, workspaces }: IntegrationPanelProps): ReactElement {
-  const { activeGroupId, activeMemberId, addMember, buildContext, createGroup, deleteGroup, error, groups, isLoading, load, setActiveGroup, setActiveMember, updateGroup } = useIntegrationStore()
+  const { activeGroupId, activeMemberId, addMember, buildContext, createGroup, deleteGroup, error, groups, isLoading, load, removeMember, setActiveGroup, setActiveMember, updateGroup } = useIntegrationStore()
   const getTerminalStatus = useTerminalStore((state) => state.getStatus)
   const [name, setName] = useState('')
   const [goal, setGoal] = useState('')
+  const [initialRole, setInitialRole] = useState<IntegrationRole>('fed')
   const [memberRole, setMemberRole] = useState<IntegrationRole>('bff')
   const [memberWorkspaceId, setMemberWorkspaceId] = useState(workspace.id)
+  const [memberPaneId, setMemberPaneId] = useState('')
   const [contextText, setContextText] = useState('')
   const [panelNotice, setPanelNotice] = useState<string | null>(null)
   const [confirmDeleteGroupId, setConfirmDeleteGroupId] = useState<string | null>(null)
+  const [confirmRemoveMemberId, setConfirmRemoveMemberId] = useState<string | null>(null)
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null)
+  const [memberActionError, setMemberActionError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<IntegrationStatus | 'all'>('active')
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null)
   // Create-form is collapsed by default; the user opens it via the "+" in
   // the toolbar. Always-visible inputs ate a banner of vertical space for
   // an action used a handful of times per workspace.
   const [showCreateForm, setShowCreateForm] = useState(false)
-  // Disclosure state for the two heavy lower sections. Off by default so
-  // the panel reads as "header + members" until the user opts in.
-  const [showHandoffs, setShowHandoffs] = useState(false)
+  // Handoffs are the main operational outcome, so leave them visible. The
+  // generated brief remains secondary until the user explicitly requests it.
+  const [showHandoffs, setShowHandoffs] = useState(true)
   const [showContext, setShowContext] = useState(false)
   // Kebab menu on the group header — keeps secondary actions (Send context,
   // Remove) out of the always-visible toolbar.
@@ -90,27 +110,39 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
       ?? activeGroup.members.find((member) => member.workspaceId === workspace.id)
       ?? null
   }, [activeGroup, activeMemberId, activePaneId, workspace.id])
+  const memberWorkspace = workspaces.find((item) => item.id === memberWorkspaceId) ?? null
+  const memberPanes = memberWorkspace?.panes.filter((pane) => pane.type === 'terminal') ?? []
 
   const handleCreateGroup = async (): Promise<void> => {
     if (!name.trim() || !goal.trim()) return
     const group = await createGroup({ name, goal, activeWorkspaceId: workspace.id })
-    await addMember({ groupId: group.id, workspaceId: workspace.id, paneId: activePaneId, role: 'other', alias: workspace.name, rootPath: activePaneRootPath(workspace, activePaneId) })
+    await addMember({ groupId: group.id, workspaceId: workspace.id, paneId: activePaneId, role: initialRole, alias: workspace.name, rootPath: activePaneRootPath(workspace, activePaneId) })
     setName('')
     setGoal('')
     setShowCreateForm(false)
   }
 
   const handleAddMember = async (): Promise<void> => {
-    if (!activeGroup || !memberWorkspaceId) return
+    if (!activeGroup || !memberWorkspaceId || !memberWorkspace) return
     const targetWorkspace = workspaces.find((item) => item.id === memberWorkspaceId)
     if (!targetWorkspace) return
+    if (activeGroup.members.some((member) => member.workspaceId === targetWorkspace.id && member.role === memberRole)) {
+      setPanelNotice(`${ROLE_LABELS[memberRole]} is already assigned to ${targetWorkspace.name}. Choose another responsibility or workspace.`)
+      return
+    }
+    const targetPane = memberPanes.find((pane) => pane.id === memberPaneId) ?? null
     await addMember({
       groupId: activeGroup.id,
       workspaceId: targetWorkspace.id,
+      paneId: targetPane?.id ?? null,
       role: memberRole,
-      alias: `${memberRole.toUpperCase()} · ${targetWorkspace.name}`,
-      rootPath: targetWorkspace.rootPath
+      alias: `${ROLE_LABELS[memberRole]} · ${targetWorkspace.name}`,
+      rootPath: targetPane?.rootPath ?? targetWorkspace.rootPath
     })
+    setMemberPaneId('')
+    setPanelNotice(targetPane
+      ? `${targetWorkspace.name} is ready to receive handoffs in its linked agent terminal.`
+      : `${targetWorkspace.name} was added for visibility. Link an agent terminal when you are ready to send handoffs.`)
   }
 
   const handleBuildContext = async (send: boolean): Promise<void> => {
@@ -119,18 +151,22 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
     setContextText(result.text)
     if (send) {
       onRunInTerminal(result.text)
-      setPanelNotice('Context sent to the active terminal.')
+      setPanelNotice('Brief sent to the active agent terminal.')
+    } else {
+      setPanelNotice('Brief generated. Review it before sending it to the active agent terminal.')
     }
   }
 
-  const handleSendContext = (): void => {
+  const handlePrepareContext = (): void => {
     setShowGroupMenu(false)
-    if (contextText.trim()) {
-      onRunInTerminal(contextText)
-      setPanelNotice('Edited context sent to the active terminal.')
-      return
-    }
-    void handleBuildContext(true)
+    setShowContext(true)
+    void handleBuildContext(false)
+  }
+
+  const handleSendContext = (): void => {
+    if (!contextText.trim()) return
+    onRunInTerminal(contextText)
+    setPanelNotice('Edited brief sent to the active agent terminal.')
   }
 
   const handleDeleteGroup = async (): Promise<void> => {
@@ -142,7 +178,26 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
     setConfirmDeleteGroupId(null)
     setShowGroupMenu(false)
     setContextText('')
-    setPanelNotice('Integration removed.')
+    setPanelNotice('Coordination removed.')
+  }
+
+  const handleRemoveMember = async (member: IntegrationGroup['members'][number]): Promise<void> => {
+    setMemberActionError(null)
+    if (confirmRemoveMemberId !== member.id) {
+      setConfirmRemoveMemberId(member.id)
+      return
+    }
+    setRemovingMemberId(member.id)
+    try {
+      await removeMember(member.id)
+      setEditingMemberId(null)
+      setConfirmRemoveMemberId(null)
+      setPanelNotice(`${member.alias} was removed from this coordination.`)
+    } catch (err) {
+      setMemberActionError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setRemovingMemberId(null)
+    }
   }
 
   return (
@@ -173,27 +228,34 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
           onClick={() => setShowCreateForm((value) => !value)}
           aria-expanded={showCreateForm}
           aria-controls="integration-create-form"
-          title={showCreateForm ? 'Close create form' : 'New integration group'}
+          title={showCreateForm ? 'Close setup' : 'Set up multi-repo coordination'}
         >
           {showCreateForm ? <X size={13} aria-hidden="true" /> : <Plus size={13} aria-hidden="true" />}
-          {showCreateForm ? 'Close' : 'New'}
+          {showCreateForm ? 'Close' : 'Set up'}
         </button>
       </div>
 
       {showCreateForm ? (
-        <section id="integration-create-form" className="integration-create-card">
+        <section id="integration-create-form" className="integration-create-card" aria-labelledby="integration-setup-title">
+          <div className="integration-create-intro">
+            <strong id="integration-setup-title">Set up multi-repo coordination</strong>
+            <span>Start with this workspace, then link the repositories and agents that share this delivery.</span>
+          </div>
           <div className="integration-create-grid">
-            <input
-              autoFocus
-              value={name}
-              onChange={(event) => setName(event.currentTarget.value)}
-              placeholder="Feature name, e.g. Payment flow"
-            />
-            <input
-              value={goal}
-              onChange={(event) => setGoal(event.currentTarget.value)}
-              placeholder="Current integration goal"
-            />
+            <label className="integration-field">
+              <span>Delivery name</span>
+              <input autoFocus value={name} onChange={(event) => setName(event.currentTarget.value)} placeholder="e.g. Payment flow" />
+            </label>
+            <label className="integration-field">
+              <span>Shared outcome</span>
+              <input value={goal} onChange={(event) => setGoal(event.currentTarget.value)} placeholder="e.g. Ship checkout across frontend and API" />
+            </label>
+            <label className="integration-field">
+              <span>This workspace owns</span>
+              <select value={initialRole} onChange={(event) => setInitialRole(event.currentTarget.value as IntegrationRole)}>
+                {ROLES.map((role) => <option key={role} value={role}>{ROLE_LABELS[role]}</option>)}
+              </select>
+            </label>
             <button
               type="button"
               className="primary-btn"
@@ -201,14 +263,14 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
               disabled={!name.trim() || !goal.trim()}
             >
               <Plus size={13} aria-hidden="true" />
-              Create
+              Start coordination
             </button>
           </div>
         </section>
       ) : null}
 
-      {error ? <div className="integration-error">{error}</div> : null}
-      {panelNotice ? <div className="integration-notice">{panelNotice}</div> : null}
+      {error || memberActionError ? <div className="integration-error" role="alert">{memberActionError ?? error}</div> : null}
+      {panelNotice ? <div className="integration-notice" role="status">{panelNotice}</div> : null}
       {isLoading ? <div className="integration-empty">Loading integration groups...</div> : null}
 
       {visibleGroups.length > 1 ? (
@@ -225,12 +287,18 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
       {!activeGroup && !isLoading ? (
         <div className="integration-empty">
           <Network size={36} aria-hidden="true" />
-          <strong>No integration group {statusFilter !== 'all' && groups.length > 0 ? `with status ${statusFilter}` : 'yet'}</strong>
+          <strong>No coordination {statusFilter !== 'all' && groups.length > 0 ? `with status ${statusFilter}` : 'yet'}</strong>
           <span>
             {groups.length > 0 && statusFilter !== 'all'
-              ? <>Switch to <button type="button" className="integration-empty-link" onClick={() => setStatusFilter('all')}>All</button> or create a new one.</>
-              : <>Connect SRV/BFF/FED workspaces and send concise context to the current terminal.</>}
+              ? <>Switch to <button type="button" className="integration-empty-link" onClick={() => setStatusFilter('all')}>All</button> or set up another coordination.</>
+              : <>Align the repositories, agents and handoffs involved in one delivery.</>}
           </span>
+          {groups.length === 0 ? (
+            <button type="button" className="primary-btn small" onClick={() => setShowCreateForm(true)}>
+              <Plus size={12} aria-hidden="true" />
+              Set up coordination
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -250,9 +318,9 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
                 <button
                   type="button"
                   className="integration-icon-btn"
-                  onClick={handleSendContext}
-                  title="Send integration context to the active terminal"
-                  aria-label="Send context"
+                  onClick={handlePrepareContext}
+                  title="Generate a brief for the active agent"
+                  aria-label="Generate brief"
                 >
                   <Send size={13} aria-hidden="true" />
                 </button>
@@ -290,10 +358,10 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
                       type="button"
                       role="menuitem"
                       className="integration-active-menu-item"
-                      onClick={handleSendContext}
+                      onClick={handlePrepareContext}
                     >
                       <Send size={12} aria-hidden="true" />
-                      Send context now
+                      Generate brief
                     </button>
                     <button
                       type="button"
@@ -346,7 +414,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
                         onSelectWorkspace(member.workspaceId)
                       }}
                     >
-                      <span className="integration-member-role">{member.role}</span>
+                      <span className="integration-member-role" title={ROLE_LABELS[member.role]}>{member.role}</span>
                       <span className="integration-member-name">{member.alias}</span>
                       <span className="integration-member-branch" title={member.branch ?? 'no git branch'}>
                         <GitBranch size={10} aria-hidden="true" />
@@ -371,7 +439,14 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
                       </div>
                     ) : null}
                     {isEditing ? (
-                      <MemberEditor member={member} onClose={() => setEditingMemberId(null)} />
+                      <MemberEditor
+                        member={member}
+                        panes={workspaces.find((item) => item.id === member.workspaceId)?.panes.filter((pane) => pane.type === 'terminal') ?? []}
+                        confirmingRemoval={confirmRemoveMemberId === member.id}
+                        isRemoving={removingMemberId === member.id}
+                        onClose={() => { setEditingMemberId(null); setConfirmRemoveMemberId(null) }}
+                        onRemove={() => void handleRemoveMember(member)}
+                      />
                     ) : null}
                   </li>
                 )
@@ -382,7 +457,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
                 <select
                   className="integration-add-select"
                   value={memberWorkspaceId}
-                  onChange={(event) => setMemberWorkspaceId(event.currentTarget.value)}
+                  onChange={(event) => { setMemberWorkspaceId(event.currentTarget.value); setMemberPaneId('') }}
                   aria-label="Workspace to add"
                 >
                   {workspaces.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
@@ -393,9 +468,13 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
                   onChange={(event) => setMemberRole(event.currentTarget.value as IntegrationRole)}
                   aria-label="Member role"
                 >
-                  {ROLES.map((role) => <option key={role} value={role}>{role.toUpperCase()}</option>)}
+                  {ROLES.map((role) => <option key={role} value={role}>{ROLE_LABELS[role]}</option>)}
                 </select>
-                <button type="button" className="integration-add-action" onClick={() => void handleAddMember()}>
+                <select className="integration-add-select" value={memberPaneId} onChange={(event) => setMemberPaneId(event.currentTarget.value)} aria-label="Agent terminal to link">
+                  <option value="">No agent terminal yet</option>
+                  {memberPanes.map((pane) => <option key={pane.id} value={pane.id}>{paneLabel(pane)}</option>)}
+                </select>
+                <button type="button" className="integration-add-action" onClick={() => void handleAddMember()} title="Add workspace to this coordination">
                   <Plus size={11} aria-hidden="true" />
                   Add
                 </button>
@@ -404,7 +483,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
           </section>
 
           <DisclosureSection
-            label="Handoffs"
+            label="Handoffs to act on"
             icon={<Send size={13} aria-hidden="true" />}
             badge={useIntegrationStore.getState().handoffs[activeGroup.id]?.filter((h) => h.status !== 'saved').length || 0}
             open={showHandoffs}
@@ -422,14 +501,14 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
           </DisclosureSection>
 
           <DisclosureSection
-            label="Context preview"
+            label="Brief for the active agent"
             icon={<Network size={13} aria-hidden="true" />}
             open={showContext}
             onToggle={() => setShowContext((value) => !value)}
           >
             <div className="integration-actions">
-              <button type="button" className="ghost-btn small" onClick={() => void handleBuildContext(false)}>Refresh preview</button>
-              <button type="button" className="ghost-btn small" onClick={handleSendContext} disabled={!activeGroup}>Send edited</button>
+              <button type="button" className="ghost-btn small" onClick={() => void handleBuildContext(false)}>Generate brief</button>
+              <button type="button" className="ghost-btn small" onClick={handleSendContext} disabled={!activeGroup || !contextText.trim()}>Send brief to agent</button>
               <button
                 type="button"
                 className="ghost-btn small"
@@ -443,7 +522,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
               className="integration-context-preview"
               value={contextText}
               onChange={(event) => setContextText(event.currentTarget.value)}
-              placeholder="Generate a context preview, then edit it before sending to the terminal."
+              placeholder="Generate a brief, review it, then send it to the active agent terminal."
               spellCheck={false}
             />
           </DisclosureSection>
@@ -479,4 +558,8 @@ function DisclosureSection({ label, icon, badge, open, onToggle, children }: Dis
 function activePaneRootPath(workspace: Workspace, activePaneId: string | null): string {
   const pane = activePaneId ? workspace.panes.find((item) => item.id === activePaneId) : null
   return pane?.rootPath ?? workspace.rootPath
+}
+
+function paneLabel(pane: WorkspacePane): string {
+  return pane.displayName || pane.agentName || `Terminal ${pane.rowIndex + 1}.${pane.columnIndex + 1}`
 }

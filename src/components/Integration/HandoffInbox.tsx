@@ -26,9 +26,15 @@ export function HandoffInbox({ group, currentMemberId, onSelectMember }: Handoff
   const handoffs = useIntegrationStore((s) => s.handoffs[group.id] ?? [])
   const loadHandoffs = useIntegrationStore((s) => s.loadHandoffs)
   const updateHandoff = useIntegrationStore((s) => s.updateHandoff)
+  const createHandoff = useIntegrationStore((s) => s.createHandoff)
   const [showHistory, setShowHistory] = useState(false)
   const [applyingId, setApplyingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [targetMemberId, setTargetMemberId] = useState('')
+  const [title, setTitle] = useState('')
+  const [content, setContent] = useState('')
+  const [isSending, setIsSending] = useState(false)
 
   useEffect(() => {
     void loadHandoffs(group.id)
@@ -38,6 +44,16 @@ export function HandoffInbox({ group, currentMemberId, onSelectMember }: Handoff
     const map = new Map(group.members.map((m) => [m.id, m]))
     return map
   }, [group.members])
+  const recipients = useMemo(
+    () => group.members.filter((member) => member.id !== currentMemberId),
+    [group.members, currentMemberId]
+  )
+
+  useEffect(() => {
+    if (!recipients.some((member) => member.id === targetMemberId)) {
+      setTargetMemberId(recipients[0]?.id ?? '')
+    }
+  }, [recipients, targetMemberId])
 
   const { active, history } = useMemo(() => {
     const a: IntegrationHandoff[] = []
@@ -87,17 +103,80 @@ export function HandoffInbox({ group, currentMemberId, onSelectMember }: Handoff
     }
   }
 
+  const handleCreate = async (): Promise<void> => {
+    setError(null)
+    setNotice(null)
+    if (!currentMemberId) {
+      setError('Select the member that is sending this handoff before continuing.')
+      return
+    }
+    if (!targetMemberId || !content.trim()) {
+      setError('Choose a recipient and describe the work they need to continue.')
+      return
+    }
+    const target = memberById.get(targetMemberId)
+    setIsSending(true)
+    try {
+      await createHandoff({
+        groupId: group.id,
+        fromMemberId: currentMemberId,
+        toMemberId: targetMemberId,
+        title: title.trim() || `Handoff for ${target?.role.toUpperCase() ?? 'member'}`,
+        content: content.trim(),
+        status: 'sent'
+      })
+      setTitle('')
+      setContent('')
+      setNotice(target?.paneId
+        ? `Handoff sent to ${target.alias}. It is ready to apply in the linked agent terminal.`
+        : `Handoff recorded for ${target?.alias ?? 'the recipient'}. Link an agent terminal before applying it.`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setIsSending(false)
+    }
+  }
+
   if (active.length === 0 && history.length === 0) {
     return (
-      <div className="integration-empty-inline">
-        <span>No handoffs yet. Use <code>/integration handoff &lt;role&gt; &lt;message&gt;</code> from any pane or pick "Send context" above.</span>
+      <div className="integration-handoff-block">
+        <HandoffComposer
+          content={content}
+          currentMemberId={currentMemberId}
+          isSending={isSending}
+          onContentChange={setContent}
+          onSend={() => void handleCreate()}
+          onTargetChange={setTargetMemberId}
+          onTitleChange={setTitle}
+          recipients={recipients}
+          targetMemberId={targetMemberId}
+          title={title}
+        />
+        {error ? <div className="integration-error" role="alert">{error}</div> : null}
+        {notice ? <div className="integration-notice" role="status">{notice}</div> : null}
+        <div className="integration-empty-inline">
+          <span>No handoffs yet. Send a focused request to keep this delivery moving.</span>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="integration-handoff-block">
-      {error ? <div className="integration-error">{error}</div> : null}
+      <HandoffComposer
+        content={content}
+        currentMemberId={currentMemberId}
+        isSending={isSending}
+        onContentChange={setContent}
+        onSend={() => void handleCreate()}
+        onTargetChange={setTargetMemberId}
+        onTitleChange={setTitle}
+        recipients={recipients}
+        targetMemberId={targetMemberId}
+        title={title}
+      />
+      {error ? <div className="integration-error" role="alert">{error}</div> : null}
+      {notice ? <div className="integration-notice" role="status">{notice}</div> : null}
       <div className="integration-handoff-list">
         {active.map((handoff) => (
           <HandoffRow
@@ -140,6 +219,57 @@ export function HandoffInbox({ group, currentMemberId, onSelectMember }: Handoff
         </div>
       ) : null}
     </div>
+  )
+}
+
+interface HandoffComposerProps {
+  content: string
+  currentMemberId: string | null
+  isSending: boolean
+  onContentChange: (value: string) => void
+  onSend: () => void
+  onTargetChange: (value: string) => void
+  onTitleChange: (value: string) => void
+  recipients: IntegrationGroup['members']
+  targetMemberId: string
+  title: string
+}
+
+function HandoffComposer({ content, currentMemberId, isSending, onContentChange, onSend, onTargetChange, onTitleChange, recipients, targetMemberId, title }: HandoffComposerProps): ReactElement {
+  const hasRecipients = recipients.length > 0
+  return (
+    <section className="integration-handoff-composer" aria-labelledby="handoff-composer-title">
+      <div className="integration-handoff-composer-header">
+        <div>
+          <strong id="handoff-composer-title">Send a handoff</strong>
+          <span>Give the next agent the decision, context and action they need.</span>
+        </div>
+      </div>
+      {!currentMemberId ? <p className="integration-handoff-composer-hint">Select your workspace member above before sending a handoff.</p> : null}
+      {!hasRecipients ? <p className="integration-handoff-composer-hint">Add another workspace member before sending a handoff.</p> : null}
+      <div className="integration-handoff-composer-fields">
+        <label className="integration-field">
+          <span>Recipient</span>
+          <select value={targetMemberId} onChange={(event) => onTargetChange(event.currentTarget.value)} disabled={!currentMemberId || !hasRecipients || isSending}>
+            {recipients.map((member) => <option key={member.id} value={member.id}>{member.role.toUpperCase()} · {member.alias}{member.paneId ? '' : ' — no agent linked'}</option>)}
+          </select>
+        </label>
+        <label className="integration-field">
+          <span>Subject</span>
+          <input value={title} onChange={(event) => onTitleChange(event.currentTarget.value)} placeholder="e.g. Validate the checkout contract" disabled={!currentMemberId || !hasRecipients || isSending} />
+        </label>
+      </div>
+      <label className="integration-field">
+        <span>What should happen next?</span>
+        <textarea value={content} onChange={(event) => onContentChange(event.currentTarget.value)} placeholder="Include the decision, relevant context and the next action." rows={3} disabled={!currentMemberId || !hasRecipients || isSending} />
+      </label>
+      <div className="integration-handoff-composer-actions">
+        <button type="button" className="primary-btn small" onClick={onSend} disabled={!currentMemberId || !hasRecipients || !targetMemberId || !content.trim() || isSending}>
+          <Send size={11} aria-hidden="true" />
+          {isSending ? 'Sending handoff…' : 'Send handoff'}
+        </button>
+      </div>
+    </section>
   )
 }
 

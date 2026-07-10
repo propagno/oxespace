@@ -118,8 +118,8 @@ export function ToolsModal({
       group: 'Project',
       tone: 'project',
       icon: <Network size={16} aria-hidden="true" />,
-      label: 'Integration',
-      detail: 'Multi-repo context & handoffs',
+      label: 'Multi-repo coordination',
+      detail: 'Align agents, context & handoffs',
       active: active.integration,
       onClick: () => run(onOpenIntegration)
     },

@@ -395,7 +395,7 @@ export function App(): ReactElement {
     { id: 'open-history', title: 'Open session history', subtitle: 'Ctrl+Shift+H', icon: History, category: 'AI & Agents', keywords: ['session', 'resume'], run: openHistoryPanel },
     { id: 'open-mcp', title: 'Open MCP servers', subtitle: 'Model Context Protocol tools', icon: Wrench, category: 'AI & Agents', keywords: ['mcp', 'tools'], run: openMcpPanel },
     { id: 'open-skills', title: 'Open Skills', subtitle: 'Browse markdown skill prompts', icon: Activity, category: 'AI & Agents', keywords: ['skill', 'slash'], run: openSkillsBrowser },
-    { id: 'open-integration', title: 'Open integration command center', subtitle: 'Multi-repo context and handoff', icon: Grid2x2, category: 'Workspace', keywords: ['integration', 'srv', 'bff', 'fed', 'handoff'], disabled: !activeWorkspace, run: openIntegrationPanel },
+    { id: 'open-integration', title: 'Open multi-repo coordination', subtitle: 'Align agents, context and handoffs', icon: Grid2x2, category: 'Workspace', keywords: ['integration', 'coordination', 'srv', 'bff', 'fed', 'handoff'], disabled: !activeWorkspace, run: openIntegrationPanel },
 
     // View
     { id: 'toggle-editor', title: 'Toggle editor', subtitle: 'Ctrl+E', icon: LayoutDashboard, category: 'View', disabled: !activeWorkspace, run: toggleEditor },

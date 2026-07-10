@@ -4,54 +4,174 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing vX.Y.Z (or prerelease) tag to package and publish
+        required: true
+        type: string
 
-# GitHub is removing the Node 20 runtime that JS actions run on. Force any
-# action still pinned to Node 20 (e.g. softprops/action-gh-release@v2) onto
-# Node 24 so the release keeps working past the deprecation deadline.
+# A release is a deployment: only one may package and publish this repository
+# at once. It deliberately works with the repository's default GitHub token,
+# so publishing a release never depends on manually provisioned secrets.
+concurrency:
+  group: release-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
   release:
-    name: Build installer
+    name: Verify and publish Windows release
     runs-on: windows-2022
+    timeout-minutes: 90
     permissions:
       contents: write
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.0
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          fetch-depth: 0
 
       - name: Node.js 22
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: "22"
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
 
-      - name: Verify
+      - name: Install the pinned Electron runtime
+        run: npm rebuild electron
+
+      - name: Validate release tag and package version
+        id: metadata
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = node -p "require('./package.json').version"
+          if ($env:RELEASE_TAG -ne "v$version") {
+            throw "Release tag $env:RELEASE_TAG does not match package.json version $version."
+          }
+          git show-ref --verify --quiet "refs/tags/$env:RELEASE_TAG"
+          if ($LASTEXITCODE -ne 0) {
+            throw "$env:RELEASE_TAG is not an existing Git tag."
+          }
+          $head = git rev-parse HEAD
+          $tagCommit = git rev-list -n 1 $env:RELEASE_TAG
+          if ($head -ne $tagCommit) {
+            throw "Checked-out commit $head does not match tag $env:RELEASE_TAG ($tagCommit)."
+          }
+          $channel = if ($version -match '-([a-z]+)(?:[.-]|$)') { $Matches[1].ToLowerInvariant() } else { 'latest' }
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "manifest=$channel.yml" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          $isPrerelease = $channel -ne 'latest'
+          "prerelease=$($isPrerelease.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Type check and test with the Node native ABI
+        shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
           npm run typecheck
+          npm run rebuild:native:node
           npm run test
+
+      - name: Build renderer and main process
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           npm run build
 
-      - name: Rebuild native modules for Electron
-        run: npm run rebuild:native
+      - name: Prepare and verify Electron native modules
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          npm run fix:native
+          npm run verify:native
+
+      - name: Run end-to-end smoke against the Electron ABI
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          npm run test:e2e
 
       - name: Build NSIS installer
-        run: npm run dist -- --win nsis --publish never
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          npm run dist
 
-      - name: Publish GitHub release
-        uses: softprops/action-gh-release@v2
+      - name: Generate production dependency SBOM
+        shell: pwsh
+        run: npm sbom --sbom-format spdx --omit dev | Out-File -FilePath dist/sbom.spdx.json -Encoding utf8
+
+      - name: Generate and validate release artifacts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          node scripts/release-checksums.mjs --output dist/SHA256SUMS.txt
+          node scripts/verify-release-artifacts.mjs --dir dist --version "${{ steps.metadata.outputs.version }}" --tag "$env:RELEASE_TAG"
+
+      - name: Upload immutable release payload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          # Include latest.yml + .blockmap so electron-updater can detect and
-          # diff-download new versions — without them auto-update can't work.
-          files: |
-            dist/OXESpace-*.exe
-            dist/latest.yml
-            dist/*.blockmap
-          draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          name: release-${{ steps.metadata.outputs.version }}-windows-x64
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            dist/OXESpace-${{ steps.metadata.outputs.version }}-x64.exe
+            dist/OXESpace-${{ steps.metadata.outputs.version }}-x64.exe.blockmap
+            dist/*.yml
+            dist/sbom.spdx.json
+            dist/SHA256SUMS.txt
+
+      - name: Create or refresh draft GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $assets = @(
+            "dist/OXESpace-${{ steps.metadata.outputs.version }}-x64.exe",
+            "dist/OXESpace-${{ steps.metadata.outputs.version }}-x64.exe.blockmap",
+            "dist/${{ steps.metadata.outputs.manifest }}",
+            'dist/sbom.spdx.json',
+            'dist/SHA256SUMS.txt'
+          )
+          gh release view $env:RELEASE_TAG 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:RELEASE_TAG --clobber @assets
+          } else {
+            $createArgs = @('release', 'create', $env:RELEASE_TAG, '--draft', '--generate-notes', '--title', "OXESpace $env:RELEASE_TAG")
+            if ('${{ steps.metadata.outputs.prerelease }}' -eq 'true') { $createArgs += '--prerelease' }
+            $createArgs += $assets
+            gh @createArgs
+          }
+
+      - name: Download draft and verify the published payload
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $downloadDir = Join-Path $env:RUNNER_TEMP 'release-download'
+          New-Item -ItemType Directory -Path $downloadDir -Force | Out-Null
+          gh release download $env:RELEASE_TAG --dir $downloadDir --clobber
+          node scripts/verify-release-artifacts.mjs --dir $downloadDir --version "${{ steps.metadata.outputs.version }}" --tag "$env:RELEASE_TAG"
+
+      - name: Publish verified release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit $env:RELEASE_TAG --draft=false

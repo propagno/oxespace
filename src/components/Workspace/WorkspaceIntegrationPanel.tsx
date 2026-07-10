@@ -20,13 +20,13 @@ export function WorkspaceIntegrationPanel({ activePaneId, isExpanded, onCollapse
       <header className="workspace-editor-header">
         <div className="workspace-editor-title">
           <Network size={14} aria-hidden="true" />
-          <strong>Integration</strong>
+          <strong>Multi-repo coordination</strong>
         </div>
         <div className="workspace-editor-actions">
-          <button type="button" className="icon-button" aria-label="Expand integration panel" onClick={onToggleExpanded}>
+          <button type="button" className="icon-button" aria-label="Expand multi-repo coordination panel" onClick={onToggleExpanded}>
             <Maximize2 size={13} aria-hidden="true" />
           </button>
-          <button type="button" className="icon-button" aria-label="Close integration panel" onClick={onCollapse}>
+          <button type="button" className="icon-button" aria-label="Close multi-repo coordination panel" onClick={onCollapse}>
             <X size={14} aria-hidden="true" />
           </button>
         </div>

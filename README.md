@@ -57,7 +57,8 @@ Slim workspace cards (name + git branch), version badge next to the OXESpace bra
 **1. Download the latest release**  
 [**Download OXESpace for Windows x64**](https://github.com/propagno/oxespace/releases/latest) — grab the `OXESpace-<version>-x64.exe` asset from the latest release. The app then keeps itself up to date automatically (auto-update from GitHub Releases).
 
-> The build is currently unsigned, so Windows SmartScreen may show a warning on first install — choose *More info → Run anyway*.
+> Every release ships with `SHA256SUMS.txt`; compare its checksum before
+> installing when you need to verify the downloaded installer.
 
 **2. Prerequisites**  
 - Windows x64
@@ -108,13 +109,18 @@ npm run dist
 *The installer will be emitted to `dist/OXESpace-<version>-x64.exe` (~221 MB after slim:pack).*
 
 ### Release checklist
-1. Bump `package.json` / `package-lock.json` version  
-2. `npm run typecheck` + `npm run rebuild:native:node && npm run test`  
-3. `npm run rebuild:native:electron && npm run dist` (runs `slim:pack` automatically)  
-4. `npm run release:checksums` — paste SHA-256 lines into the GitHub Release notes  
-5. Push commit + tag `vX.Y.Z`  
-6. GitHub Release with `OXESpace-X.Y.Z-x64.exe`, `.blockmap`, and `latest.yml`  
-7. Confirm auto-update feed (`latest.yml` size/sha match the `.exe`)
+
+The GitHub Actions workflow runs the full release validation, tests, installer
+checksums, SBOM and updater-manifest checks. Create a tag that exactly matches
+`package.json`; GitHub publishes the verified release automatically:
+
+```powershell
+git tag vX.Y.Z
+git push origin vX.Y.Z
+```
+
+See [the release pipeline guide](docs/RELEASE_PIPELINE.md) for prerelease
+channels and the published artifacts.
 
 ---
 
