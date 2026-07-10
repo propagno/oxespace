@@ -57,7 +57,8 @@ Slim workspace cards (name + git branch), version badge next to the OXESpace bra
 **1. Download the latest release**  
 [**Download OXESpace for Windows x64**](https://github.com/propagno/oxespace/releases/latest) — grab the `OXESpace-<version>-x64.exe` asset from the latest release. The app then keeps itself up to date automatically (auto-update from GitHub Releases).
 
-> The build is currently unsigned, so Windows SmartScreen may show a warning on first install — choose *More info → Run anyway*.
+> Every release ships with `SHA256SUMS.txt`; compare its checksum before
+> installing when you need to verify the downloaded installer.
 
 **2. Prerequisites**  
 - Windows x64
@@ -91,16 +92,40 @@ npm run dev
 ### Verification & Testing
 ```powershell
 npm run typecheck
+# Service/integration tests need native modules built for *Node* (not Electron ABI):
+npm run rebuild:native:node
 npm run test
+# Before `npm run dev` / packaged builds, switch back to Electron ABI:
+npm run rebuild:native:electron
 npm run build
 npm run test:e2e
+npm run test:smoke   # Tools + Agent Settings hub smoke
 ```
 
 ### Building the Installer Locally
 ```powershell
 npm run dist
 ```
-*The installer will be emitted to `dist/OXESpace-<version>-x64.exe`.*
+*The installer will be emitted to `dist/OXESpace-<version>-x64.exe` (~221 MB after slim:pack).*
+
+### Release checklist
+
+CI and release share one workflow (**CI and Release**). Packaging and publish
+run only after typecheck, tests, build and E2E succeed on the same commit.
+
+**Option A — tag push (auto release after green build):**
+
+```powershell
+git tag vX.Y.Z   # must match package.json
+git push origin vX.Y.Z
+```
+
+**Option B — manual, choose branch:** Actions → **CI and Release** → Run workflow  
+set **branch** (e.g. `main`), enable **publish_release**, optional **tag**.
+
+The workflow confirms the GitHub Release is live (not draft) with the required
+assets before exiting green. See [the release pipeline guide](docs/RELEASE_PIPELINE.md).
+
 
 ---
 

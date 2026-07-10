@@ -28,6 +28,13 @@ export function registerSemanticIpc(semantic: SemanticService): void {
     return semantic.getStatus(workspaceId)
   })
 
+  ipcMain.handle(IPC_CHANNELS.semantic.reindex, (_event, workspaceId: unknown) => {
+    if (typeof workspaceId !== 'string' || !workspaceId.trim()) {
+      throw new Error('semantic:reindex requires a workspaceId string')
+    }
+    return semantic.reindex(workspaceId)
+  })
+
   // Recent activity log for Tools → Semantic Activity. Live updates arrive on
   // the IPC_CHANNELS.semantic.onLog channel (broadcast from index.ts).
   ipcMain.handle(IPC_CHANNELS.semantic.getLogs, () => semantic.getLogs())

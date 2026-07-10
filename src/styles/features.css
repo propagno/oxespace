@@ -989,6 +989,15 @@
   flex-shrink: 0;
 }
 
+.github-status-headline {
+  margin: 0 12px 10px;
+  padding: 0 2px;
+  color: var(--tx-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
 /* VS Code-like sync card — primary “what should I do with remote?” */
 .github-sync-card {
   display: flex;
@@ -999,6 +1008,32 @@
   border-radius: 12px;
   border: 1px solid var(--gh-card-border);
   background: var(--gh-card-bg);
+}
+
+.github-sync-card.state-no-remote {
+  border-color: rgba(255, 180, 70, 0.35);
+  background: linear-gradient(180deg, rgba(255, 180, 70, 0.08) 0%, #0a0c12 70%);
+}
+
+.github-sync-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 180, 70, 0.28);
+  background: rgba(255, 180, 70, 0.08);
+  color: var(--tx-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.github-sync-callout code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.28);
 }
 
 .github-sync-card.state-behind,
@@ -3105,6 +3140,8 @@
 }
 
 /* ─── Pane tile ─────────────────────────────────────────────────────────── */
+/* Flat split cells (VS Code / iTerm): no card chrome around the terminal.
+   Separation comes from resize-handle hairlines + the pane header only. */
 .pane-container {
   display: flex;
   flex-direction: column;
@@ -3113,26 +3150,28 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.075);
-  border-radius: 10px;
+  border: none;
+  border-radius: 0;
   background: #050505;
-  transition: border-color 0.15s ease-out, box-shadow 0.15s ease-out;
+  box-shadow: none;
+  transition: background 0.12s ease-out;
 }
 .pane-container:focus-within {
-  border-color: rgba(255, 255, 255, 0.22);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.035);
+  /* Focus is carried by the header bar, not a full-frame outline. */
+  box-shadow: none;
 }
 .pane-container.active {
-  border-color: var(--bd-pane-active) !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3), 0 0 0 1px var(--bd-pane-active);
+  border: none !important;
+  box-shadow: none !important;
 }
 .pane-container.active > .pane-header {
-  background: rgba(255, 255, 255, 0.035);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 2px 0 0 var(--accent, #12c79a);
 }
 .pane-container.active > .pane-header .pane-header-left {
-  border-color: color-mix(in srgb, var(--accent) 25%, transparent);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 .pane-container.active > .pane-header .pane-status-dot {
   box-shadow: var(--glow-pane-active);
@@ -3142,12 +3181,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 38px;
-  padding: 5px 7px 5px 8px;
-  background: #0a0a0a;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+  height: 34px;
+  padding: 4px 8px 4px 10px;
+  background: #080808;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
   gap: 8px;
+  transition: background 0.12s ease-out, border-color 0.12s ease-out, box-shadow 0.12s ease-out;
 }
 
 .pane-header-left {
@@ -3240,22 +3280,34 @@
 .pane-agent-chip {
   display: inline-flex;
   align-items: center;
+  gap: 5px;
   flex-shrink: 0;
-  max-width: 116px;
-  height: 18px;
-  padding: 0 6px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  max-width: 14ch;
+  min-width: 0;
+  height: 20px;
+  padding: 0 8px 0 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--tx-secondary);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  transition: all 0.15s ease-in-out;
+}
+
+.pane-agent-chip .agent-provider-icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.pane-agent-chip-label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  transition: all 0.15s ease-in-out;
 }
 
 .pane-agent-chip.provider-claude {
@@ -3283,10 +3335,21 @@
   border-color: rgba(99, 102, 241, 0.3);
   color: #818cf8;
 }
+.pane-agent-chip.provider-grok {
+  background: rgba(17, 17, 17, 0.55);
+  border-color: rgba(148, 163, 184, 0.35);
+  color: #e2e8f0;
+}
 .pane-agent-chip.provider-custom {
   background: rgba(71, 85, 105, 0.15);
   border-color: rgba(71, 85, 105, 0.3);
   color: #94a3b8;
+}
+.pane-agent-chip.provider-shell,
+.pane-agent-chip.provider-local {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: var(--tx-muted);
 }
 
 .pane-header-divider {
@@ -3761,8 +3824,8 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  /* Dark backdrop for the floating terminal card (see .terminal-content). */
-  background: var(--bg-tile-content);
+  /* Flush with the pane cell — no floating-card backdrop. */
+  background: #050505;
 }
 
 .agent-info-card {
@@ -3823,19 +3886,17 @@
   min-height: 0;
   min-width: 0;
   overflow: hidden;
-  /* Dark backdrop the lifted terminal card floats on. The padding is the gap
-     around the card that reveals this backdrop (margin on the FitAddon host
-     would desync the grid, so the gap lives here instead). */
-  background: var(--bg-tile-content);
-  padding: 10px;
+  /* Terminal fills the pane edge-to-edge (no card gutter). */
+  background: #050505;
+  padding: 0;
   box-sizing: border-box;
   position: relative;
 }
 
 .terminal-search {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: 8px;
+  right: 8px;
   z-index: 20;
   display: flex;
   align-items: center;
@@ -3894,17 +3955,18 @@
   color: var(--tx-secondary);
 }
 
+/* Flat footer — same surface as the terminal, hairline only (no gradient/shadow/blur). */
 .terminal-statusbar {
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 38px;
-  padding: 0 16px;
-  background: linear-gradient(0deg, rgba(10, 10, 12, 0.95) 0%, rgba(20, 20, 22, 0.85) 100%);
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  height: var(--tile-statusbar-h, 28px);
+  padding: 0 10px;
+  background: #050505;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   flex-shrink: 0;
   container-type: inline-size;
   container-name: statusbar;
@@ -3913,7 +3975,7 @@
 }
 
 .statusbar-text {
-  font-size: 12px;
+  font-size: 11px;
   font-family: var(--font-mono);
   color: var(--tx-muted);
   white-space: nowrap;
@@ -3921,20 +3983,136 @@
   text-overflow: ellipsis;
 }
 
-/* Shell label relocated from the removed terminal topbar (~32px reclaimed). */
-.statusbar-shell {
+/* Agent/shell identity — source of truth is agentProfileId, not shell profile. */
+.statusbar-identity {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   min-width: 0;
-  max-width: 12ch;
+  max-width: 16ch;
+  padding: 0 8px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
   font-size: 11px;
+  font-weight: 650;
   font-family: var(--font-mono);
-  color: var(--tx-muted);
+  color: var(--tx-secondary);
   white-space: nowrap;
   overflow: hidden;
+}
+
+.statusbar-identity.is-agent {
+  border-color: color-mix(in srgb, var(--brand) 28%, rgba(255, 255, 255, 0.06));
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  color: var(--tx-primary);
+}
+
+.statusbar-identity .agent-provider-icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.statusbar-identity-label {
+  overflow: hidden;
   text-overflow: ellipsis;
-  opacity: 0.85;
+}
+
+.statusbar-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--tx-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 80ms, background 80ms, border-color 80ms;
+}
+
+.statusbar-icon-btn:hover:not(:disabled) {
+  color: var(--tx-primary);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.statusbar-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.statusbar-icon-btn.open {
+  color: var(--tx-primary);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.statusbar-more {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.statusbar-more-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 4px);
+  z-index: 40;
+  min-width: 168px;
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #0c0c0e;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.statusbar-more-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--tx-secondary);
+  font-size: 12px;
+  font-weight: 550;
+  text-align: left;
+  cursor: pointer;
+}
+
+.statusbar-more-menu button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--tx-primary);
+}
+
+.statusbar-more-menu button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.statusbar-more-label {
+  flex: 1;
+}
+
+.statusbar-more-check {
+  color: var(--brand-light, #5eead4);
+  flex-shrink: 0;
+}
+
+.statusbar-more-menu button[aria-checked='true'] {
+  color: var(--tx-primary);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .statusbar-dot {
@@ -3972,27 +4150,27 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 0 12px;
-  height: 24px;
+  padding: 0 8px;
+  height: 20px;
   font-size: 11px;
   font-weight: 600;
   font-family: var(--font-mono);
   color: rgba(255, 255, 255, 0.65);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
   cursor: pointer;
   letter-spacing: 0.2px;
-  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  transition: color 80ms, background 80ms, border-color 80ms;
+  box-shadow: none;
 }
 
 .statusbar-chip:hover {
   color: #fff;
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.15);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
+  transform: none;
+  box-shadow: none;
 }
 
 .statusbar-chip svg {
@@ -4001,10 +4179,6 @@
 
 .statusbar-chip .chip-label {
   display: none;
-}
-
-.statusbar-chip {
-  padding: 0 8px;
 }
 
 /* AI-Credits indicators (Copilot + per-provider Claude/Codex) — passive status
@@ -4490,18 +4664,15 @@
 .terminal-view {
   width: 100%;
   height: 100%;
-  /* Floating chat-like card: this host is the lifted surface (bg, border, radius,
-     shadow) and the dark backdrop behind it (.terminal-content) plus the gap make
-     it read as a panel. The breathing room lives on .xterm (NOT here): the
-     FitAddon reads padding off the .xterm element to size the grid — padding on
-     this host desynced cols and clipped the edge columns. */
+  /* Flush terminal surface — no floating card chrome (matches flat pane splits).
+     Breathing room stays on .xterm so FitAddon keeps cols/rows correct. */
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
-  background: var(--bg-terminal-surface);
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  background: #050505;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
   transition: box-shadow 0.1s;
 }
 
@@ -4516,17 +4687,15 @@
   font-feature-settings: "liga" 0, "calt" 0;
   font-synthesis: none;
   background: transparent;
-  /* Breathing room INSIDE the card. The FitAddon subtracts this padding (read
-     off the .xterm element) when computing cols/rows, so the monospace grid stays
-     aligned and no edge column is clipped. box-sizing:border-box keeps width:100%
-     from overflowing by the padding. */
-  padding: 14px 18px;
+  /* Minimal inset so glyphs aren't glued to the cell edge; FitAddon accounts
+     for this padding when computing the grid. */
+  padding: 6px 8px;
 }
 .terminal-view .xterm-viewport {
   background-color: transparent !important;
   overflow-y: auto !important;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.15) transparent;
+  scrollbar-color: rgba(255,255,255,0.12) transparent;
 }
 .terminal-view .xterm-screen {
   max-width: 100%;
@@ -4536,13 +4705,13 @@
   letter-spacing: 0 !important;
 }
 .terminal-view .xterm-viewport::-webkit-scrollbar {
-  width: 4px;
+  width: 3px;
 }
 .terminal-view .xterm-viewport::-webkit-scrollbar-track {
   background: transparent;
 }
 .terminal-view .xterm-viewport::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.12);
   border-radius: 2px;
 }
 .terminal-view .xterm-viewport::-webkit-scrollbar-thumb:hover {
@@ -6989,6 +7158,38 @@
   padding: 10px;
 }
 
+.integration-create-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: var(--space-md);
+}
+
+.integration-create-intro strong {
+  color: var(--tx-primary);
+  font-size: var(--fs-sm);
+}
+
+.integration-create-intro span,
+.integration-member-editor-help {
+  color: var(--tx-muted);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+}
+
+.integration-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.integration-field > span {
+  color: var(--tx-secondary);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
 .integration-create-grid,
 .integration-ledger-form,
 .integration-handoff-form {
@@ -6997,7 +7198,12 @@
 }
 
 .integration-create-grid {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+}
+
+.integration-create-grid .primary-btn {
+  justify-content: center;
 }
 
 .integration-panel input,
@@ -7175,8 +7381,36 @@
 
 .integration-member-editor-actions {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: var(--space-xs);
+}
+
+.integration-member-remove-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: auto;
+  padding: 5px 8px;
+  border: 1px solid rgba(248, 113, 113, 0.30);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--tx-muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.integration-member-remove-btn:hover,
+.integration-member-remove-btn.confirming {
+  border-color: rgba(248, 113, 113, 0.58);
+  background: rgba(248, 113, 113, 0.10);
+  color: var(--dot-red);
+}
+
+.integration-member-remove-btn:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 
 /* Status filter chips above the group tabs. Active chip gets the brand
@@ -7244,6 +7478,46 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
+}
+
+.integration-handoff-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border: 1px solid rgba(0, 214, 201, 0.28);
+  border-radius: var(--radius-md);
+  background: rgba(0, 214, 201, 0.035);
+}
+
+.integration-handoff-composer-header strong {
+  display: block;
+  color: var(--tx-primary);
+  font-size: var(--fs-sm);
+}
+
+.integration-handoff-composer-header span,
+.integration-handoff-composer-hint {
+  display: block;
+  margin: 2px 0 0;
+  color: var(--tx-muted);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+}
+
+.integration-handoff-composer-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm);
+}
+
+.integration-handoff-composer textarea {
+  min-height: 74px;
+}
+
+.integration-handoff-composer-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .integration-handoff-list {
@@ -7846,7 +8120,7 @@
 
 .integration-add-member-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) 100px auto;
+  grid-template-columns: auto minmax(0, 1.4fr) minmax(132px, 1fr) minmax(150px, 1fr) auto;
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
@@ -7953,6 +8227,22 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
+}
+
+@media (max-width: 720px) {
+  .integration-create-grid,
+  .integration-handoff-composer-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .integration-add-member-row {
+    grid-template-columns: auto minmax(0, 1fr) minmax(125px, 0.8fr);
+  }
+
+  .integration-add-action {
+    grid-column: 2 / -1;
+    justify-content: center;
+  }
 }
 
 .integration-empty-link {

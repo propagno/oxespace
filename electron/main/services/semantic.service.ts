@@ -16,6 +16,8 @@ export interface SemanticStatus {
   indexing: boolean
   count: number
   lastError: string | null
+  /** Embedding model id (e.g. Xenova/multilingual-e5-small). */
+  modelId: string
 }
 
 export interface SemanticServiceOptions {
@@ -356,8 +358,35 @@ export class SemanticService {
       workerReady: this.workerReady,
       indexing: (this.indexingCount.get(workspaceId) ?? 0) > 0,
       count,
-      lastError: this.lastError
+      lastError: this.lastError,
+      modelId: SEMANTIC_MODEL_ID
     };
+  }
+
+  /**
+   * Drop stored embeddings for a workspace and re-crawl the root (if enabled).
+   * Used from Tools → Semantic Activity "Reindex".
+   */
+  public reindex(workspaceId: string): SemanticStatus {
+    const root = this.resolveRoot(workspaceId)
+    this.stopWatching(workspaceId)
+    try {
+      this.db.prepare('DELETE FROM semantic_embeddings WHERE workspace_id = ?').run(workspaceId)
+      this.log('info', 'Semantic index cleared — re-crawling workspace.', { workspaceId })
+    } catch (err) {
+      this.lastError = err instanceof Error ? err.message : String(err)
+      this.log('error', `Reindex failed clearing rows: ${this.lastError}`, { workspaceId })
+      return this.getStatus(workspaceId)
+    }
+    this.indexingCount.set(workspaceId, 0)
+    if (this.isEnabled(workspaceId) && root) {
+      this.startWatching(workspaceId, root)
+    } else if (!this.isEnabled(workspaceId)) {
+      this.log('info', 'Semantic is disabled — enable the chip to re-index after clear.', { workspaceId })
+    } else {
+      this.log('warn', 'No workspace root recorded — cannot re-crawl.', { workspaceId })
+    }
+    return this.getStatus(workspaceId)
   }
 
   /** Append a file to the serialized index chain (one file embedded at a time). */

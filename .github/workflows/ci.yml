@@ -1,47 +1,178 @@
-name: CI
+name: CI and Release
+
+# Unified pipeline:
+#   1) build  — typecheck, test, build, e2e (+ package when releasing)
+#   2) release — only after build succeeds; draft → verify → publish → confirm live
+#
+# Triggers:
+#   - push/PR to main → build only
+#   - push tag v*.*.* → build + release
+#   - workflow_dispatch → choose branch; optional publish_release
 
 on:
   push:
     branches: [main]
+    tags: ["v*.*.*"]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch to check out and run the unified pipeline on
+        required: true
+        default: main
+        type: string
+      publish_release:
+        description: After a successful build, package and publish a GitHub Release
+        required: false
+        default: false
+        type: boolean
+      tag:
+        description: Optional release tag (vX.Y.Z). Empty = v{package.json version}
+        required: false
+        type: string
+
+concurrency:
+  # Never cancel an in-flight tag release path; PR/main builds may cancel.
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && format('branch-{0}', inputs.branch) || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')) }}
+
+permissions:
+  contents: read
 
 jobs:
-  ci:
+  build:
     name: Typecheck, test and build
-    runs-on: windows-latest
+    runs-on: windows-2022
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    outputs:
+      should_release: ${{ steps.plan.outputs.should_release }}
+      version: ${{ steps.plan.outputs.version }}
+      tag: ${{ steps.plan.outputs.tag }}
+      prerelease: ${{ steps.plan.outputs.prerelease }}
+      manifest: ${{ steps.plan.outputs.manifest }}
+      sha: ${{ steps.plan.outputs.sha }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Resolve checkout ref
+        id: ref
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
+            $ref = '${{ inputs.branch }}'.Trim()
+            if ([string]::IsNullOrWhiteSpace($ref)) { throw 'workflow_dispatch requires a non-empty branch.' }
+          } else {
+            $ref = '${{ github.ref }}'
+          }
+          "ref=$ref" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "Checkout ref: $ref"
+
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.0
+        with:
+          ref: ${{ steps.ref.outputs.ref }}
+          fetch-depth: 0
+
+      - name: Plan build vs release
+        id: plan
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = node -p "require('./package.json').version"
+          $sha = git rev-parse HEAD
+          $event = '${{ github.event_name }}'
+          $publishInput = '${{ inputs.publish_release }}'
+          $tagInput = '${{ inputs.tag }}'.Trim()
+
+          $shouldRelease = $false
+          $tag = $null
+
+          if ($event -eq 'push' -and $env:GITHUB_REF.StartsWith('refs/tags/v')) {
+            $shouldRelease = $true
+            $tag = $env:GITHUB_REF_NAME
+          } elseif ($event -eq 'workflow_dispatch' -and $publishInput -eq 'true') {
+            $shouldRelease = $true
+            $tag = if ($tagInput) { $tagInput } else { "v$version" }
+          }
+
+          if ($shouldRelease) {
+            if ($tag -ne "v$version") {
+              throw "Release tag $tag does not match package.json version $version."
+            }
+            # Tag may be created later by the release job when dispatching from a branch.
+            git show-ref --verify --quiet "refs/tags/$tag"
+            if ($LASTEXITCODE -eq 0) {
+              $tagCommit = git rev-list -n 1 $tag
+              if ($sha -ne $tagCommit) {
+                throw "Checked-out commit $sha does not match tag $tag ($tagCommit)."
+              }
+            } elseif ($event -ne 'workflow_dispatch') {
+              throw "$tag is not an existing Git tag."
+            }
+          }
+
+          $channel = if ($version -match '-([a-z]+)(?:[.-]|$)') { $Matches[1].ToLowerInvariant() } else { 'latest' }
+          $isPrerelease = $channel -ne 'latest'
+
+          "should_release=$($shouldRelease.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "prerelease=$($isPrerelease.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "manifest=$channel.yml" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "sha=$sha" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+          Write-Host "version=$version tag=$tag should_release=$shouldRelease sha=$sha"
 
       - name: Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: "22"
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Install the pinned Electron runtime
+        run: npm rebuild electron
 
       - name: Type check
+        shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
           npm run typecheck
 
       - name: Unit and integration tests
+        shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
+          npm run rebuild:native:node
           npm run test
 
-      - name: Build
+      - name: Build renderer and main process
+        shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
           npm run build
 
+      # E2E launches Electron, so it must run only after the Electron-native
+      # binary has been installed and verified. node-pty supplies a
+      # N-API-compatible prebuild; rebuilding it would unnecessarily require
+      # a C++ toolchain on every runner.
+      - name: Prepare and verify native modules for Electron
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          npm run fix:native
+          npm run verify:native
+
       - name: E2E smoke
+        shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
@@ -52,11 +183,202 @@ jobs:
       # baseline thresholds. The full runtime-fluidity harness lives in
       # e2e/perf-benchmark.spec.ts for local/manual runs.
       - name: Performance benchmark (informational)
+        if: steps.plan.outputs.should_release != 'true'
         continue-on-error: true
         run: npx vitest bench --run tests/bench/hotpaths.bench.ts
 
-      # Validates the native rebuild used for packaging still succeeds on the CI
-      # toolchain (npm run dist relies on it). Last because nothing else here
-      # needs the Electron ABI (unit tests use the Node ABI; e2e runs mock-native).
-      - name: Rebuild native modules for Electron
-        run: npm run rebuild:native
+      # prepare:model pulls @xenova/transformers → sharp. npm ci --ignore-scripts
+      # leaves the sharp native binary missing; rebuild it for the Node ABI only.
+      - name: Install sharp native bindings for model prepare
+        if: steps.plan.outputs.should_release == 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          npm rebuild sharp
+
+      - name: Build NSIS installer
+        if: steps.plan.outputs.should_release == 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          # build + fix:native already ran above; only prepare model, slim, package.
+          npm run prepare:model
+          npm run slim:pack
+          npx electron-builder --win --config.npmRebuild=false --publish never
+
+      - name: Generate production dependency SBOM
+        if: steps.plan.outputs.should_release == 'true'
+        shell: pwsh
+        run: npm sbom --sbom-format spdx --omit dev | Out-File -FilePath dist/sbom.spdx.json -Encoding utf8
+
+      - name: Generate and validate release artifacts
+        if: steps.plan.outputs.should_release == 'true'
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ steps.plan.outputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          node scripts/release-checksums.mjs --output dist/SHA256SUMS.txt
+          node scripts/verify-release-artifacts.mjs --dir dist --version "${{ steps.plan.outputs.version }}" --tag "$env:RELEASE_TAG"
+
+      - name: Upload immutable release payload
+        if: steps.plan.outputs.should_release == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-${{ steps.plan.outputs.version }}-windows-x64
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            dist/OXESpace-${{ steps.plan.outputs.version }}-x64.exe
+            dist/OXESpace-${{ steps.plan.outputs.version }}-x64.exe.blockmap
+            dist/*.yml
+            dist/sbom.spdx.json
+            dist/SHA256SUMS.txt
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    if: needs.build.outputs.should_release == 'true'
+    runs-on: windows-2022
+    timeout-minutes: 30
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.0
+        with:
+          # Need a writable checkout so we can create the release tag when
+          # publishing from a branch that does not yet have vX.Y.Z.
+          ref: ${{ needs.build.outputs.sha }}
+          fetch-depth: 0
+
+      - name: Ensure release tag points at the verified build
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          BUILD_SHA: ${{ needs.build.outputs.sha }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git fetch --tags --force origin
+          git show-ref --verify --quiet "refs/tags/$env:RELEASE_TAG"
+          if ($LASTEXITCODE -eq 0) {
+            $tagCommit = git rev-list -n 1 $env:RELEASE_TAG
+            if ($tagCommit -ne $env:BUILD_SHA) {
+              throw "Tag $env:RELEASE_TAG points at $tagCommit but build verified $env:BUILD_SHA."
+            }
+            Write-Host "Tag $env:RELEASE_TAG already points at verified build $env:BUILD_SHA."
+          } else {
+            Write-Host "Creating tag $env:RELEASE_TAG at $env:BUILD_SHA"
+            git tag -a $env:RELEASE_TAG $env:BUILD_SHA -m "OXESpace $env:RELEASE_TAG"
+            git push origin "refs/tags/$env:RELEASE_TAG"
+          }
+
+      - name: Download verified build artifacts
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: release-${{ needs.build.outputs.version }}-windows-x64
+          path: dist
+
+      - name: Create or refresh draft GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = '${{ needs.build.outputs.version }}'
+          $manifest = '${{ needs.build.outputs.manifest }}'
+          $assets = @(
+            "dist/OXESpace-$version-x64.exe",
+            "dist/OXESpace-$version-x64.exe.blockmap",
+            "dist/$manifest",
+            'dist/sbom.spdx.json',
+            'dist/SHA256SUMS.txt'
+          )
+          foreach ($path in $assets) {
+            if (-not (Test-Path -LiteralPath $path)) {
+              throw "Missing release asset after download: $path"
+            }
+          }
+
+          gh release view $env:RELEASE_TAG 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:RELEASE_TAG --clobber @assets
+            gh release edit $env:RELEASE_TAG --draft=true
+          } else {
+            $createArgs = @(
+              'release', 'create', $env:RELEASE_TAG,
+              '--draft',
+              '--generate-notes',
+              '--title', "OXESpace $env:RELEASE_TAG",
+              '--target', '${{ needs.build.outputs.sha }}'
+            )
+            if ('${{ needs.build.outputs.prerelease }}' -eq 'true') { $createArgs += '--prerelease' }
+            $createArgs += $assets
+            gh @createArgs
+          }
+
+      - name: Download draft and verify the published payload
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $downloadDir = Join-Path $env:RUNNER_TEMP 'release-download'
+          New-Item -ItemType Directory -Path $downloadDir -Force | Out-Null
+          gh release download $env:RELEASE_TAG --dir $downloadDir --clobber
+          node scripts/verify-release-artifacts.mjs `
+            --dir $downloadDir `
+            --version '${{ needs.build.outputs.version }}' `
+            --tag $env:RELEASE_TAG
+
+      - name: Publish verified release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          gh release edit $env:RELEASE_TAG --draft=false
+          if ('${{ needs.build.outputs.prerelease }}' -eq 'true') {
+            gh release edit $env:RELEASE_TAG --prerelease
+          }
+
+      - name: Confirm release is live
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $json = gh release view $env:RELEASE_TAG --json isDraft,isPrerelease,tagName,url,assets
+          if ($LASTEXITCODE -ne 0) { throw "Failed to query release $env:RELEASE_TAG" }
+          $release = $json | ConvertFrom-Json
+          if ($release.isDraft) {
+            throw "Release $env:RELEASE_TAG is still draft after publish."
+          }
+          $expectedPrerelease = '${{ needs.build.outputs.prerelease }}' -eq 'true'
+          if ([bool]$release.isPrerelease -ne $expectedPrerelease) {
+            throw "Release prerelease flag mismatch for $env:RELEASE_TAG (got $($release.isPrerelease), expected $expectedPrerelease)."
+          }
+          if ($release.tagName -ne $env:RELEASE_TAG) {
+            throw "Release tagName $($release.tagName) does not match $env:RELEASE_TAG."
+          }
+          $assetNames = @($release.assets | ForEach-Object { $_.name })
+          $required = @(
+            "OXESpace-${{ needs.build.outputs.version }}-x64.exe",
+            "OXESpace-${{ needs.build.outputs.version }}-x64.exe.blockmap",
+            '${{ needs.build.outputs.manifest }}',
+            'sbom.spdx.json',
+            'SHA256SUMS.txt'
+          )
+          $missing = $required | Where-Object { $_ -notin $assetNames }
+          if ($missing.Count -gt 0) {
+            throw "Published release is missing asset(s): $($missing -join ', ')"
+          }
+          Write-Host "Release is live: $($release.url)"
+          Write-Host "Assets: $($assetNames -join ', ')"

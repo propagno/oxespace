@@ -1,57 +1,45 @@
-name: Release
+# DEPRECATED: release is part of the unified "CI and Release" workflow
+# (.github/workflows/ci.yml). This file only redirects manual runs so old
+# bookmarks / scripts that target "Release" still work.
+
+name: Release (redirect)
 
 on:
-  push:
-    tags:
-      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch to build and release from (unified pipeline)
+        required: true
+        default: main
+        type: string
+      tag:
+        description: Optional release tag (vX.Y.Z). Empty = v{package.json version}
+        required: false
+        type: string
 
-# GitHub is removing the Node 20 runtime that JS actions run on. Force any
-# action still pinned to Node 20 (e.g. softprops/action-gh-release@v2) onto
-# Node 24 so the release keeps working past the deprecation deadline.
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+permissions:
+  contents: read
+  actions: write
 
 jobs:
-  release:
-    name: Build installer
-    runs-on: windows-2022
-    permissions:
-      contents: write
-
+  redirect:
+    name: Forward to CI and Release
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-
-      - name: Node.js 22
-        uses: actions/setup-node@v5
-        with:
-          node-version: "22"
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Verify
+      - name: Dispatch unified pipeline with publish_release=true
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          $ErrorActionPreference = 'Stop'
-          $PSNativeCommandUseErrorActionPreference = $true
-          npm run typecheck
-          npm run test
-          npm run build
-
-      - name: Rebuild native modules for Electron
-        run: npm run rebuild:native
-
-      - name: Build NSIS installer
-        run: npm run dist -- --win nsis --publish never
-
-      - name: Publish GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          # Include latest.yml + .blockmap so electron-updater can detect and
-          # diff-download new versions — without them auto-update can't work.
-          files: |
-            dist/OXESpace-*.exe
-            dist/latest.yml
-            dist/*.blockmap
-          draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          set -euo pipefail
+          BRANCH='${{ inputs.branch }}'
+          args=(
+            workflow run ci.yml
+            --ref "$BRANCH"
+            -f "branch=$BRANCH"
+            -f "publish_release=true"
+          )
+          if [ -n "${{ inputs.tag }}" ]; then
+            args+=(-f "tag=${{ inputs.tag }}")
+          fi
+          gh "${args[@]}"
+          echo "Dispatched unified CI and Release for branch=$BRANCH publish_release=true"

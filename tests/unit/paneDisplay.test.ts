@@ -71,4 +71,35 @@ describe('pane display model', () => {
     expect(compactPathLabel('C:\\Users\\dudu-\\Estudos\\oxespace')).toBe('oxespace')
     expect(compactPathLabel('C:\\Users\\dudu-\\Estudos\\very-very-long-workspace-name')).toBe('very-very-long-worksp...')
   })
+
+  test('provider chip prefers bound agent over shell profile', () => {
+    const withAgent = derivePaneDisplayState({
+      pane: { ...pane, shellProfileId: 'builtin-claude', agentProfileId: 'agent-codex', agentName: 'Codex' },
+      workspace,
+      terminal,
+      profile: {
+        agentProfileId: 'agent-codex',
+        name: 'Codex',
+        provider: 'codex',
+        command: 'codex',
+        commandTemplate: 'codex',
+        isBuiltin: true
+      },
+      paneIndex: 0,
+      shellProfileName: 'Claude'
+    })
+    expect(withAgent.providerLabel).toBe('Codex')
+    expect(withAgent.providerKey).toBe('codex')
+
+    const shellOnly = derivePaneDisplayState({
+      pane: { ...pane, shellProfileId: 'builtin-powershell', agentProfileId: null, agentName: null },
+      workspace,
+      terminal,
+      profile: null,
+      paneIndex: 0,
+      shellProfileName: 'PowerShell'
+    })
+    expect(shellOnly.providerLabel).toBe('PowerShell')
+    expect(shellOnly.providerKey).toBe('shell')
+  })
 })

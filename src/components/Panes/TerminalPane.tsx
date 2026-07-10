@@ -1,14 +1,12 @@
-import { FolderTree, Mic, MicOff, Play, Bone, Brain, Terminal as TerminalIcon, Zap } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, type ReactElement } from 'react'
+import { Bone, Brain, Check, MoreHorizontal, Play, Zap } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { WorkspacePane } from '../../../shared/types/workspace'
-import { useGitBranch } from '../../hooks/useGitBranch'
 import { useOxeVoice } from '../../hooks/useOxeVoice'
 import { useAgentStore } from '../../store/agent.store'
 import { findMemberForPane, useIntegrationStore } from '../../store/integration.store'
 
 import { useTerminalStore } from '../../store/terminal.store'
-import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { useResolvedTerminalPrefs, useTerminalPrefsStore } from '../../store/terminal-prefs.store'
 import { TerminalView } from '../Terminal/TerminalView'
@@ -16,7 +14,6 @@ import { CopilotCreditsStatus } from '../Terminal/CopilotCreditsStatus'
 import { AgentCreditsStatus } from '../Terminal/AgentCreditsStatus'
 import { ContextUsageStatus } from '../Terminal/ContextUsageStatus'
 import { ErrorBoundary } from '../common/ErrorBoundary'
-
 interface TerminalPaneProps {
   pane: WorkspacePane
   workspaceId: string
@@ -103,11 +100,6 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
       voice.endHold()
     }
   }, [voice])
-  // Shared cache via useGitBranch — replaces the previous local state +
-  // per-pane setInterval(10s). Now N panes in the same workspace share one
-  // IPC poll per rootPath, and the sidebar chip + this status bar always
-  // read from the same source-of-truth.
-  const branchStatus = useGitBranch(workspaceId, effectiveRootPath)
 
   const resolveAgentInfo = useCallback((): { command: string | undefined; initialPrompt: string | undefined } => {
     const pending = consumePendingCommand(pane.id)
@@ -299,34 +291,24 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
     : state.status === 'error' ? 'red'
     : ''
 
-  const setActivePane = useUIStore((s) => s.setActivePane)
-  const updateWorktreeState = useWorkspaceStore((s) => s.updateWorktreeState)
-  const workspace = useWorkspaceStore((s) => s.workspaces.find((w) => w.id === workspaceId) ?? null)
-  const shellProfiles = useWorkspaceStore((s) => s.shellProfiles)
-  // Active-shell indicator in the statusbar: the pane's own profile, else the
-  // workspace default (same resolution terminal.service uses in main).
-  const shellName = shellProfiles.find(
-    (p) => p.id === (pane.shellProfileId ?? workspace?.defaultShellProfileId)
-  )?.name ?? 'Shell'
+  const [moreOpen, setMoreOpen] = useState(false)
+  const moreRef = useRef<HTMLDivElement | null>(null)
 
-  // Compose the chip label from the branch hook's payload. Beyond "branch
-  // name / detached SHA", the label now also surfaces the *specific* reason
-  // when git couldn't read the ref — previously it just said "no branch"
-  // even when git itself was missing or the path wasn't a repo, which sent
-  // the user looking in the wrong place. Each short label maps to a real
-  // failure mode of `git.service.getBranch`.
-  const fallbackWorktreeLabel = isWorktreePath(effectiveRootPath)
-    ? deriveWorktreeLabel(effectiveRootPath)
-    : 'no branch'
-  const branchErrorReason = branchStatus?.error ?? null
-  const worktreeLabel = !branchStatus
-    ? 'branch…'
-    : branchStatus.branch
-      ? branchStatus.branch
-      : branchStatus.shortSha
-        ? `detached ${branchStatus.shortSha}`
-        : summarizeBranchError(branchErrorReason, fallbackWorktreeLabel)
-  const isWorktreeOverride = pane.rootPath !== null
+  useEffect(() => {
+    if (!moreOpen) return
+    const onDoc = (e: MouseEvent): void => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false)
+    }
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setMoreOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [moreOpen])
 
   return (
     <div className="terminal-pane" data-testid="terminal-pane">
@@ -399,13 +381,9 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         </div>
       )}
 
-      <div className="terminal-statusbar">
+      <div className="terminal-statusbar" data-testid="terminal-statusbar">
         <span className={`statusbar-dot ${statusDotClass}`} aria-hidden="true" />
-        <span className="statusbar-text">{state.status}</span>
-        <span className="statusbar-shell" title={`Shell ativo: ${shellName}`}>
-          <TerminalIcon size={10} aria-hidden="true" />
-          {shellName}
-        </span>
+        <span className="statusbar-text" data-testid="terminal-status-label">{state.status}</span>
 
         <div className="terminal-statusbar-spacer" />
 
@@ -413,139 +391,67 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         {isCopilotPane ? <CopilotCreditsStatus /> : null}
         {agentCreditsProvider ? <AgentCreditsStatus provider={agentCreditsProvider} /> : null}
 
-        <button
-          type="button"
-          className={`statusbar-chip worktree-chip${isWorktreeOverride ? ' overridden' : ''}${branchErrorReason ? ' branch-error' : ''}`}
-          aria-label={`Worktree: ${worktreeLabel}. ${isWorktreeOverride ? 'This pane is in a worktree. ' : ''}Click to manage.`}
-          data-tooltip={branchErrorReason
-            ? `Branch could not be read: ${branchErrorReason} (${effectiveRootPath})`
-            : `Branch/worktree: ${worktreeLabel} (${effectiveRootPath})`}
-          onClick={() => {
-            setActivePane(pane.id)
-            void updateWorktreeState({
-              workspaceId,
-              worktreePanelVisible: true,
-              worktreePanelExpanded: workspace?.worktreePanelExpanded ?? false
-            })
-          }}
-        >
-          <FolderTree size={10} aria-hidden="true" />
-          <span className="chip-label">{worktreeLabel}</span>
-          {isWorktreeOverride ? <span className="worktree-chip-tag" aria-hidden="true">wt</span> : null}
-        </button>
-
-
-
-        <button
-          type="button"
-          className={`statusbar-chip rtk-chip ${!terminalPrefs.rtkHookEnabled ? 'disabled' : ''}`}
-          aria-label={`RTK Terminal Hook: ${terminalPrefs.rtkHookEnabled ? 'Enabled' : 'Disabled'}. Click to toggle.`}
-          data-tooltip={terminalPrefs.rtkHookEnabled
-            ? 'RTK: Hook ativado (economiza tokens). Clique para desativar.'
-            : 'RTK: Hook desativado. Clique para ativar.'}
-          onClick={() => setTerminalOverride(workspaceId, 'rtkHookEnabled', !terminalPrefs.rtkHookEnabled)}
-        >
-          <Zap size={10} aria-hidden="true" style={{ opacity: terminalPrefs.rtkHookEnabled ? 1 : 0.4 }} />
-          <span className="chip-label" style={{ opacity: terminalPrefs.rtkHookEnabled ? 1 : 0.4 }}>rtk</span>
-        </button>
-
-        <button
-          type="button"
-          className={`statusbar-chip caveman-chip ${!terminalPrefs.cavemanModeEnabled ? 'disabled' : ''}`}
-          aria-label={`Caveman Mode: ${terminalPrefs.cavemanModeEnabled ? 'Enabled' : 'Disabled'}. Click to toggle.`}
-          data-tooltip={terminalPrefs.cavemanModeEnabled
-            ? 'Caveman Mode: Ativado (O LLM fala o mínimo possível). Clique para desativar.'
-            : 'Caveman Mode: Desativado (Respostas normais do LLM). Clique para ativar.'}
-          onClick={() => setTerminalOverride(workspaceId, 'cavemanModeEnabled', !terminalPrefs.cavemanModeEnabled)}
-        >
-          <Bone size={10} aria-hidden="true" style={{ opacity: terminalPrefs.cavemanModeEnabled ? 1 : 0.4 }} />
-          <span className="chip-label" style={{ opacity: terminalPrefs.cavemanModeEnabled ? 1 : 0.4 }}>caveman</span>
-        </button>
-
-        <button
-          type="button"
-          className={`statusbar-chip semantic-chip ${!terminalPrefs.semanticSearchEnabled ? 'disabled' : ''}`}
-          aria-label={`Semantic Search: ${terminalPrefs.semanticSearchEnabled ? 'Enabled' : 'Disabled'}. Click to toggle.`}
-          data-tooltip={terminalPrefs.semanticSearchEnabled
-            ? 'Busca Semântica: ativa (agente lê menos arquivos). Clique para desativar.'
-            : 'Busca Semântica: desativada. Clique para ativar.'}
-          onClick={() => {
-            const next = !terminalPrefs.semanticSearchEnabled
-            setTerminalOverride(workspaceId, 'semanticSearchEnabled', next)
-            void window.oxe.semantic?.setEnabled({ workspaceId, enabled: next }).catch(() => undefined)
-          }}
-        >
-          <Brain size={10} aria-hidden="true" style={{ opacity: terminalPrefs.semanticSearchEnabled ? 1 : 0.4 }} />
-          <span className="chip-label" style={{ opacity: terminalPrefs.semanticSearchEnabled ? 1 : 0.4 }}>semantic</span>
-        </button>
-
-        <button
-          type="button"
-          className={`statusbar-chip voice-chip ${voice.error ? 'error' : voice.status}`}
-          aria-label={voice.isSupported ? 'OXEVoice: tap to toggle, hold to push-to-talk' : 'OXEVoice is not available'}
-          aria-pressed={isVoiceActive}
-          data-tooltip={voice.isSupported
-            ? 'OXEVoice — toque para alternar, segure para falar (push-to-talk). O texto vai pro terminal sem Enter.'
-            : 'OXEVoice indisponível neste runtime'}
-          disabled={!canUseVoice || !voice.isSupported}
-          onPointerDown={onVoicePointerDown}
-          onPointerUp={onVoicePointerEnd}
-          onPointerLeave={onVoicePointerCancel}
-        >
-          {isVoiceActive
-            ? <MicOff size={10} aria-hidden="true" />
-            : <Mic size={10} aria-hidden="true" />}
-          <span className="chip-label">
-            {voice.status === 'downloading' ? 'baixando…'
-              : voice.status === 'transcribing' ? 'transcrevendo…'
-                : voice.status === 'listening' ? 'ouvindo' : 'voice'}
-          </span>
-        </button>
-
-        {state.status === 'exited' ? (
+        <div className="statusbar-more" ref={moreRef}>
           <button
             type="button"
-            className="statusbar-action"
-            aria-label="Restart terminal"
-            onClick={() => void restart()}
+            className={`statusbar-icon-btn${moreOpen ? ' open' : ''}`}
+            aria-label="Toggle pane tools"
+            aria-expanded={moreOpen}
+            title="RTK · Caveman · Semantic"
+            data-testid="btn-terminal-more"
+            onClick={() => setMoreOpen((v) => !v)}
           >
-            restart
+            <MoreHorizontal size={12} aria-hidden="true" />
           </button>
-        ) : null}
+          {moreOpen ? (
+            <div className="statusbar-more-menu" role="menu" data-testid="terminal-more-menu">
+              <button
+                type="button"
+                role="menuitemcheckbox"
+                aria-checked={terminalPrefs.rtkHookEnabled}
+                data-testid="menu-toggle-rtk"
+                onClick={() => {
+                  setTerminalOverride(workspaceId, 'rtkHookEnabled', !terminalPrefs.rtkHookEnabled)
+                }}
+              >
+                <Zap size={12} aria-hidden="true" />
+                <span className="statusbar-more-label">RTK</span>
+                {terminalPrefs.rtkHookEnabled ? <Check size={12} className="statusbar-more-check" aria-hidden="true" /> : null}
+              </button>
+              <button
+                type="button"
+                role="menuitemcheckbox"
+                aria-checked={terminalPrefs.cavemanModeEnabled}
+                data-testid="menu-toggle-caveman"
+                onClick={() => {
+                  setTerminalOverride(workspaceId, 'cavemanModeEnabled', !terminalPrefs.cavemanModeEnabled)
+                }}
+              >
+                <Bone size={12} aria-hidden="true" />
+                <span className="statusbar-more-label">Caveman</span>
+                {terminalPrefs.cavemanModeEnabled ? <Check size={12} className="statusbar-more-check" aria-hidden="true" /> : null}
+              </button>
+              <button
+                type="button"
+                role="menuitemcheckbox"
+                aria-checked={terminalPrefs.semanticSearchEnabled}
+                data-testid="menu-toggle-semantic"
+                onClick={() => {
+                  const next = !terminalPrefs.semanticSearchEnabled
+                  setTerminalOverride(workspaceId, 'semanticSearchEnabled', next)
+                  void window.oxe.semantic?.setEnabled({ workspaceId, enabled: next }).catch(() => undefined)
+                }}
+              >
+                <Brain size={12} aria-hidden="true" />
+                <span className="statusbar-more-label">Semantic</span>
+                {terminalPrefs.semanticSearchEnabled ? <Check size={12} className="statusbar-more-check" aria-hidden="true" /> : null}
+              </button>
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   )
-}
-
-/**
- * Maps `git.service.getBranch` failure reasons to short labels that fit in
- * the statusbar chip (≤ ~14 chars). Each branch is keyed off the actual
- * error string returned by the service so the visible label tells the user
- * what to fix, not just "no branch".
- *
- * Keep these strings synchronized with the messages produced by
- * `electron/main/services/git.service.ts`.
- */
-function summarizeBranchError(error: string | null, fallback: string): string {
-  if (!error) return fallback
-  const lower = error.toLowerCase()
-  if (lower.includes('git executable not found')) return 'git not found'
-  if (lower.includes('not inside a git work tree')) return 'not a git repo'
-  if (lower.includes('git ipc not available')) return 'git ipc off'
-  if (lower.includes('timed out')) return 'git timed out'
-  if (lower.includes('permission denied')) return 'git denied'
-  return 'branch error'
-}
-
-function isWorktreePath(path: string): boolean {
-  return /[\\/]worktrees[\\/]/i.test(path)
-}
-
-function deriveWorktreeLabel(path: string): string {
-  const normalized = path.replace(/\\/g, '/')
-  const parts = normalized.split('/').filter(Boolean)
-  const idx = parts.findIndex((part) => part.toLowerCase() === 'worktrees')
-  return idx >= 0 && parts[idx + 1] ? parts[idx + 1] : parts.at(-1) ?? 'worktree'
 }
 
 function toMessage(error: unknown): string {

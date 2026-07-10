@@ -2714,10 +2714,25 @@
   z-index: 50;
 }
 
-.resize-handle { background: transparent; transition: background var(--transition-base); }
-.resize-handle[data-resize-handle-active], .resize-handle:hover { background: var(--surface-active); }
-.resize-handle-vertical { width: 2px; }
-.resize-handle-horizontal { height: 2px; }
+/* Hairline splits between panes — always slightly visible so splits read
+   without per-pane card borders. Stronger on hover/drag for affordance. */
+.resize-handle {
+  background: rgba(255, 255, 255, 0.1);
+  transition: background 120ms ease;
+  z-index: 2;
+}
+.resize-handle[data-resize-handle-active],
+.resize-handle:hover {
+  background: color-mix(in srgb, var(--accent, #12c79a) 55%, rgba(255, 255, 255, 0.12));
+}
+.resize-handle-vertical {
+  width: 1px;
+  min-width: 1px;
+}
+.resize-handle-horizontal {
+  height: 1px;
+  min-height: 1px;
+}
 
 .workspace-editor-resize {
   background: var(--bd-divider);

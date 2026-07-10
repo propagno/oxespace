@@ -118,7 +118,8 @@ describe('GitHub Status sync (Fetch / Pull / Push)', () => {
     renderPanel()
 
     await waitFor(() => {
-      expect(screen.getByTestId('github-sync-title')).toHaveTextContent(/2 commits para puxar/i)
+      expect(screen.getByTestId('github-sync-title')).toHaveTextContent(/2 commits? to pull/i)
+      expect(screen.getByTestId('github-status-headline')).toHaveTextContent(/2 to pull/i)
       expect(screen.getByTestId('github-sync-banner')).toBeInTheDocument()
       expect(screen.getByText(/2 incoming/i)).toBeInTheDocument()
     })
@@ -156,8 +157,9 @@ describe('GitHub Status sync (Fetch / Pull / Push)', () => {
     renderPanel()
 
     await waitFor(() => {
-      expect(screen.getByTestId('github-sync-title')).toHaveTextContent(/3 commits para puxar/i)
+      expect(screen.getByTestId('github-sync-title')).toHaveTextContent(/3 commits? to pull/i)
       expect(screen.getByTestId('github-status-update')).toBeDisabled()
+      expect(screen.getByTestId('github-dirty-behind-callout')).toBeInTheDocument()
     })
     expect(screen.getByTestId('github-status-update')).toHaveAttribute(
       'title',
@@ -171,7 +173,7 @@ describe('GitHub Status sync (Fetch / Pull / Push)', () => {
     renderPanel()
 
     await waitFor(() => {
-      expect(screen.getByTestId('github-sync-title')).toHaveTextContent(/1 commit para enviar/i)
+      expect(screen.getByTestId('github-sync-title')).toHaveTextContent(/1 commits? to push/i)
       expect(screen.getByText(/1 outgoing/i)).toBeInTheDocument()
     })
     expect(screen.getByTestId('github-status-update')).toBeDisabled()
@@ -180,15 +182,43 @@ describe('GitHub Status sync (Fetch / Pull / Push)', () => {
   })
 
   test('shows up-to-date copy when synced', async () => {
-    window.oxe.github.getWorkspaceStatus = vi.fn().mockResolvedValue(makeStatus({ ahead: 0, behind: 0, modified: 2 }))
+    window.oxe.github.getWorkspaceStatus = vi.fn().mockResolvedValue(makeStatus({ ahead: 0, behind: 0, modified: 2, hasUncommittedChanges: true }))
 
     renderPanel()
 
     await waitFor(() => {
-      expect(screen.getByTestId('github-sync-title')).toHaveTextContent(/Em dia com o remoto/i)
+      expect(screen.getByTestId('github-sync-title')).toHaveTextContent(/In sync with remote/i)
+      expect(screen.getByTestId('github-status-headline')).toHaveTextContent(/2 files? changed/i)
     })
     expect(screen.getByTestId('github-status-update')).toBeDisabled()
     expect(screen.getByTestId('github-status-push')).toBeDisabled()
     expect(screen.getByTestId('github-changes-card')).toHaveTextContent(/2 files/i)
+  })
+
+  test('shows no-remote callout when origin is missing', async () => {
+    window.oxe.github.getWorkspaceStatus = vi.fn().mockResolvedValue(
+      makeStatus({
+        repository: {
+          owner: null as unknown as string,
+          name: null as unknown as string,
+          fullName: null as unknown as string,
+          url: null as unknown as string,
+          defaultBranch: null as unknown as string,
+          isPrivate: false,
+          remoteName: null as unknown as string,
+          remoteUrl: null as unknown as string,
+          detected: false
+        },
+        lastPushRelative: null
+      })
+    )
+
+    renderPanel()
+
+    await waitFor(() => {
+      expect(screen.getByTestId('github-no-remote-callout')).toBeInTheDocument()
+      expect(screen.getByTestId('github-sync-title')).toHaveTextContent(/No remote/i)
+    })
+    expect(screen.getByTestId('github-status-fetch')).toBeDisabled()
   })
 })

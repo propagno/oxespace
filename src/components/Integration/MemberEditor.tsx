@@ -1,11 +1,16 @@
-import { Pencil, Save, X } from 'lucide-react'
+import { Pencil, Save, Trash2, X } from 'lucide-react'
 import { useEffect, useState, type ReactElement } from 'react'
 import type { IntegrationMember, IntegrationRole } from '../../../shared/types/integration'
+import type { WorkspacePane } from '../../../shared/types/workspace'
 import { useIntegrationStore } from '../../store/integration.store'
 
 interface MemberEditorProps {
   member: IntegrationMember
+  panes: WorkspacePane[]
+  confirmingRemoval: boolean
+  isRemoving: boolean
   onClose: () => void
+  onRemove: () => void
 }
 
 const ROLES: IntegrationRole[] = ['fed', 'bff', 'srv', 'api', 'apim', 'mktapi', 'aut', 'lib', 'db', 'infra', 'docs', 'other']
@@ -22,12 +27,13 @@ const ROLES: IntegrationRole[] = ['fed', 'bff', 'srv', 'api', 'apim', 'mktapi', 
  * patches the group cache); cancel discards local state. We deliberately
  * don't auto-save on blur — that confuses users who tab between fields.
  */
-export function MemberEditor({ member, onClose }: MemberEditorProps): ReactElement {
+export function MemberEditor({ member, panes, confirmingRemoval, isRemoving, onClose, onRemove }: MemberEditorProps): ReactElement {
   const updateMember = useIntegrationStore((s) => s.updateMember)
   const [alias, setAlias] = useState(member.alias)
   const [role, setRole] = useState<IntegrationRole>(member.role)
   const [blockers, setBlockers] = useState(member.blockers ?? '')
   const [lastIntent, setLastIntent] = useState(member.lastIntent ?? '')
+  const [paneId, setPaneId] = useState(member.paneId ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -36,7 +42,8 @@ export function MemberEditor({ member, onClose }: MemberEditorProps): ReactEleme
     setRole(member.role)
     setBlockers(member.blockers ?? '')
     setLastIntent(member.lastIntent ?? '')
-  }, [member.id, member.alias, member.role, member.blockers, member.lastIntent])
+    setPaneId(member.paneId ?? '')
+  }, [member.id, member.alias, member.role, member.blockers, member.lastIntent, member.paneId])
 
   const handleSave = async (): Promise<void> => {
     setError(null)
@@ -46,6 +53,7 @@ export function MemberEditor({ member, onClose }: MemberEditorProps): ReactEleme
         memberId: member.id,
         alias: alias.trim() || member.alias,
         role,
+        paneId: paneId || null,
         // null clears the field on the server (validation accepts undefined
         // OR a nullable string). Empty input maps to null so the user can
         // wipe a blocker by simply clearing the textarea.
@@ -85,6 +93,18 @@ export function MemberEditor({ member, onClose }: MemberEditorProps): ReactEleme
         />
       </label>
       <label className="integration-member-editor-field">
+        <span>Agent terminal</span>
+        <select value={paneId} onChange={(e) => setPaneId(e.currentTarget.value)} disabled={busy}>
+          <option value="">No linked agent terminal</option>
+          {panes.map((pane) => (
+            <option key={pane.id} value={pane.id}>
+              {pane.displayName || pane.agentName || `Terminal ${pane.rowIndex + 1}.${pane.columnIndex + 1}`}
+            </option>
+          ))}
+        </select>
+        <small className="integration-member-editor-help">Link a terminal to let this member receive handoffs directly.</small>
+      </label>
+      <label className="integration-member-editor-field">
         <span>Blockers</span>
         <textarea
           value={blockers}
@@ -95,6 +115,15 @@ export function MemberEditor({ member, onClose }: MemberEditorProps): ReactEleme
         />
       </label>
       <div className="integration-member-editor-actions">
+        <button
+          type="button"
+          className={`integration-member-remove-btn${confirmingRemoval ? ' confirming' : ''}`}
+          onClick={onRemove}
+          disabled={busy || isRemoving}
+        >
+          <Trash2 size={11} aria-hidden="true" />
+          {isRemoving ? 'Removing…' : confirmingRemoval ? 'Confirm removal' : 'Remove member'}
+        </button>
         <button type="button" className="ghost-btn small" onClick={onClose} disabled={busy}>
           <X size={11} aria-hidden="true" />
           Cancel

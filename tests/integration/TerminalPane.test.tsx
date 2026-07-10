@@ -5,6 +5,7 @@ import type { WorkspacePane } from '../../shared/types/workspace'
 import { TerminalPane } from '../../src/components/Panes/TerminalPane'
 import { useAgentStore } from '../../src/store/agent.store'
 import { useTerminalStore } from '../../src/store/terminal.store'
+import { useWorkspaceStore } from '../../src/store/workspace.store'
 
 vi.mock('../../src/components/Terminal/TerminalView', () => ({
   TerminalView: ({ onInput, onResize }: { onInput: (data: string) => void; onResize: (cols: number, rows: number) => void }) => (
@@ -35,11 +36,42 @@ describe('TerminalPane', () => {
           command: 'copilot',
           commandTemplate: 'copilot',
           isBuiltin: true
+        },
+        {
+          agentProfileId: 'agent-codex',
+          name: 'Codex',
+          provider: 'codex',
+          command: 'codex',
+          commandTemplate: 'codex',
+          isBuiltin: true
         }
       ],
       readiness: [],
       isLoading: false,
       isDiscovering: false,
+      lastHealthCheckAt: null,
+      error: null
+    })
+    useWorkspaceStore.setState({
+      workspaces: [{
+        id: 'workspace-1',
+        name: 'repo',
+        rootPath: 'C:/repo',
+        layout: '1x1',
+        layoutPreset: 1,
+        themeId: 'dracula',
+        uiDensity: 'compact',
+        defaultShellProfileId: 'builtin-claude',
+        autoStart: false,
+        isActive: true,
+        panes: []
+      }],
+      shellProfiles: [
+        { id: 'builtin-claude', name: 'Claude', executable: 'claude', args: [], isBuiltin: true },
+        { id: 'builtin-powershell', name: 'PowerShell', executable: 'powershell.exe', args: [], isBuiltin: true }
+      ],
+      activeWorkspaceId: 'workspace-1',
+      isLoading: false,
       error: null
     })
     window.oxe = {
@@ -52,7 +84,8 @@ describe('TerminalPane', () => {
         closePane: vi.fn(),
         pickFolder: vi.fn(),
         shellProfiles: vi.fn(),
-        setPaneAgent: vi.fn().mockResolvedValue({ id: 'workspace-1', panes: [] })
+        setPaneAgent: vi.fn().mockResolvedValue({ id: 'workspace-1', panes: [] }),
+        updateWorktreeState: vi.fn().mockResolvedValue({ id: 'workspace-1', panes: [] })
       },
       terminal: {
         start: vi.fn().mockResolvedValue(undefined),
@@ -73,14 +106,17 @@ describe('TerminalPane', () => {
         getModelStatus: vi.fn().mockResolvedValue({ size: 'base', ready: true, path: 'x', engineReady: true }),
         ensureModel: vi.fn().mockResolvedValue({ size: 'base', ready: true, path: 'x', engineReady: true }),
         onModelProgress: vi.fn(() => vi.fn())
+      },
+      semantic: {
+        setEnabled: vi.fn().mockResolvedValue({ enabled: true, workerReady: true, indexing: false, count: 0, lastError: null }),
+        getStatus: vi.fn().mockResolvedValue({ enabled: false, workerReady: true, indexing: false, count: 0, lastError: null })
       }
-    }
+    } as unknown as typeof window.oxe
     Object.defineProperty(navigator, 'mediaDevices', {
       configurable: true,
       value: { getUserMedia: vi.fn() }
     })
   })
-
 
   test('starts, writes and resizes a terminal', async () => {
     const user = userEvent.setup()
@@ -94,9 +130,25 @@ describe('TerminalPane', () => {
 
     expect(window.oxe.terminal.write).toHaveBeenCalledWith({ paneId: 'pane-1', data: 'a' })
     expect(window.oxe.terminal.resize).toHaveBeenCalledWith({ paneId: 'pane-1', cols: 120, rows: 32 })
+  })
 
-    // The Stop control was removed from the status bar — only Restart (on exit) remains.
-    expect(screen.queryByLabelText('Stop terminal')).not.toBeInTheDocument()
+  test('status bar has no provider identity chip (header owns that)', () => {
+    useTerminalStore.getState().setStatus('pane-1', 'running')
+    render(
+      <TerminalPane
+        pane={{
+          ...createPane(),
+          shellProfileId: 'builtin-claude',
+          agentProfileId: 'agent-codex',
+          agentName: 'Codex'
+        }}
+        workspaceId="workspace-1"
+        workspaceRootPath="C:/repo"
+        autoStart={false}
+      />
+    )
+    expect(screen.queryByTestId('terminal-identity')).not.toBeInTheDocument()
+    expect(screen.getByTestId('btn-terminal-more')).toBeInTheDocument()
   })
 
   test('marks pane identity when a provider command is launched from a neutral terminal', async () => {
@@ -119,43 +171,10 @@ describe('TerminalPane', () => {
     expect(window.oxe.terminal.write).toHaveBeenCalledWith({ paneId: 'pane-1', data: 'copilot\r' })
   })
 
-  test('surfaces a branch lookup failure with a clear fallback label', async () => {
-    window.oxe.git.getBranch = vi.fn().mockRejectedValue(new Error('lookup failed'))
-
+  test('does not show branch in the status bar (sidebar owns that)', () => {
     render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
-
-    // summarizeBranchError() maps known git failure messages to short labels
-    // (git not found / not a git repo / etc). An unknown failure ("lookup
-    // failed") falls back to the generic but still diagnostic "branch error"
-    // — never the legacy "branch unavailable" which sounded like a transient
-    // network issue. The full error text remains in the chip's title.
-    await waitFor(() => expect(screen.getByText('branch error')).toBeInTheDocument())
-    const chip = screen.getByLabelText(/Worktree: branch error/i)
-    expect(chip.getAttribute('data-tooltip')).toMatch(/lookup failed/)
-  })
-
-  test('maps "Git executable not found" to "git not found"', async () => {
-    window.oxe.git.getBranch = vi.fn().mockResolvedValue({
-      branch: null,
-      detached: false,
-      shortSha: null,
-      error: 'Git executable not found'
-    })
-
-    render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
-    await waitFor(() => expect(screen.getByText('git not found')).toBeInTheDocument())
-  })
-
-  test('maps "Not inside a Git work tree" to "not a git repo"', async () => {
-    window.oxe.git.getBranch = vi.fn().mockResolvedValue({
-      branch: null,
-      detached: false,
-      shortSha: null,
-      error: 'Not inside a Git work tree'
-    })
-
-    render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
-    await waitFor(() => expect(screen.getByText('not a git repo')).toBeInTheDocument())
+    expect(screen.queryByTestId('terminal-branch')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/Worktree:/i)).not.toBeInTheDocument()
   })
 
   test('marks output unread only when pane is not active', () => {
@@ -172,20 +191,19 @@ describe('TerminalPane', () => {
     expect(useTerminalStore.getState().panes['pane-2']?.hasUnread).toBe(false)
   })
 
-  test('shows enabled OXEVoice control when the terminal is running and voice is supported', async () => {
+  test('more menu toggles RTK, Caveman and Semantic', async () => {
+    const user = userEvent.setup()
     useTerminalStore.getState().setStatus('pane-1', 'running')
-
     render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
 
-    const voiceButton = screen.getByRole('button', { name: /OXEVoice/i })
-    expect(voiceButton).toBeEnabled()
-    expect(voiceButton).toHaveAttribute('aria-pressed', 'false')
-  })
+    await user.click(screen.getByTestId('btn-terminal-more'))
+    expect(screen.getByTestId('terminal-more-menu')).toBeInTheDocument()
+    expect(screen.getByTestId('menu-toggle-rtk')).toBeInTheDocument()
+    expect(screen.getByTestId('menu-toggle-caveman')).toBeInTheDocument()
+    expect(screen.getByTestId('menu-toggle-semantic')).toBeInTheDocument()
 
-  test('disables OXEVoice control when the terminal is idle', () => {
-    render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
-
-    expect(screen.getByRole('button', { name: /OXEVoice/i })).toBeDisabled()
+    await user.click(screen.getByTestId('menu-toggle-rtk'))
+    expect(screen.getByTestId('menu-toggle-rtk')).toHaveAttribute('aria-checked', 'true')
   })
 
   test('oxe:terminal-new-session restarts a running terminal', async () => {
@@ -206,7 +224,6 @@ describe('TerminalPane', () => {
     render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
     expect(screen.queryByTestId('terminal-topbar')).not.toBeInTheDocument()
   })
-
 })
 
 function createPane(): WorkspacePane {
@@ -217,6 +234,11 @@ function createPane(): WorkspacePane {
     rowIndex: 0,
     columnIndex: 0,
     shellProfileId: 'builtin-claude',
-    status: 'idle'
+    status: 'idle',
+    agentProfileId: null,
+    agentName: null,
+    displayName: null,
+    createdAt: null,
+    rootPath: null
   }
 }

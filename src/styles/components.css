@@ -669,6 +669,51 @@
   line-height: 1.4;
 }
 
+.settings-providers-checked {
+  font-size: 11px !important;
+  font-family: var(--font-mono);
+  opacity: 0.9;
+}
+
+.settings-provider-card-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.settings-onboarding {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--brand) 22%, rgba(255, 255, 255, 0.08));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--brand) 10%, transparent), rgba(255, 255, 255, 0.02));
+  color: var(--tx-muted);
+}
+
+.settings-onboarding > div p {
+  margin: 0 0 4px;
+  color: var(--tx-primary);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.settings-onboarding > div span {
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.settings-onboarding-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .settings-providers-stats {
   display: flex;
   flex-wrap: wrap;
