@@ -33,17 +33,9 @@ on:
         type: string
 
 concurrency:
-  group: >-
-    ${{ github.workflow }}-${{
-      github.event_name == 'workflow_dispatch'
-        && format('branch-{0}', inputs.branch)
-        || github.ref
-    }}
-  # Never cancel an in-flight release path (tag or manual publish).
-  cancel-in-progress: ${{
-    github.event_name == 'pull_request'
-    || (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/'))
-  }}
+  # Never cancel an in-flight tag release path; PR/main builds may cancel.
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && format('branch-{0}', inputs.branch) || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')) }}
 
 permissions:
   contents: read
