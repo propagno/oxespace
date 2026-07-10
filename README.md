@@ -110,17 +110,22 @@ npm run dist
 
 ### Release checklist
 
-The GitHub Actions workflow runs the full release validation, tests, installer
-checksums, SBOM and updater-manifest checks. Create a tag that exactly matches
-`package.json`; GitHub publishes the verified release automatically:
+CI and release share one workflow (**CI and Release**). Packaging and publish
+run only after typecheck, tests, build and E2E succeed on the same commit.
+
+**Option A — tag push (auto release after green build):**
 
 ```powershell
-git tag vX.Y.Z
+git tag vX.Y.Z   # must match package.json
 git push origin vX.Y.Z
 ```
 
-See [the release pipeline guide](docs/RELEASE_PIPELINE.md) for prerelease
-channels and the published artifacts.
+**Option B — manual, choose branch:** Actions → **CI and Release** → Run workflow  
+set **branch** (e.g. `main`), enable **publish_release**, optional **tag**.
+
+The workflow confirms the GitHub Release is live (not draft) with the required
+assets before exiting green. See [the release pipeline guide](docs/RELEASE_PIPELINE.md).
+
 
 ---
 
