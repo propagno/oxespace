@@ -11,6 +11,7 @@ import type { ITheme } from '@xterm/xterm'
 import type { WorkspaceThemeId } from '../../../shared/types/workspace'
 import type { TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useTerminalStore } from '../../store/terminal.store'
+import { wheelToTuiScrollKeys } from '../../utils/terminalWheel'
 
 // Claude Code uses ⏺ (U+23FA) on Mac and ● (U+25CF) on Windows
 const AGENT_MARKERS = ['⏺', '●']
@@ -369,6 +370,27 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       lastSelectionRef.current = null
     }
 
+    // Full-screen TUIs (Grok Build, Claude Code, …) use the alternate screen,
+    // which has no xterm scrollback. Without mouse tracking, the wheel does
+    // nothing — translate it into PageUp/PageDown (or arrows) so the TUI can
+    // scroll its own viewport. When the app enables mouse tracking, leave the
+    // event to xterm so it is forwarded as mouse sequences.
+    terminal.attachCustomWheelEventHandler((event: WheelEvent) => {
+      const keys = wheelToTuiScrollKeys({
+        bufferType: terminal.buffer.active.type,
+        mouseTrackingMode: terminal.modes.mouseTrackingMode,
+        deltaY: event.deltaY,
+        deltaMode: event.deltaMode,
+        ctrlKey: event.ctrlKey,
+        altKey: event.altKey,
+        metaKey: event.metaKey
+      })
+      if (keys === null) return true
+      event.preventDefault()
+      onInputRef.current(keys)
+      return false
+    })
+
     terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
       const key = event.key.toLowerCase()
 
@@ -522,31 +544,27 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
     let previewTimer: ReturnType<typeof setTimeout> | null = null
 
     const unsubscribeData = window.oxe.terminal.onData(paneId, (event) => {
-      // Smart scrollback: when the user has scrolled up to read history, new
-      // streaming output from the agent shouldn't yank them back to the bottom.
-      // xterm's default behavior on write() is "scroll to bottom on every
-      // chunk", which makes it impossible to keep a scroll position while
-      // Copilot/Claude are emitting tokens. We capture viewportY before the
-      // write and restore it from the write callback if the user wasn't
-      // already pinned at the bottom.
+      // Smart scrollback (normal buffer only): when the user has scrolled up to
+      // read history, new streaming output shouldn't yank them to the bottom.
+      // Skip this on the alternate screen (Grok/Claude TUIs) — those apps own
+      // the full viewport, have no scrollback, and continuous pin-restore
+      // fights their redraws so the mouse wheel appears broken.
       //
       // Same reasoning applies while the user is mid mouse-drag selecting text
-      // at the bottom of an actively streaming terminal (e.g. copying the
-      // agent's latest output): if we let write() auto-scroll on every chunk,
-      // the rows shift under the cursor mid-drag and the selection never
-      // stabilizes, so Ctrl+C keeps landing on nothing — this is the "can't
-      // copy during a long CLI session" bug. Pin the viewport whenever there's
-      // a live or very-recently-made selection, even if the user was at the
-      // bottom, so new tokens don't fight an in-progress or just-finished copy.
+      // at the bottom of an actively streaming terminal: pin the viewport so
+      // new tokens don't fight an in-progress copy.
       const preBuf = terminal.buffer.active
+      const isAltScreen = preBuf.type === 'alternate'
       const preViewportY = preBuf.viewportY
       const recentSelection = lastSelectionRef.current
       const hasActiveOrRecentSelection =
         !!terminal.getSelection() ||
         (recentSelection !== null && Date.now() - recentSelection.at <= RECENT_SELECTION_MS)
-      const wasAtBottom = !hasActiveOrRecentSelection && preViewportY >= preBuf.baseY
+      const wasAtBottom =
+        isAltScreen ||
+        (!hasActiveOrRecentSelection && preViewportY >= preBuf.baseY)
       terminal.write(event.data, () => {
-        if (!wasAtBottom) {
+        if (!wasAtBottom && terminal.buffer.active.type === 'normal') {
           const postBuf = terminal.buffer.active
           terminal.scrollToLine(Math.min(preViewportY, postBuf.baseY))
         }
