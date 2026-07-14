@@ -2708,10 +2708,72 @@
   overflow: hidden;
 }
 
+/* Maximize keeps all panes mounted (xterm/PTY state preserved). Suppressed
+   panels collapse to zero size; the focused panel fills the grid. */
+.workspace-grid--maximized {
+  position: relative;
+}
+
+.workspace-grid--maximized .resize-handle {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  flex: 0 0 0 !important;
+  pointer-events: none !important;
+}
+
+.workspace-grid--maximized .workspace-panel--suppressed,
+.workspace-grid--maximized .workspace-row-panel--suppressed {
+  flex: 0 0 0px !important;
+  flex-grow: 0 !important;
+  flex-shrink: 0 !important;
+  flex-basis: 0px !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: 0 !important;
+  max-height: 0 !important;
+  overflow: hidden !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.workspace-grid--maximized .workspace-panel--focused,
+.workspace-grid--maximized .workspace-row-panel--focused {
+  flex: 1 1 auto !important;
+  flex-grow: 1 !important;
+  flex-shrink: 1 !important;
+  flex-basis: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  overflow: hidden !important;
+}
+
+.workspace-grid--maximized .workspace-grid-vgroup,
+.workspace-grid--maximized .workspace-grid-hgroup {
+  height: 100% !important;
+  width: 100% !important;
+}
+
+.workspace-grid--maximized .workspace-panel--focused > .pane-container,
+.workspace-grid--maximized .workspace-panel--focused {
+  height: 100% !important;
+  width: 100% !important;
+}
+
+/* Legacy class kept so any stale absolute overlay styles don't leave holes. */
 .workspace-grid-maximized {
-  position: absolute;
-  inset: 0;
-  z-index: 50;
+  position: relative;
+  inset: auto;
+  z-index: auto;
 }
 
 /* Hairline splits between panes — always slightly visible so splits read

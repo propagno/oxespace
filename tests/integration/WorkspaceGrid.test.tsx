@@ -22,13 +22,16 @@ describe('WorkspaceGrid', () => {
     expect(onToggleMaximize).toHaveBeenCalledWith('pane-0-0')
   })
 
-  test('renders only the maximized pane when maximizedPaneId is set', () => {
+  test('keeps all panes mounted when maximized so terminals keep scroll state', () => {
     const workspace = createWorkspace('2x2')
 
     render(<WorkspaceGrid workspace={workspace} maximizedPaneId="pane-0-1" onToggleMaximize={() => undefined} />)
 
-    expect(screen.getAllByTestId('pane-container')).toHaveLength(1)
+    // Still 4 pane hosts in the DOM — maximize is CSS/layout, not unmount.
+    expect(screen.getAllByTestId('pane-container')).toHaveLength(4)
     expect(screen.getByLabelText('Restore pane')).toBeInTheDocument()
+    expect(screen.getByTestId('workspace-grid')).toHaveAttribute('data-maximized-pane', 'pane-0-1')
+    expect(screen.getByTestId('workspace-grid').className).toContain('workspace-grid--maximized')
   })
 
   test('does not render editor controls inside terminal panes', () => {

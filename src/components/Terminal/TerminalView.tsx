@@ -508,6 +508,15 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
         fitAddon.fit()
         onResizeRef.current(terminal.cols, terminal.rows)
 
+        // Force the viewport scroll area to re-measure after large layout
+        // changes (pane maximize/restore). Without a refresh, xterm can keep a
+        // stale scrollHeight and the mouse wheel appears dead.
+        terminal.refresh(0, Math.max(0, terminal.rows - 1))
+
+        if (buf.type === 'alternate') {
+          // TUI owns scrolling; don't fight it after fit.
+          return
+        }
         if (wasAtBottom) terminal.scrollToBottom()
         else terminal.scrollToLine(Math.min(viewportY, terminal.buffer.active.baseY))
       } catch {
