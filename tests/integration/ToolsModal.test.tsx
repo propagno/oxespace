@@ -18,6 +18,7 @@ const inactive = {
 
 const noopHandlers = {
   onOpenCommandPalette: () => undefined,
+  onOpenIssues: () => undefined,
   onOpenWorkspaceSettings: () => undefined,
   onOpenAgentSettings: () => undefined,
   onToggleEditor: () => undefined,
@@ -79,6 +80,17 @@ describe('ToolsModal', () => {
     await user.click(screen.getByTestId('tools-agent-settings'))
     expect(onOpenAgentSettings).toHaveBeenCalled()
     expect(onClose).toHaveBeenCalled()
+  })
+
+  test('opens the in-workspace Issues board', async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+    const onOpenIssues = vi.fn()
+    render(<ToolsModal active={inactive} onClose={onClose} {...noopHandlers} onOpenIssues={onOpenIssues} />)
+
+    await user.click(screen.getByRole('menuitem', { name: /Issues/i }))
+    expect(onOpenIssues).toHaveBeenCalledTimes(1)
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 
   test('filters tools by search query', async () => {

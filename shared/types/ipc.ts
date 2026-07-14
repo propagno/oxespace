@@ -330,6 +330,7 @@ export const IPC_CHANNELS = {
   mcpInternal: {
     getStatus: 'mcp-internal:get-status',
     regenerateToken: 'mcp-internal:regenerate-token',
+    captureWebPreview: 'mcp-internal:capture-web-preview',
     onWebPreview: 'mcp-internal:on-web-preview',
     onWorktreeChanged: 'mcp-internal:on-worktree-changed'
   },
@@ -339,6 +340,7 @@ export const IPC_CHANNELS = {
   semantic: {
     getStatus: 'semantic:get-status',
     setEnabled: 'semantic:set-enabled',
+    setMode: 'semantic:set-mode',
     reindex: 'semantic:reindex',
     getLogs: 'semantic:get-logs',
     onLog: 'semantic:log'
@@ -610,6 +612,34 @@ export interface SemanticStatus {
   lastError: string | null
   /** Embedding model id (e.g. Xenova/multilingual-e5-small). */
   modelId?: string
+  mode: SemanticSearchMode
+  coverage: SemanticIndexCoverage
+  lastQuery: SemanticLastQuery | null
+}
+
+export type SemanticSearchMode = 'auto' | 'explore' | 'exhaustive'
+export type SemanticConfidence = 'high' | 'medium' | 'low'
+
+export interface SemanticIndexCoverage {
+  lexicalDocuments: number
+  lastIndexedAt: number | null
+  byCategory: { source: number; test: number; config: number; docs: number; other: number }
+}
+
+export interface SemanticLastQuery {
+  requestedMode: SemanticSearchMode
+  resolvedMode: Exclude<SemanticSearchMode, 'auto'>
+  confidence: SemanticConfidence
+  expanded: boolean
+  expansionReason: string | null
+  durationMs: number
+  semanticCandidates: number
+  lexicalCandidates: number
+  returnedResults: number
+  estimatedTokens: number
+  estimatedFullFileTokens: number
+  estimatedSavingsPercent: number
+  truncated: boolean
 }
 
 export type SemanticLogLevel = 'debug' | 'info' | 'warn' | 'error'
@@ -626,6 +656,7 @@ export interface SemanticLogEntry {
 export interface SemanticApi {
   getStatus(workspaceId: string): Promise<SemanticStatus>
   setEnabled(input: { workspaceId: string; enabled: boolean }): Promise<SemanticStatus>
+  setMode(input: { workspaceId: string; mode: SemanticSearchMode }): Promise<SemanticStatus>
   reindex(workspaceId: string): Promise<SemanticStatus>
   getLogs(): Promise<SemanticLogEntry[]>
   onLog(callback: (entry: SemanticLogEntry) => void): () => void
@@ -634,6 +665,8 @@ export interface SemanticApi {
 export interface McpInternalApi {
   getStatus(): Promise<import('./mcp-internal').InternalMcpStatus>
   regenerateToken(): Promise<import('./mcp-internal').InternalMcpStatus>
+  /** Copies the visible Web Preview frame to the system clipboard. */
+  captureWebPreview(): Promise<void>
   onWebPreview(listener: (event: import('./mcp-internal').InternalMcpWebPreviewEvent) => void): () => void
   onWorktreeChanged(listener: (event: import('./mcp-internal').InternalMcpWorktreeChangedEvent) => void): () => void
 }

@@ -346,8 +346,9 @@ function registerNativeFailureIpcHandlers(message: string): void {
     tools: []
   }))
   ipcMain.handle(IPC_CHANNELS.mcpInternal.regenerateToken, fail)
-  ipcMain.handle(IPC_CHANNELS.semantic.getStatus, () => ({ enabled: false, workerReady: false, indexing: false, count: 0, lastError: 'native startup failed' }))
-  ipcMain.handle(IPC_CHANNELS.semantic.setEnabled, () => ({ enabled: false, workerReady: false, indexing: false, count: 0, lastError: 'native startup failed' }))
+  ipcMain.handle(IPC_CHANNELS.semantic.getStatus, () => ({ enabled: false, workerReady: false, indexing: false, count: 0, lastError: 'native startup failed', mode: 'auto', coverage: { lexicalDocuments: 0, lastIndexedAt: null, byCategory: { source: 0, test: 0, config: 0, docs: 0, other: 0 } }, lastQuery: null }))
+  ipcMain.handle(IPC_CHANNELS.semantic.setEnabled, () => ({ enabled: false, workerReady: false, indexing: false, count: 0, lastError: 'native startup failed', mode: 'auto', coverage: { lexicalDocuments: 0, lastIndexedAt: null, byCategory: { source: 0, test: 0, config: 0, docs: 0, other: 0 } }, lastQuery: null }))
+  ipcMain.handle(IPC_CHANNELS.semantic.setMode, () => ({ enabled: false, workerReady: false, indexing: false, count: 0, lastError: 'native startup failed', mode: 'auto', coverage: { lexicalDocuments: 0, lastIndexedAt: null, byCategory: { source: 0, test: 0, config: 0, docs: 0, other: 0 } }, lastQuery: null }))
   ipcMain.handle(IPC_CHANNELS.semantic.getLogs, () => [])
   ipcMain.handle(IPC_CHANNELS.oxeContext.buildPaneManifest, () => '')
   ipcMain.handle(IPC_CHANNELS.workspace.updateBackgroundState, fail)
@@ -533,8 +534,9 @@ function registerE2eMockIpcHandlers(): void {
     throw new Error(`Pane ${input.paneId} not found`)
   })
   ipcMain.handle(IPC_CHANNELS.workspace.pickFolder, () => null)
-  ipcMain.handle(IPC_CHANNELS.semantic.getStatus, () => ({ enabled: true, workerReady: false, indexing: false, count: 0, lastError: null }))
-  ipcMain.handle(IPC_CHANNELS.semantic.setEnabled, (_event: IpcMainInvokeEvent, input: { enabled: boolean }) => ({ enabled: input?.enabled ?? true, workerReady: false, indexing: false, count: 0, lastError: null }))
+  ipcMain.handle(IPC_CHANNELS.semantic.getStatus, () => ({ enabled: true, workerReady: false, indexing: false, count: 0, lastError: null, mode: 'auto', coverage: { lexicalDocuments: 0, lastIndexedAt: null, byCategory: { source: 0, test: 0, config: 0, docs: 0, other: 0 } }, lastQuery: null }))
+  ipcMain.handle(IPC_CHANNELS.semantic.setEnabled, (_event: IpcMainInvokeEvent, input: { enabled: boolean }) => ({ enabled: input?.enabled ?? true, workerReady: false, indexing: false, count: 0, lastError: null, mode: 'auto', coverage: { lexicalDocuments: 0, lastIndexedAt: null, byCategory: { source: 0, test: 0, config: 0, docs: 0, other: 0 } }, lastQuery: null }))
+  ipcMain.handle(IPC_CHANNELS.semantic.setMode, (_event: IpcMainInvokeEvent, input: { mode?: string }) => ({ enabled: true, workerReady: false, indexing: false, count: 0, lastError: null, mode: input?.mode ?? 'auto', coverage: { lexicalDocuments: 0, lastIndexedAt: null, byCategory: { source: 0, test: 0, config: 0, docs: 0, other: 0 } }, lastQuery: null }))
   ipcMain.handle(IPC_CHANNELS.semantic.getLogs, () => [])
   ipcMain.handle(IPC_CHANNELS.terminal.start, (_event: IpcMainInvokeEvent, input: { paneId: string }) => {
     for (const window of BrowserWindow.getAllWindows()) {

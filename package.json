@@ -1,6 +1,6 @@
 {
   "name": "oxespace",
-  "version": "0.2.13",
+  "version": "0.2.14",
   "description": "An open source, AI-native workspace and terminal",
   "repository": {
     "type": "git",
@@ -21,6 +21,8 @@
     "test:e2e": "playwright test",
     "bench:cpu": "vitest bench --run tests/bench/hotpaths.bench.ts",
     "bench:ui": "playwright test --config playwright.tools.config.ts perf-benchmark.spec.ts",
+    "bench:semantic": "node scripts/semantic-eval.mjs",
+    "bench:semantic:gate": "node scripts/semantic-quality-gate.mjs",
     "shots:ui": "playwright test --config playwright.tools.config.ts screenshots.spec.ts",
     "prepare:model": "node scripts/fetch-semantic-model.mjs",
     "postinstall": "npm run rebuild:native",

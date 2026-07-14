@@ -15,7 +15,7 @@ interface ScriptEntry {
   id: string
   name: string
   relativePath: string
-  extension: 'ps1' | 'sh'
+  extension: 'ps1' | 'sh' | 'npm'
   command: string
 }
 
@@ -110,7 +110,7 @@ export function ScriptsPanel({ embedded = false, onClose, onOpenBackground, work
           <div className="scripts-panel-empty">
             <FileCode2 size={32} aria-hidden="true" />
             <strong>{loading ? 'Loading scripts' : 'No script found'}</strong>
-            <span>Drop <code>.ps1</code> or <code>.sh</code> files in the workspace to run them as background jobs.</span>
+              <span>Add commands to <code>package.json</code>, or drop <code>.ps1</code>/<code>.sh</code> files in the workspace to run them as background jobs.</span>
           </div>
         ) : filtered.map((script) => (
           <div key={script.id} className="scripts-panel-card">
@@ -165,7 +165,28 @@ async function discoverScripts(workspaceId: string, rootPath: string): Promise<S
   }
 
   await walk()
+  entries.push(...await discoverPackageScripts(workspaceId, rootPath))
   return entries.sort((a, b) => a.relativePath.localeCompare(b.relativePath))
+}
+
+async function discoverPackageScripts(workspaceId: string, rootPath: string): Promise<ScriptEntry[]> {
+  try {
+    const packageFile = await window.oxe.fs.readFile({ workspaceId, rootPath, relativePath: 'package.json' })
+    const parsed = JSON.parse(packageFile.content) as { scripts?: unknown }
+    if (!parsed.scripts || typeof parsed.scripts !== 'object' || Array.isArray(parsed.scripts)) return []
+
+    return Object.entries(parsed.scripts)
+      .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].trim().length > 0)
+      .map(([name]) => ({
+        id: `package:${name}`,
+        name,
+        relativePath: `package.json › scripts.${name}`,
+        extension: 'npm' as const,
+        command: `npm run "${escapeDoubleQuotes(name)}"`
+      }))
+  } catch {
+    return []
+  }
 }
 
 function toScriptEntry(item: FileTreeNode, rootPath: string): ScriptEntry | null {

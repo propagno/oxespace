@@ -17,6 +17,9 @@ describe('semantic ignore filter', () => {
   test('does not ignore ordinary source files', () => {
     expect(ignore(p('src', 'index.ts'))).toBe(false)
     expect(ignore(p('electron', 'main', 'services', 'semantic.service.ts'))).toBe(false)
+    expect(ignore(p('.github', 'workflows', 'ci.yml'))).toBe(false)
+    expect(ignore(p('.env'))).toBe(false)
+    expect(ignore(p('.private-cache', 'state.json'))).toBe(true)
   })
 
   test('ignores every configured heavy directory', () => {
@@ -29,11 +32,13 @@ describe('semantic ignore filter', () => {
     expect(ignore(p('packages', 'ui', 'node_modules', 'react', 'index.js'))).toBe(true)
   })
 
-  test('ignores dotfiles and dot-directories', () => {
-    expect(ignore(p('.env'))).toBe(true)
+  test('indexes relevant dotfiles/directories and ignores hidden caches', () => {
+    expect(ignore(p('.env'))).toBe(false)
     expect(ignore(p('.git', 'config'))).toBe(true)
-    expect(ignore(p('.vscode', 'settings.json'))).toBe(true)
+    expect(ignore(p('.vscode', 'settings.json'))).toBe(false)
+    expect(ignore(p('.github', 'workflows', 'ci.yml'))).toBe(false)
     expect(ignore(p('src', '.secret.ts'))).toBe(true)
+    expect(ignore(p('.private-cache', 'state.json'))).toBe(true)
   })
 
   test('does not self-exclude when the project lives under a dotted parent', () => {

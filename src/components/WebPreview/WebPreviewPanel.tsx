@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Camera, ExternalLink, Menu, Minus, Monitor, MonitorPlay, Plus, RotateCw, Star, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Camera, ExternalLink, Minus, Monitor, MonitorPlay, Plus, RotateCw, Smartphone, Tablet, X } from 'lucide-react'
 import { useEffect, useMemo, useState, type CSSProperties, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import { useUIStore } from '../../store/ui.store'
@@ -12,6 +12,14 @@ interface WebPreviewPanelProps {
 
 const DEFAULT_URL = 'http://localhost:3000'
 
+type Viewport = 'desktop' | 'tablet' | 'mobile'
+
+const VIEWPORTS: Record<Viewport, { label: string; width: number | null; height: number | null }> = {
+  desktop: { label: 'Desktop', width: null, height: null },
+  tablet: { label: 'Tablet · 768px', width: 768, height: 1024 },
+  mobile: { label: 'Mobile · 390px', width: 390, height: 844 }
+}
+
 export function WebPreviewPanel({ embedded = false, onClose, workspace }: WebPreviewPanelProps): ReactElement {
   const [draftUrl, setDraftUrl] = useState(DEFAULT_URL)
   const [url, setUrl] = useState<string | null>(null)
@@ -19,6 +27,9 @@ export function WebPreviewPanel({ embedded = false, onClose, workspace }: WebPre
   const [historyIndex, setHistoryIndex] = useState(-1)
   const [frameKey, setFrameKey] = useState(0)
   const [zoom, setZoom] = useState(100)
+  const [viewport, setViewport] = useState<Viewport>('desktop')
+  const [captureNotice, setCaptureNotice] = useState<string | null>(null)
+  const [capturing, setCapturing] = useState(false)
   const normalizedUrl = useMemo(() => normalizeUrl(draftUrl), [draftUrl])
   const canOpen = normalizedUrl !== null
   const canGoBack = historyIndex > 0
@@ -87,6 +98,20 @@ export function WebPreviewPanel({ embedded = false, onClose, workspace }: WebPre
   const zoomOut = (): void => setZoom((value) => Math.max(50, value - 10))
   const zoomIn = (): void => setZoom((value) => Math.min(150, value + 10))
   const openExternal = (): void => { if (url) window.open(url, '_blank', 'noopener,noreferrer') }
+  const viewportConfig = VIEWPORTS[viewport]
+  const handleCapture = async (): Promise<void> => {
+    if (!url || capturing) return
+    setCapturing(true)
+    setCaptureNotice(null)
+    try {
+      await window.oxe.mcpInternal.captureWebPreview()
+      setCaptureNotice('Preview copied to the clipboard.')
+    } catch (error) {
+      setCaptureNotice(error instanceof Error ? error.message : 'Could not capture the preview.')
+    } finally {
+      setCapturing(false)
+    }
+  }
 
   const content = (
     <>
@@ -131,10 +156,10 @@ export function WebPreviewPanel({ embedded = false, onClose, workspace }: WebPre
           <span>{zoom}%</span>
           <button type="button" aria-label="Zoom in" onClick={zoomIn}><Plus size={13} aria-hidden="true" /></button>
         </div>
-        <button type="button" className="web-preview-nav-button" aria-label="Favorite" disabled><Star size={14} aria-hidden="true" /></button>
-        <button type="button" className="web-preview-nav-button" aria-label="Menu" disabled><Menu size={14} aria-hidden="true" /></button>
-        <button type="button" className="web-preview-nav-button" aria-label="Desktop viewport" disabled><Monitor size={14} aria-hidden="true" /></button>
-        <button type="button" className="web-preview-nav-button" aria-label="Capture" disabled><Camera size={14} aria-hidden="true" /></button>
+        <button type="button" className="web-preview-nav-button" aria-label="Desktop viewport" aria-pressed={viewport === 'desktop'} onClick={() => setViewport('desktop')}><Monitor size={14} aria-hidden="true" /></button>
+        <button type="button" className="web-preview-nav-button" aria-label="Tablet viewport" aria-pressed={viewport === 'tablet'} onClick={() => setViewport('tablet')}><Tablet size={14} aria-hidden="true" /></button>
+        <button type="button" className="web-preview-nav-button" aria-label="Mobile viewport" aria-pressed={viewport === 'mobile'} onClick={() => setViewport('mobile')}><Smartphone size={14} aria-hidden="true" /></button>
+        <button type="button" className="web-preview-nav-button" aria-label="Capture preview to clipboard" title="Copy preview to clipboard" disabled={!url || capturing} onClick={() => void handleCapture()}><Camera size={14} aria-hidden="true" /></button>
         <button type="button" className="web-preview-nav-button" aria-label="Open in browser" disabled={!url} onClick={openExternal}>
           <ExternalLink size={14} aria-hidden="true" />
         </button>
@@ -142,13 +167,28 @@ export function WebPreviewPanel({ embedded = false, onClose, workspace }: WebPre
 
       <div className="web-preview-stage">
         {url ? (
-          <iframe
-            key={`${url}-${frameKey}`}
-            title="Workspace web preview"
-            src={url}
-            style={frameStyle}
-            sandbox="allow-forms allow-modals allow-popups allow-same-origin allow-scripts allow-downloads"
-          />
+          <div className="web-preview-frame-wrap">
+            <div
+              className={`web-preview-device viewport-${viewport}`}
+              style={{
+                width: viewportConfig.width ? `${viewportConfig.width}px` : '100%',
+                height: viewportConfig.height ? `${viewportConfig.height}px` : '100%',
+                maxHeight: '100%'
+              }}
+            >
+              <div className="web-preview-device-bar">
+                <span>{viewportConfig.label}</span>
+                <code>{url}</code>
+              </div>
+              <iframe
+                key={`${url}-${frameKey}`}
+                title="Workspace web preview"
+                src={url}
+                style={frameStyle}
+                sandbox="allow-forms allow-modals allow-popups allow-same-origin allow-scripts allow-downloads"
+              />
+            </div>
+          </div>
         ) : (
           <div className="web-preview-empty-state">
             <MonitorPlay size={56} aria-hidden="true" />
@@ -158,6 +198,7 @@ export function WebPreviewPanel({ embedded = false, onClose, workspace }: WebPre
           </div>
         )}
       </div>
+      {captureNotice ? <div className="web-preview-capture-notice" role="status">{captureNotice}</div> : null}
     </>
   )
 

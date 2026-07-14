@@ -20,8 +20,8 @@ describe('TasksPane', () => {
   test('renders empty state after loading tasks', async () => {
     render(<TasksPane workspaceId="workspace-1" />)
 
-    expect(await screen.findByText('Nenhuma tarefa ainda')).toBeInTheDocument()
-    expect(screen.getByText('Criar primeira task')).toBeInTheDocument()
+    expect(await screen.findByText('No issues yet')).toBeInTheDocument()
+    expect(screen.getByText('Create first issue')).toBeInTheDocument()
   })
 
   test('shows an alert when running without an active terminal', async () => {
@@ -30,8 +30,9 @@ describe('TasksPane', () => {
 
     render(<TasksPane workspaceId="workspace-1" />)
     await screen.findByText('Card')
-    await userEvent.click(screen.getByTitle('Run'))
+    await userEvent.click(screen.getByRole('button', { name: 'Run' }))
 
+    expect(window.oxe.tasks.run).toHaveBeenCalled()
     expect(await screen.findByRole('alert')).toHaveTextContent('Nenhum terminal ativo')
   })
 })
@@ -43,13 +44,15 @@ function createTask(): Task {
     title: 'Card',
     description: '',
     context: '',
+    acceptanceCriteria: '',
     verifyCommand: 'echo ok',
     allowedFiles: [],
     column: 'ready',
     runStatus: 'idle',
     position: 0,
     createdAt: 1,
-    updatedAt: 1
+    updatedAt: 1,
+    dependsOn: []
   }
 }
 
@@ -94,5 +97,5 @@ function createOxeApiMock(): typeof window.oxe {
       executions: vi.fn().mockResolvedValue([]),
       onVerifyOutput: vi.fn(() => vi.fn())
     }
-  }
+  } as unknown as typeof window.oxe
 }

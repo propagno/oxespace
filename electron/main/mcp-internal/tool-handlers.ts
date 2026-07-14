@@ -13,6 +13,7 @@ import type {
 } from '../../../shared/types/mcp-internal'
 import { isSafeExternalUrl } from '../utils/external-url'
 import { discoverScripts } from '../services/scripts-discovery.service'
+import { QualityControllerService } from '../services/quality-controller.service'
 import type { ToolContext } from './tool-registry'
 import { errorResult, textResult } from './tool-registry'
 
@@ -204,17 +205,69 @@ async function semanticSearch(args: unknown, ctx: ToolContext): Promise<Internal
   }
   const input = asRecord(args)
   const query = expectString(input.query, 'query')
-  const limit = typeof input.limit === 'number' ? input.limit : 5
+  const limit = typeof input.limit === 'number' ? input.limit : undefined
+  const mode = input.mode === 'explore' || input.mode === 'exhaustive' || input.mode === 'auto' ? input.mode : undefined
+  const maxTokens = typeof input.maxTokens === 'number' ? input.maxTokens : undefined
 
   try {
-    const results = await ctx.semantic.query(id, query, limit)
-    if (results.length === 0) {
+    const report = await ctx.semantic.queryDetailed(id, query, { limit, mode, maxTokens })
+    if (report.results.length === 0) {
       return textResult('No semantic matches found.')
     }
-    const formatted = results.map((r, i) => `${i + 1}. ${r.filePath} (score: ${r.score.toFixed(3)})`).join('\n')
-    return textResult(`Top semantic matches for "${query}":\n\n${formatted}`)
+    return textResult(formatSemanticReport(report))
   } catch (err) {
     return errorResult(`Semantic search failed: ${err instanceof Error ? err.message : String(err)}`)
+  }
+}
+
+const qualityController = new QualityControllerService()
+
+function formatSemanticReport(report: Awaited<ReturnType<ToolContext['semantic']['queryDetailed']>>): string {
+  const header = [
+    `[OXESpace Retrieval] mode=${report.resolvedMode}${report.expanded ? ' (auto-expanded after low confidence)' : ''} · confidence=${report.confidence} · context≈${report.estimatedTokens} tokens · saved≈${report.estimatedSavingsPercent}% vs full matched files · ${report.durationMs}ms`,
+    `Coverage: ${report.coverage.indexedFiles} indexed files · ${report.coverage.semanticCandidates} vector candidates · ${report.coverage.lexicalCandidates} lexical candidates${report.coverage.truncated ? ' · OUTPUT CAPPED' : ''}`,
+    report.warning ? `CAUTION: ${report.warning}` : ''
+  ].filter(Boolean).join('\n')
+  const matches = report.results.map((result, index) => {
+    const location = result.lineStart > 0 ? `:${result.lineStart}-${result.lineEnd}` : ''
+    const scores = [
+      result.semanticScore !== null ? `semantic=${result.semanticScore.toFixed(3)}` : '',
+      result.lexicalScore !== null ? `lexical=${result.lexicalScore.toFixed(3)}` : ''
+    ].filter(Boolean).join(', ')
+    return [
+      `${index + 1}. ${result.filePath}${location} [${result.sources.join('+')}${scores ? `; ${scores}` : ''}]`,
+      `   Why: ${result.reasons.join('; ')}`,
+      result.snippet ? `\n${result.snippet}` : ''
+    ].filter(Boolean).join('\n')
+  }).join('\n\n---\n\n')
+  return `${header}\n\n${matches}`
+}
+
+async function qualityCheck(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
+  const ws = await requireWorkspace(ctx)
+  const input = asRecord(args)
+  const baseRef = typeof input.baseRef === 'string' && input.baseRef.trim() ? input.baseRef.trim() : undefined
+  const acceptanceCriteria = Array.isArray(input.acceptanceCriteria)
+    ? input.acceptanceCriteria.filter((item): item is string => typeof item === 'string' && item.trim() !== '').map((item) => item.trim())
+    : undefined
+  const maxFindings = typeof input.maxFindings === 'number' ? input.maxFindings : undefined
+  try {
+    const report = await qualityController.check(ws.id, ws.rootPath, ctx.fileSystem, { baseRef, acceptanceCriteria, maxFindings })
+    const findings = report.findings.length > 0
+      ? report.findings.map((finding, index) => [
+          `${index + 1}. [${finding.severity.toUpperCase()}] ${finding.code}: ${finding.message}`,
+          finding.files.length > 0 ? `   Files: ${finding.files.join(', ')}` : '',
+          `   Action: ${finding.recommendation}`
+        ].filter(Boolean).join('\n')).join('\n')
+      : 'No heuristic gaps detected.'
+    return textResult([
+      `[OXESpace Quality Controller] verdict=${report.verdict.toUpperCase()} · ${report.summary} · ${report.durationMs}ms`,
+      findings,
+      `\nAcceptance evidence: ${report.evidence.acceptanceCriteria.filter((item) => item.status === 'evidenced').length}/${report.evidence.acceptanceCriteria.length}`,
+      `Limitations: ${report.limitations.join(' ')}`
+    ].join('\n'))
+  } catch (err) {
+    return errorResult(`Quality check failed: ${err instanceof Error ? err.message : String(err)}`)
   }
 }
 
@@ -269,6 +322,8 @@ async function hybridExplore(args: unknown, ctx: ToolContext): Promise<InternalM
   const input = asRecord(args) as any
   const query = expectString(input.query, 'query')
   const maxFiles = typeof input.maxFiles === 'number' ? input.maxFiles : 12
+  const mode = input.mode === 'explore' || input.mode === 'exhaustive' || input.mode === 'auto' ? input.mode : undefined
+  const maxTokens = typeof input.maxTokens === 'number' ? input.maxTokens : 4_000
 
   let text = ''
 
@@ -279,9 +334,9 @@ async function hybridExplore(args: unknown, ctx: ToolContext): Promise<InternalM
   //    Keeping the two retrievals independent and unioning them is what raises
   //    recall while staying token-cheap.
   try {
-    const semanticResults = await ctx.semantic.query(ws.id, query, 3)
-    if (semanticResults.length > 0) {
-      text += `[Hybrid RAG: Semantic Hints]\nTop conceptually related files:\n${semanticResults.map(r => `- ${r.filePath} (score: ${r.score.toFixed(3)})`).join('\n')}\n\n`
+    const semanticReport = await ctx.semantic.queryDetailed(ws.id, query, { limit: Math.min(maxFiles, 20), mode, maxTokens })
+    if (semanticReport.results.length > 0) {
+      text += `${formatSemanticReport(semanticReport)}\n\n`
     }
   } catch (err) {
     console.warn('[Hybrid RAG] Semantic search failed:', err)
@@ -325,5 +380,6 @@ export const handlers = {
   openWebPreview,
   captureWebPreview,
   semanticSearch,
+  qualityCheck,
   hybridExplore
 }

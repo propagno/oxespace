@@ -347,6 +347,30 @@ export function App(): ReactElement {
     else openWebPreview()
   }
 
+  const openIssues = async (): Promise<void> => {
+    if (!activeWorkspace || !activePane) {
+      setAppNotice('Open a workspace and select a pane first.')
+      return
+    }
+    const existing = activeWorkspace.panes.find((pane) => pane.type === 'tasks')
+    if (existing) {
+      setActivePane(existing.id)
+      return
+    }
+
+    try {
+      const previousPaneIds = new Set(activeWorkspace.panes.map((pane) => pane.id))
+      await splitPane(activePane.id, 'vertical')
+      const updated = useWorkspaceStore.getState().workspaces.find((workspace) => workspace.id === activeWorkspace.id)
+      const taskPane = updated?.panes.find((pane) => !previousPaneIds.has(pane.id))
+      if (!taskPane) throw new Error('Could not create a task pane.')
+      await updatePaneType(taskPane.id, 'tasks')
+      setActivePane(taskPane.id)
+    } catch (error) {
+      setAppNotice(error instanceof Error ? error.message : 'Could not open Issues.')
+    }
+  }
+
   const splitActivePane = (direction: 'vertical' | 'horizontal'): void => {
     if (!activePane) return
     void splitPane(activePane.id, direction)
@@ -808,6 +832,7 @@ export function App(): ReactElement {
           }}
           onClose={closeTools}
           onOpenCommandPalette={openCommandPalette}
+          onOpenIssues={() => void openIssues()}
           onOpenWorkspaceSettings={openWorkspaceSettings}
           onOpenAgentSettings={toggleSettings}
           onToggleEditor={toggleEditor}

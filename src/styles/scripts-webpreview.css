@@ -351,6 +351,11 @@
   color: #dce7ff;
 }
 
+.web-preview-nav-button[aria-pressed="true"] {
+  background: rgba(0, 174, 239, 0.15);
+  color: #a9e5ff;
+}
+
 .web-preview-nav-button:disabled,
 .web-preview-zoom-controls button:disabled {
   color: rgba(141, 152, 173, 0.36);
@@ -545,12 +550,21 @@
 .web-preview-frame-wrap iframe {
   flex: 1;
   width: 100%;
+  height: auto;
   min-height: 0;
   border: 0;
   color-scheme: dark;
   background:
     linear-gradient(135deg, rgba(0, 229, 195, 0.035), transparent 42%),
     #070b10;
+}
+
+.web-preview-capture-notice {
+  padding: 7px 12px;
+  border-top: 1px solid rgba(0, 229, 195, 0.18);
+  background: rgba(0, 229, 195, 0.08);
+  color: #9fffea;
+  font-size: 11px;
 }
 
 .web-preview-panel-embedded .web-preview-device {

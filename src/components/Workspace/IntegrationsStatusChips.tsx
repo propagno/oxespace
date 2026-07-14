@@ -21,6 +21,7 @@ export function IntegrationsStatusChips({ workspace }: IntegrationsStatusChipsPr
   const rtk = useUpdaterStore((s) => s.rtk)
   const cavemanActive = terminalPrefs.cavemanModeEnabled
   const semanticEnabled = terminalPrefs.semanticSearchEnabled
+  const semanticMode = terminalPrefs.semanticSearchMode
 
   const serversSelector = useCallback(selectMcpServers(workspace.id), [workspace.id])
   const servers = useMcpStore(serversSelector) || []
@@ -86,6 +87,10 @@ export function IntegrationsStatusChips({ workspace }: IntegrationsStatusChipsPr
       .catch(() => undefined)
   }, [workspace.id, semanticEnabled])
 
+  useEffect(() => {
+    void window.oxe?.semantic?.setMode({ workspaceId: workspace.id, mode: semanticMode }).catch(() => undefined)
+  }, [workspace.id, semanticMode])
+
   const totalRunningMcp = runningMcpServers + (builtInMcpRunning ? 1 : 0)
 
   // Derive the Semantic chip's visual state + tooltip from enabled + worker health.
@@ -106,7 +111,7 @@ export function IntegrationsStatusChips({ workspace }: IntegrationsStatusChipsPr
       const n = semanticStatus?.count ?? 0
       semanticTitle = n === 0
         ? `Semantic: ready · empty index · ${modelHint}`
-        : `Semantic: ready · ${n} files · ${modelHint}`
+        : `Semantic: ready · ${n} files · ${semanticStatus?.mode ?? semanticMode} mode · ${semanticStatus?.coverage?.byCategory.test ?? 0} tests · ${semanticStatus?.coverage?.byCategory.config ?? 0} config · ${modelHint}`
     }
   }
 

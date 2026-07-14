@@ -32,7 +32,7 @@ A robust, GPU-accelerated (WebGL) terminal grid powered by `xterm.js`. Keep Clau
 - **Honest update UX**: packaged installs auto-update from GitHub Releases; dev builds clearly mark app updates as unavailable while **RTK install/update still works**.
 
 ### 🧠 Local Semantic Brain (CodeGraph)
-Forget blind code searches. OXESpace features an on-device, multilingual vector index using `transformers.js` (`multilingual-e5-small`) and `web-tree-sitter`. It processes structural and semantic queries locally—working offline and on locked-down networks—exposing highly relevant, chunked file context to agents via the `oxespace_semantic_search` MCP tool. 
+Forget blind code searches. OXESpace features an on-device, multilingual retrieval engine using `transformers.js` (`multilingual-e5-small`), SQLite FTS5, and `web-tree-sitter`. It fuses semantic meaning, exact repository terms, and structural relationships locally—working offline and on locked-down networks. Adaptive Explore/Exhaustive modes return line-addressed source windows under a hard token budget, together with confidence, index coverage, and truncation warnings via `oxespace_semantic_search` and `oxespace_hybrid_explore`. See [Semantic Retrieval](docs/SEMANTIC_RETRIEVAL.md).
 
 ### ⚡ Agent Integrations & MCP
 Model Context Protocol is deeply integrated. OXESpace auto-discovers, manages, and seamlessly exposes your workspace tools to CLIs like **Claude Code**, **Copilot CLI**, **Codex**, **Cursor**, **Grok CLI**, and more—keeping ports fresh and eliminating manual setup friction.

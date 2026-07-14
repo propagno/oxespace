@@ -45,6 +45,12 @@ describe('tool registry', () => {
     expect(entry).toBeDefined()
     expect(entry?.requiresWorkspace).toBe(true)
   })
+
+  test('registers the post-diff quality controller as a workspace tool', () => {
+    const entry = TOOL_REGISTRY.find((e) => e.descriptor.name === 'oxespace_quality_check')
+    expect(entry?.requiresWorkspace).toBe(true)
+    expect(entry?.descriptor.description).toContain('Post-diff')
+  })
 })
 
 describe('get_job_output handler', () => {

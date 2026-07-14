@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactElement } from 'react'
-import { Plus } from 'lucide-react'
+import { LayoutList, Plus } from 'lucide-react'
 import type { Task } from '../../../shared/types/task'
 import { useTasksStore } from '../../store/tasks.store'
 import { KanbanBoard } from './KanbanBoard'
@@ -27,39 +27,53 @@ export function TasksPane({ workspaceId }: TasksPaneProps): ReactElement {
 
   const empty = useMemo(() => !loading && tasks.length === 0, [loading, tasks.length])
 
+  const openCreate = (): void => {
+    setEditingTask(null)
+    setModalOpen(true)
+  }
+
+  const openEdit = (task: Task): void => {
+    setEditingTask(task)
+    setModalOpen(true)
+  }
+
   return (
     <div className="tasks-pane" data-testid="tasks-pane">
-      <header className="tasks-pane-header">
-        <span>Tasks</span>
-        <button
-          className="task-icon-btn"
-          type="button"
-          aria-label="Create task"
-          onClick={() => {
-            setEditingTask(null)
-            setModalOpen(true)
-          }}
-        >
-          <Plus size={14} />
-        </button>
-      </header>
-
       {error ? (
         <div className="tasks-error" role="alert">
           <span>{error}</span>
-          <button type="button" onClick={() => { clearError(); void loadTasks(workspaceId) }}>Retry</button>
+          <button type="button" onClick={() => { clearError(); void loadTasks(workspaceId) }}>
+            Retry
+          </button>
         </div>
       ) : null}
 
-      {loading ? <div className="tasks-skeleton">Loading tasks...</div> : null}
+      {loading ? (
+        <div className="tasks-skeleton" role="status">
+          <span className="tasks-skeleton-pulse" aria-hidden="true" />
+          Loading issues…
+        </div>
+      ) : null}
 
       {empty ? (
         <div className="tasks-empty">
-          <span>Nenhuma tarefa ainda</span>
-          <button type="button" onClick={() => setModalOpen(true)}>Criar primeira task</button>
+          <div className="tasks-empty-icon" aria-hidden="true">
+            <LayoutList size={22} />
+          </div>
+          <strong>No issues yet</strong>
+          <p>Track work as cards — run, verify, and move them across the board.</p>
+          <button type="button" className="tasks-empty-cta" onClick={openCreate}>
+            <Plus size={14} aria-hidden="true" />
+            Create first issue
+          </button>
         </div>
       ) : (
-        <KanbanBoard workspaceId={workspaceId} tasks={tasks} onEdit={(task) => { setEditingTask(task); setModalOpen(true) }} />
+        <KanbanBoard
+          workspaceId={workspaceId}
+          tasks={tasks}
+          onEdit={openEdit}
+          onCreate={openCreate}
+        />
       )}
 
       {modalOpen ? (

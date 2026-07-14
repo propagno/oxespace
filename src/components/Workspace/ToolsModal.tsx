@@ -18,6 +18,7 @@ interface ToolsModalProps {
   active: ToolsActiveState
   onClose: () => void
   onOpenCommandPalette: () => void
+  onOpenIssues: () => void
   onOpenWorkspaceSettings: () => void
   /** Opens Agent Settings (CLI providers, discovery, updates). Featured at the top of the hub. */
   onOpenAgentSettings: () => void
@@ -60,6 +61,7 @@ export function ToolsModal({
   active,
   onClose,
   onOpenCommandPalette,
+  onOpenIssues,
   onOpenWorkspaceSettings,
   onOpenAgentSettings,
   onToggleEditor,
@@ -109,9 +111,8 @@ export function ToolsModal({
       tone: 'project',
       icon: <ListChecks size={16} aria-hidden="true" />,
       label: 'Issues',
-      detail: 'Track work in-workspace',
-      disabled: true,
-      badge: 'Soon'
+      detail: 'Create and track work in-workspace',
+      onClick: () => run(onOpenIssues)
     },
     {
       id: 'integration',

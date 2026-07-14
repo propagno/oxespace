@@ -131,7 +131,7 @@ export interface ScriptListItem {
   id: string
   name: string
   relativePath: string
-  extension: 'ps1' | 'sh'
+  extension: 'ps1' | 'sh' | 'npm'
   command: string
 }
 

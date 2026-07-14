@@ -3,12 +3,12 @@ import type { FileTreeNode } from '../../../shared/types/ipc'
 
 /**
  * Main-process twin of the renderer's `discoverScripts` (in ScriptsPanel.tsx).
- * Walks the workspace tree looking for `.ps1` and `.sh` files, builds the run
- * command for each. Used by the internal MCP `oxespace_list_scripts` tool so
- * the agent sees the same set the user sees in the Scripts panel.
+ * Walks the workspace tree looking for `.ps1`/`.sh` files and reads root
+ * `package.json` scripts. Used by the internal MCP `oxespace_list_scripts`
+ * tool so the agent sees the same set the user sees in the Scripts panel.
  */
 
-export type ScriptExtension = 'ps1' | 'sh'
+export type ScriptExtension = 'ps1' | 'sh' | 'npm'
 
 export interface ScriptEntry {
   id: string
@@ -48,7 +48,33 @@ export async function discoverScripts(
   }
 
   await walk()
+  entries.push(...await discoverPackageScripts(fileSystem, workspaceId, rootPath))
   return entries.sort((a, b) => a.relativePath.localeCompare(b.relativePath))
+}
+
+async function discoverPackageScripts(
+  fileSystem: FileSystemService,
+  workspaceId: string,
+  rootPath: string
+): Promise<ScriptEntry[]> {
+  try {
+    const packageFile = await fileSystem.readFile({ workspaceId, rootPath, relativePath: 'package.json' })
+    const parsed = JSON.parse(packageFile.content) as { scripts?: unknown }
+    if (!parsed.scripts || typeof parsed.scripts !== 'object' || Array.isArray(parsed.scripts)) return []
+
+    return Object.entries(parsed.scripts)
+      .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].trim().length > 0)
+      .map(([name]) => ({
+        id: `package:${name}`,
+        name,
+        relativePath: `package.json › scripts.${name}`,
+        extension: 'npm' as const,
+        command: `npm run "${escapeDoubleQuotes(name)}"`
+      }))
+  } catch {
+    // package.json is optional; malformed files remain the editor's concern.
+    return []
+  }
 }
 
 function toScriptEntry(item: FileTreeNode, rootPath: string): ScriptEntry | null {

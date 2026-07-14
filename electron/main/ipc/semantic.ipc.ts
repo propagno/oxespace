@@ -28,6 +28,18 @@ export function registerSemanticIpc(semantic: SemanticService): void {
     return semantic.getStatus(workspaceId)
   })
 
+  ipcMain.handle(IPC_CHANNELS.semantic.setMode, (_event, input: unknown) => {
+    const { workspaceId, mode } = (input ?? {}) as { workspaceId?: unknown; mode?: unknown }
+    if (typeof workspaceId !== 'string' || workspaceId.length === 0) {
+      throw new Error('semantic:set-mode requires a workspaceId string')
+    }
+    if (mode !== 'auto' && mode !== 'explore' && mode !== 'exhaustive') {
+      throw new Error('semantic:set-mode requires auto, explore, or exhaustive')
+    }
+    semantic.setMode(workspaceId, mode)
+    return semantic.getStatus(workspaceId)
+  })
+
   ipcMain.handle(IPC_CHANNELS.semantic.reindex, (_event, workspaceId: unknown) => {
     if (typeof workspaceId !== 'string' || !workspaceId.trim()) {
       throw new Error('semantic:reindex requires a workspaceId string')

@@ -264,6 +264,7 @@ export function parseTaskCreateInput(value: unknown): CreateTaskInput {
     title: expectNonEmptyString(input.title, 'title'),
     description: input.description === undefined ? undefined : expectString(input.description, 'description'),
     context: input.context === undefined ? undefined : expectString(input.context, 'context'),
+    acceptanceCriteria: input.acceptanceCriteria === undefined ? undefined : expectString(input.acceptanceCriteria, 'acceptanceCriteria'),
     verifyCommand: input.verifyCommand === undefined ? undefined : expectString(input.verifyCommand, 'verifyCommand'),
     allowedFiles: input.allowedFiles === undefined ? undefined : expectStringArray(input.allowedFiles, 'allowedFiles'),
     column: input.column === undefined ? undefined : expectTaskColumn(input.column)
@@ -276,6 +277,7 @@ export function parseTaskUpdateInput(value: unknown): UpdateTaskInput {
     title: input.title === undefined ? undefined : expectNonEmptyString(input.title, 'title'),
     description: input.description === undefined ? undefined : expectString(input.description, 'description'),
     context: input.context === undefined ? undefined : expectString(input.context, 'context'),
+    acceptanceCriteria: input.acceptanceCriteria === undefined ? undefined : expectString(input.acceptanceCriteria, 'acceptanceCriteria'),
     verifyCommand: input.verifyCommand === undefined ? undefined : expectString(input.verifyCommand, 'verifyCommand'),
     allowedFiles: input.allowedFiles === undefined ? undefined : expectStringArray(input.allowedFiles, 'allowedFiles'),
     column: input.column === undefined ? undefined : expectTaskColumn(input.column),
@@ -296,7 +298,8 @@ export function parseTaskRunInput(value: unknown): RunTaskInput {
   const input = expectRecord(value, 'tasks:run input')
   return {
     taskId: expectNonEmptyString(input.taskId, 'taskId'),
-    agentProfileId: input.agentProfileId === undefined ? undefined : expectNonEmptyString(input.agentProfileId, 'agentProfileId')
+    agentProfileId: input.agentProfileId === undefined ? undefined : expectNonEmptyString(input.agentProfileId, 'agentProfileId'),
+    paneId: input.paneId === undefined ? undefined : expectNonEmptyString(input.paneId, 'paneId')
   }
 }
 

@@ -5,12 +5,21 @@ import { buildOrderedTaskIds, KanbanBoard } from '../../src/components/Tasks/Kan
 
 describe('KanbanBoard', () => {
   test('renders five columns and task status', () => {
-    render(<KanbanBoard workspaceId="workspace-1" tasks={[createTask()]} onEdit={vi.fn()} />)
+    render(
+      <KanbanBoard
+        workspaceId="workspace-1"
+        tasks={[createTask()]}
+        onEdit={vi.fn()}
+        onCreate={vi.fn()}
+      />
+    )
 
     expect(screen.getAllByTestId('kanban-column')).toHaveLength(5)
     expect(screen.getByText('Backlog')).toBeInTheDocument()
     expect(screen.getByText('Card')).toBeInTheDocument()
     expect(screen.getByLabelText('idle')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Run pipeline/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Create issue/i })).toBeInTheDocument()
   })
 
   test('builds positional order when dropping before a target card', () => {
@@ -32,12 +41,14 @@ function createTask(id = 'task-1', title = 'Card', position = 0): Task {
     title,
     description: 'Description',
     context: '',
+    acceptanceCriteria: '',
     verifyCommand: 'echo ok',
     allowedFiles: [],
     column: 'backlog',
     runStatus: 'idle',
     position,
     createdAt: 1,
-    updatedAt: 1
+    updatedAt: 1,
+    dependsOn: []
   }
 }

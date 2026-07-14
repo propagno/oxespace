@@ -9,6 +9,8 @@ import type {
   UpdateTaskInput,
   VerifyTaskInput
 } from '../../shared/types/task'
+import { useTerminalStore } from './terminal.store'
+import { useWorkspaceStore } from './workspace.store'
 
 interface TasksState {
   tasksByWorkspace: Record<string, Task[]>
@@ -154,13 +156,23 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       const readyIds = await window.oxe.tasks.getReady(workspaceId)
       const dispatched: string[] = []
       const pending: string[] = []
-      for (const taskId of readyIds) {
+      const workspace = useWorkspaceStore.getState().workspaces.find((item) => item.id === workspaceId)
+      const terminalState = useTerminalStore.getState().panes
+      const availablePanes = (workspace?.panes ?? [])
+        .filter((pane) => pane.type === 'terminal' && terminalState[pane.id]?.status === 'running')
+
+      for (const [index, taskId] of readyIds.entries()) {
+        const pane = availablePanes[index]
+        if (!pane) {
+          pending.push(taskId)
+          continue
+        }
         try {
-          await window.oxe.tasks.run({ taskId })
+          await window.oxe.tasks.run({ taskId, paneId: pane.id })
           dispatched.push(taskId)
         } catch (err) {
-          // Most common case: no running pane available; record and continue
-          if (err instanceof Error && /no running terminal/i.test(err.message)) {
+          // A terminal can exit between the state snapshot above and dispatch.
+          if (err instanceof Error && /(no running terminal|terminal does not belong)/i.test(err.message)) {
             pending.push(taskId)
           } else {
             throw err
