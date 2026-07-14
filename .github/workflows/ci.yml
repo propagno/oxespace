@@ -17,10 +17,11 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
+      # Prefer GitHub's native "Use workflow from" branch. Only set this when you
+      # need to build a *different* ref than the one selected in the UI.
       branch:
-        description: Branch to check out and run the unified pipeline on
-        required: true
-        default: main
+        description: Optional override — leave empty to use "Use workflow from"
+        required: false
         type: string
       publish_release:
         description: After a successful build, package and publish a GitHub Release
@@ -34,7 +35,7 @@ on:
 
 concurrency:
   # Never cancel an in-flight tag release path; PR/main builds may cancel.
-  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && format('branch-{0}', inputs.branch) || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && format('dispatch-{0}', inputs.branch || github.ref_name) || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')) }}
 
 permissions:
@@ -61,9 +62,14 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          # Manual runs: GitHub "Use workflow from" is github.ref_name.
+          # Optional inputs.branch overrides that when non-empty.
           if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
-            $ref = '${{ inputs.branch }}'.Trim()
-            if ([string]::IsNullOrWhiteSpace($ref)) { throw 'workflow_dispatch requires a non-empty branch.' }
+            $override = '${{ inputs.branch }}'.Trim()
+            $ref = if ($override) { $override } else { '${{ github.ref_name }}' }
+            if ([string]::IsNullOrWhiteSpace($ref)) {
+              throw 'workflow_dispatch could not resolve a branch (set Use workflow from, or branch input).'
+            }
           } else {
             $ref = '${{ github.ref }}'
           }

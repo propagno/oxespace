@@ -14,42 +14,84 @@ release secrets or protected Environment configuration.
 | **build** | Always | Typecheck → unit/integration tests → build → native verify → E2E. If a release is planned, also builds the NSIS installer, SBOM, checksums and uploads artifacts. |
 | **release** | Only if `build` succeeds **and** a release was planned | Ensures the `vX.Y.Z` tag points at the verified SHA → draft release + assets → re-download verify → publish → **confirm the release is live** (not draft, required assets present). |
 
-## How to trigger
+---
 
-### Automatic (tag push)
+## Recommended pattern: commit → push → Run workflow
 
-1. Update `package.json` / `package-lock.json` to `X.Y.Z` on the branch you will ship.
-2. Merge to the commit you want to release.
-3. Create and push a matching tag:
+This is the day-to-day path (matches the GitHub **Run workflow** dialog).
+
+### 1. Prepare the version on your branch
 
 ```powershell
+# On any branch (main or feat/…)
+# 1) Bump package.json + package-lock.json to X.Y.Z (must not already be a published tag)
+# 2) Commit and push
+git add package.json package-lock.json   # + your product changes
+git commit -m "release: vX.Y.Z — short summary"
+git push -u origin HEAD
+```
+
+Rules the pipeline enforces:
+
+- `package.json` version must be `X.Y.Z`
+- Release tag will be `vX.Y.Z` (or the value you pass in **tag**)
+- If `vX.Y.Z` already exists, it must point at **this** commit
+
+### 2. Actions → CI and Release → Run workflow
+
+| Field in the dialog | What to set |
+|---------------------|-------------|
+| **Use workflow from** | The **same branch you just pushed** (this is the code + workflow file GitHub will use) |
+| **branch** (optional input) | Leave **empty** unless you need to build a different ref than “Use workflow from” |
+| **publish_release** | `true` to ship; `false` for CI-only on that branch |
+| **tag** | Leave empty → uses `v{package.json version}` |
+
+Click **Run workflow**.
+
+### 3. What the pipeline does
+
+```text
+build (typecheck → test → build → e2e)
+   │
+   ├─ publish_release=false  → stop (green CI only)
+   │
+   └─ publish_release=true
+         → dist + SBOM + checksums
+         → create tag vX.Y.Z on the verified SHA (if missing)
+         → draft GitHub Release + assets
+         → re-download & verify
+         → publish (draft=false)
+         → confirm live assets
+```
+
+### 4. Confirm
+
+- Actions run is green (both jobs when publishing)
+- https://github.com/propagno/oxespace/releases/tag/vX.Y.Z is **not** draft
+- Assets: `OXESpace-X.Y.Z-x64.exe`, `.blockmap`, `latest.yml` (or channel yml), `SHA256SUMS.txt`, `sbom.spdx.json`
+
+---
+
+## Alternative: automatic on tag push
+
+```powershell
+# After version bump is on the commit you want:
 git tag vX.Y.Z
 git push origin vX.Y.Z
 ```
 
-The workflow rejects a tag that does not match `package.json` or the commit it
-points at. **Release runs only after build succeeds.**
+Same pipeline: **build → release** (no manual Run workflow). Tag must match `package.json` and the commit.
 
-### Manual (choose branch)
+---
 
-**Actions → CI and Release → Run workflow**
+## CI only (no release)
 
-| Input | Meaning |
-|-------|---------|
-| **branch** | Branch to check out and build (e.g. `main`, `feat/...`) |
-| **publish_release** | `true` → after a green build, package and publish a GitHub Release |
-| **tag** | Optional. Empty uses `v{package.json version}` |
+| Trigger | Result |
+|---------|--------|
+| Push / PR to `main` | build only |
+| Run workflow with **publish_release = false** | build only on the selected branch |
 
-If the tag does not exist yet, the **release** job creates it on the verified
-build SHA and pushes it before publishing.
-
-A thin **Release (redirect)** workflow remains only for old bookmarks: it
-forwards to the unified pipeline with `publish_release=true`.
-
-### CI only (no release)
-
-- Push or open a PR against `main` → **build** only.
-- Manual run with **publish_release = false** → **build** only on the chosen branch.
+---
 
 ## Prereleases
 
@@ -82,3 +124,10 @@ The **release** job fails the workflow unless all of the following hold after
 
 If publish is incomplete, the workflow is red — there is no silent draft-only
 success path.
+
+## Notes
+
+- The workflow file must exist on the branch selected in **Use workflow from**
+  (usually keep `ci.yml` in sync on `main` and feature branches).
+- A thin **Release (redirect)** workflow only forwards old bookmarks to this
+  pipeline with `publish_release=true`.

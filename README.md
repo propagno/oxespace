@@ -113,15 +113,22 @@ npm run dist
 CI and release share one workflow (**CI and Release**). Packaging and publish
 run only after typecheck, tests, build and E2E succeed on the same commit.
 
-**Option A — tag push (auto release after green build):**
+**Day-to-day (recommended):** bump `package.json` → commit → push branch →  
+Actions → **CI and Release** → **Run workflow**:
+
+| Field | Value |
+|-------|--------|
+| **Use workflow from** | Your branch (same one you pushed) |
+| **publish_release** | `true` |
+| **tag** | leave empty (`v{version}` from package.json) |
+| **branch** | leave empty (uses “Use workflow from”) |
+
+**Alternative — tag push:**
 
 ```powershell
 git tag vX.Y.Z   # must match package.json
 git push origin vX.Y.Z
 ```
-
-**Option B — manual, choose branch:** Actions → **CI and Release** → Run workflow  
-set **branch** (e.g. `main`), enable **publish_release**, optional **tag**.
 
 The workflow confirms the GitHub Release is live (not draft) with the required
 assets before exiting green. See [the release pipeline guide](docs/RELEASE_PIPELINE.md).
