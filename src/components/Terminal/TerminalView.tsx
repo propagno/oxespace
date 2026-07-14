@@ -375,7 +375,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
     // nothing — translate it into PageUp/PageDown (or arrows) so the TUI can
     // scroll its own viewport. When the app enables mouse tracking, leave the
     // event to xterm so it is forwarded as mouse sequences.
-    terminal.attachCustomWheelEventHandler((event: WheelEvent) => {
+    const handleTuiWheel = (event: WheelEvent): boolean => {
       const keys = wheelToTuiScrollKeys({
         bufferType: terminal.buffer.active.type,
         mouseTrackingMode: terminal.modes.mouseTrackingMode,
@@ -389,7 +389,18 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       event.preventDefault()
       onInputRef.current(keys)
       return false
-    })
+    }
+    // Proposed API in xterm 5.5+; tests/mocks may omit it — fall back to host.
+    const hostWheelFallback = (event: WheelEvent): void => {
+      handleTuiWheel(event)
+    }
+    let usesHostWheelFallback = false
+    if (typeof terminal.attachCustomWheelEventHandler === 'function') {
+      terminal.attachCustomWheelEventHandler(handleTuiWheel)
+    } else {
+      usesHostWheelFallback = true
+      hostRef.current.addEventListener('wheel', hostWheelFallback, { passive: false })
+    }
 
     terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
       const key = event.key.toLowerCase()
@@ -620,6 +631,9 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       }
       hostRef.current?.removeEventListener('paste', handlePaste, { capture: true })
       hostRef.current?.removeEventListener('copy', handleCopy, { capture: true })
+      if (usesHostWheelFallback) {
+        hostRef.current?.removeEventListener('wheel', hostWheelFallback)
+      }
       window.removeEventListener('oxe:terminal-insert-text', handleProgrammaticInsert)
       pasteRef.current = null
       refitRef.current = null

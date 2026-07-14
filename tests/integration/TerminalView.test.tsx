@@ -17,6 +17,7 @@ const terminalState = {
   scrollToBottom: vi.fn(),
   scrollToLine: vi.fn(),
   attachCustomKeyEventHandler: vi.fn(),
+  attachCustomWheelEventHandler: vi.fn(),
   getSelection: vi.fn(() => ''),
   clearSelection: vi.fn(),
   onSelectionChange: vi.fn(() => ({ dispose: vi.fn() }))
@@ -40,7 +41,7 @@ vi.mock('@xterm/xterm', () => ({
     dispose: terminalState.dispose,
     paste: terminalState.paste,
     input: terminalState.input,
-    modes: { bracketedPasteMode: true },
+    modes: { bracketedPasteMode: true, mouseTrackingMode: 'none' },
     refresh: terminalState.refresh,
     clear: terminalState.clear,
     scrollLines: terminalState.scrollLines,
@@ -48,11 +49,12 @@ vi.mock('@xterm/xterm', () => ({
     scrollToBottom: terminalState.scrollToBottom,
     scrollToLine: terminalState.scrollToLine,
     attachCustomKeyEventHandler: terminalState.attachCustomKeyEventHandler,
+    attachCustomWheelEventHandler: terminalState.attachCustomWheelEventHandler,
     getSelection: terminalState.getSelection,
     clearSelection: terminalState.clearSelection,
     onSelectionChange: terminalState.onSelectionChange,
     buffer: {
-      active: { baseY: 0, viewportY: 0, cursorY: 0, length: 0, getLine: vi.fn(() => null) }
+      active: { type: 'normal', baseY: 0, viewportY: 0, cursorY: 0, length: 0, getLine: vi.fn(() => null) }
     },
     onData: vi.fn((handler: (data: string) => void) => {
       terminalState.onData = handler
