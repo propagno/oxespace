@@ -71,21 +71,20 @@ export function WebPreviewPanel({ embedded = false, onClose, workspace }: WebPre
 
   const reload = (): void => setFrameKey((value) => value + 1)
 
-  // Watch the ui store's pendingWebPreview slot — populated by App.tsx when
+  // Watch this workspace's pending preview slot — populated by App.tsx when
   // `oxespace_open_web_preview` tool was invoked. Two layers: (a) the panel
   // may be already mounted and listening live; (b) the panel may have just
   // mounted because of the auto-open in App.tsx — in either case, this hook
-  // sees the new pending URL and loads it. Pending entry cleared on consume
-  // so re-mounts don't replay stale URLs.
-  const pendingWebPreview = useUIStore((s) => s.pendingWebPreview)
+  // sees the new pending URL and loads it. Entries are workspace-keyed so an
+  // agent opening one preview cannot overwrite another workspace's request.
+  const pendingWebPreview = useUIStore((s) => s.pendingWebPreviewByWorkspace[workspace.id] ?? null)
   const setPendingWebPreview = useUIStore((s) => s.setPendingWebPreview)
   useEffect(() => {
     if (!pendingWebPreview) return
-    if (pendingWebPreview.workspaceId !== workspace.id) return
-    const nextUrl = normalizeUrl(pendingWebPreview.url)
-    setPendingWebPreview(null)
+    const nextUrl = normalizeUrl(pendingWebPreview)
+    setPendingWebPreview(workspace.id, null)
     if (!nextUrl) return
-    setDraftUrl(pendingWebPreview.url)
+    setDraftUrl(pendingWebPreview)
     setUrl(nextUrl)
     setHistory((current) => {
       const next = current.slice(0, historyIndex + 1)

@@ -100,7 +100,7 @@ export function App(): ReactElement {
     isMcpPanelOpen,
     isSkillsBrowserOpen,
     isScriptsPanelOpen,
-    isWebPreviewOpen,
+    webPreviewOpenByWorkspace,
     isOxePanelOpen,
     isIntegrationPanelOpen,
     openCommandPalette,
@@ -221,10 +221,9 @@ export function App(): ReactElement {
     const api = window.oxe?.mcpInternal
     if (!api) return
     const unsubscribe = api.onWebPreview((event) => {
-      useUIStore.setState({
-        pendingWebPreview: { workspaceId: event.workspaceId, url: event.url },
-        isWebPreviewOpen: true
-      })
+      const ui = useUIStore.getState()
+      ui.setPendingWebPreview(event.workspaceId, event.url)
+      ui.openWebPreview(event.workspaceId)
     })
     return unsubscribe
   }, [])
@@ -283,6 +282,8 @@ export function App(): ReactElement {
     const workspace = workspaces.find((item) => item.id === workspaceId)
     for (const pane of workspace?.panes ?? []) removeTerminalPane(pane.id)
     clearEditor(workspaceId)
+    closeWebPreview(workspaceId)
+    useUIStore.getState().setPendingWebPreview(workspaceId, null)
     setVisitedWorkspaceIds((prev) => prev.filter((id) => id !== workspaceId))
     void closeWorkspace(workspaceId)
   }
@@ -343,8 +344,9 @@ export function App(): ReactElement {
   }
 
   const toggleWebPreviewPanel = (): void => {
-    if (isWebPreviewOpen) closeWebPreview()
-    else openWebPreview()
+    if (!activeWorkspaceId) return
+    if (webPreviewOpenByWorkspace[activeWorkspaceId]) closeWebPreview(activeWorkspaceId)
+    else openWebPreview(activeWorkspaceId)
   }
 
   const openIssues = async (): Promise<void> => {
@@ -663,11 +665,11 @@ export function App(): ReactElement {
                       onSplitPane={(paneId, dir) => void splitPane(paneId, dir)}
                       onActivatePane={setActivePane}
                       scriptsVisible={isActive && isScriptsPanelOpen}
-                      webPreviewVisible={isActive && isWebPreviewOpen}
+                      webPreviewVisible={webPreviewOpenByWorkspace[ws.id] === true}
                       integrationVisible={isActive && isIntegrationPanelOpen}
                       oxeVisible={isActive && isOxePanelOpen}
                       onCloseScripts={closeScriptsPanel}
-                      onCloseWebPreview={closeWebPreview}
+                      onCloseWebPreview={() => closeWebPreview(ws.id)}
                       onCloseIntegration={closeIntegrationPanel}
                       onCloseOxe={closeOxePanel}
                       onSelectWorkspace={(id) => void setActiveWorkspace(id)}
@@ -826,7 +828,7 @@ export function App(): ReactElement {
             background: activeWorkspace?.backgroundPanelVisible === true,
             worktree: activeWorkspace?.worktreePanelVisible === true,
             scripts: isScriptsPanelOpen,
-            webPreview: isWebPreviewOpen,
+            webPreview: activeWorkspaceId ? webPreviewOpenByWorkspace[activeWorkspaceId] === true : false,
             integration: isIntegrationPanelOpen,
             oxe: isOxePanelOpen
           }}

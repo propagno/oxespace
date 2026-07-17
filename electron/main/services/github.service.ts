@@ -296,6 +296,19 @@ export class GitHubService {
     if (!input.force && await this.hasWorkingTreeChanges(input.rootPath)) {
       throw new Error('Working tree possui mudanças. Confirme checkout forçado ou faça commit/stash antes.')
     }
+
+    if (input.name.startsWith('origin/')) {
+      const localName = input.name.slice('origin/'.length)
+      const localRef = await this.tryGit(['rev-parse', '--verify', `refs/heads/${localName}`], input.rootPath)
+      if (localRef.trim()) {
+        await this.runGit(['switch', localName], input.rootPath)
+        return ok(`Branch ${localName} selecionada.`)
+      }
+
+      await this.runGit(['switch', '--track', '-c', localName, input.name], input.rootPath)
+      return ok(`Branch ${localName} criada rastreando ${input.name}.`)
+    }
+
     await this.runGit(['switch', input.name], input.rootPath)
     return ok(`Branch ${input.name} selecionada.`)
   }

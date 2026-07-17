@@ -157,8 +157,17 @@ function registerIpcHandlers(): () => void {
   // being granted clipboard-read.
   ipcMain.handle(IPC_CHANNELS.clipboard.readText, () => clipboard.readText())
   ipcMain.handle(IPC_CHANNELS.clipboard.writeText, (_e, text: string) => {
-    clipboard.writeText(typeof text === 'string' ? text : '')
-    return true
+    const value = typeof text === 'string' ? text : ''
+    try {
+      clipboard.writeText(value)
+      // Electron's write is synchronous, but verify it instead of claiming
+      // success unconditionally. Normalize CRLF because the Windows clipboard
+      // may canonicalize line endings while preserving the copied text.
+      const normalize = (input: string): string => input.replace(/\r\n/g, '\n')
+      return normalize(clipboard.readText()) === normalize(value)
+    } catch {
+      return false
+    }
   })
   ipcMain.handle(IPC_CHANNELS.clipboard.saveImageToTemp, async () => {
     const image = clipboard.readImage()

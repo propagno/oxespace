@@ -15,12 +15,12 @@ interface UIState {
   isSkillsBrowserOpen: boolean
   isScriptsPanelOpen: boolean
   isOxePanelOpen: boolean
-  isWebPreviewOpen: boolean
-  /** Workspace + URL pushed by `oxespace_open_web_preview`. The WebPreview
-   *  panel watches this and loads the URL when it mounts (covers the case
-   *  where the panel was closed when the agent called the tool). Cleared
-   *  by the panel after consuming. */
-  pendingWebPreview: { workspaceId: string; url: string } | null
+  /** Web Preview is workspace-owned. Keeping this keyed prevents opening or
+   *  closing the panel in one workspace from affecting every other surface. */
+  webPreviewOpenByWorkspace: Record<string, boolean>
+  /** URLs pushed by `oxespace_open_web_preview`, retained until the matching
+   *  workspace panel mounts and consumes its own entry. */
+  pendingWebPreviewByWorkspace: Record<string, string>
   isIntegrationPanelOpen: boolean
   activePaneId: string | null
   openNewWorkspace: () => void
@@ -43,9 +43,9 @@ interface UIState {
   closeScriptsPanel: () => void
   openOxePanel: () => void
   closeOxePanel: () => void
-  openWebPreview: () => void
-  closeWebPreview: () => void
-  setPendingWebPreview: (value: { workspaceId: string; url: string } | null) => void
+  openWebPreview: (workspaceId: string) => void
+  closeWebPreview: (workspaceId: string) => void
+  setPendingWebPreview: (workspaceId: string, url: string | null) => void
   openIntegrationPanel: () => void
   closeIntegrationPanel: () => void
   openTools: () => void
@@ -68,8 +68,8 @@ export const useUIStore = create<UIState>((set) => ({
   isSkillsBrowserOpen: false,
   isScriptsPanelOpen: false,
   isOxePanelOpen: false,
-  isWebPreviewOpen: false,
-  pendingWebPreview: null,
+  webPreviewOpenByWorkspace: {},
+  pendingWebPreviewByWorkspace: {},
   isIntegrationPanelOpen: false,
   activePaneId: null,
   openNewWorkspace: () => set({ isNewWorkspaceOpen: true }),
@@ -92,9 +92,20 @@ export const useUIStore = create<UIState>((set) => ({
   closeScriptsPanel: () => set({ isScriptsPanelOpen: false }),
   openOxePanel: () => set({ isOxePanelOpen: true }),
   closeOxePanel: () => set({ isOxePanelOpen: false }),
-  openWebPreview: () => set({ isWebPreviewOpen: true }),
-  closeWebPreview: () => set({ isWebPreviewOpen: false }),
-  setPendingWebPreview: (value) => set({ pendingWebPreview: value }),
+  openWebPreview: (workspaceId) => set((state) => ({
+    webPreviewOpenByWorkspace: { ...state.webPreviewOpenByWorkspace, [workspaceId]: true }
+  })),
+  closeWebPreview: (workspaceId) => set((state) => {
+    const next = { ...state.webPreviewOpenByWorkspace }
+    delete next[workspaceId]
+    return { webPreviewOpenByWorkspace: next }
+  }),
+  setPendingWebPreview: (workspaceId, url) => set((state) => {
+    const next = { ...state.pendingWebPreviewByWorkspace }
+    if (url === null) delete next[workspaceId]
+    else next[workspaceId] = url
+    return { pendingWebPreviewByWorkspace: next }
+  }),
   openIntegrationPanel: () => set({ isIntegrationPanelOpen: true }),
   closeIntegrationPanel: () => set({ isIntegrationPanelOpen: false }),
   openTools: () => set({ isToolsOpen: true }),

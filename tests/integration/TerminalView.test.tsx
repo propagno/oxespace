@@ -18,6 +18,7 @@ const terminalState = {
   scrollToLine: vi.fn(),
   attachCustomKeyEventHandler: vi.fn(),
   attachCustomWheelEventHandler: vi.fn(),
+  registerOscHandler: vi.fn(),
   getSelection: vi.fn(() => ''),
   clearSelection: vi.fn(),
   onSelectionChange: vi.fn(() => ({ dispose: vi.fn() }))
@@ -50,6 +51,7 @@ vi.mock('@xterm/xterm', () => ({
     scrollToLine: terminalState.scrollToLine,
     attachCustomKeyEventHandler: terminalState.attachCustomKeyEventHandler,
     attachCustomWheelEventHandler: terminalState.attachCustomWheelEventHandler,
+    parser: { registerOscHandler: terminalState.registerOscHandler },
     getSelection: terminalState.getSelection,
     clearSelection: terminalState.clearSelection,
     onSelectionChange: terminalState.onSelectionChange,
@@ -107,6 +109,8 @@ describe('TerminalView', () => {
     terminalState.scrollToBottom.mockClear()
     terminalState.scrollToLine.mockClear()
     terminalState.attachCustomKeyEventHandler.mockClear()
+    terminalState.registerOscHandler.mockReset()
+    terminalState.registerOscHandler.mockReturnValue({ dispose: vi.fn() })
     terminalState.getSelection.mockReset()
     terminalState.getSelection.mockReturnValue('')
     terminalState.clearSelection.mockClear()
@@ -472,6 +476,30 @@ describe('TerminalView', () => {
     await vi.waitFor(() => {
       expect(window.oxe.clipboard.writeText).toHaveBeenCalledWith('log line')
     })
+  })
+
+  test('OSC 52 copies TUI-owned selections to the Electron clipboard', async () => {
+    render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
+
+    expect(terminalState.registerOscHandler).toHaveBeenCalledWith(52, expect.any(Function))
+    const handler = terminalState.registerOscHandler.mock.calls[0][1] as (data: string) => Promise<boolean>
+    const text = 'portal já está servindo'
+    const bytes = new TextEncoder().encode(text)
+    const encoded = btoa(String.fromCharCode(...bytes))
+
+    await expect(handler(`c;${encoded}`)).resolves.toBe(true)
+    expect(window.oxe.clipboard.writeText).toHaveBeenCalledWith(text)
+  })
+
+  test('OSC 52 never exposes clipboard contents or accepts malformed data', async () => {
+    render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
+
+    const handler = terminalState.registerOscHandler.mock.calls[0][1] as (data: string) => Promise<boolean>
+    await expect(handler('c;?')).resolves.toBe(true)
+    await expect(handler('c;not valid base64!')).resolves.toBe(true)
+
+    expect(window.oxe.clipboard.readText).not.toHaveBeenCalled()
+    expect(window.oxe.clipboard.writeText).not.toHaveBeenCalled()
   })
 
   test('Ctrl+F opens the search overlay; typing runs incremental search; Escape closes it', () => {

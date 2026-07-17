@@ -56,6 +56,33 @@ const AGENT_PREVIEW_SCAN_LINES = 300
 // SIGINT. Reset whenever the user actually types into the PTY.
 const RECENT_SELECTION_MS = 2000
 
+// OSC 52 lets a terminal application request a clipboard write. Full-screen
+// TUIs use it when they own mouse selection, so the browser's native `copy`
+// event never fires. Keep this write-only (queries could exfiltrate clipboard
+// contents) and bounded so an untrusted process cannot allocate an arbitrary
+// base64 payload in the renderer.
+const OSC52_MAX_DECODED_BYTES = 4 * 1024 * 1024
+
+function decodeOsc52ClipboardWrite(data: string): string | null {
+  const separator = data.indexOf(';')
+  if (separator < 0) return null
+
+  const selection = data.slice(0, separator)
+  const encoded = data.slice(separator + 1)
+  if (!selection.includes('c') || !encoded || encoded === '?') return null
+  if (encoded.length > Math.ceil(OSC52_MAX_DECODED_BYTES * 4 / 3) + 4) return null
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(encoded) || encoded.length % 4 === 1) return null
+
+  try {
+    const binary = atob(encoded)
+    if (binary.length > OSC52_MAX_DECODED_BYTES) return null
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  } catch {
+    return null
+  }
+}
+
 // Search-match highlight colors passed to @xterm/addon-search. The decorations
 // are what make Ctrl+F usable: every match gets a subtle wash, the active one a
 // stronger accent + overview-ruler mark.
@@ -286,6 +313,24 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
     })
     terminalRef.current = terminal
 
+    const copyText = async (text: string): Promise<void> => {
+      if (!text) return
+      // Write via main (Electron clipboard, no renderer permission) first; fall
+      // back to the web API. Keeps copy working even if clipboard-write is denied.
+      const ok = await window.oxe.clipboard.writeText(text).catch(() => false)
+      if (!ok) await navigator.clipboard.writeText(text).catch(() => undefined)
+    }
+
+    // TUIs such as Claude/GSD own selection while mouse tracking is enabled and
+    // copy through OSC 52 instead of a DOM copy event. xterm deliberately leaves
+    // OSC 52 to the host, so bridge write requests to Electron's clipboard.
+    // Clipboard read queries (`c;?`) are consumed but never answered.
+    const osc52Disposable = terminal.parser.registerOscHandler(52, async (data) => {
+      const text = decodeOsc52ClipboardWrite(data)
+      if (text) await copyText(text)
+      return true
+    })
+
     const pasteText = (text: string): void => {
       const CHUNK = 4096
       if (text.length <= CHUNK) {
@@ -319,14 +364,6 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       send()
     }
     pasteRef.current = pasteText
-
-    const copyText = async (text: string): Promise<void> => {
-      if (!text) return
-      // Write via main (Electron clipboard, no renderer permission) first; fall
-      // back to the web API. Keeps copy working even if clipboard-write is denied.
-      const ok = await window.oxe.clipboard.writeText(text).catch(() => false)
-      if (!ok) await navigator.clipboard.writeText(text).catch(() => undefined)
-    }
 
     const pasteClipboardContents = async (): Promise<void> => {
       // Always check for image first: agent CLIs (Claude Code, Copilot) prefer file-path
@@ -615,6 +652,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       resizeObserver.disconnect()
       dataDisposable.dispose()
       selectionDisposable.dispose()
+      osc52Disposable.dispose()
       searchResultsDisposable.dispose()
       searchAddonRef.current = null
       window.removeEventListener('oxe:terminal-clear', handleClearRequest)

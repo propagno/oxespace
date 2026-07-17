@@ -189,6 +189,42 @@ describe('GitHubService', () => {
     )
   })
 
+  test('checkoutBranch creates a local tracking branch for a remote-only branch', async () => {
+    const spawn = vi.fn(async (_cmd: string, args: string[]) => {
+      if (args[0] === 'status') return { stdout: '', stderr: '', status: 0, error: undefined }
+      if (args[0] === 'rev-parse') return { stdout: '', stderr: 'unknown revision', status: 128, error: undefined }
+      return { stdout: '', stderr: '', status: 0, error: undefined }
+    })
+    const service = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: spawn })
+
+    const result = await service.checkoutBranch({ rootPath: 'C:/projects/repo', name: 'origin/develop' })
+
+    expect(result.message).toBe('Branch develop criada rastreando origin/develop.')
+    expect(spawn).toHaveBeenCalledWith(
+      'git',
+      ['switch', '--track', '-c', 'develop', 'origin/develop'],
+      expect.objectContaining({ cwd: 'C:/projects/repo' })
+    )
+  })
+
+  test('checkoutBranch selects the local counterpart when it already tracks the remote branch', async () => {
+    const spawn = vi.fn(async (_cmd: string, args: string[]) => {
+      if (args[0] === 'status') return { stdout: '', stderr: '', status: 0, error: undefined }
+      if (args[0] === 'rev-parse') return { stdout: 'abc123\n', stderr: '', status: 0, error: undefined }
+      return { stdout: '', stderr: '', status: 0, error: undefined }
+    })
+    const service = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: spawn })
+
+    const result = await service.checkoutBranch({ rootPath: 'C:/projects/repo', name: 'origin/develop' })
+
+    expect(result.message).toBe('Branch develop selecionada.')
+    expect(spawn).toHaveBeenCalledWith(
+      'git',
+      ['switch', 'develop'],
+      expect.objectContaining({ cwd: 'C:/projects/repo' })
+    )
+  })
+
   test('pullFfOnly rejects dirty working trees and pulls when clean', async () => {
     const dirtySpawn = vi.fn(async (_cmd: string, args: string[]) => {
       if (args[0] === 'status') return { stdout: ' M src/a.ts\n', stderr: '', status: 0, error: undefined }
