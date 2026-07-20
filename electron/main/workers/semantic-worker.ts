@@ -21,7 +21,7 @@ env.allowRemoteModels = true
 
 // Worker to generate embeddings
 class SemanticWorker {
-  private extractor: any = null;
+  private extractor: ((text: string, options: { pooling: 'mean'; normalize: boolean }) => Promise<{ data: Iterable<number> }>) | null = null;
 
   constructor() {
     if (parentPort) {
@@ -40,7 +40,7 @@ class SemanticWorker {
       // Multilingual embedding model (id centralised in semantic-model.ts).
       this.extractor = await pipeline('feature-extraction', SEMANTIC_MODEL_ID, {
         quantized: true,
-      });
+      }) as typeof this.extractor;
       parentPort?.postMessage({ type: 'ready' });
     } catch (err) {
       parentPort?.postMessage({ type: 'error', error: err instanceof Error ? err.message : String(err) });

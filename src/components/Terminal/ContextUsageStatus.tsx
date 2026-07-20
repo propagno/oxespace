@@ -2,6 +2,7 @@ import { Gauge } from 'lucide-react'
 import { useEffect, type ReactElement } from 'react'
 import type { AgentProvider } from '../../../shared/types/agent'
 import { contextUsageKey, useContextUsageStore } from '../../store/contextUsage.store'
+import { ViewportTooltip } from '../common/ViewportTooltip'
 
 // 30s background poll: the context fill only moves after an agent turn (tens of
 // seconds to minutes apart), so 5s spawned 6× the IPC/provider work for no extra
@@ -44,14 +45,14 @@ export function ContextUsageStatus({ provider, rootPath }: { provider: AgentProv
     `${chip.modelId ? ` · ${chip.modelId}` : ''} · /compact ou /clear quando encher`
 
   return (
-    <span
+    <ViewportTooltip
       className={`statusbar-chip context-usage-chip tone-${tone}`}
-      data-tooltip={title}
-      aria-label={`Context window: ${pct}%`}
+      content={title}
+      ariaLabel={`Context window: ${pct}%`}
     >
       <Gauge size={10} aria-hidden="true" />
       <span className="chip-label">ctx {pct}%</span>
-    </span>
+    </ViewportTooltip>
   )
 }
 

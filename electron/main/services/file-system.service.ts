@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { watch, type FSWatcher } from 'node:fs'
-import { readdir, readFile, stat, writeFile } from 'node:fs/promises'
-import { relative } from 'node:path'
+import { readdir, readFile, realpath, stat, writeFile } from 'node:fs/promises'
+import { normalize, relative, resolve, sep } from 'node:path'
 import type {
   FileSystemFileChangedEvent,
   FileSystemListTreeInput,
@@ -24,12 +24,17 @@ interface WatchEntry {
   timeout: NodeJS.Timeout | null
 }
 
+export type WorkspaceRootResolver = (workspaceId: string) => string | null
+
 export class FileSystemService {
   private readonly watchers = new Map<string, WatchEntry>()
 
+  constructor(private readonly resolveWorkspaceRoot?: WorkspaceRootResolver) {}
+
   async listTree(input: FileSystemListTreeInput): Promise<FileTreeNode[]> {
-    const rootPath = safeJoin(input.rootPath)
+    const rootPath = await this.authorizeRoot(input.workspaceId, input.rootPath)
     const directoryPath = safeJoin(rootPath, input.relativePath ?? '.')
+    await assertCanonicalInside(rootPath, directoryPath)
     const directoryStat = await stat(directoryPath)
     if (!directoryStat.isDirectory()) {
       throw new Error('Path is not a directory')
@@ -39,7 +44,9 @@ export class FileSystemService {
   }
 
   async readFile(input: FileSystemReadFileInput): Promise<FileSystemReadFileResult> {
-    const filePath = safeJoin(input.rootPath, input.relativePath)
+    const rootPath = await this.authorizeRoot(input.workspaceId, input.rootPath)
+    const filePath = safeJoin(rootPath, input.relativePath)
+    await assertCanonicalInside(rootPath, filePath)
     const fileStat = await stat(filePath)
     if (!fileStat.isFile()) {
       throw new Error('Path is not a file')
@@ -60,7 +67,9 @@ export class FileSystemService {
   }
 
   async writeFile(input: FileSystemWriteFileInput): Promise<FileSystemWriteFileResult> {
-    const filePath = safeJoin(input.rootPath, input.relativePath)
+    const rootPath = await this.authorizeRoot(input.workspaceId, input.rootPath)
+    const filePath = safeJoin(rootPath, input.relativePath)
+    await assertCanonicalInside(rootPath, filePath)
     const buffer = Buffer.from(input.content, 'utf8')
     if (buffer.length > MAX_TEXT_FILE_BYTES) {
       throw new Error('File is larger than 2 MB')
@@ -81,7 +90,9 @@ export class FileSystemService {
   }
 
   async watchFile(input: FileSystemWatchFileInput, onChanged: (event: FileSystemFileChangedEvent) => void): Promise<FileSystemWatchFileResult> {
-    const filePath = safeJoin(input.rootPath, input.relativePath)
+    const rootPath = await this.authorizeRoot(input.workspaceId, input.rootPath)
+    const filePath = safeJoin(rootPath, input.relativePath)
+    await assertCanonicalInside(rootPath, filePath)
     const fileStat = await stat(filePath)
     if (!fileStat.isFile()) {
       throw new Error('Path is not a file')
@@ -113,6 +124,18 @@ export class FileSystemService {
     for (const watchId of this.watchers.keys()) {
       this.unwatchFile(watchId)
     }
+  }
+
+  private async authorizeRoot(workspaceId: string, requestedRoot: string): Promise<string> {
+    const authoritativeRoot = this.resolveWorkspaceRoot?.(workspaceId)
+    if (this.resolveWorkspaceRoot && !authoritativeRoot) {
+      throw new Error(`Workspace ${workspaceId} not found`)
+    }
+    const expected = resolve(authoritativeRoot ?? requestedRoot)
+    if (authoritativeRoot && normalize(resolve(requestedRoot)).toLowerCase() !== normalize(expected).toLowerCase()) {
+      throw new Error('Workspace root does not match the registered workspace')
+    }
+    return expected
   }
 
   private async listDirectory(rootPath: string, directoryPath: string): Promise<FileTreeNode[]> {
@@ -171,6 +194,16 @@ export class FileSystemService {
     } catch {
       // Some editors replace files through rename/write sequences; ignore transient reads.
     }
+  }
+}
+
+async function assertCanonicalInside(rootPath: string, targetPath: string): Promise<void> {
+  const [canonicalRoot, canonicalTarget] = await Promise.all([realpath(rootPath), realpath(targetPath)])
+  const root = normalize(canonicalRoot).toLowerCase()
+  const target = normalize(canonicalTarget).toLowerCase()
+  const prefix = root.endsWith(sep) ? root : `${root}${sep}`
+  if (target !== root && !target.startsWith(prefix)) {
+    throw new Error('Path resolves outside workspace root')
   }
 }
 

@@ -27,6 +27,10 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/contextUsage/copilotContext.ts',
   'electron/main/index.ts',
   'electron/main/db/index.ts',
+  // Diagnostics reads the main log tail and writes a report only to a path
+  // explicitly selected through Electron's native save dialog.
+  'electron/main/ipc/diagnostics.ipc.ts',
+  'electron/main/services/diagnostics.service.ts',
   // Internal MCP bootstrap: materializes the bridge script under
   // <userData>/bin and hash-checks it against the packaged source. Needs
   // raw fs to do that atomically on every boot.

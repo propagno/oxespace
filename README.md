@@ -74,6 +74,8 @@ Open OXESpace, select a local folder to serve as your workspace, and start build
 
 Want to build OXESpace from source or contribute? 
 
+Project references: [architecture](docs/ARCHITECTURE.md), [security model](docs/SECURITY_MODEL.md), and [development guide](docs/DEVELOPMENT_GUIDE.md).
+
 ```powershell
 # Clone the repository
 git clone https://github.com/propagno/oxespace.git
@@ -92,11 +94,13 @@ npm run dev
 ### Verification & Testing
 ```powershell
 npm run typecheck
+npm run lint
 # Service/integration tests need native modules built for *Node* (not Electron ABI):
 npm run rebuild:native:node
-npm run test
+npm run test:coverage
 # Before `npm run dev` / packaged builds, switch back to Electron ABI:
 npm run rebuild:native:electron
+npm run verify:native
 npm run build
 npm run test:e2e
 npm run test:smoke   # Tools + Agent Settings hub smoke

@@ -261,6 +261,10 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       reindex: (workspaceId) => ipc.invoke(IPC_CHANNELS.semantic.reindex, workspaceId) as Promise<import('../../shared/types/ipc').SemanticStatus>,
       getLogs: () => ipc.invoke(IPC_CHANNELS.semantic.getLogs) as Promise<import('../../shared/types/ipc').SemanticLogEntry[]>,
       onLog: (listener) => subscribe<import('../../shared/types/ipc').SemanticLogEntry>(ipc, IPC_CHANNELS.semantic.onLog, listener)
+    },
+    diagnostics: {
+      getSnapshot: () => ipc.invoke(IPC_CHANNELS.diagnostics.getSnapshot) as Promise<import('../../shared/types/diagnostics').DiagnosticsSnapshot>,
+      exportReport: () => ipc.invoke(IPC_CHANNELS.diagnostics.exportReport) as Promise<string | null>
     }
   }
 }

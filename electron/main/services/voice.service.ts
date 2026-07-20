@@ -216,15 +216,19 @@ export class VoiceService {
       let stdout = ''
       const stderrRing: string[] = []
       let settled = false
-      let timer: NodeJS.Timeout | undefined
 
       const finish = (err?: Error): void => {
         if (settled) return
         settled = true
-        if (timer) clearTimeout(timer)
+        clearTimeout(timer)
         if (err) reject(err)
         else resolve({ stdout, stderr: stderrRing.join('') })
       }
+
+      const timer = setTimeout(() => {
+        try { child.kill() } catch { /* already exited */ }
+        finish(new Error(`Voice transcription exceeded ${SPAWN_TIMEOUT_MS}ms.`))
+      }, SPAWN_TIMEOUT_MS)
 
       child.stdout?.setEncoding('utf8')
       child.stderr?.setEncoding('utf8')
@@ -239,10 +243,6 @@ export class VoiceService {
         else finish(new Error(stderrRing.join('').trim() || `Voice engine exited with code ${code ?? 'unknown'}.`))
       })
 
-      timer = setTimeout(() => {
-        try { child.kill() } catch { /* already exited */ }
-        finish(new Error(`Voice transcription exceeded ${SPAWN_TIMEOUT_MS}ms.`))
-      }, SPAWN_TIMEOUT_MS)
     })
   }
 }

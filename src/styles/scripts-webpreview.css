@@ -599,3 +599,16 @@
     overflow: visible;
   }
 }
+.web-preview-external-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.web-preview-external-toggle input {
+  accent-color: var(--accent);
+}

@@ -8,3 +8,14 @@ export function isSafeExternalUrl(url: string): boolean {
     return false
   }
 }
+
+export function isLoopbackHttpUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false
+    const host = parsed.hostname.toLowerCase()
+    return host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host === '::1'
+  } catch {
+    return false
+  }
+}

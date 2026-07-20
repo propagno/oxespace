@@ -3,6 +3,7 @@ import { useEffect, type ReactElement } from 'react'
 import type { AgentProvider } from '../../../shared/types/agent'
 import type { CreditsWindow } from '../../../shared/types/agentCredits'
 import { useAgentCreditsStore } from '../../store/agentCredits.store'
+import { ViewportTooltip } from '../common/ViewportTooltip'
 
 const REFRESH_INTERVAL_MS = 60_000
 
@@ -41,14 +42,14 @@ export function AgentCreditsStatus({ provider }: { provider: AgentProvider }): R
   const title = buildTitle(name, snapshot.windows)
 
   return (
-    <span
+    <ViewportTooltip
       className={`statusbar-chip agent-credits-chip tone-${tone}`}
-      data-tooltip={title}
-      aria-label={`${name} credits: ${pct}%`}
+      content={title}
+      ariaLabel={`${name} credits: ${pct}%`}
     >
       <Icon size={10} aria-hidden="true" />
       <span className="chip-label">{pct}%</span>
-    </span>
+    </ViewportTooltip>
   )
 }
 

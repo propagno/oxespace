@@ -5,7 +5,7 @@ import { isInitialized } from '../vendor/codegraph/directory'
 import type { AppDatabase } from '../db'
 
 export class CodeGraphService {
-  private instances = new Map<string, typeof CodeGraph>()
+  private instances = new Map<string, CodeGraph>()
 
   constructor(private readonly db: AppDatabase) {
     // The vendored CodeGraph loads schema.sql + tree-sitter wasm from disk; in
@@ -25,7 +25,7 @@ export class CodeGraphService {
    * Opens or creates a CodeGraph instance for the given project root.
    * If it's not initialized, it will initialize and start indexing.
    */
-  public async ensureInstance(projectRoot: string): Promise<typeof CodeGraph> {
+  public async ensureInstance(projectRoot: string): Promise<CodeGraph> {
     if (this.instances.has(projectRoot)) {
       return this.instances.get(projectRoot)!
     }
@@ -39,8 +39,8 @@ export class CodeGraphService {
       console.log(`[CodeGraphService] Opening CodeGraph for ${projectRoot}...`)
       // Pass sync:true to spin up the FileWatcher for hot reloading
       const instance = await CodeGraph.open(projectRoot, { sync: true })
-      this.instances.set(projectRoot, instance as any)
-      return instance as any
+      this.instances.set(projectRoot, instance)
+      return instance
     } catch (err) {
       console.error(`[CodeGraphService] Failed to initialize/open CodeGraph for ${projectRoot}:`, err)
       throw err
@@ -51,7 +51,7 @@ export class CodeGraphService {
    * Retrieves an active instance, throwing if not available.
    * Generally you should use ensureInstance.
    */
-  public getInstance(projectRoot: string): typeof CodeGraph {
+  public getInstance(projectRoot: string): CodeGraph {
     const instance = this.instances.get(projectRoot)
     if (!instance) {
       throw new Error(`CodeGraph instance not open for ${projectRoot}`)
@@ -62,7 +62,7 @@ export class CodeGraphService {
   public async closeAll(): Promise<void> {
     for (const [root, instance] of this.instances.entries()) {
       try {
-        await (instance as any).close()
+        await instance.close()
       } catch (e) {
         console.error(`[CodeGraphService] Error closing instance for ${root}:`, e)
       }

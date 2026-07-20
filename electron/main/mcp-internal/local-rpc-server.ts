@@ -19,7 +19,8 @@ import { errorResult } from './tool-registry'
  * Hardened defaults:
  *   - Bound to 127.0.0.1 ONLY (no LAN exposure)
  *   - Bearer token with constant-time compare
- *   - X-OXE-Workspace-Id required for workspace-scoped tools
+ *   - X-OXE-Workspace-Id preferred when valid; handlers fall back to the active
+ *     workspace when the header is missing or points at a deleted id
  *   - JSON-RPC errors stay in the -32000..-32099 server-error range
  *   - Request body capped at 64 KB to keep a renegade bridge from OOM'ing main
  */
@@ -127,16 +128,9 @@ export function createLocalRpcServer(deps: LocalRpcDeps): LocalRpcServer {
           error: { code: INTERNAL_MCP_ERROR_CODES.TOOL_NOT_FOUND, message: `Unknown tool: ${name}` }
         }
       }
-      if (tool.requiresWorkspace && !workspaceId) {
-        return {
-          jsonrpc: '2.0',
-          id,
-          error: {
-            code: INTERNAL_MCP_ERROR_CODES.WORKSPACE_REQUIRED,
-            message: `Tool ${name} requires X-OXE-Workspace-Id header`
-          }
-        }
-      }
+      // Workspace-scoped tools no longer hard-fail when the header is missing.
+      // Handlers call requireWorkspace(), which prefers a valid header id and
+      // otherwise falls back to the active workspace (stale/missing bridge env).
       try {
         const ctx: ToolContext = {
           workspaceId,

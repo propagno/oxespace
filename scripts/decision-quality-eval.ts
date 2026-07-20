@@ -44,7 +44,7 @@ function pathsInText(text: string): Set<string> {
   const re = /([A-Za-z0-9_./-]+\.(?:tsx?|jsx?|mjs|cjs|json|ya?ml|md|sql|css|html))/g
   let m: RegExpExecArray | null
   while ((m = re.exec(text))) {
-    let p = m[1].replace(/^\.\//, '')
+    const p = m[1].replace(/^\.\//, '')
     if (/(^|\/)(electron|src|shared|scripts|tests|resources|e2e)\//.test(p) || /^(package|tsconfig|electron-builder)/.test(p)) set.add(p)
   }
   return set

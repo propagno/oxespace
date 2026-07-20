@@ -30,14 +30,18 @@ export function WebPreviewPanel({ embedded = false, onClose, workspace }: WebPre
   const [viewport, setViewport] = useState<Viewport>('desktop')
   const [captureNotice, setCaptureNotice] = useState<string | null>(null)
   const [capturing, setCapturing] = useState(false)
-  const normalizedUrl = useMemo(() => normalizeUrl(draftUrl), [draftUrl])
+  const [allowExternal, setAllowExternal] = useState(false)
+  const normalizedUrl = useMemo(() => normalizePreviewUrl(draftUrl, allowExternal), [draftUrl, allowExternal])
   const canOpen = normalizedUrl !== null
   const canGoBack = historyIndex > 0
   const canGoForward = historyIndex >= 0 && historyIndex < history.length - 1
   const frameStyle = { zoom: zoom / 100 } as CSSProperties
 
   const open = (): void => {
-    if (!normalizedUrl) return
+    if (!normalizedUrl) {
+      setCaptureNotice(allowExternal ? 'Enter a valid HTTP or HTTPS URL.' : 'Local-only mode accepts localhost, 127.0.0.1 and ::1.')
+      return
+    }
     const nextUrl = normalizedUrl
     setUrl(nextUrl)
     setHistory((current) => {
@@ -81,9 +85,12 @@ export function WebPreviewPanel({ embedded = false, onClose, workspace }: WebPre
   const setPendingWebPreview = useUIStore((s) => s.setPendingWebPreview)
   useEffect(() => {
     if (!pendingWebPreview) return
-    const nextUrl = normalizeUrl(pendingWebPreview)
+    const nextUrl = normalizePreviewUrl(pendingWebPreview, allowExternal)
     setPendingWebPreview(workspace.id, null)
-    if (!nextUrl) return
+    if (!nextUrl) {
+      setCaptureNotice('An agent requested an external URL. Enable External preview to open it.')
+      return
+    }
     setDraftUrl(pendingWebPreview)
     setUrl(nextUrl)
     setHistory((current) => {
@@ -93,7 +100,7 @@ export function WebPreviewPanel({ embedded = false, onClose, workspace }: WebPre
       return next
     })
     setFrameKey((value) => value + 1)
-  }, [pendingWebPreview, workspace.id, historyIndex, setPendingWebPreview])
+  }, [pendingWebPreview, workspace.id, historyIndex, setPendingWebPreview, allowExternal])
   const zoomOut = (): void => setZoom((value) => Math.max(50, value - 10))
   const zoomIn = (): void => setZoom((value) => Math.min(150, value + 10))
   const openExternal = (): void => { if (url) window.open(url, '_blank', 'noopener,noreferrer') }
@@ -150,6 +157,10 @@ export function WebPreviewPanel({ embedded = false, onClose, workspace }: WebPre
         <button type="button" className="web-preview-go-button" disabled={!canOpen} onClick={open}>
           Go
         </button>
+        <label className="web-preview-external-toggle" title="Remote sites keep their own frame security headers">
+          <input type="checkbox" checked={allowExternal} onChange={(event) => setAllowExternal(event.currentTarget.checked)} />
+          External
+        </label>
         <div className="web-preview-zoom-controls" aria-label="Zoom controls">
           <button type="button" aria-label="Zoom out" onClick={zoomOut}><Minus size={13} aria-hidden="true" /></button>
           <span>{zoom}%</span>
@@ -184,7 +195,8 @@ export function WebPreviewPanel({ embedded = false, onClose, workspace }: WebPre
                 title="Workspace web preview"
                 src={url}
                 style={frameStyle}
-                sandbox="allow-forms allow-modals allow-popups allow-same-origin allow-scripts allow-downloads"
+                sandbox="allow-forms allow-modals allow-same-origin allow-scripts"
+                referrerPolicy="no-referrer"
               />
             </div>
           </div>
@@ -214,14 +226,17 @@ export function WebPreviewPanel({ embedded = false, onClose, workspace }: WebPre
   )
 }
 
-function normalizeUrl(value: string): string | null {
+export function normalizePreviewUrl(value: string, allowExternal = false): string | null {
   const trimmed = value.trim()
   if (!trimmed) return null
+  if ((/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) && !/^https?:\/\//i.test(trimmed)) || /^(?:javascript|data|file|about|blob):/i.test(trimmed)) return null
   const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`
   try {
     const url = new URL(withProtocol)
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
-    return url.toString()
+    const host = url.hostname.toLowerCase()
+    const loopback = host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host === '::1'
+    return allowExternal || loopback ? url.toString() : null
   } catch {
     return null
   }

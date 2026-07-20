@@ -102,6 +102,53 @@
   transform: translateY(50%) translateX(0) rotate(45deg) scale(1);
 }
 
+/* Viewport-safe tooltip for controls inside clipped panes. Unlike the legacy
+   pseudo-element tooltip above, this node is portaled to <body> and positioned
+   with fixed, collision-aware coordinates by ViewportTooltip. */
+.viewport-tooltip {
+  position: fixed;
+  z-index: 2147483647;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(360px, calc(100vw - 16px));
+  padding: 8px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(24, 24, 27, 0.96);
+  color: #f4f4f5;
+  box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.72), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  text-align: left;
+}
+
+.viewport-tooltip::before {
+  content: '';
+  position: absolute;
+  left: var(--viewport-tooltip-arrow-x);
+  width: 10px;
+  height: 10px;
+  background: rgba(24, 24, 27, 0.96);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.viewport-tooltip[data-side='top']::before {
+  bottom: -6px;
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.viewport-tooltip[data-side='bottom']::before {
+  top: -6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+
 .modal-header {
   display: flex;
   align-items: center;
@@ -2977,3 +3024,22 @@
   animation: github-spin 1s linear infinite;
 }
 
+.diagnostics-checks {
+  display: grid;
+  gap: 8px;
+}
+
+.diagnostics-check {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+.diagnostics-check span { color: var(--text-muted); text-align: right; }
+.diagnostics-check.tone-ok { border-left: 3px solid var(--success); }
+.diagnostics-check.tone-warning { border-left: 3px solid var(--warning); }
+.diagnostics-check.tone-error { border-left: 3px solid var(--danger); }

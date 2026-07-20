@@ -38,6 +38,21 @@ test('smoke: Tools hub and Agent Settings open from sidebar', async () => {
     await expect(page.getByTestId('settings-modal')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'AI Providers' })).toBeVisible()
     await expect(page.getByTestId('btn-discover-agents')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Diagnostics' }).click()
+    await expect(page.getByRole('heading', { name: 'Diagnostics' })).toBeVisible()
+    await expect(page.getByTestId('diagnostics-checks')).toContainText('Renderer sandbox')
+
+    await page.keyboard.press('Escape')
+    await page.getByTestId('btn-open-tools').click()
+    await page.getByText('MCP Servers', { exact: true }).click()
+    await expect(page.getByRole('dialog', { name: 'MCP servers' })).toBeVisible()
+    await page.getByRole('button', { name: 'Close' }).click()
+
+    await page.getByTestId('btn-open-tools').click()
+    await page.getByText('Semantic Activity', { exact: true }).click()
+    await expect(page.getByRole('dialog', { name: 'Semantic activity' })).toBeVisible()
+    await expect(page.getByTestId('semantic-status-label')).toBeVisible()
   } finally {
     await electronApp.close()
   }

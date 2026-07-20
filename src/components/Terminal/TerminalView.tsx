@@ -264,9 +264,9 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
                try {
                  const t = terminalRef.current
                  if (t) {
-                   // A dummy assignment to options triggers xterm's internal theme
-                   // rebuild for the DOM renderer, guaranteeing colors apply correctly.
-                   t.options.theme = t.options.theme
+                   // Re-apply a cloned theme to trigger xterm's DOM-renderer
+                   // color rebuild without a no-op self-assignment.
+                   t.options.theme = { ...(t.options.theme ?? {}) }
                    t.refresh(0, t.rows - 1)
                  }
                } catch { /* ignore if already unmounted */ }

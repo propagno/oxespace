@@ -36,9 +36,10 @@ import { registerTaskIpc } from './ipc/task.ipc'
 import { registerTerminalIpc } from './ipc/terminal.ipc'
 import { registerWorkspaceIpc } from './ipc/workspace.ipc'
 import { registerSemanticIpc } from './ipc/semantic.ipc'
+import { registerDiagnosticsIpc } from './ipc/diagnostics.ipc'
 import { BackgroundManager } from './services/background.service'
 import { TerminalManager } from './services/terminal.service'
-import { isSafeExternalUrl } from './utils/external-url'
+import { isLoopbackHttpUrl, isSafeExternalUrl } from './utils/external-url'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
 import type { ShellProfile, Workspace, WorkspaceLayout, WorkspaceLayoutPreset } from '../../shared/types/workspace'
 
@@ -187,7 +188,7 @@ function registerIpcHandlers(): () => void {
   registerAgentCreditsIpc()
   registerContextUsageIpc()
   const oxeService = registerOxeIpc()
-  const fileSystemService = registerFileSystemIpc()
+  const fileSystemService = registerFileSystemIpc(db)
   // Internal oxespace MCP server — auto-starts on app boot, registers a
   // global row in mcp_servers, syncs to every workspace's .mcp.json. The
   // bridge script lives under <userData>/bin/ and is spawned by each
@@ -208,6 +209,7 @@ function registerIpcHandlers(): () => void {
     codegraph: codeGraphService
   })
   registerMcpInternalIpc(internalMcp)
+  registerDiagnosticsIpc(db, internalMcp)
   // OXESpace context manifest — prepended to the agent's initial prompt on
   // pane spawn so the CLI knows the workspace state without calling any MCP
   // tool. Read shortcut; MCP is still the action path (see oxe-context.service.ts).
@@ -359,6 +361,12 @@ function registerNativeFailureIpcHandlers(message: string): void {
   ipcMain.handle(IPC_CHANNELS.semantic.setEnabled, () => ({ enabled: false, workerReady: false, indexing: false, count: 0, lastError: 'native startup failed', mode: 'auto', coverage: { lexicalDocuments: 0, lastIndexedAt: null, byCategory: { source: 0, test: 0, config: 0, docs: 0, other: 0 } }, lastQuery: null }))
   ipcMain.handle(IPC_CHANNELS.semantic.setMode, () => ({ enabled: false, workerReady: false, indexing: false, count: 0, lastError: 'native startup failed', mode: 'auto', coverage: { lexicalDocuments: 0, lastIndexedAt: null, byCategory: { source: 0, test: 0, config: 0, docs: 0, other: 0 } }, lastQuery: null }))
   ipcMain.handle(IPC_CHANNELS.semantic.getLogs, () => [])
+  ipcMain.handle(IPC_CHANNELS.diagnostics.getSnapshot, () => ({
+    generatedAt: Date.now(), appVersion: app.getVersion(), platform: process.platform, arch: process.arch,
+    nodeVersion: process.versions.node, electronVersion: process.versions.electron ?? 'unknown', workspaceCount: 0,
+    checks: [{ id: 'native', label: 'Native runtime', tone: 'error', detail: message }]
+  }))
+  ipcMain.handle(IPC_CHANNELS.diagnostics.exportReport, () => null)
   ipcMain.handle(IPC_CHANNELS.oxeContext.buildPaneManifest, () => '')
   ipcMain.handle(IPC_CHANNELS.workspace.updateBackgroundState, fail)
   ipcMain.handle(IPC_CHANNELS.workspace.updateWorktreeState, fail)
@@ -547,6 +555,16 @@ function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.semantic.setEnabled, (_event: IpcMainInvokeEvent, input: { enabled: boolean }) => ({ enabled: input?.enabled ?? true, workerReady: false, indexing: false, count: 0, lastError: null, mode: 'auto', coverage: { lexicalDocuments: 0, lastIndexedAt: null, byCategory: { source: 0, test: 0, config: 0, docs: 0, other: 0 } }, lastQuery: null }))
   ipcMain.handle(IPC_CHANNELS.semantic.setMode, (_event: IpcMainInvokeEvent, input: { mode?: string }) => ({ enabled: true, workerReady: false, indexing: false, count: 0, lastError: null, mode: input?.mode ?? 'auto', coverage: { lexicalDocuments: 0, lastIndexedAt: null, byCategory: { source: 0, test: 0, config: 0, docs: 0, other: 0 } }, lastQuery: null }))
   ipcMain.handle(IPC_CHANNELS.semantic.getLogs, () => [])
+  ipcMain.handle(IPC_CHANNELS.diagnostics.getSnapshot, () => ({
+    generatedAt: Date.now(), appVersion: app.getVersion(), platform: process.platform, arch: process.arch,
+    nodeVersion: process.versions.node, electronVersion: process.versions.electron ?? 'unknown', workspaceCount: workspaces.length,
+    checks: [
+      { id: 'database', label: 'SQLite', tone: 'ok', detail: 'E2E mock' },
+      { id: 'mcp', label: 'Internal MCP', tone: 'warning', detail: 'E2E mock' },
+      { id: 'sandbox', label: 'Renderer sandbox', tone: 'ok', detail: 'enabled' }
+    ]
+  }))
+  ipcMain.handle(IPC_CHANNELS.diagnostics.exportReport, () => null)
   ipcMain.handle(IPC_CHANNELS.terminal.start, (_event: IpcMainInvokeEvent, input: { paneId: string }) => {
     for (const window of BrowserWindow.getAllWindows()) {
       window.webContents.send(IPC_CHANNELS.terminal.onData, { paneId: input.paneId, data: 'PS> ' })
@@ -842,13 +860,13 @@ function createMainWindow(): BrowserWindow {
     icon: iconPath,
     backgroundColor: '#0d0f14',
     webPreferences: {
-      preload: join(app.getAppPath(), 'out', 'preload', 'index.mjs'),
+      preload: join(app.getAppPath(), 'out', 'preload', 'index.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      // Sandbox remains disabled while native PTY/SQLite packaging is bridged
-      // through preload. Renderer isolation stays enabled; all privileged access
-      // must pass validated IPC handlers.
-      sandbox: false
+      // The preload bundle only uses Electron's contextBridge/IPC subset, so it
+      // remains compatible with Chromium's renderer sandbox. Native PTY/SQLite
+      // stay exclusively in the main process behind validated IPC handlers.
+      sandbox: true
     }
   })
 
@@ -872,15 +890,11 @@ function createMainWindow(): BrowserWindow {
     mainWindow.show()
   })
 
-  // Relax frame-blocking headers ONLY for sub-frames (the Web Preview iframe).
-  // Sites like Google send `X-Frame-Options: SAMEORIGIN` / CSP
-  // `frame-ancestors`, which makes the preview render blank. We scope the
-  // strip to resourceType === 'subFrame' so OXESpace's own top-level document
-  // keeps its CSP fully intact — only content the user explicitly loads into
-  // the preview pane gets the relaxation. Acceptable for a local dev tool:
-  // the user chose the URL, and OXESpace itself is never embedded by anyone.
+  // Relax frame-blocking headers only for loopback development servers. Remote
+  // sites retain their X-Frame-Options/frame-ancestors policy even when the user
+  // explicitly enables external preview mode in the renderer.
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
-    if (details.resourceType !== 'subFrame' || !details.responseHeaders) {
+    if (details.resourceType !== 'subFrame' || !details.responseHeaders || !isLoopbackHttpUrl(details.url)) {
       callback({ responseHeaders: details.responseHeaders })
       return
     }

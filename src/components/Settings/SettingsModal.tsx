@@ -1,5 +1,6 @@
 import {
   ArrowUpCircle,
+  Activity,
   Bell,
   Bot,
   Check,
@@ -62,7 +63,7 @@ function formatCheckedAgo(ts: number | null): string | null {
   return `Checked ${Math.floor(sec / 86400)} d ago`
 }
 
-type SettingsSection = 'providers' | 'terminal' | 'voice' | 'notifications' | 'updates'
+type SettingsSection = 'providers' | 'terminal' | 'voice' | 'notifications' | 'updates' | 'diagnostics'
 type ProviderStatus = AgentReadiness['status'] | 'checking' | 'custom'
 
 function readinessFor(profile: AgentProfile, readiness: AgentReadiness[]): AgentReadiness | undefined {
@@ -130,7 +131,8 @@ const NAV_ITEMS: Array<{ id: SettingsSection; label: string; icon: ReactNode }> 
   { id: 'terminal', label: 'Terminal', icon: <SquareTerminal size={14} aria-hidden="true" /> },
   { id: 'voice', label: 'Voice', icon: <Mic size={14} aria-hidden="true" /> },
   { id: 'notifications', label: 'Notifications', icon: <Bell size={14} aria-hidden="true" /> },
-  { id: 'updates', label: 'Updates', icon: <ArrowUpCircle size={14} aria-hidden="true" /> }
+  { id: 'updates', label: 'Updates', icon: <ArrowUpCircle size={14} aria-hidden="true" /> },
+  { id: 'diagnostics', label: 'Diagnostics', icon: <Activity size={14} aria-hidden="true" /> }
 ]
 
 export function SettingsModal({
@@ -208,6 +210,8 @@ export function SettingsModal({
           <NotificationsSettingsSection onClose={onClose} />
         ) : section === 'updates' ? (
           <UpdatesSettingsSection onClose={onClose} />
+        ) : section === 'diagnostics' ? (
+          <DiagnosticsSettingsSection onClose={onClose} />
         ) : (
           <ProvidersSettingsSection
             agentProfiles={agentProfiles}
@@ -222,6 +226,50 @@ export function SettingsModal({
         )}
       </section>
     </div>
+  )
+}
+
+function DiagnosticsSettingsSection({ onClose }: { onClose: () => void }): ReactElement {
+  const [snapshot, setSnapshot] = useState<import('../../../shared/types/diagnostics').DiagnosticsSnapshot | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+
+  const refresh = (): void => {
+    setNotice(null)
+    void window.oxe.diagnostics.getSnapshot().then(setSnapshot).catch((error) => setNotice(error instanceof Error ? error.message : String(error)))
+  }
+
+  useEffect(refresh, [])
+
+  const exportReport = (): void => {
+    setNotice(null)
+    void window.oxe.diagnostics.exportReport()
+      .then((path) => setNotice(path ? `Saved sanitized report to ${path}` : 'Export cancelled.'))
+      .catch((error) => setNotice(error instanceof Error ? error.message : String(error)))
+  }
+
+  return (
+    <section className="settings-modal-content" aria-labelledby="settings-diagnostics-title">
+      <SettingsContentHeader kicker="Runtime" title="Diagnostics" titleId="settings-diagnostics-title" onClose={onClose} />
+      <div className="settings-content-body settings-form">
+        <div className="settings-callout">
+          Runtime health is collected locally. Exported logs redact the user profile path and common secret/token formats.
+        </div>
+        <div className="diagnostics-checks" data-testid="diagnostics-checks">
+          {snapshot?.checks.map((check) => (
+            <div key={check.id} className={`diagnostics-check tone-${check.tone}`}>
+              <strong>{check.label}</strong>
+              <span>{check.detail}</span>
+            </div>
+          )) ?? <span>Loading diagnostics…</span>}
+        </div>
+        {snapshot ? <small>OXESpace {snapshot.appVersion} · Electron {snapshot.electronVersion} · Node {snapshot.nodeVersion} · {snapshot.workspaceCount} workspaces</small> : null}
+        <div className="settings-inline-actions">
+          <button type="button" className="settings-btn ghost" onClick={refresh}><RefreshCw size={13} /> Refresh</button>
+          <button type="button" className="settings-btn primary" onClick={exportReport}><Download size={13} /> Export sanitized report</button>
+        </div>
+        {notice ? <div className="settings-callout" role="status">{notice}</div> : null}
+      </div>
+    </section>
   )
 }
 

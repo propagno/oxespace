@@ -45,15 +45,47 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>
 }
 
+/**
+ * Resolve the workspace for a tool call.
+ *
+ * Order:
+ *  1. Explicit header id (`X-OXE-Workspace-Id` / bridge env) when it still exists.
+ *  2. Active workspace in OXESpace (`is_active`) — recovers stale or missing
+ *     bridge env without requiring the agent (or user) to know the fix.
+ *  3. Actionable error listing available workspaces.
+ *
+ * Agents should never need product knowledge of OXESPACE_WORKSPACE_ID to recover.
+ */
 async function requireWorkspace(ctx: ToolContext): Promise<{ id: string; rootPath: string; name: string }> {
-  if (!ctx.workspaceId) {
-    throw new Error('No workspace context — set X-OXE-Workspace-Id on the RPC call')
+  if (ctx.workspaceId) {
+    const explicit = ctx.workspaceServ.get(ctx.workspaceId)
+    if (explicit) {
+      return { id: explicit.id, rootPath: explicit.rootPath, name: explicit.name }
+    }
   }
-  const ws = ctx.workspaceServ.get(ctx.workspaceId)
-  if (!ws) {
-    throw new Error(`Workspace ${ctx.workspaceId} not found`)
+
+  const all = ctx.workspaceServ.list()
+  const active = all.find((ws) => ws.isActive === true)
+  if (active) {
+    return { id: active.id, rootPath: active.rootPath, name: active.name }
   }
-  return { id: ws.id, rootPath: ws.rootPath, name: ws.name }
+
+  const available =
+    all.length > 0
+      ? all.map((ws) => `${ws.name} (${ws.id}${ws.isActive ? ', active' : ''})`).join('; ')
+      : '(none — open a folder as a workspace in OXESpace)'
+
+  if (ctx.workspaceId) {
+    throw new Error(
+      `Workspace ${ctx.workspaceId} not found (stale MCP bridge env) and no active workspace is set. ` +
+        `Focus a workspace in OXESpace, or call oxespace_list_workspaces. Available: ${available}`
+    )
+  }
+
+  throw new Error(
+    `No workspace context (missing X-OXE-Workspace-Id) and no active workspace is set. ` +
+      `Focus a workspace in OXESpace, or call oxespace_list_workspaces. Available: ${available}`
+  )
 }
 
 async function listWorkspaces(_args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {

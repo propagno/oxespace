@@ -52,86 +52,14 @@ import type {
   UpdateIntegrationGroupInput,
   UpdateIntegrationMemberInput
 } from './integration'
+import type { FileSystemApi } from './filesystem'
 
 export type { ShellProfile, Workspace, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, UpdateWorkspaceWorktreeStateInput, AgentProfile, AgentReadiness }
 export type { Task, TaskExecution, TaskVerifyOutputEvent }
 export type { GitBranchInput, GitBranchStatus, GitDiff, GitDiffFile, GitDiffHunk, GitDiffLine, GitDiffInput, GitLineType } from './git'
 export type { GitHubBranch, GitHubCheckpoint, GitHubCliStatus, GitHubCommit, GitHubCommitDetails, GitHubConnectedRepository, GitHubMessageResult, GitHubPanelTab, GitHubPullRequest, GitHubRelease, GitHubRepositorySummary, GitHubWorkflow, GitHubWorkflowRun, GitHubWorkflowRunDetails, GitHubWorkspaceStatus } from './github'
 export type { IntegrationGroup, IntegrationMember, IntegrationHandoff, IntegrationRole, IntegrationSession, IntegrationStatus } from './integration'
-
-export type FileTreeNodeType = 'file' | 'directory'
-
-export interface FileTreeNode {
-  name: string
-  relativePath: string
-  type: FileTreeNodeType
-  size: number | null
-  children?: FileTreeNode[]
-}
-
-export interface FileSystemListTreeInput {
-  workspaceId: string
-  rootPath: string
-  relativePath?: string
-}
-
-export interface FileSystemReadFileInput {
-  workspaceId: string
-  rootPath: string
-  relativePath: string
-}
-
-export interface FileSystemReadFileResult {
-  relativePath: string
-  content: string
-  size: number
-  mtimeMs: number
-}
-
-export interface FileSystemWriteFileInput {
-  workspaceId: string
-  rootPath: string
-  relativePath: string
-  content: string
-}
-
-export interface FileSystemWriteFileResult {
-  relativePath: string
-  size: number
-  mtimeMs: number
-}
-
-export interface FileSystemWatchFileInput {
-  workspaceId: string
-  rootPath: string
-  relativePath: string
-}
-
-export interface FileSystemUnwatchFileInput {
-  watchId: string
-}
-
-export interface FileSystemWatchFileResult {
-  watchId: string
-}
-
-export interface FileSystemFileChangedEvent {
-  watchId: string
-  workspaceId: string
-  relativePath: string
-  content: string
-  size: number
-  mtimeMs: number
-}
-
-export interface FileSystemApi {
-  listTree(input: FileSystemListTreeInput): Promise<FileTreeNode[]>
-  readFile(input: FileSystemReadFileInput): Promise<FileSystemReadFileResult>
-  writeFile(input: FileSystemWriteFileInput): Promise<FileSystemWriteFileResult>
-  watchFile(input: FileSystemWatchFileInput): Promise<FileSystemWatchFileResult>
-  unwatchFile(input: FileSystemUnwatchFileInput): Promise<void>
-  onFileChanged(listener: (event: FileSystemFileChangedEvent) => void): () => void
-}
+export type { FileSystemApi, FileSystemFileChangedEvent, FileSystemListTreeInput, FileSystemReadFileInput, FileSystemReadFileResult, FileSystemUnwatchFileInput, FileSystemWatchFileInput, FileSystemWatchFileResult, FileSystemWriteFileInput, FileSystemWriteFileResult, FileTreeNode, FileTreeNodeType } from './filesystem'
 
 export const IPC_CHANNELS = {
   app: {
@@ -344,6 +272,10 @@ export const IPC_CHANNELS = {
     reindex: 'semantic:reindex',
     getLogs: 'semantic:get-logs',
     onLog: 'semantic:log'
+  },
+  diagnostics: {
+    getSnapshot: 'diagnostics:get-snapshot',
+    exportReport: 'diagnostics:export-report'
   }
 } as const
 
@@ -602,6 +534,7 @@ export interface OxeApi {
   mcpInternal: McpInternalApi
   oxeContext: OxeContextApi
   semantic: SemanticApi
+  diagnostics: import('./diagnostics').DiagnosticsApi
 }
 
 export interface SemanticStatus {

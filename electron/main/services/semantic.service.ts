@@ -139,7 +139,7 @@ function parseChunkMetadata(value: unknown, index: number): {
 
 export class SemanticService {
   private worker: Worker | null = null;
-  private pendingRequests = new Map<string, { resolve: (val: any) => void, reject: (err: any) => void, timer: NodeJS.Timeout }>();
+  private pendingRequests = new Map<string, { resolve: (val: number[]) => void, reject: (err: Error) => void, timer: NodeJS.Timeout }>();
   private watchers = new Map<string, FSWatcher>();
   /** Recorded workspace roots so a toggle can (re)start watching on demand. */
   private roots = new Map<string, string>();
@@ -552,7 +552,7 @@ export class SemanticService {
         .update(`\nretrieval-v${RETRIEVAL_INDEX_VERSION}\n`)
         .update(content)
         .digest('hex');
-      const existing = this.db.prepare('SELECT checksum FROM semantic_embeddings WHERE workspace_id = ? AND file_path = ?').get(workspaceId, filePath) as any;
+      const existing = this.db.prepare('SELECT checksum FROM semantic_embeddings WHERE workspace_id = ? AND file_path = ?').get(workspaceId, filePath) as { checksum: string } | undefined;
 
       const lexicalExisting = this.db.prepare('SELECT 1 AS present FROM semantic_documents WHERE workspace_id = ? AND file_path = ?').get(workspaceId, filePath) as { present?: number } | undefined;
       if (existing && existing.checksum === checksum && lexicalExisting?.present) return;
@@ -625,7 +625,13 @@ export class SemanticService {
     const requestedMode = options.mode ?? this.getMode(workspaceId)
     let resolvedMode = resolveSemanticSearchMode(text, requestedMode)
 
-    const rows = this.db.prepare('SELECT file_path, embedding_json, embedding_blob, dim, chunk_metadata_json FROM semantic_embeddings WHERE workspace_id = ?').all(workspaceId) as any[]
+    const rows = this.db.prepare('SELECT file_path, embedding_json, embedding_blob, dim, chunk_metadata_json FROM semantic_embeddings WHERE workspace_id = ?').all(workspaceId) as Array<{
+      file_path: string
+      embedding_json: string
+      embedding_blob: Buffer | null
+      dim: number | null
+      chunk_metadata_json: string
+    }>
 
     const semanticCandidates: Array<{ filePath: string; score: number; bestChunkIndex?: number; bestChunkStart?: number; bestChunkEnd?: number; bestChunkLineStart?: number; bestChunkLineEnd?: number; bestChunkKind?: SemanticSourceChunk['kind']; bestChunkName?: string }> = []
     let semanticSearchCompleted = false

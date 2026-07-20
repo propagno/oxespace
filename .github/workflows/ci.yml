@@ -150,13 +150,16 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           npm run typecheck
 
+      - name: Lint
+        run: npm run lint
+
       - name: Unit and integration tests
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
           npm run rebuild:native:node
-          npm run test
+          npm run test:coverage
 
       - name: Build renderer and main process
         shell: pwsh

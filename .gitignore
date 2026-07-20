@@ -23,3 +23,4 @@ e2e/screenshots/
 # ~120MB, not versioned. See scripts/fetch-semantic-model.mjs.
 resources/models/
 tests/token-bench/.cache/
+coverage/

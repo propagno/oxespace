@@ -18,12 +18,20 @@ import type { InternalMcpWorktreeChangedEvent } from '../../shared/types/mcp-int
  * exercise the handlers directly with lightweight fakes — no native binding.
  */
 
-const WS = { id: 'ws-1', rootPath: '/repo', name: 'Repo' }
+const WS = { id: 'ws-1', rootPath: '/repo', name: 'Repo', isActive: true }
+
+function makeWorkspaceServ(workspaces: Array<{ id: string; rootPath: string; name: string; isActive?: boolean }> = [WS]) {
+  const byId = new Map(workspaces.map((ws) => [ws.id, ws]))
+  return {
+    get: (id: string) => byId.get(id) ?? null,
+    list: () => workspaces
+  }
+}
 
 function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
   const base = {
     workspaceId: WS.id,
-    workspaceServ: { get: () => WS, list: () => [WS] },
+    workspaceServ: makeWorkspaceServ([WS]),
     github: {
       createWorktree: vi.fn(async () => ({ ok: true, message: 'created' })),
       removeWorktree: vi.fn(async () => ({ ok: true, message: 'removed' }))
@@ -74,6 +82,96 @@ describe('get_job_output handler', () => {
     // the throw into an MCP isError payload (see dispatchRpc try/catch).
     const ctx = makeCtx()
     await expect(handlers.getJobOutput({}, ctx)).rejects.toThrow('jobId')
+  })
+})
+
+describe('requireWorkspace resolution (active fallback)', () => {
+  test('uses the explicit header workspace when it still exists (not the active one)', async () => {
+    const active = {
+      id: 'ws-active',
+      rootPath: '/active',
+      name: 'Active',
+      isActive: true,
+      panes: [{ id: 'pane-active', type: 'terminal', rowIndex: 0, columnIndex: 0, agentName: null, status: 'idle', rootPath: null, displayName: null }]
+    }
+    const targeted = {
+      id: 'ws-target',
+      rootPath: '/target',
+      name: 'Target',
+      isActive: false,
+      panes: [{ id: 'pane-target', type: 'terminal', rowIndex: 0, columnIndex: 0, agentName: null, status: 'idle', rootPath: null, displayName: null }]
+    }
+    const ctx = makeCtx({
+      workspaceId: targeted.id,
+      workspaceServ: {
+        get: (id: string) => (id === active.id ? active : id === targeted.id ? targeted : null),
+        list: () => [active, targeted]
+      } as unknown as ToolContext['workspaceServ']
+    })
+    const result = await handlers.listPanes({}, ctx)
+    expect(result.isError).toBeUndefined()
+    expect(result.content[0].text).toContain('pane-target')
+    expect(result.content[0].text).not.toContain('pane-active')
+  })
+
+  test('falls back to the active workspace when the header id is stale', async () => {
+    const active = {
+      id: 'ws-active',
+      rootPath: '/active',
+      name: 'Active',
+      isActive: true,
+      panes: [{ id: 'pane-active', type: 'terminal', rowIndex: 0, columnIndex: 0, agentName: null, status: 'idle', rootPath: null, displayName: null }]
+    }
+    const ctx = makeCtx({
+      workspaceId: 'deleted-uuid-from-old-bridge',
+      workspaceServ: {
+        get: (id: string) => (id === active.id ? active : null),
+        list: () => [active]
+      } as unknown as ToolContext['workspaceServ']
+    })
+    const result = await handlers.listPanes({}, ctx)
+    expect(result.isError).toBeUndefined()
+    expect(result.content[0].text).toContain('pane-active')
+  })
+
+  test('falls back to the active workspace when the header is missing', async () => {
+    const active = {
+      id: 'ws-active',
+      rootPath: '/active',
+      name: 'Active',
+      isActive: true,
+      panes: [{ id: 'p1', type: 'terminal', rowIndex: 0, columnIndex: 0, agentName: null, status: 'idle', rootPath: null, displayName: null }]
+    }
+    const ctx = makeCtx({
+      workspaceId: null,
+      workspaceServ: {
+        get: (id: string) => (id === active.id ? active : null),
+        list: () => [active]
+      } as unknown as ToolContext['workspaceServ']
+    })
+    const result = await handlers.listPanes({}, ctx)
+    expect(result.isError).toBeUndefined()
+    expect(result.content[0].text).toContain('p1')
+  })
+
+  test('throws an actionable error when header is stale and nothing is active', async () => {
+    const orphan = { id: 'ws-orphan', rootPath: '/o', name: 'Orphan', isActive: false }
+    const ctx = makeCtx({
+      workspaceId: 'gone',
+      workspaceServ: makeWorkspaceServ([orphan]) as unknown as ToolContext['workspaceServ']
+    })
+    await expect(handlers.listPanes({}, ctx)).rejects.toThrow(/stale MCP bridge env/)
+    await expect(handlers.listPanes({}, ctx)).rejects.toThrow(/oxespace_list_workspaces/)
+    await expect(handlers.listPanes({}, ctx)).rejects.toThrow(/Orphan/)
+  })
+
+  test('throws an actionable error when header is missing and nothing is active', async () => {
+    const ctx = makeCtx({
+      workspaceId: null,
+      workspaceServ: makeWorkspaceServ([]) as unknown as ToolContext['workspaceServ']
+    })
+    await expect(handlers.listPanes({}, ctx)).rejects.toThrow(/missing X-OXE-Workspace-Id/)
+    await expect(handlers.listPanes({}, ctx)).rejects.toThrow(/oxespace_list_workspaces/)
   })
 })
 
