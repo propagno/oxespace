@@ -96,7 +96,7 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
               ? 'ready · empty index (waiting for files)'
               : `ready · ${status.count} files`
 
-  const modelLabel = status?.modelId ?? 'Xenova/multilingual-e5-small'
+  const modelLabel = status?.modelId ?? 'Xenova/multilingual-e5-base'
 
   const handleReindex = async (): Promise<void> => {
     if (!workspaceId || reindexing) return

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react'
-import { Activity, ArrowRight, Bot, Brain, Code2, Command, Compass, FolderTree, Github, GitCompareArrows, History, ListChecks, MonitorPlay, Network, PanelLeft, Search, Settings2, Sparkles, Wrench, X, Slash, FileCode2 } from 'lucide-react'
+import { Activity, ArrowRight, Bot, Brain, Code2, Command, FolderTree, Github, GitCompareArrows, MonitorPlay, Network, PanelLeft, Search, Settings2, Sparkles, Wrench, X, Slash, FileCode2 } from 'lucide-react'
 import { useUIStore } from '../../store/ui.store'
 
 export interface ToolsActiveState {
@@ -11,14 +11,13 @@ export interface ToolsActiveState {
   scripts: boolean
   webPreview: boolean
   integration: boolean
-  oxe: boolean
+  search: boolean
 }
 
 interface ToolsModalProps {
   active: ToolsActiveState
   onClose: () => void
   onOpenCommandPalette: () => void
-  onOpenIssues: () => void
   onOpenWorkspaceSettings: () => void
   /** Opens Agent Settings (CLI providers, discovery, updates). Featured at the top of the hub. */
   onOpenAgentSettings: () => void
@@ -29,12 +28,11 @@ interface ToolsModalProps {
   onToggleWorktree: () => void
   onToggleScripts: () => void
   onToggleWebPreview: () => void
+  onToggleSearch: () => void
   onOpenIntegration: () => void
-  onOpenHistory: () => void
   onOpenMcp: () => void
   onOpenSkills: () => void
   onOpenSemanticLogs: () => void
-  onToggleOxe: () => void
 }
 
 type ToolTone = 'project' | 'dev' | 'ai' | 'system'
@@ -61,7 +59,6 @@ export function ToolsModal({
   active,
   onClose,
   onOpenCommandPalette,
-  onOpenIssues,
   onOpenWorkspaceSettings,
   onOpenAgentSettings,
   onToggleEditor,
@@ -71,12 +68,11 @@ export function ToolsModal({
   onToggleWorktree,
   onToggleScripts,
   onToggleWebPreview,
+  onToggleSearch,
   onOpenIntegration,
-  onOpenHistory,
   onOpenMcp,
   onOpenSkills,
-  onOpenSemanticLogs,
-  onToggleOxe
+  onOpenSemanticLogs
 }: ToolsModalProps): ReactElement {
   const activePaneId = useUIStore((s) => s.activePaneId)
   const openSlashOverlay = useUIStore((s) => s.openSlashOverlay)
@@ -105,15 +101,6 @@ export function ToolsModal({
   }
 
   const tools: ToolDef[] = [
-    {
-      id: 'issues',
-      group: 'Project',
-      tone: 'project',
-      icon: <ListChecks size={16} aria-hidden="true" />,
-      label: 'Issues',
-      detail: 'Create and track work in-workspace',
-      onClick: () => run(onOpenIssues)
-    },
     {
       id: 'integration',
       group: 'Project',
@@ -155,6 +142,17 @@ export function ToolsModal({
       onClick: () => run(onToggleScripts)
     },
     {
+      id: 'search',
+      group: 'Development',
+      tone: 'dev',
+      icon: <Search size={16} aria-hidden="true" />,
+      label: 'Find in Files',
+      detail: 'ripgrep text & regex search',
+      shortcut: 'Ctrl+Shift+F',
+      active: active.search,
+      onClick: () => run(onToggleSearch)
+    },
+    {
       id: 'web-preview',
       group: 'Development',
       tone: 'dev',
@@ -173,16 +171,6 @@ export function ToolsModal({
       detail: 'Long-running tasks dock',
       active: active.background,
       onClick: () => run(onToggleBackground)
-    },
-    {
-      id: 'history',
-      group: 'AI & Agents',
-      tone: 'ai',
-      icon: <History size={16} aria-hidden="true" />,
-      label: 'History',
-      detail: 'Resume past agent sessions',
-      shortcut: 'Ctrl+Shift+H',
-      onClick: () => run(onOpenHistory)
     },
     {
       id: 'slash',
@@ -223,16 +211,6 @@ export function ToolsModal({
       label: 'Semantic Activity',
       detail: 'Local vector index logs',
       onClick: () => run(onOpenSemanticLogs)
-    },
-    {
-      id: 'oxe',
-      group: 'AI & Agents',
-      tone: 'ai',
-      icon: <Compass size={16} aria-hidden="true" />,
-      label: 'OXE',
-      detail: 'Spec-driven SDLC panel',
-      active: active.oxe,
-      onClick: () => run(onToggleOxe)
     },
     {
       id: 'editor',

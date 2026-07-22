@@ -30,7 +30,7 @@ const CACHE_FILE = join(CACHE_DIR, 'semantic-embeddings.json')
 const SCAN_DIRS = ['electron', 'src', 'shared']
 const TOP_K = 5
 
-const MODEL_ID = 'Xenova/multilingual-e5-small'
+const MODEL_ID = 'Xenova/multilingual-e5-base'
 const QUERY_PREFIX = 'query: '
 const PASSAGE_PREFIX = 'passage: '
 const CHUNK_CHARS = 1500
@@ -56,6 +56,9 @@ const MAX_INDEXABLE_BYTES = 256 * 1024
 
 // Labeled queries — Portuguese (the app's audience) against English code.
 // target = path substrings that count as a correct answer for that query.
+// n≈30 golden set: coarse Recall steps shrink from ~10pp (n=10) to ~3pp, and
+// MRR / per-query rank gain resolution. Each target was verified to be the file
+// that actually answers the query (see scripts header + git-tracked paths).
 const QUERIES = [
   { q: 'Como o servidor MCP entra em hibernação por inatividade e onde fica o timer de sleep?', target: ['services/mcp.service.ts'] },
   { q: 'Onde os embeddings da busca semântica são gerados pelo worker?', target: ['workers/semantic-worker.ts', 'services/semantic.service.ts'] },
@@ -66,7 +69,28 @@ const QUERIES = [
   { q: 'Como o RTK baixa o binário rtk.exe para a pasta de dados do usuário?', target: ['services/rtk.service.ts'] },
   { q: 'Onde está o registro das ferramentas internas expostas via MCP?', target: ['mcp-internal/tool-registry.ts'] },
   { q: 'Como um workspace é criado com um pane por célula do layout?', target: ['services/workspace.service.ts'] },
-  { q: 'Onde o áudio é transcrito usando o Whisper na funcionalidade de voz?', target: ['services/voice.service.ts'] }
+  { q: 'Onde o áudio é transcrito usando o Whisper na funcionalidade de voz?', target: ['services/voice.service.ts'] },
+  // --- expansão n=10 → n=30 (domínios ainda não cobertos) ---
+  { q: 'Onde os comandos git como status, diff e commit são executados no processo principal?', target: ['services/git.service.ts'] },
+  { q: 'Como as sessões de terminal são persistidas no banco e forkadas em novas sessões?', target: ['services/session.service.ts'] },
+  { q: 'Onde as tarefas do quadro kanban são criadas e suas dependências entre tarefas gerenciadas?', target: ['services/task.service.ts'] },
+  { q: 'Como os jobs em segundo plano são iniciados, acompanhados e finalizados?', target: ['services/background.service.ts'] },
+  { q: 'Onde as skills de agente são carregadas dos arquivos markdown com frontmatter YAML?', target: ['services/skill.service.ts'] },
+  { q: 'Como o app coleta diagnósticos e informações de saúde do ambiente?', target: ['services/diagnostics.service.ts'] },
+  { q: 'Onde o grafo de código é construído e consultado para navegação?', target: ['services/codegraph.service.ts'] },
+  { q: 'Como os perfis de shell como PowerShell e bash são detectados e configurados?', target: ['services/shell-profile.service.ts'] },
+  { q: 'Onde os agentes de IA são lançados e seus processos de terminal gerenciados?', target: ['services/agent.service.ts'] },
+  { q: 'Como o consumo de tokens de uso é consultado entre os provedores como Claude e Codex?', target: ['services/usage.service.ts'] },
+  { q: 'Onde os servidores MCP habilitados são materializados no arquivo .mcp.json do workspace?', target: ['services/mcp-sync.service.ts'] },
+  { q: 'Como o controle de qualidade avalia achados e produz um veredito de pass, warn ou fail?', target: ['services/quality-controller.service.ts'] },
+  { q: 'Onde os eventos de preview web são publicados quando a ferramenta abre uma URL?', target: ['mcp-internal/web-preview-bus.ts'] },
+  { q: 'Como as mutações de worktree do git emitem eventos para a UI se atualizar?', target: ['mcp-internal/worktree-event-bus.ts'] },
+  { q: 'Onde as ferramentas internas do MCP executam suas ações de fato?', target: ['mcp-internal/tool-handlers.ts'] },
+  { q: 'Onde o estado dos terminais abertos é mantido no store do renderer?', target: ['store/terminal.store.ts'] },
+  { q: 'Como as preferências e configurações do usuário são guardadas no frontend?', target: ['store/settings.store.ts'] },
+  { q: 'Onde o layout em grade dos panes do workspace é renderizado?', target: ['components/Grid/WorkspaceGrid.tsx'] },
+  { q: 'Como a paleta de comandos é aberta e filtra as ações disponíveis?', target: ['components/CommandPalette/CommandPalette.tsx'] },
+  { q: 'Qual migração adiciona o armazenamento dos embeddings em coluna blob?', target: ['migrations/040_semantic_embedding_blob.sql'] }
 ]
 
 let countTokens

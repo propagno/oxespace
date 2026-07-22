@@ -1,4 +1,4 @@
-import { Activity, Bot, FilePlus2, FolderOpen, Github, Grid2x2, History, LayoutDashboard, Maximize, Mic, Palette, Plus, RotateCw, Settings2, Sliders, Split, Square, StopCircle, Wrench } from 'lucide-react'
+import { Activity, Bot, FilePlus2, FolderOpen, Github, Grid2x2, LayoutDashboard, Maximize, Mic, Palette, Plus, RotateCw, Search, Settings2, Sliders, Split, Square, StopCircle, Wrench } from 'lucide-react'
 import { Suspense, lazy, useEffect, useRef, useState, type ReactElement } from 'react'
 import type { AgentProfile } from '../shared/types/agent'
 import { OxeLogo } from './components/Brand/OxeLogo'
@@ -13,7 +13,6 @@ const DesignSystemPage = lazy(() => import('./components/DesignSystem/DesignSyst
 const SettingsModal = lazy(() => import('./components/Settings/SettingsModal').then((m) => ({ default: m.SettingsModal })))
 const ToolsModal = lazy(() => import('./components/Workspace/ToolsModal').then((m) => ({ default: m.ToolsModal })))
 const CommandPalette = lazy(() => import('./components/CommandPalette/CommandPalette').then((m) => ({ default: m.CommandPalette })))
-const HistoryPanel = lazy(() => import('./components/History/HistoryPanel').then((m) => ({ default: m.HistoryPanel })))
 const McpPanel = lazy(() => import('./components/MCP/McpPanel').then((m) => ({ default: m.McpPanel })))
 const SemanticActivityPanel = lazy(() => import('./components/Semantic/SemanticActivityPanel').then((m) => ({ default: m.SemanticActivityPanel })))
 const SkillsBrowser = lazy(() => import('./components/Skills/SkillsBrowser').then((m) => ({ default: m.SkillsBrowser })))
@@ -69,7 +68,6 @@ export function App(): ReactElement {
     setActiveWorkspace,
     shellProfiles,
     splitPane,
-    updatePaneType,
     updateGitHubState,
     updateReviewState,
     updateEditorState,
@@ -96,27 +94,24 @@ export function App(): ReactElement {
     isNewWorkspaceOpen,
     isWorkspaceSettingsOpen,
     slashOverlayPaneId,
-    isHistoryPanelOpen,
     isMcpPanelOpen,
     isSkillsBrowserOpen,
     isScriptsPanelOpen,
     webPreviewOpenByWorkspace,
-    isOxePanelOpen,
     isIntegrationPanelOpen,
     openCommandPalette,
     openWorkspaceSettings,
     openSlashOverlay,
     closeSlashOverlay,
-    openHistoryPanel,
-    closeHistoryPanel,
     openMcpPanel,
     closeMcpPanel,
     openSkillsBrowser,
     closeSkillsBrowser,
     openScriptsPanel,
     closeScriptsPanel,
-    openOxePanel,
-    closeOxePanel,
+    isSearchPanelOpen,
+    openSearchPanel,
+    closeSearchPanel,
     openWebPreview,
     closeWebPreview,
     openIntegrationPanel,
@@ -333,44 +328,20 @@ export function App(): ReactElement {
     })
   }
 
-  const toggleOxePanel = (): void => {
-    if (isOxePanelOpen) closeOxePanel()
-    else openOxePanel()
-  }
-
   const toggleScriptsPanel = (): void => {
     if (isScriptsPanelOpen) closeScriptsPanel()
     else openScriptsPanel()
+  }
+
+  const toggleSearchPanel = (): void => {
+    if (isSearchPanelOpen) closeSearchPanel()
+    else openSearchPanel()
   }
 
   const toggleWebPreviewPanel = (): void => {
     if (!activeWorkspaceId) return
     if (webPreviewOpenByWorkspace[activeWorkspaceId]) closeWebPreview(activeWorkspaceId)
     else openWebPreview(activeWorkspaceId)
-  }
-
-  const openIssues = async (): Promise<void> => {
-    if (!activeWorkspace || !activePane) {
-      setAppNotice('Open a workspace and select a pane first.')
-      return
-    }
-    const existing = activeWorkspace.panes.find((pane) => pane.type === 'tasks')
-    if (existing) {
-      setActivePane(existing.id)
-      return
-    }
-
-    try {
-      const previousPaneIds = new Set(activeWorkspace.panes.map((pane) => pane.id))
-      await splitPane(activePane.id, 'vertical')
-      const updated = useWorkspaceStore.getState().workspaces.find((workspace) => workspace.id === activeWorkspace.id)
-      const taskPane = updated?.panes.find((pane) => !previousPaneIds.has(pane.id))
-      if (!taskPane) throw new Error('Could not create a task pane.')
-      await updatePaneType(taskPane.id, 'tasks')
-      setActivePane(taskPane.id)
-    } catch (error) {
-      setAppNotice(error instanceof Error ? error.message : 'Could not open Issues.')
-    }
   }
 
   const splitActivePane = (direction: 'vertical' | 'horizontal'): void => {
@@ -414,11 +385,10 @@ export function App(): ReactElement {
     { id: 'new-workspace', title: 'Create workspace', subtitle: 'Open the New Workspace wizard', icon: FilePlus2, category: 'Workspace', keywords: ['new', 'open', 'project'], run: openNewWorkspace },
     { id: 'workspace-settings', title: 'Open workspace settings', subtitle: 'Theme, layout, density, shell', icon: Sliders, category: 'Workspace', disabled: !activeWorkspace, run: openWorkspaceSettings },
     { id: 'toggle-sidebar', title: 'Toggle sidebar', subtitle: 'Ctrl+B', icon: LayoutDashboard, category: 'Workspace', run: toggleSidebar },
-    { id: 'open-tools', title: 'Open Tools', subtitle: 'Panels, MCP, history, workspace tools', icon: Settings2, category: 'Workspace', keywords: ['tools', 'panels', 'mcp', 'gear'], run: openTools },
+    { id: 'open-tools', title: 'Open Tools', subtitle: 'Panels, MCP, workspace tools', icon: Settings2, category: 'Workspace', keywords: ['tools', 'panels', 'mcp', 'gear'], run: openTools },
 
     // AI & Agents
     { id: 'open-settings', title: 'Open Agent Settings', subtitle: 'Configure CLIs and discovery', icon: Bot, category: 'AI & Agents', keywords: ['ai', 'provider', 'discovery'], run: toggleSettings },
-    { id: 'open-history', title: 'Open session history', subtitle: 'Ctrl+Shift+H', icon: History, category: 'AI & Agents', keywords: ['session', 'resume'], run: openHistoryPanel },
     { id: 'open-mcp', title: 'Open MCP servers', subtitle: 'Model Context Protocol tools', icon: Wrench, category: 'AI & Agents', keywords: ['mcp', 'tools'], run: openMcpPanel },
     { id: 'open-skills', title: 'Open Skills', subtitle: 'Browse markdown skill prompts', icon: Activity, category: 'AI & Agents', keywords: ['skill', 'slash'], run: openSkillsBrowser },
     { id: 'open-integration', title: 'Open multi-repo coordination', subtitle: 'Align agents, context and handoffs', icon: Grid2x2, category: 'Workspace', keywords: ['integration', 'coordination', 'srv', 'bff', 'fed', 'handoff'], disabled: !activeWorkspace, run: openIntegrationPanel },
@@ -426,6 +396,7 @@ export function App(): ReactElement {
     // View
     { id: 'toggle-editor', title: 'Toggle editor', subtitle: 'Ctrl+E', icon: LayoutDashboard, category: 'View', disabled: !activeWorkspace, run: toggleEditor },
     { id: 'github-open-panel', title: 'GitHub: Open tools panel', icon: Github, category: 'View', keywords: ['git', 'pr', 'workflow', 'actions'], disabled: !activeWorkspace, run: toggleGitHubPanel },
+    { id: 'find-in-files', title: 'Find in Files', subtitle: 'Ctrl+Shift+F · ripgrep text/regex search', icon: Search, category: 'View', keywords: ['search', 'grep', 'ripgrep', 'rg', 'find', 'text', 'regex'], disabled: !activeWorkspace, run: toggleSearchPanel },
     {
       id: 'toggle-background-dock',
       title: 'Background jobs: Toggle dock',
@@ -519,6 +490,14 @@ export function App(): ReactElement {
         toggleEditor()
         return
       }
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && key === 'f') {
+        event.preventDefault()
+        // Read fresh state: this handler doesn't re-subscribe on ui-store changes.
+        const ui = useUIStore.getState()
+        if (ui.isSearchPanelOpen) ui.closeSearchPanel()
+        else ui.openSearchPanel()
+        return
+      }
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === '\\') {
         event.preventDefault()
         splitActivePane('vertical')
@@ -554,11 +533,6 @@ export function App(): ReactElement {
         openSlashOverlay(activePane.id)
         return
       }
-      if ((event.ctrlKey || event.metaKey) && event.shiftKey && key === 'h') {
-        event.preventDefault()
-        openHistoryPanel()
-        return
-      }
       // Live terminal font zoom: Ctrl/Cmd +, Ctrl/Cmd -, Ctrl/Cmd 0 (reset).
       // Adjusts the GLOBAL font-size pref, which propagates to every open pane.
       if ((event.ctrlKey || event.metaKey) && !event.altKey) {
@@ -580,7 +554,7 @@ export function App(): ReactElement {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [activePane, activeWorkspace, maximizedPaneId, openCommandPalette, openSlashOverlay, openHistoryPanel, openWorkspaceSettings, splitPane, toggleSidebar, updateEditorState])
+  }, [activePane, activeWorkspace, maximizedPaneId, openCommandPalette, openSlashOverlay, openWorkspaceSettings, splitPane, toggleSidebar, updateEditorState])
 
   // Push-to-talk: hold the configured hotkey to dictate into the active
   // terminal, release to transcribe + insert. Works even while the terminal
@@ -667,11 +641,11 @@ export function App(): ReactElement {
                       scriptsVisible={isActive && isScriptsPanelOpen}
                       webPreviewVisible={webPreviewOpenByWorkspace[ws.id] === true}
                       integrationVisible={isActive && isIntegrationPanelOpen}
-                      oxeVisible={isActive && isOxePanelOpen}
+                      searchVisible={isActive && isSearchPanelOpen}
                       onCloseScripts={closeScriptsPanel}
                       onCloseWebPreview={() => closeWebPreview(ws.id)}
                       onCloseIntegration={closeIntegrationPanel}
-                      onCloseOxe={closeOxePanel}
+                      onCloseSearch={closeSearchPanel}
                       onSelectWorkspace={(id) => void setActiveWorkspace(id)}
                       workspaces={workspaces}
                       onUpdateEditorState={(input) => void updateEditorState(input)}
@@ -716,14 +690,6 @@ export function App(): ReactElement {
           skills={skills}
           onClose={closeSlashOverlay}
           onExecute={dispatchSlashCommand}
-        />
-      ) : null}
-      {isHistoryPanelOpen && activeWorkspace ? (
-        <HistoryPanel
-          workspaceId={activeWorkspace.id}
-          workspaceRootPath={activeWorkspace.rootPath}
-          activePaneId={activePaneId}
-          onClose={closeHistoryPanel}
         />
       ) : null}
       {isMcpPanelOpen ? (
@@ -830,11 +796,10 @@ export function App(): ReactElement {
             scripts: isScriptsPanelOpen,
             webPreview: activeWorkspaceId ? webPreviewOpenByWorkspace[activeWorkspaceId] === true : false,
             integration: isIntegrationPanelOpen,
-            oxe: isOxePanelOpen
+            search: isSearchPanelOpen
           }}
           onClose={closeTools}
           onOpenCommandPalette={openCommandPalette}
-          onOpenIssues={() => void openIssues()}
           onOpenWorkspaceSettings={openWorkspaceSettings}
           onOpenAgentSettings={toggleSettings}
           onToggleEditor={toggleEditor}
@@ -844,12 +809,11 @@ export function App(): ReactElement {
           onToggleWorktree={toggleWorktreePanel}
           onToggleScripts={toggleScriptsPanel}
           onToggleWebPreview={toggleWebPreviewPanel}
+          onToggleSearch={toggleSearchPanel}
           onOpenIntegration={openIntegrationPanel}
-          onOpenHistory={openHistoryPanel}
           onOpenMcp={openMcpPanel}
           onOpenSkills={openSkillsBrowser}
           onOpenSemanticLogs={() => setSemanticActivityOpen(true)}
-          onToggleOxe={toggleOxePanel}
         />
       ) : null}
       {isDesignSystemOpen ? <DesignSystemPage onClose={() => { setDesignSystemOpen(false) }} /> : null}

@@ -1,4 +1,4 @@
-import { ChevronsLeft, ChevronsRight, Plus, Search, Settings2 } from 'lucide-react'
+import { ChevronsLeft, ChevronsRight, Plus, Search, Wrench } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { IntegrationGroup } from '../../../shared/types/integration'
 import type { Workspace } from '../../../shared/types/workspace'
@@ -18,7 +18,7 @@ interface SidebarProps {
   onCloseWorkspace: (id: string) => void
   isCollapsed: boolean
   onToggleCollapse: () => void
-  /** Opens the Tools hub modal (workspace panels, MCP, history, …). */
+  /** Opens the Tools hub modal (workspace panels, MCP, skills, …). */
   onOpenTools: () => void
   integrationGroups?: IntegrationGroup[]
 }
@@ -143,11 +143,11 @@ export function Sidebar({
             type="button"
             className="sidebar-tools-btn"
             aria-label="Open tools"
-            title="Tools"
+            title="Tools — panels, MCP, skills"
             data-testid="btn-open-tools"
             onClick={onOpenTools}
           >
-            <Settings2 size={14} aria-hidden="true" />
+            <Wrench size={16} aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -265,12 +265,17 @@ export function Sidebar({
           type="button"
           className="sidebar-tools-btn sidebar-tools-btn-labeled"
           aria-label="Open tools"
-          title="Tools — panels, MCP, history…"
+          title="Tools — panels, MCP, skills"
           data-testid="btn-open-tools"
           onClick={onOpenTools}
         >
-          <Settings2 size={14} aria-hidden="true" />
-          <span>Tools</span>
+          <span className="sidebar-tools-btn-icon" aria-hidden="true">
+            <Wrench size={15} />
+          </span>
+          <span className="sidebar-tools-btn-copy">
+            <span className="sidebar-tools-btn-label">Tools</span>
+            <span className="sidebar-tools-btn-hint">Panels · MCP · more</span>
+          </span>
         </button>
         <button
           type="button"

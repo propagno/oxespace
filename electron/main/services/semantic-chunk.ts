@@ -11,7 +11,7 @@
  * within multilingual-e5-base's 512-token window for source code; the overlap
  * keeps a construct that straddles a boundary intact in at least one chunk.
  */
-export const EMBED_DIM_DEFAULT = 384
+export const EMBED_DIM_DEFAULT = 768
 export const CHUNK_CHARS = 1500
 export const CHUNK_OVERLAP = 200
 export const MAX_CHUNKS = 60

@@ -29,7 +29,7 @@ export interface SemanticStatus {
   indexing: boolean
   count: number
   lastError: string | null
-  /** Embedding model id (e.g. Xenova/multilingual-e5-small). */
+  /** Embedding model id (e.g. Xenova/multilingual-e5-base). */
   modelId: string
   mode: SemanticSearchMode
   coverage: {

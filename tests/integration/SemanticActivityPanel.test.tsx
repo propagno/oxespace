@@ -9,7 +9,7 @@ const STATUS = {
   indexing: false,
   count: 24,
   lastError: null,
-  modelId: 'Xenova/multilingual-e5-small',
+  modelId: 'Xenova/multilingual-e5-base',
   mode: 'auto' as const,
   coverage: {
     lexicalDocuments: 24,

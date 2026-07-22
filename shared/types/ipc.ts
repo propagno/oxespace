@@ -139,6 +139,10 @@ export const IPC_CHANNELS = {
     getDiff: 'git:get-diff',
     onDiffUpdate: 'git:diff-update'
   },
+  search: {
+    run: 'search:run',
+    cancel: 'search:cancel'
+  },
   clipboard: {
     saveImageToTemp: 'clipboard:save-image-to-temp',
     readText: 'clipboard:read-text',
@@ -391,6 +395,11 @@ export interface GitApi {
   onDiffUpdate(listener: (diff: import('./git').GitDiff) => void): () => void
 }
 
+export interface SearchApi {
+  run(input: import('./search').SearchInput): Promise<import('./search').SearchResult>
+  cancel(): Promise<void>
+}
+
 export interface GitHubApi {
   getCliStatus(input: GitHubWorkspaceInput): Promise<GitHubCliStatus>
   getWorkspaceStatus(input: GitHubWorkspaceInput): Promise<GitHubWorkspaceStatus>
@@ -518,6 +527,7 @@ export interface OxeApi {
   tasks: TaskApi
   fs: FileSystemApi
   git: GitApi
+  search: SearchApi
   github: GitHubApi
   integration: IntegrationApi
   clipboard: ClipboardApi
@@ -543,7 +553,7 @@ export interface SemanticStatus {
   indexing: boolean
   count: number
   lastError: string | null
-  /** Embedding model id (e.g. Xenova/multilingual-e5-small). */
+  /** Embedding model id (e.g. Xenova/multilingual-e5-base). */
   modelId?: string
   mode: SemanticSearchMode
   coverage: SemanticIndexCoverage

@@ -7,7 +7,7 @@ through the internal MCP server. Nothing leaves the machine for search.
 
 | Signal | Source | Purpose |
 |--------|--------|---------|
-| **Vector** | `transformers.js` (`multilingual-e5-small`) | Meaning similarity across natural language |
+| **Vector** | `transformers.js` (`multilingual-e5-base`) | Meaning similarity across natural language |
 | **Lexical (FTS5)** | SQLite FTS5 over chunk text | Exact symbols, tests, config, identifiers |
 | **Structural** | CodeGraph / tree-sitter | Callers, imports, related symbols |
 

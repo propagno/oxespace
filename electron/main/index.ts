@@ -10,6 +10,7 @@ import { openDatabase } from './db/index'
 import { registerAgentIpc } from './ipc/agent.ipc'
 import { registerFileSystemIpc } from './ipc/file-system.ipc'
 import { registerGitIpc } from './ipc/git.ipc'
+import { registerSearchIpc } from './ipc/search.ipc'
 import { registerGitHubIpc } from './ipc/github.ipc'
 import { registerIntegrationIpc } from './ipc/integration.ipc'
 import { registerBackgroundIpc } from './ipc/background.ipc'
@@ -133,6 +134,7 @@ function registerIpcHandlers(): () => void {
   registerAgentIpc(db)
   registerTaskIpc(db, terminalManager)
   registerGitIpc()
+  registerSearchIpc()
   registerGitHubIpc(db)
   registerIntegrationIpc(db)
   const backgroundManager = new BackgroundManager(db, {

@@ -399,6 +399,20 @@ export function parseGitBranchInput(value: unknown): { workspaceId: string; root
   }
 }
 
+export function parseSearchInput(value: unknown): import('../../../shared/types/search').SearchInput {
+  const input = expectRecord(value, 'search:run input')
+  return {
+    workspaceId: expectNonEmptyString(input.workspaceId, 'workspaceId'),
+    rootPath: expectNonEmptyString(input.rootPath, 'rootPath'),
+    query: expectString(input.query, 'query'),
+    isRegex: input.isRegex === undefined ? undefined : expectBoolean(input.isRegex, 'isRegex'),
+    caseSensitive: input.caseSensitive === undefined ? undefined : expectBoolean(input.caseSensitive, 'caseSensitive'),
+    includeIgnored: input.includeIgnored === undefined ? undefined : expectBoolean(input.includeIgnored, 'includeIgnored'),
+    globs: input.globs === undefined ? undefined : expectStringArray(input.globs, 'globs'),
+    contextLines: input.contextLines === undefined ? undefined : expectPositiveIntegerOrZero(input.contextLines, 'contextLines')
+  }
+}
+
 // Subset of git's check-ref-format rules — accepts the characters legal in branch
 // names, tags, SHAs, and short refspecs we actually surface (HEAD~3, origin/main, v1.2.3).
 // Rejects shell metacharacters that would be dangerous if a future caller forgets
@@ -675,6 +689,13 @@ function expectPanelWidth(value: unknown): number {
 function expectPositiveInteger(value: unknown, label: string): number {
   if (!Number.isInteger(value) || Number(value) <= 0) {
     throw new Error(`${label} must be a positive integer`)
+  }
+  return Number(value)
+}
+
+function expectPositiveIntegerOrZero(value: unknown, label: string): number {
+  if (!Number.isInteger(value) || Number(value) < 0) {
+    throw new Error(`${label} must be a non-negative integer`)
   }
   return Number(value)
 }

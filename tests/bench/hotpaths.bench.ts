@@ -44,7 +44,7 @@ describe('terminal hot path — runs per PTY chunk (10s-100s/sec during streamin
 })
 
 // ─── Semantic scoring fixtures ──────────────────────────────────────────────
-const DIM = 384 // multilingual-e5-small
+const DIM = 768 // multilingual-e5-base
 function randVec(seed: number): number[] {
   // Deterministic LCG so runs are comparable.
   let x = (seed * 1103515245 + 12345) & 0x7fffffff
@@ -69,7 +69,7 @@ const corpus: number[][][] = Array.from({ length: FILES }, (_, k) =>
 )
 
 describe('semantic scoring — runs per query', () => {
-  bench('cosineSimilarity — 384-dim pair', () => { cosineSimilarity(fileVecA, fileVecB) })
+  bench('cosineSimilarity — 768-dim pair', () => { cosineSimilarity(fileVecA, fileVecB) })
   bench('bestChunkScore — file with 5 chunks', () => { bestChunkScore(query, file5) })
   bench('query scan — score 10k files (whole-workspace)', () => {
     let best = -Infinity

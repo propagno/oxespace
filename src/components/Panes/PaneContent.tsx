@@ -2,7 +2,6 @@ import { type ReactElement } from 'react'
 import type { WorkspacePane } from '../../../shared/types/workspace'
 import { EditorPane } from '../Editor/EditorPane'
 import { ReviewPane } from '../Review/ReviewPane'
-import { TasksPane } from '../Tasks/TasksPane'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { TerminalPane } from './TerminalPane'
 
@@ -17,8 +16,6 @@ export function PaneContent({ autoStart, pane, workspaceId, workspaceRootPath }:
   const workspace = useWorkspaceStore((state) => state.workspaces.find((item) => item.id === workspaceId) ?? null)
 
   switch (pane.type) {
-    case 'tasks':
-      return <TasksPane workspaceId={workspaceId} />
     case 'editor':
       return workspace
         ? <EditorPane workspaceId={workspaceId} rootPath={workspace.rootPath} />
@@ -28,10 +25,11 @@ export function PaneContent({ autoStart, pane, workspaceId, workspaceRootPath }:
         ? <ReviewPane workspaceId={workspaceId} rootPath={workspace.rootPath} />
         : <TerminalPane pane={pane} workspaceId={workspaceId} workspaceRootPath={workspaceRootPath} autoStart={autoStart} />
     case 'terminal':
+    case 'tasks':
     default:
-      // Legacy panes persisted with deprecated types (graph/swarm/inspector) are
-      // migrated to 'terminal' by 025_drop_legacy_pane_types.sql; this default
-      // catches anything that survives a partial migration.
+      // Issues/tasks UI was removed; legacy 'tasks' panes fall back to terminal.
+      // Other deprecated types (graph/swarm/inspector) are migrated by SQL and
+      // still land here if a partial migration left them behind.
       return <TerminalPane pane={pane} workspaceId={workspaceId} workspaceRootPath={workspaceRootPath} autoStart={autoStart} />
   }
 }

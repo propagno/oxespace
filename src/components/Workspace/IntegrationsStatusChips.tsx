@@ -94,7 +94,7 @@ export function IntegrationsStatusChips({ workspace }: IntegrationsStatusChipsPr
   const totalRunningMcp = runningMcpServers + (builtInMcpRunning ? 1 : 0)
 
   // Derive the Semantic chip's visual state + tooltip from enabled + worker health.
-  const modelHint = semanticStatus?.modelId ?? 'multilingual-e5-small'
+  const modelHint = semanticStatus?.modelId ?? 'multilingual-e5-base'
   let semanticClass = 'activity-idle'
   let semanticTitle = `Semantic search: off · model ${modelHint}`
   if (semanticEnabled) {

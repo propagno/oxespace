@@ -545,6 +545,19 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
     }
     window.addEventListener('oxe:terminal-open-search', handleOpenSearchRequest)
 
+    const syncViewportScrollArea = (): void => {
+      // Public API has no syncScrollArea; after maximize the private viewport can
+      // keep a stale scrollHeight so the wheel appears dead. Best-effort only.
+      try {
+        const core = (terminal as unknown as {
+          _core?: { viewport?: { syncScrollArea?: (immediate?: boolean) => void } }
+        })._core
+        core?.viewport?.syncScrollArea?.(true)
+      } catch {
+        /* private xterm surface — ignore if shape changes */
+      }
+    }
+
     const fitTerminal = (): void => {
       try {
         // Preserve absolute scroll position. A relative scroll after fit can jump
@@ -560,6 +573,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
         // changes (pane maximize/restore). Without a refresh, xterm can keep a
         // stale scrollHeight and the mouse wheel appears dead.
         terminal.refresh(0, Math.max(0, terminal.rows - 1))
+        syncViewportScrollArea()
 
         if (buf.type === 'alternate') {
           // TUI owns scrolling; don't fight it after fit.
@@ -578,6 +592,11 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       fitFrameRef.current = window.requestAnimationFrame(() => {
         fitFrameRef.current = null
         fitTerminal()
+        // CSS maximize/restore can settle one frame after ResizeObserver fires.
+        // A second pass keeps cols/rows + scroll metrics aligned with final size.
+        window.requestAnimationFrame(() => {
+          fitTerminal()
+        })
       })
     }
 

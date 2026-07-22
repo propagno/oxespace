@@ -71,28 +71,21 @@ test('captures all surfaces for design review', async () => {
     await page.keyboard.press('Escape')
     await page.waitForTimeout(200)
 
-    // 8. History panel (Ctrl+Shift+H)
-    await page.keyboard.press('Control+Shift+h')
-    await page.waitForTimeout(300)
-    await shot(page, '08-history-panel')
-    await page.keyboard.press('Escape')
-    await page.waitForTimeout(200)
-
-    // 9. Settings modal (Ctrl+,)
+    // 8. Settings modal (Ctrl+,)
     await page.keyboard.press('Control+,')
     await page.waitForTimeout(300)
-    await shot(page, '09-settings-modal')
+    await shot(page, '08-settings-modal')
 
-    // 10. Settings — New custom agent dialog
+    // 9. Settings — New custom agent dialog
     await page.getByTestId('btn-new-custom-agent').click().catch(() => undefined)
     await page.waitForTimeout(300)
-    await shot(page, '10-agent-config-new')
+    await shot(page, '09-agent-config-new')
     await page.keyboard.press('Escape')
     await page.waitForTimeout(200)
     await page.keyboard.press('Escape')
     await page.waitForTimeout(200)
 
-    // 11. MCP panel via command palette
+    // 10. MCP panel via command palette
     await page.keyboard.press('Control+k')
     await page.waitForTimeout(200)
     await page.keyboard.type('mcp')

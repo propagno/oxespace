@@ -123,6 +123,10 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       getDiff: (input) => ipc.invoke(IPC_CHANNELS.git.getDiff, input) as Promise<GitDiff>,
       onDiffUpdate: (listener) => subscribe<GitDiff>(ipc, IPC_CHANNELS.git.onDiffUpdate, listener)
     },
+    search: {
+      run: (input) => ipc.invoke(IPC_CHANNELS.search.run, input) as Promise<import('../../shared/types/search').SearchResult>,
+      cancel: () => ipc.invoke(IPC_CHANNELS.search.cancel) as Promise<void>
+    },
     clipboard: {
       saveImageToTemp: () => ipc.invoke(IPC_CHANNELS.clipboard.saveImageToTemp) as Promise<string | null>,
       readText: () => ipc.invoke(IPC_CHANNELS.clipboard.readText) as Promise<string>,

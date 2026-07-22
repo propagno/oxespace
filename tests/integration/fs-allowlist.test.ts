@@ -48,7 +48,11 @@ const ALLOWED_FS_IMPORTS = new Set([
   // arbitrary files to embed) and creates the transformers.js model cache under
   // <userData>/models. Background indexing outside the workspace-scoped
   // FileSystemService, like rtk/voice above.
-  'electron/main/services/semantic.service.ts'
+  'electron/main/services/semantic.service.ts',
+  // Search Service: Find in Files delegates the actual file reads to the
+  // ripgrep child process; its only raw fs use is existsSync to locate the
+  // bundled rg binary and validate the search root — a read-only probe.
+  'electron/main/services/search.service.ts'
 ])
 
 describe('workspace fs allowlist', () => {
