@@ -1,4 +1,4 @@
-import { Check, ChevronLeft, ChevronRight, Columns2, Rows3 } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Columns2, Rows3, Send } from 'lucide-react'
 import { type ReactElement } from 'react'
 import type { DiffMode } from '../../store/git.store'
 
@@ -13,6 +13,9 @@ interface ReviewToolbarProps {
   totalFiles: number
   reviewedCount: number
   currentIndex: number
+  /** #7 Annotate AI Diffs: pending comment count + ship-to-agent action. */
+  commentCount: number
+  onSendComments: () => void
   onBaseChange: (base: string) => void
   onToggleUncommitted: () => void
   onToggleHideReviewed: () => void
@@ -24,6 +27,7 @@ interface ReviewToolbarProps {
 
 export function ReviewToolbar({
   base,
+  commentCount,
   currentIndex,
   diffMode,
   hideReviewed,
@@ -32,6 +36,7 @@ export function ReviewToolbar({
   onClearReviewed,
   onDiffModeChange,
   onNavigate,
+  onSendComments,
   onSortChange,
   onToggleHideReviewed,
   onToggleUncommitted,
@@ -41,6 +46,18 @@ export function ReviewToolbar({
 }: ReviewToolbarProps): ReactElement {
   return (
     <div className="review-toolbar review-toolbar-v2">
+      {commentCount > 0 ? (
+        <button
+          type="button"
+          className="review-send-comments"
+          data-testid="review-send-comments"
+          title="Enviar os comentários do diff para o agente ativo"
+          onClick={onSendComments}
+        >
+          <Send size={11} aria-hidden="true" />
+          <span>Enviar {commentCount} ao agente</span>
+        </button>
+      ) : null}
       <span className="review-toolbar-label">Base</span>
       <select
         className="review-base-select"

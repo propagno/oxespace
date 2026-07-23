@@ -18,6 +18,7 @@
 
 .scripts-panel,
 .web-preview-panel {
+  position: relative;
   width: min(860px, calc(100vw - 48px));
   max-height: calc(100vh - 76px);
   display: flex;
@@ -35,6 +36,9 @@
 
 .scripts-panel-embedded,
 .web-preview-panel-embedded {
+  /* Docked narrow, the toolbar's min-content width used to push the panel wider
+     than its slot and everything got clipped. Let it shrink and scroll instead. */
+  min-width: 0;
   width: 100%;
   max-height: none;
   height: 100%;
@@ -322,6 +326,8 @@
 .web-preview-browserbar {
   height: 42px;
   min-height: 42px;
+  min-width: 0;
+  overflow-x: auto;
   display: grid;
   grid-template-columns: auto auto auto minmax(120px, 1fr) auto auto auto auto auto auto auto;
   align-items: center;
@@ -423,7 +429,8 @@
   background: #07080e;
 }
 
-.web-preview-stage iframe {
+.web-preview-stage iframe,
+.web-preview-stage webview {
   width: 100%;
   height: 100%;
   border: 0;
@@ -549,7 +556,8 @@
   white-space: nowrap;
 }
 
-.web-preview-frame-wrap iframe {
+.web-preview-frame-wrap iframe,
+.web-preview-frame-wrap webview {
   flex: 1;
   width: 100%;
   height: auto;
@@ -611,4 +619,154 @@
 
 .web-preview-external-toggle input {
   accent-color: var(--accent);
+}
+
+/* ---------------------------------------------------------------------------
+ * #3 · Design Mode — element picker in the web preview + confirmation sheet.
+ * ------------------------------------------------------------------------- */
+
+.web-preview-nav-button.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.web-preview-design-hint {
+  flex-shrink: 0;
+  border-top: 1px solid var(--bd-subtle);
+  background: rgba(34, 211, 165, 0.1);
+  padding: 6px 14px;
+  color: var(--accent);
+  font-size: 12px;
+}
+
+.design-grab-sheet {
+  display: flex;
+  /* Pinned bottom-right of the preview but never wider than it — the panel is
+     often docked narrow, and an absolute width overflowed and got clipped. */
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  left: 12px;
+  z-index: 10;
+  flex-direction: column;
+  margin-left: auto;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  width: auto;
+  max-width: 380px;
+  max-height: 70%;
+  background: var(--bg-elevated);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.design-grab-header {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid var(--bd-subtle);
+  padding: 8px 10px 8px 12px;
+}
+
+.design-grab-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  font-size: 12.5px;
+}
+
+.design-grab-title > code {
+  color: var(--text-muted);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.design-grab-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 10px 12px;
+  overflow-y: auto;
+}
+
+.design-grab-shot {
+  display: block;
+  margin-bottom: 10px;
+  border: 1px solid var(--bd-subtle);
+  border-radius: 6px;
+  max-width: 100%;
+  background:
+    repeating-conic-gradient(rgba(255, 255, 255, 0.04) 0% 25%, transparent 0% 50%) 50% / 12px 12px;
+}
+
+.design-grab-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 10px;
+  margin: 0;
+  font-size: 11.5px;
+}
+
+.design-grab-facts > div {
+  display: contents;
+}
+
+.design-grab-facts dt {
+  color: var(--text-muted);
+  font-family: 'Cascadia Code', 'JetBrains Mono', monospace;
+}
+
+.design-grab-facts dd {
+  margin: 0;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.design-grab-text {
+  white-space: normal !important;
+}
+
+.design-grab-footer {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--bd-subtle);
+  padding: 10px 12px;
+}
+
+.design-grab-note {
+  border: 1px solid var(--bd-subtle);
+  border-radius: 6px;
+  background: var(--bg-base, rgba(0, 0, 0, 0.25));
+  padding: 6px 8px;
+  min-height: 56px;
+  resize: vertical;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.design-grab-note:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.design-grab-send {
+  display: flex;
+  align-self: flex-end;
+  align-items: center;
+  gap: 6px;
+  border-radius: 6px;
+  background: var(--accent);
+  padding: 5px 12px;
+  color: #08120d;
+  font-size: 12px;
+  font-weight: 600;
 }

@@ -60,7 +60,7 @@ export type { Task, TaskExecution, TaskVerifyOutputEvent }
 export type { GitBranchInput, GitBranchStatus, GitDiff, GitDiffFile, GitDiffHunk, GitDiffLine, GitDiffInput, GitLineType } from './git'
 export type { GitHubBranch, GitHubCheckpoint, GitHubCliStatus, GitHubCommit, GitHubCommitDetails, GitHubConnectedRepository, GitHubMessageResult, GitHubPanelTab, GitHubPullRequest, GitHubRelease, GitHubRepositorySummary, GitHubWorkflow, GitHubWorkflowRun, GitHubWorkflowRunDetails, GitHubWorkspaceStatus } from './github'
 export type { IntegrationGroup, IntegrationMember, IntegrationHandoff, IntegrationRole, IntegrationSession, IntegrationStatus } from './integration'
-export type { FileSystemApi, FileSystemFileChangedEvent, FileSystemListTreeInput, FileSystemReadFileInput, FileSystemReadFileResult, FileSystemUnwatchFileInput, FileSystemWatchFileInput, FileSystemWatchFileResult, FileSystemWriteFileInput, FileSystemWriteFileResult, FileTreeNode, FileTreeNodeType } from './filesystem'
+export type { FileSystemApi, FileSystemFileChangedEvent, FileSystemListTreeInput, FileSystemReadBinaryInput, FileSystemReadBinaryResult, FileSystemReadFileInput, FileSystemReadFileResult, FileSystemUnwatchFileInput, FileSystemWatchFileInput, FileSystemWatchFileResult, FileSystemWriteFileInput, FileSystemWriteFileResult, FileTreeNode, FileTreeNodeType } from './filesystem'
 
 export const IPC_CHANNELS = {
   app: {
@@ -131,6 +131,7 @@ export const IPC_CHANNELS = {
   fs: {
     listTree: 'fs:list-tree',
     readFile: 'fs:read-file',
+    readBinary: 'fs:read-binary',
     writeFile: 'fs:write-file',
     watchFile: 'fs:watch-file',
     unwatchFile: 'fs:unwatch-file',
@@ -145,6 +146,15 @@ export const IPC_CHANNELS = {
     run: 'search:run',
     cancel: 'search:cancel',
     listFiles: 'search:list-files'
+  },
+  linear: {
+    getStatus: 'linear:get-status',
+    setApiKey: 'linear:set-api-key',
+    clearApiKey: 'linear:clear-api-key',
+    listTeams: 'linear:list-teams',
+    listIssues: 'linear:list-issues',
+    getIssue: 'linear:get-issue',
+    createWorktreeFromIssue: 'linear:worktree-from-issue'
   },
   clipboard: {
     saveImageToTemp: 'clipboard:save-image-to-temp',
@@ -408,6 +418,18 @@ export interface SearchApi {
   listFiles(input: import('./search').SearchFilesInput): Promise<import('./search').SearchFilesResult>
 }
 
+export interface LinearApi {
+  getStatus(): Promise<import('./linear').LinearStatus>
+  setApiKey(input: import('./linear').LinearSetApiKeyInput): Promise<import('./linear').LinearStatus>
+  clearApiKey(): Promise<void>
+  listTeams(): Promise<import('./linear').LinearTeam[]>
+  listIssues(input: import('./linear').LinearListIssuesInput): Promise<import('./linear').LinearIssue[]>
+  getIssue(input: { issueId: string }): Promise<import('./linear').LinearIssue>
+  createWorktreeFromIssue(
+    input: import('./linear').LinearWorktreeFromIssueInput
+  ): Promise<import('./linear').LinearWorktreeFromIssueResult>
+}
+
 export interface GitHubApi {
   getCliStatus(input: GitHubWorkspaceInput): Promise<GitHubCliStatus>
   getWorkspaceStatus(input: GitHubWorkspaceInput): Promise<GitHubWorkspaceStatus>
@@ -538,6 +560,7 @@ export interface OxeApi {
   fs: FileSystemApi
   git: GitApi
   search: SearchApi
+  linear: LinearApi
   github: GitHubApi
   integration: IntegrationApi
   clipboard: ClipboardApi

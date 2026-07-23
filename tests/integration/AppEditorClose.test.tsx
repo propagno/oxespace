@@ -106,22 +106,27 @@ describe('App editor close guard', () => {
       isLoading: false,
       error: null
     })
+    // Since the tabs refactor the store is keyed workspace → relativePath.
     useEditorStore.setState({
       files: {
         'workspace-1': {
-          workspaceId: 'workspace-1',
-          rootPath: 'C:/repo',
-          relativePath: 'README.md',
-          content: 'dirty',
-          lastSavedContent: 'clean',
-          language: 'markdown',
-          watchId: 'watch-1',
-          isLoading: false,
-          isSaving: false,
-          error: null,
-          conflict: null
+          'README.md': {
+            workspaceId: 'workspace-1',
+            rootPath: 'C:/repo',
+            relativePath: 'README.md',
+            content: 'dirty',
+            lastSavedContent: 'clean',
+            language: 'markdown',
+            watchId: 'watch-1',
+            isLoading: false,
+            isSaving: false,
+            error: null,
+            conflict: null
+          }
         }
-      }
+      },
+      tabs: { 'workspace-1': [{ relativePath: 'README.md', pinned: false, binary: false }] },
+      activePath: { 'workspace-1': 'README.md' }
     })
     usePaneLayoutStore.setState({ trees: {} })
     useUIStore.setState({ activePaneId: 'pane-1', splitLayoutEnabled: true })
@@ -153,7 +158,9 @@ describe('App editor close guard', () => {
     useEditorStore.setState((state) => ({
       files: {
         ...state.files,
-        'workspace-1': state.files['workspace-1'] ? { ...state.files['workspace-1'], content: 'dirty', lastSavedContent: 'dirty' } : null
+        'workspace-1': {
+          'README.md': { ...state.files['workspace-1']['README.md'], content: 'dirty', lastSavedContent: 'dirty' }
+        }
       }
     }))
 

@@ -27,4 +27,7 @@
 @import './styles/semantic.css';
 @import './styles/search.css';
 @import './styles/split-grid.css';
+@import './styles/diff-comments.css';
+@import './styles/preview.css';
+@import './styles/linear.css';
 @import './styles/orca-shell.css';

@@ -52,7 +52,14 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Search Service: Find in Files delegates the actual file reads to the
   // ripgrep child process; its only raw fs use is existsSync to locate the
   // bundled rg binary and validate the search root — a read-only probe.
-  'electron/main/services/search.service.ts'
+  'electron/main/services/search.service.ts',
+  // F3 execution host: the seam that runs commands and reads/writes files on
+  // behalf of the runtime. It IS the abstraction other code is supposed to use
+  // instead of raw fs, so it necessarily holds the raw calls itself.
+  'electron/main/runtime/execution-host.ts',
+  // F3 RPC bus: writes only <userData>/rpc-endpoint.json so out-of-process
+  // callers can find the local socket — never a workspace path.
+  'electron/main/runtime/rpc/server.ts'
 ])
 
 describe('workspace fs allowlist', () => {

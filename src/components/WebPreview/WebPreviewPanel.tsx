@@ -1,7 +1,18 @@
-import { ArrowLeft, ArrowRight, Camera, ExternalLink, Minus, Monitor, MonitorPlay, Plus, RotateCw, Smartphone, Tablet, X } from 'lucide-react'
-import { useEffect, useMemo, useState, type CSSProperties, type ReactElement } from 'react'
+import { ArrowLeft, ArrowRight, Camera, ExternalLink, MousePointerClick, Minus, Monitor, MonitorPlay, Plus, RotateCw, Smartphone, Tablet, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react'
+import { DESIGN_MODE_CHANNELS, type DesignGrabPayload } from '../../../shared/types/design-mode'
 import type { Workspace } from '../../../shared/types/workspace'
+import { pasteIntoAgentTerminal } from '../../lib/sendToAgent'
 import { useUIStore } from '../../store/ui.store'
+import { DesignGrabSheet } from './DesignGrabSheet'
+
+/** Minimal surface of Electron's <webview> that this panel drives. */
+interface WebviewElement extends HTMLElement {
+  src: string
+  reload(): void
+  send(channel: string, ...args: unknown[]): void
+  capturePage(rect?: { x: number; y: number; width: number; height: number }): Promise<{ toDataURL(): string }>
+}
 
 interface WebPreviewPanelProps {
   workspace: Workspace
@@ -31,6 +42,12 @@ export function WebPreviewPanel({ embedded = false, onClose, workspace }: WebPre
   const [captureNotice, setCaptureNotice] = useState<string | null>(null)
   const [capturing, setCapturing] = useState(false)
   const [allowExternal, setAllowExternal] = useState(false)
+  // #3 Design Mode: pick an element in the previewed page and hand it to an agent.
+  const [designMode, setDesignMode] = useState(false)
+  const [grab, setGrab] = useState<{ payload: DesignGrabPayload; screenshot: string | null } | null>(null)
+  // `send()` and `capturePage()` throw until the guest emits dom-ready.
+  const [guestReady, setGuestReady] = useState(false)
+  const webviewRef = useRef<WebviewElement | null>(null)
   const normalizedUrl = useMemo(() => normalizePreviewUrl(draftUrl, allowExternal), [draftUrl, allowExternal])
   const canOpen = normalizedUrl !== null
   const canGoBack = historyIndex > 0
@@ -74,6 +91,72 @@ export function WebPreviewPanel({ embedded = false, onClose, workspace }: WebPre
   }
 
   const reload = (): void => setFrameKey((value) => value + 1)
+
+  // The guest posts the picked element back over `ipc-message`; capture the
+  // element's box so the confirmation sheet can show what was grabbed.
+  useEffect(() => {
+    const webview = webviewRef.current
+    if (!webview) return undefined
+
+    const onDomReady = (): void => setGuestReady(true)
+
+    const onMessage = (event: Event): void => {
+      const message = event as Event & { channel: string; args: unknown[] }
+      if (message.channel === DESIGN_MODE_CHANNELS.cancel) {
+        setDesignMode(false)
+        return
+      }
+      if (message.channel !== DESIGN_MODE_CHANNELS.grab) return
+
+      const payload = message.args[0] as DesignGrabPayload
+      setDesignMode(false)
+      void webview
+        .capturePage({
+          x: Math.max(0, Math.round(payload.rect.x)),
+          y: Math.max(0, Math.round(payload.rect.y)),
+          width: Math.max(1, Math.round(payload.rect.width)),
+          height: Math.max(1, Math.round(payload.rect.height))
+        })
+        .then((image) => setGrab({ payload, screenshot: image.toDataURL() }))
+        .catch(() => setGrab({ payload, screenshot: null }))
+    }
+
+    webview.addEventListener('ipc-message', onMessage)
+    webview.addEventListener('dom-ready', onDomReady)
+    return () => {
+      webview.removeEventListener('ipc-message', onMessage)
+      webview.removeEventListener('dom-ready', onDomReady)
+    }
+  }, [url, frameKey])
+
+  // A new document means a fresh guest with the picker off.
+  useEffect(() => {
+    setGuestReady(false)
+    setDesignMode(false)
+  }, [url, frameKey])
+
+  // Keep the guest in sync with the toggle, including after a reload.
+  useEffect(() => {
+    if (!guestReady) return
+    webviewRef.current?.send(DESIGN_MODE_CHANNELS.setEnabled, designMode)
+  }, [designMode, guestReady])
+
+  const toggleDesignMode = useCallback((): void => {
+    if (!url || !guestReady) {
+      setCaptureNotice('Wait for the preview to finish loading before using Design Mode.')
+      return
+    }
+    setDesignMode((value) => !value)
+  }, [url, guestReady])
+
+  const sendGrabToAgent = useCallback(
+    async (prompt: string): Promise<void> => {
+      const result = await pasteIntoAgentTerminal(workspace.id, prompt)
+      setGrab(null)
+      setCaptureNotice(result.message)
+    },
+    [workspace.id]
+  )
 
   // Watch this workspace's pending preview slot — populated by App.tsx when
   // `oxespace_open_web_preview` tool was invoked. Two layers: (a) the panel
@@ -169,6 +252,18 @@ export function WebPreviewPanel({ embedded = false, onClose, workspace }: WebPre
         <button type="button" className="web-preview-nav-button" aria-label="Desktop viewport" aria-pressed={viewport === 'desktop'} onClick={() => setViewport('desktop')}><Monitor size={14} aria-hidden="true" /></button>
         <button type="button" className="web-preview-nav-button" aria-label="Tablet viewport" aria-pressed={viewport === 'tablet'} onClick={() => setViewport('tablet')}><Tablet size={14} aria-hidden="true" /></button>
         <button type="button" className="web-preview-nav-button" aria-label="Mobile viewport" aria-pressed={viewport === 'mobile'} onClick={() => setViewport('mobile')}><Smartphone size={14} aria-hidden="true" /></button>
+        <button
+          type="button"
+          className={`web-preview-nav-button${designMode ? ' active' : ''}`}
+          aria-label="Design Mode"
+          aria-pressed={designMode}
+          title="Design Mode — click an element to send it to an agent"
+          data-testid="design-mode-toggle"
+          disabled={!url || !guestReady}
+          onClick={toggleDesignMode}
+        >
+          <MousePointerClick size={14} aria-hidden="true" />
+        </button>
         <button type="button" className="web-preview-nav-button" aria-label="Capture preview to clipboard" title="Copy preview to clipboard" disabled={!url || capturing} onClick={() => void handleCapture()}><Camera size={14} aria-hidden="true" /></button>
         <button type="button" className="web-preview-nav-button" aria-label="Open in browser" disabled={!url} onClick={openExternal}>
           <ExternalLink size={14} aria-hidden="true" />
@@ -190,13 +285,19 @@ export function WebPreviewPanel({ embedded = false, onClose, workspace }: WebPre
                 <span>{viewportConfig.label}</span>
                 <code>{url}</code>
               </div>
-              <iframe
+              {/* <webview> rather than <iframe>: Design Mode needs a preload
+                  inside the guest, which a cross-origin iframe cannot have.
+                  The main process pins that preload in will-attach-webview. */}
+              <webview
                 key={`${url}-${frameKey}`}
-                title="Workspace web preview"
+                ref={(element: HTMLElement | null) => {
+                  webviewRef.current = element as WebviewElement | null
+                }}
                 src={url}
                 style={frameStyle}
-                sandbox="allow-forms allow-modals allow-same-origin allow-scripts"
-                referrerPolicy="no-referrer"
+                title="Workspace web preview"
+                partition="oxe-webpreview"
+                data-testid="web-preview-webview"
               />
             </div>
           </div>
@@ -209,6 +310,19 @@ export function WebPreviewPanel({ embedded = false, onClose, workspace }: WebPre
           </div>
         )}
       </div>
+      {designMode ? (
+        <div className="web-preview-design-hint" role="status">
+          Design Mode — click an element in the preview, or press Escape to cancel.
+        </div>
+      ) : null}
+      {grab ? (
+        <DesignGrabSheet
+          payload={grab.payload}
+          screenshot={grab.screenshot}
+          onSend={(prompt) => void sendGrabToAgent(prompt)}
+          onDismiss={() => setGrab(null)}
+        />
+      ) : null}
       {captureNotice ? <div className="web-preview-capture-notice" role="status">{captureNotice}</div> : null}
     </>
   )

@@ -9,7 +9,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 
 /** Highest migration's user_version — bump when adding a migration. Drives the
  *  pre-migration backup (only back up when an upgrade will actually run). */
-const LATEST_DB_VERSION = 44
+const LATEST_DB_VERSION = 45
 /** How many pre-migration backups to retain. */
 const MAX_DB_BACKUPS = 5
 
@@ -413,6 +413,11 @@ export function runMigrations(db: AppDatabase): void {
     } else {
       db.pragma('user_version = 44')
     }
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
+
+  if (currentVersion < 45 || !hasTable(db, 'secure_credentials')) {
+    db.exec(readMigration('045_secure_credentials.sql'))
   }
 }
 

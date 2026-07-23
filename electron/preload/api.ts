@@ -114,6 +114,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     fs: {
       listTree: (input) => ipc.invoke(IPC_CHANNELS.fs.listTree, input) as Promise<FileTreeNode[]>,
       readFile: (input) => ipc.invoke(IPC_CHANNELS.fs.readFile, input) as Promise<FileSystemReadFileResult>,
+      readBinary: (input) => ipc.invoke(IPC_CHANNELS.fs.readBinary, input) as Promise<import('../../shared/types/filesystem').FileSystemReadBinaryResult>,
       writeFile: (input) => ipc.invoke(IPC_CHANNELS.fs.writeFile, input) as Promise<FileSystemWriteFileResult>,
       watchFile: (input) => ipc.invoke(IPC_CHANNELS.fs.watchFile, input) as Promise<FileSystemWatchFileResult>,
       unwatchFile: (input) => ipc.invoke(IPC_CHANNELS.fs.unwatchFile, input) as Promise<void>,
@@ -128,6 +129,18 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       run: (input) => ipc.invoke(IPC_CHANNELS.search.run, input) as Promise<import('../../shared/types/search').SearchResult>,
       cancel: () => ipc.invoke(IPC_CHANNELS.search.cancel) as Promise<void>,
       listFiles: (input) => ipc.invoke(IPC_CHANNELS.search.listFiles, input) as Promise<import('../../shared/types/search').SearchFilesResult>
+    },
+    linear: {
+      getStatus: () => ipc.invoke(IPC_CHANNELS.linear.getStatus) as Promise<import('../../shared/types/linear').LinearStatus>,
+      setApiKey: (input) => ipc.invoke(IPC_CHANNELS.linear.setApiKey, input) as Promise<import('../../shared/types/linear').LinearStatus>,
+      clearApiKey: () => ipc.invoke(IPC_CHANNELS.linear.clearApiKey) as Promise<void>,
+      listTeams: () => ipc.invoke(IPC_CHANNELS.linear.listTeams) as Promise<import('../../shared/types/linear').LinearTeam[]>,
+      listIssues: (input) => ipc.invoke(IPC_CHANNELS.linear.listIssues, input) as Promise<import('../../shared/types/linear').LinearIssue[]>,
+      getIssue: (input) => ipc.invoke(IPC_CHANNELS.linear.getIssue, input) as Promise<import('../../shared/types/linear').LinearIssue>,
+      createWorktreeFromIssue: (input) =>
+        ipc.invoke(IPC_CHANNELS.linear.createWorktreeFromIssue, input) as Promise<
+          import('../../shared/types/linear').LinearWorktreeFromIssueResult
+        >
     },
     clipboard: {
       saveImageToTemp: () => ipc.invoke(IPC_CHANNELS.clipboard.saveImageToTemp) as Promise<string | null>,

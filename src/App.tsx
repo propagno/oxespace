@@ -1,4 +1,4 @@
-import { Activity, Bot, Columns2, FilePlus2, FolderOpen, Github, Grid2x2, LayoutDashboard, Maximize, Mic, Palette, Plus, RotateCw, Search, Settings2, Sliders, Split, Square, StopCircle, Wrench } from 'lucide-react'
+import { Activity, Bot, Columns2, FilePlus2, FolderOpen, Github, Grid2x2, LayoutDashboard, ListTodo, Maximize, Mic, Palette, Plus, RotateCw, Search, Settings2, Sliders, Split, Square, StopCircle, Wrench } from 'lucide-react'
 import { Suspense, lazy, useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import type { AgentProfile } from '../shared/types/agent'
@@ -14,6 +14,7 @@ const DesignSystemPage = lazy(() => import('./components/DesignSystem/DesignSyst
 const SettingsModal = lazy(() => import('./components/Settings/SettingsModal').then((m) => ({ default: m.SettingsModal })))
 const ToolsModal = lazy(() => import('./components/Workspace/ToolsModal').then((m) => ({ default: m.ToolsModal })))
 const McpPanel = lazy(() => import('./components/MCP/McpPanel').then((m) => ({ default: m.McpPanel })))
+const LinearPanel = lazy(() => import('./components/Linear/LinearPanel').then((m) => ({ default: m.LinearPanel })))
 const SemanticActivityPanel = lazy(() => import('./components/Semantic/SemanticActivityPanel').then((m) => ({ default: m.SemanticActivityPanel })))
 const SkillsBrowser = lazy(() => import('./components/Skills/SkillsBrowser').then((m) => ({ default: m.SkillsBrowser })))
 import { useBackgroundStore } from './store/background.store'
@@ -125,6 +126,7 @@ export function App(): ReactElement {
     isWorkspaceSettingsOpen,
     slashOverlayPaneId,
     isMcpPanelOpen,
+    isLinearPanelOpen,
     isSkillsBrowserOpen,
     isScriptsPanelOpen,
     webPreviewOpenByWorkspace,
@@ -134,6 +136,8 @@ export function App(): ReactElement {
     closeSlashOverlay,
     openMcpPanel,
     closeMcpPanel,
+    openLinearPanel,
+    closeLinearPanel,
     openSkillsBrowser,
     closeSkillsBrowser,
     openScriptsPanel,
@@ -170,6 +174,7 @@ export function App(): ReactElement {
     isWorkspaceSettingsOpen: state.isWorkspaceSettingsOpen,
     slashOverlayPaneId: state.slashOverlayPaneId,
     isMcpPanelOpen: state.isMcpPanelOpen,
+    isLinearPanelOpen: state.isLinearPanelOpen,
     isSkillsBrowserOpen: state.isSkillsBrowserOpen,
     isScriptsPanelOpen: state.isScriptsPanelOpen,
     webPreviewOpenByWorkspace: state.webPreviewOpenByWorkspace,
@@ -179,6 +184,8 @@ export function App(): ReactElement {
     closeSlashOverlay: state.closeSlashOverlay,
     openMcpPanel: state.openMcpPanel,
     closeMcpPanel: state.closeMcpPanel,
+    openLinearPanel: state.openLinearPanel,
+    closeLinearPanel: state.closeLinearPanel,
     openSkillsBrowser: state.openSkillsBrowser,
     closeSkillsBrowser: state.closeSkillsBrowser,
     openScriptsPanel: state.openScriptsPanel,
@@ -564,6 +571,7 @@ export function App(): ReactElement {
     // AI & Agents
     { id: 'open-settings', title: 'Open Agent Settings', subtitle: 'Configure CLIs and discovery', icon: Bot, category: 'AI & Agents', keywords: ['ai', 'provider', 'discovery'], run: toggleSettings },
     { id: 'open-mcp', title: 'Open MCP servers', subtitle: 'Model Context Protocol tools', icon: Wrench, category: 'AI & Agents', keywords: ['mcp', 'tools'], run: openMcpPanel },
+    { id: 'open-linear', title: 'Open Linear issues', subtitle: 'Issues, boards and worktree from issue', icon: ListTodo, category: 'Git & Repo', keywords: ['linear', 'issue', 'ticket', 'board', 'worktree'], run: openLinearPanel },
     { id: 'open-skills', title: 'Open Skills', subtitle: 'Browse markdown skill prompts', icon: Activity, category: 'AI & Agents', keywords: ['skill', 'slash'], run: openSkillsBrowser },
     { id: 'open-integration', title: 'Open multi-repo coordination', subtitle: 'Align agents, context and handoffs', icon: Grid2x2, category: 'Workspace', keywords: ['integration', 'coordination', 'srv', 'bff', 'fed', 'handoff'], disabled: !activeWorkspace, run: openIntegrationPanel },
 
@@ -892,6 +900,15 @@ export function App(): ReactElement {
           onClose={closeSlashOverlay}
           onExecute={dispatchSlashCommand}
         />
+      ) : null}
+      {isLinearPanelOpen ? (
+        <Suspense fallback={null}>
+          <LinearPanel
+            workspaceId={activeWorkspace?.id ?? null}
+            rootPath={activeWorkspace?.rootPath ?? null}
+            onClose={closeLinearPanel}
+          />
+        </Suspense>
       ) : null}
       {isMcpPanelOpen ? (
         <McpPanel

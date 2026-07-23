@@ -17,6 +17,8 @@ React renderer
 - `electron/preload/api.ts` is the only renderer bridge. New methods must also be declared in `shared/types/ipc.ts`.
 - `electron/main/ipc/` converts IPC inputs into service calls. Keep business and security rules in services so they are testable without Electron.
 - `electron/main/services/` owns application behavior and resource access.
+- `electron/main/runtime/` is the out-of-process door: a local RPC bus (named pipe / unix socket) whose methods delegate to the same services the IPC adapters use, plus the `ExecutionHost` seam that every command execution and host file access goes through so a remote host can replace the local one without changing callers.
+- `electron/preload/design-guest.ts` is a second, separate preload injected into Web Preview `<webview>` guests. It is not the renderer bridge and must never gain privileged APIs.
 - `shared/types/` contains contracts that cross the process boundary. Domain contracts such as diagnostics and filesystem live in their own files and are re-exported by the main IPC contract.
 - `tests/integration/` covers services, contracts and selected React behavior; `e2e/` exercises the packaged runtime boundary with Playwright.
 

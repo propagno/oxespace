@@ -5,6 +5,8 @@ import { normalize, relative, resolve, sep } from 'node:path'
 import type {
   FileSystemFileChangedEvent,
   FileSystemListTreeInput,
+  FileSystemReadBinaryInput,
+  FileSystemReadBinaryResult,
   FileSystemReadFileInput,
   FileSystemReadFileResult,
   FileSystemWatchFileInput,
@@ -16,8 +18,31 @@ import type {
 import { safeJoin } from '../utils/safe-join'
 
 export const MAX_TEXT_FILE_BYTES = 2 * 1024 * 1024
+/** Previews stream base64 over IPC, which inflates ~33%; cap higher than text
+ *  but still bounded so a huge PDF can't wedge the renderer. */
+export const MAX_BINARY_FILE_BYTES = 12 * 1024 * 1024
 export const MAX_DIRECTORY_ENTRIES = 500
 export const DEFAULT_EXCLUDED_DIRS = new Set(['node_modules', '.git', 'dist', 'out', 'coverage', '.next', 'build'])
+
+/** Extension → MIME for the preview surfaces. Unknown types are rejected rather
+ *  than guessed, so this can't become an arbitrary-file exfiltration channel. */
+const PREVIEW_MIME_TYPES: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  bmp: 'image/bmp',
+  ico: 'image/x-icon',
+  avif: 'image/avif',
+  svg: 'image/svg+xml',
+  pdf: 'application/pdf'
+}
+
+export function previewMimeType(relativePath: string): string | null {
+  const ext = relativePath.split('.').pop()?.toLowerCase() ?? ''
+  return PREVIEW_MIME_TYPES[ext] ?? null
+}
 
 interface WatchEntry {
   watcher: FSWatcher
@@ -61,6 +86,34 @@ export class FileSystemService {
     return {
       relativePath: normalizeRelativePath(input.relativePath),
       content: buffer.toString('utf8'),
+      size: fileStat.size,
+      mtimeMs: fileStat.mtimeMs
+    }
+  }
+
+  /** Base64 read for image/PDF previews (#10). Same root authorization and
+   *  canonical-path guards as readFile; only known preview MIME types pass. */
+  async readBinary(input: FileSystemReadBinaryInput): Promise<FileSystemReadBinaryResult> {
+    const mimeType = previewMimeType(input.relativePath)
+    if (!mimeType) {
+      throw new Error('File type is not previewable')
+    }
+    const rootPath = await this.authorizeRoot(input.workspaceId, input.rootPath)
+    const filePath = safeJoin(rootPath, input.relativePath)
+    await assertCanonicalInside(rootPath, filePath)
+    const fileStat = await stat(filePath)
+    if (!fileStat.isFile()) {
+      throw new Error('Path is not a file')
+    }
+    if (fileStat.size > MAX_BINARY_FILE_BYTES) {
+      throw new Error('File is larger than 12 MB')
+    }
+
+    const buffer = await readFile(filePath)
+    return {
+      relativePath: normalizeRelativePath(input.relativePath),
+      base64: buffer.toString('base64'),
+      mimeType,
       size: fileStat.size,
       mtimeMs: fileStat.mtimeMs
     }

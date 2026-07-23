@@ -14,6 +14,7 @@ import type {
   TerminalWriteInput
 } from '../../../shared/types/ipc'
 import type { GitDiffInput } from '../../../shared/types/git'
+import type { LinearIssueScope, LinearListIssuesInput, LinearWorktreeFromIssueInput } from '../../../shared/types/linear'
 import type {
   GitHubCheckoutBranchInput,
   GitHubCommitDetailsInput,
@@ -735,4 +736,39 @@ export function parseGitHubRemoveWorktreeInput(value: unknown): import('../../..
     path: expectNonEmptyString(input.path, 'path'),
     force: input.force === true
   }
+}
+
+export function parseLinearSetApiKeyInput(value: unknown) {
+  const input = expectRecord(value, 'linear:set-api-key input')
+  return { apiKey: expectNonEmptyString(input.apiKey, 'apiKey') }
+}
+
+export function parseLinearListIssuesInput(value: unknown): LinearListIssuesInput {
+  const input = expectRecord(value, 'linear:list-issues input')
+  return {
+    scope: expectLinearScope(input.scope),
+    teamId: input.teamId === undefined || input.teamId === null ? null : expectNonEmptyString(input.teamId, 'teamId'),
+    query: input.query === undefined || input.query === null ? null : expectString(input.query, 'query'),
+    includeCompleted: input.includeCompleted === true
+  }
+}
+
+export function parseLinearIssueIdInput(value: unknown) {
+  const input = expectRecord(value, 'linear:get-issue input')
+  return { issueId: expectNonEmptyString(input.issueId, 'issueId') }
+}
+
+export function parseLinearWorktreeFromIssueInput(value: unknown): LinearWorktreeFromIssueInput {
+  const input = expectRecord(value, 'linear:worktree-from-issue input')
+  return {
+    workspaceId: expectNonEmptyString(input.workspaceId, 'workspaceId'),
+    rootPath: expectNonEmptyString(input.rootPath, 'rootPath'),
+    issueId: expectNonEmptyString(input.issueId, 'issueId'),
+    baseRef: input.baseRef === undefined || input.baseRef === null ? null : expectGitRef(input.baseRef, 'baseRef')
+  }
+}
+
+function expectLinearScope(value: unknown): LinearIssueScope {
+  if (value === 'assigned' || value === 'created' || value === 'team') return value
+  throw new Error('scope must be assigned, created or team')
 }

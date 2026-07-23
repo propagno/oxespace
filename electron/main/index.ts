@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, session, shell, type IpcMainInvokeEvent } from 'electron'
 import log from 'electron-log/main.js'
 import { initAutoUpdater, registerAppUpdateIpc } from './updater'
 import { getRtkService } from './services/rtk.service'
@@ -9,9 +9,11 @@ import { join } from 'node:path'
 import { openDatabase } from './db/index'
 import { registerAgentIpc } from './ipc/agent.ipc'
 import { registerFileSystemIpc } from './ipc/file-system.ipc'
+import { FileSystemService } from './services/file-system.service'
 import { registerGitIpc } from './ipc/git.ipc'
 import { registerSearchIpc } from './ipc/search.ipc'
 import { registerGitHubIpc } from './ipc/github.ipc'
+import { registerLinearIpc } from './ipc/linear.ipc'
 import { registerIntegrationIpc } from './ipc/integration.ipc'
 import { registerBackgroundIpc } from './ipc/background.ipc'
 import { registerSessionIpc } from './ipc/session.ipc'
@@ -33,6 +35,7 @@ import { GitService } from './services/git.service'
 import { SemanticService } from './services/semantic.service'
 import { CodeGraphService } from './services/codegraph.service'
 import { createInternalMcpHandle, type InternalMcpHandle } from './mcp-internal/bootstrap'
+import { startRpcServer, type RpcServerHandle } from './runtime/rpc/server'
 import { registerTaskIpc } from './ipc/task.ipc'
 import { registerTerminalIpc } from './ipc/terminal.ipc'
 import { registerWorkspaceIpc } from './ipc/workspace.ipc'
@@ -72,6 +75,8 @@ if (isDev) {
   app.setPath('userData', join(app.getPath('appData'), 'oxespace-dev'))
 }
 let ipcRegistered = false
+/** In-memory session for Web Preview guests — isolated from the app's own. */
+const WEB_PREVIEW_PARTITION = 'oxe-webpreview'
 const clipboardImageTempFiles = new Set<string>()
 const CLIPBOARD_IMAGE_TTL_MS = 30 * 60 * 1000
 
@@ -135,7 +140,8 @@ function registerIpcHandlers(): () => void {
   registerTaskIpc(db, terminalManager)
   registerGitIpc()
   registerSearchIpc()
-  registerGitHubIpc(db)
+  const gitHubService = registerGitHubIpc(db)
+  registerLinearIpc(db, gitHubService)
   registerIntegrationIpc(db)
   const backgroundManager = new BackgroundManager(db, {
     emitOutput: (event) => {
@@ -233,6 +239,7 @@ function registerIpcHandlers(): () => void {
     oxeService.disposeAll()
     semanticService.destroy()
     void internalMcp.stop()
+    void rpcServer?.stop()
   })
   ipcRegistered = true
   // Deferred until after the window is shown — all of this is non-critical for
@@ -245,9 +252,27 @@ function registerIpcHandlers(): () => void {
     skillService.init()
     backgroundManager.init()
     void internalMcp.start()
+    // F3 · Local RPC bus (named pipe / unix socket). Out-of-process callers
+    // (CLI now, orchestration coordinator later) reach the same services the
+    // renderer reaches over IPC. Failure here must not affect the app.
+    void startRpcServer({
+      db,
+      gitHubService,
+      appVersion: app.getVersion(),
+      userDataPath: app.getPath('userData'),
+      onError: (error) => log.warn('[rpc] transport error:', error.message)
+    })
+      .then((handle) => {
+        rpcServer = handle
+        log.info(`[rpc] listening on ${handle.endpoint}`)
+      })
+      .catch((error: unknown) => log.warn('[rpc] failed to start:', toMessage(error)))
     initAutoUpdater()
   }
 }
+
+/** Live RPC bus handle, closed on app shutdown. */
+let rpcServer: RpcServerHandle | null = null
 
 function registerNativeFailureIpcHandlers(message: string): void {
   const shellProfiles: ShellProfile[] = [
@@ -601,17 +626,46 @@ function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.tasks.run, () => undefined)
   ipcMain.handle(IPC_CHANNELS.tasks.verify, () => undefined)
   ipcMain.handle(IPC_CHANNELS.tasks.executions, () => [])
-  ipcMain.handle(IPC_CHANNELS.fs.listTree, () => [])
-  ipcMain.handle(IPC_CHANNELS.fs.readFile, () => {
-    throw new Error('File system API is not available in E2E mock mode')
+  // The file system service needs no native module, so e2e gets the real one —
+  // that is what makes the editor, file browser and rich previews testable.
+  const mockFileSystemService = new FileSystemService(
+    (workspaceId) => workspaces.find((workspace) => workspace.id === workspaceId)?.rootPath ?? null
+  )
+  ipcMain.handle(IPC_CHANNELS.fs.listTree, (_event: IpcMainInvokeEvent, input: unknown) =>
+    mockFileSystemService.listTree(input as Parameters<FileSystemService['listTree']>[0])
+  )
+  ipcMain.handle(IPC_CHANNELS.fs.readFile, (_event: IpcMainInvokeEvent, input: unknown) =>
+    mockFileSystemService.readFile(input as Parameters<FileSystemService['readFile']>[0])
+  )
+  ipcMain.handle(IPC_CHANNELS.fs.readBinary, (_event: IpcMainInvokeEvent, input: unknown) =>
+    mockFileSystemService.readBinary(input as Parameters<FileSystemService['readBinary']>[0])
+  )
+  ipcMain.handle(IPC_CHANNELS.fs.writeFile, (_event: IpcMainInvokeEvent, input: unknown) =>
+    mockFileSystemService.writeFile(input as Parameters<FileSystemService['writeFile']>[0])
+  )
+  ipcMain.handle(IPC_CHANNELS.fs.watchFile, (event: IpcMainInvokeEvent, input: unknown) =>
+    mockFileSystemService.watchFile(input as Parameters<FileSystemService['watchFile']>[0], (payload) => {
+      event.sender.send(IPC_CHANNELS.fs.onFileChanged, payload)
+    })
+  )
+  ipcMain.handle(IPC_CHANNELS.fs.unwatchFile, (_event: IpcMainInvokeEvent, input: { watchId: string }) => {
+    mockFileSystemService.unwatchFile(input.watchId)
   })
-  ipcMain.handle(IPC_CHANNELS.fs.writeFile, () => {
-    throw new Error('File system API is not available in E2E mock mode')
+  ipcMain.handle(IPC_CHANNELS.linear.getStatus, () => ({
+    connected: false, encrypted: false, viewerName: null, viewerEmail: null, organization: null, error: null
+  }))
+  ipcMain.handle(IPC_CHANNELS.linear.setApiKey, () => {
+    throw new Error('Linear is not available in E2E mock mode')
   })
-  ipcMain.handle(IPC_CHANNELS.fs.watchFile, () => {
-    throw new Error('File system API is not available in E2E mock mode')
+  ipcMain.handle(IPC_CHANNELS.linear.clearApiKey, () => undefined)
+  ipcMain.handle(IPC_CHANNELS.linear.listTeams, () => [])
+  ipcMain.handle(IPC_CHANNELS.linear.listIssues, () => [])
+  ipcMain.handle(IPC_CHANNELS.linear.getIssue, () => {
+    throw new Error('Linear is not available in E2E mock mode')
   })
-  ipcMain.handle(IPC_CHANNELS.fs.unwatchFile, () => undefined)
+  ipcMain.handle(IPC_CHANNELS.linear.createWorktreeFromIssue, () => {
+    throw new Error('Linear is not available in E2E mock mode')
+  })
   ipcMain.handle(IPC_CHANNELS.git.getBranch, () => ({ branch: null, detached: false, shortSha: null, error: 'E2E mock mode' }))
   ipcMain.handle(IPC_CHANNELS.search.run, () => ({ files: [], totalMatches: 0, totalFiles: 0, truncated: false, elapsedMs: 0 }))
   ipcMain.handle(IPC_CHANNELS.search.listFiles, () => ({ files: [], truncated: false }))
@@ -840,6 +894,16 @@ function registerRtkIpc(): void {
   })
 }
 
+/** Protocol of a URL, or empty when it cannot be parsed. */
+function safeProtocol(value: string | undefined): string {
+  if (!value) return ''
+  try {
+    return new URL(value).protocol
+  } catch {
+    return ''
+  }
+}
+
 function toMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Unknown native startup error'
 }
@@ -875,8 +939,56 @@ function createMainWindow(): BrowserWindow {
       // The preload bundle only uses Electron's contextBridge/IPC subset, so it
       // remains compatible with Chromium's renderer sandbox. Native PTY/SQLite
       // stay exclusively in the main process behind validated IPC handlers.
-      sandbox: true
+      sandbox: true,
+      // Design Mode (#3) needs a <webview> — an iframe cannot be scripted
+      // cross-origin, so element picking is impossible there. Every attach is
+      // vetted by the will-attach-webview handler below.
+      webviewTag: true
     }
+  })
+
+  // Hard gate on <webview> attachment: the guest may only ever load our own
+  // design-guest preload, never with node integration, and always sandboxed.
+  // Without this, a compromised renderer could attach a privileged guest.
+  const DESIGN_GUEST_PRELOAD = join(app.getAppPath(), 'out', 'preload', 'design-guest.cjs')
+  mainWindow.webContents.on('will-attach-webview', (_event, webPreferences, params) => {
+    webPreferences.preload = DESIGN_GUEST_PRELOAD
+    webPreferences.nodeIntegration = false
+    webPreferences.contextIsolation = true
+    webPreferences.sandbox = true
+    // Pinned here, not trusted from the renderer: the guest must land in the
+    // locked-down preview session, never the app's own.
+    params.partition = WEB_PREVIEW_PARTITION
+    // Popups stay off; the iframe this replaced could not open windows either.
+    // (webview params are the raw attribute strings — absent means disabled.)
+    delete params.allowpopups
+    // Only http(s) guests: no file:, no about:, no custom schemes.
+    if (!/^https?:$/i.test(safeProtocol(params.src))) {
+      params.src = 'about:blank'
+    }
+  })
+
+  // The <webview> replaced a `sandbox`ed, `no-referrer` iframe, so its guest has
+  // to carry the same restrictions explicitly — they are not defaults. The guest
+  // runs in its own in-memory partition, which also keeps preview cookies and
+  // storage out of the app's session.
+  const previewSession = session.fromPartition(WEB_PREVIEW_PARTITION)
+  previewSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false))
+  previewSession.setPermissionCheckHandler(() => false)
+  previewSession.on('will-download', (event) => event.preventDefault())
+  previewSession.webRequest.onBeforeSendHeaders((details, callback) => {
+    const requestHeaders = { ...details.requestHeaders }
+    delete requestHeaders.Referer
+    delete requestHeaders.referer
+    callback({ requestHeaders })
+  })
+
+  // A guest must not be able to spawn windows; external links go to the OS browser.
+  mainWindow.webContents.on('did-attach-webview', (_event, guestWebContents) => {
+    guestWebContents.setWindowOpenHandler(({ url }) => {
+      if (isSafeExternalUrl(url)) void shell.openExternal(url)
+      return { action: 'deny' }
+    })
   })
 
   // `media` allows microphone for OXEVoice. `clipboard-read` / `clipboard-sanitized-write`
