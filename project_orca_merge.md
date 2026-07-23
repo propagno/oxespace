@@ -86,6 +86,10 @@ integrações e o pipeline de release.
 - e2e `design-mode.spec.ts` (serve uma página local, carrega no `<webview>`, ativa o
   picker e clica via `sendInputEvent` no guest → sheet com o selector correto)
 
-### Limitação local
+### Correr a suite localmente
 
-Testes SQLite exigem `better-sqlite3` no ABI do Node (`npm run rebuild:native:node`).
+`npm test` falha ~49 testes de DB por incompatibilidade de ABI (`better-sqlite3` é
+compilado para o Electron, ABI 125; o Node do sistema é 127). Use **`npm run test:electron`**,
+que corre o vitest através do binário do Electron — 528/528 passam localmente.
+Tratar essas falhas como ruído ambiental escondeu um bug real (a migração 045 subiu o
+`user_version` para 45 e o teste ainda esperava 44), que só apareceu no CI do v0.5.0.

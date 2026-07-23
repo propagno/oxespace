@@ -95,12 +95,9 @@ npm run dev
 ```powershell
 npm run typecheck
 npm run lint
-# Service/integration tests need native modules built for *Node* (not Electron ABI):
-npm run rebuild:native:node
-npm run test:coverage
-# Before `npm run dev` / packaged builds, switch back to Electron ABI:
-npm run rebuild:native:electron
-npm run verify:native
+# Runs the whole suite through the Electron binary, so better-sqlite3's ABI
+# matches and no native rebuild dance is needed:
+npm run test:electron
 npm run build
 npm run test:e2e
 npm run test:smoke   # Tools + Agent Settings hub smoke

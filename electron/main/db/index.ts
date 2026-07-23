@@ -8,8 +8,10 @@ import { fileURLToPath } from 'node:url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 /** Highest migration's user_version — bump when adding a migration. Drives the
- *  pre-migration backup (only back up when an upgrade will actually run). */
-const LATEST_DB_VERSION = 45
+ *  pre-migration backup (only back up when an upgrade will actually run).
+ *  Exported so the migrations test can catch a constant that drifts from the
+ *  version the SQL actually sets. */
+export const LATEST_DB_VERSION = 45
 /** How many pre-migration backups to retain. */
 const MAX_DB_BACKUPS = 5
 

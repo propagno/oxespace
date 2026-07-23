@@ -6,15 +6,16 @@
 npm ci
 npm run typecheck
 npm run lint
-npm run rebuild:native:node
-npm run test:coverage
+npm run test:electron
 npm run build
 npm run fix:native
 npm run verify:native
 npm run test:e2e
 ```
 
-`better-sqlite3` is ABI-specific. Integration tests run under Node, while the application and E2E run under Electron. Switching runtimes can replace the native binary, so always rebuild for Node before tests and prepare/verify the Electron binary before launching the app. `npm run native:doctor` reports the currently loadable Node modules and both runtime ABIs. A source rebuild on Windows requires the Visual Studio C++ workload and Windows SDK; CI/package flows prefer the pinned prebuilt Electron binary.
+`better-sqlite3` is ABI-specific: it is built for Electron (NODE_MODULE_VERSION 125), while system Node is 127. `npm test` therefore fails every DB-backed test with a module-version error — which is easy to mistake for known noise, and once hid a real migration break until release CI caught it. `npm run test:electron` runs vitest through the Electron binary (`ELECTRON_RUN_AS_NODE=1`), so the ABI matches and the suite passes locally exactly as in CI; forward a path with `npm run test:electron -- tests/integration/foo.test.ts`.
+
+CI takes the other route — it rebuilds for Node, runs `test:coverage`, then prepares the Electron binary for the packaged build and E2E. Locally you can still do that with `npm run rebuild:native:node` / `npm run rebuild:native:electron`, but prefer `test:electron`: switching runtimes replaces the native binary and the rebuild is slow and occasionally fails. `npm run native:doctor` reports the currently loadable Node modules and both runtime ABIs. A source rebuild on Windows requires the Visual Studio C++ workload and Windows SDK; CI/package flows prefer the pinned prebuilt Electron binary.
 
 ## Adding an IPC capability
 
