@@ -10,6 +10,7 @@ export interface Task {
   title: string
   description: string
   context: string
+  acceptanceCriteria: string
   verifyCommand: string
   allowedFiles: string[]
   column: TaskColumn
@@ -59,6 +60,7 @@ export interface CreateTaskInput {
   title: string
   description?: string
   context?: string
+  acceptanceCriteria?: string
   verifyCommand?: string
   allowedFiles?: string[]
   column?: TaskColumn
@@ -68,6 +70,7 @@ export interface UpdateTaskInput {
   title?: string
   description?: string
   context?: string
+  acceptanceCriteria?: string
   verifyCommand?: string
   allowedFiles?: string[]
   column?: TaskColumn
@@ -83,6 +86,8 @@ export interface ReorderTasksInput {
 export interface RunTaskInput {
   taskId: string
   agentProfileId?: string
+  /** Target agent terminal. Omitted only for backwards-compatible manual dispatch. */
+  paneId?: string
 }
 
 export interface VerifyTaskInput {

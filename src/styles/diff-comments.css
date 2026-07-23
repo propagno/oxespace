@@ -1,0 +1,133 @@
+/* #7 · Annotate AI Diffs — per-line comment affordance, thread rows and the
+   inline editor inside the review diff tables. */
+
+.diff-line--commentable .diff-comment-add {
+  opacity: 0;
+  margin-left: 8px;
+  padding: 0 3px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--brand, #12c79a);
+  cursor: pointer;
+  vertical-align: middle;
+  transition: opacity 120ms ease, background 120ms ease;
+}
+
+.diff-line--commentable:hover .diff-comment-add {
+  opacity: 1;
+}
+
+.diff-comment-add:hover {
+  background: rgba(18, 199, 154, 0.15);
+}
+
+.diff-comment-row .diff-comment-cell {
+  padding: 5px 10px;
+  background: rgba(18, 199, 154, 0.06);
+  border-left: 2px solid var(--brand, #12c79a);
+  font-family: inherit;
+  white-space: normal;
+}
+
+.diff-comment-icon {
+  color: var(--brand, #12c79a);
+  margin-right: 6px;
+  vertical-align: text-bottom;
+}
+
+.diff-comment-body {
+  color: var(--tx-primary);
+  font-size: 11.5px;
+}
+
+.diff-comment-delete {
+  float: right;
+  padding: 1px 3px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--tx-muted);
+  cursor: pointer;
+}
+
+.diff-comment-delete:hover {
+  color: var(--dot-red, #f87171);
+  background: rgba(248, 113, 113, 0.12);
+}
+
+.diff-comment-row--editor .diff-comment-cell {
+  background: rgba(18, 199, 154, 0.04);
+}
+
+.diff-comment-input {
+  width: 100%;
+  resize: vertical;
+  padding: 5px 8px;
+  border: 1px solid rgba(18, 199, 154, 0.35);
+  border-radius: 5px;
+  background: var(--bg-input, #020407);
+  color: var(--tx-primary);
+  font: inherit;
+  font-size: 11.5px;
+}
+
+.diff-comment-input:focus {
+  outline: none;
+  border-color: var(--brand, #12c79a);
+}
+
+.diff-comment-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.diff-comment-save,
+.diff-comment-cancel {
+  padding: 2px 10px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.diff-comment-save {
+  background: var(--brand, #12c79a);
+  color: #04120d;
+  font-weight: 600;
+}
+
+.diff-comment-cancel {
+  background: transparent;
+  color: var(--tx-muted);
+}
+
+.diff-comment-cancel:hover {
+  color: var(--tx-primary);
+}
+
+/* Toolbar ship-to-agent button */
+.review-send-comments {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border: 1px solid rgba(18, 199, 154, 0.4);
+  border-radius: 5px;
+  background: rgba(18, 199, 154, 0.12);
+  color: var(--brand, #12c79a);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.review-send-comments:hover {
+  background: rgba(18, 199, 154, 0.22);
+}
+
+.review-pane-alert--info {
+  border-left: 2px solid var(--brand, #12c79a);
+  color: var(--tx-secondary);
+}

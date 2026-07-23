@@ -571,6 +571,32 @@ export class WorkspaceService {
     return updated
   }
 
+  /** Grid-agnostic pane creation for the F2 split-tree layout. Inserts a terminal
+   *  pane at a guaranteed-unique grid slot (position is irrelevant in tree mode)
+   *  without touching the layout preset, and returns the new pane id. */
+  createPane(workspaceId: string): { workspace: Workspace; paneId: string } {
+    const workspace = this.get(workspaceId)
+    if (!workspace) throw new Error('Workspace not found')
+
+    const maxColumn = workspace.panes.reduce((max, p) => Math.max(max, p.columnIndex), -1)
+    const id = randomUUID()
+    this.db
+      .prepare(
+        `INSERT INTO panes (id, workspace_id, type, row_index, column_index, shell_profile_id, status, agent_profile_id, agent_name, display_name)
+         VALUES (@id, @workspaceId, 'terminal', 0, @columnIndex, @shellProfileId, 'idle', NULL, NULL, NULL)`
+      )
+      .run({
+        id,
+        workspaceId,
+        columnIndex: maxColumn + 1,
+        shellProfileId: DEFAULT_SPLIT_SHELL_PROFILE_ID
+      })
+
+    const updated = this.get(workspaceId)
+    if (!updated) throw new Error('Workspace not found after createPane')
+    return { workspace: updated, paneId: id }
+  }
+
   private mapWorkspace(row: WorkspaceRow): Workspace {
     return {
       id: row.id,

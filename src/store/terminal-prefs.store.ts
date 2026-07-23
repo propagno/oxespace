@@ -12,6 +12,7 @@ import { useShallow } from 'zustand/react/shallow'
  */
 
 export type TerminalCursorStyle = 'block' | 'bar' | 'underline'
+export type SemanticSearchMode = 'auto' | 'explore' | 'exhaustive'
 
 export interface TerminalPrefs {
   fontFamily: string
@@ -26,6 +27,7 @@ export interface TerminalPrefs {
   rtkHookEnabled: boolean
   cavemanModeEnabled: boolean
   semanticSearchEnabled: boolean
+  semanticSearchMode: SemanticSearchMode
 }
 
 /** Pre-v4 default, matched in the v4 migration to roll users forward. */
@@ -51,7 +53,8 @@ export const TERMINAL_PREFS_DEFAULTS: TerminalPrefs = {
   // The user enables them via the toolbar chips when wanted.
   rtkHookEnabled: false,
   cavemanModeEnabled: false,
-  semanticSearchEnabled: false
+  semanticSearchEnabled: false,
+  semanticSearchMode: 'auto'
 }
 
 export const FONT_SIZE_MIN = 8

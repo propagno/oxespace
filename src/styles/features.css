@@ -1218,9 +1218,107 @@
 }
 
 .github-changes-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.github-change-group {
+  min-width: 0;
+}
+
+.github-change-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 5px 6px;
+  color: #7f899f;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.github-change-file {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) 22px 26px;
+  align-items: center;
+  min-height: 34px;
+  border-radius: 6px;
+  padding: 0 3px 0 7px;
+}
+
+.github-change-file:hover {
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.github-change-file-name {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  color: #d9deeb;
+}
+
+.github-change-file-name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.github-change-file-name small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #616b80;
+  font-size: 10px;
+}
+
+.github-change-file-name:hover:not(:disabled) span {
+  color: var(--accent-hover, #5eead4);
+}
+
+.github-change-code {
+  justify-self: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 750;
+  color: #ffb84a;
+}
+
+.github-change-code.status-u { color: #5fb0ff; }
+.github-change-code.status-d { color: #ff6b7a; }
+.github-change-code.status-r { color: #c99cff; }
+
+.github-change-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: #7f899f;
+}
+
+.github-change-action:hover:not(:disabled) {
+  border-color: rgba(94, 234, 212, 0.22);
+  background: rgba(94, 234, 212, 0.08);
+  color: var(--accent-hover, #5eead4);
+}
+
+.github-changes-empty {
+  padding: 18px 8px;
+  text-align: center;
+  color: #616b80;
+  font-size: 11.5px;
 }
 
 .github-changes-row {
@@ -3183,8 +3281,8 @@
   justify-content: space-between;
   height: 34px;
   padding: 4px 8px 4px 10px;
-  background: #080808;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--bg-tile-header, #141414);
+  border-bottom: 1px solid var(--bd-subtle, rgba(255, 255, 255, 0.07));
   flex-shrink: 0;
   gap: 8px;
   transition: background 0.12s ease-out, border-color 0.12s ease-out, box-shadow 0.12s ease-out;
@@ -3193,18 +3291,15 @@
 .pane-header-left {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: 6px;
   min-width: 0;
   flex: 1;
   height: 28px;
-  /* Allow the intent text to take the full header width when present —
-     a 4-pane vibe-coding grid wins from showing "Fix the auth race…" in the
-     header instead of an empty pill that says "Terminal". */
   max-width: 100%;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.045);
-  padding: 0 10px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
 }
 
 .pane-status-dot {
@@ -3214,19 +3309,18 @@
   flex-shrink: 0;
   background: var(--dot-gray);
 }
-.pane-status-dot.running  { background: var(--dot-green); box-shadow: 0 0 4px rgba(52, 212, 116, 0.6); }
+.pane-status-dot.running  { background: #10b981; box-shadow: 0 0 6px rgba(16, 185, 129, 0.5); }
 .pane-status-dot.starting { background: var(--dot-yellow); }
 .pane-status-dot.error    { background: var(--dot-red); }
 .pane-status-dot.exited   { background: var(--dot-gray); }
 
 .pane-title {
   font-size: 12px;
-  font-weight: 650;
-  color: #d8dce0;
+  font-weight: 500;
+  color: #e2e8f0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  text-transform: capitalize;
 }
 
 /* --- PANE TYPE SWITCHER --- */
@@ -3282,16 +3376,16 @@
   align-items: center;
   gap: 5px;
   flex-shrink: 0;
-  max-width: 14ch;
+  max-width: 16ch;
   min-width: 0;
-  height: 20px;
-  padding: 0 8px 0 5px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: var(--tx-secondary);
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  color: rgba(255, 255, 255, 0.9);
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 500;
   letter-spacing: 0.01em;
   text-transform: none;
   transition: all 0.15s ease-in-out;
@@ -3824,8 +3918,8 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  /* Flush with the pane cell — no floating-card backdrop. */
-  background: #050505;
+  /* Flush with the pane cell — Ghostty OLED surface */
+  background: #0a0a0a;
 }
 
 .agent-info-card {
@@ -3886,8 +3980,8 @@
   min-height: 0;
   min-width: 0;
   overflow: hidden;
-  /* Terminal fills the pane edge-to-edge (no card gutter). */
-  background: #050505;
+  /* Terminal fills the pane edge-to-edge (Ghostty OLED dark surface) */
+  background: #0a0a0a;
   padding: 0;
   box-sizing: border-box;
   position: relative;
@@ -3960,9 +4054,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  height: var(--tile-statusbar-h, 28px);
+  height: var(--tile-statusbar-h, 24px);
   padding: 0 10px;
-  background: #050505;
+  background: #0a0a0a;
   border-top: 1px solid rgba(255, 255, 255, 0.07);
   box-shadow: none;
   backdrop-filter: none;
@@ -4664,12 +4758,11 @@
 .terminal-view {
   width: 100%;
   height: 100%;
-  /* Flush terminal surface — no floating card chrome (matches flat pane splits).
-     Breathing room stays on .xterm so FitAddon keeps cols/rows correct. */
+  /* Flush terminal surface — Ghostty OLED flat pane splits */
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
-  background: #050505;
+  background: #070707;
   border-radius: 0;
   border: none;
   box-shadow: none;
@@ -4694,8 +4787,10 @@
 .terminal-view .xterm-viewport {
   background-color: transparent !important;
   overflow-y: auto !important;
+  /* Keep wheel/trackpad targets on the viewport (not lost on host padding). */
+  overscroll-behavior: contain;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.12) transparent;
+  scrollbar-color: rgba(255,255,255,0.22) transparent;
 }
 .terminal-view .xterm-screen {
   max-width: 100%;
@@ -4705,17 +4800,17 @@
   letter-spacing: 0 !important;
 }
 .terminal-view .xterm-viewport::-webkit-scrollbar {
-  width: 3px;
+  width: 8px;
 }
 .terminal-view .xterm-viewport::-webkit-scrollbar-track {
   background: transparent;
 }
 .terminal-view .xterm-viewport::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.12);
-  border-radius: 2px;
+  background: rgba(255,255,255,0.18);
+  border-radius: 4px;
 }
 .terminal-view .xterm-viewport::-webkit-scrollbar-thumb:hover {
-  background: rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.35);
 }
 
 

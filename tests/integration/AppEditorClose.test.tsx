@@ -1,10 +1,12 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { Workspace } from '../../shared/types/workspace'
 import { App } from '../../src/App'
 import { useEditorStore } from '../../src/store/editor.store'
 import { useWorkspaceStore } from '../../src/store/workspace.store'
+import { usePaneLayoutStore } from '../../src/store/pane-layout.store'
+import { useUIStore } from '../../src/store/ui.store'
 
 vi.mock('../../src/components/Sidebar/Sidebar', () => ({
   Sidebar: ({ onCloseWorkspace }: { onCloseWorkspace: (workspaceId: string) => void }) => (
@@ -47,7 +49,8 @@ describe('App editor close guard', () => {
         setActive: vi.fn(),
         delete: vi.fn().mockResolvedValue(undefined),
         closePane: vi.fn().mockResolvedValue(undefined),
-        splitPane: vi.fn(),
+        splitPane: vi.fn().mockResolvedValue(createWorkspace()),
+        createPane: vi.fn().mockResolvedValue({ workspace: createWorkspace(), paneId: 'pane-2' }),
         updatePaneType: vi.fn(),
         updateEditorState: vi.fn(),
         pickFolder: vi.fn(),
@@ -103,23 +106,30 @@ describe('App editor close guard', () => {
       isLoading: false,
       error: null
     })
+    // Since the tabs refactor the store is keyed workspace → relativePath.
     useEditorStore.setState({
       files: {
         'workspace-1': {
-          workspaceId: 'workspace-1',
-          rootPath: 'C:/repo',
-          relativePath: 'README.md',
-          content: 'dirty',
-          lastSavedContent: 'clean',
-          language: 'markdown',
-          watchId: 'watch-1',
-          isLoading: false,
-          isSaving: false,
-          error: null,
-          conflict: null
+          'README.md': {
+            workspaceId: 'workspace-1',
+            rootPath: 'C:/repo',
+            relativePath: 'README.md',
+            content: 'dirty',
+            lastSavedContent: 'clean',
+            language: 'markdown',
+            watchId: 'watch-1',
+            isLoading: false,
+            isSaving: false,
+            error: null,
+            conflict: null
+          }
         }
-      }
+      },
+      tabs: { 'workspace-1': [{ relativePath: 'README.md', pinned: false, binary: false }] },
+      activePath: { 'workspace-1': 'README.md' }
     })
+    usePaneLayoutStore.setState({ trees: {} })
+    useUIStore.setState({ activePaneId: 'pane-1', splitLayoutEnabled: true })
   })
 
   test('closing a terminal pane does not prompt for a workspace editor dirty file', async () => {
@@ -148,7 +158,9 @@ describe('App editor close guard', () => {
     useEditorStore.setState((state) => ({
       files: {
         ...state.files,
-        'workspace-1': state.files['workspace-1'] ? { ...state.files['workspace-1'], content: 'dirty', lastSavedContent: 'dirty' } : null
+        'workspace-1': {
+          'README.md': { ...state.files['workspace-1']['README.md'], content: 'dirty', lastSavedContent: 'dirty' }
+        }
       }
     }))
 
@@ -158,6 +170,36 @@ describe('App editor close guard', () => {
     expect(window.oxe.fs.unwatchFile).toHaveBeenCalledWith({ watchId: 'watch-1' })
     expect(window.oxe.workspace.delete).toHaveBeenCalledWith('workspace-1')
     expect(useEditorStore.getState().files['workspace-1']).toBeUndefined()
+  })
+
+  test('routes the global split shortcut through the split-tree exactly once', async () => {
+    const splitTree = vi.spyOn(usePaneLayoutStore.getState(), 'split')
+    render(<App />)
+
+    fireEvent.keyDown(window, { key: '\\', ctrlKey: true, shiftKey: true })
+
+    await waitFor(() => expect(window.oxe.workspace.createPane).toHaveBeenCalledTimes(1))
+    expect(window.oxe.workspace.splitPane).not.toHaveBeenCalled()
+    expect(splitTree).toHaveBeenCalledWith('workspace-1', 'pane-1', 'pane-2', 'horizontal')
+  })
+
+  test('keeps the legacy split route when split-tree is disabled', async () => {
+    useUIStore.setState({ splitLayoutEnabled: false })
+    render(<App />)
+
+    fireEvent.keyDown(window, { key: '\\', ctrlKey: true, shiftKey: true })
+
+    await waitFor(() => expect(window.oxe.workspace.splitPane).toHaveBeenCalledTimes(1))
+    expect(window.oxe.workspace.createPane).not.toHaveBeenCalled()
+  })
+
+  test('toggles the split-tree renderer with F2', async () => {
+    render(<App />)
+    await screen.findByRole('button', { name: 'close terminal pane' })
+
+    fireEvent.keyDown(window, { key: 'F2' })
+
+    await waitFor(() => expect(useUIStore.getState().splitLayoutEnabled).toBe(false))
   })
 })
 

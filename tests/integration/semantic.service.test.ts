@@ -1,4 +1,5 @@
 import os from 'node:os'
+import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import type { AppDatabase } from '../../electron/main/db'
 
@@ -37,10 +38,13 @@ function makeFakeDb(workspaces: WsRow[]): AppDatabase {
         get: (...args: unknown[]) => {
           if (sql.includes('is_active = 1')) return workspaces.find((w) => w.is_active === 1)
           if (/FROM workspaces WHERE id/.test(sql)) return workspaces.find((w) => w.id === args[0])
+          if (sql.includes('semantic_documents_fts') && sql.includes('COUNT(*)')) return { n: 1 }
           if (sql.includes('COUNT(*)')) return { n: 0 }
           return undefined
         },
-        all: () => [],
+        all: () => sql.includes('semantic_documents_fts')
+          ? [{ file_path: fileURLToPath(import.meta.url), rank: -1 }]
+          : [],
         run: () => undefined
       }
     }
@@ -108,6 +112,38 @@ describe('SemanticService indexing startup', () => {
       expect(watchMock).toHaveBeenCalledTimes(1)
       svc.setEnabled('ws-active', true) // idempotent -> no second watcher
       expect(watchMock).toHaveBeenCalledTimes(1)
+    } finally {
+      svc.destroy()
+    }
+  })
+
+  test('falls back to the full lexical index when vector embeddings are unavailable', async () => {
+    const db = makeFakeDb([{ id: 'ws-1', root_path: '/projects/app', is_active: 0 }])
+    const svc = new SemanticService(db)
+    vi.spyOn(svc, 'getEmbedding').mockRejectedValue(new Error('model offline'))
+    try {
+      const report = await svc.queryDetailed('ws-1', 'semantic service fallback', { mode: 'exhaustive' })
+      expect(report.results).toHaveLength(1)
+      expect(report.results[0].sources).toEqual(['lexical'])
+      expect(report.confidence).toBe('low')
+      expect(report.coverage.searchedFullLexicalIndex).toBe(true)
+      expect(report.warning).toContain('Vector embeddings were unavailable')
+    } finally {
+      svc.destroy()
+    }
+  })
+
+  test('auto-expands a low-confidence pass without requiring the caller to retry', async () => {
+    const db = makeFakeDb([{ id: 'ws-1', root_path: '/projects/app', is_active: 0 }])
+    const svc = new SemanticService(db)
+    vi.spyOn(svc, 'getEmbedding').mockRejectedValue(new Error('model offline'))
+    try {
+      const report = await svc.queryDetailed('ws-1', 'semantic service fallback', { mode: 'auto' })
+      expect(report.expanded).toBe(true)
+      expect(report.resolvedMode).toBe('exhaustive')
+      expect(report.expansionReason).toContain('low confidence')
+      expect(report.coverage.searchedFullLexicalIndex).toBe(true)
+      expect(report.results).toHaveLength(1)
     } finally {
       svc.destroy()
     }

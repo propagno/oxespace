@@ -1,5 +1,9 @@
 import { describe, expect, test } from 'vitest'
-import { openInMemoryDatabase, runMigrations } from '../../electron/main/db/index'
+import { LATEST_DB_VERSION, openInMemoryDatabase, runMigrations } from '../../electron/main/db/index'
+
+// Literal on purpose: it verifies the migration SQL itself sets this version,
+// independently of the runner's constant. Bump both when adding a migration.
+const EXPECTED_SCHEMA_VERSION = 45
 
 describe('migrations', () => {
   test('migration 040 self-heals a partial apply (columns exist but user_version < 40)', () => {
@@ -12,21 +16,32 @@ describe('migrations', () => {
 
     // The fixed 040 must NOT throw (idempotent) and must finish the version bump.
     expect(() => runMigrations(db)).not.toThrow()
-    expect(db.pragma('user_version', { simple: true })).toBe(41)
+    expect(db.pragma('user_version', { simple: true })).toBe(EXPECTED_SCHEMA_VERSION)
     const cols = (db.prepare("PRAGMA table_info('semantic_embeddings')").all() as Array<{ name: string }>).map((c) => c.name)
     expect(cols).toEqual(expect.arrayContaining(['embedding_blob', 'dim']))
     db.close()
   })
 
+  test('the runner constant matches the version the migration SQL sets', () => {
+    // A mismatch silently disables the pre-migration backup for the new version.
+    expect(LATEST_DB_VERSION).toBe(EXPECTED_SCHEMA_VERSION)
+  })
+
   test('runs migrations and seeds built-in shell profiles', () => {
     const db = openInMemoryDatabase()
 
-    expect(db.pragma('user_version', { simple: true })).toBe(41)
+    expect(db.pragma('user_version', { simple: true })).toBe(EXPECTED_SCHEMA_VERSION)
+
+    // 045: encrypted third-party credentials (Linear).
+    const credentialColumns = db.prepare("PRAGMA table_info('secure_credentials')").all() as Array<{ name: string }>
+    expect(credentialColumns.map((column) => column.name)).toEqual(
+      expect.arrayContaining(['provider', 'payload', 'encrypted', 'label'])
+    )
 
     // 040: binary Float32 embedding storage columns.
     const semanticColumns = db.prepare("PRAGMA table_info('semantic_embeddings')").all() as Array<{ name: string }>
     expect(semanticColumns.map((column) => column.name)).toEqual(
-      expect.arrayContaining(['embedding_json', 'embedding_blob', 'dim'])
+      expect.arrayContaining(['embedding_json', 'embedding_blob', 'dim', 'chunk_metadata_json'])
     )
 
     const tables = db
@@ -49,9 +64,18 @@ describe('migrations', () => {
         'integration_groups',
         'integration_group_members',
         'integration_group_sessions',
-        'integration_handoffs'
+        'integration_handoffs',
+        'semantic_documents',
+        'semantic_documents_fts'
       ])
     )
+
+    db.prepare('INSERT INTO workspaces (id, name, root_path, layout, default_shell_profile_id) VALUES (?, ?, ?, ?, ?)')
+      .run('semantic-test', 'Semantic test', '/tmp/semantic-test', '1x1', 'builtin-powershell')
+    db.prepare('INSERT INTO semantic_documents (workspace_id, file_path, content, updated_at) VALUES (?, ?, ?, ?)')
+      .run('semantic-test', 'src/search.ts', 'semantic search enabled', Date.now())
+    expect(db.prepare('SELECT file_path FROM semantic_documents_fts WHERE semantic_documents_fts MATCH ? AND workspace_id = ?')
+      .get('semantic*', 'semantic-test')).toEqual({ file_path: 'src/search.ts' })
 
     const workspaceColumns = db.prepare("PRAGMA table_info('workspaces')").all() as Array<{ name: string }>
     expect(workspaceColumns.map((column) => column.name)).toEqual(

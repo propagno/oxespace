@@ -30,6 +30,7 @@ interface ManagedRow {
   transport: 'stdio' | 'http' | 'sse'
   config_json: string
   enabled: number
+  trusted: number
 }
 
 interface WorkspaceRootRow {
@@ -97,9 +98,10 @@ export class McpConfigSync {
     // Servers visible to this workspace = global + own + enabled.
     const rows = this.db
       .prepare(
-        `SELECT id, workspace_id, name, transport, config_json, enabled
+        `SELECT id, workspace_id, name, transport, config_json, enabled, trusted
          FROM mcp_servers
          WHERE enabled = 1
+           AND trusted = 1
            AND (workspace_id IS NULL OR workspace_id = ?)`
       )
       .all(workspaceRow?.id ?? null) as ManagedRow[]

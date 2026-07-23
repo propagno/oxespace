@@ -14,6 +14,7 @@ import type {
   TerminalWriteInput
 } from '../../../shared/types/ipc'
 import type { GitDiffInput } from '../../../shared/types/git'
+import type { LinearIssueScope, LinearListIssuesInput, LinearWorktreeFromIssueInput } from '../../../shared/types/linear'
 import type {
   GitHubCheckoutBranchInput,
   GitHubCommitDetailsInput,
@@ -24,6 +25,7 @@ import type {
   GitHubCreatePullRequestInput,
   GitHubCreateReleaseInput,
   GitHubDeleteCheckpointInput,
+  GitHubFileInput,
   GitHubPanelTab,
   GitHubPullRequestListInput,
   GitHubRestoreCheckpointInput,
@@ -264,6 +266,7 @@ export function parseTaskCreateInput(value: unknown): CreateTaskInput {
     title: expectNonEmptyString(input.title, 'title'),
     description: input.description === undefined ? undefined : expectString(input.description, 'description'),
     context: input.context === undefined ? undefined : expectString(input.context, 'context'),
+    acceptanceCriteria: input.acceptanceCriteria === undefined ? undefined : expectString(input.acceptanceCriteria, 'acceptanceCriteria'),
     verifyCommand: input.verifyCommand === undefined ? undefined : expectString(input.verifyCommand, 'verifyCommand'),
     allowedFiles: input.allowedFiles === undefined ? undefined : expectStringArray(input.allowedFiles, 'allowedFiles'),
     column: input.column === undefined ? undefined : expectTaskColumn(input.column)
@@ -276,6 +279,7 @@ export function parseTaskUpdateInput(value: unknown): UpdateTaskInput {
     title: input.title === undefined ? undefined : expectNonEmptyString(input.title, 'title'),
     description: input.description === undefined ? undefined : expectString(input.description, 'description'),
     context: input.context === undefined ? undefined : expectString(input.context, 'context'),
+    acceptanceCriteria: input.acceptanceCriteria === undefined ? undefined : expectString(input.acceptanceCriteria, 'acceptanceCriteria'),
     verifyCommand: input.verifyCommand === undefined ? undefined : expectString(input.verifyCommand, 'verifyCommand'),
     allowedFiles: input.allowedFiles === undefined ? undefined : expectStringArray(input.allowedFiles, 'allowedFiles'),
     column: input.column === undefined ? undefined : expectTaskColumn(input.column),
@@ -296,7 +300,8 @@ export function parseTaskRunInput(value: unknown): RunTaskInput {
   const input = expectRecord(value, 'tasks:run input')
   return {
     taskId: expectNonEmptyString(input.taskId, 'taskId'),
-    agentProfileId: input.agentProfileId === undefined ? undefined : expectNonEmptyString(input.agentProfileId, 'agentProfileId')
+    agentProfileId: input.agentProfileId === undefined ? undefined : expectNonEmptyString(input.agentProfileId, 'agentProfileId'),
+    paneId: input.paneId === undefined ? undefined : expectNonEmptyString(input.paneId, 'paneId')
   }
 }
 
@@ -396,6 +401,28 @@ export function parseGitBranchInput(value: unknown): { workspaceId: string; root
   }
 }
 
+export function parseSearchInput(value: unknown): import('../../../shared/types/search').SearchInput {
+  const input = expectRecord(value, 'search:run input')
+  return {
+    workspaceId: expectNonEmptyString(input.workspaceId, 'workspaceId'),
+    rootPath: expectNonEmptyString(input.rootPath, 'rootPath'),
+    query: expectString(input.query, 'query'),
+    isRegex: input.isRegex === undefined ? undefined : expectBoolean(input.isRegex, 'isRegex'),
+    caseSensitive: input.caseSensitive === undefined ? undefined : expectBoolean(input.caseSensitive, 'caseSensitive'),
+    includeIgnored: input.includeIgnored === undefined ? undefined : expectBoolean(input.includeIgnored, 'includeIgnored'),
+    globs: input.globs === undefined ? undefined : expectStringArray(input.globs, 'globs'),
+    contextLines: input.contextLines === undefined ? undefined : expectPositiveIntegerOrZero(input.contextLines, 'contextLines')
+  }
+}
+
+export function parseSearchFilesInput(value: unknown): import('../../../shared/types/search').SearchFilesInput {
+  const input = expectRecord(value, 'search:list-files input')
+  return {
+    workspaceId: expectNonEmptyString(input.workspaceId, 'workspaceId'),
+    rootPath: expectNonEmptyString(input.rootPath, 'rootPath')
+  }
+}
+
 // Subset of git's check-ref-format rules — accepts the characters legal in branch
 // names, tags, SHAs, and short refspecs we actually surface (HEAD~3, origin/main, v1.2.3).
 // Rejects shell metacharacters that would be dangerous if a future caller forgets
@@ -421,6 +448,15 @@ export function parseGitHubCommitInput(value: unknown): GitHubCommitInput {
     ...expectGitHubWorkspace(input),
     message: expectNonEmptyString(input.message, 'message')
   }
+}
+
+export function parseGitHubFileInput(value: unknown): GitHubFileInput {
+  const input = expectRecord(value, 'github file input')
+  const path = expectNonEmptyString(input.path, 'path').replace(/\\/g, '/')
+  if (path.startsWith('/') || /^[A-Za-z]:\//.test(path) || path.split('/').includes('..') || path.includes('\0')) {
+    throw new Error('path must stay inside the workspace')
+  }
+  return { ...expectGitHubWorkspace(input), path }
 }
 
 export function parseGitHubCommitDetailsInput(value: unknown): GitHubCommitDetailsInput {
@@ -676,6 +712,13 @@ function expectPositiveInteger(value: unknown, label: string): number {
   return Number(value)
 }
 
+function expectPositiveIntegerOrZero(value: unknown, label: string): number {
+  if (!Number.isInteger(value) || Number(value) < 0) {
+    throw new Error(`${label} must be a non-negative integer`)
+  }
+  return Number(value)
+}
+
 export function parseGitHubCreateWorktreeInput(value: unknown): import('../../../shared/types/github').GitHubCreateWorktreeInput {
   const input = expectRecord(value, 'github:create-worktree input')
   return {
@@ -693,4 +736,39 @@ export function parseGitHubRemoveWorktreeInput(value: unknown): import('../../..
     path: expectNonEmptyString(input.path, 'path'),
     force: input.force === true
   }
+}
+
+export function parseLinearSetApiKeyInput(value: unknown) {
+  const input = expectRecord(value, 'linear:set-api-key input')
+  return { apiKey: expectNonEmptyString(input.apiKey, 'apiKey') }
+}
+
+export function parseLinearListIssuesInput(value: unknown): LinearListIssuesInput {
+  const input = expectRecord(value, 'linear:list-issues input')
+  return {
+    scope: expectLinearScope(input.scope),
+    teamId: input.teamId === undefined || input.teamId === null ? null : expectNonEmptyString(input.teamId, 'teamId'),
+    query: input.query === undefined || input.query === null ? null : expectString(input.query, 'query'),
+    includeCompleted: input.includeCompleted === true
+  }
+}
+
+export function parseLinearIssueIdInput(value: unknown) {
+  const input = expectRecord(value, 'linear:get-issue input')
+  return { issueId: expectNonEmptyString(input.issueId, 'issueId') }
+}
+
+export function parseLinearWorktreeFromIssueInput(value: unknown): LinearWorktreeFromIssueInput {
+  const input = expectRecord(value, 'linear:worktree-from-issue input')
+  return {
+    workspaceId: expectNonEmptyString(input.workspaceId, 'workspaceId'),
+    rootPath: expectNonEmptyString(input.rootPath, 'rootPath'),
+    issueId: expectNonEmptyString(input.issueId, 'issueId'),
+    baseRef: input.baseRef === undefined || input.baseRef === null ? null : expectGitRef(input.baseRef, 'baseRef')
+  }
+}
+
+function expectLinearScope(value: unknown): LinearIssueScope {
+  if (value === 'assigned' || value === 'created' || value === 'team') return value
+  throw new Error('scope must be assigned, created or team')
 }

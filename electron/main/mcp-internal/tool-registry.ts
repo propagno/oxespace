@@ -109,7 +109,7 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   {
     descriptor: {
       name: 'oxespace_list_scripts',
-      description: 'List `.ps1` and `.sh` scripts discovered in the current workspace tree.',
+      description: 'List root package.json scripts plus `.ps1` and `.sh` scripts discovered in the current workspace tree.',
       inputSchema: { type: 'object', properties: {}, additionalProperties: false }
     },
     requiresWorkspace: true,
@@ -203,12 +203,14 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   {
     descriptor: {
       name: 'oxespace_semantic_search',
-      description: 'Search the entire workspace codebase using local vector embeddings (Semantic Search). Finds contextually related code even if exact keywords don\'t match.',
+      description: 'Token-budgeted local hybrid search combining vector meaning and exact FTS5 repository terms. Returns source windows, confidence, coverage and explicit truncation warnings. Use mode=explore for navigation and mode=exhaustive for refactors/completeness-sensitive work.',
       inputSchema: {
         type: 'object',
         properties: {
           query: { type: 'string', description: 'The natural language query to search for.' },
-          limit: { type: 'number', description: 'Maximum number of files to return (default 5).' }
+          limit: { type: 'number', description: 'Maximum number of files to return (default depends on mode).' },
+          mode: { type: 'string', enum: ['auto', 'explore', 'exhaustive'], description: 'Retrieval policy. Auto detects completeness-sensitive intent.' },
+          maxTokens: { type: 'number', description: 'Hard source-context budget (400-20000 estimated tokens).' }
         },
         required: ['query'],
         additionalProperties: false
@@ -220,7 +222,7 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   {
     descriptor: {
       name: 'oxespace_hybrid_explore',
-      description: 'EXPLORE-FIRST tool for UNDERSTANDING/NAVIGATION: how does X work, architecture, a bug, where/what is X, surveying an area. Fuses local Vector Semantic Search with Structural AST Traversal (CodeGraph) and returns verbatim source of the most relevant symbols — fast and token-cheap. IMPORTANT: results are RANKED and BEST-EFFORT, NOT exhaustive. For refactors/renames or any "find ALL callers/usages" task, treat this as a starting point and CONFIRM completeness with grep/ripgrep — config files (.json/.yaml/.env), some test files, dynamic dispatch, and very large fan-ins may not all be surfaced. Query can be natural language.',
+      description: 'Adaptive repository retrieval for development. Fuses local vector embeddings, exact FTS5 terms (including tests/config), and structural AST traversal, then returns budgeted verbatim source with confidence and coverage. mode=explore is token-first and ranked best-effort; mode=exhaustive searches the full local lexical index for refactors/renames/completeness-sensitive work. Runtime-only dynamic dispatch and ignored/generated/binary files remain explicitly disclosed.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -231,7 +233,9 @@ export const TOOL_REGISTRY: ToolEntry[] = [
           maxFiles: {
             type: 'number',
             description: 'Maximum number of files to include source code from (default: 12)'
-          }
+          },
+          mode: { type: 'string', enum: ['auto', 'explore', 'exhaustive'], description: 'Auto, fast exploration, or completeness-sensitive retrieval.' },
+          maxTokens: { type: 'number', description: 'Hard budget for semantic/lexical source windows before structural results.' }
         },
         required: ['query'],
         additionalProperties: false
@@ -239,6 +243,23 @@ export const TOOL_REGISTRY: ToolEntry[] = [
     },
     requiresWorkspace: true,
     handler: handlers.hybridExplore
+  },
+  {
+    descriptor: {
+      name: 'oxespace_quality_check',
+      description: 'Post-diff quality controller. Maps changed files to unchanged exact-reference consumers, checks test/migration/contract coverage and links acceptance criteria to diff evidence. Run after implementation and before claiming completion; address HIGH findings and pair this heuristic check with the real verification commands.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          baseRef: { type: 'string', description: 'Optional Git base revision to include (for example main or HEAD~1). The worktree and index are always included.' },
+          acceptanceCriteria: { type: 'array', items: { type: 'string' }, description: 'Acceptance criteria to trace to changed files.' },
+          maxFindings: { type: 'number', description: 'Maximum findings returned (1-100, default 30).' }
+        },
+        additionalProperties: false
+      }
+    },
+    requiresWorkspace: true,
+    handler: handlers.qualityCheck
   }
 ]
 

@@ -6,6 +6,75 @@ import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { ColorPalette } from './sections/ColorPalette'
 import { ComponentShowcase } from './sections/ComponentShowcase'
 import { TypographyScale } from './sections/TypographyScale'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
+import { Separator } from '@/components/ui/separator'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
+} from '@/components/ui/dialog'
+
+/** F1 verification: shadcn/ui + Tailwind primitives rendering with the ported
+ *  token layer, proving the foundation coexists with OXESpace's CSS. */
+function ShadcnButtonDemo(): ReactElement {
+  return (
+    <section className="ds-showcase-section" data-testid="shadcn-demo" style={{ marginTop: 24 }}>
+      <p className="ds-section-subtitle">shadcn/ui · primitives (F1 foundation)</p>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <Button>Default</Button>
+        <Button variant="secondary">Secondary</Button>
+        <Button variant="outline">Outline</Button>
+        <Button variant="ghost">Ghost</Button>
+        <Button variant="destructive">Destructive</Button>
+        <Button variant="link">Link</Button>
+      </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 12 }}>
+        <Badge>Default</Badge>
+        <Badge variant="secondary">Secondary</Badge>
+        <Badge variant="outline">Outline</Badge>
+        <Badge variant="destructive">Destructive</Badge>
+        <Badge variant="dot">Dot</Badge>
+      </div>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 12, maxWidth: 520 }}>
+        <Input placeholder="shadcn Input…" />
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="outline" size="sm">Hover me</Button>
+            </TooltipTrigger>
+            <TooltipContent>A shadcn tooltip</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button size="sm" data-testid="shadcn-dialog-trigger">Open dialog</Button>
+          </DialogTrigger>
+          <DialogContent data-testid="shadcn-dialog-content">
+            <DialogHeader>
+              <DialogTitle>Dialog title</DialogTitle>
+              <DialogDescription>A ported shadcn dialog on the F1 foundation.</DialogDescription>
+            </DialogHeader>
+          </DialogContent>
+        </Dialog>
+      </div>
+      <Separator className="my-4" />
+      <Card className="max-w-sm">
+        <CardHeader>
+          <CardTitle>Card title</CardTitle>
+          <CardDescription>Card description text.</CardDescription>
+        </CardHeader>
+        <CardContent>Card body content, using the ported tokens.</CardContent>
+      </Card>
+    </section>
+  )
+}
 
 type Section = 'brand' | 'colors' | 'typography' | 'components'
 
@@ -176,6 +245,7 @@ export function DesignSystemPage({ onClose }: DesignSystemPageProps): ReactEleme
           {section === 'colors'     && <ColorPalette theme={theme} onThemeChange={setTheme} />}
           {section === 'typography' && <TypographyScale />}
           {section === 'components' && <ComponentShowcase />}
+          {section === 'components' && <ShadcnButtonDemo />}
         </main>
       </div>
     </div>

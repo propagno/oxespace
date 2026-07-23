@@ -11,11 +11,13 @@ import type { ITheme } from '@xterm/xterm'
 import type { WorkspaceThemeId } from '../../../shared/types/workspace'
 import type { TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useTerminalStore } from '../../store/terminal.store'
+import { wheelToTuiScrollKeys } from '../../utils/terminalWheel'
 
 // Claude Code uses ⏺ (U+23FA) on Mac and ● (U+25CF) on Windows
 const AGENT_MARKERS = ['⏺', '●']
 
 let activeWebglContexts = 0
+let webgl2Supported: boolean | null = null
 // Browsers cap WebGL contexts per tab (Chrome: 16). When exceeded, the oldest
 // context is lost, unexpectedly breaking older terminals. By capping at 14, we
 // leave room for other components and gracefully fall back to the DOM renderer
@@ -29,14 +31,20 @@ const MAX_WEBGL_CONTEXTS = 14
  * a real context is obtainable; otherwise stay on xterm's DOM renderer.
  */
 function supportsWebgl2(): boolean {
+  if (webgl2Supported !== null) return webgl2Supported
   try {
     const canvas = document.createElement('canvas')
     const gl = canvas.getContext('webgl2')
-    if (!gl) return false
+    if (!gl) {
+      webgl2Supported = false
+      return false
+    }
     // Release the probe context so we don't hold a GPU slot.
     gl.getExtension('WEBGL_lose_context')?.loseContext()
+    webgl2Supported = true
     return true
   } catch {
+    webgl2Supported = false
     return false
   }
 }
@@ -54,6 +62,33 @@ const AGENT_PREVIEW_SCAN_LINES = 300
 // selection briefly so the copy still lands instead of silently turning into a
 // SIGINT. Reset whenever the user actually types into the PTY.
 const RECENT_SELECTION_MS = 2000
+
+// OSC 52 lets a terminal application request a clipboard write. Full-screen
+// TUIs use it when they own mouse selection, so the browser's native `copy`
+// event never fires. Keep this write-only (queries could exfiltrate clipboard
+// contents) and bounded so an untrusted process cannot allocate an arbitrary
+// base64 payload in the renderer.
+const OSC52_MAX_DECODED_BYTES = 4 * 1024 * 1024
+
+function decodeOsc52ClipboardWrite(data: string): string | null {
+  const separator = data.indexOf(';')
+  if (separator < 0) return null
+
+  const selection = data.slice(0, separator)
+  const encoded = data.slice(separator + 1)
+  if (!selection.includes('c') || !encoded || encoded === '?') return null
+  if (encoded.length > Math.ceil(OSC52_MAX_DECODED_BYTES * 4 / 3) + 4) return null
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(encoded) || encoded.length % 4 === 1) return null
+
+  try {
+    const binary = atob(encoded)
+    if (binary.length > OSC52_MAX_DECODED_BYTES) return null
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  } catch {
+    return null
+  }
+}
 
 // Search-match highlight colors passed to @xterm/addon-search. The decorations
 // are what make Ctrl+F usable: every match gets a subtle wash, the active one a
@@ -82,7 +117,7 @@ function buildTerminalTheme(translucent: boolean): ITheme {
     return v || fallback
   }
   return {
-    background:          translucent ? '#00000000' : tok('--bg-tile-content', '#0d1117'),
+    background:          translucent ? '#00000000' : '#0a0a0a',
     foreground:          tok('--tx-primary',       '#f1f5f9'),
     cursor:              tok('--brand-light',      '#6EEBD4'),
     selectionBackground: tok('--brand-glow',       'rgba(18,199,154,0.28)'),
@@ -129,6 +164,7 @@ function readAgentPreview(terminal: Terminal): string {
 
 interface TerminalViewProps {
   paneId: string
+  workspaceId?: string
   isRunning: boolean
   onInput: (data: string) => void
   onResize: (cols: number, rows: number) => void
@@ -139,7 +175,7 @@ interface TerminalViewProps {
   prefs: TerminalPrefs
 }
 
-export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, themeId, prefs }: TerminalViewProps): ReactElement {
+export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, workspaceId, themeId, prefs }: TerminalViewProps): ReactElement {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const terminalRef = useRef<Terminal | null>(null)
   const pasteRef = useRef<((text: string) => void) | null>(null)
@@ -236,9 +272,9 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
                try {
                  const t = terminalRef.current
                  if (t) {
-                   // A dummy assignment to options triggers xterm's internal theme
-                   // rebuild for the DOM renderer, guaranteeing colors apply correctly.
-                   t.options.theme = t.options.theme
+                   // Re-apply a cloned theme to trigger xterm's DOM-renderer
+                   // color rebuild without a no-op self-assignment.
+                   t.options.theme = { ...(t.options.theme ?? {}) }
                    t.refresh(0, t.rows - 1)
                  }
                } catch { /* ignore if already unmounted */ }
@@ -285,6 +321,24 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
     })
     terminalRef.current = terminal
 
+    const copyText = async (text: string): Promise<void> => {
+      if (!text) return
+      // Write via main (Electron clipboard, no renderer permission) first; fall
+      // back to the web API. Keeps copy working even if clipboard-write is denied.
+      const ok = await window.oxe.clipboard.writeText(text).catch(() => false)
+      if (!ok) await navigator.clipboard.writeText(text).catch(() => undefined)
+    }
+
+    // TUIs such as Claude/GSD own selection while mouse tracking is enabled and
+    // copy through OSC 52 instead of a DOM copy event. xterm deliberately leaves
+    // OSC 52 to the host, so bridge write requests to Electron's clipboard.
+    // Clipboard read queries (`c;?`) are consumed but never answered.
+    const osc52Disposable = terminal.parser.registerOscHandler(52, async (data) => {
+      const text = decodeOsc52ClipboardWrite(data)
+      if (text) await copyText(text)
+      return true
+    })
+
     const pasteText = (text: string): void => {
       const CHUNK = 4096
       if (text.length <= CHUNK) {
@@ -318,14 +372,6 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       send()
     }
     pasteRef.current = pasteText
-
-    const copyText = async (text: string): Promise<void> => {
-      if (!text) return
-      // Write via main (Electron clipboard, no renderer permission) first; fall
-      // back to the web API. Keeps copy working even if clipboard-write is denied.
-      const ok = await window.oxe.clipboard.writeText(text).catch(() => false)
-      if (!ok) await navigator.clipboard.writeText(text).catch(() => undefined)
-    }
 
     const pasteClipboardContents = async (): Promise<void> => {
       // Always check for image first: agent CLIs (Claude Code, Copilot) prefer file-path
@@ -367,6 +413,38 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       void copyText(selection)
       terminal.clearSelection()
       lastSelectionRef.current = null
+    }
+
+    // Full-screen TUIs (Grok Build, Claude Code, …) use the alternate screen,
+    // which has no xterm scrollback. Without mouse tracking, the wheel does
+    // nothing — translate it into PageUp/PageDown (or arrows) so the TUI can
+    // scroll its own viewport. When the app enables mouse tracking, leave the
+    // event to xterm so it is forwarded as mouse sequences.
+    const handleTuiWheel = (event: WheelEvent): boolean => {
+      const keys = wheelToTuiScrollKeys({
+        bufferType: terminal.buffer.active.type,
+        mouseTrackingMode: terminal.modes.mouseTrackingMode,
+        deltaY: event.deltaY,
+        deltaMode: event.deltaMode,
+        ctrlKey: event.ctrlKey,
+        altKey: event.altKey,
+        metaKey: event.metaKey
+      })
+      if (keys === null) return true
+      event.preventDefault()
+      onInputRef.current(keys)
+      return false
+    }
+    // Proposed API in xterm 5.5+; tests/mocks may omit it — fall back to host.
+    const hostWheelFallback = (event: WheelEvent): void => {
+      handleTuiWheel(event)
+    }
+    let usesHostWheelFallback = false
+    if (typeof terminal.attachCustomWheelEventHandler === 'function') {
+      terminal.attachCustomWheelEventHandler(handleTuiWheel)
+    } else {
+      usesHostWheelFallback = true
+      hostRef.current.addEventListener('wheel', hostWheelFallback, { passive: false })
     }
 
     terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
@@ -475,6 +553,21 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
     }
     window.addEventListener('oxe:terminal-open-search', handleOpenSearchRequest)
 
+    const syncViewportScrollArea = (): void => {
+      // Public API has no syncScrollArea; after maximize the private viewport can
+      // keep a stale scrollHeight so the wheel appears dead. Best-effort only.
+      try {
+        const core = (terminal as unknown as {
+          _core?: { viewport?: { syncScrollArea?: (immediate?: boolean) => void } }
+        })._core
+        core?.viewport?.syncScrollArea?.(true)
+      } catch {
+        /* private xterm surface — ignore if shape changes */
+      }
+    }
+
+    let lastNotifiedCols = 0
+    let lastNotifiedRows = 0
     const fitTerminal = (): void => {
       try {
         // Preserve absolute scroll position. A relative scroll after fit can jump
@@ -484,8 +577,25 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
         const wasAtBottom = viewportY >= buf.baseY
 
         fitAddon.fit()
-        onResizeRef.current(terminal.cols, terminal.rows)
+        const dimensionsChanged =
+          terminal.cols !== lastNotifiedCols ||
+          terminal.rows !== lastNotifiedRows
+        if (dimensionsChanged) {
+          lastNotifiedCols = terminal.cols
+          lastNotifiedRows = terminal.rows
+          onResizeRef.current(terminal.cols, terminal.rows)
+        }
 
+        // Force the viewport scroll area to re-measure after large layout
+        // changes (pane maximize/restore). Without a refresh, xterm can keep a
+        // stale scrollHeight and the mouse wheel appears dead.
+        if (dimensionsChanged) terminal.refresh(0, Math.max(0, terminal.rows - 1))
+        syncViewportScrollArea()
+
+        if (buf.type === 'alternate') {
+          // TUI owns scrolling; don't fight it after fit.
+          return
+        }
         if (wasAtBottom) terminal.scrollToBottom()
         else terminal.scrollToLine(Math.min(viewportY, terminal.buffer.active.baseY))
       } catch {
@@ -504,49 +614,47 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
 
     const resizeObserver = new ResizeObserver(scheduleFit)
     resizeObserver.observe(hostRef.current)
+    const handleWorkspaceActivated = (event: Event): void => {
+      const detail = (event as CustomEvent<{ workspaceId?: string }>).detail
+      if (workspaceId && detail?.workspaceId === workspaceId) scheduleFit()
+    }
+    window.addEventListener('oxe:workspace-activated', handleWorkspaceActivated)
     scheduleFit()
     void document.fonts?.ready.then(scheduleFit).catch(() => undefined)
     // Belt-and-suspenders re-fits shortly after mount. The pane's own layout
     // (topbar + status bar) can still be settling — sibling CSS transitions,
     // late font metric changes, etc. — after ResizeObserver's first callback,
     // and if that first measurement is even slightly stale xterm computes the
-    // wrong cols and the terminal renders text past the visible edge until
-    // something forces another fit (previously only a manual window resize
-    // did). --transition-base across the app is 200ms, so 250/700ms covers a
-    // settle window with margin.
+    // wrong cols. One post-transition pass is enough; ResizeObserver handles
+    // intermediate sizes and `scheduleFit` coalesces them into one frame.
     settleFitTimersRef.current = [
-      setTimeout(scheduleFit, 250),
-      setTimeout(scheduleFit, 700)
+      setTimeout(scheduleFit, 250)
     ]
 
     let previewTimer: ReturnType<typeof setTimeout> | null = null
 
     const unsubscribeData = window.oxe.terminal.onData(paneId, (event) => {
-      // Smart scrollback: when the user has scrolled up to read history, new
-      // streaming output from the agent shouldn't yank them back to the bottom.
-      // xterm's default behavior on write() is "scroll to bottom on every
-      // chunk", which makes it impossible to keep a scroll position while
-      // Copilot/Claude are emitting tokens. We capture viewportY before the
-      // write and restore it from the write callback if the user wasn't
-      // already pinned at the bottom.
+      // Smart scrollback (normal buffer only): when the user has scrolled up to
+      // read history, new streaming output shouldn't yank them to the bottom.
+      // Skip this on the alternate screen (Grok/Claude TUIs) — those apps own
+      // the full viewport, have no scrollback, and continuous pin-restore
+      // fights their redraws so the mouse wheel appears broken.
       //
       // Same reasoning applies while the user is mid mouse-drag selecting text
-      // at the bottom of an actively streaming terminal (e.g. copying the
-      // agent's latest output): if we let write() auto-scroll on every chunk,
-      // the rows shift under the cursor mid-drag and the selection never
-      // stabilizes, so Ctrl+C keeps landing on nothing — this is the "can't
-      // copy during a long CLI session" bug. Pin the viewport whenever there's
-      // a live or very-recently-made selection, even if the user was at the
-      // bottom, so new tokens don't fight an in-progress or just-finished copy.
+      // at the bottom of an actively streaming terminal: pin the viewport so
+      // new tokens don't fight an in-progress copy.
       const preBuf = terminal.buffer.active
+      const isAltScreen = preBuf.type === 'alternate'
       const preViewportY = preBuf.viewportY
       const recentSelection = lastSelectionRef.current
       const hasActiveOrRecentSelection =
         !!terminal.getSelection() ||
         (recentSelection !== null && Date.now() - recentSelection.at <= RECENT_SELECTION_MS)
-      const wasAtBottom = !hasActiveOrRecentSelection && preViewportY >= preBuf.baseY
+      const wasAtBottom =
+        isAltScreen ||
+        (!hasActiveOrRecentSelection && preViewportY >= preBuf.baseY)
       terminal.write(event.data, () => {
-        if (!wasAtBottom) {
+        if (!wasAtBottom && terminal.buffer.active.type === 'normal') {
           const postBuf = terminal.buffer.active
           terminal.scrollToLine(Math.min(preViewportY, postBuf.baseY))
         }
@@ -577,10 +685,12 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       resizeObserver.disconnect()
       dataDisposable.dispose()
       selectionDisposable.dispose()
+      osc52Disposable.dispose()
       searchResultsDisposable.dispose()
       searchAddonRef.current = null
       window.removeEventListener('oxe:terminal-clear', handleClearRequest)
       window.removeEventListener('oxe:terminal-open-search', handleOpenSearchRequest)
+      window.removeEventListener('oxe:workspace-activated', handleWorkspaceActivated)
       try { 
         if (webglAddon) {
           webglAddon.dispose()
@@ -593,6 +703,9 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       }
       hostRef.current?.removeEventListener('paste', handlePaste, { capture: true })
       hostRef.current?.removeEventListener('copy', handleCopy, { capture: true })
+      if (usesHostWheelFallback) {
+        hostRef.current?.removeEventListener('wheel', hostWheelFallback)
+      }
       window.removeEventListener('oxe:terminal-insert-text', handleProgrammaticInsert)
       pasteRef.current = null
       refitRef.current = null
@@ -600,7 +713,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       terminal.dispose()
       terminalRef.current = null
     }
-  }, [paneId])
+  }, [paneId, workspaceId])
 
   // Apply prefs + theme to the live terminal without recreating it. Font/cursor
   // changes are immediate; the theme is re-read on the next frame so the

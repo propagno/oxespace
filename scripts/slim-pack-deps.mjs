@@ -1,10 +1,10 @@
 /**
  * Strip packaging dead weight before electron-builder runs.
  *
- * Semantic search uses ONLY Xenova/multilingual-e5-small from
+ * Semantic search uses ONLY Xenova/multilingual-e5-base from
  * resources/models (extraResources). The transformers.js download cache under
  * node_modules often still holds leftover models from older experiments
- * (all-MiniLM-L6-v2, multilingual-e5-base) — those must never ship.
+ * (all-MiniLM-L6-v2, multilingual-e5-small) — those must never ship.
  *
  * onnxruntime-node ships prebuilds for every OS; OXESpace Windows x64 only
  * needs win32/x64.
@@ -50,7 +50,7 @@ console.log('slim-pack-deps: stripping unused packaging weight…')
 // 1) transformers.js HuggingFace cache (dev leftovers, not the offline bundle)
 remove(
   'node_modules/@xenova/transformers/.cache',
-  'unused MiniLM / e5-base cache; app uses resources/models/e5-small'
+  'unused MiniLM / e5-small cache; app uses resources/models/e5-base'
 )
 
 // 2) ONNX Runtime — keep only win32-x64 for this Windows product

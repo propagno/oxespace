@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'vitest'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { openInMemoryDatabase } from '../../electron/main/db/index'
 import { McpManager } from '../../electron/main/services/mcp.service'
+import { WorkspaceService } from '../../electron/main/services/workspace.service'
 
 describe('McpManager trust gates', () => {
   test('does not start untrusted servers', async () => {
@@ -16,6 +20,29 @@ describe('McpManager trust gates', () => {
 
     await expect(manager.start(server.id)).rejects.toThrow('not trusted')
     db.close()
+  })
+
+  test('does not materialize or pre-approve untrusted servers for external CLIs', async () => {
+    const rootPath = await mkdtemp(join(tmpdir(), 'oxespace-mcp-trust-'))
+    const db = openInMemoryDatabase()
+    try {
+      const workspace = new WorkspaceService(db).create({ rootPath, layoutPreset: 1 })
+      const manager = new McpManager(db)
+      manager.create({
+        workspaceId: workspace.id,
+        name: 'untrusted-test',
+        transport: 'stdio',
+        config: { transport: 'stdio', command: 'node', args: ['server.js'], env: {} },
+        enabled: true,
+        trusted: false
+      })
+
+      const doc = JSON.parse(await readFile(join(rootPath, '.mcp.json'), 'utf8')) as { mcpServers: Record<string, unknown> }
+      expect(doc.mcpServers['untrusted-test']).toBeUndefined()
+    } finally {
+      db.close()
+      await rm(rootPath, { recursive: true, force: true })
+    }
   })
 
   test('blocks sensitive env on untrusted servers', () => {

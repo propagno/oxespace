@@ -26,6 +26,7 @@ import type {
   GitHubCreatePullRequestInput,
   GitHubCreateReleaseInput,
   GitHubDeleteCheckpointInput,
+  GitHubFileInput,
   GitHubMessageResult,
   GitHubPullRequest,
   GitHubPullRequestListInput,
@@ -52,86 +53,14 @@ import type {
   UpdateIntegrationGroupInput,
   UpdateIntegrationMemberInput
 } from './integration'
+import type { FileSystemApi } from './filesystem'
 
 export type { ShellProfile, Workspace, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, UpdateWorkspaceWorktreeStateInput, AgentProfile, AgentReadiness }
 export type { Task, TaskExecution, TaskVerifyOutputEvent }
 export type { GitBranchInput, GitBranchStatus, GitDiff, GitDiffFile, GitDiffHunk, GitDiffLine, GitDiffInput, GitLineType } from './git'
 export type { GitHubBranch, GitHubCheckpoint, GitHubCliStatus, GitHubCommit, GitHubCommitDetails, GitHubConnectedRepository, GitHubMessageResult, GitHubPanelTab, GitHubPullRequest, GitHubRelease, GitHubRepositorySummary, GitHubWorkflow, GitHubWorkflowRun, GitHubWorkflowRunDetails, GitHubWorkspaceStatus } from './github'
 export type { IntegrationGroup, IntegrationMember, IntegrationHandoff, IntegrationRole, IntegrationSession, IntegrationStatus } from './integration'
-
-export type FileTreeNodeType = 'file' | 'directory'
-
-export interface FileTreeNode {
-  name: string
-  relativePath: string
-  type: FileTreeNodeType
-  size: number | null
-  children?: FileTreeNode[]
-}
-
-export interface FileSystemListTreeInput {
-  workspaceId: string
-  rootPath: string
-  relativePath?: string
-}
-
-export interface FileSystemReadFileInput {
-  workspaceId: string
-  rootPath: string
-  relativePath: string
-}
-
-export interface FileSystemReadFileResult {
-  relativePath: string
-  content: string
-  size: number
-  mtimeMs: number
-}
-
-export interface FileSystemWriteFileInput {
-  workspaceId: string
-  rootPath: string
-  relativePath: string
-  content: string
-}
-
-export interface FileSystemWriteFileResult {
-  relativePath: string
-  size: number
-  mtimeMs: number
-}
-
-export interface FileSystemWatchFileInput {
-  workspaceId: string
-  rootPath: string
-  relativePath: string
-}
-
-export interface FileSystemUnwatchFileInput {
-  watchId: string
-}
-
-export interface FileSystemWatchFileResult {
-  watchId: string
-}
-
-export interface FileSystemFileChangedEvent {
-  watchId: string
-  workspaceId: string
-  relativePath: string
-  content: string
-  size: number
-  mtimeMs: number
-}
-
-export interface FileSystemApi {
-  listTree(input: FileSystemListTreeInput): Promise<FileTreeNode[]>
-  readFile(input: FileSystemReadFileInput): Promise<FileSystemReadFileResult>
-  writeFile(input: FileSystemWriteFileInput): Promise<FileSystemWriteFileResult>
-  watchFile(input: FileSystemWatchFileInput): Promise<FileSystemWatchFileResult>
-  unwatchFile(input: FileSystemUnwatchFileInput): Promise<void>
-  onFileChanged(listener: (event: FileSystemFileChangedEvent) => void): () => void
-}
+export type { FileSystemApi, FileSystemFileChangedEvent, FileSystemListTreeInput, FileSystemReadBinaryInput, FileSystemReadBinaryResult, FileSystemReadFileInput, FileSystemReadFileResult, FileSystemUnwatchFileInput, FileSystemWatchFileInput, FileSystemWatchFileResult, FileSystemWriteFileInput, FileSystemWriteFileResult, FileTreeNode, FileTreeNodeType } from './filesystem'
 
 export const IPC_CHANNELS = {
   app: {
@@ -152,6 +81,7 @@ export const IPC_CHANNELS = {
     delete: 'workspace:delete',
     closePane: 'workspace:close-pane',
     splitPane: 'workspace:split-pane',
+    createPane: 'workspace:create-pane',
     updatePaneType: 'workspace:update-pane-type',
     updatePaneName: 'workspace:update-pane-name',
     setPaneAgent: 'workspace:set-pane-agent',
@@ -201,6 +131,7 @@ export const IPC_CHANNELS = {
   fs: {
     listTree: 'fs:list-tree',
     readFile: 'fs:read-file',
+    readBinary: 'fs:read-binary',
     writeFile: 'fs:write-file',
     watchFile: 'fs:watch-file',
     unwatchFile: 'fs:unwatch-file',
@@ -210,6 +141,20 @@ export const IPC_CHANNELS = {
     getBranch: 'git:get-branch',
     getDiff: 'git:get-diff',
     onDiffUpdate: 'git:diff-update'
+  },
+  search: {
+    run: 'search:run',
+    cancel: 'search:cancel',
+    listFiles: 'search:list-files'
+  },
+  linear: {
+    getStatus: 'linear:get-status',
+    setApiKey: 'linear:set-api-key',
+    clearApiKey: 'linear:clear-api-key',
+    listTeams: 'linear:list-teams',
+    listIssues: 'linear:list-issues',
+    getIssue: 'linear:get-issue',
+    createWorktreeFromIssue: 'linear:worktree-from-issue'
   },
   clipboard: {
     saveImageToTemp: 'clipboard:save-image-to-temp',
@@ -284,6 +229,8 @@ export const IPC_CHANNELS = {
     fetch: 'github:fetch',
     pullFfOnly: 'github:pull-ff-only',
     stageAll: 'github:stage-all',
+    stageFile: 'github:stage-file',
+    unstageFile: 'github:unstage-file',
     commit: 'github:commit',
     generateCommitMessage: 'github:generate-commit-message',
     push: 'github:push',
@@ -330,6 +277,7 @@ export const IPC_CHANNELS = {
   mcpInternal: {
     getStatus: 'mcp-internal:get-status',
     regenerateToken: 'mcp-internal:regenerate-token',
+    captureWebPreview: 'mcp-internal:capture-web-preview',
     onWebPreview: 'mcp-internal:on-web-preview',
     onWorktreeChanged: 'mcp-internal:on-worktree-changed'
   },
@@ -339,9 +287,15 @@ export const IPC_CHANNELS = {
   semantic: {
     getStatus: 'semantic:get-status',
     setEnabled: 'semantic:set-enabled',
+    setMode: 'semantic:set-mode',
     reindex: 'semantic:reindex',
     getLogs: 'semantic:get-logs',
-    onLog: 'semantic:log'
+    onLog: 'semantic:log',
+    query: 'semantic:query'
+  },
+  diagnostics: {
+    getSnapshot: 'diagnostics:get-snapshot',
+    exportReport: 'diagnostics:export-report'
   }
 } as const
 
@@ -401,6 +355,7 @@ export interface WorkspaceApi {
   delete(id: string): Promise<void>
   closePane(id: string): Promise<Workspace | null>
   splitPane(input: SplitPaneInput): Promise<Workspace>
+  createPane(input: { workspaceId: string }): Promise<{ workspace: Workspace; paneId: string }>
   updatePaneType(input: UpdatePaneTypeInput): Promise<Workspace>
   updatePaneName(input: UpdatePaneNameInput): Promise<Workspace>
   setPaneAgent(input: { paneId: string; agentProfileId: string | null; preserveSession?: boolean }): Promise<Workspace>
@@ -457,12 +412,32 @@ export interface GitApi {
   onDiffUpdate(listener: (diff: import('./git').GitDiff) => void): () => void
 }
 
+export interface SearchApi {
+  run(input: import('./search').SearchInput): Promise<import('./search').SearchResult>
+  cancel(): Promise<void>
+  listFiles(input: import('./search').SearchFilesInput): Promise<import('./search').SearchFilesResult>
+}
+
+export interface LinearApi {
+  getStatus(): Promise<import('./linear').LinearStatus>
+  setApiKey(input: import('./linear').LinearSetApiKeyInput): Promise<import('./linear').LinearStatus>
+  clearApiKey(): Promise<void>
+  listTeams(): Promise<import('./linear').LinearTeam[]>
+  listIssues(input: import('./linear').LinearListIssuesInput): Promise<import('./linear').LinearIssue[]>
+  getIssue(input: { issueId: string }): Promise<import('./linear').LinearIssue>
+  createWorktreeFromIssue(
+    input: import('./linear').LinearWorktreeFromIssueInput
+  ): Promise<import('./linear').LinearWorktreeFromIssueResult>
+}
+
 export interface GitHubApi {
   getCliStatus(input: GitHubWorkspaceInput): Promise<GitHubCliStatus>
   getWorkspaceStatus(input: GitHubWorkspaceInput): Promise<GitHubWorkspaceStatus>
   fetch(input: GitHubWorkspaceInput): Promise<GitHubMessageResult>
   pullFfOnly(input: GitHubWorkspaceInput): Promise<GitHubMessageResult>
   stageAll(input: GitHubWorkspaceInput): Promise<GitHubMessageResult>
+  stageFile(input: GitHubFileInput): Promise<GitHubMessageResult>
+  unstageFile(input: GitHubFileInput): Promise<GitHubMessageResult>
   commit(input: GitHubCommitInput): Promise<GitHubMessageResult>
   generateCommitMessage(input: GitHubWorkspaceInput): Promise<GitHubMessageResult>
   push(input: GitHubWorkspaceInput): Promise<GitHubMessageResult>
@@ -584,6 +559,8 @@ export interface OxeApi {
   tasks: TaskApi
   fs: FileSystemApi
   git: GitApi
+  search: SearchApi
+  linear: LinearApi
   github: GitHubApi
   integration: IntegrationApi
   clipboard: ClipboardApi
@@ -600,6 +577,7 @@ export interface OxeApi {
   mcpInternal: McpInternalApi
   oxeContext: OxeContextApi
   semantic: SemanticApi
+  diagnostics: import('./diagnostics').DiagnosticsApi
 }
 
 export interface SemanticStatus {
@@ -608,8 +586,36 @@ export interface SemanticStatus {
   indexing: boolean
   count: number
   lastError: string | null
-  /** Embedding model id (e.g. Xenova/multilingual-e5-small). */
+  /** Embedding model id (e.g. Xenova/multilingual-e5-base). */
   modelId?: string
+  mode: SemanticSearchMode
+  coverage: SemanticIndexCoverage
+  lastQuery: SemanticLastQuery | null
+}
+
+export type SemanticSearchMode = 'auto' | 'explore' | 'exhaustive'
+export type SemanticConfidence = 'high' | 'medium' | 'low'
+
+export interface SemanticIndexCoverage {
+  lexicalDocuments: number
+  lastIndexedAt: number | null
+  byCategory: { source: number; test: number; config: number; docs: number; other: number }
+}
+
+export interface SemanticLastQuery {
+  requestedMode: SemanticSearchMode
+  resolvedMode: Exclude<SemanticSearchMode, 'auto'>
+  confidence: SemanticConfidence
+  expanded: boolean
+  expansionReason: string | null
+  durationMs: number
+  semanticCandidates: number
+  lexicalCandidates: number
+  returnedResults: number
+  estimatedTokens: number
+  estimatedFullFileTokens: number
+  estimatedSavingsPercent: number
+  truncated: boolean
 }
 
 export type SemanticLogLevel = 'debug' | 'info' | 'warn' | 'error'
@@ -623,17 +629,26 @@ export interface SemanticLogEntry {
   file?: string
 }
 
+export interface SemanticQueryHit {
+  filePath: string
+  score: number
+}
+
 export interface SemanticApi {
   getStatus(workspaceId: string): Promise<SemanticStatus>
   setEnabled(input: { workspaceId: string; enabled: boolean }): Promise<SemanticStatus>
+  setMode(input: { workspaceId: string; mode: SemanticSearchMode }): Promise<SemanticStatus>
   reindex(workspaceId: string): Promise<SemanticStatus>
   getLogs(): Promise<SemanticLogEntry[]>
   onLog(callback: (entry: SemanticLogEntry) => void): () => void
+  query(input: { workspaceId: string; text: string; limit?: number }): Promise<SemanticQueryHit[]>
 }
 
 export interface McpInternalApi {
   getStatus(): Promise<import('./mcp-internal').InternalMcpStatus>
   regenerateToken(): Promise<import('./mcp-internal').InternalMcpStatus>
+  /** Copies the visible Web Preview frame to the system clipboard. */
+  captureWebPreview(): Promise<void>
   onWebPreview(listener: (event: import('./mcp-internal').InternalMcpWebPreviewEvent) => void): () => void
   onWorktreeChanged(listener: (event: import('./mcp-internal').InternalMcpWorktreeChangedEvent) => void): () => void
 }

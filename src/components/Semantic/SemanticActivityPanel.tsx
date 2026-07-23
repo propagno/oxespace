@@ -1,6 +1,7 @@
 import { Brain, Copy, Download, Pause, Play, RefreshCw, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
-import type { SemanticLogEntry, SemanticLogLevel, SemanticStatus } from '../../../shared/types/ipc'
+import type { SemanticLogEntry, SemanticLogLevel, SemanticSearchMode, SemanticStatus } from '../../../shared/types/ipc'
+import { useTerminalPrefsStore } from '../../store/terminal-prefs.store'
 
 interface SemanticActivityPanelProps {
   workspaceId: string | null
@@ -23,6 +24,7 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
   const [autoScroll, setAutoScroll] = useState(true)
   const [hidden, setHidden] = useState<Set<SemanticLogLevel>>(new Set())
   const [reindexing, setReindexing] = useState(false)
+  const setPreference = useTerminalPrefsStore((state) => state.setOverride)
   const pausedRef = useRef(paused)
   pausedRef.current = paused
   const endRef = useRef<HTMLDivElement | null>(null)
@@ -94,7 +96,7 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
               ? 'ready · empty index (waiting for files)'
               : `ready · ${status.count} files`
 
-  const modelLabel = status?.modelId ?? 'Xenova/multilingual-e5-small'
+  const modelLabel = status?.modelId ?? 'Xenova/multilingual-e5-base'
 
   const handleReindex = async (): Promise<void> => {
     if (!workspaceId || reindexing) return
@@ -108,6 +110,19 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
       setReindexing(false)
     }
   }
+
+  const handleModeChange = async (mode: SemanticSearchMode): Promise<void> => {
+    if (!workspaceId) return
+    setPreference(workspaceId, 'semanticSearchMode', mode)
+    try {
+      setStatus(await window.oxe.semantic.setMode({ workspaceId, mode }))
+    } catch {
+      /* status polling keeps the last valid mode */
+    }
+  }
+
+  const coverage = status?.coverage
+  const lastQuery = status?.lastQuery
 
   return (
     <div className="mcp-panel-backdrop" role="presentation" onMouseDown={onClose}>
@@ -155,9 +170,45 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
         </header>
 
         <div className="semantic-activity-meta" data-testid="semantic-model-label">
-          Model: <strong>{modelLabel}</strong>
-          <span className="semantic-activity-meta-hint">offline · local embeddings</span>
+          <span>Model: <strong>{modelLabel}</strong></span>
+          <span className="semantic-activity-meta-hint">offline · local embeddings + FTS5</span>
+          <label className="semantic-mode-control">
+            Retrieval mode
+            <select
+              value={status?.mode ?? 'auto'}
+              disabled={!workspaceId}
+              aria-label="Semantic retrieval mode"
+              onChange={(event) => void handleModeChange(event.target.value as SemanticSearchMode)}
+            >
+              <option value="auto">Auto · intent-aware</option>
+              <option value="explore">Explore · token-first</option>
+              <option value="exhaustive">Exhaustive · quality-first</option>
+            </select>
+          </label>
         </div>
+
+        <div className="semantic-quality-grid" aria-label="Semantic index coverage">
+          <div className="semantic-quality-card">
+            <span className="semantic-quality-label">Indexed coverage</span>
+            <strong>{coverage?.lexicalDocuments ?? 0} searchable documents</strong>
+            <span>source {coverage?.byCategory.source ?? 0} · tests {coverage?.byCategory.test ?? 0} · config {coverage?.byCategory.config ?? 0} · docs {coverage?.byCategory.docs ?? 0}</span>
+          </div>
+          <div className={`semantic-quality-card semantic-confidence--${lastQuery?.confidence ?? 'idle'}`}>
+            <span className="semantic-quality-label">Last retrieval</span>
+            {lastQuery ? (
+              <>
+                <strong>{lastQuery.confidence} confidence · {lastQuery.resolvedMode}{lastQuery.expanded ? ' · auto-expanded' : ''}</strong>
+                <span>{lastQuery.returnedResults} results · ≈{lastQuery.estimatedTokens.toLocaleString()} tokens · ≈{lastQuery.estimatedSavingsPercent}% saved · {lastQuery.durationMs}ms{lastQuery.truncated ? ' · capped' : ''}</span>
+              </>
+            ) : (
+              <><strong>No query yet</strong><span>Coverage and token budget appear after retrieval.</span></>
+            )}
+          </div>
+        </div>
+
+        <p className="semantic-trust-note">
+          Explore is ranked best-effort. Exhaustive searches the complete local lexical index and expands structural evidence, but dynamic runtime references can still require verification.
+        </p>
 
         <div className="semantic-activity-toolbar">
           <div className="semantic-activity-filters" role="group" aria-label="Filter by level">

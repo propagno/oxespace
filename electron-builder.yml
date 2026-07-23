@@ -13,8 +13,8 @@ files:
   - package.json
   - from: electron/main/db/migrations
     to: out/main/migrations
-  # Dead weight: transformers.js download cache (MiniLM / e5-base leftovers).
-  # The shipped model is resources/models → multilingual-e5-small only.
+  # Dead weight: transformers.js download cache (MiniLM / e5-small leftovers).
+  # The shipped model is resources/models → multilingual-e5-base only.
   - "!**/node_modules/@xenova/transformers/.cache/**"
   # Windows x64 product — drop ONNX native binaries for other OS/arch.
   - "!**/node_modules/onnxruntime-node/bin/napi-v3/darwin/**"
@@ -32,9 +32,9 @@ extraResources:
   # voice.service.ts. Lands at <resourcesPath>/whisper/whisper-cli.exe.
   - from: resources/whisper/win-x64
     to: whisper
-  # Semantic search model (multilingual-e5-small) bundled so it loads OFFLINE —
+  # Semantic search model (multilingual-e5-base) bundled so it loads OFFLINE —
   # no huggingface.co download at runtime (fails on locked-down networks). Lands
-  # at <resourcesPath>/models/Xenova/multilingual-e5-small/. Populated at build
+  # at <resourcesPath>/models/Xenova/multilingual-e5-base/. Populated at build
   # time by `npm run prepare:model` (scripts/fetch-semantic-model.mjs).
   - from: resources/models
     to: models
@@ -53,6 +53,12 @@ asarUnpack:
   # as real files, which is impossible from inside the asar — keep them unpacked.
   - node_modules/web-tree-sitter/**/*
   - node_modules/tree-sitter-wasms/**/*
+  # Find in Files runs the ripgrep binary. The JS wrapper (@vscode/ripgrep)
+  # resolves rg from the platform package (@vscode/ripgrep-<os>-<arch>); an .exe
+  # cannot execute from inside the asar, so keep both unpacked. search.service.ts
+  # rewrites the app.asar path to app.asar.unpacked at runtime.
+  - node_modules/@vscode/ripgrep/**/*
+  - node_modules/@vscode/ripgrep-*/**/*
 win:
   icon: resources/icon.ico
   # Produce channel-specific manifests (for example beta.yml) so prerelease

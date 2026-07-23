@@ -8,19 +8,23 @@ interface UIState {
   /** Tools hub modal (sidebar gear) — distinct from agent Settings. */
   isToolsOpen: boolean
   isCommandPaletteOpen: boolean
+  isCommandMenuOpen: boolean
   isWorkspaceSettingsOpen: boolean
   slashOverlayPaneId: string | null
-  isHistoryPanelOpen: boolean
   isMcpPanelOpen: boolean
+  isLinearPanelOpen: boolean
   isSkillsBrowserOpen: boolean
   isScriptsPanelOpen: boolean
-  isOxePanelOpen: boolean
-  isWebPreviewOpen: boolean
-  /** Workspace + URL pushed by `oxespace_open_web_preview`. The WebPreview
-   *  panel watches this and loads the URL when it mounts (covers the case
-   *  where the panel was closed when the agent called the tool). Cleared
-   *  by the panel after consuming. */
-  pendingWebPreview: { workspaceId: string; url: string } | null
+  isSearchPanelOpen: boolean
+  isUsageOpen: boolean
+  /** F2 experimental: render the recursive split-tree layout instead of the grid. */
+  splitLayoutEnabled: boolean
+  /** Web Preview is workspace-owned. Keeping this keyed prevents opening or
+   *  closing the panel in one workspace from affecting every other surface. */
+  webPreviewOpenByWorkspace: Record<string, boolean>
+  /** URLs pushed by `oxespace_open_web_preview`, retained until the matching
+   *  workspace panel mounts and consumes its own entry. */
+  pendingWebPreviewByWorkspace: Record<string, string>
   isIntegrationPanelOpen: boolean
   activePaneId: string | null
   openNewWorkspace: () => void
@@ -29,23 +33,28 @@ interface UIState {
   setActivePane: (paneId: string | null) => void
   openCommandPalette: () => void
   closeCommandPalette: () => void
+  openCommandMenu: () => void
+  closeCommandMenu: () => void
   openWorkspaceSettings: () => void
   closeWorkspaceSettings: () => void
   openSlashOverlay: (paneId: string) => void
   closeSlashOverlay: () => void
-  openHistoryPanel: () => void
-  closeHistoryPanel: () => void
   openMcpPanel: () => void
   closeMcpPanel: () => void
+  openLinearPanel: () => void
+  closeLinearPanel: () => void
   openSkillsBrowser: () => void
   closeSkillsBrowser: () => void
   openScriptsPanel: () => void
   closeScriptsPanel: () => void
-  openOxePanel: () => void
-  closeOxePanel: () => void
-  openWebPreview: () => void
-  closeWebPreview: () => void
-  setPendingWebPreview: (value: { workspaceId: string; url: string } | null) => void
+  openSearchPanel: () => void
+  closeSearchPanel: () => void
+  openUsage: () => void
+  closeUsage: () => void
+  toggleSplitLayout: () => void
+  openWebPreview: (workspaceId: string) => void
+  closeWebPreview: (workspaceId: string) => void
+  setPendingWebPreview: (workspaceId: string, url: string | null) => void
   openIntegrationPanel: () => void
   closeIntegrationPanel: () => void
   openTools: () => void
@@ -61,15 +70,18 @@ export const useUIStore = create<UIState>((set) => ({
   isSettingsOpen: false,
   isToolsOpen: false,
   isCommandPaletteOpen: false,
+  isCommandMenuOpen: false,
   isWorkspaceSettingsOpen: false,
   slashOverlayPaneId: null,
-  isHistoryPanelOpen: false,
   isMcpPanelOpen: false,
+  isLinearPanelOpen: false,
   isSkillsBrowserOpen: false,
   isScriptsPanelOpen: false,
-  isOxePanelOpen: false,
-  isWebPreviewOpen: false,
-  pendingWebPreview: null,
+  isSearchPanelOpen: false,
+  isUsageOpen: false,
+  splitLayoutEnabled: true,
+  webPreviewOpenByWorkspace: {},
+  pendingWebPreviewByWorkspace: {},
   isIntegrationPanelOpen: false,
   activePaneId: null,
   openNewWorkspace: () => set({ isNewWorkspaceOpen: true }),
@@ -78,23 +90,39 @@ export const useUIStore = create<UIState>((set) => ({
   setActivePane: (paneId) => set({ activePaneId: paneId }),
   openCommandPalette: () => set({ isCommandPaletteOpen: true }),
   closeCommandPalette: () => set({ isCommandPaletteOpen: false }),
+  openCommandMenu: () => set({ isCommandMenuOpen: true }),
+  closeCommandMenu: () => set({ isCommandMenuOpen: false }),
   openWorkspaceSettings: () => set({ isWorkspaceSettingsOpen: true }),
   closeWorkspaceSettings: () => set({ isWorkspaceSettingsOpen: false }),
   openSlashOverlay: (paneId) => set({ slashOverlayPaneId: paneId }),
   closeSlashOverlay: () => set({ slashOverlayPaneId: null }),
-  openHistoryPanel: () => set({ isHistoryPanelOpen: true }),
-  closeHistoryPanel: () => set({ isHistoryPanelOpen: false }),
   openMcpPanel: () => set({ isMcpPanelOpen: true }),
   closeMcpPanel: () => set({ isMcpPanelOpen: false }),
+  openLinearPanel: () => set({ isLinearPanelOpen: true }),
+  closeLinearPanel: () => set({ isLinearPanelOpen: false }),
   openSkillsBrowser: () => set({ isSkillsBrowserOpen: true }),
   closeSkillsBrowser: () => set({ isSkillsBrowserOpen: false }),
   openScriptsPanel: () => set({ isScriptsPanelOpen: true }),
   closeScriptsPanel: () => set({ isScriptsPanelOpen: false }),
-  openOxePanel: () => set({ isOxePanelOpen: true }),
-  closeOxePanel: () => set({ isOxePanelOpen: false }),
-  openWebPreview: () => set({ isWebPreviewOpen: true }),
-  closeWebPreview: () => set({ isWebPreviewOpen: false }),
-  setPendingWebPreview: (value) => set({ pendingWebPreview: value }),
+  openSearchPanel: () => set({ isSearchPanelOpen: true }),
+  closeSearchPanel: () => set({ isSearchPanelOpen: false }),
+  openUsage: () => set({ isUsageOpen: true }),
+  closeUsage: () => set({ isUsageOpen: false }),
+  toggleSplitLayout: () => set((s) => ({ splitLayoutEnabled: !s.splitLayoutEnabled })),
+  openWebPreview: (workspaceId) => set((state) => ({
+    webPreviewOpenByWorkspace: { ...state.webPreviewOpenByWorkspace, [workspaceId]: true }
+  })),
+  closeWebPreview: (workspaceId) => set((state) => {
+    const next = { ...state.webPreviewOpenByWorkspace }
+    delete next[workspaceId]
+    return { webPreviewOpenByWorkspace: next }
+  }),
+  setPendingWebPreview: (workspaceId, url) => set((state) => {
+    const next = { ...state.pendingWebPreviewByWorkspace }
+    if (url === null) delete next[workspaceId]
+    else next[workspaceId] = url
+    return { pendingWebPreviewByWorkspace: next }
+  }),
   openIntegrationPanel: () => set({ isIntegrationPanelOpen: true }),
   closeIntegrationPanel: () => set({ isIntegrationPanelOpen: false }),
   openTools: () => set({ isToolsOpen: true }),

@@ -1,10 +1,13 @@
-import { Check, ChevronDown, ChevronRight } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, MessageSquarePlus, Trash2 } from 'lucide-react'
 import { Fragment, useMemo, useState, type ReactElement } from 'react'
 import type { GitDiffFile, GitDiffHunk, GitDiffLine } from '../../../shared/types/git'
+import { commentAnchor, type DiffComment, type DiffSide } from '../../../shared/types/diff-comments'
+import { useDiffCommentsStore } from '../../store/diff-comments.store'
 import type { DiffMode } from '../../store/git.store'
 
 interface DiffCardProps {
   file: GitDiffFile
+  workspaceId: string
   isReviewed: boolean
   isSelected: boolean
   diffMode: DiffMode
@@ -21,7 +24,14 @@ function relativeTime(mtime: number | null): string {
   return `${Math.floor(diffSec / 86400)}d ago`
 }
 
-export function DiffCard({ diffMode, file, isReviewed, isSelected, onSelect, onToggleReviewed }: DiffCardProps): ReactElement {
+/** Anchor side/line for a diff line: added/context → new side, removed → old. */
+function lineAnchor(line: GitDiffLine): { side: DiffSide; lineNo: number } | null {
+  if (line.newLineNo !== null) return { side: 'new', lineNo: line.newLineNo }
+  if (line.oldLineNo !== null) return { side: 'old', lineNo: line.oldLineNo }
+  return null
+}
+
+export function DiffCard({ diffMode, file, isReviewed, isSelected, onSelect, onToggleReviewed, workspaceId }: DiffCardProps): ReactElement {
   const [collapsed, setCollapsed] = useState(false)
 
   return (
@@ -62,9 +72,9 @@ export function DiffCard({ diffMode, file, isReviewed, isSelected, onSelect, onT
 
       {!collapsed && (
         diffMode === 'side-by-side' ? (
-          <SideBySideDiff hunks={file.hunks} label={file.path} />
+          <SideBySideDiff hunks={file.hunks} label={file.path} filePath={file.path} workspaceId={workspaceId} />
         ) : (
-          <UnifiedDiff hunks={file.hunks} label={file.path} />
+          <UnifiedDiff hunks={file.hunks} label={file.path} filePath={file.path} workspaceId={workspaceId} />
         )
       )}
     </div>
@@ -74,9 +84,112 @@ export function DiffCard({ diffMode, file, isReviewed, isSelected, onSelect, onT
 interface DiffViewProps {
   hunks: GitDiffHunk[]
   label: string
+  filePath: string
+  workspaceId: string
 }
 
-function UnifiedDiff({ hunks, label }: DiffViewProps): ReactElement {
+/** Per-file comment plumbing shared by both diff views. */
+function useFileComments(workspaceId: string, filePath: string): {
+  byAnchor: Map<string, DiffComment[]>
+  editing: string | null
+  setEditing: (anchor: string | null) => void
+  saveComment: (side: DiffSide, lineNo: number, lineContent: string, body: string) => void
+  removeComment: (id: string) => void
+} {
+  const comments = useDiffCommentsStore((s) => s.comments)
+  const add = useDiffCommentsStore((s) => s.add)
+  const removeComment = useDiffCommentsStore((s) => s.remove)
+  const [editing, setEditing] = useState<string | null>(null)
+
+  const byAnchor = useMemo(() => {
+    const map = new Map<string, DiffComment[]>()
+    for (const c of comments) {
+      if (c.workspaceId !== workspaceId || c.filePath !== filePath) continue
+      const key = commentAnchor(c.filePath, c.side, c.lineNo)
+      const arr = map.get(key) ?? []
+      arr.push(c)
+      map.set(key, arr)
+    }
+    return map
+  }, [comments, workspaceId, filePath])
+
+  const saveComment = (side: DiffSide, lineNo: number, lineContent: string, body: string): void => {
+    const trimmed = body.trim()
+    if (!trimmed) return
+    add({ workspaceId, filePath, side, lineNo, lineContent, body: trimmed })
+    setEditing(null)
+  }
+
+  return { byAnchor, editing, setEditing, saveComment, removeComment }
+}
+
+interface CommentRowsProps {
+  colSpan: number
+  anchor: string
+  comments: DiffComment[]
+  isEditing: boolean
+  onCancelEdit: () => void
+  onSave: (body: string) => void
+  onRemove: (id: string) => void
+}
+
+/** Rendered under a diff line: existing comment rows + the inline editor. */
+function CommentRows({ anchor, colSpan, comments, isEditing, onCancelEdit, onRemove, onSave }: CommentRowsProps): ReactElement | null {
+  const [draft, setDraft] = useState('')
+  if (comments.length === 0 && !isEditing) return null
+  return (
+    <>
+      {comments.map((c) => (
+        <tr key={c.id} className="diff-comment-row" data-testid="diff-comment-row">
+          <td className="review-diff-content diff-comment-cell" colSpan={colSpan}>
+            <MessageSquarePlus size={11} aria-hidden="true" className="diff-comment-icon" />
+            <span className="diff-comment-body">{c.body}</span>
+            <button
+              type="button"
+              className="diff-comment-delete"
+              aria-label="Delete comment"
+              onClick={(e) => { e.stopPropagation(); onRemove(c.id) }}
+            >
+              <Trash2 size={11} aria-hidden="true" />
+            </button>
+          </td>
+        </tr>
+      ))}
+      {isEditing ? (
+        <tr className="diff-comment-row diff-comment-row--editor" data-testid="diff-comment-editor">
+          <td className="review-diff-content diff-comment-cell" colSpan={colSpan}>
+            <textarea
+              autoFocus
+              className="diff-comment-input"
+              placeholder="Comment for the agent… (Ctrl+Enter saves)"
+              value={draft}
+              rows={2}
+              aria-label={`Comment on ${anchor}`}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => setDraft(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); onSave(draft); setDraft('') }
+                if (e.key === 'Escape') { e.preventDefault(); setDraft(''); onCancelEdit() }
+              }}
+            />
+            <div className="diff-comment-actions">
+              <button type="button" className="diff-comment-save" onClick={(e) => { e.stopPropagation(); onSave(draft); setDraft('') }}>
+                Add
+              </button>
+              <button type="button" className="diff-comment-cancel" onClick={(e) => { e.stopPropagation(); setDraft(''); onCancelEdit() }}>
+                Cancel
+              </button>
+            </div>
+          </td>
+        </tr>
+      ) : null}
+    </>
+  )
+}
+
+function UnifiedDiff({ hunks, label, filePath, workspaceId }: DiffViewProps): ReactElement {
+  const { byAnchor, editing, setEditing, saveComment, removeComment } = useFileComments(workspaceId, filePath)
+
   return (
     <table className="review-diff-table" aria-label={`Diff for ${label}`}>
       <tbody>
@@ -87,13 +200,45 @@ function UnifiedDiff({ hunks, label }: DiffViewProps): ReactElement {
               <td className="review-diff-ln" />
               <td className="review-diff-content">{hunk.header}</td>
             </tr>
-            {hunk.lines.map((line, li) => (
-              <tr key={`${hi}-${li}`} className={`diff-line--${line.type}`}>
-                <td className="review-diff-ln">{line.oldLineNo ?? ''}</td>
-                <td className="review-diff-ln">{line.newLineNo ?? ''}</td>
-                <td className="review-diff-content">{line.content}</td>
-              </tr>
-            ))}
+            {hunk.lines.map((line, li) => {
+              const anchor = lineAnchor(line)
+              const key = anchor ? commentAnchor(filePath, anchor.side, anchor.lineNo) : null
+              const lineComments = key ? byAnchor.get(key) ?? [] : []
+              return (
+                <Fragment key={`${hi}-${li}`}>
+                  <tr className={`diff-line--${line.type} diff-line--commentable`}>
+                    <td className="review-diff-ln">{line.oldLineNo ?? ''}</td>
+                    <td className="review-diff-ln">{line.newLineNo ?? ''}</td>
+                    <td className="review-diff-content">
+                      {line.content}
+                      {anchor ? (
+                        <button
+                          type="button"
+                          className="diff-comment-add"
+                          data-testid="diff-comment-add"
+                          aria-label={`Comment on line ${anchor.lineNo}`}
+                          title="Comentar esta linha"
+                          onClick={(e) => { e.stopPropagation(); setEditing(key) }}
+                        >
+                          <MessageSquarePlus size={11} aria-hidden="true" />
+                        </button>
+                      ) : null}
+                    </td>
+                  </tr>
+                  {anchor && key ? (
+                    <CommentRows
+                      anchor={key}
+                      colSpan={3}
+                      comments={lineComments}
+                      isEditing={editing === key}
+                      onCancelEdit={() => setEditing(null)}
+                      onSave={(body) => saveComment(anchor.side, anchor.lineNo, line.content, body)}
+                      onRemove={removeComment}
+                    />
+                  ) : null}
+                </Fragment>
+              )
+            })}
           </Fragment>
         ))}
       </tbody>
@@ -142,8 +287,10 @@ function pairHunkLines(lines: GitDiffLine[]): PairedRow[] {
   return out
 }
 
-function SideBySideDiff({ hunks, label }: DiffViewProps): ReactElement {
+function SideBySideDiff({ hunks, label, filePath, workspaceId }: DiffViewProps): ReactElement {
   const rows = useMemo(() => hunks.map((h) => ({ header: h.header, pairs: pairHunkLines(h.lines) })), [hunks])
+  const { byAnchor, editing, setEditing, saveComment, removeComment } = useFileComments(workspaceId, filePath)
+
   return (
     <table className="review-diff-table review-diff-table--split" aria-label={`Side-by-side diff for ${label}`}>
       <tbody>
@@ -153,22 +300,54 @@ function SideBySideDiff({ hunks, label }: DiffViewProps): ReactElement {
               <td className="review-diff-ln" />
               <td className="review-diff-content" colSpan={3}>{hunk.header}</td>
             </tr>
-            {hunk.pairs.map((pair, ri) => (
-              <tr key={`${hi}-${ri}`} className="diff-sbs-row">
-                <td className={`review-diff-ln${pair.left ? ` diff-line--${pair.left.type}` : ''}`}>
-                  {pair.left?.oldLineNo ?? ''}
-                </td>
-                <td className={`review-diff-content review-diff-content--left${pair.left ? ` diff-line--${pair.left.type}` : ' diff-line--blank'}`}>
-                  {pair.left ? pair.left.content : ''}
-                </td>
-                <td className={`review-diff-ln${pair.right ? ` diff-line--${pair.right.type}` : ''}`}>
-                  {pair.right?.newLineNo ?? ''}
-                </td>
-                <td className={`review-diff-content review-diff-content--right${pair.right ? ` diff-line--${pair.right.type}` : ' diff-line--blank'}`}>
-                  {pair.right ? pair.right.content : ''}
-                </td>
-              </tr>
-            ))}
+            {hunk.pairs.map((pair, ri) => {
+              // Anchor to the right (new) side when it exists, else the left.
+              const anchorLine = pair.right ?? pair.left
+              const anchor = anchorLine ? lineAnchor(anchorLine) : null
+              const key = anchor ? commentAnchor(filePath, anchor.side, anchor.lineNo) : null
+              const lineComments = key ? byAnchor.get(key) ?? [] : []
+              return (
+                <Fragment key={`${hi}-${ri}`}>
+                  <tr className="diff-sbs-row diff-line--commentable">
+                    <td className={`review-diff-ln${pair.left ? ` diff-line--${pair.left.type}` : ''}`}>
+                      {pair.left?.oldLineNo ?? ''}
+                    </td>
+                    <td className={`review-diff-content review-diff-content--left${pair.left ? ` diff-line--${pair.left.type}` : ' diff-line--blank'}`}>
+                      {pair.left ? pair.left.content : ''}
+                    </td>
+                    <td className={`review-diff-ln${pair.right ? ` diff-line--${pair.right.type}` : ''}`}>
+                      {pair.right?.newLineNo ?? ''}
+                    </td>
+                    <td className={`review-diff-content review-diff-content--right${pair.right ? ` diff-line--${pair.right.type}` : ' diff-line--blank'}`}>
+                      {pair.right ? pair.right.content : ''}
+                      {anchor ? (
+                        <button
+                          type="button"
+                          className="diff-comment-add"
+                          data-testid="diff-comment-add"
+                          aria-label={`Comment on line ${anchor.lineNo}`}
+                          title="Comentar esta linha"
+                          onClick={(e) => { e.stopPropagation(); setEditing(key) }}
+                        >
+                          <MessageSquarePlus size={11} aria-hidden="true" />
+                        </button>
+                      ) : null}
+                    </td>
+                  </tr>
+                  {anchor && key && anchorLine ? (
+                    <CommentRows
+                      anchor={key}
+                      colSpan={4}
+                      comments={lineComments}
+                      isEditing={editing === key}
+                      onCancelEdit={() => setEditing(null)}
+                      onSave={(body) => saveComment(anchor.side, anchor.lineNo, anchorLine.content, body)}
+                      onRemove={removeComment}
+                    />
+                  ) : null}
+                </Fragment>
+              )
+            })}
           </Fragment>
         ))}
       </tbody>

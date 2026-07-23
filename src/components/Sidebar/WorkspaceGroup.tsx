@@ -1,5 +1,5 @@
 import { Check, GitBranch, GripVertical, Network, Pencil, Settings, Trash2, X } from 'lucide-react'
-import { useEffect, useRef, useState, type ReactElement } from 'react'
+import { memo, useEffect, useRef, useState, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import { selectIntegrationsForWorkspace, useIntegrationStore } from '../../store/integration.store'
 import { useUIStore } from '../../store/ui.store'
@@ -24,7 +24,7 @@ interface WorkspaceGroupProps {
   onDragEnd?: () => void
 }
 
-export function WorkspaceGroup({
+function WorkspaceGroupComponent({
   workspace,
   isActive,
   onSelect,
@@ -42,7 +42,7 @@ export function WorkspaceGroup({
   const setActiveIntegrationGroup = useIntegrationStore((s) => s.setActiveGroup)
   const updateSettings = useWorkspaceStore((s) => s.updateSettings)
   const activity = useWorkspaceActivity(workspace)
-  const branchStatus = useGitBranch(workspace.id, workspace.rootPath)
+  const branchStatus = useGitBranch(workspace.id, workspace.rootPath, isActive)
   const branchLabel = branchStatus?.branch
     ?? (branchStatus?.shortSha ? `detached ${branchStatus.shortSha}` : null)
 
@@ -220,11 +220,9 @@ export function WorkspaceGroup({
                 {workspace.name}
               </span>
               {branchLabel ? (
-                <div className="ws-group-meta" data-testid="ws-group-meta">
-                  <span className="ws-group-meta-chip" title={`Branch: ${branchLabel}`}>
-                    <GitBranch size={10} aria-hidden="true" />
-                    {branchLabel}
-                  </span>
+                <div className="ws-group-branch-row" title={`Branch: ${branchLabel}`} data-testid="ws-group-meta">
+                  <GitBranch size={10} className="ws-group-branch-icon" aria-hidden="true" />
+                  <span className="ws-group-branch-text">{branchLabel}</span>
                 </div>
               ) : null}
             </>
@@ -296,6 +294,15 @@ export function WorkspaceGroup({
     </div>
   )
 }
+
+export const WorkspaceGroup = memo(
+  WorkspaceGroupComponent,
+  (previous, next) =>
+    previous.workspace === next.workspace &&
+    previous.isActive === next.isActive &&
+    previous.isDragging === next.isDragging &&
+    previous.dropPosition === next.dropPosition
+)
 
 interface RemoveWorkspaceModalProps {
   workspaceName: string

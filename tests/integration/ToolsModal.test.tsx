@@ -12,8 +12,7 @@ const inactive = {
   worktree: false,
   scripts: false,
   webPreview: false,
-  integration: false,
-  oxe: false
+  integration: false
 }
 
 const noopHandlers = {
@@ -28,11 +27,9 @@ const noopHandlers = {
   onToggleScripts: () => undefined,
   onToggleWebPreview: () => undefined,
   onOpenIntegration: () => undefined,
-  onOpenHistory: () => undefined,
   onOpenMcp: () => undefined,
   onOpenSkills: () => undefined,
-  onOpenSemanticLogs: () => undefined,
-  onToggleOxe: () => undefined
+  onOpenSemanticLogs: () => undefined
 }
 
 describe('ToolsModal', () => {
@@ -54,7 +51,9 @@ describe('ToolsModal', () => {
     expect(screen.getByTestId('tools-agent-settings')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Open Agent Settings/i })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /Editor/i })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: /OXE/i })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /^OXE$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /Issues/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /History/i })).not.toBeInTheDocument()
     expect(screen.getByPlaceholderText('Search tools…')).toBeInTheDocument()
 
     await user.click(screen.getByRole('menuitem', { name: /Editor/i }))

@@ -7,11 +7,6 @@ name: Release (redirect)
 on:
   workflow_dispatch:
     inputs:
-      branch:
-        description: Branch to build and release from (unified pipeline)
-        required: true
-        default: main
-        type: string
       tag:
         description: Optional release tag (vX.Y.Z). Empty = v{package.json version}
         required: false
@@ -31,11 +26,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          BRANCH='${{ inputs.branch }}'
+          # Use the branch selected in "Use workflow from" for this redirect run.
+          BRANCH='${{ github.ref_name }}'
           args=(
             workflow run ci.yml
             --ref "$BRANCH"
-            -f "branch=$BRANCH"
             -f "publish_release=true"
           )
           if [ -n "${{ inputs.tag }}" ]; then

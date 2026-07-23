@@ -16,7 +16,10 @@ interface WorkspaceIntegrationPanelProps {
 
 export function WorkspaceIntegrationPanel({ activePaneId, isExpanded, onCollapse, onRunCommand, onSelectWorkspace, onToggleExpanded, workspace, workspaces }: WorkspaceIntegrationPanelProps): ReactElement {
   return (
-    <aside className={`workspace-editor-panel workspace-integration-panel${isExpanded ? ' expanded' : ''}`}>
+    <aside
+      className={`workspace-editor-panel workspace-integration-panel${isExpanded ? ' expanded' : ''}`}
+      data-testid="workspace-integration-panel"
+    >
       <header className="workspace-editor-header">
         <div className="workspace-editor-title">
           <Network size={14} aria-hidden="true" />

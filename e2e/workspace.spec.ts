@@ -26,7 +26,10 @@ test('creates a workspace and starts a terminal pane', async () => {
     await page.getByTestId('wizard-launch-btn').click()
 
     await expect(page.getByTestId('sidebar-workspace-item')).toContainText('repo')
-    await expect(page.getByTestId('workspace-grid')).toBeVisible()
+    // Split-tree layout is the default; F2 can toggle back to the legacy grid.
+    await expect(
+      page.locator('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]').first()
+    ).toBeVisible()
     // A terminal pane is mounted for the single-cell layout.
     await expect(page.getByTestId('terminal-pane').first()).toBeVisible()
   } finally {

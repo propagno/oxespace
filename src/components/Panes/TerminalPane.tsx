@@ -22,14 +22,19 @@ interface TerminalPaneProps {
 }
 
 export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }: TerminalPaneProps): ReactElement {
-  const { getStatus, setStatus, consumePendingCommand } = useTerminalStore()
+  // Subscribe only to this pane. Calling useTerminalStore() without a selector
+  // made every TerminalPane rerender whenever any other terminal produced
+  // output (up to 10 updates/s per pane).
+  const state = useTerminalStore((s) => s.getStatus(pane.id))
+  const getStatus = useTerminalStore((s) => s.getStatus)
+  const setStatus = useTerminalStore((s) => s.setStatus)
+  const consumePendingCommand = useTerminalStore((s) => s.consumePendingCommand)
   const setLastIntent = useTerminalStore((s) => s.setLastIntent)
   const setPaneAgent = useWorkspaceStore((s) => s.setPaneAgent)
   const allProfiles = useAgentStore((s) => s.allProfiles)
   const workspaceThemeId = useWorkspaceStore((s) => s.workspaces.find((w) => w.id === workspaceId)?.themeId ?? 'dracula')
   const setTerminalOverride = useTerminalPrefsStore((s) => s.setOverride)
   const terminalPrefs = useResolvedTerminalPrefs(workspaceId)
-  const state = getStatus(pane.id)
   const isRunning = state.status === 'running' || state.status === 'starting'
   const canUseVoice = state.status === 'running'
   // Copilot panes get the account-wide AI-Credits indicator in their status bar.
@@ -319,6 +324,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
           <ErrorBoundary label="o terminal">
           <TerminalView
             paneId={pane.id}
+            workspaceId={workspaceId}
             isRunning={isRunning}
             themeId={workspaceThemeId}
             prefs={terminalPrefs}

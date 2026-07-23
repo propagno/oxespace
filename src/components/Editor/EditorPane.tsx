@@ -1,6 +1,6 @@
 import Editor from '@monaco-editor/react'
-import { useEffect, useRef, useState, useCallback, type ReactElement } from 'react'
-import { Mic, MicOff } from 'lucide-react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, useCallback, type ReactElement } from 'react'
+import { Code2, Eye, Mic, MicOff } from 'lucide-react'
 import type { editor as monacoEditor } from 'monaco-editor'
 import { useOxeVoice } from '../../hooks/useOxeVoice'
 // Side-effect: self-host Monaco (loader.config + local workers) so the Editor
@@ -8,24 +8,39 @@ import { useOxeVoice } from '../../hooks/useOxeVoice'
 // satisfies the packaged-build CSP. Must run before <Editor> mounts.
 import '../../lib/monacoSetup'
 import type { FileTreeNode } from '../../../shared/types/ipc'
-import { useEditorStore } from '../../store/editor.store'
+import { selectActiveFile, useEditorStore } from '../../store/editor.store'
+import { isBinaryPreview, previewKind } from '../Preview/previewKind'
 import { ConflictDiff } from './ConflictDiff'
+import { EditorTabs } from './EditorTabs'
 import { FileBrowser } from './FileBrowser'
+
+// #10 · Rich previews are lazy so react-markdown and the base64 plumbing stay out
+// of the renderer entry chunk (budget: 500kB).
+const MarkdownPreview = lazy(() => import('../Preview/MarkdownPreview').then((m) => ({ default: m.MarkdownPreview })))
+const BinaryPreview = lazy(() => import('../Preview/BinaryPreview').then((m) => ({ default: m.BinaryPreview })))
 
 interface EditorPaneProps {
   workspaceId: string
   rootPath: string
 }
 
+// Stable identities so the zustand selectors don't return a fresh object each render.
+const EMPTY_TABS: never[] = []
+const EMPTY_FILES = {} as Record<string, never>
+
 export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactElement {
-  const file = useEditorStore((state) => state.files[workspaceId] ?? null)
-  const { markExternalChange, openFile, saveFile, updateContent } = useEditorStore()
+  const file = useEditorStore((state) => selectActiveFile(state, workspaceId))
+  const tabs = useEditorStore((state) => state.tabs[workspaceId] ?? EMPTY_TABS)
+  const workspaceFiles = useEditorStore((state) => state.files[workspaceId] ?? EMPTY_FILES)
+  const { closeOtherTabs, closeTab, markExternalChange, moveTab, openFile, restoreSession, saveFile, togglePin, updateContent } =
+    useEditorStore()
   const monacoHostRef = useRef<HTMLDivElement | null>(null)
   const [tree, setTree] = useState<FileTreeNode[]>([])
   const [treeError, setTreeError] = useState<string | null>(null)
   const [isLoadingTree, setIsLoadingTree] = useState(false)
   const [editorSize, setEditorSize] = useState({ width: 0, height: 0 })
   const editorRef = useRef<monacoEditor.IStandaloneCodeEditor | null>(null)
+  const [showRendered, setShowRendered] = useState(true)
 
   const insertVoiceText = useCallback((text: string): void => {
     const editor = editorRef.current
@@ -103,6 +118,11 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
     return window.oxe.fs.onFileChanged((event) => markExternalChange(event))
   }, [markExternalChange])
 
+  // Tabs persist across restarts; their content does not, so re-read on mount.
+  useEffect(() => {
+    void restoreSession(workspaceId, rootPath)
+  }, [restoreSession, rootPath, workspaceId])
+
   useEffect(() => {
     let cancelled = false
     setIsLoadingTree(true)
@@ -170,12 +190,25 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
   const editorHeight = editorSize.height > 0 ? editorSize.height : '100%'
 
   const handleOpenFile = (relativePath: string): void => {
-    void openFile({
-      workspaceId,
-      rootPath,
-      relativePath
-    })
+    setShowRendered(true)
+    void openFile({ workspaceId, rootPath, relativePath })
   }
+
+  const activePath = file?.relativePath ?? null
+  const activeKind = activePath ? previewKind(activePath) : null
+  const binaryFile = activePath && activeKind && isBinaryPreview(activeKind)
+    ? { relativePath: activePath, kind: activeKind }
+    : null
+  const isMarkdown = activeKind === 'markdown'
+  const dirtyPaths = useMemo(
+    () =>
+      new Set(
+        Object.values(workspaceFiles)
+          .filter((entry) => entry.content !== entry.lastSavedContent)
+          .map((entry) => entry.relativePath)
+      ),
+    [workspaceFiles]
+  )
 
   return (
     <div className="editor-pane">
@@ -183,14 +216,37 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
         <div className="editor-sidebar-title">Files</div>
         {isLoadingTree ? <div className="editor-browser-empty">Loading</div> : null}
         {treeError ? <div className="editor-error">{treeError}</div> : null}
-        {!isLoadingTree && !treeError ? <FileBrowser nodes={tree} rootPath={rootPath} workspaceId={workspaceId} selectedPath={file?.relativePath ?? null} onOpenFile={handleOpenFile} /> : null}
+        {!isLoadingTree && !treeError ? <FileBrowser nodes={tree} rootPath={rootPath} workspaceId={workspaceId} selectedPath={activePath} onOpenFile={handleOpenFile} /> : null}
       </aside>
       <section className="editor-main" aria-label="Editor">
+        <EditorTabs
+          tabs={tabs}
+          activePath={activePath}
+          dirtyPaths={dirtyPaths}
+          onActivate={handleOpenFile}
+          onClose={(relativePath) => closeTab(workspaceId, relativePath)}
+          onCloseOthers={(relativePath) => closeOtherTabs(workspaceId, relativePath)}
+          onTogglePin={(relativePath) => togglePin(workspaceId, relativePath)}
+          onMove={(fromPath, toPath) => moveTab(workspaceId, fromPath, toPath)}
+        />
         <header className="editor-toolbar">
-          <span className="editor-path">{file?.relativePath ?? 'No file selected'}</span>
+          <span className="editor-path">{activePath ?? 'No file selected'}</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span className={`editor-dirty${isDirty ? ' active' : ''}`}>{file?.isSaving ? 'saving' : isDirty ? 'dirty' : 'saved'}</span>
-            
+            {isMarkdown ? (
+              <button
+                type="button"
+                className={`tile-btn${showRendered ? ' active' : ''}`}
+                onClick={() => setShowRendered((value) => !value)}
+                title={showRendered ? 'Show Markdown source' : 'Show rendered Markdown'}
+                data-testid="markdown-toggle"
+              >
+                {showRendered ? <Code2 size={12} aria-hidden="true" /> : <Eye size={12} aria-hidden="true" />}
+              </button>
+            ) : null}
+            {binaryFile ? null : (
+              <span className={`editor-dirty${isDirty ? ' active' : ''}`}>{file?.isSaving ? 'saving' : isDirty ? 'dirty' : 'saved'}</span>
+            )}
+
             {voice.isSupported && (
               <button
                 type="button"
@@ -221,9 +277,26 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
           </div>
         </header>
         <div className="editor-body">
-          {file?.error ? <div className="editor-error">{file.error}</div> : null}
-          {file?.conflict ? <ConflictDiff localContent={file.content} externalContent={file.conflict.externalContent} /> : null}
-          {file ? (
+          {binaryFile ? (
+            <Suspense fallback={<div className="editor-loading">Loading preview</div>}>
+              <BinaryPreview
+                workspaceId={workspaceId}
+                rootPath={rootPath}
+                relativePath={binaryFile.relativePath}
+                kind={binaryFile.kind}
+              />
+            </Suspense>
+          ) : null}
+          {!binaryFile && file?.error ? <div className="editor-error">{file.error}</div> : null}
+          {!binaryFile && file?.conflict ? <ConflictDiff localContent={file.content} externalContent={file.conflict.externalContent} /> : null}
+          {!binaryFile && file && isMarkdown && showRendered ? (
+            <div className="editor-preview-host scrollbar-sleek">
+              <Suspense fallback={<div className="editor-loading">Loading preview</div>}>
+                <MarkdownPreview content={file.content} />
+              </Suspense>
+            </div>
+          ) : null}
+          {!binaryFile && file && !(isMarkdown && showRendered) ? (
             <div className="editor-monaco-host" ref={monacoHostRef}>
               <Editor
                 height={editorHeight}
@@ -250,9 +323,8 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
                 onChange={(value) => updateContent(workspaceId, value ?? '')}
               />
             </div>
-          ) : (
-            <div className="editor-empty">Select a file</div>
-          )}
+          ) : null}
+          {!binaryFile && !file ? <div className="editor-empty">Select a file</div> : null}
         </div>
       </section>
     </div>

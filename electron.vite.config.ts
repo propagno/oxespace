@@ -2,6 +2,37 @@ import { cpSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
+
+/** node_modules path fragments belonging to the react-markdown pipeline (#10). */
+const MARKDOWN_CHUNK_PARTS = [
+  'react-markdown',
+  'remark-',
+  'micromark',
+  'mdast-util',
+  'hast-util',
+  'unist-util',
+  'unified',
+  'vfile',
+  'property-information',
+  'character-entities',
+  'decode-named-character-reference',
+  'space-separated-tokens',
+  'comma-separated-tokens',
+  'html-url-attributes',
+  'markdown-table',
+  'longest-streak',
+  'stringify-entities',
+  'trim-lines',
+  'style-to-js',
+  'style-to-object',
+  'inline-style-parser',
+  'zwitch',
+  'devlop',
+  'ccount',
+  'trough',
+  'bail'
+]
 
 export default defineConfig({
   main: {
@@ -90,7 +121,14 @@ export default defineConfig({
     build: {
       rollupOptions: {
         input: {
-          index: resolve(__dirname, 'electron/preload/index.ts')
+          index: resolve(__dirname, 'electron/preload/index.ts'),
+          // Design Mode (#3): injected into the <webview> guest page so element
+          // picking runs inside the previewed site, isolated from the renderer.
+          'design-guest': resolve(__dirname, 'electron/preload/design-guest.ts')
+        },
+        output: {
+          format: 'cjs',
+          entryFileNames: '[name].cjs'
         }
       }
     }
@@ -99,6 +137,7 @@ export default defineConfig({
     root: '.',
     plugins: [
       react(),
+      tailwindcss(),
       {
         name: 'inject-prod-csp',
         apply: 'build',
@@ -115,7 +154,9 @@ export default defineConfig({
             // dev server AND external sites opened via oxespace_open_web_preview).
             // Restricting frame-src to localhost blocked external previews in the
             // packaged build. http:/https: scoping still bars data:/file: frames.
-            "frame-src http: https:",
+            // blob: is needed by the PDF preview (#10), which hands Chromium's
+            // built-in viewer a same-origin object URL built in the renderer.
+            "frame-src http: https: blob:",
             "object-src 'none'",
             "base-uri 'self'",
             "form-action 'none'"
@@ -129,6 +170,7 @@ export default defineConfig({
     ],
     resolve: {
       alias: {
+        '@': resolve(__dirname, 'src'),
         '@renderer': resolve(__dirname, 'src'),
         '@shared': resolve(__dirname, 'shared')
       }
@@ -144,9 +186,15 @@ export default defineConfig({
             if (!id.includes('node_modules')) return undefined
             if (id.includes('monaco-editor')) return 'monaco'
             if (id.includes('@xterm')) return 'xterm'
-            if (id.includes('react-dom') || id.includes('/scheduler/') || /[\\/]react[\\/]/.test(id)) return 'react-vendor'
-            if (id.includes('lucide-react')) return 'icons'
             if (id.includes('@xenova') || id.includes('onnxruntime')) return 'ml'
+            // The markdown pipeline (#10) is only reached through the lazy
+            // MarkdownPreview, so keep it out of the eagerly-loaded vendor chunk.
+            if (MARKDOWN_CHUNK_PARTS.some((part) => id.includes(part))) return 'markdown'
+            // React + everything that consumes it (radix-ui, cmdk, xyflow,
+            // @monaco-editor/react, lucide, …) MUST share one chunk. Splitting
+            // React into its own chunk broke cross-chunk eval order once the
+            // radix transitive deps (react-remove-scroll, use-sidecar, …) grew
+            // → "Cannot read properties of undefined (reading 'useState')" at boot.
             return 'vendor'
           }
         }

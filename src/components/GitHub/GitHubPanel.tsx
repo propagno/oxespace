@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
-import { AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowUpFromLine, CheckCircle2, ChevronDown, ChevronRight, CircleDot, Clock, Copy, Download, ExternalLink, Github, GitBranch, GitPullRequest, Link2, Play, RefreshCw, Tag, Terminal, TrendingUp } from 'lucide-react'
-import type { GitHubBranch, GitHubCliStatus, GitHubCommit, GitHubCommitDetails, GitHubConnectedRepository, GitHubPanelTab, GitHubPullRequest, GitHubRelease, GitHubWorkflow, GitHubWorkflowJob, GitHubWorkflowRun, GitHubWorkflowRunDetails, GitHubWorkspaceStatus } from '../../../shared/types/github'
+import { AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowUpFromLine, CheckCircle2, ChevronDown, ChevronRight, CircleDot, Clock, Copy, Download, ExternalLink, Github, GitBranch, GitPullRequest, Link2, Minus, Play, Plus, RefreshCw, Tag, Terminal, TrendingUp } from 'lucide-react'
+import type { GitHubBranch, GitHubCliStatus, GitHubCommit, GitHubCommitDetails, GitHubConnectedRepository, GitHubFileChange, GitHubPanelTab, GitHubPullRequest, GitHubRelease, GitHubWorkflow, GitHubWorkflowJob, GitHubWorkflowRun, GitHubWorkflowRunDetails, GitHubWorkspaceStatus } from '../../../shared/types/github'
 import { selectGitHubWorkspace, useGitHubStore } from '../../store/github.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
+import { useEditorStore } from '../../store/editor.store'
 import { useResolvedTerminalPrefs } from '../../store/terminal-prefs.store'
 import { TerminalView } from '../Terminal/TerminalView'
+import { GITHUB_PANEL_TABS as TABS, buildStatusHeadline, describeSyncState } from './githubPanelModel'
+export { buildStatusHeadline, describeSyncState } from './githubPanelModel'
 
 interface GitHubPanelProps {
   workspaceId: string
@@ -18,18 +21,6 @@ interface ConfirmAction {
   detail: string
   run: () => Promise<void>
 }
-
-const TABS: Array<{ id: GitHubPanelTab; label: string; remote?: boolean }> = [
-  { id: 'status', label: 'Status' },
-  { id: 'checkpoints', label: 'Checkpoints' },
-  { id: 'repos', label: 'Repos' },
-  { id: 'branches', label: 'Branches' },
-  { id: 'prs', label: 'PRs', remote: true },
-  { id: 'commits', label: 'Commits' },
-  { id: 'releases', label: 'Releases', remote: true },
-  { id: 'actions', label: 'Actions', remote: true },
-  { id: 'settings', label: 'Settings' }
-]
 
 export function GitHubPanel({ activeTab: propTab, onTabChange, rootPath, workspaceId }: GitHubPanelProps): ReactElement {
   const selector = useMemo(() => selectGitHubWorkspace(workspaceId), [workspaceId])
@@ -65,6 +56,18 @@ export function GitHubPanel({ activeTab: propTab, onTabChange, rootPath, workspa
   const showSkeleton = state.loading && !hasTabData && !blocked
 
   const requestConfirm = (title: string, detail: string, run: () => Promise<void>): void => setConfirmAction({ title, detail, run })
+
+  const openChangedFile = (path: string): void => {
+    const workspace = useWorkspaceStore.getState().workspaces.find((item) => item.id === workspaceId)
+    if (!workspace) return
+    void useWorkspaceStore.getState().updateEditorState({
+      workspaceId,
+      editorVisible: true,
+      editorExpanded: false,
+      editorWidthPercent: workspace.editorWidthPercent ?? 48
+    })
+    void useEditorStore.getState().openFile({ workspaceId, rootPath, relativePath: path })
+  }
 
   const runCommand = (command: string): void => setPendingCommand(command)
   const loadWorkflowRunDetails = useCallback(
@@ -118,8 +121,11 @@ export function GitHubPanel({ activeTab: propTab, onTabChange, rootPath, workspa
                   () => useGitHubStore.getState().push(input)
                 )}
                 onStageAll={() => requestConfirm('Stage all', buildStageAllPreview(status), () => useGitHubStore.getState().stageAll(input))}
+                onStageFile={(path) => void useGitHubStore.getState().stageFile({ ...input, path })}
+                onUnstageFile={(path) => void useGitHubStore.getState().unstageFile({ ...input, path })}
                 onCommit={(msg) => requestConfirm('Commit', msg, () => useGitHubStore.getState().commit({ ...input, message: msg }))}
                 onGenerateMessage={() => useGitHubStore.getState().generateCommitMessage(input)}
+                onOpenFile={openChangedFile}
                 onRefresh={() => void useGitHubStore.getState().loadTab(input, 'status')}
               />
             )}
@@ -233,15 +239,18 @@ export function GitHubPanel({ activeTab: propTab, onTabChange, rootPath, workspa
 
 // ─── Status ────────────────────────────────────────────────────────────────
 
-function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll, onCommit, onGenerateMessage, onRefresh }: {
+function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll, onStageFile, onUnstageFile, onCommit, onGenerateMessage, onOpenFile, onRefresh }: {
   loading: boolean
   status: GitHubWorkspaceStatus | null
   onFetch: () => void
   onPullFfOnly: () => void
   onPush: () => void
   onStageAll: () => void
+  onStageFile: (path: string) => void
+  onUnstageFile: (path: string) => void
   onCommit: (msg: string) => void
   onGenerateMessage: () => Promise<string>
+  onOpenFile: (path: string) => void
   onRefresh: () => void
 }): ReactElement {
   const [message, setMessage] = useState('')
@@ -249,6 +258,9 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
   const [generating, setGenerating] = useState(false)
   const commitMessage = message.trim()
   const totalFiles = (status?.staged ?? 0) + (status?.modified ?? 0) + (status?.untracked ?? 0)
+  const changes = status?.changes ?? []
+  const stagedChanges = changes.filter((change) => change.staged)
+  const unstagedChanges = changes.filter((change) => change.unstaged)
   const ahead = status?.ahead ?? 0
   const behind = status?.behind ?? 0
   const dirty = status?.hasUncommittedChanges === true
@@ -404,19 +416,28 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
               {totalFiles === 0 ? 'No local changes' : `${totalFiles} file${totalFiles === 1 ? '' : 's'}`}
             </span>
           </div>
-          <div className="github-changes-rows">
-            <div className="github-changes-row">
-              <span>Staged</span>
-              <strong>{status?.staged ?? 0}</strong>
-            </div>
-            <div className="github-changes-row">
-              <span>Modified</span>
-              <strong className={(status?.modified ?? 0) > 0 ? 'warn' : undefined}>{status?.modified ?? 0}</strong>
-            </div>
-            <div className="github-changes-row">
-              <span>Untracked</span>
-              <strong className={(status?.untracked ?? 0) > 0 ? 'info' : undefined}>{status?.untracked ?? 0}</strong>
-            </div>
+          <div className="github-changes-rows" aria-label="Changed files">
+            {stagedChanges.length > 0 ? (
+              <GitChangeGroup
+                title="Staged Changes"
+                changes={stagedChanges}
+                action="unstage"
+                disabled={loading}
+                onAction={onUnstageFile}
+                onOpenFile={onOpenFile}
+              />
+            ) : null}
+            {unstagedChanges.length > 0 ? (
+              <GitChangeGroup
+                title="Changes"
+                changes={unstagedChanges}
+                action="stage"
+                disabled={loading}
+                onAction={onStageFile}
+                onOpenFile={onOpenFile}
+              />
+            ) : null}
+            {changes.length === 0 ? <div className="github-changes-empty">Working tree clean</div> : null}
           </div>
           <div className="github-changes-meta">
             <span>Last commit {status?.lastCommitRelative ?? '—'}</span>
@@ -426,15 +447,15 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
         </section>
       </div>
       <div className="github-status-footer">
-        <button type="button" className="github-stage-all-btn" disabled={loading || totalFiles === 0} onClick={onStageAll}>
-          Stage All{totalFiles > 0 ? ` (${totalFiles} files)` : ''}
+        <button type="button" className="github-stage-all-btn" disabled={loading || unstagedChanges.length === 0} onClick={onStageAll}>
+          Stage All{unstagedChanges.length > 0 ? ` (${unstagedChanges.length})` : ''}
         </button>
         <label className="github-auto-row">
           <input type="checkbox" checked={autoGenerate} disabled={generating || loading} onChange={(e) => void handleAutoGenerate(e.target.checked)} />
           <span>Auto-generate commit message</span>
         </label>
         <textarea className="github-commit-ta" value={message} placeholder="Commit message..." onChange={(e) => setMessage(e.target.value)} />
-        <button type="button" className="github-commit-submit" disabled={loading || !commitMessage} onClick={() => onCommit(commitMessage)}>
+        <button type="button" className="github-commit-submit" disabled={loading || !commitMessage || stagedChanges.length === 0} onClick={() => onCommit(commitMessage)}>
           Commit
         </button>
       </div>
@@ -442,75 +463,53 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
   )
 }
 
-export function buildStatusHeadline(input: {
-  ahead: number
-  behind: number
-  dirty: boolean
-  totalFiles: number
-  hasRemote: boolean
-}): string {
-  const { ahead, behind, dirty, totalFiles, hasRemote } = input
-  if (!hasRemote) return 'No remote · configure origin to sync'
-  const parts: string[] = []
-  if (behind > 0) parts.push(`${behind} to pull`)
-  if (ahead > 0) parts.push(`${ahead} to push`)
-  if (dirty || totalFiles > 0) {
-    parts.push(`${totalFiles} file${totalFiles === 1 ? '' : 's'} changed`)
-  }
-  if (parts.length === 0) return 'Up to date with remote · clean working tree'
-  return parts.join(' · ')
-}
-
-export function describeSyncState(input: {
-  ahead: number
-  behind: number
-  dirty: boolean
-  hasRemote: boolean
-  totalFiles?: number
-}): { kind: 'ok' | 'behind' | 'ahead' | 'diverged' | 'dirty-behind' | 'no-remote' | 'unknown'; title: string; detail: string } {
-  const { ahead, behind, dirty, hasRemote } = input
-  if (!hasRemote) {
-    return {
-      kind: 'no-remote',
-      title: 'No remote configured',
-      detail: 'Fetch/Pull/Push need an origin. Add one with git remote add, then Refresh.'
-    }
-  }
-  if (behind > 0 && ahead > 0) {
-    return {
-      kind: 'diverged',
-      title: 'Branch diverged from remote',
-      detail: `${behind} to pull · ${ahead} to push. Fast-forward Pull may fail — use the terminal for rebase/merge if needed.`
-    }
-  }
-  if (behind > 0 && dirty) {
-    return {
-      kind: 'dirty-behind',
-      title: `${behind} commit${behind === 1 ? '' : 's'} to pull`,
-      detail: 'You also have local uncommitted changes. Commit or stash first so Pull does not mix remote history with a dirty tree.'
-    }
-  }
-  if (behind > 0) {
-    return {
-      kind: 'behind',
-      title: `${behind} commit${behind === 1 ? '' : 's'} to pull`,
-      detail: 'Remote is ahead of you. Pull downloads with fast-forward only (safe).'
-    }
-  }
-  if (ahead > 0) {
-    return {
-      kind: 'ahead',
-      title: `${ahead} commit${ahead === 1 ? '' : 's'} to push`,
-      detail: 'Your local commits are not on the remote yet. Push publishes this branch.'
-    }
-  }
-  return {
-    kind: 'ok',
-    title: 'In sync with remote',
-    detail: dirty
-      ? 'Nothing to pull or push. You have local changes — stage and commit below.'
-      : 'Nothing to pull or push. Fetch occasionally to check for remote updates.'
-  }
+function GitChangeGroup({ action, changes, disabled, onAction, onOpenFile, title }: {
+  action: 'stage' | 'unstage'
+  changes: GitHubFileChange[]
+  disabled: boolean
+  onAction: (path: string) => void
+  onOpenFile: (path: string) => void
+  title: string
+}): ReactElement {
+  return (
+    <section className="github-change-group">
+      <header className="github-change-group-header">
+        <span>{title}</span>
+        <span>{changes.length}</span>
+      </header>
+      {changes.map((change) => {
+        const slash = Math.max(change.path.lastIndexOf('/'), change.path.lastIndexOf('\\'))
+        const name = slash >= 0 ? change.path.slice(slash + 1) : change.path
+        const directory = slash >= 0 ? change.path.slice(0, slash) : ''
+        const statusCode = change.untracked ? 'U' : change.deleted ? 'D' : change.renamed ? 'R' : 'M'
+        return (
+          <div key={`${action}:${change.path}`} className="github-change-file" data-testid={`github-change-${action}`}>
+            <button
+              type="button"
+              className="github-change-file-name"
+              disabled={change.deleted}
+              title={change.deleted ? `${change.path} was deleted` : `Open ${change.path} in editor`}
+              onClick={() => onOpenFile(change.path)}
+            >
+              <span>{name}</span>
+              {directory ? <small>{directory}</small> : null}
+            </button>
+            <span className={`github-change-code status-${statusCode.toLowerCase()}`}>{statusCode}</span>
+            <button
+              type="button"
+              className="github-change-action"
+              disabled={disabled}
+              aria-label={`${action === 'stage' ? 'Stage' : 'Unstage'} ${change.path}`}
+              title={`${action === 'stage' ? 'Stage' : 'Unstage'} ${change.path}`}
+              onClick={() => onAction(change.path)}
+            >
+              {action === 'stage' ? <Plus size={13} aria-hidden="true" /> : <Minus size={13} aria-hidden="true" />}
+            </button>
+          </div>
+        )
+      })}
+    </section>
+  )
 }
 
 // ─── Checkpoints ───────────────────────────────────────────────────────────

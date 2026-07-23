@@ -8,8 +8,10 @@ import { fileURLToPath } from 'node:url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 /** Highest migration's user_version — bump when adding a migration. Drives the
- *  pre-migration backup (only back up when an upgrade will actually run). */
-const LATEST_DB_VERSION = 40
+ *  pre-migration backup (only back up when an upgrade will actually run).
+ *  Exported so the migrations test can catch a constant that drifts from the
+ *  version the SQL actually sets. */
+export const LATEST_DB_VERSION = 45
 /** How many pre-migration backups to retain. */
 const MAX_DB_BACKUPS = 5
 
@@ -390,6 +392,34 @@ export function runMigrations(db: AppDatabase): void {
 
   if (currentVersion < 41) {
     db.exec(readMigration('041_grok_cli.sql'))
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
+
+  if (currentVersion < 42 || !hasColumn(db, 'tasks', 'acceptance_criteria')) {
+    if (!hasColumn(db, 'tasks', 'acceptance_criteria')) {
+      db.exec(readMigration('042_task_acceptance_criteria.sql'))
+    } else {
+      db.pragma('user_version = 42')
+    }
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
+
+  if (currentVersion < 43 || !hasTable(db, 'semantic_documents') || !hasTable(db, 'semantic_documents_fts')) {
+    db.exec(readMigration('043_semantic_lexical_index.sql'))
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
+
+  if (currentVersion < 44 || !hasColumn(db, 'semantic_embeddings', 'chunk_metadata_json')) {
+    if (!hasColumn(db, 'semantic_embeddings', 'chunk_metadata_json')) {
+      db.exec(readMigration('044_semantic_chunk_metadata.sql'))
+    } else {
+      db.pragma('user_version = 44')
+    }
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
+
+  if (currentVersion < 45 || !hasTable(db, 'secure_credentials')) {
+    db.exec(readMigration('045_secure_credentials.sql'))
   }
 }
 

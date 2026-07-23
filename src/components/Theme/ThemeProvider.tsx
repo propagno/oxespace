@@ -7,7 +7,7 @@ interface ThemeProviderProps {
   children: ReactNode
 }
 
-export function ThemeProvider({ children, density = 'compact', themeId = 'dracula' }: ThemeProviderProps): ReactElement {
+export function ThemeProvider({ children, density = 'compact', themeId = 'midnight' }: ThemeProviderProps): ReactElement {
   useEffect(() => {
     const root = document.documentElement
     root.dataset.theme = themeId

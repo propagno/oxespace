@@ -1,0 +1,143 @@
+/* ─── F1 · shadcn/ui + Tailwind foundation (Orca transplant) ────────────────
+   Coexistence contract with OXESpace's hand-written CSS:
+   - Load this BEFORE styles.css so OXESpace's own tokens (--radius-*, --font-*)
+     win the names both systems share — existing components keep their look.
+   - shadcn semantic COLORS are namespaced `--sh-*` and mapped through
+     `@theme inline` (values inlined into utilities, NOT emitted to :root), so
+     they never collide with OXESpace's `--accent` etc.
+   - OXESpace's global `button`/`input` element resets are moved here into the
+     low-priority `oxe-reset` layer so shadcn's layered utilities can win.
+   Tokens copied from Orca src/renderer/src/assets/main.css (MIT, stablyai). */
+
+@layer oxe-reset, theme, base, components, utilities;
+
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+/* Element resets relocated from base.css into a layer so `bg-*`/`border-*`
+   utilities on shadcn primitives are not overridden by a bare `button {}`. */
+@layer oxe-reset {
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+  button {
+    color: inherit;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    padding: 0;
+  }
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+/* Map Tailwind color utilities → namespaced shadcn tokens. `inline` inlines the
+   value, so no `--color-*`/`--accent` leaks to :root to clash with OXESpace. */
+@theme inline {
+  --color-background: var(--sh-background);
+  --color-foreground: var(--sh-foreground);
+  --color-card: var(--sh-card);
+  --color-card-foreground: var(--sh-card-foreground);
+  --color-popover: var(--sh-popover);
+  --color-popover-foreground: var(--sh-popover-foreground);
+  --color-primary: var(--sh-primary);
+  --color-primary-foreground: var(--sh-primary-foreground);
+  --color-secondary: var(--sh-secondary);
+  --color-secondary-foreground: var(--sh-secondary-foreground);
+  --color-muted: var(--sh-muted);
+  --color-muted-foreground: var(--sh-muted-foreground);
+  --color-accent: var(--sh-accent);
+  --color-accent-foreground: var(--sh-accent-foreground);
+  --color-destructive: var(--sh-destructive);
+  --color-destructive-foreground: var(--sh-destructive-foreground);
+  --color-border: var(--sh-border);
+  --color-input: var(--sh-input);
+  --color-ring: var(--sh-ring);
+  --color-sidebar: var(--sh-sidebar);
+  --color-sidebar-foreground: var(--sh-sidebar-foreground);
+  --color-sidebar-accent: var(--sh-sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sh-sidebar-accent-foreground);
+  --color-sidebar-border: var(--sh-sidebar-border);
+}
+
+/* Light mode (shadcn defaults, namespaced). */
+:root {
+  --sh-background: #fff;
+  --sh-foreground: #0a0a0a;
+  --sh-card: #fff;
+  --sh-card-foreground: #0a0a0a;
+  --sh-popover: #fff;
+  --sh-popover-foreground: #0a0a0a;
+  --sh-primary: #171717;
+  --sh-primary-foreground: #fafafa;
+  --sh-secondary: #f5f5f5;
+  --sh-secondary-foreground: #171717;
+  --sh-muted: #f5f5f5;
+  --sh-muted-foreground: #737373;
+  --sh-accent: #f5f5f5;
+  --sh-accent-foreground: #171717;
+  --sh-destructive: #e40014;
+  --sh-destructive-foreground: #fcf3f3;
+  --sh-border: #e5e5e5;
+  --sh-input: #e5e5e5;
+  --sh-ring: #a1a1a1;
+  --sh-sidebar: #fafafa;
+  --sh-sidebar-foreground: #0a0a0a;
+  --sh-sidebar-accent: #f5f5f5;
+  --sh-sidebar-accent-foreground: #171717;
+  --sh-sidebar-border: #e5e5e5;
+}
+
+/* Dark mode — OXESpace runs dark, so `.dark` is set on <html> at boot. */
+.dark {
+  --sh-background: #0a0a0a;
+  --sh-foreground: #fafafa;
+  --sh-card: #171717;
+  --sh-card-foreground: #fafafa;
+  --sh-popover: #171717;
+  --sh-popover-foreground: #fafafa;
+  --sh-primary: #e5e5e5;
+  --sh-primary-foreground: #171717;
+  --sh-secondary: #262626;
+  --sh-secondary-foreground: #fafafa;
+  --sh-muted: #262626;
+  --sh-muted-foreground: #a1a1a1;
+  --sh-accent: #404040;
+  --sh-accent-foreground: #fafafa;
+  --sh-destructive: #ff6568;
+  --sh-destructive-foreground: #df2225;
+  --sh-border: rgb(255 255 255 / 0.07);
+  --sh-input: rgb(255 255 255 / 0.15);
+  --sh-ring: #737373;
+  --sh-sidebar: #171717;
+  --sh-sidebar-foreground: #fafafa;
+  --sh-sidebar-accent: #262626;
+  --sh-sidebar-accent-foreground: #fafafa;
+  --sh-sidebar-border: rgb(255 255 255 / 0.07);
+}
+
+/* Thin neutral scrollbar used by ported Orca primitives (command list, etc.). */
+.scrollbar-sleek {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.18) transparent;
+}
+.scrollbar-sleek::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scrollbar-sleek::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 0.14);
+  border-radius: 4px;
+}
+.scrollbar-sleek::-webkit-scrollbar-track {
+  background: transparent;
+}

@@ -434,48 +434,46 @@
 .ws-group-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 2px; }
 
 .ws-group {
-  margin: 0 6px 6px;
+  position: relative;
+  margin: 2px 6px;
+}
+
+.ws-group.active::before {
+  content: '';
+  position: absolute;
+  left: -2px;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  border-radius: 2px;
+  background: #10b981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
 }
 
 .ws-group-header {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 11px 10px 11px 16px;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  height: auto;
+  padding: 6px 8px 6px 10px;
   cursor: pointer;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  margin: 0;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
   user-select: none;
-  transition: background var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base), transform var(--transition-fast);
+  box-sizing: border-box;
+  transition: background 150ms ease, border-color 150ms ease;
 }
 
 .ws-group-header:hover {
-  background: var(--surface-hover);
-  border-color: var(--bd-base);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-  transform: translateX(2px);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.04);
 }
 
-.ws-group-header:active {
-  transform: scale(0.98);
-}
-
-/* Active workspace — soft brand tint (no heavy neon glow). */
 .ws-group.active > .ws-group-header {
-  background: color-mix(in srgb, var(--brand) 10%, rgba(255, 255, 255, 0.02));
-  border-color: color-mix(in srgb, var(--brand) 32%, transparent);
-  box-shadow:
-    inset 2px 0 0 0 var(--brand),
-    0 2px 10px rgba(0, 0, 0, 0.18);
-}
-
-.ws-group.active > .ws-group-header:hover {
-  background: color-mix(in srgb, var(--brand) 14%, rgba(255, 255, 255, 0.03));
-  box-shadow:
-    inset 2px 0 0 0 var(--brand),
-    0 4px 12px rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 /* ─── Drag-and-drop reorder feedback ─────────────────────────────────────
@@ -589,34 +587,28 @@
   letter-spacing: 0.01em;
 }
 
-.ws-group-meta {
+.ws-group-branch-row {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 5px;
-  margin-top: 5px;
-  min-width: 0;
+  gap: 4px;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  overflow: hidden;
+  max-width: 100%;
 }
 
-.ws-group-meta-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  max-width: 100%;
-  min-width: 0;
-  height: 18px;
-  padding: 0 6px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--tx-muted);
-  font-size: 10px;
-  font-weight: 600;
-  font-family: var(--font-mono);
-  line-height: 1;
+.ws-group-branch-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 140px;
+  display: inline-block;
+}
+
+.ws-group-branch-icon {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.35);
 }
 
 .ws-group-meta-action {
@@ -1377,74 +1369,174 @@
 
 
 /* ─── Footer ────────────────────────────────────────────────────────────── */
+/* IDE pattern (Cursor / VS Code activity rail): primary Tools hub stays pinned
+   at the bottom of the sidebar as a clear action CTA — not ghost chrome. */
 .sidebar-footer {
   margin-top: auto;
   padding: 10px;
   border-top: 1px solid var(--bd-divider);
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: space-between;
   gap: 8px;
   flex-shrink: 0;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    color-mix(in srgb, var(--bg-sidebar) 70%, #000) 100%
+  );
 }
 
 .sidebar-footer-collapsed {
   flex-direction: column;
+  align-items: center;
   gap: 6px;
+  padding: 8px;
 }
-
-
 
 .sidebar-tools-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  height: 32px;
-  min-width: 32px;
-  padding: 0 8px;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--tx-muted);
+  gap: 10px;
+  height: 36px;
+  min-width: 36px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, transparent);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--accent) 16%, transparent) 0%,
+      color-mix(in srgb, var(--accent) 8%, transparent) 100%
+    );
+  color: var(--tx-primary);
   cursor: pointer;
-  transition: color 80ms, background 80ms, border-color 80ms;
+  transition:
+    color 120ms ease,
+    background 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    transform 120ms ease;
   flex-shrink: 0;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--accent) 22%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 .sidebar-tools-btn-labeled {
   flex: 1;
   min-width: 0;
+  height: 42px;
   justify-content: flex-start;
-  padding: 0 10px;
-  font-size: 12px;
-  font-weight: 600;
+  padding: 0 12px 0 10px;
+}
+
+.sidebar-tools-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  color: var(--accent-hover, var(--brand-light, var(--accent)));
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.sidebar-tools-btn-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  min-width: 0;
+  text-align: left;
+}
+
+.sidebar-tools-btn-label {
+  font-size: 12.5px;
+  font-weight: 650;
   letter-spacing: 0.01em;
+  line-height: 1.15;
+  color: var(--tx-primary);
+}
+
+.sidebar-tools-btn-hint {
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--tx-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .sidebar-tools-btn:hover {
   color: var(--tx-primary);
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.08);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--accent) 24%, transparent) 0%,
+      color-mix(in srgb, var(--accent) 12%, transparent) 100%
+    );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--accent) 30%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent),
+    0 6px 18px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.sidebar-tools-btn:hover .sidebar-tools-btn-hint {
+  color: var(--tx-secondary);
+}
+
+.sidebar-tools-btn:active {
+  transform: translateY(0.5px);
+}
+
+.sidebar-tools-btn:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--bg-sidebar) 80%, #000),
+    0 0 0 4px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.sidebar-footer-collapsed .sidebar-tools-btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 10px;
 }
 
 .sidebar-collapse-btn {
   width: 32px;
-  height: 32px;
-  border-radius: 6px;
+  height: auto;
+  min-height: 36px;
+  align-self: stretch;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--tx-muted);
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
   cursor: pointer;
-  transition: color 80ms, background 80ms;
+  transition: color 80ms, background 80ms, border-color 80ms;
+  flex-shrink: 0;
+}
+
+.sidebar-footer-collapsed .sidebar-collapse-btn {
+  width: 36px;
+  min-height: 28px;
+  align-self: center;
 }
 
 .sidebar-collapse-btn:hover {
   color: var(--tx-secondary);
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.06);
 }
 
 .sidebar-empty-state {
@@ -1809,6 +1901,11 @@
 .workspace-host.workspace-host-hidden {
   visibility: hidden;
   pointer-events: none;
+  /* Preserve xterm/React state while skipping layout and paint work for the
+     inactive workspace. App dispatches oxe:workspace-activated after reveal so
+     each terminal performs one geometry refit against its visible dimensions. */
+  content-visibility: hidden;
+  contain: layout paint style;
 }
 
 .empty-state {
@@ -2708,10 +2805,72 @@
   overflow: hidden;
 }
 
+/* Maximize keeps all panes mounted (xterm/PTY state preserved). Suppressed
+   panels collapse to zero size; the focused panel fills the grid. */
+.workspace-grid--maximized {
+  position: relative;
+}
+
+.workspace-grid--maximized .resize-handle {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  flex: 0 0 0 !important;
+  pointer-events: none !important;
+}
+
+.workspace-grid--maximized .workspace-panel--suppressed,
+.workspace-grid--maximized .workspace-row-panel--suppressed {
+  flex: 0 0 0px !important;
+  flex-grow: 0 !important;
+  flex-shrink: 0 !important;
+  flex-basis: 0px !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: 0 !important;
+  max-height: 0 !important;
+  overflow: hidden !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.workspace-grid--maximized .workspace-panel--focused,
+.workspace-grid--maximized .workspace-row-panel--focused {
+  flex: 1 1 auto !important;
+  flex-grow: 1 !important;
+  flex-shrink: 1 !important;
+  flex-basis: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  overflow: hidden !important;
+}
+
+.workspace-grid--maximized .workspace-grid-vgroup,
+.workspace-grid--maximized .workspace-grid-hgroup {
+  height: 100% !important;
+  width: 100% !important;
+}
+
+.workspace-grid--maximized .workspace-panel--focused > .pane-container,
+.workspace-grid--maximized .workspace-panel--focused {
+  height: 100% !important;
+  width: 100% !important;
+}
+
+/* Legacy class kept so any stale absolute overlay styles don't leave holes. */
 .workspace-grid-maximized {
-  position: absolute;
-  inset: 0;
-  z-index: 50;
+  position: relative;
+  inset: auto;
+  z-index: auto;
 }
 
 /* Hairline splits between panes — always slightly visible so splits read

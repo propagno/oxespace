@@ -21,9 +21,13 @@
 @import './styles/features.css';
 @import './styles/worktree.css';
 @import './styles/background.css';
-@import './styles/history.css';
-@import './styles/tasks-deps.css';
 @import './styles/mcp.css';
 @import './styles/skills.css';
 @import './styles/scripts-webpreview.css';
 @import './styles/semantic.css';
+@import './styles/search.css';
+@import './styles/split-grid.css';
+@import './styles/diff-comments.css';
+@import './styles/preview.css';
+@import './styles/linear.css';
+@import './styles/orca-shell.css';

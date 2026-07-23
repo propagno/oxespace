@@ -40,6 +40,18 @@ export interface GitHubWorkspaceStatus {
   ahead: number
   behind: number
   hasUncommittedChanges: boolean
+  changes: GitHubFileChange[]
+}
+
+export interface GitHubFileChange {
+  path: string
+  indexStatus: string
+  workTreeStatus: string
+  staged: boolean
+  unstaged: boolean
+  untracked: boolean
+  renamed: boolean
+  deleted: boolean
 }
 
 export interface GitHubBranch {
@@ -196,6 +208,10 @@ export interface GitHubMessageResult {
 
 export interface GitHubCommitInput extends GitHubWorkspaceInput {
   message: string
+}
+
+export interface GitHubFileInput extends GitHubWorkspaceInput {
+  path: string
 }
 
 export interface GitHubCommitDetailsInput extends GitHubWorkspaceInput {
