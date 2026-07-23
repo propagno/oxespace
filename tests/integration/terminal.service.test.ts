@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openInMemoryDatabase } from '../../electron/main/db/index'
 import { WorkspaceService } from '../../electron/main/services/workspace.service'
-import { TerminalManager, resolveExecutable } from '../../electron/main/services/terminal.service'
+import { __resetExecutableCacheForTests, TerminalManager, resolveExecutable } from '../../electron/main/services/terminal.service'
 
 describe('TerminalManager', () => {
   test('spawns isolated ptys with workspace cwd and shell profile', async () => {
@@ -47,6 +47,7 @@ describe('TerminalManager', () => {
   })
 
   test('resolves Windows command shims through PATHEXT', () => {
+    __resetExecutableCacheForTests()
     const binDir = mkdtempSync(join(tmpdir(), 'oxespace-path-'))
     const shim = join(binDir, 'copilot.cmd')
     writeFileSync(shim, '@echo off')

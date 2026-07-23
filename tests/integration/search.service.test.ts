@@ -91,4 +91,13 @@ describe('SearchService', () => {
     expect(result.error).toBeTruthy()
     expect(result.totalMatches).toBe(0)
   })
+
+  test('listFiles enumerates tracked files, honoring .ignore and hidden defaults', async () => {
+    const service = new SearchService()
+    const result = await service.listFiles(root)
+
+    expect(result.error).toBeUndefined()
+    const paths = result.files.sort()
+    expect(paths).toEqual(['a.txt', 'sub/b.js']) // ignored.txt (.ignore) + .ignore (hidden) excluded
+  })
 })

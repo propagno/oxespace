@@ -6,6 +6,7 @@ import type {
   SearchMatch,
   SearchFileResult,
   SearchResult,
+  SearchFilesResult,
   SearchSubmatch
 } from '../../../shared/types/search'
 
@@ -19,6 +20,7 @@ const MAX_LINE_LENGTH = 1_000
 const SPAWN_TIMEOUT_MS = 20_000
 const RESOLVE_TIMEOUT_MS = 5_000
 const MAX_CONTEXT_LINES = 5
+const MAX_FILE_LIST = 10_000
 
 // Cache the resolved ripgrep command the same way GitService caches git: positive
 // resolutions are memoized forever (the binary doesn't move at runtime), a null
@@ -142,6 +144,61 @@ export class SearchService {
       try { this.currentChild.kill() } catch { /* already exited */ }
       this.currentChild = null
     }
+  }
+
+  /** List tracked files (`rg --files`, respecting .gitignore) for name quick-open.
+   *  Independent of the content search; capped and timeout-guarded. */
+  async listFiles(rootPath: string): Promise<SearchFilesResult> {
+    if (!existsSync(rootPath)) return { files: [], truncated: false, error: 'Search root does not exist' }
+    const rg = await resolveRgCommand()
+    if (!rg) return { files: [], truncated: false, error: 'ripgrep executable not found' }
+
+    return new Promise<SearchFilesResult>((resolve) => {
+      let child: ChildProcess
+      try {
+        child = spawn(rg, ['--files'], { cwd: rootPath, shell: false, windowsHide: true })
+      } catch (err) {
+        resolve({ files: [], truncated: false, error: err instanceof Error ? err.message : String(err) })
+        return
+      }
+
+      const files: string[] = []
+      let truncated = false
+      let settled = false
+      let buffer = ''
+
+      const finish = (error?: string): void => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        resolve({ files, truncated, error })
+      }
+      const timer = setTimeout(() => {
+        truncated = true
+        try { child.kill() } catch { /* already exited */ }
+        finish()
+      }, SPAWN_TIMEOUT_MS)
+
+      child.stdout?.setEncoding('utf8')
+      child.stdout?.on('data', (chunk: string) => {
+        if (truncated) return
+        buffer += chunk
+        let nl: number
+        while ((nl = buffer.indexOf('\n')) !== -1) {
+          const path = normalizePath(buffer.slice(0, nl))
+          buffer = buffer.slice(nl + 1)
+          if (!path) continue
+          files.push(path)
+          if (files.length >= MAX_FILE_LIST) {
+            truncated = true
+            try { child.kill() } catch { /* already exited */ }
+            break
+          }
+        }
+      })
+      child.on('error', (err) => finish(err.message))
+      child.on('close', () => finish())
+    })
   }
 
   async search(input: SearchInput): Promise<SearchResult> {

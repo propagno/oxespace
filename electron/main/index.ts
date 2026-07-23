@@ -612,6 +612,10 @@ function registerE2eMockIpcHandlers(): void {
     throw new Error('File system API is not available in E2E mock mode')
   })
   ipcMain.handle(IPC_CHANNELS.fs.unwatchFile, () => undefined)
+  ipcMain.handle(IPC_CHANNELS.git.getBranch, () => ({ branch: null, detached: false, shortSha: null, error: 'E2E mock mode' }))
+  ipcMain.handle(IPC_CHANNELS.search.run, () => ({ files: [], totalMatches: 0, totalFiles: 0, truncated: false, elapsedMs: 0 }))
+  ipcMain.handle(IPC_CHANNELS.search.listFiles, () => ({ files: [], truncated: false }))
+  ipcMain.handle(IPC_CHANNELS.search.cancel, () => undefined)
   ipcMain.handle(IPC_CHANNELS.github.getCliStatus, () => ({ available: false, authenticated: false, user: null, host: null, message: 'E2E mock mode' }))
   ipcMain.handle(IPC_CHANNELS.github.getWorkspaceStatus, (_event: IpcMainInvokeEvent, input: { workspaceId: string; rootPath: string }) => ({
     cli: { available: false, authenticated: false, user: null, host: null, message: 'E2E mock mode' },
@@ -627,9 +631,12 @@ function registerE2eMockIpcHandlers(): void {
     ahead: 0,
     behind: 0,
     hasUncommittedChanges: false,
+    changes: [],
     workspaceId: input.workspaceId,
     rootPath: input.rootPath
   }))
+  ipcMain.handle(IPC_CHANNELS.github.stageFile, () => ({ ok: true, message: 'E2E mock staged' }))
+  ipcMain.handle(IPC_CHANNELS.github.unstageFile, () => ({ ok: true, message: 'E2E mock unstaged' }))
   ipcMain.handle(IPC_CHANNELS.github.listBranches, () => [])
   ipcMain.handle(IPC_CHANNELS.github.listPullRequests, () => [])
   ipcMain.handle(IPC_CHANNELS.github.listCommits, () => [])

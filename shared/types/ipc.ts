@@ -26,6 +26,7 @@ import type {
   GitHubCreatePullRequestInput,
   GitHubCreateReleaseInput,
   GitHubDeleteCheckpointInput,
+  GitHubFileInput,
   GitHubMessageResult,
   GitHubPullRequest,
   GitHubPullRequestListInput,
@@ -80,6 +81,7 @@ export const IPC_CHANNELS = {
     delete: 'workspace:delete',
     closePane: 'workspace:close-pane',
     splitPane: 'workspace:split-pane',
+    createPane: 'workspace:create-pane',
     updatePaneType: 'workspace:update-pane-type',
     updatePaneName: 'workspace:update-pane-name',
     setPaneAgent: 'workspace:set-pane-agent',
@@ -141,7 +143,8 @@ export const IPC_CHANNELS = {
   },
   search: {
     run: 'search:run',
-    cancel: 'search:cancel'
+    cancel: 'search:cancel',
+    listFiles: 'search:list-files'
   },
   clipboard: {
     saveImageToTemp: 'clipboard:save-image-to-temp',
@@ -216,6 +219,8 @@ export const IPC_CHANNELS = {
     fetch: 'github:fetch',
     pullFfOnly: 'github:pull-ff-only',
     stageAll: 'github:stage-all',
+    stageFile: 'github:stage-file',
+    unstageFile: 'github:unstage-file',
     commit: 'github:commit',
     generateCommitMessage: 'github:generate-commit-message',
     push: 'github:push',
@@ -275,7 +280,8 @@ export const IPC_CHANNELS = {
     setMode: 'semantic:set-mode',
     reindex: 'semantic:reindex',
     getLogs: 'semantic:get-logs',
-    onLog: 'semantic:log'
+    onLog: 'semantic:log',
+    query: 'semantic:query'
   },
   diagnostics: {
     getSnapshot: 'diagnostics:get-snapshot',
@@ -339,6 +345,7 @@ export interface WorkspaceApi {
   delete(id: string): Promise<void>
   closePane(id: string): Promise<Workspace | null>
   splitPane(input: SplitPaneInput): Promise<Workspace>
+  createPane(input: { workspaceId: string }): Promise<{ workspace: Workspace; paneId: string }>
   updatePaneType(input: UpdatePaneTypeInput): Promise<Workspace>
   updatePaneName(input: UpdatePaneNameInput): Promise<Workspace>
   setPaneAgent(input: { paneId: string; agentProfileId: string | null; preserveSession?: boolean }): Promise<Workspace>
@@ -398,6 +405,7 @@ export interface GitApi {
 export interface SearchApi {
   run(input: import('./search').SearchInput): Promise<import('./search').SearchResult>
   cancel(): Promise<void>
+  listFiles(input: import('./search').SearchFilesInput): Promise<import('./search').SearchFilesResult>
 }
 
 export interface GitHubApi {
@@ -406,6 +414,8 @@ export interface GitHubApi {
   fetch(input: GitHubWorkspaceInput): Promise<GitHubMessageResult>
   pullFfOnly(input: GitHubWorkspaceInput): Promise<GitHubMessageResult>
   stageAll(input: GitHubWorkspaceInput): Promise<GitHubMessageResult>
+  stageFile(input: GitHubFileInput): Promise<GitHubMessageResult>
+  unstageFile(input: GitHubFileInput): Promise<GitHubMessageResult>
   commit(input: GitHubCommitInput): Promise<GitHubMessageResult>
   generateCommitMessage(input: GitHubWorkspaceInput): Promise<GitHubMessageResult>
   push(input: GitHubWorkspaceInput): Promise<GitHubMessageResult>
@@ -596,6 +606,11 @@ export interface SemanticLogEntry {
   file?: string
 }
 
+export interface SemanticQueryHit {
+  filePath: string
+  score: number
+}
+
 export interface SemanticApi {
   getStatus(workspaceId: string): Promise<SemanticStatus>
   setEnabled(input: { workspaceId: string; enabled: boolean }): Promise<SemanticStatus>
@@ -603,6 +618,7 @@ export interface SemanticApi {
   reindex(workspaceId: string): Promise<SemanticStatus>
   getLogs(): Promise<SemanticLogEntry[]>
   onLog(callback: (entry: SemanticLogEntry) => void): () => void
+  query(input: { workspaceId: string; text: string; limit?: number }): Promise<SemanticQueryHit[]>
 }
 
 export interface McpInternalApi {

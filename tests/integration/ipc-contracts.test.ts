@@ -9,6 +9,7 @@ import {
   parseWorkspaceCreateInput,
   parseGitHubWorkspaceInput,
   parseGitHubCommitInput,
+  parseGitHubFileInput,
   parseGitHubCreateCheckpointInput,
   parseGitHubDeleteCheckpointInput
 } from '../../electron/main/ipc/validation'
@@ -151,6 +152,8 @@ describe('ipc contracts', () => {
     expect(IPC_CHANNELS.github.fetch).toBe('github:fetch')
     expect(IPC_CHANNELS.github.pullFfOnly).toBe('github:pull-ff-only')
     expect(IPC_CHANNELS.github.stageAll).toBe('github:stage-all')
+    expect(IPC_CHANNELS.github.stageFile).toBe('github:stage-file')
+    expect(IPC_CHANNELS.github.unstageFile).toBe('github:unstage-file')
     expect(IPC_CHANNELS.github.commit).toBe('github:commit')
     expect(IPC_CHANNELS.github.generateCommitMessage).toBe('github:generate-commit-message')
     expect(IPC_CHANNELS.github.push).toBe('github:push')
@@ -187,6 +190,10 @@ describe('ipc contracts', () => {
 
     expect(parseGitHubCommitInput({ workspaceId: 'w-1', rootPath: 'C:/repo', message: 'init' })).toEqual({ workspaceId: 'w-1', rootPath: 'C:/repo', message: 'init' })
     expect(() => parseGitHubCommitInput({ workspaceId: 'w-1', rootPath: 'C:/repo', message: '' })).toThrow('message')
+
+    expect(parseGitHubFileInput({ workspaceId: 'w-1', rootPath: 'C:/repo', path: 'src\\file.ts' })).toEqual({ workspaceId: 'w-1', rootPath: 'C:/repo', path: 'src/file.ts' })
+    expect(() => parseGitHubFileInput({ workspaceId: 'w-1', rootPath: 'C:/repo', path: '../secret' })).toThrow('inside the workspace')
+    expect(() => parseGitHubFileInput({ workspaceId: 'w-1', rootPath: 'C:/repo', path: 'C:/secret' })).toThrow('inside the workspace')
 
     expect(parseGitHubCreateCheckpointInput({ workspaceId: 'w-1', rootPath: 'C:/repo', name: 'snap' })).toEqual({
       workspaceId: 'w-1', rootPath: 'C:/repo', name: 'snap', description: undefined

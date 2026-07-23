@@ -22,6 +22,20 @@ vi.mock('../../src/components/Grid/WorkspaceGrid', () => ({
   }
 }))
 
+// Default layout is split-tree (F2); mock it with the same lifecycle probe so
+// maximize/restore still asserts host identity without pulling Monaco via PaneContainer.
+vi.mock('../../src/components/Grid/WorkspaceSplitGrid', () => ({
+  WorkspaceSplitGrid: () => {
+    useEffect(() => {
+      gridLifecycle.mounts += 1
+      return () => {
+        gridLifecycle.unmounts += 1
+      }
+    }, [])
+    return <div data-testid="workspace-grid">SplitGrid</div>
+  }
+}))
+
 vi.mock('../../src/components/Workspace/WorkspaceEditorPanel', () => ({
   WorkspaceEditorPanel: ({ onCollapse, onToggleExpanded }: { onCollapse: () => void; onToggleExpanded: () => void }) => (
     <section data-testid="workspace-editor-panel">
@@ -93,27 +107,29 @@ describe('WorkspaceSurface', () => {
 
   test('keeps WorkspaceGrid mounted across maximize/restore so terminal scrollback survives', async () => {
     const workspace = createWorkspace({ editorVisible: true })
+    const surfaceProps = {
+      workspace,
+      onToggleMaximize: () => undefined,
+      scriptsVisible: false,
+      webPreviewVisible: false,
+      integrationVisible: false,
+      searchVisible: false,
+      onCloseScripts: () => undefined,
+      onCloseWebPreview: () => undefined,
+      onCloseIntegration: () => undefined,
+      onCloseSearch: () => undefined,
+      onRunCommand: () => undefined,
+      onUpdateEditorState: () => undefined,
+      onUpdateReviewState: () => undefined,
+      onUpdateGitHubState: () => undefined,
+      onUpdateBackgroundState: () => undefined,
+      onUpdateWorktreeState: () => undefined,
+      onSelectWorkspace: () => undefined,
+      workspaces: [workspace],
+      activePaneId: null as string | null
+    }
     const { rerender } = render(
-      <WorkspaceSurface
-        workspace={workspace}
-        maximizedPaneId={null}
-        onToggleMaximize={() => undefined}
-        scriptsVisible={false}
-        webPreviewVisible={false}
-        integrationVisible={false}
-        onCloseScripts={() => undefined}
-        onCloseWebPreview={() => undefined}
-        onCloseIntegration={() => undefined}
-        onRunCommand={() => undefined}
-        onUpdateEditorState={() => undefined}
-        onUpdateReviewState={() => undefined}
-        onUpdateGitHubState={() => undefined}
-        onUpdateBackgroundState={() => undefined}
-        onUpdateWorktreeState={() => undefined}
-        onSelectWorkspace={() => undefined}
-        workspaces={[workspace]}
-        activePaneId={null}
-      />
+      <WorkspaceSurface {...surfaceProps} maximizedPaneId={null} />
     )
 
     expect(screen.getByTestId('workspace-grid')).toBeInTheDocument()
@@ -123,26 +139,7 @@ describe('WorkspaceSurface', () => {
 
     // Maximize: side panels hide for full-width terminal, grid host must stay.
     rerender(
-      <WorkspaceSurface
-        workspace={workspace}
-        maximizedPaneId="pane-1"
-        onToggleMaximize={() => undefined}
-        scriptsVisible={false}
-        webPreviewVisible={false}
-        integrationVisible={false}
-        onCloseScripts={() => undefined}
-        onCloseWebPreview={() => undefined}
-        onCloseIntegration={() => undefined}
-        onRunCommand={() => undefined}
-        onUpdateEditorState={() => undefined}
-        onUpdateReviewState={() => undefined}
-        onUpdateGitHubState={() => undefined}
-        onUpdateBackgroundState={() => undefined}
-        onUpdateWorktreeState={() => undefined}
-        onSelectWorkspace={() => undefined}
-        workspaces={[workspace]}
-        activePaneId={null}
-      />
+      <WorkspaceSurface {...surfaceProps} maximizedPaneId="pane-1" />
     )
 
     expect(screen.getByTestId('workspace-grid')).toBeInTheDocument()
@@ -152,26 +149,7 @@ describe('WorkspaceSurface', () => {
 
     // Restore: side panels return; grid still the same instance.
     rerender(
-      <WorkspaceSurface
-        workspace={workspace}
-        maximizedPaneId={null}
-        onToggleMaximize={() => undefined}
-        scriptsVisible={false}
-        webPreviewVisible={false}
-        integrationVisible={false}
-        onCloseScripts={() => undefined}
-        onCloseWebPreview={() => undefined}
-        onCloseIntegration={() => undefined}
-        onRunCommand={() => undefined}
-        onUpdateEditorState={() => undefined}
-        onUpdateReviewState={() => undefined}
-        onUpdateGitHubState={() => undefined}
-        onUpdateBackgroundState={() => undefined}
-        onUpdateWorktreeState={() => undefined}
-        onSelectWorkspace={() => undefined}
-        workspaces={[workspace]}
-        activePaneId={null}
-      />
+      <WorkspaceSurface {...surfaceProps} maximizedPaneId={null} />
     )
 
     expect(screen.getByTestId('workspace-grid')).toBeInTheDocument()
@@ -241,9 +219,11 @@ function renderSurface(
       scriptsVisible={false}
       webPreviewVisible={false}
       integrationVisible={false}
+      searchVisible={false}
       onCloseScripts={() => undefined}
       onCloseWebPreview={() => undefined}
       onCloseIntegration={() => undefined}
+      onCloseSearch={() => undefined}
       onRunCommand={() => undefined}
       onUpdateEditorState={() => undefined}
       onUpdateReviewState={() => undefined}
@@ -269,9 +249,11 @@ function ControlledSurface(): ReactElement {
       scriptsVisible={false}
       webPreviewVisible={false}
       integrationVisible={false}
+      searchVisible={false}
       onCloseScripts={() => undefined}
       onCloseWebPreview={() => undefined}
       onCloseIntegration={() => undefined}
+      onCloseSearch={() => undefined}
       onRunCommand={() => undefined}
       onUpdateEditorState={(input) => setWorkspace((current) => ({ ...current, ...input }))}
       onUpdateReviewState={(input) => setWorkspace((current) => ({ ...current, ...input }))}

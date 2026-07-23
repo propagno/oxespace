@@ -63,6 +63,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       delete: (id) => ipc.invoke(IPC_CHANNELS.workspace.delete, id) as Promise<void>,
       closePane: (id) => ipc.invoke(IPC_CHANNELS.workspace.closePane, id) as Promise<Workspace | null>,
       splitPane: (input) => ipc.invoke(IPC_CHANNELS.workspace.splitPane, input) as Promise<Workspace>,
+      createPane: (input) => ipc.invoke(IPC_CHANNELS.workspace.createPane, input) as Promise<{ workspace: Workspace; paneId: string }>,
       updatePaneType: (input) => ipc.invoke(IPC_CHANNELS.workspace.updatePaneType, input) as Promise<Workspace>,
       updatePaneName: (input) => ipc.invoke(IPC_CHANNELS.workspace.updatePaneName, input) as Promise<Workspace>,
       setPaneAgent: (input) => ipc.invoke(IPC_CHANNELS.workspace.setPaneAgent, input) as Promise<Workspace>,
@@ -125,7 +126,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     },
     search: {
       run: (input) => ipc.invoke(IPC_CHANNELS.search.run, input) as Promise<import('../../shared/types/search').SearchResult>,
-      cancel: () => ipc.invoke(IPC_CHANNELS.search.cancel) as Promise<void>
+      cancel: () => ipc.invoke(IPC_CHANNELS.search.cancel) as Promise<void>,
+      listFiles: (input) => ipc.invoke(IPC_CHANNELS.search.listFiles, input) as Promise<import('../../shared/types/search').SearchFilesResult>
     },
     clipboard: {
       saveImageToTemp: () => ipc.invoke(IPC_CHANNELS.clipboard.saveImageToTemp) as Promise<string | null>,
@@ -173,6 +175,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       fetch: (input) => ipc.invoke(IPC_CHANNELS.github.fetch, input) as Promise<GitHubMessageResult>,
       pullFfOnly: (input) => ipc.invoke(IPC_CHANNELS.github.pullFfOnly, input) as Promise<GitHubMessageResult>,
       stageAll: (input) => ipc.invoke(IPC_CHANNELS.github.stageAll, input) as Promise<GitHubMessageResult>,
+      stageFile: (input) => ipc.invoke(IPC_CHANNELS.github.stageFile, input) as Promise<GitHubMessageResult>,
+      unstageFile: (input) => ipc.invoke(IPC_CHANNELS.github.unstageFile, input) as Promise<GitHubMessageResult>,
       commit: (input) => ipc.invoke(IPC_CHANNELS.github.commit, input) as Promise<GitHubMessageResult>,
       generateCommitMessage: (input) => ipc.invoke(IPC_CHANNELS.github.generateCommitMessage, input) as Promise<GitHubMessageResult>,
       push: (input) => ipc.invoke(IPC_CHANNELS.github.push, input) as Promise<GitHubMessageResult>,
@@ -264,7 +268,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       setMode: (input) => ipc.invoke(IPC_CHANNELS.semantic.setMode, input) as Promise<import('../../shared/types/ipc').SemanticStatus>,
       reindex: (workspaceId) => ipc.invoke(IPC_CHANNELS.semantic.reindex, workspaceId) as Promise<import('../../shared/types/ipc').SemanticStatus>,
       getLogs: () => ipc.invoke(IPC_CHANNELS.semantic.getLogs) as Promise<import('../../shared/types/ipc').SemanticLogEntry[]>,
-      onLog: (listener) => subscribe<import('../../shared/types/ipc').SemanticLogEntry>(ipc, IPC_CHANNELS.semantic.onLog, listener)
+      onLog: (listener) => subscribe<import('../../shared/types/ipc').SemanticLogEntry>(ipc, IPC_CHANNELS.semantic.onLog, listener),
+      query: (input) => ipc.invoke(IPC_CHANNELS.semantic.query, input) as Promise<import('../../shared/types/ipc').SemanticQueryHit[]>
     },
     diagnostics: {
       getSnapshot: () => ipc.invoke(IPC_CHANNELS.diagnostics.getSnapshot) as Promise<import('../../shared/types/diagnostics').DiagnosticsSnapshot>,

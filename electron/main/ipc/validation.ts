@@ -24,6 +24,7 @@ import type {
   GitHubCreatePullRequestInput,
   GitHubCreateReleaseInput,
   GitHubDeleteCheckpointInput,
+  GitHubFileInput,
   GitHubPanelTab,
   GitHubPullRequestListInput,
   GitHubRestoreCheckpointInput,
@@ -413,6 +414,14 @@ export function parseSearchInput(value: unknown): import('../../../shared/types/
   }
 }
 
+export function parseSearchFilesInput(value: unknown): import('../../../shared/types/search').SearchFilesInput {
+  const input = expectRecord(value, 'search:list-files input')
+  return {
+    workspaceId: expectNonEmptyString(input.workspaceId, 'workspaceId'),
+    rootPath: expectNonEmptyString(input.rootPath, 'rootPath')
+  }
+}
+
 // Subset of git's check-ref-format rules — accepts the characters legal in branch
 // names, tags, SHAs, and short refspecs we actually surface (HEAD~3, origin/main, v1.2.3).
 // Rejects shell metacharacters that would be dangerous if a future caller forgets
@@ -438,6 +447,15 @@ export function parseGitHubCommitInput(value: unknown): GitHubCommitInput {
     ...expectGitHubWorkspace(input),
     message: expectNonEmptyString(input.message, 'message')
   }
+}
+
+export function parseGitHubFileInput(value: unknown): GitHubFileInput {
+  const input = expectRecord(value, 'github file input')
+  const path = expectNonEmptyString(input.path, 'path').replace(/\\/g, '/')
+  if (path.startsWith('/') || /^[A-Za-z]:\//.test(path) || path.split('/').includes('..') || path.includes('\0')) {
+    throw new Error('path must stay inside the workspace')
+  }
+  return { ...expectGitHubWorkspace(input), path }
 }
 
 export function parseGitHubCommitDetailsInput(value: unknown): GitHubCommitDetailsInput {

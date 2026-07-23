@@ -50,4 +50,23 @@ export function registerSemanticIpc(semantic: SemanticService): void {
   // Recent activity log for Tools → Semantic Activity. Live updates arrive on
   // the IPC_CHANNELS.semantic.onLog channel (broadcast from index.ts).
   ipcMain.handle(IPC_CHANNELS.semantic.getLogs, () => semantic.getLogs())
+
+  // Renderer-facing semantic query (e5-base) — powers the Semantic group in
+  // the unified command palette. Returns [] when disabled/unindexed.
+  ipcMain.handle(IPC_CHANNELS.semantic.query, (_event, input: unknown) => {
+    const { workspaceId, text, limit } = (input ?? {}) as {
+      workspaceId?: unknown
+      text?: unknown
+      limit?: unknown
+    }
+    if (typeof workspaceId !== 'string' || !workspaceId.trim()) {
+      throw new Error('semantic:query requires a workspaceId string')
+    }
+    if (typeof text !== 'string') {
+      throw new Error('semantic:query requires a text string')
+    }
+    if (!text.trim()) return Promise.resolve([])
+    const cap = typeof limit === 'number' && Number.isFinite(limit) ? Math.min(Math.max(1, Math.trunc(limit)), 20) : 8
+    return semantic.query(workspaceId, text, cap).catch(() => [])
+  })
 }

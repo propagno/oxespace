@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import type { Workspace } from '../../shared/types/workspace'
 import { useTerminalStore } from '../store/terminal.store'
 import { deriveStatusTone, type PaneDisplayTone } from '../utils/paneDisplay'
@@ -31,16 +32,21 @@ const EMPTY_ENTRY = {
 const DOMINANCE: PaneDisplayTone[] = ['error', 'awaiting', 'thinking', 'starting', 'idle', 'exited']
 
 export function useWorkspaceActivity(workspace: Pick<Workspace, 'panes'>): WorkspaceActivity {
-  const panes = useTerminalStore((s) => s.panes)
+  // Keep the selector scoped to this workspace. `useShallow` preserves the
+  // array reference when a terminal in another workspace changes.
+  const paneStates = useTerminalStore(useShallow((s) =>
+    workspace.panes.map((pane) => s.panes[pane.id] ?? EMPTY_ENTRY)
+  ))
   return useMemo(() => {
     const counts: Record<PaneDisplayTone, number> = { thinking: 0, awaiting: 0, starting: 0, error: 0, exited: 0, idle: 0 }
     let total = 0
-    for (const pane of workspace.panes) {
+    for (let index = 0; index < workspace.panes.length; index++) {
+      const pane = workspace.panes[index]
       if (pane.type !== 'terminal') continue
       total += 1
-      counts[deriveStatusTone(panes[pane.id] ?? EMPTY_ENTRY)] += 1
+      counts[deriveStatusTone(paneStates[index] ?? EMPTY_ENTRY)] += 1
     }
     const dominant = total === 0 ? null : (DOMINANCE.find((tone) => counts[tone] > 0) ?? 'idle')
     return { total, counts, dominant }
-  }, [workspace.panes, panes])
+  }, [workspace.panes, paneStates])
 }

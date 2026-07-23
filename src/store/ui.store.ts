@@ -8,12 +8,16 @@ interface UIState {
   /** Tools hub modal (sidebar gear) — distinct from agent Settings. */
   isToolsOpen: boolean
   isCommandPaletteOpen: boolean
+  isCommandMenuOpen: boolean
   isWorkspaceSettingsOpen: boolean
   slashOverlayPaneId: string | null
   isMcpPanelOpen: boolean
   isSkillsBrowserOpen: boolean
   isScriptsPanelOpen: boolean
   isSearchPanelOpen: boolean
+  isUsageOpen: boolean
+  /** F2 experimental: render the recursive split-tree layout instead of the grid. */
+  splitLayoutEnabled: boolean
   /** Web Preview is workspace-owned. Keeping this keyed prevents opening or
    *  closing the panel in one workspace from affecting every other surface. */
   webPreviewOpenByWorkspace: Record<string, boolean>
@@ -28,6 +32,8 @@ interface UIState {
   setActivePane: (paneId: string | null) => void
   openCommandPalette: () => void
   closeCommandPalette: () => void
+  openCommandMenu: () => void
+  closeCommandMenu: () => void
   openWorkspaceSettings: () => void
   closeWorkspaceSettings: () => void
   openSlashOverlay: (paneId: string) => void
@@ -40,6 +46,9 @@ interface UIState {
   closeScriptsPanel: () => void
   openSearchPanel: () => void
   closeSearchPanel: () => void
+  openUsage: () => void
+  closeUsage: () => void
+  toggleSplitLayout: () => void
   openWebPreview: (workspaceId: string) => void
   closeWebPreview: (workspaceId: string) => void
   setPendingWebPreview: (workspaceId: string, url: string | null) => void
@@ -58,12 +67,15 @@ export const useUIStore = create<UIState>((set) => ({
   isSettingsOpen: false,
   isToolsOpen: false,
   isCommandPaletteOpen: false,
+  isCommandMenuOpen: false,
   isWorkspaceSettingsOpen: false,
   slashOverlayPaneId: null,
   isMcpPanelOpen: false,
   isSkillsBrowserOpen: false,
   isScriptsPanelOpen: false,
   isSearchPanelOpen: false,
+  isUsageOpen: false,
+  splitLayoutEnabled: true,
   webPreviewOpenByWorkspace: {},
   pendingWebPreviewByWorkspace: {},
   isIntegrationPanelOpen: false,
@@ -74,6 +86,8 @@ export const useUIStore = create<UIState>((set) => ({
   setActivePane: (paneId) => set({ activePaneId: paneId }),
   openCommandPalette: () => set({ isCommandPaletteOpen: true }),
   closeCommandPalette: () => set({ isCommandPaletteOpen: false }),
+  openCommandMenu: () => set({ isCommandMenuOpen: true }),
+  closeCommandMenu: () => set({ isCommandMenuOpen: false }),
   openWorkspaceSettings: () => set({ isWorkspaceSettingsOpen: true }),
   closeWorkspaceSettings: () => set({ isWorkspaceSettingsOpen: false }),
   openSlashOverlay: (paneId) => set({ slashOverlayPaneId: paneId }),
@@ -86,6 +100,9 @@ export const useUIStore = create<UIState>((set) => ({
   closeScriptsPanel: () => set({ isScriptsPanelOpen: false }),
   openSearchPanel: () => set({ isSearchPanelOpen: true }),
   closeSearchPanel: () => set({ isSearchPanelOpen: false }),
+  openUsage: () => set({ isUsageOpen: true }),
+  closeUsage: () => set({ isUsageOpen: false }),
+  toggleSplitLayout: () => set((s) => ({ splitLayoutEnabled: !s.splitLayoutEnabled })),
   openWebPreview: (workspaceId) => set((state) => ({
     webPreviewOpenByWorkspace: { ...state.webPreviewOpenByWorkspace, [workspaceId]: true }
   })),

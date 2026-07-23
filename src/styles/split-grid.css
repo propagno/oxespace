@@ -1,0 +1,84 @@
+/* F2 · split-tree flat layout. Panes are absolutely positioned siblings so they
+   never remount (terminal preserved); handles sit on split boundaries. */
+
+.workspace-split-grid {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #070707;
+  overflow: hidden;
+}
+
+.split-pane-slot {
+  position: absolute;
+  overflow: hidden;
+  border-radius: 0;
+  background: #070707;
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  box-sizing: border-box;
+}
+
+.split-pane-slot:focus-within {
+  border-right-color: rgba(255, 255, 255, 0.12);
+  border-bottom-color: rgba(255, 255, 255, 0.12);
+}
+
+.split-pane-slot > .pane-container {
+  width: 100%;
+  height: 100%;
+}
+
+.split-resize-handle {
+  z-index: 5;
+  background: transparent;
+  transition: background 150ms ease, box-shadow 150ms ease;
+  touch-action: none;
+}
+
+.split-resize-handle:hover,
+.split-resize-handle:active {
+  background: rgba(16, 185, 129, 0.65);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+}
+
+/* Drag-to-split: top-center grip per pane. Subtle at rest, lights on hover. */
+.split-drag-grip {
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 44px;
+  height: 10px;
+  z-index: 6;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  cursor: grab;
+  touch-action: none;
+  transition: background 150ms ease, box-shadow 150ms ease;
+}
+
+.split-drag-grip:hover,
+.split-drag-grip:active {
+  background: rgba(16, 185, 129, 0.55);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.35);
+}
+
+.split-drag-grip:active {
+  cursor: grabbing;
+}
+
+.split-pane-slot--dragging {
+  opacity: 0.55;
+}
+
+/* Translucent overlay showing the half the drop would occupy. */
+.split-drop-preview {
+  position: absolute;
+  z-index: 7;
+  pointer-events: none;
+  background: rgba(16, 185, 129, 0.18);
+  border: 1px solid rgba(16, 185, 129, 0.55);
+  border-radius: 4px;
+}
+

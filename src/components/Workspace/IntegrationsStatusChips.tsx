@@ -8,13 +8,14 @@ import { useUpdaterStore } from '../../store/updater.store'
 
 interface IntegrationsStatusChipsProps {
   workspace: Workspace
+  isActive?: boolean
 }
 
 /**
  * Interactive Status Chips for integrations (GitHub, MCP, RTK, Caveman, Semantic).
  * Displayed in the top toolbar to give a glanceable health check of system services.
  */
-export function IntegrationsStatusChips({ workspace }: IntegrationsStatusChipsProps): ReactElement {
+export function IntegrationsStatusChips({ workspace, isActive = true }: IntegrationsStatusChipsProps): ReactElement {
   const terminalPrefs = useResolvedTerminalPrefs(workspace.id)
   const setOverride = useTerminalPrefsStore((s) => s.setOverride)
   const rtkActive = terminalPrefs.rtkHookEnabled
@@ -32,7 +33,9 @@ export function IntegrationsStatusChips({ workspace }: IntegrationsStatusChipsPr
   const [semanticStatus, setSemanticStatus] = useState<SemanticStatus | null>(null)
 
   useEffect(() => {
+    if (!isActive) return
     let mounted = true
+    let interval: ReturnType<typeof setInterval> | null = null
     const checkStatus = async () => {
       // Check GitHub
       try {
@@ -67,29 +70,39 @@ export function IntegrationsStatusChips({ workspace }: IntegrationsStatusChipsPr
       }
     }
 
-    // Initial check
-    void checkStatus()
-
-    // Periodic check
-    const interval = setInterval(checkStatus, 15000)
+    // Keep process-spawning GitHub checks and semantic/MCP IPC away from the
+    // workspace visibility swap. Cached status remains visible meanwhile.
+    const initialTimer = setTimeout(() => {
+      void checkStatus()
+      interval = setInterval(checkStatus, 15000)
+    }, 350)
     return () => {
       mounted = false
-      clearInterval(interval)
+      clearTimeout(initialTimer)
+      if (interval) clearInterval(interval)
     }
-  }, [workspace.rootPath, workspace.id])
+  }, [isActive, workspace.rootPath, workspace.id])
 
   // Mirror the renderer-persisted preference into the main process so indexing
   // and the MCP tool honor it (the store is renderer-only; main needs telling).
   useEffect(() => {
-    void window.oxe?.semantic
-      ?.setEnabled({ workspaceId: workspace.id, enabled: semanticEnabled })
-      .then((status) => setSemanticStatus(status))
-      .catch(() => undefined)
-  }, [workspace.id, semanticEnabled])
+    if (!isActive) return
+    const timer = setTimeout(() => {
+      void window.oxe?.semantic
+        ?.setEnabled({ workspaceId: workspace.id, enabled: semanticEnabled })
+        .then((status) => setSemanticStatus(status))
+        .catch(() => undefined)
+    }, 350)
+    return () => clearTimeout(timer)
+  }, [isActive, workspace.id, semanticEnabled])
 
   useEffect(() => {
-    void window.oxe?.semantic?.setMode({ workspaceId: workspace.id, mode: semanticMode }).catch(() => undefined)
-  }, [workspace.id, semanticMode])
+    if (!isActive) return
+    const timer = setTimeout(() => {
+      void window.oxe?.semantic?.setMode({ workspaceId: workspace.id, mode: semanticMode }).catch(() => undefined)
+    }, 350)
+    return () => clearTimeout(timer)
+  }, [isActive, workspace.id, semanticMode])
 
   const totalRunningMcp = runningMcpServers + (builtInMcpRunning ? 1 : 0)
 

@@ -17,6 +17,7 @@ import { wheelToTuiScrollKeys } from '../../utils/terminalWheel'
 const AGENT_MARKERS = ['⏺', '●']
 
 let activeWebglContexts = 0
+let webgl2Supported: boolean | null = null
 // Browsers cap WebGL contexts per tab (Chrome: 16). When exceeded, the oldest
 // context is lost, unexpectedly breaking older terminals. By capping at 14, we
 // leave room for other components and gracefully fall back to the DOM renderer
@@ -30,14 +31,20 @@ const MAX_WEBGL_CONTEXTS = 14
  * a real context is obtainable; otherwise stay on xterm's DOM renderer.
  */
 function supportsWebgl2(): boolean {
+  if (webgl2Supported !== null) return webgl2Supported
   try {
     const canvas = document.createElement('canvas')
     const gl = canvas.getContext('webgl2')
-    if (!gl) return false
+    if (!gl) {
+      webgl2Supported = false
+      return false
+    }
     // Release the probe context so we don't hold a GPU slot.
     gl.getExtension('WEBGL_lose_context')?.loseContext()
+    webgl2Supported = true
     return true
   } catch {
+    webgl2Supported = false
     return false
   }
 }
@@ -110,7 +117,7 @@ function buildTerminalTheme(translucent: boolean): ITheme {
     return v || fallback
   }
   return {
-    background:          translucent ? '#00000000' : tok('--bg-tile-content', '#0d1117'),
+    background:          translucent ? '#00000000' : '#0a0a0a',
     foreground:          tok('--tx-primary',       '#f1f5f9'),
     cursor:              tok('--brand-light',      '#6EEBD4'),
     selectionBackground: tok('--brand-glow',       'rgba(18,199,154,0.28)'),
@@ -157,6 +164,7 @@ function readAgentPreview(terminal: Terminal): string {
 
 interface TerminalViewProps {
   paneId: string
+  workspaceId?: string
   isRunning: boolean
   onInput: (data: string) => void
   onResize: (cols: number, rows: number) => void
@@ -167,7 +175,7 @@ interface TerminalViewProps {
   prefs: TerminalPrefs
 }
 
-export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, themeId, prefs }: TerminalViewProps): ReactElement {
+export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, workspaceId, themeId, prefs }: TerminalViewProps): ReactElement {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const terminalRef = useRef<Terminal | null>(null)
   const pasteRef = useRef<((text: string) => void) | null>(null)
@@ -558,6 +566,8 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       }
     }
 
+    let lastNotifiedCols = 0
+    let lastNotifiedRows = 0
     const fitTerminal = (): void => {
       try {
         // Preserve absolute scroll position. A relative scroll after fit can jump
@@ -567,12 +577,19 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
         const wasAtBottom = viewportY >= buf.baseY
 
         fitAddon.fit()
-        onResizeRef.current(terminal.cols, terminal.rows)
+        const dimensionsChanged =
+          terminal.cols !== lastNotifiedCols ||
+          terminal.rows !== lastNotifiedRows
+        if (dimensionsChanged) {
+          lastNotifiedCols = terminal.cols
+          lastNotifiedRows = terminal.rows
+          onResizeRef.current(terminal.cols, terminal.rows)
+        }
 
         // Force the viewport scroll area to re-measure after large layout
         // changes (pane maximize/restore). Without a refresh, xterm can keep a
         // stale scrollHeight and the mouse wheel appears dead.
-        terminal.refresh(0, Math.max(0, terminal.rows - 1))
+        if (dimensionsChanged) terminal.refresh(0, Math.max(0, terminal.rows - 1))
         syncViewportScrollArea()
 
         if (buf.type === 'alternate') {
@@ -592,29 +609,26 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       fitFrameRef.current = window.requestAnimationFrame(() => {
         fitFrameRef.current = null
         fitTerminal()
-        // CSS maximize/restore can settle one frame after ResizeObserver fires.
-        // A second pass keeps cols/rows + scroll metrics aligned with final size.
-        window.requestAnimationFrame(() => {
-          fitTerminal()
-        })
       })
     }
 
     const resizeObserver = new ResizeObserver(scheduleFit)
     resizeObserver.observe(hostRef.current)
+    const handleWorkspaceActivated = (event: Event): void => {
+      const detail = (event as CustomEvent<{ workspaceId?: string }>).detail
+      if (workspaceId && detail?.workspaceId === workspaceId) scheduleFit()
+    }
+    window.addEventListener('oxe:workspace-activated', handleWorkspaceActivated)
     scheduleFit()
     void document.fonts?.ready.then(scheduleFit).catch(() => undefined)
     // Belt-and-suspenders re-fits shortly after mount. The pane's own layout
     // (topbar + status bar) can still be settling — sibling CSS transitions,
     // late font metric changes, etc. — after ResizeObserver's first callback,
     // and if that first measurement is even slightly stale xterm computes the
-    // wrong cols and the terminal renders text past the visible edge until
-    // something forces another fit (previously only a manual window resize
-    // did). --transition-base across the app is 200ms, so 250/700ms covers a
-    // settle window with margin.
+    // wrong cols. One post-transition pass is enough; ResizeObserver handles
+    // intermediate sizes and `scheduleFit` coalesces them into one frame.
     settleFitTimersRef.current = [
-      setTimeout(scheduleFit, 250),
-      setTimeout(scheduleFit, 700)
+      setTimeout(scheduleFit, 250)
     ]
 
     let previewTimer: ReturnType<typeof setTimeout> | null = null
@@ -676,6 +690,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       searchAddonRef.current = null
       window.removeEventListener('oxe:terminal-clear', handleClearRequest)
       window.removeEventListener('oxe:terminal-open-search', handleOpenSearchRequest)
+      window.removeEventListener('oxe:workspace-activated', handleWorkspaceActivated)
       try { 
         if (webglAddon) {
           webglAddon.dispose()
@@ -698,7 +713,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, the
       terminal.dispose()
       terminalRef.current = null
     }
-  }, [paneId])
+  }, [paneId, workspaceId])
 
   // Apply prefs + theme to the live terminal without recreating it. Font/cursor
   // changes are immediate; the theme is re-read on the next frame so the

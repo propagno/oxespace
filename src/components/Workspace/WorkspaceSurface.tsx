@@ -1,8 +1,11 @@
-import { Fragment, Suspense, lazy, useEffect, useRef, useState, type ReactElement } from 'react'
+import { Fragment, Suspense, lazy, memo, useEffect, useRef, useState, type ReactElement } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from 'react-resizable-panels'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceWorktreeStateInput, Workspace } from '../../../shared/types/workspace'
 import { WorkspaceGrid } from '../Grid/WorkspaceGrid'
+import { WorkspaceSplitGrid } from '../Grid/WorkspaceSplitGrid'
+import { usePaneLayoutStore } from '../../store/pane-layout.store'
+import { useUIStore } from '../../store/ui.store'
 // Side panels are lazy-loaded: they only mount when the user opens them, so
 // keeping them out of the initial bundle cuts first-paint parse/exec time. The
 // Editor pulls in Monaco (the single heaviest dep), so its split matters most.
@@ -50,6 +53,7 @@ import { ErrorBoundary } from '../common/ErrorBoundary'
 
 interface WorkspaceSurfaceProps {
   workspace: Workspace
+  isActive?: boolean
   agentProfiles?: AgentProfile[]
   maximizedPaneId: string | null
   onClosePane?: (paneId: string) => void
@@ -94,7 +98,8 @@ interface SidePanelEntry {
   content: ReactElement
 }
 
-export function WorkspaceSurface({
+function WorkspaceSurfaceComponent({
+  isActive = true,
   maximizedPaneId,
   onClosePane,
   onActivatePane,
@@ -150,6 +155,18 @@ export function WorkspaceSurface({
   const [webPreviewExpanded, setWebPreviewExpanded] = useState(false)
   const [integrationExpanded, setIntegrationExpanded] = useState(false)
   const [searchExpanded, setSearchExpanded] = useState(false)
+  // F2 split-tree is the default layout. Keep the fixed grid as a fallback
+  // (toggle via F2) so users can recover if a tree layout gets awkward.
+  const splitLayoutEnabled = useUIStore((s) => s.splitLayoutEnabled)
+  const tree = usePaneLayoutStore((s) => s.trees[workspace.id] ?? null)
+  const syncTree = usePaneLayoutStore((s) => s.sync)
+  const resizeTree = usePaneLayoutStore((s) => s.resize)
+  const moveTree = usePaneLayoutStore((s) => s.move)
+
+  useEffect(() => {
+    syncTree(workspace.id, workspace.panes)
+  }, [syncTree, workspace.id, workspace.panes])
+
   const scriptsWidth = scriptsExpanded ? 70 : DEFAULT_GITHUB_WIDTH
   const webPreviewWidth = webPreviewExpanded ? 70 : DEFAULT_GITHUB_WIDTH
   const integrationWidth = integrationExpanded ? 70 : DEFAULT_GITHUB_WIDTH
@@ -406,7 +423,21 @@ export function WorkspaceSurface({
     })
   }
 
-  const grid = (
+  const grid = splitLayoutEnabled ? (
+    <WorkspaceSplitGrid
+      workspace={workspace}
+      tree={tree}
+      agentProfiles={agentProfiles}
+      maximizedPaneId={maximizedPaneId}
+      activePaneId={activePaneId}
+      onClosePane={onClosePane}
+      onToggleMaximize={onToggleMaximize}
+      onSplitPane={onSplitPane}
+      onActivatePane={onActivatePane}
+      onResize={(path, index, deltaPct) => resizeTree(workspace.id, path, index, deltaPct)}
+      onMovePane={(paneId, targetPaneId, direction, after) => moveTree(workspace.id, paneId, targetPaneId, direction, after)}
+    />
+  ) : (
     <WorkspaceGrid
       workspace={workspace}
       agentProfiles={agentProfiles}
@@ -419,14 +450,23 @@ export function WorkspaceSurface({
     />
   )
 
+  const folderName = workspace.rootPath ? workspace.rootPath.replace(/\\/g, '/').split('/').filter(Boolean).pop() : null
+  const showSubPath = Boolean(folderName && folderName.toLowerCase() !== workspace.name.toLowerCase())
+
   const toolbar = (
     <header className="workspace-topbar" aria-label="Workspace status">
-      {/* Aggregate workspace status — glanceable multi-agent summary.
-          Tools hub lives on the sidebar footer (gear → modal), so this
-          bar only carries status + integration chips. */}
-      <WorkspaceStatusSummary workspace={workspace} />
+      <div className="workspace-topbar-breadcrumb">
+        <span className="workspace-topbar-name">{workspace.name}</span>
+        {showSubPath ? (
+          <>
+            <span className="workspace-topbar-divider">/</span>
+            <span className="workspace-topbar-path" title={workspace.rootPath}>{folderName}</span>
+          </>
+        ) : null}
+      </div>
       <div className="workspace-topbar-spacer" />
-      <IntegrationsStatusChips workspace={workspace} />
+      <WorkspaceStatusSummary workspace={workspace} />
+      <IntegrationsStatusChips workspace={workspace} isActive={isActive} />
     </header>
   )
 
@@ -499,6 +539,21 @@ export function WorkspaceSurface({
     </div>
   )
 }
+
+export const WorkspaceSurface = memo(
+  WorkspaceSurfaceComponent,
+  (previous, next) =>
+    previous.workspace === next.workspace &&
+    previous.isActive === next.isActive &&
+    previous.agentProfiles === next.agentProfiles &&
+    previous.maximizedPaneId === next.maximizedPaneId &&
+    previous.scriptsVisible === next.scriptsVisible &&
+    previous.webPreviewVisible === next.webPreviewVisible &&
+    previous.integrationVisible === next.integrationVisible &&
+    previous.searchVisible === next.searchVisible &&
+    previous.workspaces === next.workspaces &&
+    previous.activePaneId === next.activePaneId
+)
 
 interface WorkspacePanelSizeInput {
   editorVisible: boolean

@@ -44,7 +44,7 @@ test('captures all surfaces for design review', async () => {
     await page.getByTestId('wizard-layout-card-4').click().catch(() => undefined) // 2x2
     await shot(page, '03-new-workspace-modal-filled')
     await page.getByTestId('wizard-launch-btn').click()
-    await page.waitForSelector('[data-testid="workspace-grid"]', { timeout: 8000 })
+    await page.waitForSelector('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]', { timeout: 8000 })
     await page.waitForTimeout(400)
 
     // 4. Workspace grid with sidebar

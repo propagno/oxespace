@@ -43,6 +43,8 @@ interface GitHubStoreState {
   fetch: (input: GitHubWorkspaceInput) => Promise<void>
   pullFfOnly: (input: GitHubWorkspaceInput) => Promise<void>
   stageAll: (input: GitHubWorkspaceInput) => Promise<void>
+  stageFile: (input: GitHubWorkspaceInput & { path: string }) => Promise<void>
+  unstageFile: (input: GitHubWorkspaceInput & { path: string }) => Promise<void>
   commit: (input: GitHubWorkspaceInput & { message: string }) => Promise<void>
   generateCommitMessage: (input: GitHubWorkspaceInput) => Promise<string>
   push: (input: GitHubWorkspaceInput) => Promise<void>
@@ -184,6 +186,8 @@ export const useGitHubStore = create<GitHubStoreState>((set, get) => ({
   fetch: async (input) => runMutation(set, input.workspaceId, () => window.oxe.github.fetch(input), () => get().loadStatus(input)),
   pullFfOnly: async (input) => runMutation(set, input.workspaceId, () => window.oxe.github.pullFfOnly(input), () => get().loadStatus(input)),
   stageAll: async (input) => runMutation(set, input.workspaceId, () => window.oxe.github.stageAll(input), () => get().loadStatus(input)),
+  stageFile: async (input) => runMutation(set, input.workspaceId, () => window.oxe.github.stageFile(input), () => get().loadStatus(input)),
+  unstageFile: async (input) => runMutation(set, input.workspaceId, () => window.oxe.github.unstageFile(input), () => get().loadStatus(input)),
   commit: async (input) => runMutation(set, input.workspaceId, () => window.oxe.github.commit(input), () => get().loadStatus(input)),
   generateCommitMessage: async (input) => {
     const hasCached = get().byWorkspace[input.workspaceId]?.status != null

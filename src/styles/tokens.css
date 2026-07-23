@@ -1,34 +1,29 @@
 /* ─── Design tokens ──────────────────────────────────────────────────────── */
 :root {
   /* Backgrounds */
-  --bg-app:           #000;
-  --bg-sidebar:       #050505;
-  --bg-elevated:      #121212;
-  --bg-tile:          #000;
-  --bg-tile-header:   #171717;
-  --bg-tile-agent:    #000;
-  --bg-tile-content:  #000;
-  /* Terminal "surface": a touch lifted from pure black so the terminal reads as
-     a soft chat-like panel instead of a raw console. Follows each theme's
-     --bg-elevated (lazily substituted), so it re-colors per theme automatically.
-     Used in BOTH the xterm canvas theme and the CSS padding gutter so there's no
-     seam between the text area and its breathing room. */
-  --bg-terminal-surface: var(--bg-elevated);
-  --bg-statusbar:     #070707;
-  --bg-ws-active:     #061f16;
-  --bg-ws-hover:      #0d0d0d;
-  --bg-modal:         #0a111a;
-  --bg-input:         #020407;
-  --bg-segment:       #07111c;
+  --bg-app:           #070707;
+  --bg-sidebar:       #09090b;
+  --bg-elevated:      #121215;
+  --bg-tile:          #070707;
+  --bg-tile-header:   #0d0d0d;
+  --bg-tile-agent:    #070707;
+  --bg-tile-content:  #070707;
+  --bg-terminal-surface: #070707;
+  --bg-statusbar:     #09090b;
+  --bg-ws-active:     #0d1f18;
+  --bg-ws-hover:      #121215;
+  --bg-modal:         #121215;
+  --bg-input:         #070707;
+  --bg-segment:       #121215;
 
   /* Borders */
-  --bd-tile:          1px solid #161616;
-  --bd-divider:       #151515;
-  --bd-sidebar:       #141414;
-  --bd-ws-active:     #12c79a;
-  --bd-input:         rgba(18, 199, 154, 0.22);
-  --bd-input-focus:   rgba(18, 199, 154, 0.58);
-  --bd-subtle:        rgba(255, 255, 255, 0.06);
+  --bd-tile:          1px solid rgba(255, 255, 255, 0.07);
+  --bd-divider:       rgba(255, 255, 255, 0.07);
+  --bd-sidebar:       rgba(255, 255, 255, 0.07);
+  --bd-ws-active:     #10b981;
+  --bd-input:         rgba(16, 185, 129, 0.25);
+  --bd-input-focus:   rgba(16, 185, 129, 0.6);
+  --bd-subtle:        rgba(255, 255, 255, 0.07);
   --bd-base:          rgba(255, 255, 255, 0.12);
 
   /* Text */
@@ -167,6 +162,29 @@ select optgroup {
   --fs-2xs:    12px;
 }
 
+:root[data-theme='midnight'] {
+  --bg-app: #0a0a0a;
+  --bg-sidebar: #0d0d0d;
+  --bg-elevated: #171717;
+  --bg-tile: #0a0a0a;
+  --bg-tile-header: #141414;
+  --bg-tile-agent: #0a0a0a;
+  --bg-tile-content: #0a0a0a;
+  --bg-terminal-surface: #0a0a0a;
+  --bg-statusbar: #0d0d0d;
+  --bg-ws-active: #0d1f18;
+  --bg-ws-hover: #141414;
+  --bg-modal: #141414;
+  --bg-input: #0a0a0a;
+  --bg-segment: #141414;
+  --bd-tile: 1px solid rgba(255, 255, 255, 0.07);
+  --bd-divider: rgba(255, 255, 255, 0.07);
+  --bd-sidebar: rgba(255, 255, 255, 0.07);
+  --bd-ws-active: #10b981;
+  --accent: #10b981;
+  --accent-hover: #34d399;
+}
+
 :root[data-theme='nord'] {
   --bg-app: #0b1119;
   --bg-sidebar: #101722;
@@ -183,18 +201,18 @@ select optgroup {
 }
 
 :root[data-theme='dracula'] {
-  --bg-app: #151320;
-  --bg-sidebar: #1d1a2b;
-  --bg-elevated: #282a36;
-  --bg-tile-content: #151320;
-  --bd-divider: #383a59;
-  --bd-sidebar: #34364f;
+  --bg-app: #070707;
+  --bg-sidebar: #09090b;
+  --bg-elevated: #121215;
+  --bg-tile-content: #070707;
+  --bd-divider: rgba(255, 255, 255, 0.08);
+  --bd-sidebar: rgba(255, 255, 255, 0.08);
   --tx-primary: #f8f8f2;
   --tx-secondary: #cfc7f8;
   --tx-muted: #807996;
-  --accent: #bd93f9;
-  --accent-hover: #ff79c6;
-  --bd-ws-active: #bd93f9;
+  --accent: #10b981;
+  --accent-hover: #34d399;
+  --bd-ws-active: #10b981;
 }
 
 :root[data-theme='ocean'] {

@@ -17,6 +17,8 @@ import type {
   GitHubCreatePullRequestInput,
   GitHubCreateReleaseInput,
   GitHubCreateWorktreeInput,
+  GitHubFileChange,
+  GitHubFileInput,
   GitHubRemoveWorktreeInput,
   GitHubWorktree,
   GitHubMessageResult,
@@ -175,7 +177,8 @@ export class GitHubService {
         untracked: 0,
         ahead: 0,
         behind: 0,
-        hasUncommittedChanges: false
+        hasUncommittedChanges: false,
+        changes: []
       }
     }
 
@@ -186,7 +189,7 @@ export class GitHubService {
       this.tryGit(['branch', '--show-current'], input.rootPath),
       this.tryGit(['log', '-1', '--format=%h|%cr'], input.rootPath),
       this.tryGit(['log', '-1', '--format=%cr', '@{u}'], input.rootPath),
-      this.tryGit(['status', '--porcelain=v1'], input.rootPath),
+      this.tryGit(['status', '--porcelain=v1', '--untracked-files=all'], input.rootPath),
       this.tryGit(['rev-list', '--left-right', '--count', 'HEAD...@{u}'], input.rootPath)
     ])
 
@@ -195,6 +198,7 @@ export class GitHubService {
     const lastPushRelative = lastPushRaw.trim() || null
     const statusLines = statusRaw.split('\n').filter(Boolean)
     const counts = countStatusLines(statusLines)
+    const changes = statusLines.map(parseStatusLine).filter((change): change is GitHubFileChange => change !== null)
     const [aheadRaw, behindRaw] = splitPair(revListRaw, /\s+/)
 
     return {
@@ -210,7 +214,8 @@ export class GitHubService {
       untracked: counts.untracked,
       ahead: Number.parseInt(aheadRaw ?? '0', 10) || 0,
       behind: Number.parseInt(behindRaw ?? '0', 10) || 0,
-      hasUncommittedChanges: statusLines.length > 0
+      hasUncommittedChanges: statusLines.length > 0,
+      changes
     }
   }
 
@@ -234,6 +239,26 @@ export class GitHubService {
   async stageAll(input: GitHubWorkspaceInput): Promise<GitHubMessageResult> {
     await this.runGit(['add', '-A'], input.rootPath)
     return ok('Arquivos adicionados ao stage.')
+  }
+
+  async stageFile(input: GitHubFileInput): Promise<GitHubMessageResult> {
+    await this.runGit(['add', '--', input.path], input.rootPath)
+    return ok(`${input.path} adicionado ao stage.`)
+  }
+
+  async unstageFile(input: GitHubFileInput): Promise<GitHubMessageResult> {
+    try {
+      await this.runGit(['restore', '--staged', '--', input.path], input.rootPath)
+    } catch {
+      // `restore --staged` needs HEAD. Repositories before their first commit
+      // fall back to removing the path from the index while keeping the file.
+      try {
+        await this.runGit(['reset', 'HEAD', '--', input.path], input.rootPath)
+      } catch {
+        await this.runGit(['rm', '--cached', '--', input.path], input.rootPath)
+      }
+    }
+    return ok(`${input.path} removido do stage.`)
   }
 
   async commit(input: GitHubCommitInput): Promise<GitHubMessageResult> {
@@ -790,6 +815,36 @@ function countStatusLines(lines: string[]): { staged: number; modified: number; 
     if (line[1] && line[1] !== ' ') modified++
   }
   return { staged, modified, untracked }
+}
+
+function parseStatusLine(line: string): GitHubFileChange | null {
+  if (line.length < 4) return null
+  const indexStatus = line[0] ?? ' '
+  const workTreeStatus = line[1] ?? ' '
+  const rawPath = line.slice(3).trim()
+  if (!rawPath) return null
+  const renameSeparator = rawPath.lastIndexOf(' -> ')
+  const path = unquoteGitPath(renameSeparator >= 0 ? rawPath.slice(renameSeparator + 4) : rawPath)
+  const untracked = indexStatus === '?' && workTreeStatus === '?'
+  return {
+    path,
+    indexStatus,
+    workTreeStatus,
+    staged: !untracked && indexStatus !== ' ',
+    unstaged: untracked || workTreeStatus !== ' ',
+    untracked,
+    renamed: indexStatus === 'R' || workTreeStatus === 'R',
+    deleted: indexStatus === 'D' || workTreeStatus === 'D'
+  }
+}
+
+function unquoteGitPath(path: string): string {
+  if (!(path.startsWith('"') && path.endsWith('"'))) return path
+  try {
+    return JSON.parse(path) as string
+  } catch {
+    return path.slice(1, -1)
+  }
 }
 
 function emptyRepositorySummary(): GitHubRepositorySummary {

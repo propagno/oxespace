@@ -51,3 +51,16 @@ export interface SearchResult {
   /** Present when the search could not run (e.g. ripgrep not found). */
   error?: string
 }
+
+export interface SearchFilesInput {
+  workspaceId: string
+  rootPath: string
+}
+
+export interface SearchFilesResult {
+  /** Tracked file paths (relative to rootPath, forward-slashed), for name quick-open. */
+  files: string[]
+  /** true when the file list hit the cap. */
+  truncated: boolean
+  error?: string
+}

@@ -1,0 +1,145 @@
+/* Orca-inspired project shell. Kept isolated so the feature's chrome can be
+   evolved independently from the legacy layout stylesheet. */
+
+.sidebar-quick-nav {
+  display: grid;
+  gap: 2px;
+  margin: 0 8px 10px;
+  padding: 0 0 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.sidebar-nav-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--tx-secondary);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.sidebar-nav-item:hover {
+  border-color: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--tx-primary);
+}
+
+.sidebar-nav-icon {
+  justify-self: center;
+  color: var(--tx-muted);
+}
+
+.sidebar-nav-item:hover .sidebar-nav-icon {
+  color: var(--brand-light, var(--brand));
+}
+
+.sidebar-nav-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-nav-kbd {
+  padding: 1px 5px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--tx-muted);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+.sidebar-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 25px;
+  padding: 0 10px 4px;
+  color: var(--tx-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.sidebar-section-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--tx-muted);
+  cursor: pointer;
+}
+
+.sidebar-section-action-btn:hover {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--tx-primary);
+}
+
+.workspace-host {
+  inset: 0 0 24px;
+}
+
+.repository-view-actions .tile-btn.active {
+  color: var(--brand-light, var(--brand));
+  background: color-mix(in srgb, var(--brand) 13%, transparent);
+}
+
+.app-statusbar {
+  position: absolute;
+  z-index: 12;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 24px;
+  padding: 0 9px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  background: #09090b;
+  color: var(--tx-muted);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+}
+
+.app-statusbar-group,
+.app-statusbar-item {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.app-statusbar-group {
+  gap: 12px;
+  overflow: hidden;
+}
+
+.app-statusbar-item {
+  gap: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-statusbar-item.strong { color: var(--tx-secondary); }
+.app-statusbar-item.connected { color: var(--dot-green); }
+.app-statusbar-item.muted { color: color-mix(in srgb, var(--tx-muted) 70%, transparent); }

@@ -247,4 +247,46 @@ describe('GitHubService', () => {
       expect.objectContaining({ cwd: 'C:/projects/repo' })
     )
   })
+
+  test('returns per-file working tree changes for source control', async () => {
+    const spawn = vi.fn(async (command: string, args: string[]) => {
+      if (command === 'gh') {
+        if (args[0] === 'api') return { stdout: 'tester\n', stderr: '', status: 0, error: undefined }
+        return { stdout: '', stderr: '', status: 0, error: undefined }
+      }
+      if (args[0] === 'rev-parse') return { stdout: 'true\n', stderr: '', status: 0, error: undefined }
+      if (args[0] === 'branch') return { stdout: 'main\n', stderr: '', status: 0, error: undefined }
+      if (args[0] === 'remote') return { stdout: '', stderr: '', status: 0, error: undefined }
+      if (args[0] === 'status') {
+        return { stdout: 'M  src/staged.ts\n M src/changed.ts\n?? src/new file.ts\nR  src/old.ts -> src/new.ts\n D src/deleted.ts\n', stderr: '', status: 0, error: undefined }
+      }
+      if (args[0] === 'log' && args.includes('@{u}')) return { stdout: '', stderr: '', status: 1, error: undefined }
+      if (args[0] === 'log') return { stdout: 'abc123|1 hour ago\n', stderr: '', status: 0, error: undefined }
+      if (args[0] === 'rev-list') return { stdout: '0 0\n', stderr: '', status: 0, error: undefined }
+      return { stdout: '', stderr: '', status: 0, error: undefined }
+    })
+    const service = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: spawn })
+
+    const status = await service.getWorkspaceStatus({ workspaceId: 'ws-1', rootPath: 'C:/projects/repo' })
+
+    expect(status.changes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: 'src/staged.ts', staged: true, unstaged: false }),
+      expect.objectContaining({ path: 'src/changed.ts', staged: false, unstaged: true }),
+      expect.objectContaining({ path: 'src/new file.ts', untracked: true }),
+      expect.objectContaining({ path: 'src/new.ts', renamed: true }),
+      expect.objectContaining({ path: 'src/deleted.ts', deleted: true })
+    ]))
+  })
+
+  test('stages and unstages a single file without invoking a shell', async () => {
+    const spawn = vi.fn().mockResolvedValue({ stdout: '', stderr: '', status: 0, error: undefined })
+    const service = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: spawn })
+    const input = { workspaceId: 'ws-1', rootPath: 'C:/projects/repo', path: 'src/file with spaces.ts' }
+
+    await service.stageFile(input)
+    await service.unstageFile(input)
+
+    expect(spawn).toHaveBeenCalledWith('git', ['add', '--', input.path], expect.objectContaining({ cwd: input.rootPath, shell: false }))
+    expect(spawn).toHaveBeenCalledWith('git', ['restore', '--staged', '--', input.path], expect.objectContaining({ cwd: input.rootPath, shell: false }))
+  })
 })

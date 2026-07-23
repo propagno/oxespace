@@ -1,5 +1,6 @@
-import { Activity, Bot, FilePlus2, FolderOpen, Github, Grid2x2, LayoutDashboard, Maximize, Mic, Palette, Plus, RotateCw, Search, Settings2, Sliders, Split, Square, StopCircle, Wrench } from 'lucide-react'
-import { Suspense, lazy, useEffect, useRef, useState, type ReactElement } from 'react'
+import { Activity, Bot, Columns2, FilePlus2, FolderOpen, Github, Grid2x2, LayoutDashboard, Maximize, Mic, Palette, Plus, RotateCw, Search, Settings2, Sliders, Split, Square, StopCircle, Wrench } from 'lucide-react'
+import { Suspense, lazy, useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import type { AgentProfile } from '../shared/types/agent'
 import { OxeLogo } from './components/Brand/OxeLogo'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
@@ -12,7 +13,6 @@ const AgentConfigModal = lazy(() => import('./components/Agents/AgentConfigModal
 const DesignSystemPage = lazy(() => import('./components/DesignSystem/DesignSystemPage').then((m) => ({ default: m.DesignSystemPage })))
 const SettingsModal = lazy(() => import('./components/Settings/SettingsModal').then((m) => ({ default: m.SettingsModal })))
 const ToolsModal = lazy(() => import('./components/Workspace/ToolsModal').then((m) => ({ default: m.ToolsModal })))
-const CommandPalette = lazy(() => import('./components/CommandPalette/CommandPalette').then((m) => ({ default: m.CommandPalette })))
 const McpPanel = lazy(() => import('./components/MCP/McpPanel').then((m) => ({ default: m.McpPanel })))
 const SemanticActivityPanel = lazy(() => import('./components/Semantic/SemanticActivityPanel').then((m) => ({ default: m.SemanticActivityPanel })))
 const SkillsBrowser = lazy(() => import('./components/Skills/SkillsBrowser').then((m) => ({ default: m.SkillsBrowser })))
@@ -25,6 +25,9 @@ import type { WizardLaunchInput } from './components/Workspace/NewWorkspaceModal
 const NewWorkspaceModal = lazy(() => import('./components/Workspace/NewWorkspaceModal').then((m) => ({ default: m.NewWorkspaceModal })))
 const WorkspaceSettingsModal = lazy(() => import('./components/Workspace/WorkspaceSettingsModal').then((m) => ({ default: m.WorkspaceSettingsModal })))
 import { WorkspaceSurface } from './components/Workspace/WorkspaceSurface'
+import { AppStatusBar } from './components/Workspace/AppStatusBar'
+import { CommandMenu } from './components/CommandMenu/CommandMenu'
+import { UsageModal } from './components/Usage/UsageModal'
 import { UpdateBanner } from './components/Updates/UpdateBanner'
 import { LAYOUT_PRESETS, WORKSPACE_DENSITIES, WORKSPACE_THEMES } from './components/Workspace/workspaceOptions'
 import { useAgentStore } from './store/agent.store'
@@ -32,6 +35,7 @@ import { useEditorStore } from './store/editor.store'
 import { useTerminalStore } from './store/terminal.store'
 import { useUIStore } from './store/ui.store'
 import { selectActiveWorkspace, useWorkspaceStore } from './store/workspace.store'
+import { usePaneLayoutStore } from './store/pane-layout.store'
 import { useIntegrationStore } from './store/integration.store'
 import { useWorktreeStore } from './store/worktree.store'
 import { useVoiceStore } from './store/voice.store'
@@ -75,8 +79,30 @@ export function App(): ReactElement {
     updateWorktreeState,
     updateSettings,
     workspaces
-  } = useWorkspaceStore()
-  const { clearEditor, hasDirtyEditor } = useEditorStore()
+  } = useWorkspaceStore(useShallow((state) => ({
+    activeWorkspaceId: state.activeWorkspaceId,
+    bootstrap: state.bootstrap,
+    closePane: state.closePane,
+    closeWorkspace: state.closeWorkspace,
+    createWorkspace: state.createWorkspace,
+    error: state.error,
+    isLoading: state.isLoading,
+    loadShellProfiles: state.loadShellProfiles,
+    setActiveWorkspace: state.setActiveWorkspace,
+    shellProfiles: state.shellProfiles,
+    splitPane: state.splitPane,
+    updateGitHubState: state.updateGitHubState,
+    updateReviewState: state.updateReviewState,
+    updateEditorState: state.updateEditorState,
+    updateBackgroundState: state.updateBackgroundState,
+    updateWorktreeState: state.updateWorktreeState,
+    updateSettings: state.updateSettings,
+    workspaces: state.workspaces
+  })))
+  const { clearEditor, hasDirtyEditor } = useEditorStore(useShallow((state) => ({
+    clearEditor: state.clearEditor,
+    hasDirtyEditor: state.hasDirtyEditor
+  })))
   const getTerminalStatus = useTerminalStore((state) => state.getStatus)
   const setPendingCommand = useTerminalStore((state) => state.setPendingCommand)
   const setActiveTerminalPaneId = useTerminalStore((state) => state.setActivePaneId)
@@ -84,10 +110,14 @@ export function App(): ReactElement {
   const activeWorkspace = useWorkspaceStore(selectActiveWorkspace)
   const {
     closeNewWorkspace,
-    closeCommandPalette,
     closeWorkspaceSettings,
     activePaneId,
-    isCommandPaletteOpen,
+    isCommandMenuOpen,
+    openCommandMenu,
+    closeCommandMenu,
+    isUsageOpen,
+    openUsage,
+    closeUsage,
     isSettingsOpen,
     isToolsOpen,
     isSidebarCollapsed,
@@ -99,7 +129,6 @@ export function App(): ReactElement {
     isScriptsPanelOpen,
     webPreviewOpenByWorkspace,
     isIntegrationPanelOpen,
-    openCommandPalette,
     openWorkspaceSettings,
     openSlashOverlay,
     closeSlashOverlay,
@@ -124,8 +153,73 @@ export function App(): ReactElement {
     setMaximizedPane,
     toggleSettings,
     toggleSidebar
-  } = useUIStore()
-  const { allProfiles: agentProfiles, readiness: agentReadiness, isDiscovering, discover, loadProfiles, loadReadiness, updateProfile, createProfile, deleteProfile } = useAgentStore()
+  } = useUIStore(useShallow((state) => ({
+    closeNewWorkspace: state.closeNewWorkspace,
+    closeWorkspaceSettings: state.closeWorkspaceSettings,
+    activePaneId: state.activePaneId,
+    isCommandMenuOpen: state.isCommandMenuOpen,
+    openCommandMenu: state.openCommandMenu,
+    closeCommandMenu: state.closeCommandMenu,
+    isUsageOpen: state.isUsageOpen,
+    openUsage: state.openUsage,
+    closeUsage: state.closeUsage,
+    isSettingsOpen: state.isSettingsOpen,
+    isToolsOpen: state.isToolsOpen,
+    isSidebarCollapsed: state.isSidebarCollapsed,
+    isNewWorkspaceOpen: state.isNewWorkspaceOpen,
+    isWorkspaceSettingsOpen: state.isWorkspaceSettingsOpen,
+    slashOverlayPaneId: state.slashOverlayPaneId,
+    isMcpPanelOpen: state.isMcpPanelOpen,
+    isSkillsBrowserOpen: state.isSkillsBrowserOpen,
+    isScriptsPanelOpen: state.isScriptsPanelOpen,
+    webPreviewOpenByWorkspace: state.webPreviewOpenByWorkspace,
+    isIntegrationPanelOpen: state.isIntegrationPanelOpen,
+    openWorkspaceSettings: state.openWorkspaceSettings,
+    openSlashOverlay: state.openSlashOverlay,
+    closeSlashOverlay: state.closeSlashOverlay,
+    openMcpPanel: state.openMcpPanel,
+    closeMcpPanel: state.closeMcpPanel,
+    openSkillsBrowser: state.openSkillsBrowser,
+    closeSkillsBrowser: state.closeSkillsBrowser,
+    openScriptsPanel: state.openScriptsPanel,
+    closeScriptsPanel: state.closeScriptsPanel,
+    isSearchPanelOpen: state.isSearchPanelOpen,
+    openSearchPanel: state.openSearchPanel,
+    closeSearchPanel: state.closeSearchPanel,
+    openWebPreview: state.openWebPreview,
+    closeWebPreview: state.closeWebPreview,
+    openIntegrationPanel: state.openIntegrationPanel,
+    closeIntegrationPanel: state.closeIntegrationPanel,
+    openTools: state.openTools,
+    closeTools: state.closeTools,
+    maximizedPaneId: state.maximizedPaneId,
+    setActivePane: state.setActivePane,
+    openNewWorkspace: state.openNewWorkspace,
+    setMaximizedPane: state.setMaximizedPane,
+    toggleSettings: state.toggleSettings,
+    toggleSidebar: state.toggleSidebar
+  })))
+  const {
+    allProfiles: agentProfiles,
+    readiness: agentReadiness,
+    isDiscovering,
+    discover,
+    loadProfiles,
+    loadReadiness,
+    updateProfile,
+    createProfile,
+    deleteProfile
+  } = useAgentStore(useShallow((state) => ({
+    allProfiles: state.allProfiles,
+    readiness: state.readiness,
+    isDiscovering: state.isDiscovering,
+    discover: state.discover,
+    loadProfiles: state.loadProfiles,
+    loadReadiness: state.loadReadiness,
+    updateProfile: state.updateProfile,
+    createProfile: state.createProfile,
+    deleteProfile: state.deleteProfile
+  })))
   const visitedWorkspacesCap = useSettingsStore((s) => s.visitedWorkspacesCap)
   const integrationGroups = useIntegrationStore((state) => state.groups)
   const [configuredAgent, setConfiguredAgent] = useState<AgentProfile | null>(null)
@@ -142,17 +236,49 @@ export function App(): ReactElement {
   // oldest entry is evicted, its WorkspaceSurface unmounts, and its panes'
   // xterm + IPC + git pollers are torn down.
   const [visitedWorkspaceIds, setVisitedWorkspaceIds] = useState<string[]>([])
+  const visitedWorkspaceIdsRef = useRef(visitedWorkspaceIds)
+  visitedWorkspaceIdsRef.current = visitedWorkspaceIds
   const workspacesRef = useRef(workspaces)
   workspacesRef.current = workspaces
   useEffect(() => {
     if (!activeWorkspaceId) return
     setVisitedWorkspaceIds((prev) => {
       const without = prev.filter((id) => id !== activeWorkspaceId)
-      const next = [...without, activeWorkspaceId]
-      const cap = Math.max(1, Math.min(5, visitedWorkspacesCap || 3))
-      const evictedWorkspaceId = next.length > cap ? next[0] : null
-      if (evictedWorkspaceId) {
-        const workspace = workspacesRef.current.find((item) => item.id === evictedWorkspaceId)
+      return [...without, activeWorkspaceId]
+    })
+  }, [activeWorkspaceId])
+
+  useEffect(() => {
+    if (!activeWorkspaceId) return
+    let secondFrame = 0
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        window.dispatchEvent(new CustomEvent('oxe:workspace-activated', {
+          detail: { workspaceId: activeWorkspaceId }
+        }))
+      })
+    })
+    return () => {
+      window.cancelAnimationFrame(firstFrame)
+      if (secondFrame) window.cancelAnimationFrame(secondFrame)
+    }
+  }, [activeWorkspaceId])
+
+  // Trim the MRU only after the newly activated workspace has painted. Killing
+  // PTYs and disposing xterm/WebGL for an evicted workspace in the activation
+  // effect competed directly with mounting the new surface.
+  useEffect(() => {
+    const cap = Math.max(1, Math.min(5, visitedWorkspacesCap || 3))
+    if (visitedWorkspaceIds.length <= cap) return
+
+    const trim = (): void => {
+      const current = visitedWorkspaceIdsRef.current
+      const overflow = Math.max(0, current.length - cap)
+      if (overflow === 0) return
+      const evictedWorkspaceIds = current.slice(0, overflow)
+      const evicted = new Set(evictedWorkspaceIds)
+      for (const workspaceId of evictedWorkspaceIds) {
+        const workspace = workspacesRef.current.find((item) => item.id === workspaceId)
         for (const pane of workspace?.panes ?? []) {
           // An evicted workspace has no xterm instance or output consumer. Stop
           // its PTYs rather than letting agents run invisibly and lose output.
@@ -160,9 +286,20 @@ export function App(): ReactElement {
           removeTerminalPane(pane.id)
         }
       }
-      return evictedWorkspaceId ? next.slice(1) : next
-    })
-  }, [activeWorkspaceId, removeTerminalPane, visitedWorkspacesCap])
+      setVisitedWorkspaceIds((prev) => prev.filter((id) => !evicted.has(id)))
+    }
+
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number
+      cancelIdleCallback?: (id: number) => void
+    }
+    if (idleWindow.requestIdleCallback) {
+      const id = idleWindow.requestIdleCallback(trim, { timeout: 750 })
+      return () => idleWindow.cancelIdleCallback?.(id)
+    }
+    const timer = window.setTimeout(trim, 250)
+    return () => window.clearTimeout(timer)
+  }, [removeTerminalPane, visitedWorkspaceIds.length, visitedWorkspacesCap])
   const activePane = activeWorkspace?.panes.find((pane) => pane.id === activePaneId) ?? activeWorkspace?.panes[0] ?? null
   const pttHotkey = useVoiceStore((s) => s.pttHotkey)
   const slashPane = slashOverlayPaneId ? activeWorkspace?.panes.find((pane) => pane.id === slashOverlayPaneId) ?? null : null
@@ -194,14 +331,20 @@ export function App(): ReactElement {
   // Reload skills (including workspace-scoped ones) when switching workspaces.
   useEffect(() => {
     if (!activeWorkspace) return
-    void useSkillStore.getState().refresh(activeWorkspace.rootPath)
-    void useMcpStore.getState().load(activeWorkspace.id)
+    const timer = window.setTimeout(() => {
+      void useSkillStore.getState().refresh(activeWorkspace.rootPath)
+      void useMcpStore.getState().load(activeWorkspace.id)
+    }, 350)
+    return () => window.clearTimeout(timer)
   }, [activeWorkspace?.id, activeWorkspace?.rootPath])
 
   // Hydrate background jobs for the active workspace
   useEffect(() => {
     if (!activeWorkspaceId) return
-    void useBackgroundStore.getState().loadJobs(activeWorkspaceId)
+    const timer = window.setTimeout(() => {
+      void useBackgroundStore.getState().loadJobs(activeWorkspaceId)
+    }, 350)
+    return () => window.clearTimeout(timer)
   }, [activeWorkspaceId])
 
   useEffect(() => {
@@ -244,8 +387,9 @@ export function App(): ReactElement {
     const api = window.oxe?.notifications
     if (!api) return
     return api.onActivate(({ paneId, workspaceId }) => {
-      const current = useWorkspaceStore.getState().workspaces.find((w) => w.isActive)
-      if (current?.id !== workspaceId) void setActiveWorkspace(workspaceId)
+      if (useWorkspaceStore.getState().activeWorkspaceId !== workspaceId) {
+        void setActiveWorkspace(workspaceId)
+      }
       setActiveTerminalPaneId(paneId)
     })
   }, [setActiveWorkspace, setActiveTerminalPaneId])
@@ -266,7 +410,11 @@ export function App(): ReactElement {
   }
 
   const handleClosePane = (paneId: string): void => {
-    void closePane(paneId).then(() => removeTerminalPane(paneId))
+    const owner = workspaces.find((ws) => ws.panes.some((pane) => pane.id === paneId))
+    void closePane(paneId).then(() => {
+      removeTerminalPane(paneId)
+      if (owner) usePaneLayoutStore.getState().remove(owner.id, paneId)
+    })
   }
 
   const handleCloseWorkspace = (workspaceId: string): void => {
@@ -344,10 +492,36 @@ export function App(): ReactElement {
     else openWebPreview(activeWorkspaceId)
   }
 
-  const splitActivePane = (direction: 'vertical' | 'horizontal'): void => {
-    if (!activePane) return
-    void splitPane(activePane.id, direction)
-  }
+  const splitWorkspacePane = useCallback((
+    workspaceId: string,
+    paneId: string,
+    direction: 'vertical' | 'horizontal'
+  ): void => {
+    if (!useUIStore.getState().splitLayoutEnabled) {
+      void splitPane(paneId, direction)
+      return
+    }
+
+    // WorkspaceSurface instances for recently visited workspaces stay mounted
+    // to preserve xterm state. Global split routing must therefore live here;
+    // a listener in each surface would also mutate hidden workspaces.
+    void useWorkspaceStore
+      .getState()
+      .createPane(workspaceId)
+      .then((newPaneId) => {
+        usePaneLayoutStore
+          .getState()
+          .split(workspaceId, paneId, newPaneId, direction === 'vertical' ? 'horizontal' : 'vertical')
+      })
+      .catch((cause: unknown) => {
+        setAppNotice(cause instanceof Error ? cause.message : 'Failed to split pane')
+      })
+  }, [splitPane])
+
+  const splitActivePane = useCallback((direction: 'vertical' | 'horizontal'): void => {
+    if (!activeWorkspace || !activePane) return
+    splitWorkspacePane(activeWorkspace.id, activePane.id, direction)
+  }, [activePane, activeWorkspace, splitWorkspacePane])
 
   const toggleActivePaneMaximize = (): void => {
     if (!activePane) return
@@ -396,7 +570,9 @@ export function App(): ReactElement {
     // View
     { id: 'toggle-editor', title: 'Toggle editor', subtitle: 'Ctrl+E', icon: LayoutDashboard, category: 'View', disabled: !activeWorkspace, run: toggleEditor },
     { id: 'github-open-panel', title: 'GitHub: Open tools panel', icon: Github, category: 'View', keywords: ['git', 'pr', 'workflow', 'actions'], disabled: !activeWorkspace, run: toggleGitHubPanel },
-    { id: 'find-in-files', title: 'Find in Files', subtitle: 'Ctrl+Shift+F · ripgrep text/regex search', icon: Search, category: 'View', keywords: ['search', 'grep', 'ripgrep', 'rg', 'find', 'text', 'regex'], disabled: !activeWorkspace, run: toggleSearchPanel },
+    { id: 'find-in-files', title: 'Search files & commands', subtitle: 'Ctrl+K / Ctrl+J · unified search', icon: Search, category: 'View', keywords: ['search', 'grep', 'ripgrep', 'rg', 'find', 'text', 'regex', 'command'], disabled: !activeWorkspace, run: openCommandMenu },
+    { id: 'toggle-split-layout', title: 'Toggle Split Layout', subtitle: 'F2 · recursive resizable panes (default on)', icon: Columns2, category: 'View', keywords: ['split', 'pane', 'layout', 'f2', 'tree'], disabled: !activeWorkspace, run: () => useUIStore.getState().toggleSplitLayout() },
+    { id: 'open-usage', title: 'Usage & Rate Limits', subtitle: 'Claude, Codex & Copilot quota + resets', icon: Activity, category: 'AI & Agents', keywords: ['usage', 'quota', 'credits', 'rate', 'limit', 'tokens'], run: () => useUIStore.getState().openUsage() },
     {
       id: 'toggle-background-dock',
       title: 'Background jobs: Toggle dock',
@@ -469,10 +645,13 @@ export function App(): ReactElement {
     function onKeyDown(event: KeyboardEvent): void {
       if (event.defaultPrevented) return
       const key = event.key.toLowerCase()
-      const isCommandPalette = (event.ctrlKey || event.metaKey) && (key === 'k' || (event.shiftKey && key === 'p'))
-      if (isCommandPalette) {
+      // cmd-J / Ctrl+K: unified command + file + content search (Wave 1 · #8).
+      const isCommandMenu =
+        (event.ctrlKey || event.metaKey) &&
+        (key === 'k' || key === 'j' || (event.shiftKey && key === 'p'))
+      if (isCommandMenu) {
         event.preventDefault()
-        openCommandPalette()
+        openCommandMenu()
         return
       }
       if ((event.ctrlKey || event.metaKey) && key === ',') {
@@ -488,6 +667,11 @@ export function App(): ReactElement {
       if ((event.ctrlKey || event.metaKey) && key === 'e') {
         event.preventDefault()
         toggleEditor()
+        return
+      }
+      if (key === 'f2' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
+        event.preventDefault()
+        useUIStore.getState().toggleSplitLayout()
         return
       }
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && key === 'f') {
@@ -554,7 +738,7 @@ export function App(): ReactElement {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [activePane, activeWorkspace, maximizedPaneId, openCommandPalette, openSlashOverlay, openWorkspaceSettings, splitPane, toggleSidebar, updateEditorState])
+  }, [activePane, activeWorkspace, maximizedPaneId, openCommandMenu, openSlashOverlay, openWorkspaceSettings, splitActivePane, toggleSidebar, updateEditorState])
 
   // Push-to-talk: hold the configured hotkey to dictate into the active
   // terminal, release to transcribe + insert. Works even while the terminal
@@ -603,6 +787,9 @@ export function App(): ReactElement {
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={toggleSidebar}
         onOpenTools={openTools}
+        onOpenJobs={toggleBackgroundPanel}
+        onOpenScripts={toggleScriptsPanel}
+        onOpenSearch={openCommandMenu}
         integrationGroups={integrationGroups}
       />
       <section className="workspace-surface">
@@ -621,7 +808,10 @@ export function App(): ReactElement {
         ) : activeWorkspace ? (
           <>
             {workspaces
-              .filter((ws) => visitedWorkspaceIds.includes(ws.id))
+              // Include the active id synchronously. On a first visit the MRU
+              // effect has not run yet, but the user should never wait an extra
+              // render before the new WorkspaceSurface begins mounting.
+              .filter((ws) => ws.id === activeWorkspaceId || visitedWorkspaceIds.includes(ws.id))
               .map((ws) => {
                 const isActive = ws.id === activeWorkspaceId
                 return (
@@ -632,11 +822,12 @@ export function App(): ReactElement {
                   >
                     <WorkspaceSurface
                       workspace={ws}
+                      isActive={isActive}
                       agentProfiles={agentProfiles}
                       maximizedPaneId={isActive ? maximizedPaneId : null}
                       onClosePane={handleClosePane}
                       onToggleMaximize={(paneId) => setMaximizedPane(maximizedPaneId === paneId ? null : paneId)}
-                      onSplitPane={(paneId, dir) => void splitPane(paneId, dir)}
+                      onSplitPane={(paneId, dir) => splitWorkspacePane(ws.id, paneId, dir)}
                       onActivatePane={setActivePane}
                       scriptsVisible={isActive && isScriptsPanelOpen}
                       webPreviewVisible={webPreviewOpenByWorkspace[ws.id] === true}
@@ -670,6 +861,7 @@ export function App(): ReactElement {
             </button>
           </div>
         )}
+        <AppStatusBar workspace={activeWorkspace ?? null} activePaneId={activePane?.id ?? null} appVersion={appVersion} />
       </section>
       <ErrorBoundary label="esta janela">
       <Suspense fallback={null}>
@@ -682,7 +874,16 @@ export function App(): ReactElement {
           onClose={closeNewWorkspace}
         />
       ) : null}
-      {isCommandPaletteOpen ? <CommandPalette actions={commandActions} onClose={closeCommandPalette} /> : null}
+      <CommandMenu
+        open={isCommandMenuOpen}
+        onOpenChange={(o) => (o ? openCommandMenu() : closeCommandMenu())}
+        workspace={activeWorkspace ?? null}
+        actions={commandActions}
+        workspaces={workspaces}
+        onSelectWorkspace={(id) => void setActiveWorkspace(id)}
+        onSelectPane={setActivePane}
+      />
+      <UsageModal open={isUsageOpen} onOpenChange={(o) => (o ? openUsage() : closeUsage())} />
       {slashPane ? (
         <SlashOverlay
           paneId={slashPane.id}
@@ -799,7 +1000,7 @@ export function App(): ReactElement {
             search: isSearchPanelOpen
           }}
           onClose={closeTools}
-          onOpenCommandPalette={openCommandPalette}
+          onOpenCommandPalette={openCommandMenu}
           onOpenWorkspaceSettings={openWorkspaceSettings}
           onOpenAgentSettings={toggleSettings}
           onToggleEditor={toggleEditor}

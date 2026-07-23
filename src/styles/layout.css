@@ -434,48 +434,46 @@
 .ws-group-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 2px; }
 
 .ws-group {
-  margin: 0 6px 6px;
+  position: relative;
+  margin: 2px 6px;
+}
+
+.ws-group.active::before {
+  content: '';
+  position: absolute;
+  left: -2px;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  border-radius: 2px;
+  background: #10b981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
 }
 
 .ws-group-header {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 11px 10px 11px 16px;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  height: auto;
+  padding: 6px 8px 6px 10px;
   cursor: pointer;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  margin: 0;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
   user-select: none;
-  transition: background var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base), transform var(--transition-fast);
+  box-sizing: border-box;
+  transition: background 150ms ease, border-color 150ms ease;
 }
 
 .ws-group-header:hover {
-  background: var(--surface-hover);
-  border-color: var(--bd-base);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-  transform: translateX(2px);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.04);
 }
 
-.ws-group-header:active {
-  transform: scale(0.98);
-}
-
-/* Active workspace — soft brand tint (no heavy neon glow). */
 .ws-group.active > .ws-group-header {
-  background: color-mix(in srgb, var(--brand) 10%, rgba(255, 255, 255, 0.02));
-  border-color: color-mix(in srgb, var(--brand) 32%, transparent);
-  box-shadow:
-    inset 2px 0 0 0 var(--brand),
-    0 2px 10px rgba(0, 0, 0, 0.18);
-}
-
-.ws-group.active > .ws-group-header:hover {
-  background: color-mix(in srgb, var(--brand) 14%, rgba(255, 255, 255, 0.03));
-  box-shadow:
-    inset 2px 0 0 0 var(--brand),
-    0 4px 12px rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 /* ─── Drag-and-drop reorder feedback ─────────────────────────────────────
@@ -589,34 +587,28 @@
   letter-spacing: 0.01em;
 }
 
-.ws-group-meta {
+.ws-group-branch-row {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 5px;
-  margin-top: 5px;
-  min-width: 0;
+  gap: 4px;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  overflow: hidden;
+  max-width: 100%;
 }
 
-.ws-group-meta-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  max-width: 100%;
-  min-width: 0;
-  height: 18px;
-  padding: 0 6px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--tx-muted);
-  font-size: 10px;
-  font-weight: 600;
-  font-family: var(--font-mono);
-  line-height: 1;
+.ws-group-branch-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 140px;
+  display: inline-block;
+}
+
+.ws-group-branch-icon {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.35);
 }
 
 .ws-group-meta-action {
@@ -1909,6 +1901,11 @@
 .workspace-host.workspace-host-hidden {
   visibility: hidden;
   pointer-events: none;
+  /* Preserve xterm/React state while skipping layout and paint work for the
+     inactive workspace. App dispatches oxe:workspace-activated after reveal so
+     each terminal performs one geometry refit against its visible dimensions. */
+  content-visibility: hidden;
+  contain: layout paint style;
 }
 
 .empty-state {

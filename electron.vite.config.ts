@@ -2,6 +2,7 @@ import { cpSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   main: {
@@ -103,6 +104,7 @@ export default defineConfig({
     root: '.',
     plugins: [
       react(),
+      tailwindcss(),
       {
         name: 'inject-prod-csp',
         apply: 'build',
@@ -133,6 +135,7 @@ export default defineConfig({
     ],
     resolve: {
       alias: {
+        '@': resolve(__dirname, 'src'),
         '@renderer': resolve(__dirname, 'src'),
         '@shared': resolve(__dirname, 'shared')
       }
@@ -148,9 +151,12 @@ export default defineConfig({
             if (!id.includes('node_modules')) return undefined
             if (id.includes('monaco-editor')) return 'monaco'
             if (id.includes('@xterm')) return 'xterm'
-            if (id.includes('react-dom') || id.includes('/scheduler/') || /[\\/]react[\\/]/.test(id)) return 'react-vendor'
-            if (id.includes('lucide-react')) return 'icons'
             if (id.includes('@xenova') || id.includes('onnxruntime')) return 'ml'
+            // React + everything that consumes it (radix-ui, cmdk, xyflow,
+            // @monaco-editor/react, lucide, …) MUST share one chunk. Splitting
+            // React into its own chunk broke cross-chunk eval order once the
+            // radix transitive deps (react-remove-scroll, use-sidecar, …) grew
+            // → "Cannot read properties of undefined (reading 'useState')" at boot.
             return 'vendor'
           }
         }
