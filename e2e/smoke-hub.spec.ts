@@ -28,7 +28,10 @@ test('smoke: Tools hub and Agent Settings open from sidebar', async () => {
     await page.getByTestId('wizard-dir-input').fill(workspaceRoot)
     await page.getByTestId('wizard-layout-card-1').click()
     await page.getByTestId('wizard-launch-btn').click()
-    await expect(page.getByTestId('workspace-grid')).toBeVisible()
+    // Split-tree layout is the default; F2 can toggle back to the legacy grid.
+    await expect(
+      page.locator('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]').first()
+    ).toBeVisible()
 
     await page.getByTestId('btn-open-tools').click()
     await expect(page.getByTestId('tools-modal')).toBeVisible()
