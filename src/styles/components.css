@@ -3029,22 +3029,131 @@
   animation: github-spin 1s linear infinite;
 }
 
+/* ─── Diagnostics ────────────────────────────────────────────────────────── */
+.diagnostics-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  padding: var(--space-md) var(--space-lg);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-quiet);
+}
+
+.diagnostics-hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.diagnostics-hero-text strong {
+  font-size: var(--fs-lg);
+  letter-spacing: -0.01em;
+}
+.diagnostics-hero-text span {
+  color: var(--tx-muted);
+  font-size: var(--fs-xs);
+}
+
+.diagnostics-hero-badges { display: flex; gap: var(--space-sm); flex-shrink: 0; }
+
+.diagnostics-badge {
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-2xs);
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+}
+.diagnostics-badge.tone-ok {
+  color: var(--dot-green);
+  background: color-mix(in srgb, var(--dot-green) 12%, transparent);
+  border-color: color-mix(in srgb, var(--dot-green) 28%, transparent);
+}
+.diagnostics-badge.tone-warning {
+  color: var(--dot-yellow);
+  background: color-mix(in srgb, var(--dot-yellow) 12%, transparent);
+  border-color: color-mix(in srgb, var(--dot-yellow) 28%, transparent);
+}
+.diagnostics-badge.tone-error {
+  color: var(--dot-red);
+  background: color-mix(in srgb, var(--dot-red) 12%, transparent);
+  border-color: color-mix(in srgb, var(--dot-red) 28%, transparent);
+}
+
 .diagnostics-checks {
   display: grid;
-  gap: 8px;
+  gap: 6px;
+  margin-top: var(--space-lg);
 }
 
+/* Three columns so the labels align down the list instead of every row
+   drifting to its own width. */
 .diagnostics-check {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 10px 12px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  background: var(--surface-raised);
+  display: grid;
+  grid-template-columns: 8px minmax(0, 168px) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-md);
+  min-height: 38px;
+  padding: 8px var(--space-md);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  font-size: var(--fs-sm);
 }
 
-.diagnostics-check span { color: var(--text-muted); text-align: right; }
-.diagnostics-check.tone-ok { border-left: 3px solid var(--success); }
-.diagnostics-check.tone-warning { border-left: 3px solid var(--warning); }
-.diagnostics-check.tone-error { border-left: 3px solid var(--danger); }
+.diagnostics-check-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tx-muted);
+}
+.diagnostics-check.tone-ok .diagnostics-check-dot { background: var(--dot-green); }
+.diagnostics-check.tone-warning .diagnostics-check-dot { background: var(--dot-yellow); }
+.diagnostics-check.tone-error .diagnostics-check-dot { background: var(--dot-red); }
+
+.diagnostics-check.tone-warning { border-color: color-mix(in srgb, var(--dot-yellow) 30%, var(--bd-subtle)); }
+.diagnostics-check.tone-error { border-color: color-mix(in srgb, var(--dot-red) 34%, var(--bd-subtle)); }
+
+.diagnostics-check-label { font-weight: 600; }
+.diagnostics-check-detail {
+  color: var(--tx-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Reserve the row height while the snapshot loads so the panel does not jump. */
+.diagnostics-check.is-loading {
+  background: var(--surface-quiet);
+  border-style: dashed;
+  opacity: 0.5;
+}
+
+.diagnostics-env {
+  display: grid;
+  /* 96px fits all five metrics on one row at the panel's width; wider tracks
+     left "Workspaces" orphaned on a second line. */
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: var(--space-sm) var(--space-lg);
+  margin-top: var(--space-lg);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--bd-subtle);
+}
+.diagnostics-env > div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.diagnostics-env dt {
+  color: var(--tx-muted);
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.diagnostics-env dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

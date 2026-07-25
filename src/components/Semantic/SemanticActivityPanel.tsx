@@ -207,7 +207,7 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
         </div>
 
         <p className="semantic-trust-note">
-          Explore is ranked best-effort. Exhaustive searches the complete local lexical index and expands structural evidence, but dynamic runtime references can still require verification.
+          Explore ranks best-effort. Exhaustive covers the full local index — runtime references may still need verifying.
         </p>
 
         <div className="semantic-activity-toolbar">
@@ -234,7 +234,7 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
         <div className="semantic-activity-log" role="log" aria-live="polite">
           {visible.length === 0 ? (
             <div className="semantic-activity-empty">
-              No activity yet. Enable the Semantic chip, edit files, or run a semantic search to see processing here.
+              No activity yet.
             </div>
           ) : (
             visible.map((l, i) => (

@@ -392,7 +392,7 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
             <div className="github-sync-callout" data-testid="github-dirty-behind-callout" role="status">
               <AlertTriangle size={13} aria-hidden="true" />
               <span>
-                Pull is blocked while you have uncommitted changes. Stage + Commit below (or stash in the terminal), then Pull.
+                Uncommitted changes block Pull. Commit or stash first.
               </span>
             </div>
           ) : null}

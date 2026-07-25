@@ -343,7 +343,7 @@
   font-weight: 600;
   color: var(--tx-secondary);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.02) 100%);
-  border: 1px solid var(--bd-default);
+  border: 1px solid var(--bd-base);
   border-bottom-width: 2px;
   border-radius: 4px;
   padding: 0 5px;
@@ -764,7 +764,7 @@
   z-index: 1000;
   min-width: 200px;
   padding: 5px;
-  border: 1px solid var(--bd-default);
+  border: 1px solid var(--bd-base);
   border-radius: 7px;
   background: var(--bg-elevated);
   box-shadow: 0 12px 28px rgb(0 0 0 / 45%);
@@ -1202,7 +1202,7 @@
   z-index: 1000;
   min-width: 150px;
   padding: 5px;
-  border: 1px solid var(--bd-default);
+  border: 1px solid var(--bd-base);
   border-radius: 7px;
   background: var(--bg-elevated);
   box-shadow: 0 12px 28px rgb(0 0 0 / 45%);

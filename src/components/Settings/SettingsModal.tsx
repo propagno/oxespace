@@ -233,27 +233,74 @@ function DiagnosticsSettingsSection({ onClose }: { onClose: () => void }): React
       .catch((error) => setNotice(error instanceof Error ? error.message : String(error)))
   }
 
+  const failing = snapshot?.checks.filter((check) => check.tone === 'error').length ?? 0
+  const warning = snapshot?.checks.filter((check) => check.tone === 'warning').length ?? 0
+  const summary = !snapshot
+    ? 'Checking…'
+    : failing > 0
+      ? `${failing} failing${warning > 0 ? ` · ${warning} warning` : ''}`
+      : warning > 0
+        ? `${warning} warning`
+        : `All ${snapshot.checks.length} checks passing`
+
   return (
     <section className="settings-modal-content" aria-labelledby="settings-diagnostics-title">
-      <SettingsContentHeader kicker="Runtime" title="Diagnostics" titleId="settings-diagnostics-title" onClose={onClose} />
-      <div className="settings-content-body settings-form">
-        <div className="settings-callout">
-          Runtime health is collected locally. Exported logs redact the user profile path and common secret/token formats.
+      {/* Refresh belongs in the header, matching Health check in AI Providers —
+          the section's primary verb should be in the same place on every tab. */}
+      <SettingsContentHeader
+        kicker="Runtime"
+        title="Diagnostics"
+        titleId="settings-diagnostics-title"
+        onClose={onClose}
+        actions={
+          <button type="button" className="settings-btn ghost" onClick={refresh} title="Re-run checks">
+            <RefreshCw size={13} aria-hidden="true" />
+            <span>Refresh</span>
+          </button>
+        }
+      />
+      <div className="settings-content-body">
+        <div className="diagnostics-hero" data-testid="diagnostics-summary">
+          <div className="diagnostics-hero-text">
+            <strong>{summary}</strong>
+            <span>Collected locally · exports redact paths and secrets</span>
+          </div>
+          <div className="diagnostics-hero-badges">
+            {failing > 0 ? <span className="diagnostics-badge tone-error">{failing} failing</span> : null}
+            {warning > 0 ? <span className="diagnostics-badge tone-warning">{warning} warning</span> : null}
+            {snapshot && failing === 0 && warning === 0 ? <span className="diagnostics-badge tone-ok">healthy</span> : null}
+          </div>
         </div>
+
         <div className="diagnostics-checks" data-testid="diagnostics-checks">
-          {snapshot?.checks.map((check) => (
-            <div key={check.id} className={`diagnostics-check tone-${check.tone}`}>
-              <strong>{check.label}</strong>
-              <span>{check.detail}</span>
-            </div>
-          )) ?? <span>Loading diagnostics…</span>}
+          {snapshot
+            ? snapshot.checks.map((check) => (
+              <div key={check.id} className={`diagnostics-check tone-${check.tone}`}>
+                <span className="diagnostics-check-dot" aria-hidden="true" />
+                <span className="diagnostics-check-label">{check.label}</span>
+                <span className="diagnostics-check-detail" title={check.detail}>{check.detail}</span>
+              </div>
+            ))
+            : [0, 1, 2, 3].map((i) => <div key={i} className="diagnostics-check is-loading" aria-hidden="true" />)}
         </div>
-        {snapshot ? <small>OXESpace {snapshot.appVersion} · Electron {snapshot.electronVersion} · Node {snapshot.nodeVersion} · {snapshot.workspaceCount} workspaces</small> : null}
-        <div className="settings-inline-actions">
-          <button type="button" className="settings-btn ghost" onClick={refresh}><RefreshCw size={13} /> Refresh</button>
-          <button type="button" className="settings-btn primary" onClick={exportReport}><Download size={13} /> Export sanitized report</button>
-        </div>
+
+        {snapshot ? (
+          <dl className="diagnostics-env" data-testid="diagnostics-env">
+            <div><dt>OXESpace</dt><dd>{snapshot.appVersion}</dd></div>
+            <div><dt>Electron</dt><dd>{snapshot.electronVersion}</dd></div>
+            <div><dt>Node</dt><dd>{snapshot.nodeVersion}</dd></div>
+            <div><dt>Platform</dt><dd>{snapshot.platform} {snapshot.arch}</dd></div>
+            <div><dt>Workspaces</dt><dd>{snapshot.workspaceCount}</dd></div>
+          </dl>
+        ) : null}
+
         {notice ? <div className="settings-callout" role="status">{notice}</div> : null}
+
+        <div className="settings-inline-actions">
+          <button type="button" className="settings-btn primary" onClick={exportReport}>
+            <Download size={13} aria-hidden="true" /> Export report
+          </button>
+        </div>
       </div>
     </section>
   )
@@ -307,25 +354,16 @@ function ProvidersSettingsSection({
   onNewCustomAgent: () => void
   onUseProviderInPane?: (profile: AgentProfile) => void | Promise<void>
 }): ReactElement {
-  const autoCheckedRef = useRef(false)
   const [showMissing, setShowMissing] = useState(false)
   const [usingId, setUsingId] = useState<string | null>(null)
   const lastHealthCheckAt = useAgentStore((s) => s.lastHealthCheckAt)
   const checkedLabel = formatCheckedAgo(lastHealthCheckAt)
 
-  // Auto-run health check once when the section opens with no useful readiness data.
-  useEffect(() => {
-    if (autoCheckedRef.current || isDiscoveringAgents || agentProfiles.length === 0) return
-    const builtins = agentProfiles.filter((p) => p.provider !== 'custom')
-    if (builtins.length === 0) return
-    const needsProbe = builtins.every((p) => {
-      const r = readinessFor(p, agentReadiness)
-      return !r || r.status === 'unknown'
-    })
-    if (!needsProbe) return
-    autoCheckedRef.current = true
-    onDiscoverAgents()
-  }, [agentProfiles, agentReadiness, isDiscoveringAgents, onDiscoverAgents])
+  // NO auto health check on open. This section is the first tab of Agent
+  // Settings, and probing every provider spawns one `<cli> --version` process
+  // each — on a cold PATH that stalls the panel for seconds before the user
+  // can reach any other tab. Detection is now explicitly user-driven via the
+  // Health check button; until then the summary reads "Not checked yet".
 
   const enriched = useMemo(() => {
     return agentProfiles
@@ -358,11 +396,14 @@ function ProvidersSettingsSection({
     return `${readyCount} ready${missingCount > 0 ? ` · ${missingCount} not installed` : ''}`
   })()
 
+  // Only speaks when there is something to act on. With providers already
+  // detected the counts above say everything; a line explaining what a CLI is
+  // for is noise the user reads once and then scrolls past forever.
   const summarySecondary = (() => {
-    if (isDiscoveringAgents) return 'Probing each agent command with --version'
-    if (readyCount > 0) return 'Ready CLIs can be bound to a terminal pane'
-    if (missingCount > 0) return 'Install a CLI below, then run Health check again'
-    return 'Detect which agent CLIs are available on this machine'
+    if (isDiscoveringAgents) return ''
+    if (uncheckedCount === builtins.length) return 'Run Health check to detect installed CLIs'
+    if (readyCount === 0 && missingCount > 0) return 'Install a CLI, then run Health check'
+    return ''
   })()
 
   const handleUseInPane = async (profile: AgentProfile): Promise<void> => {
@@ -427,12 +468,17 @@ function ProvidersSettingsSection({
             <span className="settings-provider-hint muted">Run health check to detect</span>
           )}
           <div className="settings-provider-card-btns">
-            {status === 'ready' && onUseProviderInPane ? (
+            {/* Also offered for 'unknown': without an automatic probe on open, a
+                never-checked provider would otherwise have no primary action at
+                all. If the CLI turns out to be absent, starting the pane says so
+                with the exact command it tried — the same information, at the
+                moment it actually matters. */}
+            {(status === 'ready' || status === 'unknown') && onUseProviderInPane ? (
               <button
                 type="button"
                 className="settings-btn primary"
                 aria-label={`Use ${profile.name} in active pane`}
-                title="Bind this agent to the active terminal and restart it"
+                title="Bind to the active terminal"
                 disabled={usingId === profile.agentProfileId}
                 onClick={() => void handleUseInPane(profile)}
                 data-testid={`btn-use-agent-${profile.provider}`}
@@ -498,7 +544,7 @@ function ProvidersSettingsSection({
         <div className="settings-providers-hero" data-testid="providers-summary">
           <div className="settings-providers-hero-text">
             <strong>{summaryPrimary}</strong>
-            <span>{summarySecondary}</span>
+            {summarySecondary ? <span>{summarySecondary}</span> : null}
             {checkedLabel ? (
               <span className="settings-providers-checked" data-testid="providers-last-checked">
                 {checkedLabel}
@@ -782,8 +828,8 @@ function VoiceSettingsSection({ onClose }: { onClose: () => void }): ReactElemen
         </div>
 
         <div className="settings-callout">
-          Recognition runs 100% local (whisper.cpp) in <strong>Brazilian Portuguese</strong> — audio never leaves your machine.
-          Hold the shortcut to speak and release to insert into the terminal; a mic tap toggles hands-free mode.
+          Local recognition (whisper.cpp), <strong>Brazilian Portuguese</strong>.
+          Hold the shortcut to speak; tap the mic for hands-free.
         </div>
       </div>
     </section>
@@ -975,8 +1021,7 @@ function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactEle
         </div>
 
         <div className="settings-callout">
-          These are <strong>global</strong> defaults. Each workspace can override them in Workspace Settings.
-          Colors follow the workspace theme.
+          <strong>Global</strong> defaults. Workspaces can override them.
         </div>
       </div>
     </section>
@@ -992,7 +1037,7 @@ function NotificationsSettingsSection({ onClose }: { onClose: () => void }): Rea
   const sendTest = (): void => {
     void window.oxe?.notifications?.notify({
       title: 'OXESpace',
-      body: 'Test notification — agent attention alerts look like this.',
+      body: 'Test notification',
       paneId: 'test',
       workspaceId: 'test'
     }).catch(() => undefined)
@@ -1024,8 +1069,7 @@ function NotificationsSettingsSection({ onClose }: { onClose: () => void }): Rea
         </div>
 
         <div className="settings-callout">
-          Alerts only fire for terminals you are <strong>not watching</strong>.
-          While you follow an agent in the focused pane, OXESpace stays quiet.
+          Only for terminals you are <strong>not watching</strong>.
         </div>
 
         <button
@@ -1056,11 +1100,7 @@ function NotificationsSettingsSection({ onClose }: { onClose: () => void }): Rea
               data-testid="visited-workspaces-cap"
               aria-label="Number of workspaces to keep mounted"
             />
-            <span className="settings-field-hint">
-              How many workspaces stay rendered. Background terminals keep running either
-              way — leaving a workspace no longer stops its shells. Pane-heavy workspaces
-              may be unmounted sooner to stay within the GPU renderer budget.
-            </span>
+            <span className="settings-field-hint">Background terminals keep running either way.</span>
           </label>
         </div>
       </div>
@@ -1090,7 +1130,7 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
   const appStatusLabel = (() => {
     switch (app.status) {
       case 'disabled':
-        return 'App auto-update is off in development. Install a release build to check GitHub Releases.'
+        return 'Unavailable in dev builds'
       case 'checking':
         return 'Checking GitHub Releases…'
       case 'available':
@@ -1195,18 +1235,9 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
             ) : null}
           </div>
           <p className="settings-update-hint">
-            {isDevBuild ? (
-              <>
-                You are on <code>npm run dev</code>. The app binary is not installed, so GitHub auto-update
-                cannot run. Use <strong>Install RTK</strong> below for the sidecar, or install a packaged
-                OXESpace release to enable app updates.
-              </>
-            ) : (
-              <>
-                Packaged installs check GitHub Releases automatically and download in the background.
-                Restart applies the update.
-              </>
-            )}
+            {isDevBuild
+              ? 'Unavailable in dev builds.'
+              : 'Downloads in the background. Restart to apply.'}
           </p>
         </article>
 
@@ -1259,10 +1290,7 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
               {rtk.installed ? 'Update RTK' : 'Install RTK'}
             </button>
           </div>
-          <p className="settings-update-hint">
-            RTK is a sidecar binary under userData. It works in dev and production — install or update
-            without shipping a new OXESpace release.
-          </p>
+          <p className="settings-update-hint">Sidecar binary. Updates independently of OXESpace.</p>
         </article>
 
         <article className="settings-update-card bundled" data-testid="settings-bundled-tools">
@@ -1286,9 +1314,7 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
               <span>Vendored code intelligence</span>
             </li>
           </ul>
-          <p className="settings-update-hint">
-            These update when you install a new OXESpace version — no separate download.
-          </p>
+          <p className="settings-update-hint">Bundled with the app.</p>
         </article>
       </div>
     </section>

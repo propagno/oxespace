@@ -1,6 +1,6 @@
 {
   "name": "oxespace",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "An open source, AI-native workspace and terminal",
   "repository": {
     "type": "git",
@@ -28,6 +28,7 @@
     "bench:semantic": "node scripts/semantic-eval.mjs",
     "bench:semantic:gate": "node scripts/semantic-quality-gate.mjs",
     "shots:ui": "playwright test --config playwright.tools.config.ts screenshots.spec.ts",
+    "shots:settings": "playwright test --config playwright.tools.config.ts settings-tabs.spec.ts",
     "prepare:model": "node scripts/fetch-semantic-model.mjs",
     "postinstall": "npm run rebuild:native",
     "dist": "npm run prepare:model && npm run build && npm run fix:native && npm run slim:pack && electron-builder --win --config.npmRebuild=false --publish never",

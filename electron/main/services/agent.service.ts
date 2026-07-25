@@ -12,7 +12,12 @@ import {
   type UpdateAgentProfileInput
 } from '../../../shared/types/agent'
 
-const CACHE_TTL_MS = 1_800_000 // 30 minutes
+// 7 days. This was 30 minutes back when the Agent Settings panel silently
+// re-probed on open — the cache only had to bridge one session. Detection is
+// now user-driven (the Health check button, which always force-refreshes), so
+// a short TTL would just mean the panel forgets what it knows and shows every
+// provider as unchecked. Installing a CLI is rare; re-checking is one click.
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000
 const OFFICIAL_PROVIDERS: readonly AgentProvider[] = BUILTIN_PROVIDERS
 const PROVIDER_ORDER: ReadonlyMap<AgentProvider, number> = new Map(
   OFFICIAL_PROVIDERS.map((provider, index) => [provider, index])

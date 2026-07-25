@@ -40,12 +40,12 @@
   align-items: baseline;
   gap: 10px;
   min-width: 0;
-  color: var(--text);
+  color: var(--tx-primary);
   font-size: 13px;
 }
 
 .linear-title > span {
-  color: var(--text-muted);
+  color: var(--tx-muted);
   font-size: 12px;
 }
 
@@ -74,11 +74,11 @@
   gap: 10px;
   padding: 32px;
   text-align: center;
-  color: var(--text-muted);
+  color: var(--tx-muted);
 }
 
 .linear-connect > strong {
-  color: var(--text);
+  color: var(--tx-primary);
   font-size: 15px;
 }
 
@@ -108,7 +108,7 @@
   border-radius: 6px;
   background: var(--bg-base, rgba(0, 0, 0, 0.25));
   padding: 6px 10px;
-  color: var(--text);
+  color: var(--tx-primary);
   font-size: 12.5px;
 }
 
@@ -152,13 +152,13 @@
   border: 1px solid var(--bd-subtle);
   border-radius: 999px;
   padding: 3px 10px;
-  color: var(--text-muted);
+  color: var(--tx-muted);
   font-size: 11.5px;
 }
 
 .linear-chip.active {
   border-color: var(--accent);
-  color: var(--text);
+  color: var(--tx-primary);
 }
 
 .linear-select {
@@ -166,7 +166,7 @@
   border-radius: 6px;
   background: var(--bg-base, rgba(0, 0, 0, 0.25));
   padding: 3px 8px;
-  color: var(--text);
+  color: var(--tx-primary);
   font-size: 11.5px;
 }
 
@@ -174,7 +174,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  color: var(--text-muted);
+  color: var(--tx-muted);
   font-size: 11.5px;
 }
 
@@ -183,7 +183,7 @@
   flex: 1 1 180px;
   align-items: center;
   gap: 6px;
-  color: var(--text-muted);
+  color: var(--tx-muted);
 }
 
 .linear-body {
@@ -194,7 +194,7 @@
 
 .linear-empty {
   padding: 32px;
-  color: var(--text-muted);
+  color: var(--tx-muted);
   font-size: 12.5px;
   text-align: center;
 }
@@ -226,7 +226,7 @@
 }
 
 .linear-issue-title {
-  color: var(--text);
+  color: var(--tx-primary);
   font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -237,7 +237,7 @@
   display: flex;
   grid-column: 1;
   gap: 12px;
-  color: var(--text-muted);
+  color: var(--tx-muted);
   font-size: 11px;
 }
 
@@ -256,13 +256,13 @@
   border: 1px solid var(--bd-subtle);
   border-radius: 6px;
   padding: 4px 10px;
-  color: var(--text-muted);
+  color: var(--tx-muted);
   font-size: 11.5px;
 }
 
 .linear-text-button:hover:not(:disabled) {
   border-color: var(--accent);
-  color: var(--text);
+  color: var(--tx-primary);
 }
 
 .linear-text-button:disabled {
@@ -283,6 +283,6 @@
 }
 
 .linear-notice {
-  color: var(--text-muted);
+  color: var(--tx-muted);
   cursor: pointer;
 }

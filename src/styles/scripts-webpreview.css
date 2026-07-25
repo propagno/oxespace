@@ -611,7 +611,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  color: var(--text-muted);
+  color: var(--tx-muted);
   font-size: 11px;
   white-space: nowrap;
   cursor: pointer;
@@ -679,7 +679,7 @@
 }
 
 .design-grab-title > code {
-  color: var(--text-muted);
+  color: var(--tx-muted);
   font-size: 11px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -716,13 +716,13 @@
 }
 
 .design-grab-facts dt {
-  color: var(--text-muted);
+  color: var(--tx-muted);
   font-family: 'Cascadia Code', 'JetBrains Mono', monospace;
 }
 
 .design-grab-facts dd {
   margin: 0;
-  color: var(--text);
+  color: var(--tx-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -748,7 +748,7 @@
   padding: 6px 8px;
   min-height: 56px;
   resize: vertical;
-  color: var(--text);
+  color: var(--tx-primary);
   font-family: inherit;
   font-size: 12px;
 }

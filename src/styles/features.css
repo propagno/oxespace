@@ -3674,7 +3674,7 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: var(--bg-pane);
+  background: var(--bg-tile);
 }
 
 .editor-sidebar {
@@ -5554,7 +5554,7 @@
 
 .review-pane {
   display: flex; flex-direction: column; flex: 1; min-height: 0;
-  background: var(--bg-pane); color: var(--tx-primary);
+  background: var(--bg-tile); color: var(--tx-primary);
 }
 
 /* Toolbar */
@@ -5565,7 +5565,7 @@
 }
 .review-toolbar-sep { width: 1px; height: 16px; background: var(--bd-divider); flex-shrink: 0; }
 .review-base-select {
-  height: 24px; padding: 0 8px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--bd-default);
+  height: 24px; padding: 0 8px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--bd-base);
   border-radius: 6px; color: var(--tx-primary); font-size: 11px; cursor: pointer;
   transition: all var(--transition-base); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
@@ -5597,7 +5597,7 @@
 .review-search {
   display: flex; align-items: center; padding: 0 12px;
   height: 34px; flex-shrink: 0; border-bottom: 1px solid var(--bd-subtle); gap: 8px;
-  background: var(--bg-pane);
+  background: var(--bg-tile);
 }
 .review-search-input {
   flex: 1; height: 22px; background: none; border: none;
@@ -5633,7 +5633,7 @@
   transition: all var(--transition-base);
 }
 .review-view-btn:hover:not(.active) { background: var(--surface-hover); color: var(--tx-primary); }
-.review-view-btn.active { background: rgba(255, 255, 255, 0.08); color: var(--tx-primary); border-color: var(--bd-default); }
+.review-view-btn.active { background: rgba(255, 255, 255, 0.08); color: var(--tx-primary); border-color: var(--bd-base); }
 .review-tree-row {
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 12px; height: 26px; font-size: 12px; cursor: pointer; transition: all var(--transition-base);
@@ -7062,7 +7062,7 @@
 .github-actions-runtime {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--bd-default);
+  border: 1px solid var(--bd-base);
   border-radius: 7px;
   overflow: hidden;
   background: var(--bg-elevated);
@@ -7088,7 +7088,7 @@
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  border: 1px dashed var(--bd-default);
+  border: 1px dashed var(--bd-base);
   border-radius: 7px;
   color: var(--tx-muted);
   font-size: var(--fs-xs);
@@ -7140,7 +7140,7 @@
   color: var(--tx-secondary);
   font-size: var(--fs-xs);
 }
-.github-actions-step-row:hover { background: var(--bg-surface); }
+.github-actions-step-row:hover { background: var(--bg-elevated); }
 .github-actions-step-empty {
   padding: 6px 10px;
 }
@@ -7155,7 +7155,7 @@
   flex-direction: column;
   min-height: 0;
   flex: 1 1 0;
-  border: 1px solid var(--bd-default);
+  border: 1px solid var(--bd-base);
   border-radius: 6px;
   background: var(--bg-elevated);
   overflow: hidden;
@@ -7166,8 +7166,8 @@
   justify-content: space-between;
   gap: 8px;
   padding: 6px 10px;
-  border-bottom: 1px solid var(--bd-default);
-  background: var(--bg-surface);
+  border-bottom: 1px solid var(--bd-base);
+  background: var(--bg-elevated);
   font-size: var(--fs-xs);
   color: var(--tx-muted);
   text-transform: uppercase;
@@ -7180,7 +7180,7 @@
 }
 .github-actions-v2-logs-truncated {
   padding: 2px 6px;
-  background: var(--bg-amber-soft, var(--bg-surface));
+  background: var(--bg-amber-soft, var(--bg-elevated));
   color: var(--dot-orange);
   border-radius: 3px;
   text-transform: uppercase;
@@ -7193,7 +7193,7 @@
   font-size: 12px;
   line-height: 1.45;
   color: var(--tx-primary);
-  background: var(--bg-base);
+  background: var(--bg-app);
   overflow: auto;
   white-space: pre;
   max-height: 480px;
@@ -7203,15 +7203,15 @@
   padding: 8px 10px;
   border: 1px solid var(--dot-red);
   border-radius: 4px;
-  background: var(--bg-surface);
+  background: var(--bg-elevated);
   color: var(--dot-red);
   font-size: var(--fs-xs);
 }
 .github-actions-v2-logs-progress {
   padding: 8px 10px;
-  border: 1px dashed var(--bd-default);
+  border: 1px dashed var(--bd-base);
   border-radius: 4px;
-  background: var(--bg-surface);
+  background: var(--bg-elevated);
   color: var(--tx-muted);
   font-size: var(--fs-xs);
 }

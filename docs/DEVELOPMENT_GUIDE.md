@@ -39,6 +39,31 @@ Treat command, arguments, environment and remote endpoints as executable configu
 
 UI code should consume typed bridge methods and keep pure transformations in adjacent model modules. Remote preview access must remain a visible user choice; do not restore popup/download sandbox permissions or apply cross-origin response rewriting globally.
 
+## UI copy: state, not explanation
+
+OXESpace is an application, not a tutorial. Interface text states **what
+something is**; it does not explain how the feature works internally, restate
+what the control above already says, or reassure the user.
+
+Concretely, do not write:
+- **Mechanism** — "Probing each agent command with `--version`", "RTK is a
+  sidecar binary under userData". The user asked for a result, not a trace.
+- **Tutorial** — "Ready CLIs can be bound to a terminal pane". If the button is
+  there, it is bindable.
+- **Restatement** — a second sentence rephrasing the first ("Alerts only fire
+  for terminals you are not watching. While you follow an agent in the focused
+  pane, OXESpace stays quiet.").
+- **Reassurance** — "audio never leaves your machine", "no separate download".
+  State the fact once ("Local recognition") and stop.
+
+Do write: counts and state ("4 ready · 2 not installed"), a single actionable
+line when action is required ("Install a CLI, then run Health check"), and
+nothing at all when the controls already speak for themselves — a hint that is
+read once and scrolled past forever is noise on every later visit.
+
+Prefer removing a line to shortening it. An empty secondary line is better than
+a filled one that says nothing new.
+
 ## Styling: two systems, one cascade
 
 The renderer runs OXESpace's hand-written CSS (`src/styles/*.css`) alongside the
