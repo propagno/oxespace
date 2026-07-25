@@ -1,7 +1,8 @@
-import { FolderGit2, GitBranch, PanelsTopLeft, Radio } from 'lucide-react'
-import type { ReactElement } from 'react'
+import { FolderGit2, GitBranch, PanelsTopLeft, Radio, Moon } from 'lucide-react'
+import { useMemo, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import { useGitBranch } from '../../hooks/useGitBranch'
+import { useTerminalStore } from '../../store/terminal.store'
 
 interface AppStatusBarProps {
   workspace: Workspace | null
@@ -12,6 +13,22 @@ interface AppStatusBarProps {
 export function AppStatusBar({ activePaneId, appVersion, workspace }: AppStatusBarProps): ReactElement {
   const branch = useGitBranch(workspace?.id ?? '', workspace?.rootPath ?? null)
   const activePane = workspace?.panes.find((pane) => pane.id === activePaneId) ?? null
+
+  // Shells outlive their view now, so a workspace left behind can still be
+  // running an agent. Without somewhere to see and stop them they would burn
+  // tokens and CPU unobserved — this is that escape hatch.
+  const panes = useTerminalStore((state) => state.panes)
+  const backgroundPaneIds = useMemo(
+    () => Object.entries(panes).filter(([, entry]) => entry.detached).map(([paneId]) => paneId),
+    [panes]
+  )
+
+  const stopBackgroundSessions = (): void => {
+    for (const paneId of backgroundPaneIds) {
+      void window.oxe.terminal.stop({ paneId }).catch(() => undefined)
+      useTerminalStore.getState().removePane(paneId)
+    }
+  }
 
   return (
     <footer className="app-statusbar" aria-label="Workspace status bar">
@@ -35,6 +52,18 @@ export function AppStatusBar({ activePaneId, appVersion, workspace }: AppStatusB
           </span>
         ) : null}
         {activePane ? <span className="app-statusbar-item">{activePane.displayName ?? activePane.agentName ?? activePane.type}</span> : null}
+        {backgroundPaneIds.length > 0 ? (
+          <button
+            type="button"
+            className="app-statusbar-item app-statusbar-action"
+            onClick={stopBackgroundSessions}
+            title={`${backgroundPaneIds.length} terminal${backgroundPaneIds.length === 1 ? '' : 's'} still running in workspaces that are not open. Click to stop them.`}
+            data-testid="background-sessions"
+          >
+            <Moon size={11} aria-hidden="true" />
+            {backgroundPaneIds.length} background
+          </button>
+        ) : null}
         <span className="app-statusbar-item connected">
           <Radio size={10} aria-hidden="true" />
           local

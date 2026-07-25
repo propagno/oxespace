@@ -157,8 +157,12 @@ describe('TerminalView', () => {
         resize: vi.fn(),
         stop: vi.fn(),
         restart: vi.fn(),
+        attach: vi.fn().mockResolvedValue({ running: false, seq: 0, prologue: '', replay: '', truncated: false, altScreen: false }),
+        detach: vi.fn(),
+        status: vi.fn().mockResolvedValue({ running: false, seq: 0, altScreen: false }),
         onData: vi.fn(() => vi.fn()),
-        onExit: vi.fn(() => vi.fn())
+        onExit: vi.fn(() => vi.fn()),
+        onActivity: vi.fn(() => vi.fn())
       },
       clipboard: {
         saveImageToTemp: vi.fn().mockResolvedValue(null),
@@ -425,7 +429,7 @@ describe('TerminalView', () => {
     })
   })
 
-  test('streamed output pins the viewport instead of auto-scrolling while a selection is live', () => {
+  test('streamed output pins the viewport instead of auto-scrolling while a selection is live', async () => {
     // Reproduces the "can't copy during a long CLI session" bug: with an
     // active selection, new PTY output must not be allowed to auto-scroll the
     // terminal to the bottom (as xterm does by default), because that yanks
@@ -433,6 +437,10 @@ describe('TerminalView', () => {
     // one, so the selection never has a chance to survive to Ctrl+C.
     terminalState.getSelection.mockReturnValue('selected output')
     render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
+
+    // Output arriving before the attach handshake resolves is queued, not
+    // written — that is what keeps a replay from interleaving with live bytes.
+    await vi.waitFor(() => expect(window.oxe.terminal.attach).toHaveBeenCalled())
 
     const dataListener = vi.mocked(window.oxe.terminal.onData).mock.calls[0][1]
     dataListener({ paneId: 'pane-1', data: 'more streamed tokens\r\n' })
@@ -551,5 +559,51 @@ describe('TerminalView', () => {
 
     window.dispatchEvent(new CustomEvent('oxe:terminal-clear', { detail: { paneId: 'pane-1' } }))
     expect(terminalState.clear).toHaveBeenCalledTimes(1)
+  })
+
+  test('restores a running session instead of announcing it as Idle', async () => {
+    vi.mocked(window.oxe.terminal.attach).mockResolvedValue({
+      running: true, seq: 7, prologue: '\x1b[?2004h', replay: 'restored output', truncated: false, altScreen: false
+    })
+
+    render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
+
+    await vi.waitFor(() => expect(terminalState.write).toHaveBeenCalledWith('restored output'))
+    // Modes first, so the replay lands on the buffer the app is drawing on.
+    expect(terminalState.write).toHaveBeenCalledWith('\x1b[?2004h')
+    // Stamping "Idle" above a shell that never stopped would be a lie.
+    expect(terminalState.write).not.toHaveBeenCalledWith('Idle\r\n')
+  })
+
+  test('queues live output during the handshake so it lands after the replay', async () => {
+    let resolveAttach: (value: unknown) => void = () => undefined
+    vi.mocked(window.oxe.terminal.attach).mockReturnValue(
+      new Promise((resolve) => { resolveAttach = resolve }) as ReturnType<typeof window.oxe.terminal.attach>
+    )
+
+    render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
+
+    const dataListener = vi.mocked(window.oxe.terminal.onData).mock.calls[0][1]
+    dataListener({ paneId: 'pane-1', data: 'live chunk' })
+    // Writing it now would put live output ABOVE the history it follows.
+    expect(terminalState.write).not.toHaveBeenCalledWith('live chunk')
+
+    resolveAttach({ running: true, seq: 1, prologue: '', replay: 'history', truncated: false, altScreen: false })
+
+    await vi.waitFor(() => expect(terminalState.write).toHaveBeenCalledWith('live chunk'))
+    const order = terminalState.write.mock.calls.map((call) => call[0])
+    expect(order.indexOf('history')).toBeLessThan(order.indexOf('live chunk'))
+  })
+
+  test('detaches on unmount so the shell survives leaving the workspace', () => {
+    const { unmount } = render(
+      <TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />
+    )
+
+    unmount()
+
+    expect(window.oxe.terminal.detach).toHaveBeenCalledWith({ paneId: 'pane-1' })
+    // Killing it here is exactly what made returning cost a respawn.
+    expect(window.oxe.terminal.stop).not.toHaveBeenCalled()
   })
 })

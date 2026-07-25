@@ -1,11 +1,13 @@
 import { ipcMain } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import {
+  parseTerminalAttachInput,
   parseTerminalResizeInput,
   parseTerminalStartInput,
   parseTerminalStopInput,
   parseTerminalWriteInput
 } from './validation'
+import type { TerminalAttachResult, TerminalStatusResult } from '../../../shared/types/ipc'
 
 export interface TerminalIpcController {
   start(input: ReturnType<typeof parseTerminalStartInput>): Promise<void> | void
@@ -13,6 +15,9 @@ export interface TerminalIpcController {
   resize(input: ReturnType<typeof parseTerminalResizeInput>): Promise<void> | void
   stop(input: ReturnType<typeof parseTerminalStopInput>): Promise<void> | void
   restart(input: ReturnType<typeof parseTerminalStopInput>): Promise<void> | void
+  attach(input: ReturnType<typeof parseTerminalAttachInput>): TerminalAttachResult
+  detach(input: ReturnType<typeof parseTerminalStopInput>): void
+  status(paneId: string): TerminalStatusResult
   hasSession?(paneId: string): boolean
 }
 
@@ -22,6 +27,11 @@ export function registerTerminalIpc(controller: TerminalIpcController = createPe
   ipcMain.handle(IPC_CHANNELS.terminal.resize, (_event, input: unknown) => controller.resize(parseTerminalResizeInput(input)))
   ipcMain.handle(IPC_CHANNELS.terminal.stop, (_event, input: unknown) => controller.stop(parseTerminalStopInput(input)))
   ipcMain.handle(IPC_CHANNELS.terminal.restart, (_event, input: unknown) => controller.restart(parseTerminalStopInput(input)))
+  // attach must stay synchronous inside the handler: it flushes, snapshots and
+  // flips the attached flag in one tick so no output is duplicated or lost.
+  ipcMain.handle(IPC_CHANNELS.terminal.attach, (_event, input: unknown) => controller.attach(parseTerminalAttachInput(input)))
+  ipcMain.handle(IPC_CHANNELS.terminal.detach, (_event, input: unknown) => controller.detach(parseTerminalStopInput(input)))
+  ipcMain.handle(IPC_CHANNELS.terminal.status, (_event, paneId: unknown) => controller.status(String(paneId ?? '')))
 }
 
 export function createPendingTerminalController(): TerminalIpcController {
@@ -34,6 +44,9 @@ export function createPendingTerminalController(): TerminalIpcController {
     write: pending,
     resize: pending,
     stop: pending,
-    restart: pending
+    restart: pending,
+    attach: pending,
+    detach: pending,
+    status: pending
   }
 }

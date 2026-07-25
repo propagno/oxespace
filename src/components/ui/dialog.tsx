@@ -4,6 +4,13 @@ import { Dialog as DialogPrimitive } from 'radix-ui'
 
 import { cn } from '@/lib/utils'
 
+/**
+ * Reproduces the legacy `.modal-backdrop` (rgba(0,0,0,.5) + 8px blur, z-index
+ * 200) so panels migrating from the hand-rolled backdrop to <Dialog> keep an
+ * identical scrim. Pair with `.modal-dialog-surface` on the content.
+ */
+export const LEGACY_MODAL_OVERLAY = 'z-[200] bg-black/50 backdrop-blur-[8px]'
+
 function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />
 }
@@ -38,20 +45,39 @@ function DialogContent({
   children,
   overlayClassName,
   showCloseButton = true,
+  unstyled = false,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   overlayClassName?: string
   showCloseButton?: boolean
+  /**
+   * Drops the default surface styling and keeps only Radix's behaviour (focus
+   * trap, Escape, outside-click, aria wiring).
+   *
+   * OXESpace has signature surfaces — the Tools hub, wizards — whose look is
+   * expressed in hand-written CSS that is richer than the stock dialog shell
+   * (layered radial gradients, saturated backdrop blur). Those classes live in
+   * the `oxe-legacy` cascade layer, which loses to Tailwind utilities, so the
+   * default styling here would silently win and flatten them. Passing
+   * `unstyled` lets such a panel adopt the primitive's behaviour without
+   * surrendering its design. The class must then position itself (the default
+   * fixed/centering utilities are dropped too).
+   */
+  unstyled?: boolean
 }) {
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Content
         data-slot="dialog-content"
-        className={cn(
-          'fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border border-black/14 bg-background/96 p-6 text-foreground shadow-[0_20px_60px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl duration-200 outline-none dark:border-white/14 dark:bg-[rgba(23,23,23,0.96)] dark:shadow-[0_24px_72px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.06)] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-lg',
-          className
-        )}
+        className={
+          unstyled
+            ? className
+            : cn(
+              'fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border border-black/14 bg-background/96 p-6 text-foreground shadow-[0_20px_60px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl duration-200 outline-none dark:border-white/14 dark:bg-[rgba(23,23,23,0.96)] dark:shadow-[0_24px_72px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.06)] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-lg',
+              className
+            )
+        }
         {...props}
       >
         {children}

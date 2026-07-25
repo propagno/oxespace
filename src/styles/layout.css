@@ -2197,7 +2197,17 @@
 }
 
 /* ─── Tools modal (sidebar gear hub) ─────────────────────────────────────── */
+/* Rendered through Radix Dialog (`unstyled` content), so it is a direct child
+   of the portal rather than of `.modal-backdrop` and centers itself. */
 .tools-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  /* Must match LEGACY_MODAL_OVERLAY's z-index (200), not sit below it: the
+     content renders after the overlay in the portal, so an equal z-index puts
+     it on top. A lower value let the blurred scrim paint over the hub. */
+  z-index: 200;
   display: flex;
   flex-direction: column;
   width: min(860px, calc(100vw - 28px));
@@ -2639,6 +2649,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+
 
 .tools-modal-card-on {
   flex-shrink: 0;

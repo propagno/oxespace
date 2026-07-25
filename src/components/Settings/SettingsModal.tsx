@@ -24,7 +24,8 @@ import type { VoiceModelSize, VoiceModelStatus } from '../../../shared/types/voi
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { useAgentStore } from '../../store/agent.store'
 import { useVoiceStore } from '../../store/voice.store'
-import { useSettingsStore } from '../../store/settings.store'
+import { useSettingsStore, VISITED_WORKSPACES_CAP_MAX, VISITED_WORKSPACES_CAP_MIN } from '../../store/settings.store'
+import { Dialog, DialogContent, DialogTitle, LEGACY_MODAL_OVERLAY } from '@/components/ui/dialog'
 import { useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useUpdaterStore } from '../../store/updater.store'
 
@@ -147,30 +148,13 @@ export function SettingsModal({
 }: SettingsModalProps): ReactElement {
   const [section, setSection] = useState<SettingsSection>('providers')
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        onClose()
-      }
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
-
   return (
-    <div
-      className="modal-backdrop"
-      role="presentation"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
-      <section
-        className="settings-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="settings-title"
+    <Dialog open onOpenChange={(next) => { if (!next) onClose() }}>
+      <DialogContent
+        unstyled
+        showCloseButton={false}
+        overlayClassName={LEGACY_MODAL_OVERLAY}
+        className="settings-modal modal-dialog-surface"
         data-testid="settings-modal"
       >
         <aside className="settings-modal-nav" aria-label="Settings sections">
@@ -180,7 +164,9 @@ export function SettingsModal({
             </span>
             <div>
               <span>OXESpace</span>
-              <strong id="settings-title">Agent Settings</strong>
+              <DialogTitle asChild>
+                <strong>Agent Settings</strong>
+              </DialogTitle>
             </div>
           </header>
           <nav>
@@ -224,8 +210,8 @@ export function SettingsModal({
             onUseProviderInPane={onUseProviderInPane}
           />
         )}
-      </section>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -688,6 +674,10 @@ function VoiceSettingsSection({ onClose }: { onClose: () => void }): ReactElemen
         }
       }
     }
+    // `capture: true` is load-bearing, not stylistic: it runs this listener
+    // before Radix's document-level Escape handler, and the stopPropagation
+    // above keeps that handler from ever seeing the key. Without it, pressing
+    // Escape to cancel a hotkey capture would also close the whole dialog.
     window.addEventListener('keydown', onKeyDown, true)
     return () => window.removeEventListener('keydown', onKeyDown, true)
   }, [capturingHotkey, setPttHotkey])
@@ -1058,8 +1048,8 @@ function NotificationsSettingsSection({ onClose }: { onClose: () => void }): Rea
             </span>
             <input
               type="range"
-              min={1}
-              max={5}
+              min={VISITED_WORKSPACES_CAP_MIN}
+              max={VISITED_WORKSPACES_CAP_MAX}
               step={1}
               value={visitedWorkspacesCap}
               onChange={(e) => setVisitedWorkspacesCap(Number(e.target.value))}
@@ -1067,7 +1057,9 @@ function NotificationsSettingsSection({ onClose }: { onClose: () => void }): Rea
               aria-label="Number of workspaces to keep mounted"
             />
             <span className="settings-field-hint">
-              Higher = faster switch-back, more memory (terminals stay alive). Active workspace always counts as 1.
+              How many workspaces stay rendered. Background terminals keep running either
+              way — leaving a workspace no longer stops its shells. Pane-heavy workspaces
+              may be unmounted sooner to stay within the GPU renderer budget.
             </span>
           </label>
         </div>

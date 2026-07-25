@@ -10,7 +10,7 @@
  * Build first: npm run build   ·   Run: npx playwright test e2e/perf-benchmark.spec.ts
  * Budgets: 1 frame @60fps = 16.7ms · 100ms = perceptible.
  */
-import { _electron as electron, test, type ElectronApplication, type Page } from '@playwright/test'
+import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { mkdirSync, symlinkSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -272,6 +272,68 @@ test('workspace transition: mounted native terminals', async () => {
       switchTimes.push(await page.evaluate((start) => performance.now() - start, started))
     }
     report('workspace: native A↔B transition', switchTimes)
+  } finally {
+    await killApp(app, pid)
+  }
+})
+
+/**
+ * The case that was multi-second: returning to a workspace that fell out of the
+ * mounted MRU. Eviction used to kill the workspace's PTYs, so coming back meant
+ * spawning PowerShell and loading the user's $PROFILE again. Shells now outlive
+ * their view, so this should cost a replay, not a respawn.
+ *
+ * The latency threshold doubles as the identity assertion: a real PowerShell
+ * spawn plus profile load cannot finish inside this budget, so passing it means
+ * the original process was still there.
+ */
+test('workspace transition: returning to an evicted workspace', async () => {
+  test.setTimeout(180_000)
+  const { app, page, pid } = await launchApp({ mockNative: false })
+  try {
+    // Force eviction: a cap of 2 with four workspaces guarantees the first is
+    // unmounted by the time we come back to it.
+    await page.evaluate(() => {
+      const raw = localStorage.getItem('oxe-settings')
+      const parsed = raw ? JSON.parse(raw) : { state: {}, version: 0 }
+      parsed.state = { ...parsed.state, visitedWorkspacesCap: 2 }
+      localStorage.setItem('oxe-settings', JSON.stringify(parsed))
+    })
+    await page.reload()
+
+    const fixtureRoot = join(tmpdir(), `oxe-evict-${Date.now()}`)
+    const names = ['alpha-repo', 'beta-repo', 'gamma-repo', 'delta-repo']
+    for (const name of names) {
+      await createWorkspace(page, join(fixtureRoot, name))
+      await page.locator('.workspace-host:not(.workspace-host-hidden)')
+        .getByTestId('terminal-status-label').filter({ hasText: 'running' }).first().waitFor()
+    }
+
+    const returnTimes: number[] = []
+    for (let i = 0; i < REPEATS; i++) {
+      // Bounce to the far end of the MRU, then back — 'alpha-repo' is evicted.
+      const label = i % 2 === 0 ? 'alpha-repo' : 'delta-repo'
+      const target = page.getByTestId('sidebar-workspace-item').filter({ hasText: label })
+      const started = await page.evaluate(() => performance.now())
+      await target.getByTestId('sidebar-workspace-select').click()
+      await page.waitForFunction(
+        (name) => document.querySelector('.workspace-host:not(.workspace-host-hidden) .workspace-topbar-name')?.textContent?.trim() === name,
+        label
+      )
+      // Wait for a live terminal, not merely a painted shell — a blank-but-fast
+      // terminal would be a failed fix.
+      await page.locator('.workspace-host:not(.workspace-host-hidden)')
+        .getByTestId('terminal-status-label').filter({ hasText: 'running' }).first().waitFor()
+      await page.evaluate(() => new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+      }))
+      returnTimes.push(await page.evaluate((start) => performance.now() - start, started))
+    }
+    report('workspace: evicted A↔D transition', returnTimes)
+
+    const warm = returnTimes.slice(1).sort((a, b) => a - b)
+    const p95 = warm[Math.min(warm.length - 1, Math.floor(warm.length * 0.95))] ?? Infinity
+    expect(p95, 'returning to an evicted workspace must not respawn its shell').toBeLessThan(250)
   } finally {
     await killApp(app, pid)
   }

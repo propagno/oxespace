@@ -9,6 +9,7 @@ import type {
   UpdatePaneTypeInput,
   UpdatePaneNameInput,
   TerminalResizeInput,
+  TerminalAttachInput,
   TerminalStartInput,
   TerminalStopInput,
   TerminalWriteInput
@@ -119,7 +120,24 @@ export function parseTerminalStartInput(value: unknown): TerminalStartInput {
     agentCommand: input.agentCommand === undefined ? undefined : expectNonEmptyString(input.agentCommand, 'agentCommand'),
     agentArgs: Array.isArray(input.agentArgs) ? (input.agentArgs as unknown[]).filter((a): a is string => typeof a === 'string') : undefined,
     initialPrompt: input.initialPrompt === undefined ? undefined : expectNonEmptyString(input.initialPrompt, 'initialPrompt'),
-    disableRtk: input.disableRtk === undefined ? undefined : typeof input.disableRtk === 'boolean' ? input.disableRtk : false
+    disableRtk: input.disableRtk === undefined ? undefined : typeof input.disableRtk === 'boolean' ? input.disableRtk : false,
+    cols: parseOptionalDimension(input.cols),
+    rows: parseOptionalDimension(input.rows)
+  }
+}
+
+/** Geometry is advisory: a bad value falls back to the default, never throws. */
+function parseOptionalDimension(value: unknown): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 1) return undefined
+  return Math.floor(value)
+}
+
+export function parseTerminalAttachInput(value: unknown): TerminalAttachInput {
+  const input = expectRecord(value, 'terminal:attach input')
+  const sinceSeq = input.sinceSeq
+  return {
+    paneId: expectNonEmptyString(input.paneId, 'paneId'),
+    sinceSeq: typeof sinceSeq === 'number' && Number.isFinite(sinceSeq) && sinceSeq >= 0 ? sinceSeq : undefined
   }
 }
 

@@ -34,6 +34,37 @@ React renderer
 | GitHub | Repository, PR, release and checkpoint flows | Main process invokes Git/`gh`; renderer consumes typed results |
 | Diagnostics | Runtime health and support report | Reports redact local paths and credential-shaped values |
 
+### Terminal sessions: PTY lifetime is owned by main
+
+A PTY belongs to its *pane* and is managed by `TerminalManager`; the xterm
+instance in the renderer is a disposable **view** that attaches to and detaches
+from it. Unmounting a pane — which happens whenever a workspace falls out of the
+mounted MRU — no longer stops the shell.
+
+This exists because the previous model killed a workspace's PTYs on eviction, so
+returning paid a PowerShell spawn plus a full `$PROFILE` load and came back to an
+empty terminal. Returning to an evicted workspace now measures ~112 ms warm
+(p95 127 ms) against ~94 ms for one that stayed mounted — the gap is gone.
+
+- `PtyRingBuffer` retains recent output per session (256 KB default). It is
+  **not** a scrollback replacement: replaying the 50k-line scrollback would cost
+  hundreds of ms and reintroduce the latency this removes. Full scrollback
+  survives only while the pane stays mounted.
+- `PtyModeTracker` records DEC private modes so a re-attached view lands in the
+  right screen. On the **alternate screen** the replay is skipped entirely and
+  main bounces the PTY size instead — every TUI repaints on resize, which yields
+  a correct frame rather than one reconstructed from possibly-truncated bytes.
+- Output for a session with no attached view **does not cross the IPC boundary**;
+  only a throttled `terminal:activity` heartbeat does, so background agents stay
+  visible to the sidebar and notifications without shipping bytes nobody renders.
+- `attach` must stay synchronous inside its IPC handler: it flushes, snapshots
+  and flips the attached flag in one tick, so no chunk is duplicated or lost.
+  The renderer subscribes *before* calling it and queues what arrives meanwhile.
+- Remaining kill paths: explicit stop, workspace/pane close, agent change,
+  `MAX_LIVE_PTYS` reclaim (detached and idle ≥30 s only) and quit.
+- How many workspaces stay *rendered* is budgeted by **pane count** against the
+  WebGL context limit (`webglBudget.ts`), not by workspace count.
+
 ## Data and state
 
 SQLite is initialized by `electron/main/db` and passed explicitly to services. Schema migrations are ordered and append-only. UI-only transient state belongs in React/Zustand; durable state belongs in SQLite. Workspace files remain the source of truth for project content.

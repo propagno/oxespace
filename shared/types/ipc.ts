@@ -103,8 +103,15 @@ export const IPC_CHANNELS = {
     resize: 'terminal:resize',
     stop: 'terminal:stop',
     restart: 'terminal:restart',
+    // A terminal VIEW attaches to and detaches from a session whose lifetime is
+    // owned by the main process. Unmounting a pane no longer kills its shell,
+    // so returning to a workspace does not pay a respawn.
+    attach: 'terminal:attach',
+    detach: 'terminal:detach',
+    status: 'terminal:status',
     onData: 'terminal:data',
-    onExit: 'terminal:exit'
+    onExit: 'terminal:exit',
+    onActivity: 'terminal:activity'
   },
   agent: {
     list:        'agent:list',
@@ -306,6 +313,12 @@ export interface TerminalStartInput {
   agentArgs?: string[]
   initialPrompt?: string
   disableRtk?: boolean
+  /**
+   * Real viewport at spawn time. Without these the PTY starts at 80x24 and the
+   * app reflows on the first resize, which the user sees as a flash.
+   */
+  cols?: number
+  rows?: number
 }
 
 export interface TerminalWriteInput {
@@ -331,6 +344,49 @@ export interface TerminalDataEvent {
 export interface TerminalExitEvent {
   paneId: string
   exitCode: number | null
+}
+
+/**
+ * Heartbeat for a session with no attached view. Carries no output — just
+ * enough for the sidebar and notifications to keep showing that a background
+ * agent is working. Throttled in main.
+ */
+export interface TerminalActivityEvent {
+  paneId: string
+  at: number
+  bytes: number
+}
+
+export interface TerminalAttachInput {
+  paneId: string
+  /** Cursor from a previous attach; omit to receive the whole retained buffer. */
+  sinceSeq?: number
+}
+
+export interface TerminalAttachResult {
+  running: boolean
+  /** Cursor to hand back on the next attach. */
+  seq: number
+  /** Mode-restoring sequences to write before anything else. */
+  prologue: string
+  /** Retained output to replay. Empty when `altScreen` is true. */
+  replay: string
+  /** Output the caller needed had already been evicted — clear before writing. */
+  truncated: boolean
+  /**
+   * The session is on the alternate screen. Replaying bytes would paint TUI
+   * content onto the normal buffer, so main triggers a resize-driven redraw
+   * instead and `replay` is empty.
+   */
+  altScreen: boolean
+  /** Present when the process died while detached, instead of a silent respawn. */
+  exit?: { exitCode: number | null; at: number }
+}
+
+export interface TerminalStatusResult {
+  running: boolean
+  seq: number
+  altScreen: boolean
 }
 
 export interface SplitPaneInput {
@@ -378,8 +434,12 @@ export interface TerminalApi {
   resize(input: TerminalResizeInput): Promise<void>
   stop(input: TerminalStopInput): Promise<void>
   restart(input: TerminalStopInput): Promise<void>
+  attach(input: TerminalAttachInput): Promise<TerminalAttachResult>
+  detach(input: TerminalStopInput): Promise<void>
+  status(paneId: string): Promise<TerminalStatusResult>
   onData(paneId: string, listener: (event: TerminalDataEvent) => void): () => void
   onExit(paneId: string, listener: (event: TerminalExitEvent) => void): () => void
+  onActivity(paneId: string, listener: (event: TerminalActivityEvent) => void): () => void
 }
 
 export interface AgentApi {

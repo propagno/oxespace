@@ -7,8 +7,12 @@ import { persist } from 'zustand/middleware'
  * own stores (e.g. voice.store).
  */
 export const VISITED_WORKSPACES_CAP_MIN = 1
-export const VISITED_WORKSPACES_CAP_MAX = 5
-export const VISITED_WORKSPACES_CAP_DEFAULT = 3
+// Raised from 5/3 once eviction stopped killing shells: keeping a workspace
+// mounted now only costs render resources (bounded separately by the WebGL
+// pane budget), not a respawn on return. The old default of 3 meant a user
+// with 4-5 projects paid a shell restart on nearly every switch.
+export const VISITED_WORKSPACES_CAP_MAX = 8
+export const VISITED_WORKSPACES_CAP_DEFAULT = 5
 
 function clampVisitedCap(n: number): number {
   if (!Number.isFinite(n)) return VISITED_WORKSPACES_CAP_DEFAULT

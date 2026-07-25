@@ -176,6 +176,10 @@ export default defineConfig({
       }
     },
     build: {
+      // JS was being minified while the CSS asset shipped with every comment
+      // and indent intact (~299 comments), eating the renderer CSS budget for
+      // nothing. Set explicitly rather than relying on it tracking `minify`.
+      cssMinify: 'esbuild',
       rollupOptions: {
         input: resolve(__dirname, 'index.html'),
         output: {

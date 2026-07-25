@@ -158,6 +158,19 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
   // longer fired by default. See plan: "MCP-only as native path".
 
   const start = useCallback(async (): Promise<void> => {
+    // A pane returning from the MRU already has a live shell in main. Spawning
+    // a second one would kill the first, reload the user's $PROFILE and show an
+    // empty terminal — the multi-second cost this whole path exists to avoid.
+    try {
+      const existing = await window.oxe.terminal.status?.(pane.id)
+      if (existing?.running) {
+        setStatus(pane.id, 'running')
+        return
+      }
+    } catch {
+      // Status unavailable — fall through and start normally.
+    }
+
     setStatus(pane.id, 'starting')
     try {
       const { command: agentCommand, initialPrompt } = await resolveWithIntegrationContext()

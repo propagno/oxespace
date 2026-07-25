@@ -39,6 +39,39 @@ Treat command, arguments, environment and remote endpoints as executable configu
 
 UI code should consume typed bridge methods and keep pure transformations in adjacent model modules. Remote preview access must remain a visible user choice; do not restore popup/download sandbox permissions or apply cross-origin response rewriting globally.
 
+## Styling: two systems, one cascade
+
+The renderer runs OXESpace's hand-written CSS (`src/styles/*.css`) alongside the
+shadcn/Tailwind foundation (`src/styles/ui-kit.css`, `src/components/ui/`).
+
+**Cascade.** Everything except `tokens.css` is imported into the `oxe-legacy`
+cascade layer, ordered `oxe-reset → theme → base → oxe-legacy → components →
+utilities`. A Tailwind utility therefore beats a legacy panel class, which is
+what lets panels migrate one at a time. `tokens.css` stays unlayered so its
+custom properties win everywhere, including all 11 `[data-theme]` palettes.
+
+**Tokens.** shadcn's semantic tokens are namespaced `--sh-*` and bridged onto
+OXESpace tokens, so primitives inherit the brand and follow theme switches.
+Interactive tokens track `--accent` (which themes retheme), not `--brand`
+(the fixed logo emerald). `tests/unit/token-bridge.test.ts` guards this — a
+re-run of `npx shadcn add` would otherwise restore the stock gray defaults.
+
+**When to reach for a primitive.** Use one when it brings *behaviour* that
+hand-written CSS cannot: focus traps, Escape/outside-click, keyboard menus,
+aria wiring. Do **not** convert working bespoke CSS to Tailwind utilities for
+its own sake — measured on this codebase, expressing a one-off brand tint as
+arbitrary values (`bg-[color-mix(...)]`, `text-[9.5px]`) emits a unique utility
+per value and cost ~2 kB for two badges, enough to breach the CSS budget, while
+the CSS rule it replaced was smaller and clearer. Utilities pay off on repeated
+patterns, not on one-offs.
+
+**Signature surfaces.** Panels whose look is richer than the stock shell (the
+Tools hub, the settings and workspace wizards) use `<DialogContent unstyled>`:
+Radix supplies the behaviour, the panel's own CSS supplies the appearance.
+Such a surface must position itself and declare a `z-index` at least equal to
+`LEGACY_MODAL_OVERLAY`'s — content renders after the overlay in the portal, so
+a lower value hides the panel behind the blurred scrim.
+
 ## Definition of done
 
 A change is complete when TypeScript and ESLint pass, tests cover failure paths, coverage stays above configured thresholds, bundle budgets pass, the relevant native runtime is verified, and the smoke E2E covers important user behavior. Update architecture or security documentation whenever a boundary or invariant changes.

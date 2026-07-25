@@ -2,6 +2,7 @@ import { Check, Maximize2, Minimize2, Palette, SquareTerminal, X } from 'lucide-
 import { useState, type FormEvent, type ReactElement } from 'react'
 import type { ShellProfile, UpdateWorkspaceSettingsInput, Workspace, WorkspaceDensity, WorkspaceLayoutPreset, WorkspaceThemeId } from '../../../shared/types/workspace'
 import { LAYOUT_PRESETS, WORKSPACE_THEMES } from './workspaceOptions'
+import { Dialog, DialogContent, DialogTitle, LEGACY_MODAL_OVERLAY } from '@/components/ui/dialog'
 import { useResolvedTerminalPrefs, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 
 interface WorkspaceSettingsModalProps {
@@ -84,11 +85,18 @@ export function WorkspaceSettingsModal({ onClose, onSave, shellProfiles, workspa
   }
 
   return (
-    <div className="modal-backdrop" role="presentation">
-      <section className="modal workspace-settings-modal-v2" role="dialog" aria-modal="true" aria-labelledby="workspace-settings-title">
+    <Dialog open onOpenChange={(next) => { if (!next) onClose() }}>
+      <DialogContent
+        unstyled
+        showCloseButton={false}
+        overlayClassName={LEGACY_MODAL_OVERLAY}
+        className="modal workspace-settings-modal-v2 modal-dialog-surface"
+      >
         <header className="modal-header">
           <div className="ws-settings-title-group">
-            <h2 id="workspace-settings-title">Workspace settings</h2>
+            <DialogTitle asChild>
+              <h2>Workspace settings</h2>
+            </DialogTitle>
             <span className="ws-settings-subtitle">{workspace.name}</span>
           </div>
           <button type="button" className="icon-button" aria-label="Close workspace settings" onClick={onClose}>
@@ -243,8 +251,8 @@ export function WorkspaceSettingsModal({ onClose, onSave, shellProfiles, workspa
             <button type="submit" className="primary-action" disabled={isSaving}>{isSaving ? 'Saving…' : 'Save'}</button>
           </footer>
         </form>
-      </section>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 

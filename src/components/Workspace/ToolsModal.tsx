@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import { Activity, ArrowRight, Bot, Brain, Code2, Command, FolderTree, Github, GitCompareArrows, MonitorPlay, Network, PanelLeft, Search, Settings2, Sparkles, Wrench, X, Slash, FileCode2 } from 'lucide-react'
 import { useUIStore } from '../../store/ui.store'
+import { Dialog, DialogContent, DialogDescription, DialogTitle, LEGACY_MODAL_OVERLAY } from '@/components/ui/dialog'
 
 export interface ToolsActiveState {
   github: boolean
@@ -83,17 +84,6 @@ export function ToolsModal({
     const t = window.setTimeout(() => searchRef.current?.focus(), 0)
     return () => window.clearTimeout(t)
   }, [])
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        onClose()
-      }
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
 
   const run = (action: () => void): void => {
     action()
@@ -278,18 +268,14 @@ export function ToolsModal({
   const hasAnyResults = showAgentSettingsFeature || groups.length > 0
 
   return (
-    <div
-      className="modal-backdrop"
-      role="presentation"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
-      <section
+    <Dialog open onOpenChange={(next) => { if (!next) onClose() }}>
+      {/* `unstyled`: the hub keeps its own layered-gradient surface and only
+          borrows Radix's focus trap, Escape and outside-click behaviour. */}
+      <DialogContent
+        unstyled
+        showCloseButton={false}
+        overlayClassName={LEGACY_MODAL_OVERLAY}
         className="tools-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="tools-modal-title"
         data-testid="tools-modal"
       >
         <header className="tools-modal-header">
@@ -298,12 +284,16 @@ export function ToolsModal({
               <Settings2 size={18} />
             </span>
             <div>
-              <strong id="tools-modal-title">Tools</strong>
-              <span>
-                {activeCount > 0
-                  ? `${activeCount} panel${activeCount === 1 ? '' : 's'} open · workspace hub`
-                  : 'Panels, agents & system actions'}
-              </span>
+              <DialogTitle asChild>
+                <strong>Tools</strong>
+              </DialogTitle>
+              <DialogDescription asChild>
+                <span>
+                  {activeCount > 0
+                    ? `${activeCount} panel${activeCount === 1 ? '' : 's'} open · workspace hub`
+                    : 'Panels, agents & system actions'}
+                </span>
+              </DialogDescription>
             </div>
           </div>
           <button
@@ -403,8 +393,8 @@ export function ToolsModal({
           </span>
           <span className="tools-modal-footer-meta">{filtered.length} tools</span>
         </footer>
-      </section>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -425,6 +415,12 @@ function ToolCard({ tool }: { tool: ToolDef }): ReactElement {
       <span className="tools-modal-card-body">
         <span className="tools-modal-card-title-row">
           <span className="tools-modal-card-label">{tool.label}</span>
+          {/* These two pills stay on their own CSS rules on purpose. Expressing
+              their one-off brand tint as Tailwind arbitrary values (color-mix
+              border/background, 9.5px type) emitted a unique utility per value
+              and cost ~2 kB — enough to blow the renderer CSS budget — for two
+              badges that are never reused. Utilities earn their keep on
+              repeated patterns, not on bespoke one-offs. */}
           {tool.active ? <span className="tools-modal-card-on">On</span> : null}
           {tool.badge ? <span className="tools-modal-card-badge">{tool.badge}</span> : null}
         </span>

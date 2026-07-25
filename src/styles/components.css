@@ -1,14 +1,7 @@
 /* ─── Modal ──────────────────────────────────────────────────────────────── */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(8px);
-  z-index: 200;
-}
+/* `.modal-backdrop` was removed once every modal moved to <Dialog>: Radix
+   renders the scrim itself. Its look now lives in LEGACY_MODAL_OVERLAY
+   (src/components/ui/dialog.tsx), applied via `overlayClassName`. */
 
 .modal {
   width: min(480px, calc(100vw - 40px));
@@ -17,6 +10,18 @@
   border-radius: var(--radius-md);
   overflow: hidden;
   box-shadow: var(--shadow-modal);
+}
+
+/* Radix <Dialog> renders its content as a direct child of the portal, so a
+   surface that used to be centered by `.modal-backdrop`'s flexbox has to
+   center itself. Applied alongside `.modal` as panels move to <Dialog>;
+   deliberately positioning-only, so migrated modals keep their exact sizing. */
+.modal-dialog-surface {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 200;
 }
 
 /* ─── Premium Tooltips ───────────────────────────────────────────────────── */

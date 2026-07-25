@@ -14,6 +14,13 @@ export interface TerminalStateEntry {
   lastIntentAt: number | null
   isWorking: boolean
   hasUnread: boolean
+  /**
+   * The shell is still running in main but no terminal view is rendering it
+   * (its workspace fell out of the mounted MRU). The entry is deliberately
+   * kept rather than deleted so notifications and sidebar activity still see
+   * the pane — deleting it is what used to make a background agent invisible.
+   */
+  detached: boolean
 }
 
 interface TerminalState {
@@ -28,6 +35,10 @@ interface TerminalState {
   /** Record the user's most recent committed (Enter-terminated) input. */
   setLastIntent: (paneId: string, intent: string) => void
   markRead: (paneId: string) => void
+  /** The view unmounted but the shell keeps running (workspace left the MRU). */
+  markDetached: (paneId: string) => void
+  /** Heartbeat from a session with no attached view — carries no output. */
+  noteBackgroundActivity: (paneId: string, at: number) => void
   removePane: (paneId: string) => void
   setPendingCommand: (paneId: string, command: string) => void
   consumePendingCommand: (paneId: string) => string | null
@@ -41,7 +52,8 @@ const DEFAULT_STATE: TerminalStateEntry = {
   lastIntent: null,
   lastIntentAt: null,
   isWorking: false,
-  hasUnread: false
+  hasUnread: false,
+  detached: false
 }
 
 // Module-level timers so they survive re-renders
@@ -75,6 +87,9 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
           ...(state.panes[paneId] ?? DEFAULT_STATE),
           status,
           error,
+          // Only a mounted view drives a status change, so reaching here means
+          // the pane is being rendered again.
+          detached: false,
           isWorking: status !== 'running' ? false : (state.panes[paneId]?.isWorking ?? false)
         }
       }
@@ -187,6 +202,29 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
         [paneId]: { ...(state.panes[paneId] ?? DEFAULT_STATE), hasUnread: false }
       }
     })),
+
+  markDetached: (paneId) => {
+    // Timers belong to a rendering view; the session outlives them.
+    const working = workingTimers.get(paneId)
+    if (working) clearTimeout(working)
+    workingTimers.delete(paneId)
+    set((state) => {
+      const entry = state.panes[paneId]
+      if (!entry) return state
+      return { panes: { ...state.panes, [paneId]: { ...entry, detached: true, isWorking: false } } }
+    })
+  },
+
+  noteBackgroundActivity: (paneId, at) => {
+    set((state) => {
+      const entry = state.panes[paneId] ?? DEFAULT_STATE
+      // No output is shipped for detached panes, so `lastOutput`/preview stay
+      // as they were; only the "something is happening" signals move.
+      return {
+        panes: { ...state.panes, [paneId]: { ...entry, lastActivityAt: at, hasUnread: true } }
+      }
+    })
+  },
 
   removePane: (paneId) => {
     const working = workingTimers.get(paneId)

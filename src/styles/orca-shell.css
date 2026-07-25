@@ -143,3 +143,16 @@
 .app-statusbar-item.strong { color: var(--tx-secondary); }
 .app-statusbar-item.connected { color: var(--dot-green); }
 .app-statusbar-item.muted { color: color-mix(in srgb, var(--tx-muted) 70%, transparent); }
+
+/* Shells kept alive for workspaces that are not currently rendered. Amber
+   rather than red: this is normal and intended, but worth noticing. */
+.app-statusbar-item.app-statusbar-action {
+  color: var(--dot-yellow);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  padding: 1px 5px;
+}
+.app-statusbar-item.app-statusbar-action:hover {
+  background: var(--surface-hover);
+  color: var(--tx-primary);
+}

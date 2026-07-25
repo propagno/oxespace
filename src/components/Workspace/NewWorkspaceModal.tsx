@@ -6,6 +6,7 @@ import { OxeLogo } from '../Brand/OxeLogo'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { buildAgentSlots, getCopilotCommand, type AgentCount } from './fleetUtils'
 import { LAYOUT_PRESETS } from './workspaceOptions'
+import { Dialog, DialogContent, DialogDescription, DialogTitle, LEGACY_MODAL_OVERLAY } from '@/components/ui/dialog'
 
 export interface WizardLaunchInput {
   rootPath: string
@@ -134,21 +135,24 @@ export function NewWorkspaceModal({
   const canLaunch = hasFolder && !isSubmitting
 
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
-      <section
-        className="modal new-workspace-modal-v2"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="new-workspace-title"
-        onMouseDown={(event) => event.stopPropagation()}
+    <Dialog open onOpenChange={(next) => { if (!next) onClose() }}>
+      <DialogContent
+        unstyled
+        showCloseButton={false}
+        overlayClassName={LEGACY_MODAL_OVERLAY}
+        className="modal new-workspace-modal-v2 modal-dialog-surface"
       >
         <header className="new-workspace-header">
           <span className="new-workspace-header-icon" aria-hidden="true">
             <OxeLogo size={18} variant="compact" />
           </span>
           <div className="new-workspace-header-text">
-            <h2 id="new-workspace-title">Create new workspace</h2>
-            <p>Pick a folder, layout, and optional agents.</p>
+            <DialogTitle asChild>
+              <h2>Create new workspace</h2>
+            </DialogTitle>
+            <DialogDescription asChild>
+              <p>Pick a folder, layout, and optional agents.</p>
+            </DialogDescription>
           </div>
           <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
             <X size={14} aria-hidden="true" />
@@ -311,8 +315,8 @@ export function NewWorkspaceModal({
             {isSubmitting ? 'Creating…' : 'Create workspace'}
           </button>
         </footer>
-      </section>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 

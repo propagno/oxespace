@@ -27,7 +27,10 @@ import {
   type Task,
   type TaskExecution,
   type TaskVerifyOutputEvent,
+  type TerminalActivityEvent,
+  type TerminalAttachResult,
   type TerminalDataEvent,
+  type TerminalStatusResult,
   type TerminalExitEvent,
   type Workspace
 } from '../../shared/types/ipc'
@@ -42,6 +45,7 @@ export interface PreloadIpc {
 export function createOxeApi(ipc: PreloadIpc): OxeApi {
   const terminalData = createPaneSubscriber<TerminalDataEvent>(ipc, IPC_CHANNELS.terminal.onData)
   const terminalExit = createPaneSubscriber<TerminalExitEvent>(ipc, IPC_CHANNELS.terminal.onExit)
+  const terminalActivity = createPaneSubscriber<TerminalActivityEvent>(ipc, IPC_CHANNELS.terminal.onActivity)
 
   return {
     app: {
@@ -86,8 +90,12 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       resize: (input) => ipc.invoke(IPC_CHANNELS.terminal.resize, input) as Promise<void>,
       stop: (input) => ipc.invoke(IPC_CHANNELS.terminal.stop, input) as Promise<void>,
       restart: (input) => ipc.invoke(IPC_CHANNELS.terminal.restart, input) as Promise<void>,
+      attach: (input) => ipc.invoke(IPC_CHANNELS.terminal.attach, input) as Promise<TerminalAttachResult>,
+      detach: (input) => ipc.invoke(IPC_CHANNELS.terminal.detach, input) as Promise<void>,
+      status: (paneId) => ipc.invoke(IPC_CHANNELS.terminal.status, paneId) as Promise<TerminalStatusResult>,
       onData: terminalData,
-      onExit: terminalExit
+      onExit: terminalExit,
+      onActivity: terminalActivity
     },
     agent: {
       list: () => ipc.invoke(IPC_CHANNELS.agent.list) as Promise<AgentProfile[]>,

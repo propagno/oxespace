@@ -9,7 +9,12 @@
      low-priority `oxe-reset` layer so shadcn's layered utilities can win.
    Tokens copied from Orca src/renderer/src/assets/main.css (MIT, stablyai). */
 
-@layer oxe-reset, theme, base, components, utilities;
+/* `oxe-legacy` holds OXESpace's hand-written CSS (imported from styles.css).
+   It sits after Tailwind's `base` so the app reset still wins over preflight,
+   but before `components`/`utilities` so a Tailwind utility or shadcn primitive
+   overrides a legacy panel class — the precedence that lets panels migrate one
+   at a time instead of requiring a single big-bang rewrite. */
+@layer oxe-reset, theme, base, oxe-legacy, components, utilities;
 
 @import 'tailwindcss';
 @import 'tw-animate-css';
@@ -69,60 +74,43 @@
   --color-sidebar-border: var(--sh-sidebar-border);
 }
 
-/* Light mode (shadcn defaults, namespaced). */
-:root {
-  --sh-background: #fff;
-  --sh-foreground: #0a0a0a;
-  --sh-card: #fff;
-  --sh-card-foreground: #0a0a0a;
-  --sh-popover: #fff;
-  --sh-popover-foreground: #0a0a0a;
-  --sh-primary: #171717;
-  --sh-primary-foreground: #fafafa;
-  --sh-secondary: #f5f5f5;
-  --sh-secondary-foreground: #171717;
-  --sh-muted: #f5f5f5;
-  --sh-muted-foreground: #737373;
-  --sh-accent: #f5f5f5;
-  --sh-accent-foreground: #171717;
-  --sh-destructive: #e40014;
-  --sh-destructive-foreground: #fcf3f3;
-  --sh-border: #e5e5e5;
-  --sh-input: #e5e5e5;
-  --sh-ring: #a1a1a1;
-  --sh-sidebar: #fafafa;
-  --sh-sidebar-foreground: #0a0a0a;
-  --sh-sidebar-accent: #f5f5f5;
-  --sh-sidebar-accent-foreground: #171717;
-  --sh-sidebar-border: #e5e5e5;
-}
-
-/* Dark mode — OXESpace runs dark, so `.dark` is set on <html> at boot. */
+/* F1 token bridge — shadcn semantic tokens map onto OXESpace's brand identity
+   (tokens.css) instead of shadcn's neutral-gray defaults, so every ported
+   primitive (Button, Card, CommandMenu…) reads as OXESpace, not stock shadcn.
+   tokens.css is theme-agnostic (single dark identity), so both :root and .dark
+   resolve to the same brand values; the split is kept for shadcn compatibility
+   and any future light theme. Original shadcn defaults kept in comments. */
+:root,
 .dark {
-  --sh-background: #0a0a0a;
-  --sh-foreground: #fafafa;
-  --sh-card: #171717;
-  --sh-card-foreground: #fafafa;
-  --sh-popover: #171717;
-  --sh-popover-foreground: #fafafa;
-  --sh-primary: #e5e5e5;
-  --sh-primary-foreground: #171717;
-  --sh-secondary: #262626;
-  --sh-secondary-foreground: #fafafa;
-  --sh-muted: #262626;
-  --sh-muted-foreground: #a1a1a1;
-  --sh-accent: #404040;
-  --sh-accent-foreground: #fafafa;
-  --sh-destructive: #ff6568;
-  --sh-destructive-foreground: #df2225;
-  --sh-border: rgb(255 255 255 / 0.07);
-  --sh-input: rgb(255 255 255 / 0.15);
-  --sh-ring: #737373;
-  --sh-sidebar: #171717;
-  --sh-sidebar-foreground: #fafafa;
-  --sh-sidebar-accent: #262626;
-  --sh-sidebar-accent-foreground: #fafafa;
-  --sh-sidebar-border: rgb(255 255 255 / 0.07);
+  --sh-background: var(--bg-app);              /* was #0a0a0a */
+  --sh-foreground: var(--tx-primary);          /* was #fafafa */
+  --sh-card: var(--bg-elevated);               /* was #171717 */
+  --sh-card-foreground: var(--tx-primary);
+  --sh-popover: var(--bg-elevated);
+  --sh-popover-foreground: var(--tx-primary);
+  /* `--accent`, not `--brand`: the 11 `[data-theme]` palettes retheme --accent
+     (nord→blue, dracula→cyan…) while --brand stays the fixed logo emerald.
+     Primitives must follow the active theme, so they track --accent. Every
+     themed accent is a light/saturated hue on a dark app surface, so the app
+     background doubles as a foreground that stays readable in all of them. */
+  --sh-primary: var(--accent);                 /* was #e5e5e5 */
+  --sh-primary-foreground: var(--bg-app);      /* dark-on-accent, themed */
+  --sh-secondary: var(--bg-segment);           /* was #262626 */
+  --sh-secondary-foreground: var(--tx-primary);
+  --sh-muted: var(--surface-quiet);            /* was #262626 */
+  --sh-muted-foreground: var(--tx-muted);      /* was #a1a1a1 */
+  --sh-accent: var(--bg-ws-hover);             /* hover surface */
+  --sh-accent-foreground: var(--tx-primary);
+  --sh-destructive: var(--dot-red);            /* was #ff6568 */
+  --sh-destructive-foreground: #fff;
+  --sh-border: var(--bd-subtle);               /* was rgb(255 255 255 / 0.07) */
+  --sh-input: var(--bd-base);                  /* was rgb(255 255 255 / 0.15) */
+  --sh-ring: var(--accent);                    /* matches the oxe-reset outline */
+  --sh-sidebar: var(--bg-sidebar);
+  --sh-sidebar-foreground: var(--tx-primary);
+  --sh-sidebar-accent: var(--bg-ws-hover);
+  --sh-sidebar-accent-foreground: var(--tx-primary);
+  --sh-sidebar-border: var(--bd-sidebar);
 }
 
 /* Thin neutral scrollbar used by ported Orca primitives (command list, etc.). */

@@ -37,6 +37,8 @@ import { useTerminalStore } from './store/terminal.store'
 import { useUIStore } from './store/ui.store'
 import { selectActiveWorkspace, useWorkspaceStore } from './store/workspace.store'
 import { usePaneLayoutStore } from './store/pane-layout.store'
+import { selectWorkspacesToEvict } from './components/Terminal/webglBudget'
+import { VISITED_WORKSPACES_CAP_DEFAULT } from './store/settings.store'
 import { useIntegrationStore } from './store/integration.store'
 import { useWorktreeStore } from './store/worktree.store'
 import { useVoiceStore } from './store/voice.store'
@@ -108,6 +110,7 @@ export function App(): ReactElement {
   const setPendingCommand = useTerminalStore((state) => state.setPendingCommand)
   const setActiveTerminalPaneId = useTerminalStore((state) => state.setActivePaneId)
   const removeTerminalPane = useTerminalStore((state) => state.removePane)
+  const markPaneDetached = useTerminalStore((state) => state.markDetached)
   const activeWorkspace = useWorkspaceStore(selectActiveWorkspace)
   const {
     closeNewWorkspace,
@@ -275,22 +278,31 @@ export function App(): ReactElement {
   // PTYs and disposing xterm/WebGL for an evicted workspace in the activation
   // effect competed directly with mounting the new surface.
   useEffect(() => {
-    const cap = Math.max(1, Math.min(5, visitedWorkspacesCap || 3))
-    if (visitedWorkspaceIds.length <= cap) return
-
     const trim = (): void => {
       const current = visitedWorkspaceIdsRef.current
-      const overflow = Math.max(0, current.length - cap)
-      if (overflow === 0) return
-      const evictedWorkspaceIds = current.slice(0, overflow)
+      const paneCountOf = (workspaceId: string): number =>
+        workspacesRef.current.find((item) => item.id === workspaceId)?.panes.length ?? 0
+      // Budgeted by rendered panes (WebGL contexts), not by workspace count —
+      // five one-pane workspaces are cheaper than three four-pane ones.
+      const evictedWorkspaceIds = selectWorkspacesToEvict(
+        current,
+        paneCountOf,
+        activeWorkspaceId,
+        Math.max(1, visitedWorkspacesCap || VISITED_WORKSPACES_CAP_DEFAULT)
+      )
+      if (evictedWorkspaceIds.length === 0) return
       const evicted = new Set(evictedWorkspaceIds)
       for (const workspaceId of evictedWorkspaceIds) {
         const workspace = workspacesRef.current.find((item) => item.id === workspaceId)
         for (const pane of workspace?.panes ?? []) {
-          // An evicted workspace has no xterm instance or output consumer. Stop
-          // its PTYs rather than letting agents run invisibly and lose output.
-          void window.oxe.terminal.stop({ paneId: pane.id }).catch(() => undefined)
-          removeTerminalPane(pane.id)
+          // The PTY is deliberately NOT stopped. Killing it here is what made
+          // returning to a workspace cost a shell respawn plus a $PROFILE load,
+          // and it discarded whatever an agent had produced. Main keeps the
+          // process and buffers its output; TerminalView's unmount detaches, so
+          // coming back is a replay. The store entry is kept (marked detached)
+          // because deleting it is what made a background agent invisible to
+          // notifications — see useAgentNotifications.
+          markPaneDetached(pane.id)
         }
       }
       setVisitedWorkspaceIds((prev) => prev.filter((id) => !evicted.has(id)))
@@ -306,7 +318,21 @@ export function App(): ReactElement {
     }
     const timer = window.setTimeout(trim, 250)
     return () => window.clearTimeout(timer)
-  }, [removeTerminalPane, visitedWorkspaceIds.length, visitedWorkspacesCap])
+  }, [activeWorkspaceId, markPaneDetached, visitedWorkspaceIds.length, visitedWorkspacesCap])
+
+  // Activity heartbeats for panes with no mounted view. Their TerminalView is
+  // gone, so nothing else would hear them and a working background agent would
+  // look idle in the sidebar. The preload multiplexes one IPC listener across
+  // all panes, so subscribing for every pane is cheap.
+  const notePaneActivity = useTerminalStore((state) => state.noteBackgroundActivity)
+  useEffect(() => {
+    const unsubscribes = workspaces.flatMap((workspace) =>
+      workspace.panes.map((pane) =>
+        window.oxe.terminal.onActivity?.(pane.id, (event) => notePaneActivity(pane.id, event.at)) ?? (() => undefined)
+      )
+    )
+    return () => { for (const off of unsubscribes) off() }
+  }, [notePaneActivity, workspaces])
   const activePane = activeWorkspace?.panes.find((pane) => pane.id === activePaneId) ?? activeWorkspace?.panes[0] ?? null
   const pttHotkey = useVoiceStore((s) => s.pttHotkey)
   const slashPane = slashOverlayPaneId ? activeWorkspace?.panes.find((pane) => pane.id === slashOverlayPaneId) ?? null : null

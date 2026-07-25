@@ -120,6 +120,14 @@ function registerIpcHandlers(): () => void {
         window.webContents.send(IPC_CHANNELS.terminal.onExit, event)
       }
     },
+    // Detached sessions send this instead of their output, so the sidebar and
+    // notifications still reflect a background agent without shipping bytes
+    // that no view would render.
+    emitActivity: (event) => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        window.webContents.send(IPC_CHANNELS.terminal.onActivity, event)
+      }
+    },
     userDataPath: app.getPath('userData')
   })
   
@@ -306,6 +314,9 @@ function registerNativeFailureIpcHandlers(message: string): void {
   ipcMain.handle(IPC_CHANNELS.terminal.resize, fail)
   ipcMain.handle(IPC_CHANNELS.terminal.stop, fail)
   ipcMain.handle(IPC_CHANNELS.terminal.restart, fail)
+  ipcMain.handle(IPC_CHANNELS.terminal.attach, fail)
+  ipcMain.handle(IPC_CHANNELS.terminal.detach, fail)
+  ipcMain.handle(IPC_CHANNELS.terminal.status, fail)
   ipcMain.handle(IPC_CHANNELS.voice.transcribe, fail)
   ipcMain.handle(IPC_CHANNELS.voice.getModelStatus, () => ({ size: 'base', ready: false, path: '', engineReady: false }))
   ipcMain.handle(IPC_CHANNELS.voice.ensureModel, fail)
@@ -605,6 +616,13 @@ function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.terminal.resize, () => undefined)
   ipcMain.handle(IPC_CHANNELS.terminal.stop, () => undefined)
   ipcMain.handle(IPC_CHANNELS.terminal.restart, () => undefined)
+  // The mock never keeps a session, so a mounting view is told to start fresh
+  // rather than waiting for a replay that will not come.
+  ipcMain.handle(IPC_CHANNELS.terminal.attach, () => ({
+    running: false, seq: 0, prologue: '', replay: '', truncated: false, altScreen: false
+  }))
+  ipcMain.handle(IPC_CHANNELS.terminal.detach, () => undefined)
+  ipcMain.handle(IPC_CHANNELS.terminal.status, () => ({ running: false, seq: 0, altScreen: false }))
   ipcMain.handle(IPC_CHANNELS.voice.transcribe, () => ({ text: '', durationMs: 0 }))
   ipcMain.handle(IPC_CHANNELS.voice.getModelStatus, () => ({ size: 'base', ready: false, path: '', engineReady: false }))
   ipcMain.handle(IPC_CHANNELS.voice.ensureModel, () => ({ size: 'base', ready: false, path: '', engineReady: false }))

@@ -9,6 +9,8 @@ import { ArrowDown, ArrowUp, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
 import type { ITheme } from '@xterm/xterm'
 import type { WorkspaceThemeId } from '../../../shared/types/workspace'
+import type { TerminalAttachResult } from '../../../shared/types/ipc'
+import { MAX_WEBGL_CONTEXTS } from './webglBudget'
 import type { TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { wheelToTuiScrollKeys } from '../../utils/terminalWheel'
@@ -19,10 +21,8 @@ const AGENT_MARKERS = ['⏺', '●']
 let activeWebglContexts = 0
 let webgl2Supported: boolean | null = null
 // Browsers cap WebGL contexts per tab (Chrome: 16). When exceeded, the oldest
-// context is lost, unexpectedly breaking older terminals. By capping at 14, we
-// leave room for other components and gracefully fall back to the DOM renderer
-// for new terminals instead of crashing existing ones.
-const MAX_WEBGL_CONTEXTS = 14
+// context is lost, unexpectedly breaking older terminals. Shared with the MRU
+// trim in App.tsx, which budgets mounted panes against the same limit.
 
 /**
  * Preflight: can we actually get a WebGL2 context? @xterm/addon-webgl needs one,
@@ -304,7 +304,10 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
     } catch (err) {
       console.warn('[OXESpace] Unicode 11 activation failed, using default widths', err)
     }
-    terminal.write('Idle\r\n')
+    // 'Idle' is NOT written here any more. This view may be re-mounting onto a
+    // session that has been running all along (a workspace coming back from the
+    // MRU), and stamping "Idle" above its restored output would be a lie. The
+    // attach handshake below decides what the first line should be.
 
     const dataDisposable = terminal.onData((data) => {
       // The user typed into the PTY — any earlier selection is no longer a copy
@@ -633,7 +636,19 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
 
     let previewTimer: ReturnType<typeof setTimeout> | null = null
 
+    // Attach handshake. The session may already be running in main, so we must
+    // subscribe BEFORE asking for the backlog and hold anything that arrives
+    // in between — otherwise output produced during the round trip is either
+    // lost (written before the replay) or duplicated (present in both).
+    let attachPending = true
+    let disposed = false
+    const queuedWhileAttaching: string[] = []
+
     const unsubscribeData = window.oxe.terminal.onData(paneId, (event) => {
+      if (attachPending) {
+        queuedWhileAttaching.push(event.data)
+        return
+      }
       // Smart scrollback (normal buffer only): when the user has scrolled up to
       // read history, new streaming output shouldn't yank them to the bottom.
       // Skip this on the alternate screen (Grok/Claude TUIs) — those apps own
@@ -672,7 +687,38 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
       onExitRef.current?.(event.exitCode)
     })
 
+    void (async () => {
+      let attached: TerminalAttachResult | null = null
+      try {
+        // Optional-chained: some test harnesses stub only part of the bridge.
+        attached = (await window.oxe.terminal.attach?.({ paneId })) ?? null
+      } catch {
+        // Main could not answer — fall through and render as a fresh view.
+      }
+      if (disposed) return
+
+      if (attached?.running || attached?.exit) {
+        // The buffer we are restoring may be missing its head, so start from a
+        // clean screen rather than appending onto a partial frame.
+        if (attached.truncated) terminal.write('\x1b[2J\x1b[H')
+        if (attached.prologue) terminal.write(attached.prologue)
+        if (attached.replay) terminal.write(attached.replay)
+        if (attached.exit) terminal.write(`\r\n[process exited ${attached.exit.exitCode ?? ''}]\r\n`)
+      } else {
+        terminal.write('Idle\r\n')
+      }
+
+      for (const chunk of queuedWhileAttaching) terminal.write(chunk)
+      queuedWhileAttaching.length = 0
+      attachPending = false
+    })()
+
     return () => {
+      disposed = true
+      // Release the session without killing it: the shell keeps running and
+      // main keeps its output, so coming back costs a replay instead of a
+      // respawn. This is the whole point of the attach model.
+      void window.oxe.terminal.detach?.({ paneId })
       if (fitFrameRef.current !== null) {
         window.cancelAnimationFrame(fitFrameRef.current)
         fitFrameRef.current = null
