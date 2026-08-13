@@ -12,10 +12,25 @@ interface WorkspaceLifecycleController {
   stopWorkspace(workspaceId: string): Promise<void> | void
 }
 
-export function registerWorkspaceIpc(db: AppDatabase, semanticService: SemanticService, lifecycle?: WorkspaceLifecycleController): void {
-  const workspaceService = new WorkspaceService(db)
-  const shellProfileService = new ShellProfileService(db)
-  const agentService = new AgentService(db)
+/**
+ * Services this adapter drives. Supplied as an object rather than as three more
+ * positional defaults so a test can replace one without naming the other two.
+ */
+export interface WorkspaceIpcServices {
+  workspaceService?: WorkspaceService
+  shellProfileService?: ShellProfileService
+  agentService?: AgentService
+}
+
+export function registerWorkspaceIpc(
+  db: AppDatabase,
+  semanticService: SemanticService,
+  lifecycle?: WorkspaceLifecycleController,
+  services: WorkspaceIpcServices = {}
+): void {
+  const workspaceService = services.workspaceService ?? new WorkspaceService(db)
+  const shellProfileService = services.shellProfileService ?? new ShellProfileService(db)
+  const agentService = services.agentService ?? new AgentService(db)
 
   ipcMain.handle(IPC_CHANNELS.workspace.list, () => workspaceService.list())
   ipcMain.handle(IPC_CHANNELS.workspace.create, (_event, input: unknown) =>

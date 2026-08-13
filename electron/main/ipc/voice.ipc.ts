@@ -11,14 +11,17 @@ import { VoiceService } from '../services/voice.service'
  *   - `voice:ensure-model`      — download the model on first use.
  *   - `voice:on-model-progress` — push channel broadcasting download progress.
  */
-export function registerVoiceIpc(): VoiceService {
-  const service = new VoiceService({
+function createVoiceService(): VoiceService {
+  return new VoiceService({
     emitProgress: (event) => {
       for (const win of BrowserWindow.getAllWindows()) {
         if (!win.isDestroyed()) win.webContents.send(IPC_CHANNELS.voice.onModelProgress, event)
       }
     }
   })
+}
+
+export function registerVoiceIpc(service = createVoiceService()): VoiceService {
 
   ipcMain.handle(IPC_CHANNELS.voice.transcribe, (_e, wav: Uint8Array, options?: VoiceTranscribeOptions) =>
     service.transcribe(wav, options)

@@ -6,8 +6,11 @@ import type { InternalMcpHandle } from '../mcp-internal/bootstrap'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import { DiagnosticsService } from '../services/diagnostics.service'
 
-export function registerDiagnosticsIpc(db: AppDatabase, internalMcp: InternalMcpHandle): DiagnosticsService {
-  const service = new DiagnosticsService(db, () => internalMcp.getStatus())
+export function registerDiagnosticsIpc(
+  db: AppDatabase,
+  internalMcp: InternalMcpHandle,
+  service = new DiagnosticsService(db, () => internalMcp.getStatus())
+): DiagnosticsService {
   ipcMain.handle(IPC_CHANNELS.diagnostics.getSnapshot, () => service.getSnapshot())
   ipcMain.handle(IPC_CHANNELS.diagnostics.exportReport, async (event) => {
     const owner = BrowserWindow.fromWebContents(event.sender) ?? undefined

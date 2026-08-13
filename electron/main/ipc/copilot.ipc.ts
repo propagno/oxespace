@@ -6,7 +6,6 @@ import { CopilotCreditsService } from '../services/copilotCredits.service'
  * Renderer-facing IPC for the global Copilot AI-Credits counter.
  *   - `copilot:credits` — quota snapshot (premium_interactions) via `gh api`.
  */
-export function registerCopilotIpc(): void {
-  const service = new CopilotCreditsService()
+export function registerCopilotIpc(service = new CopilotCreditsService()): void {
   ipcMain.handle(IPC_CHANNELS.copilot.credits, (_e, force?: boolean) => service.getCredits(force === true))
 }
