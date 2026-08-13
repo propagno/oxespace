@@ -431,6 +431,7 @@ export function App(): ReactElement {
     const workspace = await createWorkspace({
       rootPath: input.rootPath,
       layoutPreset: input.layoutPreset,
+      defaultShellProfileId: input.defaultShellProfileId,
       autoStart: true,
       agentBindings: input.agentBindings
     })

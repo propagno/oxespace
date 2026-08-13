@@ -131,6 +131,33 @@ describe('NewWorkspaceModal (single-page)', () => {
     }))
   })
 
+  test('unselected slots stay neutral shells even when Copilot is configured', async () => {
+    const user = userEvent.setup()
+    const onLaunch = vi.fn().mockResolvedValue(undefined)
+    const copilot: AgentProfile = {
+      agentProfileId: 'p-copilot',
+      name: 'Copilot',
+      provider: 'gh-copilot',
+      command: 'copilot',
+      commandTemplate: 'copilot',
+      isBuiltin: true
+    }
+    renderModal({ onLaunch, agentProfiles: [...mockAgents, copilot] })
+
+    await user.type(screen.getByTestId('wizard-dir-input'), '/home/dev/repo')
+    await user.click(screen.getByTestId('wizard-layout-card-2'))
+    await user.click(screen.getByTestId('wizard-launch-btn'))
+
+    expect(onLaunch).toHaveBeenCalledWith(expect.objectContaining({
+      agentSlots: ['', ''],
+      defaultShellProfileId: 'sh-1',
+      agentBindings: [
+        { paneIndex: 0, shellProfileId: 'sh-1' },
+        { paneIndex: 1, shellProfileId: 'sh-1' }
+      ]
+    }))
+  })
+
   test('Clear selection wipes agent counts', async () => {
     const user = userEvent.setup()
     renderModal()

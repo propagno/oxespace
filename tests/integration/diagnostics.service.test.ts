@@ -1,3 +1,4 @@
+import { homedir } from 'node:os'
 import { describe, expect, test, vi } from 'vitest'
 import { openInMemoryDatabase } from '../../electron/main/db'
 import { DiagnosticsService, sanitizeDiagnosticText } from '../../electron/main/services/diagnostics.service'
@@ -30,5 +31,12 @@ describe('DiagnosticsService', () => {
     expect(text).not.toContain('super-secret')
     expect(text).not.toContain('hunter2')
     expect(text).toContain('[REDACTED]')
+  })
+
+  test('replaces the home directory with the token the host uses', () => {
+    const text = sanitizeDiagnosticText(`workspace at ${homedir()}/projects/repo`)
+
+    expect(text).not.toContain(homedir())
+    expect(text).toContain(process.platform === 'win32' ? '%USERPROFILE%' : '~')
   })
 })

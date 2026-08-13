@@ -4,6 +4,16 @@ import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
+/**
+ * Folder under resources/whisper holding this host's whisper.cpp build. The
+ * directories are named the electron-builder way (win-x64), not the Node way
+ * (win32-x64) — voice.service.ts resolves the same name.
+ */
+function whisperDirName(): string {
+  const os = process.platform === 'win32' ? 'win' : process.platform === 'darwin' ? 'mac' : process.platform
+  return `${os}-${process.arch}`
+}
+
 /** node_modules path fragments belonging to the react-markdown pipeline (#10). */
 const MARKDOWN_CHUNK_PARTS = [
   'react-markdown',
@@ -66,10 +76,12 @@ export default defineConfig({
         // Mirror the bundled whisper.cpp binary into out/main/whisper so the
         // voice service (`__dirname/whisper/whisper-cli.exe`) resolves it in
         // dev. The packaged build picks it up via the electron-builder
-        // extraResources entry. No-op until the binary is present.
+        // extraResources entry. No-op until the binary is present — only a
+        // win-x64 build is bundled today, so on other hosts the voice service
+        // reports the engine unavailable and the feature hides itself.
         name: 'copy-whisper',
         closeBundle() {
-          const src = resolve(__dirname, 'resources/whisper/win-x64')
+          const src = resolve(__dirname, `resources/whisper/${whisperDirName()}`)
           if (existsSync(src)) {
             cpSync(src, resolve(__dirname, 'out/main/whisper'), { recursive: true })
           }

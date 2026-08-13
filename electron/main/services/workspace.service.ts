@@ -1,6 +1,7 @@
 import { basename } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../db/index'
+import { defaultSplitShellProfileId } from './shell-profile.defaults'
 import type {
   CreateWorkspaceInput,
   PaneAgentBinding,
@@ -66,7 +67,9 @@ interface PaneRow {
 }
 
 const DEFAULT_SHELL_PROFILE_ID = 'builtin-claude'
-const DEFAULT_SPLIT_SHELL_PROFILE_ID = 'builtin-powershell'
+// PowerShell on Windows, bash elsewhere — migration 046 repointed the existing
+// rows to match, so this must resolve from the same helper the migration mirrors.
+const DEFAULT_SPLIT_SHELL_PROFILE_ID = defaultSplitShellProfileId()
 const DEFAULT_THEME_ID: WorkspaceThemeId = 'dracula'
 const DEFAULT_UI_DENSITY: WorkspaceDensity = 'compact'
 const DEFAULT_LAYOUT_PRESET: WorkspaceLayoutPreset = 4

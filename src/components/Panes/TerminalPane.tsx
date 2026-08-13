@@ -329,7 +329,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
   }, [moreOpen])
 
   return (
-    <div className="terminal-pane" data-testid="terminal-pane">
+    <div className="terminal-pane" data-testid="terminal-pane" data-pane-id={pane.id}>
       {state.error ? <div className="terminal-error-bar">{state.error}</div> : null}
 
       {isRunning ? (

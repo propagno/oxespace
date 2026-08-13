@@ -4,13 +4,14 @@ import type { AgentProfile } from '../../../shared/types/agent'
 import type { PaneAgentBinding, ShellProfile, WorkspaceLayoutPreset } from '../../../shared/types/workspace'
 import { OxeLogo } from '../Brand/OxeLogo'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
-import { buildAgentSlots, getCopilotCommand, type AgentCount } from './fleetUtils'
+import { buildAgentSlots, type AgentCount } from './fleetUtils'
 import { LAYOUT_PRESETS } from './workspaceOptions'
 import { Dialog, DialogContent, DialogDescription, DialogTitle, LEGACY_MODAL_OVERLAY } from '@/components/ui/dialog'
 
 export interface WizardLaunchInput {
   rootPath: string
   layoutPreset: WorkspaceLayoutPreset
+  defaultShellProfileId: string
   agentSlots: string[]
   agentBindings: PaneAgentBinding[]
 }
@@ -22,6 +23,11 @@ interface NewWorkspaceModalProps {
   onPickFolder: () => Promise<string | null>
   onClose: () => void
 }
+
+/** Built-in profiles that launch an agent CLI rather than a plain shell. The
+ *  remaining builtin is the neutral shell, whose identity varies by platform
+ *  (builtin-powershell on Windows, builtin-bash on Linux/macOS). */
+const AGENT_SHELL_PROFILE_IDS = new Set(['builtin-claude', 'builtin-copilot'])
 
 const PRESET_LABELS: Record<WorkspaceLayoutPreset, { label: string; description: string; cols: number; rows: number }> = {
   1:  { label: '1 pane',  description: 'One terminal',     cols: 1, rows: 1 },
@@ -45,12 +51,18 @@ export function NewWorkspaceModal({
   const [rootPath, setRootPath] = useState('')
   const [layoutPreset, setLayoutPreset] = useState<WorkspaceLayoutPreset>(4)
   const [agentCounts, setAgentCounts] = useState<Record<string, number>>({})
-  const [powerShellCount, setPowerShellCount] = useState(0)
+  const [shellCount, setShellCount] = useState(0)
   const [isPickingFolder, setIsPickingFolder] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const totalSelected = Object.values(agentCounts).reduce((a, b) => a + b, 0) + powerShellCount
+  // The neutral shell profile is PowerShell on Windows and Bash on Linux, so
+  // the chip is labelled from the profile the main process actually seeded
+  // rather than from a hardcoded product name.
+  const shellProfile = shellProfiles.find((profile) => !AGENT_SHELL_PROFILE_IDS.has(profile.id)) ?? null
+  const shellLabel = shellProfile?.name ?? 'Shell'
+
+  const totalSelected = Object.values(agentCounts).reduce((a, b) => a + b, 0) + shellCount
   const remaining = Math.max(0, layoutPreset - totalSelected)
   const hasFolder = rootPath.trim().length > 0
   const folderBasename = hasFolder
@@ -82,7 +94,7 @@ export function NewWorkspaceModal({
 
   const clearAgents = (): void => {
     setAgentCounts({})
-    setPowerShellCount(0)
+    setShellCount(0)
   }
 
   const handleLaunch = async (): Promise<void> => {
@@ -93,12 +105,10 @@ export function NewWorkspaceModal({
     setIsSubmitting(true)
     setError(null)
     try {
-      const powerShellProfile = shellProfiles.find((profile) => profile.id === 'builtin-powershell')
-        ?? shellProfiles.find((profile) => profile.name.toLowerCase() === 'powershell')
-      if (powerShellCount > 0 && !powerShellProfile) {
-        throw new Error('PowerShell profile is unavailable.')
+      const defaultShellCount = layoutPreset - Object.values(agentCounts).reduce((a, b) => a + b, 0)
+      if (defaultShellCount > 0 && !shellProfile) {
+        throw new Error(`${shellLabel} profile is unavailable.`)
       }
-      const copilotCmd = getCopilotCommand(agentProfiles)
       const counts: AgentCount[] = Object.entries(agentCounts)
         .filter(([, c]) => c > 0)
         .map(([id, count]) => ({
@@ -107,8 +117,11 @@ export function NewWorkspaceModal({
           count
         }))
       const agentSlots = [
-        ...buildAgentSlots(counts, layoutPreset - powerShellCount, copilotCmd),
-        ...Array<string>(powerShellCount).fill('')
+        // Unselected slots are the neutral host shell advertised by the UI.
+        // Do not silently fill them with Copilot: on a clean Linux install the
+        // CLI may not exist, leaving every initial pane failed instead of Bash.
+        ...buildAgentSlots(counts, layoutPreset - shellCount, ''),
+        ...Array<string>(shellCount).fill('')
       ]
       const agentBindings = agentSlots.flatMap((cmd, paneIndex) => {
         if (!cmd) return []
@@ -116,15 +129,15 @@ export function NewWorkspaceModal({
         if (!profile) return []
         return [{ paneIndex, agentProfileId: profile.agentProfileId, agentName: profile.name }]
       })
-      const powerShellBindings = Array.from({ length: powerShellCount }, (_, index) => ({
-        paneIndex: agentSlots.length - powerShellCount + index,
-        shellProfileId: powerShellProfile!.id
-      }))
+      const shellBindings = agentSlots.flatMap((command, paneIndex) => command
+        ? []
+        : [{ paneIndex, shellProfileId: shellProfile!.id }])
       await onLaunch({
         rootPath: rootPath.trim(),
         layoutPreset,
+        defaultShellProfileId: shellProfile!.id,
         agentSlots,
-        agentBindings: [...agentBindings, ...powerShellBindings]
+        agentBindings: [...agentBindings, ...shellBindings]
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create workspace')
@@ -250,18 +263,18 @@ export function NewWorkspaceModal({
             </div>
             <div className="new-workspace-agent-chips" data-testid="wizard-agent-list">
               <AgentChip
-                name="PowerShell"
+                name={shellLabel}
                 icon={<Terminal size={12} aria-hidden="true" />}
-                count={powerShellCount}
+                count={shellCount}
                 totalSelected={totalSelected}
                 layoutPreset={layoutPreset}
-                onIncrement={() => setPowerShellCount((c) => c + 1)}
-                onDecrement={() => setPowerShellCount((c) => Math.max(0, c - 1))}
-                testId="wizard-powershell-only"
-                countTestId="agent-count-powershell"
-                addLabel="Add PowerShell"
-                removeLabel="Remove one PowerShell"
-                incLabel="Add another PowerShell"
+                onIncrement={() => setShellCount((c) => c + 1)}
+                onDecrement={() => setShellCount((c) => Math.max(0, c - 1))}
+                testId="wizard-shell-only"
+                countTestId="agent-count-shell"
+                addLabel={`Add ${shellLabel}`}
+                removeLabel={`Remove one ${shellLabel}`}
+                incLabel={`Add another ${shellLabel}`}
               />
               {agentProfiles.length === 0 ? (
                 <p className="new-workspace-empty">No agents configured. The workspace will start with default shells.</p>

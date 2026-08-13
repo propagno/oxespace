@@ -67,8 +67,10 @@ export class DiagnosticsService {
 
 export function sanitizeDiagnosticText(value: string): string {
   const home = homedir().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  // A pasted diagnostic should read naturally on the host it came from.
+  const homeToken = process.platform === 'win32' ? '%USERPROFILE%' : '~'
   return value
-    .replace(new RegExp(home, 'gi'), '%USERPROFILE%')
+    .replace(new RegExp(home, 'gi'), homeToken)
     .replace(/Bearer\s+[A-Za-z0-9._~+\/-]+/gi, 'Bearer [REDACTED]')
     .replace(/((?:token|secret|password|authorization|api[_-]?key)["'\s:=]+)([^\s,"'}]+)/gi, '$1[REDACTED]')
 }

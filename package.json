@@ -2,6 +2,7 @@
   "name": "oxespace",
   "version": "0.6.1",
   "description": "An open source, AI-native workspace and terminal",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/propagno/oxespace.git"
@@ -31,7 +32,9 @@
     "shots:settings": "playwright test --config playwright.tools.config.ts settings-tabs.spec.ts",
     "prepare:model": "node scripts/fetch-semantic-model.mjs",
     "postinstall": "npm run rebuild:native",
-    "dist": "npm run prepare:model && npm run build && npm run fix:native && npm run slim:pack && electron-builder --win --config.npmRebuild=false --publish never",
+    "dist": "node scripts/dist-host.mjs",
+    "dist:win": "npm run prepare:model && npm run build && npm run fix:native && npm run slim:pack -- --platform=win32 --arch=x64 && electron-builder --win --config.npmRebuild=false --publish never",
+    "dist:linux": "npm run prepare:model && npm run build && npm run fix:native && npm run slim:pack -- --platform=linux --arch=x64 && electron-builder --linux --config.npmRebuild=false --publish never",
     "rebuild:native": "electron-rebuild -f -w node-pty,better-sqlite3",
     "rebuild:native:electron": "electron-rebuild -f -w node-pty,better-sqlite3",
     "rebuild:native:node": "npm rebuild better-sqlite3 node-pty",
@@ -42,6 +45,7 @@
     "slim:pack": "node scripts/slim-pack-deps.mjs",
     "generate:icon": "node scripts/generate-icon.mjs",
     "test:smoke": "playwright test e2e/smoke-hub.spec.ts",
+    "verify:linux": "docker build -f docker/linux-verify.Dockerfile -t oxespace-linux-verify . && docker run --rm --name oxespace-linux-verify-run --shm-size=1g oxespace-linux-verify",
     "release:checksums": "node scripts/release-checksums.mjs"
   },
   "dependencies": {

@@ -717,7 +717,7 @@
 
 .design-grab-facts dt {
   color: var(--tx-muted);
-  font-family: 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 .design-grab-facts dd {

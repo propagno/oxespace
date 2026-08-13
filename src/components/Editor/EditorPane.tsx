@@ -308,7 +308,7 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
                 options={{
                   minimap: { enabled: false },
                   fontSize: 13,
-                  fontFamily: 'Cascadia Code, JetBrains Mono, Fira Code, monospace',
+                  fontFamily: 'Cascadia Code, JetBrains Mono, Fira Code, DejaVu Sans Mono, monospace',
                   automaticLayout: true,
                   scrollBeyondLastLine: false,
                   scrollbar: {

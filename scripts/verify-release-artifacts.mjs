@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 /**
- * Validate the exact Windows release payload before it becomes public.
+ * Validate the exact release payload for one OS before it becomes public.
  * Checks the expected version/tag, updater manifest SHA-512, and (when
  * present) the SHA-256 checksum file uploaded alongside the release.
+ *
+ * Usage: node scripts/verify-release-artifacts.mjs --dir <path> --version <v>
+ *          --tag <vX.Y.Z> [--platform win|linux]   (--platform defaults to host)
  */
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
@@ -13,7 +16,7 @@ for (let index = 2; index < process.argv.length; index += 2) {
   const key = process.argv[index]
   const value = process.argv[index + 1]
   if (!key?.startsWith('--') || !value) {
-    console.error('Usage: node scripts/verify-release-artifacts.mjs --dir <path> --version <version> --tag <tag>')
+    console.error('Usage: node scripts/verify-release-artifacts.mjs --dir <path> --version <version> --tag <tag> [--platform win|linux]')
     process.exit(1)
   }
   args.set(key.slice(2), value)
@@ -35,11 +38,55 @@ if (!existsSync(directory)) {
   process.exit(1)
 }
 
+// Which OS payload this run is verifying. Defaults to the host so the existing
+// Windows invocation keeps working without the flag.
+const platform = args.get('platform') ?? (process.platform === 'win32' ? 'win' : 'linux')
+if (platform !== 'win' && platform !== 'linux') {
+  console.error(`Unsupported --platform ${platform}. Expected "win" or "linux".`)
+  process.exit(1)
+}
+
 const prerelease = version.match(/-([a-z]+)(?:[.-]|$)/i)?.[1]?.toLowerCase()
-const manifestName = prerelease ? `${prerelease}.yml` : 'latest.yml'
-const installerName = `OXESpace-${version}-x64.exe`
-const required = [installerName, `${installerName}.blockmap`, manifestName, 'sbom.spdx.json']
+const channel = prerelease ?? 'latest'
+// electron-updater writes a per-OS manifest on Linux (latest-linux.yml) but an
+// unsuffixed one on Windows.
+const manifestName = platform === 'linux' ? `${channel}-linux.yml` : `${channel}.yml`
+
+// The manifest's `path` points at the primary in-place-updatable artifact:
+// the NSIS installer on Windows, the AppImage on Linux (a .deb cannot self-update).
+const installerName = platform === 'linux'
+  ? `OXESpace-${version}-x64.AppImage`
+  : `OXESpace-${version}-x64.exe`
+
 const present = new Set(readdirSync(directory))
+
+// The build job emits a bare sbom.spdx.json; the release job namespaces it per
+// platform before publishing so the two legs cannot overwrite each other.
+// Accept whichever form is on disk so the same check covers both stages.
+const sbomName = [`sbom-${platform === 'win' ? 'windows' : 'linux'}-x64.spdx.json`, 'sbom.spdx.json']
+  .find((name) => present.has(name)) ?? 'sbom.spdx.json'
+
+const required = [installerName, manifestName, sbomName]
+// Blockmaps are a Windows/NSIS differential-download artifact; Linux has none.
+if (platform === 'win') required.push(`${installerName}.blockmap`)
+
+// The .deb is matched by pattern, not by exact name: electron-builder renders
+// ${arch} as the Debian architecture (amd64) rather than the Electron one (x64),
+// and that naming is upstream's to change. Without this the .deb shipped
+// unverified — absent or corrupt, it passed every check.
+if (platform === 'linux') {
+  const debs = [...present].filter((name) => /\.deb$/i.test(name))
+  if (debs.length !== 1) {
+    console.error(
+      debs.length === 0
+        ? 'Missing release artifact: no .deb produced by the Linux build.'
+        : `Expected exactly one .deb, found ${debs.length}: ${debs.join(', ')}`
+    )
+    process.exit(1)
+  }
+  required.push(debs[0])
+}
+
 const missing = required.filter((name) => !present.has(name))
 if (missing.length > 0) {
   console.error(`Missing release artifact(s): ${missing.join(', ')}`)
@@ -85,4 +132,4 @@ if (existsSync(checksumsPath)) {
   }
 }
 
-console.log(`Verified ${tag}: ${installerName}, ${manifestName}, blockmap, SBOM, and checksums.`)
+console.log(`Verified ${tag} (${platform}): ${required.join(', ')}, and checksums.`)

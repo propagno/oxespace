@@ -26,7 +26,7 @@ import { useAgentStore } from '../../store/agent.store'
 import { useVoiceStore } from '../../store/voice.store'
 import { useSettingsStore, VISITED_WORKSPACES_CAP_MAX, VISITED_WORKSPACES_CAP_MIN } from '../../store/settings.store'
 import { Dialog, DialogContent, DialogTitle, LEGACY_MODAL_OVERLAY } from '@/components/ui/dialog'
-import { useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
+import { TERMINAL_PREFS_DEFAULTS, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useUpdaterStore } from '../../store/updater.store'
 
 interface SettingsModalProps {
@@ -843,12 +843,17 @@ const CURSOR_OPTIONS: Array<{ value: TerminalCursorStyle; label: string }> = [
 ]
 
 const FONT_PRESETS = [
-  'JetBrains Mono, Cascadia Mono, Consolas, monospace',
+  TERMINAL_PREFS_DEFAULTS.fontFamily,
   'Cascadia Mono, Consolas, monospace',
   'Cascadia Code, monospace',
   'JetBrains Mono, monospace',
   'Fira Code, monospace',
   'Consolas, monospace',
+  // Ship with most Linux desktops, where the Windows families above resolve
+  // to nothing.
+  'DejaVu Sans Mono, monospace',
+  'Ubuntu Mono, monospace',
+  'Liberation Mono, monospace',
   'monospace'
 ]
 

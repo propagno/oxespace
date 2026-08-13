@@ -4,6 +4,8 @@ import { tmpdir } from 'node:os'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { FileSystemService, MAX_TEXT_FILE_BYTES } from '../../electron/main/services/file-system.service'
 
+const testWindows = process.platform === 'win32' ? test : test.skip
+
 describe('FileSystemService', () => {
   let rootPath: string
   let service: FileSystemService
@@ -54,6 +56,15 @@ describe('FileSystemService', () => {
     await expect(service.readFile({ workspaceId: 'workspace-1', rootPath, relativePath: join(rootPath, '..', 'secret.txt') })).rejects.toThrow(
       'Path escapes workspace root'
     )
+    await expect(service.writeFile({ workspaceId: 'workspace-1', rootPath, relativePath: '/etc/passwd', content: 'x' })).rejects.toThrow(
+      'Path escapes workspace root'
+    )
+  })
+
+  // A backslash is path syntax only on Windows. On POSIX `..\secret.txt` is an
+  // ordinary filename that resolves inside the root, so refusing it there would
+  // be wrong — the traversal cases above already cover the real escape.
+  testWindows('treats a backslash as a separator when escaping the root', async () => {
     await expect(service.writeFile({ workspaceId: 'workspace-1', rootPath, relativePath: '..\\secret.txt', content: 'x' })).rejects.toThrow(
       'Path escapes workspace root'
     )

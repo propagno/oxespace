@@ -611,6 +611,8 @@ export interface RtkApi {
 export interface OxeApi {
   app: {
     version: string
+    /** Host OS, so renderer code can build platform-correct shell commands. */
+    platform: NodeJS.Platform
   } & AppUpdateApi
   rtk: RtkApi
   workspace: WorkspaceApi

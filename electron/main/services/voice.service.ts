@@ -22,7 +22,19 @@ import type {
  * downloaded once on first use to <userData>/models and reused thereafter.
  */
 
-const BINARY_NAMES = ['whisper-cli.exe', 'main.exe']
+// Windows ships .exe suffixes; POSIX builds of whisper.cpp do not. Only a
+// win-x64 build is bundled today — elsewhere resolveBinary() finds nothing and
+// the service reports engineReady:false, which hides the feature rather than
+// failing at transcription time.
+const BINARY_NAMES = process.platform === 'win32'
+  ? ['whisper-cli.exe', 'main.exe']
+  : ['whisper-cli', 'main']
+
+/** Folder under resources/whisper for this host — see electron.vite.config.ts. */
+function whisperDirName(): string {
+  const os = process.platform === 'win32' ? 'win' : process.platform === 'darwin' ? 'mac' : process.platform
+  return `${os}-${process.arch}`
+}
 const MODEL_DIR = 'models'
 // OXEVoice is Brazilian-Portuguese only. Auto-detect flip-flopped to English
 // on accented speech, so we pin the language and seed the decoder with a short
@@ -70,7 +82,7 @@ export class VoiceService {
       // Resolve via app.getAppPath() — the ESM bundle has no __dirname.
       candidates.push(join(app.getAppPath(), 'out', 'main', 'whisper', name))
       // Repo source (dev fallback)
-      candidates.push(join(app.getAppPath(), 'resources', 'whisper', 'win-x64', name))
+      candidates.push(join(app.getAppPath(), 'resources', 'whisper', whisperDirName(), name))
     }
     this.binaryPath = candidates.find((p) => existsSync(p)) ?? null
     return this.binaryPath

@@ -27,7 +27,20 @@ if (!existsSync(DIST)) {
   process.exit(1)
 }
 
-const patterns = [/\.exe$/i, /\.blockmap$/i, /^(?:latest|alpha|beta|nightly|rc)\.yml$/i, /^sbom\.spdx\.json$/i]
+// Windows (.exe) and Linux (.AppImage/.deb) payloads plus their updater
+// manifests. electron-updater names the Linux manifest latest-linux.yml, so the
+// channel pattern has to allow the platform suffix or Linux releases would ship
+// an unchecksummed feed.
+const patterns = [
+  /\.exe$/i,
+  /\.AppImage$/i,
+  /\.deb$/i,
+  /\.blockmap$/i,
+  /^(?:latest|alpha|beta|nightly|rc)(?:-linux|-mac)?\.yml$/i,
+  // Bare in the build job, platform-namespaced once the release job merges the
+  // two legs (sbom-windows-x64.spdx.json / sbom-linux-x64.spdx.json).
+  /^sbom(?:-[a-z0-9-]+)?\.spdx\.json$/i
+]
 const files = readdirSync(DIST)
   .filter((name) => patterns.some((re) => re.test(name)))
   .sort()

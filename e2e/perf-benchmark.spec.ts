@@ -14,9 +14,22 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import { mkdirSync, symlinkSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { execFileSync } from 'node:child_process'
 import { performance } from 'node:perf_hooks'
 
 const REPEATS = 6
+const ENFORCE_BUDGETS = process.env.OXESPACE_PERF_GATE === '1'
+
+const PERF_BUDGETS_MS: Record<string, number> = {
+  'boot: launch→firstWindow': 5_000,
+  'boot: firstWindow→interactive': 2_000,
+  'workspace: create→grid (w/ input)': 3_000,
+  'shell: create split pane': 1_500,
+  'terminal: split→PTY running': 2_000
+}
+const DEFAULT_INTERACTION_BUDGET_MS = 500
+const MAX_WORKING_SET_MB = 750
+const MAX_RENDERER_HEAP_MB = 100
 
 function ensureOutJunction(): void {
   const link = join(process.cwd(), 'e2e', 'out')
@@ -38,6 +51,19 @@ function report(op: string, xs: number[]): void {
     `[RESULT] ${op.padEnd(40)} n=${xs.length} min=${f(s.min)} mean=${f(s.mean)} p95=${f(s.p95)} max=${f(s.max)} ms` +
     `${warm ? ` · warm mean=${f(warm.mean)} p95=${f(warm.p95)}` : ''} ${flag}`
   )
+  if (ENFORCE_BUDGETS) {
+    // Shared runners occasionally pause a renderer for several seconds while
+    // another container/job is scheduled. Keep that spike in the report, but
+    // gate on warm samples with the single worst scheduler outlier removed.
+    // Functional hangs still fail Playwright's explicit waits/timeouts.
+    const warmSamples = xs.length > 1 ? xs.slice(1) : xs
+    const gateSamples = warmSamples.length >= 3
+      ? [...warmSamples].sort((a, b) => a - b).slice(0, -1)
+      : warmSamples
+    const observed = stats(gateSamples).p95
+    const budget = PERF_BUDGETS_MS[op] ?? DEFAULT_INTERACTION_BUDGET_MS
+    expect(observed, `${op} p95 ${f(observed)}ms exceeded ${budget}ms`).toBeLessThanOrEqual(budget)
+  }
 }
 
 async function launchApp(options: { mockNative?: boolean } = {}): Promise<{ app: ElectronApplication; page: Page; pid?: number }> {
@@ -58,15 +84,41 @@ async function launchApp(options: { mockNative?: boolean } = {}): Promise<{ app:
   return { app, page, pid }
 }
 async function killApp(app: ElectronApplication, pid?: number): Promise<void> {
-  let closed = false
   await Promise.race([
-    app.close().then(() => { closed = true }).catch(() => undefined),
-    new Promise((r) => setTimeout(r, 3000))
+    app.close().catch(() => undefined),
+    new Promise((resolve) => setTimeout(resolve, 3000))
   ])
-  // Only force-stop a hung isolated test process. Killing unconditionally can
-  // terminate a concurrently running Electron instance on Windows.
-  if (closed) return
-  if (pid) { try { process.kill(pid, 'SIGKILL') } catch { /* dead */ } }
+  if (!pid) return
+
+  // Playwright's close promise can resolve while a Chromium child keeps the
+  // process tree alive (observed after 15 repeated Electron launches). Check
+  // the exact PID from this test before force-stopping its tree; never target a
+  // process name, which could terminate a developer's unrelated Electron app.
+  const exited = await waitForProcessExit(pid, 1_000)
+  if (exited) return
+  try {
+    if (process.platform === 'win32') {
+      execFileSync('taskkill.exe', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' })
+    } else {
+      process.kill(pid, 'SIGKILL')
+    }
+  } catch {
+    // Already exited between the liveness check and the signal.
+  }
+  await waitForProcessExit(pid, 2_000)
+}
+
+async function waitForProcessExit(pid: number, timeoutMs: number): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    try {
+      process.kill(pid, 0)
+    } catch {
+      return true
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  }
+  return false
 }
 async function createWorkspace(page: Page, requestedRoot?: string): Promise<void> {
   const root = requestedRoot ?? join(tmpdir(), `oxe-ws-${Date.now()}`, 'repo')
@@ -142,26 +194,33 @@ test('boot + workspace create', async () => {
   test.setTimeout(60_000)
   const tLaunch = performance.now()
   const { app, page, pid } = await launchApp()
-  const tFirst = performance.now()
-  await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
-  const tInteractive = performance.now()
-  report('boot: launch→firstWindow', [tFirst - tLaunch])
-  report('boot: firstWindow→interactive', [tInteractive - tFirst])
-  const tC = performance.now()
-  await createWorkspace(page)
-  report('workspace: create→grid (w/ input)', [performance.now() - tC])
-  const processMetrics = await app.evaluate(({ app }) => app.getAppMetrics())
-  const workingSetMb = processMetrics.reduce((total, metric) => total + metric.memory.workingSetSize, 0) / 1024
-  const peakWorkingSetMb = processMetrics.reduce((total, metric) => total + metric.memory.peakWorkingSetSize, 0) / 1024
-  const rendererHeapMb = await page.evaluate(() => {
-    const memory = (performance as Performance & { memory?: { usedJSHeapSize?: number } }).memory
-    return (memory?.usedJSHeapSize ?? 0) / 1024 / 1024
-  })
-  console.log(
-    `[RESULT] memory after workspace                    processes=${processMetrics.length} ` +
-    `workingSet=${workingSetMb.toFixed(1)}MB peak=${peakWorkingSetMb.toFixed(1)}MB rendererHeap=${rendererHeapMb.toFixed(1)}MB`
-  )
-  await killApp(app, pid)
+  try {
+    const tFirst = performance.now()
+    await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
+    const tInteractive = performance.now()
+    report('boot: launch→firstWindow', [tFirst - tLaunch])
+    report('boot: firstWindow→interactive', [tInteractive - tFirst])
+    const tC = performance.now()
+    await createWorkspace(page)
+    report('workspace: create→grid (w/ input)', [performance.now() - tC])
+    const processMetrics = await app.evaluate(({ app }) => app.getAppMetrics())
+    const workingSetMb = processMetrics.reduce((total, metric) => total + metric.memory.workingSetSize, 0) / 1024
+    const peakWorkingSetMb = processMetrics.reduce((total, metric) => total + metric.memory.peakWorkingSetSize, 0) / 1024
+    const rendererHeapMb = await page.evaluate(() => {
+      const memory = (performance as Performance & { memory?: { usedJSHeapSize?: number } }).memory
+      return (memory?.usedJSHeapSize ?? 0) / 1024 / 1024
+    })
+    console.log(
+      `[RESULT] memory after workspace                    processes=${processMetrics.length} ` +
+      `workingSet=${workingSetMb.toFixed(1)}MB peak=${peakWorkingSetMb.toFixed(1)}MB rendererHeap=${rendererHeapMb.toFixed(1)}MB`
+    )
+    if (ENFORCE_BUDGETS) {
+      expect(workingSetMb, 'Electron working set after workspace').toBeLessThanOrEqual(MAX_WORKING_SET_MB)
+      expect(rendererHeapMb, 'renderer JS heap after workspace').toBeLessThanOrEqual(MAX_RENDERER_HEAP_MB)
+    }
+  } finally {
+    await killApp(app, pid)
+  }
 })
 
 test('shell: sidebar, command menu, tools and split renderer', async () => {
@@ -283,9 +342,9 @@ test('workspace transition: mounted native terminals', async () => {
  * spawning PowerShell and loading the user's $PROFILE again. Shells now outlive
  * their view, so this should cost a replay, not a respawn.
  *
- * The latency threshold doubles as the identity assertion: a real PowerShell
- * spawn plus profile load cannot finish inside this budget, so passing it means
- * the original process was still there.
+ * Shell startup time is platform-dependent (Bash can respawn much faster than
+ * PowerShell), so identity is verified from retained PTY output instead of
+ * inferred from latency alone.
  */
 test('workspace transition: returning to an evicted workspace', async () => {
   test.setTimeout(180_000)
@@ -303,10 +362,28 @@ test('workspace transition: returning to an evicted workspace', async () => {
 
     const fixtureRoot = join(tmpdir(), `oxe-evict-${Date.now()}`)
     const names = ['alpha-repo', 'beta-repo', 'gamma-repo', 'delta-repo']
+    const identityMarker = `OXE_PTY_IDENTITY_${Date.now()}`
+    let alphaPaneId = ''
     for (const name of names) {
       await createWorkspace(page, join(fixtureRoot, name))
       await page.locator('.workspace-host:not(.workspace-host-hidden)')
         .getByTestId('terminal-status-label').filter({ hasText: 'running' }).first().waitFor()
+      if (name === 'alpha-repo') {
+        alphaPaneId = await page.locator('.workspace-host:not(.workspace-host-hidden)')
+          .getByTestId('terminal-pane').first().getAttribute('data-pane-id') ?? ''
+        expect(alphaPaneId, 'active terminal exposes its pane identity').toBeTruthy()
+        await page.evaluate(
+          ({ paneId, marker }) => window.oxe.terminal.write({ paneId, data: `echo ${marker}\r` }),
+          { paneId: alphaPaneId, marker: identityMarker }
+        )
+        await expect.poll(
+          () => page.evaluate(
+            ({ paneId, marker }) => window.oxe.terminal.attach({ paneId }).then((result) => result.replay.includes(marker)),
+            { paneId: alphaPaneId, marker: identityMarker }
+          ),
+          { message: 'identity marker reaches the original PTY buffer' }
+        ).toBe(true)
+      }
     }
 
     const returnTimes: number[] = []
@@ -330,10 +407,13 @@ test('workspace transition: returning to an evicted workspace', async () => {
       returnTimes.push(await page.evaluate((start) => performance.now() - start, started))
     }
     report('workspace: evicted A↔D transition', returnTimes)
-
-    const warm = returnTimes.slice(1).sort((a, b) => a - b)
-    const p95 = warm[Math.min(warm.length - 1, Math.floor(warm.length * 0.95))] ?? Infinity
-    expect(p95, 'returning to an evicted workspace must not respawn its shell').toBeLessThan(250)
+    await expect.poll(
+      () => page.evaluate(
+        ({ paneId, marker }) => window.oxe.terminal.attach({ paneId }).then((result) => result.replay.includes(marker)),
+        { paneId: alphaPaneId, marker: identityMarker }
+      ),
+      { message: 'returning to an evicted workspace preserves the original PTY buffer' }
+    ).toBe(true)
   } finally {
     await killApp(app, pid)
   }

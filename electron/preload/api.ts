@@ -50,6 +50,10 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
   return {
     app: {
       version: packageJson.version,
+      // Sandboxed preloads still get Electron's polyfilled `process`, so the
+      // renderer can branch on the host OS (script commands, path separators)
+      // without an IPC round-trip.
+      platform: process.platform,
       getUpdateState: () => ipc.invoke(IPC_CHANNELS.app.getUpdateState) as Promise<import('../../shared/types/updater').AppUpdateState>,
       checkForUpdates: () => ipc.invoke(IPC_CHANNELS.app.checkForUpdates) as Promise<import('../../shared/types/updater').AppUpdateState>,
       quitAndInstall: () => ipc.invoke(IPC_CHANNELS.app.quitAndInstall) as Promise<boolean>,

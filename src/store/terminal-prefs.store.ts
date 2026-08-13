@@ -34,7 +34,10 @@ export interface TerminalPrefs {
 const LEGACY_DEFAULT_FONT = 'Cascadia Mono, Consolas, monospace'
 
 export const TERMINAL_PREFS_DEFAULTS: TerminalPrefs = {
-  fontFamily: 'JetBrains Mono, Cascadia Mono, Consolas, monospace',
+  // xterm resolves real font names (not CSS tokens), so the Linux families have
+  // to be listed explicitly — Cascadia/Consolas do not exist there and the
+  // stack would otherwise fall through to a bitmap default.
+  fontFamily: 'JetBrains Mono, Cascadia Mono, DejaVu Sans Mono, Consolas, monospace',
   fontSize: 14,
   // Looser leading + a non-blinking bar caret make the terminal read like a
   // chat/editor surface rather than a raw console. See features.css for the

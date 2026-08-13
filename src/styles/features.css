@@ -7189,7 +7189,7 @@
 .github-actions-v2-logs-body {
   margin: 0;
   padding: 10px 12px;
-  font-family: var(--font-mono, 'Cascadia Mono', Consolas, monospace);
+  font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.45;
   color: var(--tx-primary);
@@ -7216,7 +7216,7 @@
   font-size: var(--fs-xs);
 }
 .github-actions-v2-logs-progress code {
-  font-family: var(--font-mono, 'Cascadia Mono', Consolas, monospace);
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--tx-primary);
 }

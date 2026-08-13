@@ -11,7 +11,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
  *  pre-migration backup (only back up when an upgrade will actually run).
  *  Exported so the migrations test can catch a constant that drifts from the
  *  version the SQL actually sets. */
-export const LATEST_DB_VERSION = 45
+export const LATEST_DB_VERSION = 46
 /** How many pre-migration backups to retain. */
 const MAX_DB_BACKUPS = 5
 
@@ -420,6 +420,18 @@ export function runMigrations(db: AppDatabase): void {
 
   if (currentVersion < 45 || !hasTable(db, 'secure_credentials')) {
     db.exec(readMigration('045_secure_credentials.sql'))
+    currentVersion = db.pragma('user_version', { simple: true }) as number
+  }
+
+  // 046 is platform-split: the built-in neutral shell is PowerShell on Windows
+  // and bash everywhere else. Both variants land on user_version = 46 so the
+  // schema stays in lockstep regardless of which host ran the upgrade.
+  if (currentVersion < 46) {
+    db.exec(readMigration(
+      process.platform === 'win32'
+        ? '046_shell_profiles_win.sql'
+        : '046_shell_profiles_posix.sql'
+    ))
   }
 }
 

@@ -86,7 +86,7 @@
   min-height: 0;
   overflow-y: auto;
   padding: 8px 14px 12px;
-  font-family: var(--font-mono, ui-monospace, 'Cascadia Code', Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.5;
 }

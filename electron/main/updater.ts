@@ -14,6 +14,23 @@ import type { AppUpdateState, AppUpdateStatus } from '../../shared/types/updater
  */
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000
 
+/**
+ * electron-updater can only replace itself in-place from an AppImage. A `.deb`
+ * install is owned by apt, so every check would fail and the UI would show a
+ * recurring error for something the user cannot act on. AppImage sets $APPIMAGE
+ * to the bundle path at launch, which is the documented way to detect it.
+ *
+ * Exported with injectable platform/env so the matrix can be covered without
+ * building four installers.
+ */
+export function updaterSupportsThisInstall(
+  platform: NodeJS.Platform = process.platform,
+  env: NodeJS.ProcessEnv = process.env
+): boolean {
+  if (platform !== 'linux') return true
+  return Boolean(env.APPIMAGE)
+}
+
 type AutoUpdater = typeof import('electron-updater').autoUpdater
 
 let autoUpdaterRef: AutoUpdater | null = null
@@ -47,7 +64,11 @@ export async function checkForAppUpdates(manual = false): Promise<AppUpdateState
   if (!app.isPackaged || !autoUpdaterRef) {
     setState({
       status: 'disabled',
-      error: app.isPackaged ? 'Updater not initialized' : 'Updates only run in installed builds',
+      error: !app.isPackaged
+        ? 'Updates only run in installed builds'
+        : updaterSupportsThisInstall()
+          ? 'Updater not initialized'
+          : 'Updates run only in the AppImage build — use your package manager.',
       lastCheckedAt: Date.now()
     })
     return getAppUpdateState()
@@ -102,6 +123,11 @@ export function registerAppUpdateIpc(): void {
 export function initAutoUpdater(): void {
   if (!app.isPackaged) {
     setState({ status: 'disabled', error: null })
+    return
+  }
+  if (!updaterSupportsThisInstall()) {
+    log.info('[updater] disabled: in-place updates need the AppImage build')
+    setState({ status: 'disabled', error: 'Updates run only in the AppImage build — use your package manager.' })
     return
   }
   void (async () => {

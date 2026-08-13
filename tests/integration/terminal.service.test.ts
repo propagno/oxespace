@@ -75,8 +75,11 @@ describe('TerminalManager', () => {
     }
     const manager = new TerminalManager(db, { pty, platform: 'linux' })
 
+    // builtin-copilot wraps the platform shell (powershell.exe / /bin/bash), and
+    // the error quotes whichever executable the profile actually holds.
+    const wrappedShell = process.platform === 'win32' ? 'powershell\\.exe' : '/bin/bash'
     await expect(manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id })).rejects.toThrow(
-      /Check Settings > Shell profiles executable "powershell\.exe"/
+      new RegExp(`Check Settings > Shell profiles executable "${wrappedShell}"`)
     )
     expect(manager.hasSession(workspace.panes[0].id)).toBe(false)
 

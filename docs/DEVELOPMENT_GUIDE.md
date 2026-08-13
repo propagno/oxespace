@@ -17,6 +17,132 @@ npm run test:e2e
 
 CI takes the other route — it rebuilds for Node, runs `test:coverage`, then prepares the Electron binary for the packaged build and E2E. Locally you can still do that with `npm run rebuild:native:node` / `npm run rebuild:native:electron`, but prefer `test:electron`: switching runtimes replaces the native binary and the rebuild is slow and occasionally fails. `npm run native:doctor` reports the currently loadable Node modules and both runtime ABIs. A source rebuild on Windows requires the Visual Studio C++ workload and Windows SDK; CI/package flows prefer the pinned prebuilt Electron binary.
 
+## Linux (Ubuntu/Debian x64)
+
+Everything above applies unchanged; the shell is `bash` instead of PowerShell. Install the toolchain and the Electron runtime libraries once:
+
+```bash
+sudo apt-get install -y build-essential python3 make g++          # native module builds
+sudo apt-get install -y libnss3 libatk-bridge2.0-0 libgtk-3-0 \
+  libgbm1 libasound2 libxshmfence1 libnotify4                     # Electron runtime
+sudo apt-get install -y xvfb                                      # headless `npm run test:e2e`
+```
+
+Run E2E headless with `bash scripts/run-with-xvfb.sh npm run test:e2e`. Package with `npm run dist:linux` (AppImage + deb); `npm run dist` now selects `dist:linux` or `dist:win` from the host platform.
+
+For the reproducible Linux gate from Windows or macOS, use `npm run verify:linux`.
+The Docker harness rebuilds native modules for Linux, runs typecheck/lint and the
+full unit/integration suite, builds production bundles, launches the Electron
+E2E suite under Xvfb, then enforces the UI/PTY performance budgets in
+`e2e/perf-benchmark.spec.ts`. CI repeats the same smoke and performance gate on
+Ubuntu 22.04. Release builds additionally launch `dist/linux-unpacked` with real
+SQLite, node-pty and Bash before AppImage/deb artifacts may be uploaded.
+
+Use `bash scripts/run-with-xvfb.sh <command>` instead of invoking `xvfb-run`
+directly in automation. The wrapper owns and reaps the X server, which prevents
+long Playwright runs from leaving an orphaned Xvfb process until the CI timeout.
+
+Two behaviours differ by design:
+
+- **Auto-update is AppImage-only.** `electron-updater` cannot replace an apt-owned install, so a `.deb` build reports updates as disabled instead of erroring every six hours. See `updaterSupportsThisInstall()` in `electron/main/updater.ts`.
+- **OXEVoice is unavailable.** Only a `win-x64` whisper.cpp build is bundled. `voice.service.ts` reports `engineReady: false` and the feature hides itself. Adding it means dropping a Linux build into `resources/whisper/linux-x64` and extending the `linux.extraResources` block.
+
+`better-sqlite3` and `node-pty` are `optionalDependencies`, so a failed native build does **not** fail `npm install` — the app boots into the degraded `registerNativeFailureIpcHandlers` mode instead (it opens, but nothing works). Run `npm run native:doctor` first when that happens.
+
+### Writing tests that survive both hosts
+
+A backslash is path syntax only on Windows. On POSIX, `..\secret.txt` and `C:\workspace\outside.txt` are ordinary *filenames* that resolve **inside** the workspace root — so `safeJoin` correctly does not reject them, and a test asserting a throw is asserting a bug that does not exist.
+
+Three suites were already written against Windows semantics and had to be split (`safe-join`, `file-system.service`, `agent.service`). The pattern is a host-gated alias next to the imports, so the intent is visible at the call site:
+
+```ts
+const testWindows = process.platform === 'win32' ? test : test.skip
+```
+
+When a case is genuinely platform-specific, gate it and add the equivalent for the other host — do not delete it, and do not weaken the assertion to something that passes everywhere. The same applies to `where.exe`/PATHEXT shim resolution in `agent.service.ts`, which returns early on non-Windows.
+
+### Verifying Linux from a Windows workstation
+
+Three tiers, cheapest first. None requires a Linux install.
+
+**1. Docker — everything except how it looks.** Requires Docker Desktop running with the Linux engine.
+
+```powershell
+npm run verify:linux
+```
+
+Builds `docker/linux-verify.Dockerfile` and runs the chain in `docker/linux-verify.sh`: native-module compile, typecheck, lint, `test:electron`, `build`, and the E2E smoke against a real Electron window under Xvfb. This is where the POSIX-only paths finally execute — migration 046's bash seeding and repointing, the `safe-join` cases that are `describe.skip`'d on Windows, `buildScriptCommand`, and the shell-profile defaults.
+
+`.dockerignore` excludes `node_modules` on purpose: the host copy holds Windows-built native binaries, and copying them in would mask exactly what the image exists to catch.
+
+To exercise packaging too (downloads the ~1 GB semantic model, so it is not in the default chain):
+
+```powershell
+docker run --rm -v ${PWD}/dist-linux:/app/dist oxespace-linux-verify bash -lc "npm run dist:linux"
+```
+
+**2. WSL2 — the real GUI.** Windows 11 ships WSLg, so an Electron window renders on your desktop. This is the only local way to answer "does it actually feel right":
+
+```powershell
+wsl --install -d Ubuntu-22.04     # once; may prompt for a reboot
+```
+
+Then inside the distro, install the prerequisites from the section above, clone the repo **into the Linux filesystem** (`~/oxespace`, never `/mnt/c` — native modules and file watching are both unreliable across the 9p mount), and run `npm ci && npm run dev`.
+
+**3. CI — the authoritative answer.** The `ubuntu-22.04` leg of the build matrix runs the same chain on a clean runner and packages the AppImage + deb. Push the branch and read the job; that is the configuration that actually ships.
+
+## Database changes on more than one OS
+
+Migration 046 is platform-split: `046_shell_profiles_win.sql` is a no-op version bump, while `046_shell_profiles_posix.sql` seeds `builtin-bash` and repoints workspaces/panes away from `builtin-powershell`. The runner in `electron/main/db/index.ts` picks one by `process.platform`; both land on `user_version = 46`.
+
+The `builtin-powershell` row is intentionally kept rather than deleted, so foreign keys stay valid. The consequence: a database migrated on Linux and then opened on Windows keeps its panes on `builtin-bash`. Repair is one statement:
+
+```sql
+UPDATE panes SET shell_profile_id = 'builtin-powershell' WHERE shell_profile_id = 'builtin-bash';
+UPDATE workspaces SET default_shell_profile_id = 'builtin-powershell' WHERE default_shell_profile_id = 'builtin-bash';
+```
+
+When adding a platform-dependent default, put it in `electron/main/services/shell-profile.defaults.ts` and mirror it in the migration — the DB-less code paths (native-failure fallbacks, the E2E mock IPC layer) read from that module, and a drift between the two is invisible until a pane fails to spawn.
+
+## Release pipeline
+
+Both platforms are held to the same bar. Every gate below runs on `windows-2022`
+**and** `ubuntu-22.04`; `needs: build` requires *both* legs to succeed, so a
+one-sided failure blocks the release rather than shipping half a payload.
+
+| Gate | Where |
+|---|---|
+| typecheck · lint · unit/integration | every push and PR |
+| E2E smoke | every push and PR (Linux via `scripts/run-with-xvfb.sh`) |
+| UI/PTY performance budgets | every push and PR (`OXESPACE_PERF_GATE=1 npm run bench:ui`) |
+| packaged-artifact smoke | release runs only — `packaged-win.spec.ts` / `packaged-linux.spec.ts` |
+| artifact + checksum verification | release runs only — twice: pre-upload and again against the published draft |
+
+The packaged smokes are the only checks that launch the **real shipped binary**,
+asar-packed with its native modules and extraResources in place. The unpackaged
+E2E suite cannot catch a broken `asarUnpack` entry, a missing `extraResource` or
+a native module built for the wrong ABI, because in dev those all resolve from
+`node_modules`. Both specs share one body in `e2e/packaged-smoke.ts` so the two
+platforms cannot drift apart.
+
+Assets per release: `.exe` + `.blockmap` + `latest.yml`, `.AppImage` + `.deb` +
+`latest-linux.yml`, one SBOM per platform, and a combined `SHA256SUMS.txt`.
+
+`scripts/verify-release-artifacts.mjs --platform win|linux` gates each payload.
+The `.deb` is matched by **pattern**, not exact name: electron-builder renders
+`${arch}` as the Debian architecture (`amd64`), not the Electron one (`x64`), and
+that naming is upstream's to change. Exactly one `.deb` must be present — zero or
+two both fail.
+
+### Cutting a release
+
+1. Bump `version` in `package.json`; the workflow refuses a tag that disagrees with it.
+2. **Dry-run first if anything in the packaging path changed**: `workflow_dispatch`
+   with `publish_release: false` runs both legs including packaging and artifact
+   verification, without publishing.
+3. Push the tag `vX.Y.Z`. The release job creates a **draft**, re-downloads it,
+   re-verifies both payloads, and only then publishes.
+
 ## Adding an IPC capability
 
 1. Add request/result types to a focused file in `shared/types/` and expose the method through `OxeApi` and `IPC_CHANNELS`.

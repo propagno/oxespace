@@ -43,6 +43,7 @@ import { registerSemanticIpc } from './ipc/semantic.ipc'
 import { registerDiagnosticsIpc } from './ipc/diagnostics.ipc'
 import { BackgroundManager } from './services/background.service'
 import { TerminalManager } from './services/terminal.service'
+import { defaultSplitShellProfileId, fallbackShellProfiles } from './services/shell-profile.defaults'
 import { isLoopbackHttpUrl, isSafeExternalUrl } from './utils/external-url'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
 import type { ShellProfile, Workspace, WorkspaceLayout, WorkspaceLayoutPreset } from '../../shared/types/workspace'
@@ -283,11 +284,7 @@ function registerIpcHandlers(): () => void {
 let rpcServer: RpcServerHandle | null = null
 
 function registerNativeFailureIpcHandlers(message: string): void {
-  const shellProfiles: ShellProfile[] = [
-    { id: 'builtin-powershell', name: 'PowerShell', executable: 'powershell.exe', args: ['-NoLogo'], isBuiltin: true },
-    { id: 'builtin-claude', name: 'claude', executable: 'claude', args: [], isBuiltin: true },
-    { id: 'builtin-copilot', name: 'copilot', executable: 'copilot', args: [], isBuiltin: true }
-  ]
+  const shellProfiles: ShellProfile[] = fallbackShellProfiles()
   const fail = (): never => {
     throw new Error(`Native runtime unavailable: ${message}`)
   }
@@ -420,11 +417,7 @@ function registerNativeFailureIpcHandlers(message: string): void {
 }
 
 function registerE2eMockIpcHandlers(): void {
-  const shellProfiles: ShellProfile[] = [
-    { id: 'builtin-powershell', name: 'PowerShell', executable: 'powershell.exe', args: ['-NoLogo'], isBuiltin: true },
-    { id: 'builtin-claude', name: 'claude', executable: 'claude', args: [], isBuiltin: true },
-    { id: 'builtin-copilot', name: 'copilot', executable: 'copilot', args: [], isBuiltin: true }
-  ]
+  const shellProfiles: ShellProfile[] = fallbackShellProfiles()
   const workspaces: Workspace[] = []
 
   ipcMain.handle(IPC_CHANNELS.workspace.list, () => workspaces)
@@ -503,7 +496,7 @@ function registerE2eMockIpcHandlers(): void {
       type: 'terminal',
       rowIndex: targetRow,
       columnIndex: targetColumn,
-      shellProfileId: 'builtin-powershell',
+      shellProfileId: defaultSplitShellProfileId(),
       status: 'idle',
       agentProfileId: null,
       agentName: null,
@@ -937,9 +930,12 @@ async function cleanupTempFile(filePath: string): Promise<void> {
 }
 
 function createMainWindow(): BrowserWindow {
+  // Windows wants the multi-resolution .ico; Linux/macOS cannot read it and
+  // would silently fall back to Electron's default icon, so they get the PNG.
+  const iconFile = process.platform === 'win32' ? 'icon.ico' : 'icon.png'
   const iconPath = isDev
-    ? join(process.cwd(), 'resources', 'icon.ico')
-    : join(process.resourcesPath, 'icon.ico')
+    ? join(process.cwd(), 'resources', iconFile)
+    : join(process.resourcesPath, iconFile)
 
   const mainWindow = new BrowserWindow({
     width: 1280,
