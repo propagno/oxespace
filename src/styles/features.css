@@ -3238,8 +3238,8 @@
 }
 
 /* ─── Pane tile ─────────────────────────────────────────────────────────── */
-/* Flat split cells (VS Code / iTerm): no card chrome around the terminal.
-   Separation comes from resize-handle hairlines + the pane header only. */
+/* Terminal workbench: a pane is the single elevated object. The xterm surface
+   stays flush inside it, avoiding the old card-within-card treatment. */
 .pane-container {
   display: flex;
   flex-direction: column;
@@ -3248,28 +3248,28 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  border: none;
-  border-radius: 0;
-  background: #050505;
-  box-shadow: none;
-  transition: background 0.12s ease-out;
+  border: 1px solid var(--pane-border);
+  border-radius: var(--pane-radius);
+  background: var(--pane-surface);
+  box-shadow: var(--pane-shadow);
+  isolation: isolate;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-base), transform var(--transition-base);
 }
 .pane-container:focus-within {
-  /* Focus is carried by the header bar, not a full-frame outline. */
-  box-shadow: none;
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--pane-border));
 }
 .pane-container.active {
-  border: none !important;
-  box-shadow: none !important;
+  border-color: var(--pane-border-active) !important;
+  box-shadow: var(--pane-shadow-active) !important;
 }
 .pane-container.active > .pane-header {
-  background: rgba(255, 255, 255, 0.04);
-  border-bottom-color: rgba(255, 255, 255, 0.1);
-  box-shadow: inset 0 2px 0 0 var(--accent, #12c79a);
+  background: color-mix(in srgb, var(--accent) 5%, var(--pane-surface-raised));
+  border-bottom-color: color-mix(in srgb, var(--accent) 18%, var(--pane-border));
+  box-shadow: none;
 }
 .pane-container.active > .pane-header .pane-header-left {
-  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-color: transparent;
+  background: transparent;
 }
 .pane-container.active > .pane-header .pane-status-dot {
   box-shadow: var(--glow-pane-active);
@@ -3279,19 +3279,19 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 34px;
-  padding: 4px 8px 4px 10px;
-  background: var(--bg-tile-header, #141414);
-  border-bottom: 1px solid var(--bd-subtle, rgba(255, 255, 255, 0.07));
+  height: 40px;
+  padding: 5px 9px 5px 12px;
+  background: var(--pane-surface-raised);
+  border-bottom: 1px solid var(--pane-border);
   flex-shrink: 0;
   gap: 8px;
-  transition: background 0.12s ease-out, border-color 0.12s ease-out, box-shadow 0.12s ease-out;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
 }
 
 .pane-header-left {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   min-width: 0;
   flex: 1;
   height: 28px;
@@ -3378,14 +3378,14 @@
   flex-shrink: 0;
   max-width: 16ch;
   min-width: 0;
-  height: 22px;
-  padding: 0 7px;
-  border-radius: 5px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  height: 24px;
+  padding: 0 8px 0 5px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.075);
   color: rgba(255, 255, 255, 0.9);
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 620;
   letter-spacing: 0.01em;
   text-transform: none;
   transition: all 0.15s ease-in-out;
@@ -3448,7 +3448,7 @@
 
 .pane-header-divider {
   color: var(--tx-muted);
-  opacity: 0.35;
+  opacity: 0.22;
   font-size: 11px;
   font-weight: 500;
   user-select: none;
@@ -3461,9 +3461,9 @@
 .pane-intent {
   min-width: 0;
   flex: 1;
-  color: var(--tx-primary);
+  color: var(--tx-secondary);
   font-size: 12.5px;
-  font-weight: 500;
+  font-weight: 480;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3536,9 +3536,9 @@
   align-items: center;
   gap: 1px;
   height: 28px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.045);
+  background: rgba(0, 0, 0, 0.12);
   padding: 0 4px;
   flex-shrink: 0;
   position: relative;
@@ -3918,8 +3918,8 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  /* Flush with the pane cell — Ghostty OLED surface */
-  background: #0a0a0a;
+  position: relative;
+  background: var(--pane-surface);
 }
 
 .agent-info-card {
@@ -3980,8 +3980,7 @@
   min-height: 0;
   min-width: 0;
   overflow: hidden;
-  /* Terminal fills the pane edge-to-edge (Ghostty OLED dark surface) */
-  background: #0a0a0a;
+  background: var(--bg-tile-content);
   padding: 0;
   box-sizing: border-box;
   position: relative;
@@ -4049,16 +4048,20 @@
   color: var(--tx-secondary);
 }
 
-/* Flat footer — same surface as the terminal, hairline only (no gradient/shadow/blur). */
+/* A compact session footer below the canvas. It belongs to the pane surface,
+   so it stays flat instead of introducing another card inside the terminal. */
 .terminal-statusbar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: var(--tile-statusbar-h, 24px);
+  gap: 6px;
+  height: 27px;
+  margin: 0;
   padding: 0 10px;
-  background: #0a0a0a;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
-  box-shadow: none;
+  background: color-mix(in srgb, var(--pane-surface-raised) 82%, transparent);
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--pane-border) 82%, transparent);
+  border-radius: 0;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   flex-shrink: 0;
@@ -4069,8 +4072,11 @@
 }
 
 .statusbar-text {
-  font-size: 11px;
-  font-family: var(--font-mono);
+  font-size: 10px;
+  font-family: var(--font-ui);
+  font-weight: 560;
+  letter-spacing: 0.025em;
+  text-transform: capitalize;
   color: var(--tx-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -4119,8 +4125,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border: 1px solid transparent;
   border-radius: 5px;
   background: transparent;
@@ -4210,8 +4216,8 @@
 }
 
 .statusbar-dot {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
   background: var(--dot-gray);
@@ -4244,15 +4250,15 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 0 8px;
-  height: 20px;
+  padding: 0 7px;
+  height: 21px;
   font-size: 11px;
   font-weight: 600;
   font-family: var(--font-mono);
   color: rgba(255, 255, 255, 0.65);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 5px;
+  border-radius: 6px;
   cursor: pointer;
   letter-spacing: 0.2px;
   transition: color 80ms, background 80ms, border-color 80ms;
@@ -4272,7 +4278,7 @@
 }
 
 .statusbar-chip .chip-label {
-  display: none;
+  display: inline;
 }
 
 /* AI-Credits indicators (Copilot + per-provider Claude/Codex) — passive status
@@ -4758,11 +4764,10 @@
 .terminal-view {
   width: 100%;
   height: 100%;
-  /* Flush terminal surface — Ghostty OLED flat pane splits */
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
-  background: #070707;
+  background: var(--bg-tile-content);
   border-radius: 0;
   border: none;
   box-shadow: none;
@@ -4780,9 +4785,9 @@
   font-feature-settings: "liga" 0, "calt" 0;
   font-synthesis: none;
   background: transparent;
-  /* Minimal inset so glyphs aren't glued to the cell edge; FitAddon accounts
-     for this padding when computing the grid. */
-  padding: 6px 8px;
+  /* The pane owns elevation; this is content breathing room only. FitAddon
+     reads the xterm padding, so the grid remains geometrically correct. */
+  padding: 12px 14px 10px;
 }
 .terminal-view .xterm-viewport {
   background-color: transparent !important;
@@ -8417,8 +8422,8 @@
 .workspace-status-summary {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding-left: var(--space-md);
+  gap: 5px;
+  padding-left: var(--space-sm);
   min-width: 0;
   color: var(--tx-secondary);
   font-size: 11.5px;
@@ -8435,18 +8440,16 @@
 .workspace-status-pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
+  gap: 5px;
+  padding: 0 7px;
   height: 26px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 13px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 2px 8px rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--tx-secondary);
+  font-size: 11.5px;
+  font-weight: 560;
+  box-shadow: none;
 }
 
 .workspace-status-pill strong {
@@ -8463,17 +8466,17 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 2px 8px;
+  padding: 0 7px;
   height: 24px;
-  border-radius: 12px;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.03);
+  border-radius: 7px;
+  background: transparent;
+  border: 1px solid transparent;
   color: var(--tx-secondary);
   font-size: 11px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
-  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+  box-shadow: none;
   flex-shrink: 0;
 }
 
@@ -8481,8 +8484,8 @@
   background: rgba(255, 255, 255, 0.05);
   border-color: rgba(255, 255, 255, 0.1);
   color: #fff;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transform: none;
+  box-shadow: none;
 }
 
 .workspace-status-chip.activity-awaiting {
@@ -8520,17 +8523,161 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-left: auto;
-  padding: 4px 10px;
+  margin-left: 2px;
+  padding: 0 5px;
   height: 24px;
-  border-radius: 12px;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  background: transparent;
+  border: 0;
   color: var(--tx-muted);
   font-size: 11px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
-  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.3);
+  box-shadow: none;
+}
+
+/* Consolidated integration control. Five equal-looking topbar chips competed
+   with agent activity; the trigger keeps the aggregate glanceable and moves
+   operational detail into a keyboard-accessible menu. */
+.workspace-integrations {
+  position: relative;
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+
+.workspace-integrations-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--pane-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--pane-surface-raised) 76%, transparent);
+  color: var(--tx-secondary);
+  font-size: 11px;
+  font-weight: 580;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.workspace-integrations-trigger:hover,
+.workspace-integrations-trigger[aria-expanded='true'] {
+  border-color: color-mix(in srgb, var(--tx-primary) 16%, transparent);
+  background: var(--surface-hover);
+  color: var(--tx-primary);
+}
+
+.workspace-integrations-health,
+.workspace-integrations-row-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.workspace-integrations-health.tone-healthy { background: var(--dot-green); box-shadow: 0 0 6px color-mix(in srgb, var(--dot-green) 62%, transparent); }
+.workspace-integrations-health.tone-attention { background: var(--dot-yellow); }
+.workspace-integrations-health.tone-idle { background: var(--tx-muted); opacity: 0.55; }
+
+.workspace-integrations-count {
+  color: var(--tx-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.workspace-integrations-chevron {
+  color: var(--tx-muted);
+  transition: transform var(--transition-fast);
+}
+
+.workspace-integrations-trigger[aria-expanded='true'] .workspace-integrations-chevron { transform: rotate(180deg); }
+
+.workspace-integrations-menu {
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 0;
+  z-index: 140;
+  width: 248px;
+  padding: 6px;
+  border: 1px solid color-mix(in srgb, var(--tx-primary) 12%, transparent);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--bg-elevated) 96%, transparent);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.48), 0 1px 0 rgba(255, 255, 255, 0.035) inset;
+  backdrop-filter: blur(20px) saturate(130%);
+  -webkit-backdrop-filter: blur(20px) saturate(130%);
+}
+
+.workspace-integrations-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 30px;
+  padding: 0 8px 5px;
+  border-bottom: 1px solid var(--pane-border);
+  color: var(--tx-primary);
+  font-size: 11.5px;
+}
+
+.workspace-integrations-menu-header span { color: var(--tx-muted); font-size: 10px; font-weight: 500; }
+
+.workspace-integrations-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 8px;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 42px;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--tx-secondary);
+  text-align: left;
+}
+
+.workspace-integrations-row.is-action { cursor: pointer; }
+.workspace-integrations-row.is-action:hover { background: var(--surface-hover); color: var(--tx-primary); }
+
+.workspace-integrations-row-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--surface-quiet);
+  color: var(--tx-muted);
+}
+
+.workspace-integrations-row-copy { display: grid; gap: 1px; min-width: 0; }
+.workspace-integrations-row-copy strong { color: inherit; font-size: 11.5px; font-weight: 620; }
+.workspace-integrations-row-copy span { overflow: hidden; color: var(--tx-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.workspace-integrations-row-dot.activity-thinking { background: var(--dot-green); }
+.workspace-integrations-row-dot.activity-awaiting { background: var(--dot-yellow); }
+.workspace-integrations-row-dot.activity-idle { background: var(--tx-muted); opacity: 0.42; }
+
+@container terminal-pane (max-width: 560px) {
+  .pane-header { padding-inline: 8px; gap: 5px; }
+  .pane-header-left { gap: 5px; }
+  .pane-agent-chip { max-width: 11ch; }
+  .pane-intent { font-size: 12px; }
+  .pane-actions { border-color: transparent; background: transparent; padding-inline: 1px; }
+  .terminal-statusbar { gap: 4px; padding-inline: 8px; }
+  .statusbar-chip { padding-inline: 5px; }
+}
+
+@container terminal-pane (max-width: 480px) {
+  .statusbar-chip .chip-label { display: none; }
+}
+
+@container terminal-pane (max-width: 380px) {
+  .pane-agent-chip { width: 24px; padding: 0 4px; justify-content: center; }
+  .pane-agent-chip-label,
+  .pane-header-divider { display: none; }
+  .pane-search-btn { display: none; }
+  .terminal-statusbar .statusbar-text { display: none; }
+  .terminal-view .xterm { padding-inline: 9px; }
 }
 
 /* Tighter spacing when the topbar gets crowded — workspaces with many panes

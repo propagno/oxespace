@@ -158,11 +158,22 @@ describe('WorkspaceSurface', () => {
     expect(gridLifecycle.unmounts).toBe(0)
   })
 
-  test('does not render the removed topbar Tools dropdown', () => {
+  test('replaces the old Tools dropdown with a consolidated systems menu', async () => {
+    const user = userEvent.setup()
     renderSurface(createWorkspace())
 
     expect(screen.queryByRole('button', { name: 'Tools' })).not.toBeInTheDocument()
     expect(screen.getByLabelText('Workspace status')).toBeInTheDocument()
+    expect(screen.queryByTestId('workspace-integrations-menu')).not.toBeInTheDocument()
+
+    await user.click(screen.getByTestId('workspace-integrations-trigger'))
+
+    expect(screen.getByRole('menu', { name: 'Integration status' })).toBeInTheDocument()
+    expect(screen.getByText('GitHub')).toBeInTheDocument()
+    expect(screen.getByText('MCP')).toBeInTheDocument()
+    expect(screen.getByText('RTK')).toBeInTheDocument()
+    expect(screen.getByText('Caveman')).toBeInTheDocument()
+    expect(screen.getByText('Semantic')).toBeInTheDocument()
   })
 
   test('persists expanded and collapsed editor state', async () => {

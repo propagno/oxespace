@@ -142,7 +142,8 @@
 
 .app-statusbar-item.strong { color: var(--tx-secondary); }
 .app-statusbar-item.connected { color: var(--dot-green); }
-.app-statusbar-item.muted { color: color-mix(in srgb, var(--tx-muted) 70%, transparent); }
+/* Full muted token — never mix toward transparent (fails AA) */
+.app-statusbar-item.muted { color: var(--tx-muted); }
 
 /* Shells kept alive for workspaces that are not currently rendered. Amber
    rather than red: this is normal and intended, but worth noticing. */

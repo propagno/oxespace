@@ -1985,7 +1985,8 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: #000;
+  padding: calc(var(--pane-gap) / 2);
+  background: var(--workspace-canvas);
 }
 
 .workspace-surface-frame {
@@ -1995,23 +1996,55 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: #000;
+  background: var(--workspace-canvas);
 }
 
 .workspace-topbar {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  height: 44px;
-  flex: 0 0 44px;
+  height: 48px;
+  flex: 0 0 48px;
   min-width: 0;
-  padding: 0 var(--space-md);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  background: linear-gradient(180deg, rgba(20, 20, 22, 0.8) 0%, rgba(10, 10, 12, 0.9) 100%);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  padding: 0 var(--space-lg);
+  border-bottom: 1px solid var(--pane-border);
+  background: color-mix(in srgb, var(--bg-app) 92%, transparent);
+  backdrop-filter: blur(18px) saturate(125%);
+  -webkit-backdrop-filter: blur(18px) saturate(125%);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.14);
   z-index: 10;
+}
+
+.workspace-topbar-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  color: var(--tx-muted);
+}
+
+.workspace-topbar-name {
+  overflow: hidden;
+  color: var(--tx-primary);
+  font-size: 13px;
+  font-weight: 620;
+  letter-spacing: -0.012em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-topbar-divider {
+  color: var(--tx-muted);
+  opacity: 0.42;
+}
+
+.workspace-topbar-path {
+  overflow: hidden;
+  max-width: 24ch;
+  color: var(--tx-muted);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workspace-topbar-spacer {
@@ -2380,57 +2413,49 @@
   scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
 }
 
-/* Featured entry: Agent Settings — always above the tool grid */
+/* Featured entry: Agent Settings — elevated row matching hub reference */
 .tools-modal-featured {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: var(--space-lg);
   width: 100%;
   margin: 0;
-  padding: 14px 16px;
+  padding: 14px var(--space-lg);
   text-align: left;
-  border: 1px solid color-mix(in srgb, #a78bfa 38%, rgba(255, 255, 255, 0.08));
-  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, #a78bfa 32%, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-md);
   cursor: pointer;
   color: var(--tx-primary);
   background:
-    linear-gradient(135deg, rgba(167, 139, 250, 0.16) 0%, rgba(56, 189, 248, 0.08) 48%, rgba(255, 255, 255, 0.02) 100%),
-    rgba(255, 255, 255, 0.03);
-  box-shadow:
-    0 0 0 1px rgba(167, 139, 250, 0.08) inset,
-    0 10px 28px rgba(0, 0, 0, 0.22);
-  transition: border-color 120ms, background 120ms, transform 120ms, box-shadow 120ms;
+    linear-gradient(135deg, rgba(167, 139, 250, 0.14) 0%, rgba(56, 189, 248, 0.06) 48%, rgba(255, 255, 255, 0.02) 100%),
+    #141414;
+  box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.06) inset;
+  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .tools-modal-featured:hover {
-  border-color: color-mix(in srgb, #a78bfa 55%, rgba(255, 255, 255, 0.12));
+  border-color: color-mix(in srgb, #a78bfa 50%, rgba(255, 255, 255, 0.12));
   background:
-    linear-gradient(135deg, rgba(167, 139, 250, 0.22) 0%, rgba(56, 189, 248, 0.12) 48%, rgba(255, 255, 255, 0.04) 100%),
-    rgba(255, 255, 255, 0.04);
-  box-shadow:
-    0 0 0 1px rgba(167, 139, 250, 0.14) inset,
-    0 14px 36px rgba(0, 0, 0, 0.28),
-    0 0 32px rgba(167, 139, 250, 0.12);
-  transform: translateY(-1px);
+    linear-gradient(135deg, rgba(167, 139, 250, 0.2) 0%, rgba(56, 189, 248, 0.1) 48%, rgba(255, 255, 255, 0.03) 100%),
+    #171717;
+  box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.1) inset;
 }
 
 .tools-modal-featured:active {
-  transform: translateY(0);
+  background: #1a1a1a;
 }
 
 .tools-modal-featured-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   color: #ddd6fe;
-  background:
-    linear-gradient(145deg, rgba(167, 139, 250, 0.38), rgba(56, 189, 248, 0.18));
-  border: 1px solid rgba(196, 181, 253, 0.35);
-  box-shadow: 0 0 20px rgba(167, 139, 250, 0.22);
+  background: linear-gradient(145deg, rgba(167, 139, 250, 0.36), rgba(56, 189, 248, 0.14));
+  border: 1px solid rgba(196, 181, 253, 0.3);
 }
 
 .tools-modal-featured-body {
@@ -2452,14 +2477,14 @@
 .tools-modal-featured-title {
   color: var(--tx-primary);
   font-size: 15px;
-  font-weight: 750;
+  font-weight: 650;
   letter-spacing: -0.01em;
   line-height: 1.2;
 }
 
 .tools-modal-featured-detail {
   color: var(--tx-muted);
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 500;
   line-height: 1.35;
 }
@@ -2469,19 +2494,19 @@
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
-  padding: 7px 12px;
-  border-radius: 999px;
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
   border: 1px solid rgba(196, 181, 253, 0.28);
-  background: rgba(167, 139, 250, 0.16);
+  background: rgba(167, 139, 250, 0.14);
   color: #e9e0ff;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 650;
   letter-spacing: 0.01em;
-  transition: background 120ms, border-color 120ms, gap 120ms;
+  transition: background var(--transition-fast), border-color var(--transition-fast), gap var(--transition-fast);
 }
 
 .tools-modal-featured:hover .tools-modal-featured-cta {
-  background: rgba(167, 139, 250, 0.28);
+  background: rgba(167, 139, 250, 0.26);
   border-color: rgba(196, 181, 253, 0.42);
   gap: 8px;
 }
@@ -2797,7 +2822,9 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: #000;
+  background:
+    radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--accent) 4%, transparent), transparent 34%),
+    var(--workspace-canvas);
 }
 
 .workspace-surface-content > [data-panel-group],
@@ -2815,6 +2842,17 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+}
+
+/* Legacy grid receives the same card spacing as the split-tree renderer. The
+   row owns vertical breathing room and each leaf panel owns horizontal room. */
+.workspace-grid:not(.workspace-grid--maximized) .workspace-row-panel {
+  padding-block: calc(var(--pane-gap) / 2);
+}
+
+.workspace-grid:not(.workspace-grid--maximized) .workspace-panel {
+  padding-inline: calc(var(--pane-gap) / 2);
+  container: terminal-pane / inline-size;
 }
 
 /* Maximize keeps all panes mounted (xterm/PTY state preserved). Suppressed

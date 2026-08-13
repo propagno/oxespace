@@ -1,4 +1,4 @@
-import { Activity, Clock } from 'lucide-react'
+import { Activity } from 'lucide-react'
 import { useMemo, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import { useWorkspaceActivity } from '../../hooks/useWorkspaceActivity'
@@ -54,22 +54,6 @@ export function WorkspaceStatusSummary({ workspace }: WorkspaceStatusSummaryProp
           {counts.idle} idle
         </span>
       ) : null}
-      <span className="workspace-status-clock" title="Wall clock for the workspace session">
-        <Clock size={10} aria-hidden="true" />
-        <RelativeTime workspaceCreatedAt={null} />
-      </span>
     </div>
   )
-}
-
-/**
- * Lightweight ticking clock that doesn't need a store — useEffect with
- * setInterval keeps it cheap and isolated to this small node.
- */
-function RelativeTime({ workspaceCreatedAt }: { workspaceCreatedAt: number | null }): ReactElement {
-  // For now, just show the current time HH:MM. We can swap to "session
-  // elapsed" once workspaces persist a session-start timestamp — not adding
-  // a schema change here.
-  const formatter = useMemo(() => new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }), [])
-  return <span>{formatter.format(new Date())}</span>
 }

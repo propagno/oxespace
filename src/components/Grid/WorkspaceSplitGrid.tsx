@@ -6,6 +6,14 @@ import { PaneContainer } from './PaneContainer'
 
 type DropZone = 'left' | 'right' | 'top' | 'bottom'
 
+// The split tree continues to work in percentages, but the visual treatment now
+// reserves a small physical gutter around every leaf. Keeping this conversion in
+// the renderer (instead of adding margins in CSS) means adjacent panes never
+// overflow or overlap and the resize handles remain on the true split boundary.
+const PANE_OUTER_GUTTER_PX = 10
+const PANE_HALF_GAP_PX = 5
+const EDGE_EPSILON = 0.001
+
 interface DragState {
   paneId: string
   target: { paneId: string; zone: DropZone } | null
@@ -144,15 +152,15 @@ export function WorkspaceSplitGrid({
     const rect = rects.find((r) => r.paneId === drag.target?.paneId)
     if (!rect) return null
     const { zone } = drag.target
-    const half: CSSProperties =
+    const half: LeafRect =
       zone === 'left'
-        ? { left: `${rect.left}%`, top: `${rect.top}%`, width: `${rect.width / 2}%`, height: `${rect.height}%` }
+        ? { paneId: rect.paneId, left: rect.left, top: rect.top, width: rect.width / 2, height: rect.height }
         : zone === 'right'
-          ? { left: `${rect.left + rect.width / 2}%`, top: `${rect.top}%`, width: `${rect.width / 2}%`, height: `${rect.height}%` }
+          ? { paneId: rect.paneId, left: rect.left + rect.width / 2, top: rect.top, width: rect.width / 2, height: rect.height }
           : zone === 'top'
-            ? { left: `${rect.left}%`, top: `${rect.top}%`, width: `${rect.width}%`, height: `${rect.height / 2}%` }
-            : { left: `${rect.left}%`, top: `${rect.top + rect.height / 2}%`, width: `${rect.width}%`, height: `${rect.height / 2}%` }
-    return half
+            ? { paneId: rect.paneId, left: rect.left, top: rect.top, width: rect.width, height: rect.height / 2 }
+            : { paneId: rect.paneId, left: rect.left, top: rect.top + rect.height / 2, width: rect.width, height: rect.height / 2 }
+    return insetPaneRect(half)
   }, [drag, rects])
 
   return (
@@ -168,9 +176,15 @@ export function WorkspaceSplitGrid({
         const focused = pane.id === maximizedPaneId
         const style: CSSProperties = isMaximized
           ? focused
-            ? { left: 0, top: 0, width: '100%', height: '100%', zIndex: 2 }
-            : { left: `${r.left}%`, top: `${r.top}%`, width: `${r.width}%`, height: `${r.height}%`, visibility: 'hidden', pointerEvents: 'none' }
-          : { left: `${r.left}%`, top: `${r.top}%`, width: `${r.width}%`, height: `${r.height}%` }
+            ? {
+                left: PANE_OUTER_GUTTER_PX,
+                top: PANE_OUTER_GUTTER_PX,
+                width: `calc(100% - ${PANE_OUTER_GUTTER_PX * 2}px)`,
+                height: `calc(100% - ${PANE_OUTER_GUTTER_PX * 2}px)`,
+                zIndex: 2
+              }
+            : { ...insetPaneRect(r), visibility: 'hidden', pointerEvents: 'none' }
+          : insetPaneRect(r)
         return (
           <div
             key={r.paneId}
@@ -229,4 +243,23 @@ export function WorkspaceSplitGrid({
 function getAgentProfile(agentProfiles: AgentProfile[], agentProfileId: string | null): AgentProfile | null {
   if (!agentProfileId) return null
   return agentProfiles.find((profile) => profile.agentProfileId === agentProfileId) ?? null
+}
+
+/** Convert a percentage rect into a card rect with 10px outer and inner gaps. */
+function insetPaneRect(rect: Pick<LeafRect, 'left' | 'top' | 'width' | 'height'>): CSSProperties {
+  const touchesLeft = rect.left <= EDGE_EPSILON
+  const touchesTop = rect.top <= EDGE_EPSILON
+  const touchesRight = rect.left + rect.width >= 100 - EDGE_EPSILON
+  const touchesBottom = rect.top + rect.height >= 100 - EDGE_EPSILON
+  const leftInset = touchesLeft ? PANE_OUTER_GUTTER_PX : PANE_HALF_GAP_PX
+  const rightInset = touchesRight ? PANE_OUTER_GUTTER_PX : PANE_HALF_GAP_PX
+  const topInset = touchesTop ? PANE_OUTER_GUTTER_PX : PANE_HALF_GAP_PX
+  const bottomInset = touchesBottom ? PANE_OUTER_GUTTER_PX : PANE_HALF_GAP_PX
+
+  return {
+    left: `calc(${rect.left}% + ${leftInset}px)`,
+    top: `calc(${rect.top}% + ${topInset}px)`,
+    width: `calc(${rect.width}% - ${leftInset + rightInset}px)`,
+    height: `calc(${rect.height}% - ${topInset + bottomInset}px)`
+  }
 }

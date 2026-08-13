@@ -107,9 +107,9 @@ const SEARCH_DECORATIONS = {
  * With `translucent`, the cell background goes fully transparent so the
  * host's CSS background (color-mix + backdrop blur) shows through.
  *
- * The background is --bg-tile-content (the pane surface), NOT a distinct
- * "card" color: the chat-style terminal is one seamless flat surface from
- * topbar to statusbar, like Claude Desktop / Cursor — no console card.
+ * Keep xterm aligned with the terminal content surface. The surrounding
+ * PaneContainer owns elevation and focus chrome; xterm remains a flat,
+ * uninterrupted canvas inside that card.
  */
 function buildTerminalTheme(translucent: boolean): ITheme {
   const tok = (name: string, fallback: string): string => {
@@ -117,7 +117,7 @@ function buildTerminalTheme(translucent: boolean): ITheme {
     return v || fallback
   }
   return {
-    background:          translucent ? '#00000000' : '#0a0a0a',
+    background:          translucent ? '#00000000' : tok('--bg-tile-content', '#0a0a0a'),
     foreground:          tok('--tx-primary',       '#f1f5f9'),
     cursor:              tok('--brand-light',      '#6EEBD4'),
     selectionBackground: tok('--brand-glow',       'rgba(18,199,154,0.28)'),
@@ -129,7 +129,7 @@ function buildTerminalTheme(translucent: boolean): ITheme {
     magenta:             tok('--dot-purple',        '#c084fc'),
     cyan:                tok('--brand-light',      '#6EEBD4'),
     white:               tok('--tx-primary',       '#f1f5f9'),
-    brightBlack:         tok('--tx-muted',          '#636b75'),
+    brightBlack:         tok('--tx-muted',          '#94a3b0'),
     brightRed:           tok('--dot-red',           '#f87171'),
     brightGreen:         tok('--dot-green',         '#34d399'),
     brightYellow:        tok('--dot-orange',        '#f97316'),

@@ -37,6 +37,12 @@ describe('WorkspaceSplitGrid', () => {
     expect(screen.getAllByTestId('split-resize-handle')).toHaveLength(1)
     // Drag-to-split affordance: one grip per pane when there are 2+ panes.
     expect(screen.getAllByTestId('split-drag-grip')).toHaveLength(2)
+
+    // Cards keep a 10px outer gutter and a 10px visual gap between siblings.
+    const slotA = screen.getByTestId('pane-pane-a').parentElement
+    const slotB = screen.getByTestId('pane-pane-b').parentElement
+    expect(slotA).toHaveStyle({ left: 'calc(0% + 10px)', width: 'calc(50% - 15px)' })
+    expect(slotB).toHaveStyle({ left: 'calc(50% + 5px)', width: 'calc(50% - 15px)' })
   })
 
   test('performs a drag-to-split drop: grip down → move over target → up calls onMovePane', () => {
