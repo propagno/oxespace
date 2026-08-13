@@ -1,6 +1,6 @@
 import type { BackgroundManager } from '../services/background.service'
 import type { FileSystemService } from '../services/file-system.service'
-import type { GitHubService } from '../services/github.service'
+import type { GitHubWorktreeApi } from '../../../shared/types/github'
 import type { WorkspaceService } from '../services/workspace.service'
 import type {
   InternalMcpContentBlock,
@@ -28,7 +28,7 @@ import type { SemanticService } from '../services/semantic.service'
 export interface ToolContext {
   workspaceId: string | null
   workspaceServ: WorkspaceService
-  github: GitHubService
+  github: GitHubWorktreeApi
   background: BackgroundManager
   fileSystem: FileSystemService
   semantic: SemanticService

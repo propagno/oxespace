@@ -5,7 +5,7 @@ import { app } from 'electron'
 import type { AppDatabase } from '../db/index'
 import type { BackgroundManager } from '../services/background.service'
 import type { FileSystemService } from '../services/file-system.service'
-import type { GitHubService } from '../services/github.service'
+import type { GitHubWorktreeApi } from '../../../shared/types/github'
 import type { McpManager } from '../services/mcp.service'
 import type { SemanticService } from '../services/semantic.service'
 import type { WorkspaceService } from '../services/workspace.service'
@@ -54,7 +54,7 @@ export interface InternalMcpDeps {
   db: AppDatabase
   mcpManager: McpManager
   workspaceServ: WorkspaceService
-  github: GitHubService
+  github: GitHubWorktreeApi
   background: BackgroundManager
   fileSystem: FileSystemService
   semantic: SemanticService

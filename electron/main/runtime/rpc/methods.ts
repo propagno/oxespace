@@ -1,5 +1,5 @@
 import type { AppDatabase } from '../../db/index'
-import type { GitHubService } from '../../services/github.service'
+import type { GitHubWorktreeApi } from '../../../../shared/types/github'
 import type { ExecutionHost } from '../execution-host'
 import {
   expectParamString,
@@ -19,7 +19,7 @@ interface WorkspaceRow {
 
 export interface RpcMethodDeps {
   db: AppDatabase
-  gitHubService: GitHubService
+  gitHubService: GitHubWorktreeApi
   executionHost: ExecutionHost
   appVersion: string
   listMethods: () => string[]

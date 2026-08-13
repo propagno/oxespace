@@ -8,7 +8,7 @@ import type {
   LinearWorktreeFromIssueInput,
   LinearWorktreeFromIssueResult
 } from '../../../shared/types/linear'
-import type { GitHubService } from './github.service'
+import type { GitHubWorktreeApi } from '../../../shared/types/github'
 
 const LINEAR_API_URL = 'https://api.linear.app/graphql'
 const PROVIDER = 'linear'
@@ -41,7 +41,7 @@ export class LinearService {
 
   constructor(
     private readonly db: AppDatabase,
-    private readonly gitHubService: GitHubService,
+    private readonly gitHubService: GitHubWorktreeApi,
     private readonly fetchImpl: typeof fetch = fetch
   ) {}
 

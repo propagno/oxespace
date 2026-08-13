@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto'
 import { chmodSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { AppDatabase } from '../../db/index'
-import type { GitHubService } from '../../services/github.service'
+import type { GitHubWorktreeApi } from '../../../../shared/types/github'
 import { LocalExecutionHost, type ExecutionHost } from '../execution-host'
 import { RpcDispatcher } from './dispatcher'
 import { registerRpcMethods } from './methods'
@@ -18,7 +18,7 @@ export interface RpcServerHandle {
 
 export interface StartRpcServerOptions {
   db: AppDatabase
-  gitHubService: GitHubService
+  gitHubService: GitHubWorktreeApi
   appVersion: string
   /** userData directory — holds the endpoint descriptor for out-of-process callers. */
   userDataPath: string

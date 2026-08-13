@@ -1,7 +1,7 @@
 import type { AppDatabase } from '../db/index'
 import type { BackgroundManager } from './background.service'
 import type { FileSystemService } from './file-system.service'
-import type { GitHubService } from './github.service'
+import type { GitHubWorktreeApi } from '../../../shared/types/github'
 import type { GitService } from './git.service'
 import type { WorkspaceService } from './workspace.service'
 import { TOOL_REGISTRY } from '../mcp-internal/tool-registry'
@@ -29,7 +29,7 @@ import { discoverScripts } from './scripts-discovery.service'
 export interface OxeContextDeps {
   db: AppDatabase
   workspaceServ: WorkspaceService
-  github: GitHubService
+  github: GitHubWorktreeApi
   git: GitService
   background: BackgroundManager
   fileSystem: FileSystemService

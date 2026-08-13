@@ -7,7 +7,11 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/agent.service.ts',
   'electron/main/services/background.service.ts',
   'electron/main/services/git.service.ts',
-  'electron/main/services/github.service.ts',
+  // Narrower than it used to be: the whole 1124-line github.service.ts held
+  // this exemption, but after the split only the execution kernel touches raw
+  // fs — existsSync, to locate the gh binary. The four collaborators above it
+  // cannot reach the filesystem at all.
+  'electron/main/services/github/gh-exec.ts',
   'electron/main/services/integration.service.ts',
   'electron/main/services/mcp-sync.service.ts',
   'electron/main/services/session.service.ts',
