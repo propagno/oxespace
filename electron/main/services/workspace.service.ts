@@ -1,6 +1,7 @@
 import { basename } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../db/index'
+import { defaultSplitShellProfileId } from './shell-profile.defaults'
 import type {
   CreateWorkspaceInput,
   PaneAgentBinding,
@@ -66,7 +67,9 @@ interface PaneRow {
 }
 
 const DEFAULT_SHELL_PROFILE_ID = 'builtin-claude'
-const DEFAULT_SPLIT_SHELL_PROFILE_ID = 'builtin-powershell'
+// PowerShell on Windows, bash elsewhere — migration 046 repointed the existing
+// rows to match, so this must resolve from the same helper the migration mirrors.
+const DEFAULT_SPLIT_SHELL_PROFILE_ID = defaultSplitShellProfileId()
 const DEFAULT_THEME_ID: WorkspaceThemeId = 'dracula'
 const DEFAULT_UI_DENSITY: WorkspaceDensity = 'compact'
 const DEFAULT_LAYOUT_PRESET: WorkspaceLayoutPreset = 4
@@ -569,6 +572,32 @@ export class WorkspaceService {
     const updated = this.get(paneRow.workspace_id)
     if (!updated) throw new Error('Workspace not found after split')
     return updated
+  }
+
+  /** Grid-agnostic pane creation for the F2 split-tree layout. Inserts a terminal
+   *  pane at a guaranteed-unique grid slot (position is irrelevant in tree mode)
+   *  without touching the layout preset, and returns the new pane id. */
+  createPane(workspaceId: string): { workspace: Workspace; paneId: string } {
+    const workspace = this.get(workspaceId)
+    if (!workspace) throw new Error('Workspace not found')
+
+    const maxColumn = workspace.panes.reduce((max, p) => Math.max(max, p.columnIndex), -1)
+    const id = randomUUID()
+    this.db
+      .prepare(
+        `INSERT INTO panes (id, workspace_id, type, row_index, column_index, shell_profile_id, status, agent_profile_id, agent_name, display_name)
+         VALUES (@id, @workspaceId, 'terminal', 0, @columnIndex, @shellProfileId, 'idle', NULL, NULL, NULL)`
+      )
+      .run({
+        id,
+        workspaceId,
+        columnIndex: maxColumn + 1,
+        shellProfileId: DEFAULT_SPLIT_SHELL_PROFILE_ID
+      })
+
+    const updated = this.get(workspaceId)
+    if (!updated) throw new Error('Workspace not found after createPane')
+    return { workspace: updated, paneId: id }
   }
 
   private mapWorkspace(row: WorkspaceRow): Workspace {

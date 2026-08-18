@@ -44,7 +44,7 @@ function pathsInText(text: string): Set<string> {
   const re = /([A-Za-z0-9_./-]+\.(?:tsx?|jsx?|mjs|cjs|json|ya?ml|md|sql|css|html))/g
   let m: RegExpExecArray | null
   while ((m = re.exec(text))) {
-    let p = m[1].replace(/^\.\//, '')
+    const p = m[1].replace(/^\.\//, '')
     if (/(^|\/)(electron|src|shared|scripts|tests|resources|e2e)\//.test(p) || /^(package|tsconfig|electron-builder)/.test(p)) set.add(p)
   }
   return set
@@ -104,7 +104,7 @@ const files: string[] = []
 ;(function walk(d: string) { let e; try { e = readdirSync(d, { withFileTypes: true }) } catch { return } for (const x of e) { if (x.name.startsWith('.') || ['node_modules', 'dist', 'out', 'build', 'coverage'].includes(x.name)) continue; const f = path.join(d, x.name); if (x.isDirectory()) walk(f); else if (CODE_EXT.has(path.extname(x.name)) && statSync(f).size < 256 * 1024) files.push(f) } })(path.join(ROOT))
 const { pipeline, env } = await import('@xenova/transformers')
 env.allowRemoteModels = true; (env as any).cacheDir = path.join(ROOT, 'resources', 'models')
-const ex = await pipeline('feature-extraction', 'Xenova/multilingual-e5-small', { quantized: true })
+const ex = await pipeline('feature-extraction', 'Xenova/multilingual-e5-base', { quantized: true })
 const embed = async (t: string) => Array.from((await ex(t, { pooling: 'mean', normalize: true })).data) as number[]
 const CH = 1500, OV = 200, MX = 60
 const chunk = (t: string) => { if (t.length <= CH) return t ? [t] : []; const s = CH - OV, o: string[] = []; for (let i = 0; i < t.length && o.length < MX; i += s) o.push(t.slice(i, i + CH)); return o }
@@ -184,7 +184,7 @@ const avgIdx = mean(e1.filter((r) => r.idxRecall !== null).map((r) => r.idxRecal
 const avgView = mean(e1.filter((r) => r.viewRecall !== null).map((r) => r.viewRecall as number))
 const totMiss = e1.reduce((a, r) => ({ t: a.t + r.missTest, c: a.c + r.missConfig, s: a.s + r.missSource }), { t: 0, c: 0, s: 0 })
 let md = `# Decision-quality analysis — hybrid_explore: amplifica ou esconde info crucial?\n\n`
-md += `Repo: oxespace · Modelo semantic: multilingual-e5-small · CodeGraph: real · ground-truth: \`git grep -w\` + git history\n\n`
+md += `Repo: oxespace · Modelo semantic: multilingual-e5-base · CodeGraph: real · ground-truth: \`git grep -w\` + git history\n\n`
 md += `## Exp 1 — Completude do "blast radius" (${e1.length} símbolos distintivos)\n\n`
 md += `Recall = quantos arquivos que REALMENTE referenciam o símbolo aparecem. "Índice" = callers no grafo (edges \`calls\`). "Apresentado" = o que o \`codegraph_explore\` mostra ao agente.\n\n`
 md += `| Símbolo | Refs reais (GT) | Recall índice (calls) | Recall apresentado | Misses: teste/config/source |\n|---|--:|--:|--:|--:|\n`

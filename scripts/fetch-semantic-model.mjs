@@ -23,7 +23,7 @@ import { existsSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const MODEL_ID = 'Xenova/multilingual-e5-small'
+const MODEL_ID = 'Xenova/multilingual-e5-base'
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const MODELS_DIR = join(ROOT, 'resources', 'models')

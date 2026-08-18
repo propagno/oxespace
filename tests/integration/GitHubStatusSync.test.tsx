@@ -35,6 +35,7 @@ function makeStatus(overrides: Partial<GitHubWorkspaceStatus> = {}): GitHubWorks
     ahead: 0,
     behind: 0,
     hasUncommittedChanges: false,
+    changes: [],
     ...overrides
   }
 }
@@ -81,6 +82,8 @@ describe('GitHub Status sync (Fetch / Pull / Push)', () => {
         fetch: vi.fn().mockResolvedValue({ ok: true, message: 'Fetch concluído.' }),
         pullFfOnly: vi.fn().mockResolvedValue({ ok: true, message: 'Branch atualizada (fast-forward).' }),
         stageAll: vi.fn().mockResolvedValue({ ok: true, message: 'ok' }),
+        stageFile: vi.fn().mockResolvedValue({ ok: true, message: 'ok' }),
+        unstageFile: vi.fn().mockResolvedValue({ ok: true, message: 'ok' }),
         commit: vi.fn().mockResolvedValue({ ok: true, message: 'ok' }),
         generateCommitMessage: vi.fn().mockResolvedValue({ ok: true, message: 'chore: update' }),
         push: vi.fn().mockResolvedValue({ ok: true, message: 'ok' }),
@@ -220,5 +223,27 @@ describe('GitHub Status sync (Fetch / Pull / Push)', () => {
       expect(screen.getByTestId('github-sync-title')).toHaveTextContent(/No remote/i)
     })
     expect(screen.getByTestId('github-status-fetch')).toBeDisabled()
+  })
+
+  test('lists changed files and stages or unstages them individually', async () => {
+    const user = userEvent.setup()
+    window.oxe.github.getWorkspaceStatus = vi.fn().mockResolvedValue(makeStatus({
+      staged: 1,
+      modified: 1,
+      hasUncommittedChanges: true,
+      changes: [
+        { path: 'src/staged.ts', indexStatus: 'M', workTreeStatus: ' ', staged: true, unstaged: false, untracked: false, renamed: false, deleted: false },
+        { path: 'src/changed.ts', indexStatus: ' ', workTreeStatus: 'M', staged: false, unstaged: true, untracked: false, renamed: false, deleted: false }
+      ]
+    }))
+
+    renderPanel()
+
+    await screen.findByText('changed.ts')
+    await user.click(screen.getByRole('button', { name: 'Stage src/changed.ts' }))
+    await waitFor(() => expect(window.oxe.github.stageFile).toHaveBeenCalledWith({ workspaceId: 'workspace-1', rootPath: 'C:/repo', path: 'src/changed.ts' }))
+
+    await user.click(screen.getByRole('button', { name: 'Unstage src/staged.ts' }))
+    await waitFor(() => expect(window.oxe.github.unstageFile).toHaveBeenCalledWith({ workspaceId: 'workspace-1', rootPath: 'C:/repo', path: 'src/staged.ts' }))
   })
 })

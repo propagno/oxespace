@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { openInMemoryDatabase } from '../../electron/main/db/index'
 import { WorkspaceService, getPanePositions } from '../../electron/main/services/workspace.service'
+import { defaultSplitShellProfileId } from '../../electron/main/services/shell-profile.defaults'
 
 describe('WorkspaceService', () => {
   test('creates a workspace with a pane per layout cell', () => {
@@ -46,7 +47,7 @@ describe('WorkspaceService', () => {
     db.close()
   })
 
-  test('split panes start as neutral PowerShell terminals', () => {
+  test('split panes start as neutral shell terminals', () => {
     const db = openInMemoryDatabase()
     const service = new WorkspaceService(db)
     const workspace = service.create({ rootPath: 'C:/projects/repo', layoutPreset: 1 })
@@ -58,7 +59,7 @@ describe('WorkspaceService', () => {
     expect(splitPane).toEqual(
       expect.objectContaining({
         type: 'terminal',
-        shellProfileId: 'builtin-powershell',
+        shellProfileId: defaultSplitShellProfileId(),
         agentProfileId: null,
         agentName: null,
         displayName: null,

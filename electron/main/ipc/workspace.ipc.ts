@@ -12,10 +12,25 @@ interface WorkspaceLifecycleController {
   stopWorkspace(workspaceId: string): Promise<void> | void
 }
 
-export function registerWorkspaceIpc(db: AppDatabase, semanticService: SemanticService, lifecycle?: WorkspaceLifecycleController): void {
-  const workspaceService = new WorkspaceService(db)
-  const shellProfileService = new ShellProfileService(db)
-  const agentService = new AgentService(db)
+/**
+ * Services this adapter drives. Supplied as an object rather than as three more
+ * positional defaults so a test can replace one without naming the other two.
+ */
+export interface WorkspaceIpcServices {
+  workspaceService?: WorkspaceService
+  shellProfileService?: ShellProfileService
+  agentService?: AgentService
+}
+
+export function registerWorkspaceIpc(
+  db: AppDatabase,
+  semanticService: SemanticService,
+  lifecycle?: WorkspaceLifecycleController,
+  services: WorkspaceIpcServices = {}
+): void {
+  const workspaceService = services.workspaceService ?? new WorkspaceService(db)
+  const shellProfileService = services.shellProfileService ?? new ShellProfileService(db)
+  const agentService = services.agentService ?? new AgentService(db)
 
   ipcMain.handle(IPC_CHANNELS.workspace.list, () => workspaceService.list())
   ipcMain.handle(IPC_CHANNELS.workspace.create, (_event, input: unknown) =>
@@ -27,7 +42,14 @@ export function registerWorkspaceIpc(db: AppDatabase, semanticService: SemanticS
     // Index the workspace's canonical root for semantic search. Per-pane
     // rootPath is only an optional worktree override, so the workspace root is
     // the right tree to watch.
-    if (workspace.rootPath) semanticService.watchWorkspace(workspaceId, workspace.rootPath)
+    if (workspace.rootPath) {
+      // Chokidar's initial crawl can fan out thousands of fs-stat calls. Start
+      // it after the renderer has completed the workspace transition.
+      const timer = setTimeout(() => {
+        semanticService.watchWorkspace(workspaceId, workspace.rootPath)
+      }, 750)
+      timer.unref?.()
+    }
     return workspace
   })
   ipcMain.handle(IPC_CHANNELS.workspace.delete, (_event, id: unknown) => {
@@ -44,6 +66,14 @@ export function registerWorkspaceIpc(db: AppDatabase, semanticService: SemanticS
   ipcMain.handle(IPC_CHANNELS.workspace.splitPane, (_event, input: unknown) => {
     const { paneId, direction } = parseSplitPaneInput(input)
     return workspaceService.splitPane(paneId, direction)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.workspace.createPane, (_event, input: unknown) => {
+    const { workspaceId } = (input ?? {}) as { workspaceId?: unknown }
+    if (typeof workspaceId !== 'string' || !workspaceId.trim()) {
+      throw new Error('workspace:create-pane requires a workspaceId string')
+    }
+    return workspaceService.createPane(workspaceId)
   })
   ipcMain.handle(IPC_CHANNELS.workspace.updatePaneType, (_event, input: unknown) => {
     const { paneId, type } = parseUpdatePaneTypeInput(input)

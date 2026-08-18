@@ -327,7 +327,7 @@
   color: var(--tx-primary);
   font-size: 13px;
   font-weight: 600;
-  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-family: var(--font-mono);
 }
 
 .mcp-server-meta {
@@ -465,7 +465,7 @@
 }
 
 .mcp-server-config code {
-  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--tx-secondary);
   word-break: break-all;
@@ -501,7 +501,7 @@
   color: var(--tx-primary);
   font-size: 11.5px;
   font-weight: 600;
-  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-family: var(--font-mono);
 }
 
 .mcp-tool-card span { color: var(--tx-muted); font-size: 11px; line-height: 1.4; }
@@ -529,7 +529,7 @@
   border-radius: var(--radius-sm);
   background: var(--surface-hover);
   color: var(--tx-secondary);
-  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
 }
 
@@ -570,7 +570,7 @@
   background: rgba(0, 0, 0, 0.30);
   color: var(--tx-primary);
   font-size: 12px;
-  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-family: var(--font-mono);
   outline: none;
   transition: border-color 100ms;
   resize: vertical;
@@ -664,7 +664,7 @@
 .mcp-create-json-textarea {
   width: 100%;
   min-height: 220px;
-  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-family: var(--font-mono);
   font-size: 11.5px;
   line-height: 1.55;
   tab-size: 2;

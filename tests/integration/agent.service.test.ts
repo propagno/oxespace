@@ -5,6 +5,11 @@ import { ShellProfileService } from '../../electron/main/services/shell-profile.
 
 const mockExec = vi.fn()
 
+// `resolveCommand()` in agent.service.ts returns the bare command immediately
+// when the host is not Windows — there is no `where.exe`, no PATHEXT and no
+// .cmd shim to resolve. Tests that assert that resolution are Windows-only.
+const testWindows = process.platform === 'win32' ? test : test.skip
+
 describe('AgentService', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -73,8 +78,13 @@ describe('AgentService', () => {
     const updated = service.update(copilot!.agentProfileId, { command: 'gh' })
 
     expect(updated.command).toBe('gh')
+    // The copilot profile wraps a shell, which migration 046 makes bash on POSIX.
     expect(shellProfiles.get('builtin-copilot')).toEqual(
-      expect.objectContaining({ executable: 'powershell.exe', args: ['-NoLogo'] })
+      expect.objectContaining(
+        process.platform === 'win32'
+          ? { executable: 'powershell.exe', args: ['-NoLogo'] }
+          : { executable: '/bin/bash', args: [] }
+      )
     )
 
     db.close()
@@ -113,7 +123,7 @@ describe('AgentService', () => {
     db.close()
   })
 
-  test('discover resolves Windows command shims before running readiness checks', () => {
+  testWindows('discover resolves Windows command shims before running readiness checks', () => {
     mockExec.mockImplementation((cmd: string, args: string[], options?: { shell?: boolean }) => {
       if (cmd === 'where.exe' && args[0] === 'claude') return 'C:\\Users\\dudu-\\.local\\bin\\claude.exe\r\n'
       if (cmd === 'where.exe' && args[0] === 'copilot') return 'C:\\Users\\dudu-\\AppData\\Roaming\\npm\\copilot.cmd\r\n'

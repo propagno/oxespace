@@ -17,6 +17,8 @@ const terminalState = {
   scrollToBottom: vi.fn(),
   scrollToLine: vi.fn(),
   attachCustomKeyEventHandler: vi.fn(),
+  attachCustomWheelEventHandler: vi.fn(),
+  registerOscHandler: vi.fn(),
   getSelection: vi.fn(() => ''),
   clearSelection: vi.fn(),
   onSelectionChange: vi.fn(() => ({ dispose: vi.fn() }))
@@ -40,7 +42,7 @@ vi.mock('@xterm/xterm', () => ({
     dispose: terminalState.dispose,
     paste: terminalState.paste,
     input: terminalState.input,
-    modes: { bracketedPasteMode: true },
+    modes: { bracketedPasteMode: true, mouseTrackingMode: 'none' },
     refresh: terminalState.refresh,
     clear: terminalState.clear,
     scrollLines: terminalState.scrollLines,
@@ -48,11 +50,13 @@ vi.mock('@xterm/xterm', () => ({
     scrollToBottom: terminalState.scrollToBottom,
     scrollToLine: terminalState.scrollToLine,
     attachCustomKeyEventHandler: terminalState.attachCustomKeyEventHandler,
+    attachCustomWheelEventHandler: terminalState.attachCustomWheelEventHandler,
+    parser: { registerOscHandler: terminalState.registerOscHandler },
     getSelection: terminalState.getSelection,
     clearSelection: terminalState.clearSelection,
     onSelectionChange: terminalState.onSelectionChange,
     buffer: {
-      active: { baseY: 0, viewportY: 0, cursorY: 0, length: 0, getLine: vi.fn(() => null) }
+      active: { type: 'normal', baseY: 0, viewportY: 0, cursorY: 0, length: 0, getLine: vi.fn(() => null) }
     },
     onData: vi.fn((handler: (data: string) => void) => {
       terminalState.onData = handler
@@ -105,6 +109,8 @@ describe('TerminalView', () => {
     terminalState.scrollToBottom.mockClear()
     terminalState.scrollToLine.mockClear()
     terminalState.attachCustomKeyEventHandler.mockClear()
+    terminalState.registerOscHandler.mockReset()
+    terminalState.registerOscHandler.mockReturnValue({ dispose: vi.fn() })
     terminalState.getSelection.mockReset()
     terminalState.getSelection.mockReturnValue('')
     terminalState.clearSelection.mockClear()
@@ -151,8 +157,12 @@ describe('TerminalView', () => {
         resize: vi.fn(),
         stop: vi.fn(),
         restart: vi.fn(),
+        attach: vi.fn().mockResolvedValue({ running: false, seq: 0, prologue: '', replay: '', truncated: false, altScreen: false }),
+        detach: vi.fn(),
+        status: vi.fn().mockResolvedValue({ running: false, seq: 0, altScreen: false }),
         onData: vi.fn(() => vi.fn()),
-        onExit: vi.fn(() => vi.fn())
+        onExit: vi.fn(() => vi.fn()),
+        onActivity: vi.fn(() => vi.fn())
       },
       clipboard: {
         saveImageToTemp: vi.fn().mockResolvedValue(null),
@@ -419,7 +429,7 @@ describe('TerminalView', () => {
     })
   })
 
-  test('streamed output pins the viewport instead of auto-scrolling while a selection is live', () => {
+  test('streamed output pins the viewport instead of auto-scrolling while a selection is live', async () => {
     // Reproduces the "can't copy during a long CLI session" bug: with an
     // active selection, new PTY output must not be allowed to auto-scroll the
     // terminal to the bottom (as xterm does by default), because that yanks
@@ -427,6 +437,10 @@ describe('TerminalView', () => {
     // one, so the selection never has a chance to survive to Ctrl+C.
     terminalState.getSelection.mockReturnValue('selected output')
     render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
+
+    // Output arriving before the attach handshake resolves is queued, not
+    // written — that is what keeps a replay from interleaving with live bytes.
+    await vi.waitFor(() => expect(window.oxe.terminal.attach).toHaveBeenCalled())
 
     const dataListener = vi.mocked(window.oxe.terminal.onData).mock.calls[0][1]
     dataListener({ paneId: 'pane-1', data: 'more streamed tokens\r\n' })
@@ -470,6 +484,30 @@ describe('TerminalView', () => {
     await vi.waitFor(() => {
       expect(window.oxe.clipboard.writeText).toHaveBeenCalledWith('log line')
     })
+  })
+
+  test('OSC 52 copies TUI-owned selections to the Electron clipboard', async () => {
+    render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
+
+    expect(terminalState.registerOscHandler).toHaveBeenCalledWith(52, expect.any(Function))
+    const handler = terminalState.registerOscHandler.mock.calls[0][1] as (data: string) => Promise<boolean>
+    const text = 'portal já está servindo'
+    const bytes = new TextEncoder().encode(text)
+    const encoded = btoa(String.fromCharCode(...bytes))
+
+    await expect(handler(`c;${encoded}`)).resolves.toBe(true)
+    expect(window.oxe.clipboard.writeText).toHaveBeenCalledWith(text)
+  })
+
+  test('OSC 52 never exposes clipboard contents or accepts malformed data', async () => {
+    render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
+
+    const handler = terminalState.registerOscHandler.mock.calls[0][1] as (data: string) => Promise<boolean>
+    await expect(handler('c;?')).resolves.toBe(true)
+    await expect(handler('c;not valid base64!')).resolves.toBe(true)
+
+    expect(window.oxe.clipboard.readText).not.toHaveBeenCalled()
+    expect(window.oxe.clipboard.writeText).not.toHaveBeenCalled()
   })
 
   test('Ctrl+F opens the search overlay; typing runs incremental search; Escape closes it', () => {
@@ -521,5 +559,51 @@ describe('TerminalView', () => {
 
     window.dispatchEvent(new CustomEvent('oxe:terminal-clear', { detail: { paneId: 'pane-1' } }))
     expect(terminalState.clear).toHaveBeenCalledTimes(1)
+  })
+
+  test('restores a running session instead of announcing it as Idle', async () => {
+    vi.mocked(window.oxe.terminal.attach).mockResolvedValue({
+      running: true, seq: 7, prologue: '\x1b[?2004h', replay: 'restored output', truncated: false, altScreen: false
+    })
+
+    render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
+
+    await vi.waitFor(() => expect(terminalState.write).toHaveBeenCalledWith('restored output'))
+    // Modes first, so the replay lands on the buffer the app is drawing on.
+    expect(terminalState.write).toHaveBeenCalledWith('\x1b[?2004h')
+    // Stamping "Idle" above a shell that never stopped would be a lie.
+    expect(terminalState.write).not.toHaveBeenCalledWith('Idle\r\n')
+  })
+
+  test('queues live output during the handshake so it lands after the replay', async () => {
+    let resolveAttach: (value: unknown) => void = () => undefined
+    vi.mocked(window.oxe.terminal.attach).mockReturnValue(
+      new Promise((resolve) => { resolveAttach = resolve }) as ReturnType<typeof window.oxe.terminal.attach>
+    )
+
+    render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
+
+    const dataListener = vi.mocked(window.oxe.terminal.onData).mock.calls[0][1]
+    dataListener({ paneId: 'pane-1', data: 'live chunk' })
+    // Writing it now would put live output ABOVE the history it follows.
+    expect(terminalState.write).not.toHaveBeenCalledWith('live chunk')
+
+    resolveAttach({ running: true, seq: 1, prologue: '', replay: 'history', truncated: false, altScreen: false })
+
+    await vi.waitFor(() => expect(terminalState.write).toHaveBeenCalledWith('live chunk'))
+    const order = terminalState.write.mock.calls.map((call) => call[0])
+    expect(order.indexOf('history')).toBeLessThan(order.indexOf('live chunk'))
+  })
+
+  test('detaches on unmount so the shell survives leaving the workspace', () => {
+    const { unmount } = render(
+      <TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />
+    )
+
+    unmount()
+
+    expect(window.oxe.terminal.detach).toHaveBeenCalledWith({ paneId: 'pane-1' })
+    // Killing it here is exactly what made returning cost a respawn.
+    expect(window.oxe.terminal.stop).not.toHaveBeenCalled()
   })
 })

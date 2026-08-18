@@ -4,8 +4,7 @@ import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import { AgentService } from '../services/agent.service'
 import { parseCreateAgentProfileInput, parseId, parseUpdateAgentProfileInput } from './validation'
 
-export function registerAgentIpc(db: AppDatabase): void {
-  const agentService = new AgentService(db)
+export function registerAgentIpc(db: AppDatabase, agentService = new AgentService(db)): void {
 
   ipcMain.handle(IPC_CHANNELS.agent.list, () =>
     agentService.list()

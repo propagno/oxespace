@@ -1,4 +1,4 @@
-import { ChevronsLeft, ChevronsRight, Plus, Search, Settings2 } from 'lucide-react'
+import { Activity, ChevronsLeft, ChevronsRight, Code2, Plus, Search, Wrench } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { IntegrationGroup } from '../../../shared/types/integration'
 import type { Workspace } from '../../../shared/types/workspace'
@@ -18,8 +18,14 @@ interface SidebarProps {
   onCloseWorkspace: (id: string) => void
   isCollapsed: boolean
   onToggleCollapse: () => void
-  /** Opens the Tools hub modal (workspace panels, MCP, history, …). */
+  /** Opens the Tools hub modal (workspace panels, MCP, skills, …). */
   onOpenTools: () => void
+  /** Background jobs dock (honest label — not Orca "Tasks" until kanban returns). */
+  onOpenJobs?: () => void
+  /** Scripts discovery panel. */
+  onOpenScripts?: () => void
+  /** Unified CommandMenu (Ctrl+J). */
+  onOpenSearch?: () => void
   integrationGroups?: IntegrationGroup[]
 }
 
@@ -30,6 +36,9 @@ export function Sidebar({
   isCollapsed,
   onCloseWorkspace,
   onNewWorkspace,
+  onOpenJobs,
+  onOpenScripts,
+  onOpenSearch,
   onOpenTools,
   onSelectWorkspace,
   onToggleCollapse,
@@ -143,11 +152,11 @@ export function Sidebar({
             type="button"
             className="sidebar-tools-btn"
             aria-label="Open tools"
-            title="Tools"
+            title="Tools — panels, MCP, skills"
             data-testid="btn-open-tools"
             onClick={onOpenTools}
           >
-            <Settings2 size={14} aria-hidden="true" />
+            <Wrench size={16} aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -167,7 +176,7 @@ export function Sidebar({
     <aside className="sidebar">
       <div className="sidebar-header-bar">
         <div className="sidebar-header-brand">
-          <OxeLogo size={22} variant="wordmark" />
+          <OxeLogo size={20} variant="wordmark" />
           <span className="sidebar-version-badge" title={`OXESpace ${appVersion}`}>
             v{appVersion}
           </span>
@@ -186,16 +195,32 @@ export function Sidebar({
         </div>
       </div>
 
+      <nav className="sidebar-quick-nav" aria-label="Primary navigation">
+        <button type="button" className="sidebar-nav-item" onClick={onOpenJobs} title="Background jobs dock">
+          <Activity size={14} className="sidebar-nav-icon" aria-hidden="true" />
+          <span className="sidebar-nav-label">Jobs</span>
+        </button>
+        <button type="button" className="sidebar-nav-item" onClick={onOpenScripts} title="Project scripts">
+          <Code2 size={14} className="sidebar-nav-icon" aria-hidden="true" />
+          <span className="sidebar-nav-label">Scripts</span>
+        </button>
+        <button type="button" className="sidebar-nav-item" onClick={onOpenSearch} title="Search files & commands (Ctrl+J)">
+          <Search size={14} className="sidebar-nav-icon" aria-hidden="true" />
+          <span className="sidebar-nav-label">Search</span>
+          <kbd className="sidebar-nav-kbd">Ctrl J</kbd>
+        </button>
+      </nav>
+
       <div className="sidebar-search-wrap">
         <Search size={13} className="sidebar-search-icon" aria-hidden="true" />
         <input
           ref={searchInputRef}
           type="search"
           className="sidebar-search-input"
-          placeholder="Search workspaces…"
+          placeholder="Filter projects… (/)"
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
-          aria-label="Search workspaces"
+          aria-label="Filter projects"
           autoComplete="off"
           spellCheck={false}
         />
@@ -214,9 +239,12 @@ export function Sidebar({
       </div>
 
       <nav className="ws-group-list" aria-label="Workspaces">
+
         {integrationGroups.length > 0 ? (
           <section className="sidebar-integration-list" aria-label="Integration groups">
-            <div className="sidebar-section-kicker">Integration</div>
+            <div className="sidebar-section-header">
+              <span>Integration</span>
+            </div>
             {integrationGroups.map((group) => (
               <SidebarIntegrationRow
                 key={group.id}
@@ -233,15 +261,32 @@ export function Sidebar({
             ))}
           </section>
         ) : null}
-        <div className="sidebar-section-kicker">Workspaces</div>
+
+        <div className="sidebar-section-header">
+          <span>Projects</span>
+          <button
+            type="button"
+            className="sidebar-section-action-btn"
+            title="New workspace"
+            aria-label="New workspace"
+            onClick={onNewWorkspace}
+          >
+            <Plus size={12} aria-hidden="true" />
+          </button>
+        </div>
+
         {filtered.length === 0 ? (
           <div className="sidebar-empty-state">
             <div className="sidebar-empty-icon">📁</div>
             <p>No workspaces found.</p>
-            {!searchQuery && <button type="button" className="sidebar-empty-btn" onClick={onNewWorkspace}>Create your first workspace</button>}
+            {!searchQuery && (
+              <button type="button" className="sidebar-empty-btn" onClick={onNewWorkspace}>
+                Create workspace
+              </button>
+            )}
           </div>
         ) : (
-          filtered.map(ws => (
+          filtered.map((ws) => (
             <WorkspaceGroup
               key={ws.id}
               workspace={ws}
@@ -251,10 +296,22 @@ export function Sidebar({
               isDragging={dragSourceId === ws.id}
               dropPosition={dragOverId === ws.id ? dropPosition : null}
               onDragStart={() => setDragSourceId(ws.id)}
-              onDragOver={(position) => { setDragOverId(ws.id); setDropPosition(position) }}
-              onDragLeave={() => { if (dragOverId === ws.id) { setDragOverId(null); setDropPosition(null) } }}
+              onDragOver={(position) => {
+                setDragOverId(ws.id)
+                setDropPosition(position)
+              }}
+              onDragLeave={() => {
+                if (dragOverId === ws.id) {
+                  setDragOverId(null)
+                  setDropPosition(null)
+                }
+              }}
               onDrop={() => handleDropOnWorkspace(ws.id)}
-              onDragEnd={() => { setDragSourceId(null); setDragOverId(null); setDropPosition(null) }}
+              onDragEnd={() => {
+                setDragSourceId(null)
+                setDragOverId(null)
+                setDropPosition(null)
+              }}
             />
           ))
         )}
@@ -265,12 +322,17 @@ export function Sidebar({
           type="button"
           className="sidebar-tools-btn sidebar-tools-btn-labeled"
           aria-label="Open tools"
-          title="Tools — panels, MCP, history…"
+          title="Tools — panels, MCP, skills"
           data-testid="btn-open-tools"
           onClick={onOpenTools}
         >
-          <Settings2 size={14} aria-hidden="true" />
-          <span>Tools</span>
+          <span className="sidebar-tools-btn-icon" aria-hidden="true">
+            <Wrench size={14} />
+          </span>
+          <span className="sidebar-tools-btn-copy">
+            <span className="sidebar-tools-btn-label">Tools</span>
+            <span className="sidebar-tools-btn-hint">Panels · MCP · Skills</span>
+          </span>
         </button>
         <button
           type="button"

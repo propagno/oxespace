@@ -530,7 +530,7 @@ function CreateSkillForm({ onCancel, onCreate, workspaceRootPath }: CreateSkillF
 
       {templateId !== 'custom' ? (
         <div className="skills-create-template-note">
-          Template body will be written to the skill file. Workspace skills open in the editor after creation for tuning.
+          Workspace skills open in the editor after creation.
         </div>
       ) : null}
 

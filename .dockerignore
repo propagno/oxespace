@@ -1,0 +1,19 @@
+# node_modules MUST be excluded: the host copy holds Windows-built native
+# binaries (better-sqlite3, node-pty, the ONNX/ripgrep platform packages).
+# Copying them in would mask the very thing the Linux image verifies.
+node_modules
+
+# Build output and local artefacts — regenerated inside the container.
+out
+dist
+coverage
+test-results
+e2e/out
+.git
+
+# The offline semantic model is ~1 GB and is only needed by `npm run dist:*`,
+# not by the verification chain. Fetch it inside the container when packaging.
+resources/models
+
+# Windows-only whisper.cpp binaries; unusable on Linux.
+resources/whisper

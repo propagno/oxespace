@@ -27,6 +27,7 @@ interface TaskRow {
   title: string
   description: string
   context: string
+  acceptance_criteria: string
   verify_command: string
   allowed_files_json: string
   column_name: string
@@ -56,6 +57,7 @@ interface WorkspaceRow {
 interface PaneRow {
   id: string
   status: string
+  agent_profile_id: string | null
 }
 
 interface AgentProfileRow {
@@ -96,15 +98,16 @@ export class TaskService {
 
     this.db.prepare(`
       INSERT INTO tasks
-        (id, workspace_id, title, description, context, verify_command, allowed_files_json, column_name, run_status, position, created_at, updated_at)
+        (id, workspace_id, title, description, context, acceptance_criteria, verify_command, allowed_files_json, column_name, run_status, position, created_at, updated_at)
       VALUES
-        (?, ?, ?, ?, ?, ?, ?, ?, 'idle', ?, ?, ?)
+        (?, ?, ?, ?, ?, ?, ?, ?, ?, 'idle', ?, ?, ?)
     `).run(
       id,
       input.workspaceId,
       input.title,
       input.description ?? '',
       input.context ?? '',
+      input.acceptanceCriteria ?? '',
       input.verifyCommand ?? '',
       JSON.stringify(input.allowedFiles ?? []),
       column,
@@ -125,13 +128,14 @@ export class TaskService {
 
     this.db.prepare(`
       UPDATE tasks
-      SET title = ?, description = ?, context = ?, verify_command = ?, allowed_files_json = ?,
+      SET title = ?, description = ?, context = ?, acceptance_criteria = ?, verify_command = ?, allowed_files_json = ?,
           column_name = ?, run_status = ?, updated_at = ?
       WHERE id = ?
     `).run(
       input.title ?? task.title,
       input.description ?? task.description,
       input.context ?? task.context,
+      input.acceptanceCriteria ?? task.acceptanceCriteria,
       input.verifyCommand ?? task.verifyCommand,
       JSON.stringify(input.allowedFiles ?? task.allowedFiles),
       nextColumn,
@@ -165,23 +169,25 @@ export class TaskService {
 
   async run(input: RunTaskInput): Promise<Task> {
     const task = this.getOrThrow(input.taskId)
-    const paneId = this.findRunningPane(task.workspaceId)
-    if (!paneId) throw new Error('Nenhum terminal ativo')
+    const pane = input.paneId
+      ? this.getRunningPane(task.workspaceId, input.paneId)
+      : this.findRunningPane(task.workspaceId)
+    if (!pane) throw new Error('Nenhum terminal ativo')
 
-    const agent = this.getAgentProfile(input.agentProfileId)
+    const agent = this.getAgentProfile(input.agentProfileId ?? pane.agent_profile_id ?? undefined)
     if (!agent) throw new Error('Configure um agente primeiro')
 
     const promptPayload = buildPromptPayload(task)
     const prompt = agent.command_template.replace('{{task}}', promptPayload)
-    await this.terminalWrite({ paneId, data: `${prompt}\r` })
+    await this.terminalWrite({ paneId: pane.id, data: `${prompt}\r` })
 
     const now = Date.now()
     this.db.prepare(`
       INSERT INTO task_executions
         (id, task_id, type, agent_profile_id, prompt, output, exit_code, started_at, completed_at)
       VALUES
-        (?, ?, 'run', ?, ?, '', NULL, ?, ?)
-    `).run(randomUUID(), task.id, agent.agent_profile_id, prompt, now, now)
+        (?, ?, 'run', ?, ?, ?, NULL, ?, ?)
+    `).run(randomUUID(), task.id, agent.agent_profile_id, prompt, `Prompt dispatched to terminal ${pane.id}. Verify the task when the agent finishes.`, now, now)
 
     this.db.prepare(`
       UPDATE tasks SET column_name = 'running', run_status = 'running', updated_at = ? WHERE id = ?
@@ -366,12 +372,20 @@ export class TaskService {
     return row.next_position
   }
 
-  private findRunningPane(workspaceId: string): string | null {
+  private findRunningPane(workspaceId: string): PaneRow | null {
     const rows = this.db
-      .prepare('SELECT id, status FROM panes WHERE workspace_id = ? ORDER BY row_index ASC, column_index ASC')
+      .prepare('SELECT id, status, agent_profile_id FROM panes WHERE workspace_id = ? ORDER BY row_index ASC, column_index ASC')
       .all(workspaceId) as PaneRow[]
     const pane = rows.find((row) => this.isTerminalRunning(row.id) || row.status === 'running')
-    return pane?.id ?? null
+    return pane ?? null
+  }
+
+  private getRunningPane(workspaceId: string, paneId: string): PaneRow | null {
+    const pane = this.db
+      .prepare('SELECT id, status, agent_profile_id FROM panes WHERE workspace_id = ? AND id = ?')
+      .get(workspaceId, paneId) as PaneRow | undefined
+    if (!pane) throw new Error('Terminal does not belong to this workspace')
+    return this.isTerminalRunning(pane.id) || pane.status === 'running' ? pane : null
   }
 
   private getAgentProfile(id?: string): AgentProfileRow | null {
@@ -413,8 +427,18 @@ export function buildPromptPayload(task: Task): string {
     '## Context',
     task.context,
     '',
+    '## Acceptance Criteria',
+    task.acceptanceCriteria || 'No explicit acceptance criteria were supplied.',
+    '',
     '## Allowed Files',
-    task.allowedFiles.join('\n')
+    task.allowedFiles.length > 0 ? task.allowedFiles.join('\n') : 'No path limit was supplied.',
+    '',
+    '## Execution Guardrails',
+    task.allowedFiles.length > 0
+      ? 'Change only the allowed files. If the task requires another file, stop and report the needed scope expansion before changing it.'
+      : 'Keep the change set minimal and report every changed file before finishing.',
+    'After editing, call oxespace_quality_check with the acceptance criteria when that tool is available. Review every unchanged consumer and address HIGH findings before claiming completion.',
+    'Run the verification command when available, link its output and changed tests to the acceptance criteria, then summarize any remaining risk.'
   ].join('\n')
 }
 
@@ -425,6 +449,7 @@ function mapTask(row: TaskRow, dependsOn: string[] = []): Task {
     title: row.title,
     description: row.description,
     context: row.context,
+    acceptanceCriteria: row.acceptance_criteria,
     verifyCommand: row.verify_command,
     allowedFiles: parseAllowedFiles(row.allowed_files_json),
     column: row.column_name as TaskColumn,

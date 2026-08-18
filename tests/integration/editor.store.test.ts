@@ -1,9 +1,13 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { useEditorStore } from '../../src/store/editor.store'
+import { selectActiveFile, useEditorStore } from '../../src/store/editor.store'
+
+/** The store is keyed workspace → path since the tabs refactor; assert through
+ *  the same selector the editor uses. */
+const activeFile = (workspaceId: string) => selectActiveFile(useEditorStore.getState(), workspaceId)
 
 describe('editor.store', () => {
   beforeEach(() => {
-    useEditorStore.setState({ files: {} })
+    useEditorStore.setState({ files: {}, tabs: {}, activePath: {} })
     window.oxe = {
       app: { version: '0.1.4' },
       workspace: {} as never,
@@ -27,7 +31,7 @@ describe('editor.store', () => {
       rootPath: 'C:/repo',
       relativePath: 'src/index.ts'
     })
-    expect(useEditorStore.getState().files['workspace-1']).toMatchObject({ content: 'one', language: 'typescript' })
+    expect(activeFile('workspace-1')).toMatchObject({ content: 'one', language: 'typescript' })
 
     useEditorStore.getState().updateContent('workspace-1', 'two')
     expect(useEditorStore.getState().hasDirtyEditor('workspace-1')).toBe(true)
@@ -53,7 +57,7 @@ describe('editor.store', () => {
       mtimeMs: 3
     })
 
-    expect(useEditorStore.getState().files['workspace-1'].content).toBe('local')
-    expect(useEditorStore.getState().files['workspace-1'].conflict?.externalContent).toBe('external')
+    expect(activeFile('workspace-1')?.content).toBe('local')
+    expect(activeFile('workspace-1')?.conflict?.externalContent).toBe('external')
   })
 })

@@ -40,6 +40,18 @@ export interface GitHubWorkspaceStatus {
   ahead: number
   behind: number
   hasUncommittedChanges: boolean
+  changes: GitHubFileChange[]
+}
+
+export interface GitHubFileChange {
+  path: string
+  indexStatus: string
+  workTreeStatus: string
+  staged: boolean
+  unstaged: boolean
+  untracked: boolean
+  renamed: boolean
+  deleted: boolean
 }
 
 export interface GitHubBranch {
@@ -198,6 +210,10 @@ export interface GitHubCommitInput extends GitHubWorkspaceInput {
   message: string
 }
 
+export interface GitHubFileInput extends GitHubWorkspaceInput {
+  path: string
+}
+
 export interface GitHubCommitDetailsInput extends GitHubWorkspaceInput {
   oid: string
 }
@@ -255,4 +271,20 @@ export interface GitHubDeleteCheckpointInput {
 export interface GitHubConnectRepositoryInput extends GitHubWorkspaceInput {
   fullName: string
   url?: string | null
+}
+
+/**
+ * The slice of GitHubService that everything outside the GitHub feature uses.
+ *
+ * Linear, oxe-context, the internal MCP bootstrap and registry, and both halves
+ * of the RPC server all typed the full 37-method class while calling exactly
+ * these four. Depending on the narrow contract means a change to pull requests,
+ * releases or Actions cannot reach any of them — and it documents what the
+ * worktree feature actually needs from GitHub.
+ */
+export interface GitHubWorktreeApi {
+  listBranches(input: GitHubWorkspaceInput): Promise<GitHubBranch[]>
+  listWorktrees(input: GitHubWorkspaceInput): Promise<GitHubWorktree[]>
+  createWorktree(input: GitHubCreateWorktreeInput): Promise<GitHubMessageResult>
+  removeWorktree(input: GitHubRemoveWorktreeInput): Promise<GitHubMessageResult>
 }

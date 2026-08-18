@@ -191,7 +191,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
           {isTerminalPane ? (
             <button
               type="button"
-              className="tile-btn"
+              className="tile-btn pane-search-btn"
               aria-label="Search in terminal"
               title="Buscar (Ctrl+F)"
               disabled={!terminalCanMutate}

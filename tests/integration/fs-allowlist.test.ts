@@ -7,7 +7,11 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/agent.service.ts',
   'electron/main/services/background.service.ts',
   'electron/main/services/git.service.ts',
-  'electron/main/services/github.service.ts',
+  // Narrower than it used to be: the whole 1124-line github.service.ts held
+  // this exemption, but after the split only the execution kernel touches raw
+  // fs — existsSync, to locate the gh binary. The four collaborators above it
+  // cannot reach the filesystem at all.
+  'electron/main/services/github/gh-exec.ts',
   'electron/main/services/integration.service.ts',
   'electron/main/services/mcp-sync.service.ts',
   'electron/main/services/session.service.ts',
@@ -27,6 +31,10 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/contextUsage/copilotContext.ts',
   'electron/main/index.ts',
   'electron/main/db/index.ts',
+  // Diagnostics reads the main log tail and writes a report only to a path
+  // explicitly selected through Electron's native save dialog.
+  'electron/main/ipc/diagnostics.ipc.ts',
+  'electron/main/services/diagnostics.service.ts',
   // Internal MCP bootstrap: materializes the bridge script under
   // <userData>/bin and hash-checks it against the packaged source. Needs
   // raw fs to do that atomically on every boot.
@@ -44,7 +52,18 @@ const ALLOWED_FS_IMPORTS = new Set([
   // arbitrary files to embed) and creates the transformers.js model cache under
   // <userData>/models. Background indexing outside the workspace-scoped
   // FileSystemService, like rtk/voice above.
-  'electron/main/services/semantic.service.ts'
+  'electron/main/services/semantic.service.ts',
+  // Search Service: Find in Files delegates the actual file reads to the
+  // ripgrep child process; its only raw fs use is existsSync to locate the
+  // bundled rg binary and validate the search root — a read-only probe.
+  'electron/main/services/search.service.ts',
+  // F3 execution host: the seam that runs commands and reads/writes files on
+  // behalf of the runtime. It IS the abstraction other code is supposed to use
+  // instead of raw fs, so it necessarily holds the raw calls itself.
+  'electron/main/runtime/execution-host.ts',
+  // F3 RPC bus: writes only <userData>/rpc-endpoint.json so out-of-process
+  // callers can find the local socket — never a workspace path.
+  'electron/main/runtime/rpc/server.ts'
 ])
 
 describe('workspace fs allowlist', () => {

@@ -2,7 +2,7 @@ import { Check, ChevronDown } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactElement } from 'react'
 import type { PaneType } from '../../../shared/types/workspace'
 
-const PANE_TYPES: PaneType[] = ['terminal', 'tasks', 'editor', 'review']
+const PANE_TYPES: PaneType[] = ['terminal', 'editor', 'review']
 
 interface PaneTypeSwitcherProps {
   activePaneType: PaneType | null

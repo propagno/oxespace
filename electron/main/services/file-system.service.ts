@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import { watch, type FSWatcher } from 'node:fs'
-import { readdir, readFile, stat, writeFile } from 'node:fs/promises'
-import { relative } from 'node:path'
+import { readdir, readFile, realpath, stat, writeFile } from 'node:fs/promises'
+import { normalize, relative, resolve, sep } from 'node:path'
 import type {
   FileSystemFileChangedEvent,
   FileSystemListTreeInput,
+  FileSystemReadBinaryInput,
+  FileSystemReadBinaryResult,
   FileSystemReadFileInput,
   FileSystemReadFileResult,
   FileSystemWatchFileInput,
@@ -16,20 +18,48 @@ import type {
 import { safeJoin } from '../utils/safe-join'
 
 export const MAX_TEXT_FILE_BYTES = 2 * 1024 * 1024
+/** Previews stream base64 over IPC, which inflates ~33%; cap higher than text
+ *  but still bounded so a huge PDF can't wedge the renderer. */
+export const MAX_BINARY_FILE_BYTES = 12 * 1024 * 1024
 export const MAX_DIRECTORY_ENTRIES = 500
 export const DEFAULT_EXCLUDED_DIRS = new Set(['node_modules', '.git', 'dist', 'out', 'coverage', '.next', 'build'])
+
+/** Extension → MIME for the preview surfaces. Unknown types are rejected rather
+ *  than guessed, so this can't become an arbitrary-file exfiltration channel. */
+const PREVIEW_MIME_TYPES: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  bmp: 'image/bmp',
+  ico: 'image/x-icon',
+  avif: 'image/avif',
+  svg: 'image/svg+xml',
+  pdf: 'application/pdf'
+}
+
+export function previewMimeType(relativePath: string): string | null {
+  const ext = relativePath.split('.').pop()?.toLowerCase() ?? ''
+  return PREVIEW_MIME_TYPES[ext] ?? null
+}
 
 interface WatchEntry {
   watcher: FSWatcher
   timeout: NodeJS.Timeout | null
 }
 
+export type WorkspaceRootResolver = (workspaceId: string) => string | null
+
 export class FileSystemService {
   private readonly watchers = new Map<string, WatchEntry>()
 
+  constructor(private readonly resolveWorkspaceRoot?: WorkspaceRootResolver) {}
+
   async listTree(input: FileSystemListTreeInput): Promise<FileTreeNode[]> {
-    const rootPath = safeJoin(input.rootPath)
+    const rootPath = await this.authorizeRoot(input.workspaceId, input.rootPath)
     const directoryPath = safeJoin(rootPath, input.relativePath ?? '.')
+    await assertCanonicalInside(rootPath, directoryPath)
     const directoryStat = await stat(directoryPath)
     if (!directoryStat.isDirectory()) {
       throw new Error('Path is not a directory')
@@ -39,7 +69,9 @@ export class FileSystemService {
   }
 
   async readFile(input: FileSystemReadFileInput): Promise<FileSystemReadFileResult> {
-    const filePath = safeJoin(input.rootPath, input.relativePath)
+    const rootPath = await this.authorizeRoot(input.workspaceId, input.rootPath)
+    const filePath = safeJoin(rootPath, input.relativePath)
+    await assertCanonicalInside(rootPath, filePath)
     const fileStat = await stat(filePath)
     if (!fileStat.isFile()) {
       throw new Error('Path is not a file')
@@ -59,8 +91,38 @@ export class FileSystemService {
     }
   }
 
+  /** Base64 read for image/PDF previews (#10). Same root authorization and
+   *  canonical-path guards as readFile; only known preview MIME types pass. */
+  async readBinary(input: FileSystemReadBinaryInput): Promise<FileSystemReadBinaryResult> {
+    const mimeType = previewMimeType(input.relativePath)
+    if (!mimeType) {
+      throw new Error('File type is not previewable')
+    }
+    const rootPath = await this.authorizeRoot(input.workspaceId, input.rootPath)
+    const filePath = safeJoin(rootPath, input.relativePath)
+    await assertCanonicalInside(rootPath, filePath)
+    const fileStat = await stat(filePath)
+    if (!fileStat.isFile()) {
+      throw new Error('Path is not a file')
+    }
+    if (fileStat.size > MAX_BINARY_FILE_BYTES) {
+      throw new Error('File is larger than 12 MB')
+    }
+
+    const buffer = await readFile(filePath)
+    return {
+      relativePath: normalizeRelativePath(input.relativePath),
+      base64: buffer.toString('base64'),
+      mimeType,
+      size: fileStat.size,
+      mtimeMs: fileStat.mtimeMs
+    }
+  }
+
   async writeFile(input: FileSystemWriteFileInput): Promise<FileSystemWriteFileResult> {
-    const filePath = safeJoin(input.rootPath, input.relativePath)
+    const rootPath = await this.authorizeRoot(input.workspaceId, input.rootPath)
+    const filePath = safeJoin(rootPath, input.relativePath)
+    await assertCanonicalInside(rootPath, filePath)
     const buffer = Buffer.from(input.content, 'utf8')
     if (buffer.length > MAX_TEXT_FILE_BYTES) {
       throw new Error('File is larger than 2 MB')
@@ -81,7 +143,9 @@ export class FileSystemService {
   }
 
   async watchFile(input: FileSystemWatchFileInput, onChanged: (event: FileSystemFileChangedEvent) => void): Promise<FileSystemWatchFileResult> {
-    const filePath = safeJoin(input.rootPath, input.relativePath)
+    const rootPath = await this.authorizeRoot(input.workspaceId, input.rootPath)
+    const filePath = safeJoin(rootPath, input.relativePath)
+    await assertCanonicalInside(rootPath, filePath)
     const fileStat = await stat(filePath)
     if (!fileStat.isFile()) {
       throw new Error('Path is not a file')
@@ -113,6 +177,18 @@ export class FileSystemService {
     for (const watchId of this.watchers.keys()) {
       this.unwatchFile(watchId)
     }
+  }
+
+  private async authorizeRoot(workspaceId: string, requestedRoot: string): Promise<string> {
+    const authoritativeRoot = this.resolveWorkspaceRoot?.(workspaceId)
+    if (this.resolveWorkspaceRoot && !authoritativeRoot) {
+      throw new Error(`Workspace ${workspaceId} not found`)
+    }
+    const expected = resolve(authoritativeRoot ?? requestedRoot)
+    if (authoritativeRoot && normalize(resolve(requestedRoot)).toLowerCase() !== normalize(expected).toLowerCase()) {
+      throw new Error('Workspace root does not match the registered workspace')
+    }
+    return expected
   }
 
   private async listDirectory(rootPath: string, directoryPath: string): Promise<FileTreeNode[]> {
@@ -171,6 +247,16 @@ export class FileSystemService {
     } catch {
       // Some editors replace files through rename/write sequences; ignore transient reads.
     }
+  }
+}
+
+async function assertCanonicalInside(rootPath: string, targetPath: string): Promise<void> {
+  const [canonicalRoot, canonicalTarget] = await Promise.all([realpath(rootPath), realpath(targetPath)])
+  const root = normalize(canonicalRoot).toLowerCase()
+  const target = normalize(canonicalTarget).toLowerCase()
+  const prefix = root.endsWith(sep) ? root : `${root}${sep}`
+  if (target !== root && !target.startsWith(prefix)) {
+    throw new Error('Path resolves outside workspace root')
   }
 }
 

@@ -2,7 +2,7 @@
  * 4-feature economy + quality eval — RTK × Caveman × Semantic × CodeGraph.
  *
  * Runs the REAL pipelines on this repo:
- *   - Semantic: Xenova/multilingual-e5-small (chunked, best-chunk), bundled model
+ *   - Semantic: Xenova/multilingual-e5-base (chunked, best-chunk), bundled model
  *   - CodeGraph: the vendored engine (oxespace_hybrid_explore's codegraph_explore)
  *   - RTK / Caveman: same heuristics as the token lab (terminal/output compression)
  *
@@ -62,7 +62,7 @@ for (const d of SCAN) walk(path.join(ROOT, d), files)
 log(`[eval] ${files.length} files`)
 const { pipeline, env } = await import('@xenova/transformers')
 env.allowRemoteModels = true; (env as any).cacheDir = path.join(ROOT, 'resources', 'models')
-const ex = await pipeline('feature-extraction', 'Xenova/multilingual-e5-small', { quantized: true })
+const ex = await pipeline('feature-extraction', 'Xenova/multilingual-e5-base', { quantized: true })
 const embed = async (t: string) => Array.from((await ex(t, { pooling: 'mean', normalize: true })).data) as number[]
 log('[eval] embedding corpus (chunked) …')
 const recs: { rel: string; content: string; vecs: number[][] }[] = []
@@ -122,7 +122,7 @@ const OUT_VERBOSE_TOK = 261, OUT_CAVEMAN_TOK = 47
 
 let md = ''
 md += `# 4-feature economy + quality — RTK × Caveman × Semantic × CodeGraph\n\n`
-md += `- Model **multilingual-e5-small** · CodeGraph **real** (vendored) · ${QUERIES.length} labeled queries (PT→EN code) · corpus ${recs.length} files · Top-K ${TOPK}\n`
+md += `- Model **multilingual-e5-base** · CodeGraph **real** (vendored) · ${QUERIES.length} labeled queries (PT→EN code) · corpus ${recs.length} files · Top-K ${TOPK}\n`
 md += `- Economy = mean code-context tokens; Quality = recall (answer file present in the context)\n\n`
 md += `## Retrieval strategies (mean over queries)\n\n`
 md += `| Strategy | Context tokens | vs grep | Recall (answer present) |\n|---|--:|--:|--:|\n`

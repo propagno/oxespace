@@ -7,8 +7,7 @@ import { AgentCreditsService } from '../services/agentCredits'
  * Renderer-facing IPC for the per-provider usage/credits counter.
  *   - `agent-credits:get` — quota snapshot for a given provider (Claude/Codex).
  */
-export function registerAgentCreditsIpc(): void {
-  const service = new AgentCreditsService()
+export function registerAgentCreditsIpc(service = new AgentCreditsService()): void {
   ipcMain.handle(IPC_CHANNELS.agentCredits.get, (_e, input: AgentCreditsInput) =>
     service.getCredits(input.provider, input.force === true)
   )

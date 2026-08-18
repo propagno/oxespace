@@ -13,6 +13,7 @@ import {
   parseGitHubCreateReleaseInput,
   parseGitHubCreateWorktreeInput,
   parseGitHubDeleteCheckpointInput,
+  parseGitHubFileInput,
   parseGitHubPullRequestListInput,
   parseGitHubRemoveWorktreeInput,
   parseGitHubRestoreCheckpointInput,
@@ -35,6 +36,12 @@ export function registerGitHubIpc(db: AppDatabase, service = new GitHubService(d
   )
   ipcMain.handle(IPC_CHANNELS.github.stageAll, (_event, input: unknown) =>
     service.stageAll(parseGitHubWorkspaceInput(input))
+  )
+  ipcMain.handle(IPC_CHANNELS.github.stageFile, (_event, input: unknown) =>
+    service.stageFile(parseGitHubFileInput(input))
+  )
+  ipcMain.handle(IPC_CHANNELS.github.unstageFile, (_event, input: unknown) =>
+    service.unstageFile(parseGitHubFileInput(input))
   )
   ipcMain.handle(IPC_CHANNELS.github.commit, (_event, input: unknown) =>
     service.commit(parseGitHubCommitInput(input))

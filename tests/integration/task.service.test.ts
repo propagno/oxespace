@@ -35,6 +35,7 @@ describe('TaskService', () => {
       title: 'Fix login',
       description: 'Button disabled',
       context: 'Use auth store',
+      acceptanceCriteria: 'The login button becomes enabled for valid credentials.',
       allowedFiles: ['src/auth.ts']
     })
 
@@ -47,6 +48,8 @@ describe('TaskService', () => {
       data: expect.stringContaining('# Task: Fix login')
     })
     expect(service.executions(task.id)[0]?.type).toBe('run')
+    expect(service.executions(task.id)[0]?.output).toContain('Prompt dispatched to terminal pane-1')
+    expect(terminalWrite).toHaveBeenCalledWith(expect.objectContaining({ data: expect.stringContaining('## Acceptance Criteria') }))
     db.close()
   })
 
@@ -96,6 +99,7 @@ describe('TaskService', () => {
       title: 'Fix login',
       description: 'Button disabled',
       context: 'Use auth store',
+      acceptanceCriteria: '',
       verifyCommand: '',
       allowedFiles: ['src/auth.ts', 'src/Login.tsx'],
       column: 'ready',
@@ -104,6 +108,9 @@ describe('TaskService', () => {
       createdAt: 1,
       updatedAt: 1
     })).toContain('## Allowed Files\nsrc/auth.ts\nsrc/Login.tsx')
+    expect(buildPromptPayload({
+      id: 'task-1', workspaceId: 'workspace-1', title: 'Fix login', description: 'Button disabled', context: 'Use auth store', acceptanceCriteria: '', verifyCommand: '', allowedFiles: ['src/auth.ts'], column: 'ready', runStatus: 'idle', position: 0, createdAt: 1, updatedAt: 1
+    })).toContain('Change only the allowed files.')
   })
 })
 

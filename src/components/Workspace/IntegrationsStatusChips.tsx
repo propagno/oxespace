@@ -1,5 +1,5 @@
-import { Github, Zap, Server, Activity, Brain } from 'lucide-react'
-import { useState, useEffect, useCallback, type ReactElement } from 'react'
+import { Github, Zap, Server, Activity, Brain, ChevronDown } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import type { SemanticStatus } from '../../../shared/types/ipc'
 import { useResolvedTerminalPrefs, useTerminalPrefsStore } from '../../store/terminal-prefs.store'
@@ -8,19 +8,21 @@ import { useUpdaterStore } from '../../store/updater.store'
 
 interface IntegrationsStatusChipsProps {
   workspace: Workspace
+  isActive?: boolean
 }
 
 /**
  * Interactive Status Chips for integrations (GitHub, MCP, RTK, Caveman, Semantic).
  * Displayed in the top toolbar to give a glanceable health check of system services.
  */
-export function IntegrationsStatusChips({ workspace }: IntegrationsStatusChipsProps): ReactElement {
+export function IntegrationsStatusChips({ workspace, isActive = true }: IntegrationsStatusChipsProps): ReactElement {
   const terminalPrefs = useResolvedTerminalPrefs(workspace.id)
   const setOverride = useTerminalPrefsStore((s) => s.setOverride)
   const rtkActive = terminalPrefs.rtkHookEnabled
   const rtk = useUpdaterStore((s) => s.rtk)
   const cavemanActive = terminalPrefs.cavemanModeEnabled
   const semanticEnabled = terminalPrefs.semanticSearchEnabled
+  const semanticMode = terminalPrefs.semanticSearchMode
 
   const serversSelector = useCallback(selectMcpServers(workspace.id), [workspace.id])
   const servers = useMcpStore(serversSelector) || []
@@ -29,9 +31,29 @@ export function IntegrationsStatusChips({ workspace }: IntegrationsStatusChipsPr
   const [githubStatus, setGithubStatus] = useState<{ loggedIn: boolean; error?: string } | null>(null)
   const [builtInMcpRunning, setBuiltInMcpRunning] = useState(false)
   const [semanticStatus, setSemanticStatus] = useState<SemanticStatus | null>(null)
+  const [open, setOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
+    if (!open) return
+    const onPointerDown = (event: PointerEvent): void => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) setOpen(false)
+    }
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown, true)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!isActive) return
     let mounted = true
+    let interval: ReturnType<typeof setInterval> | null = null
     const checkStatus = async () => {
       // Check GitHub
       try {
@@ -66,30 +88,44 @@ export function IntegrationsStatusChips({ workspace }: IntegrationsStatusChipsPr
       }
     }
 
-    // Initial check
-    void checkStatus()
-
-    // Periodic check
-    const interval = setInterval(checkStatus, 15000)
+    // Keep process-spawning GitHub checks and semantic/MCP IPC away from the
+    // workspace visibility swap. Cached status remains visible meanwhile.
+    const initialTimer = setTimeout(() => {
+      void checkStatus()
+      interval = setInterval(checkStatus, 15000)
+    }, 350)
     return () => {
       mounted = false
-      clearInterval(interval)
+      clearTimeout(initialTimer)
+      if (interval) clearInterval(interval)
     }
-  }, [workspace.rootPath, workspace.id])
+  }, [isActive, workspace.rootPath, workspace.id])
 
   // Mirror the renderer-persisted preference into the main process so indexing
   // and the MCP tool honor it (the store is renderer-only; main needs telling).
   useEffect(() => {
-    void window.oxe?.semantic
-      ?.setEnabled({ workspaceId: workspace.id, enabled: semanticEnabled })
-      .then((status) => setSemanticStatus(status))
-      .catch(() => undefined)
-  }, [workspace.id, semanticEnabled])
+    if (!isActive) return
+    const timer = setTimeout(() => {
+      void window.oxe?.semantic
+        ?.setEnabled({ workspaceId: workspace.id, enabled: semanticEnabled })
+        .then((status) => setSemanticStatus(status))
+        .catch(() => undefined)
+    }, 350)
+    return () => clearTimeout(timer)
+  }, [isActive, workspace.id, semanticEnabled])
+
+  useEffect(() => {
+    if (!isActive) return
+    const timer = setTimeout(() => {
+      void window.oxe?.semantic?.setMode({ workspaceId: workspace.id, mode: semanticMode }).catch(() => undefined)
+    }, 350)
+    return () => clearTimeout(timer)
+  }, [isActive, workspace.id, semanticMode])
 
   const totalRunningMcp = runningMcpServers + (builtInMcpRunning ? 1 : 0)
 
   // Derive the Semantic chip's visual state + tooltip from enabled + worker health.
-  const modelHint = semanticStatus?.modelId ?? 'multilingual-e5-small'
+  const modelHint = semanticStatus?.modelId ?? 'multilingual-e5-base'
   let semanticClass = 'activity-idle'
   let semanticTitle = `Semantic search: off · model ${modelHint}`
   if (semanticEnabled) {
@@ -106,67 +142,88 @@ export function IntegrationsStatusChips({ workspace }: IntegrationsStatusChipsPr
       const n = semanticStatus?.count ?? 0
       semanticTitle = n === 0
         ? `Semantic: ready · empty index · ${modelHint}`
-        : `Semantic: ready · ${n} files · ${modelHint}`
+        : `Semantic: ready · ${n} files · ${semanticStatus?.mode ?? semanticMode} mode · ${semanticStatus?.coverage?.byCategory.test ?? 0} tests · ${semanticStatus?.coverage?.byCategory.config ?? 0} config · ${modelHint}`
     }
   }
 
+  const semanticHealthy = semanticEnabled && !semanticStatus?.lastError
+  const activeCount = Number(githubStatus?.loggedIn === true) + Number(totalRunningMcp > 0) + Number(rtkActive) + Number(cavemanActive) + Number(semanticHealthy)
+  const attentionCount = Number(rtk.updateAvailable) + Number(Boolean(semanticStatus?.lastError))
+  const overallTone = attentionCount > 0 ? 'attention' : activeCount > 0 ? 'healthy' : 'idle'
+
   return (
-    <div className="workspace-status-summary" role="status" aria-label="Integrations Status" style={{ marginRight: 8, gap: 6 }}>
-      {/* GitHub Chip */}
-      <span className={`workspace-status-chip ${githubStatus?.loggedIn ? 'activity-thinking' : 'activity-idle'}`} title={`GitHub: ${githubStatus?.loggedIn ? 'Connected' : 'Disconnected'}`}>
-        <Github size={11} aria-hidden="true" style={{ marginRight: 2 }} />
-        <span className={`workspace-status-dot ${githubStatus?.loggedIn ? 'activity-thinking' : 'activity-idle'}`} aria-hidden="true" />
-        <span className="chip-label">GitHub</span>
-      </span>
-
-      {/* MCP Chip */}
-      <span className={`workspace-status-chip ${totalRunningMcp > 0 ? 'activity-thinking' : 'activity-idle'}`} title={`MCP Servers: ${totalRunningMcp} running`}>
-        <Server size={11} aria-hidden="true" style={{ marginRight: 2 }} />
-        <span className={`workspace-status-dot ${totalRunningMcp > 0 ? 'activity-thinking' : 'activity-idle'}`} aria-hidden="true" />
-        <span className="chip-label">{totalRunningMcp} MCP</span>
-      </span>
-
-      {/* RTK Chip */}
-      <span
-        className={`workspace-status-chip ${rtk.updateAvailable ? 'activity-awaiting' : rtkActive ? 'activity-thinking' : 'activity-idle'}`}
-        title={
-          rtk.updateAvailable
-            ? `RTK: update ${rtk.latestVersion} available (installed ${rtk.version ?? 'legacy'}) — Settings → Updates`
-            : `RTK: ${rtkActive ? 'Active' : 'Disabled'}${rtk.version ? ` · ${rtk.version}` : ''}`
-        }
-      >
-        <Zap size={11} aria-hidden="true" style={{ marginRight: 2 }} />
-        <span className={`workspace-status-dot ${rtk.updateAvailable ? 'activity-awaiting' : rtkActive ? 'activity-thinking' : 'activity-idle'}`} aria-hidden="true" />
-        <span className="chip-label">RTK{rtk.updateAvailable ? ' ↑' : ''}</span>
-      </span>
-
-      {/* Caveman Chip — green when active, matching RTK/MCP (it's a plain on/off
-          toggle with no runtime "awaiting" state, so amber was misleading). */}
-      <span className={`workspace-status-chip ${cavemanActive ? 'activity-thinking' : 'activity-idle'}`} title={`Caveman Mode: ${cavemanActive ? 'Active' : 'Disabled'}`}>
-        <Activity size={11} aria-hidden="true" style={{ marginRight: 2 }} />
-        <span className={`workspace-status-dot ${cavemanActive ? 'activity-awaiting' : 'activity-idle'}`} aria-hidden="true" />
-        <span className="chip-label">Caveman</span>
-      </span>
-
-      {/* Semantic Search Chip — clickable toggle with real status */}
+    <div className="workspace-integrations" ref={menuRef}>
       <button
         type="button"
-        className={`workspace-status-chip ${semanticClass}`}
-        title={`${semanticTitle} (click to ${semanticEnabled ? 'disable' : 'enable'})`}
-        onClick={() => setOverride(workspace.id, 'semanticSearchEnabled', !semanticEnabled)}
-        style={{ cursor: 'pointer' }}
-        data-testid="chip-semantic"
+        className={`workspace-integrations-trigger tone-${overallTone}`}
+        aria-label="Open integration status"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        data-testid="workspace-integrations-trigger"
       >
-        <Brain size={11} aria-hidden="true" style={{ marginRight: 2 }} />
-        <span className={`workspace-status-dot ${semanticClass}`} aria-hidden="true" />
-        <span className="chip-label">
-          Semantic
-          {semanticEnabled && semanticStatus?.indexing ? ' …' : ''}
-          {semanticEnabled && semanticStatus && !semanticStatus.indexing && semanticStatus.workerReady
-            ? ` ${semanticStatus.count}`
-            : ''}
-        </span>
+        <Server size={12} aria-hidden="true" />
+        <span className={`workspace-integrations-health tone-${overallTone}`} aria-hidden="true" />
+        <span className="workspace-integrations-label">Systems</span>
+        <span className="workspace-integrations-count">{attentionCount > 0 ? `${attentionCount} alert${attentionCount === 1 ? '' : 's'}` : `${activeCount}/5`}</span>
+        <ChevronDown size={11} className="workspace-integrations-chevron" aria-hidden="true" />
       </button>
+
+      {open ? (
+        <div className="workspace-integrations-menu" role="menu" aria-label="Integration status" data-testid="workspace-integrations-menu">
+          <div className="workspace-integrations-menu-header">
+            <strong>Systems</strong>
+            <span>{activeCount} active</span>
+          </div>
+
+          <IntegrationRow icon={<Github size={13} />} label="GitHub" detail={githubStatus?.loggedIn ? 'Connected' : githubStatus ? 'Disconnected' : 'Checking…'} active={githubStatus?.loggedIn === true} />
+          <IntegrationRow icon={<Server size={13} />} label="MCP" detail={`${totalRunningMcp} running`} active={totalRunningMcp > 0} />
+          <IntegrationRow
+            icon={<Zap size={13} />}
+            label="RTK"
+            detail={rtk.updateAvailable ? `Update ${rtk.latestVersion} available` : rtkActive ? `Active${rtk.version ? ` · ${rtk.version}` : ''}` : 'Disabled'}
+            active={rtkActive}
+            attention={rtk.updateAvailable}
+          />
+          <IntegrationRow icon={<Activity size={13} />} label="Caveman" detail={cavemanActive ? 'Active' : 'Disabled'} active={cavemanActive} />
+
+          <button
+            type="button"
+            role="menuitemcheckbox"
+            aria-checked={semanticEnabled}
+            className="workspace-integrations-row is-action"
+            title={`${semanticTitle} (click to ${semanticEnabled ? 'disable' : 'enable'})`}
+            onClick={() => setOverride(workspace.id, 'semanticSearchEnabled', !semanticEnabled)}
+            data-testid="chip-semantic"
+          >
+            <span className="workspace-integrations-row-icon"><Brain size={13} aria-hidden="true" /></span>
+            <span className="workspace-integrations-row-copy">
+              <strong>Semantic</strong>
+              <span>{semanticEnabled && semanticStatus?.indexing ? 'Indexing…' : semanticEnabled ? (semanticStatus?.lastError ? 'Needs attention' : `${semanticStatus?.count ?? 0} files`) : 'Disabled'}</span>
+            </span>
+            <span className={`workspace-integrations-row-dot ${semanticClass}`} aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function IntegrationRow({ active, attention = false, detail, icon, label }: {
+  active: boolean
+  attention?: boolean
+  detail: string
+  icon: ReactElement
+  label: string
+}): ReactElement {
+  return (
+    <div className="workspace-integrations-row" role="menuitem" aria-disabled="true">
+      <span className="workspace-integrations-row-icon" aria-hidden="true">{icon}</span>
+      <span className="workspace-integrations-row-copy">
+        <strong>{label}</strong>
+        <span>{detail}</span>
+      </span>
+      <span className={`workspace-integrations-row-dot ${attention ? 'activity-awaiting' : active ? 'activity-thinking' : 'activity-idle'}`} aria-hidden="true" />
     </div>
   )
 }

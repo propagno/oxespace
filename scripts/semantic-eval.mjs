@@ -18,16 +18,19 @@
  */
 
 import { readdirSync, readFileSync, statSync, writeFileSync, mkdirSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { dirname, join, relative, extname, sep } from 'node:path'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = dirname(__dirname)
 const RESULTS_DIR = join(ROOT, 'tests', 'token-bench', 'results')
+const CACHE_DIR = join(ROOT, 'tests', 'token-bench', '.cache')
+const CACHE_FILE = join(CACHE_DIR, 'semantic-embeddings.json')
 const SCAN_DIRS = ['electron', 'src', 'shared']
 const TOP_K = 5
 
-const MODEL_ID = 'Xenova/multilingual-e5-small'
+const MODEL_ID = 'Xenova/multilingual-e5-base'
 const QUERY_PREFIX = 'query: '
 const PASSAGE_PREFIX = 'passage: '
 const CHUNK_CHARS = 1500
@@ -53,6 +56,9 @@ const MAX_INDEXABLE_BYTES = 256 * 1024
 
 // Labeled queries — Portuguese (the app's audience) against English code.
 // target = path substrings that count as a correct answer for that query.
+// n≈30 golden set: coarse Recall steps shrink from ~10pp (n=10) to ~3pp, and
+// MRR / per-query rank gain resolution. Each target was verified to be the file
+// that actually answers the query (see scripts header + git-tracked paths).
 const QUERIES = [
   { q: 'Como o servidor MCP entra em hibernação por inatividade e onde fica o timer de sleep?', target: ['services/mcp.service.ts'] },
   { q: 'Onde os embeddings da busca semântica são gerados pelo worker?', target: ['workers/semantic-worker.ts', 'services/semantic.service.ts'] },
@@ -63,7 +69,28 @@ const QUERIES = [
   { q: 'Como o RTK baixa o binário rtk.exe para a pasta de dados do usuário?', target: ['services/rtk.service.ts'] },
   { q: 'Onde está o registro das ferramentas internas expostas via MCP?', target: ['mcp-internal/tool-registry.ts'] },
   { q: 'Como um workspace é criado com um pane por célula do layout?', target: ['services/workspace.service.ts'] },
-  { q: 'Onde o áudio é transcrito usando o Whisper na funcionalidade de voz?', target: ['services/voice.service.ts'] }
+  { q: 'Onde o áudio é transcrito usando o Whisper na funcionalidade de voz?', target: ['services/voice.service.ts'] },
+  // --- expansão n=10 → n=30 (domínios ainda não cobertos) ---
+  { q: 'Onde os comandos git como status, diff e commit são executados no processo principal?', target: ['services/git.service.ts'] },
+  { q: 'Como as sessões de terminal são persistidas no banco e forkadas em novas sessões?', target: ['services/session.service.ts'] },
+  { q: 'Onde as tarefas do quadro kanban são criadas e suas dependências entre tarefas gerenciadas?', target: ['services/task.service.ts'] },
+  { q: 'Como os jobs em segundo plano são iniciados, acompanhados e finalizados?', target: ['services/background.service.ts'] },
+  { q: 'Onde as skills de agente são carregadas dos arquivos markdown com frontmatter YAML?', target: ['services/skill.service.ts'] },
+  { q: 'Como o app coleta diagnósticos e informações de saúde do ambiente?', target: ['services/diagnostics.service.ts'] },
+  { q: 'Onde o grafo de código é construído e consultado para navegação?', target: ['services/codegraph.service.ts'] },
+  { q: 'Como os perfis de shell como PowerShell e bash são detectados e configurados?', target: ['services/shell-profile.service.ts'] },
+  { q: 'Onde os agentes de IA são lançados e seus processos de terminal gerenciados?', target: ['services/agent.service.ts'] },
+  { q: 'Como o consumo de tokens de uso é consultado entre os provedores como Claude e Codex?', target: ['services/usage.service.ts'] },
+  { q: 'Onde os servidores MCP habilitados são materializados no arquivo .mcp.json do workspace?', target: ['services/mcp-sync.service.ts'] },
+  { q: 'Como o controle de qualidade avalia achados e produz um veredito de pass, warn ou fail?', target: ['services/quality-controller.service.ts'] },
+  { q: 'Onde os eventos de preview web são publicados quando a ferramenta abre uma URL?', target: ['mcp-internal/web-preview-bus.ts'] },
+  { q: 'Como as mutações de worktree do git emitem eventos para a UI se atualizar?', target: ['mcp-internal/worktree-event-bus.ts'] },
+  { q: 'Onde as ferramentas internas do MCP executam suas ações de fato?', target: ['mcp-internal/tool-handlers.ts'] },
+  { q: 'Onde o estado dos terminais abertos é mantido no store do renderer?', target: ['store/terminal.store.ts'] },
+  { q: 'Como as preferências e configurações do usuário são guardadas no frontend?', target: ['store/settings.store.ts'] },
+  { q: 'Onde o layout em grade dos panes do workspace é renderizado?', target: ['components/Grid/WorkspaceGrid.tsx'] },
+  { q: 'Como a paleta de comandos é aberta e filtra as ações disponíveis?', target: ['components/CommandPalette/CommandPalette.tsx'] },
+  { q: 'Qual migração adiciona o armazenamento dos embeddings em coluna blob?', target: ['migrations/040_semantic_embedding_blob.sql'] }
 ]
 
 let countTokens
@@ -111,17 +138,35 @@ const embed = async (t) => Array.from((await extractor(t, { pooling: 'mean', nor
 log(`[eval] embedding (chunked) …`)
 const records = []
 let chunks = 0
+let cache = { version: 1, model: MODEL_ID, chunkChars: CHUNK_CHARS, overlap: CHUNK_OVERLAP, records: {} }
+try {
+  const stored = JSON.parse(readFileSync(CACHE_FILE, 'utf8'))
+  if (stored.version === cache.version && stored.model === MODEL_ID && stored.chunkChars === CHUNK_CHARS && stored.overlap === CHUNK_OVERLAP) cache = stored
+} catch { /* cold benchmark cache */ }
+const nextCache = { ...cache, records: {} }
+let cacheHits = 0
 for (const f of files) {
   let content
   try { content = readFileSync(f, 'utf-8') } catch { continue }
   if (!content.trim()) continue
-  const vecs = []
-  for (const c of chunkText(content)) vecs.push(await embed(PASSAGE_PREFIX + c))
+  const rel = relative(ROOT, f).split(sep).join('/')
+  const checksum = createHash('sha1').update(content).digest('hex')
+  let vecs
+  if (cache.records[rel]?.checksum === checksum) {
+    vecs = cache.records[rel].vecs
+    cacheHits++
+  } else {
+    vecs = []
+    for (const c of chunkText(content)) vecs.push(await embed(PASSAGE_PREFIX + c))
+  }
   if (!vecs.length) continue
   chunks += vecs.length
-  records.push({ rel: relative(ROOT, f).split(sep).join('/'), content, vecs })
+  records.push({ rel, content, vecs })
+  nextCache.records[rel] = { checksum, vecs }
 }
-log(`[eval] ${records.length} files / ${chunks} chunks`)
+mkdirSync(CACHE_DIR, { recursive: true })
+writeFileSync(CACHE_FILE, JSON.stringify(nextCache))
+log(`[eval] ${records.length} files / ${chunks} chunks · cache ${cacheHits}/${records.length}`)
 
 function rankFor(qvec, scoreOf) {
   const ranked = records
@@ -131,6 +176,52 @@ function rankFor(qvec, scoreOf) {
 }
 const wholeScore = (qvec, r) => cosine(qvec, r.vecs[0])               // old: head only
 const chunkedScore = (qvec, r) => Math.max(...r.vecs.map((v) => cosine(qvec, v))) // new: best chunk
+
+const STOP = new Set(['como', 'onde', 'fica', 'pelo', 'pela', 'para', 'dos', 'das', 'que', 'uma', 'the', 'how', 'where', 'with', 'from', 'and'])
+function queryTerms(q) {
+  return [...new Set(q
+    .replace(/([a-z\d])([A-Z])/g, '$1 $2')
+    .normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().match(/[a-z0-9_$@]+/g) ?? [])]
+    .filter((term) => term.length >= 2 && !STOP.has(term))
+}
+function lexicalScore(q, record) {
+  const haystack = `${record.rel}\n${record.content}`.toLowerCase()
+  return queryTerms(q).reduce((score, term) => score + (haystack.includes(term) ? (record.rel.toLowerCase().includes(term) ? 3 : 1) : 0), 0)
+}
+function hybridRank(q, semanticRanked) {
+  const lexical = records
+    .map((r) => ({ rel: r.rel, content: r.content, score: lexicalScore(q, r) }))
+    .filter((r) => r.score > 0)
+    .sort((a, b) => b.score - a.score)
+  const fused = new Map()
+  semanticRanked.forEach((r, i) => fused.set(r.rel, { ...r, fused: 1 / (61 + i) + Math.max(0, r.score) * 0.002 }))
+  lexical.forEach((r, i) => {
+    const current = fused.get(r.rel) ?? { ...r, fused: 0 }
+    current.fused += 0.15 / (61 + i)
+    fused.set(r.rel, current)
+  })
+  const leader = fused.get(semanticRanked[0]?.rel)
+  if (leader) {
+    for (const item of fused.values()) if (item !== leader && item.fused >= leader.fused) item.fused = leader.fused - Number.EPSILON
+  }
+  return [...fused.values()].sort((a, b) => b.fused - a.fused)
+}
+function budgetedContext(ranked, q, budget = 3000) {
+  const terms = queryTerms(q)
+  let used = 0
+  const snippets = []
+  for (const result of ranked.slice(0, TOP_K)) {
+    const lower = result.content.toLowerCase()
+    let focus = terms.map((term) => lower.indexOf(term)).filter((index) => index >= 0).sort((a, b) => a - b)[0] ?? 0
+    const snippet = result.content.slice(Math.max(0, focus - 350), Math.max(0, focus - 350) + 1400)
+    const tokens = countTokens(`${result.rel}\n${snippet}`)
+    if (snippets.length > 0 && used + tokens > budget) break
+    snippets.push(`${result.rel}\n${snippet}`)
+    used += tokens
+  }
+  return countTokens(snippets.join('\n'))
+}
 
 function rankOfTarget(ranked, targets) {
   const idx = ranked.findIndex((r) => targets.some((t) => r.rel.includes(t)))
@@ -142,10 +233,12 @@ for (const { q, target } of QUERIES) {
   const qvec = await embed(QUERY_PREFIX + q)
   const w = rankFor(qvec, wholeScore)
   const c = rankFor(qvec, chunkedScore)
+  const h = hybridRank(q, c)
   rows.push({
     q, target,
     whole: { rank: rankOfTarget(w, target), top1: w[0].rel, topScore: w[0].score, ctxTokens: countTokens(c.slice(0, TOP_K).map((r) => r.content).join('\n')) },
-    chunked: { rank: rankOfTarget(c, target), top1: c[0].rel, topScore: c[0].score, ctxTokens: countTokens(c.slice(0, TOP_K).map((r) => r.content).join('\n')) }
+    chunked: { rank: rankOfTarget(c, target), top1: c[0].rel, topScore: c[0].score, ctxTokens: countTokens(c.slice(0, TOP_K).map((r) => r.content).join('\n')) },
+    hybrid: { rank: rankOfTarget(h, target), top1: h[0].rel, topScore: h[0].fused, ctxTokens: budgetedContext(h, q) }
   })
 }
 
@@ -159,6 +252,7 @@ const agg = (key) => {
 }
 const W = agg('whole')
 const C = agg('chunked')
+const H = agg('hybrid')
 
 const pct = (x) => (x * 100).toFixed(0) + '%'
 const f3 = (x) => x.toFixed(3)
@@ -175,25 +269,36 @@ md += `| Recall@1 (target is #1) | ${pct(W.recall1)} | ${pct(C.recall1)} | ${pct
 md += `| Recall@5 (target in top-5) | ${pct(W.recall5)} | ${pct(C.recall5)} | ${pct(C.recall5 - W.recall5)} |\n`
 md += `| MRR (mean reciprocal rank) | ${f3(W.mrr)} | ${f3(C.mrr)} | ${f3(C.mrr - W.mrr)} |\n`
 md += `| Mean top-1 score | ${f3(W.meanTopScore)} | ${f3(C.meanTopScore)} | ${f3(C.meanTopScore - W.meanTopScore)} |\n`
+md += `\n### Hybrid adaptive retrieval\n\n`
+md += `| Metric | Semantic chunked | Hybrid semantic + lexical |\n|---|--:|--:|\n`
+md += `| Recall@1 | ${pct(C.recall1)} | ${pct(H.recall1)} |\n`
+md += `| Recall@5 | ${pct(C.recall5)} | ${pct(H.recall5)} |\n`
+md += `| MRR | ${f3(C.mrr)} | ${f3(H.mrr)} |\n`
+md += `| Mean returned context | ${f0(C.meanCtx)} | ${f0(H.meanCtx)} |\n`
 
 md += `\n## Per-query target rank (lower is better; ∞ = outside corpus top)\n\n`
-md += `| Query | Target | Rank (old) | Rank (new) |\n|-------|--------|----------:|----------:|\n`
+md += `| Query | Target | Rank (old) | Rank (chunked) | Rank (hybrid) |\n|-------|--------|----------:|---------------:|--------------:|\n`
 for (const r of rows) {
   const rk = (x) => (x === Infinity ? '∞' : x)
-  md += `| ${r.q.slice(0, 52)}… | \`${r.target[0]}\` | ${rk(r.whole.rank)} | ${rk(r.chunked.rank)} |\n`
+  md += `| ${r.q.slice(0, 52)}… | \`${r.target[0]}\` | ${rk(r.whole.rank)} | ${rk(r.chunked.rank)} | ${rk(r.hybrid.rank)} |\n`
 }
 
 md += `\n## Token cost (mean over queries)\n\n`
 md += `- Mean semantic top-${TOP_K} context: **${f0(C.meanCtx)} tokens** (chunked).\n`
+md += `- Mean hybrid budgeted context: **${f0(H.meanCtx)} tokens**.\n`
 
 md += `\n## Verdict\n\n`
 const better = C.mrr > W.mrr && C.recall1 >= W.recall1
 md += better
   ? `Chunked ranking is **clearly better**: MRR ${f3(W.mrr)} → ${f3(C.mrr)}, Recall@1 ${pct(W.recall1)} → ${pct(C.recall1)}, Recall@5 ${pct(W.recall5)} → ${pct(C.recall5)}. Ship the chunked implementation.\n`
   : `Chunked ranking did **not** clearly beat whole-file on this set (MRR ${f3(W.mrr)} → ${f3(C.mrr)}). Revisit before shipping.\n`
+const contextReduction = 1 - H.meanCtx / C.meanCtx
+md += H.recall5 >= C.recall5 && H.mrr >= C.mrr * 0.9
+  ? `Hybrid adaptive retrieval **passes the quality floor**: Recall@1 ${pct(C.recall1)} → ${pct(H.recall1)}, Recall@5 ${pct(C.recall5)} → ${pct(H.recall5)}, MRR ${f3(C.mrr)} → ${f3(H.mrr)}, with **${pct(contextReduction)} less returned context**.\n`
+  : `Hybrid adaptive retrieval **fails the quality floor** despite ${pct(contextReduction)} less context. Recalibrate fusion before shipping.\n`
 
 mkdirSync(RESULTS_DIR, { recursive: true })
 const stamp = new Date().toISOString().replace(/[:.]/g, '-')
 writeFileSync(join(RESULTS_DIR, `eval-${stamp}.md`), md)
-writeFileSync(join(RESULTS_DIR, `eval-${stamp}.json`), JSON.stringify({ queries: QUERIES.length, corpus: records.length, chunks, whole: W, chunked: C, rows }, null, 2))
+writeFileSync(join(RESULTS_DIR, `eval-${stamp}.json`), JSON.stringify({ queries: QUERIES.length, corpus: records.length, chunks, whole: W, chunked: C, hybrid: H, rows }, null, 2))
 process.stdout.write(md + `\nSaved to tests/token-bench/results/eval-${stamp}.{md,json}\n`)

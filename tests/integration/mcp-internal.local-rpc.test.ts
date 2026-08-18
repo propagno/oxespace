@@ -13,6 +13,7 @@ interface ServerCtx {
   server: LocalRpcServer
   port: number
   db: ReturnType<typeof openInMemoryDatabase>
+  workspaceServ: WorkspaceService
 }
 
 const TOKEN = 'a'.repeat(64)
@@ -45,17 +46,21 @@ async function postRpc(port: number, headers: Record<string, string>, body: obje
 
 async function start(): Promise<ServerCtx> {
   const db = openInMemoryDatabase()
+  const workspaceServ = new WorkspaceService(db)
   const server = createLocalRpcServer({
-    workspaceServ: new WorkspaceService(db),
+    workspaceServ,
     github: new GitHubService(db),
     background: new BackgroundManager(db, { emitOutput: () => undefined, emitUpdate: () => undefined }),
     fileSystem: new FileSystemService(),
     webPreview: new WebPreviewBus(),
-    worktree: new WorktreeEventBus()
+    worktree: new WorktreeEventBus(),
+    // Semantic/codegraph are unused by the RPC smoke tools exercised below.
+    semantic: { isEnabled: () => false, queryDetailed: async () => ({ results: [] }) } as never,
+    codegraph: {} as never
   })
   server.setToken(TOKEN)
   const { port } = await server.start(0)
-  return { server, port, db }
+  return { server, port, db, workspaceServ }
 }
 
 describe('Internal MCP local RPC server', () => {
@@ -92,14 +97,50 @@ describe('Internal MCP local RPC server', () => {
     expect(env.error.code).toBe(-32601)
   })
 
-  test('returns -32002 when a workspace-scoped tool is called without the workspace header', async () => {
+  test('workspace-scoped tool without header returns actionable isError when no active workspace', async () => {
     const { json } = await postRpc(
       ctx.port,
       { Authorization: `Bearer ${TOKEN}` },
       { jsonrpc: '2.0', id: 7, method: 'tools/call', params: { name: 'oxespace_list_worktrees', arguments: {} } }
     )
-    const env = json as { error: { code: number } }
-    expect(env.error.code).toBe(-32002)
+    const env = json as { result: { isError?: boolean; content: Array<{ text: string }> } }
+    expect(env.result.isError).toBe(true)
+    expect(env.result.content[0].text).toMatch(/oxespace_list_workspaces|active workspace/i)
+  })
+
+  test('workspace-scoped tool without header falls back to the active workspace', async () => {
+    const workspace = ctx.workspaceServ.create({ rootPath: process.cwd(), name: 'rpc-fallback' })
+    ctx.workspaceServ.setActive(workspace.id)
+
+    const { status, json } = await postRpc(
+      ctx.port,
+      { Authorization: `Bearer ${TOKEN}` },
+      { jsonrpc: '2.0', id: 71, method: 'tools/call', params: { name: 'oxespace_list_panes', arguments: {} } }
+    )
+    expect(status).toBe(200)
+    const env = json as { result: { isError?: boolean; content: Array<{ text: string }> } }
+    expect(env.result.isError).toBeUndefined()
+    expect(env.result.content[0].text).toBeDefined()
+    // Should be a JSON array of panes (possibly empty for a fresh workspace)
+    expect(env.result.content[0].text.trim().startsWith('[')).toBe(true)
+  })
+
+  test('stale workspace header falls back to the active workspace', async () => {
+    const workspace = ctx.workspaceServ.create({ rootPath: process.cwd(), name: 'rpc-stale' })
+    ctx.workspaceServ.setActive(workspace.id)
+
+    const { status, json } = await postRpc(
+      ctx.port,
+      {
+        Authorization: `Bearer ${TOKEN}`,
+        'X-OXE-Workspace-Id': '00000000-0000-0000-0000-000000000000'
+      },
+      { jsonrpc: '2.0', id: 72, method: 'tools/call', params: { name: 'oxespace_list_panes', arguments: {} } }
+    )
+    expect(status).toBe(200)
+    const env = json as { result: { isError?: boolean; content: Array<{ text: string }> } }
+    expect(env.result.isError).toBeUndefined()
+    expect(env.result.content[0].text.trim().startsWith('[')).toBe(true)
   })
 
   test('returns -32001 for an unknown tool', async () => {

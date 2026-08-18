@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { WorkspacePane } from '../../shared/types/workspace'
@@ -7,24 +7,30 @@ import { useAgentStore } from '../../src/store/agent.store'
 import { useTerminalStore } from '../../src/store/terminal.store'
 import { useWorkspaceStore } from '../../src/store/workspace.store'
 
+const terminalViewRenderSpy = vi.hoisted(() => vi.fn())
+
 vi.mock('../../src/components/Terminal/TerminalView', () => ({
-  TerminalView: ({ onInput, onResize }: { onInput: (data: string) => void; onResize: (cols: number, rows: number) => void }) => (
-    <div data-testid="terminal-view">
-      <button type="button" onClick={() => onInput('a')}>
-        input
-      </button>
-      <button type="button" onClick={() => onInput('copilot\r')}>
-        copilot command
-      </button>
-      <button type="button" onClick={() => onResize(120, 32)}>
-        resize
-      </button>
-    </div>
-  )
+  TerminalView: ({ onInput, onResize }: { onInput: (data: string) => void; onResize: (cols: number, rows: number) => void }) => {
+    terminalViewRenderSpy()
+    return (
+      <div data-testid="terminal-view">
+        <button type="button" onClick={() => onInput('a')}>
+          input
+        </button>
+        <button type="button" onClick={() => onInput('copilot\r')}>
+          copilot command
+        </button>
+        <button type="button" onClick={() => onResize(120, 32)}>
+          resize
+        </button>
+      </div>
+    )
+  }
 }))
 
 describe('TerminalPane', () => {
   beforeEach(() => {
+    terminalViewRenderSpy.mockClear()
     useTerminalStore.setState({ panes: {}, pendingCommands: {}, activePaneId: null })
     useAgentStore.setState({
       profiles: [],
@@ -93,8 +99,12 @@ describe('TerminalPane', () => {
         resize: vi.fn().mockResolvedValue(undefined),
         stop: vi.fn().mockResolvedValue(undefined),
         restart: vi.fn().mockResolvedValue(undefined),
+        attach: vi.fn().mockResolvedValue({ running: false, seq: 0, prologue: '', replay: '', truncated: false, altScreen: false }),
+        detach: vi.fn().mockResolvedValue(undefined),
+        status: vi.fn().mockResolvedValue({ running: false, seq: 0, altScreen: false }),
         onData: vi.fn(() => vi.fn()),
-        onExit: vi.fn(() => vi.fn())
+        onExit: vi.fn(() => vi.fn()),
+        onActivity: vi.fn(() => vi.fn())
       },
       git: {
         getBranch: vi.fn().mockResolvedValue({ branch: 'feature/test', detached: false, shortSha: null }),
@@ -130,6 +140,30 @@ describe('TerminalPane', () => {
 
     expect(window.oxe.terminal.write).toHaveBeenCalledWith({ paneId: 'pane-1', data: 'a' })
     expect(window.oxe.terminal.resize).toHaveBeenCalledWith({ paneId: 'pane-1', cols: 120, rows: 32 })
+  })
+
+  test('adopts a session that is already running instead of respawning it', async () => {
+    const user = userEvent.setup()
+    // A workspace returning from the MRU: main still owns the shell. Spawning
+    // again would kill it, reload the user's $PROFILE and blank the terminal —
+    // the multi-second cost the attach model exists to remove.
+    vi.mocked(window.oxe.terminal.status).mockResolvedValue({ running: true, seq: 42, altScreen: false })
+
+    render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
+    await user.click(screen.getByLabelText('Start terminal'))
+
+    await waitFor(() => expect(useTerminalStore.getState().getStatus('pane-1').status).toBe('running'))
+    expect(window.oxe.terminal.start).not.toHaveBeenCalled()
+  })
+
+  test('does not rerender when an unrelated terminal changes', () => {
+    useTerminalStore.getState().setStatus('pane-1', 'running')
+    render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
+    terminalViewRenderSpy.mockClear()
+
+    act(() => useTerminalStore.getState().setStatus('pane-2', 'running'))
+
+    expect(terminalViewRenderSpy).not.toHaveBeenCalled()
   })
 
   test('status bar has no provider identity chip (header owns that)', () => {

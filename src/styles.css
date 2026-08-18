@@ -14,16 +14,29 @@
 /*  Documentation:        .oxe/design-system/TOKENS.md                         */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
+/*  Cascade contract (F1 migration) —                                           */
+/*  Everything below `tokens.css` is imported into the `oxe-legacy` cascade     */
+/*  layer, declared in ui-kit.css *before* `utilities`. Unlayered CSS beats     */
+/*  every layered rule, so while these files were unlayered they silently       */
+/*  overrode Tailwind utilities and neutered shadcn primitives — a component    */
+/*  could not be migrated piecemeal. Layering them flips the precedence, so a   */
+/*  utility or primitive class now wins wherever it is applied and panels can   */
+/*  move over one at a time. `tokens.css` stays unlayered: it is only custom    */
+/*  properties, and they must win everywhere (all 11 [data-theme] palettes).    */
 @import './styles/tokens.css';
-@import './styles/base.css';
-@import './styles/layout.css';
-@import './styles/components.css';
-@import './styles/features.css';
-@import './styles/worktree.css';
-@import './styles/background.css';
-@import './styles/history.css';
-@import './styles/tasks-deps.css';
-@import './styles/mcp.css';
-@import './styles/skills.css';
-@import './styles/scripts-webpreview.css';
-@import './styles/semantic.css';
+@import './styles/base.css' layer(oxe-legacy);
+@import './styles/layout.css' layer(oxe-legacy);
+@import './styles/components.css' layer(oxe-legacy);
+@import './styles/features.css' layer(oxe-legacy);
+@import './styles/worktree.css' layer(oxe-legacy);
+@import './styles/background.css' layer(oxe-legacy);
+@import './styles/mcp.css' layer(oxe-legacy);
+@import './styles/skills.css' layer(oxe-legacy);
+@import './styles/scripts-webpreview.css' layer(oxe-legacy);
+@import './styles/semantic.css' layer(oxe-legacy);
+@import './styles/search.css' layer(oxe-legacy);
+@import './styles/split-grid.css' layer(oxe-legacy);
+@import './styles/diff-comments.css' layer(oxe-legacy);
+@import './styles/preview.css' layer(oxe-legacy);
+@import './styles/linear.css' layer(oxe-legacy);
+@import './styles/orca-shell.css' layer(oxe-legacy);

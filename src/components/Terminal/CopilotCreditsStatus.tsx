@@ -1,6 +1,7 @@
 import { Bot } from 'lucide-react'
 import { useEffect, type ReactElement } from 'react'
 import { useCopilotCreditsStore } from '../../store/copilotCredits.store'
+import { ViewportTooltip } from '../common/ViewportTooltip'
 
 const REFRESH_INTERVAL_MS = 60_000
 
@@ -54,14 +55,14 @@ export function CopilotCreditsStatus(): ReactElement | null {
   }
 
   return (
-    <span
+    <ViewportTooltip
       className={`statusbar-chip copilot-credits-chip tone-${tone}`}
-      data-tooltip={title}
-      aria-label={`Copilot credits: ${label}`}
+      content={title}
+      ariaLabel={`Copilot credits: ${label}`}
     >
       <Bot size={10} aria-hidden="true" />
       <span className="chip-label">{label}</span>
-    </span>
+    </ViewportTooltip>
   )
 }
 

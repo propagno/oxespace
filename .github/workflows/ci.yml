@@ -17,10 +17,11 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
+      # Prefer GitHub's native "Use workflow from" branch. Only set this when you
+      # need to build a *different* ref than the one selected in the UI.
       branch:
-        description: Branch to check out and run the unified pipeline on
-        required: true
-        default: main
+        description: Optional override — leave empty to use "Use workflow from"
+        required: false
         type: string
       publish_release:
         description: After a successful build, package and publish a GitHub Release
@@ -34,7 +35,7 @@ on:
 
 concurrency:
   # Never cancel an in-flight tag release path; PR/main builds may cancel.
-  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && format('branch-{0}', inputs.branch) || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && format('dispatch-{0}', inputs.branch || github.ref_name) || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')) }}
 
 permissions:
@@ -42,17 +43,35 @@ permissions:
 
 jobs:
   build:
-    name: Typecheck, test and build
-    runs-on: windows-2022
+    name: Typecheck, test and build (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     permissions:
       contents: read
+    strategy:
+      # Never let a Linux failure cancel the Windows leg mid-release (or vice
+      # versa) — a half-cancelled matrix leaves the release job with one payload.
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            label: windows-x64
+            builder_flag: "--win"
+            slim_platform: win32
+          - os: ubuntu-22.04
+            label: linux-x64
+            builder_flag: "--linux"
+            slim_platform: linux
+    # NOTE: with a matrix, a job output is whichever leg wrote it last. Every
+    # value below is derived purely from package.json + the git ref, so both legs
+    # compute identical values and the race is benign.
     outputs:
       should_release: ${{ steps.plan.outputs.should_release }}
       version: ${{ steps.plan.outputs.version }}
       tag: ${{ steps.plan.outputs.tag }}
       prerelease: ${{ steps.plan.outputs.prerelease }}
       manifest: ${{ steps.plan.outputs.manifest }}
+      manifest_linux: ${{ steps.plan.outputs.manifest_linux }}
       sha: ${{ steps.plan.outputs.sha }}
 
     steps:
@@ -61,9 +80,14 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          # Manual runs: GitHub "Use workflow from" is github.ref_name.
+          # Optional inputs.branch overrides that when non-empty.
           if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
-            $ref = '${{ inputs.branch }}'.Trim()
-            if ([string]::IsNullOrWhiteSpace($ref)) { throw 'workflow_dispatch requires a non-empty branch.' }
+            $override = '${{ inputs.branch }}'.Trim()
+            $ref = if ($override) { $override } else { '${{ github.ref_name }}' }
+            if ([string]::IsNullOrWhiteSpace($ref)) {
+              throw 'workflow_dispatch could not resolve a branch (set Use workflow from, or branch input).'
+            }
           } else {
             $ref = '${{ github.ref }}'
           }
@@ -102,8 +126,15 @@ jobs:
               throw "Release tag $tag does not match package.json version $version."
             }
             # Tag may be created later by the release job when dispatching from a branch.
+            # `show-ref --quiet` reports "absent" with exit 1. That is a normal
+            # answer here, not a failure — but it leaves $LASTEXITCODE at 1, and
+            # every statement after this point is a PowerShell cmdlet that does
+            # not reset it, so pwsh exits 1 and fails the step even though the
+            # plan succeeded. Capture the answer, then clear the code.
             git show-ref --verify --quiet "refs/tags/$tag"
-            if ($LASTEXITCODE -eq 0) {
+            $tagExists = $LASTEXITCODE -eq 0
+            $global:LASTEXITCODE = 0
+            if ($tagExists) {
               $tagCommit = git rev-list -n 1 $tag
               if ($sha -ne $tagCommit) {
                 throw "Checked-out commit $sha does not match tag $tag ($tagCommit)."
@@ -121,6 +152,8 @@ jobs:
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "prerelease=$($isPrerelease.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "manifest=$channel.yml" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          # electron-updater writes a per-OS manifest on Linux.
+          "manifest_linux=$channel-linux.yml" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "sha=$sha" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
           Write-Host "version=$version tag=$tag should_release=$shouldRelease sha=$sha"
@@ -130,6 +163,17 @@ jobs:
         with:
           node-version: "22"
           cache: npm
+
+      # Electron links against the GTK/NSS desktop stack, and Chromium cannot
+      # start headless without a display server — xvfb provides one for the E2E
+      # smoke. The Windows runner needs none of this.
+      - name: Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 libasound2 \
+            libxshmfence1 libnotify4
 
       - name: Install dependencies without lifecycle scripts
         run: npm ci --ignore-scripts
@@ -144,13 +188,16 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           npm run typecheck
 
+      - name: Lint
+        run: npm run lint
+
       - name: Unit and integration tests
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
           npm run rebuild:native:node
-          npm run test
+          npm run test:coverage
 
       - name: Build renderer and main process
         shell: pwsh
@@ -171,12 +218,40 @@ jobs:
           npm run fix:native
           npm run verify:native
 
-      - name: E2E smoke
+      - name: E2E smoke (Windows)
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
           npm run test:e2e
+
+      # Electron needs a display; the wrapper owns a private Xvfb lifecycle so
+      # repeated Playwright launches cannot leave the CI job waiting on Xvfb.
+      - name: E2E smoke (Linux)
+        if: runner.os == 'Linux'
+        run: bash scripts/run-with-xvfb.sh npm run test:e2e
+
+      - name: E2E performance gate (Linux)
+        if: runner.os == 'Linux'
+        env:
+          OXESPACE_PERF_GATE: "1"
+        run: bash scripts/run-with-xvfb.sh npm run bench:ui
+
+      # Same budgets on the platform that actually ships today. Baselined on an
+      # idle host at 15/15 with the tightest headroom on boot
+      # (firstWindow→interactive 525ms against 2000ms); Linux clears the same
+      # budgets from the container. Both legs are hard gates, so a budget miss
+      # is a finding on one platform even when the other still fits.
+      - name: E2E performance gate (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          OXESPACE_PERF_GATE: "1"
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          npm run bench:ui
 
       # Performance regression visibility. Informational for now (the CPU
       # micro-benchmarks are deterministic); promote to a hard gate once we
@@ -197,7 +272,7 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           npm rebuild sharp
 
-      - name: Build NSIS installer
+      - name: Package installer (${{ matrix.label }})
         if: steps.plan.outputs.should_release == 'true'
         shell: pwsh
         run: |
@@ -205,8 +280,41 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           # build + fix:native already ran above; only prepare model, slim, package.
           npm run prepare:model
-          npm run slim:pack
-          npx electron-builder --win --config.npmRebuild=false --publish never
+          # slim:pack keeps ONLY the target's ONNX prebuild; passing the target
+          # explicitly matters because it is what a Linux build needs to KEEP.
+          node scripts/slim-pack-deps.mjs --platform=${{ matrix.slim_platform }} --arch=x64
+          npx electron-builder ${{ matrix.builder_flag }} --config.npmRebuild=false --publish never
+
+      - name: E2E packaged Linux build
+        if: steps.plan.outputs.should_release == 'true' && runner.os == 'Linux'
+        shell: bash
+        run: |
+          executable="$(find "$GITHUB_WORKSPACE/dist/linux-unpacked" -maxdepth 1 -type f -perm -u+x -iname 'oxespace*' -print -quit)"
+          if [[ -z "$executable" ]]; then
+            echo "No packaged OXESpace executable found in dist/linux-unpacked." >&2
+            exit 1
+          fi
+          OXESPACE_PACKAGED_EXECUTABLE="$executable" \
+            bash scripts/run-with-xvfb.sh \
+            npx playwright test --config playwright.tools.config.ts packaged-linux.spec.ts
+
+      # The NSIS build is what ships today, yet it was the one packaged output
+      # CI never launched. Runs against win-unpacked (the same tree the
+      # installer writes) so a broken asarUnpack or extraResource fails here
+      # rather than on a user's machine.
+      - name: E2E packaged Windows build
+        if: steps.plan.outputs.should_release == 'true' && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $executable = Get-ChildItem "$env:GITHUB_WORKSPACE/dist/win-unpacked" -Filter 'OXESpace*.exe' -File |
+            Select-Object -First 1
+          if (-not $executable) {
+            throw 'No packaged OXESpace executable found in dist/win-unpacked.'
+          }
+          $env:OXESPACE_PACKAGED_EXECUTABLE = $executable.FullName
+          npx playwright test --config playwright.tools.config.ts packaged-win.spec.ts
 
       - name: Generate production dependency SBOM
         if: steps.plan.outputs.should_release == 'true'
@@ -221,21 +329,52 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           node scripts/release-checksums.mjs --output dist/SHA256SUMS.txt
-          node scripts/verify-release-artifacts.mjs --dir dist --version "${{ steps.plan.outputs.version }}" --tag "$env:RELEASE_TAG"
+          node scripts/verify-release-artifacts.mjs `
+            --dir dist `
+            --version "${{ steps.plan.outputs.version }}" `
+            --tag "$env:RELEASE_TAG" `
+            --platform ${{ runner.os == 'Windows' && 'win' || 'linux' }}
 
-      - name: Upload immutable release payload
+      # Each leg uploads only its own payload; the release job merges them. The
+      # per-leg SHA256SUMS/sbom are namespaced so the two downloads cannot
+      # silently overwrite each other.
+      - name: Namespace the per-platform aux files
         if: steps.plan.outputs.should_release == 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Move-Item dist/SHA256SUMS.txt "dist/SHA256SUMS-${{ matrix.label }}.txt" -Force
+          Move-Item dist/sbom.spdx.json "dist/sbom-${{ matrix.label }}.spdx.json" -Force
+
+      - name: Upload immutable release payload (Windows)
+        if: steps.plan.outputs.should_release == 'true' && runner.os == 'Windows'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: release-${{ steps.plan.outputs.version }}-windows-x64
+          name: release-${{ steps.plan.outputs.version }}-${{ matrix.label }}
           if-no-files-found: error
           retention-days: 30
           path: |
             dist/OXESpace-${{ steps.plan.outputs.version }}-x64.exe
             dist/OXESpace-${{ steps.plan.outputs.version }}-x64.exe.blockmap
             dist/*.yml
-            dist/sbom.spdx.json
-            dist/SHA256SUMS.txt
+            dist/sbom-${{ matrix.label }}.spdx.json
+            dist/SHA256SUMS-${{ matrix.label }}.txt
+
+      - name: Upload immutable release payload (Linux)
+        if: steps.plan.outputs.should_release == 'true' && runner.os == 'Linux'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-${{ steps.plan.outputs.version }}-${{ matrix.label }}
+          if-no-files-found: error
+          retention-days: 30
+          # The .deb filename is glob-matched: electron-builder renders ${arch}
+          # as the Debian arch (amd64), not the electron arch (x64).
+          path: |
+            dist/OXESpace-${{ steps.plan.outputs.version }}-x64.AppImage
+            dist/*.deb
+            dist/*.yml
+            dist/sbom-${{ matrix.label }}.spdx.json
+            dist/SHA256SUMS-${{ matrix.label }}.txt
 
   release:
     name: Publish GitHub Release
@@ -262,9 +401,23 @@ jobs:
           BUILD_SHA: ${{ needs.build.outputs.sha }}
         run: |
           $ErrorActionPreference = 'Stop'
+          # An annotated tag records a tagger, and a fresh runner has no git
+          # identity — `git tag -a` aborts with "unable to auto-detect email".
+          # Attribute it to the Actions bot rather than impersonating whoever
+          # authored the commit being released.
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git fetch --tags --force origin
+          # An absent tag is the normal answer when publishing from a branch, so
+          # probe before native failures become terminal below.
           git show-ref --verify --quiet "refs/tags/$env:RELEASE_TAG"
-          if ($LASTEXITCODE -eq 0) {
+          $tagExists = $LASTEXITCODE -eq 0
+          $global:LASTEXITCODE = 0
+          # From here every git call must stop the step at the point it fails.
+          # Without this, a failed `git tag` fell through to `git push`, which
+          # then reported the misleading "src refspec does not match any".
+          $PSNativeCommandUseErrorActionPreference = $true
+          if ($tagExists) {
             $tagCommit = git rev-list -n 1 $env:RELEASE_TAG
             if ($tagCommit -ne $env:BUILD_SHA) {
               throw "Tag $env:RELEASE_TAG points at $tagCommit but build verified $env:BUILD_SHA."
@@ -276,11 +429,28 @@ jobs:
             git push origin "refs/tags/$env:RELEASE_TAG"
           }
 
-      - name: Download verified build artifacts
+      # Both legs land in the same dist/ — their filenames are disjoint (the aux
+      # files were namespaced by the build job), so nothing is overwritten.
+      - name: Download verified Windows build artifacts
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: release-${{ needs.build.outputs.version }}-windows-x64
           path: dist
+
+      - name: Download verified Linux build artifacts
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: release-${{ needs.build.outputs.version }}-linux-x64
+          path: dist
+
+      # One checksum file covering the whole release rather than one per OS, so
+      # a user verifying any download reads a single canonical list.
+      - name: Generate combined checksums
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Remove-Item dist/SHA256SUMS-*.txt -Force
+          node scripts/release-checksums.mjs --output dist/SHA256SUMS.txt
 
       - name: Create or refresh draft GitHub release
         shell: pwsh
@@ -291,11 +461,18 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $version = '${{ needs.build.outputs.version }}'
           $manifest = '${{ needs.build.outputs.manifest }}'
+          $manifestLinux = '${{ needs.build.outputs.manifest_linux }}'
+          $deb = Get-ChildItem dist/*.deb | Select-Object -First 1
+          if (-not $deb) { throw 'No .deb produced by the Linux build.' }
           $assets = @(
             "dist/OXESpace-$version-x64.exe",
             "dist/OXESpace-$version-x64.exe.blockmap",
             "dist/$manifest",
-            'dist/sbom.spdx.json',
+            "dist/OXESpace-$version-x64.AppImage",
+            $deb.FullName,
+            "dist/$manifestLinux",
+            'dist/sbom-windows-x64.spdx.json',
+            'dist/sbom-linux-x64.spdx.json',
             'dist/SHA256SUMS.txt'
           )
           foreach ($path in $assets) {
@@ -331,10 +508,14 @@ jobs:
           $downloadDir = Join-Path $env:RUNNER_TEMP 'release-download'
           New-Item -ItemType Directory -Path $downloadDir -Force | Out-Null
           gh release download $env:RELEASE_TAG --dir $downloadDir --clobber
-          node scripts/verify-release-artifacts.mjs `
-            --dir $downloadDir `
-            --version '${{ needs.build.outputs.version }}' `
-            --tag $env:RELEASE_TAG
+          foreach ($platform in @('win', 'linux')) {
+            node scripts/verify-release-artifacts.mjs `
+              --dir $downloadDir `
+              --version '${{ needs.build.outputs.version }}' `
+              --tag $env:RELEASE_TAG `
+              --platform $platform
+            if ($LASTEXITCODE -ne 0) { throw "Release payload verification failed for $platform." }
+          }
 
       - name: Publish verified release
         shell: pwsh
@@ -373,12 +554,19 @@ jobs:
             "OXESpace-${{ needs.build.outputs.version }}-x64.exe",
             "OXESpace-${{ needs.build.outputs.version }}-x64.exe.blockmap",
             '${{ needs.build.outputs.manifest }}',
-            'sbom.spdx.json',
+            "OXESpace-${{ needs.build.outputs.version }}-x64.AppImage",
+            '${{ needs.build.outputs.manifest_linux }}',
+            'sbom-windows-x64.spdx.json',
+            'sbom-linux-x64.spdx.json',
             'SHA256SUMS.txt'
           )
           $missing = $required | Where-Object { $_ -notin $assetNames }
           if ($missing.Count -gt 0) {
             throw "Published release is missing asset(s): $($missing -join ', ')"
+          }
+          $debAssets = @($assetNames | Where-Object { $_ -match '\.deb$' })
+          if ($debAssets.Count -ne 1) {
+            throw "Published release must contain exactly one .deb; found $($debAssets.Count): $($debAssets -join ', ')"
           }
           Write-Host "Release is live: $($release.url)"
           Write-Host "Assets: $($assetNames -join ', ')"

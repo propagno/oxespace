@@ -1,5 +1,8 @@
 import { Search } from 'lucide-react'
-import { useCallback, useEffect, useMemo, type ReactElement } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
+import { formatDiffComments } from '../../../shared/types/diff-comments'
+import { useDiffCommentsStore } from '../../store/diff-comments.store'
+import { pasteIntoAgentTerminal } from '../../lib/sendToAgent'
 import { selectGitState, useGitStore } from '../../store/git.store'
 import { DiffCard } from './DiffCard'
 import { ReviewFileTree } from './ReviewFileTree'
@@ -60,6 +63,27 @@ export function ReviewPane({ workspaceId, rootPath }: ReviewPaneProps): ReactEle
     [files, ws.reviewedFiles]
   )
 
+  // #7 Annotate AI Diffs — pending comments for this workspace + ship-to-agent.
+  const allComments = useDiffCommentsStore((s) => s.comments)
+  const clearComments = useDiffCommentsStore((s) => s.clear)
+  const wsComments = useMemo(
+    () => allComments.filter((c) => c.workspaceId === workspaceId),
+    [allComments, workspaceId]
+  )
+  const [sendNotice, setSendNotice] = useState<string | null>(null)
+
+  const sendCommentsToAgent = useCallback(async (): Promise<void> => {
+    if (wsComments.length === 0) return
+    const result = await pasteIntoAgentTerminal(workspaceId, formatDiffComments(wsComments))
+    if (!result.ok) {
+      setSendNotice('Nenhum terminal disponível para receber os comentários.')
+      return
+    }
+    clearComments(workspaceId)
+    setSendNotice(`${wsComments.length} comentário(s) colados no agente — pressione Enter para submeter.`)
+    window.setTimeout(() => setSendNotice(null), 6000)
+  }, [wsComments, workspaceId, clearComments])
+
   useEffect(() => {
     void loadDiff(workspaceId, rootPath)
     return subscribeToUpdates(workspaceId)
@@ -114,7 +138,15 @@ export function ReviewPane({ workspaceId, rootPath }: ReviewPaneProps): ReactEle
         onDiffModeChange={(m) => setDiffMode(workspaceId, m)}
         onClearReviewed={() => clearReviewed(workspaceId)}
         onNavigate={handleNavigate}
+        commentCount={wsComments.length}
+        onSendComments={() => void sendCommentsToAgent()}
       />
+
+      {sendNotice && (
+        <div className="review-pane-alert review-pane-alert--info" data-testid="review-send-notice">
+          <span>{sendNotice}</span>
+        </div>
+      )}
 
       {ws.isLoading && <div className="review-pane-empty">Loading diff…</div>}
       {ws.error && (
@@ -163,6 +195,7 @@ export function ReviewPane({ workspaceId, rootPath }: ReviewPaneProps): ReactEle
               <DiffCard
                 key={selectedFile.path}
                 file={selectedFile}
+                workspaceId={workspaceId}
                 isReviewed={ws.reviewedFiles.includes(selectedFile.path)}
                 diffMode={ws.diffMode}
                 isSelected

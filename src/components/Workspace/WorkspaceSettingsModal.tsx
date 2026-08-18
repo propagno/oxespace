@@ -2,6 +2,7 @@ import { Check, Maximize2, Minimize2, Palette, SquareTerminal, X } from 'lucide-
 import { useState, type FormEvent, type ReactElement } from 'react'
 import type { ShellProfile, UpdateWorkspaceSettingsInput, Workspace, WorkspaceDensity, WorkspaceLayoutPreset, WorkspaceThemeId } from '../../../shared/types/workspace'
 import { LAYOUT_PRESETS, WORKSPACE_THEMES } from './workspaceOptions'
+import { Dialog, DialogContent, DialogTitle, LEGACY_MODAL_OVERLAY } from '@/components/ui/dialog'
 import { useResolvedTerminalPrefs, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 
 interface WorkspaceSettingsModalProps {
@@ -27,17 +28,17 @@ const PRESET_GRIDS: Record<WorkspaceLayoutPreset, { rows: number; cols: number }
 // shows the SELECTED theme regardless of the app's currently-active theme.
 interface ThemePalette { bg: string; elevated: string; tx: string; muted: string; accent: string }
 const THEME_PALETTES: Record<WorkspaceThemeId, ThemePalette> = {
-  midnight: { bg: '#000000', elevated: '#121212', tx: '#f1f5f9', muted: '#636b75', accent: '#12C79A' },
-  nord:     { bg: '#0b1119', elevated: '#182230', tx: '#eceff4', muted: '#7f8da3', accent: '#88c0d0' },
-  dracula:  { bg: '#151320', elevated: '#282a36', tx: '#f8f8f2', muted: '#807996', accent: '#bd93f9' },
-  ocean:    { bg: '#001318', elevated: '#082b33', tx: '#e6fbff', muted: '#5b8c96', accent: '#22d3ee' },
-  monokai:  { bg: '#11110d', elevated: '#24251a', tx: '#f8f8f2', muted: '#8b8c6b', accent: '#a6e22e' },
-  amber:    { bg: '#130d05', elevated: '#27190a', tx: '#fff7ed', muted: '#a67b50', accent: '#f59e0b' },
-  'rose-pine': { bg: '#191724', elevated: '#1f1d2e', tx: '#e0def4', muted: '#908caa', accent: '#ebbcba' },
-  gruvbox:     { bg: '#1d2021', elevated: '#282828', tx: '#ebdbb2', muted: '#928374', accent: '#fabd2f' },
-  'one-dark':  { bg: '#282c34', elevated: '#21252b', tx: '#abb2bf', muted: '#5c6370', accent: '#61afef' },
-  synthwave84: { bg: '#2b213a', elevated: '#241b2f', tx: '#f0efe1', muted: '#848b94', accent: '#ff7edb' },
-  'github-dark': { bg: '#0d1117', elevated: '#161b22', tx: '#c9d1d9', muted: '#8b949e', accent: '#58a6ff' }
+  midnight: { bg: '#000000', elevated: '#121212', tx: '#f1f5f9', muted: '#94a3b0', accent: '#12C79A' },
+  nord:     { bg: '#0b1119', elevated: '#182230', tx: '#eceff4', muted: '#9aabbf', accent: '#88c0d0' },
+  dracula:  { bg: '#151320', elevated: '#282a36', tx: '#f8f8f2', muted: '#a8a0c4', accent: '#bd93f9' },
+  ocean:    { bg: '#001318', elevated: '#082b33', tx: '#e6fbff', muted: '#7eb0ba', accent: '#22d3ee' },
+  monokai:  { bg: '#11110d', elevated: '#24251a', tx: '#f8f8f2', muted: '#b0b190', accent: '#a6e22e' },
+  amber:    { bg: '#130d05', elevated: '#27190a', tx: '#fff7ed', muted: '#d4a574', accent: '#f59e0b' },
+  'rose-pine': { bg: '#191724', elevated: '#1f1d2e', tx: '#e0def4', muted: '#b0acc8', accent: '#ebbcba' },
+  gruvbox:     { bg: '#1d2021', elevated: '#282828', tx: '#ebdbb2', muted: '#bdae93', accent: '#fabd2f' },
+  'one-dark':  { bg: '#282c34', elevated: '#21252b', tx: '#e6e8eb', muted: '#8b929e', accent: '#61afef' },
+  synthwave84: { bg: '#2b213a', elevated: '#241b2f', tx: '#f0efe1', muted: '#a8aeb8', accent: '#ff7edb' },
+  'github-dark': { bg: '#0d1117', elevated: '#161b22', tx: '#e6edf3', muted: '#8b949e', accent: '#58a6ff' }
 }
 
 const CURSOR_OPTIONS: Array<{ value: TerminalCursorStyle; label: string }> = [
@@ -52,6 +53,10 @@ const FONT_PRESETS = [
   'JetBrains Mono, monospace',
   'Fira Code, monospace',
   'Consolas, monospace',
+  // Ship with most Linux desktops, where the families above resolve to nothing.
+  'DejaVu Sans Mono, monospace',
+  'Ubuntu Mono, monospace',
+  'Liberation Mono, monospace',
   'monospace'
 ]
 
@@ -84,11 +89,18 @@ export function WorkspaceSettingsModal({ onClose, onSave, shellProfiles, workspa
   }
 
   return (
-    <div className="modal-backdrop" role="presentation">
-      <section className="modal workspace-settings-modal-v2" role="dialog" aria-modal="true" aria-labelledby="workspace-settings-title">
+    <Dialog open onOpenChange={(next) => { if (!next) onClose() }}>
+      <DialogContent
+        unstyled
+        showCloseButton={false}
+        overlayClassName={LEGACY_MODAL_OVERLAY}
+        className="modal workspace-settings-modal-v2 modal-dialog-surface"
+      >
         <header className="modal-header">
           <div className="ws-settings-title-group">
-            <h2 id="workspace-settings-title">Workspace settings</h2>
+            <DialogTitle asChild>
+              <h2>Workspace settings</h2>
+            </DialogTitle>
             <span className="ws-settings-subtitle">{workspace.name}</span>
           </div>
           <button type="button" className="icon-button" aria-label="Close workspace settings" onClick={onClose}>
@@ -243,8 +255,8 @@ export function WorkspaceSettingsModal({ onClose, onSave, shellProfiles, workspa
             <button type="submit" className="primary-action" disabled={isSaving}>{isSaving ? 'Saving…' : 'Save'}</button>
           </footer>
         </form>
-      </section>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 

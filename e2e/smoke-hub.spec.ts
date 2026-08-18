@@ -28,7 +28,10 @@ test('smoke: Tools hub and Agent Settings open from sidebar', async () => {
     await page.getByTestId('wizard-dir-input').fill(workspaceRoot)
     await page.getByTestId('wizard-layout-card-1').click()
     await page.getByTestId('wizard-launch-btn').click()
-    await expect(page.getByTestId('workspace-grid')).toBeVisible()
+    // Split-tree layout is the default; F2 can toggle back to the legacy grid.
+    await expect(
+      page.locator('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]').first()
+    ).toBeVisible()
 
     await page.getByTestId('btn-open-tools').click()
     await expect(page.getByTestId('tools-modal')).toBeVisible()
@@ -38,6 +41,21 @@ test('smoke: Tools hub and Agent Settings open from sidebar', async () => {
     await expect(page.getByTestId('settings-modal')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'AI Providers' })).toBeVisible()
     await expect(page.getByTestId('btn-discover-agents')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Diagnostics' }).click()
+    await expect(page.getByRole('heading', { name: 'Diagnostics' })).toBeVisible()
+    await expect(page.getByTestId('diagnostics-checks')).toContainText('Renderer sandbox')
+
+    await page.keyboard.press('Escape')
+    await page.getByTestId('btn-open-tools').click()
+    await page.getByText('MCP Servers', { exact: true }).click()
+    await expect(page.getByRole('dialog', { name: 'MCP servers' })).toBeVisible()
+    await page.getByRole('button', { name: 'Close' }).click()
+
+    await page.getByTestId('btn-open-tools').click()
+    await page.getByText('Semantic Activity', { exact: true }).click()
+    await expect(page.getByRole('dialog', { name: 'Semantic activity' })).toBeVisible()
+    await expect(page.getByTestId('semantic-status-label')).toBeVisible()
   } finally {
     await electronApp.close()
   }

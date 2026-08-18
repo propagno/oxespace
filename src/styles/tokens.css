@@ -1,42 +1,37 @@
 /* ─── Design tokens ──────────────────────────────────────────────────────── */
 :root {
   /* Backgrounds */
-  --bg-app:           #000;
-  --bg-sidebar:       #050505;
-  --bg-elevated:      #121212;
-  --bg-tile:          #000;
-  --bg-tile-header:   #171717;
-  --bg-tile-agent:    #000;
-  --bg-tile-content:  #000;
-  /* Terminal "surface": a touch lifted from pure black so the terminal reads as
-     a soft chat-like panel instead of a raw console. Follows each theme's
-     --bg-elevated (lazily substituted), so it re-colors per theme automatically.
-     Used in BOTH the xterm canvas theme and the CSS padding gutter so there's no
-     seam between the text area and its breathing room. */
-  --bg-terminal-surface: var(--bg-elevated);
-  --bg-statusbar:     #070707;
-  --bg-ws-active:     #061f16;
-  --bg-ws-hover:      #0d0d0d;
-  --bg-modal:         #0a111a;
-  --bg-input:         #020407;
-  --bg-segment:       #07111c;
+  --bg-app:           #070707;
+  --bg-sidebar:       #09090b;
+  --bg-elevated:      #121215;
+  --bg-tile:          #070707;
+  --bg-tile-header:   #0d0d0d;
+  --bg-tile-agent:    #070707;
+  --bg-tile-content:  #070707;
+  --bg-terminal-surface: #070707;
+  --bg-statusbar:     #09090b;
+  --bg-ws-active:     #0d1f18;
+  --bg-ws-hover:      #121215;
+  --bg-modal:         #121215;
+  --bg-input:         #070707;
+  --bg-segment:       #121215;
 
   /* Borders */
-  --bd-tile:          1px solid #161616;
-  --bd-divider:       #151515;
-  --bd-sidebar:       #141414;
-  --bd-ws-active:     #12c79a;
-  --bd-input:         rgba(18, 199, 154, 0.22);
-  --bd-input-focus:   rgba(18, 199, 154, 0.58);
-  --bd-subtle:        rgba(255, 255, 255, 0.06);
+  --bd-tile:          1px solid rgba(255, 255, 255, 0.07);
+  --bd-divider:       rgba(255, 255, 255, 0.07);
+  --bd-sidebar:       rgba(255, 255, 255, 0.07);
+  --bd-ws-active:     #10b981;
+  --bd-input:         rgba(16, 185, 129, 0.25);
+  --bd-input-focus:   rgba(16, 185, 129, 0.6);
+  --bd-subtle:        rgba(255, 255, 255, 0.07);
   --bd-base:          rgba(255, 255, 255, 0.12);
 
-  /* Text */
+  /* Text — WCAG AA on near-black: muted ≥4.5:1 body, secondary clearer hierarchy */
   --tx-primary:       #f1f5f9;
-  --tx-secondary:     #a8adb4;
-  --tx-muted:         #636b75;
-  --tx-label:         #6d737a;
-  --tx-agent-meta:    #858b94;
+  --tx-secondary:     #c0c5cc;
+  --tx-muted:         #94a3b0;
+  --tx-label:         #9ca3af;
+  --tx-agent-meta:    #a8b0ba;
 
   /* Status dots */
   --dot-green:        #34d474;
@@ -125,9 +120,25 @@
   --surface-hover:    rgba(255, 255, 255, 0.06);
   --surface-active:   rgba(255, 255, 255, 0.08);
 
-  /* Fonts */
-  --font-ui:   'Inter Variable', 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
-  --font-mono: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  /* Terminal workbench — one elevated surface per pane, never a card inside a
+     card. These derive from the active workspace theme instead of pinning the
+     terminal shell to Midnight's near-black palette. */
+  --workspace-canvas: color-mix(in srgb, var(--bg-app) 94%, #111827);
+  --pane-surface: color-mix(in srgb, var(--bg-tile-content) 96%, white);
+  --pane-surface-raised: color-mix(in srgb, var(--bg-tile-content) 90%, white);
+  --pane-border: color-mix(in srgb, var(--tx-primary) 10%, transparent);
+  --pane-border-active: color-mix(in srgb, var(--accent) 48%, var(--pane-border));
+  --pane-radius: 12px;
+  --pane-gap: 10px;
+  --pane-shadow: 0 10px 30px rgba(0, 0, 0, 0.24), 0 1px 0 rgba(255, 255, 255, 0.025) inset;
+  --pane-shadow-active: 0 14px 38px rgba(0, 0, 0, 0.32), 0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent);
+
+  /* Fonts — Inter is bundled (@fontsource-variable/inter) so the UI is stable
+     everywhere. The rest are per-OS preferences: Segoe/Cascadia/Consolas exist
+     only on Windows, so the Linux families are listed before the generic
+     keyword or the mono stack would fall through to a bitmap default. */
+  --font-ui:   'Inter Variable', 'Inter', 'Segoe UI Variable', 'Segoe UI', 'Ubuntu', 'Cantarell', 'DejaVu Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', 'Consolas', 'DejaVu Sans Mono', 'Ubuntu Mono', 'Liberation Mono', ui-monospace, monospace;
 
   /* Type scale — mirrors Codex Desktop baseline (14px primary). */
   --fs-base:   14px;  /* body, primary UI text */
@@ -167,6 +178,29 @@ select optgroup {
   --fs-2xs:    12px;
 }
 
+:root[data-theme='midnight'] {
+  --bg-app: #0a0a0a;
+  --bg-sidebar: #0d0d0d;
+  --bg-elevated: #171717;
+  --bg-tile: #0a0a0a;
+  --bg-tile-header: #141414;
+  --bg-tile-agent: #0a0a0a;
+  --bg-tile-content: #0a0a0a;
+  --bg-terminal-surface: #0a0a0a;
+  --bg-statusbar: #0d0d0d;
+  --bg-ws-active: #0d1f18;
+  --bg-ws-hover: #141414;
+  --bg-modal: #141414;
+  --bg-input: #0a0a0a;
+  --bg-segment: #141414;
+  --bd-tile: 1px solid rgba(255, 255, 255, 0.07);
+  --bd-divider: rgba(255, 255, 255, 0.07);
+  --bd-sidebar: rgba(255, 255, 255, 0.07);
+  --bd-ws-active: #10b981;
+  --accent: #10b981;
+  --accent-hover: #34d399;
+}
+
 :root[data-theme='nord'] {
   --bg-app: #0b1119;
   --bg-sidebar: #101722;
@@ -175,26 +209,26 @@ select optgroup {
   --bd-divider: #223044;
   --bd-sidebar: #253449;
   --tx-primary: #eceff4;
-  --tx-secondary: #c4cfdf;
-  --tx-muted: #7f8da3;
+  --tx-secondary: #d0dae8;
+  --tx-muted: #9aabbf;
   --accent: #88c0d0;
   --accent-hover: #8fbcbb;
   --bd-ws-active: #88c0d0;
 }
 
 :root[data-theme='dracula'] {
-  --bg-app: #151320;
-  --bg-sidebar: #1d1a2b;
-  --bg-elevated: #282a36;
-  --bg-tile-content: #151320;
-  --bd-divider: #383a59;
-  --bd-sidebar: #34364f;
+  --bg-app: #070707;
+  --bg-sidebar: #09090b;
+  --bg-elevated: #121215;
+  --bg-tile-content: #070707;
+  --bd-divider: rgba(255, 255, 255, 0.08);
+  --bd-sidebar: rgba(255, 255, 255, 0.08);
   --tx-primary: #f8f8f2;
-  --tx-secondary: #cfc7f8;
-  --tx-muted: #807996;
-  --accent: #bd93f9;
-  --accent-hover: #ff79c6;
-  --bd-ws-active: #bd93f9;
+  --tx-secondary: #d8d2fa;
+  --tx-muted: #a8a0c4;
+  --accent: #10b981;
+  --accent-hover: #34d399;
+  --bd-ws-active: #10b981;
 }
 
 :root[data-theme='ocean'] {
@@ -205,8 +239,8 @@ select optgroup {
   --bd-divider: #12414d;
   --bd-sidebar: #103943;
   --tx-primary: #e6fbff;
-  --tx-secondary: #98dce8;
-  --tx-muted: #5b8c96;
+  --tx-secondary: #b0e8f2;
+  --tx-muted: #7eb0ba;
   --accent: #22d3ee;
   --accent-hover: #67e8f9;
   --bd-ws-active: #22d3ee;
@@ -220,8 +254,8 @@ select optgroup {
   --bd-divider: #343522;
   --bd-sidebar: #2b2c1c;
   --tx-primary: #f8f8f2;
-  --tx-secondary: #d6d7b8;
-  --tx-muted: #8b8c6b;
+  --tx-secondary: #e0e1c8;
+  --tx-muted: #b0b190;
   --accent: #a6e22e;
   --accent-hover: #f4bf75;
   --bd-ws-active: #a6e22e;
@@ -236,7 +270,7 @@ select optgroup {
   --bd-sidebar: #33200a;
   --tx-primary: #fff7ed;
   --tx-secondary: #fed7aa;
-  --tx-muted: #a67b50;
+  --tx-muted: #d4a574;
   --accent: #f59e0b;
   --accent-hover: #fbbf24;
   --bd-ws-active: #f59e0b;
@@ -250,8 +284,8 @@ select optgroup {
   --bd-divider: #2a2837;
   --bd-sidebar: #312f42;
   --tx-primary: #e0def4;
-  --tx-secondary: #c4a7e7;
-  --tx-muted: #908caa;
+  --tx-secondary: #d0b8f0;
+  --tx-muted: #b0acc8;
   --accent: #ebbcba;
   --accent-hover: #f6c177;
   --bd-ws-active: #ebbcba;
@@ -266,7 +300,7 @@ select optgroup {
   --bd-sidebar: #665c54;
   --tx-primary: #ebdbb2;
   --tx-secondary: #d5c4a1;
-  --tx-muted: #928374;
+  --tx-muted: #bdae93;
   --accent: #fabd2f;
   --accent-hover: #fe8019;
   --bd-ws-active: #fabd2f;
@@ -279,9 +313,9 @@ select optgroup {
   --bg-tile-content: #282c34;
   --bd-divider: #181a1f;
   --bd-sidebar: #181a1f;
-  --tx-primary: #abb2bf;
-  --tx-secondary: #828997;
-  --tx-muted: #5c6370;
+  --tx-primary: #e6e8eb;
+  --tx-secondary: #b0b6c0;
+  --tx-muted: #8b929e;
   --accent: #61afef;
   --accent-hover: #98c379;
   --bd-ws-active: #61afef;
@@ -296,7 +330,7 @@ select optgroup {
   --bd-sidebar: #382c4a;
   --tx-primary: #f0efe1;
   --tx-secondary: #fdfdfd;
-  --tx-muted: #848b94;
+  --tx-muted: #a8aeb8;
   --accent: #ff7edb;
   --accent-hover: #36ade2;
   --bd-ws-active: #ff7edb;
@@ -309,8 +343,8 @@ select optgroup {
   --bg-tile-content: #0d1117;
   --bd-divider: #30363d;
   --bd-sidebar: #21262d;
-  --tx-primary: #c9d1d9;
-  --tx-secondary: #8b949e;
+  --tx-primary: #e6edf3;
+  --tx-secondary: #b1bac4;
   --tx-muted: #8b949e;
   --accent: #58a6ff;
   --accent-hover: #1f6feb;

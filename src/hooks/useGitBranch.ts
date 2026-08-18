@@ -67,7 +67,19 @@ async function fetchBranch(workspaceId: string, rootPath: string): Promise<GitBr
   cache.set(rootPath, entry)
 
   try {
-    const next = await promise
+    const resolved = await promise
+    // IPC mocks, an older preload, or a native startup failure can resolve
+    // with null even though the compile-time contract says GitBranchStatus.
+    // Keep the poller healthy and expose a useful status instead of creating
+    // an unhandled rejection in every branch badge consumer.
+    const next: GitBranchStatus = resolved && typeof resolved === 'object'
+      ? resolved
+      : {
+          branch: null,
+          detached: false,
+          shortSha: null,
+          error: 'Git branch status unavailable'
+        }
     const stored = cache.get(rootPath) ?? entry
     stored.status = next
     stored.lastFetchedMs = Date.now()
@@ -83,7 +95,6 @@ async function fetchBranch(workspaceId: string, rootPath: string): Promise<GitBr
       const sig = `${rootPath}::${next.error}`
       if (!loggedFailures.has(sig)) {
         loggedFailures.add(sig)
-        // eslint-disable-next-line no-console
         console.warn(`[useGitBranch] ${rootPath} → ${next.error}`)
       }
     }
@@ -109,7 +120,7 @@ const loggedFailures = new Set<string>()
  * string when git isn't available; the consumer is expected to display the
  * error rather than render a misleading blank.
  */
-export function useGitBranch(workspaceId: string, rootPath: string | null): GitBranchStatus | null {
+export function useGitBranch(workspaceId: string, rootPath: string | null, active = true): GitBranchStatus | null {
   const [, forceRerender] = useState(0)
 
   useEffect(() => {
@@ -125,6 +136,17 @@ export function useGitBranch(workspaceId: string, rootPath: string | null): GitB
       listeners.set(rootPath, set)
     }
     set.add(subscriber)
+
+    // Inactive workspace cards keep the last cached branch label but do not
+    // spawn Git every 10 seconds. Activating the workspace refreshes it
+    // immediately; AppStatusBar shares the same rootPath cache/poller.
+    if (!active) {
+      return () => {
+        cancelled = true
+        set!.delete(subscriber)
+        if (set!.size === 0) listeners.delete(rootPath)
+      }
+    }
 
     // Kick off (or piggyback on) a fetch for this rootPath.
     void fetchBranch(workspaceId, rootPath)
@@ -157,7 +179,7 @@ export function useGitBranch(workspaceId: string, rootPath: string | null): GitB
         }
       }
     }
-  }, [workspaceId, rootPath])
+  }, [active, workspaceId, rootPath])
 
   if (!rootPath) return null
   return cache.get(rootPath)?.status ?? null

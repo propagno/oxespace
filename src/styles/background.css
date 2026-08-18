@@ -296,7 +296,7 @@
   border-radius: 5px;
   background: #020403;
   color: #d6fbe8;
-  font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   line-height: 1.55;
   white-space: pre;

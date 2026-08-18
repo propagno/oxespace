@@ -28,7 +28,7 @@ describe('EditorPane', () => {
         children: [{ name: 'index.ts', relativePath: 'src/index.ts', type: 'file', size: 12 }]
       }
     ]
-    useEditorStore.setState({ files: {} })
+    useEditorStore.setState({ files: {}, tabs: {}, activePath: {} })
     useWorkspaceStore.setState({
       workspaces: [createWorkspace()],
       activeWorkspaceId: 'workspace-1',

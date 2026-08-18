@@ -1,0 +1,69 @@
+{
+  "tokenizer": "gpt-tokenizer (o200k_base — approximates Anthropic)",
+  "tasks": 8,
+  "baselineMean": 2930.125,
+  "perCombo": [
+    {
+      "key": "···",
+      "meanTotal": 2930.125,
+      "stdTotal": 0.33071891388307384,
+      "reductionPct": 0
+    },
+    {
+      "key": "··S",
+      "meanTotal": 1295.125,
+      "stdTotal": 0.33071891388307384,
+      "reductionPct": 55.79966724969071
+    },
+    {
+      "key": "·C·",
+      "meanTotal": 2837.125,
+      "stdTotal": 0.33071891388307384,
+      "reductionPct": 3.173926027046628
+    },
+    {
+      "key": "·CS",
+      "meanTotal": 1202.125,
+      "stdTotal": 0.33071891388307384,
+      "reductionPct": 58.97359327673735
+    },
+    {
+      "key": "R··",
+      "meanTotal": 2520.125,
+      "stdTotal": 0.33071891388307384,
+      "reductionPct": 13.992577108485133
+    },
+    {
+      "key": "R·S",
+      "meanTotal": 885.125,
+      "stdTotal": 0.33071891388307384,
+      "reductionPct": 69.79224435817585
+    },
+    {
+      "key": "RC·",
+      "meanTotal": 2427.125,
+      "stdTotal": 0.33071891388307384,
+      "reductionPct": 17.16650313553176
+    },
+    {
+      "key": "RCS",
+      "meanTotal": 792.125,
+      "stdTotal": 0.33071891388307384,
+      "reductionPct": 72.96617038522247
+    }
+  ],
+  "effects": {
+    "rtk": {
+      "meanPct": 23.551819321124892,
+      "stdPct": 9.371405556591505
+    },
+    "caveman": {
+      "meanPct": 6.137996449855624,
+      "stdPct": 2.9560316212033166
+    },
+    "semantic": {
+      "meanPct": 61.41745431741479,
+      "stdPct": 4.828166316118685
+    }
+  }
+}

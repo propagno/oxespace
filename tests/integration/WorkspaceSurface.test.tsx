@@ -1,12 +1,39 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useState, type ReactElement } from 'react'
-import { describe, expect, test, vi } from 'vitest'
+import { useEffect, useState, type ReactElement } from 'react'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { Workspace } from '../../shared/types/workspace'
 import { WorkspaceSurface } from '../../src/components/Workspace/WorkspaceSurface'
 
+const gridLifecycle = {
+  mounts: 0,
+  unmounts: 0
+}
+
 vi.mock('../../src/components/Grid/WorkspaceGrid', () => ({
-  WorkspaceGrid: () => <div data-testid="workspace-grid">Grid</div>
+  WorkspaceGrid: () => {
+    useEffect(() => {
+      gridLifecycle.mounts += 1
+      return () => {
+        gridLifecycle.unmounts += 1
+      }
+    }, [])
+    return <div data-testid="workspace-grid">Grid</div>
+  }
+}))
+
+// Default layout is split-tree (F2); mock it with the same lifecycle probe so
+// maximize/restore still asserts host identity without pulling Monaco via PaneContainer.
+vi.mock('../../src/components/Grid/WorkspaceSplitGrid', () => ({
+  WorkspaceSplitGrid: () => {
+    useEffect(() => {
+      gridLifecycle.mounts += 1
+      return () => {
+        gridLifecycle.unmounts += 1
+      }
+    }, [])
+    return <div data-testid="workspace-grid">SplitGrid</div>
+  }
 }))
 
 vi.mock('../../src/components/Workspace/WorkspaceEditorPanel', () => ({
@@ -64,6 +91,11 @@ vi.mock('../../src/components/Workspace/WorkspaceReviewPanel', () => ({
 }))
 
 describe('WorkspaceSurface', () => {
+  beforeEach(() => {
+    gridLifecycle.mounts = 0
+    gridLifecycle.unmounts = 0
+  })
+
   test('renders editor as a separate region when visible', async () => {
     renderSurface(createWorkspace({ editorVisible: true }))
 
@@ -73,11 +105,75 @@ describe('WorkspaceSurface', () => {
     expect(screen.getByRole('button', { name: 'Collapse editor' })).toBeInTheDocument()
   })
 
-  test('does not render the removed topbar Tools dropdown', () => {
+  test('keeps WorkspaceGrid mounted across maximize/restore so terminal scrollback survives', async () => {
+    const workspace = createWorkspace({ editorVisible: true })
+    const surfaceProps = {
+      workspace,
+      onToggleMaximize: () => undefined,
+      scriptsVisible: false,
+      webPreviewVisible: false,
+      integrationVisible: false,
+      searchVisible: false,
+      onCloseScripts: () => undefined,
+      onCloseWebPreview: () => undefined,
+      onCloseIntegration: () => undefined,
+      onCloseSearch: () => undefined,
+      onRunCommand: () => undefined,
+      onUpdateEditorState: () => undefined,
+      onUpdateReviewState: () => undefined,
+      onUpdateGitHubState: () => undefined,
+      onUpdateBackgroundState: () => undefined,
+      onUpdateWorktreeState: () => undefined,
+      onSelectWorkspace: () => undefined,
+      workspaces: [workspace],
+      activePaneId: null as string | null
+    }
+    const { rerender } = render(
+      <WorkspaceSurface {...surfaceProps} maximizedPaneId={null} />
+    )
+
+    expect(screen.getByTestId('workspace-grid')).toBeInTheDocument()
+    expect(await screen.findByTestId('workspace-editor-panel')).toBeInTheDocument()
+    expect(gridLifecycle.mounts).toBe(1)
+    expect(gridLifecycle.unmounts).toBe(0)
+
+    // Maximize: side panels hide for full-width terminal, grid host must stay.
+    rerender(
+      <WorkspaceSurface {...surfaceProps} maximizedPaneId="pane-1" />
+    )
+
+    expect(screen.getByTestId('workspace-grid')).toBeInTheDocument()
+    expect(screen.queryByTestId('workspace-editor-panel')).not.toBeInTheDocument()
+    expect(gridLifecycle.mounts).toBe(1)
+    expect(gridLifecycle.unmounts).toBe(0)
+
+    // Restore: side panels return; grid still the same instance.
+    rerender(
+      <WorkspaceSurface {...surfaceProps} maximizedPaneId={null} />
+    )
+
+    expect(screen.getByTestId('workspace-grid')).toBeInTheDocument()
+    expect(await screen.findByTestId('workspace-editor-panel')).toBeInTheDocument()
+    expect(gridLifecycle.mounts).toBe(1)
+    expect(gridLifecycle.unmounts).toBe(0)
+  })
+
+  test('replaces the old Tools dropdown with a consolidated systems menu', async () => {
+    const user = userEvent.setup()
     renderSurface(createWorkspace())
 
     expect(screen.queryByRole('button', { name: 'Tools' })).not.toBeInTheDocument()
     expect(screen.getByLabelText('Workspace status')).toBeInTheDocument()
+    expect(screen.queryByTestId('workspace-integrations-menu')).not.toBeInTheDocument()
+
+    await user.click(screen.getByTestId('workspace-integrations-trigger'))
+
+    expect(screen.getByRole('menu', { name: 'Integration status' })).toBeInTheDocument()
+    expect(screen.getByText('GitHub')).toBeInTheDocument()
+    expect(screen.getByText('MCP')).toBeInTheDocument()
+    expect(screen.getByText('RTK')).toBeInTheDocument()
+    expect(screen.getByText('Caveman')).toBeInTheDocument()
+    expect(screen.getByText('Semantic')).toBeInTheDocument()
   })
 
   test('persists expanded and collapsed editor state', async () => {
@@ -134,11 +230,11 @@ function renderSurface(
       scriptsVisible={false}
       webPreviewVisible={false}
       integrationVisible={false}
-      oxeVisible={false}
+      searchVisible={false}
       onCloseScripts={() => undefined}
       onCloseWebPreview={() => undefined}
       onCloseIntegration={() => undefined}
-      onCloseOxe={() => undefined}
+      onCloseSearch={() => undefined}
       onRunCommand={() => undefined}
       onUpdateEditorState={() => undefined}
       onUpdateReviewState={() => undefined}
@@ -164,11 +260,11 @@ function ControlledSurface(): ReactElement {
       scriptsVisible={false}
       webPreviewVisible={false}
       integrationVisible={false}
-      oxeVisible={false}
+      searchVisible={false}
       onCloseScripts={() => undefined}
       onCloseWebPreview={() => undefined}
       onCloseIntegration={() => undefined}
-      onCloseOxe={() => undefined}
+      onCloseSearch={() => undefined}
       onRunCommand={() => undefined}
       onUpdateEditorState={(input) => setWorkspace((current) => ({ ...current, ...input }))}
       onUpdateReviewState={(input) => setWorkspace((current) => ({ ...current, ...input }))}

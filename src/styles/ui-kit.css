@@ -1,0 +1,131 @@
+/* ─── F1 · shadcn/ui + Tailwind foundation (Orca transplant) ────────────────
+   Coexistence contract with OXESpace's hand-written CSS:
+   - Load this BEFORE styles.css so OXESpace's own tokens (--radius-*, --font-*)
+     win the names both systems share — existing components keep their look.
+   - shadcn semantic COLORS are namespaced `--sh-*` and mapped through
+     `@theme inline` (values inlined into utilities, NOT emitted to :root), so
+     they never collide with OXESpace's `--accent` etc.
+   - OXESpace's global `button`/`input` element resets are moved here into the
+     low-priority `oxe-reset` layer so shadcn's layered utilities can win.
+   Tokens copied from Orca src/renderer/src/assets/main.css (MIT, stablyai). */
+
+/* `oxe-legacy` holds OXESpace's hand-written CSS (imported from styles.css).
+   It sits after Tailwind's `base` so the app reset still wins over preflight,
+   but before `components`/`utilities` so a Tailwind utility or shadcn primitive
+   overrides a legacy panel class — the precedence that lets panels migrate one
+   at a time instead of requiring a single big-bang rewrite. */
+@layer oxe-reset, theme, base, oxe-legacy, components, utilities;
+
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+/* Element resets relocated from base.css into a layer so `bg-*`/`border-*`
+   utilities on shadcn primitives are not overridden by a bare `button {}`. */
+@layer oxe-reset {
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+  button {
+    color: inherit;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    padding: 0;
+  }
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+/* Map Tailwind color utilities → namespaced shadcn tokens. `inline` inlines the
+   value, so no `--color-*`/`--accent` leaks to :root to clash with OXESpace. */
+@theme inline {
+  --color-background: var(--sh-background);
+  --color-foreground: var(--sh-foreground);
+  --color-card: var(--sh-card);
+  --color-card-foreground: var(--sh-card-foreground);
+  --color-popover: var(--sh-popover);
+  --color-popover-foreground: var(--sh-popover-foreground);
+  --color-primary: var(--sh-primary);
+  --color-primary-foreground: var(--sh-primary-foreground);
+  --color-secondary: var(--sh-secondary);
+  --color-secondary-foreground: var(--sh-secondary-foreground);
+  --color-muted: var(--sh-muted);
+  --color-muted-foreground: var(--sh-muted-foreground);
+  --color-accent: var(--sh-accent);
+  --color-accent-foreground: var(--sh-accent-foreground);
+  --color-destructive: var(--sh-destructive);
+  --color-destructive-foreground: var(--sh-destructive-foreground);
+  --color-border: var(--sh-border);
+  --color-input: var(--sh-input);
+  --color-ring: var(--sh-ring);
+  --color-sidebar: var(--sh-sidebar);
+  --color-sidebar-foreground: var(--sh-sidebar-foreground);
+  --color-sidebar-accent: var(--sh-sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sh-sidebar-accent-foreground);
+  --color-sidebar-border: var(--sh-sidebar-border);
+}
+
+/* F1 token bridge — shadcn semantic tokens map onto OXESpace's brand identity
+   (tokens.css) instead of shadcn's neutral-gray defaults, so every ported
+   primitive (Button, Card, CommandMenu…) reads as OXESpace, not stock shadcn.
+   tokens.css is theme-agnostic (single dark identity), so both :root and .dark
+   resolve to the same brand values; the split is kept for shadcn compatibility
+   and any future light theme. Original shadcn defaults kept in comments. */
+:root,
+.dark {
+  --sh-background: var(--bg-app);              /* was #0a0a0a */
+  --sh-foreground: var(--tx-primary);          /* was #fafafa */
+  --sh-card: var(--bg-elevated);               /* was #171717 */
+  --sh-card-foreground: var(--tx-primary);
+  --sh-popover: var(--bg-elevated);
+  --sh-popover-foreground: var(--tx-primary);
+  /* `--accent`, not `--brand`: the 11 `[data-theme]` palettes retheme --accent
+     (nord→blue, dracula→cyan…) while --brand stays the fixed logo emerald.
+     Primitives must follow the active theme, so they track --accent. Every
+     themed accent is a light/saturated hue on a dark app surface, so the app
+     background doubles as a foreground that stays readable in all of them. */
+  --sh-primary: var(--accent);                 /* was #e5e5e5 */
+  --sh-primary-foreground: var(--bg-app);      /* dark-on-accent, themed */
+  --sh-secondary: var(--bg-segment);           /* was #262626 */
+  --sh-secondary-foreground: var(--tx-primary);
+  --sh-muted: var(--surface-quiet);            /* was #262626 */
+  --sh-muted-foreground: var(--tx-muted);      /* was #a1a1a1 */
+  --sh-accent: var(--bg-ws-hover);             /* hover surface */
+  --sh-accent-foreground: var(--tx-primary);
+  --sh-destructive: var(--dot-red);            /* was #ff6568 */
+  --sh-destructive-foreground: #fff;
+  --sh-border: var(--bd-subtle);               /* was rgb(255 255 255 / 0.07) */
+  --sh-input: var(--bd-base);                  /* was rgb(255 255 255 / 0.15) */
+  --sh-ring: var(--accent);                    /* matches the oxe-reset outline */
+  --sh-sidebar: var(--bg-sidebar);
+  --sh-sidebar-foreground: var(--tx-primary);
+  --sh-sidebar-accent: var(--bg-ws-hover);
+  --sh-sidebar-accent-foreground: var(--tx-primary);
+  --sh-sidebar-border: var(--bd-sidebar);
+}
+
+/* Thin neutral scrollbar used by ported Orca primitives (command list, etc.). */
+.scrollbar-sleek {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.18) transparent;
+}
+.scrollbar-sleek::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scrollbar-sleek::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 0.14);
+  border-radius: 4px;
+}
+.scrollbar-sleek::-webkit-scrollbar-track {
+  background: transparent;
+}

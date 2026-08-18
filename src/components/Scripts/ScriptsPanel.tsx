@@ -2,6 +2,11 @@ import { Code2, FileCode2, Play, RotateCw, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactElement } from 'react'
 import type { FileTreeNode } from '../../../shared/types/ipc'
 import type { Workspace } from '../../../shared/types/workspace'
+import {
+  buildScriptCommand,
+  escapeDoubleQuotes,
+  joinWorkspacePath
+} from '../../../shared/utils/script-command'
 import { useBackgroundStore } from '../../store/background.store'
 
 interface ScriptsPanelProps {
@@ -15,7 +20,7 @@ interface ScriptEntry {
   id: string
   name: string
   relativePath: string
-  extension: 'ps1' | 'sh'
+  extension: 'ps1' | 'sh' | 'npm'
   command: string
 }
 
@@ -110,7 +115,7 @@ export function ScriptsPanel({ embedded = false, onClose, onOpenBackground, work
           <div className="scripts-panel-empty">
             <FileCode2 size={32} aria-hidden="true" />
             <strong>{loading ? 'Loading scripts' : 'No script found'}</strong>
-            <span>Drop <code>.ps1</code> or <code>.sh</code> files in the workspace to run them as background jobs.</span>
+              <span>Add commands to <code>package.json</code>, or drop <code>.ps1</code>/<code>.sh</code> files in the workspace to run them as background jobs.</span>
           </div>
         ) : filtered.map((script) => (
           <div key={script.id} className="scripts-panel-card">
@@ -165,7 +170,28 @@ async function discoverScripts(workspaceId: string, rootPath: string): Promise<S
   }
 
   await walk()
+  entries.push(...await discoverPackageScripts(workspaceId, rootPath))
   return entries.sort((a, b) => a.relativePath.localeCompare(b.relativePath))
+}
+
+async function discoverPackageScripts(workspaceId: string, rootPath: string): Promise<ScriptEntry[]> {
+  try {
+    const packageFile = await window.oxe.fs.readFile({ workspaceId, rootPath, relativePath: 'package.json' })
+    const parsed = JSON.parse(packageFile.content) as { scripts?: unknown }
+    if (!parsed.scripts || typeof parsed.scripts !== 'object' || Array.isArray(parsed.scripts)) return []
+
+    return Object.entries(parsed.scripts)
+      .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].trim().length > 0)
+      .map(([name]) => ({
+        id: `package:${name}`,
+        name,
+        relativePath: `package.json › scripts.${name}`,
+        extension: 'npm' as const,
+        command: `npm run "${escapeDoubleQuotes(name)}"`
+      }))
+  } catch {
+    return []
+  }
 }
 
 function toScriptEntry(item: FileTreeNode, rootPath: string): ScriptEntry | null {
@@ -177,28 +203,8 @@ function toScriptEntry(item: FileTreeNode, rootPath: string): ScriptEntry | null
     name: item.name.replace(/\.(ps1|sh)$/i, ''),
     relativePath: item.relativePath,
     extension: ext,
-    command: ext === 'ps1'
-      ? `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${escapeDoubleQuotes(fullPath)}"`
-      : buildShellScriptCommand(fullPath)
+    command: buildScriptCommand(fullPath, ext, window.oxe.app.platform)
   }
-}
-
-function joinWorkspacePath(rootPath: string, relativePath: string): string {
-  const separator = rootPath.includes('\\') ? '\\' : '/'
-  return `${rootPath.replace(/[\\/]+$/, '')}${separator}${relativePath.replace(/[\\/]/g, separator)}`
-}
-
-function escapeDoubleQuotes(value: string): string {
-  return value.replace(/"/g, '\\"')
-}
-
-function buildShellScriptCommand(fullPath: string): string {
-  const script = escapeDoubleQuotes(fullPath)
-  return [
-    'if exist "%ProgramFiles%\\Git\\bin\\bash.exe" ("%ProgramFiles%\\Git\\bin\\bash.exe" "' + script + '")',
-    'else if exist "%LOCALAPPDATA%\\Programs\\Git\\bin\\bash.exe" ("%LOCALAPPDATA%\\Programs\\Git\\bin\\bash.exe" "' + script + '")',
-    'else (echo Git Bash not found. Install Git for Windows to run .sh scripts. & exit /b 1)'
-  ].join(' ')
 }
 
 function toMessage(error: unknown): string {

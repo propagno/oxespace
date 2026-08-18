@@ -1,0 +1,749 @@
+{
+  "queries": 30,
+  "corpus": 403,
+  "chunks": 2880,
+  "whole": {
+    "recall1": 0.3,
+    "recall5": 0.5333333333333333,
+    "mrr": 0.405951002404759,
+    "meanTopScore": 0.8421831022198443,
+    "meanCtx": 21453.533333333333
+  },
+  "chunked": {
+    "recall1": 0.3,
+    "recall5": 0.5,
+    "mrr": 0.4036822477381528,
+    "meanTopScore": 0.8547742534850555,
+    "meanCtx": 21453.533333333333
+  },
+  "hybrid": {
+    "recall1": 0.3,
+    "recall5": 0.6,
+    "mrr": 0.4353038976729974,
+    "meanTopScore": 0.01948995429624201,
+    "meanCtx": 1700.4333333333334
+  },
+  "rows": [
+    {
+      "q": "Como o servidor MCP entra em hibernação por inatividade e onde fica o timer de sleep?",
+      "target": [
+        "services/mcp.service.ts"
+      ],
+      "whole": {
+        "rank": 7,
+        "top1": "electron/main/db/migrations/035_internal_mcp_meta.sql",
+        "topScore": 0.8497835287727826,
+        "ctxTokens": 20502
+      },
+      "chunked": {
+        "rank": 1,
+        "top1": "electron/main/services/mcp.service.ts",
+        "topScore": 0.8671891887875929,
+        "ctxTokens": 20502
+      },
+      "hybrid": {
+        "rank": 1,
+        "top1": "electron/main/services/mcp.service.ts",
+        "topScore": 0.020435513308218314,
+        "ctxTokens": 1896
+      }
+    },
+    {
+      "q": "Onde os embeddings da busca semântica são gerados pelo worker?",
+      "target": [
+        "workers/semantic-worker.ts",
+        "services/semantic.service.ts"
+      ],
+      "whole": {
+        "rank": 1,
+        "top1": "electron/main/workers/semantic-worker.ts",
+        "topScore": 0.8557563040337426,
+        "ctxTokens": 15551
+      },
+      "chunked": {
+        "rank": 1,
+        "top1": "electron/main/workers/semantic-worker.ts",
+        "topScore": 0.8557563040337426,
+        "ctxTokens": 15551
+      },
+      "hybrid": {
+        "rank": 1,
+        "top1": "electron/main/workers/semantic-worker.ts",
+        "topScore": 0.02052431006972798,
+        "ctxTokens": 1465
+      }
+    },
+    {
+      "q": "Como o terminal PTY é criado usando o perfil de shell?",
+      "target": [
+        "services/terminal.service.ts"
+      ],
+      "whole": {
+        "rank": 1,
+        "top1": "electron/main/services/terminal.service.ts",
+        "topScore": 0.8473343900213505,
+        "ctxTokens": 30551
+      },
+      "chunked": {
+        "rank": 1,
+        "top1": "electron/main/services/terminal.service.ts",
+        "topScore": 0.8473343900213505,
+        "ctxTokens": 30551
+      },
+      "hybrid": {
+        "rank": 1,
+        "top1": "electron/main/services/terminal.service.ts",
+        "topScore": 0.020507466241703198,
+        "ctxTokens": 1827
+      }
+    },
+    {
+      "q": "Onde fica a validação de allowlist de operações no sistema de arquivos do workspace?",
+      "target": [
+        "services/file-system.service.ts"
+      ],
+      "whole": {
+        "rank": 69,
+        "top1": "electron/main/db/migrations/008_workspace_oxe_state.sql",
+        "topScore": 0.8537494402520915,
+        "ctxTokens": 12080
+      },
+      "chunked": {
+        "rank": 64,
+        "top1": "src/components/Tasks/TasksPane.tsx",
+        "topScore": 0.8609354494776378,
+        "ctxTokens": 12080
+      },
+      "hybrid": {
+        "rank": 65,
+        "top1": "src/components/Tasks/TasksPane.tsx",
+        "topScore": 0.018502910421130902,
+        "ctxTokens": 1550
+      }
+    },
+    {
+      "q": "Como os atalhos de teclado para dividir o pane ativo são tratados?",
+      "target": [
+        "src/App.tsx"
+      ],
+      "whole": {
+        "rank": 198,
+        "top1": "electron/main/db/migrations/018_pane_model_override.sql",
+        "topScore": 0.8280124783653553,
+        "ctxTokens": 28181
+      },
+      "chunked": {
+        "rank": 12,
+        "top1": "src/components/Grid/PaneContainer.tsx",
+        "topScore": 0.8563034390048166,
+        "ctxTokens": 28181
+      },
+      "hybrid": {
+        "rank": 14,
+        "top1": "src/components/Grid/PaneContainer.tsx",
+        "topScore": 0.020413741808652762,
+        "ctxTokens": 1492
+      }
+    },
+    {
+      "q": "Onde a integração com o GitHub conecta e lista repositórios?",
+      "target": [
+        "services/github.service.ts"
+      ],
+      "whole": {
+        "rank": 1,
+        "top1": "electron/main/services/github.service.ts",
+        "topScore": 0.8345434869311474,
+        "ctxTokens": 38510
+      },
+      "chunked": {
+        "rank": 1,
+        "top1": "electron/main/services/github.service.ts",
+        "topScore": 0.8721485215899177,
+        "ctxTokens": 38510
+      },
+      "hybrid": {
+        "rank": 1,
+        "top1": "electron/main/services/github.service.ts",
+        "topScore": 0.020445431973822967,
+        "ctxTokens": 1730
+      }
+    },
+    {
+      "q": "Como o RTK baixa o binário rtk.exe para a pasta de dados do usuário?",
+      "target": [
+        "services/rtk.service.ts"
+      ],
+      "whole": {
+        "rank": 2,
+        "top1": "src/components/Updates/UpdateBanner.tsx",
+        "topScore": 0.843976238594663,
+        "ctxTokens": 27291
+      },
+      "chunked": {
+        "rank": 6,
+        "top1": "src/components/Settings/SettingsModal.tsx",
+        "topScore": 0.8535310502540076,
+        "ctxTokens": 27291
+      },
+      "hybrid": {
+        "rank": 3,
+        "top1": "src/components/Settings/SettingsModal.tsx",
+        "topScore": 0.018700504723458834,
+        "ctxTokens": 1773
+      }
+    },
+    {
+      "q": "Onde está o registro das ferramentas internas expostas via MCP?",
+      "target": [
+        "mcp-internal/tool-registry.ts"
+      ],
+      "whole": {
+        "rank": 9,
+        "top1": "electron/main/db/migrations/035_internal_mcp_meta.sql",
+        "topScore": 0.8371657150715752,
+        "ctxTokens": 14866
+      },
+      "chunked": {
+        "rank": 6,
+        "top1": "src/components/MCP/McpPanel.tsx",
+        "topScore": 0.8432315169428581,
+        "ctxTokens": 14866
+      },
+      "hybrid": {
+        "rank": 6,
+        "top1": "src/components/MCP/McpPanel.tsx",
+        "topScore": 0.020423655656836535,
+        "ctxTokens": 1634
+      }
+    },
+    {
+      "q": "Como um workspace é criado com um pane por célula do layout?",
+      "target": [
+        "services/workspace.service.ts"
+      ],
+      "whole": {
+        "rank": 29,
+        "top1": "electron/main/db/migrations/033_workspace_worktree_panel.sql",
+        "topScore": 0.8556514418305863,
+        "ctxTokens": 10782
+      },
+      "chunked": {
+        "rank": 1,
+        "top1": "electron/main/services/workspace.service.ts",
+        "topScore": 0.8655048170697218,
+        "ctxTokens": 10782
+      },
+      "hybrid": {
+        "rank": 1,
+        "top1": "electron/main/services/workspace.service.ts",
+        "topScore": 0.019686952257090266,
+        "ctxTokens": 1538
+      }
+    },
+    {
+      "q": "Onde o áudio é transcrito usando o Whisper na funcionalidade de voz?",
+      "target": [
+        "services/voice.service.ts"
+      ],
+      "whole": {
+        "rank": 2,
+        "top1": "shared/types/voice.ts",
+        "topScore": 0.846566315067188,
+        "ctxTokens": 20845
+      },
+      "chunked": {
+        "rank": 1,
+        "top1": "electron/main/services/voice.service.ts",
+        "topScore": 0.8467838877344075,
+        "ctxTokens": 20845
+      },
+      "hybrid": {
+        "rank": 1,
+        "top1": "electron/main/services/voice.service.ts",
+        "topScore": 0.018717262499259972,
+        "ctxTokens": 1716
+      }
+    },
+    {
+      "q": "Onde os comandos git como status, diff e commit são executados no processo principal?",
+      "target": [
+        "services/git.service.ts"
+      ],
+      "whole": {
+        "rank": 70,
+        "top1": "electron/main/ipc/git.ipc.ts",
+        "topScore": 0.841177686817724,
+        "ctxTokens": 41012
+      },
+      "chunked": {
+        "rank": 6,
+        "top1": "electron/main/services/github.service.ts",
+        "topScore": 0.8556709663911852,
+        "ctxTokens": 41012
+      },
+      "hybrid": {
+        "rank": 3,
+        "top1": "electron/main/services/github.service.ts",
+        "topScore": 0.020524139394442868,
+        "ctxTokens": 1644
+      }
+    },
+    {
+      "q": "Como as sessões de terminal são persistidas no banco e forkadas em novas sessões?",
+      "target": [
+        "services/session.service.ts"
+      ],
+      "whole": {
+        "rank": 3,
+        "top1": "shared/types/terminal.ts",
+        "topScore": 0.8427532555513468,
+        "ctxTokens": 12059
+      },
+      "chunked": {
+        "rank": 3,
+        "top1": "src/hooks/useAgentNotifications.ts",
+        "topScore": 0.8713384395062367,
+        "ctxTokens": 12059
+      },
+      "hybrid": {
+        "rank": 3,
+        "top1": "src/hooks/useAgentNotifications.ts",
+        "topScore": 0.019487470853314644,
+        "ctxTokens": 1772
+      }
+    },
+    {
+      "q": "Onde as tarefas do quadro kanban são criadas e suas dependências entre tarefas gerenciadas?",
+      "target": [
+        "services/task.service.ts"
+      ],
+      "whole": {
+        "rank": 26,
+        "top1": "src/components/Tasks/KanbanBoard.tsx",
+        "topScore": 0.82170963447168,
+        "ctxTokens": 25255
+      },
+      "chunked": {
+        "rank": 5,
+        "top1": "src/components/Tasks/KanbanBoard.tsx",
+        "topScore": 0.8380099177351095,
+        "ctxTokens": 25255
+      },
+      "hybrid": {
+        "rank": 2,
+        "top1": "src/components/Tasks/KanbanBoard.tsx",
+        "topScore": 0.020528478851863662,
+        "ctxTokens": 1864
+      }
+    },
+    {
+      "q": "Como os jobs em segundo plano são iniciados, acompanhados e finalizados?",
+      "target": [
+        "services/background.service.ts"
+      ],
+      "whole": {
+        "rank": 82,
+        "top1": "src/components/Workspace/WorkspaceBackgroundPanel.tsx",
+        "topScore": 0.8227533100160538,
+        "ctxTokens": 22603
+      },
+      "chunked": {
+        "rank": 8,
+        "top1": "src/components/Oxe/OxePanelBody.tsx",
+        "topScore": 0.8416996484473007,
+        "ctxTokens": 22603
+      },
+      "hybrid": {
+        "rank": 6,
+        "top1": "src/components/Oxe/OxePanelBody.tsx",
+        "topScore": 0.01867684191984542,
+        "ctxTokens": 1821
+      }
+    },
+    {
+      "q": "Onde as skills de agente são carregadas dos arquivos markdown com frontmatter YAML?",
+      "target": [
+        "services/skill.service.ts"
+      ],
+      "whole": {
+        "rank": 1,
+        "top1": "electron/main/services/skill.service.ts",
+        "topScore": 0.8796579307454697,
+        "ctxTokens": 20705
+      },
+      "chunked": {
+        "rank": 1,
+        "top1": "electron/main/services/skill.service.ts",
+        "topScore": 0.8796579307454697,
+        "ctxTokens": 20705
+      },
+      "hybrid": {
+        "rank": 1,
+        "top1": "electron/main/services/skill.service.ts",
+        "topScore": 0.020460450792134065,
+        "ctxTokens": 1827
+      }
+    },
+    {
+      "q": "Como o app coleta diagnósticos e informações de saúde do ambiente?",
+      "target": [
+        "services/diagnostics.service.ts"
+      ],
+      "whole": {
+        "rank": 91,
+        "top1": "shared/types/diagnostics.ts",
+        "topScore": 0.8230423527888637,
+        "ctxTokens": 20690
+      },
+      "chunked": {
+        "rank": 91,
+        "top1": "src/components/Oxe/OxePanelBody.tsx",
+        "topScore": 0.8495128600251631,
+        "ctxTokens": 20690
+      },
+      "hybrid": {
+        "rank": 98,
+        "top1": "src/components/Oxe/OxePanelBody.tsx",
+        "topScore": 0.018529786127257704,
+        "ctxTokens": 1797
+      }
+    },
+    {
+      "q": "Onde o grafo de código é construído e consultado para navegação?",
+      "target": [
+        "services/codegraph.service.ts"
+      ],
+      "whole": {
+        "rank": 3,
+        "top1": "electron/main/vendor/codegraph/graph/index.ts",
+        "topScore": 0.8252289511790808,
+        "ctxTokens": 25072
+      },
+      "chunked": {
+        "rank": 7,
+        "top1": "src/components/Oxe/OxePanelBody.tsx",
+        "topScore": 0.8296497732870601,
+        "ctxTokens": 25072
+      },
+      "hybrid": {
+        "rank": 5,
+        "top1": "src/components/Oxe/OxePanelBody.tsx",
+        "topScore": 0.018495220045631134,
+        "ctxTokens": 1447
+      }
+    },
+    {
+      "q": "Como os perfis de shell como PowerShell e bash são detectados e configurados?",
+      "target": [
+        "services/shell-profile.service.ts"
+      ],
+      "whole": {
+        "rank": 60,
+        "top1": "electron/main/vendor/codegraph/ui/glyphs.ts",
+        "topScore": 0.8370580789887268,
+        "ctxTokens": 25781
+      },
+      "chunked": {
+        "rank": 134,
+        "top1": "electron/main/services/mcp.service.ts",
+        "topScore": 0.8426775319434585,
+        "ctxTokens": 25781
+      },
+      "hybrid": {
+        "rank": 100,
+        "top1": "electron/main/services/mcp.service.ts",
+        "topScore": 0.018789698160771386,
+        "ctxTokens": 1711
+      }
+    },
+    {
+      "q": "Onde os agentes de IA são lançados e seus processos de terminal gerenciados?",
+      "target": [
+        "services/agent.service.ts"
+      ],
+      "whole": {
+        "rank": 39,
+        "top1": "electron/main/ipc/copilot.ipc.ts",
+        "topScore": 0.8193647729986252,
+        "ctxTokens": 17710
+      },
+      "chunked": {
+        "rank": 50,
+        "top1": "src/components/Oxe/OxePanelBody.tsx",
+        "topScore": 0.8484345066418929,
+        "ctxTokens": 17710
+      },
+      "hybrid": {
+        "rank": 51,
+        "top1": "src/components/Oxe/OxePanelBody.tsx",
+        "topScore": 0.01872590485657359,
+        "ctxTokens": 1774
+      }
+    },
+    {
+      "q": "Como o consumo de tokens de uso é consultado entre os provedores como Claude e Codex?",
+      "target": [
+        "services/usage.service.ts"
+      ],
+      "whole": {
+        "rank": 3,
+        "top1": "src/components/Sidebar/AgentProviderIcon.tsx",
+        "topScore": 0.8519291712990192,
+        "ctxTokens": 6952
+      },
+      "chunked": {
+        "rank": 8,
+        "top1": "src/components/Terminal/AgentCreditsStatus.tsx",
+        "topScore": 0.8568178435435962,
+        "ctxTokens": 6952
+      },
+      "hybrid": {
+        "rank": 8,
+        "top1": "src/components/Terminal/AgentCreditsStatus.tsx",
+        "topScore": 0.01884599456619565,
+        "ctxTokens": 1887
+      }
+    },
+    {
+      "q": "Onde os servidores MCP habilitados são materializados no arquivo .mcp.json do workspace?",
+      "target": [
+        "services/mcp-sync.service.ts"
+      ],
+      "whole": {
+        "rank": 1,
+        "top1": "electron/main/services/mcp-sync.service.ts",
+        "topScore": 0.8710472350563429,
+        "ctxTokens": 21878
+      },
+      "chunked": {
+        "rank": 3,
+        "top1": "electron/main/services/mcp.service.ts",
+        "topScore": 0.8830246385334318,
+        "ctxTokens": 21878
+      },
+      "hybrid": {
+        "rank": 3,
+        "top1": "electron/main/services/mcp.service.ts",
+        "topScore": 0.020133176110544,
+        "ctxTokens": 1695
+      }
+    },
+    {
+      "q": "Como o controle de qualidade avalia achados e produz um veredito de pass, warn ou fail?",
+      "target": [
+        "services/quality-controller.service.ts"
+      ],
+      "whole": {
+        "rank": 1,
+        "top1": "electron/main/services/quality-controller.service.ts",
+        "topScore": 0.8273471975428016,
+        "ctxTokens": 25710
+      },
+      "chunked": {
+        "rank": 16,
+        "top1": "src/components/Oxe/OxePanelBody.tsx",
+        "topScore": 0.8416176228932013,
+        "ctxTokens": 25710
+      },
+      "hybrid": {
+        "rank": 12,
+        "top1": "src/components/Oxe/OxePanelBody.tsx",
+        "topScore": 0.01877112231318167,
+        "ctxTokens": 1799
+      }
+    },
+    {
+      "q": "Onde os eventos de preview web são publicados quando a ferramenta abre uma URL?",
+      "target": [
+        "mcp-internal/web-preview-bus.ts"
+      ],
+      "whole": {
+        "rank": 1,
+        "top1": "electron/main/mcp-internal/web-preview-bus.ts",
+        "topScore": 0.8451258719268395,
+        "ctxTokens": 10487
+      },
+      "chunked": {
+        "rank": 2,
+        "top1": "src/components/WebPreview/WebPreviewPanel.tsx",
+        "topScore": 0.846580306701377,
+        "ctxTokens": 10487
+      },
+      "hybrid": {
+        "rank": 2,
+        "top1": "src/components/WebPreview/WebPreviewPanel.tsx",
+        "topScore": 0.020505958075063252,
+        "ctxTokens": 1696
+      }
+    },
+    {
+      "q": "Como as mutações de worktree do git emitem eventos para a UI se atualizar?",
+      "target": [
+        "mcp-internal/worktree-event-bus.ts"
+      ],
+      "whole": {
+        "rank": 1,
+        "top1": "electron/main/mcp-internal/worktree-event-bus.ts",
+        "topScore": 0.8853249716865933,
+        "ctxTokens": 36164
+      },
+      "chunked": {
+        "rank": 1,
+        "top1": "electron/main/mcp-internal/worktree-event-bus.ts",
+        "topScore": 0.8853249716865933,
+        "ctxTokens": 36164
+      },
+      "hybrid": {
+        "rank": 1,
+        "top1": "electron/main/mcp-internal/worktree-event-bus.ts",
+        "topScore": 0.018679556483849783,
+        "ctxTokens": 1604
+      }
+    },
+    {
+      "q": "Onde as ferramentas internas do MCP executam suas ações de fato?",
+      "target": [
+        "mcp-internal/tool-handlers.ts"
+      ],
+      "whole": {
+        "rank": 17,
+        "top1": "electron/main/db/migrations/035_internal_mcp_meta.sql",
+        "topScore": 0.8278522346344714,
+        "ctxTokens": 17736
+      },
+      "chunked": {
+        "rank": 43,
+        "top1": "electron/main/services/mcp.service.ts",
+        "topScore": 0.8463000777744875,
+        "ctxTokens": 17736
+      },
+      "hybrid": {
+        "rank": 46,
+        "top1": "electron/main/services/mcp.service.ts",
+        "topScore": 0.018867292778499797,
+        "ctxTokens": 1544
+      }
+    },
+    {
+      "q": "Onde o estado dos terminais abertos é mantido no store do renderer?",
+      "target": [
+        "store/terminal.store.ts"
+      ],
+      "whole": {
+        "rank": 3,
+        "top1": "electron/preload/index.ts",
+        "topScore": 0.8271738572599664,
+        "ctxTokens": 12668
+      },
+      "chunked": {
+        "rank": 12,
+        "top1": "src/components/Grid/PaneContainer.tsx",
+        "topScore": 0.84756011191352,
+        "ctxTokens": 12668
+      },
+      "hybrid": {
+        "rank": 8,
+        "top1": "src/components/Grid/PaneContainer.tsx",
+        "topScore": 0.018693401556455283,
+        "ctxTokens": 1846
+      }
+    },
+    {
+      "q": "Como as preferências e configurações do usuário são guardadas no frontend?",
+      "target": [
+        "store/settings.store.ts"
+      ],
+      "whole": {
+        "rank": 52,
+        "top1": "electron/main/db/migrations/036_compact_background_panel.sql",
+        "topScore": 0.834706775452818,
+        "ctxTokens": 30298
+      },
+      "chunked": {
+        "rank": 90,
+        "top1": "src/components/Workspace/WorkspaceSettingsModal.tsx",
+        "topScore": 0.8496990526480399,
+        "ctxTokens": 30298
+      },
+      "hybrid": {
+        "rank": 93,
+        "top1": "src/components/Workspace/WorkspaceSettingsModal.tsx",
+        "topScore": 0.0185814400767811,
+        "ctxTokens": 2029
+      }
+    },
+    {
+      "q": "Onde o layout em grade dos panes do workspace é renderizado?",
+      "target": [
+        "components/Grid/WorkspaceGrid.tsx"
+      ],
+      "whole": {
+        "rank": 4,
+        "top1": "src/components/Workspace/WorkspaceIntegrationPanel.tsx",
+        "topScore": 0.8526093154744788,
+        "ctxTokens": 18184
+      },
+      "chunked": {
+        "rank": 3,
+        "top1": "src/components/Workspace/WorkspaceSurface.tsx",
+        "topScore": 0.8585291165515021,
+        "ctxTokens": 18184
+      },
+      "hybrid": {
+        "rank": 2,
+        "top1": "src/components/Workspace/WorkspaceSurface.tsx",
+        "topScore": 0.019875206738406766,
+        "ctxTokens": 1729
+      }
+    },
+    {
+      "q": "Como a paleta de comandos é aberta e filtra as ações disponíveis?",
+      "target": [
+        "components/CommandPalette/CommandPalette.tsx"
+      ],
+      "whole": {
+        "rank": 11,
+        "top1": "electron/main/vendor/codegraph/bin/codegraph.ts",
+        "topScore": 0.8209474558353818,
+        "ctxTokens": 19290
+      },
+      "chunked": {
+        "rank": 5,
+        "top1": "electron/main/services/mcp.service.ts",
+        "topScore": 0.8462600547384308,
+        "ctxTokens": 19290
+      },
+      "hybrid": {
+        "rank": 5,
+        "top1": "electron/main/services/mcp.service.ts",
+        "topScore": 0.018604993874296195,
+        "ctxTokens": 1795
+      }
+    },
+    {
+      "q": "Qual migração adiciona o armazenamento dos embeddings em coluna blob?",
+      "target": [
+        "migrations/040_semantic_embedding_blob.sql"
+      ],
+      "whole": {
+        "rank": 1,
+        "top1": "electron/main/db/migrations/040_semantic_embedding_blob.sql",
+        "topScore": 0.8561436679285594,
+        "ctxTokens": 14193
+      },
+      "chunked": {
+        "rank": 1,
+        "top1": "electron/main/db/migrations/040_semantic_embedding_blob.sql",
+        "topScore": 0.8561436679285594,
+        "ctxTokens": 14193
+      },
+      "hybrid": {
+        "rank": 1,
+        "top1": "electron/main/db/migrations/040_semantic_embedding_blob.sql",
+        "topScore": 0.020564746352250564,
+        "ctxTokens": 1111
+      }
+    }
+  ]
+}

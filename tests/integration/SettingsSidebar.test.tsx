@@ -82,8 +82,12 @@ describe('Settings agents UI', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
-  test('auto-runs health check when readiness is unknown', () => {
+  test('never probes on open, even with no readiness data', () => {
+    // AI Providers is the first tab of Agent Settings, so probing here spawns a
+    // `<cli> --version` per provider before the user can reach any other tab —
+    // seconds of a frozen panel on a cold PATH. Detection is user-driven now.
     const onDiscoverAgents = vi.fn()
+    const onUseProviderInPane = vi.fn()
 
     render(
       <SettingsModal
@@ -94,11 +98,16 @@ describe('Settings agents UI', () => {
         onDiscoverAgents={onDiscoverAgents}
         onConfigureAgent={vi.fn()}
         onNewCustomAgent={vi.fn()}
+        onUseProviderInPane={onUseProviderInPane}
       />
     )
 
-    expect(onDiscoverAgents).toHaveBeenCalledTimes(1)
-    expect(screen.getByTestId('providers-summary')).toHaveTextContent(/Not checked yet|Detecting/i)
+    expect(onDiscoverAgents).not.toHaveBeenCalled()
+    expect(screen.getByTestId('providers-summary')).toHaveTextContent(/Not checked yet/i)
+
+    // An unchecked provider must still be usable — otherwise dropping the probe
+    // would leave the panel with no primary action at all.
+    expect(screen.getByTestId('btn-use-agent-claude')).toBeInTheDocument()
   })
 
   test('onboarding when all CLIs are missing shows install guides', async () => {

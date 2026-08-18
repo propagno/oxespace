@@ -13,13 +13,13 @@ import { OxeService } from '../services/oxe.service'
  *
  * Returns the service so the app can `disposeAll()` on quit.
  */
-export function registerOxeIpc(): OxeService {
-  const broadcast = (rootPath: string): void => {
-    for (const window of BrowserWindow.getAllWindows()) {
-      if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.oxe.onEventsChanged, { rootPath })
-    }
+function broadcastOxeEvents(rootPath: string): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.oxe.onEventsChanged, { rootPath })
   }
-  const service = new OxeService(broadcast)
+}
+
+export function registerOxeIpc(service = new OxeService(broadcastOxeEvents)): OxeService {
 
   ipcMain.handle(IPC_CHANNELS.oxe.detect, (_e, force?: boolean) => service.detect(force === true))
   ipcMain.handle(IPC_CHANNELS.oxe.status, (_e, rootPath: string, force?: boolean) => service.status(rootPath, force === true))

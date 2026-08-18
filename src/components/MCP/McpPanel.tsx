@@ -206,8 +206,7 @@ export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement 
         </div>
 
         <footer className="mcp-panel-footer">
-          Tools from running servers become available to agents via the MCP spec (Anthropic).
-          Only <code>stdio</code> transport in this version.
+          Running servers expose their tools to agents. <code>stdio</code> transport only.
         </footer>
       </section>
     </div>

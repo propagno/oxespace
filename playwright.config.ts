@@ -11,5 +11,12 @@ export default defineConfig({
   // Dev tools, not CI smoke — excluded from `npm run test:e2e`. The perf
   // benchmark relaunches Electron per panel (slow) and the screenshot capture is
   // for design review. Run them via `npm run bench:ui` / `npm run shots:ui`.
-  testIgnore: ['**/perf-benchmark.spec.ts', '**/screenshots.spec.ts']
+  testIgnore: [
+    '**/perf-benchmark.spec.ts',
+    '**/screenshots.spec.ts',
+    // Packaged-artifact smokes need a built installer and are driven by the
+    // release leg of CI with OXESPACE_PACKAGED_EXECUTABLE set.
+    '**/packaged-linux.spec.ts',
+    '**/packaged-win.spec.ts'
+  ]
 })

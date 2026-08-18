@@ -7,8 +7,7 @@ import { ContextUsageService } from '../services/contextUsage'
  * Renderer-facing IPC for the live context-window % chip.
  *   - `context-usage:get` — current `/context` fill for a pane's provider.
  */
-export function registerContextUsageIpc(): void {
-  const service = new ContextUsageService()
+export function registerContextUsageIpc(service = new ContextUsageService()): void {
   ipcMain.handle(IPC_CHANNELS.contextUsage.get, (_e, input: ContextUsageInput) =>
     service.get(input.provider, input.workspaceRootPath, input.sessionId)
   )

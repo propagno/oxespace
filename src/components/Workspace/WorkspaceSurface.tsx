@@ -1,8 +1,11 @@
-import { Fragment, Suspense, lazy, useEffect, useRef, useState, type ReactElement } from 'react'
+import { Fragment, Suspense, lazy, memo, useEffect, useRef, useState, type ReactElement } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from 'react-resizable-panels'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceWorktreeStateInput, Workspace } from '../../../shared/types/workspace'
 import { WorkspaceGrid } from '../Grid/WorkspaceGrid'
+import { WorkspaceSplitGrid } from '../Grid/WorkspaceSplitGrid'
+import { usePaneLayoutStore } from '../../store/pane-layout.store'
+import { useUIStore } from '../../store/ui.store'
 // Side panels are lazy-loaded: they only mount when the user opens them, so
 // keeping them out of the initial bundle cuts first-paint parse/exec time. The
 // Editor pulls in Monaco (the single heaviest dep), so its split matters most.
@@ -11,8 +14,8 @@ const WorkspaceEditorPanel = lazy(() => import('./WorkspaceEditorPanel').then((m
 const WorkspaceGitHubPanel = lazy(() => import('./WorkspaceGitHubPanel').then((m) => ({ default: m.WorkspaceGitHubPanel })))
 const WorkspaceIntegrationPanel = lazy(() => import('./WorkspaceIntegrationPanel').then((m) => ({ default: m.WorkspaceIntegrationPanel })))
 const WorkspaceReviewPanel = lazy(() => import('./WorkspaceReviewPanel').then((m) => ({ default: m.WorkspaceReviewPanel })))
-const WorkspaceOxePanel = lazy(() => import('./WorkspaceOxePanel').then((m) => ({ default: m.WorkspaceOxePanel })))
 const WorkspaceScriptsPanel = lazy(() => import('./WorkspaceScriptsPanel').then((m) => ({ default: m.WorkspaceScriptsPanel })))
+const WorkspaceSearchPanel = lazy(() => import('./WorkspaceSearchPanel').then((m) => ({ default: m.WorkspaceSearchPanel })))
 const WorkspaceWebPreviewPanel = lazy(() => import('./WorkspaceWebPreviewPanel').then((m) => ({ default: m.WorkspaceWebPreviewPanel })))
 const WorkspaceWorktreePanel = lazy(() => import('./WorkspaceWorktreePanel').then((m) => ({ default: m.WorkspaceWorktreePanel })))
 
@@ -28,7 +31,7 @@ function prefetchPanelChunks(): void {
     void import('./WorkspaceGitHubPanel'); void import('./WorkspaceReviewPanel')
     void import('./WorkspaceWorktreePanel'); void import('./WorkspaceBackgroundPanel')
     void import('./WorkspaceScriptsPanel'); void import('./WorkspaceWebPreviewPanel')
-    void import('./WorkspaceOxePanel'); void import('./WorkspaceIntegrationPanel')
+    void import('./WorkspaceIntegrationPanel'); void import('./WorkspaceSearchPanel')
   }
 
   const prefetchEditor = (): void => { void import('./WorkspaceEditorPanel') }
@@ -50,6 +53,7 @@ import { ErrorBoundary } from '../common/ErrorBoundary'
 
 interface WorkspaceSurfaceProps {
   workspace: Workspace
+  isActive?: boolean
   agentProfiles?: AgentProfile[]
   maximizedPaneId: string | null
   onClosePane?: (paneId: string) => void
@@ -59,11 +63,11 @@ interface WorkspaceSurfaceProps {
   scriptsVisible: boolean
   webPreviewVisible: boolean
   integrationVisible: boolean
-  oxeVisible: boolean
+  searchVisible: boolean
   onCloseScripts: () => void
   onCloseWebPreview: () => void
   onCloseIntegration: () => void
-  onCloseOxe: () => void
+  onCloseSearch: () => void
   onSelectWorkspace: (workspaceId: string) => void
   workspaces: Workspace[]
   onUpdateEditorState: (input: {
@@ -94,7 +98,8 @@ interface SidePanelEntry {
   content: ReactElement
 }
 
-export function WorkspaceSurface({
+function WorkspaceSurfaceComponent({
+  isActive = true,
   maximizedPaneId,
   onClosePane,
   onActivatePane,
@@ -103,11 +108,11 @@ export function WorkspaceSurface({
   scriptsVisible,
   webPreviewVisible,
   integrationVisible,
-  oxeVisible,
+  searchVisible,
   onCloseScripts,
   onCloseWebPreview,
   onCloseIntegration,
-  onCloseOxe,
+  onCloseSearch,
   onRunCommand,
   onSplitPane,
   onToggleMaximize,
@@ -149,13 +154,25 @@ export function WorkspaceSurface({
   const [scriptsExpanded, setScriptsExpanded] = useState(false)
   const [webPreviewExpanded, setWebPreviewExpanded] = useState(false)
   const [integrationExpanded, setIntegrationExpanded] = useState(false)
-  const [oxeExpanded, setOxeExpanded] = useState(false)
+  const [searchExpanded, setSearchExpanded] = useState(false)
+  // F2 split-tree is the default layout. Keep the fixed grid as a fallback
+  // (toggle via F2) so users can recover if a tree layout gets awkward.
+  const splitLayoutEnabled = useUIStore((s) => s.splitLayoutEnabled)
+  const tree = usePaneLayoutStore((s) => s.trees[workspace.id] ?? null)
+  const syncTree = usePaneLayoutStore((s) => s.sync)
+  const resizeTree = usePaneLayoutStore((s) => s.resize)
+  const moveTree = usePaneLayoutStore((s) => s.move)
+
+  useEffect(() => {
+    syncTree(workspace.id, workspace.panes)
+  }, [syncTree, workspace.id, workspace.panes])
+
   const scriptsWidth = scriptsExpanded ? 70 : DEFAULT_GITHUB_WIDTH
   const webPreviewWidth = webPreviewExpanded ? 70 : DEFAULT_GITHUB_WIDTH
   const integrationWidth = integrationExpanded ? 70 : DEFAULT_GITHUB_WIDTH
-  const oxeWidth = oxeExpanded ? 70 : DEFAULT_WORKTREE_WIDTH
+  const searchWidth = searchExpanded ? 70 : DEFAULT_REVIEW_WIDTH
 
-  const hasSidePanels = editorVisible || reviewVisible || githubVisible || backgroundVisible || worktreeVisible || scriptsVisible || webPreviewVisible || integrationVisible || oxeVisible
+  const hasSidePanels = editorVisible || reviewVisible || githubVisible || backgroundVisible || worktreeVisible || scriptsVisible || webPreviewVisible || integrationVisible || searchVisible
 
   const layoutSizes = getWorkspacePanelSizes({
     editorVisible,
@@ -174,8 +191,8 @@ export function WorkspaceSurface({
     webPreviewWidth,
     integrationVisible,
     integrationWidth,
-    oxeVisible,
-    oxeWidth
+    searchVisible,
+    searchWidth
   })
 
   // Total width of all side panels combined (as % of workspace)
@@ -211,7 +228,7 @@ export function WorkspaceSurface({
     scriptsVisible ? 'sc' : '_',
     webPreviewVisible ? 'wp' : '_',
     integrationVisible ? 'in' : '_',
-    oxeVisible ? 'ox' : '_', oxeExpanded ? 'OX' : '_',
+    searchVisible ? 'se' : '_',
   ].join('')
 
   // Convert a total-workspace percentage to a percentage of the combined side area
@@ -370,22 +387,6 @@ export function WorkspaceSurface({
     })
   }
 
-  if (oxeVisible) {
-    sidePanels.push({
-      id: 'oxe',
-      defaultSize: toInnerPct(layoutSizes.oxe),
-      onResize: () => undefined,
-      content: (
-        <WorkspaceOxePanel
-          workspace={workspace}
-          isExpanded={oxeExpanded}
-          onCollapse={onCloseOxe}
-          onToggleExpanded={() => setOxeExpanded((value) => !value)}
-        />
-      )
-    })
-  }
-
   if (integrationVisible) {
     sidePanels.push({
       id: 'integration',
@@ -406,7 +407,37 @@ export function WorkspaceSurface({
     })
   }
 
-  const grid = (
+  if (searchVisible) {
+    sidePanels.push({
+      id: 'search',
+      defaultSize: toInnerPct(layoutSizes.search),
+      onResize: () => undefined,
+      content: (
+        <WorkspaceSearchPanel
+          workspace={workspace}
+          isExpanded={searchExpanded}
+          onCollapse={onCloseSearch}
+          onToggleExpanded={() => setSearchExpanded((value) => !value)}
+        />
+      )
+    })
+  }
+
+  const grid = splitLayoutEnabled ? (
+    <WorkspaceSplitGrid
+      workspace={workspace}
+      tree={tree}
+      agentProfiles={agentProfiles}
+      maximizedPaneId={maximizedPaneId}
+      activePaneId={activePaneId}
+      onClosePane={onClosePane}
+      onToggleMaximize={onToggleMaximize}
+      onSplitPane={onSplitPane}
+      onActivatePane={onActivatePane}
+      onResize={(path, index, deltaPct) => resizeTree(workspace.id, path, index, deltaPct)}
+      onMovePane={(paneId, targetPaneId, direction, after) => moveTree(workspace.id, paneId, targetPaneId, direction, after)}
+    />
+  ) : (
     <WorkspaceGrid
       workspace={workspace}
       agentProfiles={agentProfiles}
@@ -419,26 +450,35 @@ export function WorkspaceSurface({
     />
   )
 
+  const folderName = workspace.rootPath ? workspace.rootPath.replace(/\\/g, '/').split('/').filter(Boolean).pop() : null
+  const showSubPath = Boolean(folderName && folderName.toLowerCase() !== workspace.name.toLowerCase())
+
   const toolbar = (
     <header className="workspace-topbar" aria-label="Workspace status">
-      {/* Aggregate workspace status — glanceable multi-agent summary.
-          Tools hub lives on the sidebar footer (gear → modal), so this
-          bar only carries status + integration chips. */}
-      <WorkspaceStatusSummary workspace={workspace} />
+      <div className="workspace-topbar-breadcrumb">
+        <span className="workspace-topbar-name">{workspace.name}</span>
+        {showSubPath ? (
+          <>
+            <span className="workspace-topbar-divider">/</span>
+            <span className="workspace-topbar-path" title={workspace.rootPath}>{folderName}</span>
+          </>
+        ) : null}
+      </div>
       <div className="workspace-topbar-spacer" />
-      <IntegrationsStatusChips workspace={workspace} />
+      <WorkspaceStatusSummary workspace={workspace} />
+      <IntegrationsStatusChips workspace={workspace} isActive={isActive} />
     </header>
   )
 
-  if (maximizedPaneId) {
-    return (
-      <div className="workspace-surface-frame">
-        {toolbar}
-        <div className="workspace-surface-content">{grid}</div>
-      </div>
-    )
-  }
-
+  // IMPORTANT: never swap the outer tree for maximize.
+  // A previous early-return rendered `{grid}` outside PanelGroup/Panel, which
+  // remounted WorkspaceGrid + every TerminalView, disposed xterm, and wiped
+  // scrollback / TUI alt-screen state (dead scroll + lost session history).
+  // Maximize is handled inside WorkspaceGrid via CSS; here we only hide side
+  // panels so the terminal can use the full width while the grid host stays
+  // mounted.
+  const isMaximized = Boolean(maximizedPaneId)
+  const showSidePanels = hasSidePanels && !isMaximized
   const innerMaxSize = sidePanels.length > 1 ? 100 - INNER_MIN_SIZE * (sidePanels.length - 1) : 100
 
   return (
@@ -447,15 +487,19 @@ export function WorkspaceSurface({
       <div className="workspace-surface-content">
         {/*
           Outer PanelGroup key = workspace.id ONLY.
-          WorkspaceGrid lives here and never remounts when side panels toggle.
+          WorkspaceGrid lives here and never remounts when side panels toggle
+          or when a pane is maximized/restored.
           Side panels live in an inner PanelGroup that can safely remount.
         */}
         <PanelGroup key={workspace.id} direction="horizontal">
-          <Panel id={`${workspace.id}-grid`} minSize={layoutSizes.gridMinSize}>
+          <Panel
+            id={`${workspace.id}-grid`}
+            minSize={showSidePanels ? layoutSizes.gridMinSize : 100}
+          >
             {grid}
           </Panel>
 
-          {hasSidePanels && (
+          {showSidePanels ? (
             <>
               <PanelResizeHandle className="resize-handle resize-handle-vertical workspace-editor-resize" />
               <Panel
@@ -489,12 +533,27 @@ export function WorkspaceSurface({
                 </PanelGroup>
               </Panel>
             </>
-          )}
+          ) : null}
         </PanelGroup>
       </div>
     </div>
   )
 }
+
+export const WorkspaceSurface = memo(
+  WorkspaceSurfaceComponent,
+  (previous, next) =>
+    previous.workspace === next.workspace &&
+    previous.isActive === next.isActive &&
+    previous.agentProfiles === next.agentProfiles &&
+    previous.maximizedPaneId === next.maximizedPaneId &&
+    previous.scriptsVisible === next.scriptsVisible &&
+    previous.webPreviewVisible === next.webPreviewVisible &&
+    previous.integrationVisible === next.integrationVisible &&
+    previous.searchVisible === next.searchVisible &&
+    previous.workspaces === next.workspaces &&
+    previous.activePaneId === next.activePaneId
+)
 
 interface WorkspacePanelSizeInput {
   editorVisible: boolean
@@ -513,8 +572,8 @@ interface WorkspacePanelSizeInput {
   webPreviewWidth: number
   integrationVisible: boolean
   integrationWidth: number
-  oxeVisible: boolean
-  oxeWidth: number
+  searchVisible: boolean
+  searchWidth: number
 }
 
 interface WorkspacePanelSizeOutput {
@@ -528,7 +587,7 @@ interface WorkspacePanelSizeOutput {
   scripts: number
   webPreview: number
   integration: number
-  oxe: number
+  search: number
 }
 
 function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelSizeOutput {
@@ -540,11 +599,11 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
   const scripts = input.scriptsVisible ? clampPanelSize(input.scriptsWidth, 25, 70) : 0
   const webPreview = input.webPreviewVisible ? clampPanelSize(input.webPreviewWidth, 25, 70) : 0
   const integration = input.integrationVisible ? clampPanelSize(input.integrationWidth, 25, 70) : 0
-  const oxe = input.oxeVisible ? clampPanelSize(input.oxeWidth, 25, 70) : 0
-  const visibleSideCount = Number(input.editorVisible) + Number(input.githubVisible) + Number(input.reviewVisible) + Number(input.backgroundVisible) + Number(input.worktreeVisible) + Number(input.scriptsVisible) + Number(input.webPreviewVisible) + Number(input.integrationVisible) + Number(input.oxeVisible)
+  const search = input.searchVisible ? clampPanelSize(input.searchWidth, 24, 70) : 0
+  const visibleSideCount = Number(input.editorVisible) + Number(input.githubVisible) + Number(input.reviewVisible) + Number(input.backgroundVisible) + Number(input.worktreeVisible) + Number(input.scriptsVisible) + Number(input.webPreviewVisible) + Number(input.integrationVisible) + Number(input.searchVisible)
 
   if (visibleSideCount === 0) {
-    return { grid: 100, gridMinSize: 30, editor: 0, github: 0, review: 0, background: 0, worktree: 0, scripts: 0, webPreview: 0, integration: 0, oxe: 0 }
+    return { grid: 100, gridMinSize: 30, editor: 0, github: 0, review: 0, background: 0, worktree: 0, scripts: 0, webPreview: 0, integration: 0, search: 0 }
   }
 
   if (visibleSideCount === 1) {
@@ -556,7 +615,7 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
               : input.scriptsVisible ? scripts
                 : input.webPreviewVisible ? webPreview
                   : input.integrationVisible ? integration
-                    : oxe
+                    : search
     return {
       grid: 100 - side,
       gridMinSize: 30,
@@ -568,12 +627,12 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
       scripts,
       webPreview,
       integration,
-      oxe
+      search
     }
   }
 
   const maxCombinedSideWidth = 70
-  const combined = editor + github + review + background + worktree + scripts + webPreview + integration + oxe
+  const combined = editor + github + review + background + worktree + scripts + webPreview + integration + search
   const scale = combined > maxCombinedSideWidth ? maxCombinedSideWidth / combined : 1
   const normalizedEditor = input.editorVisible ? Math.max(25, Math.round(editor * scale)) : 0
   const normalizedGitHub = input.githubVisible ? Math.max(25, Math.round(github * scale)) : 0
@@ -583,8 +642,8 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
   const normalizedScripts = input.scriptsVisible ? Math.max(25, Math.round(scripts * scale)) : 0
   const normalizedWebPreview = input.webPreviewVisible ? Math.max(25, Math.round(webPreview * scale)) : 0
   const normalizedIntegration = input.integrationVisible ? Math.max(25, Math.round(integration * scale)) : 0
-  const normalizedOxe = input.oxeVisible ? Math.max(25, Math.round(oxe * scale)) : 0
-  const normalizedCombined = normalizedEditor + normalizedGitHub + normalizedReview + normalizedBackground + normalizedWorktree + normalizedScripts + normalizedWebPreview + normalizedIntegration + normalizedOxe
+  const normalizedSearch = input.searchVisible ? Math.max(24, Math.round(search * scale)) : 0
+  const normalizedCombined = normalizedEditor + normalizedGitHub + normalizedReview + normalizedBackground + normalizedWorktree + normalizedScripts + normalizedWebPreview + normalizedIntegration + normalizedSearch
 
   return {
     grid: Math.max(30, 100 - normalizedCombined),
@@ -597,7 +656,7 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
     scripts: normalizedScripts,
     webPreview: normalizedWebPreview,
     integration: normalizedIntegration,
-    oxe: normalizedOxe
+    search: normalizedSearch
   }
 }
 

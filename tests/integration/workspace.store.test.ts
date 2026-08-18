@@ -26,6 +26,15 @@ const workspace: Workspace = {
   ]
 }
 
+const workspaceTwo: Workspace = {
+  ...workspace,
+  id: 'workspace-2',
+  name: 'repo-two',
+  rootPath: 'C:/projects/repo-two',
+  isActive: false,
+  panes: workspace.panes.map((pane) => ({ ...pane, id: 'pane-2', workspaceId: 'workspace-2' }))
+}
+
 describe('workspace.store', () => {
   beforeEach(() => {
     useWorkspaceStore.setState({
@@ -90,6 +99,44 @@ describe('workspace.store', () => {
 
     expect(window.oxe.workspace.create).toHaveBeenCalledWith({ rootPath: 'C:/projects/repo', layout: '2x2' })
     expect(result.current.activeWorkspaceId).toBe('workspace-1')
+  })
+
+  test('switches optimistically without replacing the workspace after persistence', async () => {
+    let resolveActivation: (workspace: Workspace) => void = () => undefined
+    const activation = new Promise<Workspace>((resolve) => { resolveActivation = resolve })
+    vi.mocked(window.oxe.workspace.setActive).mockReturnValueOnce(activation)
+    useWorkspaceStore.setState({
+      workspaces: [workspace, workspaceTwo],
+      activeWorkspaceId: workspace.id
+    })
+
+    let pending!: Promise<void>
+    act(() => {
+      pending = useWorkspaceStore.getState().setActiveWorkspace(workspaceTwo.id)
+    })
+
+    expect(useWorkspaceStore.getState().activeWorkspaceId).toBe(workspaceTwo.id)
+    expect(useWorkspaceStore.getState().workspaces[1]).toBe(workspaceTwo)
+
+    resolveActivation({ ...workspaceTwo, name: 'authoritative-name-not-needed-for-activation' })
+    await act(async () => pending)
+
+    expect(useWorkspaceStore.getState().workspaces.find((item) => item.id === workspaceTwo.id)?.name).toBe('repo-two')
+  })
+
+  test('rolls back an optimistic workspace switch when persistence fails', async () => {
+    vi.mocked(window.oxe.workspace.setActive).mockRejectedValueOnce(new Error('database unavailable'))
+    useWorkspaceStore.setState({
+      workspaces: [workspace, workspaceTwo],
+      activeWorkspaceId: workspace.id
+    })
+
+    await act(async () => {
+      await useWorkspaceStore.getState().setActiveWorkspace(workspaceTwo.id)
+    })
+
+    expect(useWorkspaceStore.getState().activeWorkspaceId).toBe(workspace.id)
+    expect(useWorkspaceStore.getState().error).toBe('database unavailable')
   })
 
   test('persists editor layout state for a workspace', async () => {

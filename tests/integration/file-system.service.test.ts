@@ -1,8 +1,10 @@
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { FileSystemService, MAX_TEXT_FILE_BYTES } from '../../electron/main/services/file-system.service'
+
+const testWindows = process.platform === 'win32' ? test : test.skip
 
 describe('FileSystemService', () => {
   let rootPath: string
@@ -54,9 +56,47 @@ describe('FileSystemService', () => {
     await expect(service.readFile({ workspaceId: 'workspace-1', rootPath, relativePath: join(rootPath, '..', 'secret.txt') })).rejects.toThrow(
       'Path escapes workspace root'
     )
+    await expect(service.writeFile({ workspaceId: 'workspace-1', rootPath, relativePath: '/etc/passwd', content: 'x' })).rejects.toThrow(
+      'Path escapes workspace root'
+    )
+  })
+
+  // A backslash is path syntax only on Windows. On POSIX `..\secret.txt` is an
+  // ordinary filename that resolves inside the root, so refusing it there would
+  // be wrong — the traversal cases above already cover the real escape.
+  testWindows('treats a backslash as a separator when escaping the root', async () => {
     await expect(service.writeFile({ workspaceId: 'workspace-1', rootPath, relativePath: '..\\secret.txt', content: 'x' })).rejects.toThrow(
       'Path escapes workspace root'
     )
+  })
+
+  test('uses the workspace registry as the authoritative root', async () => {
+    const guarded = new FileSystemService((workspaceId) => workspaceId === 'workspace-1' ? rootPath : null)
+    await expect(guarded.readFile({
+      workspaceId: 'workspace-1',
+      rootPath: join(rootPath, 'src'),
+      relativePath: 'index.ts'
+    })).rejects.toThrow('does not match')
+    await expect(guarded.readFile({
+      workspaceId: 'missing',
+      rootPath,
+      relativePath: 'README.md'
+    })).rejects.toThrow('not found')
+  })
+
+  test('blocks canonical paths that escape through a junction', async () => {
+    const outside = await mkdtemp(join(tmpdir(), 'oxespace-fs-outside-'))
+    try {
+      await writeFile(join(outside, 'secret.txt'), 'secret', 'utf8')
+      await symlink(outside, join(rootPath, 'linked-outside'), 'junction')
+      await expect(service.readFile({
+        workspaceId: 'workspace-1',
+        rootPath,
+        relativePath: 'linked-outside/secret.txt'
+      })).rejects.toThrow('resolves outside')
+    } finally {
+      await rm(outside, { recursive: true, force: true })
+    }
   })
 
   test('reads and writes text files inside the workspace', async () => {

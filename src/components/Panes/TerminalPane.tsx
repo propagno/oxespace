@@ -22,14 +22,19 @@ interface TerminalPaneProps {
 }
 
 export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }: TerminalPaneProps): ReactElement {
-  const { getStatus, setStatus, consumePendingCommand } = useTerminalStore()
+  // Subscribe only to this pane. Calling useTerminalStore() without a selector
+  // made every TerminalPane rerender whenever any other terminal produced
+  // output (up to 10 updates/s per pane).
+  const state = useTerminalStore((s) => s.getStatus(pane.id))
+  const getStatus = useTerminalStore((s) => s.getStatus)
+  const setStatus = useTerminalStore((s) => s.setStatus)
+  const consumePendingCommand = useTerminalStore((s) => s.consumePendingCommand)
   const setLastIntent = useTerminalStore((s) => s.setLastIntent)
   const setPaneAgent = useWorkspaceStore((s) => s.setPaneAgent)
   const allProfiles = useAgentStore((s) => s.allProfiles)
   const workspaceThemeId = useWorkspaceStore((s) => s.workspaces.find((w) => w.id === workspaceId)?.themeId ?? 'dracula')
   const setTerminalOverride = useTerminalPrefsStore((s) => s.setOverride)
   const terminalPrefs = useResolvedTerminalPrefs(workspaceId)
-  const state = getStatus(pane.id)
   const isRunning = state.status === 'running' || state.status === 'starting'
   const canUseVoice = state.status === 'running'
   // Copilot panes get the account-wide AI-Credits indicator in their status bar.
@@ -153,6 +158,19 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
   // longer fired by default. See plan: "MCP-only as native path".
 
   const start = useCallback(async (): Promise<void> => {
+    // A pane returning from the MRU already has a live shell in main. Spawning
+    // a second one would kill the first, reload the user's $PROFILE and show an
+    // empty terminal — the multi-second cost this whole path exists to avoid.
+    try {
+      const existing = await window.oxe.terminal.status?.(pane.id)
+      if (existing?.running) {
+        setStatus(pane.id, 'running')
+        return
+      }
+    } catch {
+      // Status unavailable — fall through and start normally.
+    }
+
     setStatus(pane.id, 'starting')
     try {
       const { command: agentCommand, initialPrompt } = await resolveWithIntegrationContext()
@@ -311,7 +329,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
   }, [moreOpen])
 
   return (
-    <div className="terminal-pane" data-testid="terminal-pane">
+    <div className="terminal-pane" data-testid="terminal-pane" data-pane-id={pane.id}>
       {state.error ? <div className="terminal-error-bar">{state.error}</div> : null}
 
       {isRunning ? (
@@ -319,6 +337,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
           <ErrorBoundary label="o terminal">
           <TerminalView
             paneId={pane.id}
+            workspaceId={workspaceId}
             isRunning={isRunning}
             themeId={workspaceThemeId}
             prefs={terminalPrefs}

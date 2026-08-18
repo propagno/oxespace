@@ -16,13 +16,15 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 // Electron 31.7.7 → electron ABI 125
 const ELECTRON_VERSION = '31.7.7'
 const ELECTRON_ABI = '125'
-const ARCH = 'x64'
+const ARCH = process.arch
+// Upstream names its prebuilds after Node's platform string, so this maps 1:1.
+const PLATFORM = process.platform
 
 const MODULES = [
   {
     name: 'better-sqlite3',
     version: '12.9.0',
-    url: `https://github.com/WiseLibs/better-sqlite3/releases/download/v12.9.0/better-sqlite3-v12.9.0-electron-v${ELECTRON_ABI}-win32-${ARCH}.tar.gz`,
+    url: `https://github.com/WiseLibs/better-sqlite3/releases/download/v12.9.0/better-sqlite3-v12.9.0-electron-v${ELECTRON_ABI}-${PLATFORM}-${ARCH}.tar.gz`,
     nodeFile: `node_modules/better-sqlite3/build/Release/better_sqlite3.node`,
     extractTo: `node_modules/better-sqlite3`
   }
@@ -68,7 +70,7 @@ for (const mod of MODULES) {
     )
   }
 
-  console.log(`✓ ${mod.name} installed for Electron ${ELECTRON_VERSION} (ABI ${ELECTRON_ABI})`)
+  console.log(`✓ ${mod.name} installed for Electron ${ELECTRON_VERSION} (ABI ${ELECTRON_ABI}, ${PLATFORM}-${ARCH})`)
 }
 
 console.log('\nAll native modules ready for Electron packaging.')
