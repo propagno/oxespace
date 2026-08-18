@@ -298,6 +298,32 @@ jobs:
             bash scripts/run-with-xvfb.sh \
             npx playwright test --config playwright.tools.config.ts packaged-linux.spec.ts
 
+
+      # Guards a bug that shipped in v0.7.0. electron-builder's stock postinst
+      # decides chrome-sandbox's mode by probing `unshare --user true` — but
+      # postinst runs as root, which is exempt from the unprivileged-userns
+      # restriction Ubuntu 24.04 enables. The probe therefore reported
+      # "namespaces work", chose 0755, and every 24.04 user got an app that
+      # aborted at launch. A runtime test cannot catch this here: the runner is
+      # 22.04, where the probe happens to be right. So assert on the package
+      # instead, which is deterministic on any host.
+      - name: Verify the .deb secures the chrome-sandbox helper
+        if: steps.plan.outputs.should_release == 'true' && runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          deb=$(ls dist/*.deb)
+          postinst=$(dpkg-deb --info "$deb" postinst)
+          if ! grep -qF "chmod 4755 '/opt/OXESpace/chrome-sandbox'" <<<"$postinst"; then
+            echo "postinst does not unconditionally setuid chrome-sandbox:" >&2
+            echo "$postinst" >&2
+            exit 1
+          fi
+          if grep -qF 'unshare --user' <<<"$postinst"; then
+            echo "postinst still probes user namespaces — the stock template is back." >&2
+            exit 1
+          fi
+          echo "OK: chrome-sandbox is setuid root unconditionally."
+
       # The NSIS build is what ships today, yet it was the one packaged output
       # CI never launched. Runs against win-unpacked (the same tree the
       # installer writes) so a broken asarUnpack or extraResource fails here
