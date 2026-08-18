@@ -44,6 +44,7 @@ import { BackgroundManager } from './services/background.service'
 import { TerminalManager } from './services/terminal.service'
 import { fallbackShellProfiles } from './services/shell-profile.defaults'
 import { isLoopbackHttpUrl, isSafeExternalUrl } from './utils/external-url'
+import { applyLoginShellPath } from './utils/login-shell-path'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
 import type { ShellProfile } from '../../shared/types/workspace'
 
@@ -87,6 +88,17 @@ const CLIPBOARD_IMAGE_TTL_MS = 30 * 60 * 1000
 async function registerIpcHandlers(): Promise<() => void> {
   const noop = (): void => {}
   if (ipcRegistered) return noop
+
+  // Launched from a desktop icon, this process inherits the session PATH, not
+  // the shell's — so agent CLIs under ~/.local/bin, ~/.npm-global/bin or a
+  // version manager are invisible. Recover it before anything reads PATH:
+  // provider discovery and the first auto-started agent pane both do, and an
+  // agent is exec'd directly rather than through a shell, so nothing else
+  // would ever source a profile on its behalf. One shell spawn, POSIX only.
+  const recoveredPath = applyLoginShellPath()
+  if (recoveredPath.length > 0) {
+    log.info(`[main] PATH recovered from login shell: +${recoveredPath.join(', ')}`)
+  }
 
   // App update + RTK sidecar IPC are always registered (even on native failure
   // / e2e mocks below) so Settings and the update banner keep working.
