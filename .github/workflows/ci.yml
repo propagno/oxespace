@@ -312,14 +312,18 @@ jobs:
         run: |
           set -euo pipefail
           deb=$(ls dist/*.deb)
-          postinst=$(dpkg-deb --info "$deb" postinst)
-          if ! grep -qF "chmod 4755 '/opt/OXESpace/chrome-sandbox'" <<<"$postinst"; then
+          # Assert on what the script RUNS, so strip comments first: our own
+          # postinst quotes the stock probe while explaining why it is wrong,
+          # and matching that text would fail on the very fix it documents.
+          code=$(dpkg-deb --info "$deb" postinst | sed -e 's/#.*$//')
+          if ! grep -qF "chmod 4755 '/opt/OXESpace/chrome-sandbox'" <<<"$code"; then
             echo "postinst does not unconditionally setuid chrome-sandbox:" >&2
-            echo "$postinst" >&2
+            dpkg-deb --info "$deb" postinst >&2
             exit 1
           fi
-          if grep -qF 'unshare --user' <<<"$postinst"; then
+          if grep -qF 'unshare --user' <<<"$code"; then
             echo "postinst still probes user namespaces — the stock template is back." >&2
+            dpkg-deb --info "$deb" postinst >&2
             exit 1
           fi
           echo "OK: chrome-sandbox is setuid root unconditionally."
