@@ -401,9 +401,23 @@ jobs:
           BUILD_SHA: ${{ needs.build.outputs.sha }}
         run: |
           $ErrorActionPreference = 'Stop'
+          # An annotated tag records a tagger, and a fresh runner has no git
+          # identity — `git tag -a` aborts with "unable to auto-detect email".
+          # Attribute it to the Actions bot rather than impersonating whoever
+          # authored the commit being released.
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git fetch --tags --force origin
+          # An absent tag is the normal answer when publishing from a branch, so
+          # probe before native failures become terminal below.
           git show-ref --verify --quiet "refs/tags/$env:RELEASE_TAG"
-          if ($LASTEXITCODE -eq 0) {
+          $tagExists = $LASTEXITCODE -eq 0
+          $global:LASTEXITCODE = 0
+          # From here every git call must stop the step at the point it fails.
+          # Without this, a failed `git tag` fell through to `git push`, which
+          # then reported the misleading "src refspec does not match any".
+          $PSNativeCommandUseErrorActionPreference = $true
+          if ($tagExists) {
             $tagCommit = git rev-list -n 1 $env:RELEASE_TAG
             if ($tagCommit -ne $env:BUILD_SHA) {
               throw "Tag $env:RELEASE_TAG points at $tagCommit but build verified $env:BUILD_SHA."
