@@ -126,8 +126,15 @@ jobs:
               throw "Release tag $tag does not match package.json version $version."
             }
             # Tag may be created later by the release job when dispatching from a branch.
+            # `show-ref --quiet` reports "absent" with exit 1. That is a normal
+            # answer here, not a failure — but it leaves $LASTEXITCODE at 1, and
+            # every statement after this point is a PowerShell cmdlet that does
+            # not reset it, so pwsh exits 1 and fails the step even though the
+            # plan succeeded. Capture the answer, then clear the code.
             git show-ref --verify --quiet "refs/tags/$tag"
-            if ($LASTEXITCODE -eq 0) {
+            $tagExists = $LASTEXITCODE -eq 0
+            $global:LASTEXITCODE = 0
+            if ($tagExists) {
               $tagCommit = git rev-list -n 1 $tag
               if ($sha -ne $tagCommit) {
                 throw "Checked-out commit $sha does not match tag $tag ($tagCommit)."
