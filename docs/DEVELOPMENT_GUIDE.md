@@ -23,10 +23,29 @@ Everything above applies unchanged; the shell is `bash` instead of PowerShell. I
 
 ```bash
 sudo apt-get install -y build-essential python3 make g++          # native module builds
-sudo apt-get install -y libnss3 libatk-bridge2.0-0 libgtk-3-0 \
-  libgbm1 libasound2 libxshmfence1 libnotify4                     # Electron runtime
 sudo apt-get install -y xvfb                                      # headless `npm run test:e2e`
+
+# Electron runtime. Ubuntu 24.04's 64-bit time_t transition renamed three of
+# these, so the right line depends on the release:
+#   22.04 — what CI builds on
+sudo apt-get install -y libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 libasound2 libxshmfence1 libnotify4
+#   24.04 and later
+sudo apt-get install -y libnss3 libatk-bridge2.0-0t64 libgtk-3-0t64 libgbm1 libasound2t64 libxshmfence1 libnotify4
 ```
+
+The published `.deb` lists both spellings as dpkg alternatives, so it installs
+on either release. Only this manual dev-setup line has to pick one.
+
+**Running the AppImage on Ubuntu 22.04+ also needs FUSE 2**, which is no longer
+installed by default — the system ships FUSE 3, and electron-builder produces a
+type-2 AppImage:
+
+```bash
+sudo apt-get install -y libfuse2t64   # libfuse2 before 24.04
+```
+
+Without it the launch fails with `dlopen(): error loading libfuse.so.2`, which
+does not hint at the cause. The `.deb` is unaffected.
 
 Run E2E headless with `bash scripts/run-with-xvfb.sh npm run test:e2e`. Package with `npm run dist:linux` (AppImage + deb); `npm run dist` now selects `dist:linux` or `dist:win` from the host platform.
 
