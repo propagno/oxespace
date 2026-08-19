@@ -119,6 +119,9 @@ appImage:
 deb:
   # Debian's canonical architecture name is amd64 (not Electron's x64).
   artifactName: OXESpace-${version}-amd64.${ext}
+  # Replaces the stock postinst, whose chrome-sandbox probe runs as root and so
+  # gets the wrong answer on Ubuntu 24.04+. See the script for the full story.
+  afterInstall: build/deb-after-install.sh
   # libnotify is what Electron's Notification API talks to; without it agent
   # notifications silently no-op. The rest are the Electron runtime baseline.
   # Alternatives, not a choice between them: Ubuntu 24.04's 64-bit time_t
