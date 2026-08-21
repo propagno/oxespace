@@ -508,3 +508,129 @@
 }
 
 .ws-group-worktree-count svg { flex-shrink: 0; }
+
+/* ─── Removal confirmation ────────────────────────────────────────────────
+   Sits directly under the row it refers to, so "remove what?" is never a
+   question. Two visual states: a plain confirm for a clean worktree, and a
+   red one when confirming would discard uncommitted work. */
+.worktree-remove-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: -2px 0 6px;
+  padding: 10px 12px;
+  border: 1px solid rgba(244, 91, 105, 0.28);
+  border-radius: var(--radius-sm);
+  background: rgba(244, 91, 105, 0.08);
+}
+
+.worktree-remove-confirm-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #FFB1B8;
+  font-size: 11.5px;
+}
+
+.worktree-remove-confirm-head svg { flex-shrink: 0; }
+
+.worktree-remove-confirm-body {
+  margin: 0;
+  color: var(--tx-secondary);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.worktree-remove-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.worktree-remove-confirm .danger-btn {
+  padding: 6px 12px;
+  border: 1px solid rgba(244, 91, 105, 0.5);
+  border-radius: var(--radius-sm);
+  background: rgba(244, 91, 105, 0.16);
+  color: #FFB1B8;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-base), border-color var(--transition-base);
+}
+
+.worktree-remove-confirm .danger-btn:hover:not(:disabled) {
+  background: rgba(244, 91, 105, 0.28);
+  border-color: rgba(244, 91, 105, 0.7);
+}
+
+.worktree-remove-confirm .danger-btn:disabled { opacity: 0.45; cursor: default; }
+
+.worktree-menu-item.pending-removal {
+  border-color: rgba(244, 91, 105, 0.35);
+}
+
+/* The base ref is plumbing, so it reads as plumbing — same mono treatment as
+   the derived path preview rather than competing with the branch field. */
+.worktree-menu-create-base-input { font-size: 11.5px; }
+
+/* ─── Panel scope badge ───────────────────────────────────────────────────
+   Rides in the header of GitHub / Review / Editor and names the directory
+   that panel is reading. Quiet by default; tinted when the panel has followed
+   a pane into a worktree, because that is the case where a reader who assumes
+   "workspace root" would be wrong. */
+.panel-scope-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 180px;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--tx-muted);
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: background var(--transition-base), border-color var(--transition-base), color var(--transition-base);
+}
+
+.panel-scope-badge-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-scope-badge svg { flex-shrink: 0; }
+
+/* The un-pinned state shows its pin affordance only on hover, so the resting
+   badge reads as a label rather than as a control competing for attention. */
+.panel-scope-badge .panel-scope-badge-pin-hint { opacity: 0; }
+.panel-scope-badge:hover .panel-scope-badge-pin-hint { opacity: 0.7; }
+
+.panel-scope-badge:hover {
+  border-color: var(--bd-base);
+  color: var(--tx-secondary);
+}
+
+.panel-scope-badge.is-worktree {
+  border-color: rgba(0, 214, 201, 0.32);
+  background: rgba(0, 214, 201, 0.10);
+  color: var(--accent);
+}
+
+.panel-scope-badge.is-worktree:hover {
+  background: rgba(0, 214, 201, 0.18);
+  border-color: rgba(0, 214, 201, 0.5);
+}
+
+.panel-scope-badge.is-pinned {
+  border-style: dashed;
+}
+
+.panel-scope-badge:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}

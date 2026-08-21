@@ -80,7 +80,9 @@ export const TOOL_REGISTRY: ToolEntry[] = [
         properties: {
           path: { type: 'string', description: 'Target folder for the worktree. Must not already exist.' },
           branch: { type: 'string', description: 'Branch name to check out (existing or new).' },
-          createBranch: { type: 'boolean', description: 'If true, create the branch (-b). Default false.' }
+          createBranch: { type: 'boolean', description: 'If true, create the branch (-b). Default false.' },
+          baseRef: { type: 'string', description: 'Start point for the new branch, e.g. origin/main or a tag. Only used with createBranch. Defaults to the repository default branch on its remote — never the main worktree HEAD.' },
+          fetchBase: { type: 'boolean', description: 'Fetch the remote owning baseRef first, so the branch starts at the real remote tip. Default false.' }
         },
         required: ['path', 'branch'],
         additionalProperties: false

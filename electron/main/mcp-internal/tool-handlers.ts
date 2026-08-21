@@ -128,7 +128,14 @@ async function createWorktree(args: unknown, ctx: ToolContext): Promise<Internal
   const path = expectString(input.path, 'path')
   const branch = expectString(input.branch, 'branch')
   const createBranch = input.createBranch === undefined ? false : expectBoolean(input.createBranch, 'createBranch')
-  const result = await ctx.github.createWorktree({ rootPath: ws.rootPath, path, branch, createBranch })
+  // Without an explicit base the new branch inherits the main worktree's HEAD,
+  // which is whatever the user last checked out there. Agents get the same
+  // default the panel does: the repository's own default branch on its remote.
+  const baseRef = input.baseRef === undefined
+    ? (createBranch ? (await ctx.github.resolveWorktreeBase({ workspaceId: ws.id, rootPath: ws.rootPath })).baseRef : undefined)
+    : expectString(input.baseRef, 'baseRef')
+  const fetchBase = input.fetchBase === undefined ? false : expectBoolean(input.fetchBase, 'fetchBase')
+  const result = await ctx.github.createWorktree({ rootPath: ws.rootPath, path, branch, createBranch, baseRef, fetchBase })
   ctx.worktree.emitChanged({ workspaceId: ws.id, rootPath: ws.rootPath, action: 'created', requestedAt: Date.now() })
   return textResult(result)
 }

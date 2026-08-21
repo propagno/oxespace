@@ -1,5 +1,13 @@
 import { create } from 'zustand'
-import type { GitHubWorktree } from '../../shared/types/github'
+import type { GitHubWorktree, GitHubWorktreeStatus } from '../../shared/types/github'
+
+export interface CreateWorktreeOptions {
+  createBranch?: boolean
+  /** Start point for the new branch (`origin/main`, a tag, a SHA). */
+  baseRef?: string
+  /** Fetch the remote that owns `baseRef` before creating. */
+  fetchBase?: boolean
+}
 
 interface WorktreeStoreState {
   /** Worktrees keyed by workspace rootPath (the main worktree's path). */
@@ -7,8 +15,9 @@ interface WorktreeStoreState {
   loading: Record<string, boolean>
   error: Record<string, string | null>
   refresh: (workspaceId: string, rootPath: string) => Promise<void>
-  create: (rootPath: string, branch: string, path: string, createBranch?: boolean) => Promise<void>
-  remove: (rootPath: string, path: string, force?: boolean) => Promise<void>
+  create: (workspaceId: string, rootPath: string, branch: string, path: string, options?: CreateWorktreeOptions) => Promise<void>
+  remove: (workspaceId: string, rootPath: string, path: string, force?: boolean) => Promise<void>
+  status: (rootPath: string, path: string) => Promise<GitHubWorktreeStatus | null>
 }
 
 export const useWorktreeStore = create<WorktreeStoreState>((set, get) => ({
@@ -34,14 +43,19 @@ export const useWorktreeStore = create<WorktreeStoreState>((set, get) => ({
     }
   },
 
-  create: async (rootPath, branch, path, createBranch = false) => {
-    await window.oxe.github.createWorktree({ rootPath, branch, path, createBranch })
-    // Need workspaceId for the refresh but we can call list without it
-    const worktrees = await window.oxe.github.listWorktrees({ workspaceId: '', rootPath })
-    set((s) => ({ byRoot: { ...s.byRoot, [rootPath]: worktrees } }))
+  create: async (workspaceId, rootPath, branch, path, options = {}) => {
+    await window.oxe.github.createWorktree({
+      rootPath,
+      branch,
+      path,
+      createBranch: options.createBranch === true,
+      baseRef: options.baseRef,
+      fetchBase: options.fetchBase === true
+    })
+    await get().refresh(workspaceId, rootPath)
   },
 
-  remove: async (rootPath, path, force = false) => {
+  remove: async (workspaceId, rootPath, path, force = false) => {
     // `git worktree remove` can de-register the worktree yet still fail (non-zero
     // exit) when the OS refuses to delete the folder — on Windows that happens
     // when a pane's shell still holds the directory as its cwd. Refresh the list
@@ -50,8 +64,17 @@ export const useWorktreeStore = create<WorktreeStoreState>((set, get) => ({
     try {
       await window.oxe.github.removeWorktree({ rootPath, path, force })
     } finally {
-      const worktrees = await window.oxe.github.listWorktrees({ workspaceId: '', rootPath }).catch(() => null)
-      if (worktrees) set((s) => ({ byRoot: { ...s.byRoot, [rootPath]: worktrees } }))
+      await get().refresh(workspaceId, rootPath)
+    }
+  },
+
+  status: async (rootPath, path) => {
+    // Best-effort: a status probe that fails must never block the removal flow
+    // that asked for it — the caller falls back to git's own refusal message.
+    try {
+      return await window.oxe.github.getWorktreeStatus({ rootPath, path })
+    } catch {
+      return null
     }
   }
 }))

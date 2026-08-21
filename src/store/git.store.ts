@@ -25,6 +25,8 @@ interface WorkspaceGitState {
 interface GitStoreState {
   byWorkspaceId: Record<string, WorkspaceGitState>
   loadDiff(workspaceId: string, rootPath: string): Promise<void>
+  /** Drops the cached diff so a directory change cannot render the old one. */
+  resetDiff(workspaceId: string): void
   subscribeToUpdates(workspaceId: string): () => void
   setBase(workspaceId: string, base: string): void
   setIncludeUncommitted(workspaceId: string, value: boolean): void
@@ -87,6 +89,13 @@ export const useGitStore = create<GitStoreState>((set, get) => ({
       patch(set, workspaceId, { isLoading: false, error: toMessage(error) })
     }
   },
+
+  // The review slice is keyed by workspace, so when the panel follows the
+  // active pane into a worktree the previous checkout's diff is still in state.
+  // `loadDiff` only sets isLoading, leaving that diff on screen — cleared here
+  // so the panel shows nothing rather than the wrong repository's changes.
+  // User-chosen view settings (base, filters, sort) deliberately survive.
+  resetDiff: (workspaceId) => patch(set, workspaceId, { diff: null, isLoading: true, error: null, selectedFile: null }),
 
   subscribeToUpdates: (workspaceId) =>
     window.oxe.git.onDiffUpdate((diff) => {

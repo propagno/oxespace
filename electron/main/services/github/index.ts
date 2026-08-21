@@ -42,7 +42,10 @@ import type {
   GitHubWorkflowRunInput,
   GitHubWorkspaceInput,
   GitHubWorkspaceStatus,
-  GitHubWorktree
+  GitHubWorktree,
+  GitHubWorktreeBase,
+  GitHubWorktreePathInput,
+  GitHubWorktreeStatus
 } from '../../../../shared/types/github'
 import { GhExec, type SpawnAsyncFn } from './gh-exec'
 import { GitHubRepositoryService } from './repository.service'
@@ -129,6 +132,12 @@ export class GitHubService {
   }
   removeWorktree(input: GitHubRemoveWorktreeInput): Promise<GitHubMessageResult> {
     return this.repository.removeWorktree(input)
+  }
+  resolveWorktreeBase(input: GitHubWorkspaceInput): Promise<GitHubWorktreeBase> {
+    return this.repository.resolveWorktreeBase(input)
+  }
+  getWorktreeStatus(input: GitHubWorktreePathInput): Promise<GitHubWorktreeStatus> {
+    return this.repository.getWorktreeStatus(input)
   }
 
   // --- review -------------------------------------------------------------

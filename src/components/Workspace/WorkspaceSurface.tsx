@@ -1,4 +1,4 @@
-import { Fragment, Suspense, lazy, memo, useEffect, useRef, useState, type ReactElement } from 'react'
+import { Fragment, Suspense, lazy, memo, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from 'react-resizable-panels'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceWorktreeStateInput, Workspace } from '../../../shared/types/workspace'
@@ -6,6 +6,7 @@ import { WorkspaceGrid } from '../Grid/WorkspaceGrid'
 import { WorkspaceSplitGrid } from '../Grid/WorkspaceSplitGrid'
 import { usePaneLayoutStore } from '../../store/pane-layout.store'
 import { useUIStore } from '../../store/ui.store'
+import { resolveWorkspaceScope } from '../../utils/workspaceScope'
 // Side panels are lazy-loaded: they only mount when the user opens them, so
 // keeping them out of the initial bundle cuts first-paint parse/exec time. The
 // Editor pulls in Monaco (the single heaviest dep), so its split matters most.
@@ -148,6 +149,16 @@ function WorkspaceSurfaceComponent({
   const backgroundVisible = workspace.backgroundPanelVisible === true
   const backgroundExpanded = workspace.backgroundPanelExpanded === true
   const backgroundWidth = backgroundExpanded ? 70 : workspace.backgroundPanelWidthPercent ?? DEFAULT_BACKGROUND_WIDTH
+  // Which directory the side panels read. Panes can be moved into git
+  // worktrees, and a panel that keeps showing the workspace root while the
+  // focused pane works somewhere else is actively misleading — so the panels
+  // follow the active pane, and each header names what it is reading.
+  const scopePinned = useUIStore((s) => s.panelScopePinnedByWorkspace[workspace.id] === true)
+  const panelScope = useMemo(
+    () => resolveWorkspaceScope(workspace, activePaneId, scopePinned),
+    [workspace, activePaneId, scopePinned]
+  )
+
   const worktreeVisible = workspace.worktreePanelVisible === true
   const worktreeExpanded = workspace.worktreePanelExpanded === true
   const worktreeWidth = worktreeExpanded ? 70 : workspace.worktreePanelWidthPercent ?? DEFAULT_WORKTREE_WIDTH
@@ -254,6 +265,7 @@ function WorkspaceSurfaceComponent({
       content: (
         <WorkspaceGitHubPanel
           workspace={workspace}
+          scope={panelScope}
           activeTab={workspace.githubActiveTab ?? 'status'}
           isExpanded={githubExpanded}
           onCollapse={() => onUpdateGitHubState({ workspaceId: workspace.id, githubPanelVisible: false, githubPanelExpanded: false })}
@@ -278,6 +290,7 @@ function WorkspaceSurfaceComponent({
       content: (
         <WorkspaceReviewPanel
           workspace={workspace}
+          scope={panelScope}
           isExpanded={reviewExpanded}
           onCollapse={() => onUpdateReviewState({ workspaceId: workspace.id, reviewPanelVisible: false, reviewPanelExpanded: false })}
           onToggleExpanded={() => onUpdateReviewState({ workspaceId: workspace.id, reviewPanelExpanded: !reviewExpanded, reviewPanelWidthPercent: reviewExpanded ? DEFAULT_REVIEW_WIDTH : 70 })}
@@ -300,6 +313,7 @@ function WorkspaceSurfaceComponent({
       content: (
         <WorkspaceEditorPanel
           workspace={workspace}
+          scope={panelScope}
           isExpanded={editorExpanded}
           onCollapse={() => onUpdateEditorState({ workspaceId: workspace.id, editorVisible: false, editorExpanded: false })}
           onToggleExpanded={() => onUpdateEditorState({ workspaceId: workspace.id, editorExpanded: !editorExpanded, editorWidthPercent: editorExpanded ? DEFAULT_EDITOR_WIDTH : 70 })}

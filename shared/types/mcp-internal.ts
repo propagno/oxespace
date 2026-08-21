@@ -161,6 +161,10 @@ export interface CreateWorktreeArgs {
   path: string
   branch: string
   createBranch?: boolean
+  /** Start point for the new branch. Only meaningful with `createBranch`. */
+  baseRef?: string
+  /** Fetch the remote that owns `baseRef` before creating. */
+  fetchBase?: boolean
 }
 
 export interface RemoveWorktreeArgs {

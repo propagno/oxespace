@@ -85,6 +85,57 @@ export interface GitHubCreateWorktreeInput {
   path: string
   /** When true, creates a new branch with `git worktree add -b`. */
   createBranch?: boolean
+  /**
+   * Start point for the new branch (`origin/main`, a tag, a SHA). Only used
+   * with `createBranch`. Without it git falls back to the main worktree's HEAD,
+   * which is whatever branch the user happened to leave checked out — the
+   * classic way a hotfix ends up branched off an unrelated feature.
+   */
+  baseRef?: string
+  /**
+   * Fetch the remote that owns `baseRef` before creating, so a remote start
+   * point means the real remote tip and not a stale local copy of it.
+   */
+  fetchBase?: boolean
+}
+
+/**
+ * Where `git worktree add -b` should start from, resolved from the repo itself
+ * so the UI can show the user the start point before they commit to it.
+ */
+export interface GitHubWorktreeBase {
+  /** Ref to branch from, e.g. `origin/main`. Never empty — falls back to `HEAD`. */
+  baseRef: string
+  /** Remote that owns `baseRef`, or null when the base is local-only. */
+  remoteName: string | null
+  /** True when `baseRef` lives on a remote and is therefore worth fetching. */
+  isRemote: boolean
+}
+
+export interface GitHubWorktreePathInput {
+  /** Main worktree — where git commands are executed from. */
+  rootPath: string
+  /** The worktree being inspected. */
+  path: string
+}
+
+/**
+ * Just enough state to tell the user what they are about to destroy when they
+ * remove a worktree. Deliberately cheap: one `git status --porcelain=v2
+ * --branch` per call, no remote round-trip.
+ */
+export interface GitHubWorktreeStatus {
+  path: string
+  /** Tracked files with staged or unstaged modifications. */
+  dirtyCount: number
+  /** Untracked, non-ignored files. */
+  untrackedCount: number
+  /** Commits ahead of the upstream branch, or 0 when there is no upstream. */
+  ahead: number
+  /** Commits behind the upstream branch, or 0 when there is no upstream. */
+  behind: number
+  /** True when the branch has no upstream — nothing has ever been pushed. */
+  noUpstream: boolean
 }
 
 export interface GitHubRemoveWorktreeInput {
@@ -287,4 +338,9 @@ export interface GitHubWorktreeApi {
   listWorktrees(input: GitHubWorkspaceInput): Promise<GitHubWorktree[]>
   createWorktree(input: GitHubCreateWorktreeInput): Promise<GitHubMessageResult>
   removeWorktree(input: GitHubRemoveWorktreeInput): Promise<GitHubMessageResult>
+  /**
+   * Part of the contract because every caller that creates a branch needs it:
+   * omitting a start point silently branches off the main worktree's HEAD.
+   */
+  resolveWorktreeBase(input: GitHubWorkspaceInput): Promise<GitHubWorktreeBase>
 }

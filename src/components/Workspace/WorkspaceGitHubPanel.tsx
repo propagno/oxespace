@@ -3,9 +3,13 @@ import type { ReactElement } from 'react'
 import type { GitHubPanelTab, Workspace } from '../../../shared/types/workspace'
 import { GitHubPanel } from '../GitHub/GitHubPanel'
 import { useWorkspaceStore } from '../../store/workspace.store'
+import { PanelScopeBadge } from './PanelScopeBadge'
+import type { WorkspaceScope } from '../../utils/workspaceScope'
 
 interface WorkspaceGitHubPanelProps {
   workspace: Workspace
+  /** Directory to read — the active pane's worktree, or the workspace root. */
+  scope: WorkspaceScope
   activeTab: GitHubPanelTab
   isExpanded: boolean
   onCollapse: () => void
@@ -13,7 +17,7 @@ interface WorkspaceGitHubPanelProps {
   onTabChange: (tab: GitHubPanelTab) => void
 }
 
-export function WorkspaceGitHubPanel({ activeTab, isExpanded, onCollapse, onTabChange, onToggleExpanded, workspace }: WorkspaceGitHubPanelProps): ReactElement {
+export function WorkspaceGitHubPanel({ activeTab, isExpanded, onCollapse, onTabChange, onToggleExpanded, scope, workspace }: WorkspaceGitHubPanelProps): ReactElement {
   const openFiles = (): void => {
     void (async () => {
       await useWorkspaceStore.getState().updateGitHubState({ workspaceId: workspace.id, githubPanelVisible: false, githubPanelExpanded: false })
@@ -27,6 +31,7 @@ export function WorkspaceGitHubPanel({ activeTab, isExpanded, onCollapse, onTabC
         <div className="workspace-editor-title">
           <GitBranch size={13} aria-hidden="true" />
           <span>{workspace.name}</span>
+          <PanelScopeBadge workspaceId={workspace.id} scope={scope} />
         </div>
         <div className="workspace-editor-actions repository-view-actions" aria-label="Repository views">
           <button type="button" className="tile-btn" aria-label="Files and editor" title="Files and editor" onClick={openFiles}>
@@ -50,7 +55,7 @@ export function WorkspaceGitHubPanel({ activeTab, isExpanded, onCollapse, onTabC
         </div>
       </header>
       <div className="workspace-editor-content">
-        <GitHubPanel workspaceId={workspace.id} rootPath={workspace.rootPath} activeTab={activeTab} onTabChange={onTabChange} />
+        <GitHubPanel workspaceId={workspace.id} rootPath={scope.rootPath} activeTab={activeTab} onTabChange={onTabChange} />
       </div>
     </section>
   )

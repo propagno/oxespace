@@ -3,15 +3,19 @@ import type { ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import { EditorPane } from '../Editor/EditorPane'
 import { useWorkspaceStore } from '../../store/workspace.store'
+import { PanelScopeBadge } from './PanelScopeBadge'
+import type { WorkspaceScope } from '../../utils/workspaceScope'
 
 interface WorkspaceEditorPanelProps {
   workspace: Workspace
+  /** Directory to read — the active pane's worktree, or the workspace root. */
+  scope: WorkspaceScope
   isExpanded: boolean
   onCollapse: () => void
   onToggleExpanded: () => void
 }
 
-export function WorkspaceEditorPanel({ isExpanded, onCollapse, onToggleExpanded, workspace }: WorkspaceEditorPanelProps): ReactElement {
+export function WorkspaceEditorPanel({ isExpanded, onCollapse, onToggleExpanded, scope, workspace }: WorkspaceEditorPanelProps): ReactElement {
   const openSourceControl = (): void => {
     void (async () => {
       await useWorkspaceStore.getState().updateEditorState({ workspaceId: workspace.id, editorVisible: false, editorExpanded: false })
@@ -25,6 +29,7 @@ export function WorkspaceEditorPanel({ isExpanded, onCollapse, onToggleExpanded,
         <div className="workspace-editor-title">
           <Files size={13} aria-hidden="true" />
           <span>{workspace.name}</span>
+          <PanelScopeBadge workspaceId={workspace.id} scope={scope} />
         </div>
         <div className="workspace-editor-actions repository-view-actions" aria-label="Repository views">
           <button type="button" className="tile-btn active" aria-label="Files and editor" title="Files and editor">
@@ -48,7 +53,7 @@ export function WorkspaceEditorPanel({ isExpanded, onCollapse, onToggleExpanded,
         </div>
       </header>
       <div className="workspace-editor-content">
-        <EditorPane workspaceId={workspace.id} rootPath={workspace.rootPath} />
+        <EditorPane workspaceId={workspace.id} rootPath={scope.rootPath} />
       </div>
     </section>
   )

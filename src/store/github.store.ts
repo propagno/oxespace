@@ -62,6 +62,8 @@ interface GitHubStoreState {
   loadCommitDetails: (input: GitHubWorkspaceInput & { oid: string }) => Promise<GitHubCommitDetails>
   loadWorkflowRunDetails: (input: GitHubWorkspaceInput & { runId: number }) => Promise<GitHubWorkflowRunDetails>
   clearError: (workspaceId: string) => void
+  /** Drops every cached slice for a workspace so the next load starts clean. */
+  resetWorkspace: (workspaceId: string) => void
 }
 
 const EMPTY: GitHubWorkspaceState = {
@@ -261,7 +263,27 @@ export const useGitHubStore = create<GitHubStoreState>((set, get) => ({
       throw new Error(message)
     }
   },
-  clearError: (workspaceId) => setWorkspace(set, workspaceId, { error: null })
+  clearError: (workspaceId) => setWorkspace(set, workspaceId, { error: null }),
+
+  // Called when the panel's directory changes under a workspace (the active
+  // pane moved into a worktree). The slice is keyed by workspace, so without
+  // this the new directory would render the old one's status and file list
+  // until its own fetch resolved — a diff briefly attributed to the wrong
+  // checkout is exactly the failure this scoping was added to prevent.
+  // The module-level trackers must go too: statusFetchedAt would suppress the
+  // refetch inside its 10s window, and prefetchedWorkspaces would skip the
+  // prefetch entirely.
+  resetWorkspace: (workspaceId) => {
+    statusFetchedAt.delete(workspaceId)
+    prefetchedWorkspaces.delete(workspaceId)
+    for (const [key, controller] of tabAbortControllers) {
+      if (key.startsWith(`${workspaceId}:`)) {
+        controller.abort()
+        tabAbortControllers.delete(key)
+      }
+    }
+    set((state) => ({ byWorkspace: { ...state.byWorkspace, [workspaceId]: { ...EMPTY } } }))
+  }
 }))
 
 export function selectGitHubWorkspace(workspaceId: string): (state: GitHubStoreState) => GitHubWorkspaceState {

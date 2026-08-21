@@ -246,6 +246,8 @@ export const IPC_CHANNELS = {
     listWorktrees: 'github:list-worktrees',
     createWorktree: 'github:create-worktree',
     removeWorktree: 'github:remove-worktree',
+    resolveWorktreeBase: 'github:resolve-worktree-base',
+    getWorktreeStatus: 'github:get-worktree-status',
     createBranch: 'github:create-branch',
     checkoutBranch: 'github:checkout-branch',
     listPullRequests: 'github:list-pull-requests',
@@ -508,6 +510,8 @@ export interface GitHubApi {
   listWorktrees(input: GitHubWorkspaceInput): Promise<import('./github').GitHubWorktree[]>
   createWorktree(input: import('./github').GitHubCreateWorktreeInput): Promise<GitHubMessageResult>
   removeWorktree(input: import('./github').GitHubRemoveWorktreeInput): Promise<GitHubMessageResult>
+  resolveWorktreeBase(input: import('./github').GitHubWorkspaceInput): Promise<import('./github').GitHubWorktreeBase>
+  getWorktreeStatus(input: import('./github').GitHubWorktreePathInput): Promise<import('./github').GitHubWorktreeStatus>
   listPullRequests(input: GitHubPullRequestListInput): Promise<GitHubPullRequest[]>
   createPullRequest(input: GitHubCreatePullRequestInput): Promise<GitHubMessageResult>
   listCommits(input: GitHubWorkspaceInput): Promise<GitHubCommit[]>

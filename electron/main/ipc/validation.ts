@@ -743,7 +743,17 @@ export function parseGitHubCreateWorktreeInput(value: unknown): import('../../..
     rootPath: expectNonEmptyString(input.rootPath, 'rootPath'),
     branch: expectNonEmptyString(input.branch, 'branch'),
     path: expectNonEmptyString(input.path, 'path'),
-    createBranch: input.createBranch === true
+    createBranch: input.createBranch === true,
+    baseRef: input.baseRef === undefined || input.baseRef === null ? undefined : expectNonEmptyString(input.baseRef, 'baseRef'),
+    fetchBase: input.fetchBase === true
+  }
+}
+
+export function parseGitHubWorktreePathInput(value: unknown): import('../../../shared/types/github').GitHubWorktreePathInput {
+  const input = expectRecord(value, 'github:worktree path input')
+  return {
+    rootPath: expectNonEmptyString(input.rootPath, 'rootPath'),
+    path: expectNonEmptyString(input.path, 'path')
   }
 }
 
