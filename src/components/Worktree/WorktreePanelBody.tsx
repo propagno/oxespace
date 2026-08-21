@@ -1,8 +1,17 @@
-import { Check, ChevronDown, ChevronRight, FolderOpen, FolderTree, GitBranch, Lock, Plus, RotateCw, Trash2, X } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
+import { AlertTriangle, Check, ChevronDown, ChevronRight, FolderOpen, FolderTree, GitBranch, Lock, Plus, RotateCw, Trash2, X } from 'lucide-react'
+import { Fragment, useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
+import type { GitHubWorktreeBase, GitHubWorktreeStatus } from '../../../shared/types/github'
 import type { WorkspacePane } from '../../../shared/types/workspace'
 import { selectWorktrees, useWorktreeStore } from '../../store/worktree.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
+
+/** A worktree the user asked to remove, plus what removing it would destroy. */
+interface PendingRemoval {
+  path: string
+  branch: string | null
+  /** null when the status probe failed — we then defer to git's own refusal. */
+  status: GitHubWorktreeStatus | null
+}
 
 interface WorktreePanelBodyProps {
   activePane: WorkspacePane | null
@@ -19,9 +28,11 @@ interface WorktreePanelBodyProps {
  *      selections, and which worktree it is currently in. When no pane is
  *      selected, prompts the user to pick one first.
  *   2. Worktree list — same affordances as the modal: click to set as cwd,
- *      remove button (confirm-on-second-click), `current` highlight when the
- *      row matches the active pane's effective rootPath.
- *   3. Create form / "New worktree" trigger.
+ *      remove button (opens a confirmation that names what would be lost),
+ *      `current` highlight when the row matches the active pane's effective
+ *      rootPath.
+ *   3. Create form / "New worktree" trigger, including the base ref the new
+ *      branch will start from.
  *
  * Selecting a worktree when `activePane` is null is a no-op (UI buttons stay
  * enabled so the visual rhythm is preserved but the handler bails).
@@ -34,6 +45,7 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
   const refresh = useWorktreeStore((s) => s.refresh)
   const createWorktree = useWorktreeStore((s) => s.create)
   const removeWorktree = useWorktreeStore((s) => s.remove)
+  const worktreeStatus = useWorktreeStore((s) => s.status)
   const setPaneRootPath = useWorkspaceStore((s) => s.setPaneRootPath)
 
   const [creating, setCreating] = useState(false)
@@ -48,7 +60,14 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [busy, setBusy] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
-  const [confirmRemovePath, setConfirmRemovePath] = useState<string | null>(null)
+  const [pendingRemoval, setPendingRemoval] = useState<PendingRemoval | null>(null)
+  // Start point for the new branch. `resolvedBase` is what the repo says the
+  // default is (origin/main and friends); `baseOverride` is the user typing
+  // something else. Without an explicit start point git branches off the main
+  // worktree's HEAD — whatever happened to be checked out there.
+  const [resolvedBase, setResolvedBase] = useState<GitHubWorktreeBase | null>(null)
+  const [baseOverride, setBaseOverride] = useState<string | null>(null)
+  const [fetchBase, setFetchBase] = useState(true)
 
   // Derived destination path. Vibe-coder flow: type branch → see the path
   // the worktree will land at. No interaction with the Path field required.
@@ -58,9 +77,31 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
     parentOverride
   })
 
+  const effectiveBase = (baseOverride ?? resolvedBase?.baseRef ?? '').trim()
+  // Only a remote ref can be stale in a way fetching fixes. Offering the
+  // checkbox for a local base (a tag, a SHA, `main`) would promise a freshness
+  // it cannot deliver, so it appears only while the base names the remote.
+  const baseIsRemote = resolvedBase?.remoteName
+    ? effectiveBase.startsWith(`${resolvedBase.remoteName}/`)
+    : false
+
   useEffect(() => {
     void refresh(workspaceId, workspaceRootPath)
   }, [workspaceId, workspaceRootPath, refresh])
+
+  // Resolve the default start point once per repo. Cheap (plain git plumbing)
+  // and read-only, so it runs on mount rather than waiting for the create form
+  // — the base is shown as soon as the form opens, not a beat later.
+  useEffect(() => {
+    let cancelled = false
+    setResolvedBase(null)
+    setBaseOverride(null)
+    window.oxe.github
+      .resolveWorktreeBase({ workspaceId, rootPath: workspaceRootPath })
+      .then((base) => { if (!cancelled) setResolvedBase(base) })
+      .catch(() => { /* leave the field empty; git's own default still applies */ })
+    return () => { cancelled = true }
+  }, [workspaceId, workspaceRootPath])
 
   const activeCurrentPath = useMemo(() => {
     if (!activePane) return null
@@ -99,6 +140,8 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
     setPathOverride(null)
     setShowAdvanced(false)
     setCreateNewBranch(true)
+    setBaseOverride(null)
+    setFetchBase(true)
   }
 
   const handleCreate = async (): Promise<void> => {
@@ -108,21 +151,41 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
     setBusy(true)
     setLocalError(null)
     try {
-      await createWorktree(workspaceRootPath, branch, path, createNewBranch)
+      await createWorktree(workspaceId, workspaceRootPath, branch, path, {
+        createBranch: createNewBranch,
+        baseRef: createNewBranch && effectiveBase ? effectiveBase : undefined,
+        fetchBase: createNewBranch && baseIsRemote && fetchBase
+      })
       setCreating(false)
       resetCreateForm()
     } catch (err) {
-      setLocalError(friendlyCreateError(err, path, createNewBranch))
+      setLocalError(friendlyCreateError(err, path, createNewBranch, effectiveBase))
     } finally {
       setBusy(false)
     }
   }
 
-  const handleRemove = async (path: string): Promise<void> => {
-    if (confirmRemovePath !== path) {
-      setConfirmRemovePath(path)
-      return
-    }
+  /**
+   * Opens the removal confirmation, probing the worktree first so the prompt
+   * can name what would be destroyed instead of asking the user to click twice
+   * and hope.
+   */
+  const askRemove = async (path: string, branch: string | null): Promise<void> => {
+    setLocalError(null)
+    setPendingRemoval({ path, branch, status: null })
+    const status = await worktreeStatus(workspaceRootPath, path)
+    // Guard against the user cancelling (or picking another row) while the
+    // probe was in flight — the answer would then belong to a stale prompt.
+    setPendingRemoval((current) => (current?.path === path ? { ...current, status } : current))
+  }
+
+  /**
+   * `force` discards uncommitted work, so it is only ever passed when the user
+   * confirmed a prompt that said so. A clean worktree goes through git's own
+   * safety net: if git refuses, something changed since the probe and the user
+   * gets git's reason rather than a silent `--force`.
+   */
+  const confirmRemove = async (path: string, force: boolean): Promise<void> => {
     setBusy(true)
     setLocalError(null)
     try {
@@ -140,20 +203,10 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
       }
       if (panesInTree.length > 0) await new Promise((resolve) => setTimeout(resolve, 450))
 
-      await removeWorktree(workspaceRootPath, path, true)
-      setConfirmRemovePath(null)
+      await removeWorktree(workspaceId, workspaceRootPath, path, force)
+      setPendingRemoval(null)
     } catch (err) {
-      const raw = err instanceof Error ? err.message : String(err)
-      let friendly = raw
-      if (/main working tree/i.test(raw)) {
-        // Removing the main is intentionally blocked by git.
-        friendly = 'This is the main worktree — it can\'t be removed from inside the app. Remove other worktrees first, or delete the repo from disk.'
-      } else if (/permission denied/i.test(raw) || /failed to delete/i.test(raw) || /being used by another process/i.test(raw)) {
-        // git de-registered it (the list refreshes regardless) but couldn't
-        // delete the folder because something still has it open.
-        friendly = 'Worktree removed from git, but its folder couldn\'t be fully deleted — something still has it open (an editor, file explorer, or another terminal). Close those and delete the folder manually if it remains.'
-      }
-      setLocalError(friendly)
+      setLocalError(friendlyRemoveError(err))
     } finally {
       setBusy(false)
     }
@@ -257,41 +310,52 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
               : isCurrent
                 ? `Active pane is already on ${wt.branch ?? wt.path}`
                 : 'Set this worktree as the active pane cwd'
+            const isPendingRemoval = pendingRemoval?.path === wt.path
             return (
-              <button
-                key={wt.path}
-                type="button"
-                className={`worktree-menu-item${isCurrent ? ' active is-active-pane' : ''}${wt.prunable ? ' prunable' : ''}`}
-                onClick={() => { if (!isCurrent) void handleSelect(wt.isMain ? null : wt.path) }}
-                disabled={busy || !activePane || isCurrent}
-                title={itemTitle}
-              >
-                <div className="worktree-menu-item-main">
-                  <div className="worktree-menu-item-row">
-                    <GitBranch size={11} aria-hidden="true" />
-                    <strong>{wt.branch ?? '(detached)'}</strong>
-                    {wt.isMain ? <span className="worktree-tag main">main</span> : null}
-                    {wt.locked ? <span className="worktree-tag locked"><Lock size={9} aria-hidden="true" /> locked</span> : null}
-                    {wt.prunable ? <span className="worktree-tag prunable">prunable</span> : null}
+              <Fragment key={wt.path}>
+                <button
+                  type="button"
+                  className={`worktree-menu-item${isCurrent ? ' active is-active-pane' : ''}${wt.prunable ? ' prunable' : ''}${isPendingRemoval ? ' pending-removal' : ''}`}
+                  onClick={() => { if (!isCurrent) void handleSelect(wt.isMain ? null : wt.path) }}
+                  disabled={busy || !activePane || isCurrent}
+                  title={itemTitle}
+                >
+                  <div className="worktree-menu-item-main">
+                    <div className="worktree-menu-item-row">
+                      <GitBranch size={11} aria-hidden="true" />
+                      <strong>{wt.branch ?? '(detached)'}</strong>
+                      {wt.isMain ? <span className="worktree-tag main">main</span> : null}
+                      {wt.locked ? <span className="worktree-tag locked"><Lock size={9} aria-hidden="true" /> locked</span> : null}
+                      {wt.prunable ? <span className="worktree-tag prunable">prunable</span> : null}
+                    </div>
+                    <span className="worktree-menu-item-path">{wt.path}</span>
                   </div>
-                  <span className="worktree-menu-item-path">{wt.path}</span>
-                </div>
-                <div className="worktree-menu-item-aside">
-                  {isCurrent ? <div className="worktree-menu-check"><Check size={13} aria-hidden="true" /></div> : null}
-                  {!wt.isMain ? (
-                    <button
-                      type="button"
-                      className="icon-button worktree-menu-remove"
-                      aria-label={confirmRemovePath === wt.path ? 'Confirm worktree removal' : 'Remove worktree'}
-                      title={confirmRemovePath === wt.path ? 'Click again to remove' : 'Remove worktree'}
-                      onClick={(event) => { event.stopPropagation(); void handleRemove(wt.path) }}
-                      disabled={busy}
-                    >
-                      <Trash2 size={12} aria-hidden="true" />
-                    </button>
-                  ) : null}
-                </div>
-              </button>
+                  <div className="worktree-menu-item-aside">
+                    {isCurrent ? <div className="worktree-menu-check"><Check size={13} aria-hidden="true" /></div> : null}
+                    {!wt.isMain ? (
+                      <button
+                        type="button"
+                        className="icon-button worktree-menu-remove"
+                        aria-label={`Remove worktree ${wt.branch ?? wt.path}`}
+                        title="Remove worktree"
+                        aria-expanded={isPendingRemoval}
+                        onClick={(event) => { event.stopPropagation(); void askRemove(wt.path, wt.branch) }}
+                        disabled={busy}
+                      >
+                        <Trash2 size={12} aria-hidden="true" />
+                      </button>
+                    ) : null}
+                  </div>
+                </button>
+                {isPendingRemoval ? (
+                  <WorktreeRemovalConfirm
+                    pending={pendingRemoval}
+                    busy={busy}
+                    onCancel={() => setPendingRemoval(null)}
+                    onConfirm={(force) => void confirmRemove(wt.path, force)}
+                  />
+                ) : null}
+              </Fragment>
             )
           })
         )}
@@ -317,6 +381,32 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
             />
           </div>
 
+          {createNewBranch ? (
+            <div className="worktree-menu-create-field">
+              <label htmlFor="wt-base">Starts from</label>
+              <input
+                id="wt-base"
+                className="worktree-menu-create-base-input"
+                value={effectiveBase}
+                onChange={(event) => setBaseOverride(event.currentTarget.value)}
+                placeholder={resolvedBase ? resolvedBase.baseRef : 'origin/main'}
+                spellCheck={false}
+                disabled={busy}
+              />
+              {baseIsRemote ? (
+                <label className="worktree-menu-create-check">
+                  <input
+                    type="checkbox"
+                    checked={fetchBase}
+                    onChange={(event) => setFetchBase(event.currentTarget.checked)}
+                    disabled={busy}
+                  />
+                  <span>Fetch {effectiveBase.split('/')[0]} first, so the branch starts at the real remote tip</span>
+                </label>
+              ) : null}
+            </div>
+          ) : null}
+
           {newBranch.trim() ? (
             <div className="worktree-menu-create-preview" aria-live="polite">
               <span className="worktree-menu-create-preview-label">Folder</span>
@@ -326,7 +416,9 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
 
           <small className="worktree-menu-create-hint">
             {createNewBranch
-              ? <>A new local branch will be created. Push it later with <code>git push -u</code>.</>
+              ? <>
+                  New branch off <code>{effectiveBase || 'the current HEAD'}</code>. Push it later with <code>git push -u</code>.
+                </>
               : <>Existing branch will be checked out. Make sure it isn't already used by another worktree.</>}
           </small>
 
@@ -423,6 +515,62 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
 }
 
 /**
+ * Removal confirmation. Its whole job is to answer one question before the
+ * user commits: what is lost if this goes away?
+ *
+ * A clean worktree gets a plain confirm and git keeps its own safety net. A
+ * worktree with uncommitted or unpushed work gets an itemised warning and a
+ * button that says it discards — `--force` is never reached by accident.
+ */
+function WorktreeRemovalConfirm({ busy, onCancel, onConfirm, pending }: {
+  pending: PendingRemoval
+  busy: boolean
+  onCancel: () => void
+  onConfirm: (force: boolean) => void
+}): ReactElement {
+  const status = pending.status
+  const losses: string[] = []
+  if (status) {
+    if (status.dirtyCount > 0) losses.push(`${status.dirtyCount} modified ${status.dirtyCount === 1 ? 'file' : 'files'}`)
+    if (status.untrackedCount > 0) losses.push(`${status.untrackedCount} untracked ${status.untrackedCount === 1 ? 'entry' : 'entries'}`)
+    if (status.ahead > 0) losses.push(`${status.ahead} unpushed ${status.ahead === 1 ? 'commit' : 'commits'}`)
+    else if (status.noUpstream) losses.push('a branch that was never pushed')
+  }
+  // Only working-tree state blocks `git worktree remove`. Unpushed commits are
+  // worth warning about but git removes the worktree without complaint — the
+  // branch survives, so force is not required for them.
+  const needsForce = (status?.dirtyCount ?? 0) > 0 || (status?.untrackedCount ?? 0) > 0
+  const label = pending.branch ?? pending.path
+
+  return (
+    <div className="worktree-remove-confirm" role="alertdialog" aria-label={`Remove worktree ${label}`}>
+      <div className="worktree-remove-confirm-head">
+        <AlertTriangle size={12} aria-hidden="true" />
+        <strong>Remove {label}?</strong>
+      </div>
+      <p className="worktree-remove-confirm-body">
+        {status === null
+          ? 'Checking what this worktree holds…'
+          : losses.length === 0
+            ? 'Everything here is committed and pushed. The folder is deleted; the branch stays.'
+            : <>This worktree still holds {losses.join(', ')}. Removing it deletes {needsForce ? 'that work permanently' : 'the folder'}.</>}
+      </p>
+      <div className="worktree-remove-confirm-actions">
+        <button type="button" className="ghost-btn" onClick={onCancel} disabled={busy}>Cancel</button>
+        <button
+          type="button"
+          className={needsForce ? 'danger-btn' : 'primary-btn'}
+          onClick={() => onConfirm(needsForce)}
+          disabled={busy || status === null}
+        >
+          {busy ? 'Removing…' : needsForce ? 'Remove and discard changes' : 'Remove worktree'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/**
  * True when `candidate` is the same directory as `target` or nested inside it.
  * Separator- and case-insensitive so a pane's rootPath (`C:\…\wt`) matches
  * git's porcelain path (`C:/…/wt`). `null` candidate (main worktree) is never
@@ -511,7 +659,7 @@ function deriveWorktreePath(options: {
  * non-git user can act on. Raw git errors are correct but cryptic — we
  * preserve them as a fallback when we don't recognise the failure mode.
  */
-function friendlyCreateError(err: unknown, path: string, createNewBranch: boolean): string {
+function friendlyCreateError(err: unknown, path: string, createNewBranch: boolean, baseRef: string): string {
   const raw = err instanceof Error ? err.message : String(err)
   if (/already exists/i.test(raw)) {
     return `Folder "${path}" already exists. Pick a different path — git refuses to create a worktree where files are already present.`
@@ -527,8 +675,38 @@ function friendlyCreateError(err: unknown, path: string, createNewBranch: boolea
   if (/not a git repository/i.test(raw)) {
     return 'This workspace isn\'t a git repository. Worktrees only work inside repos initialised with `git init`.'
   }
+  // A bad start point and a bad branch name produce the same git error, so
+  // point at the start point when there is one — it is the field the user just
+  // gained and the likelier culprit.
   if (/invalid reference/i.test(raw) || /not a valid object name/i.test(raw)) {
-    return 'Branch name has invalid characters. Stick to letters, digits, `/`, `-`, `_`, `.`.'
+    return baseRef && new RegExp(escapeForRegExp(baseRef)).test(raw)
+      ? `Git doesn't know the start point "${baseRef}". Fetch the remote, or type a ref that exists locally.`
+      : 'Branch name or start point has invalid characters. Stick to letters, digits, `/`, `-`, `_`, `.`.'
   }
   return raw
+}
+
+/**
+ * Removal failures the user can act on. The "removed from git but the folder
+ * survived" case matters most on Windows, where a directory cannot be deleted
+ * while any process holds it as cwd — the list has already refreshed to git's
+ * real state by the time this renders, so the message is about the leftover
+ * folder, not about the worktree.
+ */
+function friendlyRemoveError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err)
+  if (/main working tree/i.test(raw)) {
+    return 'This is the main worktree — it can\'t be removed from inside the app. Remove other worktrees first, or delete the repo from disk.'
+  }
+  if (/permission denied/i.test(raw) || /failed to delete/i.test(raw) || /being used by another process/i.test(raw)) {
+    return 'Worktree removed from git, but its folder couldn\'t be fully deleted — something still has it open (an editor, file explorer, or another terminal). Close those and delete the folder manually if it remains.'
+  }
+  if (/contains modified or untracked files/i.test(raw)) {
+    return 'Something changed in this worktree since the check — it now has uncommitted work. Reopen the remove prompt to see what, and confirm again.'
+  }
+  return raw
+}
+
+function escapeForRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }

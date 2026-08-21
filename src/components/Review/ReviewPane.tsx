@@ -1,5 +1,5 @@
 import { Search } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { formatDiffComments } from '../../../shared/types/diff-comments'
 import { useDiffCommentsStore } from '../../store/diff-comments.store'
 import { pasteIntoAgentTerminal } from '../../lib/sendToAgent'
@@ -22,6 +22,7 @@ export function ReviewPane({ workspaceId, rootPath }: ReviewPaneProps): ReactEle
   const ws = useGitStore(selectGitState(workspaceId))
   const loadDiff = useGitStore((s) => s.loadDiff)
   const subscribeToUpdates = useGitStore((s) => s.subscribeToUpdates)
+  const resetDiff = useGitStore((s) => s.resetDiff)
   const setBase = useGitStore((s) => s.setBase)
   const setIncludeUncommitted = useGitStore((s) => s.setIncludeUncommitted)
   const toggleReviewed = useGitStore((s) => s.toggleReviewed)
@@ -83,6 +84,17 @@ export function ReviewPane({ workspaceId, rootPath }: ReviewPaneProps): ReactEle
     setSendNotice(`${wsComments.length} comentário(s) colados no agente — pressione Enter para submeter.`)
     window.setTimeout(() => setSendNotice(null), 6000)
   }, [wsComments, workspaceId, clearComments])
+
+  // The panel follows the active pane, so `rootPath` can change without the
+  // workspace changing. The diff is cached per workspace, so it now belongs to
+  // the wrong checkout — drop it before the reload rather than leaving the old
+  // repository's changes on screen while the new ones load.
+  const loadedRootPath = useRef(rootPath)
+  useEffect(() => {
+    if (loadedRootPath.current === rootPath) return
+    loadedRootPath.current = rootPath
+    resetDiff(workspaceId)
+  }, [rootPath, workspaceId, resetDiff])
 
   useEffect(() => {
     void loadDiff(workspaceId, rootPath)

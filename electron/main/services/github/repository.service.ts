@@ -14,11 +14,14 @@ import type {
   GitHubWorkspaceInput,
   GitHubWorkspaceStatus,
   GitHubWorktree,
+  GitHubWorktreeBase,
+  GitHubWorktreePathInput,
+  GitHubWorktreeStatus,
   GitHubFileInput,
   GitHubCommitInput,
   GitHubCliStatus
 } from '../../../../shared/types/github'
-import { countStatusLines, emptyRepositorySummary, inferCommitArea, inferCommitType, isAbsolutePath, ok, parseStatusLine, parseWorktreePorcelain, splitPair, summarizeCommitFiles } from './parsers'
+import { countStatusLines, emptyRepositorySummary, inferCommitArea, inferCommitType, isAbsolutePath, ok, parseStatusLine, parseWorktreePorcelain, parseWorktreeStatusPorcelainV2, splitPair, summarizeCommitFiles } from './parsers'
 import type { GhExec } from './gh-exec'
 export class GitHubRepositoryService {
   constructor(private readonly gh: GhExec) {}
@@ -212,13 +215,92 @@ export class GitHubRepositoryService {
     return parseWorktreePorcelain(raw, input.rootPath)
   }
 
+  /**
+   * Resolves the ref a new worktree branch should start from.
+   *
+   * Order: the remote's own HEAD (`refs/remotes/origin/HEAD`, what `git clone`
+   * records as the default branch) → a conventional remote branch → a
+   * conventional local branch → `HEAD`. Pure git, no `gh`, so it stays fast
+   * enough to run every time the create form opens.
+   *
+   * Falling all the way through to `HEAD` reproduces git's own default. That is
+   * only correct for a repo with no remote and no main/master; everywhere else
+   * one of the earlier steps wins, which is the whole point — a hotfix branch
+   * must not silently inherit whatever the main worktree left checked out.
+   */
+  async resolveWorktreeBase(input: GitHubWorkspaceInput): Promise<GitHubWorktreeBase> {
+    const remotes = (await this.gh.tryGit(['remote'], input.rootPath))
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+    const remoteName = remotes.includes('origin') ? 'origin' : remotes[0] ?? null
+
+    if (remoteName) {
+      const head = (await this.gh.tryGit(['symbolic-ref', '--short', `refs/remotes/${remoteName}/HEAD`], input.rootPath)).trim()
+      if (head) return { baseRef: head, remoteName, isRemote: true }
+
+      for (const candidate of ['main', 'master', 'develop']) {
+        const found = await this.refExists(input.rootPath, `refs/remotes/${remoteName}/${candidate}`)
+        if (found) return { baseRef: `${remoteName}/${candidate}`, remoteName, isRemote: true }
+      }
+    }
+
+    for (const candidate of ['main', 'master']) {
+      const found = await this.refExists(input.rootPath, `refs/heads/${candidate}`)
+      if (found) return { baseRef: candidate, remoteName, isRemote: false }
+    }
+
+    return { baseRef: 'HEAD', remoteName, isRemote: false }
+  }
+
+  /**
+   * Cheap per-worktree state for the removal confirmation and the panel list.
+   * Runs inside the worktree itself, so it reports that tree's index and not
+   * the main one's.
+   */
+  async getWorktreeStatus(input: GitHubWorktreePathInput): Promise<GitHubWorktreeStatus> {
+    const raw = await this.gh.tryGit(['status', '--porcelain=v2', '--branch'], input.path)
+    return { path: input.path, ...parseWorktreeStatusPorcelainV2(raw) }
+  }
+
   async createWorktree(input: GitHubCreateWorktreeInput): Promise<GitHubMessageResult> {
     const absolutePath = isAbsolutePath(input.path) ? input.path : join(input.rootPath, '..', input.path)
+    // A base ref only means anything when git is creating the branch; checking
+    // out an existing branch already has a start point of its own.
+    const baseRef = input.createBranch ? input.baseRef?.trim() || null : null
+
+    // A stale local copy of `origin/main` is indistinguishable from a fresh one
+    // until you fetch, so a base the user believes is the remote tip may not be.
+    // Fetch failures are reported, not thrown: being offline should degrade the
+    // guarantee, not block the worktree.
+    let warning = ''
+    if (baseRef && input.fetchBase) {
+      const remoteName = baseRef.includes('/') ? baseRef.slice(0, baseRef.indexOf('/')) : null
+      if (remoteName) {
+        try {
+          await this.gh.runGit(['fetch', remoteName, '--prune'], input.rootPath)
+        } catch {
+          warning = ` Aviso: o fetch de ${remoteName} falhou — a base pode estar desatualizada.`
+        }
+      }
+    }
+
     const args = ['worktree', 'add']
-    if (input.createBranch) args.push('-b', input.branch, absolutePath)
-    else args.push(absolutePath, input.branch)
+    if (input.createBranch) {
+      args.push('-b', input.branch, absolutePath)
+      if (baseRef) args.push(baseRef)
+    } else {
+      args.push(absolutePath, input.branch)
+    }
     await this.gh.runGit(args, input.rootPath)
-    return ok(`Worktree criado em ${absolutePath} (branch ${input.branch}).`)
+
+    const from = baseRef ? ` a partir de ${baseRef}` : ''
+    return ok(`Worktree criado em ${absolutePath} (branch ${input.branch}${from}).${warning}`)
+  }
+
+  private async refExists(rootPath: string, ref: string): Promise<boolean> {
+    const sha = await this.gh.tryGit(['rev-parse', '--verify', '--quiet', ref], rootPath)
+    return sha.trim().length > 0
   }
 
   async removeWorktree(input: GitHubRemoveWorktreeInput): Promise<GitHubMessageResult> {

@@ -111,6 +111,7 @@ describe('LinearService', () => {
     const gitHub = {
       listWorktrees: vi.fn(async () => []),
       listBranches: vi.fn(async () => [{ name: 'main' }]),
+      resolveWorktreeBase: vi.fn(async () => ({ baseRef: 'origin/main', remoteName: 'origin', isRemote: true })),
       createWorktree
     } as unknown as GitHubService
 
@@ -119,11 +120,15 @@ describe('LinearService', () => {
 
     const result = await service.createWorktreeFromIssue({ workspaceId: 'ws', rootPath: 'C:/repo', issueId: 'issue-1' })
 
+    // The ticket branch must start from the repo default, not from whatever the
+    // main worktree has checked out.
     expect(createWorktree).toHaveBeenCalledWith({
       rootPath: 'C:/repo',
       branch: 'eduardo/oxe-42-fix-the-thing',
       path: 'wt-oxe-42',
-      createBranch: true
+      createBranch: true,
+      baseRef: 'origin/main',
+      fetchBase: true
     })
     expect(result).toMatchObject({ ok: true, branch: 'eduardo/oxe-42-fix-the-thing' })
   })

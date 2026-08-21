@@ -25,6 +25,10 @@ interface UIState {
   /** URLs pushed by `oxespace_open_web_preview`, retained until the matching
    *  workspace panel mounts and consumes its own entry. */
   pendingWebPreviewByWorkspace: Record<string, string>
+  /** Workspaces whose side panels are pinned to the workspace root instead of
+   *  following the active pane into its worktree. Deliberately not persisted:
+   *  following the pane is the safe default, so every session starts there. */
+  panelScopePinnedByWorkspace: Record<string, boolean>
   isIntegrationPanelOpen: boolean
   activePaneId: string | null
   openNewWorkspace: () => void
@@ -55,6 +59,7 @@ interface UIState {
   openWebPreview: (workspaceId: string) => void
   closeWebPreview: (workspaceId: string) => void
   setPendingWebPreview: (workspaceId: string, url: string | null) => void
+  togglePanelScopePin: (workspaceId: string) => void
   openIntegrationPanel: () => void
   closeIntegrationPanel: () => void
   openTools: () => void
@@ -82,6 +87,7 @@ export const useUIStore = create<UIState>((set) => ({
   splitLayoutEnabled: true,
   webPreviewOpenByWorkspace: {},
   pendingWebPreviewByWorkspace: {},
+  panelScopePinnedByWorkspace: {},
   isIntegrationPanelOpen: false,
   activePaneId: null,
   openNewWorkspace: () => set({ isNewWorkspaceOpen: true }),
@@ -122,6 +128,12 @@ export const useUIStore = create<UIState>((set) => ({
     if (url === null) delete next[workspaceId]
     else next[workspaceId] = url
     return { pendingWebPreviewByWorkspace: next }
+  }),
+  togglePanelScopePin: (workspaceId) => set((state) => {
+    const next = { ...state.panelScopePinnedByWorkspace }
+    if (next[workspaceId]) delete next[workspaceId]
+    else next[workspaceId] = true
+    return { panelScopePinnedByWorkspace: next }
   }),
   openIntegrationPanel: () => set({ isIntegrationPanelOpen: true }),
   closeIntegrationPanel: () => set({ isIntegrationPanelOpen: false }),

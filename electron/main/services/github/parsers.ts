@@ -325,6 +325,63 @@ export function parseWorktreePorcelain(raw: string, mainRootPath: string): GitHu
 }
 
 /**
+ * Parses `git status --porcelain=v2 --branch` into the counts the worktree
+ * panel needs. v2 rather than v1 because only v2 carries the `# branch.ab`
+ * header, which is how we know whether the work in a worktree has been pushed
+ * anywhere — the difference between "removing this loses an afternoon" and
+ * "removing this loses nothing".
+ *
+ *   # branch.oid 1a2b3c4d
+ *   # branch.head hotfix/1284
+ *   # branch.upstream origin/hotfix/1284
+ *   # branch.ab +2 -0
+ *   1 .M N... 100644 100644 100644 <h> <h> src/app.ts
+ *   2 R. N... 100644 100644 100644 <h> <h> R100 new.ts<TAB>old.ts
+ *   u UU N... ...
+ *   ? notes.md
+ *
+ * Untracked *directories* collapse to one `?` entry under git's default
+ * `--untracked-files=normal`, so `untrackedCount` is a floor, not a file count.
+ * That is the right trade for a confirmation prompt: it never understates
+ * whether untracked work exists, and it costs one cheap git call.
+ */
+export function parseWorktreeStatusPorcelainV2(raw: string): {
+  dirtyCount: number
+  untrackedCount: number
+  ahead: number
+  behind: number
+  noUpstream: boolean
+} {
+  let dirtyCount = 0
+  let untrackedCount = 0
+  let ahead = 0
+  let behind = 0
+  let hasUpstream = false
+
+  for (const line of raw.split(/\r?\n/)) {
+    if (line.startsWith('# branch.upstream ')) {
+      hasUpstream = true
+      continue
+    }
+    if (line.startsWith('# branch.ab ')) {
+      // "+2 -1" — git always emits both, but tolerate either being absent.
+      const match = line.match(/\+(\d+)\s+-(\d+)/)
+      if (match) {
+        ahead = Number(match[1])
+        behind = Number(match[2])
+      }
+      continue
+    }
+    // Changed (1), renamed/copied (2) and unmerged (u) entries all represent
+    // tracked work that `git worktree remove` refuses to discard without --force.
+    if (line.startsWith('1 ') || line.startsWith('2 ') || line.startsWith('u ')) dirtyCount += 1
+    else if (line.startsWith('? ')) untrackedCount += 1
+  }
+
+  return { dirtyCount, untrackedCount, ahead, behind, noUpstream: !hasUpstream }
+}
+
+/**
  * Strips ANSI escape sequences from gh CLI output so the renderer can display
  * logs as plain text. Covers the most common SGR (color) + control sequences;
  * good enough for `gh run view --log`, which uses standard escapes.

@@ -180,11 +180,20 @@ export class LinearService {
     const branches = await this.gitHubService.listBranches({ workspaceId: input.workspaceId, rootPath: input.rootPath })
     const branchExists = branches.some((candidate) => candidate.name === branch)
 
+    // A ticket branch must start from the repository's default branch, not from
+    // whatever the main worktree happens to have checked out — otherwise the
+    // issue's work silently inherits an unrelated feature's commits.
+    const base = branchExists
+      ? null
+      : await this.gitHubService.resolveWorktreeBase({ workspaceId: input.workspaceId, rootPath: input.rootPath })
+
     const result = await this.gitHubService.createWorktree({
       rootPath: input.rootPath,
       branch,
       path: directoryName,
-      createBranch: !branchExists
+      createBranch: !branchExists,
+      baseRef: base?.baseRef,
+      fetchBase: base?.isRemote === true
     })
 
     return { ok: result.ok, message: result.message, branch, worktreePath: directoryName }

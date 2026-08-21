@@ -33,6 +33,17 @@ export function GitHubPanel({ activeTab: propTab, onTabChange, rootPath, workspa
   // Sync local tab when the persisted value changes (e.g., workspace switch)
   useEffect(() => { setActiveTab(propTab) }, [propTab])
 
+  // The panel follows the active pane, so `rootPath` can change while
+  // `workspaceId` stays put. Everything cached below is keyed by workspace,
+  // which means it now describes the wrong directory. Declared above the load
+  // effects so React runs it first: clear, then fetch.
+  const loadedRootPath = useRef(rootPath)
+  useEffect(() => {
+    if (loadedRootPath.current === rootPath) return
+    loadedRootPath.current = rootPath
+    useGitHubStore.getState().resetWorkspace(workspaceId)
+  }, [rootPath, workspaceId])
+
   // Prefetch cheap tabs in background once when the panel opens.
   // Network-bound tabs (prs, releases) are NOT included — they only fetch on demand.
   useEffect(() => {

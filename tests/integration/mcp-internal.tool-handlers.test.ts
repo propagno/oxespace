@@ -34,7 +34,8 @@ function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
     workspaceServ: makeWorkspaceServ([WS]),
     github: {
       createWorktree: vi.fn(async () => ({ ok: true, message: 'created' })),
-      removeWorktree: vi.fn(async () => ({ ok: true, message: 'removed' }))
+      removeWorktree: vi.fn(async () => ({ ok: true, message: 'removed' })),
+      resolveWorktreeBase: vi.fn(async () => ({ baseRef: 'origin/main', remoteName: 'origin', isRemote: true }))
     },
     background: {
       list: () => [{ id: 'job-1', workspaceId: WS.id, status: 'running' }],
@@ -187,8 +188,31 @@ describe('worktree handlers emit change events', () => {
       rootPath: WS.rootPath,
       path: '../wt',
       branch: 'feature/x',
-      createBranch: true
+      createBranch: true,
+      baseRef: 'origin/main',
+      fetchBase: false
     })
+  })
+
+  test('createWorktree defaults the start point instead of inheriting the main worktree HEAD', async () => {
+    const ctx = makeCtx()
+    await handlers.createWorktree({ path: '../wt', branch: 'hotfix/1', createBranch: true }, ctx)
+    expect(ctx.github.resolveWorktreeBase).toHaveBeenCalledWith({ workspaceId: WS.id, rootPath: WS.rootPath })
+    expect(ctx.github.createWorktree).toHaveBeenCalledWith(expect.objectContaining({ baseRef: 'origin/main' }))
+  })
+
+  test('createWorktree honours an explicit baseRef without resolving a default', async () => {
+    const ctx = makeCtx()
+    await handlers.createWorktree({ path: '../wt', branch: 'hotfix/1', createBranch: true, baseRef: 'v1.4.2', fetchBase: true }, ctx)
+    expect(ctx.github.resolveWorktreeBase).not.toHaveBeenCalled()
+    expect(ctx.github.createWorktree).toHaveBeenCalledWith(expect.objectContaining({ baseRef: 'v1.4.2', fetchBase: true }))
+  })
+
+  test('createWorktree leaves the start point alone when checking out an existing branch', async () => {
+    const ctx = makeCtx()
+    await handlers.createWorktree({ path: '../wt', branch: 'existing' }, ctx)
+    expect(ctx.github.resolveWorktreeBase).not.toHaveBeenCalled()
+    expect(ctx.github.createWorktree).toHaveBeenCalledWith(expect.objectContaining({ createBranch: false, baseRef: undefined }))
   })
 
   test('removeWorktree emits a "removed" event', async () => {
