@@ -86,8 +86,11 @@ export function ToolsModal({
   }, [])
 
   const run = (action: () => void): void => {
-    action()
     onClose()
+    // Close the hub before opening the destination surface. Keeping the
+    // state transition order deterministic avoids Radix focus/portal cleanup
+    // racing a second dialog (notably Workspace Settings on native builds).
+    action()
   }
 
   const tools: ToolDef[] = [
