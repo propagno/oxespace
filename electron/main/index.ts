@@ -42,6 +42,8 @@ import { registerSemanticIpc } from './ipc/semantic.ipc'
 import { registerDiagnosticsIpc } from './ipc/diagnostics.ipc'
 import { BackgroundManager } from './services/background.service'
 import { TerminalManager } from './services/terminal.service'
+import { MemoryService } from './services/memory/memory.service'
+import { registerMemoryIpc } from './ipc/memory.ipc'
 import { fallbackShellProfiles } from './services/shell-profile.defaults'
 import { isLoopbackHttpUrl, isSafeExternalUrl } from './utils/external-url'
 import { applyLoginShellPath } from './utils/login-shell-path'
@@ -124,7 +126,11 @@ async function registerIpcHandlers(): Promise<() => void> {
     return noop
   }
 
+  const memoryService = new MemoryService(db, join(app.getPath('userData'), 'memory'))
+  registerMemoryIpc(memoryService)
   const terminalManager = new TerminalManager(db, {
+    prepareLaunch: (input) => memoryService.prepareLaunch(input),
+    onLaunchExit: (paneId) => memoryService.endLaunch(paneId),
     emitData: (event) => {
       for (const window of BrowserWindow.getAllWindows()) {
         window.webContents.send(IPC_CHANNELS.terminal.onData, event)
@@ -230,6 +236,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   const codeGraphService = new CodeGraphService(db)
 
   const internalMcp: InternalMcpHandle = createInternalMcpHandle({
+    memory: memoryService,
     db,
     mcpManager,
     workspaceServ: internalMcpWorkspaceServ,
@@ -252,6 +259,26 @@ async function registerIpcHandlers(): Promise<() => void> {
     background: backgroundManager,
     fileSystem: fileSystemService
   })
+  let memoryShutdownComplete = false
+  let memoryShutdownStarted = false
+  app.on('before-quit', (event) => {
+    if (memoryShutdownComplete) return
+    event.preventDefault()
+    if (memoryShutdownStarted) return
+    memoryShutdownStarted = true
+    terminalManager.stopAll()
+    // An optional service or a long-running MCP request must not trap app shutdown.
+    const shutdownDeadline = setTimeout(() => {
+      memoryShutdownComplete = true
+      app.quit()
+    }, 10000)
+    void memoryService.stop().catch(() => {}).then(() => internalMcp.stop()).catch(() => {}).finally(() => {
+      clearTimeout(shutdownDeadline)
+      if (memoryShutdownComplete) return
+      memoryShutdownComplete = true
+      app.quit()
+    })
+  })
   app.once('before-quit', () => {
     for (const filePath of clipboardImageTempFiles) void cleanupTempFile(filePath)
     fileSystemService.closeAll()
@@ -261,7 +288,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     mcpManager.stopAll()
     oxeService.disposeAll()
     semanticService.destroy()
-    void internalMcp.stop()
+    // Keep the hook metadata bridge alive for the bounded memory shutdown drain.
     void rpcServer?.stop()
   })
   ipcRegistered = true
@@ -275,6 +302,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     skillService.init()
     backgroundManager.init()
     void internalMcp.start()
+    void memoryService.init()
     // F3 · Local RPC bus (named pipe / unix socket). Out-of-process callers
     // (CLI now, orchestration coordinator later) reach the same services the
     // renderer reaches over IPC. Failure here must not affect the app.

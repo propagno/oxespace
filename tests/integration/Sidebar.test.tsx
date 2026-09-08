@@ -30,6 +30,7 @@ describe('Sidebar', () => {
     Object.defineProperty(window, 'oxe', {
       configurable: true,
       value: {
+        app: { platform: 'win32' },
         terminal: {
           stop: vi.fn().mockResolvedValue(undefined)
         },
@@ -135,5 +136,34 @@ describe('Sidebar', () => {
 
     await user.click(screen.getByTestId('btn-open-tools'))
     expect(onOpenTools).toHaveBeenCalled()
+  })
+
+  test('numbers workspaces that share a root folder so they can be told apart', async () => {
+    // Same folder as `workspace`, written with Windows separators and different
+    // case — one folder on the stubbed win32 platform. Rows like these are
+    // otherwise identical: same default name, same root, same branch label.
+    const twin: Workspace = { ...workspace, id: 'workspace-2', rootPath: 'C:\\projects\\Repo', isActive: false, panes: [] }
+    const other: Workspace = { ...workspace, id: 'workspace-3', name: 'other', rootPath: 'C:/projects/other', isActive: false, panes: [] }
+
+    render(
+      <Sidebar
+        workspaces={[workspace, twin, other]}
+        activeWorkspaceId="workspace-1"
+        appVersion="0.1.2"
+        onNewWorkspace={vi.fn()}
+        onSelectWorkspace={vi.fn()}
+        onCloseWorkspace={vi.fn()}
+        isCollapsed={false}
+        onToggleCollapse={vi.fn()}
+        onOpenTools={vi.fn()}
+      />
+    )
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId('ws-group-dup-index').map((el) => el.textContent)).toEqual(['#1', '#2'])
+    })
+    // The workspace on its own folder stays unmarked — the badge means
+    // "there is another one of these", not "this is a workspace".
+    expect(screen.getAllByTestId('ws-group-dup-index')).toHaveLength(2)
   })
 })

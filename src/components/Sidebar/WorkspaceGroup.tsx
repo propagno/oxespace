@@ -7,9 +7,17 @@ import { useWorkspaceStore } from '../../store/workspace.store'
 import { useGitBranch } from '../../hooks/useGitBranch'
 import { useWorkspaceActivity, type WorkspaceActivity } from '../../hooks/useWorkspaceActivity'
 
+/** Position of this workspace among the ones sharing its root folder. */
+export interface WorkspaceDuplicate {
+  index: number
+  count: number
+}
+
 interface WorkspaceGroupProps {
   workspace: Workspace
   isActive: boolean
+  /** Null when this workspace is the only one on its folder, which is the norm. */
+  duplicate?: WorkspaceDuplicate | null
   onSelect: (id: string) => void
   onClose: (id: string) => void
   // Drag-and-drop handles managed by the parent Sidebar so the parent owns
@@ -27,6 +35,7 @@ interface WorkspaceGroupProps {
 function WorkspaceGroupComponent({
   workspace,
   isActive,
+  duplicate = null,
   onSelect,
   onClose,
   isDragging = false,
@@ -219,10 +228,27 @@ function WorkspaceGroupComponent({
               >
                 {workspace.name}
               </span>
-              {branchLabel ? (
-                <div className="ws-group-branch-row" title={`Branch: ${branchLabel}`} data-testid="ws-group-meta">
-                  <GitBranch size={10} className="ws-group-branch-icon" aria-hidden="true" />
-                  <span className="ws-group-branch-text">{branchLabel}</span>
+              {branchLabel || duplicate ? (
+                <div
+                  className="ws-group-branch-row"
+                  title={branchLabel ? `Branch: ${branchLabel}` : undefined}
+                  data-testid="ws-group-meta"
+                >
+                  {branchLabel ? (
+                    <>
+                      <GitBranch size={10} className="ws-group-branch-icon" aria-hidden="true" />
+                      <span className="ws-group-branch-text">{branchLabel}</span>
+                    </>
+                  ) : null}
+                  {duplicate ? (
+                    <span
+                      className="ws-group-dup-index"
+                      title={`${duplicate.count} workspaces open ${workspace.rootPath}. They are the same folder, so they show the same branch — close the ones you no longer need.`}
+                      data-testid="ws-group-dup-index"
+                    >
+                      #{duplicate.index}
+                    </span>
+                  ) : null}
                 </div>
               ) : null}
             </>

@@ -51,6 +51,7 @@ interface InternalMcpMetaRow {
 }
 
 export interface InternalMcpDeps {
+  memory?: import('../services/memory/memory.service').MemoryService
   db: AppDatabase
   mcpManager: McpManager
   workspaceServ: WorkspaceService
@@ -79,6 +80,7 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
   const webPreview = new WebPreviewBus()
   const worktree = new WorktreeEventBus()
   const rpc: LocalRpcServer = createLocalRpcServer({
+    memory: deps.memory,
     workspaceServ: deps.workspaceServ,
     github: deps.github,
     background: deps.background,

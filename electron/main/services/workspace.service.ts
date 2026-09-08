@@ -2,6 +2,7 @@ import { basename } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../db/index'
 import { defaultSplitShellProfileId } from './shell-profile.defaults'
+import { isSameRootPath } from '../../../shared/utils/path'
 import type {
   CreateWorkspaceInput,
   PaneAgentBinding,
@@ -90,6 +91,19 @@ export class WorkspaceService {
   constructor(private readonly db: AppDatabase) {}
 
   create(input: CreateWorkspaceInput): Workspace {
+    // Opening a folder that already has a workspace activates that workspace
+    // instead of adding a second one. Duplicates were indistinguishable in the
+    // sidebar — same default name, same root, therefore the same branch label —
+    // and each carried its own semantic index of identical files. Nothing in
+    // the app needs two workspaces on one folder: a second checkout is a git
+    // worktree, which is a per-pane root override, not a second workspace.
+    const existing = this.list().find((workspace) =>
+      isSameRootPath(workspace.rootPath, input.rootPath, process.platform)
+    )
+    if (existing) {
+      return existing.isActive ? existing : this.setActive(existing.id)
+    }
+
     const layoutPreset = input.layoutPreset ?? layoutToPreset(input.layout) ?? DEFAULT_LAYOUT_PRESET
     const layout = PRESET_LAYOUTS[layoutPreset]
     const workspaceId = randomUUID()

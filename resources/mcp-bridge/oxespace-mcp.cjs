@@ -18,11 +18,13 @@ const http = require('node:http')
 const PORT = process.env.OXESPACE_MCP_PORT
 const TOKEN = process.env.OXESPACE_MCP_TOKEN
 const WSID = process.env.OXESPACE_WORKSPACE_ID || ''
+const MEMORY_RUN = process.env.OXESPACE_MEMORY_RUN_ID || ''
+const OPTIONAL_MEMORY = process.argv.includes('--optional-memory')
 const PROTOCOL_VERSION = '2025-06-18'
 const SERVER_NAME = 'oxespace'
 const SERVER_VERSION = '0.1.0'
 
-if (!PORT || !TOKEN) {
+if ((!PORT || !TOKEN) && !OPTIONAL_MEMORY) {
   process.stderr.write('[oxespace-mcp] missing OXESPACE_MCP_PORT/TOKEN env — is OXESpace running?\n')
   process.exit(2)
 }
@@ -53,6 +55,7 @@ function rpc(method, params) {
         headers: {
           Authorization: 'Bearer ' + TOKEN,
           'X-OXE-Workspace-Id': WSID,
+          'X-OXE-Memory-Run-Id': MEMORY_RUN,
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(body)
         }
@@ -86,6 +89,7 @@ function rpc(method, params) {
     req.on('error', (e) => {
       reject({ code: -32603, message: 'OXESpace main not reachable: ' + e.message })
     })
+    req.setTimeout(10000, () => req.destroy(new Error('OXESpace request timed out')))
     req.write(body)
     req.end()
   })
@@ -114,6 +118,7 @@ async function dispatch(msg) {
   }
 
   if (msg.method === 'tools/list') {
+    if (OPTIONAL_MEMORY && (!PORT || !TOKEN || !MEMORY_RUN)) return ok(msg.id, { tools: [] })
     try {
       const result = await rpc('tools/list', undefined)
       ok(msg.id, result || { tools: [] })
@@ -124,6 +129,7 @@ async function dispatch(msg) {
   }
 
   if (msg.method === 'tools/call') {
+    if (OPTIONAL_MEMORY && (!PORT || !TOKEN || !MEMORY_RUN)) return err(msg.id, -32602, 'Memory is not bound to an OXESpace execution')
     try {
       const result = await rpc('tools/call', msg.params)
       ok(msg.id, result || { content: [] })

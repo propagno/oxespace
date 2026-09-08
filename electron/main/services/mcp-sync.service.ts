@@ -64,6 +64,12 @@ export class McpConfigSync {
     return this.writeMcpJson(workspace.root_path)
   }
 
+  /** Materialize the same managed servers in a linked checkout, keeping its workspace binding. */
+  syncRoot(workspaceId: string, rootPath: string): string | null {
+    if (!existsSync(rootPath) || !this.db.prepare('SELECT id FROM workspaces WHERE id = ?').get(workspaceId)) return null
+    return this.writeMcpJson(rootPath, workspaceId)
+  }
+
   /**
    * Re-syncs every workspace. Use when a global server (workspace_id NULL) is
    * changed — it affects all workspaces.
@@ -84,7 +90,7 @@ export class McpConfigSync {
     else this.syncWorkspace(workspaceId)
   }
 
-  private writeMcpJson(workspaceRoot: string): string | null {
+  private writeMcpJson(workspaceRoot: string, explicitWorkspaceId?: string): string | null {
     const mcpPath = join(workspaceRoot, MCP_FILE)
     const snapshotPath = join(workspaceRoot, SNAPSHOT_DIR, SNAPSHOT_FILE)
 
@@ -94,6 +100,7 @@ export class McpConfigSync {
     const workspaceRow = this.db
       .prepare('SELECT id FROM workspaces WHERE root_path = ?')
       .get(workspaceRoot) as { id: string } | undefined
+    const workspaceId = explicitWorkspaceId ?? workspaceRow?.id
 
     // Servers visible to this workspace = global + own + enabled.
     const rows = this.db
@@ -104,7 +111,7 @@ export class McpConfigSync {
            AND trusted = 1
            AND (workspace_id IS NULL OR workspace_id = ?)`
       )
-      .all(workspaceRow?.id ?? null) as ManagedRow[]
+      .all(workspaceId ?? null) as ManagedRow[]
 
     const desiredEntries = new Map<string, unknown>()
     const desiredNames: string[] = []
@@ -112,7 +119,7 @@ export class McpConfigSync {
     for (const row of rows) {
       const isInternal = row.name === 'oxespace' && row.workspace_id === null
       const entry = serializeConfig(row.config_json, {
-        injectWorkspaceId: isInternal && workspaceRow?.id ? workspaceRow.id : null
+        injectWorkspaceId: isInternal && workspaceId ? workspaceId : null
       })
       if (!entry) continue
       const key = sanitizeKey(row.name)

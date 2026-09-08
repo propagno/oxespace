@@ -2,6 +2,7 @@ import { Check, Maximize2, Minimize2, Palette, SquareTerminal, X } from 'lucide-
 import { useState, type FormEvent, type ReactElement } from 'react'
 import type { ShellProfile, UpdateWorkspaceSettingsInput, Workspace, WorkspaceDensity, WorkspaceLayoutPreset, WorkspaceThemeId } from '../../../shared/types/workspace'
 import { LAYOUT_PRESETS, WORKSPACE_THEMES } from './workspaceOptions'
+import { WorkspaceMemorySettings } from './WorkspaceMemorySettings'
 import { Dialog, DialogContent, DialogTitle, LEGACY_MODAL_OVERLAY } from '@/components/ui/dialog'
 import { useResolvedTerminalPrefs, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 
@@ -119,6 +120,7 @@ export function WorkspaceSettingsModal({ onClose, onSave, shellProfiles, workspa
         >
           <div className="ws-settings-body">
             <div className="ws-settings-main">
+              <WorkspaceMemorySettings workspaceId={workspace.id} />
               <section className="ws-settings-section" aria-labelledby="ws-section-appearance">
                 <header className="ws-settings-section-header">
                   <Palette size={14} aria-hidden="true" />

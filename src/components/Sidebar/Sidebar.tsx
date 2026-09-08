@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { IntegrationGroup } from '../../../shared/types/integration'
 import type { Workspace } from '../../../shared/types/workspace'
 import { useIntegrationStore } from '../../store/integration.store'
+import { rootPathKey } from '../../../shared/utils/path'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { useWorkspaceActivity } from '../../hooks/useWorkspaceActivity'
 import { OxeLogo } from '../Brand/OxeLogo'
@@ -84,6 +85,28 @@ export function Sidebar({
       ws.panes.some((p) => (p.agentName ?? p.type).toLowerCase().includes(q))
     )
   }, [workspaces, searchQuery])
+
+  // Workspaces that sit on the same folder are otherwise identical in this list:
+  // the name defaults to the folder's basename and the branch is read from the
+  // root, so every row renders the same two lines. `create` refuses to make new
+  // ones, but databases from before that rule still hold them, and the user has
+  // to be able to tell them apart to close the extras. Numbered over the full
+  // list rather than the filtered one so a search doesn't renumber the rows.
+  const duplicateRoots = useMemo(() => {
+    const seen = new Map<string, string[]>()
+    for (const ws of workspaces) {
+      const key = rootPathKey(ws.rootPath, window.oxe.app.platform)
+      const bucket = seen.get(key)
+      if (bucket) bucket.push(ws.id)
+      else seen.set(key, [ws.id])
+    }
+    const numbered = new Map<string, { index: number; count: number }>()
+    for (const ids of seen.values()) {
+      if (ids.length < 2) continue
+      ids.forEach((id, index) => numbered.set(id, { index: index + 1, count: ids.length }))
+    }
+    return numbered
+  }, [workspaces])
 
   const handleDropOnWorkspace = (targetId: string): void => {
     if (!dragSourceId || dragSourceId === targetId || !dropPosition) {
@@ -291,6 +314,7 @@ export function Sidebar({
               key={ws.id}
               workspace={ws}
               isActive={ws.id === activeWorkspaceId}
+              duplicate={duplicateRoots.get(ws.id) ?? null}
               onSelect={handleSelectWorkspace}
               onClose={onCloseWorkspace}
               isDragging={dragSourceId === ws.id}

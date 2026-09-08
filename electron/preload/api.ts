@@ -48,6 +48,14 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
   const terminalActivity = createPaneSubscriber<TerminalActivityEvent>(ipc, IPC_CHANNELS.terminal.onActivity)
 
   return {
+    memory: {
+      status: (id) => ipc.invoke(IPC_CHANNELS.memory.status, id) as ReturnType<OxeApi['memory']['status']>,
+      configure: (input) => ipc.invoke(IPC_CHANNELS.memory.configure, input) as ReturnType<OxeApi['memory']['configure']>,
+      install: () => ipc.invoke(IPC_CHANNELS.memory.install) as Promise<string>,
+      setupAgents: (id) => ipc.invoke(IPC_CHANNELS.memory.setupAgents, id) as Promise<string>,
+      search: (input) => ipc.invoke(IPC_CHANNELS.memory.search, input) as ReturnType<OxeApi['memory']['search']>,
+      recent: (id) => ipc.invoke(IPC_CHANNELS.memory.recent, id) as ReturnType<OxeApi['memory']['recent']>
+    },
     app: {
       version: packageJson.version,
       // Sandboxed preloads still get Electron's polyfilled `process`, so the

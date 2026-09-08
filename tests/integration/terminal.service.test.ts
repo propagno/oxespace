@@ -7,6 +7,34 @@ import { WorkspaceService } from '../../electron/main/services/workspace.service
 import { __resetExecutableCacheForTests, TerminalManager, resolveExecutable } from '../../electron/main/services/terminal.service'
 
 describe('TerminalManager', () => {
+  test('stopping an in-flight optional launch cannot spawn a late process', async () => {
+    const db = openInMemoryDatabase()
+    const workspace = new WorkspaceService(db).create({ rootPath: 'C:/repo', layout: '1x1', autoStart: false })
+    const pty = createFakePtyModule()
+    const manager = new TerminalManager(db, { pty, platform: 'linux', prepareLaunch: () => new Promise(() => {}),
+      onLaunchExit: () => { throw new Error('Optional cleanup unavailable') } })
+    try {
+      const input = { workspaceId: workspace.id, paneId: workspace.panes[0].id, disableRtk: true }
+      const starting = manager.start(input)
+      manager.stop(input)
+      await starting
+      expect(pty.spawn).not.toHaveBeenCalled()
+    } finally { manager.stopAll(); db.close() }
+  })
+  test('memory integration failure cannot prevent terminal startup or restart', async () => {
+    const db = openInMemoryDatabase()
+    const workspace = new WorkspaceService(db).create({ rootPath: 'C:/repo', layout: '1x1', autoStart: false })
+    const pty = createFakePtyModule()
+    const manager = new TerminalManager(db, { pty, platform: 'linux', prepareLaunch: async () => { throw new Error('AI Memory unavailable') } })
+    try {
+      const input = { workspaceId: workspace.id, paneId: workspace.panes[0].id, disableRtk: true }
+      await manager.start(input)
+      expect(manager.hasSession(input.paneId)).toBe(true)
+      await manager.restart(input)
+      expect(pty.spawn).toHaveBeenCalledTimes(2)
+      expect(manager.hasSession(input.paneId)).toBe(true)
+    } finally { manager.stopAll(); db.close() }
+  })
   test('spawns isolated ptys with workspace cwd and shell profile', async () => {
     const db = openInMemoryDatabase()
     const workspaceService = new WorkspaceService(db)

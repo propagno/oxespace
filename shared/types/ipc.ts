@@ -63,6 +63,10 @@ export type { IntegrationGroup, IntegrationMember, IntegrationHandoff, Integrati
 export type { FileSystemApi, FileSystemFileChangedEvent, FileSystemListTreeInput, FileSystemReadBinaryInput, FileSystemReadBinaryResult, FileSystemReadFileInput, FileSystemReadFileResult, FileSystemUnwatchFileInput, FileSystemWatchFileInput, FileSystemWatchFileResult, FileSystemWriteFileInput, FileSystemWriteFileResult, FileTreeNode, FileTreeNodeType } from './filesystem'
 
 export const IPC_CHANNELS = {
+  memory: {
+    status: 'memory:status', configure: 'memory:configure', install: 'memory:install',
+    setupAgents: 'memory:setup-agents', search: 'memory:search', recent: 'memory:recent'
+  },
   app: {
     getUpdateState: 'app:get-update-state',
     checkForUpdates: 'app:check-for-updates',
@@ -613,6 +617,7 @@ export interface RtkApi {
 }
 
 export interface OxeApi {
+  memory: import('./memory').MemoryApi
   app: {
     version: string
     /** Host OS, so renderer code can build platform-correct shell commands. */

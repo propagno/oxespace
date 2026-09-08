@@ -1,3 +1,4 @@
+import { normalizeRootPath } from '../../shared/utils/path'
 import type { Workspace } from '../../shared/types/workspace'
 
 /**
@@ -51,10 +52,16 @@ export function resolveWorkspaceScope(
  * Separator- and case-insensitive path equality. A pane's rootPath is stored
  * as the user's OS wrote it (`C:\repo`) while git echoes `C:/repo`, so a strict
  * comparison would report the main worktree as a worktree.
+ *
+ * Case is folded on every platform, unlike `isSameRootPath` in shared/utils/path,
+ * which respects Linux's case sensitivity. The asymmetry is deliberate: this
+ * compares a pane root against its own workspace root, both written by the same
+ * app, so the only realistic difference is spelling. Over-matching keeps a pane
+ * that has not moved from lighting up the worktree badge; under-matching would
+ * be the visible bug.
  */
 export function isSamePath(a: string, b: string): boolean {
-  const normalize = (value: string): string => value.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
-  return normalize(a) === normalize(b)
+  return normalizeRootPath(a).toLowerCase() === normalizeRootPath(b).toLowerCase()
 }
 
 function folderNameOf(path: string): string {
