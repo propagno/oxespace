@@ -8,12 +8,14 @@ import { FileSystemService } from '../../electron/main/services/file-system.serv
 import { createLocalRpcServer, type LocalRpcServer } from '../../electron/main/mcp-internal/local-rpc-server'
 import { WebPreviewBus } from '../../electron/main/mcp-internal/web-preview-bus'
 import { WorktreeEventBus } from '../../electron/main/mcp-internal/worktree-event-bus'
+import { ExecutionRegistry } from '../../electron/main/services/execution-registry'
 
 interface ServerCtx {
   server: LocalRpcServer
   port: number
   db: ReturnType<typeof openInMemoryDatabase>
   workspaceServ: WorkspaceService
+  executions: ExecutionRegistry
 }
 
 const TOKEN = 'a'.repeat(64)
@@ -47,7 +49,9 @@ async function postRpc(port: number, headers: Record<string, string>, body: obje
 async function start(): Promise<ServerCtx> {
   const db = openInMemoryDatabase()
   const workspaceServ = new WorkspaceService(db)
+  const executions = new ExecutionRegistry()
   const server = createLocalRpcServer({
+    executions, delegation: {} as never, delegationAgents: () => [{ agentProfileId: 'codex' }],
     workspaceServ,
     github: new GitHubService(db),
     background: new BackgroundManager(db, { emitOutput: () => undefined, emitUpdate: () => undefined }),
@@ -60,13 +64,29 @@ async function start(): Promise<ServerCtx> {
   })
   server.setToken(TOKEN)
   const { port } = await server.start(0)
-  return { server, port, db, workspaceServ }
+  return { server, port, db, workspaceServ, executions }
 }
 
 describe('Internal MCP local RPC server', () => {
   let ctx: ServerCtx
   beforeEach(async () => { ctx = await start() })
   afterEach(async () => { await ctx.server.stop(); ctx.db.close() })
+
+  test('delegation RPC requires live execution credentials and never falls back to active workspace', async () => {
+    const env = ctx.executions.register({ paneId: 'pane', workspaceId: 'workspace', cwd: process.cwd() })
+    const headers = { Authorization: `Bearer ${TOKEN}`, 'x-oxe-workspace-id': 'workspace',
+      'x-oxe-execution-id': env.OXESPACE_EXECUTION_ID, 'x-oxe-execution-token': env.OXESPACE_EXECUTION_TOKEN }
+    const body = { jsonrpc: '2.0', id: 42, method: 'tools/call', params: { name: 'oxespace_list_agents', arguments: {} } }
+    const valid = await postRpc(ctx.port, headers, body)
+    expect(JSON.stringify(valid.json)).toContain('agentProfileId')
+    for (const invalid of [{ ...headers, 'x-oxe-workspace-id': '' }, { ...headers, 'x-oxe-workspace-id': 'other' }, { ...headers, 'x-oxe-execution-token': 'wrong' }]) {
+      const reply = await postRpc(ctx.port, invalid, body)
+      expect(JSON.stringify(reply.json)).toContain('requires a live OXESpace terminal')
+      expect(JSON.stringify(reply.json)).not.toContain('agentProfileId')
+    }
+    ctx.executions.end('pane')
+    expect(JSON.stringify((await postRpc(ctx.port, headers, body)).json)).toContain('requires a live OXESpace terminal')
+  })
 
   test('rejects requests without a bearer token', async () => {
     const { status, json } = await postRpc(ctx.port, {}, { jsonrpc: '2.0', id: 1, method: 'tools/list' })

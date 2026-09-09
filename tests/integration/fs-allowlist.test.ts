@@ -27,6 +27,10 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/shell-profile.service.ts',
   'electron/main/services/skill.service.ts',
   'electron/main/services/terminal.service.ts',
+  // Delegation performs existence probes only: executable selection and worktree
+  // recovery. GitHubWorktreeApi owns creation; neither reads/writes source files.
+  'electron/main/services/agent-launch.service.ts',
+  'electron/main/services/delegation.service.ts',
   'electron/main/services/usage/claudeProvider.ts',
   'electron/main/services/usage/codexProvider.ts',
   'electron/main/services/usage/copilotProvider.ts',

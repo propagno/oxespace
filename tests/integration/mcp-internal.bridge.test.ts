@@ -12,6 +12,8 @@ interface StubServer {
   receivedTokens: string[]
   receivedWorkspaces: string[]
   receivedMethods: string[]
+  receivedExecutions: string[]
+  receivedExecutionTokens: string[]
   stop(): Promise<void>
 }
 
@@ -19,9 +21,13 @@ async function startStub(): Promise<StubServer> {
   const receivedTokens: string[] = []
   const receivedWorkspaces: string[] = []
   const receivedMethods: string[] = []
+  const receivedExecutions: string[] = []
+  const receivedExecutionTokens: string[] = []
   const server = http.createServer((req, res) => {
     receivedTokens.push(String(req.headers.authorization ?? ''))
     receivedWorkspaces.push(String(req.headers['x-oxe-workspace-id'] ?? ''))
+    receivedExecutions.push(String(req.headers['x-oxe-execution-id'] ?? ''))
+    receivedExecutionTokens.push(String(req.headers['x-oxe-execution-token'] ?? ''))
     let body = ''
     req.on('data', (chunk: Buffer) => { body += chunk.toString('utf8') })
     req.on('end', () => {
@@ -46,6 +52,8 @@ async function startStub(): Promise<StubServer> {
     receivedTokens,
     receivedWorkspaces,
     receivedMethods,
+    receivedExecutions,
+    receivedExecutionTokens,
     stop: () => new Promise<void>((resolveClose) => server.close(() => resolveClose()))
   }
 }
@@ -127,10 +135,12 @@ describe('Internal MCP bridge', () => {
   })
 
   test('forwards tools/call and returns the MCP content envelope', async () => {
-    bridge = startBridge({ OXESPACE_MCP_PORT: String(stub.port), OXESPACE_MCP_TOKEN: TOKEN, OXESPACE_WORKSPACE_ID: WSID })
+    bridge = startBridge({ OXESPACE_MCP_PORT: String(stub.port), OXESPACE_MCP_TOKEN: TOKEN, OXESPACE_WORKSPACE_ID: WSID, OXESPACE_EXECUTION_ID: 'execution-a', OXESPACE_EXECUTION_TOKEN: 'execution-secret' })
     bridge.send(JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'oxespace_ping', arguments: {} } }))
     const line = await bridge.waitFor((l) => l.includes('"id":3'))
     const parsed = JSON.parse(line) as { result: { content: Array<{ type: string; text: string }> } }
     expect(parsed.result.content[0].text).toBe('pong')
+    expect(stub.receivedExecutions).toContain('execution-a')
+    expect(stub.receivedExecutionTokens).toContain('execution-secret')
   })
 })

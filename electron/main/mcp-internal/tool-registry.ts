@@ -25,8 +25,14 @@ import type { WorktreeEventBus } from './worktree-event-bus'
  */
 import type { SemanticService } from '../services/semantic.service'
 import { MEMORY_TOOLS } from './memory-tool-handlers'
+import { DELEGATION_TOOLS } from './delegation-tools'
 
 export interface ToolContext {
+  delegation?: import('../services/delegation.service').DelegationService
+  executions?: import('../services/execution-registry').ExecutionRegistry
+  executionId?: string
+  executionToken?: string
+  delegationAgents?: () => unknown
   memory?: import('../services/memory/memory.service').MemoryService
   memoryRunId?: string
   workspaceId: string | null
@@ -48,6 +54,7 @@ export interface ToolEntry {
 
 export const TOOL_REGISTRY: ToolEntry[] = [
   ...MEMORY_TOOLS,
+  ...DELEGATION_TOOLS,
   {
     descriptor: {
       name: 'oxespace_list_workspaces',

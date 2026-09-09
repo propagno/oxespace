@@ -56,6 +56,8 @@ function rpc(method, params) {
           Authorization: 'Bearer ' + TOKEN,
           'X-OXE-Workspace-Id': WSID,
           'X-OXE-Memory-Run-Id': MEMORY_RUN,
+          'X-OXE-Execution-Id': process.env.OXESPACE_EXECUTION_ID || '',
+          'X-OXE-Execution-Token': process.env.OXESPACE_EXECUTION_TOKEN || '',
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(body)
         }

@@ -48,6 +48,16 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
   const terminalActivity = createPaneSubscriber<TerminalActivityEvent>(ipc, IPC_CHANNELS.terminal.onActivity)
 
   return {
+    delegation: {
+      status: (id) => ipc.invoke(IPC_CHANNELS.delegation.status, id) as ReturnType<OxeApi['delegation']['status']>,
+      configure: (id, enabled) => ipc.invoke(IPC_CHANNELS.delegation.configure, id, enabled) as Promise<void>,
+      control: (ws, task, action) => ipc.invoke(IPC_CHANNELS.delegation.control, ws, task, action) as Promise<void>,
+      onChanged: (listener) => {
+        const handler = (_event: IpcRendererEvent, value: unknown): void => listener(value as { workspaceId: string; taskId: string })
+        ipc.on(IPC_CHANNELS.delegation.changed, handler)
+        return () => ipc.removeListener(IPC_CHANNELS.delegation.changed, handler)
+      }
+    },
     memory: {
       status: (id) => ipc.invoke(IPC_CHANNELS.memory.status, id) as ReturnType<OxeApi['memory']['status']>,
       configure: (input) => ipc.invoke(IPC_CHANNELS.memory.configure, input) as ReturnType<OxeApi['memory']['configure']>,

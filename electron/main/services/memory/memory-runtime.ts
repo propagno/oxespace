@@ -18,6 +18,7 @@ export class MemoryRuntime {
   private child: ChildProcess | null = null
   private starting: Promise<void> | null = null
   private generation = 0
+  lastError: string | undefined
   readonly dataDir: string
   readonly configPath: string
   constructor(private readonly db: AppDatabase, readonly directory: string) {
@@ -53,13 +54,20 @@ export class MemoryRuntime {
   client(): AiMemoryClient { return new AiMemoryClient(this.settings().url, this.token()) }
 
   async start(): Promise<void> {
-    if (!this.starting) this.starting = this.startOnce().finally(() => { this.starting = null })
+    if (!this.starting) this.starting = this.startOnce().then(() => { this.lastError = undefined }).catch(error => {
+      this.lastError = error instanceof Error ? error.message : 'Memory startup failed'
+      throw error
+    }).finally(() => { this.starting = null })
     return this.starting
   }
   private async startOnce(): Promise<void> {
     const generation = this.generation
     const settings = this.settings()
-    if (this.child && this.child.exitCode === null) return
+    if (this.child && this.child.exitCode === null) {
+      // A running process is not proof that its authenticated API is ready.
+      await this.client().initialize()
+      return
+    }
     await mkdir(this.dataDir, { recursive: true })
     // Dedicated explicit config, no inherited user/provider settings. No cloud model calls.
     await writeFile(this.configPath, `embedding_provider = "none"\nserver_url = ${JSON.stringify(settings.url)}\ncapture_assistant = true\n[auto_scope]\nmode = "per_actor"\n[routing]\nmid_session = "sticky"\n[auto_improve.scheduler]\nenabled = false\n`, { mode: 0o600 })
@@ -69,16 +77,23 @@ export class MemoryRuntime {
     const bind = new URL(settings.url)
     if (bind.pathname !== '/') throw new Error('Managed memory requires a root URL without a base path')
     const child = spawn(settings.executable, ['--data-dir', this.dataDir, '--config', this.configPath, 'serve', '--transport', 'http', '--bind', bind.host, '--enable-web'], {
-      env: { ...memoryEnvironment(), AI_MEMORY_AUTH_TOKEN: this.token() }, windowsHide: true, stdio: 'ignore', shell: false
+      env: { ...memoryEnvironment(), AI_MEMORY_AUTH_TOKEN: this.token() }, windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'], shell: false
     })
     this.child = child
-    let spawnError = false
-    child.on('error', () => { spawnError = true; if (this.child === child) this.child = null })
+    let spawnError: NodeJS.ErrnoException | undefined
+    let stderr = ''
+    child.stderr?.on('data', (chunk: Buffer) => { stderr = (stderr + chunk.toString()).slice(-4096) })
+    child.on('error', error => { spawnError = error; if (this.child === child) this.child = null })
     child.on('exit', () => { if (this.child === child) this.child = null })
     const deadline = Date.now() + 8000
     while (Date.now() < deadline) {
       if (generation !== this.generation) throw new Error('Memory startup cancelled')
-      if (spawnError || child.exitCode !== null) throw new Error('AI Memory could not start; check executable, port and data-directory lock')
+      if (spawnError || child.exitCode !== null) {
+        const detail = stderr.replaceAll(this.token(), '[redacted]').replace(/\u001b\[[0-9;]*m/g, '').trim()
+        throw new Error(spawnError
+          ? `Cannot launch AI Memory (${spawnError.code ?? 'spawn error'}): ${settings.executable}. Download the runtime and apply its executable path; check file permissions.`
+          : `AI Memory exited with code ${child.exitCode}. ${detail || 'Check the service port and data-directory lock.'}`)
+      }
       try { await this.client().initialize(); return } catch { /* bounded startup retry */ }
       await new Promise(resolve => setTimeout(resolve, 150))
     }

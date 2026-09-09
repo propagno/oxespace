@@ -1,0 +1,20 @@
+.memory-settings { font-size: 12px; line-height: 1.6; }
+.memory-settings p { margin: 10px 0; color: var(--tx-muted); overflow-wrap: anywhere; }
+.memory-settings .ws-settings-section-header { margin-bottom: 12px; }
+.memory-status-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 600; }
+.memory-badge { padding: 2px 9px; border: 1px solid var(--bd-subtle, #35353e); border-radius: 999px; color: var(--tx-muted); font-size: 11px; text-transform: capitalize; }
+.memory-badge[data-state="ready"] { color: var(--accent); border-color: var(--accent); }
+.memory-badge[data-state="unavailable"] { color: #e6b66e; }
+.memory-settings fieldset > br { display: none; }
+.memory-settings label { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0; color: var(--tx-primary, #e4e4e7); }
+.memory-settings input:not([type="checkbox"]), .memory-settings select { display: block; width: 100%; min-width: 0; padding: 9px 11px; border: 1px solid var(--bd-subtle, #35353e); border-radius: 7px; background: var(--bg-elevated, #19191f); color: var(--tx-primary, #e4e4e7); font: inherit; }
+.memory-settings input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent); flex-shrink: 0; }
+.memory-settings fieldset > div { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.memory-settings button { border: 1px solid var(--bd-subtle, #35353e); border-radius: 7px; padding: 8px 12px; background: var(--bg-elevated, #19191f); color: var(--tx-primary, #e4e4e7); font: inherit; cursor: pointer; }
+.memory-settings button.primary-action { background: var(--accent); color: #071510; border-color: var(--accent); }
+.memory-settings button:hover:not(:disabled) { filter: brightness(1.15); }
+.memory-settings button:disabled, .memory-settings fieldset:disabled { opacity: .5; cursor: not-allowed; }
+.memory-settings :is(button, input, select):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.memory-settings .memory-feedback, .memory-settings .memory-next-step { border: 1px solid var(--bd-subtle, #35353e); border-radius: 7px; padding: 10px 12px; background: var(--bg-elevated, #19191f); }
+.memory-settings .memory-feedback[role="alert"] { border-color: #b66a61; color: #efb1a9; }
+.memory-settings pre { max-height: 220px; overflow: auto; }

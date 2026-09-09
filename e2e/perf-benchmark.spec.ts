@@ -481,6 +481,11 @@ test('modal surfaces: agents, MCP, skills, semantic, workspace settings and usag
         selector: '[role="dialog"][aria-label="Semantic activity"]',
         trigger: () => page.getByTestId('tools-modal').getByRole('menuitem', { name: 'Semantic Activity', exact: true }).click()
       },
+      {
+        label: 'Workspace Settings',
+        selector: '.workspace-settings-modal-v2',
+        trigger: () => page.getByTestId('tools-modal').getByRole('menuitem', { name: 'Workspace Settings', exact: true }).click()
+      }
     ]
 
     for (const surface of surfaces) {

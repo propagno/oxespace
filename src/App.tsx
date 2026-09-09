@@ -233,6 +233,7 @@ export function App(): ReactElement {
   const visitedWorkspacesCap = useSettingsStore((s) => s.visitedWorkspacesCap)
   const integrationGroups = useIntegrationStore((state) => state.groups)
   const [configuredAgent, setConfiguredAgent] = useState<AgentProfile | null>(null)
+  const [delegationNotice, setDelegationNotice] = useState<{ workspaceId: string; taskId: string } | null>(null)
   const [isDesignSystemOpen, setDesignSystemOpen] = useState(false)
   const [isSemanticActivityOpen, setSemanticActivityOpen] = useState(false)
   const [appNotice, setAppNotice] = useState<string | null>(null)
@@ -412,6 +413,15 @@ export function App(): ReactElement {
   }, [])
 
   // Native desktop notifications when a background agent finishes / needs you.
+  useEffect(() => {
+    const api = window.oxe?.delegation
+    if (!api) return
+    return api.onChanged(event => {
+      setDelegationNotice(event)
+      void window.oxe.workspace.list().then(workspaces => useWorkspaceStore.setState({ workspaces })).catch(() => {})
+    })
+  }, [])
+
   useAgentNotifications()
 
   // Clicking a notification focuses the originating pane (window focus + restore
@@ -812,6 +822,14 @@ export function App(): ReactElement {
   return (
     <ThemeProvider themeId={activeWorkspace?.themeId} density={activeWorkspace?.uiDensity}>
       <main className={`app-shell${isSidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
+      {delegationNotice && <div role="status" style={{ position: 'fixed', bottom: 18, right: 18, zIndex: 190, padding: 14, borderRadius: 10, background: 'var(--bg-elevated, #19191f)', border: '1px solid var(--accent)', maxWidth: 340 }}>
+        <p>Delegated task updated</p>
+        <button type="button" className="secondary-action" onClick={() => {
+          void useWorkspaceStore.getState().setActiveWorkspace(delegationNotice.workspaceId).then(() => useUIStore.getState().openWorkspaceSettings())
+          setDelegationNotice(null)
+        }}>View task</button>
+        <button type="button" className="secondary-action" onClick={() => setDelegationNotice(null)}>Dismiss</button>
+      </div>}
       <Sidebar
         workspaces={workspaces}
         activeWorkspaceId={activeWorkspaceId}

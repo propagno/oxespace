@@ -28,6 +28,14 @@ interface TerminalManagerOptions {
   ringCapacityBytes?: number
   prepareLaunch?: (input: { paneId: string; workspaceId: string; cwd: string; signal: AbortSignal }) => Promise<Record<string, string>>
   onLaunchExit?: (paneId: string) => void
+  executionEnvironment?: (input: { paneId: string; workspaceId: string; cwd: string }) => Record<string, string>
+  agentMcpArgs?: (executable: string, args: string[]) => string[]
+  isManagedPane?: (paneId: string) => boolean
+}
+
+export interface ManagedTerminalStart extends TerminalStartInput {
+  launch?: { executable: string; args: string[] }
+  requireCwd?: string
 }
 
 interface TerminalSession {
@@ -90,6 +98,9 @@ export class TerminalManager {
   private readonly launchControllers = new Map<string, AbortController>()
   private readonly prepareLaunch?: TerminalManagerOptions['prepareLaunch']
   private readonly onLaunchExit?: TerminalManagerOptions['onLaunchExit']
+  private readonly executionEnvironment?: TerminalManagerOptions['executionEnvironment']
+  private readonly agentMcpArgs?: TerminalManagerOptions['agentMcpArgs']
+  private readonly isManagedPane?: TerminalManagerOptions['isManagedPane']
   private readonly sessions = new Map<string, TerminalSession>()
   private readonly pty: PtyModule
   private readonly launchContextStatement: ReturnType<AppDatabase['prepare']>
@@ -106,6 +117,9 @@ export class TerminalManager {
   constructor(db: AppDatabase, options: TerminalManagerOptions = {}) {
     this.prepareLaunch = options.prepareLaunch
     this.onLaunchExit = options.onLaunchExit
+    this.executionEnvironment = options.executionEnvironment
+    this.agentMcpArgs = options.agentMcpArgs
+    this.isManagedPane = options.isManagedPane
     this.pty = options.pty ?? { spawn }
     this.env = options.env ?? process.env
     this.platform = options.platform ?? process.platform
@@ -139,7 +153,7 @@ export class TerminalManager {
     this.rtkService = getRtkService(userDataPath)
   }
 
-  async start(input: TerminalStartInput): Promise<void> {
+  async start(input: ManagedTerminalStart): Promise<void> {
     const pending = this.starting.get(input.paneId)
     if (pending) return pending
     const controller = new AbortController()
@@ -152,8 +166,9 @@ export class TerminalManager {
     return task
   }
 
-  private async startOnce(input: TerminalStartInput, signal: AbortSignal): Promise<void> {
+  private async startOnce(input: ManagedTerminalStart, signal: AbortSignal): Promise<void> {
     if (this.sessions.has(input.paneId)) return
+    if (!input.launch && this.isManagedPane?.(input.paneId)) throw new Error('Delegated terminal is managed by its task. Use Retry in Workspace settings > Agent delegation.')
 
     const launch = this.launchContextStatement.get({
       paneId: input.paneId,
@@ -170,17 +185,19 @@ export class TerminalManager {
     const shellArgs = JSON.parse(launch.shell_args_json) as string[]
 
     const agentParts = input.agentCommand ? input.agentCommand.trim().split(/\s+/) : null
-    const executable = agentParts
+    const executable = input.launch ? resolveExecutable(input.launch.executable, this.env, this.platform) : agentParts
       ? resolveExecutable(agentParts[0], this.env, this.platform)
       : resolveExecutable(launch.shell_executable, this.env, this.platform)
-    const args = agentParts
+    let args = input.launch ? input.launch.args : agentParts
       ? agentParts.slice(1)
       : [...shellArgs, ...(input.agentArgs ?? [])]
+    if (!input.launch && this.agentMcpArgs) args = this.agentMcpArgs(executable, args)
 
     // Pane-level rootPath overrides the workspace root — used by git worktree panes.
     const cwd = launch.pane_root_path && existsSync(launch.pane_root_path)
       ? launch.pane_root_path
       : launch.workspace_root_path
+    if (input.requireCwd && (cwd !== input.requireCwd || !existsSync(input.requireCwd))) throw new Error('Delegated worktree is missing; refusing workspace-root fallback')
 
     let finalEnv: Record<string, string> = {
       ...this.env,
@@ -190,6 +207,7 @@ export class TerminalManager {
       GLAMOUR_STYLE: 'dark',
       BAT_THEME: 'TwoDark'
     }
+    if (this.executionEnvironment) finalEnv = { ...finalEnv, ...this.executionEnvironment({ paneId: input.paneId, workspaceId: input.workspaceId, cwd }) }
     // Optional launch integrations only return environment; provider failures
     // never prevent the shell/agent from starting or touch its output stream.
     if (this.prepareLaunch) {
@@ -245,8 +263,8 @@ export class TerminalManager {
       })
     } catch (error) {
       this.notifyLaunchExit(input.paneId)
-      if (input.agentCommand) {
-        throw new Error(`Unable to start agent "${input.agentCommand}". ${toMessage(error)}`)
+      if (input.agentCommand || input.launch) {
+        throw new Error(`Unable to start agent "${input.launch?.executable ?? input.agentCommand}". ${toMessage(error)}`)
       }
       throw new Error(`Unable to start ${launch.shell_profile_name}. Check Settings > Shell profiles executable "${launch.shell_executable}". ${toMessage(error)}`)
     }

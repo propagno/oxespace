@@ -427,6 +427,12 @@ export function registerE2eMockIpcHandlers(): void {
   // statuses read props. ipcMain.handle throws on a duplicate channel, so the
   // try/catch lets the explicit mocks above win and only fills the gaps.
   const channelDefault = (channel: string): unknown => {
+    if (channel === IPC_CHANNELS.delegation.status) return { enabled: false, tasks: [] }
+    if (channel === IPC_CHANNELS.memory.status) return {
+      projectId: 'e2e-project', settings: { enabled: false, automaticCapture: false, automaticContext: false },
+      runtime: { mode: 'managed', executable: 'ai-memory', url: 'http://127.0.0.1:49374' },
+      health: { status: 'disabled' }, sessions: []
+    }
     if (/get-output/i.test(channel)) return { jobId: '', startSequence: 0, lines: [] }
     if (/(^|:|-)list|executions|get-ready|profiles|branches|worktrees|releases|commits|workflows|checkpoints|repositories|groups|handoffs|logs/i.test(channel)) return []
     if (/status|usage|credits|summary|detect|get-state|getStatus/i.test(channel)) return {}

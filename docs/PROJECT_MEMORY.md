@@ -15,6 +15,13 @@ Persistent knowledge belongs to the project, not to a terminal or worktree path.
    and MCP trust requests. Existing agents do not dynamically reload settings.
 
 Node must be available on the agent's PATH for the lightweight hook/MCP bridges.
+Downloading selects the executable in the form; apply the settings to persist
+that path. Saving with Enabled unchecked intentionally leaves memory disabled.
+Agent setup is available only after applying changes and reaching Ready. Failed
+startup is shown in the settings panel with the executable error code or bounded
+native process stderr (the managed authentication token is redacted). For ENOENT,
+check the selected executable path; for a bind or lock error, inspect the reported
+port or running service without deleting the knowledge directory.
 No AI Memory browser UI is required. Memory is disabled by default; provider
 outages cannot prevent PTY startup. Optional launch setup has a three-second
 deadline and does not wait for the memory server. The service starts in the

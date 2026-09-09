@@ -7,6 +7,28 @@ import { WorkspaceService } from '../../electron/main/services/workspace.service
 import { __resetExecutableCacheForTests, TerminalManager, resolveExecutable } from '../../electron/main/services/terminal.service'
 
 describe('TerminalManager', () => {
+  test('managed launches preserve structured arguments and refuse a missing worktree fallback', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'oxe-managed-launch-'))
+    const db = openInMemoryDatabase()
+    const workspaceService = new WorkspaceService(db)
+    const ws = workspaceService.create({ rootPath: root, layout: '1x1', autoStart: false })
+    const pty = createFakePtyModule()
+    const manager = new TerminalManager(db, { pty, platform: 'linux', isManagedPane: () => true,
+      executionEnvironment: () => ({ OXESPACE_EXECUTION_ID: 'independent-execution' }) })
+    const input = { workspaceId: ws.id, paneId: ws.panes[0].id, disableRtk: true }
+    try {
+      await expect(manager.start(input)).rejects.toThrow('managed by its task')
+      const args = ['--', 'A prompt with spaces, quotes " and $ characters']
+      await manager.start({ ...input, requireCwd: root, launch: { executable: 'codex', args } })
+      expect(pty.spawn).toHaveBeenCalledWith('codex', args, expect.objectContaining({ cwd: root,
+        env: expect.objectContaining({ OXESPACE_EXECUTION_ID: 'independent-execution' }) }))
+      manager.stop(input)
+      const missing = join(root, 'missing-worktree')
+      workspaceService.setPaneRootPath(input.paneId, missing)
+      await expect(manager.start({ ...input, requireCwd: missing, launch: { executable: 'codex', args } })).rejects.toThrow('refusing workspace-root fallback')
+      expect(pty.spawn).toHaveBeenCalledTimes(1)
+    } finally { manager.stopAll(); db.close(); rmSync(root, { recursive: true, force: true }) }
+  })
   test('stopping an in-flight optional launch cannot spawn a late process', async () => {
     const db = openInMemoryDatabase()
     const workspace = new WorkspaceService(db).create({ rootPath: 'C:/repo', layout: '1x1', autoStart: false })

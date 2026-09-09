@@ -63,6 +63,7 @@ export type { IntegrationGroup, IntegrationMember, IntegrationHandoff, Integrati
 export type { FileSystemApi, FileSystemFileChangedEvent, FileSystemListTreeInput, FileSystemReadBinaryInput, FileSystemReadBinaryResult, FileSystemReadFileInput, FileSystemReadFileResult, FileSystemUnwatchFileInput, FileSystemWatchFileInput, FileSystemWatchFileResult, FileSystemWriteFileInput, FileSystemWriteFileResult, FileTreeNode, FileTreeNodeType } from './filesystem'
 
 export const IPC_CHANNELS = {
+  delegation: { status: 'delegation:status', configure: 'delegation:configure', control: 'delegation:control', changed: 'delegation:changed' },
   memory: {
     status: 'memory:status', configure: 'memory:configure', install: 'memory:install',
     setupAgents: 'memory:setup-agents', search: 'memory:search', recent: 'memory:recent'
@@ -617,6 +618,7 @@ export interface RtkApi {
 }
 
 export interface OxeApi {
+  delegation: import('./delegation').DelegationApi
   memory: import('./memory').MemoryApi
   app: {
     version: string

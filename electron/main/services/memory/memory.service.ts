@@ -44,6 +44,7 @@ export class MemoryService implements MemoryApi {
     if (settings.enabled) {
       try { health = await new AiMemoryProvider(this.runtime.client()).health() }
       catch { health = { status: 'unavailable', message: 'Memory credentials or runtime are unavailable' } }
+      if (health.status === 'unavailable' && this.runtime.lastError) health.message = this.runtime.lastError
     }
     return { projectId: context.projectId, settings, runtime: this.runtime.settings(), health,
       sessions: [...this.runs.values()].filter(run => run.context.projectId === context.projectId && run.active).flatMap(run => [...run.sessions.values()]) }

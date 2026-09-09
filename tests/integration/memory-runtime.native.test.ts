@@ -14,6 +14,22 @@ import { AiMemoryProvider } from '../../electron/main/services/memory/ai-memory.
 vi.mock('electron', () => ({ safeStorage: { isEncryptionAvailable: () => true,
   encryptString: (text: string) => Buffer.from(text), decryptString: (value: Buffer) => value.toString() } }))
 
+test('reports a missing executable and permits a bounded retry', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'oxespace-memory-missing-'))
+  const db = openInMemoryDatabase()
+  const runtime = new MemoryRuntime(db, directory)
+  try {
+    await runtime.configure({ mode: 'managed', executable: join(directory, 'missing-ai-memory'), url: 'http://127.0.0.1:49374' })
+    await expect(runtime.start()).rejects.toThrow('ENOENT')
+    expect(runtime.lastError).toContain('Download the runtime')
+    await expect(runtime.start()).rejects.toThrow('ENOENT')
+  } finally {
+    await runtime.stop()
+    db.close()
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
 describe.skipIf(!process.env.OXESPACE_AI_MEMORY_TEST_BINARY)('managed native runtime', () => {
   test('owns only its child, prepares connected hooks credentials, and finalizes exactly one native session', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'oxespace-memory-runtime-test-'))
