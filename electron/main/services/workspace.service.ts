@@ -458,7 +458,8 @@ export class WorkspaceService {
     const nextShellProfileId = input.defaultShellProfileId ?? current.defaultShellProfileId
     const nextPositions = getPanePositions(nextLayout)
     const nextPositionKeys = new Set(nextPositions.map(positionKey))
-    const panesToRemove = current.panes.filter((pane) => !nextPositionKeys.has(positionKey(pane)))
+    const layoutChanged = input.layoutPreset !== undefined && input.layoutPreset !== current.layoutPreset
+    const panesToRemove = layoutChanged ? current.panes.filter((pane) => pane.rowIndex >= 0 && !nextPositionKeys.has(positionKey(pane))) : []
     const lockedPane = panesToRemove.find((pane) => pane.status !== 'idle' && pane.status !== 'exited')
     if (lockedPane) {
       throw new Error('Cannot reduce layout while removed panes are running')
@@ -501,7 +502,7 @@ export class WorkspaceService {
         `INSERT INTO panes (id, workspace_id, type, row_index, column_index, shell_profile_id, status)
          VALUES (@id, @workspaceId, 'terminal', @rowIndex, @columnIndex, @shellProfileId, 'idle')`
       )
-      for (const position of nextPositions) {
+      for (const position of layoutChanged ? nextPositions : []) {
         if (existingKeys.has(positionKey(position))) continue
         insertPane.run({
           id: randomUUID(),
@@ -668,7 +669,13 @@ export class WorkspaceService {
       )
       .all(workspaceId) as PaneRow[]
 
+    const origins = new Map<string, string>()
+    for (const record of this.db.prepare('SELECT payload FROM delegations WHERE workspace_id = ?').all(workspaceId) as { payload: string }[]) {
+      const task = JSON.parse(record.payload) as { paneId?: string; originPaneId?: string }
+      if (task.paneId && task.originPaneId) origins.set(task.paneId, task.originPaneId)
+    }
     return rows.map((row) => ({
+      originPaneId: origins.get(row.id),
       id: row.id,
       workspaceId: row.workspace_id,
       type: row.type,

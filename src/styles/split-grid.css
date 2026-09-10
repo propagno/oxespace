@@ -31,13 +31,15 @@
 }
 
 .split-resize-handle {
+  position: absolute;
   z-index: 5;
-  background: transparent;
+  background: color-mix(in srgb, var(--tx-muted) 18%, transparent);
   transition: background 150ms ease, box-shadow 150ms ease;
   touch-action: none;
 }
 
 .split-resize-handle:hover,
+.split-resize-handle:focus-visible,
 .split-resize-handle:active {
   background: color-mix(in srgb, var(--accent) 52%, transparent);
   box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 34%, transparent);

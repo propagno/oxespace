@@ -4,6 +4,19 @@ import { WorkspaceService, getPanePositions } from '../../electron/main/services
 import { defaultSplitShellProfileId } from '../../electron/main/services/shell-profile.defaults'
 
 describe('WorkspaceService', () => {
+  test('saving appearance preserves dynamically created terminals with an unchanged preset', () => {
+    const db = openInMemoryDatabase()
+    try {
+      const service = new WorkspaceService(db)
+      const ws = service.create({ rootPath: 'C:/layout-regression', layoutPreset: 2, autoStart: false })
+      const { paneId } = service.createPane(ws.id)
+      const saved = service.updateSettings({ workspaceId: ws.id, themeId: 'nord', layoutPreset: 2 })
+      expect(saved.panes.map(p => p.id)).toContain(paneId)
+      expect(saved.panes).toHaveLength(3)
+      db.prepare("UPDATE panes SET status = 'running' WHERE id = ?").run(paneId)
+      expect(() => service.updateSettings({ workspaceId: ws.id, themeId: 'dracula' })).not.toThrow()
+    } finally { db.close() }
+  })
   test('creates a workspace with a pane per layout cell', () => {
     const db = openInMemoryDatabase()
     const service = new WorkspaceService(db)

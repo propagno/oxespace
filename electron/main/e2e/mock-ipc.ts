@@ -111,6 +111,14 @@ export function registerE2eMockIpcHandlers(): void {
     })
     return workspace
   })
+  ipcMain.handle(IPC_CHANNELS.workspace.createPane, (_event: IpcMainInvokeEvent, input: { workspaceId: string }) => {
+    const workspace = workspaces.find(w => w.id === input.workspaceId)
+    if (!workspace) throw new Error('Workspace not found')
+    const paneId = randomUUID()
+    workspace.panes.push({ ...workspace.panes[0], id: paneId, rowIndex: 0,
+      columnIndex: Math.max(...workspace.panes.map(p => p.columnIndex)) + 1, status: 'idle' })
+    return { workspace, paneId }
+  })
   ipcMain.handle(IPC_CHANNELS.workspace.updatePaneType, (_event: IpcMainInvokeEvent, input: { paneId: string; type: Workspace['panes'][number]['type'] }) => {
     for (const workspace of workspaces) {
       const pane = workspace.panes.find((item) => item.id === input.paneId)

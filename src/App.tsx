@@ -416,9 +416,13 @@ export function App(): ReactElement {
   useEffect(() => {
     const api = window.oxe?.delegation
     if (!api) return
+    let revision = 0
     return api.onChanged(event => {
       setDelegationNotice(event)
-      void window.oxe.workspace.list().then(workspaces => useWorkspaceStore.setState({ workspaces })).catch(() => {})
+      const requested = ++revision
+      void window.oxe.workspace.list().then(workspaces => {
+        if (requested === revision) useWorkspaceStore.setState({ workspaces })
+      }).catch(() => {})
     })
   }, [])
 
@@ -613,6 +617,7 @@ export function App(): ReactElement {
     { id: 'open-integration', title: 'Open multi-repo coordination', subtitle: 'Align agents, context and handoffs', icon: Grid2x2, category: 'Workspace', keywords: ['integration', 'coordination', 'srv', 'bff', 'fed', 'handoff'], disabled: !activeWorkspace, run: openIntegrationPanel },
 
     // View
+    { id: 'balance-pane-layout', title: 'Balance terminal panes', subtitle: 'Restore equal sizes within each split', icon: Columns2, category: 'View', disabled: !activeWorkspace, run: () => { if (activeWorkspace) usePaneLayoutStore.getState().balance(activeWorkspace.id) } },
     { id: 'toggle-editor', title: 'Toggle editor', subtitle: 'Ctrl+E', icon: LayoutDashboard, category: 'View', disabled: !activeWorkspace, run: toggleEditor },
     { id: 'github-open-panel', title: 'GitHub: Open tools panel', icon: Github, category: 'View', keywords: ['git', 'pr', 'workflow', 'actions'], disabled: !activeWorkspace, run: toggleGitHubPanel },
     { id: 'find-in-files', title: 'Search files & commands', subtitle: 'Ctrl+K / Ctrl+J · unified search', icon: Search, category: 'View', keywords: ['search', 'grep', 'ripgrep', 'rg', 'find', 'text', 'regex', 'command'], disabled: !activeWorkspace, run: openCommandMenu },
