@@ -17,13 +17,20 @@ test('workspace settings navigation and responsive visual review', async () => {
     await page.getByTestId('wizard-launch-btn').click()
     await page.getByTestId('btn-open-tools').click()
     await page.getByTestId('tools-modal').getByRole('menuitem', { name: 'Workspace Settings', exact: true }).click()
-    const modal = page.getByRole('dialog', { name: 'Workspace settings' })
+    const modal = page.getByRole('dialog', { name: 'Settings', exact: true })
     await expect(modal).toBeVisible()
     for (const width of [1360, 600]) {
       await page.setViewportSize({ width, height: 900 })
       for (const label of ['Appearance', 'Terminal', 'Project memory', 'Agent delegation']) {
-        await modal.getByRole('button', { name: new RegExp(label) }).click()
-        await expect(modal.getByRole('button', { name: new RegExp(label) })).toHaveAttribute('aria-pressed', 'true')
+        const pageId = ({ Appearance: 'appearance', Terminal: 'terminal', 'Project memory': 'memory', 'Agent delegation': 'delegation' } as Record<string, string>)[label]
+        if (width < 900) {
+          await modal.getByLabel('Settings category').selectOption(pageId)
+          await expect(modal.getByLabel('Settings category')).toHaveValue(pageId)
+        } else {
+          const category = modal.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: new RegExp(`^${label}`) })
+          await category.click()
+          await expect(category).toHaveAttribute('aria-current', 'page')
+        }
         expect(await modal.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
         expect(await modal.locator('.ws-settings-main').evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
         expect(await modal.locator('.ws-settings-main').evaluate(el => el.scrollTop)).toBe(0)
@@ -43,6 +50,7 @@ test('workspace settings navigation and responsive visual review', async () => {
             el.scrollTop += summary.getBoundingClientRect().top - el.getBoundingClientRect().top - 16
           })
           await modal.screenshot({ path: info.outputPath(`${width}-Launch-summary.png`) })
+          await modal.getByRole('button', { name: 'Discard changes', exact: true }).click()
         }
         await modal.locator('.ws-settings-main').evaluate(el => { el.scrollTop = el.scrollHeight })
       }

@@ -86,6 +86,7 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
   const page = selectedPageId ?? localPage
   const selectedPage = SETTINGS_PAGES.find(item => item.id === page)!
   const contentRef = useRef<HTMLDivElement>(null)
+  useEffect(() => { if (contentRef.current) contentRef.current.scrollTop = 0 }, [page])
 
   // Resolved terminal prefs (global ← workspace override) — drives the preview
   // live as the user edits the Terminal section below.

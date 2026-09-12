@@ -51,3 +51,9 @@
   .settings-compact-category { display: grid; }
   .settings-workspace-content .ws-settings-main, .settings-general { padding: 20px; }
 }
+@media (max-width: 699px) {
+  .settings-center { grid-template-columns: 170px minmax(0, 1fr); }
+  .settings-workspace-content .modal-actions { flex-wrap: wrap; padding: 12px; }
+  .settings-workspace-content .modal-actions p { flex-basis: 100%; max-width: none; }
+  .settings-workspace-content .ws-settings-main { padding: 14px; }
+}

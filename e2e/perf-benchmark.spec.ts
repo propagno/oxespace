@@ -512,6 +512,8 @@ test('modal surfaces: agents, MCP, skills, semantic, workspace settings and usag
     const usageClose: number[] = []
     for (let i = 0; i < modalRepeats; i++) {
       const started = await page.evaluate(() => performance.now())
+      // Settings restores terminal focus; move to navigation before an app shortcut.
+      await page.locator('.sidebar-section-header').last().click()
       await page.keyboard.press('Control+k')
       const input = page.locator('input[placeholder="Search files and commands…"]')
       await input.fill('Usage & Rate Limits')
