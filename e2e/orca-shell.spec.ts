@@ -32,10 +32,9 @@ test('renders the Orca-inspired project, editor and source-control shell', async
     if (await expandSidebar.isVisible().catch(() => false)) await expandSidebar.click()
 
     const navItems = page.locator('.sidebar-quick-nav .sidebar-nav-item')
-    await expect(navItems).toHaveCount(3)
-    const boxes = await navItems.evaluateAll((items) => items.map((item) => item.getBoundingClientRect().toJSON()))
-    expect(boxes[1]?.y).toBeGreaterThan(boxes[0]?.y ?? 0)
-    expect(boxes[2]?.y).toBeGreaterThan(boxes[1]?.y ?? 0)
+    await expect(navItems).toHaveCount(1)
+    await expect(navItems.first()).toContainText('Search')
+    await expect(page.getByTestId('btn-open-tools')).toBeVisible()
     await expect(page.locator('.app-statusbar')).toBeVisible()
 
     // Move focus out of xterm first: Ctrl+E is a shell line-editing key while

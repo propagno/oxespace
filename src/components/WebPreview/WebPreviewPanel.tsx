@@ -169,11 +169,12 @@ export function WebPreviewPanel({ embedded = false, onClose, workspace }: WebPre
   useEffect(() => {
     if (!pendingWebPreview) return
     const nextUrl = normalizePreviewUrl(pendingWebPreview, allowExternal)
-    setPendingWebPreview(workspace.id, null)
     if (!nextUrl) {
       setCaptureNotice('An agent requested an external URL. Enable External preview to open it.')
       return
     }
+    setPendingWebPreview(workspace.id, null)
+    setCaptureNotice(null)
     setDraftUrl(pendingWebPreview)
     setUrl(nextUrl)
     setHistory((current) => {
@@ -296,6 +297,7 @@ export function WebPreviewPanel({ embedded = false, onClose, workspace }: WebPre
                 src={url}
                 style={frameStyle}
                 title="Workspace web preview"
+                data-workspace-id={workspace.id}
                 partition="oxe-webpreview"
                 data-testid="web-preview-webview"
               />

@@ -48,6 +48,28 @@ export interface ResizeHandle extends Rect {
 
 const MIN_SIZE_PCT = 6
 
+/** Validate persisted input before geometry uses it. Reject duplicate leaves and unsafe sizes. */
+export function isValidPaneTree(value: unknown): value is PaneNode {
+  const ids = new Set<string>()
+  const visit = (input: unknown, depth: number): boolean => {
+    if (!input || typeof input !== 'object' || depth > 64) return false
+    const n = input as PaneNode
+    if (n.kind === 'leaf') {
+      if (typeof n.paneId !== 'string' || !n.paneId || ids.has(n.paneId)) return false
+      ids.add(n.paneId); return true
+    }
+    return n.kind === 'split' && ['horizontal', 'vertical'].includes(n.direction) && Array.isArray(n.children) && n.children.length > 0 &&
+      (n.sizes === undefined || (Array.isArray(n.sizes) && n.sizes.length === n.children.length && n.sizes.every(s => Number.isFinite(s) && s > 0))) &&
+      n.children.every(child => visit(child, depth + 1))
+  }
+  return visit(value, 0)
+}
+
+export function balanceTree(node: PaneNode | null): PaneNode | null {
+  if (!node || node.kind === 'leaf') return node
+  return { ...node, sizes: node.children.map(() => 100 / node.children.length), children: node.children.map(child => balanceTree(child)!) }
+}
+
 export function isLeaf(node: PaneNode): node is PaneLeaf {
   return node.kind === 'leaf'
 }
@@ -136,15 +158,14 @@ export function splitLeaf(
   }
 }
 
-/** Remove the leaf for `paneId`, collapsing single-child splits (sizes reset). */
+/** Remove a leaf, preserving remaining proportions and untouched subtrees. */
 export function removeLeaf(node: PaneNode | null, paneId: string): PaneNode | null {
   if (!node) return null
   if (node.kind === 'leaf') return node.paneId === paneId ? null : node
-  const children = node.children
-    .map((c) => removeLeaf(c, paneId))
-    .filter((c): c is PaneNode => c !== null)
-  // Sizes are dropped when membership changes; normalize resolves to equal.
-  return normalize({ kind: 'split', direction: node.direction, children })
+  if (!collectPaneIds(node).includes(paneId)) return node
+  const sizes = resolveSizes(node.sizes, node.children.length)
+  const remaining = node.children.map((c, i) => ({ node: removeLeaf(c, paneId), size: sizes[i] })).filter(c => c.node !== null)
+  return normalize({ kind: 'split', direction: node.direction, children: remaining.map(c => c.node!), sizes: remaining.map(c => c.size) })
 }
 
 /** Drag-to-split: detach `paneId` and re-insert it beside `targetPaneId` along
@@ -174,7 +195,9 @@ export function resizeSplit(
   deltaPct: number
 ): PaneNode | null {
   if (!node || node.kind === 'leaf') return node
+  if (!Number.isFinite(deltaPct) || !Number.isInteger(index) || index < 0) return node
   if (path.length === 0) {
+    if (index >= node.children.length - 1) return node
     const sizes = resolveSizes(node.sizes, node.children.length).slice()
     let a = sizes[index] + deltaPct
     let b = sizes[index + 1] - deltaPct

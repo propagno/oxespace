@@ -611,6 +611,20 @@
   color: rgba(255, 255, 255, 0.35);
 }
 
+/* Only rendered when two or more workspaces sit on the same folder, which
+   `WorkspaceService.create` no longer allows — this labels the ones already in
+   older databases so they can be told apart long enough to be closed. */
+.ws-group-dup-index {
+  flex-shrink: 0;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--bd-base);
+  color: var(--tx-secondary);
+  font-size: 9px;
+  font-weight: 700;
+  cursor: help;
+}
+
 .ws-group-meta-action {
   cursor: pointer;
   transition: color 100ms, border-color 100ms, background 100ms;

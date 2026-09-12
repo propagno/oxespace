@@ -1,13 +1,21 @@
-import { Activity, ChevronsLeft, ChevronsRight, Code2, Plus, Search, Wrench } from 'lucide-react'
+import { ChevronDown, ChevronsLeft, ChevronsRight, Plus, Search, Settings2, Wrench } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { IntegrationGroup } from '../../../shared/types/integration'
 import type { Workspace } from '../../../shared/types/workspace'
 import { useIntegrationStore } from '../../store/integration.store'
+import { rootPathKey } from '../../../shared/utils/path'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { useWorkspaceActivity } from '../../hooks/useWorkspaceActivity'
 import { OxeLogo } from '../Brand/OxeLogo'
 import { SidebarIntegrationRow } from './SidebarIntegrationRow'
 import { WorkspaceGroup } from './WorkspaceGroup'
+import { PaneSessionRow } from './PaneSessionRow'
+import { useAgentStore } from '../../store/agent.store'
+import { useUIStore } from '../../store/ui.store'
+import { useTerminalStore } from '../../store/terminal.store'
+import { useNavigationPrefs } from '../../store/navigation-prefs.store'
+import './SidebarNavigation.css'
+import { cachedBranchLabel } from '../../hooks/useGitBranch'
 
 interface SidebarProps {
   workspaces: Workspace[]
@@ -36,8 +44,6 @@ export function Sidebar({
   isCollapsed,
   onCloseWorkspace,
   onNewWorkspace,
-  onOpenJobs,
-  onOpenScripts,
   onOpenSearch,
   onOpenTools,
   onSelectWorkspace,
@@ -46,10 +52,31 @@ export function Sidebar({
   workspaces,
 }: SidebarProps): ReactElement {
   const [searchQuery, setSearchQuery] = useState('')
+  const width = useNavigationPrefs(s => s.width)
+  const expanded = useNavigationPrefs(s => s.expanded)
+  const setWidth = useNavigationPrefs(s => s.setWidth)
+  const setExpanded = useNavigationPrefs(s => s.setExpanded)
+  const profiles = useAgentStore(s => s.allProfiles)
+  const activePaneId = useUIStore(s => s.activePaneId)
+  const openSettings = useUIStore(s => s.toggleSettings)
+  const resizing = useRef(false)
+  useEffect(() => {
+    for (const workspace of workspaces) {
+      if (!(workspace.id in expanded)) setExpanded(workspace.id, workspace.id === activeWorkspaceId)
+    }
+  }, [workspaces, expanded, activeWorkspaceId, setExpanded])
+  const activatePane = async (workspaceId: string, paneId: string): Promise<void> => {
+    await useWorkspaceStore.getState().setActiveWorkspace(workspaceId)
+    useUIStore.getState().setMaximizedPane(null)
+    useUIStore.getState().setActivePane(paneId)
+    useTerminalStore.getState().setActivePaneId(paneId)
+    requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('oxe:focus-pane', { detail: { paneId } })))
+  }
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
+      if (useUIStore.getState().isSettingsOpen || useUIStore.getState().isWorkspaceSettingsOpen) return
       if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
         e.preventDefault()
         searchInputRef.current?.focus()
@@ -81,9 +108,32 @@ export function Sidebar({
     const q = searchQuery.toLowerCase()
     return workspaces.filter((ws) =>
       ws.name.toLowerCase().includes(q) ||
-      ws.panes.some((p) => (p.agentName ?? p.type).toLowerCase().includes(q))
+      cachedBranchLabel(ws.rootPath).toLowerCase().includes(q) ||
+      ws.panes.some((p) => `${p.displayName ?? ''} ${p.agentName ?? p.type} ${profiles.find(profile => profile.agentProfileId === p.agentProfileId)?.name ?? ''} ${p.rootPath ?? ''} ${cachedBranchLabel(p.rootPath ?? ws.rootPath)}`.toLowerCase().includes(q))
     )
-  }, [workspaces, searchQuery])
+  }, [workspaces, searchQuery, profiles])
+
+  // Workspaces that sit on the same folder are otherwise identical in this list:
+  // the name defaults to the folder's basename and the branch is read from the
+  // root, so every row renders the same two lines. `create` refuses to make new
+  // ones, but databases from before that rule still hold them, and the user has
+  // to be able to tell them apart to close the extras. Numbered over the full
+  // list rather than the filtered one so a search doesn't renumber the rows.
+  const duplicateRoots = useMemo(() => {
+    const seen = new Map<string, string[]>()
+    for (const ws of workspaces) {
+      const key = rootPathKey(ws.rootPath, window.oxe.app.platform)
+      const bucket = seen.get(key)
+      if (bucket) bucket.push(ws.id)
+      else seen.set(key, [ws.id])
+    }
+    const numbered = new Map<string, { index: number; count: number }>()
+    for (const ids of seen.values()) {
+      if (ids.length < 2) continue
+      ids.forEach((id, index) => numbered.set(id, { index: index + 1, count: ids.length }))
+    }
+    return numbered
+  }, [workspaces])
 
   const handleDropOnWorkspace = (targetId: string): void => {
     if (!dragSourceId || dragSourceId === targetId || !dropPosition) {
@@ -148,6 +198,7 @@ export function Sidebar({
           ))}
         </nav>
         <div className="sidebar-footer sidebar-footer-collapsed">
+          <button type="button" className="sidebar-collapse-btn" aria-label="Open settings" title="Settings" onClick={openSettings}><Settings2 size={16} /></button>
           <button
             type="button"
             className="sidebar-tools-btn"
@@ -173,7 +224,12 @@ export function Sidebar({
   }
 
   return (
-    <aside className="sidebar">
+    <aside className="sidebar sidebar-redesign" style={{ width, minWidth: width, flexBasis: width }}>
+      <div className="sidebar-width-handle" role="separator" aria-label="Sidebar width" aria-orientation="vertical" aria-valuemin={240} aria-valuemax={360} aria-valuenow={width} tabIndex={0}
+        onKeyDown={e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setWidth(width + (e.key === 'ArrowLeft' ? -10 : 10)) } }}
+        onPointerDown={e => { resizing.current = true; e.currentTarget.setPointerCapture(e.pointerId); e.preventDefault() }}
+        onPointerMove={e => { if (resizing.current) setWidth(e.clientX - (e.currentTarget.parentElement?.getBoundingClientRect().left ?? 0)) }}
+        onPointerUp={() => { resizing.current = false }} onPointerCancel={() => { resizing.current = false }} onLostPointerCapture={() => { resizing.current = false }} />
       <div className="sidebar-header-bar">
         <div className="sidebar-header-brand">
           <OxeLogo size={20} variant="wordmark" />
@@ -187,7 +243,7 @@ export function Sidebar({
             className="sidebar-icon-btn sidebar-new-btn"
             aria-label="New workspace"
             title="New workspace"
-            data-testid="btn-new-workspace"
+            data-testid="btn-new-workspace-header"
             onClick={onNewWorkspace}
           >
             <Plus size={14} aria-hidden="true" />
@@ -196,14 +252,6 @@ export function Sidebar({
       </div>
 
       <nav className="sidebar-quick-nav" aria-label="Primary navigation">
-        <button type="button" className="sidebar-nav-item" onClick={onOpenJobs} title="Background jobs dock">
-          <Activity size={14} className="sidebar-nav-icon" aria-hidden="true" />
-          <span className="sidebar-nav-label">Jobs</span>
-        </button>
-        <button type="button" className="sidebar-nav-item" onClick={onOpenScripts} title="Project scripts">
-          <Code2 size={14} className="sidebar-nav-icon" aria-hidden="true" />
-          <span className="sidebar-nav-label">Scripts</span>
-        </button>
         <button type="button" className="sidebar-nav-item" onClick={onOpenSearch} title="Search files & commands (Ctrl+J)">
           <Search size={14} className="sidebar-nav-icon" aria-hidden="true" />
           <span className="sidebar-nav-label">Search</span>
@@ -263,10 +311,15 @@ export function Sidebar({
         ) : null}
 
         <div className="sidebar-section-header">
-          <span>Projects</span>
+          <span>Workspaces</span>
+          <button type="button" className="sidebar-section-action-btn" aria-label="Toggle all workspace terminals" onClick={() => {
+            const shouldExpand = workspaces.some(w => !(expanded[w.id] ?? w.id === activeWorkspaceId))
+            workspaces.forEach(w => setExpanded(w.id, shouldExpand))
+          }}><ChevronDown size={12} /></button>
           <button
             type="button"
             className="sidebar-section-action-btn"
+            data-testid="btn-new-workspace"
             title="New workspace"
             aria-label="New workspace"
             onClick={onNewWorkspace}
@@ -287,10 +340,12 @@ export function Sidebar({
           </div>
         ) : (
           filtered.map((ws) => (
+            <section key={ws.id} className={`sidebar-workspace-tree${ws.id === activeWorkspaceId ? ' active' : ''}`}>
             <WorkspaceGroup
               key={ws.id}
               workspace={ws}
               isActive={ws.id === activeWorkspaceId}
+              duplicate={duplicateRoots.get(ws.id) ?? null}
               onSelect={handleSelectWorkspace}
               onClose={onCloseWorkspace}
               isDragging={dragSourceId === ws.id}
@@ -313,6 +368,16 @@ export function Sidebar({
                 setDropPosition(null)
               }}
             />
+            <button type="button" className="sidebar-children-toggle" aria-expanded={Boolean(searchQuery) || (expanded[ws.id] ?? ws.id === activeWorkspaceId)}
+              onClick={() => setExpanded(ws.id, !(expanded[ws.id] ?? ws.id === activeWorkspaceId))}>
+              <ChevronDown size={12} /><span>{ws.panes.filter(p => p.type === 'terminal' && p.rowIndex >= 0 && p.columnIndex >= 0).length} terminals</span>
+            </button>
+            {(searchQuery || (expanded[ws.id] ?? ws.id === activeWorkspaceId)) && <div className="sidebar-terminal-children">
+              {ws.panes.filter(p => p.type === 'terminal' && p.rowIndex >= 0 && p.columnIndex >= 0).map((pane, index) =>
+                <PaneSessionRow key={pane.id} pane={pane} paneIndex={index} workspace={ws} agentProfiles={profiles}
+                  isActive={ws.id === activeWorkspaceId && pane.id === activePaneId} onClick={() => {}} onActivatePane={id => { void activatePane(ws.id, id) }} />)}
+            </div>}
+            </section>
           ))
         )}
       </nav>

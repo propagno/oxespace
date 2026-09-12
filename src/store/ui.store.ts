@@ -1,10 +1,16 @@
 import { create } from 'zustand'
 
+function restoredSidebarCollapsed(): boolean {
+  try { return localStorage.getItem('oxe.sidebar.collapsed') === 'true' } catch { return false }
+}
+
 interface UIState {
   isNewWorkspaceOpen: boolean
   maximizedPaneId: string | null
   isSidebarCollapsed: boolean
   isSettingsOpen: boolean
+  settingsInitialPage: 'providers' | undefined
+  openAgentSettings: () => void
   /** Tools hub modal (sidebar gear) — distinct from agent Settings. */
   isToolsOpen: boolean
   isCommandPaletteOpen: boolean
@@ -71,8 +77,10 @@ interface UIState {
 export const useUIStore = create<UIState>((set) => ({
   isNewWorkspaceOpen: false,
   maximizedPaneId: null,
-  isSidebarCollapsed: false,
+  isSidebarCollapsed: restoredSidebarCollapsed(),
   isSettingsOpen: false,
+  settingsInitialPage: undefined,
+  openAgentSettings: () => set({ isSettingsOpen: true, isWorkspaceSettingsOpen: false, settingsInitialPage: 'providers' }),
   isToolsOpen: false,
   isCommandPaletteOpen: false,
   isCommandMenuOpen: false,
@@ -139,6 +147,10 @@ export const useUIStore = create<UIState>((set) => ({
   closeIntegrationPanel: () => set({ isIntegrationPanelOpen: false }),
   openTools: () => set({ isToolsOpen: true }),
   closeTools: () => set({ isToolsOpen: false }),
-  toggleSettings: () => set((s) => ({ isSettingsOpen: !s.isSettingsOpen })),
-  toggleSidebar: () => set((s) => ({ isSidebarCollapsed: !s.isSidebarCollapsed }))
+  toggleSettings: () => set((s) => ({ isSettingsOpen: !s.isSettingsOpen, isWorkspaceSettingsOpen: false, settingsInitialPage: undefined })),
+  toggleSidebar: () => set((s) => {
+    const isSidebarCollapsed = !s.isSidebarCollapsed
+    try { localStorage.setItem('oxe.sidebar.collapsed', String(isSidebarCollapsed)) } catch { /* optional preference */ }
+    return { isSidebarCollapsed }
+  })
 }))

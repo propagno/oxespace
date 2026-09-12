@@ -24,6 +24,10 @@ React renderer
 
 ## Main subsystems
 
+Optional [Shared Project Memory](PROJECT_MEMORY.md) adds persistent knowledge
+across worktrees without sharing native agent session IDs. Its provider abstraction,
+local lifecycle, capture adapters and privacy limits are documented separately.
+
 | Subsystem | Responsibility | Important boundary |
 | --- | --- | --- |
 | Workspaces | Project roots, panes and settings | A workspace ID resolves to one authoritative root |

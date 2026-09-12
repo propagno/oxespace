@@ -1,8 +1,9 @@
-import { useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactElement } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { Workspace } from '../../../shared/types/workspace'
-import { computeLayout, type LeafRect, type PaneNode, type ResizeHandle, type SplitDirection } from '../../../shared/types/pane-tree'
+import { computeLayout, isValidPaneTree, type LeafRect, type PaneNode, type ResizeHandle, type SplitDirection } from '../../../shared/types/pane-tree'
 import { PaneContainer } from './PaneContainer'
+import { usePaneLayoutStore } from '../../store/pane-layout.store'
 
 type DropZone = 'left' | 'right' | 'top' | 'bottom'
 
@@ -82,9 +83,12 @@ export function WorkspaceSplitGrid({
   onMovePane
 }: WorkspaceSplitGridProps): ReactElement {
   const containerRef = useRef<HTMLDivElement>(null)
+  const dragCleanup = useRef<(() => void) | null>(null)
+  const topology = JSON.stringify(tree, (key, value) => key === 'sizes' ? undefined : value)
+  useEffect(() => () => dragCleanup.current?.(), [topology])
   const [drag, setDrag] = useState<DragState | null>(null)
 
-  const { rects, handles } = useMemo(() => computeLayout(tree), [tree])
+  const { rects, handles } = useMemo(() => computeLayout(isValidPaneTree(tree) ? tree : null), [tree])
   const paneById = useMemo(
     () => new Map(workspace.panes.map((p) => [p.id, p] as const)),
     [workspace.panes]
@@ -96,6 +100,7 @@ export function WorkspaceSplitGrid({
   const beginDrag = (handle: ResizeHandle) => (e: ReactPointerEvent<HTMLDivElement>): void => {
     const box = containerRef.current?.getBoundingClientRect()
     if (!box) return
+    dragCleanup.current?.()
     e.preventDefault()
     const horizontal = handle.direction === 'horizontal'
     let last = horizontal ? e.clientX : e.clientY
@@ -110,9 +115,14 @@ export function WorkspaceSplitGrid({
     const onUp = (): void => {
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+      window.removeEventListener('blur', onUp)
     }
+    dragCleanup.current = onUp
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+    window.addEventListener('blur', onUp)
   }
 
   // Drag-to-split: grip pointerdown → track the pointer as container %, hit-test
@@ -122,6 +132,7 @@ export function WorkspaceSplitGrid({
   const beginPaneDrag = (paneId: string) => (e: ReactPointerEvent<HTMLDivElement>): void => {
     const box = containerRef.current?.getBoundingClientRect()
     if (!box || box.width <= 0 || box.height <= 0) return
+    dragCleanup.current?.()
     e.preventDefault()
     e.stopPropagation()
     let latest: DragState = { paneId, target: null }
@@ -134,16 +145,25 @@ export function WorkspaceSplitGrid({
       setDrag(latest)
     }
     const onUp = (): void => {
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
+      cleanup()
       if (latest.target) {
         const op = ZONE_TO_OP[latest.target.zone]
         onMovePane(paneId, latest.target.paneId, op.direction, op.after)
       }
       setDrag(null)
     }
+    const cleanup = (): void => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', cleanup)
+      window.removeEventListener('blur', cleanup)
+      setDrag(null)
+    }
+    dragCleanup.current = cleanup
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', cleanup)
+    window.addEventListener('blur', cleanup)
   }
 
   // Translucent preview over the half of the target pane the drop would occupy.
@@ -203,6 +223,14 @@ export function WorkspaceSplitGrid({
               onActivate={onActivatePane}
               onSplitVertical={(id) => onSplitPane?.(id, 'vertical')}
               onSplitHorizontal={(id) => onSplitPane?.(id, 'horizontal')}
+              onArrange={rects.length > 1 ? position => {
+                if (position === 'balance') usePaneLayoutStore.getState().balance(workspace.id)
+                else {
+                  const index = rects.findIndex(rect => rect.paneId === pane.id)
+                  const target = rects[(index + rects.length - 1) % rects.length]
+                  onMovePane(pane.id, target.paneId, position === 'bottom' ? 'vertical' : 'horizontal', true)
+                }
+              } : undefined}
             />
             {!isMaximized && rects.length > 1 ? (
               <div
@@ -231,6 +259,19 @@ export function WorkspaceSplitGrid({
               key={`handle-${h.path.join('.')}-${h.index}-${i}`}
               className="split-resize-handle"
               data-testid="split-resize-handle"
+              role="separator"
+              tabIndex={0}
+              aria-label={horizontal ? 'Resize columns' : 'Resize rows'}
+              aria-orientation={horizontal ? 'vertical' : 'horizontal'}
+              title={horizontal ? 'Drag to resize columns · Arrow keys to adjust' : 'Drag to resize rows · Arrow keys to adjust'}
+              onKeyDown={event => {
+                const decrease = horizontal ? 'ArrowLeft' : 'ArrowUp'
+                const increase = horizontal ? 'ArrowRight' : 'ArrowDown'
+                if (event.key === decrease || event.key === increase) {
+                  event.preventDefault()
+                  onResize(h.path, h.index, event.key === decrease ? -2 : 2)
+                }
+              }}
               style={style}
               onPointerDown={beginDrag(h)}
             />

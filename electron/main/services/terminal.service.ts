@@ -26,6 +26,16 @@ interface TerminalManagerOptions {
   emitExit?: (event: TerminalExitEvent) => void
   emitActivity?: (event: TerminalActivityEvent) => void
   ringCapacityBytes?: number
+  prepareLaunch?: (input: { paneId: string; workspaceId: string; cwd: string; signal: AbortSignal }) => Promise<Record<string, string>>
+  onLaunchExit?: (paneId: string) => void
+  executionEnvironment?: (input: { paneId: string; workspaceId: string; cwd: string }) => Record<string, string>
+  agentMcpArgs?: (executable: string, args: string[]) => string[]
+  isManagedPane?: (paneId: string) => boolean
+}
+
+export interface ManagedTerminalStart extends TerminalStartInput {
+  launch?: { executable: string; args: string[] }
+  requireCwd?: string
 }
 
 interface TerminalSession {
@@ -84,6 +94,13 @@ interface TerminalLaunchContextRow {
 }
 
 export class TerminalManager {
+  private readonly starting = new Map<string, Promise<void>>()
+  private readonly launchControllers = new Map<string, AbortController>()
+  private readonly prepareLaunch?: TerminalManagerOptions['prepareLaunch']
+  private readonly onLaunchExit?: TerminalManagerOptions['onLaunchExit']
+  private readonly executionEnvironment?: TerminalManagerOptions['executionEnvironment']
+  private readonly agentMcpArgs?: TerminalManagerOptions['agentMcpArgs']
+  private readonly isManagedPane?: TerminalManagerOptions['isManagedPane']
   private readonly sessions = new Map<string, TerminalSession>()
   private readonly pty: PtyModule
   private readonly launchContextStatement: ReturnType<AppDatabase['prepare']>
@@ -98,6 +115,11 @@ export class TerminalManager {
   private readonly exitedSessions = new Map<string, ExitedSession>()
 
   constructor(db: AppDatabase, options: TerminalManagerOptions = {}) {
+    this.prepareLaunch = options.prepareLaunch
+    this.onLaunchExit = options.onLaunchExit
+    this.executionEnvironment = options.executionEnvironment
+    this.agentMcpArgs = options.agentMcpArgs
+    this.isManagedPane = options.isManagedPane
     this.pty = options.pty ?? { spawn }
     this.env = options.env ?? process.env
     this.platform = options.platform ?? process.platform
@@ -131,8 +153,22 @@ export class TerminalManager {
     this.rtkService = getRtkService(userDataPath)
   }
 
-  async start(input: TerminalStartInput): Promise<void> {
+  async start(input: ManagedTerminalStart): Promise<void> {
+    const pending = this.starting.get(input.paneId)
+    if (pending) return pending
+    const controller = new AbortController()
+    this.launchControllers.set(input.paneId, controller)
+    const task = this.startOnce(input, controller.signal).finally(() => {
+      this.starting.delete(input.paneId)
+      this.launchControllers.delete(input.paneId)
+    })
+    this.starting.set(input.paneId, task)
+    return task
+  }
+
+  private async startOnce(input: ManagedTerminalStart, signal: AbortSignal): Promise<void> {
     if (this.sessions.has(input.paneId)) return
+    if (!input.launch && this.isManagedPane?.(input.paneId)) throw new Error('Delegated terminal is managed by its task. Use Retry in Workspace settings > Agent delegation.')
 
     const launch = this.launchContextStatement.get({
       paneId: input.paneId,
@@ -149,17 +185,19 @@ export class TerminalManager {
     const shellArgs = JSON.parse(launch.shell_args_json) as string[]
 
     const agentParts = input.agentCommand ? input.agentCommand.trim().split(/\s+/) : null
-    const executable = agentParts
+    const executable = input.launch ? resolveExecutable(input.launch.executable, this.env, this.platform) : agentParts
       ? resolveExecutable(agentParts[0], this.env, this.platform)
       : resolveExecutable(launch.shell_executable, this.env, this.platform)
-    const args = agentParts
+    let args = input.launch ? input.launch.args : agentParts
       ? agentParts.slice(1)
       : [...shellArgs, ...(input.agentArgs ?? [])]
+    if (!input.launch && this.agentMcpArgs) args = this.agentMcpArgs(executable, args)
 
     // Pane-level rootPath overrides the workspace root — used by git worktree panes.
     const cwd = launch.pane_root_path && existsSync(launch.pane_root_path)
       ? launch.pane_root_path
       : launch.workspace_root_path
+    if (input.requireCwd && (cwd !== input.requireCwd || !existsSync(input.requireCwd))) throw new Error('Delegated worktree is missing; refusing workspace-root fallback')
 
     let finalEnv: Record<string, string> = {
       ...this.env,
@@ -168,6 +206,33 @@ export class TerminalManager {
       COLORTERM: 'truecolor',
       GLAMOUR_STYLE: 'dark',
       BAT_THEME: 'TwoDark'
+    }
+    if (this.executionEnvironment) finalEnv = { ...finalEnv, ...this.executionEnvironment({ paneId: input.paneId, workspaceId: input.workspaceId, cwd }) }
+    // Optional launch integrations only return environment; provider failures
+    // never prevent the shell/agent from starting or touch its output stream.
+    if (this.prepareLaunch) {
+      const integration = new AbortController()
+      const cancel = (): void => integration.abort()
+      signal.addEventListener('abort', cancel, { once: true })
+      const timer = setTimeout(cancel, 3000)
+      const integrationSignal = integration.signal
+      let onAbort: (() => void) | undefined
+      try {
+        const env = await Promise.race([
+          this.prepareLaunch({ paneId: input.paneId, workspaceId: input.workspaceId, cwd, signal: integrationSignal }),
+          new Promise<never>((_, reject) => {
+            onAbort = () => reject(new Error('Optional launch integration cancelled'))
+            integrationSignal.addEventListener('abort', onAbort, { once: true })
+          })
+        ])
+        finalEnv = { ...finalEnv, ...env }
+      }
+      catch { /* Optional integration unavailable. */ }
+      finally {
+        clearTimeout(timer)
+        signal.removeEventListener('abort', cancel)
+        if (onAbort) integrationSignal.removeEventListener('abort', onAbort)
+      }
     }
     
     if (!input.disableRtk) {
@@ -187,6 +252,7 @@ export class TerminalManager {
     const rows = clampDimension(input.rows, 24)
 
     let ptyProcess: IPty
+    if (signal.aborted) { this.notifyLaunchExit(input.paneId); return }
     try {
       ptyProcess = this.pty.spawn(executable, args, {
         name: 'xterm-256color',
@@ -196,8 +262,9 @@ export class TerminalManager {
         env: finalEnv
       })
     } catch (error) {
-      if (input.agentCommand) {
-        throw new Error(`Unable to start agent "${input.agentCommand}". ${toMessage(error)}`)
+      this.notifyLaunchExit(input.paneId)
+      if (input.agentCommand || input.launch) {
+        throw new Error(`Unable to start agent "${input.launch?.executable ?? input.agentCommand}". ${toMessage(error)}`)
       }
       throw new Error(`Unable to start ${launch.shell_profile_name}. Check Settings > Shell profiles executable "${launch.shell_executable}". ${toMessage(error)}`)
     }
@@ -228,9 +295,11 @@ export class TerminalManager {
     ptyProcess.onData((data) => this.sessions.get(input.paneId)?.outputBatcher.push(data))
     ptyProcess.onExit(({ exitCode }) => {
       const session = this.sessions.get(input.paneId)
+      if (session?.pty !== ptyProcess) return // A late exit cannot remove a restarted process.
       session?.outputBatcher.flush()
       if (session) this.rememberExit(session, exitCode)
       this.sessions.delete(input.paneId)
+      this.notifyLaunchExit(input.paneId)
       this.emitExit({ paneId: input.paneId, exitCode })
     })
 
@@ -399,6 +468,7 @@ export class TerminalManager {
   }
 
   stop(input: TerminalStopInput): void {
+    this.launchControllers.get(input.paneId)?.abort()
     const session = this.sessions.get(input.paneId)
     if (!session) return
     // Flush before disposing: the batcher discards `pending`, so an exiting
@@ -408,8 +478,12 @@ export class TerminalManager {
     session.outputBatcher.dispose()
     killProcess(session.pty)
     this.sessions.delete(input.paneId)
+    this.notifyLaunchExit(input.paneId)
     // An explicit stop is not a crash to be explained on return.
     this.exitedSessions.delete(input.paneId)
+  }
+  private notifyLaunchExit(paneId: string): void {
+    try { this.onLaunchExit?.(paneId) } catch { /* Optional integrations cannot affect PTY cleanup. */ }
   }
 
   async restart(input: TerminalStopInput): Promise<void> {
@@ -431,6 +505,7 @@ export class TerminalManager {
   }
 
   stopAll(): void {
+    for (const controller of this.launchControllers.values()) controller.abort()
     for (const paneId of [...this.sessions.keys()]) {
       this.stop({ paneId })
     }

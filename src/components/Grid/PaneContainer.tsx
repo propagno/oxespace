@@ -20,6 +20,7 @@ interface PaneContainerProps {
   onSplitVertical?: (paneId: string) => void
   onSplitHorizontal?: (paneId: string) => void
   onActivate?: (paneId: string) => void
+  onArrange?: (position: 'right' | 'bottom' | 'balance') => void
 }
 
 const EMPTY_TERMINAL_STATE = {
@@ -39,7 +40,7 @@ function statusClass(status: WorkspacePane['status']): string {
   return ''
 }
 
-export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, onActivate, onClose, onSplitHorizontal, onSplitVertical, onToggleMaximize, pane, workspace }: PaneContainerProps): ReactElement {
+export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, onActivate, onArrange, onClose, onSplitHorizontal, onSplitVertical, onToggleMaximize, pane, workspace }: PaneContainerProps): ReactElement {
   const terminalState = useTerminalStore((s) => s.panes[pane.id] ?? EMPTY_TERMINAL_STATE)
   const shellProfiles = useWorkspaceStore((s) => s.shellProfiles)
   const shellProfileName = useMemo(() => {
@@ -70,6 +71,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
   // Overflow menu (⋯) holds secondary actions so the header stays compact:
   // only Search + Expand stay visible; clear/session/split/close live here.
   const [menuOpen, setMenuOpen] = useState(false)
+  const [menuHeight, setMenuHeight] = useState(320)
   const menuRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -225,13 +227,15 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
               aria-expanded={menuOpen}
               onClick={(e) => {
                 e.stopPropagation()
+                const paneBox = e.currentTarget.closest('.pane-container')?.getBoundingClientRect()
+                setMenuHeight(Math.max(64, Math.min(window.innerHeight, paneBox?.bottom ?? window.innerHeight) - e.currentTarget.getBoundingClientRect().bottom - 16))
                 setMenuOpen((open) => !open)
               }}
             >
               <MoreHorizontal size={12} aria-hidden="true" />
             </button>
             {menuOpen ? (
-              <div className="pane-actions-popover" role="menu" data-testid="pane-actions-menu">
+              <div className="pane-actions-popover" role="menu" data-testid="pane-actions-menu" style={{ maxHeight: menuHeight, overflowY: 'auto', width: 'min(260px, 75vw)', maxWidth: 'calc(100vw - 32px)' }}>
                 {isTerminalPane ? (
                   <>
                     <button
@@ -291,6 +295,12 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                   <PanelBottom size={13} aria-hidden="true" />
                   Dividir horizontal
                 </button>
+                {onArrange ? <>
+                  <div className="pane-actions-popover-sep" aria-hidden="true" />
+                  <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('bottom')) }}><PanelBottom size={13} aria-hidden="true" />Mover abaixo do painel anterior</button>
+                  <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('right')) }}><PanelRight size={13} aria-hidden="true" />Mover à direita do painel anterior</button>
+                  <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('balance')) }}><RotateCcw size={13} aria-hidden="true" />Equilibrar divisões</button>
+                </> : null}
                 {onClose ? (
                   <>
                     <div className="pane-actions-popover-sep" aria-hidden="true" />

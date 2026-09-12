@@ -128,6 +128,18 @@ describe('TerminalPane', () => {
     })
   })
 
+  test('explicit start recovers a delegated task instead of using the ordinary launcher', async () => {
+    window.oxe.delegation = {
+      status: vi.fn().mockResolvedValue({ enabled: true, tasks: [{ id: 'task-1', paneId: 'pane-1', state: 'interrupted' }] }),
+      control: vi.fn().mockResolvedValue(undefined),
+      onChanged: vi.fn(() => vi.fn())
+    } as unknown as typeof window.oxe.delegation
+    render(<TerminalPane pane={{ ...createPane(), originPaneId: 'origin' }} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
+    await userEvent.setup().click(screen.getByLabelText('Start terminal'))
+    await waitFor(() => expect(window.oxe.delegation.control).toHaveBeenCalledWith('workspace-1', 'task-1', 'retry'))
+    expect(window.oxe.terminal.start).not.toHaveBeenCalled()
+  })
+
   test('starts, writes and resizes a terminal', async () => {
     const user = userEvent.setup()
     render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)

@@ -42,6 +42,12 @@ import { registerSemanticIpc } from './ipc/semantic.ipc'
 import { registerDiagnosticsIpc } from './ipc/diagnostics.ipc'
 import { BackgroundManager } from './services/background.service'
 import { TerminalManager } from './services/terminal.service'
+import { MemoryService } from './services/memory/memory.service'
+import { ExecutionRegistry } from './services/execution-registry'
+import { AgentLaunchService, agentMcpArguments, providerForExecutable } from './services/agent-launch.service'
+import { AgentService } from './services/agent.service'
+import { registerDelegationIpc } from './ipc/delegation.ipc'
+import { registerMemoryIpc } from './ipc/memory.ipc'
 import { fallbackShellProfiles } from './services/shell-profile.defaults'
 import { isLoopbackHttpUrl, isSafeExternalUrl } from './utils/external-url'
 import { applyLoginShellPath } from './utils/login-shell-path'
@@ -124,7 +130,19 @@ async function registerIpcHandlers(): Promise<() => void> {
     return noop
   }
 
-  const terminalManager = new TerminalManager(db, {
+  const memoryService = new MemoryService(db, join(app.getPath('userData'), 'memory'))
+  const { DelegationService } = await import('./services/delegation.service')
+  const executions = new ExecutionRegistry()
+  registerMemoryIpc(memoryService)
+  const terminalManager: TerminalManager = new TerminalManager(db, {
+    prepareLaunch: (input) => memoryService.prepareLaunch(input),
+    isManagedPane: paneId => delegationService?.ownsPane(paneId) ?? false,
+    onLaunchExit: (paneId) => { memoryService.endLaunch(paneId); executions.end(paneId); delegationService?.exited(paneId) },
+    executionEnvironment: (input) => {
+      const meta = db.prepare('SELECT port, token FROM internal_mcp_meta LIMIT 1').get() as { port: number; token: string } | undefined
+      return { ...executions.register(input), ...(meta ? { OXESPACE_MCP_PORT: String(meta.port), OXESPACE_MCP_TOKEN: meta.token } : {}) }
+    },
+    agentMcpArgs: (executable, args) => [...agentMcpArguments(providerForExecutable(executable), join(app.getPath('userData'),'bin','oxespace-mcp.cjs')), ...args],
     emitData: (event) => {
       for (const window of BrowserWindow.getAllWindows()) {
         window.webContents.send(IPC_CHANNELS.terminal.onData, event)
@@ -228,8 +246,43 @@ async function registerIpcHandlers(): Promise<() => void> {
   const internalMcpGithub = new GitHubService(db)
   const internalMcpGit = new GitService()
   const codeGraphService = new CodeGraphService(db)
+  const delegationAgents = new AgentService(db)
+  const launcher = new AgentLaunchService(terminalManager, () => delegationAgents.list(), app.getPath('userData'))
+  const delegationService = new DelegationService(db, {
+    workspace: internalMcpWorkspaceServ, git: internalMcpGithub, executions,
+    validateAgent: id => { launcher.resolve(id) },
+    launch: task => launcher.launch(task), stop: paneId => terminalManager.stop({ paneId }),
+    changed: (workspaceId, taskId) => {
+      for (const window of BrowserWindow.getAllWindows()) window.webContents.send(IPC_CHANNELS.delegation.changed, { workspaceId, taskId })
+    },
+    enrich: async task => {
+      let memory = 'Project memory is disabled.'
+      try {
+        const context = await memoryService.projects.resolve(task.path)
+        const settings = memoryService.projects.settings(context.projectId)
+        if (settings.enabled && settings.automaticContext) {
+          const reply = await memoryService.manager.run(context, provider => provider.getRelevantContext(context, task.objective))
+          memory = reply.status === 'ok' ? reply.value.text.slice(0,4000) : reply.message
+        }
+      } catch { memory = 'Project memory unavailable.' }
+      let code = 'CodeGraph unavailable.'
+      try {
+        const graph = await codeGraphService.ensureInstance(task.path)
+        const { ToolHandler } = await import('./vendor/codegraph/mcp/tools')
+        code = JSON.stringify(await new ToolHandler(graph as never).execute('codegraph_explore', { query: task.objective, maxFiles: 6 })).slice(0,6000)
+      } catch { /* The explicit handoff remains sufficient to start. */ }
+      return `Memory:\n${memory}\nCodeGraph:\n${code}`
+    }
+  })
+  registerDelegationIpc(delegationService)
 
   const internalMcp: InternalMcpHandle = createInternalMcpHandle({
+    delegation: delegationService, executions,
+    delegationAgents: () => delegationAgents.list().filter(p => ['claude','codex'].includes(p.parentProvider ?? p.provider)).map(p => {
+      try { launcher.resolve(p.agentProfileId); return { agentProfileId: p.agentProfileId, name: p.name, supported: true } }
+      catch (e) { return { agentProfileId: p.agentProfileId, name: p.name, supported: false, reason: String(e) } }
+    }),
+    memory: memoryService,
     db,
     mcpManager,
     workspaceServ: internalMcpWorkspaceServ,
@@ -252,6 +305,26 @@ async function registerIpcHandlers(): Promise<() => void> {
     background: backgroundManager,
     fileSystem: fileSystemService
   })
+  let memoryShutdownComplete = false
+  let memoryShutdownStarted = false
+  app.on('before-quit', (event) => {
+    if (memoryShutdownComplete) return
+    event.preventDefault()
+    if (memoryShutdownStarted) return
+    memoryShutdownStarted = true
+    terminalManager.stopAll()
+    // An optional service or a long-running MCP request must not trap app shutdown.
+    const shutdownDeadline = setTimeout(() => {
+      memoryShutdownComplete = true
+      app.quit()
+    }, 10000)
+    void Promise.allSettled([memoryService.stop(), delegationService?.stop()]).then(() => internalMcp.stop()).catch(() => {}).finally(() => {
+      clearTimeout(shutdownDeadline)
+      if (memoryShutdownComplete) return
+      memoryShutdownComplete = true
+      app.quit()
+    })
+  })
   app.once('before-quit', () => {
     for (const filePath of clipboardImageTempFiles) void cleanupTempFile(filePath)
     fileSystemService.closeAll()
@@ -261,7 +334,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     mcpManager.stopAll()
     oxeService.disposeAll()
     semanticService.destroy()
-    void internalMcp.stop()
+    // Keep the hook metadata bridge alive for the bounded memory shutdown drain.
     void rpcServer?.stop()
   })
   ipcRegistered = true
@@ -275,6 +348,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     skillService.init()
     backgroundManager.init()
     void internalMcp.start()
+    void memoryService.init()
     // F3 · Local RPC bus (named pipe / unix socket). Out-of-process callers
     // (CLI now, orchestration coordinator later) reach the same services the
     // renderer reaches over IPC. Failure here must not affect the app.

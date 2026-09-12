@@ -4,6 +4,19 @@ import { WorkspaceService, getPanePositions } from '../../electron/main/services
 import { defaultSplitShellProfileId } from '../../electron/main/services/shell-profile.defaults'
 
 describe('WorkspaceService', () => {
+  test('saving appearance preserves dynamically created terminals with an unchanged preset', () => {
+    const db = openInMemoryDatabase()
+    try {
+      const service = new WorkspaceService(db)
+      const ws = service.create({ rootPath: 'C:/layout-regression', layoutPreset: 2, autoStart: false })
+      const { paneId } = service.createPane(ws.id)
+      const saved = service.updateSettings({ workspaceId: ws.id, themeId: 'nord', layoutPreset: 2 })
+      expect(saved.panes.map(p => p.id)).toContain(paneId)
+      expect(saved.panes).toHaveLength(3)
+      db.prepare("UPDATE panes SET status = 'running' WHERE id = ?").run(paneId)
+      expect(() => service.updateSettings({ workspaceId: ws.id, themeId: 'dracula' })).not.toThrow()
+    } finally { db.close() }
+  })
   test('creates a workspace with a pane per layout cell', () => {
     const db = openInMemoryDatabase()
     const service = new WorkspaceService(db)
@@ -140,6 +153,44 @@ describe('WorkspaceService', () => {
     expect(updated.reviewPanelVisible).toBe(true)
     expect(updated.reviewPanelExpanded).toBe(true)
     expect(updated.reviewPanelWidthPercent).toBe(60)
+
+    db.close()
+  })
+
+  test('opening a folder that already has a workspace activates it instead of duplicating', () => {
+    const db = openInMemoryDatabase()
+    const service = new WorkspaceService(db)
+
+    const first = service.create({ rootPath: 'C:/projects/repo', layoutPreset: 4, autoStart: false })
+    const other = service.create({ rootPath: 'C:/projects/other', layoutPreset: 1, autoStart: false })
+    expect(service.list()).toHaveLength(2)
+
+    // Same folder, written the way Windows writes it and with a trailing slash.
+    // Separator and trailing-slash differences are folded on every platform, so
+    // this assertion does not depend on the host OS.
+    const again = service.create({ rootPath: 'C:\\projects\\repo\\', layoutPreset: 16, autoStart: false })
+
+    expect(again.id).toBe(first.id)
+    expect(service.list()).toHaveLength(2)
+    // The existing workspace keeps its own layout — the second call is an open,
+    // not a reconfigure.
+    expect(again.layoutPreset).toBe(4)
+    expect(again.panes).toHaveLength(4)
+    expect(again.isActive).toBe(true)
+    expect(service.get(other.id)?.isActive).toBe(false)
+
+    db.close()
+  })
+
+  test('still creates a workspace for a folder that does not have one', () => {
+    const db = openInMemoryDatabase()
+    const service = new WorkspaceService(db)
+
+    service.create({ rootPath: 'C:/projects/repo', layoutPreset: 1, autoStart: false })
+    const sibling = service.create({ rootPath: 'C:/projects/repo-2', layoutPreset: 1, autoStart: false })
+
+    expect(service.list()).toHaveLength(2)
+    expect(sibling.rootPath).toBe('C:/projects/repo-2')
 
     db.close()
   })

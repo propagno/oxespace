@@ -21,6 +21,8 @@ export interface ShellProfile {
 }
 
 export interface WorkspacePane {
+  /** Durable placement hint for a newly delegated pane; ignored once positioned. */
+  originPaneId?: string
   id: string
   workspaceId: string
   type: PaneType

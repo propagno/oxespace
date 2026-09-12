@@ -97,9 +97,15 @@ export function createLocalRpcServer(deps: LocalRpcDeps): LocalRpcServer {
 
   const dispatchRpc = async (
     parsed: InternalMcpJsonRpcRequest,
-    workspaceId: string | null
+    workspaceId: string | null,
+    memoryRunId?: string,
+    executionId?: string,
+    executionToken?: string
   ): Promise<InternalMcpJsonRpcResponse> => {
     const id = parsed.id ?? null
+    if (parsed.method === 'memory/session') {
+      return { jsonrpc: '2.0', id, result: await deps.memory?.observe(parsed.params) ?? { allowed: false } }
+    }
 
     if (parsed.method === 'ping') {
       return { jsonrpc: '2.0', id, result: { ok: true } }
@@ -132,7 +138,10 @@ export function createLocalRpcServer(deps: LocalRpcDeps): LocalRpcServer {
       // Handlers call requireWorkspace(), which prefers a valid header id and
       // otherwise falls back to the active workspace (stale/missing bridge env).
       try {
-        const ctx: ToolContext = {
+          const ctx: ToolContext = {
+            delegation: deps.delegation, executions: deps.executions, delegationAgents: deps.delegationAgents, executionId, executionToken,
+          memory: deps.memory,
+          memoryRunId,
           workspaceId,
           workspaceServ: deps.workspaceServ,
           github: deps.github,
@@ -213,7 +222,11 @@ export function createLocalRpcServer(deps: LocalRpcDeps): LocalRpcServer {
     const workspaceHeader = req.headers['x-oxe-workspace-id']
     const workspaceId = typeof workspaceHeader === 'string' && workspaceHeader.trim() ? workspaceHeader.trim() : null
 
-    const envelope = await dispatchRpc(parsed, workspaceId)
+    const runHeader = req.headers['x-oxe-memory-run-id']
+    const executionId = req.headers['x-oxe-execution-id']
+    const executionToken = req.headers['x-oxe-execution-token']
+    const envelope = await dispatchRpc(parsed, workspaceId, typeof runHeader === 'string' ? runHeader : undefined,
+      typeof executionId === 'string' ? executionId : undefined, typeof executionToken === 'string' ? executionToken : undefined)
     respond(res, 200, envelope)
   }
 

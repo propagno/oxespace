@@ -14,10 +14,23 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/github/gh-exec.ts',
   'electron/main/services/integration.service.ts',
   'electron/main/services/mcp-sync.service.ts',
+  // Optional local memory infrastructure: runtime/config/credentials and agent
+  // home configuration, analogous to MCP sync/bootstrap. Never arbitrary source
+  // file reads or terminal transcripts. Project probes below read only identity
+  // and .ai-memory.toml routing policy; the adapter writes that opt-in marker.
+  'electron/main/services/memory/memory-runtime.ts',
+  'electron/main/services/memory/memory.service.ts',
+  'electron/main/services/memory/agent-memory-adapter.ts',
+  'electron/main/services/memory/memory-project.service.ts',
+  'electron/main/services/memory/memory-marker.ts',
   'electron/main/services/session.service.ts',
   'electron/main/services/shell-profile.service.ts',
   'electron/main/services/skill.service.ts',
   'electron/main/services/terminal.service.ts',
+  // Delegation performs existence probes only: executable selection and worktree
+  // recovery. GitHubWorktreeApi owns creation; neither reads/writes source files.
+  'electron/main/services/agent-launch.service.ts',
+  'electron/main/services/delegation.service.ts',
   'electron/main/services/usage/claudeProvider.ts',
   'electron/main/services/usage/codexProvider.ts',
   'electron/main/services/usage/copilotProvider.ts',

@@ -32,7 +32,12 @@ export function WorkspaceGrid({
   onToggleMaximize,
   workspace
 }: WorkspaceGridProps): ReactElement {
-  const layout = LAYOUTS[workspace.layout]
+  const preset = LAYOUTS[workspace.layout]
+  const visiblePanes = workspace.panes.filter(p => p.rowIndex >= 0 && p.columnIndex >= 0)
+  const layout = {
+    rows: Math.max(preset.rows, ...visiblePanes.map(p => p.rowIndex + 1)),
+    columns: Math.max(preset.columns, ...visiblePanes.map(p => p.columnIndex + 1))
+  }
   const isMaximized = Boolean(maximizedPaneId)
   const maximizedPane = maximizedPaneId
     ? workspace.panes.find((pane) => pane.id === maximizedPaneId) ?? null

@@ -1,0 +1,61 @@
+import { _electron as electron, expect, test } from '@playwright/test'
+import { mkdtempSync, mkdirSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+test('sidebar sessions and full-page settings preserve terminal DOM', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'oxe-navigation-'))
+  const repo = join(root, 'repo'); mkdirSync(repo)
+  const app = await electron.launch({ args: [join(process.cwd(), 'e2e/electron-main.cjs')], env: {
+    ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'db.sqlite3')
+  } })
+  try {
+    const page = await app.firstWindow()
+    await page.setViewportSize({ width: 1280, height: 720 })
+    await page.getByTestId('btn-new-workspace').click()
+    await page.getByTestId('wizard-dir-input').fill(repo)
+    await page.getByTestId('wizard-layout-card-2').click()
+    await page.getByTestId('wizard-launch-btn').click()
+    await expect(page.getByTestId('terminal-pane')).toHaveCount(2)
+    await expect(page.getByTestId('pane-session-row')).toHaveCount(2)
+    await page.getByTestId('pane-session-row').last().click()
+    await page.getByTestId('terminal-pane').first().evaluate(el => el.setAttribute('data-preserved', 'yes'))
+    await page.screenshot({ path: test.info().outputPath('sidebar.png') })
+    await page.getByTestId('btn-open-tools').click()
+    await page.getByTestId('tools-agent-settings').click()
+    await expect(page.getByRole('heading', { name: 'General', exact: true })).toBeVisible()
+    const settings = page.locator('.settings-center')
+    expect(await settings.boundingBox()).toEqual({ x: 0, y: 0, width: 1280, height: 720 })
+    await page.screenshot({ path: test.info().outputPath('settings-general.png') })
+    const scope = page.getByLabel('Settings scope')
+    const workspaceId = await scope.locator('option').nth(1).getAttribute('value')
+    await scope.selectOption(workspaceId!)
+    await expect(page.getByRole('radio', { name: 'Nord' })).toBeVisible()
+    await page.screenshot({ path: test.info().outputPath('settings-workspace.png') })
+    await page.getByRole('radio', { name: 'Nord' }).click()
+    await page.getByRole('button', { name: 'Back to work' }).click()
+    await expect(page.getByRole('dialog', { name: 'Save your changes?' })).toBeVisible()
+    await page.getByRole('button', { name: 'Discard', exact: true }).click()
+    await expect(settings).toHaveCount(0)
+    await expect(page.locator('.terminal-pane[data-preserved="yes"]')).toHaveCount(1)
+    const handle = page.getByRole('separator', { name: 'Sidebar width' })
+    await handle.focus(); await page.keyboard.press('ArrowRight')
+    await expect(handle).toHaveAttribute('aria-valuenow', '290')
+    await page.reload()
+    await expect(page.getByRole('separator', { name: 'Sidebar width' })).toHaveAttribute('aria-valuenow', '290')
+    await page.getByTestId('btn-open-tools').click()
+    await page.getByTestId('tools-agent-settings').click()
+    await page.setViewportSize({ width: 850, height: 650 })
+    await expect(page.getByLabel('Settings category')).toBeVisible()
+    await page.getByLabel('Settings category').selectOption('terminal')
+    await expect(page.getByRole('radiogroup', { name: 'Default shell profile' })).toBeVisible()
+    await page.screenshot({ path: test.info().outputPath('settings-compact.png') })
+    await page.setViewportSize({ width: 1920, height: 1080 })
+    await page.getByLabel('Settings scope').selectOption('application')
+    for (const category of ['Agents', 'Terminal', 'Voice', 'Notifications', 'Updates', 'Diagnostics']) {
+      await page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: new RegExp(`^${category}`) }).click()
+      await expect(page.locator('.settings-center-main')).toBeVisible()
+    }
+    await page.screenshot({ path: test.info().outputPath('settings-diagnostics.png') })
+  } finally { await app.close() }
+})

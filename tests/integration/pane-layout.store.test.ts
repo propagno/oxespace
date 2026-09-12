@@ -21,6 +21,30 @@ function pane(id: string, row = 0, col = 0): WorkspacePane {
 }
 
 describe('pane-layout.store', () => {
+  test('recovers malformed storage and excludes helper panes', () => {
+    usePaneLayoutStore.setState({ trees: { 'ws-1': { kind: 'split', direction: 'horizontal', children: null } as never } })
+    usePaneLayoutStore.getState().sync('ws-1', [pane('a'), pane('helper', -1, -1)])
+    expect(usePaneLayoutStore.getState().trees['ws-1']).toEqual({ kind: 'leaf', paneId: 'a' })
+  })
+  test('places delegated third pane below its origin and keeps unrelated proportions', () => {
+    const store = usePaneLayoutStore.getState()
+    store.sync('ws-1', [pane('a'), pane('b', 0, 1)])
+    store.sync('ws-1', [pane('a'), pane('b', 0, 1), { ...pane('c', 0, 2), originPaneId: 'b' }])
+    expect(usePaneLayoutStore.getState().trees['ws-1']).toMatchObject({
+      direction: 'horizontal', sizes: [50, 50], children: [
+        { paneId: 'a' }, { direction: 'vertical', children: [{ paneId: 'b' }, { paneId: 'c' }] }
+      ]
+    })
+    const before = usePaneLayoutStore.getState().trees['ws-1']
+    store.sync('ws-1', [pane('a'), pane('b', 0, 1), pane('c', 0, 2)])
+    expect(usePaneLayoutStore.getState().trees['ws-1']).toBe(before)
+  })
+  test('manual split after reconciliation does not duplicate a pane', () => {
+    const store = usePaneLayoutStore.getState()
+    store.sync('ws-1', [pane('a'), pane('b', 0, 1)])
+    store.split('ws-1', 'a', 'b', 'vertical')
+    expect(JSON.stringify(usePaneLayoutStore.getState().trees['ws-1']).match(/"paneId":"b"/g)).toHaveLength(1)
+  })
   beforeEach(() => {
     usePaneLayoutStore.setState({ trees: {} })
   })

@@ -157,7 +157,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
   // on-demand callers (e.g. a future `/oxe-context` slash skill) but is no
   // longer fired by default. See plan: "MCP-only as native path".
 
-  const start = useCallback(async (): Promise<void> => {
+  const start = useCallback(async (explicitRetry = false): Promise<void> => {
     // A pane returning from the MRU already has a live shell in main. Spawning
     // a second one would kill the first, reload the user's $PROFILE and show an
     // empty terminal — the multi-second cost this whole path exists to avoid.
@@ -173,6 +173,18 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
 
     setStatus(pane.id, 'starting')
     try {
+      if (pane.originPaneId) {
+        const delegation = await window.oxe.delegation.status(workspaceId)
+        const task = delegation.tasks.find(task => task.paneId === pane.id)
+        if (!task) throw new Error('Delegated task not found. Inspect Workspace settings > Agent delegation.')
+        if (explicitRetry && ['failed', 'interrupted'].includes(task.state)) {
+          await window.oxe.delegation.control(workspaceId, task.id, 'retry')
+          // Provisioning is asynchronous; do not claim the PTY is running yet.
+          setStatus(pane.id, 'starting')
+          return
+        }
+        throw new Error(task.error || 'Delegated task is paused. Use Retry to start a new execution with its saved handoff.')
+      }
       const { command: agentCommand, initialPrompt } = await resolveWithIntegrationContext()
       const profile = inferAgentProfile(agentCommand ?? '', allProfiles)
       if (profile && profile.agentProfileId !== pane.agentProfileId) {
@@ -190,7 +202,23 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
     } catch (error) {
       setStatus(pane.id, 'error', toMessage(error))
     }
-  }, [allProfiles, pane.agentProfileId, pane.id, resolveWithIntegrationContext, setPaneAgent, setStatus, workspaceId])
+  }, [allProfiles, pane.agentProfileId, pane.id, pane.originPaneId, resolveWithIntegrationContext, setPaneAgent, setStatus, workspaceId])
+
+  useEffect(() => {
+    if (!pane.originPaneId) return
+    let live = true
+    const off = window.oxe.delegation.onChanged(event => {
+      if (event.workspaceId !== workspaceId) return
+      void window.oxe.delegation.status(workspaceId).then(async snapshot => {
+        const task = snapshot.tasks.find(task => task.paneId === pane.id)
+        const terminal = await window.oxe.terminal.status(pane.id)
+        if (!live || !task) return
+        if (terminal.running) setStatus(pane.id, 'running')
+        else if (['failed', 'interrupted'].includes(task.state)) setStatus(pane.id, 'error', task.error || 'Delegated execution interrupted. Retry to continue from its handoff.')
+      }).catch(() => {})
+    })
+    return () => { live = false; off() }
+  }, [pane.id, pane.originPaneId, workspaceId, setStatus])
 
   const inEscapeRef = useRef(false)
   const identifyAgentFromInput = useCallback((data: string): void => {
@@ -244,6 +272,11 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
   const restart = useCallback(async (): Promise<void> => {
     setStatus(pane.id, 'starting')
     try {
+      if (pane.originPaneId) {
+        await window.oxe.terminal.stop({ paneId: pane.id })
+        await start(true)
+        return
+      }
       const { command: agentCommand, initialPrompt } = await resolveWithIntegrationContext()
       const profile = inferAgentProfile(agentCommand ?? '', allProfiles)
       if (profile && profile.agentProfileId !== pane.agentProfileId) {
@@ -255,7 +288,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
     } catch (error) {
       setStatus(pane.id, 'error', toMessage(error))
     }
-  }, [allProfiles, pane.agentProfileId, pane.id, resolveWithIntegrationContext, setPaneAgent, setStatus, workspaceId])
+  }, [allProfiles, pane.agentProfileId, pane.id, pane.originPaneId, resolveWithIntegrationContext, setPaneAgent, setStatus, workspaceId, start])
 
   useEffect(() => {
     const handler = (e: Event): void => {
@@ -265,7 +298,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
       const s = getStatus(pane.id).status
       if (s === 'running' || s === 'starting') return
 
-      void start()
+      void start(true)
     }
     window.addEventListener('oxe:start-pane', handler)
     return () => window.removeEventListener('oxe:start-pane', handler)
@@ -280,7 +313,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
       if (targetId !== pane.id) return
       if (getStatus(pane.id).status === 'starting') return
       const s = getStatus(pane.id).status
-      void (s === 'running' ? restart() : start())
+      void (s === 'running' ? restart() : start(true))
     }
     window.addEventListener('oxe:terminal-new-session', handler)
     return () => window.removeEventListener('oxe:terminal-new-session', handler)
@@ -391,7 +424,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
             type="button"
             className="btn-start-terminal"
             aria-label="Start terminal"
-            onClick={() => void start()}
+            onClick={() => void start(true)}
             disabled={state.status === 'starting'}
           >
             <Play size={14} aria-hidden="true" />

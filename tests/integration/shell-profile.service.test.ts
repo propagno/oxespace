@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { openInMemoryDatabase } from '../../electron/main/db/index'
 import { ShellProfileService } from '../../electron/main/services/shell-profile.service'
+import { WorkspaceService } from '../../electron/main/services/workspace.service'
 import {
   builtinShellProfileIds,
   defaultSplitShellProfileId,
@@ -13,6 +14,19 @@ import {
 const IS_WINDOWS = process.platform === 'win32'
 
 describe('ShellProfileService', () => {
+  test('expanded profiles save as defaults without changing running terminals', () => {
+    const db = openInMemoryDatabase()
+    try {
+      const service = new WorkspaceService(db)
+      const ws = service.create({ rootPath: process.cwd(), layout: '2x2', autoStart: false })
+      db.prepare("UPDATE panes SET status='running' WHERE id=?").run(ws.panes[0].id)
+      db.prepare("UPDATE panes SET status='exited' WHERE id=?").run(ws.panes[1].id)
+      const updated = service.updateSettings({ workspaceId: ws.id, defaultShellProfileId: 'builtin-codex', applyShellToIdlePanes: true })
+      expect(updated.defaultShellProfileId).toBe('builtin-codex')
+      expect(updated.panes.find(p => p.id === ws.panes[0].id)?.shellProfileId).toBe(ws.panes[0].shellProfileId)
+      expect(updated.panes.filter(p => p.id !== ws.panes[0].id).every(p => p.shellProfileId === 'builtin-codex')).toBe(true)
+    } finally { db.close() }
+  })
   test('lists the host platform built-in shell profiles with parsed args', () => {
     const db = openInMemoryDatabase()
     const service = new ShellProfileService(db)
@@ -30,7 +44,11 @@ describe('ShellProfileService', () => {
         IS_WINDOWS
           ? { id: 'builtin-copilot', name: 'copilot shell', executable: 'powershell.exe', args: ['-NoLogo'] }
           : { id: 'builtin-copilot', name: 'copilot shell', executable: '/bin/bash', args: [] }
-      )
+      ),
+      expect.objectContaining({ id: 'builtin-codex', executable: 'codex' }),
+      expect.objectContaining({ id: 'builtin-cursor', executable: 'cursor-agent' }),
+      expect.objectContaining({ id: 'builtin-antigravity', executable: 'agy' }),
+      expect.objectContaining({ id: 'builtin-grok', executable: 'grok' })
     ])
 
     db.close()
@@ -57,8 +75,9 @@ describe('shell profile defaults', () => {
   })
 
   test('lists the neutral shell first, then the agent profiles', () => {
-    expect(builtinShellProfileIds('win32')).toEqual(['builtin-powershell', 'builtin-claude', 'builtin-copilot'])
-    expect(builtinShellProfileIds('linux')).toEqual(['builtin-bash', 'builtin-claude', 'builtin-copilot'])
+    const agents = ['builtin-claude', 'builtin-copilot', 'builtin-codex', 'builtin-cursor', 'builtin-antigravity', 'builtin-grok']
+    expect(builtinShellProfileIds('win32')).toEqual(['builtin-powershell', ...agents])
+    expect(builtinShellProfileIds('linux')).toEqual(['builtin-bash', ...agents])
   })
 
   test('DB-less fallbacks mirror what the migrations seed', () => {

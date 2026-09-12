@@ -1,11 +1,25 @@
-import { Check, Maximize2, Minimize2, Palette, SquareTerminal, X } from 'lucide-react'
-import { useState, type FormEvent, type ReactElement } from 'react'
+import { Brain, Check, GitBranch, Maximize2, Minimize2, Palette, SquareTerminal, X } from 'lucide-react'
+import { useEffect, useRef, useState, type FormEvent, type ReactElement } from 'react'
 import type { ShellProfile, UpdateWorkspaceSettingsInput, Workspace, WorkspaceDensity, WorkspaceLayoutPreset, WorkspaceThemeId } from '../../../shared/types/workspace'
 import { LAYOUT_PRESETS, WORKSPACE_THEMES } from './workspaceOptions'
+import { WorkspaceMemorySettings } from './WorkspaceMemorySettings'
+import { WorkspaceDelegationSettings } from './WorkspaceDelegationSettings'
 import { Dialog, DialogContent, DialogTitle, LEGACY_MODAL_OVERLAY } from '@/components/ui/dialog'
 import { useResolvedTerminalPrefs, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
+import './WorkspaceSettingsModal.css'
+import { DefaultShellSettings } from './DefaultShellSettings'
+
+export const SETTINGS_PAGES = [
+  { id: 'appearance', label: 'Appearance', hint: 'Theme & layout', icon: Palette, description: 'Make this workspace feel like yours. Preview your theme and pane layout before saving.' },
+  { id: 'terminal', label: 'Terminal', hint: 'Text & default shell', icon: SquareTerminal, description: 'Set your default shell and customize how terminal sessions look in this workspace.' },
+  { id: 'memory', label: 'Project memory', hint: 'Shared knowledge', icon: Brain, description: 'Keep project knowledge across worktrees without sharing agent conversations.' },
+  { id: 'delegation', label: 'Agent delegation', hint: 'Parallel work', icon: GitBranch, description: 'Let agents hand off a focused task to a new worktree and independent terminal.' }
+] as const
 
 interface WorkspaceSettingsModalProps {
+  embedded?: boolean
+  selectedPageId?: (typeof SETTINGS_PAGES)[number]['id']
+  onDraftChange?: (draft: { dirty: boolean; save: () => Promise<boolean>; discard: () => void }) => void
   workspace: Workspace
   shellProfiles: ShellProfile[]
   onClose: () => void
@@ -42,9 +56,9 @@ const THEME_PALETTES: Record<WorkspaceThemeId, ThemePalette> = {
 }
 
 const CURSOR_OPTIONS: Array<{ value: TerminalCursorStyle; label: string }> = [
-  { value: 'block', label: 'Bloco' },
-  { value: 'bar', label: 'Barra' },
-  { value: 'underline', label: 'Sublinhado' }
+  { value: 'block', label: 'Block' },
+  { value: 'bar', label: 'Bar' },
+  { value: 'underline', label: 'Underline' }
 ]
 
 const FONT_PRESETS = [
@@ -60,7 +74,7 @@ const FONT_PRESETS = [
   'monospace'
 ]
 
-export function WorkspaceSettingsModal({ onClose, onSave, shellProfiles, workspace }: WorkspaceSettingsModalProps): ReactElement {
+export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange, onClose, onSave, shellProfiles, workspace }: WorkspaceSettingsModalProps): ReactElement {
   const [themeId, setThemeId] = useState<WorkspaceThemeId>(workspace.themeId)
   const [uiDensity, setUiDensity] = useState<WorkspaceDensity>(workspace.uiDensity)
   const [layoutPreset, setLayoutPreset] = useState<WorkspaceLayoutPreset>(workspace.layoutPreset)
@@ -68,45 +82,54 @@ export function WorkspaceSettingsModal({ onClose, onSave, shellProfiles, workspa
   const [applyShellToIdlePanes, setApplyShellToIdlePanes] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setSaving] = useState(false)
+  const [localPage, setPage] = useState<(typeof SETTINGS_PAGES)[number]['id']>('appearance')
+  const page = selectedPageId ?? localPage
+  const selectedPage = SETTINGS_PAGES.find(item => item.id === page)!
+  const contentRef = useRef<HTMLDivElement>(null)
+  useEffect(() => { if (contentRef.current) contentRef.current.scrollTop = 0 }, [page])
 
   // Resolved terminal prefs (global ← workspace override) — drives the preview
   // live as the user edits the Terminal section below.
   const terminalPrefs = useResolvedTerminalPrefs(workspace.id)
   const activePal = THEME_PALETTES[themeId]
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
-    event.preventDefault()
+  const save = async (): Promise<boolean> => {
     setSaving(true)
     setError(null)
     try {
       await onSave({ workspaceId: workspace.id, themeId, uiDensity, layoutPreset, defaultShellProfileId, applyShellToIdlePanes })
-      onClose()
+      setApplyShellToIdlePanes(false)
+      if (!embedded) onClose()
+      return true
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update workspace settings')
+      return false
     } finally {
       setSaving(false)
     }
   }
+  const discard = (): void => {
+    setThemeId(workspace.themeId); setUiDensity(workspace.uiDensity); setLayoutPreset(workspace.layoutPreset)
+    setDefaultShellProfileId(workspace.defaultShellProfileId); setApplyShellToIdlePanes(false); setError(null)
+  }
+  const dirty = themeId !== workspace.themeId || uiDensity !== workspace.uiDensity || layoutPreset !== workspace.layoutPreset || defaultShellProfileId !== workspace.defaultShellProfileId || applyShellToIdlePanes
+  useEffect(() => { onDraftChange?.({ dirty, save, discard }) })
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => { event.preventDefault(); await save() }
 
-  return (
-    <Dialog open onOpenChange={(next) => { if (!next) onClose() }}>
-      <DialogContent
-        unstyled
-        showCloseButton={false}
-        overlayClassName={LEGACY_MODAL_OVERLAY}
-        className="modal workspace-settings-modal-v2 modal-dialog-surface"
-      >
+  const content = <>
+        {!embedded &&
         <header className="modal-header">
           <div className="ws-settings-title-group">
             <DialogTitle asChild>
               <h2>Workspace settings</h2>
             </DialogTitle>
             <span className="ws-settings-subtitle">{workspace.name}</span>
+            <span className="ws-settings-root" title={workspace.rootPath}>{workspace.rootPath}</span>
           </div>
           <button type="button" className="icon-button" aria-label="Close workspace settings" onClick={onClose}>
             <X size={16} aria-hidden="true" />
           </button>
-        </header>
+        </header>}
 
         <form
           className="ws-settings-form-v2"
@@ -118,7 +141,19 @@ export function WorkspaceSettingsModal({ onClose, onSave, shellProfiles, workspa
           } as React.CSSProperties}
         >
           <div className="ws-settings-body">
-            <div className="ws-settings-main">
+            {!embedded && <nav className="ws-settings-nav" aria-label="Workspace settings sections">
+              <span className="ws-settings-nav-label">WORKSPACE</span>
+              {SETTINGS_PAGES.map(({ id, label, hint, icon: Icon }) => <button key={id} type="button" aria-pressed={page === id} aria-controls={`ws-page-${id}`} onClick={() => { setPage(id); if (contentRef.current) contentRef.current.scrollTop = 0 }}>
+                <Icon size={17} aria-hidden="true" /><span><strong>{label}</strong><small>{hint}</small></span>
+              </button>)}
+              <p>Settings scoped to<br /><strong>{workspace.name}</strong></p>
+            </nav>}
+            <div className="ws-settings-main" ref={contentRef}>
+              <header className="ws-settings-page-heading"><h3>{selectedPage.label}</h3><p>{selectedPage.description}</p></header>
+              <div id="ws-page-memory" hidden={page !== 'memory'}><WorkspaceMemorySettings workspaceId={workspace.id} /></div>
+              <div id="ws-page-delegation" hidden={page !== 'delegation'}><WorkspaceDelegationSettings workspaceId={workspace.id} /></div>
+              <div id="ws-page-appearance" className="ws-appearance-layout" hidden={page !== 'appearance'}>
+              <div className="ws-appearance-controls">
               <section className="ws-settings-section" aria-labelledby="ws-section-appearance">
                 <header className="ws-settings-section-header">
                   <Palette size={14} aria-hidden="true" />
@@ -201,63 +236,35 @@ export function WorkspaceSettingsModal({ onClose, onSave, shellProfiles, workspa
                 </div>
               </section>
 
+              </div>
+              <aside className="ws-settings-aside" aria-label="Preview">
+                <WorkspacePreview name={workspace.name} themeId={themeId} density={uiDensity} layoutPreset={layoutPreset} prefs={terminalPrefs} />
+              </aside>
+              </div>
+
+              <div id="ws-page-terminal" className="ws-terminal-page" hidden={page !== 'terminal'}>
+              <p className="ws-settings-save-note">Terminal appearance applies immediately. Use Save workspace settings to apply your default shell.</p>
               <TerminalOverrideSection workspaceId={workspace.id} />
 
-              <section className="ws-settings-section" aria-labelledby="ws-section-shell">
-                <header className="ws-settings-section-header">
-                  <SquareTerminal size={14} aria-hidden="true" />
-                  <h3 id="ws-section-shell">Default shell</h3>
-                </header>
-                <div className="ws-settings-field-label">Shell profile</div>
-                <div className="shell-card-grid" role="radiogroup" aria-label="Default shell profile">
-                  {shellProfiles.map((profile) => {
-                    const selected = defaultShellProfileId === profile.id
-                    return (
-                      <button
-                        key={profile.id}
-                        type="button"
-                        role="radio"
-                        aria-checked={selected}
-                        className={`shell-card${selected ? ' selected' : ''}`}
-                        onClick={() => setDefaultShellProfileId(profile.id)}
-                      >
-                        <div className="shell-card-content">
-                          <span className="shell-card-name">{profile.name}</span>
-                          <span className="shell-card-exe">{profile.executable}</span>
-                        </div>
-                        {selected ? <Check size={14} aria-hidden="true" className="shell-card-check" /> : null}
-                      </button>
-                    )
-                  })}
-                </div>
-                <label className="checkbox-field">
-                  <input type="checkbox" checked={applyShellToIdlePanes} onChange={(event) => setApplyShellToIdlePanes(event.currentTarget.checked)} />
-                  <span>Apply this shell to existing idle panes</span>
-                </label>
-              </section>
+              <DefaultShellSettings profiles={shellProfiles} selectedId={defaultShellProfileId} onSelect={setDefaultShellProfileId}
+                applyToIdle={applyShellToIdlePanes} onApplyToIdle={setApplyShellToIdlePanes} rootPath={workspace.rootPath} />
+              </div>
             </div>
-
-            <aside className="ws-settings-aside" aria-label="Preview">
-              <WorkspacePreview
-                name={workspace.name}
-                themeId={themeId}
-                density={uiDensity}
-                layoutPreset={layoutPreset}
-                prefs={terminalPrefs}
-              />
-            </aside>
           </div>
 
           {error ? <div className="modal-error" role="alert">{error}</div> : null}
 
           <footer className="modal-actions">
-            <button type="button" className="secondary-action" onClick={onClose}>Cancel</button>
-            <button type="submit" className="primary-action" disabled={isSaving}>{isSaving ? 'Saving…' : 'Save'}</button>
+            <p>{page === 'memory' ? 'Memory changes use Apply memory settings above.' : page === 'delegation' ? 'Delegation changes apply immediately.' : 'Save applies theme, density, layout and default shell.'}</p>
+            <button type="button" className="secondary-action" onClick={embedded ? discard : onClose}>{embedded ? 'Discard changes' : 'Close'}</button>
+            <button type="submit" className="primary-action" disabled={isSaving}>{isSaving ? 'Saving…' : 'Save workspace settings'}</button>
           </footer>
         </form>
-      </DialogContent>
-    </Dialog>
-  )
+      </>
+  if (embedded) return <div className="workspace-settings-modal-v2 settings-workspace-content">{content}</div>
+  return <Dialog open onOpenChange={(next) => { if (!next) onClose() }}>
+    <DialogContent unstyled showCloseButton={false} overlayClassName={LEGACY_MODAL_OVERLAY} className="modal workspace-settings-modal-v2 modal-dialog-surface">{content}</DialogContent>
+  </Dialog>
 }
 
 /* ── Live preview ─────────────────────────────────────────────────── */
@@ -338,24 +345,24 @@ function TerminalOverrideSection({ workspaceId }: { workspaceId: string }): Reac
 
       <label className="checkbox-field">
         <input type="checkbox" checked={customize} onChange={(e) => toggleCustomize(e.currentTarget.checked)} />
-        <span>Personalizar o terminal só neste workspace</span>
+        <span>Customize terminal for this workspace</span>
       </label>
 
       {customize ? (
         <div className="ws-terminal-overrides">
           <label className="field">
-            <span>Fonte</span>
+            <span>Font</span>
             <select value={resolved.fontFamily} onChange={(e) => setOverride(workspaceId, 'fontFamily', e.target.value)}>
               {FONT_PRESETS.map((f) => <option key={f} value={f}>{f.split(',')[0]}</option>)}
               {FONT_PRESETS.includes(resolved.fontFamily) ? null : <option value={resolved.fontFamily}>{resolved.fontFamily.split(',')[0]}</option>}
             </select>
           </label>
           <label className="field">
-            <span>Tamanho — {resolved.fontSize}px</span>
+            <span>Font size — {resolved.fontSize}px</span>
             <input type="range" min={8} max={32} step={1} value={resolved.fontSize} onChange={(e) => setOverride(workspaceId, 'fontSize', Number(e.target.value))} />
           </label>
           <label className="field">
-            <span>Altura de linha — {resolved.lineHeight.toFixed(1)}</span>
+            <span>Line height — {resolved.lineHeight.toFixed(1)}</span>
             <input type="range" min={1} max={2} step={0.1} value={resolved.lineHeight} onChange={(e) => setOverride(workspaceId, 'lineHeight', Number(e.target.value))} />
           </label>
           <label className="field">
@@ -366,7 +373,7 @@ function TerminalOverrideSection({ workspaceId }: { workspaceId: string }): Reac
           </label>
         </div>
       ) : (
-        <p className="ws-settings-hint">Usando as preferências globais de terminal (Settings → Terminal).</p>
+        <p className="ws-settings-hint">Using global terminal preferences (Settings → Terminal).</p>
       )}
     </section>
   )

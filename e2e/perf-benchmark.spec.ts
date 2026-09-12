@@ -463,7 +463,7 @@ test('modal surfaces: agents, MCP, skills, semantic, workspace settings and usag
     }> = [
       {
         label: 'Agent Settings',
-        selector: '[data-testid="settings-modal"]',
+        selector: '.settings-center',
         trigger: () => page.getByTestId('tools-agent-settings').click()
       },
       {
@@ -497,7 +497,9 @@ test('modal surfaces: agents, MCP, skills, semantic, workspace settings and usag
         opens.push(await timeDomToggle(page, surface.trigger, surface.selector, true))
         closes.push(await timeDomToggle(
           page,
-          () => page.locator(surface.selector).getByRole('button', { name: /^Close/ }).first().click(),
+          () => surface.label === 'Agent Settings' || surface.label === 'Workspace Settings'
+            ? page.getByRole('button', { name: 'Back to work', exact: true }).click()
+            : page.locator(surface.selector).getByRole('button', { name: /^Close/ }).first().click(),
           surface.selector,
           false
         ))
@@ -510,6 +512,8 @@ test('modal surfaces: agents, MCP, skills, semantic, workspace settings and usag
     const usageClose: number[] = []
     for (let i = 0; i < modalRepeats; i++) {
       const started = await page.evaluate(() => performance.now())
+      // Settings restores terminal focus; move to navigation before an app shortcut.
+      await page.locator('.sidebar-section-header').last().click()
       await page.keyboard.press('Control+k')
       const input = page.locator('input[placeholder="Search files and commands…"]')
       await input.fill('Usage & Rate Limits')

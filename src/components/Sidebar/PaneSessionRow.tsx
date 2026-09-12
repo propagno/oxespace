@@ -1,4 +1,4 @@
-import { GitBranch } from 'lucide-react'
+import { GitBranch, SquareTerminal } from 'lucide-react'
 import { useState, useRef, useEffect, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
@@ -23,9 +23,8 @@ interface PaneSessionRowProps {
 const RECENT_MS = 15 * 60 * 1000
 
 export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProfiles, onClick, onActivatePane }: PaneSessionRowProps): ReactElement {
-  const getStatus = useTerminalStore(s => s.getStatus)
   const markRead = useTerminalStore(s => s.markRead)
-  const terminalState = getStatus(pane.id)
+  const terminalState = useTerminalStore(s => s.getStatus(pane.id))
   const updatePaneName = useWorkspaceStore(s => s.updatePaneName)
   const closePane = useWorkspaceStore(s => s.closePane)
   // Branch from the shared `useGitBranch` hook — backed by `git.getBranch`
@@ -160,10 +159,12 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
       className={`pane-session-row${isActive ? ' active' : ''}${isExited ? ' exited' : ''}`}
       role="button"
       tabIndex={0}
+      aria-current={isActive ? 'true' : undefined}
+      aria-label={`${label}, ${display.statusTone}${pane.originPaneId ? ', delegated task' : ''}`}
       data-testid="pane-session-row"
       onClick={handleClick}
       onContextMenu={handleContextMenu}
-      onKeyDown={e => !editing && e.key === 'Enter' && handleClick()}
+      onKeyDown={e => { if (!editing && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleClick() } }}
     >
       {/* Left status indicator — pure activity dot.
           Previously rendered "✓" or a 1-based pane index, which read as a
@@ -205,12 +206,14 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
         ) : null}
 
         <div className="pane-row-title-line">
+          {agentProfile ? <AgentProviderIcon provider={agentProfile.provider} /> : <SquareTerminal size={12} aria-hidden="true" />}
+          {pane.originPaneId && <span title="Delegated task" aria-label="Delegated task"><GitBranch size={11} /></span>}
           <span
-            className={`pane-row-title${display.title === terminalState.lastIntent ? ' pane-row-intent' : ''}`}
-            title={display.title}
+            className="pane-row-title"
+            title={label}
             onDoubleClick={handleDoubleClick}
           >
-            {display.title}
+            {label}
           </span>
           {lastActivityAt && !editing && !hasTopContext ? (
             <span className={`pane-row-time title-time${isRecent ? ' recent' : ''}`}>

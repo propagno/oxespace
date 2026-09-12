@@ -24,8 +24,18 @@ import type { WorktreeEventBus } from './worktree-event-bus'
  * happens inline in each handler.
  */
 import type { SemanticService } from '../services/semantic.service'
+import { MEMORY_TOOLS } from './memory-tool-handlers'
+import { DELEGATION_TOOLS } from './delegation-tools'
+import { automationTools } from './automation-tools'
 
 export interface ToolContext {
+  delegation?: import('../services/delegation.service').DelegationService
+  executions?: import('../services/execution-registry').ExecutionRegistry
+  executionId?: string
+  executionToken?: string
+  delegationAgents?: () => unknown
+  memory?: import('../services/memory/memory.service').MemoryService
+  memoryRunId?: string
   workspaceId: string | null
   workspaceServ: WorkspaceService
   github: GitHubWorktreeApi
@@ -44,6 +54,9 @@ export interface ToolEntry {
 }
 
 export const TOOL_REGISTRY: ToolEntry[] = [
+  ...automationTools(() => TOOL_REGISTRY),
+  ...MEMORY_TOOLS,
+  ...DELEGATION_TOOLS,
   {
     descriptor: {
       name: 'oxespace_list_workspaces',

@@ -175,7 +175,7 @@ function WorkspaceSurfaceComponent({
   const moveTree = usePaneLayoutStore((s) => s.move)
 
   useEffect(() => {
-    syncTree(workspace.id, workspace.panes)
+    syncTree(workspace.id, workspace.panes, { width: window.innerWidth, height: window.innerHeight })
   }, [syncTree, workspace.id, workspace.panes])
 
   const scriptsWidth = scriptsExpanded ? 70 : DEFAULT_GITHUB_WIDTH

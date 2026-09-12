@@ -31,7 +31,7 @@ export function defaultSplitShellProfileId(platform: NodeJS.Platform = process.p
 
 /** The builtin ids the shell-profile picker lists, in display order. */
 export function builtinShellProfileIds(platform: NodeJS.Platform = process.platform): string[] {
-  return [defaultSplitShellProfileId(platform), 'builtin-claude', 'builtin-copilot']
+  return [defaultSplitShellProfileId(platform), 'builtin-claude', 'builtin-copilot', 'builtin-codex', 'builtin-cursor', 'builtin-antigravity', 'builtin-grok']
 }
 
 /** Static profile list for the code paths that run without a database. */
@@ -43,6 +43,10 @@ export function fallbackShellProfiles(platform: NodeJS.Platform = process.platfo
   return [
     neutral,
     { id: 'builtin-claude', name: 'claude', executable: 'claude', args: [], isBuiltin: true },
-    { id: 'builtin-copilot', name: 'copilot', executable: 'copilot', args: [], isBuiltin: true }
+    { ...neutral, id: 'builtin-copilot', name: 'Copilot shell', args: platform === 'win32' ? ['-NoLogo'] : [] },
+    { id: 'builtin-codex', name: 'Codex', executable: 'codex', args: [], isBuiltin: true },
+    { id: 'builtin-cursor', name: 'Cursor', executable: 'cursor-agent', args: [], isBuiltin: true },
+    { id: 'builtin-antigravity', name: 'Antigravity', executable: 'agy', args: [], isBuiltin: true },
+    { id: 'builtin-grok', name: 'Grok', executable: 'grok', args: [], isBuiltin: true }
   ]
 }

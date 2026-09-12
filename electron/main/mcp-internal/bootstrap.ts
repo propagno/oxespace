@@ -51,6 +51,10 @@ interface InternalMcpMetaRow {
 }
 
 export interface InternalMcpDeps {
+  delegation?: import('../services/delegation.service').DelegationService
+  executions?: import('../services/execution-registry').ExecutionRegistry
+  delegationAgents?: () => unknown
+  memory?: import('../services/memory/memory.service').MemoryService
   db: AppDatabase
   mcpManager: McpManager
   workspaceServ: WorkspaceService
@@ -79,6 +83,8 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
   const webPreview = new WebPreviewBus()
   const worktree = new WorktreeEventBus()
   const rpc: LocalRpcServer = createLocalRpcServer({
+    delegation: deps.delegation, executions: deps.executions, delegationAgents: deps.delegationAgents,
+    memory: deps.memory,
     workspaceServ: deps.workspaceServ,
     github: deps.github,
     background: deps.background,
