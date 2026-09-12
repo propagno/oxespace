@@ -33,6 +33,8 @@ describe('execution-scoped memory facade', () => {
     expect(a.OXESPACE_MEMORY_RUN_ID).not.toBe(b.OXESPACE_MEMORY_RUN_ID)
     const event = { sessionId: 'claude-A', agent: 'claude-code', cwd: root, event: 'session-start' }
     expect(await service.observe({ ...event, runId: a.OXESPACE_MEMORY_RUN_ID })).toMatchObject({ allowed: true, capture: true, context: false })
+    expect(service.observations(a.OXESPACE_MEMORY_RUN_ID, workspace.id, workspace.panes[0].id)).toMatchObject({ lastHookAt: expect.any(Number), lastHookEvent: 'session-start' })
+    expect(() => service.observations(a.OXESPACE_MEMORY_RUN_ID, workspace.id, workspace.panes[1].id)).toThrow()
     await service.observe({ ...event, runId: b.OXESPACE_MEMORY_RUN_ID, sessionId: 'codex-B', agent: 'codex' })
     const first = await service.contextForRun(a.OXESPACE_MEMORY_RUN_ID, workspace.id)
     const second = await service.contextForRun(b.OXESPACE_MEMORY_RUN_ID, workspace.id)

@@ -1,0 +1,23 @@
+.sidebar-redesign { position: relative; background: var(--bg-sidebar); }
+.sidebar-width-handle { position: absolute; z-index: 5; top: 0; bottom: 0; right: -3px; width: 6px; cursor: col-resize; touch-action: none; }
+.sidebar-width-handle:hover, .sidebar-width-handle:focus-visible { background: color-mix(in srgb, var(--accent) 35%, transparent); }
+.sidebar-redesign .sidebar-quick-nav { display: flex; flex-direction: column; padding: 8px 12px; gap: 3px; }
+.sidebar-redesign .sidebar-nav-item { min-height: 34px; gap: 10px; border-radius: 7px; }
+.sidebar-redesign .sidebar-nav-item:has(.sidebar-nav-kbd) { order: -1; background: var(--bg-elevated); border: 1px solid var(--bd-base); margin-bottom: 9px; }
+.sidebar-redesign .sidebar-header-bar { padding: 14px 16px 4px; }
+.sidebar-redesign .sidebar-header-bar .sidebar-actions { display: none; }
+.sidebar-redesign .sidebar-search-wrap { margin: 4px 12px 10px; }
+.sidebar-redesign .ws-group-list { padding: 0 8px 12px; }
+.sidebar-workspace-tree { border: 1px solid transparent; border-radius: 10px; margin-bottom: 5px; overflow: visible; }
+.sidebar-workspace-tree.active { background: color-mix(in srgb, var(--tx-primary) 4%, var(--bg-sidebar)); border-color: var(--bd-base); }
+.sidebar-workspace-tree .ws-group { border: 0; background: transparent; margin: 0; }
+.sidebar-children-toggle { display: flex; align-items: center; gap: 5px; margin: 0 0 7px 30px; padding: 3px 7px; border: 0; border-radius: 5px; color: var(--tx-muted); background: var(--bg-elevated); font-size: 10px; cursor: pointer; }
+.sidebar-children-toggle[aria-expanded="false"] svg { transform: rotate(-90deg); }
+.sidebar-terminal-children { margin: 0 6px 7px 19px; padding-left: 6px; border-left: 1px solid var(--bd-base); }
+.sidebar-terminal-children .pane-session-row { margin: 3px 0; padding: 9px 8px; border: 1px solid transparent; border-radius: 8px; }
+.sidebar-terminal-children .pane-session-row.active { background: color-mix(in srgb, var(--accent) 9%, var(--bg-elevated)); border-color: color-mix(in srgb, var(--accent) 24%, var(--bd-base)); }
+.sidebar-terminal-children .pane-row-title { font-size: 12px; }
+.sidebar-terminal-children .pane-row-context { font-size: 10px; }
+.sidebar-terminal-children .pane-row-bottom { display: none; }
+.sidebar-redesign :is(button, [role="button"], [role="separator"]):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sidebar-redesign .sidebar-footer { margin-top: auto; border-top: 1px solid var(--bd-base); }

@@ -31,7 +31,7 @@ async function execute(action: Action, args: unknown, ctx: ToolContext): Promise
       case 'accept': return provider.acceptHandoff(context)
       case 'context': return provider.getRelevantContext(context, query)
     }
-  })
+  }, action === 'remember' ? 'write' : action === 'accept' ? undefined : 'read')
   if (action !== 'context') return { content: [{ type: 'text', text: JSON.stringify(result) }], ...(result.status === 'unavailable' ? { isError: true } : {}) }
   // Code is keyed by checkout, independently of shared project memory.
   let code: unknown = { status: 'unavailable' }

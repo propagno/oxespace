@@ -29,7 +29,7 @@ import { Dialog, DialogContent, DialogTitle, LEGACY_MODAL_OVERLAY } from '@/comp
 import { TERMINAL_PREFS_DEFAULTS, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useUpdaterStore } from '../../store/updater.store'
 
-interface SettingsModalProps {
+export interface SettingsModalProps {
   agentProfiles: AgentProfile[]
   agentReadiness: AgentReadiness[]
   isDiscoveringAgents: boolean
@@ -64,7 +64,18 @@ function formatCheckedAgo(ts: number | null): string | null {
   return `Checked ${Math.floor(sec / 86400)} d ago`
 }
 
-type SettingsSection = 'providers' | 'terminal' | 'voice' | 'notifications' | 'updates' | 'diagnostics'
+export type SettingsSection = 'providers' | 'terminal' | 'voice' | 'notifications' | 'updates' | 'diagnostics'
+
+export function SettingsContent({ section, ...props }: SettingsModalProps & { section: SettingsSection }): ReactElement {
+  switch (section) {
+    case 'terminal': return <TerminalSettingsSection onClose={props.onClose} />
+    case 'voice': return <VoiceSettingsSection onClose={props.onClose} />
+    case 'notifications': return <NotificationsSettingsSection onClose={props.onClose} />
+    case 'updates': return <UpdatesSettingsSection onClose={props.onClose} />
+    case 'diagnostics': return <DiagnosticsSettingsSection onClose={props.onClose} />
+    default: return <ProvidersSettingsSection {...props} />
+  }
+}
 type ProviderStatus = AgentReadiness['status'] | 'checking' | 'custom'
 
 function readinessFor(profile: AgentProfile, readiness: AgentReadiness[]): AgentReadiness | undefined {

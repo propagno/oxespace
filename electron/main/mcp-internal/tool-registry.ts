@@ -26,6 +26,7 @@ import type { WorktreeEventBus } from './worktree-event-bus'
 import type { SemanticService } from '../services/semantic.service'
 import { MEMORY_TOOLS } from './memory-tool-handlers'
 import { DELEGATION_TOOLS } from './delegation-tools'
+import { automationTools } from './automation-tools'
 
 export interface ToolContext {
   delegation?: import('../services/delegation.service').DelegationService
@@ -53,6 +54,7 @@ export interface ToolEntry {
 }
 
 export const TOOL_REGISTRY: ToolEntry[] = [
+  ...automationTools(() => TOOL_REGISTRY),
   ...MEMORY_TOOLS,
   ...DELEGATION_TOOLS,
   {

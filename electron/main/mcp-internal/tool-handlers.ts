@@ -318,10 +318,10 @@ async function captureWebPreview(_args: unknown, ctx: ToolContext): Promise<Inte
   const win = BrowserWindow.getAllWindows()[0]
   if (!win) return errorResult('No application window found')
 
-  // Execute JS in the renderer to find the Web Preview iframe rect
+  // Scope the visible guest to the requesting workspace, never another tab.
   const rectJson = await win.webContents.executeJavaScript(`
     (() => {
-      const iframe = document.querySelector('iframe[title="Workspace web preview"]')
+      const iframe = Array.from(document.querySelectorAll('webview[title="Workspace web preview"]')).find(element => element.dataset.workspaceId === ${JSON.stringify(ws.id)})
       if (!iframe) return null
       const rect = iframe.getBoundingClientRect()
       return JSON.stringify({ x: rect.x, y: rect.y, width: rect.width, height: rect.height })

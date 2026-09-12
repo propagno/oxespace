@@ -21,6 +21,8 @@ interface BranchEntry {
 }
 
 const cache = new Map<string, BranchEntry>()
+/** Read-only search hint. Does not spawn Git or start another poller. */
+export function cachedBranchLabel(rootPath: string): string { return cache.get(rootPath)?.status?.branch ?? '' }
 const listeners = new Map<string, Set<() => void>>()
 // One refcounted poller per unique rootPath. Previously each useGitBranch()
 // caller (every TerminalPane statusbar, every sidebar row) created its own

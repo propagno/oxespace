@@ -295,6 +295,21 @@ function WorkspaceGroupComponent({
             <Pencil size={12} aria-hidden="true" />
             Rename
           </button>
+          <button type="button" role="menuitem" onClick={async () => {
+            setMenu(null)
+            await useWorkspaceStore.getState().setActiveWorkspace(workspace.id)
+            useUIStore.getState().openWorkspaceSettings()
+          }}><Settings size={12} aria-hidden="true" />Workspace settings</button>
+          {(['up', 'down'] as const).map(direction => <button key={direction} type="button" role="menuitem" onClick={() => {
+            const store = useWorkspaceStore.getState()
+            const ids = store.workspaces.map(item => item.id)
+            const index = ids.indexOf(workspace.id), target = index + (direction === 'up' ? -1 : 1)
+            if (index >= 0 && target >= 0 && target < ids.length) {
+              ;[ids[index], ids[target]] = [ids[target], ids[index]]
+              void store.reorderWorkspaces(ids)
+            }
+            setMenu(null)
+          }}>Move {direction}</button>)}
           <button
             type="button"
             role="menuitem"
@@ -396,5 +411,4 @@ function activitySummary(a: WorkspaceActivity): string {
   if (a.counts.exited) parts.push(`${a.counts.exited} exited`)
   return `${a.total} agent${a.total === 1 ? '' : 's'}${parts.length ? ` · ${parts.join(', ')}` : ''}`
 }
-
 

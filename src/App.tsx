@@ -11,7 +11,7 @@ import type { CommandPaletteAction } from './components/CommandPalette/CommandPa
 // not in the first-paint bundle.
 const AgentConfigModal = lazy(() => import('./components/Agents/AgentConfigModal').then((m) => ({ default: m.AgentConfigModal })))
 const DesignSystemPage = lazy(() => import('./components/DesignSystem/DesignSystemPage').then((m) => ({ default: m.DesignSystemPage })))
-const SettingsModal = lazy(() => import('./components/Settings/SettingsModal').then((m) => ({ default: m.SettingsModal })))
+const SettingsCenter = lazy(() => import('./components/Settings/SettingsCenter').then((m) => ({ default: m.SettingsCenter })))
 const ToolsModal = lazy(() => import('./components/Workspace/ToolsModal').then((m) => ({ default: m.ToolsModal })))
 const McpPanel = lazy(() => import('./components/MCP/McpPanel').then((m) => ({ default: m.McpPanel })))
 const LinearPanel = lazy(() => import('./components/Linear/LinearPanel').then((m) => ({ default: m.LinearPanel })))
@@ -24,7 +24,6 @@ import { useSlashDispatcher } from './lib/useSlashDispatcher'
 import { Sidebar } from './components/Sidebar/Sidebar'
 import type { WizardLaunchInput } from './components/Workspace/NewWorkspaceModal'
 const NewWorkspaceModal = lazy(() => import('./components/Workspace/NewWorkspaceModal').then((m) => ({ default: m.NewWorkspaceModal })))
-const WorkspaceSettingsModal = lazy(() => import('./components/Workspace/WorkspaceSettingsModal').then((m) => ({ default: m.WorkspaceSettingsModal })))
 import { WorkspaceSurface } from './components/Workspace/WorkspaceSurface'
 import { AppStatusBar } from './components/Workspace/AppStatusBar'
 import { CommandMenu } from './components/CommandMenu/CommandMenu'
@@ -694,6 +693,8 @@ export function App(): ReactElement {
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent): void {
       if (event.defaultPrevented) return
+      const settings = useUIStore.getState()
+      if (settings.isSettingsOpen || settings.isWorkspaceSettingsOpen) return
       const key = event.key.toLowerCase()
       // cmd-J / Ctrl+K: unified command + file + content search (Wave 1 · #8).
       const isCommandMenu =
@@ -988,16 +989,13 @@ export function App(): ReactElement {
           onClose={closeSkillsBrowser}
         />
       ) : null}
-      {isWorkspaceSettingsOpen && activeWorkspace ? (
-        <WorkspaceSettingsModal
-          workspace={activeWorkspace}
+      {isSettingsOpen || isWorkspaceSettingsOpen ? (
+        <SettingsCenter
+          initialPage={useUIStore.getState().settingsInitialPage}
+          initialWorkspaceId={isWorkspaceSettingsOpen ? activeWorkspace?.id : undefined}
+          workspaces={workspaces}
           shellProfiles={shellProfiles}
-          onClose={closeWorkspaceSettings}
           onSave={updateSettings}
-        />
-      ) : null}
-      {isSettingsOpen ? (
-        <SettingsModal
           agentProfiles={agentProfiles}
           agentReadiness={agentReadiness}
           isDiscoveringAgents={isDiscovering}
@@ -1045,12 +1043,13 @@ export function App(): ReactElement {
                 initialPrompt: profile.systemPrompt || undefined
               })
               useTerminalStore.getState().setStatus(paneId, 'running')
-              toggleSettings()
+              if (isSettingsOpen) toggleSettings()
+              closeWorkspaceSettings()
             } catch (err) {
               setAppNotice(err instanceof Error ? err.message : 'Failed to start agent in pane')
             }
           }}
-          onClose={toggleSettings}
+          onClose={() => { if (isSettingsOpen) toggleSettings(); closeWorkspaceSettings() }}
         />
       ) : null}
       {isToolsOpen ? (

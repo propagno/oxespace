@@ -21,6 +21,16 @@ export interface DelegationDependencies {
   validateAgent(id: string): void
 }
 export class DelegationService {
+  async capabilities(execution: AgentExecution) {
+    const project = await projectIdentity(execution.cwd)
+    const tasks = this.all()
+    const child = tasks.find(task => task.paneId === execution.paneId)
+    const activeCount = tasks.filter(task => task.project === project && !['approved','cancelled','failed','interrupted','review'].includes(task.state)).length
+    const enabled = this.enabled(project)
+    return { enabled, role: child ? 'executor' : 'origin', canDelegate: enabled && !child && activeCount < 4,
+      activeCount, limit: 4, taskId: child?.id ?? null,
+      reason: !enabled ? 'PROJECT_OPT_IN_REQUIRED' : child ? 'RECURSIVE_DELEGATION_DISABLED' : activeCount >= 4 ? 'CONCURRENCY_LIMIT' : null }
+  }
   ownsPane(paneId: string): boolean { return this.all().some(t => t.paneId === paneId) }
   private pending = new Map<string, Promise<void>>()
   private locks = new Map<string, Promise<void>>()

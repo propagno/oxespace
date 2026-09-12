@@ -1,5 +1,5 @@
 import { Brain, Check, GitBranch, Maximize2, Minimize2, Palette, SquareTerminal, X } from 'lucide-react'
-import { useRef, useState, type FormEvent, type ReactElement } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type ReactElement } from 'react'
 import type { ShellProfile, UpdateWorkspaceSettingsInput, Workspace, WorkspaceDensity, WorkspaceLayoutPreset, WorkspaceThemeId } from '../../../shared/types/workspace'
 import { LAYOUT_PRESETS, WORKSPACE_THEMES } from './workspaceOptions'
 import { WorkspaceMemorySettings } from './WorkspaceMemorySettings'
@@ -9,7 +9,7 @@ import { useResolvedTerminalPrefs, useTerminalPrefsStore, type TerminalCursorSty
 import './WorkspaceSettingsModal.css'
 import { DefaultShellSettings } from './DefaultShellSettings'
 
-const SETTINGS_PAGES = [
+export const SETTINGS_PAGES = [
   { id: 'appearance', label: 'Appearance', hint: 'Theme & layout', icon: Palette, description: 'Make this workspace feel like yours. Preview your theme and pane layout before saving.' },
   { id: 'terminal', label: 'Terminal', hint: 'Text & default shell', icon: SquareTerminal, description: 'Set your default shell and customize how terminal sessions look in this workspace.' },
   { id: 'memory', label: 'Project memory', hint: 'Shared knowledge', icon: Brain, description: 'Keep project knowledge across worktrees without sharing agent conversations.' },
@@ -17,6 +17,9 @@ const SETTINGS_PAGES = [
 ] as const
 
 interface WorkspaceSettingsModalProps {
+  embedded?: boolean
+  selectedPageId?: (typeof SETTINGS_PAGES)[number]['id']
+  onDraftChange?: (draft: { dirty: boolean; save: () => Promise<boolean>; discard: () => void }) => void
   workspace: Workspace
   shellProfiles: ShellProfile[]
   onClose: () => void
@@ -71,7 +74,7 @@ const FONT_PRESETS = [
   'monospace'
 ]
 
-export function WorkspaceSettingsModal({ onClose, onSave, shellProfiles, workspace }: WorkspaceSettingsModalProps): ReactElement {
+export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange, onClose, onSave, shellProfiles, workspace }: WorkspaceSettingsModalProps): ReactElement {
   const [themeId, setThemeId] = useState<WorkspaceThemeId>(workspace.themeId)
   const [uiDensity, setUiDensity] = useState<WorkspaceDensity>(workspace.uiDensity)
   const [layoutPreset, setLayoutPreset] = useState<WorkspaceLayoutPreset>(workspace.layoutPreset)
@@ -79,7 +82,8 @@ export function WorkspaceSettingsModal({ onClose, onSave, shellProfiles, workspa
   const [applyShellToIdlePanes, setApplyShellToIdlePanes] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setSaving] = useState(false)
-  const [page, setPage] = useState<(typeof SETTINGS_PAGES)[number]['id']>('appearance')
+  const [localPage, setPage] = useState<(typeof SETTINGS_PAGES)[number]['id']>('appearance')
+  const page = selectedPageId ?? localPage
   const selectedPage = SETTINGS_PAGES.find(item => item.id === page)!
   const contentRef = useRef<HTMLDivElement>(null)
 
@@ -88,28 +92,31 @@ export function WorkspaceSettingsModal({ onClose, onSave, shellProfiles, workspa
   const terminalPrefs = useResolvedTerminalPrefs(workspace.id)
   const activePal = THEME_PALETTES[themeId]
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
-    event.preventDefault()
+  const save = async (): Promise<boolean> => {
     setSaving(true)
     setError(null)
     try {
       await onSave({ workspaceId: workspace.id, themeId, uiDensity, layoutPreset, defaultShellProfileId, applyShellToIdlePanes })
-      onClose()
+      setApplyShellToIdlePanes(false)
+      if (!embedded) onClose()
+      return true
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update workspace settings')
+      return false
     } finally {
       setSaving(false)
     }
   }
+  const discard = (): void => {
+    setThemeId(workspace.themeId); setUiDensity(workspace.uiDensity); setLayoutPreset(workspace.layoutPreset)
+    setDefaultShellProfileId(workspace.defaultShellProfileId); setApplyShellToIdlePanes(false); setError(null)
+  }
+  const dirty = themeId !== workspace.themeId || uiDensity !== workspace.uiDensity || layoutPreset !== workspace.layoutPreset || defaultShellProfileId !== workspace.defaultShellProfileId || applyShellToIdlePanes
+  useEffect(() => { onDraftChange?.({ dirty, save, discard }) })
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => { event.preventDefault(); await save() }
 
-  return (
-    <Dialog open onOpenChange={(next) => { if (!next) onClose() }}>
-      <DialogContent
-        unstyled
-        showCloseButton={false}
-        overlayClassName={LEGACY_MODAL_OVERLAY}
-        className="modal workspace-settings-modal-v2 modal-dialog-surface"
-      >
+  const content = <>
+        {!embedded &&
         <header className="modal-header">
           <div className="ws-settings-title-group">
             <DialogTitle asChild>
@@ -121,7 +128,7 @@ export function WorkspaceSettingsModal({ onClose, onSave, shellProfiles, workspa
           <button type="button" className="icon-button" aria-label="Close workspace settings" onClick={onClose}>
             <X size={16} aria-hidden="true" />
           </button>
-        </header>
+        </header>}
 
         <form
           className="ws-settings-form-v2"
@@ -133,13 +140,13 @@ export function WorkspaceSettingsModal({ onClose, onSave, shellProfiles, workspa
           } as React.CSSProperties}
         >
           <div className="ws-settings-body">
-            <nav className="ws-settings-nav" aria-label="Workspace settings sections">
+            {!embedded && <nav className="ws-settings-nav" aria-label="Workspace settings sections">
               <span className="ws-settings-nav-label">WORKSPACE</span>
               {SETTINGS_PAGES.map(({ id, label, hint, icon: Icon }) => <button key={id} type="button" aria-pressed={page === id} aria-controls={`ws-page-${id}`} onClick={() => { setPage(id); if (contentRef.current) contentRef.current.scrollTop = 0 }}>
                 <Icon size={17} aria-hidden="true" /><span><strong>{label}</strong><small>{hint}</small></span>
               </button>)}
               <p>Settings scoped to<br /><strong>{workspace.name}</strong></p>
-            </nav>
+            </nav>}
             <div className="ws-settings-main" ref={contentRef}>
               <header className="ws-settings-page-heading"><h3>{selectedPage.label}</h3><p>{selectedPage.description}</p></header>
               <div id="ws-page-memory" hidden={page !== 'memory'}><WorkspaceMemorySettings workspaceId={workspace.id} /></div>
@@ -248,13 +255,15 @@ export function WorkspaceSettingsModal({ onClose, onSave, shellProfiles, workspa
 
           <footer className="modal-actions">
             <p>{page === 'memory' ? 'Memory changes use Apply memory settings above.' : page === 'delegation' ? 'Delegation changes apply immediately.' : 'Save applies theme, density, layout and default shell.'}</p>
-            <button type="button" className="secondary-action" onClick={onClose}>Close</button>
+            <button type="button" className="secondary-action" onClick={embedded ? discard : onClose}>{embedded ? 'Discard changes' : 'Close'}</button>
             <button type="submit" className="primary-action" disabled={isSaving}>{isSaving ? 'Saving…' : 'Save workspace settings'}</button>
           </footer>
         </form>
-      </DialogContent>
-    </Dialog>
-  )
+      </>
+  if (embedded) return <div className="workspace-settings-modal-v2 settings-workspace-content">{content}</div>
+  return <Dialog open onOpenChange={(next) => { if (!next) onClose() }}>
+    <DialogContent unstyled showCloseButton={false} overlayClassName={LEGACY_MODAL_OVERLAY} className="modal workspace-settings-modal-v2 modal-dialog-surface">{content}</DialogContent>
+  </Dialog>
 }
 
 /* ── Live preview ─────────────────────────────────────────────────── */

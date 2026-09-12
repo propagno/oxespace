@@ -8,6 +8,16 @@ const context = { projectId: 'a', workspace: 'oxespace-local', project: 'p-a', c
 const enabled = () => ({ enabled: true, automaticCapture: true, automaticContext: true })
 
 describe('optional memory boundary', () => {
+  test('observations distinguish provider writes from reads and isolate projects', async () => {
+    const manager = new MemoryManager(() => ({} as MemoryProvider), enabled, 15)
+    await manager.run(context, async () => undefined, 'write')
+    expect(manager.observations('a')).toMatchObject({ lastWriteAt: expect.any(Number), lastReadAt: null })
+    const before = manager.observations('a')
+    await manager.run({ ...context, projectId: 'b' }, async () => { throw new Error('secret') }, 'write')
+    expect(manager.observations('a')).toEqual(before)
+    expect(manager.observations('b')).toMatchObject({ lastWriteAt: null, lastFailureAt: expect.any(Number) })
+    expect(JSON.stringify(manager.observations('b'))).not.toContain('secret')
+  })
   test('disabled projects never construct or contact a provider', async () => {
     const factory = vi.fn()
     const manager = new MemoryManager(factory, () => ({ ...enabled(), enabled: false }))
