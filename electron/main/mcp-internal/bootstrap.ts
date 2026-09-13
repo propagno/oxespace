@@ -80,9 +80,11 @@ const BRIDGE_DEST_DIR = 'bin'
 const BRIDGE_DEST_FILE = 'oxespace-mcp.cjs'
 
 export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandle {
+  let documentation: Promise<ReturnType<typeof import('../services/documentation/runtime').createDocumentationRuntime>> | undefined
   const webPreview = new WebPreviewBus()
   const worktree = new WorktreeEventBus()
   const rpc: LocalRpcServer = createLocalRpcServer({
+    documentation: () => documentation ??= import('../services/documentation/runtime').then(module => module.createDocumentationRuntime(deps.db, join(app.getPath('userData'), 'documentation'))).catch(error => { documentation = undefined; throw error }),
     delegation: deps.delegation, executions: deps.executions, delegationAgents: deps.delegationAgents,
     memory: deps.memory,
     workspaceServ: deps.workspaceServ,

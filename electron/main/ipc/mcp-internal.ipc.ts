@@ -21,7 +21,10 @@ export function registerMcpInternalIpc(handle: InternalMcpHandle): void {
 
     const rectJson = await win.webContents.executeJavaScript(`
       (() => {
-        const frame = document.querySelector('iframe[title="Workspace web preview"]')
+        const frame = [...document.querySelectorAll('webview[title="Workspace web preview"]')].find(el => {
+          const r = el.getBoundingClientRect()
+          return r.width > 0 && r.height > 0 && el.checkVisibility()
+        })
         if (!frame) return null
         const rect = frame.getBoundingClientRect()
         if (rect.width < 1 || rect.height < 1) return null

@@ -23,6 +23,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/memory/agent-memory-adapter.ts',
   'electron/main/services/memory/memory-project.service.ts',
   'electron/main/services/memory/memory-marker.ts',
+  // Documentation owns generated artifacts under userData/documentation only.
+  // Tool callers supply IDs, never filesystem paths or workspace destinations.
+  'electron/main/services/documentation/documentation.service.ts',
   'electron/main/services/session.service.ts',
   'electron/main/services/shell-profile.service.ts',
   'electron/main/services/skill.service.ts',

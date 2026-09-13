@@ -42,6 +42,7 @@ export function WebPreviewPanel({ embedded = false, onClose, workspace }: WebPre
   const [captureNotice, setCaptureNotice] = useState<string | null>(null)
   const [capturing, setCapturing] = useState(false)
   const [allowExternal, setAllowExternal] = useState(false)
+  const [agentDocumentation, setAgentDocumentation] = useState(false)
   // #3 Design Mode: pick an element in the previewed page and hand it to an agent.
   const [designMode, setDesignMode] = useState(false)
   const [grab, setGrab] = useState<{ payload: DesignGrabPayload; screenshot: string | null } | null>(null)
@@ -271,6 +272,16 @@ export function WebPreviewPanel({ embedded = false, onClose, workspace }: WebPre
         </button>
       </div>
 
+      <div className="web-preview-agent-access">
+        <label className="web-preview-external-toggle" title="Allow agents in this workspace to inspect and capture this preview. Captures can be sent to the agent vendor. Inputs are masked, but other private data needs explicit redaction. Click/fill/navigation require confirmation. Resets when the preview closes.">
+          <input type="checkbox" aria-label="Agent documentation access" checked={agentDocumentation} onChange={event => {
+            if (!event.currentTarget.checked) { setAgentDocumentation(false); return }
+            setAgentDocumentation(window.confirm('Allow agents to inspect and capture this preview? Page content and screenshots may be sent to the agent vendor. Review captures for private data; inputs are masked automatically. Each click, fill or navigation asks for separate approval.'))
+          }} />Agent access
+        </label>
+        <span>{agentDocumentation ? 'Actions ask for approval' : 'Documentation access is off'}</span>
+      </div>
+
       <div className="web-preview-stage">
         {url ? (
           <div className="web-preview-frame-wrap">
@@ -298,6 +309,8 @@ export function WebPreviewPanel({ embedded = false, onClose, workspace }: WebPre
                 style={frameStyle}
                 title="Workspace web preview"
                 data-workspace-id={workspace.id}
+                data-agent-automation={String(agentDocumentation)}
+                data-allow-external={String(allowExternal)}
                 partition="oxe-webpreview"
                 data-testid="web-preview-webview"
               />

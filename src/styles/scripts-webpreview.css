@@ -329,7 +329,9 @@
   min-width: 0;
   overflow-x: auto;
   display: grid;
-  grid-template-columns: auto auto auto minmax(120px, 1fr) auto auto auto auto auto auto auto;
+  grid-template-columns: auto auto auto minmax(120px, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
   align-items: center;
   gap: 6px;
   padding: 6px 8px;
@@ -619,6 +621,20 @@
 
 .web-preview-external-toggle input {
   accent-color: var(--accent);
+}
+
+.web-preview-agent-access {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--bd-subtle);
+  color: var(--tx-muted);
+  background: var(--bg-elevated);
+  font-size: 10px;
 }
 
 /* ---------------------------------------------------------------------------

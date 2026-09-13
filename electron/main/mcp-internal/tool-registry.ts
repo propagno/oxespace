@@ -27,8 +27,10 @@ import type { SemanticService } from '../services/semantic.service'
 import { MEMORY_TOOLS } from './memory-tool-handlers'
 import { DELEGATION_TOOLS } from './delegation-tools'
 import { automationTools } from './automation-tools'
+import { DOCUMENTATION_TOOLS } from './documentation-tools'
 
 export interface ToolContext {
+  documentation?: () => Promise<ReturnType<typeof import('../services/documentation/runtime').createDocumentationRuntime>>
   delegation?: import('../services/delegation.service').DelegationService
   executions?: import('../services/execution-registry').ExecutionRegistry
   executionId?: string
@@ -54,6 +56,7 @@ export interface ToolEntry {
 }
 
 export const TOOL_REGISTRY: ToolEntry[] = [
+  ...DOCUMENTATION_TOOLS,
   ...automationTools(() => TOOL_REGISTRY),
   ...MEMORY_TOOLS,
   ...DELEGATION_TOOLS,

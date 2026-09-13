@@ -11,7 +11,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
  *  pre-migration backup (only back up when an upgrade will actually run).
  *  Exported so the migrations test can catch a constant that drifts from the
  *  version the SQL actually sets. */
-export const LATEST_DB_VERSION = 48
+export const LATEST_DB_VERSION = 49
 /** How many pre-migration backups to retain. */
 const MAX_DB_BACKUPS = 5
 
@@ -439,6 +439,9 @@ export function runMigrations(db: AppDatabase): void {
   }
   if (currentVersion < 48) {
     db.transaction(() => db.exec(readMigration('048_delegations.sql')))()
+  }
+  if (currentVersion < 49) {
+    db.transaction(() => db.exec(readMigration('049_documentation.sql')))()
   }
 }
 

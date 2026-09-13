@@ -2,6 +2,10 @@ const { pathToFileURL } = require('node:url')
 const { dirname, join } = require('node:path')
 const { app } = require('electron')
 
+if (process.env.OXESPACE_E2E_MOCK_NATIVE === '1' && process.env.OXESPACE_E2E_PREVIEW_SERVICE) {
+  globalThis.preview = new (require(process.env.OXESPACE_E2E_PREVIEW_SERVICE).PreviewAutomation)()
+}
+
 // Every E2E launch gets a unique database path. Keep Chromium/Electron state in
 // the same isolated root as well; otherwise localStorage, caches and lock files
 // leak between tests and make performance results order-dependent.
