@@ -39,18 +39,21 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
     expect((await run({action:'fill',selector:'#name',text:'Example',expectedUrl:url})).error).toBeUndefined()
     expect((await run({action:'click',selector:'#save',expectedUrl:url})).error).toBeUndefined()
     await expect.poll(async()=>JSON.stringify(await run({action:'inspect'}))).toContain('Saved Example')
+    // Font metrics differ across Windows/Linux runners. Sample the actual
+    // input center rather than a fixed coordinate that may hit white space.
+    const maskPoint = await app.evaluate(({webContents}) => webContents.getAllWebContents().find(c=>c.getType()==='webview')!.executeJavaScript("(() => { const r=document.querySelector('#name').getBoundingClientRect(); return {x:Math.floor(r.left+r.width/2),y:Math.floor(r.top+r.height/2)} })()")) as {x:number;y:number}
     const shot=await app.evaluate(async (_,{workspaceId,options})=>{
       const s=await (globalThis as unknown as {preview:PreviewAutomation}).preview.capture(workspaceId,options,()=>{})
       return {...s,png:s.png.toString('base64')}
     },{workspaceId,options:{mode:'viewport',highlight:['#save']} as ScreenshotOptions})
     expect(shot.height).toBeGreaterThan(100);expect(shot.redactionCount).toBeGreaterThan(0)
     writeFileSync(test.info().outputPath('redacted-viewport.png'),Buffer.from(shot.png,'base64'))
-    const pixels = await app.evaluate(({nativeImage},base64) => {
+    const pixels = await app.evaluate(({nativeImage},{base64,maskPoint}) => {
       const img = nativeImage.createFromBuffer(Buffer.from(base64,'base64'))
       const size = img.getSize(), bytes = img.toBitmap()
       const at = (x:number,y:number) => [...bytes.subarray((y*size.width+x)*4,(y*size.width+x)*4+3)]
-      return {size,mask:at(25,90),blank:at(25,200)}
-    },shot.png)
+      return {size,mask:at(maskPoint.x,maskPoint.y),blank:at(Math.floor(size.width/2),size.height-25)}
+    },{base64:shot.png,maskPoint})
     expect(pixels.size.width).toBe(shot.width)
     expect(pixels.size.height).toBe(shot.height)
     expect(pixels.mask).toEqual([17,17,17])
