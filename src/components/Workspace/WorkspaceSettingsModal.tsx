@@ -23,6 +23,8 @@ interface WorkspaceSettingsModalProps {
   workspace: Workspace
   shellProfiles: ShellProfile[]
   onClose: () => void
+  onOpenTerminal?: (paneId: string) => void
+  onOpenDiagnostics?: () => void
   onSave: (input: UpdateWorkspaceSettingsInput) => Promise<void>
 }
 
@@ -74,7 +76,7 @@ const FONT_PRESETS = [
   'monospace'
 ]
 
-export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange, onClose, onSave, shellProfiles, workspace }: WorkspaceSettingsModalProps): ReactElement {
+export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange, onClose, onOpenTerminal, onOpenDiagnostics, onSave, shellProfiles, workspace }: WorkspaceSettingsModalProps): ReactElement {
   const [themeId, setThemeId] = useState<WorkspaceThemeId>(workspace.themeId)
   const [uiDensity, setUiDensity] = useState<WorkspaceDensity>(workspace.uiDensity)
   const [layoutPreset, setLayoutPreset] = useState<WorkspaceLayoutPreset>(workspace.layoutPreset)
@@ -151,7 +153,7 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
             <div className="ws-settings-main" ref={contentRef}>
               <header className="ws-settings-page-heading"><h3>{selectedPage.label}</h3><p>{selectedPage.description}</p></header>
               <div id="ws-page-memory" hidden={page !== 'memory'}><WorkspaceMemorySettings workspaceId={workspace.id} /></div>
-              <div id="ws-page-delegation" hidden={page !== 'delegation'}><WorkspaceDelegationSettings workspaceId={workspace.id} /></div>
+              <div id="ws-page-delegation" hidden={page !== 'delegation'}><WorkspaceDelegationSettings workspaceId={workspace.id} paneIds={workspace.panes.map(pane => pane.id)} onOpenTerminal={onOpenTerminal} onOpenDiagnostics={onOpenDiagnostics} /></div>
               <div id="ws-page-appearance" className="ws-appearance-layout" hidden={page !== 'appearance'}>
               <div className="ws-appearance-controls">
               <section className="ws-settings-section" aria-labelledby="ws-section-appearance">

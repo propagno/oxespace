@@ -23,3 +23,13 @@ test('works without the optional preload API', () => {
   render(<WorkspaceDelegationSettings workspaceId="ws" />)
   expect(screen.getByRole('checkbox')).toBeDisabled()
 })
+
+test('terminal and diagnostics use the settings host navigation callbacks', async () => {
+  const onOpenTerminal = vi.fn(), onOpenDiagnostics = vi.fn()
+  vi.stubGlobal('oxe', {delegation: {status:vi.fn(async () => ({enabled:true,tasks:[{id:'task',paneId:'child',objective:'Fix auth',state:'failed',branch:'oxe/auth',error:'Launch failed'}]})),onChanged:vi.fn(() => () => {})}})
+  render(<WorkspaceDelegationSettings workspaceId="ws" onOpenTerminal={onOpenTerminal} onOpenDiagnostics={onOpenDiagnostics} />)
+  fireEvent.click(await screen.findByRole('button', {name:'Open terminal'}))
+  expect(onOpenTerminal).toHaveBeenCalledWith('child')
+  fireEvent.click(screen.getByRole('button', {name:'Open diagnostics and logs'}))
+  expect(onOpenDiagnostics).toHaveBeenCalledOnce()
+})

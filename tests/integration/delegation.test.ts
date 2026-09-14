@@ -38,6 +38,21 @@ async function fixture() {
   return {db, root,git,workspace,ws,executions,origin,launch,createWorktree,service,input,deps}
 }
 describe('delegation lifecycle', () => {
+  test('retry recreates a closed destination pane without replacing its worktree or handoff', async () => {
+    const f = await fixture(); f.launch.mockRejectedValueOnce(new Error('Missing agent executable'))
+    const task = await f.service.create(f.origin, f.input)
+    await vi.waitFor(() => expect(f.service.get(task.id).state).toBe('failed'), {timeout:10000})
+    const old = f.service.get(task.id)
+    f.workspace.closePane(old.paneId!)
+    await f.service.control(f.ws.id, task.id, 'retry')
+    await vi.waitFor(() => expect(f.service.get(task.id).destinationExecutionId).toBeTruthy(), {timeout:10000})
+    const retried = f.service.get(task.id)
+    expect(retried.paneId).not.toBe(old.paneId)
+    expect(f.workspace.get(f.ws.id)?.panes.some(p => p.id === retried.paneId)).toBe(true)
+    expect(retried.path).toBe(old.path)
+    expect(retried.context).toBe(old.context)
+    expect(f.createWorktree).toHaveBeenCalledTimes(1)
+  }, 20000)
   test('cancellation during provisioning never launches and keeps the created checkout', async () => {
     const f = await fixture()
     let release!: () => void

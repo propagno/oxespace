@@ -6,6 +6,8 @@ import { SETTINGS_PAGES, WorkspaceSettingsModal } from '../Workspace/WorkspaceSe
 import type { ShellProfile, UpdateWorkspaceSettingsInput, Workspace } from '../../../shared/types/workspace'
 import './SettingsCenter.css'
 import { useUIStore } from '../../store/ui.store'
+import { useWorkspaceStore } from '../../store/workspace.store'
+import { useTerminalStore } from '../../store/terminal.store'
 
 export type SettingsDestination = { scope: 'application'; page: 'general' | SettingsSection } | { scope: 'workspace'; workspaceId: string; page: typeof SETTINGS_PAGES[number]['id'] }
 const appPages = [
@@ -85,7 +87,16 @@ export function SettingsCenter(props: SettingsModalProps & {
       </aside>
       <main className="settings-center-main">
         {destination.scope === 'workspace' ? workspace ? <WorkspaceSettingsModal key={workspace.id} embedded workspace={workspace} selectedPageId={destination.page}
-          shellProfiles={props.shellProfiles} onSave={props.onSave} onClose={close} onDraftChange={value => { draft.current = value }} />
+          shellProfiles={props.shellProfiles} onSave={props.onSave} onClose={close} onDraftChange={value => { draft.current = value }}
+          onOpenDiagnostics={() => go({ scope: 'application', page: 'diagnostics' })}
+          onOpenTerminal={paneId => navigate(() => {
+            returnPane.current = paneId
+            void useWorkspaceStore.getState().setActiveWorkspace(workspace.id)
+            useUIStore.getState().setMaximizedPane(null)
+            useUIStore.getState().setActivePane(paneId)
+            useTerminalStore.getState().setActivePaneId(paneId)
+            props.onClose()
+          })} />
           : <section className="settings-general"><h2>Workspace closed</h2><p>Select another workspace or return to work.</p></section>
           : destination.page === 'general' ? <GeneralSettings /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
       </main>

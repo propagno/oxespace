@@ -609,7 +609,7 @@ export function App(): ReactElement {
     { id: 'open-tools', title: 'Open Tools', subtitle: 'Panels, MCP, workspace tools', icon: Settings2, category: 'Workspace', keywords: ['tools', 'panels', 'mcp', 'gear'], run: openTools },
 
     // AI & Agents
-    { id: 'open-settings', title: 'Open Agent Settings', subtitle: 'Configure CLIs and discovery', icon: Bot, category: 'AI & Agents', keywords: ['ai', 'provider', 'discovery'], run: toggleSettings },
+    { id: 'open-settings', title: 'Open Agent Settings', subtitle: 'Configure CLIs and discovery', icon: Bot, category: 'AI & Agents', keywords: ['ai', 'provider', 'discovery'], run: () => useUIStore.getState().openAgentSettings() },
     { id: 'open-mcp', title: 'Open MCP servers', subtitle: 'Model Context Protocol tools', icon: Wrench, category: 'AI & Agents', keywords: ['mcp', 'tools'], run: openMcpPanel },
     { id: 'open-linear', title: 'Open Linear issues', subtitle: 'Issues, boards and worktree from issue', icon: ListTodo, category: 'Git & Repo', keywords: ['linear', 'issue', 'ticket', 'board', 'worktree'], run: openLinearPanel },
     { id: 'open-skills', title: 'Open Skills', subtitle: 'Browse markdown skill prompts', icon: Activity, category: 'AI & Agents', keywords: ['skill', 'slash'], run: openSkillsBrowser },
@@ -1068,7 +1068,7 @@ export function App(): ReactElement {
           onClose={closeTools}
           onOpenCommandPalette={openCommandMenu}
           onOpenWorkspaceSettings={openWorkspaceSettings}
-          onOpenAgentSettings={toggleSettings}
+          onOpenAgentSettings={() => useUIStore.getState().openAgentSettings()}
           onToggleEditor={toggleEditor}
           onToggleGitHub={toggleGitHubPanel}
           onToggleReview={toggleReviewPanel}

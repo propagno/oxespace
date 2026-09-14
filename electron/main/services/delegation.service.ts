@@ -138,7 +138,9 @@ export class DelegationService {
       t = this.active(id)
       if (await projectIdentity(t.path) !== t.project || await this.git(t.path, ['branch','--show-current']) !== t.branch) throw new Error('Destination worktree does not match delegation')
       t = this.active(id)
-      if (!t.paneId) {
+      const workspace = this.deps.workspace.get(t.workspaceId)
+      if (!workspace) throw new Error('Workspace not found')
+      if (!t.paneId || !workspace.panes.some(pane => pane.id === t.paneId)) {
         // Synchronous DB operations: no renderer can launch a partially configured pane.
         this.db.transaction(() => {
           t.paneId = this.deps.workspace.createPane(t.workspaceId).paneId

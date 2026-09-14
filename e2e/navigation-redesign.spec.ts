@@ -23,6 +23,9 @@ test('sidebar sessions and full-page settings preserve terminal DOM', async () =
     await page.screenshot({ path: test.info().outputPath('sidebar.png') })
     await page.getByTestId('btn-open-tools').click()
     await page.getByTestId('tools-agent-settings').click()
+    await expect(page.getByLabel('Settings scope')).toHaveValue('application')
+    await expect(page.getByRole('button', {name:/^Agents CLI discovery/})).toHaveAttribute('aria-current','page')
+    await page.getByRole('button', {name:/^General Navigation/}).click()
     await expect(page.getByRole('heading', { name: 'General', exact: true })).toBeVisible()
     const settings = page.locator('.settings-center')
     expect(await settings.boundingBox()).toEqual({ x: 0, y: 0, width: 1280, height: 720 })
@@ -38,6 +41,9 @@ test('sidebar sessions and full-page settings preserve terminal DOM', async () =
     await page.getByRole('button', { name: 'Discard', exact: true }).click()
     await expect(settings).toHaveCount(0)
     await expect(page.locator('.terminal-pane[data-preserved="yes"]')).toHaveCount(1)
+    // Settings deliberately restores terminal focus on the next animation
+    // frame. Wait for that cleanup before testing a new keyboard destination.
+    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
     const handle = page.getByRole('separator', { name: 'Sidebar width' })
     await handle.focus(); await page.keyboard.press('ArrowRight')
     await expect(handle).toHaveAttribute('aria-valuenow', '290')
@@ -45,7 +51,10 @@ test('sidebar sessions and full-page settings preserve terminal DOM', async () =
     await expect(page.getByRole('separator', { name: 'Sidebar width' })).toHaveAttribute('aria-valuenow', '290')
     await page.getByTestId('btn-open-tools').click()
     await page.getByTestId('tools-agent-settings').click()
+    await expect(page.getByLabel('Settings scope')).toHaveValue('application')
+    await expect(page.getByRole('button', {name:/^Agents CLI discovery/})).toHaveAttribute('aria-current','page')
     await page.setViewportSize({ width: 850, height: 650 })
+    await page.getByLabel('Settings scope').selectOption(workspaceId!)
     await expect(page.getByLabel('Settings category')).toBeVisible()
     await page.getByLabel('Settings category').selectOption('terminal')
     await expect(page.getByRole('radiogroup', { name: 'Default shell profile' })).toBeVisible()
@@ -57,5 +66,12 @@ test('sidebar sessions and full-page settings preserve terminal DOM', async () =
       await expect(page.locator('.settings-center-main')).toBeVisible()
     }
     await page.screenshot({ path: test.info().outputPath('settings-diagnostics.png') })
+    await page.getByLabel('Settings scope').selectOption(workspaceId!)
+    await page.getByRole('button', {name:/^Agent delegation Parallel/}).click()
+    await expect(page.getByRole('button', {name:'Open diagnostics and logs'})).toBeVisible()
+    await page.screenshot({ path: test.info().outputPath('delegation-diagnostics-link.png') })
+    await page.getByRole('button', {name:'Open diagnostics and logs'}).click()
+    await expect(page.getByLabel('Settings scope')).toHaveValue('application')
+    await expect(page.getByRole('heading', {name:'Diagnostics',exact:true})).toBeVisible()
   } finally { await app.close() }
 })

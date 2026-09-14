@@ -3,7 +3,7 @@ import type { DelegationSnapshot } from '../../../shared/types/delegation'
 import { useUIStore } from '../../store/ui.store'
 import './WorkspaceMemorySettings.css'
 
-export function WorkspaceDelegationSettings({ workspaceId }: { workspaceId: string }) {
+export function WorkspaceDelegationSettings({ workspaceId, paneIds, onOpenTerminal, onOpenDiagnostics }: { workspaceId: string; paneIds?: string[]; onOpenTerminal?: (paneId: string) => void; onOpenDiagnostics?: () => void }) {
   const [snapshot, setSnapshot] = useState<DelegationSnapshot>({ enabled: false, tasks: [] })
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -30,6 +30,7 @@ export function WorkspaceDelegationSettings({ workspaceId }: { workspaceId: stri
     <label><input type="checkbox" checked={snapshot.enabled} disabled={!ready || busy} onChange={e => { const enabled = e.target.checked; void act(() => window.oxe.delegation.configure(workspaceId,enabled)) }} /> Allow agents to delegate tasks in this project</label>
     <p className="memory-privacy">Delegation starts another Claude or Codex session and supplies the handoff to that agent, which may use a cloud service. Native login and permission prompts still apply. Open new terminals after enabling.</p>
     {error && <p role="alert" className="memory-feedback">{error}</p>}
+    {onOpenDiagnostics && <button type="button" onClick={onOpenDiagnostics}>Open diagnostics and logs</button>}
     {!snapshot.tasks.length && <p>No delegated tasks yet. Ask your agent to use oxespace_delegate_task.</p>}
     {snapshot.tasks.map(task => <article key={task.id} className="memory-feedback">
       <div className="memory-status-line"><strong>{task.objective}</strong><span className="memory-badge" data-state={task.state}>{task.state}</span></div>
@@ -38,11 +39,16 @@ export function WorkspaceDelegationSettings({ workspaceId }: { workspaceId: stri
       {task.lastReport && <p>{task.lastReport}</p>}
       {task.lastMessage && <p>Latest message: {task.lastMessage}</p>}
       <div className="memory-task-actions">
-        {task.paneId && <button type="button" onClick={() => { useUIStore.getState().setActivePane(task.paneId!); useUIStore.getState().closeWorkspaceSettings() }}>Open terminal</button>}
+        {task.paneId && (!paneIds || paneIds.includes(task.paneId)) && <button type="button" onClick={() => {
+          if (onOpenTerminal) onOpenTerminal(task.paneId!)
+          else { useUIStore.getState().setActivePane(task.paneId!); useUIStore.getState().closeWorkspaceSettings() }
+        }}>Open terminal</button>}
         {['failed','interrupted'].includes(task.state) && <button type="button" disabled={busy} onClick={() => void act(() => window.oxe.delegation.control(workspaceId,task.id,'retry'))}>Retry</button>}
         {task.state === 'review' && <button type="button" disabled={busy} onClick={() => void act(() => window.oxe.delegation.control(workspaceId,task.id,'approve'))}>Approve result</button>}
         {!['approved','cancelled'].includes(task.state) && <button type="button" disabled={busy} onClick={() => void act(() => window.oxe.delegation.control(workspaceId,task.id,'cancel'))}>Cancel task</button>}
       </div>
+      {task.paneId && paneIds && !paneIds.includes(task.paneId) && <p>Terminal was closed. Retry recreates it while preserving the worktree and handoff.</p>}
+      {['preparing','starting'].includes(task.state) && <p role="status">{task.state === 'preparing' ? 'Preparing the worktree and terminal…' : 'Agent process started. Open the terminal to check login, trust or acceptance prompts.'}</p>}
       <details><summary>Task and handoff</summary><pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{task.context ?? task.handoff}</pre></details>
     </article>)}
   </section>
