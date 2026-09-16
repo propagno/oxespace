@@ -139,6 +139,7 @@ export function createLocalRpcServer(deps: LocalRpcDeps): LocalRpcServer {
       // otherwise falls back to the active workspace (stale/missing bridge env).
       try {
           const ctx: ToolContext = {
+            documentation: deps.documentation,
             delegation: deps.delegation, executions: deps.executions, delegationAgents: deps.delegationAgents, executionId, executionToken,
           memory: deps.memory,
           memoryRunId,

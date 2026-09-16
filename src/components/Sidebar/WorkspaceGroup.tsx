@@ -231,7 +231,7 @@ function WorkspaceGroupComponent({
               {branchLabel || duplicate ? (
                 <div
                   className="ws-group-branch-row"
-                  title={branchLabel ? `Branch: ${branchLabel}` : undefined}
+                  title={branchLabel ? `Workspace root branch: ${branchLabel}\n${workspace.rootPath}\nEach terminal shows its own configured directory's branch.` : undefined}
                   data-testid="ws-group-meta"
                 >
                   {branchLabel ? (
@@ -411,4 +411,3 @@ function activitySummary(a: WorkspaceActivity): string {
   if (a.counts.exited) parts.push(`${a.counts.exited} exited`)
   return `${a.total} agent${a.total === 1 ? '' : 's'}${parts.length ? ` · ${parts.join(', ')}` : ''}`
 }
-

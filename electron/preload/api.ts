@@ -49,6 +49,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
 
   return {
     delegation: {
+      configureTarget: (ws, path, enabled, evidence) => ipc.invoke(IPC_CHANNELS.delegation.configureTarget, ws, path, enabled, evidence) as Promise<void>,
+      adopt: (ws, task, pane) => ipc.invoke(IPC_CHANNELS.delegation.adopt, ws, task, pane) as Promise<void>,
       status: (id) => ipc.invoke(IPC_CHANNELS.delegation.status, id) as ReturnType<OxeApi['delegation']['status']>,
       configure: (id, enabled) => ipc.invoke(IPC_CHANNELS.delegation.configure, id, enabled) as Promise<void>,
       control: (ws, task, action) => ipc.invoke(IPC_CHANNELS.delegation.control, ws, task, action) as Promise<void>,

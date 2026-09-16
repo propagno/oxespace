@@ -34,6 +34,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   // recovery. GitHubWorktreeApi owns creation; neither reads/writes source files.
   'electron/main/services/agent-launch.service.ts',
   'electron/main/services/delegation.service.ts',
+  // Trusted UI repository registration: realpath identity probes only. No
+  // source file reads/writes; evidence reads committed blobs through Git.
+  'electron/main/services/coordination/workspace-resolver.ts',
   'electron/main/services/usage/claudeProvider.ts',
   'electron/main/services/usage/codexProvider.ts',
   'electron/main/services/usage/copilotProvider.ts',

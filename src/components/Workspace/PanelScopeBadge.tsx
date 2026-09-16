@@ -3,6 +3,7 @@ import type { ReactElement } from 'react'
 import { useGitBranch } from '../../hooks/useGitBranch'
 import { useUIStore } from '../../store/ui.store'
 import type { WorkspaceScope } from '../../utils/workspaceScope'
+import { gitBranchLabel } from '../../utils/paneGitContext'
 
 interface PanelScopeBadgeProps {
   workspaceId: string
@@ -25,9 +26,9 @@ interface PanelScopeBadgeProps {
 export function PanelScopeBadge({ scope, workspaceId }: PanelScopeBadgeProps): ReactElement {
   const pinned = useUIStore((s) => s.panelScopePinnedByWorkspace[workspaceId] === true)
   const togglePin = useUIStore((s) => s.togglePanelScopePin)
-  const branch = useGitBranch(workspaceId, scope.rootPath)?.branch ?? null
+  const branch = useGitBranch(workspaceId, scope.rootPath)
 
-  const label = branch ?? scope.folderName
+  const label = gitBranchLabel(branch)
   const title = pinned
     ? `Panels pinned to the workspace root (${scope.rootPath}). Click to follow the active pane again.`
     : scope.isWorktree

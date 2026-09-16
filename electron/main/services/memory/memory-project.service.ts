@@ -9,11 +9,23 @@ import type { MemoryContext, MemorySettings } from '../../../../shared/types/mem
 const exec = promisify(execFile)
 export const DEFAULT_MEMORY_SETTINGS: MemorySettings = { enabled: false, automaticCapture: false, automaticContext: false }
 
+export async function retryIdentityProbe<T>(probe: () => Promise<T>): Promise<T> {
+  try { return await probe() }
+  catch (error) {
+    const failure = error as { killed?: boolean; code?: string }
+    if (failure?.killed || failure?.code === 'ETIMEDOUT') return probe()
+    throw error
+  }
+}
+
 export async function projectIdentity(cwd: string): Promise<string> {
   const root = await realpath(cwd)
   let identity = root
   try {
-    const result = await exec('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { cwd: root, timeout: 2000, windowsHide: true })
+    const probe = () => exec('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { cwd: root, timeout: 2000, windowsHide: true })
+    // A heavily loaded Windows host can delay process startup beyond the
+    // bounded probe. Retry one timeout only; never convert it into a new identity.
+    const result = await retryIdentityProbe(probe)
     identity = await realpath(resolve(root, result.stdout.trim()))
   } catch (error) {
     // Timeouts, missing Git and permission errors must not mint a second identity.

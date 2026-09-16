@@ -96,10 +96,10 @@ describe('delegation lifecycle', () => {
     const child = f.executions.forPane(current.paneId!)!
     await f.service.update(child,a.id,'accepted','Received the handoff')
     await f.service.message(child,a.id,'Which JWT issuer?')
-    const inbox = f.service.inbox(f.origin)
+    const inbox = await f.service.inbox(f.origin)
     expect(inbox.some(e => e.text === 'Which JWT issuer?')).toBe(true)
-    expect(f.service.inbox(f.origin)).toEqual(inbox)
-    expect(f.service.inbox(f.origin,inbox.at(-1)!.cursor)).toEqual([])
+    expect(await f.service.inbox(f.origin)).toEqual(inbox)
+    expect(await f.service.inbox(f.origin,inbox.at(-1)!.cursor)).toEqual([])
     await f.service.update(child,a.id,'review','Tests passed; implementation ready for review')
     await f.service.control(f.ws.id,a.id,'approve')
     expect(f.service.get(a.id).state).toBe('approved')

@@ -5,6 +5,9 @@ const { app } = require('electron')
 if (process.env.OXESPACE_E2E_MOCK_NATIVE === '1' && process.env.OXESPACE_E2E_PREVIEW_SERVICE) {
   globalThis.preview = new (require(process.env.OXESPACE_E2E_PREVIEW_SERVICE).PreviewAutomation)()
 }
+if (process.env.OXESPACE_E2E_MOCK_NATIVE === '1' && process.env.OXESPACE_E2E_PREVIEW_HANDLERS) {
+  globalThis.previewHandlers = import(pathToFileURL(process.env.OXESPACE_E2E_PREVIEW_HANDLERS).href)
+}
 
 // Every E2E launch gets a unique database path. Keep Chromium/Electron state in
 // the same isolated root as well; otherwise localStorage, caches and lock files

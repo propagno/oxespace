@@ -23,7 +23,7 @@ interface WorkspaceSettingsModalProps {
   workspace: Workspace
   shellProfiles: ShellProfile[]
   onClose: () => void
-  onOpenTerminal?: (paneId: string) => void
+  onOpenTerminal?: (paneId: string, workspaceId?: string) => void
   onOpenDiagnostics?: () => void
   onSave: (input: UpdateWorkspaceSettingsInput) => Promise<void>
 }

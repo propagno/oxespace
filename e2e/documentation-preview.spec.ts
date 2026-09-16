@@ -10,11 +10,13 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
   test.setTimeout(90000)
   const root=mkdtempSync(join(tmpdir(),'oxe-doc-preview-')), repo=join(root,'repo');mkdirSync(repo)
   const servicePath=join(root,'preview.cjs')
+  const handlersPath=join(root,'handlers.mjs')
+  await build({entryPoints:['electron/main/mcp-internal/tool-registry.ts'],outfile:handlersPath,bundle:true,platform:'node',format:'esm',external:['electron']})
   await build({entryPoints:['electron/main/services/documentation/preview-automation.ts'],outfile:servicePath,bundle:true,platform:'node',format:'cjs',external:['electron']})
   const server=createServer((_,res)=>{res.setHeader('Content-Type','text/html');res.end(`<!doctype html><html><body style="margin:20px;background:white"><h1>Customer guide</h1><input id="name" value="PRIVATE" style="width:200px;height:40px;background:red"><button id="save" onclick="document.querySelector('h1').textContent='Saved '+document.querySelector('input').value">Save</button><div id="panel" style="height:1200px">Details</div></body></html>`)})
   await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve))
   const address=server.address();const url=`http://127.0.0.1:${typeof address==='object' && address ? address.port : 0}/`
-  const app=await electron.launch({args:[join(process.cwd(),'e2e/electron-main.cjs')],env:{...process.env,OXESPACE_E2E_PREVIEW_SERVICE:servicePath,OXESPACE_DISABLE_SINGLE_INSTANCE:'1',OXESPACE_E2E_MOCK_NATIVE:'1',OXESPACE_DB_PATH:join(root,'db.sqlite3')}})
+  const app=await electron.launch({args:[join(process.cwd(),'e2e/electron-main.cjs')],env:{...process.env,OXESPACE_E2E_PREVIEW_HANDLERS:handlersPath,OXESPACE_E2E_PREVIEW_SERVICE:servicePath,OXESPACE_DISABLE_SINGLE_INSTANCE:'1',OXESPACE_E2E_MOCK_NATIVE:'1',OXESPACE_DB_PATH:join(root,'db.sqlite3')}})
   try {
     const page=await app.firstWindow()
     await page.getByTestId('btn-new-workspace').click();await page.getByTestId('wizard-dir-input').fill(repo);await page.getByTestId('wizard-launch-btn').click()
@@ -31,6 +33,13 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
     await expect.poll(async()=> (await run({action:'inspect'})).error).toBeUndefined()
     const inspected=await run({action:'inspect'})
     expect(JSON.stringify(inspected)).toContain('Customer guide');expect(JSON.stringify(inspected)).not.toContain('PRIVATE')
+    // Exercise the legacy MCP capture as ESM, matching the production main process.
+    const legacy = await app.evaluate(async (_, workspaceId) => {
+      const { findTool } = await (globalThis as unknown as {previewHandlers: Promise<typeof import('../electron/main/mcp-internal/tool-registry')>}).previewHandlers
+      return findTool('oxespace_capture_web_preview')!.handler({}, {workspaceId,workspaceServ:{get:()=>({id:workspaceId})}} as never)
+    }, workspaceId)
+    expect(legacy.isError).toBe(false)
+    expect(legacy.content[0]).toMatchObject({type:'image',mimeType:'image/png'})
     expect((await run({action:'inspect'},'foreign-workspace')).error).toBeTruthy()
     // Native confirmation is controlled only inside the isolated test process.
     await app.evaluate(({dialog})=>{dialog.showMessageBox=async()=>({response:0,checkboxChecked:false})})

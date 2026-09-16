@@ -1,7 +1,6 @@
 import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, session, shell } from 'electron'
 import log from 'electron-log/main.js'
 import { initAutoUpdater, registerAppUpdateIpc } from './updater'
-import { getRtkService } from './services/rtk.service'
 import { randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -46,7 +45,6 @@ import { MemoryService } from './services/memory/memory.service'
 import { ExecutionRegistry } from './services/execution-registry'
 import { AgentLaunchService, agentMcpArguments, providerForExecutable } from './services/agent-launch.service'
 import { AgentService } from './services/agent.service'
-import { registerDelegationIpc } from './ipc/delegation.ipc'
 import { registerMemoryIpc } from './ipc/memory.ipc'
 import { fallbackShellProfiles } from './services/shell-profile.defaults'
 import { isLoopbackHttpUrl, isSafeExternalUrl } from './utils/external-url'
@@ -109,7 +107,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   // App update + RTK sidecar IPC are always registered (even on native failure
   // / e2e mocks below) so Settings and the update banner keep working.
   registerAppUpdateIpc()
-  registerRtkIpc()
+  void registerRtkIpc()
 
   if (process.env.OXESPACE_E2E_MOCK_NATIVE === '1') {
     // Dynamic so the ~475 lines of E2E doubles land in their own chunk instead
@@ -132,6 +130,7 @@ async function registerIpcHandlers(): Promise<() => void> {
 
   const memoryService = new MemoryService(db, join(app.getPath('userData'), 'memory'))
   const { DelegationService } = await import('./services/delegation.service')
+  const { registerDelegationIpc } = await import('./ipc/delegation.ipc')
   const executions = new ExecutionRegistry()
   registerMemoryIpc(memoryService)
   const terminalManager: TerminalManager = new TerminalManager(db, {
@@ -504,7 +503,8 @@ function registerNativeFailureIpcHandlers(message: string): void {
   ipcMain.handle(IPC_CHANNELS.tasks.getReady, () => [])
 }
 
-function registerRtkIpc(): void {
+async function registerRtkIpc(): Promise<void> {
+  const { getRtkService } = await import('./services/rtk.service')
   const rtk = getRtkService(app.getPath('userData'))
   ipcMain.handle(IPC_CHANNELS.rtk.getStatus, () => rtk.getStatus())
   ipcMain.handle(IPC_CHANNELS.rtk.checkForUpdate, () => rtk.checkForUpdate(true))

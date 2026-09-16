@@ -7,6 +7,7 @@ import { useWorkspaceStore } from '../../store/workspace.store'
 import { derivePaneDisplayState } from '../../utils/paneDisplay'
 import { PaneContent } from '../Panes/PaneContent'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
+import { PaneBranchBadge } from '../Workspace/PaneBranchBadge'
 
 interface PaneContainerProps {
   pane: WorkspacePane
@@ -157,6 +158,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
             <span className="pane-agent-chip-label">{display.providerLabel}</span>
           </span>
           <span className="pane-header-divider" aria-hidden="true">/</span>
+          {isTerminalPane && <PaneBranchBadge workspace={workspace} pane={pane} />}
           {renaming ? (
             <input
               ref={renameInputRef}

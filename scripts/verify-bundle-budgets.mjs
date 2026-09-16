@@ -3,7 +3,11 @@ import { join } from 'node:path'
 
 const root = process.cwd()
 const budgets = [
-  { label: 'main process entry', dir: 'out/main', match: /^index\.js$/, max: 900 * 1024 },
+  // The main entry is platform-sensitive by a few hundred bytes (Windows
+  // source-map/path normalization). Keep a narrow 4 KiB headroom so a valid
+  // release is not rejected by runner-specific output while still catching
+  // accidental multi-KB regressions.
+  { label: 'main process entry', dir: 'out/main', match: /^index\.js$/, max: 904 * 1024 },
   { label: 'preload entry', dir: 'out/preload', match: /^index\.cjs$/, max: 40 * 1024 },
   { label: 'renderer entry', dir: 'out/renderer/assets', match: /^index-.*\.js$/, max: 500 * 1024 },
   { label: 'renderer base CSS', dir: 'out/renderer/assets', match: /^index-.*\.css$/, max: 500 * 1024 }

@@ -2,7 +2,7 @@ import { GitBranch, SquareTerminal } from 'lucide-react'
 import { useState, useRef, useEffect, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
-import { useGitBranch } from '../../hooks/useGitBranch'
+import { PaneBranchBadge } from '../Workspace/PaneBranchBadge'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { formatActivityTime } from '../../utils/formatTime'
@@ -32,11 +32,6 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
   // GitHub panel opens, so depending on it left the sidebar branch chip
   // permanently blank in normal use. The hook caches per rootPath so N
   // sidebar rows + the pane statusbar share a single fetch every 10s.
-  const branchRootPath = pane.rootPath ?? workspace.rootPath
-  const branchStatus = useGitBranch(workspace.id, branchRootPath)
-  const currentBranch = branchStatus?.branch ?? null
-  const branchLabel = formatBranch(currentBranch)
-  const rowContextLabel = branchLabel ?? displayBranchFromWorktreePath(pane.rootPath)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
@@ -61,7 +56,7 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
   const isError = status === 'error'
   const isRecent = lastActivityAt !== null && Date.now() - lastActivityAt < RECENT_MS
   const display = derivePaneDisplayState({ pane, workspace, terminal: terminalState, profile: agentProfile, paneIndex })
-  const hasTopContext = Boolean(rowContextLabel) || editing
+  const hasTopContext = pane.type === 'terminal' || editing
 
   // Mark read when the row becomes active
   useEffect(() => {
@@ -179,12 +174,7 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
       <div className={`pane-session-body${hasTopContext ? '' : ' compact'}`}>
         {hasTopContext ? (
           <div className="pane-row-top">
-            {rowContextLabel ? (
-              <span className="pane-row-context" title={currentBranch ?? pane.rootPath ?? workspace.rootPath}>
-                <GitBranch size={10} aria-hidden="true" />
-                {rowContextLabel}
-              </span>
-            ) : null}
+            {pane.type === 'terminal' && <PaneBranchBadge workspace={workspace} pane={pane} />}
             {editing ? (
               <input
                 ref={inputRef}
@@ -271,32 +261,4 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
       ) : null}
     </div>
   )
-}
-
-/**
- * Truncate a branch name to ~18 chars so it fits next to the provider chip on
- * the third line without pushing the unread dot off the row. Splits on `/`
- * and keeps the trailing segment when it's a slash-prefixed branch (e.g.
- * `codex/workspace-customization-release` → `…ization-release`). Long single
- * names just get a trailing ellipsis.
- */
-function formatBranch(branch: string | null): string | null {
-  if (!branch) return null
-  if (branch.length <= 18) return branch
-  // Slash-prefixed conventional branches: drop the prefix (feat/, codex/,
-  // chore/…) and keep the descriptive tail.
-  const slashIdx = branch.indexOf('/')
-  if (slashIdx > 0 && slashIdx < branch.length - 1) {
-    const tail = branch.slice(slashIdx + 1)
-    if (tail.length <= 16) return tail
-    return tail.slice(0, 15) + '…'
-  }
-  return branch.slice(0, 17) + '…'
-}
-
-function displayBranchFromWorktreePath(path: string | null): string | null {
-  if (!path) return null
-  const match = path.match(/[\\/]worktrees[\\/]([^\\/]+)/i)
-  if (!match?.[1]) return null
-  return formatBranch(match[1])
 }

@@ -3,6 +3,7 @@ import { useMemo, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import { useGitBranch } from '../../hooks/useGitBranch'
 import { useTerminalStore } from '../../store/terminal.store'
+import { gitBranchLabel } from '../../utils/paneGitContext'
 
 interface AppStatusBarProps {
   workspace: Workspace | null
@@ -11,8 +12,9 @@ interface AppStatusBarProps {
 }
 
 export function AppStatusBar({ activePaneId, appVersion, workspace }: AppStatusBarProps): ReactElement {
-  const branch = useGitBranch(workspace?.id ?? '', workspace?.rootPath ?? null)
   const activePane = workspace?.panes.find((pane) => pane.id === activePaneId) ?? null
+  const rootPath = activePane?.rootPath ?? workspace?.rootPath ?? null
+  const branch = useGitBranch(workspace?.id ?? '', rootPath)
 
   // Shells outlive their view now, so a workspace left behind can still be
   // running an agent. Without somewhere to see and stop them they would burn
@@ -37,10 +39,10 @@ export function AppStatusBar({ activePaneId, appVersion, workspace }: AppStatusB
           <FolderGit2 size={11} aria-hidden="true" />
           {workspace?.name ?? 'OXESpace'}
         </span>
-        {branch?.branch ? (
-          <span className="app-statusbar-item" title={`Current branch: ${branch.branch}`}>
+        {rootPath ? (
+          <span className="app-statusbar-item" title={`Selected terminal directory: ${rootPath}`}>
             <GitBranch size={11} aria-hidden="true" />
-            {branch.branch}
+            {gitBranchLabel(branch)}
           </span>
         ) : null}
       </div>

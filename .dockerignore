@@ -10,6 +10,11 @@ coverage
 test-results
 e2e/out
 .git
+.ai-memory.toml
+.env
+.env.*
+.oxespace
+.oxe
 
 # The offline semantic model is ~1 GB and is only needed by `npm run dist:*`,
 # not by the verification chain. Fetch it inside the container when packaging.

@@ -44,7 +44,7 @@ test('explicit agent settings overrides the last visited workspace destination',
 })
 
 test('opening a delegated terminal closes the host and reveals the correct pane', async () => {
-  vi.stubGlobal('oxe', {delegation:{status:vi.fn(async () => ({enabled:true,tasks:[{id:'task',paneId:'child',state:'failed',objective:'Fix auth',branch:'oxe/auth'}]})),onChanged:vi.fn(() => () => {})}})
+  vi.stubGlobal('oxe', {delegation:{status:vi.fn(async () => ({enabled:true,tasks:[{id:'task',workspaceId:'ws',paneId:'child',state:'failed',objective:'Fix auth',branch:'oxe/auth'}]})),onChanged:vi.fn(() => () => {})}})
   useWorkspaceStore.setState({activeWorkspaceId:'ws'})
   useUIStore.setState({activePaneId:'origin',maximizedPaneId:'origin'})
   const onClose = vi.fn()

@@ -3302,6 +3302,25 @@
   padding: 0;
 }
 
+.pane-branch-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--tx-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.pane-branch-badge > svg { flex-shrink: 0; }
+.pane-branch-badge > span + span { flex-shrink: 0; }
+.pane-branch-badge > span:first-of-type {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pane-header .pane-branch-badge { max-width: 35%; flex-shrink: 1; }
+
 .pane-status-dot {
   width: 7px;
   height: 7px;

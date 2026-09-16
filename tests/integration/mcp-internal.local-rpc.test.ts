@@ -51,6 +51,7 @@ async function start(): Promise<ServerCtx> {
   const workspaceServ = new WorkspaceService(db)
   const executions = new ExecutionRegistry()
   const server = createLocalRpcServer({
+    documentation: async () => ({ preview: { run: async () => ({ title: 'RPC preview fixture' }) } }) as never,
     executions, delegation: {} as never, delegationAgents: () => [{ agentProfileId: 'codex' }],
     workspaceServ,
     github: new GitHubService(db),
@@ -71,6 +72,17 @@ describe('Internal MCP local RPC server', () => {
   let ctx: ServerCtx
   beforeEach(async () => { ctx = await start() })
   afterEach(async () => { await ctx.server.stop(); ctx.db.close() })
+
+  test('passes the documentation runtime through RPC to preview interaction', async () => {
+    const ws = ctx.workspaceServ.create({ rootPath: process.cwd(), layout: '1x1', autoStart: false })
+    const env = ctx.executions.register({ paneId: ws.panes[0].id, workspaceId: ws.id, cwd: process.cwd() })
+    const reply = await postRpc(ctx.port, {
+      Authorization: `Bearer ${TOKEN}`, 'x-oxe-workspace-id': ws.id,
+      'x-oxe-execution-id': env.OXESPACE_EXECUTION_ID, 'x-oxe-execution-token': env.OXESPACE_EXECUTION_TOKEN
+    }, { jsonrpc: '2.0', id: 50, method: 'tools/call', params: { name: 'oxespace_preview_interact', arguments: { action: 'inspect' } } })
+    expect(JSON.stringify(reply.json)).toContain('RPC preview fixture')
+    expect(JSON.stringify(reply.json)).not.toContain('Documentation service unavailable')
+  })
 
   test('delegation RPC requires live execution credentials and never falls back to active workspace', async () => {
     const env = ctx.executions.register({ paneId: 'pane', workspaceId: 'workspace', cwd: process.cwd() })

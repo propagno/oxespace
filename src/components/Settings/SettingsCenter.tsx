@@ -89,9 +89,9 @@ export function SettingsCenter(props: SettingsModalProps & {
         {destination.scope === 'workspace' ? workspace ? <WorkspaceSettingsModal key={workspace.id} embedded workspace={workspace} selectedPageId={destination.page}
           shellProfiles={props.shellProfiles} onSave={props.onSave} onClose={close} onDraftChange={value => { draft.current = value }}
           onOpenDiagnostics={() => go({ scope: 'application', page: 'diagnostics' })}
-          onOpenTerminal={paneId => navigate(() => {
+          onOpenTerminal={(paneId, targetWorkspaceId) => navigate(() => {
             returnPane.current = paneId
-            void useWorkspaceStore.getState().setActiveWorkspace(workspace.id)
+            void useWorkspaceStore.getState().setActiveWorkspace(targetWorkspaceId ?? workspace.id)
             useUIStore.getState().setMaximizedPane(null)
             useUIStore.getState().setActivePane(paneId)
             useTerminalStore.getState().setActivePaneId(paneId)

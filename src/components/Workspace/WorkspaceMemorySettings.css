@@ -18,3 +18,6 @@
 .memory-settings .memory-feedback, .memory-settings .memory-next-step { border: 1px solid var(--bd-subtle, #35353e); border-radius: 7px; padding: 10px 12px; background: var(--bg-elevated, #19191f); }
 .memory-settings .memory-feedback[role="alert"] { border-color: #b66a61; color: #efb1a9; }
 .memory-settings pre { max-height: 220px; overflow: auto; }
+.coordination-destinations { margin: 16px 0; border: 1px solid var(--bd-subtle); border-radius: 8px; padding: 12px; }
+.coordination-destinations > summary { cursor: pointer; color: var(--tx-primary); font-weight: 600; }
+.coordination-destinations > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }

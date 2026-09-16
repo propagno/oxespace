@@ -314,7 +314,7 @@ async function captureWebPreview(_args: unknown, ctx: ToolContext): Promise<Inte
   const ws = await requireWorkspace(ctx)
   
   // Find the primary app window (OXESpace uses one BrowserWindow)
-  const { BrowserWindow } = require('electron')
+  const { BrowserWindow } = await import('electron')
   const win = BrowserWindow.getAllWindows()[0]
   if (!win) return errorResult('No application window found')
 
