@@ -343,6 +343,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
       </header>
       <PaneContent pane={pane} workspaceId={workspace.id} workspaceRootPath={workspace.rootPath} autoStart={autoStart} />
       {detailsOpen && <DesktopDialog className="desktop-details-dialog" title="Detalhes do terminal" description="Informações da sessão e do ambiente deste terminal." onClose={() => setDetailsOpen(false)}>
+        <p className="terminal-session-identity-note">Os IDs abaixo identificam o terminal e o workspace. Para abrir a conversa do Codex ou Claude no modo Thread, use /resume e escolha uma sessão nativa do mesmo diretório.</p>
         <DetailList rows={[
           { label: 'Terminal', detail: display.title },
           { label: 'ID da sessão PTY', detail: sessionDetails?.sessionId ?? (sessionDetailsError || (sessionDetails ? 'Sem sessão em execução' : 'Consultando…')) },

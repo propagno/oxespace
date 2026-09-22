@@ -389,6 +389,17 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     }, readingAnchor)).toBeCloseTo(readingAnchor.offset, 0)
     await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Append streaming fixture'))
     await expect(page.getByRole('button', { name: 'Stop turn', exact: true })).toBeVisible()
+    const runningActions = await page.evaluate(() => {
+      const footer = document.querySelector('.thread-composer > footer')!.getBoundingClientRect()
+      const stop = document.querySelector('.thread-stop')!.getBoundingClientRect()
+      const send = document.querySelector('.thread-send')!.getBoundingClientRect()
+      return { gap: send.left - stop.right, rightInset: footer.right - send.right, stopWidth: stop.width, sendWidth: send.width }
+    })
+    expect(runningActions.gap).toBeGreaterThanOrEqual(0)
+    expect(runningActions.gap).toBeLessThanOrEqual(12)
+    expect(runningActions.rightInset).toBeLessThanOrEqual(12)
+    expect(runningActions.stopWidth).toBe(28)
+    expect(runningActions.sendWidth).toBe(28)
     await expectReadingAnchor()
     await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Unsent draft')
     await nav.getByRole('button', { name: 'Code', exact: true }).click()

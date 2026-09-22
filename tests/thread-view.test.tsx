@@ -119,6 +119,40 @@ describe('Thread workspace UI', () => {
     await waitFor(() => expect(useThreadStore.getState().selectedId).toBe('delegated-thread'))
     expect(f.api.send).not.toHaveBeenCalled()
   })
+  it('lists provider sessions from this project and resumes the selected native Codex conversation', async () => {
+    const f = fixture()
+    f.snapshot.thread.provider = 'codex'
+    const nativeId = '01234567-89ab-4cde-8f01-23456789abcd'
+    f.api.command = vi.fn(async (_id: string, command: string) => command === '/resume'
+      ? { kind: 'panel' as const, surface: 'sessions' as const, title: 'resume' }
+      : { kind: 'navigate' as const, threadId: 'imported' })
+    vi.mocked(f.api.read).mockImplementation(async id => id === 'imported'
+      ? { ...f.snapshot, thread: { ...f.snapshot.thread, id, nativeSessionId: nativeId, title: 'Imported Codex session' } }
+      : f.snapshot)
+    const list = vi.fn(async () => [{
+      sessionId: nativeId, provider: 'codex', modelId: 'gpt-5.6', requestCount: 4,
+      sessionStartedAtMs: new Date('2026-09-21T22:57:48Z').getTime(), lastUpdatedMs: new Date('2026-09-21T23:05:00Z').getTime(),
+      totalTokens: 0, estimatedCostUsd: 0, filePath: null, isFork: false, parentSessionId: null,
+      label: null, firstMessagePreview: null, workspaceRootPath: '/repo'
+    }])
+    Object.defineProperty(window, 'oxe', { configurable: true, value: {
+      ...window.oxe, session: { list }, delegation: { status: vi.fn(async () => ({ enabled: true, tasks: [], nextCursor: null })) }
+    } })
+    render(<ThreadView workspace={f.workspace} />)
+    const input = screen.getByRole('textbox', { name: 'Message' })
+    fireEvent.change(input, { target: { value: '/resume' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    const nativeButton = await screen.findByRole('button', { name: new RegExp(nativeId) })
+    expect(nativeButton).toHaveTextContent('Started')
+    expect(nativeButton).toHaveTextContent('gpt-5.6')
+    expect(list).toHaveBeenCalledWith({ workspaceId: 'ws', workspaceRootPath: '/repo', provider: 'codex' })
+    await waitFor(() => expect(nativeButton).toBeEnabled())
+    fireEvent.click(nativeButton)
+    await waitFor(() => expect(f.api.command).toHaveBeenCalledWith('thread', `/resume ${nativeId}`))
+    await waitFor(() => expect(useThreadStore.getState().selectedId).toBe('imported'))
+    expect(useThreadStore.getState().snapshot?.thread.nativeSessionId).toBe(nativeId)
+    expect(f.api.send).not.toHaveBeenCalled()
+  })
   it('renders a model selector inside the conversation, applies native effort and preserves an ordinary draft', async () => {
     const f = fixture()
     f.snapshot.thread.provider = 'codex'

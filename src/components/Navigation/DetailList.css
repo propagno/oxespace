@@ -4,3 +4,4 @@
 .desktop-detail-list dt { color: var(--tx-muted); font-size: var(--fs-xs); font-weight: 400; }
 .desktop-detail-list dd { margin: 0; color: var(--tx-primary); font-size: var(--fs-xs); line-height: 1.5; overflow-wrap: anywhere; user-select: text; }
 .desktop-details-dialog { width: min(560px, calc(100vw - 32px)); }
+.terminal-session-identity-note { margin: 0 0 14px; color: var(--tx-muted); font-size: var(--fs-xs); line-height: 1.5; }
