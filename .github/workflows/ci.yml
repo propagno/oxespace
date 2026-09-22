@@ -151,6 +151,7 @@ jobs:
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "prerelease=$($isPrerelease.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "channel=$channel" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "manifest=$channel.yml" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           # electron-updater writes a per-OS manifest on Linux.
           "manifest_linux=$channel-linux.yml" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
@@ -283,7 +284,10 @@ jobs:
           # slim:pack keeps ONLY the target's ONNX prebuild; passing the target
           # explicitly matters because it is what a Linux build needs to KEEP.
           node scripts/slim-pack-deps.mjs --platform=${{ matrix.slim_platform }} --arch=x64
-          npx electron-builder ${{ matrix.builder_flag }} --config.npmRebuild=false --publish never
+          # GitHub publish configuration does not infer the update channel from
+          # prerelease versions. Set it explicitly so beta builds emit beta.yml
+          # (and beta-linux.yml) instead of overwriting the stable latest feed.
+          npx electron-builder ${{ matrix.builder_flag }} --config.npmRebuild=false --config.publish.channel=${{ steps.plan.outputs.channel }} --publish never
 
       - name: E2E packaged Linux build
         if: steps.plan.outputs.should_release == 'true' && runner.os == 'Linux'
