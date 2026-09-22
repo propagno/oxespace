@@ -5,6 +5,7 @@ import type { ConversationThread, ThreadEvent } from '../../../../shared/types/t
 import type { ConversationTransport } from './codex-conversation'
 import { AgentProcessTransport } from './process-transport'
 import { AgentRpcPeer } from './rpc-peer'
+import { encodeClaudeProjectPath } from '../usage/claude-project-path'
 
 export interface NativeSessionHistory { events: ThreadEvent[]; title?: string }
 function record(value: unknown): Record<string, unknown> { return value && typeof value === 'object' ? value as Record<string, unknown> : {} }
@@ -31,7 +32,7 @@ export class NativeSessionReader {
     if (!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(id)) throw Error('Invalid native session identifier')
     if (thread.provider === 'claude') {
       const home = this.options.claudeHome ?? process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude')
-      const path = join(home, 'projects', thread.rootPath.replace(/[^a-zA-Z0-9]/g, '-'), `${id}.jsonl`)
+      const path = join(home, 'projects', encodeClaudeProjectPath(thread.rootPath), `${id}.jsonl`)
       if ((await stat(path)).size > 4 * 1024 * 1024) throw Error('Native history is too large to import; continue in the CLI')
       const values = (await readFile(path, 'utf8')).split('\n').filter(Boolean).map(line => { try { return record(JSON.parse(line)) } catch { return {} } })
       if (!values.some(value => typeof value.cwd === 'string' && sameRoot(value.cwd, thread.rootPath) && value.sessionId === id)) throw Error('Native session belongs to a different project')

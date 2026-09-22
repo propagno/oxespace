@@ -6,14 +6,14 @@ import { DesktopDialog } from '../Navigation/DesktopDialog'
 import { DelegationCreateDialog } from './DelegationCreateDialog'
 import './DelegatedWorkDialog.css'
 
-export function DelegatedWorkDialog({ workspaces, workspaceId, origin, onClose, onOpen }: {
-  workspaces: Workspace[]; workspaceId: string; origin?: { kind: 'pane' | 'thread'; id: string }
+export function DelegatedWorkDialog({ workspaces, workspaceId, focusTaskId, origin, onClose, onOpen }: {
+  workspaces: Workspace[]; workspaceId: string; focusTaskId?: string | null; origin?: { kind: 'pane' | 'thread'; id: string }
   onClose(): void; onOpen(task: DelegationTask): void
 }) {
   const [selectedWorkspace, setSelectedWorkspace] = useState(workspaceId || workspaces[0]?.id || '')
   const [tasks, setTasks] = useState<DelegationTask[]>([])
   const [cursor, setCursor] = useState<string | null>(null)
-  const [query, setQuery] = useState(''), [error, setError] = useState('')
+  const [query, setQuery] = useState(focusTaskId ?? ''), [error, setError] = useState('')
   const [busy, setBusy] = useState(false), [creating, setCreating] = useState(false)
   const [replaceId, setReplaceId] = useState<string | null>(null)
   const request = useRef(0)

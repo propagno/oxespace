@@ -345,6 +345,19 @@ describe('Thread workspace UI', () => {
     fireEvent.change(screen.getByRole('searchbox', { name: 'Filter threads' }), { target: { value: 'missing' } })
     expect(screen.getByText('No conversations found.')).toBeInTheDocument()
   })
+  it('opens delegated rows through the application router even without a Thread conversation', async () => {
+    const f = fixture(), onOpenDelegation = vi.fn()
+    const delegated = { id: 'task-terminal', workspaceId: 'destination', originWorkspaceId: 'ws', objective: 'Implement worktree fix', branch: 'feature/fix',
+      path: '/repo-worktrees/fix', state: 'accepted', agentProfileId: 'codex', paneId: 'pane-delegated', updatedAt: Date.now() }
+    Object.defineProperty(window, 'oxe', { configurable: true, value: { ...window.oxe, delegation: {
+      status: vi.fn(async () => ({ enabled: true, tasks: [delegated], nextCursor: null })), onChanged: vi.fn(() => () => {})
+    } } })
+    render(<ThreadSidebar workspaces={[f.workspace]} onCreate={vi.fn()} onOpenDelegation={onOpenDelegation} />)
+    const row = await screen.findByRole('button', { name: /Implement worktree fix/ })
+    expect(row).toBeEnabled()
+    fireEvent.click(row)
+    expect(onOpenDelegation).toHaveBeenCalledWith(delegated)
+  })
   it('retains distinct drafts when selecting another thread', async () => {
     const f = fixture()
     useThreadStore.getState().setDraft('thread', 'first draft')

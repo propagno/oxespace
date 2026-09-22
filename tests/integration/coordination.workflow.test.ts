@@ -88,7 +88,7 @@ describe('cross-workspace coordination', () => {
     expect((await f.service.status(f.b.id)).tasks).toHaveLength(1)
     await expect(f.service.create(f.origin, { ...f.input, objective: 'Different' })).rejects.toThrow('different input')
   }, 30000)
-  test('revoke blocks delivery and retry; new session needs explicit adoption', async () => {
+  test('explicit control reconnects a new requester session in the exact origin checkout', async () => {
     const f = await fixture()
     await f.service.configureTarget(f.a.id, f.roots[1], true, true)
     const task = await f.service.create(f.origin, f.input)
@@ -97,13 +97,31 @@ describe('cross-workspace coordination', () => {
     f.registry.register({ paneId: 'replacement-origin-pane', workspaceId: f.a.id, cwd: f.roots[0] })
     const resumed = f.registry.forPane('replacement-origin-pane')!
     await expect(service.authorize(resumed, task.id)).rejects.toThrow()
-    await service.adopt(f.a.id, task.id, resumed.paneId)
+    await expect(service.authorize(resumed, task.id, { reconnectRequester: true })).resolves.toMatchObject({ id: task.id })
+    expect(service.get(task.id).originExecutionId).toBe(resumed.id)
     await expect(service.authorize(resumed, task.id)).resolves.toMatchObject({ id: task.id })
+    await expect(service.authorize(f.origin, task.id)).rejects.toThrow('scope')
     await expect(service.create(resumed, f.input)).resolves.toMatchObject({ id: task.id })
     await service.configureTarget(f.a.id, f.roots[1], false, false)
     await expect(service.authorize(resumed, task.id)).rejects.toThrow('CONSENT_REQUIRED')
     await expect(service.control(f.a.id, task.id, 'retry')).rejects.toThrow('CONSENT_REQUIRED')
     expect(f.createWorktree).toHaveBeenCalledTimes(1)
+  }, 30000)
+  test('MCP control reconnects the requester and keeps delegated checkouts out of origin scope', async () => {
+    const f = await fixture()
+    await f.service.configureTarget(f.a.id, f.roots[1], true, true)
+    const task = await f.service.create(f.origin, f.input)
+    await vi.waitFor(() => expect(f.service.get(task.id).destinationExecutionId).toBeTruthy(), { timeout: 15000 })
+    const destination = f.registry.forPane(f.service.get(task.id).paneId!)!
+    await expect(f.service.authorize(destination, task.id, { reconnectRequester: true })).resolves.toMatchObject({ id: task.id })
+    expect(f.service.get(task.id).originExecutionId).toBe(f.origin.id)
+    f.registry.register({ paneId: 'reconnected-requester', workspaceId: f.a.id, cwd: f.roots[0] })
+    const requester = f.registry.forPane('reconnected-requester')!
+    const context = { delegation: f.service, executions: f.registry, executionId: requester.id,
+      executionToken: requester.token, workspaceId: f.a.id } as unknown as ToolContext
+    const control = DELEGATION_TOOLS.find(entry => entry.descriptor.name === 'oxespace_delegation_control')!
+    await expect(control.handler({ taskId: task.id, action: 'cancel' }, context)).resolves.toMatchObject({ content: expect.any(Array) })
+    expect(f.service.get(task.id)).toMatchObject({ state: 'cancelled', originExecutionId: requester.id })
   }, 30000)
   test('registers local repository only via trusted consent and rejects unrelated execution', async () => {
     const f = await fixture()
@@ -115,7 +133,7 @@ describe('cross-workspace coordination', () => {
     await expect(f.service.create(f.origin, f.input)).rejects.toThrow('CONSENT_REQUIRED')
     const task = await f.service.create(f.origin, { ...f.input, evidenceFiles: [] })
     f.registry.register({ paneId: 'third', workspaceId: f.a.id, cwd: f.roots[2] })
-    await expect(f.service.authorize(f.registry.forPane('third')!, task.id)).rejects.toThrow('scope')
+    await expect(f.service.authorize(f.registry.forPane('third')!, task.id, { reconnectRequester: true })).rejects.toThrow('scope')
   }, 30000)
   test('revocation during enrichment prevents launch; retry uses the preserved worktree', async () => {
     const f = await fixture()
@@ -145,7 +163,7 @@ describe('cross-workspace coordination', () => {
     await Promise.all([f.service.update(childA, a.id, 'review', 'Claude result'), f.service.update(childB, b.id, 'review', 'Codex result')])
     expect((await f.service.details(f.origin, a.id)).results).toEqual([expect.objectContaining({ text: 'Claude result', revision: 1 })])
     expect((await f.service.details(f.origin, b.id)).results).toEqual([expect.objectContaining({ text: 'Codex result', revision: 1 })])
-    await expect(f.service.authorize(childA, b.id)).rejects.toThrow()
+    await expect(f.service.authorize(childA, b.id, { reconnectRequester: true })).rejects.toThrow('scope')
     await f.service.control(f.a.id, a.id, 'cancel')
     await expect(f.service.update(childA, a.id, 'accepted', 'Late report')).rejects.toThrow()
     expect(f.service.get(a.id).state).toBe('cancelled')

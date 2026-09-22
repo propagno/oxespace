@@ -1,13 +1,14 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
-import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { EMPTY_CONTEXT_USAGE, type ContextUsageSnapshot } from '../../../../shared/types/usage'
 import type { SessionMetadata, UsageProvider } from './types'
+import { defaultClaudeProjectsRoot, encodeClaudeProjectPath } from './claude-project-path'
 
 /**
  * Claude Code persists each conversation to `~/.claude/projects/<encoded_path>/<sessionId>.jsonl`.
- * Path encoding: `C:\Users\dudu-\Estudos\oxespace` → `C--Users-dudu--Estudos-oxespace`
- * (colon, backslash, and forward-slash all become single dashes).
+ * Path encoding: `C:\Users\dudu-\Estudos\oxespace` → `C--Users-dudu--Estudos-oxespace`.
+ * Claude replaces every non-ASCII-alphanumeric character with a dash, including
+ * separators, dots and `@` in Linux account paths.
  *
  * Each line is one record. We're interested in records carrying `message.usage` token blocks
  * and a `message.model` field.
@@ -47,10 +48,10 @@ const DEFAULT_CONTEXT_LIMIT = 1_000_000
 export class ClaudeUsageProvider implements UsageProvider {
   readonly provider = 'claude' as const
 
-  constructor(private readonly projectsRoot: string = join(homedir(), '.claude', 'projects')) {}
+  constructor(private readonly projectsRoot: string = defaultClaudeProjectsRoot()) {}
 
   getSnapshot(workspaceRootPath: string, sessionId?: string | null): ContextUsageSnapshot {
-    const projectDir = join(this.projectsRoot, encodePath(workspaceRootPath))
+    const projectDir = join(this.projectsRoot, encodeClaudeProjectPath(workspaceRootPath))
     if (!existsSync(projectDir)) return EMPTY_CONTEXT_USAGE
 
     const sessions = listSessionFiles(projectDir)
@@ -63,7 +64,7 @@ export class ClaudeUsageProvider implements UsageProvider {
   }
 
   listSessions(workspaceRootPath: string): SessionMetadata[] {
-    const projectDir = join(this.projectsRoot, encodePath(workspaceRootPath))
+    const projectDir = join(this.projectsRoot, encodeClaudeProjectPath(workspaceRootPath))
     if (!existsSync(projectDir)) return []
 
     return listSessionFiles(projectDir).map((f) => {
@@ -74,14 +75,11 @@ export class ClaudeUsageProvider implements UsageProvider {
         lastUpdatedMs: snapshot.lastUpdatedMs ?? f.mtimeMs,
         sessionStartedAtMs: snapshot.sessionStartedAtMs ?? f.birthtimeMs,
         modelId: snapshot.modelId,
-        requestCount: snapshot.requestCount
+        requestCount: snapshot.requestCount,
+        snapshot
       }
     })
   }
-}
-
-function encodePath(rootPath: string): string {
-  return rootPath.replace(/[:\\/]/g, '-')
 }
 
 interface SessionFileInfo {

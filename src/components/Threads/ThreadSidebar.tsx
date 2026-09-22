@@ -21,8 +21,9 @@ function ProjectBranch({ workspaceId, rootPath }: { workspaceId?: string; rootPa
   const label = status?.branch || (status?.detached && status.shortSha ? `Detached · ${status.shortSha}` : status ? 'Branch unavailable' : 'Loading branch…')
   return <span className="thread-project-branch" title={`${rootPath ?? ''}\n${status?.error || label}`}><GitBranch size={11} aria-hidden="true" /><span>{label}</span></span>
 }
-export function ThreadSidebar({ workspaces, onCreate, onModeChange, onAccounts, onAddProject, onDelegations }: {
+export function ThreadSidebar({ workspaces, onCreate, onModeChange, onAccounts, onAddProject, onDelegations, onOpenDelegation }: {
   onDelegations?: () => void
+  onOpenDelegation?: (task: DelegationTask) => void
   workspaces: Workspace[]; onCreate: (workspaceId: string, rootPath?: string) => void; onModeChange?: () => void; onAccounts?: () => void; onAddProject?: () => void
 }) {
   const { threads, projects, selectedId, secondaryId, expanded, errors, loading, select, openSecondary, toggle, hiddenProjects } = useThreadStore()
@@ -106,7 +107,7 @@ export function ThreadSidebar({ workspaces, onCreate, onModeChange, onAccounts, 
             const recoverable = ['failed', 'interrupted'].includes(task.state)
             const action = task.nativeSession?.resumable ? 'resume' as const : 'retry' as const
             return <div className="thread-delegation-row" key={task.id} data-state={task.state}>
-              <button type="button" className="thread-delegation-main" disabled={!task.destinationThreadId} title={`${task.objective}\n${task.branch}\n${task.path}`} onClick={() => { if (task.destinationThreadId) void select(task.destinationThreadId) }}>
+              <button type="button" className="thread-delegation-main" title={`${task.objective}\n${task.branch}\n${task.path}`} onClick={() => { if (onOpenDelegation) onOpenDelegation(task); else if (task.destinationThreadId) void select(task.destinationThreadId); else onDelegations?.() }}>
                 <span className="thread-delegation-state" aria-label={task.state}>{task.state === 'starting' || task.state === 'preparing' || task.state === 'accepted' ? <Loader2 size={12} className="thread-spin" /> : <span />}</span>
                 <span><strong>{task.objective}</strong><small><GitBranch size={10} />{task.branch}</small></span>
               </button>

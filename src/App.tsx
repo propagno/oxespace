@@ -2,6 +2,7 @@ import { Activity, Bot, Columns2, FilePlus2, FolderOpen, Github, Grid2x2, Layout
 import { Suspense, lazy, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import type { AgentProfile } from '../shared/types/agent'
+import type { DelegationTask } from '../shared/types/delegation'
 import { OxeLogo } from './components/Brand/OxeLogo'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { ThemeProvider } from './components/Theme/ThemeProvider'
@@ -73,6 +74,7 @@ export function App(): ReactElement {
   const appVersion = window.oxe?.app?.version ?? 'dev'
   const [applicationView, setApplicationView] = useState<'code' | 'thread'>('code')
   const [delegatedWorkOpen, setDelegatedWorkOpen] = useState(false)
+  const [delegationTarget, setDelegationTarget] = useState<{ workspaceId: string; taskId: string } | null>(null)
   const [hasOpenedThread, setHasOpenedThread] = useState(false)
   const [newThreadWorkspaceId, setNewThreadWorkspaceId] = useState<string | null | undefined>(undefined)
   const [newThreadRootPath, setNewThreadRootPath] = useState<string | undefined>()
@@ -884,6 +886,26 @@ export function App(): ReactElement {
     else setNewThreadWorkspaceId(threadWorkspace?.id ?? workspaces[0].id)
   }
   const openThreadAccounts = () => { if (threadWorkspace) setAccountsOpen(true); else openNewWorkspace() }
+  const openDelegation = (task: DelegationTask) => {
+    const showDelegationDetails = () => {
+      setDelegationTarget({ workspaceId: task.originWorkspaceId ?? task.workspaceId, taskId: task.id })
+      setDelegatedWorkOpen(true)
+    }
+    if (task.destinationThreadId) {
+      setHasOpenedThread(true)
+      setApplicationView('thread')
+      setDelegatedWorkOpen(false)
+      const threadApi = window.oxe.thread
+      if (!threadApi) { showDelegationDetails(); return }
+      void threadApi.read(task.destinationThreadId).then(snapshot => useThreadStore.getState().adopt(snapshot)).catch(showDelegationDetails)
+    } else if (task.paneId) {
+      setApplicationView('code')
+      setDelegatedWorkOpen(false)
+      void setActiveWorkspace(task.workspaceId).then(() => useUIStore.getState().setActivePane(task.paneId!)).catch(showDelegationDetails)
+    } else {
+      showDelegationDetails()
+    }
+  }
 
   return (
     <ThemeProvider themeId={(applicationView === 'thread' ? threadWorkspace : activeWorkspace)?.themeId} density={(applicationView === 'thread' ? threadWorkspace : activeWorkspace)?.uiDensity}>
@@ -896,15 +918,11 @@ export function App(): ReactElement {
         }}>View task</button>
         <button type="button" className="secondary-action" onClick={() => setDelegationNotice(null)}>Dismiss</button>
       </div>}
-      {delegatedWorkOpen && <Suspense fallback={null}><DelegatedWorkDialog workspaces={workspaces} workspaceId={applicationView === 'thread' ? threadSnapshot?.thread.workspaceId ?? activeWorkspaceId ?? '' : activeWorkspaceId ?? ''}
+      {delegatedWorkOpen && <Suspense fallback={null}><DelegatedWorkDialog key={delegationTarget?.taskId ?? 'all'} workspaces={workspaces} workspaceId={delegationTarget?.workspaceId ?? (applicationView === 'thread' ? threadSnapshot?.thread.workspaceId ?? activeWorkspaceId ?? '' : activeWorkspaceId ?? '')} focusTaskId={delegationTarget?.taskId}
         origin={applicationView === 'thread' ? threadSelection ? { kind: 'thread', id: threadSelection } : undefined : activePane ? { kind: 'pane', id: activePane.id } : undefined}
-        onClose={() => setDelegatedWorkOpen(false)} onOpen={task => {
-          if (task.destinationThreadId) { setHasOpenedThread(true); setApplicationView('thread'); void useThreadStore.getState().select(task.destinationThreadId) }
-          else if (task.paneId) { setApplicationView('code'); void setActiveWorkspace(task.workspaceId).then(() => useUIStore.getState().setActivePane(task.paneId!)) }
-          setDelegatedWorkOpen(false)
-        }} /></Suspense>}
-      {applicationView === 'thread' ? <ThreadSidebar onDelegations={() => setDelegatedWorkOpen(true)} workspaces={workspaces} onCreate={(id, rootPath) => { setNewThreadRootPath(rootPath); setNewThreadWorkspaceId(id) }} onModeChange={() => setApplicationView('code')} onAccounts={openThreadAccounts} onAddProject={() => setThreadProjectOpen(true)} /> : <Sidebar
-        onDelegations={() => setDelegatedWorkOpen(true)}
+        onClose={() => { setDelegatedWorkOpen(false); setDelegationTarget(null) }} onOpen={openDelegation} /></Suspense>}
+      {applicationView === 'thread' ? <ThreadSidebar onDelegations={() => { setDelegationTarget(null); setDelegatedWorkOpen(true) }} onOpenDelegation={openDelegation} workspaces={workspaces} onCreate={(id, rootPath) => { setNewThreadRootPath(rootPath); setNewThreadWorkspaceId(id) }} onModeChange={() => setApplicationView('code')} onAccounts={openThreadAccounts} onAddProject={() => setThreadProjectOpen(true)} /> : <Sidebar
+        onDelegations={() => { setDelegationTarget(null); setDelegatedWorkOpen(true) }}
         workspaces={workspaces}
         activeWorkspaceId={activeWorkspaceId}
         appVersion={appVersion}

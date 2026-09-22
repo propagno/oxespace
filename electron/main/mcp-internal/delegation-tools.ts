@@ -24,7 +24,8 @@ function tool(name: string, description: string, properties: Record<string, unkn
         case 'oxespace_delegation_inbox': value = await service.inbox(origin, a.after as number | undefined); break
         case 'oxespace_delegation_result': value = await service.details(origin, a.taskId as string); break
         default: {
-          const t = await service.authorize(origin, a.taskId as string)
+          const t = await service.authorize(origin, a.taskId as string,
+            name === 'oxespace_delegation_control' ? { reconnectRequester: true } : undefined)
           if (name === 'oxespace_delegation_status') value = t
           if (name === 'oxespace_delegation_context') value = { taskId: t.id, context: t.context ?? 'Context is still being prepared.',
             bundle: t.knowledgeBundle ? { version: t.knowledgeBundle.version, revision: t.knowledgeBundle.revision, sha256: t.knowledgeBundle.sha256, sources: t.knowledgeBundle.sources } : null }
@@ -54,7 +55,7 @@ export const DELEGATION_TOOLS: ToolEntry[] = [
     }}
   }),
   tool('oxespace_delegation_targets','List local destination workspaces explicitly authorized by the user. To register or authorize a repository, ask the user to add its path in Workspace settings > Agent delegation. No clone or permission bypass.',{}),
-  tool('oxespace_delegation_result','Read authorized task results and provisioning receipts. Survives application restart; reconnect a new origin terminal through Workspace settings.',{taskId:string},['taskId']),
+  tool('oxespace_delegation_result','Read authorized task results and provisioning receipts. Survives application restart; a replacement requester can first use delegation control from the exact original checkout.',{taskId:string},['taskId']),
   tool('oxespace_delegation_acknowledge','Persist your read cursor for a task without consuming another participant’s events.',{taskId:string,cursor:{type:'integer',minimum:0}},['taskId']),
   tool('oxespace_list_agents','List configured Claude/Codex profiles eligible for delegation.',{}),
   tool('oxespace_delegate_task','Delegate to an independent, persistent worktree. Choose an existing exact branch, create an exact branch, or use a local generated template. Optional targetWorkspaceId must be user-authorized. Reuse key for idempotency. No push or merge.',{ key: string, agentProfileId: string, objective: string, handoff: string, acceptance: string, targetWorkspaceId: string,
@@ -71,5 +72,5 @@ export const DELEGATION_TOOLS: ToolEntry[] = [
   tool('oxespace_delegation_checkpoint','Delegated agent: persist an append-only progress checkpoint that survives restart without changing task state.',{taskId:string,text:string},['taskId','text']),
   tool('oxespace_delegation_message','Send a question, answer or clarification to the other participant. Does not type into terminals.',{taskId:string,text:string},['taskId','text']),
   tool('oxespace_delegation_inbox','Read your delegation events after cursor. Check at milestones and while awaiting parallel work. Reads do not consume messages.',{after:{type:'integer',minimum:0}}),
-  tool('oxespace_delegation_control','Origin only: resume an exact bound native Thread session, retry provisioning when no resumable session exists, explicitly start a new session from the latest handoff, cancel while preserving code, or approve a submitted result. Never merges.',{taskId:string,action:{type:'string',enum:['resume','retry','new-session','cancel','approve']}},['taskId','action'])
+  tool('oxespace_delegation_control','Requester control: resume an exact bound native Thread session, retry provisioning when no resumable session exists, explicitly start a new session from the latest handoff, cancel while preserving code, or approve a submitted result. If the creator execution changed, this explicit call securely reconnects a live session from the same original workspace, project and checkout. Never merges.',{taskId:string,action:{type:'string',enum:['resume','retry','new-session','cancel','approve']}},['taskId','action'])
 ]

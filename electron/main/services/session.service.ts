@@ -1,11 +1,11 @@
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs'
-import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../db/index'
 import type { AgentProvider } from '../../../shared/types/agent'
 import type { ForkSessionInput, ForkSessionResult, SessionSummary } from '../../../shared/types/session'
 import { UsageService } from './usage.service'
+import { defaultClaudeProjectsRoot, encodeClaudeProjectPath } from './usage/claude-project-path'
 import { safeJoin } from '../utils/safe-join'
 
 // Session IDs from Claude/Codex are RFC 4122 UUIDs. We refuse anything else so
@@ -40,7 +40,7 @@ export class SessionService {
   constructor(
     private readonly db: AppDatabase,
     private readonly usage: UsageService = new UsageService(),
-    private readonly claudeProjectsRoot: string = join(homedir(), '.claude', 'projects')
+    private readonly claudeProjectsRoot: string = defaultClaudeProjectsRoot()
   ) {}
 
   /** Returns enriched session summaries for the workspace, joined with fork metadata. */
@@ -56,9 +56,9 @@ export class SessionService {
 
     return sessions.map((session) => {
       const fork = forksBySessionId.get(session.sessionId)
-      const snapshot = this.usage.getSnapshotFor(provider, workspaceRootPath, session.sessionId)
+      const snapshot = session.snapshot ?? this.usage.getSnapshotFor(provider, workspaceRootPath, session.sessionId)
       const filePath = provider === 'claude'
-        ? join(this.claudeProjectsRoot, encodeClaudePath(workspaceRootPath), `${session.sessionId}.jsonl`)
+        ? join(this.claudeProjectsRoot, encodeClaudeProjectPath(workspaceRootPath), `${session.sessionId}.jsonl`)
         : null
       const firstMessagePreview = filePath ? readFirstMessagePreview(filePath) : session.summary ?? null
 
@@ -93,7 +93,7 @@ export class SessionService {
 
     assertSessionId(input.parentSessionId, 'parentSessionId')
 
-    const projectDir = join(this.claudeProjectsRoot, encodeClaudePath(input.workspaceRootPath))
+    const projectDir = join(this.claudeProjectsRoot, encodeClaudeProjectPath(input.workspaceRootPath))
     // safeJoin pins both filenames inside projectDir even if the UUID check is bypassed.
     const parentPath = safeJoin(projectDir, `${input.parentSessionId}.jsonl`)
     if (!existsSync(parentPath)) {
@@ -139,7 +139,7 @@ export class SessionService {
     // Resolve the path through safeJoin so a malformed sessionId can't escape projectDir.
     // We don't act on the file today, but future code that reads it must be safe.
     safeJoin(
-      join(this.claudeProjectsRoot, encodeClaudePath(workspaceRootPath)),
+      join(this.claudeProjectsRoot, encodeClaudeProjectPath(workspaceRootPath)),
       `${sessionId}.jsonl`
     )
     const result = this.db
@@ -157,7 +157,7 @@ export class SessionService {
   cleanupUnusedSessions(workspaceId: string, workspaceRootPath: string, provider: AgentProvider): number {
     if (provider !== 'claude') return 0
     let cleaned = 0
-    const projectDir = join(this.claudeProjectsRoot, encodeClaudePath(workspaceRootPath))
+    const projectDir = join(this.claudeProjectsRoot, encodeClaudeProjectPath(workspaceRootPath))
     if (!existsSync(projectDir)) return 0
 
     const sessions = this.usage.listSessionsFor(provider, workspaceRootPath)
@@ -180,10 +180,6 @@ export class SessionService {
     }
     return cleaned
   }
-}
-
-function encodeClaudePath(rootPath: string): string {
-  return rootPath.replace(/[:\\/]/g, '-')
 }
 
 const PREVIEW_MAX = 80

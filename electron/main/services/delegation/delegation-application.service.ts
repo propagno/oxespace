@@ -355,15 +355,38 @@ export class DelegationApplicationService {
       this.save(t); this.event(t, 'failed', t.error)
     }
   }
-  async authorize(execution: AgentExecution, id: string): Promise<DelegationTask> {
+  private canonicalPath(value: string): string {
+    const canonical = resolve(value)
+    return process.platform === 'win32' ? canonical.toLowerCase() : canonical
+  }
+  private isDelegatedExecution(task: DelegationTask, execution: AgentExecution): boolean {
+    return task.paneId === execution.paneId ||
+      (task.destinationThreadId !== undefined && execution.owner.kind === 'thread' && execution.owner.id === task.destinationThreadId)
+  }
+  private async reconnectRequester(task: DelegationTask, execution: AgentExecution, project: string): Promise<void> {
+    const originWorkspaceId = task.originWorkspaceId ?? task.workspaceId
+    const originProjectId = task.originProjectId ?? task.project
+    if (!task.originCwd || execution.workspaceId !== originWorkspaceId || project !== originProjectId ||
+      this.canonicalPath(execution.canonicalRoot) !== this.canonicalPath(task.originCwd) || this.isDelegatedExecution(task, execution)) {
+      throw new Error('Delegation is outside this execution scope')
+    }
+    this.coordinator.checkTask(task)
+    await this.coordinator.bind(task, 'requester', execution)
+    task.originExecutionId = execution.id
+    this.save(task)
+    this.event(task, 'origin-reconnected', 'Requester control moved to a live session in the original checkout')
+  }
+  async authorize(execution: AgentExecution, id: string, options?: { reconnectRequester?: boolean }): Promise<DelegationTask> {
     try { execution = this.deps.executions.authenticate(execution.id, execution.token, execution.workspaceId) }
     catch { throw new Error('Delegation is outside this execution scope: live execution required') }
     const project = await projectIdentity(execution.cwd)
     const t = this.get(id)
+    if (execution.id !== t.originExecutionId && execution.id !== t.destinationExecutionId && options?.reconnectRequester) {
+      await this.reconnectRequester(t, execution, project)
+    }
     const isOrigin = execution.id === t.originExecutionId
     if (execution.workspaceId !== (isOrigin ? t.originWorkspaceId ?? t.workspaceId : t.workspaceId) || project !== (isOrigin ? t.originProjectId ?? t.project : t.project)) throw new Error('Delegation is outside this execution scope')
-    const expectedDestination = t.paneId === execution.paneId ||
-      (t.destinationThreadId !== undefined && execution.owner.kind === 'thread' && execution.owner.id === t.destinationThreadId)
+    const expectedDestination = this.isDelegatedExecution(t, execution)
     if (t.state === 'starting' && expectedDestination && !t.destinationExecutionId) {
       t.destinationExecutionId = execution.id; this.save(t)
       if (t.originWorkspaceId) await this.coordinator.bind(t, 'executor', execution)

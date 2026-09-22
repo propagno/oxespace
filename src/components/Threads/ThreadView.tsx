@@ -58,6 +58,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   const [nativeSessions, setNativeSessions] = useState<SessionSummary[]>([])
   const [nativeResumeNotice, setNativeResumeNotice] = useState('')
   const [nativeResumeId, setNativeResumeId] = useState('')
+  const [resumeQuery, setResumeQuery] = useState('')
   const [openControl, setOpenControl] = useState<'model' | 'effort' | 'permissions' | null>(null)
   const [rename, setRename] = useState('')
   const [editingTurn, setEditingTurn] = useState<{ id: string; text: string; rewind: number } | null>(null)
@@ -187,6 +188,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
       let notice = ''
       setNativeSessions([])
       setNativeResumeNotice('')
+      setResumeQuery('')
       try {
         let cursor: string | undefined
         let inspected = 0
@@ -204,8 +206,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
         if (!window.oxe.session?.list) throw Error('Session discovery is unavailable')
         const sessions = await window.oxe.session.list({ workspaceId: snapshot.thread.workspaceId, workspaceRootPath: snapshot.thread.rootPath, provider: snapshot.thread.provider })
         const matching = sessions.filter(session => session.provider === snapshot.thread.provider && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(session.sessionId))
-        setNativeSessions(matching.slice(0, 50))
-        if (matching.length > 50) setNativeResumeNotice('Showing the 50 most recent native sessions for this directory.')
+        setNativeSessions(matching)
       } catch { setNativeResumeNotice('Could not list provider sessions. You can still enter an exact native session ID below.') }
       setPanel({ ...result, title: 'Resume work' })
     }
@@ -245,6 +246,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
     useThreadStore.getState().adopt(await api.read(task.destinationThreadId))
     setPanel(null)
   }
+  const resumeMatches = (parts: Array<string | number | null | undefined>) => !resumeQuery.trim() || parts.some(value => String(value ?? '').toLowerCase().includes(resumeQuery.trim().toLowerCase()))
   const uploadFiles = async (files: File[]) => {
     if (!snapshot || !api?.attach || !files.length) return
     const id = snapshot.thread.id
@@ -371,21 +373,22 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
       {error && <p role="alert">{error}</p>}
       {panel.surface === 'rename' ? <form onSubmit={event => { event.preventDefault(); void action(async () => { await runCommand(`/rename ${rename}`); setPanel(null) }) }}><label>Conversation name<input aria-label="Conversation name" value={rename} maxLength={120} onChange={event => setRename(event.target.value)} /></label><button type="submit" disabled={pending || !rename.trim()}>Rename conversation</button></form>
       : panel.surface === 'sessions' ? <div className="thread-resume-sections">
+        <label className="thread-resume-search">Find a session<input aria-label="Find a session" type="search" placeholder="Search prompt, model, branch, date or ID" value={resumeQuery} onChange={event => setResumeQuery(event.target.value)} /></label>
         <section><h3>Saved conversations</h3><p>The current conversation is already open. Send a message to continue its native session.</p>
-          <div className="thread-panel-list">{useThreadStore.getState().threads.filter(thread => thread.id !== snapshot?.thread.id && thread.provider === snapshot?.thread.provider && thread.rootPath === snapshot?.thread.rootPath).map(thread => <button key={thread.id} type="button" disabled={pending} onClick={() => void action(() => runCommand(`/resume ${thread.id}`))}><strong>{thread.title}</strong><span>{thread.nativeSessionId ? `Session ${thread.nativeSessionId}` : 'Not started'} · {thread.archived ? 'Archived' : thread.status}</span></button>)}
-            {!useThreadStore.getState().threads.some(thread => thread.id !== snapshot?.thread.id && thread.provider === snapshot?.thread.provider && thread.rootPath === snapshot?.thread.rootPath) && <p>No other saved conversation for this provider and directory.</p>}
+          <div className="thread-panel-list">{useThreadStore.getState().threads.filter(thread => thread.id !== snapshot?.thread.id && thread.provider === snapshot?.thread.provider && thread.rootPath === snapshot?.thread.rootPath && resumeMatches([thread.title, thread.nativeSessionId, thread.id, thread.status])).map(thread => <button key={thread.id} type="button" disabled={pending} onClick={() => void action(() => runCommand(`/resume ${thread.id}`))}><strong>{thread.title}</strong><span>{thread.nativeSessionId ? `Session ${thread.nativeSessionId}` : 'Not started'} · {thread.archived ? 'Archived' : thread.status}</span></button>)}
+            {!useThreadStore.getState().threads.some(thread => thread.id !== snapshot?.thread.id && thread.provider === snapshot?.thread.provider && thread.rootPath === snapshot?.thread.rootPath && resumeMatches([thread.title, thread.nativeSessionId, thread.id, thread.status])) && <p>{resumeQuery ? 'No saved conversations match this search.' : 'No other saved conversation for this provider and directory.'}</p>}
           </div>
         </section>
         <section><h3>Delegated sessions</h3>{resumeNotice && <p role="status">{resumeNotice}</p>}
-          <div className="thread-panel-list">{resumeTasks.map(task => <button key={task.id} type="button" disabled={pending || !task.destinationThreadId} onClick={() => void action(() => openDelegatedSession(task))}><strong>{task.objective}</strong><span>{task.branch} · {task.state} · {task.nativeSession?.provider ?? task.agentProfileId}</span><span>{task.nativeSession?.nativeSessionId ? `Session ${task.nativeSession.nativeSessionId}` : 'No native session ID yet'}</span></button>)}
-            {!resumeTasks.length && <p>No delegated session in this workspace.</p>}
+          <div className="thread-panel-list">{resumeTasks.filter(task => resumeMatches([task.objective, task.branch, task.state, task.id, task.nativeSession?.nativeSessionId])).map(task => <button key={task.id} type="button" disabled={pending || !task.destinationThreadId} onClick={() => void action(() => openDelegatedSession(task))}><strong>{task.objective}</strong><span>{task.branch} · {task.state} · {task.nativeSession?.provider ?? task.agentProfileId}</span><span>{task.nativeSession?.nativeSessionId ? `Session ${task.nativeSession.nativeSessionId}` : 'No native session ID yet'}</span></button>)}
+            {!resumeTasks.some(task => resumeMatches([task.objective, task.branch, task.state, task.id, task.nativeSession?.nativeSessionId])) && <p>{resumeQuery ? 'No delegated sessions match this search.' : 'No delegated session in this workspace.'}</p>}
           </div>
           {onDelegations && <button type="button" className="thread-resume-all" onClick={() => { setPanel(null); onDelegations() }}>Open all delegated work</button>}
         </section>
         <section><h3>{snapshot?.thread.provider === 'codex' ? 'Codex' : 'Claude'} sessions in this directory</h3><p>Terminal PTY, pane and workspace IDs are not provider conversation IDs. Choose a native session by its start time and model.</p>
           {nativeResumeNotice && <p role="status">{nativeResumeNotice}</p>}
-          <div className="thread-panel-list">{nativeSessions.map(session => <button key={session.sessionId} type="button" disabled={pending} onClick={() => void action(() => runCommand(`/resume ${session.sessionId}`))}><strong>{session.firstMessagePreview || `${session.provider === 'codex' ? 'Codex' : 'Claude'} session`}</strong><span>Started {new Date(session.sessionStartedAtMs).toLocaleString()} · Updated {new Date(session.lastUpdatedMs).toLocaleString()} · {session.modelId || 'Model not recorded'} · {session.requestCount} requests</span><span>{session.sessionId}</span></button>)}
-            {!nativeSessions.length && !nativeResumeNotice && <p>No native sessions found for this provider and directory.</p>}
+          <div className="thread-panel-list">{nativeSessions.filter(session => resumeMatches([session.firstMessagePreview, session.modelId, session.sessionId, new Date(session.sessionStartedAtMs).toLocaleString(), new Date(session.lastUpdatedMs).toLocaleString()])).map(session => <button key={session.sessionId} type="button" disabled={pending} onClick={() => void action(() => runCommand(`/resume ${session.sessionId}`))}><strong>{session.firstMessagePreview || `${session.provider === 'codex' ? 'Codex' : 'Claude'} session`}</strong><span>Started {new Date(session.sessionStartedAtMs).toLocaleString()} · Updated {new Date(session.lastUpdatedMs).toLocaleString()} · {session.modelId || 'Model not recorded'} · {session.requestCount} requests</span><span>{session.sessionId}</span></button>)}
+            {!nativeSessions.some(session => resumeMatches([session.firstMessagePreview, session.modelId, session.sessionId, new Date(session.sessionStartedAtMs).toLocaleString(), new Date(session.lastUpdatedMs).toLocaleString()])) && !nativeResumeNotice && <p>{resumeQuery ? 'No native sessions match this search.' : 'No native sessions found for this provider and directory.'}</p>}
           </div>
         </section>
         <section><h3>Open an exact native session</h3><p>Use a Claude or Codex session ID from this directory. OXESpace verifies its provider and path before linking it.</p>

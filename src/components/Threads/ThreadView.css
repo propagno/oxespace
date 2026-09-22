@@ -46,6 +46,8 @@
 .thread-delegation-row[data-state="interrupted"] .thread-delegation-state > span { background: var(--danger, #d66a6a); }
 .thread-command-dialog .thread-panel-list button span { white-space: pre-line; overflow-wrap: anywhere; }
 .thread-resume-sections { display: grid; gap: 20px; max-height: min(65vh, 620px); overflow-y: auto; padding-right: 3px; }
+.thread-resume-search { display: grid; gap: 6px; color: var(--tx-secondary); font-size: var(--fs-xs); }
+.thread-resume-search input { width: 100%; }
 .thread-resume-sections section { display: grid; gap: 9px; }
 .thread-resume-sections section + section { padding-top: 18px; border-top: 1px solid var(--bd-base); }
 .thread-resume-sections h3 { margin: 0; font-size: var(--fs-sm); font-weight: 600; }
