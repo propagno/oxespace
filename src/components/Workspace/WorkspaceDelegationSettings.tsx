@@ -35,9 +35,9 @@ export function WorkspaceDelegationSettings({ workspaceId, paneIds, onOpenTermin
   }
   return <section className="ws-settings-section memory-settings" aria-labelledby="delegation-title">
     <header className="ws-settings-section-header"><h3 id="delegation-title">Agent delegation</h3></header>
-    <p>Ask an agent to handle a parallel task in its own worktree and terminal. Your current terminal stays open.</p>
+    <p>Delegate parallel work to an independent worktree and persistent conversation. Open Delegated work in either sidebar to create, inspect and resume tasks.</p>
     <label><input type="checkbox" checked={snapshot.enabled} disabled={!ready || busy} onChange={e => { const enabled = e.target.checked; void act(() => window.oxe.delegation.configure(workspaceId,enabled)) }} /> Allow agents to delegate tasks in this project</label>
-    <p className="memory-privacy">Delegation starts another Claude or Codex session and supplies the handoff to that agent, which may use a cloud service. Native login and permission prompts still apply. Open new terminals after enabling.</p>
+    <p className="memory-privacy">Delegation starts an independent Claude or Codex session with your selected handoff. Subscription login and conversation permissions still apply.</p>
     <details className="coordination-destinations">
       <summary>Manage authorized destinations ({snapshot.targets?.length ?? 0})</summary>
     <fieldset disabled={busy || !ready}>
@@ -81,7 +81,8 @@ export function WorkspaceDelegationSettings({ workspaceId, paneIds, onOpenTermin
           else { useUIStore.getState().setActivePane(task.paneId!); useUIStore.getState().closeWorkspaceSettings() }
         }}>Open terminal</button>}
         {(task.originWorkspaceId ?? task.workspaceId) === workspaceId && <>
-          {['failed','interrupted'].includes(task.state) && <button type="button" disabled={busy} onClick={() => void act(() => window.oxe.delegation.control(workspaceId,task.id,'retry'))}>Retry</button>}
+          {['failed','interrupted'].includes(task.state) && task.nativeSession?.resumable && <button type="button" disabled={busy} onClick={() => void act(() => window.oxe.delegation.control(workspaceId,task.id,'resume'))}>Resume session</button>}
+          {['failed','interrupted'].includes(task.state) && !task.nativeSession?.resumable && <button type="button" disabled={busy} onClick={() => void act(() => window.oxe.delegation.control(workspaceId,task.id,'retry'))}>Retry provisioning</button>}
           {task.state === 'review' && <button type="button" disabled={busy} onClick={() => void act(() => window.oxe.delegation.control(workspaceId,task.id,'approve'))}>Approve result</button>}
           {!['approved','cancelled'].includes(task.state) && <button type="button" disabled={busy} onClick={() => void act(() => window.oxe.delegation.control(workspaceId,task.id,'cancel'))}>Cancel task</button>}
         </>}
@@ -94,7 +95,9 @@ export function WorkspaceDelegationSettings({ workspaceId, paneIds, onOpenTermin
         <button type="button" disabled={busy || !adoptPane[task.id]} onClick={() => void act(() => window.oxe.delegation.adopt(workspaceId, task.id, adoptPane[task.id]))}>Authorize terminal to follow and control this task</button>
       </div>}
       {task.workspaceId === workspaceId && task.paneId && paneIds && !paneIds.includes(task.paneId) && <p>Terminal was closed. Retry recreates it while preserving the worktree and handoff.</p>}
-      {['preparing','starting'].includes(task.state) && <p role="status">{task.state === 'preparing' ? 'Preparing the worktree and terminal…' : 'Agent process started. Open the terminal to check login, trust or acceptance prompts.'}</p>}
+      {task.nativeSession && <p>Native session <code>{task.nativeSession.nativeSessionId}</code> · generation {task.nativeSession.generation}</p>}
+      <p><code>{task.path}</code></p>
+      {['preparing','starting'].includes(task.state) && <p role="status">{task.state === 'preparing' ? 'Preparing the branch, worktree and handoff…' : task.surface === 'thread' ? 'Thread started and linked to its provider session.' : 'Agent terminal started. Check login, trust or acceptance prompts.'}</p>}
       <details><summary>Task and handoff</summary><pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{task.context ?? task.handoff}</pre></details>
     </article>)}
   </section>

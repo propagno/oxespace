@@ -1,9 +1,10 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
 import type { AgentProfile, AgentReadiness } from '../../shared/types/agent'
 import { AgentConfigModal } from '../../src/components/Agents/AgentConfigModal'
 import { SettingsModal } from '../../src/components/Settings/SettingsModal'
+import { useUpdaterStore } from '../../src/store/updater.store'
 
 const profiles: AgentProfile[] = [
   {
@@ -49,9 +50,9 @@ describe('Settings agents UI', () => {
       />
     )
 
-    expect(screen.getByRole('dialog', { name: 'Agent Settings' })).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Agents' })).toBeInTheDocument()
     expect(screen.getByTestId('settings-modal')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /AI Providers/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Agents$/i })).toBeInTheDocument()
     expect(screen.getByText('Claude')).toBeInTheDocument()
     expect(screen.getByText('Ready')).toBeInTheDocument()
     expect(screen.getByText('claude 2.1.132')).toBeInTheDocument()
@@ -209,10 +210,19 @@ describe('Settings agents UI', () => {
     // Default store is disabled/dev until packaged bootstrap — honest UX
     expect(screen.getByTestId('app-update-pill')).toHaveTextContent(/Dev build/i)
     expect(screen.getByTestId('btn-check-app-updates')).toBeDisabled()
-    expect(screen.getByTestId('btn-check-app-updates')).toHaveTextContent(/Unavailable in dev/i)
+    expect(screen.getByTestId('btn-check-app-updates')).toHaveTextContent(/Check for updates/i)
+    expect(screen.getByText('Install a release build to enable automatic updates.')).toBeInTheDocument()
     expect(screen.getByTestId('settings-rtk-update')).toBeInTheDocument()
     expect(screen.getByTestId('btn-update-rtk')).toBeInTheDocument()
     expect(screen.getByTestId('settings-bundled-tools')).toBeInTheDocument()
+    const previousRtk = useUpdaterStore.getState().rtk
+    try {
+      act(() => useUpdaterStore.setState({ rtk: { ...previousRtk, installed: false, checking: true, updating: false, updateAvailable: true, error: null } }))
+      expect(screen.getByTestId('btn-update-rtk')).toBeDisabled()
+      expect(screen.getByTestId('btn-check-rtk')).toBeDisabled()
+      expect(within(screen.getByTestId('settings-rtk-update')).getByText('Checking', { exact: true })).toHaveClass('muted')
+    } finally { act(() => useUpdaterStore.setState({ rtk: previousRtk })) }
+
   })
 
   test('built-in modal allows command edits without delete or secret fields', async () => {

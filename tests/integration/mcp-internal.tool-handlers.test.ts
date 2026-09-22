@@ -59,6 +59,7 @@ describe('tool registry', () => {
     const entry = TOOL_REGISTRY.find((e) => e.descriptor.name === 'oxespace_quality_check')
     expect(entry?.requiresWorkspace).toBe(true)
     expect(entry?.descriptor.description).toContain('Post-diff')
+    expect(entry?.descriptor.inputSchema.properties).toHaveProperty('files')
   })
 })
 

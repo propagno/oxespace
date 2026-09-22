@@ -14,6 +14,8 @@ interface GitHubPanelProps {
   rootPath: string
   activeTab: GitHubPanelTab
   onTabChange: (tab: GitHubPanelTab) => void
+  onOpenFile?: (path: string) => void
+  onRunCommand?: (command: string) => void
 }
 
 interface ConfirmAction {
@@ -22,7 +24,7 @@ interface ConfirmAction {
   run: () => Promise<void>
 }
 
-export function GitHubPanel({ activeTab: propTab, onTabChange, rootPath, workspaceId }: GitHubPanelProps): ReactElement {
+export function GitHubPanel({ activeTab: propTab, onOpenFile, onRunCommand, onTabChange, rootPath, workspaceId }: GitHubPanelProps): ReactElement {
   const selector = useMemo(() => selectGitHubWorkspace(workspaceId), [workspaceId])
   const state = useGitHubStore(selector)
   const input = useMemo(() => ({ workspaceId, rootPath }), [workspaceId, rootPath])
@@ -69,6 +71,7 @@ export function GitHubPanel({ activeTab: propTab, onTabChange, rootPath, workspa
   const requestConfirm = (title: string, detail: string, run: () => Promise<void>): void => setConfirmAction({ title, detail, run })
 
   const openChangedFile = (path: string): void => {
+    if (onOpenFile) { onOpenFile(path); return }
     const workspace = useWorkspaceStore.getState().workspaces.find((item) => item.id === workspaceId)
     if (!workspace) return
     void useWorkspaceStore.getState().updateEditorState({
@@ -80,7 +83,7 @@ export function GitHubPanel({ activeTab: propTab, onTabChange, rootPath, workspa
     void useEditorStore.getState().openFile({ workspaceId, rootPath, relativePath: path })
   }
 
-  const runCommand = (command: string): void => setPendingCommand(command)
+  const runCommand = (command: string): void => onRunCommand ? onRunCommand(command) : setPendingCommand(command)
   const loadWorkflowRunDetails = useCallback(
     (runId: number) => useGitHubStore.getState().loadWorkflowRunDetails({ ...input, runId }),
     [input]

@@ -14,8 +14,8 @@ test('delegation is opt-in and exposes explicit recovery without launching on mo
   expect(screen.getByRole('alert')).toHaveTextContent('Agent unavailable')
   fireEvent.click(screen.getByRole('checkbox', { name: /Allow agents to delegate/ }))
   await waitFor(() => expect(api.configure).toHaveBeenCalledWith('ws', true))
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled())
-  fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Retry provisioning' })).toBeEnabled())
+  fireEvent.click(screen.getByRole('button', { name: 'Retry provisioning' }))
   await waitFor(() => expect(api.control).toHaveBeenCalledWith('ws', 'task', 'retry'))
 })
 test('works without the optional preload API', () => {

@@ -9,6 +9,8 @@ import { cn } from '@/lib/utils'
  * 200) so panels migrating from the hand-rolled backdrop to <Dialog> keep an
  * identical scrim. Pair with `.modal-dialog-surface` on the content.
  */
+export const DESKTOP_DIALOG_OVERLAY = 'desktop-dialog-overlay'
+
 export const LEGACY_MODAL_OVERLAY = 'z-[200] bg-black/50 backdrop-blur-[8px]'
 
 function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {

@@ -19,6 +19,7 @@ interface WebPreviewPanelProps {
   onRunCommand: (command: string) => void
   onClose: () => void
   embedded?: boolean
+  onSendToAgent?: (prompt: string) => void | Promise<void>
 }
 
 const DEFAULT_URL = 'http://localhost:3000'
@@ -31,7 +32,7 @@ const VIEWPORTS: Record<Viewport, { label: string; width: number | null; height:
   mobile: { label: 'Mobile · 390px', width: 390, height: 844 }
 }
 
-export function WebPreviewPanel({ embedded = false, onClose, workspace }: WebPreviewPanelProps): ReactElement {
+export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, workspace }: WebPreviewPanelProps): ReactElement {
   const [draftUrl, setDraftUrl] = useState(DEFAULT_URL)
   const [url, setUrl] = useState<string | null>(null)
   const [history, setHistory] = useState<string[]>([])
@@ -152,11 +153,17 @@ export function WebPreviewPanel({ embedded = false, onClose, workspace }: WebPre
 
   const sendGrabToAgent = useCallback(
     async (prompt: string): Promise<void> => {
+      if (onSendToAgent) {
+        await onSendToAgent(prompt)
+        setGrab(null)
+        setCaptureNotice('Added to the active Thread draft.')
+        return
+      }
       const result = await pasteIntoAgentTerminal(workspace.id, prompt)
       setGrab(null)
       setCaptureNotice(result.message)
     },
-    [workspace.id]
+    [onSendToAgent, workspace.id]
   )
 
   // Watch this workspace's pending preview slot — populated by App.tsx when

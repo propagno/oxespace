@@ -14,6 +14,7 @@ import { CopilotCreditsStatus } from '../Terminal/CopilotCreditsStatus'
 import { AgentCreditsStatus } from '../Terminal/AgentCreditsStatus'
 import { ContextUsageStatus } from '../Terminal/ContextUsageStatus'
 import { ErrorBoundary } from '../common/ErrorBoundary'
+import { VoiceHud } from '../Voice/VoiceHud'
 interface TerminalPaneProps {
   pane: WorkspacePane
   workspaceId: string
@@ -391,32 +392,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
             }}
           />
           </ErrorBoundary>
-          {voice.status === 'listening' || voice.status === 'transcribing' || voice.status === 'downloading' || voice.error ? (
-            <div className={`oxe-voice-hud ${voice.error ? 'error' : voice.status}`} role="status" aria-live="polite">
-              {voice.status === 'listening' && !voice.error ? (
-                <span className="oxe-voice-meter" aria-hidden="true">
-                  {[0, 1, 2, 3, 4].map((i) => (
-                    <span
-                      key={i}
-                      className="oxe-voice-bar"
-                      style={{ transform: `scaleY(${Math.max(0.18, Math.min(1, voice.level * (1.4 - Math.abs(i - 2) * 0.25)))})` }}
-                    />
-                  ))}
-                </span>
-              ) : (
-                <span className={`oxe-voice-pulse${voice.status === 'transcribing' ? ' spin' : ''}`} aria-hidden="true" />
-              )}
-              <span>
-                {voice.error
-                  ? voice.error
-                  : voice.status === 'downloading'
-                    ? `Baixando modelo de voz… ${voice.modelProgress !== null ? Math.round(voice.modelProgress * 100) : 0}%`
-                    : voice.status === 'transcribing'
-                      ? 'Transcrevendo…'
-                      : 'Ouvindo… solte para inserir'}
-              </span>
-            </div>
-          ) : null}
+          <VoiceHud status={voice.status} error={voice.error} level={voice.level} modelProgress={voice.modelProgress} onDismiss={voice.dismiss} />
         </div>
       ) : (
         <div className="terminal-idle">

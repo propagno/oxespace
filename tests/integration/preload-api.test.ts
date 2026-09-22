@@ -3,6 +3,36 @@ import { IPC_CHANNELS } from '../../shared/types/ipc'
 import { createOxeApi, type PreloadIpc } from '../../electron/preload/api'
 
 describe('preload api', () => {
+  test('exposes explicit command refresh without launching a Thread or Code terminal', async () => {
+    const ipc = createFakeIpc(), api = createOxeApi(ipc)
+    await api.thread!.commands('thread-A', true)
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.thread.commands, 'thread-A', true)
+    expect(ipc.invoke).toHaveBeenCalledTimes(1)
+  })
+  test('exposes portable Thread import and export only through validated IPC methods', async () => {
+    const ipc = createFakeIpc(), api = createOxeApi(ipc)
+    await api.thread!.exportPortable!('thread-A')
+    await api.thread!.importPortable!('thread-A')
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.thread.exportPortable, 'thread-A')
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.thread.importPortable, 'thread-A')
+  })
+  test('keeps Thread CLI events scoped to their thread and separate from Code terminal events', async () => {
+    const ipc = createFakeIpc(), api = createOxeApi(ipc), data = vi.fn(), code = vi.fn()
+    const emit = (channel: string, payload: unknown) => { for (const [name, listener] of vi.mocked(ipc.on).mock.calls) if (name === channel) listener(null as never, payload) }
+    const unsubscribe = api.thread!.cli!.onData('thread-A', data)
+    const unsubscribeCode = api.terminal.onData('thread-A', code)
+    await api.thread!.cli!.open('thread-A', '/permissions')
+    await api.thread!.cli!.linkSession('thread-A', 'native-id')
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.threadCli.open, 'thread-A', '/permissions')
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.threadCli.link, 'thread-A', 'native-id')
+    emit(IPC_CHANNELS.threadCli.data, { paneId: 'thread-B', data: 'Other conversation' })
+    emit(IPC_CHANNELS.threadCli.data, { paneId: 'thread-A', data: 'Native CLI output' })
+    expect(data).toHaveBeenCalledOnce()
+    expect(code).not.toHaveBeenCalled()
+    unsubscribe(); unsubscribeCode()
+    emit(IPC_CHANNELS.threadCli.data, { paneId: 'thread-A', data: 'After teardown' })
+    expect(data).toHaveBeenCalledOnce()
+  })
   test('exposes workspace and terminal APIs without raw ipc access', async () => {
     const ipc = createFakeIpc()
     const api = createOxeApi(ipc)

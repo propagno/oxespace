@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { analyzeQualitySnapshot } from '../../electron/main/services/quality-controller.service'
+import { analyzeQualitySnapshot, extractChangedSymbols, normalizeFileScope } from '../../electron/main/services/quality-controller.service'
 
 describe('Quality Controller', () => {
   test('fails when a changed contract leaves exact-reference consumers outside the diff', () => {
@@ -43,5 +43,15 @@ describe('Quality Controller', () => {
     })
     expect(report.verdict).toBe('fail')
     expect(report.findings.some((finding) => finding.code === 'MIGRATION_WITHOUT_TEST')).toBe(true)
+  })
+
+  test('scans only the declaration owning a touched Git line', () => {
+    const content = ['export interface FirstContract {', '  value?: string', '}', '', 'export interface UntouchedContract {', '  legacy: string', '}'].join('\n')
+    expect(extractChangedSymbols(new Map([['shared/types/contracts.ts', content]]), new Map([['shared/types/contracts.ts', new Set([2])]]))).toEqual(['FirstContract'])
+  })
+
+  test('normalizes an explicit file scope and rejects traversal', () => {
+    expect(normalizeFileScope(['./src/feature.ts', 'tests/'])).toEqual(['src/feature.ts', 'tests'])
+    expect(() => normalizeFileScope(['../other-project/private.ts'])).toThrow('within the workspace')
   })
 })

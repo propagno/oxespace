@@ -39,6 +39,8 @@ export interface QualitySnapshot {
   changedFiles: string[]
   contents: Map<string, string>
   references: Map<string, string[]>
+  /** Declarations actually touched by Git hunks. Falls back to content scanning in pure unit inputs. */
+  symbols?: string[]
   acceptanceCriteria?: string[]
   maxFindings?: number
 }
@@ -48,23 +50,27 @@ export class QualityControllerService {
     workspaceId: string,
     rootPath: string,
     fileSystem: FileSystemService,
-    options: { baseRef?: string; acceptanceCriteria?: string[]; maxFindings?: number } = {}
+    options: { baseRef?: string; files?: string[]; acceptanceCriteria?: string[]; maxFindings?: number } = {}
   ): Promise<QualityCheckReport> {
     const startedAt = Date.now()
     const root = path.resolve(rootPath)
-    const changedFiles = await collectChangedFiles(root, options.baseRef)
+    const allChangedFiles = await collectChangedFiles(root, options.baseRef)
+    const scope = normalizeFileScope(options.files)
+    const changedFiles = scope ? allChangedFiles.filter(file => scope.some(item => file === item || file.startsWith(`${item}/`))) : allChangedFiles
     const contents = new Map<string, string>()
     for (const file of changedFiles) {
       const content = await readTextFile(fileSystem, workspaceId, root, file)
       if (content !== null) contents.set(file, content)
     }
 
-    const symbols = extractChangedSymbols(contents)
+    const touchedLines = await collectTouchedLines(root, options.baseRef)
+    const symbols = extractChangedSymbols(contents, touchedLines)
     const references = await collectExactReferences(fileSystem, workspaceId, root, symbols, new Set(changedFiles))
     const report = analyzeQualitySnapshot({
       changedFiles,
       contents,
       references,
+      symbols,
       acceptanceCriteria: options.acceptanceCriteria,
       maxFindings: options.maxFindings
     })
@@ -79,7 +85,7 @@ export function analyzeQualitySnapshot(snapshot: QualitySnapshot): QualityCheckR
   const contractsChanged = changed.filter(isContractFile)
   const migrationsChanged = changed.filter(isMigrationFile)
   const sourceChanged = changed.filter((file) => isSourceFile(file) && !isTestFile(file))
-  const symbols = [...snapshot.references.keys()]
+  const symbols = snapshot.symbols ?? [...snapshot.references.keys()]
   const impactedFiles = [...new Set([...snapshot.references.values()].flat().map(normalizePath))]
     .filter((file) => !changedSet.has(file))
     .sort()
@@ -157,7 +163,8 @@ export function analyzeQualitySnapshot(snapshot: QualitySnapshot): QualityCheckR
     evidence: { testsChanged, contractsChanged, migrationsChanged, symbolsScanned: symbols, acceptanceCriteria },
     limitations: [
       'Heuristic evidence does not prove runtime correctness; execute the project verification commands.',
-      'Dynamic dispatch, generated files, reflection and references outside the Git worktree may be missed.'
+      'Dynamic dispatch, generated files, reflection and references outside the Git worktree may be missed.',
+      ...(snapshot.symbols ? ['Exact-reference analysis is limited to declarations touched by Git hunks; untracked files are scanned in full.'] : [])
     ],
     durationMs: 0
   }
@@ -176,6 +183,32 @@ async function collectChangedFiles(root: string, baseRef?: string): Promise<stri
     for (const file of stdout.split(/\r?\n/).map((item) => item.trim()).filter(Boolean)) files.add(normalizePath(file))
   }
   return [...files].sort()
+}
+
+async function collectTouchedLines(root: string, baseRef?: string): Promise<Map<string, Set<number>>> {
+  const commands: string[][] = baseRef
+    ? [['-c', 'core.quotepath=false', 'diff', '--no-prefix', '--unified=0', '--diff-filter=ACMR', `${baseRef}...HEAD`, '--'], ['-c', 'core.quotepath=false', 'diff', '--no-prefix', '--unified=0', '--diff-filter=ACMR', '--'], ['-c', 'core.quotepath=false', 'diff', '--cached', '--no-prefix', '--unified=0', '--diff-filter=ACMR', '--']]
+    : [['-c', 'core.quotepath=false', 'diff', '--no-prefix', '--unified=0', '--diff-filter=ACMR', '--'], ['-c', 'core.quotepath=false', 'diff', '--cached', '--no-prefix', '--unified=0', '--diff-filter=ACMR', '--']]
+  const touched = new Map<string, Set<number>>()
+  for (const args of commands) {
+    const { stdout } = await execFileAsync('git', args, { cwd: root, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 })
+    let file: string | undefined
+    for (const line of stdout.split(/\r?\n/)) {
+      if (line.startsWith('+++ ')) {
+        const value = line.slice(4).trim()
+        file = value === '/dev/null' ? undefined : normalizePath(value)
+        continue
+      }
+      if (!file || !line.startsWith('@@')) continue
+      const match = line.match(/\+(\d+)(?:,(\d+))?\s/)
+      if (!match) continue
+      const start = Number(match[1]), count = match[2] === undefined ? 1 : Number(match[2])
+      const lines = touched.get(file) ?? new Set<number>()
+      for (let offset = 0; offset < count; offset++) lines.add(start + offset)
+      touched.set(file, lines)
+    }
+  }
+  return touched
 }
 
 async function collectExactReferences(fileSystem: FileSystemService, workspaceId: string, root: string, symbols: string[], changed: Set<string>): Promise<Map<string, string[]>> {
@@ -203,16 +236,41 @@ async function readTextFile(fileSystem: FileSystemService, workspaceId: string, 
   } catch { return null }
 }
 
-function extractChangedSymbols(contents: Map<string, string>): string[] {
+export function extractChangedSymbols(contents: Map<string, string>, touchedLines?: Map<string, Set<number>>): string[] {
   const symbols = new Set<string>()
   const pattern = /\b(?:export\s+(?:default\s+)?)?(?:class|interface|type|enum|function|const|let|var|def|func|fun|fn|struct|trait)\s+([A-Za-z_$][\w$]{2,})/g
-  for (const content of contents.values()) {
+  for (const [file, content] of contents) {
+    const declarations: Array<{ name: string; line: number }> = []
     for (const match of content.matchAll(pattern)) {
-      symbols.add(match[1])
+      declarations.push({ name: match[1], line: content.slice(0, match.index).split('\n').length })
+    }
+    const lines = touchedLines?.get(file)
+    if (!touchedLines || !lines) {
+      for (const declaration of declarations) {
+        symbols.add(declaration.name)
+        if (symbols.size >= MAX_SYMBOLS) return [...symbols]
+      }
+      continue
+    }
+    for (const line of lines) {
+      let declaration: { name: string; line: number } | undefined
+      for (const item of declarations) {
+        if (item.line > line) break
+        declaration = item
+      }
+      if (declaration) symbols.add(declaration.name)
       if (symbols.size >= MAX_SYMBOLS) return [...symbols]
     }
   }
   return [...symbols]
+}
+
+export function normalizeFileScope(files?: string[]): string[] | undefined {
+  if (!files) return undefined
+  if (!Array.isArray(files) || files.length > 500) throw Error('files must contain at most 500 workspace-relative paths')
+  const normalized = [...new Set(files.map(value => normalizePath(value.trim()).replace(/^\.\//, '').replace(/\/$/, '')).filter(Boolean))]
+  if (normalized.some(value => path.isAbsolute(value) || value === '..' || value.startsWith('../') || value.includes('/../'))) throw Error('files must stay within the workspace')
+  return normalized
 }
 
 function significantTerms(value: string): string[] {

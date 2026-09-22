@@ -1,0 +1,13 @@
+.thread-heading .thread-conversation-menu { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; flex-shrink: 0; border: 1px solid transparent; border-radius: var(--nav-radius); color: var(--tx-muted); }
+.thread-heading .thread-conversation-menu:hover, .thread-heading .thread-conversation-menu[data-state="open"] { color: var(--tx-primary); border-color: var(--bd-base); background: var(--bg-elevated); }
+.thread-actions-dropdown { z-index: 110; width: 264px; max-width: calc(100vw - 24px); max-height: var(--radix-dropdown-menu-content-available-height); overflow-y: auto; padding: 6px; border: 1px solid var(--bd-base); border-radius: var(--surface-radius); background: var(--bg-elevated); color: var(--tx-primary); box-shadow: 0 12px 32px #0005, 0 2px 8px #0002; font: var(--fs-xs)/1.4 var(--font-ui); }
+.thread-actions-label { display: grid; gap: 2px; padding: 5px 8px 7px; color: var(--tx-muted); font-size: var(--fs-2xs); }
+.thread-actions-label > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tx-secondary); font-size: var(--fs-xs); font-weight: 500; }
+.thread-action-item { display: flex; align-items: center; gap: 9px; min-height: 30px; padding: 5px 8px; border-radius: var(--nav-radius); outline: none; cursor: pointer; user-select: none; }
+.thread-action-item > svg { flex-shrink: 0; color: var(--tx-muted); }
+.thread-action-item[data-highlighted] { background: color-mix(in srgb, var(--tx-primary) 7%, transparent); }
+.thread-action-item.is-destructive, .thread-action-item.is-destructive > svg { color: var(--dot-red); }
+.thread-action-item.is-destructive[data-highlighted] { background: color-mix(in srgb, var(--dot-red) 10%, transparent); }
+.thread-actions-separator { height: 1px; margin: 3px 7px; background: var(--bd-base); }
+@media (prefers-reduced-motion: no-preference) { .thread-actions-dropdown[data-state="open"] { animation: thread-actions-appear 100ms ease-out; transform-origin: var(--radix-dropdown-menu-content-transform-origin); } }
+@keyframes thread-actions-appear { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: translateY(0); } }

@@ -63,7 +63,10 @@ export type { IntegrationGroup, IntegrationMember, IntegrationHandoff, Integrati
 export type { FileSystemApi, FileSystemFileChangedEvent, FileSystemListTreeInput, FileSystemReadBinaryInput, FileSystemReadBinaryResult, FileSystemReadFileInput, FileSystemReadFileResult, FileSystemUnwatchFileInput, FileSystemWatchFileInput, FileSystemWatchFileResult, FileSystemWriteFileInput, FileSystemWriteFileResult, FileTreeNode, FileTreeNodeType } from './filesystem'
 
 export const IPC_CHANNELS = {
-  delegation: { status: 'delegation:status', configure: 'delegation:configure', control: 'delegation:control', changed: 'delegation:changed', configureTarget: 'delegation:configure-target', adopt: 'delegation:adopt' },
+  agentAccount: { read: 'agent-account:read', login: 'agent-account:login', logout: 'agent-account:logout', cancel: 'agent-account:cancel', code: 'agent-account:code', browser: 'agent-account:browser', changed: 'agent-account:changed' },
+  thread: { projectDiff: 'thread:project-diff', artifact: 'thread:artifact', exportPortable: 'thread:export-portable', importPortable: 'thread:import-portable', models: 'thread:models', configure: 'thread:configure', command: 'thread:command', recover: 'thread:recover', commands: 'thread:commands', projects: 'thread:projects', list: 'thread:list', create: 'thread:create', read: 'thread:read', history: 'thread:history', attach: 'thread:attach', removeAttachment: 'thread:remove-attachment', send: 'thread:send', steer: 'thread:steer', updateQueued: 'thread:queue-update', deleteQueued: 'thread:queue-delete', reorderQueued: 'thread:queue-reorder', interrupt: 'thread:interrupt', approve: 'thread:approve', respond: 'thread:respond', pin: 'thread:pin', changed: 'thread:changed' },
+  threadCli: { open: 'thread-cli:open', state: 'thread-cli:state', write: 'thread-cli:write', resize: 'thread-cli:resize', attach: 'thread-cli:attach', detach: 'thread-cli:detach', stop: 'thread-cli:stop', insert: 'thread-cli:insert', link: 'thread-cli:link', data: 'thread-cli:data', exit: 'thread-cli:exit' },
+  delegation: { create: 'delegation:create', status: 'delegation:status', preview: 'delegation:preview', configure: 'delegation:configure', control: 'delegation:control', changed: 'delegation:changed', configureTarget: 'delegation:configure-target', adopt: 'delegation:adopt' },
   memory: {
     status: 'memory:status', configure: 'memory:configure', install: 'memory:install',
     setupAgents: 'memory:setup-agents', search: 'memory:search', recent: 'memory:recent'
@@ -394,6 +397,12 @@ export interface TerminalStatusResult {
   running: boolean
   seq: number
   altScreen: boolean
+  /** OXESpace PTY session identity, distinct from any provider conversation ID. */
+  sessionId?: string
+  launchDirectory?: string
+  executable?: string
+  pid?: number
+  startedAt?: number
 }
 
 export interface SplitPaneInput {
@@ -618,6 +627,8 @@ export interface RtkApi {
 }
 
 export interface OxeApi {
+  agentAccount?: import('./agentAuth').AgentAccountApi
+  thread?: import('./thread').ThreadApi
   delegation: import('./delegation').DelegationApi
   memory: import('./memory').MemoryApi
   app: {

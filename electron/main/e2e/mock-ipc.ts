@@ -436,6 +436,7 @@ export function registerE2eMockIpcHandlers(): void {
   // try/catch lets the explicit mocks above win and only fills the gaps.
   const channelDefault = (channel: string): unknown => {
     if (channel === IPC_CHANNELS.delegation.status) return { enabled: false, tasks: [] }
+    if (channel === IPC_CHANNELS.delegation.preview) return { targetWorkspaceId: 'workspace-1', targetName: 'Workspace', ready: false, reason: 'PROJECT_OPT_IN_REQUIRED', effects: [], checkout: { strategy: 'create', branch: 'feature/preview', baseRef: 'main', baseSha: '0000000000000000000000000000000000000000', path: '/tmp/preview', createBranch: true, reuseExistingWorktree: false, fetchBase: false, resolvedAt: Date.now() } }
     if (channel === IPC_CHANNELS.memory.status) return {
       projectId: 'e2e-project', settings: { enabled: false, automaticCapture: false, automaticContext: false },
       runtime: { mode: 'managed', executable: 'ai-memory', url: 'http://127.0.0.1:49374' },

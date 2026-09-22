@@ -270,6 +270,7 @@ export const TOOL_REGISTRY: ToolEntry[] = [
         type: 'object',
         properties: {
           baseRef: { type: 'string', description: 'Optional Git base revision to include (for example main or HEAD~1). The worktree and index are always included.' },
+          files: { type: 'array', items: { type: 'string' }, description: 'Optional workspace-relative files or directories to scope this check. Use the implementation and test files changed by the current operation.' },
           acceptanceCriteria: { type: 'array', items: { type: 'string' }, description: 'Acceptance criteria to trace to changed files.' },
           maxFindings: { type: 'number', description: 'Maximum findings returned (1-100, default 30).' }
         },

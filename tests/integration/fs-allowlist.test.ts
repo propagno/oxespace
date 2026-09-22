@@ -27,13 +27,30 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Tool callers supply IDs, never filesystem paths or workspace destinations.
   'electron/main/services/documentation/documentation.service.ts',
   'electron/main/services/session.service.ts',
+  // Conversation transports probe installed executables only. Native history
+  // reads UUID-selected ~/.claude session logs, never arbitrary source paths.
+  // Command discovery reads only bounded configured skill/command Markdown;
+  // renderer callers provide Thread IDs and command names, not read paths.
+  'electron/main/services/conversation/process-transport.ts',
+  'electron/main/services/conversation/thread-cli.ts',
+  'electron/main/services/conversation/native-session-history.ts',
+  'electron/main/services/conversation/thread-commands.ts',
+  // Claude's transport materializes a bounded temporary MCP config and removes
+  // it after the process exits. Thread attachments live in the app's private
+  // userData area under opaque IDs; neither accepts arbitrary workspace paths.
+  'electron/main/services/conversation/claude-conversation.ts',
+  'electron/main/services/conversation/thread-attachments.ts',
+  // Transactional Thread checkpoints are a dedicated filesystem boundary:
+  // they canonicalize the Thread root, reject traversal/symlinks, hash every
+  // postimage and restore through temp+rename without destructive Git calls.
+  'electron/main/services/conversation/thread-checkpoints.ts',
   'electron/main/services/shell-profile.service.ts',
   'electron/main/services/skill.service.ts',
   'electron/main/services/terminal.service.ts',
   // Delegation performs existence probes only: executable selection and worktree
   // recovery. GitHubWorktreeApi owns creation; neither reads/writes source files.
   'electron/main/services/agent-launch.service.ts',
-  'electron/main/services/delegation.service.ts',
+  'electron/main/services/delegation/delegation-git-provisioner.ts',
   // Trusted UI repository registration: realpath identity probes only. No
   // source file reads/writes; evidence reads committed blobs through Git.
   'electron/main/services/coordination/workspace-resolver.ts',
@@ -53,6 +70,10 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Diagnostics reads the main log tail and writes a report only to a path
   // explicitly selected through Electron's native save dialog.
   'electron/main/ipc/diagnostics.ipc.ts',
+  // Portable conversation packages are read/written only at a path returned
+  // by Electron's native open/save dialogs; package validation remains in the
+  // Thread portable service and imported content is inert.
+  'electron/main/ipc/thread.ipc.ts',
   'electron/main/services/diagnostics.service.ts',
   // Internal MCP bootstrap: materializes the bridge script under
   // <userData>/bin and hash-checks it against the packaged source. Needs

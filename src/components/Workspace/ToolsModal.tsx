@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import { Activity, ArrowRight, Bot, Brain, Code2, Command, FolderTree, Github, GitCompareArrows, MonitorPlay, Network, PanelLeft, Search, Settings2, Sparkles, Wrench, X, Slash, FileCode2 } from 'lucide-react'
 import { useUIStore } from '../../store/ui.store'
-import { Dialog, DialogContent, DialogDescription, DialogTitle, LEGACY_MODAL_OVERLAY } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DESKTOP_DIALOG_OVERLAY } from '@/components/ui/dialog'
 
 export interface ToolsActiveState {
   github: boolean
@@ -20,7 +20,7 @@ interface ToolsModalProps {
   onClose: () => void
   onOpenCommandPalette: () => void
   onOpenWorkspaceSettings: () => void
-  /** Opens Agent Settings (CLI providers, discovery, updates). Featured at the top of the hub. */
+  /** Opens Agents (CLI providers, discovery, updates). Featured at the top of the hub. */
   onOpenAgentSettings: () => void
   onToggleEditor: () => void
   onToggleGitHub: () => void
@@ -277,8 +277,8 @@ export function ToolsModal({
       <DialogContent
         unstyled
         showCloseButton={false}
-        overlayClassName={LEGACY_MODAL_OVERLAY}
-        className="tools-modal"
+        overlayClassName={DESKTOP_DIALOG_OVERLAY}
+        className="tools-modal desktop-dialog"
         data-testid="tools-modal"
       >
         <header className="tools-modal-header">
@@ -344,14 +344,14 @@ export function ToolsModal({
               className="tools-modal-featured"
               data-testid="tools-agent-settings"
               onClick={() => run(onOpenAgentSettings)}
-              aria-label="Open Agent Settings"
+              aria-label="Open Agents"
             >
               <span className="tools-modal-featured-icon" aria-hidden="true">
                 <Bot size={20} />
               </span>
               <span className="tools-modal-featured-body">
                 <span className="tools-modal-featured-kicker">AI &amp; Agents</span>
-                <span className="tools-modal-featured-title">Agent Settings</span>
+                <span className="tools-modal-featured-title">Agents</span>
                 <span className="tools-modal-featured-detail">
                   CLIs, discovery, providers &amp; app updates
                 </span>

@@ -34,6 +34,8 @@ interface UseOxeVoiceResult {
   endHold: () => void
   /** Hands-free: start/stop a VAD-segmented session. */
   toggle: () => void
+  /** Close the HUD and discard capture/results still in flight. */
+  dismiss: () => void
 }
 
 function isSupportedRuntime(): boolean {
@@ -49,6 +51,7 @@ function toMicError(err: unknown): string {
   const name = err instanceof DOMException ? err.name : ''
   if (name === 'NotAllowedError' || name === 'SecurityError') return 'Microphone permission denied.'
   if (name === 'NotFoundError' || name === 'DevicesNotFoundError') return 'No microphone was detected.'
+  if (name === 'AbortError') return 'Microphone request was canceled. Try again.'
   return err instanceof Error ? err.message : 'Could not access the microphone.'
 }
 
@@ -69,6 +72,9 @@ export function useOxeVoice({ enabled, onFinalText }: UseOxeVoiceOptions): UseOx
   const levelRef = useRef(0)
   const rafRef = useRef<number | null>(null)
   const pendingRef = useRef(0)
+  const sessionRef = useRef(0)
+  const startingRef = useRef(false)
+  const activeRef = useRef(false)
   const onFinalTextRef = useRef(onFinalText)
   onFinalTextRef.current = onFinalText
 
@@ -76,7 +82,7 @@ export function useOxeVoice({ enabled, onFinalText }: UseOxeVoiceOptions): UseOx
   useEffect(() => {
     if (!supported) return
     return window.oxe.voice.onModelProgress((event) => {
-      if (event.size !== modelSize) return
+      if (event.size !== modelSize || !activeRef.current) return
       setModelProgress(event.done ? null : event.progress)
       if (event.error) {
         setError(event.error)
@@ -102,16 +108,35 @@ export function useOxeVoice({ enabled, onFinalText }: UseOxeVoiceOptions): UseOx
     setLevel(0)
   }, [])
 
+  const dismiss = useCallback((): void => {
+    sessionRef.current += 1
+    activeRef.current = false
+    startingRef.current = false
+    const recorder = recorderRef.current
+    recorderRef.current = null
+    void recorder?.stop().catch(() => {})
+    chunksRef.current = []
+    modeRef.current = null
+    vadRef.current = null
+    stopLevelPump()
+    setError(null)
+    setModelProgress(null)
+    setStatus(supported ? 'idle' : 'unsupported')
+  }, [stopLevelPump, supported])
+
   const transcribeBuffer = useCallback(async (samples: Float32Array): Promise<void> => {
     if (samples.length < 1600) return // <0.1s — ignore stray taps
+    const session = sessionRef.current
     const wav = encodeWav(samples)
     pendingRef.current += 1
     try {
       // Language is pinned to pt-BR in the main service; modelSize is the only knob.
       const result = await window.oxe.voice.transcribe(wav, { modelSize })
+      if (session !== sessionRef.current) return
       const text = result.text.trim()
       if (text) onFinalTextRef.current(text)
     } catch (err) {
+      if (session !== sessionRef.current) return
       setError(err instanceof Error ? err.message : 'Transcription failed.')
       setStatus('error')
     } finally {
@@ -119,8 +144,9 @@ export function useOxeVoice({ enabled, onFinalText }: UseOxeVoiceOptions): UseOx
     }
   }, [modelSize])
 
-  const ensureReady = useCallback(async (): Promise<boolean> => {
+  const ensureReady = useCallback(async (session: number): Promise<boolean> => {
     const current = await window.oxe.voice.getModelStatus(modelSize)
+    if (session !== sessionRef.current) return false
     if (!current.engineReady) {
       setError('Voice engine unavailable in this build.')
       setStatus('error')
@@ -131,6 +157,7 @@ export function useOxeVoice({ enabled, onFinalText }: UseOxeVoiceOptions): UseOx
     setModelProgress(0)
     try {
       const after = await window.oxe.voice.ensureModel(modelSize)
+      if (session !== sessionRef.current) return false
       setModelProgress(null)
       if (!after.ready) {
         setError('Voice model could not be prepared.')
@@ -139,6 +166,7 @@ export function useOxeVoice({ enabled, onFinalText }: UseOxeVoiceOptions): UseOx
       }
       return true
     } catch (err) {
+      if (session !== sessionRef.current) return false
       setModelProgress(null)
       setError(err instanceof Error ? err.message : 'Could not download the voice model.')
       setStatus('error')
@@ -152,30 +180,29 @@ export function useOxeVoice({ enabled, onFinalText }: UseOxeVoiceOptions): UseOx
       setStatus('error')
       return
     }
-    if (recorderRef.current) return // already recording
+    if (recorderRef.current || startingRef.current) return
+    const session = ++sessionRef.current
+    startingRef.current = true
+    activeRef.current = true
+    modeRef.current = mode
     setError(null)
     setStatus('requesting')
 
-    const ready = await ensureReady()
-    if (!ready) return
-
-    let stream: MediaStream
+    let stream: MediaStream | undefined
     try {
+      const ready = await ensureReady(session)
+      if (!ready) return
       stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } })
-    } catch (err) {
-      setError(toMicError(err))
-      setStatus('error')
-      return
-    }
+      if (session !== sessionRef.current) { for (const track of stream.getTracks()) track.stop(); return }
 
-    chunksRef.current = []
-    modeRef.current = mode
-    vadRef.current = mode === 'toggle' ? createVad() : null
+      chunksRef.current = []
+      modeRef.current = mode
+      vadRef.current = mode === 'toggle' ? createVad() : null
 
-    try {
-      recorderRef.current = await createAudioRecorder(stream, {
-        onLevel: (l) => { levelRef.current = l },
+      const recorder = await createAudioRecorder(stream, {
+        onLevel: (l) => { if (session === sessionRef.current) levelRef.current = l },
         onChunk: (chunk) => {
+          if (session !== sessionRef.current) return
           chunksRef.current.push(chunk)
           const vad = vadRef.current
           if (vad) {
@@ -188,38 +215,43 @@ export function useOxeVoice({ enabled, onFinalText }: UseOxeVoiceOptions): UseOx
           }
         }
       })
-    } catch (err) {
-      for (const t of stream.getTracks()) t.stop()
-      setError(err instanceof Error ? err.message : 'Could not start audio capture.')
-      setStatus('error')
-      return
-    }
+      if (session !== sessionRef.current) { await recorder.stop(); return }
+      recorderRef.current = recorder
 
-    setStatus('listening')
-    startLevelPump()
+      setStatus('listening')
+      startLevelPump()
+    } catch (err) {
+      for (const track of stream?.getTracks() ?? []) track.stop()
+      if (session === sessionRef.current) { setError(toMicError(err)); setStatus('error') }
+    } finally {
+      if (session === sessionRef.current) startingRef.current = false
+    }
   }, [enabled, ensureReady, startLevelPump, transcribeBuffer])
 
   const finishRecording = useCallback(async (): Promise<void> => {
     const recorder = recorderRef.current
     if (!recorder) return
+    const session = sessionRef.current
     recorderRef.current = null
     stopLevelPump()
-    await recorder.stop()
-
     const remaining = concatFloat32(chunksRef.current)
     chunksRef.current = []
     vadRef.current = null
-    const mode = modeRef.current
     modeRef.current = null
+    try { await recorder.stop() } catch (err) {
+      if (session === sessionRef.current) { setError(toMicError(err)); setStatus('error') }
+      return
+    }
+    if (session !== sessionRef.current) return
 
     // PTT always has a tail to transcribe; toggle may have a final partial.
     if (remaining.length >= 1600) {
       setStatus('transcribing')
       await transcribeBuffer(remaining)
     }
+    if (session !== sessionRef.current) return
     // Don't clobber an error surfaced by a transcribe call.
     setStatus((s) => (s === 'error' ? s : 'idle'))
-    void mode
   }, [stopLevelPump, transcribeBuffer])
 
   const startHold = useCallback((): void => {
@@ -229,31 +261,30 @@ export function useOxeVoice({ enabled, onFinalText }: UseOxeVoiceOptions): UseOx
 
   const endHold = useCallback((): void => {
     if (modeRef.current !== 'ptt') return
+    if (startingRef.current) { dismiss(); return }
     void finishRecording()
-  }, [finishRecording])
+  }, [finishRecording, dismiss])
 
   const toggle = useCallback((): void => {
     if (!supported) return
+    if (error || startingRef.current || status === 'transcribing') { dismiss(); return }
     if (recorderRef.current) void finishRecording()
     else void beginRecording('toggle')
-  }, [supported, beginRecording, finishRecording])
+  }, [supported, error, status, beginRecording, finishRecording, dismiss])
 
   // Tear down if the terminal stops or the component unmounts.
   useEffect(() => {
     if (enabled) return
-    void recorderRef.current?.stop()
-    recorderRef.current = null
-    chunksRef.current = []
-    modeRef.current = null
-    stopLevelPump()
-    setStatus(supported ? 'idle' : 'unsupported')
-  }, [enabled, supported, stopLevelPump])
+    dismiss()
+  }, [enabled, dismiss])
 
   useEffect(() => () => {
-    void recorderRef.current?.stop()
+    sessionRef.current += 1
+    activeRef.current = false
+    void recorderRef.current?.stop().catch(() => {})
     recorderRef.current = null
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
   }, [])
 
-  return { status, isSupported: supported, error, level, modelProgress, startHold, endHold, toggle }
+  return { status, isSupported: supported, error, level, modelProgress, startHold, endHold, toggle, dismiss }
 }

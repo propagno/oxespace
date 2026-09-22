@@ -122,7 +122,7 @@ async function spawnGitAsync(args: string[], cwd: string): Promise<SpawnGitResul
   return spawnCommandAsync(git, args, cwd, SPAWN_TIMEOUT_MS)
 }
 
-function parseDiffOutput(raw: string): GitDiffFile[] {
+export function parseDiffOutput(raw: string): GitDiffFile[] {
   const files: GitDiffFile[] = []
   if (!raw) return files
 

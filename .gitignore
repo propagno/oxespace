@@ -18,6 +18,7 @@ e2e/screenshots/
 # never commit it (secret). The app also auto-appends this to each workspace's
 # .gitignore when it writes the file (see mcp-sync.service.ts).
 .mcp.json
+.ai-memory.toml
 
 # Bundled semantic model — fetched at build time (npm run prepare:model),
 # ~120MB, not versioned. See scripts/fetch-semantic-model.mjs.

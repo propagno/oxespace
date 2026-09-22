@@ -97,6 +97,17 @@ vi.mock('@xterm/addon-search', () => ({
 }))
 
 describe('TerminalView', () => {
+  test('uses the Thread native transport without subscribing to or detaching Code terminals', async () => {
+    const transport = { onData: vi.fn(() => () => {}), onExit: vi.fn(() => () => {}), attach: vi.fn(async () => ({ running: true, seq: 1, prologue: '', replay: 'Thread native session', truncated: false, altScreen: false })), detach: vi.fn(async () => {}) }
+    const view = render(<TerminalView paneId="native-thread" transport={transport} isRunning themeId="one-dark" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
+    await waitFor(() => expect(transport.attach).toHaveBeenCalledWith({ paneId: 'native-thread' }))
+    expect(window.oxe.terminal.onData).not.toHaveBeenCalled()
+    expect(window.oxe.terminal.attach).not.toHaveBeenCalled()
+    expect(terminalState.write).toHaveBeenCalledWith('Thread native session')
+    view.unmount()
+    expect(transport.detach).toHaveBeenCalledWith({ paneId: 'native-thread' })
+    expect(window.oxe.terminal.detach).not.toHaveBeenCalled()
+  })
   beforeEach(() => {
     terminalState.onData = null
     terminalState.write.mockClear()

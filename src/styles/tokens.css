@@ -83,8 +83,16 @@
   --badge-text:       #fff;
 
   /* Sizing */
-  --sidebar-w:        282px;
-  --sidebar-w-collapsed: 54px;
+  --nav-row-h: 36px;
+  --control-h: 32px;
+  --chrome-h: 48px;
+  --chrome-inset: 16px;
+  --nav-radius: 8px;
+  --surface-radius: 12px;
+  --nav-selected: color-mix(in srgb, var(--tx-primary) 7%, transparent);
+  --nav-hover: color-mix(in srgb, var(--tx-primary) 5%, transparent);
+  --sidebar-w:        248px;
+  --sidebar-w-collapsed: 56px;
   --tile-header-h:    40px;
   --tile-agent-h:     80px;
   --tile-statusbar-h: 28px;
@@ -171,6 +179,8 @@ select optgroup {
 }
 
 :root[data-density='comfortable'] {
+  --nav-row-h: 40px;
+  --control-h: 36px;
   --fs-base:   15px;
   --fs-lg:     16px;
   --fs-sm:     14px;
@@ -315,7 +325,7 @@ select optgroup {
   --bd-sidebar: #181a1f;
   --tx-primary: #e6e8eb;
   --tx-secondary: #b0b6c0;
-  --tx-muted: #8b929e;
+  --tx-muted: #969daa;
   --accent: #61afef;
   --accent-hover: #98c379;
   --bd-ws-active: #61afef;

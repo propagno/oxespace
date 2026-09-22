@@ -1,0 +1,474 @@
+{
+  "title": "Thread profissional e resiliente v2",
+  "date": "2026-09-20",
+  "status": "completed",
+  "source": "docs/plans/thread-professional-v2/PLAN.md",
+  "architectural_decisions": [
+    {
+      "decision": "Persistir eventos e operações incrementalmente",
+      "rationale": "Remove writes O(n), permite idempotência e torna recovery auditável."
+    },
+    {
+      "decision": "Separar orquestração, supervisão, fila, requests, export e recovery",
+      "rationale": "O ThreadManager atual concentra estados concorrentes e aumenta blast radius."
+    },
+    {
+      "decision": "Virtualizar uma timeline derivada de rows semânticas",
+      "rationale": "Escala conversas longas mantendo identidade, scroll e acessibilidade."
+    },
+    {
+      "decision": "Tratar unknown como estado legítimo",
+      "rationale": "ACK perdido não autoriza replay de efeitos potencialmente destrutivos."
+    },
+    {
+      "decision": "Usar checkpoint por arquivo com hashes e preimages",
+      "rationale": "Undo seguro precisa preservar dirty state e bloquear conflitos."
+    },
+    {
+      "decision": "Certificar capacidades por provider e versão",
+      "rationale": "Catálogo ou nome de comando não prova suporte headless real."
+    }
+  ],
+  "risk_notes": [
+    "Migração: manter backup, leitura v54, shadow write e verificação de contagem/hash.",
+    "Retry: nunca repetir operação sem idempotência ou reconciliação nativa comprovada.",
+    "Restore: não usar reset --hard/clean; validar root, hash, symlink, dirty state e conflito por arquivo.",
+    "Performance: impor LRU/tetos ao follower e pelo menos 5% de margem nos budgets.",
+    "Providers: manter Code-only quando não existir protocolo headless seguro."
+  ],
+  "steps": [
+    {
+      "number": "T01",
+      "wave": "W0",
+      "title": "SLOs, invariantes e fault corpus",
+      "step_type": "research",
+      "estimated_effort": "medium",
+      "dependencies": [],
+      "target_files": [
+        "tests/integration/thread-faults.test.ts",
+        "tests/bench/thread-history.bench.ts",
+        "e2e/thread-performance.spec.ts",
+        "docs/plans/thread-professional-v2/SLOS.md"
+      ],
+      "acceptance_criteria": [
+        "Todas as fases voláteis possuem fault fixture",
+        "Benchmarks geram baseline JSON versionado"
+      ],
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/integration/thread-faults.test.ts"
+      },
+      "description": "Estabelecer métricas, invariantes e cenários reproduzíveis antes de alterar arquitetura.",
+      "code_context": "A base atual valida funcionalidade, mas ainda não mede latência incremental, warm switch, DOM montado ou falhas em cada fase.",
+      "status": "completed"
+    },
+    {
+      "number": "T02",
+      "wave": "W0",
+      "title": "Envelope versionado de evento e operação",
+      "step_type": "design",
+      "estimated_effort": "high",
+      "dependencies": [
+        "T01"
+      ],
+      "target_files": [
+        "shared/types/thread.ts",
+        "electron/main/services/conversation/thread-event-envelope.ts",
+        "electron/main/services/conversation/thread-capabilities.ts"
+      ],
+      "acceptance_criteria": [
+        "Duplicatas e eventos fora de ordem são idempotentes",
+        "Generation antiga não altera estado atual"
+      ],
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/thread-event-envelope.test.ts"
+      },
+      "description": "Versionar identidade e ciclo de vida de eventos e operações.",
+      "code_context": "ThreadEvent hoje é uma union sem envelope persistido comum; generation existe em requests/thread, mas não em todos os eventos.",
+      "status": "completed"
+    },
+    {
+      "number": "T03",
+      "wave": "W1",
+      "title": "Decompor ThreadManager",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "T02"
+      ],
+      "target_files": [
+        "electron/main/services/conversation/thread-manager.ts",
+        "electron/main/services/conversation/thread-session-supervisor.ts",
+        "electron/main/services/conversation/thread-queue-coordinator.ts",
+        "electron/main/services/conversation/thread-recovery.service.ts"
+      ],
+      "acceptance_criteria": [
+        "Fachada ThreadManager possui no máximo 300 linhas",
+        "Sem ciclos de dependência",
+        "Comportamento existente preservado"
+      ],
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/integration/thread-manager.test.ts"
+      },
+      "description": "Transformar ThreadManager em fachada e separar responsabilidades concorrentes.",
+      "code_context": "thread-manager.ts concentra persistência, adapters, fila, requests, CLI, comandos, diff, export e recovery em 851 linhas.",
+      "status": "completed"
+    },
+    {
+      "number": "T04",
+      "wave": "W1",
+      "title": "Event store incremental e operation journal",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "T02",
+        "T03"
+      ],
+      "target_files": [
+        "electron/main/db/migrations/055_thread_operations.sql",
+        "electron/main/db/index.ts",
+        "electron/main/services/conversation/thread-history.ts",
+        "electron/main/services/conversation/thread-event-store.ts"
+      ],
+      "acceptance_criteria": [
+        "Writes normais não percorrem todo o histórico",
+        "100 mil eventos preservam integridade",
+        "Projeção paginada não pode truncar história"
+      ],
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/integration/migrations.test.ts tests/integration/thread-history.test.ts"
+      },
+      "description": "Substituir writes de snapshot completo por append/update/rewrite explícitos.",
+      "code_context": "ThreadHistory.write lê e compara todos os eventos e apaga a cauda por comprimento; a migração 054 indexa, mas não torna o write incremental.",
+      "status": "completed"
+    },
+    {
+      "number": "T05",
+      "wave": "W1",
+      "title": "Supervisor, heartbeat e reconciliação",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "T04"
+      ],
+      "target_files": [
+        "electron/main/services/conversation/thread-session-supervisor.ts",
+        "electron/main/services/conversation/codex-conversation.ts",
+        "electron/main/services/conversation/claude-conversation.ts",
+        "src/components/Threads/ThreadFailureCard.tsx"
+      ],
+      "acceptance_criteria": [
+        "Disconnect converge sem duplicar efeito",
+        "ACK desconhecido nunca sofre replay automático",
+        "Conexão degradada fica visível"
+      ],
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/integration/thread-faults.test.ts tests/codex-conversation.test.ts tests/claude-conversation.test.ts"
+      },
+      "description": "Supervisionar processo/conexão e reconciliar estado nativo sem replay inseguro.",
+      "code_context": "O recovery atual encerra estados corretamente, porém não consulta o provider para resolver ACK perdido quando essa API existe.",
+      "status": "completed"
+    },
+    {
+      "number": "T06",
+      "wave": "W2",
+      "title": "Timeline semântica virtualizada",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "T02",
+        "T04"
+      ],
+      "target_files": [
+        "src/components/Threads/threadTimelineModel.ts",
+        "src/components/Threads/useThreadVirtualizer.ts",
+        "src/components/Threads/ThreadTimeline.tsx",
+        "src/components/Threads/ThreadView.tsx"
+      ],
+      "acceptance_criteria": [
+        "No máximo 80 rows montadas para 10 mil eventos",
+        "Expandir conteúdo acima não desloca a leitura"
+      ],
+      "verification_strategy": {
+        "method": "test",
+        "command": "npx playwright test e2e/thread-performance.spec.ts"
+      },
+      "description": "Derivar rows semânticas estáveis e virtualizar a timeline.",
+      "code_context": "ThreadView agrupa eventos durante render e mantém a janela carregada no DOM; a referência usa row model, keys semânticas e medição dinâmica.",
+      "status": "completed"
+    },
+    {
+      "number": "T07",
+      "wave": "W2",
+      "title": "Scroll intents e troca rápida",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "T06"
+      ],
+      "target_files": [
+        "src/store/thread.store.ts",
+        "src/components/Threads/threadScrollState.ts",
+        "src/components/Threads/threadSnapshotCache.ts",
+        "src/components/Threads/threadLiveFollower.ts"
+      ],
+      "acceptance_criteria": [
+        "Troca quente em até 150 ms no host de referência",
+        "Follower respeita LRU e libera listeners",
+        "Scroll do leitor é preservado"
+      ],
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/thread-store.test.ts tests/thread-scroll.test.ts"
+      },
+      "description": "Unificar scroll e manter cache limitado das Threads em execução.",
+      "code_context": "A store protege respostas tardias, mas limpa o snapshot na seleção; a referência usa scroll intents e background follower com LRU.",
+      "status": "completed"
+    },
+    {
+      "number": "T08",
+      "wave": "W2",
+      "title": "Compositor, fila e edit-retry",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "T05",
+        "T07"
+      ],
+      "target_files": [
+        "src/components/Threads/useThreadComposer.ts",
+        "src/components/Threads/ThreadComposer.tsx",
+        "src/components/Threads/ThreadPromptQueue.tsx",
+        "src/store/thread.store.ts"
+      ],
+      "acceptance_criteria": [
+        "Draft/anexos/configuração nunca são perdidos",
+        "Enter não cria duplicata",
+        "Retry informa efeito sobre conversa e disco"
+      ],
+      "verification_strategy": {
+        "method": "test",
+        "command": "npx playwright test e2e/thread-composer.spec.ts"
+      },
+      "description": "Modelar compositor, fila, steering, approval, reconnect e edit-retry em uma máquina de estados.",
+      "code_context": "Hoje estado está distribuído entre ThreadView, hook de comandos, store e queue; retry cobre principalmente a falha mais recente.",
+      "status": "completed"
+    },
+    {
+      "number": "T09",
+      "wave": "W3",
+      "title": "Checkpoint e restore transacional",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "T04",
+        "T08"
+      ],
+      "target_files": [
+        "electron/main/services/conversation/thread-checkpoints.ts",
+        "electron/main/services/conversation/thread-restore.service.ts",
+        "src/components/Threads/ThreadChangesPanel.tsx"
+      ],
+      "acceptance_criteria": [
+        "Dirty state anterior é preservado",
+        "Conflitos bloqueiam overwrite",
+        "Nenhum reset hard ou clean"
+      ],
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/integration/thread-restore.test.ts"
+      },
+      "description": "Criar checkpoints e restore seguro por arquivo.",
+      "code_context": "Existem patches e artefatos, mas rewind não reverte disco e não há preimage/hash para resolver conflito concorrente.",
+      "status": "completed"
+    },
+    {
+      "number": "T10",
+      "wave": "W3",
+      "title": "Terminal contextual e diff live",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "T05",
+        "T09"
+      ],
+      "target_files": [
+        "src/components/Threads/ThreadChangesPanel.tsx",
+        "src/components/Threads/ThreadTerminalPanel.tsx",
+        "electron/main/services/git.service.ts"
+      ],
+      "acceptance_criteria": [
+        "Terminal e diff respeitam root/worktree",
+        "Troca de Thread não mata terminal",
+        "Watchers são liberados"
+      ],
+      "verification_strategy": {
+        "method": "test",
+        "command": "npx playwright test e2e/thread-workbench.spec.ts"
+      },
+      "description": "Integrar terminal auxiliar e mudanças ao vivo no workbench da Thread.",
+      "code_context": "Painéis Code já são reutilizados; falta um terminal contextual explícito e atualização contínua de diff com lifecycle controlado.",
+      "status": "completed"
+    },
+    {
+      "number": "T11",
+      "wave": "W4",
+      "title": "Lifecycle completo de subagentes",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "T05"
+      ],
+      "target_files": [
+        "shared/types/thread.ts",
+        "electron/main/services/conversation/codex-conversation.ts",
+        "electron/main/services/conversation/claude-conversation.ts",
+        "src/components/Threads/ThreadSubagentActivity.tsx"
+      ],
+      "acceptance_criteria": [
+        "Cancel/retry é idempotente e auditável",
+        "Provider sem contrato mostra indisponibilidade explícita"
+      ],
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/thread-subagents.test.ts"
+      },
+      "description": "Completar ações de lifecycle de children apenas quando suportadas pelo provider.",
+      "code_context": "Codex expõe eventos de colaboração; a UI é observacional. Claude ainda não possui contrato headless validado para o mesmo ciclo.",
+      "status": "completed"
+    },
+    {
+      "number": "T12",
+      "wave": "W4",
+      "title": "Export/import portátil",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "T04"
+      ],
+      "target_files": [
+        "electron/main/services/conversation/thread-portable.ts",
+        "electron/main/ipc/thread.ipc.ts",
+        "electron/preload/api.ts",
+        "src/components/Threads/ThreadConversationActions.tsx"
+      ],
+      "acceptance_criteria": [
+        "Roundtrip preserva conteúdo canônico",
+        "Import nunca executa conteúdo",
+        "Pacote adulterado é recusado"
+      ],
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/integration/thread-portable.test.ts"
+      },
+      "description": "Criar formato portátil, validado e inerte para export/import.",
+      "code_context": "Export Markdown existe, mas não há roundtrip estruturado, manifest, checksums ou import seguro.",
+      "status": "completed"
+    },
+    {
+      "number": "T13",
+      "wave": "W4",
+      "title": "Duas células de Thread",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "T06",
+        "T07",
+        "T08"
+      ],
+      "target_files": [
+        "src/App.tsx",
+        "src/store/thread-workbench.store.ts",
+        "src/components/Threads/ThreadGrid.tsx",
+        "src/components/Threads/ThreadView.tsx"
+      ],
+      "acceptance_criteria": [
+        "Duas Threads executam sem cruzar estado",
+        "Hotkeys e voz seguem célula ativa",
+        "Fechar célula não encerra execução"
+      ],
+      "verification_strategy": {
+        "method": "test",
+        "command": "npx playwright test e2e/thread-grid.spec.ts"
+      },
+      "description": "Permitir duas células visíveis mantendo estado por célula.",
+      "code_context": "A aplicação já possui layout de panes no Code, enquanto Thread mantém uma única seleção/view global.",
+      "status": "completed"
+    },
+    {
+      "number": "T14",
+      "wave": "W5",
+      "title": "Adapter conformance e providers",
+      "step_type": "design",
+      "estimated_effort": "high",
+      "dependencies": [
+        "T02",
+        "T05"
+      ],
+      "target_files": [
+        "electron/main/services/conversation/agent-conversation-adapter.ts",
+        "tests/thread-adapter-conformance.ts",
+        "electron/main/services/conversation/thread-runtime.ts"
+      ],
+      "acceptance_criteria": [
+        "Todo adapter passa a mesma suíte",
+        "Capability deriva de handshake e piloto",
+        "TUI arbitrário permanece Code-only"
+      ],
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/thread-adapter-conformance.test.ts"
+      },
+      "description": "Padronizar conformance antes de adicionar providers.",
+      "code_context": "AgentConversationAdapter atende Claude/Codex; providers adicionais não podem ser habilitados apenas por descoberta de executável/comando.",
+      "status": "completed"
+    },
+    {
+      "number": "T15",
+      "wave": "W5",
+      "title": "Observabilidade e certificação",
+      "step_type": "verify",
+      "estimated_effort": "high",
+      "dependencies": [
+        "T01",
+        "T02",
+        "T03",
+        "T04",
+        "T05",
+        "T06",
+        "T07",
+        "T08",
+        "T09",
+        "T10",
+        "T11",
+        "T12",
+        "T13",
+        "T14"
+      ],
+      "target_files": [
+        "src/components/Threads/ThreadDiagnosticsPanel.tsx",
+        "e2e/thread-view.spec.ts",
+        "docs/plans/thread-professional-v2/EVIDENCE.md",
+        ".github/workflows/ci.yml"
+      ],
+      "acceptance_criteria": [
+        "Cenários críticos passam 3 vezes por provider",
+        "Teclado/leitor de tela/light-dark aprovados",
+        "Cinco E2Es consecutivos sem flake",
+        "Budgets possuem 5% de margem"
+      ],
+      "verification_strategy": {
+        "method": "build",
+        "command": "npm run typecheck && npm run lint && npm run test:electron && npm run build && npx playwright test"
+      },
+      "description": "Converter robustez em gate repetível de release.",
+      "code_context": "Há boa cobertura global, mas faltam trace por operação, SLOs, pilotos autenticados repetidos e auditoria completa de acessibilidade/tema.",
+      "status": "completed"
+    }
+  ],
+  "updated_at": "2026-09-21"
+}

@@ -1,7 +1,13 @@
 import { create } from 'zustand'
 
 function restoredSidebarCollapsed(): boolean {
-  try { return localStorage.getItem('oxe.sidebar.collapsed') === 'true' } catch { return false }
+  try {
+    const saved = localStorage.getItem('oxe.sidebar.collapsed')
+    if (saved !== null) return saved === 'true'
+    const collapsed = JSON.parse(localStorage.getItem('oxe.thread-navigation') ?? 'null')?.state?.collapsed === true
+    localStorage.setItem('oxe.sidebar.collapsed', String(collapsed))
+    return collapsed
+  } catch { return false }
 }
 
 interface UIState {

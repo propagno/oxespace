@@ -1,14 +1,32 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
 import type { Workspace } from '../../shared/types/workspace'
 import { WorkspaceGrid } from '../../src/components/Grid/WorkspaceGrid'
+import { useTerminalStore } from '../../src/store/terminal.store'
 
 vi.mock('../../src/components/Panes/PaneContent', () => ({
   PaneContent: () => <div data-testid="pane-content" />
 }))
 
 describe('WorkspaceGrid', () => {
+  test('shows the actual PTY session identity and launch path separately from the panel', async () => {
+    const previousApi = window.oxe
+    const status = vi.fn(async () => ({ running: true, seq: 1, altScreen: false, sessionId: 'pty-session-id', launchDirectory: 'C:/repo/worktree', executable: 'C:/Program Files/PowerShell/pwsh.exe', pid: 1234, startedAt: 1700000000000 }))
+    Object.defineProperty(window, 'oxe', { configurable: true, value: { terminal: { status } } })
+    try {
+      const workspace = createWorkspace('1x1'), user = userEvent.setup()
+      render(<WorkspaceGrid workspace={workspace} maximizedPaneId={null} onToggleMaximize={() => undefined} />)
+      await user.click(screen.getByLabelText('More pane actions'))
+      await user.click(screen.getByRole('menuitem', { name: 'Detalhes' }))
+      await waitFor(() => expect(screen.getByRole('dialog')).toHaveTextContent('pty-session-id'))
+      expect(status).toHaveBeenCalledWith('pane-0-0')
+      expect(screen.getByRole('dialog')).toHaveTextContent('C:/repo/worktree')
+      expect(screen.getByRole('dialog')).toHaveTextContent('pane-0-0')
+      expect(screen.getByRole('dialog')).toHaveTextContent('1234')
+      await user.keyboard('{Escape}')
+    } finally { Object.defineProperty(window, 'oxe', { configurable: true, value: previousApi }) }
+  })
   test('renders all panes in a 4x4 workspace and toggles maximize', async () => {
     const user = userEvent.setup()
     const onToggleMaximize = vi.fn()
@@ -60,10 +78,22 @@ describe('WorkspaceGrid', () => {
     await user.click(screen.getByLabelText('More pane actions'))
 
     expect(screen.getByTestId('pane-actions-menu')).toBeInTheDocument()
+    expect(screen.queryByText('Não iniciado')).not.toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Detalhes' })).toBeEnabled()
     expect(screen.getByRole('menuitem', { name: /Limpar terminal/i })).toBeDisabled()
     expect(screen.getByRole('menuitem', { name: /Nova sessão/i })).toBeEnabled()
     expect(screen.getByRole('menuitem', { name: /Dividir vertical/i })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /Dividir horizontal/i })).toBeInTheDocument()
+    await user.click(screen.getByRole('menuitem', { name: 'Detalhes' }))
+    expect(screen.queryByTestId('pane-actions-menu')).not.toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Detalhes do terminal' })).toHaveTextContent('Não iniciado')
+    act(() => useTerminalStore.getState().setStatus('pane-0-0', 'running'))
+    expect(screen.getByRole('dialog', { name: 'Detalhes do terminal' })).toHaveTextContent('Em execução')
+    act(() => useTerminalStore.getState().setStatus('pane-0-0', 'error', 'Session ended unexpectedly'))
+    expect(screen.getByRole('dialog', { name: 'Detalhes do terminal' })).toHaveTextContent('Session ended unexpectedly')
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    act(() => useTerminalStore.getState().removePane('pane-0-0'))
   })
 })
 

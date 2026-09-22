@@ -16,7 +16,8 @@
    at a time instead of requiring a single big-bang rewrite. */
 @layer oxe-reset, theme, base, oxe-legacy, components, utilities;
 
-@import 'tailwindcss';
+/* Scan UI source only: audit DOM selectors and test fixtures are not classes. */
+@import 'tailwindcss' source('../');
 @import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
@@ -88,13 +89,11 @@
   --sh-card-foreground: var(--tx-primary);
   --sh-popover: var(--bg-elevated);
   --sh-popover-foreground: var(--tx-primary);
-  /* `--accent`, not `--brand`: the 11 `[data-theme]` palettes retheme --accent
-     (nord→blue, dracula→cyan…) while --brand stays the fixed logo emerald.
-     Primitives must follow the active theme, so they track --accent. Every
-     themed accent is a light/saturated hue on a dark app surface, so the app
-     background doubles as a foreground that stays readable in all of them. */
-  --sh-primary: var(--accent);                 /* was #e5e5e5 */
-  --sh-primary-foreground: var(--bg-app);      /* dark-on-accent, themed */
+  /* Neutral primary actions follow the active theme's foreground, matching
+     desktop chrome in Code and Thread. Focus uses the themeable --accent;
+     --brand remains the fixed logo color. */
+  --sh-primary: var(--tx-primary);
+  --sh-primary-foreground: var(--bg-app);      /* contrasting themed surface */
   --sh-secondary: var(--bg-segment);           /* was #262626 */
   --sh-secondary-foreground: var(--tx-primary);
   --sh-muted: var(--surface-quiet);            /* was #262626 */

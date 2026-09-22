@@ -6,7 +6,7 @@ import { OxeLogo } from '../Brand/OxeLogo'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { buildAgentSlots, type AgentCount } from './fleetUtils'
 import { LAYOUT_PRESETS } from './workspaceOptions'
-import { Dialog, DialogContent, DialogDescription, DialogTitle, LEGACY_MODAL_OVERLAY } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DESKTOP_DIALOG_OVERLAY } from '@/components/ui/dialog'
 
 export interface WizardLaunchInput {
   rootPath: string
@@ -152,8 +152,8 @@ export function NewWorkspaceModal({
       <DialogContent
         unstyled
         showCloseButton={false}
-        overlayClassName={LEGACY_MODAL_OVERLAY}
-        className="modal new-workspace-modal-v2 modal-dialog-surface"
+        overlayClassName={DESKTOP_DIALOG_OVERLAY}
+        className="modal new-workspace-modal-v2 modal-dialog-surface desktop-dialog"
       >
         <header className="new-workspace-header">
           <span className="new-workspace-header-icon" aria-hidden="true">

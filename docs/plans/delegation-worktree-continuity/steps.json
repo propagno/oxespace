@@ -1,0 +1,315 @@
+{
+  "title": "Delegação persistente por worktree e branch",
+  "date": "2026-09-21",
+  "status": "in_progress",
+  "implementation_status": "T02-T17 implemented and tested; T01/T18-T20 remain partially verified. Claude authentication blocks native provider certification.",
+  "source": "docs/plans/delegation-worktree-continuity/PLAN.md",
+  "description": "Branch genérica, worktree persistente, transferência de conhecimento e resume determinístico para delegações Claude/Codex originadas em Code ou Thread, sem integração com gerenciadores de trabalho.",
+  "architectural_decisions": [
+    {
+      "decision": "Modelar a branch como intenção explícita com estratégias existing, create e generated",
+      "rationale": "Atende branches reais e convenções locais sem acoplar a Azure DevOps, Jira, Linear ou GitHub Issues."
+    },
+    {
+      "decision": "Usar Thread persistente como destino padrão e manter terminal como host compatível",
+      "rationale": "Thread já possui nativeSessionId e histórico persistido; o host terminal preserva tarefas e workflows Code existentes."
+    },
+    {
+      "decision": "Persistir binding exato entre task, provider, native session e canonical root",
+      "rationale": "Resume determinístico não pode inferir a sessão mais recente nem depender de busca manual."
+    },
+    {
+      "decision": "Separar Retry de Resume",
+      "rationale": "Retry repete apenas provisionamento idempotente; Resume continua uma sessão nativa conhecida sem reenviar trabalho aceito."
+    },
+    {
+      "decision": "Transferir conhecimento por bundle versionado e revisável",
+      "rationale": "A origem e o destino mantêm sessões independentes; um pacote delimitado preserva contexto sem copiar estado privado ou credenciais."
+    },
+    {
+      "decision": "Generalizar ExecutionRegistry para owners pane e thread",
+      "rationale": "A Thread anuncia delegation tools, mas hoje não recebe a credencial exigida pelo handler."
+    },
+    {
+      "decision": "Extrair repository, Git planner/provisioner, execution hosts e recovery atrás de uma fachada",
+      "rationale": "Reduz o blast radius do DelegationService e permite rollout compatível em ondas."
+    },
+    {
+      "decision": "Nunca relançar agentes automaticamente no boot",
+      "rationale": "Após crash, o resultado de operações externas pode ser desconhecido; a recuperação precisa ser explícita e auditável."
+    }
+  ],
+  "risk_notes": [
+    "Branch/base incorretas: preview do plano, SHA persistido e revalidação sob lock imediatamente antes do efeito.",
+    "Sessão errada: binding provider+nativeId+canonicalRoot e proibição de qualquer seleção por recência.",
+    "Duplicação após retry: journal/receipts por etapa e distinção entre provision retry e session resume.",
+    "Migração: backup existente, backfill transacional, fixtures de versões antigas e payload legado legível.",
+    "Vazamento de credenciais: limpar env herdado e aceitar somente leases frescos produzidos no main.",
+    "Regressão Code: host terminal compatível, feature flag e gates da suíte atual a cada milestone.",
+    "Conteúdo sensível: bundle revisável, redaction, limites e ausência de transcript/dirty content implícitos.",
+    "Escala: índices, paginação e benchmark de 1000 tarefas; remover full JSON scans de consultas comuns."
+  ],
+  "context": "A implementação atual cria `oxe/<slug>-<id>` a partir do HEAD, persiste task/worktree/handoff e reutiliza recursos em retry, mas não guarda nativeSessionId. Worktrees convergem no AI Memory via git-common-dir. Thread lista delegation tools sem registrar/encaminhar ExecutionRegistry credentials. O maior número de migração atual é 056; revalidar antes de implementar. GitHubWorktreeApi, resolveWorktreeBase e o fluxo Linear existente oferecem primitives reutilizáveis sem introduzir integração externa neste plano.",
+  "steps": [
+    {
+      "number": "T01",
+      "wave": "W0",
+      "title": "Congelar invariantes e executar probes nativos",
+      "step_type": "research",
+      "estimated_effort": "medium",
+      "dependencies": [],
+      "target_files": ["tests/fixtures/agents/", "tests/integration/agent-launch.native.test.ts", "tests/integration/delegation-native-session.test.ts", "docs/plans/delegation-worktree-continuity/PROTOCOL.md"],
+      "acceptance_criteria": ["Matriz de start/resume por provider e versão", "Fake CLIs reproduzem success, missing ID, root mismatch e crash", "Nenhum fluxo usa latest session"],
+      "verification_strategy": {"method": "test", "command": "node scripts/test-electron.mjs tests/integration/delegation-native-session.test.ts"},
+      "description": "Estabelecer contrato observável de Claude/Codex e baseline de falhas/desempenho antes de editar o runtime.",
+      "code_context": "AgentLaunchService só inicia; Thread adapters já possuem native resume. Probes reais devem ser opt-in e não chamar modelos por default."
+    },
+    {
+      "number": "T02",
+      "wave": "W0",
+      "title": "Versionar contratos de branch, sessão e bundle",
+      "step_type": "design",
+      "estimated_effort": "medium",
+      "dependencies": ["T01"],
+      "target_files": ["shared/types/delegation.ts", "shared/types/ipc.ts", "electron/main/mcp-internal/delegation-tools.ts", "electron/main/ipc/delegation.ipc.ts"],
+      "acceptance_criteria": ["Requests v2 aceitam branch intent e surface", "Payload v1 continua legível", "IPC/MCP rejeitam campos e estados inválidos"],
+      "verification_strategy": {"method": "test", "command": "node scripts/test-electron.mjs tests/integration/delegation-contract.test.ts"},
+      "description": "Separar pedido do usuário, checkout resolvido, sessão observada e bundle persistido.",
+      "code_context": "DelegationInput atual mistura request e task e não possui schemaVersion."
+    },
+    {
+      "number": "T03",
+      "wave": "W0",
+      "title": "Implementar migração e DelegationRepository",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": ["T02"],
+      "target_files": ["electron/main/db/migrations/057_delegation_continuity.sql", "electron/main/db/index.ts", "electron/main/services/delegation/delegation.repository.ts", "tests/integration/migrations.test.ts"],
+      "acceptance_criteria": ["Fixtures v48/v52/v56 migram sem perda", "Tasks legadas recebem checkout compatível", "Status por projeto usa índices e paginação"],
+      "verification_strategy": {"method": "test", "command": "node scripts/test-electron.mjs tests/integration/migrations.test.ts tests/integration/delegation-repository.test.ts"},
+      "description": "Persistir checkout, session binding e handoff revisions e criar consultas indexadas.",
+      "code_context": "Revalidar o próximo número livre; LATEST_DB_VERSION é 56 no checkout auditado."
+    },
+    {
+      "number": "T04",
+      "wave": "W1",
+      "title": "Criar template de branch e validação de refs",
+      "step_type": "implement",
+      "estimated_effort": "medium",
+      "dependencies": ["T02"],
+      "target_files": ["electron/main/services/delegation/delegation-branch.ts", "shared/types/delegation.ts", "tests/delegation-branch.test.ts"],
+      "acceptance_criteria": ["Nomes explícitos nunca são alterados silenciosamente", "Placeholders ausentes falham no preflight", "Paths Windows e refs inválidas são cobertos"],
+      "verification_strategy": {"method": "test", "command": "node scripts/test-electron.mjs tests/delegation-branch.test.ts"},
+      "description": "Suportar existing/create/generated com template local e preview determinístico.",
+      "code_context": "Default compatível: oxe/{slug}-{shortId}; template pode usar reference, slug, shortId e date."
+    },
+    {
+      "number": "T05",
+      "wave": "W1",
+      "title": "Implementar DelegationGitPlanner e preflight v2",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": ["T03", "T04"],
+      "target_files": ["electron/main/services/delegation/delegation-git-planner.ts", "electron/main/services/delegation.service.ts", "electron/main/services/github/repository.service.ts", "tests/integration/delegation-git-planner.test.ts"],
+      "acceptance_criteria": ["Três estratégias geram plano sem efeito", "Branch remota/local e worktree ocupada são distinguidas", "Base default não herda feature branch silenciosamente"],
+      "verification_strategy": {"method": "test", "command": "node scripts/test-electron.mjs tests/integration/delegation-git-planner.test.ts"},
+      "description": "Resolver intenção em branch, base SHA, remote ref, path e flags de criação/reuso.",
+      "code_context": "Reutilizar GitHubWorktreeApi.listBranches/listWorktrees/resolveWorktreeBase."
+    },
+    {
+      "number": "T06",
+      "wave": "W1",
+      "title": "Executar provisionamento Git reentrante",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": ["T05"],
+      "target_files": ["electron/main/services/delegation/delegation-git-provisioner.ts", "electron/main/services/delegation.service.ts", "electron/main/services/coordination/coordinator.ts", "tests/integration/delegation-git-faults.test.ts"],
+      "acceptance_criteria": ["Restart em cada etapa não duplica recursos", "Branch da origem permanece intacta", "Receipts permitem continuar da última etapa comprovada"],
+      "verification_strategy": {"method": "test", "command": "node scripts/test-electron.mjs tests/integration/delegation-git-faults.test.ts"},
+      "description": "Aplicar o plano sob lock e revalidar cada efeito Git.",
+      "code_context": "O serviço atual já serializa provisionamento por projeto; ampliar para projeto+branch e receipts Git."
+    },
+    {
+      "number": "T07",
+      "wave": "W2",
+      "title": "Generalizar ExecutionRegistry para pane e Thread",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": ["T02"],
+      "target_files": ["electron/main/services/execution-registry.ts", "electron/main/mcp-internal/tool-registry.ts", "electron/main/mcp-internal/local-rpc-server.ts", "tests/integration/execution-registry.test.ts"],
+      "acceptance_criteria": ["Owner discriminado é autenticado por workspace/root/generation", "Adapters pane continuam funcionando", "Tokens são revogados por owner"],
+      "verification_strategy": {"method": "test", "command": "node scripts/test-electron.mjs tests/integration/execution-registry.test.ts"},
+      "description": "Transformar credencial de PTY em lease genérico de execução OXESpace.",
+      "code_context": "ExecutionRegistry atual exige paneId e é a razão de delegation falhar a partir da Thread."
+    },
+    {
+      "number": "T08",
+      "wave": "W2",
+      "title": "Entregar lease real de execução à Thread",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": ["T07"],
+      "target_files": ["electron/main/index.ts", "electron/main/services/conversation/thread-mcp.ts", "electron/main/services/conversation/process-transport.ts", "electron/main/services/conversation/thread-runtime.ts", "tests/thread-mcp-native.test.ts"],
+      "acceptance_criteria": ["Claude e Codex Thread chamam delegate_task com sucesso", "Env OXESPACE herdado continua removido", "Dispose revoga execution e memory leases"],
+      "verification_strategy": {"method": "test", "command": "node scripts/test-electron.mjs tests/thread-mcp-native.test.ts tests/integration/mcp-internal.local-rpc.test.ts"},
+      "description": "Registrar a Thread no ExecutionRegistry e encaminhar credenciais somente do main.",
+      "code_context": "O catálogo atual lista delegation tools, mas ProcessTransport encaminha apenas MCP/workspace/memory."
+    },
+    {
+      "number": "T09",
+      "wave": "W2",
+      "title": "Persistir binding exato da sessão nativa",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": ["T03", "T07"],
+      "target_files": ["electron/main/services/native-session-observer.ts", "electron/main/services/memory/memory.service.ts", "electron/main/services/conversation/thread-orchestrator.ts", "electron/main/services/delegation/delegation-session-binder.ts", "tests/integration/delegation-native-session.test.ts"],
+      "acceptance_criteria": ["Task registra provider/nativeId/root/generation", "Root/provider divergente falha fechado", "Nenhum scrollback/latest é usado", "AI Memory desligado não impede uma boundary certificada"],
+      "verification_strategy": {"method": "test", "command": "node scripts/test-electron.mjs tests/integration/delegation-native-session.test.ts tests/native-session-history.test.ts"},
+      "description": "Extrair observação nativa da camada de Memory e associar session-start ao owner e task corretos.",
+      "code_context": "Memory hooks já observam sessionId/cwd e Thread já persiste nativeSessionId; delegation não pode depender de Memory habilitado."
+    },
+    {
+      "number": "T10",
+      "wave": "W2",
+      "title": "Implementar hosts Thread e Terminal com resume",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": ["T08", "T09"],
+      "target_files": ["electron/main/services/agent-launch.service.ts", "electron/main/services/delegation/thread-delegation-host.ts", "electron/main/services/delegation/terminal-delegation-host.ts", "electron/main/services/delegation/delegation-recovery.service.ts"],
+      "acceptance_criteria": ["Thread é default para novas tarefas", "Thread recebe perfil/configuração e um único bootstrap", "Terminal legado continua abrindo", "Resume reutiliza ID exato ou declara handoff-only"],
+      "verification_strategy": {"method": "test", "command": "node scripts/test-electron.mjs tests/integration/delegation-hosts.test.ts"},
+      "description": "Abstrair start/resume/stop/status e aplicar capability real por provider.",
+      "code_context": "Não inferir suporte apenas por flags; usar probes T01 e adapters Thread existentes."
+    },
+    {
+      "number": "T11",
+      "wave": "W3",
+      "title": "Implementar KnowledgeTransferBundle v1",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": ["T02", "T03"],
+      "target_files": ["electron/main/services/delegation/knowledge-transfer.service.ts", "electron/main/services/coordination/evidence-bundle.ts", "electron/main/index.ts", "tests/integration/knowledge-transfer.test.ts"],
+      "acceptance_criteria": ["Bundle funciona sem Memory/CodeGraph", "Fontes e hashes são preservados", "Dirty content e transcript privado não entram implicitamente"],
+      "verification_strategy": {"method": "test", "command": "node scripts/test-electron.mjs tests/integration/knowledge-transfer.test.ts"},
+      "description": "Produzir pacote versionado, limitado, redigido e revisável.",
+      "code_context": "Context string atual concatena handoff, evidence, memory e code; migrar sem perder o fallback simples."
+    },
+    {
+      "number": "T12",
+      "wave": "W3",
+      "title": "Persistir checkpoints e comunicação por revisão",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": ["T11"],
+      "target_files": ["electron/main/services/delegation/delegation.repository.ts", "electron/main/services/coordination/coordinator.ts", "electron/main/mcp-internal/delegation-tools.ts", "tests/integration/delegation-checkpoints.test.ts"],
+      "acceptance_criteria": ["Checkpoints append-only sobrevivem restart", "Cursores permanecem por participante", "Resultado final referencia checkpoint e testes"],
+      "verification_strategy": {"method": "test", "command": "node scripts/test-electron.mjs tests/integration/delegation-checkpoints.test.ts"},
+      "description": "Substituir lastReport isolado por histórico estruturado e versionado.",
+      "code_context": "Manter lastReport/lastMessage como projeções durante compatibilidade."
+    },
+    {
+      "number": "T13",
+      "wave": "W3",
+      "title": "Reduzir DelegationService a fachada",
+      "step_type": "implement",
+      "estimated_effort": "medium",
+      "dependencies": ["T06", "T10", "T12"],
+      "target_files": ["electron/main/services/delegation.service.ts", "electron/main/services/delegation/"],
+      "acceptance_criteria": ["Git/persistência/bundle/host/recovery têm ownership separado", "API pública permanece compatível", "Sem ciclo com ThreadManager"],
+      "verification_strategy": {"method": "test", "command": "node scripts/test-electron.mjs tests/integration/delegation.test.ts tests/integration/coordination.workflow.test.ts"},
+      "description": "Completar a decomposição incremental após estabilizar contratos e serviços.",
+      "code_context": "DelegationService atual reúne validação, Git, contexto, launch, auth, inbox, control e recovery."
+    },
+    {
+      "number": "T14",
+      "wave": "W4",
+      "title": "Criar diálogo de delegação com preflight",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": ["T05", "T10", "T11"],
+      "target_files": ["src/components/Delegation/DelegationCreateDialog.tsx", "src/components/Delegation/DelegationBranchFields.tsx", "src/components/Delegation/KnowledgeTransferPreview.tsx", "shared/types/preload.ts", "electron/preload/api.ts"],
+      "acceptance_criteria": ["Três estratégias são configuráveis", "Plano final é mostrado antes do efeito", "Abrir diálogo não inicia processo"],
+      "verification_strategy": {"method": "test", "command": "node scripts/test-electron.mjs tests/integration/DelegationCreateDialog.test.tsx"},
+      "description": "Oferecer criação consistente em Code e Thread com revisão do checkout e contexto.",
+      "code_context": "Reutilizar Dialog, tokens e padrões de focus do design system atual."
+    },
+    {
+      "number": "T15",
+      "wave": "W4",
+      "title": "Criar central Delegated Work",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": ["T03", "T10", "T12"],
+      "target_files": ["src/components/Delegation/DelegatedWorkPanel.tsx", "src/components/Delegation/DelegationTaskRow.tsx", "src/store/delegation.store.ts", "src/components/Threads/ThreadSidebar.tsx", "src/components/Sidebar/Sidebar.tsx"],
+      "acceptance_criteria": ["Busca por branch/objective/task ID", "Ação principal deriva do recovery state", "1000 tarefas usam paginação/virtualização"],
+      "verification_strategy": {"method": "test", "command": "node scripts/test-electron.mjs tests/integration/DelegatedWorkPanel.test.tsx"},
+      "description": "Mover operação diária de Settings para uma central pesquisável e reativa.",
+      "code_context": "Settings continua contendo opt-in, destinos, template e limites."
+    },
+    {
+      "number": "T16",
+      "wave": "W4",
+      "title": "Separar Open, Continue, Resume e Retry",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": ["T10", "T15"],
+      "target_files": ["electron/main/services/delegation/delegation-recovery.service.ts", "src/components/Delegation/DelegationRecoveryActions.tsx", "src/components/Panes/TerminalPane.tsx", "src/store/thread.store.ts"],
+      "acceptance_criteria": ["Cada restart state oferece uma ação segura", "Retry nunca substitui resume", "Fallback explica perda de continuidade antes de iniciar"],
+      "verification_strategy": {"method": "test", "command": "npm run test:e2e -- e2e/delegation-worktree-continuity.spec.ts"},
+      "description": "Implementar recovery state machine e ações explícitas.",
+      "code_context": "Hoje TerminalPane orienta Retry para qualquer delegated process ausente."
+    },
+    {
+      "number": "T17",
+      "wave": "W4",
+      "title": "Adicionar comandos e detalhes de sessão",
+      "step_type": "implement",
+      "estimated_effort": "medium",
+      "dependencies": ["T15"],
+      "target_files": ["shared/threadCommands.ts", "electron/main/services/conversation/thread-commands.ts", "electron/main/services/conversation/thread-orchestrator.ts", "src/components/Threads/ThreadConversationActions.tsx"],
+      "acceptance_criteria": ["/delegations e /delegation abrem dados locais", "/resume identifica vínculo sem alterar sua semântica", "Digitar slash não cria processos"],
+      "verification_strategy": {"method": "test", "command": "node scripts/test-electron.mjs tests/thread-commands.test.ts tests/thread-view.test.tsx"},
+      "description": "Tornar tarefa, branch e sessão descobríveis pelo fluxo de comandos da Thread.",
+      "code_context": "Reutilizar command surfaces e painéis locais; não abrir Advanced CLI."
+    },
+    {
+      "number": "T18",
+      "wave": "W5",
+      "title": "Executar fault suite, segurança e concorrência",
+      "step_type": "test",
+      "estimated_effort": "high",
+      "dependencies": ["T13", "T14", "T15", "T16", "T17"],
+      "target_files": ["tests/integration/delegation.test.ts", "tests/integration/coordination.workflow.test.ts", "tests/integration/delegation-faults.test.ts", "tests/integration/delegation-security.test.ts"],
+      "acceptance_criteria": ["Nenhuma duplicação de prompt/branch/worktree", "Cross-project e token antigo falham fechado", "Código/worktree são preservados em falhas"],
+      "verification_strategy": {"method": "test", "command": "node scripts/test-electron.mjs tests/integration/delegation-faults.test.ts tests/integration/delegation-security.test.ts"},
+      "description": "Cobrir crash, revoke, races, unknown outcomes e todas as fases do lifecycle.",
+      "code_context": "Manter os 17 testes atuais como regressão mínima, não como certificação nativa."
+    },
+    {
+      "number": "T19",
+      "wave": "W5",
+      "title": "Validar SLOs e escalabilidade",
+      "step_type": "verify",
+      "estimated_effort": "medium",
+      "dependencies": ["T03", "T15"],
+      "target_files": ["tests/bench/delegation.bench.ts", "e2e/delegation-performance.spec.ts", "scripts/verify-bundle-budgets.mjs", "docs/plans/delegation-worktree-continuity/EVIDENCE.md"],
+      "acceptance_criteria": ["Status p95 <= 50 ms com 1000 tarefas no host de referência", "Primeira página UI <= 200 ms", "Consultas comuns não fazem full payload scan"],
+      "verification_strategy": {"method": "test", "command": "vitest bench --run tests/bench/delegation.bench.ts"},
+      "description": "Medir repository, event delivery e UI sob histórico longo.",
+      "code_context": "Métricas absolutas ficam no host Windows de referência; CI valida regressão relativa."
+    },
+    {
+      "number": "T20",
+      "wave": "W5",
+      "title": "Executar pilotos nativos e release gate",
+      "step_type": "verify",
+      "estimated_effort": "high",
+      "dependencies": ["T18", "T19"],
+      "target_files": ["docs/AGENT_DELEGATION.md", "docs/cross-workspace-coordination.md", "docs/plans/delegation-worktree-continuity/EVIDENCE.md", "e2e/delegation-worktree-continuity.spec.ts"],
+      "acceptance_criteria": ["Claude e Codex passam create/close/reopen/continue", "Origens Code e Thread passam", "Cinco resumes consecutivos nunca escolhem sessão errada", "Nenhum P0/P1 aberto"],
+      "verification_strategy": {"method": "build", "command": "npm run typecheck && npm run lint && npm run test:electron && npm run build"},
+      "description": "Certificar o fluxo real e publicar capacidades/limitações observadas.",
+      "code_context": "Separar teste simulado, probe do executável e chamada autenticada ao provider no relatório."
+    }
+  ]
+}

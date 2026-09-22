@@ -5,7 +5,7 @@ import { LATEST_DB_VERSION, openInMemoryDatabase, runMigrations } from '../../el
 
 // Literal on purpose: it verifies the migration SQL itself sets this version,
 // independently of the runner's constant. Bump both when adding a migration.
-const EXPECTED_SCHEMA_VERSION = 52
+const EXPECTED_SCHEMA_VERSION = 57
 
 // Migration 046 is platform-split: Windows keeps PowerShell as the neutral
 // built-in shell, every other host is repointed to bash. The assertions below
@@ -138,6 +138,34 @@ describe('migration 046 (POSIX variant)', () => {
 })
 
 describe('migrations', () => {
+  test('migration 057 indexes legacy delegation payloads without losing their checkout', () => {
+    const db = openInMemoryDatabase()
+    try {
+      db.exec(`
+        DROP TRIGGER delegation_index_after_insert;
+        DROP TRIGGER delegation_index_after_update;
+        DROP TRIGGER delegation_index_after_delete;
+        DROP TABLE delegation_operation_journal;
+        DROP TABLE delegation_handoff_revisions;
+        DROP TABLE delegation_session_bindings;
+        DROP TABLE delegation_checkouts;
+        DROP TABLE delegation_task_index;
+        PRAGMA user_version = 56;
+      `)
+      const payload = { id: 'legacy-task', key: 'legacy-key', originExecutionId: 'origin', workspaceId: 'workspace', project: 'project',
+        state: 'interrupted', branch: 'oxe/legacy-12345678', objective: 'Legacy task', path: '/repo-worktrees/legacy', baseSha: 'abc', createdAt: 10, updatedAt: 20 }
+      db.prepare('INSERT INTO delegations(id, origin_execution, request_key, workspace_id, payload) VALUES(?, ?, ?, ?, ?)')
+        .run(payload.id, payload.originExecutionId, payload.key, payload.workspaceId, JSON.stringify(payload))
+      runMigrations(db)
+      expect(db.pragma('user_version', { simple: true })).toBe(57)
+      expect(db.prepare('SELECT project, state, branch FROM delegation_task_index WHERE task_id = ?').get(payload.id))
+        .toEqual({ project: 'project', state: 'interrupted', branch: 'oxe/legacy-12345678' })
+      const checkout = db.prepare('SELECT strategy, resolved_json AS resolved FROM delegation_checkouts WHERE task_id = ?').get(payload.id) as { strategy: string; resolved: string }
+      expect(checkout.strategy).toBe('generated')
+      expect(JSON.parse(checkout.resolved)).toMatchObject({ branch: payload.branch, path: payload.path, baseSha: payload.baseSha })
+    } finally { db.close() }
+  })
+
   test('migration 040 self-heals a partial apply (columns exist but user_version < 40)', () => {
     // Reproduces the v0.2.6/0.2.7 upgrade-crash state: 040 added embedding_blob/dim
     // but a crash/disk-I/O kept user_version at 39. The old non-idempotent 040 then
@@ -198,7 +226,16 @@ describe('migrations', () => {
         'integration_group_sessions',
         'integration_handoffs',
         'semantic_documents',
-        'semantic_documents_fts'
+        'semantic_documents_fts',
+        'conversation_event_envelopes',
+        'conversation_operations',
+        'conversation_checkpoints',
+        'conversation_checkpoint_files',
+        'delegation_task_index',
+        'delegation_checkouts',
+        'delegation_session_bindings',
+        'delegation_handoff_revisions',
+        'delegation_operation_journal'
       ])
     )
 

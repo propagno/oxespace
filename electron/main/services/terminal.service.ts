@@ -1,6 +1,7 @@
 import type { IPty, IPtyForkOptions } from 'node-pty'
 import { spawn } from 'node-pty'
 import { existsSync } from 'node:fs'
+import { randomUUID } from 'node:crypto'
 import { delimiter, extname, join } from 'node:path'
 import type { AppDatabase } from '../db/index'
 import { killProcess } from '../utils/process-cleanup'
@@ -39,6 +40,10 @@ export interface ManagedTerminalStart extends TerminalStartInput {
 }
 
 interface TerminalSession {
+  sessionId: string
+  launchDirectory: string
+  executable: string
+  startedAt: number
   paneId: string
   workspaceId: string
   pty: IPty
@@ -274,6 +279,10 @@ export class TerminalManager {
     this.reclaimIdleSession()
 
     this.sessions.set(input.paneId, {
+      sessionId: randomUUID(),
+      launchDirectory: cwd,
+      executable,
+      startedAt: Date.now(),
       paneId: input.paneId,
       workspaceId: input.workspaceId,
       pty: ptyProcess,
@@ -415,7 +424,7 @@ export class TerminalManager {
   status(paneId: string): TerminalStatusResult {
     const session = this.sessions.get(paneId)
     if (!session) return { running: false, seq: 0, altScreen: false }
-    return { running: true, seq: session.ring.seq, altScreen: session.modes.altScreen }
+    return { running: true, seq: session.ring.seq, altScreen: session.modes.altScreen, sessionId: session.sessionId, launchDirectory: session.launchDirectory, executable: session.executable, pid: session.pty.pid, startedAt: session.startedAt }
   }
 
   /**

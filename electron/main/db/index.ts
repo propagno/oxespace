@@ -11,7 +11,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
  *  pre-migration backup (only back up when an upgrade will actually run).
  *  Exported so the migrations test can catch a constant that drifts from the
  *  version the SQL actually sets. */
-export const LATEST_DB_VERSION = 52
+export const LATEST_DB_VERSION = 57
 /** How many pre-migration backups to retain. */
 const MAX_DB_BACKUPS = 5
 
@@ -451,6 +451,24 @@ export function runMigrations(db: AppDatabase): void {
   }
   if (currentVersion < 52) {
     db.transaction(() => db.exec(readMigration('052_coordination_workflow.sql')))()
+  }
+  if (currentVersion < 53) {
+    db.transaction(() => db.exec(readMigration('053_threads.sql')))()
+  }
+  if (currentVersion < 54) {
+    db.transaction(() => {
+      const migration = readMigration('054_thread_history.sql')
+      db.exec(hasColumn(db, 'conversation_threads', 'history_version') ? migration.replace('ALTER TABLE conversation_threads ADD COLUMN history_version INTEGER NOT NULL DEFAULT 0;', '') : migration)
+    })()
+  }
+  if (currentVersion < 55) {
+    db.transaction(() => db.exec(readMigration('055_thread_operations.sql')))()
+  }
+  if (currentVersion < 56) {
+    db.transaction(() => db.exec(readMigration('056_thread_checkpoints.sql')))()
+  }
+  if (currentVersion < 57) {
+    db.transaction(() => db.exec(readMigration('057_delegation_continuity.sql')))()
   }
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "oxespace",
-  "version": "0.13.0",
+  "version": "0.14.0-beta.1",
   "description": "An open source, AI-native workspace and terminal",
   "license": "MIT",
   "repository": {
@@ -21,6 +21,7 @@
     "lint": "eslint src electron shared tests e2e scripts",
     "test": "vitest run",
     "test:electron": "node scripts/test-electron.mjs",
+    "bench:thread": "node scripts/bench-thread.mjs",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "bench:cpu": "vitest bench --run tests/bench/hotpaths.bench.ts",

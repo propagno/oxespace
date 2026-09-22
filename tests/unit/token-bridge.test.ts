@@ -28,14 +28,14 @@ describe('shadcn token bridge', () => {
     expect(literals.map(([, name]) => name)).toEqual(['destructive-foreground'])
   })
 
-  test('interactive tokens track the themeable --accent, not the fixed --brand', () => {
-    // The 11 [data-theme] palettes retheme --accent but never --brand, so
-    // binding primary/ring to --brand would leave emerald buttons in a nord UI.
-    expect(bridgedValue('primary')).toBe('var(--accent)')
+  test('primary actions follow theme foreground and focus follows theme accent', () => {
+    // Both are theme tokens: neutral foreground actions share the desktop
+    // chrome, while the focus ring preserves the selected palette's accent.
+    expect(bridgedValue('primary')).toBe('var(--tx-primary)')
     expect(bridgedValue('ring')).toBe('var(--accent)')
   })
 
-  test('primary foreground stays dark-on-accent so it reads in every theme', () => {
+  test('primary foreground uses the contrasting app surface in every theme', () => {
     expect(bridgedValue('primary-foreground')).toBe('var(--bg-app)')
   })
 

@@ -1,59 +1,154 @@
-.settings-center-overlay { background: var(--bg-app); }
-.settings-center {
-  position: fixed; inset: 0; z-index: 200; display: grid; grid-template-columns: 260px minmax(0, 1fr);
-  color: var(--tx-primary); background: var(--bg-app); outline: none;
-}
-.settings-center-nav { display: flex; flex-direction: column; gap: 18px; padding: 20px 16px; min-height: 0; border-right: 1px solid var(--bd-base); background: var(--bg-elevated); overflow-y: auto; }
-.settings-back, .settings-center-title { display: flex; align-items: center; gap: 10px; }
-.settings-back { background: none; border: 0; color: var(--tx-secondary); padding: 8px 0; cursor: pointer; }
-.settings-center-title { margin: 4px 0; font-size: 18px; }
-.settings-search { display: flex; align-items: center; gap: 6px; border: 1px solid var(--bd-base); border-radius: 8px; padding: 8px; }
-.settings-search input { min-width: 0; width: 100%; background: transparent; border: 0; color: inherit; font-size: 12px; }
-.settings-search kbd { font-size: 9px; white-space: nowrap; color: var(--tx-muted); }
-.settings-scope { display: grid; gap: 8px; font-size: 11px; color: var(--tx-muted); line-height: 1.6; }
-.settings-scope select { width: 100%; padding: 9px; background: var(--bg-app); color: var(--tx-primary); border: 1px solid var(--bd-base); border-radius: 7px; }
-.settings-scope-note { margin-top: auto; white-space: pre-line; overflow-wrap: anywhere; }
-.settings-center-nav nav { display: grid; gap: 5px; }
+/* Settings is a desktop surface with independent navigation and content scroll. */
+.settings-center-overlay { z-index: 199; }
+.settings-center { position: fixed; inset: 0; z-index: 200; display: grid; grid-template-columns: 248px minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; background: var(--bg-app); color: var(--tx-primary); }
+.settings-center-nav { display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 0; padding: 0 12px 12px; border-right: 1px solid var(--bd-base); background: var(--bg-sidebar); }
+.settings-center-title { display: flex; align-items: center; gap: 9px; height: 48px; min-height: 48px; margin: 0 -12px; padding: 0 var(--chrome-inset); border-bottom: 1px solid var(--bd-base); font-size: var(--fs-sm); font-weight: 600; letter-spacing: -.15px; }
+.settings-center-title svg { color: var(--tx-muted); }
+.settings-search { display: flex; align-items: center; gap: 8px; min-height: var(--control-h); padding: 0 10px; border: 1px solid var(--bd-base); border-radius: var(--nav-radius); color: var(--tx-muted); background: var(--bg-app); }
+.settings-search input { width: 100%; min-width: 0; padding: 0; border: 0; outline: none; color: var(--tx-primary); background: transparent; font-size: var(--fs-xs); }
+.settings-search input::placeholder { color: var(--tx-muted); }
+.settings-search:focus-within { border-color: var(--accent); }
+.settings-search kbd { flex-shrink: 0; color: var(--tx-muted); font-size: var(--fs-2xs); }
+.settings-scope { display: grid; gap: 7px; margin: 0; color: var(--tx-muted); font-size: var(--fs-2xs); }
+.settings-scope select { width: 100%; min-width: 0; height: var(--control-h); padding: 0 9px; border: 1px solid var(--bd-base); border-radius: var(--nav-radius); color: var(--tx-primary); background: var(--bg-app); font-size: var(--fs-xs); }
+.settings-center-nav > nav { display: flex; flex-direction: column; gap: 4px; min-height: 0; overflow-y: auto; }
+.settings-nav-caption { padding: 0 10px 9px; color: var(--tx-muted); font-size: var(--fs-2xs); font-weight: 500; }
+.settings-center-nav > nav button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: var(--nav-row-h); padding: 8px 12px; border: 0; border-radius: var(--nav-radius); text-align: left; background: transparent; color: var(--tx-secondary); font-size: var(--fs-sm); cursor: pointer; }
+.settings-center-nav > nav button svg { color: var(--tx-muted); flex-shrink: 0; }
+.settings-center-nav > nav button:hover { background: color-mix(in srgb, var(--tx-primary) 4%, transparent); }
+.settings-center-nav > nav button[aria-current="page"] { color: var(--tx-primary); background: color-mix(in srgb, var(--tx-primary) 7%, transparent); font-weight: 500; }
+.settings-center-nav > nav button[aria-current="page"] svg { color: var(--tx-primary); }
+.settings-nav-footer { display: grid; gap: 10px; margin-top: auto; padding-top: 12px; border-top: 1px solid var(--bd-base); }
+.settings-scope-note { overflow: hidden; margin: 0; padding: 0 10px; color: var(--tx-muted); font-size: var(--fs-2xs); text-overflow: ellipsis; white-space: nowrap; }
+.settings-back { display: flex; align-items: center; gap: 8px; min-height: var(--control-h); padding: 6px 10px; border: 0; border-radius: var(--nav-radius); background: transparent; color: var(--tx-secondary); font-size: var(--fs-sm); cursor: pointer; }
+.settings-back:hover { background: color-mix(in srgb, var(--tx-primary) 4%, transparent); color: var(--tx-primary); }
 .settings-compact-category { display: none; }
-.settings-center-nav nav button { text-align: left; padding: 12px; background: transparent; border: 1px solid transparent; border-radius: 8px; color: var(--tx-secondary); cursor: pointer; }
-.settings-center-nav nav button small { display: block; font-size: 10px; margin-top: 5px; color: var(--tx-muted); }
-.settings-center-nav nav button:hover { background: var(--bg-app); }
-.settings-center-nav nav button[aria-current="page"] { background: color-mix(in srgb, var(--accent) 10%, var(--bg-app)); border-color: color-mix(in srgb, var(--accent) 25%, transparent); color: var(--tx-primary); }
-.settings-center-main { overflow: auto; min-width: 0; min-height: 0; }
-.settings-center-main .settings-modal-content { background: var(--bg-app); min-height: 100%; }
-.settings-center-main .settings-content-header { padding: 30px 32px; border-color: var(--bd-base); }
-.settings-center-main .settings-content-body { overflow: visible; }
-.settings-center-main > section { max-width: 1200px; margin: 0 auto; width: 100%; }
-.settings-center-main .settings-section { min-height: 100%; }
-.settings-center-main .settings-section-header { padding: 32px; }
-.settings-center-main button[aria-label^="Close"] { display: none; }
-.settings-workspace-content { width: 100%; height: 100%; max-width: none !important; max-height: none !important; border: 0; border-radius: 0; }
-.settings-workspace-content .ws-settings-form-v2 { display: flex; flex-direction: column; height: 100%; }
-.settings-workspace-content .ws-settings-body { display: flex; flex: 1; min-height: 0; }
-.settings-workspace-content .ws-settings-main { flex: 1; min-width: 0; overflow: auto; }
-.settings-workspace-content .ws-settings-body { grid-template-columns: minmax(0, 1fr); }
-.settings-workspace-content .ws-settings-main { padding: 32px; }
-.settings-general { padding: 36px; }
-.settings-general h2 { font-size: 23px; margin: 0 0 10px; }
-.settings-general p { color: var(--tx-muted); line-height: 1.7; }
-.settings-general-card { margin-top: 28px; padding: 24px; border: 1px solid var(--bd-base); border-radius: 10px; background: var(--bg-elevated); }
-.settings-general-card input { padding: 9px; border: 1px solid var(--bd-base); border-radius: 6px; background: var(--bg-app); color: inherit; }
+.settings-center-main { display: grid; grid-template-rows: 48px minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; }
+.settings-center-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; padding: 0 var(--chrome-inset); border-bottom: 1px solid var(--bd-base); }
+.settings-center-toolbar > div { display: flex; align-items: center; gap: 10px; min-width: 0; color: var(--tx-muted); font-size: var(--fs-2xs); }
+.settings-center-toolbar > div span:last-child { color: var(--tx-secondary); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.settings-center-toolbar > button { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; flex-shrink: 0; border: 0; border-radius: 6px; background: transparent; color: var(--tx-muted); cursor: pointer; }
+.settings-center-toolbar > button:hover { color: var(--tx-primary); background: var(--bg-elevated); }
+.settings-center-content { min-width: 0; min-height: 0; overflow-y: auto; padding: 28px 32px 32px; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--bd-base) transparent; }
+.settings-center-content > section { width: 100%; max-width: 840px; margin: 0 auto; }
+.settings-center .settings-modal-content { background: transparent; }
+.settings-center .settings-content-header { align-items: flex-start; gap: 16px; padding: 0 0 24px; border: 0; }
+.settings-center .settings-content-header > div:first-child { gap: 7px; }
+.settings-center .settings-content-kicker { display: none; }
+.settings-center .settings-content-header h2, .settings-general h2 { margin: 0; font-size: 21px; font-weight: 600; letter-spacing: -.5px; line-height: 1.3; }
+.settings-center .settings-content-description, .settings-general > p { margin: 0; color: var(--tx-muted); font-size: var(--fs-xs); line-height: 1.6; }
+.settings-center .settings-content-actions > button[aria-label="Close"] { display: none; }
+.settings-center .settings-content-body { flex: none; min-height: 0; overflow: visible; padding: 0; gap: 16px; }
+.settings-center :is(.settings-btn, .settings-header-action) { min-height: var(--control-h); padding: 0 12px; border-radius: var(--nav-radius); border-color: var(--bd-base); font-size: var(--fs-xs); font-weight: 500; letter-spacing: 0; text-transform: none; }
+.settings-center .settings-btn.primary { color: var(--bg-app); background: var(--tx-primary); }
+.settings-center :is(.settings-form-group, .settings-toggle-row, .settings-callout, .settings-providers-hero, .settings-provider-card, .settings-empty) { padding: 16px; border: 1px solid var(--bd-base); border-radius: var(--surface-radius); background: color-mix(in srgb, var(--tx-primary) 2%, var(--bg-app)); }
+.settings-center .settings-form-group { gap: 14px; }
+.settings-center .settings-form-group-title { color: var(--tx-primary); font-size: var(--fs-xs); font-weight: 500; letter-spacing: 0; text-transform: none; }
+.settings-center :is(.settings-field select, .settings-field input[type="text"], .settings-hotkey-row input) { min-width: 0; padding: 8px 10px; border: 1px solid var(--bd-base); border-radius: 6px; background: var(--bg-app); color: var(--tx-primary); font-size: var(--fs-xs); }
+.settings-center .settings-field { gap: 8px; }
+.settings-center .settings-field-hint { color: var(--tx-muted); font-size: var(--fs-2xs); line-height: 1.5; }
+.settings-center .settings-toggle-row { align-items: center; gap: 16px; }
+.settings-center .settings-toggle-row strong { font-weight: 500; }
+.settings-center .settings-toggle-row small { color: var(--tx-muted); font-size: var(--fs-2xs); }
+.settings-center .settings-providers-hero { align-items: center; }
+.settings-center .settings-providers-hero-text strong { font-size: var(--fs-xs); font-weight: 500; }
+.settings-center .settings-providers-hero-text > span { font-size: var(--fs-2xs); color: var(--tx-muted); }
+.settings-center .settings-provider-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.settings-center .settings-provider-card { box-shadow: none; }
+.settings-center .settings-provider-card:hover { background: color-mix(in srgb, var(--tx-primary) 3%, var(--bg-app)); border-color: var(--bd-base); }
+.settings-center .settings-callout { color: var(--tx-muted); font-size: var(--fs-2xs); }
+.settings-general { display: grid; gap: 7px; }
+.settings-general-card { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-top: 17px; padding: 16px; border: 1px solid var(--bd-base); border-radius: var(--surface-radius); background: color-mix(in srgb, var(--tx-primary) 2%, var(--bg-app)); }
+.settings-general-card label { color: var(--tx-primary); font-size: var(--fs-xs); font-weight: 500; }
+.settings-general-card p { margin: 5px 0 0; color: var(--tx-muted); font-size: var(--fs-2xs); line-height: 1.6; }
+.settings-general-card input { width: 70px; min-width: 70px; padding: 7px 9px; border: 1px solid var(--bd-base); border-radius: 6px; background: var(--bg-app); color: var(--tx-primary); font-size: var(--fs-xs); }
+.settings-center .settings-provider-card[class], .settings-center :is(.settings-onboarding, .diagnostics-hero) { border-color: var(--bd-base); background: color-mix(in srgb, var(--tx-primary) 2%, var(--bg-app)); }
+.settings-center .settings-new-agent-btn { align-self: flex-start; }
+.settings-center .settings-term-preview { border-color: var(--bd-base); border-radius: var(--surface-radius); background: color-mix(in srgb, var(--tx-primary) 2%, var(--bg-app)); }
+.settings-center .settings-term-preview-body { background: var(--bg-app); color: var(--tx-primary); }
+.settings-center .diagnostics-hero { padding: 16px; border-radius: var(--surface-radius); flex-wrap: wrap; }
+.settings-center .diagnostics-hero-text strong { font-size: var(--fs-sm); font-weight: 500; }
+.settings-center .diagnostics-checks { gap: 0; margin-top: 0; overflow: hidden; border: 1px solid var(--bd-base); border-radius: var(--surface-radius); }
+.settings-center .diagnostics-check { border: 0; border-radius: 0; background: color-mix(in srgb, var(--tx-primary) 2%, var(--bg-app)); }
+.settings-center .diagnostics-check + .diagnostics-check { border-top: 1px solid var(--bd-base); }
+.settings-center .diagnostics-check-label { font-weight: 500; }
+/* Updates use rows with a single action area instead of oversized status cards. */
+.settings-center .settings-updates-form { gap: 12px; }
+.settings-update-group-label { margin: 0; color: var(--tx-secondary); font-size: var(--fs-2xs); font-weight: 500; }
+.settings-update-group { overflow: hidden; border: 1px solid var(--bd-base); border-radius: var(--surface-radius); }
+.settings-center .settings-update-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 16px; row-gap: 6px; padding: 20px; border: 0; border-radius: 0; background: color-mix(in srgb, var(--tx-primary) 2%, var(--bg-app)); }
+.settings-center .settings-update-group > article + article { border-top: 1px solid var(--bd-base); }
+.settings-center .settings-update-card-head { grid-column: 1; grid-row: 1; align-items: center; }
+.settings-center .settings-update-card-head strong { font-size: var(--fs-xs); font-weight: 500; }
+.settings-center .settings-update-card-head > div { gap: 4px; }
+.settings-center .settings-update-card-head > div > span { font-size: var(--fs-2xs); }
+.settings-center .settings-update-icon { width: 30px; height: 30px; border: 1px solid var(--bd-base); border-radius: var(--nav-radius); background: transparent; color: var(--tx-secondary); }
+.settings-center .settings-update-status { grid-column: 1; grid-row: 2; margin-left: 40px; font-size: var(--fs-2xs); color: var(--tx-secondary); line-height: 1.5; }
+.settings-center .settings-update-hint { grid-column: 1; grid-row: 3; margin-left: 40px; font-size: var(--fs-2xs); line-height: 1.5; color: var(--tx-muted); }
+.settings-center .settings-update-actions { grid-column: 2; grid-row: 1 / 4; align-items: center; justify-content: flex-end; align-self: center; gap: 8px; }
+.settings-center .settings-update-card .settings-progress { grid-column: 1 / -1; grid-row: 4; margin: 6px 0 0 40px; }
+.settings-center .settings-update-card .settings-error { grid-column: 1 / -1; grid-row: 5; margin: 6px 0 0 40px; overflow-wrap: anywhere; }
+.settings-center .settings-update-card-head .settings-status-pill { margin-left: 8px; padding: 2px 6px; font-family: inherit; font-size: var(--fs-2xs); font-weight: 500; text-transform: none; }
+.settings-center .settings-update-card.bundled { display: flex; flex-direction: column; gap: 16px; margin-top: 0; border: 1px solid var(--bd-base); border-radius: var(--surface-radius); }
+.settings-center .settings-update-card.bundled + * { margin-top: 12px; }
+.settings-center .settings-bundled-list { display: grid; gap: 0; margin: 0 0 0 40px; padding: 0; }
+.settings-center .settings-bundled-list li { display: flex; flex-direction: row; align-items: baseline; justify-content: space-between; gap: 16px; padding: 10px 0; border-radius: 0; background: transparent; }
+.settings-center .settings-bundled-list li + li { border-top: 1px solid var(--bd-base); }
+.settings-center .settings-bundled-list strong { font-size: var(--fs-2xs); font-weight: 500; }
+.settings-center .settings-bundled-list span { color: var(--tx-muted); font-size: var(--fs-2xs); text-align: right; }
+.settings-center .settings-update-group + .settings-update-group-label { margin-top: 12px; }
+.settings-center .settings-update-card.bundled .settings-status-pill { border-color: var(--bd-base); background: transparent; color: var(--tx-muted); }
+/* Workspace preferences retain one scroll area and a pinned save footer. */
+.settings-center-content.is-workspace { padding: 0; overflow: hidden; }
+.settings-center .settings-workspace-content { display: flex; flex-direction: column; width: 100%; height: 100%; min-width: 0; min-height: 0; max-width: none; max-height: none; border: 0; border-radius: 0; background: transparent; }
+.settings-center .ws-settings-form-v2 { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.settings-center .ws-settings-body { flex: 1; min-height: 0; }
+.settings-center .ws-settings-main { flex: 1; min-width: 0; min-height: 0; overflow: auto; padding: 28px max(32px, calc((100% - 840px) / 2)); gap: 24px; scrollbar-width: thin; scrollbar-color: var(--bd-base) transparent; }
+.settings-center .ws-settings-page-heading h3 { font-size: 21px; line-height: 1.3; letter-spacing: -.5px; }
+.settings-center .ws-settings-page-heading p { font-size: var(--fs-xs); line-height: 1.6; }
+.settings-center .ws-settings-section { border-color: var(--bd-base); background: color-mix(in srgb, var(--tx-primary) 2%, var(--bg-app)); border-radius: var(--surface-radius); }
+.settings-center .ws-settings-section-header h3 { font-size: var(--fs-xs); font-weight: 500; }
+.settings-center .ws-settings-section-header { margin-bottom: 14px; }
+.settings-center .ws-settings-aside { border-color: var(--bd-base); box-shadow: none; background: color-mix(in srgb, var(--tx-primary) 2%, var(--bg-app)); }
+.settings-center .ws-settings-form-v2 .modal-actions { gap: 8px; padding: 12px 24px; background: var(--bg-app); border-top: 1px solid var(--bd-base); }
+.settings-center .ws-settings-form-v2 .modal-actions button { min-height: var(--control-h); padding: 7px 12px; border-radius: var(--nav-radius); font-size: var(--fs-2xs); }
+.settings-center .ws-settings-form-v2 .modal-actions p { font-size: var(--fs-2xs); }
+/* The guard remains above Settings and preserves the draft after failed saves. */
 .settings-unsaved-overlay { z-index: 220; }
-.settings-unsaved { position: fixed; inset: 50% auto auto 50%; transform: translate(-50%, -50%); width: min(440px, 90vw); padding: 28px; border: 1px solid var(--bd-base); border-radius: 12px; background: var(--bg-elevated); color: var(--tx-primary); z-index: 221; }
-.settings-unsaved > div { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
-.settings-unsaved button { padding: 9px 14px; border: 1px solid var(--bd-base); border-radius: 6px; }
-.settings-center :is(button, input, select):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.settings-unsaved { position: fixed; z-index: 221; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(440px, 90vw); padding: 24px; border: 1px solid var(--bd-base); border-radius: 12px; background: var(--bg-elevated); color: var(--tx-primary); box-shadow: 0 16px 60px #0005; }
+.settings-unsaved h2 { margin: 0 0 12px; font-size: 16px; font-weight: 600; }
+.settings-unsaved p { margin: 0 0 20px; color: var(--tx-secondary); font-size: var(--fs-xs); line-height: 1.6; }
+.settings-unsaved > div { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.settings-unsaved button { padding: 8px 12px; border: 1px solid var(--bd-base); border-radius: var(--nav-radius); background: transparent; color: var(--tx-primary); font-size: var(--fs-xs); cursor: pointer; }
+.settings-unsaved button.primary-action { background: var(--tx-primary); color: var(--bg-app); }
+.settings-center :is(button, input, select):focus-visible, .settings-unsaved button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 1100px) {
+  .settings-center .settings-update-card { grid-template-columns: minmax(0, 1fr); }
+  .settings-center .settings-update-actions { grid-column: 1; grid-row: 4; justify-content: flex-start; margin: 6px 0 0 40px; }
+  .settings-center .settings-update-card .settings-progress { grid-row: 5; }
+  .settings-center .settings-update-card .settings-error { grid-row: 6; }
+}
 @media (max-width: 899px) {
-  .settings-center { grid-template-columns: 200px minmax(0, 1fr); }
-  .settings-center-nav { padding: 12px; }
-  .settings-search kbd, .settings-center-nav nav small { display: none; }
-  .settings-center-nav nav { display: none; }
+
+  .settings-center-nav { gap: 16px; padding: 0 12px 12px; }
+  .settings-center-title { margin: 0 -12px; padding: 0 16px; }
+  .settings-search kbd, .settings-center-nav > nav { display: none; }
   .settings-compact-category { display: grid; }
-  .settings-workspace-content .ws-settings-main, .settings-general { padding: 20px; }
+  .settings-center-content { padding: 24px 20px; }
+  .settings-center .ws-settings-main { padding: 24px 20px; }
+  .settings-center .settings-content-header { flex-wrap: wrap; }
 }
 @media (max-width: 699px) {
-  .settings-center { grid-template-columns: 170px minmax(0, 1fr); }
-  .settings-workspace-content .modal-actions { flex-wrap: wrap; padding: 12px; }
-  .settings-workspace-content .modal-actions p { flex-basis: 100%; max-width: none; }
-  .settings-workspace-content .ws-settings-main { padding: 14px; }
+
+  .settings-center-toolbar { padding: 0 14px; }
+  .settings-center-content { padding: 20px 14px; }
+  .settings-center .ws-settings-main { padding: 20px 14px; }
+  .settings-center .settings-update-card { padding: 14px; }
+  .settings-center .settings-update-card-head { flex-wrap: wrap; }
+  .settings-center .settings-update-card-head .settings-status-pill { margin-left: 40px; }
+  .settings-center .settings-bundled-list li { align-items: flex-start; flex-direction: column; gap: 4px; }
+  .settings-center .settings-bundled-list span { text-align: left; }
+  .settings-general-card { align-items: flex-start; flex-wrap: wrap; gap: 12px; }
+  .settings-center .ws-settings-form-v2 .modal-actions { flex-wrap: wrap; padding: 12px 14px; }
+  .settings-center .ws-settings-form-v2 .modal-actions p { flex: 1 1 100%; max-width: none; }
 }

@@ -174,6 +174,12 @@ describe('TerminalManager attach/detach', () => {
     // …but the UI still learns the agent is working.
     expect(emitActivity).toHaveBeenCalledWith(expect.objectContaining({ paneId, bytes: 10 }))
     expect(manager.status(paneId)).toMatchObject({ running: true })
+    const info = manager.status(paneId)
+    expect(info.sessionId).toMatch(/^[0-9a-f-]{36}$/)
+    expect(info.launchDirectory).toBeTruthy()
+    expect(info.executable).toBeTruthy()
+    expect(info.startedAt).toBeGreaterThan(0)
+    expect(manager.status(paneId).sessionId).toBe(info.sessionId)
 
     db.close()
   })

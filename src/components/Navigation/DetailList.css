@@ -1,0 +1,6 @@
+.desktop-detail-list { margin: 0; border: 1px solid var(--bd-base); border-radius: var(--surface-radius, 8px); overflow: hidden; background: var(--bg-elevated); }
+.desktop-detail-list>div { display: grid; grid-template-columns: minmax(90px, 30%) minmax(0, 1fr); gap: 16px; padding: 11px 14px; align-items: baseline; }
+.desktop-detail-list>div+div { border-top: 1px solid var(--bd-base); }
+.desktop-detail-list dt { color: var(--tx-muted); font-size: var(--fs-xs); font-weight: 400; }
+.desktop-detail-list dd { margin: 0; color: var(--tx-primary); font-size: var(--fs-xs); line-height: 1.5; overflow-wrap: anywhere; user-select: text; }
+.desktop-details-dialog { width: min(560px, calc(100vw - 32px)); }

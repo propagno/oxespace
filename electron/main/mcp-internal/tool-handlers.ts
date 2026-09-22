@@ -13,7 +13,6 @@ import type {
 } from '../../../shared/types/mcp-internal'
 import { isSafeExternalUrl } from '../utils/external-url'
 import { discoverScripts } from '../services/scripts-discovery.service'
-import { QualityControllerService } from '../services/quality-controller.service'
 import type { ToolContext } from './tool-registry'
 import { errorResult, textResult } from './tool-registry'
 
@@ -259,8 +258,6 @@ async function semanticSearch(args: unknown, ctx: ToolContext): Promise<Internal
   }
 }
 
-const qualityController = new QualityControllerService()
-
 function formatSemanticReport(report: Awaited<ReturnType<ToolContext['semantic']['queryDetailed']>>): string {
   const header = [
     `[OXESpace Retrieval] mode=${report.resolvedMode}${report.expanded ? ' (auto-expanded after low confidence)' : ''} · confidence=${report.confidence} · context≈${report.estimatedTokens} tokens · saved≈${report.estimatedSavingsPercent}% vs full matched files · ${report.durationMs}ms`,
@@ -290,8 +287,15 @@ async function qualityCheck(args: unknown, ctx: ToolContext): Promise<InternalMc
     ? input.acceptanceCriteria.filter((item): item is string => typeof item === 'string' && item.trim() !== '').map((item) => item.trim())
     : undefined
   const maxFindings = typeof input.maxFindings === 'number' ? input.maxFindings : undefined
+  const files = Array.isArray(input.files)
+    ? input.files.filter((item): item is string => typeof item === 'string' && item.trim() !== '').map(item => item.trim())
+    : undefined
   try {
-    const report = await qualityController.check(ws.id, ws.rootPath, ctx.fileSystem, { baseRef, acceptanceCriteria, maxFindings })
+    // Quality analysis is an infrequent, user-triggered workflow. Keep its
+    // parser and heuristics out of the Electron main-process startup chunk.
+    const { QualityControllerService } = await import('../services/quality-controller.service')
+    const qualityController = new QualityControllerService()
+    const report = await qualityController.check(ws.id, ws.rootPath, ctx.fileSystem, { baseRef, files, acceptanceCriteria, maxFindings })
     const findings = report.findings.length > 0
       ? report.findings.map((finding, index) => [
           `${index + 1}. [${finding.severity.toUpperCase()}] ${finding.code}: ${finding.message}`,
@@ -300,13 +304,14 @@ async function qualityCheck(args: unknown, ctx: ToolContext): Promise<InternalMc
         ].filter(Boolean).join('\n')).join('\n')
       : 'No heuristic gaps detected.'
     return textResult([
-      `[OXESpace Quality Controller] verdict=${report.verdict.toUpperCase()} · ${report.summary} · ${report.durationMs}ms`,
+      `[OXESpace Quality Controller] outcome=validation · verdict=${report.verdict.toUpperCase()} · ${report.summary} · ${report.durationMs}ms`,
+      files ? `Scope: ${files.length} explicitly selected path(s).` : 'Scope: complete Git worktree diff.',
       findings,
       `\nAcceptance evidence: ${report.evidence.acceptanceCriteria.filter((item) => item.status === 'evidenced').length}/${report.evidence.acceptanceCriteria.length}`,
       `Limitations: ${report.limitations.join(' ')}`
     ].join('\n'))
   } catch (err) {
-    return errorResult(`Quality check failed: ${err instanceof Error ? err.message : String(err)}`)
+    return errorResult(`[OXESpace Quality Controller] outcome=infrastructure · retryable=false\nQuality check could not run: ${err instanceof Error ? err.message : String(err)}`)
   }
 }
 

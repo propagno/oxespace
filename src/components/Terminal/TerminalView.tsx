@@ -9,7 +9,7 @@ import { ArrowDown, ArrowUp, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
 import type { ITheme } from '@xterm/xterm'
 import type { WorkspaceThemeId } from '../../../shared/types/workspace'
-import type { TerminalAttachResult } from '../../../shared/types/ipc'
+import type { TerminalAttachResult, TerminalApi } from '../../../shared/types/ipc'
 import { MAX_WEBGL_CONTEXTS } from './webglBudget'
 import type { TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useTerminalStore } from '../../store/terminal.store'
@@ -163,6 +163,8 @@ function readAgentPreview(terminal: Terminal): string {
 }
 
 interface TerminalViewProps {
+  /** Thread's native CLI uses its own transport and never subscribes to Code panes. */
+  transport?: Pick<TerminalApi, 'onData' | 'onExit' | 'attach' | 'detach'>
   paneId: string
   workspaceId?: string
   isRunning: boolean
@@ -175,7 +177,7 @@ interface TerminalViewProps {
   prefs: TerminalPrefs
 }
 
-export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, workspaceId, themeId, prefs }: TerminalViewProps): ReactElement {
+export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, workspaceId, themeId, prefs, transport }: TerminalViewProps): ReactElement {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const terminalRef = useRef<Terminal | null>(null)
   const pasteRef = useRef<((text: string) => void) | null>(null)
@@ -644,7 +646,8 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
     let disposed = false
     const queuedWhileAttaching: string[] = []
 
-    const unsubscribeData = window.oxe.terminal.onData(paneId, (event) => {
+    const bridge = transport ?? window.oxe.terminal
+    const unsubscribeData = bridge.onData(paneId, (event) => {
       if (attachPending) {
         queuedWhileAttaching.push(event.data)
         return
@@ -674,6 +677,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
           terminal.scrollToLine(Math.min(preViewportY, postBuf.baseY))
         }
       })
+      if (transport) return
       useTerminalStore.getState().updateActivity(paneId, event.data)
       if (previewTimer) clearTimeout(previewTimer)
       previewTimer = setTimeout(() => {
@@ -682,7 +686,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
         if (preview) useTerminalStore.getState().updatePreview(paneId, preview)
       }, 300)
     })
-    const unsubscribeExit = window.oxe.terminal.onExit(paneId, (event) => {
+    const unsubscribeExit = bridge.onExit(paneId, (event) => {
       terminal.write(`\r\n[process exited ${event.exitCode ?? ''}]\r\n`)
       onExitRef.current?.(event.exitCode)
     })
@@ -691,7 +695,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
       let attached: TerminalAttachResult | null = null
       try {
         // Optional-chained: some test harnesses stub only part of the bridge.
-        attached = (await window.oxe.terminal.attach?.({ paneId })) ?? null
+        attached = (await bridge.attach?.({ paneId })) ?? null
       } catch {
         // Main could not answer — fall through and render as a fresh view.
       }
@@ -718,7 +722,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
       // Release the session without killing it: the shell keeps running and
       // main keeps its output, so coming back costs a replay instead of a
       // respawn. This is the whole point of the attach model.
-      void window.oxe.terminal.detach?.({ paneId })
+      void bridge.detach?.({ paneId })
       if (fitFrameRef.current !== null) {
         window.cancelAnimationFrame(fitFrameRef.current)
         fitFrameRef.current = null
@@ -759,7 +763,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
       terminal.dispose()
       terminalRef.current = null
     }
-  }, [paneId, workspaceId])
+  }, [paneId, workspaceId, transport])
 
   // Apply prefs + theme to the live terminal without recreating it. Font/cursor
   // changes are immediate; the theme is re-read on the next frame so the

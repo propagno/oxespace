@@ -1,5 +1,5 @@
 import http from 'node:http'
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { openInMemoryDatabase } from '../../electron/main/db/index'
 import { WorkspaceService } from '../../electron/main/services/workspace.service'
 import { GitHubService } from '../../electron/main/services/github.service'
@@ -46,13 +46,13 @@ async function postRpc(port: number, headers: Record<string, string>, body: obje
   })
 }
 
-async function start(): Promise<ServerCtx> {
+async function start(delegation?: { create: (...args: unknown[]) => Promise<unknown> }): Promise<ServerCtx> {
   const db = openInMemoryDatabase()
   const workspaceServ = new WorkspaceService(db)
   const executions = new ExecutionRegistry()
   const server = createLocalRpcServer({
     documentation: async () => ({ preview: { run: async () => ({ title: 'RPC preview fixture' }) } }) as never,
-    executions, delegation: {} as never, delegationAgents: () => [{ agentProfileId: 'codex' }],
+    executions, delegation: (delegation ?? {}) as never, delegationAgents: () => [{ agentProfileId: 'codex' }],
     workspaceServ,
     github: new GitHubService(db),
     background: new BackgroundManager(db, { emitOutput: () => undefined, emitUpdate: () => undefined }),
@@ -72,6 +72,29 @@ describe('Internal MCP local RPC server', () => {
   let ctx: ServerCtx
   beforeEach(async () => { ctx = await start() })
   afterEach(async () => { await ctx.server.stop(); ctx.db.close() })
+
+  test('a Thread execution can call delegation through the authenticated local RPC', async () => {
+    await ctx.server.stop(); ctx.db.close()
+    const create = vi.fn(async () => ({ id: 'delegated-thread-task' }))
+    ctx = await start({ create })
+    const env = ctx.executions.register({ owner: { kind: 'thread', id: 'origin-thread' }, workspaceId: 'workspace', cwd: process.cwd() })
+    const headers = { Authorization: `Bearer ${TOKEN}`, 'x-oxe-workspace-id': 'workspace',
+      'x-oxe-execution-id': env.OXESPACE_EXECUTION_ID, 'x-oxe-execution-token': env.OXESPACE_EXECUTION_TOKEN }
+    const body = { jsonrpc: '2.0', id: 42, method: 'tools/call', params: { name: 'oxespace_delegate_task', arguments: {
+      key: 'once', agentProfileId: 'codex', objective: 'Implement card', handoff: 'Use project context', acceptance: 'Tests pass',
+      branchIntent: { strategy: 'create', name: 'feature/CARD-142' }, surface: 'thread'
+    } } }
+    const allowed = await postRpc(ctx.port, headers, body)
+    expect(allowed.status).toBe(200)
+    expect(JSON.stringify(allowed.json)).toContain('delegated-thread-task')
+    expect(create).toHaveBeenCalledOnce()
+    expect(create.mock.calls[0][0]).toMatchObject({ owner: { kind: 'thread', id: 'origin-thread' }, workspaceId: 'workspace' })
+    await postRpc(ctx.port, { ...headers, 'x-oxe-execution-token': 'wrong' }, body)
+    expect(create).toHaveBeenCalledOnce()
+    ctx.executions.endOwner({ kind: 'thread', id: 'origin-thread' })
+    await postRpc(ctx.port, headers, body)
+    expect(create).toHaveBeenCalledOnce()
+  })
 
   test('passes the documentation runtime through RPC to preview interaction', async () => {
     const ws = ctx.workspaceServ.create({ rootPath: process.cwd(), layout: '1x1', autoStart: false })

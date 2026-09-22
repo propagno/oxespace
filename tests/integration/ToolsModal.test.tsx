@@ -49,7 +49,7 @@ describe('ToolsModal', () => {
 
     expect(screen.getByTestId('tools-modal')).toBeInTheDocument()
     expect(screen.getByTestId('tools-agent-settings')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Open Agent Settings/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Open Agents' })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /Editor/i })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /^OXE$/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /Issues/i })).not.toBeInTheDocument()

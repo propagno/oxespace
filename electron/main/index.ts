@@ -8,11 +8,6 @@ import { join } from 'node:path'
 import { openDatabase } from './db/index'
 import { registerAgentIpc } from './ipc/agent.ipc'
 import { registerFileSystemIpc } from './ipc/file-system.ipc'
-import { registerGitIpc } from './ipc/git.ipc'
-import { registerSearchIpc } from './ipc/search.ipc'
-import { registerGitHubIpc } from './ipc/github.ipc'
-import { registerLinearIpc } from './ipc/linear.ipc'
-import { registerIntegrationIpc } from './ipc/integration.ipc'
 import { registerBackgroundIpc } from './ipc/background.ipc'
 import { registerSessionIpc } from './ipc/session.ipc'
 import { broadcastSkillChange, registerSkillIpc } from './ipc/skill.ipc'
@@ -28,10 +23,7 @@ import { registerOxeContextIpc } from './ipc/oxe-context.ipc'
 import { SkillService } from './services/skill.service'
 import { McpManager } from './services/mcp.service'
 import { WorkspaceService } from './services/workspace.service'
-import { GitHubService } from './services/github.service'
-import { GitService } from './services/git.service'
 import { SemanticService } from './services/semantic.service'
-import { CodeGraphService } from './services/codegraph.service'
 import { createInternalMcpHandle, type InternalMcpHandle } from './mcp-internal/bootstrap'
 import { startRpcServer, type RpcServerHandle } from './runtime/rpc/server'
 import { registerTaskIpc } from './ipc/task.ipc'
@@ -178,6 +170,18 @@ async function registerIpcHandlers(): Promise<() => void> {
   registerTerminalIpc(terminalManager)
   registerAgentIpc(db)
   registerTaskIpc(db, terminalManager)
+  // Source-control/search/integration surfaces are not required to create the
+  // first window. Load them as one deferred group so their implementation does
+  // not inflate the main entry or block startup parsing.
+  const [
+    { registerGitIpc }, { registerSearchIpc }, { registerGitHubIpc },
+    { registerLinearIpc }, { registerIntegrationIpc },
+    { GitHubService }, { GitService }, { CodeGraphService }
+  ] = await Promise.all([
+    import('./ipc/git.ipc'), import('./ipc/search.ipc'), import('./ipc/github.ipc'),
+    import('./ipc/linear.ipc'), import('./ipc/integration.ipc'),
+    import('./services/github.service'), import('./services/git.service'), import('./services/codegraph.service')
+  ])
   registerGitIpc()
   registerSearchIpc()
   const gitHubService = registerGitHubIpc(db)
@@ -197,6 +201,24 @@ async function registerIpcHandlers(): Promise<() => void> {
   })
   registerBackgroundIpc(backgroundManager)
   registerSessionIpc(db)
+  const { registerThreadIpc } = await import('./ipc/thread.ipc')
+  const delegatedThreadObserver: { current?: (thread: import('../../shared/types/thread').ConversationThread) => void } = {}
+  const threadManager = registerThreadIpc(db, {
+    observed: thread => delegatedThreadObserver.current?.(thread),
+    bridge: join(app.getPath('userData'), 'bin', 'oxespace-mcp.cjs'),
+    prepare: async thread => {
+      const meta = db.prepare('SELECT port, token FROM internal_mcp_meta LIMIT 1').get() as { port: number; token: string } | undefined
+      if (!meta) throw Error('Internal MCP is still starting. Retry shortly.')
+      const memory = await memoryService.prepareLaunch({ paneId: `thread:${thread.id}`, workspaceId: thread.workspaceId, cwd: thread.rootPath }).catch(() => ({}))
+      const execution = executions.register({ owner: { kind: 'thread', id: thread.id }, workspaceId: thread.workspaceId, cwd: thread.rootPath })
+      return { ...memory, ...execution, OXESPACE_MCP_PORT: String(meta.port), OXESPACE_MCP_TOKEN: meta.token, OXESPACE_WORKSPACE_ID: thread.workspaceId }
+    },
+    end: (threadId, executionId) => {
+      if (executionId && executions.forOwner({ kind: 'thread', id: threadId })?.id !== executionId) return
+      memoryService.endLaunch(`thread:${threadId}`)
+      executions.endOwner({ kind: 'thread', id: threadId })
+    }
+  })
   const skillService = new SkillService({ onChange: broadcastSkillChange })
   registerSkillIpc(skillService, (input) => terminalManager.write(input))
   const mcpManager = new McpManager(db, { emitHealth: broadcastMcpHealth })
@@ -247,32 +269,40 @@ async function registerIpcHandlers(): Promise<() => void> {
   const codeGraphService = new CodeGraphService(db)
   const delegationAgents = new AgentService(db)
   const launcher = new AgentLaunchService(terminalManager, () => delegationAgents.list(), app.getPath('userData'))
+  const { ThreadDelegationHost } = await import('./services/delegation/thread-delegation-host')
+  const threadDelegationHost = new ThreadDelegationHost(threadManager.manager, executions, agentProfileId => {
+    const provider = launcher.resolve(agentProfileId).provider
+    if (provider !== 'claude' && provider !== 'codex') throw new Error('Unsupported delegation provider')
+    return provider
+  }, agentProfileId => delegationAgents.list().find(profile => profile.agentProfileId === agentProfileId) ?? {})
   const delegationService = new DelegationService(db, {
     workspace: internalMcpWorkspaceServ, git: internalMcpGithub, executions,
     validateAgent: id => { launcher.resolve(id) },
+    threadHost: threadDelegationHost,
     launch: task => launcher.launch(task), stop: paneId => terminalManager.stop({ paneId }),
     changed: (workspaceId, taskId) => {
       for (const window of BrowserWindow.getAllWindows()) window.webContents.send(IPC_CHANNELS.delegation.changed, { workspaceId, taskId })
     },
     enrich: async task => {
-      let memory = 'Project memory is disabled.'
+      let memory = ''
       try {
         const context = await memoryService.projects.resolve(task.path)
         const settings = memoryService.projects.settings(context.projectId)
-        if (settings.enabled && settings.automaticContext) {
+        if (settings.enabled && (task.includeMemory ?? settings.automaticContext)) {
           const reply = await memoryService.manager.run(context, provider => provider.getRelevantContext(context, task.objective))
-          memory = reply.status === 'ok' ? reply.value.text.slice(0,4000) : reply.message
+          memory = reply.status === 'ok' ? reply.value.text.slice(0,4000) : ''
         }
-      } catch { memory = 'Project memory unavailable.' }
-      let code = 'CodeGraph unavailable.'
+      } catch { /* Optional memory must not block the explicit handoff. */ }
+      let code = ''
       try {
         const graph = await codeGraphService.ensureInstance(task.path)
         const { ToolHandler } = await import('./vendor/codegraph/mcp/tools')
         code = JSON.stringify(await new ToolHandler(graph as never).execute('codegraph_explore', { query: task.objective, maxFiles: 6 })).slice(0,6000)
       } catch { /* The explicit handoff remains sufficient to start. */ }
-      return `Memory:\n${memory}\nCodeGraph:\n${code}`
+      return { memory, code }
     }
   })
+  delegatedThreadObserver.current = thread => delegationService.observeThread(thread)
   registerDelegationIpc(delegationService)
 
   const internalMcp: InternalMcpHandle = createInternalMcpHandle({
@@ -317,7 +347,7 @@ async function registerIpcHandlers(): Promise<() => void> {
       memoryShutdownComplete = true
       app.quit()
     }, 10000)
-    void Promise.allSettled([memoryService.stop(), delegationService?.stop()]).then(() => internalMcp.stop()).catch(() => {}).finally(() => {
+    void Promise.allSettled([threadManager.stop(), memoryService.stop(), delegationService?.stop()]).then(() => internalMcp.stop()).catch(() => {}).finally(() => {
       clearTimeout(shutdownDeadline)
       if (memoryShutdownComplete) return
       memoryShutdownComplete = true

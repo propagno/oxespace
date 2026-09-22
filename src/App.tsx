@@ -1,17 +1,24 @@
 import { Activity, Bot, Columns2, FilePlus2, FolderOpen, Github, Grid2x2, LayoutDashboard, ListTodo, Maximize, Mic, Palette, Plus, RotateCw, Search, Settings2, Sliders, Split, Square, StopCircle, Wrench } from 'lucide-react'
-import { Suspense, lazy, useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import type { AgentProfile } from '../shared/types/agent'
 import { OxeLogo } from './components/Brand/OxeLogo'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { ThemeProvider } from './components/Theme/ThemeProvider'
-import { SlashOverlay } from './components/SlashOverlay/SlashOverlay'
 import type { CommandPaletteAction } from './components/CommandPalette/CommandPalette'
 // Modals/overlays are user-triggered and infrequent — lazy-load them so they're
 // not in the first-paint bundle.
 const AgentConfigModal = lazy(() => import('./components/Agents/AgentConfigModal').then((m) => ({ default: m.AgentConfigModal })))
 const DesignSystemPage = lazy(() => import('./components/DesignSystem/DesignSystemPage').then((m) => ({ default: m.DesignSystemPage })))
 const SettingsCenter = lazy(() => import('./components/Settings/SettingsCenter').then((m) => ({ default: m.SettingsCenter })))
+const DelegatedWorkDialog = lazy(() => import('./components/Delegation/DelegatedWorkDialog').then(m => ({ default: m.DelegatedWorkDialog })))
+const ThreadGrid = lazy(() => import('./components/Threads/ThreadGrid').then(m => ({ default: m.ThreadGrid })))
+const ProviderAccountsPanel = lazy(() => import('./components/Threads/ProviderAccountsPanel').then(m => ({ default: m.ProviderAccountsPanel })))
+const NewThreadDialog = lazy(() => import('./components/Threads/ThreadDialogs').then(m => ({ default: m.NewThreadDialog })))
+const AddThreadProjectDialog = lazy(() => import('./components/Threads/ThreadDialogs').then(m => ({ default: m.AddThreadProjectDialog })))
+const SlashOverlay = lazy(() => import('./components/SlashOverlay/SlashOverlay').then(m => ({ default: m.SlashOverlay })))
+const CommandMenu = lazy(() => import('./components/CommandMenu/CommandMenu').then(m => ({ default: m.CommandMenu })))
+const UsageModal = lazy(() => import('./components/Usage/UsageModal').then(m => ({ default: m.UsageModal })))
 const ToolsModal = lazy(() => import('./components/Workspace/ToolsModal').then((m) => ({ default: m.ToolsModal })))
 const McpPanel = lazy(() => import('./components/MCP/McpPanel').then((m) => ({ default: m.McpPanel })))
 const LinearPanel = lazy(() => import('./components/Linear/LinearPanel').then((m) => ({ default: m.LinearPanel })))
@@ -21,13 +28,16 @@ import { useBackgroundStore } from './store/background.store'
 import { useMcpStore } from './store/mcp.store'
 import { useSkillStore } from './store/skill.store'
 import { useSlashDispatcher } from './lib/useSlashDispatcher'
+import { useAccountStore } from './store/account.store'
+import { ThreadSidebar } from './components/Threads/ThreadSidebar'
+import { useThreadStore } from './store/thread.store'
+import { useNavigationPrefs } from './store/navigation-prefs.store'
 import { Sidebar } from './components/Sidebar/Sidebar'
 import type { WizardLaunchInput } from './components/Workspace/NewWorkspaceModal'
 const NewWorkspaceModal = lazy(() => import('./components/Workspace/NewWorkspaceModal').then((m) => ({ default: m.NewWorkspaceModal })))
 import { WorkspaceSurface } from './components/Workspace/WorkspaceSurface'
+import './components/Threads/ThreadView.css'
 import { AppStatusBar } from './components/Workspace/AppStatusBar'
-import { CommandMenu } from './components/CommandMenu/CommandMenu'
-import { UsageModal } from './components/Usage/UsageModal'
 import { UpdateBanner } from './components/Updates/UpdateBanner'
 import { LAYOUT_PRESETS, WORKSPACE_DENSITIES, WORKSPACE_THEMES } from './components/Workspace/workspaceOptions'
 import { useAgentStore } from './store/agent.store'
@@ -59,9 +69,18 @@ function matchesHotkey(event: KeyboardEvent, hotkey: string): boolean {
     eventKey === mainKey
   )
 }
-
 export function App(): ReactElement {
   const appVersion = window.oxe?.app?.version ?? 'dev'
+  const [applicationView, setApplicationView] = useState<'code' | 'thread'>('code')
+  const [delegatedWorkOpen, setDelegatedWorkOpen] = useState(false)
+  const [hasOpenedThread, setHasOpenedThread] = useState(false)
+  const [newThreadWorkspaceId, setNewThreadWorkspaceId] = useState<string | null | undefined>(undefined)
+  const [newThreadRootPath, setNewThreadRootPath] = useState<string | undefined>()
+  const [isThreadProjectOpen, setThreadProjectOpen] = useState(false)
+  const threadSnapshot = useThreadStore(state => state.snapshot)
+  const threadSelection = useThreadStore(state => state.selectedId)
+  const codeSidebarWidth = useNavigationPrefs(state => state.width)
+  const [accountsOpen, setAccountsOpen] = useState(false)
   const {
     activeWorkspaceId,
     bootstrap,
@@ -259,7 +278,7 @@ export function App(): ReactElement {
   }, [activeWorkspaceId])
 
   useEffect(() => {
-    if (!activeWorkspaceId) return
+    if (!activeWorkspaceId || applicationView !== 'code') return
     let secondFrame = 0
     const firstFrame = window.requestAnimationFrame(() => {
       secondFrame = window.requestAnimationFrame(() => {
@@ -272,7 +291,7 @@ export function App(): ReactElement {
       window.cancelAnimationFrame(firstFrame)
       if (secondFrame) window.cancelAnimationFrame(secondFrame)
     }
-  }, [activeWorkspaceId])
+  }, [activeWorkspaceId, applicationView])
 
   // Trim the MRU only after the newly activated workspace has painted. Killing
   // PTYs and disposing xterm/WebGL for an evicted workspace in the activation
@@ -576,7 +595,9 @@ export function App(): ReactElement {
   }
 
   const toggleActivePaneVoice = (): void => {
-    if (activeWorkspace?.editorVisible) {
+    if (applicationView === 'thread') {
+      window.dispatchEvent(new CustomEvent('oxe:thread-toggle-voice'))
+    } else if (activeWorkspace?.editorVisible) {
       window.dispatchEvent(new CustomEvent('oxe:editor-toggle-voice'))
     } else if (activePane && activePane.type === 'terminal') {
       window.dispatchEvent(new CustomEvent('oxe:terminal-toggle-voice', {
@@ -685,7 +706,7 @@ export function App(): ReactElement {
     { id: 'split-vertical', title: 'Split active pane (vertical)', subtitle: 'Ctrl+Shift+\\', icon: Split, category: 'Terminal', disabled: !activePane, run: () => splitActivePane('vertical') },
     { id: 'split-horizontal', title: 'Split active pane (horizontal)', subtitle: 'Ctrl+Shift+-', icon: Split, category: 'Terminal', disabled: !activePane, run: () => splitActivePane('horizontal') },
     { id: 'maximize-pane', title: 'Maximize / restore active pane', subtitle: 'Ctrl+Shift+Enter', icon: Maximize, category: 'Terminal', disabled: !activePane, run: toggleActivePaneMaximize },
-    { id: 'toggle-oxevoice', title: 'Toggle OXEVoice for active context', subtitle: 'Speak directly into terminal or editor', icon: Mic, category: 'Terminal', keywords: ['voice', 'speech', 'microphone', 'dictation'], disabled: !activeWorkspace?.editorVisible && (!activePane || activePane.type !== 'terminal' || getTerminalStatus(activePane.id).status !== 'running'), run: toggleActivePaneVoice },
+    { id: 'toggle-oxevoice', title: 'Toggle OXEVoice for active context', subtitle: 'Speak into the active terminal, editor, or Thread draft', icon: Mic, category: 'Terminal', keywords: ['voice', 'speech', 'microphone', 'dictation'], disabled: applicationView !== 'thread' && !activeWorkspace?.editorVisible && (!activePane || activePane.type !== 'terminal' || getTerminalStatus(activePane.id).status !== 'running'), run: toggleActivePaneVoice },
     { id: 'restart-terminal', title: 'Restart active terminal', subtitle: 'Ctrl+R', icon: RotateCw, category: 'Terminal', disabled: !activePane || activePane.type !== 'terminal', run: () => activePane && void window.oxe.terminal.restart({ paneId: activePane.id }) },
     { id: 'stop-terminal', title: 'Stop active terminal', icon: StopCircle, category: 'Terminal', disabled: !activePane || activePane.type !== 'terminal', run: () => activePane && void window.oxe.terminal.stop({ paneId: activePane.id }) }
   ]
@@ -693,6 +714,8 @@ export function App(): ReactElement {
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent): void {
       if (event.defaultPrevented) return
+      // The native CLI owns its keymap, including Ctrl+R, Ctrl+B and Ctrl+J.
+      if ((event.target as HTMLElement | null)?.closest?.('.thread-native-cli')) return
       const settings = useUIStore.getState()
       if (settings.isSettingsOpen || settings.isWorkspaceSettingsOpen) return
       const key = event.key.toLowerCase()
@@ -715,6 +738,7 @@ export function App(): ReactElement {
         toggleSidebar()
         return
       }
+      if (applicationView !== 'code') return
       if ((event.ctrlKey || event.metaKey) && key === 'e') {
         event.preventDefault()
         toggleEditor()
@@ -763,7 +787,7 @@ export function App(): ReactElement {
         void window.oxe.terminal.restart({ paneId: activePane.id })
         return
       }
-      if ((event.ctrlKey || event.metaKey) && event.key === '/' && activePane?.type === 'terminal') {
+      if (applicationView === 'code' && (event.ctrlKey || event.metaKey) && event.key === '/' && activePane?.type === 'terminal') {
         event.preventDefault()
         openSlashOverlay(activePane.id)
         return
@@ -789,15 +813,20 @@ export function App(): ReactElement {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [activePane, activeWorkspace, maximizedPaneId, openCommandMenu, openSlashOverlay, openWorkspaceSettings, splitActivePane, toggleSidebar, updateEditorState])
+  }, [activePane, activeWorkspace, applicationView, maximizedPaneId, openCommandMenu, openSlashOverlay, openWorkspaceSettings, splitActivePane, toggleSidebar, updateEditorState])
 
   // Push-to-talk: hold the configured hotkey to dictate into the active
   // terminal, release to transcribe + insert. Works even while the terminal
   // is focused (window-level listener). Auto-repeat is guarded so holding
   // doesn't restart capture each tick.
   useEffect(() => {
+    if (applicationView !== 'code' && applicationView !== 'thread') return
     let holding = false
     const dispatch = (type: 'start' | 'end'): void => {
+      if (applicationView === 'thread') {
+        window.dispatchEvent(new CustomEvent(`oxe:thread-voice-hold-${type}`))
+        return
+      }
       if (!activePane || activePane.type !== 'terminal') return
       window.dispatchEvent(new CustomEvent(`oxe:terminal-voice-hold-${type}`, {
         detail: { paneId: activePane.id }
@@ -823,20 +852,59 @@ export function App(): ReactElement {
       window.removeEventListener('keyup', onKeyUp)
       window.removeEventListener('blur', onKeyUp)
     }
-  }, [activePane, pttHotkey])
+  }, [activePane, applicationView, pttHotkey])
+
+  const threadWorkspace = workspaces.find(w => w.id === threadSnapshot?.thread.workspaceId) ?? activeWorkspace
+  const workspaceIdsKey = JSON.stringify(workspaces.map(w => w.id))
+  useEffect(() => {
+    if (!hasOpenedThread) return
+    const ids: string[] = JSON.parse(workspaceIdsKey)
+    void useThreadStore.getState().load(ids, useWorkspaceStore.getState().activeWorkspaceId)
+    void useThreadStore.getState().loadProjects()
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const changed = new Set<string>()
+    let active = true
+    const flush = async () => {
+      const batch = [...changed]; changed.clear()
+      const state = useThreadStore.getState()
+      if (batch.some(id => !state.threads.some(t => t.id === id))) await state.load(ids)
+      else await Promise.all(batch.map(id => state.refresh(id)))
+      timer = undefined
+      if (active && changed.size) timer = setTimeout(() => { void flush() }, 100)
+    }
+    const unsubscribe = window.oxe?.thread?.onChanged(event => {
+      changed.add(event.threadId)
+      if (!timer) timer = setTimeout(() => { void flush() }, 100)
+    })
+    const unsubscribeAccounts = window.oxe?.agentAccount?.onChanged(status => useAccountStore.getState().changed(status))
+    return () => { active = false; unsubscribe?.(); unsubscribeAccounts?.(); if (timer) clearTimeout(timer) }
+  }, [hasOpenedThread, workspaceIdsKey])
+  const newThread = () => {
+    if (!workspaces.length) openNewWorkspace()
+    else setNewThreadWorkspaceId(threadWorkspace?.id ?? workspaces[0].id)
+  }
+  const openThreadAccounts = () => { if (threadWorkspace) setAccountsOpen(true); else openNewWorkspace() }
 
   return (
-    <ThemeProvider themeId={activeWorkspace?.themeId} density={activeWorkspace?.uiDensity}>
-      <main className={`app-shell${isSidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
+    <ThemeProvider themeId={(applicationView === 'thread' ? threadWorkspace : activeWorkspace)?.themeId} density={(applicationView === 'thread' ? threadWorkspace : activeWorkspace)?.uiDensity}>
+      <main className={`app-shell${applicationView === 'thread' ? ' thread-shell' : isSidebarCollapsed ? ' sidebar-collapsed' : ''}`} style={applicationView === 'thread' ? { '--thread-sidebar-width': `${isSidebarCollapsed ? 56 : codeSidebarWidth}px` } as CSSProperties : { '--sidebar-w': `${codeSidebarWidth}px` } as CSSProperties}>
       {delegationNotice && <div role="status" style={{ position: 'fixed', bottom: 18, right: 18, zIndex: 190, padding: 14, borderRadius: 10, background: 'var(--bg-elevated, #19191f)', border: '1px solid var(--accent)', maxWidth: 340 }}>
         <p>Delegated task updated</p>
         <button type="button" className="secondary-action" onClick={() => {
-          void useWorkspaceStore.getState().setActiveWorkspace(delegationNotice.workspaceId).then(() => useUIStore.getState().openWorkspaceSettings())
+          setDelegatedWorkOpen(true)
           setDelegationNotice(null)
         }}>View task</button>
         <button type="button" className="secondary-action" onClick={() => setDelegationNotice(null)}>Dismiss</button>
       </div>}
-      <Sidebar
+      {delegatedWorkOpen && <Suspense fallback={null}><DelegatedWorkDialog workspaces={workspaces} workspaceId={applicationView === 'thread' ? threadSnapshot?.thread.workspaceId ?? activeWorkspaceId ?? '' : activeWorkspaceId ?? ''}
+        origin={applicationView === 'thread' ? threadSelection ? { kind: 'thread', id: threadSelection } : undefined : activePane ? { kind: 'pane', id: activePane.id } : undefined}
+        onClose={() => setDelegatedWorkOpen(false)} onOpen={task => {
+          if (task.destinationThreadId) { setHasOpenedThread(true); setApplicationView('thread'); void useThreadStore.getState().select(task.destinationThreadId) }
+          else if (task.paneId) { setApplicationView('code'); void setActiveWorkspace(task.workspaceId).then(() => useUIStore.getState().setActivePane(task.paneId!)) }
+          setDelegatedWorkOpen(false)
+        }} /></Suspense>}
+      {applicationView === 'thread' ? <ThreadSidebar onDelegations={() => setDelegatedWorkOpen(true)} workspaces={workspaces} onCreate={(id, rootPath) => { setNewThreadRootPath(rootPath); setNewThreadWorkspaceId(id) }} onModeChange={() => setApplicationView('code')} onAccounts={openThreadAccounts} onAddProject={() => setThreadProjectOpen(true)} /> : <Sidebar
+        onDelegations={() => setDelegatedWorkOpen(true)}
         workspaces={workspaces}
         activeWorkspaceId={activeWorkspaceId}
         appVersion={appVersion}
@@ -849,9 +917,10 @@ export function App(): ReactElement {
         onOpenJobs={toggleBackgroundPanel}
         onOpenScripts={toggleScriptsPanel}
         onOpenSearch={openCommandMenu}
+        onSwitchToThread={() => { setHasOpenedThread(true); setApplicationView('thread') }}
         integrationGroups={integrationGroups}
-      />
-      <section className="workspace-surface">
+      />}
+      <section className={`workspace-surface${applicationView === 'thread' ? ' thread-workspace-surface' : ''}`}>
         <UpdateBanner />
         {error ? <div className="error-banner">{error}</div> : null}
         {appNotice ? (
@@ -864,15 +933,16 @@ export function App(): ReactElement {
           <div className="empty-state">
             <h3>Loading workspaces</h3>
           </div>
-        ) : activeWorkspace ? (
+        ) : activeWorkspace || applicationView === 'thread' ? (
           <>
+            {hasOpenedThread && <div className="thread-host" style={{ display: applicationView === 'thread' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'thread'}><Suspense fallback={<div className="empty-state">Loading threads…</div>}><ThreadGrid workspaces={workspaces} onNewThread={newThread} onAccounts={openThreadAccounts} onDelegations={() => setDelegatedWorkOpen(true)} /></Suspense></div>}
             {workspaces
               // Include the active id synchronously. On a first visit the MRU
               // effect has not run yet, but the user should never wait an extra
               // render before the new WorkspaceSurface begins mounting.
               .filter((ws) => ws.id === activeWorkspaceId || visitedWorkspaceIds.includes(ws.id))
               .map((ws) => {
-                const isActive = ws.id === activeWorkspaceId
+                const isActive = ws.id === activeWorkspaceId && applicationView === 'code'
                 return (
                   <div
                     key={ws.id}
@@ -920,7 +990,16 @@ export function App(): ReactElement {
             </button>
           </div>
         )}
-        <AppStatusBar workspace={activeWorkspace ?? null} activePaneId={activePane?.id ?? null} appVersion={appVersion} />
+        {applicationView === 'code' && <AppStatusBar workspace={activeWorkspace ?? null} activePaneId={activePane?.id ?? null} appVersion={appVersion} />}
+        <Suspense fallback={null}>
+          {accountsOpen && threadWorkspace && <ProviderAccountsPanel workspaceId={threadWorkspace.id} onClose={() => setAccountsOpen(false)} />}
+          {newThreadWorkspaceId !== undefined && <NewThreadDialog workspaces={workspaces} initialWorkspaceId={newThreadWorkspaceId} initialRootPath={newThreadRootPath} onClose={() => { setNewThreadWorkspaceId(undefined); setNewThreadRootPath(undefined) }} />}
+          {isThreadProjectOpen && <AddThreadProjectDialog onPickFolder={() => window.oxe.workspace.pickFolder()} onClose={() => setThreadProjectOpen(false)} onAdd={async rootPath => {
+            const shell = shellProfiles.find(profile => profile.isBuiltin && !['builtin-claude', 'builtin-copilot'].includes(profile.id)) ?? shellProfiles[0]
+            await createWorkspace({ rootPath, layoutPreset: 1, autoStart: false, ...(shell ? { defaultShellProfileId: shell.id, agentBindings: [{ paneIndex: 0, shellProfileId: shell.id }] } : {}) })
+            await useThreadStore.getState().loadProjects()
+          }} />}
+        </Suspense>
       </section>
       <ErrorBoundary label="esta janela">
       <Suspense fallback={null}>

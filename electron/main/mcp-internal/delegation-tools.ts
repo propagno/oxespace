@@ -16,14 +16,20 @@ function tool(name: string, description: string, properties: Record<string, unkn
         case 'oxespace_list_agents': value = ctx.delegationAgents?.(); break
         case 'oxespace_delegate_task': value = await service.create(origin, a as unknown as DelegationInput); break
         case 'oxespace_delegation_targets': value = service.coordinator.targets(await projectIdentity(origin.cwd)); break
-        case 'oxespace_delegation_preflight': value = await service.preflight(origin, a.targetWorkspaceId as string | undefined); break
+        case 'oxespace_delegation_preflight': value = await service.preflight(origin, {
+          targetWorkspaceId: a.targetWorkspaceId as string | undefined,
+          objective: a.objective as string | undefined,
+          branchIntent: a.branchIntent as DelegationInput['branchIntent']
+        }); break
         case 'oxespace_delegation_inbox': value = await service.inbox(origin, a.after as number | undefined); break
         case 'oxespace_delegation_result': value = await service.details(origin, a.taskId as string); break
         default: {
           const t = await service.authorize(origin, a.taskId as string)
           if (name === 'oxespace_delegation_status') value = t
-          if (name === 'oxespace_delegation_context') value = { taskId: t.id, context: t.context ?? 'Context is still being prepared.' }
+          if (name === 'oxespace_delegation_context') value = { taskId: t.id, context: t.context ?? 'Context is still being prepared.',
+            bundle: t.knowledgeBundle ? { version: t.knowledgeBundle.version, revision: t.knowledgeBundle.revision, sha256: t.knowledgeBundle.sha256, sources: t.knowledgeBundle.sources } : null }
           if (name === 'oxespace_delegation_update') await service.update(origin,t.id,a.state as string,a.text as string)
+          if (name === 'oxespace_delegation_checkpoint') await service.checkpoint(origin,t.id,a.text as string)
           if (name === 'oxespace_delegation_message') await service.message(origin,t.id,a.text as string)
           if (name === 'oxespace_delegation_acknowledge') service.coordinator.acknowledge(t, origin, a.cursor as number)
           if (name === 'oxespace_delegation_control') {
@@ -38,16 +44,32 @@ function tool(name: string, description: string, properties: Record<string, unkn
     } }
 }
 export const DELEGATION_TOOLS: ToolEntry[] = [
-  tool('oxespace_delegation_preflight','Validate an authorized destination and inspect expected effects without creating resources. Informational snapshot; creation revalidates permissions and repository identity.',{targetWorkspaceId:string}),
+  tool('oxespace_delegation_preflight','Validate an authorized destination and resolve a branch/worktree preview without creating resources. Creation revalidates permissions, refs and repository identity.',{
+    targetWorkspaceId:string, objective:string,
+    branchIntent:{ type:'object', additionalProperties:false, required:['strategy'], properties:{
+      strategy:{type:'string',enum:['existing','create','generated']}, name:{type:'string',maxLength:240},
+      baseRef:{type:'string',maxLength:240}, remote:{type:'string',maxLength:120}, fetchBase:{type:'boolean'},
+      reuseExistingWorktree:{type:'boolean'}, reference:{type:'string',maxLength:120}, workLabel:{type:'string',maxLength:240},
+      template:{type:'string',maxLength:240}
+    }}
+  }),
   tool('oxespace_delegation_targets','List local destination workspaces explicitly authorized by the user. To register or authorize a repository, ask the user to add its path in Workspace settings > Agent delegation. No clone or permission bypass.',{}),
   tool('oxespace_delegation_result','Read authorized task results and provisioning receipts. Survives application restart; reconnect a new origin terminal through Workspace settings.',{taskId:string},['taskId']),
   tool('oxespace_delegation_acknowledge','Persist your read cursor for a task without consuming another participant’s events.',{taskId:string,cursor:{type:'integer',minimum:0}},['taskId']),
   tool('oxespace_list_agents','List configured Claude/Codex profiles eligible for delegation.',{}),
-  tool('oxespace_delegate_task','Delegate to an independent agent worktree. Optional targetWorkspaceId must be user-authorized; omit for current workspace. Reuse key for retries. Evidence is selected committed text only. Analysis mode is an instruction, NOT a security sandbox. No push/merge or automatic wake-up.',{ key: string, agentProfileId: string, objective: string, handoff: string, acceptance: string, targetWorkspaceId: string, mode:{type:'string',enum:['analysis','isolated-change']}, evidenceFiles:{type:'array',maxItems:8,items:{type:'string',maxLength:512}} },['key','agentProfileId','objective','handoff','acceptance']),
+  tool('oxespace_delegate_task','Delegate to an independent, persistent worktree. Choose an existing exact branch, create an exact branch, or use a local generated template. Optional targetWorkspaceId must be user-authorized. Reuse key for idempotency. No push or merge.',{ key: string, agentProfileId: string, objective: string, handoff: string, acceptance: string, targetWorkspaceId: string,
+    schemaVersion:{type:'integer',enum:[2]}, surface:{type:'string',enum:['thread','terminal']}, mode:{type:'string',enum:['analysis','isolated-change']},
+    branchIntent:{ type:'object', additionalProperties:false, required:['strategy'], properties:{
+      strategy:{type:'string',enum:['existing','create','generated']}, name:{type:'string',maxLength:240},
+      baseRef:{type:'string',maxLength:240}, remote:{type:'string',maxLength:120}, fetchBase:{type:'boolean'},
+      reuseExistingWorktree:{type:'boolean'}, reference:{type:'string',maxLength:120}, workLabel:{type:'string',maxLength:240},
+      template:{type:'string',maxLength:240}
+    }}, evidenceFiles:{type:'array',maxItems:8,items:{type:'string',maxLength:512}} },['key','agentProfileId','objective','handoff','acceptance']),
   tool('oxespace_delegation_status','Read provisioning, acceptance and result state. A running process is not task completion.',{taskId:string},['taskId']),
   tool('oxespace_delegation_context','Read the task-specific handoff and bounded optional memory/code evidence. Verify historical claims against the checkout.',{taskId:string},['taskId']),
   tool('oxespace_delegation_update','Delegated agent: acknowledge with accepted, report blocked, or submit result and test evidence with review.',{taskId:string,state:{enum:['accepted','blocked','review'],type:'string'},text:string},['taskId','state','text']),
+  tool('oxespace_delegation_checkpoint','Delegated agent: persist an append-only progress checkpoint that survives restart without changing task state.',{taskId:string,text:string},['taskId','text']),
   tool('oxespace_delegation_message','Send a question, answer or clarification to the other participant. Does not type into terminals.',{taskId:string,text:string},['taskId','text']),
   tool('oxespace_delegation_inbox','Read your delegation events after cursor. Check at milestones and while awaiting parallel work. Reads do not consume messages.',{after:{type:'integer',minimum:0}}),
-  tool('oxespace_delegation_control','Origin only: retry failed/interrupted provisioning, cancel preserving code, or approve a submitted result. Never merges.',{taskId:string,action:{type:'string',enum:['retry','cancel','approve']}},['taskId','action'])
+  tool('oxespace_delegation_control','Origin only: resume an exact bound native Thread session, retry provisioning when no resumable session exists, explicitly start a new session from the latest handoff, cancel while preserving code, or approve a submitted result. Never merges.',{taskId:string,action:{type:'string',enum:['resume','retry','new-session','cancel','approve']}},['taskId','action'])
 ]

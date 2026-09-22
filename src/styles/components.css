@@ -370,15 +370,15 @@
   gap: var(--space-sm);
   height: 36px;
   padding: 0 18px;
-  background: var(--accent);
+  background: var(--tx-primary);
   border: none;
   border-radius: var(--radius-sm);
-  color: #0a1a0f;
+  color: var(--bg-app);
   font-size: var(--fs-sm);
   font-weight: 600;
   transition: background var(--transition-base);
 }
-.primary-action:hover:not(:disabled) { background: var(--accent-hover); }
+.primary-action:hover:not(:disabled) { background: color-mix(in srgb, var(--tx-primary) 90%, var(--bg-app)); }
 .primary-action:disabled { opacity: 0.4; cursor: default; }
 
 .secondary-action {

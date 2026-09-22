@@ -20,9 +20,22 @@ const TOKEN = process.env.OXESPACE_MCP_TOKEN
 const WSID = process.env.OXESPACE_WORKSPACE_ID || ''
 const MEMORY_RUN = process.env.OXESPACE_MEMORY_RUN_ID || ''
 const OPTIONAL_MEMORY = process.argv.includes('--optional-memory')
+const allowIndex = process.argv.indexOf('--allowed-tools')
+const allowedTools = allowIndex < 0 ? null : new Set(JSON.parse(process.argv[allowIndex + 1]))
 const PROTOCOL_VERSION = '2025-06-18'
 const SERVER_NAME = 'oxespace'
 const SERVER_VERSION = '0.1.0'
+const MAX_READ_RETRIES = 2
+const READ_ONLY_TOOLS = new Set([
+  'oxespace_ping', 'oxespace_list_workspaces', 'oxespace_list_panes', 'oxespace_list_scripts',
+  'oxespace_list_background_jobs', 'oxespace_get_job_output', 'oxespace_list_worktrees',
+  'oxespace_capabilities', 'oxespace_execution_context', 'oxespace_semantic_search',
+  'oxespace_hybrid_explore', 'oxespace_project_context', 'oxespace_quality_check',
+  'oxespace_memory_search', 'oxespace_memory_sessions', 'oxespace_memory_handoffs',
+  'oxespace_memory_diagnostics', 'oxespace_delegation_status', 'oxespace_delegation_result',
+  'oxespace_delegation_inbox', 'oxespace_delegation_targets', 'oxespace_delegation_preflight',
+  'oxespace_documentation_get', 'oxespace_documentation_list'
+])
 
 if ((!PORT || !TOKEN) && !OPTIONAL_MEMORY) {
   process.stderr.write('[oxespace-mcp] missing OXESPACE_MCP_PORT/TOKEN env — is OXESpace running?\n')
@@ -42,8 +55,8 @@ function err(id, code, message, data) {
   send({ jsonrpc: '2.0', id, error: data === undefined ? { code, message } : { code, message, data } })
 }
 
-/** POST a JSON-RPC request to the local OXESpace RPC server. */
-function rpc(method, params) {
+/** One POST attempt to the local OXESpace RPC server. */
+function rpcOnce(method, params) {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
     const req = http.request(
@@ -72,7 +85,7 @@ function rpc(method, params) {
             return
           }
           if (!res.statusCode || res.statusCode >= 500) {
-            reject({ code: -32603, message: 'OXESpace main not reachable (status ' + res.statusCode + ')' })
+            reject({ code: -32603, message: 'OXESpace main unavailable (status ' + res.statusCode + ')', data: { category: 'infrastructure', retryable: true } })
             return
           }
           try {
@@ -89,12 +102,35 @@ function rpc(method, params) {
       }
     )
     req.on('error', (e) => {
-      reject({ code: -32603, message: 'OXESpace main not reachable: ' + e.message })
+      reject({ code: -32603, message: 'OXESpace main unavailable: ' + e.message, data: { category: 'infrastructure', retryable: true } })
     })
-    req.setTimeout(10000, () => req.destroy(new Error('OXESpace request timed out')))
+    req.setTimeout(5000, () => req.destroy(new Error('request timed out')))
     req.write(body)
     req.end()
   })
+}
+
+function wait(ms) { return new Promise(resolve => setTimeout(resolve, ms)) }
+
+/** Retry transport failures only when repeating the operation cannot create side effects. */
+async function rpc(method, params, retryable) {
+  const attempts = retryable ? MAX_READ_RETRIES + 1 : 1
+  let last
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try { return await rpcOnce(method, params) }
+    catch (error) {
+      last = error
+      if (!retryable || error.code !== -32603 || attempt === attempts) break
+      await wait(attempt === 1 ? 150 : 400)
+    }
+  }
+  if (retryable && last && last.code === -32603) {
+    throw { ...last, message: `OXESpace main unavailable after ${attempts} attempts: ${last.message}`, data: { ...(last.data || {}), category: 'infrastructure', retryable: true, attempts } }
+  }
+  if (!retryable && last && last.code === -32603) {
+    throw { ...last, data: { ...(last.data || {}), category: 'infrastructure', retryable: false, delivery: 'unknown', attempts: 1 } }
+  }
+  throw last
 }
 
 /** Handle one parsed JSON-RPC request from the agent CLI. */
@@ -122,7 +158,8 @@ async function dispatch(msg) {
   if (msg.method === 'tools/list') {
     if (OPTIONAL_MEMORY && (!PORT || !TOKEN || !MEMORY_RUN)) return ok(msg.id, { tools: [] })
     try {
-      const result = await rpc('tools/list', undefined)
+      const result = await rpc('tools/list', undefined, true)
+      if (allowedTools && result) result.tools = (result.tools || []).filter(tool => allowedTools.has(tool.name))
       ok(msg.id, result || { tools: [] })
     } catch (e) {
       err(msg.id, e.code || -32603, e.message || 'tools/list failed', e.data)
@@ -131,9 +168,10 @@ async function dispatch(msg) {
   }
 
   if (msg.method === 'tools/call') {
+    if (allowedTools && !allowedTools.has(msg.params && msg.params.name)) return err(msg.id, -32602, 'This tool is not available in Thread')
     if (OPTIONAL_MEMORY && (!PORT || !TOKEN || !MEMORY_RUN)) return err(msg.id, -32602, 'Memory is not bound to an OXESpace execution')
     try {
-      const result = await rpc('tools/call', msg.params)
+      const result = await rpc('tools/call', msg.params, READ_ONLY_TOOLS.has(msg.params && msg.params.name))
       ok(msg.id, result || { content: [] })
     } catch (e) {
       err(msg.id, e.code || -32603, e.message || 'tools/call failed', e.data)

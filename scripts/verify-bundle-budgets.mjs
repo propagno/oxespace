@@ -2,6 +2,7 @@ import { readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
 const root = process.cwd()
+const REQUIRED_HEADROOM = 0.05
 const budgets = [
   // The main entry is platform-sensitive by a few hundred bytes (Windows
   // source-map/path normalization). Keep a narrow 4 KiB headroom so a valid
@@ -25,8 +26,12 @@ for (const budget of budgets) {
   const bytes = statSync(join(directory, matches[0])).size
   const limitKb = Math.round(budget.max / 1024)
   const actualKb = Math.round(bytes / 1024)
-  console.log(`[bundle] ${budget.label}: ${actualKb} kB / ${limitKb} kB`)
-  if (bytes > budget.max) failed = true
+  const headroom = 1 - bytes / budget.max
+  console.log(`[bundle] ${budget.label}: ${actualKb} kB / ${limitKb} kB · ${(headroom * 100).toFixed(1)}% headroom`)
+  if (bytes > budget.max * (1 - REQUIRED_HEADROOM)) {
+    console.error(`[bundle] ${budget.label}: requires at least ${REQUIRED_HEADROOM * 100}% headroom`)
+    failed = true
+  }
 }
 
 if (failed) {

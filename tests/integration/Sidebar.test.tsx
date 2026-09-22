@@ -87,7 +87,7 @@ describe('Sidebar', () => {
     )
 
     expect(screen.getByText('repo')).toBeInTheDocument()
-    expect(screen.getByText('v0.1.2')).toBeInTheDocument()
+    expect(screen.getByTitle('OXESpace v0.1.2')).toBeInTheDocument()
     // Path is not shown on the card (lives in the name tooltip only).
     expect(screen.queryByText('C:/projects/repo')).not.toBeInTheDocument()
     expect(screen.queryByText('projects/repo')).not.toBeInTheDocument()
@@ -124,6 +124,9 @@ describe('Sidebar', () => {
     // Tools hub entry lives in the sidebar footer (not the workspace topbar).
     await user.click(screen.getByTestId('btn-open-tools'))
     expect(onOpenTools).toHaveBeenCalled()
+    useUIStore.setState({ isSettingsOpen: false })
+    await user.click(screen.getByRole('button', { name: 'Open settings', exact: true }))
+    expect(useUIStore.getState().isSettingsOpen).toBe(true)
   })
 
   test('collapsed sidebar keeps workspaces available on the rail', async () => {
