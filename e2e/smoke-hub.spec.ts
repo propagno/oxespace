@@ -40,7 +40,7 @@ test('smoke: Tools hub and Agent Settings open from sidebar', async () => {
     await page.getByTestId('tools-agent-settings').click()
     await expect(page.locator('.settings-center')).toBeVisible()
     await page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Agents/ }).click()
-    await expect(page.getByRole('heading', { name: 'AI Providers' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Agents', exact: true })).toBeVisible()
     await expect(page.getByTestId('btn-discover-agents')).toBeVisible()
 
     await page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Diagnostics/ }).click()

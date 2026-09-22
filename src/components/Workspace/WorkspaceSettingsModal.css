@@ -93,6 +93,7 @@
 .workspace-settings-modal-v2 .memory-settings summary { color: var(--tx-secondary); cursor: pointer; }
 @media (max-width: 1000px) { .ws-appearance-layout { grid-template-columns: minmax(0, 1fr); } .workspace-settings-modal-v2 .ws-settings-aside { position: static; width: 100%; } }
 @media (max-width: 800px) {
+  .workspace-settings-modal-v2 .theme-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .workspace-settings-modal-v2 .ws-settings-body { flex-direction: column; }
   .ws-settings-nav { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 16px; border-right: 0; border-bottom: 1px solid var(--bd-subtle); }
   .ws-settings-nav button { flex: 1 1 130px; width: auto; margin: 0; padding: 9px; gap: 8px; }

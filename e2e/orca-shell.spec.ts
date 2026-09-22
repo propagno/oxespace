@@ -32,8 +32,8 @@ test('renders the Orca-inspired project, editor and source-control shell', async
     if (await expandSidebar.isVisible().catch(() => false)) await expandSidebar.click()
 
     const navItems = page.locator('.sidebar-quick-nav .sidebar-nav-item')
-    await expect(navItems).toHaveCount(1)
-    await expect(navItems.first()).toContainText('Search')
+    await expect(navItems.first()).toContainText('New workspace')
+    await expect(navItems.filter({ hasText: 'Files & commands' })).toHaveCount(1)
     await expect(page.getByTestId('btn-open-tools')).toBeVisible()
     await expect(page.locator('.app-statusbar')).toBeVisible()
 
