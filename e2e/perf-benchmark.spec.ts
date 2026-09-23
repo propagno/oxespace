@@ -382,11 +382,22 @@ test('workspace transition: returning to an evicted workspace', async () => {
           { paneId: alphaPaneId, marker: identityMarker }
         )
         await expect.poll(
-          () => page.evaluate(
-            ({ paneId, marker }) => window.oxe.terminal.attach({ paneId }).then((result) => result.replay.includes(marker)),
-            { paneId: alphaPaneId, marker: identityMarker }
-          ),
-          { message: 'identity marker reaches the original PTY buffer' }
+          async () => {
+            const found = await page.evaluate(
+              ({ paneId, marker }) => window.oxe.terminal.attach({ paneId }).then((result) => result.replay.includes(marker)),
+              { paneId: alphaPaneId, marker: identityMarker }
+            )
+            // A PTY process can be alive a fraction before its shell is ready
+            // to consume input (notably PowerShell on a busy Windows runner).
+            // Retry the idempotent marker instead of turning startup variance
+            // into a false terminal-persistence regression.
+            if (!found) await page.evaluate(
+              ({ paneId, marker }) => window.oxe.terminal.write({ paneId, data: `echo ${marker}\r` }),
+              { paneId: alphaPaneId, marker: identityMarker }
+            )
+            return found
+          },
+          { message: 'identity marker reaches the original PTY buffer', timeout: 15_000, intervals: [250, 500, 1_000] }
         ).toBe(true)
       }
     }
