@@ -3,6 +3,7 @@ import { Suspense, lazy, useCallback, useEffect, useRef, useState, type CSSPrope
 import { useShallow } from 'zustand/react/shallow'
 import type { AgentProfile } from '../shared/types/agent'
 import type { DelegationTask } from '../shared/types/delegation'
+import { rootPathKey } from '../shared/utils/path'
 import { OxeLogo } from './components/Brand/OxeLogo'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { ThemeProvider } from './components/Theme/ThemeProvider'
@@ -1035,6 +1036,12 @@ export function App(): ReactElement {
           {accountsOpen && threadWorkspace && <ProviderAccountsPanel workspaceId={threadWorkspace.id} onClose={() => setAccountsOpen(false)} />}
           {newThreadWorkspaceId !== undefined && <NewThreadDialog workspaces={workspaces} initialWorkspaceId={newThreadWorkspaceId} initialRootPath={newThreadRootPath} onClose={() => { setNewThreadWorkspaceId(undefined); setNewThreadRootPath(undefined) }} />}
           {isThreadProjectOpen && <AddThreadProjectDialog onPickFolder={() => window.oxe.workspace.pickFolder()} onClose={() => setThreadProjectOpen(false)} onAdd={async rootPath => {
+            const catalog = useThreadStore.getState().projects
+            const existing = catalog.find(project => project.contexts.some(context => rootPathKey(context.rootPath, window.oxe.app.platform) === rootPathKey(rootPath, window.oxe.app.platform)))
+            if (existing) {
+              useThreadStore.getState().restoreProject(existing.projectId)
+              return
+            }
             const shell = shellProfiles.find(profile => profile.isBuiltin && !['builtin-claude', 'builtin-copilot'].includes(profile.id)) ?? shellProfiles[0]
             await createWorkspace({ rootPath, layoutPreset: 1, autoStart: false, ...(shell ? { defaultShellProfileId: shell.id, agentBindings: [{ paneIndex: 0, shellProfileId: shell.id }] } : {}) })
             await useThreadStore.getState().loadProjects()

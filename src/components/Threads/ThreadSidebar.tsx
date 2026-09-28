@@ -117,8 +117,15 @@ export function ThreadSidebar({ workspaces, onCreate, onModeChange, onAccounts, 
           </div>)}
         </section>}
         {actionError && <p className="thread-catalog-error" role="alert">{actionError}</p>}
-        {!loading && !groups.length && <p className="thread-nav-empty">{query ? 'No conversations found.' : 'Add a project to start a conversation.'}</p>}
-        {hiddenProjects.length > 0 && <button type="button" className="thread-add-project" onClick={() => useThreadStore.getState().restoreProjects()}>Restore hidden projects ({hiddenProjects.length})</button>}
+        {!loading && !groups.length && <p className="thread-nav-empty">{query ? 'No conversations found.' : hiddenProjects.length ? 'Restore a project below or add another folder.' : 'Add a project to start a conversation.'}</p>}
+        {hiddenProjects.length > 0 && <section className="thread-hidden-section" aria-label="Removed projects">
+          <h2>Removed projects</h2>
+          {hiddenProjects.map(id => {
+            const project = projects.find(item => item.projectId === id)
+            if (!project) return null
+            return <button key={id} type="button" className="thread-restore-project" title={project.identityLabel} onClick={() => useThreadStore.getState().restoreProject(id)}><ArchiveRestore size={13} aria-hidden="true" /><span>{project.displayName}</span><small>Restore</small></button>
+          })}
+        </section>}
       </nav>
     </>}
     <NavigationFooter className="thread-nav-footer" collapsed={collapsed} context={{ label: 'Accounts', ariaLabel: 'Agent accounts', icon: UserRound, onClick: onAccounts }} onToggle={toggleCollapse} />
@@ -132,7 +139,7 @@ export function ThreadSidebar({ workspaces, onCreate, onModeChange, onAccounts, 
         <footer><button type="button" disabled={acting} onClick={() => setRenameTarget(null)}>Cancel</button><button type="submit" className="thread-primary" disabled={acting || !renameValue.trim() || renameValue.trim() === renameTarget.title}>{acting ? 'Renaming…' : 'Rename conversation'}</button></footer>
       </form>
     </DesktopDialog>}
-    {confirmation && <DesktopDialog className="thread-create-dialog" title={confirmation.kind === 'thread' ? 'Delete thread' : confirmation.kind === 'archive' ? 'Archive conversation' : 'Remove project'} description={confirmation.kind === 'thread' ? `Delete “${confirmation.title}” from OXESpace? An active turn will stop. The provider session and project files are kept.` : confirmation.kind === 'archive' ? `Archive “${confirmation.title}”? An active turn will stop. You can restore it from Archived in this sidebar.` : `Hide “${confirmation.title}” from the Thread sidebar? Conversations, files and Code workspaces are kept. You can restore it later.`} onClose={() => { if (!acting) setConfirmation(null) }}>
+    {confirmation && <DesktopDialog className="thread-create-dialog" title={confirmation.kind === 'thread' ? 'Delete thread' : confirmation.kind === 'archive' ? 'Archive conversation' : 'Remove project'} description={confirmation.kind === 'thread' ? `Delete “${confirmation.title}” from OXESpace? An active turn will stop. The provider session and project files are kept.` : confirmation.kind === 'archive' ? `Archive “${confirmation.title}”? An active turn will stop. You can restore it from Archived in this sidebar.` : `Remove “${confirmation.title}” from the Thread sidebar? Its conversations, files and Code workspaces remain. Restore this project individually from Removed projects or add its folder again.`} onClose={() => { if (!acting) setConfirmation(null) }}>
       {actionError && <p role="alert">{actionError}</p>}
       <footer><button type="button" disabled={acting} onClick={() => setConfirmation(null)}>Cancel</button><button type="button" className="thread-primary" disabled={acting} onClick={() => {
         setActing(true); setActionError('')

@@ -85,7 +85,11 @@
 .thread-resume-all { justify-self: start; }
 .thread-resume-native-label { display: grid; gap: 6px; min-width: 0; flex: 1; color: var(--tx-secondary); font-size: var(--fs-xs); }
 .thread-resume-native-label input { width: 100%; }
-.thread-project-list .thread-add-project { margin-top: 12px; color: var(--tx-muted); font-size: var(--fs-2xs); }
+.thread-hidden-section { margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--bd-base); }
+.thread-project-list .thread-restore-project { width: 100%; display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 6px 10px; border-radius: var(--nav-radius); color: var(--tx-secondary); text-align: left; font-size: var(--fs-xs); }
+.thread-project-list .thread-restore-project:hover, .thread-project-list .thread-restore-project:focus-visible { background: var(--bg-hover); color: var(--tx-primary); }
+.thread-restore-project span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thread-restore-project small { margin-left: auto; color: var(--tx-muted); }
 .thread-archived-section { margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--bd-base); }
 .thread-archived-row .thread-navigation-item { color: var(--tx-secondary); }
 .thread-nav-empty, .thread-catalog-error { padding: 8px; color: var(--tx-muted); font-size: var(--fs-xs); }

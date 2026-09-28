@@ -101,6 +101,12 @@ describe('workspace.store', () => {
     expect(result.current.activeWorkspaceId).toBe('workspace-1')
   })
 
+  test('does not duplicate a workspace when the folder is already open', async () => {
+    useWorkspaceStore.setState({ workspaces: [workspace], activeWorkspaceId: workspace.id })
+    await useWorkspaceStore.getState().createWorkspace({ rootPath: workspace.rootPath, layoutPreset: 1 })
+    expect(useWorkspaceStore.getState().workspaces.map(item => item.id)).toEqual([workspace.id])
+  })
+
   test('switches optimistically without replacing the workspace after persistence', async () => {
     let resolveActivation: (workspace: Workspace) => void = () => undefined
     const activation = new Promise<Workspace>((resolve) => { resolveActivation = resolve })

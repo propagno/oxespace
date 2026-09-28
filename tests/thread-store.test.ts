@@ -30,8 +30,13 @@ describe('Thread navigation store', () => {
     expect(useThreadStore.getState().threads).toHaveLength(1)
     expect(useThreadStore.getState().drafts.saved).toBe('Keep me')
     expect(useThreadStore.getState().hiddenProjects).toEqual(['project'])
-    useThreadStore.getState().restoreProjects()
+    useThreadStore.getState().restoreProject('project')
     expect(useThreadStore.getState().hiddenProjects).toEqual([])
+  })
+  it('restores only the selected hidden project', () => {
+    useThreadStore.setState({ hiddenProjects: ['one', 'two'] })
+    useThreadStore.getState().restoreProject('one')
+    expect(useThreadStore.getState().hiddenProjects).toEqual(['two'])
   })
   it('ignores a late read after another conversation is selected', async () => {
     let resolve!: (s: ThreadSnapshot) => void

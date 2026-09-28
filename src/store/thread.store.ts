@@ -16,7 +16,7 @@ interface ThreadState {
   markUnread: (id: string) => void
   markRead: (id: string) => void
   hideProject: (id: string) => Promise<void>
-  restoreProjects: () => void
+  restoreProject: (id: string) => void
   select: (id: string | null, markRead?: boolean) => Promise<void>
   openSecondary: (id: string) => Promise<void>
   closeSecondary: () => void
@@ -44,7 +44,7 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
     set(state => ({ hiddenProjects: [...new Set([...state.hiddenProjects, id])] }))
     if (get().snapshot?.thread.projectId === id) await get().select(null)
   },
-  restoreProjects: () => set({ hiddenProjects: [] }),
+  restoreProject: id => set(state => ({ hiddenProjects: state.hiddenProjects.filter(value => value !== id) })),
   select: async (id, markRead = true) => {
     const version = ++generation
     const cached = id ? get().snapshotCache[id] ?? null : null

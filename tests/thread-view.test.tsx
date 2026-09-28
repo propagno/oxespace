@@ -82,6 +82,20 @@ describe('Thread workspace UI', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add project' }))
     await waitFor(() => expect(onAdd).toHaveBeenCalledWith('C:\\projects\\thread-app'))
   })
+  it('restores one removed project without restoring the others', () => {
+    const f = fixture()
+    useThreadStore.setState({ projects: [
+      { projectId: 'project', displayName: 'Repo', identityLabel: '/repo', contexts: [{ workspaceId: 'ws', rootPath: '/repo', label: 'Repo' }] },
+      { projectId: 'other', displayName: 'Other', identityLabel: '/other', contexts: [{ workspaceId: 'other-ws', rootPath: '/other', label: 'Other' }] }
+    ], hiddenProjects: ['project', 'other'] })
+    render(<ThreadSidebar workspaces={[f.workspace]} onCreate={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Repo Restore' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Other Restore' })).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Repo Restore' }))
+    expect(useThreadStore.getState().hiddenProjects).toEqual(['other'])
+    expect(screen.getByRole('button', { name: 'New thread in Repo' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Other Restore' })).toBeVisible()
+  })
   it('creates a thread in the project context and requires confirmation before deleting a conversation', async () => {
     const f = fixture(), onCreate = vi.fn()
     const user = userEvent.setup()
