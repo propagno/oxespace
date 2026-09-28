@@ -252,6 +252,18 @@ describe('TerminalPane', () => {
     expect(screen.getByTestId('menu-toggle-rtk')).toHaveAttribute('aria-checked', 'true')
   })
 
+  test('restores an exact Codex session in the selected pane', async () => {
+    const id = '11111111-1111-4111-8111-111111111111'
+    window.oxe.session = { list: vi.fn().mockResolvedValue([{ sessionId: id, provider: 'codex', firstMessagePreview: 'Implement authentication', modelId: 'gpt-5', requestCount: 12, lastUpdatedMs: Date.now(), sessionStartedAtMs: Date.now() }]) } as unknown as typeof window.oxe.session
+    const user = userEvent.setup()
+    render(<TerminalPane pane={{ ...createPane(), agentProfileId: 'agent-codex' }} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
+    await user.click(screen.getByTestId('btn-terminal-more'))
+    await user.click(screen.getByRole('menuitem', { name: 'Restore provider session…' }))
+    await user.click(await screen.findByRole('button', { name: /Implement authentication/ }))
+    await waitFor(() => expect(window.oxe.terminal.start).toHaveBeenCalledWith(expect.objectContaining({ paneId: 'pane-1', workspaceId: 'workspace-1', agentCommand: 'codex', agentArgs: ['resume', id, '--no-alt-screen'] })))
+    expect(window.oxe.terminal.stop).toHaveBeenCalledWith({ paneId: 'pane-1' })
+  })
+
   test('oxe:terminal-new-session restarts a running terminal', async () => {
     useTerminalStore.getState().setStatus('pane-1', 'running')
     render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)

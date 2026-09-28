@@ -71,7 +71,7 @@ const DEFAULT_SHELL_PROFILE_ID = 'builtin-claude'
 // PowerShell on Windows, bash elsewhere — migration 046 repointed the existing
 // rows to match, so this must resolve from the same helper the migration mirrors.
 const DEFAULT_SPLIT_SHELL_PROFILE_ID = defaultSplitShellProfileId()
-const DEFAULT_THEME_ID: WorkspaceThemeId = 'dracula'
+const DEFAULT_THEME_ID: WorkspaceThemeId = 'midnight'
 const DEFAULT_UI_DENSITY: WorkspaceDensity = 'compact'
 const DEFAULT_LAYOUT_PRESET: WorkspaceLayoutPreset = 4
 
@@ -462,7 +462,8 @@ export class WorkspaceService {
     const panesToRemove = layoutChanged ? current.panes.filter((pane) => pane.rowIndex >= 0 && !nextPositionKeys.has(positionKey(pane))) : []
     const lockedPane = panesToRemove.find((pane) => pane.status !== 'idle' && pane.status !== 'exited')
     if (lockedPane) {
-      throw new Error('Cannot reduce layout while removed panes are running')
+      const runningCount = panesToRemove.filter((pane) => pane.status !== 'idle' && pane.status !== 'exited').length
+      throw new Error(`Cannot switch to ${nextPreset} pane${nextPreset === 1 ? '' : 's'} while ${runningCount} terminal${runningCount === 1 ? ' is' : 's are'} running in positions that would be removed. Stop or close those terminals, then save again.`)
     }
 
     // Allow renaming the workspace's display label without touching its

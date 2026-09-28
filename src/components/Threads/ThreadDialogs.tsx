@@ -1,4 +1,4 @@
-import { FolderOpen } from 'lucide-react'
+import { Check, Code2, FolderOpen, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import type { ThreadProvider } from '../../../shared/types/thread'
@@ -17,8 +17,8 @@ export function NewThreadDialog({ workspaces, initialWorkspaceId, initialRootPat
     setPending(true); setError('')
     try { const snapshot = await window.oxe.thread!.create({ workspaceId: context.workspaceId, provider, ...(context.paneId ? { paneId: context.paneId } : {}) }); useThreadStore.getState().adopt(snapshot); onClose() }
     catch { setError('Could not create conversation. Check the project directory and try again.') } finally { setPending(false) }
-  }}><label>Project and directory<select value={choice} onChange={e => setChoice(Number(e.target.value))}>{unique.map((c, i) => <option key={`${c.workspaceId}:${c.paneId}`} value={i}>{c.projectName} · {c.rootPath}</option>)}</select></label>
-    <label>Agent<select value={provider} onChange={e => setProvider(e.target.value as ThreadProvider)}><option value="claude">Claude Code</option><option value="codex">Codex</option></select></label>
+  }}><div className="thread-create-section"><label htmlFor="thread-project-choice">Project</label><select id="thread-project-choice" value={choice} onChange={e => setChoice(Number(e.target.value))}>{unique.map((c, i) => <option key={`${c.workspaceId}:${c.paneId}`} value={i}>{c.projectName} · {c.rootPath}</option>)}</select><p>Conversation files and commands use this directory.</p></div>
+    <fieldset className="thread-agent-choice"><legend>Agent</legend><div className="thread-agent-options">{(['claude', 'codex'] as const).map(id => <label key={id} className="thread-agent-option" data-selected={provider === id}><input type="radio" name="thread-provider" value={id} checked={provider === id} onChange={() => setProvider(id)} /><span className="thread-agent-option-icon">{id === 'claude' ? <Sparkles size={16} /> : <Code2 size={16} />}</span><span><strong>{id === 'claude' ? 'Claude Code' : 'Codex'}</strong><small>{id === 'claude' ? 'Claude subscription' : 'ChatGPT subscription'}</small></span>{provider === id && <Check size={15} className="thread-agent-option-check" />}</label>)}</div></fieldset>
     {error && <p role="alert">{error}</p>}<footer><button type="button" onClick={onClose}>Cancel</button><button type="submit" className="thread-primary" disabled={!unique[choice] || pending || !window.oxe?.thread}>Create thread</button></footer></form></DesktopDialog>
 }
 

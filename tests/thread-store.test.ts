@@ -2,8 +2,26 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useThreadStore } from '../src/store/thread.store'
 import type { ThreadSnapshot } from '../shared/types/thread'
 const snapshot = (id: string, workspaceId = 'ws'): ThreadSnapshot => ({ thread: { id, workspaceId, projectId: 'project', rootPath: '/repo', provider: 'codex', title: id, pinned: false, status: 'idle', nativeSessionId: null, createdAt: 1, updatedAt: 1 }, events: [] })
-beforeEach(() => useThreadStore.setState({ threads: [], selectedId: null, snapshot: null, secondaryId: null, activeCell: 'primary', snapshotCache: {}, snapshotCacheOrder: [], drafts: {}, errors: {}, loading: false, hiddenProjects: [] }))
+beforeEach(() => useThreadStore.setState({ threads: [], selectedId: null, snapshot: null, secondaryId: null, activeCell: 'primary', snapshotCache: {}, snapshotCacheOrder: [], drafts: {}, errors: {}, loading: false, hiddenProjects: [], unreadIds: [] }))
 describe('Thread navigation store', () => {
+  it('persists unread sessions and clears the marker when the conversation opens', async () => {
+    Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: { read: vi.fn(async () => snapshot('unread')) } } })
+    useThreadStore.getState().markUnread('unread')
+    expect(useThreadStore.getState().unreadIds).toEqual(['unread'])
+    expect(JSON.parse(localStorage.getItem('oxe.thread-navigation') ?? '{}').state.unreadIds).toEqual(['unread'])
+    await useThreadStore.getState().select('unread')
+    expect(useThreadStore.getState().unreadIds).toEqual([])
+  })
+  it('keeps an unread reminder when the previously selected session is restored on startup', async () => {
+    const saved = snapshot('reminder')
+    Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: { list: vi.fn(async () => [saved.thread]), read: vi.fn(async () => saved) } } })
+    useThreadStore.setState({ selectedId: saved.thread.id, snapshot: null, unreadIds: [saved.thread.id] })
+    await useThreadStore.getState().load(['ws'])
+    expect(useThreadStore.getState().selectedId).toBe(saved.thread.id)
+    expect(useThreadStore.getState().unreadIds).toEqual([saved.thread.id])
+    await useThreadStore.getState().select(saved.thread.id)
+    expect(useThreadStore.getState().unreadIds).toEqual([])
+  })
   it('hides projects without losing conversations or drafts and restores them explicitly', async () => {
     const item = snapshot('saved')
     useThreadStore.setState({ threads: [item.thread], selectedId: 'saved', snapshot: item, drafts: { saved: 'Keep me' } })
@@ -76,11 +94,11 @@ describe('Thread navigation store', () => {
     expect(useThreadStore.getState().snapshotCache.secondary?.thread.id).toBe('secondary')
     expect(useThreadStore.getState().activeCell).toBe('secondary')
   })
-  it('prevents the same conversation from occupying both cells', async () => {
+  it('opens the selected conversation to the side when explicitly requested', async () => {
     const primary = snapshot('primary')
     useThreadStore.setState({ threads: [primary.thread], selectedId: 'primary', snapshot: primary, secondaryId: 'secondary', activeCell: 'secondary' })
     await useThreadStore.getState().openSecondary('primary')
-    expect(useThreadStore.getState().secondaryId).toBeNull()
-    expect(useThreadStore.getState().activeCell).toBe('primary')
+    expect(useThreadStore.getState().secondaryId).toBe('primary')
+    expect(useThreadStore.getState().activeCell).toBe('secondary')
   })
 })

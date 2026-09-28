@@ -20,7 +20,7 @@ export function NavigationBrand({ collapsed, mode, onModeChange, version }: {
   collapsed: boolean; mode: 'code' | 'thread'; onModeChange?: () => void; version?: string
 }) {
   return <>
-    <div className="desktop-nav-brand" title={version ? `OXESpace v${version}` : 'OXESpace'}><OxeLogo size={18} />{!collapsed && <strong>OXESpace</strong>}
+    <div className="desktop-nav-brand" title={version ? `OXESpace v${version}` : 'OXESpace'}>{collapsed && <OxeLogo size={18} />}{!collapsed && <strong>{mode === 'code' ? 'Workspaces' : 'Sessions'}</strong>}
       {!collapsed && onModeChange && <nav className="desktop-mode-select" aria-label="Application view">
         <button type="button" aria-pressed={mode === 'code'} onClick={mode === 'thread' ? onModeChange : undefined}>Code</button>
         <button type="button" aria-pressed={mode === 'thread'} onClick={mode === 'code' ? onModeChange : undefined}>Thread</button>

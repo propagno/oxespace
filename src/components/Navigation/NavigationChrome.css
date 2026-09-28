@@ -1,16 +1,18 @@
 /* Shared desktop chrome. Mode-specific content stays in each feature. */
 .sidebar.sidebar-redesign, .thread-navigation { box-shadow: none; background: var(--bg-sidebar); background-image: none; border-right: 1px solid var(--bd-base); overflow: clip; }
-.desktop-nav-brand { display: flex; align-items: center; gap: 8px; height: var(--chrome-h); min-height: var(--chrome-h); padding: 0 var(--chrome-inset); }
+.desktop-nav-brand { display: flex; align-items: center; gap: 8px; height: var(--chrome-h); min-height: var(--chrome-h); padding: 0 var(--chrome-inset); border-bottom: 1px solid var(--wb-border); }
 .desktop-nav-brand strong { min-width: 0; font-size: var(--fs-xs); font-weight: 600; letter-spacing: -.15px; }
 .sidebar-collapsed .desktop-nav-brand, .thread-navigation-collapsed .desktop-nav-brand { padding: 0; justify-content: center; }
-.desktop-mode-select { display: inline-flex; gap: 4px; margin-left: auto; padding: 2px; border: 1px solid var(--bd-base); border-radius: var(--nav-radius); }
-.desktop-mode-select button, .thread-navigation .desktop-mode-select button { display: inline-flex; align-items: center; height: 24px; padding: 0 6px; border: 0; border-radius: 6px; font-size: var(--fs-2xs); background: transparent; color: var(--tx-muted); cursor: pointer; }
-.desktop-mode-select button[aria-pressed="true"] { color: var(--tx-primary); background: var(--nav-selected); }
+.desktop-mode-select { display: inline-flex; gap: 2px; margin-left: auto; padding: 2px; border: 1px solid var(--wb-border); border-radius: var(--nav-radius); background: var(--wb-canvas); }
+.desktop-mode-select button, .thread-navigation .desktop-mode-select button { display: inline-flex; align-items: center; height: 24px; padding: 0 7px; border: 0; border-radius: 4px; font-size: var(--fs-2xs); background: transparent; color: var(--tx-muted); cursor: pointer; }
+.desktop-mode-select button[aria-pressed="true"] { color: var(--tx-primary); background: var(--wb-selection); }
 .desktop-mode-select button:hover { background: var(--nav-hover); }
 .sidebar-mode-rail { display: flex; justify-content: center; padding: 8px 0; }
 .sidebar-mode-rail button, .thread-navigation .sidebar-mode-rail button { display: inline-flex; justify-content: center; align-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: var(--nav-radius); color: var(--tx-secondary); background: transparent; cursor: pointer; }
-.sidebar .desktop-nav-footer, .thread-navigation .desktop-nav-footer { display: grid; grid-template-columns: minmax(0, 1fr); justify-content: stretch; align-items: stretch; gap: 4px; margin-top: auto; padding: 8px 12px; border-top: 1px solid var(--bd-base); background: var(--bg-sidebar); flex-shrink: 0; }
-.sidebar .desktop-nav-footer button, .thread-navigation .desktop-nav-footer button { display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 100%; height: var(--nav-row-h); padding: 0 12px; border: 0; border-radius: var(--nav-radius); background: transparent; color: var(--tx-secondary); font-size: var(--fs-sm); font-weight: 400; line-height: 1.5; box-shadow: none; cursor: pointer; }
+.sidebar .desktop-nav-footer, .thread-navigation .desktop-nav-footer { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); justify-content: stretch; align-items: stretch; gap: 4px; margin-top: auto; padding: 9px 8px; border-top: 1px solid var(--wb-border); background: var(--wb-sidebar); flex-shrink: 0; }
+.sidebar .desktop-nav-footer button, .thread-navigation .desktop-nav-footer button { display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 100%; height: var(--nav-row-h); padding: 0 9px; border: 1px solid transparent; border-radius: var(--nav-radius); background: var(--wb-canvas); color: var(--tx-secondary); font-size: var(--fs-xs); font-weight: 400; line-height: 1.5; box-shadow: none; cursor: pointer; }
+.sidebar .desktop-nav-footer button:last-child, .thread-navigation .desktop-nav-footer button:last-child { grid-column: 1 / -1; justify-content: center; height: 26px; background: transparent; color: var(--tx-muted); font-size: var(--fs-2xs); }
+.sidebar .desktop-nav-footer button:not(:last-child):hover, .thread-navigation .desktop-nav-footer button:not(:last-child):hover { border-color: var(--bd-base); }
 .sidebar .desktop-nav-footer[data-collapsed="true"], .thread-navigation .desktop-nav-footer[data-collapsed="true"] { justify-items: center; padding: 8px 4px; }
 .sidebar .desktop-nav-footer[data-collapsed="true"] button, .thread-navigation .desktop-nav-footer[data-collapsed="true"] button { justify-content: center; width: 36px; padding: 0; }
 .desktop-nav-footer svg, .desktop-search svg, .desktop-nav-brand svg, .sidebar-mode-rail svg { flex-shrink: 0; }

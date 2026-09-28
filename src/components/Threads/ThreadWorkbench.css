@@ -1,6 +1,6 @@
-.thread-workbench { position: relative; display: flex; flex: 1; min-width: 0; min-height: 0; height: 100%; overflow: hidden; background: var(--workspace-canvas); color: var(--tx-primary); }
-.thread-workbench .thread-view { width: auto; background: var(--pane-surface); }
-.thread-heading .thread-review-trigger { margin-left: auto; border: 1px solid var(--bd-base); flex-shrink: 0; color: var(--tx-secondary); padding: 5px 8px; }
+.thread-workbench { position: relative; display: flex; flex: 1; min-width: 0; min-height: 0; height: 100%; overflow: hidden; background: var(--wb-canvas); color: var(--tx-primary); }
+.thread-workbench .thread-view { width: auto; background: var(--wb-canvas); }
+.thread-heading .thread-review-trigger { border: 1px solid var(--bd-base); flex-shrink: 0; color: var(--tx-secondary); padding: 5px 8px; }
 .thread-heading .thread-review-trigger + .thread-icon-action { margin-left: 0; }
 .thread-file-activity { display: grid; gap: 2px; margin: 8px 0 16px; }
 .thread-file-operation { display: flex; align-items: center; min-width: 0; }
@@ -145,3 +145,15 @@
 .thread-workbench.is-drawer > .thread-review-scrim { display: block; position: absolute; inset: 0; z-index: 19; padding: 0; border: 0; border-radius: 0; background: #0005; }
 .thread-workbench .thread-reading-column { width: min(100%, var(--thread-canvas-max)); max-width: none; padding-inline: clamp(20px, 3vw, 48px); }
 .thread-workbench .thread-composer-column { width: min(100%, var(--thread-canvas-max)); max-width: none; }
+.thread-markdown-file-icon { flex-shrink: 0; color: var(--tx-muted); }
+.thread-review-file-heading .thread-markdown-open { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; margin-left: auto; padding: 4px 7px; border: 1px solid var(--bd-base); border-radius: var(--nav-radius); color: var(--tx-secondary); background: var(--bg-elevated); font-size: var(--fs-2xs); cursor: pointer; }
+.thread-review-file-heading .thread-markdown-open:hover { color: var(--tx-primary); background: var(--bg-hover); }
+.desktop-dialog.thread-markdown-dialog { display: flex; flex-direction: column; width: min(1040px, calc(100vw - 40px)); height: min(82dvh, 900px); padding: 0; overflow: hidden; }
+.thread-markdown-dialog>.desktop-dialog-header { flex-shrink: 0; margin: 0; padding: 18px 24px; border-bottom: 1px solid var(--bd-base); }
+.thread-markdown-dialog>.desktop-dialog-header p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thread-markdown-reader { flex: 1; min-height: 0; overflow: auto; padding: 28px clamp(24px, 6vw, 72px) 56px; color: var(--tx-primary); font-size: 15px; line-height: 1.75; scrollbar-gutter: stable; }
+.thread-markdown-reader>.thread-markdown { max-width: 820px; margin: 0 auto; }
+.thread-markdown-reader .thread-markdown :is(h1,h2,h3) { margin-top: 28px; }
+.thread-markdown-reader .thread-markdown h1 { font-size: 28px; }
+.thread-markdown-reader .thread-markdown h2 { font-size: 22px; }
+.thread-markdown-reader .thread-markdown h3 { font-size: 18px; }

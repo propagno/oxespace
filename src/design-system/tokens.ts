@@ -9,6 +9,13 @@
 
 export const TOKENS = {
   color: {
+    wbCanvas:     '--wb-canvas',
+    wbSidebar:    '--wb-sidebar',
+    wbChrome:     '--wb-chrome',
+    wbRaised:     '--wb-raised',
+    wbSelection:  '--wb-selection',
+    wbBorder:     '--wb-border',
+    wbFocus:      '--wb-focus',
     // Backgrounds
     bgApp:         '--bg-app',
     bgSidebar:     '--bg-sidebar',
@@ -91,7 +98,7 @@ export function resolveToken(token: string): string {
 }
 
 /** All available themes keyed by data-theme attribute value. */
-export const THEMES = ['default', 'nord', 'dracula', 'ocean', 'monokai', 'amber'] as const
+export const THEMES = ['default', 'midnight', 'nord', 'dracula', 'ocean', 'monokai', 'amber', 'rose-pine', 'gruvbox', 'one-dark', 'synthwave84', 'github-dark'] as const
 export type Theme = (typeof THEMES)[number]
 
 /** Density options keyed by data-density attribute value. */

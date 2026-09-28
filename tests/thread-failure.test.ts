@@ -18,6 +18,11 @@ describe('thread failure diagnostics', () => {
     expect(diagnosticText('x'.repeat(20000))).toHaveLength(4000)
     expect(diagnosticText({ accessToken: 'secret' })).toBe('')
   })
+  it('identifies an active native writer as a session conflict rather than a usage or account failure', () => {
+    expect(threadFailure({ message: 'thread 01a0 already has an active writer' })).toMatchObject({
+      code: 'session-busy', message: expect.stringContaining('active elsewhere')
+    })
+  })
   it('reads native UNIX seconds, includes session/weekly/spending windows and handles empty or incomplete responses', () => {
     const usage = parseThreadUsage({ rateLimitsByLimitId: {}, rateLimits: { limitId: 'codex', primary: { usedPercent: 100, windowDurationMins: 300, resetsAt: 1790000000 }, secondary: { usedPercent: 15, windowDurationMins: 10080, resetsAt: null }, individualLimit: { remainingPercent: 0, resetsAt: 1790001000 } } })
     expect(usage.windows).toHaveLength(3)

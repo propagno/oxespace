@@ -32,6 +32,21 @@ function fixture(usageResult: unknown = {}, usageError = false, mcpResult: unkno
 }
 
 describe('Codex conversation adapter', () => {
+  it('rejects a turn held by another native writer and leaves usage polling alone', async () => {
+    const f = fixture()
+    const write = f.transport.write
+    f.transport.write = line => {
+      const request = JSON.parse(line)
+      if (request.method !== 'turn/start') { write(line); return }
+      f.requests.push(request)
+      queueMicrotask(() => f.emit({ id: request.id, error: { code: -32603, message: 'thread native-A already has an active writer' } }))
+    }
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: 'native-A' }, event => f.events.push(event))
+    await expect(f.adapter.send('Change the docs')).rejects.toMatchObject({ failure: { code: 'session-busy' } })
+    expect(f.events.filter(event => event.type === 'completed')).toHaveLength(1)
+    expect(f.requests.some(request => request.method === 'account/rateLimits/read')).toBe(false)
+    await f.adapter.dispose()
+  })
   it('shows discovered MCP tools without treating empty resources or unauthenticated OAuth status as disconnected', async () => {
     const f = fixture({}, false, { data: [{ name: 'oxespace-delegation', authStatus: 'unsupported', tools: { oxespace_memory_search: {} }, resources: [], resourceTemplates: [], token: 'never-render' }] })
     await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, () => {})
@@ -234,7 +249,8 @@ describe('Codex conversation adapter', () => {
     const f = fixture()
     await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
     await f.adapter.send('Inspect')
-    f.emit({ id: 30, method: 'item/commandExecution/requestApproval', params: { threadId: 'native-A', command: 'npm test' } })
+    f.emit({ id: 30, method: 'item/commandExecution/requestApproval', params: { threadId: 'native-A', command: 'npm test', cwd: '/project', reason: 'Validate the change' } })
+    expect(f.events.at(-2)).toMatchObject({ type: 'request', request: { kind: 'approval', command: 'npm test', cwd: '/project', reason: 'Validate the change' } })
     expect(f.events.at(-1)).toMatchObject({ type: 'approval', id: '30' })
     expect(f.requests.some(request => request.id === 30)).toBe(false)
     await f.adapter.approve('30', 'decline')

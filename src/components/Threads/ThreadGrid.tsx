@@ -14,10 +14,10 @@ export function ThreadGrid({ workspaces, onNewThread, onAccounts, onDelegations 
 
   return <div className={`thread-grid${secondaryId ? ' is-split' : ''}`} role="group" aria-label={secondaryId ? 'Side-by-side conversations' : 'Conversation'}>
     <div className={`thread-cell${activeCell === 'primary' ? ' is-active' : ''}`}>
-      <ThreadView threadId={selectedId} workspace={primaryWorkspace} active={!secondaryId || activeCell === 'primary'} onActivate={() => useThreadStore.getState().setActiveCell('primary')} onNewThread={onNewThread} onAccounts={onAccounts} onDelegations={onDelegations} />
+      <ThreadView key={selectedId ?? 'empty-primary'} threadId={selectedId} workspace={primaryWorkspace} active={!secondaryId || activeCell === 'primary'} onActivate={() => useThreadStore.getState().setActiveCell('primary')} onNewThread={onNewThread} onAccounts={onAccounts} onDelegations={onDelegations} />
     </div>
     {secondaryId && <div className={`thread-cell${activeCell === 'secondary' ? ' is-active' : ''}`}>
-      <ThreadView threadId={secondaryId} workspace={secondaryWorkspace} active={activeCell === 'secondary'} onActivate={() => useThreadStore.getState().setActiveCell('secondary')} onCloseCell={() => useThreadStore.getState().closeSecondary()} onNewThread={onNewThread} onAccounts={onAccounts} onDelegations={onDelegations} />
+      <ThreadView key={secondaryId} threadId={secondaryId} workspace={secondaryWorkspace} active={activeCell === 'secondary'} onActivate={() => useThreadStore.getState().setActiveCell('secondary')} onCloseCell={() => useThreadStore.getState().closeSecondary()} onNewThread={onNewThread} onAccounts={onAccounts} onDelegations={onDelegations} />
     </div>}
   </div>
 }

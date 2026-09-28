@@ -55,6 +55,8 @@ export function useThreadVirtualizer(keys: string[], scrollRef: RefObject<HTMLEl
       total += sizes[index]
     }
     return { offsets, sizes, total }
+  // Sizes live in a ref; this version invalidates their cached geometry.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keys, estimateSize, measurementVersion])
   const range = useMemo(() => computeThreadVirtualRange(geometry.offsets, geometry.sizes, viewport.start, viewport.size), [geometry, viewport])
   // Measurements from overscan rows above the viewport must also compensate
@@ -78,14 +80,21 @@ export function useThreadVirtualizer(keys: string[], scrollRef: RefObject<HTMLEl
     observer?.observe(scroll)
     return () => { scroll.removeEventListener('scroll', updateViewport); observer?.disconnect() }
   }, [scrollRef, updateViewport, keys.length])
+  useLayoutEffect(() => {
+    // ThreadView restores scrollTop after this child mounts. A later content
+    // measurement can also change the scroll range without firing scroll.
+    const frame = requestAnimationFrame(updateViewport)
+    return () => cancelAnimationFrame(frame)
+  }, [updateViewport, keys.length, geometry.total])
   useLayoutEffect(() => () => {
     if (measurementFrame.current !== null && typeof cancelAnimationFrame !== 'undefined') cancelAnimationFrame(measurementFrame.current)
   }, [])
   const measure = useCallback((key: string, index: number, size: number) => {
-    // A mounted Thread stays in the DOM while Code is visible. Hidden elements
-    // report zero and must not overwrite the last valid measurement.
-    if (!Number.isFinite(size) || size < 1) return
-    const normalized = Math.max(1, Math.ceil(size))
+    // A mounted Thread stays in the DOM while Code is visible. Do not replace
+    // measurements while its scroll container is hidden, but allow genuinely
+    // empty protocol rows to take zero space instead of the 132px estimate.
+    if (!Number.isFinite(size) || !scrollRef.current?.clientHeight) return
+    const normalized = Math.max(0, Math.ceil(size))
     const previous = sizesRef.current.get(key) ?? estimateSize
     if (Math.abs(previous - normalized) < 1) return
     sizesRef.current.set(key, normalized)
@@ -109,5 +118,6 @@ export function useThreadVirtualizer(keys: string[], scrollRef: RefObject<HTMLEl
     const index = range.start + offset
     return { index, key, start: geometry.offsets[index], size: geometry.sizes[index] } satisfies ThreadVirtualItem
   }), [geometry, keys, range])
-  return { spaceRef, totalSize: geometry.total, items, measure, mountedCount: items.length }
+  return { spaceRef, totalSize: geometry.total, paddingTop: geometry.offsets[range.start] ?? geometry.total,
+    paddingBottom: geometry.total - (geometry.offsets[range.end] ?? geometry.total), items, measure, mountedCount: items.length }
 }

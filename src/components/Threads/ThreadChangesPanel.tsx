@@ -1,6 +1,6 @@
 import { ThreadPatch } from './ThreadPatch'
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
-import { Check, ChevronDown, FileCode2, ListTree, RefreshCw, Search, X } from 'lucide-react'
+import { BookOpen, Check, ChevronDown, FileCode2, ListTree, RefreshCw, Search, X } from 'lucide-react'
 import type { ThreadArtifact, ThreadSnapshot } from '../../../shared/types/thread'
 import type { GitHubPanelTab, Workspace } from '../../../shared/types/workspace'
 import type { GitDiff, GitDiffHunk } from '../../../shared/types/git'
@@ -13,6 +13,8 @@ import { ThreadSubagentActivity } from './ThreadSubagentActivity'
 import { useThreadWorkbenchStore, type ThreadPanel } from '../../store/thread-workbench.store'
 import { useEditorStore } from '../../store/editor.store'
 import { ThreadDiagnosticsPanel } from './ThreadDiagnosticsPanel'
+import { DesktopDialog } from '../Navigation/DesktopDialog'
+import { ThreadMarkdown } from './ThreadMarkdown'
 
 export interface ThreadReviewComment { path: string; side: 'old' | 'new'; line: number; content: string; body: string; revision: string }
 const EditorPane = lazy(() => import('../Editor/EditorPane').then(module => ({ default: module.EditorPane })))
@@ -32,8 +34,19 @@ export function ThreadChangesPanel({ snapshot, workspace, panel, selection, onCl
   const entries = useMemo(() => threadChanges(snapshot.events), [snapshot.events])
   const selected = entries.find(entry => entry.key === selection) ?? entries.at(-1)
   const [projectPath, setProjectPath] = useState('')
+  const [markdownPath, setMarkdownPath] = useState<string | null>(null)
+  const [markdownText, setMarkdownText] = useState(''), [markdownError, setMarkdownError] = useState(''), [markdownLoading, setMarkdownLoading] = useState(false)
   const projectFile = project?.files.find(file => file.path === projectPath) ?? project?.files[0]
   const evidenceId = selected?.file.artifactId
+  useEffect(() => {
+    if (!markdownPath) return
+    let active = true
+    setMarkdownText(''); setMarkdownError(''); setMarkdownLoading(true)
+    void window.oxe.fs.readFile({ workspaceId: snapshot.thread.workspaceId, rootPath: snapshot.thread.rootPath, relativePath: markdownPath })
+      .then(result => { if (active) setMarkdownText(result.content) }, cause => { if (active) setMarkdownError(cause instanceof Error ? cause.message : 'Could not read this Markdown file.') })
+      .finally(() => { if (active) setMarkdownLoading(false) })
+    return () => { active = false }
+  }, [markdownPath, snapshot.thread.workspaceId, snapshot.thread.rootPath])
   const plan = snapshot.events.filter(event => event.type === 'plan').at(-1)
   const subagents = snapshot.events.filter(event => event.type === 'subagent')
   const delegationTools = snapshot.events.filter(event => event.type === 'tool' && /(?:spawn|followup|interrupt|list)[ _-]?agent|delegat/i.test(`${event.name} ${event.detail}`))
@@ -96,13 +109,13 @@ export function ThreadChangesPanel({ snapshot, workspace, panel, selection, onCl
       : panel === 'plan' ? <div className="thread-review-body thread-review-log">{plan?.type === 'plan' ? <ThreadPlan event={plan} /> : <p className="thread-review-empty">No plan has been reported by this conversation’s provider yet.</p>}</div> : panel === 'activity' ? <div className="thread-review-body thread-review-log">{snapshot.events.filter(event => event.type === 'tool').map(event => event.type === 'tool' && <details key={event.id}><summary>{event.name}<small>{event.state}</small></summary>{event.completedAt && <time>{new Date(event.completedAt).toLocaleString()}</time>}<pre>{event.detail}</pre>{event.output && <pre>{event.output}</pre>}{event.exitCode !== undefined && <p>Exit code {event.exitCode}</p>}</details>)}{!snapshot.events.some(event => event.type === 'tool') && <p className="thread-review-empty">No tool activity in this conversation yet.</p>}</div> : <>
       <p className="thread-review-source">{panel === 'project' ? 'Tracked files compared with HEAD. Includes earlier work and other processes; untracked files are excluded.' : 'Historical tool evidence from this conversation. Repeated edits remain separate operations.'}</p>
       <label className="thread-review-search"><Search size={13} /><input aria-label="Filter changed files" value={search} placeholder="Filter files…" onChange={event => setSearch(event.target.value)} /></label>
-      <div className="thread-review-file-list" aria-label="Changed files">{panel === 'project' ? project?.files.filter(file => file.path.toLowerCase().includes(search.toLowerCase())).map((file, index) => <button key={`${file.path}:${index}`} type="button" aria-current={file === projectFile ? 'true' : undefined} onClick={() => setProjectPath(file.path)}><FileCode2 size={13} /><span>{file.path}</span><FileStats file={{ path: file.path, kind: 'update', state: 'completed', source: 'native-patch', additions: file.additions, deletions: file.deletions }} /></button>)
+      <div className="thread-review-file-list" aria-label="Changed files">{panel === 'project' ? project?.files.filter(file => file.path.toLowerCase().includes(search.toLowerCase())).map((file, index) => <button key={`${file.path}:${index}`} type="button" aria-current={file === projectFile ? 'true' : undefined} aria-label={/\.md$/i.test(file.path) ? `Read Markdown ${file.path}` : undefined} onClick={() => { setProjectPath(file.path); if (/\.md$/i.test(file.path)) setMarkdownPath(file.path) }}><FileCode2 size={13} /><span>{file.path}</span>{/\.md$/i.test(file.path) && <BookOpen size={13} className="thread-markdown-file-icon" aria-hidden="true" />}<FileStats file={{ path: file.path, kind: 'update', state: 'completed', source: 'native-patch', additions: file.additions, deletions: file.deletions }} /></button>)
         : entries.filter(entry => entry.file.path.toLowerCase().includes(search.toLowerCase())).map((entry, index) => <button key={entry.key} type="button" aria-current={entry.key === selected?.key ? 'true' : undefined} onClick={() => useThreadWorkbenchStore.getState().setView(id, { selection: entry.key })} title={entry.file.path}><FileCode2 size={13} /><span>{threadFileLabel(entry.file.path, snapshot.thread.rootPath)}</span><small>{entry.toolId.startsWith('turn-diff:') || entry.toolId.startsWith('verified-diff:') ? 'Turn' : `#${index + 1}`}</small><FileStats file={entry.file} /></button>)}</div>
       <div className="thread-review-body">
         {error && <div role="alert" className="thread-review-error"><p>{error}</p><button type="button" onClick={() => setRefresh(value => value + 1)}>Retry</button></div>}
         {loading && <p role="status" className="thread-review-empty">Loading changes…</p>}
         {!loading && !error && !path && <div className="thread-review-empty"><FileCode2 size={24} /><h3>No {panel === 'project' ? 'tracked project changes' : 'file evidence'} yet</h3><p>{panel === 'project' ? 'Refresh after editing a tracked file.' : 'New file operations will appear here. Older conversations may only contain tool logs.'}</p></div>}
-        {path && !loading && !error && <><div className="thread-review-file-heading"><strong title={path}>{threadFileLabel(path, snapshot.thread.rootPath)}</strong>{panel === 'changes' && <small>{selected?.file.state} · {selected?.file.kind}</small>}</div>
+        {path && !loading && !error && <><div className="thread-review-file-heading"><strong title={path}>{threadFileLabel(path, snapshot.thread.rootPath)}</strong>{panel === 'project' && /\.md$/i.test(path) && <button type="button" className="thread-markdown-open" onClick={() => setMarkdownPath(path)}><BookOpen size={13} />Read Markdown</button>}{panel === 'changes' && <small>{selected?.file.state} · {selected?.file.kind}</small>}</div>
           {panel === 'changes' && selected?.file.previousPath && <p className="thread-review-source">Renamed from {threadFileLabel(selected.file.previousPath, snapshot.thread.rootPath)}</p>}
           {panel === 'changes' && selected?.file.source === 'tool-input' && <p className="thread-review-source">Tool input, with its reported result. This is not a verified disk diff; line totals are unavailable.</p>}
           {panel === 'changes' && selected?.file.source === 'working-tree-observation' && <p className="thread-review-source">Observed in the working tree after this turn. The disk change is verified, but provider authorship cannot be proven when hooks, shells or other processes may also write.</p>}
@@ -112,5 +125,10 @@ export function ThreadChangesPanel({ snapshot, workspace, panel, selection, onCl
       </div>
       {panel === 'project' && project && <footer className="thread-review-footer">Checked {new Date(project.compiledAt).toLocaleTimeString()} · {project.files.length} files</footer>}
     </>}
+    {markdownPath && <DesktopDialog className="thread-markdown-dialog" title={markdownPath.split(/[\\/]/).at(-1) ?? markdownPath} description={markdownPath} onClose={() => setMarkdownPath(null)}>
+      <div className="thread-markdown-reader" role="region" aria-label="Markdown document" tabIndex={0}>
+        {markdownLoading ? <p role="status">Loading document…</p> : markdownError ? <p role="alert">{markdownError}</p> : <ThreadMarkdown text={markdownText} />}
+      </div>
+    </DesktopDialog>}
   </aside>
 }

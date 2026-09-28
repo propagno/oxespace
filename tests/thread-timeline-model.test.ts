@@ -11,6 +11,8 @@ describe('Thread timeline model', () => {
       { type: 'tool', id: 'read-1', name: 'Read', state: 'completed', detail: 'a.ts', turnId: 'turn-1' },
       { type: 'tool', id: 'read-2', name: 'Grep', state: 'completed', detail: 'symbol', turnId: 'turn-1' },
       { type: 'configuration', model: 'model' },
+      { type: 'turn-diff', id: 'diff-1', turnId: 'turn-1', files: [{ path: 'a.ts', kind: 'update', source: 'native-patch', state: 'completed' }] },
+      { type: 'failure-details', id: 'failure-1', usageUnavailable: true },
       { type: 'message', id: 'answer-1', role: 'assistant', text: 'Done' },
       { type: 'completed', status: 'completed' },
       { type: 'message', id: 'user-2', role: 'user', text: 'Continue' }
@@ -25,6 +27,8 @@ describe('Thread timeline model', () => {
       expect.objectContaining({ key: 'user-1:completed:3', event: expect.objectContaining({ type: 'completed' }) })
     ])
     expect(timeline[1].rows[0].key).toBe('user-2:message:user-2')
+    expect(timeline[0].events.some(event => event.type === 'turn-diff')).toBe(true)
+    expect(timeline[0].rows.some(row => row.event.type === 'turn-diff' || row.event.type === 'failure-details')).toBe(false)
   })
 
   it('keeps provider output before the first user message in a deterministic initial turn', () => {

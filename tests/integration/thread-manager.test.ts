@@ -4,6 +4,10 @@ import { ThreadManager } from '../../electron/main/services/conversation/thread-
 import { ThreadHistory } from '../../electron/main/services/conversation/thread-history'
 import { ThreadAgentError, threadFailure } from '../../electron/main/services/conversation/thread-failure'
 import type { AgentConversationAdapter, ThreadEvent } from '../../shared/types/thread'
+import { execFileSync } from 'node:child_process'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 const databases: AppDatabase[] = []
 afterEach(() => { for (const db of databases.splice(0)) db.close() })
@@ -25,6 +29,38 @@ function fixture(preflight?: ConstructorParameters<typeof ThreadManager>[3], com
 }
 
 describe('thread persistence and ownership', () => {
+  it('publishes an accepted message before slow repository baseline collection finishes', async () => {
+    const f = fixture(), id = f.create()
+    let releaseBaseline!: () => void
+    const baseline = new Promise<undefined>(resolve => { releaseBaseline = () => resolve(undefined) })
+    vi.spyOn(f.manager as unknown as { workingState: (path: string) => Promise<undefined> }, 'workingState').mockReturnValue(baseline)
+    const sending = f.manager.send(id, 'Show this immediately')
+    try {
+      await vi.waitFor(() => expect(new ThreadHistory(f.db).read(id).events).toContainEqual(expect.objectContaining({ type: 'message', role: 'user', text: 'Show this immediately' })))
+      expect(f.factory).not.toHaveBeenCalled()
+    } finally { releaseBaseline() }
+    await sending
+    await f.manager.stop()
+  })
+  it('shows Codex command edits as observable file evidence without claiming native authorship', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'oxe-thread-diff-'))
+    try {
+      const git = (...args: string[]) => execFileSync('git', args, { cwd: root, stdio: 'ignore' })
+      git('init', '-q')
+      git('config', 'user.email', 'test@example.invalid')
+      git('config', 'user.name', 'OXESpace Test')
+      writeFileSync(join(root, 'README.md'), 'Before\n')
+      git('add', 'README.md')
+      git('commit', '-qm', 'initial')
+      const f = fixture(), id = f.manager.create({ workspaceId: 'A', projectId: 'project-A', rootPath: root, provider: 'codex' }).thread.id
+      await f.manager.send(id, 'Update the documentation')
+      writeFileSync(join(root, 'README.md'), 'After\n')
+      f.callbacks[0]({ type: 'completed', status: 'completed' })
+      await vi.waitFor(() => expect(f.manager.read(id).events.some(event => event.type === 'turn-diff' && event.id.startsWith('verified-diff:'))).toBe(true))
+      expect(f.manager.read(id).events.find(event => event.type === 'turn-diff')).toMatchObject({ files: [{ path: 'README.md', source: 'working-tree-observation', authorship: 'indeterminate', additions: 1, deletions: 1, artifactId: expect.any(String) }] })
+      await f.manager.stop()
+    } finally { rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }) }
+  })
   it('opens delegated work and exact task details locally without launching a provider', async () => {
     const f = fixture(), id = f.create()
     expect(await f.manager.command(id, '/delegations')).toMatchObject({ kind: 'panel', surface: 'delegations' })
@@ -46,6 +82,30 @@ describe('thread persistence and ownership', () => {
     expect(await f.manager.command(id, `/resume ${nativeId}`)).toMatchObject({ kind: 'navigate', threadId: recovered.thread.id })
     expect(read).toHaveBeenCalledTimes(1)
     expect(f.factory).not.toHaveBeenCalled()
+    await f.manager.stop()
+  })
+  it('replaces a generic title on an older imported session with its first real prompt', async () => {
+    const nativeId = '11111111-1111-4111-8111-111111111111'
+    const cli = { read: vi.fn(async () => ({ events: [
+      { type: 'message' as const, id: 'native:meta', role: 'user' as const, text: '<environment_context><current_date>2026-09-24</current_date></environment_context>' },
+      { type: 'message' as const, id: 'native:prompt', role: 'user' as const, text: 'Implementar autenticação na branch de trabalho' }
+    ] })), open: vi.fn() } as unknown as ConstructorParameters<typeof ThreadManager>[5]
+    const f = fixture(undefined, undefined, cli), id = f.create()
+    const imported = await f.manager.command(id, `/resume ${nativeId}`)
+    expect(f.manager.read(imported.threadId!).thread.title).toBe('Recovered codex session')
+    expect(f.manager.readForRenderer(imported.threadId!).thread.title).toBe('Implementar autenticação na branch de trabalho')
+    expect(f.manager.read(imported.threadId!).thread.title).toBe('Implementar autenticação na branch de trabalho')
+    await f.manager.stop()
+  })
+  it('repairs a raw environment title on a previously imported session', async () => {
+    const nativeId = '11111111-1111-4111-8111-111111111111'
+    const cli = { read: vi.fn(async () => ({ title: '<environment_context><cwd>/project-A</cwd>', events: [
+      { type: 'message' as const, id: 'native:meta', role: 'user' as const, text: '<environment_context><cwd>/project-A</cwd><shell>powershell</shell></environment_context>' },
+      { type: 'message' as const, id: 'native:prompt', role: 'user' as const, text: 'Review the project architecture' }
+    ] })), open: vi.fn() } as unknown as ConstructorParameters<typeof ThreadManager>[5]
+    const f = fixture(undefined, undefined, cli), id = f.create()
+    const imported = await f.manager.command(id, `/resume ${nativeId}`)
+    expect(f.manager.readForRenderer(imported.threadId!).thread.title).toBe('Review the project architecture')
     await f.manager.stop()
   })
   it('keeps native resume unlinked when the provider rejects the project identity', async () => {
@@ -136,7 +196,7 @@ describe('thread persistence and ownership', () => {
       Connection: 'connected',
       Generation: '1',
       Directory: '/project-A',
-      Session: 'native-1'
+      'Native session ID (resume)': 'native-1'
     })
     expect(result.rows?.find(row => row.label === 'Operation')?.detail).toMatch(/^[0-9a-f-]+ · completed$/)
     await f.manager.stop()
@@ -211,6 +271,21 @@ describe('thread persistence and ownership', () => {
     expect(f.manager.read(id).thread.archived).toBe(true)
     await f.manager.command(id, '/delete confirm')
     expect(() => f.manager.read(id)).toThrow()
+    await f.manager.stop()
+  })
+  it('archives linked Codex conversations locally without asking the provider to delete its native session', async () => {
+    const f = fixture(), id = f.create()
+    await f.manager.send(id, 'Keep the native session')
+    f.callbacks[0]({ type: 'completed', status: 'completed' })
+    await vi.waitFor(() => expect(f.manager.read(id).thread.status).toBe('idle'))
+    const nativeCommand = vi.fn(async () => { throw Error('outside this execution scope') })
+    f.adapters[0].command = nativeCommand
+    await f.manager.command(id, '/archive confirm')
+    expect(f.manager.read(id).thread.archived).toBe(true)
+    expect(nativeCommand).not.toHaveBeenCalled()
+    await f.manager.command(id, '/delete confirm')
+    expect(() => f.manager.read(id)).toThrow()
+    expect(nativeCommand).not.toHaveBeenCalled()
     await f.manager.stop()
   })
   it('links a different saved session after the CLI has exited, replacing stale history before ordinary resume', async () => {

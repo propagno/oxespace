@@ -5,7 +5,7 @@ import { LATEST_DB_VERSION, openInMemoryDatabase, runMigrations } from '../../el
 
 // Literal on purpose: it verifies the migration SQL itself sets this version,
 // independently of the runner's constant. Bump both when adding a migration.
-const EXPECTED_SCHEMA_VERSION = 57
+const EXPECTED_SCHEMA_VERSION = 58
 
 // Migration 046 is platform-split: Windows keeps PowerShell as the neutral
 // built-in shell, every other host is repointed to bash. The assertions below
@@ -138,6 +138,21 @@ describe('migration 046 (POSIX variant)', () => {
 })
 
 describe('migrations', () => {
+  test('adopts Workbench once for existing workspaces and preserves later choices', () => {
+    const db = openInMemoryDatabase()
+    try {
+      db.prepare("INSERT INTO workspaces (id, name, root_path, layout, theme_id, default_shell_profile_id) VALUES ('legacy', 'Legacy', '/tmp/legacy', '1x1', 'dracula', 'builtin-powershell')").run()
+      db.pragma('user_version = 57')
+      runMigrations(db)
+      expect(db.prepare("SELECT theme_id FROM workspaces WHERE id = 'legacy'").get()).toEqual({ theme_id: 'midnight' })
+      db.prepare("UPDATE workspaces SET theme_id = 'nord' WHERE id = 'legacy'").run()
+      expect(db.pragma('user_version', { simple: true })).toBe(58)
+      expect(db.prepare("SELECT theme_id FROM workspaces WHERE id = 'legacy'").get()).toEqual({ theme_id: 'nord' })
+      runMigrations(db)
+      expect(db.prepare("SELECT theme_id FROM workspaces WHERE id = 'legacy'").get()).toEqual({ theme_id: 'nord' })
+    } finally { db.close() }
+  })
+
   test('migration 057 indexes legacy delegation payloads without losing their checkout', () => {
     const db = openInMemoryDatabase()
     try {
@@ -157,7 +172,7 @@ describe('migrations', () => {
       db.prepare('INSERT INTO delegations(id, origin_execution, request_key, workspace_id, payload) VALUES(?, ?, ?, ?, ?)')
         .run(payload.id, payload.originExecutionId, payload.key, payload.workspaceId, JSON.stringify(payload))
       runMigrations(db)
-      expect(db.pragma('user_version', { simple: true })).toBe(57)
+      expect(db.pragma('user_version', { simple: true })).toBe(EXPECTED_SCHEMA_VERSION)
       expect(db.prepare('SELECT project, state, branch FROM delegation_task_index WHERE task_id = ?').get(payload.id))
         .toEqual({ project: 'project', state: 'interrupted', branch: 'oxe/legacy-12345678' })
       const checkout = db.prepare('SELECT strategy, resolved_json AS resolved FROM delegation_checkouts WHERE task_id = ?').get(payload.id) as { strategy: string; resolved: string }

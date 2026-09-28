@@ -44,6 +44,10 @@ describe('terminal-prefs opt-in migration (v1 → v2)', () => {
     expect(s.global.rtkHookEnabled).toBe(false)
     expect(s.global.cavemanModeEnabled).toBe(false)
     expect(s.global.semanticSearchEnabled).toBe(false)
+    expect(s.global.fontFamily.split(',')[0]).toBe('Cascadia Mono')
+    expect(s.global.fontSize).toBe(16)
+    expect(s.global.lineHeight).toBe(1.4)
+    expect(s.global.letterSpacing).toBe(0)
   })
 
   test('a workspace with no override resolves to the off global default', async () => {
@@ -73,5 +77,21 @@ describe('terminal-prefs opt-in migration (v1 → v2)', () => {
     expect(state.global.scrollback).toBe(TERMINAL_PREFS_DEFAULTS.scrollback)
     expect(state.overrides['ws-old-default']).toEqual({ scrollback: TERMINAL_PREFS_DEFAULTS.scrollback })
     expect(state.overrides['ws-custom']).toEqual({ scrollback: 150_000 })
+  })
+
+  test('repairs the persisted 32px zoom ceiling without discarding workspace choices', async () => {
+    localStorage.setItem(KEY, JSON.stringify({
+      version: 6,
+      state: {
+        global: { fontSize: 32 },
+        overrides: { 'ws-custom': { fontSize: 14 } }
+      }
+    }))
+
+    const { useTerminalPrefsStore, TERMINAL_PREFS_DEFAULTS } = await import('../../src/store/terminal-prefs.store')
+    const state = useTerminalPrefsStore.getState()
+
+    expect(state.global.fontSize).toBe(TERMINAL_PREFS_DEFAULTS.fontSize)
+    expect(state.overrides['ws-custom']).toEqual({ fontSize: 14 })
   })
 })

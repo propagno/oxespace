@@ -568,7 +568,7 @@ function ProvidersSettingsSection({
             ) : null}
           </div>
           <div className="settings-providers-stats" aria-label="Provider counts">
-            <span className="settings-stat ready">
+            <span className={`settings-stat${readyCount > 0 ? ' ready' : ''}`}>
               <em>{readyCount}</em> ready
             </span>
             {missingCount > 0 ? (
@@ -875,7 +875,7 @@ const FONT_PRESETS = [
 ]
 
 function TerminalPreview({ prefs }: { prefs: TerminalPrefs }): ReactElement {
-  const sampleSize = Math.max(10, Math.min(prefs.fontSize, 15))
+  const sampleSize = prefs.fontSize
   return (
     <div className="settings-term-preview" aria-hidden="true">
       <div className="settings-term-preview-chrome">
@@ -919,7 +919,7 @@ function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactEle
         kicker="Global appearance"
         title="Terminal"
         titleId="settings-terminal-title"
-        description="Set your font, cursor and terminal behavior."
+        description="Set the default font, cursor and behavior for every workspace. Workspace overrides remain independent."
         onClose={onClose}
       />
 
@@ -953,6 +953,7 @@ function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactEle
             />
             <span className="settings-field-hint">Ctrl + / Ctrl − / Ctrl 0 in a terminal</span>
           </label>
+          {global.fontSize !== TERMINAL_PREFS_DEFAULTS.fontSize && <button type="button" className="settings-reset-font" onClick={() => setGlobal({ fontSize: TERMINAL_PREFS_DEFAULTS.fontSize })}>Reset to {TERMINAL_PREFS_DEFAULTS.fontSize}px</button>}
 
           <label className="settings-field">
             <span className="settings-field-label-row">
@@ -1145,7 +1146,7 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
     bootstrap()
   }, [bootstrap])
 
-  // electron-updater is a no-op outside packaged installs. Treat disabled as "dev build".
+  const manualInstall = app.installMode === 'manual' || app.status === 'disabled'
   const isDevBuild = app.status === 'disabled'
   const versionLabel = app.currentVersion === 'dev' || !app.currentVersion
     ? 'dev build'
@@ -1154,17 +1155,17 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
   const appStatusLabel = (() => {
     switch (app.status) {
       case 'disabled':
-        return 'Unavailable in dev builds'
+        return 'Update service unavailable'
       case 'checking':
         return 'Checking GitHub Releases…'
       case 'available':
-        return `Update ${app.availableVersion} available — downloading in the background`
+        return manualInstall ? `Update ${app.availableVersion} available — install it from Releases` : `Update ${app.availableVersion} available — downloading in the background`
       case 'downloading':
         return `Downloading ${app.availableVersion ?? 'update'}… ${app.progress ?? 0}%`
       case 'downloaded':
         return `Ready to install ${app.availableVersion}`
       case 'not-available':
-        return 'You are on the latest release'
+        return 'No newer published release found'
       case 'error':
         return 'Update check failed'
       default:
@@ -1241,10 +1242,10 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
               <button
                 type="button"
                 className="settings-btn ghost"
-                disabled={isDevBuild || app.status === 'checking' || app.status === 'downloading'}
+                disabled={app.status === 'checking' || app.status === 'downloading'}
                 onClick={() => void checkAppUpdates()}
                 data-testid="btn-check-app-updates"
-                title={isDevBuild ? 'Only available in installed (packaged) builds' : 'Check GitHub Releases for a new version'}
+                title="Check GitHub Releases for a new version"
               >
                 <RefreshCw size={13} aria-hidden="true" />
                 Check for updates
@@ -1260,11 +1261,10 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
                   Restart & install
                 </button>
               ) : null}
+              {manualInstall && app.status === 'available' ? <a className="settings-btn primary" href="https://github.com/propagno/oxespace/releases/latest" target="_blank" rel="noopener noreferrer"><Download size={13} aria-hidden="true" /> Open releases</a> : null}
             </div>
             <p className="settings-update-hint">
-              {isDevBuild
-                ? 'Install a release build to enable automatic updates.'
-                : 'Downloads in the background. Restart to apply.'}
+              {manualInstall ? 'Development and Linux package installs cannot update in place. Use the latest release or update your development checkout.' : 'Downloads in the background. Restart to apply.'}
             </p>
           </article>
 

@@ -8,7 +8,7 @@ import './DelegatedWorkDialog.css'
 
 export function DelegatedWorkDialog({ workspaces, workspaceId, focusTaskId, origin, onClose, onOpen }: {
   workspaces: Workspace[]; workspaceId: string; focusTaskId?: string | null; origin?: { kind: 'pane' | 'thread'; id: string }
-  onClose(): void; onOpen(task: DelegationTask): void
+  onClose(): void; onOpen(task: DelegationTask): Promise<boolean>
 }) {
   const [selectedWorkspace, setSelectedWorkspace] = useState(workspaceId || workspaces[0]?.id || '')
   const [tasks, setTasks] = useState<DelegationTask[]>([])
@@ -17,6 +17,8 @@ export function DelegatedWorkDialog({ workspaces, workspaceId, focusTaskId, orig
   const [busy, setBusy] = useState(false), [creating, setCreating] = useState(false)
   const [replaceId, setReplaceId] = useState<string | null>(null)
   const request = useRef(0)
+  useEffect(() => { if (focusTaskId) setQuery(focusTaskId) }, [focusTaskId])
+  useEffect(() => { if (workspaceId) setSelectedWorkspace(workspaceId) }, [workspaceId])
   useEffect(() => {
     let active = true
     const refresh = async () => {
@@ -61,7 +63,7 @@ export function DelegatedWorkDialog({ workspaces, workspaceId, focusTaskId, orig
         {task.lastReport && <p>{task.lastReport}</p>}
         {task.error && <p role="alert">{task.error}</p>}
         <div className="delegated-work-actions">
-          <button type="button" disabled={!task.destinationThreadId && !task.paneId} onClick={() => onOpen(task)}>Open {task.destinationThreadId ? 'conversation' : 'terminal'}</button>
+          <button type="button" disabled={!task.destinationThreadId && !task.paneId} onClick={() => { void onOpen(task).then(opened => { if (!opened) setError(task.destinationThreadId ? 'The saved conversation could not be opened. Use the recovery actions below.' : 'This terminal is no longer running. Resume its saved session or start a new session from the handoff below.') }) }}>Open {task.destinationThreadId ? 'conversation' : 'terminal'}</button>
           {origin && workspaceId === (task.originWorkspaceId ?? task.workspaceId) && <button type="button" disabled={busy} onClick={() => {
             setBusy(true); setError('')
             void window.oxe.delegation.adopt(workspaceId, task.id, origin.kind === 'thread' ? `thread:${origin.id}` : origin.id)
@@ -74,7 +76,7 @@ export function DelegatedWorkDialog({ workspaces, workspaceId, focusTaskId, orig
           <dt>Task ID</dt><dd>{task.id}</dd><dt>Session ID</dt><dd>{task.nativeSession?.nativeSessionId ?? 'Not yet observed'}</dd>
           <dt>Worktree</dt><dd>{task.path}</dd><dt>Base commit</dt><dd>{task.baseSha}</dd>
           <dt>Origin</dt><dd>{task.originCwd ?? task.cwd}</dd><dt>Handoff revision</dt><dd>{task.knowledgeBundle?.revision ?? 1}</dd>
-        </dl><pre>{task.context ?? task.handoff}</pre></details>
+        </dl><h4>Knowledge included</h4>{task.knowledgeBundle?.sources.length ? <ul>{task.knowledgeBundle.sources.map((source, index) => <li key={`${source.kind}-${index}`}><strong>{source.kind === 'memory' ? 'AI Memory' : source.kind === 'session' ? 'Conversation' : source.kind}</strong><span>{source.label}</span></li>)}</ul> : <p>The knowledge bundle is being prepared or no optional source was available.</p>}{task.includeMemory && task.knowledgeBundle && !task.knowledgeBundle.sources.some(source => source.kind === 'memory') && <p role="status">AI Memory was requested but provided no context for this handoff. Check the project memory settings before retrying.</p>}<pre>{task.context ?? task.handoff}</pre></details>
       </article>)}
     </div>
     {cursor && <button type="button" disabled={busy} onClick={() => {

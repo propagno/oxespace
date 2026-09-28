@@ -44,9 +44,20 @@ export function SettingsCenter(props: SettingsModalProps & {
   const draft = useRef<{ dirty: boolean; save: () => Promise<boolean>; discard: () => void } | null>(null)
   const search = useRef<HTMLInputElement>(null)
   const content = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const focusSearch = (event: KeyboardEvent): void => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
+        event.preventDefault(); event.stopPropagation(); search.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', focusSearch, true)
+    return () => window.removeEventListener('keydown', focusSearch, true)
+  }, [])
   useEffect(() => { if (content.current) content.current.scrollTop = 0 }, [destination])
   const returnPane = useRef(useUIStore.getState().activePaneId)
   const workspace = destination.scope === 'workspace' ? props.workspaces.find(w => w.id === destination.workspaceId) : undefined
+  const activeWorkspaceId = useWorkspaceStore(state => state.activeWorkspaceId)
+  const scopeWorkspace = workspace ?? props.workspaces.find(w => w.id === activeWorkspaceId) ?? props.workspaces[0]
   const navigate = (action: () => void): void => {
     if (draft.current?.dirty) setPending(() => action)
     else action()
@@ -61,25 +72,25 @@ export function SettingsCenter(props: SettingsModalProps & {
   return <Dialog open onOpenChange={open => { if (!open && !pending) close() }}>
     <DialogContent unstyled showCloseButton={false} className="settings-center" style={{ gridTemplateColumns: `${navigationWidth}px minmax(0, 1fr)` }} overlayClassName="settings-center-overlay" aria-describedby={undefined}
       onCloseAutoFocus={event => { if (returnPane.current) { event.preventDefault(); requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('oxe:focus-pane', { detail: { paneId: returnPane.current } }))) } }}
-      onPointerDownOutside={event => event.preventDefault()}
-      onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') { event.preventDefault(); event.stopPropagation(); search.current?.focus() } }}>
+      onPointerDownOutside={event => event.preventDefault()}>
       <aside className="settings-center-nav">
         <DialogTitle className="settings-center-title"><Settings2 size={18} />Settings</DialogTitle>
         <SearchField className="settings-search" ref={search} label="Search settings" placeholder="Filter categories" value={query} onChange={setQuery} shortcut="Ctrl F" />
-        <label className="settings-scope">Settings for
-          <select aria-label="Settings scope" value={destination.scope === 'application' ? 'application' : destination.workspaceId}
-            onChange={e => go(e.target.value === 'application' ? { scope: 'application', page: 'general' } : { scope: 'workspace', workspaceId: e.target.value, page: 'appearance' })}>
-            <option value="application">Application</option>
-            {props.workspaces.map(w => <option key={w.id} value={w.id}>{w.name} — {w.rootPath}</option>)}
-          </select>
-        </label>
-        <label className="settings-scope settings-compact-category">Category
-          <select aria-label="Settings category" value={destination.page} onChange={event => go(destination.scope === 'application'
-            ? { scope: 'application', page: event.target.value as 'general' | SettingsSection }
-            : { ...destination, page: event.target.value as typeof SETTINGS_PAGES[number]['id'] })}>
-            {filtered.map(page => <option key={page.id} value={page.id}>{page.label}</option>)}
-          </select>
-        </label>
+        <div className="settings-scope"><span>Settings for</span>
+          <div className="settings-scope-choices" role="group" aria-label="Settings scope">
+            <button type="button" aria-pressed={destination.scope === 'application'} onClick={() => go({ scope: 'application', page: 'general' })}>Application</button>
+            {scopeWorkspace && <button type="button" aria-pressed={destination.scope === 'workspace'} title={scopeWorkspace.rootPath}
+              onClick={() => go({ scope: 'workspace', workspaceId: scopeWorkspace.id, page: 'appearance' })}>
+              <span>{scopeWorkspace.name}</span><small>Current workspace</small>
+            </button>}
+          </div>
+        </div>
+        <div className="settings-scope settings-compact-category"><span>Category</span>
+          <div className="settings-category-choices" role="group" aria-label="Settings category">
+            {filtered.map(page => <button type="button" key={page.id} aria-pressed={destination.page === page.id}
+              onClick={() => go(destination.scope === 'application' ? { scope: 'application', page: page.id as 'general' | SettingsSection } : { ...destination, page: page.id as typeof SETTINGS_PAGES[number]['id'] })}>{page.label}</button>)}
+          </div>
+        </div>
         <nav aria-label="Settings categories">
           <span className="settings-nav-caption">{destination.scope === 'application' ? 'Application' : 'Workspace'}</span>
           {filtered.map(({ icon: Icon, ...page }) => <button key={page.id} title={page.hint} aria-label={`${page.label} ${page.hint}`} aria-current={destination.page === page.id ? 'page' : undefined}
@@ -111,7 +122,7 @@ export function SettingsCenter(props: SettingsModalProps & {
               props.onClose()
             })} />
             : <section className="settings-general"><h2>Workspace closed</h2><p>Select another workspace or return to work.</p></section>
-            : destination.page === 'general' ? <GeneralSettings /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
+            : destination.page === 'general' ? <GeneralSettings onNavigate={page => go({ scope: 'application', page })} /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
         </div>
       </main>
       {pending && <Dialog open onOpenChange={open => { if (!open && !saving) setPending(null) }}><DialogContent unstyled showCloseButton={false} className="settings-unsaved" overlayClassName="settings-unsaved-overlay" aria-describedby={undefined}>
@@ -128,10 +139,16 @@ export function SettingsCenter(props: SettingsModalProps & {
   </Dialog>
 }
 
-function GeneralSettings(): ReactElement {
+function GeneralSettings({ onNavigate }: { onNavigate: (page: SettingsSection) => void }): ReactElement {
   const cap = useSettingsStore(s => s.visitedWorkspacesCap)
   const setCap = useSettingsStore(s => s.setVisitedWorkspacesCap)
-  return <section className="settings-general"><h2>General</h2><p>Customize how you move between projects and workspaces.</p>
+  return <section className="settings-general"><h2>General</h2><p>Choose a part of OXESpace to configure. Every card opens an existing settings page.</p>
+    <h3>Explore settings</h3>
+    <div className="settings-general-grid">{appPages.filter(page => page.id !== 'general').map(({ id, icon: Icon, label, hint }) =>
+      <button key={id} type="button" className="settings-general-destination" onClick={() => onNavigate(id)}>
+        <span><Icon size={16} aria-hidden="true" /><strong>{label}</strong></span><small>{hint}</small>
+      </button>)}</div>
+    <h3>Workspace navigation</h3>
     <div className="settings-general-card"><div><label htmlFor="workspace-cache-cap">Recently visited workspaces kept ready</label>
       <p>Keep terminal views available when switching workspaces. Changes apply automatically.</p></div>
       <input id="workspace-cache-cap" type="number" min={VISITED_WORKSPACES_CAP_MIN} max={VISITED_WORKSPACES_CAP_MAX} value={cap} onChange={e => { const value = e.currentTarget.valueAsNumber; if (Number.isFinite(value)) setCap(value) }} />

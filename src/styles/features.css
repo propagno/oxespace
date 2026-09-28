@@ -1,13 +1,13 @@
 .workspace-oxe-panel {
-  background: #000;
+  background: var(--wb-canvas);
 }
 
 .workspace-agents-panel {
-  background: #000;
+  background: var(--wb-canvas);
 }
 
 .workspace-github-panel {
-  border-left-color: rgba(0, 214, 201, 0.3);
+  border-left-color: var(--wb-border);
 }
 
 .github-panel {
@@ -18,15 +18,14 @@
   min-height: 0;
   overflow: hidden;
   color: var(--tx-primary);
-  /* Soft panel surface — less “terminal black”, more product UI */
-  background: #0a0b10;
-  --gh-card-bg: rgba(255, 255, 255, 0.025);
-  --gh-card-border: rgba(255, 255, 255, 0.06);
-  --gh-card-hover: rgba(255, 255, 255, 0.04);
-  --gh-row-bg: rgba(255, 255, 255, 0.02);
-  --gh-muted: #8b93a7;
-  --gh-text: #e8ecf4;
-  --gh-radius: 10px;
+  background: var(--wb-canvas);
+  --gh-card-bg: var(--wb-raised);
+  --gh-card-border: var(--wb-border);
+  --gh-card-hover: var(--wb-selection);
+  --gh-row-bg: var(--wb-raised);
+  --gh-muted: var(--tx-muted);
+  --gh-text: var(--tx-primary);
+  --gh-radius: var(--surface-radius);
 }
 
 .github-panel * {
@@ -280,7 +279,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #e8ecf7;
+  color: var(--tx-primary);
   font-size: 13px;
   font-weight: 800;
 }
@@ -306,7 +305,7 @@
 .github-secondary-section h4,
 .github-detected-repo h4 {
   margin: 0;
-  color: #dce3f3;
+  color: var(--tx-primary);
   font-size: 12px;
   font-weight: 800;
 }
@@ -319,9 +318,9 @@
   gap: 7px;
   min-width: 0;
   padding: 12px;
-  border: 1px solid #24283a;
-  border-radius: 7px;
-  background: #101118;
+  border: 1px solid var(--wb-border);
+  border-radius: var(--surface-radius);
+  background: var(--wb-raised);
 }
 
 .github-info-card strong {
@@ -333,7 +332,7 @@
 .github-info-card span,
 .github-list-card span,
 .github-list-card small {
-  color: #94a0b8;
+  color: var(--tx-secondary);
   font-size: 11px;
 }
 
@@ -341,7 +340,7 @@
 .github-info-card strong,
 .github-list-card strong {
   overflow: hidden;
-  color: #eef3ff;
+  color: var(--tx-primary);
   font-size: 13px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -355,7 +354,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #aab3c8;
+  color: var(--tx-secondary);
   font-size: 12px;
 }
 
@@ -368,10 +367,10 @@
 .github-form select {
   width: 100%;
   min-height: 36px;
-  border: 1px solid #24283a;
-  border-radius: 7px;
-  background: #07090f;
-  color: #e7ebf7;
+  border: 1px solid var(--wb-border);
+  border-radius: var(--nav-radius);
+  background: var(--bg-input);
+  color: var(--tx-primary);
   color-scheme: dark;
   font: inherit;
   padding: 8px 10px;
@@ -379,7 +378,7 @@
 
 .github-panel input::placeholder,
 .github-panel textarea::placeholder {
-  color: #6f7890;
+  color: var(--tx-muted);
 }
 
 .github-textarea,
@@ -397,9 +396,9 @@
   flex-direction: column;
   gap: 9px;
   padding: 12px;
-  border: 1px solid #24283a;
-  border-radius: 7px;
-  background: #0d0f16;
+  border: 1px solid var(--wb-border);
+  border-radius: var(--surface-radius);
+  background: var(--wb-raised);
 }
 
 .github-commit-toggle {
@@ -409,14 +408,14 @@
   width: 100%;
   border: 0;
   background: transparent;
-  color: #e6ebf7;
+  color: var(--tx-primary);
   font-size: 12px;
   font-weight: 800;
 }
 
 .github-commit-toggle span,
 .github-commit-tools span {
-  color: #8992aa;
+  color: var(--tx-muted);
   font-size: 11px;
   font-weight: 600;
 }
@@ -3256,15 +3255,15 @@
   transition: border-color var(--transition-fast), box-shadow var(--transition-base), transform var(--transition-base);
 }
 .pane-container:focus-within {
-  border-color: color-mix(in srgb, var(--accent) 28%, var(--pane-border));
+  border-color: var(--wb-focus);
 }
 .pane-container.active {
   border-color: var(--pane-border-active) !important;
-  box-shadow: var(--pane-shadow-active) !important;
+  box-shadow: inset 0 2px 0 var(--wb-focus) !important;
 }
 .pane-container.active > .pane-header {
-  background: color-mix(in srgb, var(--accent) 5%, var(--pane-surface-raised));
-  border-bottom-color: color-mix(in srgb, var(--accent) 18%, var(--pane-border));
+  background: var(--wb-chrome);
+  border-bottom-color: var(--wb-border);
   box-shadow: none;
 }
 .pane-container.active > .pane-header .pane-header-left {
@@ -3272,16 +3271,16 @@
   background: transparent;
 }
 .pane-container.active > .pane-header .pane-status-dot {
-  box-shadow: var(--glow-pane-active);
+  box-shadow: none;
 }
 
 .pane-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 40px;
-  padding: 5px 9px 5px 12px;
-  background: var(--pane-surface-raised);
+  height: 36px;
+  padding: 4px 8px 4px 10px;
+  background: var(--wb-chrome);
   border-bottom: 1px solid var(--pane-border);
   flex-shrink: 0;
   gap: 8px;
@@ -3948,7 +3947,7 @@
   gap: 12px;
   padding: 14px 12px 10px;
   background: var(--bg-tile-agent);
-  border-bottom: 1px solid #101010;
+  border-bottom: 1px solid var(--wb-border);
   flex-shrink: 0;
 }
 
@@ -4234,6 +4233,21 @@
   color: var(--tx-primary);
   background: rgba(255, 255, 255, 0.04);
 }
+.workspace-editor-content:has(.editor-pane) { container-type: inline-size; }
+@container (max-width: 620px) {
+  .editor-pane { flex-direction: column; }
+  .editor-sidebar { flex: 0 0 min(36%, 240px); width: 100%; border-right: 0; border-bottom: 1px solid var(--bd-subtle); }
+}
+
+.terminal-restore-dialog { width: min(620px, calc(100vw - 32px)); max-height: min(720px, calc(100vh - 32px)); display: flex; flex-direction: column; gap: 14px; }
+.terminal-restore-dialog > label { display: grid; gap: 7px; color: var(--tx-secondary); font-size: 12px; }
+.terminal-restore-dialog input { width: 100%; color: var(--tx-primary); background: var(--bg-elevated); border: 1px solid var(--bd-base); border-radius: 7px; padding: 9px 11px; }
+.terminal-restore-list { min-height: 0; overflow: auto; display: grid; align-content: start; gap: 7px; }
+.terminal-restore-list button { display: grid; gap: 4px; width: 100%; padding: 11px 12px; text-align: left; color: var(--tx-primary); background: var(--bg-elevated); border: 1px solid var(--bd-base); border-radius: 8px; cursor: pointer; }
+.terminal-restore-list button:hover:not(:disabled) { border-color: var(--brand-light, #5eead4); }
+.terminal-restore-list button:disabled { opacity: .5; cursor: default; }
+.terminal-restore-list button span, .terminal-restore-list button small { color: var(--tx-secondary); overflow-wrap: anywhere; }
+.terminal-restore-dialog [role='alert'] { color: var(--error, #e78080); }
 
 .statusbar-dot {
   width: 6px;
@@ -6669,6 +6683,7 @@
 .review-pane-v2 {
   display: flex;
   flex-direction: column;
+  container-type: inline-size;
   height: 100%;
   overflow: hidden;
 }
@@ -6761,6 +6776,13 @@
   min-width: 0;
   min-height: 0;
   height: 100%;
+}
+.ws-settings-use-default { align-self: flex-start; padding: 7px 10px; border: 1px solid var(--bd-base); border-radius: var(--nav-radius); background: var(--bg-elevated); color: var(--tx-primary); font-size: var(--fs-xs); cursor: pointer; }
+.ws-settings-use-default:hover { background: var(--wb-selection); }
+@container (max-width: 620px) {
+  .review-pane-split { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(140px, 38%) minmax(0, 1fr); }
+  .review-pane-tree { height: auto; border-right: 0; border-bottom: 1px solid var(--bd-subtle); }
+  .review-pane-diffs { height: auto; }
 }
 
 /* Tree v2 — fills whatever vertical space its column gives it. */

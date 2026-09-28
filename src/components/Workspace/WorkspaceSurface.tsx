@@ -1,4 +1,4 @@
-import { Fragment, Suspense, lazy, memo, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { Suspense, lazy, memo, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from 'react-resizable-panels'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceWorktreeStateInput, Workspace } from '../../../shared/types/workspace'
@@ -88,7 +88,7 @@ interface WorkspaceSurfaceProps {
 const DEFAULT_EDITOR_WIDTH = 40
 const DEFAULT_REVIEW_WIDTH = 36
 const DEFAULT_GITHUB_WIDTH = 40
-const DEFAULT_BACKGROUND_WIDTH = 28
+const DEFAULT_BACKGROUND_WIDTH = 36
 const DEFAULT_WORKTREE_WIDTH = 36
 const INNER_MIN_SIZE = 10
 
@@ -184,25 +184,43 @@ function WorkspaceSurfaceComponent({
   const searchWidth = searchExpanded ? 70 : DEFAULT_REVIEW_WIDTH
 
   const hasSidePanels = editorVisible || reviewVisible || githubVisible || backgroundVisible || worktreeVisible || scriptsVisible || webPreviewVisible || integrationVisible || searchVisible
+  const visibleSideIds = [githubVisible && 'github', reviewVisible && 'review', editorVisible && 'editor', backgroundVisible && 'background', worktreeVisible && 'worktree', scriptsVisible && 'scripts', webPreviewVisible && 'web-preview', integrationVisible && 'integration', searchVisible && 'search'].filter((id): id is string => Boolean(id))
+  const visibleSideKey = visibleSideIds.join('|')
+  const [preferredSideId, setPreferredSideId] = useState<string | null>(null)
+  const previousSideIds = useRef<string[]>([])
+  const sideTabsRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const added = visibleSideIds.filter(id => !previousSideIds.current.includes(id))
+    previousSideIds.current = visibleSideIds
+    if (added.length) setPreferredSideId(added.at(-1)!)
+    else if (preferredSideId && !visibleSideIds.includes(preferredSideId)) setPreferredSideId(visibleSideIds.at(-1) ?? null)
+  // The key represents the complete set; array identity changes on each render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleSideKey])
+  const activeSideId = preferredSideId && visibleSideIds.includes(preferredSideId) ? preferredSideId : visibleSideIds.at(-1) ?? null
+  useEffect(() => {
+    const selected = sideTabsRef.current?.querySelector('[aria-selected="true"]')
+    if (selected && typeof selected.scrollIntoView === 'function') selected.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [activeSideId])
 
   const layoutSizes = getWorkspacePanelSizes({
-    editorVisible,
+    editorVisible: activeSideId === 'editor',
     editorWidth,
-    githubVisible,
+    githubVisible: activeSideId === 'github',
     githubWidth,
-    reviewVisible,
+    reviewVisible: activeSideId === 'review',
     reviewWidth,
-    backgroundVisible,
+    backgroundVisible: activeSideId === 'background',
     backgroundWidth,
-    worktreeVisible,
+    worktreeVisible: activeSideId === 'worktree',
     worktreeWidth,
-    scriptsVisible,
+    scriptsVisible: activeSideId === 'scripts',
     scriptsWidth,
-    webPreviewVisible,
+    webPreviewVisible: activeSideId === 'web-preview',
     webPreviewWidth,
-    integrationVisible,
+    integrationVisible: activeSideId === 'integration',
     integrationWidth,
-    searchVisible,
+    searchVisible: activeSideId === 'search',
     searchWidth
   })
 
@@ -226,21 +244,6 @@ function WorkspaceSurfaceComponent({
     }
     outerSideSizeRef.current = combinedSideSize
   }, [hasSidePanels, combinedSideSize])
-
-  // Inner group key: changes on visibility/expanded state → inner panels remount.
-  // Outer group key is workspace.id only → WorkspaceGrid NEVER remounts on panel toggle.
-  const innerPanelKey = [
-    workspace.id,
-    githubVisible ? 'gh' : '_', githubExpanded ? 'GH' : '_',
-    reviewVisible ? 're' : '_', reviewExpanded ? 'RE' : '_',
-    editorVisible ? 'ed' : '_', editorExpanded ? 'ED' : '_',
-    backgroundVisible ? 'bg' : '_', backgroundExpanded ? 'BG' : '_',
-    worktreeVisible ? 'wt' : '_', worktreeExpanded ? 'WT' : '_',
-    scriptsVisible ? 'sc' : '_',
-    webPreviewVisible ? 'wp' : '_',
-    integrationVisible ? 'in' : '_',
-    searchVisible ? 'se' : '_',
-  ].join('')
 
   // Convert a total-workspace percentage to a percentage of the combined side area
   const toInnerPct = (totalPct: number): number => {
@@ -493,7 +496,22 @@ function WorkspaceSurfaceComponent({
   // mounted.
   const isMaximized = Boolean(maximizedPaneId)
   const showSidePanels = hasSidePanels && !isMaximized
-  const innerMaxSize = sidePanels.length > 1 ? 100 - INNER_MIN_SIZE * (sidePanels.length - 1) : 100
+  const sideLabels: Record<string, string> = { github: 'Source control', review: 'Review', editor: 'Files', background: 'Background jobs', worktree: 'Worktrees', scripts: 'Scripts', 'web-preview': 'Web preview', integration: 'Integrations', search: 'Find in files' }
+  const persistSideWidth = (size: number): void => {
+    outerSideSizeRef.current = size
+    const width = Math.round(size)
+    if (activeSideId === 'github' && Math.abs(width - lastPersistedGitHubWidth.current) >= 2) {
+      lastPersistedGitHubWidth.current = width; onUpdateGitHubState({ workspaceId: workspace.id, githubPanelWidthPercent: width, githubPanelExpanded: width >= 68 })
+    } else if (activeSideId === 'review' && Math.abs(width - lastPersistedReviewWidth.current) >= 2) {
+      lastPersistedReviewWidth.current = width; onUpdateReviewState({ workspaceId: workspace.id, reviewPanelWidthPercent: width, reviewPanelExpanded: width >= 68 })
+    } else if (activeSideId === 'editor' && Math.abs(width - lastPersistedWidth.current) >= 2) {
+      lastPersistedWidth.current = width; onUpdateEditorState({ workspaceId: workspace.id, editorWidthPercent: width, editorExpanded: width >= 68 })
+    } else if (activeSideId === 'background' && Math.abs(width - lastPersistedBackgroundWidth.current) >= 2) {
+      lastPersistedBackgroundWidth.current = width; onUpdateBackgroundState({ workspaceId: workspace.id, backgroundPanelWidthPercent: width, backgroundPanelExpanded: width >= 68 })
+    } else if (activeSideId === 'worktree' && Math.abs(width - lastPersistedWorktreeWidth.current) >= 2) {
+      lastPersistedWorktreeWidth.current = width; onUpdateWorktreeState({ workspaceId: workspace.id, worktreePanelWidthPercent: width, worktreePanelExpanded: width >= 68 })
+    }
+  }
 
   return (
     <div className="workspace-surface-frame">
@@ -503,7 +521,7 @@ function WorkspaceSurfaceComponent({
           Outer PanelGroup key = workspace.id ONLY.
           WorkspaceGrid lives here and never remounts when side panels toggle
           or when a pane is maximized/restored.
-          Side panels live in an inner PanelGroup that can safely remount.
+          Side panel contents stay mounted while switching tabs so local tool state survives.
         */}
         <PanelGroup key={workspace.id} direction="horizontal">
           <Panel
@@ -522,29 +540,18 @@ function WorkspaceSurfaceComponent({
                 minSize={25}
                 maxSize={70}
                 defaultSize={combinedSideSize}
-                onResize={(size) => { outerSideSizeRef.current = size }}
+                onResize={persistSideWidth}
               >
-                <PanelGroup key={innerPanelKey} direction="horizontal">
-                  {sidePanels.map((panel, i) => (
-                    <Fragment key={panel.id}>
-                      {i > 0 && (
-                        <PanelResizeHandle className="resize-handle resize-handle-vertical workspace-editor-resize" />
-                      )}
-                      <Panel
-                        minSize={INNER_MIN_SIZE}
-                        maxSize={innerMaxSize}
-                        defaultSize={panel.defaultSize}
-                        onResize={panel.onResize}
-                      >
-                        <ErrorBoundary label="este painel">
-                          <Suspense fallback={<div className="workspace-editor-panel" data-testid="panel-loading" />}>
-                            {panel.content}
-                          </Suspense>
-                        </ErrorBoundary>
-                      </Panel>
-                    </Fragment>
-                  ))}
-                </PanelGroup>
+                <div className="workspace-panel-stack">
+                  {sidePanels.length > 1 && <nav ref={sideTabsRef} className="workspace-panel-stack-tabs" role="tablist" aria-label="Open workspace panels">
+                    {sidePanels.map(panel => <button type="button" role="tab" key={panel.id} aria-selected={panel.id === activeSideId} onClick={() => setPreferredSideId(panel.id)}>{sideLabels[panel.id]}</button>)}
+                  </nav>}
+                  <div className="workspace-panel-stack-content" role={sidePanels.length > 1 ? 'tabpanel' : undefined} aria-label={sidePanels.length > 1 && activeSideId ? sideLabels[activeSideId] : undefined}>
+                    {sidePanels.map(panel => <div key={panel.id} hidden={panel.id !== activeSideId}>
+                      <ErrorBoundary label="este painel"><Suspense fallback={<div className="workspace-editor-panel" data-testid="panel-loading" />}>{panel.content}</Suspense></ErrorBoundary>
+                    </div>)}
+                  </div>
+                </div>
               </Panel>
             </>
           ) : null}
@@ -608,7 +615,7 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
   const editor = input.editorVisible ? clampPanelSize(input.editorWidth, 25, 70) : 0
   const github = input.githubVisible ? clampPanelSize(input.githubWidth, 25, 70) : 0
   const review = input.reviewVisible ? clampPanelSize(input.reviewWidth, 24, 70) : 0
-  const background = input.backgroundVisible ? clampPanelSize(input.backgroundWidth, 24, 70) : 0
+  const background = input.backgroundVisible ? clampPanelSize(input.backgroundWidth, 36, 70) : 0
   const worktree = input.worktreeVisible ? clampPanelSize(input.worktreeWidth, 24, 70) : 0
   const scripts = input.scriptsVisible ? clampPanelSize(input.scriptsWidth, 25, 70) : 0
   const webPreview = input.webPreviewVisible ? clampPanelSize(input.webPreviewWidth, 25, 70) : 0

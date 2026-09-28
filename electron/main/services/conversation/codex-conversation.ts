@@ -139,7 +139,9 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
       }))
       if (this.busy) this.turnId = text(record(result.turn).id)
     } catch (error) {
-      this.fail(error instanceof ThreadAgentError ? error.failure : threadFailure({ message: error instanceof Error ? error.message : '' }))
+      const failure = error instanceof ThreadAgentError ? error.failure : threadFailure({ message: error instanceof Error ? error.message : '' })
+      this.fail(failure)
+      throw new ThreadAgentError(failure)
     }
   }
 
@@ -398,7 +400,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     this.turnId = ''
     this.approvals.clear()
     this.emit({ type: 'completed', status: 'failed', error: failure.message, errorCode: failure.code, failure })
-    if (failure.code === 'authentication' || typeof error === 'string') return
+    if (failure.code === 'authentication' || failure.code === 'session-busy' || typeof error === 'string') return
     void this.readUsage().then(usage => {
       if (!this.disposed) this.emit({ type: 'failure-details', id: failure.id, usage, usageUnavailable: usage.windows.length === 0 })
     }, () => {
@@ -537,7 +539,9 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
   }
 
   private toRequest(id: string, method: string, params: Record<string, unknown>): ThreadRequest {
-    const detail = (text(params.command) || (Array.isArray(params.command) ? params.command.join(' ') : '') || text(params.reason) || text(params.message)).slice(0, 12000)
+    const command = (text(params.command) || (Array.isArray(params.command) ? params.command.filter((value): value is string => typeof value === 'string').join(' ') : '')).slice(0, 12000)
+    const reason = text(params.reason).slice(0, 2000)
+    const detail = command || reason || text(params.message).slice(0, 12000)
     if (method === 'item/tool/requestUserInput') return {
       id, nativeId: id, nativeMethod: method, kind: 'question', title: 'Input required', detail, generation: 0, createdAt: Date.now(), state: 'pending',
       turnId: text(params.turnId), questions: (Array.isArray(params.questions) ? params.questions : []).slice(0, 20).map(value => {
@@ -549,6 +553,6 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     if (method === 'mcpServer/elicitation/request') return { id, nativeId: id, nativeMethod: method, kind: 'elicitation', title: text(params.serverName) || 'MCP input required', detail, generation: 0, createdAt: Date.now(), state: 'pending', turnId: text(params.turnId), schema: record(params.requestedSchema), url: text(params.url) || undefined }
     type RequestDecision = NonNullable<ThreadRequest['availableDecisions']>[number]
     const available = (Array.isArray(params.availableDecisions) ? params.availableDecisions : []).filter((value): value is RequestDecision => typeof value === 'string' && ['accept', 'acceptForSession', 'decline', 'cancel'].includes(value))
-    return { id, nativeId: id, nativeMethod: method, kind: 'approval', title: method.includes('file') || method === 'applyPatchApproval' ? 'Approve file changes' : 'Approve command', detail: detail || 'The agent requests your permission.', generation: 0, createdAt: Date.now(), state: 'pending', turnId: text(params.turnId), availableDecisions: available.length ? available : ['accept', 'decline'] }
+    return { id, nativeId: id, nativeMethod: method, kind: 'approval', title: method.includes('file') || method === 'applyPatchApproval' ? 'Approve file changes' : 'Approve command', detail: detail || 'The agent requests your permission.', ...(command ? { command } : {}), ...(reason ? { reason } : {}), ...(text(params.cwd) ? { cwd: text(params.cwd).slice(0, 1000) } : {}), generation: 0, createdAt: Date.now(), state: 'pending', turnId: text(params.turnId), availableDecisions: available.length ? available : ['accept', 'decline'] }
   }
 }

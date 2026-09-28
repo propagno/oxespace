@@ -28,7 +28,7 @@ describe('shared navigation preferences', () => {
     localStorage.setItem('oxe.thread-navigation', '{broken')
     localStorage.setItem('oxe.navigation', JSON.stringify({ state: { width: 'wide', expanded: { repo: 'yes' } }, version: 0 }))
     const { useNavigationPrefs } = await import('../src/store/navigation-prefs.store')
-    expect(useNavigationPrefs.getState().width).toBe(248)
+    expect(useNavigationPrefs.getState().width).toBe(280)
     expect(useNavigationPrefs.getState().expanded).toEqual({})
   })
 })

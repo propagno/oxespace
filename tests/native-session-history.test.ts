@@ -66,4 +66,43 @@ describe('native session history import', () => {
     await expect(reader.read(thread, id)).rejects.toThrow('different project')
     expect(transport.close).toHaveBeenCalledTimes(2)
   })
+  it('opens a large Claude history from its recent public messages without buffering tool output', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'oxe-native-history-')); roots.push(root)
+    const thread = { provider: 'claude', rootPath: join(root, 'repo') } as ConversationThread
+    const folder = join(root, 'claude', 'projects', thread.rootPath.replace(/[^a-zA-Z0-9]/g, '-'))
+    await mkdir(folder, { recursive: true })
+    const entries = [
+      JSON.stringify({ type: 'tool-result', sessionId: id, cwd: thread.rootPath, content: 'x'.repeat(3 * 1024 * 1024) }),
+      JSON.stringify({ type: 'tool-result', sessionId: id, cwd: thread.rootPath, content: 'y'.repeat(3 * 1024 * 1024) }),
+      ...Array.from({ length: 1200 }, (_, index) => JSON.stringify({ type: 'user', uuid: `message-${index}`, sessionId: id, cwd: thread.rootPath, message: { content: `Question ${index}` } }))
+    ]
+    await writeFile(join(folder, `${id}.jsonl`), entries.join('\n'))
+    const history = await new NativeSessionReader(() => 'unused', { claudeHome: join(root, 'claude') }).read(thread, id)
+    expect(history.truncated).toBe(true)
+    expect(history.events.length).toBe(1000)
+    expect(history.events.at(-1)).toMatchObject({ text: 'Question 1199' })
+    expect(JSON.stringify(history)).not.toContain('Question 0')
+  })
+  it('reads a large Codex rollout locally without sending it through the RPC size limit', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'oxe-native-history-')); roots.push(root)
+    const thread = { provider: 'codex', rootPath: join(root, 'repo') } as ConversationThread
+    const folder = join(root, 'codex', 'sessions', '2026', '09', '24')
+    await mkdir(folder, { recursive: true })
+    const entries = [
+      JSON.stringify({ type: 'session_meta', payload: { id, cwd: process.platform === 'win32' ? '\\\\?\\' + thread.rootPath : thread.rootPath } }),
+      JSON.stringify({ type: 'response_item', payload: { type: 'message', role: 'developer', content: [{ type: 'input_text', text: 'private instructions' }] } }),
+      JSON.stringify({ type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: '<environment_context><current_date>2026-09-24</current_date><root>private path</root></environment_context>' }] } }),
+      JSON.stringify({ type: 'response_item', payload: { type: 'function_call_output', content: 'private tool output'.repeat(180_000) } }),
+      ...Array.from({ length: 1200 }, (_, index) => JSON.stringify({ type: 'response_item', payload: { type: 'message', role: index % 2 ? 'assistant' : 'user', id: `msg-${index}`, content: [{ type: index % 2 ? 'output_text' : 'input_text', text: `Public ${index}` }] } }))
+    ]
+    await writeFile(join(folder, `rollout-2026-09-24T12-00-00-${id}.jsonl`), entries.join('\n'))
+    const reader = new NativeSessionReader(() => 'codex', { codexHome: join(root, 'codex'), transport: () => { throw Error('RPC should not start') } })
+    const history = await reader.read(thread, id)
+    expect(history.truncated).toBe(true)
+    expect(history.events).toHaveLength(1000)
+    expect(history.events.at(-1)).toMatchObject({ role: 'assistant', text: 'Public 1199' })
+    expect(JSON.stringify(history)).not.toContain('private')
+    expect(history.title).toBe('Public 0')
+    await expect(reader.read({ ...thread, rootPath: join(root, 'other') }, id)).rejects.toThrow('different project')
+  })
 })

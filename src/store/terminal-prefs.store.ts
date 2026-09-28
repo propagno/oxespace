@@ -37,8 +37,8 @@ export const TERMINAL_PREFS_DEFAULTS: TerminalPrefs = {
   // xterm resolves real font names (not CSS tokens), so the Linux families have
   // to be listed explicitly — Cascadia/Consolas do not exist there and the
   // stack would otherwise fall through to a bitmap default.
-  fontFamily: 'JetBrains Mono, Cascadia Mono, DejaVu Sans Mono, Consolas, monospace',
-  fontSize: 14,
+  fontFamily: 'Cascadia Mono, JetBrains Mono, DejaVu Sans Mono, Consolas, monospace',
+  fontSize: 16,
   // Looser leading + a non-blinking bar caret make the terminal read like a
   // chat/editor surface rather than a raw console. See features.css for the
   // matching padded, lifted, rounded panel treatment.
@@ -99,7 +99,7 @@ export const useTerminalPrefsStore = create<TerminalPrefsState>()(
     }),
     {
       name: 'oxe-terminal-prefs',
-      version: 5,
+      version: 7,
       // v2: RTK/Caveman/Semantic became opt-in (off by default). Existing users
       // have a persisted `global` from when RTK/Semantic defaulted to ON, and
       // `merge` spreads persisted over defaults — so without this migration the
@@ -119,10 +119,15 @@ export const useTerminalPrefsStore = create<TerminalPrefsState>()(
         if (global.lineHeight === 1.2) global.lineHeight = 1.4
         // v4 (modern terminal card): prefer JetBrains Mono for users who never
         // picked a font themselves — anyone with a custom stack keeps it.
-        if (global.fontFamily === LEGACY_DEFAULT_FONT) global.fontFamily = TERMINAL_PREFS_DEFAULTS.fontFamily
+        if (global.fontFamily === LEGACY_DEFAULT_FONT || global.fontFamily === 'JetBrains Mono, Cascadia Mono, DejaVu Sans Mono, Consolas, monospace') global.fontFamily = TERMINAL_PREFS_DEFAULTS.fontFamily
         // v5: roll the old 100k default forward. Explicitly larger/smaller
         // values remain untouched as a deliberate user preference.
         if (global.scrollback === 100_000) global.scrollback = TERMINAL_PREFS_DEFAULTS.scrollback
+        // v7: the former window-wide Ctrl/Cmd+Plus shortcut could repeatedly
+        // grow the persisted size to its 32px ceiling outside the terminal.
+        // Repair that ceiling value once; retain other chosen sizes and all
+        // workspace-specific overrides.
+        if (global.fontSize === FONT_SIZE_MAX) global.fontSize = TERMINAL_PREFS_DEFAULTS.fontSize
         const overrides: Record<string, Partial<TerminalPrefs>> = {}
         for (const [ws, ov] of Object.entries(p.overrides ?? {})) {
           const next = { ...(ov as Partial<TerminalPrefs>) }

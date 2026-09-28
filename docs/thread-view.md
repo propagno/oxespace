@@ -1,5 +1,7 @@
 # Thread Desktop
 
+> **Prévia visual:** [abrir o protótipo interativo do modo Thread](plans/thread-desktop-preview.html) no navegador. A prévia é demonstrativa e não altera a aplicação.
+
 Thread has its own navigation, independent of Code workspace and pane selection.
 Use **New thread**, select a registered project/directory and Claude Code or Codex,
 then **Create thread**. Project contexts resolve by canonical repository identity:
@@ -15,6 +17,20 @@ messages** resumes following. Scroll positions and drafts are separate per threa
 and survive mode switches during the current application session. Enter sends,
 Shift+Enter inserts a line, and IME composition does not send prematurely.
 
+### Exemplo visual da conversa
+
+```text
+┌ Thread ───────────── Projeto: OXESpace ────────────┐
+│ Você: Revise o fluxo de autenticação.              │
+│ OXE: Vou mapear os pontos de entrada e validações.  │
+│   Ferramenta  Ler src/auth.ts               [abrir]│
+│ OXE: Encontrei três verificações relevantes:       │
+│   • sessão nativa                                    │
+│   • estado da conta                                  │
+│   • preservação do rascunho                          │
+│ ┌ Escreva uma mensagem… ─────────────── [Enviar] ┐ │
+└───────────────────────────────────────────────────┘
+```
 ## Subscription accounts
 
 Open **Accounts** at the bottom of the sidebar. **Connect** / **Reconnect** uses

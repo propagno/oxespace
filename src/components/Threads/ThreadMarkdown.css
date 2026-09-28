@@ -1,4 +1,4 @@
-.thread-markdown { min-width: 0; max-width: 100%; line-height: 1.65; }
+.thread-markdown { min-width: 0; max-width: 100%; font-weight: 400; line-height: 1.7; }
 .thread-markdown>:first-child { margin-top: 0; }
 .thread-markdown>:last-child { margin-bottom: 0; }
 .thread-markdown :is(h1,h2,h3,h4,h5,h6) { color: var(--tx-primary); font-weight: 600; line-height: 1.4; margin: 22px 0 10px; }
@@ -6,12 +6,12 @@
 .thread-markdown h2 { font-size: 18px; }
 .thread-markdown h3 { font-size: 16px; }
 .thread-markdown :is(h4,h5,h6) { font-size: 14px; }
-.thread-markdown p { margin: 0 0 12px; }
+.thread-markdown p { margin: 0 0 15px; }
 .thread-markdown :is(ul,ol) { margin: 10px 0 14px; padding-left: 24px; }
 .thread-markdown ul { list-style-type: disc; }
 .thread-markdown ol { list-style-type: decimal; }
 .thread-markdown ul ul { list-style-type: circle; }
-.thread-markdown strong { font-weight: 600; }
+.thread-markdown strong { color: var(--tx-primary); font-weight: 600; }
 .thread-markdown li { margin: 5px 0; padding-left: 2px; }
 .thread-markdown li>p { margin: 6px 0; }
 .thread-markdown li :is(ul,ol) { margin: 6px 0; }

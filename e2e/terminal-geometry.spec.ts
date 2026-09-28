@@ -49,13 +49,22 @@ test('terminal text area stays inside the card (no side clipping)', async () => 
         rightOverflow: sr ? Math.round(sr.right - contentRight) : null
       }
     })
-    // eslint-disable-next-line no-console
-    console.log('[GEO]', JSON.stringify(geo, null, 2))
     expect(geo.error).toBeUndefined()
     // Text must start at/after the card content edge (no left clip) and not
     // overflow it (no right clip). Allow 1px rounding slack.
     expect(geo.textLeft! >= geo.contentLeft! - 1).toBeTruthy()
     expect(geo.textRight! <= geo.contentRight! + 1).toBeTruthy()
+
+    // A previous global shortcut could leave 32px persisted. Reopening the
+    // app must return those panes to the requested 16px default.
+    await page.evaluate(() => localStorage.setItem('oxe-terminal-prefs', JSON.stringify({
+      version: 6,
+      state: { global: { fontSize: 32 }, overrides: {} }
+    })))
+    await page.reload()
+    await page.getByTestId('terminal-view').first().waitFor({ state: 'visible' })
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('oxe-terminal-prefs') || '{}').state?.global?.fontSize)).toBe(16)
+    await page.screenshot({ path: 'test-results/terminal-font-16px.png' })
   } finally {
     await Promise.race([app.close().catch(() => undefined), new Promise((r) => setTimeout(r, 4000))])
   }

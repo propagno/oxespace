@@ -31,7 +31,7 @@ describe('WorkspaceService', () => {
     expect(workspace.rootPath).toBe('C:/projects/oxespace')
     expect(workspace.layout).toBe('4x4')
     expect(workspace.layoutPreset).toBe(16)
-    expect(workspace.themeId).toBe('dracula')
+    expect(workspace.themeId).toBe('midnight')
     expect(workspace.uiDensity).toBe('compact')
     expect(workspace.backgroundPanelVisible).toBe(false)
     expect(workspace.backgroundPanelWidthPercent).toBe(28)

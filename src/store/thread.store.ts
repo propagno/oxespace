@@ -12,9 +12,12 @@ interface ThreadState {
   attachments: Record<string, ThreadAttachment[]>
   expanded: Record<string, boolean>; errors: Record<string, string>; loading: boolean
   hiddenProjects: string[]
+  unreadIds: string[]
+  markUnread: (id: string) => void
+  markRead: (id: string) => void
   hideProject: (id: string) => Promise<void>
   restoreProjects: () => void
-  select: (id: string | null) => Promise<void>
+  select: (id: string | null, markRead?: boolean) => Promise<void>
   openSecondary: (id: string) => Promise<void>
   closeSecondary: () => void
   setActiveCell: (cell: 'primary' | 'secondary') => void
@@ -34,16 +37,18 @@ interface ThreadState {
 const refreshVersions = new Map<string, number>()
 let generation = 0, catalogGeneration = 0, projectGeneration = 0
 export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
-  threads: [], projects: [], selectedId: null, snapshot: null, secondaryId: null, activeCell: 'primary', snapshotCache: {}, snapshotCacheOrder: [], drafts: {}, attachments: {}, scrollPositions: {}, expanded: {}, errors: {}, loading: false, hiddenProjects: [],
+  threads: [], projects: [], selectedId: null, snapshot: null, secondaryId: null, activeCell: 'primary', snapshotCache: {}, snapshotCacheOrder: [], drafts: {}, attachments: {}, scrollPositions: {}, expanded: {}, errors: {}, loading: false, hiddenProjects: [], unreadIds: [],
+  markUnread: id => set(state => ({ unreadIds: [...new Set([...state.unreadIds, id])] })),
+  markRead: id => set(state => ({ unreadIds: state.unreadIds.filter(value => value !== id) })),
   hideProject: async id => {
     set(state => ({ hiddenProjects: [...new Set([...state.hiddenProjects, id])] }))
     if (get().snapshot?.thread.projectId === id) await get().select(null)
   },
   restoreProjects: () => set({ hiddenProjects: [] }),
-  select: async id => {
+  select: async (id, markRead = true) => {
     const version = ++generation
     const cached = id ? get().snapshotCache[id] ?? null : null
-    set(state => ({ selectedId: id, snapshot: cached, errors: Object.fromEntries(Object.entries(state.errors).filter(([key]) => key !== 'selection')),
+    set(state => ({ selectedId: id, snapshot: cached, unreadIds: id && markRead ? state.unreadIds.filter(value => value !== id) : state.unreadIds, errors: Object.fromEntries(Object.entries(state.errors).filter(([key]) => key !== 'selection')),
       ...(state.secondaryId === id ? { secondaryId: null, activeCell: 'primary' as const } : {}) }))
     if (!id) return
     try {
@@ -56,14 +61,14 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
     catch { if (version === generation) set({ errors: { ...get().errors, selection: 'Could not open conversation. Select it to retry.' } }) }
   },
   openSecondary: async id => {
-    if (id === get().selectedId) { set({ secondaryId: null, activeCell: 'primary' }); return }
+    if (id === get().selectedId) { set(state => ({ secondaryId: id, activeCell: 'secondary', unreadIds: state.unreadIds.filter(value => value !== id) })); return }
     const cached = get().snapshotCache[id]
-    if (cached) { set({ secondaryId: id, activeCell: 'secondary' }); return }
+    if (cached) { set(state => ({ secondaryId: id, activeCell: 'secondary', unreadIds: state.unreadIds.filter(value => value !== id) })); return }
     const snapshot = await window.oxe.thread!.read(id)
     if (!get().threads.some(thread => thread.id === id)) throw Error('Conversation is no longer available')
     set(state => {
       const cache = cacheThreadSnapshot({ snapshots: state.snapshotCache, order: state.snapshotCacheOrder }, snapshot)
-      return { secondaryId: id, activeCell: 'secondary', snapshotCache: cache.snapshots, snapshotCacheOrder: cache.order }
+      return { secondaryId: id, activeCell: 'secondary', unreadIds: state.unreadIds.filter(value => value !== id), snapshotCache: cache.snapshots, snapshotCacheOrder: cache.order }
     })
   },
   closeSecondary: () => set({ secondaryId: null, activeCell: 'primary' }),
@@ -111,6 +116,7 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
     const valid = new Set(threads.map(t => t.id))
     const cache = retainThreadSnapshots({ snapshots: get().snapshotCache, order: get().snapshotCacheOrder }, valid)
     set({ threads, errors: { ...errors, ...(get().errors.projects ? { projects: get().errors.projects } : {}) }, loading: false,
+      unreadIds: get().unreadIds.filter(id => valid.has(id)),
       secondaryId: get().secondaryId && valid.has(get().secondaryId!) ? get().secondaryId : null,
       snapshotCache: cache.snapshots, snapshotCacheOrder: cache.order,
       drafts: Object.fromEntries(Object.entries(get().drafts).filter(([id]) => valid.has(id))),
@@ -118,7 +124,7 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
       scrollPositions: Object.fromEntries(Object.entries(get().scrollPositions).filter(([id]) => valid.has(id))) })
     const visible = threads.filter(t => !t.archived && !get().hiddenProjects.includes(t.projectId))
     const selected = visible.find(t => t.id === get().selectedId) ?? visible.find(t => t.workspaceId === preferred) ?? visible[0]
-    if (selected?.id !== get().selectedId || !get().snapshot) await get().select(selected?.id ?? null)
+    if (selected?.id !== get().selectedId || !get().snapshot) await get().select(selected?.id ?? null, selected?.id !== get().selectedId)
     else await get().refresh(selected.id)
   },
   refresh: async id => {
@@ -156,16 +162,17 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
   toggle: id => set(state => ({ expanded: { ...state.expanded, [id]: !(state.expanded[id] ?? true) } })),
   adopt: snapshot => { ++generation; ++catalogGeneration; set(state => {
     const cache = cacheThreadSnapshot({ snapshots: state.snapshotCache, order: state.snapshotCacheOrder }, snapshot)
-    return { snapshot, selectedId: snapshot.thread.id, secondaryId: state.secondaryId === snapshot.thread.id ? null : state.secondaryId, activeCell: state.secondaryId === snapshot.thread.id ? 'primary' as const : state.activeCell, snapshotCache: cache.snapshots, snapshotCacheOrder: cache.order, hiddenProjects: state.hiddenProjects.filter(id => id !== snapshot.thread.projectId), threads: [snapshot.thread, ...state.threads.filter(t => t.id !== snapshot.thread.id)], loading: false }
+    return { snapshot, selectedId: snapshot.thread.id, secondaryId: state.secondaryId === snapshot.thread.id ? null : state.secondaryId, activeCell: state.secondaryId === snapshot.thread.id ? 'primary' as const : state.activeCell, unreadIds: state.unreadIds.filter(id => id !== snapshot.thread.id), snapshotCache: cache.snapshots, snapshotCacheOrder: cache.order, hiddenProjects: state.hiddenProjects.filter(id => id !== snapshot.thread.projectId), threads: [snapshot.thread, ...state.threads.filter(t => t.id !== snapshot.thread.id)], loading: false }
   }) },
   updateSnapshot: snapshot => set(state => {
     const cache = cacheThreadSnapshot({ snapshots: state.snapshotCache, order: state.snapshotCacheOrder }, snapshot)
     return { ...(state.selectedId === snapshot.thread.id ? { snapshot } : {}), snapshotCache: cache.snapshots, snapshotCacheOrder: cache.order, threads: state.threads.map(thread => thread.id === snapshot.thread.id ? snapshot.thread : thread) }
   })
-}), { name: 'oxe.thread-navigation', partialize: state => ({ selectedId: state.selectedId, secondaryId: state.secondaryId, expanded: state.expanded, hiddenProjects: state.hiddenProjects }), merge: (saved, current) => {
-  const value = saved as { selectedId?: unknown; secondaryId?: unknown; expanded?: Record<string, unknown>; hiddenProjects?: unknown } | null
+}), { name: 'oxe.thread-navigation', partialize: state => ({ selectedId: state.selectedId, secondaryId: state.secondaryId, expanded: state.expanded, hiddenProjects: state.hiddenProjects, unreadIds: state.unreadIds }), merge: (saved, current) => {
+  const value = saved as { selectedId?: unknown; secondaryId?: unknown; expanded?: Record<string, unknown>; hiddenProjects?: unknown; unreadIds?: unknown } | null
   return { ...current, selectedId: typeof value?.selectedId === 'string' ? value.selectedId : null,
     secondaryId: typeof value?.secondaryId === 'string' ? value.secondaryId : null,
     hiddenProjects: Array.isArray(value?.hiddenProjects) ? value.hiddenProjects.filter((id): id is string => typeof id === 'string') : [],
+    unreadIds: Array.isArray(value?.unreadIds) ? [...new Set(value.unreadIds.filter((id): id is string => typeof id === 'string'))] : [],
     expanded: Object.fromEntries(Object.entries(value?.expanded ?? {}).filter(([, v]) => typeof v === 'boolean')) as Record<string, boolean> }
 } }))

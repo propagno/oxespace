@@ -7,6 +7,17 @@ import { WorkspaceService } from '../../electron/main/services/workspace.service
 import { __resetExecutableCacheForTests, TerminalManager, resolveExecutable } from '../../electron/main/services/terminal.service'
 
 describe('TerminalManager', () => {
+  test('passes an exact native resume ID as separate agent arguments', async () => {
+    const db = openInMemoryDatabase()
+    const workspace = new WorkspaceService(db).create({ rootPath: 'C:/repo', layout: '1x1', autoStart: false })
+    const pty = createFakePtyModule()
+    const manager = new TerminalManager(db, { pty, platform: 'linux' })
+    try {
+      const id = '11111111-1111-4111-8111-111111111111'
+      await manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id, agentCommand: 'codex', agentArgs: ['resume', id, '--no-alt-screen'], disableRtk: true })
+      expect(pty.spawn).toHaveBeenCalledWith('codex', ['resume', id, '--no-alt-screen'], expect.anything())
+    } finally { manager.stopAll(); db.close() }
+  })
   test('managed launches preserve structured arguments and refuse a missing worktree fallback', async () => {
     const root = mkdtempSync(join(tmpdir(), 'oxe-managed-launch-'))
     const db = openInMemoryDatabase()

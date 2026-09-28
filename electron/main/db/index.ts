@@ -11,7 +11,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
  *  pre-migration backup (only back up when an upgrade will actually run).
  *  Exported so the migrations test can catch a constant that drifts from the
  *  version the SQL actually sets. */
-export const LATEST_DB_VERSION = 57
+export const LATEST_DB_VERSION = 58
 /** How many pre-migration backups to retain. */
 const MAX_DB_BACKUPS = 5
 
@@ -141,6 +141,7 @@ export function openInMemoryDatabase(): AppDatabase {
 
 export function runMigrations(db: AppDatabase): void {
   let currentVersion = db.pragma('user_version', { simple: true }) as number
+  const startingVersion = currentVersion
 
   if (currentVersion < 1) {
     db.exec(readMigration('001_initial.sql'))
@@ -469,6 +470,12 @@ export function runMigrations(db: AppDatabase): void {
   }
   if (currentVersion < 57) {
     db.transaction(() => db.exec(readMigration('057_delegation_continuity.sql')))()
+  }
+  // Older self-healing migrations can temporarily lower currentVersion during
+  // a re-open. The one-time visual migration must use the version at entry so
+  // a later explicit theme choice is never overwritten.
+  if (startingVersion < 58) {
+    db.transaction(() => db.exec(readMigration('058_workbench_default.sql')))()
   }
 }
 

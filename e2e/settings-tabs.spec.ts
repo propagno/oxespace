@@ -40,7 +40,7 @@ test('captures every Agent Settings tab', async () => {
     await page.getByTestId('btn-open-tools').click()
     await page.getByTestId('tools-agent-settings').click()
     await page.locator('.settings-center').waitFor()
-    await page.getByLabel('Settings scope').selectOption('application')
+    await page.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: 'Application', exact: true }).click()
 
     const tabs = ['Agents', 'Terminal', 'Voice', 'Notifications', 'Updates', 'Diagnostics']
     for (const [index, label] of tabs.entries()) {

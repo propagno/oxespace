@@ -1717,7 +1717,7 @@ function GitHubEmbeddedTerminal({ command, workspaceId, onDismiss }: {
   const [error, setError] = useState<string | null>(null)
   const commandSentRef = useRef(false)
   const terminalPrefs = useResolvedTerminalPrefs(workspaceId)
-  const themeId = useWorkspaceStore((s) => s.workspaces.find((w) => w.id === workspaceId)?.themeId ?? 'dracula')
+  const themeId = useWorkspaceStore((s) => s.workspaces.find((w) => w.id === workspaceId)?.themeId ?? 'midnight')
 
   useEffect(() => {
     let cancelled = false

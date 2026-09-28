@@ -68,7 +68,7 @@ process.on('unhandledRejection', (reason) => {
 })
 
 const isDev = !app.isPackaged
-if (isDev) {
+if (isDev && !process.env.OXESPACE_DB_PATH) {
   app.setPath('userData', join(app.getPath('appData'), 'oxespace-dev'))
 }
 let ipcRegistered = false

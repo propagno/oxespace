@@ -21,19 +21,19 @@ test('Settings stays usable in short windows and renders updater states', async 
     await page.getByRole('button', { name: 'Open settings', exact: true }).click()
     const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
     await expect(settings).toBeVisible()
-    await settings.getByLabel('Settings scope').selectOption('application')
+    await settings.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: 'Application', exact: true }).click()
     const categories = [['general', 'General'], ['providers', 'Agents'], ['terminal', 'Terminal'], ['voice', 'Voice'], ['notifications', 'Notifications'], ['updates', 'Updates'], ['diagnostics', 'Diagnostics']]
     for (const width of [1440, 1280, 900, 600]) {
       await page.setViewportSize({ width, height: width === 1440 ? 900 : width === 1280 ? 720 : 600 })
       for (const [id, label] of categories) {
-        if (width < 900) await settings.getByLabel('Settings category').selectOption(id)
+        if (width < 900) await settings.getByRole('group', { name: 'Settings category' }).getByRole('button', { name: label, exact: true }).click()
         else await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: new RegExp(`^${label}`) }).click()
         expect(await settings.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
         const scroller = settings.locator('.settings-center-content')
         expect(await scroller.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
         expect(await scroller.evaluate(el => el.scrollTop)).toBe(0)
         if (id === 'updates') {
-          await expect(settings.getByTestId('btn-check-app-updates')).toBeDisabled()
+          await expect(settings.getByTestId('btn-check-app-updates')).toBeEnabled()
           await expect(settings.getByTestId('btn-update-rtk')).toBeDisabled()
           await expect(settings.getByTestId('settings-rtk-update').getByText('Up to date', { exact: true })).toBeVisible()
         }
@@ -68,5 +68,15 @@ test('Settings stays usable in short windows and renders updater states', async 
     await settings.screenshot({ path: test.info().outputPath('1280-updates-ready.png') })
     await page.keyboard.press('Escape')
     await expect(settings).not.toBeVisible()
+    await page.getByRole('button', { name: 'OXESpace update ready' }).click()
+    await expect(page.getByRole('dialog', { name: 'OXESpace update' }).getByRole('button', { name: 'Restart and install' })).toBeVisible()
+    await page.screenshot({ path: test.info().outputPath('titlebar-update-ready.png') })
+    await page.keyboard.press('Escape')
+    await app.evaluate(({ BrowserWindow }) => {
+      for (const window of BrowserWindow.getAllWindows()) window.webContents.send('app:update-state', { status: 'available', installMode: 'manual', currentVersion: '0.13.0', availableVersion: '0.14.0', progress: null, error: null, lastCheckedAt: Date.now() })
+    })
+    await page.getByRole('button', { name: 'OXESpace update 0.14.0 available' }).click()
+    await expect(page.getByRole('dialog', { name: 'OXESpace update' }).getByRole('link', { name: 'Open releases' })).toBeVisible()
+    await page.screenshot({ path: test.info().outputPath('titlebar-update-manual.png') })
   } finally { await app.close() }
 })

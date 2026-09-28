@@ -7,6 +7,11 @@ interface Swatch {
 }
 
 const BG_SWATCHES: Swatch[] = [
+  { label: 'wb-canvas',       token: TOKENS.color.wbCanvas },
+  { label: 'wb-sidebar',      token: TOKENS.color.wbSidebar },
+  { label: 'wb-chrome',       token: TOKENS.color.wbChrome },
+  { label: 'wb-raised',       token: TOKENS.color.wbRaised },
+  { label: 'wb-selection',    token: TOKENS.color.wbSelection },
   { label: 'bg-app',          token: TOKENS.color.bgApp },
   { label: 'bg-sidebar',      token: TOKENS.color.bgSidebar },
   { label: 'bg-elevated',     token: TOKENS.color.bgElevated },
@@ -27,6 +32,8 @@ const TEXT_SWATCHES: Swatch[] = [
 ]
 
 const ACCENT_SWATCHES: Swatch[] = [
+  { label: 'wb-border',    token: TOKENS.color.wbBorder },
+  { label: 'wb-focus',     token: TOKENS.color.wbFocus },
   { label: 'accent',       token: TOKENS.color.accent },
   { label: 'accent-hover', token: TOKENS.color.accentHover },
   { label: 'brand',        token: TOKENS.color.brand },
@@ -93,7 +100,7 @@ export function ColorPalette({ theme, onThemeChange }: ColorPaletteProps): React
                 onClick={() => { onThemeChange(t) }}
               >
                 {t}
-                {t === 'dracula' ? <span className="ds-chip-tag">default</span> : null}
+                {t === 'midnight' ? <span className="ds-chip-tag">new workspaces</span> : null}
               </button>
             ))}
           </div>

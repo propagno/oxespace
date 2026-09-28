@@ -21,7 +21,6 @@ it('classifies infrastructure failures and keeps verbose MCP payloads behind tec
     output: `OXESpace main unavailable after 3 attempts: request timed out\n${'diagnostic line\n'.repeat(80)}`
   }
   render(<ThreadActivityGroup events={[tool]} />)
-  fireEvent.click(screen.getByText('Actions need attention'))
   fireEvent.click(screen.getByText('Used integration'))
   expect(screen.getByText('Infrastructure unavailable')).toBeVisible()
   expect(screen.getByText('Technical details')).toBeVisible()

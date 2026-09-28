@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { AlertCircle, Check, Shield, X } from 'lucide-react'
 import type { ThreadRequest, ThreadRequestResponse } from '../../../shared/types/thread'
+import { ThreadApprovalDetails } from './ThreadApprovalDetails'
 
 export function ThreadRequestCard({ request, disabled, onRespond }: {
   request: ThreadRequest
@@ -18,7 +19,8 @@ export function ThreadRequestCard({ request, disabled, onRespond }: {
   }
   if (request.state !== 'pending') return <div className="thread-request is-resolved"><Check size={13} /><span>{request.title}</span><small>{request.state}</small></div>
   return <section className={`thread-request thread-request-${request.kind}`} aria-label={request.title}>
-    <header>{request.kind === 'permissions' ? <Shield size={15} /> : <AlertCircle size={15} />}<div><strong>{request.title}</strong>{request.detail && <p>{request.detail}</p>}</div></header>
+    <header>{request.kind === 'permissions' ? <Shield size={15} /> : <AlertCircle size={15} />}<div><strong>{request.title}</strong>{request.kind !== 'approval' && request.detail && <p>{request.detail}</p>}</div></header>
+    {request.kind === 'approval' && <ThreadApprovalDetails command={request.command ?? request.detail ?? ''} cwd={request.cwd} reason={request.reason} fileChanges={request.title === 'Approve file changes'} />}
     {request.questions?.map(question => <fieldset key={question.id}>
       <legend>{question.header && <small>{question.header}</small>}{question.question}</legend>
       {question.options?.length ? question.options.map(option => {

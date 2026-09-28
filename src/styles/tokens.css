@@ -1,37 +1,48 @@
 /* ─── Design tokens ──────────────────────────────────────────────────────── */
 :root {
   /* Backgrounds */
-  --bg-app:           #070707;
-  --bg-sidebar:       #09090b;
-  --bg-elevated:      #121215;
-  --bg-tile:          #070707;
-  --bg-tile-header:   #0d0d0d;
-  --bg-tile-agent:    #070707;
-  --bg-tile-content:  #070707;
-  --bg-terminal-surface: #070707;
-  --bg-statusbar:     #09090b;
-  --bg-ws-active:     #0d1f18;
-  --bg-ws-hover:      #121215;
-  --bg-modal:         #121215;
-  --bg-input:         #070707;
-  --bg-segment:       #121215;
+  --bg-app:           #21222c;
+  --bg-sidebar:       #282a36;
+  --bg-elevated:      #32333c;
+  --bg-tile:          #21222c;
+  --bg-tile-header:   #282a36;
+  --bg-tile-agent:    #21222c;
+  --bg-tile-content:  #21222c;
+  --bg-terminal-surface: #21222c;
+  --bg-statusbar:     #282a36;
+  --bg-ws-active:     #353846;
+  --bg-ws-hover:      #353846;
+  --bg-modal:         #32333c;
+  --bg-input:         #282a36;
+  --bg-segment:       #32333c;
+  --bg-hover:         var(--nav-hover);
+  --bg-subtle:        var(--wb-raised);
+
+  /* Workbench roles are shared by Code, Thread and settings. */
+  --wb-canvas:        var(--bg-app);
+  --wb-sidebar:       var(--bg-sidebar);
+  --wb-chrome:        var(--bg-sidebar);
+  --wb-raised:        var(--bg-elevated);
+  --wb-selection:     #353846;
+  --wb-border:        #414249;
+  --wb-focus:         #717fb8;
 
   /* Borders */
-  --bd-tile:          1px solid rgba(255, 255, 255, 0.07);
-  --bd-divider:       rgba(255, 255, 255, 0.07);
-  --bd-sidebar:       rgba(255, 255, 255, 0.07);
-  --bd-ws-active:     #10b981;
-  --bd-input:         rgba(16, 185, 129, 0.25);
-  --bd-input-focus:   rgba(16, 185, 129, 0.6);
-  --bd-subtle:        rgba(255, 255, 255, 0.07);
-  --bd-base:          rgba(255, 255, 255, 0.12);
+  --bd-tile:          1px solid var(--wb-border);
+  --bd-divider:       var(--wb-border);
+  --bd-sidebar:       var(--wb-border);
+  --bd-ws-active:     var(--wb-focus);
+  --bd-input:         var(--wb-border);
+  --bd-input-focus:   var(--wb-focus);
+  --bd-subtle:        var(--wb-border);
+  --bd-base:          var(--wb-border);
 
   /* Text — WCAG AA on near-black: muted ≥4.5:1 body, secondary clearer hierarchy */
-  --tx-primary:       #f1f5f9;
-  --tx-secondary:     #c0c5cc;
-  --tx-muted:         #94a3b0;
-  --tx-label:         #9ca3af;
-  --tx-agent-meta:    #a8b0ba;
+  --tx-primary:       #f8f8f2;
+  --tx-secondary:     #c5c5c5;
+  --tx-muted:         #a6a6a7;
+  --tx-label:         #a6a6a7;
+  --tx-agent-meta:    #c5c5c5;
 
   /* Status dots */
   --dot-green:        #34d474;
@@ -43,11 +54,11 @@
   --dot-red:          #f87171;
 
   /* Brand — OXESpace identity */
-  --brand:            #12C79A;
-  --brand-light:      #6EEBD4;
-  --brand-lightest:   #B4F5E8;
-  --brand-dark:       #062D22;
-  --brand-glow:       rgba(18, 199, 154, 0.28);
+  --brand:            #8b97cc;
+  --brand-light:      #aeb9e0;
+  --brand-lightest:   #d8def2;
+  --brand-dark:       #343d62;
+  --brand-glow:       rgba(113, 127, 184, 0.28);
 
   /* Provider icons */
   --provider-claude:  #b5694a;
@@ -77,21 +88,21 @@
   --bg-badge-idle:     rgba(99, 107, 117, 0.12);
 
   /* Accents */
-  --accent:           #12C79A;
-  --accent-hover:     #6EEBD4;
+  --accent:           #aeb9e0;
+  --accent-hover:     #d8def2;
   --badge-bg:         #28190e;
   --badge-text:       #fff;
 
   /* Sizing */
-  --nav-row-h: 36px;
-  --control-h: 32px;
-  --chrome-h: 48px;
-  --chrome-inset: 16px;
-  --nav-radius: 8px;
-  --surface-radius: 12px;
-  --nav-selected: color-mix(in srgb, var(--tx-primary) 7%, transparent);
-  --nav-hover: color-mix(in srgb, var(--tx-primary) 5%, transparent);
-  --sidebar-w:        248px;
+  --nav-row-h: 32px;
+  --control-h: 30px;
+  --chrome-h: 42px;
+  --chrome-inset: 14px;
+  --nav-radius: 5px;
+  --surface-radius: 8px;
+  --nav-selected: var(--wb-selection);
+  --nav-hover: color-mix(in srgb, var(--tx-primary) 8%, transparent);
+  --sidebar-w:        280px;
   --sidebar-w-collapsed: 56px;
   --tile-header-h:    40px;
   --tile-agent-h:     80px;
@@ -99,9 +110,9 @@
   --ws-item-h:        40px;
 
   /* Radii — standardized after Claude-style redesign (replaces ad-hoc 5/7/10/12 values) */
-  --radius-sm:        8px;
-  --radius-md:        12px;
-  --radius-lg:        16px;
+  --radius-sm:        5px;
+  --radius-md:        8px;
+  --radius-lg:        12px;
   --radius-pill:      999px;
 
   /* Spacing scale — anchor primitives to a consistent vertical rhythm */
@@ -131,15 +142,15 @@
   /* Terminal workbench — one elevated surface per pane, never a card inside a
      card. These derive from the active workspace theme instead of pinning the
      terminal shell to Midnight's near-black palette. */
-  --workspace-canvas: color-mix(in srgb, var(--bg-app) 94%, #111827);
-  --pane-surface: color-mix(in srgb, var(--bg-tile-content) 96%, white);
-  --pane-surface-raised: color-mix(in srgb, var(--bg-tile-content) 90%, white);
-  --pane-border: color-mix(in srgb, var(--tx-primary) 10%, transparent);
-  --pane-border-active: color-mix(in srgb, var(--accent) 48%, var(--pane-border));
-  --pane-radius: 12px;
-  --pane-gap: 10px;
-  --pane-shadow: 0 10px 30px rgba(0, 0, 0, 0.24), 0 1px 0 rgba(255, 255, 255, 0.025) inset;
-  --pane-shadow-active: 0 14px 38px rgba(0, 0, 0, 0.32), 0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent);
+  --workspace-canvas: var(--wb-canvas);
+  --pane-surface: var(--bg-tile-content);
+  --pane-surface-raised: var(--wb-raised);
+  --pane-border: var(--wb-border);
+  --pane-border-active: var(--wb-focus);
+  --pane-radius: 6px;
+  --pane-gap: 4px;
+  --pane-shadow: none;
+  --pane-shadow-active: 0 0 0 1px var(--wb-focus);
 
   /* Fonts — Inter is bundled (@fontsource-variable/inter) so the UI is stable
      everywhere. The rest are per-OS preferences: Segoe/Cascadia/Consolas exist
@@ -189,26 +200,35 @@ select optgroup {
 }
 
 :root[data-theme='midnight'] {
-  --bg-app: #0a0a0a;
-  --bg-sidebar: #0d0d0d;
-  --bg-elevated: #171717;
-  --bg-tile: #0a0a0a;
-  --bg-tile-header: #141414;
-  --bg-tile-agent: #0a0a0a;
-  --bg-tile-content: #0a0a0a;
-  --bg-terminal-surface: #0a0a0a;
-  --bg-statusbar: #0d0d0d;
-  --bg-ws-active: #0d1f18;
-  --bg-ws-hover: #141414;
-  --bg-modal: #141414;
-  --bg-input: #0a0a0a;
-  --bg-segment: #141414;
-  --bd-tile: 1px solid rgba(255, 255, 255, 0.07);
-  --bd-divider: rgba(255, 255, 255, 0.07);
-  --bd-sidebar: rgba(255, 255, 255, 0.07);
-  --bd-ws-active: #10b981;
-  --accent: #10b981;
-  --accent-hover: #34d399;
+  --bg-app: #21222c;
+  --bg-sidebar: #282a36;
+  --bg-elevated: #32333c;
+  --bg-tile: #21222c;
+  --bg-tile-header: #282a36;
+  --bg-tile-agent: #21222c;
+  --bg-tile-content: #21222c;
+  --bg-terminal-surface: #21222c;
+  --bg-statusbar: #282a36;
+  --bg-ws-active: #353846;
+  --bg-ws-hover: #353846;
+  --bg-modal: #32333c;
+  --bg-input: #282a36;
+  --bg-segment: #32333c;
+  --wb-selection: #353846;
+  --wb-border: #414249;
+  --wb-focus: #717fb8;
+  --tx-primary: #f8f8f2;
+  --tx-secondary: #c5c5c5;
+  --tx-muted: #a6a6a7;
+  --accent: #aeb9e0;
+  --accent-hover: #d8def2;
+}
+
+/* Keep existing palettes coherent when a workspace has a non-default theme. */
+:root[data-theme]:not([data-theme='midnight']) {
+  --wb-border: var(--bd-divider);
+  --wb-selection: color-mix(in srgb, var(--tx-primary) 9%, var(--bg-sidebar));
+  --wb-focus: var(--accent);
 }
 
 :root[data-theme='nord'] {

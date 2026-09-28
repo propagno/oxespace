@@ -27,6 +27,14 @@ export function ThreadActivityGroup({ events }: { events: Tool[] }) {
   const running = events.some(event => event.state === 'running'), failures = events.filter(event => event.state === 'failed').length
   const commands = events.every(event => ['commandExecution', 'Bash'].includes(event.name))
   const reading = events.every(event => ['Read', 'Glob', 'Grep'].includes(event.name))
+  if (events.length === 1) {
+    const event = events[0]
+    return <details className={`thread-activity-single${event.state === 'failed' ? ' has-failure' : ''}`}>
+      <summary>{event.state === 'running' ? <Loader2 size={14} className="thread-spin" /> : event.state === 'failed' ? <CircleAlert size={14} /> : <TerminalSquare size={14} />}
+        <span>{names[event.name] ?? event.name}<small>{event.detail.split('\n')[0]?.slice(0, 140)}</small></span><ChevronDown size={13} /></summary>
+      <ThreadToolDiagnostic event={event} />
+    </details>
+  }
   return <details className={`thread-activity-group${failures ? ' has-failure' : ''}`}>
     <summary>{running ? <Loader2 size={14} className="thread-spin" /> : failures ? <CircleAlert size={14} /> : <Check size={14} />}<span>{running ? 'Working' : commands ? 'Ran commands' : reading ? 'Explored the project' : failures ? 'Actions need attention' : 'Completed actions'}<small> · {events.length} {events.length === 1 ? 'action' : 'actions'}{failures ? ` · ${failures} failed` : ''}</small></span><ChevronDown size={13} /></summary>
     <div className="thread-activity-items">{events.map(event => <details key={event.id} className="thread-activity-item">

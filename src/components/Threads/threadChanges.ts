@@ -5,8 +5,19 @@ export function threadChanges(events: ThreadEvent[]): ThreadChangeEntry[] {
   return events.flatMap(event => event.type === 'tool' || event.type === 'turn-diff' ? (event.files ?? []).map((file, index) => ({ key: `${event.id}:${index}`, toolId: event.id, file })) : [])
 }
 export function turnChanges(events: ThreadEvent[]): ThreadChangeEntry[] {
-  const aggregate = events.filter(event => event.type === 'turn-diff').at(-1)
-  return aggregate?.type === 'turn-diff' ? threadChanges([aggregate]) : threadChanges(events)
+  const aggregates = events.filter(event => event.type === 'turn-diff')
+  if (!aggregates.length) return threadChanges(events)
+  const native = aggregates.filter(event => event.type === 'turn-diff' && event.id.startsWith('turn-diff:')).at(-1)
+  const observed = aggregates.filter(event => event.type === 'turn-diff' && event.id.startsWith('verified-diff:')).at(-1)
+  if (!native && !observed) return threadChanges(aggregates.slice(-1))
+  const entries = threadChanges([...(native ? [native] : []), ...(observed ? [observed] : [])])
+  const seen = new Set<string>()
+  return entries.filter(entry => {
+    const path = entry.file.path.replace(/\\/g, '/').toLowerCase()
+    if (seen.has(path)) return false
+    seen.add(path)
+    return true
+  })
 }
 export function threadFileLabel(path: string, root: string): string {
   const normalized = path.replace(/\\/g, '/'), prefix = root.replace(/\\/g, '/').replace(/\/$/, '') + '/'

@@ -44,7 +44,7 @@ const PRESET_GRIDS: Record<WorkspaceLayoutPreset, { rows: number; cols: number }
 // shows the SELECTED theme regardless of the app's currently-active theme.
 interface ThemePalette { bg: string; elevated: string; tx: string; muted: string; accent: string }
 const THEME_PALETTES: Record<WorkspaceThemeId, ThemePalette> = {
-  midnight: { bg: '#000000', elevated: '#121212', tx: '#f1f5f9', muted: '#94a3b0', accent: '#12C79A' },
+  midnight: { bg: '#21222c', elevated: '#32333c', tx: '#f8f8f2', muted: '#a6a6a7', accent: '#717fb8' },
   nord:     { bg: '#0b1119', elevated: '#182230', tx: '#eceff4', muted: '#9aabbf', accent: '#88c0d0' },
   dracula:  { bg: '#151320', elevated: '#282a36', tx: '#f8f8f2', muted: '#a8a0c4', accent: '#bd93f9' },
   ocean:    { bg: '#001318', elevated: '#082b33', tx: '#e6fbff', muted: '#7eb0ba', accent: '#22d3ee' },
@@ -83,6 +83,7 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
   const [defaultShellProfileId, setDefaultShellProfileId] = useState(workspace.defaultShellProfileId)
   const [applyShellToIdlePanes, setApplyShellToIdlePanes] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
   const [isSaving, setSaving] = useState(false)
   const [localPage, setPage] = useState<(typeof SETTINGS_PAGES)[number]['id']>('appearance')
   const page = selectedPageId ?? localPage
@@ -101,6 +102,7 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
     try {
       await onSave({ workspaceId: workspace.id, themeId, uiDensity, layoutPreset, defaultShellProfileId, applyShellToIdlePanes })
       setApplyShellToIdlePanes(false)
+      setSaved(true)
       if (!embedded) onClose()
       return true
     } catch (err) {
@@ -115,6 +117,7 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
     setDefaultShellProfileId(workspace.defaultShellProfileId); setApplyShellToIdlePanes(false); setError(null)
   }
   const dirty = themeId !== workspace.themeId || uiDensity !== workspace.uiDensity || layoutPreset !== workspace.layoutPreset || defaultShellProfileId !== workspace.defaultShellProfileId || applyShellToIdlePanes
+  useEffect(() => { setSaved(false) }, [themeId, uiDensity, layoutPreset, defaultShellProfileId, applyShellToIdlePanes])
   useEffect(() => { onDraftChange?.({ dirty, save, discard }) })
   const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => { event.preventDefault(); await save() }
 
@@ -255,6 +258,7 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
           </div>
 
           {error ? <div className="modal-error" role="alert">{error}</div> : null}
+          {saved && !error ? <div className="ws-settings-saved" role="status"><Check size={14} aria-hidden="true" />Workspace settings saved</div> : null}
 
           <footer className="modal-actions">
             <p>{page === 'memory' ? 'Memory changes use Apply memory settings above.' : page === 'delegation' ? 'Delegation changes apply immediately.' : 'Save applies theme, density, layout and default shell.'}</p>
@@ -363,6 +367,7 @@ function TerminalOverrideSection({ workspaceId }: { workspaceId: string }): Reac
             <span>Font size — {resolved.fontSize}px</span>
             <input type="range" min={8} max={32} step={1} value={resolved.fontSize} onChange={(e) => setOverride(workspaceId, 'fontSize', Number(e.target.value))} />
           </label>
+          {resolved.fontSize !== global.fontSize && <button type="button" className="ws-settings-use-default" onClick={() => setOverride(workspaceId, 'fontSize', undefined)}>Use application font size ({global.fontSize}px)</button>}
           <label className="field">
             <span>Line height — {resolved.lineHeight.toFixed(1)}</span>
             <input type="range" min={1} max={2} step={0.1} value={resolved.lineHeight} onChange={(e) => setOverride(workspaceId, 'lineHeight', Number(e.target.value))} />

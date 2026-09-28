@@ -13,6 +13,20 @@ import type { AppUpdateState, AppUpdateStatus } from '../../shared/types/updater
  * - Never throws into the app lifecycle — failures only log + update state.
  */
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000
+const RELEASES_API = 'https://api.github.com/repos/propagno/oxespace/releases/latest'
+
+export function isNewerRelease(latest: string, current: string): boolean {
+  const parse = (value: string): number[] | null => {
+    const match = /^v?(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/.exec(value.trim())
+    return match ? [Number(match[1]), Number(match[2]), Number(match[3])] : null
+  }
+  const a = parse(latest), b = parse(current)
+  if (!a || !b) return false
+  for (let index = 0; index < 3; index++) {
+    if (a[index] !== b[index]) return a[index] > b[index]
+  }
+  return false
+}
 
 /**
  * electron-updater can only replace itself in-place from an AppImage. A `.deb`
@@ -61,14 +75,28 @@ export function getAppUpdateState(): AppUpdateState {
 }
 
 export async function checkForAppUpdates(manual = false): Promise<AppUpdateState> {
-  if (!app.isPackaged || !autoUpdaterRef) {
+  if (!app.isPackaged || !updaterSupportsThisInstall()) {
+    setState({ status: 'checking', installMode: 'manual', error: null })
+    try {
+      const response = await fetch(RELEASES_API, {
+        headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'OXESpace' },
+        signal: AbortSignal.timeout(10_000)
+      })
+      if (!response.ok) throw new Error(`Release check failed (${response.status})`)
+      const release = await response.json() as { tag_name?: unknown }
+      const version = typeof release.tag_name === 'string' ? release.tag_name.replace(/^v/, '') : ''
+      if (!version) throw new Error('Release version unavailable')
+      const available = isNewerRelease(version, app.getVersion())
+      setState({ status: available ? 'available' : 'not-available', installMode: 'manual', availableVersion: available ? version : null, progress: null, error: null, lastCheckedAt: Date.now() })
+    } catch (err) {
+      setState({ status: 'error', installMode: 'manual', error: err instanceof Error ? err.message : String(err), lastCheckedAt: Date.now() })
+    }
+    return getAppUpdateState()
+  }
+  if (!autoUpdaterRef) {
     setState({
       status: 'disabled',
-      error: !app.isPackaged
-        ? 'Updates only run in installed builds'
-        : updaterSupportsThisInstall()
-          ? 'Updater not initialized'
-          : 'Updates run only in the AppImage build — use your package manager.',
+      error: 'Updater not initialized',
       lastCheckedAt: Date.now()
     })
     return getAppUpdateState()
@@ -121,13 +149,13 @@ export function registerAppUpdateIpc(): void {
 }
 
 export function initAutoUpdater(): void {
-  if (!app.isPackaged) {
-    setState({ status: 'disabled', error: null })
-    return
-  }
-  if (!updaterSupportsThisInstall()) {
-    log.info('[updater] disabled: in-place updates need the AppImage build')
-    setState({ status: 'disabled', error: 'Updates run only in the AppImage build — use your package manager.' })
+  if (!app.isPackaged || !updaterSupportsThisInstall()) {
+    setState({ status: 'idle', installMode: 'manual', error: null })
+    if (process.env.OXESPACE_E2E_MOCK_NATIVE !== '1') {
+      void checkForAppUpdates(false)
+      const timer = setInterval(() => { void checkForAppUpdates(false) }, CHECK_INTERVAL_MS)
+      timer.unref?.()
+    }
     return
   }
   void (async () => {

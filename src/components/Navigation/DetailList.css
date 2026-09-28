@@ -5,3 +5,26 @@
 .desktop-detail-list dd { margin: 0; color: var(--tx-primary); font-size: var(--fs-xs); line-height: 1.5; overflow-wrap: anywhere; user-select: text; }
 .desktop-details-dialog { width: min(560px, calc(100vw - 32px)); }
 .terminal-session-identity-note { margin: 0 0 14px; color: var(--tx-muted); font-size: var(--fs-xs); line-height: 1.5; }
+.terminal-provider-session-action { width: 100%; min-height: 36px; margin: 14px 0; padding: 8px 12px; border: 1px solid var(--bd-base); border-radius: var(--nav-radius); background: var(--bg-hover); color: var(--tx-primary); text-align: left; cursor: pointer; }
+.terminal-provider-session-action:hover { border-color: var(--accent); }
+.terminal-technical-details { color: var(--tx-secondary); font-size: var(--fs-xs); }
+.terminal-technical-details summary { padding: 8px 0; cursor: pointer; }
+.terminal-technical-details .desktop-detail-list { margin-top: 6px; }
+.desktop-provider-sessions-dialog { width: min(720px, calc(100vw - 32px)); max-height: min(780px, calc(100vh - 32px)); display: flex; flex-direction: column; }
+.desktop-provider-sessions-dialog .desktop-dialog-header { flex: none; }
+.desktop-provider-session-search { display: flex; align-items: center; gap: 8px; flex: none; padding: 0 10px; border: 1px solid var(--bd-base); border-radius: var(--nav-radius); color: var(--tx-muted); }
+.desktop-provider-session-search:focus-within { border-color: var(--accent); }
+.desktop-provider-session-search input { flex: 1; min-width: 0; height: 36px; border: 0; outline: 0; background: transparent; color: var(--tx-primary); font: inherit; }
+.desktop-provider-session-list { display: grid; gap: 8px; min-height: 0; margin-top: 12px; overflow-y: auto; }
+.desktop-provider-session-card { min-width: 0; padding: 11px 12px; border: 1px solid var(--bd-base); border-radius: var(--surface-radius); background: var(--bg-elevated); }
+.desktop-provider-session-heading, .desktop-provider-session-id { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.desktop-provider-session-heading strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-sm); }
+.desktop-provider-session-heading span { flex: none; color: var(--tx-muted); font-size: var(--fs-2xs); }
+.desktop-provider-session-card p { margin: 6px 0 8px; color: var(--tx-muted); font-size: var(--fs-xs); }
+.desktop-provider-session-id code { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--tx-secondary); font: var(--fs-2xs)/1.4 var(--font-mono); user-select: text; }
+.desktop-provider-session-id > div { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.desktop-provider-session-id button { flex: none; display: inline-flex; align-items: center; gap: 5px; min-height: 28px; padding: 4px 8px; border: 1px solid var(--bd-base); border-radius: var(--nav-radius); background: transparent; color: var(--tx-primary); cursor: pointer; }
+.desktop-provider-session-id button:hover { background: var(--bg-hover); }
+.desktop-provider-session-error, .desktop-provider-session-empty { color: var(--tx-muted); font-size: var(--fs-xs); }
+.desktop-provider-session-help { margin: 12px 0 0; color: var(--tx-muted); font-size: var(--fs-xs); }
+.thread-status-summary .terminal-technical-details { margin-top: 12px; }

@@ -33,9 +33,9 @@ export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceI
   const [mode, setMode] = useState<'analysis' | 'isolated-change'>('isolated-change')
   const [evidence, setEvidence] = useState('')
   const [sessions, setSessions] = useState<ConversationThread[]>([])
-  const [sourceThreadIds, setSourceThreadIds] = useState<string[]>(thread ? [thread.id] : [])
+  const [sourceThreadIds, setSourceThreadIds] = useState<string[]>(origin.kind === 'thread' && origin.id ? [origin.id] : [])
   const [sessionsLoading, setSessionsLoading] = useState(true)
-  const [sourcesExpanded, setSourcesExpanded] = useState(Boolean(thread))
+  const [sourcesExpanded, setSourcesExpanded] = useState(true)
   const [includeMemory, setIncludeMemory] = useState(true)
   const [destinations, setDestinations] = useState<Array<{ workspaceId: string; name: string }>>([])
   const [targetId, setTargetId] = useState(workspaceId)
@@ -111,7 +111,7 @@ export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceI
           <label>Handoff<textarea className="delegation-handoff" value={handoff} maxLength={16000} onChange={event => setHandoff(event.target.value)} placeholder="Decisions, constraints and relevant context" /></label>
           <label>Acceptance criteria<textarea className="delegation-acceptance" value={acceptance} maxLength={2000} onChange={event => setAcceptance(event.target.value)} placeholder="Tests and observable completion criteria" /></label>
           <details className="delegation-evidence delegation-sources" open={sourcesExpanded} onToggle={event => setSourcesExpanded(event.currentTarget.open)}>
-            <summary>Knowledge sources <span>{sourceThreadIds.length} conversation{sourceThreadIds.length === 1 ? '' : 's'} · AI Memory {includeMemory ? 'on' : 'off'}</span></summary>
+            <summary>Knowledge to transfer <span>{sourceThreadIds.length} conversation{sourceThreadIds.length === 1 ? '' : 's'} · AI Memory {includeMemory ? 'on' : 'off'}</span></summary>
             <p>Select saved conversations from this project. The latest public messages are captured when you create the delegation; tool output and attachments are excluded.</p>
             <div className="delegation-session-list">
               {sessionsLoading ? <p>Loading conversations…</p> : sessions.length ? sessions.map(session => <label key={session.id}>

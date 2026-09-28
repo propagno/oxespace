@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useAccountStore } from '../src/store/account.store'
 import { ThreadSidebar } from '../src/components/Threads/ThreadSidebar'
@@ -17,15 +18,59 @@ function fixture() {
     models: vi.fn(async () => ({ defaultModel: 'native-model', models: [{ id: 'native-model', label: 'Native model', description: 'A native catalog entry', efforts: ['low', 'high'], defaultEffort: 'low' }] })),
     configure: vi.fn(async (_id, configuration, revision) => { Object.assign(snapshot.thread, configuration, { configurationRevision: revision + 1 }); return { ...snapshot, thread: { ...snapshot.thread } } }),
     send: vi.fn(async () => {}), interrupt: vi.fn(async () => {}), approve: vi.fn(async () => {}), pin: vi.fn(async () => {}), onChanged: vi.fn(() => () => {}) }
-  Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: api, agentAccount: { read: vi.fn(async () => ({ provider: 'claude', scopeId: 'test', state: 'connected', method: 'subscription', checkedAt: 1 })) } } })
+  const writeText = vi.fn(async () => true)
+  Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: api, clipboard: { writeText }, agentAccount: { read: vi.fn(async () => ({ provider: 'claude', scopeId: 'test', state: 'connected', method: 'subscription', checkedAt: 1 })) } } })
   const workspace = { id: 'ws', name: 'Repo', rootPath: '/repo', panes: [] } as unknown as Workspace
   useAccountStore.setState({ scopes: {}, snapshots: {} })
   useWorkspaceStore.setState({ workspaces: [workspace] })
-  useThreadStore.setState({ threads: [snapshot.thread], snapshot, selectedId: 'thread', drafts: {}, errors: {}, hiddenProjects: [] })
-  return { snapshot, api, workspace }
+  useThreadStore.setState({ threads: [snapshot.thread], snapshot, selectedId: 'thread', secondaryId: null, snapshotCache: {}, snapshotCacheOrder: [], drafts: {}, errors: {}, hiddenProjects: [] })
+  return { snapshot, api, workspace, writeText }
 }
 
 describe('Thread workspace UI', () => {
+  it('shows a submitted message before the native send completes and reconciles the saved event', async () => {
+    const f = fixture()
+    let finishSend!: () => void
+    vi.mocked(f.api.send).mockImplementation(() => new Promise(resolve => { finishSend = resolve }))
+    render(<ThreadView workspace={f.workspace} />)
+    const input = screen.getByRole('textbox', { name: 'Message' })
+    fireEvent.change(input, { target: { value: 'Instant message' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(f.api.send).toHaveBeenCalledWith('thread', 'Instant message', [])
+    expect(screen.getByLabelText('Sending message')).toHaveTextContent('Instant message')
+    expect(input).toHaveValue('')
+    act(() => useThreadStore.setState({ snapshot: { ...f.snapshot, events: [{ type: 'message', id: 'new-turn', role: 'user', text: 'Instant message' }] } }))
+    expect(screen.queryByLabelText('Sending message')).not.toBeInTheDocument()
+    expect(screen.getAllByText('Instant message')).toHaveLength(1)
+    await act(async () => finishSend())
+  })
+  it('opens the side-by-side review when a newly completed wide-screen turn reports file changes', async () => {
+    const width = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1440)
+    vi.stubGlobal('ResizeObserver', class { constructor(private callback: ResizeObserverCallback) {} observe() { this.callback([], this as unknown as ResizeObserver) } disconnect() {} })
+    try {
+      const f = fixture()
+      render(<ThreadView workspace={f.workspace} />)
+      act(() => useThreadStore.setState({ snapshot: { ...f.snapshot, events: [
+        { type: 'message', id: 'prompt', role: 'user', text: 'Update docs' },
+        { type: 'turn-diff', id: 'turn-diff:native', turnId: 'native', files: [{ path: 'docs/thread-view.md', kind: 'update', source: 'native-patch', state: 'completed' }] },
+        { type: 'completed', status: 'completed' }
+      ] } }))
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Open thread review' })).toHaveAttribute('aria-expanded', 'true'))
+      expect(screen.getByLabelText('Thread workbench')).toBeVisible()
+    } finally { width.mockRestore() }
+  })
+  it('keeps the composed request when the native session is busy elsewhere', async () => {
+    const f = fixture()
+    vi.mocked(f.api.send).mockRejectedValueOnce(Error('This native session is active elsewhere.'))
+    render(<ThreadView workspace={f.workspace} />)
+    const input = screen.getByRole('textbox', { name: 'Message' })
+    fireEvent.change(input, { target: { value: 'Update the docs' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+    await waitFor(() => expect(f.api.send).toHaveBeenCalledWith('thread', 'Update the docs', []))
+    await waitFor(() => expect(screen.getByText(/native session is active elsewhere/i)).toBeVisible())
+    expect(screen.queryByLabelText('Sending message')).not.toBeInTheDocument()
+    expect(input).toHaveValue('Update the docs')
+  })
   it('adds a Thread project through a folder-only flow without Code layout choices', async () => {
     const onAdd = vi.fn(async () => {})
     const onPickFolder = vi.fn(async () => 'C:\\projects\\thread-app')
@@ -39,20 +84,81 @@ describe('Thread workspace UI', () => {
   })
   it('creates a thread in the project context and requires confirmation before deleting a conversation', async () => {
     const f = fixture(), onCreate = vi.fn()
+    const user = userEvent.setup()
     f.api.command = vi.fn(async () => ({ kind: 'navigate' }))
     vi.mocked(f.api.list).mockResolvedValue([])
     useThreadStore.setState({ projects: [] })
     render(<ThreadSidebar workspaces={[f.workspace]} onCreate={onCreate} />)
     fireEvent.click(screen.getByRole('button', { name: 'New thread in Repo' }))
     expect(onCreate).toHaveBeenCalledWith('ws', '/repo')
-    fireEvent.click(screen.getByRole('button', { name: 'Delete thread Auth investigation' }))
+    await user.click(screen.getByRole('button', { name: 'Actions for Auth investigation' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Delete conversation' }))
     expect(f.api.command).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Cancel', exact: true }))
     expect(f.api.command).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'Delete thread Auth investigation' }))
+    await user.click(screen.getByRole('button', { name: 'Actions for Auth investigation' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Delete conversation' }))
     fireEvent.click(screen.getByRole('button', { name: 'Delete thread', exact: true }))
     await waitFor(() => expect(f.api.command).toHaveBeenCalledWith('thread', '/delete confirm'))
     await waitFor(() => expect(useThreadStore.getState().selectedId).toBeNull())
+  })
+  it('keeps archived conversations discoverable and restores one directly from the sidebar', async () => {
+    const f = fixture()
+    f.snapshot.thread.archived = true
+    f.api.command = vi.fn(async () => { f.snapshot.thread.archived = false; return { kind: 'navigate', threadId: 'thread' } })
+    useThreadStore.setState({ threads: [f.snapshot.thread], projects: [] })
+    render(<ThreadSidebar workspaces={[f.workspace]} onCreate={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Archived 1' })).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('button', { name: 'Restore Auth investigation' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Archived 1' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Restore Auth investigation' }))
+    await waitFor(() => expect(f.api.command).toHaveBeenCalledWith('thread', '/resume thread'))
+    await waitFor(() => expect(useThreadStore.getState().selectedId).toBe('thread'))
+    expect(useThreadStore.getState().threads.find(thread => thread.id === 'thread')?.archived).toBe(false)
+  })
+  it('pins and archives a session from its context menu, then exposes its recovery path', async () => {
+    const f = fixture()
+    const user = userEvent.setup()
+    vi.mocked(f.api.pin).mockImplementation(async (_id, pinned) => { f.snapshot.thread.pinned = pinned })
+    f.api.command = vi.fn(async () => { f.snapshot.thread.archived = true; return { kind: 'navigate' } })
+    useThreadStore.setState({ projects: [] })
+    render(<ThreadSidebar workspaces={[f.workspace]} onCreate={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: 'Actions for Auth investigation' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Pin conversation' }))
+    await waitFor(() => expect(f.api.pin).toHaveBeenCalledWith('thread', true))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Pinned' })).toBeVisible())
+    await user.click(screen.getByRole('button', { name: 'Actions for Auth investigation' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Archive conversation' }))
+    expect(f.api.command).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Archive conversation' }))
+    await waitFor(() => expect(f.api.command).toHaveBeenCalledWith('thread', '/archive confirm'))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Archived 1' })).toHaveAttribute('aria-expanded', 'true'))
+  })
+  it('renames a session from its context menu and refreshes the visible list', async () => {
+    const f = fixture()
+    const user = userEvent.setup()
+    f.api.command = vi.fn(async () => { f.snapshot.thread.title = 'Auth follow-up'; return { kind: 'applied' } })
+    useThreadStore.setState({ projects: [] })
+    render(<ThreadSidebar workspaces={[f.workspace]} onCreate={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: 'Actions for Auth investigation' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Rename conversation…' }))
+    const name = screen.getByRole('textbox', { name: 'Conversation name' })
+    await user.clear(name)
+    await user.type(name, 'Auth follow-up')
+    await user.click(screen.getByRole('button', { name: 'Rename conversation' }))
+    await waitFor(() => expect(f.api.command).toHaveBeenCalledWith('thread', '/rename Auth follow-up'))
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Auth follow-up/ })).toBeVisible())
+  })
+  it('marks a conversation unread in the session menu and clears the marker when opened', async () => {
+    const f = fixture()
+    const user = userEvent.setup()
+    useThreadStore.setState({ projects: [], unreadIds: [] })
+    render(<ThreadSidebar workspaces={[f.workspace]} onCreate={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: 'Actions for Auth investigation' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Mark as unread' }))
+    expect(screen.getByLabelText('Unread conversation')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: /^Unread conversation Auth investigation/ }))
+    await waitFor(() => expect(useThreadStore.getState().unreadIds).toEqual([]))
   })
   it('ignores a late catalog from the previously selected thread', async () => {
     const f = fixture()
@@ -118,6 +224,26 @@ describe('Thread workspace UI', () => {
     await waitFor(() => expect(control).toHaveBeenCalledWith('ws', 'task-1', 'resume'))
     await waitFor(() => expect(useThreadStore.getState().selectedId).toBe('delegated-thread'))
     expect(f.api.send).not.toHaveBeenCalled()
+  })
+  it('shows the provider resume ID separately from internal OXESpace IDs', async () => {
+    const f = fixture()
+    f.api.command = vi.fn(async () => ({ kind: 'panel', title: 'Conversation status', rows: [
+      { label: 'Thread ID', detail: 'local-thread-id' }, { label: 'Project ID', detail: 'local-project-id' },
+      { label: 'Workspace ID', detail: 'local-workspace-id' }, { label: 'Provider', detail: 'claude' },
+      { label: 'Status', detail: 'idle' }, { label: 'Native session ID (resume)', detail: 'native-claude-id' },
+      { label: 'Directory', detail: '/repo' }
+    ] }))
+    render(<ThreadView workspace={f.workspace} />)
+    const input = screen.getByRole('textbox', { name: 'Message' })
+    fireEvent.change(input, { target: { value: '/status' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    const dialog = await screen.findByRole('dialog', { name: 'Conversation status' })
+    expect(dialog).toHaveTextContent('Native session ID (resume)')
+    expect(dialog).toHaveTextContent('native-claude-id')
+    expect(Array.from(dialog.querySelectorAll('.desktop-detail-list:first-of-type dt')).slice(0, 2).map(node => node.textContent)).toEqual(['Provider', 'Native session ID (resume)'])
+    expect(screen.getByText('local-thread-id')).not.toBeVisible()
+    fireEvent.click(screen.getByText('Internal OXESpace IDs and runtime'))
+    expect(screen.getByText('local-thread-id')).toBeVisible()
   })
   it('lists provider sessions from this project and resumes the selected native Codex conversation', async () => {
     const f = fixture()
@@ -309,6 +435,9 @@ describe('Thread workspace UI', () => {
     f.snapshot.events = [{ type: 'message', id: 'turn-one', role: 'user', text: 'Original prompt' }, { type: 'message', id: 'answer', role: 'assistant', text: 'Answer' }, { type: 'completed', status: 'completed' }]
     f.api.command = vi.fn(async () => ({ kind: 'applied' }))
     render(<ThreadView workspace={f.workspace} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Copy message' }))
+    await waitFor(() => expect(f.writeText).toHaveBeenCalledWith('Original prompt'))
+    expect(screen.getByRole('button', { name: 'Message copied' })).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Edit and retry this message' }))
     expect(f.api.command).not.toHaveBeenCalled()
     expect(screen.getByText(/Project files are not reverted/)).toBeVisible()
@@ -335,6 +464,32 @@ describe('Thread workspace UI', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
     await waitFor(() => expect(f.api.send).toHaveBeenCalledWith('thread', 'oi', []))
   })
+  it('presents older imported messages without provider metadata and collapses long user prompts', async () => {
+    const f = fixture()
+    f.snapshot.events = [
+      { type: 'message', id: 'native:metadata', role: 'user', text: '<environment_context><current_date>2026-09-24</current_date><root>private path</root></environment_context>' },
+      { type: 'message', id: 'native:prompt', role: 'user', text: '<image name=[Image #1] path="C:\\private\\capture.png"> </image>\nAjuste o layout. ' + 'Detalhes adicionais. '.repeat(60) }
+    ]
+    render(<ThreadView workspace={f.workspace} />)
+    expect(screen.queryByText(/private path/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/capture\.png/)).not.toBeInTheDocument()
+    const expand = await screen.findByRole('button', { name: 'Show full message' })
+    fireEvent.click(expand)
+    expect(screen.getByText(/Image #1 attached/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show less' })).toBeInTheDocument()
+  })
+  it('shows the provider label once for multiple assistant updates in one turn', async () => {
+    const f = fixture()
+    f.snapshot.events = [
+      { type: 'message', id: 'question', role: 'user', text: 'Investigate this' },
+      { type: 'message', id: 'update', role: 'assistant', text: 'I will check the code.' },
+      { type: 'tool', id: 'search', name: 'Grep', state: 'completed', detail: 'rg -n issue' },
+      { type: 'message', id: 'answer', role: 'assistant', text: 'Found the cause.' }
+    ]
+    render(<ThreadView workspace={f.workspace} />)
+    await screen.findByText('Found the cause.')
+    expect(document.querySelectorAll('.thread-agent-label')).toHaveLength(1)
+  })
   it('groups and filters conversations without changing Code selection', async () => {
     const f = fixture()
     useWorkspaceStore.setState({ activeWorkspaceId: 'code-workspace' })
@@ -345,18 +500,12 @@ describe('Thread workspace UI', () => {
     fireEvent.change(screen.getByRole('searchbox', { name: 'Filter threads' }), { target: { value: 'missing' } })
     expect(screen.getByText('No conversations found.')).toBeInTheDocument()
   })
-  it('opens delegated rows through the application router even without a Thread conversation', async () => {
-    const f = fixture(), onOpenDelegation = vi.fn()
-    const delegated = { id: 'task-terminal', workspaceId: 'destination', originWorkspaceId: 'ws', objective: 'Implement worktree fix', branch: 'feature/fix',
-      path: '/repo-worktrees/fix', state: 'accepted', agentProfileId: 'codex', paneId: 'pane-delegated', updatedAt: Date.now() }
-    Object.defineProperty(window, 'oxe', { configurable: true, value: { ...window.oxe, delegation: {
-      status: vi.fn(async () => ({ enabled: true, tasks: [delegated], nextCursor: null })), onChanged: vi.fn(() => () => {})
-    } } })
-    render(<ThreadSidebar workspaces={[f.workspace]} onCreate={vi.fn()} onOpenDelegation={onOpenDelegation} />)
-    const row = await screen.findByRole('button', { name: /Implement worktree fix/ })
-    expect(row).toBeEnabled()
-    fireEvent.click(row)
-    expect(onOpenDelegation).toHaveBeenCalledWith(delegated)
+  it('opens delegated work from the conversation header without sidebar task rows', async () => {
+    const f = fixture(), onDelegations = vi.fn()
+    render(<><ThreadSidebar workspaces={[f.workspace]} onCreate={vi.fn()} /><ThreadView workspace={f.workspace} onDelegations={onDelegations} /></>)
+    expect(screen.queryByRole('button', { name: /Implement worktree fix/ })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Delegated work' }))
+    expect(onDelegations).toHaveBeenCalledOnce()
   })
   it('retains distinct drafts when selecting another thread', async () => {
     const f = fixture()

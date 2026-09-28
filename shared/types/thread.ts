@@ -80,7 +80,7 @@ export interface ThreadCapabilityManifest {
 }
 export interface ThreadUsageWindow { label: string; usedPercent: number; resetsAt?: number; windowMinutes?: number }
 export interface ThreadUsage { windows: ThreadUsageWindow[]; checkedAt: number }
-export interface ThreadFailure { id: string; occurredAt: number; code: 'authentication' | 'usage' | 'rate-limit' | 'context' | 'budget' | 'server' | 'network' | 'sandbox' | 'configuration' | 'unknown'; message: string; detail?: string; providerCode?: string; httpStatus?: number; usage?: ThreadUsage; usageUnavailable?: boolean }
+export interface ThreadFailure { id: string; occurredAt: number; code: 'authentication' | 'usage' | 'rate-limit' | 'context' | 'budget' | 'server' | 'network' | 'sandbox' | 'configuration' | 'session-busy' | 'unknown'; message: string; detail?: string; providerCode?: string; httpStatus?: number; usage?: ThreadUsage; usageUnavailable?: boolean }
 export interface ThreadCommandResult { kind: 'applied' | 'panel' | 'navigate'; title?: string; text?: string; externalUrl?: string; surface?: 'model' | 'effort' | 'permissions' | 'accounts' | 'commands' | 'sessions' | 'rename' | 'settings' | 'changes' | 'delegations'; threadId?: string; usage?: ThreadUsage; rows?: { label: string; detail?: string; id?: string }[] }
 /** Resolved in the main process; skill paths are never accepted from the renderer. */
 export interface ThreadAttachment {
@@ -120,6 +120,9 @@ export interface ThreadRequest {
   kind: 'approval' | 'question' | 'permissions' | 'elicitation' | 'tool'
   title: string
   detail?: string
+  command?: string
+  cwd?: string
+  reason?: string
   threadId?: string
   turnId?: string
   generation: number

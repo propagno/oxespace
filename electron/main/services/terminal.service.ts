@@ -194,7 +194,7 @@ export class TerminalManager {
       ? resolveExecutable(agentParts[0], this.env, this.platform)
       : resolveExecutable(launch.shell_executable, this.env, this.platform)
     let args = input.launch ? input.launch.args : agentParts
-      ? agentParts.slice(1)
+      ? [...agentParts.slice(1), ...(input.agentArgs ?? [])]
       : [...shellArgs, ...(input.agentArgs ?? [])]
     if (!input.launch && this.agentMcpArgs) args = this.agentMcpArgs(executable, args)
 

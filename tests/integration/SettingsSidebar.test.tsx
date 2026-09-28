@@ -207,11 +207,11 @@ describe('Settings agents UI', () => {
     await user.click(screen.getByRole('button', { name: /^Updates$/i }))
     expect(screen.getByRole('heading', { name: 'Updates' })).toBeInTheDocument()
     expect(screen.getByTestId('settings-app-update')).toBeInTheDocument()
-    // Default store is disabled/dev until packaged bootstrap — honest UX
+    // Development builds can check Releases, but installation is manual.
     expect(screen.getByTestId('app-update-pill')).toHaveTextContent(/Dev build/i)
-    expect(screen.getByTestId('btn-check-app-updates')).toBeDisabled()
+    expect(screen.getByTestId('btn-check-app-updates')).toBeEnabled()
     expect(screen.getByTestId('btn-check-app-updates')).toHaveTextContent(/Check for updates/i)
-    expect(screen.getByText('Install a release build to enable automatic updates.')).toBeInTheDocument()
+    expect(screen.getByText(/Development and Linux package installs cannot update in place/)).toBeInTheDocument()
     expect(screen.getByTestId('settings-rtk-update')).toBeInTheDocument()
     expect(screen.getByTestId('btn-update-rtk')).toBeInTheDocument()
     expect(screen.getByTestId('settings-bundled-tools')).toBeInTheDocument()

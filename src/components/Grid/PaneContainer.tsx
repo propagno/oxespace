@@ -11,6 +11,7 @@ import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { PaneBranchBadge } from '../Workspace/PaneBranchBadge'
 import { DesktopDialog } from '../Navigation/DesktopDialog'
 import { DetailList } from '../Navigation/DetailList'
+import { ProviderSessionFinder } from './ProviderSessionFinder'
 
 interface PaneContainerProps {
   pane: WorkspacePane
@@ -76,6 +77,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
   // only Search + Expand stay visible; clear/session/split/close live here.
   const [menuOpen, setMenuOpen] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [providerSessionsOpen, setProviderSessionsOpen] = useState(false)
   const [sessionDetails, setSessionDetails] = useState<TerminalStatusResult | null>(null)
   const [sessionDetailsError, setSessionDetailsError] = useState('')
   useEffect(() => {
@@ -342,26 +344,30 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
         </div>
       </header>
       <PaneContent pane={pane} workspaceId={workspace.id} workspaceRootPath={workspace.rootPath} autoStart={autoStart} />
-      {detailsOpen && <DesktopDialog className="desktop-details-dialog" title="Detalhes do terminal" description="Informações da sessão e do ambiente deste terminal." onClose={() => setDetailsOpen(false)}>
-        <p className="terminal-session-identity-note">Os IDs abaixo identificam o terminal e o workspace. Para abrir a conversa do Codex ou Claude no modo Thread, use /resume e escolha uma sessão nativa do mesmo diretório.</p>
+      {detailsOpen && <DesktopDialog className="desktop-details-dialog" title="Detalhes do terminal" description="Estado do terminal e sessões do agente neste diretório." onClose={() => setDetailsOpen(false)}>
+        <p className="terminal-session-identity-note">O terminal não informa qual conversa do Codex ou Claude está aberta. Procure a sessão nativa pelo início da conversa e horário para obter o ID usado no resume.</p>
         <DetailList rows={[
           { label: 'Terminal', detail: display.title },
-          { label: 'ID da sessão PTY', detail: sessionDetails?.sessionId ?? (sessionDetailsError || (sessionDetails ? 'Sem sessão em execução' : 'Consultando…')) },
-          { label: 'ID do painel', detail: pane.id },
-          { label: 'ID do workspace', detail: workspace.id },
           { label: 'Status', detail: ({ idle: 'Não iniciado', starting: 'Iniciando', running: 'Em execução', exited: 'Encerrado', error: 'Erro' })[terminalState.status] },
           { label: 'Atividade', detail: terminalState.status === 'running' ? terminalState.isWorking ? 'Em andamento' : 'Sem atividade recente' : '—' },
           { label: 'Agente', detail: agentProfile?.name ?? '—' },
           { label: 'Shell', detail: shellProfileName ?? 'Padrão do workspace' },
           { label: 'Diretório', detail: pane.rootPath ?? workspace.rootPath },
-          ...(sessionDetails?.launchDirectory ? [{ label: 'Diretório de início', detail: sessionDetails.launchDirectory }] : []),
-          { label: 'Caminho do workspace', detail: workspace.rootPath },
-          ...(sessionDetails?.executable ? [{ label: 'Executável', detail: sessionDetails.executable }] : []),
-          ...(sessionDetails?.pid ? [{ label: 'PID do processo', detail: String(sessionDetails.pid) }] : []),
-          ...(sessionDetails?.startedAt ? [{ label: 'Iniciada em', detail: new Date(sessionDetails.startedAt).toLocaleString() }] : []),
           ...(terminalState.error ? [{ label: 'Erro', detail: terminalState.error }] : [])
         ]} />
+        <button type="button" className="terminal-provider-session-action" onClick={() => { setDetailsOpen(false); setProviderSessionsOpen(true) }}>Encontrar sessões do Codex ou Claude</button>
+        <details className="terminal-technical-details"><summary>IDs internos e processo do terminal</summary><DetailList rows={[
+          { label: 'ID da sessão PTY (terminal)', detail: sessionDetails?.sessionId ?? (sessionDetailsError || (sessionDetails ? 'Sem sessão em execução' : 'Consultando…')) },
+          { label: 'ID do painel (OXESpace)', detail: pane.id },
+          { label: 'ID do workspace (OXESpace)', detail: workspace.id },
+          ...(sessionDetails?.launchDirectory ? [{ label: 'Diretório de início', detail: sessionDetails.launchDirectory }] : []),
+          ...(pane.rootPath !== workspace.rootPath ? [{ label: 'Caminho do workspace', detail: workspace.rootPath }] : []),
+          ...(sessionDetails?.executable ? [{ label: 'Executável', detail: sessionDetails.executable }] : []),
+          ...(sessionDetails?.pid ? [{ label: 'PID do processo', detail: String(sessionDetails.pid) }] : []),
+          ...(sessionDetails?.startedAt ? [{ label: 'Terminal iniciado em', detail: new Date(sessionDetails.startedAt).toLocaleString() }] : [])
+        ]} /></details>
       </DesktopDialog>}
+      {providerSessionsOpen && <ProviderSessionFinder workspaceId={workspace.id} rootPath={pane.rootPath ?? workspace.rootPath} onClose={() => setProviderSessionsOpen(false)} />}
     </section>
   )
 }

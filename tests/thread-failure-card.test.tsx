@@ -50,4 +50,16 @@ describe('Thread failure card', () => {
     rerender(<ThreadFailureCard event={{ type: 'completed', status: 'failed', failure }} latest onRetry={retry} disabled />)
     expect(screen.getByRole('button', { name: 'Retry turn' })).toBeDisabled()
   })
+  it('explains a native writer conflict without offering immediate retry or irrelevant usage controls', () => {
+    render(<ThreadFailureCard event={{ type: 'completed', status: 'failed', failure: { id: 'busy', occurredAt: Date.now(), code: 'session-busy', message: 'This native session is active elsewhere.' } }} latest onRetry={vi.fn()} refreshUsage={vi.fn()} />)
+    expect(screen.getByText('Session active elsewhere')).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Retry turn' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Refresh usage' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/reset time/i)).not.toBeInTheDocument()
+  })
+  it('presents previously saved active-writer failures as session conflicts', () => {
+    render(<ThreadFailureCard event={{ type: 'completed', status: 'failed', failure: { id: 'old-busy', occurredAt: Date.now(), code: 'unknown', message: 'The agent could not finish this turn.', detail: 'thread native-A already has an active writer' } }} latest onRetry={vi.fn()} />)
+    expect(screen.getByText('Session active elsewhere')).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Retry turn' })).not.toBeInTheDocument()
+  })
 })

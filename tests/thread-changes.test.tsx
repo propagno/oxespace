@@ -25,6 +25,8 @@ describe('transparent file changes', () => {
     expect(changeSummary(threadChanges([event])).exact).toBe(false)
     const aggregate = { type: 'turn-diff' as const, id: 'turn-diff:turn', turnId: 'turn', files: [{ path: 'file.ts', kind: 'update' as const, source: 'native-patch' as const, state: 'completed' as const, additions: 2, deletions: 1 }] }
     expect(changeSummary(turnChanges([tool('one'), tool('two'), aggregate]))).toMatchObject({ exact: true, files: 1, additions: 2, deletions: 1 })
+    const observation: ThreadEvent = { type: 'turn-diff', id: 'verified-diff:turn', turnId: 'turn', files: [{ path: 'README.md', kind: 'update', source: 'working-tree-observation', state: 'completed' }] }
+    expect(turnChanges([aggregate, observation]).map(entry => entry.file.path)).toEqual(['file.ts', 'README.md'])
   })
   it('explains why a file operation failed instead of showing only an ambiguous status', () => {
     const event = tool('failed')

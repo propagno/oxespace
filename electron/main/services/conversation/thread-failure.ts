@@ -22,7 +22,8 @@ export function threadFailure(value: unknown): ThreadFailure {
   const detail = diagnosticText(error.message), extra = diagnosticText(error.additionalDetails)
   const hint = `${providerCode ?? ''} ${detail}`
   let code: ThreadFailure['code'] = 'unknown', message = 'The agent could not finish this turn.'
-  if (httpStatus === 401 || /unauthorized|authentication[_ ]failed|failed to authenticate|oauth.*(?:expired|revoked)|not logged in/i.test(hint)) { code = 'authentication'; message = 'Your agent account needs to be reconnected.' }
+  if (/already has an active writer|session.*(?:already|currently).*(?:active|in use)|active writer/i.test(hint)) { code = 'session-busy'; message = 'This native session is active elsewhere. Finish or close the other Codex session, then send your saved draft again.' }
+  else if (httpStatus === 401 || /unauthorized|authentication[_ ]failed|failed to authenticate|oauth.*(?:expired|revoked)|not logged in/i.test(hint)) { code = 'authentication'; message = 'Your agent account needs to be reconnected.' }
   else if (/usageLimitExceeded|usage[_ ]limit|weekly limit|credits_depleted|hit your limit|insufficient_quota|exceeded your current quota/i.test(hint)) { code = 'usage'; message = 'The provider reported an exhausted usage allowance.' }
   else if (httpStatus === 429 || /rateLimitExceeded|rate limit|too many requests/i.test(hint)) { code = 'rate-limit'; message = 'The provider is limiting requests. Check usage and retry later.' }
   else if (/contextWindowExceeded|context window/i.test(hint)) { code = 'context'; message = 'The conversation exceeded the model context window. Compact it or start a new thread.' }

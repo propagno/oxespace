@@ -15,7 +15,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     const page = await app.firstWindow()
     await app.evaluate(({ ipcMain, BrowserWindow }, fixtureRoot) => {
       let snapshot: Record<string, unknown> | null = null
-      let sendCount = 0, manyThreads = false
+      let sendCount = 0, manyThreads = false, archivedRestored = false
       ;(globalThis as Record<string, unknown>).threadCommandQueries = 0
       const changed = () => { for (const window of BrowserWindow.getAllWindows()) window.webContents.send('thread:changed', { threadId: 'e2e-thread' }) }
       ;(globalThis as Record<string, unknown>).finishThreadFixture = () => { (snapshot!.thread as Record<string, unknown>).status = 'idle'; changed() }
@@ -25,10 +25,13 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
         if (id !== 'e2e-thread') throw Error('Invalid evidence scope')
         return { id: artifactId, content: reviewPatch, hash: `hash-${artifactId}`, bytes: reviewPatch.length, truncated: false, source: 'native-patch' }
       })
-      ipcMain.handle('thread:project-diff', () => ({ files: [{ path: 'src/ExistingWork.ts', additions: 1, deletions: 0, mtime: null, hunks: [{ header: '@@ -0,0 +1 @@', lines: [{ type: 'added', oldLineNo: null, newLineNo: 1, content: 'Earlier project work' }] }] }], base: 'HEAD', includeUncommitted: true, compiledAt: Date.now() }))
+      ipcMain.handle('thread:project-diff', () => ({ files: [{ path: 'src/ExistingWork.ts', additions: 1, deletions: 0, mtime: null, hunks: [{ header: '@@ -0,0 +1 @@', lines: [{ type: 'added', oldLineNo: null, newLineNo: 1, content: 'Earlier project work' }] }] }, { path: 'README.md', additions: 1, deletions: 0, mtime: null, hunks: [{ header: '@@ -0,0 +1 @@', lines: [{ type: 'added', oldLineNo: null, newLineNo: 1, content: '# Thread workbench fixture' }] }] }], base: 'HEAD', includeUncommitted: true, compiledAt: Date.now() }))
       ipcMain.handle('thread:models', () => ({ defaultModel: 'native-model', models: [{ id: 'native-model', label: 'Native model', description: 'Native catalog model', efforts: ['low', 'high'], defaultEffort: 'low' }] }))
       ipcMain.handle('thread:configure', (_event, _id, configuration, revision) => { Object.assign(snapshot!.thread as object, configuration, { configurationRevision: revision + 1 }); changed(); return snapshot })
-      ipcMain.handle('thread:command', (_event, _id, text) => text.trim() === '/usage' ? { kind: 'panel', title: 'Usage limits', usage: { checkedAt: Date.now(), windows: [{ label: 'Codex · Session · 5 hours', usedPercent: 100, resetsAt: Date.now() + 3600000 }, { label: 'Codex · Weekly', usedPercent: 72, resetsAt: Date.now() + 86400000 }] } } : { kind: 'panel', surface: text.trim().slice(1) })
+      ipcMain.handle('thread:command', (_event, _id, text) => {
+        if (text.trim() === '/resume archived-fixture') { archivedRestored = true; return { kind: 'navigate', threadId: 'archived-fixture' } }
+        return text.trim() === '/usage' ? { kind: 'panel', title: 'Usage limits', usage: { checkedAt: Date.now(), windows: [{ label: 'Codex · Session · 5 hours', usedPercent: 100, resetsAt: Date.now() + 3600000 }, { label: 'Codex · Weekly', usedPercent: 72, resetsAt: Date.now() + 86400000 }] } } : { kind: 'panel', surface: text.trim().slice(1) }
+      })
       ipcMain.handle('thread:commands', () => { (globalThis as Record<string, unknown>).threadCommandQueries = Number((globalThis as Record<string, unknown>).threadCommandQueries) + 1; return { commands: [
         { name: 'oxe-plan', description: 'Plan a project change', source: 'claude' },
         { name: 'compact', description: 'Summarize conversation context', source: 'claude' },
@@ -38,6 +41,11 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
       ipcMain.handle('voice:get-model-status', (_event, size) => ({ size, ready: true, path: '/fixture/voice', engineReady: true }))
       ipcMain.handle('thread:projects', () => ({ projects: [], unavailable: [] }))
       const accounts = new Map<string, Record<string, unknown>>()
+      let copiedText = ''
+      ipcMain.removeHandler('clipboard:write-text')
+      ipcMain.removeHandler('clipboard:read-text')
+      ipcMain.handle('clipboard:write-text', (_event, value) => { copiedText = String(value); return true })
+      ipcMain.handle('clipboard:read-text', () => copiedText)
       for (const name of ['read', 'login', 'cancel', 'code', 'browser']) ipcMain.removeHandler(`agent-account:${name}`)
       const accountChanged = (status: Record<string, unknown>) => { for (const window of BrowserWindow.getAllWindows()) window.webContents.send('agent-account:changed', status) }
       ipcMain.handle('agent-account:read', (_event, context) => {
@@ -55,9 +63,9 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
         accounts.set(provider, status); accountChanged(status)
       })
       ipcMain.handle('agent-account:browser', () => {})
-      ipcMain.handle('thread:list', () => snapshot ? [snapshot.thread, ...(manyThreads ? Array.from({ length: 70 }, (_, index) => ({ ...(snapshot!.thread as object), id: `history-${index}`, title: `History conversation ${index}`, status: 'idle', updatedAt: Date.now() - (index + 1) * 60000 })) : [])] : [])
+      ipcMain.handle('thread:list', () => snapshot ? [snapshot.thread, ...(manyThreads ? [...Array.from({ length: 70 }, (_, index) => ({ ...(snapshot!.thread as object), id: `history-${index}`, title: `History conversation ${index}`, status: 'idle', updatedAt: Date.now() - (index + 1) * 60000 })), { ...(snapshot!.thread as object), id: 'archived-fixture', title: 'Archived agent work', status: 'idle', archived: !archivedRestored }] : [])] : [])
       ipcMain.handle('thread:read', (_event, id) => id !== 'e2e-thread' && snapshot ? ({
-        thread: { ...snapshot.thread, id, title: id.startsWith('history-') ? `History conversation ${id.slice('history-'.length)}` : String(id), status: 'idle' },
+        thread: { ...snapshot.thread, id, title: id.startsWith('history-') ? `History conversation ${id.slice('history-'.length)}` : id === 'archived-fixture' ? 'Archived agent work' : String(id), status: 'idle', ...(id === 'archived-fixture' ? { archived: !archivedRestored } : {}) },
         events: [{ type: 'message', id: `${id}-answer`, role: 'assistant', text: `Independent conversation ${id}` }, { type: 'completed', status: 'completed' }]
       }) : snapshot)
       ipcMain.handle('thread:create', (_event, input) => {
@@ -67,6 +75,12 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
       })
       ipcMain.handle('thread:send', (_event, _id, text) => {
         const thread = snapshot!.thread as Record<string, unknown>
+        if (text === 'Approval fixture') {
+          const command = '"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command \'$path = "docs\\thread-view.md"; $content = Get-Content -LiteralPath $path -Raw; $needle = "First line\\r\\nSecond line"; Set-Content -LiteralPath $path -Value $content\''
+          thread.status = 'approval'
+          snapshot!.events = [{ type: 'message', id: 'approval-user', role: 'user', text }, { type: 'request', id: 'approval-1', request: { id: 'approval-1', nativeId: '1', nativeMethod: 'item/commandExecution/requestApproval', kind: 'approval', title: 'Approve command', detail: command, command, cwd: fixtureRoot, reason: 'Update the Thread guide', generation: 1, createdAt: Date.now(), state: 'pending' } }]
+          changed(); return
+        }
         if (text === 'Workbench fixture') {
           thread.status = 'idle'; thread.provider = 'codex'; thread.title = 'Improve the Thread workbench'
           snapshot!.events = [{ type: 'message', id: 'workbench-user', role: 'user', text: 'Show the files updated in this conversation and let me review the changes.' },
@@ -108,6 +122,15 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
             { type: 'completed', status: 'completed' }
           ]).flat(); changed(); return
         }
+        if (text === 'Imported formatting fixture') {
+          thread.status = 'idle'; thread.title = 'Imported conversation'
+          snapshot!.events = [
+            { type: 'message', id: 'native:metadata', role: 'user', text: '<environment_context><current_date>2026-09-24</current_date><root>private local path</root></environment_context>' },
+            { type: 'message', id: 'native:prompt', role: 'user', text: '<image name=[Image #1] path="C:\\private\\capture.png"> </image>\nAjuste a apresentação da conversa. ' + 'Considere a hierarquia visual e a legibilidade. '.repeat(30) },
+            { type: 'message', id: 'native:answer', role: 'assistant', text: '## Apresentação da conversa\n\nO histórico mantém **parágrafos legíveis**, listas e código com destaque adequado.\n\n- Metadados técnicos ficam ocultos.\n- Mensagens longas podem ser abertas quando necessário.' },
+            { type: 'completed', status: 'completed' }
+          ]; changed(); return
+        }
         if (++sendCount === 1) {
           thread.status = 'failed'
           snapshot!.events = [{ type: 'message', id: 'user', role: 'user', text },
@@ -140,6 +163,11 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.getByTestId('wizard-dir-input').fill(repo)
     await page.getByTestId('wizard-layout-card-1').click()
     await page.getByTestId('wizard-launch-btn').click()
+    const projectWorkspace = await page.evaluate(async () => (await window.oxe.workspace.list())[0])
+    await app.evaluate(({ ipcMain }, { workspaceId, rootPath }) => {
+      ipcMain.removeHandler('thread:projects')
+      ipcMain.handle('thread:projects', () => ({ projects: [{ projectId: 'e2e-project', displayName: 'repo', identityLabel: rootPath, contexts: [{ workspaceId, rootPath, label: 'repo' }] }], unavailable: [] }))
+    }, { workspaceId: projectWorkspace.id, rootPath: repo })
     const grid = page.locator('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]').first()
     await expect(grid).toBeVisible()
     const codeInput = page.locator('.terminal-pane .xterm-helper-textarea').first()
@@ -184,7 +212,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
 
     const codeSidebar = page.locator('.sidebar')
     const resize = codeSidebar.getByRole('separator', { name: 'Sidebar width', exact: true })
-    for (const [key, presses, width] of [['ArrowLeft', 20, 240], ['ArrowRight', 15, 360], ['ArrowLeft', 14, 248]] as const) {
+    for (const [key, presses, width] of [['ArrowLeft', 20, 240], ['ArrowRight', 15, 360], ['ArrowLeft', 10, 280]] as const) {
       for (let index = 0; index < presses; index++) await resize.press(key)
       await expect(resize).toHaveAttribute('aria-valuenow', String(width))
       await expect.poll(() => page.evaluate(() => Math.round(document.querySelector('.workspace-surface')!.getBoundingClientRect().left - document.querySelector('.sidebar')!.getBoundingClientRect().right))).toBe(0)
@@ -208,15 +236,35 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.screenshot({ path: 'test-results/code-sidebar-mode.png' })
     const codeFooter = await page.locator('.desktop-nav-footer').evaluate(el => Array.from(el.querySelectorAll('button')).map(button => { const r = button.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height } }))
     await nav.getByRole('button', { name: 'Thread', exact: true }).click()
-    await expect(page.locator('.thread-navigation')).toHaveCSS('width', '248px')
+    await expect(page.locator('.thread-navigation')).toHaveCSS('width', '280px')
     const threadFooter = await page.locator('.desktop-nav-footer').evaluate(el => Array.from(el.querySelectorAll('button')).map(button => { const r = button.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height } }))
     expect(threadFooter).toEqual(codeFooter)
     await expect(page.getByRole('heading', { name: 'What would you like to work on?' })).toBeVisible()
     await expect(page.getByRole('navigation', { name: 'Thread projects' })).toBeVisible()
     await expect(page.getByRole('navigation', { name: 'Workspaces', exact: true })).toHaveCount(0)
-    await page.getByRole('button', { name: 'New thread', exact: true }).click()
-    await page.getByRole('combobox', { name: 'Agent', exact: true }).selectOption('codex')
+    await expect(page.locator('.thread-navigation').getByRole('button', { name: 'Add project' })).toHaveCount(1)
+    await expect(page.locator('.thread-navigation').getByRole('button', { name: 'New thread', exact: true })).toHaveCount(0)
+    await page.getByRole('button', { name: 'New thread in repo' }).click()
+    await expect(page.getByRole('dialog', { name: 'New thread' })).toBeVisible()
+    await page.screenshot({ path: 'test-results/thread-new-dialog.png' })
+    await page.getByRole('radio', { name: /Codex/ }).check()
+    await expect(page.getByRole('radio', { name: /Codex/ })).toBeChecked()
     await page.getByRole('button', { name: 'Create thread', exact: true }).click()
+    const projectTree = page.locator('.thread-project-group').filter({ has: page.getByRole('button', { name: 'New thread in repo' }) })
+    await expect(projectTree.locator('.thread-project-name')).toHaveText('repo')
+    await expect(projectTree.locator('.thread-project-count')).toHaveText('1 thread')
+    await expect(projectTree.locator('.thread-project-rows .thread-session-title')).toHaveText('New thread')
+    await expect(projectTree.locator('.thread-project-rows .thread-session-meta')).toContainText('Codex')
+    await expect(projectTree.locator('.thread-project-children')).toHaveCSS('border-left-style', 'solid')
+    await page.screenshot({ path: 'test-results/thread-project-hierarchy.png' })
+    await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe('midnight')
+    await page.getByRole('button', { name: 'Thread text size' }).click()
+    await expect(page.locator('output[aria-label="Thread text size"]')).toHaveText('14px')
+    await page.getByRole('button', { name: 'Increase thread text size' }).click()
+    await expect(page.locator('output[aria-label="Thread text size"]')).toHaveText('15px')
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('oxe.thread-appearance') || '{}').state?.fontSize)).toBe(15)
+    await page.getByRole('button', { name: 'Reset to default' }).click()
+    await page.keyboard.press('Escape')
     await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toBeEnabled()
     const message = page.getByRole('textbox', { name: 'Message', exact: true })
     await expect.poll(() => app.evaluate(() => Number((globalThis as Record<string, unknown>).threadCommandQueries))).toBe(1)
@@ -281,6 +329,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toHaveValue('')
     await message.fill('Usage failure fixture')
     await page.getByRole('button', { name: 'Send', exact: true }).click()
+    await expect(page.locator('.thread-heading h1')).toHaveText('Authentication flow')
+    await expect(page.locator('.workbench-titlebar-context')).not.toContainText('Authentication flow')
     const failureCard = page.locator('.thread-failure-card')
     await expect(failureCard.getByText('Usage allowance exhausted', { exact: true })).toBeVisible()
     await expect(failureCard.getByLabel('Provider diagnostic')).toContainText('hit the session usage limit')
@@ -298,8 +348,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(failureCard).not.toHaveAttribute('open')
     await expect(native).toHaveCount(0)
     await page.setViewportSize({ width: 1440, height: 900 })
-    await page.getByRole('button', { name: 'New thread', exact: true }).click()
-    await page.getByRole('combobox', { name: 'Agent', exact: true }).selectOption('claude')
+    await page.getByRole('button', { name: 'New thread in repo' }).click()
+    await page.getByRole('radio', { name: /Claude Code/ }).check()
     await page.getByRole('button', { name: 'Create thread', exact: true }).click()
     await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Investigate authentication')
     await page.getByRole('button', { name: 'Send', exact: true }).click()
@@ -308,6 +358,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.getByRole('button', { name: 'Reconnect', exact: true }).click()
     const accountsDialog = page.getByRole('dialog', { name: 'Agent accounts' })
     await expect(accountsDialog).toBeVisible()
+    await expect.poll(() => accountsDialog.locator('.thread-account-heading .agent-provider-icon').first().evaluate(el => Math.round(el.getBoundingClientRect().width))).toBe(28)
     await page.screenshot({ path: 'test-results/thread-accounts.png' })
     const claude = accountsDialog.locator('.thread-account-card').filter({ has: page.getByText('Claude Code', { exact: true }) })
     await claude.getByRole('button', { name: 'Reconnect', exact: true }).click()
@@ -316,6 +367,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await accountsDialog.getByRole('button', { name: 'Done', exact: true }).click()
     await page.getByRole('button', { name: 'Retry', exact: true }).click()
     await expect(page.getByText('Verified fixture response', { exact: true })).toBeVisible()
+    await expect(page.locator('.thread-activity-single')).toHaveCount(1)
+    await expect(page.getByText('1 action', { exact: false })).toHaveCount(0)
     await expect(page.getByRole('table')).toHaveCount(1)
     await expect(page.getByRole('columnheader', { name: 'Priority', exact: true })).toBeVisible()
     await expect(page.locator('.thread-code-block pre code')).toContainText('const session')
@@ -339,6 +392,14 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
       await page.screenshot({ path: `test-results/thread-scale-${zoom}.png` })
     }
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(1))
+    await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Imported formatting fixture')
+    await page.getByRole('button', { name: 'Send', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Apresentação da conversa' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Show full message' })).toBeVisible()
+    expect(await page.getByText('private local path').count()).toBe(0)
+    await page.screenshot({ path: 'test-results/thread-imported-formatting.png' })
+    await page.getByRole('button', { name: 'Show full message' }).click()
+    await expect(page.getByText(/Image #1 attached/)).toBeVisible()
     await page.setViewportSize({ width: 900, height: 600 })
     await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Long history fixture')
     await page.getByRole('button', { name: 'Send', exact: true }).click()
@@ -420,6 +481,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Sidebar history fixture'))
     await expect(page.getByRole('button', { name: /^History conversation 69/ })).toBeAttached()
     const projects = page.getByRole('navigation', { name: 'Thread projects' })
+    await expect(projects.locator('.thread-project-count')).toHaveText('71 threads')
+    await page.screenshot({ path: 'test-results/thread-project-history.png' })
     await projects.hover()
     await page.mouse.wheel(0, 900)
     await expect.poll(() => projects.evaluate(el => el.scrollTop)).toBeGreaterThan(100)
@@ -428,8 +491,41 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.getByRole('button', { name: /^History conversation 69/ })).toBeVisible()
     await expect(projects.locator('.thread-navigation-item')).toHaveCount(1)
     await page.getByRole('searchbox', { name: 'Filter threads' }).fill('')
+    const mainThreadName = await projects.locator('.thread-navigation-item[aria-current="page"] span').first().textContent()
+    const mainThreadButton = projects.locator('.thread-navigation-item').filter({ hasText: mainThreadName! }).first()
+    await page.getByRole('button', { name: /^History conversation 69/ }).click()
+    await expect(page.getByText('Independent conversation history-69')).toBeVisible()
+    await mainThreadButton.click()
+    await expect.poll(() => timeline.evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop)).toBeLessThanOrEqual(64)
+    await timeline.evaluate(el => { el.scrollTop = Math.max(0, el.scrollTop - 700) })
+    await expect(page.getByRole('button', { name: /Latest messages/ })).toBeVisible()
+    const savedReadingTop = await timeline.evaluate(el => el.scrollTop)
+    await page.getByRole('button', { name: /^History conversation 69/ }).click()
+    await mainThreadButton.click()
+    await page.waitForTimeout(700)
+    await expect.poll(() => timeline.evaluate((el, top) => Math.abs(el.scrollTop - top), savedReadingTop)).toBeLessThanOrEqual(64)
+    const sessionActions = page.getByRole('button', { name: 'Actions for History conversation 69' })
+    const actionBounds = await sessionActions.boundingBox()
+    await sessionActions.click()
+    const sessionMenu = page.getByRole('menu', { name: 'Actions for History conversation 69' })
+    await expect(sessionMenu.getByRole('menuitem', { name: 'Open to the side' })).toBeVisible()
+    await expect(sessionMenu.getByRole('menuitem', { name: 'Pin conversation' })).toBeVisible()
+    await expect(sessionMenu.getByRole('menuitem', { name: 'Rename conversation…' })).toBeVisible()
+    await expect(sessionMenu.getByRole('menuitem', { name: 'Mark as unread' })).toBeVisible()
+    await expect(sessionMenu.getByRole('menuitem', { name: 'Archive conversation' })).toBeVisible()
+    const menuBounds = await sessionMenu.boundingBox()
+    expect(actionBounds).not.toBeNull()
+    expect(menuBounds).not.toBeNull()
+    expect(menuBounds!.x).toBeGreaterThanOrEqual(actionBounds!.x - 8)
+    expect(menuBounds!.x).toBeLessThan(actionBounds!.x + 80)
+    expect(menuBounds!.y).toBeLessThanOrEqual(actionBounds!.y + actionBounds!.height)
+    expect(menuBounds!.y + menuBounds!.height).toBeLessThanOrEqual(page.viewportSize()!.height - 4)
+    await page.screenshot({ path: 'test-results/thread-session-menu.png' })
+    await sessionMenu.getByRole('menuitem', { name: 'Mark as unread' }).click()
+    await expect(page.getByRole('button', { name: /^Unread conversation History conversation 69/ })).toBeVisible()
     await page.getByRole('button', { name: 'Open History conversation 69 side by side' }).click()
     await expect(page.getByRole('group', { name: 'Side-by-side conversations' })).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Unread conversation History conversation 69/ })).toHaveCount(0)
     const cells = page.locator('.thread-cell')
     await expect(cells).toHaveCount(2)
     await cells.nth(1).getByRole('textbox').fill('Independent draft')
@@ -445,14 +541,17 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
       const reading = document.querySelector('.thread-reading-column')!.getBoundingClientRect()
       const composer = document.querySelector('.thread-composer-column')!.getBoundingClientRect()
       return {
-        readingRatio: reading.width / view.width,
-        composerRatio: composer.width / view.width,
+        readingWidth: reading.width,
+        composerWidth: composer.width,
+        viewWidth: view.width,
         readingCenterDelta: Math.abs((reading.left + reading.width / 2) - (view.left + view.width / 2)),
         composerCenterDelta: Math.abs((composer.left + composer.width / 2) - (view.left + view.width / 2))
       }
     })
-    expect(wideGeometry.readingRatio).toBeGreaterThan(.9)
-    expect(wideGeometry.composerRatio).toBeGreaterThan(.85)
+    expect(wideGeometry.readingWidth).toBeGreaterThan(850)
+    expect(wideGeometry.readingWidth).toBeLessThanOrEqual(1100)
+    expect(wideGeometry.composerWidth).toBe(wideGeometry.readingWidth)
+    expect(wideGeometry.viewWidth).toBeGreaterThan(wideGeometry.readingWidth)
     // The timeline reserves an 8px scrollbar gutter, so its visual center may
     // differ by half that gutter while remaining aligned with the composer.
     expect(wideGeometry.readingCenterDelta).toBeLessThanOrEqual(5)
@@ -460,6 +559,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.screenshot({ path: 'test-results/thread-wide-layout-1440.png' })
     await message.fill('Workbench fixture'); await message.press('Enter')
     await expect(page.locator('.thread-file-activity')).toHaveCount(3)
+    await expect(page.getByRole('complementary', { name: 'Thread workbench' })).toBeVisible()
     await page.getByRole('button', { name: 'Expand file diff src/App.tsx' }).click()
     await expect(page.locator('.thread-inline-evidence')).toContainText('ThreadWorkbench')
     await page.getByRole('button', { name: 'Expand file diff src/App.tsx' }).click()
@@ -496,6 +596,12 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.getByRole('menuitemradio', { name: 'Project changes' }).click()
     await expect(page.getByRole('region', { name: 'File diff' })).toContainText('Earlier project work')
     await expect(page.locator('.thread-review-source').first()).toContainText('earlier work')
+    await page.getByRole('button', { name: 'Read Markdown README.md' }).click()
+    const markdownDialog = page.getByRole('dialog', { name: 'README.md' })
+    await expect(markdownDialog.getByRole('region', { name: 'Markdown document' })).toContainText('Thread workbench fixture')
+    expect((await markdownDialog.boundingBox())!.width).toBeGreaterThan(800)
+    await page.screenshot({ path: 'test-results/thread-markdown-reader.png' })
+    await markdownDialog.getByRole('button', { name: 'Close readme.md' }).click()
     await page.getByRole('button', { name: 'Select review panel' }).click()
     await page.getByRole('menuitemradio', { name: 'Activity', exact: true }).click()
     await expect(page.locator('.thread-review-log')).toContainText('npm run typecheck')
@@ -522,6 +628,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await actions.click()
     const actionsMenu = page.getByRole('menu', { name: 'Conversation actions' })
     await expect(actionsMenu).toBeVisible()
+    await expect(actionsMenu.getByRole('menuitem', { name: 'Find or resume session…' })).toBeVisible()
     await expect(page.getByRole('menuitem', { name: 'Fork conversation' })).toBeVisible()
     await expect(page.getByRole('menuitem', { name: 'Delete conversation' })).toHaveClass(/is-destructive/)
     const bounds = await actionsMenu.boundingBox()
@@ -532,5 +639,36 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(actionsMenu).toHaveCount(0)
     await expect(actions).toBeFocused()
     await expect(message).toHaveValue(/Keep the conversation mounted/)
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await message.fill('Approval fixture'); await message.press('Enter')
+    const approval = page.getByRole('region', { name: 'Approve command' })
+    await expect(approval).toContainText('This command may modify docs/thread-view.md.')
+    await expect(approval).toContainText('Readable preview')
+    await expect(approval.locator('.thread-approval-preview pre')).toContainText('First line\nSecond line')
+    await page.screenshot({ path: 'test-results/thread-approval-1440.png' })
+    await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Workbench fixture'))
+    await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Long history fixture'))
+    await expect(page.locator('.thread-virtual-space')).toHaveAttribute('data-total-rows', '10002')
+    await page.reload()
+    await page.getByRole('button', { name: 'Thread', exact: true }).click()
+    await expect(page.locator('.thread-virtual-space')).toHaveAttribute('data-total-rows', '10002')
+    await expect(page.getByText('Review message 3333', { exact: true })).toBeVisible()
+    const latestMessage = page.locator('.thread-message-user').filter({ hasText: 'Review message 3333' })
+    const latestResponse = page.locator('.thread-message-assistant').filter({ hasText: 'A detailed response to verify the conversation history.' }).last()
+    await expect(latestMessage.getByRole('button', { name: 'Copy message' })).toBeVisible()
+    await expect(latestResponse.getByRole('button', { name: 'Copy response' })).toBeVisible()
+    await expect(latestMessage.getByRole('button', { name: 'Edit and retry this message' })).toBeVisible()
+    await page.screenshot({ path: 'test-results/thread-message-actions.png' })
+    await latestMessage.getByRole('button', { name: 'Copy message' }).click()
+    await expect.poll(() => page.evaluate(() => window.oxe.clipboard.readText())).toBe('Review message 3333')
+    const archived = page.getByRole('region', { name: 'Archived conversations' })
+    await expect(archived.getByRole('button', { name: 'Archived 1' })).toHaveAttribute('aria-expanded', 'false')
+    await archived.getByRole('button', { name: 'Archived 1' }).click()
+    await expect(archived.getByRole('button', { name: 'Restore Archived agent work' })).toBeVisible()
+    await archived.scrollIntoViewIfNeeded()
+    await page.screenshot({ path: 'test-results/thread-archived-sessions.png' })
+    await archived.getByRole('button', { name: 'Restore Archived agent work' }).click()
+    await expect(page.locator('.thread-heading h1')).toHaveText('Archived agent work')
+    await expect(page.getByRole('region', { name: 'Archived conversations' })).toHaveCount(0)
   } finally { await app.close() }
 })

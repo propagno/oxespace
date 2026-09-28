@@ -66,7 +66,6 @@ test('Code and Thread share delegation creation, exact recovery and session deta
     expect(taskHeading && checkoutHeading && checkoutHeading.x > taskHeading.x && Math.abs(checkoutHeading.y - taskHeading.y) < 4).toBe(true)
     expect(await create.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
     await create.screenshot({ path: test.info().outputPath('create-delegation-900.png') })
-    await create.locator('.delegation-sources summary').click()
     await expect(create.getByRole('checkbox', { name: /Include relevant AI Memory/ })).toBeVisible()
     await create.getByRole('checkbox', { name: /Source conversation 1/ }).check()
     await create.getByRole('checkbox', { name: /Source conversation 2/ }).check()

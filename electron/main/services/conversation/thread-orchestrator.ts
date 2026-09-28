@@ -5,6 +5,7 @@ import type { NativeCliSession, ThreadNativeCli } from './thread-cli'
 import type { ThreadModelCatalog, ThreadConfiguration, ThreadCommandResult } from '../../../../shared/types/thread'
 import type { ThreadModelService } from './thread-models'
 import { hasDesktopCommand } from '../../../../shared/threadDesktopCommands'
+import { formatNativeUserText } from '../../../../shared/native-session-text'
 import { execFile } from 'node:child_process'
 import { ThreadAgentError, threadFailure } from './thread-failure'
 import { ThreadHistory, type ThreadHistoryWriteOptions } from './thread-history'
@@ -43,6 +44,7 @@ export class ThreadOrchestrator {
   private readonly turnCheckpoints = new Map<string, string>()
   private readonly busy = new Set<string>()
   private readonly finalizing = new Set<string>()
+  private readonly finalizationTasks = new Set<Promise<void>>()
   private readonly workingTreeBaselines = new Map<string, { patch: string; untracked: Set<string> }>()
   private stopping = false
   private readonly configuring = new Set<string>()
@@ -112,7 +114,21 @@ export class ThreadOrchestrator {
 
   readForRenderer(id: string): ThreadSnapshot {
     this.flushDeltas(id)
-    return this.history.readWindow(id)
+    const window = this.history.readWindow(id)
+    if (window.thread.nativeSessionId && (/^Recovered (?:codex|claude) session$/i.test(window.thread.title) || window.thread.title.startsWith('<environment_context>'))) {
+      const full = this.read(id)
+      const firstPrompt = full.events.find(event => event.type === 'message' && event.role === 'user' && formatNativeUserText(event.text))
+      if (firstPrompt?.type === 'message' || window.thread.title.startsWith('<environment_context>')) {
+        const title = firstPrompt?.type === 'message'
+          ? formatNativeUserText(firstPrompt.text).replace(/\s+/g, ' ').slice(0, 80)
+          : `Recovered ${window.thread.provider} session`
+        full.thread.title = title
+        window.thread.title = title
+        this.history.updateThreadMetadata(full.thread)
+        this.changed(id)
+      }
+    }
+    return window
   }
 
   artifact(id: string, artifactId: string): import('../../../../shared/types/thread').ThreadArtifact {
@@ -230,14 +246,16 @@ export class ThreadOrchestrator {
     snapshot.events.push({ type: 'message', id: turnId, role: 'user', text, ...(attachments.length ? { attachments: attachments.map(({ path: _path, ...attachment }) => attachment) } : {}) })
     snapshot.turns ??= []
     snapshot.turns.push({ id: turnId, operationId: operation.id, sequence: snapshot.turns.length + 1, startedAt: Date.now(), status: 'running', configuration: { model: snapshot.thread.model, reasoningEffort: snapshot.thread.reasoningEffort, access: snapshot.thread.access ?? 'read-only', networkAccess: snapshot.thread.networkAccess ?? false, approvalPolicy: snapshot.thread.approvalPolicy ?? 'on-request', mode: snapshot.thread.mode ?? 'default', hooksEnabled: snapshot.thread.hooksEnabled ?? false }, ...(attachmentIds.length ? { attachmentIds: [...attachmentIds] } : {}) })
-    const checkpointId = await this.checkpoints.begin({ threadId: id, turnId, rootPath: snapshot.thread.rootPath, label: text.trim().slice(0, 80) }).catch(() => undefined)
-    if (checkpointId) this.turnCheckpoints.set(turnId, checkpointId)
-    if (snapshot.thread.provider === 'claude') {
-      const baseline = await this.workingState(snapshot.thread.rootPath)
-      if (baseline !== undefined) this.workingTreeBaselines.set(id, baseline)
-    }
     this.save(snapshot, { eventsFrom, operationId: operation.id })
     try {
+      // Publish the accepted prompt before repository snapshots or agent startup can block the UI.
+      // Both reads must finish before the agent can modify files, but they are independent.
+      const [checkpointId, baseline] = await Promise.all([
+        this.checkpoints.begin({ threadId: id, turnId, rootPath: snapshot.thread.rootPath, label: text.trim().slice(0, 80) }).catch(() => undefined),
+        this.workingState(snapshot.thread.rootPath)
+      ])
+      if (checkpointId) this.turnCheckpoints.set(turnId, checkpointId)
+      if (baseline !== undefined) this.workingTreeBaselines.set(id, baseline)
       const adapter = await this.connectAdapter(id, snapshot.thread, false)
       this.history.transitionOperation(id, operation.id, 'sent')
       if (attachments.length) await adapter.send(input.text, input.skill, attachments)
@@ -251,7 +269,7 @@ export class ThreadOrchestrator {
       this.adapters.delete(id)
       await adapter?.dispose().catch(() => {})
       this.history.transitionOperation(id, operation.id, 'failed', failure.message)
-      throw new Error('Could not run thread agent; check Agent Settings')
+      throw new Error(failure.code === 'session-busy' ? failure.message : 'Could not run thread agent; check Agent Settings')
     }
   }
 
@@ -379,7 +397,7 @@ export class ThreadOrchestrator {
                 latest.events = history.events
                 eventsFrom = 0
                 if (history.title) latest.thread.title = history.title
-                latest.thread.cliNotice = undefined
+                latest.thread.cliNotice = history.truncated ? 'Showing the recent part of this native session. Its complete history remains available in the provider CLI.' : undefined
                 latest.thread.nativeSessionId = nativeSessionId
               } catch (error) {
                 latest = this.read(id)
@@ -438,7 +456,7 @@ export class ThreadOrchestrator {
       const latest = this.read(id)
       latest.events = history.events
       latest.thread.nativeSessionId = nativeSessionId
-      latest.thread.cliNotice = undefined
+      latest.thread.cliNotice = history.truncated ? 'Showing the recent part of this native session. Its complete history remains available in the provider CLI.' : undefined
       if (history.title) latest.thread.title = history.title
       this.save(latest)
     } finally { this.busy.delete(id) }
@@ -494,8 +512,8 @@ export class ThreadOrchestrator {
         const history = await this.nativeCli.read(snapshot.thread, snapshot.thread.nativeSessionId)
         snapshot.events = history.events
         if (history.title) snapshot.thread.title = history.title
+        snapshot.thread.cliNotice = history.truncated ? 'Showing the recent part of this native session. Its complete history remains available in the provider CLI.' : undefined
       }
-      delete snapshot.thread.cliNotice
       snapshot.thread.cliActive = false
       snapshot.thread.status = 'idle'
       this.save(snapshot)
@@ -535,6 +553,7 @@ export class ThreadOrchestrator {
       imported.thread.nativeSessionId = argument
       imported.thread.title = history.title || `Recovered ${thread.provider} session`
       imported.events = history.events
+      imported.thread.cliNotice = history.truncated ? 'Showing the recent part of this native session. Its complete history remains available in the provider CLI.' : undefined
       this.save(imported, { eventsFrom: 0 })
       return { kind: 'navigate', threadId: imported.thread.id }
     }
@@ -557,11 +576,11 @@ export class ThreadOrchestrator {
       const operation = this.history.operations(id).at(-1)
       return { kind: 'panel', title: 'Conversation status', rows: [
       { label: 'Thread ID', detail: thread.id }, { label: 'Project ID', detail: thread.projectId }, { label: 'Workspace ID', detail: thread.workspaceId },
-      { label: 'Provider', detail: thread.provider }, { label: 'Model', detail: thread.model || 'Provider default' }, { label: 'Effort', detail: thread.reasoningEffort || 'Automatic' },
+      { label: 'Provider', detail: thread.provider }, { label: 'Status', detail: thread.status }, { label: 'Model', detail: thread.model || 'Provider default' }, { label: 'Effort', detail: thread.reasoningEffort || 'Automatic' },
       { label: 'Access', detail: thread.access ?? 'read-only' }, { label: 'Network', detail: thread.networkAccess ? 'allowed' : 'blocked' }, { label: 'Approvals', detail: thread.approvalPolicy ?? 'on-request' }, { label: 'Mode', detail: thread.mode ?? 'default' }, { label: 'Hooks', detail: thread.hooksEnabled ? 'native hooks enabled' : 'disabled' },
       { label: 'Connection', detail: thread.connection?.state ?? 'closed' }, { label: 'Generation', detail: String(thread.generation ?? 1) },
       { label: 'Operation', detail: operation ? `${operation.id} · ${operation.state}` : 'None' },
-      { label: 'Directory', detail: thread.rootPath }, { label: 'Session', detail: thread.nativeSessionId ?? 'Not started' }
+      { label: 'Directory', detail: thread.rootPath }, { label: 'Native session ID (resume)', detail: thread.nativeSessionId ?? 'Not started' }
     ] }
     }
     if (name === 'capabilities') {
@@ -572,6 +591,11 @@ export class ThreadOrchestrator {
       ? snapshot.events.filter(event => event.type === 'message' && event.role === 'assistant').map(event => event.type === 'message' ? event.text : '').at(-1) ?? ''
       : this.exports.markdown(snapshot) }
     if (name === 'stop') { if (this.busy.has(id)) await this.interrupt(id); return { kind: 'applied' } }
+    if ((name === 'archive' || name === 'delete') && argument === 'confirm' && this.busy.has(id)) {
+      await this.interrupt(id)
+      for (let attempt = 0; attempt < 50 && this.busy.has(id); attempt++) await new Promise(resolve => setTimeout(resolve, 100))
+      if (this.busy.has(id)) throw Error('The active turn has not stopped. Try again after it finishes.')
+    }
     if (this.busy.has(id) || this.configuring.has(id)) throw Error('Finish the active operation before running this command')
     if (name === 'rename') {
       if (!argument) return { kind: 'panel', surface: 'rename', title: 'Rename conversation' }
@@ -584,9 +608,8 @@ export class ThreadOrchestrator {
       this.save(created, { eventsFrom: created.events.length }); return { kind: 'navigate', threadId: created.thread.id }
     }
     if (name === 'archive' || name === 'delete') {
-      if (argument !== 'confirm') return { kind: 'panel', title: name === 'delete' ? 'Delete conversation' : 'Archive conversation', text: name === 'delete' ? thread.provider === 'codex' && thread.nativeSessionId ? 'Delete this OXESpace conversation and its linked Codex session?' : 'Delete this OXESpace conversation? The provider session is retained.' : 'Archive this conversation? You can reopen it from /resume.', rows: [{ id: `/${name} confirm`, label: name === 'delete' ? 'Delete conversation' : 'Archive conversation' }] }
-      let adapter = this.adapters.get(id)
-      if (thread.provider === 'codex' && thread.nativeSessionId) { adapter = await this.connectAdapter(id, thread); await adapter.command?.(name, '') }
+      if (argument !== 'confirm') return { kind: 'panel', title: name === 'delete' ? 'Delete conversation' : 'Archive conversation', text: name === 'delete' ? 'Delete this OXESpace conversation? The provider session is retained.' : 'Archive this conversation? You can reopen it from /resume.', rows: [{ id: `/${name} confirm`, label: name === 'delete' ? 'Delete conversation' : 'Archive conversation' }] }
+      const adapter = this.adapters.get(id)
       this.adapters.delete(id); await adapter?.dispose()
       if (name === 'delete') { this.db.prepare('DELETE FROM conversation_threads WHERE id = ?').run(id); this.snapshots.delete(id); await this.attachmentStore?.removeThread(id); this.changed(id) }
       else { const latest = this.read(id); latest.thread.archived = true; this.save(latest, { eventsFrom: latest.events.length }) }
@@ -641,6 +664,8 @@ export class ThreadOrchestrator {
   async stop(): Promise<void> {
     for (const id of this.deltaBuffers.keys()) this.flushDeltas(id)
     this.stopping = true
+    await Promise.resolve() // let already scheduled turn finalizers register before closing the database
+    await Promise.allSettled([...this.finalizationTasks])
     await Promise.allSettled([...this.cliStarting.values()])
     await Promise.allSettled([...this.cliSessions.values()].map(session => session.close()))
     this.cliSessions.clear()
@@ -746,11 +771,10 @@ export class ThreadOrchestrator {
       })
       snapshot.thread.status = event.status === 'completed' ? 'idle' : event.status
       this.busy.delete(id)
-      // Claude's stream does not carry an authoritative consolidated patch.
-      // Keep that thread in a short finalization phase while we compare the
-      // working tree. Codex already emits its turn diff, so delaying the next
-      // turn there only creates a spurious queue/race after completion.
-      const needsVerifiedDiff = snapshot.thread.provider === 'claude'
+      // Native patch notifications may omit files changed by shell commands.
+      // Compare against the pre-turn working tree for both providers, while
+      // keeping provider patches authoritative for paths they already report.
+      const needsVerifiedDiff = this.workingTreeBaselines.has(id)
       const needsCheckpoint = Boolean(turn && this.turnCheckpoints.has(turn.id))
       if (needsVerifiedDiff || needsCheckpoint) this.finalizing.add(id)
       for (const request of this.requests.invalidate(id, event.status === 'completed' ? 'expired' : 'cancelled')) {
@@ -765,7 +789,11 @@ export class ThreadOrchestrator {
       snapshot.events.push(event)
       if (operationId) this.history.transitionOperation(id, operationId, event.status === 'completed' ? 'completed' : event.status === 'interrupted' ? 'cancelled' : 'failed', event.error)
       if (event.status === 'completed' && turn?.attachmentIds?.length) void this.releaseAttachments(id, turn.attachmentIds)
-      if (needsVerifiedDiff || needsCheckpoint) queueMicrotask(() => void this.finalizeTurnThenDrain(id, event.status, turn?.id, needsVerifiedDiff))
+      if (needsVerifiedDiff || needsCheckpoint) queueMicrotask(() => {
+        const task = this.finalizeTurnThenDrain(id, event.status, turn?.id, needsVerifiedDiff)
+        this.finalizationTasks.add(task)
+        void task.finally(() => this.finalizationTasks.delete(task)).catch(() => {})
+      })
       else queueMicrotask(() => void this.drainQueue(id))
     } else if (event.type === 'delta') {
       const existingIndex = snapshot.events.findIndex(value => value.type === 'message' && value.role === 'assistant' && value.id === event.id)
@@ -823,19 +851,21 @@ export class ThreadOrchestrator {
     } catch { return undefined }
   }
 
-  private async captureClaudeDiff(id: string, status: 'completed' | 'interrupted' | 'failed', turnId?: string): Promise<void> {
+  private async captureWorkingTreeDiff(id: string, status: 'completed' | 'interrupted' | 'failed', turnId?: string): Promise<void> {
     const before = this.workingTreeBaselines.get(id)
     this.workingTreeBaselines.delete(id)
     try {
       const snapshot = this.read(id)
-      if (snapshot.thread.provider === 'claude' && before !== undefined) {
+      if (before !== undefined) {
         const after = await this.workingState(snapshot.thread.rootPath)
         if (after !== undefined && (after.patch !== before.patch || [...after.untracked].some(path => !before.untracked.has(path)))) {
+          const turnStart = snapshot.events.findIndex(event => event.type === 'message' && event.id === turnId)
+          const reportedPaths = new Set(snapshot.events.slice(Math.max(0, turnStart)).flatMap(event => event.type === 'turn-diff' && event.id.startsWith('turn-diff:') ? event.files.map(file => file.path.replace(/\\/g, '/').toLowerCase()) : []))
           const previous = new Map(splitThreadPatch(before.patch).map(file => [file.path, file.patch]))
           const files: import('../../../../shared/types/thread').ThreadFileChange[] = splitThreadPatch(after.patch)
-            .filter(file => previous.get(file.path) !== file.patch)
+            .filter(file => previous.get(file.path) !== file.patch && !reportedPaths.has(file.path.replace(/\\/g, '/').toLowerCase()))
             .map(file => ({ ...file, source: 'working-tree-observation', authorship: 'indeterminate', state: status === 'completed' ? 'completed' as const : 'failed' as const }))
-          for (const path of after.untracked) if (!before.untracked.has(path)) files.push({ path, kind: 'add', source: 'working-tree-observation', authorship: 'indeterminate', state: status === 'completed' ? 'completed' : 'failed' })
+          for (const path of after.untracked) if (!before.untracked.has(path) && !reportedPaths.has(path.replace(/\\/g, '/').toLowerCase())) files.push({ path, kind: 'add', source: 'working-tree-observation', authorship: 'indeterminate', state: status === 'completed' ? 'completed' : 'failed' })
           if (files.length) this.event(id, { type: 'turn-diff', id: `verified-diff:${turnId ?? randomUUID()}`, turnId: turnId ?? '', files })
         }
       }
@@ -844,7 +874,7 @@ export class ThreadOrchestrator {
 
   private async finalizeTurnThenDrain(id: string, status: 'completed' | 'interrupted' | 'failed', turnId: string | undefined, captureDiff: boolean): Promise<void> {
     try {
-      if (captureDiff) await this.captureClaudeDiff(id, status, turnId)
+      if (captureDiff) await this.captureWorkingTreeDiff(id, status, turnId)
       const checkpointId = turnId ? this.turnCheckpoints.get(turnId) : undefined
       if (checkpointId) await this.checkpoints.finalize(checkpointId)
     } finally {

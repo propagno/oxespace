@@ -22,10 +22,10 @@ test('workspace settings navigation and responsive visual review', async () => {
     for (const width of [1360, 600]) {
       await page.setViewportSize({ width, height: 900 })
       for (const label of ['Appearance', 'Terminal', 'Project memory', 'Agent delegation']) {
-        const pageId = ({ Appearance: 'appearance', Terminal: 'terminal', 'Project memory': 'memory', 'Agent delegation': 'delegation' } as Record<string, string>)[label]
         if (width < 900) {
-          await modal.getByLabel('Settings category').selectOption(pageId)
-          await expect(modal.getByLabel('Settings category')).toHaveValue(pageId)
+          const category = modal.getByRole('group', { name: 'Settings category' }).getByRole('button', { name: label, exact: true })
+          await category.click()
+          await expect(category).toHaveAttribute('aria-pressed', 'true')
         } else {
           const category = modal.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: new RegExp(`^${label}`) })
           await category.click()
@@ -36,6 +36,13 @@ test('workspace settings navigation and responsive visual review', async () => {
         expect(await modal.locator('.ws-settings-main').evaluate(el => el.scrollTop)).toBe(0)
         if (label === 'Appearance') expect(await modal.locator('.theme-card-preview').first().evaluate(el => el.clientWidth)).toBeGreaterThan(80)
         await modal.screenshot({ path: info.outputPath(`${width}-${label.split(' ')[0]}.png`) })
+        if (width === 1360 && label === 'Appearance') {
+          await modal.getByRole('radio', { name: 'Nord' }).click()
+          await modal.getByRole('button', { name: 'Save workspace settings' }).click()
+          await expect(modal.getByRole('status')).toHaveText('Workspace settings saved')
+          const saved = await page.evaluate(() => window.oxe.workspace.list())
+          expect(saved.find(workspace => workspace.rootPath === repo)?.themeId).toBe('nord')
+        }
         if (label === 'Terminal') {
           await modal.getByRole('radio', { name: 'Codex', exact: true }).check()
           await modal.locator('.ws-settings-main').evaluate(el => {

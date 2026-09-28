@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, type ReactNode, type RefObject } from 'react'
+import { useLayoutEffect, useMemo, useRef, type ReactNode, type RefObject } from 'react'
 import { useThreadVirtualizer, type ThreadVirtualItem } from './useThreadVirtualizer'
 
 function MeasuredTimelineRow({ item, onMeasure, children }: { item: ThreadVirtualItem; onMeasure: (key: string, index: number, size: number) => void; children: ReactNode }) {
@@ -12,7 +12,7 @@ function MeasuredTimelineRow({ item, onMeasure, children }: { item: ThreadVirtua
     observer?.observe(node)
     return () => observer?.disconnect()
   }, [item.index, item.key, onMeasure])
-  return <div ref={ref} className="thread-virtual-row" data-thread-row={item.key} style={{ transform: `translateY(${item.start}px)` }}>{children}</div>
+  return <div ref={ref} className="thread-virtual-row" data-thread-row={item.key}>{children}</div>
 }
 
 export function ThreadTimelineWindow<T extends { key: string }>({ rows, scrollRef, children }: {
@@ -20,8 +20,9 @@ export function ThreadTimelineWindow<T extends { key: string }>({ rows, scrollRe
   scrollRef: RefObject<HTMLElement | null>
   children: (row: T, index: number) => ReactNode
 }) {
-  const virtual = useThreadVirtualizer(rows.map(row => row.key), scrollRef)
-  return <div ref={virtual.spaceRef} className="thread-virtual-space" style={{ height: `${virtual.totalSize}px` }} data-mounted-rows={virtual.mountedCount} data-total-rows={rows.length}>
+  const keys = useMemo(() => rows.map(row => row.key), [rows])
+  const virtual = useThreadVirtualizer(keys, scrollRef)
+  return <div ref={virtual.spaceRef} className="thread-virtual-space" style={{ paddingTop: virtual.paddingTop, paddingBottom: virtual.paddingBottom }} data-mounted-rows={virtual.mountedCount} data-total-rows={rows.length}>
     {virtual.items.map(item => <MeasuredTimelineRow key={item.key} item={item} onMeasure={virtual.measure}>{children(rows[item.index], item.index)}</MeasuredTimelineRow>)}
   </div>
 }

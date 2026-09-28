@@ -14,6 +14,7 @@ const DesignSystemPage = lazy(() => import('./components/DesignSystem/DesignSyst
 const SettingsCenter = lazy(() => import('./components/Settings/SettingsCenter').then((m) => ({ default: m.SettingsCenter })))
 const DelegatedWorkDialog = lazy(() => import('./components/Delegation/DelegatedWorkDialog').then(m => ({ default: m.DelegatedWorkDialog })))
 const ThreadGrid = lazy(() => import('./components/Threads/ThreadGrid').then(m => ({ default: m.ThreadGrid })))
+const ThreadSidebar = lazy(() => import('./components/Threads/ThreadSidebar').then(m => ({ default: m.ThreadSidebar })))
 const ProviderAccountsPanel = lazy(() => import('./components/Threads/ProviderAccountsPanel').then(m => ({ default: m.ProviderAccountsPanel })))
 const NewThreadDialog = lazy(() => import('./components/Threads/ThreadDialogs').then(m => ({ default: m.NewThreadDialog })))
 const AddThreadProjectDialog = lazy(() => import('./components/Threads/ThreadDialogs').then(m => ({ default: m.AddThreadProjectDialog })))
@@ -30,7 +31,6 @@ import { useMcpStore } from './store/mcp.store'
 import { useSkillStore } from './store/skill.store'
 import { useSlashDispatcher } from './lib/useSlashDispatcher'
 import { useAccountStore } from './store/account.store'
-import { ThreadSidebar } from './components/Threads/ThreadSidebar'
 import { useThreadStore } from './store/thread.store'
 import { useNavigationPrefs } from './store/navigation-prefs.store'
 import { Sidebar } from './components/Sidebar/Sidebar'
@@ -40,6 +40,7 @@ import { WorkspaceSurface } from './components/Workspace/WorkspaceSurface'
 import './components/Threads/ThreadView.css'
 import { AppStatusBar } from './components/Workspace/AppStatusBar'
 import { UpdateBanner } from './components/Updates/UpdateBanner'
+import { AppUpdateIndicator } from './components/Updates/AppUpdateIndicator'
 import { LAYOUT_PRESETS, WORKSPACE_DENSITIES, WORKSPACE_THEMES } from './components/Workspace/workspaceOptions'
 import { useAgentStore } from './store/agent.store'
 import { useEditorStore } from './store/editor.store'
@@ -794,9 +795,12 @@ export function App(): ReactElement {
         openSlashOverlay(activePane.id)
         return
       }
-      // Live terminal font zoom: Ctrl/Cmd +, Ctrl/Cmd -, Ctrl/Cmd 0 (reset).
-      // Adjusts the GLOBAL font-size pref, which propagates to every open pane.
-      if ((event.ctrlKey || event.metaKey) && !event.altKey) {
+      // Terminal zoom belongs to the focused xterm. The old window-wide
+      // handler changed the persisted font size while using other controls.
+      const terminalFocused = activePane?.type === 'terminal'
+        && event.target instanceof HTMLElement
+        && Boolean(event.target.closest('.xterm'))
+      if (terminalFocused && (event.ctrlKey || event.metaKey) && !event.altKey) {
         const isPlus = key === '=' || key === '+'
         const isMinus = key === '-' || key === '_'
         const isZero = key === '0'
@@ -886,7 +890,7 @@ export function App(): ReactElement {
     else setNewThreadWorkspaceId(threadWorkspace?.id ?? workspaces[0].id)
   }
   const openThreadAccounts = () => { if (threadWorkspace) setAccountsOpen(true); else openNewWorkspace() }
-  const openDelegation = (task: DelegationTask) => {
+  const openDelegation = async (task: DelegationTask): Promise<boolean> => {
     const showDelegationDetails = () => {
       setDelegationTarget({ workspaceId: task.originWorkspaceId ?? task.workspaceId, taskId: task.id })
       setDelegatedWorkOpen(true)
@@ -896,20 +900,38 @@ export function App(): ReactElement {
       setApplicationView('thread')
       setDelegatedWorkOpen(false)
       const threadApi = window.oxe.thread
-      if (!threadApi) { showDelegationDetails(); return }
-      void threadApi.read(task.destinationThreadId).then(snapshot => useThreadStore.getState().adopt(snapshot)).catch(showDelegationDetails)
+      if (!threadApi) { showDelegationDetails(); return false }
+      try { useThreadStore.getState().adopt(await threadApi.read(task.destinationThreadId)); return true }
+      catch { showDelegationDetails(); return false }
     } else if (task.paneId) {
-      setApplicationView('code')
-      setDelegatedWorkOpen(false)
-      void setActiveWorkspace(task.workspaceId).then(() => useUIStore.getState().setActivePane(task.paneId!)).catch(showDelegationDetails)
+      try {
+        const owner = workspaces.find(workspace => workspace.panes.some(pane => pane.id === task.paneId))
+        const session = await window.oxe.terminal.status(task.paneId)
+        if (!owner || !session.running) { showDelegationDetails(); return false }
+        await setActiveWorkspace(owner.id)
+        useUIStore.getState().setActivePane(task.paneId)
+        setApplicationView('code')
+        setDelegatedWorkOpen(false)
+        return true
+      } catch { showDelegationDetails(); return false }
     } else {
       showDelegationDetails()
+      return false
     }
   }
 
   return (
     <ThemeProvider themeId={(applicationView === 'thread' ? threadWorkspace : activeWorkspace)?.themeId} density={(applicationView === 'thread' ? threadWorkspace : activeWorkspace)?.uiDensity}>
       <main className={`app-shell${applicationView === 'thread' ? ' thread-shell' : isSidebarCollapsed ? ' sidebar-collapsed' : ''}`} style={applicationView === 'thread' ? { '--thread-sidebar-width': `${isSidebarCollapsed ? 56 : codeSidebarWidth}px` } as CSSProperties : { '--sidebar-w': `${codeSidebarWidth}px` } as CSSProperties}>
+      <header className="workbench-titlebar" aria-label="OXESpace workbench">
+        <div className="workbench-titlebar-brand"><OxeLogo size={15} /><strong>OXESpace</strong></div>
+        <div className="workbench-titlebar-context" title={applicationView === 'thread' ? threadWorkspace?.rootPath ?? 'Thread' : activeWorkspace?.rootPath ?? 'No workspace'}>
+          <span>{applicationView === 'thread' ? 'Thread' : 'Code'}</span>
+          <span className="workbench-titlebar-separator" aria-hidden="true">/</span>
+          <strong>{applicationView === 'thread' ? threadWorkspace?.name ?? 'Conversations' : activeWorkspace?.name ?? 'No workspace'}</strong>
+        </div>
+        <div className="workbench-titlebar-trailing"><AppUpdateIndicator /><span className="workbench-titlebar-version">v{appVersion}</span></div>
+      </header>
       {delegationNotice && <div role="status" style={{ position: 'fixed', bottom: 18, right: 18, zIndex: 190, padding: 14, borderRadius: 10, background: 'var(--bg-elevated, #19191f)', border: '1px solid var(--accent)', maxWidth: 340 }}>
         <p>Delegated task updated</p>
         <button type="button" className="secondary-action" onClick={() => {
@@ -918,10 +940,10 @@ export function App(): ReactElement {
         }}>View task</button>
         <button type="button" className="secondary-action" onClick={() => setDelegationNotice(null)}>Dismiss</button>
       </div>}
-      {delegatedWorkOpen && <Suspense fallback={null}><DelegatedWorkDialog key={delegationTarget?.taskId ?? 'all'} workspaces={workspaces} workspaceId={delegationTarget?.workspaceId ?? (applicationView === 'thread' ? threadSnapshot?.thread.workspaceId ?? activeWorkspaceId ?? '' : activeWorkspaceId ?? '')} focusTaskId={delegationTarget?.taskId}
+      {delegatedWorkOpen && <Suspense fallback={null}><DelegatedWorkDialog workspaces={workspaces} workspaceId={delegationTarget?.workspaceId ?? (applicationView === 'thread' ? threadSnapshot?.thread.workspaceId ?? activeWorkspaceId ?? '' : activeWorkspaceId ?? '')} focusTaskId={delegationTarget?.taskId}
         origin={applicationView === 'thread' ? threadSelection ? { kind: 'thread', id: threadSelection } : undefined : activePane ? { kind: 'pane', id: activePane.id } : undefined}
         onClose={() => { setDelegatedWorkOpen(false); setDelegationTarget(null) }} onOpen={openDelegation} /></Suspense>}
-      {applicationView === 'thread' ? <ThreadSidebar onDelegations={() => { setDelegationTarget(null); setDelegatedWorkOpen(true) }} onOpenDelegation={openDelegation} workspaces={workspaces} onCreate={(id, rootPath) => { setNewThreadRootPath(rootPath); setNewThreadWorkspaceId(id) }} onModeChange={() => setApplicationView('code')} onAccounts={openThreadAccounts} onAddProject={() => setThreadProjectOpen(true)} /> : <Sidebar
+      {applicationView === 'thread' ? <Suspense fallback={<aside className="thread-navigation" aria-label="Thread sidebar" />}><ThreadSidebar workspaces={workspaces} onCreate={(id, rootPath) => { setNewThreadRootPath(rootPath); setNewThreadWorkspaceId(id) }} onModeChange={() => setApplicationView('code')} onAccounts={openThreadAccounts} onAddProject={() => setThreadProjectOpen(true)} /></Suspense> : <Sidebar
         onDelegations={() => { setDelegationTarget(null); setDelegatedWorkOpen(true) }}
         workspaces={workspaces}
         activeWorkspaceId={activeWorkspaceId}

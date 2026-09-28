@@ -27,8 +27,9 @@ export function ThreadFailureCard({ event, latest, refreshUsage, onAccounts, onR
   const [currentUsage, setCurrentUsage] = useState<ThreadUsage>(), [loading, setLoading] = useState(false), [refreshError, setRefreshError] = useState('')
   const refreshing = useRef(false)
   const usage = currentUsage && (!failure?.usage || currentUsage.checkedAt >= failure.usage.checkedAt) ? currentUsage : failure?.usage
-  const code = failure?.code ?? event.errorCode
-  const title = code === 'authentication' ? 'Sign-in required' : code === 'usage' ? 'Usage allowance exhausted' : code === 'rate-limit' ? 'Request limit reached' : code === 'network' ? 'Connection failed' : code === 'server' ? 'Provider unavailable' : 'Turn failed'
+  // Previously saved failures were classified as unknown; render them correctly without rewriting history.
+  const code = failure?.detail && /already has an active writer|active writer/i.test(failure.detail) ? 'session-busy' : failure?.code ?? event.errorCode
+  const title = code === 'session-busy' ? 'Session active elsewhere' : code === 'authentication' ? 'Sign-in required' : code === 'usage' ? 'Usage allowance exhausted' : code === 'rate-limit' ? 'Request limit reached' : code === 'network' ? 'Connection failed' : code === 'server' ? 'Provider unavailable' : 'Turn failed'
   const refresh = async () => {
     if (!refreshUsage || refreshing.current) return
     refreshing.current = true; setLoading(true); setRefreshError('')
@@ -39,14 +40,14 @@ export function ThreadFailureCard({ event, latest, refreshUsage, onAccounts, onR
   return <details className="thread-turn-error thread-failure-card" open={latest}>
     <summary><AlertCircle size={14} /><strong>{title}</strong>{failure && <time dateTime={new Date(failure.occurredAt).toISOString()}>{usageTime(failure.occurredAt)}</time>}<ChevronDown size={14} /></summary>
     <div className="thread-failure-body">
-      <p>{failure?.message ?? (code === 'authentication' ? 'Reconnect your native agent account to continue.' : event.error ?? 'The agent could not finish this turn.')}</p>
+      <p>{code === 'session-busy' ? 'This native session is active elsewhere. Finish or close the other Codex session, then send your saved draft again.' : failure?.message ?? (code === 'authentication' ? 'Reconnect your native agent account to continue.' : event.error ?? 'The agent could not finish this turn.')}</p>
       {failure?.detail && <pre className="thread-failure-diagnostic" aria-label="Provider diagnostic">{failure.detail}</pre>}
       {(failure?.providerCode || failure?.httpStatus) && <div className="thread-failure-codes">{failure.providerCode && <code>{failure.providerCode}</code>}{failure.httpStatus && <code>HTTP {failure.httpStatus}</code>}</div>}
       {usage && <ThreadUsageDetails usage={usage} />}
-      {!usage && code !== 'authentication' && <p className="thread-failure-note">{failure?.usageUnavailable ? 'Current usage could not be retrieved. The provider has not confirmed a reset time.' : refreshUsage && failure ? 'Checking current provider usage…' : 'Usage and reset time were not recorded for this failure.'}</p>}
+      {!usage && code !== 'authentication' && code !== 'session-busy' && <p className="thread-failure-note">{failure?.usageUnavailable ? 'Current usage could not be retrieved. The provider has not confirmed a reset time.' : refreshUsage && failure ? 'Checking current provider usage…' : 'Usage and reset time were not recorded for this failure.'}</p>}
       {usage && failure?.usageUnavailable && !currentUsage && <p className="thread-failure-note">Could not refresh usage. The snapshot above was checked at the displayed time.</p>}
       {refreshError && <p role="alert" className="thread-failure-note">{refreshError}</p>}
-      {(refreshUsage || onRetry || code === 'authentication' && onAccounts) && <footer>
+      {(code !== 'session-busy' && (refreshUsage || onRetry) || code === 'authentication' && onAccounts) && <footer>
         {code === 'authentication' && onAccounts && <button type="button" onClick={onAccounts}>Reconnect account</button>}
         {onRetry && <button type="button" disabled={disabled} onClick={onRetry}>Retry turn</button>}
         {refreshUsage && <button type="button" disabled={loading} onClick={() => void refresh()}>{loading ? <Loader2 size={13} className="thread-spin" /> : <RefreshCw size={13} />}{loading ? 'Checking usage…' : 'Refresh usage'}</button>}
