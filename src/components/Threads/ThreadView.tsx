@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { AlertCircle, ArrowDown, ArrowUp, Check, ChevronDown, Copy, CornerDownLeft, GitBranch, ListTodo, Loader2, MessageSquarePlus, Mic, Minus, Paperclip, Pencil, Pin, Plus, Slash, Square, TerminalSquare, Type, Waypoints, X } from 'lucide-react'
 import { ThreadMarkdown } from './ThreadMarkdown'
 import { formatNativeUserText } from '../../../shared/native-session-text'
+import { blocksThreadInput, PARTIAL_NATIVE_HISTORY_NOTICE } from '../../../shared/threadHistoryNotice'
 import { ThreadFailureCard, ThreadUsageDetails } from './ThreadFailureCard'
 import type { Workspace } from '../../../shared/types/workspace'
 import type { ThreadAttachment, ThreadCommandResult } from '../../../shared/types/thread'
@@ -18,6 +19,7 @@ import { DesktopDialog } from '../Navigation/DesktopDialog'
 import { DetailList } from '../Navigation/DetailList'
 import { ThreadConfigurationBar } from './ThreadConfigurationBar'
 import { ThreadActivityGroup } from './ThreadActivityGroup'
+import { threadQuickReplies } from './threadQuickReplies'
 import { buildThreadTimeline, flattenThreadTimeline } from './threadTimelineModel'
 import { ThreadTimelineWindow } from './ThreadTimeline'
 import { deriveThreadComposerState } from './threadComposerState'
@@ -159,6 +161,9 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   const timelineRows = useMemo(() => flattenThreadTimeline(turns), [turns])
   const pendingMessage = outgoing && snapshot?.thread.id === outgoing.threadId && !snapshot.events.some(event => event.type === 'message' && event.role === 'user' && event.text === outgoing.text && !outgoing.knownEvents.has(event.id)) ? outgoing : null
   const lastResult = snapshot?.events.filter(e => e.type === 'completed').at(-1)
+  const lastConversationMessage = snapshot?.events.filter(e => e.type === 'message').at(-1)
+  const quickReplies = lastConversationMessage?.type === 'message' && lastConversationMessage.role === 'assistant' && snapshot?.thread.status === 'idle' && !snapshot.events.some(e => e.type === 'request' && e.request.state === 'pending')
+    ? threadQuickReplies(lastConversationMessage.text) : []
   const authFailure = snapshot?.thread.status === 'failed' && (lastResult?.type === 'completed' && lastResult.errorCode === 'authentication' || turns.at(-1)?.events.some(e => e.type === 'message' && e.role === 'assistant' && authText(e.text)))
   const needsLogin = Boolean(snapshot && (authFailure || account && (account.state !== 'connected' || account.method !== 'subscription')))
   const degradedConnection = snapshot?.thread.connection?.state === 'degraded' ? snapshot.thread.connection : undefined
@@ -338,7 +343,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
     const command = draft.trim().match(/^\/([\w:-]+)/)?.[1]
     if (command && hasDesktopCommand(snapshot.thread.provider, command) && api?.command) { void action(() => runCommand(draft)); return }
     if (commands.executeLocal(draft)) return
-    if (snapshot.thread.cliActive) return
+    if (snapshot.thread.cliActive) { setError('The native CLI owns this conversation. Recover it before sending a message.'); return }
     const text = draft, id = snapshot.thread.id
     const attachmentIds = attachments.map(value => value.id)
     const message = text || 'Please inspect the attached image.'
@@ -412,6 +417,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
             return <article key={key} className={`thread-message thread-message-${event.role}`}>
               {event.role === 'assistant' && turnEvents.find(value => value.type === 'message' && value.role === 'assistant') === event && <div className="thread-agent-label"><AgentProviderIcon provider={snapshot?.thread.provider ?? 'claude'} size={16} />{snapshot?.thread.provider === 'claude' ? 'Claude' : 'Codex'}</div>}
               <ThreadMessageBody text={displayText} role={event.role} />
+              {event.role === 'assistant' && event.id === lastConversationMessage?.id && quickReplies.length > 0 && <div className="thread-quick-replies" aria-label="Suggested replies"><small>Choose a reply to review before sending</small><div>{quickReplies.map(option => <button type="button" key={option.value} onClick={() => { useThreadStore.getState().setDraft(snapshot!.thread.id, option.value); requestAnimationFrame(() => textarea.current?.focus()) }}>{option.label}</button>)}</div></div>}
               {event.attachments?.length ? <div className="thread-message-attachments" aria-label="Message attachments">{event.attachments.map(attachment => <span key={attachment.id}><Paperclip size={11} />{attachment.name}<small>{Math.ceil(attachment.bytes / 1024)} KB</small></span>)}</div> : null}
               <div className="thread-message-actions">
                 <button type="button" aria-label={copiedMessageId === event.id ? 'Message copied' : event.role === 'assistant' ? 'Copy response' : 'Copy message'} title={copiedMessageId === event.id ? 'Copied' : event.role === 'assistant' ? 'Copy response' : 'Copy message'} onClick={() => void copyMessage(event.id, displayText)}>{copiedMessageId === event.id ? <Check size={13} /> : <Copy size={13} />}</button>
@@ -444,7 +450,8 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
       {showEnd && <button type="button" className="thread-scroll-end" onClick={scrollEnd}><ArrowDown size={12} />Latest messages{newMessages > 0 ? ` · ${newMessages}` : ''}</button>}
       {snapshot && <div className={`thread-connection-notice${needsLogin ? '' : ' is-connected'}`}>{needsLogin ? <><AlertCircle size={14} /><span>{authFailure ? `Sign in to ${snapshot.thread.provider === 'claude' ? 'Claude Code' : 'Codex'}` : accountMessage(account)}</span><button type="button" onClick={onAccounts}>{authFailure ? 'Reconnect' : 'Connect'}</button>{authFailure && lastPrompt?.type === 'message' && <button type="button" title="Resend after connecting" disabled={pending || account?.state !== 'connected' || account.method !== 'subscription'} onClick={() => void action(() => api!.send(snapshot.thread.id, lastPrompt.text, lastPrompt.attachments?.map(attachment => attachment.id) ?? []))}>Retry</button>}</> : <><Check size={14} /><span>{account ? `${snapshot.thread.provider === 'claude' ? 'Claude Code' : 'Codex'} connected` : 'Checking agent connection…'}</span></>}</div>}
       {degradedConnection && !needsLogin && <div className="thread-connection-notice is-warning" role="status"><AlertCircle size={14} /><span>{degradedConnection.detail || 'Provider connection is unavailable.'}{degradedConnection.nextRetryAt ? ` You can retry after ${new Date(degradedConnection.nextRetryAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}.` : ''}</span></div>}
-      {(snapshot?.thread.cliActive || snapshot?.thread.cliNotice) && <div className="thread-connection-notice"><TerminalSquare size={14} /><span>Recover the saved conversation to continue here.</span><button type="button" disabled={pending} onClick={() => void action(returnFromCli)}>Recover conversation</button></div>}
+      {snapshot && blocksThreadInput(snapshot.thread) && <div className="thread-connection-notice"><TerminalSquare size={14} /><span>Recover the saved conversation to continue here.</span><button type="button" disabled={pending} onClick={() => void action(returnFromCli)}>Recover conversation</button></div>}
+      {snapshot?.thread.cliNotice === PARTIAL_NATIVE_HISTORY_NOTICE && <div className="thread-connection-notice is-connected" role="status"><TerminalSquare size={14} /><span>{snapshot.thread.cliNotice} You can continue this conversation here.</span></div>}
       {(error || !api) && <div role="alert" className="thread-action-error"><span>{error || 'Thread service unavailable. Restart the updated application.'}</span><button type="button" aria-label="Dismiss error" onClick={() => setError('')}>×</button></div>}
       {snapshot?.thread.queue && <ThreadPromptQueue items={snapshot.thread.queue} disabled={pending} onUpdate={(itemId, text) => action(() => api!.updateQueued!(snapshot.thread.id, itemId, text))} onDelete={itemId => action(() => api!.deleteQueued!(snapshot.thread.id, itemId))} onRestore={item => action(async () => {
         await api!.deleteQueued!(snapshot.thread.id, item.id, true)

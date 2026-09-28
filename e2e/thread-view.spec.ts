@@ -18,8 +18,17 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
       let sendCount = 0, manyThreads = false, archivedRestored = false
       ;(globalThis as Record<string, unknown>).threadCommandQueries = 0
       const changed = () => { for (const window of BrowserWindow.getAllWindows()) window.webContents.send('thread:changed', { threadId: 'e2e-thread' }) }
+      ;(globalThis as Record<string, unknown>).setPartialHistoryFixture = () => { (snapshot!.thread as Record<string, unknown>).cliNotice = 'Showing the recent part of this native session. Its complete history remains available in the provider CLI.'; changed() }
       ;(globalThis as Record<string, unknown>).finishThreadFixture = () => { (snapshot!.thread as Record<string, unknown>).status = 'idle'; changed() }
       for (const channel of ['commands', 'list', 'read', 'create', 'send', 'pin', 'projects', 'models', 'configure', 'command', 'artifact', 'project-diff']) ipcMain.removeHandler(`thread:${channel}`)
+      ipcMain.removeHandler('thread:respond')
+      ipcMain.handle('thread:respond', (_event, _id, requestId, response) => {
+        ;(globalThis as Record<string, unknown>).lastThreadAnswer = response
+        const request = (snapshot!.events as Array<Record<string, unknown>>).find(event => event.type === 'request' && event.id === requestId)
+        if (request) (request.request as Record<string, unknown>).state = 'answered'
+        ;(snapshot!.thread as Record<string, unknown>).status = 'idle'
+        changed()
+      })
       const reviewPatch = '--- a/src/App.tsx\n+++ b/src/App.tsx\n@@ -12,5 +12,7 @@\n export function App() {\n-  return <ThreadView />\n+  return <ThreadWorkbench>\n+    <ThreadView />\n+  </ThreadWorkbench>\n }\n'
       ipcMain.handle('thread:artifact', (_event, id, artifactId) => {
         if (id !== 'e2e-thread') throw Error('Invalid evidence scope')
@@ -75,6 +84,24 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
       })
       ipcMain.handle('thread:send', (_event, _id, text) => {
         const thread = snapshot!.thread as Record<string, unknown>
+        if (text === 'Long command fixture') {
+          thread.status = 'idle'
+          snapshot!.events = [{ type: 'message', id: 'long-command-user', role: 'user', text },
+            { type: 'tool', id: 'long-command', name: 'Bash', state: 'unknown', detail: JSON.stringify({ command: `git log ${'very-long-path/'.repeat(95)}`, description: 'Inspect project history' }, null, 2) },
+            { type: 'completed', status: 'completed' }]
+          changed(); return
+        }
+        if (text === 'Structured question fixture') {
+          thread.status = 'approval'
+          snapshot!.events = [{ type: 'message', id: 'choice-user', role: 'user', text },
+            { type: 'request', id: 'native-choice', request: { id: 'native-choice', nativeId: 'native-choice', nativeMethod: 'can_use_tool:AskUserQuestion', kind: 'question', title: 'Claude needs your input', generation: 1, createdAt: Date.now(), state: 'pending', questions: [{ id: 'rollout', question: 'Which rollout?', options: [{ label: 'Staged' }, { label: 'Immediate' }] }] } }]
+          changed(); return
+        }
+        if (text === 'Prose choices fixture') {
+          thread.status = 'idle'
+          snapshot!.events = [{ type: 'message', id: 'prose-user', role: 'user', text }, { type: 'message', id: 'prose-answer', role: 'assistant', text: 'As opções:\n- **A (Recomendado):** Staged rollout.\n- **B:** Immediate rollout.' }, { type: 'completed', status: 'completed' }]
+          changed(); return
+        }
         if (text === 'Approval fixture') {
           const command = '"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command \'$path = "docs\\thread-view.md"; $content = Get-Content -LiteralPath $path -Raw; $needle = "First line\\r\\nSecond line"; Set-Content -LiteralPath $path -Value $content\''
           thread.status = 'approval'
@@ -98,6 +125,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
         thread.title = 'Authentication flow'
         if (text === 'Usage failure fixture') {
           thread.status = 'failed'
+          thread.lastTurnStatus = 'failed'
           snapshot!.events = [{ type: 'message', id: 'quota-user', role: 'user', text }, { type: 'completed', status: 'failed', errorCode: 'usage', failure: {
             id: 'quota-failure', occurredAt: Date.now(), code: 'usage', message: 'The provider reported an exhausted usage allowance.', providerCode: 'usageLimitExceeded',
             detail: 'You have hit the session usage limit. Retry when your allowance resets.',
@@ -133,11 +161,13 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
         }
         if (++sendCount === 1) {
           thread.status = 'failed'
+          thread.lastTurnStatus = 'failed'
           snapshot!.events = [{ type: 'message', id: 'user', role: 'user', text },
             { type: 'completed', status: 'failed', errorCode: 'authentication' }]
           changed(); return
         }
         thread.status = 'idle'
+        thread.lastTurnStatus = 'completed'
         snapshot!.events = [{ type: 'message', id: 'user', role: 'user', text },
           { type: 'tool', id: 'tool', name: 'Read', state: 'completed', detail: 'Fixture README' },
           { type: 'message', id: 'answer', role: 'assistant', text: '**Verified fixture response**\n\nThe session is stored in an HttpOnly cookie, keeping credentials outside client scripts.\n\n- Verify the callback before creating a session.\n- Refresh the connection when the native account expires.\n- Keep the conversation draft during reconnection.\n\n| Priority | Improvement | Reason |\n| --- | --- | --- |\n| **High** | Split `App.tsx` | Reduce coupling between navigation and sessions. |\n| Medium | Preserve errors | Make diagnostics readable and actionable. |\n\n> Check the active worktree before making changes.\n\n```ts\nconst session = { id: "fixture" }\n  console.log(session.id)\n```' },
@@ -255,6 +285,13 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(projectTree.locator('.thread-project-count')).toHaveText('1 thread')
     await expect(projectTree.locator('.thread-project-rows .thread-session-title')).toHaveText('New thread')
     await expect(projectTree.locator('.thread-project-rows .thread-session-meta')).toContainText('Codex')
+    await expect(projectTree.locator('.thread-session-provider .agent-provider-icon')).toBeVisible()
+    await expect(projectTree.locator('.thread-session-provider .agent-provider-icon')).toHaveCSS('background-color', await page.evaluate(() => { const el = document.createElement('span'); el.style.backgroundColor = 'var(--provider-codex)'; document.body.append(el); const color = getComputedStyle(el).backgroundColor; el.remove(); return color }))
+    await expect(projectTree.locator('.thread-session-indicator')).toHaveAttribute('data-status', 'ready')
+    await expect(projectTree.locator('.thread-session-state')).toHaveText('Ready')
+    const readyIcon = await projectTree.locator('.thread-session-indicator').evaluate(el => ({ icon: el.querySelector('svg')?.getAttribute('class'), color: getComputedStyle(el).color }))
+    expect(readyIcon.icon).toContain('circle')
+    expect(readyIcon.color).toBe(await page.evaluate(() => { const el = document.createElement('span'); el.style.color = 'var(--dot-blue)'; document.body.append(el); const color = getComputedStyle(el).color; el.remove(); return color }))
     await expect(projectTree.locator('.thread-project-children')).toHaveCSS('border-left-style', 'solid')
     await page.screenshot({ path: 'test-results/thread-project-hierarchy.png' })
     await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe('midnight')
@@ -330,6 +367,9 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await message.fill('Usage failure fixture')
     await page.getByRole('button', { name: 'Send', exact: true }).click()
     await expect(page.locator('.thread-heading h1')).toHaveText('Authentication flow')
+    await expect(page.locator('.thread-navigation-row').filter({ has: page.locator('.thread-session-title', { hasText: 'Authentication flow' }) }).locator('.thread-session-state')).toHaveText('Failed')
+    const failedColor = await page.locator('.thread-session-indicator[data-status="failed"]').first().evaluate(el => getComputedStyle(el).color)
+    expect(failedColor).not.toBe(readyIcon.color)
     await expect(page.locator('.workbench-titlebar-context')).not.toContainText('Authentication flow')
     const failureCard = page.locator('.thread-failure-card')
     await expect(failureCard.getByText('Usage allowance exhausted', { exact: true })).toBeVisible()
@@ -367,6 +407,11 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await accountsDialog.getByRole('button', { name: 'Done', exact: true }).click()
     await page.getByRole('button', { name: 'Retry', exact: true }).click()
     await expect(page.getByText('Verified fixture response', { exact: true })).toBeVisible()
+    await expect(page.locator('.thread-navigation-row').filter({ has: page.locator('.thread-session-title', { hasText: 'Authentication flow' }) }).locator('.thread-session-state')).toHaveText('Completed')
+    const completedIcon = await page.locator('.thread-session-indicator[data-status="completed"]').first().evaluate(el => ({ icon: el.querySelector('svg')?.getAttribute('class'), color: getComputedStyle(el).color }))
+    expect(completedIcon.icon).toContain('circle-check')
+    expect(completedIcon.color).toBe(readyIcon.color)
+    expect(completedIcon.color).not.toBe(failedColor)
     await expect(page.locator('.thread-activity-single')).toHaveCount(1)
     await expect(page.getByText('1 action', { exact: false })).toHaveCount(0)
     await expect(page.getByRole('table')).toHaveCount(1)
@@ -450,6 +495,12 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     }, readingAnchor)).toBeCloseTo(readingAnchor.offset, 0)
     await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Append streaming fixture'))
     await expect(page.getByRole('button', { name: 'Stop turn', exact: true })).toBeVisible()
+    const runningDot = page.locator('.thread-session-indicator[data-status="running"]').first()
+    await expect(runningDot).toBeVisible()
+    const runningColors = await runningDot.evaluate(el => ({ label: getComputedStyle(el).color, dot: getComputedStyle(el, '::before').backgroundColor, green: (() => { const token = document.createElement('span'); token.style.color = 'var(--dot-green)'; document.body.append(token); const color = getComputedStyle(token).color; token.remove(); return color })() }))
+    expect(runningColors.label).toBe(runningColors.green)
+    expect(runningColors.dot).toBe(runningColors.green)
+    expect(runningColors.dot).not.toBe(readyIcon.color)
     const runningActions = await page.evaluate(() => {
       const footer = document.querySelector('.thread-composer > footer')!.getBoundingClientRect()
       const stop = document.querySelector('.thread-stop')!.getBoundingClientRect()
@@ -661,6 +712,30 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.screenshot({ path: 'test-results/thread-message-actions.png' })
     await latestMessage.getByRole('button', { name: 'Copy message' }).click()
     await expect.poll(() => page.evaluate(() => window.oxe.clipboard.readText())).toBe('Review message 3333')
+    await page.setViewportSize({ width: 900, height: 600 })
+    await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Long command fixture'))
+    const longCommand = page.locator('.thread-activity-single')
+    await expect(longCommand).toContainText('Ran command')
+    await longCommand.locator(':scope > summary').click()
+    await expect(longCommand).toContainText('Result unconfirmed')
+    await longCommand.getByText('Technical details').click()
+    const commandBounds = await longCommand.locator('pre').evaluate(el => ({ right: el.getBoundingClientRect().right, viewport: document.querySelector('.thread-timeline')!.getBoundingClientRect().right, scroll: el.scrollWidth, width: el.clientWidth }))
+    expect(commandBounds.right).toBeLessThanOrEqual(commandBounds.viewport)
+    expect(commandBounds.scroll).toBeLessThanOrEqual(commandBounds.width + 1)
+    await app.evaluate(() => ((globalThis as Record<string, unknown>).setPartialHistoryFixture as () => void)())
+    await expect(page.getByText(/You can continue this conversation here/)).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Recover conversation' })).toHaveCount(0)
+    await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toBeEnabled()
+    await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Structured question fixture'))
+    await expect(page.getByRole('region', { name: 'Claude needs your input' })).toBeVisible()
+    await page.getByRole('radio', { name: 'Staged' }).check()
+    await page.getByRole('button', { name: 'Answer', exact: true }).click()
+    await expect.poll(() => app.evaluate(() => (globalThis as Record<string, unknown>).lastThreadAnswer)).toEqual({ answers: { rollout: ['Staged'] } })
+    await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Prose choices fixture'))
+    const suggestions = page.getByLabel('Suggested replies')
+    await expect(suggestions.getByRole('button', { name: 'A (Recomendado)' })).toBeVisible()
+    await suggestions.getByRole('button', { name: 'A (Recomendado)' }).click()
+    await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toHaveValue('A')
     const archived = page.getByRole('region', { name: 'Archived conversations' })
     await expect(archived.getByRole('button', { name: 'Archived 1' })).toHaveAttribute('aria-expanded', 'false')
     await archived.getByRole('button', { name: 'Archived 1' }).click()

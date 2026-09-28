@@ -164,7 +164,7 @@ export interface ThreadFileChange {
   source: 'native-patch' | 'tool-input' | 'working-tree-observation'
   /** Only native provider patches prove provider authorship. */
   authorship?: 'provider' | 'indeterminate'
-  state: 'running' | 'completed' | 'failed'
+  state: 'running' | 'completed' | 'failed' | 'unknown'
   additions?: number
   deletions?: number
   artifactId?: string
@@ -191,6 +191,8 @@ export interface ConversationThread {
   title: string
   pinned: boolean
   status: ThreadStatus
+  /** Last finished turn, used to distinguish a new idle thread from completed work in navigation. */
+  lastTurnStatus?: ThreadTurn['status']
   createdAt: number
   updatedAt: number
   /** A native interactive CLI exclusively owns this conversation until it exits. */
@@ -216,7 +218,7 @@ export type ThreadEvent =
   | { type: 'session'; nativeSessionId: string }
   | { type: 'message'; id: string; role: 'user' | 'assistant'; text: string; attachments?: Omit<ThreadAttachment, 'path'>[] }
   | { type: 'delta'; id: string; text: string }
-  | { type: 'tool'; id: string; name: string; state: 'running' | 'completed' | 'failed'; detail: string; output?: string; exitCode?: number; startedAt?: number; completedAt?: number; turnId?: string; files?: ThreadFileChange[] }
+  | { type: 'tool'; id: string; name: string; state: 'running' | 'completed' | 'failed' | 'unknown'; detail: string; output?: string; exitCode?: number; startedAt?: number; completedAt?: number; turnId?: string; files?: ThreadFileChange[] }
   | { type: 'subagent'; id: string; action: string; state: 'running' | 'completed' | 'failed' | 'interrupted'; senderThreadId?: string; receiverThreadIds: string[]; agents: ThreadSubagent[]; prompt?: string; model?: string; reasoningEffort?: string; startedAt?: number; completedAt?: number; turnId?: string }
   | { type: 'approval'; id: string; title: string; detail: string }
   | { type: 'approval-resolved'; id: string }

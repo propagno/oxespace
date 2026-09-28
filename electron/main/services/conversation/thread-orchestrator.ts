@@ -5,6 +5,7 @@ import type { NativeCliSession, ThreadNativeCli } from './thread-cli'
 import type { ThreadModelCatalog, ThreadConfiguration, ThreadCommandResult } from '../../../../shared/types/thread'
 import type { ThreadModelService } from './thread-models'
 import { hasDesktopCommand } from '../../../../shared/threadDesktopCommands'
+import { blocksThreadInput, PARTIAL_NATIVE_HISTORY_NOTICE } from '../../../../shared/threadHistoryNotice'
 import { formatNativeUserText } from '../../../../shared/native-session-text'
 import { execFile } from 'node:child_process'
 import { ThreadAgentError, threadFailure } from './thread-failure'
@@ -18,6 +19,24 @@ import { ThreadSessionSupervisor } from './thread-session-supervisor'
 import { ThreadExportService } from './thread-export.service'
 import { ThreadPortableService } from './thread-portable'
 import { ThreadCheckpointService } from './thread-checkpoints'
+
+/** Repair older histories whose provider ended a turn without a matching tool result. */
+function settleCompletedHistoryTools(events: ThreadEvent[]): number {
+  let turnStart = 0, earliest = events.length
+  events.forEach((event, index) => {
+    if (event.type === 'message' && event.role === 'user') turnStart = index
+    if (event.type !== 'completed') return
+    for (let toolIndex = turnStart; toolIndex < index; toolIndex++) {
+      const tool = events[toolIndex]
+      if (tool.type !== 'tool' || tool.state !== 'running') continue
+      tool.state = 'unknown'
+      tool.files = tool.files?.map(file => ({ ...file, state: file.state === 'running' ? 'unknown' : file.state }))
+      earliest = Math.min(earliest, toolIndex)
+    }
+    turnStart = index + 1
+  })
+  return earliest
+}
 
 export class ThreadOrchestrator {
   private readonly changeListeners = new Map<string, Set<() => void>>()
@@ -83,8 +102,16 @@ export class ThreadOrchestrator {
   }
 
   list(workspaceId: string): ConversationThread[] {
-    return (this.db.prepare('SELECT data_json FROM conversation_threads WHERE workspace_id = ?').all(workspaceId) as { data_json: string }[])
-      .map(row => JSON.parse(row.data_json) as ConversationThread)
+    return (this.db.prepare(`SELECT data_json,
+      (SELECT json_extract(turn.data_json, '$.status') FROM conversation_turns turn
+       WHERE turn.thread_id = conversation_threads.id
+       ORDER BY CAST(json_extract(turn.data_json, '$.sequence') AS INTEGER) DESC LIMIT 1) AS last_turn_status
+      FROM conversation_threads WHERE workspace_id = ?`).all(workspaceId) as { data_json: string; last_turn_status: ConversationThread['lastTurnStatus'] | null }[])
+      .map(row => {
+        const thread = JSON.parse(row.data_json) as ConversationThread
+        if (!thread.lastTurnStatus && row.last_turn_status) thread.lastTurnStatus = row.last_turn_status
+        return thread
+      })
       .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt - a.updatedAt)
   }
 
@@ -108,6 +135,8 @@ export class ThreadOrchestrator {
       throw Error('Thread not found')
     }
     const snapshot = this.history.read(id)
+    const firstRepairedEvent = settleCompletedHistoryTools(snapshot.events)
+    if (firstRepairedEvent < snapshot.events.length) this.history.persistFrom(snapshot, firstRepairedEvent)
     this.snapshots.set(id, snapshot)
     return snapshot
   }
@@ -115,6 +144,8 @@ export class ThreadOrchestrator {
   readForRenderer(id: string): ThreadSnapshot {
     this.flushDeltas(id)
     const window = this.history.readWindow(id)
+    settleCompletedHistoryTools(window.events)
+    if (!window.thread.lastTurnStatus) window.thread.lastTurnStatus = window.turns?.at(-1)?.status
     if (window.thread.nativeSessionId && (/^Recovered (?:codex|claude) session$/i.test(window.thread.title) || window.thread.title.startsWith('<environment_context>'))) {
       const full = this.read(id)
       const firstPrompt = full.events.find(event => event.type === 'message' && event.role === 'user' && formatNativeUserText(event.text))
@@ -232,7 +263,7 @@ export class ThreadOrchestrator {
       if (input.nativeCli) {
         throw Error('This command does not have an integrated Thread handler yet.')
       }
-      if (snapshot.thread.cliNotice) throw Error(snapshot.thread.cliNotice)
+      if (snapshot.thread.cliNotice && blocksThreadInput(snapshot.thread)) throw Error(snapshot.thread.cliNotice)
       if (!input.text.trim() || Buffer.byteLength(input.text) > 64 * 1024) throw new Error('Skill prompt must contain 1 to 65536 bytes')
       await this.preflight?.(snapshot.thread)
       snapshot = this.read(id)
@@ -397,7 +428,7 @@ export class ThreadOrchestrator {
                 latest.events = history.events
                 eventsFrom = 0
                 if (history.title) latest.thread.title = history.title
-                latest.thread.cliNotice = history.truncated ? 'Showing the recent part of this native session. Its complete history remains available in the provider CLI.' : undefined
+                latest.thread.cliNotice = history.truncated ? PARTIAL_NATIVE_HISTORY_NOTICE : undefined
                 latest.thread.nativeSessionId = nativeSessionId
               } catch (error) {
                 latest = this.read(id)
@@ -456,7 +487,7 @@ export class ThreadOrchestrator {
       const latest = this.read(id)
       latest.events = history.events
       latest.thread.nativeSessionId = nativeSessionId
-      latest.thread.cliNotice = history.truncated ? 'Showing the recent part of this native session. Its complete history remains available in the provider CLI.' : undefined
+      latest.thread.cliNotice = history.truncated ? PARTIAL_NATIVE_HISTORY_NOTICE : undefined
       if (history.title) latest.thread.title = history.title
       this.save(latest)
     } finally { this.busy.delete(id) }
@@ -472,7 +503,7 @@ export class ThreadOrchestrator {
     this.configuring.add(id)
     try {
       let snapshot = this.read(id)
-      if (snapshot.thread.cliActive || snapshot.thread.cliNotice) throw Error('Recover this conversation before changing its configuration')
+      if (blocksThreadInput(snapshot.thread)) throw Error('Recover this conversation before changing its configuration')
       if ((snapshot.thread.configurationRevision ?? 0) !== revision) throw Error('Configuration changed. Refresh this conversation and try again.')
       const previous = snapshot.thread.pendingConfiguration ?? snapshot.thread
       const configuration: ThreadConfiguration = { model: input.model ?? previous.model, reasoningEffort: input.reasoningEffort ?? previous.reasoningEffort, access: input.access ?? previous.access ?? 'read-only', networkAccess: input.networkAccess ?? previous.networkAccess ?? false, approvalPolicy: input.approvalPolicy ?? previous.approvalPolicy ?? 'on-request', mode: input.mode ?? previous.mode ?? 'default', hooksEnabled: input.hooksEnabled ?? previous.hooksEnabled ?? false }
@@ -512,7 +543,7 @@ export class ThreadOrchestrator {
         const history = await this.nativeCli.read(snapshot.thread, snapshot.thread.nativeSessionId)
         snapshot.events = history.events
         if (history.title) snapshot.thread.title = history.title
-        snapshot.thread.cliNotice = history.truncated ? 'Showing the recent part of this native session. Its complete history remains available in the provider CLI.' : undefined
+        snapshot.thread.cliNotice = history.truncated ? PARTIAL_NATIVE_HISTORY_NOTICE : undefined
       }
       snapshot.thread.cliActive = false
       snapshot.thread.status = 'idle'
@@ -553,7 +584,7 @@ export class ThreadOrchestrator {
       imported.thread.nativeSessionId = argument
       imported.thread.title = history.title || `Recovered ${thread.provider} session`
       imported.events = history.events
-      imported.thread.cliNotice = history.truncated ? 'Showing the recent part of this native session. Its complete history remains available in the provider CLI.' : undefined
+      imported.thread.cliNotice = history.truncated ? PARTIAL_NATIVE_HISTORY_NOTICE : undefined
       this.save(imported, { eventsFrom: 0 })
       return { kind: 'navigate', threadId: imported.thread.id }
     }
@@ -763,6 +794,16 @@ export class ThreadOrchestrator {
     else if (event.type === 'completed') {
       const turn = snapshot.turns?.at(-1)
       if (turn?.status === 'running') { turn.status = event.status; turn.completedAt = Date.now() }
+      // A provider may finish a turn without reporting a tool result. The turn is
+      // over, but success of that command is unverified; never leave it spinning.
+      const turnStart = snapshot.events.findIndex(value => value.type === 'message' && value.role === 'user' && value.id === turn?.id)
+      snapshot.events.forEach((value, index) => {
+        if (turnStart < 0 || index < turnStart || value.type !== 'tool' || value.state !== 'running') return
+        value.state = 'unknown'
+        value.completedAt = Date.now()
+        value.files = value.files?.map(file => ({ ...file, state: file.state === 'running' ? 'unknown' : file.state }))
+        eventsFrom = Math.min(eventsFrom, index)
+      })
       snapshot.events.forEach((value, index) => {
         if (value.type === 'turn-diff' && value.turnId === turn?.nativeId) {
           value.files = value.files.map(file => ({ ...file, state: event.status === 'completed' ? 'completed' : 'failed' }))
@@ -770,6 +811,7 @@ export class ThreadOrchestrator {
         }
       })
       snapshot.thread.status = event.status === 'completed' ? 'idle' : event.status
+      snapshot.thread.lastTurnStatus = event.status
       this.busy.delete(id)
       // Native patch notifications may omit files changed by shell commands.
       // Compare against the pre-turn working tree for both providers, while

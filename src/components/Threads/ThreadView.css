@@ -27,6 +27,7 @@
 .thread-navigation-item svg { flex-shrink: 0; color: var(--tx-secondary); }
 .thread-navigation-item[aria-current="page"] { background: var(--wb-selection); }
 .thread-project-heading, .thread-navigation-row { display: flex; align-items: center; min-width: 0; }
+.thread-navigation-row { position: relative; }
 .thread-project-heading .thread-project-toggle, .thread-navigation-row .thread-navigation-item { flex: 1; min-width: 0; }
 .thread-navigation .thread-row-action { flex-shrink: 0; padding: 5px; width: 26px; height: 26px; justify-content: center; color: var(--tx-muted); }
 .thread-navigation-row .thread-row-action { opacity: 0; transition: opacity 120ms ease; }
@@ -49,12 +50,25 @@
 .thread-project-list .thread-project-rows .thread-navigation-item { min-height: 48px; margin: 0; padding: 6px 8px; gap: 9px; border-radius: var(--nav-radius); }
 .thread-project-rows .thread-navigation-row:has(.thread-navigation-item[aria-current="page"]) { background: var(--nav-selected); }
 .thread-project-rows .thread-navigation-item[aria-current="page"] { background: transparent; }
-.thread-session-dot { flex: none !important; width: 7px; height: 7px; border-radius: 50%; background: var(--tx-muted); opacity: .7; }
-.thread-session-dot.is-unread, .thread-session-dot.thread-session-running { background: var(--accent); opacity: 1; }
-.thread-session-dot.thread-session-failed, .thread-session-dot.thread-session-approval { background: var(--warning, var(--accent)); opacity: 1; }
+.thread-navigation-item .thread-session-indicator { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 12px; height: 12px; color: var(--tx-muted); overflow: visible; }
+.thread-session-indicator[data-status="running"]::before { content: ''; display: block; width: 9px; height: 9px; border-radius: 50%; background: var(--dot-green); }
+.thread-session-indicator[data-status="ready"], .thread-session-indicator[data-status="completed"], .thread-navigation-item .thread-session-meta .thread-session-state[data-status="ready"], .thread-navigation-item .thread-session-meta .thread-session-state[data-status="completed"] { color: var(--dot-blue); }
+.thread-session-indicator[data-status="running"], .thread-navigation-item .thread-session-meta .thread-session-state[data-status="running"] { color: var(--dot-green); }
+.thread-session-indicator[data-status="attention"], .thread-navigation-item .thread-session-meta .thread-session-state[data-status="attention"] { color: var(--dot-yellow); }
+.thread-session-indicator[data-status="failed"], .thread-navigation-item .thread-session-meta .thread-session-state[data-status="failed"] { color: var(--dot-red); }
+.thread-navigation-item .thread-session-indicator svg { color: currentColor; }
+.thread-navigation-item .thread-unread-marker { position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; flex: none; border-radius: 3px; background: var(--accent); }
+.thread-navigation-row.is-unread .thread-session-title { font-weight: 700; }
+.thread-navigation-item .thread-session-meta .thread-session-state { flex: none; color: var(--tx-muted); }
+@media (prefers-reduced-motion: no-preference) { .thread-session-indicator[data-status="running"]::before { animation: thread-status-breathe 2s ease-in-out infinite; } }
+@keyframes thread-status-breathe { 50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--dot-green) 20%, transparent); } }
 .thread-navigation-item .thread-session-content { display: grid; min-width: 0; flex: 1; gap: 3px; }
 .thread-navigation-item .thread-session-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tx-primary); font-size: var(--fs-sm); font-weight: 500; }
 .thread-navigation-item .thread-session-meta { display: flex; align-items: center; gap: 5px; min-width: 0; color: var(--tx-muted); font-size: var(--fs-2xs); }
+.thread-navigation-item .thread-session-provider { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
+.thread-navigation-item .thread-session-provider .agent-provider-icon { border-radius: 4px; }
+.thread-navigation-item .thread-session-provider .agent-provider-icon svg { width: 9px; height: 9px; }
+.thread-navigation-item .thread-session-provider > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-session-meta > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-session-meta > small { margin-left: auto; }
 .thread-project-rows .thread-navigation-row > .thread-row-action { position: absolute; top: 11px; right: 30px; background: var(--nav-selected); }
@@ -355,7 +369,7 @@
 .thread-config-popover input { width: 100%; padding: 8px; border: 1px solid var(--bd-base); background: var(--bg-app); color: inherit; border-radius: 6px; }
 .thread-access-confirm { margin: 6px; padding: 4px; border: 1px solid var(--bd-base); border-radius: 8px; }
 .thread-config-pending { white-space: nowrap; padding: 0 4px; }
-.thread-activity-group, .thread-activity-single { max-width: var(--thread-prose-max); margin: 6px 0 14px; color: var(--tx-muted); font-size: 12px; }
+.thread-activity-group, .thread-activity-single { width: 100%; min-width: 0; max-width: min(100%, var(--thread-prose-max)); margin: 6px 0 14px; color: var(--tx-muted); font-size: 12px; }
 .thread-activity-single summary { display: flex; align-items: center; gap: 9px; min-height: 30px; padding: 3px 0; cursor: pointer; list-style: none; }
 .thread-activity-single summary::-webkit-details-marker { display: none; }
 .thread-activity-single summary > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -377,13 +391,20 @@
 .thread-activity-item summary small { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .thread-activity-state { flex-shrink: 0; font-size: 10px; padding-right: 6px; }
 .thread-activity-item pre, .thread-command-dialog pre { max-height: 320px; overflow: auto; padding: 12px; background: var(--bg-app); border-radius: 6px; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
-.thread-tool-diagnostic { padding: 2px 6px 10px 21px; }
+.thread-tool-diagnostic { min-width: 0; max-width: 100%; padding: 2px 6px 10px 21px; }
+.thread-tool-diagnostic pre { box-sizing: border-box; max-width: 100%; max-height: 320px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; padding: 10px; border-radius: 6px; background: var(--bg-app); }
 .thread-tool-diagnostic>p { margin: 7px 0; color: var(--tx-secondary); line-height: 1.45; }
+.thread-quick-replies { display: grid; gap: 6px; margin: 12px 0 2px; }
+.thread-quick-replies > small { color: var(--tx-muted); font-size: var(--fs-2xs); }
+.thread-quick-replies > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.thread-quick-replies button { min-height: 30px; padding: 5px 10px; border: 1px solid var(--bd-base); border-radius: 7px; background: var(--bg-elevated); color: var(--tx-primary); font: inherit; font-size: var(--fs-xs); cursor: pointer; }
+.thread-quick-replies button:hover, .thread-quick-replies button:focus-visible { border-color: var(--accent); background: var(--bg-hover); }
 .thread-tool-diagnostic-meta { display: flex; align-items: center; gap: 8px; min-height: 22px; }
 .thread-tool-diagnostic-meta span { display: inline-flex; align-items: center; min-height: 20px; padding: 0 7px; border: 1px solid var(--bd-base); border-radius: 999px; color: var(--tx-muted); font-size: 10px; font-weight: 600; }
 .thread-tool-diagnostic-meta .is-infrastructure, .thread-tool-diagnostic-meta .is-failure { color: var(--dot-red); border-color: color-mix(in srgb, var(--dot-red) 40%, var(--bd-base)); background: color-mix(in srgb, var(--dot-red) 8%, transparent); }
 .thread-tool-diagnostic-meta .is-validation-warning { color: var(--dot-yellow); border-color: color-mix(in srgb, var(--dot-yellow) 40%, var(--bd-base)); background: color-mix(in srgb, var(--dot-yellow) 8%, transparent); }
 .thread-tool-diagnostic-meta .is-validation { color: var(--dot-green); border-color: color-mix(in srgb, var(--dot-green) 36%, var(--bd-base)); background: color-mix(in srgb, var(--dot-green) 7%, transparent); }
+.thread-tool-diagnostic-meta .is-unconfirmed { color: var(--dot-yellow); border-color: color-mix(in srgb, var(--dot-yellow) 36%, var(--bd-base)); background: color-mix(in srgb, var(--dot-yellow) 7%, transparent); }
 .thread-tool-diagnostic-meta time { color: var(--tx-muted); font-size: 10px; }
 .thread-tool-technical { margin-top: 6px; }
 .thread-tool-technical>summary { display: inline-flex; min-height: 26px; padding: 0 7px; border: 1px solid var(--bd-base); color: var(--tx-secondary); }

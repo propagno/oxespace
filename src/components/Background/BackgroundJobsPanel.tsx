@@ -106,6 +106,7 @@ export function BackgroundJobsPanel({ workspaceId }: BackgroundJobsPanelProps): 
             <span>
               Run a background command via <kbd>Ctrl+/</kbd> → <code>/bg npm run build</code>.
             </span>
+            <span>Commands run by an agent in Thread appear in that conversation, not as background jobs.</span>
           </div>
         ) : (
           filtered.map((job) => (

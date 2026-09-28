@@ -28,6 +28,29 @@ function fixture() {
 }
 
 describe('Thread workspace UI', () => {
+  it('offers explicit prose replies for review without sending automatically', async () => {
+    const f = fixture()
+    f.snapshot.events = [
+      { type: 'message', id: 'prompt', role: 'user', text: 'Choose a rollout' },
+      { type: 'message', id: 'answer', role: 'assistant', text: 'As opções:\n- **A (Recomendado):** Stage it.\n- **B:** Wait.' },
+      { type: 'completed', status: 'completed' }
+    ]
+    render(<ThreadView workspace={f.workspace} />)
+    const replies = screen.getByLabelText('Suggested replies')
+    fireEvent.click(replies.querySelector('button')!)
+    expect(screen.getByRole('textbox', { name: 'Message' })).toHaveValue('A')
+    expect(f.api.send).not.toHaveBeenCalled()
+  })
+  it('shows native opt-in choices and forwards the selected answer', async () => {
+    const f = fixture()
+    f.api.respond = vi.fn(async () => {})
+    f.snapshot.thread.status = 'approval'
+    f.snapshot.events = [{ type: 'request', id: 'choice', request: { id: 'choice', nativeId: 'native-choice', nativeMethod: 'can_use_tool:AskUserQuestion', kind: 'question', title: 'Claude needs your input', state: 'pending', generation: 1, createdAt: 1, questions: [{ id: 'rollout', question: 'Which rollout?', options: [{ label: 'Staged' }, { label: 'Immediate' }] }] } }]
+    render(<ThreadView workspace={f.workspace} />)
+    fireEvent.click(screen.getByRole('radio', { name: 'Staged' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Answer' }))
+    await waitFor(() => expect(f.api.respond).toHaveBeenCalledWith('thread', 'choice', { answers: { rollout: ['Staged'] } }))
+  })
   it('shows a submitted message before the native send completes and reconciles the saved event', async () => {
     const f = fixture()
     let finishSend!: () => void
@@ -173,6 +196,34 @@ describe('Thread workspace UI', () => {
     expect(screen.getByLabelText('Unread conversation')).toBeVisible()
     await user.click(screen.getByRole('button', { name: /^Unread conversation Auth investigation/ }))
     await waitFor(() => expect(useThreadStore.getState().unreadIds).toEqual([]))
+  })
+  it('keeps execution status visible and independent from the unread marker', () => {
+    const f = fixture()
+    useThreadStore.setState({ projects: [], unreadIds: ['thread'] })
+    render(<ThreadSidebar workspaces={[f.workspace]} onCreate={vi.fn()} />)
+    const status = () => screen.getByRole('button', { name: /^Unread conversation Auth investigation/ }).querySelector('.thread-session-state')
+    expect(status()).toHaveTextContent('Ready')
+    expect(screen.getByLabelText('Unread conversation')).toBeVisible()
+    act(() => useThreadStore.setState({ threads: [{ ...f.snapshot.thread, status: 'running' }] }))
+    expect(status()).toHaveTextContent('Running')
+    expect(screen.getByLabelText('Unread conversation')).toBeVisible()
+    act(() => useThreadStore.setState({ threads: [{ ...f.snapshot.thread, status: 'approval' }] }))
+    expect(status()).toHaveTextContent('Needs input')
+    act(() => useThreadStore.setState({ threads: [{ ...f.snapshot.thread, status: 'idle', lastTurnStatus: 'completed' }] }))
+    expect(status()).toHaveTextContent('Completed')
+  })
+  it('uses the Code mode provider symbols for Claude Code and Codex threads', () => {
+    const f = fixture()
+    useThreadStore.setState({ projects: [] })
+    render(<ThreadSidebar workspaces={[f.workspace]} onCreate={vi.fn()} />)
+    const row = screen.getByText('Auth investigation').closest('button')!
+    const icon = () => row.querySelector('.thread-session-provider .agent-provider-icon') as HTMLElement
+    expect(icon()).toHaveStyle({ background: 'var(--provider-claude)' })
+    expect(row.querySelector('.thread-session-provider')).toHaveTextContent('Claude Code')
+    act(() => useThreadStore.setState({ threads: [{ ...f.snapshot.thread, provider: 'codex' }] }))
+    expect(icon()).toHaveStyle({ background: 'var(--provider-codex)' })
+    expect(row.querySelector('.thread-session-provider')).toHaveTextContent('Codex')
+    expect(row.querySelector('.thread-session-indicator')).toHaveAttribute('data-status', 'ready')
   })
   it('ignores a late catalog from the previously selected thread', async () => {
     const f = fixture()
@@ -508,7 +559,7 @@ describe('Thread workspace UI', () => {
     const f = fixture()
     useWorkspaceStore.setState({ activeWorkspaceId: 'code-workspace' })
     render(<ThreadSidebar workspaces={[f.workspace]} onCreate={vi.fn()} />)
-    fireEvent.click(screen.getByRole('button', { name: /^Auth investigation/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^(?:Unread conversation )?Auth investigation/ }))
     await waitFor(() => expect(f.api.read).toHaveBeenCalledWith('thread'))
     expect(useWorkspaceStore.getState().activeWorkspaceId).toBe('code-workspace')
     fireEvent.change(screen.getByRole('searchbox', { name: 'Filter threads' }), { target: { value: 'missing' } })

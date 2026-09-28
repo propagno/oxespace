@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { AlertCircle, Archive, ArchiveRestore, Check, ChevronDown, Circle, Columns2, GitBranch, PanelsTopLeft, FolderPlus, Loader2, MoreHorizontal, Pencil, Pin, Plus, Trash2, X, UserRound } from 'lucide-react'
+import { Archive, ArchiveRestore, Check, ChevronDown, Circle, CircleAlert, CircleCheck, CircleX, Columns2, GitBranch, PanelsTopLeft, FolderPlus, Loader2, MoreHorizontal, Pencil, Pin, Plus, Square, Trash2, X, UserRound } from 'lucide-react'
 import type { Workspace } from '../../../shared/types/workspace'
 import type { ConversationThread } from '../../../shared/types/thread'
 import { DropdownMenu } from 'radix-ui'
@@ -10,7 +10,9 @@ import { NavigationBrand, NavigationFooter } from '../Navigation/NavigationChrom
 import { useNavigationSearch } from '../Navigation/useNavigationSearch'
 import { SearchField } from '../Navigation/SearchField'
 import { DesktopDialog } from '../Navigation/DesktopDialog'
+import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH, SIDEBAR_RESIZE_STEP, useNavigationPrefs } from '../../store/navigation-prefs.store'
+import { threadNavigationStatus } from './threadNavigationStatus'
 
 function relativeTime(timestamp: number): string {
   const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000))
@@ -67,10 +69,13 @@ export function ThreadSidebar({ workspaces, onCreate, onModeChange, onAccounts, 
     } catch (error) { setActionError(error instanceof Error ? error.message : 'Could not restore conversation.') }
     finally { setRestoringId(null) }
   }
-  const row = (thread: ConversationThread) => <div key={thread.id} className="thread-navigation-row"><button type="button" className="thread-navigation-item" aria-current={selectedId === thread.id ? 'page' : undefined}
-    title={`${thread.title}\n${thread.provider} · ${thread.status}\n${thread.rootPath}`} onClick={() => void select(thread.id)}>
-    <span className={`thread-session-dot thread-session-${thread.status}${unreadIds.includes(thread.id) ? ' is-unread' : ''}`} aria-label={unreadIds.includes(thread.id) ? 'Unread conversation' : thread.status === 'running' ? 'Running' : thread.status === 'failed' ? 'Failed' : thread.status === 'approval' ? 'Needs approval' : undefined} />
-    <span className="thread-session-content"><span className="thread-session-title">{thread.title}</span><span className="thread-session-meta"><span>{thread.provider === 'claude' ? 'Claude Code' : 'Codex'}</span>{thread.pinned && <Pin size={10} aria-label="Pinned" />}{thread.status === 'running' && <Loader2 size={11} className="thread-spin" aria-hidden="true" />}{(thread.status === 'failed' || thread.status === 'approval') && <AlertCircle size={11} aria-hidden="true" />}<small>{relativeTime(thread.updatedAt)}</small></span></span>
+  const row = (thread: ConversationThread) => {
+    const status = threadNavigationStatus(thread), unread = unreadIds.includes(thread.id)
+    return <div key={thread.id} className={`thread-navigation-row${unread ? ' is-unread' : ''}`}><button type="button" className="thread-navigation-item" aria-current={selectedId === thread.id ? 'page' : undefined}
+    title={`${thread.title}\n${thread.provider} · ${status.label}${unread ? ' · Unread' : ''}\n${thread.rootPath}`} onClick={() => void select(thread.id)}>
+    {unread && <span className="thread-unread-marker" aria-label="Unread conversation" />}
+    <span className="thread-session-indicator" data-status={status.kind} aria-hidden="true">{status.kind === 'ready' ? <Circle size={12} /> : status.kind === 'completed' ? <CircleCheck size={12} /> : status.kind === 'attention' ? <CircleAlert size={12} /> : status.kind === 'failed' ? <CircleX size={12} /> : status.kind === 'interrupted' ? <Square size={11} /> : null}</span>
+    <span className="thread-session-content"><span className="thread-session-title">{thread.title}</span><span className="thread-session-meta"><span className="thread-session-provider"><AgentProviderIcon provider={thread.provider} size={14} /><span>{thread.provider === 'claude' ? 'Claude Code' : 'Codex'}</span></span><span className="thread-session-state" data-status={status.kind}>{status.label}</span>{thread.pinned && <Pin size={10} aria-label="Pinned" />}<small>{relativeTime(thread.updatedAt)}</small></span></span>
   </button><button type="button" className="thread-row-action" aria-label={`Open ${thread.title} side by side`} title="Open side by side" disabled={secondaryId === thread.id} onClick={() => void openSecondary(thread.id).catch(error => setActionError(error instanceof Error ? error.message : 'Could not open conversation.'))}><Columns2 size={13} /></button><DropdownMenu.Root>
     <DropdownMenu.Trigger asChild><button type="button" className="thread-row-action" aria-label={`Actions for ${thread.title}`} title="Conversation actions"><MoreHorizontal size={13} /></button></DropdownMenu.Trigger>
     <DropdownMenu.Portal><DropdownMenu.Content className="thread-actions-dropdown" side="right" align="start" sideOffset={5} collisionPadding={8} aria-label={`Actions for ${thread.title}`}>
@@ -83,6 +88,7 @@ export function ThreadSidebar({ workspaces, onCreate, onModeChange, onAccounts, 
       <DropdownMenu.Item className="thread-action-item is-destructive" onSelect={() => { setActionError(''); setConfirmation({ kind: 'thread', id: thread.id, title: thread.title }) }}><Trash2 size={14} />Delete conversation</DropdownMenu.Item>
     </DropdownMenu.Content></DropdownMenu.Portal>
   </DropdownMenu.Root></div>
+  }
   return <aside className={`thread-navigation${collapsed ? ' thread-navigation-collapsed' : ''}`} aria-label="Thread sidebar">
     {!collapsed && <div className="thread-resize" role="separator" tabIndex={0} aria-label="Thread sidebar width" aria-orientation="vertical" aria-valuemin={SIDEBAR_MIN_WIDTH} aria-valuemax={SIDEBAR_MAX_WIDTH} aria-valuenow={width}
       onKeyDown={e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setWidth(width + (e.key === 'ArrowLeft' ? -SIDEBAR_RESIZE_STEP : SIDEBAR_RESIZE_STEP)) } }}
