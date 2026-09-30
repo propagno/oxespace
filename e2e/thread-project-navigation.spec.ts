@@ -1,5 +1,5 @@
 import { _electron as electron, expect, test } from '@playwright/test'
-import { mkdtempSync, mkdirSync, realpathSync, renameSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, renameSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
@@ -53,7 +53,6 @@ test('Thread projects and conversations survive restart without creating Code wo
     const removed = page.getByRole('region', { name: 'Removed projects' })
     await removed.getByRole('button', { name: 'second-project Restore' }).click()
     await expect(page.locator('.thread-project-group')).toHaveCount(2)
-    const canonicalSecond = realpathSync(second)
     const relocated = join(root, 'second-relocated')
     for (let attempt = 0; attempt < 10; attempt++) {
       try { renameSync(second, relocated); break }
@@ -64,7 +63,7 @@ test('Thread projects and conversations survive restart without creating Code wo
     }
     await page.getByRole('button', { name: 'Settings for second-project' }).click()
     const settings = page.getByRole('dialog', { name: 'Thread project · second-project' })
-    await expect(settings).toContainText(canonicalSecond)
+    await expect(settings.locator('.thread-project-current-path')).toContainText(/second-project$/)
     const checkboxLayout = await settings.locator('.thread-project-check').first().evaluate(label => {
       const box = label.querySelector('input')!.getBoundingClientRect()
       const text = label.getBoundingClientRect()
@@ -74,9 +73,9 @@ test('Thread projects and conversations survive restart without creating Code wo
     expect(checkboxLayout.height).toBe(16)
     expect(checkboxLayout.left).toBeLessThan(12)
     expect(checkboxLayout.labelWidth).toBeGreaterThan(300)
-    await expect(settings.getByText('Change project directory')).toBeVisible()
-    await expect(settings.getByRole('textbox', { name: 'New project directory' })).not.toBeVisible()
-    await settings.getByText('Change project directory').click()
+    await expect(settings.getByText('Relink missing directory')).toBeVisible()
+    await expect(settings.getByRole('textbox', { name: 'New project directory' })).toBeVisible()
+    await expect(settings.getByText(/ENOENT/)).toHaveCount(0)
     await settings.getByRole('textbox', { name: 'New project directory' }).fill(relocated)
     await settings.getByRole('button', { name: 'Relink directory' }).click()
     await expect(page.getByRole('dialog', { name: 'Thread project · second-relocated' })).toBeVisible()

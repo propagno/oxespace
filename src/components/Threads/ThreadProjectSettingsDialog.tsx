@@ -13,28 +13,37 @@ export function ThreadProjectSettingsDialog({ project, unavailable, onClose }: {
   const [consent, setConsent] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [directoryMissing, setDirectoryMissing] = useState(unavailable)
   useEffect(() => {
+    if (unavailable) { setDirectoryMissing(true); setSnapshot(null); return }
     let active = true
     void window.oxe.delegation.status(scope).then(value => { if (active) setSnapshot(value) })
-      .catch(cause => { if (active) setError(cause instanceof Error ? cause.message : String(cause)) })
+      .catch(cause => {
+        if (!active) return
+        const message = cause instanceof Error ? cause.message : String(cause)
+        if (message.includes('ENOENT')) { setDirectoryMissing(true); setSnapshot(null) }
+        else setError(message)
+      })
     return () => { active = false }
-  }, [scope])
+  }, [scope, unavailable])
   const apply = async (action: () => Promise<void>) => {
     setBusy(true); setError('')
     try { await action(); setSnapshot(await window.oxe.delegation.status(scope)) }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save project settings.') }
     finally { setBusy(false) }
   }
+  const needsRelink = unavailable || directoryMissing
   return <DesktopDialog className="thread-create-dialog thread-project-dialog thread-project-settings" title={`Thread project · ${project.displayName}`}
     description="These settings apply to this Thread project. Code workspace settings are separate." onClose={onClose}>
     <div className="thread-create-section"><strong>Project directory</strong><p className="thread-project-current-path" title={project.contexts[0]?.rootPath}>{project.contexts[0]?.rootPath}</p>
-      {unavailable && <p role="alert">This directory is unavailable. Choose its new location to resume work.</p>}
-      <details className="thread-project-relink" open={unavailable || undefined}><summary>{unavailable ? 'Relink missing directory' : 'Change project directory'}</summary>
+      {needsRelink && <p role="alert">This directory is unavailable. Choose its new location to resume work.</p>}
+      <details className="thread-project-relink" open={needsRelink || undefined}><summary>{needsRelink ? 'Relink missing directory' : 'Change project directory'}</summary>
         <label>New directory<input aria-label="New project directory" value={relinkPath} onChange={event => setRelinkPath(event.target.value)} placeholder="Absolute path to the project" /></label>
         <button type="button" disabled={busy || !relinkPath.trim()} onClick={() => void apply(async () => {
           await window.oxe.thread!.relinkProject(project.projectId, relinkPath.trim())
           await useThreadStore.getState().loadProjects()
           await useThreadStore.getState().load()
+          setDirectoryMissing(false)
           setRelinkPath('')
         })}>Relink directory</button>
       </details>
