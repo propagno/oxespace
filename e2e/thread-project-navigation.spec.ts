@@ -1,5 +1,5 @@
 import { _electron as electron, expect, test } from '@playwright/test'
-import { mkdtempSync, mkdirSync, renameSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, realpathSync, renameSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
@@ -53,6 +53,7 @@ test('Thread projects and conversations survive restart without creating Code wo
     const removed = page.getByRole('region', { name: 'Removed projects' })
     await removed.getByRole('button', { name: 'second-project Restore' }).click()
     await expect(page.locator('.thread-project-group')).toHaveCount(2)
+    const canonicalSecond = realpathSync(second)
     const relocated = join(root, 'second-relocated')
     for (let attempt = 0; attempt < 10; attempt++) {
       try { renameSync(second, relocated); break }
@@ -63,7 +64,7 @@ test('Thread projects and conversations survive restart without creating Code wo
     }
     await page.getByRole('button', { name: 'Settings for second-project' }).click()
     const settings = page.getByRole('dialog', { name: 'Thread project · second-project' })
-    await expect(settings).toContainText(second)
+    await expect(settings).toContainText(canonicalSecond)
     const checkboxLayout = await settings.locator('.thread-project-check').first().evaluate(label => {
       const box = label.querySelector('input')!.getBoundingClientRect()
       const text = label.getBoundingClientRect()
