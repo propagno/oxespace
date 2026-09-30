@@ -78,7 +78,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
         events: [{ type: 'message', id: `${id}-answer`, role: 'assistant', text: `Independent conversation ${id}` }, { type: 'completed', status: 'completed' }]
       }) : snapshot)
       ipcMain.handle('thread:create', (_event, input) => {
-        snapshot = { thread: { id: 'e2e-thread', workspaceId: input.workspaceId, projectId: 'e2e-project', rootPath: fixtureRoot,
+        snapshot = { thread: { id: 'e2e-thread', workspaceId: (globalThis as Record<string, unknown>).e2eWorkspaceId, projectId: 'e2e-project', rootPath: fixtureRoot,
           provider: input.provider, nativeSessionId: null, title: 'New thread', pinned: false, status: 'idle', createdAt: Date.now(), updatedAt: Date.now() }, events: [] }
         changed(); return snapshot
       })
@@ -194,6 +194,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.getByTestId('wizard-layout-card-1').click()
     await page.getByTestId('wizard-launch-btn').click()
     const projectWorkspace = await page.evaluate(async () => (await window.oxe.workspace.list())[0])
+    await app.evaluate((_context, workspaceId) => { (globalThis as Record<string, unknown>).e2eWorkspaceId = workspaceId }, projectWorkspace.id)
     await app.evaluate(({ ipcMain }, { workspaceId, rootPath }) => {
       ipcMain.removeHandler('thread:projects')
       ipcMain.handle('thread:projects', () => ({ projects: [{ projectId: 'e2e-project', displayName: 'repo', identityLabel: rootPath, contexts: [{ workspaceId, rootPath, label: 'repo' }] }], unavailable: [] }))
@@ -459,6 +460,19 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     expect(geometry['.app-shell'].height).toBe(600)
     await expect(page.locator('.thread-virtual-space')).toHaveAttribute('data-total-rows', '10002')
     expect(await page.locator('.thread-virtual-row').count()).toBeLessThanOrEqual(80)
+    const visibleMessages = () => page.evaluate(() => {
+      const viewport = document.querySelector('.thread-timeline')!.getBoundingClientRect()
+      return [...document.querySelectorAll('.thread-virtual-row .thread-message')].filter(message => {
+        const rect = message.getBoundingClientRect()
+        return rect.bottom > viewport.top && rect.top < viewport.bottom
+      }).length
+    })
+    await page.locator('.thread-timeline').hover()
+    await page.mouse.wheel(0, -1)
+    await page.locator('.thread-timeline').evaluate(el => { el.scrollTop = el.scrollHeight / 2 })
+    await expect.poll(visibleMessages).toBeGreaterThan(0)
+    await page.locator('.thread-timeline').evaluate(el => { el.scrollTop = el.scrollHeight })
+    await expect.poll(visibleMessages).toBeGreaterThan(0)
     await page.locator('.thread-timeline').hover()
     const timeline = page.locator('.thread-timeline')
     const end = await timeline.evaluate(el => el.scrollTop)
@@ -472,6 +486,9 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect.poll(() => timeline.evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop)).toBeLessThanOrEqual(64)
     await page.keyboard.press('PageUp')
     await expect.poll(() => timeline.evaluate(el => el.scrollTop)).toBeLessThan(end - 100)
+    await page.mouse.wheel(0, -1)
+    await timeline.evaluate(el => { el.scrollTop = el.scrollHeight / 2 })
+    await expect.poll(() => timeline.evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop)).toBeGreaterThan(500)
     await timeline.evaluate(async el => {
       let previous = el.scrollTop, stable = 0
       for (let frame = 0; frame < 120; frame++) {
@@ -548,7 +565,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.getByText('Independent conversation history-69')).toBeVisible()
     await mainThreadButton.click()
     await expect.poll(() => timeline.evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop)).toBeLessThanOrEqual(64)
-    await timeline.evaluate(el => { el.scrollTop = Math.max(0, el.scrollTop - 700) })
+    await timeline.hover()
+    await page.mouse.wheel(0, -700)
     await expect(page.getByRole('button', { name: /Latest messages/ })).toBeVisible()
     const savedReadingTop = await timeline.evaluate(el => el.scrollTop)
     await page.getByRole('button', { name: /^History conversation 69/ }).click()

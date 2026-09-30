@@ -56,6 +56,9 @@ function asRecord(value: unknown): Record<string, unknown> {
  * Agents should never need product knowledge of OXESPACE_WORKSPACE_ID to recover.
  */
 async function requireWorkspace(ctx: ToolContext): Promise<{ id: string; rootPath: string; name: string }> {
+  let execution: ReturnType<NonNullable<typeof ctx.executions>['authenticate']> | undefined
+  try { execution = ctx.executions?.authenticate(ctx.executionId, ctx.executionToken, ctx.workspaceId) } catch { /* Generic MCP callers may not have an execution. */ }
+  if (execution?.owner.kind === 'thread' || ctx.workspaceId?.startsWith('thread:')) throw new Error('This tool requires a Code workspace. Open the project in Code explicitly before using workspace or terminal tools.')
   if (ctx.workspaceId) {
     const explicit = ctx.workspaceServ.get(ctx.workspaceId)
     if (explicit) {

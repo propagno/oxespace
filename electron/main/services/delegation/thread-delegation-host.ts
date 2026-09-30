@@ -17,7 +17,8 @@ export class ThreadDelegationHost {
     private readonly manager: Promise<ThreadManager>,
     private readonly executions: ExecutionRegistry,
     private readonly provider: (agentProfileId: string) => 'claude' | 'codex',
-    private readonly profile?: (agentProfileId: string) => { model?: string; systemPrompt?: string }
+    private readonly profile?: (agentProfileId: string) => { model?: string; systemPrompt?: string },
+    private readonly projectForPath?: (rootPath: string) => Promise<string>
   ) {}
 
   async origin(threadId: string, workspaceId: string): Promise<{ cwd: string }> {
@@ -45,7 +46,8 @@ export class ThreadDelegationHost {
       const current = manager.read(threadId).thread
       this.assertIdentity(task, current.rootPath, current.provider)
     } else {
-      const snapshot = manager.create({ workspaceId: task.workspaceId, projectId: task.project, rootPath: task.path, provider, agentProfileId: task.agentProfileId })
+      const projectId = this.projectForPath ? await this.projectForPath(task.path) : task.project
+      const snapshot = manager.create({ workspaceId: task.workspaceId, projectId, rootPath: task.path, provider, agentProfileId: task.agentProfileId })
       threadId = snapshot.thread.id
       task.destinationThreadId = threadId
       persistThread?.(threadId)

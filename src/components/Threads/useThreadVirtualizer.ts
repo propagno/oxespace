@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject, type RefObject } from 'react'
 
 export interface ThreadVirtualItem {
   index: number
@@ -37,7 +37,7 @@ export function computeThreadVirtualRange(offsets: number[], sizes: number[], vi
   return { start, end, visibleStart }
 }
 
-export function useThreadVirtualizer(keys: string[], scrollRef: RefObject<HTMLElement | null>, estimateSize = 132) {
+export function useThreadVirtualizer(keys: string[], scrollRef: RefObject<HTMLElement | null>, followingRef: MutableRefObject<boolean>, estimateSize = 132) {
   const spaceRef = useRef<HTMLDivElement>(null)
   const sizesRef = useRef(new Map<string, number>())
   const measurementFrame = useRef<number | null>(null)
@@ -100,7 +100,7 @@ export function useThreadVirtualizer(keys: string[], scrollRef: RefObject<HTMLEl
     sizesRef.current.set(key, normalized)
     const scroll = scrollRef.current
     if (scroll) {
-      if (scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight <= 64) stickToBottom.current = true
+      if (followingRef.current && scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight <= 64) stickToBottom.current = true
       if (index < firstVisibleRef.current) scroll.scrollTop += normalized - previous
     }
     if (measurementFrame.current === null) {
@@ -109,15 +109,15 @@ export function useThreadVirtualizer(keys: string[], scrollRef: RefObject<HTMLEl
         setMeasurementVersion(value => value + 1)
         if (stickToBottom.current) requestAnimationFrame(() => {
           stickToBottom.current = false
-          if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+          if (followingRef.current && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
         })
       })
     }
-  }, [estimateSize, scrollRef])
+  }, [estimateSize, followingRef, scrollRef])
   const items = useMemo(() => keys.slice(range.start, range.end).map((key, offset) => {
     const index = range.start + offset
     return { index, key, start: geometry.offsets[index], size: geometry.sizes[index] } satisfies ThreadVirtualItem
   }), [geometry, keys, range])
-  return { spaceRef, totalSize: geometry.total, paddingTop: geometry.offsets[range.start] ?? geometry.total,
+  return { spaceRef, updateViewport, totalSize: geometry.total, paddingTop: geometry.offsets[range.start] ?? geometry.total,
     paddingBottom: geometry.total - (geometry.offsets[range.end] ?? geometry.total), items, measure, mountedCount: items.length }
 }

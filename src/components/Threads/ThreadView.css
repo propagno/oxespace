@@ -450,6 +450,25 @@
 .thread-create-dialog .thread-create-section>label, .thread-agent-choice legend { margin: 0; color: var(--tx-primary); font-size: var(--fs-xs); font-weight: 600; }
 .thread-create-dialog .thread-create-section>p { margin: 0; color: var(--tx-muted); font-size: var(--fs-2xs); }
 .thread-create-dialog .thread-create-section select { min-height: 40px; padding-inline: 12px; background: var(--bg-app); }
+.thread-project-settings { max-height: min(82vh, 780px); overflow-y: auto; }
+.thread-project-settings .thread-create-section { padding-top: 16px; border-top: 1px solid var(--bd-base); }
+.thread-project-settings .thread-create-section > strong { color: var(--tx-primary); font-size: var(--fs-sm); }
+.thread-project-settings .thread-create-section > label { display: flex; align-items: center; gap: 8px; line-height: 1.45; }
+.thread-project-settings .thread-create-section > label:has(input:not([type='checkbox'])) { display: grid; align-items: stretch; }
+.thread-project-settings .thread-create-section input[type='text'], .thread-project-settings .thread-create-section input:not([type]) { width: 100%; min-height: 38px; }
+.thread-project-settings .thread-create-section > label.thread-project-check { display: grid; grid-template-columns: 16px minmax(0, 1fr); align-items: start; gap: 10px; margin: 8px 0; font-weight: 400; }
+.thread-project-settings input[type='checkbox'] { appearance: auto; width: 16px; height: 16px; min-width: 16px; min-height: 16px; padding: 0; margin: 1px 0 0; accent-color: var(--accent); border-radius: 3px; }
+.thread-project-settings .thread-create-section > button, .thread-project-settings .thread-project-relink > button { justify-self: start; min-height: 34px; padding: 0 12px; border: 1px solid var(--bd-base); background: var(--bg-elevated); color: var(--tx-primary); }
+.thread-project-settings .thread-create-section > button:hover:not(:disabled), .thread-project-settings .thread-project-relink > button:hover:not(:disabled) { border-color: var(--accent); background: var(--bg-hover); }
+.thread-project-current-path { overflow-wrap: anywhere; }
+.thread-project-relink { margin-top: 4px; }
+.thread-project-relink summary { width: fit-content; color: var(--tx-secondary); font-size: var(--fs-xs); cursor: pointer; }
+.thread-project-relink[open] { display: grid; gap: 8px; }
+.thread-project-relink label { display: grid; gap: 8px; margin: 8px 0 0; color: var(--tx-primary); font-size: var(--fs-xs); font-weight: 600; }
+.thread-project-relink input { width: 100%; }
+.thread-project-destination { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 10px 12px; border: 1px solid var(--bd-base); border-radius: var(--surface-radius); }
+.thread-project-destination small { min-width: 0; overflow-wrap: anywhere; color: var(--tx-muted); }
+.thread-project-destination button { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
 .thread-agent-choice { min-width: 0; margin: 22px 0 0; padding: 0; border: 0; }
 .thread-agent-choice legend { margin-bottom: 9px; }
 .thread-agent-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }

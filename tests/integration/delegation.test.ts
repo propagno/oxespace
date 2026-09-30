@@ -42,9 +42,11 @@ describe('delegation lifecycle', () => {
   test('captures multiple selected public conversations and keeps their snapshot after restart', async () => {
     const f = await fixture()
     f.deps.enrich = async task => ({ memory: task.includeMemory ? 'AI_MEMORY_MARKER' : '', code: 'CODE_CONTEXT_MARKER' })
+    for (const id of ['foreign', 'project']) f.db.prepare('INSERT INTO thread_projects (id, identity, root_path, display_name, created_at, updated_at) VALUES (?, ?, ?, ?, 1, 1)')
+      .run(id, id, id === 'foreign' ? join(f.root, '..') : f.root, id)
     const foreignId = randomUUID()
-    f.db.prepare('INSERT INTO conversation_threads (id, workspace_id, data_json, events_json) VALUES (?, ?, ?, ?)')
-      .run(foreignId, f.ws.id, JSON.stringify({ id: foreignId, workspaceId: f.ws.id, projectId: 'foreign', rootPath: join(f.root, '..'),
+    f.db.prepare('INSERT INTO conversation_threads (id, workspace_id, thread_project_id, data_json, events_json) VALUES (?, ?, ?, ?, ?)')
+      .run(foreignId, f.ws.id, 'foreign', JSON.stringify({ id: foreignId, workspaceId: f.ws.id, projectId: 'foreign', rootPath: join(f.root, '..'),
         provider: 'codex', nativeSessionId: null, title: 'Foreign source', pinned: false, status: 'idle', createdAt: 1, updatedAt: 1 }), '[]')
     await expect(f.service.create(f.origin, { ...f.input, sourceThreadIds: [foreignId] })).rejects.toThrow('another project')
     const ids = [randomUUID(), randomUUID()]
@@ -57,8 +59,8 @@ describe('delegation lifecycle', () => {
         { type: 'tool', id: randomUUID(), name: 'command', state: 'completed', detail: 'PRIVATE_TOOL_OUTPUT' },
         { type: 'message', id: randomUUID(), role: 'assistant', text: `Public decision ${index + 1}` }
       ]
-      f.db.prepare('INSERT INTO conversation_threads (id, workspace_id, data_json, events_json) VALUES (?, ?, ?, ?)')
-        .run(id, f.ws.id, JSON.stringify(thread), JSON.stringify(events))
+      f.db.prepare('INSERT INTO conversation_threads (id, workspace_id, thread_project_id, data_json, events_json) VALUES (?, ?, ?, ?, ?)')
+        .run(id, f.ws.id, 'project', JSON.stringify(thread), JSON.stringify(events))
     }
     const created = await f.service.create(f.origin, { ...f.input, sourceThreadIds: ids, includeMemory: true })
     expect(created.sessionContext).toHaveLength(2)
@@ -210,7 +212,7 @@ describe('delegation lifecycle', () => {
     expect(await f.git('-C', task.path, 'rev-parse', '--abbrev-ref', '@{upstream}')).toBe('origin/feature/CARD-99')
     expect(await f.git('branch', '--show-current')).toBe('main')
   }, 30000)
-  test('defaults application delegations to a persistent Thread with an exact session binding', async () => {
+  test('creates an explicitly selected persistent Thread with an exact session binding', async () => {
     const f = await fixture()
     const start = vi.fn(async (task: { workspaceId: string; path: string }, persist?: (id: string) => void) => {
       persist?.('thread-destination')
@@ -222,7 +224,7 @@ describe('delegation lifecycle', () => {
       return { threadId: 'thread-destination', executionId: env.OXESPACE_EXECUTION_ID, nativeSessionId: 'native-session', provider: 'codex' as const, generation: 2 }
     })
     f.deps.threadHost = { start, resume, stop: vi.fn(async () => {}) } as never
-    const delegated = await f.service.create(f.origin, { ...f.input, key: 'thread-default' })
+    const delegated = await f.service.create(f.origin, { ...f.input, key: 'thread-destination', surface: 'thread' })
     await vi.waitFor(() => expect(f.service.get(delegated.id).nativeSession).toBeTruthy(), { timeout: 10000 })
     expect(f.service.get(delegated.id)).toMatchObject({ surface: 'thread', destinationThreadId: 'thread-destination', nativeSession: {
       provider: 'codex', nativeSessionId: 'native-session', canonicalRoot: f.service.get(delegated.id).path, generation: 1, resumable: true

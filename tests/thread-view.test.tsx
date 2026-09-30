@@ -14,7 +14,7 @@ vi.mock('../src/hooks/useGitBranch', () => ({ useGitBranch: () => ({ branch: 'fe
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 function fixture() {
   const snapshot: ThreadSnapshot = { thread: { id: 'thread', workspaceId: 'ws', projectId: 'project', rootPath: '/repo', provider: 'claude', title: 'Auth investigation', pinned: false, status: 'idle', nativeSessionId: null, createdAt: 1, updatedAt: 1 }, events: [] }
-  const api: ThreadApi = { commands: vi.fn(async () => ({ commands: [{ name: 'oxe-plan', description: 'Plan a change', source: 'claude' as const }, { name: 'compact', description: 'Compact history', source: 'claude' as const }] })), projects: vi.fn(async () => ({ projects: [], unavailable: [] })), list: vi.fn(async () => [snapshot.thread]), create: vi.fn(async () => snapshot), read: vi.fn(async () => snapshot),
+  const api: ThreadApi = { commands: vi.fn(async () => ({ commands: [{ name: 'oxe-plan', description: 'Plan a change', source: 'claude' as const }, { name: 'compact', description: 'Compact history', source: 'claude' as const }] })), projects: vi.fn(async () => ({ projects: [], unavailable: [] })), addProject: vi.fn(async () => ({ projectId: 'project', displayName: 'Repo', identityLabel: '/repo', hidden: false, contexts: [{ rootPath: '/repo', label: 'Repo' }] })), setProjectHidden: vi.fn(async () => {}), list: vi.fn(async () => [snapshot.thread]), create: vi.fn(async () => snapshot), read: vi.fn(async () => snapshot),
     models: vi.fn(async () => ({ defaultModel: 'native-model', models: [{ id: 'native-model', label: 'Native model', description: 'A native catalog entry', efforts: ['low', 'high'], defaultEffort: 'low' }] })),
     configure: vi.fn(async (_id, configuration, revision) => { Object.assign(snapshot.thread, configuration, { configurationRevision: revision + 1 }); return { ...snapshot, thread: { ...snapshot.thread } } }),
     send: vi.fn(async () => {}), interrupt: vi.fn(async () => {}), approve: vi.fn(async () => {}), pin: vi.fn(async () => {}), onChanged: vi.fn(() => () => {}) }
@@ -23,7 +23,7 @@ function fixture() {
   const workspace = { id: 'ws', name: 'Repo', rootPath: '/repo', panes: [] } as unknown as Workspace
   useAccountStore.setState({ scopes: {}, snapshots: {} })
   useWorkspaceStore.setState({ workspaces: [workspace] })
-  useThreadStore.setState({ threads: [snapshot.thread], snapshot, selectedId: 'thread', secondaryId: null, snapshotCache: {}, snapshotCacheOrder: [], drafts: {}, errors: {}, hiddenProjects: [] })
+  useThreadStore.setState({ threads: [snapshot.thread], projects: [{ projectId: 'project', displayName: 'Repo', identityLabel: '/repo', hidden: false, contexts: [{ rootPath: '/repo', label: 'Repo' }] }], snapshot, selectedId: 'thread', secondaryId: null, snapshotCache: {}, snapshotCacheOrder: [], drafts: {}, errors: {}, hiddenProjects: [] })
   return { snapshot, api, workspace, writeText }
 }
 
@@ -105,17 +105,17 @@ describe('Thread workspace UI', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add project' }))
     await waitFor(() => expect(onAdd).toHaveBeenCalledWith('C:\\projects\\thread-app'))
   })
-  it('restores one removed project without restoring the others', () => {
+  it('restores one removed project without restoring the others', async () => {
     const f = fixture()
     useThreadStore.setState({ projects: [
-      { projectId: 'project', displayName: 'Repo', identityLabel: '/repo', contexts: [{ workspaceId: 'ws', rootPath: '/repo', label: 'Repo' }] },
-      { projectId: 'other', displayName: 'Other', identityLabel: '/other', contexts: [{ workspaceId: 'other-ws', rootPath: '/other', label: 'Other' }] }
+      { projectId: 'project', displayName: 'Repo', identityLabel: '/repo', hidden: true, contexts: [{ rootPath: '/repo', label: 'Repo' }] },
+      { projectId: 'other', displayName: 'Other', identityLabel: '/other', hidden: true, contexts: [{ rootPath: '/other', label: 'Other' }] }
     ], hiddenProjects: ['project', 'other'] })
     render(<ThreadSidebar workspaces={[f.workspace]} onCreate={vi.fn()} />)
     expect(screen.getByRole('button', { name: 'Repo Restore' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Other Restore' })).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Repo Restore' }))
-    expect(useThreadStore.getState().hiddenProjects).toEqual(['other'])
+    await waitFor(() => expect(useThreadStore.getState().hiddenProjects).toEqual(['other']))
     expect(screen.getByRole('button', { name: 'New thread in Repo' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Other Restore' })).toBeVisible()
   })
@@ -124,10 +124,9 @@ describe('Thread workspace UI', () => {
     const user = userEvent.setup()
     f.api.command = vi.fn(async () => ({ kind: 'navigate' }))
     vi.mocked(f.api.list).mockResolvedValue([])
-    useThreadStore.setState({ projects: [] })
     render(<ThreadSidebar workspaces={[f.workspace]} onCreate={onCreate} />)
     fireEvent.click(screen.getByRole('button', { name: 'New thread in Repo' }))
-    expect(onCreate).toHaveBeenCalledWith('ws', '/repo')
+    expect(onCreate).toHaveBeenCalledWith('project', '/repo')
     await user.click(screen.getByRole('button', { name: 'Actions for Auth investigation' }))
     await user.click(screen.getByRole('menuitem', { name: 'Delete conversation' }))
     expect(f.api.command).not.toHaveBeenCalled()
@@ -143,7 +142,7 @@ describe('Thread workspace UI', () => {
     const f = fixture()
     f.snapshot.thread.archived = true
     f.api.command = vi.fn(async () => { f.snapshot.thread.archived = false; return { kind: 'navigate', threadId: 'thread' } })
-    useThreadStore.setState({ threads: [f.snapshot.thread], projects: [] })
+    useThreadStore.setState({ threads: [f.snapshot.thread] })
     render(<ThreadSidebar workspaces={[f.workspace]} onCreate={vi.fn()} />)
     expect(screen.getByRole('button', { name: 'Archived 1' })).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByRole('button', { name: 'Restore Auth investigation' })).not.toBeInTheDocument()
@@ -158,7 +157,6 @@ describe('Thread workspace UI', () => {
     const user = userEvent.setup()
     vi.mocked(f.api.pin).mockImplementation(async (_id, pinned) => { f.snapshot.thread.pinned = pinned })
     f.api.command = vi.fn(async () => { f.snapshot.thread.archived = true; return { kind: 'navigate' } })
-    useThreadStore.setState({ projects: [] })
     render(<ThreadSidebar workspaces={[f.workspace]} onCreate={vi.fn()} />)
     await user.click(screen.getByRole('button', { name: 'Actions for Auth investigation' }))
     await user.click(screen.getByRole('menuitem', { name: 'Pin conversation' }))
@@ -175,7 +173,6 @@ describe('Thread workspace UI', () => {
     const f = fixture()
     const user = userEvent.setup()
     f.api.command = vi.fn(async () => { f.snapshot.thread.title = 'Auth follow-up'; return { kind: 'applied' } })
-    useThreadStore.setState({ projects: [] })
     render(<ThreadSidebar workspaces={[f.workspace]} onCreate={vi.fn()} />)
     await user.click(screen.getByRole('button', { name: 'Actions for Auth investigation' }))
     await user.click(screen.getByRole('menuitem', { name: 'Rename conversation…' }))
@@ -189,7 +186,7 @@ describe('Thread workspace UI', () => {
   it('marks a conversation unread in the session menu and clears the marker when opened', async () => {
     const f = fixture()
     const user = userEvent.setup()
-    useThreadStore.setState({ projects: [], unreadIds: [] })
+    useThreadStore.setState({ unreadIds: [] })
     render(<ThreadSidebar workspaces={[f.workspace]} onCreate={vi.fn()} />)
     await user.click(screen.getByRole('button', { name: 'Actions for Auth investigation' }))
     await user.click(screen.getByRole('menuitem', { name: 'Mark as unread' }))
@@ -199,7 +196,7 @@ describe('Thread workspace UI', () => {
   })
   it('keeps execution status visible and independent from the unread marker', () => {
     const f = fixture()
-    useThreadStore.setState({ projects: [], unreadIds: ['thread'] })
+    useThreadStore.setState({ unreadIds: ['thread'] })
     render(<ThreadSidebar workspaces={[f.workspace]} onCreate={vi.fn()} />)
     const status = () => screen.getByRole('button', { name: /^Unread conversation Auth investigation/ }).querySelector('.thread-session-state')
     expect(status()).toHaveTextContent('Ready')
@@ -214,7 +211,6 @@ describe('Thread workspace UI', () => {
   })
   it('uses the Code mode provider symbols for Claude Code and Codex threads', () => {
     const f = fixture()
-    useThreadStore.setState({ projects: [] })
     render(<ThreadSidebar workspaces={[f.workspace]} onCreate={vi.fn()} />)
     const row = screen.getByText('Auth investigation').closest('button')!
     const icon = () => row.querySelector('.thread-session-provider .agent-provider-icon') as HTMLElement

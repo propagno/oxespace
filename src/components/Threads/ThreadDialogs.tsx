@@ -1,23 +1,21 @@
 import { Check, Code2, FolderOpen, Sparkles } from 'lucide-react'
 import { useState } from 'react'
-import type { Workspace } from '../../../shared/types/workspace'
 import type { ThreadProvider } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
 import { DesktopDialog } from '../Navigation/DesktopDialog'
-export function NewThreadDialog({ workspaces, initialWorkspaceId, initialRootPath, onClose }: { workspaces: Workspace[]; initialWorkspaceId: string | null; initialRootPath?: string; onClose: () => void }) {
+export function NewThreadDialog({ initialProjectId, initialRootPath, onClose }: { initialProjectId: string | null; initialRootPath?: string; onClose: () => void }) {
   const projects = useThreadStore(state => state.projects)
-  const contexts = projects.flatMap(project => project.contexts.map(context => ({ ...context, projectName: project.displayName })))
-  const choices = contexts.length ? contexts : workspaces.map(w => ({ workspaceId: w.id, paneId: undefined as string | undefined, rootPath: w.rootPath, label: w.name, projectName: w.name }))
+  const choices = projects.filter(project => !project.hidden).flatMap(project => project.contexts.map(context => ({ ...context, projectId: project.projectId, projectName: project.displayName })))
   const [unique] = useState(() => choices.filter((c, i) => choices.findIndex(other => other.rootPath === c.rootPath) === i))
-  const [choice, setChoice] = useState(() => Math.max(0, unique.findIndex(c => initialRootPath ? c.rootPath === initialRootPath : c.workspaceId === initialWorkspaceId)))
+  const [choice, setChoice] = useState(() => Math.max(0, unique.findIndex(c => initialRootPath ? c.rootPath === initialRootPath : c.projectId === initialProjectId)))
   const [provider, setProvider] = useState<ThreadProvider>('claude')
   const [error, setError] = useState(''), [pending, setPending] = useState(false)
   return <DesktopDialog className="thread-create-dialog" title="New thread" description="A separate conversation in your project." onClose={onClose}><form onSubmit={async e => {
     e.preventDefault(); const context = unique[choice]; if (!context) return
     setPending(true); setError('')
-    try { const snapshot = await window.oxe.thread!.create({ workspaceId: context.workspaceId, provider, ...(context.paneId ? { paneId: context.paneId } : {}) }); useThreadStore.getState().adopt(snapshot); onClose() }
+    try { const snapshot = await window.oxe.thread!.create({ projectId: context.projectId, rootPath: context.rootPath, provider }); useThreadStore.getState().adopt(snapshot); onClose() }
     catch { setError('Could not create conversation. Check the project directory and try again.') } finally { setPending(false) }
-  }}><div className="thread-create-section"><label htmlFor="thread-project-choice">Project</label><select id="thread-project-choice" value={choice} onChange={e => setChoice(Number(e.target.value))}>{unique.map((c, i) => <option key={`${c.workspaceId}:${c.paneId}`} value={i}>{c.projectName} · {c.rootPath}</option>)}</select><p>Conversation files and commands use this directory.</p></div>
+  }}><div className="thread-create-section"><label htmlFor="thread-project-choice">Project</label><select id="thread-project-choice" value={choice} onChange={e => setChoice(Number(e.target.value))}>{unique.map((c, i) => <option key={`${c.projectId}:${c.rootPath}`} value={i}>{c.projectName} · {c.rootPath}</option>)}</select><p>Conversation files and commands use this directory.</p></div>
     <fieldset className="thread-agent-choice"><legend>Agent</legend><div className="thread-agent-options">{(['claude', 'codex'] as const).map(id => <label key={id} className="thread-agent-option" data-selected={provider === id}><input type="radio" name="thread-provider" value={id} checked={provider === id} onChange={() => setProvider(id)} /><span className="thread-agent-option-icon">{id === 'claude' ? <Sparkles size={16} /> : <Code2 size={16} />}</span><span><strong>{id === 'claude' ? 'Claude Code' : 'Codex'}</strong><small>{id === 'claude' ? 'Claude subscription' : 'ChatGPT subscription'}</small></span>{provider === id && <Check size={15} className="thread-agent-option-check" />}</label>)}</div></fieldset>
     {error && <p role="alert">{error}</p>}<footer><button type="button" onClick={onClose}>Cancel</button><button type="submit" className="thread-primary" disabled={!unique[choice] || pending || !window.oxe?.thread}>Create thread</button></footer></form></DesktopDialog>
 }

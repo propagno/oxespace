@@ -3,7 +3,6 @@ import { Suspense, lazy, useCallback, useEffect, useRef, useState, type CSSPrope
 import { useShallow } from 'zustand/react/shallow'
 import type { AgentProfile } from '../shared/types/agent'
 import type { DelegationTask } from '../shared/types/delegation'
-import { rootPathKey } from '../shared/utils/path'
 import { OxeLogo } from './components/Brand/OxeLogo'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { ThemeProvider } from './components/Theme/ThemeProvider'
@@ -861,12 +860,11 @@ export function App(): ReactElement {
     }
   }, [activePane, applicationView, pttHotkey])
 
-  const threadWorkspace = workspaces.find(w => w.id === threadSnapshot?.thread.workspaceId) ?? activeWorkspace
-  const workspaceIdsKey = JSON.stringify(workspaces.map(w => w.id))
+  const threadProjects = useThreadStore(state => state.projects)
+  const threadProject = threadProjects.find(project => project.projectId === threadSnapshot?.thread.projectId)
   useEffect(() => {
     if (!hasOpenedThread) return
-    const ids: string[] = JSON.parse(workspaceIdsKey)
-    void useThreadStore.getState().load(ids, useWorkspaceStore.getState().activeWorkspaceId)
+    void useThreadStore.getState().load()
     void useThreadStore.getState().loadProjects()
     let timer: ReturnType<typeof setTimeout> | undefined
     const changed = new Set<string>()
@@ -874,7 +872,7 @@ export function App(): ReactElement {
     const flush = async () => {
       const batch = [...changed]; changed.clear()
       const state = useThreadStore.getState()
-      if (batch.some(id => !state.threads.some(t => t.id === id))) await state.load(ids)
+      if (batch.some(id => !state.threads.some(t => t.id === id))) await state.load()
       else await Promise.all(batch.map(id => state.refresh(id)))
       timer = undefined
       if (active && changed.size) timer = setTimeout(() => { void flush() }, 100)
@@ -885,12 +883,13 @@ export function App(): ReactElement {
     })
     const unsubscribeAccounts = window.oxe?.agentAccount?.onChanged(status => useAccountStore.getState().changed(status))
     return () => { active = false; unsubscribe?.(); unsubscribeAccounts?.(); if (timer) clearTimeout(timer) }
-  }, [hasOpenedThread, workspaceIdsKey])
+  }, [hasOpenedThread])
   const newThread = () => {
-    if (!workspaces.length) openNewWorkspace()
-    else setNewThreadWorkspaceId(threadWorkspace?.id ?? workspaces[0].id)
+    const project = threadProject ?? threadProjects.find(item => !item.hidden)
+    if (!project) setThreadProjectOpen(true)
+    else setNewThreadWorkspaceId(project.projectId)
   }
-  const openThreadAccounts = () => { if (threadWorkspace) setAccountsOpen(true); else openNewWorkspace() }
+  const openThreadAccounts = () => setAccountsOpen(true)
   const openDelegation = async (task: DelegationTask): Promise<boolean> => {
     const showDelegationDetails = () => {
       setDelegationTarget({ workspaceId: task.originWorkspaceId ?? task.workspaceId, taskId: task.id })
@@ -922,14 +921,14 @@ export function App(): ReactElement {
   }
 
   return (
-    <ThemeProvider themeId={(applicationView === 'thread' ? threadWorkspace : activeWorkspace)?.themeId} density={(applicationView === 'thread' ? threadWorkspace : activeWorkspace)?.uiDensity}>
+    <ThemeProvider themeId={applicationView === 'thread' ? undefined : activeWorkspace?.themeId} density={applicationView === 'thread' ? undefined : activeWorkspace?.uiDensity}>
       <main className={`app-shell${applicationView === 'thread' ? ' thread-shell' : isSidebarCollapsed ? ' sidebar-collapsed' : ''}`} style={applicationView === 'thread' ? { '--thread-sidebar-width': `${isSidebarCollapsed ? 56 : codeSidebarWidth}px` } as CSSProperties : { '--sidebar-w': `${codeSidebarWidth}px` } as CSSProperties}>
       <header className="workbench-titlebar" aria-label="OXESpace workbench">
         <div className="workbench-titlebar-brand"><OxeLogo size={15} /><strong>OXESpace</strong></div>
-        <div className="workbench-titlebar-context" title={applicationView === 'thread' ? threadWorkspace?.rootPath ?? 'Thread' : activeWorkspace?.rootPath ?? 'No workspace'}>
+        <div className="workbench-titlebar-context" title={applicationView === 'thread' ? threadSnapshot?.thread.rootPath ?? 'Thread' : activeWorkspace?.rootPath ?? 'No workspace'}>
           <span>{applicationView === 'thread' ? 'Thread' : 'Code'}</span>
           <span className="workbench-titlebar-separator" aria-hidden="true">/</span>
-          <strong>{applicationView === 'thread' ? threadWorkspace?.name ?? 'Conversations' : activeWorkspace?.name ?? 'No workspace'}</strong>
+          <strong>{applicationView === 'thread' ? threadProject?.displayName ?? 'Conversations' : activeWorkspace?.name ?? 'No workspace'}</strong>
         </div>
         <div className="workbench-titlebar-trailing"><AppUpdateIndicator /><span className="workbench-titlebar-version">v{appVersion}</span></div>
       </header>
@@ -944,7 +943,12 @@ export function App(): ReactElement {
       {delegatedWorkOpen && <Suspense fallback={null}><DelegatedWorkDialog workspaces={workspaces} workspaceId={delegationTarget?.workspaceId ?? (applicationView === 'thread' ? threadSnapshot?.thread.workspaceId ?? activeWorkspaceId ?? '' : activeWorkspaceId ?? '')} focusTaskId={delegationTarget?.taskId}
         origin={applicationView === 'thread' ? threadSelection ? { kind: 'thread', id: threadSelection } : undefined : activePane ? { kind: 'pane', id: activePane.id } : undefined}
         onClose={() => { setDelegatedWorkOpen(false); setDelegationTarget(null) }} onOpen={openDelegation} /></Suspense>}
-      {applicationView === 'thread' ? <Suspense fallback={<aside className="thread-navigation" aria-label="Thread sidebar" />}><ThreadSidebar workspaces={workspaces} onCreate={(id, rootPath) => { setNewThreadRootPath(rootPath); setNewThreadWorkspaceId(id) }} onModeChange={() => setApplicationView('code')} onAccounts={openThreadAccounts} onAddProject={() => setThreadProjectOpen(true)} /></Suspense> : <Sidebar
+      {applicationView === 'thread' ? <Suspense fallback={<aside className="thread-navigation" aria-label="Thread sidebar" />}><ThreadSidebar onCreate={(id, rootPath) => { setNewThreadRootPath(rootPath); setNewThreadWorkspaceId(id) }} onModeChange={() => setApplicationView('code')} onAccounts={openThreadAccounts} onAddProject={() => setThreadProjectOpen(true)} onOpenInCode={async rootPath => {
+        const existing = (await window.oxe.workspace.list()).find(workspace => workspace.rootPath.toLowerCase() === rootPath.toLowerCase())
+        if (existing) await setActiveWorkspace(existing.id)
+        else await createWorkspace({ rootPath, layoutPreset: 1, autoStart: false })
+        setApplicationView('code')
+      }} /></Suspense> : <Sidebar
         onDelegations={() => { setDelegationTarget(null); setDelegatedWorkOpen(true) }}
         workspaces={workspaces}
         activeWorkspaceId={activeWorkspaceId}
@@ -976,7 +980,7 @@ export function App(): ReactElement {
           </div>
         ) : activeWorkspace || applicationView === 'thread' ? (
           <>
-            {hasOpenedThread && <div className="thread-host" style={{ display: applicationView === 'thread' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'thread'}><Suspense fallback={<div className="empty-state">Loading threads…</div>}><ThreadGrid workspaces={workspaces} onNewThread={newThread} onAccounts={openThreadAccounts} onDelegations={() => setDelegatedWorkOpen(true)} /></Suspense></div>}
+            {hasOpenedThread && <div className="thread-host" style={{ display: applicationView === 'thread' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'thread'}><Suspense fallback={<div className="empty-state">Loading threads…</div>}><ThreadGrid onNewThread={newThread} onAccounts={openThreadAccounts} onDelegations={() => setDelegatedWorkOpen(true)} /></Suspense></div>}
             {workspaces
               // Include the active id synchronously. On a first visit the MRU
               // effect has not run yet, but the user should never wait an extra
@@ -1033,17 +1037,10 @@ export function App(): ReactElement {
         )}
         {applicationView === 'code' && <AppStatusBar workspace={activeWorkspace ?? null} activePaneId={activePane?.id ?? null} appVersion={appVersion} />}
         <Suspense fallback={null}>
-          {accountsOpen && threadWorkspace && <ProviderAccountsPanel workspaceId={threadWorkspace.id} onClose={() => setAccountsOpen(false)} />}
-          {newThreadWorkspaceId !== undefined && <NewThreadDialog workspaces={workspaces} initialWorkspaceId={newThreadWorkspaceId} initialRootPath={newThreadRootPath} onClose={() => { setNewThreadWorkspaceId(undefined); setNewThreadRootPath(undefined) }} />}
+          {accountsOpen && (threadProject ?? threadProjects[0]) && <ProviderAccountsPanel workspaceId={threadSnapshot?.thread.workspaceId ?? `thread:${(threadProject ?? threadProjects[0]).projectId}`} onClose={() => setAccountsOpen(false)} />}
+          {newThreadWorkspaceId !== undefined && <NewThreadDialog initialProjectId={newThreadWorkspaceId} initialRootPath={newThreadRootPath} onClose={() => { setNewThreadWorkspaceId(undefined); setNewThreadRootPath(undefined) }} />}
           {isThreadProjectOpen && <AddThreadProjectDialog onPickFolder={() => window.oxe.workspace.pickFolder()} onClose={() => setThreadProjectOpen(false)} onAdd={async rootPath => {
-            const catalog = useThreadStore.getState().projects
-            const existing = catalog.find(project => project.contexts.some(context => rootPathKey(context.rootPath, window.oxe.app.platform) === rootPathKey(rootPath, window.oxe.app.platform)))
-            if (existing) {
-              useThreadStore.getState().restoreProject(existing.projectId)
-              return
-            }
-            const shell = shellProfiles.find(profile => profile.isBuiltin && !['builtin-claude', 'builtin-copilot'].includes(profile.id)) ?? shellProfiles[0]
-            await createWorkspace({ rootPath, layoutPreset: 1, autoStart: false, ...(shell ? { defaultShellProfileId: shell.id, agentBindings: [{ paneIndex: 0, shellProfileId: shell.id }] } : {}) })
+            await window.oxe.thread!.addProject(rootPath)
             await useThreadStore.getState().loadProjects()
           }} />}
         </Suspense>
@@ -1118,7 +1115,8 @@ export function App(): ReactElement {
       {isSettingsOpen || isWorkspaceSettingsOpen ? (
         <SettingsCenter
           initialPage={useUIStore.getState().settingsInitialPage}
-          initialWorkspaceId={isWorkspaceSettingsOpen ? activeWorkspace?.id : undefined}
+          initialWorkspaceId={isWorkspaceSettingsOpen && applicationView === 'code' ? activeWorkspace?.id : undefined}
+          allowWorkspaceScope={applicationView === 'code'}
           workspaces={workspaces}
           shellProfiles={shellProfiles}
           onSave={updateSettings}

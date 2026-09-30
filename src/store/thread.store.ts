@@ -4,7 +4,7 @@ import type { ConversationThread, ThreadAttachment, ThreadProjectSummary, Thread
 import { cacheThreadSnapshot, retainThreadSnapshots } from './threadSnapshotCache'
 
 interface ThreadState {
-  threads: ConversationThread[]; projects: ThreadProjectSummary[]
+  threads: ConversationThread[]; projects: ThreadProjectSummary[]; unavailableProjects: string[]
   selectedId: string | null; snapshot: ThreadSnapshot | null
   secondaryId: string | null; activeCell: 'primary' | 'secondary'
   snapshotCache: Record<string, ThreadSnapshot>; snapshotCacheOrder: string[]
@@ -16,13 +16,13 @@ interface ThreadState {
   markUnread: (id: string) => void
   markRead: (id: string) => void
   hideProject: (id: string) => Promise<void>
-  restoreProject: (id: string) => void
+  restoreProject: (id: string) => Promise<void>
   select: (id: string | null, markRead?: boolean) => Promise<void>
   openSecondary: (id: string) => Promise<void>
   closeSecondary: () => void
   setActiveCell: (cell: 'primary' | 'secondary') => void
   loadEarlier: (id: string) => Promise<number>
-  load: (workspaceIds: string[], preferred?: string | null) => Promise<void>
+  load: () => Promise<void>
   refresh: (id: string) => Promise<void>
   loadProjects: () => Promise<void>
   setDraft: (id: string, text: string) => void
@@ -37,14 +37,18 @@ interface ThreadState {
 const refreshVersions = new Map<string, number>()
 let generation = 0, catalogGeneration = 0, projectGeneration = 0
 export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
-  threads: [], projects: [], selectedId: null, snapshot: null, secondaryId: null, activeCell: 'primary', snapshotCache: {}, snapshotCacheOrder: [], drafts: {}, attachments: {}, scrollPositions: {}, expanded: {}, errors: {}, loading: false, hiddenProjects: [], unreadIds: [],
+  threads: [], projects: [], unavailableProjects: [], selectedId: null, snapshot: null, secondaryId: null, activeCell: 'primary', snapshotCache: {}, snapshotCacheOrder: [], drafts: {}, attachments: {}, scrollPositions: {}, expanded: {}, errors: {}, loading: false, hiddenProjects: [], unreadIds: [],
   markUnread: id => set(state => ({ unreadIds: [...new Set([...state.unreadIds, id])] })),
   markRead: id => set(state => ({ unreadIds: state.unreadIds.filter(value => value !== id) })),
   hideProject: async id => {
+    await window.oxe.thread!.setProjectHidden(id, true)
     set(state => ({ hiddenProjects: [...new Set([...state.hiddenProjects, id])] }))
     if (get().snapshot?.thread.projectId === id) await get().select(null)
   },
-  restoreProject: id => set(state => ({ hiddenProjects: state.hiddenProjects.filter(value => value !== id) })),
+  restoreProject: async id => {
+    await window.oxe.thread!.setProjectHidden(id, false)
+    set(state => ({ hiddenProjects: state.hiddenProjects.filter(value => value !== id) }))
+  },
   select: async (id, markRead = true) => {
     const version = ++generation
     const cached = id ? get().snapshotCache[id] ?? null : null
@@ -95,24 +99,18 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
     if (!window.oxe?.thread?.projects) return
     try {
       const catalog = await window.oxe.thread.projects()
-      if (version === projectGeneration) set(state => ({ projects: catalog.projects, errors: { ...Object.fromEntries(Object.entries(state.errors).filter(([key]) => key !== 'projects')),
+      if (version === projectGeneration) set(state => ({ projects: catalog.projects, unavailableProjects: catalog.unavailable, hiddenProjects: catalog.projects.filter(project => project.hidden).map(project => project.projectId), errors: { ...Object.fromEntries(Object.entries(state.errors).filter(([key]) => key !== 'projects')),
         ...(catalog.unavailable.length ? { projects: 'Some project directories are unavailable. Check their location and retry.' } : {}) } }))
     } catch { if (version === projectGeneration) set(state => ({ errors: { ...state.errors, projects: 'Could not load project directories.' } })) }
   },
-  load: async (ids, preferred) => {
+  load: async () => {
     const version = ++catalogGeneration
     set({ loading: true })
-    const results: ConversationThread[][] = [], errors: Record<string, string> = {}
-    let cursor = 0
-    await Promise.all(Array.from({ length: Math.min(4, ids.length) }, async () => {
-      while (cursor < ids.length) {
-        const id = ids[cursor++]
-        try { results.push(await window.oxe.thread!.list(id)) }
-        catch { errors[id] = 'Could not load conversations.'; results.push(get().threads.filter(t => t.workspaceId === id)) }
-      }
-    }))
+    let threads: ConversationThread[] = [], errors: Record<string, string> = {}
+    try { threads = await window.oxe.thread!.list() }
+    catch { errors = { catalog: 'Could not load conversations.' }; threads = get().threads }
     if (version !== catalogGeneration) return
-    const threads = results.flat().sort((a, b) => b.updatedAt - a.updatedAt)
+    threads.sort((a, b) => b.updatedAt - a.updatedAt)
     const valid = new Set(threads.map(t => t.id))
     const cache = retainThreadSnapshots({ snapshots: get().snapshotCache, order: get().snapshotCacheOrder }, valid)
     set({ threads, errors: { ...errors, ...(get().errors.projects ? { projects: get().errors.projects } : {}) }, loading: false,
@@ -123,7 +121,7 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
       attachments: Object.fromEntries(Object.entries(get().attachments).filter(([id]) => valid.has(id))),
       scrollPositions: Object.fromEntries(Object.entries(get().scrollPositions).filter(([id]) => valid.has(id))) })
     const visible = threads.filter(t => !t.archived && !get().hiddenProjects.includes(t.projectId))
-    const selected = visible.find(t => t.id === get().selectedId) ?? visible.find(t => t.workspaceId === preferred) ?? visible[0]
+    const selected = visible.find(t => t.id === get().selectedId) ?? visible[0]
     if (selected?.id !== get().selectedId || !get().snapshot) await get().select(selected?.id ?? null, selected?.id !== get().selectedId)
     else await get().refresh(selected.id)
   },

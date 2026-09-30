@@ -5,7 +5,7 @@ import { LATEST_DB_VERSION, openInMemoryDatabase, runMigrations } from '../../el
 
 // Literal on purpose: it verifies the migration SQL itself sets this version,
 // independently of the runner's constant. Bump both when adding a migration.
-const EXPECTED_SCHEMA_VERSION = 58
+const EXPECTED_SCHEMA_VERSION = 59
 
 // Migration 046 is platform-split: Windows keeps PowerShell as the neutral
 // built-in shell, every other host is repointed to bash. The assertions below
@@ -138,6 +138,36 @@ describe('migration 046 (POSIX variant)', () => {
 })
 
 describe('migrations', () => {
+  test('detaches existing conversations and children from Code workspace deletion', () => {
+    const db = openInMemoryDatabase()
+    try {
+      db.pragma('foreign_keys = OFF')
+      db.exec(`DROP TABLE conversation_threads; DROP TABLE thread_project_contexts; DROP TABLE thread_projects;
+        CREATE TABLE conversation_threads (
+          id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+          data_json TEXT NOT NULL, events_json TEXT NOT NULL DEFAULT '[]', history_version INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX idx_conversation_threads_workspace ON conversation_threads(workspace_id);
+        PRAGMA user_version = 58;`)
+      db.pragma('foreign_keys = ON')
+      db.prepare("INSERT INTO workspaces (id, name, root_path, layout, default_shell_profile_id) VALUES ('code', 'Repo', '/repo', '1x1', 'builtin-claude')").run()
+      const thread = { id: 'conversation', workspaceId: 'code', projectId: 'memory-project', rootPath: '/repo', provider: 'codex', nativeSessionId: 'native-session' }
+      db.prepare('INSERT INTO conversation_threads (id, workspace_id, data_json, events_json) VALUES (?, ?, ?, ?)').run(thread.id, 'code', JSON.stringify(thread), '[]')
+      db.prepare('INSERT INTO conversation_events (thread_id, seq, data_json) VALUES (?, ?, ?)').run(thread.id, 1, '{"type":"message","role":"user","text":"hello"}')
+      db.prepare('INSERT INTO conversation_operations (id, thread_id, generation, kind, state, created_at, updated_at) VALUES (?, ?, 1, ?, ?, 1, 1)').run('operation', thread.id, 'turn', 'completed')
+      db.prepare('INSERT INTO conversation_checkpoints (id, thread_id, root_path, state, created_at) VALUES (?, ?, ?, ?, 1)').run('checkpoint', thread.id, '/repo', 'ready')
+      runMigrations(db)
+      expect(db.pragma('foreign_key_check')).toEqual([])
+      expect(db.prepare('SELECT thread_project_id FROM conversation_threads WHERE id = ?').get(thread.id)).toEqual({ thread_project_id: 'memory-project' })
+      db.prepare("DELETE FROM workspaces WHERE id = 'code'").run()
+      expect(db.prepare('SELECT id FROM conversation_threads').all()).toEqual([{ id: thread.id }])
+      expect(db.prepare('SELECT thread_id, seq FROM conversation_events').all()).toEqual([{ thread_id: thread.id, seq: 1 }])
+      expect(db.prepare('SELECT id FROM conversation_operations').all()).toEqual([{ id: 'operation' }])
+      expect(db.prepare('SELECT id FROM conversation_checkpoints').all()).toEqual([{ id: 'checkpoint' }])
+      expect(db.pragma('foreign_key_check')).toEqual([])
+    } finally { db.close() }
+  })
+
   test('adopts Workbench once for existing workspaces and preserves later choices', () => {
     const db = openInMemoryDatabase()
     try {
@@ -146,7 +176,7 @@ describe('migrations', () => {
       runMigrations(db)
       expect(db.prepare("SELECT theme_id FROM workspaces WHERE id = 'legacy'").get()).toEqual({ theme_id: 'midnight' })
       db.prepare("UPDATE workspaces SET theme_id = 'nord' WHERE id = 'legacy'").run()
-      expect(db.pragma('user_version', { simple: true })).toBe(58)
+      expect(db.pragma('user_version', { simple: true })).toBe(59)
       expect(db.prepare("SELECT theme_id FROM workspaces WHERE id = 'legacy'").get()).toEqual({ theme_id: 'nord' })
       runMigrations(db)
       expect(db.prepare("SELECT theme_id FROM workspaces WHERE id = 'legacy'").get()).toEqual({ theme_id: 'nord' })

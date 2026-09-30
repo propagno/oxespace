@@ -101,12 +101,12 @@ export class ThreadOrchestrator {
     }
   }
 
-  list(workspaceId: string): ConversationThread[] {
+  list(): ConversationThread[] {
     return (this.db.prepare(`SELECT data_json,
       (SELECT json_extract(turn.data_json, '$.status') FROM conversation_turns turn
        WHERE turn.thread_id = conversation_threads.id
        ORDER BY CAST(json_extract(turn.data_json, '$.sequence') AS INTEGER) DESC LIMIT 1) AS last_turn_status
-      FROM conversation_threads WHERE workspace_id = ?`).all(workspaceId) as { data_json: string; last_turn_status: ConversationThread['lastTurnStatus'] | null }[])
+      FROM conversation_threads`).all() as { data_json: string; last_turn_status: ConversationThread['lastTurnStatus'] | null }[])
       .map(row => {
         const thread = JSON.parse(row.data_json) as ConversationThread
         if (!thread.lastTurnStatus && row.last_turn_status) thread.lastTurnStatus = row.last_turn_status
@@ -119,8 +119,16 @@ export class ThreadOrchestrator {
     const now = Date.now()
     const snapshot: ThreadSnapshot = { thread: { ...context, id: randomUUID(), nativeSessionId: null,
       title: 'New thread', pinned: false, status: 'idle', createdAt: now, updatedAt: now, generation: 1, queue: [], capabilities: threadCapabilityManifest(context.provider), connection: { state: 'closed', attempt: 0, changedAt: now } }, events: [] }
-    this.db.prepare('INSERT INTO conversation_threads (id, workspace_id, data_json, events_json) VALUES (?, ?, ?, ?)')
-      .run(snapshot.thread.id, context.workspaceId, JSON.stringify(snapshot.thread), '[]')
+    this.db.transaction(() => {
+      // Legacy/delegated callers enter here with a validated directory but no
+      // renderer project-registration step. Keep their conversation durable.
+      this.db.prepare(`INSERT OR IGNORE INTO thread_projects (id, identity, root_path, display_name, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)`).run(context.projectId, context.rootPath, context.rootPath,
+        context.rootPath.split(/[\\/]/).filter(Boolean).at(-1) ?? context.rootPath, now, now)
+      this.db.prepare('INSERT OR IGNORE INTO thread_project_contexts (project_id, root_path) VALUES (?, ?)').run(context.projectId, context.rootPath)
+      this.db.prepare('INSERT INTO conversation_threads (id, workspace_id, thread_project_id, data_json, events_json) VALUES (?, ?, ?, ?, ?)')
+        .run(snapshot.thread.id, context.workspaceId, context.projectId, JSON.stringify(snapshot.thread), '[]')
+    })()
     this.snapshots.set(snapshot.thread.id, snapshot)
     this.changed(snapshot.thread.id)
     return snapshot

@@ -24,16 +24,16 @@ const appPages = [
 ] as const
 
 export function SettingsCenter(props: SettingsModalProps & {
-  workspaces: Workspace[]; initialWorkspaceId?: string; initialPage?: SettingsSection; shellProfiles: ShellProfile[]
+  workspaces: Workspace[]; initialWorkspaceId?: string; initialPage?: SettingsSection; shellProfiles: ShellProfile[]; allowWorkspaceScope?: boolean
   onSave: (input: UpdateWorkspaceSettingsInput) => Promise<void>
 }): ReactElement {
   const [destination, setDestination] = useState<SettingsDestination>(() => {
-    if (props.initialWorkspaceId) return { scope: 'workspace', workspaceId: props.initialWorkspaceId, page: 'appearance' }
+    if (props.allowWorkspaceScope !== false && props.initialWorkspaceId) return { scope: 'workspace', workspaceId: props.initialWorkspaceId, page: 'appearance' }
     if (props.initialPage) return { scope: 'application', page: props.initialPage }
     try {
       const saved = JSON.parse(localStorage.getItem('oxe.settings.destination') ?? 'null') as SettingsDestination
       if (saved?.scope === 'application' && appPages.some(p => p.id === saved.page)) return saved
-      if (saved?.scope === 'workspace' && props.workspaces.some(w => w.id === saved.workspaceId) && SETTINGS_PAGES.some(p => p.id === saved.page)) return saved
+      if (props.allowWorkspaceScope !== false && saved?.scope === 'workspace' && props.workspaces.some(w => w.id === saved.workspaceId) && SETTINGS_PAGES.some(p => p.id === saved.page)) return saved
     } catch { /* Invalid preferences use safe defaults. */ }
     return { scope: 'application', page: 'general' }
   })
@@ -57,7 +57,7 @@ export function SettingsCenter(props: SettingsModalProps & {
   const returnPane = useRef(useUIStore.getState().activePaneId)
   const workspace = destination.scope === 'workspace' ? props.workspaces.find(w => w.id === destination.workspaceId) : undefined
   const activeWorkspaceId = useWorkspaceStore(state => state.activeWorkspaceId)
-  const scopeWorkspace = workspace ?? props.workspaces.find(w => w.id === activeWorkspaceId) ?? props.workspaces[0]
+  const scopeWorkspace = props.allowWorkspaceScope === false ? undefined : workspace ?? props.workspaces.find(w => w.id === activeWorkspaceId) ?? props.workspaces[0]
   const navigate = (action: () => void): void => {
     if (draft.current?.dirty) setPending(() => action)
     else action()

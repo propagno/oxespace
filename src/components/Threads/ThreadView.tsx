@@ -88,10 +88,17 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
   const [delegationOpen, setDelegationOpen] = useState(false)
   const timeline = useRef<HTMLDivElement>(null), content = useRef<HTMLDivElement>(null), textarea = useRef<HTMLTextAreaElement>(null), fileInput = useRef<HTMLInputElement>(null)
+  const updateTimelineViewport = useRef<(() => void) | null>(null)
   const following = useRef(true), initialized = useRef(false), lastCount = useRef(0), actionInFlight = useRef(false)
+  const userScrollIntent = useRef(false)
+  const lastScrollDirection = useRef<'up' | 'down' | null>(null)
+  const scrollIntentTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const restoreTop = useRef<number | null>(null)
   const restoreTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useEffect(() => () => { if (restoreTimer.current) clearTimeout(restoreTimer.current) }, [])
+  useEffect(() => () => {
+    if (restoreTimer.current) clearTimeout(restoreTimer.current)
+    if (scrollIntentTimer.current) clearTimeout(scrollIntentTimer.current)
+  }, [])
   const branch = useGitBranch(workspace?.id ?? '', snapshot?.thread.rootPath ?? workspace?.rootPath ?? '')
   const api = window.oxe?.thread
   const voice = useOxeVoice({ enabled: Boolean(active && snapshot && !snapshot.thread.cliActive), onFinalText: text => {
@@ -168,12 +175,16 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   const needsLogin = Boolean(snapshot && (authFailure || account && (account.state !== 'connected' || account.method !== 'subscription')))
   const degradedConnection = snapshot?.thread.connection?.state === 'degraded' ? snapshot.thread.connection : undefined
   const lastPrompt = snapshot?.events.filter(e => e.type === 'message' && e.role === 'user').at(-1)
-  const cancelScrollRestore = () => {
+  const cancelScrollRestore = (direction?: 'up' | 'down') => {
+    userScrollIntent.current = true
+    lastScrollDirection.current = direction ?? null
+    if (scrollIntentTimer.current) clearTimeout(scrollIntentTimer.current)
+    scrollIntentTimer.current = setTimeout(() => { userScrollIntent.current = false; scrollIntentTimer.current = null }, 900)
     restoreTop.current = null
     if (restoreTimer.current) clearTimeout(restoreTimer.current)
     restoreTimer.current = null
   }
-  const scrollEnd = () => { if (timeline.current) { cancelScrollRestore(); following.current = true; timeline.current.scrollTop = timeline.current.scrollHeight; setShowEnd(false); setNewMessages(0) } }
+  const scrollEnd = () => { if (timeline.current) { cancelScrollRestore('down'); userScrollIntent.current = false; following.current = true; timeline.current.scrollTop = timeline.current.scrollHeight; setShowEnd(false); setNewMessages(0) } }
   const copyMessage = async (id: string, text: string) => {
     let copied = false
     try { copied = await window.oxe?.clipboard?.writeText(text) ?? false } catch { /* Browser clipboard remains available. */ }
@@ -251,7 +262,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
     const result = await api.command(id, text)
     if (result.kind === 'navigate') {
       if (result.threadId) useThreadStore.getState().adopt(await api.read(result.threadId))
-      else await useThreadStore.getState().load(useThreadStore.getState().threads.map(thread => thread.workspaceId))
+      else await useThreadStore.getState().load()
       setPanel(null)
     } else if (result.surface === 'model' || result.surface === 'effort' || result.surface === 'permissions') setOpenControl(result.surface)
     else if (result.surface === 'accounts') onAccounts?.()
@@ -394,18 +405,27 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
       {onCloseCell && <button type="button" className="thread-icon-action" aria-label="Close side-by-side conversation" title="Close side-by-side conversation" onClick={onCloseCell}><X size={15} /></button>}
       </div>
     </header>
-    <div ref={timeline} className="thread-timeline" tabIndex={0} aria-label="Conversation history" onWheel={cancelScrollRestore} onTouchStart={cancelScrollRestore} onPointerDown={cancelScrollRestore} onKeyDown={cancelScrollRestore} onScroll={e => {
+    <div ref={timeline} className="thread-timeline" tabIndex={0} aria-label="Conversation history" onWheel={event => cancelScrollRestore(event.deltaY < 0 ? 'up' : 'down')} onTouchStart={() => cancelScrollRestore()} onTouchMove={() => cancelScrollRestore()} onPointerDown={() => cancelScrollRestore()} onPointerMove={event => { if (event.buttons) cancelScrollRestore() }} onKeyDown={event => cancelScrollRestore(['Home', 'PageUp', 'ArrowUp'].includes(event.key) ? 'up' : ['End', 'PageDown', 'ArrowDown'].includes(event.key) ? 'down' : undefined)} onScroll={e => {
       const el = e.currentTarget; if (!el.clientHeight || !snapshot) return
+      updateTimelineViewport.current?.()
       if (restoreTop.current !== null) return
       if (el.scrollTop <= 32 && snapshot.page?.hasMore && !loadingEarlier) void loadEarlier()
-      following.current = el.scrollHeight - el.scrollTop - el.clientHeight <= 64
+      const atEnd = el.scrollHeight - el.scrollTop - el.clientHeight <= 64
+      if (following.current && !atEnd && !userScrollIntent.current) {
+        requestAnimationFrame(() => { if (following.current && timeline.current === el) el.scrollTop = el.scrollHeight })
+        return
+      }
+      // Measurements can shrink a long timeline until the browser clamps its
+      // scrollTop near the end. That is not an intentional return to the end.
+      following.current = atEnd && !(lastScrollDirection.current === 'up' && !following.current)
+      if (following.current) lastScrollDirection.current = null
       setShowEnd(!following.current); if (following.current) setNewMessages(0)
       useThreadStore.getState().setScroll(snapshot.thread.id, el.scrollTop, following.current)
     }}>
       <div ref={content} className="thread-reading-column">
         {snapshot?.page?.hasMore && <button type="button" className="thread-load-earlier" disabled={loadingEarlier} onClick={() => void loadEarlier()}>{loadingEarlier ? <Loader2 size={13} className="thread-spin" /> : <ArrowUp size={13} />}Load earlier messages</button>}
         {!snapshot && <div className="thread-welcome"><span className="thread-welcome-mark"><MessageSquarePlus size={26} strokeWidth={1.5} /></span><h2>{selectedId ? 'Opening conversation…' : 'What would you like to work on?'}</h2><p>{selectedId ? 'Loading the selected conversation.' : 'Select + beside a project to start a conversation, or add a project in the sidebar.'}</p></div>}
-        <ThreadTimelineWindow key={snapshot?.thread.id ?? 'empty'} rows={timelineRows} scrollRef={timeline}>{({ event, key, turnId, turnEvents, lastInTurn }) => <section className={`thread-turn thread-virtual-turn${lastInTurn ? ' is-turn-end' : ''}`} data-turn-id={turnId}>{(() => {
+        <ThreadTimelineWindow key={snapshot?.thread.id ?? 'empty'} rows={timelineRows} scrollRef={timeline} followingRef={following} onViewportUpdateRef={updateTimelineViewport}>{({ event, key, turnId, turnEvents, lastInTurn }) => <section className={`thread-turn thread-virtual-turn${lastInTurn ? ' is-turn-end' : ''}`} data-turn-id={turnId}>{(() => {
           if (event.type === 'activity-group') return <ThreadActivityGroup key={key} events={event.events} />
           if (event.type === 'plan') return <ThreadPlan key={key} event={event} />
           if (event.type === 'subagent') return <ThreadSubagentActivity key={key} event={event} compact />

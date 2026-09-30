@@ -11,7 +11,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
  *  pre-migration backup (only back up when an upgrade will actually run).
  *  Exported so the migrations test can catch a constant that drifts from the
  *  version the SQL actually sets. */
-export const LATEST_DB_VERSION = 58
+export const LATEST_DB_VERSION = 59
 /** How many pre-migration backups to retain. */
 const MAX_DB_BACKUPS = 5
 
@@ -477,6 +477,66 @@ export function runMigrations(db: AppDatabase): void {
   if (startingVersion < 58) {
     db.transaction(() => db.exec(readMigration('058_workbench_default.sql')))()
   }
+  if (startingVersion < 59) migrateThreadProjects(db)
+}
+
+/** Rebuild the parent without cascading its children or rewriting their IDs. */
+function migrateThreadProjects(db: AppDatabase): void {
+  if (hasColumn(db, 'conversation_threads', 'thread_project_id')) {
+    if (!hasTable(db, 'thread_projects') || (db.pragma('foreign_key_check') as unknown[]).length) throw Error('Incomplete Thread project migration')
+    db.pragma('user_version = 59')
+    return
+  }
+  const legacy = db.prepare('SELECT id, workspace_id, data_json FROM conversation_threads').all() as
+    { id: string; workspace_id: string; data_json: string }[]
+  const projects = new Map<string, { rootPath: string; name: string; identity: string }>()
+  for (const row of legacy) {
+    const thread = JSON.parse(row.data_json) as { projectId?: string; rootPath?: string }
+    if (!thread.projectId || !thread.rootPath) throw Error(`Cannot migrate conversation ${row.id}: missing project or directory`)
+    const memory = db.prepare('SELECT identity FROM memory_projects WHERE id = ?').get(thread.projectId) as { identity: string } | undefined
+    projects.set(thread.projectId, { rootPath: thread.rootPath, name: thread.rootPath.split(/[\\/]/).filter(Boolean).at(-1) ?? thread.rootPath,
+      identity: memory?.identity ?? thread.rootPath })
+  }
+  db.pragma('foreign_keys = OFF')
+  try {
+    db.transaction(() => {
+      db.exec(`CREATE TABLE thread_projects (
+        id TEXT PRIMARY KEY, identity TEXT NOT NULL, root_path TEXT NOT NULL,
+        display_name TEXT NOT NULL, hidden INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+      );
+      CREATE TABLE thread_project_contexts (
+        project_id TEXT NOT NULL REFERENCES thread_projects(id) ON DELETE CASCADE,
+        root_path TEXT NOT NULL, PRIMARY KEY(project_id, root_path)
+      );`)
+      const insertProject = db.prepare('INSERT INTO thread_projects (id, identity, root_path, display_name, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
+      const insertContext = db.prepare('INSERT OR IGNORE INTO thread_project_contexts (project_id, root_path) VALUES (?, ?)')
+      for (const [id, project] of projects) insertProject.run(id, project.identity, project.rootPath, project.name, Date.now(), Date.now())
+      for (const row of legacy) {
+        const thread = JSON.parse(row.data_json) as { projectId: string; rootPath: string }
+        insertContext.run(thread.projectId, thread.rootPath)
+      }
+      db.exec(`CREATE TABLE conversation_threads_new (
+        id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL,
+        thread_project_id TEXT NOT NULL REFERENCES thread_projects(id),
+        data_json TEXT NOT NULL,
+        events_json TEXT NOT NULL DEFAULT '[]',
+        history_version INTEGER NOT NULL DEFAULT 0
+      );
+      INSERT INTO conversation_threads_new (id, workspace_id, thread_project_id, data_json, events_json, history_version)
+        SELECT id, workspace_id, json_extract(data_json, '$.projectId'), data_json, events_json, history_version FROM conversation_threads;
+      DROP TABLE conversation_threads;
+      ALTER TABLE conversation_threads_new RENAME TO conversation_threads;
+      CREATE INDEX idx_conversation_threads_workspace ON conversation_threads(workspace_id);
+      CREATE INDEX idx_conversation_threads_project ON conversation_threads(thread_project_id);
+      PRAGMA user_version = 59;`)
+      const count = (db.prepare('SELECT count(*) AS n FROM conversation_threads').get() as { n: number }).n
+      if (count !== legacy.length) throw Error('Conversation count changed during migration')
+      const broken = db.pragma('foreign_key_check') as unknown[]
+      if (broken.length) throw Error(`Thread migration has ${broken.length} broken foreign keys`)
+    })()
+  } finally { db.pragma('foreign_keys = ON') }
 }
 
 function readMigration(name: string): string {

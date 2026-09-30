@@ -7,6 +7,7 @@ import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import { AgentService } from '../services/agent.service'
 import type { AgentAccountContext } from '../../../shared/types/agentAuth'
 import { MemoryProjectService } from '../services/memory/memory-project.service'
+import { ThreadProjectService } from '../services/conversation/thread-projects'
 import type { ThreadMcpBindings } from '../services/conversation/thread-mcp'
 import type { ThreadRequestResponse } from '../../../shared/types/thread'
 
@@ -57,6 +58,7 @@ function requestResponse(value: unknown): ThreadRequestResponse {
 
 export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings): { stop(): Promise<void>; manager: Promise<ThreadManager> } {
   const projects = new MemoryProjectService(db)
+  const threadProjects = new ThreadProjectService(db)
   // Keep account/project implementation out of the startup entry bundle.
   const accounts: Promise<NativeAccountService> = import('../services/conversation/native-account.service').then(({ NativeAccountService, authScopeId }) => new NativeAccountService({
     resolve: async (context: AgentAccountContext): Promise<NativeAuthScope> => {
@@ -66,7 +68,9 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings): { st
       const selected = thread?.agentProfileId ? profiles.find(p => p.agentProfileId === thread.agentProfileId) : undefined
       const profile = selected && !selected.parentProvider ? selected : profiles.find(p => p.provider === context.provider && !p.parentProvider)
       if (!profile || (profile.parentProvider ?? profile.provider) !== context.provider) throw Error('Configure the provider in Agent Settings')
-      const root = thread ? thread.rootPath : (await projects.workspace(context.workspaceId, context.paneId)).cwd
+      const root = thread ? thread.rootPath : context.workspaceId.startsWith('thread:')
+        ? threadProjects.context(context.workspaceId.slice('thread:'.length)).rootPath
+        : (await projects.workspace(context.workspaceId, context.paneId)).cwd
       return { id: authScopeId(context.provider, profile.command, root), provider: context.provider, command: profile.command, cwd: root }
     },
     openExternal: url => shell.openExternal(url),
@@ -93,7 +97,12 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings): { st
   ipcMain.handle(IPC_CHANNELS.agentAccount.code, (event, id, code) => { sender(event); return accounts.then(service => service.submitCode(string(id), string(code))) })
   ipcMain.handle(IPC_CHANNELS.agentAccount.browser, (event, id) => { sender(event); return accounts.then(service => service.openBrowser(string(id))) })
   ipcMain.handle(IPC_CHANNELS.thread.projects, event => { sender(event); return import('../services/conversation/thread-projects').then(module => module.threadProjectCatalog(db)) })
-  ipcMain.handle(IPC_CHANNELS.thread.list, (event, id: unknown) => { sender(event); return manager.then(service => service.list(string(id))) })
+  ipcMain.handle(IPC_CHANNELS.thread.addProject, (event, rootPath: unknown) => { sender(event); return threadProjects.add(string(rootPath)) })
+  ipcMain.handle(IPC_CHANNELS.thread.relinkProject, (event, projectId: unknown, rootPath: unknown) => { sender(event); return threadProjects.relink(string(projectId), string(rootPath)) })
+  ipcMain.handle(IPC_CHANNELS.thread.setProjectHidden, (event, projectId: unknown, hidden: unknown) => {
+    sender(event); if (typeof hidden !== 'boolean') throw Error('Invalid project visibility'); threadProjects.setHidden(string(projectId), hidden)
+  })
+  ipcMain.handle(IPC_CHANNELS.thread.list, event => { sender(event); return manager.then(service => service.list()) })
   ipcMain.handle(IPC_CHANNELS.thread.read, (event, id: unknown) => { sender(event); return manager.then(service => service.readForRenderer(string(id))) })
   ipcMain.handle(IPC_CHANNELS.thread.history, (event, id: unknown, before: unknown, limit: unknown) => { sender(event); return manager.then(service => service.historyPage(string(id), optionalInteger(before, 0, Number.MAX_SAFE_INTEGER), optionalInteger(limit, 1, 500))) })
   ipcMain.handle(IPC_CHANNELS.thread.attach, (event, id: unknown, input: unknown) => {
@@ -181,12 +190,10 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings): { st
     if (!input || typeof input !== 'object') throw new Error('Invalid thread input')
     const value = input as Record<string, unknown>
     if (value.provider !== 'codex' && value.provider !== 'claude') throw new Error('Invalid thread provider')
-    const workspaceId = string(value.workspaceId)
-    const paneId = value.paneId === undefined ? undefined : string(value.paneId)
-    const context = await projects.workspace(workspaceId, paneId)
+    const context = threadProjects.context(string(value.projectId), value.rootPath === undefined ? undefined : string(value.rootPath))
     sender(event)
     const service = await manager
-    return service.create({ workspaceId, projectId: context.projectId, rootPath: context.cwd, provider: value.provider })
+    return service.create({ workspaceId: `thread:${context.projectId}`, projectId: context.projectId, rootPath: context.rootPath, provider: value.provider })
   })
   ipcMain.handle(IPC_CHANNELS.thread.send, (event, id: unknown, text: unknown, attachmentIds: unknown) => { sender(event); return manager.then(service => service.send(string(id), string(text), stringList(attachmentIds, 8))) })
   ipcMain.handle(IPC_CHANNELS.thread.steer, (event, id: unknown, text: unknown, attachmentIds: unknown) => { sender(event); return manager.then(service => service.steer(string(id), string(text), stringList(attachmentIds, 8))) })

@@ -10,6 +10,7 @@ const snapshots = new Map<number, ThreadSnapshot>()
 beforeAll(() => {
   db = openInMemoryDatabase()
   db.prepare("INSERT INTO workspaces (id, name, root_path, layout, default_shell_profile_id) VALUES ('ws', 'Bench', '/repo', '1x1', 'builtin-codex')").run()
+  db.prepare("INSERT INTO thread_projects (id, identity, root_path, display_name, created_at, updated_at) VALUES ('project', '/repo', '/repo', 'Bench', 1, 1)").run()
   history = new ThreadHistory(db)
   for (const size of [1_000, 100_000]) {
     const snapshot: ThreadSnapshot = {
@@ -17,7 +18,7 @@ beforeAll(() => {
       events: Array.from({ length: size }, (_, index) => ({ type: 'message' as const, id: `m${index}`, role: index % 2 ? 'assistant' as const : 'user' as const, text: `Message ${index}` }))
     }
     snapshots.set(size, snapshot)
-    db.prepare('INSERT INTO conversation_threads (id, workspace_id, data_json, events_json) VALUES (?, ?, ?, ?)').run(snapshot.thread.id, 'ws', JSON.stringify(snapshot.thread), '[]')
+    db.prepare('INSERT INTO conversation_threads (id, workspace_id, thread_project_id, data_json, events_json) VALUES (?, ?, ?, ?, ?)').run(snapshot.thread.id, 'ws', 'project', JSON.stringify(snapshot.thread), '[]')
     history.write(snapshot)
   }
 }, 120_000)

@@ -16,13 +16,14 @@ describe('Thread navigation store', () => {
     const saved = snapshot('reminder')
     Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: { list: vi.fn(async () => [saved.thread]), read: vi.fn(async () => saved) } } })
     useThreadStore.setState({ selectedId: saved.thread.id, snapshot: null, unreadIds: [saved.thread.id] })
-    await useThreadStore.getState().load(['ws'])
+    await useThreadStore.getState().load()
     expect(useThreadStore.getState().selectedId).toBe(saved.thread.id)
     expect(useThreadStore.getState().unreadIds).toEqual([saved.thread.id])
     await useThreadStore.getState().select(saved.thread.id)
     expect(useThreadStore.getState().unreadIds).toEqual([])
   })
   it('hides projects without losing conversations or drafts and restores them explicitly', async () => {
+    Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: { setProjectHidden: vi.fn(async () => {}) } } })
     const item = snapshot('saved')
     useThreadStore.setState({ threads: [item.thread], selectedId: 'saved', snapshot: item, drafts: { saved: 'Keep me' } })
     await useThreadStore.getState().hideProject('project')
@@ -30,12 +31,13 @@ describe('Thread navigation store', () => {
     expect(useThreadStore.getState().threads).toHaveLength(1)
     expect(useThreadStore.getState().drafts.saved).toBe('Keep me')
     expect(useThreadStore.getState().hiddenProjects).toEqual(['project'])
-    useThreadStore.getState().restoreProject('project')
+    await useThreadStore.getState().restoreProject('project')
     expect(useThreadStore.getState().hiddenProjects).toEqual([])
   })
-  it('restores only the selected hidden project', () => {
+  it('restores only the selected hidden project', async () => {
+    Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: { setProjectHidden: vi.fn(async () => {}) } } })
     useThreadStore.setState({ hiddenProjects: ['one', 'two'] })
-    useThreadStore.getState().restoreProject('one')
+    await useThreadStore.getState().restoreProject('one')
     expect(useThreadStore.getState().hiddenProjects).toEqual(['two'])
   })
   it('ignores a late read after another conversation is selected', async () => {
@@ -63,22 +65,23 @@ describe('Thread navigation store', () => {
     expect(useThreadStore.getState().snapshotCacheOrder).toEqual(['thread-5', 'thread-4', 'thread-3', 'thread-2'])
     expect(Object.keys(useThreadStore.getState().snapshotCache)).toHaveLength(4)
   })
-  it('keeps other projects available after a partial load failure', async () => {
+  it('keeps the last known catalog when the independent Thread list fails', async () => {
     Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: {
-      list: vi.fn(async (id: string) => { if (id === 'bad') throw Error(); return [snapshot('available').thread] }),
+      list: vi.fn(async () => { throw Error('offline') }),
       read: vi.fn(async (id: string) => snapshot(id))
     } } })
-    await useThreadStore.getState().load(['ws', 'bad'])
+    useThreadStore.setState({ threads: [snapshot('available').thread] })
+    await useThreadStore.getState().load()
     expect(useThreadStore.getState().threads.map(t => t.id)).toEqual(['available'])
-    expect(useThreadStore.getState().errors.bad).toBeDefined()
+    expect(useThreadStore.getState().errors.catalog).toBeDefined()
     expect(useThreadStore.getState().selectedId).toBe('available')
   })
-  it('clears selection and drafts after the owning workspace is removed', async () => {
+  it('keeps selection and drafts when the Code workspace is removed', async () => {
+    Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: { list: vi.fn(async () => [snapshot('removed').thread]), read: vi.fn(async () => snapshot('removed')) } } })
     useThreadStore.setState({ threads: [snapshot('removed').thread], selectedId: 'removed', snapshot: snapshot('removed'), drafts: { removed: 'draft' } })
-    await useThreadStore.getState().load([])
-    expect(useThreadStore.getState().selectedId).toBeNull()
-    expect(useThreadStore.getState().snapshot).toBeNull()
-    expect(useThreadStore.getState().drafts).toEqual({})
+    await useThreadStore.getState().load()
+    expect(useThreadStore.getState().selectedId).toBe('removed')
+    expect(useThreadStore.getState().drafts).toEqual({ removed: 'draft' })
   })
   it('prepends an older history page without changing the selected conversation', async () => {
     const current = { ...snapshot('paged'), events: [{ type: 'message' as const, id: 'new', role: 'assistant' as const, text: 'New' }], page: { before: 4, hasMore: true, total: 5 } }

@@ -29,7 +29,7 @@ export function automationTools(catalogue: () => ToolEntry[]): ToolEntry[] {
       if (!execution) return reply('error', { code: 'EXECUTION_REQUIRED', message: 'Open a new OXESpace agent terminal.', retryable: false }, true)
       const workspace = ctx.workspaceServ.get(execution.workspaceId)
       const pane = workspace?.panes.find(p => p.id === execution.paneId)
-      if (!pane) return reply('error', { code: 'PANE_UNAVAILABLE', message: 'The execution pane no longer exists.', retryable: false }, true)
+      if (execution.owner.kind === 'pane' && !pane) return reply('error', { code: 'PANE_UNAVAILABLE', message: 'The execution pane no longer exists.', retryable: false }, true)
       if (name === 'oxespace_capabilities') return reply('ok', {
         tools: catalogue().map(t => ({ name: t.descriptor.name, requiresWorkspace: t.requiresWorkspace })),
         workspaceId: execution.workspaceId,
@@ -60,10 +60,11 @@ export function automationTools(catalogue: () => ToolEntry[]): ToolEntry[] {
         const head = await exec('git', ['rev-parse', '--verify', 'HEAD'], { cwd: execution.cwd, windowsHide: true, timeout: 2000, maxBuffer: 8192 })
         git = { status: 'ok', branch: result.stdout.trim(), head: head.stdout.trim(), sampledAt: Date.now() }
       } catch { /* A non-Git or unavailable checkout still has execution context. */ }
-      return reply('ok', { workspaceId: execution.workspaceId, paneId: execution.paneId, executionId: execution.id,
+      return reply('ok', { surface: execution.owner.kind === 'thread' ? 'thread' : 'code', workspaceId: execution.owner.kind === 'pane' ? execution.workspaceId : null,
+        threadId: execution.owner.kind === 'thread' ? execution.owner.id : null, paneId: pane?.id ?? null, executionId: execution.id,
         repositoryIdentity,
-        launchCwd: execution.cwd, currentShellCwd: 'unknown', agentProfileId: pane.agentProfileId,
-        originPaneId: pane.originPaneId ?? null, git })
+        launchCwd: execution.cwd, currentShellCwd: 'unknown', agentProfileId: pane?.agentProfileId ?? null,
+        originPaneId: pane?.originPaneId ?? null, git })
     }
   }))
 }

@@ -274,7 +274,8 @@ async function registerIpcHandlers(): Promise<() => void> {
     const provider = launcher.resolve(agentProfileId).provider
     if (provider !== 'claude' && provider !== 'codex') throw new Error('Unsupported delegation provider')
     return provider
-  }, agentProfileId => delegationAgents.list().find(profile => profile.agentProfileId === agentProfileId) ?? {})
+  }, agentProfileId => delegationAgents.list().find(profile => profile.agentProfileId === agentProfileId) ?? {},
+  async rootPath => (await new (await import('./services/conversation/thread-projects')).ThreadProjectService(db).add(rootPath)).projectId)
   const delegationService = new DelegationService(db, {
     workspace: internalMcpWorkspaceServ, git: internalMcpGithub, executions,
     validateAgent: id => { launcher.resolve(id) },

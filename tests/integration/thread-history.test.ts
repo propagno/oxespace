@@ -8,8 +8,9 @@ afterEach(() => { for (const db of databases.splice(0)) db.close() })
 function fixture() {
   const db = openInMemoryDatabase(); databases.push(db)
   db.prepare("INSERT INTO workspaces (id, name, root_path, layout, default_shell_profile_id) VALUES ('ws', 'Repo', '/repo', '1x1', 'builtin-claude')").run()
+  db.prepare("INSERT INTO thread_projects (id, identity, root_path, display_name, created_at, updated_at) VALUES ('project', '/repo', '/repo', 'Repo', 1, 1)").run()
   const snapshot: ThreadSnapshot = { thread: { id: 'thread', workspaceId: 'ws', projectId: 'project', rootPath: '/repo', provider: 'codex', nativeSessionId: null, title: 'Legacy', pinned: false, status: 'idle', createdAt: 1, updatedAt: 1 }, events: [{ type: 'message', id: 'user', role: 'user', text: 'Keep this history' }] }
-  db.prepare('INSERT INTO conversation_threads (id, workspace_id, data_json, events_json) VALUES (?, ?, ?, ?)').run('thread', 'ws', JSON.stringify(snapshot.thread), JSON.stringify(snapshot.events))
+  db.prepare('INSERT INTO conversation_threads (id, workspace_id, thread_project_id, data_json, events_json) VALUES (?, ?, ?, ?, ?)').run('thread', 'ws', 'project', JSON.stringify(snapshot.thread), JSON.stringify(snapshot.events))
   return { db, snapshot, history: new ThreadHistory(db) }
 }
 const patch = '--- a/file.ts\n+++ b/file.ts\n@@ -1,2 +1,2 @@\n-old\n+new\n context\n'

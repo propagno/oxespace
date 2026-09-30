@@ -7,6 +7,7 @@ import type { AppDatabase } from '../../db'
 import type { DelegationInput, DelegationTask, DelegationEvent, DelegationState } from '../../../../shared/types/delegation'
 import type { GitHubWorktreeApi } from '../../../../shared/types/github'
 import type { WorkspaceService } from '../workspace.service'
+import type { Workspace } from '../../../../shared/types/workspace'
 import type { AgentExecution, ExecutionRegistry } from '../execution-registry'
 import { projectIdentity } from '../memory/memory-project.service'
 import { TaskCoordinator } from '../coordination/coordinator'
@@ -62,6 +63,12 @@ export class DelegationApplicationService {
     }
     for (const row of this.db.prepare("SELECT c.data_json FROM conversation_threads c JOIN delegations d ON json_extract(d.payload, '$.destinationThreadId') = c.id").all() as { data_json: string }[]) this.observeThread(JSON.parse(row.data_json))
   }
+  private surfaceProject(id: string): Pick<Workspace, 'id' | 'name' | 'rootPath' | 'panes'> | null {
+    if (!id.startsWith('thread:')) return this.deps.workspace.get(id)
+    const row = this.db.prepare('SELECT id, display_name, root_path FROM thread_projects WHERE id = ? AND hidden = 0')
+      .get(id.slice('thread:'.length)) as { id: string; display_name: string; root_path: string } | undefined
+    return row ? { id, name: row.display_name, rootPath: row.root_path, panes: [] } : null
+  }
   private all(): DelegationTask[] { return this.repository.all() }
   get(id: string): DelegationTask {
     const task = this.repository.get(id)
@@ -91,7 +98,7 @@ export class DelegationApplicationService {
     if (task.originWorkspaceId && task.originWorkspaceId !== task.workspaceId) this.deps.changed(task.originWorkspaceId, task.id)
   }
   async status(workspaceId: string, cursor?: string, limit = 100) {
-    const ws = this.deps.workspace.get(workspaceId)
+    const ws = this.surfaceProject(workspaceId)
     if (!ws) throw new Error('Workspace not found')
     const project = await projectIdentity(ws.rootPath)
     const page = this.repository.byWorkspace(workspaceId, limit, cursor)
@@ -102,14 +109,14 @@ export class DelegationApplicationService {
   }
   async configure(workspaceId: string, enabled: boolean): Promise<void> {
     if (typeof enabled !== 'boolean') throw new Error('enabled must be a boolean')
-    const ws = this.deps.workspace.get(workspaceId)
+    const ws = this.surfaceProject(workspaceId)
     if (!ws) throw new Error('Workspace not found')
     const project = await projectIdentity(ws.rootPath)
     this.db.prepare('INSERT INTO delegation_settings(project,enabled) VALUES(?,?) ON CONFLICT(project) DO UPDATE SET enabled=excluded.enabled').run(project, Number(enabled))
   }
   async preview(workspaceId: string, objective: string, branchIntent?: DelegationInput['branchIntent']) {
     if (typeof objective !== 'string' || !objective.trim() || objective.length > 2000) throw new Error('Invalid objective')
-    const target = this.deps.workspace.get(workspaceId)
+    const target = this.surfaceProject(workspaceId)
     if (!target) throw new Error('Target workspace not found')
     const project = await projectIdentity(target.rootPath)
     const previewId = randomUUID()
@@ -131,6 +138,7 @@ export class DelegationApplicationService {
     if (input.mode !== undefined && !['analysis','isolated-change'].includes(input.mode)) throw new Error('Invalid execution mode')
     if (input.schemaVersion !== undefined && input.schemaVersion !== 2) throw new Error('Invalid delegation schema version')
     if (input.surface !== undefined && !['thread','terminal'].includes(input.surface)) throw new Error('Invalid delegation surface')
+    if (input.schemaVersion === 2 && !input.surface) throw new Error('Choose Thread or Code terminal as the delegation destination')
     if (input.branchIntent !== undefined && (!input.branchIntent || typeof input.branchIntent !== 'object' || !['existing','create','generated'].includes(input.branchIntent.strategy))) throw new Error('Invalid branch intent')
     if (input.evidenceFiles !== undefined && (!Array.isArray(input.evidenceFiles) || input.evidenceFiles.length > 8 || input.evidenceFiles.some(path => typeof path !== 'string' || !path || path.length > 512))) throw new Error('Invalid evidence selection')
     if (input.sourceThreadIds !== undefined && (!Array.isArray(input.sourceThreadIds) || input.sourceThreadIds.length > 5 || new Set(input.sourceThreadIds).size !== input.sourceThreadIds.length || input.sourceThreadIds.some(id => typeof id !== 'string' || !/^[a-f\d-]{36}$/i.test(id)))) throw new Error('Select up to five distinct conversations')
@@ -138,7 +146,8 @@ export class DelegationApplicationService {
     if (input.targetWorkspaceId !== undefined && (typeof input.targetWorkspaceId !== 'string' || !input.targetWorkspaceId || input.targetWorkspaceId.length > 128)) throw new Error('Invalid target workspace')
     const originProject = await projectIdentity(origin.cwd)
     const targetId = input.targetWorkspaceId ?? origin.workspaceId
-    const target = this.deps.workspace.get(targetId)
+    if (targetId.startsWith('thread:') && input.surface === 'terminal') throw Error('A Code terminal requires an explicit Code workspace destination')
+    const target = this.surfaceProject(targetId)
     if (!target) throw new Error('Target workspace not found')
     const cwd = targetId === origin.workspaceId ? origin.cwd : target.rootPath
     const project = await projectIdentity(cwd)
@@ -149,7 +158,7 @@ export class DelegationApplicationService {
     const localChanges = (await this.git(cwd, ['status', '--short'])).slice(0,8000)
     // Recheck after awaits: concurrent identical requests must converge.
     const normalized = { schemaVersion: 2 as const, key: input.key, agentProfileId: input.agentProfileId, objective: input.objective, handoff: input.handoff, acceptance: input.acceptance,
-      targetWorkspaceId: targetId, mode: input.mode ?? 'isolated-change', surface: input.surface ?? (this.deps.threadHost ? 'thread' : 'terminal'),
+      targetWorkspaceId: targetId, mode: input.mode ?? 'isolated-change', surface: input.surface ?? 'terminal',
       branchIntent: input.branchIntent ?? { strategy: 'generated' as const }, evidenceFiles: input.evidenceFiles ?? [],
       ...(input.sourceThreadIds?.length ? { sourceThreadIds: input.sourceThreadIds } : {}),
       ...(input.includeMemory !== undefined ? { includeMemory: input.includeMemory } : {}) }
@@ -221,7 +230,7 @@ export class DelegationApplicationService {
   }
   async createFromSurface(workspaceId: string, owner: { kind: 'pane' | 'thread'; id: string }, input: DelegationInput): Promise<DelegationTask> {
     if (!owner || !['pane', 'thread'].includes(owner.kind) || typeof owner.id !== 'string' || !owner.id || owner.id.length > 128) throw new Error('Invalid delegation origin')
-    const workspace = this.deps.workspace.get(workspaceId)
+    const workspace = this.surfaceProject(workspaceId)
     if (!workspace) throw new Error('Origin workspace not found')
     let execution = this.deps.executions.forOwner(owner)
     if (owner.kind === 'thread') {
@@ -282,7 +291,7 @@ export class DelegationApplicationService {
       t = this.active(id)
       this.coordinator.receipt(id, 'worktree-verified')
       t = this.active(id)
-      const workspace = this.deps.workspace.get(t.workspaceId)
+      const workspace = this.surfaceProject(t.workspaceId)
       if (!workspace) throw new Error('Workspace not found')
       if (t.surface !== 'thread' && (!t.paneId || !workspace.panes.some(pane => pane.id === t.paneId))) {
         // Synchronous DB operations: no renderer can launch a partially configured pane.
@@ -541,7 +550,7 @@ export class DelegationApplicationService {
     if (typeof id !== 'string' || !id || id.length > 128) throw new Error('Invalid target workspace')
     // Do not probe arbitrary foreign paths for an unapproved caller.
     if (id !== origin.workspaceId && !this.coordinator.targets(originProject).some(t => t.workspaceId === id)) throw new Error('CROSS_PROJECT_CONSENT_REQUIRED')
-    const target = this.deps.workspace.get(id)
+    const target = this.surfaceProject(id)
     if (!target) throw new Error('Target workspace not found')
     const cwd = id === origin.workspaceId ? origin.cwd : target.rootPath
     const project = await projectIdentity(cwd)

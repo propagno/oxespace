@@ -21,13 +21,13 @@ test('session actions open to the side, archive, restore and delete through Elec
       const threads: Record<string, unknown>[] = []
       const changed = (id: string) => { for (const window of BrowserWindow.getAllWindows()) window.webContents.send('thread:changed', { threadId: id }) }
       for (const channel of ['list', 'read', 'create', 'command', 'commands', 'projects', 'models']) ipcMain.removeHandler(`thread:${channel}`)
-      ipcMain.handle('thread:projects', () => ({ projects: [], unavailable: [] }))
+      ipcMain.handle('thread:projects', () => ({ projects: [{ projectId: 'test-project', displayName: 'repo', identityLabel: rootPath, hidden: false, contexts: [{ workspaceId: 'thread:test-project', rootPath, label: 'repo' }] }], unavailable: [] }))
       ipcMain.handle('thread:commands', () => ({ commands: [] }))
       ipcMain.handle('thread:models', () => ({ defaultModel: 'test-model', models: [{ id: 'test-model', label: 'Test model', description: '', efforts: ['low'], defaultEffort: 'low' }] }))
-      ipcMain.handle('thread:list', (_event, workspaceId) => threads.filter(thread => thread.workspaceId === workspaceId))
+      ipcMain.handle('thread:list', () => threads)
       ipcMain.handle('thread:read', (_event, id) => ({ thread: threads.find(thread => thread.id === id), events: [] }))
       ipcMain.handle('thread:create', (_event, input) => {
-        const thread = { id: `session-${threads.length + 1}`, workspaceId: input.workspaceId, projectId: 'test-project', rootPath, provider: input.provider, nativeSessionId: null, title: 'New thread', status: 'idle', pinned: false, createdAt: Date.now(), updatedAt: Date.now() }
+        const thread = { id: `session-${threads.length + 1}`, workspaceId: 'thread:test-project', projectId: 'test-project', rootPath, provider: input.provider, nativeSessionId: null, title: 'New thread', status: 'idle', pinned: false, createdAt: Date.now(), updatedAt: Date.now() }
         threads.push(thread); changed(String(thread.id)); return { thread, events: [] }
       })
       ipcMain.handle('thread:command', (_event, id, command) => {
@@ -42,9 +42,8 @@ test('session actions open to the side, archive, restore and delete through Elec
       })
     }, repo)
     await page.evaluate(async () => {
-      const workspace = (await window.oxe.workspace.list())[0]
       for (const name of ['Alpha session', 'Beta session']) {
-        const snapshot = await window.oxe.thread!.create({ workspaceId: workspace.id, provider: 'codex' })
+        const snapshot = await window.oxe.thread!.create({ projectId: 'test-project', provider: 'codex' })
         await window.oxe.thread!.command!(snapshot.thread.id, `/rename ${name}`)
       }
     })

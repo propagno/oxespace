@@ -285,7 +285,8 @@ export interface ThreadProjectSummary {
   projectId: string
   displayName: string
   identityLabel: string
-  contexts: { workspaceId: string; paneId?: string; rootPath: string; label: string }[]
+  hidden: boolean
+  contexts: { rootPath: string; label: string }[]
 }
 
 export interface ThreadProjectCatalog {
@@ -305,8 +306,11 @@ export interface ThreadApi {
   cli?: ThreadCliApi
   commands(id: string, forceRefresh?: boolean): Promise<ThreadCommandCatalog>
   projects(): Promise<ThreadProjectCatalog>
-  list(workspaceId: string): Promise<ConversationThread[]>
-  create(input: { workspaceId: string; paneId?: string; provider: ThreadProvider }): Promise<ThreadSnapshot>
+  addProject(rootPath: string): Promise<ThreadProjectSummary>
+  relinkProject(projectId: string, rootPath: string): Promise<ThreadProjectSummary>
+  setProjectHidden(projectId: string, hidden: boolean): Promise<void>
+  list(): Promise<ConversationThread[]>
+  create(input: { projectId: string; rootPath?: string; provider: ThreadProvider }): Promise<ThreadSnapshot>
   read(id: string): Promise<ThreadSnapshot>
   history?(id: string, before?: number, limit?: number): Promise<ThreadHistoryPage>
   attach?(id: string, input: { name: string; mimeType: ThreadAttachment['mimeType']; data: ArrayBuffer }): Promise<ThreadAttachment>

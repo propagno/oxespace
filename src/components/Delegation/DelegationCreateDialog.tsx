@@ -14,6 +14,7 @@ export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceI
   onCreated?(task: DelegationTask): void
 }) {
   const workspaceId = thread?.workspaceId ?? suppliedWorkspaceId ?? ''
+  const threadProjectId = thread?.projectId
   const origin = suppliedOrigin ?? { kind: 'thread' as const, id: thread?.id ?? '' }
   const [profiles, setProfiles] = useState<AgentProfile[]>([])
   const [profileId, setProfileId] = useState('')
@@ -31,6 +32,7 @@ export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceI
   const [reference, setReference] = useState('')
   const [template, setTemplate] = useState(() => { try { return localStorage.getItem(`oxe.delegation.template.${workspaceId}`) || 'oxe/{slug}-{shortId}' } catch { return 'oxe/{slug}-{shortId}' } })
   const [mode, setMode] = useState<'analysis' | 'isolated-change'>('isolated-change')
+  const [surface, setSurface] = useState<'thread' | 'terminal'>('thread')
   const [evidence, setEvidence] = useState('')
   const [sessions, setSessions] = useState<ConversationThread[]>([])
   const [sourceThreadIds, setSourceThreadIds] = useState<string[]>(origin.kind === 'thread' && origin.id ? [origin.id] : [])
@@ -60,17 +62,13 @@ export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceI
     const threadApi = window.oxe.thread
     if (!threadApi) { setSessionsLoading(false); return }
     setSessionsLoading(true)
-    void threadApi.projects().catch(() => ({ projects: [], unavailable: [] })).then(async catalog => {
-      const project = catalog.projects.find(item => item.projectId === thread?.projectId)
-        ?? catalog.projects.find(item => item.contexts.some(context => context.workspaceId === workspaceId))
-      const workspaceIds = [...new Set(project?.contexts.map(context => context.workspaceId) ?? [workspaceId])]
-      const pages = await Promise.all(workspaceIds.map(id => threadApi.list(id)))
-      if (active) setSessions([...new Map(pages.flat().map(item => [item.id, item])).values()]
+    void threadApi.list().then(async sessions => {
+      if (active) setSessions(sessions.filter(item => threadProjectId ? item.projectId === threadProjectId : item.workspaceId === workspaceId)
         .filter(item => !item.archived).sort((a, b) => b.updatedAt - a.updatedAt))
     }).catch(cause => { if (active) setError(`Could not load conversations: ${String(cause)}`) })
       .finally(() => { if (active) setSessionsLoading(false) })
     return () => { active = false }
-  }, [workspaceId, thread?.projectId])
+  }, [workspaceId, threadProjectId])
   const intent = useMemo<DelegationBranchIntent>(() => strategy === 'generated'
     ? { strategy, reference: reference.trim() || undefined, template: template.trim() || undefined, baseRef: baseRef.trim() || undefined, remote: remote.trim() || undefined, fetchBase }
     : { strategy, name: branch || undefined, baseRef: baseRef.trim() || undefined, remote: remote.trim() || undefined, reuseExistingWorktree: reuse, fetchBase }, [strategy, reference, template, branch, baseRef, remote, reuse, fetchBase])
@@ -91,7 +89,7 @@ export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceI
     try {
       const task = await window.oxe.delegation.create(workspaceId, origin, { schemaVersion: 2, key: requestKey.current,
         agentProfileId: profileId, objective: objective.trim(), handoff: handoff.trim(), acceptance: acceptance.trim(),
-        targetWorkspaceId: targetId, surface: 'thread', mode, evidenceFiles: evidence.split(/\r?\n/).map(path => path.trim()).filter(Boolean),
+        targetWorkspaceId: targetId, surface, mode, evidenceFiles: evidence.split(/\r?\n/).map(path => path.trim()).filter(Boolean),
         branchIntent: intent, previewId: preview.previewId, sourceThreadIds, includeMemory })
       onCreated?.(task); onClose()
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) }
@@ -101,8 +99,9 @@ export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceI
     <div className="delegation-form-body">
       <div className="delegation-context-row">
         <label>Agent<select value={profileId} disabled={loading} onChange={event => setProfileId(event.target.value)}>{profiles.map(profile => <option key={profile.agentProfileId} value={profile.agentProfileId}>{profile.name}</option>)}</select></label>
-        <label>Destination<select value={targetId} disabled={loading} onChange={event => setTargetId(event.target.value)}><option value={workspaceId}>This project · new worktree</option>{destinations.filter(target => target.workspaceId !== workspaceId).map(target => <option key={target.workspaceId} value={target.workspaceId}>{target.name}</option>)}</select></label>
+        <label>Destination<select value={targetId} disabled={loading} onChange={event => { setTargetId(event.target.value); if (event.target.value.startsWith('thread:')) setSurface('thread') }}><option value={workspaceId}>This project · new worktree</option>{destinations.filter(target => target.workspaceId !== workspaceId).map(target => <option key={target.workspaceId} value={target.workspaceId}>{target.name}</option>)}</select></label>
         <label>Mode<select value={mode} onChange={event => setMode(event.target.value as typeof mode)}><option value="isolated-change">Implement changes</option><option value="analysis">Analysis only</option></select></label>
+        <label>Open destination in<select value={surface} onChange={event => setSurface(event.target.value as typeof surface)}><option value="thread">Thread conversation</option>{!targetId.startsWith('thread:') && <option value="terminal">Code terminal</option>}</select></label>
       </div>
       <div className="delegation-columns">
         <section className="delegation-panel" aria-labelledby="delegation-task-heading">

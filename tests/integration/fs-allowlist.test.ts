@@ -44,6 +44,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   // they canonicalize the Thread root, reject traversal/symlinks, hash every
   // postimage and restore through temp+rename without destructive Git calls.
   'electron/main/services/conversation/thread-checkpoints.ts',
+  // Thread project registration only canonicalizes and checks the selected
+  // directory; source-file reads and writes remain in FileSystemService.
+  'electron/main/services/conversation/thread-projects.ts',
   'electron/main/services/shell-profile.service.ts',
   'electron/main/services/skill.service.ts',
   'electron/main/services/terminal.service.ts',

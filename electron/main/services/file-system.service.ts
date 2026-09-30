@@ -49,7 +49,7 @@ interface WatchEntry {
   timeout: NodeJS.Timeout | null
 }
 
-export type WorkspaceRootResolver = (workspaceId: string) => string | null
+export type WorkspaceRootResolver = (workspaceId: string, requestedRoot: string) => string | null
 
 export class FileSystemService {
   private readonly watchers = new Map<string, WatchEntry>()
@@ -180,7 +180,7 @@ export class FileSystemService {
   }
 
   private async authorizeRoot(workspaceId: string, requestedRoot: string): Promise<string> {
-    const authoritativeRoot = this.resolveWorkspaceRoot?.(workspaceId)
+    const authoritativeRoot = this.resolveWorkspaceRoot?.(workspaceId, requestedRoot)
     if (this.resolveWorkspaceRoot && !authoritativeRoot) {
       throw new Error(`Workspace ${workspaceId} not found`)
     }

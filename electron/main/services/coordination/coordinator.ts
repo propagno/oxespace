@@ -6,6 +6,7 @@ import type { WorkspaceService } from '../workspace.service'
 import { projectIdentity } from '../memory/memory-project.service'
 import { CoordinationAuthorization } from './authorization'
 import { registerLocalRepository } from './workspace-resolver'
+import { ThreadProjectService } from '../conversation/thread-projects'
 
 const GRANT_TTL = 30 * 24 * 60 * 60 * 1000
 export class TaskCoordinator {
@@ -15,6 +16,25 @@ export class TaskCoordinator {
   }
   async configureTarget(originWorkspace: string, path: string, enabled: boolean, allowEvidence: boolean): Promise<void> {
     if (typeof enabled !== 'boolean' || typeof allowEvidence !== 'boolean') throw new Error('Invalid consent')
+    if (originWorkspace.startsWith('thread:')) {
+      const threadProjects = new ThreadProjectService(this.db)
+      const origin = threadProjects.context(originWorkspace.slice('thread:'.length))
+      const originProject = await projectIdentity(origin.rootPath)
+      if (!enabled) {
+        const target = (this.db.prepare('SELECT project_id FROM thread_project_contexts WHERE root_path = ?').get(path) as { project_id: string } | undefined)?.project_id
+        if (!target) throw Error('Thread destination not found')
+        this.db.prepare('DELETE FROM coordination_routes WHERE origin_project = ? AND target_workspace = ?').run(originProject, `thread:${target}`)
+        return
+      }
+      const target = await threadProjects.add(path)
+      const targetProject = await projectIdentity(target.contexts[0].rootPath)
+      if (targetProject === originProject) throw Error('Same-project delegation does not require a cross-project route')
+      this.db.prepare(`INSERT INTO coordination_routes VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(origin_project, target_workspace) DO UPDATE SET target_project=excluded.target_project,
+        expires_at=excluded.expires_at, allow_evidence=excluded.allow_evidence`)
+        .run(originProject, targetProject, `thread:${target.projectId}`, Date.now() + GRANT_TTL, Number(allowEvidence))
+      return
+    }
     const origin = this.workspace.get(originWorkspace)
     if (!origin) throw new Error('Workspace not found')
     const originProject = await projectIdentity(origin.rootPath)
@@ -35,8 +55,11 @@ export class TaskCoordinator {
   targets(project: string): DelegationTarget[] {
     return this.db.prepare(`SELECT w.id AS workspaceId, w.name, w.root_path AS rootPath,
       r.expires_at AS expiresAt, r.allow_evidence AS allowEvidence FROM coordination_routes r
-      JOIN workspaces w ON w.id=r.target_workspace WHERE r.origin_project=? AND r.expires_at>?`)
-      .all(project, Date.now()).map(row => ({ ...(row as DelegationTarget), allowEvidence: !!(row as DelegationTarget).allowEvidence }))
+      JOIN workspaces w ON w.id=r.target_workspace WHERE r.origin_project=? AND r.expires_at>?
+      UNION ALL SELECT 'thread:' || p.id AS workspaceId, p.display_name AS name, p.root_path AS rootPath,
+      r.expires_at AS expiresAt, r.allow_evidence AS allowEvidence FROM coordination_routes r
+      JOIN thread_projects p ON 'thread:' || p.id=r.target_workspace WHERE r.origin_project=? AND r.expires_at>? AND p.hidden=0`)
+      .all(project, Date.now(), project, Date.now()).map(row => ({ ...(row as DelegationTarget), allowEvidence: !!(row as DelegationTarget).allowEvidence }))
   }
   requireRoute(originProject: string, targetWorkspace: string, targetProject: string, evidence: boolean): void {
     if (originProject === targetProject) return

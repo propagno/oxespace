@@ -20,7 +20,8 @@ function fixture() {
   git('add', '.'); git('commit', '-m', 'base')
   const db = openInMemoryDatabase(); databases.push(db)
   db.prepare("INSERT INTO workspaces (id, name, root_path, layout, default_shell_profile_id) VALUES ('ws', 'Repo', ?, '1x1', 'builtin-powershell')").run(root)
-  db.prepare("INSERT INTO conversation_threads (id, workspace_id, data_json, events_json) VALUES ('thread', 'ws', '{}', '[]')").run()
+  db.prepare("INSERT INTO thread_projects (id, identity, root_path, display_name, created_at, updated_at) VALUES ('project', ?, ?, 'Repo', 1, 1)").run(root, root)
+  db.prepare("INSERT INTO conversation_threads (id, workspace_id, thread_project_id, data_json, events_json) VALUES ('thread', 'ws', 'project', '{}', '[]')").run()
   return { root, service: new ThreadCheckpointService(db) }
 }
 

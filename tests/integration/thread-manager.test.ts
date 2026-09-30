@@ -488,7 +488,8 @@ describe('thread persistence and ownership', () => {
     await f.manager.send(id, 'Investigate')
     f.db.prepare('DELETE FROM workspaces WHERE id = ?').run('A')
     expect(() => f.callbacks[0]({ type: 'delta', id: 'message', text: 'late output' })).not.toThrow()
-    expect(f.adapters[0].dispose).toHaveBeenCalledOnce()
+    expect(f.adapters[0].dispose).not.toHaveBeenCalled()
+    expect(f.manager.read(id).thread.id).toBe(id)
     await f.manager.stop()
   })
   it('persists streaming without duplicate final messages and isolates projects', async () => {
@@ -500,7 +501,7 @@ describe('thread persistence and ownership', () => {
     f.callbacks[0]({ type: 'completed', status: 'completed' })
     expect(f.manager.read(id).events.filter(event => event.type === 'message')).toHaveLength(2)
     expect(f.manager.read(other).events).toEqual([])
-    expect(f.manager.list('B').map(thread => thread.id)).toEqual([other])
+    expect(f.manager.list().map(thread => thread.id)).toEqual(expect.arrayContaining([id, other]))
     await f.manager.stop()
   })
   it('ignores callbacks captured by an older conversation generation', async () => {

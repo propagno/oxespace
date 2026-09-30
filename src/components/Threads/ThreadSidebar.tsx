@@ -1,6 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { Archive, ArchiveRestore, Check, ChevronDown, Circle, CircleAlert, CircleCheck, CircleX, Columns2, GitBranch, PanelsTopLeft, FolderPlus, Loader2, MoreHorizontal, Pencil, Pin, Plus, Square, Trash2, X, UserRound } from 'lucide-react'
-import type { Workspace } from '../../../shared/types/workspace'
+import { Archive, ArchiveRestore, Check, ChevronDown, Circle, CircleAlert, CircleCheck, CircleX, Columns2, GitBranch, PanelsTopLeft, FolderPlus, Loader2, MoreHorizontal, Pencil, Pin, Plus, Settings2, Square, Trash2, X, UserRound } from 'lucide-react'
 import type { ConversationThread } from '../../../shared/types/thread'
 import { DropdownMenu } from 'radix-ui'
 import { useThreadStore } from '../../store/thread.store'
@@ -13,6 +12,7 @@ import { DesktopDialog } from '../Navigation/DesktopDialog'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH, SIDEBAR_RESIZE_STEP, useNavigationPrefs } from '../../store/navigation-prefs.store'
 import { threadNavigationStatus } from './threadNavigationStatus'
+import { ThreadProjectSettingsDialog } from './ThreadProjectSettingsDialog'
 
 function relativeTime(timestamp: number): string {
   const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000))
@@ -23,15 +23,16 @@ function ProjectBranch({ workspaceId, rootPath }: { workspaceId?: string; rootPa
   const label = status?.branch || (status?.detached && status.shortSha ? `Detached · ${status.shortSha}` : status ? 'Branch unavailable' : 'Loading branch…')
   return <span className="thread-project-branch" title={`${rootPath ?? ''}\n${status?.error || label}`}><GitBranch size={11} aria-hidden="true" /><span>{label}</span></span>
 }
-export function ThreadSidebar({ workspaces, onCreate, onModeChange, onAccounts, onAddProject }: {
-  workspaces: Workspace[]; onCreate: (workspaceId: string, rootPath?: string) => void; onModeChange?: () => void; onAccounts?: () => void; onAddProject?: () => void
+export function ThreadSidebar({ onCreate, onModeChange, onAccounts, onAddProject, onOpenInCode }: {
+  onCreate: (projectId: string, rootPath?: string) => void; onModeChange?: () => void; onAccounts?: () => void; onAddProject?: () => void; onOpenInCode?: (rootPath: string) => Promise<void>
 }) {
-  const { threads, projects, selectedId, secondaryId, expanded, errors, loading, select, openSecondary, toggle, hiddenProjects, unreadIds, markRead, markUnread } = useThreadStore()
+  const { threads, projects, unavailableProjects, selectedId, secondaryId, expanded, errors, loading, select, openSecondary, toggle, hiddenProjects, unreadIds, markRead, markUnread } = useThreadStore()
   const [confirmation, setConfirmation] = useState<{ kind: 'thread' | 'archive' | 'project'; id: string; title: string } | null>(null)
   const [actionError, setActionError] = useState(''), [acting, setActing] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
   const [restoringId, setRestoringId] = useState<string | null>(null)
   const [renameTarget, setRenameTarget] = useState<ConversationThread | null>(null)
+  const [projectSettingsId, setProjectSettingsId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const width = useNavigationPrefs(s => s.width), setWidth = useNavigationPrefs(s => s.setWidth)
   const collapsed = useUIStore(s => s.isSidebarCollapsed), toggleCollapse = useUIStore(s => s.toggleSidebar)
@@ -42,18 +43,17 @@ export function ThreadSidebar({ workspaces, onCreate, onModeChange, onAccounts, 
   const selected = threads.find(t => t.id === selectedId)
   const matches = (thread: ConversationThread, name: string) => !thread.archived && !hiddenProjects.includes(thread.projectId) && `${name} ${thread.title} ${thread.provider} ${thread.rootPath}`.toLowerCase().includes(query.toLowerCase())
   const groups = useMemo(() => {
-    const catalog = new Map(projects.map(p => [p.projectId, { id: p.projectId, name: p.displayName, path: p.identityLabel, workspaceId: p.contexts[0]?.workspaceId, rootPath: p.contexts[0]?.rootPath, threads: [] as ConversationThread[] }]))
+    const catalog = new Map(projects.map(p => [p.projectId, { id: p.projectId, name: p.displayName, path: p.identityLabel, rootPath: p.contexts[0]?.rootPath, threads: [] as ConversationThread[] }]))
     for (const thread of threads) {
       if (thread.archived) continue
-      const ws = workspaces.find(w => w.id === thread.workspaceId)
-      if (!ws) continue
-      const group = catalog.get(thread.projectId) ?? { id: thread.projectId, name: ws.name, path: ws.rootPath, workspaceId: ws.id, rootPath: thread.rootPath, threads: [] }
+      const group = catalog.get(thread.projectId)
+      if (!group) continue
       group.threads.push(thread); catalog.set(thread.projectId, group)
     }
     return [...catalog.values()].map(g => ({ ...g, threads: g.threads.filter(t => !t.pinned && `${g.name} ${t.title} ${t.provider} ${t.rootPath}`.toLowerCase().includes(query.toLowerCase())).sort((a, b) => b.updatedAt - a.updatedAt) }))
       .filter(g => !hiddenProjects.includes(g.id) && (!query || g.threads.length || g.name.toLowerCase().includes(query.toLowerCase())))
       .sort((a, b) => (b.threads[0]?.updatedAt ?? 0) - (a.threads[0]?.updatedAt ?? 0) || a.name.localeCompare(b.name))
-  }, [projects, threads, workspaces, query, hiddenProjects])
+  }, [projects, threads, query, hiddenProjects])
   const archived = useMemo(() => threads.filter(thread => thread.archived && !hiddenProjects.includes(thread.projectId)
     && `${thread.title} ${thread.provider} ${thread.rootPath} ${projects.find(project => project.projectId === thread.projectId)?.displayName ?? ''}`.toLowerCase().includes(query.toLowerCase()))
     .sort((a, b) => b.updatedAt - a.updatedAt), [threads, projects, hiddenProjects, query])
@@ -103,16 +103,18 @@ export function ThreadSidebar({ workspaces, onCreate, onModeChange, onAccounts, 
       </div>
       <nav className="thread-project-list" aria-label="Thread projects">
         {loading && !threads.length && <p className="thread-nav-empty" role="status">Loading conversations…</p>}
-        {Object.entries(errors).map(([id, error]) => <div key={id} className="thread-catalog-error" role="alert"><p>{error}</p><button type="button" onClick={() => { void useThreadStore.getState().load(workspaces.map(w => w.id)); void useThreadStore.getState().loadProjects() }}>Retry</button></div>)}
+        {Object.entries(errors).map(([id, error]) => <div key={id} className="thread-catalog-error" role="alert"><p>{error}</p><button type="button" onClick={() => { void useThreadStore.getState().load(); void useThreadStore.getState().loadProjects() }}>Retry</button></div>)}
         {threads.some(t => t.pinned && matches(t, projects.find(p => p.projectId === t.projectId)?.displayName ?? '')) && <section><h2> Pinned</h2>{threads.filter(t => t.pinned && matches(t, projects.find(p => p.projectId === t.projectId)?.displayName ?? '')).map(row)}</section>}
         {!!groups.length && <h2>Projects</h2>}
         {groups.map(group => <section key={group.id} className={`thread-project-group${selected?.projectId === group.id ? ' is-active' : ''}`}>
           <div className="thread-project-heading">
-          <button type="button" className="thread-project-toggle" title={group.path} aria-expanded={query ? true : expanded[group.id] ?? true} onClick={() => toggle(group.id)}><ChevronDown size={12} /><span className="thread-project-name">{group.name}</span>{groups.filter(g => g.name === group.name).length > 1 && <small>{group.path.split(/[\\/]/).slice(-2).join('/')}</small>}</button>
-          <button type="button" className="thread-row-action" aria-label={`New thread in ${group.name}`} title="New thread in this project" disabled={!group.workspaceId} onClick={() => { if (group.workspaceId) onCreate(group.workspaceId, group.rootPath) }}><Plus size={14} /></button>
+          <button type="button" className="thread-project-toggle" title={group.path} aria-expanded={query ? true : expanded[group.id] ?? true} onClick={() => toggle(group.id)}><ChevronDown size={12} /><span className="thread-project-name">{group.name}</span>{unavailableProjects.includes(group.id) && <small>Directory missing</small>}{groups.filter(g => g.name === group.name).length > 1 && <small>{group.path.split(/[\\/]/).slice(-2).join('/')}</small>}</button>
+          <button type="button" className="thread-row-action" aria-label={`New thread in ${group.name}`} title="New thread in this project" disabled={!group.rootPath || unavailableProjects.includes(group.id)} onClick={() => onCreate(group.id, group.rootPath)}><Plus size={14} /></button>
+          <button type="button" className="thread-row-action" aria-label={`Settings for ${group.name}`} title="Thread project settings" onClick={() => setProjectSettingsId(group.id)}><Settings2 size={13} /></button>
+          {group.rootPath && <button type="button" className="thread-row-action" aria-label={`Open ${group.name} in Code`} title="Open this directory in Code" disabled={unavailableProjects.includes(group.id)} onClick={() => void onOpenInCode?.(group.rootPath!).catch(error => setActionError(error instanceof Error ? error.message : 'Could not open project in Code.'))}><PanelsTopLeft size={13} /></button>}
           <button type="button" className="thread-row-action" aria-label={`Remove project ${group.name}`} title="Remove project from Thread sidebar" onClick={() => { setActionError(''); setConfirmation({ kind: 'project', id: group.id, title: group.name }) }}><X size={13} /></button>
           </div>
-          <ProjectBranch workspaceId={selected?.projectId === group.id ? selected.workspaceId : group.workspaceId} rootPath={selected?.projectId === group.id ? selected.rootPath : group.rootPath} />
+          <ProjectBranch workspaceId={`thread:${group.id}`} rootPath={selected?.projectId === group.id ? selected.rootPath : group.rootPath} />
           {(query || (expanded[group.id] ?? true)) && <div className="thread-project-children"><div className="thread-project-count">{group.threads.length} {group.threads.length === 1 ? 'thread' : 'threads'}</div><div className="thread-project-rows">{group.threads.map(row)}</div></div>}
         </section>)}
         {archived.length > 0 && <section className="thread-archived-section" aria-label="Archived conversations">
@@ -129,12 +131,14 @@ export function ThreadSidebar({ workspaces, onCreate, onModeChange, onAccounts, 
           {hiddenProjects.map(id => {
             const project = projects.find(item => item.projectId === id)
             if (!project) return null
-            return <button key={id} type="button" className="thread-restore-project" title={project.identityLabel} onClick={() => useThreadStore.getState().restoreProject(id)}><ArchiveRestore size={13} aria-hidden="true" /><span>{project.displayName}</span><small>Restore</small></button>
+            return <button key={id} type="button" className="thread-restore-project" title={project.identityLabel} onClick={() => void useThreadStore.getState().restoreProject(id).catch(error => setActionError(error instanceof Error ? error.message : 'Could not restore project.'))}><ArchiveRestore size={13} aria-hidden="true" /><span>{project.displayName}</span><small>Restore</small></button>
           })}
         </section>}
       </nav>
     </>}
     <NavigationFooter className="thread-nav-footer" collapsed={collapsed} context={{ label: 'Accounts', ariaLabel: 'Agent accounts', icon: UserRound, onClick: onAccounts }} onToggle={toggleCollapse} />
+    {projectSettingsId && projects.find(project => project.projectId === projectSettingsId) &&
+      <ThreadProjectSettingsDialog project={projects.find(project => project.projectId === projectSettingsId)!} unavailable={unavailableProjects.includes(projectSettingsId)} onClose={() => setProjectSettingsId(null)} />}
     {renameTarget && <DesktopDialog className="thread-create-dialog" title="Rename conversation" description="The new name appears in the session list and conversation header." onClose={() => { if (!acting) setRenameTarget(null) }}>
       <form onSubmit={event => { event.preventDefault(); const title = renameValue.trim(); if (!title || !window.oxe.thread?.command) return
         setActing(true); setActionError('')
@@ -155,7 +159,7 @@ export function ThreadSidebar({ workspaces, onCreate, onModeChange, onAccounts, 
             else {
               if (!window.oxe.thread?.command) throw Error('Restart the updated application to delete threads.')
               await window.oxe.thread.command(confirmation.id, confirmation.kind === 'archive' ? '/archive confirm' : '/delete confirm')
-              await useThreadStore.getState().load(workspaces.map(workspace => workspace.id))
+              await useThreadStore.getState().load()
               if (confirmation.kind === 'archive') setShowArchived(true)
             }
             setConfirmation(null)
