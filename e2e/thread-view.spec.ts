@@ -1,5 +1,6 @@
 import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -8,6 +9,13 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
   const root = mkdtempSync(join(tmpdir(), 'oxespace-thread-ui-'))
   const repo = join(root, 'repo'); mkdirSync(repo)
   writeFileSync(join(repo, 'README.md'), '# Thread workbench fixture\n\nSearchable project content.\n')
+  const previewServer = createServer((_request, response) => {
+    response.setHeader('Content-Type', 'text/html')
+    response.end('<!doctype html><title>Thread preview</title>Ready')
+  })
+  await new Promise<void>(resolve => previewServer.listen(0, '127.0.0.1', resolve))
+  const address = previewServer.address()
+  const previewUrl = `http://127.0.0.1:${typeof address === 'object' && address ? address.port : 0}/`
   const app = await electron.launch({ args: [join(process.cwd(), 'e2e/electron-main.cjs')], env: {
     ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'app.sqlite3')
   } })
@@ -303,9 +311,9 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(projectTree.locator('.thread-session-provider .agent-provider-icon')).toHaveCSS('background-color', await page.evaluate(() => { const el = document.createElement('span'); el.style.backgroundColor = 'var(--provider-codex)'; document.body.append(el); const color = getComputedStyle(el).backgroundColor; el.remove(); return color }))
     await expect(projectTree.locator('.thread-session-indicator')).toHaveAttribute('data-status', 'ready')
     await expect(projectTree.locator('.thread-session-state')).toHaveText('Ready')
-    await app.evaluate(({BrowserWindow}) => BrowserWindow.getAllWindows()[0].webContents.send('mcp-internal:on-web-preview', {
-      workspaceId:(globalThis as Record<string, unknown>).e2eWorkspaceId, threadId:'e2e-thread', url:'http://localhost:3000', requestedAt:Date.now()
-    }))
+    await app.evaluate(({BrowserWindow}, url) => BrowserWindow.getAllWindows()[0].webContents.send('mcp-internal:on-web-preview', {
+      workspaceId:(globalThis as Record<string, unknown>).e2eWorkspaceId, threadId:'e2e-thread', url, requestedAt:Date.now()
+    }), previewUrl)
     await expect(page.locator('.thread-review-panel').getByTestId('browser-preview-native')).toHaveAttribute('data-thread-id','e2e-thread')
     await expect(page.locator('.thread-review-panel').getByTestId('browser-preview-native')).toHaveAttribute('data-workspace-id', await app.evaluate(() => String((globalThis as Record<string, unknown>).e2eWorkspaceId)))
     await page.getByRole('button',{name:'Close review panel'}).click()
@@ -822,5 +830,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await archived.getByRole('button', { name: 'Restore Archived agent work' }).click()
     await expect(page.locator('.thread-heading h1')).toHaveText('Archived agent work')
     await expect(page.getByRole('region', { name: 'Archived conversations' })).toHaveCount(0)
-  } finally { await app.close() }
+  } finally {
+    await app.close()
+    await new Promise<void>(resolve => previewServer.close(() => resolve()))
+  }
 })
