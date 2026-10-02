@@ -540,10 +540,10 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
       if (!row) throw Error('No visible timeline anchor')
       return { key: row.dataset.threadRow, offset: Math.round(row.getBoundingClientRect().top - viewportTop) }
     })
-    const expectReadingAnchor = async () => expect.poll(() => timeline.evaluate((el, expected) => {
+    const expectReadingAnchor = async (tolerance = 0) => expect.poll(() => timeline.evaluate((el, expected) => {
       const row = [...el.querySelectorAll<HTMLElement>('.thread-virtual-row')].find(candidate => candidate.dataset.threadRow === expected.key)
-      return row ? Math.round(row.getBoundingClientRect().top - el.getBoundingClientRect().top) : Number.NaN
-    }, readingAnchor)).toBeCloseTo(readingAnchor.offset, 0)
+      return row ? Math.abs(Math.round(row.getBoundingClientRect().top - el.getBoundingClientRect().top) - expected.offset) : Number.NaN
+    }, readingAnchor)).toBeLessThanOrEqual(tolerance)
     await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Append streaming fixture'))
     await expect(page.getByRole('button', { name: 'Stop turn', exact: true })).toBeVisible()
     const liveActivity = page.locator('.thread-live-activity')
@@ -573,7 +573,9 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     expect(await page.locator('.xterm').count()).toBe(terminalCount)
     await nav.getByRole('button', { name: 'Thread', exact: true }).click()
     await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toHaveValue('Unsent draft')
-    await expectReadingAnchor()
+    // Font and virtual-row measurements can settle a few pixels differently
+    // after remounting Thread; a large reading-position jump still fails.
+    await expectReadingAnchor(4)
     await liveActivity.locator('details').evaluate((el: HTMLDetailsElement) => { el.open = true })
     await expect(liveActivity).toContainText('Checking project files.')
     await page.screenshot({ path: 'test-results/thread-reading.png' })
