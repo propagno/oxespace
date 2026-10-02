@@ -32,6 +32,24 @@ function fixture(usageResult: unknown = {}, usageError = false, mcpResult: unkno
 }
 
 describe('Codex conversation adapter', () => {
+  it('resumes long native sessions without asking the app server for every turn', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: 'native-existing' }, event => f.events.push(event))
+    expect(f.requests).toContainEqual(expect.objectContaining({ method: 'thread/resume', params: expect.objectContaining({ threadId: 'native-existing', excludeTurns: true }) }))
+    await f.adapter.dispose()
+  })
+  it('accepts a large native command frame while retaining only bounded output', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
+    await f.adapter.send('Check the release')
+    f.emit({ method: 'item/completed', params: { threadId: 'native-A', turnId: 'turn-A', item: {
+      id: 'large-command', type: 'commandExecution', status: 'completed', command: 'release check', aggregatedOutput: 'x'.repeat(11 * 1024 * 1024)
+    } } })
+    f.emit({ method: 'turn/completed', params: { threadId: 'native-A', turn: { id: 'turn-A', status: 'completed' } } })
+    expect(f.events).toContainEqual(expect.objectContaining({ type: 'tool', id: 'large-command', state: 'completed', output: 'x'.repeat(65_536) }))
+    expect(f.events.at(-1)).toMatchObject({ type: 'completed', status: 'completed' })
+    await f.adapter.dispose()
+  })
   it('streams scoped provider summaries as activity without showing raw reasoning', async () => {
     const f = fixture()
     await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))

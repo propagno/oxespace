@@ -5,6 +5,11 @@ import { AgentRpcPeer, type AgentRpcMessage } from './rpc-peer'
 import { parseThreadUsage, threadFailure, ThreadAgentError } from './thread-failure'
 import { requestOutcome } from '../../../../shared/threadRequestOutcome'
 
+// Codex can send a completed command or compaction item as one JSON-RPC frame.
+// Long native sessions have produced frames above 10 MiB; keep a finite ceiling
+// while bounding the fields retained in Thread events below.
+const MAX_CODEX_PROTOCOL_FRAME_BYTES = 32 * 1024 * 1024
+
 export interface ConversationTransport {
   write(line: string): void
   onData(listener: (chunk: Uint8Array) => void): void
@@ -82,7 +87,9 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     const rpc = this.rpc = new AgentRpcPeer(
       line => this.transport.write(line),
       message => this.notification(message),
-      message => this.hostRequest(message)
+      message => this.hostRequest(message),
+      30_000,
+      MAX_CODEX_PROTOCOL_FRAME_BYTES
     )
     this.transport.onData(chunk => {
       try { rpc.push(chunk) } catch {
@@ -105,6 +112,9 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
       rpc.notify('initialized')
       const response = record(await rpc.request(context.nativeSessionId ? 'thread/resume' : 'thread/start', {
         ...(context.nativeSessionId ? { threadId: context.nativeSessionId } : {}),
+        // Thread renders its bounded local history separately. Hydrating all
+        // native turns here can produce a huge resume response for long sessions.
+        ...(context.nativeSessionId ? { excludeTurns: true } : {}),
         cwd: context.rootPath,
         modelProvider: 'openai',
         approvalPolicy: this.approvalPolicy,

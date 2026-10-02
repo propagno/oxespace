@@ -20,9 +20,10 @@ export class AgentRpcPeer {
     private readonly write: (line: string) => void,
     private readonly notification: (message: AgentRpcMessage) => void,
     private readonly serverRequest: (message: AgentRpcMessage) => void,
-    private readonly timeoutMs = 30_000
+    private readonly timeoutMs = 30_000,
+    maxFrameBytes = 1024 * 1024
   ) {
-    this.decoder = new JsonLinesDecoder(value => this.receive(value as AgentRpcMessage))
+    this.decoder = new JsonLinesDecoder(value => this.receive(value as AgentRpcMessage), maxFrameBytes)
   }
 
   push(chunk: Uint8Array): void {
