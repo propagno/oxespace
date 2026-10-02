@@ -1,4 +1,4 @@
-import { ChevronDown, MessagesSquare, Plus, Search, Wrench, Waypoints } from 'lucide-react'
+import { ChevronDown, FolderOpen, MessagesSquare, Plus, Search, Wrench, Waypoints } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { IntegrationGroup } from '../../../shared/types/integration'
 import type { Workspace } from '../../../shared/types/workspace'
@@ -244,22 +244,17 @@ export function Sidebar({
 
         <div className="sidebar-section-header">
           <span>Workspaces</span>
-          <button type="button" className="sidebar-section-action-btn" aria-label="Toggle all workspace terminals" onClick={() => {
+          {workspaces.length > 0 && !searchQuery && <button type="button" className="sidebar-section-action-btn" aria-label="Toggle all workspace terminals" onClick={() => {
             const shouldExpand = workspaces.some(w => !(expanded[w.id] ?? w.id === activeWorkspaceId))
             workspaces.forEach(w => setExpanded(w.id, shouldExpand))
-          }}><ChevronDown size={12} /></button>
+          }}><ChevronDown size={12} /></button>}
 
         </div>
 
         {filtered.length === 0 ? (
           <div className="sidebar-empty-state">
-            <div className="sidebar-empty-icon">📁</div>
-            <p>No workspaces found.</p>
-            {!searchQuery && (
-              <button type="button" className="sidebar-empty-btn" onClick={onNewWorkspace}>
-                Create workspace
-              </button>
-            )}
+            <FolderOpen size={22} aria-hidden="true" />
+            <p>{searchQuery ? 'No matching workspaces.' : 'No workspaces yet.'}</p>
           </div>
         ) : (
           filtered.map((ws) => (
@@ -271,6 +266,9 @@ export function Sidebar({
               duplicate={duplicateRoots.get(ws.id) ?? null}
               onSelect={handleSelectWorkspace}
               onClose={onCloseWorkspace}
+              terminalsExpanded={Boolean(searchQuery) || (expanded[ws.id] ?? ws.id === activeWorkspaceId)}
+              terminalCount={ws.panes.filter(p => p.type === 'terminal' && p.rowIndex >= 0 && p.columnIndex >= 0).length}
+              onToggleTerminals={searchQuery ? undefined : () => setExpanded(ws.id, !(expanded[ws.id] ?? ws.id === activeWorkspaceId))}
               isDragging={dragSourceId === ws.id}
               dropPosition={dragOverId === ws.id ? dropPosition : null}
               onDragStart={() => setDragSourceId(ws.id)}
@@ -291,10 +289,6 @@ export function Sidebar({
                 setDropPosition(null)
               }}
             />
-            <button type="button" className="sidebar-children-toggle" aria-expanded={Boolean(searchQuery) || (expanded[ws.id] ?? ws.id === activeWorkspaceId)}
-              onClick={() => setExpanded(ws.id, !(expanded[ws.id] ?? ws.id === activeWorkspaceId))}>
-              <ChevronDown size={12} /><span>{ws.panes.filter(p => p.type === 'terminal' && p.rowIndex >= 0 && p.columnIndex >= 0).length} terminals</span>
-            </button>
             {(searchQuery || (expanded[ws.id] ?? ws.id === activeWorkspaceId)) && <div className="sidebar-terminal-children">
               {ws.panes.filter(p => p.type === 'terminal' && p.rowIndex >= 0 && p.columnIndex >= 0).map((pane, index) =>
                 <PaneSessionRow key={pane.id} pane={pane} paneIndex={index} workspace={ws} agentProfiles={profiles}

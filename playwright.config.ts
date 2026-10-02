@@ -13,6 +13,7 @@ export default defineConfig({
   // for design review. Run them via `npm run bench:ui` / `npm run shots:ui`.
   testIgnore: [
     '**/perf-benchmark.spec.ts',
+    '**/browser-preview-performance.spec.ts',
     '**/screenshots.spec.ts',
     // Packaged-artifact smokes need a built installer and are driven by the
     // release leg of CI with OXESPACE_PACKAGED_EXECUTABLE set.

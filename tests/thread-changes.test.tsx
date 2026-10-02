@@ -75,7 +75,7 @@ describe('transparent file changes', () => {
     expect(screen.getByRole('menuitemradio', { name: 'Source control' })).toBeVisible()
     expect(screen.getByRole('menuitemradio', { name: 'Find in files' })).toBeVisible()
     expect(screen.getByRole('menuitemradio', { name: 'Scripts' })).toBeVisible()
-    expect(screen.getByRole('menuitemradio', { name: 'Background jobs' })).toBeVisible()
+    expect(screen.getByRole('menuitemradio', { name: 'Background activity' })).toBeVisible()
     expect(screen.getByRole('menuitemradio', { name: 'Web preview' })).toBeVisible()
     expect(screen.getByRole('menuitemradio', { name: 'Agents' })).toBeVisible()
   })

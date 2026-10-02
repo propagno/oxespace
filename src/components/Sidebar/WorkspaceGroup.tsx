@@ -1,10 +1,9 @@
-import { Check, GitBranch, GripVertical, Network, Pencil, Settings, Trash2, X } from 'lucide-react'
+import { Check, ChevronDown, GripVertical, Network, Pencil, Settings, Trash2, X } from 'lucide-react'
 import { memo, useEffect, useRef, useState, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import { selectIntegrationsForWorkspace, useIntegrationStore } from '../../store/integration.store'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
-import { useGitBranch } from '../../hooks/useGitBranch'
 import { useWorkspaceActivity, type WorkspaceActivity } from '../../hooks/useWorkspaceActivity'
 
 /** Position of this workspace among the ones sharing its root folder. */
@@ -20,6 +19,9 @@ interface WorkspaceGroupProps {
   duplicate?: WorkspaceDuplicate | null
   onSelect: (id: string) => void
   onClose: (id: string) => void
+  terminalsExpanded?: boolean
+  terminalCount?: number
+  onToggleTerminals?: () => void
   // Drag-and-drop handles managed by the parent Sidebar so the parent owns
   // the cross-row state (which row is the source, which is the drop target,
   // what side of the target the cursor sits on).
@@ -38,6 +40,9 @@ function WorkspaceGroupComponent({
   duplicate = null,
   onSelect,
   onClose,
+  terminalsExpanded = false,
+  terminalCount = 0,
+  onToggleTerminals,
   isDragging = false,
   dropPosition = null,
   onDragStart,
@@ -51,9 +56,6 @@ function WorkspaceGroupComponent({
   const setActiveIntegrationGroup = useIntegrationStore((s) => s.setActiveGroup)
   const updateSettings = useWorkspaceStore((s) => s.updateSettings)
   const activity = useWorkspaceActivity(workspace)
-  const branchStatus = useGitBranch(workspace.id, workspace.rootPath, isActive)
-  const branchLabel = branchStatus?.branch
-    ?? (branchStatus?.shortSha ? `detached ${branchStatus.shortSha}` : null)
 
   // Context-menu state lives next to the rename + confirm-remove state since
   // the menu triggers both. Menu coordinates are absolute viewport pixels so
@@ -185,7 +187,12 @@ function WorkspaceGroupComponent({
         role="button"
         tabIndex={0}
         onClick={handleHeaderClick}
-        onKeyDown={e => !renaming && e.key === 'Enter' && handleHeaderClick()}
+        onKeyDown={e => {
+          if (!renaming && e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault()
+            handleHeaderClick()
+          }
+        }}
         onContextMenu={handleContextMenu}
         data-testid="sidebar-workspace-select"
       >
@@ -228,18 +235,11 @@ function WorkspaceGroupComponent({
               >
                 {workspace.name}
               </span>
-              {branchLabel || duplicate ? (
+              {duplicate ? (
                 <div
                   className="ws-group-branch-row"
-                  title={branchLabel ? `Workspace root branch: ${branchLabel}\n${workspace.rootPath}\nEach terminal shows its own configured directory's branch.` : undefined}
                   data-testid="ws-group-meta"
                 >
-                  {branchLabel ? (
-                    <>
-                      <GitBranch size={10} className="ws-group-branch-icon" aria-hidden="true" />
-                      <span className="ws-group-branch-text">{branchLabel}</span>
-                    </>
-                  ) : null}
                   {duplicate ? (
                     <span
                       className="ws-group-dup-index"
@@ -255,6 +255,11 @@ function WorkspaceGroupComponent({
           )}
         </div>
         <div className="ws-group-trailing">
+          {terminalCount > 0 && onToggleTerminals ? (
+            <button type="button" className="ws-group-expand-btn" aria-label={`${terminalCount} terminals in ${workspace.name}${duplicate ? ` #${duplicate.index}` : ''}`} title={`${terminalCount} terminals`} aria-expanded={terminalsExpanded} onClick={(event) => { event.stopPropagation(); onToggleTerminals() }}>
+              <ChevronDown size={13} aria-hidden="true" />
+            </button>
+          ) : null}
           {integrations.length > 0 ? (
             <button
               type="button"
@@ -341,6 +346,10 @@ export const WorkspaceGroup = memo(
   (previous, next) =>
     previous.workspace === next.workspace &&
     previous.isActive === next.isActive &&
+    previous.duplicate?.index === next.duplicate?.index &&
+    previous.duplicate?.count === next.duplicate?.count &&
+    previous.terminalsExpanded === next.terminalsExpanded &&
+    previous.terminalCount === next.terminalCount &&
     previous.isDragging === next.isDragging &&
     previous.dropPosition === next.dropPosition
 )

@@ -46,6 +46,11 @@ ENV ELECTRON_DISABLE_SANDBOX=1
 ENV NODE_OPTIONS=--max-old-space-size=4096
 
 COPY docker/linux-verify.sh /usr/local/bin/linux-verify
-RUN chmod +x /usr/local/bin/linux-verify
+# Windows checkouts may supply CRLF despite the image using Linux. Normalize
+# only project shell entry points so the shebang and bash syntax remain valid.
+RUN sed -i 's/\r$//' /usr/local/bin/linux-verify \
+      /app/scripts/run-with-xvfb.sh /app/scripts/oxespace-smoke.sh \
+      /app/build/deb-after-install.sh \
+ && chmod +x /usr/local/bin/linux-verify
 
 CMD ["linux-verify"]

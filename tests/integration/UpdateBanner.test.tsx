@@ -49,7 +49,7 @@ describe('UpdateBanner', () => {
   test('renders nothing when up to date', async () => {
     render(<UpdateBanner />)
     await waitFor(() => {
-      expect(screen.queryByTestId('update-banners')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('rtk-update-indicator')).not.toBeInTheDocument()
     })
   })
 
@@ -84,7 +84,8 @@ describe('UpdateBanner', () => {
     expect(screen.queryByRole('button', { name: /Restart and install/i })).not.toBeInTheDocument()
   })
 
-  test('shows RTK update banner when sidecar is stale', async () => {
+  test('keeps an RTK update in the titlebar and opens its action on demand', async () => {
+    const user = userEvent.setup()
     useUpdaterStore.setState({
       rtk: {
         installed: true,
@@ -103,9 +104,12 @@ describe('UpdateBanner', () => {
 
     render(<UpdateBanner />)
 
-    await waitFor(() => {
-      expect(screen.getByTestId('rtk-update-banner')).toBeInTheDocument()
-      expect(screen.getByText(/RTK 1\.1\.0 available/i)).toBeInTheDocument()
-    })
+    const trigger = await screen.findByRole('button', { name: 'RTK update 1.1.0 available' })
+    expect(screen.queryByRole('dialog', { name: 'RTK update' })).not.toBeInTheDocument()
+    await user.click(trigger)
+    expect(screen.getByRole('dialog', { name: 'RTK update' })).toHaveTextContent('Installed 1.0.0')
+    expect(screen.getByRole('button', { name: 'Update RTK' })).toBeVisible()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: 'RTK update' })).not.toBeInTheDocument()
   })
 })

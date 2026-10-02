@@ -1,5 +1,6 @@
 import { Suspense, lazy, memo, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from 'react-resizable-panels'
+import { Activity, PlugZap } from 'lucide-react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceWorktreeStateInput, Workspace } from '../../../shared/types/workspace'
 import { WorkspaceGrid } from '../Grid/WorkspaceGrid'
@@ -154,6 +155,7 @@ function WorkspaceSurfaceComponent({
   // focused pane works somewhere else is actively misleading — so the panels
   // follow the active pane, and each header names what it is reading.
   const scopePinned = useUIStore((s) => s.panelScopePinnedByWorkspace[workspace.id] === true)
+  const openConnections = useUIStore((s) => s.openMcpPanel)
   const panelScope = useMemo(
     () => resolveWorkspaceScope(workspace, activePaneId, scopePinned),
     [workspace, activePaneId, scopePinned]
@@ -482,6 +484,12 @@ function WorkspaceSurfaceComponent({
         ) : null}
       </div>
       <div className="workspace-topbar-spacer" />
+      <button type="button" className="workspace-topbar-action" aria-label="Open connections" title="Connections and MCP servers" onClick={openConnections}>
+        <PlugZap size={14} aria-hidden="true" /><span>Connections</span>
+      </button>
+      <button type="button" className="workspace-topbar-action" aria-label="Toggle background activity" title="Local jobs and delegated work" aria-pressed={backgroundVisible} onClick={() => onUpdateBackgroundState({ workspaceId: workspace.id, backgroundPanelVisible: !backgroundVisible, backgroundPanelExpanded: false })}>
+        <Activity size={14} aria-hidden="true" /><span>Activity</span>
+      </button>
       <WorkspaceStatusSummary workspace={workspace} />
       <IntegrationsStatusChips workspace={workspace} isActive={isActive} />
     </header>
@@ -496,7 +504,7 @@ function WorkspaceSurfaceComponent({
   // mounted.
   const isMaximized = Boolean(maximizedPaneId)
   const showSidePanels = hasSidePanels && !isMaximized
-  const sideLabels: Record<string, string> = { github: 'Source control', review: 'Review', editor: 'Files', background: 'Background jobs', worktree: 'Worktrees', scripts: 'Scripts', 'web-preview': 'Web preview', integration: 'Integrations', search: 'Find in files' }
+  const sideLabels: Record<string, string> = { github: 'Source control', review: 'Review', editor: 'Files', background: 'Background activity', worktree: 'Worktrees', scripts: 'Scripts', 'web-preview': 'Web preview', integration: 'Integrations', search: 'Find in files' }
   const persistSideWidth = (size: number): void => {
     outerSideSizeRef.current = size
     const width = Math.round(size)

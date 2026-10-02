@@ -4,7 +4,7 @@ import { JsonLinesDecoder } from './json-lines'
 
 export const CLAUDE_THREAD_ARGS = ['--print', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose',
   '--permission-mode', 'plan', '--permission-prompts', 'host', '--tools', 'default',
-  '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}', '--settings', '{"disableAllHooks":true,"disableSkillShellExecution":true}']
+  '--settings', '{"disableAllHooks":true,"disableSkillShellExecution":true}']
 
 /** SDK initialize handshake. It enumerates the installed CLI, without a user prompt. */
 export function claudeCommandCatalog(transport: ConversationTransport): Promise<ThreadCommand[]> {

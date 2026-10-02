@@ -30,6 +30,21 @@
   height: 100%;
 }
 
+@media (max-width: 760px) {
+  .workspace-split-grid:not([data-maximized-pane]) .split-pane-slot:not([data-compact-active]) {
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .workspace-split-grid:not([data-maximized-pane]) .split-pane-slot[data-compact-active] {
+    left: var(--pane-gap, 8px) !important;
+    top: var(--pane-gap, 8px) !important;
+    width: calc(100% - 2 * var(--pane-gap, 8px)) !important;
+    height: calc(100% - 2 * var(--pane-gap, 8px)) !important;
+  }
+  .workspace-split-grid:not([data-maximized-pane]) .split-resize-handle,
+  .workspace-split-grid:not([data-maximized-pane]) .split-drag-grip { display: none; }
+}
+
 .split-resize-handle {
   position: absolute;
   z-index: 5;

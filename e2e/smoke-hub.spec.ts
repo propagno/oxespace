@@ -50,7 +50,7 @@ test('smoke: Tools hub and Agent Settings open from sidebar', async () => {
     await page.keyboard.press('Escape')
     await page.getByTestId('btn-open-tools').click()
     await page.getByText('MCP Servers', { exact: true }).click()
-    await expect(page.getByRole('dialog', { name: 'MCP servers' })).toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'Connections' })).toBeVisible()
     await page.getByRole('button', { name: 'Close' }).click()
 
     await page.getByTestId('btn-open-tools').click()

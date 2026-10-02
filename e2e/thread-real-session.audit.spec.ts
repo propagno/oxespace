@@ -2,6 +2,7 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import { copyFileSync, existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { execFileSync } from 'node:child_process'
 
 const source = process.env.OXESPACE_AUDIT_DB
 const threadId = process.env.OXESPACE_AUDIT_THREAD_ID
@@ -88,6 +89,18 @@ test('audit a copied real Thread conversation across viewports', async () => {
     writeFileSync(join(output, 'metrics.json'), JSON.stringify(results, null, 2))
     console.log('Audit rows', await page.locator('.thread-virtual-space').getAttribute('data-total-rows'), 'overlaps', results.reduce((sum, row) => sum + ((row.overlaps as unknown[] | undefined)?.length ?? 0), 0), 'sweep issues', results.filter(row => row.label === 'full-sweep').flatMap(row => row.issues as unknown[]).length)
     expect(results.filter(row => row.label === 'full-sweep').flatMap(row => row.issues as unknown[])).toEqual([])
-    expect(expandedPrompt).toEqual({ found: true, overlaps: 0 })
-  } finally { await app.close(); rmSync(root, { recursive: true, force: true }) }
+    // Some real sessions have no user prompt long enough to expose expansion.
+    // The dedicated Thread UI scenario exercises that control with a fixture.
+    expect(expandedPrompt.overlaps).toBe(0)
+  } finally {
+    const child = app.process()
+    if (process.platform === 'win32' && child.pid) {
+      try { execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }) } catch { child.kill() }
+    } else child.kill()
+    if (child.exitCode === null) await new Promise<void>(resolve => {
+      const timer = setTimeout(resolve, 5000)
+      child.once('exit', () => { clearTimeout(timer); resolve() })
+    })
+    rmSync(root, { recursive: true, force: true, maxRetries: 20, retryDelay: 500 })
+  }
 })

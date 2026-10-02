@@ -214,6 +214,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     },
     git: {
       getBranch: (input) => ipc.invoke(IPC_CHANNELS.git.getBranch, input) as Promise<import('../../shared/types/git').GitBranchStatus>,
+      getStatus: (input) => ipc.invoke(IPC_CHANNELS.git.getStatus, input) as Promise<import('../../shared/types/git').GitControlStatus>,
       getDiff: (input) => ipc.invoke(IPC_CHANNELS.git.getDiff, input) as Promise<GitDiff>,
       onDiffUpdate: (listener) => subscribe<GitDiff>(ipc, IPC_CHANNELS.git.onDiffUpdate, listener)
     },
@@ -367,6 +368,21 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       captureWebPreview: () => ipc.invoke(IPC_CHANNELS.mcpInternal.captureWebPreview) as Promise<void>,
       onWebPreview: (listener) => subscribe<import('../../shared/types/mcp-internal').InternalMcpWebPreviewEvent>(ipc, IPC_CHANNELS.mcpInternal.onWebPreview, listener),
       onWorktreeChanged: (listener) => subscribe<import('../../shared/types/mcp-internal').InternalMcpWorktreeChangedEvent>(ipc, IPC_CHANNELS.mcpInternal.onWorktreeChanged, listener)
+    },
+    browserPreview: {
+      session: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.session, input) as Promise<import('../../shared/types/browser-preview').BrowserPreviewSessionState>,
+      mount: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.mount, input) as Promise<import('../../shared/types/browser-preview').BrowserPreviewMountResult>,
+      bounds: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.bounds, input) as Promise<void>,
+      setAccess: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.setAccess, input) as Promise<void>,
+      designMode: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.designMode, input) as Promise<void>,
+      setZoom: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.setZoom, input) as Promise<void>,
+      reload: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.reload, input) as Promise<void>,
+      back: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.back, input) as Promise<void>,
+      forward: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.forward, input) as Promise<void>,
+      captureElement: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.captureElement, input) as Promise<string | null>,
+      captureClipboard: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.captureClipboard, input) as Promise<void>,
+      close: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.close, input) as Promise<void>,
+      onEvent: (listener) => subscribe<import('../../shared/types/browser-preview').BrowserPreviewEvent>(ipc, IPC_CHANNELS.browserPreview.onEvent, listener)
     },
     oxeContext: {
       buildPaneManifest: (input) => ipc.invoke(IPC_CHANNELS.oxeContext.buildPaneManifest, input) as Promise<string>

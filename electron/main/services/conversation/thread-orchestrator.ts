@@ -285,6 +285,7 @@ export class ThreadOrchestrator {
     snapshot.events.push({ type: 'message', id: turnId, role: 'user', text, ...(attachments.length ? { attachments: attachments.map(({ path: _path, ...attachment }) => attachment) } : {}) })
     snapshot.turns ??= []
     snapshot.turns.push({ id: turnId, operationId: operation.id, sequence: snapshot.turns.length + 1, startedAt: Date.now(), status: 'running', configuration: { model: snapshot.thread.model, reasoningEffort: snapshot.thread.reasoningEffort, access: snapshot.thread.access ?? 'read-only', networkAccess: snapshot.thread.networkAccess ?? false, approvalPolicy: snapshot.thread.approvalPolicy ?? 'on-request', mode: snapshot.thread.mode ?? 'default', hooksEnabled: snapshot.thread.hooksEnabled ?? false }, ...(attachmentIds.length ? { attachmentIds: [...attachmentIds] } : {}) })
+    snapshot.events.push({ type: 'activity', id: `activity:${turnId}:preparing`, phase: 'preparing', at: Date.now() })
     this.save(snapshot, { eventsFrom, operationId: operation.id })
     try {
       // Publish the accepted prompt before repository snapshots or agent startup can block the UI.
@@ -295,6 +296,7 @@ export class ThreadOrchestrator {
       ])
       if (checkpointId) this.turnCheckpoints.set(turnId, checkpointId)
       if (baseline !== undefined) this.workingTreeBaselines.set(id, baseline)
+      this.event(id, { type: 'activity', id: `activity:${turnId}:connecting`, phase: 'connecting', at: Date.now() })
       const adapter = await this.connectAdapter(id, snapshot.thread, false)
       this.history.transitionOperation(id, operation.id, 'sent')
       if (attachments.length) await adapter.send(input.text, input.skill, attachments)
@@ -766,6 +768,11 @@ export class ThreadOrchestrator {
       return
     }
     if (generation !== undefined && generation !== (snapshot.thread.generation ?? 1)) return
+    if (event.type === 'native-signal') {
+      snapshot.thread.connection = this.sessions.nativeSignal(id, event.at)
+      this.save(snapshot, { eventsFrom: snapshot.events.length })
+      return
+    }
     const activeTurn = snapshot.turns?.at(-1)
     const operationId = activeTurn?.operationId
     let eventsFrom = snapshot.events.length
@@ -773,12 +780,19 @@ export class ThreadOrchestrator {
     if (event.type === 'request') {
       const adapter = this.adapters.get(id)
       event.request.generation = snapshot.thread.generation ?? 1
-      if (adapter?.respondRequest) this.requests.register(id, event.request, response => adapter.respondRequest!(event.id, response))
+      if (adapter?.respondRequest) this.requests.register(id, event.request, response => adapter.respondRequest!(event.id, response), expired => {
+        try { this.event(id, { type: 'request-resolved', id: expired.id, state: 'expired', resolution: 'unknown', resolvedAt: expired.resolvedAt }, expired.generation) }
+        catch { /* The conversation may have been deleted while the timer was pending. */ }
+      })
     } else if (event.type === 'request-resolved' && event.state !== 'pending') {
       this.requests.settle(id, event.id, event.state)
       const requestIndex = snapshot.events.findIndex(value => value.type === 'request' && value.id === event.id)
       const request = requestIndex >= 0 ? snapshot.events[requestIndex] : undefined
-      if (request?.type === 'request') request.request.state = event.state
+      if (request?.type === 'request') {
+        request.request.state = event.state
+        request.request.resolution = event.resolution ?? 'unknown'
+        request.request.resolvedAt = event.resolvedAt ?? Date.now()
+      }
       if (requestIndex >= 0) eventsFrom = Math.min(eventsFrom, requestIndex)
     }
     if (activeTurn?.status === 'running' && (event.type === 'tool' || event.type === 'subagent' || event.type === 'turn-diff' || event.type === 'plan') && event.turnId) activeTurn.nativeId = event.turnId
@@ -828,11 +842,12 @@ export class ThreadOrchestrator {
       const needsCheckpoint = Boolean(turn && this.turnCheckpoints.has(turn.id))
       if (needsVerifiedDiff || needsCheckpoint) this.finalizing.add(id)
       for (const request of this.requests.invalidate(id, event.status === 'completed' ? 'expired' : 'cancelled')) {
+        const resolution = event.status === 'completed' ? 'turn-completed' : event.status === 'interrupted' ? 'interrupted' : 'turn-failed'
         const requestIndex = snapshot.events.findIndex(value => value.type === 'request' && value.id === request.id)
         const persisted = requestIndex >= 0 ? snapshot.events[requestIndex] : undefined
-        if (persisted?.type === 'request') persisted.request.state = request.state
+        if (persisted?.type === 'request') Object.assign(persisted.request, { state: request.state, resolution, resolvedAt: request.resolvedAt })
         if (requestIndex >= 0) eventsFrom = Math.min(eventsFrom, requestIndex)
-        snapshot.events.push({ type: 'request-resolved', id: request.id, state: request.state })
+        snapshot.events.push({ type: 'request-resolved', id: request.id, state: request.state, resolution, resolvedAt: request.resolvedAt })
       }
       const unresolved = snapshot.events.filter(value => value.type === 'approval' && !snapshot.events.some(resolved => resolved.type === 'approval-resolved' && resolved.id === value.id))
       for (const approval of unresolved) if (approval.type === 'approval') snapshot.events.push({ type: 'approval-resolved', id: approval.id })

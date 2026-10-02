@@ -620,6 +620,93 @@
   accent-color: var(--accent);
 }
 
+.web-preview-native-host {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  background: #070b10;
+}
+
+.web-preview-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 3px;
+  min-height: 32px;
+  overflow-x: auto;
+  padding: 3px 7px 0;
+  border-bottom: 1px solid var(--border, #383d49);
+  background: var(--surface-2, #20232d);
+}
+
+.web-preview-tab {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  max-width: 180px;
+  min-width: 86px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  color: var(--tx-muted, #a9b0c0);
+}
+
+.web-preview-tab[data-active="true"] {
+  border-color: var(--border, #383d49);
+  color: var(--tx-primary, #edf1f6);
+  background: var(--surface-1, #282c36);
+}
+
+.web-preview-tab[data-error="true"] > svg { color: var(--status-error, #f08484); }
+.web-preview-tab > svg { flex: 0 0 auto; align-self: center; margin-left: 7px; }
+.web-preview-tab-spinner { animation: web-preview-spin 1s linear infinite; }
+@keyframes web-preview-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .web-preview-tab-spinner { animation: none; } }
+
+.web-preview-retry {
+  margin-top: 4px;
+  padding: 7px 14px;
+  border: 1px solid var(--border, #383d49);
+  border-radius: 6px;
+  color: var(--tx-primary, #edf1f6);
+  background: var(--surface-2, #20232d);
+  cursor: pointer;
+}
+.web-preview-retry:hover { background: var(--surface-1, #282c36); }
+.web-preview-retry:focus-visible { outline: 2px solid var(--accent, #80aaff); outline-offset: 2px; }
+
+.web-preview-tab button,
+.web-preview-new-tab {
+  border: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.web-preview-tab button:first-child {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  padding: 5px 8px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.web-preview-tab button:last-child,
+.web-preview-new-tab {
+  display: inline-grid;
+  place-items: center;
+  width: 25px;
+  min-width: 25px;
+}
+
+.web-preview-tab button:hover,
+.web-preview-new-tab:hover {
+  color: var(--tx-primary, #edf1f6);
+}
+
 .web-preview-agent-access {
   display: flex;
   flex: 0 0 auto;

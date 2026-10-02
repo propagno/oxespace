@@ -91,17 +91,23 @@ describe('Sidebar', () => {
     // Path is not shown on the card (lives in the name tooltip only).
     expect(screen.queryByText('C:/projects/repo')).not.toBeInTheDocument()
     expect(screen.queryByText('projects/repo')).not.toBeInTheDocument()
-    // Card meta surfaces the git branch when available.
-    await waitFor(() => {
-      expect(screen.getByTestId('ws-group-meta')).toBeInTheDocument()
-      expect(screen.getAllByText('feature/sidebar').length).toBeGreaterThan(0)
-    })
+    // The branch belongs in the pane header, not in every sidebar row.
+    expect(screen.queryByTestId('ws-group-meta')).not.toBeInTheDocument()
+    expect(screen.queryByText('feature/sidebar')).not.toBeInTheDocument()
     // Sidebar no longer expands to expose individual pane rows — clean
     // workspace-only list. Per-pane controls (rename, activate) moved into
     // the terminal pane header.
     expect(screen.queryAllByTestId('pane-session-row')).toHaveLength(2)
-    await user.click(screen.getByRole('button', { name: '2 terminals' }))
+    const terminalToggle = screen.getByRole('button', { name: '2 terminals in repo' })
+    expect(terminalToggle).toHaveAttribute('aria-expanded', 'true')
+    await user.click(terminalToggle)
     expect(screen.queryAllByTestId('pane-session-row')).toHaveLength(0)
+    expect(terminalToggle).toHaveAttribute('aria-expanded', 'false')
+    terminalToggle.focus()
+    await user.keyboard('{Enter}')
+    expect(screen.queryAllByTestId('pane-session-row')).toHaveLength(2)
+    expect(terminalToggle).toHaveAttribute('aria-expanded', 'true')
+    expect(onSelectWorkspace).not.toHaveBeenCalled()
 
     await user.click(screen.getByTestId('btn-new-workspace'))
     expect(onNewWorkspace).toHaveBeenCalled()
@@ -189,5 +195,48 @@ describe('Sidebar', () => {
     // The workspace on its own folder stays unmarked — the badge means
     // "there is another one of these", not "this is a workspace".
     expect(screen.getAllByTestId('ws-group-dup-index')).toHaveLength(2)
+  })
+
+  test('expands same-name workspaces independently and keeps each chevron in sync', async () => {
+    const user = userEvent.setup()
+    const twin: Workspace = {
+      ...workspace,
+      id: 'workspace-2',
+      isActive: false,
+      panes: workspace.panes.map((pane, index) => ({ ...pane, id: `twin-pane-${index}`, workspaceId: 'workspace-2' }))
+    }
+    render(<Sidebar workspaces={[workspace, twin]} activeWorkspaceId={workspace.id} appVersion="test"
+      onNewWorkspace={vi.fn()} onSelectWorkspace={vi.fn()} onCloseWorkspace={vi.fn()}
+      isCollapsed={false} onToggleCollapse={vi.fn()} onOpenTools={vi.fn()} />)
+
+    const first = screen.getByRole('button', { name: '2 terminals in repo #1' })
+    const second = screen.getByRole('button', { name: '2 terminals in repo #2' })
+    expect(first).toHaveAttribute('aria-expanded', 'true')
+    expect(second).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getAllByTestId('pane-session-row')).toHaveLength(2)
+
+    await user.click(second)
+    expect(second).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getAllByTestId('pane-session-row')).toHaveLength(4)
+    await user.click(first)
+    expect(first).toHaveAttribute('aria-expanded', 'false')
+    expect(second).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getAllByTestId('pane-session-row')).toHaveLength(2)
+  })
+
+  test('search reveals matching terminals without presenting an ineffective collapse control', async () => {
+    const user = userEvent.setup()
+    render(<Sidebar workspaces={[workspace]} activeWorkspaceId={workspace.id} appVersion="test"
+      onNewWorkspace={vi.fn()} onSelectWorkspace={vi.fn()} onCloseWorkspace={vi.fn()}
+      isCollapsed={false} onToggleCollapse={vi.fn()} onOpenTools={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: '2 terminals in repo' }))
+    expect(screen.queryAllByTestId('pane-session-row')).toHaveLength(0)
+    await user.type(screen.getByRole('searchbox', { name: 'Filter workspaces' }), 'repo')
+    expect(screen.getAllByTestId('pane-session-row')).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: '2 terminals in repo' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Toggle all workspace terminals' })).not.toBeInTheDocument()
+    await user.clear(screen.getByRole('searchbox', { name: 'Filter workspaces' }))
+    expect(screen.queryAllByTestId('pane-session-row')).toHaveLength(0)
+    expect(screen.getByRole('button', { name: '2 terminals in repo' })).toHaveAttribute('aria-expanded', 'false')
   })
 })

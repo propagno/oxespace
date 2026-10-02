@@ -2,9 +2,6 @@ const { pathToFileURL } = require('node:url')
 const { dirname, join } = require('node:path')
 const { app } = require('electron')
 
-if (process.env.OXESPACE_E2E_MOCK_NATIVE === '1' && process.env.OXESPACE_E2E_PREVIEW_SERVICE) {
-  globalThis.preview = new (require(process.env.OXESPACE_E2E_PREVIEW_SERVICE).PreviewAutomation)()
-}
 if (process.env.OXESPACE_E2E_MOCK_NATIVE === '1' && process.env.OXESPACE_E2E_PREVIEW_HANDLERS) {
   globalThis.previewHandlers = import(pathToFileURL(process.env.OXESPACE_E2E_PREVIEW_HANDLERS).href)
 }

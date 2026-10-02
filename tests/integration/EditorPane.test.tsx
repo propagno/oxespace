@@ -19,6 +19,7 @@ vi.mock('../../src/lib/monacoSetup', () => ({}))
 
 describe('EditorPane', () => {
   beforeEach(() => {
+    window.localStorage.removeItem('oxe.editor-tree-width')
     const tree: FileTreeNode[] = [
       {
         name: 'src',
@@ -96,6 +97,20 @@ describe('EditorPane', () => {
     expect(await screen.findByLabelText('monaco-typescript')).toHaveValue('const a = 1')
     expect(document.querySelector('.editor-body')).toBeInTheDocument()
     expect(document.querySelector('.editor-monaco-host')).toBeInTheDocument()
+  })
+
+  test('resizes the file tree with the keyboard and restores its width', async () => {
+    const user = userEvent.setup()
+    const { unmount } = render(<EditorPane workspaceId="workspace-1" rootPath="C:/repo" />)
+    const separator = screen.getByRole('separator', { name: 'File tree width' })
+    expect(separator).toHaveAttribute('aria-valuenow', '240')
+    separator.focus()
+    await user.keyboard('{ArrowRight}')
+    expect(separator).toHaveAttribute('aria-valuenow', '256')
+    await waitFor(() => expect(window.localStorage.getItem('oxe.editor-tree-width')).toBe('256'))
+    unmount()
+    render(<EditorPane workspaceId="workspace-1" rootPath="C:/repo" />)
+    expect(screen.getByRole('separator', { name: 'File tree width' })).toHaveAttribute('aria-valuenow', '256')
   })
 
   test('shows conflict without overwriting dirty content', async () => {

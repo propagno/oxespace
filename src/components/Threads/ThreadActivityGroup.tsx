@@ -3,6 +3,19 @@ import type { ThreadEvent } from '../../../shared/types/thread'
 type Tool = Extract<ThreadEvent, { type: 'tool' }>
 const names: Record<string, string> = { commandExecution: 'Ran command', fileChange: 'Changed files', mcpToolCall: 'Used integration', contextCompaction: 'Compacted context', Read: 'Read file', Glob: 'Found files', Grep: 'Searched code', Bash: 'Ran command', Edit: 'Edited file', Write: 'Wrote file', 'Tool result': 'Completed action' }
 
+function toolSummary(event: Tool): string {
+  const detail = event.detail.trim()
+  if (['commandExecution', 'Bash'].includes(event.name) && detail.startsWith('{')) {
+    try {
+      const input = JSON.parse(detail) as Record<string, unknown>
+      const command = input.command ?? input.cmd ?? input.command_line ?? input.shell_command
+      if (typeof command === 'string') return command.replace(/\s+/g, ' ').slice(0, 180)
+      if (Array.isArray(command)) return command.filter(value => typeof value === 'string').join(' ').slice(0, 180)
+    } catch { /* Keep the provider's text below for inspection. */ }
+  }
+  return detail.split('\n').find(line => line.trim() && line.trim() !== '{')?.slice(0, 180) ?? ''
+}
+
 function diagnosticKind(event: Tool): { label: string; className: string } {
   const text = `${event.detail}\n${event.output ?? ''}`
   if (/not reachable|unavailable after \d+ attempts|request timed out|ECONN(?:REFUSED|RESET)|outcome=infrastructure/i.test(text)) return { label: 'Infrastructure unavailable', className: 'is-infrastructure' }
@@ -10,20 +23,23 @@ function diagnosticKind(event: Tool): { label: string; className: string } {
   return { label: event.state === 'failed' ? 'Action failed' : event.state === 'running' ? 'In progress' : event.state === 'unknown' ? 'Result unconfirmed' : 'Completed', className: event.state === 'failed' ? 'is-failure' : event.state === 'unknown' ? 'is-unconfirmed' : '' }
 }
 
-function ThreadToolDiagnostic({ event }: { event: Tool }) {
+function ThreadToolDiagnostic({ event, onDiagnostics }: { event: Tool; onDiagnostics?: () => void }) {
   const kind = diagnosticKind(event)
   const detail = event.detail.trim(), output = event.output?.trim() ?? ''
   const technical = [detail && `Input\n${detail}`, output && `Output\n${output}`, event.exitCode !== undefined && `Exit code ${event.exitCode}`].filter(Boolean).join('\n\n')
-  const primary = (output || detail || kind.label).split('\n').find(Boolean) ?? kind.label
-  const verbose = technical.length > 800 || technical.split('\n').length > 8
+  const primary = event.state === 'failed'
+    ? output.split('\n').find(line => line.trim()) || `The action failed${event.exitCode !== undefined ? ` (exit code ${event.exitCode})` : ''}.`
+    : event.state === 'unknown' ? 'The agent did not confirm whether this action finished.'
+      : toolSummary(event) || output.split('\n').find(Boolean) || kind.label
   return <div className="thread-tool-diagnostic">
     <div className="thread-tool-diagnostic-meta"><span className={kind.className}>{kind.label}</span>{event.startedAt && event.completedAt && <time>{Math.max(0, event.completedAt - event.startedAt)} ms</time>}</div>
-    {verbose ? <><p>{primary.slice(0, 320)}</p><details className="thread-tool-technical"><summary>Technical details</summary><pre>{technical}</pre></details></>
-      : technical && <pre>{technical}</pre>}
+    <p>{primary.slice(0, 320)}</p>
+    {(event.state === 'failed' || event.state === 'unknown') && onDiagnostics && <button type="button" className="thread-tool-diagnostics-link" onClick={onDiagnostics}>Open session diagnostics</button>}
+    {technical && <details className="thread-tool-technical"><summary>Technical details</summary><pre>{technical}</pre></details>}
   </div>
 }
 
-export function ThreadActivityGroup({ events }: { events: Tool[] }) {
+export function ThreadActivityGroup({ events, onDiagnostics }: { events: Tool[]; onDiagnostics?: () => void }) {
   const running = events.some(event => event.state === 'running'), failures = events.filter(event => event.state === 'failed').length, unconfirmed = events.filter(event => event.state === 'unknown').length
   const commands = events.every(event => ['commandExecution', 'Bash'].includes(event.name))
   const reading = events.every(event => ['Read', 'Glob', 'Grep'].includes(event.name))
@@ -31,16 +47,24 @@ export function ThreadActivityGroup({ events }: { events: Tool[] }) {
     const event = events[0]
     return <details className={`thread-activity-single${event.state === 'failed' ? ' has-failure' : ''}`}>
       <summary>{event.state === 'running' ? <Loader2 size={14} className="thread-spin" /> : event.state === 'failed' ? <CircleAlert size={14} /> : event.state === 'unknown' ? <CircleHelp size={14} /> : <TerminalSquare size={14} />}
-        <span>{names[event.name] ?? event.name}<small>{event.detail.split('\n')[0]?.slice(0, 140)}</small></span><ChevronDown size={13} /></summary>
-      <ThreadToolDiagnostic event={event} />
+        <span>{names[event.name] ?? event.name}<small>{toolSummary(event)}</small></span><ChevronDown size={13} /></summary>
+      <ThreadToolDiagnostic event={event} onDiagnostics={onDiagnostics} />
     </details>
   }
   return <details className={`thread-activity-group${failures ? ' has-failure' : ''}`}>
-    <summary>{running ? <Loader2 size={14} className="thread-spin" /> : failures ? <CircleAlert size={14} /> : unconfirmed ? <CircleHelp size={14} /> : <Check size={14} />}<span>{running ? 'Working' : failures ? 'Actions need attention' : unconfirmed ? 'Actions need verification' : commands ? 'Ran commands' : reading ? 'Explored the project' : 'Completed actions'}<small> · {events.length} {events.length === 1 ? 'action' : 'actions'}{failures ? ` · ${failures} failed` : ''}{unconfirmed ? ` · ${unconfirmed} unconfirmed` : ''}</small></span><ChevronDown size={13} /></summary>
-    <div className="thread-activity-items">{events.map(event => <details key={event.id} className="thread-activity-item">
-      <summary><TerminalSquare size={13} /><span>{names[event.name] ?? event.name}<small>{event.detail.split('\n')[0]?.slice(0, 120)}</small></span><span className="thread-activity-state">{event.state === 'running' ? 'Running' : event.state === 'failed' ? 'Failed' : event.state === 'unknown' ? 'Unconfirmed' : 'Done'}</span></summary>
-      <ThreadToolDiagnostic event={event} />
-    </details>)}</div>
+    <summary>{running ? <Loader2 size={14} className="thread-spin" /> : failures ? <CircleAlert size={14} /> : unconfirmed ? <CircleHelp size={14} /> : <Check size={14} />}<span>{running ? 'Running actions' : failures ? 'Actions need attention' : unconfirmed ? 'Actions need verification' : commands ? 'Ran commands' : reading ? 'Explored the project' : 'Completed actions'}<small> · {events.length} {events.length === 1 ? 'action' : 'actions'}{failures ? ` · ${failures} failed` : ''}{unconfirmed ? ` · ${unconfirmed} unconfirmed` : ''}</small></span><ChevronDown size={13} /></summary>
+    <div className="thread-activity-items">{events.filter(event => event.state !== 'completed').map(event => renderItem(event, onDiagnostics))}
+      {events.some(event => event.state === 'completed') && <details className="thread-activity-completed"><summary>Completed actions <small>{events.filter(event => event.state === 'completed').length}</small><ChevronDown size={13} /></summary>
+        {events.filter(event => event.state === 'completed').map(event => renderItem(event, onDiagnostics))}
+      </details>}
+    </div>
+  </details>
+}
+
+function renderItem(event: Tool, onDiagnostics?: () => void) {
+  return <details key={event.id} className="thread-activity-item">
+    <summary><TerminalSquare size={13} /><span>{names[event.name] ?? event.name}<small>{toolSummary(event)}</small></span><span className="thread-activity-state">{event.state === 'running' ? 'Running' : event.state === 'failed' ? 'Failed' : event.state === 'unknown' ? 'Unconfirmed' : 'Done'}</span></summary>
+    <ThreadToolDiagnostic event={event} onDiagnostics={onDiagnostics} />
   </details>
 }
 

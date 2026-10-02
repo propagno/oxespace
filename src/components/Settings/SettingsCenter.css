@@ -1,6 +1,6 @@
 /* Settings is a desktop surface with independent navigation and content scroll. */
 .settings-center-overlay { z-index: 199; }
-.settings-center { position: fixed; inset: 0; z-index: 200; display: grid; grid-template-columns: 248px minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; background: var(--bg-app); color: var(--tx-primary); }
+.settings-center { position: fixed; inset: 0; z-index: 200; display: grid; grid-template-columns: var(--settings-navigation-width, 248px) minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; background: var(--bg-app); color: var(--tx-primary); }
 .settings-center-nav { display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 0; padding: 0 12px 12px; border-right: 1px solid var(--bd-base); background: var(--bg-sidebar); }
 .settings-center-title { display: flex; align-items: center; gap: 9px; height: var(--chrome-h); min-height: var(--chrome-h); margin: 0 -12px; padding: 0 var(--chrome-inset); border-bottom: 1px solid var(--bd-base); font-size: var(--fs-sm); font-weight: 600; letter-spacing: -.15px; }
 .settings-center-title svg { color: var(--tx-muted); }
@@ -32,6 +32,7 @@
 .settings-back { display: flex; align-items: center; gap: 8px; min-height: var(--control-h); padding: 6px 10px; border: 0; border-radius: var(--nav-radius); background: transparent; color: var(--tx-secondary); font-size: var(--fs-sm); cursor: pointer; }
 .settings-back:hover { background: color-mix(in srgb, var(--tx-primary) 4%, transparent); color: var(--tx-primary); }
 .settings-compact-category { display: none; }
+.settings-category-empty { color: var(--tx-muted); font-size: var(--fs-xs); }
 .settings-center-main { display: grid; grid-template-rows: var(--chrome-h) minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; }
 .settings-center-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; padding: 0 var(--chrome-inset); border-bottom: 1px solid var(--bd-base); }
 .settings-center-toolbar > div { display: flex; align-items: center; gap: 10px; min-width: 0; color: var(--tx-muted); font-size: var(--fs-2xs); }
@@ -174,4 +175,29 @@
   .settings-general-card { align-items: flex-start; flex-wrap: wrap; gap: 12px; }
   .settings-center .ws-settings-form-v2 .modal-actions { flex-wrap: wrap; padding: 12px 14px; }
   .settings-center .ws-settings-form-v2 .modal-actions p { flex: 1 1 100%; max-width: none; }
+}
+@media (max-width: 760px) {
+  .settings-center { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .settings-center-main { grid-template-rows: 32px minmax(0, 1fr); }
+  .settings-center-nav { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: 30px 34px 34px; gap: 8px 12px; padding: 8px 12px; border-right: 0; border-bottom: 1px solid var(--bd-base); }
+  .settings-center-title { grid-column: 1; grid-row: 1; height: 30px; min-height: 30px; margin: 0; padding: 0; border: 0; }
+  .settings-search { grid-column: 1; grid-row: 2; min-width: 0; }
+  .settings-scope { grid-column: 2; grid-row: 2; display: block; min-width: 0; }
+  .settings-scope > span, .settings-scope-choices button small { display: none; }
+  .settings-scope-choices { display: flex; height: 34px; padding: 2px; }
+  .settings-scope-choices button { width: auto; min-height: 28px; max-width: 130px; padding: 3px 8px; white-space: nowrap; }
+  .settings-compact-category { grid-column: 1 / -1; grid-row: 3; display: block; min-width: 0; }
+  .settings-category-choices { flex-wrap: nowrap; height: 34px; max-height: none; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+  .settings-category-choices button { flex: 0 0 auto; min-height: 29px; padding: 5px 9px; }
+  .settings-nav-footer { grid-column: 2; grid-row: 1; align-self: center; margin: 0; padding: 0; border: 0; }
+  .settings-scope-note { display: none; }
+  .settings-back { min-height: 30px; padding: 4px 7px; font-size: var(--fs-xs); }
+  .settings-center-toolbar > div > span:first-child, .settings-center-toolbar > div > svg, .settings-center-toolbar > button { display: none; }
+  .settings-center-content { padding: 20px 16px; }
+  .settings-general-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .settings-center-nav { grid-template-columns: minmax(0, 1fr) auto; }
+  .settings-scope-choices button { max-width: 95px; }
+  .settings-general-grid { grid-template-columns: minmax(0, 1fr); }
 }

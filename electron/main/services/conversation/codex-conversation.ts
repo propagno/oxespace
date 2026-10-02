@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import type { AgentConversationAdapter, ConversationProtocolEvidence, ThreadAgentInput, ThreadEvent, ThreadConfiguration, ThreadCommandResult, ThreadFailure, ThreadUsage, ThreadAttachment, ThreadQueuedInput, ThreadRequest, ThreadRequestResponse } from '../../../../shared/types/thread'
 import { AgentRpcPeer, type AgentRpcMessage } from './rpc-peer'
 import { parseThreadUsage, threadFailure, ThreadAgentError } from './thread-failure'
+import { requestOutcome } from '../../../../shared/threadRequestOutcome'
 
 export interface ConversationTransport {
   write(line: string): void
@@ -61,6 +62,9 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
   private usageRequest?: Promise<ThreadUsage>
   private usageSnapshots: Record<string, Record<string, unknown>> = {}
   private turnError?: ThreadFailure
+  private lastNativeSignalAt = 0
+  private readonly reasoningSummaries = new Map<string, { text: string; emittedAt: number }>()
+  private readonly commandOutputs = new Map<string, { text: string; emittedAt: number }>()
   private emit: (event: ThreadEvent) => void = () => {}
   private readonly approvals = new Map<string, { rpcId: string | number; method: string; params: Record<string, unknown> }>()
   private readonly pendingOauth = new Set<string>()
@@ -126,6 +130,8 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     if (!input.trim() || Buffer.byteLength(input) > 64 * 1024) throw new Error('Invalid conversation input')
     this.busy = true
     this.turnError = undefined
+    this.reasoningSummaries.clear()
+    this.commandOutputs.clear()
     try {
       if (!skill && await this.slashCommand(input)) return
       if (input.trim() === '/compact' && !skill) {
@@ -159,6 +165,8 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
   async startQueued(nativeId?: string): Promise<void> {
     if (!this.rpc || this.busy) throw Error('Conversation is not ready to start queued input')
     this.busy = true
+    this.reasoningSummaries.clear()
+    this.commandOutputs.clear()
     try {
       const result = record(await this.rpc.request('thread/queue/start', { threadId: this.threadId, queuedSubmissionId: nativeId ?? null }))
       this.turnId = text(record(result.turn).id)
@@ -361,7 +369,8 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     } else result = { decision: response.decision ?? 'decline' }
     this.rpc.respond(pending.rpcId, result)
     this.approvals.delete(requestId)
-    this.emit({ type: 'request-resolved', id: requestId, state: 'resolved' })
+    const kind = pending.method === 'item/tool/requestUserInput' ? 'question' : pending.method === 'mcpServer/elicitation/request' ? 'elicitation' : 'approval'
+    this.emit({ type: 'request-resolved', id: requestId, ...requestOutcome(kind, response), resolvedAt: Date.now() })
     this.emit({ type: 'approval-resolved', id: requestId })
   }
 
@@ -370,6 +379,8 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     this.disposed = true
     this.approvals.clear()
     this.pendingOauth.clear()
+    this.reasoningSummaries.clear()
+    this.commandOutputs.clear()
     this.rpc?.close()
     await this.transport.close()
   }
@@ -398,6 +409,8 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     if (this.usage) failure.usage = this.usage
     this.busy = false
     this.turnId = ''
+    this.reasoningSummaries.clear()
+    this.commandOutputs.clear()
     this.approvals.clear()
     this.emit({ type: 'completed', status: 'failed', error: failure.message, errorCode: failure.code, failure })
     if (failure.code === 'authentication' || failure.code === 'session-busy' || typeof error === 'string') return
@@ -435,6 +448,10 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     }
     if (params.threadId !== this.threadId) return
     if (params.turnId && this.turnId && params.turnId !== this.turnId) return
+    if (this.busy && Date.now() - this.lastNativeSignalAt >= 2_000) {
+      this.lastNativeSignalAt = Date.now()
+      this.emit({ type: 'native-signal', at: this.lastNativeSignalAt })
+    }
     if (message.method === 'error') {
       if (this.busy) this.turnError = threadFailure(params.error)
       return
@@ -443,6 +460,32 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
       const turnId = text(params.turnId)
       const files = splitThreadPatch(text(params.diff))
       if (turnId) this.emit({ type: 'turn-diff', id: `turn-diff:${turnId}`, turnId, files: files.slice(0, 100).map(file => files.length > 100 ? { ...file, truncated: true } : file) })
+    }
+    else if (message.method === 'item/reasoning/summaryTextDelta' && this.busy) {
+      const id = text(params.itemId)
+      const delta = text(params.delta)
+      if (!id || !delta) return
+      const previous = this.reasoningSummaries.get(id) ?? { text: '', emittedAt: 0 }
+      const summary = { text: (previous.text + delta).slice(-3_000), emittedAt: previous.emittedAt }
+      const now = Date.now()
+      if (now - summary.emittedAt >= 750) {
+        summary.emittedAt = now
+        this.emit({ type: 'activity', id: `reasoning:${id}`, phase: 'reasoning', at: now, summary: summary.text })
+      }
+      this.reasoningSummaries.set(id, summary)
+    }
+    else if (message.method === 'item/commandExecution/outputDelta' && this.busy) {
+      const id = text(params.itemId)
+      const delta = text(params.delta)
+      if (!id || !delta) return
+      const previous = this.commandOutputs.get(id) ?? { text: '', emittedAt: 0 }
+      const output = { text: (previous.text + delta).slice(-65_536), emittedAt: previous.emittedAt }
+      const now = Date.now()
+      if (now - output.emittedAt >= 750) {
+        output.emittedAt = now
+        this.emit({ type: 'tool', id, name: 'commandExecution', state: 'running', detail: '', output: output.text, turnId: text(params.turnId) })
+      }
+      this.commandOutputs.set(id, output)
     }
     else if (message.method === 'turn/plan/updated' && Array.isArray(params.plan)) {
       const turnId = text(params.turnId)
@@ -457,7 +500,11 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     } else if (message.method === 'item/started' || message.method === 'item/completed') {
       const item = record(params.item)
       const id = text(item.id)
-      if (item.type === 'agentMessage' && message.method === 'item/completed') {
+      if (item.type === 'reasoning' && id) {
+        const summary = this.reasoningSummaries.get(id)?.text
+        if (message.method === 'item/started') this.emit({ type: 'activity', id: `reasoning:${id}`, phase: 'reasoning', at: Date.now() })
+        else if (summary) this.emit({ type: 'activity', id: `reasoning:${id}`, phase: 'reasoning', at: Date.now(), summary })
+      } else if (item.type === 'agentMessage' && message.method === 'item/completed') {
         this.emit({ type: 'message', id, role: 'assistant', text: text(item.text) })
       } else if (item.type === 'collabAgentToolCall') {
         const receivers = Array.isArray(item.receiverThreadIds) ? item.receiverThreadIds.filter(value => typeof value === 'string') as string[] : []
@@ -477,7 +524,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
         this.emit({ type: 'tool', id, name: text(item.type),
           state: message.method === 'item/started' ? 'running' : failed ? 'failed' : 'completed',
           detail: (text(item.command) || [text(item.namespace), text(item.tool)].filter(Boolean).join('/') || text(record(item.error).message) || (Array.isArray(item.changes) ? item.changes.map(value => text(record(value).path)).join('\n') : '')).slice(0, 65536),
-          output: (text(item.aggregatedOutput) || dynamicToolOutput(item.contentItems)).slice(-65536), ...(typeof item.exitCode === 'number' ? { exitCode: item.exitCode } : {}), turnId: text(params.turnId),
+          output: (text(item.aggregatedOutput) || this.commandOutputs.get(id)?.text || dynamicToolOutput(item.contentItems)).slice(-65536), ...(typeof item.exitCode === 'number' ? { exitCode: item.exitCode } : {}), turnId: text(params.turnId),
           ...(item.type === 'fileChange' && Array.isArray(item.changes) ? { files: item.changes.slice(0, 100).map(value => {
             const change = record(value), kind = record(change.kind), move = text(kind.move_path)
             return { path: move || text(change.path), ...(move ? { previousPath: text(change.path) } : {}),
@@ -503,6 +550,8 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
         return
       }
       this.busy = false
+      this.reasoningSummaries.clear()
+      this.commandOutputs.clear()
       this.turnId = ''
       this.approvals.clear()
       this.emit({ type: 'completed', status })

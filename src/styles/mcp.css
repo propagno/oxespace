@@ -670,3 +670,25 @@
   tab-size: 2;
   resize: vertical;
 }
+.mcp-panel-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 20px 0;
+  padding: 0 10px;
+  min-height: 34px;
+  border: 1px solid var(--bd-base);
+  border-radius: var(--nav-radius);
+  color: var(--tx-muted);
+  background: var(--bg-elevated);
+}
+.mcp-panel-search:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+.mcp-panel-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--tx-primary);
+  font: inherit;
+}

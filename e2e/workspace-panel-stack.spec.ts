@@ -28,7 +28,7 @@ test('workspace panels remain readable when several tools are open', async () =>
     await expect(page.getByTestId('workspace-review-panel')).toBeVisible()
     await page.getByTestId('workspace-review-panel').evaluate(el => el.setAttribute('data-preserved', 'yes'))
     await page.screenshot({ path: test.info().outputPath('panel-stack.png') })
-    for (const name of ['Source control', 'Scripts', 'Web preview', 'Background jobs', 'Review']) {
+    for (const name of ['Source control', 'Scripts', 'Web preview', 'Background activity', 'Review']) {
       await tabs.getByRole('tab', { name, exact: true }).click()
       await expect(tabs.getByRole('tab', { name, exact: true })).toHaveAttribute('aria-selected', 'true')
       await expect(page.getByRole('tabpanel', { name })).toBeVisible()
@@ -39,7 +39,7 @@ test('workspace panels remain readable when several tools are open', async () =>
         overflow: document.querySelector('.workspace-panel-stack')!.scrollWidth - document.querySelector('.workspace-panel-stack')!.clientWidth
       }))
       expect(geometry.panel).toBeGreaterThan(270)
-      if (name === 'Background jobs') expect(geometry.panel).toBeGreaterThan(330)
+      if (name === 'Background activity') expect(geometry.panel).toBeGreaterThan(330)
       expect(geometry.grid).toBeGreaterThan(450)
       expect(geometry.overflow).toBeLessThanOrEqual(1)
       await expect(page.locator('.terminal-pane[data-preserved="yes"]')).toHaveCount(1)

@@ -90,6 +90,7 @@ export interface InternalMcpStatus {
 /** Payload broadcast to renderer windows when a tool opens a web preview. */
 export interface InternalMcpWebPreviewEvent {
   workspaceId: string
+  threadId?: string
   url: string
   requestedAt: number
 }

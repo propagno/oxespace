@@ -15,6 +15,7 @@ import { isSafeExternalUrl } from '../utils/external-url'
 import { discoverScripts } from '../services/scripts-discovery.service'
 import type { ToolContext } from './tool-registry'
 import { errorResult, textResult } from './tool-registry'
+import { requirePreviewExecution } from './preview-scope'
 
 /**
  * One handler per tool. Each is a thin shape-translation layer over an
@@ -229,14 +230,14 @@ async function getJobOutput(args: unknown, ctx: ToolContext): Promise<InternalMc
 }
 
 async function openWebPreview(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
-  const ws = await requireWorkspace(ctx)
+  const execution = requirePreviewExecution(ctx)
   const input = asRecord(args) as Partial<OpenWebPreviewArgs>
   const url = expectString(input.url, 'url')
   if (!isSafeExternalUrl(url)) {
     return errorResult(`URL "${url}" is not safe to open (must be http/https).`)
   }
-  ctx.webPreview.emitPreview({ workspaceId: ws.id, url, requestedAt: Date.now() })
-  return textResult({ opened: true, workspaceId: ws.id, url })
+  ctx.webPreview.emitPreview({ workspaceId: execution.workspaceId, threadId: execution.owner.kind === 'thread' ? execution.owner.id : undefined, url, requestedAt: Date.now() })
+  return textResult({ opened: true, workspaceId: execution.workspaceId, threadId: execution.owner.kind === 'thread' ? execution.owner.id : undefined, url })
 }
 
 async function semanticSearch(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
@@ -319,49 +320,13 @@ async function qualityCheck(args: unknown, ctx: ToolContext): Promise<InternalMc
 }
 
 async function captureWebPreview(_args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
-  const ws = await requireWorkspace(ctx)
-  
-  // Find the primary app window (OXESpace uses one BrowserWindow)
-  const { BrowserWindow } = await import('electron')
-  const win = BrowserWindow.getAllWindows()[0]
-  if (!win) return errorResult('No application window found')
-
-  // Scope the visible guest to the requesting workspace, never another tab.
-  const rectJson = await win.webContents.executeJavaScript(`
-    (() => {
-      const iframe = Array.from(document.querySelectorAll('webview[title="Workspace web preview"]')).find(element => element.dataset.workspaceId === ${JSON.stringify(ws.id)})
-      if (!iframe) return null
-      const rect = iframe.getBoundingClientRect()
-      return JSON.stringify({ x: rect.x, y: rect.y, width: rect.width, height: rect.height })
-    })()
-  `).catch(() => null)
-
-  if (!rectJson) {
-    return errorResult('Web Preview is not active or could not be found.')
-  }
-
-  const rect = JSON.parse(rectJson)
-  if (rect.width === 0 || rect.height === 0) {
-    return errorResult('Web Preview is not visible.')
-  }
-
-  // Capture the region matching the iframe
-  const nativeImage = await win.webContents.capturePage({
-    x: Math.round(rect.x),
-    y: Math.round(rect.y),
-    width: Math.round(rect.width),
-    height: Math.round(rect.height)
-  })
-
-  const base64Data = nativeImage.toPNG().toString('base64')
-  return {
-    content: [{
-      type: 'image',
-      data: base64Data,
-      mimeType: 'image/png'
-    }],
-    isError: false
-  }
+  const execution = requirePreviewExecution(ctx)
+  if (!ctx.documentation) return errorResult('Browser preview service unavailable')
+  const verify = (): void => { ctx.executions!.authenticate(ctx.executionId, ctx.executionToken, ctx.workspaceId) }
+  const service = await ctx.documentation()
+  const shot = await service.preview.capture(execution.workspaceId, { mode: 'viewport' }, verify, execution.owner)
+  verify()
+  return { content: [{ type: 'image', data: shot.png.toString('base64'), mimeType: 'image/png' }], isError: false }
 }
 
 async function hybridExplore(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {

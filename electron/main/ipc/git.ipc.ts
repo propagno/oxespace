@@ -9,6 +9,11 @@ export function registerGitIpc(service = new GitService()): GitService {
     return service.getBranch(parsed.rootPath)
   })
 
+  ipcMain.handle(IPC_CHANNELS.git.getStatus, (_event, input: unknown) => {
+    const parsed = parseGitBranchInput(input)
+    return service.getStatus(parsed.rootPath)
+  })
+
   ipcMain.handle(IPC_CHANNELS.git.getDiff, (event, input: unknown) => {
     const parsed = parseGitDiffInput(input)
     const diff = service.buildDiff(parsed.rootPath, parsed.base, parsed.includeUncommitted)

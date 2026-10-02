@@ -483,8 +483,8 @@ test('modal surfaces: agents, MCP, skills, semantic, workspace settings and usag
         trigger: () => page.getByTestId('tools-agent-settings').click()
       },
       {
-        label: 'MCP Servers',
-        selector: '[role="dialog"][aria-label="MCP servers"]',
+        label: 'Connections',
+        selector: '[role="dialog"][aria-label="Connections"]',
         trigger: () => page.getByTestId('tools-modal').getByRole('menuitem', { name: 'MCP Servers', exact: true }).click()
       },
       {

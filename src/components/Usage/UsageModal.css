@@ -1,0 +1,14 @@
+.usage-dialog { width: min(740px, calc(100vw - 32px)); max-width: 740px; max-height: min(84vh, 900px); overflow: auto; }
+.usage-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 11px; border-bottom: 1px solid var(--bd-base); color: var(--tx-muted); font-size: 11px; }
+.usage-toolbar button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--bd-base); border-radius: 5px; padding: 6px 9px; color: var(--tx-primary); background: transparent; cursor: pointer; }
+.usage-toolbar button:hover:not(:disabled) { background: var(--bg-hover); }
+.usage-toolbar button:disabled { opacity: .5; cursor: default; }
+.usage-spin { animation: usage-rotate 1s linear infinite; }
+@keyframes usage-rotate { to { transform: rotate(360deg); } }
+.usage-roster { display: flex; flex-direction: column; gap: 10px; }
+.usage-provider-card { background: var(--bg-elevated, var(--bg-app)); border-color: var(--bd-base); }
+.usage-provider-card [data-slot=card-content] { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 15px; }
+.usage-card-meta, .usage-source-note { color: var(--tx-muted); font-size: 11px; }
+.usage-source-note { grid-column: 1 / -1; padding-top: 8px; border-top: 1px solid var(--bd-base); }
+.usage-stale-note { grid-column: 1 / -1; color: var(--dot-amber, #dfad52); font-size: 11px; }
+.usage-footnote { margin: 0; color: var(--tx-muted); font-size: 11px; }

@@ -7,7 +7,7 @@ const MAX_PACKAGE_BYTES = 64 * 1024 * 1024
 const MAX_EVENTS = 100_000
 const MAX_ARTIFACTS = 2_000
 const MAX_ARTIFACT_BYTES = 512 * 1024
-const EVENT_TYPES = new Set(['session', 'message', 'delta', 'tool', 'turn-diff', 'subagent', 'plan', 'approval', 'approval-resolved', 'request', 'request-resolved', 'queue', 'configuration', 'model-picker', 'cli-command', 'completed', 'failure-details'])
+const EVENT_TYPES = new Set(['session', 'native-signal', 'activity', 'message', 'delta', 'tool', 'turn-diff', 'subagent', 'plan', 'approval', 'approval-resolved', 'request', 'request-resolved', 'queue', 'configuration', 'model-picker', 'cli-command', 'completed', 'failure-details'])
 
 interface PortableConversation {
   title: string

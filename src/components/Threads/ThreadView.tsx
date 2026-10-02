@@ -1,12 +1,12 @@
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { AlertCircle, ArrowDown, ArrowUp, Check, ChevronDown, Copy, CornerDownLeft, GitBranch, ListTodo, Loader2, MessageSquarePlus, Mic, Minus, Paperclip, Pencil, Pin, Plus, Slash, Square, TerminalSquare, Type, Waypoints, X } from 'lucide-react'
+import { Activity, AlertCircle, ArrowDown, ArrowUp, Check, ChevronDown, Copy, CornerDownLeft, GitBranch, ListTodo, Loader2, MessageSquarePlus, Mic, Minus, Paperclip, Pencil, Pin, Plus, Slash, Square, TerminalSquare, Type, Waypoints, X } from 'lucide-react'
 import { ThreadMarkdown } from './ThreadMarkdown'
 import { formatNativeUserText } from '../../../shared/native-session-text'
 import { blocksThreadInput, PARTIAL_NATIVE_HISTORY_NOTICE } from '../../../shared/threadHistoryNotice'
 import { ThreadFailureCard, ThreadUsageDetails } from './ThreadFailureCard'
 import type { Workspace } from '../../../shared/types/workspace'
-import type { ThreadAttachment, ThreadCommandResult } from '../../../shared/types/thread'
+import type { ThreadAttachment, ThreadCommandResult, ThreadEvent } from '../../../shared/types/thread'
 import type { DelegationTask } from '../../../shared/types/delegation'
 import type { SessionSummary } from '../../../shared/types/session'
 import { useGitBranch } from '../../hooks/useGitBranch'
@@ -19,8 +19,10 @@ import { DesktopDialog } from '../Navigation/DesktopDialog'
 import { DetailList } from '../Navigation/DetailList'
 import { ThreadConfigurationBar } from './ThreadConfigurationBar'
 import { ThreadActivityGroup } from './ThreadActivityGroup'
+import { ThreadLiveActivity } from './ThreadLiveActivity'
 import { threadQuickReplies } from './threadQuickReplies'
 import { buildThreadTimeline, flattenThreadTimeline } from './threadTimelineModel'
+import { threadTurnPresentation } from './threadTurnPresentation'
 import { ThreadTimelineWindow } from './ThreadTimeline'
 import { deriveThreadComposerState } from './threadComposerState'
 import { hasDesktopCommand } from '../../../shared/threadDesktopCommands'
@@ -69,7 +71,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   const [availableWidth, setAvailableWidth] = useState(0)
   const review = useThreadWorkbenchStore(state => selectedId ? state.views[selectedId] : undefined)
   const reviewWidth = useThreadWorkbenchStore(state => state.width)
-  const drawer = availableWidth > 0 && availableWidth < 1000
+  const drawer = availableWidth > 0 && availableWidth < 1120
   const draft = useThreadStore(state => snapshot ? state.drafts[snapshot.thread.id] ?? '' : '')
   const attachments = useThreadStore(state => snapshot ? state.attachments[snapshot.thread.id] ?? [] : [])
   const [error, setError] = useState(''), [pending, setPending] = useState(false), [loadingEarlier, setLoadingEarlier] = useState(false), [showEnd, setShowEnd] = useState(false)
@@ -259,6 +261,11 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   const runCommand = async (text: string) => {
     if (!snapshot || !api?.command) throw Error('Restart the updated application to use integrated commands')
     const id = snapshot.thread.id
+    if (text.trim() === '/usage') {
+      useUIStore.getState().openUsage()
+      if (useThreadStore.getState().drafts[id] === text) useThreadStore.getState().setDraft(id, '')
+      return
+    }
     const result = await api.command(id, text)
     if (result.kind === 'navigate') {
       if (result.threadId) useThreadStore.getState().adopt(await api.read(result.threadId))
@@ -392,6 +399,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
         onExport={api?.exportPortable ? () => void action(async () => { const path = await api.exportPortable!(snapshot.thread.id); if (path) setPanel({ kind: 'panel', title: 'Conversation exported', text: path }) }) : undefined}
         onImport={api?.importPortable ? () => { setPending(true); setError(''); void api.importPortable!(snapshot.thread.id).then(imported => { if (imported) useThreadStore.getState().adopt(imported) }).catch(cause => setError(cause instanceof Error ? cause.message : 'Could not import conversation.')).finally(() => setPending(false)) } : undefined} />}</div>
       <div className="thread-heading-actions">
+      {snapshot && <button type="button" className="thread-icon-action" aria-label="Background activity" title="Local jobs and delegated work" aria-pressed={review?.panel === 'background'} onClick={() => useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: review?.panel === 'background' ? null : 'background' })}><Activity size={15} /></button>}
       <Popover.Root><Popover.Trigger asChild><button type="button" className="thread-icon-action" aria-label="Thread text size" title="Thread text size"><Type size={15} /></button></Popover.Trigger>
         <Popover.Portal><Popover.Content className="thread-font-popover" side="bottom" align="end" sideOffset={8}>
           <strong>Conversation text</strong><span>Adjust reading size</span>
@@ -425,8 +433,8 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
       <div ref={content} className="thread-reading-column">
         {snapshot?.page?.hasMore && <button type="button" className="thread-load-earlier" disabled={loadingEarlier} onClick={() => void loadEarlier()}>{loadingEarlier ? <Loader2 size={13} className="thread-spin" /> : <ArrowUp size={13} />}Load earlier messages</button>}
         {!snapshot && <div className="thread-welcome"><span className="thread-welcome-mark"><MessageSquarePlus size={26} strokeWidth={1.5} /></span><h2>{selectedId ? 'Opening conversation…' : 'What would you like to work on?'}</h2><p>{selectedId ? 'Loading the selected conversation.' : 'Select + beside a project to start a conversation, or add a project in the sidebar.'}</p></div>}
-        <ThreadTimelineWindow key={snapshot?.thread.id ?? 'empty'} rows={timelineRows} scrollRef={timeline} followingRef={following} onViewportUpdateRef={updateTimelineViewport}>{({ event, key, turnId, turnEvents, lastInTurn }) => <section className={`thread-turn thread-virtual-turn${lastInTurn ? ' is-turn-end' : ''}`} data-turn-id={turnId}>{(() => {
-          if (event.type === 'activity-group') return <ThreadActivityGroup key={key} events={event.events} />
+        <ThreadTimelineWindow key={snapshot?.thread.id ?? 'empty'} rows={timelineRows} scrollRef={timeline} followingRef={following} onViewportUpdateRef={updateTimelineViewport}>{({ event, key, turnId, turnEvents, firstInTurn, lastInTurn }) => <section className={`thread-turn thread-virtual-turn${firstInTurn ? ' is-turn-start' : ''}${lastInTurn ? ' is-turn-end' : ''}`} data-turn-id={turnId}>{(() => {
+          if (event.type === 'activity-group') return <ThreadActivityGroup key={key} events={event.events} onDiagnostics={() => snapshot && useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'diagnostics' })} />
           if (event.type === 'plan') return <ThreadPlan key={key} event={event} />
           if (event.type === 'subagent') return <ThreadSubagentActivity key={key} event={event} compact />
           if (event.type === 'tool' && event.files?.length) return <ThreadFileActivity key={key} event={event} root={snapshot?.thread.rootPath ?? ''} threadId={snapshot!.thread.id} onOpen={openFile} />
@@ -434,13 +442,14 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
             if (event.role === 'assistant' && authText(event.text)) return null
             const displayText = event.role === 'user' && event.id.startsWith('native:') ? formatNativeUserText(event.text) : event.text
             if (!displayText) return null
-            return <article key={key} className={`thread-message thread-message-${event.role}`}>
-              {event.role === 'assistant' && turnEvents.find(value => value.type === 'message' && value.role === 'assistant') === event && <div className="thread-agent-label"><AgentProviderIcon provider={snapshot?.thread.provider ?? 'claude'} size={16} />{snapshot?.thread.provider === 'claude' ? 'Claude' : 'Codex'}</div>}
+            const final = event.role === 'assistant' && threadTurnPresentation(turnEvents).finalMessageId === event.id
+            return <article key={key} className={`thread-message thread-message-${event.role}${final ? ' is-final-response' : ''}`}>
+              {event.role === 'assistant' && (final || turnEvents.find(value => value.type === 'message' && value.role === 'assistant') === event) && <div className="thread-agent-label"><AgentProviderIcon provider={snapshot?.thread.provider ?? 'claude'} size={16} />{snapshot?.thread.provider === 'claude' ? 'Claude' : 'Codex'}{final && <span className="thread-final-label">Final response</span>}</div>}
               <ThreadMessageBody text={displayText} role={event.role} />
               {event.role === 'assistant' && event.id === lastConversationMessage?.id && quickReplies.length > 0 && <div className="thread-quick-replies" aria-label="Suggested replies"><small>Choose a reply to review before sending</small><div>{quickReplies.map(option => <button type="button" key={option.value} onClick={() => { useThreadStore.getState().setDraft(snapshot!.thread.id, option.value); requestAnimationFrame(() => textarea.current?.focus()) }}>{option.label}</button>)}</div></div>}
               {event.attachments?.length ? <div className="thread-message-attachments" aria-label="Message attachments">{event.attachments.map(attachment => <span key={attachment.id}><Paperclip size={11} />{attachment.name}<small>{Math.ceil(attachment.bytes / 1024)} KB</small></span>)}</div> : null}
               <div className="thread-message-actions">
-                <button type="button" aria-label={copiedMessageId === event.id ? 'Message copied' : event.role === 'assistant' ? 'Copy response' : 'Copy message'} title={copiedMessageId === event.id ? 'Copied' : event.role === 'assistant' ? 'Copy response' : 'Copy message'} onClick={() => void copyMessage(event.id, displayText)}>{copiedMessageId === event.id ? <Check size={13} /> : <Copy size={13} />}</button>
+                <button type="button" aria-label={copiedMessageId === event.id ? 'Message copied' : final ? 'Copy final response' : event.role === 'assistant' ? 'Copy response' : 'Copy message'} title={copiedMessageId === event.id ? 'Copied' : final ? 'Copy final response' : event.role === 'assistant' ? 'Copy response' : 'Copy message'} onClick={() => void copyMessage(event.id, displayText)}>{copiedMessageId === event.id ? <Check size={13} /> : <Copy size={13} />}{final && <span>{copiedMessageId === event.id ? 'Copied' : 'Copy'}</span>}</button>
                 {event.role === 'user' && snapshot?.thread.provider === 'codex' && !running && <button type="button" aria-label="Edit and retry this message" title="Edit and retry" onClick={() => {
                   const index = turns.findIndex(turn => turn.id === event.id)
                   setEditingTurn({ id: event.id, text: event.text, rewind: Math.max(1, turns.length - Math.max(0, index)) })
@@ -449,7 +458,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
             </article>
           }
           if (event.type === 'tool') return <details key={key} className="thread-tool"><summary><ChevronDown size={12} />{event.state === 'running' ? <Loader2 size={12} className="thread-spin" /> : event.state === 'failed' ? <AlertCircle size={12} /> : <Check size={12} />}{event.name}<small>{event.state}</small></summary>{event.detail && <pre>{event.detail}</pre>}</details>
-          if (event.type === 'request') return <ThreadRequestCard key={key} request={event.request} disabled={pending} onRespond={response => action(() => api!.respond!(snapshot!.thread.id, event.id, response))} />
+          if (event.type === 'request') return <ThreadRequestCard key={key} request={event.request} turnResult={turnEvents.find((value): value is Extract<ThreadEvent, { type: 'completed' }> => value.type === 'completed')?.status} disabled={pending} onRespond={response => action(() => api!.respond!(snapshot!.thread.id, event.id, response))} />
           if (event.type === 'approval') {
             if (snapshot?.events.some(value => value.type === 'request' && value.id === event.id)) return null
             const unresolved = snapshot?.thread.status === 'approval' && !snapshot.events.some(e => e.type === 'approval-resolved' && e.id === event.id)
@@ -461,9 +470,9 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
             return result.usage
           } : undefined} /> : event.status === 'interrupted' ? <p key={key} className="thread-turn-status"><AlertCircle size={13} />{event.error || 'Interrupted'}</p> : null
           return null
-        })()}{lastInTurn && turnEvents.some(value => value.type === 'completed') && <ThreadTurnChanges events={turnEvents} root={snapshot?.thread.rootPath ?? ''} onOpen={openFile} />}{lastInTurn && snapshot?.turns?.find(value => value.id === turnId)?.completedAt && <ThreadTurnTiming turn={snapshot.turns.find(value => value.id === turnId)!} />}</section>}</ThreadTimelineWindow>
+        })()}{lastInTurn && turnEvents.some(value => value.type === 'completed') && <ThreadTurnChanges events={turnEvents} root={snapshot?.thread.rootPath ?? ''} onOpen={openFile} />}{lastInTurn && turnEvents.some(value => value.type === 'completed') && <ThreadTurnTiming turn={snapshot?.turns?.find(value => value.id === turnId)} events={turnEvents} />}</section>}</ThreadTimelineWindow>
         {pendingMessage && <article className="thread-message thread-message-user thread-message-outgoing" aria-label="Sending message"><ThreadMessageBody text={pendingMessage.text} role="user" />{pendingMessage.attachments.length > 0 && <div className="thread-message-attachments" aria-label="Message attachments">{pendingMessage.attachments.map(attachment => <span key={attachment.id}><Paperclip size={11} />{attachment.name}<small>{Math.ceil(attachment.bytes / 1024)} KB</small></span>)}</div>}<small className="thread-message-outgoing-status">Sending…</small></article>}
-        {running && <p className="thread-running" role="status"><Loader2 size={13} className="thread-spin" />{snapshot?.thread.status === 'approval' ? 'Waiting for approval' : 'Working…'}</p>}
+        {running && snapshot && <ThreadLiveActivity snapshot={snapshot} onDiagnostics={() => useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'diagnostics' })} />}
       </div>
     </div>
     <div className="thread-composer-dock"><div className="thread-composer-column">
@@ -560,14 +569,16 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
         onPointerDown={event => { event.currentTarget.setPointerCapture(event.pointerId) }}
         onPointerMove={event => { if (event.currentTarget.hasPointerCapture(event.pointerId) && workbench.current) useThreadWorkbenchStore.getState().setWidth(Math.min(availableWidth - 480, workbench.current.getBoundingClientRect().right - event.clientX)) }}
         onPointerUp={event => event.currentTarget.releasePointerCapture(event.pointerId)} />}
-      <div className="thread-review-host" style={{ width: drawer ? Math.min(reviewWidth, Math.max(280, availableWidth - 16)) : Math.min(reviewWidth, Math.max(320, Math.min(availableWidth * .55, availableWidth - 480))) }}>
+      <div className="thread-review-host" style={{ width: drawer ? Math.min(reviewWidth, Math.max(280, availableWidth - 16)) : Math.min(reviewWidth, Math.max(320, Math.min(availableWidth * .48, availableWidth - 640))) }}>
         <ThreadChangesPanel key={snapshot.thread.id} snapshot={snapshot} workspace={workspace} panel={review.panel} selection={review.selection} onClose={closeReview} onComment={addReviewComment} onSendToConversation={appendToConversation} />
       </div>
     </>}
   </div>
 }
 
-function ThreadTurnTiming({ turn }: { turn: import('../../../shared/types/thread').ThreadTurn }) {
-  const seconds = turn.startedAt && turn.completedAt ? Math.max(0, Math.round((turn.completedAt - turn.startedAt) / 1000)) : undefined
-  return <div className="thread-turn-timing"><span>{turn.status === 'completed' ? 'Completed' : turn.status === 'failed' ? 'Failed' : 'Interrupted'}{seconds !== undefined ? ` · ${seconds >= 60 ? `${Math.floor(seconds / 60)}m ${seconds % 60}s` : `${seconds}s`}` : ''}</span>{turn.configuration.model && <span>{turn.configuration.model}{turn.configuration.reasoningEffort ? ` · ${turn.configuration.reasoningEffort}` : ''}</span>}</div>
+function ThreadTurnTiming({ turn, events }: { turn?: import('../../../shared/types/thread').ThreadTurn; events: ThreadEvent[] }) {
+  const seconds = turn?.startedAt && turn.completedAt ? Math.max(0, Math.round((turn.completedAt - turn.startedAt) / 1000)) : undefined
+  const summary = threadTurnPresentation(events)
+  const status = [...events].reverse().find((event): event is Extract<ThreadEvent, { type: 'completed' }> => event.type === 'completed')?.status ?? turn?.status ?? 'interrupted'
+  return <div className={`thread-turn-timing is-${status}`}><span className="thread-turn-outcome">{status === 'completed' ? <Check size={12} /> : <AlertCircle size={12} />}{status === 'completed' ? 'Completed' : status === 'failed' ? 'Failed' : 'Interrupted'}</span>{summary.actionCount > 0 && <span>{summary.actionCount} {summary.actionCount === 1 ? 'action' : 'actions'}{summary.failedActions > 0 ? ` · ${summary.failedActions} failed` : ''}{summary.unconfirmedActions > 0 ? ` · ${summary.unconfirmedActions} unconfirmed` : ''}</span>}{seconds !== undefined && <span>{seconds >= 60 ? `${Math.floor(seconds / 60)}m ${seconds % 60}s` : `${seconds}s`}</span>}{turn?.configuration.model && <span>{turn.configuration.model}{turn.configuration.reasoningEffort ? ` · ${turn.configuration.reasoningEffort}` : ''}</span>}</div>
 }

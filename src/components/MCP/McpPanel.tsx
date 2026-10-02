@@ -1,4 +1,4 @@
-import { Activity, ChevronDown, ChevronRight, Circle, CircleDot, Play, Plus, RotateCw, ShieldCheck, Square, Trash2, Wrench, X } from 'lucide-react'
+import { Activity, ChevronDown, ChevronRight, Circle, CircleDot, Play, Plus, RotateCw, Search, ShieldCheck, Square, Trash2, Wrench, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
 import type { CreateMcpServerInput, McpHealthStatus, McpServer, McpStdioConfig } from '../../../shared/types/mcp'
 import { selectMcpServers, useMcpStore } from '../../store/mcp.store'
@@ -20,6 +20,7 @@ export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement 
   const removeServer = useMcpStore((s) => s.remove)
   const updateServer = useMcpStore((s) => s.update)
   const [creating, setCreating] = useState(false)
+  const [query, setQuery] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [trustPromptId, setTrustPromptId] = useState<string | null>(null)
@@ -68,6 +69,7 @@ export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement 
   // the rest of the panel doesn't try to edit/delete it.
   const builtInServer = servers.find((s) => s.workspaceId === null && s.name === 'oxespace') ?? null
   const otherServers = builtInServer ? servers.filter((s) => s.id !== builtInServer.id) : servers
+  const visibleServers = otherServers.filter((server) => `${server.name} ${server.transport} ${server.health} ${server.workspaceId ? 'workspace' : 'global'}`.toLowerCase().includes(query.trim().toLowerCase()))
 
   const handleStart = async (server: McpServer): Promise<void> => {
     if (!server.trusted) {
@@ -118,13 +120,13 @@ export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement 
         className="mcp-panel"
         role="dialog"
         aria-modal="true"
-        aria-label="MCP servers"
+        aria-label="Connections"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header className="mcp-panel-header">
           <div className="mcp-panel-title">
             <Activity size={14} aria-hidden="true" />
-            <strong>Model Context Protocol</strong>
+            <strong>Connections</strong>
             <span className="mcp-panel-scope">{workspaceId ? 'workspace' : 'global'}</span>
           </div>
           <div className="mcp-panel-actions">
@@ -144,6 +146,11 @@ export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement 
         </header>
 
         {error ? <div className="mcp-panel-error">{error}</div> : null}
+
+        <label className="mcp-panel-search">
+          <Search size={14} aria-hidden="true" />
+          <input type="search" aria-label="Search MCP servers" placeholder="Search connections" value={query} onChange={(event) => setQuery(event.target.value)} />
+        </label>
 
         <p className="mcp-panel-sync-note">
           Servers enabled here are written to <code>.mcp.json</code> at the
@@ -178,14 +185,14 @@ export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement 
             onRegenerate={() => void handleRegenerateToken()}
             onDismissNotice={() => setBuiltInNotice(null)}
           />
-          {otherServers.length === 0 && !creating ? (
+          {visibleServers.length === 0 && !creating ? (
             <div className="mcp-panel-empty">
               <Wrench size={32} aria-hidden="true" />
-              <strong>No MCP server configured</strong>
-              <span>Add a server to expose filesystem, GitHub, database tools to your agents.</span>
+              <strong>{query ? 'No matching connections' : 'No additional MCP servers'}</strong>
+              <span>{query ? 'Try another name or status.' : 'Add a workspace server when your agents need more tools.'}</span>
             </div>
           ) : (
-            otherServers.map((server) => (
+            visibleServers.map((server) => (
               <McpServerRow
                 key={server.id}
                 server={server}

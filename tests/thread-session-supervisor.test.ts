@@ -6,7 +6,9 @@ describe('ThreadSessionSupervisor', () => {
     const supervisor = new ThreadSessionSupervisor()
     expect(supervisor.begin('thread', 10)).toMatchObject({ state: 'starting', attempt: 1 })
     expect(supervisor.connected('thread', 20)).toMatchObject({ state: 'connected', attempt: 0, lastHeartbeatAt: 20 })
+    expect(supervisor.nativeSignal('thread', 25)).toMatchObject({ lastNativeSignalAt: 25, lastHeartbeatAt: 20 })
     expect(supervisor.heartbeat('thread', 30)).toMatchObject({ state: 'connected', lastHeartbeatAt: 30 })
+    expect(supervisor.get('thread')).toMatchObject({ lastNativeSignalAt: 25 })
     expect(supervisor.close('thread', 40)).toMatchObject({ state: 'closed', attempt: 0 })
   })
 

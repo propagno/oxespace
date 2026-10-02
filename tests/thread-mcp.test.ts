@@ -2,10 +2,10 @@ import { expect, it, vi } from 'vitest'
 import { bindThreadMcp, threadMcpArguments } from '../electron/main/services/conversation/thread-mcp'
 import type { AgentConversationAdapter } from '../shared/types/thread'
 
-it('replaces the disabled Claude config without changing subscription, hooks or file permissions', () => {
+it('adds the OXESpace bridge while preserving Claude CLI MCP inheritance and permissions', () => {
   const args = threadMcpArguments('claude', ['--tools', 'Read,Glob,Grep,Skill', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}', '--settings', '{"disableAllHooks":true}'], '/bridge.cjs')
   expect(args.filter(arg => arg === '--mcp-config')).toHaveLength(1)
-  expect(args.filter(arg => arg === '--strict-mcp-config')).toHaveLength(1)
+  expect(args).not.toContain('--strict-mcp-config')
   expect(args.slice(0, 4)).toEqual(['--tools', 'Read,Glob,Grep,Skill', '--settings', '{"disableAllHooks":true}'])
   const server = JSON.parse(args.at(-1)!).mcpServers['oxespace-delegation']
   expect(server.args[0]).toBe('/bridge.cjs')

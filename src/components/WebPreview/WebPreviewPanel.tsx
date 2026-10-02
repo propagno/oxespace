@@ -1,21 +1,16 @@
-import { ArrowLeft, ArrowRight, Camera, ExternalLink, MousePointerClick, Minus, Monitor, MonitorPlay, Plus, RotateCw, Smartphone, Tablet, X } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react'
-import { DESIGN_MODE_CHANNELS, type DesignGrabPayload } from '../../../shared/types/design-mode'
+import { AlertCircle, ArrowLeft, ArrowRight, Camera, ExternalLink, LoaderCircle, MousePointerClick, Minus, Monitor, MonitorPlay, Plus, RotateCw, Smartphone, Tablet, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import type { DesignGrabPayload } from '../../../shared/types/design-mode'
+import type { BrowserPreviewEvent, BrowserPreviewSessionState } from '../../../shared/types/browser-preview'
 import type { Workspace } from '../../../shared/types/workspace'
 import { pasteIntoAgentTerminal } from '../../lib/sendToAgent'
 import { useUIStore } from '../../store/ui.store'
 import { DesignGrabSheet } from './DesignGrabSheet'
-
-/** Minimal surface of Electron's <webview> that this panel drives. */
-interface WebviewElement extends HTMLElement {
-  src: string
-  reload(): void
-  send(channel: string, ...args: unknown[]): void
-  capturePage(rect?: { x: number; y: number; width: number; height: number }): Promise<{ toDataURL(): string }>
-}
+import { NativePreviewHost } from './NativePreviewHost'
 
 interface WebPreviewPanelProps {
   workspace: Workspace
+  threadId?: string
   onRunCommand: (command: string) => void
   onClose: () => void
   embedded?: boolean
@@ -25,6 +20,7 @@ interface WebPreviewPanelProps {
 const DEFAULT_URL = 'http://localhost:3000'
 
 type Viewport = 'desktop' | 'tablet' | 'mobile'
+interface PreviewTab { id: string; draftUrl: string; url: string | null; loading: boolean; error: string | null; canGoBack: boolean; canGoForward: boolean }
 
 const VIEWPORTS: Record<Viewport, { label: string; width: number | null; height: number | null }> = {
   desktop: { label: 'Desktop', width: null, height: null },
@@ -32,116 +28,108 @@ const VIEWPORTS: Record<Viewport, { label: string; width: number | null; height:
   mobile: { label: 'Mobile · 390px', width: 390, height: 844 }
 }
 
-export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, workspace }: WebPreviewPanelProps): ReactElement {
-  const [draftUrl, setDraftUrl] = useState(DEFAULT_URL)
-  const [url, setUrl] = useState<string | null>(null)
-  const [history, setHistory] = useState<string[]>([])
-  const [historyIndex, setHistoryIndex] = useState(-1)
-  const [frameKey, setFrameKey] = useState(0)
+export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, workspace, threadId }: WebPreviewPanelProps): ReactElement {
+  const previewKey = threadId ? `thread:${threadId}` : workspace.id
+  const [tabs, setTabs] = useState<PreviewTab[]>([])
+  const [activeTabId, setActiveTabId] = useState('')
+  const activeTab = tabs.find(tab => tab.id === activeTabId) ?? {id:'',draftUrl:DEFAULT_URL,url:null,loading:false,error:null,canGoBack:false,canGoForward:false}
+  const { draftUrl, url, loading, error: pageError, canGoBack, canGoForward } = activeTab
+  const updateTab = (id: string, update: (tab: PreviewTab) => PreviewTab): void => setTabs(current => current.map(tab => tab.id === id ? update(tab) : tab))
+  const applySession = useCallback((session: BrowserPreviewSessionState): void => {
+    setTabs(current => session.tabs.map(tab => {
+      const previous = current.find(item => item.id === tab.id)
+      return {id:tab.id,url:tab.url,draftUrl:previous?.draftUrl ?? tab.url ?? DEFAULT_URL,loading:tab.loading,error:tab.error,canGoBack:tab.canGoBack,canGoForward:tab.canGoForward}
+    }))
+    setActiveTabId(session.activeTabId)
+  },[])
+  useEffect(() => {
+    let cancelled = false
+    setTabs([])
+    setActiveTabId('')
+    void window.oxe.browserPreview.session({ownerKey:previewKey,action:'open'}).then(session => { if (!cancelled) applySession(session) }).catch(error => { if (!cancelled) setCaptureNotice(error instanceof Error ? error.message : 'Could not open browser tabs.') })
+    return () => { cancelled = true }
+  },[previewKey,applySession])
+  const setDraftUrl = (value: string): void => updateTab(activeTabId, tab => ({ ...tab, draftUrl: value }))
   const [zoom, setZoom] = useState(100)
   const [viewport, setViewport] = useState<Viewport>('desktop')
   const [captureNotice, setCaptureNotice] = useState<string | null>(null)
   const [capturing, setCapturing] = useState(false)
   const [allowExternal, setAllowExternal] = useState(false)
+  const externalPageBlocked = Boolean(url && !normalizePreviewUrl(url, allowExternal))
   const [agentDocumentation, setAgentDocumentation] = useState(false)
   // #3 Design Mode: pick an element in the previewed page and hand it to an agent.
   const [designMode, setDesignMode] = useState(false)
   const [grab, setGrab] = useState<{ payload: DesignGrabPayload; screenshot: string | null } | null>(null)
   // `send()` and `capturePage()` throw until the guest emits dom-ready.
   const [guestReady, setGuestReady] = useState(false)
-  const webviewRef = useRef<WebviewElement | null>(null)
+  const readyTabs = useRef(new Set<string>())
   const normalizedUrl = useMemo(() => normalizePreviewUrl(draftUrl, allowExternal), [draftUrl, allowExternal])
   const canOpen = normalizedUrl !== null
-  const canGoBack = historyIndex > 0
-  const canGoForward = historyIndex >= 0 && historyIndex < history.length - 1
-  const frameStyle = { zoom: zoom / 100 } as CSSProperties
-
   const open = (): void => {
+    if (!activeTabId) return
     if (!normalizedUrl) {
       setCaptureNotice(allowExternal ? 'Enter a valid HTTP or HTTPS URL.' : 'Local-only mode accepts localhost, 127.0.0.1 and ::1.')
       return
     }
     const nextUrl = normalizedUrl
-    setUrl(nextUrl)
-    setHistory((current) => {
-      const next = current.slice(0, historyIndex + 1)
-      if (next[next.length - 1] !== nextUrl) next.push(nextUrl)
-      setHistoryIndex(next.length - 1)
-      return next
-    })
-    setFrameKey((value) => value + 1)
+    void window.oxe.browserPreview.session({ownerKey:previewKey,action:'navigate',tabId:activeTabId,url:nextUrl,allowExternal}).then(applySession).catch(error => setCaptureNotice(error instanceof Error ? error.message : 'Could not open the page.'))
   }
 
   const goBack = (): void => {
     if (!canGoBack) return
-    const nextIndex = historyIndex - 1
-    const nextUrl = history[nextIndex]
-    setHistoryIndex(nextIndex)
-    setDraftUrl(nextUrl)
-    setUrl(nextUrl)
-    setFrameKey((value) => value + 1)
+    void window.oxe.browserPreview.back({ownerKey:previewKey,tabId:activeTabId}).catch(error => setCaptureNotice(error instanceof Error ? error.message : 'Could not go back.'))
   }
 
   const goForward = (): void => {
     if (!canGoForward) return
-    const nextIndex = historyIndex + 1
-    const nextUrl = history[nextIndex]
-    setHistoryIndex(nextIndex)
-    setDraftUrl(nextUrl)
-    setUrl(nextUrl)
-    setFrameKey((value) => value + 1)
+    void window.oxe.browserPreview.forward({ownerKey:previewKey,tabId:activeTabId}).catch(error => setCaptureNotice(error instanceof Error ? error.message : 'Could not go forward.'))
   }
 
-  const reload = (): void => setFrameKey((value) => value + 1)
+  const reload = (): void => { void window.oxe.browserPreview.reload({ownerKey:previewKey,tabId:activeTabId}).catch(error => setCaptureNotice(error instanceof Error ? error.message : 'Could not reload.')) }
+  const changeTab = (action:'new'|'select'|'close',tabId?:string): void => {
+    void window.oxe.browserPreview.session({ownerKey:previewKey,action,tabId}).then(applySession).catch(error => setCaptureNotice(error instanceof Error ? error.message : 'Could not update browser tabs.'))
+    setDesignMode(false)
+  }
 
-  // The guest posts the picked element back over `ipc-message`; capture the
-  // element's box so the confirmation sheet can show what was grabbed.
+  // Native guest events arrive from the owning BrowserWindow; ignore other tabs.
   useEffect(() => {
-    const webview = webviewRef.current
-    if (!webview) return undefined
-
-    const onDomReady = (): void => setGuestReady(true)
-
-    const onMessage = (event: Event): void => {
-      const message = event as Event & { channel: string; args: unknown[] }
-      if (message.channel === DESIGN_MODE_CHANNELS.cancel) {
+    return window.oxe.browserPreview.onEvent((event: BrowserPreviewEvent) => {
+      if (event.ownerKey !== previewKey) return
+      if (event.type === 'session' && event.session) { applySession(event.session); return }
+      if (event.type === 'navigation' && event.url) updateTab(event.tabId, tab => ({...tab,draftUrl:event.url!,url:event.url!,error:null,canGoBack:event.canGoBack === true,canGoForward:event.canGoForward === true}))
+      if (event.type === 'loading') updateTab(event.tabId, tab => ({...tab,loading:event.loading === true,error:event.loading ? null : tab.error}))
+      if (event.type === 'failed') updateTab(event.tabId, tab => ({...tab,loading:false,error:event.message ?? 'The page could not be loaded.'}))
+      if (event.tabId !== activeTabId) return
+      if (event.type === 'ready') { readyTabs.current.add(event.tabId); setGuestReady(true) }
+      if (event.type === 'loading' && event.loading) { readyTabs.current.delete(event.tabId); setGuestReady(false) }
+      if (event.type === 'cancel') {
         setDesignMode(false)
         return
       }
-      if (message.channel !== DESIGN_MODE_CHANNELS.grab) return
-
-      const payload = message.args[0] as DesignGrabPayload
+      if (event.type !== 'grab' || !event.payload) return
+      const payload = event.payload
       setDesignMode(false)
-      void webview
-        .capturePage({
-          x: Math.max(0, Math.round(payload.rect.x)),
-          y: Math.max(0, Math.round(payload.rect.y)),
-          width: Math.max(1, Math.round(payload.rect.width)),
-          height: Math.max(1, Math.round(payload.rect.height))
-        })
-        .then((image) => setGrab({ payload, screenshot: image.toDataURL() }))
+      void window.oxe.browserPreview.captureElement({ownerKey:previewKey,tabId:activeTabId,rect:payload.rect})
+        .then((screenshot) => setGrab({ payload, screenshot }))
         .catch(() => setGrab({ payload, screenshot: null }))
-    }
-
-    webview.addEventListener('ipc-message', onMessage)
-    webview.addEventListener('dom-ready', onDomReady)
-    return () => {
-      webview.removeEventListener('ipc-message', onMessage)
-      webview.removeEventListener('dom-ready', onDomReady)
-    }
-  }, [url, frameKey])
+    })
+  }, [previewKey, activeTabId, applySession])
 
   // A new document means a fresh guest with the picker off.
   useEffect(() => {
-    setGuestReady(false)
+    setGuestReady(readyTabs.current.has(activeTabId))
     setDesignMode(false)
-  }, [url, frameKey])
+  }, [url, activeTabId])
 
   // Keep the guest in sync with the toggle, including after a reload.
   useEffect(() => {
     if (!guestReady) return
-    webviewRef.current?.send(DESIGN_MODE_CHANNELS.setEnabled, designMode)
-  }, [designMode, guestReady])
+    void window.oxe.browserPreview.designMode({ownerKey:previewKey,tabId:activeTabId,enabled:designMode}).catch(() => {})
+  }, [designMode, guestReady, previewKey, activeTabId])
+
+  useEffect(() => {
+    for (const tab of tabs) if (tab.url) void window.oxe.browserPreview.setAccess({ownerKey:previewKey,tabId:tab.id,agentAccess:agentDocumentation,allowExternal}).catch(() => {})
+  }, [tabs, previewKey, agentDocumentation, allowExternal])
 
   const toggleDesignMode = useCallback((): void => {
     if (!url || !guestReady) {
@@ -172,27 +160,19 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
   // mounted because of the auto-open in App.tsx — in either case, this hook
   // sees the new pending URL and loads it. Entries are workspace-keyed so an
   // agent opening one preview cannot overwrite another workspace's request.
-  const pendingWebPreview = useUIStore((s) => s.pendingWebPreviewByWorkspace[workspace.id] ?? null)
+  const pendingWebPreview = useUIStore((s) => s.pendingWebPreviewByWorkspace[previewKey] ?? null)
   const setPendingWebPreview = useUIStore((s) => s.setPendingWebPreview)
   useEffect(() => {
-    if (!pendingWebPreview) return
+    if (!pendingWebPreview || !activeTabId) return
     const nextUrl = normalizePreviewUrl(pendingWebPreview, allowExternal)
     if (!nextUrl) {
       setCaptureNotice('An agent requested an external URL. Enable External preview to open it.')
       return
     }
-    setPendingWebPreview(workspace.id, null)
     setCaptureNotice(null)
-    setDraftUrl(pendingWebPreview)
-    setUrl(nextUrl)
-    setHistory((current) => {
-      const next = current.slice(0, historyIndex + 1)
-      if (next[next.length - 1] !== nextUrl) next.push(nextUrl)
-      setHistoryIndex(next.length - 1)
-      return next
-    })
-    setFrameKey((value) => value + 1)
-  }, [pendingWebPreview, workspace.id, historyIndex, setPendingWebPreview, allowExternal])
+    updateTab(activeTabId, tab => ({ ...tab, draftUrl: pendingWebPreview }))
+    void window.oxe.browserPreview.session({ownerKey:previewKey,action:'navigate',tabId:activeTabId,url:nextUrl,allowExternal}).then(session => { applySession(session); setPendingWebPreview(previewKey, null) }).catch(error => setCaptureNotice(error instanceof Error ? error.message : 'Could not open the page.'))
+  }, [pendingWebPreview, previewKey, activeTabId, setPendingWebPreview, allowExternal, applySession])
   const zoomOut = (): void => setZoom((value) => Math.max(50, value - 10))
   const zoomIn = (): void => setZoom((value) => Math.min(150, value + 10))
   const openExternal = (): void => { if (url) window.open(url, '_blank', 'noopener,noreferrer') }
@@ -202,7 +182,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
     setCapturing(true)
     setCaptureNotice(null)
     try {
-      await window.oxe.mcpInternal.captureWebPreview()
+      await window.oxe.browserPreview.captureClipboard({ownerKey:previewKey,tabId:activeTabId})
       setCaptureNotice('Preview copied to the clipboard.')
     } catch (error) {
       setCaptureNotice(error instanceof Error ? error.message : 'Could not capture the preview.')
@@ -228,6 +208,15 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
         </div>
       </header>
 
+      <div className="web-preview-tabs" role="tablist" aria-label="Browser tabs">
+        {tabs.map((tab, index) => <div className="web-preview-tab" key={tab.id} data-browser-tab-id={tab.id} data-active={tab.id === activeTabId} data-loading={tab.loading} data-error={Boolean(tab.error)}>
+          {tab.loading ? <LoaderCircle size={12} className="web-preview-tab-spinner" aria-label="Loading" /> : tab.error ? <AlertCircle size={12} aria-label="Page failed" /> : null}
+          <button type="button" role="tab" aria-selected={tab.id === activeTabId} aria-label={`Tab ${index + 1}: ${tab.url ? new URL(tab.url).hostname : 'New tab'}`} onClick={() => changeTab('select',tab.id)}>{tab.url ? new URL(tab.url).hostname : 'New tab'}</button>
+          <button type="button" aria-label={`Close tab ${index + 1}`} onClick={() => changeTab('close',tab.id)}><X size={12} aria-hidden="true" /></button>
+        </div>)}
+        <button type="button" className="web-preview-new-tab" aria-label="New browser tab" onClick={() => changeTab('new')}><Plus size={14} aria-hidden="true" /></button>
+      </div>
+
       <div className="web-preview-browserbar" aria-label="Web preview browser toolbar">
         <button type="button" className="web-preview-nav-button" aria-label="Back" disabled={!canGoBack} onClick={goBack}>
           <ArrowLeft size={14} aria-hidden="true" />
@@ -246,7 +235,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
           placeholder="http://localhost:3000"
           spellCheck={false}
         />
-        <button type="button" className="web-preview-go-button" disabled={!canOpen} onClick={open}>
+        <button type="button" className="web-preview-go-button" disabled={!canOpen || !activeTabId} onClick={open}>
           Go
         </button>
         <label className="web-preview-external-toggle" title="Remote sites keep their own frame security headers">
@@ -289,9 +278,8 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
         <span>{agentDocumentation ? 'Actions ask for approval' : 'Documentation access is off'}</span>
       </div>
 
-      <div className="web-preview-stage">
-        {url ? (
-          <div className="web-preview-frame-wrap">
+      <div className="web-preview-stage" aria-busy={loading}>
+        {tabs.map(tab => tab.url && !tab.error && normalizePreviewUrl(tab.url, allowExternal) && <div className="web-preview-frame-wrap" key={tab.id} style={tab.id === activeTabId ? undefined : { display: 'none' }}>
             <div
               className={`web-preview-device viewport-${viewport}`}
               style={{
@@ -304,31 +292,15 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
                 <span>{viewportConfig.label}</span>
                 <code>{url}</code>
               </div>
-              {/* <webview> rather than <iframe>: Design Mode needs a preload
-                  inside the guest, which a cross-origin iframe cannot have.
-                  The main process pins that preload in will-attach-webview. */}
-              <webview
-                key={`${url}-${frameKey}`}
-                ref={(element: HTMLElement | null) => {
-                  webviewRef.current = element as WebviewElement | null
-                }}
-                src={url}
-                style={frameStyle}
-                title="Workspace web preview"
-                data-workspace-id={workspace.id}
-                data-agent-automation={String(agentDocumentation)}
-                data-allow-external={String(allowExternal)}
-                partition="oxe-webpreview"
-                data-testid="web-preview-webview"
-              />
+              <NativePreviewHost key={tab.id} mount={{ownerKey:previewKey,workspaceId:workspace.id,threadId,tabId:tab.id,url:tab.url,allowExternal,agentAccess:agentDocumentation}} active={tab.id === activeTabId} zoom={zoom} />
             </div>
-          </div>
-        ) : (
+          </div>)}
+        {(!url || externalPageBlocked || pageError) && (
           <div className="web-preview-empty-state">
-            <MonitorPlay size={56} aria-hidden="true" />
-            <strong>Web Preview</strong>
-            <span>Enter a URL above to preview a website</span>
-            <small>Tip: create a "server" script with a preview URL to auto-open this panel</small>
+            {pageError && !externalPageBlocked ? <AlertCircle size={42} aria-hidden="true" /> : <MonitorPlay size={56} aria-hidden="true" />}
+            <strong>{externalPageBlocked ? 'External access required' : pageError ? 'Page unavailable' : 'Web Preview'}</strong>
+            <span>{externalPageBlocked ? 'Enable External to reopen this website.' : pageError ? 'The preview could not load this page.' : 'Enter a URL above to preview a website'}</span>
+            {externalPageBlocked ? null : pageError ? <><small>{pageError}</small><button type="button" className="web-preview-retry" onClick={open}>Retry</button></> : <small>Tip: create a "server" script with a preview URL to auto-open this panel</small>}
           </div>
         )}
       </div>
@@ -350,12 +322,12 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
   )
 
   if (embedded) {
-    return <div className="web-preview-panel web-preview-panel-embedded">{content}</div>
+    return <div className="web-preview-panel web-preview-panel-embedded" data-browser-owner={previewKey} data-agent-automation={String(agentDocumentation)}>{content}</div>
   }
 
   return (
     <div className="web-preview-backdrop" role="presentation" onMouseDown={onClose}>
-      <section className="web-preview-panel" role="dialog" aria-modal="true" aria-label="Web Preview" onMouseDown={(event) => event.stopPropagation()}>
+      <section className="web-preview-panel" role="dialog" aria-modal="true" aria-label="Web Preview" data-browser-owner={previewKey} data-agent-automation={String(agentDocumentation)} onMouseDown={(event) => event.stopPropagation()}>
         {content}
       </section>
     </div>

@@ -1,7 +1,7 @@
 import { existsSync, watch as fsWatch, type FSWatcher } from 'node:fs'
 import { spawn, type SpawnOptions } from 'node:child_process'
 import { join } from 'node:path'
-import type { GitBranchStatus, GitDiff, GitDiffFile, GitDiffInput } from '../../../shared/types/git'
+import type { GitBranchStatus, GitControlFile, GitControlStatus, GitDiff, GitDiffFile, GitDiffInput } from '../../../shared/types/git'
 
 export interface SpawnGitResult {
   stdout: string
@@ -32,9 +32,9 @@ const RESOLVE_TIMEOUT_MS = 5_000
 let cachedGitCommand: string | undefined
 let gitResolveInFlight: Promise<string | null> | null = null
 
-function spawnCommandAsync(command: string, args: string[], cwd: string, timeoutMs: number): Promise<SpawnGitResult> {
+function spawnCommandAsync(command: string, args: string[], cwd: string, timeoutMs: number, maxOutputBytes = Infinity): Promise<SpawnGitResult> {
   return new Promise((resolve) => {
-    const opts: SpawnOptions = { cwd, shell: false, windowsHide: true }
+    const opts: SpawnOptions = { cwd, shell: false, windowsHide: true, ...(args.includes('--porcelain=v2') ? { env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } } : {}) }
     const child = spawn(command, args, opts)
     let stdout = ''
     let stderr = ''
@@ -48,7 +48,17 @@ function spawnCommandAsync(command: string, args: string[], cwd: string, timeout
 
     child.stdout?.setEncoding('utf8')
     child.stderr?.setEncoding('utf8')
-    child.stdout?.on('data', (chunk: string) => { stdout += chunk })
+    child.stdout?.on('data', (chunk: string) => {
+      if (settled) return
+      if (Buffer.byteLength(stdout) + Buffer.byteLength(chunk) > maxOutputBytes) {
+        settled = true
+        clearTimeout(timer)
+        try { child.kill() } catch { /* already exited */ }
+        resolve({ stdout: '', stderr: 'Git status exceeds the display limit; narrow the worktree changes and refresh.', status: null })
+        return
+      }
+      stdout += chunk
+    })
     child.stderr?.on('data', (chunk: string) => { stderr += chunk })
     child.on('error', (err) => {
       if (settled) return
@@ -119,7 +129,34 @@ async function spawnGitAsync(args: string[], cwd: string): Promise<SpawnGitResul
   if (!git) {
     return { stdout: '', stderr: 'Git executable not found', status: null }
   }
-  return spawnCommandAsync(git, args, cwd, SPAWN_TIMEOUT_MS)
+  return spawnCommandAsync(git, args, cwd, SPAWN_TIMEOUT_MS, args.includes('--porcelain=v2') ? 4 * 1024 * 1024 : Infinity)
+}
+
+/** Parse one bounded porcelain-v2 snapshot. NUL records preserve unusual file names. */
+export function parseGitControlStatus(raw: string): GitControlStatus {
+  const files: GitControlFile[] = []
+  let branch: string | null = null, upstream: string | null = null, ahead = 0, behind = 0
+  const records = raw.split('\0')
+  for (let index = 0; index < records.length && files.length < 1000; index++) {
+    const record = records[index]
+    if (record.startsWith('# branch.head ')) { branch = record.slice(14) || null; continue }
+    if (record.startsWith('# branch.upstream ')) { upstream = record.slice(18) || null; continue }
+    if (record.startsWith('# branch.ab ')) {
+      const match = /^# branch\.ab \+(\d+) -(\d+)/.exec(record)
+      if (match) { ahead = Number(match[1]); behind = Number(match[2]) }
+      continue
+    }
+    if (record.startsWith('? ')) { files.push({ path: record.slice(2), staged: false, unstaged: true, untracked: true, conflicted: false, status: '?' }); continue }
+    if (!/^[12u] /.test(record)) continue
+    const fields = record.split(' ')
+    const kind = record[0], xy = fields[1] ?? '..'
+    const pathOffset = kind === '1' ? 8 : kind === '2' ? 9 : 10
+    const path = fields.slice(pathOffset).join(' ')
+    if (kind === '2') index++ // the following NUL record is the original rename path
+    if (!path) continue
+    files.push({ path, staged: kind === 'u' || xy[0] !== '.', unstaged: kind === 'u' || xy[1] !== '.', untracked: false, conflicted: kind === 'u', status: xy })
+  }
+  return { branch, upstream, ahead, behind, files, checkedAt: Date.now(), ...(files.length >= 1000 ? { truncated: true } : {}) }
 }
 
 export function parseDiffOutput(raw: string): GitDiffFile[] {
@@ -242,6 +279,12 @@ export class GitService {
 
   constructor(options?: { spawnGit?: SpawnGitFn }) {
     this.spawnGit = options?.spawnGit ?? spawnGitAsync
+  }
+
+  async getStatus(rootPath: string): Promise<GitControlStatus> {
+    const result = await this.spawnGit(['-c', 'core.quotePath=false', 'status', '--porcelain=v2', '--branch', '-z', '--untracked-files=normal'], rootPath)
+    if (result.status !== 0) return { branch: null, ahead: 0, behind: 0, files: [], checkedAt: Date.now(), error: result.stderr || 'Git status is unavailable.' }
+    return parseGitControlStatus(result.stdout)
   }
 
   async getBranch(rootPath: string): Promise<GitBranchStatus> {

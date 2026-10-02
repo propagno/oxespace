@@ -2,6 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { StringDecoder } from 'node:string_decoder'
 import type { AppDatabase } from '../db/index'
 import { killProcess } from '../utils/process-cleanup'
 import type {
@@ -30,8 +31,13 @@ interface RuntimeJob {
   process: ChildProcessWithoutNullStreams | null
   /** Ring buffer of the last N lines of stdout/stderr. */
   ringBuffer: string[]
+  ringBufferBytes: number
   /** Total lines emitted (monotonic), used for sequence numbers. */
   totalLines: number
+  stdoutPending: string
+  stderrPending: string
+  stdoutDecoder: StringDecoder
+  stderrDecoder: StringDecoder
 }
 
 interface BackgroundManagerOptions {
@@ -40,6 +46,8 @@ interface BackgroundManagerOptions {
 }
 
 const RING_BUFFER_LIMIT = 1000
+const RING_BUFFER_BYTES_LIMIT = 1024 * 1024
+const FINISHED_RUNTIME_LIMIT = 50
 // Per-line cap: a single line (e.g. a base64/binary dump with no newline) could
 // be megabytes, blowing up the ring buffer's memory and the IPC payload. Truncate
 // at ingestion; the ring-buffer LINE COUNT cap doesn't bound per-line length.
@@ -134,40 +142,57 @@ export class BackgroundManager {
       job: { ...job, status: 'running' },
       process: child,
       ringBuffer: [],
-      totalLines: 0
+      ringBufferBytes: 0,
+      totalLines: 0,
+      stdoutPending: '',
+      stderrPending: '',
+      stdoutDecoder: new StringDecoder('utf8'),
+      stderrDecoder: new StringDecoder('utf8')
     }
     this.jobs.set(id, runtime)
 
     this.transitionJob(id, 'running', null)
 
-    const handleData = (chunk: Buffer): void => {
-      const text = chunk.toString('utf8')
-      const lines = text.split(/\r?\n/)
-      for (const rawLine of lines) {
-        if (rawLine.length === 0) continue
-        const line = rawLine.length > MAX_LINE_LENGTH
-          ? rawLine.slice(0, MAX_LINE_LENGTH) + ' … (linha truncada)'
-          : rawLine
-        runtime.totalLines += 1
-        runtime.ringBuffer.push(line)
-        if (runtime.ringBuffer.length > RING_BUFFER_LIMIT) runtime.ringBuffer.shift()
-        this.emitOutput({ jobId: id, data: line, sequence: runtime.totalLines })
+    const emitLine = (rawLine: string): void => {
+      if (!rawLine) return
+      const line = rawLine.length > MAX_LINE_LENGTH
+        ? rawLine.slice(0, MAX_LINE_LENGTH) + ' … (linha truncada)'
+        : rawLine
+      runtime.totalLines += 1
+      runtime.ringBuffer.push(line)
+      runtime.ringBufferBytes += Buffer.byteLength(line, 'utf8')
+      while (runtime.ringBuffer.length > RING_BUFFER_LIMIT || runtime.ringBufferBytes > RING_BUFFER_BYTES_LIMIT) {
+        runtime.ringBufferBytes -= Buffer.byteLength(runtime.ringBuffer.shift()!, 'utf8')
       }
+      this.emitOutput({ jobId: id, data: line, sequence: runtime.totalLines })
+    }
+    const handleText = (stream: 'stdoutPending' | 'stderrPending', text: string): void => {
+      const parts = (runtime[stream] + text).split('\n')
+      runtime[stream] = parts.pop()!.slice(0, MAX_LINE_LENGTH + 1)
+      for (const part of parts) emitLine(part.endsWith('\r') ? part.slice(0, -1) : part)
     }
 
-    child.stdout.on('data', handleData)
-    child.stderr.on('data', handleData)
+    child.stdout.on('data', (chunk: Buffer) => handleText('stdoutPending', runtime.stdoutDecoder.write(chunk)))
+    child.stderr.on('data', (chunk: Buffer) => handleText('stderrPending', runtime.stderrDecoder.write(chunk)))
     child.on('error', (err) => {
-      runtime.totalLines += 1
       const errLine = `[error] ${err.message}`
-      runtime.ringBuffer.push(errLine)
-      if (runtime.ringBuffer.length > RING_BUFFER_LIMIT) runtime.ringBuffer.shift()
-      this.emitOutput({ jobId: id, data: errLine, sequence: runtime.totalLines })
+      emitLine(errLine)
       this.transitionJob(id, 'failed', null)
     })
     child.on('close', (code) => {
+      handleText('stdoutPending', runtime.stdoutDecoder.end())
+      handleText('stderrPending', runtime.stderrDecoder.end())
+      emitLine(runtime.stdoutPending)
+      emitLine(runtime.stderrPending)
+      runtime.stdoutPending = ''
+      runtime.stderrPending = ''
+      if (runtime.job.status === 'killed' || runtime.job.status === 'failed') {
+        this.pruneFinishedRuntimes()
+        return
+      }
       const status: BackgroundJobStatus = code === 0 ? 'exited' : code === null ? 'killed' : 'failed'
       this.transitionJob(id, status, code)
+      this.pruneFinishedRuntimes()
     })
 
     return runtime.job
@@ -223,6 +248,13 @@ export class BackgroundManager {
       const row = this.db.prepare('SELECT * FROM background_jobs WHERE id = ?').get(id) as JobRow | undefined
       if (row) this.emitUpdate({ job: mapJobRow(row) })
     }
+  }
+
+  private pruneFinishedRuntimes(): void {
+    const finished = [...this.jobs.entries()]
+      .filter(([, runtime]) => runtime.job.status !== 'running' && runtime.job.status !== 'pending')
+      .sort(([, a], [, b]) => (b.job.finishedAtMs ?? 0) - (a.job.finishedAtMs ?? 0))
+    for (const [id] of finished.slice(FINISHED_RUNTIME_LIMIT)) this.jobs.delete(id)
   }
 
   /** On startup, mark any jobs left in 'running'/'pending' from a previous session as failed. */

@@ -32,6 +32,31 @@ function fixture(usageResult: unknown = {}, usageError = false, mcpResult: unkno
 }
 
 describe('Codex conversation adapter', () => {
+  it('streams scoped provider summaries as activity without showing raw reasoning', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
+    await f.adapter.send('Inspect the project')
+    f.emit({ method: 'item/reasoning/summaryTextDelta', params: { threadId: 'other', turnId: 'turn-A', itemId: 'reason', delta: 'Private other thread' } })
+    expect(f.events.some(event => event.type === 'activity' && event.summary?.includes('Private'))).toBe(false)
+    f.emit({ method: 'item/started', params: { threadId: 'native-A', turnId: 'turn-A', item: { id: 'reason', type: 'reasoning' } } })
+    f.emit({ method: 'item/reasoning/summaryTextDelta', params: { threadId: 'native-A', turnId: 'turn-A', itemId: 'reason', delta: 'Checking the files.' } })
+    expect(f.events).toContainEqual(expect.objectContaining({ type: 'activity', id: 'reasoning:reason', summary: 'Checking the files.' }))
+    expect(f.events.some(event => event.type === 'message' && event.text.includes('Checking the files.'))).toBe(false)
+    expect(f.events.some(event => event.type === 'native-signal')).toBe(true)
+    await f.adapter.dispose()
+  })
+  it('streams bounded command output while a command runs and retains it if completion omits the aggregate', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
+    await f.adapter.send('Run tests')
+    f.emit({ method: 'item/started', params: { threadId: 'native-A', turnId: 'turn-A', item: { id: 'command', type: 'commandExecution', command: 'npm test' } } })
+    f.emit({ method: 'item/commandExecution/outputDelta', params: { threadId: 'other', turnId: 'turn-A', itemId: 'command', delta: 'private' } })
+    f.emit({ method: 'item/commandExecution/outputDelta', params: { threadId: 'native-A', turnId: 'turn-A', itemId: 'command', delta: '1 test passed' } })
+    expect(f.events).toContainEqual(expect.objectContaining({ type: 'tool', id: 'command', state: 'running', output: '1 test passed' }))
+    f.emit({ method: 'item/completed', params: { threadId: 'native-A', turnId: 'turn-A', item: { id: 'command', type: 'commandExecution', command: 'npm test', status: 'completed' } } })
+    expect(f.events.at(-1)).toMatchObject({ type: 'tool', id: 'command', state: 'completed', output: '1 test passed' })
+    await f.adapter.dispose()
+  })
   it('rejects a turn held by another native writer and leaves usage polling alone', async () => {
     const f = fixture()
     const write = f.transport.write

@@ -196,7 +196,7 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   {
     descriptor: {
       name: 'oxespace_open_web_preview',
-      description: 'Open the Web Preview panel in OXESpace pointing to the given URL.',
+      description: 'Open the current Code or Thread Web Preview at an HTTP(S) URL. External sites require the user to enable External preview.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -212,7 +212,7 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   {
     descriptor: {
       name: 'oxespace_capture_web_preview',
-      description: 'Capture a screenshot of the active Web Preview panel in the current workspace. Returns a base64 PNG image block.',
+      description: 'Capture the active opted-in Code or Thread browser tab with private inputs redacted. Returns a PNG image block.',
       inputSchema: { type: 'object', properties: {}, additionalProperties: false }
     },
     requiresWorkspace: true,

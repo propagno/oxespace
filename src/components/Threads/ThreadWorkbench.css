@@ -11,7 +11,12 @@
 .thread-inline-evidence { max-height: 360px; min-width: 0; overflow: auto; margin: 6px 0 12px; border: 1px solid var(--bd-base); border-radius: var(--nav-radius); background: var(--pane-surface-raised); }
 .thread-inline-evidence p, .thread-inline-evidence > div[role="alert"] { padding: 10px 12px; color: var(--tx-muted); font-size: var(--fs-2xs); }
 .thread-inline-evidence pre { padding: 12px; font: 11px/1.7 var(--font-mono); overflow: auto; }
-.thread-turn-timing { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 12px 0 16px; font-size: var(--fs-2xs); color: var(--tx-muted); }
+.thread-turn-timing { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 0; font-size: var(--fs-2xs); color: var(--tx-muted); }
+.thread-turn-outcome { display: inline-flex; align-items: center; gap: 5px; color: var(--tx-secondary); font-weight: 600; }
+.thread-turn-timing.is-completed .thread-turn-outcome svg { color: var(--dot-green); }
+.thread-turn-timing.is-failed .thread-turn-outcome, .thread-turn-timing.is-failed .thread-turn-outcome svg { color: var(--dot-red); }
+.thread-turn-timing.is-interrupted .thread-turn-outcome svg { color: var(--dot-yellow); }
+.thread-view .thread-turn-timing { font-size: max(11px, calc(var(--thread-reader-font-size) - 4px)); }
 .thread-plan { margin: 12px 0 18px; border: 1px solid var(--bd-base); border-radius: var(--surface-radius); background: var(--pane-surface-raised); padding: 10px 12px; }
 .thread-plan > summary { display: flex; align-items: center; gap: 8px; list-style: none; cursor: pointer; font-size: var(--fs-xs); }
 .thread-plan > summary::-webkit-details-marker { display: none; }
@@ -62,11 +67,24 @@
 .thread-review-search { flex-shrink: 0; display: flex; align-items: center; gap: 8px; margin: 0 12px 10px; padding: 6px 9px; border: 1px solid var(--bd-base); border-radius: var(--nav-radius); color: var(--tx-muted); background: var(--bg-input); }
 .thread-review-search:focus-within { border-color: var(--accent); }
 .thread-review-search input { width: 100%; min-width: 0; padding: 0; outline: none; border: 0; background: transparent; color: var(--tx-primary); font: inherit; }
-.thread-review-file-list { flex-shrink: 0; overflow-y: auto; max-height: 168px; padding: 0 8px 8px; border-bottom: 1px solid var(--bd-base); scrollbar-width: thin; }
+.thread-review-file-list { flex-shrink: 0; overflow-y: auto; max-height: min(34vh, 280px); padding: 0 8px 8px; border-bottom: 1px solid var(--bd-base); scrollbar-width: thin; }
 .thread-review-file-list > button { display: flex; width: 100%; min-height: 32px; }
 .thread-review-file-list > button[aria-current="true"] { background: color-mix(in srgb, var(--accent) 10%, var(--pane-surface)); color: var(--tx-primary); }
 .thread-review-file-list > button > span:not(.thread-file-stats) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-review-file-list small { flex-shrink: 0; margin-left: auto; color: var(--tx-muted); font-size: var(--fs-2xs); }
+.thread-session-change-group { padding-top: 7px; border-top: 1px solid var(--bd-base); }
+.thread-session-change-group:first-child { border-top: 0; }
+.thread-session-change-group h3 { display: flex; align-items: baseline; gap: 6px; min-width: 0; margin: 0; padding: 4px 8px 7px; font-size: var(--fs-2xs); font-weight: 400; }
+.thread-session-change-group h3 > span { flex-shrink: 0; color: var(--accent); }
+.thread-session-change-group h3 > strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; color: var(--tx-secondary); }
+.thread-session-change-group > button { display: flex; width: 100%; min-height: 32px; }
+.thread-session-change-group > button[aria-current="true"] { background: color-mix(in srgb, var(--accent) 10%, var(--pane-surface)); color: var(--tx-primary); }
+.thread-session-change-group > button > span:not(.thread-file-stats) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thread-session-operations { display: grid; gap: 3px; padding: 10px 12px; border-bottom: 1px solid var(--bd-base); }
+.thread-session-operations > strong { margin-bottom: 3px; color: var(--tx-muted); font-size: var(--fs-2xs); font-weight: 500; }
+.thread-session-operations > button { justify-content: space-between; width: 100%; min-width: 0; }
+.thread-session-operations > button[aria-current="true"] { background: color-mix(in srgb, var(--accent) 10%, var(--pane-surface)); color: var(--tx-primary); }
+.thread-session-operations > button > small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tx-muted); }
 .thread-review-body { flex: 1; min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .thread-tool-surface { display: flex; overflow: hidden; }
 .thread-tool-surface > .editor-pane, .thread-tool-surface > .search-panel, .thread-tool-surface > .github-panel, .thread-tool-surface > .terminal-pane { flex: 1; min-width: 0; min-height: 0; height: 100%; }

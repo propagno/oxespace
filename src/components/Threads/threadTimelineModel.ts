@@ -21,7 +21,7 @@ export interface ThreadTimelineItem extends ThreadTimelineRow {
   lastInTurn: boolean
 }
 
-const HIDDEN_EVENTS = new Set<ThreadEvent['type']>(['session', 'configuration', 'approval-resolved', 'request-resolved', 'queue', 'delta', 'model-picker', 'cli-command', 'turn-diff', 'failure-details'])
+const HIDDEN_EVENTS = new Set<ThreadEvent['type']>(['session', 'native-signal', 'activity', 'configuration', 'approval-resolved', 'request-resolved', 'queue', 'delta', 'model-picker', 'cli-command', 'turn-diff', 'failure-details'])
 
 function rowKey(turnId: string, event: ActivityGroup, ordinal: number): string {
   if (event.type === 'activity-group') return `${turnId}:activity:${event.id}`

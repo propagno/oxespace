@@ -25,7 +25,7 @@ import type { AgentCreditsProvider } from './types'
  * cache for 60s to avoid hammering the endpoint.
  */
 
-const TTL_MS = 60_000
+const TTL_MS = 5 * 60_000
 const TIMEOUT_MS = 15_000
 const USAGE_URL = 'https://api.anthropic.com/api/oauth/usage'
 const OAUTH_BETA = 'oauth-2025-04-20'
@@ -119,6 +119,8 @@ function buildSnapshot(data: unknown, planLabel: string | null): AgentCreditsSna
     planLabel,
     display,
     windows,
+    source: 'oauth',
+    observedAtMs: Date.now(),
     error: null
   }
 }

@@ -129,15 +129,18 @@ export class ThreadCommandService {
   async prepare(thread: ConversationThread, text: string): Promise<ThreadAgentInput> {
     const match = text.trim().match(/^\/([a-z0-9][a-z0-9_:-]*)(?:\s+([\s\S]*))?$/i)
     if (!match) return { text }
+    // Claude handles this native command itself. Command discovery starts an
+    // auxiliary CLI and must not delay a command whose behavior is already known.
+    if (thread.provider === 'claude' && ['mcp', 'compact', 'context'].includes(match[1])) return { text: text.trim() }
+    if (thread.provider === 'codex' && CODEX_THREAD_COMMANDS.some(command => command.name === match[1])) {
+      if (['status', 'compact'].includes(match[1]) && match[2]) throw Error(`/${match[1]} does not take arguments in Codex.`)
+      return { text: text.trim() }
+    }
     const { entries } = await this.load(thread)
     const entry = entries.get(match[1]), argument = match[2] ?? ''
     if (entry?.body !== undefined) return { text: entry.body.includes('{{argument}}') ? entry.body.replace(/\{\{argument\}\}/g, argument) : entry.body + (argument ? `\n\n${argument}` : '') }
     if (entry?.source === 'codex' && entry.path) return { text: `$${entry.name}${argument ? ` ${argument}` : ''}`, skill: { name: entry.name, path: entry.path } }
     if (thread.provider === 'claude' && entry?.execution === 'conversation') return { text: text.trim() }
-    if (thread.provider === 'codex' && CODEX_THREAD_COMMANDS.some(command => command.name === match[1])) {
-      if ((match[1] === 'status' || match[1] === 'compact') && argument) throw Error(`/${match[1]} does not take arguments in Codex.`)
-      return { text: text.trim() }
-    }
     // A TUI-only command is offered as an explicit auxiliary action in Thread.
     if (entry?.execution === 'unavailable' || entry?.execution === 'cli') throw Error(`/${match[1]} is not available in Thread yet. ${entry.unavailableReason ?? ''}`)
     if (match[1] === 'compact') {

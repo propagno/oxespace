@@ -1,6 +1,7 @@
 import { Activity, Check, CircleDot, RotateCw, Square, Trash2, X, Zap } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
 import type { BackgroundJob, BackgroundJobStatus } from '../../../shared/types/background'
+import type { DelegationTask } from '../../../shared/types/delegation'
 import { selectJobs, selectOutput, useBackgroundStore } from '../../store/background.store'
 
 interface BackgroundJobsPanelProps {
@@ -28,11 +29,35 @@ export function BackgroundJobsPanel({ workspaceId }: BackgroundJobsPanelProps): 
   const expandedJobId = useBackgroundStore((s) => s.expandedJobId)
   const setExpanded = useBackgroundStore((s) => s.setExpanded)
   const [filter, setFilter] = useState<'all' | BackgroundJobStatus>('all')
+  const [source, setSource] = useState<'jobs' | 'delegated'>('jobs')
+  const [delegated, setDelegated] = useState<DelegationTask[]>([])
+  const [delegatedError, setDelegatedError] = useState('')
+  const [delegatedLoading, setDelegatedLoading] = useState(false)
+  const [delegatedRefresh, setDelegatedRefresh] = useState(0)
   const [busy, setBusy] = useState<string | null>(null)
 
   useEffect(() => {
     void loadJobs(workspaceId)
   }, [workspaceId, loadJobs])
+
+  useEffect(() => {
+    if (source !== 'delegated' || !window.oxe?.delegation?.status) return
+    let active = true
+    const refresh = async (): Promise<void> => {
+      setDelegatedLoading(true)
+      try {
+        const page = await window.oxe.delegation.status(workspaceId, undefined, 50)
+        if (active) { setDelegated(page.tasks); setDelegatedError('') }
+      } catch (error) {
+        if (active) setDelegatedError(error instanceof Error ? error.message : 'Could not load delegated work.')
+      } finally {
+        if (active) setDelegatedLoading(false)
+      }
+    }
+    void refresh()
+    const off = window.oxe.delegation.onChanged?.(event => { if (event.workspaceId === workspaceId) void refresh() })
+    return () => { active = false; off?.() }
+  }, [source, workspaceId, delegatedRefresh])
 
   const filtered = useMemo(() => {
     if (filter === 'all') return jobs
@@ -71,20 +96,25 @@ export function BackgroundJobsPanel({ workspaceId }: BackgroundJobsPanelProps): 
   }
 
   return (
-    <section className="bg-jobs-dock" aria-label="Background jobs">
+    <section className="bg-jobs-dock" aria-label="Background activity">
       <header className="bg-jobs-dock-toolbar">
-        <span className="bg-jobs-dock-count">{jobs.length} job{jobs.length === 1 ? '' : 's'}</span>
+        <span className="bg-jobs-dock-count">{source === 'jobs' ? `${jobs.length} job${jobs.length === 1 ? '' : 's'}` : `${delegated.length} delegated task${delegated.length === 1 ? '' : 's'}`}</span>
         <button
           type="button"
           className="icon-button"
           aria-label="Refresh background jobs"
-          onClick={() => void loadJobs(workspaceId)}
+          onClick={() => { if (source === 'jobs') void loadJobs(workspaceId); else setDelegatedRefresh(value => value + 1) }}
         >
           <RotateCw size={12} aria-hidden="true" />
         </button>
       </header>
 
-      <nav className="bg-jobs-dock-filters" aria-label="Status filter">
+      <nav className="bg-jobs-source-tabs" aria-label="Activity source">
+        <button type="button" aria-current={source === 'jobs' ? 'page' : undefined} onClick={() => setSource('jobs')}>Local jobs</button>
+        <button type="button" aria-current={source === 'delegated' ? 'page' : undefined} onClick={() => setSource('delegated')}>Delegated work</button>
+      </nav>
+
+      {source === 'jobs' ? <nav className="bg-jobs-dock-filters" aria-label="Status filter">
         {STATUS_FILTERS.map((f) => (
           <button
             key={f.id}
@@ -96,9 +126,18 @@ export function BackgroundJobsPanel({ workspaceId }: BackgroundJobsPanelProps): 
             <span className="bg-jobs-dock-filter-count">{counts[f.id] ?? 0}</span>
           </button>
         ))}
-      </nav>
+      </nav> : null}
 
-      <div className="bg-jobs-dock-list">
+      {source === 'delegated' ? <div className="bg-jobs-dock-list" aria-busy={delegatedLoading}>
+        {delegatedError ? <div role="alert" className="bg-jobs-dock-empty">{delegatedError}</div> : null}
+        {!delegatedLoading && !delegatedError && delegated.length === 0 ? <div className="bg-jobs-dock-empty"><Activity size={24} aria-hidden="true" /><strong>No delegated work</strong><span>Delegated agent tasks for this project appear here. Agent commands remain in their conversation timeline.</span></div> : null}
+        {delegated.map(task => <article key={task.id} className="bg-jobs-delegated-card">
+          <div><strong>{task.objective}</strong><span data-state={task.state}>{task.state}</span></div>
+          <small>{task.nativeSession?.provider ?? task.agentProfileId} · {task.branch} · {new Date(task.updatedAt).toLocaleString()}</small>
+          {task.lastReport ? <p>{task.lastReport}</p> : null}
+          {task.error ? <p role="alert">{task.error}</p> : null}
+        </article>)}
+      </div> : <div className="bg-jobs-dock-list">
         {filtered.length === 0 ? (
           <div className="bg-jobs-dock-empty">
             <Activity size={24} aria-hidden="true" />
@@ -121,7 +160,7 @@ export function BackgroundJobsPanel({ workspaceId }: BackgroundJobsPanelProps): 
             />
           ))
         )}
-      </div>
+      </div>}
     </section>
   )
 }

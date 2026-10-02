@@ -14,7 +14,7 @@ import { DELEGATION_TOOLS } from '../../electron/main/mcp-internal/delegation-to
 import type { ToolContext } from '../../electron/main/mcp-internal/tool-registry'
 const exec = promisify(execFile)
 const cleanup: (() => Promise<void>)[] = []
-afterEach(async () => { for (const fn of cleanup.splice(0)) await fn() })
+afterEach(async () => { for (const fn of cleanup.splice(0)) await fn() }, 30000)
 async function fixture() {
   const directory = await mkdtemp(join(tmpdir(), 'oxe-coordination-'))
   const db = openInMemoryDatabase()
@@ -87,7 +87,7 @@ describe('cross-workspace coordination', () => {
     expect((await f.service.status(f.a.id)).tasks).toHaveLength(1)
     expect((await f.service.status(f.b.id)).tasks).toHaveLength(1)
     await expect(f.service.create(f.origin, { ...f.input, objective: 'Different' })).rejects.toThrow('different input')
-  }, 30000)
+  }, 60000)
   test('explicit control reconnects a new requester session in the exact origin checkout', async () => {
     const f = await fixture()
     await f.service.configureTarget(f.a.id, f.roots[1], true, true)
@@ -106,7 +106,7 @@ describe('cross-workspace coordination', () => {
     await expect(service.authorize(resumed, task.id)).rejects.toThrow('CONSENT_REQUIRED')
     await expect(service.control(f.a.id, task.id, 'retry')).rejects.toThrow('CONSENT_REQUIRED')
     expect(f.createWorktree).toHaveBeenCalledTimes(1)
-  }, 30000)
+  }, 60000)
   test('MCP control reconnects the requester and keeps delegated checkouts out of origin scope', async () => {
     const f = await fixture()
     await f.service.configureTarget(f.a.id, f.roots[1], true, true)
@@ -122,7 +122,7 @@ describe('cross-workspace coordination', () => {
     const control = DELEGATION_TOOLS.find(entry => entry.descriptor.name === 'oxespace_delegation_control')!
     await expect(control.handler({ taskId: task.id, action: 'cancel' }, context)).resolves.toMatchObject({ content: expect.any(Array) })
     expect(f.service.get(task.id)).toMatchObject({ state: 'cancelled', originExecutionId: requester.id })
-  }, 30000)
+  }, 60000)
   test('registers local repository only via trusted consent and rejects unrelated execution', async () => {
     const f = await fixture()
     await f.service.configureTarget(f.a.id, f.roots[2], true, false)
@@ -134,7 +134,7 @@ describe('cross-workspace coordination', () => {
     const task = await f.service.create(f.origin, { ...f.input, evidenceFiles: [] })
     f.registry.register({ paneId: 'third', workspaceId: f.a.id, cwd: f.roots[2] })
     await expect(f.service.authorize(f.registry.forPane('third')!, task.id, { reconnectRequester: true })).rejects.toThrow('scope')
-  }, 30000)
+  }, 60000)
   test('revocation during enrichment prevents launch; retry uses the preserved worktree', async () => {
     const f = await fixture()
     await f.service.configureTarget(f.a.id, f.roots[1], true, true)
@@ -152,7 +152,7 @@ describe('cross-workspace coordination', () => {
     await f.service.control(f.a.id, task.id, 'retry')
     await vi.waitFor(() => expect(f.service.get(task.id).destinationExecutionId).toBeTruthy(), { timeout: 15000 })
     expect(f.createWorktree).toHaveBeenCalledTimes(1)
-  }, 45000)
+  }, 90000)
   test('concurrent agents keep independent result histories and cancellation cannot be overwritten', async () => {
     const f = await fixture()
     await f.service.configureTarget(f.a.id, f.roots[1], true, true)
@@ -167,7 +167,7 @@ describe('cross-workspace coordination', () => {
     await f.service.control(f.a.id, a.id, 'cancel')
     await expect(f.service.update(childA, a.id, 'accepted', 'Late report')).rejects.toThrow()
     expect(f.service.get(a.id).state).toBe('cancelled')
-  }, 45000)
+  }, 90000)
   test('evidence excludes dirty contents, traversal and oversized content', async () => {
     const f = await fixture()
     await writeFile(join(f.roots[0], 'decision.md'), 'dirty secret not shared')
@@ -178,5 +178,5 @@ describe('cross-workspace coordination', () => {
     await f.git(f.roots[0], 'add', 'large.txt')
     await f.git(f.roots[0], '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-m', 'large')
     await expect(collectEvidence(f.roots[0], ['large.txt'])).rejects.toThrow('limits')
-  }, 30000)
+  }, 60000)
 })

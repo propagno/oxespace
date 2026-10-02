@@ -12,6 +12,8 @@ import type { AgentCreditsProvider } from './types'
  */
 export class AgentCreditsService {
   private readonly providers: Map<AgentProvider, AgentCreditsProvider>
+  private readonly lastGood = new Map<AgentProvider, AgentCreditsSnapshot>()
+  private readonly inFlight = new Map<AgentProvider, Promise<AgentCreditsSnapshot>>()
 
   constructor(providers?: AgentCreditsProvider[]) {
     const defaults: AgentCreditsProvider[] = providers ?? [
@@ -24,6 +26,19 @@ export class AgentCreditsService {
   async getCredits(provider: AgentProvider, force = false): Promise<AgentCreditsSnapshot> {
     const impl = this.providers.get(provider)
     if (!impl) return emptyAgentCredits(provider)
-    return impl.getCredits(force)
+    const pending = this.inFlight.get(provider)
+    if (pending) return pending
+    const read = impl.getCredits(force).then(value => {
+      if (value.available) { this.lastGood.set(provider, value); return value }
+      const previous = this.lastGood.get(provider)
+      const age = Date.now() - (previous?.observedAtMs ?? 0)
+      // Never present a former account's quota after authentication is rejected.
+      if (previous && value.installed && value.error && !/\b(?:401|403)\b/.test(value.error) && age < 30 * 60_000) {
+        return { ...previous, stale: true, error: value.error }
+      }
+      return value
+    }).finally(() => { if (this.inFlight.get(provider) === read) this.inFlight.delete(provider) })
+    this.inFlight.set(provider, read)
+    return read
   }
 }

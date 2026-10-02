@@ -11,7 +11,9 @@ it('collapses twelve consecutive tools without swallowing messages or approvals'
   expect(screen.getByText(/12 actions/)).toBeVisible()
   expect(screen.getByText(/result 0/, { selector: 'pre' })).not.toBeVisible()
   fireEvent.click(screen.getByText('Ran commands'))
+  fireEvent.click(screen.getByText('Completed actions'))
   fireEvent.click(screen.getByText('git show 0', { selector: 'small' }))
+  fireEvent.click(screen.getAllByText('Technical details')[0])
   expect(screen.getByText(/result 0/, { selector: 'pre' })).toBeVisible()
 })
 

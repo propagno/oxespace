@@ -85,5 +85,7 @@ test('sidebar sessions and full-page settings preserve terminal DOM', async () =
     await page.getByRole('button', {name:'Open diagnostics and logs'}).click()
     await expect(scope.getByRole('button', { name: 'Application', exact: true })).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByRole('heading', {name:'Diagnostics',exact:true})).toBeVisible()
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    expect(await page.locator('.app-shell').evaluate(el => parseFloat(getComputedStyle(el).transitionDuration))).toBeLessThanOrEqual(.001)
   } finally { await app.close() }
 })

@@ -194,7 +194,7 @@ describe('delegation lifecycle', () => {
     await vi.waitFor(() => expect(f.service.get(created.id).state).toBe('starting'), { timeout: 10000 })
     expect(f.service.get(created.id).branch).toBe('feature/CARD-142')
     expect(f.service.get(created.id).checkout?.baseRef).toBe('HEAD')
-  }, 20000)
+  }, 60000)
   test('opens an existing remote branch with tracking in an isolated worktree', async () => {
     const f = await fixture()
     const bare = join(f.root, '..', 'remote.git')

@@ -2,7 +2,6 @@ import { GitBranch, SquareTerminal } from 'lucide-react'
 import { useState, useRef, useEffect, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
-import { PaneBranchBadge } from '../Workspace/PaneBranchBadge'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { formatActivityTime } from '../../utils/formatTime'
@@ -27,11 +26,6 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
   const terminalState = useTerminalStore(s => s.getStatus(pane.id))
   const updatePaneName = useWorkspaceStore(s => s.updatePaneName)
   const closePane = useWorkspaceStore(s => s.closePane)
-  // Branch from the shared `useGitBranch` hook — backed by `git.getBranch`
-  // IPC, not the github.store. The github store is loaded lazily when the
-  // GitHub panel opens, so depending on it left the sidebar branch chip
-  // permanently blank in normal use. The hook caches per rootPath so N
-  // sidebar rows + the pane statusbar share a single fetch every 10s.
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
@@ -56,7 +50,7 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
   const isError = status === 'error'
   const isRecent = lastActivityAt !== null && Date.now() - lastActivityAt < RECENT_MS
   const display = derivePaneDisplayState({ pane, workspace, terminal: terminalState, profile: agentProfile, paneIndex })
-  const hasTopContext = pane.type === 'terminal' || editing
+  const hasTopContext = editing
 
   // Mark read when the row becomes active
   useEffect(() => {
@@ -174,7 +168,6 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
       <div className={`pane-session-body${hasTopContext ? '' : ' compact'}`}>
         {hasTopContext ? (
           <div className="pane-row-top">
-            {pane.type === 'terminal' && <PaneBranchBadge workspace={workspace} pane={pane} />}
             {editing ? (
               <input
                 ref={inputRef}

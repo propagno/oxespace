@@ -1,5 +1,6 @@
 import { _electron as electron, expect, test } from '@playwright/test'
-import { existsSync, mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { performance } from 'node:perf_hooks'
@@ -29,7 +30,8 @@ export interface PackagedSmokeOptions {
 }
 
 export function registerPackagedSmoke({ platform, label, bootBudgetMs }: PackagedSmokeOptions): void {
-  test(`packaged ${label} build boots with a native terminal`, async () => {
+  test(`packaged ${label} build boots with a native terminal and Web Preview`, async () => {
+    test.setTimeout(60_000)
     test.skip(process.platform !== platform, `${label} packaged artifact check`)
 
     const executablePath = process.env.OXESPACE_PACKAGED_EXECUTABLE
@@ -50,10 +52,16 @@ export function registerPackagedSmoke({ platform, label, bootBudgetMs }: Package
       }
     })
 
+    const server = createServer((_request,response) => {response.setHeader('Content-Type','text/html');response.end('<!doctype html><title>Packaged preview</title><h1>Preview ready</h1>')})
+    await new Promise<void>(resolve => server.listen(0,'127.0.0.1',resolve))
+    const address = server.address()
+    const previewUrl = `http://127.0.0.1:${typeof address === 'object' && address ? address.port : 0}/`
+
     try {
       const page = await app.firstWindow()
       await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
-      expect(performance.now() - started, `packaged ${label} boot to interactive`).toBeLessThan(bootBudgetMs)
+      const bootMs = Math.round(performance.now() - started)
+      expect(bootMs, `packaged ${label} boot to interactive`).toBeLessThan(bootBudgetMs)
       expect(await page.evaluate(() => window.oxe.app.platform)).toBe(platform)
       expect(await app.evaluate(({ app }) => app.isPackaged)).toBe(true)
 
@@ -67,8 +75,38 @@ export function registerPackagedSmoke({ platform, label, bootBudgetMs }: Package
       await expect(
         page.getByTestId('terminal-status-label').filter({ hasText: 'running' }).first()
       ).toBeVisible({ timeout: 10_000 })
+      const metrics = () => app.evaluate(({app,webContents},url) => {
+        const processes = app.getAppMetrics()
+        return {
+          processCount:processes.length,
+          workingSetMb:Math.round(processes.reduce((sum,item) => sum + item.memory.workingSetSize,0)/1024),
+          guestCount:webContents.getAllWebContents().filter(contents => contents.getURL().startsWith(url)).length
+        }
+      },previewUrl)
+      const beforePreview = await metrics()
+      await page.getByTestId('btn-open-tools').click()
+      await page.getByText('Web Preview',{exact:true}).click()
+      for (let count = 1; count <= 4; count++) {
+        if (count > 1) await page.getByRole('button',{name:'New browser tab'}).click()
+        await page.locator('.web-preview-address-input').fill(`${previewUrl}?tab=${count}`)
+        await page.locator('.web-preview-address-input').press('Enter')
+        await expect.poll(async () => (await metrics()).guestCount).toBe(count)
+      }
+      const withFour = await metrics()
+      await page.getByTestId('workspace-web-preview-panel').getByRole('button',{name:'Collapse panel'}).click()
+      await expect.poll(async () => (await metrics()).guestCount).toBe(0)
+      const afterClose = await metrics()
+      const result = {platform,bootMs,beforePreview,withFour,afterClose}
+      writeFileSync(test.info().outputPath(`packaged-${platform}-preview-metrics.json`),JSON.stringify(result,null,2))
+      console.log('[packaged-preview]',JSON.stringify(result))
+      if (platform === 'win32') {
+        expect(withFour.workingSetMb - beforePreview.workingSetMb).toBeLessThan(600)
+        expect(afterClose.workingSetMb - beforePreview.workingSetMb).toBeLessThan(160)
+        expect(afterClose.processCount).toBe(beforePreview.processCount)
+      }
     } finally {
       await app.close()
+      await new Promise<void>(resolve => server.close(() => resolve()))
     }
   })
 }

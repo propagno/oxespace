@@ -2,10 +2,12 @@ import { useMemo, useState } from 'react'
 import { AlertCircle, Check, Shield, X } from 'lucide-react'
 import type { ThreadRequest, ThreadRequestResponse } from '../../../shared/types/thread'
 import { ThreadApprovalDetails } from './ThreadApprovalDetails'
+import { requestOutcomeLabel } from '../../../shared/threadRequestOutcome'
 
-export function ThreadRequestCard({ request, disabled, onRespond }: {
+export function ThreadRequestCard({ request, disabled, turnResult, onRespond }: {
   request: ThreadRequest
   disabled: boolean
+  turnResult?: 'completed' | 'failed' | 'interrupted'
   onRespond: (response: ThreadRequestResponse) => Promise<void>
 }) {
   const [answers, setAnswers] = useState<Record<string, string[]>>({})
@@ -13,11 +15,16 @@ export function ThreadRequestCard({ request, disabled, onRespond }: {
   const [error, setError] = useState('')
   const fields = useMemo(() => Object.entries((request.schema?.properties && typeof request.schema.properties === 'object' ? request.schema.properties : {}) as Record<string, Record<string, unknown>>), [request.schema])
   const required = new Set(Array.isArray(request.schema?.required) ? request.schema.required.filter((value): value is string => typeof value === 'string') : [])
+  const questionsAnswered = Boolean(request.questions?.length) && request.questions!.every(question => answers[question.id]?.some(value => value.trim()))
   const submit = async (response: ThreadRequestResponse) => {
     setError('')
     try { await onRespond(response) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not answer this request') }
   }
-  if (request.state !== 'pending') return <div className="thread-request is-resolved"><Check size={13} /><span>{request.title}</span><small>{request.state}</small></div>
+  if (request.state !== 'pending') return <div className={`thread-request is-resolved is-${request.state}`}>
+    {request.resolution === 'answered' || request.resolution === 'approved' ? <Check size={13} /> : <AlertCircle size={13} />}
+    <span><strong>{request.questions?.[0]?.question ?? request.title}</strong><small>{requestOutcomeLabel(request)}{request.resolution === 'answered' && turnResult === 'failed' ? ' · The turn failed afterward; see the error below.' : request.resolution === 'answered' && turnResult === 'interrupted' ? ' · The turn was interrupted afterward.' : ''}</small></span>
+    {request.resolvedAt && <time title={new Date(request.resolvedAt).toLocaleString()}>{new Date(request.resolvedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>}
+  </div>
   return <section className={`thread-request thread-request-${request.kind}`} aria-label={request.title}>
     <header>{request.kind === 'permissions' ? <Shield size={15} /> : <AlertCircle size={15} />}<div><strong>{request.title}</strong>{request.kind !== 'approval' && request.detail && <p>{request.detail}</p>}</div></header>
     {request.kind === 'approval' && <ThreadApprovalDetails command={request.command ?? request.detail ?? ''} cwd={request.cwd} reason={request.reason} fileChanges={request.title === 'Approve file changes'} />}
@@ -41,7 +48,7 @@ export function ThreadRequestCard({ request, disabled, onRespond }: {
     {request.url && <p className="thread-request-url">Open the authenticated URL in your browser, then confirm here: <code>{request.url}</code></p>}
     {error && <p role="alert">{error}</p>}
     <footer>
-      {request.kind === 'question' && <button type="button" disabled={disabled || request.questions?.some(question => question.required && !(answers[question.id]?.length))} onClick={() => void submit({ answers })}>Answer</button>}
+      {request.kind === 'question' && <button type="button" disabled={disabled || !questionsAnswered} onClick={() => void submit({ answers })}>Answer</button>}
       {request.kind === 'elicitation' && <button type="button" disabled={disabled || [...required].some(name => form[name] === undefined || form[name] === '')} onClick={() => void submit({ decision: 'accept', content: form })}>Continue</button>}
       {request.kind === 'permissions' && <><button type="button" disabled={disabled} onClick={() => void submit({ decision: 'accept', permissions: request.requestedPermissions ?? {}, scope: 'turn' })}>Allow this turn</button><button type="button" disabled={disabled} onClick={() => void submit({ decision: 'accept', permissions: request.requestedPermissions ?? {}, scope: 'session' })}>Allow session</button></>}
       {request.kind === 'approval' && (request.availableDecisions ?? ['accept', 'decline']).filter(decision => decision === 'accept' || decision === 'acceptForSession').map(decision => <button type="button" key={decision} disabled={disabled} onClick={() => void submit({ decision })}>{decision === 'acceptForSession' ? 'Allow session' : 'Approve'}</button>)}

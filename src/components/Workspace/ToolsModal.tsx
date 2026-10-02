@@ -79,6 +79,8 @@ export function ToolsModal({
   const openSlashOverlay = useUIStore((s) => s.openSlashOverlay)
   const [query, setQuery] = useState('')
   const searchRef = useRef<HTMLInputElement | null>(null)
+  const returnFocusRef = useRef<HTMLElement | null>(null)
+  const navigatingRef = useRef(false)
 
   useEffect(() => {
     const t = window.setTimeout(() => searchRef.current?.focus(), 0)
@@ -86,6 +88,7 @@ export function ToolsModal({
   }, [])
 
   const run = (action: () => void): void => {
+    navigatingRef.current = true
     onClose()
     // Close the hub before opening the destination surface. Keeping the
     // state transition order deterministic avoids Radix focus/portal cleanup
@@ -277,6 +280,11 @@ export function ToolsModal({
       <DialogContent
         unstyled
         showCloseButton={false}
+        onOpenAutoFocus={() => { returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null }}
+        onCloseAutoFocus={event => {
+          event.preventDefault()
+          if (!navigatingRef.current) requestAnimationFrame(() => returnFocusRef.current?.focus())
+        }}
         overlayClassName={DESKTOP_DIALOG_OVERLAY}
         className="tools-modal desktop-dialog"
         data-testid="tools-modal"
@@ -392,7 +400,9 @@ export function ToolsModal({
           <span className="tools-modal-footer-hint">
             <kbd>Esc</kbd> close
             <span className="tools-modal-footer-sep" aria-hidden="true" />
-            <kbd>↑↓</kbd> not required — click a card
+            <kbd>Tab</kbd> navigate
+            <span className="tools-modal-footer-sep" aria-hidden="true" />
+            <kbd>Enter</kbd> open
           </span>
           <span className="tools-modal-footer-meta">{filtered.length} tools</span>
         </footer>
@@ -429,7 +439,7 @@ function ToolCard({ tool }: { tool: ToolDef }): ReactElement {
         </span>
         <span className="tools-modal-card-detail">{tool.detail}</span>
       </span>
-      {tool.shortcut ? <kbd className="tools-modal-card-shortcut">{tool.shortcut}</kbd> : null}
+      {tool.shortcut ? <kbd className="tools-modal-card-shortcut" title={tool.shortcut}>{tool.shortcut}</kbd> : null}
     </button>
   )
 }

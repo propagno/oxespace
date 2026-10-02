@@ -25,6 +25,16 @@ test('Settings stays usable in short windows and renders updater states', async 
     const categories = [['general', 'General'], ['providers', 'Agents'], ['terminal', 'Terminal'], ['voice', 'Voice'], ['notifications', 'Notifications'], ['updates', 'Updates'], ['diagnostics', 'Diagnostics']]
     for (const width of [1440, 1280, 900, 600]) {
       await page.setViewportSize({ width, height: width === 1440 ? 900 : width === 1280 ? 720 : 600 })
+      if (width === 600) {
+        const layout = await settings.evaluate(el => {
+          const main = el.querySelector('.settings-center-main')!.getBoundingClientRect()
+          const nav = el.querySelector('.settings-center-nav')!.getBoundingClientRect()
+          return { mainWidth: main.width, navHeight: nav.height, navBottom: nav.bottom, mainTop: main.top }
+        })
+        expect(layout.mainWidth).toBeGreaterThan(500)
+        expect(layout.navHeight).toBeLessThan(150)
+        expect(layout.mainTop).toBeGreaterThanOrEqual(layout.navBottom)
+      }
       for (const [id, label] of categories) {
         if (width < 900) await settings.getByRole('group', { name: 'Settings category' }).getByRole('button', { name: label, exact: true }).click()
         else await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: new RegExp(`^${label}`) }).click()
@@ -41,10 +51,16 @@ test('Settings stays usable in short windows and renders updater states', async 
         await scroller.evaluate(el => { el.scrollTop = el.scrollHeight })
         const end = await scroller.evaluate(el => ({ bottom: el.getBoundingClientRect().bottom, contentBottom: el.firstElementChild!.getBoundingClientRect().bottom }))
         expect(end.contentBottom).toBeLessThanOrEqual(end.bottom + 1)
-        await expect(settings.getByRole('button', { name: 'Close settings', exact: true })).toBeVisible()
+        if (width > 760) await expect(settings.getByRole('button', { name: 'Close settings', exact: true })).toBeVisible()
         await expect(settings.getByRole('button', { name: 'Back to work', exact: true })).toBeVisible()
       }
     }
+    await page.setViewportSize({ width: 960, height: 640 })
+    await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]?.webContents.setZoomFactor(1.5) })
+    await expect.poll(() => settings.evaluate(el => el.querySelector('.settings-center-main')!.getBoundingClientRect().width)).toBeGreaterThan(500)
+    expect(await settings.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
+    await expect(settings.getByRole('button', { name: 'Back to work' })).toBeVisible()
+    await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]?.webContents.setZoomFactor(1) })
     await page.setViewportSize({ width: 1280, height: 720 })
     await page.keyboard.press('Control+f')
     await expect(settings.getByRole('searchbox', { name: 'Search settings' })).toBeFocused()

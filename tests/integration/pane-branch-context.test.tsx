@@ -12,13 +12,14 @@ const original = window.oxe
 beforeEach(() => { __resetGitBranchCacheForTests() })
 afterEach(() => { cleanup(); __resetGitBranchCacheForTests(); window.oxe = original })
 
-test('three terminal branches agree with selected terminal status, not workspace root', async () => {
+test('three terminal branches follow pane roots without repeating the branch in the status bar', async () => {
   const getBranch = vi.fn(async ({ rootPath }: {rootPath:string}) => ({ branch: `feat/${rootPath.split('/').at(-1)}`, detached: false, shortSha: null }))
   window.oxe = { ...original, git: { ...original?.git, getBranch } }
   const view = render(<>{workspace.panes.map(p => <PaneBranchBadge key={p.id} workspace={workspace} pane={p} />)}<AppStatusBar workspace={workspace} activePaneId="b" appVersion="test" /></>)
-  await waitFor(() => expect(screen.getAllByText('feat/payment')).toHaveLength(2))
+  await waitFor(() => expect(screen.getAllByText('feat/payment')).toHaveLength(1))
   expect(screen.getByText('feat/auth')).toBeTruthy()
   expect(screen.getByText('feat/frontend')).toBeTruthy()
+  expect(screen.getByRole('contentinfo')).not.toHaveTextContent('feat/payment')
   expect(getBranch).toHaveBeenCalledTimes(3)
   expect(getBranch.mock.calls.some(([input]) => input.rootPath === '/project')).toBe(false)
   view.unmount()
@@ -26,17 +27,17 @@ test('three terminal branches agree with selected terminal status, not workspace
   await waitFor(() => expect(screen.getByText('feat/auth')).toBeTruthy())
 })
 
-test('focus refresh updates all consumers, including detached HEAD and failures', async () => {
+test('focus refresh updates the pane badge, including detached HEAD and failures', async () => {
   const getBranch = vi.fn().mockResolvedValue({branch:'feat/auth',detached:false,shortSha:null})
   window.oxe = { ...original, git: { ...original?.git, getBranch } }
   render(<><PaneBranchBadge workspace={workspace} pane={workspace.panes[0]} /><AppStatusBar workspace={workspace} activePaneId="a" appVersion="test" /></>)
-  await waitFor(() => expect(screen.getAllByText('feat/auth')).toHaveLength(2))
+  await waitFor(() => expect(screen.getAllByText('feat/auth')).toHaveLength(1))
   getBranch.mockResolvedValue({branch:null,detached:true,shortSha:'abc1234'})
   act(() => { window.dispatchEvent(new Event('focus')) })
-  await waitFor(() => expect(screen.getAllByText('detached abc1234')).toHaveLength(2))
+  await waitFor(() => expect(screen.getAllByText('detached abc1234')).toHaveLength(1))
   getBranch.mockResolvedValue({branch:null,detached:false,shortSha:null,error:'Missing directory'})
   act(() => { window.dispatchEvent(new Event('focus')) })
-  await waitFor(() => expect(screen.getAllByText('Branch unavailable')).toHaveLength(2))
+  await waitFor(() => expect(screen.getAllByText('Branch unavailable')).toHaveLength(1))
   expect(screen.queryByText('feat/auth')).toBeNull()
 })
 

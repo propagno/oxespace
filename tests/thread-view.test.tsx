@@ -378,9 +378,7 @@ describe('Thread workspace UI', () => {
     fireEvent.focus(input); fireEvent.change(input, { target: { value: '/new' } })
     await screen.findByRole('option', { name: /Clear native context/ })
     fireEvent.keyDown(input, { key: 'Enter' })
-    expect(input).toHaveValue('/new ')
-    fireEvent.keyDown(input, { key: 'Enter' })
-    await waitFor(() => expect(f.api.send).toHaveBeenCalledWith('thread', '/new ', []))
+    await waitFor(() => expect(f.api.send).toHaveBeenCalledWith('thread', '/new', []))
     expect(onNewThread).not.toHaveBeenCalled()
   })
   it('filters slash commands, selects by keyboard without submitting, and sends arguments', async () => {

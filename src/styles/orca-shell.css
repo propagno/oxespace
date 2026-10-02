@@ -157,3 +157,9 @@
   background: var(--surface-hover);
   color: var(--tx-primary);
 }
+
+@media (max-width: 760px) {
+  .app-statusbar-group:first-child .app-statusbar-item.strong,
+  .app-statusbar-group:last-child .app-statusbar-item:not(.connected):not(.app-statusbar-action) { display: none; }
+  .app-statusbar-group { gap: 6px; }
+}

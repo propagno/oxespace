@@ -154,6 +154,7 @@ export const IPC_CHANNELS = {
   },
   git: {
     getBranch: 'git:get-branch',
+    getStatus: 'git:get-status',
     getDiff: 'git:get-diff',
     onDiffUpdate: 'git:diff-update'
   },
@@ -297,6 +298,21 @@ export const IPC_CHANNELS = {
     captureWebPreview: 'mcp-internal:capture-web-preview',
     onWebPreview: 'mcp-internal:on-web-preview',
     onWorktreeChanged: 'mcp-internal:on-worktree-changed'
+  },
+  browserPreview: {
+    session: 'browser-preview:session',
+    mount: 'browser-preview:mount',
+    bounds: 'browser-preview:bounds',
+    setAccess: 'browser-preview:set-access',
+    designMode: 'browser-preview:design-mode',
+    setZoom: 'browser-preview:set-zoom',
+    reload: 'browser-preview:reload',
+    back: 'browser-preview:back',
+    forward: 'browser-preview:forward',
+    captureElement: 'browser-preview:capture-element',
+    captureClipboard: 'browser-preview:capture-clipboard',
+    close: 'browser-preview:close',
+    onEvent: 'browser-preview:event'
   },
   oxeContext: {
     buildPaneManifest: 'oxe-context:build-pane-manifest'
@@ -484,6 +500,7 @@ export interface TaskApi {
 
 export interface GitApi {
   getBranch(input: import('./git').GitBranchInput): Promise<import('./git').GitBranchStatus>
+  getStatus(input: import('./git').GitBranchInput): Promise<import('./git').GitControlStatus>
   getDiff(input: import('./git').GitDiffInput): Promise<import('./git').GitDiff>
   onDiffUpdate(listener: (diff: import('./git').GitDiff) => void): () => void
 }
@@ -659,6 +676,7 @@ export interface OxeApi {
   skill: SkillApi
   mcp: McpApi
   mcpInternal: McpInternalApi
+  browserPreview: import('./browser-preview').BrowserPreviewApi
   oxeContext: OxeContextApi
   semantic: SemanticApi
   diagnostics: import('./diagnostics').DiagnosticsApi

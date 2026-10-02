@@ -45,3 +45,23 @@ export interface GitBranchStatus {
   shortSha: string | null
   error?: string | null
 }
+
+export interface GitControlFile {
+  path: string
+  staged: boolean
+  unstaged: boolean
+  untracked: boolean
+  conflicted: boolean
+  status: string
+}
+
+export interface GitControlStatus {
+  branch: string | null
+  upstream?: string | null
+  ahead: number
+  behind: number
+  files: GitControlFile[]
+  truncated?: boolean
+  checkedAt: number
+  error?: string
+}

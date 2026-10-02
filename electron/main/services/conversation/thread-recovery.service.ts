@@ -17,7 +17,9 @@ export function settleVolatileThreadSnapshot(snapshot: ThreadSnapshot, cause: Th
   for (const event of snapshot.events) {
     if (event.type === 'request' && event.request.state === 'pending') {
       event.request.state = 'cancelled'
-      if (!resolvedRequests.has(event.id)) requestResolutions.push({ type: 'request-resolved', id: event.id, state: 'cancelled' })
+      event.request.resolution = 'interrupted'
+      event.request.resolvedAt = Date.now()
+      if (!resolvedRequests.has(event.id)) requestResolutions.push({ type: 'request-resolved', id: event.id, state: 'cancelled', resolution: 'interrupted', resolvedAt: event.request.resolvedAt })
     } else if (event.type === 'approval' && !resolvedApprovals.has(event.id)) {
       approvalResolutions.push({ type: 'approval-resolved', id: event.id })
     } else if (event.type === 'tool' && event.state === 'running') {

@@ -41,6 +41,12 @@ export interface AgentCreditsSnapshot {
   windows: CreditsWindow[]
   /** Populated when the source was reachable but failed (not when simply absent). */
   error: string | null
+  /** Where the quota came from; token/context counters use separate models. */
+  source?: 'oauth' | 'local-session' | 'native-rpc'
+  /** Last observation at the provider or in a local session log. */
+  observedAtMs?: number
+  /** Last known good data retained after a transient failure or old observation. */
+  stale?: boolean
 }
 
 export function emptyAgentCredits(provider: AgentProvider): AgentCreditsSnapshot {

@@ -5,6 +5,7 @@ import type { ConversationTransport } from './codex-conversation'
 import { JsonLinesDecoder } from './json-lines'
 import { CLAUDE_THREAD_ARGS, claudeRuntimeCatalog } from './claude-command-catalog'
 import { threadFailure } from './thread-failure'
+import { requestOutcome } from '../../../../shared/threadRequestOutcome'
 
 type PrintTransport = ConversationTransport & { endInput(): void }
 function record(value: unknown): Record<string, unknown> {
@@ -54,7 +55,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
     const settings = !writable
       ? '{"disableAllHooks":true,"disableSkillShellExecution":true}'
       : this.context.hooksEnabled ? undefined : '{"disableAllHooks":true}'
-    const runtimeArgs = ['--print', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--permission-mode', permissionMode, '--permission-prompts', 'host', '--tools', 'default', ...(settings ? ['--settings', settings] : [])]
+    const runtimeArgs = ['--print', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--include-partial-messages', '--permission-mode', permissionMode, '--permission-prompts', 'host', '--tools', 'default', ...(settings ? ['--settings', settings] : [])]
     const args = [...runtimeArgs,
       ...(this.context.model ? ['--model', this.context.model] : []),
       ...(this.context.reasoningEffort ? ['--effort', this.context.reasoningEffort] : []),
@@ -63,6 +64,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
     let answerShown = false
     let authenticationFailed = false
     let diagnostic = ''
+    let lastNativeSignalAt = 0
     const selectedModel = text.trim().match(/^\/model\s+([a-z0-9][a-z0-9._:/\[\]-]*)$/i)?.[1]
     const finish = (status: 'completed' | 'failed' | 'interrupted') => {
       if (completed || this.disposed) return
@@ -106,6 +108,12 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
           this.evidence.verified = 'native'
           this.context!.nativeSessionId = event.session_id
           this.emit({ type: 'session', nativeSessionId: event.session_id })
+        } else if (event.type === 'stream_event') {
+          const streamed = record(event.event)
+          if (streamed.type === 'content_block_start') {
+            const block = record(streamed.content_block)
+            if (block.type === 'thinking' || block.type === 'text') this.emit({ type: 'activity', id: `claude:${localPlanId}:${block.type}`, phase: block.type === 'thinking' ? 'reasoning' : 'responding', at: Date.now() })
+          }
         } else if (event.type === 'assistant') {
           const content = record(event.message).content
           if (!Array.isArray(content)) return
@@ -155,6 +163,10 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
       })
       transport.onData(chunk => {
         if (completed || this.disposed || this.transport !== transport) return
+        if (Date.now() - lastNativeSignalAt >= 2_000) {
+          lastNativeSignalAt = Date.now()
+          this.emit({ type: 'native-signal', at: lastNativeSignalAt })
+        }
         try { decoder.push(chunk) } catch { diagnostic = 'Invalid agent protocol stream'; finish('failed'); void transport.close() }
       })
       transport.onClose(() => {
@@ -207,7 +219,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
     const accept = response.decision ? ['accept', 'acceptForSession'].includes(response.decision) : Boolean(response.answers)
     this.transport.write(JSON.stringify({ type: 'control_response', response: { subtype: 'success', request_id: requestId, response: accept ? { behavior: 'allow', updatedInput } : { behavior: 'deny', message: response.decision === 'cancel' ? 'Cancelled by the user' : 'Declined by the user' } } }) + '\n')
     this.approvals.delete(requestId)
-    this.emit({ type: 'request-resolved', id: requestId, state: 'resolved' })
+    this.emit({ type: 'request-resolved', id: requestId, ...requestOutcome(pending.toolName === 'AskUserQuestion' ? 'question' : 'approval', response), resolvedAt: Date.now() })
     this.emit({ type: 'approval-resolved', id: requestId })
   }
   async dispose(): Promise<void> {

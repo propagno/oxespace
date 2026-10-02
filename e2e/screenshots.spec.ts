@@ -31,7 +31,11 @@ test('captures all surfaces for design review', async () => {
   await page.waitForTimeout(800)
 
   try {
+    await expect(page.getByRole('button', { name: /RTK update .* available/ })).toBeVisible()
+    await expect(page.locator('.workspace-surface .update-banners')).toHaveCount(0)
     // 1. Empty state (no workspace yet)
+    await expect(page.getByText('No workspaces yet.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Toggle all workspace terminals' })).toHaveCount(0)
     await shot(page, '01-empty-state')
 
     // 2. New workspace modal (open via "+ New workspace" button)
@@ -120,6 +124,11 @@ test('captures all surfaces for design review', async () => {
     await page.getByTestId('tools-modal').getByRole('menuitem', { name: /^GitHub/ }).click()
     await expect(page.getByTestId('workspace-github-panel')).toBeVisible()
     await shot(page, '15-github-panel')
+    await page.getByTestId('workspace-github-panel').getByRole('button', { name: 'GitHub features' }).click()
+    await expect(page.getByTestId('workspace-github-panel').getByRole('button', { name: 'Back to Git control' })).toBeVisible()
+    await expect(page.getByTestId('workspace-github-panel').getByTestId('github-changes-card')).toBeVisible()
+    await expect(page.getByTestId('workspace-github-panel').locator('.github-commit-ta')).toHaveCount(0)
+    await shot(page, '15b-github-features')
 
     // 16. Workspace settings, reached through a verified menu action.
     await page.getByTestId('btn-open-tools').click()

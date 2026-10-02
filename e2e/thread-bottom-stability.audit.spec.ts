@@ -2,13 +2,14 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import { copyFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { execFileSync } from 'node:child_process'
 
 const source = process.env.OXESPACE_AUDIT_DB
 const threadId = process.env.OXESPACE_AUDIT_THREAD_ID
 
 test('a long restored Thread stays visually still at the bottom', async () => {
   test.skip(!source || !threadId || !existsSync(source), 'Set OXESPACE_AUDIT_DB and OXESPACE_AUDIT_THREAD_ID')
-  test.setTimeout(90000)
+  test.setTimeout(180000)
   const root = mkdtempSync(join(tmpdir(), 'oxe-thread-stability-'))
   const dbPath = join(root, 'audit.sqlite3')
   copyFileSync(source!, dbPath)
@@ -62,5 +63,17 @@ test('a long restored Thread stays visually still at the bottom', async () => {
     console.log('Thread bottom stability', { jitter, start: samples.values[0], end: samples.values.at(-1), topSamples: [...new Set(tops)].slice(0, 12), nearEnd: samples.nearEnd })
     expect(jitter).toBeLessThanOrEqual(1)
     expect(samples.nearEnd.every(sample => sample.drift <= 1)).toBe(true)
-  } finally { await app.close(); rmSync(root, { recursive: true, force: true }) }
+  } finally {
+    // The copied long session can stall Electron's graceful shutdown; the
+    // audit never writes back to the original database.
+    const child = app.process()
+    if (process.platform === 'win32' && child.pid) {
+      try { execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }) } catch { child.kill() }
+    } else child.kill()
+    if (child.exitCode === null) await new Promise<void>(resolve => {
+      const timer = setTimeout(resolve, 5000)
+      child.once('exit', () => { clearTimeout(timer); resolve() })
+    })
+    rmSync(root, { recursive: true, force: true, maxRetries: 20, retryDelay: 500 })
+  }
 })

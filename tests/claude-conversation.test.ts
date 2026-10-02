@@ -16,6 +16,18 @@ function fixture() {
 }
 
 describe('Claude print conversation', () => {
+  it('shows native thinking activity from partial messages without exposing thinking text', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
+    await f.adapter.send('Inspect')
+    expect(f.turns[0].args).toContain('--include-partial-messages')
+    f.emit(0, { type: 'stream_event', event: { type: 'content_block_start', content_block: { type: 'thinking' } } })
+    f.emit(0, { type: 'stream_event', event: { type: 'content_block_delta', delta: { type: 'thinking_delta', thinking: 'private scratch work' } } })
+    expect(f.events).toContainEqual(expect.objectContaining({ type: 'activity', phase: 'reasoning' }))
+    expect(JSON.stringify(f.events)).not.toContain('private scratch work')
+    expect(f.events.some(event => event.type === 'native-signal')).toBe(true)
+    await f.adapter.dispose()
+  })
   it('shows todo progress only after the corresponding tool succeeds', async () => {
     const f = fixture()
     await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
@@ -75,9 +87,10 @@ describe('Claude print conversation', () => {
     await f.adapter.send('oi')
     f.emit(0, { type: 'assistant', error: 'authentication_failed', message: { id: 'auth', content: [{ type: 'text', text: 'Failed to authenticate: OAuth session expired and could not be refreshed' }] } })
     f.emit(0, { type: 'result', subtype: 'success', is_error: false })
-    expect(f.events).toHaveLength(1)
-    expect(f.events[0]).toMatchObject({ type: 'completed', status: 'failed', errorCode: 'authentication' })
-    expect(f.events[0]).toMatchObject({ failure: { detail: 'Failed to authenticate: OAuth session expired and could not be refreshed' } })
+    const outcome = f.events.filter(event => event.type !== 'native-signal')
+    expect(outcome).toHaveLength(1)
+    expect(outcome[0]).toMatchObject({ type: 'completed', status: 'failed', errorCode: 'authentication' })
+    expect(outcome[0]).toMatchObject({ failure: { detail: 'Failed to authenticate: OAuth session expired and could not be refreshed' } })
     await f.adapter.dispose()
   })
   it('retains native command state between turns and explicitly resumes after interruption', async () => {
@@ -124,9 +137,10 @@ describe('Claude print conversation', () => {
     await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
     await f.adapter.send('Inspect')
     f.emit(0, { type: 'result', subtype: 'error', is_error: true, result: 'Request failed: api_key=private-secret' })
-    expect(f.events[0]).toMatchObject({ type: 'completed', status: 'failed' })
+    const outcome = f.events.find(event => event.type === 'completed')
+    expect(outcome).toMatchObject({ type: 'completed', status: 'failed' })
     expect(JSON.stringify(f.events)).not.toContain('private-secret')
-    expect(f.events[0]).toMatchObject({ failure: { detail: 'Request failed: api_key=[redacted]' } })
+    expect(outcome).toMatchObject({ failure: { detail: 'Request failed: api_key=[redacted]' } })
     await expect(f.adapter.approve()).rejects.toThrow('no longer pending')
     await f.adapter.dispose()
   })
@@ -139,6 +153,11 @@ describe('Claude print conversation', () => {
     expect(f.events.at(-1)).toMatchObject({ type: 'request', request: { kind: 'question', questions: [{ id: 'choice', question: 'Proceed?' }] } })
     await f.adapter.respondRequest!('question', { answers: { choice: ['Yes'] } })
     expect(f.turns[0].writes.at(-1)).toMatchObject({ type: 'control_response', response: { request_id: 'question', response: { behavior: 'allow', updatedInput: { answers: { choice: 'Yes' } } } } })
+    expect(f.events).toContainEqual(expect.objectContaining({ type: 'request-resolved', id: 'question', resolution: 'answered' }))
+    f.emit(0, { type: 'control_request', request_id: 'question-2', request: { subtype: 'can_use_tool', tool_name: 'AskUserQuestion', input: { questions: [{ id: 'choice', question: 'Proceed?' }] } } })
+    await f.adapter.respondRequest!('question-2', { decision: 'decline' })
+    expect(f.events).toContainEqual(expect.objectContaining({ type: 'request-resolved', id: 'question-2', resolution: 'declined' }))
+    expect(f.turns[0].writes.at(-1)).toMatchObject({ response: { request_id: 'question-2', response: { behavior: 'deny' } } })
     await f.adapter.dispose()
   })
   it('loads native hooks only after explicit writable configuration', async () => {

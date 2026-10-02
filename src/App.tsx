@@ -3,6 +3,7 @@ import { Suspense, lazy, useCallback, useEffect, useRef, useState, type CSSPrope
 import { useShallow } from 'zustand/react/shallow'
 import type { AgentProfile } from '../shared/types/agent'
 import type { DelegationTask } from '../shared/types/delegation'
+import { isSameRootPath } from '../shared/utils/path'
 import { OxeLogo } from './components/Brand/OxeLogo'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { ThemeProvider } from './components/Theme/ThemeProvider'
@@ -32,6 +33,7 @@ import { useSkillStore } from './store/skill.store'
 import { useSlashDispatcher } from './lib/useSlashDispatcher'
 import { useAccountStore } from './store/account.store'
 import { useThreadStore } from './store/thread.store'
+import { useThreadWorkbenchStore } from './store/thread-workbench.store'
 import { useNavigationPrefs } from './store/navigation-prefs.store'
 import { Sidebar } from './components/Sidebar/Sidebar'
 import type { WizardLaunchInput } from './components/Workspace/NewWorkspaceModal'
@@ -415,8 +417,13 @@ export function App(): ReactElement {
     if (!api) return
     const unsubscribe = api.onWebPreview((event) => {
       const ui = useUIStore.getState()
-      ui.setPendingWebPreview(event.workspaceId, event.url)
-      ui.openWebPreview(event.workspaceId)
+      if (event.threadId) {
+        ui.setPendingWebPreview(`thread:${event.threadId}`, event.url)
+        useThreadWorkbenchStore.getState().setView(event.threadId, { panel: 'preview' })
+      } else {
+        ui.setPendingWebPreview(event.workspaceId, event.url)
+        ui.openWebPreview(event.workspaceId)
+      }
     })
     return unsubscribe
   }, [])
@@ -463,6 +470,7 @@ export function App(): ReactElement {
   }, [setActiveWorkspace, setActiveTerminalPaneId])
 
   const handleLaunch = async (input: WizardLaunchInput): Promise<void> => {
+    const knownIds = new Set(useWorkspaceStore.getState().workspaces.map((workspace) => workspace.id))
     const workspace = await createWorkspace({
       rootPath: input.rootPath,
       layoutPreset: input.layoutPreset,
@@ -470,11 +478,11 @@ export function App(): ReactElement {
       autoStart: true,
       agentBindings: input.agentBindings
     })
-    input.agentSlots.forEach((cmd, i) => {
-      if (cmd && workspace.panes[i]) {
-        setPendingCommand(workspace.panes[i].id, cmd)
-      }
-    })
+    if (!knownIds.has(workspace.id)) {
+      input.agentSlots.forEach((cmd, i) => {
+        if (cmd && workspace.panes[i]) setPendingCommand(workspace.panes[i].id, cmd)
+      })
+    }
     closeNewWorkspace()
   }
 
@@ -625,9 +633,15 @@ export function App(): ReactElement {
     await window.oxe.terminal.write({ paneId: targetPane.id, data: `${command}\r` })
   }
 
+  const newWorkspaceOpenerRef = useRef<HTMLElement | null>(null)
+  const openNewWorkspaceFromUI = (): void => {
+    newWorkspaceOpenerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    openNewWorkspace()
+  }
+
   const commandActions: CommandPaletteAction[] = [
     // Workspace
-    { id: 'new-workspace', title: 'Create workspace', subtitle: 'Open the New Workspace wizard', icon: FilePlus2, category: 'Workspace', keywords: ['new', 'open', 'project'], run: openNewWorkspace },
+    { id: 'new-workspace', title: 'Create workspace', subtitle: 'Open the New Workspace wizard', icon: FilePlus2, category: 'Workspace', keywords: ['new', 'open', 'project'], run: openNewWorkspaceFromUI },
     { id: 'workspace-settings', title: 'Open workspace settings', subtitle: 'Theme, layout, density, shell', icon: Sliders, category: 'Workspace', disabled: !activeWorkspace, run: openWorkspaceSettings },
     { id: 'toggle-sidebar', title: 'Toggle sidebar', subtitle: 'Ctrl+B', icon: LayoutDashboard, category: 'Workspace', run: toggleSidebar },
     { id: 'open-tools', title: 'Open Tools', subtitle: 'Panels, MCP, workspace tools', icon: Settings2, category: 'Workspace', keywords: ['tools', 'panels', 'mcp', 'gear'], run: openTools },
@@ -889,6 +903,7 @@ export function App(): ReactElement {
     if (!project) setThreadProjectOpen(true)
     else setNewThreadWorkspaceId(project.projectId)
   }
+
   const openThreadAccounts = () => setAccountsOpen(true)
   const openDelegation = async (task: DelegationTask): Promise<boolean> => {
     const showDelegationDetails = () => {
@@ -930,7 +945,7 @@ export function App(): ReactElement {
           <span className="workbench-titlebar-separator" aria-hidden="true">/</span>
           <strong>{applicationView === 'thread' ? threadProject?.displayName ?? 'Conversations' : activeWorkspace?.name ?? 'No workspace'}</strong>
         </div>
-        <div className="workbench-titlebar-trailing"><AppUpdateIndicator /><span className="workbench-titlebar-version">v{appVersion}</span></div>
+        <div className="workbench-titlebar-trailing"><UpdateBanner /><AppUpdateIndicator /><span className="workbench-titlebar-version">v{appVersion}</span></div>
       </header>
       {delegationNotice && <div role="status" style={{ position: 'fixed', bottom: 18, right: 18, zIndex: 190, padding: 14, borderRadius: 10, background: 'var(--bg-elevated, #19191f)', border: '1px solid var(--accent)', maxWidth: 340 }}>
         <p>Delegated task updated</p>
@@ -944,7 +959,7 @@ export function App(): ReactElement {
         origin={applicationView === 'thread' ? threadSelection ? { kind: 'thread', id: threadSelection } : undefined : activePane ? { kind: 'pane', id: activePane.id } : undefined}
         onClose={() => { setDelegatedWorkOpen(false); setDelegationTarget(null) }} onOpen={openDelegation} /></Suspense>}
       {applicationView === 'thread' ? <Suspense fallback={<aside className="thread-navigation" aria-label="Thread sidebar" />}><ThreadSidebar onCreate={(id, rootPath) => { setNewThreadRootPath(rootPath); setNewThreadWorkspaceId(id) }} onModeChange={() => setApplicationView('code')} onAccounts={openThreadAccounts} onAddProject={() => setThreadProjectOpen(true)} onOpenInCode={async rootPath => {
-        const existing = (await window.oxe.workspace.list()).find(workspace => workspace.rootPath.toLowerCase() === rootPath.toLowerCase())
+        const existing = (await window.oxe.workspace.list()).find(workspace => isSameRootPath(workspace.rootPath, rootPath, window.oxe.app.platform))
         if (existing) await setActiveWorkspace(existing.id)
         else await createWorkspace({ rootPath, layoutPreset: 1, autoStart: false })
         setApplicationView('code')
@@ -953,7 +968,7 @@ export function App(): ReactElement {
         workspaces={workspaces}
         activeWorkspaceId={activeWorkspaceId}
         appVersion={appVersion}
-        onNewWorkspace={openNewWorkspace}
+        onNewWorkspace={openNewWorkspaceFromUI}
         onSelectWorkspace={(id) => void setActiveWorkspace(id)}
         onCloseWorkspace={handleCloseWorkspace}
         isCollapsed={isSidebarCollapsed}
@@ -966,7 +981,6 @@ export function App(): ReactElement {
         integrationGroups={integrationGroups}
       />}
       <section className={`workspace-surface${applicationView === 'thread' ? ' thread-workspace-surface' : ''}`}>
-        <UpdateBanner />
         {error ? <div className="error-banner">{error}</div> : null}
         {appNotice ? (
           <div className="error-banner">
@@ -1029,7 +1043,7 @@ export function App(): ReactElement {
           <div className="empty-state">
             <OxeLogo size={72} variant="hero" />
             <p>Select a folder to start your first agentic terminal workspace.</p>
-            <button type="button" className="empty-state-cta" onClick={openNewWorkspace}>
+            <button type="button" className="empty-state-cta" onClick={openNewWorkspaceFromUI}>
               <Plus size={14} aria-hidden="true" />
               New workspace
             </button>
@@ -1051,8 +1065,13 @@ export function App(): ReactElement {
         <NewWorkspaceModal
           agentProfiles={agentProfiles}
           shellProfiles={shellProfiles}
+          existingWorkspaces={workspaces}
+          activeWorkspaceId={activeWorkspaceId}
+          platform={window.oxe.app.platform}
+          onOpenExisting={async (id) => { await setActiveWorkspace(id); closeNewWorkspace() }}
           onLaunch={handleLaunch}
           onPickFolder={() => window.oxe.workspace.pickFolder()}
+          returnFocusTo={newWorkspaceOpenerRef.current}
           onClose={closeNewWorkspace}
         />
       ) : null}

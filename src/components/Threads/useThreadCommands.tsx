@@ -117,6 +117,9 @@ export function useThreadCommands({ snapshot, draft, textarea, pending, run, onN
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault(); setSelected((activeIndex + (event.key === 'ArrowDown' ? 1 : -1) + commands.length) % Math.max(1, commands.length)); return true
     }
+    // An exact command already typed by the user is ready to submit. Selecting
+    // it again only inserts a trailing space and makes Enter feel unresponsive.
+    if (event.key === 'Enter' && !event.shiftKey && !manual && token && draft.trim() === token[0] && commands.some(command => command.name.toLowerCase() === token[1].toLowerCase())) return false
     if ((event.key === 'Enter' && !event.shiftKey || event.key === 'Tab' && !event.shiftKey) && commands.length) {
       event.preventDefault(); choose(commands[activeIndex]); return true
     }

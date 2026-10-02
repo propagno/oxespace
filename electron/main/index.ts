@@ -41,6 +41,8 @@ import { registerMemoryIpc } from './ipc/memory.ipc'
 import { fallbackShellProfiles } from './services/shell-profile.defaults'
 import { isLoopbackHttpUrl, isSafeExternalUrl } from './utils/external-url'
 import { applyLoginShellPath } from './utils/login-shell-path'
+import { securePreviewGuest, securePreviewSession, WEB_PREVIEW_PARTITION_PREFIX } from './services/browser-preview-security'
+import { registerBrowserPreviewIpc } from './services/browser-preview.service'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
 import type { ShellProfile } from '../../shared/types/workspace'
 
@@ -73,7 +75,6 @@ if (isDev && !process.env.OXESPACE_DB_PATH) {
 }
 let ipcRegistered = false
 /** In-memory session for Web Preview guests — isolated from the app's own. */
-const WEB_PREVIEW_PARTITION = 'oxe-webpreview'
 const clipboardImageTempFiles = new Set<string>()
 const CLIPBOARD_IMAGE_TTL_MS = 30 * 60 * 1000
 
@@ -100,8 +101,13 @@ async function registerIpcHandlers(): Promise<() => void> {
   // / e2e mocks below) so Settings and the update banner keep working.
   registerAppUpdateIpc()
   void registerRtkIpc()
+  registerBrowserPreviewIpc()
 
   if (process.env.OXESPACE_E2E_MOCK_NATIVE === '1') {
+    if (process.env.OXESPACE_E2E_PREVIEW_SERVICE) {
+      const { PreviewAutomation } = await import('./services/documentation/preview-automation')
+      ;(globalThis as typeof globalThis & { preview: InstanceType<typeof PreviewAutomation> }).preview = new PreviewAutomation()
+    }
     // Dynamic so the ~475 lines of E2E doubles land in their own chunk instead
     // of the main entry bundle. A normal launch never resolves this import.
     const { registerE2eMockIpcHandlers } = await import('./e2e/mock-ipc')
@@ -614,9 +620,12 @@ function createMainWindow(): BrowserWindow {
     webPreferences.nodeIntegration = false
     webPreferences.contextIsolation = true
     webPreferences.sandbox = true
-    // Pinned here, not trusted from the renderer: the guest must land in the
-    // locked-down preview session, never the app's own.
-    params.partition = WEB_PREVIEW_PARTITION
+    // Each Code workspace or Thread conversation gets an in-memory profile.
+    // Never accept a persistent or application partition from the renderer.
+    if (!params.partition?.startsWith(WEB_PREVIEW_PARTITION_PREFIX) || !/^[a-zA-Z0-9:-]{1,100}$/.test(params.partition.slice(WEB_PREVIEW_PARTITION_PREFIX.length))) {
+      params.partition = `${WEB_PREVIEW_PARTITION_PREFIX}${randomUUID()}`
+    }
+    securePreviewSession(session.fromPartition(params.partition))
     // Popups stay off; the iframe this replaced could not open windows either.
     // (webview params are the raw attribute strings — absent means disabled.)
     delete params.allowpopups
@@ -630,23 +639,10 @@ function createMainWindow(): BrowserWindow {
   // to carry the same restrictions explicitly — they are not defaults. The guest
   // runs in its own in-memory partition, which also keeps preview cookies and
   // storage out of the app's session.
-  const previewSession = session.fromPartition(WEB_PREVIEW_PARTITION)
-  previewSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false))
-  previewSession.setPermissionCheckHandler(() => false)
-  previewSession.on('will-download', (event) => event.preventDefault())
-  previewSession.webRequest.onBeforeSendHeaders((details, callback) => {
-    const requestHeaders = { ...details.requestHeaders }
-    delete requestHeaders.Referer
-    delete requestHeaders.referer
-    callback({ requestHeaders })
-  })
 
   // A guest must not be able to spawn windows; external links go to the OS browser.
   mainWindow.webContents.on('did-attach-webview', (_event, guestWebContents) => {
-    guestWebContents.setWindowOpenHandler(({ url }) => {
-      if (isSafeExternalUrl(url)) void shell.openExternal(url)
-      return { action: 'deny' }
-    })
+    securePreviewGuest(guestWebContents)
   })
 
   // `media` allows microphone for OXEVoice. `clipboard-read` / `clipboard-sanitized-write`

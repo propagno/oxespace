@@ -30,7 +30,9 @@ export function threadMcpArguments(provider: 'claude' | 'codex', args: string[],
     return [...config, ...args]
   }
   const clean = args.filter((arg, i) => !['--mcp-config', '--strict-mcp-config'].includes(arg) && args[i - 1] !== '--mcp-config')
-  return [...clean, '--strict-mcp-config', '--mcp-config', JSON.stringify({ mcpServers: {
+  // Keep Claude's user and project MCP configuration. The extra config adds
+  // the OXESpace bridge without replacing servers already available in the CLI.
+  return [...clean, '--mcp-config', JSON.stringify({ mcpServers: {
     'oxespace-delegation': { command: 'node', args: bridgeArgs }
   } })]
 }

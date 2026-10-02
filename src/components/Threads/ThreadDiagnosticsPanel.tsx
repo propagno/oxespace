@@ -28,6 +28,7 @@ export function ThreadDiagnosticsPanel({ snapshot }: { snapshot: ThreadSnapshot 
   const rows = [
     ['Thread ID', diagnostics.threadId], ['Native session', diagnostics.nativeSessionId ?? 'Not started'], ['Directory', diagnostics.directory],
     ['Provider', diagnostics.provider], ['Status', diagnostics.status], ['Connection', diagnostics.connection?.state ?? 'closed'],
+    ['Last provider signal', diagnostics.connection?.lastNativeSignalAt ? new Date(diagnostics.connection.lastNativeSignalAt).toLocaleString() : 'Not observed'],
     ['Generation', String(diagnostics.generation)], ['Events', `${diagnostics.counters.loadedEvents} loaded / ${diagnostics.counters.events} total`],
     ['Turns', String(diagnostics.counters.turns)], ['Queue', String(diagnostics.counters.queued)], ['Pending requests', String(pendingRequests)], ['Running activities', String(runningTools)]
   ]

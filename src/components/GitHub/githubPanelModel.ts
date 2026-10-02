@@ -42,7 +42,7 @@ export function describeSyncState(input: {
   totalFiles?: number
 }): GitHubSyncState {
   const { ahead, behind, dirty, hasRemote } = input
-  if (!hasRemote) return { kind: 'no-remote', title: 'No remote configured', detail: 'Fetch/Pull/Push need an origin. Add one with git remote add, then Refresh.' }
+  if (!hasRemote) return { kind: 'no-remote', title: 'No remote configured', detail: 'Add an origin to enable Fetch, Pull and Push.' }
   if (behind > 0 && ahead > 0) return { kind: 'diverged', title: 'Branch diverged from remote', detail: `${behind} to pull · ${ahead} to push. Fast-forward Pull may fail — use the terminal for rebase/merge if needed.` }
   if (behind > 0 && dirty) return { kind: 'dirty-behind', title: `${behind} commit${behind === 1 ? '' : 's'} to pull`, detail: 'You also have local uncommitted changes. Commit or stash first so Pull does not mix remote history with a dirty tree.' }
   if (behind > 0) return { kind: 'behind', title: `${behind} commit${behind === 1 ? '' : 's'} to pull`, detail: 'Remote is ahead of you. Pull downloads with fast-forward only (safe).' }

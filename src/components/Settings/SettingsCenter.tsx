@@ -1,5 +1,5 @@
 import { Activity, ArrowLeft, ArrowUpCircle, Bell, Bot, ChevronRight, Mic, Settings2, SquareTerminal, X } from 'lucide-react'
-import { useEffect, useRef, useState, type ReactElement } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { Dialog, DialogContent, DialogTitle } from '../ui/dialog'
 import { SettingsContent, type SettingsModalProps, type SettingsSection } from './SettingsModal'
 import { SETTINGS_PAGES, WorkspaceSettingsModal } from '../Workspace/WorkspaceSettingsModal'
@@ -70,7 +70,7 @@ export function SettingsCenter(props: SettingsModalProps & {
   const pages = destination.scope === 'workspace' ? SETTINGS_PAGES : appPages
   const filtered = pages.filter(p => `${p.label} ${p.hint}`.toLowerCase().includes(query.toLowerCase()))
   return <Dialog open onOpenChange={open => { if (!open && !pending) close() }}>
-    <DialogContent unstyled showCloseButton={false} className="settings-center" style={{ gridTemplateColumns: `${navigationWidth}px minmax(0, 1fr)` }} overlayClassName="settings-center-overlay" aria-describedby={undefined}
+    <DialogContent unstyled showCloseButton={false} className="settings-center" style={{ '--settings-navigation-width': `${navigationWidth}px` } as CSSProperties} overlayClassName="settings-center-overlay" aria-describedby={undefined}
       onCloseAutoFocus={event => { if (returnPane.current) { event.preventDefault(); requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('oxe:focus-pane', { detail: { paneId: returnPane.current } }))) } }}
       onPointerDownOutside={event => event.preventDefault()}>
       <aside className="settings-center-nav">
@@ -89,6 +89,7 @@ export function SettingsCenter(props: SettingsModalProps & {
           <div className="settings-category-choices" role="group" aria-label="Settings category">
             {filtered.map(page => <button type="button" key={page.id} aria-pressed={destination.page === page.id}
               onClick={() => go(destination.scope === 'application' ? { scope: 'application', page: page.id as 'general' | SettingsSection } : { ...destination, page: page.id as typeof SETTINGS_PAGES[number]['id'] })}>{page.label}</button>)}
+            {!filtered.length && <span className="settings-category-empty">No matching settings</span>}
           </div>
         </div>
         <nav aria-label="Settings categories">

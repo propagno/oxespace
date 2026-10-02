@@ -209,6 +209,7 @@ export function WorkspaceSplitGrid({
           <div
             key={r.paneId}
             className={`split-pane-slot${drag?.paneId === r.paneId ? ' split-pane-slot--dragging' : ''}`}
+            data-compact-active={pane.id === (activePaneId ?? rects[0]?.paneId) ? 'true' : undefined}
             style={style}
           >
             <PaneContainer

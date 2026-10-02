@@ -20,7 +20,14 @@ export class ThreadSessionSupervisor {
 
   heartbeat(threadId: string, now = Date.now()): ThreadConnectionStatus {
     const previous = this.states.get(threadId)
-    return this.set(threadId, { state: 'connected', attempt: 0, changedAt: previous?.changedAt ?? now, lastHeartbeatAt: now })
+    return this.set(threadId, { state: 'connected', attempt: 0, changedAt: previous?.changedAt ?? now, lastHeartbeatAt: now, lastNativeSignalAt: previous?.lastNativeSignalAt })
+  }
+
+  nativeSignal(threadId: string, at: number): ThreadConnectionStatus {
+    const previous = this.states.get(threadId)
+    return this.set(threadId, { state: previous?.state ?? 'connected', attempt: previous?.attempt ?? 0,
+      changedAt: previous?.changedAt ?? at, lastHeartbeatAt: previous?.lastHeartbeatAt,
+      lastNativeSignalAt: at })
   }
 
   failed(threadId: string, detail: string, now = Date.now()): ThreadConnectionStatus {

@@ -1,10 +1,9 @@
 import { useMemo, useRef, useState } from 'react'
-import { Archive, ArchiveRestore, Check, ChevronDown, Circle, CircleAlert, CircleCheck, CircleX, Columns2, GitBranch, PanelsTopLeft, FolderPlus, Loader2, MoreHorizontal, Pencil, Pin, Plus, Settings2, Square, Trash2, X, UserRound } from 'lucide-react'
+import { Archive, ArchiveRestore, Check, ChevronDown, Circle, CircleAlert, CircleCheck, CircleX, Columns2, PanelsTopLeft, FolderPlus, Loader2, MoreHorizontal, Pencil, Pin, Plus, Settings2, Square, Trash2, X, UserRound } from 'lucide-react'
 import type { ConversationThread } from '../../../shared/types/thread'
 import { DropdownMenu } from 'radix-ui'
 import { useThreadStore } from '../../store/thread.store'
 import { useUIStore } from '../../store/ui.store'
-import { useGitBranch } from '../../hooks/useGitBranch'
 import { NavigationBrand, NavigationFooter } from '../Navigation/NavigationChrome'
 import { useNavigationSearch } from '../Navigation/useNavigationSearch'
 import { SearchField } from '../Navigation/SearchField'
@@ -17,11 +16,6 @@ import { ThreadProjectSettingsDialog } from './ThreadProjectSettingsDialog'
 function relativeTime(timestamp: number): string {
   const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000))
   return minutes < 1 ? 'now' : minutes < 60 ? `${minutes}m` : minutes < 1440 ? `${Math.floor(minutes / 60)}h` : `${Math.floor(minutes / 1440)}d`
-}
-function ProjectBranch({ workspaceId, rootPath }: { workspaceId?: string; rootPath?: string }) {
-  const status = useGitBranch(workspaceId ?? '', workspaceId && rootPath ? rootPath : null)
-  const label = status?.branch || (status?.detached && status.shortSha ? `Detached · ${status.shortSha}` : status ? 'Branch unavailable' : 'Loading branch…')
-  return <span className="thread-project-branch" title={`${rootPath ?? ''}\n${status?.error || label}`}><GitBranch size={11} aria-hidden="true" /><span>{label}</span></span>
 }
 export function ThreadSidebar({ onCreate, onModeChange, onAccounts, onAddProject, onOpenInCode }: {
   onCreate: (projectId: string, rootPath?: string) => void; onModeChange?: () => void; onAccounts?: () => void; onAddProject?: () => void; onOpenInCode?: (rootPath: string) => Promise<void>
@@ -114,8 +108,7 @@ export function ThreadSidebar({ onCreate, onModeChange, onAccounts, onAddProject
           {group.rootPath && <button type="button" className="thread-row-action" aria-label={`Open ${group.name} in Code`} title="Open this directory in Code" disabled={unavailableProjects.includes(group.id)} onClick={() => void onOpenInCode?.(group.rootPath!).catch(error => setActionError(error instanceof Error ? error.message : 'Could not open project in Code.'))}><PanelsTopLeft size={13} /></button>}
           <button type="button" className="thread-row-action" aria-label={`Remove project ${group.name}`} title="Remove project from Thread sidebar" onClick={() => { setActionError(''); setConfirmation({ kind: 'project', id: group.id, title: group.name }) }}><X size={13} /></button>
           </div>
-          <ProjectBranch workspaceId={`thread:${group.id}`} rootPath={selected?.projectId === group.id ? selected.rootPath : group.rootPath} />
-          {(query || (expanded[group.id] ?? true)) && <div className="thread-project-children"><div className="thread-project-count">{group.threads.length} {group.threads.length === 1 ? 'thread' : 'threads'}</div><div className="thread-project-rows">{group.threads.map(row)}</div></div>}
+          {(query || (expanded[group.id] ?? true)) && <div className="thread-project-children"><div className="thread-project-rows">{group.threads.map(row)}</div></div>}
         </section>)}
         {archived.length > 0 && <section className="thread-archived-section" aria-label="Archived conversations">
           <button type="button" className="thread-project-toggle" aria-expanded={query ? true : showArchived} onClick={() => setShowArchived(value => !value)}><ChevronDown size={12} /><span>Archived</span><small>{archived.length}</small></button>

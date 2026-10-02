@@ -9,6 +9,8 @@ export interface ThreadConnectionStatus {
   attempt: number
   changedAt: number
   lastHeartbeatAt?: number
+  /** Last data received from the native provider while a turn was active. */
+  lastNativeSignalAt?: number
   nextRetryAt?: number
   detail?: string
 }
@@ -113,6 +115,8 @@ export interface ThreadRequestQuestion {
   secret?: boolean
   required?: boolean
 }
+/** What OXESpace observed, not a claim that the provider completed the tool. */
+export type ThreadRequestResolution = 'answered' | 'approved' | 'declined' | 'cancelled-by-user' | 'turn-completed' | 'turn-failed' | 'interrupted' | 'unknown'
 export interface ThreadRequest {
   id: string
   nativeId: string
@@ -129,6 +133,8 @@ export interface ThreadRequest {
   createdAt: number
   expiresAt?: number
   state: 'pending' | 'resolved' | 'cancelled' | 'expired'
+  resolution?: ThreadRequestResolution
+  resolvedAt?: number
   questions?: ThreadRequestQuestion[]
   availableDecisions?: ('accept' | 'acceptForSession' | 'decline' | 'cancel')[]
   requestedPermissions?: { fileSystem?: unknown; network?: unknown }
@@ -216,6 +222,9 @@ export interface ConversationThread {
 
 export type ThreadEvent =
   | { type: 'session'; nativeSessionId: string }
+  /** Transport liveness only; the orchestrator updates metadata without saving a timeline row. */
+  | { type: 'native-signal'; at: number }
+  | { type: 'activity'; id: string; phase: 'preparing' | 'connecting' | 'reasoning' | 'responding'; at: number; summary?: string }
   | { type: 'message'; id: string; role: 'user' | 'assistant'; text: string; attachments?: Omit<ThreadAttachment, 'path'>[] }
   | { type: 'delta'; id: string; text: string }
   | { type: 'tool'; id: string; name: string; state: 'running' | 'completed' | 'failed' | 'unknown'; detail: string; output?: string; exitCode?: number; startedAt?: number; completedAt?: number; turnId?: string; files?: ThreadFileChange[] }
@@ -223,7 +232,7 @@ export type ThreadEvent =
   | { type: 'approval'; id: string; title: string; detail: string }
   | { type: 'approval-resolved'; id: string }
   | { type: 'request'; id: string; request: ThreadRequest }
-  | { type: 'request-resolved'; id: string; state: ThreadRequest['state'] }
+  | { type: 'request-resolved'; id: string; state: ThreadRequest['state']; resolution?: ThreadRequestResolution; resolvedAt?: number }
   | { type: 'queue'; id: string; item: ThreadQueuedInput }
   | { type: 'model-picker'; id: string; models: ThreadModel[]; selectedModel?: string; selectedEffort?: string }
   | { type: 'configuration'; model?: string; reasoningEffort?: string; access?: ThreadConfiguration['access']; networkAccess?: boolean; approvalPolicy?: ThreadConfiguration['approvalPolicy']; hooksEnabled?: boolean; confirmed?: boolean }
