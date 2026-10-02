@@ -117,6 +117,7 @@ test('restores a collapsed workspace terminal list after restart', async () => {
     const page = await firstApp.firstWindow()
     await page.getByTestId('btn-new-workspace').click()
     await page.getByTestId('wizard-dir-input').fill(workspaceRoot)
+    await page.getByRole('radio', { name: /1 pane/ }).check()
     await page.getByTestId('wizard-launch-btn').click()
     const toggle = page.locator('.ws-group-expand-btn')
     await expect(toggle).toHaveAttribute('aria-expanded', 'true')
@@ -134,7 +135,7 @@ test('restores a collapsed workspace terminal list after restart', async () => {
     await expect(page.getByTestId('pane-session-row')).toHaveCount(0)
     await page.locator('.ws-group-expand-btn').click()
     await expect(page.locator('.ws-group-expand-btn')).toHaveAttribute('aria-expanded', 'true')
-    await expect(page.getByTestId('pane-session-row')).toHaveCount(4)
+    await expect(page.getByTestId('pane-session-row')).toHaveCount(1)
   } finally {
     await resumedApp.close()
   }
