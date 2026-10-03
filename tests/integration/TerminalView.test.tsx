@@ -586,6 +586,22 @@ describe('TerminalView', () => {
     expect(terminalState.write).not.toHaveBeenCalledWith('Idle\r\n')
   })
 
+  test('follows a resumed command when the user types from old scrollback', () => {
+    render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
+    terminalState.onData?.('codex resume\r')
+    expect(terminalState.scrollToBottom).toHaveBeenCalled()
+  })
+
+  test('requests an alternate-screen redraw after replay reaches xterm', async () => {
+    const onResize = vi.fn()
+    terminalState.write.mockImplementation((_data: string, done?: () => void) => done?.())
+    vi.mocked(window.oxe.terminal.attach).mockResolvedValue({ running: true, seq: 2, prologue: '\x1b[?1049h', replay: '', truncated: false, altScreen: true })
+    render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={onResize} />)
+    await waitFor(() => expect(onResize).toHaveBeenCalled())
+    const writes = terminalState.write.mock.calls.map(call => call[0])
+    expect(writes.indexOf('\x1b[?1049h')).toBeLessThan(writes.lastIndexOf(''))
+  })
+
   test('queues live output during the handshake so it lands after the replay', async () => {
     let resolveAttach: (value: unknown) => void = () => undefined
     vi.mocked(window.oxe.terminal.attach).mockReturnValue(

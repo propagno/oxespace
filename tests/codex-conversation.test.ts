@@ -4,6 +4,7 @@ import type { ThreadEvent } from '../shared/types/thread'
 
 function fixture(usageResult: unknown = {}, usageError = false, mcpResult: unknown = {}) {
   let receive: (chunk: Uint8Array) => void = () => {}
+  let closeListener: () => void = () => {}
   const requests: Record<string, unknown>[] = []
   const transport: ConversationTransport = {
     write: line => {
@@ -23,15 +24,37 @@ function fixture(usageResult: unknown = {}, usageError = false, mcpResult: unkno
         : { id: message.id, result }) + '\n')))
     },
     onData: listener => { receive = listener },
-    onClose: () => {},
+    onClose: listener => { closeListener = listener },
     close: vi.fn(async () => {})
   }
   const adapter = new CodexConversationAdapter(transport)
   const events: ThreadEvent[] = []
-  return { adapter, transport, requests, events, emit: (message: unknown) => receive(Buffer.from(JSON.stringify(message) + '\n')) }
+  return { adapter, transport, requests, events, emit: (message: unknown) => receive(Buffer.from(JSON.stringify(message) + '\n')), emitClose: () => closeListener() }
 }
 
 describe('Codex conversation adapter', () => {
+  it('marks the adapter closed when its app-server exits during a turn', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
+    await f.adapter.send('Continue')
+    f.emitClose()
+    expect(f.adapter.closed).toBe(true)
+    expect(f.events).toContainEqual(expect.objectContaining({ type: 'completed', status: 'failed' }))
+  })
+  it('ends a silent turn and closes its dead connection so a retry can reconnect', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: 'native-existing' }, event => f.events.push(event))
+    vi.useFakeTimers()
+    try {
+      await f.adapter.send('Continue')
+      await vi.advanceTimersByTimeAsync(125_000)
+      expect(f.events).toContainEqual(expect.objectContaining({ type: 'completed', status: 'failed', errorCode: 'network' }))
+      expect(f.transport.close).toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+      await f.adapter.dispose()
+    }
+  })
   it('resumes long native sessions without asking the app server for every turn', async () => {
     const f = fixture()
     await f.adapter.start({ rootPath: '/project', nativeSessionId: 'native-existing' }, event => f.events.push(event))

@@ -140,6 +140,16 @@ describe('thread persistence and ownership', () => {
     expect(f.manager.read(second).events).toEqual([])
     await f.manager.stop()
   })
+  it('reconnects after a provider adapter closes during a failed turn', async () => {
+    const f = fixture(), id = f.create()
+    await f.manager.send(id, 'First attempt')
+    Object.defineProperty(f.adapters[0], 'closed', { value: true })
+    f.callbacks[0]({ type: 'completed', status: 'failed', error: 'Provider stopped responding' })
+    await f.manager.send(id, 'Retry')
+    expect(f.factory).toHaveBeenCalledTimes(2)
+    expect(f.adapters[1].send).toHaveBeenCalledWith('Retry', undefined)
+    await f.manager.stop()
+  })
   it('persists the provider consolidated diff independently from individual tool patches', async () => {
     const f = fixture(), id = f.create()
     await f.manager.send(id, 'Edit repeatedly')

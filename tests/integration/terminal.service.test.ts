@@ -237,7 +237,7 @@ describe('TerminalManager attach/detach', () => {
     db.close()
   })
 
-  test('skips the replay and forces a redraw for a full-screen TUI', async () => {
+  test('redraws a full-screen TUI only after the attached renderer is ready', async () => {
     const { db, manager, pty, paneId } = await setup()
 
     manager.resize({ paneId, cols: 100, rows: 30 })
@@ -253,6 +253,8 @@ describe('TerminalManager attach/detach', () => {
     expect(attached.altScreen).toBe(true)
     expect(attached.replay).toBe('')
     expect(attached.prologue).toContain('\x1b[?1049h')
+    expect(pty.instances[0].resize).not.toHaveBeenCalled()
+    manager.resize({ paneId, cols: 100, rows: 30 })
     expect(pty.instances[0].resize).toHaveBeenCalledWith(100, 29)
 
     db.close()

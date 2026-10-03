@@ -265,6 +265,7 @@ export interface ConversationProtocolEvidence {
 export interface AgentConversationAdapter {
   readonly capabilities: ConversationCapabilities
   readonly evidence: ConversationProtocolEvidence
+  readonly closed?: boolean
   start(context: { rootPath: string; nativeSessionId: string | null } & ThreadConfiguration, emit: (event: ThreadEvent) => void): Promise<void>
   configure?(configuration: ThreadConfiguration): Promise<void>
   command?(name: string, argument: string): Promise<ThreadCommandResult>

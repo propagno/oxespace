@@ -951,7 +951,8 @@ export class ThreadOrchestrator {
 
   private async connectAdapter(id: string, thread: ConversationThread, runPreflight = true): Promise<AgentConversationAdapter> {
     const existing = this.adapters.get(id)
-    if (existing) return existing
+    if (existing && !existing.closed) return existing
+    if (existing?.closed) this.adapters.delete(id)
     this.assertNativeSessionAvailable(id, thread.provider, thread.nativeSessionId)
     if (runPreflight) await this.preflight?.(thread)
     if (!this.sessions.get(id) && thread.connection) this.sessions.restore(id, thread.connection)

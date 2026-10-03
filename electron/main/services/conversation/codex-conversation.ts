@@ -9,6 +9,7 @@ import { requestOutcome } from '../../../../shared/threadRequestOutcome'
 // Long native sessions have produced frames above 10 MiB; keep a finite ceiling
 // while bounding the fields retained in Thread events below.
 const MAX_CODEX_PROTOCOL_FRAME_BYTES = 32 * 1024 * 1024
+const SILENT_TURN_TIMEOUT_MS = 120_000
 
 export interface ConversationTransport {
   write(line: string): void
@@ -68,11 +69,16 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
   private usageSnapshots: Record<string, Record<string, unknown>> = {}
   private turnError?: ThreadFailure
   private lastNativeSignalAt = 0
+  private lastTurnActivityAt = 0
+  private turnWatchdog: ReturnType<typeof setInterval> | null = null
+  private readonly activeItems = new Set<string>()
   private readonly reasoningSummaries = new Map<string, { text: string; emittedAt: number }>()
   private readonly commandOutputs = new Map<string, { text: string; emittedAt: number }>()
   private emit: (event: ThreadEvent) => void = () => {}
   private readonly approvals = new Map<string, { rpcId: string | number; method: string; params: Record<string, unknown> }>()
   private readonly pendingOauth = new Set<string>()
+
+  get closed(): boolean { return this.disposed }
 
   constructor(private readonly transport: ConversationTransport) {}
 
@@ -100,6 +106,9 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     this.transport.onClose(() => {
       rpc.close()
       if (!this.disposed && this.busy) this.fail('Agent connection closed during the turn')
+      // An exited app-server cannot serve another turn even if it was idle.
+      // Mark the adapter closed so ThreadManager starts a fresh connection.
+      void this.dispose()
     })
     try {
       const handshake = record(await rpc.request('initialize', { clientInfo: { name: 'oxespace', title: 'OXESpace', version: '0.13.0' }, capabilities: { experimentalApi: true } }))
@@ -139,6 +148,9 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     if (this.busy) throw new Error('A conversation turn is already running')
     if (!input.trim() || Buffer.byteLength(input) > 64 * 1024) throw new Error('Invalid conversation input')
     this.busy = true
+    this.lastTurnActivityAt = Date.now()
+    this.activeItems.clear()
+    this.startTurnWatchdog()
     this.turnError = undefined
     this.reasoningSummaries.clear()
     this.commandOutputs.clear()
@@ -212,6 +224,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
 
   private reply(text: string): void {
     this.busy = false
+    this.stopTurnWatchdog()
     this.emit({ type: 'message', id: randomUUID(), role: 'assistant', text })
     this.emit({ type: 'completed', status: 'completed' })
   }
@@ -387,6 +400,8 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
   async dispose(): Promise<void> {
     if (this.disposed) return
     this.disposed = true
+    this.stopTurnWatchdog()
+    this.activeItems.clear()
     this.approvals.clear()
     this.pendingOauth.clear()
     this.reasoningSummaries.clear()
@@ -414,6 +429,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
 
   private fail(error: string | ThreadFailure): void {
     if (!this.busy || this.disposed) return
+    this.stopTurnWatchdog()
     const failure = typeof error === 'string' ? threadFailure({ message: error }) : error
     if (typeof error === 'string') failure.usageUnavailable = true
     if (this.usage) failure.usage = this.usage
@@ -422,6 +438,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     this.reasoningSummaries.clear()
     this.commandOutputs.clear()
     this.approvals.clear()
+    this.activeItems.clear()
     this.emit({ type: 'completed', status: 'failed', error: failure.message, errorCode: failure.code, failure })
     if (failure.code === 'authentication' || failure.code === 'session-busy' || typeof error === 'string') return
     void this.readUsage().then(usage => {
@@ -458,6 +475,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     }
     if (params.threadId !== this.threadId) return
     if (params.turnId && this.turnId && params.turnId !== this.turnId) return
+    if (this.busy) this.lastTurnActivityAt = Date.now()
     if (this.busy && Date.now() - this.lastNativeSignalAt >= 2_000) {
       this.lastNativeSignalAt = Date.now()
       this.emit({ type: 'native-signal', at: this.lastNativeSignalAt })
@@ -510,6 +528,8 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     } else if (message.method === 'item/started' || message.method === 'item/completed') {
       const item = record(params.item)
       const id = text(item.id)
+      if (id && message.method === 'item/started') this.activeItems.add(id)
+      if (id && message.method === 'item/completed') this.activeItems.delete(id)
       if (item.type === 'reasoning' && id) {
         const summary = this.reasoningSummaries.get(id)?.text
         if (message.method === 'item/started') this.emit({ type: 'activity', id: `reasoning:${id}`, phase: 'reasoning', at: Date.now() })
@@ -560,6 +580,8 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
         return
       }
       this.busy = false
+      this.stopTurnWatchdog()
+      this.activeItems.clear()
       this.reasoningSummaries.clear()
       this.commandOutputs.clear()
       this.turnId = ''
@@ -595,6 +617,24 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     const request = this.toRequest(id, method, params)
     this.emit({ type: 'request', id, request })
     if (request.kind === 'approval') this.emit({ type: 'approval', id, title: request.title, detail: request.detail ?? '' })
+  }
+
+  private startTurnWatchdog(): void {
+    this.stopTurnWatchdog()
+    this.turnWatchdog = setInterval(() => {
+      if (!this.busy || this.disposed || this.approvals.size || this.activeItems.size) return
+      if (Date.now() - this.lastTurnActivityAt < SILENT_TURN_TIMEOUT_MS) return
+      const failure = threadFailure({ message: 'Agent connection timed out without a provider event for two minutes.' })
+      failure.message = 'Codex stopped responding. If this session is open in a CLI, close that session before retrying here.'
+      this.fail(failure)
+      void this.dispose()
+    }, 5_000)
+    this.turnWatchdog.unref?.()
+  }
+
+  private stopTurnWatchdog(): void {
+    if (this.turnWatchdog) clearInterval(this.turnWatchdog)
+    this.turnWatchdog = null
   }
 
   private toRequest(id: string, method: string, params: Record<string, unknown>): ThreadRequest {

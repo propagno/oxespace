@@ -315,6 +315,9 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
       // The user typed into the PTY — any earlier selection is no longer a copy
       // candidate, so a later Ctrl+C correctly falls through to SIGINT.
       lastSelectionRef.current = null
+      // A command entered while reading old scrollback must reveal its result.
+      // xterm's automatic user-input scrolling is disabled for TUI selection.
+      if (terminal.buffer.active.type === 'normal') terminal.scrollToBottom()
       onInputRef.current(data)
     })
     // Remember the last non-empty selection. onSelectionChange also fires with
@@ -715,6 +718,17 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
       for (const chunk of queuedWhileAttaching) terminal.write(chunk)
       queuedWhileAttaching.length = 0
       attachPending = false
+      // Attach used to bounce the PTY before xterm consumed the prologue, so
+      // Codex painted its alternate-screen frame into an unready viewport.
+      if (attached?.running && attached.altScreen) {
+        terminal.write('', () => {
+          window.requestAnimationFrame(() => {
+            if (!disposed) onResizeRef.current(terminal.cols, terminal.rows)
+          })
+        })
+      } else if (attached?.replay) {
+        terminal.write('', () => { if (!disposed) terminal.scrollToBottom() })
+      }
     })()
 
     return () => {

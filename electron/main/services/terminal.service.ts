@@ -337,9 +337,13 @@ export class TerminalManager {
   resize(input: TerminalResizeInput): void {
     const session = this.sessions.get(input.paneId)
     if (!session) return
+    const unchanged = session.cols === input.cols && session.rows === input.rows
     session.cols = input.cols
     session.rows = input.rows
-    session.pty.resize(input.cols, input.rows)
+    // A restored full-screen TUI needs a fresh frame after the renderer has
+    // installed its alternate buffer. A same-size resize is that handshake.
+    if (unchanged && session.attached && session.modes.altScreen) this.nudgeRedraw(session)
+    else session.pty.resize(input.cols, input.rows)
   }
 
   /**
@@ -401,8 +405,6 @@ export class TerminalManager {
     // `\x1b[?1049h` fell off the ring head, replaying paints TUI content onto
     // the normal buffer. Ask the app for a correct frame instead.
     const altScreen = session.modes.altScreen
-    if (altScreen) this.nudgeRedraw(session)
-
     return {
       running: true,
       seq: session.ring.seq,
