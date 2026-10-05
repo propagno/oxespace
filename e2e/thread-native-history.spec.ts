@@ -1,11 +1,13 @@
 import { _electron as electron, expect, test } from '@playwright/test'
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 test('Claude native pages use the production worker and survive an Electron restart', async () => {
   test.setTimeout(120000)
-  const root = mkdtempSync(join(tmpdir(), 'oxe-native-history-e2e-'))
+  // Windows CI can expose TEMP through an 8.3 alias (RUNNER~1). Project
+  // registration canonicalizes it, so seed Claude's directory with that same path.
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'oxe-native-history-e2e-')))
   const repo = join(root, 'repo'), home = join(root, 'claude')
   mkdirSync(repo)
   const folder = join(home, 'projects', repo.replace(/[^a-zA-Z0-9]/g, '-'))
