@@ -20,11 +20,21 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond }: 
     setError('')
     try { await onRespond(response) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not answer this request') }
   }
-  if (request.state !== 'pending') return <div className={`thread-request is-resolved is-${request.state}`}>
+  if (request.state !== 'pending') return <details className={`thread-request-history is-${request.state}`}>
+    <summary className="thread-request is-resolved">
     {request.resolution === 'answered' || request.resolution === 'approved' ? <Check size={13} /> : <AlertCircle size={13} />}
     <span><strong>{request.questions?.[0]?.question ?? request.title}</strong><small>{requestOutcomeLabel(request)}{request.resolution === 'answered' && turnResult === 'failed' ? ' · The turn failed afterward; see the error below.' : request.resolution === 'answered' && turnResult === 'interrupted' ? ' · The turn was interrupted afterward.' : ''}</small></span>
     {request.resolvedAt && <time title={new Date(request.resolvedAt).toLocaleString()}>{new Date(request.resolvedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>}
-  </div>
+    </summary>
+    <div className="thread-request-history-content">
+      <p>{request.resolution === 'connection-lost' ? 'The application connection ended before the response could be confirmed. This is a saved record, not an active approval. No permission was inferred or resent.' : 'Saved request details. This request is no longer interactive.'}</p>
+      {request.command || request.detail ? <pre>{request.command ?? request.detail}</pre> : null}
+      {request.cwd && <p>Directory: {request.cwd}</p>}
+      {request.reason && <p>Reason: {request.reason}</p>}
+      {request.questions?.map(question => <div key={question.id}><strong>{question.question}</strong>{question.options?.length ? <ul>{question.options.map((option, index) => <li key={index}>{option.label}{option.description ? ` — ${option.description}` : ''}</li>)}</ul> : null}</div>)}
+      {request.requestedPermissions && <pre>{JSON.stringify(request.requestedPermissions, null, 2)}</pre>}
+    </div>
+  </details>
   return <section className={`thread-request thread-request-${request.kind}`} aria-label={request.title}>
     <header>{request.kind === 'permissions' ? <Shield size={15} /> : <AlertCircle size={15} />}<div><strong>{request.title}</strong>{request.kind !== 'approval' && request.detail && <p>{request.detail}</p>}</div></header>
     {request.kind === 'approval' && <ThreadApprovalDetails command={request.command ?? request.detail ?? ''} cwd={request.cwd} reason={request.reason} fileChanges={request.title === 'Approve file changes'} />}

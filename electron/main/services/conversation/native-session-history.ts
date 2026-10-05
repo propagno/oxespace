@@ -8,12 +8,12 @@ import type { ConversationTransport } from './codex-conversation'
 import { AgentProcessTransport } from './process-transport'
 import { AgentRpcPeer } from './rpc-peer'
 import { encodeClaudeProjectPath } from '../usage/claude-project-path'
+import { readNativeHistoryPage, type NativeHistoryCursor } from './native-history-page'
 
-export interface NativeSessionHistory { events: ThreadEvent[]; title?: string; truncated?: boolean }
+export interface NativeSessionHistory { events: ThreadEvent[]; title?: string; truncated?: boolean; cursor?: NativeHistoryCursor }
 const MAX_LINE_BYTES = 2 * 1024 * 1024
 const MAX_TEXT_BYTES = 2 * 1024 * 1024
 const MAX_EVENTS = 1000
-const MAX_LINEAGE_ENTRIES = 25_000
 function record(value: unknown): Record<string, unknown> { return value && typeof value === 'object' ? value as Record<string, unknown> : {} }
 function sameRoot(a: string, b: string): boolean {
   const normalized = (path: string) => resolve(path.replace(/^\\\\\?\\/, '')).replace(/[\\/]+$/, '')
@@ -29,9 +29,11 @@ function publicMessage(id: string, role: 'user' | 'assistant', content: unknown)
 
 /** Read JSONL incrementally. Tool results can be enormous, so a single line is
  * discarded once it exceeds the cap instead of buffering the whole file. */
-async function* jsonLines(path: string): AsyncGenerator<Record<string, unknown>> {
-  const stream = createReadStream(path, { encoding: 'utf8', highWaterMark: 64 * 1024 })
-  let pending = '', oversized = false
+async function* jsonLines(path: string, start = 0, end?: number): AsyncGenerator<Record<string, unknown>> {
+  const stream = createReadStream(path, { encoding: 'utf8', highWaterMark: 64 * 1024, start, ...(end === undefined ? {} : { end }) })
+  // A byte offset can land inside JSON or a UTF-8 character. Discard that
+  // partial record before parsing complete lines from the recent window.
+  let pending = '', oversized = start > 0
   for await (const chunk of stream) {
     const parts = (pending + chunk).split('\n')
     pending = parts.pop() ?? ''
@@ -57,60 +59,16 @@ export class NativeSessionReader {
     transport?: (command: string, cwd: string) => ConversationTransport
   } = {}) {}
 
-  async read(thread: ConversationThread, id: string): Promise<NativeSessionHistory> {
+  async read(thread: ConversationThread, id: string, cursor?: NativeHistoryCursor): Promise<NativeSessionHistory> {
     if (!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(id)) throw Error('Invalid native session identifier')
     if (thread.provider === 'claude') {
       const home = this.options.claudeHome ?? process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude')
       const path = join(home, 'projects', encodeClaudeProjectPath(thread.rootPath), `${id}.jsonl`)
-      const main = new Map<string, { parent?: string; message?: ThreadEvent }>()
-      const retained: string[] = []
-      let textBytes = 0, sawProject = false, lastMessageId: string | undefined, hasParents = false, truncated = false
-      let title: string | undefined
-      for await (const value of jsonLines(path)) {
-        if (value.type === 'custom-title' && typeof value.customTitle === 'string') title = value.customTitle.slice(0, 80)
-        if (value.sessionId !== id) continue
-        if (typeof value.cwd === 'string' && sameRoot(value.cwd, thread.rootPath)) sawProject = true
-        if (value.isSidechain || typeof value.uuid !== 'string') continue
-        if ('parentUuid' in value) hasParents = true
-        const parent = typeof value.parentUuid === 'string' ? value.parentUuid : undefined
-        const publicEvent = !value.isMeta && (value.type === 'user' || value.type === 'assistant')
-          ? publicMessage(`native:${value.uuid}`, value.type, record(value.message).content) : null
-        main.set(value.uuid, { parent, ...(publicEvent ? { message: publicEvent } : {}) })
-        if (main.size > MAX_LINEAGE_ENTRIES) {
-          const oldest = main.keys().next().value!
-          const evicted = main.get(oldest)?.message
-          if (evicted?.type === 'message') {
-            textBytes -= Buffer.byteLength(evicted.text)
-            const index = retained.indexOf(oldest)
-            if (index >= 0) retained.splice(index, 1)
-          }
-          main.delete(oldest); truncated = true
-        }
-        if (!publicEvent) continue
-        lastMessageId = value.uuid
-        retained.push(value.uuid)
-        textBytes += Buffer.byteLength(publicEvent.type === 'message' ? publicEvent.text : '')
-        while (retained.length > MAX_EVENTS || textBytes > MAX_TEXT_BYTES && retained.length > 1) {
-          const old = retained.shift()!
-          const entry = main.get(old)
-          if (entry?.message?.type === 'message') {
-            textBytes -= Buffer.byteLength(entry.message.text)
-            delete entry.message
-            truncated = true
-          }
-        }
-      }
-      if (!sawProject) throw Error('Native session belongs to a different project')
-      const active = new Set<string>()
-      if (hasParents) {
-        let cursor = lastMessageId
-        while (cursor && !active.has(cursor)) { active.add(cursor); cursor = main.get(cursor)?.parent }
-      }
-      const events = [...main.entries()].filter(([key, value]) => value.message && (!hasParents || active.has(key))).map(([, value]) => value.message!)
-      return this.bounded({ events, ...(title ? { title } : {}), ...(truncated ? { truncated: true } : {}) })
+      return this.readClaudePage(thread, id, path, cursor)
     }
     const rollout = await findCodexRollout(this.options.codexHome ?? process.env.CODEX_HOME ?? join(homedir(), '.codex'), id)
-    if (rollout) return this.readCodexRollout(thread, id, rollout)
+    if (rollout) return this.readCodexRollout(thread, id, rollout, cursor)
+    if (cursor) throw Error('Native history file is unavailable. Restore its location and retry.')
     const transport = (this.options.transport ?? ((command, cwd) => new AgentProcessTransport(command, ['app-server', '--listen', 'stdio://'], cwd)))(this.executable(thread), thread.rootPath)
     const rpc = new AgentRpcPeer(line => transport.write(line), () => {}, message => { if (message.id !== undefined) rpc.rejectRequest(message.id) }, 8000)
     transport.onData(chunk => { try { rpc.push(chunk) } catch { rpc.close() } }); transport.onClose(() => rpc.close())
@@ -134,37 +92,62 @@ export class NativeSessionReader {
     } finally { rpc.close(); await transport.close() }
   }
 
-  private async readCodexRollout(thread: ConversationThread, id: string, path: string): Promise<NativeSessionHistory> {
-    const events: ThreadEvent[] = []
-    let metaVerified = false, textBytes = 0, truncated = false, index = 0
-    let title: string | undefined
-    for await (const value of jsonLines(path)) {
-      if (value.type === 'session_meta') {
-        const meta = record(value.payload)
-        if (meta.id !== id || typeof meta.cwd !== 'string' || !sameRoot(meta.cwd, thread.rootPath)) throw Error('Native session belongs to a different project')
-        metaVerified = true
-        continue
-      }
-      if (!metaVerified || value.type !== 'response_item') continue
-      const item = record(value.payload)
-      if (item.type !== 'message' || item.role !== 'user' && item.role !== 'assistant') continue
-      const content = Array.isArray(item.content) ? item.content.filter(block => {
-        const type = record(block).type
-        return type === 'input_text' || type === 'output_text'
-      }).map(block => record(block).text).filter(text => typeof text === 'string').join('\n') : ''
-      const message = publicMessage(`native:${typeof item.id === 'string' ? item.id : `record-${index++}`}`, item.role, content)
-      if (!message || message.type !== 'message') continue
-      if (!title && message.role === 'user') title = message.text.replace(/\s+/g, ' ').slice(0, 80)
-      events.push(message)
-      textBytes += Buffer.byteLength(message.text)
-      while (events.length > MAX_EVENTS || textBytes > MAX_TEXT_BYTES && events.length > 1) {
-        const removed = events.shift()!
-        if (removed.type === 'message') textBytes -= Buffer.byteLength(removed.text)
-        truncated = true
-      }
+  private async readClaudePage(thread: ConversationThread, id: string, path: string, cursor?: NativeHistoryCursor): Promise<NativeSessionHistory> {
+    // Validate the selected project independently from the page. A cursor does
+    // not grant access to another provider file or worktree.
+    let verified = false
+    for await (const value of jsonLines(path, 0, 8 * 1024 * 1024 - 1)) {
+      if (value.sessionId !== id || typeof value.cwd !== 'string') continue
+      if (!sameRoot(value.cwd, thread.rootPath)) throw Error('Native session belongs to a different project')
+      verified = true; break
     }
-    if (!metaVerified) throw Error('Native session identity could not be verified')
-    return { events, ...(title ? { title } : {}), ...(truncated ? { truncated: true } : {}) }
+    if (!verified) throw Error('Native session project could not be verified within the bounded header')
+    type Entry = { uuid?: string; parent?: string; linked?: boolean; event?: ThreadEvent; title?: string }
+    const page = await readNativeHistoryPage<Entry>(path, value => {
+      if (value.type === 'custom-title' && typeof value.customTitle === 'string') return { title: value.customTitle.slice(0, 80) }
+      if (value.sessionId !== id || value.isSidechain || typeof value.uuid !== 'string') return
+      const event = !value.isMeta && (value.type === 'user' || value.type === 'assistant')
+        ? publicMessage(`native:${value.uuid}`, value.type, record(value.message).content) : null
+      return { uuid: value.uuid, ...(typeof value.parentUuid === 'string' ? { parent: value.parentUuid } : {}), linked: 'parentUuid' in value, ...(event ? { event } : {}) }
+    }, cursor, MAX_EVENTS)
+    const events: ThreadEvent[] = []
+    let lineage = cursor?.claudeLineage, parent = cursor?.claudeParent, title: string | undefined
+    for (const entry of [...page.items].reverse()) {
+      if (entry.title && title === undefined) title = entry.title
+      if (!entry.uuid) continue
+      if (lineage === undefined) {
+        if (!entry.event) continue
+        lineage = entry.linked ? 'linked' : 'legacy'
+        parent = entry.uuid
+      }
+      if (lineage === 'linked' && entry.uuid !== parent) continue
+      if (entry.event) events.push(entry.event)
+      if (lineage === 'linked') parent = entry.parent
+    }
+    if (!page.cursor && lineage === 'linked' && parent) throw Error('Native history lineage is incomplete. Earlier messages could not be verified; the current conversation is preserved.')
+    const next = page.cursor && !(lineage === 'linked' && !parent) ? { ...page.cursor, ...(lineage ? { claudeLineage: lineage } : {}), ...(parent ? { claudeParent: parent } : {}) } : undefined
+    return { events: events.reverse(), ...(title ? { title } : {}), ...(next ? { cursor: next, truncated: true } : {}) }
+  }
+
+  private async readCodexRollout(thread: ConversationThread, id: string, path: string, cursor?: NativeHistoryCursor): Promise<NativeSessionHistory> {
+    let verified = false
+    for await (const value of jsonLines(path, 0, MAX_LINE_BYTES - 1)) {
+      if (value.type !== 'session_meta') continue
+      const meta = record(value.payload)
+      if (meta.id !== id || typeof meta.cwd !== 'string' || !sameRoot(meta.cwd, thread.rootPath)) throw Error('Native session belongs to a different project')
+      verified = true; break
+    }
+    if (!verified) throw Error('Native session identity could not be verified')
+    const page = await readNativeHistoryPage<ThreadEvent>(path, (value, offset) => {
+      if (value.type !== 'response_item') return
+      const item = record(value.payload)
+      if (item.type !== 'message' || item.role !== 'user' && item.role !== 'assistant') return
+      const content = Array.isArray(item.content) ? item.content.filter(block => ['input_text', 'output_text'].includes(String(record(block).type))).map(block => record(block).text).filter(text => typeof text === 'string').join('\n') : ''
+      return publicMessage(`native:${typeof item.id === 'string' ? item.id : `byte-${offset}`}`, item.role, content) ?? undefined
+    }, cursor, MAX_EVENTS)
+    const first = page.items.find(event => event.type === 'message' && event.role === 'user')
+    const title = first?.type === 'message' ? first.text.replace(/\s+/g, ' ').slice(0, 80) : undefined
+    return { events: page.items, ...(title ? { title } : {}), ...(page.cursor ? { truncated: true, cursor: page.cursor } : {}) }
   }
 
   private bounded(history: NativeSessionHistory): NativeSessionHistory {

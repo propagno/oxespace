@@ -1,0 +1,2734 @@
+[
+  {
+    "checkpoint": "test-results/voice-error-dismissible.png",
+    "viewport": {
+      "width": 1264,
+      "height": 755
+    },
+    "theme": "midnight",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": null,
+      ".thread-timeline": null,
+      ".thread-composer": null,
+      ".thread-workbench": null,
+      ".thread-navigation-item": null,
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 719,
+        "disabled": false
+      },
+      {
+        "name": "Toggle all workspace terminals",
+        "tag": "BUTTON",
+        "x": 234,
+        "y": 257,
+        "width": 22,
+        "height": 22,
+        "disabled": false
+      },
+      {
+        "name": "1 terminals in repo",
+        "tag": "BUTTON",
+        "x": 212,
+        "y": 293.5,
+        "width": 22,
+        "height": 22,
+        "disabled": false
+      },
+      {
+        "name": "Workspace options",
+        "tag": "BUTTON",
+        "x": 236,
+        "y": 293.5,
+        "width": 22,
+        "height": 22,
+        "disabled": false
+      },
+      {
+        "name": "PS>\n(double-click to rename)",
+        "tag": "BUTTON",
+        "x": 504.109375,
+        "y": 96,
+        "width": 654.890625,
+        "height": 21,
+        "disabled": false
+      },
+      {
+        "name": "Search in terminal",
+        "tag": "BUTTON",
+        "x": 1172,
+        "y": 95.5,
+        "width": 22,
+        "height": 22,
+        "disabled": false
+      },
+      {
+        "name": "Maximize pane",
+        "tag": "BUTTON",
+        "x": 1195,
+        "y": 95.5,
+        "width": 22,
+        "height": 22,
+        "disabled": false
+      },
+      {
+        "name": "More pane actions",
+        "tag": "BUTTON",
+        "x": 1218,
+        "y": 95.5,
+        "width": 22,
+        "height": 22,
+        "disabled": false
+      },
+      {
+        "name": "Close voice input",
+        "tag": "BUTTON",
+        "x": 788,
+        "y": 648,
+        "width": 24,
+        "height": 24,
+        "disabled": false
+      },
+      {
+        "name": "Toggle pane tools",
+        "tag": "BUTTON",
+        "x": 1219,
+        "y": 695,
+        "width": 24,
+        "height": 24,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [
+      {
+        "text": "Just now",
+        "ratio": 4.1,
+        "fontSize": "9.5px",
+        "color": "rgb(139, 151, 204)",
+        "background": "rgb(53, 56, 70)"
+      }
+    ],
+    "nativeSelects": [],
+    "mountedRows": 0
+  },
+  {
+    "checkpoint": "test-results/code-sidebar-mode.png",
+    "viewport": {
+      "width": 1264,
+      "height": 755
+    },
+    "theme": "midnight",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      ".thread-timeline": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      ".thread-composer": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      ".thread-workbench": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      ".thread-navigation-item": null,
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 719,
+        "disabled": false
+      },
+      {
+        "name": "Toggle all workspace terminals",
+        "tag": "BUTTON",
+        "x": 234,
+        "y": 257,
+        "width": 22,
+        "height": 22,
+        "disabled": false
+      },
+      {
+        "name": "1 terminals in repo",
+        "tag": "BUTTON",
+        "x": 212,
+        "y": 293.5,
+        "width": 22,
+        "height": 22,
+        "disabled": false
+      },
+      {
+        "name": "Workspace options",
+        "tag": "BUTTON",
+        "x": 236,
+        "y": 293.5,
+        "width": 22,
+        "height": 22,
+        "disabled": false
+      },
+      {
+        "name": "PS>\n(double-click to rename)",
+        "tag": "BUTTON",
+        "x": 504.109375,
+        "y": 96,
+        "width": 654.890625,
+        "height": 21,
+        "disabled": false
+      },
+      {
+        "name": "Search in terminal",
+        "tag": "BUTTON",
+        "x": 1172,
+        "y": 95.5,
+        "width": 22,
+        "height": 22,
+        "disabled": false
+      },
+      {
+        "name": "Maximize pane",
+        "tag": "BUTTON",
+        "x": 1195,
+        "y": 95.5,
+        "width": 22,
+        "height": 22,
+        "disabled": false
+      },
+      {
+        "name": "More pane actions",
+        "tag": "BUTTON",
+        "x": 1218,
+        "y": 95.5,
+        "width": 22,
+        "height": 22,
+        "disabled": false
+      },
+      {
+        "name": "Toggle pane tools",
+        "tag": "BUTTON",
+        "x": 1219,
+        "y": 695,
+        "width": 24,
+        "height": 24,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [
+      {
+        "text": "Just now",
+        "ratio": 4.1,
+        "fontSize": "9.5px",
+        "color": "rgb(139, 151, 204)",
+        "background": "rgb(53, 56, 70)"
+      }
+    ],
+    "nativeSelects": [],
+    "mountedRows": 0
+  },
+  {
+    "checkpoint": "test-results/thread-new-dialog.png",
+    "viewport": {
+      "width": 1264,
+      "height": 755
+    },
+    "theme": "midnight",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 984,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 984,
+        "height": 563
+      },
+      ".thread-composer": {
+        "x": 304,
+        "y": 641,
+        "width": 928,
+        "height": 102
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 984,
+        "height": 719
+      },
+      ".thread-navigation-item": null,
+      "[role=\"dialog\"]": {
+        "x": 362,
+        "y": 162.40625,
+        "width": 540,
+        "height": 430.1875
+      }
+    },
+    "smallControls": [
+      {
+        "name": "",
+        "tag": "INPUT",
+        "x": 399,
+        "y": 449.34375,
+        "width": 1,
+        "height": 30,
+        "disabled": false
+      },
+      {
+        "name": "",
+        "tag": "INPUT",
+        "x": 648.5,
+        "y": 449.34375,
+        "width": 1,
+        "height": 30,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [
+      {
+        "name": "",
+        "tag": "INPUT",
+        "x": 399,
+        "y": 449.34375,
+        "width": 1,
+        "height": 30,
+        "disabled": false
+      },
+      {
+        "name": "",
+        "tag": "INPUT",
+        "x": 648.5,
+        "y": 449.34375,
+        "width": 1,
+        "height": 30,
+        "disabled": false
+      }
+    ],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 0
+  },
+  {
+    "checkpoint": "test-results/thread-project-hierarchy.png",
+    "viewport": {
+      "width": 1264,
+      "height": 755
+    },
+    "theme": "midnight",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 984,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 984,
+        "height": 527
+      },
+      ".thread-composer": {
+        "x": 304,
+        "y": 641,
+        "width": 928,
+        "height": 102
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 984,
+        "height": 719
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": 245.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 719,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 0
+  },
+  {
+    "checkpoint": "test-results/thread-commands-1280.png",
+    "viewport": {
+      "width": 1280,
+      "height": 600
+    },
+    "theme": "midnight",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 1000,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 1000,
+        "height": 384
+      },
+      ".thread-composer": {
+        "x": 304,
+        "y": 494,
+        "width": 944,
+        "height": 98
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 1000,
+        "height": 564
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": 245.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 564,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 0
+  },
+  {
+    "checkpoint": "test-results/thread-commands-900.png",
+    "viewport": {
+      "width": 900,
+      "height": 600
+    },
+    "theme": "midnight",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 620,
+        "height": 384
+      },
+      ".thread-composer": {
+        "x": 296,
+        "y": 494,
+        "width": 580,
+        "height": 98
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 564
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": 245.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 564,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 0
+  },
+  {
+    "checkpoint": "test-results/thread-usage-roster.png",
+    "viewport": {
+      "width": 900,
+      "height": 600
+    },
+    "theme": "midnight",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 620,
+        "height": 384
+      },
+      ".thread-composer": {
+        "x": 296,
+        "y": 494,
+        "width": 580,
+        "height": 98
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 564
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": 245.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": {
+        "x": 97.19017028808594,
+        "y": 59.7078971862793,
+        "width": 705.61962890625,
+        "height": 480.584228515625
+      }
+    },
+    "smallControls": [
+      {
+        "name": "Close",
+        "tag": "BUTTON",
+        "x": 758.9469604492188,
+        "y": 74.01100158691406,
+        "width": 13.349609375,
+        "height": 13.349555969238281,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 0
+  },
+  {
+    "checkpoint": "test-results/thread-model-picker-900.png",
+    "viewport": {
+      "width": 900,
+      "height": 600
+    },
+    "theme": "midnight",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 620,
+        "height": 384
+      },
+      ".thread-composer": {
+        "x": 296,
+        "y": 494,
+        "width": 580,
+        "height": 98
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 564
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": 245.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 564,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 0
+  },
+  {
+    "checkpoint": "test-results/thread-integrated-controls-900.png",
+    "viewport": {
+      "width": 900,
+      "height": 600
+    },
+    "theme": "midnight",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 620,
+        "height": 384
+      },
+      ".thread-composer": {
+        "x": 296,
+        "y": 494,
+        "width": 580,
+        "height": 98
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 564
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": 245.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 564,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 0
+  },
+  {
+    "checkpoint": "test-results/thread-failure-usage-900.png",
+    "viewport": {
+      "width": 900,
+      "height": 720
+    },
+    "theme": "midnight",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 620,
+        "height": 492
+      },
+      ".thread-composer": {
+        "x": 296,
+        "y": 606,
+        "width": 580,
+        "height": 102
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 684
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": 245.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 684,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 2
+  },
+  {
+    "checkpoint": "test-results/thread-failure-usage-1280.png",
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "theme": "midnight",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 1000,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 1000,
+        "height": 492
+      },
+      ".thread-composer": {
+        "x": 304,
+        "y": 606,
+        "width": 944,
+        "height": 102
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 1000,
+        "height": 684
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": 245.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 684,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 2
+  },
+  {
+    "checkpoint": "test-results/thread-auth-recovery.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "theme": "midnight",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 1160,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 1160,
+        "height": 669.5
+      },
+      ".thread-composer": {
+        "x": 306,
+        "y": 786,
+        "width": 1100,
+        "height": 102
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 1160,
+        "height": 864
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": 245.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 864,
+        "disabled": false
+      },
+      {
+        "name": "Reconnect",
+        "tag": "BUTTON",
+        "x": 1275.046875,
+        "y": 751.5,
+        "width": 75.515625,
+        "height": 26.5,
+        "disabled": false
+      },
+      {
+        "name": "Resend after connecting",
+        "tag": "BUTTON",
+        "x": 1358.5625,
+        "y": 751.5,
+        "width": 47.4375,
+        "height": 26.5,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 2
+  },
+  {
+    "checkpoint": "test-results/thread-accounts.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "theme": "midnight",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 1160,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 1160,
+        "height": 669.5
+      },
+      ".thread-composer": {
+        "x": 306,
+        "y": 786,
+        "width": 1100,
+        "height": 102
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 1160,
+        "height": 864
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": 245.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": {
+        "x": 430,
+        "y": 181.40625,
+        "width": 580,
+        "height": 537.1875
+      }
+    },
+    "smallControls": [],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 2
+  },
+  {
+    "checkpoint": "test-results/thread-1440.png",
+    "viewport": {
+      "width": 1440,
+      "height": 720
+    },
+    "theme": "midnight",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 1160,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 1160,
+        "height": 492
+      },
+      ".thread-composer": {
+        "x": 306,
+        "y": 606,
+        "width": 1100,
+        "height": 102
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 1160,
+        "height": 684
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": 245.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 684,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 4
+  },
+  {
+    "checkpoint": "test-results/thread-1280.png",
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "theme": "midnight",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 1000,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 1000,
+        "height": 492
+      },
+      ".thread-composer": {
+        "x": 304,
+        "y": 606,
+        "width": 944,
+        "height": 102
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 1000,
+        "height": 684
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": 245.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 684,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 4
+  },
+  {
+    "checkpoint": "test-results/thread-900.png",
+    "viewport": {
+      "width": 900,
+      "height": 720
+    },
+    "theme": "midnight",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 620,
+        "height": 492
+      },
+      ".thread-composer": {
+        "x": 296,
+        "y": 606,
+        "width": 580,
+        "height": 102
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 684
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": 245.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 684,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 4
+  },
+  {
+    "checkpoint": "test-results/thread-one-dark-900.png",
+    "viewport": {
+      "width": 900,
+      "height": 720
+    },
+    "theme": "one-dark",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 620,
+        "height": 492
+      },
+      ".thread-composer": {
+        "x": 296,
+        "y": 606,
+        "width": 580,
+        "height": 102
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 684
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": 245.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 684,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 4
+  },
+  {
+    "checkpoint": "test-results/thread-scale-1.25.png",
+    "viewport": {
+      "width": 1152,
+      "height": 720
+    },
+    "theme": "one-dark",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 872,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 872,
+        "height": 492.3999938964844
+      },
+      ".thread-composer": {
+        "x": 304,
+        "y": 606.4000244140625,
+        "width": 816,
+        "height": 101.5999984741211
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 872,
+        "height": 684
+      },
+      ".thread-navigation-item": {
+        "x": 33.79999923706055,
+        "y": 245.5,
+        "width": 229.40000915527344,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275.20001220703125,
+        "y": 36,
+        "width": 4,
+        "height": 684,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 4
+  },
+  {
+    "checkpoint": "test-results/thread-scale-1.5.png",
+    "viewport": {
+      "width": 960,
+      "height": 600
+    },
+    "theme": "one-dark",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 680,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 680,
+        "height": 384.66668701171875
+      },
+      ".thread-composer": {
+        "x": 296,
+        "y": 494.66668701171875,
+        "width": 640,
+        "height": 97.33333587646484
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 680,
+        "height": 564
+      },
+      ".thread-navigation-item": {
+        "x": 33.66666793823242,
+        "y": 245.5,
+        "width": 229.6666717529297,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275.3333435058594,
+        "y": 36,
+        "width": 4,
+        "height": 564,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 4
+  },
+  {
+    "checkpoint": "test-results/thread-imported-formatting.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "theme": "one-dark",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 1160,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 1160,
+        "height": 672
+      },
+      ".thread-composer": {
+        "x": 306,
+        "y": 786,
+        "width": 1100,
+        "height": 102
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 1160,
+        "height": 864
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": 245.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 864,
+        "disabled": false
+      },
+      {
+        "name": "Show full message",
+        "tag": "BUTTON",
+        "x": 577.8125,
+        "y": 205.0625,
+        "width": 98.0625,
+        "height": 23.59375,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 4
+  },
+  {
+    "checkpoint": "test-results/thread-reading.png",
+    "viewport": {
+      "width": 900,
+      "height": 600
+    },
+    "theme": "one-dark",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 620,
+        "height": 384
+      },
+      ".thread-composer": {
+        "x": 296,
+        "y": 494,
+        "width": 580,
+        "height": 98
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 564
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": 245.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 564,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 16
+  },
+  {
+    "checkpoint": "test-results/thread-long-900.png",
+    "viewport": {
+      "width": 900,
+      "height": 600
+    },
+    "theme": "one-dark",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 620,
+        "height": 384
+      },
+      ".thread-composer": {
+        "x": 296,
+        "y": 494,
+        "width": 580,
+        "height": 98
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 564
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": 245.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 564,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 7
+  },
+  {
+    "checkpoint": "test-results/thread-project-history.png",
+    "viewport": {
+      "width": 900,
+      "height": 600
+    },
+    "theme": "one-dark",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 620,
+        "height": 384
+      },
+      ".thread-composer": {
+        "x": 296,
+        "y": 494,
+        "width": 580,
+        "height": 98
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 564
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": 245.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 564,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 7
+  },
+  {
+    "checkpoint": "test-results/thread-project-history-compact.png",
+    "viewport": {
+      "width": 900,
+      "height": 600
+    },
+    "theme": "one-dark",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 620,
+        "height": 384
+      },
+      ".thread-composer": {
+        "x": 296,
+        "y": 494,
+        "width": 580,
+        "height": 98
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 564
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": 245.5,
+        "width": 229,
+        "height": 38
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 564,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 7
+  },
+  {
+    "checkpoint": "test-results/thread-session-menu.png",
+    "viewport": {
+      "width": 900,
+      "height": 600
+    },
+    "theme": "one-dark",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 620,
+        "height": 384
+      },
+      ".thread-composer": {
+        "x": 296,
+        "y": 494,
+        "width": 580,
+        "height": 98
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 564
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": -3274.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 564,
+        "disabled": false
+      },
+      {
+        "name": "",
+        "tag": "DIV",
+        "x": 278,
+        "y": 520.5335083007812,
+        "width": 236,
+        "height": 1,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [
+      {
+        "name": "",
+        "tag": "DIV",
+        "x": 278,
+        "y": 520.5335083007812,
+        "width": 236,
+        "height": 1,
+        "disabled": false
+      }
+    ],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 7
+  },
+  {
+    "checkpoint": "test-results/thread-wide-layout-1440.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "theme": "one-dark",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 1160,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 1160,
+        "height": 672
+      },
+      ".thread-composer": {
+        "x": 306,
+        "y": 786,
+        "width": 1100,
+        "height": 102
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 1160,
+        "height": 864
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": -2974.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 864,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 10
+  },
+  {
+    "checkpoint": "test-results/thread-workbench-1440.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "theme": "one-dark",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 735,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 735,
+        "height": 672
+      },
+      ".thread-composer": {
+        "x": 304,
+        "y": 786,
+        "width": 679,
+        "height": 102
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 1160,
+        "height": 864
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": -2974.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 864,
+        "disabled": false
+      },
+      {
+        "name": "Resize review panel",
+        "tag": "DIV",
+        "x": 1015,
+        "y": 36,
+        "width": 5,
+        "height": 864,
+        "disabled": false
+      },
+      {
+        "name": "Filter changed files",
+        "tag": "INPUT",
+        "x": 1062.296875,
+        "y": 149.09375,
+        "width": 355.703125,
+        "height": 18,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 9
+  },
+  {
+    "checkpoint": "test-results/thread-git-control-1440.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "theme": "one-dark",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 735,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 735,
+        "height": 607
+      },
+      ".thread-composer": {
+        "x": 304,
+        "y": 721,
+        "width": 679,
+        "height": 167
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 1160,
+        "height": 864
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": -2974.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 864,
+        "disabled": false
+      },
+      {
+        "name": "Resize review panel",
+        "tag": "DIV",
+        "x": 1015,
+        "y": 36,
+        "width": 5,
+        "height": 864,
+        "disabled": false
+      },
+      {
+        "name": "Refresh Git status",
+        "tag": "BUTTON",
+        "x": 1399,
+        "y": 141,
+        "width": 27,
+        "height": 28,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 9
+  },
+  {
+    "checkpoint": "test-results/thread-source-control-1440.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "theme": "one-dark",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 735,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 735,
+        "height": 607
+      },
+      ".thread-composer": {
+        "x": 304,
+        "y": 721,
+        "width": 679,
+        "height": 167
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 1160,
+        "height": 864
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": -2974.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 864,
+        "disabled": false
+      },
+      {
+        "name": "Resize review panel",
+        "tag": "DIV",
+        "x": 1015,
+        "y": 36,
+        "width": 5,
+        "height": 864,
+        "disabled": false
+      },
+      {
+        "name": "Refresh status",
+        "tag": "BUTTON",
+        "x": 1400,
+        "y": 193,
+        "width": 26,
+        "height": 28,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 9
+  },
+  {
+    "checkpoint": "test-results/thread-markdown-reader.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "theme": "one-dark",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 735,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 735,
+        "height": 607
+      },
+      ".thread-composer": {
+        "x": 304,
+        "y": 721,
+        "width": 679,
+        "height": 167
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 1160,
+        "height": 864
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": -2974.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": {
+        "x": 200,
+        "y": 81,
+        "width": 1040,
+        "height": 738
+      }
+    },
+    "smallControls": [],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 9
+  },
+  {
+    "checkpoint": "test-results/thread-agents-1440.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "theme": "one-dark",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 735,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 735,
+        "height": 607
+      },
+      ".thread-composer": {
+        "x": 304,
+        "y": 721,
+        "width": 679,
+        "height": 167
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 1160,
+        "height": 864
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": -2974.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 864,
+        "disabled": false
+      },
+      {
+        "name": "Resize review panel",
+        "tag": "DIV",
+        "x": 1015,
+        "y": 36,
+        "width": 5,
+        "height": 864,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 9
+  },
+  {
+    "checkpoint": "test-results/thread-session-changes-1440.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "theme": "one-dark",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 735,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 735,
+        "height": 607
+      },
+      ".thread-composer": {
+        "x": 304,
+        "y": 721,
+        "width": 679,
+        "height": 167
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 1160,
+        "height": 864
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": -2974.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 864,
+        "disabled": false
+      },
+      {
+        "name": "Resize review panel",
+        "tag": "DIV",
+        "x": 1015,
+        "y": 36,
+        "width": 5,
+        "height": 864,
+        "disabled": false
+      },
+      {
+        "name": "Filter changed files",
+        "tag": "INPUT",
+        "x": 1062.296875,
+        "y": 149.09375,
+        "width": 355.703125,
+        "height": 18,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 9
+  },
+  {
+    "checkpoint": "test-results/thread-workbench-900.png",
+    "viewport": {
+      "width": 900,
+      "height": 720
+    },
+    "theme": "one-dark",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 620,
+        "height": 427
+      },
+      ".thread-composer": {
+        "x": 296,
+        "y": 541,
+        "width": 580,
+        "height": 167
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 684
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": -3154.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": {
+        "x": 480,
+        "y": 36,
+        "width": 420,
+        "height": 684
+      }
+    },
+    "smallControls": [
+      {
+        "name": "Filter changed files",
+        "tag": "INPUT",
+        "x": 523.296875,
+        "y": 149.09375,
+        "width": 354.703125,
+        "height": 18,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 9
+  },
+  {
+    "checkpoint": "test-results/thread-conversation-actions.png",
+    "viewport": {
+      "width": 900,
+      "height": 720
+    },
+    "theme": "one-dark",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 620,
+        "height": 427
+      },
+      ".thread-composer": {
+        "x": 296,
+        "y": 541,
+        "width": 580,
+        "height": 167
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 684
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": -3154.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 684,
+        "disabled": false
+      },
+      {
+        "name": "",
+        "tag": "DIV",
+        "x": 526,
+        "y": 253.3455352783203,
+        "width": 236,
+        "height": 1,
+        "disabled": false
+      },
+      {
+        "name": "",
+        "tag": "DIV",
+        "x": 526,
+        "y": 350.34552001953125,
+        "width": 236,
+        "height": 1,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [
+      {
+        "name": "",
+        "tag": "DIV",
+        "x": 526,
+        "y": 253.3455352783203,
+        "width": 236,
+        "height": 1,
+        "disabled": false
+      },
+      {
+        "name": "",
+        "tag": "DIV",
+        "x": 526,
+        "y": 350.34552001953125,
+        "width": 236,
+        "height": 1,
+        "disabled": false
+      }
+    ],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 9
+  },
+  {
+    "checkpoint": "test-results/thread-approval-1440.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "theme": "one-dark",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 1160,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 1160,
+        "height": 672
+      },
+      ".thread-composer": {
+        "x": 306,
+        "y": 786,
+        "width": 1100,
+        "height": 102
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 1160,
+        "height": 864
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": -2974.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 864,
+        "disabled": false
+      },
+      {
+        "name": "Copy exact text",
+        "tag": "BUTTON",
+        "x": 373.1875,
+        "y": 591.203125,
+        "width": 115.234375,
+        "height": 26.5,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 2
+  },
+  {
+    "checkpoint": "test-results/thread-message-actions.png",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "theme": "midnight",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 1160,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 1160,
+        "height": 672
+      },
+      ".thread-composer": {
+        "x": 306,
+        "y": 786,
+        "width": 1100,
+        "height": 102
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 1160,
+        "height": 864
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": 245.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 864,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 14
+  },
+  {
+    "checkpoint": "test-results/thread-provider-observation.png",
+    "viewport": {
+      "width": 900,
+      "height": 600
+    },
+    "theme": "midnight",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 620,
+        "height": 384
+      },
+      ".thread-composer": {
+        "x": 296,
+        "y": 494,
+        "width": 580,
+        "height": 98
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 564
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": 245.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": {
+        "x": 480,
+        "y": 36,
+        "width": 420,
+        "height": 564
+      }
+    },
+    "smallControls": [],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 3
+  },
+  {
+    "checkpoint": "test-results/thread-question-answered.png",
+    "viewport": {
+      "width": 900,
+      "height": 600
+    },
+    "theme": "midnight",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 620,
+        "height": 342
+      },
+      ".thread-composer": {
+        "x": 296,
+        "y": 494,
+        "width": 580,
+        "height": 98
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 564
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": 245.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 564,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 2
+  },
+  {
+    "checkpoint": "test-results/thread-question-declined.png",
+    "viewport": {
+      "width": 900,
+      "height": 600
+    },
+    "theme": "midnight",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 620,
+        "height": 342
+      },
+      ".thread-composer": {
+        "x": 296,
+        "y": 494,
+        "width": 580,
+        "height": 98
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 564
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": 245.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 564,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 2
+  },
+  {
+    "checkpoint": "test-results/thread-archived-sessions.png",
+    "viewport": {
+      "width": 900,
+      "height": 600
+    },
+    "theme": "midnight",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 620,
+        "height": 342
+      },
+      ".thread-composer": {
+        "x": 296,
+        "y": 494,
+        "width": 580,
+        "height": 98
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 564
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": -3302.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": null
+    },
+    "smallControls": [
+      {
+        "name": "Thread sidebar width",
+        "tag": "DIV",
+        "x": 275,
+        "y": 36,
+        "width": 4,
+        "height": 564,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 3
+  },
+  {
+    "checkpoint": "test-results/thread-project-settings-audit.png",
+    "viewport": {
+      "width": 900,
+      "height": 600
+    },
+    "theme": "midnight",
+    "pageOverflow": false,
+    "geometry": {
+      ".thread-heading": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 42
+      },
+      ".thread-timeline": {
+        "x": 280,
+        "y": 78,
+        "width": 620,
+        "height": 342
+      },
+      ".thread-composer": {
+        "x": 296,
+        "y": 494,
+        "width": 580,
+        "height": 98
+      },
+      ".thread-workbench": {
+        "x": 280,
+        "y": 36,
+        "width": 620,
+        "height": 564
+      },
+      ".thread-navigation-item": {
+        "x": 34,
+        "y": 245.5,
+        "width": 229,
+        "height": 51
+      },
+      "[role=\"dialog\"]": {
+        "x": 180,
+        "y": 54,
+        "width": 540,
+        "height": 492
+      }
+    },
+    "smallControls": [
+      {
+        "name": "",
+        "tag": "INPUT",
+        "x": 209,
+        "y": 352.6875,
+        "width": 16,
+        "height": 16,
+        "disabled": false
+      },
+      {
+        "name": "",
+        "tag": "INPUT",
+        "x": 209,
+        "y": 506.46875,
+        "width": 16,
+        "height": 16,
+        "disabled": false
+      },
+      {
+        "name": "",
+        "tag": "INPUT",
+        "x": 209,
+        "y": 547.859375,
+        "width": 16,
+        "height": 16,
+        "disabled": false
+      }
+    ],
+    "unnamedControlCandidates": [
+      {
+        "name": "",
+        "tag": "INPUT",
+        "x": 209,
+        "y": 352.6875,
+        "width": 16,
+        "height": 16,
+        "disabled": false
+      },
+      {
+        "name": "",
+        "tag": "INPUT",
+        "x": 209,
+        "y": 451.46875,
+        "width": 465,
+        "height": 38,
+        "disabled": false
+      },
+      {
+        "name": "",
+        "tag": "INPUT",
+        "x": 209,
+        "y": 506.46875,
+        "width": 16,
+        "height": 16,
+        "disabled": false
+      },
+      {
+        "name": "",
+        "tag": "INPUT",
+        "x": 209,
+        "y": 547.859375,
+        "width": 16,
+        "height": 16,
+        "disabled": false
+      }
+    ],
+    "contrastCandidates": [],
+    "nativeSelects": [],
+    "mountedRows": 2
+  }
+]

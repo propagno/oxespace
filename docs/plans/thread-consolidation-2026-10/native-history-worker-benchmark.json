@@ -1,0 +1,15 @@
+{
+  "capturedAt": "2026-10-04T22:22:16.605Z",
+  "provider": "codex",
+  "source": "local-native-file-via-production-worker",
+  "inference": false,
+  "installedApplication": false,
+  "firstPageMs": 99.8476,
+  "totalMs": 5102.9145,
+  "pages": 92,
+  "messages": 1181,
+  "duplicates": 0,
+  "emptyPages": 5,
+  "maxTickGapMs": 23.583899999999858,
+  "peakRssBytes": 123600896
+}

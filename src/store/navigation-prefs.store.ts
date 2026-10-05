@@ -24,13 +24,18 @@ function legacyThreadWidth(): number {
 
 export const useNavigationPrefs = create<{
   width: number; expanded: Record<string, boolean>
+  threadDensity: 'comfortable' | 'compact'
+  setThreadDensity: (density: 'comfortable' | 'compact') => void
   setWidth: (width: number) => void; setExpanded: (id: string, expanded: boolean) => void
 }>()(persist((set) => ({
   width: legacyThreadWidth(), expanded: {},
+  threadDensity: 'comfortable',
+  setThreadDensity: threadDensity => set({ threadDensity }),
   setWidth: width => set({ width: navigationWidth(width) }),
   setExpanded: (id, expanded) => set(state => ({ expanded: { ...state.expanded, [id]: expanded } }))
 }), { name: 'oxe.navigation', merge: (saved, current) => {
-  const value = saved as { width?: unknown; expanded?: Record<string, unknown> } | null
+  const value = saved as { width?: unknown; expanded?: Record<string, unknown>; threadDensity?: unknown } | null
   return { ...current, width: navigationWidth(value?.width ?? current.width),
+    threadDensity: value?.threadDensity === 'compact' ? 'compact' : 'comfortable',
     expanded: Object.fromEntries(Object.entries(value?.expanded ?? {}).filter(([, v]) => typeof v === 'boolean')) as Record<string, boolean> }
 } }))

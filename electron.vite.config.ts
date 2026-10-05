@@ -128,6 +128,7 @@ export default defineConfig({
         input: {
           index: resolve(__dirname, 'electron/main/index.ts'),
           'semantic-worker': resolve(__dirname, 'electron/main/workers/semantic-worker.ts'),
+          'native-history-worker': resolve(__dirname, 'electron/main/workers/native-history-worker.ts'),
           // CodeGraph parsing worker — keeps tree-sitter parsing off the main
           // thread so it doesn't block (and time out) semantic embedding on the
           // initial index. extraction/index.ts loads it from out/main/parse-worker.js.

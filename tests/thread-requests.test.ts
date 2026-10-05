@@ -8,6 +8,44 @@ const request = (overrides: Partial<ThreadRequest> = {}): ThreadRequest => ({
 })
 
 describe('ThreadRequestRegistry', () => {
+  it('keeps a response visible while sending and never resurrects it after invalidation', async () => {
+    const registry = new ThreadRequestRegistry()
+    let reject!: (error: Error) => void
+    const respond = vi.fn(() => new Promise<void>((_resolve, fail) => { reject = fail }))
+    registry.register('thread', request(), respond)
+    const sending = registry.resolve('thread', 'request-1', 2, { answers: { q: ['a'] } })
+    expect(registry.list('thread')).toHaveLength(1)
+    await expect(registry.resolve('thread', 'request-1', 2, { answers: { q: ['b'] } })).rejects.toThrow('already being sent')
+    expect(registry.invalidate('thread')).toHaveLength(1)
+    registry.register('thread', request({ id: 'new-request' }), vi.fn(async () => {}))
+    reject(Error('Connection lost'))
+    await expect(sending).rejects.toThrow('Connection lost')
+    expect(registry.list('thread').map(value => value.id)).toEqual(['new-request'])
+    expect(respond).toHaveBeenCalledOnce()
+    registry.invalidate('thread')
+  })
+  it('does not overwrite expiry when a pending response completes late', async () => {
+    vi.useFakeTimers()
+    try {
+      const registry = new ThreadRequestRegistry(), expired = vi.fn()
+      let finish!: () => void
+      registry.register('thread', request({ expiresAt: Date.now() + 10 }), () => new Promise<void>(resolve => { finish = resolve }), expired)
+      const sending = registry.resolve('thread', 'request-1', 2, { answers: { q: ['a'] } })
+      vi.advanceTimersByTime(11)
+      finish()
+      expect(await sending).toMatchObject({ state: 'expired', resolution: 'unknown' })
+      expect(expired).toHaveBeenCalledOnce()
+      expect(registry.list('thread')).toEqual([])
+    } finally { vi.useRealTimers() }
+  })
+  it('allows an explicit retry after a failed response only while still pending', async () => {
+    const registry = new ThreadRequestRegistry(), respond = vi.fn().mockRejectedValueOnce(Error('Not sent')).mockResolvedValue(undefined)
+    registry.register('thread', request(), respond)
+    await expect(registry.resolve('thread', 'request-1', 2, { answers: { q: ['a'] } })).rejects.toThrow('Not sent')
+    expect(registry.list('thread')).toHaveLength(1)
+    await registry.resolve('thread', 'request-1', 2, { answers: { q: ['a'] } })
+    expect(registry.list('thread')).toEqual([])
+  })
   it('resolves once and rejects stale generations', async () => {
     const registry = new ThreadRequestRegistry(), respond = vi.fn(async () => {})
     registry.register('thread', request(), respond)

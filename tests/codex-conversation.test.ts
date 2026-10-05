@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { CodexConversationAdapter, type ConversationTransport } from '../electron/main/services/conversation/codex-conversation'
 import type { ThreadEvent } from '../shared/types/thread'
 
-function fixture(usageResult: unknown = {}, usageError = false, mcpResult: unknown = {}) {
+function fixture(usageResult: unknown = {}, usageError = false, mcpResult: unknown = {}, observation: { thread?: unknown; turns?: unknown } = {}) {
   let receive: (chunk: Uint8Array) => void = () => {}
   let closeListener: () => void = () => {}
   const requests: Record<string, unknown>[] = []
@@ -15,6 +15,8 @@ function fixture(usageResult: unknown = {}, usageError = false, mcpResult: unkno
         ? { thread: { id: 'native-A' } }
         : message.method === 'turn/start' || message.method === 'review/start' || message.method === 'thread/queue/start' ? { turn: { id: 'turn-A' } }
           : message.method === 'thread/queue/add' ? { queuedSubmission: { id: 'queued-A', clientUserMessageId: message.params.clientUserMessageId, input: message.params.input } }
+          : message.method === 'thread/read' ? typeof observation.thread === 'function' ? observation.thread() : observation.thread ?? {}
+          : message.method === 'thread/turns/list' ? observation.turns ?? {}
           : message.method === 'mcpServerStatus/list' ? mcpResult
           : message.method === 'mcpServer/oauth/login' ? { authorizationUrl: 'https://provider.example/authorize?state=test' }
           : message.method === 'app/read' ? { data: [{ id: message.params.appIds[0], name: 'Example app', tools: [{ name: 'search' }] }] }
@@ -33,23 +35,107 @@ function fixture(usageResult: unknown = {}, usageError = false, mcpResult: unkno
 }
 
 describe('Codex conversation adapter', () => {
+  it('releases a confirmed turn only after persistence and ignores its late terminal event', async () => {
+    const f = fixture({}, false, {}, { thread: { thread: { id: 'native-A', status: { type: 'idle' } } }, turns: { data: [{ id: 'turn-A', status: 'completed' }] } })
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
+    await f.adapter.send('Continue')
+    const commit = vi.fn()
+    expect(f.adapter.commitRecoveredTurn('turn-A', 'completed', commit)).toBe(false)
+    await f.adapter.observe('turn-A')
+    expect(() => f.adapter.commitRecoveredTurn('turn-A', 'completed', () => { throw Error('Disk full') })).toThrow('Disk full')
+    await expect(f.adapter.send('Must stay busy')).rejects.toThrow('already running')
+    expect(f.adapter.commitRecoveredTurn('turn-A', 'failed', commit)).toBe(false)
+    expect(f.adapter.commitRecoveredTurn('turn-A', 'completed', commit)).toBe(true)
+    expect(commit).toHaveBeenCalledOnce()
+    f.emit({ method: 'turn/completed', params: { threadId: 'native-A', turn: { id: 'turn-A', status: 'completed' } } })
+    expect(f.events.some(event => event.type === 'completed')).toBe(false)
+    expect(f.adapter.commitRecoveredTurn('turn-A', 'completed', commit)).toBe(false)
+    await expect(f.adapter.send('Explicit next input')).resolves.toBeUndefined()
+    await f.adapter.dispose()
+  })
+  it('does not release a confirmed turn after a new native signal', async () => {
+    const f = fixture({}, false, {}, { thread: { thread: { id: 'native-A', status: { type: 'idle' } } }, turns: { data: [{ id: 'turn-A', status: 'completed' }] } })
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
+    await f.adapter.send('Continue')
+    await f.adapter.observe('turn-A')
+    f.emit({ method: 'item/started', params: { threadId: 'native-A', turnId: 'turn-A', item: { id: 'tool', type: 'commandExecution', command: 'pwd' } } })
+    const commit = vi.fn()
+    expect(f.adapter.commitRecoveredTurn('turn-A', 'completed', commit)).toBe(false)
+    expect(commit).not.toHaveBeenCalled()
+    await f.adapter.dispose()
+  })
+  it('confirms a lost terminal notification with two idle reads without settling or resending', async () => {
+    const f = fixture({}, false, {}, { thread: { thread: { id: 'native-A', status: { type: 'idle' } } }, turns: { data: [{ id: 'turn-A', status: 'completed' }] } })
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
+    await f.adapter.send('Continue')
+    expect(await f.adapter.observe('turn-A')).toMatchObject({ state: 'completed', nativeTurnId: 'turn-A' })
+    expect(f.requests.filter(request => request.method === 'thread/read')).toHaveLength(2)
+    expect(f.events.some(event => event.type === 'completed')).toBe(false)
+    expect(f.requests.filter(request => request.method === 'turn/start')).toHaveLength(1)
+    await f.adapter.dispose()
+  })
+  it('rejects terminal confirmation when the runtime becomes active between reads', async () => {
+    let reads = 0
+    const f = fixture({}, false, {}, { thread: () => ({ thread: { id: 'native-A', status: { type: ++reads === 1 ? 'idle' : 'active' } } }), turns: { data: [{ id: 'turn-A', status: 'completed' }] } })
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
+    await f.adapter.send('Continue')
+    expect(await f.adapter.observe('turn-A')).toMatchObject({ state: 'unknown' })
+    expect(f.events.some(event => event.type === 'completed')).toBe(false)
+    await f.adapter.dispose()
+  })
+  it('rejects terminal confirmation if a native signal arrives during the second read', async () => {
+    let reads = 0
+    const f = fixture({}, false, {}, { thread: () => {
+      if (++reads === 2) f.emit({ method: 'item/agentMessage/delta', params: { threadId: 'native-A', turnId: 'turn-A', itemId: 'answer', delta: 'Still updating' } })
+      return { thread: { id: 'native-A', status: { type: 'idle' } } }
+    }, turns: { data: [{ id: 'turn-A', status: 'completed' }] } })
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
+    await f.adapter.send('Continue')
+    expect(await f.adapter.observe('turn-A')).toMatchObject({ state: 'unknown' })
+    await f.adapter.dispose()
+  })
+  it('queries the acknowledged turn without hydrating history, taking ownership or resending input', async () => {
+    const observation = { thread: { thread: { id: 'native-A', status: { type: 'active', activeFlags: ['waitingOnUserInput'] } } }, turns: { data: [{ id: 'turn-A', status: 'inProgress' }] } }
+    const f = fixture({}, false, {}, observation)
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
+    await f.adapter.send('Continue')
+    expect(f.events).toContainEqual(expect.objectContaining({ type: 'turn-accepted', nativeTurnId: 'turn-A' }))
+    const sent = f.requests.length
+    expect(await f.adapter.observe('turn-A')).toMatchObject({ state: 'awaiting-input', nativeTurnId: 'turn-A' })
+    observation.turns.data[0].status = 'interrupted'
+    expect(await f.adapter.observe('turn-A')).toMatchObject({ state: 'awaiting-input' })
+    observation.thread.thread.status.type = 'idle'
+    expect(await f.adapter.observe('turn-A')).toMatchObject({ state: 'unknown' })
+    expect(f.events.some(event => event.type === 'completed')).toBe(false)
+    observation.turns.data[0].status = 'completed'
+    f.emit({ method: 'turn/completed', params: { threadId: 'native-A', turn: { id: 'turn-A', status: 'completed' } } })
+    expect(await f.adapter.observe('turn-A')).toMatchObject({ state: 'completed' })
+    expect(await f.adapter.observe('missing-turn')).toMatchObject({ state: 'unknown' })
+    expect(f.requests.slice(sent).every(message => message.method === 'thread/read' || message.method === 'thread/turns/list')).toBe(true)
+    expect(f.requests.slice(sent)).toContainEqual(expect.objectContaining({ method: 'thread/read', params: { threadId: 'native-A', includeTurns: false } }))
+    await f.adapter.dispose()
+    expect(await f.adapter.observe('turn-A')).toMatchObject({ state: 'unknown' })
+  })
   it('marks the adapter closed when its app-server exits during a turn', async () => {
     const f = fixture()
     await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
     await f.adapter.send('Continue')
     f.emitClose()
     expect(f.adapter.closed).toBe(true)
+    expect(f.events).toContainEqual(expect.objectContaining({ type: 'connection-closed' }))
     expect(f.events).toContainEqual(expect.objectContaining({ type: 'completed', status: 'failed' }))
   })
-  it('ends a silent turn and closes its dead connection so a retry can reconnect', async () => {
+  it('keeps a silent accepted turn alive until the provider completes it', async () => {
     const f = fixture()
     await f.adapter.start({ rootPath: '/project', nativeSessionId: 'native-existing' }, event => f.events.push(event))
     vi.useFakeTimers()
     try {
       await f.adapter.send('Continue')
       await vi.advanceTimersByTimeAsync(125_000)
-      expect(f.events).toContainEqual(expect.objectContaining({ type: 'completed', status: 'failed', errorCode: 'network' }))
-      expect(f.transport.close).toHaveBeenCalled()
+      expect(f.events.some(event => event.type === 'completed')).toBe(false)
+      expect(f.transport.close).not.toHaveBeenCalled()
+      f.emit({ method: 'turn/completed', params: { threadId: 'native-A', turn: { id: 'turn-A', status: 'completed' } } })
+      expect(f.events).toContainEqual(expect.objectContaining({ type: 'completed', status: 'completed' }))
     } finally {
       vi.useRealTimers()
       await f.adapter.dispose()
@@ -300,8 +386,9 @@ describe('Codex conversation adapter', () => {
     await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
     await f.adapter.send('Investigate the failure')
     await expect(f.adapter.send('another turn')).rejects.toThrow('already running')
+    const beforeForeignEvent = f.events.length
     f.emit({ method: 'item/agentMessage/delta', params: { threadId: 'other-project', itemId: 'x', delta: 'do not show' } })
-    expect(f.events).toHaveLength(2)
+    expect(f.events).toHaveLength(beforeForeignEvent)
     f.emit({ method: 'item/agentMessage/delta', params: { threadId: 'native-A', itemId: 'x', delta: 'Verified finding' } })
     expect(f.events.at(-1)).toMatchObject({ type: 'delta', text: 'Verified finding' })
     await f.adapter.interrupt()

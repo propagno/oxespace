@@ -1,0 +1,15 @@
+{
+  "kind": "real-local-read-only-native-history",
+  "capturedAt": "2026-10-04T17:39:00.641Z",
+  "firstMs": 53.8304,
+  "firstMessages": 5,
+  "totalMs": 5302.341,
+  "pages": 91,
+  "messages": 1166,
+  "duplicateIds": 0,
+  "emptyPages": 5,
+  "largestPageBytes": 21393,
+  "maxRssMiB": 97.78125,
+  "providerInference": false,
+  "installedApp": false
+}

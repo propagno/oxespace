@@ -6,6 +6,7 @@ interface PendingEntry {
   respond: (response: ThreadRequestResponse) => Promise<void>
   onExpire?: (request: ThreadRequest) => void
   timer?: ReturnType<typeof setTimeout>
+  responding?: boolean
 }
 
 /**
@@ -41,28 +42,24 @@ export class ThreadRequestRegistry {
     const requests = this.pending.get(threadId)
     const entry = requests?.get(requestId)
     if (!entry || entry.request.state !== 'pending') throw Error('Request is no longer pending')
+    if (entry.responding) throw Error('A response is already being sent for this request')
     if (entry.request.generation !== generation) throw Error('Request belongs to an older conversation generation')
     if (entry.request.kind === 'question' && !['decline', 'cancel'].includes(response.decision ?? '')) {
       const questions = entry.request.questions ?? []
       if (!questions.length || questions.some(question => !response.answers?.[question.id]?.some(value => value.trim()))) throw Error('Answer every question before continuing')
     }
-    requests!.delete(requestId)
-    if (entry.timer) clearTimeout(entry.timer)
-    if (requests!.size === 0) this.pending.delete(threadId)
+    // Keep ownership visible to expiry/shutdown/turn completion while awaiting
+    // the provider. A failed response must not resurrect an invalidated request.
+    entry.responding = true
     try {
       await entry.respond(response)
-      Object.assign(entry.request, requestOutcome(entry.request.kind, response), { resolvedAt: Date.now() })
-    } catch (error) {
-      if (entry.request.expiresAt === undefined || entry.request.expiresAt > Date.now()) {
-        if (entry.request.expiresAt !== undefined && entry.request.expiresAt - Date.now() <= 2_147_483_647) {
-          entry.timer = setTimeout(() => this.expire(threadId), Math.max(0, entry.request.expiresAt - Date.now()))
-          entry.timer.unref?.()
-        }
-        requests!.set(requestId, entry)
-      } else entry.onExpire?.({ ...entry.request, state: 'expired', resolution: 'unknown', resolvedAt: Date.now() })
-      this.pending.set(threadId, requests!)
-      throw error
-    }
+      if (this.pending.get(threadId)?.get(requestId) === entry) {
+        Object.assign(entry.request, requestOutcome(entry.request.kind, response), { resolvedAt: Date.now() })
+        if (entry.timer) clearTimeout(entry.timer)
+        requests!.delete(requestId)
+        if (requests!.size === 0) this.pending.delete(threadId)
+      }
+    } finally { entry.responding = false }
     return entry.request
   }
 
@@ -82,7 +79,7 @@ export class ThreadRequestRegistry {
     const requests = this.pending.get(threadId)
     if (!requests) return []
     this.pending.delete(threadId)
-    return [...requests.values()].map(entry => { if (entry.timer) clearTimeout(entry.timer); return { ...entry.request, state, resolvedAt: Date.now() } })
+    return [...requests.values()].map(entry => { if (entry.timer) clearTimeout(entry.timer); Object.assign(entry.request, { state, resolvedAt: Date.now() }); return { ...entry.request } })
   }
 
   private expire(threadId: string): void {

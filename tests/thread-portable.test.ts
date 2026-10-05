@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 import { ThreadPortableService } from '../electron/main/services/conversation/thread-portable'
+import { ThreadExportService } from '../electron/main/services/conversation/thread-export.service'
 import type { ThreadArtifact, ThreadSnapshot } from '../shared/types/thread'
 
 const fixture = (): ThreadSnapshot => ({
@@ -10,6 +11,18 @@ const fixture = (): ThreadSnapshot => ({
 })
 
 describe('Thread portable package', () => {
+  it('preserves historical questions and uncertainty in portable and Markdown exports', () => {
+    const snapshot = fixture()
+    const message = snapshot.events[1]
+    if (message.type !== 'message') throw Error('Missing fixture message')
+    message.historicalQuestions = [{ title: 'Which branch?', options: ['Current', 'New'] }]
+    const service = new ThreadPortableService()
+    expect(service.parse(service.serialize(snapshot, [])).conversation.events[1]).toEqual(message)
+    const markdown = new ThreadExportService(() => { throw Error('No artifacts') }).markdown(snapshot)
+    expect(markdown).toContain('Recovered questions — answer not confirmed')
+    expect(markdown).toContain('Which branch?')
+    expect(markdown).toContain('- New')
+  })
   it('roundtrips canonical conversation content and artifact evidence without local session identity', () => {
     const content = '--- a/a.ts\n+++ b/a.ts\n', service = new ThreadPortableService()
     const artifact: ThreadArtifact = { id: 'native-patch:hash', content, hash: createHash('sha256').update(content).digest('hex'), bytes: Buffer.byteLength(content), truncated: false, source: 'native-patch' }

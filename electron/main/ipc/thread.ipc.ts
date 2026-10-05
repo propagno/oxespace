@@ -104,7 +104,7 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings): { st
   })
   ipcMain.handle(IPC_CHANNELS.thread.list, event => { sender(event); return manager.then(service => service.list()) })
   ipcMain.handle(IPC_CHANNELS.thread.read, (event, id: unknown) => { sender(event); return manager.then(service => service.readForRenderer(string(id))) })
-  ipcMain.handle(IPC_CHANNELS.thread.history, (event, id: unknown, before: unknown, limit: unknown) => { sender(event); return manager.then(service => service.historyPage(string(id), optionalInteger(before, 0, Number.MAX_SAFE_INTEGER), optionalInteger(limit, 1, 500))) })
+  ipcMain.handle(IPC_CHANNELS.thread.history, (event, id: unknown, before: unknown, limit: unknown) => { sender(event); return manager.then(service => service.historyPage(string(id), optionalInteger(before, Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER), optionalInteger(limit, 1, 500))) })
   ipcMain.handle(IPC_CHANNELS.thread.attach, (event, id: unknown, input: unknown) => {
     sender(event)
     if (!input || typeof input !== 'object' || Array.isArray(input)) throw Error('Invalid attachment')
@@ -142,6 +142,7 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings): { st
   ipcMain.handle(IPC_CHANNELS.thread.projectDiff, (event, id: unknown) => { sender(event); return manager.then(service => service.projectDiff(string(id))) })
   ipcMain.handle(IPC_CHANNELS.thread.models, (event, id: unknown, refresh: unknown) => { sender(event); return manager.then(service => service.models(string(id), refresh === true)) })
   ipcMain.handle(IPC_CHANNELS.thread.command, (event, id: unknown, text: unknown) => { sender(event); return manager.then(service => service.command(string(id), string(text))) })
+  ipcMain.handle(IPC_CHANNELS.thread.observe, (event, id) => { sender(event); return manager.then(service => service.observe(string(id))) })
   ipcMain.handle(IPC_CHANNELS.thread.recover, (event, id: unknown) => { sender(event); return manager.then(service => service.recover(string(id))) })
   ipcMain.handle(IPC_CHANNELS.thread.configure, (event, id: unknown, input: unknown, revision: unknown) => {
     sender(event)

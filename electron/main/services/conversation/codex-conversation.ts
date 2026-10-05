@@ -9,7 +9,6 @@ import { requestOutcome } from '../../../../shared/threadRequestOutcome'
 // Long native sessions have produced frames above 10 MiB; keep a finite ceiling
 // while bounding the fields retained in Thread events below.
 const MAX_CODEX_PROTOCOL_FRAME_BYTES = 32 * 1024 * 1024
-const SILENT_TURN_TIMEOUT_MS = 120_000
 
 export interface ConversationTransport {
   write(line: string): void
@@ -69,9 +68,9 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
   private usageSnapshots: Record<string, Record<string, unknown>> = {}
   private turnError?: ThreadFailure
   private lastNativeSignalAt = 0
-  private lastTurnActivityAt = 0
-  private turnWatchdog: ReturnType<typeof setInterval> | null = null
-  private readonly activeItems = new Set<string>()
+  private nativeSignalRevision = 0
+  private terminalEvidence?: { turnId: string; state: 'completed' | 'failed'; revision: number }
+  private readonly recoveredTurns = new Set<string>()
   private readonly reasoningSummaries = new Map<string, { text: string; emittedAt: number }>()
   private readonly commandOutputs = new Map<string, { text: string; emittedAt: number }>()
   private emit: (event: ThreadEvent) => void = () => {}
@@ -148,9 +147,6 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     if (this.busy) throw new Error('A conversation turn is already running')
     if (!input.trim() || Buffer.byteLength(input) > 64 * 1024) throw new Error('Invalid conversation input')
     this.busy = true
-    this.lastTurnActivityAt = Date.now()
-    this.activeItems.clear()
-    this.startTurnWatchdog()
     this.turnError = undefined
     this.reasoningSummaries.clear()
     this.commandOutputs.clear()
@@ -165,12 +161,76 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
         ...(this.model ? { model: this.model } : {}), ...(this.effort ? { effort: this.effort } : {}),
         ...(this.mode === 'plan' ? { collaborationMode: { mode: 'plan', settings: { model: this.model, reasoning_effort: this.effort || null, developer_instructions: null } } } : {})
       }))
-      if (this.busy) this.turnId = text(record(result.turn).id)
+      if (this.busy) {
+        this.turnId = text(record(result.turn).id)
+        if (this.turnId) this.emit({ type: 'turn-accepted', nativeTurnId: this.turnId, at: Date.now() })
+      }
     } catch (error) {
       const failure = error instanceof ThreadAgentError ? error.failure : threadFailure({ message: error instanceof Error ? error.message : '' })
       this.fail(failure)
       throw new ThreadAgentError(failure)
     }
+  }
+
+  /** Read-only observation. Never starts/resumes a session or retries an input. */
+  async observe(nativeTurnId?: string): Promise<import('../../../../shared/types/thread').ThreadProviderObservation> {
+    const unknown = (detail: string): import('../../../../shared/types/thread').ThreadProviderObservation => ({ state: 'unknown', source: 'codex-app-server', observedAt: Date.now(), detail, ...(nativeTurnId ? { nativeTurnId } : {}) })
+    if (!this.rpc || !this.threadId || this.disposed) return unknown('Provider connection is closed. Execution outcome has not been confirmed.')
+    const revision = this.nativeSignalRevision
+    this.terminalEvidence = undefined
+    try {
+      const response = record(await this.rpc.request('thread/read', { threadId: this.threadId, includeTurns: false }))
+      const thread = record(response.thread)
+      if (thread.id !== this.threadId) return unknown('The provider did not return the expected session.')
+      const expected = nativeTurnId || this.turnId
+      if (expected) {
+        const liveStatus = record(thread.status)
+        // Persisted turns may remain interrupted/not yet materialized during a
+        // newly acknowledged execution. The active owned runtime is stronger
+        // evidence than that journal projection.
+        if (this.busy && expected === this.turnId && liveStatus.type === 'active') {
+          const flags = liveStatus.activeFlags
+          return { state: Array.isArray(flags) && flags.some(flag => flag === 'waitingOnApproval' || flag === 'waitingOnUserInput') ? 'awaiting-input' : 'running', source: 'codex-app-server', observedAt: Date.now(), nativeTurnId: expected, detail: 'The connected provider confirms that the acknowledged turn is active.' }
+        }
+        const result = record(await this.rpc.request('thread/turns/list', { threadId: this.threadId, limit: 20, sortDirection: 'desc', itemsView: 'notLoaded' }))
+        const turn = (Array.isArray(result.data) ? result.data.map(record) : []).find(value => value.id === expected)
+        if (!turn) return unknown('The expected turn was not found in the recent provider journal. No input was resent.')
+        const status = turn.status
+        if (this.busy && expected === this.turnId && (status === 'completed' || status === 'interrupted' || status === 'failed')) {
+          if (status === 'interrupted' || liveStatus.type !== 'idle' || this.approvals.size) return unknown('Live execution and persisted history have not converged. The outcome is not confirmed; no input was resent.')
+          // Confirm idle again after reading the exact terminal turn. A signal
+          // arriving anywhere in this query invalidates the journal evidence.
+          const confirmed = record(record(await this.rpc.request('thread/read', { threadId: this.threadId, includeTurns: false })).thread)
+          if (this.disposed || revision !== this.nativeSignalRevision || expected !== this.turnId || this.approvals.size || confirmed.id !== this.threadId || record(confirmed.status).type !== 'idle') return unknown('The provider changed during confirmation. No local execution state was changed.')
+          this.terminalEvidence = { turnId: expected, state: status, revision }
+          return { state: status, source: 'codex-app-server', observedAt: Date.now(), nativeTurnId: expected, detail: 'The connected provider confirms an idle session and this exact terminal turn. Missing output still requires reconciliation; no input was resent.' }
+        }
+        if (status === 'completed' || status === 'interrupted' || status === 'failed') return { state: status, source: 'codex-app-server', observedAt: Date.now(), nativeTurnId: expected, detail: 'Turn outcome confirmed by the provider. This check does not import missing output.' }
+        if (status !== 'inProgress') return unknown('The provider returned an unrecognized turn state.')
+        const flags = record(thread.status).activeFlags
+        return { state: Array.isArray(flags) && flags.some(flag => flag === 'waitingOnApproval' || flag === 'waitingOnUserInput') ? 'awaiting-input' : 'running', source: 'codex-app-server', observedAt: Date.now(), nativeTurnId: expected, detail: 'The provider confirms that this turn is still active.' }
+      }
+      if (record(thread.status).type === 'idle') return { state: 'idle', source: 'codex-app-server', observedAt: Date.now(), detail: 'The provider reports an idle session. No pending input was resent.' }
+      return unknown('There is no acknowledged turn ID to reconcile with this session.')
+    } catch {
+      return unknown('The provider state could not be queried. The runtime may not support this operation or the connection may be unavailable. No input was resent.')
+    }
+  }
+
+  commitRecoveredTurn(nativeTurnId: string, state: 'completed' | 'failed', commit: () => void): boolean {
+    const evidence = this.terminalEvidence
+    if (this.disposed || !this.busy || this.turnId !== nativeTurnId || this.approvals.size || evidence?.turnId !== nativeTurnId || evidence.state !== state || evidence.revision !== this.nativeSignalRevision) return false
+    // No awaits: persistence failure leaves the adapter busy and retryable.
+    commit()
+    this.busy = false
+    this.turnId = ''
+    this.turnError = undefined
+    this.terminalEvidence = undefined
+    this.reasoningSummaries.clear()
+    this.commandOutputs.clear()
+    this.recoveredTurns.add(nativeTurnId)
+    if (this.recoveredTurns.size > 32) this.recoveredTurns.delete(this.recoveredTurns.values().next().value!)
+    return true
   }
 
   async steer(input: string, attachments: ThreadAttachment[] = []): Promise<void> {
@@ -224,7 +284,6 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
 
   private reply(text: string): void {
     this.busy = false
-    this.stopTurnWatchdog()
     this.emit({ type: 'message', id: randomUUID(), role: 'assistant', text })
     this.emit({ type: 'completed', status: 'completed' })
   }
@@ -400,8 +459,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
   async dispose(): Promise<void> {
     if (this.disposed) return
     this.disposed = true
-    this.stopTurnWatchdog()
-    this.activeItems.clear()
+    this.emit({ type: 'connection-closed', at: Date.now() })
     this.approvals.clear()
     this.pendingOauth.clear()
     this.reasoningSummaries.clear()
@@ -429,7 +487,6 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
 
   private fail(error: string | ThreadFailure): void {
     if (!this.busy || this.disposed) return
-    this.stopTurnWatchdog()
     const failure = typeof error === 'string' ? threadFailure({ message: error }) : error
     if (typeof error === 'string') failure.usageUnavailable = true
     if (this.usage) failure.usage = this.usage
@@ -438,7 +495,6 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     this.reasoningSummaries.clear()
     this.commandOutputs.clear()
     this.approvals.clear()
-    this.activeItems.clear()
     this.emit({ type: 'completed', status: 'failed', error: failure.message, errorCode: failure.code, failure })
     if (failure.code === 'authentication' || failure.code === 'session-busy' || typeof error === 'string') return
     void this.readUsage().then(usage => {
@@ -474,8 +530,9 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
       return
     }
     if (params.threadId !== this.threadId) return
+    if (this.recoveredTurns.has(text(params.turnId) || text(record(params.turn).id))) return
     if (params.turnId && this.turnId && params.turnId !== this.turnId) return
-    if (this.busy) this.lastTurnActivityAt = Date.now()
+    this.nativeSignalRevision++
     if (this.busy && Date.now() - this.lastNativeSignalAt >= 2_000) {
       this.lastNativeSignalAt = Date.now()
       this.emit({ type: 'native-signal', at: this.lastNativeSignalAt })
@@ -522,14 +579,15 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
         return { label: text(step.step).slice(0, 2000), status: step.status === 'completed' ? 'completed' as const : step.status === 'inProgress' ? 'inProgress' as const : 'pending' as const }
       }).filter(step => Boolean(step.label)) })
     }
-    else if (message.method === 'turn/started') this.turnId = text(record(params.turn).id)
+    else if (message.method === 'turn/started') {
+      this.turnId = text(record(params.turn).id)
+      if (this.turnId) this.emit({ type: 'turn-accepted', nativeTurnId: this.turnId, at: Date.now() })
+    }
     else if (message.method === 'item/agentMessage/delta') {
       this.emit({ type: 'delta', id: text(params.itemId), text: text(params.delta) })
     } else if (message.method === 'item/started' || message.method === 'item/completed') {
       const item = record(params.item)
       const id = text(item.id)
-      if (id && message.method === 'item/started') this.activeItems.add(id)
-      if (id && message.method === 'item/completed') this.activeItems.delete(id)
       if (item.type === 'reasoning' && id) {
         const summary = this.reasoningSummaries.get(id)?.text
         if (message.method === 'item/started') this.emit({ type: 'activity', id: `reasoning:${id}`, phase: 'reasoning', at: Date.now() })
@@ -580,8 +638,6 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
         return
       }
       this.busy = false
-      this.stopTurnWatchdog()
-      this.activeItems.clear()
       this.reasoningSummaries.clear()
       this.commandOutputs.clear()
       this.turnId = ''
@@ -600,6 +656,11 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     }
     const legacyThread = params.conversationId
     const belongs = params.threadId === this.threadId || legacyThread === this.threadId
+    if (belongs && this.recoveredTurns.has(text(params.turnId))) {
+      this.rpc.rejectRequest(message.id)
+      return
+    }
+    if (belongs) this.nativeSignalRevision++
     if (method === 'item/tool/call' && belongs && this.busy) {
       const tool = text(params.tool) || 'dynamic tool'
       this.rpc.respond(message.id, { success: false, contentItems: [{ type: 'inputText', text: 'This dynamic host tool was not registered by OXESpace Thread.' }] })
@@ -617,24 +678,6 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     const request = this.toRequest(id, method, params)
     this.emit({ type: 'request', id, request })
     if (request.kind === 'approval') this.emit({ type: 'approval', id, title: request.title, detail: request.detail ?? '' })
-  }
-
-  private startTurnWatchdog(): void {
-    this.stopTurnWatchdog()
-    this.turnWatchdog = setInterval(() => {
-      if (!this.busy || this.disposed || this.approvals.size || this.activeItems.size) return
-      if (Date.now() - this.lastTurnActivityAt < SILENT_TURN_TIMEOUT_MS) return
-      const failure = threadFailure({ message: 'Agent connection timed out without a provider event for two minutes.' })
-      failure.message = 'Codex stopped responding. If this session is open in a CLI, close that session before retrying here.'
-      this.fail(failure)
-      void this.dispose()
-    }, 5_000)
-    this.turnWatchdog.unref?.()
-  }
-
-  private stopTurnWatchdog(): void {
-    if (this.turnWatchdog) clearInterval(this.turnWatchdog)
-    this.turnWatchdog = null
   }
 
   private toRequest(id: string, method: string, params: Record<string, unknown>): ThreadRequest {

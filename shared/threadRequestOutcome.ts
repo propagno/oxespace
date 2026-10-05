@@ -13,9 +13,10 @@ export function requestOutcomeLabel(request: ThreadRequest): string {
     case 'approved': return 'Approval sent to agent'
     case 'declined': return 'Declined by you'
     case 'cancelled-by-user': return 'Cancelled by you'
-    case 'turn-completed': return 'Agent finished without using this request'
+    case 'turn-completed': return 'Turn finished; no response to this request was confirmed'
     case 'turn-failed': return 'Turn failed before this request was answered'
     case 'interrupted': return 'Turn interrupted before this request was answered'
+    case 'connection-lost': return 'Connection closed; response not confirmed. This saved request cannot be answered.'
     default: return request.state === 'expired' ? 'Request expired' : request.state === 'cancelled' ? 'Request cancelled' : 'Request closed; outcome unavailable'
   }
 }

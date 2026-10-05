@@ -1,0 +1,14 @@
+{
+  "capturedAt": "2026-10-05T16:20:56.430Z",
+  "provider": "codex",
+  "isolated": true,
+  "installedApplication": false,
+  "inference": true,
+  "questions": 1,
+  "options": 2,
+  "responsesSent": 1,
+  "approvalsDeclined": 0,
+  "requestResolved": true,
+  "status": "completed",
+  "passed": true
+}

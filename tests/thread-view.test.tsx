@@ -28,6 +28,29 @@ function fixture() {
 }
 
 describe('Thread workspace UI', () => {
+  it('renders and copies an empty-text message containing recovered historical questions', async () => {
+    const f = fixture()
+    f.snapshot.events = [{ type: 'message', id: 'historical', role: 'assistant', text: '', historicalQuestions: [{ title: 'Which branch?', options: ['Current', 'New'] }] }]
+    render(<ThreadView workspace={f.workspace} />)
+    expect(screen.getByRole('complementary', { name: 'Recovered questions' })).toBeVisible()
+    expect(screen.getByText('Which branch?')).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Answer', exact: true })).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: /Copy (final response|response)/ }))
+    expect(f.writeText).toHaveBeenCalledWith(expect.stringContaining('Which branch?'))
+    expect(f.writeText).toHaveBeenCalledWith(expect.stringContaining('answer not confirmed'))
+  })
+  it('shows an earlier-page failure beside the history control and retries without blocking the composer', async () => {
+    const f = fixture()
+    f.snapshot.page = { before: 0, hasMore: true, total: 0 }
+    f.api.history = vi.fn().mockRejectedValueOnce(Error('Native history changed; reopen the session history')).mockResolvedValue({ events: [], before: 0, hasMore: true, total: 0 })
+    render(<ThreadView workspace={f.workspace} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Load earlier messages' }))
+    expect(await screen.findByText('Native history changed; reopen the session history')).toBeVisible()
+    expect(screen.getByRole('textbox', { name: 'Message', exact: true })).toBeEnabled()
+    await userEvent.click(screen.getByRole('button', { name: 'Load earlier messages' }))
+    expect(await screen.findByText('No public messages in this section. Continue loading earlier messages if available.')).toBeVisible()
+    expect(screen.queryByText('Native history changed; reopen the session history')).not.toBeInTheDocument()
+  })
   it('offers explicit prose replies for review without sending automatically', async () => {
     const f = fixture()
     f.snapshot.events = [

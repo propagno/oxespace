@@ -10,6 +10,9 @@ export function settleVolatileThreadSnapshot(snapshot: ThreadSnapshot, cause: Th
   const reason = cause === 'restart' ? 'OXESpace restarted' : 'OXESpace closed'
   if (snapshot.thread.cliActive) snapshot.thread.cliNotice = 'This conversation needs to recover its saved session. Choose Recover conversation.'
   snapshot.thread.status = 'interrupted'
+  snapshot.thread.providerObservation = { state: 'unknown', source: 'unavailable', observedAt: completedAt,
+    nativeTurnId: snapshot.turns?.at(-1)?.nativeId,
+    detail: `${reason} before the native result was confirmed. The local execution was closed; the provider outcome remains unknown. No queued message was resent.` }
   for (const turn of snapshot.turns ?? []) if (turn.status === 'running') { turn.status = 'interrupted'; turn.completedAt = completedAt }
   const resolvedRequests = new Set(snapshot.events.filter(event => event.type === 'request-resolved').map(event => event.id))
   const resolvedApprovals = new Set(snapshot.events.filter(event => event.type === 'approval-resolved').map(event => event.id))
@@ -17,20 +20,20 @@ export function settleVolatileThreadSnapshot(snapshot: ThreadSnapshot, cause: Th
   for (const event of snapshot.events) {
     if (event.type === 'request' && event.request.state === 'pending') {
       event.request.state = 'cancelled'
-      event.request.resolution = 'interrupted'
-      event.request.resolvedAt = Date.now()
-      if (!resolvedRequests.has(event.id)) requestResolutions.push({ type: 'request-resolved', id: event.id, state: 'cancelled', resolution: 'interrupted', resolvedAt: event.request.resolvedAt })
+      event.request.resolution = 'connection-lost'
+      event.request.resolvedAt = completedAt
+      if (!resolvedRequests.has(event.id)) requestResolutions.push({ type: 'request-resolved', id: event.id, state: 'cancelled', resolution: 'connection-lost', resolvedAt: event.request.resolvedAt })
     } else if (event.type === 'approval' && !resolvedApprovals.has(event.id)) {
       approvalResolutions.push({ type: 'approval-resolved', id: event.id })
     } else if (event.type === 'tool' && event.state === 'running') {
-      event.state = 'failed'; event.completedAt = completedAt
-      event.output = event.output || `Interrupted because ${reason} before this operation completed.`
-      if (event.files) event.files = event.files.map(file => file.state === 'running' ? { ...file, state: 'failed' } : file)
+      event.state = 'unknown'; event.completedAt = completedAt
+      event.output = event.output || `Outcome unconfirmed because ${reason} before the provider reported a result.`
+      if (event.files) event.files = event.files.map(file => file.state === 'running' ? { ...file, state: 'unknown' } : file)
     } else if (event.type === 'subagent' && event.state === 'running') {
       event.state = 'interrupted'; event.completedAt = completedAt
       event.agents = event.agents.map(agent => agent.status === 'running' || agent.status === 'pending' ? { ...agent, status: 'interrupted', message: agent.message || `Session interrupted because ${reason}.` } : agent)
     } else if (event.type === 'turn-diff') {
-      event.files = event.files.map(file => file.state === 'running' ? { ...file, state: 'failed' } : file)
+      event.files = event.files.map(file => file.state === 'running' ? { ...file, state: 'unknown' } : file)
     }
   }
   snapshot.events.push(...requestResolutions, ...approvalResolutions)

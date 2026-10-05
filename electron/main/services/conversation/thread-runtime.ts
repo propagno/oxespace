@@ -10,6 +10,8 @@ import type { NativeAccountService } from './native-account.service'
 import { AgentService } from '../agent.service'
 import { ThreadCommandService } from './thread-commands'
 import { ThreadNativeCli } from './thread-cli'
+import { NativeHistoryWorkerClient } from './native-history-worker-client'
+import { CodexStateReader } from './codex-state-reader'
 import { ThreadModelService } from './thread-models'
 import { bindThreadMcp, threadMcpArguments, type ThreadMcpBindings } from './thread-mcp'
 import { ThreadAttachmentStore } from './thread-attachments'
@@ -29,7 +31,7 @@ export function createThreadManager(db: AppDatabase, accounts: NativeAccountServ
   }
   const broadcast = (channel: string, event: unknown) => { for (const window of BrowserWindow.getAllWindows()) window.webContents.send(channel, event) }
   const commands = new ThreadCommandService(executable)
-  const cli = new ThreadNativeCli(executable, { data: event => broadcast(IPC_CHANNELS.threadCli.data, event), exit: event => broadcast(IPC_CHANNELS.threadCli.exit, event) })
+  const cli = new ThreadNativeCli(executable, { historyReader: new NativeHistoryWorkerClient(join(app.getAppPath(), 'out', 'main', 'native-history-worker.js'), executable), data: event => broadcast(IPC_CHANNELS.threadCli.data, event), exit: event => broadcast(IPC_CHANNELS.threadCli.exit, event) })
   return new ThreadManager(db, async thread => {
     const profile = resolveProfile(thread)
     if (!profile) throw new Error('Configure the agent in Agent Settings')
@@ -46,5 +48,5 @@ export function createThreadManager(db: AppDatabase, accounts: NativeAccountServ
     const row = db.prepare('SELECT data_json FROM conversation_threads WHERE id = ?').get(threadId) as { data_json: string } | undefined
     if (row) mcp.observed?.(JSON.parse(row.data_json))
     for (const window of BrowserWindow.getAllWindows()) window.webContents.send(IPC_CHANNELS.thread.changed, { threadId })
-  }, thread => accounts.requireSubscription({ provider: thread.provider, workspaceId: thread.workspaceId, threadId: thread.id }), commands, cli, new ThreadModelService(executable), new ThreadAttachmentStore(join(app.getPath('userData'), 'thread-attachments')))
+  }, thread => accounts.requireSubscription({ provider: thread.provider, workspaceId: thread.workspaceId, threadId: thread.id }), commands, cli, new ThreadModelService(executable), new ThreadAttachmentStore(join(app.getPath('userData'), 'thread-attachments')), new CodexStateReader(executable))
 }

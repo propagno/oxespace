@@ -1,4 +1,5 @@
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
+import { ThreadHistoricalQuestions } from './ThreadHistoricalQuestions'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Activity, AlertCircle, ArrowDown, ArrowUp, Check, ChevronDown, Copy, CornerDownLeft, GitBranch, ListTodo, Loader2, MessageSquarePlus, Mic, Minus, Paperclip, Pencil, Pin, Plus, Slash, Square, TerminalSquare, Type, Waypoints, X } from 'lucide-react'
 import { ThreadMarkdown } from './ThreadMarkdown'
@@ -65,6 +66,9 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   const storeSelectedId = useThreadStore(state => state.selectedId)
   const snapshot = useThreadStore(state => threadId ? state.selectedId === threadId ? state.snapshot : state.snapshotCache[threadId] ?? null : state.snapshot)
   const selectedId = threadId ?? storeSelectedId
+  const visibleThread = useRef(selectedId)
+  visibleThread.current = selectedId
+  const [historyFeedback, setHistoryFeedback] = useState<{ id: string; text: string; error?: boolean } | null>(null)
   const threadFontSize = useThreadPrefs(state => state.fontSize)
   const setThreadFontSize = useThreadPrefs(state => state.setFontSize)
   const workbench = useRef<HTMLDivElement>(null)
@@ -198,11 +202,15 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
     const el = timeline.current
     if (!el || !snapshot?.page?.hasMore || loadingEarlier) return
     const previousHeight = el.scrollHeight
+    const loadingId = snapshot.thread.id
     setLoadingEarlier(true)
+    setHistoryFeedback(null)
     try {
-      const count = await useThreadStore.getState().loadEarlier(snapshot.thread.id)
-      if (count) requestAnimationFrame(() => { if (timeline.current) timeline.current.scrollTop += timeline.current.scrollHeight - previousHeight })
-    } catch { setError('Could not load earlier messages. Try again.') }
+      const count = await useThreadStore.getState().loadEarlier(loadingId)
+      if (visibleThread.current !== loadingId) return
+      if (count) requestAnimationFrame(() => { if (visibleThread.current === loadingId && timeline.current === el) el.scrollTop += el.scrollHeight - previousHeight })
+      else setHistoryFeedback({ id: loadingId, text: 'No public messages in this section. Continue loading earlier messages if available.' })
+    } catch (cause) { if (visibleThread.current === loadingId) setHistoryFeedback({ id: loadingId, text: threadError(cause), error: true }) }
     finally { setLoadingEarlier(false) }
   }
   useLayoutEffect(() => {
@@ -432,6 +440,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
     }}>
       <div ref={content} className="thread-reading-column">
         {snapshot?.page?.hasMore && <button type="button" className="thread-load-earlier" disabled={loadingEarlier} onClick={() => void loadEarlier()}>{loadingEarlier ? <Loader2 size={13} className="thread-spin" /> : <ArrowUp size={13} />}Load earlier messages</button>}
+        {historyFeedback?.id === selectedId && <p className="thread-history-feedback" role={historyFeedback.error ? 'alert' : 'status'}>{historyFeedback.text}</p>}
         {!snapshot && <div className="thread-welcome"><span className="thread-welcome-mark"><MessageSquarePlus size={26} strokeWidth={1.5} /></span><h2>{selectedId ? 'Opening conversation…' : 'What would you like to work on?'}</h2><p>{selectedId ? 'Loading the selected conversation.' : 'Select + beside a project to start a conversation, or add a project in the sidebar.'}</p></div>}
         <ThreadTimelineWindow key={snapshot?.thread.id ?? 'empty'} rows={timelineRows} scrollRef={timeline} followingRef={following} onViewportUpdateRef={updateTimelineViewport}>{({ event, key, turnId, turnEvents, firstInTurn, lastInTurn }) => <section className={`thread-turn thread-virtual-turn${firstInTurn ? ' is-turn-start' : ''}${lastInTurn ? ' is-turn-end' : ''}`} data-turn-id={turnId}>{(() => {
           if (event.type === 'activity-group') return <ThreadActivityGroup key={key} events={event.events} onDiagnostics={() => snapshot && useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'diagnostics' })} />
@@ -441,15 +450,17 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
           if (event.type === 'message') {
             if (event.role === 'assistant' && authText(event.text)) return null
             const displayText = event.role === 'user' && event.id.startsWith('native:') ? formatNativeUserText(event.text) : event.text
-            if (!displayText) return null
+            if (!displayText && !event.historicalQuestions?.length) return null
+            const copyText = event.historicalQuestions?.length ? [displayText, 'Recovered questions — answer not confirmed', ...event.historicalQuestions.flatMap(question => [question.title, ...(question.options ?? []).map(option => `- ${option}`)])].filter(Boolean).join('\n\n') : displayText
             const final = event.role === 'assistant' && threadTurnPresentation(turnEvents).finalMessageId === event.id
             return <article key={key} className={`thread-message thread-message-${event.role}${final ? ' is-final-response' : ''}`}>
               {event.role === 'assistant' && (final || turnEvents.find(value => value.type === 'message' && value.role === 'assistant') === event) && <div className="thread-agent-label"><AgentProviderIcon provider={snapshot?.thread.provider ?? 'claude'} size={16} />{snapshot?.thread.provider === 'claude' ? 'Claude' : 'Codex'}{final && <span className="thread-final-label">Final response</span>}</div>}
               <ThreadMessageBody text={displayText} role={event.role} />
+              {event.historicalQuestions?.length ? <ThreadHistoricalQuestions questions={event.historicalQuestions} /> : null}
               {event.role === 'assistant' && event.id === lastConversationMessage?.id && quickReplies.length > 0 && <div className="thread-quick-replies" aria-label="Suggested replies"><small>Choose a reply to review before sending</small><div>{quickReplies.map(option => <button type="button" key={option.value} onClick={() => { useThreadStore.getState().setDraft(snapshot!.thread.id, option.value); requestAnimationFrame(() => textarea.current?.focus()) }}>{option.label}</button>)}</div></div>}
               {event.attachments?.length ? <div className="thread-message-attachments" aria-label="Message attachments">{event.attachments.map(attachment => <span key={attachment.id}><Paperclip size={11} />{attachment.name}<small>{Math.ceil(attachment.bytes / 1024)} KB</small></span>)}</div> : null}
               <div className="thread-message-actions">
-                <button type="button" aria-label={copiedMessageId === event.id ? 'Message copied' : final ? 'Copy final response' : event.role === 'assistant' ? 'Copy response' : 'Copy message'} title={copiedMessageId === event.id ? 'Copied' : final ? 'Copy final response' : event.role === 'assistant' ? 'Copy response' : 'Copy message'} onClick={() => void copyMessage(event.id, displayText)}>{copiedMessageId === event.id ? <Check size={13} /> : <Copy size={13} />}{final && <span>{copiedMessageId === event.id ? 'Copied' : 'Copy'}</span>}</button>
+                <button type="button" aria-label={copiedMessageId === event.id ? 'Message copied' : final ? 'Copy final response' : event.role === 'assistant' ? 'Copy response' : 'Copy message'} title={copiedMessageId === event.id ? 'Copied' : final ? 'Copy final response' : event.role === 'assistant' ? 'Copy response' : 'Copy message'} onClick={() => void copyMessage(event.id, copyText)}>{copiedMessageId === event.id ? <Check size={13} /> : <Copy size={13} />}{final && <span>{copiedMessageId === event.id ? 'Copied' : 'Copy'}</span>}</button>
                 {event.role === 'user' && snapshot?.thread.provider === 'codex' && !running && <button type="button" aria-label="Edit and retry this message" title="Edit and retry" onClick={() => {
                   const index = turns.findIndex(turn => turn.id === event.id)
                   setEditingTurn({ id: event.id, text: event.text, rewind: Math.max(1, turns.length - Math.max(0, index)) })
@@ -480,7 +491,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
       {snapshot && <div className={`thread-connection-notice${needsLogin ? '' : ' is-connected'}`}>{needsLogin ? <><AlertCircle size={14} /><span>{authFailure ? `Sign in to ${snapshot.thread.provider === 'claude' ? 'Claude Code' : 'Codex'}` : accountMessage(account)}</span><button type="button" onClick={onAccounts}>{authFailure ? 'Reconnect' : 'Connect'}</button>{authFailure && lastPrompt?.type === 'message' && <button type="button" title="Resend after connecting" disabled={pending || account?.state !== 'connected' || account.method !== 'subscription'} onClick={() => void action(() => api!.send(snapshot.thread.id, lastPrompt.text, lastPrompt.attachments?.map(attachment => attachment.id) ?? []))}>Retry</button>}</> : <><Check size={14} /><span>{account ? `${snapshot.thread.provider === 'claude' ? 'Claude Code' : 'Codex'} connected` : 'Checking agent connection…'}</span></>}</div>}
       {degradedConnection && !needsLogin && <div className="thread-connection-notice is-warning" role="status"><AlertCircle size={14} /><span>{degradedConnection.detail || 'Provider connection is unavailable.'}{degradedConnection.nextRetryAt ? ` You can retry after ${new Date(degradedConnection.nextRetryAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}.` : ''}</span></div>}
       {snapshot && blocksThreadInput(snapshot.thread) && <div className="thread-connection-notice"><TerminalSquare size={14} /><span>Recover the saved conversation to continue here.</span><button type="button" disabled={pending} onClick={() => void action(returnFromCli)}>Recover conversation</button></div>}
-      {snapshot?.thread.cliNotice === PARTIAL_NATIVE_HISTORY_NOTICE && <div className="thread-connection-notice is-connected" role="status"><TerminalSquare size={14} /><span>{snapshot.thread.cliNotice} You can continue this conversation here.</span></div>}
+      {snapshot?.thread.cliNotice === PARTIAL_NATIVE_HISTORY_NOTICE && <div className="thread-connection-notice is-connected" role="status"><TerminalSquare size={14} /><span>{snapshot.thread.nativeHistoryCursor ? 'Recent messages are loaded. Use Load earlier messages at the top of the conversation to read earlier native history.' : snapshot.thread.cliNotice} You can continue this conversation here.</span></div>}
       {(error || !api) && <div role="alert" className="thread-action-error"><span>{error || 'Thread service unavailable. Restart the updated application.'}</span><button type="button" aria-label="Dismiss error" onClick={() => setError('')}>×</button></div>}
       {snapshot?.thread.queue && <ThreadPromptQueue items={snapshot.thread.queue} disabled={pending} onUpdate={(itemId, text) => action(() => api!.updateQueued!(snapshot.thread.id, itemId, text))} onDelete={itemId => action(() => api!.deleteQueued!(snapshot.thread.id, itemId))} onRestore={item => action(async () => {
         await api!.deleteQueued!(snapshot.thread.id, item.id, true)

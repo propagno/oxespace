@@ -388,3 +388,5 @@ select optgroup {
   --ws-item-h: 46px;
 }
 
+
+:root { --tx-status-failure: color-mix(in srgb, var(--dot-red) 75%, var(--tx-primary)); }

@@ -1,6 +1,7 @@
 import { Activity, AlertCircle, ChevronDown, Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { ThreadEvent, ThreadSnapshot } from '../../../shared/types/thread'
+import { useThreadStateCheck } from './useThreadStateCheck'
 
 type Tool = Extract<ThreadEvent, { type: 'tool' }>
 type ActivityEvent = Extract<ThreadEvent, { type: 'activity' }>
@@ -75,13 +76,18 @@ export function ThreadLiveActivity({ snapshot, onDiagnostics }: { snapshot: Thre
     return () => window.clearInterval(timer)
   }, [snapshot.thread.id])
   const activity = deriveThreadLiveActivity(snapshot, now)
+  const check = useThreadStateCheck(snapshot, activity?.awaitingInput ?? false)
+  const terminalObserved = check.observation && ['completed', 'failed', 'interrupted'].includes(check.observation.state)
   if (!activity) return null
   return <section className={`thread-live-activity${activity.stale ? ' is-stale' : ''}${activity.awaitingInput ? ' is-awaiting-input' : ''}${activity.reconnecting ? ' is-reconnecting' : ''}`} aria-label="Current agent activity">
     <div className="thread-live-activity-main">
       {activity.stale || activity.awaitingInput ? <AlertCircle size={14} aria-hidden="true" /> : <Loader2 size={14} className="thread-spin" aria-hidden="true" />}
-      <span role="status"><strong>{activity.label}</strong></span><time aria-label={`Elapsed ${activity.elapsed}`}>{activity.elapsed}</time>
+      <span role="status"><strong>{activity.stale ? terminalObserved ? 'Provider result available · synchronizing required' : check.observation?.state === 'running' ? 'Provider confirms execution is active' : check.observation?.state === 'awaiting-input' ? 'Provider is waiting for input' : 'Waiting for a confirmed provider update' : activity.label}</strong></span><time aria-label={`Elapsed ${activity.elapsed}`}>{activity.elapsed}</time>
     </div>
-    <div className="thread-live-activity-meta"><span>{activity.signalAge}</span>{activity.stale && <><span>Execution may still be active.</span><button type="button" onClick={onDiagnostics}>Diagnostics</button></>}</div>
+    <div className="thread-live-activity-meta"><span>{activity.signalAge}</span>{activity.stale && <>{!terminalObserved && <span>Execution may still be active.</span>}<button type="button" onClick={onDiagnostics}>Diagnostics</button></>}</div>
+    {activity.stale && <div className="thread-live-activity-meta" role="status">
+      {check.checking ? <span>Checking provider state…</span> : check.observation && <span>{check.observation.state === 'running' ? 'Provider confirms execution is active.' : check.observation.state === 'awaiting-input' ? 'Provider is waiting for input. Open Diagnostics to inspect the request.' : check.observation.state === 'completed' || check.observation.state === 'failed' || check.observation.state === 'interrupted' ? `Provider reports ${check.observation.state}. Local output still needs reconciliation.` : 'Execution outcome is not confirmed. Your message was not resent.'}</span>}
+    </div>}
     {(activity.summary || activity.tools.length > 0) && <details className="thread-live-activity-details">
       <summary><Activity size={12} />Recent activity<ChevronDown size={12} /></summary>
       {activity.summary && <p><strong>Provider summary</strong>{activity.summary}</p>}

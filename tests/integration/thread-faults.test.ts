@@ -27,15 +27,16 @@ describe('Thread fault corpus', () => {
     const snapshot = runningSnapshot()
     settleVolatileThreadSnapshot(snapshot, cause, 99)
     expect(snapshot.thread).toMatchObject({ status: 'interrupted', cliActive: false, queue: [{ state: 'unknown' }] })
+    expect(snapshot.thread.providerObservation).toMatchObject({ state: 'unknown', source: 'unavailable', observedAt: 99 })
     expect(snapshot.turns?.[0]).toMatchObject({ status: 'interrupted', completedAt: 99 })
     expect(snapshot.events).toEqual(expect.arrayContaining([
-      expect.objectContaining({ type: 'tool', state: 'failed', completedAt: 99 }),
+      expect.objectContaining({ type: 'tool', state: 'unknown', completedAt: 99 }),
       expect.objectContaining({ type: 'request-resolved', id: 'request', state: 'cancelled' }),
       expect.objectContaining({ type: 'approval-resolved', id: 'approval' }),
       expect.objectContaining({ type: 'subagent', state: 'interrupted', completedAt: 99 }),
       expect.objectContaining({ type: 'completed', status: 'interrupted' })
     ]))
     const diff = snapshot.events.find(event => event.type === 'turn-diff')
-    expect(diff?.type === 'turn-diff' ? diff.files[0].state : undefined).toBe('failed')
+    expect(diff?.type === 'turn-diff' ? diff.files[0].state : undefined).toBe('unknown')
   })
 })

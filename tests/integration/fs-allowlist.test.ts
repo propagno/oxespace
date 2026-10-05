@@ -77,6 +77,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   // by Electron's native open/save dialogs; package validation remains in the
   // Thread portable service and imported content is inert.
   'electron/main/ipc/thread.ipc.ts',
+  // Reads provider-owned JSONL history outside the workspace, through a path
+  // resolved and identity-checked by NativeSessionReader. No renderer path input.
+  'electron/main/services/conversation/native-history-page.ts',
   'electron/main/services/diagnostics.service.ts',
   // Internal MCP bootstrap: materializes the bridge script under
   // <userData>/bin and hash-checks it against the packaged source. Needs

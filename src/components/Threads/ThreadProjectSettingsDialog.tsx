@@ -35,7 +35,7 @@ export function ThreadProjectSettingsDialog({ project, unavailable, onClose }: {
   const needsRelink = unavailable || directoryMissing
   return <DesktopDialog className="thread-create-dialog thread-project-dialog thread-project-settings" title={`Thread project · ${project.displayName}`}
     description="These settings apply to this Thread project. Code workspace settings are separate." onClose={onClose}>
-    <div className="thread-create-section"><strong>Project directory</strong><p className="thread-project-current-path" title={project.contexts[0]?.rootPath}>{project.contexts[0]?.rootPath}</p>
+    <div className="thread-project-settings-body"><div className="thread-create-section"><strong>Project directory</strong><p className="thread-project-current-path" title={project.contexts[0]?.rootPath}>{project.contexts[0]?.rootPath}</p>
       {needsRelink && <p role="alert">This directory is unavailable. Choose its new location to resume work.</p>}
       <details className="thread-project-relink" open={needsRelink || undefined}><summary>{needsRelink ? 'Relink missing directory' : 'Change project directory'}</summary>
         <label>New directory<input aria-label="New project directory" value={relinkPath} onChange={event => setRelinkPath(event.target.value)} placeholder="Absolute path to the project" /></label>
@@ -66,6 +66,6 @@ export function ThreadProjectSettingsDialog({ project, unavailable, onClose }: {
       </div>)}
     </div>
     {error && <p role="alert">{error}</p>}
-    <footer><button type="button" onClick={onClose}>Done</button></footer>
+    </div><footer><button type="button" onClick={onClose}>Done</button></footer>
   </DesktopDialog>
 }

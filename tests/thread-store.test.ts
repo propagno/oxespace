@@ -4,6 +4,17 @@ import type { ThreadSnapshot } from '../shared/types/thread'
 const snapshot = (id: string, workspaceId = 'ws'): ThreadSnapshot => ({ thread: { id, workspaceId, projectId: 'project', rootPath: '/repo', provider: 'codex', title: id, pinned: false, status: 'idle', nativeSessionId: null, createdAt: 1, updatedAt: 1 }, events: [] })
 beforeEach(() => useThreadStore.setState({ threads: [], selectedId: null, snapshot: null, secondaryId: null, activeCell: 'primary', snapshotCache: {}, snapshotCacheOrder: [], drafts: {}, errors: {}, loading: false, hiddenProjects: [], unreadIds: [] }))
 describe('Thread navigation store', () => {
+  it('preserves an earlier native cursor when a streamed snapshot refreshes the recent window', async () => {
+    const older = { type: 'message', id: 'older', role: 'user', text: 'Earlier' } as const
+    const recent = { type: 'message', id: 'recent', role: 'assistant', text: 'Recent' } as const
+    const current = { ...snapshot('native-page'), events: [older, recent], page: { before: -1, hasMore: true, total: 2 } }
+    const fresh = { ...current, events: [recent, { ...recent, id: 'new', text: 'New output' }], page: { before: 0, hasMore: true, total: 3 } }
+    Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: { read: vi.fn(async () => fresh) } } })
+    useThreadStore.setState({ selectedId: current.thread.id, snapshot: current, threads: [current.thread] })
+    await useThreadStore.getState().refresh(current.thread.id)
+    expect(useThreadStore.getState().snapshot?.events).toEqual([older, ...fresh.events])
+    expect(useThreadStore.getState().snapshot?.page).toEqual({ before: -1, hasMore: true, total: 3 })
+  })
   it('persists unread sessions and clears the marker when the conversation opens', async () => {
     Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: { read: vi.fn(async () => snapshot('unread')) } } })
     useThreadStore.getState().markUnread('unread')

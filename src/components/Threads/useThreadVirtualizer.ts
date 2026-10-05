@@ -65,7 +65,9 @@ export function useThreadVirtualizer(keys: string[], scrollRef: RefObject<HTMLEl
   firstVisibleRef.current = range.visibleStart
   const updateViewport = useCallback(() => {
     const scroll = scrollRef.current, space = spaceRef.current
-    if (!scroll || !space) return
+    // display:none reports a zero viewport/scroll position. Preserve the last
+    // visible window until Code switches back to Thread and layout is usable.
+    if (!scroll || !space || !scroll.clientHeight) return
     setViewport(current => {
       const next = { start: Math.max(0, scroll.scrollTop - space.offsetTop), size: scroll.clientHeight || current.size }
       return next.start === current.start && next.size === current.size ? current : next

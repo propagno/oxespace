@@ -116,7 +116,7 @@ export interface ThreadRequestQuestion {
   required?: boolean
 }
 /** What OXESpace observed, not a claim that the provider completed the tool. */
-export type ThreadRequestResolution = 'answered' | 'approved' | 'declined' | 'cancelled-by-user' | 'turn-completed' | 'turn-failed' | 'interrupted' | 'unknown'
+export type ThreadRequestResolution = 'answered' | 'approved' | 'declined' | 'cancelled-by-user' | 'turn-completed' | 'turn-failed' | 'interrupted' | 'connection-lost' | 'unknown'
 export interface ThreadRequest {
   id: string
   nativeId: string
@@ -187,6 +187,7 @@ export interface ThreadSubagent {
 export interface ThreadTurn { id: string; operationId?: string; nativeId?: string; sequence: number; startedAt?: number; completedAt?: number; status: 'running' | 'completed' | 'failed' | 'interrupted'; configuration: ThreadConfiguration; attachmentIds?: string[] }
 
 export interface ConversationThread {
+  nativeHistoryCursor?: { before: number; size: number; identity: string; skipSuffix?: boolean; fingerprint?: string; modifiedAt?: number; claudeLineage?: 'linked' | 'legacy'; claudeParent?: string }
   agentProfileId?: string
   id: string
   workspaceId: string
@@ -218,14 +219,25 @@ export interface ConversationThread {
   queue?: ThreadQueuedInput[]
   capabilities?: ThreadCapabilityManifest
   connection?: ThreadConnectionStatus
+  providerObservation?: ThreadProviderObservation
+}
+
+export interface ThreadProviderObservation {
+  state: 'running' | 'awaiting-input' | 'completed' | 'interrupted' | 'failed' | 'idle' | 'unknown'
+  observedAt: number
+  source: 'codex-app-server' | 'unavailable'
+  nativeTurnId?: string
+  detail: string
 }
 
 export type ThreadEvent =
   | { type: 'session'; nativeSessionId: string }
   /** Transport liveness only; the orchestrator updates metadata without saving a timeline row. */
   | { type: 'native-signal'; at: number }
+  | { type: 'connection-closed'; at: number }
+  | { type: 'turn-accepted'; nativeTurnId: string; at: number }
   | { type: 'activity'; id: string; phase: 'preparing' | 'connecting' | 'reasoning' | 'responding'; at: number; summary?: string }
-  | { type: 'message'; id: string; role: 'user' | 'assistant'; text: string; attachments?: Omit<ThreadAttachment, 'path'>[] }
+  | { type: 'message'; id: string; role: 'user' | 'assistant'; text: string; historicalQuestions?: { title: string; options: string[] | null }[]; attachments?: Omit<ThreadAttachment, 'path'>[] }
   | { type: 'delta'; id: string; text: string }
   | { type: 'tool'; id: string; name: string; state: 'running' | 'completed' | 'failed' | 'unknown'; detail: string; output?: string; exitCode?: number; startedAt?: number; completedAt?: number; turnId?: string; files?: ThreadFileChange[] }
   | { type: 'subagent'; id: string; action: string; state: 'running' | 'completed' | 'failed' | 'interrupted'; senderThreadId?: string; receiverThreadIds: string[]; agents: ThreadSubagent[]; prompt?: string; model?: string; reasoningEffort?: string; startedAt?: number; completedAt?: number; turnId?: string }
@@ -269,6 +281,9 @@ export interface AgentConversationAdapter {
   start(context: { rootPath: string; nativeSessionId: string | null } & ThreadConfiguration, emit: (event: ThreadEvent) => void): Promise<void>
   configure?(configuration: ThreadConfiguration): Promise<void>
   command?(name: string, argument: string): Promise<ThreadCommandResult>
+  observe?(nativeTurnId?: string): Promise<ThreadProviderObservation>
+  /** Synchronously persist a confirmed recovery before releasing local ownership. */
+  commitRecoveredTurn?(nativeTurnId: string, state: 'completed' | 'failed', commit: () => void): boolean
   send(text: string, skill?: ThreadAgentInput['skill'], attachments?: ThreadAttachment[]): Promise<void>
   steer?(text: string, attachments?: ThreadAttachment[]): Promise<void>
   enqueue?(item: ThreadQueuedInput, attachments?: ThreadAttachment[]): Promise<string | undefined>
@@ -313,6 +328,7 @@ export interface ThreadApi {
   configure?(id: string, configuration: ThreadConfiguration, revision: number): Promise<ThreadSnapshot>
   command?(id: string, text: string): Promise<ThreadCommandResult>
   recover?(id: string): Promise<void>
+  observe?(id: string): Promise<ThreadProviderObservation>
   cli?: ThreadCliApi
   commands(id: string, forceRefresh?: boolean): Promise<ThreadCommandCatalog>
   projects(): Promise<ThreadProjectCatalog>

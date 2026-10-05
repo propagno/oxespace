@@ -22,6 +22,7 @@ export interface NativeCliSession {
   close(): Promise<void>
 }
 interface Options {
+  historyReader?: { read(thread: ConversationThread, id: string, cursor?: ConversationThread['nativeHistoryCursor']): Promise<import('./native-session-history').NativeSessionHistory>; close(): Promise<void> }
   spawn?: (file: string, args: string[], options: IPtyForkOptions) => IPty
   resolve?: typeof interactiveConversationCommand
   env?: NodeJS.ProcessEnv
@@ -35,7 +36,9 @@ const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
 export class ThreadNativeCli {
   constructor(private readonly executable: (thread: ConversationThread) => string, private readonly options: Options) {}
 
-  read(thread: ConversationThread, id: string) { return new NativeSessionReader(this.executable).read(thread, id) }
+  read(thread: ConversationThread, id: string, cursor?: ConversationThread['nativeHistoryCursor']) { return this.options.historyReader ? this.options.historyReader.read(thread, id, cursor) : new NativeSessionReader(this.executable).read(thread, id, cursor) }
+
+  async closeHistoryReader(): Promise<void> { await this.options.historyReader?.close() }
 
   async open(thread: ConversationThread, command: string | undefined, ended: (nativeSessionId: string | null, interrupted?: boolean) => Promise<void>): Promise<NativeCliSession> {
     if (!existsSync(thread.rootPath)) throw Error('Thread directory is unavailable; check its location before opening the CLI')

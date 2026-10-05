@@ -19,6 +19,8 @@ import { ThreadSessionSupervisor } from './thread-session-supervisor'
 import { ThreadExportService } from './thread-export.service'
 import { ThreadPortableService } from './thread-portable'
 import { ThreadCheckpointService } from './thread-checkpoints'
+import { hasUnconfirmedTurnTools, recoverPublicTurn } from './thread-result-recovery'
+import type { NativeStateResult } from './codex-state-reader'
 
 /** Repair older histories whose provider ended a turn without a matching tool result. */
 function settleCompletedHistoryTools(events: ThreadEvent[]): number {
@@ -55,6 +57,7 @@ export class ThreadOrchestrator {
   private readonly deltaBuffers = new Map<string, Map<string, { text: string; generation?: number }>>()
   private readonly deltaTimers = new Map<string, ReturnType<typeof setTimeout>>()
   private readonly adapters = new Map<string, AgentConversationAdapter>()
+  private readonly observations = new Map<string, Promise<import('../../../../shared/types/thread').ThreadProviderObservation>>()
   private readonly requests = new ThreadRequestRegistry()
   private readonly sessions = new ThreadSessionSupervisor()
   private readonly exports: ThreadExportService
@@ -62,6 +65,7 @@ export class ThreadOrchestrator {
   private readonly checkpoints: ThreadCheckpointService
   private readonly turnCheckpoints = new Map<string, string>()
   private readonly busy = new Set<string>()
+  private readonly nativePageLoads = new Map<string, Promise<void>>()
   private readonly finalizing = new Set<string>()
   private readonly finalizationTasks = new Set<Promise<void>>()
   private readonly workingTreeBaselines = new Map<string, { patch: string; untracked: Set<string> }>()
@@ -78,9 +82,10 @@ export class ThreadOrchestrator {
       list(thread: ConversationThread, forceRefresh?: boolean): Promise<ThreadCommandCatalog>
       prepare(thread: ConversationThread, text: string): Promise<ThreadAgentInput>
       stop?(): Promise<void>
-    }, private readonly nativeCli?: Pick<ThreadNativeCli, 'open' | 'read'>,
+    }, private readonly nativeCli?: Pick<ThreadNativeCli, 'open' | 'read'> & Partial<Pick<ThreadNativeCli, 'closeHistoryReader'>>,
     private readonly modelService?: Pick<ThreadModelService, 'list' | 'stop'>,
-    private readonly attachmentStore?: ThreadAttachmentStore) {
+    private readonly attachmentStore?: ThreadAttachmentStore,
+    private readonly stateReader?: { observe(thread: ConversationThread, nativeTurnId?: string): Promise<import('../../../../shared/types/thread').ThreadProviderObservation>; recover?(thread: ConversationThread, nativeTurnId?: string): Promise<NativeStateResult>; stop(): Promise<void> }) {
     this.history = new ThreadHistory(db)
     this.exports = new ThreadExportService((threadId, artifactId) => this.history.artifact(threadId, artifactId))
     this.checkpoints = new ThreadCheckpointService(db)
@@ -175,13 +180,114 @@ export class ThreadOrchestrator {
     return this.history.artifact(id, artifactId)
   }
 
-  historyPage(id: string, before?: number, limit?: number): import('../../../../shared/types/thread').ThreadHistoryPage {
+  async historyPage(id: string, before?: number, limit?: number): Promise<import('../../../../shared/types/thread').ThreadHistoryPage> {
     this.flushDeltas(id)
+    if (before !== undefined && before <= 0 && !this.history.hasImportedBefore(id, before)) {
+      let pending = this.nativePageLoads.get(id)
+      if (!pending) {
+        pending = this.loadNativePage(id)
+        this.nativePageLoads.set(id, pending)
+      }
+      try { await pending } finally { if (this.nativePageLoads.get(id) === pending) this.nativePageLoads.delete(id) }
+    }
     return this.history.page(id, before, limit)
   }
 
+  private async loadNativePage(id: string): Promise<void> {
+    // Cross a bounded number of metadata-only pages per click. Each committed
+    // cursor survives a restart; a long tool result never forces a full scan.
+    for (let attempt = 0; attempt < 4 && !this.stopping; attempt++) {
+      const thread = this.read(id).thread
+      const nativeSessionId = thread.nativeSessionId, generation = thread.generation
+      const cursor = thread.nativeHistoryCursor
+      if (!cursor || !nativeSessionId || !this.nativeCli) return
+      const history = await this.nativeCli.read(thread, nativeSessionId, cursor)
+      const current = this.read(id)
+      if (current.thread.nativeSessionId !== nativeSessionId || current.thread.nativeHistoryCursor !== cursor || current.thread.generation !== generation) return
+      if (history.cursor && history.cursor.before >= cursor.before) throw Error('Native history did not advance. Retry after checking the provider history file.')
+      this.db.transaction(() => {
+        this.history.prependNative(id, history.events)
+        current.thread.nativeHistoryCursor = history.cursor
+        if (!history.cursor) current.thread.cliNotice = undefined
+        this.history.updateThreadMetadata(current.thread)
+      })()
+      if (history.events.length || !history.cursor) return
+    }
+  }
+
   exportPortable(id: string): string {
-    return this.portable.serialize(this.read(id), this.history.artifacts(id))
+    return this.portable.serialize(this.history.readImported(id), this.history.artifacts(id))
+  }
+
+  async observe(id: string): Promise<import('../../../../shared/types/thread').ThreadProviderObservation> {
+    if (this.stopping) throw Error('Thread service is shutting down')
+    const pending = this.observations.get(id)
+    if (pending) return pending
+    const snapshot = this.read(id), adapter = this.adapters.get(id)
+    const generation = snapshot.thread.generation, nativeSessionId = snapshot.thread.nativeSessionId, rootPath = snapshot.thread.rootPath
+    const nativeTurnId = snapshot.turns?.at(-1)?.nativeId, localTurnId = snapshot.turns?.at(-1)?.id
+    const operation = (async () => {
+      const connected = Boolean(adapter?.observe && snapshot.thread.connection?.state !== 'closed')
+      const liveRecovery = Boolean(connected && adapter?.commitRecoveredTurn && this.busy.has(id) && snapshot.thread.status === 'running' && !this.requests.list(id, generation ?? 1).length)
+      const canRecover = liveRecovery || !this.busy.has(id) && (snapshot.turns?.at(-1)?.status !== 'completed' || hasUnconfirmedTurnTools(snapshot))
+      let result: NativeStateResult = connected
+        ? await adapter!.observe!(nativeTurnId)
+        : canRecover && this.stateReader?.recover ? await this.stateReader.recover({ ...snapshot.thread }, nativeTurnId)
+        : this.stateReader ? await this.stateReader.observe({ ...snapshot.thread }, nativeTurnId)
+        : { state: 'unknown', observedAt: Date.now(), source: 'unavailable', detail: 'No connected provider supports a state query for this conversation. The execution outcome remains unconfirmed.' }
+      if (connected && canRecover && this.stateReader?.recover && ['completed', 'failed'].includes(result.state)) {
+        const recovered = await this.stateReader.recover({ ...snapshot.thread }, nativeTurnId)
+        const confirmed = await adapter!.observe!(nativeTurnId)
+        // An intervening execution or conflicting provider result must not be
+        // overwritten by a passive journal snapshot.
+        if (confirmed.state === recovered.state && confirmed.nativeTurnId === nativeTurnId) result = recovered
+        else result = { ...confirmed, state: 'unknown', detail: 'Provider state changed during recovery. The local conversation was preserved; check again.' }
+      }
+      if (this.stopping) throw Error('Thread service is shutting down')
+      const current = this.read(id)
+      if (current.thread.generation !== generation || current.thread.nativeSessionId !== nativeSessionId || current.thread.rootPath !== rootPath || current.turns?.at(-1)?.nativeId !== nativeTurnId || current.turns?.at(-1)?.id !== localTurnId) throw Error('The conversation changed during this check. Check its current state again.')
+      const { recoveredMessages: _messages, recoveredItems: _items, ...observation } = result
+      const recoverLive = liveRecovery && this.busy.has(id) && current.thread.status === 'running' && !this.requests.list(id, generation ?? 1).length
+      const recovered = canRecover && (!this.busy.has(id) || recoverLive) && (!connected || this.adapters.get(id) === adapter && current.thread.connection?.state !== 'closed') ? recoverPublicTurn(current, result, recoverLive) : undefined
+      if (recovered) {
+        observation.detail = 'The public response and available tool evidence were recovered without resending input. Tool results without individual evidence remain unknown; queued messages were not sent.'
+        recovered.thread.providerObservation = observation
+        const persist = () => this.db.transaction(() => {
+          const turn = recovered.turns!.at(-1)!
+          if (turn.operationId) this.history.reconcileOperation(id, turn.operationId, nativeTurnId!, turn.status as 'completed' | 'failed', recoverLive)
+          this.history.persistFrom(recovered, 0)
+        })()
+        if (recoverLive) {
+          if (!adapter!.commitRecoveredTurn!(nativeTurnId!, result.state as 'completed' | 'failed', persist)) {
+            observation.state = 'unknown'
+            observation.detail = 'The live provider changed before recovery could be committed. No input was resent.'
+            current.thread.providerObservation = observation
+            this.save(current, { eventsFrom: current.events.length })
+            return observation
+          }
+          this.busy.delete(id)
+        } else persist()
+        this.snapshots.set(id, recovered)
+        if (recoverLive) {
+          const turn = recovered.turns!.at(-1)!
+          const captureDiff = this.workingTreeBaselines.has(id)
+          if (captureDiff || this.turnCheckpoints.has(turn.id)) {
+            this.finalizing.add(id)
+            const task = this.finalizeTurnThenDrain(id, turn.status as 'completed' | 'failed', turn.id, captureDiff, false)
+            this.finalizationTasks.add(task)
+            void task.finally(() => this.finalizationTasks.delete(task)).catch(() => {})
+          }
+          if (turn.status === 'completed' && turn.attachmentIds?.length) void this.releaseAttachments(id, turn.attachmentIds)
+        }
+        this.changed(id)
+      } else {
+        current.thread.providerObservation = observation
+        this.save(current, { eventsFrom: current.events.length })
+      }
+      return observation
+    })()
+    this.observations.set(id, operation)
+    try { return await operation } finally { if (this.observations.get(id) === operation) this.observations.delete(id) }
   }
 
   importPortable(targetId: string, input: string): ThreadSnapshot {
@@ -278,6 +384,7 @@ export class ThreadOrchestrator {
       if (this.stopping) throw new Error('Application is shutting down')
     } catch (error) { this.busy.delete(id); throw error }
     snapshot.thread.status = 'running'
+    delete snapshot.thread.providerObservation
     if (snapshot.thread.title === 'New thread' && !text.trim().startsWith('/')) snapshot.thread.title = text.trim().slice(0, 80)
     const turnId = randomUUID()
     const operation = this.history.beginOperation({ threadId: id, turnId, generation: snapshot.thread.generation ?? 1, kind: 'turn' })
@@ -436,6 +543,8 @@ export class ThreadOrchestrator {
                 const history = await this.nativeCli!.read(thread, nativeSessionId)
                 latest = this.read(id)
                 latest.events = history.events
+                latest.thread.nativeHistoryCursor = history.cursor
+                this.history.clearNativePages(id)
                 eventsFrom = 0
                 if (history.title) latest.thread.title = history.title
                 latest.thread.cliNotice = history.truncated ? PARTIAL_NATIVE_HISTORY_NOTICE : undefined
@@ -496,6 +605,8 @@ export class ThreadOrchestrator {
       this.adapters.delete(id); await old?.dispose()
       const latest = this.read(id)
       latest.events = history.events
+      latest.thread.nativeHistoryCursor = history.cursor
+      this.history.clearNativePages(id)
       latest.thread.nativeSessionId = nativeSessionId
       latest.thread.cliNotice = history.truncated ? PARTIAL_NATIVE_HISTORY_NOTICE : undefined
       if (history.title) latest.thread.title = history.title
@@ -552,6 +663,8 @@ export class ThreadOrchestrator {
       if (snapshot.thread.nativeSessionId && this.nativeCli) {
         const history = await this.nativeCli.read(snapshot.thread, snapshot.thread.nativeSessionId)
         snapshot.events = history.events
+        snapshot.thread.nativeHistoryCursor = history.cursor
+        this.history.clearNativePages(id)
         if (history.title) snapshot.thread.title = history.title
         snapshot.thread.cliNotice = history.truncated ? PARTIAL_NATIVE_HISTORY_NOTICE : undefined
       }
@@ -594,6 +707,7 @@ export class ThreadOrchestrator {
       imported.thread.nativeSessionId = argument
       imported.thread.title = history.title || `Recovered ${thread.provider} session`
       imported.events = history.events
+      imported.thread.nativeHistoryCursor = history.cursor
       imported.thread.cliNotice = history.truncated ? PARTIAL_NATIVE_HISTORY_NOTICE : undefined
       this.save(imported, { eventsFrom: 0 })
       return { kind: 'navigate', threadId: imported.thread.id }
@@ -630,7 +744,7 @@ export class ThreadOrchestrator {
     }
     if (name === 'copy' || name === 'export') return { kind: 'panel', title: name === 'copy' ? 'Copy response' : 'Export conversation', text: name === 'copy'
       ? snapshot.events.filter(event => event.type === 'message' && event.role === 'assistant').map(event => event.type === 'message' ? event.text : '').at(-1) ?? ''
-      : this.exports.markdown(snapshot) }
+      : this.exports.markdown(this.history.readImported(id)) }
     if (name === 'stop') { if (this.busy.has(id)) await this.interrupt(id); return { kind: 'applied' } }
     if ((name === 'archive' || name === 'delete') && argument === 'confirm' && this.busy.has(id)) {
       await this.interrupt(id)
@@ -683,12 +797,25 @@ export class ThreadOrchestrator {
       if (name === 'fork' && result.threadId) {
         const fork = this.create({ workspaceId: thread.workspaceId, projectId: thread.projectId, rootPath: thread.rootPath, provider: thread.provider })
         fork.thread = { ...fork.thread, nativeSessionId: result.threadId, model: thread.model, reasoningEffort: thread.reasoningEffort, access: thread.access, networkAccess: thread.networkAccess, approvalPolicy: thread.approvalPolicy, mode: thread.mode, hooksEnabled: thread.hooksEnabled, title: `${thread.title} · fork` }
-        fork.events = this.read(id).events; this.save(fork)
+        if (this.nativeCli) {
+          const history = await this.nativeCli.read(fork.thread, result.threadId)
+          fork.events = history.events
+          fork.thread.nativeHistoryCursor = history.cursor
+          fork.thread.cliNotice = history.truncated ? PARTIAL_NATIVE_HISTORY_NOTICE : undefined
+        } else fork.events = this.history.readImported(id).events
+        this.save(fork)
         return { kind: 'navigate', threadId: fork.thread.id }
       }
       if (name === 'rewind' && this.nativeCli) {
         const current = this.read(id)
-        if (current.thread.nativeSessionId) { current.events = (await this.nativeCli.read(current.thread, current.thread.nativeSessionId)).events; this.save(current) }
+        if (current.thread.nativeSessionId) {
+          const history = await this.nativeCli.read(current.thread, current.thread.nativeSessionId)
+          current.events = history.events
+          current.thread.nativeHistoryCursor = history.cursor
+          current.thread.cliNotice = history.truncated ? PARTIAL_NATIVE_HISTORY_NOTICE : undefined
+          this.history.clearNativePages(id)
+          this.save(current)
+        }
       }
       return result
     } finally { this.configuring.delete(id) }
@@ -705,6 +832,10 @@ export class ThreadOrchestrator {
   async stop(): Promise<void> {
     for (const id of this.deltaBuffers.keys()) this.flushDeltas(id)
     this.stopping = true
+    const observations = Promise.allSettled([...this.observations.values()])
+    await this.stateReader?.stop()
+    await this.nativeCli?.closeHistoryReader?.()
+    await Promise.allSettled([...this.nativePageLoads.values()])
     await Promise.resolve() // let already scheduled turn finalizers register before closing the database
     await Promise.allSettled([...this.finalizationTasks])
     await Promise.allSettled([...this.cliStarting.values()])
@@ -730,6 +861,7 @@ export class ThreadOrchestrator {
       try { const snapshot = this.read(id); snapshot.thread.connection = this.sessions.close(id); this.save(snapshot, { eventsFrom: snapshot.events.length }) } catch { /* deleted */ }
     }
     await Promise.allSettled([...this.adapters.values()].map(adapter => adapter.dispose()))
+    await observations
     this.adapters.clear()
     for (const row of this.db.prepare('SELECT id FROM conversation_threads').all() as { id: string }[]) this.requests.invalidate(row.id)
   }
@@ -768,6 +900,11 @@ export class ThreadOrchestrator {
       return
     }
     if (generation !== undefined && generation !== (snapshot.thread.generation ?? 1)) return
+    if (event.type === 'connection-closed') {
+      snapshot.thread.connection = this.sessions.close(id, event.at)
+      this.save(snapshot, { eventsFrom: snapshot.events.length })
+      return
+    }
     if (event.type === 'native-signal') {
       snapshot.thread.connection = this.sessions.nativeSignal(id, event.at)
       this.save(snapshot, { eventsFrom: snapshot.events.length })
@@ -775,8 +912,16 @@ export class ThreadOrchestrator {
     }
     const activeTurn = snapshot.turns?.at(-1)
     const operationId = activeTurn?.operationId
+    if (event.type === 'turn-accepted') {
+      if (activeTurn?.status === 'running') {
+        activeTurn.nativeId = event.nativeTurnId
+        delete snapshot.thread.providerObservation
+        if (operationId) this.history.transitionOperation(id, operationId, 'acknowledged')
+        this.save(snapshot, { eventsFrom: snapshot.events.length })
+      }
+      return
+    }
     let eventsFrom = snapshot.events.length
-    if (snapshot.thread.connection?.state === 'connected') snapshot.thread.connection = this.sessions.heartbeat(id)
     if (event.type === 'request') {
       const adapter = this.adapters.get(id)
       event.request.generation = snapshot.thread.generation ?? 1
@@ -937,7 +1082,7 @@ export class ThreadOrchestrator {
     } catch { /* Repository may have been removed after the turn. */ }
   }
 
-  private async finalizeTurnThenDrain(id: string, status: 'completed' | 'interrupted' | 'failed', turnId: string | undefined, captureDiff: boolean): Promise<void> {
+  private async finalizeTurnThenDrain(id: string, status: 'completed' | 'interrupted' | 'failed', turnId: string | undefined, captureDiff: boolean, drain = true): Promise<void> {
     try {
       if (captureDiff) await this.captureWorkingTreeDiff(id, status, turnId)
       const checkpointId = turnId ? this.turnCheckpoints.get(turnId) : undefined
@@ -945,7 +1090,7 @@ export class ThreadOrchestrator {
     } finally {
       if (turnId) this.turnCheckpoints.delete(turnId)
       this.finalizing.delete(id)
-      await this.drainQueue(id)
+      if (drain) await this.drainQueue(id)
     }
   }
 
@@ -1002,6 +1147,7 @@ export class ThreadOrchestrator {
         const latest = this.read(id)
         latest.thread.queue = latest.thread.queue?.filter(value => value.id !== item.id)
         latest.thread.status = 'running'
+        delete latest.thread.providerObservation
         const attachments = await this.resolveAttachments(id, item.attachmentIds ?? [])
         latest.events.push({ type: 'message', id: item.id, role: 'user', text: item.text, ...(attachments.length ? { attachments: attachments.map(({ path: _path, ...attachment }) => attachment) } : {}) })
         latest.turns ??= []

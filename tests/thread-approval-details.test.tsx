@@ -15,6 +15,17 @@ describe('Thread command approval', () => {
     expect(display.preview).toContain('line one\nline two')
     expect(display.preview).toContain(';\n$content')
   })
+  it('keeps a lost approval inspectable without offering approval or claiming refusal', () => {
+    const request: ThreadRequest = { id: 'lost', nativeId: 'lost', nativeMethod: 'approval', kind: 'approval', title: 'Approve command', command: 'npm test', cwd: '/project', generation: 1, createdAt: 1, state: 'cancelled', resolution: 'connection-lost' }
+    const respond = vi.fn(async () => {})
+    render(<ThreadRequestCard request={request} disabled={false} onRespond={respond} />)
+    expect(screen.getByText(/Connection closed; response not confirmed/)).toBeVisible()
+    fireEvent.click(screen.getByText('Approve command'))
+    expect(screen.getByText('npm test')).toBeVisible()
+    expect(screen.getByText(/No permission was inferred or resent/)).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Approve', exact: true })).toBeNull()
+    expect(respond).not.toHaveBeenCalled()
+  })
 
   it('keeps the exact approval request available while showing its target and reason', () => {
     const request: ThreadRequest = { id: 'request-1', nativeId: '1', nativeMethod: 'item/commandExecution/requestApproval', kind: 'approval', title: 'Approve command', detail: command, command, cwd: 'C:\\project', reason: 'Update the Thread guide', generation: 1, createdAt: Date.now(), state: 'pending' }

@@ -1,0 +1,20 @@
+{
+  "capturedAt": "2026-10-04T23:28:20.395Z",
+  "elapsedMs": 744.1554,
+  "inference": false,
+  "resumed": false,
+  "installedApplication": false,
+  "methods": [
+    "initialize",
+    "initialized",
+    "thread/read",
+    "thread/turns/list"
+  ],
+  "observation": {
+    "state": "unknown",
+    "source": "codex-app-server",
+    "observedAt": 1791156499803,
+    "nativeTurnId": "01a10921-4c11-7a93-b52c-80af09bb497b",
+    "detail": "The saved turn is not a confirmed terminal result. It may still belong to another runtime; no session was resumed or interrupted."
+  }
+}

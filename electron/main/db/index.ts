@@ -11,7 +11,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
  *  pre-migration backup (only back up when an upgrade will actually run).
  *  Exported so the migrations test can catch a constant that drifts from the
  *  version the SQL actually sets. */
-export const LATEST_DB_VERSION = 59
+export const LATEST_DB_VERSION = 60
 /** How many pre-migration backups to retain. */
 const MAX_DB_BACKUPS = 5
 
@@ -478,6 +478,7 @@ export function runMigrations(db: AppDatabase): void {
     db.transaction(() => db.exec(readMigration('058_workbench_default.sql')))()
   }
   if (startingVersion < 59) migrateThreadProjects(db)
+  if (startingVersion < 60) db.transaction(() => db.exec(readMigration('060_native_history_pages.sql')))()
 }
 
 /** Rebuild the parent without cascading its children or rewriting their IDs. */

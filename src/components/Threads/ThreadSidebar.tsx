@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { Archive, ArchiveRestore, Check, ChevronDown, Circle, CircleAlert, CircleCheck, CircleX, Columns2, PanelsTopLeft, FolderPlus, Loader2, MoreHorizontal, Pencil, Pin, Plus, Settings2, Square, Trash2, X, UserRound } from 'lucide-react'
+import { AlignJustify, Archive, ArchiveRestore, Check, ChevronDown, Circle, CircleAlert, CircleCheck, CircleX, Columns2, PanelsTopLeft, FolderPlus, Loader2, MoreHorizontal, Pencil, Pin, Plus, Settings2, Square, Trash2, X, UserRound } from 'lucide-react'
 import type { ConversationThread } from '../../../shared/types/thread'
 import { DropdownMenu } from 'radix-ui'
 import { useThreadStore } from '../../store/thread.store'
@@ -29,6 +29,7 @@ export function ThreadSidebar({ onCreate, onModeChange, onAccounts, onAddProject
   const [projectSettingsId, setProjectSettingsId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const width = useNavigationPrefs(s => s.width), setWidth = useNavigationPrefs(s => s.setWidth)
+  const density = useNavigationPrefs(s => s.threadDensity), setDensity = useNavigationPrefs(s => s.setThreadDensity)
   const collapsed = useUIStore(s => s.isSidebarCollapsed), toggleCollapse = useUIStore(s => s.toggleSidebar)
   const [query, setQuery] = useState('')
   const search = useRef<HTMLInputElement>(null)
@@ -69,7 +70,7 @@ export function ThreadSidebar({ onCreate, onModeChange, onAccounts, onAddProject
     title={`${thread.title}\n${thread.provider} · ${status.label}${unread ? ' · Unread' : ''}\n${thread.rootPath}`} onClick={() => void select(thread.id)}>
     {unread && <span className="thread-unread-marker" aria-label="Unread conversation" />}
     <span className="thread-session-indicator" data-status={status.kind} aria-hidden="true">{status.kind === 'ready' ? <Circle size={12} /> : status.kind === 'completed' ? <CircleCheck size={12} /> : status.kind === 'attention' ? <CircleAlert size={12} /> : status.kind === 'failed' ? <CircleX size={12} /> : status.kind === 'interrupted' ? <Square size={11} /> : null}</span>
-    <span className="thread-session-content"><span className="thread-session-title">{thread.title}</span><span className="thread-session-meta"><span className="thread-session-provider"><AgentProviderIcon provider={thread.provider} size={14} /><span>{thread.provider === 'claude' ? 'Claude Code' : 'Codex'}</span></span><span className="thread-session-state" data-status={status.kind}>{status.label}</span>{thread.pinned && <Pin size={10} aria-label="Pinned" />}<small>{relativeTime(thread.updatedAt)}</small></span></span>
+    <span className="thread-session-content"><span className="thread-session-title">{thread.title}</span><span className="thread-session-meta"><span className="thread-session-provider"><AgentProviderIcon provider={thread.provider} size={density === 'compact' ? 12 : 14} /><span>{thread.provider === 'claude' ? 'Claude Code' : 'Codex'}</span></span><span className="thread-session-state" data-status={status.kind}>{status.label}</span>{thread.pinned && <Pin size={10} aria-label="Pinned" />}<small>{relativeTime(thread.updatedAt)}</small></span></span>
   </button><button type="button" className="thread-row-action" aria-label={`Open ${thread.title} side by side`} title="Open side by side" disabled={secondaryId === thread.id} onClick={() => void openSecondary(thread.id).catch(error => setActionError(error instanceof Error ? error.message : 'Could not open conversation.'))}><Columns2 size={13} /></button><DropdownMenu.Root>
     <DropdownMenu.Trigger asChild><button type="button" className="thread-row-action" aria-label={`Actions for ${thread.title}`} title="Conversation actions"><MoreHorizontal size={13} /></button></DropdownMenu.Trigger>
     <DropdownMenu.Portal><DropdownMenu.Content className="thread-actions-dropdown" side="right" align="start" sideOffset={5} collisionPadding={8} aria-label={`Actions for ${thread.title}`}>
@@ -83,7 +84,7 @@ export function ThreadSidebar({ onCreate, onModeChange, onAccounts, onAddProject
     </DropdownMenu.Content></DropdownMenu.Portal>
   </DropdownMenu.Root></div>
   }
-  return <aside className={`thread-navigation${collapsed ? ' thread-navigation-collapsed' : ''}`} aria-label="Thread sidebar">
+  return <aside className={`thread-navigation${collapsed ? ' thread-navigation-collapsed' : ''}`} data-density={density} aria-label="Thread sidebar">
     {!collapsed && <div className="thread-resize" role="separator" tabIndex={0} aria-label="Thread sidebar width" aria-orientation="vertical" aria-valuemin={SIDEBAR_MIN_WIDTH} aria-valuemax={SIDEBAR_MAX_WIDTH} aria-valuenow={width}
       onKeyDown={e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setWidth(width + (e.key === 'ArrowLeft' ? -SIDEBAR_RESIZE_STEP : SIDEBAR_RESIZE_STEP)) } }}
       onPointerDown={e => { resizing.current = true; e.currentTarget.setPointerCapture(e.pointerId); e.preventDefault() }}
@@ -99,7 +100,7 @@ export function ThreadSidebar({ onCreate, onModeChange, onAccounts, onAddProject
         {loading && !threads.length && <p className="thread-nav-empty" role="status">Loading conversations…</p>}
         {Object.entries(errors).map(([id, error]) => <div key={id} className="thread-catalog-error" role="alert"><p>{error}</p><button type="button" onClick={() => { void useThreadStore.getState().load(); void useThreadStore.getState().loadProjects() }}>Retry</button></div>)}
         {threads.some(t => t.pinned && matches(t, projects.find(p => p.projectId === t.projectId)?.displayName ?? '')) && <section><h2> Pinned</h2>{threads.filter(t => t.pinned && matches(t, projects.find(p => p.projectId === t.projectId)?.displayName ?? '')).map(row)}</section>}
-        {!!groups.length && <h2>Projects</h2>}
+        {!!groups.length && <div className="thread-list-heading"><h2>Projects</h2><button type="button" aria-label="Compact thread list" title={density === 'compact' ? 'Use comfortable spacing' : 'Use compact spacing'} aria-pressed={density === 'compact'} onClick={() => setDensity(density === 'compact' ? 'comfortable' : 'compact')}><AlignJustify size={14} aria-hidden="true" /></button></div>}
         {groups.map(group => <section key={group.id} className={`thread-project-group${selected?.projectId === group.id ? ' is-active' : ''}`}>
           <div className="thread-project-heading">
           <button type="button" className="thread-project-toggle" title={group.path} aria-expanded={query ? true : expanded[group.id] ?? true} onClick={() => toggle(group.id)}><ChevronDown size={12} /><span className="thread-project-name">{group.name}</span>{unavailableProjects.includes(group.id) && <small>Directory missing</small>}{groups.filter(g => g.name === group.name).length > 1 && <small>{group.path.split(/[\\/]/).slice(-2).join('/')}</small>}</button>

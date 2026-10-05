@@ -1,23 +1,27 @@
-import { Check, Code2, FolderOpen, Sparkles } from 'lucide-react'
+import { Check, FolderOpen } from 'lucide-react'
 import { useState } from 'react'
 import type { ThreadProvider } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
+import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { DesktopDialog } from '../Navigation/DesktopDialog'
 export function NewThreadDialog({ initialProjectId, initialRootPath, onClose }: { initialProjectId: string | null; initialRootPath?: string; onClose: () => void }) {
   const projects = useThreadStore(state => state.projects)
   const choices = projects.filter(project => !project.hidden).flatMap(project => project.contexts.map(context => ({ ...context, projectId: project.projectId, projectName: project.displayName })))
   const [unique] = useState(() => choices.filter((c, i) => choices.findIndex(other => other.rootPath === c.rootPath) === i))
   const [choice, setChoice] = useState(() => Math.max(0, unique.findIndex(c => initialRootPath ? c.rootPath === initialRootPath : c.projectId === initialProjectId)))
+  const [choosingProject, setChoosingProject] = useState(false)
+  const [projectQuery, setProjectQuery] = useState('')
   const [provider, setProvider] = useState<ThreadProvider>('claude')
   const [error, setError] = useState(''), [pending, setPending] = useState(false)
-  return <DesktopDialog className="thread-create-dialog" title="New thread" description="A separate conversation in your project." onClose={onClose}><form onSubmit={async e => {
-    e.preventDefault(); const context = unique[choice]; if (!context) return
+  const filteredProjects = unique.map((context, index) => ({ context, index })).filter(({ context }) => `${context.projectName} ${context.rootPath}`.toLowerCase().includes(projectQuery.toLowerCase()))
+  return <DesktopDialog className="thread-create-dialog" title="New thread" description="A separate conversation in your project." onClose={() => { if (!pending) onClose() }}><form onSubmit={async e => {
+    e.preventDefault(); if (pending) return; const context = unique[choice]; if (!context) return
     setPending(true); setError('')
     try { const snapshot = await window.oxe.thread!.create({ projectId: context.projectId, rootPath: context.rootPath, provider }); useThreadStore.getState().adopt(snapshot); onClose() }
     catch { setError('Could not create conversation. Check the project directory and try again.') } finally { setPending(false) }
-  }}><div className="thread-create-section"><label htmlFor="thread-project-choice">Project</label><select id="thread-project-choice" value={choice} onChange={e => setChoice(Number(e.target.value))}>{unique.map((c, i) => <option key={`${c.projectId}:${c.rootPath}`} value={i}>{c.projectName} · {c.rootPath}</option>)}</select><p>Conversation files and commands use this directory.</p></div>
-    <fieldset className="thread-agent-choice"><legend>Agent</legend><div className="thread-agent-options">{(['claude', 'codex'] as const).map(id => <label key={id} className="thread-agent-option" data-selected={provider === id}><input type="radio" name="thread-provider" value={id} checked={provider === id} onChange={() => setProvider(id)} /><span className="thread-agent-option-icon">{id === 'claude' ? <Sparkles size={16} /> : <Code2 size={16} />}</span><span><strong>{id === 'claude' ? 'Claude Code' : 'Codex'}</strong><small>{id === 'claude' ? 'Claude subscription' : 'ChatGPT subscription'}</small></span>{provider === id && <Check size={15} className="thread-agent-option-check" />}</label>)}</div></fieldset>
-    {error && <p role="alert">{error}</p>}<footer><button type="button" onClick={onClose}>Cancel</button><button type="submit" className="thread-primary" disabled={!unique[choice] || pending || !window.oxe?.thread}>Create thread</button></footer></form></DesktopDialog>
+  }}><div className="thread-create-section thread-project-selection"><strong>Project</strong><span>{unique[choice]?.projectName ?? 'No project available'}</span><code>{unique[choice]?.rootPath}</code>{unique.length > 1 && <button type="button" aria-expanded={choosingProject} onClick={() => setChoosingProject(value => !value)}>Change project</button>}{choosingProject && <fieldset className="thread-project-options"><legend>Choose project</legend><input aria-label="Filter projects" value={projectQuery} onChange={event => setProjectQuery(event.target.value)} />{filteredProjects.map(({ context, index }) => <label key={context.rootPath}><input type="radio" name="thread-project" checked={choice === index} onChange={() => { setChoice(index); setChoosingProject(false) }} /><span>{context.projectName}<small>{context.rootPath}</small></span></label>)}{!filteredProjects.length && <p role="status">No projects match this search.</p>}</fieldset>}<p>Conversation files and commands use this directory.</p></div>
+    <fieldset className="thread-agent-choice"><legend>Agent</legend><div className="thread-agent-options">{(['claude', 'codex'] as const).map(id => <label key={id} className="thread-agent-option" data-selected={provider === id}><input type="radio" name="thread-provider" value={id} checked={provider === id} onChange={() => setProvider(id)} /><span className="thread-agent-option-icon"><AgentProviderIcon provider={id} size={20} /></span><span><strong>{id === 'claude' ? 'Claude Code' : 'Codex'}</strong><small>{id === 'claude' ? 'Claude subscription' : 'ChatGPT subscription'}</small></span>{provider === id && <Check size={15} className="thread-agent-option-check" />}</label>)}</div></fieldset>
+    {error && <p role="alert">{error}</p>}<footer><button type="button" disabled={pending} onClick={onClose}>Cancel</button><button type="submit" className="thread-primary" disabled={!unique[choice] || pending || !window.oxe?.thread}>{pending ? 'Creating…' : 'Create thread'}</button></footer></form></DesktopDialog>
 }
 
 export function AddThreadProjectDialog({ onPickFolder, onAdd, onClose }: {

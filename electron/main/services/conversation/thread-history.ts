@@ -75,15 +75,43 @@ export class ThreadHistory {
 
   page(threadId: string, before?: number, limit = 200): ThreadHistoryPage {
     if (!Number.isInteger(limit) || limit < 1 || limit > 500) throw Error('Invalid history page size')
-    const exists = this.db.prepare('SELECT 1 FROM conversation_threads WHERE id = ?').get(threadId)
+    const exists = this.db.prepare('SELECT data_json FROM conversation_threads WHERE id = ?').get(threadId) as { data_json: string } | undefined
     if (!exists) throw Error('Thread not found')
-    const total = (this.db.prepare('SELECT COUNT(*) AS count FROM conversation_events WHERE thread_id = ?').get(threadId) as { count: number }).count
-    const upper = before === undefined ? total : before
-    if (!Number.isInteger(upper) || upper < 0 || upper > total) throw Error('Invalid history cursor')
-    const rows = this.db.prepare('SELECT seq, data_json FROM conversation_events WHERE thread_id = ? AND seq < ? ORDER BY seq DESC LIMIT ?').all(threadId, upper, limit) as { seq: number; data_json: string }[]
+    const liveCount = (this.db.prepare('SELECT COUNT(*) AS count FROM conversation_events WHERE thread_id = ?').get(threadId) as { count: number }).count
+    const native = this.db.prepare('SELECT COUNT(*) AS count, MIN(seq) AS first FROM conversation_native_history WHERE thread_id = ?').get(threadId) as { count: number; first: number | null }
+    const total = liveCount + native.count
+    const upper = before === undefined ? liveCount : before
+    if (!Number.isInteger(upper) || upper < (native.first ?? 0) || upper > liveCount) throw Error('Invalid history cursor')
+    const rows = this.db.prepare('SELECT seq, data_json FROM (SELECT seq, data_json FROM conversation_events WHERE thread_id = ? UNION ALL SELECT seq, data_json FROM conversation_native_history WHERE thread_id = ?) WHERE seq < ? ORDER BY seq DESC LIMIT ?').all(threadId, threadId, upper, limit) as { seq: number; data_json: string }[]
     rows.reverse()
-    const next = rows[0]?.seq
-    return { events: rows.map(row => JSON.parse(row.data_json)), ...(next !== undefined && next > 0 ? { before: next } : {}), hasMore: next !== undefined && next > 0, total }
+    const next = rows[0]?.seq ?? upper
+    const hasMore = next > (native.first ?? 0) || Boolean((JSON.parse(exists.data_json) as ConversationThread).nativeHistoryCursor)
+    return { events: rows.map(row => JSON.parse(row.data_json)), ...(hasMore ? { before: next } : {}), hasMore, total }
+  }
+
+  hasImportedBefore(threadId: string, before: number): boolean {
+    return Boolean(this.db.prepare('SELECT 1 FROM conversation_native_history WHERE thread_id = ? AND seq < ? LIMIT 1').get(threadId, before))
+  }
+
+  /** Explicit export projection; never feed this back into the live event journal. */
+  readImported(id: string): ThreadSnapshot {
+    const snapshot = this.read(id)
+    const earlier = (this.db.prepare('SELECT data_json FROM conversation_native_history WHERE thread_id = ? ORDER BY seq').all(id) as { data_json: string }[]).map(row => JSON.parse(row.data_json) as ThreadEvent)
+    return { ...snapshot, events: [...earlier, ...snapshot.events] }
+  }
+
+  clearNativePages(id: string): void {
+    this.db.prepare('DELETE FROM conversation_native_history WHERE thread_id = ?').run(id)
+  }
+
+  prependNative(threadId: string, events: ThreadEvent[]): void {
+    this.db.transaction(() => {
+      const first = (this.db.prepare('SELECT MIN(seq) AS value FROM conversation_native_history WHERE thread_id = ?').get(threadId) as { value: number | null }).value ?? 0
+      const insert = this.db.prepare('INSERT OR IGNORE INTO conversation_native_history (thread_id, seq, event_id, data_json) VALUES (?, ?, ?, ?)')
+      events.forEach((event, index) => {
+        if (event.type === 'message') insert.run(threadId, first - events.length + index, event.id, JSON.stringify(event))
+      })
+    })()
   }
 
   beginOperation(input: ThreadOperationInput): ThreadOperation {
@@ -109,6 +137,15 @@ export class ThreadHistory {
     return (this.db.prepare('SELECT * FROM conversation_operations WHERE thread_id = ? ORDER BY created_at, id').all(threadId) as Array<{
       id: string; thread_id: string; turn_id: string | null; generation: number; kind: ThreadOperationKind; state: ThreadOperationState; error: string | null; created_at: number; updated_at: number
     }>).map(row => this.operationFromRow(row))
+  }
+
+  /** Explicit evidence reconciliation, separate from monotonic live callbacks. */
+  reconcileOperation(threadId: string, operationId: string, nativeTurnId: string, state: 'completed' | 'failed', confirmedLive = false): void {
+    this.db.prepare(`UPDATE conversation_operations SET state = ?, error = NULL, updated_at = ?
+      WHERE thread_id = ? AND id = ? AND (state IN ('unknown', 'failed', 'cancelled') OR (? = 1 AND state IN ('acknowledged', 'running')))
+      AND EXISTS (SELECT 1 FROM conversation_turns t WHERE t.thread_id = conversation_operations.thread_id
+        AND json_extract(t.data_json, '$.operationId') = conversation_operations.id
+        AND json_extract(t.data_json, '$.nativeId') = ?)`).run(state, Date.now(), threadId, operationId, confirmedLive ? 1 : 0, nativeTurnId)
   }
 
   settleOpenOperations(threadId: string, state: Extract<ThreadOperationState, 'cancelled' | 'unknown'>, error: string): number {

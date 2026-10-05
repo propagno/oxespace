@@ -88,7 +88,7 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
     set(state => {
       const previous = state.selectedId === id ? state.snapshot : state.snapshotCache[id]
       if (!previous) return state
-      const snapshot = { ...previous, events: [...page.events, ...previous.events], page: { ...(page.before !== undefined ? { before: page.before } : {}), hasMore: page.hasMore, total: page.total } }
+      const snapshot = { ...previous, thread: { ...previous.thread, ...(!page.hasMore ? { cliNotice: undefined, nativeHistoryCursor: undefined } : {}) }, events: [...page.events, ...previous.events], page: { ...(page.before !== undefined ? { before: page.before } : {}), hasMore: page.hasMore, total: page.total } }
       const cache = cacheThreadSnapshot({ snapshots: state.snapshotCache, order: state.snapshotCacheOrder }, snapshot)
       return { ...(state.selectedId === id ? { snapshot } : {}), snapshotCache: cache.snapshots, snapshotCacheOrder: cache.order }
     })
@@ -146,7 +146,7 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
         const newStart = Math.max(0, newTotal - snapshot.events.length)
         const oldStart = Math.max(0, oldTotal - previousSnapshot.events.length)
         const prefixCount = newTotal >= oldTotal ? Math.max(0, Math.min(previousSnapshot.events.length, newStart - oldStart)) : 0
-        const merged: ThreadSnapshot = prefixCount > 0 ? { ...snapshot, events: [...previousSnapshot.events.slice(0, prefixCount), ...snapshot.events], page: { ...(oldStart > 0 ? { before: oldStart } : {}), hasMore: oldStart > 0, total: newTotal } } : snapshot
+        const merged: ThreadSnapshot = prefixCount > 0 ? { ...snapshot, events: [...previousSnapshot.events.slice(0, prefixCount), ...snapshot.events], page: { ...(previousSnapshot.page?.before !== undefined ? { before: previousSnapshot.page.before } : oldStart > 0 ? { before: oldStart } : {}), hasMore: previousSnapshot.page?.hasMore ?? oldStart > 0, total: newTotal } } : snapshot
         const cache = cacheThreadSnapshot({ snapshots: state.snapshotCache, order: state.snapshotCacheOrder }, merged)
         return { threads: state.threads.map(t => t.id === id ? metadata : t), snapshot: merged, snapshotCache: cache.snapshots, snapshotCacheOrder: cache.order }
       })

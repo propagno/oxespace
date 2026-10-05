@@ -1,0 +1,16 @@
+{
+  "capturedAt": "2026-10-05T14:54:18.568Z",
+  "isolated": true,
+  "installedApplication": false,
+  "inference": true,
+  "observed": "completed",
+  "recovered": "completed",
+  "messages": 1,
+  "released": true,
+  "committed": true,
+  "droppedTerminal": true,
+  "prematureCompletions": 0,
+  "sendsBeforeExplicitNext": 1,
+  "explicitNextCompleted": true,
+  "sends": 2
+}

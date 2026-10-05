@@ -13,8 +13,15 @@ export class ThreadExportService {
       `- Thread ID: \`${snapshot.thread.id}\``, `- Native session: \`${snapshot.thread.nativeSessionId ?? 'not started'}\``,
       `- Provider: \`${snapshot.thread.provider}\``, `- Directory: \`${safe(snapshot.thread.rootPath)}\``,
       `- Model: \`${safe(snapshot.thread.model ?? 'provider default')}\``, `- Effort: \`${safe(snapshot.thread.reasoningEffort ?? 'automatic')}\``, '']
+    if (snapshot.thread.nativeHistoryCursor) lines.push('_Earlier native messages have not been loaded; this export contains imported history only._', '')
     for (const event of snapshot.events) {
-      if (event.type === 'message') lines.push(`## ${event.role === 'user' ? 'You' : snapshot.thread.provider === 'codex' ? 'Codex' : 'Claude'}`, '', safe(event.text), '')
+      if (event.type === 'message') {
+        lines.push(`## ${event.role === 'user' ? 'You' : snapshot.thread.provider === 'codex' ? 'Codex' : 'Claude'}`, '', safe(event.text), '')
+        if (event.historicalQuestions?.length) {
+          lines.push('### Recovered questions — answer not confirmed', '')
+          for (const question of event.historicalQuestions) lines.push(safe(question.title), ...(question.options ?? []).map(option => `- ${safe(option)}`), '')
+        }
+      }
       else if (event.type === 'tool') {
         lines.push(`### Tool · ${safe(event.name)} · ${event.state}`, '', safe(event.detail))
         if (event.output) lines.push('', '```text', safe(event.output), '```')

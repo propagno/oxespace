@@ -1,0 +1,15 @@
+{
+  "capturedAt": "2026-10-05T16:21:07.920Z",
+  "provider": "claude",
+  "isolated": true,
+  "installedApplication": false,
+  "inference": true,
+  "questions": 0,
+  "options": 0,
+  "responsesSent": 0,
+  "approvalsDeclined": 0,
+  "requestResolved": false,
+  "status": "failed",
+  "errorCode": "authentication",
+  "passed": false
+}

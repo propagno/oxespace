@@ -67,6 +67,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       models: (id, refresh) => ipc.invoke(IPC_CHANNELS.thread.models, id, refresh) as Promise<import('../../shared/types/thread').ThreadModelCatalog>,
       configure: (id, configuration, revision) => ipc.invoke(IPC_CHANNELS.thread.configure, id, configuration, revision) as Promise<import('../../shared/types/thread').ThreadSnapshot>,
       command: (id, text) => ipc.invoke(IPC_CHANNELS.thread.command, id, text) as Promise<import('../../shared/types/thread').ThreadCommandResult>,
+      observe: id => ipc.invoke(IPC_CHANNELS.thread.observe, id) as Promise<import('../../shared/types/thread').ThreadProviderObservation>,
       recover: id => ipc.invoke(IPC_CHANNELS.thread.recover, id) as Promise<void>,
       cli: {
         open: (id, command) => ipc.invoke(IPC_CHANNELS.threadCli.open, id, command) as ReturnType<import('../../shared/types/thread').ThreadCliApi['open']>,

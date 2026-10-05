@@ -11,7 +11,7 @@ import { join } from 'node:path'
 
 const databases: AppDatabase[] = []
 afterEach(() => { for (const db of databases.splice(0)) db.close() })
-function fixture(preflight?: ConstructorParameters<typeof ThreadManager>[3], commands?: ConstructorParameters<typeof ThreadManager>[4], cli?: ConstructorParameters<typeof ThreadManager>[5], attachments?: ConstructorParameters<typeof ThreadManager>[7]) {
+function fixture(preflight?: ConstructorParameters<typeof ThreadManager>[3], commands?: ConstructorParameters<typeof ThreadManager>[4], cli?: ConstructorParameters<typeof ThreadManager>[5], attachments?: ConstructorParameters<typeof ThreadManager>[7], stateReader?: ConstructorParameters<typeof ThreadManager>[8]) {
   const db = openInMemoryDatabase(); databases.push(db)
   for (const id of ['A', 'B']) db.prepare("INSERT INTO workspaces (id, name, root_path, layout, default_shell_profile_id) VALUES (?, ?, ?, '1x1', 'builtin-claude')").run(id, id, `/project-${id}`)
   const callbacks: ((event: ThreadEvent) => void)[] = []
@@ -23,12 +23,217 @@ function fixture(preflight?: ConstructorParameters<typeof ThreadManager>[3], com
     adapters.push(adapter); return adapter
   })
   const models = { list: vi.fn(async () => ({ defaultModel: 'native-model', models: [{ id: 'native-model', label: 'Native model', description: '', efforts: ['low', 'high'], defaultEffort: 'low' }] })), stop: vi.fn(async () => {}) }
-  const manager = new ThreadManager(db, factory, vi.fn(), preflight, commands, cli, models, attachments)
+  const manager = new ThreadManager(db, factory, vi.fn(), preflight, commands, cli, models, attachments, stateReader)
   const create = (workspaceId = 'A') => manager.create({ workspaceId, projectId: `project-${workspaceId}`, rootPath: `/project-${workspaceId}`, provider: 'codex' }).thread.id
   return { db, manager, factory, adapters, callbacks, create }
 }
 
 describe('thread persistence and ownership', () => {
+  it.each(['complete', 'incomplete', 'changed', 'disk-error'])('reconciles a live turn without replay, preserving ownership on %s', async scenario => {
+    const terminal = { state: 'completed' as const, source: 'codex-app-server' as const, nativeTurnId: 'native-turn', observedAt: 123, detail: 'Confirmed' }
+    const reader = { observe: vi.fn(), recover: vi.fn(async () => ({ ...terminal, ...(scenario === 'incomplete' ? {} : { recoveredMessages: [{ type: 'message' as const, id: 'answer', role: 'assistant' as const, text: 'Full response' }] }) })), stop: vi.fn(async () => {}) }
+    const f = fixture(undefined, undefined, undefined, undefined, reader), id = f.create()
+    await f.manager.send(id, 'Original request')
+    f.callbacks[0]({ type: 'turn-accepted', nativeTurnId: 'native-turn', at: 1 })
+    f.callbacks[0]({ type: 'message', id: 'answer', role: 'assistant', text: 'Partial' })
+    f.manager.read(id).thread.queue = [{ id: 'next', text: 'Must not start', createdAt: 1, state: 'queued' }]
+    f.adapters[0].observe = vi.fn(async () => terminal)
+    f.adapters[0].commitRecoveredTurn = vi.fn((_turn, _state, commit) => {
+      if (scenario === 'changed') return false
+      commit(); return true
+    })
+    if (scenario === 'disk-error') f.db.exec("CREATE TRIGGER reject_recovery BEFORE UPDATE ON conversation_threads BEGIN SELECT RAISE(ABORT, 'Recovery disk error'); END")
+    if (scenario === 'disk-error') {
+      await expect(f.manager.observe(id)).rejects.toThrow('Recovery disk error')
+      f.db.exec('DROP TRIGGER reject_recovery')
+    } else await f.manager.observe(id)
+    const recovered = f.manager.read(id)
+    expect(recovered.thread.status).toBe(scenario === 'complete' ? 'idle' : 'running')
+    expect(recovered.events.find(event => event.type === 'message' && event.id === 'answer')).toMatchObject({ text: scenario === 'complete' ? 'Full response' : 'Partial' })
+    expect(new ThreadHistory(f.db).operations(id).at(-1)?.state).toBe(scenario === 'complete' ? 'completed' : 'running')
+    await new Promise(resolve => setTimeout(resolve, 20))
+    expect(f.adapters[0].send).toHaveBeenCalledTimes(1)
+    expect(f.manager.read(id).thread.queue).toMatchObject([{ state: 'queued', text: 'Must not start' }])
+    if (scenario === 'complete') {
+      await f.manager.send(id, 'Explicit new request')
+      expect(f.adapters[0].send).toHaveBeenCalledTimes(2)
+    }
+    await f.manager.stop()
+  })
+  it.each([false, true])('recovers unknown tools on an idle connected adapter only if confirmation agrees (changed=%s)', async changed => {
+    const terminal = { state: 'completed' as const, source: 'codex-app-server' as const, nativeTurnId: 'native-turn', observedAt: 123, detail: 'Confirmed' }
+    const reader = { observe: vi.fn(), recover: vi.fn(async () => ({ ...terminal, recoveredMessages: [], recoveredItems: [{ type: 'tool' as const, id: 'tool', name: 'commandExecution', state: 'completed' as const, detail: 'npm test', exitCode: 0 }] })), stop: vi.fn(async () => {}) }
+    const f = fixture(undefined, undefined, undefined, undefined, reader), id = f.create()
+    await f.manager.send(id, 'Run tests')
+    f.callbacks[0]({ type: 'turn-accepted', nativeTurnId: 'native-turn', at: 1 })
+    f.callbacks[0]({ type: 'tool', id: 'tool', name: 'commandExecution', state: 'running', detail: 'npm test' })
+    f.callbacks[0]({ type: 'completed', status: 'completed' })
+    await Promise.resolve()
+    f.manager.read(id).thread.queue = [{ id: 'next', text: 'Do not resend', createdAt: 1, state: 'unknown' }]
+    f.adapters[0].observe = vi.fn().mockResolvedValueOnce(terminal).mockResolvedValueOnce(changed ? { ...terminal, state: 'running' } : terminal)
+    const observation = await f.manager.observe(id)
+    expect(observation.state).toBe(changed ? 'unknown' : 'completed')
+    expect(f.manager.read(id).events.find(event => event.type === 'tool')).toMatchObject({ state: changed ? 'unknown' : 'completed' })
+    expect(f.adapters[0].dispose).not.toHaveBeenCalled()
+    expect(f.adapters[0].send).toHaveBeenCalledTimes(1)
+    expect(f.manager.read(id).thread.queue).toMatchObject([{ state: 'unknown' }])
+    expect(reader.recover).toHaveBeenCalledOnce()
+    await f.manager.stop()
+  })
+  it('stores recovered patch evidence as an artifact in the same recovery transaction', async () => {
+    const f = fixture(), id = f.create()
+    await f.manager.send(id, 'Edit a file')
+    f.callbacks[0]({ type: 'turn-accepted', nativeTurnId: 'native-turn', at: 1 })
+    f.callbacks[0]({ type: 'tool', id: 'patch', name: 'fileChange', state: 'running', detail: 'a.ts' })
+    await f.manager.stop()
+    const patch = '--- a/a.ts\n+++ b/a.ts\n@@ -1 +1 @@\n-old\n+new\n'
+    const recovery: import('../../electron/main/services/conversation/codex-state-reader').NativeStateResult = { state: 'completed', source: 'codex-app-server', nativeTurnId: 'native-turn', observedAt: 123, detail: 'Confirmed', recoveredMessages: [], recoveredItems: [{ type: 'tool', id: 'patch', name: 'fileChange', state: 'completed', detail: 'a.ts', turnId: 'native-turn', files: [{ path: 'a.ts', kind: 'update', state: 'completed', source: 'native-patch', authorship: 'provider', patch }] }] }
+    const reader = { observe: vi.fn(), recover: vi.fn(async () => recovery), stop: vi.fn(async () => {}) }
+    const manager = new ThreadManager(f.db, f.factory, vi.fn(), undefined, undefined, undefined, undefined, undefined, reader)
+    expect(await manager.observe(id)).not.toHaveProperty('recoveredItems')
+    const tool = manager.read(id).events.find(event => event.type === 'tool')
+    expect(tool).toMatchObject({ state: 'completed', files: [{ artifactId: expect.any(String), additions: 1, deletions: 1, authorship: 'provider' }] })
+    if (tool?.type !== 'tool') throw Error('Missing recovered tool')
+    expect(tool.files![0]).not.toHaveProperty('patch')
+    expect(new ThreadHistory(f.db).artifact(id, tool.files![0].artifactId!).content).toBe(patch)
+    expect(manager.read(id).events.filter(event => event.type === 'tool')).toHaveLength(1)
+    await manager.stop()
+  })
+  it('discards recovered output if the native identity changes while the provider is queried', async () => {
+    const f = fixture(), id = f.create()
+    await f.manager.send(id, 'Original')
+    f.callbacks[0]({ type: 'turn-accepted', nativeTurnId: 'old-turn', at: 1 })
+    await f.manager.stop()
+    let finish!: (value: import('../../electron/main/services/conversation/codex-state-reader').NativeStateResult) => void
+    const passive = { observe: vi.fn(), recover: vi.fn(() => new Promise<import('../../electron/main/services/conversation/codex-state-reader').NativeStateResult>(resolve => { finish = resolve })), stop: vi.fn(async () => {}) }
+    const manager = new ThreadManager(f.db, f.factory, vi.fn(), undefined, undefined, undefined, undefined, undefined, passive)
+    const before = [...manager.read(id).events]
+    const query = manager.observe(id)
+    manager.read(id).thread.nativeSessionId = 'replacement-session'
+    finish({ state: 'completed', source: 'codex-app-server', observedAt: 100, nativeTurnId: 'old-turn', detail: 'Old', recoveredMessages: [{ type: 'message', id: 'old-answer', role: 'assistant', text: 'Must not appear' }] })
+    await expect(query).rejects.toThrow('conversation changed')
+    expect(manager.read(id).events).toEqual(before)
+    await manager.stop()
+  })
+  it('recovers a partial response and terminal journal after restart without draining the queue', async () => {
+    const f = fixture(), id = f.create()
+    await f.manager.send(id, 'Original request')
+    f.callbacks[0]({ type: 'turn-accepted', nativeTurnId: 'acknowledged', at: Date.now() })
+    f.callbacks[0]({ type: 'message', id: 'answer', role: 'assistant', text: 'Partial' })
+    f.manager.read(id).thread.queue = [{ id: 'next', text: 'Do not resend', createdAt: 1, state: 'unknown' }]
+    await f.manager.stop()
+    const passive = { observe: vi.fn(), recover: vi.fn(async () => ({ state: 'completed' as const, source: 'codex-app-server' as const, nativeTurnId: 'acknowledged', observedAt: 123, detail: 'Confirmed', recoveredMessages: [{ type: 'message' as const, id: 'answer', role: 'assistant' as const, text: 'Complete answer' }] })), stop: vi.fn(async () => {}) }
+    const factory = vi.fn(async () => { throw Error('Must not execute') })
+    const manager = new ThreadManager(f.db, factory, vi.fn(), undefined, undefined, undefined, undefined, undefined, passive)
+    const observation = await manager.observe(id)
+    expect(observation).not.toHaveProperty('recoveredMessages')
+    const result = manager.read(id)
+    expect(result.thread.status).toBe('idle')
+    expect(result.turns?.at(-1)?.status).toBe('completed')
+    expect(result.events.filter(event => event.type === 'message' && event.id === 'answer')).toEqual([{ type: 'message', id: 'answer', role: 'assistant', text: 'Complete answer' }])
+    expect(result.events.filter(event => event.type === 'completed')).toEqual([{ type: 'completed', status: 'completed' }])
+    expect(result.thread.queue).toMatchObject([{ state: 'unknown', text: 'Do not resend' }])
+    expect(new ThreadHistory(f.db).operations(id).at(-1)?.state).toBe('completed')
+    expect(factory).not.toHaveBeenCalled()
+    passive.observe.mockResolvedValue({ state: 'completed', source: 'codex-app-server', observedAt: 124, detail: 'Already settled' })
+    await manager.observe(id)
+    expect(passive.recover).toHaveBeenCalledOnce()
+    expect(manager.read(id).events).toEqual(result.events)
+    await manager.stop()
+    const reopened = new ThreadManager(f.db, factory, vi.fn())
+    expect(reopened.read(id).events).toEqual(result.events)
+    await reopened.stop()
+  })
+  it('closes the adapter before awaiting an outstanding state query during shutdown', async () => {
+    const f = fixture(), id = f.create()
+    await f.manager.send(id, 'Pending state check')
+    let resolve!: (value: import('../../shared/types/thread').ThreadProviderObservation) => void
+    f.adapters[0].observe = () => new Promise(done => { resolve = done })
+    f.adapters[0].dispose = vi.fn(async () => { resolve({ state: 'unknown', source: 'unavailable', observedAt: Date.now(), detail: 'Closed' }) })
+    const query = f.manager.observe(id)
+    const rejected = expect(query).rejects.toThrow('shutting down')
+    await f.manager.stop()
+    await rejected
+    expect(f.adapters[0].dispose).toHaveBeenCalledOnce()
+  })
+  it('checks a saved turn after restart without creating an adapter or replaying input', async () => {
+    const f = fixture(), id = f.create()
+    await f.manager.send(id, 'Original input')
+    f.callbacks[0]({ type: 'turn-accepted', nativeTurnId: 'acknowledged-turn', at: Date.now() })
+    await f.manager.stop()
+    const passive = { observe: vi.fn(async () => ({ state: 'completed' as const, source: 'codex-app-server' as const, nativeTurnId: 'acknowledged-turn', observedAt: Date.now(), detail: 'Provider journal checked' })), stop: vi.fn(async () => {}) }
+    const factory = vi.fn(async () => { throw Error('Must not resume provider') })
+    const restarted = new ThreadManager(f.db, factory, vi.fn(), undefined, undefined, undefined, undefined, undefined, passive)
+    const before = restarted.read(id).events.length
+    expect((await restarted.observe(id)).state).toBe('completed')
+    expect(passive.observe).toHaveBeenCalledWith(expect.objectContaining({ nativeSessionId: 'native-1' }), 'acknowledged-turn')
+    expect(factory).not.toHaveBeenCalled()
+    expect(restarted.read(id).events).toHaveLength(before)
+    expect(restarted.read(id).turns?.at(-1)?.status).toBe('interrupted')
+    await restarted.stop()
+    expect(passive.stop).toHaveBeenCalledOnce()
+  })
+  it('crosses only a bounded number of empty native pages and preserves progress for the next request', async () => {
+    const nativeId = '11111111-1111-4111-8111-111111111111'
+    const read = vi.fn(async (_thread, _id, cursor?: { before: number }) => cursor
+      ? { events: [], truncated: true, cursor: { before: cursor.before - 10, size: 200, identity: 'fixture' } }
+      : { events: [], truncated: true, cursor: { before: 100, size: 200, identity: 'fixture' } })
+    const f = fixture(undefined, undefined, { read, open: vi.fn() } as unknown as ConstructorParameters<typeof ThreadManager>[5])
+    const result = await f.manager.command(f.create(), `/resume ${nativeId}`)
+    const page = await f.manager.historyPage(result.threadId!, 0)
+    expect(page).toMatchObject({ events: [], before: 0, hasMore: true })
+    expect(read).toHaveBeenCalledTimes(5)
+    expect(f.manager.read(result.threadId!).thread.nativeHistoryCursor?.before).toBe(60)
+    await f.manager.stop()
+  })
+  it('persists read-only provider observations without replaying or falsely completing an accepted turn', async () => {
+    const f = fixture(), id = f.create()
+    expect(await f.manager.observe(id)).toMatchObject({ state: 'unknown', source: 'unavailable' })
+    await f.manager.send(id, 'Continue')
+    f.callbacks[0]({ type: 'turn-accepted', nativeTurnId: 'native-turn', at: Date.now() })
+    expect(f.manager.read(id).turns?.at(-1)?.nativeId).toBe('native-turn')
+    let resolve!: (value: import('../../shared/types/thread').ThreadProviderObservation) => void
+    f.adapters[0].observe = vi.fn(() => new Promise(done => { resolve = done }))
+    const first = f.manager.observe(id), second = f.manager.observe(id)
+    resolve({ state: 'completed', source: 'codex-app-server', observedAt: 123, nativeTurnId: 'native-turn', detail: 'Confirmed by provider' })
+    expect(await first).toEqual(await second)
+    expect(f.adapters[0].observe).toHaveBeenCalledTimes(1)
+    expect(f.adapters[0].send).toHaveBeenCalledTimes(1)
+    expect(f.manager.read(id).thread.providerObservation?.state).toBe('completed')
+    expect(f.manager.read(id).turns?.at(-1)?.status).toBe('running')
+    expect(f.manager.read(id).events.some(event => event.type === 'turn-accepted')).toBe(false)
+    await f.manager.stop()
+  })
+  it('persists earlier native pages separately from live events and coalesces concurrent loads', async () => {
+    const nativeId = '11111111-1111-4111-8111-111111111111'
+    const read = vi.fn().mockResolvedValueOnce({ cursor: { before: 100, size: 200, identity: 'fixture' }, truncated: true,
+      events: [{ type: 'message', id: 'native:recent', role: 'assistant', text: 'Recent response' }] }).mockResolvedValue({
+      events: [{ type: 'message', id: 'native:earlier', role: 'user', text: 'Earlier question' }] })
+    const f = fixture(undefined, undefined, { read, open: vi.fn() } as unknown as ConstructorParameters<typeof ThreadManager>[5])
+    const imported = await f.manager.command(f.create(), `/resume ${nativeId}`)
+    const id = imported.threadId!
+    expect(f.manager.readForRenderer(id).page).toMatchObject({ before: 0, hasMore: true, total: 1 })
+    const [first, second] = await Promise.all([f.manager.historyPage(id, 0), f.manager.historyPage(id, 0)])
+    expect(first).toEqual(second)
+    expect(first).toMatchObject({ events: [{ text: 'Earlier question' }], hasMore: false, total: 2 })
+    expect(read).toHaveBeenCalledTimes(2)
+    expect(f.manager.readForRenderer(id).events).toMatchObject([{ text: 'Earlier question' }, { text: 'Recent response' }])
+    expect(f.manager.read(id).events).toHaveLength(1)
+    expect(f.manager.read(id).thread.nativeHistoryCursor).toBeUndefined()
+    await f.manager.stop()
+  })
+  it('does not treat local turn failure as a provider heartbeat and records transport closure', async () => {
+    const f = fixture(), id = f.create()
+    await f.manager.send(id, 'Continue')
+    const heartbeat = f.manager.read(id).thread.connection?.lastHeartbeatAt
+    f.callbacks[0]({ type: 'native-signal', at: 12345 })
+    f.callbacks[0]({ type: 'completed', status: 'failed', error: 'Transport closed' })
+    expect(f.manager.read(id).thread.connection).toMatchObject({ lastHeartbeatAt: heartbeat, lastNativeSignalAt: 12345 })
+    f.callbacks[0]({ type: 'connection-closed', at: 12346 })
+    expect(f.manager.read(id).thread.connection).toMatchObject({ state: 'closed', changedAt: 12346 })
+    expect(f.manager.read(id).events.some(event => event.type === 'connection-closed')).toBe(false)
+    await f.manager.stop()
+  })
   it('publishes an accepted message before slow repository baseline collection finishes', async () => {
     const f = fixture(), id = f.create()
     let releaseBaseline!: () => void
@@ -42,7 +247,7 @@ describe('thread persistence and ownership', () => {
     await sending
     await f.manager.stop()
   })
-  it('shows Codex command edits as observable file evidence without claiming native authorship', async () => {
+  it.each([false, true])('finalizes checkpoints and observable command edits without claiming native authorship (recovery=%s)', async recovery => {
     const root = mkdtempSync(join(tmpdir(), 'oxe-thread-diff-'))
     try {
       const git = (...args: string[]) => execFileSync('git', args, { cwd: root, stdio: 'ignore' })
@@ -52,12 +257,22 @@ describe('thread persistence and ownership', () => {
       writeFileSync(join(root, 'README.md'), 'Before\n')
       git('add', 'README.md')
       git('commit', '-qm', 'initial')
-      const f = fixture(), id = f.manager.create({ workspaceId: 'A', projectId: 'project-A', rootPath: root, provider: 'codex' }).thread.id
+      const terminal = { state: 'completed' as const, source: 'codex-app-server' as const, nativeTurnId: 'native-turn', observedAt: 123, detail: 'Confirmed' }
+      const reader = { observe: vi.fn(), recover: vi.fn(async () => ({ ...terminal, recoveredMessages: [] })), stop: vi.fn(async () => {}) }
+      const f = fixture(undefined, undefined, undefined, undefined, reader), id = f.manager.create({ workspaceId: 'A', projectId: 'project-A', rootPath: root, provider: 'codex' }).thread.id
       await f.manager.send(id, 'Update the documentation')
       writeFileSync(join(root, 'README.md'), 'After\n')
-      f.callbacks[0]({ type: 'completed', status: 'completed' })
+      if (recovery) {
+        f.callbacks[0]({ type: 'turn-accepted', nativeTurnId: 'native-turn', at: 1 })
+        f.manager.read(id).thread.queue = [{ id: 'next', text: 'Do not replay', createdAt: 1, state: 'queued' }]
+        f.adapters[0].observe = vi.fn(async () => terminal)
+        f.adapters[0].commitRecoveredTurn = vi.fn((_turn, _state, commit) => { commit(); return true })
+        await f.manager.observe(id)
+      } else f.callbacks[0]({ type: 'completed', status: 'completed' })
       await vi.waitFor(() => expect(f.manager.read(id).events.some(event => event.type === 'turn-diff' && event.id.startsWith('verified-diff:'))).toBe(true))
       expect(f.manager.read(id).events.find(event => event.type === 'turn-diff')).toMatchObject({ files: [{ path: 'README.md', source: 'working-tree-observation', authorship: 'indeterminate', additions: 1, deletions: 1, artifactId: expect.any(String) }] })
+      await vi.waitFor(async () => expect((await f.manager.command(id, '/checkpoint')).rows?.[0].detail).toContain('ready'))
+      expect(f.adapters[0].send).toHaveBeenCalledTimes(1)
       await f.manager.stop()
     } finally { rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }) }
   })
@@ -461,7 +676,8 @@ describe('thread persistence and ownership', () => {
     const stopped = f.manager.read(id)
     expect(stopped.thread.status).toBe('interrupted')
     expect(stopped.turns?.at(-1)).toMatchObject({ status: 'interrupted', completedAt: expect.any(Number) })
-    expect(stopped.events.find(event => event.type === 'tool')).toMatchObject({ state: 'failed', output: expect.stringContaining('OXESpace closed'), files: [{ state: 'failed' }] })
+    expect(stopped.events.find(event => event.type === 'tool')).toMatchObject({ state: 'unknown', output: expect.stringContaining('OXESpace closed'), files: [{ state: 'unknown' }] })
+    expect(stopped.thread.providerObservation).toMatchObject({ state: 'unknown', detail: expect.stringContaining('provider outcome remains unknown') })
     expect(stopped.events.find(event => event.type === 'request')).toMatchObject({ request: { state: 'cancelled' } })
     expect(stopped.thread.queue).toEqual([expect.objectContaining({ state: 'unknown', error: expect.stringContaining('could not be confirmed') })])
     expect(stopped.events.filter(event => event.type === 'completed' && event.status === 'interrupted')).toHaveLength(1)
@@ -561,11 +777,11 @@ describe('thread persistence and ownership', () => {
     expect(recovered.thread.status).toBe('interrupted')
     expect(recovered.thread.queue).toEqual([expect.objectContaining({ id: 'queued', state: 'unknown', error: expect.stringContaining('could not be confirmed') })])
     expect(recovered.turns?.at(-1)).toMatchObject({ status: 'interrupted', completedAt: expect.any(Number) })
-    expect(recovered.events.find(event => event.type === 'tool' && event.id === 'tool-running')).toMatchObject({ state: 'failed', completedAt: expect.any(Number), files: [{ state: 'failed' }] })
+    expect(recovered.events.find(event => event.type === 'tool' && event.id === 'tool-running')).toMatchObject({ state: 'unknown', completedAt: expect.any(Number), files: [{ state: 'unknown' }] })
     expect(recovered.events.find(event => event.type === 'subagent' && event.id === 'child-running')).toMatchObject({ state: 'interrupted', completedAt: expect.any(Number), agents: [{ status: 'interrupted' }] })
-    expect(recovered.events.find(event => event.type === 'turn-diff')).toMatchObject({ files: [{ state: 'failed' }] })
+    expect(recovered.events.find(event => event.type === 'turn-diff')).toMatchObject({ files: [{ state: 'unknown' }] })
     expect(recovered.events.find(event => event.type === 'request' && event.id === 'question')).toMatchObject({ request: { state: 'cancelled' } })
-    expect(recovered.events).toEqual(expect.arrayContaining([expect.objectContaining({ type: 'request-resolved', id: 'question', state: 'cancelled', resolution: 'interrupted' }), { type: 'approval-resolved', id: 'approval' }]))
+    expect(recovered.events).toEqual(expect.arrayContaining([expect.objectContaining({ type: 'request-resolved', id: 'question', state: 'cancelled', resolution: 'connection-lost' }), { type: 'approval-resolved', id: 'approval' }]))
     expect(recovered.events.at(-1)).toEqual({ type: 'completed', status: 'interrupted', error: 'OXESpace restarted before this turn completed.' })
     await restarted.deleteQueued(id, 'queued')
     expect(restarted.read(id).thread.queue).toEqual([])

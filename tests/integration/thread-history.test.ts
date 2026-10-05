@@ -15,6 +15,19 @@ function fixture() {
 }
 const patch = '--- a/file.ts\n+++ b/file.ts\n@@ -1,2 +1,2 @@\n-old\n+new\n context\n'
 describe('indexed Thread history', () => {
+  it('exports persisted earlier pages without changing the live journal and clears them explicitly on native replacement', () => {
+    const f = fixture()
+    f.history.read('thread')
+    const older = { type: 'message', id: 'older', role: 'user', text: 'Earlier native history' } as const
+    f.history.prependNative('thread', [older])
+    f.history.prependNative('thread', [older])
+    expect(f.history.readImported('thread').events).toEqual([older, ...f.snapshot.events])
+    expect(f.history.read('thread').events).toEqual(f.snapshot.events)
+    const reopened = new ThreadHistory(f.db)
+    expect(reopened.page('thread').events).toEqual([older, ...f.snapshot.events])
+    reopened.clearNativePages('thread')
+    expect(reopened.readImported('thread').events).toEqual(f.snapshot.events)
+  })
   it('imports legacy messages exactly once, without inventing execution times', () => {
     const f = fixture()
     expect(f.history.read('thread').events).toEqual(f.snapshot.events)

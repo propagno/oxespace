@@ -3,6 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { recordThreadVisualAudit } from './helpers/thread-visual-audit'
 
 test('Thread UI preserves Code terminals and renders a structured conversation', async () => {
   test.setTimeout(120000)
@@ -21,6 +22,13 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
   } })
   try {
     const page = await app.firstWindow()
+    if (process.env.OXESPACE_VISUAL_AUDIT_OUTPUT) {
+      const screenshot = page.screenshot.bind(page)
+      page.screenshot = async options => {
+        await recordThreadVisualAudit(page, String(options?.path ?? 'checkpoint'))
+        return screenshot(options)
+      }
+    }
     await app.evaluate(({ ipcMain, BrowserWindow }, fixtureRoot) => {
       let snapshot: Record<string, unknown> | null = null
       let sendCount = 0, manyThreads = false, archivedRestored = false
@@ -28,7 +36,18 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
       const changed = () => { for (const window of BrowserWindow.getAllWindows()) window.webContents.send('thread:changed', { threadId: 'e2e-thread' }) }
       ;(globalThis as Record<string, unknown>).setPartialHistoryFixture = () => { (snapshot!.thread as Record<string, unknown>).cliNotice = 'Showing the recent part of this native session. Its complete history remains available in the provider CLI.'; changed() }
       ;(globalThis as Record<string, unknown>).finishThreadFixture = () => { (snapshot!.thread as Record<string, unknown>).status = 'idle'; changed() }
-      for (const channel of ['commands', 'list', 'read', 'create', 'send', 'pin', 'projects', 'models', 'configure', 'command', 'artifact', 'project-diff']) ipcMain.removeHandler(`thread:${channel}`)
+      ;(globalThis as Record<string, unknown>).silenceThreadFixture = () => {
+        const time = Date.now() - 70000
+        Object.assign(snapshot!.thread as object, { status: 'running', provider: 'codex', connection: { state: 'connected', attempt: 0, changedAt: time, lastNativeSignalAt: time } })
+        snapshot!.turns = [{ id: 'silent-turn', nativeId: 'silent-native-turn', sequence: 1, startedAt: time, status: 'running', configuration: {} }]
+        changed()
+      }
+      for (const channel of ['commands', 'list', 'read', 'create', 'send', 'pin', 'projects', 'models', 'configure', 'command', 'artifact', 'project-diff', 'observe']) ipcMain.removeHandler(`thread:${channel}`)
+      ipcMain.handle('thread:observe', () => {
+        const observation = { state: 'unknown', observedAt: Date.now(), source: 'unavailable', detail: 'Provider outcome is unconfirmed. No message was resent.' }
+        ;(snapshot!.thread as Record<string, unknown>).providerObservation = observation
+        changed(); return observation
+      })
       ipcMain.removeHandler('git:get-status')
       ipcMain.handle('git:get-status', () => ({ branch: 'feature/thread', ahead: 1, behind: 0, checkedAt: Date.now(), files: [
         { path: 'README.md', staged: false, unstaged: true, untracked: false, conflicted: false, status: '.M' },
@@ -107,6 +126,16 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
           snapshot!.events = [{ type: 'message', id: 'long-command-user', role: 'user', text },
             { type: 'tool', id: 'long-command', name: 'Bash', state: 'unknown', detail: JSON.stringify({ command: `git log ${'very-long-path/'.repeat(95)}`, description: 'Inspect project history' }, null, 2) },
             { type: 'completed', status: 'completed' }]
+          changed(); return
+        }
+        if (text === 'Lost approval fixture') {
+          thread.status = 'interrupted'
+          snapshot!.events = [{ type: 'request', id: 'lost-approval', request: { id: 'lost-approval', nativeId: 'lost-approval', nativeMethod: 'item/commandExecution/requestApproval', kind: 'approval', title: 'Saved command approval', command: 'npm test -- ' + 'long-path/'.repeat(80), cwd: fixtureRoot, reason: 'Verify changes', generation: 1, createdAt: Date.now(), state: 'cancelled', resolution: 'connection-lost' } }]
+          changed(); return
+        }
+        if (text === 'Historical questions fixture') {
+          thread.status = 'idle'
+          snapshot!.events = [{ type: 'message', id: 'historical-questions', role: 'assistant', text: '', historicalQuestions: [{ title: 'Which branch?', options: ['Current branch', 'New isolated branch'] }, { title: 'Additional context?', options: null }] }, { type: 'completed', status: 'completed' }]
           changed(); return
         }
         if (text === 'Structured question fixture') {
@@ -579,6 +608,11 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await liveActivity.locator('details').evaluate((el: HTMLDetailsElement) => { el.open = true })
     await expect(liveActivity).toContainText('Checking project files.')
     await page.screenshot({ path: 'test-results/thread-reading.png' })
+    await app.evaluate(() => (globalThis as Record<string, () => void>).silenceThreadFixture())
+    await expect(liveActivity).toContainText('Execution outcome is not confirmed. Your message was not resent.')
+    await expect(liveActivity.getByRole('status').first()).toHaveText('Waiting for a confirmed provider update')
+    await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toHaveValue('Unsent draft')
+    await expect(page.getByRole('button', { name: 'Stop turn', exact: true })).toBeVisible()
     await page.getByRole('button', { name: /Latest messages/ }).click()
     await expect.poll(() => timeline.evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop)).toBeLessThanOrEqual(64)
     await page.screenshot({ path: 'test-results/thread-long-900.png' })
@@ -592,6 +626,12 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     const projects = page.getByRole('navigation', { name: 'Thread projects' })
     await expect(projects.locator('.thread-project-rows .thread-navigation-row')).toHaveCount(71)
     await page.screenshot({ path: 'test-results/thread-project-history.png' })
+    await page.getByRole('button', { name: 'Compact thread list', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'Compact thread list', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    expect(await projects.locator('.thread-navigation-item').first().evaluate(el => el.getBoundingClientRect().height)).toBeLessThanOrEqual(40)
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('oxe.navigation')!).state.threadDensity)).toBe('compact')
+    await page.screenshot({ path: 'test-results/thread-project-history-compact.png' })
+    await page.getByRole('button', { name: 'Compact thread list', exact: true }).click()
     await projects.hover()
     await page.mouse.wheel(0, 900)
     await expect.poll(() => projects.evaluate(el => el.scrollTop)).toBeGreaterThan(100)
@@ -802,6 +842,10 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     expect(commandBounds.scroll).toBeLessThanOrEqual(commandBounds.width + 1)
     await longCommand.getByRole('button', { name: 'Open session diagnostics' }).click()
     await expect(page.getByRole('complementary', { name: 'Thread workbench' })).toBeVisible()
+    await page.getByRole('button', { name: 'Check provider state', exact: true }).click()
+    await expect(page.getByText('Provider: unknown', { exact: true })).toBeVisible()
+    await expect(page.getByText('Provider outcome is unconfirmed. No message was resent.', { exact: true })).toBeVisible()
+    await page.screenshot({ path: 'test-results/thread-provider-observation.png' })
     await page.getByRole('button', { name: 'Close review panel' }).click()
     await app.evaluate(() => ((globalThis as Record<string, unknown>).setPartialHistoryFixture as () => void)())
     await expect(page.getByText(/You can continue this conversation here/)).toBeVisible()
@@ -818,6 +862,23 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.getByRole('button', { name: 'Decline', exact: true }).click()
     await expect(page.getByText('Declined by you')).toBeVisible()
     await page.screenshot({ path: 'test-results/thread-question-declined.png' })
+    await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Lost approval fixture'))
+    await expect(page.getByText(/Connection closed; response not confirmed/)).toBeVisible()
+    const savedApproval = page.locator('.thread-request-history')
+    await savedApproval.locator('summary').click()
+    await expect(savedApproval.getByText(/No permission was inferred or resent/)).toBeVisible()
+    await expect(savedApproval.locator('button, input')).toHaveCount(0)
+    expect(await savedApproval.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
+    await page.screenshot({ path: 'test-results/thread-lost-approval.png' })
+    await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Historical questions fixture'))
+    const historicalQuestions = page.getByRole('complementary', { name: 'Recovered questions' })
+    await expect(historicalQuestions).toBeVisible()
+    await expect(historicalQuestions).toContainText('Answer not confirmed')
+    await expect(historicalQuestions).toContainText('Additional context?')
+    await expect(historicalQuestions.getByRole('listitem')).toHaveCount(2)
+    await expect(historicalQuestions.locator('button, input')).toHaveCount(0)
+    expect(await historicalQuestions.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
+    await page.screenshot({ path: 'test-results/thread-historical-questions.png' })
     await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Prose choices fixture'))
     const suggestions = page.getByLabel('Suggested replies')
     await expect(suggestions.getByRole('button', { name: 'A (Recomendado)' })).toBeVisible()
@@ -832,6 +893,19 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await archived.getByRole('button', { name: 'Restore Archived agent work' }).click()
     await expect(page.locator('.thread-heading h1')).toHaveText('Archived agent work')
     await expect(page.getByRole('region', { name: 'Archived conversations' })).toHaveCount(0)
+    if (process.env.OXESPACE_VISUAL_AUDIT_OUTPUT) {
+      await page.setViewportSize({ width: 900, height: 600 })
+      await page.getByRole('button', { name: 'Settings for repo', exact: true }).click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+      await page.screenshot({ path: 'test-results/thread-project-settings-audit.png' })
+      for (let index = 0; index < 15; index++) {
+        await page.keyboard.press('Tab')
+        expect(await page.evaluate(() => Boolean(document.activeElement?.closest('[role="dialog"]')))).toBe(true)
+      }
+      await page.keyboard.press('Escape')
+      await expect(page.getByRole('dialog')).toHaveCount(0)
+      await expect(page.getByRole('button', { name: 'Settings for repo', exact: true })).toBeFocused()
+    }
   } finally {
     await app.close()
     await new Promise<void>(resolve => previewServer.close(() => resolve()))

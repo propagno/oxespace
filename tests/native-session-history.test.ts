@@ -77,11 +77,37 @@ describe('native session history import', () => {
       ...Array.from({ length: 1200 }, (_, index) => JSON.stringify({ type: 'user', uuid: `message-${index}`, sessionId: id, cwd: thread.rootPath, message: { content: `Question ${index}` } }))
     ]
     await writeFile(join(folder, `${id}.jsonl`), entries.join('\n'))
-    const history = await new NativeSessionReader(() => 'unused', { claudeHome: join(root, 'claude') }).read(thread, id)
+    const reader = new NativeSessionReader(() => 'unused', { claudeHome: join(root, 'claude') })
+    const history = await reader.read(thread, id)
     expect(history.truncated).toBe(true)
     expect(history.events.length).toBe(1000)
     expect(history.events.at(-1)).toMatchObject({ text: 'Question 1199' })
     expect(JSON.stringify(history)).not.toContain('Question 0')
+    const earlier = await reader.read(thread, id, history.cursor)
+    expect(earlier.events).toHaveLength(200)
+    expect(earlier.events[0]).toMatchObject({ text: 'Question 0' })
+    expect(earlier.cursor).toBeUndefined()
+  })
+  it('paginates Claude ancestry across metadata pages, excluding abandoned branches after reopening the reader', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'oxe-native-history-')); roots.push(root)
+    const thread = { provider: 'claude', rootPath: join(root, 'repo') } as ConversationThread
+    const folder = join(root, 'claude', 'projects', thread.rootPath.replace(/[^a-zA-Z0-9]/g, '-'))
+    await mkdir(folder, { recursive: true })
+    const entry = (uuid: string, parentUuid: string | null, text?: string) => JSON.stringify({ type: text ? 'user' : 'progress', uuid, parentUuid, sessionId: id, cwd: thread.rootPath, ...(text ? { message: { content: text } } : {}) })
+    const lines = [entry('root', null, 'Original question'), entry('abandoned', 'root', 'Abandoned answer')]
+    for (let index = 0; index < 26000; index++) lines.push(entry(`progress-${index}`, index ? `progress-${index - 1}` : 'root'))
+    lines.push(entry('latest', 'progress-25999', 'Current branch'))
+    await writeFile(join(folder, `${id}.jsonl`), lines.join('\n'))
+    let cursor: import('../electron/main/services/conversation/native-history-page').NativeHistoryCursor | undefined
+    let events: import('../shared/types/thread').ThreadEvent[] = [], pages = 0
+    do {
+      const reader = new NativeSessionReader(() => 'unused', { claudeHome: join(root, 'claude') })
+      const page = await reader.read(thread, id, cursor)
+      events = [...page.events, ...events]; cursor = page.cursor
+      expect(++pages).toBeLessThan(40)
+    } while (cursor)
+    expect(events).toMatchObject([{ text: 'Original question' }, { text: 'Current branch' }])
+    expect(pages).toBeGreaterThan(20)
   })
   it('reads a large Codex rollout locally without sending it through the RPC size limit', async () => {
     const root = await mkdtemp(join(tmpdir(), 'oxe-native-history-')); roots.push(root)
@@ -91,8 +117,9 @@ describe('native session history import', () => {
     const entries = [
       JSON.stringify({ type: 'session_meta', payload: { id, cwd: process.platform === 'win32' ? '\\\\?\\' + thread.rootPath : thread.rootPath } }),
       JSON.stringify({ type: 'response_item', payload: { type: 'message', role: 'developer', content: [{ type: 'input_text', text: 'private instructions' }] } }),
+      JSON.stringify({ type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'Earlier outside the initial window' }] } }),
       JSON.stringify({ type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: '<environment_context><current_date>2026-09-24</current_date><root>private path</root></environment_context>' }] } }),
-      JSON.stringify({ type: 'response_item', payload: { type: 'function_call_output', content: 'private tool output'.repeat(180_000) } }),
+      JSON.stringify({ type: 'response_item', payload: { type: 'function_call_output', content: 'private tool output'.repeat(700_000) } }),
       ...Array.from({ length: 1200 }, (_, index) => JSON.stringify({ type: 'response_item', payload: { type: 'message', role: index % 2 ? 'assistant' : 'user', id: `msg-${index}`, content: [{ type: index % 2 ? 'output_text' : 'input_text', text: `Public ${index}` }] } }))
     ]
     await writeFile(join(folder, `rollout-2026-09-24T12-00-00-${id}.jsonl`), entries.join('\n'))
@@ -102,7 +129,8 @@ describe('native session history import', () => {
     expect(history.events).toHaveLength(1000)
     expect(history.events.at(-1)).toMatchObject({ role: 'assistant', text: 'Public 1199' })
     expect(JSON.stringify(history)).not.toContain('private')
-    expect(history.title).toBe('Public 0')
+    expect(history.title).toBe('Public 200')
+    expect(JSON.stringify(history)).not.toContain('Earlier outside the initial window')
     await expect(reader.read({ ...thread, rootPath: join(root, 'other') }, id)).rejects.toThrow('different project')
   })
 })

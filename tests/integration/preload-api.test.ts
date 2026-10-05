@@ -3,6 +3,12 @@ import { IPC_CHANNELS } from '../../shared/types/ipc'
 import { createOxeApi, type PreloadIpc } from '../../electron/preload/api'
 
 describe('preload api', () => {
+  test('checks provider state through a dedicated read-only IPC method', async () => {
+    const ipc = createFakeIpc(), api = createOxeApi(ipc)
+    await api.thread!.observe!('thread-A')
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.thread.observe, 'thread-A')
+    expect(ipc.invoke).toHaveBeenCalledTimes(1)
+  })
   test('exposes explicit command refresh without launching a Thread or Code terminal', async () => {
     const ipc = createFakeIpc(), api = createOxeApi(ipc)
     await api.thread!.commands('thread-A', true)
