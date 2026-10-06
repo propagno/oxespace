@@ -10,6 +10,7 @@ import { PtyOutputBatcher } from '../pty-output-batcher'
 import { PtyRingBuffer } from '../pty-ring-buffer'
 import { PtyModeTracker } from '../pty-mode-tracker'
 import { NativeSessionReader } from './native-session-history'
+import { recordRuntime } from '../runtime-diagnostics'
 
 export interface NativeCliSession {
   state(): ThreadCliState
@@ -56,6 +57,7 @@ export class ThreadNativeCli {
       env: { ...resolved.env, TERM: 'xterm-256color', COLORTERM: 'truecolor', COLORFGBG: '15;0' }
     })
     const queue = new PtyInputQueue(pty), ring = new PtyRingBuffer(), modes = new PtyModeTracker()
+    recordRuntime('process-start', { thread: thread.id, pid: pty.pid, parentPid: process.pid, executable: resolved.executable, kind: 'thread' })
     let running = true, attached = false, pendingCommand = command, closing: Promise<void> | undefined, finishing: Promise<void> | undefined
     let cols = 100, rows = 28, linked = false
     // Only a bounded, ephemeral suffix is inspected for the explicit resume ID.
@@ -75,6 +77,7 @@ export class ThreadNativeCli {
     })
     const finish = (exitCode: number | null): Promise<void> => {
       if (finishing) return finishing
+      recordRuntime('process-exit', { thread: thread.id, pid: pty.pid, exitCode: exitCode ?? undefined })
       running = false; batcher.flush(); queue.dispose(); suffix = ''
       return finishing = ended(nativeSessionId, exitCode !== 0).catch(() => {}).then(() => this.options.exit({ paneId: thread.id, exitCode }))
     }
@@ -99,6 +102,7 @@ export class ThreadNativeCli {
       },
       linkSession: async id => { await this.read(thread, id); nativeSessionId = id; linked = true },
       close: () => closing ??= (async () => {
+        recordRuntime('process-stop', { thread: thread.id, pid: pty.pid })
         if (running) {
           // Let the provider flush its own session before closing ConPTY.
           try { pty.write('\x03') } catch { /* exit */ }

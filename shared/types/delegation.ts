@@ -51,6 +51,9 @@ export interface KnowledgeTransferSource {
   label: string
   sha256: string
   bytes: number
+  /** Size of the redacted source before the delivery budget was applied. */
+  availableBytes?: number
+  truncated?: boolean
 }
 
 export interface KnowledgeTransferBundle {

@@ -13,6 +13,13 @@ function fixture(): ThreadSnapshot {
 }
 
 describe('live Thread activity', () => {
+  it('does not mistake earlier assistant text for current output and summarizes structured commands', () => {
+    const snapshot = fixture()
+    snapshot.events.push({ type: 'message', id: 'comment', role: 'assistant', text: 'I will inspect' }, { type: 'activity', id: 'think', phase: 'reasoning', at: 2000 })
+    expect(deriveThreadLiveActivity(snapshot, 3000)?.label).toBe('Analyzing request')
+    snapshot.events.push({ type: 'tool', id: 'shell', name: 'Bash', state: 'running', detail: JSON.stringify({ command: 'npm test' }, null, 2) })
+    expect(deriveThreadLiveActivity(snapshot, 3000)?.label).toBe('Running command: npm test')
+  })
   it('reports the observed phase and does not mistake a long silent turn for confirmed failure', () => {
     const snapshot = fixture()
     expect(deriveThreadLiveActivity(snapshot, 10_000)).toMatchObject({ label: 'Preparing project context', elapsed: '9s', stale: false })

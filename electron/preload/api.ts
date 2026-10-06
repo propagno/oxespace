@@ -107,6 +107,17 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
         return () => ipc.removeListener(IPC_CHANNELS.thread.changed, handler)
       }
     },
+    team: {
+      delivery: (scope, revision, id, enabled) => ipc.invoke(IPC_CHANNELS.team.command, scope, enabled ? 'delivery-on' : 'delivery-off', revision, id) as Promise<import('../../shared/types/team').AgentTeam>,
+      messages: (scope, id, before) => ipc.invoke(IPC_CHANNELS.team.messages, scope, id, before) as Promise<import('../../shared/types/team').TeamMessage[]>,
+      send: (scope, id, key, body) => ipc.invoke(IPC_CHANNELS.team.send, scope, id, key, body) as Promise<import('../../shared/types/team').TeamMessage>,
+      connect: (scope, revision, id, owner) => ipc.invoke(IPC_CHANNELS.team.command, scope, 'connect', revision, id, undefined, owner) as Promise<import('../../shared/types/team').AgentTeam>,
+      disconnect: (scope, revision, id) => ipc.invoke(IPC_CHANNELS.team.command, scope, 'disconnect', revision, id) as Promise<import('../../shared/types/team').AgentTeam>,
+      read: scope => ipc.invoke(IPC_CHANNELS.team.command, scope, 'read') as Promise<import('../../shared/types/team').AgentTeam>,
+      add: (scope, revision, name, role) => ipc.invoke(IPC_CHANNELS.team.command, scope, 'add', revision, name, role) as Promise<import('../../shared/types/team').AgentTeam>,
+      coordinator: (scope, revision, id) => ipc.invoke(IPC_CHANNELS.team.command, scope, 'coordinator', revision, id) as Promise<import('../../shared/types/team').AgentTeam>,
+      archive: (scope, revision, id) => ipc.invoke(IPC_CHANNELS.team.command, scope, 'archive', revision, id) as Promise<import('../../shared/types/team').AgentTeam>
+    },
     delegation: {
       create: (ws, origin, input) => ipc.invoke(IPC_CHANNELS.delegation.create, ws, origin, input) as ReturnType<OxeApi['delegation']['create']>,
       configureTarget: (ws, path, enabled, evidence) => ipc.invoke(IPC_CHANNELS.delegation.configureTarget, ws, path, enabled, evidence) as Promise<void>,

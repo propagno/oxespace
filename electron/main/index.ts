@@ -1,5 +1,6 @@
 import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, session, shell } from 'electron'
 import log from 'electron-log/main.js'
+import { recordRuntime, startRuntimeDiagnostics, stopRuntimeDiagnostics } from './services/runtime-diagnostics'
 import { initAutoUpdater, registerAppUpdateIpc } from './updater'
 import { randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
@@ -47,6 +48,9 @@ import { IPC_CHANNELS } from '../../shared/types/ipc'
 import type { ShellProfile } from '../../shared/types/workspace'
 
 log.initialize()
+log.transports.file.maxSize = 512 * 1024
+// File logging already retains the diagnostic; do not duplicate it into Linux syslog.
+log.transports.console.level = false
 
 // Local crash capture: writes minidumps to <userData>/Crashpad on a renderer/GPU/
 // main crash. uploadToServer:false keeps them on-device (privacy) — a future
@@ -311,9 +315,17 @@ async function registerIpcHandlers(): Promise<() => void> {
   })
   delegatedThreadObserver.current = thread => delegationService.observeThread(thread)
   registerDelegationIpc(delegationService)
+  const { registerTeamIpc } = await import('./ipc/team.ipc')
+  const { TeamAccess } = await import('./services/coordination/team-access')
+  const teamAccess = new TeamAccess(db, executions)
+  const { TeamDelivery } = await import('./services/coordination/team-delivery')
+  const teamDelivery = new TeamDelivery(db, teamAccess, { read: async id => (await threadManager.manager).read(id), send: async (id, text) => (await threadManager.manager).send(id, text) })
+  teamDelivery.start()
+  app.on('before-quit', () => teamDelivery.stop())
+  registerTeamIpc(db, teamAccess)
 
   const internalMcp: InternalMcpHandle = createInternalMcpHandle({
-    delegation: delegationService, executions,
+    delegation: delegationService, executions, team: teamAccess,
     delegationAgents: () => delegationAgents.list().filter(p => ['claude','codex'].includes(p.parentProvider ?? p.provider)).map(p => {
       try { launcher.resolve(p.agentProfileId); return { agentProfileId: p.agentProfileId, name: p.name, supported: true } }
       catch (e) { return { agentProfileId: p.agentProfileId, name: p.name, supported: false, reason: String(e) } }
@@ -701,6 +713,7 @@ function createMainWindow(): BrowserWindow {
     if (isDev) console.error('[OXESpace] Renderer failed to load', { errorCode, errorDescription, validatedURL })
   })
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    recordRuntime('renderer-gone', { kind: 'Renderer', state: details.reason, exitCode: details.exitCode })
     log.error('Renderer process gone', details)
     if (isDev) console.error('[OXESpace] Renderer process gone', details)
   })
@@ -731,6 +744,11 @@ const gotLock = process.env.OXESPACE_DISABLE_SINGLE_INSTANCE === '1' || app.requ
 if (!gotLock) {
   app.quit()
 } else {
+  startRuntimeDiagnostics(join(app.getPath('userData'), 'diagnostics'), app.getVersion())
+  app.on('child-process-gone', (_event, details) => {
+    recordRuntime('child-gone', { kind: details.type, state: details.reason, exitCode: details.exitCode })
+  })
+  app.once('will-quit', stopRuntimeDiagnostics)
   app.whenReady().then(async () => {
     // Awaited so every handler is registered before the renderer can invoke
     // one. In the normal path this costs a microtask; only the E2E mock path

@@ -3,10 +3,10 @@ import { bindThreadMcp, threadMcpArguments } from '../electron/main/services/con
 import type { AgentConversationAdapter } from '../shared/types/thread'
 
 it('adds the OXESpace bridge while preserving Claude CLI MCP inheritance and permissions', () => {
-  const args = threadMcpArguments('claude', ['--tools', 'Read,Glob,Grep,Skill', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}', '--settings', '{"disableAllHooks":true}'], '/bridge.cjs')
+  const args = threadMcpArguments('claude', ['--tools', 'default', '--settings', '{"disableAllHooks":true}'], '/bridge.cjs')
   expect(args.filter(arg => arg === '--mcp-config')).toHaveLength(1)
   expect(args).not.toContain('--strict-mcp-config')
-  expect(args.slice(0, 4)).toEqual(['--tools', 'Read,Glob,Grep,Skill', '--settings', '{"disableAllHooks":true}'])
+  expect(args.slice(0, 4)).toEqual(['--tools', 'default', '--settings', '{"disableAllHooks":true}'])
   const server = JSON.parse(args.at(-1)!).mcpServers['oxespace-delegation']
   expect(server.args[0]).toBe('/bridge.cjs')
   expect(JSON.parse(server.args[2])).toContain('oxespace_memory_search')
@@ -29,4 +29,9 @@ it('releases a Thread memory lease even if provider cleanup fails, and only once
   await expect(adapter.dispose()).rejects.toThrow('Process already closed')
   await expect(adapter.dispose()).rejects.toThrow('Process already closed')
   expect(end).toHaveBeenCalledTimes(1)
+})
+
+it('preserves an explicitly restricted MCP configuration without injecting the bridge', () => {
+  const args = ['--tools', 'Read,Glob,Grep,AskUserQuestion', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}']
+  expect(threadMcpArguments('claude', args, '/bridge.cjs')).toEqual(args)
 })

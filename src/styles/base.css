@@ -35,7 +35,8 @@ body {
   grid-column: 1 / -1;
   grid-row: 1;
   display: grid;
-  grid-template-columns: minmax(130px, 1fr) minmax(0, 600px) minmax(130px, 1fr);
+  grid-template-columns: minmax(100px, 1fr) minmax(0, 600px) max-content;
+  column-gap: 12px;
   align-items: center;
   min-width: 0;
   padding: 0 12px;
@@ -49,7 +50,7 @@ body {
 .workbench-titlebar-context { display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; height: 25px; padding: 0 12px; border: 1px solid var(--wb-border); border-radius: var(--nav-radius); background: var(--wb-canvas); }
 .workbench-titlebar-context strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; color: var(--tx-primary); }
 .workbench-titlebar-separator, .workbench-titlebar-version { color: var(--tx-muted); }
-.workbench-titlebar-version { justify-self: end; }
+.workbench-titlebar-version { justify-self: end; white-space: nowrap; }
 .workbench-titlebar-trailing { display: flex; align-items: center; justify-self: end; gap: 10px; }
 .app-update-indicator { position: relative; }
 .app-update-trigger { display: grid; place-items: center; position: relative; width: 28px; height: 28px; padding: 0; border: 1px solid var(--wb-border); border-radius: var(--nav-radius); background: var(--wb-canvas); color: var(--accent); cursor: pointer; }

@@ -33,7 +33,7 @@ describe('Thread fault corpus', () => {
       expect.objectContaining({ type: 'tool', state: 'unknown', completedAt: 99 }),
       expect.objectContaining({ type: 'request-resolved', id: 'request', state: 'cancelled' }),
       expect.objectContaining({ type: 'approval-resolved', id: 'approval' }),
-      expect.objectContaining({ type: 'subagent', state: 'interrupted', completedAt: 99 }),
+      expect.objectContaining({ type: 'subagent', state: 'unknown', completedAt: 99 }),
       expect.objectContaining({ type: 'completed', status: 'interrupted' })
     ]))
     const diff = snapshot.events.find(event => event.type === 'turn-diff')

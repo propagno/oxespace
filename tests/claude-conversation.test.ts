@@ -7,7 +7,7 @@ function fixture() {
   const adapter = new ClaudeConversationAdapter(args => {
     const turn = { args, data: (_chunk: Uint8Array) => {}, close: () => {}, input: '', writes: [] as unknown[], ended: false }
     turns.push(turn)
-    return { write: text => { const message = JSON.parse(text); turn.writes.push(message); if (message.type === 'user') turn.input = message.message.content }, endInput: () => { turn.ended = true },
+    return { write: text => { const message = JSON.parse(text); turn.writes.push(message); if (message.type === 'control_request' && message.request_id === 'initialize') turn.data(Buffer.from(JSON.stringify({ type: 'control_response', response: { request_id: 'initialize', subtype: 'success', response: {} } }) + '\n')); if (message.type === 'user') turn.input = message.message.content }, endInput: () => { turn.ended = true },
       onData: callback => { turn.data = callback }, onClose: callback => { turn.close = callback }, close: vi.fn(async () => turn.close()) }
   })
   const events: ThreadEvent[] = []
@@ -16,6 +16,68 @@ function fixture() {
 }
 
 describe('Claude print conversation', () => {
+  it('settles a task from patch.status even without a completion notification', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: 'native' }, event => f.events.push(event))
+    await f.adapter.send('Inspect')
+    f.emit(0, { type: 'system', subtype: 'task_started', task_id: 'shell', task_type: 'local_bash', uuid: 'start' })
+    f.emit(0, { type: 'result', subtype: 'success', uuid: 'result' })
+    const result = { type: 'system', subtype: 'task_updated', task_id: 'shell', patch: { status: 'killed' }, uuid: 'updated' }
+    f.emit(0, result); f.emit(0, result)
+    expect(f.events.filter(event => event.type === 'subagent')).toHaveLength(2)
+    expect(f.events.at(-1)).toMatchObject({ type: 'subagent', state: 'interrupted' })
+    await f.adapter.dispose()
+  })
+
+  it('maps generated question IDs to original text, preserves option values and requires all answers', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: 'native', access: 'workspace-write' }, event => f.events.push(event))
+    await f.adapter.send('Refine')
+    const questions = [{ question: 'Which database?', options: [{ label: 'Postgres' }, { label: 'SQLite' }] }, { question: 'Which features?', multiSelect: true, options: [{ label: 'Search' }, { label: 'Export' }] }]
+    f.emit(0, { type: 'control_request', request_id: 'q', request: { subtype: 'can_use_tool', tool_name: 'AskUserQuestion', input: { questions } } })
+    const request = f.events.find(event => event.type === 'request')
+    if (request?.type !== 'request') throw Error('Expected question request')
+    const [first, second] = request.request.questions!
+    await expect(f.adapter.respondRequest('q', { answers: { [first.id]: ['Custom DB'] } })).rejects.toThrow('every question')
+    await f.adapter.respondRequest('q', { answers: { [first.id]: ['Custom DB'], [second.id]: ['Search', 'Export'] } })
+    expect(f.turns[0].writes.at(-1)).toMatchObject({ response: { response: { updatedInput: { questions, answers: { 'Which database?': 'Custom DB', 'Which features?': ['Search', 'Export'] } } } } })
+    await expect(f.adapter.respondRequest('q', { answers: {} })).rejects.toThrow('no longer pending')
+    await f.adapter.dispose()
+  })
+  it('receives two background returns after result and a native continuation without another user send', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: 'native', access: 'workspace-write' }, event => f.events.push(event))
+    await f.adapter.send('Delegate')
+    for (const task_id of ['A', 'B']) f.emit(0, { type: 'system', subtype: 'task_started', task_id, description: `Inspect ${task_id}` })
+    f.emit(0, { type: 'result', subtype: 'success' })
+    f.emit(0, { type: 'system', subtype: 'task_notification', task_id: 'A', status: 'completed', summary: 'A findings' })
+    f.emit(0, { type: 'system', subtype: 'task_notification', task_id: 'B', status: 'failed', summary: 'B unavailable' })
+    const before = f.events.length
+    f.emit(0, { type: 'system', subtype: 'task_progress', task_id: 'A' })
+    expect(f.events).toHaveLength(before)
+    f.emit(0, { type: 'assistant', message: { id: 'follow-up', content: [{ type: 'text', text: 'Consolidated findings' }] } })
+    await expect(f.adapter.send('Another request')).rejects.toThrow('already running')
+    f.emit(0, { type: 'result', subtype: 'success' })
+    expect(f.events.filter(event => event.type === 'completed')).toHaveLength(2)
+    expect(f.events).toContainEqual(expect.objectContaining({ type: 'continuation-started' }))
+    expect(f.events).toContainEqual(expect.objectContaining({ type: 'subagent', state: 'completed', agents: [{ threadId: 'A', status: 'completed', message: 'A findings' }] }))
+    expect(f.events).toContainEqual(expect.objectContaining({ type: 'subagent', state: 'failed' }))
+    expect(f.turns[0].writes.filter((value) => (value as { type?: string }).type === 'user')).toHaveLength(1)
+    await f.adapter.dispose()
+  })
+  it('keeps a partial protocol line across user turns and marks running tasks unknown when disconnected', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: 'native' }, event => f.events.push(event))
+    await f.adapter.send('Start')
+    f.emit(0, { type: 'result', subtype: 'success' })
+    f.turns[0].data(Buffer.from('{"type":"system","subtype":"task_'))
+    await f.adapter.send('Continue')
+    f.turns[0].data(Buffer.from('started","task_id":"A"}\n'))
+    expect(f.events).toContainEqual(expect.objectContaining({ type: 'subagent', state: 'running' }))
+    f.turns[0].close()
+    expect(f.events).toContainEqual(expect.objectContaining({ type: 'subagent', state: 'unknown' }))
+    await f.adapter.dispose()
+  })
   it('shows native thinking activity from partial messages without exposing thinking text', async () => {
     const f = fixture()
     await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
@@ -63,7 +125,7 @@ describe('Claude print conversation', () => {
     f.emit(0, { type: 'result', subtype: 'success', session_id: 'saved' })
     await f.adapter.configure({ model: 'sonnet', reasoningEffort: 'low', access: 'read-only' })
     await f.adapter.send('Continue')
-    expect(f.turns[1].args).toEqual(expect.arrayContaining(['--permission-prompts', 'host', '--tools', 'default', '--effort', 'low', '--resume', 'saved']))
+    expect(f.turns[1].args).toEqual(expect.arrayContaining(['--permission-prompts', 'host', '--tools', 'Read,Glob,Grep,AskUserQuestion', '--effort', 'low', '--resume', 'saved']))
     await f.adapter.dispose()
   })
   it('discovers a visual model picker without sending /model as a user prompt or resuming a discovery session', async () => {
@@ -129,7 +191,7 @@ describe('Claude print conversation', () => {
     await f.adapter.send('Investigate')
     await f.adapter.interrupt()
     f.emit(0, { type: 'result', subtype: 'success' })
-    expect(f.events).toEqual([{ type: 'completed', status: 'interrupted' }])
+    expect(f.events.filter(event => event.type !== 'native-signal')).toEqual([{ type: 'completed', status: 'interrupted' }])
     await f.adapter.dispose()
   })
   it('handles unavailable authentication without persisting provider secrets', async () => {
@@ -152,7 +214,7 @@ describe('Claude print conversation', () => {
     f.emit(0, { type: 'control_request', request_id: 'question', request: { subtype: 'can_use_tool', tool_name: 'AskUserQuestion', input: { questions: [{ id: 'choice', question: 'Proceed?', options: [{ label: 'Yes' }] }] } } })
     expect(f.events.at(-1)).toMatchObject({ type: 'request', request: { kind: 'question', questions: [{ id: 'choice', question: 'Proceed?' }] } })
     await f.adapter.respondRequest!('question', { answers: { choice: ['Yes'] } })
-    expect(f.turns[0].writes.at(-1)).toMatchObject({ type: 'control_response', response: { request_id: 'question', response: { behavior: 'allow', updatedInput: { answers: { choice: 'Yes' } } } } })
+    expect(f.turns[0].writes.at(-1)).toMatchObject({ type: 'control_response', response: { request_id: 'question', response: { behavior: 'allow', updatedInput: { answers: { 'Proceed?': 'Yes' } } } } })
     expect(f.events).toContainEqual(expect.objectContaining({ type: 'request-resolved', id: 'question', resolution: 'answered' }))
     f.emit(0, { type: 'control_request', request_id: 'question-2', request: { subtype: 'can_use_tool', tool_name: 'AskUserQuestion', input: { questions: [{ id: 'choice', question: 'Proceed?' }] } } })
     await f.adapter.respondRequest!('question-2', { decision: 'decline' })

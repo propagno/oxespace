@@ -1,5 +1,4 @@
 import { app, BrowserWindow, dialog, ipcMain } from 'electron'
-import log from 'electron-log/main.js'
 import { writeFile } from 'node:fs/promises'
 import type { AppDatabase } from '../db'
 import type { InternalMcpHandle } from '../mcp-internal/bootstrap'
@@ -21,8 +20,7 @@ export function registerDiagnosticsIpc(
     }
     const result = owner ? await dialog.showSaveDialog(owner, options) : await dialog.showSaveDialog(options)
     if (result.canceled || !result.filePath) return null
-    const logPath = log.transports.file.getFile().path
-    await writeFile(result.filePath, service.buildSanitizedReport(logPath), 'utf8')
+    await writeFile(result.filePath, service.buildSanitizedReport(), { encoding: 'utf8', mode: 0o600 })
     return result.filePath
   })
   return service

@@ -52,6 +52,7 @@ interface InternalMcpMetaRow {
 
 export interface InternalMcpDeps {
   delegation?: import('../services/delegation.service').DelegationService
+  team?: import('../services/coordination/team-access').TeamAccess
   executions?: import('../services/execution-registry').ExecutionRegistry
   delegationAgents?: () => unknown
   memory?: import('../services/memory/memory.service').MemoryService
@@ -85,7 +86,7 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
   const worktree = new WorktreeEventBus()
   const rpc: LocalRpcServer = createLocalRpcServer({
     documentation: () => documentation ??= import('../services/documentation/runtime').then(module => module.createDocumentationRuntime(deps.db, join(app.getPath('userData'), 'documentation'))).catch(error => { documentation = undefined; throw error }),
-    delegation: deps.delegation, executions: deps.executions, delegationAgents: deps.delegationAgents,
+    delegation: deps.delegation, executions: deps.executions, delegationAgents: deps.delegationAgents, team: deps.team,
     memory: deps.memory,
     workspaceServ: deps.workspaceServ,
     github: deps.github,

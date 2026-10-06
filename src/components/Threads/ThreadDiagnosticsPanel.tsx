@@ -14,6 +14,9 @@ export function ThreadDiagnosticsPanel({ snapshot }: { snapshot: ThreadSnapshot 
     workspaceId: snapshot.thread.workspaceId,
     projectId: snapshot.thread.projectId,
     provider: snapshot.thread.provider,
+    providerVersion: snapshot.thread.capabilities?.providerVersion ?? 'Not observed',
+    protocolVersion: snapshot.thread.capabilities?.protocolVersion ?? 'Not observed',
+    platform: snapshot.thread.capabilities?.platform ?? 'Not observed',
     nativeSessionId: snapshot.thread.nativeSessionId,
     directory: snapshot.thread.rootPath,
     generation: snapshot.thread.generation ?? 1,
@@ -26,11 +29,13 @@ export function ThreadDiagnosticsPanel({ snapshot }: { snapshot: ThreadSnapshot 
       approvals: snapshot.thread.approvalPolicy ?? 'on-request', mode: snapshot.thread.mode ?? 'default'
     },
     counters: { events: snapshot.page?.total ?? snapshot.events.length, loadedEvents: snapshot.events.length, turns: snapshot.turns?.length ?? 0, queued: snapshot.thread.queue?.length ?? 0, pendingRequests, runningTools },
+    recentLifecycle: snapshot.events.filter(event => ['request', 'request-resolved', 'subagent', 'completed'].includes(event.type)).slice(-30).map(event => ({ type: event.type, id: 'id' in event ? event.id : undefined, state: 'state' in event ? event.state : event.type === 'request' ? event.request.state : event.type === 'completed' ? event.status : undefined })),
     capabilities: Object.fromEntries(Object.entries(snapshot.thread.capabilities?.features ?? {}).map(([name, value]) => [name, { availability: value.availability, enabled: value.enabled, authorized: value.authorized, implemented: value.implemented, verified: value.verified, reason: value.reason }]))
   }
   const rows = [
     ['Thread ID', diagnostics.threadId], ['Native session', diagnostics.nativeSessionId ?? 'Not started'], ['Directory', diagnostics.directory],
     ['Provider', diagnostics.provider], ['Status', diagnostics.status], ['Connection', diagnostics.connection?.state ?? 'closed'],
+    ['Provider version', diagnostics.providerVersion], ['Protocol', diagnostics.protocolVersion], ['Platform', diagnostics.platform],
     ['Last provider signal', diagnostics.connection?.lastNativeSignalAt ? new Date(diagnostics.connection.lastNativeSignalAt).toLocaleString() : 'Not observed'],
     ['Generation', String(diagnostics.generation)], ['Events', `${diagnostics.counters.loadedEvents} loaded / ${diagnostics.counters.events} imported${snapshot.thread.nativeHistoryCursor ? ' · earlier native history available' : ''}`],
     ['Turns', String(diagnostics.counters.turns)], ['Queue', String(diagnostics.counters.queued)], ['Pending requests', String(pendingRequests)], ['Running activities', String(runningTools)]

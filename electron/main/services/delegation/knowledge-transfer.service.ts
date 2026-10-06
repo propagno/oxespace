@@ -62,7 +62,8 @@ export class KnowledgeTransferService {
       if (!text) continue
       included.push(prefix + text)
       const bytes = Buffer.byteLength(text)
-      sources.push({ kind: section.kind, label: section.label, sha256: sha256(text), bytes })
+      sources.push({ kind: section.kind, label: section.label, sha256: sha256(text), bytes,
+        availableBytes: Buffer.byteLength(section.text), truncated: bytes < Buffer.byteLength(section.text) })
       remaining -= Buffer.byteLength(prefix) + bytes
     }
     const context = header + included.join('')

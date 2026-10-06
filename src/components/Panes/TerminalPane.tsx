@@ -191,7 +191,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
       const { command: agentCommand, initialPrompt } = await resolveWithIntegrationContext()
       const profile = inferAgentProfile(agentCommand ?? '', allProfiles)
       if (profile && profile.agentProfileId !== pane.agentProfileId) {
-        void setPaneAgent(pane.id, profile.agentProfileId, { preserveSession: true })
+        if (!pane.id.startsWith('thread-shell:')) void setPaneAgent(pane.id, profile.agentProfileId, { preserveSession: true })
       }
 
       let p = initialPrompt
@@ -253,7 +253,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         typedCommandRef.current = ''
         const matchedProfile = inferAgentProfile(command, allProfiles)
         if (matchedProfile && matchedProfile.agentProfileId !== pane.agentProfileId) {
-          void setPaneAgent(pane.id, matchedProfile.agentProfileId, { preserveSession: true })
+          if (!pane.id.startsWith('thread-shell:')) void setPaneAgent(pane.id, matchedProfile.agentProfileId, { preserveSession: true })
         } else if (command) {
           setLastIntent(pane.id, command)
         }
@@ -286,7 +286,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
       const { command: agentCommand, initialPrompt } = await resolveWithIntegrationContext()
       const profile = inferAgentProfile(agentCommand ?? '', allProfiles)
       if (profile && profile.agentProfileId !== pane.agentProfileId) {
-        void setPaneAgent(pane.id, profile.agentProfileId, { preserveSession: true })
+        if (!pane.id.startsWith('thread-shell:')) void setPaneAgent(pane.id, profile.agentProfileId, { preserveSession: true })
       }
       await window.oxe.terminal.stop({ paneId: pane.id })
       await window.oxe.terminal.start({ paneId: pane.id, workspaceId, agentCommand, initialPrompt })

@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto'
+import { ThreadProjectService } from '../../electron/main/services/conversation/thread-projects'
 import { describe, expect, test, vi } from 'vitest'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -7,6 +9,29 @@ import { WorkspaceService } from '../../electron/main/services/workspace.service
 import { __resetExecutableCacheForTests, TerminalManager, resolveExecutable } from '../../electron/main/services/terminal.service'
 
 describe('TerminalManager', () => {
+  test('runs an independent Thread shell without creating Code panes and rejects cross-owner launches', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'oxe-thread-shell-'))
+    const db = openInMemoryDatabase(), projects = new ThreadProjectService(db)
+    db.prepare("INSERT OR IGNORE INTO shell_profiles(id,name,executable,args_json,is_builtin) VALUES ('builtin-bash','Bash','/bin/bash','[]',1)").run()
+    const pty = createFakePtyModule(), manager = new TerminalManager(db, { pty, platform: 'linux' })
+    try {
+      const project = await projects.add(root)
+      const thread = { id: randomUUID(), workspaceId: `thread:${project.projectId}`, projectId: project.projectId, rootPath: projects.context(project.projectId).rootPath }
+      db.prepare('INSERT INTO conversation_threads (id, workspace_id, thread_project_id, data_json) VALUES (?, ?, ?, ?)').run(thread.id, thread.workspaceId, thread.projectId, JSON.stringify(thread))
+      const input = { workspaceId: thread.workspaceId, paneId: `thread-shell:${thread.id}:1`, disableRtk: true }
+      await expect(manager.start({ ...input, workspaceId: 'other' })).rejects.toThrow('owner is unavailable')
+      await expect(manager.start({ ...input, agentCommand: 'claude' })).rejects.toThrow('interactive shell')
+      await manager.start(input)
+      expect(pty.spawn).toHaveBeenCalledWith(expect.stringMatching(/bash$/), expect.any(Array), expect.objectContaining({ cwd: thread.rootPath }))
+      expect(db.prepare('SELECT id FROM workspaces').all()).toEqual([])
+      expect(db.prepare('SELECT id FROM panes').all()).toEqual([])
+      manager.detach(input)
+      expect(manager.attach(input).running).toBe(true)
+      manager.stop(input)
+      expect(manager.status(input.paneId).running).toBe(false)
+    } finally { manager.stopAll(); db.close(); rmSync(root, { recursive: true, force: true }) }
+  })
+
   test('passes an exact native resume ID as separate agent arguments', async () => {
     const db = openInMemoryDatabase()
     const workspace = new WorkspaceService(db).create({ rootPath: 'C:/repo', layout: '1x1', autoStart: false })

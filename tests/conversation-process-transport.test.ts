@@ -6,6 +6,7 @@ import { PassThrough } from 'node:stream'
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { expect, it, vi } from 'vitest'
 import { AgentProcessTransport } from '../electron/main/services/conversation/process-transport'
+import * as diagnostics from '../electron/main/services/runtime-diagnostics'
 
 vi.mock('node:child_process', async importOriginal => {
   const actual = await importOriginal<typeof import('node:child_process')>()
@@ -23,7 +24,8 @@ it.skipIf(process.platform !== 'win32')('starts a hidden native Codex process di
     await mkdir(dirname(executable), { recursive: true }); await mkdir(join(root, 'bin'), { recursive: true })
     await writeFile(join(root, 'bin', 'codex.js'), ''); await writeFile(executable, '')
     const shim = join(folder, 'codex.cmd'); await writeFile(shim, '')
-    const child = Object.assign(new EventEmitter(), { stdin: new PassThrough(), stdout: new PassThrough(), stderr: new PassThrough(), exitCode: null }) as ChildProcessWithoutNullStreams
+    const recorded = vi.spyOn(diagnostics, 'recordRuntime')
+    const child = Object.assign(new EventEmitter(), { pid: 123, stdin: new PassThrough(), stdout: new PassThrough(), stderr: new PassThrough(), exitCode: null }) as ChildProcessWithoutNullStreams
     vi.mocked(spawn).mockReturnValue(child)
     const args = ['app-server', '--listen', 'stdio://']
     vi.stubEnv('OXESPACE_WORKSPACE_ID', 'parent-workspace')
@@ -37,7 +39,15 @@ it.skipIf(process.platform !== 'win32')('starts a hidden native Codex process di
     expect(vi.mocked(spawn).mock.calls[0][2]?.env).not.toHaveProperty('OPENAI_API_KEY')
     expect(vi.mocked(spawn).mock.calls[0][2]?.env).toMatchObject({ OXESPACE_EXECUTION_ID: 'fresh-execution', OXESPACE_EXECUTION_TOKEN: 'fresh-main-lease', OXESPACE_EXECUTION_GENERATION: '2' })
     expect(vi.mocked(spawn).mock.calls[0][2]?.env?.OXESPACE_EXECUTION_TOKEN).not.toBe('parent-execution')
+    child.emit('spawn')
+    child.stderr.write('private provider output')
+    child.emit('close', 7)
+    Object.defineProperty(child, 'exitCode', { value: 7 })
     await transport.close()
+    expect(recorded).toHaveBeenCalledWith('process-start', expect.objectContaining({ pid: 123, executable }))
+    expect(recorded).toHaveBeenCalledWith('process-exit', expect.objectContaining({ pid: 123, exitCode: 7 }))
+    expect(JSON.stringify(recorded.mock.calls)).not.toContain('private provider output')
+    recorded.mockRestore()
     child.stdin.destroy(); child.stdout.destroy(); child.stderr.destroy()
   } finally { vi.unstubAllEnvs(); await rm(target, { recursive: true, force: true }) }
 })

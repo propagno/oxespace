@@ -50,6 +50,25 @@ async function fixture() {
     restart: async () => { await service.stop(); service = new DelegationService(db, deps); return service } }
 }
 describe('cross-workspace coordination', () => {
+  test('authorizes the exact destination while initial consent binding is still pending', async () => {
+    const f = await fixture()
+    await f.service.configureTarget(f.a.id, f.roots[1], true, true)
+    const bind = f.service.coordinator.bind.bind(f.service.coordinator)
+    let release!: () => void
+    let firstExecutor = true
+    const paused = new Promise<void>(resolve => { release = resolve })
+    vi.spyOn(f.service.coordinator, 'bind').mockImplementation(async (task, role, execution) => {
+      if (role === 'executor' && firstExecutor) { firstExecutor = false; await paused }
+      await bind(task, role, execution)
+    })
+    try {
+      const task = await f.service.create(f.origin, f.input)
+      await vi.waitFor(() => expect(f.service.get(task.id).destinationExecutionId).toBeTruthy(), { timeout: 15000 })
+      const destination = f.registry.forPane(f.service.get(task.id).paneId!)!
+      await expect(f.service.authorize(destination, task.id)).resolves.toMatchObject({ id: task.id })
+      expect(f.service.get(task.id).originExecutionId).toBe(f.origin.id)
+    } finally { release() }
+  }, 60000)
   test('explicit route transfers bounded evidence and returns result without memory', async () => {
     const f = await fixture()
     await expect(f.service.create(f.origin, f.input)).rejects.toThrow('CONSENT_REQUIRED')

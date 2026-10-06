@@ -518,17 +518,20 @@ jobs:
           }
 
           gh release view $env:RELEASE_TAG 2>$null
+          $notesPath = "docs/releases/$version.md"
           if ($LASTEXITCODE -eq 0) {
             gh release upload $env:RELEASE_TAG --clobber @assets
             gh release edit $env:RELEASE_TAG --draft=true
+            if (Test-Path -LiteralPath $notesPath) { gh release edit $env:RELEASE_TAG --notes-file $notesPath }
           } else {
             $createArgs = @(
               'release', 'create', $env:RELEASE_TAG,
               '--draft',
-              '--generate-notes',
               '--title', "OXESpace $env:RELEASE_TAG",
               '--target', '${{ needs.build.outputs.sha }}'
             )
+            if (Test-Path -LiteralPath $notesPath) { $createArgs += @('--notes-file', $notesPath) }
+            else { $createArgs += '--generate-notes' }
             if ('${{ needs.build.outputs.prerelease }}' -eq 'true') { $createArgs += '--prerelease' }
             $createArgs += $assets
             gh @createArgs

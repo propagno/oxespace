@@ -30,8 +30,8 @@ export function settleVolatileThreadSnapshot(snapshot: ThreadSnapshot, cause: Th
       event.output = event.output || `Outcome unconfirmed because ${reason} before the provider reported a result.`
       if (event.files) event.files = event.files.map(file => file.state === 'running' ? { ...file, state: 'unknown' } : file)
     } else if (event.type === 'subagent' && event.state === 'running') {
-      event.state = 'interrupted'; event.completedAt = completedAt
-      event.agents = event.agents.map(agent => agent.status === 'running' || agent.status === 'pending' ? { ...agent, status: 'interrupted', message: agent.message || `Session interrupted because ${reason}.` } : agent)
+      event.state = 'unknown'; event.completedAt = completedAt
+      event.agents = event.agents.map(agent => agent.status === 'running' || agent.status === 'pending' ? { ...agent, status: 'unknown', message: agent.message || `Task outcome unconfirmed because ${reason}.` } : agent)
     } else if (event.type === 'turn-diff') {
       event.files = event.files.map(file => file.state === 'running' ? { ...file, state: 'unknown' } : file)
     }

@@ -6,7 +6,7 @@ import type { GitHubPanelTab, Workspace } from '../../../shared/types/workspace'
 import type { GitDiff, GitDiffHunk } from '../../../shared/types/git'
 import { parseThreadPatch } from '../../../shared/threadPatch'
 import { DropdownMenu } from 'radix-ui'
-import { sessionChangeGroups, threadChanges, threadFileLabel } from './threadChanges'
+import { sessionChangeGroups, threadChanges, threadFileLabel, threadFileScope } from './threadChanges'
 import { FileStats } from './ThreadFileActivity'
 import { ThreadPlan } from './ThreadPlan'
 import { ThreadSubagentActivity } from './ThreadSubagentActivity'
@@ -24,7 +24,7 @@ const BackgroundJobsPanel = lazy(() => import('../Background/BackgroundJobsPanel
 const WebPreviewPanel = lazy(() => import('../WebPreview/WebPreviewPanel').then(module => ({ default: module.WebPreviewPanel })))
 const GitHubPanel = lazy(() => import('../GitHub/GitHubPanel').then(module => ({ default: module.GitHubPanel })))
 const GitControlPanel = lazy(() => import('../GitHub/GitControlPanel').then(module => ({ default: module.GitControlPanel })))
-const TerminalPane = lazy(() => import('../Panes/TerminalPane').then(module => ({ default: module.TerminalPane })))
+const ThreadProjectTerminal = lazy(() => import('./ThreadProjectTerminal').then(module => ({ default: module.ThreadProjectTerminal })))
 const labels: Record<ThreadPanel, string> = { changes: 'Session changes', project: 'Project changes', source: 'Source control', files: 'Files', search: 'Find in files', scripts: 'Scripts', background: 'Background activity', preview: 'Web preview', terminal: 'Terminal', agents: 'Agents', plan: 'Plan', activity: 'Activity', diagnostics: 'Diagnostics' }
 
 export function ThreadChangesPanel({ snapshot, workspace, panel, selection, onClose, onComment, onSendToConversation }: { snapshot: ThreadSnapshot; workspace?: Workspace; panel: ThreadPanel; selection?: string; onClose(): void; onComment(comment: ThreadReviewComment): void; onSendToConversation?(prompt: string): void }) {
@@ -90,7 +90,6 @@ export function ThreadChangesPanel({ snapshot, workspace, panel, selection, onCl
   const hunks = panel === 'project' ? projectFile?.hunks : parsed?.hunks
   const revision = panel === 'project' ? `Project snapshot ${new Date(project?.compiledAt ?? 0).toISOString()}` : artifact?.hash ?? ''
   const scopedWorkspace = workspace ? { ...workspace, id: snapshot.thread.workspaceId, rootPath: snapshot.thread.rootPath } : undefined
-  const terminalPane = workspace?.panes.find(pane => ['terminal', 'tasks'].includes(pane.type) && (pane.rootPath ?? workspace.rootPath) === snapshot.thread.rootPath)
   const openSearchFile = (relativePath: string) => {
     void useEditorStore.getState().openFile({ workspaceId: snapshot.thread.workspaceId, rootPath: snapshot.thread.rootPath, relativePath })
     useThreadWorkbenchStore.getState().setView(id, { panel: 'files' })
@@ -103,9 +102,9 @@ export function ThreadChangesPanel({ snapshot, workspace, panel, selection, onCl
       : panel === 'source' ? <div className="thread-review-body thread-tool-surface"><div className="thread-source-switch"><span>{advancedGitHub ? 'GitHub features' : 'Local Git · any remote'}</span><button type="button" onClick={() => setAdvancedGitHub(value => !value)}>{advancedGitHub ? 'Back to Git control' : 'GitHub features'}</button></div><Suspense fallback={<p className="thread-review-empty">Loading Git control…</p>}>{advancedGitHub && scopedWorkspace ? <GitHubPanel workspaceId={snapshot.thread.workspaceId} rootPath={snapshot.thread.rootPath} activeTab={gitHubTab} onTabChange={setGitHubTab} onOpenFile={openSearchFile} onRunCommand={command => onSendToConversation?.(`Run this project setup command and report the result:\n\n\`${command}\``)} /> : <GitControlPanel workspaceId={snapshot.thread.workspaceId} rootPath={snapshot.thread.rootPath} onOpenFile={openSearchFile} />}</Suspense></div>
       : panel === 'search' ? <div className="thread-review-body thread-tool-surface">{scopedWorkspace ? <Suspense fallback={<p className="thread-review-empty">Loading search…</p>}><SearchPanel workspace={scopedWorkspace} onOpenFile={openSearchFile} /></Suspense> : <p className="thread-review-empty">The project is unavailable.</p>}</div>
       : panel === 'scripts' ? <div className="thread-review-body thread-tool-surface">{scopedWorkspace ? <Suspense fallback={<p className="thread-review-empty">Loading scripts…</p>}><ScriptsPanel workspace={scopedWorkspace} embedded onClose={onClose} onOpenBackground={() => setPanel('background')} /></Suspense> : <p className="thread-review-empty">The project is unavailable.</p>}</div>
-      : panel === 'background' ? <div className="thread-review-body thread-tool-surface"><Suspense fallback={<p className="thread-review-empty">Loading background activity…</p>}><BackgroundJobsPanel workspaceId={snapshot.thread.workspaceId} /></Suspense></div>
+      : panel === 'background' ? <div className="thread-review-body thread-tool-surface"><section aria-label="Native background activity"><h3>Provider activity · {subagents.filter(event => event.type === 'subagent' && event.state === 'running').length} running</h3>{subagents.map(event => event.type === 'subagent' && <ThreadSubagentActivity key={event.id} event={event} />)}{!subagents.length && <p>No native tasks have been reported in this conversation.</p>}</section><Suspense fallback={<p className="thread-review-empty">Loading background activity…</p>}><BackgroundJobsPanel workspaceId={snapshot.thread.workspaceId} /></Suspense></div>
       : panel === 'preview' ? <div className="thread-review-body thread-tool-surface">{scopedWorkspace ? <Suspense fallback={<p className="thread-review-empty">Loading web preview…</p>}><WebPreviewPanel workspace={scopedWorkspace} threadId={id} embedded onClose={onClose} onRunCommand={() => {}} onSendToAgent={onSendToConversation} /></Suspense> : <p className="thread-review-empty">The project is unavailable.</p>}</div>
-      : panel === 'terminal' ? <div className="thread-review-body thread-tool-surface thread-terminal-surface">{workspace && terminalPane ? <Suspense fallback={<p className="thread-review-empty">Loading terminal…</p>}><TerminalPane pane={terminalPane} workspaceId={workspace.id} workspaceRootPath={snapshot.thread.rootPath} autoStart={false} /></Suspense> : <p className="thread-review-empty">No terminal is available for this project directory.</p>}</div>
+      : panel === 'terminal' ? <div className="thread-review-body thread-tool-surface thread-terminal-surface"><Suspense fallback={<p className="thread-review-empty">Loading terminal…</p>}><ThreadProjectTerminal key={id} thread={snapshot.thread} /></Suspense></div>
       : panel === 'diagnostics' ? <div className="thread-review-body"><ThreadDiagnosticsPanel snapshot={snapshot} /></div>
       : panel === 'agents' ? <div className="thread-review-body thread-review-agents">
         <p className="thread-capability-note" role="status"><strong>Agent controls</strong><span>{snapshot.thread.capabilities?.features.subagentLifecycle?.enabled ? 'Native lifecycle controls are available.' : snapshot.thread.capabilities?.features.subagentLifecycle?.reason ?? 'Independent child controls are unavailable for this provider session.'}</span></p>
@@ -117,7 +116,12 @@ export function ThreadChangesPanel({ snapshot, workspace, panel, selection, onCl
         : sessionGroups.map(group => {
           const files = group.files.filter(file => file.path.toLowerCase().includes(search.toLowerCase()))
           return files.length ? <section className="thread-session-change-group" key={group.turnId}><h3 title={group.label}><span>Turn {group.sequence}</span><strong>{group.label}</strong><small>{files.length} {files.length === 1 ? 'file' : 'files'}</small></h3>
-            {files.map(file => <button key={`${group.turnId}:${file.path}`} type="button" aria-current={file.operations.some(entry => entry.key === selected?.key) ? 'true' : undefined} onClick={() => useThreadWorkbenchStore.getState().setView(id, { selection: file.primary.key })} title={file.path}><FileCode2 size={13} /><span>{threadFileLabel(file.path, snapshot.thread.rootPath)}</span><small>{file.operations.length > 1 ? `${file.operations.length} steps` : file.primary.file.state === 'failed' ? 'Failed' : file.primary.file.state === 'unknown' ? 'Unconfirmed' : file.primary.file.source === 'tool-input' ? 'Proposed' : 'Verified'}</small>{file.operations.length === 1 && <FileStats file={file.primary.file} />}</button>)}</section> : null
+            {['Project', 'External', 'Agent state'].map(scope => {
+              const scoped = files.filter(file => threadFileScope(file.path, snapshot.thread.rootPath) === scope)
+              if (!scoped.length) return null
+              const rows = scoped.map(file => <button key={`${group.turnId}:${file.path}`} type="button" aria-current={file.operations.some(entry => entry.key === selected?.key) ? 'true' : undefined} onClick={() => useThreadWorkbenchStore.getState().setView(id, { selection: file.primary.key })} title={file.path}><FileCode2 size={13} /><span>{threadFileLabel(file.path, snapshot.thread.rootPath)}</span><small>{threadFileScope(file.path, snapshot.thread.rootPath)} · {file.operations.length > 1 ? `${file.operations.length} steps` : file.primary.file.state === 'failed' ? 'Failed' : file.primary.file.state === 'unknown' ? 'Unconfirmed' : file.primary.file.source === 'tool-input' ? 'Proposed' : 'Verified'}</small>{file.operations.length === 1 && <FileStats file={file.primary.file} />}</button>)
+              return scope === 'Project' ? <div key={scope}>{rows}</div> : <details key={scope} className="thread-change-scope"><summary>{scope} · {scoped.length}</summary>{rows}</details>
+            })}</section> : null
         })}</div>
       <div className="thread-review-body">
         {error && <div role="alert" className="thread-review-error"><p>{error}</p><button type="button" onClick={() => setRefresh(value => value + 1)}>Retry</button></div>}

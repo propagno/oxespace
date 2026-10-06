@@ -24,7 +24,7 @@ it('classifies infrastructure failures and keeps verbose MCP payloads behind tec
   }
   render(<ThreadActivityGroup events={[tool]} />)
   fireEvent.click(screen.getByText('Used integration'))
-  expect(screen.getByText('Infrastructure unavailable')).toBeVisible()
+  expect(screen.getByText('Response timed out')).toBeVisible()
   expect(screen.getByText('Technical details')).toBeVisible()
   expect(screen.getByText(/diagnostic line/, { selector: 'pre' })).not.toBeVisible()
   fireEvent.click(screen.getByText('Technical details'))

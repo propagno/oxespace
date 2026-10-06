@@ -229,6 +229,8 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
         </button>
         <input
           className="web-preview-address-input"
+          aria-label="Preview address"
+          disabled={!activeTabId}
           value={draftUrl}
           onChange={(event) => setDraftUrl(event.currentTarget.value)}
           onKeyDown={(event) => { if (event.key === 'Enter') open() }}

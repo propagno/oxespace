@@ -262,7 +262,7 @@ function DiagnosticsSettingsSection({ onClose }: { onClose: () => void }): React
         kicker="Runtime"
         title="Diagnostics"
         titleId="settings-diagnostics-title"
-        description="Check application health and collect troubleshooting details."
+        description="Compact local diagnostics: up to 1.5 MiB for seven days. Export excludes prompts, terminal output and command arguments."
         onClose={onClose}
         actions={
           <button type="button" className="settings-btn ghost" onClick={refresh} title="Re-run checks">

@@ -10,7 +10,7 @@ export interface ThreadMcpBindings {
 
 // Thread receives the same local OXESpace surface as Code. Provider permission
 // requests remain enabled, so mutating calls are reviewed in the conversation.
-const tools = ['oxespace_memory_search', 'oxespace_memory_remember', 'oxespace_memory_sessions',
+const tools = ['oxespace_team_status', 'oxespace_team_inbox', 'oxespace_team_message', 'oxespace_team_acknowledge', 'oxespace_memory_search', 'oxespace_memory_remember', 'oxespace_memory_sessions',
   'oxespace_memory_handoffs', 'oxespace_memory_accept_handoff', 'oxespace_project_context',
   'oxespace_capabilities', 'oxespace_execution_context', 'oxespace_list_agents', 'oxespace_list_workspaces', 'oxespace_list_panes', 'oxespace_list_worktrees', 'oxespace_list_scripts',
   'oxespace_list_background_jobs', 'oxespace_get_job_output', 'oxespace_semantic_search',
@@ -23,6 +23,8 @@ const tools = ['oxespace_memory_search', 'oxespace_memory_remember', 'oxespace_m
   'oxespace_delegation_message', 'oxespace_delegation_control', 'oxespace_delegation_update', 'oxespace_delegation_checkpoint']
 
 export function threadMcpArguments(provider: 'claude' | 'codex', args: string[], bridge: string): string[] {
+  // Preserve an explicitly restricted tool surface, including disabled MCPs.
+  if (provider === 'claude' && args.includes('--strict-mcp-config')) return args
   const config = agentMcpArguments(provider, bridge)
   const bridgeArgs = [bridge, '--allowed-tools', JSON.stringify(tools)]
   if (provider === 'codex') {

@@ -2,6 +2,7 @@ import { Activity, AlertCircle, ChevronDown, Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { ThreadEvent, ThreadSnapshot } from '../../../shared/types/thread'
 import { useThreadStateCheck } from './useThreadStateCheck'
+import { threadToolSummary } from '../../../shared/threadToolSummary'
 
 type Tool = Extract<ThreadEvent, { type: 'tool' }>
 type ActivityEvent = Extract<ThreadEvent, { type: 'activity' }>
@@ -12,7 +13,7 @@ function duration(milliseconds: number): string {
 }
 
 function runningToolLabel(tool: Tool): string {
-  if (tool.name === 'commandExecution' || tool.name === 'Bash') return `Running command${tool.detail ? `: ${tool.detail.split('\n')[0].slice(0, 100)}` : ''}`
+  if (tool.name === 'commandExecution' || tool.name === 'Bash') return `Running command${tool.detail ? `: ${threadToolSummary(tool)}` : ''}`
   if (tool.name === 'Read') return 'Reading file'
   if (tool.name === 'Grep' || tool.name === 'Glob') return 'Searching the project'
   if (tool.name === 'fileChange' || tool.name === 'Edit' || tool.name === 'Write') return 'Editing files'
@@ -33,7 +34,8 @@ export interface LiveActivity {
 /** A status is evidence of a provider event or transport data, never an inferred thought. */
 export function deriveThreadLiveActivity(snapshot: ThreadSnapshot, now: number): LiveActivity | null {
   const thread = snapshot.thread
-  if (thread.status !== 'running' && thread.status !== 'approval') return null
+  const background = snapshot.events.filter(event => event.type === 'subagent' && event.state === 'running')
+  if (thread.status !== 'running' && thread.status !== 'approval' && !background.length) return null
   const turn = snapshot.turns?.at(-1)
   const startedAt = turn?.startedAt ?? thread.updatedAt
   let startIndex = -1
@@ -53,7 +55,8 @@ export function deriveThreadLiveActivity(snapshot: ThreadSnapshot, now: number):
   else if (runningTool) label = runningToolLabel(runningTool)
   else if (activity?.phase === 'preparing') label = 'Preparing project context'
   else if (connection?.state === 'starting' || activity?.phase === 'connecting' && connection?.state !== 'connected') label = 'Connecting to the agent'
-  else if (events.some(event => event.type === 'message' && event.role === 'assistant') || activity?.phase === 'responding') label = 'Writing response'
+  else if (background.length && thread.status !== 'running') label = `Waiting for ${background.length} background ${background.length === 1 ? 'task' : 'tasks'}`
+  else if (activity?.phase === 'responding' && now - activity.at < 15_000) label = 'Receiving response'
   else if (activity?.phase === 'reasoning') label = 'Analyzing request'
   const lastSignal = connection?.lastNativeSignalAt && connection.lastNativeSignalAt >= startedAt ? connection.lastNativeSignalAt : undefined
   const signalAgeMs = now - (lastSignal ?? startedAt)
@@ -63,7 +66,7 @@ export function deriveThreadLiveActivity(snapshot: ThreadSnapshot, now: number):
     stale: !awaitingInput && signalAgeMs >= 60_000,
     awaitingInput,
     reconnecting: connection?.state === 'degraded' || connection?.state === 'reconnecting',
-    summary: activity?.phase === 'reasoning' ? activity.summary : undefined,
+    summary: activity?.summary,
     tools: tools.slice(-4)
   }
 }
@@ -91,7 +94,7 @@ export function ThreadLiveActivity({ snapshot, onDiagnostics }: { snapshot: Thre
     {(activity.summary || activity.tools.length > 0) && <details className="thread-live-activity-details">
       <summary><Activity size={12} />Recent activity<ChevronDown size={12} /></summary>
       {activity.summary && <p><strong>Provider summary</strong>{activity.summary}</p>}
-      {activity.tools.length > 0 && <ul>{activity.tools.map(tool => <li key={tool.id}><span>{tool.name}{tool.detail && <small> · {tool.detail.split('\n')[0].slice(0, 120)}</small>}</span><small>{tool.state}</small></li>)}</ul>}
+      {activity.tools.length > 0 && <ul>{activity.tools.map(tool => <li key={tool.id}><span>{tool.name}{tool.detail && <small> · {threadToolSummary(tool)}</small>}</span><small>{tool.state}</small></li>)}</ul>}
     </details>}
   </section>
 }

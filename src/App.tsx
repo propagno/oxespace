@@ -14,6 +14,7 @@ const AgentConfigModal = lazy(() => import('./components/Agents/AgentConfigModal
 const DesignSystemPage = lazy(() => import('./components/DesignSystem/DesignSystemPage').then((m) => ({ default: m.DesignSystemPage })))
 const SettingsCenter = lazy(() => import('./components/Settings/SettingsCenter').then((m) => ({ default: m.SettingsCenter })))
 const DelegatedWorkDialog = lazy(() => import('./components/Delegation/DelegatedWorkDialog').then(m => ({ default: m.DelegatedWorkDialog })))
+const TeamDialog = lazy(() => import('./components/Teams/TeamDialog').then(m => ({ default: m.TeamDialog })))
 const ThreadGrid = lazy(() => import('./components/Threads/ThreadGrid').then(m => ({ default: m.ThreadGrid })))
 const ThreadSidebar = lazy(() => import('./components/Threads/ThreadSidebar').then(m => ({ default: m.ThreadSidebar })))
 const ProviderAccountsPanel = lazy(() => import('./components/Threads/ProviderAccountsPanel').then(m => ({ default: m.ProviderAccountsPanel })))
@@ -77,6 +78,7 @@ export function App(): ReactElement {
   const appVersion = window.oxe?.app?.version ?? 'dev'
   const [applicationView, setApplicationView] = useState<'code' | 'thread'>('code')
   const [delegatedWorkOpen, setDelegatedWorkOpen] = useState(false)
+  const [teamScope, setTeamScope] = useState<import('../shared/types/team').TeamScope | null>(null)
   const [delegationTarget, setDelegationTarget] = useState<{ workspaceId: string; taskId: string } | null>(null)
   const [hasOpenedThread, setHasOpenedThread] = useState(false)
   const [newThreadWorkspaceId, setNewThreadWorkspaceId] = useState<string | null | undefined>(undefined)
@@ -945,8 +947,12 @@ export function App(): ReactElement {
           <span className="workbench-titlebar-separator" aria-hidden="true">/</span>
           <strong>{applicationView === 'thread' ? threadProject?.displayName ?? 'Conversations' : activeWorkspace?.name ?? 'No workspace'}</strong>
         </div>
-        <div className="workbench-titlebar-trailing"><UpdateBanner /><AppUpdateIndicator /><span className="workbench-titlebar-version">v{appVersion}</span></div>
+        <div className="workbench-titlebar-trailing"><button type="button" className="workspace-topbar-action" disabled={applicationView === 'thread' ? !threadProject : !activeWorkspace} onClick={() => {
+          const id = applicationView === 'thread' ? threadProject?.projectId : activeWorkspace?.id
+          if (id) setTeamScope({ kind: applicationView === 'thread' ? 'thread' : 'code', id })
+        }}>Team</button><UpdateBanner /><AppUpdateIndicator /><span className="workbench-titlebar-version">v{appVersion}</span></div>
       </header>
+      {teamScope && <Suspense fallback={null}><TeamDialog key={`${teamScope.kind}:${teamScope.id}`} scope={teamScope} owner={teamScope.kind === 'thread' && threadSnapshot ? { kind: 'thread', id: threadSnapshot.thread.id } : teamScope.kind === 'code' && activePane ? { kind: 'pane', id: activePane.id } : undefined} onClose={() => setTeamScope(null)} /></Suspense>}
       {delegationNotice && <div role="status" style={{ position: 'fixed', bottom: 18, right: 18, zIndex: 190, padding: 14, borderRadius: 10, background: 'var(--bg-elevated, #19191f)', border: '1px solid var(--accent)', maxWidth: 340 }}>
         <p>Delegated task updated</p>
         <button type="button" className="secondary-action" onClick={() => {

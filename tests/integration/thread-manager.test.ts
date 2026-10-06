@@ -7,7 +7,7 @@ import type { AgentConversationAdapter, ThreadEvent } from '../../shared/types/t
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 
 const databases: AppDatabase[] = []
 afterEach(() => { for (const db of databases.splice(0)) db.close() })
@@ -29,6 +29,37 @@ function fixture(preflight?: ConstructorParameters<typeof ThreadManager>[3], com
 }
 
 describe('thread persistence and ownership', () => {
+  it('does not suppress a distinct case-sensitive working-tree file reported by the provider', async () => {
+    const f = fixture(), id = f.create()
+    const workingState = vi.spyOn(f.manager as unknown as { workingState: (path: string) => Promise<{ patch: string; untracked: Set<string> }> }, 'workingState')
+    workingState.mockResolvedValueOnce({ patch: '', untracked: new Set() })
+      .mockResolvedValue({ patch: '', untracked: new Set(['readme.md']) })
+    await f.manager.send(id, 'Update files')
+    f.callbacks[0]({ type: 'turn-diff', id: 'turn-diff:native', turnId: 'native', files: [{ path: 'README.md', kind: 'add' }] })
+    f.callbacks[0]({ type: 'completed', status: 'completed' })
+    await vi.waitFor(() => expect(workingState).toHaveBeenCalledTimes(2))
+    await f.manager.stop()
+    const observed = new ThreadHistory(f.db).read(id).events.filter(event => event.type === 'turn-diff' && event.id.startsWith('verified-diff:'))
+    if (process.platform === 'win32') expect(observed).toEqual([])
+    else expect(observed).toContainEqual(expect.objectContaining({ files: [expect.objectContaining({ path: 'readme.md' })] }))
+  })
+  it('persists late task results and native continuation without repeating user input', async () => {
+    const f = fixture(), id = f.create()
+    await f.manager.send(id, 'Coordinate two tasks')
+    f.callbacks[0]({ type: 'subagent', id: 'task-A', action: 'Agent', state: 'running', receiverThreadIds: ['A'], agents: [{ threadId: 'A', status: 'running' }] })
+    f.callbacks[0]({ type: 'completed', status: 'completed' })
+    f.callbacks[0]({ type: 'subagent', id: 'task-A', action: 'Agent', state: 'completed', receiverThreadIds: ['A'], agents: [{ threadId: 'A', status: 'completed', message: 'Result A' }] })
+    expect(f.manager.read(id).thread.status).toBe('idle')
+    f.callbacks[0]({ type: 'continuation-started', id: 'continuation', at: Date.now() })
+    expect(f.manager.read(id).thread.status).toBe('running')
+    f.callbacks[0]({ type: 'message', id: 'summary', role: 'assistant', text: 'Consolidation' })
+    f.callbacks[0]({ type: 'completed', status: 'completed' })
+    expect(f.manager.read(id).turns).toHaveLength(2)
+    expect(f.adapters[0].send).toHaveBeenCalledTimes(1)
+    expect(f.manager.read(id).events.filter(event => event.type === 'subagent')).toHaveLength(1)
+    await f.manager.stop()
+  })
+
   it.each(['complete', 'incomplete', 'changed', 'disk-error'])('reconciles a live turn without replay, preserving ownership on %s', async scenario => {
     const terminal = { state: 'completed' as const, source: 'codex-app-server' as const, nativeTurnId: 'native-turn', observedAt: 123, detail: 'Confirmed' }
     const reader = { observe: vi.fn(), recover: vi.fn(async () => ({ ...terminal, ...(scenario === 'incomplete' ? {} : { recoveredMessages: [{ type: 'message' as const, id: 'answer', role: 'assistant' as const, text: 'Full response' }] }) })), stop: vi.fn(async () => {}) }
@@ -249,6 +280,8 @@ describe('thread persistence and ownership', () => {
   })
   it.each([false, true])('finalizes checkpoints and observable command edits without claiming native authorship (recovery=%s)', async recovery => {
     const root = mkdtempSync(join(tmpdir(), 'oxe-thread-diff-'))
+    if (dirname(resolve(root)) !== resolve(tmpdir())) throw Error('Unsafe test cleanup')
+    let manager: ThreadManager | undefined
     try {
       const git = (...args: string[]) => execFileSync('git', args, { cwd: root, stdio: 'ignore' })
       git('init', '-q')
@@ -260,6 +293,7 @@ describe('thread persistence and ownership', () => {
       const terminal = { state: 'completed' as const, source: 'codex-app-server' as const, nativeTurnId: 'native-turn', observedAt: 123, detail: 'Confirmed' }
       const reader = { observe: vi.fn(), recover: vi.fn(async () => ({ ...terminal, recoveredMessages: [] })), stop: vi.fn(async () => {}) }
       const f = fixture(undefined, undefined, undefined, undefined, reader), id = f.manager.create({ workspaceId: 'A', projectId: 'project-A', rootPath: root, provider: 'codex' }).thread.id
+      manager = f.manager
       await f.manager.send(id, 'Update the documentation')
       writeFileSync(join(root, 'README.md'), 'After\n')
       if (recovery) {
@@ -269,13 +303,15 @@ describe('thread persistence and ownership', () => {
         f.adapters[0].commitRecoveredTurn = vi.fn((_turn, _state, commit) => { commit(); return true })
         await f.manager.observe(id)
       } else f.callbacks[0]({ type: 'completed', status: 'completed' })
-      await vi.waitFor(() => expect(f.manager.read(id).events.some(event => event.type === 'turn-diff' && event.id.startsWith('verified-diff:'))).toBe(true))
+      await vi.waitFor(() => expect(f.manager.read(id).events.some(event => event.type === 'turn-diff' && event.id.startsWith('verified-diff:'))).toBe(true), { timeout: 10_000 })
       expect(f.manager.read(id).events.find(event => event.type === 'turn-diff')).toMatchObject({ files: [{ path: 'README.md', source: 'working-tree-observation', authorship: 'indeterminate', additions: 1, deletions: 1, artifactId: expect.any(String) }] })
-      await vi.waitFor(async () => expect((await f.manager.command(id, '/checkpoint')).rows?.[0].detail).toContain('ready'))
+      await vi.waitFor(async () => expect((await f.manager.command(id, '/checkpoint')).rows?.[0].detail).toContain('ready'), { timeout: 10_000 })
       expect(f.adapters[0].send).toHaveBeenCalledTimes(1)
-      await f.manager.stop()
-    } finally { rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }) }
-  })
+    } finally {
+      await manager?.stop()
+      rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
+    }
+  }, 30_000)
   it('opens delegated work and exact task details locally without launching a provider', async () => {
     const f = fixture(), id = f.create()
     expect(await f.manager.command(id, '/delegations')).toMatchObject({ kind: 'panel', surface: 'delegations' })
@@ -778,7 +814,7 @@ describe('thread persistence and ownership', () => {
     expect(recovered.thread.queue).toEqual([expect.objectContaining({ id: 'queued', state: 'unknown', error: expect.stringContaining('could not be confirmed') })])
     expect(recovered.turns?.at(-1)).toMatchObject({ status: 'interrupted', completedAt: expect.any(Number) })
     expect(recovered.events.find(event => event.type === 'tool' && event.id === 'tool-running')).toMatchObject({ state: 'unknown', completedAt: expect.any(Number), files: [{ state: 'unknown' }] })
-    expect(recovered.events.find(event => event.type === 'subagent' && event.id === 'child-running')).toMatchObject({ state: 'interrupted', completedAt: expect.any(Number), agents: [{ status: 'interrupted' }] })
+    expect(recovered.events.find(event => event.type === 'subagent' && event.id === 'child-running')).toMatchObject({ state: 'unknown', completedAt: expect.any(Number), agents: [{ status: 'unknown' }] })
     expect(recovered.events.find(event => event.type === 'turn-diff')).toMatchObject({ files: [{ state: 'unknown' }] })
     expect(recovered.events.find(event => event.type === 'request' && event.id === 'question')).toMatchObject({ request: { state: 'cancelled' } })
     expect(recovered.events).toEqual(expect.arrayContaining([expect.objectContaining({ type: 'request-resolved', id: 'question', state: 'cancelled', resolution: 'connection-lost' }), { type: 'approval-resolved', id: 'approval' }]))

@@ -1,0 +1,25 @@
+.team-dialog { width: min(760px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); display: flex; flex-direction: column; }
+.team-dialog-body { padding: 0 24px 20px; overflow: auto; min-height: 0; }
+.team-note, .team-members span { color: var(--tx-secondary); font-size: 12px; }
+.team-members { list-style: none; padding: 0; margin: 16px 0; }
+.team-members li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--bd-base); }
+.team-members li > div:first-child { display: grid; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
+.team-member-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.team-dialog button { min-height: 32px; }
+.team-member-actions button { border: 1px solid var(--bd-base); border-radius: 6px; padding: 4px 8px; }
+.team-dialog form { display: grid; gap: 12px; }
+.team-dialog form > label { display: grid; gap: 6px; }
+.team-dialog input:not([type=radio]) { width: 100%; min-height: 36px; padding: 8px; border: 1px solid var(--bd-base); border-radius: 6px; background: var(--bg-input); color: var(--tx-primary); }
+.team-dialog fieldset { border: 0; padding: 0; min-width: 0; }
+.team-role-options { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.team-role-options label { display: flex; gap: 6px; align-items: center; padding: 8px; border: 1px solid var(--bd-base); border-radius: 6px; }
+.team-role-options input { width: 14px; height: 14px; flex: none; }
+.team-dialog-footer { padding: 12px 24px; border-top: 1px solid var(--bd-base); display: flex; justify-content: flex-end; }
+.team-messages { border-top: 1px solid var(--bd-base); margin-top: 20px; padding-top: 12px; }
+.team-message-list { padding: 0; list-style: none; max-height: 320px; overflow: auto; }
+.team-message-list li { padding: 12px; margin: 8px 0; border: 1px solid var(--bd-base); border-radius: 6px; overflow-wrap: anywhere; }
+.team-message-list p { white-space: pre-wrap; }
+.team-message-list small { color: var(--tx-secondary); }
+.team-messages textarea { width: 100%; background: var(--bg-input); color: var(--tx-primary); border: 1px solid var(--bd-base); padding: 8px; border-radius: 6px; resize: vertical; }
+@media (max-width: 600px) { .team-members li { align-items: flex-start; flex-direction: column; } }
+

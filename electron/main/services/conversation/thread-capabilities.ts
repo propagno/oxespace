@@ -1,4 +1,4 @@
-import type { ConversationCapabilities, ConversationProtocolEvidence, ThreadCapability, ThreadCapabilityManifest, ThreadProvider } from '../../../../shared/types/thread'
+import type { ConversationCapabilities, ConversationProtocolEvidence, ThreadCapability, ThreadCapabilityManifest, ThreadProvider, ThreadConfiguration } from '../../../../shared/types/thread'
 
 const capability = (implemented: boolean, reason?: string, verified: ThreadCapability['verified'] = implemented ? 'fixture' : 'none'): ThreadCapability => ({
   availability: implemented ? 'supported' : 'unavailable', enabled: implemented, authorized: implemented, implemented, verified, ...(reason ? { reason } : {})
@@ -7,9 +7,9 @@ const capability = (implemented: boolean, reason?: string, verified: ThreadCapab
 const experimental = (implemented: boolean, reason: string): ThreadCapability => ({ availability: 'experimental', enabled: implemented, authorized: implemented, implemented, verified: implemented ? 'fixture' : 'none', reason })
 
 /** Public, persisted capability projection. It describes integration evidence, not catalog discovery as proof. */
-export function threadCapabilityManifest(provider: ThreadProvider, native?: ConversationCapabilities, connected = false, evidence?: ConversationProtocolEvidence): ThreadCapabilityManifest {
+export function threadCapabilityManifest(provider: ThreadProvider, native?: ConversationCapabilities, connected = false, evidence?: ConversationProtocolEvidence, configuration?: ThreadConfiguration): ThreadCapabilityManifest {
   const feature = (name: keyof ConversationCapabilities, unavailable: string) => native ? capability(Boolean(native[name]), native[name] ? undefined : unavailable) : capability(false, 'Starts when the provider session is connected')
-  return {
+  const manifest: ThreadCapabilityManifest = {
     provider,
     ...(evidence?.providerVersion ? { providerVersion: evidence.providerVersion } : {}),
     ...(evidence?.protocolVersion ? { protocolVersion: evidence.protocolVersion } : {}),
@@ -41,11 +41,18 @@ export function threadCapabilityManifest(provider: ThreadProvider, native?: Conv
       voiceDraft: capability(true),
       subagentObservation: provider === 'codex'
         ? experimental(true, 'Codex reports collaboration events; lifecycle remains owned by the active native turn')
-        : capability(false, 'Claude headless mode does not expose a verified child-agent event contract'),
+        : experimental(true, 'Native task events are observed after the parent result; real-account lifecycle validation is pending'),
       subagentLifecycle: capability(false, provider === 'codex'
         ? 'The Codex app-server version in use does not expose independent, idempotent child lifecycle operations'
         : 'Claude headless mode does not expose spawn, interrupt, resume or retry operations for child agents'),
       additionalProviders: capability(false, 'Code providers without a supported headless protocol remain Code-only')
     }
   }
+  if (provider === 'claude' && (configuration?.access ?? 'read-only') === 'read-only') {
+    for (const name of ['mcp', 'mcpManagement', 'hooks', 'subagentObservation'] as const) {
+      manifest.features[name] = { ...manifest.features[name], enabled: false, authorized: false, reason: 'Disabled by this conversation’s read-only tool policy' }
+    }
+  }
+  return manifest
+
 }

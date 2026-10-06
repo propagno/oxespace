@@ -26,12 +26,14 @@ import type { WorktreeEventBus } from './worktree-event-bus'
 import type { SemanticService } from '../services/semantic.service'
 import { MEMORY_TOOLS } from './memory-tool-handlers'
 import { DELEGATION_TOOLS } from './delegation-tools'
+import { TEAM_TOOLS } from './team-tools'
 import { automationTools } from './automation-tools'
 import { DOCUMENTATION_TOOLS } from './documentation-tools'
 
 export interface ToolContext {
   documentation?: () => Promise<ReturnType<typeof import('../services/documentation/runtime').createDocumentationRuntime>>
   delegation?: import('../services/delegation.service').DelegationService
+  team?: import('../services/coordination/team-access').TeamAccess
   executions?: import('../services/execution-registry').ExecutionRegistry
   executionId?: string
   executionToken?: string
@@ -60,6 +62,7 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   ...automationTools(() => TOOL_REGISTRY),
   ...MEMORY_TOOLS,
   ...DELEGATION_TOOLS,
+  ...TEAM_TOOLS,
   {
     descriptor: {
       name: 'oxespace_list_workspaces',

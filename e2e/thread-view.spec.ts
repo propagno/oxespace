@@ -141,7 +141,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
         if (text === 'Structured question fixture') {
           thread.status = 'approval'
           snapshot!.events = [{ type: 'message', id: 'choice-user', role: 'user', text },
-            { type: 'request', id: 'native-choice', request: { id: 'native-choice', nativeId: 'native-choice', nativeMethod: 'can_use_tool:AskUserQuestion', kind: 'question', title: 'Claude needs your input', generation: 1, createdAt: Date.now(), state: 'pending', questions: [{ id: 'rollout', question: 'Which rollout?', options: [{ label: 'Staged' }, { label: 'Immediate' }] }] } }]
+            { type: 'request', id: 'native-choice', request: { id: 'native-choice', nativeId: 'native-choice', nativeMethod: 'can_use_tool:AskUserQuestion', kind: 'question', title: 'Claude needs your input', generation: 1, createdAt: Date.now(), state: 'pending', questions: [{ id: 'rollout', question: 'Which rollout?', options: [{ label: 'Staged' }, { label: 'Immediate' }] }, { id: 'validation', question: 'Which validation?', options: [{ label: 'Pilot' }, { label: 'Full rollout' }] }] } }]
           changed(); return
         }
         if (text === 'Prose choices fixture') {
@@ -418,8 +418,12 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     const permissions = page.getByRole('dialog', { name: 'Permissions', exact: true })
     await expect(permissions).toBeVisible()
     await permissions.getByRole('button', { name: /Workspace access Allow edits inside this project/ }).click()
-    await permissions.getByRole('button', { name: 'Allow workspace access', exact: true }).click()
+    const accessDialog = page.getByRole('dialog', { name: 'Change conversation access?', exact: true })
+    await expect(accessDialog.getByRole('button', { name: 'Apply access', exact: true })).toBeInViewport()
+    await page.screenshot({ path: 'test-results/thread-access-dialog.png' })
+    await accessDialog.getByRole('button', { name: 'Apply access', exact: true }).click()
     await expect(page.getByRole('button', { name: 'Permissions', exact: true })).toContainText('Workspace access')
+    await expect(page.getByRole('button', { name: 'Permissions', exact: true })).toBeFocused()
     await expect(page.locator('.thread-timeline')).toHaveCount(1)
     await expect(page.locator('.thread-composer textarea')).toHaveCount(1)
     await expect(page.locator('.thread-navigation')).toBeVisible()
@@ -576,7 +580,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Append streaming fixture'))
     await expect(page.getByRole('button', { name: 'Stop turn', exact: true })).toBeVisible()
     const liveActivity = page.locator('.thread-live-activity')
-    await expect(liveActivity.getByRole('status')).toHaveText('Writing response')
+    await expect(liveActivity.getByRole('status')).toHaveText('Analyzing request')
     await expect(liveActivity).toContainText('Last provider signal')
     const runningDot = page.locator('.thread-session-indicator[data-status="running"]').first()
     await expect(runningDot).toBeVisible()
@@ -854,8 +858,25 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Structured question fixture'))
     await expect(page.getByRole('region', { name: 'Claude needs your input' })).toBeVisible()
     await page.getByRole('radio', { name: 'Staged' }).check()
+    await page.getByRole('region', { name: 'Claude needs your input' }).getByRole('button', { name: 'Next' }).click()
+    await page.getByRole('radio', { name: 'Pilot', exact: true }).check()
+    await page.screenshot({ path: 'test-results/thread-question-interactive.png' })
+    console.log('Question geometry', await page.evaluate(() => Object.fromEntries(['.thread-timeline', '.thread-request-question', '.thread-request-question fieldset:not([hidden])', '.thread-request-question footer'].map(selector => {
+      const element = document.querySelector(selector)!, rect = element.getBoundingClientRect()
+      return [selector, { top: rect.top, bottom: rect.bottom, height: rect.height, scroll: element.scrollHeight }]
+    }))))
+    await expect(page.getByRole('button', { name: 'Answer', exact: true })).toBeInViewport()
+    await expect(page.getByRole('button', { name: 'Decline', exact: true })).toBeInViewport()
+    const questionLayout = await page.locator('.thread-request-question').evaluate(card => ({
+      bodyBottom: card.querySelector('.thread-question-body')!.getBoundingClientRect().bottom,
+      footerTop: card.querySelector('footer')!.getBoundingClientRect().top,
+      bodyOverflow: getComputedStyle(card.querySelector('.thread-question-body')!).overflowY
+    }))
+    expect(questionLayout.bodyBottom).toBeLessThanOrEqual(questionLayout.footerTop + 1)
+    expect(questionLayout.bodyOverflow).toBe('auto')
+    await page.screenshot({ path: 'test-results/thread-question-interactive.png' })
     await page.getByRole('button', { name: 'Answer', exact: true }).click()
-    await expect.poll(() => app.evaluate(() => (globalThis as Record<string, unknown>).lastThreadAnswer)).toEqual({ answers: { rollout: ['Staged'] } })
+    await expect.poll(() => app.evaluate(() => (globalThis as Record<string, unknown>).lastThreadAnswer)).toEqual({ answers: { rollout: ['Staged'], validation: ['Pilot'] } })
     await expect(page.getByText('Answer sent to agent')).toBeVisible()
     await page.screenshot({ path: 'test-results/thread-question-answered.png' })
     await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Structured question fixture'))

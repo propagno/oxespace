@@ -1,5 +1,17 @@
 import type { ThreadEvent, ThreadFileChange } from '../../../shared/types/thread'
 
+function pathKey(path: string): string {
+  const normalized = path.replace(/\\/g, '/')
+  return /^[a-z]:\//i.test(normalized) || normalized.startsWith('//') ? normalized.toLowerCase() : normalized
+}
+
+export function threadFileScope(path: string, root: string): string {
+  const key = pathKey(path), prefix = pathKey(root).replace(/\/$/, '') + '/'
+  if (/(?:^|\/)\.(?:claude|codex)\/(?:projects|sessions|tasks)(?:\/|$)/.test(key)) return 'Agent state'
+  if (key === '..' || key.startsWith('../')) return 'External'
+  return key.startsWith(prefix) || !/^(?:[a-z]:)?\//i.test(key) ? 'Project' : 'External'
+}
+
 export interface ThreadChangeEntry { key: string; toolId: string; file: ThreadFileChange }
 export interface ThreadSessionFile { path: string; primary: ThreadChangeEntry; operations: ThreadChangeEntry[] }
 export interface ThreadSessionChangeGroup { turnId: string; sequence: number; label: string; files: ThreadSessionFile[] }
@@ -21,8 +33,8 @@ export function sessionChangeGroups(events: ThreadEvent[]): ThreadSessionChangeG
       groups.push(current)
     }
     for (const entry of threadChanges([event])) {
-      const path = entry.file.path.replace(/\\/g, '/').toLowerCase()
-      let file = current.files.find(value => value.path.replace(/\\/g, '/').toLowerCase() === path)
+      const path = pathKey(entry.file.path)
+      let file = current.files.find(value => pathKey(value.path) === path)
       if (!file) { file = { path: entry.file.path, primary: entry, operations: [] }; current.files.push(file) }
       file.operations.push(entry)
       // Prefer verified final evidence over a tool's proposed input. Keep every
@@ -42,7 +54,7 @@ export function turnChanges(events: ThreadEvent[]): ThreadChangeEntry[] {
   const entries = threadChanges([...(native ? [native] : []), ...(observed ? [observed] : [])])
   const seen = new Set<string>()
   return entries.filter(entry => {
-    const path = entry.file.path.replace(/\\/g, '/').toLowerCase()
+    const path = pathKey(entry.file.path)
     if (seen.has(path)) return false
     seen.add(path)
     return true
@@ -50,7 +62,7 @@ export function turnChanges(events: ThreadEvent[]): ThreadChangeEntry[] {
 }
 export function threadFileLabel(path: string, root: string): string {
   const normalized = path.replace(/\\/g, '/'), prefix = root.replace(/\\/g, '/').replace(/\/$/, '') + '/'
-  return normalized.toLowerCase().startsWith(prefix.toLowerCase()) ? normalized.slice(prefix.length) : normalized
+  return pathKey(normalized).startsWith(pathKey(prefix)) ? normalized.slice(prefix.length) : normalized
 }
 /** Totals are exact only when each path has one successful, complete native patch. */
 export function changeSummary(entries: ThreadChangeEntry[]) {

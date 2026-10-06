@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { delimiter, dirname, extname, join } from 'node:path'
 import type { ConversationTransport } from './codex-conversation'
+import { recordRuntime, type RuntimeDetail } from '../runtime-diagnostics'
 
 /** Thread subscription processes share a native account, never an API env key. */
 export function subscriptionEnvironment(source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
@@ -64,7 +65,7 @@ export class AgentProcessTransport implements ConversationTransport {
 
   get exitCode(): number | null { return this.child.exitCode }
 
-  constructor(command: string, args: string[], cwd: string, mcpEnvironment: Record<string, string> = {}) {
+  constructor(command: string, args: string[], cwd: string, mcpEnvironment: Record<string, string> = {}, private readonly diagnosticContext: RuntimeDetail = {}) {
     const env = subscriptionEnvironment()
     // Only main may supply a fresh project-bound MCP lease. Never restore the
     // parent's OXESPACE context or provider/API credentials.
@@ -75,12 +76,17 @@ export class AgentProcessTransport implements ConversationTransport {
     const resolved = interactiveConversationCommand(command, args, env)
     this.child = spawn(resolved.executable, resolved.args, { cwd, env: resolved.env, windowsHide: true, stdio: 'pipe',
       detached: process.platform !== 'win32' })
+    const startedAt = Date.now()
+    this.child.once('spawn', () => recordRuntime('process-start', { ...diagnosticContext, kind: 'thread', pid: this.child.pid, parentPid: process.pid, executable: resolved.executable }))
     this.child.stdout.on('data', (chunk: Buffer) => this.dataListener(chunk))
     // Consume stderr without retaining potentially sensitive provider diagnostics.
     this.child.stderr.on('data', (chunk: Buffer) => this.diagnosticListener(chunk))
     this.child.stdin.on('error', () => this.end())
-    this.child.on('error', () => this.end())
-    this.child.on('close', () => this.end())
+    this.child.on('error', () => { recordRuntime('process-error', { ...diagnosticContext, pid: this.child.pid, state: 'failed' }); this.end() })
+    this.child.on('close', (code) => {
+      recordRuntime('process-exit', { ...diagnosticContext, pid: this.child.pid, exitCode: code ?? undefined, durationMs: Date.now() - startedAt })
+      this.end()
+    })
   }
 
   write(line: string): void {
@@ -99,6 +105,7 @@ export class AgentProcessTransport implements ConversationTransport {
   async close(): Promise<void> {
     const pid = this.child.pid
     if (!pid || this.child.exitCode !== null) { this.end(); return }
+    recordRuntime('process-stop', { ...this.diagnosticContext, pid })
     this.child.stdin.end()
     if (process.platform === 'win32') {
       await new Promise<void>(resolve => execFile('taskkill.exe', ['/pid', String(pid), '/T', '/F'],

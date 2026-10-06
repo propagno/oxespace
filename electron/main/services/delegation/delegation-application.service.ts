@@ -396,9 +396,12 @@ export class DelegationApplicationService {
     const isOrigin = execution.id === t.originExecutionId
     if (execution.workspaceId !== (isOrigin ? t.originWorkspaceId ?? t.workspaceId : t.workspaceId) || project !== (isOrigin ? t.originProjectId ?? t.project : t.project)) throw new Error('Delegation is outside this execution scope')
     const expectedDestination = this.isDelegatedExecution(t, execution)
-    if (t.state === 'starting' && expectedDestination && !t.destinationExecutionId) {
-      t.destinationExecutionId = execution.id; this.save(t)
+    // Registration is visible before the asynchronous consent binding finishes.
+    // The exact live destination may finish that binding itself; never rebind a
+    // different execution or expand requester scope during this startup window.
+    if (t.state === 'starting' && expectedDestination && (!t.destinationExecutionId || t.destinationExecutionId === execution.id)) {
       if (t.originWorkspaceId) await this.coordinator.bind(t, 'executor', execution)
+      if (!t.destinationExecutionId) { t.destinationExecutionId = execution.id; this.save(t) }
     }
     if (execution.id !== t.originExecutionId && execution.id !== t.destinationExecutionId) throw new Error('Delegation is outside this execution scope')
     if (t.originWorkspaceId) await this.coordinator.authorize(t, execution, 'read')

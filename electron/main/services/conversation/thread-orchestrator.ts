@@ -19,6 +19,7 @@ import { ThreadSessionSupervisor } from './thread-session-supervisor'
 import { ThreadExportService } from './thread-export.service'
 import { ThreadPortableService } from './thread-portable'
 import { ThreadCheckpointService } from './thread-checkpoints'
+import { recordRuntime } from '../runtime-diagnostics'
 import { hasUnconfirmedTurnTools, recoverPublicTurn } from './thread-result-recovery'
 import type { NativeStateResult } from './codex-state-reader'
 
@@ -94,7 +95,7 @@ export class ThreadOrchestrator {
       const snapshot = this.history.read(row.id)
       let recovered = false
       let eventsFrom = snapshot.events.length
-      if (snapshot.thread.status === 'running' || snapshot.thread.status === 'approval' || snapshot.thread.cliActive) {
+      if (snapshot.thread.status === 'running' || snapshot.thread.status === 'approval' || snapshot.thread.cliActive || snapshot.events.some(event => event.type === 'subagent' && event.state === 'running')) {
         settleVolatileThreadSnapshot(snapshot, 'restart')
         this.history.settleOpenOperations(snapshot.thread.id, 'unknown', 'OXESpace restarted before the provider result was confirmed.')
         recovered = true; eventsFrom = 0
@@ -340,6 +341,7 @@ export class ThreadOrchestrator {
     if (this.configuring.has(id)) throw new Error('Configuration is already being updated')
     if (this.read(id).thread.cliActive) throw Error('The native CLI already owns this conversation')
     const attachments = attachmentIds.length ? await this.resolveAttachments(id, attachmentIds) : []
+    recordRuntime('turn-submit', { thread: id, kind: 'thread' })
     if (this.busy.has(id) || this.finalizing.has(id)) {
       const snapshot = this.read(id), adapter = this.adapters.get(id)
       const operation = this.history.beginOperation({ threadId: id, generation: snapshot.thread.generation ?? 1, kind: 'queue' })
@@ -434,6 +436,7 @@ export class ThreadOrchestrator {
   }
 
   async interrupt(id: string): Promise<void> {
+    recordRuntime('turn-interrupt', { thread: id })
     this.read(id)
     const adapter = this.adapters.get(id)
     if (!adapter) throw new Error('Thread has no live execution')
@@ -900,6 +903,19 @@ export class ThreadOrchestrator {
       return
     }
     if (generation !== undefined && generation !== (snapshot.thread.generation ?? 1)) return
+    const diagnostic = { thread: id, turn: snapshot.turns?.at(-1)?.id, generation }
+    switch (event.type) {
+      case 'tool': case 'subagent':
+        recordRuntime(event.type, { ...diagnostic, task: event.id, state: event.state }); break
+      case 'approval': case 'request':
+        recordRuntime(event.type, { ...diagnostic, task: event.id, state: 'pending' }); break
+      case 'approval-resolved': case 'request-resolved':
+        recordRuntime(event.type, { ...diagnostic, task: event.id }); break
+      case 'completed':
+        recordRuntime('completed', { ...diagnostic, state: event.status }); break
+      case 'turn-accepted': case 'continuation-started': case 'connection-closed':
+        recordRuntime(event.type, diagnostic); break
+    }
     if (event.type === 'connection-closed') {
       snapshot.thread.connection = this.sessions.close(id, event.at)
       this.save(snapshot, { eventsFrom: snapshot.events.length })
@@ -908,6 +924,17 @@ export class ThreadOrchestrator {
     if (event.type === 'native-signal') {
       snapshot.thread.connection = this.sessions.nativeSignal(id, event.at)
       this.save(snapshot, { eventsFrom: snapshot.events.length })
+      return
+    }
+    if (event.type === 'continuation-started') {
+      if (snapshot.turns?.at(-1)?.status !== 'running') {
+        snapshot.turns ??= []
+        snapshot.turns.push({ id: event.id, sequence: snapshot.turns.length + 1, startedAt: event.at, status: 'running', configuration: { model: snapshot.thread.model, access: snapshot.thread.access, reasoningEffort: snapshot.thread.reasoningEffort } })
+        snapshot.thread.status = 'running'
+        this.busy.add(id)
+      }
+      snapshot.events.push({ type: 'activity', id: event.id, phase: 'responding', at: event.at, summary: 'The provider is continuing after background activity.' })
+      this.save(snapshot, { eventsFrom: snapshot.events.length - 1 })
       return
     }
     const activeTurn = snapshot.turns?.at(-1)
@@ -1022,7 +1049,11 @@ export class ThreadOrchestrator {
       else snapshot.events.push(event)
       if (event.type === 'approval-resolved' || event.type === 'request-resolved') snapshot.thread.status = this.requests.list(id, snapshot.thread.generation ?? 1).length ? 'approval' : 'running'
     }
-    if (operationId && event.type !== 'completed' && event.type !== 'session' && event.type !== 'configuration') this.history.transitionOperation(id, operationId, 'running')
+    if (event.type === 'session' || event.type === 'configuration') {
+      const adapter = this.adapters.get(id)
+      if (adapter) snapshot.thread.capabilities = threadCapabilityManifest(snapshot.thread.provider, adapter.capabilities, snapshot.thread.connection?.state === 'connected', adapter.evidence, snapshot.thread)
+    }
+    if (operationId && activeTurn?.status === 'running' && event.type !== 'completed' && event.type !== 'session' && event.type !== 'configuration') this.history.transitionOperation(id, operationId, 'running')
     this.save(snapshot, { eventsFrom, ...(operationId ? { operationId } : {}) })
   }
 
@@ -1070,12 +1101,13 @@ export class ThreadOrchestrator {
         const after = await this.workingState(snapshot.thread.rootPath)
         if (after !== undefined && (after.patch !== before.patch || [...after.untracked].some(path => !before.untracked.has(path)))) {
           const turnStart = snapshot.events.findIndex(event => event.type === 'message' && event.id === turnId)
-          const reportedPaths = new Set(snapshot.events.slice(Math.max(0, turnStart)).flatMap(event => event.type === 'turn-diff' && event.id.startsWith('turn-diff:') ? event.files.map(file => file.path.replace(/\\/g, '/').toLowerCase()) : []))
+          const pathKey = (path: string): string => process.platform === 'win32' ? path.replace(/\\/g, '/').toLowerCase() : path
+          const reportedPaths = new Set(snapshot.events.slice(Math.max(0, turnStart)).flatMap(event => event.type === 'turn-diff' && event.id.startsWith('turn-diff:') ? event.files.map(file => pathKey(file.path)) : []))
           const previous = new Map(splitThreadPatch(before.patch).map(file => [file.path, file.patch]))
           const files: import('../../../../shared/types/thread').ThreadFileChange[] = splitThreadPatch(after.patch)
-            .filter(file => previous.get(file.path) !== file.patch && !reportedPaths.has(file.path.replace(/\\/g, '/').toLowerCase()))
+            .filter(file => previous.get(file.path) !== file.patch && !reportedPaths.has(pathKey(file.path)))
             .map(file => ({ ...file, source: 'working-tree-observation', authorship: 'indeterminate', state: status === 'completed' ? 'completed' as const : 'failed' as const }))
-          for (const path of after.untracked) if (!before.untracked.has(path) && !reportedPaths.has(path.replace(/\\/g, '/').toLowerCase())) files.push({ path, kind: 'add', source: 'working-tree-observation', authorship: 'indeterminate', state: status === 'completed' ? 'completed' : 'failed' })
+          for (const path of after.untracked) if (!before.untracked.has(path) && !reportedPaths.has(pathKey(path))) files.push({ path, kind: 'add', source: 'working-tree-observation', authorship: 'indeterminate', state: status === 'completed' ? 'completed' : 'failed' })
           if (files.length) this.event(id, { type: 'turn-diff', id: `verified-diff:${turnId ?? randomUUID()}`, turnId: turnId ?? '', files })
         }
       }
@@ -1111,12 +1143,12 @@ export class ThreadOrchestrator {
       if (this.stopping) { await adapter.dispose(); throw Error('Application is shutting down') }
       this.adapters.set(id, adapter)
       const latest = this.read(id)
-      latest.thread.capabilities = threadCapabilityManifest(latest.thread.provider, adapter.capabilities, false, adapter.evidence)
+      latest.thread.capabilities = threadCapabilityManifest(latest.thread.provider, adapter.capabilities, false, adapter.evidence, latest.thread)
       this.save(latest, { eventsFrom: latest.events.length })
       const owned = adapter, generation = latest.thread.generation ?? 1
       await adapter.start({ rootPath: latest.thread.rootPath, nativeSessionId: latest.thread.nativeSessionId, model: latest.thread.model, reasoningEffort: latest.thread.reasoningEffort, access: latest.thread.access, networkAccess: latest.thread.networkAccess ?? false, approvalPolicy: latest.thread.approvalPolicy ?? 'on-request', mode: latest.thread.mode, hooksEnabled: latest.thread.hooksEnabled ?? false }, event => { if (this.adapters.get(id) === owned) this.event(id, event, generation) })
       const connected = this.read(id)
-      connected.thread.capabilities = threadCapabilityManifest(connected.thread.provider, adapter.capabilities, true, adapter.evidence)
+      connected.thread.capabilities = threadCapabilityManifest(connected.thread.provider, adapter.capabilities, true, adapter.evidence, connected.thread)
       connected.thread.connection = this.sessions.connected(id)
       this.save(connected, { eventsFrom: connected.events.length })
       return adapter

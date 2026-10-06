@@ -104,6 +104,15 @@ export function registerPackagedSmoke({ platform, label, bootBudgetMs }: Package
         expect(afterClose.workingSetMb - beforePreview.workingSetMb).toBeLessThan(160)
         expect(afterClose.processCount).toBe(beforePreview.processCount)
       }
+    } catch (error) {
+      const page = await app.firstWindow()
+      await test.info().attach('packaged-ui', { body: await page.locator('body').innerText(), contentType: 'text/plain' })
+      await test.info().attach('packaged-web-contents', {
+        body: JSON.stringify(await app.evaluate(({ webContents }) => webContents.getAllWebContents().map(contents => ({
+          type: contents.getType(), url: contents.getURL(), loading: contents.isLoading(), destroyed: contents.isDestroyed()
+        }))), null, 2), contentType: 'application/json'
+      })
+      throw error
     } finally {
       await app.close()
       await new Promise<void>(resolve => server.close(() => resolve()))

@@ -1,20 +1,10 @@
+import { threadToolSummary as toolSummary } from '../../../shared/threadToolSummary'
+import { threadActionFailure } from '../../../shared/threadActionFailure'
 import { Check, ChevronDown, CircleAlert, CircleHelp, Loader2, TerminalSquare } from 'lucide-react'
 import type { ThreadEvent } from '../../../shared/types/thread'
 type Tool = Extract<ThreadEvent, { type: 'tool' }>
 const names: Record<string, string> = { commandExecution: 'Ran command', fileChange: 'Changed files', mcpToolCall: 'Used integration', contextCompaction: 'Compacted context', Read: 'Read file', Glob: 'Found files', Grep: 'Searched code', Bash: 'Ran command', Edit: 'Edited file', Write: 'Wrote file', 'Tool result': 'Completed action' }
 
-function toolSummary(event: Tool): string {
-  const detail = event.detail.trim()
-  if (['commandExecution', 'Bash'].includes(event.name) && detail.startsWith('{')) {
-    try {
-      const input = JSON.parse(detail) as Record<string, unknown>
-      const command = input.command ?? input.cmd ?? input.command_line ?? input.shell_command
-      if (typeof command === 'string') return command.replace(/\s+/g, ' ').slice(0, 180)
-      if (Array.isArray(command)) return command.filter(value => typeof value === 'string').join(' ').slice(0, 180)
-    } catch { /* Keep the provider's text below for inspection. */ }
-  }
-  return detail.split('\n').find(line => line.trim() && line.trim() !== '{')?.slice(0, 180) ?? ''
-}
 
 function diagnosticKind(event: Tool): { label: string; className: string } {
   const text = `${event.detail}\n${event.output ?? ''}`
@@ -25,6 +15,7 @@ function diagnosticKind(event: Tool): { label: string; className: string } {
 
 function ThreadToolDiagnostic({ event, onDiagnostics }: { event: Tool; onDiagnostics?: () => void }) {
   const kind = diagnosticKind(event)
+  const failure = event.state === 'failed' ? threadActionFailure(event.output ?? '') : undefined
   const detail = event.detail.trim(), output = event.output?.trim() ?? ''
   const technical = [detail && `Input\n${detail}`, output && `Output\n${output}`, event.exitCode !== undefined && `Exit code ${event.exitCode}`].filter(Boolean).join('\n\n')
   const primary = event.state === 'failed'
@@ -32,8 +23,9 @@ function ThreadToolDiagnostic({ event, onDiagnostics }: { event: Tool; onDiagnos
     : event.state === 'unknown' ? 'The agent did not confirm whether this action finished.'
       : toolSummary(event) || output.split('\n').find(Boolean) || kind.label
   return <div className="thread-tool-diagnostic">
-    <div className="thread-tool-diagnostic-meta"><span className={kind.className}>{kind.label}</span>{event.startedAt && event.completedAt && <time>{Math.max(0, event.completedAt - event.startedAt)} ms</time>}</div>
+    <div className="thread-tool-diagnostic-meta"><span className={kind.className}>{failure?.label ?? kind.label}</span>{event.startedAt && event.completedAt && <time>{Math.max(0, event.completedAt - event.startedAt)} ms</time>}</div>
     <p>{primary.slice(0, 320)}</p>
+    {failure && <p>{failure.guidance}</p>}
     {(event.state === 'failed' || event.state === 'unknown') && onDiagnostics && <button type="button" className="thread-tool-diagnostics-link" onClick={onDiagnostics}>Open session diagnostics</button>}
     {technical && <details className="thread-tool-technical"><summary>Technical details</summary><pre>{technical}</pre></details>}
   </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sessionChangeGroups } from '../src/components/Threads/threadChanges'
+import { sessionChangeGroups, threadFileScope } from '../src/components/Threads/threadChanges'
 import { requestOutcome, requestOutcomeLabel } from '../shared/threadRequestOutcome'
 import type { ThreadEvent, ThreadRequest } from '../shared/types/thread'
 
@@ -28,4 +28,11 @@ describe('request outcomes', () => {
     expect(requestOutcomeLabel({ ...question, resolution: 'turn-failed' })).toContain('Turn failed')
     expect(requestOutcomeLabel({ ...question, resolution: 'declined' })).toBe('Declined by you')
   })
+})
+
+it('keeps Linux case-sensitive paths distinct and labels external agent state', () => {
+  expect(threadFileScope('/home/user/.claude/projects/repo/session.jsonl', '/repo')).toBe('Agent state')
+  expect(threadFileScope('../elsewhere/file.md', '/repo')).toBe('External')
+  const files = sessionChangeGroups([{ type: 'tool', id: 'edit', name: 'Edit', state: 'completed', detail: '', files: [{ path: '/repo/Readme.md', kind: 'update' }, { path: '/repo/README.md', kind: 'update' }] }])[0].files
+  expect(files).toHaveLength(2)
 })

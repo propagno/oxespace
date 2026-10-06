@@ -70,8 +70,10 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/contextUsage/copilotContext.ts',
   'electron/main/index.ts',
   'electron/main/db/index.ts',
-  // Diagnostics reads the main log tail and writes a report only to a path
-  // explicitly selected through Electron's native save dialog.
+  // Diagnostics writes a report only to a path explicitly selected through
+  // Electron's native save dialog. Runtime recording owns three bounded files
+  // under userData/diagnostics and probes executable realpaths, never source files.
+  'electron/main/services/runtime-diagnostics.ts',
   'electron/main/ipc/diagnostics.ipc.ts',
   // Portable conversation packages are read/written only at a path returned
   // by Electron's native open/save dialogs; package validation remains in the

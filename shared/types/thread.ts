@@ -181,7 +181,7 @@ export interface ThreadFileChange {
 export interface ThreadArtifact { id: string; content: string; hash: string; bytes: number; truncated: boolean; source: ThreadFileChange['source'] }
 export interface ThreadSubagent {
   threadId: string
-  status: 'pending' | 'running' | 'interrupted' | 'completed' | 'failed' | 'closed' | 'not-found'
+  status: 'pending' | 'running' | 'interrupted' | 'completed' | 'failed' | 'closed' | 'not-found' | 'unknown'
   message?: string
 }
 export interface ThreadTurn { id: string; operationId?: string; nativeId?: string; sequence: number; startedAt?: number; completedAt?: number; status: 'running' | 'completed' | 'failed' | 'interrupted'; configuration: ThreadConfiguration; attachmentIds?: string[] }
@@ -231,6 +231,7 @@ export interface ThreadProviderObservation {
 }
 
 export type ThreadEvent =
+  | { type: 'continuation-started'; id: string; at: number }
   | { type: 'session'; nativeSessionId: string }
   /** Transport liveness only; the orchestrator updates metadata without saving a timeline row. */
   | { type: 'native-signal'; at: number }
@@ -240,7 +241,7 @@ export type ThreadEvent =
   | { type: 'message'; id: string; role: 'user' | 'assistant'; text: string; historicalQuestions?: { title: string; options: string[] | null }[]; attachments?: Omit<ThreadAttachment, 'path'>[] }
   | { type: 'delta'; id: string; text: string }
   | { type: 'tool'; id: string; name: string; state: 'running' | 'completed' | 'failed' | 'unknown'; detail: string; output?: string; exitCode?: number; startedAt?: number; completedAt?: number; turnId?: string; files?: ThreadFileChange[] }
-  | { type: 'subagent'; id: string; action: string; state: 'running' | 'completed' | 'failed' | 'interrupted'; senderThreadId?: string; receiverThreadIds: string[]; agents: ThreadSubagent[]; prompt?: string; model?: string; reasoningEffort?: string; startedAt?: number; completedAt?: number; turnId?: string }
+  | { type: 'subagent'; id: string; action: string; state: 'running' | 'completed' | 'failed' | 'interrupted' | 'unknown'; senderThreadId?: string; receiverThreadIds: string[]; agents: ThreadSubagent[]; prompt?: string; model?: string; reasoningEffort?: string; startedAt?: number; completedAt?: number; turnId?: string }
   | { type: 'approval'; id: string; title: string; detail: string }
   | { type: 'approval-resolved'; id: string }
   | { type: 'request'; id: string; request: ThreadRequest }
