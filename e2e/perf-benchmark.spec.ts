@@ -30,7 +30,8 @@ const PERF_BUDGETS_MS: Record<string, number> = {
   // is ~570 ms on Linux runners; keep this explicit instead of weakening the
   // 500 ms budget for all other interactions.
   'modal open:  Semantic Activity': 750,
-  'modal open:  Usage & Rate Limits': 750
+  'modal open:  Usage & Rate Limits': 750,
+  'modal close: Usage & Rate Limits': 750
 }
 const DEFAULT_INTERACTION_BUDGET_MS = 500
 const MAX_WORKING_SET_MB = 750
