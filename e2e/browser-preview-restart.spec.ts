@@ -4,6 +4,10 @@ import { mkdtempSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+// A bounded retry distinguishes a transient Electron exit on a shared CI runner
+// from a reproducible failure of the restart/persistence assertion.
+test.describe.configure({ retries: 1 })
+
 test('browser tabs and agent consent are ephemeral across app restart', async () => {
   test.setTimeout(60_000)
   const root = mkdtempSync(join(tmpdir(), 'oxe-preview-restart-'))

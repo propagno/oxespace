@@ -87,7 +87,11 @@ export function registerPackagedSmoke({ platform, label, bootBudgetMs }: Package
       await page.getByTestId('btn-open-tools').click()
       await page.getByText('Web Preview',{exact:true}).click()
       for (let count = 1; count <= 4; count++) {
-        if (count > 1) await page.getByRole('button',{name:'New browser tab'}).click()
+        if (count > 1) {
+          await page.getByRole('button',{name:'New browser tab'}).click()
+          await expect(page.locator('.web-preview-tab')).toHaveCount(count)
+          await expect(page.locator('.web-preview-tab').nth(count - 1)).toHaveAttribute('data-active', 'true')
+        }
         await page.locator('.web-preview-address-input').fill(`${previewUrl}?tab=${count}`)
         await page.locator('.web-preview-address-input').press('Enter')
         await expect.poll(async () => (await metrics()).guestCount).toBe(count)
