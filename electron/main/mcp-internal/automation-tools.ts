@@ -35,7 +35,9 @@ export function automationTools(catalogue: () => ToolEntry[]): ToolEntry[] {
         workspaceId: execution.workspaceId,
         memoryBound: Boolean(ctx.memory && ctx.memoryRunId),
         delegationServiceAvailable: Boolean(ctx.delegation),
-        delegation: ctx.delegation ? await ctx.delegation.capabilities(execution).catch(() => ({ status: 'unavailable' })) : { status: 'unavailable' },
+        // Discovery must not wait for filesystem identity or Git on a busy host.
+        // Delegation preflight performs the detailed check when requested.
+        delegation: { status: ctx.delegation ? 'available' : 'unavailable', details: 'Use oxespace_delegation_preflight for project eligibility.' },
         policy: 'Every action revalidates scope, ownership and project opt-in. Listed tools may require additional setup.',
         limits: { concurrentDelegationsPerProject: 4, recursiveDelegation: false }
       })

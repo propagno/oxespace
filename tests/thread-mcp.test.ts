@@ -12,6 +12,8 @@ it('adds the OXESpace bridge while preserving Claude CLI MCP inheritance and per
   expect(JSON.parse(server.args[2])).toContain('oxespace_memory_search')
   expect(JSON.parse(server.args[2])).toContain('oxespace_run_script')
   expect(JSON.parse(server.args[2])).toContain('oxespace_quality_check')
+  expect(JSON.parse(server.args[2])).toContain('oxespace_thread_create')
+  expect(JSON.parse(server.args[2])).toContain('oxespace_thread_send')
 })
 
 it('injects Codex MCP options before app-server without embedding secrets in arguments', () => {

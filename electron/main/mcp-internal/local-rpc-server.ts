@@ -1,5 +1,5 @@
 import http from 'node:http'
-import { timingSafeEqual } from 'node:crypto'
+import { randomUUID, timingSafeEqual } from 'node:crypto'
 import type {
   InternalMcpJsonRpcRequest,
   InternalMcpJsonRpcResponse
@@ -139,7 +139,9 @@ export function createLocalRpcServer(deps: LocalRpcDeps): LocalRpcServer {
       // otherwise falls back to the active workspace (stale/missing bridge env).
       try {
           const ctx: ToolContext = {
-            documentation: deps.documentation,
+          documentation: deps.documentation,
+          captureRoot: deps.captureRoot,
+          db: deps.db, threads: deps.threads,
             delegation: deps.delegation, executions: deps.executions, delegationAgents: deps.delegationAgents, executionId, executionToken,
           memory: deps.memory,
           memoryRunId,
@@ -226,9 +228,25 @@ export function createLocalRpcServer(deps: LocalRpcDeps): LocalRpcServer {
     const runHeader = req.headers['x-oxe-memory-run-id']
     const executionId = req.headers['x-oxe-execution-id']
     const executionToken = req.headers['x-oxe-execution-token']
-    const envelope = await dispatchRpc(parsed, workspaceId, typeof runHeader === 'string' ? runHeader : undefined,
-      typeof executionId === 'string' ? executionId : undefined, typeof executionToken === 'string' ? executionToken : undefined)
-    respond(res, 200, envelope)
+    const rawRequestId = req.headers['x-oxe-request-id']
+    const requestId = typeof rawRequestId === 'string' && /^[a-f\d-]{36}$/i.test(rawRequestId) ? rawRequestId : randomUUID()
+    const rawToolName = parsed.method === 'tools/call' && parsed.params && typeof parsed.params === 'object'
+      ? (parsed.params as { name?: unknown }).name : parsed.method
+    const toolName = typeof rawToolName === 'string' && /^[a-zA-Z0-9_-]{1,100}$/.test(rawToolName) ? rawToolName : 'unknown'
+    const started = Date.now()
+    const slow = setTimeout(() => console.warn(`[internal-mcp] slow request=${requestId} tool=${toolName} elapsedMs=${Date.now() - started}`), 5000)
+    slow.unref?.()
+    res.once('close', () => {
+      if (!res.writableEnded) console.warn(`[internal-mcp] client-disconnected request=${requestId} tool=${toolName} elapsedMs=${Date.now() - started}`)
+    })
+    try {
+      const envelope = await dispatchRpc(parsed, workspaceId, typeof runHeader === 'string' ? runHeader : undefined,
+        typeof executionId === 'string' ? executionId : undefined, typeof executionToken === 'string' ? executionToken : undefined)
+      respond(res, 200, envelope)
+      if (Date.now() - started >= 2000 || 'error' in envelope || 'result' in envelope && (envelope.result as { isError?: boolean })?.isError) {
+        console.warn(`[internal-mcp] completed request=${requestId} tool=${toolName} elapsedMs=${Date.now() - started} status=${'error' in envelope ? 'rpc-error' : 'result' in envelope && (envelope.result as { isError?: boolean })?.isError ? 'tool-error' : 'ok'}`)
+      }
+    } finally { clearTimeout(slow) }
   }
 
   return {

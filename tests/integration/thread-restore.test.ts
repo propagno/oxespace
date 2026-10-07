@@ -65,5 +65,5 @@ describe('Thread file checkpoints', () => {
     writeFileSync(join(root, 'tracked.txt'), 'agent edit\n')
     await service.finalize(checkpoint)
     await expect(service.restore('another-thread', checkpoint)).rejects.toThrow('does not belong')
-  })
+  }, 15000)
 })

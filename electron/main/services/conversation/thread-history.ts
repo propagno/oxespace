@@ -47,9 +47,12 @@ export class ThreadHistory {
       row = this.db.prepare('SELECT data_json, events_json, history_version FROM conversation_threads WHERE id = ?').get(id) as typeof row
     }
     const page = this.page(id, undefined, limit)
+    const thread: ConversationThread = JSON.parse(row!.data_json)
     return {
-      thread: JSON.parse(row!.data_json),
+      thread,
       events: page.events,
+      pendingRequests: thread.status === 'approval' ? (this.db.prepare("SELECT data_json FROM conversation_events WHERE thread_id = ? AND json_extract(data_json, '$.type') = 'request' AND json_extract(data_json, '$.request.state') = 'pending' ORDER BY seq LIMIT 100").all(id) as { data_json: string }[])
+        .map(value => (JSON.parse(value.data_json) as Extract<ThreadEvent, { type: 'request' }>).request) : [],
       turns: (this.db.prepare("SELECT data_json FROM conversation_turns WHERE thread_id = ? ORDER BY json_extract(data_json, '$.sequence')").all(id) as { data_json: string }[]).map(value => JSON.parse(value.data_json)),
       page: { ...(page.before !== undefined ? { before: page.before } : {}), hasMore: page.hasMore, total: page.total }
     }

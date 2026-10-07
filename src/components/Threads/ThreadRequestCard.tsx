@@ -64,6 +64,7 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond, co
   </details>
   return <section ref={card} className={`thread-request thread-request-${request.kind}`} aria-label={request.title}>
     <header>{request.kind === 'permissions' ? <Shield size={15} /> : <AlertCircle size={15} />}<div><strong>{request.title}</strong>{request.kind !== 'approval' && request.detail && <p>{request.detail}</p>}</div></header>
+    {request.kind === 'elicitation' && <p className="thread-request-context">This MCP server requested confirmation or information. Full access controls filesystem and command access; it does not answer MCP requests.</p>}
     {request.kind === 'approval' && <ThreadApprovalDetails command={request.command ?? request.detail ?? ''} cwd={request.cwd} reason={request.reason} fileChanges={request.title === 'Approve file changes'} />}
     {(request.questions?.length ?? 0) > 1 && <nav className="thread-question-steps" aria-label="Questions"><button type="button" disabled={step === 0 || disabled} onClick={() => setStep(value => value - 1)}>Previous</button><span role="status">Question {step + 1} of {request.questions!.length}</span><button type="button" disabled={step === request.questions!.length - 1 || disabled} onClick={() => setStep(value => value + 1)}>Next</button></nav>}
     {request.questions?.length ? <div className="thread-question-body">{request.questions.map((question, index) => <fieldset key={question.id} disabled={disabled} hidden={index !== step}>

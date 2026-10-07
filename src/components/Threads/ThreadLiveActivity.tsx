@@ -48,9 +48,12 @@ export function deriveThreadLiveActivity(snapshot: ThreadSnapshot, now: number):
   const activity = events.filter((event): event is ActivityEvent => event.type === 'activity').at(-1)
   const runningTool = [...tools].reverse().find(event => event.state === 'running')
   const awaitingInput = thread.status === 'approval' || events.some(event => event.type === 'request' && event.request.state === 'pending')
+  const actionableRequest = (snapshot.pendingRequests?.length ?? events.filter(event => event.type === 'request' && event.request.state === 'pending').length) > 0 || events.some(event => event.type === 'approval' && !events.some(other => other.type === 'approval-resolved' && other.id === event.id))
   const connection = thread.connection
+  const lastSignal = connection?.lastNativeSignalAt && connection.lastNativeSignalAt >= startedAt ? connection.lastNativeSignalAt : undefined
+  const signalAgeMs = now - (lastSignal ?? startedAt)
   let label = 'Waiting for the next agent update'
-  if (awaitingInput) label = 'Waiting for your input'
+  if (awaitingInput) label = thread.status === 'approval' && !actionableRequest && signalAgeMs >= 60_000 ? 'Input request unavailable' : 'Waiting for your input'
   else if (connection?.state === 'degraded' || connection?.state === 'reconnecting') label = 'Reconnecting to the agent'
   else if (runningTool) label = runningToolLabel(runningTool)
   else if (activity?.phase === 'preparing') label = 'Preparing project context'
@@ -58,12 +61,10 @@ export function deriveThreadLiveActivity(snapshot: ThreadSnapshot, now: number):
   else if (background.length && thread.status !== 'running') label = `Waiting for ${background.length} background ${background.length === 1 ? 'task' : 'tasks'}`
   else if (activity?.phase === 'responding' && now - activity.at < 15_000) label = 'Receiving response'
   else if (activity?.phase === 'reasoning') label = 'Analyzing request'
-  const lastSignal = connection?.lastNativeSignalAt && connection.lastNativeSignalAt >= startedAt ? connection.lastNativeSignalAt : undefined
-  const signalAgeMs = now - (lastSignal ?? startedAt)
   return {
     label, elapsed: duration(now - startedAt),
     signalAge: lastSignal ? `Last provider signal ${duration(signalAgeMs)} ago` : `No provider signal yet · ${duration(signalAgeMs)}`,
-    stale: !awaitingInput && signalAgeMs >= 60_000,
+    stale: signalAgeMs >= 60_000 && (!awaitingInput || !actionableRequest),
     awaitingInput,
     reconnecting: connection?.state === 'degraded' || connection?.state === 'reconnecting',
     summary: activity?.summary,
@@ -85,7 +86,7 @@ export function ThreadLiveActivity({ snapshot, onDiagnostics }: { snapshot: Thre
   return <section className={`thread-live-activity${activity.stale ? ' is-stale' : ''}${activity.awaitingInput ? ' is-awaiting-input' : ''}${activity.reconnecting ? ' is-reconnecting' : ''}`} aria-label="Current agent activity">
     <div className="thread-live-activity-main">
       {activity.stale || activity.awaitingInput ? <AlertCircle size={14} aria-hidden="true" /> : <Loader2 size={14} className="thread-spin" aria-hidden="true" />}
-      <span role="status"><strong>{activity.stale ? terminalObserved ? 'Provider result available · synchronizing required' : check.observation?.state === 'running' ? 'Provider confirms execution is active' : check.observation?.state === 'awaiting-input' ? 'Provider is waiting for input' : 'Waiting for a confirmed provider update' : activity.label}</strong></span><time aria-label={`Elapsed ${activity.elapsed}`}>{activity.elapsed}</time>
+      <span role="status"><strong title={activity.label}>{activity.stale && !activity.awaitingInput ? terminalObserved ? 'Provider result available · synchronizing required' : check.observation?.state === 'running' ? 'Provider confirms execution is active' : check.observation?.state === 'awaiting-input' ? 'Provider is waiting for input' : 'Waiting for a confirmed provider update' : activity.label}</strong></span><time title="Total time for this turn, including previous commands and waiting for input" aria-label={`Turn elapsed ${activity.elapsed}`}>Turn · {activity.elapsed}</time>
     </div>
     <div className="thread-live-activity-meta"><span>{activity.signalAge}</span>{activity.stale && <>{!terminalObserved && <span>Execution may still be active.</span>}<button type="button" onClick={onDiagnostics}>Diagnostics</button></>}</div>
     {activity.stale && <div className="thread-live-activity-meta" role="status">

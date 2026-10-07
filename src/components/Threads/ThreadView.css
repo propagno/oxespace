@@ -264,8 +264,15 @@
 .thread-live-activity.is-awaiting-input .thread-live-activity-main > svg, .thread-live-activity.is-reconnecting .thread-live-activity-main > svg { color: var(--dot-yellow); }
 .thread-live-activity-main, .thread-live-activity-meta { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .thread-live-activity-main { color: var(--tx-primary); }
-.thread-live-activity-main strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.thread-live-activity-main > svg { flex-shrink: 0; }
+.thread-live-activity-main > span { flex: 1; min-width: 0; }
+.thread-live-activity-main strong { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
 .thread-live-activity-main time { margin-left: auto; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--tx-muted); }
+.thread-live-activity-main time { flex-shrink: 0; }
+.thread-request-context { margin: 8px 12px; color: var(--tx-secondary); font-size: var(--fs-xs); line-height: 1.5; overflow-wrap: anywhere; }
+.thread-pending-requests { max-height: min(45vh, 420px); min-height: 0; overflow-y: auto; overflow-x: hidden; flex-shrink: 1; }
+.thread-pending-requests .thread-request { margin: 6px 0; }
+.thread-pending-requests .thread-request-question { max-height: min(calc(45vh - 12px), 408px); }
 .thread-live-activity-meta { flex-wrap: wrap; margin: 5px 0 0 22px; }
 .thread-live-activity-meta button { padding: 0; border: 0; background: transparent; color: var(--accent); cursor: pointer; }
 .thread-live-activity-details { margin: 8px 0 0 22px; min-width: 0; }

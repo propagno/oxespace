@@ -179,6 +179,15 @@ jobs:
       - name: Install dependencies without lifecycle scripts
         run: npm ci --ignore-scripts
 
+      - name: Audit production dependencies
+        run: npm run security:audit
+
+      - name: Audit build tools for high and critical advisories
+        run: npm run security:audit:tools
+
+      - name: Verify Electron support window
+        run: node scripts/check-runtime-support.mjs
+
       - name: Install the pinned Electron runtime
         run: npm rebuild electron
 
@@ -200,7 +209,7 @@ jobs:
           npm run rebuild:native:node
           # Git/worktree integration tests contend for process and filesystem
           # resources on Windows when Vitest runs files concurrently.
-          npm run test:coverage -- --maxWorkers=1 --minWorkers=1
+          npm run test:coverage -- --maxWorkers=1
 
       - name: Build renderer and main process
         shell: pwsh

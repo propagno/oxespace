@@ -1,7 +1,7 @@
 import { _electron as electron, expect, test } from '@playwright/test'
 import { build } from 'esbuild'
 import { createServer } from 'node:http'
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { PreviewAutomation, PreviewRequest, ScreenshotOptions } from '../electron/main/services/documentation/preview-automation'
@@ -18,6 +18,10 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
   const app=await electron.launch({args:[join(process.cwd(),'e2e/electron-main.cjs')],env:{...process.env,OXESPACE_E2E_PREVIEW_HANDLERS:handlersPath,OXESPACE_E2E_PREVIEW_SERVICE:'1',OXESPACE_DISABLE_SINGLE_INSTANCE:'1',OXESPACE_E2E_MOCK_NATIVE:'1',OXESPACE_DB_PATH:join(root,'db.sqlite3')}})
   try {
     const page=await app.firstWindow()
+    page.on('pageerror', error => console.error('Preview renderer error:', error.message))
+    await page.waitForURL(/index\.html/)
+    await page.waitForLoadState('domcontentloaded')
+    await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.show(); window.focus() })
     await page.getByTestId('btn-new-workspace').click();await page.getByTestId('wizard-dir-input').fill(repo);await page.getByTestId('wizard-launch-btn').click()
     await page.getByTestId('btn-open-tools').click();await page.getByText('Web Preview',{exact:true}).click()
     await page.locator('.web-preview-address-input').fill(url);await page.locator('.web-preview-address-input').press('Enter')
@@ -54,6 +58,19 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
     const legacy = await legacyCapture()
     expect(legacy.isError).toBe(false)
     expect(legacy.content[0]).toMatchObject({type:'image',mimeType:'image/png'})
+    const saved = await app.evaluate(async (_,{workspaceId,captureRoot}) => {
+      const { findTool } = await (globalThis as unknown as {previewHandlers: Promise<typeof import('../electron/main/mcp-internal/tool-registry')>}).previewHandlers
+      const execution = { workspaceId, owner: {kind:'pane',id:'test-pane'} }
+      const response = await findTool('oxespace_capture_web_preview')!.handler({fileName:'aba-1.png'}, {
+        workspaceId, captureRoot, executionId:'test', executionToken:'test',
+        executions:{authenticate:()=>execution}, workspaceServ:{get:()=>({id:workspaceId,panes:[{id:'test-pane'}]})},
+        documentation:async()=>({preview:(globalThis as unknown as {preview:PreviewAutomation}).preview})
+      } as never)
+      return JSON.parse((response.content[0] as {text:string}).text) as {directory:string;path:string;bytes:number}
+    }, {workspaceId,captureRoot:join(root,'captures')})
+    expect(saved.path).toBe(join(saved.directory,'aba-1.png'))
+    expect(saved.bytes).toBeGreaterThan(100)
+    expect(existsSync(saved.path)).toBe(true)
     expect((await run({action:'inspect'},'foreign-workspace')).error).toBeTruthy()
     // Native confirmation is controlled only inside the isolated test process.
     await app.evaluate(({dialog})=>{dialog.showMessageBox=async()=>({response:0,checkboxChecked:false})})

@@ -2,7 +2,8 @@
 .thread-workbench .thread-view { width: auto; background: var(--wb-canvas); }
 .thread-heading .thread-review-trigger { border: 1px solid var(--bd-base); flex-shrink: 0; color: var(--tx-secondary); padding: 5px 8px; }
 .thread-heading .thread-review-trigger + .thread-icon-action { margin-left: 0; }
-.thread-file-activity { display: grid; gap: 2px; margin: 8px 0 16px; }
+.thread-file-activity { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; max-width: 100%; gap: 2px; margin: 8px 0 16px; }
+.thread-file-activity > div { min-width: 0; max-width: 100%; }
 .thread-file-operation { display: flex; align-items: center; min-width: 0; }
 .thread-file-operation > .thread-file-entry { min-width: 0; }
 .thread-file-error { margin: 4px 8px 0 30px; color: var(--dot-red); font-size: var(--fs-2xs); line-height: 1.5; overflow-wrap: anywhere; }

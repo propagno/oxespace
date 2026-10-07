@@ -16,6 +16,7 @@ import { discoverScripts } from '../services/scripts-discovery.service'
 import type { ToolContext } from './tool-registry'
 import { errorResult, textResult } from './tool-registry'
 import { requirePreviewExecution } from './preview-scope'
+import { savePreviewCapture } from '../services/documentation/preview-capture-store'
 
 /**
  * One handler per tool. Each is a thin shape-translation layer over an
@@ -237,7 +238,7 @@ async function openWebPreview(args: unknown, ctx: ToolContext): Promise<Internal
     return errorResult(`URL "${url}" is not safe to open (must be http/https).`)
   }
   ctx.webPreview.emitPreview({ workspaceId: execution.workspaceId, threadId: execution.owner.kind === 'thread' ? execution.owner.id : undefined, url, requestedAt: Date.now() })
-  return textResult({ opened: true, workspaceId: execution.workspaceId, threadId: execution.owner.kind === 'thread' ? execution.owner.id : undefined, url })
+  return textResult({ queued: true, workspaceId: execution.workspaceId, threadId: execution.owner.kind === 'thread' ? execution.owner.id : undefined, url, next: 'The renderer must open the page. Use oxespace_preview_interact with action=status or inspect to confirm the active URL before interacting or capturing.' })
 }
 
 async function semanticSearch(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
@@ -319,14 +320,23 @@ async function qualityCheck(args: unknown, ctx: ToolContext): Promise<InternalMc
   }
 }
 
-async function captureWebPreview(_args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
+async function captureWebPreview(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
   const execution = requirePreviewExecution(ctx)
+  const fileName = asRecord(args).fileName
+  if (fileName !== undefined && (typeof fileName !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}\.png$/.test(fileName))) throw new Error('fileName must be a short PNG basename, for example aba-1.png')
   if (!ctx.documentation) return errorResult('Browser preview service unavailable')
   const verify = (): void => { ctx.executions!.authenticate(ctx.executionId, ctx.executionToken, ctx.workspaceId) }
   const service = await ctx.documentation()
   const shot = await service.preview.capture(execution.workspaceId, { mode: 'viewport' }, verify, execution.owner)
   verify()
-  return { content: [{ type: 'image', data: shot.png.toString('base64'), mimeType: 'image/png' }], isError: false }
+  const content: InternalMcpToolCallResult['content'] = []
+  if (typeof fileName === 'string') {
+    if (!ctx.captureRoot) throw new Error('Preview capture directory is unavailable')
+    const { directory, path } = await savePreviewCapture(ctx.captureRoot, execution.owner.kind === 'thread' ? execution.owner.id : execution.workspaceId, fileName, shot.png)
+    content.push({ type: 'text', text: JSON.stringify({ directory, path, bytes: shot.png.length, pageUrl: shot.pageUrl }) })
+  }
+  content.push({ type: 'image', data: shot.png.toString('base64'), mimeType: 'image/png' })
+  return { content, isError: false }
 }
 
 async function hybridExplore(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {

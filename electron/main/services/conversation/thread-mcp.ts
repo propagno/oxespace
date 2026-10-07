@@ -16,6 +16,7 @@ const tools = ['oxespace_team_status', 'oxespace_team_inbox', 'oxespace_team_mes
   'oxespace_list_background_jobs', 'oxespace_get_job_output', 'oxespace_semantic_search',
   'oxespace_hybrid_explore', 'oxespace_quality_check', 'oxespace_run_script', 'oxespace_stop_background_job',
   'oxespace_create_worktree', 'oxespace_remove_worktree', 'oxespace_open_web_preview', 'oxespace_capture_web_preview',
+  'oxespace_thread_create', 'oxespace_thread_send',
   'oxespace_preview_interact', 'oxespace_documentation_create', 'oxespace_documentation_get', 'oxespace_documentation_list',
   'oxespace_documentation_capture', 'oxespace_documentation_checkpoint', 'oxespace_documentation_image', 'oxespace_documentation_export',
   'oxespace_delegation_targets', 'oxespace_delegation_preflight', 'oxespace_delegate_task', 'oxespace_delegation_status',

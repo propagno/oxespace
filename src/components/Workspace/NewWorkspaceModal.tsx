@@ -67,11 +67,9 @@ export function NewWorkspaceModal({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedExistingId, setSelectedExistingId] = useState<string | null>(null)
-  const returnFocusRef = useRef<HTMLElement | null>(null)
+  const returnFocusRef = useRef<HTMLElement | null>(document.activeElement instanceof HTMLElement ? document.activeElement : null)
   const closeAndRestoreFocus = (): void => {
-    const focusTarget = returnFocusTo?.isConnected ? returnFocusTo : returnFocusRef.current
     onClose()
-    if (!isSubmitting) requestAnimationFrame(() => focusTarget?.focus())
   }
 
   // The neutral shell profile is PowerShell on Windows and Bash on Linux, so
@@ -178,8 +176,15 @@ export function NewWorkspaceModal({
       <DialogContent
         unstyled
         showCloseButton={false}
-        onOpenAutoFocus={() => { returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null }}
-        onCloseAutoFocus={event => event.preventDefault()}
+        onCloseAutoFocus={event => {
+          event.preventDefault()
+          if (!isSubmitting) requestAnimationFrame(() => {
+            const opener = returnFocusTo?.isConnected ? returnFocusTo : returnFocusRef.current
+            const target = opener?.isConnected && opener !== document.body
+              ? opener : document.querySelector<HTMLElement>('[data-testid="btn-new-workspace"]')
+            target?.focus({ preventScroll: true })
+          })
+        }}
         overlayClassName={DESKTOP_DIALOG_OVERLAY}
         className="modal new-workspace-modal-v2 modal-dialog-surface desktop-dialog"
       >

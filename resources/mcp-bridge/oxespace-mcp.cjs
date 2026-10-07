@@ -14,6 +14,7 @@
 'use strict'
 
 const http = require('node:http')
+const { randomUUID } = require('node:crypto')
 
 const PORT = process.env.OXESPACE_MCP_PORT
 const TOKEN = process.env.OXESPACE_MCP_TOKEN
@@ -56,9 +57,18 @@ function err(id, code, message, data) {
 }
 
 /** One POST attempt to the local OXESpace RPC server. */
-function rpcOnce(method, params) {
+function rpcOnce(method, params, timeoutMs) {
   return new Promise((resolve, reject) => {
-    const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
+    const requestId = randomUUID()
+    const body = JSON.stringify({ jsonrpc: '2.0', id: requestId, method, params })
+    let settled = false
+    const finish = (callback, value) => {
+      if (settled) return
+      settled = true
+      clearTimeout(deadline)
+      callback(value)
+    }
+    const deadline = setTimeout(() => req.destroy(Object.assign(new Error(`OXESpace RPC deadline exceeded (${timeoutMs} ms)`), { code: 'ETIMEDOUT' })), timeoutMs)
     const req = http.request(
       {
         host: '127.0.0.1',
@@ -71,6 +81,7 @@ function rpcOnce(method, params) {
           'X-OXE-Memory-Run-Id': MEMORY_RUN,
           'X-OXE-Execution-Id': process.env.OXESPACE_EXECUTION_ID || '',
           'X-OXE-Execution-Token': process.env.OXESPACE_EXECUTION_TOKEN || '',
+          'X-OXE-Request-Id': requestId,
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(body)
         }
@@ -78,33 +89,34 @@ function rpcOnce(method, params) {
       (res) => {
         let chunks = ''
         res.setEncoding('utf8')
+        res.on('error', (e) => finish(reject, { code: -32603, message: 'OXESpace main response failed: ' + e.message, data: { category: 'infrastructure', retryable: true, requestId } }))
         res.on('data', (c) => { chunks += c })
         res.on('end', () => {
           if (res.statusCode === 401) {
-            reject({ code: -32003, message: 'OXESpace auth rejected — restart the app to refresh the token' })
+            finish(reject, { code: -32003, message: 'OXESpace auth rejected — restart the app to refresh the token' })
             return
           }
           if (!res.statusCode || res.statusCode >= 500) {
-            reject({ code: -32603, message: 'OXESpace main unavailable (status ' + res.statusCode + ')', data: { category: 'infrastructure', retryable: true } })
+            finish(reject, { code: -32603, message: 'OXESpace main unavailable (status ' + res.statusCode + ')', data: { category: 'infrastructure', retryable: true, requestId } })
             return
           }
           try {
             const parsed = JSON.parse(chunks)
             if (parsed && parsed.error) {
-              reject(parsed.error)
+              finish(reject, parsed.error)
             } else {
-              resolve(parsed && parsed.result)
+              finish(resolve, parsed && parsed.result)
             }
           } catch (e) {
-            reject({ code: -32603, message: 'OXESpace main returned invalid JSON', data: chunks.slice(0, 200) })
+            finish(reject, { code: -32603, message: 'OXESpace main returned invalid JSON', data: { category: 'infrastructure', requestId } })
           }
         })
       }
     )
     req.on('error', (e) => {
-      reject({ code: -32603, message: 'OXESpace main unavailable: ' + e.message, data: { category: 'infrastructure', retryable: true } })
+      finish(reject, { code: -32603, message: 'OXESpace main unavailable: ' + e.message, data: { category: 'infrastructure', retryable: true, requestId } })
     })
-    req.setTimeout(5000, () => req.destroy(new Error('request timed out')))
+    req.setTimeout(timeoutMs, () => req.destroy(new Error('request timed out')))
     req.write(body)
     req.end()
   })
@@ -114,10 +126,12 @@ function wait(ms) { return new Promise(resolve => setTimeout(resolve, ms)) }
 
 /** Retry transport failures only when repeating the operation cannot create side effects. */
 async function rpc(method, params, retryable) {
-  const attempts = retryable ? MAX_READ_RETRIES + 1 : 1
+  const toolName = method === 'tools/call' ? params && params.name : ''
+  const timeoutMs = method === 'tools/list' || toolName === 'oxespace_capabilities' || toolName === 'oxespace_open_web_preview' ? 10000 : retryable ? 20000 : 120000
+  const attempts = retryable && toolName !== 'oxespace_capabilities' ? MAX_READ_RETRIES + 1 : 1
   let last
   for (let attempt = 1; attempt <= attempts; attempt++) {
-    try { return await rpcOnce(method, params) }
+    try { return await rpcOnce(method, params, timeoutMs) }
     catch (error) {
       last = error
       if (!retryable || error.code !== -32603 || attempt === attempts) break

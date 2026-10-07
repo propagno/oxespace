@@ -301,6 +301,8 @@ export interface AgentConversationAdapter {
 export interface ThreadSnapshot {
   thread: ConversationThread
   events: ThreadEvent[]
+  /** Actionable requests remain available independently of paginated history. */
+  pendingRequests?: ThreadRequest[]
   turns?: ThreadTurn[]
   page?: { before?: number; hasMore: boolean; total: number }
 }

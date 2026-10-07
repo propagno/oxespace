@@ -9,15 +9,17 @@ test('Thread owns a real shell that survives panel detach without creating a Cod
   const app = await electron.launch({ args: [join(process.cwd(), 'e2e/electron-main.cjs')], env: { ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '0', OXESPACE_DB_PATH: join(root, 'app.sqlite3') } })
   try {
     const page = await app.firstWindow()
-    const ids = await page.evaluate(async root => {
+    await page.waitForURL(/index\.html/)
+    await page.waitForLoadState('domcontentloaded')
+    const ids = await test.step('register project and create thread', () => page.evaluate(async root => {
       const project = await window.oxe.thread!.addProject(root)
       const snapshot = await window.oxe.thread!.create({ projectId: project.projectId, provider: 'codex' })
       return { workspaceId: snapshot.thread.workspaceId, paneId: `thread-shell:${snapshot.thread.id}:1` }
-    }, root)
-    await page.evaluate(async ids => {
+    }, root))
+    await test.step('start shell and write marker', () => page.evaluate(async ids => {
       await window.oxe.terminal.start({ ...ids, cols: 100, rows: 24, disableRtk: true })
       await window.oxe.terminal.write({ paneId: ids.paneId, data: 'echo OXE_THREAD_SHELL_READY\r' })
-    }, ids)
+    }, ids))
     await expect.poll(() => page.evaluate(async ids => (await window.oxe.terminal.attach({ paneId: ids.paneId })).replay, ids)).toContain('OXE_THREAD_SHELL_READY')
     const before = await page.evaluate(ids => window.oxe.terminal.status(ids.paneId), ids)
     await page.evaluate(async ids => {
@@ -27,7 +29,7 @@ test('Thread owns a real shell that survives panel detach without creating a Cod
     }, ids)
     expect(await page.evaluate(ids => window.oxe.terminal.status(ids.paneId), ids)).toMatchObject({ running: true, pid: before.pid })
     expect(await page.evaluate(() => window.oxe.workspace.list())).toEqual([])
-    await page.evaluate(ids => window.oxe.terminal.stop({ paneId: ids.paneId }), ids)
+    await test.step('stop shell', () => page.evaluate(ids => window.oxe.terminal.stop({ paneId: ids.paneId }), ids))
     expect(await page.evaluate(ids => window.oxe.terminal.status(ids.paneId), ids)).toMatchObject({ running: false })
-  } finally { await app.close() }
+  } finally { await test.step('close application', () => app.close()) }
 })

@@ -29,8 +29,12 @@ import { DELEGATION_TOOLS } from './delegation-tools'
 import { TEAM_TOOLS } from './team-tools'
 import { automationTools } from './automation-tools'
 import { DOCUMENTATION_TOOLS } from './documentation-tools'
+import { THREAD_HANDOFF_TOOLS } from './thread-handoff-tools'
 
 export interface ToolContext {
+  captureRoot?: string
+  db?: import('../db').AppDatabase
+  threads?: Promise<import('../services/conversation/thread-manager').ThreadManager>
   documentation?: () => Promise<ReturnType<typeof import('../services/documentation/runtime').createDocumentationRuntime>>
   delegation?: import('../services/delegation.service').DelegationService
   team?: import('../services/coordination/team-access').TeamAccess
@@ -63,6 +67,7 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   ...MEMORY_TOOLS,
   ...DELEGATION_TOOLS,
   ...TEAM_TOOLS,
+  ...THREAD_HANDOFF_TOOLS,
   {
     descriptor: {
       name: 'oxespace_list_workspaces',
@@ -199,7 +204,7 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   {
     descriptor: {
       name: 'oxespace_open_web_preview',
-      description: 'Open the current Code or Thread Web Preview at an HTTP(S) URL. External sites require the user to enable External preview.',
+      description: 'Queue an HTTP(S) URL for the current Code or Thread Web Preview. Returns queued, not loaded; confirm with oxespace_preview_interact status/inspect. External sites require External preview.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -215,8 +220,8 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   {
     descriptor: {
       name: 'oxespace_capture_web_preview',
-      description: 'Capture the active opted-in Code or Thread browser tab with private inputs redacted. Returns a PNG image block.',
-      inputSchema: { type: 'object', properties: {}, additionalProperties: false }
+      description: 'Capture the active opted-in Web Preview tab with private inputs redacted. Returns a PNG image; optional fileName also saves it under the OXESpace capture directory and returns the absolute path.',
+      inputSchema: { type: 'object', properties: { fileName: { type: 'string', description: 'Optional PNG name such as aba-1.png; letters, digits, underscore and hyphen only.' } }, additionalProperties: false }
     },
     requiresWorkspace: true,
     handler: handlers.captureWebPreview

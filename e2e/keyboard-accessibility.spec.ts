@@ -10,6 +10,8 @@ test('primary Code navigation works by keyboard and restores focus after dialogs
   } })
   try {
     const page = await app.firstWindow()
+    await page.waitForURL(/index\.html/)
+    await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.show(); window.focus() })
     await page.setViewportSize({ width: 900, height: 650 })
     const tools = page.getByTestId('btn-open-tools')
     await tools.focus()
@@ -26,6 +28,7 @@ test('primary Code navigation works by keyboard and restores focus after dialogs
 
     const create = page.getByTestId('btn-new-workspace')
     await create.focus()
+    await expect(create).toBeFocused()
     await page.keyboard.press('Enter')
     await expect(page.getByTestId('wizard-dir-input')).toBeVisible()
     await page.keyboard.press('Escape')

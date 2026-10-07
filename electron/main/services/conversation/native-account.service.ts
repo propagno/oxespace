@@ -54,6 +54,7 @@ interface AccountDependencies {
   connected?(provider: ThreadProvider): Promise<void>
   transport?(command: string, args: string[], cwd: string): AccountTransport
   timeoutMs?: number
+  probeTimeoutMs?: number
 }
 export class NativeAccountService {
   private readonly attempts = new Map<string, Attempt>()
@@ -74,7 +75,7 @@ export class NativeAccountService {
   private async rpc(scope: NativeAuthScope, transport: AccountTransport, notification: (method: string, params: unknown) => void = () => {}): Promise<AgentRpcPeer> {
     const rpc = new AgentRpcPeer(line => transport.write(line), message => notification(message.method ?? '', message.params), message => {
       if (message.id !== undefined) rpc.rejectRequest(message.id)
-    }, 8000)
+    }, this.deps.probeTimeoutMs ?? 30000)
     transport.onData(chunk => { try { rpc.push(chunk) } catch { void transport.close() } })
     transport.onClose(() => rpc.close())
     await rpc.request('initialize', { clientInfo: { name: 'oxespace-accounts', title: 'OXESpace', version: '0.13.0' } })
@@ -101,7 +102,7 @@ export class NativeAccountService {
       }
       const json = await new Promise<string>((resolve, reject) => {
         let output = ''; const decoder = new StringDecoder('utf8')
-        const timer = setTimeout(() => reject(Error('timeout')), 8000)
+        const timer = setTimeout(() => reject(Error('timeout')), this.deps.probeTimeoutMs ?? 30000)
         transport.onData(data => { output += decoder.write(Buffer.from(data)); if (output.length > 65536) { clearTimeout(timer); reject(Error('limit')) } })
         transport.onClose(() => { clearTimeout(timer); resolve(output + decoder.end()) })
         transport.endInput()
@@ -114,6 +115,7 @@ export class NativeAccountService {
     if ([...this.attempts.values()].some(attempt => attempt.scope.provider === context.provider)) throw Error('THREAD_AUTH_REQUIRED')
     const status = await this.read(context)
     if ([...this.attempts.values()].some(attempt => attempt.scope.provider === context.provider)) throw Error('THREAD_AUTH_REQUIRED')
+    if (status.state === 'error' || status.state === 'missing-cli') throw Error('THREAD_ACCOUNT_UNAVAILABLE: Could not verify the provider account. Check the CLI connection and retry.')
     if (status.state !== 'connected' || status.method !== 'subscription') throw Error('THREAD_AUTH_REQUIRED')
   }
   async login(context: AgentAccountContext): Promise<AgentAccountSnapshot> {

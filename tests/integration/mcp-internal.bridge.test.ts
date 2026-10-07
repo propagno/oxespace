@@ -188,4 +188,20 @@ describe('Internal MCP bridge', () => {
     expect(parsed.error.data).toMatchObject({ category: 'infrastructure', retryable: false, delivery: 'unknown', attempts: 1 })
     expect(stub.receivedMethods).toEqual(['tools/call'])
   })
+
+  test('ends an unanswered preview call at the absolute deadline without retrying it', async () => {
+    await stub.stop()
+    const waiting = http.createServer((_request, _response) => { /* Keep the connection open without responding. */ })
+    const port = await new Promise<number>(resolveListen => waiting.listen(0, '127.0.0.1', () => resolveListen((waiting.address() as { port: number }).port)))
+    try {
+      bridge = startBridge({ OXESPACE_MCP_PORT: String(port), OXESPACE_MCP_TOKEN: TOKEN, OXESPACE_WORKSPACE_ID: WSID })
+      bridge.send(JSON.stringify({ jsonrpc: '2.0', id: 6, method: 'tools/call', params: { name: 'oxespace_open_web_preview', arguments: { url: 'http://127.0.0.1:4178' } } }))
+      const parsed = JSON.parse(await bridge.waitFor(line => line.includes('"id":6'), 13000)) as { error: { data: { delivery: string; retryable: boolean; requestId: string } } }
+      expect(parsed.error.data).toMatchObject({ delivery: 'unknown', retryable: false })
+      expect(parsed.error.data.requestId).toMatch(/^[\da-f-]{36}$/)
+    } finally {
+      bridge?.stop()
+      await new Promise<void>(resolveClose => waiting.close(() => resolveClose()))
+    }
+  }, 16000)
 })

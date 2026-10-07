@@ -51,6 +51,7 @@ interface InternalMcpMetaRow {
 }
 
 export interface InternalMcpDeps {
+  threads?: Promise<import('../services/conversation/thread-manager').ThreadManager>
   delegation?: import('../services/delegation.service').DelegationService
   team?: import('../services/coordination/team-access').TeamAccess
   executions?: import('../services/execution-registry').ExecutionRegistry
@@ -85,6 +86,8 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
   const webPreview = new WebPreviewBus()
   const worktree = new WorktreeEventBus()
   const rpc: LocalRpcServer = createLocalRpcServer({
+    captureRoot: join(app.getPath('userData'), 'web-preview-captures'),
+    db: deps.db, threads: deps.threads,
     documentation: () => documentation ??= import('../services/documentation/runtime').then(module => module.createDocumentationRuntime(deps.db, join(app.getPath('userData'), 'documentation'))).catch(error => { documentation = undefined; throw error }),
     delegation: deps.delegation, executions: deps.executions, delegationAgents: deps.delegationAgents, team: deps.team,
     memory: deps.memory,

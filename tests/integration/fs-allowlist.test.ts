@@ -26,6 +26,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Documentation owns generated artifacts under userData/documentation only.
   // Tool callers supply IDs, never filesystem paths or workspace destinations.
   'electron/main/services/documentation/documentation.service.ts',
+  // Preview captures are app-owned PNGs under <userData>/web-preview-captures.
+  // The store validates owner and basename and refuses to overwrite a file.
+  'electron/main/services/documentation/preview-capture-store.ts',
   'electron/main/services/session.service.ts',
   // Conversation transports probe installed executables only. Native history
   // reads UUID-selected ~/.claude session logs, never arbitrary source paths.

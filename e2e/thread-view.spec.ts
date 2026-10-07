@@ -32,6 +32,18 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await app.evaluate(({ ipcMain, BrowserWindow }, fixtureRoot) => {
       let snapshot: Record<string, unknown> | null = null
       let sendCount = 0, manyThreads = false, archivedRestored = false
+      ;(globalThis as Record<string, unknown>).missingInputFixture = (missing: boolean) => {
+        ;(snapshot!.thread as Record<string, unknown>).status = 'approval'
+        snapshot!.events = [{ type: 'message', id: 'recent', role: 'assistant', text: 'Recent history without the older request.' }]
+        snapshot!.pendingRequests = missing ? [] : [{ id: 'older-mcp', nativeId: 'older-mcp', nativeMethod: 'mcpServer/elicitation/request', kind: 'elicitation', title: 'Memory confirmation', detail: 'Allow this memory update?', state: 'pending', generation: 1, createdAt: Date.now() }]
+        changed()
+      }
+      ;(globalThis as Record<string, unknown>).longThreadCommandFixture = (enabled: boolean) => {
+        const events = snapshot!.events as Array<Record<string, unknown>>
+        snapshot!.events = events.filter(event => event.id !== 'overflow-command')
+        if (enabled) (snapshot!.events as unknown[]).push({ type: 'tool', id: 'overflow-command', name: 'commandExecution', state: 'running', detail: 'powershell -Command ' + 'very-long-command-'.repeat(80), startedAt: Date.now() })
+        changed()
+      }
       ;(globalThis as Record<string, unknown>).threadCommandQueries = 0
       const changed = () => { for (const window of BrowserWindow.getAllWindows()) window.webContents.send('thread:changed', { threadId: 'e2e-thread' }) }
       ;(globalThis as Record<string, unknown>).setPartialHistoryFixture = () => { (snapshot!.thread as Record<string, unknown>).cliNotice = 'Showing the recent part of this native session. Its complete history remains available in the provider CLI.'; changed() }
@@ -61,6 +73,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
       ipcMain.removeHandler('thread:respond')
       ipcMain.handle('thread:respond', (_event, _id, requestId, response) => {
         ;(globalThis as Record<string, unknown>).lastThreadAnswer = response
+        delete snapshot!.pendingRequests
         const request = (snapshot!.events as Array<Record<string, unknown>>).find(event => event.type === 'request' && event.id === requestId)
         if (request) Object.assign(request.request as object, { state: response.decision === 'cancel' ? 'cancelled' : 'resolved', resolution: response.decision === 'decline' ? 'declined' : response.decision === 'cancel' ? 'cancelled-by-user' : 'answered', resolvedAt: Date.now() })
         ;(snapshot!.thread as Record<string, unknown>).status = 'idle'
@@ -69,7 +82,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
       const reviewPatch = '--- a/src/App.tsx\n+++ b/src/App.tsx\n@@ -12,5 +12,7 @@\n export function App() {\n-  return <ThreadView />\n+  return <ThreadWorkbench>\n+    <ThreadView />\n+  </ThreadWorkbench>\n }\n'
       ipcMain.handle('thread:artifact', (_event, id, artifactId) => {
         if (id !== 'e2e-thread') throw Error('Invalid evidence scope')
-        return { id: artifactId, content: reviewPatch, hash: `hash-${artifactId}`, bytes: reviewPatch.length, truncated: false, source: 'native-patch' }
+        const content = reviewPatch.replace('export function App() {', 'export function App() { // ' + 'long diff content '.repeat(150))
+        return { id: artifactId, content, hash: `hash-${artifactId}`, bytes: content.length, truncated: false, source: 'native-patch' }
       })
       ipcMain.handle('thread:project-diff', () => ({ files: [{ path: 'src/ExistingWork.ts', additions: 1, deletions: 0, mtime: null, hunks: [{ header: '@@ -0,0 +1 @@', lines: [{ type: 'added', oldLineNo: null, newLineNo: 1, content: 'Earlier project work' }] }] }, { path: 'README.md', additions: 1, deletions: 0, mtime: null, hunks: [{ header: '@@ -0,0 +1 @@', lines: [{ type: 'added', oldLineNo: null, newLineNo: 1, content: '# Thread workbench fixture' }] }] }], base: 'HEAD', includeUncommitted: true, compiledAt: Date.now() }))
       ipcMain.handle('thread:models', () => ({ defaultModel: 'native-model', models: [{ id: 'native-model', label: 'Native model', description: 'Native catalog model', efforts: ['low', 'high'], defaultEffort: 'low' }] }))
@@ -582,6 +596,11 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     const liveActivity = page.locator('.thread-live-activity')
     await expect(liveActivity.getByRole('status')).toHaveText('Analyzing request')
     await expect(liveActivity).toContainText('Last provider signal')
+    await app.evaluate(() => (globalThis as Record<string, (enabled: boolean) => void>).longThreadCommandFixture(true))
+    await expect(liveActivity).toContainText('Running command')
+    await expect(liveActivity.locator('time')).toContainText('Turn ·')
+    expect(await liveActivity.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
+    await app.evaluate(() => (globalThis as Record<string, (enabled: boolean) => void>).longThreadCommandFixture(false))
     const runningDot = page.locator('.thread-session-indicator[data-status="running"]').first()
     await expect(runningDot).toBeVisible()
     const runningColors = await runningDot.evaluate(el => ({ label: getComputedStyle(el).color, dot: getComputedStyle(el, '::before').backgroundColor, green: (() => { const token = document.createElement('span'); token.style.color = 'var(--dot-green)'; document.body.append(token); const color = getComputedStyle(token).color; token.remove(); return color })() }))
@@ -716,6 +735,12 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.getByRole('complementary', { name: 'Thread workbench' })).toBeVisible()
     await page.getByRole('button', { name: 'Expand file diff src/App.tsx' }).click()
     await expect(page.locator('.thread-inline-evidence')).toContainText('ThreadWorkbench')
+    const inlineDiff = page.locator('.thread-inline-evidence')
+    expect(await inlineDiff.evaluate(element => {
+      const column = element.closest('.thread-reading-column')!
+      return element.getBoundingClientRect().right <= column.getBoundingClientRect().right + 1
+    })).toBe(true)
+    expect(await inlineDiff.locator('.thread-review-diff').evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true)
     await page.getByRole('button', { name: 'Expand file diff src/App.tsx' }).click()
     await page.locator('.thread-file-entry').first().click()
     await expect(page.getByRole('region', { name: 'File diff' })).toBeVisible()
@@ -856,6 +881,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.getByRole('button', { name: 'Recover conversation' })).toHaveCount(0)
     await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toBeEnabled()
     await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Structured question fixture'))
+    await expect(page.getByRole('region', { name: 'Pending agent requests' })).toBeVisible()
     await expect(page.getByRole('region', { name: 'Claude needs your input' })).toBeVisible()
     await page.getByRole('radio', { name: 'Staged' }).check()
     await page.getByRole('region', { name: 'Claude needs your input' }).getByRole('button', { name: 'Next' }).click()
@@ -891,6 +917,16 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(savedApproval.locator('button, input')).toHaveCount(0)
     expect(await savedApproval.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
     await page.screenshot({ path: 'test-results/thread-lost-approval.png' })
+    await app.evaluate(() => (globalThis as Record<string, (missing: boolean) => void>).missingInputFixture(true))
+    await expect(page.getByRole('button', { name: 'Refresh request', exact: true })).toBeVisible()
+    await app.evaluate(() => (globalThis as Record<string, (missing: boolean) => void>).missingInputFixture(false))
+    const requestDock = page.getByRole('region', { name: 'Pending agent requests' })
+    await expect(requestDock.getByText('Allow this memory update?')).toBeVisible()
+    await timeline.evaluate(element => { element.scrollTop = 0 })
+    await expect(requestDock.getByRole('button', { name: 'Continue', exact: true })).toBeInViewport()
+    await requestDock.getByRole('button', { name: 'Continue', exact: true }).click()
+    await expect.poll(() => app.evaluate(() => (globalThis as Record<string, unknown>).lastThreadAnswer)).toEqual({ decision: 'accept', content: {} })
+    await expect(requestDock).toHaveCount(0)
     await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Historical questions fixture'))
     const historicalQuestions = page.getByRole('complementary', { name: 'Recovered questions' })
     await expect(historicalQuestions).toBeVisible()

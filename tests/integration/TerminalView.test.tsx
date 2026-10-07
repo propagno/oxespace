@@ -31,7 +31,7 @@ const searchState = {
 }
 
 vi.mock('@xterm/xterm', () => ({
-  Terminal: vi.fn().mockImplementation(() => ({
+  Terminal: vi.fn().mockImplementation(function () { return {
     cols: 120,
     rows: 32,
     options: {},
@@ -62,13 +62,13 @@ vi.mock('@xterm/xterm', () => ({
       terminalState.onData = handler
       return { dispose: vi.fn() }
     })
-  }))
+  } })
 }))
 
 vi.mock('@xterm/addon-fit', () => ({
-  FitAddon: vi.fn().mockImplementation(() => ({
+  FitAddon: vi.fn().mockImplementation(function () { return {
     fit: vi.fn()
-  }))
+  } })
 }))
 
 vi.mock('@xterm/addon-unicode11', () => ({
@@ -80,20 +80,20 @@ vi.mock('@xterm/addon-web-links', () => ({
 }))
 
 vi.mock('@xterm/addon-webgl', () => ({
-  WebglAddon: vi.fn().mockImplementation(() => ({
+  WebglAddon: vi.fn().mockImplementation(function () { return {
     onContextLoss: vi.fn(),
     dispose: vi.fn()
-  }))
+  } })
 }))
 
 vi.mock('@xterm/addon-search', () => ({
-  SearchAddon: vi.fn().mockImplementation(() => ({
+  SearchAddon: vi.fn().mockImplementation(function () { return {
     findNext: searchState.findNext,
     findPrevious: searchState.findPrevious,
     clearDecorations: searchState.clearDecorations,
     onDidChangeResults: vi.fn(() => ({ dispose: vi.fn() })),
     dispose: vi.fn()
-  }))
+  } })
 }))
 
 describe('TerminalView', () => {

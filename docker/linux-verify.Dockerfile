@@ -30,6 +30,7 @@ WORKDIR /app
 # .dockerignore keeps the Windows-built node_modules out — they must be rebuilt
 # for Linux here, which is half the point of this image.
 COPY package.json package-lock.json ./
+COPY scripts/ ./scripts/
 RUN npm ci
 
 COPY . .

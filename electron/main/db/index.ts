@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3'
 import type { Database as DatabaseHandle } from 'better-sqlite3'
 import { app } from 'electron'
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, unlinkSync } from 'node:fs'
+import { chmodSync, closeSync, fsyncSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, unlinkSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -11,7 +11,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
  *  pre-migration backup (only back up when an upgrade will actually run).
  *  Exported so the migrations test can catch a constant that drifts from the
  *  version the SQL actually sets. */
-export const LATEST_DB_VERSION = 62
+export const LATEST_DB_VERSION = 63
 /** How many pre-migration backups to retain. */
 const MAX_DB_BACKUPS = 5
 
@@ -46,11 +46,8 @@ export function openDatabase(databasePath = resolveAppDatabasePath()): AppDataba
       }
     }
   }
-  // Last resort: a wedged/corrupt -wal or -shm sidecar can keep the DB from
-  // opening. Move them aside (to .bak, recoverable) and try once more.
-  if (isTransientDbError(lastErr) && quarantineWalSidecars(databasePath)) {
-    try { return openAndMigrate(databasePath) } catch (err) { lastErr = err }
-  }
+  // WAL contains committed data. Busy/I/O errors never authorize detaching it.
+  // Preserve the entire database for retry or explicit offline recovery.
   throw lastErr
 }
 
@@ -62,6 +59,9 @@ function openAndMigrate(databasePath: string): AppDatabase {
     // Back up before an upgrade so a bad migration or corruption can't silently
     // lose every workspace. Only when an existing DB is actually behind.
     const fromVersion = db.pragma('user_version', { simple: true }) as number
+    if (fromVersion > LATEST_DB_VERSION) {
+      throw new Error('This database was created by a newer OXESpace version. Open it with that version; downgrade migration is not supported.')
+    }
     if (fromVersion > 0 && fromVersion < LATEST_DB_VERSION) {
       backupBeforeMigration(db, databasePath, fromVersion)
     }
@@ -89,46 +89,39 @@ function sleepSync(ms: number): void {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
 }
 
-/** Move the -wal/-shm sidecars to .bak so a wedged WAL can't block the open.
- *  Uncheckpointed WAL changes would be lost, but at this point the app is
- *  otherwise unusable; the .bak keeps them recoverable. Returns true if moved. */
-function quarantineWalSidecars(databasePath: string): boolean {
-  let moved = false
-  const stamp = Date.now()
-  for (const suffix of ['-wal', '-shm']) {
-    const p = databasePath + suffix
-    try {
-      if (existsSync(p)) { renameSync(p, `${p}.corrupt-${stamp}.bak`); moved = true }
-    } catch { /* ignore */ }
-  }
-  if (moved) {
-    // eslint-disable-next-line no-console
-    console.warn('[db] quarantined WAL sidecars (.bak) after repeated I/O errors — retrying open')
-  }
-  return moved
-}
-
 /**
- * Copy the SQLite file to `<userData>/db-backups/` before migrating. WAL-checkpoint
- * first so the main file is complete, then prune to the most recent N. Best-effort:
- * a failed backup logs but never blocks startup.
+ * SQLite creates a consistent snapshot including committed WAL contents.
+ * Verify and flush it before promotion. An upgrade must not run without backup.
  */
 function backupBeforeMigration(db: AppDatabase, databasePath: string, fromVersion: number): void {
+  let temporary: string | undefined
   try {
-    db.pragma('wal_checkpoint(TRUNCATE)')
     const dir = join(dirname(databasePath), 'db-backups')
     mkdirSync(dir, { recursive: true })
     const stamp = new Date().toISOString().replace(/[:.]/g, '-')
-    copyFileSync(databasePath, join(dir, `oxespace-v${fromVersion}-${stamp}.sqlite3`))
-    const backups = readdirSync(dir).filter((f) => f.startsWith('oxespace-v') && f.endsWith('.sqlite3')).sort()
+    const destination = join(dir, `oxespace-v${fromVersion}-${stamp}.sqlite3`)
+    temporary = destination + '.partial'
+    db.prepare('VACUUM INTO ?').run(temporary)
+    chmodSync(temporary, 0o600)
+    const snapshot = new Database(temporary, { readonly: true, fileMustExist: true })
+    try {
+      if (snapshot.pragma('integrity_check', { simple: true }) !== 'ok' || snapshot.pragma('user_version', { simple: true }) !== fromVersion) {
+        throw new Error('Database backup verification failed')
+      }
+    } finally { snapshot.close() }
+    const fd = openSync(temporary, 'r+')
+    try { fsyncSync(fd) } finally { closeSync(fd) }
+    renameSync(temporary, destination)
+    temporary = undefined
+    const backups = readdirSync(dir).filter((f) => /^oxespace-v\d+-.*\.sqlite3$/.test(f)).sort((a, b) => a.replace(/^oxespace-v\d+-/, '').localeCompare(b.replace(/^oxespace-v\d+-/, '')))
     for (const stale of backups.slice(0, Math.max(0, backups.length - MAX_DB_BACKUPS))) {
       try { unlinkSync(join(dir, stale)) } catch { /* ignore */ }
     }
     // eslint-disable-next-line no-console
     console.log(`[db] backed up before migration v${fromVersion}→${LATEST_DB_VERSION}`)
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.warn('[db] pre-migration backup failed (continuing):', err instanceof Error ? err.message : err)
+    if (temporary) { try { unlinkSync(temporary) } catch { /* preserve original error */ } }
+    throw new Error('Database upgrade stopped: a verified backup could not be created. Free disk space/check permissions and retry; original database files were preserved.', { cause: err })
   }
 }
 
@@ -481,6 +474,7 @@ export function runMigrations(db: AppDatabase): void {
   if (startingVersion < 60) db.transaction(() => db.exec(readMigration('060_native_history_pages.sql')))()
   if (startingVersion < 61) db.transaction(() => db.exec(readMigration('061_persistent_teams.sql')))()
   if (startingVersion < 62) db.transaction(() => db.exec(readMigration('062_team_delivery.sql')))()
+  if (startingVersion < 63) db.transaction(() => db.exec(readMigration('063_mcp_thread_handoff.sql')))()
 }
 
 /** Rebuild the parent without cascading its children or rewriting their IDs. */

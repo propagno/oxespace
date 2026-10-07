@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, ipcMain, WebContentsView, type WebContents } from 'electron'
+import { app, BrowserWindow, clipboard, ClipboardItem, ipcMain, WebContentsView, type WebContents } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
@@ -211,7 +211,8 @@ export class BrowserPreviewService {
   async captureClipboard(window: BrowserWindow, input: {ownerKey:string;tabId:string}): Promise<void> {
     const tab = this.find(window,input.ownerKey,input.tabId)
     if (!tab.visible) throw new Error('Open a visible browser tab before capturing it')
-    clipboard.writeImage(await tab.view.webContents.capturePage())
+    const image = await tab.view.webContents.capturePage()
+    await clipboard.write([new ClipboardItem({ 'image/png': new Blob([new Uint8Array(image.toPNG())], { type: 'image/png' }) })])
   }
   close(window: BrowserWindow, input: {ownerKey:string;tabId:string;lease?:string}): void {
     const key = this.key(window,input.ownerKey,input.tabId)

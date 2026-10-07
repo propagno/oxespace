@@ -32,6 +32,13 @@ function fixture(provider = 'codex' as 'codex' | 'claude') {
   return { service, login, probe, changed, openExternal, connected }
 }
 describe('Native subscription accounts', () => {
+  it('does not present a failed account probe as a signed-out subscription', async () => {
+    const transport = new FakeTransport()
+    const service = new NativeAccountService({ resolve: async () => scope, openExternal: vi.fn(), changed: vi.fn(), transport: () => transport })
+    await expect(service.requireSubscription({ provider: 'codex', workspaceId: 'ws' })).rejects.toThrow('THREAD_ACCOUNT_UNAVAILABLE')
+    expect(transport.close).toHaveBeenCalled()
+    await service.stop()
+  })
   it('confirms Claude login after native exit through a fresh JSON status check', async () => {
     const login = new FakeTransport(), probe = new FakeTransport(), changed = vi.fn(), connected = vi.fn(async () => {})
     probe.endInput = () => { queueMicrotask(() => { probe.emit({ loggedIn: true, authMethod: 'claude.ai', subscriptionType: 'max' }); probe.exitCode = 0; probe.closed() }) }

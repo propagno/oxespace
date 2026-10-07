@@ -79,7 +79,8 @@ export function ToolsModal({
   const openSlashOverlay = useUIStore((s) => s.openSlashOverlay)
   const [query, setQuery] = useState('')
   const searchRef = useRef<HTMLInputElement | null>(null)
-  const returnFocusRef = useRef<HTMLElement | null>(null)
+  // Capture the opener before the portal mounts and the search input takes focus.
+  const returnFocusRef = useRef<HTMLElement | null>(document.activeElement instanceof HTMLElement ? document.activeElement : null)
   const navigatingRef = useRef(false)
 
   useEffect(() => {
@@ -280,10 +281,16 @@ export function ToolsModal({
       <DialogContent
         unstyled
         showCloseButton={false}
-        onOpenAutoFocus={() => { returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null }}
         onCloseAutoFocus={event => {
           event.preventDefault()
-          if (!navigatingRef.current) requestAnimationFrame(() => returnFocusRef.current?.focus())
+          if (!navigatingRef.current) requestAnimationFrame(() => {
+            const opener = returnFocusRef.current
+            // Lazy loading can temporarily replace the opener with a Suspense
+            // fallback. Restore to its current instance if the old node is gone.
+            const target = opener?.isConnected && opener !== document.body
+              ? opener : document.querySelector<HTMLElement>('[data-testid="btn-open-tools"]')
+            target?.focus({ preventScroll: true })
+          })
         }}
         overlayClassName={DESKTOP_DIALOG_OVERLAY}
         className="tools-modal desktop-dialog"

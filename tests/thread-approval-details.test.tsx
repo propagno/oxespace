@@ -7,6 +7,14 @@ import type { ThreadRequest } from '../shared/types/thread'
 afterEach(cleanup)
 
 describe('Thread command approval', () => {
+  it('explains MCP confirmation separately from file access and waits for a response', () => {
+    const respond = vi.fn(async () => {})
+    render(<ThreadRequestCard request={{ id: 'mcp', nativeId: 'mcp', nativeMethod: 'mcpServer/elicitation/request', kind: 'elicitation', title: 'oxespace-memory', detail: 'Allow memory tool?', generation: 1, createdAt: 1, state: 'pending' }} disabled={false} onRespond={respond} />)
+    expect(screen.getByText(/Full access controls filesystem and command access/)).toBeVisible()
+    expect(respond).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Continue', exact: true }))
+    expect(respond).toHaveBeenCalledWith({ decision: 'accept', content: {} })
+  })
   const command = '"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command \'$path = "docs\\thread-view.md"; $content = Get-Content -LiteralPath $path -Raw; $needle = "line one\\r\\nline two"; Set-Content -LiteralPath $path -Value $content\''
 
   it('separates an understandable preview from the exact command', () => {

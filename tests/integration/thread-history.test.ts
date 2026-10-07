@@ -15,6 +15,21 @@ function fixture() {
 }
 const patch = '--- a/file.ts\n+++ b/file.ts\n@@ -1,2 +1,2 @@\n-old\n+new\n context\n'
 describe('indexed Thread history', () => {
+  it('keeps actionable requests outside the renderer history window until resolved', () => {
+    const f = fixture()
+    f.snapshot.thread.status = 'approval'
+    const request = { id: 'input', nativeId: 'input', nativeMethod: 'mcpServer/elicitation/request', kind: 'elicitation' as const, title: 'Memory confirmation', generation: 1, createdAt: 1, state: 'pending' as const }
+    f.snapshot.events.push({ type: 'request', id: request.id, request }, ...Array.from({ length: 300 }, (_, index) => ({ type: 'tool' as const, id: `tool-${index}`, name: 'commandExecution', state: 'completed' as const, detail: 'check' })))
+    f.history.write(f.snapshot)
+    const window = f.history.readWindow('thread', 20)
+    expect(window.events).toHaveLength(20)
+    expect(window.events.some(event => event.type === 'request')).toBe(false)
+    expect(window.pendingRequests).toEqual([request])
+    const event = f.snapshot.events.find(event => event.type === 'request')!
+    if (event.type === 'request') event.request.state = 'resolved'
+    f.history.write(f.snapshot)
+    expect(f.history.readWindow('thread', 20).pendingRequests).toEqual([])
+  })
   it('exports persisted earlier pages without changing the live journal and clears them explicitly on native replacement', () => {
     const f = fixture()
     f.history.read('thread')

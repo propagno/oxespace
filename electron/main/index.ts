@@ -237,24 +237,24 @@ async function registerIpcHandlers(): Promise<() => void> {
   // permission), so terminal Ctrl+V paste never depends on navigator.clipboard
   // being granted clipboard-read.
   ipcMain.handle(IPC_CHANNELS.clipboard.readText, () => clipboard.readText())
-  ipcMain.handle(IPC_CHANNELS.clipboard.writeText, (_e, text: string) => {
+  ipcMain.handle(IPC_CHANNELS.clipboard.writeText, async (_e, text: string) => {
     const value = typeof text === 'string' ? text : ''
     try {
-      clipboard.writeText(value)
-      // Electron's write is synchronous, but verify it instead of claiming
-      // success unconditionally. Normalize CRLF because the Windows clipboard
+      await clipboard.writeText(value)
+      // Verify the completed write. Normalize CRLF because the Windows clipboard
       // may canonicalize line endings while preserving the copied text.
       const normalize = (input: string): string => input.replace(/\r\n/g, '\n')
-      return normalize(clipboard.readText()) === normalize(value)
+      return normalize(await clipboard.readText()) === normalize(value)
     } catch {
       return false
     }
   })
   ipcMain.handle(IPC_CHANNELS.clipboard.saveImageToTemp, async () => {
-    const image = clipboard.readImage()
-    if (image.isEmpty()) return null
+    const item = (await clipboard.read()).find(value => value.types.includes('image/png'))
+    if (!item) return null
+    const image = await item.getType('image/png')
     const filePath = join(tmpdir(), `oxe-paste-${randomUUID()}.png`)
-    await writeFile(filePath, image.toPNG())
+    await writeFile(filePath, Buffer.from(await image.arrayBuffer()))
     clipboardImageTempFiles.add(filePath)
     const timer = setTimeout(() => {
       void cleanupTempFile(filePath)
@@ -325,6 +325,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   registerTeamIpc(db, teamAccess)
 
   const internalMcp: InternalMcpHandle = createInternalMcpHandle({
+    threads: threadManager.manager,
     delegation: delegationService, executions, team: teamAccess,
     delegationAgents: () => delegationAgents.list().filter(p => ['claude','codex'].includes(p.parentProvider ?? p.provider)).map(p => {
       try { launcher.resolve(p.agentProfileId); return { agentProfileId: p.agentProfileId, name: p.name, supported: true } }

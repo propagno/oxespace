@@ -36,7 +36,11 @@ Internal MCP bridge tokens are local secrets. Generated `.mcp.json` files are ig
 
 ## Dependency and release controls
 
-Production dependency advisories are checked with `npm audit --omit=dev`. Transitive security fixes may be pinned through `overrides`, with the lockfile committed. CI builds from a fixed commit, verifies native binaries, enforces bundle budgets, and generates checksums and an SBOM for releases.
+CI blocks moderate-or-higher production advisories with `npm run security:audit`, blocks high/critical build-tool advisories with `npm run security:audit:tools`, and verifies that the exactly pinned Electron belongs to a supported major line. Electron is a devDependency but ships in the product, so the production audit alone is insufficient. Transitive fixes may be pinned through `overrides`, with the lockfile committed. Build-tool advisories and dated triage are recorded in `docs/validation/stabilization-2026-10-07.md`. CI builds from a fixed commit, verifies native binaries, enforces bundle budgets, and generates checksums and an SBOM for releases.
+
+## Database recovery
+
+Never detach or delete WAL/SHM to recover from a busy or I/O error: the WAL can contain committed user data. Startup retries are bounded and preserve the database set. Before upgrading an existing schema, SQLite creates a consistent snapshot including WAL data; integrity and schema version are checked and the snapshot is flushed before migration. Backup failure stops the upgrade. A database newer than the application is rejected. Keep the complete database set when seeking recovery assistance; do not copy only the main file while the application is running.
 
 ## Reporting a vulnerability
 

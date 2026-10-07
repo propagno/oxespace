@@ -151,6 +151,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   const contextKey = JSON.stringify(context)
   useEffect(() => { const ctx = JSON.parse(contextKey); if (ctx.workspaceId) void useAccountStore.getState().read(ctx) }, [contextKey])
   const running = snapshot?.thread.status === 'running' || snapshot?.thread.status === 'approval'
+  const pendingRequests = running ? (snapshot?.pendingRequests ?? snapshot?.events.flatMap(event => event.type === 'request' && event.request.state === 'pending' ? [event.request] : []) ?? []) : []
   const cliVisible = false
   const turns = useMemo(() => buildThreadTimeline(snapshot?.events ?? []), [snapshot?.events])
   const newestCompletedChange = useMemo(() => {
@@ -469,7 +470,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
             </article>
           }
           if (event.type === 'tool') return <details key={key} className="thread-tool"><summary><ChevronDown size={12} />{event.state === 'running' ? <Loader2 size={12} className="thread-spin" /> : event.state === 'failed' ? <AlertCircle size={12} /> : <Check size={12} />}{event.name}<small>{event.state}</small></summary>{event.detail && <pre>{event.detail}</pre>}</details>
-          if (event.type === 'request') return <ThreadRequestCard key={key} conversationId={snapshot!.thread.id} request={event.request} turnResult={turnEvents.find((value): value is Extract<ThreadEvent, { type: 'completed' }> => value.type === 'completed')?.status} disabled={pending} onRespond={response => action(() => api!.respond!(snapshot!.thread.id, event.id, response))} />
+          if (event.type === 'request') return pendingRequests.some(request => request.id === event.request.id) ? null : <ThreadRequestCard key={key} conversationId={snapshot!.thread.id} request={event.request} turnResult={turnEvents.find((value): value is Extract<ThreadEvent, { type: 'completed' }> => value.type === 'completed')?.status} disabled={pending} onRespond={response => action(() => api!.respond!(snapshot!.thread.id, event.id, response))} />
           if (event.type === 'approval') {
             if (snapshot?.events.some(value => value.type === 'request' && value.id === event.id)) return null
             const unresolved = snapshot?.thread.status === 'approval' && !snapshot.events.some(e => e.type === 'approval-resolved' && e.id === event.id)
@@ -487,6 +488,10 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
       </div>
     </div>
     <div className="thread-composer-dock"><div className="thread-composer-column">
+      {snapshot && pendingRequests.length > 0 && <section className="thread-pending-requests" aria-label="Pending agent requests">
+        {pendingRequests.map(request => <ThreadRequestCard key={`${snapshot.thread.id}:${request.id}:${request.generation}`} conversationId={snapshot.thread.id} request={request} disabled={pending} onRespond={response => action(() => api!.respond!(snapshot.thread.id, request.id, response))} />)}
+      </section>}
+      {snapshot?.thread.status === 'approval' && pendingRequests.length === 0 && !snapshot.events.some(event => event.type === 'approval' && !snapshot.events.some(other => other.type === 'approval-resolved' && other.id === event.id)) && <div className="thread-action-error" role="alert"><span>The provider is waiting for input, but its request is unavailable. Refresh the request or stop the turn using the stop button.</span><button type="button" disabled={pending} onClick={() => void action(() => useThreadStore.getState().refresh(snapshot.thread.id))}>Refresh request</button><button type="button" onClick={() => useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'diagnostics' })}>Open Diagnostics</button></div>}
       {showEnd && <button type="button" className="thread-scroll-end" onClick={scrollEnd}><ArrowDown size={12} />Latest messages{newMessages > 0 ? ` · ${newMessages}` : ''}</button>}
       {snapshot && <div className={`thread-connection-notice${needsLogin ? '' : ' is-connected'}`}>{needsLogin ? <><AlertCircle size={14} /><span>{authFailure ? `Sign in to ${snapshot.thread.provider === 'claude' ? 'Claude Code' : 'Codex'}` : accountMessage(account)}</span><button type="button" onClick={onAccounts}>{authFailure ? 'Reconnect' : 'Connect'}</button>{authFailure && lastPrompt?.type === 'message' && <button type="button" title="Resend after connecting" disabled={pending || account?.state !== 'connected' || account.method !== 'subscription'} onClick={() => void action(() => api!.send(snapshot.thread.id, lastPrompt.text, lastPrompt.attachments?.map(attachment => attachment.id) ?? []))}>Retry</button>}</> : <><Check size={14} /><span>{account ? `${snapshot.thread.provider === 'claude' ? 'Claude Code' : 'Codex'} connected` : 'Checking agent connection…'}</span></>}</div>}
       {degradedConnection && !needsLogin && <div className="thread-connection-notice is-warning" role="status"><AlertCircle size={14} /><span>{degradedConnection.detail || 'Provider connection is unavailable.'}{degradedConnection.nextRetryAt ? ` You can retry after ${new Date(degradedConnection.nextRetryAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}.` : ''}</span></div>}

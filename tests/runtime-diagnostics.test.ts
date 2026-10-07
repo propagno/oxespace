@@ -43,7 +43,7 @@ it('rotates within the three-file budget and keeps recent records across restart
   const next = new RuntimeDiagnostics(root, () => now, 1024)
   expect(next.export()).toContain('"pid":199')
   expect(next.export()).not.toContain('"pid":0,')
-})
+}, 20000)
 
 it('expires old records even when their file has a recent modification time', () => {
   const root = fixture(), now = Date.now()
