@@ -12,8 +12,14 @@ test('project roles persist and Code and Thread resolve the same team', async ()
   let app = await launch()
   try {
     let page = await app.firstWindow()
+    await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
+    await page.getByTestId('btn-new-workspace').click()
+    await page.getByTestId('wizard-dir-input').fill(repo)
+    await page.getByTestId('wizard-launch-btn').click()
+    await expect(page.getByRole('button', { name: 'Team', exact: true })).toBeEnabled()
     const ids = await page.evaluate(async path => {
-      const workspace = await window.oxe.workspace.create({ rootPath: path, autoStart: false })
+      const workspace = (await window.oxe.workspace.list())[0]
+      if (!workspace) throw new Error('Workspace was not registered')
       const project = await window.oxe.thread!.addProject(path)
       return { code: workspace.id, thread: project.projectId }
     }, repo)
@@ -46,6 +52,7 @@ test('project roles persist and Code and Thread resolve the same team', async ()
     expect(before.code).toEqual(before.thread)
     expect(before.workspaces).toBe(1)
     await app.close(); app = await launch(); page = await app.firstWindow()
+    await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
     expect(await page.evaluate(id => window.oxe.team!.read({ kind: 'thread', id }), ids.thread)).toEqual(before.code)
     const saved = await page.evaluate(async ({ project, member }) => window.oxe.team!.messages({ kind: 'thread', id: project }, member), { project: ids.thread, member: before.code.members[0].id })
     expect(saved).toHaveLength(1)

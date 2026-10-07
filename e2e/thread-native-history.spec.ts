@@ -19,6 +19,7 @@ test('Claude native pages use the production worker and survive an Electron rest
   let app = await launch()
   try {
     let page = await app.firstWindow()
+    await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
     const threadId = await page.evaluate(async ({ repo, nativeId }) => {
       const api = window.oxe.thread!
       const project = await api.addProject(repo)
@@ -32,6 +33,7 @@ test('Claude native pages use the production worker and survive an Electron rest
     // not just the messages already imported into SQLite.
     await app.close()
     app = await launch(); page = await app.firstWindow()
+    await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
     snapshot = await page.evaluate(id => window.oxe.thread!.read(id), threadId)
     expect(snapshot.thread.nativeHistoryCursor?.claudeParent).toBe('message-199')
     await page.getByRole('button', { name: 'Thread', exact: true }).click()
@@ -51,6 +53,7 @@ test('Claude native pages use the production worker and survive an Electron rest
     expect(foundFirst).toBe(true)
     await app.close()
     app = await launch(); page = await app.firstWindow()
+    await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
     snapshot = await page.evaluate(id => window.oxe.thread!.read(id), threadId)
     expect(snapshot.page?.total).toBe(1200)
     expect(snapshot.thread.nativeHistoryCursor).toBeUndefined()
