@@ -209,7 +209,7 @@ jobs:
           npm run rebuild:native:node
           # Git/worktree integration tests contend for process and filesystem
           # resources on Windows when Vitest runs files concurrently.
-          npm run test:coverage -- --maxWorkers=1
+          npm run test:coverage
 
       - name: Build renderer and main process
         shell: pwsh
