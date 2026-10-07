@@ -357,6 +357,7 @@ test('workspace transition: returning to an evicted workspace', async () => {
   try {
     // Force eviction: a cap of 2 with four workspaces guarantees the first is
     // unmounted by the time we come back to it.
+    await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
     await page.evaluate(() => {
       const raw = localStorage.getItem('oxe-settings')
       const parsed = raw ? JSON.parse(raw) : { state: {}, version: 0 }
@@ -364,6 +365,7 @@ test('workspace transition: returning to an evicted workspace', async () => {
       localStorage.setItem('oxe-settings', JSON.stringify(parsed))
     })
     await page.reload()
+    await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
 
     const fixtureRoot = join(tmpdir(), `oxe-evict-${Date.now()}`)
     const names = ['alpha-repo', 'beta-repo', 'gamma-repo', 'delta-repo']
@@ -536,7 +538,7 @@ test('modal surfaces: agents, MCP, skills, semantic, workspace settings and usag
       await page.getByText('Usage & Rate Limits', { exact: true }).click()
       await page.locator('[data-testid="usage-modal"]').waitFor({ state: 'visible' })
       usageOpen.push(await page.evaluate((start) => performance.now() - start, started))
-      usageClose.push(await timeDomToggle(page, () => page.keyboard.press('Escape'), '[data-testid="usage-modal"]', false))
+      usageClose.push(await timeDomToggle(page, () => page.getByTestId('usage-modal').getByRole('button', { name: 'Close' }).click(), '[data-testid="usage-modal"]', false))
     }
     report('modal open:  Usage & Rate Limits', usageOpen)
     report('modal close: Usage & Rate Limits', usageClose)

@@ -47,6 +47,7 @@ test('Thread projects and conversations survive restart without creating Code wo
 
     app = await launch()
     page = await app.firstWindow()
+    await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
     await page.getByRole('button', { name: 'Thread', exact: true }).click()
     await expect(page.locator('.thread-project-group')).toHaveCount(1)
     await expect(page.locator('.thread-session-title')).toContainText(['New thread'])

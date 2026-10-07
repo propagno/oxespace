@@ -284,7 +284,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.locator('.oxe-voice-hud')).toHaveCount(0)
     await page.keyboard.press('Control+Shift+v')
     await expect(page.locator('.oxe-voice-hud.error')).toBeVisible()
-    await page.keyboard.press('Control+Shift+v')
+    await page.getByRole('button', { name: 'Close voice input' }).click()
     await expect(page.locator('.oxe-voice-hud')).toHaveCount(0)
     await page.evaluate(() => {
       navigator.mediaDevices.getUserMedia = (globalThis as Record<string, unknown>).originalGetUserMedia as typeof navigator.mediaDevices.getUserMedia
@@ -377,7 +377,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     const message = page.getByRole('textbox', { name: 'Message', exact: true })
     await expect.poll(() => app.evaluate(() => Number((globalThis as Record<string, unknown>).threadCommandQueries))).toBe(1)
     await message.focus()
-    await page.keyboard.type('/oxe')
+    await message.pressSequentially('/oxe')
     await expect(message).toBeFocused()
     await expect(page.getByRole('option', { name: /oxe-plan/ })).toBeVisible()
     await expect(page.getByRole('searchbox', { name: 'Filter threads' })).toHaveValue('')
