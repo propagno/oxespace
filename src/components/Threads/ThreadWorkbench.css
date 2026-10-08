@@ -88,6 +88,12 @@
 .thread-session-operations > button > small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tx-muted); }
 .thread-review-body { flex: 1; min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .thread-tool-surface { display: flex; overflow: hidden; }
+.thread-background-surface { flex-direction: column; }
+.thread-background-surface > section { min-width: 0; }
+.thread-background-surface > section[aria-label='Native background activity'] { display: grid; flex: 0 1 auto; max-height: 45%; overflow: auto; gap: 8px; padding: 12px; border-bottom: 1px solid var(--bd-base); }
+.thread-background-surface > .bg-jobs-dock { min-height: 0; height: auto; }
+.thread-background-surface > section[aria-label='Native background activity'] > h3 { margin: 0; font-size: var(--fs-xs); }
+.thread-background-surface > section[aria-label='Native background activity'] > p { margin: 0; color: var(--tx-muted); }
 .thread-tool-surface > .editor-pane, .thread-tool-surface > .search-panel, .thread-tool-surface > .github-panel, .thread-tool-surface > .terminal-pane { flex: 1; min-width: 0; min-height: 0; height: 100%; }
 .thread-tool-surface .editor-sidebar { width: min(190px, 38%); }
 .thread-diagnostics { display: grid; gap: 16px; padding: 14px; font-size: var(--fs-xs); }
@@ -143,6 +149,9 @@
 .thread-subagent li code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tx-primary); }
 .thread-subagent li > span:last-of-type { color: var(--tx-muted); font-size: var(--fs-2xs); text-transform: capitalize; }
 .thread-subagent li small { grid-column: 2 / -1; color: var(--tx-secondary); overflow-wrap: anywhere; }
+.thread-subagent li .thread-subagent-result { grid-column: 2 / -1; min-width: 0; margin-top: 0; }
+.thread-subagent-result summary { width: fit-content; }
+.thread-subagent-result p { max-height: 280px; overflow: auto; line-height: 1.45; }
 .thread-subagent-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--tx-muted); }
 .thread-subagent-dot.is-running { background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); }
 .thread-subagent-dot.is-completed, .thread-subagent-dot.is-closed { background: var(--dot-green); }

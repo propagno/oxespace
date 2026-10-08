@@ -79,11 +79,13 @@ describe('transparent file changes', () => {
     expect(screen.getByRole('menuitemradio', { name: 'Web preview' })).toBeVisible()
     expect(screen.getByRole('menuitemradio', { name: 'Agents' })).toBeVisible()
   })
-  it('renders native agent lifecycle with child IDs and status', () => {
+  it('renders native agent lifecycle with child IDs and a collapsible result', () => {
     const event: ThreadEvent = { type: 'subagent', id: 'delegate', action: 'spawnAgent', state: 'completed', senderThreadId: 'native-A', receiverThreadIds: ['child-A'], agents: [{ threadId: 'child-A', status: 'completed', message: 'Audit complete' }], prompt: 'Audit authentication', model: 'gpt-5', reasoningEffort: 'high' }
     render(<ThreadChangesPanel snapshot={{ thread, events: [event] }} panel="agents" onClose={() => {}} onComment={() => {}} />)
     expect(screen.getByText('Started agent')).toBeVisible()
     expect(screen.getByText('child-A')).toBeVisible()
+    expect(screen.getByText('Audit complete')).not.toBeVisible()
+    screen.getByText('View result').click()
     expect(screen.getByText('Audit complete')).toBeVisible()
   })
 })

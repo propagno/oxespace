@@ -877,7 +877,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.screenshot({ path: 'test-results/thread-provider-observation.png' })
     await page.getByRole('button', { name: 'Close review panel' }).click()
     await app.evaluate(() => ((globalThis as Record<string, unknown>).setPartialHistoryFixture as () => void)())
-    await expect(page.getByText(/You can continue this conversation here/)).toBeVisible()
+    await expect(page.getByText(/You can continue this conversation here/)).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Recover conversation' })).toHaveCount(0)
     await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toBeEnabled()
     await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Structured question fixture'))

@@ -49,4 +49,23 @@ describe('Thread command approval', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }))
     expect(respond).toHaveBeenCalledWith({ decision: 'accept' })
   })
+  it('presents MCP tool input as a tool request rather than a shell command', () => {
+    const request: ThreadRequest = { id: 'mcp-tool', nativeId: 'mcp-tool', nativeMethod: 'can_use_tool:mcp__oxespace__search', kind: 'approval', title: 'Approve mcp__oxespace__search', detail: '{"project":"Seedz 2.0","top":30}', generation: 1, createdAt: 1, state: 'pending' }
+    render(<ThreadRequestCard request={request} disabled={false} onRespond={vi.fn(async () => {})} />)
+    expect(screen.getByRole('region', { name: 'Approve MCP tool request' })).toBeVisible()
+    expect(screen.getByText('Review the mcp__oxespace__search request before allowing it.')).toBeVisible()
+    expect(screen.getByText('Tool input')).toBeVisible()
+    expect(screen.getByText(/Full access does not approve requests/)).toBeVisible()
+    expect(screen.queryByText('Review the command before allowing it to run.')).toBeNull()
+  })
+  it('renders ExitPlanMode plans as readable Markdown while retaining the exact request', () => {
+    const plan = '# Delivery plan\n\n- Verify the UI\n- Publish after approval'
+    const request: ThreadRequest = { id: 'plan', nativeId: 'plan', nativeMethod: 'can_use_tool:ExitPlanMode', kind: 'approval', title: 'Approve ExitPlanMode', detail: JSON.stringify({ plan }), generation: 1, createdAt: 1, state: 'pending' }
+    render(<ThreadRequestCard request={request} disabled={false} onRespond={vi.fn(async () => {})} />)
+    expect(screen.getByRole('region', { name: 'Review plan' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Delivery plan' })).toBeVisible()
+    expect(screen.getByText('Review the plan before the agent continues.')).toBeVisible()
+    fireEvent.click(screen.getByText(/Exact command or request/))
+    expect(screen.getByText(JSON.stringify({ plan }))).toBeVisible()
+  })
 })

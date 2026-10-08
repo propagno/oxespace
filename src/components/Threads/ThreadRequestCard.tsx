@@ -37,6 +37,8 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond, co
   const [form, setForm] = useState<Record<string, string | number | boolean>>({})
   const [error, setError] = useState('')
   const fields = useMemo(() => Object.entries((request.schema?.properties && typeof request.schema.properties === 'object' ? request.schema.properties : {}) as Record<string, Record<string, unknown>>), [request.schema])
+  const requestLabel = request.kind === 'approval' && request.nativeMethod === 'can_use_tool:ExitPlanMode' ? 'Review plan'
+    : request.kind === 'approval' && request.nativeMethod?.startsWith('can_use_tool:mcp__') ? 'Approve MCP tool request' : request.title
   const required = new Set(Array.isArray(request.schema?.required) ? request.schema.required.filter((value): value is string => typeof value === 'string') : [])
   const questionsAnswered = Boolean(request.questions?.length) && request.questions!.every(question => answers[question.id]?.some(value => value.trim()))
   const submit = async (response: ThreadRequestResponse) => {
@@ -62,10 +64,11 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond, co
       {request.requestedPermissions && <pre>{JSON.stringify(request.requestedPermissions, null, 2)}</pre>}
     </div>
   </details>
-  return <section ref={card} className={`thread-request thread-request-${request.kind}`} aria-label={request.title}>
-    <header>{request.kind === 'permissions' ? <Shield size={15} /> : <AlertCircle size={15} />}<div><strong>{request.title}</strong>{request.kind !== 'approval' && request.detail && <p>{request.detail}</p>}</div></header>
+  return <section ref={card} className={`thread-request thread-request-${request.kind}`} aria-label={requestLabel}>
+    <header>{request.kind === 'permissions' ? <Shield size={15} /> : <AlertCircle size={15} />}<div><strong>{requestLabel}</strong>{request.kind !== 'approval' && request.detail && <p>{request.detail}</p>}</div></header>
     {request.kind === 'elicitation' && <p className="thread-request-context">This MCP server requested confirmation or information. Full access controls filesystem and command access; it does not answer MCP requests.</p>}
-    {request.kind === 'approval' && <ThreadApprovalDetails command={request.command ?? request.detail ?? ''} cwd={request.cwd} reason={request.reason} fileChanges={request.title === 'Approve file changes'} />}
+    {request.kind === 'approval' && request.nativeMethod?.startsWith('can_use_tool:mcp__') && <p className="thread-request-context">This request comes from an MCP tool. Full access does not approve requests made by the connected provider or MCP server.</p>}
+    {request.kind === 'approval' && <ThreadApprovalDetails command={request.command ?? request.detail ?? ''} cwd={request.cwd} reason={request.reason} fileChanges={request.title === 'Approve file changes'} toolName={request.nativeMethod?.startsWith('can_use_tool:') ? request.nativeMethod.slice('can_use_tool:'.length) : undefined} />}
     {(request.questions?.length ?? 0) > 1 && <nav className="thread-question-steps" aria-label="Questions"><button type="button" disabled={step === 0 || disabled} onClick={() => setStep(value => value - 1)}>Previous</button><span role="status">Question {step + 1} of {request.questions!.length}</span><button type="button" disabled={step === request.questions!.length - 1 || disabled} onClick={() => setStep(value => value + 1)}>Next</button></nav>}
     {request.questions?.length ? <div className="thread-question-body">{request.questions.map((question, index) => <fieldset key={question.id} disabled={disabled} hidden={index !== step}>
       <legend>{question.header && <small>{question.header}</small>}{question.question}</legend>
