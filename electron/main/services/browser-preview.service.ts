@@ -119,9 +119,11 @@ export class BrowserPreviewService {
       view.setVisible(false)
       securePreviewGuest(view.webContents)
       const current = tab
+      const isCurrent = (): boolean => this.tabs.get(key) === current && !view.webContents.isDestroyed()
       view.webContents.on('will-navigate', (event, next) => { try { checkedUrl(next,current.allowExternal) } catch { event.preventDefault() } })
       view.webContents.on('will-redirect', (event, next) => { try { checkedUrl(next,current.allowExternal) } catch { event.preventDefault() } })
       const emitNavigation = (next: string): void => {
+        if (!isCurrent()) return
         meta.url = next
         meta.canGoBack = view.webContents.canGoBack()
         meta.canGoForward = view.webContents.canGoForward()
@@ -129,11 +131,11 @@ export class BrowserPreviewService {
       }
       view.webContents.on('did-navigate', (_event,next) => emitNavigation(next))
       view.webContents.on('did-navigate-in-page', (_event,next) => emitNavigation(next))
-      view.webContents.on('page-title-updated', (_event,title) => { meta.title = title.slice(0,100); this.emit(current,{type:'title',title:meta.title}) })
-      view.webContents.on('did-start-loading', () => { meta.loading = true; meta.error = null; this.emit(current,{type:'loading',loading:true}) })
-      view.webContents.on('did-stop-loading', () => { meta.loading = false; this.emit(current,{type:'loading',loading:false}) })
-      view.webContents.on('did-fail-load', (_event,code,description,_url,isMainFrame) => { if(code !== -3 && isMainFrame) { meta.loading = false; meta.error = description.slice(0,200); this.emit(current,{type:'failed',message:meta.error}) } })
-      view.webContents.on('dom-ready', () => this.emit(current,{type:'ready'}))
+      view.webContents.on('page-title-updated', (_event,title) => { if (!isCurrent()) return; meta.title = title.slice(0,100); this.emit(current,{type:'title',title:meta.title}) })
+      view.webContents.on('did-start-loading', () => { if (!isCurrent()) return; meta.loading = true; meta.error = null; this.emit(current,{type:'loading',loading:true}) })
+      view.webContents.on('did-stop-loading', () => { if (!isCurrent()) return; meta.loading = false; this.emit(current,{type:'loading',loading:false}) })
+      view.webContents.on('did-fail-load', (_event,code,description,_url,isMainFrame) => { if (!isCurrent()) return; if(code !== -3 && isMainFrame) { meta.loading = false; meta.error = description.slice(0,200); this.emit(current,{type:'failed',message:meta.error}) } })
+      view.webContents.on('dom-ready', () => { if (isCurrent()) this.emit(current,{type:'ready'}) })
       view.webContents.once('destroyed', () => { if (this.tabs.get(key) === current) this.tabs.delete(key) })
     }
     tab.allowExternal = input.allowExternal === true
@@ -219,9 +221,9 @@ export class BrowserPreviewService {
     const tab = this.tabs.get(key)
     if (!tab || tab.view.webContents.isDestroyed()) return
     if (input.lease && input.lease !== tab.lease) return
+    this.tabs.delete(key)
     tab.window.contentView.removeChildView(tab.view)
     tab.view.webContents.close()
-    this.tabs.delete(key)
   }
   activeFor(workspaceId: string, owner?: ExecutionOwner): {guest:WebContents;window:BrowserWindow;external:boolean;tabId:string;sessionId:string} | null {
     const ownerKey = owner?.kind === 'thread' ? `thread:${owner.id}` : workspaceId
