@@ -280,7 +280,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(codeInput).toBeFocused()
     await page.keyboard.press('Control+Shift+v')
     await expect(page.locator('.oxe-voice-hud.error')).toBeVisible()
-    await page.keyboard.press('Escape')
+    await page.getByRole('button', { name: 'Close voice input' }).click()
     await expect(page.locator('.oxe-voice-hud')).toHaveCount(0)
     await page.keyboard.press('Control+Shift+v')
     await expect(page.locator('.oxe-voice-hud.error')).toBeVisible()
