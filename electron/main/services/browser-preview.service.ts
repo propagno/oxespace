@@ -62,9 +62,13 @@ export class BrowserPreviewService {
       const meta = state.tabs.find(tab => tab.id === input.tabId && tab.id === state.activeTabId)
       if (!meta || typeof input.url !== 'string') throw new Error('Browser tab changed; select it before navigating')
       const nextUrl = checkedUrl(input.url,input.allowExternal === true)
-      // A failed guest may still report the requested URL. Replace it before
-      // retrying so mount cannot mistake that URL for a successful load.
-      if (meta.error) this.close(window,{ownerKey:input.ownerKey,tabId:meta.id})
+      // A failed guest can have queued failure events even after close. Give
+      // the replacement a new tab ID so those events cannot affect its state.
+      if (meta.error) {
+        this.close(window,{ownerKey:input.ownerKey,tabId:meta.id})
+        meta.id = randomUUID()
+        state.activeTabId = meta.id
+      }
       meta.url = nextUrl
       meta.error = null
     } else if (input.action === 'select' || input.action === 'close') {
