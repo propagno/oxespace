@@ -97,6 +97,9 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       updateQueued: (id, itemId, text) => ipc.invoke(IPC_CHANNELS.thread.updateQueued, id, itemId, text) as Promise<void>,
         deleteQueued: (id, itemId, preserveAttachments) => ipc.invoke(IPC_CHANNELS.thread.deleteQueued, id, itemId, preserveAttachments) as Promise<void>,
       reorderQueued: (id, itemIds) => ipc.invoke(IPC_CHANNELS.thread.reorderQueued, id, itemIds) as Promise<void>,
+      contextUsage: id => ipc.invoke(IPC_CHANNELS.thread.contextUsage, id) as Promise<import('../../shared/types/thread').ThreadContextReport | null>,
+      resumeQueue: id => ipc.invoke(IPC_CHANNELS.thread.resumeQueue, id) as Promise<void>,
+      sendQueuedNow: (id, itemId) => ipc.invoke(IPC_CHANNELS.thread.sendQueuedNow, id, itemId) as Promise<void>,
       interrupt: id => ipc.invoke(IPC_CHANNELS.thread.interrupt, id) as Promise<void>,
       approve: (id, request, decision) => ipc.invoke(IPC_CHANNELS.thread.approve, id, request, decision) as Promise<void>,
       respond: (id, request, response) => ipc.invoke(IPC_CHANNELS.thread.respond, id, request, response) as Promise<void>,
@@ -264,6 +267,13 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
         ipc.invoke(IPC_CHANNELS.voice.ensureModel, size) as Promise<import('../../shared/types/voice').VoiceModelStatus>,
       onModelProgress: (listener) =>
         subscribe<import('../../shared/types/voice').VoiceModelProgressEvent>(ipc, IPC_CHANNELS.voice.onModelProgress, listener)
+    },
+    agentHooks: {
+      status: () => ipc.invoke(IPC_CHANNELS.agentHooks.status) as Promise<import('../../shared/types/agent-hooks').AgentHooksStatus[]>,
+      install: (agent) => ipc.invoke(IPC_CHANNELS.agentHooks.install, agent) as Promise<import('../../shared/types/agent-hooks').AgentHooksStatus>,
+      remove: (agent) => ipc.invoke(IPC_CHANNELS.agentHooks.remove, agent) as Promise<import('../../shared/types/agent-hooks').AgentHooksStatus>,
+      onStatus: (listener) =>
+        subscribe<import('../../shared/types/agent-hooks').AgentHookStatusEvent>(ipc, IPC_CHANNELS.agentHooks.onStatus, listener)
     },
     notifications: {
       notify: (payload) => ipc.invoke(IPC_CHANNELS.notifications.notify, payload) as Promise<boolean>,

@@ -57,6 +57,7 @@ import { useIntegrationStore } from './store/integration.store'
 import { useWorktreeStore } from './store/worktree.store'
 import { useVoiceStore } from './store/voice.store'
 import { useAgentNotifications } from './hooks/useAgentNotifications'
+import { useAgentHookStatus } from './hooks/useAgentHookStatus'
 import { useTerminalPrefsStore, TERMINAL_PREFS_DEFAULTS, FONT_SIZE_MIN, FONT_SIZE_MAX } from './store/terminal-prefs.store'
 import { useSettingsStore } from './store/settings.store'
 
@@ -461,6 +462,7 @@ export function App(): ReactElement {
   }, [])
 
   useAgentNotifications()
+  useAgentHookStatus()
 
   // Clicking a notification focuses the originating pane (window focus + restore
   // is handled in main); here we switch to its workspace and select the pane.

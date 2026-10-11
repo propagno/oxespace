@@ -65,7 +65,7 @@ export type { FileSystemApi, FileSystemFileChangedEvent, FileSystemListTreeInput
 export const IPC_CHANNELS = {
   team: { command: 'team:command', messages: 'team:messages', send: 'team:send' },
   agentAccount: { read: 'agent-account:read', login: 'agent-account:login', logout: 'agent-account:logout', cancel: 'agent-account:cancel', code: 'agent-account:code', browser: 'agent-account:browser', changed: 'agent-account:changed' },
-  thread: { projectDiff: 'thread:project-diff', artifact: 'thread:artifact', exportPortable: 'thread:export-portable', importPortable: 'thread:import-portable', models: 'thread:models', configure: 'thread:configure', command: 'thread:command', recover: 'thread:recover', observe: 'thread:observe', commands: 'thread:commands', projects: 'thread:projects', addProject: 'thread:project-add', relinkProject: 'thread:project-relink', setProjectHidden: 'thread:project-hidden', list: 'thread:list', create: 'thread:create', read: 'thread:read', history: 'thread:history', attach: 'thread:attach', removeAttachment: 'thread:remove-attachment', send: 'thread:send', steer: 'thread:steer', updateQueued: 'thread:queue-update', deleteQueued: 'thread:queue-delete', reorderQueued: 'thread:queue-reorder', interrupt: 'thread:interrupt', approve: 'thread:approve', respond: 'thread:respond', pin: 'thread:pin', changed: 'thread:changed' },
+  thread: { projectDiff: 'thread:project-diff', artifact: 'thread:artifact', exportPortable: 'thread:export-portable', importPortable: 'thread:import-portable', models: 'thread:models', configure: 'thread:configure', command: 'thread:command', recover: 'thread:recover', observe: 'thread:observe', commands: 'thread:commands', projects: 'thread:projects', addProject: 'thread:project-add', relinkProject: 'thread:project-relink', setProjectHidden: 'thread:project-hidden', list: 'thread:list', create: 'thread:create', read: 'thread:read', history: 'thread:history', attach: 'thread:attach', removeAttachment: 'thread:remove-attachment', send: 'thread:send', steer: 'thread:steer', updateQueued: 'thread:queue-update', deleteQueued: 'thread:queue-delete', reorderQueued: 'thread:queue-reorder', contextUsage: 'thread:context-usage', resumeQueue: 'thread:queue-resume', sendQueuedNow: 'thread:queue-send-now', interrupt: 'thread:interrupt', approve: 'thread:approve', respond: 'thread:respond', pin: 'thread:pin', changed: 'thread:changed' },
   threadCli: { open: 'thread-cli:open', state: 'thread-cli:state', write: 'thread-cli:write', resize: 'thread-cli:resize', attach: 'thread-cli:attach', detach: 'thread-cli:detach', stop: 'thread-cli:stop', insert: 'thread-cli:insert', link: 'thread-cli:link', data: 'thread-cli:data', exit: 'thread-cli:exit' },
   delegation: { create: 'delegation:create', status: 'delegation:status', preview: 'delegation:preview', configure: 'delegation:configure', control: 'delegation:control', changed: 'delegation:changed', configureTarget: 'delegation:configure-target', adopt: 'delegation:adopt' },
   memory: {
@@ -185,6 +185,12 @@ export const IPC_CHANNELS = {
     getModelStatus: 'voice:get-model-status',
     ensureModel: 'voice:ensure-model',
     onModelProgress: 'voice:on-model-progress'
+  },
+  agentHooks: {
+    status: 'agent-hooks:status',
+    install: 'agent-hooks:install',
+    remove: 'agent-hooks:remove',
+    onStatus: 'agent-hooks:on-status'
   },
   notifications: {
     notify: 'notifications:notify',
@@ -608,6 +614,14 @@ export interface AgentNotificationPayload {
   workspaceId: string
 }
 
+export interface AgentHooksApi {
+  status(): Promise<import('./agent-hooks').AgentHooksStatus[]>
+  install(agent: import('./agent-hooks').AgentHookAgent): Promise<import('./agent-hooks').AgentHooksStatus>
+  remove(agent: import('./agent-hooks').AgentHookAgent): Promise<import('./agent-hooks').AgentHooksStatus>
+  /** Pane status pushed by an agent's own lifecycle hooks. */
+  onStatus(listener: (event: import('./agent-hooks').AgentHookStatusEvent) => void): () => void
+}
+
 export interface NotificationsApi {
   notify(payload: AgentNotificationPayload): Promise<boolean>
   onActivate(listener: (payload: { paneId: string; workspaceId: string }) => void): () => void
@@ -683,6 +697,7 @@ export interface OxeApi {
   clipboard: ClipboardApi
   voice: VoiceApi
   notifications: NotificationsApi
+  agentHooks: AgentHooksApi
   oxe: OxeIntegrationApi
   copilot: CopilotApi
   agentCredits: AgentCreditsApi

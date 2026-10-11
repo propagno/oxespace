@@ -21,6 +21,7 @@ import {
 import { useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import type { AgentProfile, AgentProvider, AgentReadiness } from '../../../shared/types/agent'
 import type { VoiceModelSize, VoiceModelStatus } from '../../../shared/types/voice'
+import type { AgentHookAgent, AgentHooksStatus } from '../../../shared/types/agent-hooks'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { useAgentStore } from '../../store/agent.store'
 import { useVoiceStore } from '../../store/voice.store'
@@ -1052,6 +1053,67 @@ function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactEle
   )
 }
 
+const AGENT_HOOK_LABEL: Record<AgentHookAgent, string> = { 'claude-code': 'Claude Code', codex: 'Codex' }
+
+/**
+ * Installs each agent's status hook in the agent's own config. Explicit and
+ * per-agent because those files are user-global; the heuristic keeps working
+ * whether or not a hook is installed.
+ */
+function AgentHooksSetting(): ReactElement | null {
+  const [statuses, setStatuses] = useState<AgentHooksStatus[] | null>(null)
+  const [busy, setBusy] = useState<AgentHookAgent | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void Promise.resolve(window.oxe?.agentHooks?.status?.())
+      .then((next) => { if (!cancelled) setStatuses(next ?? null) })
+      .catch(() => { if (!cancelled) setStatuses(null) })
+    return () => { cancelled = true }
+  }, [])
+
+  if (!statuses) return null
+
+  const toggle = async (status: AgentHooksStatus): Promise<void> => {
+    setBusy(status.agent)
+    try {
+      const api = window.oxe.agentHooks
+      const next = status.state === 'installed' ? await api.remove(status.agent) : await api.install(status.agent)
+      setStatuses((current) => (current ?? []).map((s) => (s.agent === next.agent ? next : s)))
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  return (
+    <div className="settings-form-group">
+      <h3 className="settings-form-group-title">Agent status hooks</h3>
+      <div className="settings-callout">
+        Let Claude Code and Codex report <strong>working / waiting / done</strong> themselves instead of
+        guessing from terminal output. Writes to the agent&apos;s own config; your existing hooks are kept.
+      </div>
+      {statuses.map((status) => (
+        <div className="settings-toggle-row" key={status.agent}>
+          <span>
+            <strong>{AGENT_HOOK_LABEL[status.agent]}</strong>
+            <small>
+              {status.state === 'installed' && 'Installed.'}
+              {status.state === 'partial' && `Partially installed (missing: ${status.missing.join(', ')}).`}
+              {status.state === 'not_installed' && 'Not installed — using output heuristics.'}
+              {status.state === 'error' && `Cannot update: ${status.detail ?? 'unknown error'}`}
+            </small>
+          </span>
+          <SettingsSwitch
+            checked={status.state === 'installed' || status.state === 'partial'}
+            onChange={() => { if (busy === null) void toggle(status) }}
+            ariaLabel={`Report ${AGENT_HOOK_LABEL[status.agent]} status through hooks`}
+          />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function NotificationsSettingsSection({ onClose }: { onClose: () => void }): ReactElement {
   const notificationsEnabled = useSettingsStore((s) => s.notificationsEnabled)
   const setNotificationsEnabled = useSettingsStore((s) => s.setNotificationsEnabled)
@@ -1107,6 +1169,8 @@ function NotificationsSettingsSection({ onClose }: { onClose: () => void }): Rea
           <Bell size={13} aria-hidden="true" />
           Send test notification
         </button>
+
+        <AgentHooksSetting />
 
         <div className="settings-form-group">
           <h3 className="settings-form-group-title">Performance</h3>

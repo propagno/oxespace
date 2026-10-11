@@ -39,6 +39,8 @@ import { ExecutionRegistry } from './services/execution-registry'
 import { AgentLaunchService, agentMcpArguments, providerForExecutable } from './services/agent-launch.service'
 import { AgentService } from './services/agent.service'
 import { registerMemoryIpc } from './ipc/memory.ipc'
+import { registerAgentHooksIpc } from './ipc/agent-hooks.ipc'
+import { AgentHookServer } from './services/agent-hooks/server'
 import { fallbackShellProfiles } from './services/shell-profile.defaults'
 import { isLoopbackHttpUrl, isSafeExternalUrl } from './utils/external-url'
 import { applyLoginShellPath } from './utils/login-shell-path'
@@ -135,13 +137,36 @@ async function registerIpcHandlers(): Promise<() => void> {
   const { registerDelegationIpc } = await import('./ipc/delegation.ipc')
   const executions = new ExecutionRegistry()
   registerMemoryIpc(memoryService)
+  registerAgentHooksIpc(app.getPath('userData'))
+  // Agents' own lifecycle hooks report here. Deliveries authenticate with the
+  // same per-pane execution credentials the terminal already carries, so a
+  // hook script outside an OXESpace terminal is simply inert.
+  const agentHookServer = new AgentHookServer({
+    authenticate: ({ executionId, token, workspaceId }) => {
+      try {
+        const execution = executions.authenticate(executionId, token, workspaceId)
+        return execution.owner.kind === 'pane' ? { paneId: execution.owner.id, workspaceId: execution.workspaceId } : null
+      } catch {
+        return null
+      }
+    },
+    onStatus: (event) => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        window.webContents.send(IPC_CHANNELS.agentHooks.onStatus, event)
+      }
+    }
+  })
+  // A bind failure only costs the hook signal; the heuristic keeps working.
+  void agentHookServer.start().catch((error) => log.warn('Agent hook server unavailable', error))
+  app.once('before-quit', () => agentHookServer.stop())
   const terminalManager: TerminalManager = new TerminalManager(db, {
     prepareLaunch: (input) => memoryService.prepareLaunch(input),
     isManagedPane: paneId => delegationService?.ownsPane(paneId) ?? false,
     onLaunchExit: (paneId) => { memoryService.endLaunch(paneId); executions.end(paneId); delegationService?.exited(paneId) },
     executionEnvironment: (input) => {
       const meta = db.prepare('SELECT port, token FROM internal_mcp_meta LIMIT 1').get() as { port: number; token: string } | undefined
-      return { ...executions.register(input), ...(meta ? { OXESPACE_MCP_PORT: String(meta.port), OXESPACE_MCP_TOKEN: meta.token } : {}) }
+      const hookPort = agentHookServer.port
+      return { ...executions.register(input), ...(hookPort ? { OXESPACE_AGENT_HOOK_PORT: String(hookPort) } : {}), ...(meta ? { OXESPACE_MCP_PORT: String(meta.port), OXESPACE_MCP_TOKEN: meta.token } : {}) }
     },
     agentMcpArgs: (executable, args) => [...agentMcpArguments(providerForExecutable(executable), join(app.getPath('userData'),'bin','oxespace-mcp.cjs')), ...args],
     emitData: (event) => {

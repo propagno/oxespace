@@ -70,6 +70,10 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/repo-config/loader.ts',
   'electron/main/services/repo-config/shared-dirs.ts',
   'electron/main/services/github/worktree-removal.ts',
+  // Agent status hooks: writes one managed hook script under <userData> and
+  // merges our entries into the agents' own config (~/.claude/settings.json,
+  // ~/.codex/hooks.json). Outside the workspace tree; never source files.
+  'electron/main/services/agent-hooks/installer.ts',
   // Trusted UI repository registration: realpath identity probes only. No
   // source file reads/writes; evidence reads committed blobs through Git.
   'electron/main/services/coordination/workspace-resolver.ts',
