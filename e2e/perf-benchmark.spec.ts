@@ -511,8 +511,11 @@ test('modal surfaces: agents, MCP, skills, semantic, workspace settings and usag
       const opens: number[] = []
       const closes: number[] = []
       for (let i = 0; i < modalRepeats; i++) {
-        await page.getByTestId('btn-open-tools').click()
-        await page.getByTestId('tools-modal').waitFor({ state: 'visible' })
+        // Settings opens from the rail; the Tools modal would cover that button.
+        if (surface.label !== 'Agent Settings') {
+          await page.getByTestId('btn-open-tools').click()
+          await page.getByTestId('tools-modal').waitFor({ state: 'visible' })
+        }
         opens.push(await timeDomToggle(page, surface.trigger, surface.selector, true))
         closes.push(await timeDomToggle(
           page,
