@@ -22,7 +22,7 @@ test('Settings stays usable in short windows and renders updater states', async 
     const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
     await expect(settings).toBeVisible()
     await settings.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: 'Application', exact: true }).click()
-    const categories = [['general', 'General'], ['providers', 'Agents'], ['terminal', 'Terminal'], ['voice', 'Voice'], ['notifications', 'Notifications'], ['updates', 'Updates'], ['diagnostics', 'Diagnostics']]
+    const categories = [['general', 'General'], ['terminal', 'Terminal'], ['voice', 'Voice'], ['notifications', 'Notifications'], ['updates', 'Updates'], ['diagnostics', 'Diagnostics']]
     for (const width of [1440, 1280, 900, 600]) {
       await page.setViewportSize({ width, height: width === 1440 ? 900 : width === 1280 ? 720 : 600 })
       if (width === 600) {

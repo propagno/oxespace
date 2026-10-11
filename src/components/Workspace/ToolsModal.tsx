@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react'
-import { Activity, ArrowRight, Bot, Brain, Code2, Command, FolderTree, Github, GitCompareArrows, MonitorPlay, Network, PanelLeft, Search, Settings2, Sparkles, Wrench, X, Slash, FileCode2 } from 'lucide-react'
+import { Activity, Brain, Code2, Command, FolderTree, Github, GitCompareArrows, MonitorPlay, Network, PanelLeft, Search, Settings2, Sparkles, Wrench, X, Slash, FileCode2 } from 'lucide-react'
 import { useUIStore } from '../../store/ui.store'
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DESKTOP_DIALOG_OVERLAY } from '@/components/ui/dialog'
 
@@ -20,8 +20,6 @@ interface ToolsModalProps {
   onClose: () => void
   onOpenCommandPalette: () => void
   onOpenWorkspaceSettings: () => void
-  /** Opens Agents (CLI providers, discovery, updates). Featured at the top of the hub. */
-  onOpenAgentSettings: () => void
   onToggleEditor: () => void
   onToggleGitHub: () => void
   onToggleReview: () => void
@@ -61,7 +59,6 @@ export function ToolsModal({
   onClose,
   onOpenCommandPalette,
   onOpenWorkspaceSettings,
-  onOpenAgentSettings,
   onToggleEditor,
   onToggleGitHub,
   onToggleReview,
@@ -251,12 +248,6 @@ export function ToolsModal({
   ]
 
   const q = query.trim().toLowerCase()
-  const agentSettingsKeywords = ['agent', 'settings', 'cli', 'provider', 'discovery', 'update', 'ai']
-  const showAgentSettingsFeature =
-    !q || agentSettingsKeywords.some((k) => k.includes(q) || q.includes(k)) ||
-    'agent settings'.includes(q) ||
-    'open agent settings'.includes(q)
-
   const filtered = !q
     ? tools
     : tools.filter((t) =>
@@ -272,7 +263,7 @@ export function ToolsModal({
     .filter((g) => g.items.length > 0)
 
   const activeCount = tools.filter((t) => t.active).length
-  const hasAnyResults = showAgentSettingsFeature || groups.length > 0
+  const hasAnyResults = groups.length > 0
 
   return (
     <Dialog open onOpenChange={(next) => { if (!next) onClose() }}>
@@ -353,31 +344,6 @@ export function ToolsModal({
         </div>
 
         <div className="tools-modal-body">
-          {showAgentSettingsFeature ? (
-            <button
-              type="button"
-              className="tools-modal-featured"
-              data-testid="tools-agent-settings"
-              onClick={() => run(onOpenAgentSettings)}
-              aria-label="Open Agents"
-            >
-              <span className="tools-modal-featured-icon" aria-hidden="true">
-                <Bot size={20} />
-              </span>
-              <span className="tools-modal-featured-body">
-                <span className="tools-modal-featured-kicker">AI &amp; Agents</span>
-                <span className="tools-modal-featured-title">Agents</span>
-                <span className="tools-modal-featured-detail">
-                  CLIs, discovery, providers &amp; app updates
-                </span>
-              </span>
-              <span className="tools-modal-featured-cta" aria-hidden="true">
-                Open
-                <ArrowRight size={14} />
-              </span>
-            </button>
-          ) : null}
-
           {!hasAnyResults ? (
             <div className="tools-modal-empty" role="status">
               <Search size={20} aria-hidden="true" />

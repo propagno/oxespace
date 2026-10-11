@@ -69,7 +69,7 @@ export const IPC_CHANNELS = {
   threadCli: { open: 'thread-cli:open', state: 'thread-cli:state', write: 'thread-cli:write', resize: 'thread-cli:resize', attach: 'thread-cli:attach', detach: 'thread-cli:detach', stop: 'thread-cli:stop', insert: 'thread-cli:insert', link: 'thread-cli:link', data: 'thread-cli:data', exit: 'thread-cli:exit' },
   delegation: { create: 'delegation:create', status: 'delegation:status', preview: 'delegation:preview', configure: 'delegation:configure', control: 'delegation:control', changed: 'delegation:changed', configureTarget: 'delegation:configure-target', adopt: 'delegation:adopt' },
   memory: {
-    status: 'memory:status', configure: 'memory:configure', install: 'memory:install',
+    status: 'memory:status', configure: 'memory:configure', install: 'memory:install', rollback: 'memory:rollback',
     setupAgents: 'memory:setup-agents', search: 'memory:search', recent: 'memory:recent'
   },
   app: {
@@ -157,6 +157,8 @@ export const IPC_CHANNELS = {
     getBranch: 'git:get-branch',
     getStatus: 'git:get-status',
     getDiff: 'git:get-diff',
+    getDiffSummary: 'git:diff-summary',
+    getFileOriginal: 'git:file-original',
     onDiffUpdate: 'git:diff-update'
   },
   search: {
@@ -237,6 +239,7 @@ export const IPC_CHANNELS = {
     delete: 'mcp:delete',
     start: 'mcp:start',
     stop: 'mcp:stop',
+    openSignIn: 'mcp:open-sign-in',
     callTool: 'mcp:call-tool',
     onHealth: 'mcp:on-health'
   },
@@ -262,6 +265,8 @@ export const IPC_CHANNELS = {
     checkoutBranch: 'github:checkout-branch',
     listPullRequests: 'github:list-pull-requests',
     createPullRequest: 'github:create-pull-request',
+    getPullRequestStatus: 'github:get-pull-request-status',
+    setPullRequestAutoMerge: 'github:set-pull-request-auto-merge',
     listCommits: 'github:list-commits',
     getCommitDetails: 'github:get-commit-details',
     listReleases: 'github:list-releases',
@@ -503,6 +508,8 @@ export interface GitApi {
   getBranch(input: import('./git').GitBranchInput): Promise<import('./git').GitBranchStatus>
   getStatus(input: import('./git').GitBranchInput): Promise<import('./git').GitControlStatus>
   getDiff(input: import('./git').GitDiffInput): Promise<import('./git').GitDiff>
+  getDiffSummary(input: import('./git').GitDiffInput): Promise<import('./git').GitDiffSummary>
+  getFileOriginal(input: import('./git').GitFileOriginalInput): Promise<import('./git').GitFileOriginal>
   onDiffUpdate(listener: (diff: import('./git').GitDiff) => void): () => void
 }
 
@@ -546,6 +553,8 @@ export interface GitHubApi {
   getWorktreeStatus(input: import('./github').GitHubWorktreePathInput): Promise<import('./github').GitHubWorktreeStatus>
   listPullRequests(input: GitHubPullRequestListInput): Promise<GitHubPullRequest[]>
   createPullRequest(input: GitHubCreatePullRequestInput): Promise<GitHubMessageResult>
+  getPullRequestStatus(input: GitHubWorkspaceInput): Promise<import('./github').GitHubPrStatus | null>
+  setPullRequestAutoMerge(input: import('./github').GitHubPrAutoMergeInput): Promise<GitHubMessageResult>
   listCommits(input: GitHubWorkspaceInput): Promise<GitHubCommit[]>
   getCommitDetails(input: GitHubCommitDetailsInput): Promise<GitHubCommitDetails>
   listReleases(input: GitHubWorkspaceInput): Promise<GitHubRelease[]>
@@ -808,6 +817,8 @@ export interface McpApi {
   delete(id: string): Promise<void>
   start(id: string): Promise<import('./mcp').McpToolDescriptor[]>
   stop(id: string): Promise<void>
+  /** Reopens the browser sign-in page of a server that is waiting to authenticate. */
+  openSignIn(id: string): Promise<boolean>
   callTool(input: import('./mcp').McpCallToolInput): Promise<import('./mcp').McpCallToolResult>
   onHealth(listener: (event: import('./mcp').McpServerHealthEvent) => void): () => void
 }

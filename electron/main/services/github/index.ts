@@ -147,6 +147,12 @@ export class GitHubService {
   createPullRequest(input: GitHubCreatePullRequestInput): Promise<GitHubMessageResult> {
     return this.review.createPullRequest(input)
   }
+  getPullRequestStatus(input: GitHubWorkspaceInput) {
+    return this.review.getPullRequestStatus(input)
+  }
+  setPullRequestAutoMerge(input: import('../../../../shared/types/github').GitHubPrAutoMergeInput) {
+    return this.review.setPullRequestAutoMerge(input)
+  }
   listCommits(input: GitHubWorkspaceInput): Promise<GitHubCommit[]> {
     return this.review.listCommits(input)
   }

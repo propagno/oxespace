@@ -35,14 +35,10 @@ test('smoke: Tools hub and Agent Settings open from sidebar', async () => {
 
     await page.getByTestId('btn-open-tools').click()
     await expect(page.getByTestId('tools-modal')).toBeVisible()
-    await expect(page.getByTestId('tools-agent-settings')).toBeVisible()
+    await page.keyboard.press('Escape')
 
-    await page.getByTestId('tools-agent-settings').click()
+    await page.getByRole('button', { name: 'Open settings' }).click()
     await expect(page.locator('.settings-center')).toBeVisible()
-    await page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Agents/ }).click()
-    await expect(page.getByRole('heading', { name: 'Agents', exact: true })).toBeVisible()
-    await expect(page.getByTestId('btn-discover-agents')).toBeVisible()
-
     await page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Diagnostics/ }).click()
     await expect(page.getByRole('heading', { name: 'Diagnostics' })).toBeVisible()
     await expect(page.getByTestId('diagnostics-checks')).toContainText('Renderer sandbox')

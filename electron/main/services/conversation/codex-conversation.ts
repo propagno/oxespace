@@ -325,7 +325,19 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
   async interrupt(): Promise<void> {
     if (!this.busy) return
     if (!this.turnId || !this.rpc) throw new Error('Turn has not been acknowledged yet; retry cancellation shortly')
-    await this.rpc.request('turn/interrupt', { threadId: this.threadId, turnId: this.turnId })
+    const turnId = this.turnId
+    // app-server may acknowledge turn/start before its execution becomes
+    // interruptible. Retry only that explicit race and never follow a new turn.
+    for (let attempt = 0; attempt < 5; attempt++) {
+      if (this.disposed || !this.busy || this.turnId !== turnId) return
+      try {
+        await this.rpc.request('turn/interrupt', { threadId: this.threadId, turnId })
+        return
+      } catch (error) {
+        if (!(error instanceof ThreadAgentError) || error.failure.detail !== 'no active turn to interrupt' || attempt === 4) throw error
+        await new Promise(resolve => setTimeout(resolve, 100 * 2 ** attempt))
+      }
+    }
   }
 
   async configure(configuration: ThreadConfiguration): Promise<void> {

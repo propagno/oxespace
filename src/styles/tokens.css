@@ -17,6 +17,10 @@
   --bg-segment:       #32333c;
   --bg-hover:         var(--nav-hover);
   --bg-subtle:        var(--wb-raised);
+  /* Aliases for names that were referenced in component CSS without a
+     definition (the whole declaration was silently dropped). */
+  --bg-surface:       var(--wb-raised);
+  --warning:          var(--dot-yellow);
 
   /* Workbench roles are shared by Code, Thread and settings. */
   --wb-canvas:        var(--bg-app);
@@ -103,13 +107,25 @@
   --nav-selected: var(--wb-selection);
   --nav-hover: color-mix(in srgb, var(--tx-primary) 8%, transparent);
   --sidebar-w:        280px;
-  --sidebar-w-collapsed: 56px;
+  --sidebar-w-collapsed: var(--rail-w);
   --tile-header-h:    40px;
   --tile-agent-h:     80px;
   --tile-statusbar-h: 28px;
   --ws-item-h:        40px;
 
+  /* Window frame — inset panels with a shared gap and radius (redesign). */
+  --frame-gap:        6px;
+  --frame-radius:     12px;
+  --panel-radius:     10px;
+  --rail-w:           48px;
+  --hit-min:          28px;
+
   /* Radii — standardized after Claude-style redesign (replaces ad-hoc 5/7/10/12 values) */
+  /* Neutral overlays for hover / selected / divider fills on dark surfaces. */
+  --ov-1: rgba(255, 255, 255, 0.04);
+  --ov-2: rgba(255, 255, 255, 0.07);
+  --ov-3: rgba(255, 255, 255, 0.11);
+  --radius-xs:        4px;
   --radius-sm:        5px;
   --radius-md:        8px;
   --radius-lg:        12px;
@@ -147,8 +163,8 @@
   --pane-surface-raised: var(--wb-raised);
   --pane-border: var(--wb-border);
   --pane-border-active: var(--wb-focus);
-  --pane-radius: 6px;
-  --pane-gap: 4px;
+  --pane-radius: var(--panel-radius);
+  --pane-gap: var(--frame-gap);
   --pane-shadow: none;
   --pane-shadow-active: 0 0 0 1px var(--wb-focus);
 
@@ -165,6 +181,9 @@
   --fs-sm:     13px;  /* secondary UI text, sidebar list items */
   --fs-xs:     12px;  /* metadata, hint text, badges */
   --fs-2xs:    11px;  /* dense status chips, last resort */
+  --fs-xl:     18px;  /* section titles */
+  --fs-2xl:    22px;  /* page titles */
+  --fs-display: 28px; /* hero / empty-state headline */
   --lh-base:   1.5;
   --lh-tight:  1.35;
 

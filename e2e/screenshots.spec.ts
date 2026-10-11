@@ -80,15 +80,6 @@ test('captures all surfaces for design review', async () => {
     await expect(page.locator('.settings-center')).toBeVisible()
     await shot(page, '08-settings-modal')
 
-    // 9. Settings — New custom agent dialog
-    await page.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: 'Application', exact: true }).click()
-    await page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Agents/ }).click()
-    await page.getByTestId('btn-new-custom-agent').click()
-    await page.waitForTimeout(300)
-    await expect(page.locator('.settings-center')).toBeVisible()
-    await shot(page, '09-agent-config-new')
-    await page.keyboard.press('Escape')
-    await page.waitForTimeout(200)
     await page.keyboard.press('Escape')
     await page.waitForTimeout(200)
 

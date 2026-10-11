@@ -34,9 +34,9 @@ test('renders the Orca-inspired project, editor and source-control shell', async
     const expandSidebar = page.getByRole('button', { name: 'Expand sidebar' })
     if (await expandSidebar.isVisible().catch(() => false)) await expandSidebar.click()
 
-    const navItems = page.locator('.sidebar-quick-nav .sidebar-nav-item')
-    await expect(navItems.first()).toContainText('New workspace')
-    await expect(navItems.filter({ hasText: 'Files & commands' })).toHaveCount(1)
+    const navItems = page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('button')
+    await expect(navItems.first()).toHaveAccessibleName('New workspace')
+    await expect(page.getByRole('button', { name: 'Files & commands' })).toHaveCount(1)
     await expect(page.getByTestId('btn-open-tools')).toBeVisible()
     await expect(page.locator('.app-statusbar')).toBeVisible()
     const terminalToggle = page.locator('.ws-group-expand-btn')

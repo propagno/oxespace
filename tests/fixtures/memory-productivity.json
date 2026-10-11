@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "description": "Synthetic retrieval baseline; not a simulation of UI, agent reasoning or a productivity score.",
+  "cases": [
+    { "id": "B01", "scenario": 1, "query": "pagination cursor", "body": "Pagination uses an opaque cursor. Resume by testing cursor expiry.", "expected": "opaque cursor" },
+    { "id": "B02", "scenario": 2, "query": "invoice retry", "body": "Invoice delivery retries must reuse the original idempotency key.", "expected": "original idempotency key" },
+    { "id": "B03", "scenario": 3, "query": "authentication cookie", "body": "Authentication uses an HttpOnly cookie. Add a SameSite regression test next.", "expected": "HttpOnly cookie" },
+    { "id": "B04", "scenario": 4, "query": "worktree identity", "body": "All worktrees of the same repository share the canonical project identity.", "expected": "canonical project identity" },
+    { "id": "B05", "scenario": 5, "query": "database transaction", "body": "Database writes use explicit transactions to keep event and receipt atomic.", "expected": "event and receipt atomic" },
+    { "id": "B06", "scenario": 6, "query": "queue capacity", "body": "The current queue capacity decision is 64 MiB. The older 128 MiB proposal was rejected.", "expected": "64 MiB" },
+    { "id": "B07", "scenario": 7, "query": "hook timeout", "body": "The hook timeout diagnosis found a missing child working directory. Set cwd before launching.", "expected": "Set cwd" },
+    { "id": "B08", "scenario": 8, "query": "foreignprojectcanary", "body": "foreignprojectcanary belongs only to the other project.", "foreign": true, "expected": null },
+    { "id": "B09", "scenario": 9, "query": "offline fallback", "body": "Offline fallback must keep the composer available while memory requests fail.", "expected": "composer available" },
+    { "id": "B10", "scenario": 10, "query": "handoff selection", "body": "Handoff selection must transmit the exact chosen identifier.", "expected": "exact chosen identifier" },
+    { "id": "B11", "scenario": 11, "query": "restart recovery", "body": "Restart recovery reopens the existing outbox and preserves event identifiers.", "expected": "preserves event identifiers" },
+    { "id": "B12", "scenario": 12, "query": "background notification", "body": "A background notification is status, not a new user request. Resume the original task.", "expected": "Resume the original task" }
+  ]
+}

@@ -41,7 +41,7 @@
 .delegation-panel { display: grid; gap: 15px; min-width: 0; }
 .delegation-panel + .delegation-panel { padding-left: 24px; border-left: 1px solid var(--bd-base); }
 .delegation-section-heading { display: flex; align-items: flex-start; gap: 10px; min-height: 52px; }
-.delegation-section-heading > span { display: grid; place-items: center; flex: 0 0 24px; height: 24px; border: 1px solid var(--bd-base); border-radius: 6px; color: var(--tx-muted); font-size: var(--fs-2xs); font-weight: 700; }
+.delegation-section-heading > span { display: grid; place-items: center; flex: 0 0 24px; height: 24px; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); color: var(--tx-muted); font-size: var(--fs-2xs); font-weight: 700; }
 .delegation-section-heading h3 { margin: 0 0 3px; color: var(--tx-primary); font-size: var(--fs-sm); font-weight: 650; line-height: 1.2; }
 .delegation-section-heading p { margin: 0; color: var(--tx-muted); font-size: var(--fs-xs); line-height: 1.35; }
 .delegation-objective { height: 48px; }
@@ -77,7 +77,7 @@
 .delegation-options label { display: flex; align-items: flex-start; gap: 8px; line-height: 1.4; font-weight: 400; cursor: pointer; }
 .delegation-options input { margin-top: 1px; }
 .delegation-options .delegation-remote-field { display: grid; margin-top: 2px; cursor: default; }
-.delegation-preview { display: grid; gap: 10px; margin-top: 1px; padding: 12px; border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--bd-base)); border-radius: 8px; background: color-mix(in srgb, var(--accent) 6%, var(--bg-elevated)); font-size: var(--fs-xs); }
+.delegation-preview { display: grid; gap: 10px; margin-top: 1px; padding: 12px; border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--bd-base)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--accent) 6%, var(--bg-elevated)); font-size: var(--fs-xs); }
 .delegation-preview header, .delegation-preview dd { display: flex; align-items: center; gap: 6px; }
 .delegation-preview header { color: var(--tx-primary); }
 .delegation-preview dl { display: grid; gap: 8px; margin: 0; }

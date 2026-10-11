@@ -136,6 +136,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       status: (id) => ipc.invoke(IPC_CHANNELS.memory.status, id) as ReturnType<OxeApi['memory']['status']>,
       configure: (input) => ipc.invoke(IPC_CHANNELS.memory.configure, input) as ReturnType<OxeApi['memory']['configure']>,
       install: () => ipc.invoke(IPC_CHANNELS.memory.install) as Promise<string>,
+      rollback: (id) => ipc.invoke(IPC_CHANNELS.memory.rollback, id) as ReturnType<OxeApi['memory']['rollback']>,
       setupAgents: (id) => ipc.invoke(IPC_CHANNELS.memory.setupAgents, id) as Promise<string>,
       search: (input) => ipc.invoke(IPC_CHANNELS.memory.search, input) as ReturnType<OxeApi['memory']['search']>,
       recent: (id) => ipc.invoke(IPC_CHANNELS.memory.recent, id) as ReturnType<OxeApi['memory']['recent']>
@@ -228,6 +229,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       getBranch: (input) => ipc.invoke(IPC_CHANNELS.git.getBranch, input) as Promise<import('../../shared/types/git').GitBranchStatus>,
       getStatus: (input) => ipc.invoke(IPC_CHANNELS.git.getStatus, input) as Promise<import('../../shared/types/git').GitControlStatus>,
       getDiff: (input) => ipc.invoke(IPC_CHANNELS.git.getDiff, input) as Promise<GitDiff>,
+      getDiffSummary: (input) => ipc.invoke(IPC_CHANNELS.git.getDiffSummary, input) as Promise<import('../../shared/types/git').GitDiffSummary>,
+      getFileOriginal: (input) => ipc.invoke(IPC_CHANNELS.git.getFileOriginal, input) as Promise<import('../../shared/types/git').GitFileOriginal>,
       onDiffUpdate: (listener) => subscribe<GitDiff>(ipc, IPC_CHANNELS.git.onDiffUpdate, listener)
     },
     search: {
@@ -311,6 +314,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
         ipc.invoke(IPC_CHANNELS.github.getWorktreeStatus, input) as Promise<import('../../shared/types/github').GitHubWorktreeStatus>,
       listPullRequests: (input) => ipc.invoke(IPC_CHANNELS.github.listPullRequests, input) as Promise<GitHubPullRequest[]>,
       createPullRequest: (input) => ipc.invoke(IPC_CHANNELS.github.createPullRequest, input) as Promise<GitHubMessageResult>,
+      getPullRequestStatus: (input) => ipc.invoke(IPC_CHANNELS.github.getPullRequestStatus, input) as Promise<import('../../shared/types/github').GitHubPrStatus | null>,
+      setPullRequestAutoMerge: (input) => ipc.invoke(IPC_CHANNELS.github.setPullRequestAutoMerge, input) as Promise<GitHubMessageResult>,
       listCommits: (input) => ipc.invoke(IPC_CHANNELS.github.listCommits, input) as Promise<GitHubCommit[]>,
       getCommitDetails: (input) => ipc.invoke(IPC_CHANNELS.github.getCommitDetails, input) as Promise<GitHubCommitDetails>,
       listReleases: (input) => ipc.invoke(IPC_CHANNELS.github.listReleases, input) as Promise<GitHubRelease[]>,
@@ -371,6 +376,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       delete: (id) => ipc.invoke(IPC_CHANNELS.mcp.delete, id) as Promise<void>,
       start: (id) => ipc.invoke(IPC_CHANNELS.mcp.start, id) as Promise<import('../../shared/types/mcp').McpToolDescriptor[]>,
       stop: (id) => ipc.invoke(IPC_CHANNELS.mcp.stop, id) as Promise<void>,
+      openSignIn: (id) => ipc.invoke(IPC_CHANNELS.mcp.openSignIn, id) as Promise<boolean>,
       callTool: (input) => ipc.invoke(IPC_CHANNELS.mcp.callTool, input) as Promise<import('../../shared/types/mcp').McpCallToolResult>,
       onHealth: (listener) => subscribe<import('../../shared/types/mcp').McpServerHealthEvent>(ipc, IPC_CHANNELS.mcp.onHealth, listener)
     },

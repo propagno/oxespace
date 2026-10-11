@@ -1,4 +1,4 @@
-import { ChevronDown, FolderOpen, MessagesSquare, Plus, Search, Wrench, Waypoints } from 'lucide-react'
+import { ChevronDown, FolderOpen, Plus, Search, Wrench, Waypoints } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { IntegrationGroup } from '../../../shared/types/integration'
 import type { Workspace } from '../../../shared/types/workspace'
@@ -6,7 +6,7 @@ import { useIntegrationStore } from '../../store/integration.store'
 import { rootPathKey } from '../../../shared/utils/path'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { useWorkspaceActivity } from '../../hooks/useWorkspaceActivity'
-import { NavigationBrand, NavigationFooter } from '../Navigation/NavigationChrome'
+import { NavigationRail, type RailAction } from '../Navigation/NavigationChrome'
 import { useNavigationSearch } from '../Navigation/useNavigationSearch'
 import { SearchField } from '../Navigation/SearchField'
 import { SidebarIntegrationRow } from './SidebarIntegrationRow'
@@ -157,13 +157,18 @@ export function Sidebar({
     onSelectWorkspace(workspaceId)
   }
 
+  const railPrimary: RailAction[] = [
+    { id: 'new-workspace', label: 'New workspace', icon: Plus, testId: 'btn-new-workspace', onClick: onNewWorkspace },
+    ...(onDelegations ? [{ id: 'delegated-work', label: 'Delegated work', icon: Waypoints, onClick: onDelegations }] : []),
+    { id: 'search', label: 'Files & commands (Ctrl+J)', ariaLabel: 'Files & commands', icon: Search, onClick: onOpenSearch }
+  ]
+  const railContext: RailAction = { id: 'tools', label: 'Tools', ariaLabel: 'Open tools', icon: Wrench, testId: 'btn-open-tools', onClick: onOpenTools }
+
   if (isCollapsed) {
     return (
-      <aside className="sidebar sidebar-redesign sidebar-collapsed">
-        <NavigationBrand collapsed mode="code" onModeChange={onSwitchToThread} version={appVersion} />
-        {onSwitchToThread && <nav className="sidebar-mode-rail" aria-label="Application view"><button type="button" className="sidebar-collapse-btn" aria-label="Thread" title="Switch to Thread" aria-pressed={false} onClick={onSwitchToThread}><MessagesSquare size={16} /></button></nav>}
+      <aside className="sidebar sidebar-redesign sidebar-collapsed" data-version={appVersion}>
+        <NavigationRail mode="code" collapsed onModeChange={onSwitchToThread} primary={railPrimary} context={railContext} onToggle={onToggleCollapse}>
         <nav className="sidebar-rail-list" aria-label="Collapsed workspaces">
-          <button type="button" className="desktop-rail-action" data-testid="btn-new-workspace" aria-label="New workspace" title="New workspace" onClick={onNewWorkspace}><Plus size={16} aria-hidden="true" /></button>
           {integrationGroups.map((group) => (
             <div key={group.id} className={`sidebar-rail-integration${group.id === activeIntegrationGroupId ? ' active' : ''}`} title={group.name}>
               <span>{group.name.slice(0, 1).toUpperCase()}</span>
@@ -193,7 +198,7 @@ export function Sidebar({
             />
           ))}
         </nav>
-        <NavigationFooter className="sidebar-footer" collapsed context={{ label: 'Tools', ariaLabel: 'Open tools', icon: Wrench, onClick: onOpenTools, testId: 'btn-open-tools' }} onToggle={onToggleCollapse} />
+        </NavigationRail>
       </aside>
     )
   }
@@ -205,17 +210,9 @@ export function Sidebar({
         onPointerDown={e => { resizing.current = true; e.currentTarget.setPointerCapture(e.pointerId); e.preventDefault() }}
         onPointerMove={e => { if (resizing.current) setWidth(e.clientX - (e.currentTarget.parentElement?.getBoundingClientRect().left ?? 0)) }}
         onPointerUp={() => { resizing.current = false }} onPointerCancel={() => { resizing.current = false }} onLostPointerCapture={() => { resizing.current = false }} />
-      <NavigationBrand collapsed={false} mode="code" onModeChange={onSwitchToThread} version={appVersion} />
-      <nav className="sidebar-quick-nav" aria-label="Primary navigation">
-        <button type="button" className="sidebar-nav-item" data-testid="btn-new-workspace" aria-label="New workspace" onClick={onNewWorkspace}><Plus size={16} aria-hidden="true" /><span>New workspace</span></button>
-        {onDelegations && <button type="button" className="sidebar-nav-item" onClick={onDelegations}><Waypoints size={15} /><span>Delegated work</span></button>}
-        <button type="button" className="sidebar-nav-item" onClick={onOpenSearch} title="Search files & commands (Ctrl+J)">
-          <Search size={14} className="sidebar-nav-icon" aria-hidden="true" />
-          <span className="sidebar-nav-label">Files &amp; commands</span>
-          <kbd className="sidebar-nav-kbd">Ctrl J</kbd>
-        </button>
-      </nav>
-
+      <NavigationRail mode="code" collapsed={false} onModeChange={onSwitchToThread} primary={railPrimary} context={railContext} onToggle={onToggleCollapse} />
+      <div className="nav-panel" title={`OXESpace v${appVersion}`}>
+      <div className="nav-panel-title"><strong>Workspaces</strong></div>
       <SearchField className="sidebar-search-wrap" inputClassName="sidebar-search-input" ref={searchInputRef} label="Filter workspaces" placeholder="Filter workspaces" value={searchQuery} onChange={setSearchQuery} shortcut="/" />
 
       <nav className="ws-group-list" aria-label="Workspaces">
@@ -299,7 +296,7 @@ export function Sidebar({
         )}
       </nav>
 
-      <NavigationFooter className="sidebar-footer" collapsed={false} context={{ label: 'Tools', ariaLabel: 'Open tools', icon: Wrench, onClick: onOpenTools, testId: 'btn-open-tools' }} onToggle={onToggleCollapse} />
+      </div>
     </aside>
   )
 }

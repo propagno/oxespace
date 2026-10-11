@@ -1,6 +1,6 @@
 {
   "name": "oxespace",
-  "version": "0.16.0-beta.8",
+  "version": "0.16.0",
   "description": "An open source, AI-native workspace and terminal",
   "license": "MIT",
   "repository": {
@@ -84,6 +84,7 @@
     "react-markdown": "^10.1.0",
     "react-resizable-panels": "^2.1.7",
     "remark-gfm": "^4.0.1",
+    "simple-icons": "^16.34.0",
     "tailwind-merge": "^3.6.0",
     "tree-sitter-wasms": "^0.1.13",
     "web-tree-sitter": "0.25.9",

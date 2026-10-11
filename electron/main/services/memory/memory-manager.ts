@@ -12,9 +12,11 @@ export class MemoryManager {
   async run<T>(context: MemoryContext, operation: (provider: MemoryProvider) => Promise<T>, kind?: 'read' | 'write'): Promise<MemoryReply<T>> {
     if (!this.settings(context.projectId).enabled) return { status: 'disabled', message: 'Project memory is disabled' }
     let timer: ReturnType<typeof setTimeout> | undefined
+    const controller = new AbortController()
     try {
-      const value = await Promise.race([operation(this.provider()), new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error('Memory deadline exceeded')), this.deadlineMs)
+      const provider = this.provider()
+      const value = await Promise.race([operation(provider.withSignal?.(controller.signal) ?? provider), new Promise<never>((_, reject) => {
+        timer = setTimeout(() => { controller.abort(); reject(new Error('Memory deadline exceeded')) }, this.deadlineMs)
       })])
       const metrics = this.activity.get(context.projectId) ?? { lastSuccessAt: null, lastFailureAt: null, lastWriteAt: null, lastReadAt: null }
       metrics.lastSuccessAt = Date.now()
@@ -30,6 +32,6 @@ export class MemoryManager {
       this.activity.set(context.projectId, metrics)
       return { status: 'unavailable', message: 'Project memory is temporarily unavailable. Agent execution can continue.' }
     }
-    finally { if (timer) clearTimeout(timer) }
+    finally { if (timer) clearTimeout(timer); controller.abort() }
   }
 }

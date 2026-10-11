@@ -1,5 +1,6 @@
 import type { ThreadEvent } from '../../../shared/types/thread'
 import { groupThreadEvents } from './ThreadActivityGroup'
+import type { ThreadViewMode } from '../../store/thread-view-mode.store'
 
 type ActivityGroup = ReturnType<typeof groupThreadEvents>[number]
 
@@ -30,7 +31,7 @@ function rowKey(turnId: string, event: ActivityGroup, ordinal: number): string {
 }
 
 /** Pure projection from provider events to stable, renderable conversation rows. */
-export function buildThreadTimeline(events: ThreadEvent[]): ThreadTimelineTurn[] {
+export function buildThreadTimeline(events: ThreadEvent[], mode: ThreadViewMode = 'verbose'): ThreadTimelineTurn[] {
   const turns: Array<{ id: string; events: ThreadEvent[] }> = []
   for (const event of events) {
     if (HIDDEN_EVENTS.has(event.type) && event.type !== 'turn-diff') continue
@@ -40,7 +41,7 @@ export function buildThreadTimeline(events: ThreadEvent[]): ThreadTimelineTurn[]
   }
   return turns.map(turn => ({
     ...turn,
-    rows: groupThreadEvents(turn.events.filter(event => event.type !== 'turn-diff')).map((event, ordinal) => ({ key: rowKey(turn.id, event, ordinal), event }))
+    rows: groupThreadEvents(turn.events.filter(event => event.type !== 'turn-diff'), mode).map((event, ordinal) => ({ key: rowKey(turn.id, event, ordinal), event }))
   }))
 }
 

@@ -1,4 +1,4 @@
-import { Activity, Bot, Columns2, FilePlus2, FolderOpen, Github, Grid2x2, LayoutDashboard, ListTodo, Maximize, Mic, Palette, Plus, RotateCw, Search, Settings2, Sliders, Split, Square, StopCircle, Wrench } from 'lucide-react'
+import { Activity, Columns2, FilePlus2, FolderOpen, Github, Grid2x2, LayoutDashboard, ListTodo, Maximize, Mic, Palette, Plus, RotateCw, Search, Settings2, Sliders, Split, Square, StopCircle, Wrench } from 'lucide-react'
 import { Suspense, lazy, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import type { AgentProfile } from '../shared/types/agent'
@@ -74,6 +74,10 @@ function matchesHotkey(event: KeyboardEvent, hotkey: string): boolean {
     eventKey === mainKey
   )
 }
+/** macOS keeps its native application menu; Windows/Linux draw it in the title bar. */
+const AppMenuBar = lazy(() => import('./components/Navigation/AppMenuBar').then(module => ({ default: module.AppMenuBar })))
+const IS_MAC = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform)
+
 export function App(): ReactElement {
   const appVersion = window.oxe?.app?.version ?? 'dev'
   const [applicationView, setApplicationView] = useState<'code' | 'thread'>('code')
@@ -649,7 +653,6 @@ export function App(): ReactElement {
     { id: 'open-tools', title: 'Open Tools', subtitle: 'Panels, MCP, workspace tools', icon: Settings2, category: 'Workspace', keywords: ['tools', 'panels', 'mcp', 'gear'], run: openTools },
 
     // AI & Agents
-    { id: 'open-settings', title: 'Open Agent Settings', subtitle: 'Configure CLIs and discovery', icon: Bot, category: 'AI & Agents', keywords: ['ai', 'provider', 'discovery'], run: () => useUIStore.getState().openAgentSettings() },
     { id: 'open-mcp', title: 'Open MCP servers', subtitle: 'Model Context Protocol tools', icon: Wrench, category: 'AI & Agents', keywords: ['mcp', 'tools'], run: openMcpPanel },
     { id: 'open-linear', title: 'Open Linear issues', subtitle: 'Issues, boards and worktree from issue', icon: ListTodo, category: 'Git & Repo', keywords: ['linear', 'issue', 'ticket', 'board', 'worktree'], run: openLinearPanel },
     { id: 'open-skills', title: 'Open Skills', subtitle: 'Browse markdown skill prompts', icon: Activity, category: 'AI & Agents', keywords: ['skill', 'slash'], run: openSkillsBrowser },
@@ -939,9 +942,9 @@ export function App(): ReactElement {
 
   return (
     <ThemeProvider themeId={applicationView === 'thread' ? undefined : activeWorkspace?.themeId} density={applicationView === 'thread' ? undefined : activeWorkspace?.uiDensity}>
-      <main className={`app-shell${applicationView === 'thread' ? ' thread-shell' : isSidebarCollapsed ? ' sidebar-collapsed' : ''}`} style={applicationView === 'thread' ? { '--thread-sidebar-width': `${isSidebarCollapsed ? 56 : codeSidebarWidth}px` } as CSSProperties : { '--sidebar-w': `${codeSidebarWidth}px` } as CSSProperties}>
+      <main className={`app-shell${applicationView === 'thread' ? ' thread-shell' : isSidebarCollapsed ? ' sidebar-collapsed' : ''}`} style={applicationView === 'thread' ? { '--thread-sidebar-width': `${isSidebarCollapsed ? 48 : codeSidebarWidth}px` } as CSSProperties : { '--sidebar-w': `${codeSidebarWidth}px` } as CSSProperties}>
       <header className="workbench-titlebar" aria-label="OXESpace workbench">
-        <div className="workbench-titlebar-brand"><OxeLogo size={15} /><strong>OXESpace</strong></div>
+        <div className="workbench-titlebar-brand"><OxeLogo size={15} /><strong>OXESpace</strong>{!IS_MAC && <Suspense fallback={null}><AppMenuBar context={{ actions: commandActions, applicationView, setApplicationView, openSettings: () => { if (!isSettingsOpen) toggleSettings() }, addThreadProject: () => setThreadProjectOpen(true), version: appVersion }} /></Suspense>}</div>
         <div className="workbench-titlebar-context" title={applicationView === 'thread' ? threadSnapshot?.thread.rootPath ?? 'Thread' : activeWorkspace?.rootPath ?? 'No workspace'}>
           <span>{applicationView === 'thread' ? 'Thread' : 'Code'}</span>
           <span className="workbench-titlebar-separator" aria-hidden="true">/</span>
@@ -1111,7 +1114,7 @@ export function App(): ReactElement {
       ) : null}
       {isMcpPanelOpen ? (
         <McpPanel
-          workspaceId={activeWorkspace?.id ?? null}
+          workspaceId={applicationView === 'thread' ? threadSnapshot?.thread.workspaceId ?? null : activeWorkspace?.id ?? null}
           onClose={closeMcpPanel}
         />
       ) : null}
@@ -1217,7 +1220,6 @@ export function App(): ReactElement {
           onClose={closeTools}
           onOpenCommandPalette={openCommandMenu}
           onOpenWorkspaceSettings={openWorkspaceSettings}
-          onOpenAgentSettings={() => useUIStore.getState().openAgentSettings()}
           onToggleEditor={toggleEditor}
           onToggleGitHub={toggleGitHubPanel}
           onToggleReview={toggleReviewPanel}

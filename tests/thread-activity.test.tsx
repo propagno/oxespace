@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, it } from 'vitest'
-import { groupThreadEvents, ThreadActivityGroup } from '../src/components/Threads/ThreadActivityGroup'
+import { groupThreadEvents, summarizeActivity, ThreadActivityGroup } from '../src/components/Threads/ThreadActivityGroup'
 import type { ThreadEvent } from '../shared/types/thread'
 afterEach(cleanup)
 it('collapses twelve consecutive tools without swallowing messages or approvals', () => {
@@ -29,4 +29,20 @@ it('classifies infrastructure failures and keeps verbose MCP payloads behind tec
   expect(screen.getByText(/diagnostic line/, { selector: 'pre' })).not.toBeVisible()
   fireEvent.click(screen.getByText('Technical details'))
   expect(screen.getByText(/diagnostic line/, { selector: 'pre' })).toBeVisible()
+})
+
+describe('transcript view modes', () => {
+  const tool = (id: string, name: string, extra: object = {}) => ({ type: 'tool' as const, id, turnId: 't1', name, state: 'completed' as const, detail: '', ...extra })
+  const events = [tool('a', 'Bash'), tool('b', 'Bash'), tool('c', 'Edit', { files: [{ path: 'src/a.ts', kind: 'update', source: 'native-patch', state: 'completed' }] }), tool('d', 'Read')]
+
+  it('summarizes what happened without the raw arguments', () => {
+    expect(summarizeActivity(events.filter(event => event.type === 'tool'))).toBe('Ran 2 commands, edited 1 file, read 1 file')
+    expect(summarizeActivity([tool('x', 'Bash', { detail: 'rm -rf /' })])).toBe('Ran 1 command')
+  })
+
+  it('keeps file edits as separate rows in verbose, folds them in normal and drops tools in summary', () => {
+    expect(groupThreadEvents(events as never, 'verbose').map(block => block.type)).toEqual(['activity-group', 'tool', 'activity-group'])
+    expect(groupThreadEvents(events as never, 'normal').map(block => block.type)).toEqual(['activity-group'])
+    expect(groupThreadEvents([...events, { type: 'message', id: 'm', role: 'assistant', text: 'Done' }] as never, 'summary').map(block => block.type)).toEqual(['message'])
+  })
 })

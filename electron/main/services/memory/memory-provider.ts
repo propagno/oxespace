@@ -1,6 +1,7 @@
 import type { MemoryContext, MemoryHandoff, MemoryHealth, MemoryInput, MemoryResult, MemorySession, ProjectContext } from '../../../../shared/types/memory'
 
 export interface MemoryProvider {
+  withSignal?(signal: AbortSignal): MemoryProvider
   start(): Promise<void>
   stop(): Promise<void>
   health(): Promise<MemoryHealth>

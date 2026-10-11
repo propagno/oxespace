@@ -1,10 +1,11 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useAccountStore } from '../src/store/account.store'
 import { ThreadSidebar } from '../src/components/Threads/ThreadSidebar'
 import { AddThreadProjectDialog } from '../src/components/Threads/ThreadDialogs'
 import { useThreadStore } from '../src/store/thread.store'
+import { useUIStore } from '../src/store/ui.store'
 import { useWorkspaceStore } from '../src/store/workspace.store'
 import { ThreadView } from '../src/components/Threads/ThreadView'
 import type { Workspace } from '../shared/types/workspace'
@@ -90,7 +91,7 @@ describe('Thread workspace UI', () => {
     expect(screen.getAllByText('Instant message')).toHaveLength(1)
     await act(async () => finishSend())
   })
-  it('opens the side-by-side review when a newly completed wide-screen turn reports file changes', async () => {
+  it('does not auto-open the workbench when a wide-screen turn reports file changes', async () => {
     const width = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1440)
     vi.stubGlobal('ResizeObserver', class { constructor(private callback: ResizeObserverCallback) {} observe() { this.callback([], this as unknown as ResizeObserver) } disconnect() {} })
     try {
@@ -101,8 +102,8 @@ describe('Thread workspace UI', () => {
         { type: 'turn-diff', id: 'turn-diff:native', turnId: 'native', files: [{ path: 'docs/thread-view.md', kind: 'update', source: 'native-patch', state: 'completed' }] },
         { type: 'completed', status: 'completed' }
       ] } }))
-      await waitFor(() => expect(screen.getByRole('button', { name: 'Open thread review' })).toHaveAttribute('aria-expanded', 'true'))
-      expect(screen.getByLabelText('Thread workbench')).toBeVisible()
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Changes' })).toHaveAttribute('aria-pressed', 'false'))
+      expect(screen.queryByLabelText('Thread workbench')).toBeNull()
     } finally { width.mockRestore() }
   })
   it('keeps the composed request when the native session is busy elsewhere', async () => {
@@ -511,21 +512,20 @@ describe('Thread workspace UI', () => {
     release()
     await waitFor(() => expect(input).toHaveValue(''))
   })
-  it('rewinds a Codex turn only after confirmation and restores its prompt to the composer', async () => {
+  it('keeps what the user sent clean: attachments as chips, no copy or edit buttons', async () => {
     const f = fixture()
     f.snapshot.thread.provider = 'codex'
-    f.snapshot.events = [{ type: 'message', id: 'turn-one', role: 'user', text: 'Original prompt' }, { type: 'message', id: 'answer', role: 'assistant', text: 'Answer' }, { type: 'completed', status: 'completed' }]
-    f.api.command = vi.fn(async () => ({ kind: 'applied' }))
+    f.snapshot.events = [
+      { type: 'message', id: 'turn-one', role: 'user', text: 'Can you read the image?', attachments: [{ id: 'a1', name: 'screenshot.png', mimeType: 'image/png', bytes: 139264 }] },
+      { type: 'message', id: 'answer', role: 'assistant', text: 'Answer' }, { type: 'completed', status: 'completed' }]
     render(<ThreadView workspace={f.workspace} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Copy message' }))
-    await waitFor(() => expect(f.writeText).toHaveBeenCalledWith('Original prompt'))
-    expect(screen.getByRole('button', { name: 'Message copied' })).toBeVisible()
-    fireEvent.click(screen.getByRole('button', { name: 'Edit and retry this message' }))
-    expect(f.api.command).not.toHaveBeenCalled()
-    expect(screen.getByText(/Project files are not reverted/)).toBeVisible()
-    fireEvent.click(screen.getByRole('button', { name: 'Rewind and edit' }))
-    await waitFor(() => expect(f.api.command).toHaveBeenCalledWith('thread', '/rewind 1'))
-    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Message' })).toHaveValue('Original prompt'))
+    const sent = screen.getByText('Can you read the image?').closest('article') as HTMLElement
+    expect(within(sent).getByLabelText('Message attachments')).toHaveTextContent('screenshot.png')
+    expect(within(sent).queryByRole('button', { name: /copy/i })).toBeNull()
+    expect(within(sent).queryByRole('button', { name: /edit/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Edit and retry this message' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /Copy (final )?response/ }))
+    await waitFor(() => expect(f.writeText).toHaveBeenCalledWith('Answer'))
   })
   it('shows the persisted reason for an interrupted turn', async () => {
     const f = fixture(); f.snapshot.thread.status = 'interrupted'
@@ -582,12 +582,14 @@ describe('Thread workspace UI', () => {
     fireEvent.change(screen.getByRole('searchbox', { name: 'Filter threads' }), { target: { value: 'missing' } })
     expect(screen.getByText('No conversations found.')).toBeInTheDocument()
   })
-  it('opens delegated work from the conversation header without sidebar task rows', async () => {
+  it('offers MCP connections instead of a Delegated work shortcut in the conversation header', async () => {
     const f = fixture(), onDelegations = vi.fn()
+    useUIStore.setState({ isMcpPanelOpen: false })
     render(<><ThreadSidebar workspaces={[f.workspace]} onCreate={vi.fn()} /><ThreadView workspace={f.workspace} onDelegations={onDelegations} /></>)
     expect(screen.queryByRole('button', { name: /Implement worktree fix/ })).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Delegated work' }))
-    expect(onDelegations).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('button', { name: 'Delegated work' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'MCP connections' }))
+    expect(useUIStore.getState().isMcpPanelOpen).toBe(true)
   })
   it('retains distinct drafts when selecting another thread', async () => {
     const f = fixture()

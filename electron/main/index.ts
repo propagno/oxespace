@@ -219,7 +219,9 @@ async function registerIpcHandlers(): Promise<() => void> {
     prepare: async thread => {
       const meta = db.prepare('SELECT port, token FROM internal_mcp_meta LIMIT 1').get() as { port: number; token: string } | undefined
       if (!meta) throw Error('Internal MCP is still starting. Retry shortly.')
-      const memory = await memoryService.prepareLaunch({ paneId: `thread:${thread.id}`, workspaceId: thread.workspaceId, cwd: thread.rootPath }).catch(() => ({}))
+      const nativeHooks = thread.hooksEnabled === true && (thread.access === 'workspace-write' || thread.access === 'full-access')
+      const memory = await memoryService.prepareLaunch({ paneId: `thread:${thread.id}`, workspaceId: thread.workspaceId, cwd: thread.rootPath,
+        captureOwner: nativeHooks ? 'native' : 'external', expectedAgent: thread.provider === 'claude' ? 'claude-code' : 'codex' }).catch(() => ({}))
       const execution = executions.register({ owner: { kind: 'thread', id: thread.id }, workspaceId: thread.workspaceId, cwd: thread.rootPath })
       return { ...memory, ...execution, OXESPACE_MCP_PORT: String(meta.port), OXESPACE_MCP_TOKEN: meta.token, OXESPACE_WORKSPACE_ID: thread.workspaceId }
     },
@@ -227,7 +229,8 @@ async function registerIpcHandlers(): Promise<() => void> {
       if (executionId && executions.forOwner({ kind: 'thread', id: threadId })?.id !== executionId) return
       memoryService.endLaunch(`thread:${threadId}`)
       executions.endOwner({ kind: 'thread', id: threadId })
-    }
+    },
+    memoryEvent: (snapshot, event) => memoryService.observeThread(snapshot, event)
   })
   const skillService = new SkillService({ onChange: broadcastSkillChange })
   registerSkillIpc(skillService, (input) => terminalManager.write(input))
@@ -600,6 +603,14 @@ function createMainWindow(): BrowserWindow {
     ? join(process.cwd(), 'resources', iconFile)
     : join(process.resourcesPath, iconFile)
 
+  // The renderer draws its own title bar (menu bar, context, update state), so
+  // the OS frame is hidden. Windows/Linux keep the native caption buttons through
+  // the overlay (transparent so the themed title bar shows through); macOS keeps
+  // its traffic lights inset and its native application menu.
+  const frameOptions: Partial<Electron.BrowserWindowConstructorOptions> = process.platform === 'darwin'
+    ? { titleBarStyle: 'hiddenInset' }
+    : { titleBarStyle: 'hidden', titleBarOverlay: { color: '#00000000', symbolColor: '#c5c5c5', height: 36 } }
+
   const mainWindow = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -609,6 +620,7 @@ function createMainWindow(): BrowserWindow {
     title: 'OXESpace',
     icon: iconPath,
     backgroundColor: '#0d0f14',
+    ...frameOptions,
     webPreferences: {
       preload: join(app.getAppPath(), 'out', 'preload', 'index.cjs'),
       contextIsolation: true,
@@ -623,6 +635,8 @@ function createMainWindow(): BrowserWindow {
       webviewTag: true
     }
   })
+
+  if (process.platform !== 'darwin') mainWindow.setMenuBarVisibility(false)
 
   // Hard gate on <webview> attachment: the guest may only ever load our own
   // design-guest preload, never with node integration, and always sandboxed.

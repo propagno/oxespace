@@ -4,7 +4,7 @@ import type { ConversationThread } from '../../../shared/types/thread'
 import { DropdownMenu } from 'radix-ui'
 import { useThreadStore } from '../../store/thread.store'
 import { useUIStore } from '../../store/ui.store'
-import { NavigationBrand, NavigationFooter } from '../Navigation/NavigationChrome'
+import { NavigationRail } from '../Navigation/NavigationChrome'
 import { useNavigationSearch } from '../Navigation/useNavigationSearch'
 import { SearchField } from '../Navigation/SearchField'
 import { DesktopDialog } from '../Navigation/DesktopDialog'
@@ -12,6 +12,9 @@ import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH, SIDEBAR_RESIZE_STEP, useNavigationPrefs } from '../../store/navigation-prefs.store'
 import { threadNavigationStatus } from './threadNavigationStatus'
 import { ThreadProjectSettingsDialog } from './ThreadProjectSettingsDialog'
+
+/** Threads shown per project before "Show more" (a search or the selected thread always shows). */
+const THREAD_ROWS_PER_PROJECT = 8
 
 function relativeTime(timestamp: number): string {
   const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000))
@@ -24,6 +27,7 @@ export function ThreadSidebar({ onCreate, onModeChange, onAccounts, onAddProject
   const [confirmation, setConfirmation] = useState<{ kind: 'thread' | 'archive' | 'project'; id: string; title: string } | null>(null)
   const [actionError, setActionError] = useState(''), [acting, setActing] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
+  const [expandedProjects, setExpandedProjects] = useState<string[]>([])
   const [restoringId, setRestoringId] = useState<string | null>(null)
   const [renameTarget, setRenameTarget] = useState<ConversationThread | null>(null)
   const [projectSettingsId, setProjectSettingsId] = useState<string | null>(null)
@@ -90,10 +94,12 @@ export function ThreadSidebar({ onCreate, onModeChange, onAccounts, onAddProject
       onPointerDown={e => { resizing.current = true; e.currentTarget.setPointerCapture(e.pointerId); e.preventDefault() }}
       onPointerMove={e => { if (resizing.current) setWidth(e.clientX - (e.currentTarget.parentElement?.getBoundingClientRect().left ?? 0)) }}
       onPointerUp={() => { resizing.current = false }} onPointerCancel={() => { resizing.current = false }} onLostPointerCapture={() => { resizing.current = false }} />}
-    <NavigationBrand collapsed={collapsed} mode="thread" onModeChange={onModeChange} />
-    {collapsed && <nav className="sidebar-mode-rail" aria-label="Application view"><button type="button" aria-label="Code" title="Switch to Code" onClick={onModeChange}><PanelsTopLeft size={16} /></button></nav>}
-    {collapsed ? <nav className="thread-nav-rail" aria-label="Collapsed threads"><button type="button" aria-label="Add project" title="Add project" onClick={onAddProject}><FolderPlus size={16} /></button></nav> : <>
-      <div className="thread-nav-actions"><button type="button" className="thread-new-action" aria-label="Add project" onClick={onAddProject}><FolderPlus size={16} /><span>Add project</span></button>
+    <NavigationRail mode="thread" collapsed={collapsed} onModeChange={onModeChange} onToggle={toggleCollapse}
+      primary={[{ id: 'add-project', label: 'Add project', icon: FolderPlus, onClick: onAddProject }]}
+      context={{ id: 'accounts', label: 'Accounts', ariaLabel: 'Agent accounts', icon: UserRound, onClick: onAccounts }} />
+    {!collapsed && <div className="nav-panel">
+      <div className="nav-panel-title"><strong>Sessions</strong></div>
+      <div className="thread-nav-actions">
         <SearchField className="thread-nav-search" ref={search} label="Filter threads" placeholder="Filter threads" value={query} onChange={setQuery} shortcut="/" />
       </div>
       <nav className="thread-project-list" aria-label="Thread projects">
@@ -109,7 +115,11 @@ export function ThreadSidebar({ onCreate, onModeChange, onAccounts, onAddProject
           {group.rootPath && <button type="button" className="thread-row-action" aria-label={`Open ${group.name} in Code`} title="Open this directory in Code" disabled={unavailableProjects.includes(group.id)} onClick={() => void onOpenInCode?.(group.rootPath!).catch(error => setActionError(error instanceof Error ? error.message : 'Could not open project in Code.'))}><PanelsTopLeft size={13} /></button>}
           <button type="button" className="thread-row-action" aria-label={`Remove project ${group.name}`} title="Remove project from Thread sidebar" onClick={() => { setActionError(''); setConfirmation({ kind: 'project', id: group.id, title: group.name }) }}><X size={13} /></button>
           </div>
-          {(query || (expanded[group.id] ?? true)) && <div className="thread-project-children"><div className="thread-project-rows">{group.threads.map(row)}</div></div>}
+          {(query || (expanded[group.id] ?? true)) && <div className="thread-project-children"><div className="thread-project-rows">{(() => {
+            const limit = query || expandedProjects.includes(group.id) ? Infinity : THREAD_ROWS_PER_PROJECT
+            const visible = group.threads.filter((thread, index) => index < limit || thread.id === selectedId)
+            return <>{visible.map(row)}{group.threads.length > visible.length && <button type="button" className="thread-show-more" onClick={() => setExpandedProjects(value => [...value, group.id])}>Show {group.threads.length - visible.length} more</button>}</>
+          })()}</div></div>}
         </section>)}
         {archived.length > 0 && <section className="thread-archived-section" aria-label="Archived conversations">
           <button type="button" className="thread-project-toggle" aria-expanded={query ? true : showArchived} onClick={() => setShowArchived(value => !value)}><ChevronDown size={12} /><span>Archived</span><small>{archived.length}</small></button>
@@ -129,8 +139,7 @@ export function ThreadSidebar({ onCreate, onModeChange, onAccounts, onAddProject
           })}
         </section>}
       </nav>
-    </>}
-    <NavigationFooter className="thread-nav-footer" collapsed={collapsed} context={{ label: 'Accounts', ariaLabel: 'Agent accounts', icon: UserRound, onClick: onAccounts }} onToggle={toggleCollapse} />
+    </div>}
     {projectSettingsId && projects.find(project => project.projectId === projectSettingsId) &&
       <ThreadProjectSettingsDialog project={projects.find(project => project.projectId === projectSettingsId)!} unavailable={unavailableProjects.includes(projectSettingsId)} onClose={() => setProjectSettingsId(null)} />}
     {renameTarget && <DesktopDialog className="thread-create-dialog" title="Rename conversation" description="The new name appears in the session list and conversation header." onClose={() => { if (!acting) setRenameTarget(null) }}>

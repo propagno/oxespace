@@ -52,7 +52,8 @@ describe.skipIf(!process.env.OXESPACE_AI_MEMORY_TEST_BINARY)('managed native run
       expect(config).not.toContain('openai')
       await connected.configure({ ...settings, mode: 'connected' }, runtime.token())
       await connected.start()
-      expect(await readFile(join(connected.dataDir, 'auth-token'), 'utf8')).toBe(runtime.token())
+      expect(connected.token()).toBe(runtime.token())
+      await expect(readFile(join(connected.dataDir, 'auth-token'), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
       await connected.stop()
       expect((await provider.health()).status).toBe('ready')
 
@@ -65,6 +66,7 @@ describe.skipIf(!process.env.OXESPACE_AI_MEMORY_TEST_BINARY)('managed native run
       for (const id of [a, b]) {
         const response = await fetch(`${settings.url}/hook?event=user-prompt-submit&agent=codex&workspace=native&project=finalize`, {
           method: 'POST', headers: { Authorization: `Bearer ${runtime.token()}`, 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(5000),
           body: JSON.stringify({ session_id: id, cwd, prompt: 'Synthetic concurrent task.' })
         })
         expect(response.ok).toBe(true)

@@ -35,6 +35,32 @@ function fixture(usageResult: unknown = {}, usageError = false, mcpResult: unkno
 }
 
 describe('Codex conversation adapter', () => {
+  it.each(['ready', 'completed', 'replaced', 'persistent', 'other'])('bounds early cancellation retries and retains turn ownership (%s)', async scenario => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
+    await f.adapter.send('Synthetic work')
+    const write = f.transport.write.bind(f.transport)
+    let attempts = 0
+    f.transport.write = line => {
+      const request = JSON.parse(line)
+      if (request.method !== 'turn/interrupt') return write(line)
+      expect(request.params.turnId).toBe('turn-A')
+      attempts++
+      if (scenario === 'ready' && attempts === 2) { f.emit({ id: request.id, result: {} }); return }
+      f.emit({ id: request.id, error: { code: -32600, message: scenario === 'other' ? 'Different error' : 'no active turn to interrupt' } })
+      if (scenario === 'completed') {
+        f.emit({ method: 'turn/completed', params: { threadId: 'native-A', turn: { id: 'turn-A', status: 'completed' } } })
+      }
+      if (scenario === 'replaced') f.emit({ method: 'turn/started', params: { threadId: 'native-A', turn: { id: 'turn-B' } } })
+    }
+    try {
+      if (scenario === 'persistent' || scenario === 'other') await expect(f.adapter.interrupt()).rejects.toThrow()
+      else await expect(f.adapter.interrupt()).resolves.toBeUndefined()
+      expect(attempts).toBe(scenario === 'ready' ? 2 : scenario === 'persistent' ? 5 : 1)
+      expect(f.requests.filter(request => request.method === 'turn/start')).toHaveLength(1)
+    } finally { await f.adapter.dispose() }
+  })
+
   it('releases a confirmed turn only after persistence and ignores its late terminal event', async () => {
     const f = fixture({}, false, {}, { thread: { thread: { id: 'native-A', status: { type: 'idle' } } }, turns: { data: [{ id: 'turn-A', status: 'completed' }] } })
     await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))

@@ -14,6 +14,8 @@
  */
 import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron'
 import { randomUUID } from 'node:crypto'
+import { execFile } from 'node:child_process'
+import { GitService } from '../services/git.service'
 import { defaultSplitShellProfileId, fallbackShellProfiles } from '../services/shell-profile.defaults'
 // The one real service the mocks keep: file reads are what the editor and
 // preview specs actually assert on, and faking a filesystem would test the fake.
@@ -315,8 +317,21 @@ export function registerE2eMockIpcHandlers(): void {
   }))
   ipcMain.handle(IPC_CHANNELS.github.stageFile, () => ({ ok: true, message: 'E2E mock staged' }))
   ipcMain.handle(IPC_CHANNELS.github.unstageFile, () => ({ ok: true, message: 'E2E mock unstaged' }))
-  ipcMain.handle(IPC_CHANNELS.github.listBranches, () => [])
+  // Changes panel: real read-only git so the e2e can drive a repository it created.
+  const gitService = new GitService()
+  ipcMain.handle(IPC_CHANNELS.git.getDiffSummary, (_event: IpcMainInvokeEvent, input: { rootPath: string; base: string; includeUncommitted?: boolean }) =>
+    gitService.getDiffSummary(input.rootPath, input.base, input.includeUncommitted ?? true))
+  ipcMain.handle(IPC_CHANNELS.git.getFileOriginal, (_event: IpcMainInvokeEvent, input: { rootPath: string; base: string; path: string; oldPath?: string }) =>
+    gitService.getFileOriginal(input.rootPath, input.base, input.path, input.oldPath))
+  ipcMain.handle(IPC_CHANNELS.github.resolveWorktreeBase, () => ({ baseRef: 'main', remoteName: null, isRemote: false }))
+  ipcMain.handle(IPC_CHANNELS.github.listBranches, (_event: IpcMainInvokeEvent, input: { rootPath: string }) => {
+    return new Promise(resolve => execFile('git', ['branch', '--format=%(refname:short)'], { cwd: input.rootPath }, (error, stdout) => {
+      resolve(error ? [] : stdout.split(/\r?\n/).map(name => name.trim()).filter(Boolean).map(name => ({ name, current: false, remote: false })))
+    }))
+  })
   ipcMain.handle(IPC_CHANNELS.github.listPullRequests, () => [])
+  ipcMain.handle(IPC_CHANNELS.github.getPullRequestStatus, () => null)
+  ipcMain.handle(IPC_CHANNELS.github.setPullRequestAutoMerge, () => ({ ok: true, message: 'Auto-merge enabled.' }))
   ipcMain.handle(IPC_CHANNELS.github.listCommits, () => [])
   ipcMain.handle(IPC_CHANNELS.github.listReleases, () => [])
   ipcMain.handle(IPC_CHANNELS.github.listWorkflows, () => [])

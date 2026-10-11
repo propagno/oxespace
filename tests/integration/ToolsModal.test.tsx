@@ -18,7 +18,6 @@ const inactive = {
 const noopHandlers = {
   onOpenCommandPalette: () => undefined,
   onOpenWorkspaceSettings: () => undefined,
-  onOpenAgentSettings: () => undefined,
   onToggleEditor: () => undefined,
   onToggleGitHub: () => undefined,
   onToggleReview: () => undefined,
@@ -48,8 +47,8 @@ describe('ToolsModal', () => {
     )
 
     expect(screen.getByTestId('tools-modal')).toBeInTheDocument()
-    expect(screen.getByTestId('tools-agent-settings')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Open Agents' })).toBeInTheDocument()
+    expect(screen.queryByTestId('tools-agent-settings')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Open Agents' })).not.toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /Editor/i })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /^OXE$/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /Issues/i })).not.toBeInTheDocument()
@@ -58,25 +57,6 @@ describe('ToolsModal', () => {
 
     await user.click(screen.getByRole('menuitem', { name: /Editor/i }))
     expect(onToggleEditor).toHaveBeenCalled()
-    expect(onClose).toHaveBeenCalled()
-  })
-
-  test('featured Agent Settings opens settings and closes the hub', async () => {
-    const user = userEvent.setup()
-    const onClose = vi.fn()
-    const onOpenAgentSettings = vi.fn()
-
-    render(
-      <ToolsModal
-        active={inactive}
-        onClose={onClose}
-        {...noopHandlers}
-        onOpenAgentSettings={onOpenAgentSettings}
-      />
-    )
-
-    await user.click(screen.getByTestId('tools-agent-settings'))
-    expect(onOpenAgentSettings).toHaveBeenCalled()
     expect(onClose).toHaveBeenCalled()
   })
 

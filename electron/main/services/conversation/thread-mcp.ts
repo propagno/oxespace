@@ -1,11 +1,13 @@
 import { agentMcpArguments } from '../agent-launch.service'
-import type { ConversationThread, AgentConversationAdapter } from '../../../../shared/types/thread'
+import { claudeMcpEntries, codexMcpArguments, type ManagedMcp } from './thread-managed-mcp'
+import type { ConversationThread, AgentConversationAdapter, ThreadEvent, ThreadSnapshot } from '../../../../shared/types/thread'
 
 export interface ThreadMcpBindings {
   bridge: string
   prepare(thread: ConversationThread): Promise<Record<string, string>>
   end(threadId: string, executionId?: string): void
   observed?(thread: ConversationThread): void
+  memoryEvent?(snapshot: ThreadSnapshot, event: ThreadEvent): void
 }
 
 // Thread receives the same local OXESpace surface as Code. Provider permission
@@ -23,19 +25,20 @@ const tools = ['oxespace_team_status', 'oxespace_team_inbox', 'oxespace_team_mes
   'oxespace_delegation_inbox', 'oxespace_delegation_acknowledge', 'oxespace_delegation_context', 'oxespace_delegation_result',
   'oxespace_delegation_message', 'oxespace_delegation_control', 'oxespace_delegation_update', 'oxespace_delegation_checkpoint']
 
-export function threadMcpArguments(provider: 'claude' | 'codex', args: string[], bridge: string): string[] {
+export function threadMcpArguments(provider: 'claude' | 'codex', args: string[], bridge: string, managed?: ManagedMcp): string[] {
   // Preserve an explicitly restricted tool surface, including disabled MCPs.
   if (provider === 'claude' && args.includes('--strict-mcp-config')) return args
   const config = agentMcpArguments(provider, bridge)
   const bridgeArgs = [bridge, '--allowed-tools', JSON.stringify(tools)]
   if (provider === 'codex') {
     config[3] = `mcp_servers.oxespace-delegation.args=${JSON.stringify(bridgeArgs)}`
-    return [...config, ...args]
+    return [...config, ...(managed ? codexMcpArguments(managed) : []), ...args]
   }
   const clean = args.filter((arg, i) => !['--mcp-config', '--strict-mcp-config'].includes(arg) && args[i - 1] !== '--mcp-config')
   // Keep Claude's user and project MCP configuration. The extra config adds
   // the OXESpace bridge without replacing servers already available in the CLI.
   return [...clean, '--mcp-config', JSON.stringify({ mcpServers: {
+    ...(managed ? claudeMcpEntries(managed) : {}),
     'oxespace-delegation': { command: 'node', args: bridgeArgs }
   } })]
 }

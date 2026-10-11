@@ -14,6 +14,7 @@ import { NativeHistoryWorkerClient } from './native-history-worker-client'
 import { CodexStateReader } from './codex-state-reader'
 import { ThreadModelService } from './thread-models'
 import { bindThreadMcp, threadMcpArguments, type ThreadMcpBindings } from './thread-mcp'
+import { readManagedMcp } from './thread-managed-mcp'
 import { ThreadAttachmentStore } from './thread-attachments'
 
 export function createThreadManager(db: AppDatabase, accounts: NativeAccountService, mcp: ThreadMcpBindings): ThreadManager {
@@ -37,9 +38,12 @@ export function createThreadManager(db: AppDatabase, accounts: NativeAccountServ
     if (!profile) throw new Error('Configure the agent in Agent Settings')
     let executionId: string | undefined
     try {
-      const env = await mcp.prepare(thread)
-      executionId = env.OXESPACE_EXECUTION_ID
-      const transport = (args: string[], cwd: string) => new AgentProcessTransport(profile.command, threadMcpArguments(thread.provider, args, mcp.bridge), cwd, env, { thread: thread.id, generation: thread.generation })
+      const prepared = await mcp.prepare(thread)
+      executionId = prepared.OXESPACE_EXECUTION_ID
+      // Servers configured in OXESpace are attached explicitly; their secrets ride in the environment.
+      const managed = readManagedMcp(db, thread.workspaceId)
+      const env = { ...managed.env, ...prepared }
+      const transport = (args: string[], cwd: string) => new AgentProcessTransport(profile.command, threadMcpArguments(thread.provider, args, mcp.bridge, managed), cwd, env, { thread: thread.id, generation: thread.generation })
       const adapter = thread.provider === 'claude' ? new ClaudeConversationAdapter(transport)
         : new CodexConversationAdapter(transport(['app-server', '--listen', 'stdio://'], thread.rootPath))
       return bindThreadMcp(adapter, () => mcp.end(thread.id, executionId))
@@ -48,5 +52,5 @@ export function createThreadManager(db: AppDatabase, accounts: NativeAccountServ
     const row = db.prepare('SELECT data_json FROM conversation_threads WHERE id = ?').get(threadId) as { data_json: string } | undefined
     if (row) mcp.observed?.(JSON.parse(row.data_json))
     for (const window of BrowserWindow.getAllWindows()) window.webContents.send(IPC_CHANNELS.thread.changed, { threadId })
-  }, thread => accounts.requireSubscription({ provider: thread.provider, workspaceId: thread.workspaceId, threadId: thread.id }), commands, cli, new ThreadModelService(executable), new ThreadAttachmentStore(join(app.getPath('userData'), 'thread-attachments')), new CodexStateReader(executable))
+  }, thread => accounts.requireSubscription({ provider: thread.provider, workspaceId: thread.workspaceId, threadId: thread.id }), commands, cli, new ThreadModelService(executable), new ThreadAttachmentStore(join(app.getPath('userData'), 'thread-attachments')), new CodexStateReader(executable), (snapshot, event) => mcp.memoryEvent?.(snapshot, event))
 }

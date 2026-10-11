@@ -6,7 +6,6 @@ import { useAccountStore, selectAccount } from '../../store/account.store'
 import { useThreadStore } from '../../store/thread.store'
 import { DesktopDialog } from '../Navigation/DesktopDialog'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
-import { useUIStore } from '../../store/ui.store'
 
 export function accountMessage(status?: AgentAccountSnapshot): string {
   if (!status) return 'Checking connection…'
@@ -54,6 +53,6 @@ export function ProviderAccountsPanel({ workspaceId, onClose }: { workspaceId: s
   return <DesktopDialog className="thread-accounts-dialog" title="Agent accounts" description="Use your subscription with the native agent." onClose={onClose}>
     {(['claude', 'codex'] as const).map(provider => <AccountCard key={provider} context={accountContext(provider, workspaceId, thread)} />)}
     <p className="thread-account-note">Credentials stay with Claude Code and Codex. Reconnecting changes the native account also used by your CLI sessions.</p>
-    <footer><button type="button" onClick={() => { onClose(); useUIStore.getState().openAgentSettings() }}>Agents</button><button type="button" onClick={onClose}>Done</button></footer>
+    <footer><button type="button" onClick={onClose}>Done</button></footer>
   </DesktopDialog>
 }

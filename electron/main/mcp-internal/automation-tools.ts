@@ -50,6 +50,8 @@ export function automationTools(catalogue: () => ToolEntry[]): ToolEntry[] {
           return reply('ok', { binding: 'bound', projectId: context.projectId,
             settings: ctx.memory.projects.settings(context.projectId),
             runtime: health.status === 'ok' ? health.value.status : health.status,
+            runtimeError: health.status === 'ok' ? health.value.errorCode : undefined,
+            pipeline: health.status === 'ok' ? health.value.pipeline : undefined,
             observations, providerReplies: ctx.memory.manager.observations(context.projectId),
             nativePersistence: 'not_observable', consolidation: 'not_observable', spool: 'not_observable' })
         } catch { return reply('error', { code: 'MEMORY_BINDING_UNAVAILABLE', message: 'Memory binding cannot be verified. Terminal execution can continue.', retryable: true }, true) }

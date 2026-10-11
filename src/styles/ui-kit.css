@@ -123,7 +123,7 @@
 }
 .scrollbar-sleek::-webkit-scrollbar-thumb {
   background: rgb(255 255 255 / 0.14);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 .scrollbar-sleek::-webkit-scrollbar-track {
   background: transparent;

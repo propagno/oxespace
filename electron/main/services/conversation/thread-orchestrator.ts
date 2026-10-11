@@ -86,7 +86,8 @@ export class ThreadOrchestrator {
     }, private readonly nativeCli?: Pick<ThreadNativeCli, 'open' | 'read'> & Partial<Pick<ThreadNativeCli, 'closeHistoryReader'>>,
     private readonly modelService?: Pick<ThreadModelService, 'list' | 'stop'>,
     private readonly attachmentStore?: ThreadAttachmentStore,
-    private readonly stateReader?: { observe(thread: ConversationThread, nativeTurnId?: string): Promise<import('../../../../shared/types/thread').ThreadProviderObservation>; recover?(thread: ConversationThread, nativeTurnId?: string): Promise<NativeStateResult>; stop(): Promise<void> }) {
+    private readonly stateReader?: { observe(thread: ConversationThread, nativeTurnId?: string): Promise<import('../../../../shared/types/thread').ThreadProviderObservation>; recover?(thread: ConversationThread, nativeTurnId?: string): Promise<NativeStateResult>; stop(): Promise<void> },
+    private readonly memoryEvent?: (snapshot: ThreadSnapshot, event: ThreadEvent) => void) {
     this.history = new ThreadHistory(db)
     this.exports = new ThreadExportService((threadId, artifactId) => this.history.artifact(threadId, artifactId))
     this.checkpoints = new ThreadCheckpointService(db)
@@ -775,7 +776,7 @@ export class ThreadOrchestrator {
     }
     if (name === 'quit') { const adapter = this.adapters.get(id); this.adapters.delete(id); await adapter?.dispose(); return { kind: 'applied' } }
     if (name === 'diff') {
-      return { kind: 'panel', title: 'Project changes', surface: 'changes' }
+      return { kind: 'panel', title: 'Project changes', text: 'The project changes view is not available. Use git diff in the project terminal.' }
     }
     if (name === 'checkpoint') {
       const [action = 'list', checkpointId, extra] = argument.split(/\s+/).filter(Boolean)
@@ -785,7 +786,7 @@ export class ThreadOrchestrator {
         return { kind: 'panel', title: 'Checkpoint restored', text: `${restored.fileCount} file${restored.fileCount === 1 ? '' : 's'} restored. Conversation history was not rewound.` }
       }
       if (action === 'delete') { this.checkpoints.delete(id, checkpointId); return { kind: 'applied', title: 'Checkpoint deleted' } }
-      const rows = this.checkpoints.list(id).map(value => ({ id: value.state === 'ready' || value.state === 'conflict' ? `/checkpoint restore ${value.id}` : undefined, label: value.label, detail: `${value.state} · ${value.fileCount} file${value.fileCount === 1 ? '' : 's'} · ${new Date(value.createdAt).toLocaleString()}${value.error ? ` · ${value.error}` : ''}` }))
+      const rows = this.checkpoints.list(id).map(value => ({ id: value.state === 'ready' || value.state === 'conflict' ? `/checkpoint restore ${value.id}` : undefined, label: value.label, ...(value.turnId ? { turnId: value.turnId } : {}), detail: `${value.state} · ${value.fileCount} file${value.fileCount === 1 ? '' : 's'} · ${new Date(value.createdAt).toLocaleString()}${value.error ? ` · ${value.error}` : ''}` }))
       return { kind: 'panel', title: 'File checkpoints', text: 'Restore changes files only. Conversation history, Git index and unrelated dirty files are preserved.', rows }
     }
     if (['review', 'compact'].includes(name)) { await this.send(id, text); return { kind: 'applied' } }
@@ -945,6 +946,7 @@ export class ThreadOrchestrator {
         delete snapshot.thread.providerObservation
         if (operationId) this.history.transitionOperation(id, operationId, 'acknowledged')
         this.save(snapshot, { eventsFrom: snapshot.events.length })
+        this.memoryEvent?.(snapshot, event)
       }
       return
     }
@@ -1055,6 +1057,7 @@ export class ThreadOrchestrator {
     }
     if (operationId && activeTurn?.status === 'running' && event.type !== 'completed' && event.type !== 'session' && event.type !== 'configuration') this.history.transitionOperation(id, operationId, 'running')
     this.save(snapshot, { eventsFrom, ...(operationId ? { operationId } : {}) })
+    if (event.type === 'session' || event.type === 'completed') this.memoryEvent?.(snapshot, event)
   }
 
   private save(snapshot: ThreadSnapshot, options?: ThreadHistoryWriteOptions): void {

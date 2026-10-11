@@ -4,8 +4,6 @@
 .sidebar-width-handle:hover, .sidebar-width-handle:focus-visible { background: color-mix(in srgb, var(--accent) 35%, transparent); }
 .sidebar-workspace-tree { border: 1px solid transparent; border-radius: var(--nav-radius); margin-bottom: 4px; overflow: visible; }
 .sidebar-workspace-tree .ws-group { border: 0; background: transparent; margin: 0; }
-.sidebar-children-toggle { display: flex; align-items: center; gap: 4px; margin: 0 0 8px 28px; padding: 4px 8px; border: 0; border-radius: var(--nav-radius); color: var(--tx-muted); background: transparent; font-size: var(--fs-2xs); cursor: pointer; }
-.sidebar-children-toggle[aria-expanded="false"] svg { transform: rotate(-90deg); }
 .sidebar-terminal-children { margin: 0 4px 8px 16px; padding-left: 8px; border-left: 1px solid var(--bd-base); }
 .sidebar-terminal-children .pane-session-row { margin: 4px 0; padding: 8px; border: 1px solid transparent; border-radius: var(--nav-radius); }
 .sidebar-terminal-children .pane-row-title { font-size: var(--fs-sm); }

@@ -43,12 +43,13 @@ test('saving workspace appearance confirms that settings were persisted', async 
   expect(await screen.findByRole('status')).toHaveTextContent('Workspace settings saved')
 })
 
-test('explicit agent settings overrides the last visited workspace destination', () => {
+test('explicit initial page overrides the last visited workspace destination', () => {
   localStorage.setItem('oxe.settings.destination', JSON.stringify({scope:'workspace',workspaceId:'ws',page:'delegation'}))
   render(<SettingsCenter initialPage="providers" workspaces={[workspace]} shellProfiles={[]} onSave={vi.fn()} onClose={vi.fn()}
     agentProfiles={[]} agentReadiness={[]} isDiscoveringAgents={false} onDiscoverAgents={vi.fn()} onConfigureAgent={vi.fn()} onNewCustomAgent={vi.fn()} />)
   expect(screen.getByRole('group', { name: 'Settings scope' }).querySelector('button')).toHaveAttribute('aria-pressed', 'true')
-  expect(screen.getByRole('button', {name:/^Agents CLI discovery/})).toHaveAttribute('aria-current','page')
+  expect(screen.getByRole('heading', { name: 'Agents' })).toBeVisible()
+  expect(screen.queryByRole('button', {name:/^Agents CLI discovery/})).toBeNull()
 })
 
 test('opening a delegated terminal closes the host and reveals the correct pane', async () => {

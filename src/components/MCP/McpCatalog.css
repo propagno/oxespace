@@ -1,0 +1,36 @@
+/* Connector catalog (Plugins-style): two columns of brand tiles. */
+.mcp-panel.is-catalog { width: min(940px, 94vw); }
+.mcp-view-tabs { display: inline-flex; gap: 2px; margin: 0 14px 10px; padding: 3px; border-radius: var(--radius-pill); background: var(--wb-raised); }
+.mcp-view-tabs button { height: 28px; padding: 0 14px; border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--tx-secondary); font: inherit; font-size: var(--fs-xs); font-weight: 600; cursor: pointer; }
+.mcp-view-tabs button[aria-selected='true'] { background: var(--tx-primary); color: var(--bg-app); }
+.mcp-view-tabs button:not([aria-selected='true']):hover { color: var(--tx-primary); }
+.mcp-view-tabs small { margin-left: 6px; opacity: .7; }
+
+.mcp-catalog { padding: 4px 14px 16px; }
+.mcp-catalog h3 { margin: 18px 0 8px; font-size: var(--fs-sm); font-weight: 600; color: var(--tx-primary); }
+.mcp-catalog ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 2px 28px; margin: 0; padding: 0; list-style: none; }
+.mcp-catalog-row { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 8px 6px; border-radius: var(--radius-md); }
+.mcp-catalog-row:hover { background: var(--nav-hover); }
+.mcp-catalog-text { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.mcp-catalog-text strong { font-size: var(--fs-sm); font-weight: 600; }
+.mcp-catalog-text small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tx-muted); font-size: var(--fs-xs); }
+.mcp-catalog-add { display: grid; place-items: center; flex: none; width: 32px; height: 32px; padding: 0; border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--tx-secondary); cursor: pointer; }
+.mcp-catalog-add:hover:not(:disabled) { background: var(--nav-selected); color: var(--tx-primary); }
+.mcp-catalog-add:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.mcp-catalog-add:disabled { opacity: .6; cursor: default; }
+.mcp-catalog-added { display: inline-flex; align-items: center; gap: 4px; flex: none; color: var(--dot-green); font-size: var(--fs-xs); }
+.mcp-catalog-count { margin: 18px 0 0; color: var(--tx-muted); font-size: var(--fs-2xs); text-align: center; }
+
+.mcp-brand-tile { display: grid; place-items: center; flex: none; border: 1px solid var(--wb-border); border-radius: var(--radius-md); background: var(--bg-sidebar); overflow: hidden; }
+.mcp-brand-letter { display: grid; place-items: center; width: 100%; height: 100%; color: #fff; font-weight: 700; }
+
+/* Added servers: state chip + start/stop in place of the "+" */
+.mcp-catalog-text strong { display: inline-flex; align-items: center; gap: 8px; }
+.mcp-catalog-state { padding: 1px 7px; border-radius: var(--radius-pill); background: var(--ov-2); color: var(--tx-muted); font-size: var(--fs-2xs); font-style: normal; font-weight: 600; }
+.mcp-catalog-state.is-healthy { background: color-mix(in srgb, var(--dot-green) 16%, transparent); color: var(--dot-green); }
+.mcp-catalog-state.is-starting { background: color-mix(in srgb, var(--dot-yellow) 16%, transparent); color: var(--dot-yellow); }
+.mcp-catalog-state.is-unhealthy { background: color-mix(in srgb, var(--dot-red) 16%, transparent); color: var(--dot-red); }
+.mcp-catalog-hint { display: inline-flex; align-items: center; gap: 4px; flex: none; padding: 2px 8px; border: 1px solid var(--wb-border); border-radius: var(--radius-pill); color: var(--tx-muted); font-size: var(--fs-2xs); white-space: nowrap; }
+
+button.mcp-catalog-hint.is-action { cursor: pointer; background: transparent; color: var(--tx-primary); }
+button.mcp-catalog-hint.is-action:hover { background: var(--nav-hover); }

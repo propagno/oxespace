@@ -157,6 +157,38 @@ export interface GitHubPullRequest {
   body?: string | null
 }
 
+export type GitHubCheckState = 'success' | 'failure' | 'pending' | 'neutral'
+
+/** One entry of a pull request's status rollup (a check run or a commit status). */
+export interface GitHubPrCheck {
+  name: string
+  workflow: string | null
+  state: GitHubCheckState
+  url: string | null
+}
+
+/** The pull request that belongs to the checked-out branch, with its CI rollup. */
+export interface GitHubPrStatus {
+  number: number
+  title: string
+  state: 'OPEN' | 'MERGED' | 'CLOSED'
+  isDraft: boolean
+  url: string | null
+  headRefName: string | null
+  baseRefName: string | null
+  /** MERGEABLE | CONFLICTING | UNKNOWN */
+  mergeable: string | null
+  /** APPROVED | CHANGES_REQUESTED | REVIEW_REQUIRED | null */
+  reviewDecision: string | null
+  autoMerge: boolean
+  checks: GitHubPrCheck[]
+}
+
+export interface GitHubPrAutoMergeInput extends GitHubWorkspaceInput {
+  number: number
+  enable: boolean
+}
+
 export interface GitHubCommit {
   oid: string
   shortOid: string

@@ -3,6 +3,10 @@ import { useCallback, useEffect, useMemo, useState, type ReactElement } from 're
 import type { CreateMcpServerInput, McpHealthStatus, McpServer, McpStdioConfig } from '../../../shared/types/mcp'
 import { selectMcpServers, useMcpStore } from '../../store/mcp.store'
 import { parseMcpJson } from './parseMcpJson'
+import { McpCatalog } from './McpCatalog'
+import { envTemplate, type McpCatalogEntry } from './connectorCatalog'
+
+interface FormInitial { name: string; command: string; argsText: string; envText: string; note?: string; requiredEnv?: string[]; /** Came from the curated catalog: trusted and started as soon as it is saved. */ fromCatalog?: boolean }
 
 interface McpPanelProps {
   workspaceId: string | null
@@ -20,6 +24,10 @@ export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement 
   const removeServer = useMcpStore((s) => s.remove)
   const updateServer = useMcpStore((s) => s.update)
   const [creating, setCreating] = useState(false)
+  const [view, setView] = useState<'catalog' | 'installed'>('catalog')
+  const [catalogBusyId, setCatalogBusyId] = useState<string | null>(null)
+  const [formInitial, setFormInitial] = useState<FormInitial | null>(null)
+  const createServer = useMcpStore((s) => s.create)
   const [query, setQuery] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -71,6 +79,30 @@ export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement 
   const otherServers = builtInServer ? servers.filter((s) => s.id !== builtInServer.id) : servers
   const visibleServers = otherServers.filter((server) => `${server.name} ${server.transport} ${server.health} ${server.workspaceId ? 'workspace' : 'global'}`.toLowerCase().includes(query.trim().toLowerCase()))
 
+  // Catalog "+": servers without secrets are created right away; the rest open
+  // the form pre-filled so the user can paste the token before saving.
+  const handleCatalogAdd = async (entry: McpCatalogEntry): Promise<void> => {
+    if (entry.requiredEnv?.length || entry.configure) {
+      setFormInitial({ name: entry.id, command: entry.command, argsText: entry.args.join(' '), envText: envTemplate(entry), note: entry.configure, requiredEnv: entry.requiredEnv, fromCatalog: true })
+      setCreating(true)
+      return
+    }
+    setCatalogBusyId(entry.id)
+    try {
+      // Catalog entries are curated, so one click adds, trusts and starts the server: for
+      // remote connectors that is what opens the browser sign-in page.
+      const created = await createServer({
+        workspaceId,
+        name: entry.id,
+        transport: 'stdio',
+        config: { transport: 'stdio', command: entry.command, args: entry.args, env: entry.env ?? {} },
+        enabled: true,
+        trusted: true
+      })
+      void startServer(created.id).catch(() => undefined) // progress and errors show on the row
+    } catch { /* error captured in store */ } finally { setCatalogBusyId(null) }
+  }
+
   const handleStart = async (server: McpServer): Promise<void> => {
     if (!server.trusted) {
       setTrustPromptId(server.id)
@@ -117,7 +149,7 @@ export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement 
   return (
     <div className="mcp-panel-backdrop" role="presentation" onMouseDown={onClose}>
       <section
-        className="mcp-panel"
+        className={`mcp-panel${view === 'catalog' ? ' is-catalog' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-label="Connections"
@@ -152,18 +184,21 @@ export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement 
           <input type="search" aria-label="Search MCP servers" placeholder="Search connections" value={query} onChange={(event) => setQuery(event.target.value)} />
         </label>
 
-        <p className="mcp-panel-sync-note">
-          Servers enabled here are written to <code>.mcp.json</code> at the
-          workspace root. Claude Code and Copilot CLI (v1.0+) discover the
-          file automatically — restart the agent session to pick up added or
-          removed tools.
-        </p>
+        {view === 'installed' && (
+          <p className="mcp-panel-sync-note">
+            Servers enabled here are written to <code>.mcp.json</code> at the
+            workspace root. Claude Code and Copilot CLI (v1.0+) discover the
+            file automatically — restart the agent session to pick up added or
+            removed tools.
+          </p>
+        )}
 
         {creating ? (
           <McpCreateForm
             workspaceId={workspaceId}
-            onCancel={() => setCreating(false)}
-            onCreated={() => setCreating(false)}
+            initial={formInitial ?? undefined}
+            onCancel={() => { setCreating(false); setFormInitial(null) }}
+            onCreated={() => { setCreating(false); setFormInitial(null); setView('installed') }}
           />
         ) : (
           <button type="button" className="mcp-panel-add" onClick={() => setCreating(true)}>
@@ -172,6 +207,16 @@ export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement 
           </button>
         )}
 
+        <div className="mcp-view-tabs" role="tablist" aria-label="Connections view">
+          <button type="button" role="tab" aria-selected={view === 'catalog'} onClick={() => setView('catalog')}>Catalog</button>
+          <button type="button" role="tab" aria-selected={view === 'installed'} onClick={() => setView('installed')}>Installed<small>{otherServers.length + (builtInServer ? 1 : 0)}</small></button>
+        </div>
+
+        {view === 'catalog' ? (
+          <div className="mcp-panel-list">
+            <McpCatalog servers={otherServers} query={query} busyId={catalogBusyId} onAdd={(entry) => void handleCatalogAdd(entry)} onStart={(server) => void handleStart(server)} onStop={(server) => void handleStop(server.id)} />
+          </div>
+        ) : (
         <div className="mcp-panel-list">
           <McpBuiltinCard
             status={builtInStatus}
@@ -211,9 +256,10 @@ export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement 
             ))
           )}
         </div>
+        )}
 
         <footer className="mcp-panel-footer">
-          Running servers expose their tools to agents. <code>stdio</code> transport only.
+          Running servers expose their tools to agents. Remote connectors sign in through your browser.
         </footer>
       </section>
     </div>
@@ -423,6 +469,8 @@ interface McpCreateFormProps {
   workspaceId: string | null
   onCancel: () => void
   onCreated: () => void
+  /** Values pre-filled by the connector catalog. */
+  initial?: FormInitial
 }
 
 // Onda 6: presets for the most common MCP servers so users don't have to
@@ -513,7 +561,7 @@ const JSON_PLACEHOLDER = `{
   }
 }`
 
-function McpCreateForm({ workspaceId, onCancel, onCreated }: McpCreateFormProps): ReactElement {
+function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateFormProps): ReactElement {
   const create = useMcpStore((s) => s.create)
   // Two entry modes: the guided "Form" with templates + per-field inputs, and
   // a free-form "JSON" tab that accepts the canonical mcpServers shape (the
@@ -522,10 +570,10 @@ function McpCreateForm({ workspaceId, onCancel, onCreated }: McpCreateFormProps)
   // zero translation by the user.
   const [mode, setMode] = useState<'form' | 'json'>('form')
   const [templateId, setTemplateId] = useState('custom')
-  const [name, setName] = useState('')
-  const [command, setCommand] = useState('')
-  const [argsText, setArgsText] = useState('')
-  const [envText, setEnvText] = useState('')
+  const [name, setName] = useState(initial?.name ?? '')
+  const [command, setCommand] = useState(initial?.command ?? '')
+  const [argsText, setArgsText] = useState(initial?.argsText ?? '')
+  const [envText, setEnvText] = useState(initial?.envText ?? '')
   const [scope, setScope] = useState<'global' | 'workspace'>(workspaceId ? 'workspace' : 'global')
   const [jsonText, setJsonText] = useState('')
   const [jsonName, setJsonName] = useState('')
@@ -564,6 +612,10 @@ function McpCreateForm({ workspaceId, onCancel, onCreated }: McpCreateFormProps)
       setError('Name and command are required.')
       return
     }
+    const placeholder = /<[^<>s]+>/.exec(argsText)
+    if (placeholder) { setError(`Replace ${placeholder[0]} with a real value before saving.`); return }
+    const missing = (initial?.requiredEnv ?? []).filter(key => !parsedEnv[key])
+    if (missing.length) { setError(`Fill in ${missing.join(', ')} before saving.`); return }
     setBusy(true)
     try {
       const input: CreateMcpServerInput = {
@@ -572,9 +624,10 @@ function McpCreateForm({ workspaceId, onCancel, onCreated }: McpCreateFormProps)
         transport: 'stdio',
         config: { transport: 'stdio', command: command.trim(), args: parsedArgs, env: parsedEnv },
         enabled: true,
-        trusted: false
+        trusted: initial?.fromCatalog === true
       }
-      await create(input)
+      const created = await create(input)
+      if (initial?.fromCatalog) void useMcpStore.getState().start(created.id).catch(() => undefined)
       onCreated()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -629,6 +682,7 @@ function McpCreateForm({ workspaceId, onCancel, onCreated }: McpCreateFormProps)
         else void handleSubmit()
       }}
     >
+      {initial?.note && <p className="mcp-create-note" role="note">{initial.note}</p>}
       {/* Mode toggle — Form vs JSON. JSON accepts the same shape that ships
           in Claude Code's .mcp.json (and what most MCP server READMEs print)
           so users can paste an example verbatim. */}

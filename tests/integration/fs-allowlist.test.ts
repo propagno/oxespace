@@ -23,6 +23,12 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/memory/agent-memory-adapter.ts',
   'electron/main/services/memory/memory-project.service.ts',
   'electron/main/services/memory/memory-marker.ts',
+  // Memory upgrade transaction (journal, snapshot, candidate): fixed children of
+  // the application's private memory runtime directory; never workspace paths.
+  'electron/main/services/memory/memory-migration.ts',
+  // Producer-owned, crash-recoverable delivery queue under the private memory
+  // directory; files carry opaque names and are never derived from workspace paths.
+  'electron/main/services/memory/memory-outbox.ts',
   // Documentation owns generated artifacts under userData/documentation only.
   // Tool callers supply IDs, never filesystem paths or workspace destinations.
   'electron/main/services/documentation/documentation.service.ts',

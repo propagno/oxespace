@@ -69,7 +69,7 @@
   width: 36px;
   height: 12px;
   z-index: 6;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: transparent;
   cursor: grab;
   touch-action: none;
@@ -78,7 +78,7 @@
 
 .split-drag-grip:hover,
 .split-drag-grip:active {
-  background: color-mix(in srgb, var(--accent) 12%, rgba(255, 255, 255, 0.05));
+  background: color-mix(in srgb, var(--accent) 12%, var(--ov-1));
   box-shadow: none;
 }
 
@@ -90,7 +90,7 @@
   width: 18px;
   height: 2px;
   transform: translateX(-50%);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--tx-muted) 42%, transparent);
   transition: width 150ms ease, background 150ms ease;
 }

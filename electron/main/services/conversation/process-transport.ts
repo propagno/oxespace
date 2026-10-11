@@ -8,7 +8,7 @@ import { recordRuntime, type RuntimeDetail } from '../runtime-diagnostics'
 /** Thread subscription processes share a native account, never an API env key. */
 export function subscriptionEnvironment(source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   return Object.fromEntries(Object.entries(source).filter(([key]) =>
-    !key.toUpperCase().startsWith('OXESPACE_') && ![
+    !key.toUpperCase().startsWith('OXESPACE_') && !key.toUpperCase().startsWith('AI_MEMORY_') && ![
       'ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'CLAUDE_CODE_OAUTH_TOKEN',
       'CLAUDE_CODE_OAUTH_REFRESH_TOKEN', 'CLAUDE_CODE_OAUTH_SCOPES',
       'OPENAI_API_KEY', 'OPENAI_ACCESS_TOKEN', 'CODEX_ACCESS_TOKEN',
@@ -69,7 +69,7 @@ export class AgentProcessTransport implements ConversationTransport {
     const env = subscriptionEnvironment()
     // Only main may supply a fresh project-bound MCP lease. Never restore the
     // parent's OXESPACE context or provider/API credentials.
-    for (const key of ['OXESPACE_MCP_PORT', 'OXESPACE_MCP_TOKEN', 'OXESPACE_WORKSPACE_ID', 'OXESPACE_MEMORY_RUN_ID',
+    for (const key of ['OXESPACE_MCP_PORT', 'OXESPACE_MCP_TOKEN', 'OXESPACE_WORKSPACE_ID', 'OXESPACE_MEMORY_RUN_ID', 'OXESPACE_MEMORY_RUN', 'AI_MEMORY_CAPTURE_OWNER',
       'OXESPACE_EXECUTION_ID', 'OXESPACE_EXECUTION_TOKEN', 'OXESPACE_EXECUTION_GENERATION']) {
       if (mcpEnvironment[key]) env[key] = mcpEnvironment[key]
     }

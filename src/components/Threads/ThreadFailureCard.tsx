@@ -8,14 +8,35 @@ export function usageTime(timestamp: number): string {
     ? new Intl.DateTimeFormat(undefined, { dateStyle: 'short', timeStyle: 'long' }).format(timestamp) : 'Not provided'
 }
 
-export function ThreadUsageDetails({ usage }: { usage: ThreadUsage }) {
-  return <section className="thread-usage-details" aria-label="Provider usage">
-    <header><strong>Usage limits</strong><small>Checked {usageTime(usage.checkedAt)} · local time</small></header>
-    {usage.windows.length ? usage.windows.map((window, index) => <div className="thread-usage-window" key={`${window.label}:${index}`}>
-      <div><span>{window.label}</span><strong>{window.usedPercent.toLocaleString(undefined, { maximumFractionDigits: 1 })}% used</strong></div>
-      <progress aria-label={`${window.label} usage`} value={Math.max(0, Math.min(100, window.usedPercent))} max={100} />
-      <small>{window.resetsAt ? <>Resets <time dateTime={new Date(window.resetsAt).toISOString()}>{usageTime(window.resetsAt)}</time> · local time</> : 'Reset time not provided by the provider.'}</small>
-    </div>) : <p>The provider did not return usage windows or a reset time.</p>}
+/** "2h", "6d", "35m": how long until a window resets, as in the Usage & rate limits dialog. */
+export function usageResetIn(timestamp: number, now = Date.now()): string {
+  const minutes = Math.max(0, Math.round((timestamp - now) / 60_000))
+  if (minutes < 60) return `${Math.max(1, minutes)}m`
+  if (minutes < 60 * 48) return `${Math.round(minutes / 60)}h`
+  return `${Math.round(minutes / 1440)}d`
+}
+
+const usageClock = (timestamp: number): string => Number.isFinite(timestamp) ? new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(timestamp) : 'unknown'
+
+/** Same card language as the Usage & rate limits dialog: provider, two-up windows, reset hint, checked time. */
+export function ThreadUsageDetails({ usage, provider }: { usage: ThreadUsage; provider?: string }) {
+  // Windows arrive labelled "codex · Session · 5 hours"; the provider becomes the card title.
+  const prefix = usage.windows[0]?.label.split(' · ')[0] ?? ''
+  const known = /^(codex|claude|copilot)$/i.test(prefix) ? prefix : undefined
+  const owner = provider ?? known
+  const name = owner ? owner[0].toUpperCase() + owner.slice(1).toLowerCase() : 'Usage limits'
+  const labelOf = (label: string): string => known && label.toLowerCase().startsWith(`${known.toLowerCase()} · `) ? label.slice(known.length + 3) : label
+  return <section className="thread-usage-card" aria-label="Provider usage">
+    <header><strong>{name}</strong><span>Subscription limits</span></header>
+    {usage.windows.length ? <div className="thread-usage-grid">{usage.windows.map((window, index) => {
+      const percent = Math.max(0, Math.min(100, window.usedPercent))
+      return <div className="thread-usage-window" key={`${window.label}:${index}`}>
+        <div><span>{labelOf(window.label)}</span><strong>{window.usedPercent.toLocaleString(undefined, { maximumFractionDigits: 1 })}% used</strong></div>
+        <progress className={percent >= 90 ? 'is-high' : undefined} aria-label={`${window.label} usage`} value={percent} max={100} />
+        <small>{window.resetsAt ? <>Resets in {usageResetIn(window.resetsAt)} · <time dateTime={new Date(window.resetsAt).toISOString()}>{usageTime(window.resetsAt)}</time> · local time</> : 'Reset time not provided by the provider.'}</small>
+      </div>
+    })}</div> : <p>The provider did not return usage windows or a reset time.</p>}
+    <footer>{name} account · checked {usageClock(usage.checkedAt)} · local time</footer>
   </section>
 }
 

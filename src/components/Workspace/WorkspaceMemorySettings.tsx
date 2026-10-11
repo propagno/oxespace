@@ -36,7 +36,7 @@ export function WorkspaceMemorySettings({ workspaceId }: { workspaceId: string }
     <fieldset disabled={busy || !status} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
     <label><input type="checkbox" checked={settings.enabled} disabled={busy} onChange={e => setSettings({ ...settings, enabled: e.target.checked })} /> Enabled</label>
     <br />
-    <label><input type="checkbox" checked={settings.automaticCapture} disabled={busy} onChange={e => setSettings({ ...settings, automaticCapture: e.target.checked })} /> Capture project activity through native hooks</label>
+    <label><input type="checkbox" checked={settings.automaticCapture} disabled={busy} onChange={e => setSettings({ ...settings, automaticCapture: e.target.checked })} /> Capture project activity (native Code hooks and supported Thread events)</label>
     <br />
     <label><input type="checkbox" checked={settings.automaticContext} disabled={busy} onChange={e => setSettings({ ...settings, automaticContext: e.target.checked })} /> Supply relevant context to new agent sessions</label>
     <p className="memory-privacy">Captured prompts, tool activity and supported Claude assistant excerpts stay in the local memory service. Context supplied to a cloud agent can be sent to that agent’s vendor. No cloud model is configured for the managed memory service.</p>
@@ -51,14 +51,20 @@ export function WorkspaceMemorySettings({ workspaceId }: { workspaceId: string }
     {runtime.mode === 'connected' && <><p>Existing service configuration controls external model calls. Connect only after reviewing its privacy settings.</p><label>Bearer token <input type="password" autoComplete="off" value={token} disabled={busy} onChange={e => setToken(e.target.value)} /></label></>}
     <p>Native Windows support is experimental. Agent terminals continue working when memory is unavailable.</p>
     <div>
-      <button type="button" disabled={busy} onClick={() => void act(async () => { const executable = await window.oxe.memory.install(); setRuntime({ ...runtime, executable }); setMessage('Verified AI Memory 2.1.0 downloaded. Apply settings to use it.') })}>Download local runtime</button>{' '}
+      <button type="button" disabled={busy} onClick={() => void act(async () => { const executable = await window.oxe.memory.install(); setRuntime({ ...runtime, executable }); setMessage('Verified AI Memory 2.6.2 downloaded. Apply settings to upgrade with a retained rollback snapshot.') })}>Download local runtime</button>{' '}
       <button className="primary-action" type="button" disabled={busy} onClick={() => void act(async () => { const value = await window.oxe.memory.configure({ workspaceId, settings, runtime, ...(token ? { token } : {}) }); setStatus(value); setSettings(value.settings); setRuntime(value.runtime); setToken(''); setFailure(value.settings.enabled && value.health.status !== 'ready'); setMessage(!value.settings.enabled ? 'Settings saved. Memory is disabled. Select Enabled and apply to start the service.' : value.health.status === 'ready' ? 'Memory is ready. Configure agents, then start a new terminal.' : value.health.message || 'Settings saved, but the service could not start. Check the executable and local service URL, then apply again.') })}>Apply memory settings</button>{' '}
       <button type="button" disabled={busy || dirty || status?.health.status !== 'ready' || !status?.settings.enabled} onClick={() => void act(async () => setMessage(await window.oxe.memory.setupAgents(workspaceId)))}>Configure Claude / Codex</button>{' '}
+      {status?.rollbackAvailable && <button type="button" disabled={busy || dirty} onClick={() => void act(async () => {
+        const value = await window.oxe.memory.rollback(workspaceId)
+        setStatus(value); setRuntime(value.runtime); setSettings(value.settings)
+        setMessage('Previous runtime and snapshot restored. Data written after the upgrade is preserved separately in the runtime upgrade directory.')
+      })}>Restore previous runtime</button>}{' '}
       <button type="button" disabled={busy} onClick={() => void act(async () => { setStatus(await window.oxe.memory.status(workspaceId)); const result = await window.oxe.memory.recent(workspaceId); setMemories(result.status === 'ok' ? result.value.map(item => item.text) : []); if (result.status !== 'ok') setMessage(result.message) })}>Refresh</button>
     </div>
     </fieldset>
     <p className="memory-next-step">{dirty ? 'Unsaved changes. Apply memory settings before configuring agents.' : !status?.settings.enabled ? 'To get started: download the runtime, select Enabled, then apply settings.' : status.health.status !== 'ready' ? 'The service must be ready before agent setup. Check the error above and apply again.' : 'Configure Claude / Codex, then open new agent terminals and approve their hooks and MCP tools.'}</p>
     {status && <p>Project: {status.projectId} · Connected sessions: {status.sessions.filter(s => !s.ended).length}</p>}
+    {status?.outbox && <p>Local memory queue (all projects): {status.outbox.pending} pending · {status.outbox.quarantined} quarantined · {status.outbox.refused} refused · {Math.ceil(status.outbox.bytes / 1024)} KiB used</p>}
     {message && <p className="memory-feedback" role={failure ? 'alert' : 'status'}>{message}</p>}
     {memories.length > 0 && <details><summary>Recent memories</summary>{memories.map((item, index) => <pre key={index} style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{item}</pre>)}</details>}
   </section>

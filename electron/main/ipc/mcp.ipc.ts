@@ -51,6 +51,11 @@ export function registerMcpIpc(manager: McpManager): void {
     return manager.start(id)
   })
 
+  ipcMain.handle(IPC_CHANNELS.mcp.openSignIn, (_event, id: unknown) => {
+    if (typeof id !== 'string' || !id) throw new Error('id is required')
+    return manager.openSignIn(id)
+  })
+
   ipcMain.handle(IPC_CHANNELS.mcp.stop, (_event, id: unknown) => {
     if (typeof id !== 'string' || !id) throw new Error('id is required')
     manager.stopRuntime(id)

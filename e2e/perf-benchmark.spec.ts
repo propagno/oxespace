@@ -483,7 +483,7 @@ test('modal surfaces: agents, MCP, skills, semantic, workspace settings and usag
       {
         label: 'Agent Settings',
         selector: '.settings-center',
-        trigger: () => page.getByTestId('tools-agent-settings').click()
+        trigger: () => page.getByRole('button', { name: 'Open settings' }).click()
       },
       {
         label: 'Connections',
