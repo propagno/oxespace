@@ -10,6 +10,12 @@ e2e/screenshots/
 !.github/
 !.github/workflows/
 !.github/workflows/*.yml
+!.github/ISSUE_TEMPLATE/
+!.github/ISSUE_TEMPLATE/*.yml
+!.github/PULL_REQUEST_TEMPLATE.md
+!.github/CODEOWNERS
+!.github/dependabot.yml
+!.github/release.yml
 
 # OXE (oxe-cc) — pasta de estado local; não versionar
 .oxe/

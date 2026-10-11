@@ -1,0 +1,9 @@
+# Default reviewers. Security-sensitive areas are listed explicitly so a review
+# request is never skipped for them.
+*                                              @propagno
+/electron/main/services/file-system.service.ts @propagno
+/electron/main/ipc/                            @propagno
+/electron/preload/                             @propagno
+/.github/workflows/                            @propagno
+/electron-builder.yml                          @propagno
+/scripts/verify-release-artifacts.mjs          @propagno

@@ -1,0 +1,70 @@
+name: Bug report
+description: Something does not work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **Do not paste tokens, passwords or private code.** For security problems use the private reporting link instead.
+  - type: input
+    id: version
+    attributes:
+      label: OXESpace version
+      description: From the installer name or the version next to the title bar (for example 0.16.0).
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Windows x64
+        - Linux AppImage
+        - Linux .deb
+        - Built from source
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where did it happen?
+      options:
+        - Code (terminals)
+        - Thread (Claude Code)
+        - Thread (Codex)
+        - Changes / diff
+        - GitHub hub
+        - MCP connectors
+        - Web Preview
+        - Editor / search
+        - Memory / semantic search
+        - Updates / installer
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Agent and tool versions
+      description: Claude Code / Codex CLI version, `gh --version`, Node version, OS version.
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics (optional)
+      description: The diagnostics view produces a redacted support report. Paste the relevant part, or attach screenshots.
