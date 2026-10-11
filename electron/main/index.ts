@@ -195,6 +195,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   registerGitIpc()
   registerSearchIpc()
   const gitHubService = registerGitHubIpc(db)
+  gitHubService.configureWorktreeLifecycle({ stopTerminalsWithin: (dir) => terminalManager.stopWithin(dir) })
   registerLinearIpc(db, gitHubService)
   registerIntegrationIpc(db)
   const backgroundManager = new BackgroundManager(db, {
@@ -278,6 +279,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   // agent CLI separately (Claude Code, Copilot, …). See plan section 3.
   const internalMcpWorkspaceServ = new WorkspaceService(db)
   const internalMcpGithub = new GitHubService(db)
+  internalMcpGithub.configureWorktreeLifecycle({ stopTerminalsWithin: (dir) => terminalManager.stopWithin(dir) })
   const internalMcpGit = new GitService()
   const codeGraphService = new CodeGraphService(db)
   const delegationAgents = new AgentService(db)

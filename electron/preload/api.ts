@@ -312,6 +312,10 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
         ipc.invoke(IPC_CHANNELS.github.resolveWorktreeBase, input) as Promise<import('../../shared/types/github').GitHubWorktreeBase>,
       getWorktreeStatus: (input) =>
         ipc.invoke(IPC_CHANNELS.github.getWorktreeStatus, input) as Promise<import('../../shared/types/github').GitHubWorktreeStatus>,
+      getRepoConfig: (input) =>
+        ipc.invoke(IPC_CHANNELS.github.getRepoConfig, input) as Promise<import('../../shared/types/repo-config').RepoConfigSnapshot>,
+      approveRepoHook: (input) =>
+        ipc.invoke(IPC_CHANNELS.github.approveRepoHook, input) as Promise<import('../../shared/types/repo-config').RepoConfigSnapshot>,
       listPullRequests: (input) => ipc.invoke(IPC_CHANNELS.github.listPullRequests, input) as Promise<GitHubPullRequest[]>,
       createPullRequest: (input) => ipc.invoke(IPC_CHANNELS.github.createPullRequest, input) as Promise<GitHubMessageResult>,
       getPullRequestStatus: (input) => ipc.invoke(IPC_CHANNELS.github.getPullRequestStatus, input) as Promise<import('../../shared/types/github').GitHubPrStatus | null>,

@@ -261,6 +261,8 @@ export const IPC_CHANNELS = {
     removeWorktree: 'github:remove-worktree',
     resolveWorktreeBase: 'github:resolve-worktree-base',
     getWorktreeStatus: 'github:get-worktree-status',
+    getRepoConfig: 'github:get-repo-config',
+    approveRepoHook: 'github:approve-repo-hook',
     createBranch: 'github:create-branch',
     checkoutBranch: 'github:checkout-branch',
     listPullRequests: 'github:list-pull-requests',
@@ -551,6 +553,9 @@ export interface GitHubApi {
   removeWorktree(input: import('./github').GitHubRemoveWorktreeInput): Promise<GitHubMessageResult>
   resolveWorktreeBase(input: import('./github').GitHubWorkspaceInput): Promise<import('./github').GitHubWorktreeBase>
   getWorktreeStatus(input: import('./github').GitHubWorktreePathInput): Promise<import('./github').GitHubWorktreeStatus>
+  getRepoConfig(input: { rootPath: string }): Promise<import('./repo-config').RepoConfigSnapshot>
+  /** Approves the hook script whose hash the user was shown; refused if the file changed since. */
+  approveRepoHook(input: { rootPath: string; kind: import('./repo-config').RepoHookKind; contentHash: string }): Promise<import('./repo-config').RepoConfigSnapshot>
   listPullRequests(input: GitHubPullRequestListInput): Promise<GitHubPullRequest[]>
   createPullRequest(input: GitHubCreatePullRequestInput): Promise<GitHubMessageResult>
   getPullRequestStatus(input: GitHubWorkspaceInput): Promise<import('./github').GitHubPrStatus | null>

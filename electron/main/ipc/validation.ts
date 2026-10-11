@@ -780,12 +780,33 @@ export function parseGitHubWorktreePathInput(value: unknown): import('../../../s
   }
 }
 
+export function parseRepoConfigInput(value: unknown): { rootPath: string } {
+  const input = expectRecord(value, 'github:repo-config input')
+  return { rootPath: expectNonEmptyString(input.rootPath, 'rootPath') }
+}
+
+export function parseApproveRepoHookInput(value: unknown): {
+  rootPath: string
+  kind: 'setup' | 'archive'
+  contentHash: string
+} {
+  const input = expectRecord(value, 'github:approve-repo-hook input')
+  if (input.kind !== 'setup' && input.kind !== 'archive') throw new Error('kind must be "setup" or "archive"')
+  return {
+    rootPath: expectNonEmptyString(input.rootPath, 'rootPath'),
+    kind: input.kind,
+    contentHash: expectNonEmptyString(input.contentHash, 'contentHash')
+  }
+}
+
 export function parseGitHubRemoveWorktreeInput(value: unknown): import('../../../shared/types/github').GitHubRemoveWorktreeInput {
   const input = expectRecord(value, 'github:remove-worktree input')
   return {
     rootPath: expectNonEmptyString(input.rootPath, 'rootPath'),
     path: expectNonEmptyString(input.path, 'path'),
-    force: input.force === true
+    force: input.force === true,
+    allowFailedArchiveHook: input.allowFailedArchiveHook === true,
+    deleteBranch: input.deleteBranch === true
   }
 }
 

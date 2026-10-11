@@ -23,8 +23,31 @@ import type {
 } from '../../../../shared/types/github'
 import { countStatusLines, emptyRepositorySummary, inferCommitArea, inferCommitType, isAbsolutePath, ok, parseStatusLine, parseWorktreePorcelain, parseWorktreeStatusPorcelainV2, splitPair, summarizeCommitFiles } from './parsers'
 import type { GhExec } from './gh-exec'
+import { loadRepoConfig } from '../repo-config/loader'
+import { runHook } from '../repo-config/hook-runner'
+import { createSharedLinks } from '../repo-config/shared-dirs'
+import type { RepoHookTrust } from '../repo-config/trust'
+import { removeWorktreeSafely } from './worktree-removal'
+
+export interface WorktreeLifecycleDeps {
+  trust: RepoHookTrust
+  /** Stops terminals whose cwd is inside `dir`; returns the pane ids stopped. */
+  stopTerminalsWithin?: (dir: string) => string[]
+}
+
 export class GitHubRepositoryService {
+  private lifecycle: WorktreeLifecycleDeps | null = null
+
   constructor(private readonly gh: GhExec) {}
+
+  /**
+   * Wired after construction because the terminal manager is built first and
+   * the collaborators here predate it. Without it, removal still gets the
+   * structural/dirty checks, just not hooks or terminal teardown.
+   */
+  configureWorktreeLifecycle(deps: WorktreeLifecycleDeps): void {
+    this.lifecycle = deps
+  }
 
   async getCliStatus(input: GitHubWorkspaceInput): Promise<GitHubCliStatus> {
     return this.gh.detectCli(input.rootPath)
@@ -294,8 +317,41 @@ export class GitHubRepositoryService {
     }
     await this.gh.runGit(args, input.rootPath)
 
+    warning += await this.prepareNewWorktree(input.rootPath, absolutePath)
+
     const from = baseRef ? ` a partir de ${baseRef}` : ''
     return ok(`Worktree criado em ${absolutePath} (branch ${input.branch}${from}).${warning}`)
+  }
+
+  /**
+   * Applies the repo's oxe.yaml to a worktree that now exists: shared links
+   * first (so setup sees them), then the setup hook. Nothing here may fail the
+   * creation — the worktree is real by now — so problems become a warning.
+   */
+  private async prepareNewWorktree(rootPath: string, worktreePath: string): Promise<string> {
+    const config = (await loadRepoConfig(worktreePath)) ?? (await loadRepoConfig(rootPath))
+    if (!config) return ''
+    let notes = ''
+    if (config.worktree.sharedDirectories.length > 0) {
+      await createSharedLinks(rootPath, worktreePath, config.worktree.sharedDirectories)
+    }
+    const setup = config.scripts.setup
+    if (!setup) return notes
+    if (!this.lifecycle?.trust.isTrusted(rootPath, 'setup', setup)) {
+      return ' Aviso: o hook setup do oxe.yaml não foi aprovado e não foi executado.'
+    }
+    const outcome = await runHook(setup, {
+      cwd: worktreePath,
+      env: {
+        OXE_ROOT_PATH: rootPath,
+        OXE_WORKTREE_PATH: worktreePath,
+        OXE_WORKSPACE_NAME: worktreePath.replace(/\\/g, '/').split('/').pop() ?? ''
+      }
+    })
+    if (outcome.status === 'passed') notes += ' Hook setup concluído.'
+    else if (outcome.status === 'failed') notes += ` Aviso: o hook setup saiu com código ${outcome.exitCode}.`
+    else notes += ' Aviso: o hook setup não terminou de forma verificável.'
+    return notes
   }
 
   private async refExists(rootPath: string, ref: string): Promise<boolean> {
@@ -304,10 +360,14 @@ export class GitHubRepositoryService {
   }
 
   async removeWorktree(input: GitHubRemoveWorktreeInput): Promise<GitHubMessageResult> {
-    const args = ['worktree', 'remove']
-    if (input.force) args.push('--force')
-    args.push(input.path)
-    await this.gh.runGit(args, input.rootPath)
-    return ok(`Worktree em ${input.path} removido.`)
+    if (!this.lifecycle) {
+      // Not wired (tests, headless use): keep the original behaviour exactly.
+      const args = ['worktree', 'remove']
+      if (input.force) args.push('--force')
+      args.push(input.path)
+      await this.gh.runGit(args, input.rootPath)
+      return ok(`Worktree em ${input.path} removido.`)
+    }
+    return removeWorktreeSafely({ gh: this.gh, ...this.lifecycle }, input)
   }
 }

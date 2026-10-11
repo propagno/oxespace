@@ -63,6 +63,13 @@ const ALLOWED_FS_IMPORTS = new Set([
   // recovery. GitHubWorktreeApi owns creation; neither reads/writes source files.
   'electron/main/services/agent-launch.service.ts',
   'electron/main/services/delegation/delegation-git-provisioner.ts',
+  // Worktree lifecycle: reads only the bounded <root>/oxe.yaml, links/unlinks
+  // the repo's declared shared directories (lstat-guarded, never following a
+  // link) and finishes deleting a worktree folder git already de-registered.
+  // Source files are never read or written.
+  'electron/main/services/repo-config/loader.ts',
+  'electron/main/services/repo-config/shared-dirs.ts',
+  'electron/main/services/github/worktree-removal.ts',
   // Trusted UI repository registration: realpath identity probes only. No
   // source file reads/writes; evidence reads committed blobs through Git.
   'electron/main/services/coordination/workspace-resolver.ts',

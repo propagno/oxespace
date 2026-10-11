@@ -11,7 +11,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
  *  pre-migration backup (only back up when an upgrade will actually run).
  *  Exported so the migrations test can catch a constant that drifts from the
  *  version the SQL actually sets. */
-export const LATEST_DB_VERSION = 63
+export const LATEST_DB_VERSION = 64
 /** How many pre-migration backups to retain. */
 const MAX_DB_BACKUPS = 5
 
@@ -475,6 +475,7 @@ export function runMigrations(db: AppDatabase): void {
   if (startingVersion < 61) db.transaction(() => db.exec(readMigration('061_persistent_teams.sql')))()
   if (startingVersion < 62) db.transaction(() => db.exec(readMigration('062_team_delivery.sql')))()
   if (startingVersion < 63) db.transaction(() => db.exec(readMigration('063_mcp_thread_handoff.sql')))()
+  if (startingVersion < 64) db.transaction(() => db.exec(readMigration('064_repo_hook_trust.sql')))()
 }
 
 /** Rebuild the parent without cascading its children or rewriting their IDs. */

@@ -1,6 +1,7 @@
 import { AlertTriangle, Check, ChevronDown, ChevronRight, FolderOpen, FolderTree, GitBranch, Lock, Plus, RotateCw, Trash2, X } from 'lucide-react'
 import { Fragment, useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
-import type { GitHubWorktreeBase, GitHubWorktreeStatus } from '../../../shared/types/github'
+import { parseWorktreeRemovalError, type GitHubWorktreeBase, type GitHubWorktreeStatus } from '../../../shared/types/github'
+import type { RepoConfigSnapshot, RepoHookKind } from '../../../shared/types/repo-config'
 import type { WorkspacePane } from '../../../shared/types/workspace'
 import { selectWorktrees, useWorktreeStore } from '../../store/worktree.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
@@ -288,6 +289,8 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
         </div>
       ) : null}
 
+      <RepoHooksNotice rootPath={workspaceRootPath} />
+
       {onlyMainExists ? (
         <div className="worktree-panel-solo-hint" role="note">
           <FolderTree size={13} aria-hidden="true" />
@@ -514,6 +517,61 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
   )
 }
 
+const HOOK_LABEL: Record<RepoHookKind, string> = { setup: 'setup (ao criar um worktree)', archive: 'archive (antes de remover um worktree)' }
+
+/**
+ * Shows oxe.yaml hook scripts that have not been approved and lets the user
+ * approve exactly the text shown. Hooks run arbitrary shell, so an unapproved
+ * (or since-edited) script is never run — it just waits here.
+ */
+function RepoHooksNotice({ rootPath }: { rootPath: string }): ReactElement | null {
+  const [snapshot, setSnapshot] = useState<RepoConfigSnapshot | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    // Optional: absent bridges (tests, older preloads) just mean no notice.
+    void Promise.resolve(window.oxe.github.getRepoConfig?.({ rootPath }))
+      .then((next) => { if (!cancelled) setSnapshot(next ?? null) })
+      .catch(() => { if (!cancelled) setSnapshot(null) })
+    return () => { cancelled = true }
+  }, [rootPath])
+
+  const pending = (['setup', 'archive'] as RepoHookKind[]).filter(
+    (kind) => snapshot?.config?.scripts[kind] && snapshot.trusted[kind] === false
+  )
+  if (!snapshot || pending.length === 0) return null
+
+  const approve = async (kind: RepoHookKind): Promise<void> => {
+    const contentHash = snapshot.hashes[kind]
+    if (!contentHash) return
+    try {
+      setSnapshot(await window.oxe.github.approveRepoHook({ rootPath, kind, contentHash }))
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  return (
+    <div className="worktree-remove-confirm" role="group" aria-label="Hooks do oxe.yaml pendentes de aprovação">
+      {pending.map((kind) => (
+        <div key={kind}>
+          <div className="worktree-remove-confirm-head">
+            <AlertTriangle size={12} aria-hidden="true" />
+            <strong>Hook {HOOK_LABEL[kind]} aguardando aprovação</strong>
+          </div>
+          <pre className="worktree-remove-confirm-body">{snapshot.config?.scripts[kind]}</pre>
+          <div className="worktree-remove-confirm-actions">
+            <button type="button" className="primary-btn" onClick={() => void approve(kind)}>Aprovar este script</button>
+          </div>
+        </div>
+      ))}
+      {error ? <p className="worktree-remove-confirm-body" role="alert">{error}</p> : null}
+    </div>
+  )
+}
+
 /**
  * Removal confirmation. Its whole job is to answer one question before the
  * user commits: what is lost if this goes away?
@@ -694,7 +752,10 @@ function friendlyCreateError(err: unknown, path: string, createNewBranch: boolea
  * folder, not about the worktree.
  */
 function friendlyRemoveError(err: unknown): string {
-  const raw = err instanceof Error ? err.message : String(err)
+  const parsed = parseWorktreeRemovalError(err instanceof Error ? err.message : String(err))
+  const raw = parsed.message
+  if (parsed.code === 'archive-failed') return `${raw} Corrija o hook archive do oxe.yaml, ou remova mesmo assim.`
+  if (parsed.code === 'locked') return raw
   if (/main working tree/i.test(raw)) {
     return 'This is the main worktree — it can\'t be removed from inside the app. Remove other worktrees first, or delete the repo from disk.'
   }

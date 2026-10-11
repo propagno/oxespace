@@ -49,6 +49,9 @@ import type {
 } from '../../../../shared/types/github'
 import { GhExec, type SpawnAsyncFn } from './gh-exec'
 import { GitHubRepositoryService } from './repository.service'
+import { snapshotRepoConfig } from '../repo-config/loader'
+import { RepoHookTrust } from '../repo-config/trust'
+import type { RepoConfigSnapshot, RepoHookKind } from '../../../../shared/types/repo-config'
 import { GitHubReviewService } from './review.service'
 import { GitHubActionsService } from './actions.service'
 import { GitHubCheckpointService } from './checkpoints.service'
@@ -66,6 +69,7 @@ export class GitHubService {
   private readonly review: GitHubReviewService
   private readonly actions: GitHubActionsService
   private readonly checkpoints: GitHubCheckpointService
+  private readonly hookTrust: RepoHookTrust
 
   constructor(db: AppDatabase, options: { spawnCommand?: SpawnAsyncFn; now?: () => number } = {}) {
     // One kernel, four collaborators. The CLI and repository caches live here,
@@ -75,6 +79,34 @@ export class GitHubService {
     this.review = new GitHubReviewService(this.gh)
     this.actions = new GitHubActionsService(this.gh)
     this.checkpoints = new GitHubCheckpointService(db, this.gh)
+    this.hookTrust = new RepoHookTrust(db)
+  }
+
+  /**
+   * Hooks the repo's oxe.yaml lifecycle (setup/archive, shared links, terminal
+   * teardown) into worktree create/remove. `trust` is built from this
+   * service's own database so approvals live next to the rest of app state.
+   */
+  configureWorktreeLifecycle(options: { stopTerminalsWithin?: (dir: string) => string[] } = {}): void {
+    this.repository.configureWorktreeLifecycle({ trust: this.hookTrust, ...options })
+  }
+
+  /**
+   * Approves the script currently on disk, but only if its hash is the one the
+   * user was shown — an oxe.yaml edited between display and click is refused.
+   */
+  async approveRepoHook(rootPath: string, kind: RepoHookKind, contentHash: string): Promise<RepoConfigSnapshot> {
+    const current = await snapshotRepoConfig(rootPath, this.hookTrust)
+    const script = current.config?.scripts[kind]
+    if (!script || current.hashes[kind] !== contentHash) {
+      throw new Error('O hook mudou desde que foi exibido. Revise o oxe.yaml e aprove novamente.')
+    }
+    this.hookTrust.approve(rootPath, kind, script)
+    return snapshotRepoConfig(rootPath, this.hookTrust)
+  }
+
+  repoConfigSnapshot(rootPath: string): Promise<RepoConfigSnapshot> {
+    return snapshotRepoConfig(rootPath, this.hookTrust)
   }
 
   invalidateCaches(cwd: string): void {

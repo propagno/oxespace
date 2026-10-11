@@ -533,6 +533,25 @@ export class TerminalManager {
     }
   }
 
+  /**
+   * Stops every session whose launch directory is `dir` or inside it and
+   * returns the pane ids. Used before deleting a worktree: a shell holding the
+   * directory as its cwd would make the delete fail on Windows.
+   */
+  stopWithin(dir: string): string[] {
+    const norm = (p: string): string => p.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+    const root = norm(dir)
+    const stopped: string[] = []
+    for (const session of [...this.sessions.values()]) {
+      const cwd = norm(session.launchDirectory)
+      if (cwd === root || cwd.startsWith(root + '/')) {
+        this.stop({ paneId: session.paneId })
+        stopped.push(session.paneId)
+      }
+    }
+    return stopped
+  }
+
   stopAll(): void {
     for (const controller of this.launchControllers.values()) controller.abort()
     for (const paneId of [...this.sessions.keys()]) {

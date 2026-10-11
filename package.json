@@ -75,6 +75,7 @@
     "electron-updater": "^6.8.9",
     "ignore": "^7.0.5",
     "jsonc-parser": "^3.3.1",
+    "js-yaml": "^4.3.0",
     "lucide-react": "^0.468.0",
     "monaco-editor": "^0.55.1",
     "picomatch": "^4.0.4",
