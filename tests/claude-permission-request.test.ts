@@ -3,6 +3,8 @@ import { ClaudeConversationAdapter } from '../electron/main/services/conversatio
 import { describePermissionRequest } from '../electron/main/services/conversation/claude-permission-request'
 import type { ThreadEvent } from '../shared/types/thread'
 
+const PLAN = ['## Plan', '1. Add the index', '2. Backfill'].join('\n')
+
 describe('describePermissionRequest', () => {
   it('uses the CLI-provided title and explains why it is asking', () => {
     const p = describePermissionRequest(
@@ -30,6 +32,19 @@ describe('describePermissionRequest', () => {
     expect(scoped.decisions).toEqual(['accept', 'acceptForSession', 'decline'])
     expect(scoped.suggestions).toHaveLength(1)
     expect(scoped.toolUseId).toBe('toolu_1')
+  })
+
+  it('shows a plan as prose and never offers to remember the approval', () => {
+    const p = describePermissionRequest(
+      { permission_suggestions: [{ type: 'setMode', mode: 'acceptEdits' }], tool_use_id: 'toolu_p' },
+      'ExitPlanMode',
+      { plan: PLAN }
+    )
+    expect(p.title).toBe('Aprovar o plano?')
+    expect(p.detail).toBe(PLAN)
+    expect(p.suggestions).toEqual([])
+    expect(p.decisions).toEqual(['accept', 'decline'])
+    expect(p.toolUseId).toBe('toolu_p')
   })
 
   it('strips control characters and bounds untrusted text', () => {

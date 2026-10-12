@@ -33,6 +33,19 @@ export function describePermissionRequest(
   toolName: string,
   input: Record<string, unknown>
 ): ClaudePermissionPresentation {
+  const toolUseIdEarly = pick(request, 'tool_use_id', 'toolUseID', 'toolUseId')
+  // A plan is reviewed, not "allowed": show it as prose and never offer to
+  // remember the decision, since approving one plan says nothing about the next.
+  if (toolName === 'ExitPlanMode' && typeof input.plan === 'string' && input.plan.trim()) {
+    return {
+      title: pick(request, 'title') || 'Aprovar o plano?',
+      detail: input.plan.trim().slice(0, 12000),
+      suggestions: [],
+      ...(toolUseIdEarly ? { toolUseId: toolUseIdEarly } : {}),
+      decisions: ['accept', 'decline']
+    }
+  }
+
   const displayName = pick(request, 'display_name', 'displayName') || toolName
   const title = pick(request, 'title') || `Approve ${displayName}`
 
