@@ -1,18 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AlertCircle, Check, Shield, X } from 'lucide-react'
-import type { ThreadRequest, ThreadRequestResponse } from '../../../shared/types/thread'
+import type { ThreadPermissionSuggestion, ThreadRequest, ThreadRequestResponse } from '../../../shared/types/thread'
 import { ThreadApprovalDetails } from './ThreadApprovalDetails'
 import { requestOutcomeLabel } from '../../../shared/threadRequestOutcome'
 
 // In-memory only: preserve drafts across view remounts, never persist secrets.
 const drafts = new Map<string, Record<string, string[]>>()
 
-export function ThreadRequestCard({ request, disabled, turnResult, onRespond, conversationId = '' }: {
+export function ThreadRequestCard({ request, disabled, turnResult, onRespond, onRemember, conversationId = '' }: {
   request: ThreadRequest
   conversationId?: string
   disabled: boolean
   turnResult?: 'completed' | 'failed' | 'interrupted'
   onRespond: (response: ThreadRequestResponse) => Promise<void>
+  /** Saves allow rules for this project; the request is approved afterwards. */
+  onRemember?: (suggestions: ThreadPermissionSuggestion[]) => Promise<void>
 }) {
   const draftKey = `${conversationId}:${request.generation}:${request.id}:${request.createdAt}`
   const [answers, setAnswers] = useState<Record<string, string[]>>(() => drafts.get(draftKey) ?? {})
@@ -49,10 +51,18 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond, co
     try { await onRespond(response); drafts.delete(draftKey) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not answer this request') }
     finally { inFlight.current = false; setSending(false) }
   }
+  const policy = request.policy
+  const remember = policy?.decision === 'ask' && policy.suggestions?.length && onRemember && request.availableDecisions?.includes('accept') !== false ? policy.suggestions : undefined
+  const rememberAndApprove = async (suggestions: ThreadPermissionSuggestion[]) => {
+    if (inFlight.current) return
+    setError('')
+    try { await onRemember!(suggestions) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save the rule'); return }
+    await submit({ decision: 'accept' })
+  }
   if (request.state !== 'pending') return <details className={`thread-request-history is-${request.state}`}>
     <summary className="thread-request is-resolved">
     {request.resolution === 'answered' || request.resolution === 'approved' ? <Check size={13} /> : <AlertCircle size={13} />}
-    <span><strong>{request.questions?.[0]?.question ?? request.title}</strong><small>{requestOutcomeLabel(request)}{request.resolution === 'answered' && turnResult === 'failed' ? ' · The turn failed afterward; see the error below.' : request.resolution === 'answered' && turnResult === 'interrupted' ? ' · The turn was interrupted afterward.' : ''}</small></span>
+    <span><strong>{request.questions?.[0]?.question ?? request.title}</strong><small>{requestOutcomeLabel(request)}{policy && policy.decision !== 'ask' && (request.resolution === 'approved' || request.resolution === 'declined') ? ' · by a permission rule' : ''}{request.resolution === 'answered' && turnResult === 'failed' ? ' · The turn failed afterward; see the error below.' : request.resolution === 'answered' && turnResult === 'interrupted' ? ' · The turn was interrupted afterward.' : ''}</small></span>
     {request.resolvedAt && <time title={new Date(request.resolvedAt).toLocaleString()}>{new Date(request.resolvedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>}
     </summary>
     <div className="thread-request-history-content">
@@ -60,6 +70,7 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond, co
       {request.command || request.detail ? <pre>{request.command ?? request.detail}</pre> : null}
       {request.cwd && <p>Directory: {request.cwd}</p>}
       {request.reason && <p>Reason: {request.reason}</p>}
+      {policy && policy.reasons.length > 0 && <p>Permission rules: {policy.reasons.join(' ')}</p>}
       {request.questions?.map(question => <div key={question.id}><strong>{question.question}</strong>{question.options?.length ? <ul>{question.options.map((option, index) => <li key={index}>{option.label}{option.description ? ` — ${option.description}` : ''}</li>)}</ul> : null}</div>)}
       {request.requestedPermissions && <pre>{JSON.stringify(request.requestedPermissions, null, 2)}</pre>}
     </div>
@@ -69,6 +80,10 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond, co
     {request.kind === 'elicitation' && <p className="thread-request-context">This MCP server requested confirmation or information. Full access controls filesystem and command access; it does not answer MCP requests.</p>}
     {request.kind === 'approval' && request.nativeMethod?.startsWith('can_use_tool:mcp__') && <p className="thread-request-context">This request comes from an MCP tool. Full access does not approve requests made by the connected provider or MCP server.</p>}
     {request.kind === 'approval' && <ThreadApprovalDetails command={request.command ?? request.detail ?? ''} cwd={request.cwd} reason={request.reason} fileChanges={request.title === 'Approve file changes'} toolName={request.nativeMethod?.startsWith('can_use_tool:') ? request.nativeMethod.slice('can_use_tool:'.length) : undefined} />}
+    {request.kind === 'approval' && policy?.decision === 'ask' && policy.reasons.length > 0 && <div className={`thread-request-policy${policy.risk ? ' is-high-risk' : ''}`}>
+      {policy.risk && <strong>High-risk command</strong>}
+      <ul>{policy.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul>
+    </div>}
     {(request.questions?.length ?? 0) > 1 && <nav className="thread-question-steps" aria-label="Questions"><button type="button" disabled={step === 0 || disabled} onClick={() => setStep(value => value - 1)}>Previous</button><span role="status" className="thread-question-progress">{request.questions!.map((question, index) => <i key={question.id} aria-hidden="true" className={index === step ? 'is-current' : (answers[question.id]?.some(value => value.trim()) ? 'is-answered' : undefined)} />)}<span>Question {step + 1} of {request.questions!.length}</span></span><button type="button" disabled={step === request.questions!.length - 1 || disabled} onClick={() => setStep(value => value + 1)}>Next</button></nav>}
     {request.questions?.length ? <div className="thread-question-body">{request.questions.map((question, index) => <fieldset key={question.id} disabled={disabled} hidden={index !== step}>
       <legend>{question.header && <small>{question.header}</small>}{question.question}</legend>
@@ -96,6 +111,7 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond, co
       {request.kind === 'elicitation' && <button type="button" disabled={disabled || [...required].some(name => form[name] === undefined || form[name] === '')} onClick={() => void submit({ decision: 'accept', content: form })}>Continue</button>}
       {request.kind === 'permissions' && <><button type="button" disabled={disabled} onClick={() => void submit({ decision: 'accept', permissions: request.requestedPermissions ?? {}, scope: 'turn' })}>Allow this turn</button><button type="button" disabled={disabled} onClick={() => void submit({ decision: 'accept', permissions: request.requestedPermissions ?? {}, scope: 'session' })}>Allow session</button></>}
       {request.kind === 'approval' && (request.availableDecisions ?? ['accept', 'decline']).filter(decision => decision === 'accept' || decision === 'acceptForSession').map(decision => <button type="button" key={decision} disabled={disabled} onClick={() => void submit({ decision })}>{decision === 'acceptForSession' ? 'Allow session' : 'Approve'}</button>)}
+      {request.kind === 'approval' && remember && <button type="button" className="thread-request-remember" disabled={disabled} title={`Saves ${remember.map(item => item.pattern).join(', ')} as an allow rule for this project`} onClick={() => void rememberAndApprove(remember)}>Always allow {remember.map(item => item.label).join(', ')}</button>}
       <button type="button" className="thread-request-decline" disabled={disabled} onClick={() => void submit({ decision: request.availableDecisions?.includes('cancel') ? 'cancel' : 'decline' })}><X size={13} />{request.availableDecisions?.includes('cancel') ? 'Cancel' : 'Decline'}</button>
     </footer>
   </section>

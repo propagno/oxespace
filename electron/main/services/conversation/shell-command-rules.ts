@@ -23,12 +23,17 @@ export interface ShellEvaluation {
   /** Why, in terms a person can read; one entry per relevant sub-command. */
   reasons: string[]
   subcommands: string[]
+  /** The deny came from the built-in list, not from a rule someone wrote. */
+  byDefault?: true
 }
 
 /** Commands that are denied unless a rule explicitly allows them... and even then they only ask. */
 const DEFAULT_DENY = new Set([
   'rm', 'rmdir', 'del', 'erase', 'rd', 'curl', 'wget', 'invoke-webrequest', 'iwr', 'chmod', 'chown', 'eval', 'sudo', 'su',
-  'dd', 'mkfs', 'format', 'shutdown', 'reboot', 'kill', 'killall', 'taskkill', 'ssh', 'scp', 'nc', 'ncat', 'powershell', 'pwsh'
+  'dd', 'mkfs', 'format', 'shutdown', 'reboot', 'kill', 'killall', 'taskkill', 'ssh', 'scp', 'nc', 'ncat', 'powershell', 'pwsh',
+  // PowerShell equivalents (names are compared lower-case).
+  'remove-item', 'ri', 'clear-content', 'invoke-expression', 'iex', 'invoke-restmethod', 'irm', 'start-process', 'stop-process',
+  'set-executionpolicy', 'format-volume', 'clear-disk', 'remove-itemproperty'
 ])
 
 /** Interpreters and shells: allowing one is allowing everything, so they are never suggested. */
@@ -49,7 +54,8 @@ const DANGEROUS_FLAGS: Array<{ command: string; flag: RegExp; why: string }> = [
   { command: 'find', flag: /^-(exec|execdir|delete|ok|okdir|fprint|fls)\b/, why: 'find pode executar ou apagar arquivos' },
   { command: 'sed', flag: /^-i/, why: 'sed -i edita arquivos' },
   { command: 'rg', flag: /^--(pre|hostname-bin)/, why: 'rg --pre executa um programa' },
-  { command: 'git', flag: /^(-c|--exec-path|--upload-pack|--receive-pack)/, why: 'esta opção do git pode executar programas' }
+  { command: 'git', flag: /^(-c|--exec-path|--upload-pack|--receive-pack)/, why: 'esta opção do git pode executar programas' },
+  { command: 'git', flag: /^(-f|--force|--force-with-lease|--force-if-includes|-D|--hard|--mirror)$/, why: 'esta opção do git descarta ou sobrescreve trabalho' }
 ]
 
 /** Splits on unquoted `&&`, `||`, `;`, `|`, `&` and newlines; null when it cannot be done safely. */
@@ -159,7 +165,7 @@ export function evaluateShellCommand(line: string, rules: ShellRules): ShellEval
     const explicitlyAllowed = rules.allow.some((rule) => ruleMatches(rule, sub, tokens))
 
     if (DEFAULT_DENY.has(head) && !explicitlyAllowed) {
-      return { decision: 'deny', reasons: [`"${head}" é bloqueado por padrão.`], subcommands }
+      return { decision: 'deny', reasons: [`"${head}" é bloqueado por padrão.`], subcommands, byDefault: true }
     }
     const flag = dangerousFlag(tokens)
     if (flag) {

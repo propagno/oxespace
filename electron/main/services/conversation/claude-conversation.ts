@@ -290,7 +290,10 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
               this.approvals.set(event.request_id, { input, toolName, questions: nativeQuestions })
               this.emit({ type: 'request', id: event.request_id, request: { id: event.request_id, nativeId: event.request_id, nativeMethod: 'can_use_tool:AskUserQuestion', kind: 'question', title: 'Claude needs your input', generation: 0, createdAt: Date.now(), state: 'pending', questions } })
             } else {
-              this.emit({ type: 'request', id: event.request_id, request: { id: event.request_id, nativeId: event.request_id, nativeMethod: `can_use_tool:${toolName}`, kind: 'approval', title: permission.title, detail: permission.detail, generation: 0, createdAt: Date.now(), state: 'pending', availableDecisions: permission.decisions } })
+              // The command and target files let OXESpace's permission rules answer the prompt.
+              const command = toolName === 'Bash' && typeof input.command === 'string' ? input.command.slice(0, 12000) : undefined
+              const paths = [input.file_path, input.notebook_path].filter((value): value is string => typeof value === 'string' && value.length > 0 && value.length <= 4096)
+              this.emit({ type: 'request', id: event.request_id, request: { id: event.request_id, nativeId: event.request_id, nativeMethod: `can_use_tool:${toolName}`, kind: 'approval', title: permission.title, detail: permission.detail, generation: 0, createdAt: Date.now(), state: 'pending', availableDecisions: permission.decisions, toolName, ...(command ? { command } : {}), ...(paths.length ? { paths } : {}) } })
               this.emit({ type: 'approval', id: event.request_id, title: permission.title, detail: permission.detail })
             }
           } else transport.write(JSON.stringify({ type: 'control_response', response: { subtype: 'error', request_id: event.request_id, error: 'Unsupported host request' } }) + '\n')
@@ -419,7 +422,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
     if (pending.questions && response.answers && [...pending.questions.keys()].some(id => !response.answers![id]?.some(value => value.trim()))) throw Error('Answer every question before sending.')
     const updatedInput = pending.toolName === 'AskUserQuestion' ? { ...pending.input, answers: Object.fromEntries(answers) } : pending.input
     const accept = response.decision ? ['accept', 'acceptForSession'].includes(response.decision) : Boolean(response.answers)
-    this.transport.write(JSON.stringify({ type: 'control_response', response: { subtype: 'success', request_id: requestId, response: accept ? { behavior: 'allow', updatedInput, ...(response.decision === 'acceptForSession' && pending.suggestions?.length ? { updatedPermissions: pending.suggestions } : {}), ...(pending.toolUseId ? { toolUseID: pending.toolUseId } : {}) } : { behavior: 'deny', message: response.decision === 'cancel' ? 'Cancelled by the user' : 'Declined by the user' } } }) + '\n')
+    this.transport.write(JSON.stringify({ type: 'control_response', response: { subtype: 'success', request_id: requestId, response: accept ? { behavior: 'allow', updatedInput, ...(response.decision === 'acceptForSession' && pending.suggestions?.length ? { updatedPermissions: pending.suggestions } : {}), ...(pending.toolUseId ? { toolUseID: pending.toolUseId } : {}) } : { behavior: 'deny', message: response.reason?.slice(0, 1000) || (response.decision === 'cancel' ? 'Cancelled by the user' : 'Declined by the user') } } }) + '\n')
     this.approvals.delete(requestId)
     this.emit({ type: 'request-resolved', id: requestId, ...requestOutcome(pending.toolName === 'AskUserQuestion' ? 'question' : 'approval', response), resolvedAt: Date.now() })
     this.emit({ type: 'approval-resolved', id: requestId })

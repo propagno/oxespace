@@ -255,6 +255,24 @@
 .thread-live-activity-main strong { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
 .thread-live-activity-main time { margin-left: auto; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--tx-muted); }
 .thread-live-activity-main time { flex-shrink: 0; }
+.thread-permissions { display: grid; gap: 16px; font-size: var(--fs-sm); }
+.thread-permissions h3 { margin: 0 0 6px; font-size: var(--fs-sm); }
+.thread-permissions p { margin: 0 0 8px; color: var(--tx-secondary); line-height: 1.5; }
+.thread-permissions-rules, .thread-permissions-audit { display: grid; gap: 4px; margin: 0 0 8px; padding: 0; list-style: none; max-height: 260px; overflow: auto; }
+.thread-permissions-rules li { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 4px 6px; border: 1px solid var(--bd-base); border-radius: 6px; }
+.thread-permissions-rules code { overflow-wrap: anywhere; }
+.thread-permissions-rules small { color: var(--tx-secondary); }
+.thread-permissions-decision.is-deny { color: var(--dot-red); }
+.thread-permissions-add { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.thread-permissions-add input[aria-label="Rule pattern"] { flex: 1 1 180px; min-width: 0; }
+.thread-permissions-scope { display: flex; gap: 12px; margin-bottom: 6px; }
+.thread-permissions-audit li { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 8px; color: var(--tx-secondary); font-size: var(--fs-xs); }
+.thread-permissions-audit li span:last-child { color: var(--tx-primary); overflow-wrap: anywhere; }
+.thread-permissions-actor.is-policy { color: var(--accent, inherit); }
+.thread-request-policy { margin: 8px 12px; padding: 8px 10px; border: 1px solid var(--bd-base); border-radius: 6px; color: var(--tx-secondary); font-size: var(--fs-xs); line-height: 1.5; overflow-wrap: anywhere; }
+.thread-request-policy ul { margin: 0; padding-left: 16px; }
+.thread-request-policy.is-high-risk { border-color: var(--dot-red); }
+.thread-request-policy.is-high-risk strong { display: block; margin-bottom: 4px; color: var(--dot-red); }
 .thread-request-context { margin: 8px 12px; color: var(--tx-secondary); font-size: var(--fs-xs); line-height: 1.5; overflow-wrap: anywhere; }
 .thread-pending-requests { max-height: min(60vh, 600px); min-height: 0; overflow-y: auto; overflow-x: hidden; flex-shrink: 1; }
 .thread-pending-requests .thread-request { margin: 6px 0; }

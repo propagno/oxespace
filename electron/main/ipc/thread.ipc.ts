@@ -192,6 +192,26 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings): { st
   ipcMain.handle(IPC_CHANNELS.thread.send, (event, id: unknown, text: unknown, attachmentIds: unknown) => { sender(event); return manager.then(service => service.send(string(id), string(text), stringList(attachmentIds, 8))) })
   ipcMain.handle(IPC_CHANNELS.thread.turnFiles, (event, id: unknown, turnId: unknown) => { sender(event); return manager.then(service => service.turnFiles(string(id), string(turnId))) })
   ipcMain.handle(IPC_CHANNELS.thread.undoTurnFile, (event, id: unknown, turnId: unknown, path: unknown) => { sender(event); return manager.then(service => service.undoTurnFile(string(id), string(turnId), string(path))) })
+  ipcMain.handle(IPC_CHANNELS.thread.permissionRules, (event, id: unknown) => { sender(event); return manager.then(service => service.permissionRules(string(id))) })
+  ipcMain.handle(IPC_CHANNELS.thread.addPermissionRule, (event, id: unknown, rule: unknown) => {
+    sender(event)
+    if (!rule || typeof rule !== 'object' || Array.isArray(rule)) throw Error('Invalid permission rule')
+    const value = rule as Record<string, unknown>
+    if (value.kind !== 'command' && value.kind !== 'path') throw Error('Invalid permission rule kind')
+    if (value.decision !== 'allow' && value.decision !== 'deny') throw Error('Invalid permission rule decision')
+    if (value.scope !== 'project' && value.scope !== 'global') throw Error('Invalid permission rule scope')
+    const input = { kind: value.kind, pattern: string(value.pattern), decision: value.decision, scope: value.scope } as const
+    return manager.then(service => service.addPermissionRule(string(id), input))
+  })
+  ipcMain.handle(IPC_CHANNELS.thread.removePermissionRule, (event, id: unknown, ruleId: unknown) => { sender(event); return manager.then(service => service.removePermissionRule(string(id), string(ruleId))) })
+  ipcMain.handle(IPC_CHANNELS.thread.auditLog, (event, id: unknown, options: unknown) => {
+    sender(event)
+    const value = options && typeof options === 'object' && !Array.isArray(options) ? options as Record<string, unknown> : {}
+    const scope = value.scope === 'project' ? 'project' as const : 'thread' as const
+    const before = typeof value.before === 'number' && Number.isFinite(value.before) ? value.before : undefined
+    const limit = typeof value.limit === 'number' && Number.isInteger(value.limit) ? value.limit : undefined
+    return manager.then(service => service.auditLog(string(id), { scope, before, limit }))
+  })
   ipcMain.handle(IPC_CHANNELS.thread.stopTask, (event, id: unknown, taskId: unknown) => { sender(event); return manager.then(service => service.stopTask(string(id), string(taskId))) })
   ipcMain.handle(IPC_CHANNELS.thread.steer, (event, id: unknown, text: unknown, attachmentIds: unknown) => { sender(event); return manager.then(service => service.steer(string(id), string(text), stringList(attachmentIds, 8))) })
   ipcMain.handle(IPC_CHANNELS.thread.updateQueued, (event, id: unknown, itemId: unknown, text: unknown) => { sender(event); return manager.then(service => service.updateQueued(string(id), string(itemId), string(text))) })

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../../db'
-import type { AgentConversationAdapter, ConversationThread, ThreadAgentInput, ThreadCommandCatalog, ThreadEvent, ThreadSnapshot, ThreadRequestResponse, ThreadQueuedInput, ThreadContextReport, ThreadRewindResult } from '../../../../shared/types/thread'
+import type { AgentConversationAdapter, ConversationThread, ThreadAgentInput, ThreadCommandCatalog, ThreadEvent, ThreadSnapshot, ThreadRequest, ThreadRequestResponse, ThreadQueuedInput, ThreadContextReport, ThreadRewindResult, ThreadAuditEntry, ThreadPermissionRule } from '../../../../shared/types/thread'
 import type { ThreadNativeCli } from './thread-cli'
 import type { ThreadModelCatalog, ThreadConfiguration, ThreadCommandResult } from '../../../../shared/types/thread'
 import type { ThreadModelService } from './thread-models'
@@ -26,6 +26,7 @@ import { ThreadSessionSupervisor } from './thread-session-supervisor'
 import { ThreadExportService } from './thread-export.service'
 import { ThreadPortableService } from './thread-portable'
 import { ThreadCheckpointService } from './thread-checkpoints'
+import { ThreadPermissionStore } from './thread-permissions'
 import { recordRuntime } from '../runtime-diagnostics'
 import { hasUnconfirmedTurnTools, recoverPublicTurn } from './thread-result-recovery'
 import type { NativeStateResult } from './codex-state-reader'
@@ -46,6 +47,13 @@ function settleCompletedHistoryTools(events: ThreadEvent[]): number {
     turnStart = index + 1
   })
   return earliest
+}
+
+/** What an approval was about, for the audit trail. */
+function requestSubject(request: ThreadRequest): string {
+  if (request.command) return `command: ${request.command.slice(0, 500)}`
+  if (request.paths?.length) return `${request.toolName ?? 'edit'}: ${request.paths.join(', ').slice(0, 500)}`
+  return request.title
 }
 
 export class ThreadOrchestrator {
@@ -71,6 +79,7 @@ export class ThreadOrchestrator {
   private readonly exports: ThreadExportService
   private readonly portable = new ThreadPortableService()
   private readonly checkpoints: ThreadCheckpointService
+  private readonly permissions: ThreadPermissionStore
   private readonly turnCheckpoints = new Map<string, string>()
   private readonly busy = new Set<string>()
   private readonly nativePageLoads = new Map<string, Promise<void>>()
@@ -96,6 +105,8 @@ export class ThreadOrchestrator {
     this.history = new ThreadHistory(db)
     this.exports = new ThreadExportService((threadId, artifactId) => this.history.artifact(threadId, artifactId))
     this.checkpoints = new ThreadCheckpointService(db)
+    this.permissions = new ThreadPermissionStore(db)
+    try { this.permissions.prune() } catch { /* Audit retention is best effort. */ }
     // A persisted running state is not proof that its process survived a restart.
     for (const row of db.prepare('SELECT id FROM conversation_threads').all() as { id: string }[]) {
       const snapshot = this.history.read(row.id)
@@ -478,6 +489,7 @@ export class ThreadOrchestrator {
     const checkpoint = this.checkpoints.forTurn(id, turnId)
     if (!checkpoint) throw Error('No checkpoint exists for this turn')
     await this.checkpoints.restoreFile(id, checkpoint.id, path)
+    this.audit(id, { action: 'undo-file', actor: 'user', summary: `Undid ${path}` })
     this.changed(id)
   }
 
@@ -498,8 +510,13 @@ export class ThreadOrchestrator {
     const snapshot = this.read(id), generation = snapshot.thread.generation ?? 1
     const adapter = this.adapters.get(id)
     if (!adapter) throw new Error('Request has no live execution')
+    const request = this.requests.list(id, generation).find(value => value.id === requestId)
     if (adapter.respondRequest) await this.requests.resolve(id, requestId, generation, response)
     else await adapter.approve(requestId, response.decision === 'accept' || response.decision === 'acceptForSession' ? 'accept' : 'decline')
+    if (request && (request.kind === 'approval' || request.kind === 'permissions')) {
+      const verb = response.decision === 'acceptForSession' ? 'Allowed for the session' : response.decision === 'accept' || response.permissions ? 'Allowed' : 'Declined'
+      this.audit(id, { action: 'approval', actor: 'user', summary: `${verb} ${requestSubject(request)}` })
+    }
   }
 
   async steer(id: string, text: string, attachmentIds: string[] = []): Promise<void> {
@@ -614,6 +631,7 @@ export class ThreadOrchestrator {
           result.fileError = error instanceof Error ? error.message : 'Files could not be restored.'
         }
       }
+      this.audit(id, { action: 'rewind', actor: 'user', summary: `Rewound ${result.removedTurns} turn${result.removedTurns === 1 ? '' : 's'}${result.restoredFiles !== undefined ? `, restored ${result.restoredFiles} file${result.restoredFiles === 1 ? '' : 's'}` : ''}`, ...(result.fileError ? { detail: result.fileError } : {}) })
       return result
     } finally { this.configuring.delete(id) }
   }
@@ -887,6 +905,8 @@ export class ThreadOrchestrator {
     if (event.type === 'request') {
       const adapter = this.adapters.get(id)
       event.request.generation = snapshot.thread.generation ?? 1
+      const policy = this.evaluatePolicy(snapshot.thread.rootPath, event.request)
+      if (policy) event.request.policy = policy
       if (adapter?.respondRequest) this.requests.register(id, event.request, response => adapter.respondRequest!(event.id, response), expired => {
         try { this.event(id, { type: 'request-resolved', id: expired.id, state: 'expired', resolution: 'unknown', resolvedAt: expired.resolvedAt }, expired.generation) }
         catch { /* The conversation may have been deleted while the timer was pending. */ }
@@ -909,6 +929,55 @@ export class ThreadOrchestrator {
     this.runEffects(id, snapshot, event, result.before)
     if (result.save) this.save(snapshot, result.save)
     this.runEffects(id, snapshot, event, result.after)
+    if (event.type === 'request' && event.request.policy && event.request.policy.decision !== 'ask' && this.adapters.get(id)?.respondRequest) {
+      // After the adapter has finished announcing the request (Claude emits `approval` right after it).
+      const request = event.request
+      queueMicrotask(() => { void this.applyPolicy(id, request) })
+    }
+  }
+
+  private evaluatePolicy(rootPath: string, request: ThreadRequest) {
+    try { return this.permissions.evaluate(rootPath, request) } catch { return undefined }
+  }
+
+  /** Answers a request the permission rules decided; on any failure the person still sees the prompt. */
+  private async applyPolicy(id: string, request: ThreadRequest): Promise<void> {
+    const policy = request.policy!, allow = policy.decision === 'allow', decision = allow ? 'accept' as const : 'decline' as const
+    if (request.availableDecisions && !request.availableDecisions.includes(decision)) return
+    try {
+      await this.requests.resolve(id, request.id, request.generation, allow ? { decision } : { decision, reason: `Blocked by an OXESpace permission rule. ${policy.reasons.join(' ')}`.trim() })
+      this.audit(id, { action: 'policy', actor: 'policy', summary: `${allow ? 'Allowed' : 'Declined'} ${requestSubject(request)}`, detail: policy.reasons.join('\n') })
+    } catch { /* Still pending: the person answers it. */ }
+  }
+
+  /** Records a decision; auditing never interrupts the action it describes. */
+  private audit(id: string, entry: Omit<ThreadAuditEntry, 'id' | 'at' | 'threadId' | 'projectRoot'>): void {
+    try { this.permissions.audit({ ...entry, threadId: id, projectRoot: this.read(id).thread.rootPath }) } catch { /* best effort */ }
+  }
+
+  /** Rules that answer this conversation's approvals: its project's and the global ones. */
+  permissionRules(id: string): ThreadPermissionRule[] {
+    return this.permissions.rules(this.read(id).thread.rootPath)
+  }
+
+  addPermissionRule(id: string, input: { kind: ThreadPermissionRule['kind']; pattern: string; decision: ThreadPermissionRule['decision']; scope: 'project' | 'global' }): ThreadPermissionRule {
+    const rootPath = this.read(id).thread.rootPath
+    const rule = this.permissions.add({ projectRoot: input.scope === 'global' ? null : rootPath, kind: input.kind, pattern: input.pattern, decision: input.decision })
+    this.audit(id, { action: 'rule-added', actor: 'user', summary: `${rule.decision === 'allow' ? 'Allow' : 'Deny'} ${rule.kind} ${rule.pattern}${rule.projectRoot ? '' : ' (all projects)'}` })
+    return rule
+  }
+
+  removePermissionRule(id: string, ruleId: string): void {
+    const rootPath = this.read(id).thread.rootPath
+    const rule = this.permissions.rules(rootPath).find(value => value.id === ruleId)
+    if (!rule) throw Error('That rule does not apply to this project')
+    this.permissions.remove(ruleId)
+    this.audit(id, { action: 'rule-removed', actor: 'user', summary: `Removed ${rule.decision} ${rule.kind} ${rule.pattern}${rule.projectRoot ? '' : ' (all projects)'}` })
+  }
+
+  auditLog(id: string, options: { scope?: 'thread' | 'project'; before?: number; limit?: number } = {}): ThreadAuditEntry[] {
+    const thread = this.read(id).thread
+    return this.permissions.auditLog(options.scope === 'project' ? { projectRoot: thread.rootPath, before: options.before, limit: options.limit } : { threadId: id, before: options.before, limit: options.limit })
   }
 
   /** Executes reducer effects; the only place event handling touches ownership, history and timers. */

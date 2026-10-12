@@ -63,6 +63,10 @@ const ALLOWED_FS_IMPORTS = new Set([
   // /instructions: stats the CLAUDE.md / AGENTS.md files the provider CLI
   // would load and lists .claude/rules. Never reads contents, never writes.
   'electron/main/services/conversation/instruction-sources.ts',
+  // Permission rules: only realpath() on paths an agent asked to edit, so a
+  // link or junction out of the project is judged by its target. Never reads
+  // or writes file contents.
+  'electron/main/services/conversation/thread-permissions.ts',
   // Model-default detection reads only the fixed, size-bounded provider
   // settings files (project .claude/.codex and the user's provider home).
   'electron/main/services/conversation/thread-model-override.ts',

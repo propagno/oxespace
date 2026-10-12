@@ -87,7 +87,7 @@ export interface ThreadCapabilityManifest {
 export interface ThreadUsageWindow { label: string; usedPercent: number; resetsAt?: number; windowMinutes?: number }
 export interface ThreadUsage { windows: ThreadUsageWindow[]; checkedAt: number }
 export interface ThreadFailure { id: string; occurredAt: number; code: 'authentication' | 'usage' | 'rate-limit' | 'context' | 'budget' | 'server' | 'network' | 'sandbox' | 'configuration' | 'session-busy' | 'unknown'; message: string; detail?: string; providerCode?: string; httpStatus?: number; usage?: ThreadUsage; usageUnavailable?: boolean }
-export interface ThreadCommandResult { kind: 'applied' | 'panel' | 'navigate'; title?: string; text?: string; externalUrl?: string; surface?: 'model' | 'effort' | 'permissions' | 'accounts' | 'commands' | 'sessions' | 'rename' | 'settings' | 'delegations' | 'changes'; threadId?: string; usage?: ThreadUsage; rows?: { label: string; detail?: string; id?: string; turnId?: string }[] }
+export interface ThreadCommandResult { kind: 'applied' | 'panel' | 'navigate'; title?: string; text?: string; externalUrl?: string; surface?: 'model' | 'effort' | 'permissions' | 'accounts' | 'commands' | 'sessions' | 'rename' | 'settings' | 'delegations' | 'changes' | 'rules'; threadId?: string; usage?: ThreadUsage; rows?: { label: string; detail?: string; id?: string; turnId?: string }[] }
 /** Resolved in the main process; skill paths are never accepted from the renderer. */
 export interface ThreadAttachment {
   id: string
@@ -144,6 +144,40 @@ export interface ThreadRequest {
   requestedPermissions?: { fileSystem?: unknown; network?: unknown }
   schema?: Record<string, unknown>
   url?: string
+  /** Provider tool behind an approval (`Bash`, `Edit`, `command`, `fileChange`). */
+  toolName?: string
+  /** Files an approval would write, when the provider says. */
+  paths?: string[]
+  /** What OXESpace's permission rules say about this approval. */
+  policy?: ThreadRequestPolicy
+}
+/** A rule OXESpace answers approval prompts with; `projectRoot` null means every project. */
+export interface ThreadPermissionRule {
+  id: string
+  projectRoot: string | null
+  kind: 'command' | 'path'
+  pattern: string
+  decision: 'allow' | 'deny'
+  createdAt: number
+}
+export interface ThreadPermissionSuggestion { kind: 'command' | 'path'; pattern: string; label: string }
+/** `allow`/`deny` are answered without asking; `ask` leaves the prompt to the person. */
+export interface ThreadRequestPolicy {
+  decision: 'allow' | 'deny' | 'ask'
+  reasons: string[]
+  /** Built-in high-risk command (rm, curl, ssh…) that no rule allows. */
+  risk?: 'high'
+  suggestions?: ThreadPermissionSuggestion[]
+}
+export interface ThreadAuditEntry {
+  id: number
+  threadId?: string
+  projectRoot?: string
+  at: number
+  action: 'approval' | 'policy' | 'rule-added' | 'rule-removed' | 'undo-file' | 'rewind'
+  actor: 'user' | 'policy' | 'system'
+  summary: string
+  detail?: string
 }
 export interface ThreadRequestResponse {
   decision?: 'accept' | 'acceptForSession' | 'decline' | 'cancel'
@@ -151,6 +185,8 @@ export interface ThreadRequestResponse {
   content?: Record<string, unknown>
   permissions?: { fileSystem?: unknown; network?: unknown }
   scope?: 'turn' | 'session'
+  /** Told to the agent when the request is declined, where the provider supports it. */
+  reason?: string
 }
 
 export interface ThreadQueuedInput {
@@ -426,6 +462,10 @@ export interface ThreadApi {
   stopTask?(id: string, taskId: string): Promise<void>
   turnFiles?(id: string, turnId: string): Promise<ThreadTurnFileStatus[]>
   undoTurnFile?(id: string, turnId: string, path: string): Promise<void>
+  permissionRules?(id: string): Promise<ThreadPermissionRule[]>
+  addPermissionRule?(id: string, rule: { kind: ThreadPermissionRule['kind']; pattern: string; decision: ThreadPermissionRule['decision']; scope: 'project' | 'global' }): Promise<ThreadPermissionRule>
+  removePermissionRule?(id: string, ruleId: string): Promise<void>
+  auditLog?(id: string, options?: { scope?: 'thread' | 'project'; before?: number; limit?: number }): Promise<ThreadAuditEntry[]>
   rewind?(id: string, turnId: string, options?: { restoreFiles?: boolean }): Promise<ThreadRewindResult>
   readSince?(id: string, cursor: ThreadSyncCursor): Promise<ThreadDelta>
   resumeQueue?(id: string): Promise<void>

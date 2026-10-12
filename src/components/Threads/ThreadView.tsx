@@ -1,6 +1,6 @@
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { ThreadHistoricalQuestions } from './ThreadHistoricalQuestions'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Activity, AlertCircle, FileText, ArrowDown, ArrowUp, Check, ChevronDown, Copy, CornerDownLeft, GitBranch, Plug, Loader2, MessageSquarePlus, Mic, Minus, PanelRight, Paperclip, Pencil, Pin, Plus, Slash, Square, TerminalSquare, Type, Waypoints, X, GitCompareArrows, Globe, MoreHorizontal, AtSign, Image as ImageIcon } from 'lucide-react'
 import { ThreadMarkdown } from './ThreadMarkdown'
 import { formatNativeUserText } from '../../../shared/native-session-text'
@@ -43,6 +43,8 @@ import { ThreadPromptQueue } from './ThreadPromptQueue'
 import { ThreadDeliveryNote } from './ThreadDeliveryNote'
 import { ThreadRewindControl } from './ThreadRewindControl'
 import { ThreadCostChip } from './ThreadCostChip'
+
+const ThreadPermissionsPanel = lazy(() => import('./ThreadPermissionsPanel'))
 import { ThreadSubagentActivity } from './ThreadSubagentActivity'
 import { VoiceHud } from '../Voice/VoiceHud'
 import { DelegationCreateDialog } from '../Delegation/DelegationCreateDialog'
@@ -554,7 +556,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
     </div>
     <div className="thread-composer-dock"><div className="thread-composer-column">
       {snapshot && pendingRequests.length > 0 && <section className="thread-pending-requests" aria-label="Pending agent requests">
-        {pendingRequests.map(request => <ThreadRequestCard key={`${snapshot.thread.id}:${request.id}:${request.generation}`} conversationId={snapshot.thread.id} request={request} disabled={pending} onRespond={response => action(() => api!.respond!(snapshot.thread.id, request.id, response))} />)}
+        {pendingRequests.map(request => <ThreadRequestCard key={`${snapshot.thread.id}:${request.id}:${request.generation}`} conversationId={snapshot.thread.id} request={request} disabled={pending} onRespond={response => action(() => api!.respond!(snapshot.thread.id, request.id, response))} onRemember={api?.addPermissionRule ? async suggestions => { for (const item of suggestions) await api.addPermissionRule!(snapshot.thread.id, { kind: item.kind, pattern: item.pattern, decision: 'allow', scope: 'project' }) } : undefined} />)}
       </section>}
       {snapshot?.thread.status === 'approval' && pendingRequests.length === 0 && !snapshot.events.some(event => event.type === 'approval' && !snapshot.events.some(other => other.type === 'approval-resolved' && other.id === event.id)) && <div className="thread-action-error" role="alert"><span>The provider is waiting for input, but its request is unavailable. Refresh the request or stop the turn using the stop button.</span><button type="button" disabled={pending} onClick={() => void action(() => useThreadStore.getState().refresh(snapshot.thread.id))}>Refresh request</button></div>}
       {showEnd && <button type="button" className="thread-scroll-end" onClick={scrollEnd}><ArrowDown size={12} />Latest messages{newMessages > 0 ? ` · ${newMessages}` : ''}</button>}
@@ -629,6 +631,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
           <form onSubmit={event => { event.preventDefault(); void action(() => runCommand(`/resume ${nativeResumeId.trim()}`)) }}><label className="thread-resume-native-label">Native session ID<input aria-label="Native session ID" value={nativeResumeId} onChange={event => setNativeResumeId(event.target.value)} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" /></label><button type="submit" disabled={pending || !nativeResumeId.trim()}>Open session</button></form>
         </section>
       </div>
+      : panel.surface === 'rules' && snapshot ? <Suspense fallback={<p>Loading…</p>}><ThreadPermissionsPanel threadId={snapshot.thread.id} /></Suspense>
       : panel.surface === 'delegations' ? <div className="thread-panel-list">{panel.rows?.length ? panel.rows.map((row, index) => <button key={index} type="button" disabled={pending || !row.id} onClick={() => { if (row.id) { setPanel(null); void useThreadStore.getState().select(row.id) } }}><strong>{row.label}</strong>{row.detail && <span>{row.detail}</span>}</button>) : <p>No delegated work in this project.</p>}</div>
       : <>{panel.text !== undefined && <><pre>{panel.text || 'No content available.'}</pre>{panel.externalUrl && <button type="button" onClick={() => window.open(panel.externalUrl, '_blank', 'noopener,noreferrer')}>Open in browser</button>}{panel.text && !panel.externalUrl && <button type="button" onClick={() => void navigator.clipboard.writeText(panel.text!).catch(() => setError('Could not copy text.'))}>Copy text</button>}</>}
         {panel.usage ? <ThreadUsageDetails usage={panel.usage} /> : panel.title === 'Conversation status' && panel.rows ? <div className="thread-status-summary">
