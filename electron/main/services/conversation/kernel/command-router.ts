@@ -136,9 +136,8 @@ export async function runThreadCommand(host: CommandHost, id: string, text: stri
       return { kind: 'navigate' }
     }
     if (name === 'quit') { await host.disposeAdapter(id); return { kind: 'applied' } }
-    if (name === 'diff') {
-      return { kind: 'panel', title: 'Project changes', text: 'The project changes view is not available. Use git diff in the project terminal.' }
-    }
+    // The changes panel shows branch and uncommitted diffs with line comments for the agent.
+    if (name === 'diff') return { kind: 'panel', surface: 'changes', title: 'Project changes' }
     if (name === 'checkpoint') {
       const [action = 'list', checkpointId, extra] = argument.split(/\s+/).filter(Boolean)
       if (extra || !['list', 'restore', 'delete'].includes(action) || action !== 'list' && !checkpointId) throw Error('Use /checkpoint, /checkpoint restore <id>, or /checkpoint delete <id>')

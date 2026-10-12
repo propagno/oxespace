@@ -324,6 +324,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
     else if (result.surface === 'accounts') onAccounts?.()
     else if (result.surface === 'settings') useUIStore.setState({ isSettingsOpen: true, settingsInitialPage: undefined })
     else if (result.surface === 'commands') { commands.show(); return }
+    else if (result.surface === 'changes') { togglePanel('changes', true); return }
     else if (result.surface === 'sessions') {
       const tasks: DelegationTask[] = []
       let notice = ''

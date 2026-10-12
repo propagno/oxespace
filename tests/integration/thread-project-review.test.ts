@@ -42,7 +42,7 @@ describe('Thread project review scope', () => {
     expect(JSON.stringify(a.files)).not.toContain('different thread work')
     expect(JSON.stringify(b.files)).toContain('different thread work')
     expect(f.manager.read(idA).events).toEqual([])
-    expect(await f.manager.command(idA, '/diff')).toMatchObject({ kind: 'panel', title: 'Project changes' })
+    expect(await f.manager.command(idA, '/diff')).toMatchObject({ kind: 'panel', surface: 'changes', title: 'Project changes' })
   })
   it('handles an unborn branch without doubling staged and unstaged edits', async () => {
     const f = fixture(), id = f.create()
