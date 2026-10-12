@@ -271,7 +271,8 @@ async function registerIpcHandlers(): Promise<() => void> {
     const oxeQuery = new OxeQueryService({
       db, host: new LocalExecutionHost(), emit: broadcastOxeQueryEvent,
       cipher: { available: () => safeStorage.isEncryptionAvailable(), encrypt: value => safeStorage.encryptString(value), decrypt: value => safeStorage.decryptString(value) },
-      worker: new OxeQueryWorkerClient(join(app.getAppPath(), 'out', 'main', 'oxequery-worker.js'))
+      worker: new OxeQueryWorkerClient(join(app.getAppPath(), 'out', 'main', 'oxequery-worker.js')),
+      pickFile: (await import('./services/oxequery/file-picker')).pickCredentialFile
     })
     oxeQueryShells.shellFor = paneId => oxeQuery.shellFor(paneId)
     registerOxeQueryIpc(oxeQuery)

@@ -65,7 +65,7 @@ describe.skipIf(!live)('OxeQuery against real Docker, PostgreSQL and MongoDB', (
   }, 60_000)
 
   it('the packaged worker answers and has both drivers', async () => {
-    expect(await call('system.ping', {})).toMatchObject({ ok: true, drivers: { postgres: true, mongodb: true } })
+    expect(await call('system.ping', {})).toMatchObject({ ok: true, drivers: { postgres: true, mongodb: true, ssh: true } })
   })
 
   it('lists the containers with their published ports and inspects one without exposing secrets', async () => {

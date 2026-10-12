@@ -106,7 +106,7 @@ export function registerPackagedSmoke({ platform, label, bootBudgetMs }: Package
       // OxeQuery ships its database drivers inside a worker bundle that is read
       // from the asar. Nothing else in this smoke would notice if it were missing.
       const ping = await page.evaluate(async () => window.oxe.oxeQuery.call('system.ping', {}))
-      expect(ping, 'OxeQuery worker answers from the packaged build').toMatchObject({ ok: true, value: { ok: true, drivers: { postgres: true, mongodb: true } } })
+      expect(ping, 'OxeQuery worker answers from the packaged build').toMatchObject({ ok: true, value: { ok: true, drivers: { postgres: true, mongodb: true, ssh: true } } })
       await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
       await expect(page.locator('.oq-view')).toBeVisible({ timeout: 10_000 })
       await expect(page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' })).toHaveAttribute('aria-pressed', 'true')

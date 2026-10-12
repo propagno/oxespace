@@ -118,14 +118,27 @@ export default defineConfig({
     build: {
       rollupOptions: {
         // Optional driver add-ons are never installed; leave them as runtime requires.
-        external: ['better-sqlite3', 'node-pty', 'pg-native', 'pg-cloudflare', '@aws-sdk/credential-providers', '@mongodb-js/zstd', 'gcp-metadata', 'kerberos', 'mongodb-client-encryption', 'snappy', 'socks'],
+        // ssh2 tries optional native add-ons (cpu-features, its crypto binding) and falls back to pure JS.
+        external: ['better-sqlite3', 'node-pty', 'pg-native', 'pg-cloudflare', '@aws-sdk/credential-providers', '@mongodb-js/zstd', 'gcp-metadata', 'kerberos', 'mongodb-client-encryption', 'snappy', 'socks', 'cpu-features', /\.node(\?.*)?$/],
         output: {
           // Keep optional documentation descriptors outside the main entry.
           // A few bytes of platform-dependent output must not decide release
           // success; runtime and handlers remain dynamically loaded as before.
           manualChunks(id) {
             if (id.replaceAll('\\', '/').endsWith('/mcp-internal/documentation-tools.ts')) return 'documentation-tools'
-          }
+          },
+          // The OxeQuery worker bundles CommonJS libraries (ssh2, mongodb) that use
+          // `require` and `__dirname`, which do not exist in an ES module chunk.
+          banner: (chunk: { name: string }) => chunk.name === 'oxequery-worker'
+            ? [
+              "import { createRequire as __oxeCreateRequire } from 'node:module';",
+              "import { fileURLToPath as __oxeFileURLToPath } from 'node:url';",
+              "import { dirname as __oxeDirname } from 'node:path';",
+              'const require = __oxeCreateRequire(import.meta.url);',
+              'const __filename = __oxeFileURLToPath(import.meta.url);',
+              'const __dirname = __oxeDirname(__filename);'
+            ].join('\n')
+            : ''
         },
         input: {
           index: resolve(__dirname, 'electron/main/index.ts'),

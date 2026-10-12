@@ -21,6 +21,9 @@ export function registerOxeQueryMock(): void {
   const fail = (code: OxeQueryErrorInfo['code'], message: string, reasons?: string[]) => ({ ok: false as const, error: { code, message, ...(reasons ? { reasons } : {}) } })
   const ok = <T,>(value: T) => ({ ok: true as const, value })
   const connection = (id: unknown): OxeQueryConnection | undefined => connections.find(item => item.id === id)
+  const trusted = new Set<string>()
+  const FINGERPRINT = 'SHA256:' + 'k8Yq1mR2vN5xT7wZ0aB3cD6eF9gH2jL4nP6rS8uV0xY'
+  const extras = { hasCa: false, hasClientCert: false, mongo: { authSource: '', replicaSet: '', directConnection: true, srv: false, extraHosts: [] as string[] }, statementTimeoutMs: 60000, maxRows: 500, agentAccess: 'off' as const }
 
   const users: SqlResult = {
     columns: [{ name: 'id', type: 'int4' }, { name: 'name', type: 'text' }, { name: 'email', type: 'text' }],
@@ -31,7 +34,7 @@ export function registerOxeQueryMock(): void {
   ipcMain.handle(IPC_CHANNELS.oxeQuery.call, (_event, request: { op: string; input?: Input }) => {
     const input = request.input ?? {}
     switch (request.op) {
-      case 'system.ping': return ok({ ok: true, drivers: { postgres: true, mongodb: true }, node: process.version })
+      case 'system.ping': return ok({ ok: true, drivers: { postgres: true, mongodb: true, ssh: true }, node: process.version })
       case 'containers.engines':
         if (process.env.OXE_MOCK_ENGINE === 'stopped') return ok([{ engine: 'docker', available: false, state: 'stopped', version: '27.0.0', error: 'docker is installed but its daemon is not reachable. Start Docker Desktop or the Docker service and try again.' }, { engine: 'podman', available: false, state: 'missing', error: 'podman was not found.' }])
         return ok([{ engine: 'docker', available: true, version: '27.0.0', context: 'default' }, { engine: 'podman', available: false, error: 'podman was not found on PATH' }])
@@ -62,20 +65,31 @@ export function registerOxeQueryMock(): void {
       case 'connections.list': return ok(connections.map(item => ({ ...item })))
       case 'connections.save': {
         const saved: OxeQueryConnection = { id: String(input.id ?? randomUUID()), name: String(input.name), engine: input.engine as 'postgres' | 'mongodb', host: String(input.host), port: Number(input.port),
-          database: String(input.database ?? ''), username: String(input.username ?? ''), sslMode: 'disable', readOnly: input.readOnly !== false, environment: (input.environment as 'local') ?? 'local',
-          hasPassword: Boolean(input.password), createdAt: Date.now(), updatedAt: Date.now() }
+          database: String(input.database ?? ''), username: String(input.username ?? ''), readOnly: input.readOnly !== false, environment: (input.environment as 'local') ?? 'local',
+          hasPassword: Boolean(input.password), ...extras, sslMode: (input.sslMode as OxeQueryConnection['sslMode']) ?? 'disable',
+          ...((input.ssh as { enabled?: boolean; host?: string; port?: number; user?: string; auth?: 'key' | 'password' } | undefined)?.enabled
+            ? { ssh: { host: String((input.ssh as { host?: string }).host), port: Number((input.ssh as { port?: number }).port ?? 22), user: String((input.ssh as { user?: string }).user), auth: (input.ssh as { auth?: 'key' | 'password' }).auth ?? 'key', hasSecret: true } } : {}),
+          createdAt: Date.now(), updatedAt: Date.now() }
         const index = connections.findIndex(item => item.id === saved.id)
         if (index >= 0) connections[index] = saved; else connections.push(saved)
         return ok(saved)
       }
       case 'connections.delete': { const index = connections.findIndex(item => item.id === input.id); if (index >= 0) connections.splice(index, 1); return ok({ ok: true }) }
-      case 'connections.test': return ok({ ok: true, message: 'Connected', serverVersion: 'PostgreSQL 16.4', latencyMs: 3 })
+      case 'files.pick': return ok({ handle: randomUUID(), name: `${String(input.kind)}.pem` })
+      case 'connections.knownHosts': return ok([])
+      case 'connections.forgetHostKey': return ok({ ok: true })
+      case 'connections.trustHostKey': trusted.add(String(input.id)); return ok({ ok: true })
+      case 'connections.test': {
+        const target = connection(input.id)
+        if (target?.ssh && !trusted.has(target.id)) return ok({ ok: false, message: 'Host key not trusted', code: 'host-key-unknown', reasons: [FINGERPRINT] })
+        return ok({ ok: true, message: 'Connected', serverVersion: 'PostgreSQL 16.4', latencyMs: 3 })
+      }
       case 'connections.fromContainer': {
         const target = containers.find(container => container.id === input.id)
         if (!target) return fail('not-found', 'That container no longer exists.')
         const mongo = /mongo/.test(target.image)
         const created: OxeQueryConnection = { id: randomUUID(), name: target.name, engine: mongo ? 'mongodb' : 'postgres', host: '127.0.0.1', port: mongo ? 27017 : 5432,
-          database: mongo ? '' : 'app', username: mongo ? 'root' : 'app', sslMode: 'disable', readOnly: true, environment: 'local', containerRef: target.name, hasPassword: true, createdAt: Date.now(), updatedAt: Date.now() }
+          database: mongo ? '' : 'app', username: mongo ? 'root' : 'app', sslMode: 'disable', readOnly: true, environment: 'local', containerRef: target.name, hasPassword: true, ...extras, createdAt: Date.now(), updatedAt: Date.now() }
         connections.push(created)
         return ok(created)
       }

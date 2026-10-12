@@ -8,6 +8,8 @@ import type {
 } from '../../../../shared/types/oxequery'
 import { guardSql, isMutating, quoteIdentifier } from './sql-guard'
 import { OxeQueryError, type ResolvedConnection } from './oxequery-errors'
+import { mongoTlsOptions, mongoUri, pgSsl, type Endpoint } from './connection-options'
+import { openTunnel, tunnelAvailable, type OpenTunnel } from './ssh-tunnel'
 import { parseDocument, parsePipeline, toEjson } from './mongo-guard'
 
 const DEFAULT_ROWS = 500
@@ -50,12 +52,16 @@ function clampRows(value: number | undefined): number {
   return Math.max(1, Math.min(Math.trunc(value ?? DEFAULT_ROWS) || DEFAULT_ROWS, MAX_ROWS))
 }
 
+/** Everything that changes how a session is built; a change reopens it. */
 function sessionKey(connection: ResolvedConnection): string {
-  return createHash('sha256').update(JSON.stringify([connection.engine, connection.host, connection.port, connection.database, connection.username, connection.password ?? '', connection.sslMode, connection.readOnly])).digest('hex')
+  return createHash('sha256').update(JSON.stringify([
+    connection.engine, connection.host, connection.port, connection.database, connection.username, connection.password ?? '', connection.sslMode, connection.readOnly,
+    connection.tls ?? null, connection.mongo ?? null, connection.ssh ?? null, connection.statementTimeoutMs ?? null
+  ])).digest('hex')
 }
 
-interface PgSession { key: string; client: Client; running: boolean; lastUsed: number }
-interface MongoSession { key: string; client: MongoClient; lastUsed: number }
+interface PgSession { key: string; client: Client; running: boolean; lastUsed: number; endpoint: Endpoint; tunnel?: OpenTunnel }
+interface MongoSession { key: string; client: MongoClient; lastUsed: number; tunnel?: OpenTunnel }
 
 /** A connection nobody used for this long is closed; it reopens on the next request. */
 const IDLE_MS = 10 * 60_000
@@ -91,11 +97,23 @@ export class OxeQueryCore {
 
   // ---- Postgres -----------------------------------------------------------
 
-  private pgConfig(connection: ResolvedConnection) {
+  private timeoutOf(connection: ResolvedConnection): number {
+    return connection.statementTimeoutMs ?? STATEMENT_TIMEOUT_MS
+  }
+
+  /** The address to dial: the server itself, or the local end of its SSH tunnel. */
+  private async reach(connection: ResolvedConnection): Promise<{ endpoint: Endpoint; tunnel?: OpenTunnel }> {
+    if (!connection.ssh) return { endpoint: { host: connection.host, port: connection.port } }
+    const tunnel = await openTunnel(connection.ssh, { host: connection.host, port: connection.port })
+    return { endpoint: tunnel.endpoint, tunnel }
+  }
+
+  private pgConfig(connection: ResolvedConnection, endpoint: Endpoint) {
+    const timeout = this.timeoutOf(connection)
     return {
-      host: connection.host, port: connection.port, database: connection.database || 'postgres', user: connection.username || undefined, password: connection.password,
-      ssl: connection.sslMode === 'require' ? { rejectUnauthorized: false } : false,
-      connectionTimeoutMillis: CONNECT_TIMEOUT_MS, statement_timeout: STATEMENT_TIMEOUT_MS, query_timeout: STATEMENT_TIMEOUT_MS + 5000,
+      host: endpoint.host, port: endpoint.port, database: connection.database || 'postgres', user: connection.username || undefined, password: connection.password,
+      ssl: pgSsl(connection),
+      connectionTimeoutMillis: CONNECT_TIMEOUT_MS, statement_timeout: timeout, query_timeout: timeout + 5000,
       application_name: 'OxeQuery'
     }
   }
@@ -105,12 +123,16 @@ export class OxeQueryCore {
     const existing = this.pg.get(connection.id)
     if (existing?.key === key) { existing.lastUsed = Date.now(); return existing }
     if (existing) await this.closeConnection(connection.id)
-    const client = new Client(this.pgConfig(connection))
-    client.on('error', () => { if (this.pg.get(connection.id)?.client === client) this.pg.delete(connection.id) })
+    const { endpoint, tunnel } = await this.reach(connection)
+    const client = new Client(this.pgConfig(connection, endpoint))
+    client.on('error', () => { if (this.pg.get(connection.id)?.client === client) { this.pg.delete(connection.id); void tunnel?.close() } })
     try { await client.connect() } catch (error) {
-      throw new OxeQueryError('connect', redact(error instanceof Error ? error.message : 'Connection failed', connection.password))
+      await tunnel?.close()
+      throw new OxeQueryError('connect', redact(error instanceof Error ? error.message : 'Connection failed', connection.password, connection.ssh?.password, connection.ssh?.passphrase))
     }
-    const session = { key, client, running: false, lastUsed: Date.now() }
+    const session: PgSession = { key, client, running: false, lastUsed: Date.now(), endpoint, ...(tunnel ? { tunnel } : {}) }
+    // A tunnel that drops under a live session would leave a client talking to nothing.
+    tunnel?.onClose(() => { if (this.pg.get(connection.id) === session) this.pg.delete(connection.id) })
     this.pg.set(connection.id, session)
     return session
   }
@@ -157,7 +179,7 @@ export class OxeQueryCore {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Query failed'
       if (/canceling statement due to user request/i.test(message)) throw new OxeQueryError('cancelled', 'The query was cancelled.')
-      if (/statement timeout/i.test(message)) throw new OxeQueryError('timeout', `The query ran longer than ${STATEMENT_TIMEOUT_MS / 1000}s and was stopped.`)
+      if (/statement timeout/i.test(message)) throw new OxeQueryError('timeout', `The query ran longer than ${Math.round(this.timeoutOf(connection) / 1000)}s and was stopped.`)
       throw new OxeQueryError('query', redact(message, connection.password))
     } finally {
       client.off('notice', onNotice)
@@ -177,11 +199,11 @@ export class OxeQueryCore {
     if (verdict.kind === 'destructive' && !options.confirmed) {
       throw new OxeQueryError('confirm', 'This statement is destructive and needs confirmation.', verdict.reasons)
     }
-    return this.pgRun(connection, sql, [], clampRows(options.maxRows), connection.readOnly)
+    return this.pgRun(connection, sql, [], clampRows(options.maxRows ?? connection.maxRows), connection.readOnly)
   }
 
   async sqlBrowse(connection: ResolvedConnection, input: SqlBrowseInput): Promise<SqlResult> {
-    const limit = clampRows(input.limit ?? 100)
+    const limit = clampRows(input.limit ?? Math.min(100, connection.maxRows ?? 100))
     const offset = Math.max(0, Math.min(Math.trunc(input.offset ?? 0) || 0, 10_000_000))
     const order = input.orderBy ? ` ORDER BY ${quoteIdentifier(input.orderBy.column)} ${input.orderBy.direction === 'desc' ? 'DESC' : 'ASC'}` : ''
     const sql = `SELECT * FROM ${quoteIdentifier(input.schema)}.${quoteIdentifier(input.table)}${order} LIMIT ${limit + 1} OFFSET ${offset}`
@@ -224,7 +246,7 @@ export class OxeQueryCore {
     if (!session?.running) return false
     const pid = (session.client as unknown as { processID?: number }).processID
     if (!pid) return false
-    const killer = new Client(this.pgConfig(connection))
+    const killer = new Client(this.pgConfig(connection, session.endpoint))
     try {
       await killer.connect()
       await killer.query('SELECT pg_cancel_backend($1)', [pid])
@@ -234,25 +256,24 @@ export class OxeQueryCore {
 
   // ---- MongoDB ------------------------------------------------------------
 
-  private mongoUri(connection: ResolvedConnection): string {
-    const credentials = connection.username ? `${encodeURIComponent(connection.username)}${connection.password ? `:${encodeURIComponent(connection.password)}` : ''}@` : ''
-    const host = connection.host.includes(':') && !connection.host.startsWith('[') ? `[${connection.host}]` : connection.host
-    const options = new URLSearchParams({ authSource: 'admin', directConnection: 'true', appName: 'OxeQuery' })
-    if (connection.sslMode === 'require') { options.set('tls', 'true'); options.set('tlsAllowInvalidCertificates', 'true') }
-    return `mongodb://${credentials}${host}:${connection.port}/?${options.toString()}`
-  }
-
   private async mongoSession(connection: ResolvedConnection): Promise<MongoClient> {
     const key = sessionKey(connection)
     const existing = this.mongo.get(connection.id)
     if (existing?.key === key) { existing.lastUsed = Date.now(); return existing.client }
     if (existing) await this.closeConnection(connection.id)
-    const client = new MongoClient(this.mongoUri(connection), { serverSelectionTimeoutMS: CONNECT_TIMEOUT_MS, connectTimeoutMS: CONNECT_TIMEOUT_MS, maxPoolSize: 4 })
+    const { endpoint, tunnel } = await this.reach(connection)
+    const client = new MongoClient(mongoUri(connection, endpoint), {
+      serverSelectionTimeoutMS: CONNECT_TIMEOUT_MS, connectTimeoutMS: CONNECT_TIMEOUT_MS, maxPoolSize: 4,
+      ...(mongoTlsOptions(connection) as object)
+    })
     try { await client.connect() } catch (error) {
       await client.close().catch(() => undefined)
-      throw new OxeQueryError('connect', redact(error instanceof Error ? error.message : 'Connection failed', connection.password))
+      await tunnel?.close()
+      throw new OxeQueryError('connect', redact(error instanceof Error ? error.message : 'Connection failed', connection.password, connection.ssh?.password, connection.ssh?.passphrase))
     }
-    this.mongo.set(connection.id, { key, client, lastUsed: Date.now() })
+    const session: MongoSession = { key, client, lastUsed: Date.now(), ...(tunnel ? { tunnel } : {}) }
+    tunnel?.onClose(() => { if (this.mongo.get(connection.id) === session) this.mongo.delete(connection.id) })
+    this.mongo.set(connection.id, session)
     return client
   }
 
@@ -332,8 +353,8 @@ export class OxeQueryCore {
   // ---- Shared -------------------------------------------------------------
 
   /** True for each driver that actually loaded into this bundle. */
-  drivers(): { postgres: boolean; mongodb: boolean } {
-    return { postgres: typeof Client === 'function' && typeof Cursor === 'function', mongodb: typeof MongoClient === 'function' }
+  drivers(): { postgres: boolean; mongodb: boolean; ssh: boolean } {
+    return { postgres: typeof Client === 'function' && typeof Cursor === 'function', mongodb: typeof MongoClient === 'function', ssh: tunnelAvailable() }
   }
 
   async test(connection: ResolvedConnection): Promise<ConnectionTestResult> {
@@ -347,6 +368,7 @@ export class OxeQueryCore {
       const info = await client.db('admin').command({ buildInfo: 1 })
       return { ok: true, message: 'Connected', serverVersion: `MongoDB ${String(info.version ?? '')}`.trim(), latencyMs: Date.now() - started }
     } catch (error) {
+      if (error instanceof OxeQueryError) return { ok: false, message: error.message, code: error.code, ...(error.reasons.length ? { reasons: error.reasons } : {}) }
       return { ok: false, message: error instanceof Error ? redact(error.message, connection.password) : 'Connection failed' }
     }
   }
@@ -355,6 +377,7 @@ export class OxeQueryCore {
     const pg = this.pg.get(id), mongo = this.mongo.get(id)
     this.pg.delete(id); this.mongo.delete(id)
     await Promise.allSettled([pg?.client.end(), mongo?.client.close()])
+    await Promise.allSettled([pg?.tunnel?.close(), mongo?.tunnel?.close()])
   }
 
   async closeAll(): Promise<void> {

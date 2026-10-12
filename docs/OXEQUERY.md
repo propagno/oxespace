@@ -64,13 +64,28 @@ SqlWorkbench / MongoWorkbench        ConnectionStore          mongodb + bson
   not shipped as `node_modules`.
 - Migration `066_oxequery_connections.sql` holds connection metadata.
 
+## Connectivity
+
+- **TLS**: `Off`, `Encrypted` (the certificate is NOT verified — the form says
+  so), `Verify the chain` and `Verify the chain and host name`. A CA certificate
+  and a client certificate and key can be attached; without a CA file the system
+  trust store is used.
+- **SSH tunnel**: connect through a bastion with a private key (optionally
+  encrypted) or a password. The server's host key is shown as a SHA-256
+  fingerprint the first time and pinned; a different key later is refused, never
+  offered for one-click trust.
+- **MongoDB**: auth source, replica set, several hosts, `mongodb+srv` seed lists
+  and direct connection, all importable from a pasted connection string.
+- Certificates and keys are chosen in a native dialog; the page only ever sees an
+  opaque handle and the file name.
+
 ## Limits (by design, for now)
 
-- No SSH tunnels, no row or document editing from the grid, no import.
-- TLS "require" does not verify the certificate.
+- No row or document editing from the grid, no import or export to files yet.
+- A `mongodb+srv` seed list reached through an SSH tunnel falls back to the single
+  host you entered.
 - "Run command" splits on spaces and does not interpret quotes or pipes; use
   the Shell tab for that.
-- The Mongo `authSource` is `admin`.
 - Podman support follows the CLI's Docker compatibility and was not run on a
   machine with Podman installed.
 

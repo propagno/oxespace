@@ -10,6 +10,7 @@ import { ContainerRuntime, ContainerRuntimeError } from './container-runtime'
 import { MongoInputError, OxeQueryError, type ResolvedConnection } from './oxequery-errors'
 import { guardSql } from './sql-guard'
 import type { OxeQueryWorkerClient } from './worker-client'
+import { PickedFiles, type PickedKind } from './picked-files'
 
 type Raw = Record<string, unknown>
 const ACTIONS = new Set(['start', 'stop', 'restart', 'pause', 'unpause'])
@@ -54,6 +55,8 @@ export interface OxeQueryServiceOptions {
   emit: (event: OxeQueryEvent) => void
   preferredEngine?: () => ContainerEngine | undefined
   runtime?: ContainerRuntime
+  /** Native chooser for certificates and keys; absent in tests and headless runs. */
+  pickFile?: (kind: PickedKind) => Promise<{ name: string; content: string } | null>
 }
 
 /** Validates every operation, resolves secrets, and routes to containers or the database worker. */
@@ -62,9 +65,12 @@ export class OxeQueryService {
   readonly containers: ContainerRuntime
   private readonly worker: OxeQueryServiceOptions['worker']
   private readonly shells = new Map<string, { file: string; args: string[] }>()
+  private readonly picked = new PickedFiles()
+  private readonly pickFile?: OxeQueryServiceOptions['pickFile']
 
   constructor(options: OxeQueryServiceOptions) {
-    this.connections = new ConnectionStore(options.db, options.cipher)
+    this.connections = new ConnectionStore(options.db, options.cipher, this.picked)
+    this.pickFile = options.pickFile
     this.containers = options.runtime ?? new ContainerRuntime({ host: options.host, emit: options.emit, preferred: options.preferredEngine })
     this.worker = options.worker
   }
@@ -132,6 +138,27 @@ export class OxeQueryService {
         return { ok: true }
       }
       case 'connections.test': return this.worker.call('test', this.resolve(input.id))
+      case 'connections.trustHostKey': {
+        // The host and port come from the saved connection, never from the caller.
+        const connection = this.connections.get(str(input.id, 'Connection', 64))
+        if (!connection.ssh) throw new OxeQueryError('invalid', 'This connection does not use an SSH tunnel.')
+        this.connections.trustHostKey(connection.ssh.host, connection.ssh.port, str(input.fingerprint, 'Fingerprint', 128))
+        return { ok: true }
+      }
+      case 'connections.knownHosts': return this.connections.knownHosts()
+      case 'connections.forgetHostKey': {
+        const port = optionalInt(input.port, 1, 65535)
+        if (port === undefined) throw new OxeQueryError('invalid', 'Port is required.')
+        this.connections.forgetHostKey(str(input.host, 'Host', 255), port)
+        return { ok: true }
+      }
+      case 'files.pick': {
+        const kind = str(input.kind, 'Kind', 16)
+        if (!['ca', 'cert', 'key', 'sshKey'].includes(kind)) throw new OxeQueryError('invalid', 'Unsupported file kind.')
+        if (!this.pickFile) throw new OxeQueryError('invalid', 'Choosing files is not available here.')
+        const file = await this.pickFile(kind as PickedKind)
+        return file ? { handle: this.picked.register(kind as PickedKind, file.name, file.content), name: file.name } : null
+      }
       case 'connections.fromContainer': return this.fromContainer(str(input.id, 'Container', 128), engine(input.engine), optionalString(input.name, 80))
       case 'sql.schemas': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.schemas', connection))
       case 'sql.tables': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.tables', connection, { schema: str(input.schema, 'Schema', 255) }))

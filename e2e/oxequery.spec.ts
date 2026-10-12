@@ -195,3 +195,48 @@ test('the connection form fills itself from a pasted connection string', async (
     await expect(dialog.getByRole('note')).toContainText('production connection with writes enabled')
   } finally { await app.close() }
 })
+
+test('a connection through an SSH tunnel asks to trust the host key, then connects', async () => {
+  test.setTimeout(60000)
+  const root = mkdtempSync(join(tmpdir(), 'oxespace-oxequery-ssh-'))
+  const repo = join(root, 'repo'); mkdirSync(repo)
+  const app = await electron.launch({ args: [join(process.cwd(), 'e2e/electron-main.cjs')], env: {
+    ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'app.sqlite3')
+  } })
+  try {
+    const page = await app.firstWindow()
+    await page.waitForLoadState('domcontentloaded')
+    await page.getByTestId('btn-new-workspace').click()
+    await page.getByTestId('wizard-dir-input').fill(repo)
+    await page.getByTestId('wizard-layout-card-1').click()
+    await page.getByTestId('wizard-launch-btn').click()
+    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
+    await page.getByRole('button', { name: 'New connection' }).first().click()
+    const dialog = page.getByRole('dialog', { name: 'New connection' })
+    await dialog.getByLabel('Name').fill('Behind bastion')
+    await dialog.getByLabel('Host', { exact: true }).fill('db.private')
+
+    await dialog.getByRole('button', { name: /SSH tunnel/ }).click()
+    await dialog.getByRole('checkbox', { name: /Connect through an SSH server/ }).check()
+    await dialog.getByLabel('SSH host').fill('bastion.example.com')
+    await dialog.getByLabel('SSH user').fill('deploy')
+    await dialog.getByRole('button', { name: 'Choose file…' }).click()
+    await expect(dialog.getByText('sshKey.pem')).toBeVisible()
+
+    // Verified TLS needs the CA, and the form says what "require" does not do.
+    await dialog.getByRole('button', { name: /Security \(TLS\)/ }).click()
+    await dialog.getByLabel('Encryption').selectOption('require')
+    await expect(dialog.getByRole('note').filter({ hasText: 'not authenticated' })).toBeVisible()
+    await dialog.getByLabel('Encryption').selectOption('verify-full')
+    await expect(dialog.getByText('CA certificate')).toBeVisible()
+
+    await dialog.getByRole('button', { name: 'Test connection' }).click()
+    const prompt = page.getByRole('alertdialog', { name: 'Trust SSH host key' })
+    await expect(prompt).toContainText('bastion.example.com:22')
+    await expect(prompt).toContainText('SHA256:')
+    await prompt.getByRole('button', { name: /Trust this key/ }).click()
+    await expect(dialog.getByRole('status')).toContainText('Connected')
+    await dialog.getByRole('button', { name: 'Save and open' }).click()
+    await expect(page.getByRole('tab', { name: 'Behind bastion' })).toBeVisible()
+  } finally { await app.close() }
+})

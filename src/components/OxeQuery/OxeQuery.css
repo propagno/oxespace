@@ -216,3 +216,20 @@
 .oq-columns-grid th { padding: 2px 14px 2px 0; text-align: left; color: var(--tx-muted); font-weight: 500; }
 .oq-columns-grid ul { margin: 0; padding-left: 16px; color: var(--tx-secondary); }
 .oq-tree-filter { width: 100%; margin-bottom: 6px; padding: 5px 8px; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); color: inherit; background: var(--bg-input, transparent); font: inherit; font-size: var(--fs-xs); }
+
+/* ── Connection dialog: sections, file pickers, host key ──────────────────── */
+.oq-section { margin: 8px 0; border-top: 1px solid var(--bd-base); padding-top: 4px; }
+.oq-section .oq-disclosure small { margin-left: 8px; color: var(--tx-muted); font-weight: 400; }
+.oq-section-body { display: grid; gap: 10px; padding: 6px 0 4px 18px; }
+.oq-filepick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: var(--fs-xs); color: var(--tx-secondary); }
+.oq-filepick > span { min-width: 120px; }
+.oq-filepick button:not(.oq-link) { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); color: inherit; background: transparent; font-size: var(--fs-xs); cursor: pointer; }
+.oq-filepick code { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 6px; border-radius: var(--radius-sm); background: var(--ov-3, #8884); }
+.oq-filepick em { flex-basis: 100%; color: var(--dot-red); font-style: normal; }
+.oq-hostkey { display: grid; gap: 8px; margin: 10px 0 0; padding: 12px; border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent); border-radius: var(--radius-md); background: color-mix(in srgb, var(--accent) 8%, transparent); font-size: var(--fs-xs); }
+.oq-hostkey p { margin: 0; line-height: 1.5; }
+.oq-hostkey div { display: flex; justify-content: flex-end; gap: 8px; }
+.oq-hostkey button { padding: 4px 12px; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); color: inherit; background: transparent; font-size: var(--fs-xs); cursor: pointer; }
+.oq-hostkey-danger { border-color: var(--dot-red); background: color-mix(in srgb, var(--dot-red) 10%, transparent); }
+.oq-fingerprint { display: block; overflow-wrap: anywhere; padding: 6px 8px; border-radius: var(--radius-sm); background: var(--bg-app); font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; }
+.oq-form textarea { padding: 6px 8px; font-family: var(--font-mono, ui-monospace, monospace); }

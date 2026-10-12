@@ -81,7 +81,16 @@ export interface ConnectionSuggestion {
   hasPassword: boolean
 }
 
-export type SslMode = 'disable' | 'prefer' | 'require'
+/**
+ * disable / prefer: no TLS. require: encrypted but the certificate is NOT verified.
+ * verify-ca: chain checked against the CA (host name not checked). verify-full: chain and host name.
+ */
+export type SslMode = 'disable' | 'prefer' | 'require' | 'verify-ca' | 'verify-full'
+export type AgentAccess = 'off' | 'read' | 'write'
+export type SshAuth = 'key' | 'password'
+
+export interface SshSettings { host: string; port: number; user: string; auth: SshAuth; hasSecret: boolean; keyName?: string }
+export interface MongoOptions { authSource: string; replicaSet: string; directConnection: boolean; srv: boolean; extraHosts: string[] }
 export type ConnectionEnvironment = 'local' | 'dev' | 'prod'
 
 export interface OxeQueryConnection {
@@ -97,6 +106,13 @@ export interface OxeQueryConnection {
   environment: ConnectionEnvironment
   containerRef?: string
   hasPassword: boolean
+  hasCa: boolean
+  hasClientCert: boolean
+  mongo: MongoOptions
+  ssh?: SshSettings
+  statementTimeoutMs: number
+  maxRows: number
+  agentAccess: AgentAccess
   createdAt: number
   updatedAt: number
 }
@@ -116,9 +132,28 @@ export interface OxeQueryConnectionInput {
   /** Write-only. Omit to keep the stored password. */
   password?: string
   clearPassword?: boolean
+  /** Handles from `files.pick`; the file content never passes through the renderer. */
+  caHandle?: string
+  clearCa?: boolean
+  clientCertHandle?: string
+  clientKeyHandle?: string
+  clearClientCert?: boolean
+  mongo?: Partial<MongoOptions>
+  ssh?: { enabled: boolean; host?: string; port?: number; user?: string; auth?: SshAuth; password?: string; keyHandle?: string; passphrase?: string; clearSecret?: boolean }
+  statementTimeoutMs?: number
+  maxRows?: number
+  agentAccess?: AgentAccess
 }
 
-export interface ConnectionTestResult { ok: boolean; message: string; serverVersion?: string; latencyMs?: number }
+export interface ConnectionTestResult {
+  ok: boolean
+  message: string
+  serverVersion?: string
+  latencyMs?: number
+  /** Set when the failure needs a decision, e.g. 'host-key-unknown' with the fingerprint in `reasons`. */
+  code?: OxeQueryErrorInfo['code']
+  reasons?: string[]
+}
 
 export interface SqlColumn { name: string; type: string }
 export interface SqlResult {
@@ -196,9 +231,12 @@ export interface MongoIndexInfo { name: string; keys: string; unique: boolean }
 export type ContainerLogEvent = { type: 'container-log'; streamId: string; lines: string[] } | { type: 'container-log-end'; streamId: string; reason: string }
 export type OxeQueryEvent = ContainerLogEvent | { type: 'containers-changed' }
 
+export type PickKind = 'ca' | 'cert' | 'key' | 'sshKey'
+export interface KnownHost { host: string; port: number; fingerprint: string; firstSeen: number }
+
 export interface OxeQueryOps {
   /** Proves the database worker loads and its bundled drivers are present. */
-  'system.ping': { input: Record<string, never>; output: { ok: true; drivers: { postgres: boolean; mongodb: boolean }; node: string } }
+  'system.ping': { input: Record<string, never>; output: { ok: true; drivers: { postgres: boolean; mongodb: boolean; ssh: boolean }; node: string } }
   'containers.engines': { input: Record<string, never>; output: ContainerEngineInfo[] }
   'containers.list': { input: { engine?: ContainerEngine }; output: { engine: ContainerEngine; containers: ContainerSummary[] } }
   'containers.inspect': { input: { engine?: ContainerEngine; id: string }; output: ContainerInspect }
@@ -212,6 +250,12 @@ export interface OxeQueryOps {
   'connections.save': { input: OxeQueryConnectionInput; output: OxeQueryConnection }
   'connections.delete': { input: { id: string }; output: { ok: true } }
   'connections.test': { input: { id: string }; output: ConnectionTestResult }
+  /** Trust the host key the SSH server of this connection presented, after the person compared the fingerprint. */
+  'connections.trustHostKey': { input: { id: string; fingerprint: string }; output: { ok: true } }
+  'connections.knownHosts': { input: Record<string, never>; output: KnownHost[] }
+  'connections.forgetHostKey': { input: { host: string; port: number }; output: { ok: true } }
+  /** Opens a native chooser. Returns a handle for `connections.save`; the content stays in the main process. */
+  'files.pick': { input: { kind: PickKind }; output: { handle: string; name: string } | null }
   'connections.fromContainer': { input: { engine?: ContainerEngine; id: string; name?: string }; output: OxeQueryConnection }
   'sql.schemas': { input: { connectionId: string }; output: string[] }
   'sql.tables': { input: { connectionId: string; schema: string }; output: SqlTable[] }
@@ -231,6 +275,7 @@ export type OxeQueryOp = keyof OxeQueryOps
 
 export interface OxeQueryErrorInfo {
   code: 'engine-missing' | 'daemon' | 'not-found' | 'invalid' | 'failed' | 'read-only' | 'confirm' | 'connect' | 'query' | 'timeout' | 'cancelled'
+    | 'host-key-unknown' | 'host-key-changed' | 'tunnel'
   message: string
   /** Why a statement was flagged, when code is 'confirm' or 'read-only'. */
   reasons?: string[]
