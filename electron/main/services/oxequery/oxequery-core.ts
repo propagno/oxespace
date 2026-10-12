@@ -331,6 +331,11 @@ export class OxeQueryCore {
 
   // ---- Shared -------------------------------------------------------------
 
+  /** True for each driver that actually loaded into this bundle. */
+  drivers(): { postgres: boolean; mongodb: boolean } {
+    return { postgres: typeof Client === 'function' && typeof Cursor === 'function', mongodb: typeof MongoClient === 'function' }
+  }
+
   async test(connection: ResolvedConnection): Promise<ConnectionTestResult> {
     const started = Date.now()
     try {

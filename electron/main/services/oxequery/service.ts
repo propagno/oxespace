@@ -89,6 +89,7 @@ export class OxeQueryService {
   private async dispatch(op: string, rawInput: unknown): Promise<unknown> {
     const input = record(rawInput ?? {})
     switch (op) {
+      case 'system.ping': return this.worker.call('ping')
       case 'containers.engines': return this.containers.engines(true)
       case 'containers.list': return this.containers.list(engine(input.engine))
       case 'containers.inspect': return this.containers.inspect(str(input.id, 'Container', 128), engine(input.engine))

@@ -185,6 +185,14 @@ jobs:
       - name: Audit build tools for high and critical advisories
         run: npm run security:audit:tools
 
+      # The OxeQuery worker compiles its database drivers in; they are
+      # devDependencies, so the production audit and SBOM above never see them.
+      - name: Audit bundled runtime packages
+        run: npm run security:audit:bundled
+
+      - name: Check third-party notices and bundled licenses
+        run: npm run notices:check
+
       - name: Verify Electron support window
         run: node scripts/check-runtime-support.mjs
 

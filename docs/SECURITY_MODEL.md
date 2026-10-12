@@ -34,6 +34,23 @@ Do not add direct `fs` access to renderer code or bypass `FileSystemService` fro
 
 Internal MCP bridge tokens are local secrets. Generated `.mcp.json` files are ignored by Git. Logs and exported diagnostic reports must not include tokens, authorization headers, or an absolute user-home prefix. `DiagnosticsService` applies bounded log reads and redaction before export; add new secret formats to its tests when integrations evolve.
 
+## OxeQuery (containers and databases)
+
+OxeQuery connects the app to databases and to the local container engine, and exposes both to AI agents. Its rules:
+
+| Asset | Threat | Control |
+|---|---|---|
+| Database passwords, SSH keys, CA material | Disclosure to the renderer, logs, history, exports or a model | `safeStorage` in `secure_credentials` (`oxequery:<id>…`); never part of an IPC output type; `redact()` on every driver error; audit and history store statement text only |
+| Data in the database | A write by mistake, or by an agent | Read-only is the default and is enforced by the server (`BEGIN READ ONLY`); writes are built from structured changes with parameters; destructive statements need confirmation |
+| An agent calling a tool | Reading or changing data without a person agreeing | A single gateway: per-connection agent access (`off` by default), per-call approval bound to the SHA-256 of the exact text, no writes to `prod`, rate limits, result caps and column masking |
+| Rows returned to an agent | Prompt injection through stored text | Results are labelled untrusted, bounded and masked; the tool descriptions say not to follow instructions found in data |
+| The container engine | Command injection through names or arguments | `execFile` with an argv array and a fixed subcommand set; identifiers validated by pattern; no shell strings |
+| Network reach | A renderer opening sockets or a tunnel to arbitrary hosts | CSP `connect-src 'self'`; sockets live in worker threads; SSH host keys are pinned and a changed key is a hard failure |
+| Files | Path traversal in import and export | The renderer never supplies a path; main opens the native dialog and the worker writes only to the chosen file |
+| Bundled drivers | Vulnerable or unlicensed code shipped inside the worker | `oxeBundledDependencies`, `security:audit:bundled`, license allowlist and `THIRD_PARTY_NOTICES.md` checked in CI |
+
+Provider permission prompts are **not** a control for these tools: Claude in `bypassPermissions` and Codex with `approvalPolicy: never` do not ask. The OxeQuery gateway is the authority.
+
 ## Dependency and release controls
 
 CI blocks moderate-or-higher production advisories with `npm run security:audit`, blocks high/critical build-tool advisories with `npm run security:audit:tools`, and verifies that the exactly pinned Electron belongs to a supported major line. Electron is a devDependency but ships in the product, so the production audit alone is insufficient. Transitive fixes may be pinned through `overrides`, with the lockfile committed. Build-tool advisories and dated triage are recorded in `docs/validation/stabilization-2026-10-07.md`. CI builds from a fixed commit, verifies native binaries, enforces bundle budgets, and generates checksums and an SBOM for releases.

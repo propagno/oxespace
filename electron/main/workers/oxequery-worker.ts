@@ -15,6 +15,7 @@ async function handle(request: Request): Promise<unknown> {
   const connection = request.connection
   const input = (request.input ?? {}) as Record<string, unknown>
   if (request.op === 'closeAll') { await core.closeAll(); return { ok: true } }
+  if (request.op === 'ping') return { ok: true, drivers: core.drivers(), node: process.version }
   if (!connection) throw new OxeQueryError('invalid', 'A connection is required.')
   switch (request.op) {
     case 'test': return core.test(connection)

@@ -52,7 +52,10 @@
     "security:audit": "npm audit --omit=dev --package-lock-only --audit-level=moderate",
     "security:audit:tools": "npm audit --package-lock-only --audit-level=high",
     "verify:claude-protocol": "node scripts/probe-claude-protocol.cjs",
-    "test:thread:native": "vitest run tests/integration/thread-native-campaign.test.ts --maxWorkers=1"
+    "test:thread:native": "vitest run tests/integration/thread-native-campaign.test.ts --maxWorkers=1",
+    "notices:generate": "node scripts/bundled-dependencies.mjs notices",
+    "notices:check": "node scripts/bundled-dependencies.mjs check",
+    "security:audit:bundled": "node scripts/bundled-dependencies.mjs audit moderate"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",
@@ -137,5 +140,11 @@
     "typescript-eslint": "^8.65.0",
     "vite": "^6.4.4",
     "vitest": "^5.0.3"
-  }
+  },
+  "oxeBundledDependencies": [
+    "pg",
+    "pg-cursor",
+    "mongodb",
+    "bson"
+  ]
 }

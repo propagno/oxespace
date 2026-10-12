@@ -103,6 +103,14 @@ export function registerPackagedSmoke({ platform, label, bootBudgetMs }: Package
       const result = {platform,bootMs,beforePreview,withFour,afterClose}
       writeFileSync(test.info().outputPath(`packaged-${platform}-preview-metrics.json`),JSON.stringify(result,null,2))
       console.log('[packaged-preview]',JSON.stringify(result))
+      // OxeQuery ships its database drivers inside a worker bundle that is read
+      // from the asar. Nothing else in this smoke would notice if it were missing.
+      const ping = await page.evaluate(async () => window.oxe.oxeQuery.call('system.ping', {}))
+      expect(ping, 'OxeQuery worker answers from the packaged build').toMatchObject({ ok: true, value: { ok: true, drivers: { postgres: true, mongodb: true } } })
+      await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
+      await expect(page.locator('.oq-view')).toBeVisible({ timeout: 10_000 })
+      await expect(page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' })).toHaveAttribute('aria-pressed', 'true')
+
       if (platform === 'win32') {
         expect(withFour.workingSetMb - beforePreview.workingSetMb).toBeLessThan(600)
         expect(afterClose.workingSetMb - beforePreview.workingSetMb).toBeLessThan(160)

@@ -197,6 +197,8 @@ export type ContainerLogEvent = { type: 'container-log'; streamId: string; lines
 export type OxeQueryEvent = ContainerLogEvent | { type: 'containers-changed' }
 
 export interface OxeQueryOps {
+  /** Proves the database worker loads and its bundled drivers are present. */
+  'system.ping': { input: Record<string, never>; output: { ok: true; drivers: { postgres: boolean; mongodb: boolean }; node: string } }
   'containers.engines': { input: Record<string, never>; output: ContainerEngineInfo[] }
   'containers.list': { input: { engine?: ContainerEngine }; output: { engine: ContainerEngine; containers: ContainerSummary[] } }
   'containers.inspect': { input: { engine?: ContainerEngine; id: string }; output: ContainerInspect }

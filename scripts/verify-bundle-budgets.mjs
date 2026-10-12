@@ -11,7 +11,11 @@ const budgets = [
   { label: 'main process entry', dir: 'out/main', match: /^index\.js$/, max: 904 * 1024 },
   { label: 'preload entry', dir: 'out/preload', match: /^index\.cjs$/, max: 40 * 1024 },
   { label: 'renderer entry', dir: 'out/renderer/assets', match: /^index-.*\.js$/, max: 500 * 1024 },
-  { label: 'renderer base CSS', dir: 'out/renderer/assets', match: /^index-.*\.css$/, max: 500 * 1024 }
+  { label: 'renderer base CSS', dir: 'out/renderer/assets', match: /^index-.*\.css$/, max: 500 * 1024 },
+  // OxeQuery loads on demand; its worker bundles pg, mongodb and ssh2, so it has its own ceiling.
+  { label: 'OxeQuery worker', dir: 'out/main', match: /^oxequery-worker\.js$/, max: 3 * 1024 * 1024 },
+  { label: 'OxeQuery view chunk', dir: 'out/renderer/assets', match: /^OxeQueryView-.*\.js$/, max: 160 * 1024 },
+  { label: 'OxeQuery CSS', dir: 'out/renderer/assets', match: /^OxeQuery-.*\.css$/, max: 64 * 1024 }
 ]
 
 let failed = false
