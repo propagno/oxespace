@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../../db'
 import type { AgentConversationAdapter, ConversationThread, ThreadAgentInput, ThreadCommandCatalog, ThreadEvent, ThreadSnapshot, ThreadRequestResponse, ThreadQueuedInput, ThreadContextReport, ThreadRewindResult } from '../../../../shared/types/thread'
-import type { NativeCliSession, ThreadNativeCli } from './thread-cli'
+import type { ThreadNativeCli } from './thread-cli'
 import type { ThreadModelCatalog, ThreadConfiguration, ThreadCommandResult } from '../../../../shared/types/thread'
 import type { ThreadModelService } from './thread-models'
 import { hasDesktopCommand } from '../../../../shared/threadDesktopCommands'
@@ -77,8 +77,6 @@ export class ThreadOrchestrator {
   private readonly workingTreeBaselines = new Map<string, { patch: string; untracked: Set<string> }>()
   private stopping = false
   private readonly configuring = new Set<string>()
-  private readonly cliSessions = new Map<string, NativeCliSession>()
-  private readonly cliStarting = new Map<string, Promise<import('../../../../shared/types/thread').ThreadCliState>>()
 
   constructor(private readonly db: AppDatabase,
     private readonly factory: (thread: ConversationThread) => Promise<AgentConversationAdapter>,
@@ -88,7 +86,7 @@ export class ThreadOrchestrator {
       list(thread: ConversationThread, forceRefresh?: boolean): Promise<ThreadCommandCatalog>
       prepare(thread: ConversationThread, text: string): Promise<ThreadAgentInput>
       stop?(): Promise<void>
-    }, private readonly nativeCli?: Pick<ThreadNativeCli, 'open' | 'read'> & Partial<Pick<ThreadNativeCli, 'closeHistoryReader'>>,
+    }, private readonly nativeCli?: Pick<ThreadNativeCli, 'read'> & Partial<Pick<ThreadNativeCli, 'closeHistoryReader'>>,
     private readonly modelService?: Pick<ThreadModelService, 'list' | 'stop'>,
     private readonly attachmentStore?: ThreadAttachmentStore,
     private readonly stateReader?: { observe(thread: ConversationThread, nativeTurnId?: string): Promise<import('../../../../shared/types/thread').ThreadProviderObservation>; recover?(thread: ConversationThread, nativeTurnId?: string): Promise<NativeStateResult>; stop(): Promise<void> },
@@ -633,109 +631,6 @@ export class ThreadOrchestrator {
     return this.commandService?.list(this.read(id).thread, forceRefresh) ?? Promise.resolve({ commands: [] })
   }
 
-  openCli(id: string, command?: string): Promise<import('../../../../shared/types/thread').ThreadCliState> {
-    if (this.stopping) return Promise.reject(Error('Application is shutting down'))
-    const pending = this.cliStarting.get(id)
-    if (pending) return command ? Promise.reject(Error('Native CLI is already starting')) : pending
-    const current = this.cliSessions.get(id)
-    if (current?.state().running) return command ? Promise.reject(Error('Use the native CLI input while it is open')) : Promise.resolve(current.state())
-    if (this.busy.has(id)) return Promise.reject(Error('Finish or stop the active turn before opening the native CLI'))
-    if ([...this.cliSessions.values()].filter(session => session.state().running).length + this.cliStarting.size >= 8) return Promise.reject(Error('Close a native CLI session before opening another'))
-    const snapshot = this.read(id)
-    if (!this.nativeCli) return Promise.reject(Error('Native CLI support is unavailable. Restart the updated application.'))
-    this.assertNativeSessionAvailable(id, snapshot.thread.provider, snapshot.thread.nativeSessionId)
-    this.busy.add(id)
-    const task = (async () => {
-      try {
-        if (!/^\/(login|logout)(?:\s|$)/.test(command ?? '')) await this.preflight?.(snapshot.thread)
-        if (this.stopping) throw Error('Application is shutting down')
-        const old = this.adapters.get(id)
-        this.adapters.delete(id); await old?.dispose()
-        await current?.close()
-        // Read again after account discovery: never restore stale pane/root metadata.
-        const thread = this.read(id).thread
-        let ended = false
-        const session = await this.nativeCli!.open(thread, command, async (nativeSessionId, interrupted) => {
-          ended = true
-          try {
-            let latest = this.read(id)
-            let eventsFrom = latest.events.length
-            if (nativeSessionId && !this.stopping) {
-              try {
-                const history = await this.nativeCli!.read(thread, nativeSessionId)
-                latest = this.read(id)
-                latest.events = history.events
-                latest.thread.nativeHistoryCursor = history.cursor
-                this.history.clearNativePages(id)
-                eventsFrom = 0
-                if (history.title) latest.thread.title = history.title
-                latest.thread.cliNotice = history.truncated ? PARTIAL_NATIVE_HISTORY_NOTICE : undefined
-                latest.thread.nativeSessionId = nativeSessionId
-              } catch (error) {
-                latest = this.read(id)
-                eventsFrom = latest.events.length
-                latest.thread.cliNotice = 'Native history could not be imported. Use the CLI to resume or link a saved session before continuing.'
-                // A generated ID with no persisted history must never be resumed.
-                if (!thread.nativeSessionId) {
-                  latest.thread.nativeSessionId = null
-                  if ((error as NodeJS.ErrnoException).code === 'ENOENT') latest.thread.cliNotice = undefined
-                }
-              }
-            }
-            latest.thread.cliActive = false
-            latest.thread.status = this.stopping || interrupted ? 'interrupted' : 'idle'
-            this.save(latest, { eventsFrom })
-          } catch { /* workspace removed */ }
-          finally { this.busy.delete(id) }
-        })
-        this.cliSessions.set(id, session)
-        if (this.stopping) { await session.close(); throw Error('Application is shutting down') }
-        const latest = this.read(id)
-        latest.thread.cliActive = !ended && session.state().running
-        if (latest.thread.cliActive && session.state().nativeSessionId) latest.thread.nativeSessionId = session.state().nativeSessionId
-        if (latest.thread.cliActive) latest.thread.status = 'idle'
-        this.save(latest, { eventsFrom: latest.events.length })
-        return session.state()
-      } catch (error) {
-        this.busy.delete(id)
-        const failed = this.cliSessions.get(id)
-        this.cliSessions.delete(id)
-        await failed?.close().catch(() => {})
-        throw error
-      }
-    })().finally(() => this.cliStarting.delete(id))
-    this.cliStarting.set(id, task)
-    return task
-  }
-
-  cli(id: string): NativeCliSession | undefined { this.read(id); return this.cliSessions.get(id) }
-
-  async linkCliSession(id: string, nativeSessionId: string): Promise<void> {
-    if (this.stopping) throw Error('Application is shutting down')
-    const session = this.cli(id)
-    if (!session || !this.nativeCli) throw Error('Open the native CLI before linking a saved session')
-    this.assertNativeSessionAvailable(id, this.read(id).thread.provider, nativeSessionId)
-    await session.linkSession(nativeSessionId)
-    if (session.state().running) return // the native exit imports this selected ID
-    await session.close() // wait for an already pending exit import
-    if (this.cliSessions.get(id) !== session || this.busy.has(id)) throw Error('Finish the active session before linking native history')
-    this.busy.add(id)
-    try {
-      const history = await this.nativeCli.read(this.read(id).thread, nativeSessionId)
-      if (this.stopping) throw Error('Application is shutting down')
-      const old = this.adapters.get(id)
-      this.adapters.delete(id); await old?.dispose()
-      const latest = this.read(id)
-      latest.events = history.events
-      latest.thread.nativeHistoryCursor = history.cursor
-      this.history.clearNativePages(id)
-      latest.thread.nativeSessionId = nativeSessionId
-      latest.thread.cliNotice = history.truncated ? PARTIAL_NATIVE_HISTORY_NOTICE : undefined
-      if (history.title) latest.thread.title = history.title
-      this.save(latest)
-    } finally { this.busy.delete(id) }
-  }
-
   models(id: string, refresh = false): Promise<ThreadModelCatalog> {
     if (!this.modelService) return Promise.reject(Error('Model discovery is unavailable. Restart the updated application.'))
     return this.modelService.list(this.read(id).thread, refresh)
@@ -782,7 +677,6 @@ export class ThreadOrchestrator {
   }
 
   async recover(id: string): Promise<void> {
-    if (this.cliSessions.has(id) || this.cliStarting.has(id)) await this.stopCli(id)
     if (this.busy.has(id) || this.configuring.has(id)) throw Error('Finish the active operation before recovery')
     this.configuring.add(id)
     try {
@@ -956,14 +850,6 @@ export class ThreadOrchestrator {
     } finally { this.configuring.delete(id) }
   }
 
-  async stopCli(id: string): Promise<void> {
-    this.read(id)
-    if (this.cliStarting.has(id)) await this.cliStarting.get(id)
-    const session = this.cliSessions.get(id)
-    await session?.close()
-    if (this.cliSessions.get(id) === session) this.cliSessions.delete(id)
-  }
-
   async stop(): Promise<void> {
     for (const id of this.deltaBuffers.keys()) this.flushDeltas(id)
     this.stopping = true
@@ -973,9 +859,6 @@ export class ThreadOrchestrator {
     await Promise.allSettled([...this.nativePageLoads.values()])
     await Promise.resolve() // let already scheduled turn finalizers register before closing the database
     await Promise.allSettled([...this.finalizationTasks])
-    await Promise.allSettled([...this.cliStarting.values()])
-    await Promise.allSettled([...this.cliSessions.values()].map(session => session.close()))
-    this.cliSessions.clear()
     await this.commandService?.stop?.()
     await this.modelService?.stop()
     for (const id of this.busy) {
@@ -1295,14 +1178,11 @@ export class ThreadOrchestrator {
 
   private assertNativeSessionAvailable(id: string, provider: ConversationThread['provider'], nativeSessionId: string | null): void {
     if (!nativeSessionId) return
-    const owners = new Set([...this.adapters.keys(), ...this.cliSessions.keys()])
-    for (const otherId of owners) {
+    for (const otherId of this.adapters.keys()) {
       if (otherId === id) continue
-      const cli = this.cliSessions.get(otherId)
-      if (!this.adapters.has(otherId) && !cli?.state().running) continue
       try {
         const other = this.read(otherId).thread
-        const activeNativeId = cli?.state().nativeSessionId ?? other.nativeSessionId
+        const activeNativeId = other.nativeSessionId
         if (other.provider === provider && activeNativeId === nativeSessionId) {
           throw Error('This native session is already open in another Thread conversation')
         }

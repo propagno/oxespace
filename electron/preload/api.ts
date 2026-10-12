@@ -46,8 +46,6 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
   const terminalData = createPaneSubscriber<TerminalDataEvent>(ipc, IPC_CHANNELS.terminal.onData)
   const terminalExit = createPaneSubscriber<TerminalExitEvent>(ipc, IPC_CHANNELS.terminal.onExit)
   const terminalActivity = createPaneSubscriber<TerminalActivityEvent>(ipc, IPC_CHANNELS.terminal.onActivity)
-  const cliData = createPaneSubscriber<TerminalDataEvent>(ipc, IPC_CHANNELS.threadCli.data)
-  const cliExit = createPaneSubscriber<TerminalExitEvent>(ipc, IPC_CHANNELS.threadCli.exit)
 
   return {
     agentAccount: {
@@ -69,18 +67,6 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       command: (id, text) => ipc.invoke(IPC_CHANNELS.thread.command, id, text) as Promise<import('../../shared/types/thread').ThreadCommandResult>,
       observe: id => ipc.invoke(IPC_CHANNELS.thread.observe, id) as Promise<import('../../shared/types/thread').ThreadProviderObservation>,
       recover: id => ipc.invoke(IPC_CHANNELS.thread.recover, id) as Promise<void>,
-      cli: {
-        open: (id, command) => ipc.invoke(IPC_CHANNELS.threadCli.open, id, command) as ReturnType<import('../../shared/types/thread').ThreadCliApi['open']>,
-        state: id => ipc.invoke(IPC_CHANNELS.threadCli.state, id) as ReturnType<import('../../shared/types/thread').ThreadCliApi['state']>,
-        write: (id, data) => ipc.invoke(IPC_CHANNELS.threadCli.write, id, data) as Promise<void>,
-        resize: (id, cols, rows) => ipc.invoke(IPC_CHANNELS.threadCli.resize, id, cols, rows) as Promise<void>,
-        attach: id => ipc.invoke(IPC_CHANNELS.threadCli.attach, id) as Promise<TerminalAttachResult>,
-        detach: id => ipc.invoke(IPC_CHANNELS.threadCli.detach, id) as Promise<void>,
-        stop: id => ipc.invoke(IPC_CHANNELS.threadCli.stop, id) as Promise<void>,
-        insertCommand: id => ipc.invoke(IPC_CHANNELS.threadCli.insert, id) as Promise<void>,
-        linkSession: (id, nativeId) => ipc.invoke(IPC_CHANNELS.threadCli.link, id, nativeId) as Promise<void>,
-        onData: cliData, onExit: cliExit
-      },
       commands: (id, forceRefresh) => ipc.invoke(IPC_CHANNELS.thread.commands, id, forceRefresh) as ReturnType<import('../../shared/types/thread').ThreadApi['commands']>,
       projects: () => ipc.invoke(IPC_CHANNELS.thread.projects) as ReturnType<import('../../shared/types/thread').ThreadApi['projects']>,
       addProject: rootPath => ipc.invoke(IPC_CHANNELS.thread.addProject, rootPath) as ReturnType<import('../../shared/types/thread').ThreadApi['addProject']>,

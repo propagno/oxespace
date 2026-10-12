@@ -32,7 +32,7 @@ export function createThreadManager(db: AppDatabase, accounts: NativeAccountServ
   }
   const broadcast = (channel: string, event: unknown) => { for (const window of BrowserWindow.getAllWindows()) window.webContents.send(channel, event) }
   const commands = new ThreadCommandService(executable)
-  const cli = new ThreadNativeCli(executable, { historyReader: new NativeHistoryWorkerClient(join(app.getAppPath(), 'out', 'main', 'native-history-worker.js'), executable), data: event => broadcast(IPC_CHANNELS.threadCli.data, event), exit: event => broadcast(IPC_CHANNELS.threadCli.exit, event) })
+  const cli = new ThreadNativeCli(executable, { historyReader: new NativeHistoryWorkerClient(join(app.getAppPath(), 'out', 'main', 'native-history-worker.js'), executable) })
   return new ThreadManager(db, async thread => {
     const profile = resolveProfile(thread)
     if (!profile) throw new Error('Configure the agent in Agent Settings')

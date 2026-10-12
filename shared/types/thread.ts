@@ -402,7 +402,6 @@ export interface ThreadApi {
   command?(id: string, text: string): Promise<ThreadCommandResult>
   recover?(id: string): Promise<void>
   observe?(id: string): Promise<ThreadProviderObservation>
-  cli?: ThreadCliApi
   commands(id: string, forceRefresh?: boolean): Promise<ThreadCommandCatalog>
   projects(): Promise<ThreadProjectCatalog>
   addProject(rootPath: string): Promise<ThreadProjectSummary>
@@ -435,18 +434,4 @@ export interface ThreadCliState {
   running: boolean
   nativeSessionId: string | null
   pendingCommand?: string
-}
-/** Separate from Code panes: no shell, executable, environment or cwd from the renderer. */
-export interface ThreadCliApi {
-  open(id: string, command?: string): Promise<ThreadCliState>
-  state(id: string): Promise<ThreadCliState>
-  write(id: string, data: string): Promise<void>
-  resize(id: string, cols: number, rows: number): Promise<void>
-  attach(id: string): Promise<import('./ipc').TerminalAttachResult>
-  detach(id: string): Promise<void>
-  stop(id: string): Promise<void>
-  insertCommand(id: string): Promise<void>
-  linkSession(id: string, nativeSessionId: string): Promise<void>
-  onData(id: string, listener: (event: import('./ipc').TerminalDataEvent) => void): () => void
-  onExit(id: string, listener: (event: import('./ipc').TerminalExitEvent) => void): () => void
 }

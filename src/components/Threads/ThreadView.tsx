@@ -191,7 +191,6 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   useEffect(() => { const ctx = JSON.parse(contextKey); if (ctx.workspaceId) void useAccountStore.getState().read(ctx) }, [contextKey])
   const running = snapshot?.thread.status === 'running' || snapshot?.thread.status === 'approval'
   const pendingRequests = running ? (snapshot?.pendingRequests ?? snapshot?.events.flatMap(event => event.type === 'request' && event.request.state === 'pending' ? [event.request] : []) ?? []) : []
-  const cliVisible = false
   const viewMode = useThreadViewModeStore(state => state.mode)
   const turns = useMemo(() => buildThreadTimeline(snapshot?.events ?? [], viewMode), [snapshot?.events, viewMode])
   const timelineRows = useMemo(() => flattenThreadTimeline(turns), [turns])
@@ -258,7 +257,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
     if (!following.current && snapshot.events.length > lastCount.current) setNewMessages(count => count + snapshot.events.length - lastCount.current)
     lastCount.current = snapshot.events.length
     setShowEnd(!following.current)
-  }, [snapshot, cliVisible])
+  }, [snapshot])
   useEffect(() => {
     const node = content.current
     if (!node || typeof ResizeObserver === 'undefined') return
@@ -275,7 +274,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
     observer.observe(node)
     if (timeline.current) observer.observe(timeline.current)
     return () => observer.disconnect()
-  }, [cliVisible])
+  }, [])
   useLayoutEffect(() => { const el = textarea.current; if (el) { el.style.height = '0px'; el.style.height = `${Math.min(144, Math.max(40, el.scrollHeight))}px` } }, [draft])
   const action = async (run: () => Promise<unknown>, onSettled?: (success: boolean) => void): Promise<void> => {
     if (actionInFlight.current) return
@@ -436,7 +435,6 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   const returnFromCli = async () => {
     if (!snapshot) return
     if (api?.recover) await api.recover(snapshot.thread.id)
-    else await api!.cli!.stop(snapshot.thread.id)
     await useThreadStore.getState().refresh(snapshot.thread.id)
     await useAccountStore.getState().read(context)
     initialized.current = false

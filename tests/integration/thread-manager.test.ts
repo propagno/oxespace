@@ -554,45 +554,15 @@ describe('thread persistence and ownership', () => {
     expect(nativeCommand).not.toHaveBeenCalled()
     await f.manager.stop()
   })
-  it('links a different saved session after the CLI has exited, replacing stale history before ordinary resume', async () => {
-    let ended: ((id: string | null) => Promise<void>) | undefined, running = true, nativeSessionId = 'original'
-    const session = { state: () => ({ running, nativeSessionId }), write: async () => {}, resize: () => {}, attach: () => ({ running, seq: 0, prologue: '', replay: '', truncated: false, altScreen: false }), detach: () => {}, insertCommand: async () => {},
-      linkSession: vi.fn(async (id: string) => { nativeSessionId = id }), close: vi.fn(async () => {}) }
-    const cli = { open: vi.fn<NonNullable<ConstructorParameters<typeof ThreadManager>[5]>['open']>(async (_thread, _command, callback) => { ended = callback; return session }), read: vi.fn(async (_thread, id: string) => ({ title: id, events: [{ type: 'message' as const, role: 'user' as const, id, text: id }] })) }
-    const f = fixture(undefined, undefined, cli), id = f.create()
-    await f.manager.openCli(id)
-    running = false; await ended?.('original')
-    await f.manager.linkCliSession(id, 'selected')
-    expect(f.manager.read(id)).toMatchObject({ thread: { nativeSessionId: 'selected', title: 'selected', cliActive: false }, events: [{ text: 'selected' }] })
-    await f.manager.send(id, 'Continue')
-    expect(f.adapters[0].start).toHaveBeenCalledWith(expect.objectContaining({ rootPath: '/project-A', nativeSessionId: 'selected', networkAccess: false, approvalPolicy: 'on-request' }), expect.any(Function))
-    await f.manager.stop()
-  })
-  it('offers TUI-only commands without opening a terminal, then leases the CLI only on an explicit tool action', async () => {
-    let finish: ((id: string | null) => Promise<void>) | undefined
-    let running = true
-    const cliSession = { state: () => ({ running, nativeSessionId: 'native-1' }), write: vi.fn(async () => {}), resize: vi.fn(), attach: vi.fn(), detach: vi.fn(), insertCommand: vi.fn(async () => {}), linkSession: vi.fn(async () => {}),
-      close: vi.fn(async () => { if (running) { running = false; await finish?.('native-chosen') } }) }
-    const cli = { open: vi.fn<NonNullable<ConstructorParameters<typeof ThreadManager>[5]>['open']>(async (_thread, _command, ended) => { finish = ended; return cliSession }), read: vi.fn(async () => ({ title: 'Native renamed', events: [{ type: 'message' as const, id: 'native-message', role: 'user' as const, text: 'Native CLI prompt' }] })) }
+  it('offers TUI-only commands as integrated panels without opening a terminal', async () => {
     const commands = { list: vi.fn(async () => ({ commands: [] })), prepare: vi.fn<NonNullable<ConstructorParameters<typeof ThreadManager>[4]>['prepare']>(async (_thread, text) => ({ text, nativeCli: text.startsWith('/') })) }
-    const f = fixture(undefined, commands, cli), id = f.create()
+    const f = fixture(undefined, commands), id = f.create()
     await f.manager.send(id, 'Initial question'); f.callbacks[0]({ type: 'completed', status: 'completed' })
     await f.manager.send(id, '/permissions')
-    expect(cli.open).not.toHaveBeenCalled()
     expect(f.adapters[0].dispose).not.toHaveBeenCalled()
     expect(await f.manager.command(id, '/permissions')).toMatchObject({ kind: 'panel', surface: 'permissions' })
     expect(f.manager.read(id).events.some(event => event.type === 'cli-command')).toBe(false)
     expect(f.manager.hasRunning('codex')).toBe(false)
-    await f.manager.openCli(id, '/permissions')
-    expect(f.adapters[0].dispose).toHaveBeenCalledOnce()
-    expect(cli.open).toHaveBeenCalledWith(expect.objectContaining({ rootPath: '/project-A', nativeSessionId: 'native-1' }), '/permissions', expect.any(Function))
-    expect(f.manager.read(id).thread.cliActive).toBe(true)
-    await expect(f.manager.send(id, 'Concurrent')).rejects.toThrow('native CLI')
-    await expect(f.manager.openCli(id, '/model')).rejects.toThrow('native CLI input')
-    await f.manager.stopCli(id)
-    expect(f.manager.read(id)).toMatchObject({ thread: { cliActive: false, nativeSessionId: 'native-chosen', title: 'Native renamed' }, events: [{ text: 'Native CLI prompt' }] })
-    await f.manager.send(id, 'Continue')
-    expect(f.adapters[1].start).toHaveBeenCalledWith(expect.objectContaining({ rootPath: '/project-A', nativeSessionId: 'native-chosen', networkAccess: false, approvalPolicy: 'on-request' }), expect.any(Function))
     await f.manager.stop()
   })
   it('persists a chosen model and reasoning effort and restores them with the same native session', async () => {
@@ -609,21 +579,6 @@ describe('thread persistence and ownership', () => {
     await restarted.send(id, 'Continue')
     expect(f.adapters[1].start).toHaveBeenCalledWith(expect.objectContaining({ rootPath: '/project-A', nativeSessionId: 'native-1', model: 'native-model', reasoningEffort: 'high', access: 'read-only', networkAccess: false, approvalPolicy: 'on-request', mode: 'default' }), expect.any(Function))
     await restarted.stop()
-  })
-  it('never opens a CLI during a turn, releases a failed CLI launch, and blocks stale context after a failed import', async () => {
-    const cli = { open: vi.fn<NonNullable<ConstructorParameters<typeof ThreadManager>[5]>['open']>().mockRejectedValueOnce(Error('CLI unavailable')), read: vi.fn(async () => { throw Error('Other project') }) }
-    const f = fixture(undefined, undefined, cli), id = f.create()
-    await expect(f.manager.openCli(id)).rejects.toThrow('unavailable')
-    expect(f.manager.hasRunning('codex')).toBe(false)
-    await f.manager.send(id, 'Question')
-    await expect(f.manager.openCli(id)).rejects.toThrow('active turn')
-    f.callbacks[0]({ type: 'completed', status: 'completed' })
-    cli.open.mockImplementationOnce(async (_thread, _command, ended) => ({ state: () => ({ running: true, nativeSessionId: 'native-1' }), write: async () => {}, resize: () => {}, attach: () => ({ running: true, seq: 0, prologue: '', replay: '', truncated: false, altScreen: false }), detach: () => {}, insertCommand: async () => {}, linkSession: async () => {}, close: async () => { await ended('native-1') } }))
-    await f.manager.openCli(id); await f.manager.stopCli(id)
-    expect(f.manager.read(id).thread.cliNotice).toContain('could not be imported')
-    await expect(f.manager.send(id, 'Continue')).rejects.toThrow('could not be imported')
-    expect(f.factory).toHaveBeenCalledOnce()
-    await f.manager.stop()
   })
   it('keeps slash invocations in history while sending resolved native skills to the adapter', async () => {
     const input = { text: '$oxe-plan Review auth', skill: { name: 'oxe-plan', path: '/native/oxe-plan/SKILL.md' } }

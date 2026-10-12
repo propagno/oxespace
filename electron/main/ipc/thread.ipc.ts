@@ -179,25 +179,6 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings): { st
     if (!Number.isInteger(value) || Number(value) < 2 || Number(value) > 500) throw Error('Invalid terminal dimensions')
     return value as number
   }
-  ipcMain.handle(IPC_CHANNELS.threadCli.open, event => {
-    sender(event); throw Error('Interactive CLI tools have been replaced by integrated Thread controls. Use the conversation command menu.')
-  })
-  ipcMain.handle(IPC_CHANNELS.threadCli.state, (event, id: unknown) => {
-    sender(event); return manager.then(service => service.cli(string(id))?.state() ?? { running: false, nativeSessionId: service.read(string(id)).thread.nativeSessionId })
-  })
-  ipcMain.handle(IPC_CHANNELS.threadCli.write, (event, id: unknown, data: unknown) => {
-    sender(event); const input = string(data); return manager.then(service => service.cli(string(id))?.write(input))
-  })
-  ipcMain.handle(IPC_CHANNELS.threadCli.resize, (event, id: unknown, cols: unknown, rows: unknown) => {
-    sender(event); const width = dimension(cols), height = dimension(rows); return manager.then(service => service.cli(string(id))?.resize(width, height))
-  })
-  ipcMain.handle(IPC_CHANNELS.threadCli.attach, (event, id: unknown) => {
-    sender(event); return manager.then(service => service.cli(string(id))?.attach() ?? { running: false, seq: 0, prologue: '', replay: '', truncated: false, altScreen: false })
-  })
-  ipcMain.handle(IPC_CHANNELS.threadCli.detach, (event, id: unknown) => { sender(event); return manager.then(service => service.cli(string(id))?.detach()) })
-  ipcMain.handle(IPC_CHANNELS.threadCli.stop, (event, id: unknown) => { sender(event); return manager.then(service => service.stopCli(string(id))) })
-  ipcMain.handle(IPC_CHANNELS.threadCli.insert, (event, id: unknown) => { sender(event); return manager.then(service => service.cli(string(id))?.insertCommand()) })
-  ipcMain.handle(IPC_CHANNELS.threadCli.link, (event, id: unknown, nativeId: unknown) => { sender(event); return manager.then(service => service.linkCliSession(string(id), string(nativeId))) })
   ipcMain.handle(IPC_CHANNELS.thread.create, async (event, input: unknown) => {
     sender(event)
     if (!input || typeof input !== 'object') throw new Error('Invalid thread input')
