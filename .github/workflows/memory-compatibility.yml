@@ -42,8 +42,8 @@ jobs:
             asset: ai-memory-linux-x86_64.tar.gz
             sha256: dc73118f772763a119b03d387f6f44f0b866d85498851b74aa5152944ef2e650
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: '22'
           cache: npm
