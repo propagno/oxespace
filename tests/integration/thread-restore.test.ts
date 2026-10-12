@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { removeTempDir } from '../helpers/removeTempDir'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -9,7 +10,7 @@ import { ThreadCheckpointService } from '../../electron/main/services/conversati
 const roots: string[] = [], databases: AppDatabase[] = []
 afterEach(() => {
   for (const db of databases.splice(0)) db.close()
-  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true })
+  for (const root of roots.splice(0)) removeTempDir(root)
 })
 
 function fixture() {

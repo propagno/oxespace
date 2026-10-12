@@ -6,6 +6,7 @@ import { ThreadAgentError, threadFailure } from '../../electron/main/services/co
 import type { AgentConversationAdapter, ThreadEvent } from '../../shared/types/thread'
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { removeTempDir } from '../helpers/removeTempDir'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 
@@ -309,7 +310,7 @@ describe('thread persistence and ownership', () => {
       expect(f.adapters[0].send).toHaveBeenCalledTimes(1)
     } finally {
       await manager?.stop()
-      rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
+      removeTempDir(root)
     }
   }, 30_000)
   it('opens delegated work and exact task details locally without launching a provider', async () => {

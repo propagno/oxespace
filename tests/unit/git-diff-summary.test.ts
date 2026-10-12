@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { removeTempDir } from '../helpers/removeTempDir'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -50,7 +51,7 @@ describe('GitService.getDiffSummary / getFileOriginal', () => {
     git('commit', '-qm', 'feature work')
     writeFileSync(join(root, 'keep.txt'), 'same\nplus uncommitted\n')
   })
-  afterAll(() => { rmSync(root, { recursive: true, force: true }) })
+  afterAll(() => { removeTempDir(root) })
 
   it('lists committed and uncommitted changes against the base without caps', async () => {
     const summary = await new GitService().getDiffSummary(root, 'main', true)

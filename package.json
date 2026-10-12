@@ -51,6 +51,7 @@
     "release:checksums": "node scripts/release-checksums.mjs",
     "security:audit": "npm audit --omit=dev --package-lock-only --audit-level=moderate",
     "security:audit:tools": "npm audit --package-lock-only --audit-level=high",
+    "verify:claude-protocol": "node scripts/probe-claude-protocol.cjs",
     "test:thread:native": "vitest run tests/integration/thread-native-campaign.test.ts --maxWorkers=1"
   },
   "dependencies": {

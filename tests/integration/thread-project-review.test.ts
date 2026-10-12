@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { removeTempDir } from '../helpers/removeTempDir'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -11,7 +12,7 @@ afterEach(async () => {
   for (const { db, root, manager } of resources.splice(0)) {
     await manager.stop(); db.close()
     if (!resolve(root).startsWith(resolve(tmpdir()) + '\\oxe-thread-review-') && !resolve(root).startsWith(resolve(tmpdir()) + '/oxe-thread-review-')) throw Error('Unexpected test directory')
-    rmSync(root, { recursive: true, force: true })
+    removeTempDir(root)
   }
 })
 function fixture() {
