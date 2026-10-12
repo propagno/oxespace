@@ -79,9 +79,35 @@ SqlWorkbench / MongoWorkbench        ConnectionStore          mongodb + bson
 - Certificates and keys are chosen in a native dialog; the page only ever sees an
   opaque handle and the file name.
 
+## Changing data, export and import
+
+- **Editing rows (PostgreSQL).** Browse a table on a read-write connection and
+  choose *Edit rows*. Updates, inserts and deletes are staged; *View SQL* shows
+  the exact parameterised statements and *Apply* runs them in one transaction.
+  The page sends structure (key, new values, old values), never SQL text. Every
+  update/delete must match exactly one row *and* the values you last saw;
+  otherwise the whole batch is rolled back with a conflict message. A table
+  needs a primary key or a unique NOT NULL index to be editable.
+- **Editing documents (MongoDB).** Edit, delete or add documents as EJSON. A
+  replace or delete is refused when the stored document no longer equals the one
+  you opened; `_id` cannot change.
+- **Confirmation.** Deletes, and any write on a connection marked `prod`, ask
+  for confirmation in the main process, not only in the page.
+- **Export.** CSV, JSON, NDJSON or SQL `INSERT` from a table, a read query or a
+  collection, streamed through a cursor (default cap 5 M rows, 20 M max). The
+  destination comes from a native save dialog; an existing file is never
+  overwritten and a cancelled export removes its partial file. CSV cells that
+  start with `= + - @` are prefixed so spreadsheets do not run them as formulas.
+- **Import.** CSV/TSV, JSON (array) or NDJSON up to 200 MB into a table or
+  collection, with a column mapping, a **dry run** (the whole import inside a
+  transaction that is rolled back) and 1 000-row batches. A table import is
+  all-or-nothing; unreadable rows are skipped and written to
+  `<file>.rejects.ndjson`. MongoDB uses `insertMany` with `ordered: false`, so
+  documents that clash are reported and the rest are inserted.
 ## Limits (by design, for now)
 
-- No row or document editing from the grid, no import or export to files yet.
+- Import does not infer or convert types for CSV into MongoDB (values stay text), and a
+  MongoDB dry run only validates the file; it does not contact the server.
 - A `mongodb+srv` seed list reached through an SSH tunnel falls back to the single
   host you entered.
 - "Run command" splits on spaces and does not interpret quotes or pipes; use
@@ -97,3 +123,6 @@ SqlWorkbench / MongoWorkbench        ConnectionStore          mongodb + bson
 - `e2e/oxequery.spec.ts`: the mode in the real renderer with an in-memory backend.
 - `tests/live/oxequery-live.test.ts` (`OXE_LIVE=1`, needs Docker and a built
   worker): real containers, PostgreSQL 16 and MongoDB 7.
+- `tests/live/oxequery-writes-live.test.ts` (`OXE_LIVE=1`): concurrent edits, hostile
+  values, 100 000-row CSV/NDJSON round trips with a checksum, cancelled export, dry run,
+  and MongoDB conflicts.

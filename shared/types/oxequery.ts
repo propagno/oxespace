@@ -196,6 +196,100 @@ export interface SqlBrowseInput {
   orderBy?: { column: string; direction: 'asc' | 'desc' }
 }
 
+/** One edit to a table row. Values are text that the server casts to the column type, or null. */
+export type SqlCellValue = string | number | boolean | null | Record<string, unknown> | unknown[]
+export type SqlRowChange =
+  | { kind: 'update'; key: Record<string, SqlCellValue>; set: Record<string, SqlCellValue>; old?: Record<string, SqlCellValue> }
+  | { kind: 'insert'; values: Record<string, SqlCellValue> }
+  | { kind: 'delete'; key: Record<string, SqlCellValue>; old?: Record<string, SqlCellValue> }
+export interface SqlApplyInput { connectionId: string; schema: string; table: string; changes: SqlRowChange[]; confirmed?: boolean }
+export interface SqlApplyResult { applied: number; statements: string[] }
+export interface SqlEditability {
+  editable: boolean
+  /** Why not, in words for a person. */
+  reason?: string
+  columns: { name: string; type: string; nullable: boolean; hasDefault: boolean; generated: boolean; key: boolean }[]
+}
+
+export interface MongoWriteInput {
+  connectionId: string
+  database: string
+  collection: string
+  op: 'insert' | 'replace' | 'delete'
+  /** EJSON text of the new document (insert, replace). */
+  document?: string
+  /** EJSON text of the document as the person saw it; a replace or delete is refused if it changed. */
+  expected?: string
+  confirmed?: boolean
+}
+export interface MongoWriteResult { matched: number; modified: number; deleted: number; insertedId?: string }
+
+export type ExportFormat = 'csv' | 'json' | 'ndjson' | 'sql'
+export type ExportSource =
+  | { kind: 'sql'; sql: string }
+  | { kind: 'table'; schema: string; table: string }
+  | { kind: 'collection'; database: string; collection: string; filter?: string }
+export interface ExportInput {
+  connectionId: string
+  /** Chosen by the caller so progress events and a cancel can be matched to this export. */
+  exportId: string
+  source: ExportSource
+  format: ExportFormat
+  options?: { delimiter?: ',' | ';' | '\t'; header?: boolean; bom?: boolean; maxRows?: number }
+}
+export interface ExportResult {
+  /** True when the person closed the save dialog; nothing was written. */
+  dismissed?: boolean
+  cancelled?: boolean
+  path?: string
+  fileName?: string
+  rows: number
+  bytes: number
+  durationMs: number
+}
+
+export type ImportTarget =
+  | { kind: 'table'; schema: string; table: string }
+  | { kind: 'collection'; database: string; collection: string }
+export interface ImportPreview {
+  /** Handle for the chosen file; the page never learns its path. */
+  importId: string
+  fileName: string
+  format: 'csv' | 'ndjson' | 'json'
+  bytes: number
+  /** Field names found in the file, in order. */
+  fields: string[]
+  /** Up to ten rows as text. */
+  sample: string[][]
+  /** Columns of the destination table (empty for a collection). */
+  targetColumns: { name: string; type: string; nullable: boolean; hasDefault: boolean; generated: boolean }[]
+  /** Suggested file field → column mapping (same name, case-insensitive). */
+  mapping: Record<string, string>
+  dismissed?: boolean
+}
+export interface ImportRunInput {
+  connectionId: string
+  importId: string
+  target: ImportTarget
+  /** File field → destination column. A field that is absent is not imported. */
+  mapping: Record<string, string>
+  /** Runs everything in a transaction and rolls it back, reporting what would happen. */
+  dryRun?: boolean
+  emptyAsNull?: boolean
+  confirmed?: boolean
+}
+export interface ImportResult {
+  dryRun: boolean
+  inserted: number
+  rejected: number
+  /** First rejected rows with the reason. */
+  rejects: { row: number; reason: string }[]
+  /** File with every rejected row, written next to the source file. */
+  rejectsPath?: string
+  cancelled?: boolean
+  durationMs: number
+}
+
 export interface MongoDatabaseInfo { name: string; sizeOnDisk?: number; empty?: boolean }
 export interface MongoCollectionInfo { name: string; type: string }
 
@@ -229,7 +323,7 @@ export interface MongoResult {
 export interface MongoIndexInfo { name: string; keys: string; unique: boolean }
 
 export type ContainerLogEvent = { type: 'container-log'; streamId: string; lines: string[] } | { type: 'container-log-end'; streamId: string; reason: string }
-export type OxeQueryEvent = ContainerLogEvent | { type: 'containers-changed' }
+export type OxeQueryEvent = ContainerLogEvent | { type: 'containers-changed' } | { type: 'export-progress'; exportId: string; rows: number; bytes: number } | { type: 'import-progress'; importId: string; rows: number }
 
 export type PickKind = 'ca' | 'cert' | 'key' | 'sshKey'
 export interface KnownHost { host: string; port: number; fingerprint: string; firstSeen: number }
@@ -263,19 +357,29 @@ export interface OxeQueryOps {
   'sql.run': { input: SqlRunInput; output: SqlResult }
   'sql.browse': { input: SqlBrowseInput; output: SqlResult }
   'sql.cancel': { input: { connectionId: string }; output: { cancelled: boolean } }
+  'sql.editability': { input: { connectionId: string; schema: string; table: string }; output: SqlEditability }
+  /** The statements a set of changes would run, with values written in. Executes nothing. */
+  'sql.previewChanges': { input: SqlApplyInput; output: { statements: string[] } }
+  'sql.apply': { input: SqlApplyInput; output: SqlApplyResult }
   'sql.check': { input: { connectionId: string; sql: string }; output: SqlGuardVerdict }
   'mongo.databases': { input: { connectionId: string }; output: MongoDatabaseInfo[] }
   'mongo.collections': { input: { connectionId: string; database: string }; output: MongoCollectionInfo[] }
   'mongo.find': { input: MongoFindInput; output: MongoResult }
   'mongo.aggregate': { input: MongoAggregateInput; output: MongoResult }
   'mongo.indexes': { input: { connectionId: string; database: string; collection: string }; output: MongoIndexInfo[] }
+  'mongo.write': { input: MongoWriteInput; output: MongoWriteResult }
+  'export.run': { input: ExportInput; output: ExportResult }
+  'export.cancel': { input: { exportId: string }; output: { cancelled: boolean } }
+  'import.preview': { input: { connectionId: string; target: ImportTarget }; output: ImportPreview }
+  'import.run': { input: ImportRunInput; output: ImportResult }
+  'import.cancel': { input: { importId: string }; output: { cancelled: boolean } }
 }
 
 export type OxeQueryOp = keyof OxeQueryOps
 
 export interface OxeQueryErrorInfo {
   code: 'engine-missing' | 'daemon' | 'not-found' | 'invalid' | 'failed' | 'read-only' | 'confirm' | 'connect' | 'query' | 'timeout' | 'cancelled'
-    | 'host-key-unknown' | 'host-key-changed' | 'tunnel'
+    | 'host-key-unknown' | 'host-key-changed' | 'tunnel' | 'conflict'
   message: string
   /** Why a statement was flagged, when code is 'confirm' or 'read-only'. */
   reasons?: string[]

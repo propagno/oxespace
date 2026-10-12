@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState, type ReactElement } from 'react'
-import { ChevronDown, ChevronRight, Play } from 'lucide-react'
+import { ChevronDown, ChevronRight, Pencil, Play, Plus, Trash2 } from 'lucide-react'
 import type { MongoCollectionInfo, MongoDatabaseInfo, MongoResult, OxeQueryConnection } from '../../../shared/types/oxequery'
-import { errorMessage, oq } from './client'
+import { OxeQueryClientError, errorMessage, oq } from './client'
+import { ExportButton } from './TableEditor'
+import { ImportButton } from './ImportDialog'
 import { flattenDocuments } from './mongo-view'
 import { ResultGrid } from './ResultGrid'
 
@@ -33,6 +35,11 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
   const [indexes, setIndexes] = useState('')
   const [view, setView] = useState<'documents' | 'table'>('documents')
   const table = view === 'table' && result ? flattenDocuments(result.documents) : null
+  // `original` is the document as it was read (null for a new one); it is sent back so a concurrent change is detected.
+  const [editing, setEditing] = useState<{ original: string | null; text: string; mode: 'edit' | 'delete' } | null>(null)
+  const [writeError, setWriteError] = useState('')
+  const [confirm, setConfirm] = useState<string[] | null>(null)
+  const [writing, setWriting] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -68,6 +75,24 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
   }
 
   useEffect(() => { if (target) void run(0) }, [target]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const write = async (confirmed = false): Promise<void> => {
+    if (!target || !editing) return
+    setWriting(true); setWriteError('')
+    try {
+      const op = editing.mode === 'delete' ? 'delete' : editing.original === null ? 'insert' : 'replace'
+      await oq('mongo.write', {
+        connectionId: connection.id, ...target, op, confirmed,
+        ...(op === 'delete' ? {} : { document: editing.text }),
+        ...(editing.original !== null ? { expected: editing.original } : {})
+      })
+      setEditing(null); setConfirm(null)
+      void run(skip)
+    } catch (cause) {
+      if (cause instanceof OxeQueryClientError && cause.code === 'confirm') setConfirm(cause.reasons)
+      else setWriteError(cause instanceof OxeQueryClientError && cause.code === 'conflict' ? `${cause.message} Run the query again to see the current document.` : errorMessage(cause))
+    } finally { setWriting(false) }
+  }
 
   return <div className="oq-workbench">
     <nav className="oq-tree" aria-label="Databases">
@@ -107,11 +132,32 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
             <div role="group" aria-label="Result view" className="oq-segment"><button type="button" role="radio" aria-checked={view === 'documents'} data-selected={view === 'documents'} onClick={() => setView('documents')}>Documents</button>
               <button type="button" role="radio" aria-checked={view === 'table'} data-selected={view === 'table'} onClick={() => setView('table')}>Table</button></div>
             {result && <button type="button" onClick={() => copy(`[${result.documents.join(',\n')}]`)}>Copy JSON</button>}
+            {target && <ExportButton connection={connection} label="Export collection" source={{ kind: 'collection', database: target.database, collection: target.collection, ...(mode === 'find' && filter.trim() && filter.trim() !== '{}' ? { filter } : {}) }} />}
+            {target && <ImportButton connection={connection} target={{ kind: 'collection', database: target.database, collection: target.collection }} onImported={() => void run(0)} />}
+            {target && !connection.readOnly && <button type="button" onClick={() => { setWriteError(''); setConfirm(null); setEditing({ original: null, text: '{\n  \n}', mode: 'edit' }) }}><Plus size={13} aria-hidden="true" />New document</button>}
           </div>
           {indexes && <details className="oq-columns"><summary>Indexes</summary><pre>{indexes}</pre></details>}
+          {editing && <div className="oq-edit-form" role="group" aria-label={editing.mode === 'delete' ? 'Delete document' : editing.original === null ? 'New document' : 'Edit document'}>
+            <header><strong>{editing.mode === 'delete' ? 'Delete this document?' : editing.original === null ? 'New document' : 'Edit document'}</strong></header>
+            {editing.mode === 'edit' && <textarea aria-label="Document (EJSON)" spellCheck={false} rows={12} value={editing.text} onChange={event => setEditing({ ...editing, text: event.target.value })} />}
+            {editing.mode === 'delete' && <pre>{pretty(editing.original ?? '')}</pre>}
+            {writeError && <p role="alert" className="oq-error">{writeError}</p>}
+            {confirm && <div className="oq-confirm" role="alertdialog" aria-label="Confirm change">
+              <strong>Confirm this change</strong><ul>{confirm.map(item => <li key={item}>{item}</li>)}</ul>
+              {connection.environment === 'prod' && <p className="oq-error">This is a production connection.</p>}
+            </div>}
+            <footer>
+              <button type="button" onClick={() => { setEditing(null); setConfirm(null); setWriteError('') }}>Cancel</button>
+              <button type="button" className={editing.mode === 'delete' ? 'oq-danger' : 'oq-primary'} disabled={writing} onClick={() => void write(confirm !== null)}>
+                {confirm ? 'Confirm' : editing.mode === 'delete' ? 'Delete' : editing.original === null ? 'Insert' : 'Save'}</button>
+            </footer>
+          </div>}
           {table ? <div className="oq-results-body"><ResultGrid columns={table.columns} rows={table.rows} onCopy={copy} /></div>
             : <div className="oq-documents">{result?.documents.map((document, index) => <details key={index} open={index < 3}>
-              <summary>{summaryOf(document)}</summary><pre>{pretty(document)}</pre></details>)}</div>}
+              <summary>{summaryOf(document)}{!connection.readOnly && <span className="oq-doc-actions">
+                <button type="button" aria-label="Edit document" onClick={event => { event.preventDefault(); setWriteError(''); setConfirm(null); setEditing({ original: document, text: pretty(document), mode: 'edit' }) }}><Pencil size={12} aria-hidden="true" /></button>
+                <button type="button" aria-label="Delete document" onClick={event => { event.preventDefault(); setWriteError(''); setConfirm(null); setEditing({ original: document, text: '', mode: 'delete' }) }}><Trash2 size={12} aria-hidden="true" /></button>
+              </span>}</summary><pre>{pretty(document)}</pre></details>)}</div>}
         </div>
       </>}
     </div>

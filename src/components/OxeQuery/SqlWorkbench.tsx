@@ -7,6 +7,8 @@ import type { OxeQueryConnection, SqlResult, SqlTable, SqlTableDetails } from '.
 import { OxeQueryClientError, errorMessage, oq } from './client'
 import { ResultGrid, displayCell, toCsv, toJsonRows } from './ResultGrid'
 import { pushHistory, readHistory, writeHistory, type HistoryEntry } from './query-history'
+import { ExportButton, TableEditor } from './TableEditor'
+import { ImportButton } from './ImportDialog'
 
 const ROW_LIMITS = [100, 500, 1000, 5000]
 const PAGE = 100
@@ -159,12 +161,20 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
           <span className="oq-spacer" />
           {active.browse && <><button type="button" disabled={running || active.browse.offset === 0} onClick={() => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: 'table' }, Math.max(0, active.browse!.offset - PAGE))}>Previous</button>
             <button type="button" disabled={running || !result?.truncated} onClick={() => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: 'table' }, active.browse!.offset + PAGE)}>Next</button></>}
+          {(active.browse || (result && columns.length > 0 && active.sql.trim())) && <ExportButton connection={connection}
+            source={active.browse ? { kind: 'table', schema: active.browse.schema, table: active.browse.table } : { kind: 'sql', sql: active.sql }}
+            label={active.browse ? 'Export table' : 'Export query'} />}
+          {active.browse && <ImportButton connection={connection} target={{ kind: 'table', schema: active.browse.schema, table: active.browse.table }}
+            onImported={() => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: 'table' }, 0)} />}
           {result && columns.length > 0 && <><button type="button" onClick={() => copy(toCsv(columns, result.rows))}>Copy CSV</button>
             <button type="button" onClick={() => copy(toJsonRows(columns, result.rows))}>Copy JSON</button></>}
         </div>
         {active.error && <div role="alert" className="oq-query-error"><strong>Query failed</strong><pre>{active.error}</pre></div>}
         {result?.notices?.map(notice => <p key={notice} className="oq-muted oq-notice">{notice}</p>)}
         {active.details && <ColumnsPanel details={active.details} />}
+        {active.browse && result && <TableEditor key={`${active.browse.schema}.${active.browse.table}`} connection={connection} schema={active.browse.schema} table={active.browse.table}
+          result={result} selectedRow={selectedRow} onClearSelection={() => setSelectedRow(null)}
+          onApplied={() => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: 'table' }, active.browse!.offset)} />}
         <div className="oq-results-body">
           {result && columns.length > 0 ? <ResultGrid columns={columns} types={types} rows={result.rows} onCopy={copy} selected={selectedRow} onSelect={index => setSelectedRow(current => current === index ? null : index)} />
             : result && !active.error ? <div className="oq-empty"><p>{result.command ?? 'Done'}{result.affectedRows !== undefined ? ` · ${result.affectedRows} row${result.affectedRows === 1 ? '' : 's'} affected` : ''}</p></div>

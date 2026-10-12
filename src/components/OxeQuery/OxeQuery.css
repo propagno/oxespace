@@ -233,3 +233,34 @@
 .oq-hostkey-danger { border-color: var(--dot-red); background: color-mix(in srgb, var(--dot-red) 10%, transparent); }
 .oq-fingerprint { display: block; overflow-wrap: anywhere; padding: 6px 8px; border-radius: var(--radius-sm); background: var(--bg-app); font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; }
 .oq-form textarea { padding: 6px 8px; font-family: var(--font-mono, ui-monospace, monospace); }
+
+/* ---- Editing and export -------------------------------------------------- */
+.oq-editor-bar { display: flex; flex-direction: column; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--sh-border, #2a2a33); }
+.oq-editor-bar-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.oq-edit-form { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--sh-border, #2a2a33); border-radius: 6px; background: var(--sh-surface, #16161c); max-height: 280px; overflow: auto; }
+.oq-edit-form > header, .oq-edit-form > footer { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.oq-edit-form > footer { justify-content: flex-end; }
+.oq-edit-form textarea { width: 100%; font-family: var(--sh-font-mono, monospace); font-size: 12px; resize: vertical; }
+.oq-edit-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+.oq-edit-fields label { display: grid; grid-template-columns: 1fr auto; gap: 4px; align-items: center; font-size: 12px; }
+.oq-edit-fields label > span { grid-column: 1 / -1; display: flex; gap: 6px; align-items: baseline; }
+.oq-edit-fields small { opacity: 0.6; }
+.oq-null-toggle[aria-pressed="true"] { background: var(--sh-accent, #6c8cff); color: #fff; }
+.oq-staged ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.oq-staged li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 4px; background: var(--sh-surface, #16161c); font-size: 12px; }
+.oq-staged li[data-kind="delete"] { border-left: 3px solid #e5534b; }
+.oq-staged li[data-kind="update"] { border-left: 3px solid #d29922; }
+.oq-staged li[data-kind="insert"] { border-left: 3px solid #3fb950; }
+.oq-staged-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
+.oq-sql-preview { margin: 6px 0 0; padding: 8px; max-height: 160px; overflow: auto; font-size: 12px; background: var(--sh-surface, #16161c); border-radius: 4px; white-space: pre-wrap; }
+.oq-export { position: relative; display: inline-flex; align-items: center; gap: 6px; }
+.oq-export > ul { position: absolute; top: 100%; right: 0; z-index: 20; margin: 4px 0 0; padding: 4px; list-style: none; background: var(--sh-surface-raised, #1d1d25); border: 1px solid var(--sh-border, #2a2a33); border-radius: 6px; min-width: 110px; }
+.oq-export > ul button { width: 100%; text-align: left; }
+.oq-doc-actions { float: right; display: inline-flex; gap: 4px; }
+
+.oq-import { width: min(680px, calc(100vw - 48px)); }
+.oq-import > header { display: flex; justify-content: space-between; align-items: center; }
+.oq-import > footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+.oq-import-map { width: 100%; border-collapse: collapse; font-size: 12px; }
+.oq-import-map th, .oq-import-map td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--sh-border, #2a2a33); }
+.oq-import-result ul { margin: 6px 0 0; padding-left: 18px; font-size: 12px; }

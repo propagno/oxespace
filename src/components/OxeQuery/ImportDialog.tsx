@@ -1,0 +1,102 @@
+import { useEffect, useState, type ReactElement } from 'react'
+import { Upload, X } from 'lucide-react'
+import type { ImportPreview, ImportResult, ImportTarget, OxeQueryConnection } from '../../../shared/types/oxequery'
+import { OxeQueryClientError, errorMessage, oq } from './client'
+
+/**
+ * Import a CSV, JSON or NDJSON file into a table or collection. The file is
+ * chosen in a native dialog and only an opaque id reaches this page. A dry run
+ * executes the whole import inside a transaction and rolls it back, so the first
+ * constraint violation is found before anything is written.
+ */
+export function ImportButton({ connection, target, onImported }: { connection: OxeQueryConnection; target: ImportTarget; onImported: () => void }): ReactElement | null {
+  const [preview, setPreview] = useState<ImportPreview | null>(null)
+  const [mapping, setMapping] = useState<Record<string, string>>({})
+  const [emptyAsNull, setEmptyAsNull] = useState(true)
+  const [busy, setBusy] = useState<'' | 'choosing' | 'dry' | 'import'>('')
+  const [progress, setProgress] = useState(0)
+  const [result, setResult] = useState<ImportResult | null>(null)
+  const [error, setError] = useState('')
+  const [confirm, setConfirm] = useState<string[] | null>(null)
+
+  useEffect(() => {
+    const api = window.oxe?.oxeQuery
+    if (!api?.onEvent || !preview) return
+    return api.onEvent(event => { if (event.type === 'import-progress' && event.importId === preview.importId) setProgress(event.rows) })
+  }, [preview])
+
+  if (connection.readOnly) return null
+
+  const choose = async (): Promise<void> => {
+    setBusy('choosing'); setError(''); setResult(null)
+    try {
+      const value = await oq('import.preview', { connectionId: connection.id, target })
+      if (value.dismissed) return
+      setPreview(value); setMapping(value.mapping)
+    } catch (cause) { setError(errorMessage(cause)) } finally { setBusy('') }
+  }
+
+  const run = async (dryRun: boolean, confirmed = false): Promise<void> => {
+    if (!preview) return
+    setBusy(dryRun ? 'dry' : 'import'); setError(''); setResult(null); setProgress(0)
+    try {
+      const outcome = await oq('import.run', { connectionId: connection.id, importId: preview.importId, target, mapping, dryRun, emptyAsNull, confirmed })
+      setResult(outcome); setConfirm(null)
+      if (!dryRun && !outcome.cancelled) onImported()
+    } catch (cause) {
+      if (cause instanceof OxeQueryClientError && cause.code === 'confirm') setConfirm(cause.reasons)
+      else setError(errorMessage(cause))
+    } finally { setBusy('') }
+  }
+
+  const close = (): void => { setPreview(null); setResult(null); setError(''); setConfirm(null); setProgress(0) }
+  const mapped = Object.values(mapping).filter(Boolean).length
+  const destination = target.kind === 'table' ? `${target.schema}.${target.table}` : `${target.database}.${target.collection}`
+
+  return <>
+    <button type="button" disabled={busy !== ''} onClick={() => void choose()}><Upload size={13} aria-hidden="true" />Import</button>
+    {error && !preview && <span role="alert" className="oq-error">{error}</span>}
+    {preview && <div className="desktop-dialog-overlay" onMouseDown={event => { if (event.target === event.currentTarget) close() }}>
+      <div className="desktop-dialog oq-dialog oq-import" role="dialog" aria-modal="true" aria-label={`Import into ${destination}`}>
+        <header><strong>Import into {destination}</strong><button type="button" aria-label="Close" onClick={close}><X size={14} aria-hidden="true" /></button></header>
+        <p className="oq-muted">{preview.fileName} · {preview.format.toUpperCase()} · {(preview.bytes / 1024).toFixed(1)} KB</p>
+
+        <table className="oq-import-map">
+          <thead><tr><th>File field</th><th>Sample</th><th>Goes to</th></tr></thead>
+          <tbody>{preview.fields.map((field, index) => <tr key={field}>
+            <td>{field}</td>
+            <td className="oq-muted">{preview.sample.slice(0, 2).map(row => row[index]).filter(Boolean).join(' · ').slice(0, 60)}</td>
+            <td>{target.kind === 'table'
+              ? <select aria-label={`Column for ${field}`} value={mapping[field] ?? ''} onChange={event => setMapping(current => ({ ...current, [field]: event.target.value }))}>
+                <option value="">— skip —</option>
+                {preview.targetColumns.filter(column => !column.generated).map(column => <option key={column.name} value={column.name}>{column.name} ({column.type})</option>)}
+              </select>
+              : <input aria-label={`Field name for ${field}`} value={mapping[field] ?? ''} placeholder="— skip —" onChange={event => setMapping(current => ({ ...current, [field]: event.target.value }))} />}</td>
+          </tr>)}</tbody>
+        </table>
+        {target.kind === 'table' && <label className="oq-inline"><input type="checkbox" checked={emptyAsNull} onChange={event => setEmptyAsNull(event.target.checked)} />Empty values become NULL (when the column allows it)</label>}
+        {target.kind === 'collection' && preview.format === 'csv' && <p className="oq-muted">CSV values are imported as text.</p>}
+
+        {busy === 'dry' || busy === 'import' ? <p role="status">{busy === 'dry' ? 'Checking' : 'Importing'}… {progress.toLocaleString()} rows
+          <button type="button" onClick={() => void oq('import.cancel', { importId: preview.importId }).catch(() => undefined)}>Cancel</button></p> : null}
+        {error && <p role="alert" className="oq-error">{error}</p>}
+        {result && <div role="status" className="oq-import-result">
+          {result.cancelled ? <strong>Cancelled. Nothing was imported.</strong>
+            : result.dryRun ? <strong>Dry run: {result.inserted.toLocaleString()} row{result.inserted === 1 ? '' : 's'} would be imported, {result.rejected.toLocaleString()} rejected. Nothing was written.</strong>
+              : <strong>Imported {result.inserted.toLocaleString()} row{result.inserted === 1 ? '' : 's'}; {result.rejected.toLocaleString()} rejected.</strong>}
+          {result.rejects.length > 0 && <ul>{result.rejects.slice(0, 8).map(item => <li key={item.row}>Row {item.row}: {item.reason}</li>)}</ul>}
+          {result.rejectsPath && <p className="oq-muted">Rejected rows saved to {result.rejectsPath.split(/[\\/]/).pop()}.</p>}
+        </div>}
+        {confirm && <div className="oq-confirm" role="alertdialog" aria-label="Confirm import">
+          <strong>Confirm this import</strong><ul>{confirm.map(item => <li key={item}>{item}</li>)}</ul>
+          <div><button type="button" onClick={() => setConfirm(null)}>Back</button><button type="button" className="oq-danger" onClick={() => void run(false, true)}>Import anyway</button></div>
+        </div>}
+        <footer>
+          <button type="button" onClick={close}>Close</button>
+          <button type="button" disabled={busy !== '' || mapped === 0} onClick={() => void run(true)}>Dry run</button>
+          <button type="button" className="oq-primary" disabled={busy !== '' || mapped === 0} onClick={() => void run(false)}>Import</button>
+        </footer>
+      </div>
+    </div>}
+  </>
+}

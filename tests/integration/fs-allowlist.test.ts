@@ -72,6 +72,12 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Reads one user-chosen certificate or key (64 KiB at most) from a native open dialog;
   // the renderer supplies a kind, never a path.
   'electron/main/services/oxequery/file-picker.ts',
+  // Streams an export to the one file the person chose in a native save dialog (flag 'wx', mode 0600,
+  // removed again when cancelled); the renderer supplies a format, never a path.
+  'electron/main/services/oxequery/export-writer.ts',
+  // Reads the one file chosen in a native open dialog (200 MB cap, streamed) and, for rows it cannot
+  // read, writes `<file>.rejects.ndjson` beside it with flag 'wx'; the renderer never supplies a path.
+  'electron/main/services/oxequery/import-reader.ts',
   'electron/main/services/shell-profile.service.ts',
   'electron/main/services/skill.service.ts',
   'electron/main/services/terminal.service.ts',

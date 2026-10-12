@@ -75,6 +75,16 @@ export function registerOxeQueryMock(): void {
         return ok(saved)
       }
       case 'connections.delete': { const index = connections.findIndex(item => item.id === input.id); if (index >= 0) connections.splice(index, 1); return ok({ ok: true }) }
+      case 'sql.editability': return ok({ editable: true, columns: [{ name: 'id', type: 'integer', nullable: false, hasDefault: true, generated: false, key: true }, { name: 'email', type: 'text', nullable: false, hasDefault: false, generated: false, key: false }] })
+      case 'sql.previewChanges': return ok({ statements: ['UPDATE "public"."users" SET "email" = $1::text WHERE "id" = $2::integer;'] })
+      case 'sql.apply': return ok({ applied: 1, statements: [] })
+      case 'mongo.write': return ok({ matched: 1, modified: 1, deleted: 0 })
+      case 'import.preview': return ok({ importId: 'imp-mock', fileName: 'users.csv', format: 'csv', bytes: 96, fields: ['id', 'email'], sample: [['1', 'a@example.com'], ['2', 'b@example.com']],
+        targetColumns: [{ name: 'id', type: 'integer', nullable: false, hasDefault: true, generated: false }, { name: 'email', type: 'text', nullable: false, hasDefault: false, generated: false }], mapping: { id: 'id', email: 'email' } })
+      case 'import.run': return ok({ dryRun: Boolean((input as { dryRun?: boolean }).dryRun), inserted: 2, rejected: 0, rejects: [], durationMs: 3 })
+      case 'import.cancel': return ok({ cancelled: false })
+      case 'export.run': return ok({ rows: 3, bytes: 128, durationMs: 4, path: 'C:/exports/users.csv', fileName: 'users.csv' })
+      case 'export.cancel': return ok({ cancelled: false })
       case 'files.pick': return ok({ handle: randomUUID(), name: `${String(input.kind)}.pem` })
       case 'connections.knownHosts': return ok([])
       case 'connections.forgetHostKey': return ok({ ok: true })

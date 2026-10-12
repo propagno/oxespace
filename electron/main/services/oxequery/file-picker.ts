@@ -12,6 +12,37 @@ const TITLES: Record<PickedKind, string> = {
   sshKey: 'Choose the SSH private key'
 }
 
+const EXTENSIONS: Record<string, { name: string; extension: string }> = {
+  csv: { name: 'CSV', extension: 'csv' }, json: { name: 'JSON', extension: 'json' }, ndjson: { name: 'Newline-delimited JSON', extension: 'ndjson' }, sql: { name: 'SQL', extension: 'sql' }
+}
+
+export type SavePathPicker = (suggestedName: string, format: 'csv' | 'json' | 'ndjson' | 'sql') => Promise<string | null>
+
+/** Native save dialog for an export. The renderer never names the destination. */
+export const pickExportPath: SavePathPicker = async (suggestedName, format) => {
+  const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+  const kind = EXTENSIONS[format]
+  const options = {
+    title: 'Export',
+    defaultPath: `${suggestedName.replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 80) || 'export'}.${kind.extension}`,
+    filters: [{ name: kind.name, extensions: [kind.extension] }]
+  }
+  const result = window ? await dialog.showSaveDialog(window, options) : await dialog.showSaveDialog(options)
+  return result.canceled || !result.filePath ? null : result.filePath
+}
+
+/** Native chooser for a file to import. Only the path leaves this function, and only to the main process. */
+export const pickImportPath = async (): Promise<string | null> => {
+  const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+  const options = {
+    title: 'Choose a file to import',
+    properties: ['openFile' as const],
+    filters: [{ name: 'Data files', extensions: ['csv', 'tsv', 'json', 'ndjson', 'jsonl'] }]
+  }
+  const result = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options)
+  return result.canceled || !result.filePaths[0] ? null : result.filePaths[0]
+}
+
 export type FilePicker = (kind: PickedKind) => Promise<{ name: string; content: string } | null>
 
 /**

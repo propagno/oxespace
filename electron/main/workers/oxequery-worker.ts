@@ -1,7 +1,7 @@
 import { parentPort } from 'node:worker_threads'
 import { OxeQueryCore } from '../services/oxequery/oxequery-core'
 import { MongoInputError, OxeQueryError, type ResolvedConnection } from '../services/oxequery/oxequery-errors'
-import type { MongoAggregateInput, MongoFindInput, SqlBrowseInput } from '../../../shared/types/oxequery'
+import type { MongoAggregateInput, MongoFindInput, MongoWriteInput, SqlBrowseInput } from '../../../shared/types/oxequery'
 
 /**
  * Database drivers live here, off Electron's main thread. Requests run
@@ -11,7 +11,15 @@ const core = new OxeQueryCore()
 
 interface Request { requestId: number; op: string; connection?: ResolvedConnection; input?: Record<string, unknown> }
 
+/** Exports that can still be cancelled, by the caller's export id. */
+const exports = new Map<string, { cancelled: boolean }>()
+
 async function handle(request: Request): Promise<unknown> {
+  if (request.op === 'export.cancel' || request.op === 'import.cancel') {
+    const active = exports.get(String(request.input?.exportId ?? request.input?.importId ?? ''))
+    if (active) active.cancelled = true
+    return { cancelled: Boolean(active) }
+  }
   const connection = request.connection
   const input = (request.input ?? {}) as Record<string, unknown>
   if (request.op === 'closeAll') { await core.closeAll(); return { ok: true } }
@@ -26,10 +34,40 @@ async function handle(request: Request): Promise<unknown> {
     case 'sql.tables': return core.sqlTables(connection, String(input.schema ?? ''))
     case 'sql.table': return core.sqlTable(connection, String(input.schema ?? ''), String(input.table ?? ''))
     case 'sql.cancel': return { cancelled: await core.sqlCancel(connection) }
+    case 'sql.editability': return core.sqlEditability(connection, String(input.schema ?? ''), String(input.table ?? ''))
+    case 'sql.previewChanges': return { statements: await core.sqlPreviewChanges(connection, input as never) }
+    case 'sql.apply': return core.sqlApply(connection, input as never)
     case 'mongo.databases': return core.mongoDatabases(connection)
     case 'mongo.collections': return core.mongoCollections(connection, String(input.database ?? ''))
     case 'mongo.find': return core.mongoFind(connection, input as unknown as MongoFindInput)
     case 'mongo.aggregate': return core.mongoAggregate(connection, input as unknown as MongoAggregateInput)
+    case 'export.run': {
+      const exportId = String(input.exportId ?? '')
+      if (!exportId || exports.has(exportId)) throw new OxeQueryError('invalid', 'This export is already running.')
+      const state = { cancelled: false }
+      exports.set(exportId, state)
+      try {
+        return await core.exportRun(connection, input as never, {
+          cancelled: () => state.cancelled,
+          progress: (rows, bytes) => parentPort?.postMessage({ requestId: request.requestId, progress: { exportId, rows, bytes } })
+        })
+      } finally { exports.delete(exportId) }
+    }
+    case 'import.preview':
+      return core.importPreview(connection, input as never)
+    case 'import.run': {
+      const importId = String(input.importId ?? '')
+      if (!importId || exports.has(importId)) throw new OxeQueryError('invalid', 'This import is already running.')
+      const state = { cancelled: false }
+      exports.set(importId, state)
+      try {
+        return await core.importRun(connection, input as never, {
+          cancelled: () => state.cancelled,
+          progress: rows => parentPort?.postMessage({ requestId: request.requestId, progress: { importId, rows } })
+        })
+      } finally { exports.delete(importId) }
+    }
+    case 'mongo.write': return core.mongoWrite(connection, input as unknown as MongoWriteInput)
     case 'mongo.indexes': return core.mongoIndexes(connection, String(input.database ?? ''), String(input.collection ?? ''))
     default: throw new OxeQueryError('invalid', 'Unknown OxeQuery operation.')
   }

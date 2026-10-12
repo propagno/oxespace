@@ -272,7 +272,7 @@ export class ConnectionStore {
     }
     return {
       id: connection.id, engine: connection.engine, host: connection.host, port: connection.port, database: connection.database, username: connection.username,
-      ...(password ? { password } : {}), sslMode: connection.sslMode, readOnly: connection.readOnly,
+      ...(password ? { password } : {}), sslMode: connection.sslMode, readOnly: connection.readOnly, environment: connection.environment,
       ...(ca || cert ? { tls: { ...(ca ? { ca } : {}), ...(cert && privateKey ? { cert, key: privateKey } : {}) } } : {}),
       mongo: connection.mongo, ...(ssh ? { ssh } : {}),
       statementTimeoutMs: connection.statementTimeoutMs, maxRows: connection.maxRows

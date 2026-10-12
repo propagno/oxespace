@@ -1,4 +1,4 @@
-import type { DatabaseEngine, MongoOptions, SslMode } from '../../../../shared/types/oxequery'
+import type { ConnectionEnvironment, DatabaseEngine, MongoOptions, SslMode } from '../../../../shared/types/oxequery'
 
 /**
  * Types and errors shared by the main process and the database worker. They live
@@ -7,7 +7,7 @@ import type { DatabaseEngine, MongoOptions, SslMode } from '../../../../shared/t
  */
 export type OxeQueryErrorCode =
   | 'read-only' | 'confirm' | 'invalid' | 'connect' | 'query' | 'timeout' | 'cancelled'
-  | 'host-key-unknown' | 'host-key-changed' | 'tunnel'
+  | 'host-key-unknown' | 'host-key-changed' | 'tunnel' | 'conflict'
 
 export class OxeQueryError extends Error {
   constructor(readonly code: OxeQueryErrorCode, message: string, readonly reasons: string[] = []) { super(message) }
@@ -37,6 +37,7 @@ export interface ResolvedConnection {
   password?: string
   sslMode: SslMode
   readOnly: boolean
+  environment?: ConnectionEnvironment
   tls?: { ca?: string; cert?: string; key?: string }
   mongo?: MongoOptions
   ssh?: TunnelSettings

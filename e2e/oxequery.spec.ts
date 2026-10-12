@@ -240,3 +240,58 @@ test('a connection through an SSH tunnel asks to trust the host key, then connec
     await expect(page.getByRole('tab', { name: 'Behind bastion' })).toBeVisible()
   } finally { await app.close() }
 })
+
+test('OxeQuery stages a row edit, shows the SQL, applies it, exports a table and imports a file', async () => {
+  test.setTimeout(120000)
+  const root = mkdtempSync(join(tmpdir(), 'oxespace-oxequery-'))
+  const repo = join(root, 'repo'); mkdirSync(repo)
+  const app = await electron.launch({ args: [join(process.cwd(), 'e2e/electron-main.cjs')], env: {
+    ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'app.sqlite3')
+  } })
+  try {
+    const page = await app.firstWindow()
+    await page.waitForLoadState('domcontentloaded')
+    await page.getByTestId('btn-new-workspace').click()
+    await page.getByTestId('wizard-dir-input').fill(repo)
+    await page.getByTestId('wizard-layout-card-1').click()
+    await page.getByTestId('wizard-launch-btn').click()
+    await expect(page.locator('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]').first()).toBeVisible()
+    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
+    await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
+    await expect(page.getByRole('tab', { name: 'pg-dev' })).toBeVisible()
+    await page.getByRole('navigation', { name: 'Schema' }).getByRole('button', { name: 'users', exact: true }).click()
+
+    // A read-only connection explains why rows cannot be edited.
+    await expect(page.getByRole('button', { name: 'Edit rows' })).toBeDisabled()
+    await page.locator('.oq-sidebar').getByRole('button', { name: 'Edit pg-dev' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Edit connection' })
+    await dialog.getByRole('checkbox', { name: /Read-only/ }).uncheck()
+    await dialog.getByRole('button', { name: 'Save' }).click()
+    await page.getByRole('navigation', { name: 'Schema' }).getByRole('button', { name: 'users', exact: true }).click()
+
+    await page.getByRole('button', { name: 'Edit rows' }).click()
+    await page.locator('.oq-grid-row').first().click()
+    const form = page.getByRole('group', { name: 'Edit row' })
+    await form.locator('label', { hasText: 'email' }).locator('input').fill('changed@example.com')
+    await form.getByRole('button', { name: 'Stage update' }).click()
+    await expect(page.getByText('1 pending change')).toBeVisible()
+    await page.getByRole('button', { name: 'View SQL' }).click()
+    await expect(page.getByLabel('SQL that will run')).toContainText('UPDATE')
+    await page.getByRole('button', { name: 'Apply 1' }).click()
+    await expect(page.getByLabel('Pending changes')).toHaveCount(0)
+
+    await page.getByRole('button', { name: 'Export table' }).click()
+    await page.getByRole('menuitem', { name: 'CSV' }).click()
+    await expect(page.getByRole('status').filter({ hasText: 'saved to users.csv' })).toBeVisible()
+
+    await page.locator('.oq-results-bar').getByRole('button', { name: 'Import' }).click()
+    const importDialog = page.getByRole('dialog', { name: 'Import into public.users' })
+    await expect(importDialog).toContainText('users.csv')
+    await importDialog.getByRole('button', { name: 'Dry run' }).click()
+    await expect(importDialog).toContainText('would be imported')
+    await importDialog.getByRole('button', { name: 'Import', exact: true }).click()
+    await expect(importDialog).toContainText('Imported 2 rows')
+  } finally {
+    await app.close()
+  }
+})
