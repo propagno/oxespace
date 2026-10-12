@@ -60,6 +60,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   // the Thread's project (Windows-aware containment, links followed), bounded
   // per file and in total, and only as prompt text. Never writes.
   'electron/main/services/conversation/thread-context-resolver.ts',
+  // /instructions: stats the CLAUDE.md / AGENTS.md files the provider CLI
+  // would load and lists .claude/rules. Never reads contents, never writes.
+  'electron/main/services/conversation/instruction-sources.ts',
   // Model-default detection reads only the fixed, size-bounded provider
   // settings files (project .claude/.codex and the user's provider home).
   'electron/main/services/conversation/thread-model-override.ts',

@@ -14,6 +14,7 @@ import type { ThreadNativeCli } from '../thread-cli'
 import type { ThreadExportService } from '../thread-export.service'
 import type { ThreadHistory, ThreadHistoryWriteOptions } from '../thread-history'
 import { threadCapabilityManifest } from '../thread-capabilities'
+import { instructionLabel, instructionSources } from '../instruction-sources'
 
 export interface CommandHost {
   readonly db: AppDatabase
@@ -48,7 +49,7 @@ export async function runThreadCommand(host: CommandHost, id: string, text: stri
     const aliases: Record<string, string> = { delegation: 'delegations', approvals: 'permissions', 'allowed-tools': 'permissions', name: 'rename', clear: 'new', reset: 'new', cwd: 'pwd', plugin: 'plugins', config: 'settings', login: 'accounts', exit: 'quit' }
     name = aliases[name] ?? name
     if (!hasDesktopCommand(thread.provider, name)) throw Error(`/${name} is not available in Thread yet. Use /help to see supported commands.`)
-    if (argument && ['help', 'skills', 'accounts', 'settings', 'pwd', 'status', 'capabilities', 'copy', 'export', 'stop', 'new', 'quit', 'diff', 'usage', 'fork', 'hooks', 'experimental', 'debug-config', 'ps', 'memories'].includes(name)) throw Error(`/${name} does not accept arguments in Thread.`)
+    if (argument && ['help', 'skills', 'accounts', 'settings', 'pwd', 'status', 'capabilities', 'instructions', 'copy', 'export', 'stop', 'new', 'quit', 'diff', 'usage', 'fork', 'hooks', 'experimental', 'debug-config', 'ps', 'memories'].includes(name)) throw Error(`/${name} does not accept arguments in Thread.`)
     if (name === 'delegations' && argument && !/^[a-z0-9-]{8,128}$/i.test(argument)) throw Error('Use /delegation <taskId> with an exact delegation ID.')
     if (name === 'resume' && argument) {
       const local = host.db.prepare('SELECT id FROM conversation_threads WHERE id = ?').get(argument) as { id: string } | undefined
@@ -103,6 +104,15 @@ export async function runThreadCommand(host: CommandHost, id: string, text: stri
       { label: 'Operation', detail: operation ? `${operation.id} · ${operation.state}` : 'None' },
       { label: 'Directory', detail: thread.rootPath }, { label: 'Native session ID (resume)', detail: thread.nativeSessionId ?? 'Not started' }
     ] }
+    }
+    if (name === 'instructions') {
+      // The provider loads these itself; this only shows what it will read and from where.
+      const sources = instructionSources(thread.provider, thread.rootPath)
+      const scopeLabel = { user: 'user', project: 'project', directory: 'subdirectory', local: 'local (not committed)', rules: 'rule' } as const
+      return { kind: 'panel', title: 'Instruction files', text: sources.length
+        ? `${thread.provider === 'claude' ? 'Claude Code' : 'Codex'} reads these files when the session starts, in this order. Edit them in the project to change how the agent behaves.`
+        : `No ${thread.provider === 'claude' ? 'CLAUDE.md' : 'AGENTS.md'} instruction files were found for this project.`,
+      rows: sources.map(source => ({ label: instructionLabel(source, thread.rootPath), detail: `${scopeLabel[source.scope]} · ${source.bytes.toLocaleString()} bytes` })) }
     }
     if (name === 'capabilities') {
       const manifest = thread.capabilities ?? threadCapabilityManifest(thread.provider, host.adapterCapabilities(id))
