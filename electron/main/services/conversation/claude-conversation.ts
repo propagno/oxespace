@@ -6,6 +6,9 @@ import { JsonLinesDecoder } from './json-lines'
 import { CLAUDE_THREAD_ARGS, claudeRuntimeCatalog } from './claude-command-catalog'
 import { threadFailure } from './thread-failure'
 import { createApiRetryTracker } from './claude-api-retry'
+
+/** How long a cooperative interrupt may take before the process is ended instead. */
+const INTERRUPT_GRACE_MS = 2_000
 import { requestOutcome } from '../../../../shared/threadRequestOutcome'
 
 type PrintTransport = ConversationTransport & { endInput(): void }
@@ -31,6 +34,9 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
   private localPlanId = ''
   private tasks = new Map<string, Extract<ThreadEvent, { type: 'subagent' }>>()
   private readonly apiRetries = createApiRetryTracker(() => `claude-retry:${randomUUID()}`)
+  /** A protocol interrupt is in flight: the turn's result is an interruption, not a failure. */
+  private interruptRequested = false
+  private interruptWaiter: (() => void) | null = null
   private readonly seenMessages = new Set<string>()
   private streamMessageId = ''
   private disposed = false
@@ -129,10 +135,14 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
     }
   }
 
-  private finish(status: 'completed' | 'failed' | 'interrupted'): void {
+  private finish(requested: 'completed' | 'failed' | 'interrupted'): void {
       if (this.completed || this.disposed) return
+      // The CLI reports a cooperative interrupt as an errored result; the person asked for it.
+      const status = this.interruptRequested ? 'interrupted' : requested
+      this.interruptRequested = false
       this.completed = true
       this.apiRetries.reset()
+      this.interruptWaiter?.()
       this.busy = false
       this.approvals.clear()
       if (status === 'completed' && this.selectedModel) {
@@ -291,9 +301,28 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
         }
   }
 
+  /**
+   * Asks the CLI to stop the turn itself. Unlike killing the process this keeps
+   * the session, its background tasks and the native turn intact. Resolves true
+   * only when the turn actually ended; any doubt falls back to the kill path.
+   */
+  private requestProtocolInterrupt(transport: ConversationTransport): Promise<boolean> {
+    return new Promise(resolve => {
+      const timer = setTimeout(() => { this.interruptWaiter = null; resolve(false) }, INTERRUPT_GRACE_MS)
+      this.interruptWaiter = () => { clearTimeout(timer); this.interruptWaiter = null; resolve(true) }
+      this.interruptRequested = true
+      try { transport.write(JSON.stringify({ type: 'control_request', request_id: `interrupt:${randomUUID()}`, request: { subtype: 'interrupt' } }) + '\n') }
+      catch { clearTimeout(timer); this.interruptWaiter = null; resolve(false) }
+    })
+  }
+
   async interrupt(): Promise<void> {
     if (!this.transport) return
     const transport = this.transport
+    if (this.busy && !this.completed && !this.disposed) {
+      if (await this.requestProtocolInterrupt(transport)) return
+      this.interruptRequested = false
+    }
     this.initialized?.reject(Error('Agent initialization cancelled'))
     // Windows process-tree termination can truncate the native turn. Preserve
     // the native ID and explicitly label local state interrupted, never success.
