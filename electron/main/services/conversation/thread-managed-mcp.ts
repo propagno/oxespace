@@ -46,12 +46,21 @@ function launch(command: string, args: string[], platform: NodeJS.Platform): { c
   return platform === 'win32' && CMD_SHIMS.test(command.trim()) ? { command: 'cmd', args: ['/c', command.trim(), ...args] } : { command, args }
 }
 
-export function readManagedMcp(db: AppDatabase, workspaceId: string | null | undefined, platform: NodeJS.Platform = process.platform): ManagedMcp {
-  const rows = db.prepare(
+/**
+ * Enabled, trusted servers for one or more workspaces plus the global ones. A
+ * Thread passes every Code workspace with its project root, so servers the user
+ * scoped to that project reach the conversation too. When a workspace server
+ * and a global server share a name, the workspace definition wins.
+ */
+export function readManagedMcp(db: AppDatabase, workspaceIds: string | string[] | null | undefined, platform: NodeJS.Platform = process.platform): ManagedMcp {
+  const scoped = (Array.isArray(workspaceIds) ? workspaceIds : workspaceIds ? [workspaceIds] : []).slice(0, 50)
+  const all = db.prepare(
     `SELECT name, workspace_id, config_json FROM mcp_servers
-     WHERE enabled = 1 AND trusted = 1 AND (workspace_id IS NULL OR workspace_id = ?)
+     WHERE enabled = 1 AND trusted = 1 AND (workspace_id IS NULL${scoped.length ? ` OR workspace_id IN (${scoped.map(() => '?').join(', ')})` : ''})
      ORDER BY created_at ASC`
-  ).all(workspaceId ?? null) as Row[]
+  ).all(...scoped) as Row[]
+  const scopedNames = new Set(all.filter(row => row.workspace_id !== null).map(row => row.name))
+  const rows = all.filter(row => row.workspace_id !== null || !scopedNames.has(row.name))
   const servers: ManagedMcpServer[] = []
   const env: Record<string, string> = {}
   const taken = new Set<string>(['oxespace-delegation'])

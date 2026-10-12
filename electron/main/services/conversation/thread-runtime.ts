@@ -41,7 +41,12 @@ export function createThreadManager(db: AppDatabase, accounts: NativeAccountServ
       const prepared = await mcp.prepare(thread)
       executionId = prepared.OXESPACE_EXECUTION_ID
       // Servers configured in OXESpace are attached explicitly; their secrets ride in the environment.
-      const managed = readManagedMcp(db, thread.workspaceId)
+      // A Thread's own id is `thread:<project>`; servers scoped to the Code
+      // workspaces opened on the same root belong to this project as well.
+      const norm = (value: string): string => { const unified = value.replace(/\\/g, '/').replace(/\/+$/, ''); return process.platform === 'win32' ? unified.toLowerCase() : unified }
+      const projectWorkspaces = (db.prepare('SELECT id, root_path FROM workspaces').all() as { id: string; root_path: string }[])
+        .filter(row => norm(row.root_path) === norm(thread.rootPath)).map(row => row.id)
+      const managed = readManagedMcp(db, [thread.workspaceId, ...projectWorkspaces])
       const env = { ...managed.env, ...prepared }
       const transport = (args: string[], cwd: string) => new AgentProcessTransport(profile.command, threadMcpArguments(thread.provider, args, mcp.bridge, managed), cwd, env, { thread: thread.id, generation: thread.generation })
       const adapter = thread.provider === 'claude' ? new ClaudeConversationAdapter(transport)
