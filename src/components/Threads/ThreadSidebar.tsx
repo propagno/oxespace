@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
+import { useThreadContentSearch } from '../../hooks/useThreadContentSearch'
 import { AlignJustify, Archive, ArchiveRestore, Check, ChevronDown, Circle, CircleAlert, CircleCheck, CircleX, Columns2, PanelsTopLeft, FolderPlus, Loader2, MoreHorizontal, Pencil, Pin, Plus, Settings2, Square, Trash2, X, UserRound } from 'lucide-react'
 import type { ConversationThread } from '../../../shared/types/thread'
 import { DropdownMenu } from 'radix-ui'
@@ -40,7 +41,10 @@ export function ThreadSidebar({ onCreate, onModeChange, onAccounts, onAddProject
   const resizing = useRef(false)
   useNavigationSearch(search, collapsed, toggleCollapse)
   const selected = threads.find(t => t.id === selectedId)
-  const matches = (thread: ConversationThread, name: string) => !thread.archived && !hiddenProjects.includes(thread.projectId) && `${name} ${thread.title} ${thread.provider} ${thread.rootPath}`.toLowerCase().includes(query.toLowerCase())
+  // Also matches by conversation content (native transcript index), not just title/path.
+  const contentIds = useThreadContentSearch(query)
+  const contentHit = useCallback((thread: ConversationThread) => !!thread.nativeSessionId && contentIds.has(thread.nativeSessionId), [contentIds])
+  const matches = (thread: ConversationThread, name: string) => !thread.archived && !hiddenProjects.includes(thread.projectId) && (`${name} ${thread.title} ${thread.provider} ${thread.rootPath}`.toLowerCase().includes(query.toLowerCase()) || contentHit(thread))
   const groups = useMemo(() => {
     const catalog = new Map(projects.map(p => [p.projectId, { id: p.projectId, name: p.displayName, path: p.identityLabel, rootPath: p.contexts[0]?.rootPath, threads: [] as ConversationThread[] }]))
     for (const thread of threads) {
@@ -49,13 +53,13 @@ export function ThreadSidebar({ onCreate, onModeChange, onAccounts, onAddProject
       if (!group) continue
       group.threads.push(thread); catalog.set(thread.projectId, group)
     }
-    return [...catalog.values()].map(g => ({ ...g, threads: g.threads.filter(t => !t.pinned && `${g.name} ${t.title} ${t.provider} ${t.rootPath}`.toLowerCase().includes(query.toLowerCase())).sort((a, b) => b.updatedAt - a.updatedAt) }))
+    return [...catalog.values()].map(g => ({ ...g, threads: g.threads.filter(t => !t.pinned && (`${g.name} ${t.title} ${t.provider} ${t.rootPath}`.toLowerCase().includes(query.toLowerCase()) || contentHit(t))).sort((a, b) => b.updatedAt - a.updatedAt) }))
       .filter(g => !hiddenProjects.includes(g.id) && (!query || g.threads.length || g.name.toLowerCase().includes(query.toLowerCase())))
       .sort((a, b) => (b.threads[0]?.updatedAt ?? 0) - (a.threads[0]?.updatedAt ?? 0) || a.name.localeCompare(b.name))
-  }, [projects, threads, query, hiddenProjects])
+  }, [projects, threads, query, hiddenProjects, contentHit])
   const archived = useMemo(() => threads.filter(thread => thread.archived && !hiddenProjects.includes(thread.projectId)
-    && `${thread.title} ${thread.provider} ${thread.rootPath} ${projects.find(project => project.projectId === thread.projectId)?.displayName ?? ''}`.toLowerCase().includes(query.toLowerCase()))
-    .sort((a, b) => b.updatedAt - a.updatedAt), [threads, projects, hiddenProjects, query])
+    && (`${thread.title} ${thread.provider} ${thread.rootPath} ${projects.find(project => project.projectId === thread.projectId)?.displayName ?? ''}`.toLowerCase().includes(query.toLowerCase()) || contentHit(thread)))
+    .sort((a, b) => b.updatedAt - a.updatedAt), [threads, projects, hiddenProjects, query, contentHit])
   const restoreArchived = async (thread: ConversationThread) => {
     if (!window.oxe.thread?.command) { setActionError('Restart the updated application to restore conversations.'); return }
     setActionError(''); setRestoringId(thread.id)
