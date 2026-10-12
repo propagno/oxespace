@@ -1,12 +1,13 @@
 import { Check, FolderOpen, Minus, Plus, Terminal, X } from 'lucide-react'
-import { useState, type ReactElement } from 'react'
+import { useRef, useState, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
-import type { PaneAgentBinding, ShellProfile, WorkspaceLayoutPreset } from '../../../shared/types/workspace'
+import type { PaneAgentBinding, ShellProfile, Workspace, WorkspaceLayoutPreset } from '../../../shared/types/workspace'
+import { isSameRootPath } from '../../../shared/utils/path'
 import { OxeLogo } from '../Brand/OxeLogo'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { buildAgentSlots, type AgentCount } from './fleetUtils'
 import { LAYOUT_PRESETS } from './workspaceOptions'
-import { Dialog, DialogContent, DialogDescription, DialogTitle, LEGACY_MODAL_OVERLAY } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DESKTOP_DIALOG_OVERLAY } from '@/components/ui/dialog'
 
 export interface WizardLaunchInput {
   rootPath: string
@@ -20,7 +21,12 @@ interface NewWorkspaceModalProps {
   agentProfiles: AgentProfile[]
   shellProfiles: ShellProfile[]
   onLaunch: (input: WizardLaunchInput) => Promise<void>
+  existingWorkspaces?: Workspace[]
+  activeWorkspaceId?: string | null
+  platform?: string
+  onOpenExisting?: (workspaceId: string) => Promise<void>
   onPickFolder: () => Promise<string | null>
+  returnFocusTo?: HTMLElement | null
   onClose: () => void
 }
 
@@ -45,7 +51,12 @@ export function NewWorkspaceModal({
   agentProfiles,
   shellProfiles,
   onLaunch,
+  existingWorkspaces = [],
+  activeWorkspaceId = null,
+  platform = 'win32',
+  onOpenExisting,
   onPickFolder,
+  returnFocusTo,
   onClose
 }: NewWorkspaceModalProps): ReactElement {
   const [rootPath, setRootPath] = useState('')
@@ -55,6 +66,11 @@ export function NewWorkspaceModal({
   const [isPickingFolder, setIsPickingFolder] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedExistingId, setSelectedExistingId] = useState<string | null>(null)
+  const returnFocusRef = useRef<HTMLElement | null>(document.activeElement instanceof HTMLElement ? document.activeElement : null)
+  const closeAndRestoreFocus = (): void => {
+    onClose()
+  }
 
   // The neutral shell profile is PowerShell on Windows and Bash on Linux, so
   // the chip is labelled from the profile the main process actually seeded
@@ -65,6 +81,10 @@ export function NewWorkspaceModal({
   const totalSelected = Object.values(agentCounts).reduce((a, b) => a + b, 0) + shellCount
   const remaining = Math.max(0, layoutPreset - totalSelected)
   const hasFolder = rootPath.trim().length > 0
+  const matchingWorkspaces = hasFolder ? existingWorkspaces.filter((workspace) => isSameRootPath(workspace.rootPath, rootPath.trim(), platform)) : []
+  const selectedExisting = matchingWorkspaces.find((workspace) => workspace.id === selectedExistingId)
+    ?? matchingWorkspaces.find((workspace) => workspace.id === activeWorkspaceId)
+    ?? matchingWorkspaces[0]
   const folderBasename = hasFolder
     ? rootPath.trim().split(/[\\/]/).filter(Boolean).at(-1) ?? rootPath.trim()
     : null
@@ -105,6 +125,10 @@ export function NewWorkspaceModal({
     setIsSubmitting(true)
     setError(null)
     try {
+      if (selectedExisting && onOpenExisting) {
+        await onOpenExisting(selectedExisting.id)
+        return
+      }
       const defaultShellCount = layoutPreset - Object.values(agentCounts).reduce((a, b) => a + b, 0)
       if (defaultShellCount > 0 && !shellProfile) {
         throw new Error(`${shellLabel} profile is unavailable.`)
@@ -148,12 +172,21 @@ export function NewWorkspaceModal({
   const canLaunch = hasFolder && !isSubmitting
 
   return (
-    <Dialog open onOpenChange={(next) => { if (!next) onClose() }}>
+    <Dialog open onOpenChange={(next) => { if (!next) closeAndRestoreFocus() }}>
       <DialogContent
         unstyled
         showCloseButton={false}
-        overlayClassName={LEGACY_MODAL_OVERLAY}
-        className="modal new-workspace-modal-v2 modal-dialog-surface"
+        onCloseAutoFocus={event => {
+          event.preventDefault()
+          if (!isSubmitting) requestAnimationFrame(() => {
+            const opener = returnFocusTo?.isConnected ? returnFocusTo : returnFocusRef.current
+            const target = opener?.isConnected && opener !== document.body
+              ? opener : document.querySelector<HTMLElement>('[data-testid="btn-new-workspace"]')
+            target?.focus({ preventScroll: true })
+          })
+        }}
+        overlayClassName={DESKTOP_DIALOG_OVERLAY}
+        className="modal new-workspace-modal-v2 modal-dialog-surface desktop-dialog"
       >
         <header className="new-workspace-header">
           <span className="new-workspace-header-icon" aria-hidden="true">
@@ -161,13 +194,13 @@ export function NewWorkspaceModal({
           </span>
           <div className="new-workspace-header-text">
             <DialogTitle asChild>
-              <h2>Create new workspace</h2>
+              <h2>{selectedExisting ? 'Open existing workspace' : 'Create new workspace'}</h2>
             </DialogTitle>
             <DialogDescription asChild>
-              <p>Pick a folder, layout, and optional agents.</p>
+              <p>{selectedExisting ? 'Choose the workspace to continue where you left off.' : 'Pick a folder, layout, and optional agents.'}</p>
             </DialogDescription>
           </div>
-          <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
+          <button type="button" className="icon-button" aria-label="Close" onClick={closeAndRestoreFocus}>
             <X size={14} aria-hidden="true" />
           </button>
         </header>
@@ -222,7 +255,23 @@ export function NewWorkspaceModal({
             </div>
           </section>
 
-          <section className="new-workspace-section">
+          {selectedExisting && onOpenExisting ? (
+            <section className="new-workspace-section new-workspace-existing" aria-label="Existing workspaces">
+              <div className="new-workspace-section-title">Already open in Code</div>
+              <p>This folder already has {matchingWorkspaces.length === 1 ? 'a workspace' : `${matchingWorkspaces.length} workspaces`}. Opening one preserves its terminals and layout.</p>
+              {matchingWorkspaces.length > 1 && <div className="new-workspace-existing-list">
+                {matchingWorkspaces.map((workspace, index) => (
+                  <button key={workspace.id} type="button" className={`new-workspace-existing-choice${selectedExisting.id === workspace.id ? ' selected' : ''}`}
+                    aria-pressed={selectedExisting.id === workspace.id} onClick={() => setSelectedExistingId(workspace.id)}>
+                    <span>{workspace.name} #{index + 1}</span>
+                    <span>{workspace.panes.filter((pane) => pane.type === 'terminal' && pane.rowIndex >= 0).length} terminals</span>
+                  </button>
+                ))}
+              </div>}
+            </section>
+          ) : null}
+
+          {!selectedExisting && <section className="new-workspace-section">
             <div className="new-workspace-section-title">Layout</div>
             <div className="new-workspace-layout-grid" role="radiogroup" aria-label="Layout preset" data-testid="wizard-layout-grid">
               {LAYOUT_PRESETS.map((preset) => {
@@ -245,9 +294,9 @@ export function NewWorkspaceModal({
                 )
               })}
             </div>
-          </section>
+          </section>}
 
-          <section className="new-workspace-section">
+          {!selectedExisting && <section className="new-workspace-section">
             <div className="new-workspace-section-title">
               <span>Agents</span>
               <span className="new-workspace-fleet-badges" data-testid="wizard-agent-counter">
@@ -308,13 +357,13 @@ export function NewWorkspaceModal({
                 Clear selection
               </button>
             ) : null}
-          </section>
+          </section>}
 
           {error ? <div className="modal-error" role="alert">{error}</div> : null}
         </div>
 
         <footer className="new-workspace-footer">
-          <button type="button" className="secondary-action" onClick={onClose}>
+          <button type="button" className="secondary-action" onClick={closeAndRestoreFocus}>
             Cancel
           </button>
           <button
@@ -325,7 +374,7 @@ export function NewWorkspaceModal({
             data-testid="wizard-launch-btn"
             title={!hasFolder ? 'Choose a folder first' : undefined}
           >
-            {isSubmitting ? 'Creating…' : 'Create workspace'}
+            {isSubmitting ? (selectedExisting ? 'Opening…' : 'Creating…') : selectedExisting ? 'Open workspace' : 'Create workspace'}
           </button>
         </footer>
       </DialogContent>

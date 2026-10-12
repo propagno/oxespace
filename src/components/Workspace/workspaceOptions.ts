@@ -1,7 +1,7 @@
 import type { WorkspaceDensity, WorkspaceLayoutPreset, WorkspaceThemeId } from '../../../shared/types/workspace'
 
 export const WORKSPACE_THEMES: Array<{ id: WorkspaceThemeId; label: string }> = [
-  { id: 'midnight', label: 'Midnight' },
+  { id: 'midnight', label: 'Workbench' },
   { id: 'nord', label: 'Nord' },
   { id: 'dracula', label: 'Dracula' },
   { id: 'ocean', label: 'Ocean' },

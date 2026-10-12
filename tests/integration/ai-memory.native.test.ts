@@ -19,7 +19,8 @@ describe.skipIf(!binary)('AI Memory native contract', () => {
   let server: ChildProcess
   let client: AiMemoryClient
   let provider: AiMemoryProvider
-  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('AI_MEMORY_')))
+  const env = { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.toUpperCase().startsWith('AI_MEMORY_'))),
+    AI_MEMORY_BACKFILL_ON_START: 'false' }
   const token = randomUUID()
   const context = async (project: string, agentId: string): Promise<MemoryContext> => {
     const cwd = join(directory, `${project}-${agentId}-${randomUUID()}`)

@@ -29,13 +29,15 @@ export function automationTools(catalogue: () => ToolEntry[]): ToolEntry[] {
       if (!execution) return reply('error', { code: 'EXECUTION_REQUIRED', message: 'Open a new OXESpace agent terminal.', retryable: false }, true)
       const workspace = ctx.workspaceServ.get(execution.workspaceId)
       const pane = workspace?.panes.find(p => p.id === execution.paneId)
-      if (!pane) return reply('error', { code: 'PANE_UNAVAILABLE', message: 'The execution pane no longer exists.', retryable: false }, true)
+      if (execution.owner.kind === 'pane' && !pane) return reply('error', { code: 'PANE_UNAVAILABLE', message: 'The execution pane no longer exists.', retryable: false }, true)
       if (name === 'oxespace_capabilities') return reply('ok', {
         tools: catalogue().map(t => ({ name: t.descriptor.name, requiresWorkspace: t.requiresWorkspace })),
         workspaceId: execution.workspaceId,
         memoryBound: Boolean(ctx.memory && ctx.memoryRunId),
         delegationServiceAvailable: Boolean(ctx.delegation),
-        delegation: ctx.delegation ? await ctx.delegation.capabilities(execution).catch(() => ({ status: 'unavailable' })) : { status: 'unavailable' },
+        // Discovery must not wait for filesystem identity or Git on a busy host.
+        // Delegation preflight performs the detailed check when requested.
+        delegation: { status: ctx.delegation ? 'available' : 'unavailable', details: 'Use oxespace_delegation_preflight for project eligibility.' },
         policy: 'Every action revalidates scope, ownership and project opt-in. Listed tools may require additional setup.',
         limits: { concurrentDelegationsPerProject: 4, recursiveDelegation: false }
       })
@@ -48,6 +50,8 @@ export function automationTools(catalogue: () => ToolEntry[]): ToolEntry[] {
           return reply('ok', { binding: 'bound', projectId: context.projectId,
             settings: ctx.memory.projects.settings(context.projectId),
             runtime: health.status === 'ok' ? health.value.status : health.status,
+            runtimeError: health.status === 'ok' ? health.value.errorCode : undefined,
+            pipeline: health.status === 'ok' ? health.value.pipeline : undefined,
             observations, providerReplies: ctx.memory.manager.observations(context.projectId),
             nativePersistence: 'not_observable', consolidation: 'not_observable', spool: 'not_observable' })
         } catch { return reply('error', { code: 'MEMORY_BINDING_UNAVAILABLE', message: 'Memory binding cannot be verified. Terminal execution can continue.', retryable: true }, true) }
@@ -60,10 +64,11 @@ export function automationTools(catalogue: () => ToolEntry[]): ToolEntry[] {
         const head = await exec('git', ['rev-parse', '--verify', 'HEAD'], { cwd: execution.cwd, windowsHide: true, timeout: 2000, maxBuffer: 8192 })
         git = { status: 'ok', branch: result.stdout.trim(), head: head.stdout.trim(), sampledAt: Date.now() }
       } catch { /* A non-Git or unavailable checkout still has execution context. */ }
-      return reply('ok', { workspaceId: execution.workspaceId, paneId: execution.paneId, executionId: execution.id,
+      return reply('ok', { surface: execution.owner.kind === 'thread' ? 'thread' : 'code', workspaceId: execution.owner.kind === 'pane' ? execution.workspaceId : null,
+        threadId: execution.owner.kind === 'thread' ? execution.owner.id : null, paneId: pane?.id ?? null, executionId: execution.id,
         repositoryIdentity,
-        launchCwd: execution.cwd, currentShellCwd: 'unknown', agentProfileId: pane.agentProfileId,
-        originPaneId: pane.originPaneId ?? null, git })
+        launchCwd: execution.cwd, currentShellCwd: 'unknown', agentProfileId: pane?.agentProfileId ?? null,
+        originPaneId: pane?.originPaneId ?? null, git })
     }
   }))
 }

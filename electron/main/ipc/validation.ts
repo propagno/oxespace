@@ -14,7 +14,7 @@ import type {
   TerminalStopInput,
   TerminalWriteInput
 } from '../../../shared/types/ipc'
-import type { GitDiffInput } from '../../../shared/types/git'
+import type { GitDiffInput, GitFileOriginalInput } from '../../../shared/types/git'
 import type { LinearIssueScope, LinearListIssuesInput, LinearWorktreeFromIssueInput } from '../../../shared/types/linear'
 import type {
   GitHubCheckoutBranchInput,
@@ -411,6 +411,21 @@ export function parseGitDiffInput(value: unknown): GitDiffInput {
   }
 }
 
+/** A repository-relative path: no traversal, no absolute roots, no NUL. */
+function expectRepoRelativePath(value: unknown, label: string): string {
+  const text = expectNonEmptyString(value, label)
+  if (text.includes('\0') || /^([a-zA-Z]:)?[\\/]/.test(text) || text.split(/[\\/]/).includes('..')) {
+    throw new Error(`${label} must be a path inside the repository`)
+  }
+  return text
+}
+
+export function parseGitFileOriginalInput(value: unknown): GitFileOriginalInput {
+  const input = expectRecord(value, 'git:file-original input')
+  const base = parseGitDiffInput(input)
+  return { ...base, path: expectRepoRelativePath(input.path, 'path'), oldPath: input.oldPath === undefined ? undefined : expectRepoRelativePath(input.oldPath, 'oldPath') }
+}
+
 export function parseGitBranchInput(value: unknown): { workspaceId: string; rootPath: string } {
   const input = expectRecord(value, 'git:get-branch input')
   return {
@@ -510,6 +525,14 @@ export function parseGitHubPullRequestListInput(value: unknown): GitHubPullReque
     ...expectGitHubWorkspace(input),
     state
   }
+}
+
+export function parseGitHubPrAutoMergeInput(value: unknown): import('../../../shared/types/github').GitHubPrAutoMergeInput {
+  const input = expectRecord(value, 'github pull request auto-merge input')
+  const number = input.number
+  if (typeof number !== 'number' || !Number.isInteger(number) || number <= 0) throw new Error('Invalid pull request number.')
+  if (typeof input.enable !== 'boolean') throw new Error('Invalid auto-merge flag.')
+  return { ...expectGitHubWorkspace(input), number, enable: input.enable }
 }
 
 export function parseGitHubCreatePullRequestInput(value: unknown): GitHubCreatePullRequestInput {

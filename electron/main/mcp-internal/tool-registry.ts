@@ -26,10 +26,18 @@ import type { WorktreeEventBus } from './worktree-event-bus'
 import type { SemanticService } from '../services/semantic.service'
 import { MEMORY_TOOLS } from './memory-tool-handlers'
 import { DELEGATION_TOOLS } from './delegation-tools'
+import { TEAM_TOOLS } from './team-tools'
 import { automationTools } from './automation-tools'
+import { DOCUMENTATION_TOOLS } from './documentation-tools'
+import { THREAD_HANDOFF_TOOLS } from './thread-handoff-tools'
 
 export interface ToolContext {
+  captureRoot?: string
+  db?: import('../db').AppDatabase
+  threads?: Promise<import('../services/conversation/thread-manager').ThreadManager>
+  documentation?: () => Promise<ReturnType<typeof import('../services/documentation/runtime').createDocumentationRuntime>>
   delegation?: import('../services/delegation.service').DelegationService
+  team?: import('../services/coordination/team-access').TeamAccess
   executions?: import('../services/execution-registry').ExecutionRegistry
   executionId?: string
   executionToken?: string
@@ -54,9 +62,12 @@ export interface ToolEntry {
 }
 
 export const TOOL_REGISTRY: ToolEntry[] = [
+  ...DOCUMENTATION_TOOLS,
   ...automationTools(() => TOOL_REGISTRY),
   ...MEMORY_TOOLS,
   ...DELEGATION_TOOLS,
+  ...TEAM_TOOLS,
+  ...THREAD_HANDOFF_TOOLS,
   {
     descriptor: {
       name: 'oxespace_list_workspaces',
@@ -193,7 +204,7 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   {
     descriptor: {
       name: 'oxespace_open_web_preview',
-      description: 'Open the Web Preview panel in OXESpace pointing to the given URL.',
+      description: 'Queue an HTTP(S) URL for the current Code or Thread Web Preview. Returns queued, not loaded; confirm with oxespace_preview_interact status/inspect. External sites require External preview.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -209,8 +220,8 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   {
     descriptor: {
       name: 'oxespace_capture_web_preview',
-      description: 'Capture a screenshot of the active Web Preview panel in the current workspace. Returns a base64 PNG image block.',
-      inputSchema: { type: 'object', properties: {}, additionalProperties: false }
+      description: 'Capture the active opted-in Web Preview tab with private inputs redacted. Returns a PNG image; optional fileName also saves it under the OXESpace capture directory and returns the absolute path.',
+      inputSchema: { type: 'object', properties: { fileName: { type: 'string', description: 'Optional PNG name such as aba-1.png; letters, digits, underscore and hyphen only.' } }, additionalProperties: false }
     },
     requiresWorkspace: true,
     handler: handlers.captureWebPreview
@@ -267,6 +278,7 @@ export const TOOL_REGISTRY: ToolEntry[] = [
         type: 'object',
         properties: {
           baseRef: { type: 'string', description: 'Optional Git base revision to include (for example main or HEAD~1). The worktree and index are always included.' },
+          files: { type: 'array', items: { type: 'string' }, description: 'Optional workspace-relative files or directories to scope this check. Use the implementation and test files changed by the current operation.' },
           acceptanceCriteria: { type: 'array', items: { type: 'string' }, description: 'Acceptance criteria to trace to changed files.' },
           maxFindings: { type: 'number', description: 'Maximum findings returned (1-100, default 30).' }
         },

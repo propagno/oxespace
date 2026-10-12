@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OXESpace — comparação de navegação</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, 'Segoe UI', system-ui, sans-serif; background: #171a1f; color: #e6e8eb; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    main { max-width: 1160px; padding: 32px 24px; margin: auto; }
+    h1 { font-size: 24px; font-weight: 600; margin: 0 0 10px; }
+    p { color: #b0b6c0; line-height: 1.6; font-size: 14px; }
+    a { color: #91c7f2; }
+    .controls { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; margin: 24px 0; padding: 16px; border: 1px solid #363c45; border-radius: 12px; background: #21252b; }
+    label { font-size: 13px; display: flex; align-items: center; gap: 10px; }
+    select { background: #282c34; color: inherit; border: 1px solid #454c56; border-radius: 8px; padding: 8px 12px; font: inherit; }
+    input { accent-color: #61afef; }
+    select:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid #61afef; outline-offset: 3px; }
+    .comparison { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    figure { margin: 0; overflow: hidden; border: 1px solid #363c45; border-radius: 12px; background: #21252b; }
+    figcaption { padding: 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    figcaption strong { font-size: 14px; font-weight: 600; }
+    figcaption a { font-size: 12px; }
+    .metric { padding: 0 16px 16px; margin: 0; font-size: 12px; }
+    .frame { overflow: auto; border-top: 1px solid #363c45; }
+    .frame img { display: block; width: 100%; height: auto; }
+    .navigation-only .frame { height: var(--height); overflow: hidden; }
+    .navigation-only .frame img { width: var(--viewport); height: var(--height); max-width: none; }
+    .note { padding: 16px; margin: 20px 0; border-left: 2px solid #61afef; background: #21252b; }
+    .gallery { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; font-size: 13px; }
+    [hidden] { display: none !important; }
+    @media (max-width: 800px) { .comparison { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Uma aplicação, três padrões de navegação</h1>
+    <p>Capturas do Electron e medidas do checkout em 17/09/2026. Compare a divisória, o rodapé, as buscas e o peso dos itens. <a href="REPORT.md">Abrir relatório completo</a>.</p>
+    <div class="controls">
+      <label>Versão <select id="version"><option value="after">Implementação atual</option><option value="before">Auditoria inicial</option></select></label>
+      <label>Cenário <select id="scenario">
+        <option value="expanded">Expandido · 1280 × 720</option>
+        <option value="960">Limite nativo · 960 × 640</option>
+        <option value="900">Referência do contrato · 900 × 600</option>
+        <option value="600">Diagnóstico · 600 × 600</option>
+        <option value="collapsed">Recolhido · 1280 × 720</option>
+        <option value="comfortable">CSS confortável · 1280 × 720</option>
+      </select></label>
+      <label><input id="crop" type="checkbox" checked> Mostrar navegação em tamanho real</label>
+    </div>
+    <div class="comparison navigation-only" id="comparison">
+      <figure data-mode="code"><figcaption><strong>Code</strong><a target="_blank" rel="noopener">Captura inteira</a></figcaption><p class="metric"></p><div class="frame"><img alt="Navegação do modo Code"></div></figure>
+      <figure data-mode="thread"><figcaption><strong>Thread</strong><a target="_blank" rel="noopener">Captura inteira</a></figcaption><p class="metric"></p><div class="frame"><img alt="Navegação do modo Thread"></div></figure>
+      <figure data-mode="settings"><figcaption><strong>Settings</strong><a target="_blank" rel="noopener">Captura inteira</a></figcaption><p class="metric"></p><div class="frame"><img alt="Navegação de Settings"></div></figure>
+    </div>
+    <p class="note" id="note"></p>
+    <p>Diálogos e foco — abra as capturas para comparar superfície, botões e identificação de provedores:</p>
+    <div class="gallery">
+      <a href="code-tools.png" target="_blank" rel="noopener">Tools</a>
+      <a href="code-new-workspace.png" target="_blank" rel="noopener">New Workspace</a>
+      <a href="thread-new.png" target="_blank" rel="noopener">New Thread</a>
+      <a href="thread-accounts.png" target="_blank" rel="noopener">Accounts</a>
+      <a href="settings-workspace.png" target="_blank" rel="noopener">Workspace Settings</a>
+      <a href="code-footer-focus.png" target="_blank" rel="noopener">Foco Code</a>
+      <a href="thread-footer-focus.png" target="_blank" rel="noopener">Foco Thread</a>
+      <a href="code-collapsed-focus.png" target="_blank" rel="noopener">Foco Tools recolhido</a>
+    </div>
+    <p>Perfil e dados isolados; contas e conversas são fixtures. <a href="measurements.json">Medidas completas</a>. Esta comparação não executa ações no OXESpace.</p>
+  </main>
+  <script>
+    const comparison = document.getElementById('comparison');
+    const scenario = document.getElementById('scenario');
+    const crop = document.getElementById('crop');
+    const version = document.getElementById('version');
+    const sizes = { expanded: [1280,720], '960': [960,640], '900': [900,600], '600': [600,600], collapsed: [1280,720], comfortable: [1280,720] };
+    const notes = {
+      expanded: 'Trocar Code por Thread move a divisória 32 px. Settings ocupa outro lugar no rodapé, que passa de 49 para 117 px.',
+      '960': 'Este é o mínimo imposto pela janela nativa. Code continua com 280 px e Thread/Settings com 248 px.',
+      '900': 'O contrato Thread cita 900 px; a janela real exige 960 px. Esta captura força um viewport menor para comparação.',
+      '600': 'Teste abaixo do limite nativo. Settings reduz a navegação para 168 px; Code/Thread mantêm suas larguras e oferecem recolhimento manual.',
+      collapsed: 'Code usa rail de 54 px; Thread, 56 px. A ordem de Tools/Settings se inverte ao recolher Code. O logo e as alturas dos botões também diferem.',
+      comfortable: 'Amostra de CSS: a densidade aumenta a fonte base e medidas de tiles, mas muitos controles de navegação permanecem com valores fixos em px.'
+    };
+    function update() {
+      const state = scenario.value;
+      const [width,height] = sizes[state];
+      comparison.classList.toggle('navigation-only', crop.checked);
+      for (const figure of comparison.querySelectorAll('figure')) {
+        const mode = figure.dataset.mode;
+        const unavailable = mode === 'settings' && ['collapsed','comfortable'].includes(state);
+        figure.hidden = unavailable;
+        if (unavailable) continue;
+        const after = version.value === 'after';
+        const file = `${after ? 'implemented/' : ''}${mode}-${mode === 'settings' && state === 'expanded' ? 'updates' : state}.png`;
+        const sidebar = after ? (state === 'collapsed' ? 56 : 248) : (state === 'collapsed' ? (mode === 'code' ? 54 : 56) : (mode === 'code' ? 280 : (mode === 'settings' && state === '600' ? 168 : 248)));
+        figure.querySelector('img').src = file;
+        figure.querySelector('a').href = file;
+        figure.querySelector('.metric').textContent = `Sidebar ${sidebar} px · viewport ${width} × ${height}`;
+        figure.style.setProperty('--viewport', `${width}px`);
+        figure.style.setProperty('--height', `${height}px`);
+      }
+      document.getElementById('note').textContent = version.value === 'after' ? (state === 'comfortable' ? 'Navegação com fonte de 14 px, linhas de 40 px e filtros de 36 px nos dois modos. O alinhamento e o rodapé seguem o mesmo padrão.' : state === 'collapsed' ? 'Rails de 56 px e botões de 36 × 36 nos dois modos. A ordem contextual → Settings → Expand é preservada.' : 'Sidebar de 248 px nos três contextos. Code/Thread compartilham preferências, rodapé vertical e posição de Settings. As capturas usam um perfil novo; larguras personalizadas existentes são preservadas.') : notes[state];
+      for (const link of document.querySelectorAll('.gallery a')) {
+        link.href = `${version.value === 'after' ? 'implemented/' : ''}${link.getAttribute('href').split('/').pop()}`;
+      }
+    }
+    scenario.addEventListener('change',update);
+    crop.addEventListener('change',update);
+    version.addEventListener('change',update);
+    update();
+  </script>
+</body>
+</html>

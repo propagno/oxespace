@@ -1,0 +1,31 @@
+{
+  "capturedAt": "2026-10-04T18:30:26.637Z",
+  "kind": "native-inference-short-isolated-session",
+  "provider": "codex",
+  "installedApp": false,
+  "originalLongSession": false,
+  "reports": [
+    {
+      "phase": "new",
+      "elapsedMs": 15363.304699999999,
+      "acknowledged": true,
+      "active": "unknown",
+      "outcome": "completed",
+      "settled": "completed",
+      "source": "codex-app-server",
+      "detail": "Turn outcome confirmed by the provider. This check does not import missing output.",
+      "version": "oxespace/0.155.1 (Windows 10.0.26200; x86_64) dumb (oxespace; 0.13.0)"
+    },
+    {
+      "phase": "resume",
+      "elapsedMs": 16933.7174,
+      "acknowledged": true,
+      "active": "interrupted",
+      "outcome": "completed",
+      "settled": "completed",
+      "source": "codex-app-server",
+      "detail": "Turn outcome confirmed by the provider. This check does not import missing output.",
+      "version": "oxespace/0.155.1 (Windows 10.0.26200; x86_64) dumb (oxespace; 0.13.0)"
+    }
+  ]
+}

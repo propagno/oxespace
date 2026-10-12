@@ -14,6 +14,8 @@ interface GitHubPanelProps {
   rootPath: string
   activeTab: GitHubPanelTab
   onTabChange: (tab: GitHubPanelTab) => void
+  onOpenFile?: (path: string) => void
+  onRunCommand?: (command: string) => void
 }
 
 interface ConfirmAction {
@@ -22,7 +24,7 @@ interface ConfirmAction {
   run: () => Promise<void>
 }
 
-export function GitHubPanel({ activeTab: propTab, onTabChange, rootPath, workspaceId }: GitHubPanelProps): ReactElement {
+export function GitHubPanel({ activeTab: propTab, onOpenFile, onRunCommand, onTabChange, rootPath, workspaceId }: GitHubPanelProps): ReactElement {
   const selector = useMemo(() => selectGitHubWorkspace(workspaceId), [workspaceId])
   const state = useGitHubStore(selector)
   const input = useMemo(() => ({ workspaceId, rootPath }), [workspaceId, rootPath])
@@ -69,6 +71,7 @@ export function GitHubPanel({ activeTab: propTab, onTabChange, rootPath, workspa
   const requestConfirm = (title: string, detail: string, run: () => Promise<void>): void => setConfirmAction({ title, detail, run })
 
   const openChangedFile = (path: string): void => {
+    if (onOpenFile) { onOpenFile(path); return }
     const workspace = useWorkspaceStore.getState().workspaces.find((item) => item.id === workspaceId)
     if (!workspace) return
     void useWorkspaceStore.getState().updateEditorState({
@@ -80,7 +83,7 @@ export function GitHubPanel({ activeTab: propTab, onTabChange, rootPath, workspa
     void useEditorStore.getState().openFile({ workspaceId, rootPath, relativePath: path })
   }
 
-  const runCommand = (command: string): void => setPendingCommand(command)
+  const runCommand = (command: string): void => onRunCommand ? onRunCommand(command) : setPendingCommand(command)
   const loadWorkflowRunDetails = useCallback(
     (runId: number) => useGitHubStore.getState().loadWorkflowRunDetails({ ...input, runId }),
     [input]
@@ -329,9 +332,7 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
         </div>
         <div className="github-tab-sep" />
 
-        <p className="github-status-headline" data-testid="github-status-headline">
-          {headline}
-        </p>
+        {sync.kind !== 'no-remote' && <p className="github-status-headline" data-testid="github-status-headline">{headline}</p>}
 
         {/* Sync block — primary, VS Code-like: what to do with the remote */}
         <section
@@ -364,7 +365,7 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
               ) : null}
             </div>
           </div>
-          <div className="github-sync-actions">
+          {hasRemote && <div className="github-sync-actions">
             <button
               type="button"
               className="github-sync-btn secondary"
@@ -398,7 +399,7 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
               <ArrowUpFromLine size={13} aria-hidden="true" />
               Push{ahead > 0 ? ` ${ahead}` : ''}
             </button>
-          </div>
+          </div>}
           {sync.kind === 'dirty-behind' ? (
             <div className="github-sync-callout" data-testid="github-dirty-behind-callout" role="status">
               <AlertTriangle size={13} aria-hidden="true" />
@@ -411,7 +412,7 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
             <div className="github-sync-callout" data-testid="github-no-remote-callout" role="status">
               <AlertTriangle size={13} aria-hidden="true" />
               <span>
-                No remote configured. In a terminal: <code>git remote -v</code> then{' '}
+                In a terminal: <code>git remote -v</code> then{' '}
                 <code>git remote add origin &lt;url&gt;</code>.
               </span>
             </div>
@@ -457,19 +458,21 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
           </div>
         </section>
       </div>
-      <div className="github-status-footer">
-        <button type="button" className="github-stage-all-btn" disabled={loading || unstagedChanges.length === 0} onClick={onStageAll}>
-          Stage All{unstagedChanges.length > 0 ? ` (${unstagedChanges.length})` : ''}
-        </button>
-        <label className="github-auto-row">
-          <input type="checkbox" checked={autoGenerate} disabled={generating || loading} onChange={(e) => void handleAutoGenerate(e.target.checked)} />
-          <span>Auto-generate commit message</span>
-        </label>
-        <textarea className="github-commit-ta" value={message} placeholder="Commit message..." onChange={(e) => setMessage(e.target.value)} />
-        <button type="button" className="github-commit-submit" disabled={loading || !commitMessage || stagedChanges.length === 0} onClick={() => onCommit(commitMessage)}>
-          Commit
-        </button>
-      </div>
+      {(unstagedChanges.length > 0 || stagedChanges.length > 0) && <div className="github-status-footer">
+        {unstagedChanges.length > 0 && <button type="button" className="github-stage-all-btn" disabled={loading} onClick={onStageAll}>
+          Stage all ({unstagedChanges.length})
+        </button>}
+        {stagedChanges.length > 0 && <>
+          <label className="github-auto-row">
+            <input type="checkbox" checked={autoGenerate} disabled={generating || loading} onChange={(e) => void handleAutoGenerate(e.target.checked)} />
+            <span>Auto-generate commit message</span>
+          </label>
+          <textarea className="github-commit-ta" aria-label="Commit message" value={message} placeholder="Describe your changes" onChange={(e) => setMessage(e.target.value)} />
+          <button type="button" className="github-commit-submit" disabled={loading || !commitMessage} onClick={() => onCommit(commitMessage)}>
+            Commit {stagedChanges.length} staged
+          </button>
+        </>}
+      </div>}
     </div>
   )
 }
@@ -1714,7 +1717,7 @@ function GitHubEmbeddedTerminal({ command, workspaceId, onDismiss }: {
   const [error, setError] = useState<string | null>(null)
   const commandSentRef = useRef(false)
   const terminalPrefs = useResolvedTerminalPrefs(workspaceId)
-  const themeId = useWorkspaceStore((s) => s.workspaces.find((w) => w.id === workspaceId)?.themeId ?? 'dracula')
+  const themeId = useWorkspaceStore((s) => s.workspaces.find((w) => w.id === workspaceId)?.themeId ?? 'midnight')
 
   useEffect(() => {
     let cancelled = false

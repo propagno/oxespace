@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronsLeft, ChevronsRight, Plus, Search, Settings2, Wrench } from 'lucide-react'
+import { ChevronDown, FolderOpen, Plus, Search, Wrench, Waypoints } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { IntegrationGroup } from '../../../shared/types/integration'
 import type { Workspace } from '../../../shared/types/workspace'
@@ -6,18 +6,23 @@ import { useIntegrationStore } from '../../store/integration.store'
 import { rootPathKey } from '../../../shared/utils/path'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { useWorkspaceActivity } from '../../hooks/useWorkspaceActivity'
-import { OxeLogo } from '../Brand/OxeLogo'
+import { NavigationRail, type RailAction } from '../Navigation/NavigationChrome'
+import { useNavigationSearch } from '../Navigation/useNavigationSearch'
+import { SearchField } from '../Navigation/SearchField'
 import { SidebarIntegrationRow } from './SidebarIntegrationRow'
 import { WorkspaceGroup } from './WorkspaceGroup'
 import { PaneSessionRow } from './PaneSessionRow'
 import { useAgentStore } from '../../store/agent.store'
 import { useUIStore } from '../../store/ui.store'
 import { useTerminalStore } from '../../store/terminal.store'
-import { useNavigationPrefs } from '../../store/navigation-prefs.store'
+import { SIDEBAR_RESIZE_STEP, useNavigationPrefs } from '../../store/navigation-prefs.store'
 import './SidebarNavigation.css'
 import { cachedBranchLabel } from '../../hooks/useGitBranch'
 
 interface SidebarProps {
+  onDelegations?: () => void
+  onSwitchToThread?: () => void
+
   workspaces: Workspace[]
   activeWorkspaceId: string | null
   appVersion: string
@@ -39,6 +44,8 @@ interface SidebarProps {
 
 
 export function Sidebar({
+  onDelegations,
+  onSwitchToThread,
   activeWorkspaceId,
   appVersion,
   isCollapsed,
@@ -58,7 +65,6 @@ export function Sidebar({
   const setExpanded = useNavigationPrefs(s => s.setExpanded)
   const profiles = useAgentStore(s => s.allProfiles)
   const activePaneId = useUIStore(s => s.activePaneId)
-  const openSettings = useUIStore(s => s.toggleSettings)
   const resizing = useRef(false)
   useEffect(() => {
     for (const workspace of workspaces) {
@@ -74,17 +80,7 @@ export function Sidebar({
   }
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (useUIStore.getState().isSettingsOpen || useUIStore.getState().isWorkspaceSettingsOpen) return
-      if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
-        e.preventDefault()
-        searchInputRef.current?.focus()
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+  useNavigationSearch(searchInputRef, isCollapsed, onToggleCollapse)
 
   // Drag-and-drop workspace reorder state. We don't use HTML5 dragstart
   // payload because Electron's renderer has quirks with cross-process
@@ -161,12 +157,17 @@ export function Sidebar({
     onSelectWorkspace(workspaceId)
   }
 
+  const railPrimary: RailAction[] = [
+    { id: 'new-workspace', label: 'New workspace', icon: Plus, testId: 'btn-new-workspace', onClick: onNewWorkspace },
+    ...(onDelegations ? [{ id: 'delegated-work', label: 'Delegated work', icon: Waypoints, onClick: onDelegations }] : []),
+    { id: 'search', label: 'Files & commands (Ctrl+J)', ariaLabel: 'Files & commands', icon: Search, onClick: onOpenSearch }
+  ]
+  const railContext: RailAction = { id: 'tools', label: 'Tools', ariaLabel: 'Open tools', icon: Wrench, testId: 'btn-open-tools', onClick: onOpenTools }
+
   if (isCollapsed) {
     return (
-      <aside className="sidebar sidebar-collapsed">
-        <div className="sidebar-brand sidebar-brand-collapsed">
-          <OxeLogo />
-        </div>
+      <aside className="sidebar sidebar-redesign sidebar-collapsed" data-version={appVersion}>
+        <NavigationRail mode="code" collapsed onModeChange={onSwitchToThread} primary={railPrimary} context={railContext} onToggle={onToggleCollapse}>
         <nav className="sidebar-rail-list" aria-label="Collapsed workspaces">
           {integrationGroups.map((group) => (
             <div key={group.id} className={`sidebar-rail-integration${group.id === activeIntegrationGroupId ? ' active' : ''}`} title={group.name}>
@@ -197,28 +198,7 @@ export function Sidebar({
             />
           ))}
         </nav>
-        <div className="sidebar-footer sidebar-footer-collapsed">
-          <button type="button" className="sidebar-collapse-btn" aria-label="Open settings" title="Settings" onClick={openSettings}><Settings2 size={16} /></button>
-          <button
-            type="button"
-            className="sidebar-tools-btn"
-            aria-label="Open tools"
-            title="Tools — panels, MCP, skills"
-            data-testid="btn-open-tools"
-            onClick={onOpenTools}
-          >
-            <Wrench size={16} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="sidebar-collapse-btn"
-            aria-label="Expand sidebar"
-            title="Expand sidebar"
-            onClick={onToggleCollapse}
-          >
-            <ChevronsRight size={14} aria-hidden="true" />
-          </button>
-        </div>
+        </NavigationRail>
       </aside>
     )
   }
@@ -226,65 +206,14 @@ export function Sidebar({
   return (
     <aside className="sidebar sidebar-redesign" style={{ width, minWidth: width, flexBasis: width }}>
       <div className="sidebar-width-handle" role="separator" aria-label="Sidebar width" aria-orientation="vertical" aria-valuemin={240} aria-valuemax={360} aria-valuenow={width} tabIndex={0}
-        onKeyDown={e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setWidth(width + (e.key === 'ArrowLeft' ? -10 : 10)) } }}
+        onKeyDown={e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setWidth(width + (e.key === 'ArrowLeft' ? -SIDEBAR_RESIZE_STEP : SIDEBAR_RESIZE_STEP)) } }}
         onPointerDown={e => { resizing.current = true; e.currentTarget.setPointerCapture(e.pointerId); e.preventDefault() }}
         onPointerMove={e => { if (resizing.current) setWidth(e.clientX - (e.currentTarget.parentElement?.getBoundingClientRect().left ?? 0)) }}
         onPointerUp={() => { resizing.current = false }} onPointerCancel={() => { resizing.current = false }} onLostPointerCapture={() => { resizing.current = false }} />
-      <div className="sidebar-header-bar">
-        <div className="sidebar-header-brand">
-          <OxeLogo size={20} variant="wordmark" />
-          <span className="sidebar-version-badge" title={`OXESpace ${appVersion}`}>
-            v{appVersion}
-          </span>
-        </div>
-        <div className="sidebar-actions">
-          <button
-            type="button"
-            className="sidebar-icon-btn sidebar-new-btn"
-            aria-label="New workspace"
-            title="New workspace"
-            data-testid="btn-new-workspace-header"
-            onClick={onNewWorkspace}
-          >
-            <Plus size={14} aria-hidden="true" />
-          </button>
-        </div>
-      </div>
-
-      <nav className="sidebar-quick-nav" aria-label="Primary navigation">
-        <button type="button" className="sidebar-nav-item" onClick={onOpenSearch} title="Search files & commands (Ctrl+J)">
-          <Search size={14} className="sidebar-nav-icon" aria-hidden="true" />
-          <span className="sidebar-nav-label">Search</span>
-          <kbd className="sidebar-nav-kbd">Ctrl J</kbd>
-        </button>
-      </nav>
-
-      <div className="sidebar-search-wrap">
-        <Search size={13} className="sidebar-search-icon" aria-hidden="true" />
-        <input
-          ref={searchInputRef}
-          type="search"
-          className="sidebar-search-input"
-          placeholder="Filter projects… (/)"
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          aria-label="Filter projects"
-          autoComplete="off"
-          spellCheck={false}
-        />
-        {searchQuery ? (
-          <button
-            type="button"
-            className="sidebar-search-clear"
-            aria-label="Clear search"
-            onClick={() => setSearchQuery('')}
-          >
-            <span aria-hidden="true">×</span>
-          </button>
-        ) : (
-          <kbd className="sidebar-search-kbd">/</kbd>
-        )}
-      </div>
+      <NavigationRail mode="code" collapsed={false} onModeChange={onSwitchToThread} primary={railPrimary} context={railContext} onToggle={onToggleCollapse} />
+      <div className="nav-panel" title={`OXESpace v${appVersion}`}>
+      <div className="nav-panel-title"><strong>Workspaces</strong></div>
+      <SearchField className="sidebar-search-wrap" inputClassName="sidebar-search-input" ref={searchInputRef} label="Filter workspaces" placeholder="Filter workspaces" value={searchQuery} onChange={setSearchQuery} shortcut="/" />
 
       <nav className="ws-group-list" aria-label="Workspaces">
 
@@ -312,31 +241,17 @@ export function Sidebar({
 
         <div className="sidebar-section-header">
           <span>Workspaces</span>
-          <button type="button" className="sidebar-section-action-btn" aria-label="Toggle all workspace terminals" onClick={() => {
+          {workspaces.length > 0 && !searchQuery && <button type="button" className="sidebar-section-action-btn" aria-label="Toggle all workspace terminals" onClick={() => {
             const shouldExpand = workspaces.some(w => !(expanded[w.id] ?? w.id === activeWorkspaceId))
             workspaces.forEach(w => setExpanded(w.id, shouldExpand))
-          }}><ChevronDown size={12} /></button>
-          <button
-            type="button"
-            className="sidebar-section-action-btn"
-            data-testid="btn-new-workspace"
-            title="New workspace"
-            aria-label="New workspace"
-            onClick={onNewWorkspace}
-          >
-            <Plus size={12} aria-hidden="true" />
-          </button>
+          }}><ChevronDown size={12} /></button>}
+
         </div>
 
         {filtered.length === 0 ? (
           <div className="sidebar-empty-state">
-            <div className="sidebar-empty-icon">📁</div>
-            <p>No workspaces found.</p>
-            {!searchQuery && (
-              <button type="button" className="sidebar-empty-btn" onClick={onNewWorkspace}>
-                Create workspace
-              </button>
-            )}
+            <FolderOpen size={22} aria-hidden="true" />
+            <p>{searchQuery ? 'No matching workspaces.' : 'No workspaces yet.'}</p>
           </div>
         ) : (
           filtered.map((ws) => (
@@ -348,6 +263,9 @@ export function Sidebar({
               duplicate={duplicateRoots.get(ws.id) ?? null}
               onSelect={handleSelectWorkspace}
               onClose={onCloseWorkspace}
+              terminalsExpanded={Boolean(searchQuery) || (expanded[ws.id] ?? ws.id === activeWorkspaceId)}
+              terminalCount={ws.panes.filter(p => p.type === 'terminal' && p.rowIndex >= 0 && p.columnIndex >= 0).length}
+              onToggleTerminals={searchQuery ? undefined : () => setExpanded(ws.id, !(expanded[ws.id] ?? ws.id === activeWorkspaceId))}
               isDragging={dragSourceId === ws.id}
               dropPosition={dragOverId === ws.id ? dropPosition : null}
               onDragStart={() => setDragSourceId(ws.id)}
@@ -368,10 +286,6 @@ export function Sidebar({
                 setDropPosition(null)
               }}
             />
-            <button type="button" className="sidebar-children-toggle" aria-expanded={Boolean(searchQuery) || (expanded[ws.id] ?? ws.id === activeWorkspaceId)}
-              onClick={() => setExpanded(ws.id, !(expanded[ws.id] ?? ws.id === activeWorkspaceId))}>
-              <ChevronDown size={12} /><span>{ws.panes.filter(p => p.type === 'terminal' && p.rowIndex >= 0 && p.columnIndex >= 0).length} terminals</span>
-            </button>
             {(searchQuery || (expanded[ws.id] ?? ws.id === activeWorkspaceId)) && <div className="sidebar-terminal-children">
               {ws.panes.filter(p => p.type === 'terminal' && p.rowIndex >= 0 && p.columnIndex >= 0).map((pane, index) =>
                 <PaneSessionRow key={pane.id} pane={pane} paneIndex={index} workspace={ws} agentProfiles={profiles}
@@ -382,32 +296,6 @@ export function Sidebar({
         )}
       </nav>
 
-      <div className="sidebar-footer">
-        <button
-          type="button"
-          className="sidebar-tools-btn sidebar-tools-btn-labeled"
-          aria-label="Open tools"
-          title="Tools — panels, MCP, skills"
-          data-testid="btn-open-tools"
-          onClick={onOpenTools}
-        >
-          <span className="sidebar-tools-btn-icon" aria-hidden="true">
-            <Wrench size={14} />
-          </span>
-          <span className="sidebar-tools-btn-copy">
-            <span className="sidebar-tools-btn-label">Tools</span>
-            <span className="sidebar-tools-btn-hint">Panels · MCP · Skills</span>
-          </span>
-        </button>
-        <button
-          type="button"
-          className="sidebar-collapse-btn"
-          aria-label="Collapse sidebar"
-          title="Collapse sidebar"
-          onClick={onToggleCollapse}
-        >
-          <ChevronsLeft size={14} aria-hidden="true" />
-        </button>
       </div>
     </aside>
   )

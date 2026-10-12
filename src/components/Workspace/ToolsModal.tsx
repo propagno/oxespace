@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react'
-import { Activity, ArrowRight, Bot, Brain, Code2, Command, FolderTree, Github, GitCompareArrows, MonitorPlay, Network, PanelLeft, Search, Settings2, Sparkles, Wrench, X, Slash, FileCode2 } from 'lucide-react'
+import { Activity, Brain, Code2, Command, FolderTree, Github, GitCompareArrows, MonitorPlay, Network, PanelLeft, Search, Settings2, Sparkles, Wrench, X, Slash, FileCode2 } from 'lucide-react'
 import { useUIStore } from '../../store/ui.store'
-import { Dialog, DialogContent, DialogDescription, DialogTitle, LEGACY_MODAL_OVERLAY } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DESKTOP_DIALOG_OVERLAY } from '@/components/ui/dialog'
 
 export interface ToolsActiveState {
   github: boolean
@@ -20,8 +20,6 @@ interface ToolsModalProps {
   onClose: () => void
   onOpenCommandPalette: () => void
   onOpenWorkspaceSettings: () => void
-  /** Opens Agent Settings (CLI providers, discovery, updates). Featured at the top of the hub. */
-  onOpenAgentSettings: () => void
   onToggleEditor: () => void
   onToggleGitHub: () => void
   onToggleReview: () => void
@@ -61,7 +59,6 @@ export function ToolsModal({
   onClose,
   onOpenCommandPalette,
   onOpenWorkspaceSettings,
-  onOpenAgentSettings,
   onToggleEditor,
   onToggleGitHub,
   onToggleReview,
@@ -79,6 +76,9 @@ export function ToolsModal({
   const openSlashOverlay = useUIStore((s) => s.openSlashOverlay)
   const [query, setQuery] = useState('')
   const searchRef = useRef<HTMLInputElement | null>(null)
+  // Capture the opener before the portal mounts and the search input takes focus.
+  const returnFocusRef = useRef<HTMLElement | null>(document.activeElement instanceof HTMLElement ? document.activeElement : null)
+  const navigatingRef = useRef(false)
 
   useEffect(() => {
     const t = window.setTimeout(() => searchRef.current?.focus(), 0)
@@ -86,6 +86,7 @@ export function ToolsModal({
   }, [])
 
   const run = (action: () => void): void => {
+    navigatingRef.current = true
     onClose()
     // Close the hub before opening the destination surface. Keeping the
     // state transition order deterministic avoids Radix focus/portal cleanup
@@ -247,12 +248,6 @@ export function ToolsModal({
   ]
 
   const q = query.trim().toLowerCase()
-  const agentSettingsKeywords = ['agent', 'settings', 'cli', 'provider', 'discovery', 'update', 'ai']
-  const showAgentSettingsFeature =
-    !q || agentSettingsKeywords.some((k) => k.includes(q) || q.includes(k)) ||
-    'agent settings'.includes(q) ||
-    'open agent settings'.includes(q)
-
   const filtered = !q
     ? tools
     : tools.filter((t) =>
@@ -268,7 +263,7 @@ export function ToolsModal({
     .filter((g) => g.items.length > 0)
 
   const activeCount = tools.filter((t) => t.active).length
-  const hasAnyResults = showAgentSettingsFeature || groups.length > 0
+  const hasAnyResults = groups.length > 0
 
   return (
     <Dialog open onOpenChange={(next) => { if (!next) onClose() }}>
@@ -277,8 +272,19 @@ export function ToolsModal({
       <DialogContent
         unstyled
         showCloseButton={false}
-        overlayClassName={LEGACY_MODAL_OVERLAY}
-        className="tools-modal"
+        onCloseAutoFocus={event => {
+          event.preventDefault()
+          if (!navigatingRef.current) requestAnimationFrame(() => {
+            const opener = returnFocusRef.current
+            // Lazy loading can temporarily replace the opener with a Suspense
+            // fallback. Restore to its current instance if the old node is gone.
+            const target = opener?.isConnected && opener !== document.body
+              ? opener : document.querySelector<HTMLElement>('[data-testid="btn-open-tools"]')
+            target?.focus({ preventScroll: true })
+          })
+        }}
+        overlayClassName={DESKTOP_DIALOG_OVERLAY}
+        className="tools-modal desktop-dialog"
         data-testid="tools-modal"
       >
         <header className="tools-modal-header">
@@ -338,31 +344,6 @@ export function ToolsModal({
         </div>
 
         <div className="tools-modal-body">
-          {showAgentSettingsFeature ? (
-            <button
-              type="button"
-              className="tools-modal-featured"
-              data-testid="tools-agent-settings"
-              onClick={() => run(onOpenAgentSettings)}
-              aria-label="Open Agent Settings"
-            >
-              <span className="tools-modal-featured-icon" aria-hidden="true">
-                <Bot size={20} />
-              </span>
-              <span className="tools-modal-featured-body">
-                <span className="tools-modal-featured-kicker">AI &amp; Agents</span>
-                <span className="tools-modal-featured-title">Agent Settings</span>
-                <span className="tools-modal-featured-detail">
-                  CLIs, discovery, providers &amp; app updates
-                </span>
-              </span>
-              <span className="tools-modal-featured-cta" aria-hidden="true">
-                Open
-                <ArrowRight size={14} />
-              </span>
-            </button>
-          ) : null}
-
           {!hasAnyResults ? (
             <div className="tools-modal-empty" role="status">
               <Search size={20} aria-hidden="true" />
@@ -392,7 +373,9 @@ export function ToolsModal({
           <span className="tools-modal-footer-hint">
             <kbd>Esc</kbd> close
             <span className="tools-modal-footer-sep" aria-hidden="true" />
-            <kbd>↑↓</kbd> not required — click a card
+            <kbd>Tab</kbd> navigate
+            <span className="tools-modal-footer-sep" aria-hidden="true" />
+            <kbd>Enter</kbd> open
           </span>
           <span className="tools-modal-footer-meta">{filtered.length} tools</span>
         </footer>
@@ -429,7 +412,7 @@ function ToolCard({ tool }: { tool: ToolDef }): ReactElement {
         </span>
         <span className="tools-modal-card-detail">{tool.detail}</span>
       </span>
-      {tool.shortcut ? <kbd className="tools-modal-card-shortcut">{tool.shortcut}</kbd> : null}
+      {tool.shortcut ? <kbd className="tools-modal-card-shortcut" title={tool.shortcut}>{tool.shortcut}</kbd> : null}
     </button>
   )
 }

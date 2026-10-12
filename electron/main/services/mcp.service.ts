@@ -1,4 +1,5 @@
 import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { shell } from 'electron'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
 import type { AppDatabase } from '../db/index'
@@ -36,6 +37,9 @@ interface RuntimeServer {
   pending: Map<number, { resolve: (value: unknown) => void; reject: (err: Error) => void }>
   requestSeq: number
   initialized: boolean
+  /** Browser sign-in page announced by an OAuth bridge such as mcp-remote. */
+  authUrl?: string
+  browserOpened?: boolean
   // Ring of last stderr lines. When the server dies before responding to
   // `initialize`, this is the only honest signal about WHY it died — npm
   // packages like @modelcontextprotocol/server-github abort with "X env var
@@ -56,6 +60,9 @@ interface McpManagerOptions {
 
 const PROTOCOL_VERSION = '2025-06-18'
 const INIT_TIMEOUT_MS = 15_000
+/** Remote servers (mcp-remote) wait for a person to sign in; that takes minutes, not seconds. */
+const AUTH_INIT_TIMEOUT_MS = 5 * 60_000
+const SIGN_IN_FALLBACK_MS = 4_000
 const REQUEST_TIMEOUT_MS = 30_000
 const SLEEP_TIMEOUT_MS = 15 * 60 * 1000
 const WINDOWS_EXECUTABLE_EXTENSIONS = ['.cmd', '.exe', '.bat', '.ps1']
@@ -75,6 +82,8 @@ const MAX_STDOUT_BUFFER_BYTES = 5 * 1024 * 1024
  */
 export class McpManager {
   private readonly runtimes = new Map<string, RuntimeServer>()
+  /** Starts in flight, so a second click joins the first instead of killing a sign-in half way. */
+  private readonly starting = new Map<string, Promise<McpToolDescriptor[]>>()
   private readonly emitHealth: (event: McpServerHealthEvent) => void
   private readonly configSync: McpConfigSync
 
@@ -191,9 +200,20 @@ export class McpManager {
     if (server.transport !== 'stdio') {
       throw new Error('Apenas transporte stdio é suportado nesta versão. HTTP/SSE virão na Onda 6.')
     }
+    const inFlight = this.starting.get(id)
+    if (inFlight) return inFlight
     if (this.runtimes.has(id)) this.stopRuntime(id)
-    const tools = await this.startStdio(server)
-    return tools
+    const run = this.startStdio(server).finally(() => { this.starting.delete(id) })
+    this.starting.set(id, run)
+    return run
+  }
+
+  /** Reopens the browser sign-in page of a server that is waiting for authentication. */
+  openSignIn(id: string): boolean {
+    const url = this.runtimes.get(id)?.authUrl
+    if (!url || !/^https:\/\//i.test(url)) return false
+    void shell.openExternal(url)
+    return true
   }
 
   stopAll(): void {
@@ -214,7 +234,7 @@ export class McpManager {
     const runtime = this.runtimes.get(id)
     if (!runtime) return
     if (runtime.sleepTimer) clearTimeout(runtime.sleepTimer)
-    try { runtime.process?.kill() } catch { /* ignore */ }
+    killProcessTree(runtime.process)
     runtime.pending.forEach(({ reject }) => reject(new Error('MCP server stopped')))
     runtime.pending.clear()
     this.runtimes.delete(id)
@@ -245,6 +265,7 @@ export class McpManager {
     const config = server.config as McpStdioConfig
 
     this.emitHealth({ serverId: server.id, status: 'starting', message: null })
+    const interactiveAuth = usesOAuthBridge(config)
 
     const env = buildProcessEnv(config.env)
     const command = resolveExecutable(config.command, env)
@@ -297,6 +318,7 @@ export class McpManager {
       for (const rawLine of chunk.split(/\r?\n/)) {
         const line = rawLine.trim()
         if (!line) continue
+        if (interactiveAuth) this.watchSignIn(runtime, line)
         runtime.stderr.push(line.slice(0, STDERR_LINE_MAX))
         if (runtime.stderr.length > STDERR_RING_SIZE) runtime.stderr.shift()
       }
@@ -319,9 +341,9 @@ export class McpManager {
           protocolVersion: PROTOCOL_VERSION,
           capabilities: { tools: {} },
           clientInfo: { name: 'oxespace', version: '0.1.0' }
-        }),
+        }, interactiveAuth ? AUTH_INIT_TIMEOUT_MS : REQUEST_TIMEOUT_MS),
         spawnError,
-        timeout<{ protocolVersion: string }>(INIT_TIMEOUT_MS, 'initialize timeout')
+        timeout<{ protocolVersion: string }>(interactiveAuth ? AUTH_INIT_TIMEOUT_MS : INIT_TIMEOUT_MS, interactiveAuth ? 'sign-in was not completed in time' : 'initialize timeout')
       ])
       if (!initResult || typeof initResult.protocolVersion !== 'string') {
         throw new Error('Invalid initialize response')
@@ -346,6 +368,22 @@ export class McpManager {
     }
   }
 
+  /**
+   * mcp-remote prints the authorization URL and normally opens it itself. When it
+   * does not (detached process, no default browser handler), open it from here so
+   * adding a connector is one click, and keep the URL for "Open sign-in page".
+   */
+  private watchSignIn(runtime: RuntimeServer, line: string): void {
+    if (/browser opened automatically/i.test(line)) { runtime.browserOpened = true; return }
+    const url = extractSignInUrl(line)
+    if (!url || runtime.authUrl === url) return
+    runtime.authUrl = url
+    this.emitHealth({ serverId: runtime.server.id, status: 'starting', message: 'Waiting for you to sign in in the browser…' })
+    setTimeout(() => {
+      if (!runtime.browserOpened && this.runtimes.get(runtime.server.id) === runtime && !runtime.initialized) void shell.openExternal(url)
+    }, SIGN_IN_FALLBACK_MS)
+  }
+
   private resolveServerCwd(server: McpServer): string | undefined {
     if (!server.workspaceId) return undefined
     const row = this.db.prepare('SELECT root_path FROM workspaces WHERE id = ?').get(server.workspaceId) as { root_path?: string } | undefined
@@ -363,7 +401,7 @@ export class McpManager {
     return server
   }
 
-  private request<T>(runtime: RuntimeServer, method: string, params: unknown): Promise<T> {
+  private request<T>(runtime: RuntimeServer, method: string, params: unknown, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
     return new Promise((resolve, reject) => {
       runtime.requestSeq += 1
       const id = runtime.requestSeq
@@ -381,7 +419,7 @@ export class McpManager {
           runtime.pending.delete(id)
           reject(new Error(`MCP request "${method}" timed out`))
         }
-      }, REQUEST_TIMEOUT_MS)
+      }, timeoutMs)
     })
   }
 
@@ -437,6 +475,33 @@ function mapRow(row: McpServerRow): McpServer {
     createdAtMs: row.created_at,
     updatedAtMs: row.updated_at
   }
+}
+
+/** The authorization URL an OAuth bridge prints on its own line, or null. */
+export function extractSignInUrl(line: string): string | null {
+  const url = /^(https:\/\/\S+)$/.exec(line.trim())?.[1]
+  return url && /authorize|oauth|login|auth/i.test(url) ? url : null
+}
+
+/** True for OAuth bridges that need a person to finish a sign-in before the handshake can complete. */
+export function usesOAuthBridge(config: McpStdioConfig): boolean {
+  return (config.args ?? []).some(arg => /(^|[\\/])mcp-remote(@[\w.-]+)?$/i.test(arg))
+}
+
+/**
+ * Stops a server and everything it spawned. On Windows the command runs through
+ * a shell wrapper, so killing only the wrapper leaves the real server (and, for
+ * mcp-remote, its OAuth callback port) alive and blocks the next start.
+ */
+function killProcessTree(child: ChildProcessWithoutNullStreams | null): void {
+  if (!child) return
+  try {
+    if (process.platform === 'win32' && child.pid) {
+      spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' }).on('error', () => undefined)
+    } else {
+      child.kill()
+    }
+  } catch { /* already gone */ }
 }
 
 function validateConfig(transport: McpTransport, config: McpServerConfig, trusted = false): void {

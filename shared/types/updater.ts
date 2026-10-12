@@ -11,6 +11,8 @@ export type AppUpdateStatus =
 
 export interface AppUpdateState {
   status: AppUpdateStatus
+  /** Manual for source/dev and Linux package-manager installs. */
+  installMode?: 'automatic' | 'manual'
   currentVersion: string
   availableVersion: string | null
   /** Download progress 0–100 when status === 'downloading'. */

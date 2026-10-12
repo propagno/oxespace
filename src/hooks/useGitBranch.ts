@@ -29,7 +29,7 @@ const listeners = new Map<string, Set<() => void>>()
 // setInterval — so with N panes in a worktree, N git processes spawned every
 // 10s. Now the first subscriber for a rootPath starts the poller; the last
 // to leave stops it. Cost: O(unique rootPaths) instead of O(panes).
-const pollers = new Map<string, { intervalId: number; subscribers: number; workspaceId: string }>()
+const pollers = new Map<string, { intervalId: number; subscribers: number; workspaceId: string; onFocus: () => void }>()
 const REFRESH_INTERVAL_MS = 10_000
 
 function notify(rootPath: string): void {
@@ -165,7 +165,9 @@ export function useGitBranch(workspaceId: string, rootPath: string | null, activ
         const poller = pollers.get(rootPath)
         if (poller) void fetchBranch(poller.workspaceId, rootPath)
       }, REFRESH_INTERVAL_MS)
-      pollers.set(rootPath, { intervalId, subscribers: 1, workspaceId })
+      const onFocus = () => { void fetchBranch(workspaceId, rootPath) }
+      window.addEventListener('focus', onFocus)
+      pollers.set(rootPath, { intervalId, subscribers: 1, workspaceId, onFocus })
     }
 
     return () => {
@@ -177,6 +179,7 @@ export function useGitBranch(workspaceId: string, rootPath: string | null, activ
         poller.subscribers -= 1
         if (poller.subscribers <= 0) {
           window.clearInterval(poller.intervalId)
+          window.removeEventListener('focus', poller.onFocus)
           pollers.delete(rootPath)
         }
       }
@@ -195,6 +198,8 @@ export function useGitBranch(workspaceId: string, rootPath: string | null, activ
 export function invalidateGitBranch(rootPath: string): void {
   cache.delete(rootPath)
   notify(rootPath)
+  const poller = pollers.get(rootPath)
+  if (poller) void fetchBranch(poller.workspaceId, rootPath)
 }
 
 /** Test-only: clear all cached branches between tests. */
@@ -202,6 +207,9 @@ export function __resetGitBranchCacheForTests(): void {
   cache.clear()
   listeners.clear()
   loggedFailures.clear()
-  for (const poller of pollers.values()) window.clearInterval(poller.intervalId)
+  for (const poller of pollers.values()) {
+    window.clearInterval(poller.intervalId)
+    window.removeEventListener('focus', poller.onFocus)
+  }
   pollers.clear()
 }

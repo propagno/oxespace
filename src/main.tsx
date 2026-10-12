@@ -12,6 +12,8 @@ import '@xyflow/react/dist/style.css'
 
 // OXESpace is a dark-first UI; shadcn primitives read the `.dark` token set.
 document.documentElement.classList.add('dark')
+// Lets the frameless title bar reserve room for macOS traffic lights.
+document.documentElement.dataset.platform = /Mac/i.test(navigator.platform) ? 'darwin' : /Win/i.test(navigator.platform) ? 'win32' : 'linux'
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>

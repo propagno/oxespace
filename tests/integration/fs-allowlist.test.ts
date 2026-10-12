@@ -23,14 +23,49 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/memory/agent-memory-adapter.ts',
   'electron/main/services/memory/memory-project.service.ts',
   'electron/main/services/memory/memory-marker.ts',
+  // Memory upgrade transaction (journal, snapshot, candidate): fixed children of
+  // the application's private memory runtime directory; never workspace paths.
+  'electron/main/services/memory/memory-migration.ts',
+  // Producer-owned, crash-recoverable delivery queue under the private memory
+  // directory; files carry opaque names and are never derived from workspace paths.
+  'electron/main/services/memory/memory-outbox.ts',
+  // Documentation owns generated artifacts under userData/documentation only.
+  // Tool callers supply IDs, never filesystem paths or workspace destinations.
+  'electron/main/services/documentation/documentation.service.ts',
+  // Preview captures are app-owned PNGs under <userData>/web-preview-captures.
+  // The store validates owner and basename and refuses to overwrite a file.
+  'electron/main/services/documentation/preview-capture-store.ts',
   'electron/main/services/session.service.ts',
+  // Conversation transports probe installed executables only. Native history
+  // reads UUID-selected ~/.claude session logs, never arbitrary source paths.
+  // Command discovery reads only bounded configured skill/command Markdown;
+  // renderer callers provide Thread IDs and command names, not read paths.
+  'electron/main/services/conversation/process-transport.ts',
+  'electron/main/services/conversation/thread-cli.ts',
+  'electron/main/services/conversation/native-session-history.ts',
+  'electron/main/services/conversation/thread-commands.ts',
+  // Claude's transport materializes a bounded temporary MCP config and removes
+  // it after the process exits. Thread attachments live in the app's private
+  // userData area under opaque IDs; neither accepts arbitrary workspace paths.
+  'electron/main/services/conversation/claude-conversation.ts',
+  'electron/main/services/conversation/thread-attachments.ts',
+  // Transactional Thread checkpoints are a dedicated filesystem boundary:
+  // they canonicalize the Thread root, reject traversal/symlinks, hash every
+  // postimage and restore through temp+rename without destructive Git calls.
+  'electron/main/services/conversation/thread-checkpoints.ts',
+  // Thread project registration only canonicalizes and checks the selected
+  // directory; source-file reads and writes remain in FileSystemService.
+  'electron/main/services/conversation/thread-projects.ts',
   'electron/main/services/shell-profile.service.ts',
   'electron/main/services/skill.service.ts',
   'electron/main/services/terminal.service.ts',
   // Delegation performs existence probes only: executable selection and worktree
   // recovery. GitHubWorktreeApi owns creation; neither reads/writes source files.
   'electron/main/services/agent-launch.service.ts',
-  'electron/main/services/delegation.service.ts',
+  'electron/main/services/delegation/delegation-git-provisioner.ts',
+  // Trusted UI repository registration: realpath identity probes only. No
+  // source file reads/writes; evidence reads committed blobs through Git.
+  'electron/main/services/coordination/workspace-resolver.ts',
   'electron/main/services/usage/claudeProvider.ts',
   'electron/main/services/usage/codexProvider.ts',
   'electron/main/services/usage/copilotProvider.ts',
@@ -44,9 +79,18 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/contextUsage/copilotContext.ts',
   'electron/main/index.ts',
   'electron/main/db/index.ts',
-  // Diagnostics reads the main log tail and writes a report only to a path
-  // explicitly selected through Electron's native save dialog.
+  // Diagnostics writes a report only to a path explicitly selected through
+  // Electron's native save dialog. Runtime recording owns three bounded files
+  // under userData/diagnostics and probes executable realpaths, never source files.
+  'electron/main/services/runtime-diagnostics.ts',
   'electron/main/ipc/diagnostics.ipc.ts',
+  // Portable conversation packages are read/written only at a path returned
+  // by Electron's native open/save dialogs; package validation remains in the
+  // Thread portable service and imported content is inert.
+  'electron/main/ipc/thread.ipc.ts',
+  // Reads provider-owned JSONL history outside the workspace, through a path
+  // resolved and identity-checked by NativeSessionReader. No renderer path input.
+  'electron/main/services/conversation/native-history-page.ts',
   'electron/main/services/diagnostics.service.ts',
   // Internal MCP bootstrap: materializes the bridge script under
   // <userData>/bin and hash-checks it against the packaged source. Needs

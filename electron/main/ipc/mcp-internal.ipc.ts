@@ -1,4 +1,4 @@
-import { BrowserWindow, clipboard, ipcMain } from 'electron'
+import { BrowserWindow, clipboard, ClipboardItem, ipcMain } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { InternalMcpHandle } from '../mcp-internal/bootstrap'
 
@@ -21,7 +21,10 @@ export function registerMcpInternalIpc(handle: InternalMcpHandle): void {
 
     const rectJson = await win.webContents.executeJavaScript(`
       (() => {
-        const frame = document.querySelector('iframe[title="Workspace web preview"]')
+        const frame = [...document.querySelectorAll('webview[title="Workspace web preview"]')].find(el => {
+          const r = el.getBoundingClientRect()
+          return r.width > 0 && r.height > 0 && el.checkVisibility()
+        })
         if (!frame) return null
         const rect = frame.getBoundingClientRect()
         if (rect.width < 1 || rect.height < 1) return null
@@ -37,7 +40,7 @@ export function registerMcpInternalIpc(handle: InternalMcpHandle): void {
       width: Math.round(rect.width),
       height: Math.round(rect.height)
     })
-    clipboard.writeImage(image)
+    await clipboard.write([new ClipboardItem({ 'image/png': new Blob([new Uint8Array(image.toPNG())], { type: 'image/png' }) })])
   })
 
   // Push-channel: we don't ipcMain.handle this — instead we broadcast on the

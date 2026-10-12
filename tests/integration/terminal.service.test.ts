@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto'
+import { ThreadProjectService } from '../../electron/main/services/conversation/thread-projects'
 import { describe, expect, test, vi } from 'vitest'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -7,6 +9,40 @@ import { WorkspaceService } from '../../electron/main/services/workspace.service
 import { __resetExecutableCacheForTests, TerminalManager, resolveExecutable } from '../../electron/main/services/terminal.service'
 
 describe('TerminalManager', () => {
+  test('runs an independent Thread shell without creating Code panes and rejects cross-owner launches', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'oxe-thread-shell-'))
+    const db = openInMemoryDatabase(), projects = new ThreadProjectService(db)
+    db.prepare("INSERT OR IGNORE INTO shell_profiles(id,name,executable,args_json,is_builtin) VALUES ('builtin-bash','Bash','/bin/bash','[]',1)").run()
+    const pty = createFakePtyModule(), manager = new TerminalManager(db, { pty, platform: 'linux' })
+    try {
+      const project = await projects.add(root)
+      const thread = { id: randomUUID(), workspaceId: `thread:${project.projectId}`, projectId: project.projectId, rootPath: projects.context(project.projectId).rootPath }
+      db.prepare('INSERT INTO conversation_threads (id, workspace_id, thread_project_id, data_json) VALUES (?, ?, ?, ?)').run(thread.id, thread.workspaceId, thread.projectId, JSON.stringify(thread))
+      const input = { workspaceId: thread.workspaceId, paneId: `thread-shell:${thread.id}:1`, disableRtk: true }
+      await expect(manager.start({ ...input, workspaceId: 'other' })).rejects.toThrow('owner is unavailable')
+      await expect(manager.start({ ...input, agentCommand: 'claude' })).rejects.toThrow('interactive shell')
+      await manager.start(input)
+      expect(pty.spawn).toHaveBeenCalledWith(expect.stringMatching(/bash$/), expect.any(Array), expect.objectContaining({ cwd: thread.rootPath }))
+      expect(db.prepare('SELECT id FROM workspaces').all()).toEqual([])
+      expect(db.prepare('SELECT id FROM panes').all()).toEqual([])
+      manager.detach(input)
+      expect(manager.attach(input).running).toBe(true)
+      manager.stop(input)
+      expect(manager.status(input.paneId).running).toBe(false)
+    } finally { manager.stopAll(); db.close(); rmSync(root, { recursive: true, force: true }) }
+  })
+
+  test('passes an exact native resume ID as separate agent arguments', async () => {
+    const db = openInMemoryDatabase()
+    const workspace = new WorkspaceService(db).create({ rootPath: 'C:/repo', layout: '1x1', autoStart: false })
+    const pty = createFakePtyModule()
+    const manager = new TerminalManager(db, { pty, platform: 'linux' })
+    try {
+      const id = '11111111-1111-4111-8111-111111111111'
+      await manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id, agentCommand: 'codex', agentArgs: ['resume', id, '--no-alt-screen'], disableRtk: true })
+      expect(pty.spawn).toHaveBeenCalledWith('codex', ['resume', id, '--no-alt-screen'], expect.anything())
+    } finally { manager.stopAll(); db.close() }
+  })
   test('managed launches preserve structured arguments and refuse a missing worktree fallback', async () => {
     const root = mkdtempSync(join(tmpdir(), 'oxe-managed-launch-'))
     const db = openInMemoryDatabase()
@@ -174,6 +210,12 @@ describe('TerminalManager attach/detach', () => {
     // …but the UI still learns the agent is working.
     expect(emitActivity).toHaveBeenCalledWith(expect.objectContaining({ paneId, bytes: 10 }))
     expect(manager.status(paneId)).toMatchObject({ running: true })
+    const info = manager.status(paneId)
+    expect(info.sessionId).toMatch(/^[0-9a-f-]{36}$/)
+    expect(info.launchDirectory).toBeTruthy()
+    expect(info.executable).toBeTruthy()
+    expect(info.startedAt).toBeGreaterThan(0)
+    expect(manager.status(paneId).sessionId).toBe(info.sessionId)
 
     db.close()
   })
@@ -220,7 +262,7 @@ describe('TerminalManager attach/detach', () => {
     db.close()
   })
 
-  test('skips the replay and forces a redraw for a full-screen TUI', async () => {
+  test('redraws a full-screen TUI only after the attached renderer is ready', async () => {
     const { db, manager, pty, paneId } = await setup()
 
     manager.resize({ paneId, cols: 100, rows: 30 })
@@ -236,6 +278,8 @@ describe('TerminalManager attach/detach', () => {
     expect(attached.altScreen).toBe(true)
     expect(attached.replay).toBe('')
     expect(attached.prologue).toContain('\x1b[?1049h')
+    expect(pty.instances[0].resize).not.toHaveBeenCalled()
+    manager.resize({ paneId, cols: 100, rows: 30 })
     expect(pty.instances[0].resize).toHaveBeenCalledWith(100, 29)
 
     db.close()

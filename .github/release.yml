@@ -1,0 +1,18 @@
+# Categories for GitHub-generated release notes (used when docs/releases/<version>.md is absent).
+changelog:
+  exclude:
+    labels: [skip-changelog]
+    authors: [dependabot]
+  categories:
+    - title: New
+      labels: [feature, enhancement]
+    - title: Fixes
+      labels: [bug, fix]
+    - title: Security
+      labels: [security]
+    - title: Documentation
+      labels: [documentation, docs]
+    - title: Maintenance
+      labels: [dependencies, ci, chore]
+    - title: Other changes
+      labels: ["*"]

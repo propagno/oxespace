@@ -139,7 +139,7 @@ function SettingsSwitch({
 }
 
 const NAV_ITEMS: Array<{ id: SettingsSection; label: string; icon: ReactNode }> = [
-  { id: 'providers', label: 'AI Providers', icon: <Bot size={14} aria-hidden="true" /> },
+  { id: 'providers', label: 'Agents', icon: <Bot size={14} aria-hidden="true" /> },
   { id: 'terminal', label: 'Terminal', icon: <SquareTerminal size={14} aria-hidden="true" /> },
   { id: 'voice', label: 'Voice', icon: <Mic size={14} aria-hidden="true" /> },
   { id: 'notifications', label: 'Notifications', icon: <Bell size={14} aria-hidden="true" /> },
@@ -176,7 +176,7 @@ export function SettingsModal({
             <div>
               <span>OXESpace</span>
               <DialogTitle asChild>
-                <strong>Agent Settings</strong>
+                <strong>Agents</strong>
               </DialogTitle>
             </div>
           </header>
@@ -262,6 +262,7 @@ function DiagnosticsSettingsSection({ onClose }: { onClose: () => void }): React
         kicker="Runtime"
         title="Diagnostics"
         titleId="settings-diagnostics-title"
+        description="Compact local diagnostics: up to 1.5 MiB for seven days. Export excludes prompts, terminal output and command arguments."
         onClose={onClose}
         actions={
           <button type="button" className="settings-btn ghost" onClick={refresh} title="Re-run checks">
@@ -321,20 +322,23 @@ function SettingsContentHeader({
   kicker,
   title,
   titleId,
+  description,
   onClose,
   actions
 }: {
   kicker: string
   title: string
   titleId: string
+  description?: string
   onClose: () => void
   actions?: ReactNode
 }): ReactElement {
   return (
     <header className="settings-content-header">
       <div>
-        <span>{kicker}</span>
+        <span className="settings-content-kicker">{kicker}</span>
         <h2 id={titleId}>{title}</h2>
+        {description && <p className="settings-content-description">{description}</p>}
       </div>
       <div className="settings-content-actions">
         {actions}
@@ -532,8 +536,9 @@ function ProvidersSettingsSection({
     <section className="settings-modal-content" aria-labelledby="settings-providers-title">
       <SettingsContentHeader
         kicker="CLIs & discovery"
-        title="AI Providers"
+        title="Agents"
         titleId="settings-providers-title"
+        description="Manage your agents, CLI installations and custom profiles."
         onClose={onClose}
         actions={
           <button
@@ -563,7 +568,7 @@ function ProvidersSettingsSection({
             ) : null}
           </div>
           <div className="settings-providers-stats" aria-label="Provider counts">
-            <span className="settings-stat ready">
+            <span className={`settings-stat${readyCount > 0 ? ' ready' : ''}`}>
               <em>{readyCount}</em> ready
             </span>
             {missingCount > 0 ? (
@@ -761,6 +766,7 @@ function VoiceSettingsSection({ onClose }: { onClose: () => void }): ReactElemen
         kicker="OXEVoice · local STT"
         title="Voice"
         titleId="settings-voice-title"
+        description="Dictate with local transcription and your preferred shortcuts."
         onClose={onClose}
       />
 
@@ -869,7 +875,7 @@ const FONT_PRESETS = [
 ]
 
 function TerminalPreview({ prefs }: { prefs: TerminalPrefs }): ReactElement {
-  const sampleSize = Math.max(10, Math.min(prefs.fontSize, 15))
+  const sampleSize = prefs.fontSize
   return (
     <div className="settings-term-preview" aria-hidden="true">
       <div className="settings-term-preview-chrome">
@@ -913,6 +919,7 @@ function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactEle
         kicker="Global appearance"
         title="Terminal"
         titleId="settings-terminal-title"
+        description="Set the default font, cursor and behavior for every workspace. Workspace overrides remain independent."
         onClose={onClose}
       />
 
@@ -946,6 +953,7 @@ function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactEle
             />
             <span className="settings-field-hint">Ctrl + / Ctrl − / Ctrl 0 in a terminal</span>
           </label>
+          {global.fontSize !== TERMINAL_PREFS_DEFAULTS.fontSize && <button type="button" className="settings-reset-font" onClick={() => setGlobal({ fontSize: TERMINAL_PREFS_DEFAULTS.fontSize })}>Reset to {TERMINAL_PREFS_DEFAULTS.fontSize}px</button>}
 
           <label className="settings-field">
             <span className="settings-field-label-row">
@@ -1065,6 +1073,7 @@ function NotificationsSettingsSection({ onClose }: { onClose: () => void }): Rea
         kicker="System"
         title="Notifications"
         titleId="settings-notifications-title"
+        description="Choose when OXESpace gets your attention."
         onClose={onClose}
       />
 
@@ -1137,7 +1146,7 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
     bootstrap()
   }, [bootstrap])
 
-  // electron-updater is a no-op outside packaged installs. Treat disabled as "dev build".
+  const manualInstall = app.installMode === 'manual' || app.status === 'disabled'
   const isDevBuild = app.status === 'disabled'
   const versionLabel = app.currentVersion === 'dev' || !app.currentVersion
     ? 'dev build'
@@ -1146,19 +1155,19 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
   const appStatusLabel = (() => {
     switch (app.status) {
       case 'disabled':
-        return 'Unavailable in dev builds'
+        return 'Update service unavailable'
       case 'checking':
         return 'Checking GitHub Releases…'
       case 'available':
-        return `Update ${app.availableVersion} available — downloading in the background`
+        return manualInstall ? `Update ${app.availableVersion} available — install it from Releases` : `Update ${app.availableVersion} available — downloading in the background`
       case 'downloading':
         return `Downloading ${app.availableVersion ?? 'update'}… ${app.progress ?? 0}%`
       case 'downloaded':
         return `Ready to install ${app.availableVersion}`
       case 'not-available':
-        return 'You are on the latest release'
+        return 'No newer published release found'
       case 'error':
-        return app.error ?? 'Update check failed'
+        return 'Update check failed'
       default:
         return 'Waiting for update status…'
     }
@@ -1196,127 +1205,131 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
         kicker="System"
         title="Updates"
         titleId="settings-updates-title"
+        description="Keep OXESpace and its tools up to date."
         onClose={onClose}
       />
 
       <div className="settings-content-body settings-form settings-updates-form">
-        <article
-          className={`settings-update-card${isDevBuild ? ' is-dev' : ''}`}
-          data-testid="settings-app-update"
-          data-status={app.status}
-        >
-          <div className="settings-update-card-head">
-            <span className="settings-update-icon app" aria-hidden="true">
-              <ArrowUpCircle size={16} />
-            </span>
-            <div>
-              <strong>OXESpace</strong>
-              <span>{versionLabel}</span>
+        <h3 className="settings-update-group-label">Application & tools</h3>
+        <div className="settings-update-group">
+          <article
+            className={`settings-update-card${isDevBuild ? ' is-dev' : ''}`}
+            data-testid="settings-app-update"
+            data-status={app.status}
+          >
+            <div className="settings-update-card-head">
+              <span className="settings-update-icon app" aria-hidden="true">
+                <ArrowUpCircle size={16} />
+              </span>
+              <div>
+                <strong>OXESpace</strong>
+                <span>{versionLabel}</span>
+              </div>
+              <span className={`settings-status-pill ${appPillClass}`} data-testid="app-update-pill">
+                {appPillLabel}
+              </span>
             </div>
-            <span className={`settings-status-pill ${appPillClass}`} data-testid="app-update-pill">
-              {appPillLabel}
-            </span>
-          </div>
-          <p className="settings-update-status">{appStatusLabel}</p>
-          {app.status === 'downloading' && app.progress != null ? (
-            <div className="settings-progress" role="progressbar" aria-valuenow={app.progress} aria-valuemin={0} aria-valuemax={100}>
-              <div className="settings-progress-bar" style={{ width: `${app.progress}%` }} />
+            <p className="settings-update-status">{appStatusLabel}</p>
+            {app.status === 'downloading' && app.progress != null ? (
+              <div className="settings-progress" role="progressbar" aria-label="Downloading OXESpace update" aria-valuenow={app.progress} aria-valuemin={0} aria-valuemax={100}>
+                <div className="settings-progress-bar" style={{ width: `${app.progress}%` }} />
+              </div>
+            ) : null}
+            {app.error && app.status === 'error' ? (
+              <p className="settings-error" data-testid="app-update-error">{app.error}</p>
+            ) : null}
+            <div className="settings-update-actions">
+              <button
+                type="button"
+                className="settings-btn ghost"
+                disabled={app.status === 'checking' || app.status === 'downloading'}
+                onClick={() => void checkAppUpdates()}
+                data-testid="btn-check-app-updates"
+                title="Check GitHub Releases for a new version"
+              >
+                <RefreshCw size={13} aria-hidden="true" />
+                Check for updates
+              </button>
+              {app.status === 'downloaded' ? (
+                <button
+                  type="button"
+                  className="settings-btn primary"
+                  onClick={() => void quitAndInstall()}
+                  data-testid="btn-install-app-update"
+                >
+                  <Download size={13} aria-hidden="true" />
+                  Restart & install
+                </button>
+              ) : null}
+              {manualInstall && app.status === 'available' ? <a className="settings-btn primary" href="https://github.com/propagno/oxespace/releases/latest" target="_blank" rel="noopener noreferrer"><Download size={13} aria-hidden="true" /> Open releases</a> : null}
             </div>
-          ) : null}
-          {app.error && app.status === 'error' ? (
-            <p className="settings-error" data-testid="app-update-error">{app.error}</p>
-          ) : null}
-          <div className="settings-update-actions">
-            <button
-              type="button"
-              className="settings-btn ghost"
-              disabled={isDevBuild || app.status === 'checking' || app.status === 'downloading'}
-              onClick={() => void checkAppUpdates()}
-              data-testid="btn-check-app-updates"
-              title={isDevBuild ? 'Only available in installed (packaged) builds' : 'Check GitHub Releases for a new version'}
-            >
-              <RefreshCw size={13} aria-hidden="true" />
-              {isDevBuild ? 'Unavailable in dev' : 'Check for updates'}
-            </button>
-            {app.status === 'downloaded' ? (
+            <p className="settings-update-hint">
+              {manualInstall ? 'Development and Linux package installs cannot update in place. Use the latest release or update your development checkout.' : 'Downloads in the background. Restart to apply.'}
+            </p>
+          </article>
+
+          <article className="settings-update-card" data-testid="settings-rtk-update">
+            <div className="settings-update-card-head">
+              <span className="settings-update-icon rtk" aria-hidden="true">
+                <Zap size={16} />
+              </span>
+              <div>
+                <strong>RTK</strong>
+                <span>{rtk.installed ? (rtk.version ?? 'installed (no version file)') : 'not installed'}</span>
+              </div>
+              <span className={`settings-status-pill ${rtk.error ? 'err' : rtk.checking || rtk.updating ? 'muted' : rtk.updateAvailable ? 'warn' : rtk.installed ? 'ok' : 'muted'}`}>
+                {rtk.error ? 'Error' : rtk.checking ? 'Checking' : rtk.updating ? 'Updating' : rtk.updateAvailable ? 'Update available' : rtk.installed ? 'Up to date' : 'Not installed'}
+              </span>
+            </div>
+            <p className="settings-update-status">
+              {rtk.checking
+                ? 'Checking GitHub…'
+                : rtk.updating
+                  ? 'Updating…'
+                  : rtk.updateAvailable
+                    ? `Update available: ${rtk.latestVersion}`
+                    : rtk.latestVersion
+                      ? `Latest ${rtk.latestVersion} · up to date`
+                      : isDevBuild
+                        ? 'Works in dev — check or install the sidecar anytime'
+                        : 'Not checked yet'}
+            </p>
+            {rtk.error ? <p className="settings-error">{rtk.error}</p> : null}
+            <div className="settings-update-actions">
+              <button
+                type="button"
+                className="settings-btn ghost"
+                disabled={rtk.checking || rtk.updating}
+                onClick={() => void checkRtk()}
+                data-testid="btn-check-rtk"
+              >
+                <RefreshCw size={13} aria-hidden="true" />
+                Check RTK
+              </button>
               <button
                 type="button"
                 className="settings-btn primary"
-                onClick={() => void quitAndInstall()}
-                data-testid="btn-install-app-update"
+                disabled={rtk.checking || rtk.updating || (!rtk.updateAvailable && rtk.installed)}
+                onClick={() => void updateRtk()}
+                data-testid="btn-update-rtk"
               >
                 <Download size={13} aria-hidden="true" />
-                Restart & install
+                {rtk.installed ? 'Update RTK' : 'Install RTK'}
               </button>
-            ) : null}
-          </div>
-          <p className="settings-update-hint">
-            {isDevBuild
-              ? 'Unavailable in dev builds.'
-              : 'Downloads in the background. Restart to apply.'}
-          </p>
-        </article>
-
-        <article className="settings-update-card" data-testid="settings-rtk-update">
-          <div className="settings-update-card-head">
-            <span className="settings-update-icon rtk" aria-hidden="true">
-              <Zap size={16} />
-            </span>
-            <div>
-              <strong>RTK</strong>
-              <span>{rtk.installed ? (rtk.version ?? 'installed (no version file)') : 'not installed'}</span>
             </div>
-            <span className={`settings-status-pill ${rtk.updateAvailable ? 'warn' : rtk.installed ? 'ok' : 'muted'}`}>
-              {rtk.checking ? 'checking' : rtk.updating ? 'updating' : rtk.updateAvailable ? 'update' : rtk.installed ? 'ok' : 'missing'}
-            </span>
-          </div>
-          <p className="settings-update-status">
-            {rtk.checking
-              ? 'Checking GitHub…'
-              : rtk.updating
-                ? 'Updating…'
-                : rtk.updateAvailable
-                  ? `Update available: ${rtk.latestVersion}`
-                  : rtk.latestVersion
-                    ? `Latest ${rtk.latestVersion} · up to date`
-                    : isDevBuild
-                      ? 'Works in dev — check or install the sidecar anytime'
-                      : 'Not checked yet'}
-          </p>
-          {rtk.error ? <p className="settings-error">{rtk.error}</p> : null}
-          <div className="settings-update-actions">
-            <button
-              type="button"
-              className="settings-btn ghost"
-              disabled={rtk.checking || rtk.updating}
-              onClick={() => void checkRtk()}
-              data-testid="btn-check-rtk"
-            >
-              <RefreshCw size={13} aria-hidden="true" />
-              Check RTK
-            </button>
-            <button
-              type="button"
-              className="settings-btn primary"
-              disabled={rtk.updating || (!rtk.updateAvailable && rtk.installed)}
-              onClick={() => void updateRtk()}
-              data-testid="btn-update-rtk"
-            >
-              <Download size={13} aria-hidden="true" />
-              {rtk.installed ? 'Update RTK' : 'Install RTK'}
-            </button>
-          </div>
-          <p className="settings-update-hint">Sidecar binary. Updates independently of OXESpace.</p>
-        </article>
+            <p className="settings-update-hint">Sidecar binary. Updates independently of OXESpace.</p>
+          </article>
 
+        </div>
+        <h3 className="settings-update-group-label">Included with OXESpace</h3>
         <article className="settings-update-card bundled" data-testid="settings-bundled-tools">
           <div className="settings-update-card-head">
             <span className="settings-update-icon bundled" aria-hidden="true">
               <Package size={16} />
             </span>
             <div>
-              <strong>Bundled with the app</strong>
-              <span>Ship with each OXESpace release</span>
+              <strong>Built-in tools</strong>
+              <span>Updated with each application release</span>
             </div>
             <span className="settings-status-pill ok">included</span>
           </div>
@@ -1330,7 +1343,6 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
               <span>Vendored code intelligence</span>
             </li>
           </ul>
-          <p className="settings-update-hint">Bundled with the app.</p>
         </article>
       </div>
     </section>

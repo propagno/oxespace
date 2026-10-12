@@ -1,7 +1,8 @@
 import { ChevronsRight, Files, GitBranch, Maximize2, Minimize2 } from 'lucide-react'
-import type { ReactElement } from 'react'
+import { useState, type ReactElement } from 'react'
 import type { GitHubPanelTab, Workspace } from '../../../shared/types/workspace'
 import { GitHubPanel } from '../GitHub/GitHubPanel'
+import { GitControlPanel } from '../GitHub/GitControlPanel'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { PanelScopeBadge } from './PanelScopeBadge'
 import type { WorkspaceScope } from '../../utils/workspaceScope'
@@ -18,6 +19,7 @@ interface WorkspaceGitHubPanelProps {
 }
 
 export function WorkspaceGitHubPanel({ activeTab, isExpanded, onCollapse, onTabChange, onToggleExpanded, scope, workspace }: WorkspaceGitHubPanelProps): ReactElement {
+  const [advancedGitHub, setAdvancedGitHub] = useState(false)
   const openFiles = (): void => {
     void (async () => {
       await useWorkspaceStore.getState().updateGitHubState({ workspaceId: workspace.id, githubPanelVisible: false, githubPanelExpanded: false })
@@ -55,7 +57,8 @@ export function WorkspaceGitHubPanel({ activeTab, isExpanded, onCollapse, onTabC
         </div>
       </header>
       <div className="workspace-editor-content">
-        <GitHubPanel workspaceId={workspace.id} rootPath={scope.rootPath} activeTab={activeTab} onTabChange={onTabChange} />
+        <div className="git-control-view-switch"><span>{advancedGitHub ? 'GitHub features' : 'Local Git · any remote'}</span><button type="button" onClick={() => setAdvancedGitHub(value => !value)}>{advancedGitHub ? 'Back to Git control' : 'GitHub features'}</button></div>
+        {advancedGitHub ? <GitHubPanel workspaceId={workspace.id} rootPath={scope.rootPath} activeTab={activeTab} onTabChange={onTabChange} /> : <GitControlPanel workspaceId={workspace.id} rootPath={scope.rootPath} />}
       </div>
     </section>
   )

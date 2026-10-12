@@ -6,6 +6,9 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    // Native processes and Windows filesystem fixtures compete heavily when
+    // files run concurrently. Keep the same deterministic policy locally/CI.
+    fileParallelism: false,
     setupFiles: ['./tests/setup.ts'],
     include: ['tests/**/*.{test,spec}.{ts,tsx}'],
     coverage: {

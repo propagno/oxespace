@@ -7,6 +7,22 @@ import { McpManager } from '../../electron/main/services/mcp.service'
 import { WorkspaceService } from '../../electron/main/services/workspace.service'
 
 describe('McpManager trust gates', () => {
+  test('internal MCP credentials are inherited, never written into tracked project config', async () => {
+    const rootPath = await mkdtemp(join(tmpdir(), 'oxe-mcp-secret-'))
+    const db = openInMemoryDatabase()
+    try {
+      new WorkspaceService(db).create({ rootPath, layoutPreset: 1 })
+      const manager = new McpManager(db)
+      manager.create({ workspaceId: null, name: 'oxespace', transport: 'stdio', enabled: true, trusted: true,
+        config: { transport: 'stdio', command: 'node', args: ['bridge.cjs'], env: {
+          OXESPACE_MCP_TOKEN: 'fixture-machine-secret', OXESPACE_EXECUTION_TOKEN: 'fixture-execution-secret', OXESPACE_MCP_PORT: '1234'
+        } } })
+      const config = await readFile(join(rootPath, '.mcp.json'), 'utf8')
+      expect(config).not.toContain('fixture-machine-secret')
+      expect(config).not.toContain('fixture-execution-secret')
+      expect(config).toContain('1234')
+    } finally { db.close(); await rm(rootPath, { recursive: true, force: true }) }
+  })
   test('does not start untrusted servers', async () => {
     const db = openInMemoryDatabase()
     const manager = new McpManager(db)

@@ -1,7 +1,7 @@
 import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, session, shell } from 'electron'
 import log from 'electron-log/main.js'
+import { recordRuntime, startRuntimeDiagnostics, stopRuntimeDiagnostics } from './services/runtime-diagnostics'
 import { initAutoUpdater, registerAppUpdateIpc } from './updater'
-import { getRtkService } from './services/rtk.service'
 import { randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -9,11 +9,6 @@ import { join } from 'node:path'
 import { openDatabase } from './db/index'
 import { registerAgentIpc } from './ipc/agent.ipc'
 import { registerFileSystemIpc } from './ipc/file-system.ipc'
-import { registerGitIpc } from './ipc/git.ipc'
-import { registerSearchIpc } from './ipc/search.ipc'
-import { registerGitHubIpc } from './ipc/github.ipc'
-import { registerLinearIpc } from './ipc/linear.ipc'
-import { registerIntegrationIpc } from './ipc/integration.ipc'
 import { registerBackgroundIpc } from './ipc/background.ipc'
 import { registerSessionIpc } from './ipc/session.ipc'
 import { broadcastSkillChange, registerSkillIpc } from './ipc/skill.ipc'
@@ -29,10 +24,7 @@ import { registerOxeContextIpc } from './ipc/oxe-context.ipc'
 import { SkillService } from './services/skill.service'
 import { McpManager } from './services/mcp.service'
 import { WorkspaceService } from './services/workspace.service'
-import { GitHubService } from './services/github.service'
-import { GitService } from './services/git.service'
 import { SemanticService } from './services/semantic.service'
-import { CodeGraphService } from './services/codegraph.service'
 import { createInternalMcpHandle, type InternalMcpHandle } from './mcp-internal/bootstrap'
 import { startRpcServer, type RpcServerHandle } from './runtime/rpc/server'
 import { registerTaskIpc } from './ipc/task.ipc'
@@ -46,15 +38,19 @@ import { MemoryService } from './services/memory/memory.service'
 import { ExecutionRegistry } from './services/execution-registry'
 import { AgentLaunchService, agentMcpArguments, providerForExecutable } from './services/agent-launch.service'
 import { AgentService } from './services/agent.service'
-import { registerDelegationIpc } from './ipc/delegation.ipc'
 import { registerMemoryIpc } from './ipc/memory.ipc'
 import { fallbackShellProfiles } from './services/shell-profile.defaults'
 import { isLoopbackHttpUrl, isSafeExternalUrl } from './utils/external-url'
 import { applyLoginShellPath } from './utils/login-shell-path'
+import { securePreviewGuest, securePreviewSession, WEB_PREVIEW_PARTITION_PREFIX } from './services/browser-preview-security'
+import { registerBrowserPreviewIpc } from './services/browser-preview.service'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
 import type { ShellProfile } from '../../shared/types/workspace'
 
 log.initialize()
+log.transports.file.maxSize = 512 * 1024
+// File logging already retains the diagnostic; do not duplicate it into Linux syslog.
+log.transports.console.level = false
 
 // Local crash capture: writes minidumps to <userData>/Crashpad on a renderer/GPU/
 // main crash. uploadToServer:false keeps them on-device (privacy) — a future
@@ -78,12 +74,11 @@ process.on('unhandledRejection', (reason) => {
 })
 
 const isDev = !app.isPackaged
-if (isDev) {
+if (isDev && !process.env.OXESPACE_DB_PATH) {
   app.setPath('userData', join(app.getPath('appData'), 'oxespace-dev'))
 }
 let ipcRegistered = false
 /** In-memory session for Web Preview guests — isolated from the app's own. */
-const WEB_PREVIEW_PARTITION = 'oxe-webpreview'
 const clipboardImageTempFiles = new Set<string>()
 const CLIPBOARD_IMAGE_TTL_MS = 30 * 60 * 1000
 
@@ -109,9 +104,14 @@ async function registerIpcHandlers(): Promise<() => void> {
   // App update + RTK sidecar IPC are always registered (even on native failure
   // / e2e mocks below) so Settings and the update banner keep working.
   registerAppUpdateIpc()
-  registerRtkIpc()
+  void registerRtkIpc()
+  registerBrowserPreviewIpc()
 
   if (process.env.OXESPACE_E2E_MOCK_NATIVE === '1') {
+    if (process.env.OXESPACE_E2E_PREVIEW_SERVICE) {
+      const { PreviewAutomation } = await import('./services/documentation/preview-automation')
+      ;(globalThis as typeof globalThis & { preview: InstanceType<typeof PreviewAutomation> }).preview = new PreviewAutomation()
+    }
     // Dynamic so the ~475 lines of E2E doubles land in their own chunk instead
     // of the main entry bundle. A normal launch never resolves this import.
     const { registerE2eMockIpcHandlers } = await import('./e2e/mock-ipc')
@@ -132,6 +132,7 @@ async function registerIpcHandlers(): Promise<() => void> {
 
   const memoryService = new MemoryService(db, join(app.getPath('userData'), 'memory'))
   const { DelegationService } = await import('./services/delegation.service')
+  const { registerDelegationIpc } = await import('./ipc/delegation.ipc')
   const executions = new ExecutionRegistry()
   registerMemoryIpc(memoryService)
   const terminalManager: TerminalManager = new TerminalManager(db, {
@@ -179,6 +180,18 @@ async function registerIpcHandlers(): Promise<() => void> {
   registerTerminalIpc(terminalManager)
   registerAgentIpc(db)
   registerTaskIpc(db, terminalManager)
+  // Source-control/search/integration surfaces are not required to create the
+  // first window. Load them as one deferred group so their implementation does
+  // not inflate the main entry or block startup parsing.
+  const [
+    { registerGitIpc }, { registerSearchIpc }, { registerGitHubIpc },
+    { registerLinearIpc }, { registerIntegrationIpc },
+    { GitHubService }, { GitService }, { CodeGraphService }
+  ] = await Promise.all([
+    import('./ipc/git.ipc'), import('./ipc/search.ipc'), import('./ipc/github.ipc'),
+    import('./ipc/linear.ipc'), import('./ipc/integration.ipc'),
+    import('./services/github.service'), import('./services/git.service'), import('./services/codegraph.service')
+  ])
   registerGitIpc()
   registerSearchIpc()
   const gitHubService = registerGitHubIpc(db)
@@ -198,6 +211,27 @@ async function registerIpcHandlers(): Promise<() => void> {
   })
   registerBackgroundIpc(backgroundManager)
   registerSessionIpc(db)
+  const { registerThreadIpc } = await import('./ipc/thread.ipc')
+  const delegatedThreadObserver: { current?: (thread: import('../../shared/types/thread').ConversationThread) => void } = {}
+  const threadManager = registerThreadIpc(db, {
+    observed: thread => delegatedThreadObserver.current?.(thread),
+    bridge: join(app.getPath('userData'), 'bin', 'oxespace-mcp.cjs'),
+    prepare: async thread => {
+      const meta = db.prepare('SELECT port, token FROM internal_mcp_meta LIMIT 1').get() as { port: number; token: string } | undefined
+      if (!meta) throw Error('Internal MCP is still starting. Retry shortly.')
+      const nativeHooks = thread.hooksEnabled === true && (thread.access === 'workspace-write' || thread.access === 'full-access')
+      const memory = await memoryService.prepareLaunch({ paneId: `thread:${thread.id}`, workspaceId: thread.workspaceId, cwd: thread.rootPath,
+        captureOwner: nativeHooks ? 'native' : 'external', expectedAgent: thread.provider === 'claude' ? 'claude-code' : 'codex' }).catch(() => ({}))
+      const execution = executions.register({ owner: { kind: 'thread', id: thread.id }, workspaceId: thread.workspaceId, cwd: thread.rootPath })
+      return { ...memory, ...execution, OXESPACE_MCP_PORT: String(meta.port), OXESPACE_MCP_TOKEN: meta.token, OXESPACE_WORKSPACE_ID: thread.workspaceId }
+    },
+    end: (threadId, executionId) => {
+      if (executionId && executions.forOwner({ kind: 'thread', id: threadId })?.id !== executionId) return
+      memoryService.endLaunch(`thread:${threadId}`)
+      executions.endOwner({ kind: 'thread', id: threadId })
+    },
+    memoryEvent: (snapshot, event) => memoryService.observeThread(snapshot, event)
+  })
   const skillService = new SkillService({ onChange: broadcastSkillChange })
   registerSkillIpc(skillService, (input) => terminalManager.write(input))
   const mcpManager = new McpManager(db, { emitHealth: broadcastMcpHealth })
@@ -206,24 +240,24 @@ async function registerIpcHandlers(): Promise<() => void> {
   // permission), so terminal Ctrl+V paste never depends on navigator.clipboard
   // being granted clipboard-read.
   ipcMain.handle(IPC_CHANNELS.clipboard.readText, () => clipboard.readText())
-  ipcMain.handle(IPC_CHANNELS.clipboard.writeText, (_e, text: string) => {
+  ipcMain.handle(IPC_CHANNELS.clipboard.writeText, async (_e, text: string) => {
     const value = typeof text === 'string' ? text : ''
     try {
-      clipboard.writeText(value)
-      // Electron's write is synchronous, but verify it instead of claiming
-      // success unconditionally. Normalize CRLF because the Windows clipboard
+      await clipboard.writeText(value)
+      // Verify the completed write. Normalize CRLF because the Windows clipboard
       // may canonicalize line endings while preserving the copied text.
       const normalize = (input: string): string => input.replace(/\r\n/g, '\n')
-      return normalize(clipboard.readText()) === normalize(value)
+      return normalize(await clipboard.readText()) === normalize(value)
     } catch {
       return false
     }
   })
   ipcMain.handle(IPC_CHANNELS.clipboard.saveImageToTemp, async () => {
-    const image = clipboard.readImage()
-    if (image.isEmpty()) return null
+    const item = (await clipboard.read()).find(value => value.types.includes('image/png'))
+    if (!item) return null
+    const image = await item.getType('image/png')
     const filePath = join(tmpdir(), `oxe-paste-${randomUUID()}.png`)
-    await writeFile(filePath, image.toPNG())
+    await writeFile(filePath, Buffer.from(await image.arrayBuffer()))
     clipboardImageTempFiles.add(filePath)
     const timer = setTimeout(() => {
       void cleanupTempFile(filePath)
@@ -248,36 +282,54 @@ async function registerIpcHandlers(): Promise<() => void> {
   const codeGraphService = new CodeGraphService(db)
   const delegationAgents = new AgentService(db)
   const launcher = new AgentLaunchService(terminalManager, () => delegationAgents.list(), app.getPath('userData'))
+  const { ThreadDelegationHost } = await import('./services/delegation/thread-delegation-host')
+  const threadDelegationHost = new ThreadDelegationHost(threadManager.manager, executions, agentProfileId => {
+    const provider = launcher.resolve(agentProfileId).provider
+    if (provider !== 'claude' && provider !== 'codex') throw new Error('Unsupported delegation provider')
+    return provider
+  }, agentProfileId => delegationAgents.list().find(profile => profile.agentProfileId === agentProfileId) ?? {},
+  async rootPath => (await new (await import('./services/conversation/thread-projects')).ThreadProjectService(db).add(rootPath)).projectId)
   const delegationService = new DelegationService(db, {
     workspace: internalMcpWorkspaceServ, git: internalMcpGithub, executions,
     validateAgent: id => { launcher.resolve(id) },
+    threadHost: threadDelegationHost,
     launch: task => launcher.launch(task), stop: paneId => terminalManager.stop({ paneId }),
     changed: (workspaceId, taskId) => {
       for (const window of BrowserWindow.getAllWindows()) window.webContents.send(IPC_CHANNELS.delegation.changed, { workspaceId, taskId })
     },
     enrich: async task => {
-      let memory = 'Project memory is disabled.'
+      let memory = ''
       try {
         const context = await memoryService.projects.resolve(task.path)
         const settings = memoryService.projects.settings(context.projectId)
-        if (settings.enabled && settings.automaticContext) {
+        if (settings.enabled && (task.includeMemory ?? settings.automaticContext)) {
           const reply = await memoryService.manager.run(context, provider => provider.getRelevantContext(context, task.objective))
-          memory = reply.status === 'ok' ? reply.value.text.slice(0,4000) : reply.message
+          memory = reply.status === 'ok' ? reply.value.text.slice(0,4000) : ''
         }
-      } catch { memory = 'Project memory unavailable.' }
-      let code = 'CodeGraph unavailable.'
+      } catch { /* Optional memory must not block the explicit handoff. */ }
+      let code = ''
       try {
         const graph = await codeGraphService.ensureInstance(task.path)
         const { ToolHandler } = await import('./vendor/codegraph/mcp/tools')
         code = JSON.stringify(await new ToolHandler(graph as never).execute('codegraph_explore', { query: task.objective, maxFiles: 6 })).slice(0,6000)
       } catch { /* The explicit handoff remains sufficient to start. */ }
-      return `Memory:\n${memory}\nCodeGraph:\n${code}`
+      return { memory, code }
     }
   })
+  delegatedThreadObserver.current = thread => delegationService.observeThread(thread)
   registerDelegationIpc(delegationService)
+  const { registerTeamIpc } = await import('./ipc/team.ipc')
+  const { TeamAccess } = await import('./services/coordination/team-access')
+  const teamAccess = new TeamAccess(db, executions)
+  const { TeamDelivery } = await import('./services/coordination/team-delivery')
+  const teamDelivery = new TeamDelivery(db, teamAccess, { read: async id => (await threadManager.manager).read(id), send: async (id, text) => (await threadManager.manager).send(id, text) })
+  teamDelivery.start()
+  app.on('before-quit', () => teamDelivery.stop())
+  registerTeamIpc(db, teamAccess)
 
   const internalMcp: InternalMcpHandle = createInternalMcpHandle({
-    delegation: delegationService, executions,
+    threads: threadManager.manager,
+    delegation: delegationService, executions, team: teamAccess,
     delegationAgents: () => delegationAgents.list().filter(p => ['claude','codex'].includes(p.parentProvider ?? p.provider)).map(p => {
       try { launcher.resolve(p.agentProfileId); return { agentProfileId: p.agentProfileId, name: p.name, supported: true } }
       catch (e) { return { agentProfileId: p.agentProfileId, name: p.name, supported: false, reason: String(e) } }
@@ -318,7 +370,7 @@ async function registerIpcHandlers(): Promise<() => void> {
       memoryShutdownComplete = true
       app.quit()
     }, 10000)
-    void Promise.allSettled([memoryService.stop(), delegationService?.stop()]).then(() => internalMcp.stop()).catch(() => {}).finally(() => {
+    void Promise.allSettled([threadManager.stop(), memoryService.stop(), delegationService?.stop()]).then(() => internalMcp.stop()).catch(() => {}).finally(() => {
       clearTimeout(shutdownDeadline)
       if (memoryShutdownComplete) return
       memoryShutdownComplete = true
@@ -504,7 +556,8 @@ function registerNativeFailureIpcHandlers(message: string): void {
   ipcMain.handle(IPC_CHANNELS.tasks.getReady, () => [])
 }
 
-function registerRtkIpc(): void {
+async function registerRtkIpc(): Promise<void> {
+  const { getRtkService } = await import('./services/rtk.service')
   const rtk = getRtkService(app.getPath('userData'))
   ipcMain.handle(IPC_CHANNELS.rtk.getStatus, () => rtk.getStatus())
   ipcMain.handle(IPC_CHANNELS.rtk.checkForUpdate, () => rtk.checkForUpdate(true))
@@ -550,6 +603,14 @@ function createMainWindow(): BrowserWindow {
     ? join(process.cwd(), 'resources', iconFile)
     : join(process.resourcesPath, iconFile)
 
+  // The renderer draws its own title bar (menu bar, context, update state), so
+  // the OS frame is hidden. Windows/Linux keep the native caption buttons through
+  // the overlay (transparent so the themed title bar shows through); macOS keeps
+  // its traffic lights inset and its native application menu.
+  const frameOptions: Partial<Electron.BrowserWindowConstructorOptions> = process.platform === 'darwin'
+    ? { titleBarStyle: 'hiddenInset' }
+    : { titleBarStyle: 'hidden', titleBarOverlay: { color: '#00000000', symbolColor: '#c5c5c5', height: 36 } }
+
   const mainWindow = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -559,6 +620,7 @@ function createMainWindow(): BrowserWindow {
     title: 'OXESpace',
     icon: iconPath,
     backgroundColor: '#0d0f14',
+    ...frameOptions,
     webPreferences: {
       preload: join(app.getAppPath(), 'out', 'preload', 'index.cjs'),
       contextIsolation: true,
@@ -574,6 +636,8 @@ function createMainWindow(): BrowserWindow {
     }
   })
 
+  if (process.platform !== 'darwin') mainWindow.setMenuBarVisibility(false)
+
   // Hard gate on <webview> attachment: the guest may only ever load our own
   // design-guest preload, never with node integration, and always sandboxed.
   // Without this, a compromised renderer could attach a privileged guest.
@@ -583,9 +647,12 @@ function createMainWindow(): BrowserWindow {
     webPreferences.nodeIntegration = false
     webPreferences.contextIsolation = true
     webPreferences.sandbox = true
-    // Pinned here, not trusted from the renderer: the guest must land in the
-    // locked-down preview session, never the app's own.
-    params.partition = WEB_PREVIEW_PARTITION
+    // Each Code workspace or Thread conversation gets an in-memory profile.
+    // Never accept a persistent or application partition from the renderer.
+    if (!params.partition?.startsWith(WEB_PREVIEW_PARTITION_PREFIX) || !/^[a-zA-Z0-9:-]{1,100}$/.test(params.partition.slice(WEB_PREVIEW_PARTITION_PREFIX.length))) {
+      params.partition = `${WEB_PREVIEW_PARTITION_PREFIX}${randomUUID()}`
+    }
+    securePreviewSession(session.fromPartition(params.partition))
     // Popups stay off; the iframe this replaced could not open windows either.
     // (webview params are the raw attribute strings — absent means disabled.)
     delete params.allowpopups
@@ -599,23 +666,10 @@ function createMainWindow(): BrowserWindow {
   // to carry the same restrictions explicitly — they are not defaults. The guest
   // runs in its own in-memory partition, which also keeps preview cookies and
   // storage out of the app's session.
-  const previewSession = session.fromPartition(WEB_PREVIEW_PARTITION)
-  previewSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false))
-  previewSession.setPermissionCheckHandler(() => false)
-  previewSession.on('will-download', (event) => event.preventDefault())
-  previewSession.webRequest.onBeforeSendHeaders((details, callback) => {
-    const requestHeaders = { ...details.requestHeaders }
-    delete requestHeaders.Referer
-    delete requestHeaders.referer
-    callback({ requestHeaders })
-  })
 
   // A guest must not be able to spawn windows; external links go to the OS browser.
   mainWindow.webContents.on('did-attach-webview', (_event, guestWebContents) => {
-    guestWebContents.setWindowOpenHandler(({ url }) => {
-      if (isSafeExternalUrl(url)) void shell.openExternal(url)
-      return { action: 'deny' }
-    })
+    securePreviewGuest(guestWebContents)
   })
 
   // `media` allows microphone for OXEVoice. `clipboard-read` / `clipboard-sanitized-write`
@@ -674,6 +728,7 @@ function createMainWindow(): BrowserWindow {
     if (isDev) console.error('[OXESpace] Renderer failed to load', { errorCode, errorDescription, validatedURL })
   })
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    recordRuntime('renderer-gone', { kind: 'Renderer', state: details.reason, exitCode: details.exitCode })
     log.error('Renderer process gone', details)
     if (isDev) console.error('[OXESpace] Renderer process gone', details)
   })
@@ -704,6 +759,11 @@ const gotLock = process.env.OXESPACE_DISABLE_SINGLE_INSTANCE === '1' || app.requ
 if (!gotLock) {
   app.quit()
 } else {
+  startRuntimeDiagnostics(join(app.getPath('userData'), 'diagnostics'), app.getVersion())
+  app.on('child-process-gone', (_event, details) => {
+    recordRuntime('child-gone', { kind: details.type, state: details.reason, exitCode: details.exitCode })
+  })
+  app.once('will-quit', stopRuntimeDiagnostics)
   app.whenReady().then(async () => {
     // Awaited so every handler is registered before the renderer can invoke
     // one. In the normal path this costs a microtask; only the E2E mock path

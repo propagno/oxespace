@@ -1,0 +1,15 @@
+{
+  "capturedAt": "2026-10-05T16:25:46.173Z",
+  "provider": "codex",
+  "scenario": "approval-decline",
+  "isolated": true,
+  "installedApplication": false,
+  "inference": true,
+  "questions": 0,
+  "options": 0,
+  "responsesSent": 0,
+  "approvalsDeclined": 1,
+  "requestResolved": true,
+  "status": "completed",
+  "passed": true
+}

@@ -119,7 +119,8 @@ export class McpConfigSync {
     for (const row of rows) {
       const isInternal = row.name === 'oxespace' && row.workspace_id === null
       const entry = serializeConfig(row.config_json, {
-        injectWorkspaceId: isInternal && workspaceId ? workspaceId : null
+        injectWorkspaceId: isInternal && workspaceId ? workspaceId : null,
+        internal: isInternal
       })
       if (!entry) continue
       const key = sanitizeKey(row.name)
@@ -148,9 +149,8 @@ export class McpConfigSync {
     const nextDoc = { ...(existing as object), mcpServers }
     writeFileSync(mcpPath, JSON.stringify(nextDoc, null, 2) + '\n', 'utf8')
 
-    // .mcp.json carries the internal bridge's machine-local token + port —
-    // committing it leaks a secret AND is useless to teammates (their local
-    // bridge has a different token). Keep it out of VCS in git repos.
+    // Internal credentials are inherited from the managed terminal, never
+    // serialized here (gitignore cannot protect an already-tracked file).
     ensureGitignored(workspaceRoot, MCP_FILE)
 
     const snapshot: ManagedSnapshot = { names: desiredNames, updatedAtMs: Date.now() }
@@ -300,6 +300,7 @@ function approveOxespaceToolsInCopilot(workspaceRoot: string, serverName: string
 
 interface SerializeOptions {
   injectWorkspaceId: string | null
+  internal: boolean
 }
 
 function serializeConfig(configJson: string, options: SerializeOptions): unknown {
@@ -312,6 +313,9 @@ function serializeConfig(configJson: string, options: SerializeOptions): unknown
   if (parsed.transport === 'stdio') {
     const cfg = parsed as McpStdioConfig
     const env: Record<string, string> = { ...(cfg.env ?? {}) }
+    if (options.internal) {
+      for (const key of Object.keys(env)) if (/^OXESPACE_.*(?:TOKEN|SECRET|PASSWORD|KEY)$/i.test(key)) delete env[key]
+    }
     // The internal "oxespace" MCP bridge needs to know its workspace at
     // spawn time — and the env varies per workspace, so we patch it here
     // (the DB row keeps only port + token, common across workspaces).

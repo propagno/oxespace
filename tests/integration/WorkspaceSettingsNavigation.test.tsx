@@ -4,7 +4,7 @@ import { WorkspaceSettingsModal } from '../../src/components/Workspace/Workspace
 import type { Workspace, ShellProfile } from '../../shared/types/workspace'
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
-const workspace = { id: 'ws', name: 'demo', rootPath: '/repo', themeId: 'midnight', uiDensity: 'comfortable', layoutPreset: 4, defaultShellProfileId: 'sh' } as Workspace
+const workspace = { id: 'ws', name: 'demo', rootPath: '/repo', themeId: 'midnight', uiDensity: 'comfortable', layoutPreset: 4, defaultShellProfileId: 'sh', panes: [] } as unknown as Workspace
 const shells = [{ id: 'sh', name: 'Bash', executable: 'bash', args: [] }] as ShellProfile[]
 
 test('navigation preserves appearance drafts and separates immediate settings from saved settings', async () => {

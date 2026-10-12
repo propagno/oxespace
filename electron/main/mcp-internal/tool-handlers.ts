@@ -13,9 +13,10 @@ import type {
 } from '../../../shared/types/mcp-internal'
 import { isSafeExternalUrl } from '../utils/external-url'
 import { discoverScripts } from '../services/scripts-discovery.service'
-import { QualityControllerService } from '../services/quality-controller.service'
 import type { ToolContext } from './tool-registry'
 import { errorResult, textResult } from './tool-registry'
+import { requirePreviewExecution } from './preview-scope'
+import { savePreviewCapture } from '../services/documentation/preview-capture-store'
 
 /**
  * One handler per tool. Each is a thin shape-translation layer over an
@@ -57,6 +58,9 @@ function asRecord(value: unknown): Record<string, unknown> {
  * Agents should never need product knowledge of OXESPACE_WORKSPACE_ID to recover.
  */
 async function requireWorkspace(ctx: ToolContext): Promise<{ id: string; rootPath: string; name: string }> {
+  let execution: ReturnType<NonNullable<typeof ctx.executions>['authenticate']> | undefined
+  try { execution = ctx.executions?.authenticate(ctx.executionId, ctx.executionToken, ctx.workspaceId) } catch { /* Generic MCP callers may not have an execution. */ }
+  if (execution?.owner.kind === 'thread' || ctx.workspaceId?.startsWith('thread:')) throw new Error('This tool requires a Code workspace. Open the project in Code explicitly before using workspace or terminal tools.')
   if (ctx.workspaceId) {
     const explicit = ctx.workspaceServ.get(ctx.workspaceId)
     if (explicit) {
@@ -227,14 +231,14 @@ async function getJobOutput(args: unknown, ctx: ToolContext): Promise<InternalMc
 }
 
 async function openWebPreview(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
-  const ws = await requireWorkspace(ctx)
+  const execution = requirePreviewExecution(ctx)
   const input = asRecord(args) as Partial<OpenWebPreviewArgs>
   const url = expectString(input.url, 'url')
   if (!isSafeExternalUrl(url)) {
     return errorResult(`URL "${url}" is not safe to open (must be http/https).`)
   }
-  ctx.webPreview.emitPreview({ workspaceId: ws.id, url, requestedAt: Date.now() })
-  return textResult({ opened: true, workspaceId: ws.id, url })
+  ctx.webPreview.emitPreview({ workspaceId: execution.workspaceId, threadId: execution.owner.kind === 'thread' ? execution.owner.id : undefined, url, requestedAt: Date.now() })
+  return textResult({ queued: true, workspaceId: execution.workspaceId, threadId: execution.owner.kind === 'thread' ? execution.owner.id : undefined, url, next: 'The renderer must open the page. Use oxespace_preview_interact with action=status or inspect to confirm the active URL before interacting or capturing.' })
 }
 
 async function semanticSearch(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
@@ -258,8 +262,6 @@ async function semanticSearch(args: unknown, ctx: ToolContext): Promise<Internal
     return errorResult(`Semantic search failed: ${err instanceof Error ? err.message : String(err)}`)
   }
 }
-
-const qualityController = new QualityControllerService()
 
 function formatSemanticReport(report: Awaited<ReturnType<ToolContext['semantic']['queryDetailed']>>): string {
   const header = [
@@ -290,8 +292,15 @@ async function qualityCheck(args: unknown, ctx: ToolContext): Promise<InternalMc
     ? input.acceptanceCriteria.filter((item): item is string => typeof item === 'string' && item.trim() !== '').map((item) => item.trim())
     : undefined
   const maxFindings = typeof input.maxFindings === 'number' ? input.maxFindings : undefined
+  const files = Array.isArray(input.files)
+    ? input.files.filter((item): item is string => typeof item === 'string' && item.trim() !== '').map(item => item.trim())
+    : undefined
   try {
-    const report = await qualityController.check(ws.id, ws.rootPath, ctx.fileSystem, { baseRef, acceptanceCriteria, maxFindings })
+    // Quality analysis is an infrequent, user-triggered workflow. Keep its
+    // parser and heuristics out of the Electron main-process startup chunk.
+    const { QualityControllerService } = await import('../services/quality-controller.service')
+    const qualityController = new QualityControllerService()
+    const report = await qualityController.check(ws.id, ws.rootPath, ctx.fileSystem, { baseRef, files, acceptanceCriteria, maxFindings })
     const findings = report.findings.length > 0
       ? report.findings.map((finding, index) => [
           `${index + 1}. [${finding.severity.toUpperCase()}] ${finding.code}: ${finding.message}`,
@@ -300,60 +309,34 @@ async function qualityCheck(args: unknown, ctx: ToolContext): Promise<InternalMc
         ].filter(Boolean).join('\n')).join('\n')
       : 'No heuristic gaps detected.'
     return textResult([
-      `[OXESpace Quality Controller] verdict=${report.verdict.toUpperCase()} · ${report.summary} · ${report.durationMs}ms`,
+      `[OXESpace Quality Controller] outcome=validation · verdict=${report.verdict.toUpperCase()} · ${report.summary} · ${report.durationMs}ms`,
+      files ? `Scope: ${files.length} explicitly selected path(s).` : 'Scope: complete Git worktree diff.',
       findings,
       `\nAcceptance evidence: ${report.evidence.acceptanceCriteria.filter((item) => item.status === 'evidenced').length}/${report.evidence.acceptanceCriteria.length}`,
       `Limitations: ${report.limitations.join(' ')}`
     ].join('\n'))
   } catch (err) {
-    return errorResult(`Quality check failed: ${err instanceof Error ? err.message : String(err)}`)
+    return errorResult(`[OXESpace Quality Controller] outcome=infrastructure · retryable=false\nQuality check could not run: ${err instanceof Error ? err.message : String(err)}`)
   }
 }
 
-async function captureWebPreview(_args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
-  const ws = await requireWorkspace(ctx)
-  
-  // Find the primary app window (OXESpace uses one BrowserWindow)
-  const { BrowserWindow } = require('electron')
-  const win = BrowserWindow.getAllWindows()[0]
-  if (!win) return errorResult('No application window found')
-
-  // Scope the visible guest to the requesting workspace, never another tab.
-  const rectJson = await win.webContents.executeJavaScript(`
-    (() => {
-      const iframe = Array.from(document.querySelectorAll('webview[title="Workspace web preview"]')).find(element => element.dataset.workspaceId === ${JSON.stringify(ws.id)})
-      if (!iframe) return null
-      const rect = iframe.getBoundingClientRect()
-      return JSON.stringify({ x: rect.x, y: rect.y, width: rect.width, height: rect.height })
-    })()
-  `).catch(() => null)
-
-  if (!rectJson) {
-    return errorResult('Web Preview is not active or could not be found.')
+async function captureWebPreview(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
+  const execution = requirePreviewExecution(ctx)
+  const fileName = asRecord(args).fileName
+  if (fileName !== undefined && (typeof fileName !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}\.png$/.test(fileName))) throw new Error('fileName must be a short PNG basename, for example aba-1.png')
+  if (!ctx.documentation) return errorResult('Browser preview service unavailable')
+  const verify = (): void => { ctx.executions!.authenticate(ctx.executionId, ctx.executionToken, ctx.workspaceId) }
+  const service = await ctx.documentation()
+  const shot = await service.preview.capture(execution.workspaceId, { mode: 'viewport' }, verify, execution.owner)
+  verify()
+  const content: InternalMcpToolCallResult['content'] = []
+  if (typeof fileName === 'string') {
+    if (!ctx.captureRoot) throw new Error('Preview capture directory is unavailable')
+    const { directory, path } = await savePreviewCapture(ctx.captureRoot, execution.owner.kind === 'thread' ? execution.owner.id : execution.workspaceId, fileName, shot.png)
+    content.push({ type: 'text', text: JSON.stringify({ directory, path, bytes: shot.png.length, pageUrl: shot.pageUrl }) })
   }
-
-  const rect = JSON.parse(rectJson)
-  if (rect.width === 0 || rect.height === 0) {
-    return errorResult('Web Preview is not visible.')
-  }
-
-  // Capture the region matching the iframe
-  const nativeImage = await win.webContents.capturePage({
-    x: Math.round(rect.x),
-    y: Math.round(rect.y),
-    width: Math.round(rect.width),
-    height: Math.round(rect.height)
-  })
-
-  const base64Data = nativeImage.toPNG().toString('base64')
-  return {
-    content: [{
-      type: 'image',
-      data: base64Data,
-      mimeType: 'image/png'
-    }],
-    isError: false
-  }
+  content.push({ type: 'image', data: shot.png.toString('base64'), mimeType: 'image/png' })
+  return { content, isError: false }
 }
 
 async function hybridExplore(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {

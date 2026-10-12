@@ -113,6 +113,24 @@ describe('FileSystemService', () => {
     await expect(readFile(join(rootPath, 'src', 'index.ts'), 'utf8')).resolves.toBe('export const value = 2\n')
   })
 
+  test.skipIf(process.platform === 'win32')('rejects a symlink to a case-distinct sibling for reads, writes and previews', async () => {
+    const registered = join(rootPath, 'Project')
+    const outside = join(rootPath, 'project')
+    await mkdir(registered)
+    await mkdir(outside)
+    await writeFile(join(outside, 'secret.txt'), 'preserve me')
+    await writeFile(join(outside, 'secret.svg'), '<svg/>')
+    await symlink(outside, join(registered, 'linked'))
+    const guarded = new FileSystemService(() => registered)
+    const input = { workspaceId: 'workspace-1', rootPath: registered, relativePath: 'linked/secret.txt' }
+    await expect(guarded.readFile(input)).rejects.toThrow('resolves outside')
+    await expect(guarded.writeFile({ ...input, content: 'overwritten' })).rejects.toThrow('resolves outside')
+    await expect(guarded.readBinary({ ...input, relativePath: 'linked/secret.svg' })).rejects.toThrow('resolves outside')
+    await expect(guarded.listTree({ ...input, relativePath: 'linked' })).rejects.toThrow('resolves outside')
+    await expect(guarded.readFile({ ...input, rootPath: outside, relativePath: 'secret.txt' })).rejects.toThrow('does not match')
+    expect(await readFile(join(outside, 'secret.txt'), 'utf8')).toBe('preserve me')
+  })
+
   test('blocks large and binary files', async () => {
     await writeFile(join(rootPath, 'large.txt'), 'a'.repeat(MAX_TEXT_FILE_BYTES + 1), 'utf8')
     await writeFile(join(rootPath, 'binary.bin'), Buffer.from([0x00, 0x01, 0x02]))

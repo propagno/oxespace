@@ -8,6 +8,7 @@ import { useWorkspaceStore } from '../../store/workspace.store'
 
 interface SearchPanelProps {
   workspace: Workspace
+  onOpenFile?: (relativePath: string) => void
 }
 
 /** Highlight the matched substrings inside a result line. We locate each
@@ -30,7 +31,7 @@ function highlight(line: string, submatches: SearchSubmatch[]): ReactNode {
   return parts.length > 0 ? parts : line
 }
 
-export function SearchPanel({ workspace }: SearchPanelProps): ReactElement {
+export function SearchPanel({ workspace, onOpenFile }: SearchPanelProps): ReactElement {
   const query = useSearchStore((s) => s.query)
   const options = useSearchStore((s) => s.options)
   const results = useSearchStore((s) => s.results)
@@ -51,8 +52,9 @@ export function SearchPanel({ workspace }: SearchPanelProps): ReactElement {
 
   const openMatch = useCallback((path: string) => {
     void useEditorStore.getState().openFile({ workspaceId: workspace.id, rootPath: workspace.rootPath, relativePath: path })
-    void useWorkspaceStore.getState().updateEditorState({ workspaceId: workspace.id, editorVisible: true })
-  }, [workspace.id, workspace.rootPath])
+    if (onOpenFile) onOpenFile(path)
+    else void useWorkspaceStore.getState().updateEditorState({ workspaceId: workspace.id, editorVisible: true })
+  }, [onOpenFile, workspace.id, workspace.rootPath])
 
   const files = results?.files ?? []
   const summary = results

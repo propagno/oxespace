@@ -31,7 +31,7 @@ const searchState = {
 }
 
 vi.mock('@xterm/xterm', () => ({
-  Terminal: vi.fn().mockImplementation(() => ({
+  Terminal: vi.fn().mockImplementation(function () { return {
     cols: 120,
     rows: 32,
     options: {},
@@ -62,13 +62,13 @@ vi.mock('@xterm/xterm', () => ({
       terminalState.onData = handler
       return { dispose: vi.fn() }
     })
-  }))
+  } })
 }))
 
 vi.mock('@xterm/addon-fit', () => ({
-  FitAddon: vi.fn().mockImplementation(() => ({
+  FitAddon: vi.fn().mockImplementation(function () { return {
     fit: vi.fn()
-  }))
+  } })
 }))
 
 vi.mock('@xterm/addon-unicode11', () => ({
@@ -80,23 +80,34 @@ vi.mock('@xterm/addon-web-links', () => ({
 }))
 
 vi.mock('@xterm/addon-webgl', () => ({
-  WebglAddon: vi.fn().mockImplementation(() => ({
+  WebglAddon: vi.fn().mockImplementation(function () { return {
     onContextLoss: vi.fn(),
     dispose: vi.fn()
-  }))
+  } })
 }))
 
 vi.mock('@xterm/addon-search', () => ({
-  SearchAddon: vi.fn().mockImplementation(() => ({
+  SearchAddon: vi.fn().mockImplementation(function () { return {
     findNext: searchState.findNext,
     findPrevious: searchState.findPrevious,
     clearDecorations: searchState.clearDecorations,
     onDidChangeResults: vi.fn(() => ({ dispose: vi.fn() })),
     dispose: vi.fn()
-  }))
+  } })
 }))
 
 describe('TerminalView', () => {
+  test('uses the Thread native transport without subscribing to or detaching Code terminals', async () => {
+    const transport = { onData: vi.fn(() => () => {}), onExit: vi.fn(() => () => {}), attach: vi.fn(async () => ({ running: true, seq: 1, prologue: '', replay: 'Thread native session', truncated: false, altScreen: false })), detach: vi.fn(async () => {}) }
+    const view = render(<TerminalView paneId="native-thread" transport={transport} isRunning themeId="one-dark" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
+    await waitFor(() => expect(transport.attach).toHaveBeenCalledWith({ paneId: 'native-thread' }))
+    expect(window.oxe.terminal.onData).not.toHaveBeenCalled()
+    expect(window.oxe.terminal.attach).not.toHaveBeenCalled()
+    expect(terminalState.write).toHaveBeenCalledWith('Thread native session')
+    view.unmount()
+    expect(transport.detach).toHaveBeenCalledWith({ paneId: 'native-thread' })
+    expect(window.oxe.terminal.detach).not.toHaveBeenCalled()
+  })
   beforeEach(() => {
     terminalState.onData = null
     terminalState.write.mockClear()
@@ -573,6 +584,22 @@ describe('TerminalView', () => {
     expect(terminalState.write).toHaveBeenCalledWith('\x1b[?2004h')
     // Stamping "Idle" above a shell that never stopped would be a lie.
     expect(terminalState.write).not.toHaveBeenCalledWith('Idle\r\n')
+  })
+
+  test('follows a resumed command when the user types from old scrollback', () => {
+    render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />)
+    terminalState.onData?.('codex resume\r')
+    expect(terminalState.scrollToBottom).toHaveBeenCalled()
+  })
+
+  test('requests an alternate-screen redraw after replay reaches xterm', async () => {
+    const onResize = vi.fn()
+    terminalState.write.mockImplementation((_data: string, done?: () => void) => done?.())
+    vi.mocked(window.oxe.terminal.attach).mockResolvedValue({ running: true, seq: 2, prologue: '\x1b[?1049h', replay: '', truncated: false, altScreen: true })
+    render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={onResize} />)
+    await waitFor(() => expect(onResize).toHaveBeenCalled())
+    const writes = terminalState.write.mock.calls.map(call => call[0])
+    expect(writes.indexOf('\x1b[?1049h')).toBeLessThan(writes.lastIndexOf(''))
   })
 
   test('queues live output during the handshake so it lands after the replay', async () => {

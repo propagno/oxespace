@@ -18,6 +18,7 @@ export interface SessionMetadata {
   sessionStartedAtMs: number
   modelId: string | null
   requestCount: number
+  snapshot?: ContextUsageSnapshot
   summary?: string | null
   workspaceRootPath?: string | null
 }

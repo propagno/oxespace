@@ -14,6 +14,7 @@ import {
   parseGitHubCreateWorktreeInput,
   parseGitHubDeleteCheckpointInput,
   parseGitHubFileInput,
+  parseGitHubPrAutoMergeInput,
   parseGitHubPullRequestListInput,
   parseGitHubRemoveWorktreeInput,
   parseGitHubRestoreCheckpointInput,
@@ -82,6 +83,12 @@ export function registerGitHubIpc(db: AppDatabase, service = new GitHubService(d
   )
   ipcMain.handle(IPC_CHANNELS.github.listPullRequests, (_event, input: unknown) =>
     service.listPullRequests(parseGitHubPullRequestListInput(input))
+  )
+  ipcMain.handle(IPC_CHANNELS.github.getPullRequestStatus, (_event, input: unknown) =>
+    service.getPullRequestStatus(parseGitHubWorkspaceInput(input))
+  )
+  ipcMain.handle(IPC_CHANNELS.github.setPullRequestAutoMerge, (_event, input: unknown) =>
+    service.setPullRequestAutoMerge(parseGitHubPrAutoMergeInput(input))
   )
   ipcMain.handle(IPC_CHANNELS.github.createPullRequest, (_event, input: unknown) =>
     service.createPullRequest(parseGitHubCreatePullRequestInput(input))

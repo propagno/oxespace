@@ -1,6 +1,9 @@
+import { defaultSplitShellProfileId } from './shell-profile.defaults'
+import { recordRuntime } from './runtime-diagnostics'
 import type { IPty, IPtyForkOptions } from 'node-pty'
 import { spawn } from 'node-pty'
 import { existsSync } from 'node:fs'
+import { randomUUID } from 'node:crypto'
 import { delimiter, extname, join } from 'node:path'
 import type { AppDatabase } from '../db/index'
 import { killProcess } from '../utils/process-cleanup'
@@ -39,6 +42,10 @@ export interface ManagedTerminalStart extends TerminalStartInput {
 }
 
 interface TerminalSession {
+  sessionId: string
+  launchDirectory: string
+  executable: string
+  startedAt: number
   paneId: string
   workspaceId: string
   pty: IPty
@@ -114,7 +121,7 @@ export class TerminalManager {
   private readonly ringCapacityBytes?: number
   private readonly exitedSessions = new Map<string, ExitedSession>()
 
-  constructor(db: AppDatabase, options: TerminalManagerOptions = {}) {
+  constructor(private readonly db: AppDatabase, options: TerminalManagerOptions = {}) {
     this.prepareLaunch = options.prepareLaunch
     this.onLaunchExit = options.onLaunchExit
     this.executionEnvironment = options.executionEnvironment
@@ -170,10 +177,22 @@ export class TerminalManager {
     if (this.sessions.has(input.paneId)) return
     if (!input.launch && this.isManagedPane?.(input.paneId)) throw new Error('Delegated terminal is managed by its task. Use Retry in Workspace settings > Agent delegation.')
 
-    const launch = this.launchContextStatement.get({
+    const threadShell = /^thread-shell:([a-f0-9-]{36}):([1-8])$/i.exec(input.paneId)
+    let launch = this.launchContextStatement.get({
       paneId: input.paneId,
       workspaceId: input.workspaceId
     }) as TerminalLaunchContextRow | undefined
+    if (threadShell) {
+      if (input.agentCommand || input.launch || input.initialPrompt || input.agentArgs?.length) throw Error('Project terminals start an interactive shell. Run agent commands inside the terminal.')
+      const row = this.db.prepare('SELECT data_json FROM conversation_threads WHERE id = ? AND workspace_id = ?').get(threadShell[1], input.workspaceId) as { data_json: string } | undefined
+      if (!row) throw Error('Thread terminal owner is unavailable')
+      const thread = JSON.parse(row.data_json) as { rootPath: string; projectId: string }
+      const context = this.db.prepare('SELECT 1 FROM thread_project_contexts c JOIN thread_projects p ON p.id = c.project_id WHERE p.hidden = 0 AND c.project_id = ? AND c.root_path = ?').get(thread.projectId, thread.rootPath)
+      if (!context || !existsSync(thread.rootPath)) throw Error('Project directory is unavailable. Relink the project first.')
+      const shell = this.db.prepare('SELECT id, name, executable, args_json FROM shell_profiles WHERE id = ?').get(defaultSplitShellProfileId(this.platform)) as { id: string; name: string; executable: string; args_json: string } | undefined
+      if (!shell) throw Error('Configure a shell profile in Settings first.')
+      launch = { pane_root_path: thread.rootPath, workspace_root_path: thread.rootPath, shell_profile_id: shell.id, shell_profile_name: shell.name, shell_executable: shell.executable, shell_args_json: shell.args_json }
+    }
     if (!launch) {
       const workspaceExists = this.workspaceExistsStatement.get(input.workspaceId)
       if (!workspaceExists) throw new Error(`Workspace ${input.workspaceId} not found`)
@@ -189,7 +208,7 @@ export class TerminalManager {
       ? resolveExecutable(agentParts[0], this.env, this.platform)
       : resolveExecutable(launch.shell_executable, this.env, this.platform)
     let args = input.launch ? input.launch.args : agentParts
-      ? agentParts.slice(1)
+      ? [...agentParts.slice(1), ...(input.agentArgs ?? [])]
       : [...shellArgs, ...(input.agentArgs ?? [])]
     if (!input.launch && this.agentMcpArgs) args = this.agentMcpArgs(executable, args)
 
@@ -207,10 +226,10 @@ export class TerminalManager {
       GLAMOUR_STYLE: 'dark',
       BAT_THEME: 'TwoDark'
     }
-    if (this.executionEnvironment) finalEnv = { ...finalEnv, ...this.executionEnvironment({ paneId: input.paneId, workspaceId: input.workspaceId, cwd }) }
+    if (this.executionEnvironment && !threadShell) finalEnv = { ...finalEnv, ...this.executionEnvironment({ paneId: input.paneId, workspaceId: input.workspaceId, cwd }) }
     // Optional launch integrations only return environment; provider failures
     // never prevent the shell/agent from starting or touch its output stream.
-    if (this.prepareLaunch) {
+    if (this.prepareLaunch && !threadShell) {
       const integration = new AbortController()
       const cancel = (): void => integration.abort()
       signal.addEventListener('abort', cancel, { once: true })
@@ -262,6 +281,7 @@ export class TerminalManager {
         env: finalEnv
       })
     } catch (error) {
+      recordRuntime('process-error', { pane: input.paneId, executable, state: 'launch-failed' })
       this.notifyLaunchExit(input.paneId)
       if (input.agentCommand || input.launch) {
         throw new Error(`Unable to start agent "${input.launch?.executable ?? input.agentCommand}". ${toMessage(error)}`)
@@ -270,10 +290,15 @@ export class TerminalManager {
     }
 
     // A pane that is starting fresh must not inherit a dead session's output.
+    recordRuntime('process-start', { pane: input.paneId, pid: ptyProcess.pid, parentPid: process.pid, executable, kind: input.paneId.startsWith('thread-shell:') ? 'thread' : 'code' })
     this.exitedSessions.delete(input.paneId)
     this.reclaimIdleSession()
 
     this.sessions.set(input.paneId, {
+      sessionId: randomUUID(),
+      launchDirectory: cwd,
+      executable,
+      startedAt: Date.now(),
       paneId: input.paneId,
       workspaceId: input.workspaceId,
       pty: ptyProcess,
@@ -294,6 +319,7 @@ export class TerminalManager {
 
     ptyProcess.onData((data) => this.sessions.get(input.paneId)?.outputBatcher.push(data))
     ptyProcess.onExit(({ exitCode }) => {
+      recordRuntime('process-exit', { pane: input.paneId, pid: ptyProcess.pid, exitCode })
       const session = this.sessions.get(input.paneId)
       if (session?.pty !== ptyProcess) return // A late exit cannot remove a restarted process.
       session?.outputBatcher.flush()
@@ -328,9 +354,13 @@ export class TerminalManager {
   resize(input: TerminalResizeInput): void {
     const session = this.sessions.get(input.paneId)
     if (!session) return
+    const unchanged = session.cols === input.cols && session.rows === input.rows
     session.cols = input.cols
     session.rows = input.rows
-    session.pty.resize(input.cols, input.rows)
+    // A restored full-screen TUI needs a fresh frame after the renderer has
+    // installed its alternate buffer. A same-size resize is that handshake.
+    if (unchanged && session.attached && session.modes.altScreen) this.nudgeRedraw(session)
+    else session.pty.resize(input.cols, input.rows)
   }
 
   /**
@@ -392,8 +422,6 @@ export class TerminalManager {
     // `\x1b[?1049h` fell off the ring head, replaying paints TUI content onto
     // the normal buffer. Ask the app for a correct frame instead.
     const altScreen = session.modes.altScreen
-    if (altScreen) this.nudgeRedraw(session)
-
     return {
       running: true,
       seq: session.ring.seq,
@@ -415,7 +443,7 @@ export class TerminalManager {
   status(paneId: string): TerminalStatusResult {
     const session = this.sessions.get(paneId)
     if (!session) return { running: false, seq: 0, altScreen: false }
-    return { running: true, seq: session.ring.seq, altScreen: session.modes.altScreen }
+    return { running: true, seq: session.ring.seq, altScreen: session.modes.altScreen, sessionId: session.sessionId, launchDirectory: session.launchDirectory, executable: session.executable, pid: session.pty.pid, startedAt: session.startedAt }
   }
 
   /**
@@ -471,6 +499,7 @@ export class TerminalManager {
     this.launchControllers.get(input.paneId)?.abort()
     const session = this.sessions.get(input.paneId)
     if (!session) return
+    recordRuntime('process-stop', { pane: input.paneId, pid: session.pty.pid })
     // Flush before disposing: the batcher discards `pending`, so an exiting
     // process used to lose its last words (often the error that killed it).
     session.outputBatcher.flush()

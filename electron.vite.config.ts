@@ -117,9 +117,18 @@ export default defineConfig({
     build: {
       rollupOptions: {
         external: ['better-sqlite3', 'node-pty'],
+        output: {
+          // Keep optional documentation descriptors outside the main entry.
+          // A few bytes of platform-dependent output must not decide release
+          // success; runtime and handlers remain dynamically loaded as before.
+          manualChunks(id) {
+            if (id.replaceAll('\\', '/').endsWith('/mcp-internal/documentation-tools.ts')) return 'documentation-tools'
+          }
+        },
         input: {
           index: resolve(__dirname, 'electron/main/index.ts'),
           'semantic-worker': resolve(__dirname, 'electron/main/workers/semantic-worker.ts'),
+          'native-history-worker': resolve(__dirname, 'electron/main/workers/native-history-worker.ts'),
           // CodeGraph parsing worker — keeps tree-sitter parsing off the main
           // thread so it doesn't block (and time out) semantic embedding on the
           // initial index. extraction/index.ts loads it from out/main/parse-worker.js.

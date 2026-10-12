@@ -9,6 +9,8 @@ import type {
   GitHubCreatePullRequestInput,
   GitHubCreateReleaseInput,
   GitHubMessageResult,
+  GitHubPrAutoMergeInput,
+  GitHubPrStatus,
   GitHubPullRequest,
   GitHubPullRequestListInput,
   GitHubRelease,
@@ -16,6 +18,7 @@ import type {
 } from '../../../../shared/types/github'
 import { normalizeCommitBody, nullableString, ok, parseJsonArray, readLogin, toNumber, toStringValue } from './parsers'
 import type { GhExec } from './gh-exec'
+import { parsePullRequestStatus } from './pr-status'
 export class GitHubReviewService {
   constructor(private readonly gh: GhExec) {}
   async listPullRequests(input: GitHubPullRequestListInput): Promise<GitHubPullRequest[]> {
@@ -30,6 +33,25 @@ export class GitHubReviewService {
       baseRefName: nullableString(item.baseRefName),
       updatedAt: nullableString(item.updatedAt)
     }))
+  }
+
+  /** The pull request of the checked-out branch, or null when there is none (or gh is unavailable). */
+  async getPullRequestStatus(input: GitHubWorkspaceInput): Promise<GitHubPrStatus | null> {
+    try {
+      const raw = await this.gh.runGh(['pr', 'view', '--json', 'number,title,state,isDraft,url,headRefName,baseRefName,mergeable,reviewDecision,statusCheckRollup,autoMergeRequest'], input.rootPath)
+      return parsePullRequestStatus(raw)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      // "no pull requests found for branch", not a git repo, gh missing or signed out: nothing to show.
+      if (/no pull requests? found|could not resolve|not a git repository|not logged|authenticate|executable file not found|ENOENT|gh: command not found/i.test(message)) return null
+      throw error
+    }
+  }
+
+  async setPullRequestAutoMerge(input: GitHubPrAutoMergeInput): Promise<GitHubMessageResult> {
+    const args = input.enable ? ['pr', 'merge', String(input.number), '--auto', '--squash'] : ['pr', 'merge', String(input.number), '--disable-auto']
+    const output = (await this.gh.runGh(args, input.rootPath)).trim()
+    return ok(output || (input.enable ? 'Auto-merge enabled.' : 'Auto-merge disabled.'))
   }
 
   async createPullRequest(input: GitHubCreatePullRequestInput): Promise<GitHubMessageResult> {

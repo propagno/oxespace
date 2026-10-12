@@ -29,6 +29,14 @@ const EMPTY_TABS: never[] = []
 const EMPTY_FILES = {} as Record<string, never>
 
 export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactElement {
+  const paneRef = useRef<HTMLDivElement | null>(null)
+  const resizeFrameRef = useRef<number | null>(null)
+  const resizingTreeRef = useRef(false)
+  const [treeWidth, setTreeWidth] = useState(() => {
+    const saved = Number(window.localStorage.getItem('oxe.editor-tree-width'))
+    return Number.isFinite(saved) && saved >= 180 && saved <= 520 ? saved : 240
+  })
+  const [paneWidth, setPaneWidth] = useState(0)
   const file = useEditorStore((state) => selectActiveFile(state, workspaceId))
   const tabs = useEditorStore((state) => state.tabs[workspaceId] ?? EMPTY_TABS)
   const workspaceFiles = useEditorStore((state) => state.files[workspaceId] ?? EMPTY_FILES)
@@ -41,6 +49,43 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
   const [editorSize, setEditorSize] = useState({ width: 0, height: 0 })
   const editorRef = useRef<monacoEditor.IStandaloneCodeEditor | null>(null)
   const [showRendered, setShowRendered] = useState(true)
+
+  useEffect(() => {
+    window.localStorage.setItem('oxe.editor-tree-width', String(treeWidth))
+  }, [treeWidth])
+
+  useEffect(() => {
+    const host = paneRef.current
+    if (!host) return
+    const update = (): void => setPaneWidth(host.clientWidth)
+    update()
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', update)
+      return () => window.removeEventListener('resize', update)
+    }
+    const observer = new ResizeObserver(update)
+    observer.observe(host)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => () => {
+    if (resizeFrameRef.current !== null) window.cancelAnimationFrame(resizeFrameRef.current)
+  }, [])
+
+  const clampTreeWidth = useCallback((value: number): number => {
+    const measured = paneRef.current?.clientWidth ?? 0
+    const available = measured > 0 ? measured : 960
+    return Math.round(Math.max(180, Math.min(520, available - 240, value)))
+  }, [])
+  const visibleTreeWidth = paneWidth > 0 ? Math.max(180, Math.min(treeWidth, paneWidth - 240)) : treeWidth
+
+  const resizeTree = (value: number): void => {
+    if (resizeFrameRef.current !== null) window.cancelAnimationFrame(resizeFrameRef.current)
+    resizeFrameRef.current = window.requestAnimationFrame(() => {
+      setTreeWidth(clampTreeWidth(value))
+      resizeFrameRef.current = null
+    })
+  }
 
   const insertVoiceText = useCallback((text: string): void => {
     const editor = editorRef.current
@@ -211,13 +256,42 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
   )
 
   return (
-    <div className="editor-pane">
-      <aside className="editor-sidebar">
+    <div className="editor-pane" ref={paneRef}>
+      <aside className="editor-sidebar" style={{ flexBasis: visibleTreeWidth }}>
         <div className="editor-sidebar-title">Files</div>
         {isLoadingTree ? <div className="editor-browser-empty">Loading</div> : null}
         {treeError ? <div className="editor-error">{treeError}</div> : null}
         {!isLoadingTree && !treeError ? <FileBrowser nodes={tree} rootPath={rootPath} workspaceId={workspaceId} selectedPath={activePath} onOpenFile={handleOpenFile} /> : null}
       </aside>
+      <div
+        className="editor-tree-resize"
+        role="separator"
+        aria-label="File tree width"
+        aria-orientation="vertical"
+        aria-valuemin={180}
+        aria-valuemax={520}
+        aria-valuenow={visibleTreeWidth}
+        tabIndex={0}
+        onPointerDown={(event) => { resizingTreeRef.current = true; event.currentTarget.setPointerCapture?.(event.pointerId); event.preventDefault() }}
+        onPointerMove={(event) => {
+          if (resizingTreeRef.current) {
+            const left = paneRef.current?.getBoundingClientRect().left ?? 0
+            resizeTree(event.clientX - left)
+          }
+        }}
+        onPointerUp={() => { resizingTreeRef.current = false }}
+        onPointerCancel={() => { resizingTreeRef.current = false }}
+        onLostPointerCapture={() => { resizingTreeRef.current = false }}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+            event.preventDefault()
+            setTreeWidth(clampTreeWidth(visibleTreeWidth + (event.key === 'ArrowLeft' ? -16 : 16)))
+          }
+          if (event.key === 'Home') { event.preventDefault(); setTreeWidth(clampTreeWidth(180)) }
+          if (event.key === 'End') { event.preventDefault(); setTreeWidth(clampTreeWidth(520)) }
+        }}
+        onDoubleClick={() => resizeTree(240)}
+      />
       <section className="editor-main" aria-label="Editor">
         <EditorTabs
           tabs={tabs}

@@ -11,7 +11,7 @@ release secrets or protected Environment configuration.
 
 | Job | When | What |
 |-----|------|------|
-| **build** | Always | Typecheck → unit/integration tests → build → native verify → E2E. If a release is planned, also builds the NSIS installer, SBOM, checksums and uploads artifacts. |
+| **build** (matrix: `windows-x64`, `linux-x64`) | Always | Dependency and build-tool audits → Electron support window → typecheck → lint → unit/integration tests → build → native verify → E2E and performance gate. If a release is planned, also builds the platform packages (NSIS installer; AppImage and `.deb`), runs the packaged-build smoke test, and produces the SBOM, checksums and uploads artifacts. The two legs never cancel each other. |
 | **release** | Only if `build` succeeds **and** a release was planned | Ensures the `vX.Y.Z` tag points at the verified SHA → draft release + assets → re-download verify → publish → **confirm the release is live** (not draft, required assets present). |
 
 ---
@@ -68,7 +68,7 @@ build (typecheck → test → build → e2e)
 
 - Actions run is green (both jobs when publishing)
 - https://github.com/propagno/oxespace/releases/tag/vX.Y.Z is **not** draft
-- Assets: `OXESpace-X.Y.Z-x64.exe`, `.blockmap`, `latest.yml` (or channel yml), `SHA256SUMS.txt`, `sbom.spdx.json`
+- Assets: see [Published release payload](#published-release-payload)
 
 ---
 
@@ -102,15 +102,43 @@ prerelease.
 
 ## Published release payload
 
-Every Windows release contains:
+Every release contains:
 
-- `OXESpace-X.Y.Z-x64.exe`
-- `OXESpace-X.Y.Z-x64.exe.blockmap`
-- `latest.yml` for stable releases or `<channel>.yml` for prereleases
-- `SHA256SUMS.txt`
-- `sbom.spdx.json` with production dependencies
+| Asset | Platform | Purpose |
+|---|---|---|
+| `OXESpace-X.Y.Z-x64.exe` | Windows | NSIS installer |
+| `OXESpace-X.Y.Z-x64.exe.blockmap` | Windows | Differential updates |
+| `latest.yml` (stable) or `<channel>.yml` | Windows | Updater manifest |
+| `OXESpace-X.Y.Z-x64.AppImage` | Linux | Portable package, self-updating |
+| `OXESpace-X.Y.Z-amd64.deb` | Ubuntu / Debian | Package-manager install |
+| `latest-linux.yml` (stable) or `<channel>-linux.yml` | Linux | Updater manifest |
+| `sbom-windows-x64.spdx.json`, `sbom-linux-x64.spdx.json` | both | Production-dependency SBOMs |
+| `SHA256SUMS.txt` | both | Checksums of every asset |
 
-Consumers can independently compare `SHA256SUMS.txt` before installation.
+Consumers can compare `SHA256SUMS.txt` before installation. The release body is
+`docs/releases/X.Y.Z.md` when that file exists on the released commit;
+otherwise GitHub generates notes using the categories in `.github/release.yml`.
+
+## Promoting a beta line to stable
+
+1. **Decide the version.** Drop the prerelease suffix: `0.16.0-beta.N` → `0.16.0`.
+   The pipeline derives the channel from the version, so `0.16.0` publishes
+   `latest.yml` / `latest-linux.yml` and a non-prerelease GitHub Release.
+2. **Write `docs/releases/0.16.0.md`** — what is new since the last stable, the
+   upgrade note (database migrations are forward-only; a verified backup is taken
+   first) and known limitations.
+3. **Run the readiness checklist** in
+   [the stable-readiness study](audits/2026-10-11-stable-readiness.md).
+4. **Release** with the recommended pattern above (commit → push → Run workflow
+   with `publish_release=true`), then confirm the green run and the live release.
+
+What users see:
+
+- A **beta** install updates to the stable release automatically. The updater
+  looks for `beta.yml` first and falls back to `latest.yml` when the release has
+  no beta manifest (verified in `electron-updater` 6.8.9, `GitHubProvider`).
+- A **stable** install never receives pre-releases.
+- The `.deb` does not self-update; its users install the new package.
 
 ## Guarantee that the release shipped
 

@@ -33,6 +33,17 @@ describe('DiagnosticsService', () => {
     expect(text).toContain('[REDACTED]')
   })
 
+  test('exports only structured metadata, excluding arbitrary MCP error text', () => {
+    const db = openInMemoryDatabase()
+    try {
+      const service = new DiagnosticsService(db, () => ({ running: false, port: null, bridgePath: null, serverRowId: null, lastError: 'private prompt and token=secret', uptimeMs: 0, toolCount: 0, tools: [] }))
+      const report = service.buildSanitizedReport()
+      expect(report).toContain('Compact runtime events')
+      expect(report).not.toContain('private prompt')
+      expect(report).not.toContain('token=secret')
+    } finally { db.close() }
+  })
+
   test('replaces the home directory with the token the host uses', () => {
     const text = sanitizeDiagnosticText(`workspace at ${homedir()}/projects/repo`)
 

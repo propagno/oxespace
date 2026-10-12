@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
-import { mkdir, readFile, writeFile, copyFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile, copyFile, unlink } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { promisify } from 'node:util'
@@ -55,43 +55,45 @@ export class AgentMemoryAdapters {
     for (const adapter of this.targets) {
       // Ask the official installer for the actual supported event set/schema.
       const generated = join(directory, `${adapter.agent}-${randomUUID()}.json`)
-      await exec(this.runtime.settings().executable, ['--data-dir', this.runtime.dataDir, '--config', this.runtime.configPath,
-        'install-hooks', '--agent', adapter.agent, '--server-url', this.runtime.settings().url, '--config-file', generated, '--apply'],
-      { windowsHide: true, timeout: 15000, env: memoryEnvironment() })
-      const native = await readJson(generated)
-      const nativeHooks = native.hooks as Record<string, unknown>
-      if (!nativeHooks?.SessionStart || !nativeHooks?.SessionEnd) throw new Error(`${adapter.agent} native hooks missing required events`)
-      const target = adapter.hooks()
-      await mkdir(dirname(target), { recursive: true })
-      const doc = await readJson(target)
-      if (doc.hooks !== undefined && (!doc.hooks || typeof doc.hooks !== 'object' || Array.isArray(doc.hooks))) throw new Error('Existing hooks configuration is malformed')
-      const hooks = { ...(doc.hooks as Record<string, unknown> ?? {}) }
-      for (const event of Object.keys(nativeHooks)) {
-        const entries = hooks[event] ?? []
-        if (!Array.isArray(entries)) throw new Error(`Existing ${event} hooks are malformed`)
-        const ours = (entry: unknown): boolean => JSON.stringify(entry).includes('oxespace-memory-hook.cjs')
-        const eventName = event.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()
-        const quote = (s: string): string => `'${s.replace(/'/g, process.platform === 'win32' ? "''" : "'\\''")}'`
-        // Claude supports exec form on Windows; Codex uses a PowerShell command string.
-        const handler = process.platform === 'win32' && adapter.agent === 'claude-code'
-          ? { type: 'command', command: 'node', args: [script, eventName, adapter.agent] }
-          : { type: 'command', command: `${process.platform === 'win32' ? '& ' : ''}node ${quote(script)} ${eventName} ${adapter.agent}` }
-        const preserved = entries.flatMap(entry => {
-          if (!ours(entry)) {
-            if (/ai-memory.*\bhook\b/.test(JSON.stringify(entry))) throw new Error('Existing native AI Memory hooks require explicit migration before OXESpace setup')
-            return [entry]
-          }
-          if (!entry || !Array.isArray(entry.hooks)) throw new Error('Existing managed hook is malformed')
-          const remaining = entry.hooks.filter((hook: unknown) => !ours(hook))
-          return remaining.length ? [{ ...entry, hooks: remaining }] : []
-        })
-        hooks[event] = [...preserved, { matcher: '', hooks: [handler] }]
-      }
-      const next = { ...doc, hooks }
-      if (JSON.stringify(next) !== JSON.stringify(doc)) {
-        if (Object.keys(doc).length) await copyFile(target, `${target}.oxespace-${Date.now()}.bak`)
-        await writePrivateJson(target, next)
-      }
+      try {
+        await exec(this.runtime.settings().executable, ['--data-dir', this.runtime.dataDir, '--config', this.runtime.configPath,
+          'install-hooks', '--agent', adapter.agent, '--server-url', this.runtime.settings().url, '--config-file', generated, '--apply'],
+        { windowsHide: true, timeout: 15000, env: memoryEnvironment() })
+        const native = await readJson(generated)
+        const nativeHooks = native.hooks as Record<string, unknown>
+        if (!nativeHooks?.SessionStart || !nativeHooks?.SessionEnd) throw new Error(`${adapter.agent} native hooks missing required events`)
+        const target = adapter.hooks()
+        await mkdir(dirname(target), { recursive: true })
+        const doc = await readJson(target)
+        if (doc.hooks !== undefined && (!doc.hooks || typeof doc.hooks !== 'object' || Array.isArray(doc.hooks))) throw new Error('Existing hooks configuration is malformed')
+        const hooks = { ...(doc.hooks as Record<string, unknown> ?? {}) }
+        for (const event of Object.keys(nativeHooks)) {
+          const entries = hooks[event] ?? []
+          if (!Array.isArray(entries)) throw new Error(`Existing ${event} hooks are malformed`)
+          const ours = (entry: unknown): boolean => JSON.stringify(entry).includes('oxespace-memory-hook.cjs')
+          const eventName = event.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()
+          const quote = (s: string): string => `'${s.replace(/'/g, process.platform === 'win32' ? "''" : "'\\''")}'`
+          // Claude supports exec form on Windows; Codex uses a PowerShell command string.
+          const handler = process.platform === 'win32' && adapter.agent === 'claude-code'
+            ? { type: 'command', command: 'node', args: [script, eventName, adapter.agent] }
+            : { type: 'command', command: `${process.platform === 'win32' ? '& ' : ''}node ${quote(script)} ${eventName} ${adapter.agent}` }
+          const preserved = entries.flatMap(entry => {
+            if (!ours(entry)) {
+              if (/ai-memory.*\bhook\b/.test(JSON.stringify(entry))) throw new Error('Existing native AI Memory hooks require explicit migration before OXESpace setup')
+              return [entry]
+            }
+            if (!entry || !Array.isArray(entry.hooks)) throw new Error('Existing managed hook is malformed')
+            const remaining = entry.hooks.filter((hook: unknown) => !ours(hook))
+            return remaining.length ? [{ ...entry, hooks: remaining }] : []
+          })
+          hooks[event] = [...preserved, { matcher: '', hooks: [handler] }]
+        }
+        const next = { ...doc, hooks }
+        if (JSON.stringify(next) !== JSON.stringify(doc)) {
+          if (Object.keys(doc).length) await copyFile(target, `${target}.oxespace-${Date.now()}.bak`)
+          await writePrivateJson(target, next)
+        }
+      } finally { await unlink(generated).catch(() => {}) }
     }
   }
 }

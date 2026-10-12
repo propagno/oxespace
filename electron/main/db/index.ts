@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3'
 import type { Database as DatabaseHandle } from 'better-sqlite3'
 import { app } from 'electron'
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, unlinkSync } from 'node:fs'
+import { chmodSync, closeSync, fsyncSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, unlinkSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -11,7 +11,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
  *  pre-migration backup (only back up when an upgrade will actually run).
  *  Exported so the migrations test can catch a constant that drifts from the
  *  version the SQL actually sets. */
-export const LATEST_DB_VERSION = 48
+export const LATEST_DB_VERSION = 63
 /** How many pre-migration backups to retain. */
 const MAX_DB_BACKUPS = 5
 
@@ -46,11 +46,8 @@ export function openDatabase(databasePath = resolveAppDatabasePath()): AppDataba
       }
     }
   }
-  // Last resort: a wedged/corrupt -wal or -shm sidecar can keep the DB from
-  // opening. Move them aside (to .bak, recoverable) and try once more.
-  if (isTransientDbError(lastErr) && quarantineWalSidecars(databasePath)) {
-    try { return openAndMigrate(databasePath) } catch (err) { lastErr = err }
-  }
+  // WAL contains committed data. Busy/I/O errors never authorize detaching it.
+  // Preserve the entire database for retry or explicit offline recovery.
   throw lastErr
 }
 
@@ -62,6 +59,9 @@ function openAndMigrate(databasePath: string): AppDatabase {
     // Back up before an upgrade so a bad migration or corruption can't silently
     // lose every workspace. Only when an existing DB is actually behind.
     const fromVersion = db.pragma('user_version', { simple: true }) as number
+    if (fromVersion > LATEST_DB_VERSION) {
+      throw new Error('This database was created by a newer OXESpace version. Open it with that version; downgrade migration is not supported.')
+    }
     if (fromVersion > 0 && fromVersion < LATEST_DB_VERSION) {
       backupBeforeMigration(db, databasePath, fromVersion)
     }
@@ -89,46 +89,39 @@ function sleepSync(ms: number): void {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
 }
 
-/** Move the -wal/-shm sidecars to .bak so a wedged WAL can't block the open.
- *  Uncheckpointed WAL changes would be lost, but at this point the app is
- *  otherwise unusable; the .bak keeps them recoverable. Returns true if moved. */
-function quarantineWalSidecars(databasePath: string): boolean {
-  let moved = false
-  const stamp = Date.now()
-  for (const suffix of ['-wal', '-shm']) {
-    const p = databasePath + suffix
-    try {
-      if (existsSync(p)) { renameSync(p, `${p}.corrupt-${stamp}.bak`); moved = true }
-    } catch { /* ignore */ }
-  }
-  if (moved) {
-    // eslint-disable-next-line no-console
-    console.warn('[db] quarantined WAL sidecars (.bak) after repeated I/O errors — retrying open')
-  }
-  return moved
-}
-
 /**
- * Copy the SQLite file to `<userData>/db-backups/` before migrating. WAL-checkpoint
- * first so the main file is complete, then prune to the most recent N. Best-effort:
- * a failed backup logs but never blocks startup.
+ * SQLite creates a consistent snapshot including committed WAL contents.
+ * Verify and flush it before promotion. An upgrade must not run without backup.
  */
 function backupBeforeMigration(db: AppDatabase, databasePath: string, fromVersion: number): void {
+  let temporary: string | undefined
   try {
-    db.pragma('wal_checkpoint(TRUNCATE)')
     const dir = join(dirname(databasePath), 'db-backups')
     mkdirSync(dir, { recursive: true })
     const stamp = new Date().toISOString().replace(/[:.]/g, '-')
-    copyFileSync(databasePath, join(dir, `oxespace-v${fromVersion}-${stamp}.sqlite3`))
-    const backups = readdirSync(dir).filter((f) => f.startsWith('oxespace-v') && f.endsWith('.sqlite3')).sort()
+    const destination = join(dir, `oxespace-v${fromVersion}-${stamp}.sqlite3`)
+    temporary = destination + '.partial'
+    db.prepare('VACUUM INTO ?').run(temporary)
+    chmodSync(temporary, 0o600)
+    const snapshot = new Database(temporary, { readonly: true, fileMustExist: true })
+    try {
+      if (snapshot.pragma('integrity_check', { simple: true }) !== 'ok' || snapshot.pragma('user_version', { simple: true }) !== fromVersion) {
+        throw new Error('Database backup verification failed')
+      }
+    } finally { snapshot.close() }
+    const fd = openSync(temporary, 'r+')
+    try { fsyncSync(fd) } finally { closeSync(fd) }
+    renameSync(temporary, destination)
+    temporary = undefined
+    const backups = readdirSync(dir).filter((f) => /^oxespace-v\d+-.*\.sqlite3$/.test(f)).sort((a, b) => a.replace(/^oxespace-v\d+-/, '').localeCompare(b.replace(/^oxespace-v\d+-/, '')))
     for (const stale of backups.slice(0, Math.max(0, backups.length - MAX_DB_BACKUPS))) {
       try { unlinkSync(join(dir, stale)) } catch { /* ignore */ }
     }
     // eslint-disable-next-line no-console
     console.log(`[db] backed up before migration v${fromVersion}→${LATEST_DB_VERSION}`)
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.warn('[db] pre-migration backup failed (continuing):', err instanceof Error ? err.message : err)
+    if (temporary) { try { unlinkSync(temporary) } catch { /* preserve original error */ } }
+    throw new Error('Database upgrade stopped: a verified backup could not be created. Free disk space/check permissions and retry; original database files were preserved.', { cause: err })
   }
 }
 
@@ -141,6 +134,7 @@ export function openInMemoryDatabase(): AppDatabase {
 
 export function runMigrations(db: AppDatabase): void {
   let currentVersion = db.pragma('user_version', { simple: true }) as number
+  const startingVersion = currentVersion
 
   if (currentVersion < 1) {
     db.exec(readMigration('001_initial.sql'))
@@ -440,6 +434,106 @@ export function runMigrations(db: AppDatabase): void {
   if (currentVersion < 48) {
     db.transaction(() => db.exec(readMigration('048_delegations.sql')))()
   }
+  if (currentVersion < 49) {
+    db.transaction(() => db.exec(readMigration('049_documentation.sql')))()
+  }
+  if (currentVersion < 50) {
+    db.transaction(() => db.exec(readMigration('050_coordination_identity.sql')))()
+  }
+  if (currentVersion < 51) {
+    db.transaction(() => db.exec(readMigration('051_coordination_grants.sql')))()
+  }
+  if (currentVersion < 52) {
+    db.transaction(() => db.exec(readMigration('052_coordination_workflow.sql')))()
+  }
+  if (currentVersion < 53) {
+    db.transaction(() => db.exec(readMigration('053_threads.sql')))()
+  }
+  if (currentVersion < 54) {
+    db.transaction(() => {
+      const migration = readMigration('054_thread_history.sql')
+      db.exec(hasColumn(db, 'conversation_threads', 'history_version') ? migration.replace('ALTER TABLE conversation_threads ADD COLUMN history_version INTEGER NOT NULL DEFAULT 0;', '') : migration)
+    })()
+  }
+  if (currentVersion < 55) {
+    db.transaction(() => db.exec(readMigration('055_thread_operations.sql')))()
+  }
+  if (currentVersion < 56) {
+    db.transaction(() => db.exec(readMigration('056_thread_checkpoints.sql')))()
+  }
+  if (currentVersion < 57) {
+    db.transaction(() => db.exec(readMigration('057_delegation_continuity.sql')))()
+  }
+  // Older self-healing migrations can temporarily lower currentVersion during
+  // a re-open. The one-time visual migration must use the version at entry so
+  // a later explicit theme choice is never overwritten.
+  if (startingVersion < 58) {
+    db.transaction(() => db.exec(readMigration('058_workbench_default.sql')))()
+  }
+  if (startingVersion < 59) migrateThreadProjects(db)
+  if (startingVersion < 60) db.transaction(() => db.exec(readMigration('060_native_history_pages.sql')))()
+  if (startingVersion < 61) db.transaction(() => db.exec(readMigration('061_persistent_teams.sql')))()
+  if (startingVersion < 62) db.transaction(() => db.exec(readMigration('062_team_delivery.sql')))()
+  if (startingVersion < 63) db.transaction(() => db.exec(readMigration('063_mcp_thread_handoff.sql')))()
+}
+
+/** Rebuild the parent without cascading its children or rewriting their IDs. */
+function migrateThreadProjects(db: AppDatabase): void {
+  if (hasColumn(db, 'conversation_threads', 'thread_project_id')) {
+    if (!hasTable(db, 'thread_projects') || (db.pragma('foreign_key_check') as unknown[]).length) throw Error('Incomplete Thread project migration')
+    db.pragma('user_version = 59')
+    return
+  }
+  const legacy = db.prepare('SELECT id, workspace_id, data_json FROM conversation_threads').all() as
+    { id: string; workspace_id: string; data_json: string }[]
+  const projects = new Map<string, { rootPath: string; name: string; identity: string }>()
+  for (const row of legacy) {
+    const thread = JSON.parse(row.data_json) as { projectId?: string; rootPath?: string }
+    if (!thread.projectId || !thread.rootPath) throw Error(`Cannot migrate conversation ${row.id}: missing project or directory`)
+    const memory = db.prepare('SELECT identity FROM memory_projects WHERE id = ?').get(thread.projectId) as { identity: string } | undefined
+    projects.set(thread.projectId, { rootPath: thread.rootPath, name: thread.rootPath.split(/[\\/]/).filter(Boolean).at(-1) ?? thread.rootPath,
+      identity: memory?.identity ?? thread.rootPath })
+  }
+  db.pragma('foreign_keys = OFF')
+  try {
+    db.transaction(() => {
+      db.exec(`CREATE TABLE thread_projects (
+        id TEXT PRIMARY KEY, identity TEXT NOT NULL, root_path TEXT NOT NULL,
+        display_name TEXT NOT NULL, hidden INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+      );
+      CREATE TABLE thread_project_contexts (
+        project_id TEXT NOT NULL REFERENCES thread_projects(id) ON DELETE CASCADE,
+        root_path TEXT NOT NULL, PRIMARY KEY(project_id, root_path)
+      );`)
+      const insertProject = db.prepare('INSERT INTO thread_projects (id, identity, root_path, display_name, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
+      const insertContext = db.prepare('INSERT OR IGNORE INTO thread_project_contexts (project_id, root_path) VALUES (?, ?)')
+      for (const [id, project] of projects) insertProject.run(id, project.identity, project.rootPath, project.name, Date.now(), Date.now())
+      for (const row of legacy) {
+        const thread = JSON.parse(row.data_json) as { projectId: string; rootPath: string }
+        insertContext.run(thread.projectId, thread.rootPath)
+      }
+      db.exec(`CREATE TABLE conversation_threads_new (
+        id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL,
+        thread_project_id TEXT NOT NULL REFERENCES thread_projects(id),
+        data_json TEXT NOT NULL,
+        events_json TEXT NOT NULL DEFAULT '[]',
+        history_version INTEGER NOT NULL DEFAULT 0
+      );
+      INSERT INTO conversation_threads_new (id, workspace_id, thread_project_id, data_json, events_json, history_version)
+        SELECT id, workspace_id, json_extract(data_json, '$.projectId'), data_json, events_json, history_version FROM conversation_threads;
+      DROP TABLE conversation_threads;
+      ALTER TABLE conversation_threads_new RENAME TO conversation_threads;
+      CREATE INDEX idx_conversation_threads_workspace ON conversation_threads(workspace_id);
+      CREATE INDEX idx_conversation_threads_project ON conversation_threads(thread_project_id);
+      PRAGMA user_version = 59;`)
+      const count = (db.prepare('SELECT count(*) AS n FROM conversation_threads').get() as { n: number }).n
+      if (count !== legacy.length) throw Error('Conversation count changed during migration')
+      const broken = db.pragma('foreign_key_check') as unknown[]
+      if (broken.length) throw Error(`Thread migration has ${broken.length} broken foreign keys`)
+    })()
+  } finally { db.pragma('foreign_keys = ON') }
 }
 
 function readMigration(name: string): string {

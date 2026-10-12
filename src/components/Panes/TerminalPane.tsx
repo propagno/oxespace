@@ -1,6 +1,7 @@
-import { Bone, Brain, Check, MoreHorizontal, Play, Zap } from 'lucide-react'
+import { Bone, Brain, Check, History, MoreHorizontal, Play, Zap } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
+import type { SessionSummary } from '../../../shared/types/session'
 import type { WorkspacePane } from '../../../shared/types/workspace'
 import { useOxeVoice } from '../../hooks/useOxeVoice'
 import { useAgentStore } from '../../store/agent.store'
@@ -14,6 +15,8 @@ import { CopilotCreditsStatus } from '../Terminal/CopilotCreditsStatus'
 import { AgentCreditsStatus } from '../Terminal/AgentCreditsStatus'
 import { ContextUsageStatus } from '../Terminal/ContextUsageStatus'
 import { ErrorBoundary } from '../common/ErrorBoundary'
+import { VoiceHud } from '../Voice/VoiceHud'
+import { DesktopDialog } from '../Navigation/DesktopDialog'
 interface TerminalPaneProps {
   pane: WorkspacePane
   workspaceId: string
@@ -32,7 +35,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
   const setLastIntent = useTerminalStore((s) => s.setLastIntent)
   const setPaneAgent = useWorkspaceStore((s) => s.setPaneAgent)
   const allProfiles = useAgentStore((s) => s.allProfiles)
-  const workspaceThemeId = useWorkspaceStore((s) => s.workspaces.find((w) => w.id === workspaceId)?.themeId ?? 'dracula')
+  const workspaceThemeId = useWorkspaceStore((s) => s.workspaces.find((w) => w.id === workspaceId)?.themeId ?? 'midnight')
   const setTerminalOverride = useTerminalPrefsStore((s) => s.setOverride)
   const terminalPrefs = useResolvedTerminalPrefs(workspaceId)
   const isRunning = state.status === 'running' || state.status === 'starting'
@@ -188,11 +191,14 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
       const { command: agentCommand, initialPrompt } = await resolveWithIntegrationContext()
       const profile = inferAgentProfile(agentCommand ?? '', allProfiles)
       if (profile && profile.agentProfileId !== pane.agentProfileId) {
-        void setPaneAgent(pane.id, profile.agentProfileId, { preserveSession: true })
+        if (!pane.id.startsWith('thread-shell:')) void setPaneAgent(pane.id, profile.agentProfileId, { preserveSession: true })
       }
 
       let p = initialPrompt
-      if (terminalPrefs.cavemanModeEnabled) {
+      // A restored pane starts a fresh process after an app restart. Do not
+      // submit a style prompt into that process before the user chooses the
+      // provider session to resume; it can land in login/trust prompts.
+      if (terminalPrefs.cavemanModeEnabled && explicitRetry) {
         const CAVEMAN_PROMPT = `Respond terse like smart caveman. All technical substance stay. Only fluff die. Drop articles, filler, pleasantries. Fragments OK. Technical terms exact. Code blocks unchanged. Errors quoted exact. Pattern: [thing] [action] [reason]. [next step]. Not: "Sure! I'd be happy to help you with that. The issue you're experiencing is likely caused by..." Yes: "Bug in auth middleware. Token expiry check use \`<\` not \`<=\`. Fix:"`
         p = p ? `${CAVEMAN_PROMPT}\n\n${p}` : CAVEMAN_PROMPT
       }
@@ -247,7 +253,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         typedCommandRef.current = ''
         const matchedProfile = inferAgentProfile(command, allProfiles)
         if (matchedProfile && matchedProfile.agentProfileId !== pane.agentProfileId) {
-          void setPaneAgent(pane.id, matchedProfile.agentProfileId, { preserveSession: true })
+          if (!pane.id.startsWith('thread-shell:')) void setPaneAgent(pane.id, matchedProfile.agentProfileId, { preserveSession: true })
         } else if (command) {
           setLastIntent(pane.id, command)
         }
@@ -280,7 +286,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
       const { command: agentCommand, initialPrompt } = await resolveWithIntegrationContext()
       const profile = inferAgentProfile(agentCommand ?? '', allProfiles)
       if (profile && profile.agentProfileId !== pane.agentProfileId) {
-        void setPaneAgent(pane.id, profile.agentProfileId, { preserveSession: true })
+        if (!pane.id.startsWith('thread-shell:')) void setPaneAgent(pane.id, profile.agentProfileId, { preserveSession: true })
       }
       await window.oxe.terminal.stop({ paneId: pane.id })
       await window.oxe.terminal.start({ paneId: pane.id, workspaceId, agentCommand, initialPrompt })
@@ -343,6 +349,33 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
     : ''
 
   const [moreOpen, setMoreOpen] = useState(false)
+  const [restoreOpen, setRestoreOpen] = useState(false)
+  const [restoreBusy, setRestoreBusy] = useState(false)
+  const [restoreError, setRestoreError] = useState('')
+  const [restoreQuery, setRestoreQuery] = useState('')
+  const [savedSessions, setSavedSessions] = useState<SessionSummary[]>([])
+  const openRestore = useCallback(async () => {
+    if (!agentCreditsProvider) return
+    setMoreOpen(false); setRestoreOpen(true); setRestoreBusy(true); setRestoreError('')
+    try {
+      const sessions = await window.oxe.session.list({ workspaceId, workspaceRootPath: effectiveRootPath, provider: agentCreditsProvider })
+      setSavedSessions(sessions.sort((a, b) => b.lastUpdatedMs - a.lastUpdatedMs))
+    } catch (cause) { setRestoreError(cause instanceof Error ? cause.message : 'Could not find saved sessions.') }
+    finally { setRestoreBusy(false) }
+  }, [agentCreditsProvider, effectiveRootPath, workspaceId])
+  const restoreSession = useCallback(async (sessionId: string) => {
+    if (!agentCreditsProvider || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(sessionId)) return
+    setRestoreBusy(true); setRestoreError('')
+    try {
+      const command = allProfiles.find(profile => profile.agentProfileId === pane.agentProfileId)?.command || agentCreditsProvider
+      await window.oxe.terminal.stop({ paneId: pane.id })
+      await window.oxe.terminal.start({ paneId: pane.id, workspaceId, agentCommand: command,
+        agentArgs: agentCreditsProvider === 'claude' ? ['--resume', sessionId] : ['resume', sessionId, '--no-alt-screen'],
+        disableRtk: !terminalPrefs.rtkHookEnabled })
+      setStatus(pane.id, 'running'); setRestoreOpen(false)
+    } catch (cause) { setStatus(pane.id, 'error', cause instanceof Error ? cause.message : 'Could not resume session.'); setRestoreError(cause instanceof Error ? cause.message : 'Could not resume session.') }
+    finally { setRestoreBusy(false) }
+  }, [agentCreditsProvider, allProfiles, pane.agentProfileId, pane.id, setStatus, terminalPrefs.rtkHookEnabled, workspaceId])
   const moreRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -391,32 +424,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
             }}
           />
           </ErrorBoundary>
-          {voice.status === 'listening' || voice.status === 'transcribing' || voice.status === 'downloading' || voice.error ? (
-            <div className={`oxe-voice-hud ${voice.error ? 'error' : voice.status}`} role="status" aria-live="polite">
-              {voice.status === 'listening' && !voice.error ? (
-                <span className="oxe-voice-meter" aria-hidden="true">
-                  {[0, 1, 2, 3, 4].map((i) => (
-                    <span
-                      key={i}
-                      className="oxe-voice-bar"
-                      style={{ transform: `scaleY(${Math.max(0.18, Math.min(1, voice.level * (1.4 - Math.abs(i - 2) * 0.25)))})` }}
-                    />
-                  ))}
-                </span>
-              ) : (
-                <span className={`oxe-voice-pulse${voice.status === 'transcribing' ? ' spin' : ''}`} aria-hidden="true" />
-              )}
-              <span>
-                {voice.error
-                  ? voice.error
-                  : voice.status === 'downloading'
-                    ? `Baixando modelo de voz… ${voice.modelProgress !== null ? Math.round(voice.modelProgress * 100) : 0}%`
-                    : voice.status === 'transcribing'
-                      ? 'Transcrevendo…'
-                      : 'Ouvindo… solte para inserir'}
-              </span>
-            </div>
-          ) : null}
+          <VoiceHud status={voice.status} error={voice.error} level={voice.level} modelProgress={voice.modelProgress} onDismiss={voice.dismiss} />
         </div>
       ) : (
         <div className="terminal-idle">
@@ -457,6 +465,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
           </button>
           {moreOpen ? (
             <div className="statusbar-more-menu" role="menu" data-testid="terminal-more-menu">
+              {agentCreditsProvider && <button type="button" role="menuitem" onClick={() => void openRestore()}><History size={12} aria-hidden="true" /><span className="statusbar-more-label">Restore provider session…</span></button>}
               <button
                 type="button"
                 role="menuitemcheckbox"
@@ -502,6 +511,15 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
           ) : null}
         </div>
       </div>
+      {restoreOpen && <DesktopDialog className="terminal-restore-dialog" title="Restore provider session" description={`Choose a saved ${agentCreditsProvider === 'claude' ? 'Claude' : 'Codex'} conversation from this directory. The current terminal process closes only after you select one.`} onClose={() => { if (!restoreBusy) setRestoreOpen(false) }}>
+        <label>Search sessions<input aria-label="Search saved sessions" value={restoreQuery} onChange={event => setRestoreQuery(event.target.value)} placeholder="Prompt, model or session ID" /></label>
+        {restoreError && <p role="alert">{restoreError}</p>}
+        <div className="terminal-restore-list">
+          {restoreBusy && !savedSessions.length && <p>Loading saved sessions…</p>}
+          {!restoreBusy && !savedSessions.length && <p>No saved sessions found in this directory.</p>}
+          {savedSessions.filter(session => `${session.firstMessagePreview ?? ''} ${session.modelId ?? ''} ${session.sessionId}`.toLowerCase().includes(restoreQuery.toLowerCase())).map(session => <button type="button" key={session.sessionId} disabled={restoreBusy} onClick={() => void restoreSession(session.sessionId)}><strong>{session.firstMessagePreview || `${agentCreditsProvider} session`}</strong><span>{new Date(session.lastUpdatedMs).toLocaleString()} · {session.modelId || 'Model not recorded'} · {session.requestCount} requests</span><small>{session.sessionId}</small></button>)}
+        </div>
+      </DesktopDialog>}
     </div>
   )
 }

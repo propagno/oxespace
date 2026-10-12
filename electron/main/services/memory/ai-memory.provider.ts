@@ -1,15 +1,19 @@
 import { randomUUID } from 'node:crypto'
 import type { MemoryContext, MemoryHandoff, MemoryHealth, MemoryInput, MemoryResult, MemorySession, ProjectContext } from '../../../../shared/types/memory'
 import type { MemoryProvider } from './memory-provider'
-import { AiMemoryClient } from './ai-memory.client'
+import { AiMemoryClient, MemoryClientError } from './ai-memory.client'
 
 export class AiMemoryProvider implements MemoryProvider {
   constructor(private readonly client: AiMemoryClient) {}
+  withSignal(signal: AbortSignal): AiMemoryProvider { return new AiMemoryProvider(this.client.withSignal(signal)) }
   async start(): Promise<void> { await this.client.initialize() }
   async stop(): Promise<void> { /* Client only: runtime owns the server. */ }
   async health(): Promise<MemoryHealth> {
-    try { await this.client.request('/admin/status'); return { status: 'ready' } }
-    catch { return { status: 'unavailable', message: 'AI Memory is not reachable or authentication failed' } }
+    // A successful API probe does not confirm ingestion or background work.
+    const pipeline = { capture: 'unknown', delivery: 'unknown', consolidation: 'unknown' } as const
+    try { await this.client.request('/admin/status'); return { status: 'ready', pipeline } }
+    catch (error) { return { status: 'unavailable', message: 'AI Memory is not reachable or authentication failed',
+      errorCode: error instanceof MemoryClientError ? error.code : 'transport', pipeline } }
   }
   private scope(ctx: MemoryContext): { workspace: string; project: string } {
     if (!ctx.workspace || !ctx.project || !ctx.projectId) throw new Error('Explicit memory scope required')

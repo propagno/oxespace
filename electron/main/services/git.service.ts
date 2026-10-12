@@ -1,7 +1,7 @@
 import { existsSync, watch as fsWatch, type FSWatcher } from 'node:fs'
 import { spawn, type SpawnOptions } from 'node:child_process'
 import { join } from 'node:path'
-import type { GitBranchStatus, GitDiff, GitDiffFile, GitDiffInput } from '../../../shared/types/git'
+import type { GitBranchStatus, GitControlFile, GitControlStatus, GitDiff, GitDiffFile, GitDiffInput, GitDiffSummary, GitDiffSummaryFile, GitFileOriginal, GitSummaryStatus } from '../../../shared/types/git'
 
 export interface SpawnGitResult {
   stdout: string
@@ -32,9 +32,9 @@ const RESOLVE_TIMEOUT_MS = 5_000
 let cachedGitCommand: string | undefined
 let gitResolveInFlight: Promise<string | null> | null = null
 
-function spawnCommandAsync(command: string, args: string[], cwd: string, timeoutMs: number): Promise<SpawnGitResult> {
+function spawnCommandAsync(command: string, args: string[], cwd: string, timeoutMs: number, maxOutputBytes = Infinity): Promise<SpawnGitResult> {
   return new Promise((resolve) => {
-    const opts: SpawnOptions = { cwd, shell: false, windowsHide: true }
+    const opts: SpawnOptions = { cwd, shell: false, windowsHide: true, ...(args.includes('--porcelain=v2') ? { env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } } : {}) }
     const child = spawn(command, args, opts)
     let stdout = ''
     let stderr = ''
@@ -48,7 +48,17 @@ function spawnCommandAsync(command: string, args: string[], cwd: string, timeout
 
     child.stdout?.setEncoding('utf8')
     child.stderr?.setEncoding('utf8')
-    child.stdout?.on('data', (chunk: string) => { stdout += chunk })
+    child.stdout?.on('data', (chunk: string) => {
+      if (settled) return
+      if (Buffer.byteLength(stdout) + Buffer.byteLength(chunk) > maxOutputBytes) {
+        settled = true
+        clearTimeout(timer)
+        try { child.kill() } catch { /* already exited */ }
+        resolve({ stdout: '', stderr: 'Git status exceeds the display limit; narrow the worktree changes and refresh.', status: null })
+        return
+      }
+      stdout += chunk
+    })
     child.stderr?.on('data', (chunk: string) => { stderr += chunk })
     child.on('error', (err) => {
       if (settled) return
@@ -119,10 +129,37 @@ async function spawnGitAsync(args: string[], cwd: string): Promise<SpawnGitResul
   if (!git) {
     return { stdout: '', stderr: 'Git executable not found', status: null }
   }
-  return spawnCommandAsync(git, args, cwd, SPAWN_TIMEOUT_MS)
+  return spawnCommandAsync(git, args, cwd, SPAWN_TIMEOUT_MS, args.includes('--porcelain=v2') ? 4 * 1024 * 1024 : Infinity)
 }
 
-function parseDiffOutput(raw: string): GitDiffFile[] {
+/** Parse one bounded porcelain-v2 snapshot. NUL records preserve unusual file names. */
+export function parseGitControlStatus(raw: string): GitControlStatus {
+  const files: GitControlFile[] = []
+  let branch: string | null = null, upstream: string | null = null, ahead = 0, behind = 0
+  const records = raw.split('\0')
+  for (let index = 0; index < records.length && files.length < 1000; index++) {
+    const record = records[index]
+    if (record.startsWith('# branch.head ')) { branch = record.slice(14) || null; continue }
+    if (record.startsWith('# branch.upstream ')) { upstream = record.slice(18) || null; continue }
+    if (record.startsWith('# branch.ab ')) {
+      const match = /^# branch\.ab \+(\d+) -(\d+)/.exec(record)
+      if (match) { ahead = Number(match[1]); behind = Number(match[2]) }
+      continue
+    }
+    if (record.startsWith('? ')) { files.push({ path: record.slice(2), staged: false, unstaged: true, untracked: true, conflicted: false, status: '?' }); continue }
+    if (!/^[12u] /.test(record)) continue
+    const fields = record.split(' ')
+    const kind = record[0], xy = fields[1] ?? '..'
+    const pathOffset = kind === '1' ? 8 : kind === '2' ? 9 : 10
+    const path = fields.slice(pathOffset).join(' ')
+    if (kind === '2') index++ // the following NUL record is the original rename path
+    if (!path) continue
+    files.push({ path, staged: kind === 'u' || xy[0] !== '.', unstaged: kind === 'u' || xy[1] !== '.', untracked: false, conflicted: kind === 'u', status: xy })
+  }
+  return { branch, upstream, ahead, behind, files, checkedAt: Date.now(), ...(files.length >= 1000 ? { truncated: true } : {}) }
+}
+
+export function parseDiffOutput(raw: string): GitDiffFile[] {
   const files: GitDiffFile[] = []
   if (!raw) return files
 
@@ -236,12 +273,67 @@ async function batchMtime(rootPath: string, paths: string[]): Promise<Map<string
   return out
 }
 
+/** Largest base-side file returned to the renderer (bytes). */
+const MAX_ORIGINAL_BYTES = 2 * 1024 * 1024
+
+/** `git diff --numstat -z`: `added<TAB>deleted<TAB>path<NUL>`, renames as `added<TAB>deleted<TAB><NUL>old<NUL>new<NUL>`. */
+export function parseNumstat(raw: string): Map<string, { additions: number; deletions: number; binary: boolean }> {
+  const out = new Map<string, { additions: number; deletions: number; binary: boolean }>()
+  const records = raw.split('\0')
+  for (let index = 0; index < records.length; index++) {
+    const record = records[index]
+    if (!record) continue
+    const match = /^(-|\d+)\t(-|\d+)\t([\s\S]*)$/.exec(record)
+    if (!match) continue
+    const binary = match[1] === '-' || match[2] === '-'
+    let path = match[3]
+    if (!path) { path = records[index + 2] ?? ''; index += 2 }
+    if (path) out.set(path, { additions: binary ? 0 : Number(match[1]), deletions: binary ? 0 : Number(match[2]), binary })
+  }
+  return out
+}
+
+/** `git diff --name-status -z -M`: `M<NUL>path<NUL>`, `R087<NUL>old<NUL>new<NUL>`. */
+export function parseNameStatus(raw: string): Array<{ status: GitSummaryStatus; path: string; oldPath?: string }> {
+  const out: Array<{ status: GitSummaryStatus; path: string; oldPath?: string }> = []
+  const records = raw.split('\0')
+  for (let index = 0; index < records.length; index++) {
+    const code = records[index]
+    if (!code) continue
+    const letter = code[0]
+    if (letter === 'R' || letter === 'C') {
+      const oldPath = records[index + 1], path = records[index + 2]
+      index += 2
+      if (path) out.push({ status: 'R', path, oldPath })
+    } else {
+      const path = records[index + 1]
+      index += 1
+      if (path) out.push({ status: letter === 'A' ? 'A' : letter === 'D' ? 'D' : 'M', path })
+    }
+  }
+  return out
+}
+
+export function buildDiffSummaryFiles(nameStatus: string, numstat: string): GitDiffSummaryFile[] {
+  const counts = parseNumstat(numstat)
+  return parseNameStatus(nameStatus).map(entry => {
+    const count = counts.get(entry.path)
+    return { path: entry.path, oldPath: entry.oldPath, status: entry.status, additions: count?.additions ?? 0, deletions: count?.deletions ?? 0, binary: count?.binary ?? false }
+  })
+}
+
 export class GitService {
   private readonly spawnGit: SpawnGitFn
   private readonly watchers = new Map<string, WatchEntry>()
 
   constructor(options?: { spawnGit?: SpawnGitFn }) {
     this.spawnGit = options?.spawnGit ?? spawnGitAsync
+  }
+
+  async getStatus(rootPath: string): Promise<GitControlStatus> {
+    const result = await this.spawnGit(['-c', 'core.quotePath=false', 'status', '--porcelain=v2', '--branch', '-z', '--untracked-files=normal'], rootPath)
+    if (result.status !== 0) return { branch: null, ahead: 0, behind: 0, files: [], checkedAt: Date.now(), error: result.stderr || 'Git status is unavailable.' }
+    return parseGitControlStatus(result.stdout)
   }
 
   async getBranch(rootPath: string): Promise<GitBranchStatus> {
@@ -316,6 +408,48 @@ export class GitService {
     }
 
     return { files, base, includeUncommitted, compiledAt: Date.now() }
+  }
+
+  /**
+   * Uncapped change list: the work tree (or HEAD) against the merge base of
+   * `base`. Large repositories stay cheap because only numstat/name-status run;
+   * file contents are fetched one file at a time by `getFileOriginal`.
+   */
+  async getDiffSummary(rootPath: string, base: string, includeUncommitted: boolean): Promise<GitDiffSummary> {
+    const empty = { files: [], additions: 0, deletions: 0, base, mergeBase: null as string | null, includeUncommitted, compiledAt: Date.now() }
+    const mergeBase = await this.spawnGit(['merge-base', base, 'HEAD'], rootPath)
+    const from = mergeBase.status === 0 && mergeBase.stdout.trim() ? mergeBase.stdout.trim() : null
+    if (!from) {
+      // Unknown base: fall back to the work tree against HEAD.
+      const head = await this.spawnGit(['rev-parse', '--verify', 'HEAD'], rootPath)
+      if (head.status !== 0) return { ...empty, error: `Base “${base}” could not be resolved and the repository has no commits.` }
+    }
+    const range = [from ?? 'HEAD', ...(includeUncommitted ? [] : ['HEAD'])]
+    const common = ['-c', 'core.quotePath=false', 'diff', '-M', '-z']
+    const [names, numbers] = await Promise.all([
+      this.spawnGit([...common, '--name-status', ...range, '--'], rootPath),
+      this.spawnGit([...common, '--numstat', ...range, '--'], rootPath)
+    ])
+    if (names.status !== 0) return { ...empty, mergeBase: from, error: names.stderr || 'Git diff is unavailable.' }
+    const files = buildDiffSummaryFiles(names.stdout, numbers.stdout)
+    return {
+      files,
+      additions: files.reduce((sum, file) => sum + file.additions, 0),
+      deletions: files.reduce((sum, file) => sum + file.deletions, 0),
+      base, mergeBase: from, includeUncommitted, compiledAt: Date.now()
+    }
+  }
+
+  /** Base-side content for one file (`git show <mergeBase>:<path>`). */
+  async getFileOriginal(rootPath: string, base: string, path: string, oldPath?: string): Promise<GitFileOriginal> {
+    const mergeBase = await this.spawnGit(['merge-base', base, 'HEAD'], rootPath)
+    const from = mergeBase.status === 0 && mergeBase.stdout.trim() ? mergeBase.stdout.trim() : 'HEAD'
+    const shown = await this.spawnGit(['show', `${from}:${oldPath ?? path}`], rootPath)
+    if (shown.status !== 0) return { content: '', missing: true, binary: false, size: 0, truncated: false }
+    const size = Buffer.byteLength(shown.stdout)
+    if (shown.stdout.slice(0, 8000).includes('\0')) return { content: '', missing: false, binary: true, size, truncated: false }
+    if (size > MAX_ORIGINAL_BYTES) return { content: shown.stdout.slice(0, MAX_ORIGINAL_BYTES), missing: false, binary: false, size, truncated: true }
+    return { content: shown.stdout, missing: false, binary: false, size, truncated: false }
   }
 
   watchDiff(rootPath: string, emit: (diff: GitDiff) => void, base: string, includeUncommitted: boolean): void {

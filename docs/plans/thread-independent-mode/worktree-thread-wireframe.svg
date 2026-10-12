@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title description">
+  <title id="title">Wireframe da Thread com worktrees</title>
+  <desc id="description">OXESpace em modo Thread com projetos, worktrees e conversas separados, conversa vinculada à branch feat/pagamentos e ações explícitas para delegar ou abrir no Code.</desc>
+  <defs>
+    <style>
+      text{font-family:Inter,Segoe UI,Arial,sans-serif;fill:#e9ebf2} .muted{fill:#9ca5b9} .dim{fill:#788299} .small{font-size:12px} .tiny{font-size:10px} .body{font-size:14px} .head{font-size:17px;font-weight:650} .strong{font-weight:650} .accent{fill:#5fe2c0} .blue{fill:#91b6ff} .mono{font-family:Cascadia Mono,Consolas,monospace}
+    </style>
+  </defs>
+  <rect width="1440" height="900" fill="#1c1e26"/>
+  <rect width="1440" height="32" fill="#181a20"/>
+  <text x="20" y="21" class="small strong">OXESpace</text><text x="1330" y="21" class="tiny muted">WIREFRAME · PROPOSTA</text>
+  <rect y="32" width="1440" height="48" fill="#252833" stroke="#343845"/>
+  <text x="22" y="62" class="small strong">Thread</text><text x="80" y="62" class="small muted">/</text><text x="98" y="62" class="small">oxespace</text>
+  <rect x="0" y="80" width="308" height="820" fill="#242733" stroke="#3b3f4c"/>
+  <text x="18" y="111" class="small strong">PROJETOS</text><text x="222" y="111" class="tiny muted">2 worktrees</text>
+  <rect x="14" y="128" width="280" height="36" rx="7" fill="#303440" stroke="#464b59"/>
+  <text x="28" y="151" class="small muted">⌕  Filtrar projetos e conversas</text>
+  <rect x="14" y="179" width="280" height="35" rx="7" fill="#31423f" stroke="#2b947c"/>
+  <text x="28" y="202" class="small strong accent">＋  Nova worktree + thread</text>
+  <text x="19" y="244" class="body strong">⌄  oxespace</text><text x="201" y="244" class="tiny muted">repositório</text>
+  <text x="38" y="271" class="tiny dim mono">C:\Estudos\oxespace</text>
+  <line x1="29" y1="292" x2="29" y2="624" stroke="#4a4f5f"/>
+  <text x="43" y="311" class="small strong">⌄  main</text><text x="239" y="311" class="tiny muted">＋ thread</text>
+  <text x="59" y="335" class="tiny dim mono">…\oxespace</text>
+  <circle cx="60" cy="362" r="4" fill="#7ba6ef"/><text x="74" y="366" class="small">Planejamento da release</text>
+  <circle cx="60" cy="393" r="4" fill="#7ba6ef"/><text x="74" y="397" class="small">Revisar documentação</text>
+  <rect x="37" y="421" width="258" height="52" rx="7" fill="#36423f" stroke="#39b99a"/>
+  <text x="49" y="442" class="small strong accent">⌄  feat/pagamentos</text><text x="234" y="442" class="tiny accent">＋ thread</text>
+  <text x="49" y="460" class="tiny muted mono">…\oxespace-wt\pagamentos</text>
+  <rect x="48" y="482" width="246" height="58" rx="6" fill="#343a49"/>
+  <circle cx="64" cy="504" r="5" fill="#26cc93"/><text x="79" y="508" class="small strong">Implementar pagamentos</text>
+  <text x="79" y="526" class="tiny muted">Codex  ·  Em execução  ·  agora</text>
+  <circle cx="64" cy="562" r="4" fill="#7ba6ef"/><text x="79" y="566" class="small">Pesquisar gateway</text>
+  <text x="19" y="652" class="tiny dim">Cada conversa pertence a uma worktree.</text>
+  <text x="19" y="669" class="tiny dim">Outras branches não mudam seu diretório.</text>
+  <line x1="0" y1="829" x2="308" y2="829" stroke="#3b3f4c"/>
+  <text x="20" y="858" class="small muted">⚙  Configurações</text><text x="20" y="884" class="small muted">‹‹  Recolher</text>
+  <rect x="308" y="80" width="1132" height="66" fill="#22252f" stroke="#3b3f4c"/>
+  <text x="337" y="108" class="head">Implementar pagamentos</text>
+  <text x="338" y="130" class="small muted">oxespace</text><text x="411" y="130" class="small muted">›</text><text x="427" y="130" class="small blue">feat/pagamentos</text><text x="556" y="130" class="small muted mono">…\oxespace-wt\pagamentos</text>
+  <rect x="1090" y="95" width="148" height="34" rx="7" fill="#2b2f3b" stroke="#4b5160"/><text x="1111" y="117" class="small">Abrir no Code</text>
+  <rect x="1249" y="95" width="158" height="34" rx="7" fill="#30443f" stroke="#3cae91"/><text x="1273" y="117" class="small accent">Delegar trabalho</text>
+  <rect x="470" y="182" width="799" height="69" rx="10" fill="#2b2f3b" stroke="#3b3f4c"/>
+  <text x="491" y="208" class="small strong">Você</text><text x="491" y="231" class="body">Implemente o fluxo de pagamento nesta branch isolada.</text>
+  <circle cx="477" cy="286" r="10" fill="#0ca47f"/><text x="472" y="290" class="tiny strong">&lt;/&gt;</text>
+  <text x="497" y="290" class="small strong">Codex</text><text x="554" y="290" class="tiny muted">· trabalhando em feat/pagamentos</text>
+  <text x="470" y="325" class="body">Vou mapear os módulos afetados e implementar o fluxo no diretório desta worktree.</text>
+  <rect x="470" y="350" width="799" height="74" rx="8" fill="#272b36" stroke="#454b5a"/>
+  <circle cx="490" cy="374" r="5" fill="#26cc93"/><text x="506" y="378" class="small strong">Verificações em execução</text>
+  <text x="506" y="401" class="small muted mono">npm run typecheck  ·  npm test</text>
+  <rect x="470" y="445" width="799" height="68" rx="8" fill="#27312f" stroke="#3a6c60"/>
+  <text x="490" y="471" class="small strong accent">Contexto da worktree</text>
+  <text x="490" y="495" class="small muted">Branch feat/pagamentos · base origin/main · diretório verificado antes da execução</text>
+  <rect x="470" y="738" width="799" height="126" rx="10" fill="#292d38" stroke="#484e5c"/>
+  <text x="490" y="771" class="body muted">Pergunte ou peça uma alteração nesta worktree…</text>
+  <line x1="488" y1="804" x2="1250" y2="804" stroke="#414755"/>
+  <text x="490" y="837" class="small muted">＋  Anexar</text><text x="602" y="837" class="small muted">Codex</text><text x="684" y="837" class="small muted">Acesso: worktree</text>
+  <rect x="1208" y="818" width="39" height="34" rx="7" fill="#68717f"/><text x="1221" y="840" class="small strong">↑</text>
+</svg>

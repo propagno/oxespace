@@ -27,9 +27,12 @@ async function main() {
   let response = {}
   if (capture) {
     const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.toUpperCase().startsWith('AI_MEMORY_')))
+    // OXESpace admits only the bound session. Newer runtimes otherwise launch
+    // detached history imports on SessionStart, outside this hook's deadline.
+    env.AI_MEMORY_BACKFILL_ON_START = 'false'
     const output = await new Promise(resolve => {
       const child = spawn(config.executable, ['--data-dir', config.dataDir, '--config', config.configPath, 'hook', '--event', event, '--agent', agent,
-        '--server-url', config.url, '--capture-mode', 'allowlist', ...(agent === 'claude-code' ? ['--capture-assistant'] : [])], { env, windowsHide: true, shell: false, stdio: ['pipe', 'pipe', 'ignore'] })
+        '--server-url', config.url, '--capture-mode', 'allowlist', ...(agent === 'claude-code' ? ['--capture-assistant'] : [])], { env, cwd, windowsHide: true, shell: false, stdio: ['pipe', 'pipe', 'ignore'] })
       let out = ''
       child.stdout.on('data', chunk => { if (out.length < 32768) out += chunk.toString() })
       child.stdin.on('error', () => {})

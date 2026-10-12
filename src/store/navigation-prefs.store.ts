@@ -1,15 +1,41 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
+export const SIDEBAR_WIDTH = 280
+export const SIDEBAR_RAIL_WIDTH = 56
+export const SIDEBAR_MIN_WIDTH = 240
+export const SIDEBAR_MAX_WIDTH = 360
+export const SIDEBAR_RESIZE_STEP = 8
+
+export function navigationWidth(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, value)) : SIDEBAR_WIDTH
+}
+
+function legacyThreadWidth(): number {
+  try {
+    const value = JSON.parse(localStorage.getItem('oxe.thread-navigation') ?? 'null')?.state?.width
+    const width = navigationWidth(value)
+    if (typeof value === 'number' && Number.isFinite(value) && localStorage.getItem('oxe.navigation') === null) {
+      localStorage.setItem('oxe.navigation', JSON.stringify({ state: { width, expanded: {} }, version: 0 }))
+    }
+    return width
+  } catch { return SIDEBAR_WIDTH }
+}
+
 export const useNavigationPrefs = create<{
   width: number; expanded: Record<string, boolean>
+  threadDensity: 'comfortable' | 'compact'
+  setThreadDensity: (density: 'comfortable' | 'compact') => void
   setWidth: (width: number) => void; setExpanded: (id: string, expanded: boolean) => void
 }>()(persist((set) => ({
-  width: 280, expanded: {},
-  setWidth: width => set({ width: Number.isFinite(width) ? Math.max(240, Math.min(360, width)) : 280 }),
+  width: legacyThreadWidth(), expanded: {},
+  threadDensity: 'comfortable',
+  setThreadDensity: threadDensity => set({ threadDensity }),
+  setWidth: width => set({ width: navigationWidth(width) }),
   setExpanded: (id, expanded) => set(state => ({ expanded: { ...state.expanded, [id]: expanded } }))
 }), { name: 'oxe.navigation', merge: (saved, current) => {
-  const value = saved as { width?: unknown; expanded?: Record<string, unknown> } | null
-  return { ...current, width: typeof value?.width === 'number' && Number.isFinite(value.width) ? Math.max(240, Math.min(360, value.width)) : 280,
+  const value = saved as { width?: unknown; expanded?: Record<string, unknown>; threadDensity?: unknown } | null
+  return { ...current, width: navigationWidth(value?.width ?? current.width),
+    threadDensity: value?.threadDensity === 'compact' ? 'compact' : 'comfortable',
     expanded: Object.fromEntries(Object.entries(value?.expanded ?? {}).filter(([, v]) => typeof v === 'boolean')) as Record<string, boolean> }
 } }))

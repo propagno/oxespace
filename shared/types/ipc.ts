@@ -63,9 +63,13 @@ export type { IntegrationGroup, IntegrationMember, IntegrationHandoff, Integrati
 export type { FileSystemApi, FileSystemFileChangedEvent, FileSystemListTreeInput, FileSystemReadBinaryInput, FileSystemReadBinaryResult, FileSystemReadFileInput, FileSystemReadFileResult, FileSystemUnwatchFileInput, FileSystemWatchFileInput, FileSystemWatchFileResult, FileSystemWriteFileInput, FileSystemWriteFileResult, FileTreeNode, FileTreeNodeType } from './filesystem'
 
 export const IPC_CHANNELS = {
-  delegation: { status: 'delegation:status', configure: 'delegation:configure', control: 'delegation:control', changed: 'delegation:changed' },
+  team: { command: 'team:command', messages: 'team:messages', send: 'team:send' },
+  agentAccount: { read: 'agent-account:read', login: 'agent-account:login', logout: 'agent-account:logout', cancel: 'agent-account:cancel', code: 'agent-account:code', browser: 'agent-account:browser', changed: 'agent-account:changed' },
+  thread: { projectDiff: 'thread:project-diff', artifact: 'thread:artifact', exportPortable: 'thread:export-portable', importPortable: 'thread:import-portable', models: 'thread:models', configure: 'thread:configure', command: 'thread:command', recover: 'thread:recover', observe: 'thread:observe', commands: 'thread:commands', projects: 'thread:projects', addProject: 'thread:project-add', relinkProject: 'thread:project-relink', setProjectHidden: 'thread:project-hidden', list: 'thread:list', create: 'thread:create', read: 'thread:read', history: 'thread:history', attach: 'thread:attach', removeAttachment: 'thread:remove-attachment', send: 'thread:send', steer: 'thread:steer', updateQueued: 'thread:queue-update', deleteQueued: 'thread:queue-delete', reorderQueued: 'thread:queue-reorder', interrupt: 'thread:interrupt', approve: 'thread:approve', respond: 'thread:respond', pin: 'thread:pin', changed: 'thread:changed' },
+  threadCli: { open: 'thread-cli:open', state: 'thread-cli:state', write: 'thread-cli:write', resize: 'thread-cli:resize', attach: 'thread-cli:attach', detach: 'thread-cli:detach', stop: 'thread-cli:stop', insert: 'thread-cli:insert', link: 'thread-cli:link', data: 'thread-cli:data', exit: 'thread-cli:exit' },
+  delegation: { create: 'delegation:create', status: 'delegation:status', preview: 'delegation:preview', configure: 'delegation:configure', control: 'delegation:control', changed: 'delegation:changed', configureTarget: 'delegation:configure-target', adopt: 'delegation:adopt' },
   memory: {
-    status: 'memory:status', configure: 'memory:configure', install: 'memory:install',
+    status: 'memory:status', configure: 'memory:configure', install: 'memory:install', rollback: 'memory:rollback',
     setupAgents: 'memory:setup-agents', search: 'memory:search', recent: 'memory:recent'
   },
   app: {
@@ -151,7 +155,10 @@ export const IPC_CHANNELS = {
   },
   git: {
     getBranch: 'git:get-branch',
+    getStatus: 'git:get-status',
     getDiff: 'git:get-diff',
+    getDiffSummary: 'git:diff-summary',
+    getFileOriginal: 'git:file-original',
     onDiffUpdate: 'git:diff-update'
   },
   search: {
@@ -232,6 +239,7 @@ export const IPC_CHANNELS = {
     delete: 'mcp:delete',
     start: 'mcp:start',
     stop: 'mcp:stop',
+    openSignIn: 'mcp:open-sign-in',
     callTool: 'mcp:call-tool',
     onHealth: 'mcp:on-health'
   },
@@ -257,6 +265,8 @@ export const IPC_CHANNELS = {
     checkoutBranch: 'github:checkout-branch',
     listPullRequests: 'github:list-pull-requests',
     createPullRequest: 'github:create-pull-request',
+    getPullRequestStatus: 'github:get-pull-request-status',
+    setPullRequestAutoMerge: 'github:set-pull-request-auto-merge',
     listCommits: 'github:list-commits',
     getCommitDetails: 'github:get-commit-details',
     listReleases: 'github:list-releases',
@@ -294,6 +304,21 @@ export const IPC_CHANNELS = {
     captureWebPreview: 'mcp-internal:capture-web-preview',
     onWebPreview: 'mcp-internal:on-web-preview',
     onWorktreeChanged: 'mcp-internal:on-worktree-changed'
+  },
+  browserPreview: {
+    session: 'browser-preview:session',
+    mount: 'browser-preview:mount',
+    bounds: 'browser-preview:bounds',
+    setAccess: 'browser-preview:set-access',
+    designMode: 'browser-preview:design-mode',
+    setZoom: 'browser-preview:set-zoom',
+    reload: 'browser-preview:reload',
+    back: 'browser-preview:back',
+    forward: 'browser-preview:forward',
+    captureElement: 'browser-preview:capture-element',
+    captureClipboard: 'browser-preview:capture-clipboard',
+    close: 'browser-preview:close',
+    onEvent: 'browser-preview:event'
   },
   oxeContext: {
     buildPaneManifest: 'oxe-context:build-pane-manifest'
@@ -394,6 +419,12 @@ export interface TerminalStatusResult {
   running: boolean
   seq: number
   altScreen: boolean
+  /** OXESpace PTY session identity, distinct from any provider conversation ID. */
+  sessionId?: string
+  launchDirectory?: string
+  executable?: string
+  pid?: number
+  startedAt?: number
 }
 
 export interface SplitPaneInput {
@@ -475,7 +506,10 @@ export interface TaskApi {
 
 export interface GitApi {
   getBranch(input: import('./git').GitBranchInput): Promise<import('./git').GitBranchStatus>
+  getStatus(input: import('./git').GitBranchInput): Promise<import('./git').GitControlStatus>
   getDiff(input: import('./git').GitDiffInput): Promise<import('./git').GitDiff>
+  getDiffSummary(input: import('./git').GitDiffInput): Promise<import('./git').GitDiffSummary>
+  getFileOriginal(input: import('./git').GitFileOriginalInput): Promise<import('./git').GitFileOriginal>
   onDiffUpdate(listener: (diff: import('./git').GitDiff) => void): () => void
 }
 
@@ -519,6 +553,8 @@ export interface GitHubApi {
   getWorktreeStatus(input: import('./github').GitHubWorktreePathInput): Promise<import('./github').GitHubWorktreeStatus>
   listPullRequests(input: GitHubPullRequestListInput): Promise<GitHubPullRequest[]>
   createPullRequest(input: GitHubCreatePullRequestInput): Promise<GitHubMessageResult>
+  getPullRequestStatus(input: GitHubWorkspaceInput): Promise<import('./github').GitHubPrStatus | null>
+  setPullRequestAutoMerge(input: import('./github').GitHubPrAutoMergeInput): Promise<GitHubMessageResult>
   listCommits(input: GitHubWorkspaceInput): Promise<GitHubCommit[]>
   getCommitDetails(input: GitHubCommitDetailsInput): Promise<GitHubCommitDetails>
   listReleases(input: GitHubWorkspaceInput): Promise<GitHubRelease[]>
@@ -618,6 +654,9 @@ export interface RtkApi {
 }
 
 export interface OxeApi {
+  team?: import('./team').TeamApi
+  agentAccount?: import('./agentAuth').AgentAccountApi
+  thread?: import('./thread').ThreadApi
   delegation: import('./delegation').DelegationApi
   memory: import('./memory').MemoryApi
   app: {
@@ -648,6 +687,7 @@ export interface OxeApi {
   skill: SkillApi
   mcp: McpApi
   mcpInternal: McpInternalApi
+  browserPreview: import('./browser-preview').BrowserPreviewApi
   oxeContext: OxeContextApi
   semantic: SemanticApi
   diagnostics: import('./diagnostics').DiagnosticsApi
@@ -777,6 +817,8 @@ export interface McpApi {
   delete(id: string): Promise<void>
   start(id: string): Promise<import('./mcp').McpToolDescriptor[]>
   stop(id: string): Promise<void>
+  /** Reopens the browser sign-in page of a server that is waiting to authenticate. */
+  openSignIn(id: string): Promise<boolean>
   callTool(input: import('./mcp').McpCallToolInput): Promise<import('./mcp').McpCallToolResult>
   onHealth(listener: (event: import('./mcp').McpServerHealthEvent) => void): () => void
 }

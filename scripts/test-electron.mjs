@@ -2,20 +2,19 @@
 /**
  * Runs vitest under Electron's Node ABI.
  *
- * better-sqlite3 is built for Electron (NODE_MODULE_VERSION 125), so `vitest run`
- * on system Node (127) cannot load it and every DB-backed test fails with a
- * module-version error. That looks like ~49 broken tests when nothing is broken.
- * ELECTRON_RUN_AS_NODE makes the Electron binary behave as plain Node with the
- * matching ABI, so the whole suite runs locally the way it does in CI.
+ * SQLite and PTY now ship Node-API binaries, usable in Node and Electron.
+ * This runner additionally exercises the exact Node runtime embedded in the
+ * pinned Electron through ELECTRON_RUN_AS_NODE.
  *
  * Extra args are forwarded: `npm run test:electron -- tests/integration/foo.test.ts`
  */
 import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
+import { dirname, join } from 'node:path'
 
 const require = createRequire(import.meta.url)
 const electron = require('electron')
-const vitest = require.resolve('vitest/vitest.mjs')
+const vitest = join(dirname(require.resolve('vitest/package.json')), 'vitest.mjs')
 
 const child = spawn(electron, [vitest, 'run', ...process.argv.slice(2)], {
   stdio: 'inherit',

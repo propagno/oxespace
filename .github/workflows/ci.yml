@@ -151,6 +151,7 @@ jobs:
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "prerelease=$($isPrerelease.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "channel=$channel" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "manifest=$channel.yml" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           # electron-updater writes a per-OS manifest on Linux.
           "manifest_linux=$channel-linux.yml" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
@@ -178,6 +179,15 @@ jobs:
       - name: Install dependencies without lifecycle scripts
         run: npm ci --ignore-scripts
 
+      - name: Audit production dependencies
+        run: npm run security:audit
+
+      - name: Audit build tools for high and critical advisories
+        run: npm run security:audit:tools
+
+      - name: Verify Electron support window
+        run: node scripts/check-runtime-support.mjs
+
       - name: Install the pinned Electron runtime
         run: npm rebuild electron
 
@@ -197,6 +207,8 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
           npm run rebuild:native:node
+          # Git/worktree integration tests contend for process and filesystem
+          # resources on Windows when Vitest runs files concurrently.
           npm run test:coverage
 
       - name: Build renderer and main process
@@ -283,7 +295,10 @@ jobs:
           # slim:pack keeps ONLY the target's ONNX prebuild; passing the target
           # explicitly matters because it is what a Linux build needs to KEEP.
           node scripts/slim-pack-deps.mjs --platform=${{ matrix.slim_platform }} --arch=x64
-          npx electron-builder ${{ matrix.builder_flag }} --config.npmRebuild=false --publish never
+          # GitHub publish configuration does not infer the update channel from
+          # prerelease versions. Set it explicitly so beta builds emit beta.yml
+          # (and beta-linux.yml) instead of overwriting the stable latest feed.
+          npx electron-builder ${{ matrix.builder_flag }} --config.npmRebuild=false --config.publish.channel=${{ steps.plan.outputs.channel }} --publish never
 
       - name: E2E packaged Linux build
         if: steps.plan.outputs.should_release == 'true' && runner.os == 'Linux'
@@ -512,17 +527,20 @@ jobs:
           }
 
           gh release view $env:RELEASE_TAG 2>$null
+          $notesPath = "docs/releases/$version.md"
           if ($LASTEXITCODE -eq 0) {
             gh release upload $env:RELEASE_TAG --clobber @assets
             gh release edit $env:RELEASE_TAG --draft=true
+            if (Test-Path -LiteralPath $notesPath) { gh release edit $env:RELEASE_TAG --notes-file $notesPath }
           } else {
             $createArgs = @(
               'release', 'create', $env:RELEASE_TAG,
               '--draft',
-              '--generate-notes',
               '--title', "OXESpace $env:RELEASE_TAG",
               '--target', '${{ needs.build.outputs.sha }}'
             )
+            if (Test-Path -LiteralPath $notesPath) { $createArgs += @('--notes-file', $notesPath) }
+            else { $createArgs += '--generate-notes' }
             if ('${{ needs.build.outputs.prerelease }}' -eq 'true') { $createArgs += '--prerelease' }
             $createArgs += $assets
             gh @createArgs

@@ -46,10 +46,84 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
   const terminalData = createPaneSubscriber<TerminalDataEvent>(ipc, IPC_CHANNELS.terminal.onData)
   const terminalExit = createPaneSubscriber<TerminalExitEvent>(ipc, IPC_CHANNELS.terminal.onExit)
   const terminalActivity = createPaneSubscriber<TerminalActivityEvent>(ipc, IPC_CHANNELS.terminal.onActivity)
+  const cliData = createPaneSubscriber<TerminalDataEvent>(ipc, IPC_CHANNELS.threadCli.data)
+  const cliExit = createPaneSubscriber<TerminalExitEvent>(ipc, IPC_CHANNELS.threadCli.exit)
 
   return {
+    agentAccount: {
+      read: context => ipc.invoke(IPC_CHANNELS.agentAccount.read, context) as ReturnType<import('../../shared/types/agentAuth').AgentAccountApi['read']>,
+      login: context => ipc.invoke(IPC_CHANNELS.agentAccount.login, context) as ReturnType<import('../../shared/types/agentAuth').AgentAccountApi['login']>,
+      logout: context => ipc.invoke(IPC_CHANNELS.agentAccount.logout, context) as ReturnType<import('../../shared/types/agentAuth').AgentAccountApi['logout']>,
+      cancel: id => ipc.invoke(IPC_CHANNELS.agentAccount.cancel, id) as Promise<void>,
+      submitCode: (id, code) => ipc.invoke(IPC_CHANNELS.agentAccount.code, id, code) as Promise<void>,
+      openBrowser: id => ipc.invoke(IPC_CHANNELS.agentAccount.browser, id) as Promise<void>,
+      onChanged: listener => subscribe(ipc, IPC_CHANNELS.agentAccount.changed, listener)
+    },
+    thread: {
+      projectDiff: id => ipc.invoke(IPC_CHANNELS.thread.projectDiff, id) as Promise<import('../../shared/types/git').GitDiff>,
+      artifact: (id, artifactId) => ipc.invoke(IPC_CHANNELS.thread.artifact, id, artifactId) as Promise<import('../../shared/types/thread').ThreadArtifact>,
+      exportPortable: id => ipc.invoke(IPC_CHANNELS.thread.exportPortable, id) as Promise<string | null>,
+      importPortable: id => ipc.invoke(IPC_CHANNELS.thread.importPortable, id) as Promise<import('../../shared/types/thread').ThreadSnapshot | null>,
+      models: (id, refresh) => ipc.invoke(IPC_CHANNELS.thread.models, id, refresh) as Promise<import('../../shared/types/thread').ThreadModelCatalog>,
+      configure: (id, configuration, revision) => ipc.invoke(IPC_CHANNELS.thread.configure, id, configuration, revision) as Promise<import('../../shared/types/thread').ThreadSnapshot>,
+      command: (id, text) => ipc.invoke(IPC_CHANNELS.thread.command, id, text) as Promise<import('../../shared/types/thread').ThreadCommandResult>,
+      observe: id => ipc.invoke(IPC_CHANNELS.thread.observe, id) as Promise<import('../../shared/types/thread').ThreadProviderObservation>,
+      recover: id => ipc.invoke(IPC_CHANNELS.thread.recover, id) as Promise<void>,
+      cli: {
+        open: (id, command) => ipc.invoke(IPC_CHANNELS.threadCli.open, id, command) as ReturnType<import('../../shared/types/thread').ThreadCliApi['open']>,
+        state: id => ipc.invoke(IPC_CHANNELS.threadCli.state, id) as ReturnType<import('../../shared/types/thread').ThreadCliApi['state']>,
+        write: (id, data) => ipc.invoke(IPC_CHANNELS.threadCli.write, id, data) as Promise<void>,
+        resize: (id, cols, rows) => ipc.invoke(IPC_CHANNELS.threadCli.resize, id, cols, rows) as Promise<void>,
+        attach: id => ipc.invoke(IPC_CHANNELS.threadCli.attach, id) as Promise<TerminalAttachResult>,
+        detach: id => ipc.invoke(IPC_CHANNELS.threadCli.detach, id) as Promise<void>,
+        stop: id => ipc.invoke(IPC_CHANNELS.threadCli.stop, id) as Promise<void>,
+        insertCommand: id => ipc.invoke(IPC_CHANNELS.threadCli.insert, id) as Promise<void>,
+        linkSession: (id, nativeId) => ipc.invoke(IPC_CHANNELS.threadCli.link, id, nativeId) as Promise<void>,
+        onData: cliData, onExit: cliExit
+      },
+      commands: (id, forceRefresh) => ipc.invoke(IPC_CHANNELS.thread.commands, id, forceRefresh) as ReturnType<import('../../shared/types/thread').ThreadApi['commands']>,
+      projects: () => ipc.invoke(IPC_CHANNELS.thread.projects) as ReturnType<import('../../shared/types/thread').ThreadApi['projects']>,
+      addProject: rootPath => ipc.invoke(IPC_CHANNELS.thread.addProject, rootPath) as ReturnType<import('../../shared/types/thread').ThreadApi['addProject']>,
+      relinkProject: (projectId, rootPath) => ipc.invoke(IPC_CHANNELS.thread.relinkProject, projectId, rootPath) as ReturnType<import('../../shared/types/thread').ThreadApi['relinkProject']>,
+      setProjectHidden: (projectId, hidden) => ipc.invoke(IPC_CHANNELS.thread.setProjectHidden, projectId, hidden) as ReturnType<import('../../shared/types/thread').ThreadApi['setProjectHidden']>,
+      list: () => ipc.invoke(IPC_CHANNELS.thread.list) as ReturnType<import('../../shared/types/thread').ThreadApi['list']>,
+      create: input => ipc.invoke(IPC_CHANNELS.thread.create, input) as ReturnType<import('../../shared/types/thread').ThreadApi['create']>,
+      read: id => ipc.invoke(IPC_CHANNELS.thread.read, id) as ReturnType<import('../../shared/types/thread').ThreadApi['read']>,
+      history: (id, before, limit) => ipc.invoke(IPC_CHANNELS.thread.history, id, before, limit) as Promise<import('../../shared/types/thread').ThreadHistoryPage>,
+      attach: (id, input) => ipc.invoke(IPC_CHANNELS.thread.attach, id, input) as Promise<import('../../shared/types/thread').ThreadAttachment>,
+      removeAttachment: (id, attachmentId) => ipc.invoke(IPC_CHANNELS.thread.removeAttachment, id, attachmentId) as Promise<void>,
+      send: (id, text, attachmentIds) => ipc.invoke(IPC_CHANNELS.thread.send, id, text, attachmentIds) as Promise<void>,
+      steer: (id, text, attachmentIds) => ipc.invoke(IPC_CHANNELS.thread.steer, id, text, attachmentIds) as Promise<void>,
+      updateQueued: (id, itemId, text) => ipc.invoke(IPC_CHANNELS.thread.updateQueued, id, itemId, text) as Promise<void>,
+        deleteQueued: (id, itemId, preserveAttachments) => ipc.invoke(IPC_CHANNELS.thread.deleteQueued, id, itemId, preserveAttachments) as Promise<void>,
+      reorderQueued: (id, itemIds) => ipc.invoke(IPC_CHANNELS.thread.reorderQueued, id, itemIds) as Promise<void>,
+      interrupt: id => ipc.invoke(IPC_CHANNELS.thread.interrupt, id) as Promise<void>,
+      approve: (id, request, decision) => ipc.invoke(IPC_CHANNELS.thread.approve, id, request, decision) as Promise<void>,
+      respond: (id, request, response) => ipc.invoke(IPC_CHANNELS.thread.respond, id, request, response) as Promise<void>,
+      pin: (id, pinned) => ipc.invoke(IPC_CHANNELS.thread.pin, id, pinned) as Promise<void>,
+      onChanged: listener => {
+        const handler = (_event: IpcRendererEvent, payload: unknown): void => listener(payload as { threadId: string })
+        ipc.on(IPC_CHANNELS.thread.changed, handler)
+        return () => ipc.removeListener(IPC_CHANNELS.thread.changed, handler)
+      }
+    },
+    team: {
+      delivery: (scope, revision, id, enabled) => ipc.invoke(IPC_CHANNELS.team.command, scope, enabled ? 'delivery-on' : 'delivery-off', revision, id) as Promise<import('../../shared/types/team').AgentTeam>,
+      messages: (scope, id, before) => ipc.invoke(IPC_CHANNELS.team.messages, scope, id, before) as Promise<import('../../shared/types/team').TeamMessage[]>,
+      send: (scope, id, key, body) => ipc.invoke(IPC_CHANNELS.team.send, scope, id, key, body) as Promise<import('../../shared/types/team').TeamMessage>,
+      connect: (scope, revision, id, owner) => ipc.invoke(IPC_CHANNELS.team.command, scope, 'connect', revision, id, undefined, owner) as Promise<import('../../shared/types/team').AgentTeam>,
+      disconnect: (scope, revision, id) => ipc.invoke(IPC_CHANNELS.team.command, scope, 'disconnect', revision, id) as Promise<import('../../shared/types/team').AgentTeam>,
+      read: scope => ipc.invoke(IPC_CHANNELS.team.command, scope, 'read') as Promise<import('../../shared/types/team').AgentTeam>,
+      add: (scope, revision, name, role) => ipc.invoke(IPC_CHANNELS.team.command, scope, 'add', revision, name, role) as Promise<import('../../shared/types/team').AgentTeam>,
+      coordinator: (scope, revision, id) => ipc.invoke(IPC_CHANNELS.team.command, scope, 'coordinator', revision, id) as Promise<import('../../shared/types/team').AgentTeam>,
+      archive: (scope, revision, id) => ipc.invoke(IPC_CHANNELS.team.command, scope, 'archive', revision, id) as Promise<import('../../shared/types/team').AgentTeam>
+    },
     delegation: {
-      status: (id) => ipc.invoke(IPC_CHANNELS.delegation.status, id) as ReturnType<OxeApi['delegation']['status']>,
+      create: (ws, origin, input) => ipc.invoke(IPC_CHANNELS.delegation.create, ws, origin, input) as ReturnType<OxeApi['delegation']['create']>,
+      configureTarget: (ws, path, enabled, evidence) => ipc.invoke(IPC_CHANNELS.delegation.configureTarget, ws, path, enabled, evidence) as Promise<void>,
+      adopt: (ws, task, pane) => ipc.invoke(IPC_CHANNELS.delegation.adopt, ws, task, pane) as Promise<void>,
+      status: (id, cursor, limit) => ipc.invoke(IPC_CHANNELS.delegation.status, id, cursor, limit) as ReturnType<OxeApi['delegation']['status']>,
+      preview: (id, objective, branchIntent) => ipc.invoke(IPC_CHANNELS.delegation.preview, id, objective, branchIntent) as ReturnType<OxeApi['delegation']['preview']>,
       configure: (id, enabled) => ipc.invoke(IPC_CHANNELS.delegation.configure, id, enabled) as Promise<void>,
       control: (ws, task, action) => ipc.invoke(IPC_CHANNELS.delegation.control, ws, task, action) as Promise<void>,
       onChanged: (listener) => {
@@ -62,6 +136,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       status: (id) => ipc.invoke(IPC_CHANNELS.memory.status, id) as ReturnType<OxeApi['memory']['status']>,
       configure: (input) => ipc.invoke(IPC_CHANNELS.memory.configure, input) as ReturnType<OxeApi['memory']['configure']>,
       install: () => ipc.invoke(IPC_CHANNELS.memory.install) as Promise<string>,
+      rollback: (id) => ipc.invoke(IPC_CHANNELS.memory.rollback, id) as ReturnType<OxeApi['memory']['rollback']>,
       setupAgents: (id) => ipc.invoke(IPC_CHANNELS.memory.setupAgents, id) as Promise<string>,
       search: (input) => ipc.invoke(IPC_CHANNELS.memory.search, input) as ReturnType<OxeApi['memory']['search']>,
       recent: (id) => ipc.invoke(IPC_CHANNELS.memory.recent, id) as ReturnType<OxeApi['memory']['recent']>
@@ -152,7 +227,10 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     },
     git: {
       getBranch: (input) => ipc.invoke(IPC_CHANNELS.git.getBranch, input) as Promise<import('../../shared/types/git').GitBranchStatus>,
+      getStatus: (input) => ipc.invoke(IPC_CHANNELS.git.getStatus, input) as Promise<import('../../shared/types/git').GitControlStatus>,
       getDiff: (input) => ipc.invoke(IPC_CHANNELS.git.getDiff, input) as Promise<GitDiff>,
+      getDiffSummary: (input) => ipc.invoke(IPC_CHANNELS.git.getDiffSummary, input) as Promise<import('../../shared/types/git').GitDiffSummary>,
+      getFileOriginal: (input) => ipc.invoke(IPC_CHANNELS.git.getFileOriginal, input) as Promise<import('../../shared/types/git').GitFileOriginal>,
       onDiffUpdate: (listener) => subscribe<GitDiff>(ipc, IPC_CHANNELS.git.onDiffUpdate, listener)
     },
     search: {
@@ -236,6 +314,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
         ipc.invoke(IPC_CHANNELS.github.getWorktreeStatus, input) as Promise<import('../../shared/types/github').GitHubWorktreeStatus>,
       listPullRequests: (input) => ipc.invoke(IPC_CHANNELS.github.listPullRequests, input) as Promise<GitHubPullRequest[]>,
       createPullRequest: (input) => ipc.invoke(IPC_CHANNELS.github.createPullRequest, input) as Promise<GitHubMessageResult>,
+      getPullRequestStatus: (input) => ipc.invoke(IPC_CHANNELS.github.getPullRequestStatus, input) as Promise<import('../../shared/types/github').GitHubPrStatus | null>,
+      setPullRequestAutoMerge: (input) => ipc.invoke(IPC_CHANNELS.github.setPullRequestAutoMerge, input) as Promise<GitHubMessageResult>,
       listCommits: (input) => ipc.invoke(IPC_CHANNELS.github.listCommits, input) as Promise<GitHubCommit[]>,
       getCommitDetails: (input) => ipc.invoke(IPC_CHANNELS.github.getCommitDetails, input) as Promise<GitHubCommitDetails>,
       listReleases: (input) => ipc.invoke(IPC_CHANNELS.github.listReleases, input) as Promise<GitHubRelease[]>,
@@ -296,6 +376,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       delete: (id) => ipc.invoke(IPC_CHANNELS.mcp.delete, id) as Promise<void>,
       start: (id) => ipc.invoke(IPC_CHANNELS.mcp.start, id) as Promise<import('../../shared/types/mcp').McpToolDescriptor[]>,
       stop: (id) => ipc.invoke(IPC_CHANNELS.mcp.stop, id) as Promise<void>,
+      openSignIn: (id) => ipc.invoke(IPC_CHANNELS.mcp.openSignIn, id) as Promise<boolean>,
       callTool: (input) => ipc.invoke(IPC_CHANNELS.mcp.callTool, input) as Promise<import('../../shared/types/mcp').McpCallToolResult>,
       onHealth: (listener) => subscribe<import('../../shared/types/mcp').McpServerHealthEvent>(ipc, IPC_CHANNELS.mcp.onHealth, listener)
     },
@@ -305,6 +386,21 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       captureWebPreview: () => ipc.invoke(IPC_CHANNELS.mcpInternal.captureWebPreview) as Promise<void>,
       onWebPreview: (listener) => subscribe<import('../../shared/types/mcp-internal').InternalMcpWebPreviewEvent>(ipc, IPC_CHANNELS.mcpInternal.onWebPreview, listener),
       onWorktreeChanged: (listener) => subscribe<import('../../shared/types/mcp-internal').InternalMcpWorktreeChangedEvent>(ipc, IPC_CHANNELS.mcpInternal.onWorktreeChanged, listener)
+    },
+    browserPreview: {
+      session: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.session, input) as Promise<import('../../shared/types/browser-preview').BrowserPreviewSessionState>,
+      mount: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.mount, input) as Promise<import('../../shared/types/browser-preview').BrowserPreviewMountResult>,
+      bounds: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.bounds, input) as Promise<void>,
+      setAccess: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.setAccess, input) as Promise<void>,
+      designMode: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.designMode, input) as Promise<void>,
+      setZoom: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.setZoom, input) as Promise<void>,
+      reload: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.reload, input) as Promise<void>,
+      back: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.back, input) as Promise<void>,
+      forward: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.forward, input) as Promise<void>,
+      captureElement: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.captureElement, input) as Promise<string | null>,
+      captureClipboard: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.captureClipboard, input) as Promise<void>,
+      close: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.close, input) as Promise<void>,
+      onEvent: (listener) => subscribe<import('../../shared/types/browser-preview').BrowserPreviewEvent>(ipc, IPC_CHANNELS.browserPreview.onEvent, listener)
     },
     oxeContext: {
       buildPaneManifest: (input) => ipc.invoke(IPC_CHANNELS.oxeContext.buildPaneManifest, input) as Promise<string>

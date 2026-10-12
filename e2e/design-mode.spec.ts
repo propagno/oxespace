@@ -26,7 +26,7 @@ function startServer(): Promise<{ server: Server; port: number }> {
 }
 
 /**
- * #3 · Design Mode end to end: the preview loads a real page in a <webview>,
+ * #3 · Design Mode end to end: the preview loads a real page in a native Chromium view,
  * the picker highlights an element, and clicking it opens the confirmation
  * sheet with the grabbed selector.
  */
@@ -66,7 +66,7 @@ test('design mode: picking an element opens the grab sheet', async () => {
     await address.fill(`http://127.0.0.1:${port}`)
     await address.press('Enter')
 
-    const webview = page.getByTestId('web-preview-webview')
+    const webview = page.getByTestId('browser-preview-native')
     await expect(webview).toBeVisible()
     // Wait for the guest to actually paint before picking inside it.
     await expect
@@ -83,7 +83,7 @@ test('design mode: picking an element opens the grab sheet', async () => {
     await expect(page.getByText('Design Mode — click an element', { exact: false })).toBeVisible()
 
     // Click the CTA inside the guest. Playwright's mouse targets the host
-    // WebContents; a <webview> guest is a separate one, so drive real Chromium
+    // WebContents; the native guest is a separate one, so drive real Chromium
     // input events at the guest instead of faking a DOM click.
     const clicked = await electronApp.evaluate(async ({ webContents }) => {
       const guest = webContents.getAllWebContents().find((c) => c.getURL().startsWith('http://127.0.0.1'))

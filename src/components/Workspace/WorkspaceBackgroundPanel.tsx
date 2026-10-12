@@ -16,7 +16,7 @@ export function WorkspaceBackgroundPanel({ isExpanded, onCollapse, onToggleExpan
       <header className="workspace-editor-header">
         <div className="workspace-editor-title">
           <Activity size={12} aria-hidden="true" />
-          <span>Background jobs</span>
+          <span>Background activity</span>
         </div>
         <div className="workspace-editor-actions" aria-label="Background panel actions">
           <button

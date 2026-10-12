@@ -32,6 +32,7 @@ const workspace: Workspace = {
   uiDensity: 'comfortable',
   defaultShellProfileId: 'shell-1',
   autoStart: false,
+  panes: [],
   isActive: true
 } as Workspace
 

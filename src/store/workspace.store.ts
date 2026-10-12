@@ -63,7 +63,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   createWorkspace: async (input) => {
     const workspace = await window.oxe.workspace.create(input)
     set((state) => ({
-      workspaces: [workspace, ...state.workspaces.map((item) => ({ ...item, isActive: item.id === workspace.id }))],
+      // The main process can return an existing workspace for this folder.
+      // Replace that row instead of inserting the same ID a second time.
+      workspaces: [workspace, ...state.workspaces.filter((item) => item.id !== workspace.id).map((item) => ({ ...item, isActive: false }))],
       activeWorkspaceId: workspace.id,
       error: null
     }))

@@ -1,0 +1,28 @@
+{
+  "capturedAt": "2026-10-05T02:20:21.954Z",
+  "elapsedMs": 955.4301,
+  "inference": false,
+  "resumed": false,
+  "installedApplication": false,
+  "methods": [
+    "initialize",
+    "initialized",
+    "thread/read",
+    "thread/turns/list",
+    "thread/items/list",
+    "thread/items/list",
+    "thread/items/list",
+    "thread/items/list",
+    "thread/items/list"
+  ],
+  "observation": {
+    "state": "completed",
+    "source": "codex-app-server",
+    "nativeTurnId": "01a108b0-e63b-7ef1-b85a-8e3893920409",
+    "observedAt": 1791166821283,
+    "detail": "The provider journal records this exact turn as finished. Missing output has not been imported; the local turn and queued messages were not changed."
+  },
+  "recovered": true,
+  "messages": 8,
+  "textBytes": 2762
+}

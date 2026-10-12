@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { GitHubWorkspaceStatus } from '../../shared/types/github'
@@ -222,7 +222,9 @@ describe('GitHub Status sync (Fetch / Pull / Push)', () => {
       expect(screen.getByTestId('github-no-remote-callout')).toBeInTheDocument()
       expect(screen.getByTestId('github-sync-title')).toHaveTextContent(/No remote/i)
     })
-    expect(screen.getByTestId('github-status-fetch')).toBeDisabled()
+    expect(screen.queryByTestId('github-status-fetch')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('github-status-headline')).not.toBeInTheDocument()
+    expect(screen.getByTestId('github-no-remote-callout')).toHaveTextContent('git remote add origin')
   })
 
   test('lists changed files and stages or unstages them individually', async () => {
@@ -245,5 +247,24 @@ describe('GitHub Status sync (Fetch / Pull / Push)', () => {
 
     await user.click(screen.getByRole('button', { name: 'Unstage src/staged.ts' }))
     await waitFor(() => expect(window.oxe.github.unstageFile).toHaveBeenCalledWith({ workspaceId: 'workspace-1', rootPath: 'C:/repo', path: 'src/staged.ts' }))
+  })
+
+  test('shows commit controls only when files are staged', async () => {
+    window.oxe.github.getWorkspaceStatus = vi.fn().mockResolvedValue(makeStatus())
+    renderPanel()
+    await screen.findByText('Working tree clean')
+    expect(screen.queryByRole('button', { name: /Stage all/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'Commit message' })).not.toBeInTheDocument()
+
+    act(() => useGitHubStore.setState(state => ({ byWorkspace: {
+      ...state.byWorkspace,
+      'workspace-1': { ...state.byWorkspace['workspace-1'], status: makeStatus({
+        staged: 1,
+        changes: [{ path: 'src/ready.ts', indexStatus: 'M', workTreeStatus: ' ', staged: true, unstaged: false, untracked: false, renamed: false, deleted: false }]
+      }) }
+    } })))
+    expect(await screen.findByRole('textbox', { name: 'Commit message' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Commit 1 staged' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /Stage all/i })).not.toBeInTheDocument()
   })
 })

@@ -49,7 +49,7 @@ interface WatchEntry {
   timeout: NodeJS.Timeout | null
 }
 
-export type WorkspaceRootResolver = (workspaceId: string) => string | null
+export type WorkspaceRootResolver = (workspaceId: string, requestedRoot: string) => string | null
 
 export class FileSystemService {
   private readonly watchers = new Map<string, WatchEntry>()
@@ -180,12 +180,12 @@ export class FileSystemService {
   }
 
   private async authorizeRoot(workspaceId: string, requestedRoot: string): Promise<string> {
-    const authoritativeRoot = this.resolveWorkspaceRoot?.(workspaceId)
+    const authoritativeRoot = this.resolveWorkspaceRoot?.(workspaceId, requestedRoot)
     if (this.resolveWorkspaceRoot && !authoritativeRoot) {
       throw new Error(`Workspace ${workspaceId} not found`)
     }
     const expected = resolve(authoritativeRoot ?? requestedRoot)
-    if (authoritativeRoot && normalize(resolve(requestedRoot)).toLowerCase() !== normalize(expected).toLowerCase()) {
+    if (authoritativeRoot && await realpath(resolve(requestedRoot)) !== await realpath(expected)) {
       throw new Error('Workspace root does not match the registered workspace')
     }
     return expected
@@ -252,8 +252,10 @@ export class FileSystemService {
 
 async function assertCanonicalInside(rootPath: string, targetPath: string): Promise<void> {
   const [canonicalRoot, canonicalTarget] = await Promise.all([realpath(rootPath), realpath(targetPath)])
-  const root = normalize(canonicalRoot).toLowerCase()
-  const target = normalize(canonicalTarget).toLowerCase()
+  // realpath resolves casing on Windows too. Never fold case: Windows can
+  // enable case-sensitive directories, and POSIX normally distinguishes them.
+  const root = normalize(canonicalRoot)
+  const target = normalize(canonicalTarget)
   const prefix = root.endsWith(sep) ? root : `${root}${sep}`
   if (target !== root && !target.startsWith(prefix)) {
     throw new Error('Path resolves outside workspace root')

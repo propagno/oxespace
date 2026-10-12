@@ -1,0 +1,34 @@
+/* CI status bar for the branch's pull request, docked above the composer. */
+.pr-status-bar { margin: 0 0 8px; border: 1px solid var(--wb-border); border-radius: var(--panel-radius); background: var(--wb-raised); color: var(--tx-secondary); font-size: var(--fs-xs); }
+.pr-status-main { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 4px 6px 4px 4px; }
+.pr-status-toggle { display: inline-flex; align-items: center; flex: 1; gap: 8px; min-width: 0; height: var(--hit-min); padding: 0 8px; border: 0; border-radius: var(--radius-md); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.pr-status-toggle:hover { background: var(--nav-hover); color: var(--tx-primary); }
+.pr-status-toggle svg { flex: none; }
+.pr-status-title { min-width: 0; overflow: hidden; color: var(--tx-primary); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.pr-status-chip { padding: 1px 7px; border-radius: var(--radius-pill); background: var(--ov-2); color: var(--tx-muted); font-size: var(--fs-2xs); font-style: normal; }
+.pr-status-summary { display: inline-flex; align-items: center; flex: none; gap: 6px; margin-left: auto; white-space: nowrap; }
+.pr-status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dot-gray); }
+.pr-status-bar.is-success .pr-status-dot { background: var(--dot-green); }
+.pr-status-bar.is-pending .pr-status-dot { background: var(--dot-yellow); }
+.pr-status-bar.is-failure .pr-status-dot { background: var(--dot-red); }
+.pr-status-bar.is-failure { border-color: color-mix(in srgb, var(--dot-red) 40%, var(--wb-border)); }
+.pr-status-actions { display: inline-flex; flex: none; align-items: center; gap: 4px; }
+.pr-status-actions button { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; border: 1px solid var(--wb-border); border-radius: var(--radius-pill); background: transparent; color: var(--tx-secondary); font: inherit; cursor: pointer; }
+.pr-status-actions button:hover:not(:disabled) { background: var(--nav-hover); color: var(--tx-primary); }
+.pr-status-actions button[aria-pressed='true'] { border-color: color-mix(in srgb, var(--dot-green) 50%, var(--wb-border)); color: var(--dot-green); }
+.pr-status-actions button.is-primary { border-color: transparent; background: var(--tx-primary); color: var(--bg-app); font-weight: 600; }
+.pr-status-notice { margin: 0; padding: 4px 12px 8px; color: var(--dot-red); }
+.pr-status-checks { display: grid; gap: 1px; margin: 0; padding: 4px 6px 6px; list-style: none; border-top: 1px solid var(--wb-border); max-height: 220px; overflow: auto; }
+.pr-status-checks li { display: flex; align-items: center; gap: 8px; min-height: 26px; padding: 0 8px; border-radius: var(--radius-sm); }
+.pr-status-checks li:hover { background: var(--nav-hover); }
+.pr-status-checks li.is-empty { color: var(--tx-muted); }
+.pr-status-checks .pr-check-name { min-width: 0; overflow: hidden; color: var(--tx-primary); text-overflow: ellipsis; white-space: nowrap; }
+.pr-status-checks small { min-width: 0; overflow: hidden; color: var(--tx-muted); text-overflow: ellipsis; white-space: nowrap; }
+.pr-check-icon { display: inline-grid; place-items: center; flex: none; width: 18px; height: 18px; border-radius: 50%; }
+li.is-success .pr-check-icon { color: var(--dot-green); }
+li.is-failure .pr-check-icon { color: var(--dot-red); }
+li.is-pending .pr-check-icon { color: var(--dot-yellow); }
+li.is-neutral .pr-check-icon { color: var(--tx-muted); }
+.pr-status-checks li button { display: grid; place-items: center; margin-left: auto; width: 22px; height: 22px; padding: 0; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--tx-muted); cursor: pointer; }
+.pr-status-checks li button:hover { background: var(--ov-2); color: var(--tx-primary); }
+@media (max-width: 900px) { .pr-status-actions button span, .pr-status-summary { display: none; } }

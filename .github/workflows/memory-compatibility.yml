@@ -1,0 +1,81 @@
+name: Memory compatibility
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'electron/main/services/memory/**'
+      - 'electron/main/services/conversation/**'
+      - 'shared/types/memory.ts'
+      - 'shared/types/thread.ts'
+      - 'resources/memory/**'
+      - 'tests/**/memory*'
+      - 'tests/**/ai-memory*'
+      - 'scripts/test-memory-compatibility.mjs'
+      - '.github/workflows/memory-compatibility.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            version: '2.1.0'
+            asset: ai-memory-windows-x86_64.zip
+            sha256: 72c477e5c02b54c202e1c7515aacf00a1702f9916c51a26d875fcfeff65b1451
+          - os: windows-2022
+            version: '2.6.2'
+            asset: ai-memory-windows-x86_64.zip
+            sha256: 740952e38b29f684291801251dc5ee7c67fd03b926c72f1fda2d3a006cdb57a0
+          - os: ubuntu-22.04
+            version: '2.1.0'
+            asset: ai-memory-linux-x86_64.tar.gz
+            sha256: b4d911f392fea7f151c9c1ff83521922417570e5104ffb02a5e82253afc877ac
+          - os: ubuntu-22.04
+            version: '2.6.2'
+            asset: ai-memory-linux-x86_64.tar.gz
+            sha256: dc73118f772763a119b03d387f6f44f0b866d85498851b74aa5152944ef2e650
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Linux libraries for Electron Node runtime
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 libasound2 libxshmfence1 libnotify4
+      - run: npm ci --ignore-scripts
+      - run: npm rebuild electron better-sqlite3
+      - name: Durable queue and Thread capture regressions
+        run: node scripts/test-electron.mjs tests/unit/memory-outbox.test.ts tests/integration/memory-service.test.ts tests/integration/memory-thread-environment.test.ts --maxWorkers=1
+      - name: Verify archive and run every native contract
+        shell: pwsh
+        env:
+          MEMORY_VERSION: ${{ matrix.version }}
+          MEMORY_ASSET: ${{ matrix.asset }}
+          MEMORY_ARCHIVE_SHA256: ${{ matrix.sha256 }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $memoryFixture = Join-Path $env:RUNNER_TEMP ('memory-' + $env:MEMORY_VERSION)
+          New-Item -ItemType Directory -Path $memoryFixture -Force | Out-Null
+          $memoryArchive = Join-Path $memoryFixture $env:MEMORY_ASSET
+          Invoke-WebRequest -Uri "https://github.com/akitaonrails/ai-memory/releases/download/v$env:MEMORY_VERSION/$env:MEMORY_ASSET" -OutFile $memoryArchive -TimeoutSec 120
+          if ((Get-FileHash -LiteralPath $memoryArchive -Algorithm SHA256).Hash -ine $env:MEMORY_ARCHIVE_SHA256) { throw 'Archive checksum mismatch' }
+          if ($IsWindows) {
+            Expand-Archive -LiteralPath $memoryArchive -DestinationPath $memoryFixture
+            $memoryBinary = Join-Path $memoryFixture 'ai-memory.exe'
+          } else {
+            tar -xzf $memoryArchive -C $memoryFixture
+            $memoryBinary = Join-Path $memoryFixture 'ai-memory'
+          }
+          $memoryDigest = (Get-FileHash -LiteralPath $memoryBinary -Algorithm SHA256).Hash
+          node scripts/test-memory-compatibility.mjs --binary $memoryBinary --version $env:MEMORY_VERSION --sha256 $memoryDigest

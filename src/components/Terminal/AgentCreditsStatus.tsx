@@ -5,7 +5,7 @@ import type { CreditsWindow } from '../../../shared/types/agentCredits'
 import { useAgentCreditsStore } from '../../store/agentCredits.store'
 import { ViewportTooltip } from '../common/ViewportTooltip'
 
-const REFRESH_INTERVAL_MS = 60_000
+const REFRESH_INTERVAL_MS = 5 * 60_000
 
 /**
  * Per-provider usage/credits indicator for the terminal status bar — the
@@ -36,10 +36,10 @@ export function AgentCreditsStatus({ provider }: { provider: AgentProvider }): R
   if (!snapshot || !snapshot.available || !snapshot.display) return null
 
   const pct = snapshot.display.usedPct
-  const tone = pct >= 100 ? 'critical' : pct >= 80 ? 'warning' : 'ok'
+  const tone = snapshot.stale ? 'warning' : pct >= 100 ? 'critical' : pct >= 80 ? 'warning' : 'ok'
   const name = providerLabel(provider, snapshot.planLabel)
   const Icon = provider === 'codex' ? Bot : Sparkles
-  const title = buildTitle(name, snapshot.windows)
+  const title = `${buildTitle(name, snapshot.windows)}${snapshot.stale ? ' · last known reading' : ''}`
 
   return (
     <ViewportTooltip

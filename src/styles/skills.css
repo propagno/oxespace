@@ -8,7 +8,7 @@
   align-items: flex-start;
   justify-content: center;
   padding-top: 80px;
-  background: radial-gradient(ellipse at top, rgba(110, 235, 212, 0.04) 0%, rgba(0, 0, 0, 0.62) 60%);
+  background: rgba(0, 0, 0, 0.64);
   backdrop-filter: blur(8px);
   animation: model-selector-fade 140ms ease-out;
 }
@@ -19,13 +19,10 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid rgba(18, 199, 154, 0.22);
-  border-radius: 14px;
-  background: linear-gradient(180deg, rgba(14, 31, 48, 0.97) 0%, rgba(7, 15, 26, 0.98) 100%);
-  box-shadow:
-    0 28px 80px rgba(0, 0, 0, 0.78),
-    0 0 0 1px rgba(18, 199, 154, 0.08),
-    0 0 28px rgba(18, 199, 154, 0.10) inset;
+  border: 1px solid var(--bd-base);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
   animation: slash-overlay-pop 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -34,24 +31,24 @@
   align-items: center;
   justify-content: space-between;
   padding: 13px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--bd-base);
 }
 
 .skills-browser-title {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: #6EEBD4;
+  color: var(--accent);
 }
 
-.skills-browser-title strong { color: var(--tx-primary); font-size: 14px; font-weight: 700; }
+.skills-browser-title strong { color: var(--tx-primary); font-size: var(--fs-base); font-weight: 700; }
 
 .skills-browser-count {
   padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(18, 199, 154, 0.10);
-  color: #6EEBD4;
-  font-size: 10.5px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  font-size: var(--fs-2xs);
   font-weight: 700;
   font-family: var(--font-mono);
 }
@@ -60,37 +57,37 @@
 
 .skills-browser-search {
   padding: 10px 16px 6px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--bd-base);
 }
 
 .skills-browser-search input {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--bd-base);
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
   color: var(--tx-primary);
-  font-size: 12.5px;
+  font-size: var(--fs-xs);
   outline: none;
   transition: border-color 100ms;
 }
 
-.skills-browser-search input:focus { border-color: rgba(18, 199, 154, 0.55); }
+.skills-browser-search input:focus { border-color: var(--accent); }
 
 .skills-browser-error {
   padding: 9px 16px;
   background: rgba(244, 91, 105, 0.10);
   color: #FFB1B8;
-  font-size: 11.5px;
+  font-size: var(--fs-2xs);
   border-bottom: 1px solid rgba(244, 91, 105, 0.20);
 }
 
 .skills-browser-notice {
   padding: 8px 16px;
-  background: rgba(18, 199, 154, 0.08);
-  color: #6EEBD4;
-  font-size: 11.5px;
-  border-bottom: 1px solid rgba(18, 199, 154, 0.16);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--tx-primary);
+  font-size: var(--fs-2xs);
+  border-bottom: 1px solid var(--bd-base);
 }
 
 .skills-create-form {
@@ -99,9 +96,9 @@
   gap: 12px;
   margin: 10px 14px;
   padding: 14px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--ov-2);
+  border-radius: var(--panel-radius);
+  background: var(--ov-1);
 }
 
 .skills-create-header {
@@ -111,12 +108,12 @@
 }
 
 .skills-create-header strong {
-  font-size: 12.5px;
+  font-size: var(--fs-xs);
   color: var(--tx-primary);
 }
 
 .skills-create-header span {
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   color: var(--tx-muted);
 }
 
@@ -138,7 +135,7 @@
 
 .skills-create-field > span,
 .skills-create-field > legend {
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   font-weight: 600;
   color: var(--tx-secondary, var(--tx-muted));
 }
@@ -147,17 +144,17 @@
 .skills-create-field select {
   background: rgba(0, 0, 0, 0.32);
   color: var(--tx-primary);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: 6px;
+  border: 1px solid var(--ov-3);
+  border-radius: var(--radius-sm);
   padding: 6px 9px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   min-width: 0;
 }
 
 .skills-create-field input[type="text"]:focus,
 .skills-create-field select:focus {
   outline: none;
-  border-color: rgba(18, 199, 154, 0.55);
+  border-color: var(--accent);
 }
 
 .skills-pack-btn {
@@ -171,11 +168,11 @@
 
 .skills-create-template-note {
   padding: 8px 10px;
-  border: 1px solid rgba(18, 199, 154, 0.18);
-  border-radius: 7px;
-  background: rgba(18, 199, 154, 0.07);
-  color: #6EEBD4;
-  font-size: 11.5px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--bd-base));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--accent) 7%, var(--bg-elevated));
+  color: var(--tx-secondary);
+  font-size: var(--fs-2xs);
   line-height: 1.4;
 }
 
@@ -184,7 +181,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11.5px;
+  font-size: var(--fs-2xs);
   color: var(--tx-primary);
   cursor: pointer;
 }
@@ -196,10 +193,10 @@
 
 .skills-create-radio code,
 .skills-create-radio + .skills-create-radio code {
-  font-size: 10.5px;
-  background: rgba(255, 255, 255, 0.06);
+  font-size: var(--fs-2xs);
+  background: var(--ov-2);
   padding: 1px 5px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 .skills-create-providers {
@@ -212,16 +209,16 @@
   padding: 8px 10px;
   background: rgba(244, 91, 105, 0.10);
   border: 1px solid rgba(244, 91, 105, 0.22);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: #FFB1B8;
-  font-size: 11.5px;
+  font-size: var(--fs-2xs);
 }
 
 .skills-create-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid var(--ov-1);
   padding-top: 10px;
 }
 
@@ -234,7 +231,7 @@
 .skills-section-label {
   padding: 8px 6px 4px;
   color: rgba(255, 255, 255, 0.42);
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   letter-spacing: 0.6px;
   text-transform: uppercase;
@@ -245,13 +242,13 @@
   align-items: stretch;
   margin-bottom: 5px;
   padding: 10px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--ov-1);
+  border-radius: var(--radius-md);
+  background: var(--ov-1);
   transition: border-color 80ms, background 80ms;
 }
 
-.skill-row:hover { background: rgba(18, 199, 154, 0.04); border-color: rgba(18, 199, 154, 0.18); }
+.skill-row:hover { background: var(--bg-hover); border-color: var(--bd-base); }
 
 .skill-row.source-workspace {
   border-color: rgba(255, 200, 100, 0.20);
@@ -263,8 +260,8 @@
 .skill-row-title { display: inline-flex; align-items: center; gap: 6px; color: var(--tx-primary); }
 
 .skill-row-title strong {
-  color: #6EEBD4;
-  font-size: 13px;
+  color: var(--accent);
+  font-size: var(--fs-sm);
   font-weight: 600;
   font-family: var(--font-mono);
 }
@@ -273,29 +270,29 @@
 
 .skill-row-category {
   padding: 1px 7px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-xs);
+  background: var(--ov-1);
   color: rgba(255, 255, 255, 0.6);
-  font-size: 9.5px;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   letter-spacing: 0.4px;
   text-transform: uppercase;
 }
 
-.skill-row-description { color: var(--tx-secondary); font-size: 12px; line-height: 1.4; }
+.skill-row-description { color: var(--tx-secondary); font-size: var(--fs-xs); line-height: 1.4; }
 
 .skill-row-meta {
   display: inline-flex;
   align-items: center;
   gap: 10px;
   color: var(--tx-muted);
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
 }
 
 .skill-row-agents {
   padding: 1px 6px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-xs);
+  background: var(--ov-1);
   font-family: var(--font-mono);
 }
 
@@ -321,16 +318,16 @@
   min-width: 0;
   height: 28px;
   padding: 0 9px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
+  border: 1px solid var(--ov-2);
+  border-radius: var(--radius-sm);
   background: rgba(0, 0, 0, 0.24);
   color: var(--tx-primary);
-  font-size: 11.5px;
+  font-size: var(--fs-2xs);
   outline: none;
 }
 
 .skill-row-controls input:focus {
-  border-color: rgba(18, 199, 154, 0.52);
+  border-color: var(--accent);
 }
 
 .skill-row-buttons {
@@ -346,21 +343,21 @@
   gap: 4px;
   height: 28px;
   padding: 0 9px;
-  border-radius: 6px;
-  font-size: 11px;
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-2xs);
   font-weight: 700;
   cursor: pointer;
 }
 
 .skill-row-buttons .primary-btn {
   border: 0;
-  background: #12C79A;
-  color: #061a14;
+  background: var(--tx-primary);
+  color: var(--bg-app);
 }
 
 .skill-row-buttons .ghost-btn {
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--ov-3);
+  background: var(--ov-1);
   color: var(--tx-secondary);
 }
 
@@ -391,32 +388,32 @@
 }
 
 .skills-browser-empty svg { opacity: 0.45; margin-bottom: 4px; }
-.skills-browser-empty strong { color: var(--tx-primary); font-size: 13px; }
+.skills-browser-empty strong { color: var(--tx-primary); font-size: var(--fs-sm); }
 
 .skills-browser-empty span {
-  font-size: 11.5px;
+  font-size: var(--fs-2xs);
   line-height: 1.5;
   max-width: 420px;
 }
 
 .skills-browser-empty code {
   padding: 1px 6px;
-  border-radius: 3px;
-  background: rgba(18, 199, 154, 0.10);
-  color: #6EEBD4;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
 }
 
 .skills-browser-example {
   margin-top: 12px;
   padding: 12px;
-  border: 1px solid rgba(18, 199, 154, 0.15);
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid var(--bd-base);
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
   color: var(--tx-secondary);
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   line-height: 1.6;
   text-align: left;
   white-space: pre;
@@ -425,20 +422,20 @@
 
 .skills-browser-footer {
   padding: 9px 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
-  background: rgba(0, 0, 0, 0.20);
-  color: rgba(255, 255, 255, 0.40);
-  font-size: 10.5px;
+  border-top: 1px solid var(--bd-base);
+  background: var(--bg-elevated);
+  color: var(--tx-muted);
+  font-size: var(--fs-2xs);
 }
 
 .skills-browser-footer kbd {
   padding: 1px 6px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--ov-3);
+  border-radius: var(--radius-xs);
+  background: var(--ov-1);
   color: var(--tx-secondary);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--fs-2xs);
 }
 
 /* ─── Background jobs panel (full view) ────────────────────────────────── */
@@ -463,7 +460,7 @@
   flex-direction: column;
   overflow: hidden;
   border: 1px solid rgba(255, 200, 100, 0.22);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   background: linear-gradient(180deg, rgba(36, 28, 14, 0.97) 0%, rgba(16, 12, 6, 0.98) 100%);
   box-shadow:
     0 28px 80px rgba(0, 0, 0, 0.78),
@@ -477,7 +474,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 13px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--ov-1);
 }
 
 .bg-jobs-panel-title {
@@ -487,14 +484,14 @@
   color: #FFE082;
 }
 
-.bg-jobs-panel-title strong { color: var(--tx-primary); font-size: 14px; font-weight: 700; }
+.bg-jobs-panel-title strong { color: var(--tx-primary); font-size: var(--fs-base); font-weight: 700; }
 
 .bg-jobs-panel-count {
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(255, 200, 100, 0.10);
   color: #FFE082;
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   font-family: var(--font-mono);
 }
@@ -505,7 +502,7 @@
   display: flex;
   gap: 4px;
   padding: 8px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--ov-1);
 }
 
 .bg-jobs-panel-filter {
@@ -513,11 +510,11 @@
   align-items: center;
   gap: 5px;
   padding: 4px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 6px;
+  border: 1px solid var(--ov-2);
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--tx-muted);
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   font-weight: 600;
   cursor: pointer;
   transition: all 100ms;
@@ -533,10 +530,10 @@
 
 .bg-jobs-panel-filter-count {
   padding: 0 5px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-xs);
+  background: var(--ov-2);
   color: rgba(255, 255, 255, 0.55);
-  font-size: 9.5px;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   font-family: var(--font-mono);
 }
@@ -567,24 +564,24 @@
 }
 
 .bg-jobs-panel-empty svg { opacity: 0.42; margin-bottom: 4px; }
-.bg-jobs-panel-empty strong { color: var(--tx-primary); font-size: 13px; }
-.bg-jobs-panel-empty span { font-size: 11.5px; line-height: 1.5; max-width: 380px; }
+.bg-jobs-panel-empty strong { color: var(--tx-primary); font-size: var(--fs-sm); }
+.bg-jobs-panel-empty span { font-size: var(--fs-2xs); line-height: 1.5; max-width: 380px; }
 .bg-jobs-panel-empty kbd {
   padding: 1px 6px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--ov-3);
+  border-radius: var(--radius-xs);
+  background: var(--ov-1);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--fs-2xs);
 }
 
 .bg-jobs-panel-empty code {
   padding: 1px 6px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   background: rgba(255, 200, 100, 0.10);
   color: #FFE082;
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
 }
 
 .bg-jobs-panel-card {
@@ -593,9 +590,9 @@
   align-items: center;
   gap: 10px;
   padding: 10px 13px;
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--ov-1);
+  border-radius: var(--radius-md);
+  background: var(--ov-1);
 }
 
 .bg-jobs-panel-card.status-running { border-color: rgba(255, 200, 100, 0.22); background: rgba(255, 200, 100, 0.04); }
@@ -613,29 +610,29 @@
 
 .bg-jobs-panel-card-row strong {
   color: var(--tx-primary);
-  font-size: 12.5px;
+  font-size: var(--fs-xs);
   font-weight: 600;
 }
 
 .bg-jobs-panel-card-elapsed {
   padding: 1px 6px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-xs);
+  background: var(--ov-1);
   color: var(--tx-secondary);
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   font-family: var(--font-mono);
 }
 
 .bg-jobs-panel-card-exit {
   color: var(--tx-muted);
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   font-family: var(--font-mono);
 }
 
 .bg-jobs-panel-card-cmd {
   color: var(--tx-secondary);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -644,7 +641,7 @@
 .bg-jobs-panel-card-cwd {
   color: var(--tx-muted);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -656,10 +653,10 @@
   gap: 4px;
   padding: 5px 10px;
   border: 1px solid rgba(244, 91, 105, 0.22);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: #FFB1B8;
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   font-weight: 600;
   cursor: pointer;
   transition: all 100ms;
@@ -672,18 +669,18 @@
 
 .bg-jobs-panel-footer {
   padding: 9px 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  border-top: 1px solid var(--ov-1);
   background: rgba(0, 0, 0, 0.20);
   color: rgba(255, 255, 255, 0.40);
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   line-height: 1.5;
 }
 
 .bg-jobs-panel-footer code {
   padding: 1px 5px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   background: rgba(255, 200, 100, 0.10);
   color: #FFE082;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--fs-2xs);
 }

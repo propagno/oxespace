@@ -25,7 +25,8 @@ import type { AgentCreditsProvider } from './types'
  * `exec` mode `rate_limits` can be null, so we skip past such events/files.
  */
 
-const TTL_MS = 60_000
+const TTL_MS = 5 * 60_000
+const MAX_SESSION_TAIL_BYTES = 4 * 1024 * 1024
 const SCAN_WINDOW_MS = 14 * 24 * 60 * 60 * 1000
 /** Windows up to this length count as the short "session" window; longer = weekly. */
 const SESSION_WINDOW_MAX_MIN = 600
@@ -65,7 +66,11 @@ export class CodexCreditsService implements AgentCreditsProvider {
     const files = this.recentRolloutsNewestFirst()
     for (const file of files) {
       const limits = readLatestRateLimits(file)
-      if (limits) return buildSnapshot(limits)
+      if (limits) {
+        let observedAtMs = Date.now()
+        try { observedAtMs = statSync(file).mtimeMs } catch { /* File may have disappeared during the scan. */ }
+        return buildSnapshot(limits, observedAtMs)
+      }
     }
     return base
   }
@@ -106,7 +111,7 @@ function safeReaddir(dir: string): string[] {
 /** Scan a rollout file for the last `token_count` event carrying rate_limits. */
 function readLatestRateLimits(filePath: string): RawRateLimits | null {
   let raw: string
-  try { raw = readWhole(filePath) } catch { return null }
+  try { raw = readTail(filePath) } catch { return null }
   let found: RawRateLimits | null = null
   for (const line of raw.split('\n')) {
     if (line.length === 0 || !line.includes('rate_limits')) continue
@@ -119,19 +124,22 @@ function readLatestRateLimits(filePath: string): RawRateLimits | null {
   return found
 }
 
-function readWhole(filePath: string): string {
+function readTail(filePath: string): string {
   const fd = openSync(filePath, 'r')
   try {
     const { size } = statSync(filePath)
-    const buf = Buffer.alloc(size)
-    readSync(fd, buf, 0, size, 0)
-    return buf.toString('utf8')
+    const length = Math.min(size, MAX_SESSION_TAIL_BYTES)
+    const offset = size - length
+    const buf = Buffer.alloc(length)
+    readSync(fd, buf, 0, length, offset)
+    const raw = buf.toString('utf8')
+    return offset ? raw.slice(raw.indexOf('\n') + 1) : raw
   } finally {
     closeSync(fd)
   }
 }
 
-function buildSnapshot(limits: RawRateLimits): AgentCreditsSnapshot {
+function buildSnapshot(limits: RawRateLimits, observedAtMs: number): AgentCreditsSnapshot {
   const windows: CreditsWindow[] = []
   for (const raw of [limits.primary, limits.secondary]) {
     const win = toWindow(raw)
@@ -145,6 +153,9 @@ function buildSnapshot(limits: RawRateLimits): AgentCreditsSnapshot {
     planLabel: typeof limits.plan_type === 'string' ? limits.plan_type : null,
     display,
     windows,
+    source: 'local-session',
+    observedAtMs,
+    stale: Date.now() - observedAtMs > 30 * 60_000,
     error: null
   }
 }

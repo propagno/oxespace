@@ -25,10 +25,13 @@ export class AgentLaunchService {
   }
   launch(task: DelegationTask): Promise<void> {
     const agent = this.resolve(task.agentProfileId)
-    const prompt = `You are handling OXESpace delegation ${task.id}. First call oxespace_delegation_context with taskId ${task.id}, then oxespace_delegation_update with state accepted and a short summary. Follow its objective and acceptance criteria. Check oxespace_delegation_inbox at checkpoints. Send questions with oxespace_delegation_message. Submit a verified result and tests using state review. Do not create recursive delegations.\n${agent.prompt.slice(0,2000)}`
+    const prompt = delegationBootstrap(task, agent.prompt)
     return this.terminal.start({ paneId: task.paneId!, workspaceId: task.workspaceId, requireCwd: task.path,
       launch: { executable: agent.executable, args: [...agentMcpArguments(agent.provider, join(this.directory,'bin','oxespace-mcp.cjs')), '--', prompt] } })
   }
+}
+export function delegationBootstrap(task: DelegationTask, systemPrompt = ''): string {
+  return `You are handling OXESpace delegation ${task.id}. First call oxespace_delegation_context with taskId ${task.id}, then oxespace_delegation_update with state accepted and a short summary. Follow its objective and acceptance criteria. Persist progress with oxespace_delegation_checkpoint and check oxespace_delegation_inbox at milestones. Send questions with oxespace_delegation_message. Submit a verified result and tests using state review. Do not create recursive delegations.\n${systemPrompt.slice(0,2000)}`
 }
 export function providerForExecutable(executable: string): string {
   return basename(executable).replace(/\.(exe|cmd|bat|ps1)$/i,'').toLowerCase()

@@ -1,11 +1,10 @@
 import { app } from 'electron'
-import { existsSync, readFileSync } from 'node:fs'
+import { exportRuntimeDiagnostics, runtimeDiagnosticsAvailable } from './runtime-diagnostics'
+import { statfsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import type { AppDatabase } from '../db'
 import type { InternalMcpStatus } from '../../../shared/types/mcp-internal'
 import type { DiagnosticCheck, DiagnosticsSnapshot } from '../../../shared/types/diagnostics'
-
-const MAX_LOG_BYTES = 500 * 1024
 
 export class DiagnosticsService {
   constructor(
@@ -15,6 +14,12 @@ export class DiagnosticsService {
 
   getSnapshot(): DiagnosticsSnapshot {
     const checks: DiagnosticCheck[] = []
+    checks.push({ id: 'runtime-log', label: 'Runtime diagnostics', tone: runtimeDiagnosticsAvailable() ? 'ok' : 'warning', detail: runtimeDiagnosticsAvailable() ? 'Local only · 1.5 MiB maximum · seven days' : 'Unavailable; restart after checking disk space and permissions' })
+    try {
+      const disk = statfsSync(app.getPath('userData'))
+      const freeMiB = Math.floor(disk.bavail * disk.bsize / 1024 / 1024)
+      checks.push({ id: 'disk', label: 'Available disk space', tone: freeMiB < 512 ? 'warning' : 'ok', detail: `${freeMiB} MiB` })
+    } catch { checks.push({ id: 'disk', label: 'Available disk space', tone: 'warning', detail: 'Unavailable' }) }
     try {
       const result = this.db.pragma('quick_check', { simple: true }) as string
       checks.push({ id: 'database', label: 'SQLite', tone: result === 'ok' ? 'ok' : 'error', detail: result })
@@ -44,21 +49,22 @@ export class DiagnosticsService {
     }
   }
 
-  buildSanitizedReport(logPath: string | null): string {
+  buildSanitizedReport(_logPath?: string | null): string {
     const snapshot = this.getSnapshot()
-    const rawLog = logPath && existsSync(logPath) ? tail(readFileSync(logPath, 'utf8'), MAX_LOG_BYTES) : '(main log unavailable)'
-    const sanitized = sanitizeDiagnosticText(rawLog)
+    // General logs and health error strings may contain user/provider content.
+    const safeSnapshot = { ...snapshot, checks: snapshot.checks.map(({ id, label, tone }) => ({ id, label, tone })) }
     return [
       '# OXESpace diagnostics',
       '',
       '```json',
-      JSON.stringify(snapshot, null, 2),
+      JSON.stringify(safeSnapshot, null, 2),
       '```',
       '',
-      '## Sanitized main-process log',
+      '## Compact runtime events',
+      'Local metadata only; up to 1.5 MiB, seven-day retention. Repeated events are counted; bursts may be omitted. No terminal output, prompts, arguments or environment. IDs are hashed. Child processes created inside agents are only visible when reported by the provider. General main-process logs are excluded.',
       '',
       '```text',
-      sanitized,
+      exportRuntimeDiagnostics(),
       '```',
       ''
     ].join('\n')
@@ -73,11 +79,6 @@ export function sanitizeDiagnosticText(value: string): string {
     .replace(new RegExp(home, 'gi'), homeToken)
     .replace(/Bearer\s+[A-Za-z0-9._~+\/-]+/gi, 'Bearer [REDACTED]')
     .replace(/((?:token|secret|password|authorization|api[_-]?key)["'\s:=]+)([^\s,"'}]+)/gi, '$1[REDACTED]')
-}
-
-function tail(value: string, maxBytes: number): string {
-  const buffer = Buffer.from(value)
-  return buffer.length <= maxBytes ? value : buffer.subarray(buffer.length - maxBytes).toString('utf8')
 }
 
 function message(error: unknown): string {

@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
 import type { AgentProfile } from '../../shared/types/agent'
-import type { ShellProfile } from '../../shared/types/workspace'
+import type { ShellProfile, Workspace } from '../../shared/types/workspace'
 import { NewWorkspaceModal } from '../../src/components/Workspace/NewWorkspaceModal'
 import {
   buildAgentSlots,
@@ -75,6 +75,26 @@ describe('NewWorkspaceModal (single-page)', () => {
     expect(onPickFolder).toHaveBeenCalled()
     expect(screen.getByTestId('wizard-dir-input')).toHaveValue('C:/selected/path')
     expect(screen.getByTestId('wizard-launch-btn')).not.toBeDisabled()
+  })
+
+  test('opens a chosen existing workspace without applying new layout or agent commands', async () => {
+    const user = userEvent.setup()
+    const onLaunch = vi.fn().mockResolvedValue(undefined)
+    const onOpenExisting = vi.fn().mockResolvedValue(undefined)
+    const existingWorkspaces = [
+      { id: 'first', name: 'repo', rootPath: 'C:/projects/repo', isActive: true, panes: [] },
+      { id: 'second', name: 'repo', rootPath: 'C:/projects/repo', isActive: false, panes: [] }
+    ] as Workspace[]
+    renderModal({ onLaunch, onOpenExisting, existingWorkspaces, activeWorkspaceId: 'second', platform: 'win32' })
+
+    await user.type(screen.getByTestId('wizard-dir-input'), 'c:\\projects\\repo\\')
+    expect(screen.getByRole('region', { name: 'Existing workspaces' })).toBeInTheDocument()
+    expect(screen.queryByTestId('wizard-layout-grid')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'repo #2 0 terminals' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(screen.getByRole('button', { name: 'repo #2 0 terminals' }))
+    await user.click(screen.getByTestId('wizard-launch-btn'))
+    expect(onOpenExisting).toHaveBeenCalledWith('second')
+    expect(onLaunch).not.toHaveBeenCalled()
   })
 
   test('agent chip + and − increment/decrement count and the chip toggles selected state', async () => {

@@ -51,7 +51,7 @@
   gap: 6px;
   min-width: 0;
   color: var(--tx-secondary);
-  font-size: 11.5px;
+  font-size: var(--fs-2xs);
   flex: 1;
 }
 
@@ -59,7 +59,7 @@
 
 .worktree-panel-active-label {
   color: var(--tx-muted);
-  font-size: 9.5px;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -67,7 +67,7 @@
 
 .worktree-panel-active-row strong {
   color: var(--tx-primary);
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -80,7 +80,7 @@
 .worktree-panel-active-worktree {
   color: var(--accent);
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: var(--fs-2xs);
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -92,13 +92,13 @@
   margin-left: 4px;
   color: var(--tx-muted);
   font-style: normal;
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-weight: 500;
 }
 
 .worktree-panel-active-hint {
   color: var(--tx-muted);
-  font-size: 11.5px;
+  font-size: var(--fs-2xs);
   font-style: italic;
 }
 
@@ -117,7 +117,7 @@
   border-radius: var(--radius-sm);
   background: rgba(244, 91, 105, 0.10);
   color: #FFB1B8;
-  font-size: 11.5px;
+  font-size: var(--fs-2xs);
   line-height: 1.4;
 }
 
@@ -153,7 +153,7 @@
   border-radius: var(--radius-sm);
   background: var(--surface-quiet);
   color: var(--tx-muted);
-  font-size: 11.5px;
+  font-size: var(--fs-2xs);
   line-height: 1.45;
 }
 
@@ -179,8 +179,8 @@
 }
 
 .worktree-menu-empty svg { opacity: 0.45; margin-bottom: 4px; }
-.worktree-menu-empty strong { color: var(--tx-primary); font-size: 13px; }
-.worktree-menu-empty span { font-size: 11.5px; line-height: 1.5; max-width: 320px; }
+.worktree-menu-empty strong { color: var(--tx-primary); font-size: var(--fs-sm); }
+.worktree-menu-empty span { font-size: var(--fs-2xs); line-height: 1.5; max-width: 320px; }
 
 .worktree-menu-item {
   display: flex;
@@ -207,7 +207,7 @@
 .worktree-menu-item-row { display: inline-flex; align-items: center; gap: 6px; color: var(--tx-secondary); }
 .worktree-menu-item-row strong {
   color: var(--tx-primary);
-  font-size: 12.5px;
+  font-size: var(--fs-xs);
   font-weight: 600;
   font-family: var(--font-mono);
 }
@@ -217,20 +217,20 @@
   align-items: center;
   gap: 3px;
   padding: 1px 7px;
-  border-radius: 4px;
-  font-size: 9.5px;
+  border-radius: var(--radius-xs);
+  font-size: var(--fs-2xs);
   font-weight: 700;
   letter-spacing: 0.3px;
   text-transform: uppercase;
 }
 
 .worktree-tag.main { background: rgba(0, 214, 201, 0.14); color: var(--accent); }
-.worktree-tag.locked { background: rgba(255, 255, 255, 0.06); color: rgba(255, 255, 255, 0.65); }
+.worktree-tag.locked { background: var(--ov-2); color: rgba(255, 255, 255, 0.65); }
 .worktree-tag.prunable { background: rgba(244, 91, 105, 0.12); color: #FFB1B8; }
 
 .worktree-menu-item-path {
   color: var(--tx-muted);
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   font-family: var(--font-mono);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -265,7 +265,7 @@
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--tx-muted);
-  font-size: 11.5px;
+  font-size: var(--fs-2xs);
   font-weight: 600;
   cursor: pointer;
   transition: border-color var(--transition-base), color var(--transition-base), background var(--transition-base);
@@ -291,7 +291,7 @@
 
 .worktree-menu-create-field label {
   color: var(--tx-muted);
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -303,7 +303,7 @@
   border-radius: var(--radius-sm);
   background: var(--bg-app);
   color: var(--tx-primary);
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-family: var(--font-mono);
   outline: none;
   transition: border-color var(--transition-base);
@@ -334,7 +334,7 @@
   border-radius: var(--radius-sm);
   background: var(--surface-quiet);
   color: var(--tx-secondary);
-  font-size: 11.5px;
+  font-size: var(--fs-2xs);
   font-weight: 600;
   cursor: pointer;
   flex-shrink: 0;
@@ -355,18 +355,18 @@
 .worktree-menu-create-hint {
   margin-top: 2px;
   color: var(--tx-muted);
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   line-height: 1.4;
   font-style: italic;
 }
 
 .worktree-menu-create-hint code {
   padding: 0 4px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   background: var(--surface-active);
   color: var(--tx-primary);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-style: normal;
 }
 
@@ -385,7 +385,7 @@
 }
 
 .worktree-menu-create-preview-label {
-  font-size: 9.5px;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -398,7 +398,7 @@
   min-width: 0;
   color: var(--accent);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -416,7 +416,7 @@
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--tx-muted);
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   font-weight: 600;
   cursor: pointer;
   transition: background var(--transition-base), color var(--transition-base);
@@ -443,7 +443,7 @@
   background: transparent;
   color: var(--accent-hover);
   font: inherit;
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   text-decoration: underline;
   cursor: pointer;
   padding: 0;
@@ -456,27 +456,13 @@
   align-items: center;
   gap: 8px;
   color: var(--tx-secondary);
-  font-size: 11.5px;
+  font-size: var(--fs-2xs);
   cursor: pointer;
 }
 
 .worktree-menu-create-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
 /* ─── Ambient signal #1: "wt" pill inside the branch chip ─────────────── */
-.worktree-chip-tag {
-  display: inline-flex;
-  align-items: center;
-  margin-left: 5px;
-  padding: 0 5px;
-  height: 13px;
-  border-radius: 999px;
-  background: rgba(0, 214, 201, 0.18);
-  color: var(--accent);
-  font-size: 8.5px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
 
 /* ─── Ambient signal #2: "Nwt" badge on the sidebar workspace row ─────── */
 /* Worktree indicator — minimum footprint. Single icon when N=1, icon +
@@ -494,7 +480,7 @@
   border-radius: var(--radius-pill);
   background: rgba(0, 214, 201, 0.14);
   color: var(--accent);
-  font-size: 9.5px;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
@@ -529,7 +515,7 @@
   align-items: center;
   gap: 6px;
   color: #FFB1B8;
-  font-size: 11.5px;
+  font-size: var(--fs-2xs);
 }
 
 .worktree-remove-confirm-head svg { flex-shrink: 0; }
@@ -537,7 +523,7 @@
 .worktree-remove-confirm-body {
   margin: 0;
   color: var(--tx-secondary);
-  font-size: 11.5px;
+  font-size: var(--fs-2xs);
   line-height: 1.5;
 }
 
@@ -553,7 +539,7 @@
   border-radius: var(--radius-sm);
   background: rgba(244, 91, 105, 0.16);
   color: #FFB1B8;
-  font-size: 11.5px;
+  font-size: var(--fs-2xs);
   font-weight: 600;
   cursor: pointer;
   transition: background var(--transition-base), border-color var(--transition-base);
@@ -572,7 +558,7 @@
 
 /* The base ref is plumbing, so it reads as plumbing — same mono treatment as
    the derived path preview rather than competing with the branch field. */
-.worktree-menu-create-base-input { font-size: 11.5px; }
+.worktree-menu-create-base-input { font-size: var(--fs-2xs); }
 
 /* ─── Panel scope badge ───────────────────────────────────────────────────
    Rides in the header of GitHub / Review / Editor and names the directory
@@ -590,7 +576,7 @@
   border-radius: var(--radius-pill);
   background: transparent;
   color: var(--tx-muted);
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-weight: 600;
   font-family: var(--font-mono);
   cursor: pointer;

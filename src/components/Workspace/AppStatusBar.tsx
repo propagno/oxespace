@@ -1,7 +1,6 @@
-import { FolderGit2, GitBranch, PanelsTopLeft, Radio, Moon } from 'lucide-react'
+import { FolderGit2, PanelsTopLeft, Radio, Moon } from 'lucide-react'
 import { useMemo, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
-import { useGitBranch } from '../../hooks/useGitBranch'
 import { useTerminalStore } from '../../store/terminal.store'
 
 interface AppStatusBarProps {
@@ -11,7 +10,6 @@ interface AppStatusBarProps {
 }
 
 export function AppStatusBar({ activePaneId, appVersion, workspace }: AppStatusBarProps): ReactElement {
-  const branch = useGitBranch(workspace?.id ?? '', workspace?.rootPath ?? null)
   const activePane = workspace?.panes.find((pane) => pane.id === activePaneId) ?? null
 
   // Shells outlive their view now, so a workspace left behind can still be
@@ -37,12 +35,6 @@ export function AppStatusBar({ activePaneId, appVersion, workspace }: AppStatusB
           <FolderGit2 size={11} aria-hidden="true" />
           {workspace?.name ?? 'OXESpace'}
         </span>
-        {branch?.branch ? (
-          <span className="app-statusbar-item" title={`Current branch: ${branch.branch}`}>
-            <GitBranch size={11} aria-hidden="true" />
-            {branch.branch}
-          </span>
-        ) : null}
       </div>
       <div className="app-statusbar-group">
         {workspace ? (

@@ -10,6 +10,7 @@ export function registerMemoryIpc(service: MemoryApi): void {
   ipcMain.handle(IPC_CHANNELS.memory.status, (_event, workspaceId) => service.status(text(workspaceId)))
   ipcMain.handle(IPC_CHANNELS.memory.recent, (_event, workspaceId) => service.recent(text(workspaceId)))
   ipcMain.handle(IPC_CHANNELS.memory.install, () => service.install())
+  ipcMain.handle(IPC_CHANNELS.memory.rollback, (_event, workspaceId) => service.rollback(text(workspaceId)))
   ipcMain.handle(IPC_CHANNELS.memory.setupAgents, (_event, workspaceId) => service.setupAgents(text(workspaceId)))
   ipcMain.handle(IPC_CHANNELS.memory.search, (_event, input) => service.search({ workspaceId: text(input?.workspaceId), query: text(input?.query) }))
   ipcMain.handle(IPC_CHANNELS.memory.configure, (_event, input: unknown) => {

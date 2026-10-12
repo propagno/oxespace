@@ -1,0 +1,389 @@
+{
+  "schemaVersion": 1,
+  "measurement": "synthetic-provider-retrieval-only",
+  "at": "2026-10-10T15:42:54.436Z",
+  "version": "ai-memory 2.1.0",
+  "executableHash": "2af6a668f1148a9b53c63cb64506d065de0ed89f260aa3700cb524db7e333e4a",
+  "corpusSha256": "e510ae5cac13d3378710e4e5b642922e476d097c0ee4f75a0cd720ebc7aa7b87",
+  "platform": "win32",
+  "arch": "x64",
+  "node": "v24.21.0",
+  "electron": "44.6.0",
+  "model": null,
+  "inferenceCalls": 0,
+  "samples": 36,
+  "queryMedianMs": 2.0099000000009255,
+  "queryP95Ms": 3.6890999999995984,
+  "contextMedianMs": 2.193599999998696,
+  "contextP95Ms": 3.4179000000003725,
+  "top5Relevant": 33,
+  "positiveSamples": 33,
+  "isolationPassed": 3,
+  "limitations": [
+    "No UI or agent reasoning",
+    "No paired upgraded run",
+    "No human re-explanation or time-to-correct-action measurement"
+  ],
+  "records": [
+    {
+      "id": "B01",
+      "repetition": 1,
+      "queryMs": 3.9544999999998254,
+      "contextMs": 14.082900000001246,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 189,
+      "isolationPass": null
+    },
+    {
+      "id": "B02",
+      "repetition": 1,
+      "queryMs": 2.2779000000009546,
+      "contextMs": 2.753899999999703,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 188,
+      "isolationPass": null
+    },
+    {
+      "id": "B03",
+      "repetition": 1,
+      "queryMs": 3.6890999999995984,
+      "contextMs": 2.3694000000014057,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 192,
+      "isolationPass": null
+    },
+    {
+      "id": "B04",
+      "repetition": 1,
+      "queryMs": 2.587199999999939,
+      "contextMs": 2.23989999999867,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 190,
+      "isolationPass": null
+    },
+    {
+      "id": "B05",
+      "repetition": 1,
+      "queryMs": 2.0538999999989755,
+      "contextMs": 2.8101999999998952,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 191,
+      "isolationPass": null
+    },
+    {
+      "id": "B06",
+      "repetition": 1,
+      "queryMs": 2.8442999999988388,
+      "contextMs": 2.24829999999929,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 157,
+      "isolationPass": null
+    },
+    {
+      "id": "B07",
+      "repetition": 1,
+      "queryMs": 1.8796999999995023,
+      "contextMs": 2.158799999999246,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 171,
+      "isolationPass": null
+    },
+    {
+      "id": "B08",
+      "repetition": 1,
+      "queryMs": 1.8475999999991473,
+      "contextMs": 1.8691000000017084,
+      "firstRelevantRank": null,
+      "contextHit": null,
+      "contextChars": 0,
+      "isolationPass": true
+    },
+    {
+      "id": "B09",
+      "repetition": 1,
+      "queryMs": 2.6947000000000116,
+      "contextMs": 2.563299999999799,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 193,
+      "isolationPass": null
+    },
+    {
+      "id": "B10",
+      "repetition": 1,
+      "queryMs": 2.209100000000035,
+      "contextMs": 3.4179000000003725,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 183,
+      "isolationPass": null
+    },
+    {
+      "id": "B11",
+      "repetition": 1,
+      "queryMs": 2.207699999999022,
+      "contextMs": 2.115300000001298,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 200,
+      "isolationPass": null
+    },
+    {
+      "id": "B12",
+      "repetition": 1,
+      "queryMs": 2.0099000000009255,
+      "contextMs": 2.1995999999999185,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 164,
+      "isolationPass": null
+    },
+    {
+      "id": "B12",
+      "repetition": 2,
+      "queryMs": 1.9240000000008877,
+      "contextMs": 3.2348999999994703,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 164,
+      "isolationPass": null
+    },
+    {
+      "id": "B11",
+      "repetition": 2,
+      "queryMs": 1.7731999999996333,
+      "contextMs": 2.3382999999994354,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 200,
+      "isolationPass": null
+    },
+    {
+      "id": "B10",
+      "repetition": 2,
+      "queryMs": 1.6415999999990163,
+      "contextMs": 2.0583999999998923,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 183,
+      "isolationPass": null
+    },
+    {
+      "id": "B09",
+      "repetition": 2,
+      "queryMs": 2.374200000000201,
+      "contextMs": 2.2366000000001804,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 193,
+      "isolationPass": null
+    },
+    {
+      "id": "B08",
+      "repetition": 2,
+      "queryMs": 2.558499999999185,
+      "contextMs": 2.3398999999990338,
+      "firstRelevantRank": null,
+      "contextHit": null,
+      "contextChars": 0,
+      "isolationPass": true
+    },
+    {
+      "id": "B07",
+      "repetition": 2,
+      "queryMs": 1.6841999999996915,
+      "contextMs": 2.324899999999616,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 171,
+      "isolationPass": null
+    },
+    {
+      "id": "B06",
+      "repetition": 2,
+      "queryMs": 2.1221999999997934,
+      "contextMs": 2.109599999999773,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 157,
+      "isolationPass": null
+    },
+    {
+      "id": "B05",
+      "repetition": 2,
+      "queryMs": 2.2448999999996886,
+      "contextMs": 2.283800000001065,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 191,
+      "isolationPass": null
+    },
+    {
+      "id": "B04",
+      "repetition": 2,
+      "queryMs": 1.6999999999989086,
+      "contextMs": 1.8489000000008673,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 190,
+      "isolationPass": null
+    },
+    {
+      "id": "B03",
+      "repetition": 2,
+      "queryMs": 1.7013000000006286,
+      "contextMs": 1.8607000000010885,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 192,
+      "isolationPass": null
+    },
+    {
+      "id": "B02",
+      "repetition": 2,
+      "queryMs": 1.6079000000008818,
+      "contextMs": 2.193599999998696,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 188,
+      "isolationPass": null
+    },
+    {
+      "id": "B01",
+      "repetition": 2,
+      "queryMs": 2.2247000000006665,
+      "contextMs": 2.4676999999992404,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 189,
+      "isolationPass": null
+    },
+    {
+      "id": "B01",
+      "repetition": 3,
+      "queryMs": 1.7790999999997439,
+      "contextMs": 2.0221999999994296,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 189,
+      "isolationPass": null
+    },
+    {
+      "id": "B02",
+      "repetition": 3,
+      "queryMs": 1.8114000000005035,
+      "contextMs": 1.8834999999999127,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 188,
+      "isolationPass": null
+    },
+    {
+      "id": "B03",
+      "repetition": 3,
+      "queryMs": 1.6447000000007392,
+      "contextMs": 1.8659999999999854,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 192,
+      "isolationPass": null
+    },
+    {
+      "id": "B04",
+      "repetition": 3,
+      "queryMs": 2.311700000000201,
+      "contextMs": 1.930899999999383,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 190,
+      "isolationPass": null
+    },
+    {
+      "id": "B05",
+      "repetition": 3,
+      "queryMs": 1.6661999999996624,
+      "contextMs": 1.8536000000003696,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 191,
+      "isolationPass": null
+    },
+    {
+      "id": "B06",
+      "repetition": 3,
+      "queryMs": 1.6871999999984837,
+      "contextMs": 1.6914000000015221,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 157,
+      "isolationPass": null
+    },
+    {
+      "id": "B07",
+      "repetition": 3,
+      "queryMs": 1.6005999999997584,
+      "contextMs": 1.7132999999994354,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 171,
+      "isolationPass": null
+    },
+    {
+      "id": "B08",
+      "repetition": 3,
+      "queryMs": 2.392600000001039,
+      "contextMs": 2.085399999999936,
+      "firstRelevantRank": null,
+      "contextHit": null,
+      "contextChars": 0,
+      "isolationPass": true
+    },
+    {
+      "id": "B09",
+      "repetition": 3,
+      "queryMs": 1.9544999999998254,
+      "contextMs": 2.4619999999995343,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 193,
+      "isolationPass": null
+    },
+    {
+      "id": "B10",
+      "repetition": 3,
+      "queryMs": 2.4874999999992724,
+      "contextMs": 1.6082000000005792,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 183,
+      "isolationPass": null
+    },
+    {
+      "id": "B11",
+      "repetition": 3,
+      "queryMs": 1.6136999999998807,
+      "contextMs": 2.627999999998792,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 200,
+      "isolationPass": null
+    },
+    {
+      "id": "B12",
+      "repetition": 3,
+      "queryMs": 2.051400000000285,
+      "contextMs": 2.0910000000003492,
+      "firstRelevantRank": 1,
+      "contextHit": true,
+      "contextChars": 164,
+      "isolationPass": null
+    }
+  ]
+}

@@ -4,6 +4,7 @@ import type { AgentProvider } from '../../../shared/types/agent'
 
 interface AgentProviderIconProps {
   provider: AgentProvider
+  size?: number
 }
 
 function ClaudeAsterisk(): ReactElement {
@@ -25,12 +26,12 @@ const PROVIDER_TOKENS: Record<AgentProvider, { bg: string; icon: ReactElement }>
   custom:       { bg: 'var(--provider-custom)',  icon: <Bot size={10} color="white" /> },
 }
 
-export function AgentProviderIcon({ provider }: AgentProviderIconProps): ReactElement {
+export function AgentProviderIcon({ provider, size = 20 }: AgentProviderIconProps): ReactElement {
   const config = PROVIDER_TOKENS[provider] ?? PROVIDER_TOKENS.custom
   return (
     <div
       className="agent-provider-icon"
-      style={{ background: config.bg }}
+      style={{ background: config.bg, width: size, height: size, flexShrink: 0 }}
       aria-hidden="true"
     >
       {config.icon}

@@ -7,7 +7,7 @@ Persistent knowledge belongs to the project, not to a terminal or worktree path.
 ## Enable in OXESpace
 
 1. Open Workspace Settings → Shared Project Memory.
-2. Choose a native AI Memory executable, or explicitly download the pinned 2.1.0
+2. Choose a native AI Memory executable, or explicitly download the pinned 2.6.2
    release. Downloads are verified against the release SHA-256 before extraction.
 3. Enable project memory. Separately opt into automatic capture and context.
 4. Apply memory settings. The managed service uses authenticated loopback HTTP.
@@ -31,6 +31,25 @@ An existing local server can be selected instead. Supply its bearer token and
 review its model/provider settings first: OXESpace does **not** control an external
 server's privacy policy or terminate that server. Changing the shared runtime
 requires closing memory-enabled terminals first. Project toggles are independent.
+
+When changing managed 2.1.0 data to the verified 2.6.2 executable, OXESpace
+stops only its own service, copies the complete stopped data directory (including
+SQLite/WAL and native spool), validates the new binary against the copy, then
+swaps directories. Free space must cover the copy plus a safety margin. A
+private journal restores the old directory and settings after an interrupted
+swap. The old snapshot remains available through **Restore previous runtime**
+in Workspace Settings. Writes made after the upgrade are preserved in a
+separate `upgrade-2.6.2/preserved-newer-data` directory during rollback; they
+are not automatically merged into the old database. An existing snapshot
+blocks another upgrade until it is reviewed. Connected servers are never
+migrated or stopped by this flow. The managed 2.6.2 service uses API-only,
+disables cross-project profile, and leaves handoff offers unclaimed at startup.
+
+Thread launches receive a fresh native-hook binding only when hooks are enabled
+and access permits them. Read-only/hookless Threads retain their project-bound
+MCP run but cannot claim native capture. Code terminals continue with their
+native hooks. External capture remains disabled until its durable delivery
+path is implemented and certified.
 
 ## Boundaries and ownership
 
@@ -158,8 +177,9 @@ later boundaries, but finalization/consolidation is not guaranteed after a crash
 
 Source review: AI Memory commit
 [`f616c764baef85eb3a9d8743ba33832726fb7260`](https://github.com/akitaonrails/ai-memory/tree/f616c764baef85eb3a9d8743ba33832726fb7260).
-Executable contract tests use the published
-[`v2.1.0`](https://github.com/akitaonrails/ai-memory/releases/tag/v2.1.0) release.
+Executable contract tests cover the published
+[`v2.1.0`](https://github.com/akitaonrails/ai-memory/releases/tag/v2.1.0) and
+[`v2.6.2`](https://github.com/akitaonrails/ai-memory/releases/tag/v2.6.2) releases.
 The reviewed tree reports 2.1.1; binary tests are necessary because the tree and
 published executable are not assumed identical.
 

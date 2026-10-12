@@ -5,7 +5,7 @@ import { LATEST_DB_VERSION, openInMemoryDatabase, runMigrations } from '../../el
 
 // Literal on purpose: it verifies the migration SQL itself sets this version,
 // independently of the runner's constant. Bump both when adding a migration.
-const EXPECTED_SCHEMA_VERSION = 48
+const EXPECTED_SCHEMA_VERSION = 63
 
 // Migration 046 is platform-split: Windows keeps PowerShell as the neutral
 // built-in shell, every other host is repointed to bash. The assertions below
@@ -138,6 +138,79 @@ describe('migration 046 (POSIX variant)', () => {
 })
 
 describe('migrations', () => {
+  test('detaches existing conversations and children from Code workspace deletion', () => {
+    const db = openInMemoryDatabase()
+    try {
+      db.pragma('foreign_keys = OFF')
+      db.exec(`DROP TABLE conversation_threads; DROP TABLE thread_project_contexts; DROP TABLE thread_projects;
+        CREATE TABLE conversation_threads (
+          id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+          data_json TEXT NOT NULL, events_json TEXT NOT NULL DEFAULT '[]', history_version INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX idx_conversation_threads_workspace ON conversation_threads(workspace_id);
+        PRAGMA user_version = 58;`)
+      db.pragma('foreign_keys = ON')
+      db.prepare("INSERT INTO workspaces (id, name, root_path, layout, default_shell_profile_id) VALUES ('code', 'Repo', '/repo', '1x1', 'builtin-claude')").run()
+      const thread = { id: 'conversation', workspaceId: 'code', projectId: 'memory-project', rootPath: '/repo', provider: 'codex', nativeSessionId: 'native-session' }
+      db.prepare('INSERT INTO conversation_threads (id, workspace_id, data_json, events_json) VALUES (?, ?, ?, ?)').run(thread.id, 'code', JSON.stringify(thread), '[]')
+      db.prepare('INSERT INTO conversation_events (thread_id, seq, data_json) VALUES (?, ?, ?)').run(thread.id, 1, '{"type":"message","role":"user","text":"hello"}')
+      db.prepare('INSERT INTO conversation_operations (id, thread_id, generation, kind, state, created_at, updated_at) VALUES (?, ?, 1, ?, ?, 1, 1)').run('operation', thread.id, 'turn', 'completed')
+      db.prepare('INSERT INTO conversation_checkpoints (id, thread_id, root_path, state, created_at) VALUES (?, ?, ?, ?, 1)').run('checkpoint', thread.id, '/repo', 'ready')
+      runMigrations(db)
+      expect(db.pragma('foreign_key_check')).toEqual([])
+      expect(db.prepare('SELECT thread_project_id FROM conversation_threads WHERE id = ?').get(thread.id)).toEqual({ thread_project_id: 'memory-project' })
+      db.prepare("DELETE FROM workspaces WHERE id = 'code'").run()
+      expect(db.prepare('SELECT id FROM conversation_threads').all()).toEqual([{ id: thread.id }])
+      expect(db.prepare('SELECT thread_id, seq FROM conversation_events').all()).toEqual([{ thread_id: thread.id, seq: 1 }])
+      expect(db.prepare('SELECT id FROM conversation_operations').all()).toEqual([{ id: 'operation' }])
+      expect(db.prepare('SELECT id FROM conversation_checkpoints').all()).toEqual([{ id: 'checkpoint' }])
+      expect(db.pragma('foreign_key_check')).toEqual([])
+    } finally { db.close() }
+  })
+
+  test('adopts Workbench once for existing workspaces and preserves later choices', () => {
+    const db = openInMemoryDatabase()
+    try {
+      db.prepare("INSERT INTO workspaces (id, name, root_path, layout, theme_id, default_shell_profile_id) VALUES ('legacy', 'Legacy', '/tmp/legacy', '1x1', 'dracula', 'builtin-powershell')").run()
+      db.pragma('user_version = 57')
+      runMigrations(db)
+      expect(db.prepare("SELECT theme_id FROM workspaces WHERE id = 'legacy'").get()).toEqual({ theme_id: 'midnight' })
+      db.prepare("UPDATE workspaces SET theme_id = 'nord' WHERE id = 'legacy'").run()
+      expect(db.pragma('user_version', { simple: true })).toBe(EXPECTED_SCHEMA_VERSION)
+      expect(db.prepare("SELECT theme_id FROM workspaces WHERE id = 'legacy'").get()).toEqual({ theme_id: 'nord' })
+      runMigrations(db)
+      expect(db.prepare("SELECT theme_id FROM workspaces WHERE id = 'legacy'").get()).toEqual({ theme_id: 'nord' })
+    } finally { db.close() }
+  })
+
+  test('migration 057 indexes legacy delegation payloads without losing their checkout', () => {
+    const db = openInMemoryDatabase()
+    try {
+      db.exec(`
+        DROP TRIGGER delegation_index_after_insert;
+        DROP TRIGGER delegation_index_after_update;
+        DROP TRIGGER delegation_index_after_delete;
+        DROP TABLE delegation_operation_journal;
+        DROP TABLE delegation_handoff_revisions;
+        DROP TABLE delegation_session_bindings;
+        DROP TABLE delegation_checkouts;
+        DROP TABLE delegation_task_index;
+        PRAGMA user_version = 56;
+      `)
+      const payload = { id: 'legacy-task', key: 'legacy-key', originExecutionId: 'origin', workspaceId: 'workspace', project: 'project',
+        state: 'interrupted', branch: 'oxe/legacy-12345678', objective: 'Legacy task', path: '/repo-worktrees/legacy', baseSha: 'abc', createdAt: 10, updatedAt: 20 }
+      db.prepare('INSERT INTO delegations(id, origin_execution, request_key, workspace_id, payload) VALUES(?, ?, ?, ?, ?)')
+        .run(payload.id, payload.originExecutionId, payload.key, payload.workspaceId, JSON.stringify(payload))
+      runMigrations(db)
+      expect(db.pragma('user_version', { simple: true })).toBe(EXPECTED_SCHEMA_VERSION)
+      expect(db.prepare('SELECT project, state, branch FROM delegation_task_index WHERE task_id = ?').get(payload.id))
+        .toEqual({ project: 'project', state: 'interrupted', branch: 'oxe/legacy-12345678' })
+      const checkout = db.prepare('SELECT strategy, resolved_json AS resolved FROM delegation_checkouts WHERE task_id = ?').get(payload.id) as { strategy: string; resolved: string }
+      expect(checkout.strategy).toBe('generated')
+      expect(JSON.parse(checkout.resolved)).toMatchObject({ branch: payload.branch, path: payload.path, baseSha: payload.baseSha })
+    } finally { db.close() }
+  })
+
   test('migration 040 self-heals a partial apply (columns exist but user_version < 40)', () => {
     // Reproduces the v0.2.6/0.2.7 upgrade-crash state: 040 added embedding_blob/dim
     // but a crash/disk-I/O kept user_version at 39. The old non-idempotent 040 then
@@ -198,7 +271,16 @@ describe('migrations', () => {
         'integration_group_sessions',
         'integration_handoffs',
         'semantic_documents',
-        'semantic_documents_fts'
+        'semantic_documents_fts',
+        'conversation_event_envelopes',
+        'conversation_operations',
+        'conversation_checkpoints',
+        'conversation_checkpoint_files',
+        'delegation_task_index',
+        'delegation_checkouts',
+        'delegation_session_bindings',
+        'delegation_handoff_revisions',
+        'delegation_operation_journal'
       ])
     )
 

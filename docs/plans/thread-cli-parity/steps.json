@@ -1,0 +1,1279 @@
+{
+  "title": "Paridade operacional CLI e Thread no OXESpace",
+  "date": "2026-09-18",
+  "status": "planned",
+  "description": "Igualar capacidades funcionais de Claude/Codex e depois providers adicionais do Code, preservando subscription auth, design system e experiência Thread sem fallback TUI.",
+  "source_audit": "docs/audits/thread-cli-capabilities-2026-09-18.md",
+  "storage": {
+    "kind": "repository",
+    "reason": "quadflow não está instalado no ambiente; plano enriquecido salvo localmente, sem criar issues ou recursos externos."
+  },
+  "architectural_decisions": [
+    {
+      "decision": "Preservar Codex app-server e Claude headless/stream-json; negociar capacidades por versão.",
+      "rationale": "São os motores já usados; paridade deve vir de APIs reais, sem automação TUI ou troca para Advanced CLI."
+    },
+    {
+      "decision": "Native runtime é a fonte de contexto, fila nativa e estado de sessões quando expostos.",
+      "rationale": "Evita duas filas, nomes e históricos divergentes; SQLite armazena projeção/evidência e estado UI."
+    },
+    {
+      "decision": "Configuração solicitada e efetiva, autorização e disponibilidade são estados separados.",
+      "rationale": "Um seletor não prova configuração aplicada e catálogo não concede permissão."
+    },
+    {
+      "decision": "Um request registry por execução/turno, com geração e resolução controlada.",
+      "rationale": "Respostas tardias, troca de Thread e reconnect não podem aprovar outro comando ou perder perguntas."
+    },
+    {
+      "decision": "Persistência incremental e paginação antes de ampliar input/streaming.",
+      "rationale": "O write atual usa snapshots completos; paginar sem alterar write pode apagar eventos não carregados."
+    },
+    {
+      "decision": "Execução MCP com owner discriminado pane/thread e autorização no main.",
+      "rationale": "A infraestrutura atual exige pane; criar um pane fictício contornaria o contexto e não resolveria a autorização."
+    },
+    {
+      "decision": "Comandos têm equivalência semântica documentada, não só nomes iguais.",
+      "rationale": "Resume/delete/export/stop locais hoje diferem do CLI; a UI deve explicitar efeito/escopo."
+    },
+    {
+      "decision": "Design system Code com composição de Thread e controles permanentes de modelo/esforço.",
+      "rationale": "Identidade OXESpace, acessibilidade e chat estável são requisitos persistentes do usuário."
+    },
+    {
+      "decision": "Paridade certificada por provider/versão/plataforma/autenticação.",
+      "rationale": "SDK e CLI evoluem; mocks, lista descoberta e screenshots não certificam tarefa real."
+    }
+  ],
+  "risk_notes": [
+    {
+      "risk": "Mudança de schema/SDK ou API experimental",
+      "mitigation": "Baseline versionado, capability probes sem inferência, packs por versão e conformance; atualizar adaptador ou manter bloqueio explícito."
+    },
+    {
+      "risk": "API ausente para recurso funcional do CLI",
+      "mitigation": "Criar investigação e contribuição/extensão específica; não usar TUI oculto nem excluir item obrigatório para declarar paridade."
+    },
+    {
+      "risk": "Janela paginada salva como histórico completo",
+      "mitigation": "Writes append/update por ID/seq, epochs e replace explícito; teste que páginas não carregadas nunca desaparecem."
+    },
+    {
+      "risk": "Envio com ACK perdido repetido após restart",
+      "mitigation": "IDs e reconciliação nativa; onde não houver idempotência, marcar resultado desconhecido e exigir recuperação explícita antes de reenviar."
+    },
+    {
+      "risk": "Pergunta expirada ou aprovação aplicada a outra sessão",
+      "mitigation": "Native request/turn/geração e registry; validação main, resolução nativa observada e nenhuma replay automática."
+    },
+    {
+      "risk": "Permissões/rede/hooks divergem entre Code e Thread",
+      "mitigation": "Perfil efetivo e managed constraints por provider, policy snapshot por execução e pilotos approve/deny fora do mock."
+    },
+    {
+      "risk": "Ferramenta MCP mutante contorna filtro do bridge",
+      "mitigation": "Autenticação/escopo/policy e aprovações no servidor main; allowlist é só superfície adicional, não fronteira única."
+    },
+    {
+      "risk": "Anexos/base64 excedem framing/backpressure",
+      "mitigation": "Blob store/IDs e MIME/limites negociados; ajustar framing por classe de payload sem remover limite global arbitrariamente."
+    },
+    {
+      "risk": "Diff de dirty anterior/concorrente é atribuído ao agente",
+      "mitigation": "Baselines e artefatos separados; autoria indeterminada e conflitos bloqueiam Undo, sem reset/clean."
+    },
+    {
+      "risk": "Refatorações afetam Code ou bundle",
+      "mitigation": "Compartilhar serviços com owner/contexto explícito; imports dinâmicos, gates existentes, testes Code e comparação de screenshots."
+    }
+  ],
+  "context": "Electron + React19/TypeScript/Zustand/Radix/SQLite; migração54 e workbench já implementados. Checkouts com alterações locais existentes preservados. Codex0.154.0 e Claude2.1.274 instalados. Histórico/projetos precisam escopo Thread/root/worktree e geração. Protocolo Codex exportado sem inferência; Claude docs oficiais consultados, handshake completo de recursos pendente.",
+  "steps": [
+    {
+      "number": "1",
+      "wave": "W0",
+      "title": "Fixar baseline nativo e inventário de comandos",
+      "step_type": "research",
+      "estimated_effort": "medium",
+      "dependencies": [],
+      "status": "complete",
+      "description": "Exportar schemas da versão instalada; registrar comandos documentados/disponíveis e diferenças de Windows/Linux/macOS. Criar handshake Claude e identificar control requests, modelos, tools, inputs e persistência. Confirmar capacidades experimentais por probe sem inferência, sem iniciar processos por tecla.",
+      "acceptance_criteria": [
+        "Baseline tem versões/hashes e operações com origem rastreável; cada comando possui semântica/argumentos/efeitos.",
+        "Runtimes são sondados em subprocessos controlados; falta de API vira bloqueio de provider e tarefa específica, não suporte presumido."
+      ],
+      "target_files": [
+        "shared/threadCommands.ts",
+        "electron/main/services/conversation/claude-command-catalog.ts",
+        "tests/conversation-process-smoke.test.ts",
+        "docs/plans/thread-cli-parity/protocol-baseline.json"
+      ],
+      "code_context": "Exportar schemas da versão instalada; registrar comandos documentados/disponíveis e diferenças de Windows/Linux/macOS. Criar handshake Claude e identificar control requests, modelos, tools, inputs e persistência. Confirmar capacidades experimentais por probe sem inferência, sem iniciar processos por tecla.",
+      "verification_strategy": {
+        "method": "manual_review",
+        "pattern": "Evidência por provider, versão, plataforma e autenticação; um mock não certifica execução nativa."
+      }
+    },
+    {
+      "number": "2",
+      "wave": "W0",
+      "title": "Definir manifesto de capacidades e contrato de adapter",
+      "step_type": "design",
+      "estimated_effort": "high",
+      "dependencies": [
+        "1"
+      ],
+      "status": "complete",
+      "description": "Substituir booleanos genéricos por capacidades discriminadas por versão, modelo, conta, política e plataforma. Separar suportado, habilitado, autorizado, implementado e verificado. Definir entradas tipadas, requests, filas, sessões, eventos e erros sem RPC arbitrário no renderer.",
+      "acceptance_criteria": [
+        "Toda capacidade da matriz possui responsável, handler/protocolo, gate e cenário real.",
+        "Contratos antigos possuem leitura/migração definida; preview experimental não entra no denominador certificado."
+      ],
+      "target_files": [
+        "shared/types/thread.ts",
+        "shared/threadDesktopCommands.ts",
+        "shared/types/ipc.ts",
+        "electron/preload/api.ts"
+      ],
+      "code_context": "Substituir booleanos genéricos por capacidades discriminadas por versão, modelo, conta, política e plataforma. Separar suportado, habilitado, autorizado, implementado e verificado. Definir entradas tipadas, requests, filas, sessões, eventos e erros sem RPC arbitrário no renderer.",
+      "verification_strategy": {
+        "method": "manual_review",
+        "pattern": "Evidência por provider, versão, plataforma e autenticação; um mock não certifica execução nativa."
+      }
+    },
+    {
+      "number": "3",
+      "wave": "W0",
+      "title": "Definir escopo, políticas efetivas e ciclo da sessão",
+      "step_type": "design",
+      "estimated_effort": "high",
+      "dependencies": [
+        "1",
+        "2"
+      ],
+      "status": "complete",
+      "description": "Especificar ThreadExecutionContext com thread/project/workspace/root canônico/worktree/geração/native ID/perfil/autenticação. Modelar configuração solicitada e efetiva, revisão e próxima execução. Auditar settings, prompt, tools, hooks, sandbox, rede e auth, evitando equivalências falsas entre providers. Definir auth subscription e perfis API explícitos quando fizerem parte do baseline, com referência de credencial no main; não restaurar API keys do ambiente pai.",
+      "acceptance_criteria": [
+        "Tabela de tradução de políticas e origem de instruções definida por provider; sem mapear níveis incompatíveis por nome.",
+        "Shutdown/reconnect/troca de perfil e conta invalidam leases/caches; nenhuma credencial do terminal pai é reutilizada."
+      ],
+      "target_files": [
+        "electron/main/services/conversation/thread-runtime.ts",
+        "electron/main/services/conversation/process-transport.ts",
+        "electron/main/services/execution-registry.ts",
+        "electron/main/services/conversation/native-account.service.ts"
+      ],
+      "code_context": "Especificar ThreadExecutionContext com thread/project/workspace/root canônico/worktree/geração/native ID/perfil/autenticação. Modelar configuração solicitada e efetiva, revisão e próxima execução. Auditar settings, prompt, tools, hooks, sandbox, rede e auth, evitando equivalências falsas entre providers.",
+      "verification_strategy": {
+        "method": "manual_review",
+        "pattern": "Evidência por provider, versão, plataforma e autenticação; um mock não certifica execução nativa."
+      }
+    },
+    {
+      "number": "4",
+      "wave": "W0",
+      "title": "Fechar contrato visual das interações novas",
+      "step_type": "design",
+      "estimated_effort": "medium",
+      "dependencies": [
+        "2",
+        "3"
+      ],
+      "status": "complete",
+      "description": "Aplicar design system Code a perguntas/aprovações, fila, anexos, estado efetivo, sessões e extensões. Preservar sidebar e workbench; mensagens/configuração nunca viram terminal. Detalhar teclado, foco, loaders, estados vazios e falhas em UI-SPEC.",
+      "acceptance_criteria": [
+        "Pergunta pendente permanece visível após trocar de Thread e apresenta sessão/efeito.",
+        "900/1440 px, tema claro/escuro, teclado e leitores de tela têm comportamento especificado."
+      ],
+      "target_files": [
+        "docs/plans/thread-cli-parity/UI-SPEC.md",
+        "src/components/Threads/ThreadView.tsx",
+        "src/styles/tokens.css"
+      ],
+      "code_context": "Aplicar design system Code a perguntas/aprovações, fila, anexos, estado efetivo, sessões e extensões. Preservar sidebar e workbench; mensagens/configuração nunca viram terminal. Detalhar teclado, foco, loaders, estados vazios e falhas em UI-SPEC.",
+      "verification_strategy": {
+        "method": "manual_review",
+        "pattern": "Evidência por provider, versão, plataforma e autenticação; um mock não certifica execução nativa."
+      }
+    },
+    {
+      "number": "5",
+      "wave": "W1",
+      "title": "Aplicar e observar configuração efetiva do Codex",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "3"
+      ],
+      "status": "complete",
+      "description": "Integrar permissionProfile/list, configRequirements/read, config/read e configurações por sessão/turno disponíveis no baseline. Remover networkAccess=false incondicional em favor de política escolhida. Preservar perfil/model provider/prompt/settings realmente selecionados, observando os retornos nativos. Respeitar modelProvider/auth do perfil escolhido; remover forced subscription somente em modo API explícito previsto no contrato e coberto por teste.",
+      "acceptance_criteria": [
+        "UI mostra valores confirmados; falha de mudança mantém última revisão efetiva.",
+        "Políticas de leitura/escrita/rede e acesso adicional possuem testes de permissão/negação e confirmação quando exigida."
+      ],
+      "target_files": [
+        "electron/main/services/conversation/codex-conversation.ts",
+        "electron/main/services/conversation/thread-manager.ts",
+        "src/components/Threads/ThreadConfigurationBar.tsx",
+        "tests/codex-conversation.test.ts",
+        "electron/main/services/conversation/native-account.service.ts"
+      ],
+      "code_context": "Integrar permissionProfile/list, configRequirements/read, config/read e configurações por sessão/turno disponíveis no baseline. Remover networkAccess=false incondicional em favor de política escolhida. Preservar perfil/model provider/prompt/settings realmente selecionados, observando os retornos nativos.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/codex-conversation.test.ts tests/integration/thread-manager.test.ts tests/thread-models.test.ts"
+      }
+    },
+    {
+      "number": "6",
+      "wave": "W1",
+      "title": "Aplicar política de ferramentas e configuração Claude",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "3"
+      ],
+      "status": "complete",
+      "description": "Traduzir modos/regras/settings/toolset reais sem confundir plan com sandbox de leitura. Acrescentar AskUserQuestion ao toolset restrito e permitir perguntas via host sem autorizar escrita. Preservar prompt/perfil/skills e configuração efetiva; mudança headless só em fronteira de turno com resume confirmado. Resolver auth API apenas quando selecionada explicitamente; nunca alternar assinatura/API por erro de login.",
+      "acceptance_criteria": [
+        "AskUserQuestion funciona em leitura; aprovar pergunta não libera Edit/Bash arbitrariamente.",
+        "Modos e allow/deny respeitam precedência nativa; configuração inválida falha antes de consumir turno."
+      ],
+      "target_files": [
+        "electron/main/services/conversation/claude-conversation.ts",
+        "electron/main/services/conversation/claude-command-catalog.ts",
+        "electron/main/services/conversation/thread-models.ts",
+        "tests/claude-conversation.test.ts",
+        "electron/main/services/conversation/native-account.service.ts"
+      ],
+      "code_context": "Traduzir modos/regras/settings/toolset reais sem confundir plan com sandbox de leitura. Acrescentar AskUserQuestion ao toolset restrito e permitir perguntas via host sem autorizar escrita. Preservar prompt/perfil/skills e configuração efetiva; mudança headless só em fronteira de turno com resume confirmado.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/claude-conversation.test.ts tests/thread-models.test.ts"
+      }
+    },
+    {
+      "number": "7",
+      "wave": "W1",
+      "title": "Criar registro de requests pendentes e resolução única",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "2",
+        "3"
+      ],
+      "status": "complete",
+      "description": "Introduzir ThreadRequestRegistry com request/native/turn IDs, tipo, deadline, geração, escopo e estado. Não armazenar segredos. Reconexão pergunta ao runtime se request ainda existe; restart não reaplica decisões automaticamente. Responder exatamente uma vez e invalidar após resolved/interrupt/exit.",
+      "acceptance_criteria": [
+        "Troca de sessão, resposta duplicada/atrasada e request de outra geração não atingem o adapter errado.",
+        "Request expirado/cancelado é explicado e nunca fica como modal impossível de fechar."
+      ],
+      "target_files": [
+        "electron/main/services/conversation/thread-request-registry.ts",
+        "electron/main/services/conversation/thread-manager.ts",
+        "shared/types/thread.ts",
+        "tests/thread-requests.test.ts"
+      ],
+      "code_context": "Introduzir ThreadRequestRegistry com request/native/turn IDs, tipo, deadline, geração, escopo e estado. Não armazenar segredos. Reconexão pergunta ao runtime se request ainda existe; restart não reaplica decisões automaticamente. Responder exatamente uma vez e invalidar após resolved/interrupt/exit.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/thread-requests.test.ts tests/integration/thread-manager.test.ts"
+      },
+      "creates": [
+        "electron/main/services/conversation/thread-request-registry.ts",
+        "tests/thread-requests.test.ts"
+      ]
+    },
+    {
+      "number": "8",
+      "wave": "W1",
+      "title": "Implementar requests estruturados do Codex",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "5",
+        "7"
+      ],
+      "status": "complete",
+      "description": "Tratar user input, permissions, elicitation MCP, tool/call e utilidades host conforme schemas. Mapear decisões simples, sessão, cancelamento e emendas suportadas. Requests de auth/attestation ficam no serviço correto; não fabricar credenciais. Elicitation URL/form usa contexto validado e UI específica.",
+      "acceptance_criteria": [
+        "Perguntas simples/múltiplas/formulários retornam payload esperado pelo agente; permissions concede somente o subconjunto escolhido.",
+        "Cada ServerRequest do baseline é classificado e coberto; desconhecidos retornam erro específico com recuperação, não negação silenciosa."
+      ],
+      "target_files": [
+        "electron/main/services/conversation/codex-conversation.ts",
+        "electron/main/services/conversation/rpc-peer.ts",
+        "electron/main/services/conversation/thread-request-registry.ts",
+        "tests/codex-conversation.test.ts"
+      ],
+      "code_context": "Tratar user input, permissions, elicitation MCP, tool/call e utilidades host conforme schemas. Mapear decisões simples, sessão, cancelamento e emendas suportadas. Requests de auth/attestation ficam no serviço correto; não fabricar credenciais. Elicitation URL/form usa contexto validado e UI específica.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/codex-conversation.test.ts tests/thread-requests.test.ts"
+      },
+      "creates": [
+        "electron/main/services/conversation/thread-request-registry.ts"
+      ]
+    },
+    {
+      "number": "9",
+      "wave": "W1",
+      "title": "Implementar perguntas e controle Claude",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "6",
+        "7"
+      ],
+      "status": "complete",
+      "description": "Distinguir AskUserQuestion de aprovação genérica can_use_tool; serializar respostas em updatedInput/answers conforme runtime. Preservar cancelamento e control request errors. Implementar demais requests necessários registrados no baseline, sem aprovar todos os tools por efeito colateral.",
+      "acceptance_criteria": [
+        "Seleção única/múltipla e texto livre chegam ao native tool corretamente.",
+        "Question deny/cancel, MCP interaction e aprovação de escrita têm efeitos distintos e verificáveis."
+      ],
+      "target_files": [
+        "electron/main/services/conversation/claude-conversation.ts",
+        "electron/main/services/conversation/thread-request-registry.ts",
+        "tests/claude-conversation.test.ts"
+      ],
+      "code_context": "Distinguir AskUserQuestion de aprovação genérica can_use_tool; serializar respostas em updatedInput/answers conforme runtime. Preservar cancelamento e control request errors. Implementar demais requests necessários registrados no baseline, sem aprovar todos os tools por efeito colateral.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/claude-conversation.test.ts tests/thread-requests.test.ts"
+      },
+      "creates": [
+        "electron/main/services/conversation/thread-request-registry.ts"
+      ]
+    },
+    {
+      "number": "10",
+      "wave": "W1",
+      "title": "Renderizar perguntas/aprovações e estados de recuperação",
+      "step_type": "implement",
+      "estimated_effort": "medium",
+      "dependencies": [
+        "4",
+        "8",
+        "9"
+      ],
+      "status": "complete",
+      "description": "Criar cartões semânticos na conversa com opções, texto livre, escopo de autorização, confirmação/negação/cancelamento e estado final. Fechar detalhe não resolve o request. Sidebar indica sessão aguardando interação; retomar mantém pergunta e draft.",
+      "acceptance_criteria": [
+        "Fluxo funciona pelo teclado e preserva compositor/scroll; trocar de Thread não transfere resposta.",
+        "Sessão resolvida/expirada remove controles ativos; ações inválidas mostram motivo e recovery."
+      ],
+      "target_files": [
+        "src/components/Threads/ThreadView.tsx",
+        "src/components/Threads/ThreadRequestCard.tsx",
+        "src/components/Threads/ThreadSidebar.tsx",
+        "src/store/thread.store.ts",
+        "e2e/thread-view.spec.ts"
+      ],
+      "code_context": "Criar cartões semânticos na conversa com opções, texto livre, escopo de autorização, confirmação/negação/cancelamento e estado final. Fechar detalhe não resolve o request. Sidebar indica sessão aguardando interação; retomar mantém pergunta e draft.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "npx playwright test e2e/thread-view.spec.ts"
+      },
+      "creates": [
+        "src/components/Threads/ThreadRequestCard.tsx"
+      ]
+    },
+    {
+      "number": "11",
+      "wave": "W2",
+      "title": "Persistir eventos incrementalmente e paginar no backend",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "2",
+        "7"
+      ],
+      "status": "partial",
+      "description": "Evoluir migration054 sem refazer importação: append/update por ID/seq, read metadata/latest window, cursor de eventos/turnos e fetch artefatos. Remover leitura/serialização do histórico inteiro em cada write/send. Projeção legacy fica adaptativa e limitada; compactação nativa separada de retenção local.",
+      "acceptance_criteria": [
+        "10.000+ eventos permitem novos turnos; não há bloqueio por quantidade de mensagens locais.",
+        "Migração idempotente, crash/flush, rewind e cursor estável testados; APIs não podem ler artefato de outra Thread.",
+        "Salvar uma janela paginada nunca apaga eventos fora dela; somente replace/rewind explícito pode trocar a geração do histórico."
+      ],
+      "target_files": [
+        "electron/main/services/conversation/thread-history.ts",
+        "electron/main/services/conversation/thread-manager.ts",
+        "electron/main/db/index.ts",
+        "electron/main/db/migrations/NNN_thread_runtime.sql",
+        "electron/main/ipc/thread.ipc.ts",
+        "tests/integration/thread-history.test.ts"
+      ],
+      "code_context": "Evoluir migration054 sem refazer importação: append/update por ID/seq, read metadata/latest window, cursor de eventos/turnos e fetch artefatos. Remover leitura/serialização do histórico inteiro em cada write/send. Projeção legacy fica adaptativa e limitada; compactação nativa separada de retenção local.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/integration/thread-history.test.ts tests/integration/migrations.test.ts"
+      },
+      "creates": [
+        "electron/main/db/migrations/NNN_thread_runtime.sql"
+      ]
+    },
+    {
+      "number": "12",
+      "wave": "W2",
+      "title": "Virtualizar timeline e preservar âncoras de scroll",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "4",
+        "11"
+      ],
+      "status": "complete",
+      "description": "Criar cache de janelas por Thread e timeline virtualizada com alturas dinâmicas, âncora ao carregar passado, itens atualizáveis e follow-bottom em mudanças de qualquer output. Não desmontar compositor/painéis ao paginar ou renderizar erro.",
+      "acceptance_criteria": [
+        "Expandir output antigo durante streaming respeita follow-bottom sem roubar leitura do histórico.",
+        "Troca rápida de Thread, tabela/diff/imagem e prepend de páginas preservam seleção/foco/scroll."
+      ],
+      "target_files": [
+        "src/store/thread.store.ts",
+        "src/components/Threads/ThreadView.tsx",
+        "src/components/Threads/ThreadTimeline.tsx",
+        "tests/thread-view.test.tsx",
+        "e2e/thread-view.spec.ts"
+      ],
+      "code_context": "Criar cache de janelas por Thread e timeline virtualizada com alturas dinâmicas, âncora ao carregar passado, itens atualizáveis e follow-bottom em mudanças de qualquer output. Não desmontar compositor/painéis ao paginar ou renderizar erro.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/thread-view.test.tsx"
+      },
+      "creates": [
+        "src/components/Threads/ThreadTimeline.tsx"
+      ]
+    },
+    {
+      "number": "13",
+      "wave": "W2",
+      "title": "Integrar fila e steering nativos Codex",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "5",
+        "7",
+        "11"
+      ],
+      "status": "complete",
+      "description": "Usar thread/queue add/list/update/delete/reorder/start da versão0.154.0 como fonte da fila e turn/steer para direcionar turno ativo. Separar visualmente Agora de Próximo. Não duplicar fila local e nativa; versões sem fila usam mecanismo serializado explicitamente negociado.",
+      "acceptance_criteria": [
+        "Adicionar/editar/reordenar/cancelar fila coincide com lista nativa e sobrevive ao resume quando suportado.",
+        "Steer usa expectedTurnId; falha mantém input; perguntas/falhas pausam avanço sem reenvio duplicado."
+      ],
+      "target_files": [
+        "electron/main/services/conversation/codex-conversation.ts",
+        "electron/main/services/conversation/thread-manager.ts",
+        "src/components/Threads/ThreadPromptQueue.tsx",
+        "src/store/thread.store.ts",
+        "tests/thread-queue.test.ts"
+      ],
+      "code_context": "Usar thread/queue add/list/update/delete/reorder/start da versão0.154.0 como fonte da fila e turn/steer para direcionar turno ativo. Separar visualmente Agora de Próximo. Não duplicar fila local e nativa; versões sem fila usam mecanismo serializado explicitamente negociado.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/thread-queue.test.ts tests/codex-conversation.test.ts"
+      },
+      "creates": [
+        "src/components/Threads/ThreadPromptQueue.tsx",
+        "tests/thread-queue.test.ts"
+      ]
+    },
+    {
+      "number": "14",
+      "wave": "W2",
+      "title": "Integrar fila Claude e entrada streaming",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "6",
+        "7",
+        "11",
+        "13"
+      ],
+      "status": "complete",
+      "description": "Implementar entrega sequencial com IDs/idempotência. Conectar entrada streaming/interrupção suportadas pelo baseline Claude; não chamar steering se não houver equivalente comprovado. Persistir estados queued/sending/ack/running/completed/interrupted/failed com recuperação explícita de resultado desconhecido.",
+      "acceptance_criteria": [
+        "Turnos e configuração snapshot não se misturam; saída atrasada não conclui o item seguinte.",
+        "Restart/login/quota/request pendente deixam fila pausada e não repetem escrita automaticamente."
+      ],
+      "target_files": [
+        "electron/main/services/conversation/claude-conversation.ts",
+        "electron/main/services/conversation/thread-queue.ts",
+        "electron/main/services/conversation/thread-manager.ts",
+        "tests/thread-queue.test.ts"
+      ],
+      "code_context": "Implementar entrega sequencial com IDs/idempotência. Conectar entrada streaming/interrupção suportadas pelo baseline Claude; não chamar steering se não houver equivalente comprovado. Persistir estados queued/sending/ack/running/completed/interrupted/failed com recuperação explícita de resultado desconhecido.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/thread-queue.test.ts tests/claude-conversation.test.ts"
+      },
+      "creates": [
+        "electron/main/services/conversation/thread-queue.ts",
+        "tests/thread-queue.test.ts"
+      ]
+    },
+    {
+      "number": "15",
+      "wave": "W2",
+      "title": "Implementar inputs estruturados e armazenamento de anexos",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "2",
+        "11"
+      ],
+      "status": "complete",
+      "description": "Alterar send para lista tipada text/image/file-reference/skill/app-mention quando suportada. Main valida arquivos selecionados/paste, MIME/tamanho/hash, root e IDs de upload; renderer não fornece paths confiáveis. Codex usa image/localImage; Claude usa conteúdo estruturado conforme API instalada. Rever limite do JSON-line/RPC e backpressure para base64 Claude; arquivo binário não entra no snapshot nem no log.",
+      "acceptance_criteria": [
+        "Imagem chega ao runtime como imagem, não descrição textual simulada.",
+        "Anexos sobrevivem ao retry/fork apropriado; arquivo ausente/truncado tem erro claro; limpeza respeita referências e retenção."
+      ],
+      "target_files": [
+        "shared/types/thread.ts",
+        "electron/preload/api.ts",
+        "electron/main/ipc/thread.ipc.ts",
+        "electron/main/services/conversation/thread-attachments.ts",
+        "electron/main/services/conversation/codex-conversation.ts",
+        "electron/main/services/conversation/claude-conversation.ts",
+        "tests/thread-attachments.test.ts",
+        "electron/main/services/conversation/json-lines.ts",
+        "electron/main/services/conversation/process-transport.ts"
+      ],
+      "code_context": "Alterar send para lista tipada text/image/file-reference/skill/app-mention quando suportada. Main valida arquivos selecionados/paste, MIME/tamanho/hash, root e IDs de upload; renderer não fornece paths confiáveis. Codex usa image/localImage; Claude usa conteúdo estruturado conforme API instalada.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/thread-attachments.test.ts"
+      },
+      "creates": [
+        "electron/main/services/conversation/thread-attachments.ts",
+        "tests/thread-attachments.test.ts"
+      ]
+    },
+    {
+      "number": "16",
+      "wave": "W2",
+      "title": "Adicionar paste/drop, referências e fila ao compositor",
+      "step_type": "implement",
+      "estimated_effort": "medium",
+      "dependencies": [
+        "4",
+        "10",
+        "13",
+        "14",
+        "15"
+      ],
+      "status": "complete",
+      "description": "Adicionar chips/remover/preview de anexos e menções, fila visível e escolha enviar agora/próximo. Slash, multiline, colagem de código/imagem e teclado mantêm handlers distintos. Não criar execução nativa ao digitar barra.",
+      "acceptance_criteria": [
+        "Input preservado em erro/negação/troca de Thread; upload pending bloqueia somente envio daquele item.",
+        "Anexo+skill+texto e envio em busy/request funcionam sem abrir/fechar terminais."
+      ],
+      "target_files": [
+        "src/components/Threads/ThreadView.tsx",
+        "src/components/Threads/ThreadComposer.tsx",
+        "src/components/Threads/useThreadCommands.tsx",
+        "e2e/thread-view.spec.ts"
+      ],
+      "code_context": "Adicionar chips/remover/preview de anexos e menções, fila visível e escolha enviar agora/próximo. Slash, multiline, colagem de código/imagem e teclado mantêm handlers distintos. Não criar execução nativa ao digitar barra.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "npx playwright test e2e/thread-view.spec.ts"
+      },
+      "creates": [
+        "src/components/Threads/ThreadComposer.tsx"
+      ]
+    },
+    {
+      "number": "17",
+      "wave": "W2",
+      "title": "Integrar OXEVoice ao rascunho da Thread",
+      "step_type": "implement",
+      "estimated_effort": "medium",
+      "dependencies": [
+        "16"
+      ],
+      "status": "complete",
+      "description": "Reutilizar useOxeVoice com destino explícito da Thread. Hotkey no modo Thread nunca dispara voz no pane Code oculto. Texto reconhecido entra no rascunho, sem envio automático; dismiss funciona em captura, erro, cancelamento e processamento.",
+      "acceptance_criteria": [
+        "Ctrl+Shift+V e hold resolvem somente o contexto focado; AbortError não prende a UI.",
+        "Troca de sessão durante captura não insere texto na conversa errada; foco e cancelamento testados."
+      ],
+      "target_files": [
+        "src/App.tsx",
+        "src/hooks/useOxeVoice.ts",
+        "src/components/Threads/ThreadComposer.tsx",
+        "src/components/Voice/VoiceHud.tsx",
+        "tests/integration/useOxeVoice.test.tsx"
+      ],
+      "code_context": "Reutilizar useOxeVoice com destino explícito da Thread. Hotkey no modo Thread nunca dispara voz no pane Code oculto. Texto reconhecido entra no rascunho, sem envio automático; dismiss funciona em captura, erro, cancelamento e processamento.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/integration/useOxeVoice.test.tsx"
+      },
+      "creates": [
+        "src/components/Threads/ThreadComposer.tsx"
+      ]
+    },
+    {
+      "number": "18",
+      "wave": "W3",
+      "title": "Criar executor único de comandos com argumentos tipados",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "2",
+        "3",
+        "5",
+        "6",
+        "8",
+        "9",
+        "11"
+      ],
+      "status": "complete",
+      "description": "Unificar slash/botão/menu em registro main com aliases, schema args, escopo, efeitos, confirmação e handler. Implementar resultados applied/panel/started-turn/needs-input/unsupported/failed; gerar catálogo da mesma fonte. Não classificar como completo um nome com handler indisponível.",
+      "acceptance_criteria": [
+        "Cada nome do inventário recebe tratamento rastreável e equivalência definida; unknown não vira prompt AI.",
+        "Argumentos inválidos/versão incompatível mantêm rascunho e não iniciam PTY/inferência."
+      ],
+      "target_files": [
+        "shared/threadCommands.ts",
+        "shared/threadDesktopCommands.ts",
+        "electron/main/services/conversation/thread-commands.ts",
+        "electron/main/services/conversation/thread-command-registry.ts",
+        "tests/thread-commands.test.ts"
+      ],
+      "code_context": "Unificar slash/botão/menu em registro main com aliases, schema args, escopo, efeitos, confirmação e handler. Implementar resultados applied/panel/started-turn/needs-input/unsupported/failed; gerar catálogo da mesma fonte. Não classificar como completo um nome com handler indisponível.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/thread-commands.test.ts tests/thread-cli.test.ts"
+      },
+      "creates": [
+        "electron/main/services/conversation/thread-command-registry.ts"
+      ]
+    },
+    {
+      "number": "19",
+      "wave": "W3",
+      "title": "Implementar operações Codex faltantes do manifesto",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "13",
+        "18"
+      ],
+      "status": "partial",
+      "description": "Executar por packs pequenos: goal/pause/resume, review targets, plan inline, fast/personality, background terminal list/terminate, approve denied, memoryMode e configurações supported. Cada pack vira subtarefa derivada antes de editar; usar APIs do baseline e confirmação conforme semântica nativa.",
+      "acceptance_criteria": [
+        "Packs não podem concluir com placeholders; métodos experimentais são testados/rotulados por versão.",
+        "Operações de conta/daemon/setup usam serviço controlado próprio quando necessárias, sem spawn TUI como fallback."
+      ],
+      "target_files": [
+        "electron/main/services/conversation/codex-conversation.ts",
+        "electron/main/services/conversation/thread-command-registry.ts",
+        "src/components/Threads/ThreadConfigurationBar.tsx",
+        "tests/thread-commands.test.ts",
+        "tests/codex-conversation.test.ts"
+      ],
+      "code_context": "Executar por packs pequenos: goal/pause/resume, review targets, plan inline, fast/personality, background terminal list/terminate, approve denied, memoryMode e configurações supported. Cada pack vira subtarefa derivada antes de editar; usar APIs do baseline e confirmação conforme semântica nativa.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/thread-commands.test.ts tests/codex-conversation.test.ts"
+      },
+      "creates": [
+        "electron/main/services/conversation/thread-command-registry.ts"
+      ]
+    },
+    {
+      "number": "20",
+      "wave": "W3",
+      "title": "Implementar equivalentes desktop e comandos Claude",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "9",
+        "18"
+      ],
+      "status": "partial",
+      "description": "Separar comandos de execução de controles visuais. Theme/raw/statusline/vim/keymap/voice precisam equivalentes desktop quando aplicáveis. Commands Claude descobertos só são enviados se o modo SDK realmente executar a operação. Falta de API gera contribuição/adapter feature específica com bloqueio rastreado.",
+      "acceptance_criteria": [
+        "Registro distingue TUI-only equivalência visual de lacuna funcional; sem alegar suporte com retorno de texto.",
+        "Comandos custom/skills preservam argumentos, contexto e toolset; testes real-native selecionados confirmam execução."
+      ],
+      "target_files": [
+        "electron/main/services/conversation/claude-conversation.ts",
+        "electron/main/services/conversation/thread-command-registry.ts",
+        "src/components/Threads/useThreadCommands.tsx",
+        "src/store/navigation-prefs.store.ts",
+        "tests/thread-commands.test.ts"
+      ],
+      "code_context": "Separar comandos de execução de controles visuais. Theme/raw/statusline/vim/keymap/voice precisam equivalentes desktop quando aplicáveis. Commands Claude descobertos só são enviados se o modo SDK realmente executar a operação. Falta de API gera contribuição/adapter feature específica com bloqueio rastreado.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/thread-commands.test.ts tests/claude-conversation.test.ts"
+      },
+      "creates": [
+        "electron/main/services/conversation/thread-command-registry.ts"
+      ]
+    },
+    {
+      "number": "21",
+      "wave": "W3",
+      "title": "Integrar histórico nativo e operações de sessão",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "11",
+        "18"
+      ],
+      "status": "complete",
+      "description": "Codex thread/list/search/read/name/archive/delete/unarchive/fork; Claude sessões nativas via interface suportada e leitor isolado existente. Importar/vincular por provider/root/conta/nativeId sem duplicar. Separar Remover do OXESpace de Excluir sessão nativa, com efeitos claros e confirmação.",
+      "acceptance_criteria": [
+        "Sessão criada no CLI aparece e retoma na Thread com contexto nativo; operação inversa também validada.",
+        "Rename/archive/delete seguem escopo escolhido e estado real; session locks impedem dois escritores no mesmo nativeId."
+      ],
+      "target_files": [
+        "electron/main/services/conversation/native-session-history.ts",
+        "electron/main/services/conversation/thread-manager.ts",
+        "electron/main/services/usage/codexProvider.ts",
+        "electron/main/services/usage/claudeProvider.ts",
+        "src/components/Threads/ThreadSidebar.tsx",
+        "tests/native-session-history.test.ts"
+      ],
+      "code_context": "Codex thread/list/search/read/name/archive/delete/unarchive/fork; Claude sessões nativas via interface suportada e leitor isolado existente. Importar/vincular por provider/root/conta/nativeId sem duplicar. Separar Remover do OXESpace de Excluir sessão nativa, com efeitos claros e confirmação.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/native-session-history.test.ts tests/integration/thread-manager.test.ts"
+      }
+    },
+    {
+      "number": "22",
+      "wave": "W3",
+      "title": "Completar exportação, replay e revert com efeitos distintos",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "11",
+        "15",
+        "21"
+      ],
+      "status": "partial",
+      "description": "Exportar mensagens/atividades/requests/turnos/artefatos com schema versionado e referências redigidas. Distinguir rollback de contexto de revert de arquivos. Usar thread/revert/checkpoint quando comprovado; fallback de arquivo exige baseline e hashes e não usa reset/clean. Import/replay não reexecuta tools.",
+      "acceptance_criteria": [
+        "Exportação reabre offline a evidência sem credenciais; thumbnails/patches missing são identificados.",
+        "Revert preserva dirty anterior e mudanças posteriores ou bloqueia conflito; sem restaurar arquivo só por input da ferramenta."
+      ],
+      "target_files": [
+        "electron/main/services/conversation/thread-history.ts",
+        "electron/main/services/conversation/thread-manager.ts",
+        "electron/main/services/conversation/thread-export.ts",
+        "src/components/Threads/ThreadConversationActions.tsx",
+        "tests/thread-export.test.ts"
+      ],
+      "code_context": "Exportar mensagens/atividades/requests/turnos/artefatos com schema versionado e referências redigidas. Distinguir rollback de contexto de revert de arquivos. Usar thread/revert/checkpoint quando comprovado; fallback de arquivo exige baseline e hashes e não usa reset/clean. Import/replay não reexecuta tools.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/thread-export.test.ts tests/integration/thread-history.test.ts"
+      },
+      "creates": [
+        "electron/main/services/conversation/thread-export.ts",
+        "tests/thread-export.test.ts"
+      ]
+    },
+    {
+      "number": "23",
+      "wave": "W4",
+      "title": "Estender autenticação de execução MCP para Threads",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "3",
+        "7",
+        "8",
+        "9",
+        "11",
+        "10"
+      ],
+      "status": "complete",
+      "description": "Refatorar ExecutionRegistry para discriminated owner pane/thread, geração, cwd/projeto/policy e validade. ToolContext/automation/delegation não exigem pane inexistente. Autorizar mutações no main por escopo e policy; bridge allowlist reflete capacidade autorizável, não concede autorização por descoberta.",
+      "acceptance_criteria": [
+        "Leases Thread funcionam sem pane sintético; revogação por dispose/reconnect/policy é imediata.",
+        "Scripts/worktrees/delegação passam pela decisão de usuário/política aplicável; outra Thread/workspace/token não herda autorização."
+      ],
+      "target_files": [
+        "electron/main/services/execution-registry.ts",
+        "electron/main/mcp-internal/tool-registry.ts",
+        "electron/main/mcp-internal/automation-tools.ts",
+        "electron/main/mcp-internal/delegation-tools.ts",
+        "electron/main/services/conversation/thread-mcp.ts",
+        "resources/mcp-bridge/oxespace-mcp.cjs",
+        "tests/thread-mcp.test.ts"
+      ],
+      "code_context": "Refatorar ExecutionRegistry para discriminated owner pane/thread, geração, cwd/projeto/policy e validade. ToolContext/automation/delegation não exigem pane inexistente. Autorizar mutações no main por escopo e policy; bridge allowlist reflete capacidade autorizável, não concede autorização por descoberta.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/thread-mcp.test.ts tests/integration/mcp-internal.bridge.test.ts"
+      }
+    },
+    {
+      "number": "24",
+      "wave": "W4",
+      "title": "Gerenciar servidores MCP e autenticação por contexto",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "23",
+        "18"
+      ],
+      "status": "partial",
+      "description": "Codex mcp oauth/status/resource/tool/reload APIs negotiated; Claude substituir strict-only bridge por política de servidores escolhida/trusted com fallback explícito. Preservar MCP do usuário/projeto sem sobrescrever configuração alheia. Fluxo de OAuth/form/query na Thread e diagnóstico por servidor.",
+      "acceptance_criteria": [
+        "Adicionar/editar/habilitar/testar/autenticar/recarregar gera efeito real e estados de conexão distintos de resources vazios.",
+        "Tool mutante/input interativo exige request adequado; cancelar OAuth/desligar servidor não trava sessão."
+      ],
+      "target_files": [
+        "electron/main/services/conversation/thread-mcp.ts",
+        "electron/main/services/mcp.service.ts",
+        "electron/main/services/mcp-sync.service.ts",
+        "electron/main/services/conversation/codex-conversation.ts",
+        "src/components/Threads/ThreadIntegrationsPanel.tsx",
+        "tests/thread-mcp-native.test.ts"
+      ],
+      "code_context": "Codex mcp oauth/status/resource/tool/reload APIs negotiated; Claude substituir strict-only bridge por política de servidores escolhida/trusted com fallback explícito. Preservar MCP do usuário/projeto sem sobrescrever configuração alheia. Fluxo de OAuth/form/query na Thread e diagnóstico por servidor.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/thread-mcp.test.ts tests/integration/mcp-internal.bridge.test.ts"
+      },
+      "creates": [
+        "src/components/Threads/ThreadIntegrationsPanel.tsx"
+      ]
+    },
+    {
+      "number": "25",
+      "wave": "W4",
+      "title": "Restaurar configuração de hooks/perfis de forma verificável",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "5",
+        "6",
+        "7",
+        "18"
+      ],
+      "status": "partial",
+      "description": "Eliminar disableAllHooks incondicional somente quando configuração/trust/policies estiverem mapeados. Integrar hooks/list e alterações por fonte suportadas; Claude hooks callback/script conforme provider. Reutilizar binding MemoryService por Thread, sem compartilhar sessão nativa ou memória-run de pane.",
+      "acceptance_criteria": [
+        "Hook do baseline é observado na Thread com resultado/negação; managed deny permanece válido.",
+        "Configuração e origins de profile/systemPrompt são mostrados sem segredos; mudança exige fronteira de turno quando necessário."
+      ],
+      "target_files": [
+        "electron/main/services/conversation/thread-runtime.ts",
+        "electron/main/services/conversation/claude-conversation.ts",
+        "electron/main/services/memory/agent-memory-adapter.ts",
+        "electron/main/services/memory/memory.service.ts",
+        "tests/integration/memory-service.test.ts"
+      ],
+      "code_context": "Eliminar disableAllHooks incondicional somente quando configuração/trust/policies estiverem mapeados. Integrar hooks/list e alterações por fonte suportadas; Claude hooks callback/script conforme provider. Reutilizar binding MemoryService por Thread, sem compartilhar sessão nativa ou memória-run de pane.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/integration/memory-service.test.ts tests/claude-conversation.test.ts"
+      }
+    },
+    {
+      "number": "26",
+      "wave": "W4",
+      "title": "Completar apps, plugins e skills por provider",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "18",
+        "24",
+        "25"
+      ],
+      "status": "partial",
+      "description": "Codex plugin install/uninstall/reconcile/search/read e apps/skills config APIs; Claude equivalente SDK/perfil quando documentado e validado. Implementar app mention/input e approvals para chamadas com efeitos. Não transformar somente listagem em painel de gestão.",
+      "acceptance_criteria": [
+        "Instalar/desabilitar/atualizar skill/plugin altera catálogo efetivo e aplica ao próximo turno ou reload indicado.",
+        "Apps usados por menção geram tool call observada e aprovação quando exigida; ações sem API ficam bloqueadas com tarefa concreta."
+      ],
+      "target_files": [
+        "electron/main/services/conversation/thread-commands.ts",
+        "electron/main/services/conversation/codex-conversation.ts",
+        "electron/main/services/conversation/claude-conversation.ts",
+        "src/components/Threads/ThreadIntegrationsPanel.tsx",
+        "tests/thread-commands.test.ts"
+      ],
+      "code_context": "Codex plugin install/uninstall/reconcile/search/read e apps/skills config APIs; Claude equivalente SDK/perfil quando documentado e validado. Implementar app mention/input e approvals para chamadas com efeitos. Não transformar somente listagem em painel de gestão.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/thread-commands.test.ts tests/codex-conversation.test.ts tests/claude-conversation.test.ts"
+      },
+      "creates": [
+        "src/components/Threads/ThreadIntegrationsPanel.tsx"
+      ]
+    },
+    {
+      "number": "27",
+      "wave": "W5",
+      "title": "Normalizar streaming, tool results e uso observados",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "11",
+        "12",
+        "8",
+        "9"
+      ],
+      "status": "complete",
+      "description": "Preservar output delta, MCP result/error, progresso público, compactação, reroute de modelo, child links e origem. Não expor raciocínio privado. Separar quota/reset de tokens/contexto/custos API; reutilizar usage/credits providers apenas quando vinculados à sessão correta.",
+      "acceptance_criteria": [
+        "Atividade mostra erros/output/status reais sem 'completed' enganoso para tool failed/refused.",
+        "Contexto/reset têm fonte/instante ou indisponibilidade explícita; truncamento de visualização não é confundido com contexto do motor."
+      ],
+      "target_files": [
+        "electron/main/services/conversation/codex-conversation.ts",
+        "electron/main/services/conversation/claude-conversation.ts",
+        "src/components/Threads/ThreadActivityGroup.tsx",
+        "src/components/Threads/ThreadFailureCard.tsx",
+        "electron/main/services/agentCredits/claudeCredits.service.ts",
+        "tests/thread-activity.test.tsx"
+      ],
+      "code_context": "Preservar output delta, MCP result/error, progresso público, compactação, reroute de modelo, child links e origem. Não expor raciocínio privado. Separar quota/reset de tokens/contexto/custos API; reutilizar usage/credits providers apenas quando vinculados à sessão correta.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/thread-activity.test.tsx tests/thread-failure.test.ts tests/thread-failure-card.test.tsx"
+      }
+    },
+    {
+      "number": "28",
+      "wave": "W5",
+      "title": "Verificar evidência de alterações Claude e shell",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "11",
+        "27"
+      ],
+      "status": "complete",
+      "description": "Capturar baseline pontual/índice e snapshots para arquivos observados; pós-tool gera artefato confirmado quando possível. Distinguir ferramenta, turno e projeto. Ações concorrentes/shell sem autoria demonstrável ficam observadas/autoria indeterminada, sem atribuir git diff inteiro à Thread.",
+      "acceptance_criteria": [
+        "Dirty anterior, staged, rename/delete/binário/untracked e edição concorrente não recebem autoria/totais falsos.",
+        "Revert só habilita com baseline suficiente; arquivos sem evidência permanecem informados explicitamente."
+      ],
+      "target_files": [
+        "electron/main/services/conversation/thread-history.ts",
+        "electron/main/services/conversation/claude-conversation.ts",
+        "electron/main/services/conversation/thread-file-evidence.ts",
+        "src/components/Threads/threadChanges.ts",
+        "tests/thread-changes.test.tsx"
+      ],
+      "code_context": "Capturar baseline pontual/índice e snapshots para arquivos observados; pós-tool gera artefato confirmado quando possível. Distinguir ferramenta, turno e projeto. Ações concorrentes/shell sem autoria demonstrável ficam observadas/autoria indeterminada, sem atribuir git diff inteiro à Thread.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/thread-changes.test.tsx tests/claude-conversation.test.ts"
+      },
+      "creates": [
+        "electron/main/services/conversation/thread-file-evidence.ts"
+      ]
+    },
+    {
+      "number": "29",
+      "wave": "W5",
+      "title": "Integrar ferramentas Code ao workbench Thread",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "3",
+        "12",
+        "21",
+        "23",
+        "28"
+      ],
+      "status": "partial",
+      "description": "Executar packs derivados de R08–R14/R18 do workbench: Files/editor/referências, Git tracked/untracked/watchers/stage/commit/PR, Preview e terminal de projeto aberto explicitamente. Stores/readers resolvem root+Thread; comentários/review nunca pasteiam no terminal Code.",
+      "acceptance_criteria": [
+        "Mesma operação local fica disponível sem trocar de modo; Git remoto usa auth própria e confirmação adequada.",
+        "Dois worktrees do mesmo workspace não disputam cache/watchers/selection; fechamento de painel não interrompe o agente."
+      ],
+      "target_files": [
+        "src/components/Threads/ThreadChangesPanel.tsx",
+        "src/components/Review/ReviewPane.tsx",
+        "src/components/Review/DiffCard.tsx",
+        "src/components/Editor/FileBrowser.tsx",
+        "src/components/Editor/EditorPane.tsx",
+        "electron/main/services/git.service.ts",
+        "electron/main/services/github/repository.service.ts",
+        "src/store/thread-workbench.store.ts"
+      ],
+      "code_context": "Executar packs derivados de R08–R14/R18 do workbench: Files/editor/referências, Git tracked/untracked/watchers/stage/commit/PR, Preview e terminal de projeto aberto explicitamente. Stores/readers resolvem root+Thread; comentários/review nunca pasteiam no terminal Code.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/integration/thread-project-review.test.ts tests/thread-changes.test.tsx"
+      }
+    },
+    {
+      "number": "30",
+      "wave": "W5",
+      "title": "Integrar subagentes e delegação com ciclo próprio",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "8",
+        "9",
+        "21",
+        "23",
+        "27"
+      ],
+      "status": "partial",
+      "description": "Preservar events de colaboração/child sessions e distinguir subagentes nativos de delegação OXESpace. Cada child possui native ID/root/status/policy/config e links. Implementar requests de child, inbox/resultado/cancelamento/retry conforme ownership, sem criar recursão automática.",
+      "acceptance_criteria": [
+        "Usuário acompanha sessão child e resultado sem perder conversa principal; cancelamento/policy respeitam escopo.",
+        "Delegação MCP Thread funciona com execução autenticada real e worktree escolhida, sem fabricar pane para contornar validações."
+      ],
+      "target_files": [
+        "electron/main/services/conversation/thread-manager.ts",
+        "electron/main/services/conversation/codex-conversation.ts",
+        "electron/main/services/conversation/claude-conversation.ts",
+        "electron/main/services/delegation.service.ts",
+        "src/components/Threads/ThreadSubagents.tsx",
+        "tests/thread-subagents.test.ts"
+      ],
+      "code_context": "Preservar events de colaboração/child sessions e distinguir subagentes nativos de delegação OXESpace. Cada child possui native ID/root/status/policy/config e links. Implementar requests de child, inbox/resultado/cancelamento/retry conforme ownership, sem criar recursão automática.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/thread-subagents.test.ts"
+      },
+      "creates": [
+        "src/components/Threads/ThreadSubagents.tsx",
+        "tests/thread-subagents.test.ts"
+      ]
+    },
+    {
+      "number": "31",
+      "wave": "W5",
+      "title": "Dar visibilidade a múltiplas sessões e melhorar navegação",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "12",
+        "21",
+        "30"
+      ],
+      "status": "partial",
+      "description": "Integrar duas/quatro células opcionalmente e alternância com drafts/painéis/foco independentes. Sidebar usa branch/contexto, estado de execução/pedido e menus por projeto/Thread; ação destrutiva sai da lista permanente sem perder descoberta por teclado. Respeitar dimensões compartilhadas Code.",
+      "acceptance_criteria": [
+        "Duas execuções simultâneas não misturam mensagens/inputs/requests; apenas a célula focada recebe hotkey.",
+        "Navegação funciona em poucos/muitos projetos, nomes repetidos, paths longos, collapse e viewport estreito."
+      ],
+      "target_files": [
+        "src/App.tsx",
+        "src/components/Threads/ThreadSidebar.tsx",
+        "src/components/Threads/ThreadView.tsx",
+        "src/store/thread.store.ts",
+        "src/store/thread-workbench.store.ts",
+        "e2e/thread-view.spec.ts"
+      ],
+      "code_context": "Integrar duas/quatro células opcionalmente e alternância com drafts/painéis/foco independentes. Sidebar usa branch/contexto, estado de execução/pedido e menus por projeto/Thread; ação destrutiva sai da lista permanente sem perder descoberta por teclado. Respeitar dimensões compartilhadas Code.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "npx playwright test e2e/thread-view.spec.ts"
+      }
+    },
+    {
+      "number": "32",
+      "wave": "W6",
+      "title": "Inventariar providers e perfis adicionais do Code",
+      "step_type": "research",
+      "estimated_effort": "high",
+      "dependencies": [
+        "1",
+        "2",
+        "3"
+      ],
+      "status": "complete",
+      "description": "Abrir trilha separada para providers reais de shared/types/agent.ts: Copilot/gh-copilot, Antigravity, Cursor, Grok e custom; perfis derivados de Claude/Codex reutilizam adapter e configuração. Não importar lista de providers do cdesktop como se existisse no OXESpace. Para cada provider investigar protocolo headless/auth/tools/sessions/perms.",
+      "acceptance_criteria": [
+        "Cada provider/perfil tem manifesto e lacunas verificadas; ausência de API não vira automação de TUI.",
+        "P1 Claude/Codex e P2 providers Code possuem denominadores separados; nenhuma alegação de paridade geral enquanto P2 obrigatório estiver aberto."
+      ],
+      "target_files": [
+        "shared/types/agent.ts",
+        "electron/main/services/agent.service.ts",
+        "electron/main/services/conversation/thread-runtime.ts",
+        "shared/types/thread.ts",
+        "docs/plans/thread-cli-parity/CAPABILITY-MATRIX.md"
+      ],
+      "code_context": "Abrir trilha separada para providers reais de shared/types/agent.ts: Copilot/gh-copilot, Antigravity, Cursor, Grok e custom; perfis derivados de Claude/Codex reutilizam adapter e configuração. Não importar lista de providers do cdesktop como se existisse no OXESpace. Para cada provider investigar protocolo headless/auth/tools/sessions/perms.",
+      "verification_strategy": {
+        "method": "manual_review",
+        "pattern": "Evidência por provider, versão, plataforma e autenticação; um mock não certifica execução nativa."
+      }
+    },
+    {
+      "number": "33",
+      "wave": "W6",
+      "title": "Adicionar adapters por provider/perfil certificado",
+      "step_type": "implement",
+      "estimated_effort": "high",
+      "dependencies": [
+        "18",
+        "21",
+        "32"
+      ],
+      "status": "blocked",
+      "description": "Criar subtarefa por provider após pesquisa32 com auth, transport, requests, entradas, sessões, configuração e conformance. Perfis custom derivados usam parent adapter; CLI custom arbitrário precisa extension adapter declarado. Registrar protocolo e blocos externos necessários antes de liberar UI.",
+      "acceptance_criteria": [
+        "Provider aparece somente com capacidades efetivamente implementadas e testes nativos; não alterar Claude/Codex para simular funções ausentes.",
+        "Adapter extension conserva contexto, auth, lifecycle e requests; sem SDK funcional, P2 segue bloqueado explicitamente."
+      ],
+      "target_files": [
+        "electron/main/services/conversation/thread-runtime.ts",
+        "electron/main/services/conversation/adapters/",
+        "shared/types/thread.ts",
+        "tests/thread-adapter-conformance.test.ts"
+      ],
+      "code_context": "Criar subtarefa por provider após pesquisa32 com auth, transport, requests, entradas, sessões, configuração e conformance. Perfis custom derivados usam parent adapter; CLI custom arbitrário precisa extension adapter declarado. Registrar protocolo e blocos externos necessários antes de liberar UI.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "node scripts/test-electron.mjs tests/thread-adapter-conformance.test.ts"
+      },
+      "creates": [
+        "electron/main/services/conversation/adapters/",
+        "tests/thread-adapter-conformance.test.ts"
+      ]
+    },
+    {
+      "number": "34",
+      "wave": "W7",
+      "title": "Executar conformance, falhas e regressões integradas",
+      "step_type": "test",
+      "estimated_effort": "high",
+      "dependencies": [
+        "10",
+        "12",
+        "16",
+        "17",
+        "19",
+        "20",
+        "21",
+        "22",
+        "26",
+        "27",
+        "28",
+        "29",
+        "30",
+        "31"
+      ],
+      "status": "complete",
+      "description": "Habilitar suite por provider/plataforma/config; testar protocolo real sem inferência, corrupção/crash/restart, request pendente, account expiry/quota, saída atrasada, queue desconhecida, migração, lifecycleMCP e isolamento de worktree. Preservar todo Code/UI/settings/voz e bundle budgets.",
+      "acceptance_criteria": [
+        "Todos os cenários obrigatórios de ACCEPTANCE passam com evidência e sem credenciais em logs.",
+        "Mocks cobrem determinismo; smokes nativos separados não são contados como tarefa real concluída."
+      ],
+      "target_files": [
+        "tests/thread-adapter-conformance.test.ts",
+        "tests/integration/thread-manager.test.ts",
+        "tests/integration/thread-history.test.ts",
+        "tests/thread-mcp-native.test.ts",
+        "e2e/thread-view.spec.ts",
+        "scripts/verify-bundle-budgets.mjs"
+      ],
+      "code_context": "Habilitar suite por provider/plataforma/config; testar protocolo real sem inferência, corrupção/crash/restart, request pendente, account expiry/quota, saída atrasada, queue desconhecida, migração, lifecycleMCP e isolamento de worktree. Preservar todo Code/UI/settings/voz e bundle budgets.",
+      "verification_strategy": {
+        "method": "test",
+        "command": "npm run typecheck; npm run lint; npm run test:electron; npm run build; npx playwright test e2e/thread-view.spec.ts"
+      },
+      "conditional_dependencies": [
+        {
+          "step": "33",
+          "when": "Escopo de certificação inclui P2: conformance/pilotos próprios de todos os providers adicionais declarados são obrigatórios."
+        }
+      ],
+      "creates": [
+        "tests/thread-adapter-conformance.test.ts"
+      ]
+    },
+    {
+      "number": "35",
+      "wave": "W7",
+      "title": "Comparar CLI e Thread com tarefas reais equivalentes",
+      "step_type": "verify",
+      "estimated_effort": "high",
+      "dependencies": [
+        "34"
+      ],
+      "status": "blocked",
+      "description": "Executar protocolos de ACCEPTANCE em checkouts temporários equivalentes, mesmos provider/version/model/effort/auth/instruções/policies e fixtures. CLI lado nativo com operador e checkpoints reproduzíveis; Thread UI lado real. Contabilizar sucesso por cenário, erros, mudanças/artefatos, interrupção/retomada e latência; não automatizar TUI como runtime do produto.",
+      "acceptance_criteria": [
+        "Cada cenário crítico passa nos dois modos; divergência funcional vira issue bloqueante, não média escondida.",
+        "Ao menos3 repetições por tarefa/provider; falha ambiental é registrada separadamente; evidência valida estado do repo e native session, não só frase do agente."
+      ],
+      "target_files": [
+        "docs/plans/thread-cli-parity/ACCEPTANCE.md",
+        "tests/integration/thread-parity-pilots.test.ts",
+        "docs/plans/thread-cli-parity/EVIDENCE.md"
+      ],
+      "code_context": "Executar protocolos de ACCEPTANCE em checkouts temporários equivalentes, mesmos provider/version/model/effort/auth/instruções/policies e fixtures. CLI lado nativo com operador e checkpoints reproduzíveis; Thread UI lado real. Contabilizar sucesso por cenário, erros, mudanças/artefatos, interrupção/retomada e latência; não automatizar TUI como runtime do produto.",
+      "verification_strategy": {
+        "method": "manual_review",
+        "pattern": "Evidência por provider, versão, plataforma e autenticação; um mock não certifica execução nativa."
+      },
+      "conditional_dependencies": [
+        {
+          "step": "33",
+          "when": "Escopo de certificação inclui P2: conformance/pilotos próprios de todos os providers adicionais declarados são obrigatórios."
+        }
+      ],
+      "creates": [
+        "tests/integration/thread-parity-pilots.test.ts",
+        "docs/plans/thread-cli-parity/EVIDENCE.md"
+      ]
+    },
+    {
+      "number": "36",
+      "wave": "W7",
+      "title": "Certificar escopo, publicar documentação e fechar lacunas",
+      "step_type": "document",
+      "estimated_effort": "medium",
+      "dependencies": [
+        "35"
+      ],
+      "status": "partial",
+      "description": "Gerar relatório por capacidade/provider/versão/plataforma/auth. P1 exige packs obrigatórios zero lacunas; P2 só encerra após33+conformance+pilotos de cada provider declarado. Atualizar planos antigos com links e status corretos, sem marcar ondas visuais completas por inferência.",
+      "acceptance_criteria": [
+        "Release candidate apresenta matriz/evidências/known limitations e todos os gates; itens experimental/blocked não recebem selo completo.",
+        "Instruções de migração/recovery/configuração e rollback de schema/code consistentes; sem commit/release automático apenas por gerar este plano."
+      ],
+      "target_files": [
+        "docs/plans/thread-cli-parity/EVIDENCE.md",
+        "docs/plans/thread-workbench/PLAN.md",
+        "docs/plans/thread-professional/PLAN.md",
+        "docs/thread-view.md"
+      ],
+      "code_context": "Gerar relatório por capacidade/provider/versão/plataforma/auth. P1 exige packs obrigatórios zero lacunas; P2 só encerra após33+conformance+pilotos de cada provider declarado. Atualizar planos antigos com links e status corretos, sem marcar ondas visuais completas por inferência.",
+      "verification_strategy": {
+        "method": "manual_review",
+        "pattern": "Evidência por provider, versão, plataforma e autenticação; um mock não certifica execução nativa."
+      },
+      "conditional_dependencies": [
+        {
+          "step": "33",
+          "when": "Escopo de certificação inclui P2: conformance/pilotos próprios de todos os providers adicionais declarados são obrigatórios."
+        }
+      ],
+      "creates": [
+        "docs/plans/thread-cli-parity/EVIDENCE.md"
+      ]
+    }
+  ],
+  "qualifications": {
+    "P1": "Claude/Codex por plataforma/auth/policy declaradas; assinatura primeiro.",
+    "P2": "Providers/perfis adicionais Code: passos33 e conformance/pilotos próprios obrigatórios.",
+    "P3": "Ferramentas próprias Code integradas à Thread: passo29 por packs."
+  },
+  "execution": {
+    "updated_at": "2026-09-20",
+    "evidence": "EVIDENCE.md",
+    "result": "P1 operational parity candidate; P2 blocked; P3 broad partial (core Code panels integrated)"
+  }
+}

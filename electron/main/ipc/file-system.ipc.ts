@@ -10,7 +10,11 @@ import {
   parseFileSystemWriteFileInput
 } from './validation'
 
-export function registerFileSystemIpc(db: AppDatabase, fileSystemService = new FileSystemService((workspaceId) => {
+export function registerFileSystemIpc(db: AppDatabase, fileSystemService = new FileSystemService((workspaceId, requestedRoot) => {
+  if (workspaceId.startsWith('thread:')) {
+    const row = db.prepare('SELECT root_path FROM thread_project_contexts WHERE project_id = ? AND root_path = ?').get(workspaceId.slice('thread:'.length), requestedRoot) as { root_path: string } | undefined
+    return row?.root_path ?? null
+  }
   const row = db.prepare('SELECT root_path FROM workspaces WHERE id = ?').get(workspaceId) as { root_path: string } | undefined
   return row?.root_path ?? null
 })): FileSystemService {

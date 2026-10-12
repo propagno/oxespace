@@ -168,7 +168,9 @@ function onClick(event: MouseEvent): void {
   event.stopPropagation()
   const element = event.target as Element | null
   if (!element || element.nodeType !== Node.ELEMENT_NODE) return
-  ipcRenderer.sendToHost(DESIGN_MODE_CHANNELS.grab, buildPayload(element))
+  const payload = buildPayload(element)
+  ipcRenderer.send(DESIGN_MODE_CHANNELS.grab, payload)
+  try { ipcRenderer.sendToHost(DESIGN_MODE_CHANNELS.grab, payload) } catch { /* WebContentsView has no webview host. */ }
   setEnabled(false)
 }
 
@@ -176,7 +178,8 @@ function onKeyDown(event: KeyboardEvent): void {
   if (!enabled || event.key !== 'Escape') return
   event.preventDefault()
   setEnabled(false)
-  ipcRenderer.sendToHost(DESIGN_MODE_CHANNELS.cancel)
+  ipcRenderer.send(DESIGN_MODE_CHANNELS.cancel)
+  try { ipcRenderer.sendToHost(DESIGN_MODE_CHANNELS.cancel) } catch { /* WebContentsView has no webview host. */ }
 }
 
 function setEnabled(next: boolean): void {

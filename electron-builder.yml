@@ -102,9 +102,10 @@ linux:
   # the taskbar shows the real name/icon — and native notifications
   # (ipc/notifications.ipc.ts) are attributed to OXESpace rather than "Electron".
   desktop:
-    Name: OXESpace
-    StartupWMClass: OXESpace
-    Categories: Development;IDE;
+    entry:
+      Name: OXESpace
+      StartupWMClass: OXESpace
+      Categories: Development;IDE;
   extraResources:
     - from: resources/icon.png
       to: icon.png
