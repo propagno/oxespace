@@ -12,6 +12,7 @@ import { ThreadAgentError, threadFailure } from './thread-failure'
 import { ThreadHistory, type ThreadHistoryWriteOptions } from './thread-history'
 import { ThreadRewindError, planLocalRewind } from './thread-rewind'
 import { addTurnCost } from './thread-cost'
+import { reduceThreadEvent, type KernelEffect } from './kernel/event-reducer'
 import { forkClaudeBefore } from './claude-transcript-fork'
 import { ThreadRequestRegistry } from './thread-request-registry'
 import type { ThreadAttachmentStore } from './thread-attachments'
@@ -1086,30 +1087,7 @@ export class ThreadOrchestrator {
       this.save(snapshot, { eventsFrom: snapshot.events.length })
       return
     }
-    if (event.type === 'continuation-started') {
-      if (snapshot.turns?.at(-1)?.status !== 'running') {
-        snapshot.turns ??= []
-        snapshot.turns.push({ id: event.id, sequence: snapshot.turns.length + 1, startedAt: event.at, status: 'running', configuration: { model: snapshot.thread.model, access: snapshot.thread.access, reasoningEffort: snapshot.thread.reasoningEffort } })
-        snapshot.thread.status = 'running'
-        this.busy.add(id)
-      }
-      snapshot.events.push({ type: 'activity', id: event.id, phase: 'responding', at: event.at, summary: 'The provider is continuing after background activity.' })
-      this.save(snapshot, { eventsFrom: snapshot.events.length - 1 })
-      return
-    }
-    const activeTurn = snapshot.turns?.at(-1)
-    const operationId = activeTurn?.operationId
-    if (event.type === 'turn-accepted') {
-      if (activeTurn?.status === 'running') {
-        activeTurn.nativeId = event.nativeTurnId
-        delete snapshot.thread.providerObservation
-        if (operationId) this.history.transitionOperation(id, operationId, 'acknowledged')
-        this.save(snapshot, { eventsFrom: snapshot.events.length })
-        this.memoryEvent?.(snapshot, event)
-      }
-      return
-    }
-    let eventsFrom = snapshot.events.length
+    // Side effects the reducer depends on run first, in the original order.
     if (event.type === 'request') {
       const adapter = this.adapters.get(id)
       event.request.generation = snapshot.thread.generation ?? 1
@@ -1119,110 +1097,48 @@ export class ThreadOrchestrator {
       })
     } else if (event.type === 'request-resolved' && event.state !== 'pending') {
       this.requests.settle(id, event.id, event.state)
-      const requestIndex = snapshot.events.findIndex(value => value.type === 'request' && value.id === event.id)
-      const request = requestIndex >= 0 ? snapshot.events[requestIndex] : undefined
-      if (request?.type === 'request') {
-        request.request.state = event.state
-        request.request.resolution = event.resolution ?? 'unknown'
-        request.request.resolvedAt = event.resolvedAt ?? Date.now()
-      }
-      if (requestIndex >= 0) eventsFrom = Math.min(eventsFrom, requestIndex)
     }
-    if (activeTurn?.status === 'running' && (event.type === 'tool' || event.type === 'subagent' || event.type === 'turn-diff' || event.type === 'plan') && event.turnId) activeTurn.nativeId = event.turnId
-    if (event.type === 'failure-details') {
-      const completedIndex = snapshot.events.findIndex(value => value.type === 'completed' && value.failure?.id === event.id)
-      const completed = completedIndex >= 0 ? snapshot.events[completedIndex] : undefined
-      if (completed?.type !== 'completed' || !completed.failure) return
-      completed.failure = { ...completed.failure, ...(event.usage ? { usage: event.usage } : {}), usageUnavailable: event.usageUnavailable }
-      eventsFrom = Math.min(eventsFrom, completedIndex)
-    }
-    else if (event.type === 'configuration') {
-      if (event.model !== undefined) snapshot.thread.model = event.model
-      if (event.reasoningEffort !== undefined) snapshot.thread.reasoningEffort = event.reasoningEffort
-      if (event.access !== undefined) snapshot.thread.access = event.access
-      if (event.networkAccess !== undefined) snapshot.thread.networkAccess = event.networkAccess
-      if (event.approvalPolicy !== undefined) snapshot.thread.approvalPolicy = event.approvalPolicy
-      if (event.hooksEnabled !== undefined) snapshot.thread.hooksEnabled = event.hooksEnabled
-      if (activeTurn?.status === 'running') Object.assign(activeTurn.configuration, { ...(event.model !== undefined ? { model: event.model } : {}), ...(event.reasoningEffort !== undefined ? { reasoningEffort: event.reasoningEffort } : {}), ...(event.access !== undefined ? { access: event.access } : {}), ...(event.networkAccess !== undefined ? { networkAccess: event.networkAccess } : {}), ...(event.approvalPolicy !== undefined ? { approvalPolicy: event.approvalPolicy } : {}), ...(event.hooksEnabled !== undefined ? { hooksEnabled: event.hooksEnabled } : {}) })
-    }
-    else if (event.type === 'session') snapshot.thread.nativeSessionId = event.nativeSessionId
-    else if (event.type === 'completed') {
-      const turn = snapshot.turns?.at(-1)
-      if (turn?.status === 'running') { turn.status = event.status; turn.completedAt = Date.now() }
-      // A provider may finish a turn without reporting a tool result. The turn is
-      // over, but success of that command is unverified; never leave it spinning.
-      const turnStart = snapshot.events.findIndex(value => value.type === 'message' && value.role === 'user' && value.id === turn?.id)
-      snapshot.events.forEach((value, index) => {
-        if (turnStart < 0 || index < turnStart || value.type !== 'tool' || value.state !== 'running') return
-        value.state = 'unknown'
-        value.completedAt = Date.now()
-        value.files = value.files?.map(file => ({ ...file, state: file.state === 'running' ? 'unknown' : file.state }))
-        eventsFrom = Math.min(eventsFrom, index)
-      })
-      snapshot.events.forEach((value, index) => {
-        if (value.type === 'turn-diff' && value.turnId === turn?.nativeId) {
-          value.files = value.files.map(file => ({ ...file, state: event.status === 'completed' ? 'completed' : 'failed' }))
-          eventsFrom = Math.min(eventsFrom, index)
+    const endingTurn = event.type === 'completed' ? snapshot.turns?.at(-1) : undefined
+    const needsVerifiedDiff = event.type === 'completed' && this.workingTreeBaselines.has(id)
+    const needsCheckpoint = Boolean(endingTurn && this.turnCheckpoints.has(endingTurn.id))
+    const invalidated = event.type === 'completed' ? this.requests.invalidate(id, event.status === 'completed' ? 'expired' : 'cancelled') : []
+
+    const result = reduceThreadEvent(snapshot, event, {
+      now: () => Date.now(),
+      pendingRequestCount: () => this.requests.list(id, snapshot.thread.generation ?? 1).length,
+      invalidated,
+      needsVerifiedDiff,
+      needsCheckpoint
+    })
+    this.runEffects(id, snapshot, event, result.before)
+    if (result.save) this.save(snapshot, result.save)
+    this.runEffects(id, snapshot, event, result.after)
+  }
+
+  /** Executes reducer effects; the only place event handling touches ownership, history and timers. */
+  private runEffects(id: string, snapshot: ThreadSnapshot, event: ThreadEvent, effects: KernelEffect[]): void {
+    for (const effect of effects) {
+      switch (effect.kind) {
+        case 'busy-add': this.busy.add(id); break
+        case 'busy-delete': this.busy.delete(id); break
+        case 'finalizing-add': this.finalizing.add(id); break
+        case 'operation': this.history.transitionOperation(id, effect.operationId, effect.state, effect.error); break
+        case 'release-attachments': void this.releaseAttachments(id, effect.attachmentIds); break
+        case 'refresh-capabilities': {
+          const adapter = this.adapters.get(id)
+          if (adapter) snapshot.thread.capabilities = threadCapabilityManifest(snapshot.thread.provider, adapter.capabilities, snapshot.thread.connection?.state === 'connected', adapter.evidence, snapshot.thread)
+          break
         }
-      })
-      snapshot.thread.status = event.status === 'completed' ? 'idle' : event.status
-      snapshot.thread.lastTurnStatus = event.status
-      // A stopped or failed turn must not silently start the next queued message:
-      // the user decides whether the follow-up still makes sense.
-      if (event.status !== 'completed' && snapshot.thread.queue?.some(item => item.state === 'queued')) {
-        snapshot.thread.queuePause = { reason: event.status, since: Date.now(), ...(turn?.id ? { turnId: turn.id } : {}) }
+        case 'finalize': queueMicrotask(() => {
+          const task = this.finalizeTurnThenDrain(id, effect.status, effect.turnId, effect.captureDiff)
+          this.finalizationTasks.add(task)
+          void task.finally(() => this.finalizationTasks.delete(task)).catch(() => {})
+        }); break
+        case 'drain': queueMicrotask(() => void this.drainQueue(id)); break
+        case 'refresh-context': queueMicrotask(() => void this.contextUsage(id)); break
+        case 'memory-event': this.memoryEvent?.(snapshot, event); break
       }
-      this.busy.delete(id)
-      // Native patch notifications may omit files changed by shell commands.
-      // Compare against the pre-turn working tree for both providers, while
-      // keeping provider patches authoritative for paths they already report.
-      const needsVerifiedDiff = this.workingTreeBaselines.has(id)
-      const needsCheckpoint = Boolean(turn && this.turnCheckpoints.has(turn.id))
-      if (needsVerifiedDiff || needsCheckpoint) this.finalizing.add(id)
-      for (const request of this.requests.invalidate(id, event.status === 'completed' ? 'expired' : 'cancelled')) {
-        const resolution = event.status === 'completed' ? 'turn-completed' : event.status === 'interrupted' ? 'interrupted' : 'turn-failed'
-        const requestIndex = snapshot.events.findIndex(value => value.type === 'request' && value.id === request.id)
-        const persisted = requestIndex >= 0 ? snapshot.events[requestIndex] : undefined
-        if (persisted?.type === 'request') Object.assign(persisted.request, { state: request.state, resolution, resolvedAt: request.resolvedAt })
-        if (requestIndex >= 0) eventsFrom = Math.min(eventsFrom, requestIndex)
-        snapshot.events.push({ type: 'request-resolved', id: request.id, state: request.state, resolution, resolvedAt: request.resolvedAt })
-      }
-      const unresolved = snapshot.events.filter(value => value.type === 'approval' && !snapshot.events.some(resolved => resolved.type === 'approval-resolved' && resolved.id === value.id))
-      for (const approval of unresolved) if (approval.type === 'approval') snapshot.events.push({ type: 'approval-resolved', id: approval.id })
-      snapshot.events.push(event)
-      if (operationId) this.history.transitionOperation(id, operationId, event.status === 'completed' ? 'completed' : event.status === 'interrupted' ? 'cancelled' : 'failed', event.error)
-      if (event.status === 'completed' && turn?.attachmentIds?.length) void this.releaseAttachments(id, turn.attachmentIds)
-      if (needsVerifiedDiff || needsCheckpoint) queueMicrotask(() => {
-        const task = this.finalizeTurnThenDrain(id, event.status, turn?.id, needsVerifiedDiff)
-        this.finalizationTasks.add(task)
-        void task.finally(() => this.finalizationTasks.delete(task)).catch(() => {})
-      })
-      else queueMicrotask(() => void this.drainQueue(id))
-      queueMicrotask(() => void this.contextUsage(id))
-    } else if (event.type === 'delta') {
-      const existingIndex = snapshot.events.findIndex(value => value.type === 'message' && value.role === 'assistant' && value.id === event.id)
-      const existing = existingIndex >= 0 ? snapshot.events[existingIndex] : undefined
-      if (existing?.type === 'message') existing.text = (existing.text + event.text).slice(0, 256 * 1024)
-      else snapshot.events.push({ type: 'message', id: event.id, role: 'assistant', text: event.text.slice(0, 256 * 1024) })
-      eventsFrom = existingIndex >= 0 ? Math.min(eventsFrom, existingIndex) : eventsFrom
-    } else {
-      if (event.type === 'approval' || event.type === 'request') snapshot.thread.status = 'approval'
-      const index = snapshot.events.findIndex(value => 'id' in value && value.id === event.id && value.type === event.type)
-      if (index >= 0) {
-        const previous = snapshot.events[index]
-        snapshot.events[index] = event.type === 'tool' && previous.type === 'tool' ? { ...previous, ...event, name: event.name === 'Tool result' ? previous.name : event.name, detail: event.detail || previous.detail } : event
-        eventsFrom = Math.min(eventsFrom, index)
-      }
-      else snapshot.events.push(event)
-      if (event.type === 'approval-resolved' || event.type === 'request-resolved') snapshot.thread.status = this.requests.list(id, snapshot.thread.generation ?? 1).length ? 'approval' : 'running'
     }
-    if (event.type === 'session' || event.type === 'configuration') {
-      const adapter = this.adapters.get(id)
-      if (adapter) snapshot.thread.capabilities = threadCapabilityManifest(snapshot.thread.provider, adapter.capabilities, snapshot.thread.connection?.state === 'connected', adapter.evidence, snapshot.thread)
-    }
-    if (operationId && activeTurn?.status === 'running' && event.type !== 'completed' && event.type !== 'session' && event.type !== 'configuration') this.history.transitionOperation(id, operationId, 'running')
-    this.save(snapshot, { eventsFrom, ...(operationId ? { operationId } : {}) })
-    if (event.type === 'session' || event.type === 'completed') this.memoryEvent?.(snapshot, event)
   }
 
   private save(snapshot: ThreadSnapshot, options?: ThreadHistoryWriteOptions): void {
