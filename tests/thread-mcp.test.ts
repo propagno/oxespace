@@ -37,7 +37,21 @@ it('releases a Thread memory lease even if provider cleanup fails, and only once
   expect(end).toHaveBeenCalledTimes(1)
 })
 
-it('preserves an explicitly restricted MCP configuration without injecting the bridge', () => {
+it('gives a read-only Claude conversation the bridge limited to read-only lookups, and no user servers', () => {
   const args = ['--tools', 'Read,Glob,Grep,AskUserQuestion', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}']
+  const result = threadMcpArguments('claude', args, '/bridge.cjs', { servers: [{ name: 'user-writer' }] } as never)
+  expect(result.slice(0, 4)).toEqual(args.slice(0, 4))
+  const config = JSON.parse(result[4]) as { mcpServers: Record<string, { args: string[] }> }
+  expect(Object.keys(config.mcpServers)).toEqual(['oxespace-delegation'])
+  const allowed = JSON.parse(config.mcpServers['oxespace-delegation'].args[2]) as string[]
+  expect(allowed).toContain('oxespace_hybrid_explore')
+  expect(allowed).toContain('oxespace_memory_search')
+  for (const writer of ['oxespace_memory_remember', 'oxespace_thread_send', 'oxespace_delegate_task', 'oxespace_team_message', 'oxespace_documentation_create', 'oxespace_open_web_preview']) {
+    expect(allowed).not.toContain(writer)
+  }
+})
+
+it('preserves any other explicitly restricted MCP configuration untouched', () => {
+  const args = ['--strict-mcp-config', '--mcp-config', '{"mcpServers":{"custom":{"command":"x"}}}']
   expect(threadMcpArguments('claude', args, '/bridge.cjs')).toEqual(args)
 })

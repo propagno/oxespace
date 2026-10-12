@@ -27,9 +27,30 @@ export const THREAD_MCP_TOOLS = ['oxespace_team_status', 'oxespace_team_inbox', 
   'oxespace_delegation_inbox', 'oxespace_delegation_acknowledge', 'oxespace_delegation_context', 'oxespace_delegation_result',
   'oxespace_delegation_message', 'oxespace_delegation_control', 'oxespace_delegation_update', 'oxespace_delegation_checkpoint']
 
+/**
+ * What a read-only conversation may call: lookups and status only. Nothing
+ * here writes to the project, starts work or sends messages, so a read-only
+ * Thread can still search code, memory and documentation.
+ */
+export const THREAD_READ_ONLY_MCP_TOOLS = ['oxespace_capabilities', 'oxespace_execution_context', 'oxespace_project_context',
+  'oxespace_memory_search', 'oxespace_memory_sessions', 'oxespace_memory_handoffs',
+  'oxespace_semantic_search', 'oxespace_hybrid_explore', 'oxespace_list_agents', 'oxespace_list_workspaces',
+  'oxespace_documentation_get', 'oxespace_documentation_list',
+  'oxespace_team_status', 'oxespace_team_inbox', 'oxespace_delegation_status', 'oxespace_delegation_inbox', 'oxespace_delegation_result']
+
+/** The empty strict configuration Claude receives for a read-only conversation. */
+const READ_ONLY_EMPTY_MCP = '{"mcpServers":{}}'
+
 export function threadMcpArguments(provider: 'claude' | 'codex', args: string[], bridge: string, managed?: ManagedMcp): string[] {
-  // Preserve an explicitly restricted tool surface, including disabled MCPs.
-  if (provider === 'claude' && args.includes('--strict-mcp-config')) return args
+  if (provider === 'claude' && args.includes('--strict-mcp-config')) {
+    // A read-only conversation keeps its strict surface (no user servers, which
+    // may write), but gets the OXESpace bridge limited to read-only lookups.
+    const index = args.indexOf('--mcp-config')
+    if (index < 0 || args[index + 1] !== READ_ONLY_EMPTY_MCP) return args
+    const readOnly = [...args]
+    readOnly[index + 1] = JSON.stringify({ mcpServers: { 'oxespace-delegation': { command: 'node', args: [bridge, '--allowed-tools', JSON.stringify(THREAD_READ_ONLY_MCP_TOOLS)] } } })
+    return readOnly
+  }
   const config = agentMcpArguments(provider, bridge)
   const bridgeArgs = [bridge, '--allowed-tools', JSON.stringify(THREAD_MCP_TOOLS)]
   if (provider === 'codex') {
