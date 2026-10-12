@@ -11,6 +11,7 @@ import { execFile } from 'node:child_process'
 import { ThreadAgentError, threadFailure } from './thread-failure'
 import { ThreadHistory, type ThreadHistoryWriteOptions } from './thread-history'
 import { ThreadRewindError, planLocalRewind } from './thread-rewind'
+import { addTurnCost } from './thread-cost'
 import { forkClaudeBefore } from './claude-transcript-fork'
 import { ThreadRequestRegistry } from './thread-request-registry'
 import type { ThreadAttachmentStore } from './thread-attachments'
@@ -1021,6 +1022,15 @@ export class ThreadOrchestrator {
     } catch { /* Thread may have been deleted while the provider was reporting. */ }
   }
 
+  private storeCost(id: string, turn: Extract<ThreadEvent, { type: 'turn-cost' }>): void {
+    try {
+      const snapshot = this.read(id)
+      const { type: _type, ...cost } = turn
+      snapshot.thread.costReport = addTurnCost(snapshot.thread.costReport, cost, Date.now())
+      this.save(snapshot, { eventsFrom: snapshot.events.length })
+    } catch { /* Thread may have been deleted while the provider was reporting. */ }
+  }
+
   /** Reads the provider's context report; only while idle, and a failure keeps the previous report. */
   async contextUsage(id: string): Promise<ThreadContextReport | null> {
     const adapter = this.adapters.get(id)
@@ -1043,6 +1053,7 @@ export class ThreadOrchestrator {
   private applyEvent(id: string, event: ThreadEvent, generation?: number): void {
     if (this.stopping) return
     if (event.type === 'context-usage') { this.storeContext(id, event.report); return }
+    if (event.type === 'turn-cost') { this.storeCost(id, event); return }
     let snapshot: ThreadSnapshot
     try { snapshot = this.read(id) } catch {
       this.busy.delete(id)

@@ -42,6 +42,7 @@ import { ThreadApprovalDetails } from './ThreadApprovalDetails'
 import { ThreadPromptQueue } from './ThreadPromptQueue'
 import { ThreadDeliveryNote } from './ThreadDeliveryNote'
 import { ThreadRewindControl } from './ThreadRewindControl'
+import { ThreadCostChip } from './ThreadCostChip'
 import { ThreadSubagentActivity } from './ThreadSubagentActivity'
 import { VoiceHud } from '../Voice/VoiceHud'
 import { DelegationCreateDialog } from '../Delegation/DelegationCreateDialog'
@@ -596,6 +597,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
           <button type="button" className="thread-command-trigger" aria-label="Voice input" title="Voice input · Ctrl+Shift+V" disabled={!snapshot || pending || !voice.isSupported} onClick={voice.toggle}><Mic size={14} /></button>
           {snapshot && <ThreadConfigurationBar key={snapshot.thread.id} thread={snapshot.thread} openControl={openControl} onControlClosed={() => setOpenControl(null)} onError={setError} onConfigured={value => useThreadStore.getState().updateSnapshot(value)} />}
           {running && snapshot?.thread.capabilities?.features.steering?.enabled && <button type="button" className="thread-command-trigger" aria-label="Steer active turn" title="Send guidance to the active turn" disabled={pending || (!draft.trim() && !attachments.length)} onClick={() => send('steer')}><CornerDownLeft size={14} /></button>}
+          {snapshot && <ThreadCostChip cost={snapshot.thread.costReport} />}
           {snapshot && <ThreadUsageRing provider={snapshot.thread.provider} idle={!running} threadId={snapshot.thread.id} context={snapshot.thread.contextReport} />}
           {running && <button type="button" className="thread-stop" aria-label="Stop turn" title="Stop turn" disabled={pending} onClick={() => void action(() => api!.interrupt(snapshot!.thread.id))}><Square size={13} /></button>}
           <button type="submit" className="thread-send" aria-label={running ? 'Queue follow-up' : 'Send'} title={running ? 'Queue follow-up · Enter' : 'Send · Enter'} disabled={!snapshot || (!draft.trim() && !attachments.length) || pending || Boolean(snapshot.thread.cliActive)}><ArrowUp size={16} /></button></footer>

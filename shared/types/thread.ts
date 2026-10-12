@@ -168,6 +168,18 @@ export interface ThreadQueuedInput {
 
 export interface ThreadContextCategory { name: string; tokens: number; kind: 'used' | 'deferred' | 'buffer' | 'free' }
 /** What fills the model's context window right now, as reported by the provider. */
+/** Accumulated provider-reported cost of a conversation; an estimate, never a bill. */
+export interface ThreadCostReport {
+  totalUsd: number
+  turns: number
+  lastTurnUsd?: number
+  inputTokens?: number
+  outputTokens?: number
+  cacheReadTokens?: number
+  updatedAt: number
+  source: 'claude-result'
+}
+
 export interface ThreadContextReport {
   model?: string
   usedTokens: number
@@ -253,6 +265,8 @@ export interface ConversationThread {
   queuePause?: ThreadQueuePause
   /** Latest context-window report; never part of the timeline. */
   contextReport?: ThreadContextReport
+  /** Running cost estimate; never part of the timeline. */
+  costReport?: ThreadCostReport
   capabilities?: ThreadCapabilityManifest
   connection?: ThreadConnectionStatus
   providerObservation?: ThreadProviderObservation
@@ -273,6 +287,8 @@ export type ThreadEvent =
   | { type: 'native-signal'; at: number }
   /** Metadata only: stored on the thread, never added to the timeline. */
   | { type: 'context-usage'; report: ThreadContextReport }
+  /** Metadata only: one turn's reported cost, folded into the thread's running total. */
+  | { type: 'turn-cost'; usd?: number; inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheCreationTokens?: number }
   | { type: 'connection-closed'; at: number }
   | { type: 'turn-accepted'; nativeTurnId: string; at: number }
   | { type: 'activity'; id: string; phase: 'preparing' | 'connecting' | 'reasoning' | 'responding'; at: number; summary?: string }

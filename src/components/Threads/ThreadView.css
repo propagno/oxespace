@@ -678,6 +678,7 @@
 .thread-composer .thread-configuration { display: contents; }
 .thread-composer footer .thread-config-trigger.is-permissions { margin-left: auto; }
 .thread-composer footer .thread-send, .thread-composer footer .thread-stop { margin-left: 0; }
+.thread-cost-chip { flex: none; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--tx-secondary); padding: 0 6px; white-space: nowrap; cursor: default; }
 .thread-usage-ring { display: grid; place-items: center; flex: none; width: 28px; height: 28px; padding: 0; border-radius: var(--radius-pill); color: var(--tx-secondary); }
 .thread-usage-ring-track { stroke: var(--ov-3); }
 .thread-usage-ring-value { stroke: currentColor; transition: stroke-dashoffset .3s ease; }

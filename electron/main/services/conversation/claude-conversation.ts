@@ -6,6 +6,7 @@ import { JsonLinesDecoder } from './json-lines'
 import { CLAUDE_THREAD_ARGS, claudeRuntimeCatalog } from './claude-command-catalog'
 import { threadFailure } from './thread-failure'
 import { normalizeClaudeContext } from './thread-context'
+import { readClaudeResultCost } from './thread-cost'
 import { createApiRetryTracker } from './claude-api-retry'
 import { describePermissionRequest } from './claude-permission-request'
 
@@ -327,6 +328,8 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
           if (!this.answerShown && !this.authenticationFailed && !event.is_error && typeof event.result === 'string' && event.result) {
             this.emit({ type: 'message', id: randomUUID(), role: 'assistant', text: event.result.slice(0, 65536) })
           }
+          const turnCost = readClaudeResultCost(event)
+          if (turnCost) this.emit({ type: 'turn-cost', ...turnCost })
           this.finish(this.authenticationFailed || event.is_error === true || event.subtype !== 'success' ? 'failed' : 'completed')
         }
   }
