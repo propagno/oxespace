@@ -1,7 +1,7 @@
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { ThreadHistoricalQuestions } from './ThreadHistoricalQuestions'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Activity, AlertCircle, ArrowDown, ArrowUp, Check, ChevronDown, Copy, CornerDownLeft, GitBranch, Plug, Loader2, MessageSquarePlus, Mic, Minus, PanelRight, Paperclip, Pencil, Pin, Plus, Slash, Square, TerminalSquare, Type, Waypoints, X, GitCompareArrows, Globe, MoreHorizontal, AtSign, Image as ImageIcon } from 'lucide-react'
+import { Activity, AlertCircle, FileText, ArrowDown, ArrowUp, Check, ChevronDown, Copy, CornerDownLeft, GitBranch, Plug, Loader2, MessageSquarePlus, Mic, Minus, PanelRight, Paperclip, Pencil, Pin, Plus, Slash, Square, TerminalSquare, Type, Waypoints, X, GitCompareArrows, Globe, MoreHorizontal, AtSign, Image as ImageIcon } from 'lucide-react'
 import { ThreadMarkdown } from './ThreadMarkdown'
 import { formatNativeUserText } from '../../../shared/native-session-text'
 import { blocksThreadInput } from '../../../shared/threadHistoryNotice'
@@ -516,6 +516,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
               {event.role === 'assistant' && (final || turnEvents.find(value => value.type === 'message' && value.role === 'assistant') === event) && <div className="thread-agent-label"><AgentProviderIcon provider={snapshot?.thread.provider ?? 'claude'} size={16} />{snapshot?.thread.provider === 'claude' ? 'Claude' : 'Codex'}{final && <span className="thread-final-label">Final response</span>}</div>}
               {event.role === 'user' && event.attachments?.length ? <ul className="thread-sent-attachments" aria-label="Message attachments">{event.attachments.map(attachment => <li key={attachment.id} title={attachment.name}><ImageIcon size={13} aria-hidden="true" /><span>{attachment.name}</span><small>{Math.ceil(attachment.bytes / 1024)} KB</small></li>)}</ul> : null}
               <ThreadMessageBody text={displayText} role={event.role} />
+              {event.role === 'user' && event.context?.length ? <ul className="thread-sent-context" aria-label="Attached file context">{event.context.map(file => <li key={file.path} title={`${file.bytes} bytes attached${file.truncated ? ' (truncated)' : ''}`}><FileText size={12} aria-hidden="true" /><span>{file.path}</span>{file.truncated && <small>truncated</small>}</li>)}</ul> : null}
               {event.role === 'user' && snapshot?.deliveries?.[event.id] && snapshot.deliveries[event.id].state !== 'delivered' ? <ThreadDeliveryNote delivery={snapshot.deliveries[event.id]} disabled={pending} onResend={() => void action(() => api!.send(snapshot.thread.id, event.text, event.attachments?.map(attachment => attachment.id) ?? []))} /> : null}
               {event.role === 'user' && snapshot && !running && api?.rewind && snapshot.thread.capabilities?.features.rewind?.enabled && (() => {
                 const turns = snapshot.turns ?? [], index = turns.findIndex(turn => turn.id === event.id)

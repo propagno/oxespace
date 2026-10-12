@@ -695,11 +695,11 @@
 /* What the user sent: a quiet bubble, attachments as chips above the text, no action buttons. */
 .thread-message-user { display: flex; flex-direction: column; gap: 8px; padding: 10px 14px; border: 0; background: var(--ov-1); border-radius: var(--panel-radius); }
 .thread-message-user > .thread-markdown, .thread-message-user > .thread-long-prompt { color: var(--tx-primary); }
-.thread-sent-attachments { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
-.thread-sent-attachments li { display: inline-flex; align-items: center; gap: 6px; max-width: min(280px, 100%); height: 26px; padding: 0 9px; border: 1px solid var(--wb-border); border-radius: var(--radius-pill); background: var(--bg-app); color: var(--tx-secondary); font-size: var(--fs-xs); }
-.thread-sent-attachments li svg { flex: none; color: var(--tx-muted); }
-.thread-sent-attachments li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.thread-sent-attachments li small { flex: none; color: var(--tx-muted); font-size: var(--fs-2xs); }
+.thread-sent-attachments, .thread-sent-context { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.thread-sent-attachments li, .thread-sent-context li { display: inline-flex; align-items: center; gap: 6px; max-width: min(280px, 100%); height: 26px; padding: 0 9px; border: 1px solid var(--wb-border); border-radius: var(--radius-pill); background: var(--bg-app); color: var(--tx-secondary); font-size: var(--fs-xs); }
+.thread-sent-attachments li svg, .thread-sent-context li svg { flex: none; color: var(--tx-muted); }
+.thread-sent-attachments li span, .thread-sent-context li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thread-sent-attachments li small, .thread-sent-context li small { flex: none; color: var(--tx-muted); font-size: var(--fs-2xs); }
 .thread-usage-wrap { position: relative; display: inline-flex; }
 .thread-usage-popover { position: absolute; right: 0; bottom: calc(100% + 6px); z-index: 20; display: grid; gap: 10px; min-width: 240px; max-width: 320px; padding: 10px 12px; border: 1px solid var(--bd-base); border-radius: var(--radius-md); background: var(--bg-elevated); color: var(--tx-secondary); font-size: var(--fs-xs); }
 .thread-usage-popover h4 { margin: 0 0 4px; color: var(--tx-primary); font-size: var(--fs-xs); font-weight: 600; }

@@ -12,6 +12,7 @@ import { ThreadAgentError, threadFailure } from './thread-failure'
 import { ThreadHistory, type ThreadHistoryWriteOptions } from './thread-history'
 import { ThreadRewindError, planLocalRewind } from './thread-rewind'
 import { addTurnCost } from './thread-cost'
+import { resolveMentionContext } from './thread-context-resolver'
 import { reduceThreadEvent, type KernelEffect } from './kernel/event-reducer'
 import { mergeTurnConfiguration, turnConfiguration } from './kernel/turn-configuration'
 import { runThreadCommand, type CommandHost } from './kernel/command-router'
@@ -387,6 +388,7 @@ export class ThreadOrchestrator {
     this.assertNativeSessionAvailable(id, snapshot.thread.provider, snapshot.thread.nativeSessionId)
     this.busy.add(id) // reserve before any asynchronous launch
     let input: ThreadAgentInput = { text }
+    let mentioned: Awaited<ReturnType<typeof resolveMentionContext>> = { block: '', files: [] }
     try {
       input = await this.commandService?.prepare(snapshot.thread, text) ?? input
       if (input.nativeCli) {
@@ -395,6 +397,11 @@ export class ThreadOrchestrator {
       if (snapshot.thread.cliNotice && blocksThreadInput(snapshot.thread)) throw Error(snapshot.thread.cliNotice)
       if (!input.text.trim() || Buffer.byteLength(input.text) > 64 * 1024) throw new Error('Skill prompt must contain 1 to 65536 bytes')
       await this.preflight?.(snapshot.thread)
+      // `@file` mentions become attached content; the stored message keeps the text as typed.
+      if (!text.trim().startsWith('/')) {
+        mentioned = await resolveMentionContext(snapshot.thread.rootPath, text).catch(() => mentioned)
+        if (mentioned.block) input = { ...input, text: input.text + mentioned.block }
+      }
       snapshot = this.read(id)
       if (this.stopping) throw new Error('Application is shutting down')
     } catch (error) { this.busy.delete(id); throw error }
@@ -405,7 +412,7 @@ export class ThreadOrchestrator {
     const turnId = randomUUID()
     const operation = this.history.beginOperation({ threadId: id, turnId, generation: snapshot.thread.generation ?? 1, kind: 'turn' })
     const eventsFrom = snapshot.events.length
-    snapshot.events.push({ type: 'message', id: turnId, role: 'user', text, ...(attachments.length ? { attachments: attachments.map(({ path: _path, ...attachment }) => attachment) } : {}) })
+    snapshot.events.push({ type: 'message', id: turnId, role: 'user', text, ...(attachments.length ? { attachments: attachments.map(({ path: _path, ...attachment }) => attachment) } : {}), ...(mentioned.files.length ? { context: mentioned.files } : {}) })
     snapshot.turns ??= []
     snapshot.turns.push({ id: turnId, operationId: operation.id, sequence: snapshot.turns.length + 1, startedAt: Date.now(), status: 'running', configuration: turnConfiguration(snapshot.thread), ...(attachmentIds.length ? { attachmentIds: [...attachmentIds] } : {}) })
     snapshot.events.push({ type: 'activity', id: `activity:${turnId}:preparing`, phase: 'preparing', at: Date.now() })
