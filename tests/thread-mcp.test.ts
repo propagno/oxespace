@@ -10,7 +10,11 @@ it('adds the OXESpace bridge while preserving Claude CLI MCP inheritance and per
   const server = JSON.parse(args.at(-1)!).mcpServers['oxespace-delegation']
   expect(server.args[0]).toBe('/bridge.cjs')
   expect(JSON.parse(server.args[2])).toContain('oxespace_memory_search')
-  expect(JSON.parse(server.args[2])).toContain('oxespace_run_script')
+  expect(JSON.parse(server.args[2])).toContain('oxespace_hybrid_explore')
+  // Tools that need a Code workspace's panes, scripts, jobs or worktrees are not offered to a Thread.
+  for (const codeOnly of ['oxespace_run_script', 'oxespace_list_panes', 'oxespace_list_worktrees', 'oxespace_create_worktree', 'oxespace_remove_worktree', 'oxespace_list_background_jobs']) {
+    expect(JSON.parse(server.args[2])).not.toContain(codeOnly)
+  }
   expect(JSON.parse(server.args[2])).toContain('oxespace_quality_check')
   expect(JSON.parse(server.args[2])).toContain('oxespace_thread_create')
   expect(JSON.parse(server.args[2])).toContain('oxespace_thread_send')
