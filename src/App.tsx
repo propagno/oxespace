@@ -59,6 +59,7 @@ import { useVoiceStore } from './store/voice.store'
 import { useAgentNotifications } from './hooks/useAgentNotifications'
 import { useAgentHookStatus } from './hooks/useAgentHookStatus'
 import { THREAD_NOTIFICATION_PANE_PREFIX, useThreadAttention } from './hooks/useThreadAttention'
+import { useThreadShortcuts } from './hooks/useThreadShortcuts'
 import { useTerminalPrefsStore, TERMINAL_PREFS_DEFAULTS, FONT_SIZE_MIN, FONT_SIZE_MAX } from './store/terminal-prefs.store'
 import { useSettingsStore } from './store/settings.store'
 
@@ -919,6 +920,7 @@ export function App(): ReactElement {
     if (!project) setThreadProjectOpen(true)
     else setNewThreadWorkspaceId(project.projectId)
   }
+  useThreadShortcuts(applicationView === 'thread', newThread)
 
   const openThreadAccounts = () => setAccountsOpen(true)
   const openDelegation = async (task: DelegationTask): Promise<boolean> => {
