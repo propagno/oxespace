@@ -104,6 +104,18 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings): { st
   })
   ipcMain.handle(IPC_CHANNELS.thread.list, event => { sender(event); return manager.then(service => service.list()) })
   ipcMain.handle(IPC_CHANNELS.thread.read, (event, id: unknown) => { sender(event); return manager.then(service => service.readForRenderer(string(id))) })
+  ipcMain.handle(IPC_CHANNELS.thread.rewind, (event, id: unknown, turnId: unknown, options: unknown) => {
+    sender(event)
+    const restoreFiles = Boolean(options && typeof options === 'object' && (options as Record<string, unknown>).restoreFiles === true)
+    return manager.then(service => service.rewind(string(id), string(turnId), { restoreFiles }))
+  })
+  ipcMain.handle(IPC_CHANNELS.thread.readSince, (event, id: unknown, cursor: unknown) => {
+    sender(event)
+    const input = cursor && typeof cursor === 'object' ? cursor as Record<string, unknown> : {}
+    const epoch = string(input.epoch), revision = optionalInteger(input.revision, 0, Number.MAX_SAFE_INTEGER)
+    if (revision === undefined || epoch.length > 64) throw Error('Invalid thread cursor')
+    return manager.then(service => service.readSinceForRenderer(string(id), { epoch, revision }))
+  })
   ipcMain.handle(IPC_CHANNELS.thread.history, (event, id: unknown, before: unknown, limit: unknown) => { sender(event); return manager.then(service => service.historyPage(string(id), optionalInteger(before, Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER), optionalInteger(limit, 1, 500))) })
   ipcMain.handle(IPC_CHANNELS.thread.attach, (event, id: unknown, input: unknown) => {
     sender(event)
@@ -201,6 +213,9 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings): { st
   ipcMain.handle(IPC_CHANNELS.thread.updateQueued, (event, id: unknown, itemId: unknown, text: unknown) => { sender(event); return manager.then(service => service.updateQueued(string(id), string(itemId), string(text))) })
   ipcMain.handle(IPC_CHANNELS.thread.deleteQueued, (event, id: unknown, itemId: unknown, preserveAttachments: unknown) => { sender(event); return manager.then(service => service.deleteQueued(string(id), string(itemId), preserveAttachments === true)) })
   ipcMain.handle(IPC_CHANNELS.thread.reorderQueued, (event, id: unknown, itemIds: unknown) => { sender(event); return manager.then(service => service.reorderQueued(string(id), stringList(itemIds, 100))) })
+  ipcMain.handle(IPC_CHANNELS.thread.contextUsage, (event, id: unknown) => { sender(event); return manager.then(service => service.contextUsage(string(id))) })
+  ipcMain.handle(IPC_CHANNELS.thread.resumeQueue, (event, id: unknown) => { sender(event); return manager.then(service => service.resumeQueue(string(id))) })
+  ipcMain.handle(IPC_CHANNELS.thread.sendQueuedNow, (event, id: unknown, itemId: unknown) => { sender(event); return manager.then(service => service.sendQueuedNow(string(id), string(itemId))) })
   ipcMain.handle(IPC_CHANNELS.thread.interrupt, (event, id: unknown) => { sender(event); return manager.then(service => service.interrupt(string(id))) })
   ipcMain.handle(IPC_CHANNELS.thread.approve, (event, id: unknown, request: unknown, decision: unknown) => {
     sender(event)

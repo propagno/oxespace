@@ -4,6 +4,8 @@ import type { AgentConversationAdapter, ConversationProtocolEvidence, ThreadAgen
 import { AgentRpcPeer, type AgentRpcMessage } from './rpc-peer'
 import { parseThreadUsage, threadFailure, ThreadAgentError } from './thread-failure'
 import { requestOutcome } from '../../../../shared/threadRequestOutcome'
+import { normalizeCodexTokenUsage } from './thread-context'
+import { ThreadRewindError, readAllTurnIds, verifyRevert } from './thread-rewind'
 
 // Codex can send a completed command or compaction item as one JSON-RPC frame.
 // Long native sessions have produced frames above 10 MiB; keep a finite ceiling
@@ -49,7 +51,7 @@ function dynamicToolOutput(value: unknown): string {
 
 /** Codex stable App Server protocol. The transport owns process spawning/cleanup. */
 export class CodexConversationAdapter implements AgentConversationAdapter {
-  readonly capabilities = { resume: true, approvals: true, attachments: true, modelSelection: true, questions: true, permissions: true, elicitation: true, queue: true, steering: true, nativeSessions: true }
+  readonly capabilities = { resume: true, approvals: true, attachments: true, modelSelection: true, questions: true, permissions: true, elicitation: true, queue: true, steering: true, nativeSessions: true, rewind: true }
   readonly evidence: ConversationProtocolEvidence = { transport: 'codex-app-server-jsonrpc', verified: 'fixture' }
   private rpc: AgentRpcPeer | null = null
   private threadId = ''
@@ -170,6 +172,31 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
       this.fail(failure)
       throw new ThreadAgentError(failure)
     }
+  }
+
+  private async turnIds(): Promise<string[]> {
+    return readAllTurnIds(async cursor => {
+      const result = record(await this.rpc!.request('thread/turns/list', { threadId: this.threadId, limit: 100, sortDirection: 'asc', itemsView: 'notLoaded', ...(cursor ? { cursor } : {}) }))
+      return { ids: (Array.isArray(result.data) ? result.data : []).map(value => text(record(value).id)).filter(Boolean), next: text(result.nextCursor) || null }
+    })
+  }
+
+  /**
+   * Replaces the provider's durable history with the turns before `beforeNativeTurnId`.
+   * Succeeds only after re-reading the provider's turns proves the exact prefix remains.
+   */
+  async rewind(beforeNativeTurnId: string): Promise<void> {
+    if (!this.rpc || !this.threadId || this.disposed) throw new ThreadRewindError('unavailable', 'The provider connection is closed.')
+    if (this.busy || this.approvals.size) throw new ThreadRewindError('unavailable', 'Finish the active turn before rewinding.')
+    const before = await this.turnIds()
+    if (!before.includes(beforeNativeTurnId)) throw new ThreadRewindError('unavailable', 'The provider no longer has that turn.')
+    try { await this.rpc.request('thread/revert', { threadId: this.threadId, beforeTurnId: beforeNativeTurnId }) }
+    catch (error) {
+      const message = error instanceof ThreadAgentError ? error.failure.detail ?? error.failure.message : error instanceof Error ? error.message : ''
+      if (/method not found|unknown (?:variant|method)|not supported|unsupported/i.test(message)) throw new ThreadRewindError('unsupported', 'This Codex version cannot rewind a conversation.')
+      throw new ThreadRewindError('provider-refused', message || 'The provider refused to rewind.')
+    }
+    verifyRevert(before, await this.turnIds(), beforeNativeTurnId)
   }
 
   /** Read-only observation. Never starts/resumes a session or retries an input. */
@@ -548,6 +575,11 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     if (this.busy && Date.now() - this.lastNativeSignalAt >= 2_000) {
       this.lastNativeSignalAt = Date.now()
       this.emit({ type: 'native-signal', at: this.lastNativeSignalAt })
+    }
+    if (message.method === 'thread/tokenUsage/updated') {
+      const report = normalizeCodexTokenUsage(params.tokenUsage, this.model)
+      if (report) this.emit({ type: 'context-usage', report })
+      return
     }
     if (message.method === 'error') {
       if (this.busy) this.turnError = threadFailure(params.error)

@@ -231,3 +231,28 @@ describe('Claude print conversation', () => {
     await f.adapter.dispose()
   })
 })
+
+describe('Claude context usage', () => {
+  it('asks the idle session for its context report and correlates the reply', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: 'native' }, event => f.events.push(event))
+    expect(await f.adapter.contextUsage()).toBeNull()
+    await f.adapter.send('Hello')
+    f.emit(0, { type: 'result', subtype: 'success' })
+    const pending = f.adapter.contextUsage()
+    const request = f.turns[0].writes.at(-1) as { request_id: string; request: { subtype: string } }
+    expect(request.request.subtype).toBe('get_context_usage')
+    f.emit(0, { type: 'control_response', response: { subtype: 'success', request_id: request.request_id, response: { totalTokens: 1000, maxTokens: 10000, categories: [{ name: 'Messages', tokens: 1000, kind: 'used' }] } } })
+    await expect(pending).resolves.toMatchObject({ usedTokens: 1000, percentage: 10, source: 'claude-control' })
+    expect(f.events.some(event => event.type === 'context-usage')).toBe(false)
+    await f.adapter.dispose()
+  })
+
+  it('does not interleave a control request with a running turn', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: 'native' }, event => f.events.push(event))
+    await f.adapter.send('Working')
+    await expect(f.adapter.contextUsage()).resolves.toBeNull()
+    await f.adapter.dispose()
+  })
+})

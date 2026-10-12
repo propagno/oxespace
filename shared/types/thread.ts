@@ -3,6 +3,9 @@ export type ThreadProvider = 'claude' | 'codex'
 export type ThreadStatus = 'idle' | 'running' | 'approval' | 'interrupted' | 'failed'
 export type ThreadOperationState = 'created' | 'sent' | 'acknowledged' | 'running' | 'completed' | 'failed' | 'cancelled' | 'unknown'
 export type ThreadOperationKind = 'turn' | 'queue' | 'request' | 'configuration' | 'command' | 'recovery'
+/** What the user can rely on for a message, derived from its operation. Never claims more than was observed. */
+export type ThreadDeliveryState = 'sending' | 'delivered' | 'unconfirmed' | 'rejected'
+export interface ThreadDelivery { state: ThreadDeliveryState; error?: string; updatedAt: number }
 export type ThreadConnectionState = 'starting' | 'connected' | 'degraded' | 'reconnecting' | 'closed'
 export interface ThreadConnectionStatus {
   state: ThreadConnectionState
@@ -62,7 +65,8 @@ export interface ThreadConfiguration {
   /** Native provider hooks. Disabled by default and never allowed in read-only. */
   hooksEnabled?: boolean
 }
-export interface ThreadModelCatalog { models: ThreadModel[]; defaultModel?: string; defaultEffort?: string }
+/** `defaultKnown: false` means project or user settings may choose another model, so no default is named. */
+export interface ThreadModelCatalog { models: ThreadModel[]; defaultModel?: string; defaultEffort?: string; defaultKnown?: boolean }
 export type ThreadCapabilityAvailability = 'supported' | 'unavailable' | 'experimental'
 export interface ThreadCapability {
   availability: ThreadCapabilityAvailability
@@ -162,6 +166,34 @@ export interface ThreadQueuedInput {
   error?: string
 }
 
+export interface ThreadContextCategory { name: string; tokens: number; kind: 'used' | 'deferred' | 'buffer' | 'free' }
+/** What fills the model's context window right now, as reported by the provider. */
+export interface ThreadContextReport {
+  model?: string
+  usedTokens: number
+  windowTokens: number
+  percentage: number
+  autoCompactAtTokens?: number
+  categories: ThreadContextCategory[]
+  capturedAt: number
+  source: 'claude-control' | 'codex-token-usage'
+}
+
+export interface ThreadRewindResult {
+  snapshot: ThreadSnapshot
+  removedTurns: number
+  /** Files restored from the dropped turns' checkpoints, when requested. */
+  restoredFiles?: number
+  /** Why files were not restored; the conversation itself was rewound. */
+  fileError?: string
+}
+
+export interface ThreadQueuePause {
+  reason: 'interrupted' | 'failed'
+  since: number
+  turnId?: string
+}
+
 /** A tool's evidence, distinct from the current working tree. Patches are loaded separately. */
 export interface ThreadFileChange {
   path: string
@@ -217,6 +249,10 @@ export interface ConversationThread {
   archived?: boolean
   generation?: number
   queue?: ThreadQueuedInput[]
+  /** Set when a turn ended without completing while input was queued; the next item waits for the user. */
+  queuePause?: ThreadQueuePause
+  /** Latest context-window report; never part of the timeline. */
+  contextReport?: ThreadContextReport
   capabilities?: ThreadCapabilityManifest
   connection?: ThreadConnectionStatus
   providerObservation?: ThreadProviderObservation
@@ -235,6 +271,8 @@ export type ThreadEvent =
   | { type: 'session'; nativeSessionId: string }
   /** Transport liveness only; the orchestrator updates metadata without saving a timeline row. */
   | { type: 'native-signal'; at: number }
+  /** Metadata only: stored on the thread, never added to the timeline. */
+  | { type: 'context-usage'; report: ThreadContextReport }
   | { type: 'connection-closed'; at: number }
   | { type: 'turn-accepted'; nativeTurnId: string; at: number }
   | { type: 'activity'; id: string; phase: 'preparing' | 'connecting' | 'reasoning' | 'responding'; at: number; summary?: string }
@@ -266,6 +304,8 @@ export interface ConversationCapabilities {
   queue?: boolean
   steering?: boolean
   nativeSessions?: boolean
+  /** The adapter can rewind provider history and prove the result. */
+  rewind?: boolean
 }
 
 export interface ConversationProtocolEvidence {
@@ -292,6 +332,10 @@ export interface AgentConversationAdapter {
   updateQueued?(nativeId: string, item: ThreadQueuedInput, attachments?: ThreadAttachment[]): Promise<void>
   deleteQueued?(nativeId: string): Promise<void>
   reorderQueued?(nativeIds: string[]): Promise<void>
+  /** Remove the target turn and every later one from the provider's own history, then prove it. */
+  rewind?(beforeNativeTurnId: string): Promise<void>
+  /** Ask the provider what fills the context window. Resolves null when unavailable. */
+  contextUsage?(): Promise<ThreadContextReport | null>
   interrupt(): Promise<void>
   approve(requestId: string, decision: 'accept' | 'decline'): Promise<void>
   respondRequest?(requestId: string, response: ThreadRequestResponse): Promise<void>
@@ -304,8 +348,18 @@ export interface ThreadSnapshot {
   /** Actionable requests remain available independently of paginated history. */
   pendingRequests?: ThreadRequest[]
   turns?: ThreadTurn[]
-  page?: { before?: number; hasMore: boolean; total: number }
+  /** Delivery state by user-message id (turn or queued item id). Absent for imported history. */
+  deliveries?: Record<string, ThreadDelivery>
+  page?: { before?: number; hasMore: boolean; total: number; /** Persisted live events; the window's tail maps to seq live-n..live-1. */ live?: number }
+  /** Cursor for readSince. The epoch changes when history is truncated or re-based. */
+  sync?: ThreadSyncCursor
 }
+
+export interface ThreadSyncCursor { epoch: string; revision: number }
+
+export type ThreadDelta =
+  | { ok: true; epoch: string; revision: number; live: number; thread: ConversationThread; events: { seq: number; event: ThreadEvent }[]; turns: ThreadTurn[]; deliveries: Record<string, ThreadDelivery>; pendingRequests: ThreadRequest[] }
+  | { ok: false; reset: 'epoch' | 'unknown' | 'limit' }
 
 export interface ThreadHistoryPage { events: ThreadEvent[]; before?: number; hasMore: boolean; total: number }
 
@@ -349,6 +403,11 @@ export interface ThreadApi {
   updateQueued?(id: string, itemId: string, text: string): Promise<void>
   deleteQueued?(id: string, itemId: string, preserveAttachments?: boolean): Promise<void>
   reorderQueued?(id: string, itemIds: string[]): Promise<void>
+  contextUsage?(id: string): Promise<ThreadContextReport | null>
+  rewind?(id: string, turnId: string, options?: { restoreFiles?: boolean }): Promise<ThreadRewindResult>
+  readSince?(id: string, cursor: ThreadSyncCursor): Promise<ThreadDelta>
+  resumeQueue?(id: string): Promise<void>
+  sendQueuedNow?(id: string, itemId: string): Promise<void>
   interrupt(id: string): Promise<void>
   approve(id: string, requestId: string, decision: 'accept' | 'decline'): Promise<void>
   respond?(id: string, requestId: string, response: ThreadRequestResponse): Promise<void>

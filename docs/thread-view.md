@@ -83,6 +83,40 @@ OXESpace memory capture, CodeGraph, internal MCP, preview/delegation, attachment
 write mode and visual model/reasoning selectors in ordinary conversation remain
 separate follow-up work; the native CLI provides its own tools and selectors.
 
+## Delivery, queue, context and rewind
+
+- **Delivery.** Every user message carries a delivery state derived from its
+  operation: `sending`, `delivered`, `unconfirmed` (restart or lost transport, never
+  resent automatically) and `rejected`. Only the non-delivered states are shown, with
+  *Send again* / *Try again*.
+- **Default model.** When a project or user setting (`model` in Claude settings,
+  `ANTHROPIC_MODEL`, top-level `model` in Codex `config.toml`) can pick the model, the
+  catalog does not name a default and the picker says *Provider default*.
+- **Queue pause.** A turn that ends `interrupted` or `failed` with queued follow-ups
+  pauses the queue (`thread.queuePause`). Nothing is sent until the user chooses
+  *Resume*, *Send next now* or *Clear*. The pause survives a restart.
+- **Context window.** The ring shows the context fill. Claude is asked with the
+  `get_context_usage` control request while idle (validated on Claude Code 2.1.296;
+  categories, auto-compact buffer); Codex reports `thread/tokenUsage/updated`
+  (validated on 0.155.1; no categories). A failed or unavailable report keeps the
+  previous one and the ring falls back to plan usage.
+- **Incremental reads.** `thread.readSince` returns only rows written after a
+  `{epoch, revision}` cursor. Truncation (rewind, recovery) and imported native pages
+  change the epoch, and the client rereads the window. Setting
+  `localStorage['oxe.thread.delta'] = 'off'` forces full reads.
+- **Rewind.** *Rewind to here* on a user message removes that turn and every later
+  one. Codex: `thread/revert`, then the provider's turns are re-read and must equal
+  the expected prefix before local history is truncated (`/rewind N` uses the same
+  path). Claude: a fork of the JSONL transcript ending before that prompt is written
+  next to the original, verified against this conversation's prompts, and the next
+  send resumes the fork; the original is never modified. File restore is optional and
+  uses the turns' checkpoints. Provider refusal or any mismatch changes nothing.
+  Rewinding to the first Claude message is not offered (start a new conversation).
+
+Limits: the Claude fork drops the cursor for older native history that was not yet
+imported; prompts rewritten by a skill or `/command` expansion can make the
+transcript check refuse the rewind rather than guess.
+
 ## Commands in the composer
 
 Type `/` at the start of a message, click the slash button, or press `Ctrl+/`

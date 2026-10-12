@@ -27,6 +27,8 @@ export function ThreadConfigurationBar({ thread, onConfigured, onError, openCont
   const modelId = desired.model || catalog.defaultModel
   const model = catalog.models.find(model => model.id === modelId)
   const effort = desired.reasoningEffort || model?.defaultEffort
+  // With no known default the provider still chooses the model, so offer the efforts any model supports.
+  const effortOptions = model?.efforts ?? (!desired.model && catalog.defaultKnown === false ? [...new Set(catalog.models.flatMap(value => value.efforts))] : [])
   const close = () => { setOpened(null); setQuery(''); setProposedAccess(null); setProposedNetwork(false); setProposedNever(false); setProposedHooks(false); onControlClosed() }
   const apply = async (configuration: ThreadConfiguration) => {
     const id = thread.id
@@ -45,11 +47,11 @@ export function ThreadConfigurationBar({ thread, onConfigured, onError, openCont
     </Popover.Content></Popover.Portal>
   </Popover.Root>
   return <div className="thread-configuration" aria-label="Conversation configuration">
-    {selector('model', 'Select model', model?.label ?? desired.model ?? (loading ? 'Loading models…' : 'Select model'), <>
+    {selector('model', 'Select model', model?.label ?? desired.model ?? (loading ? 'Loading models…' : catalog.defaultKnown === false ? 'Provider default' : 'Select model'), <>
       {catalog.models.length > 8 && <input aria-label="Filter models" placeholder="Search models…" value={query} onChange={event => setQuery(event.target.value)} />}
       {error ? <p role="alert">{error}<button type="button" onClick={() => setRefresh(value => value + 1)}>Try again</button></p> : loading ? <p role="status">Loading models…</p> : !catalog.models.length ? <p>No models available.</p> : <div className="thread-config-options">{catalog.models.filter(value => `${value.label} ${value.id}`.toLowerCase().includes(query.toLowerCase())).map(value => <button type="button" key={value.id} aria-pressed={modelId === value.id} onClick={() => void apply({ model: value.id, ...(effort && value.efforts.includes(effort) ? { reasoningEffort: effort } : value.defaultEffort ? { reasoningEffort: value.defaultEffort } : {}) })}><span><strong>{value.label}</strong><small>{value.description}</small></span>{modelId === value.id && <Check size={14} />}</button>)}</div>}
     </>)}
-    {selector('effort', 'Select effort', effort ? effort[0].toUpperCase() + effort.slice(1) : 'Automatic', <div className="thread-config-options">{model?.efforts.map(value => <button type="button" key={value} aria-pressed={effort === value} onClick={() => void apply({ model: model.id, reasoningEffort: value })}><span>{value[0].toUpperCase() + value.slice(1)}</span>{effort === value && <Check size={14} />}</button>)}</div>, !model?.efforts.length)}
+    {selector('effort', 'Select effort', effort ? effort[0].toUpperCase() + effort.slice(1) : 'Automatic', <div className="thread-config-options">{effortOptions.map(value => <button type="button" key={value} aria-pressed={effort === value} onClick={() => void apply({ ...(model ? { model: model.id } : {}), reasoningEffort: value })}><span>{value[0].toUpperCase() + value.slice(1)}</span>{effort === value && <Check size={14} />}</button>)}</div>, !effortOptions.length)}
     {selector('permissions', 'Permissions', desired.access === 'full-access' ? 'Full access' : desired.access === 'workspace-write' ? thread.provider === 'claude' ? 'Native permissions' : 'Workspace access' : 'Read only', <div className="thread-config-options">
       <p className="thread-access-directory" title={thread.rootPath}>{thread.rootPath}</p>
       <p className="thread-config-section-label">Access</p>

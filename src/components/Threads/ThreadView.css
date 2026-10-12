@@ -177,6 +177,10 @@
 .thread-message-assistant > .thread-markdown { color: var(--tx-secondary); }
 .thread-message-user { background: color-mix(in srgb, var(--tx-primary) 4%, var(--bg-app)); border: 1px solid color-mix(in srgb, var(--bd-base) 50%, transparent); border-radius: var(--panel-radius); padding: 12px 14px; width: fit-content; max-width: min(82%, 800px); margin-left: auto; }
 .thread-message-outgoing-status { display: block; margin-top: 7px; color: var(--tx-muted); font-size: var(--fs-2xs); }
+.thread-delivery-note { display: flex; align-items: center; gap: 6px; margin: 7px 0 0; color: var(--tx-muted); font-size: var(--fs-2xs); }
+.thread-delivery-note.is-rejected { color: var(--dot-red); }
+.thread-delivery-note button { margin-left: auto; padding: 2px 8px; border: 1px solid var(--bd-base); border-radius: var(--radius-xs); background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.thread-delivery-note button:disabled { opacity: 0.5; cursor: default; }
 .thread-long-prompt-preview { margin: 0; color: var(--tx-primary); line-height: 1.55; }
 .thread-view .thread-long-prompt > button { margin-top: 8px; padding: 3px 0; color: var(--tx-secondary); font-size: var(--fs-2xs); }
 .thread-view .thread-long-prompt > button:hover { color: var(--tx-primary); background: transparent; }
@@ -278,6 +282,9 @@
 .thread-prompt-queue { margin-bottom: 8px; overflow: hidden; border: 1px solid var(--bd-base); border-radius: var(--radius-md); background: var(--bg-elevated); }
 .thread-prompt-queue > header { display: flex; align-items: center; gap: 7px; padding: 7px 10px; color: var(--tx-secondary); font-size: var(--fs-xs); }
 .thread-prompt-queue > header small { margin-left: auto; }
+.thread-queue-pause { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 7px 10px; border-top: 1px solid var(--bd-base); color: var(--dot-yellow); font-size: var(--fs-xs); }
+.thread-queue-pause > span { flex: 1 1 100%; }
+.thread-queue-pause button { padding: 3px 8px; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); color: var(--tx-primary); background: transparent; font: inherit; }
 .thread-queue-item { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 7px 8px 7px 10px; border-top: 1px solid var(--bd-base); font-size: var(--fs-xs); }
 .thread-queue-item > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-queue-item > span, .thread-queue-item > input { flex: 1; min-width: 0; }
@@ -692,3 +699,19 @@
 .thread-sent-attachments li svg { flex: none; color: var(--tx-muted); }
 .thread-sent-attachments li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-sent-attachments li small { flex: none; color: var(--tx-muted); font-size: var(--fs-2xs); }
+.thread-usage-wrap { position: relative; display: inline-flex; }
+.thread-usage-popover { position: absolute; right: 0; bottom: calc(100% + 6px); z-index: 20; display: grid; gap: 10px; min-width: 240px; max-width: 320px; padding: 10px 12px; border: 1px solid var(--bd-base); border-radius: var(--radius-md); background: var(--bg-elevated); color: var(--tx-secondary); font-size: var(--fs-xs); }
+.thread-usage-popover h4 { margin: 0 0 4px; color: var(--tx-primary); font-size: var(--fs-xs); font-weight: 600; }
+.thread-usage-popover p { margin: 2px 0; }
+.thread-usage-popover table { width: 100%; margin-top: 6px; border-collapse: collapse; }
+.thread-usage-popover th { padding: 2px 0; font-weight: 400; text-align: left; }
+.thread-usage-popover td { padding: 2px 0; text-align: right; color: var(--tx-primary); }
+.thread-usage-popover button { margin-top: 4px; padding: 3px 8px; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); color: var(--tx-primary); background: transparent; font: inherit; }
+.thread-usage-bar { height: 4px; overflow: hidden; border-radius: var(--radius-pill); background: var(--ov-3); }
+.thread-usage-bar > span { display: block; height: 100%; background: currentColor; }
+.thread-rewind-trigger { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; padding: 2px 6px; border: 0; color: var(--tx-muted); background: transparent; font: inherit; font-size: var(--fs-2xs); opacity: 0; }
+.thread-message:hover .thread-rewind-trigger, .thread-rewind-trigger:focus-visible { opacity: 1; }
+.thread-rewind-confirm { display: grid; gap: 6px; margin-top: 6px; padding: 8px 10px; border: 1px solid var(--bd-base); border-radius: var(--radius-md); background: var(--bg-elevated); color: var(--tx-secondary); font-size: var(--fs-xs); }
+.thread-rewind-confirm p { margin: 0; }
+.thread-rewind-confirm span { display: flex; gap: 6px; }
+.thread-rewind-confirm button { padding: 3px 8px; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); color: var(--tx-primary); background: transparent; font: inherit; }

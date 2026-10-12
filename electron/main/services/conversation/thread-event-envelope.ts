@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { ThreadEvent, ThreadEventEnvelope, ThreadOperationState } from '../../../../shared/types/thread'
+import type { ThreadDelivery, ThreadEvent, ThreadEventEnvelope, ThreadOperation, ThreadOperationState } from '../../../../shared/types/thread'
 
 const terminalStates = new Set<ThreadOperationState>(['completed', 'failed', 'cancelled', 'unknown'])
 const ranks: Record<ThreadOperationState, number> = {
@@ -22,6 +22,20 @@ export function canTransitionThreadOperation(from: ThreadOperationState, to: Thr
   if (from === to) return true
   if (isTerminalThreadOperation(from)) return false
   return ranks[to] >= ranks[from]
+}
+
+/**
+ * Delivery is about the *input*, not the turn's outcome: an interrupted or
+ * failed turn was still delivered. Only an operation that never reached the
+ * provider (`failed` before acknowledgement is indistinguishable here, so the
+ * provider error is carried along) is rejected, and `unknown` stays unconfirmed.
+ */
+export function deriveThreadDelivery(operation: Pick<ThreadOperation, 'state' | 'error' | 'updatedAt'>): ThreadDelivery {
+  const { state, error, updatedAt } = operation
+  if (state === 'created' || state === 'sent') return { state: 'sending', updatedAt }
+  if (state === 'unknown') return { state: 'unconfirmed', ...(error ? { error } : {}), updatedAt }
+  if (state === 'failed') return { state: 'rejected', ...(error ? { error } : {}), updatedAt }
+  return { state: 'delivered', updatedAt }
 }
 
 export function createThreadEventEnvelope<T extends ThreadEvent>(input: {

@@ -141,7 +141,7 @@ describe('indexed Thread history', () => {
     const initial = f.history.readWindow('thread', 200)
     expect(initial.events).toHaveLength(200)
     expect(initial.events[0]).toMatchObject({ id: 'm800' })
-    expect(initial.page).toEqual({ before: 800, hasMore: true, total: 1000 })
+    expect(initial.page).toEqual({ before: 800, hasMore: true, total: 1000, live: 1000 })
     const previous = f.history.page('thread', initial.page!.before, 200)
     expect(previous.events[0]).toMatchObject({ id: 'm600' })
     expect(previous.before).toBe(600)
@@ -168,5 +168,57 @@ describe('indexed Thread history', () => {
     f.history.write(complete)
     expect(f.history.page('thread', undefined, 1)).toMatchObject({ total: 10021, events: [{ id: 'long-next' }] })
     expect(f.history.page('thread', 1, 1).events).toMatchObject([{ id: 'long-0' }])
+  })
+  it('projects delivery state for sent turns and queued inputs', () => {
+    const f = fixture()
+    const sent = f.history.beginOperation({ threadId: 'thread', turnId: 'turn-1', generation: 1, kind: 'turn' })
+    const lost = f.history.beginOperation({ threadId: 'thread', turnId: 'turn-2', generation: 1, kind: 'turn' })
+    const queued = f.history.beginOperation({ threadId: 'thread', generation: 1, kind: 'queue' })
+    f.snapshot.turns = [
+      { id: 'turn-1', operationId: sent.id, sequence: 1, status: 'completed', configuration: {} },
+      { id: 'turn-2', operationId: lost.id, sequence: 2, status: 'failed', configuration: {} }
+    ]
+    f.snapshot.events = [
+      { type: 'message', id: 'turn-1', role: 'user', text: 'First' },
+      { type: 'message', id: 'turn-2', role: 'user', text: 'Second' }
+    ]
+    f.snapshot.thread.queue = [{ id: 'queued-1', operationId: queued.id, text: 'Later', createdAt: 1, state: 'queued' }]
+    f.history.write(f.snapshot)
+    f.history.transitionOperation('thread', sent.id, 'acknowledged')
+    f.history.transitionOperation('thread', lost.id, 'unknown', 'The app closed before the provider answered.')
+    f.history.updateThreadMetadata(f.snapshot.thread)
+    const window = f.history.readWindow('thread', 50)
+    expect(window.deliveries).toMatchObject({
+      'turn-1': { state: 'delivered' },
+      'turn-2': { state: 'unconfirmed', error: 'The app closed before the provider answered.' },
+      'queued-1': { state: 'sending' }
+    })
+  })
+})
+
+describe('thread history incremental reads', () => {
+  const user = (id: string, text = id): ThreadSnapshot['events'][number] => ({ type: 'message', id, role: 'user', text })
+
+  it('returns only the rows written after the cursor, then resets after a truncation', () => {
+    const f = fixture(), thread = f.snapshot.thread
+    f.history.write({ thread, events: [user('a'), user('b')], turns: [] })
+    const window = f.history.readWindow('thread')
+    const cursor = window.sync!
+    expect(cursor.revision).toBeGreaterThan(0)
+    expect(window.page?.live).toBe(2)
+    f.history.write({ thread, events: [user('a'), user('b'), user('c')], turns: [] }, { eventsFrom: 2 })
+    expect(f.history.readSince('thread', cursor)).toMatchObject({ ok: true, live: 3, events: [{ seq: 2, event: { id: 'c' } }] })
+    f.history.write({ thread, events: [user('a')], turns: [] })
+    expect(f.history.readSince('thread', cursor)).toEqual({ ok: false, reset: 'epoch' })
+  })
+
+  it('reports an edited row, an unchanged cursor and a foreign epoch', () => {
+    const f = fixture(), thread = f.snapshot.thread
+    f.history.write({ thread, events: [user('a')], turns: [] })
+    const cursor = f.history.readWindow('thread').sync!
+    expect(f.history.readSince('thread', cursor)).toMatchObject({ ok: true, events: [] })
+    f.history.write({ thread, events: [user('a', 'edited')], turns: [] }, { eventsFrom: 0 })
+    expect(f.history.readSince('thread', cursor)).toMatchObject({ ok: true, events: [{ seq: 0, event: { text: 'edited' } }] })
+    expect(f.history.readSince('thread', { epoch: 'other', revision: 0 })).toEqual({ ok: false, reset: 'epoch' })
   })
 })

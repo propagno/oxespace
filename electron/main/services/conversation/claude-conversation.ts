@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
-import type { AgentConversationAdapter, ConversationProtocolEvidence, ThreadAgentInput, ThreadEvent, ThreadConfiguration, ThreadFileChange, ThreadAttachment, ThreadRequestResponse } from '../../../../shared/types/thread'
+import type { AgentConversationAdapter, ConversationProtocolEvidence, ThreadAgentInput, ThreadEvent, ThreadConfiguration, ThreadFileChange, ThreadAttachment, ThreadRequestResponse, ThreadContextReport } from '../../../../shared/types/thread'
 import type { ConversationTransport } from './codex-conversation'
 import { JsonLinesDecoder } from './json-lines'
 import { CLAUDE_THREAD_ARGS, claudeRuntimeCatalog } from './claude-command-catalog'
 import { threadFailure } from './thread-failure'
+import { normalizeClaudeContext } from './thread-context'
 import { createApiRetryTracker } from './claude-api-retry'
 import { describePermissionRequest } from './claude-permission-request'
 
@@ -42,6 +43,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
   private streamMessageId = ''
   private disposed = false
   private busy = false
+  private pendingContext = new Map<string, { resolve: (report: ThreadContextReport | null) => void; timer: ReturnType<typeof setTimeout> }>()
   private fileTools = new Map<string, ThreadFileChange[]>()
   private todoTools = new Map<string, Extract<ThreadEvent, { type: 'plan' }>['steps']>()
 
@@ -136,6 +138,28 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
     }
   }
 
+  /** Idle-only: a control request during a turn would race the stream, so it reports nothing instead. */
+  contextUsage(): Promise<ThreadContextReport | null> {
+    const transport = this.transport
+    if (!transport || this.disposed || this.busy || this.initialized) return Promise.resolve(null)
+    const requestId = `context:${randomUUID()}`
+    return new Promise(resolve => {
+      const timer = setTimeout(() => { this.pendingContext.delete(requestId); resolve(null) }, 5_000)
+      this.pendingContext.set(requestId, { resolve, timer })
+      try { transport.write(JSON.stringify({ type: 'control_request', request_id: requestId, request: { subtype: 'get_context_usage' } }) + '\n') }
+      catch { clearTimeout(timer); this.pendingContext.delete(requestId); resolve(null) }
+    })
+  }
+
+  private settleContext(requestId: string, report: ThreadContextReport | null): boolean {
+    const pending = this.pendingContext.get(requestId)
+    if (!pending) return false
+    clearTimeout(pending.timer)
+    this.pendingContext.delete(requestId)
+    pending.resolve(report)
+    return true
+  }
+
   private finish(requested: 'completed' | 'failed' | 'interrupted'): void {
       if (this.completed || this.disposed) return
       // The CLI reports a cooperative interrupt as an errored result; the person asked for it.
@@ -161,6 +185,10 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
           if (response.subtype === 'error') this.initialized?.reject(Error(typeof response.error === 'string' ? response.error : 'Agent initialization failed'))
           else this.initialized?.resolve()
           return
+        }
+        if (event.type === 'control_response') {
+          const response = record(event.response)
+          if (typeof response.request_id === 'string' && this.settleContext(response.request_id, response.subtype === 'success' ? normalizeClaudeContext(response.response) : null)) return
         }
         if (typeof event.uuid === 'string') {
           if (this.seenMessages.has(event.uuid)) return
@@ -367,6 +395,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
   async dispose(): Promise<void> {
     this.disposed = true
     this.initialized?.reject(Error('Agent connection disposed'))
+    for (const requestId of [...this.pendingContext.keys()]) this.settleContext(requestId, null)
     this.busy = false
     this.approvals.clear()
     await this.transport?.close()

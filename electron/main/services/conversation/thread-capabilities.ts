@@ -26,6 +26,7 @@ export function threadCapabilityManifest(provider: ThreadProvider, native?: Conv
       elicitation: feature('elicitation', 'The provider does not expose MCP elicitation'),
       attachments: feature('attachments', 'The provider does not accept image inputs in this transport'),
       queue: feature('queue', 'Native provider queue is unavailable; follow-ups remain safe in the OXESpace local queue'),
+      rewind: provider === 'claude' ? capability(true, 'Resumes a forked session; the original transcript is kept', 'native') : feature('rewind', 'The provider cannot rewind its conversation history'),
       localQueue: capability(true),
       steering: feature('steering', provider === 'claude' ? 'Claude headless mode cannot steer an active turn' : 'Active-turn steering is unavailable'),
       historyPagination: capability(true),

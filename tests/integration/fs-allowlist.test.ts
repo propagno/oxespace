@@ -56,6 +56,12 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Thread project registration only canonicalizes and checks the selected
   // directory; source-file reads and writes remain in FileSystemService.
   'electron/main/services/conversation/thread-projects.ts',
+  // Model-default detection reads only the fixed, size-bounded provider
+  // settings files (project .claude/.codex and the user's provider home).
+  'electron/main/services/conversation/thread-model-override.ts',
+  // Rewinds a Claude session by writing a prefix copy of one UUID-named JSONL
+  // transcript beside it (flag 'wx'); the original is never modified.
+  'electron/main/services/conversation/claude-transcript-fork.ts',
   'electron/main/services/shell-profile.service.ts',
   'electron/main/services/skill.service.ts',
   'electron/main/services/terminal.service.ts',

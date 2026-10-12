@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../../db'
-import type { AgentConversationAdapter, ConversationThread, ThreadAgentInput, ThreadCommandCatalog, ThreadEvent, ThreadSnapshot, ThreadRequestResponse, ThreadQueuedInput } from '../../../../shared/types/thread'
+import type { AgentConversationAdapter, ConversationThread, ThreadAgentInput, ThreadCommandCatalog, ThreadEvent, ThreadSnapshot, ThreadRequestResponse, ThreadQueuedInput, ThreadContextReport, ThreadRewindResult } from '../../../../shared/types/thread'
 import type { NativeCliSession, ThreadNativeCli } from './thread-cli'
 import type { ThreadModelCatalog, ThreadConfiguration, ThreadCommandResult } from '../../../../shared/types/thread'
 import type { ThreadModelService } from './thread-models'
@@ -10,6 +10,8 @@ import { formatNativeUserText } from '../../../../shared/native-session-text'
 import { execFile } from 'node:child_process'
 import { ThreadAgentError, threadFailure } from './thread-failure'
 import { ThreadHistory, type ThreadHistoryWriteOptions } from './thread-history'
+import { ThreadRewindError, planLocalRewind } from './thread-rewind'
+import { forkClaudeBefore } from './claude-transcript-fork'
 import { ThreadRequestRegistry } from './thread-request-registry'
 import type { ThreadAttachmentStore } from './thread-attachments'
 import { threadCapabilityManifest } from './thread-capabilities'
@@ -175,6 +177,14 @@ export class ThreadOrchestrator {
       }
     }
     return window
+  }
+
+  /** Incremental counterpart of readForRenderer; a reset tells the caller to reread the window. */
+  readSinceForRenderer(id: string, cursor: import('../../../../shared/types/thread').ThreadSyncCursor): import('../../../../shared/types/thread').ThreadDelta {
+    this.flushDeltas(id)
+    const delta = this.history.readSince(id, cursor)
+    if (delta.ok && !delta.thread.lastTurnStatus) delta.thread.lastTurnStatus = delta.turns.at(-1)?.status
+    return delta
   }
 
   artifact(id: string, artifactId: string): import('../../../../shared/types/thread').ThreadArtifact {
@@ -388,6 +398,7 @@ export class ThreadOrchestrator {
     } catch (error) { this.busy.delete(id); throw error }
     snapshot.thread.status = 'running'
     delete snapshot.thread.providerObservation
+    delete snapshot.thread.queuePause
     if (snapshot.thread.title === 'New thread' && !text.trim().startsWith('/')) snapshot.thread.title = text.trim().slice(0, 80)
     const turnId = randomUUID()
     const operation = this.history.beginOperation({ threadId: id, turnId, generation: snapshot.thread.generation ?? 1, kind: 'turn' })
@@ -488,9 +499,113 @@ export class ThreadOrchestrator {
     // local dismissal, not proof that the provider did or did not receive it.
     if (item.state !== 'unknown' && item.nativeId && adapter?.deleteQueued) await adapter.deleteQueued(item.nativeId)
     snapshot.thread.queue = snapshot.thread.queue?.filter(value => value.id !== itemId)
+    if (!snapshot.thread.queue?.some(value => value.state === 'queued')) delete snapshot.thread.queuePause
     if (item.operationId) this.history.transitionOperation(id, item.operationId, 'cancelled', 'Queued input was removed locally.')
     this.save(snapshot, { eventsFrom: snapshot.events.length })
     if (!preserveAttachments) await this.releaseAttachments(id, item.attachmentIds ?? [])
+  }
+
+  /**
+   * Removes `turnId` and every later turn from the conversation. The provider is
+   * rewound first and its history re-read as proof; local history is truncated
+   * only afterwards, so a refusal or a mismatch leaves everything untouched.
+   */
+  async rewind(id: string, turnId: string, options: { restoreFiles?: boolean } = {}): Promise<ThreadRewindResult> {
+    if (this.stopping) throw Error('Application is shutting down')
+    // A just-finished turn is still capturing its diff and checkpoint; that is a moment, not a refusal.
+    if (this.finalizing.has(id)) await Promise.allSettled([...this.finalizationTasks])
+    if (this.busy.has(id) || this.finalizing.has(id) || this.configuring.has(id)) throw new ThreadRewindError('unavailable', 'Finish the active turn before rewinding.')
+    const current = this.read(id)
+    if (current.thread.cliActive) throw new ThreadRewindError('unavailable', 'The native CLI owns this conversation.')
+    if (current.thread.status === 'approval') throw new ThreadRewindError('unavailable', 'Resolve the pending request before rewinding.')
+    if (current.thread.queue?.some(item => item.state === 'sending')) throw new ThreadRewindError('unavailable', 'A queued message is being sent.')
+    const plan = planLocalRewind(current, turnId)
+    const target = plan.dropped[0]
+    const claude = current.thread.provider === 'claude'
+    if (!claude && !target.nativeId) throw new ThreadRewindError('unavailable', 'This turn has no provider identity, so it cannot be rewound safely.')
+    if (claude && !current.thread.nativeSessionId) throw new ThreadRewindError('unavailable', 'This conversation has no Claude session to rewind yet.')
+    this.configuring.add(id)
+    try {
+      let forkedSession: string | undefined
+      if (claude) {
+        // Claude cannot drop history in place: write a fork that ends before the
+        // target prompt and resume that instead. The original stays on disk.
+        const turns = current.turns ?? []
+        const prompts = turns.map(turn => {
+          const event = current.events.find(value => value.type === 'message' && value.role === 'user' && value.id === turn.id)
+          return event?.type === 'message' ? event.text : ''
+        })
+        forkedSession = (await forkClaudeBefore({ rootPath: current.thread.rootPath, sessionId: current.thread.nativeSessionId!, localPrompts: prompts, targetIndex: turns.indexOf(target) })).sessionId
+        // The running process holds the old history in memory; the next send resumes the fork.
+        const live = this.adapters.get(id)
+        this.adapters.delete(id)
+        await live?.dispose().catch(() => {})
+      } else {
+        const adapter = await this.connectAdapter(id, current.thread)
+        if (!adapter.rewind) throw new ThreadRewindError('unsupported', 'This provider cannot rewind a conversation.')
+        await adapter.rewind(target.nativeId!)
+      }
+      // Proven. Recompute against the latest state and commit atomically.
+      const latest = this.read(id)
+      if (forkedSession) {
+        latest.thread.nativeSessionId = forkedSession
+        // Cursor offsets described the original transcript.
+        delete latest.thread.nativeHistoryCursor
+        delete latest.thread.connection
+      }
+      const final = planLocalRewind(latest, turnId)
+      latest.events = final.events
+      latest.turns = final.turns
+      latest.thread.status = 'idle'
+      latest.thread.lastTurnStatus = final.turns.at(-1)?.status
+      delete latest.thread.providerObservation
+      if (latest.thread.queue?.some(item => item.state === 'queued')) latest.thread.queuePause = { reason: 'interrupted', since: Date.now() }
+      latest.thread.updatedAt = Date.now()
+      for (const turn of final.dropped) if (turn.operationId) this.history.transitionOperation(id, turn.operationId, 'cancelled', 'The conversation was rewound.')
+      this.history.write(latest, { eventsFrom: 0, turnsFrom: 0 })
+      this.snapshots.set(id, latest)
+      this.changed(id)
+      const result: ThreadRewindResult = { snapshot: this.readForRenderer(id), removedTurns: final.dropped.length }
+      if (options.restoreFiles) {
+        const dropped = new Set(final.dropped.map(turn => turn.id))
+        const restorable = this.checkpoints.list(id).filter(value => value.turnId && dropped.has(value.turnId) && (value.state === 'ready' || value.state === 'conflict'))
+        let restored = 0
+        try {
+          // Newest first, so each restore sees the working tree its checkpoint recorded.
+          for (const checkpoint of restorable.sort((a, b) => b.createdAt - a.createdAt)) { await this.checkpoints.restore(id, checkpoint.id); restored += checkpoint.fileCount }
+          result.restoredFiles = restored
+        } catch (error) {
+          result.restoredFiles = restored
+          result.fileError = error instanceof Error ? error.message : 'Files could not be restored.'
+        }
+      }
+      return result
+    } finally { this.configuring.delete(id) }
+  }
+
+  /** Clears a pause and lets the queue continue from its first waiting item. */
+  async resumeQueue(id: string): Promise<void> {
+    const snapshot = this.read(id)
+    if (!snapshot.thread.queuePause) return
+    delete snapshot.thread.queuePause
+    this.save(snapshot, { eventsFrom: snapshot.events.length })
+    await this.drainQueue(id)
+  }
+
+  /** Moves one waiting item to the front, then resumes, so the user can pick which follow-up still applies. */
+  async sendQueuedNow(id: string, itemId: string): Promise<void> {
+    const snapshot = this.read(id), queue = snapshot.thread.queue ?? []
+    const item = queue.find(value => value.id === itemId)
+    if (!item || item.state !== 'queued') throw Error('Queued input is unavailable')
+    if (queue[0]?.id !== itemId) {
+      const nativeIds = [item, ...queue.filter(value => value.id !== itemId)].map(value => value.nativeId).filter((value): value is string => Boolean(value))
+      snapshot.thread.queue = [item, ...queue.filter(value => value.id !== itemId)]
+      const adapter = this.adapters.get(id)
+      if (nativeIds.length === queue.length && adapter?.reorderQueued) await adapter.reorderQueued(nativeIds)
+    }
+    delete snapshot.thread.queuePause
+    this.save(snapshot, { eventsFrom: snapshot.events.length })
+    await this.drainQueue(id)
   }
 
   async reorderQueued(id: string, itemIds: string[]): Promise<void> {
@@ -637,9 +752,14 @@ export class ThreadOrchestrator {
         const catalog = await this.models(id)
         configuration.model ??= catalog.defaultModel
         const model = catalog.models.find(model => model.id === configuration.model)
-        if (!model) throw Error('Select an available model')
-        if (input.reasoningEffort && !model.efforts.includes(input.reasoningEffort)) throw Error('This reasoning effort is not supported by the selected model')
-        if (!configuration.reasoningEffort || !model.efforts.includes(configuration.reasoningEffort)) configuration.reasoningEffort = model.defaultEffort
+        if (!model) {
+          // The provider still picks the model, so only the effort can be checked.
+          if (configuration.model || catalog.defaultKnown !== false) throw Error('Select an available model')
+          if (input.reasoningEffort && !catalog.models.some(value => value.efforts.includes(input.reasoningEffort!))) throw Error('This reasoning effort is not supported by any available model')
+        } else {
+          if (input.reasoningEffort && !model.efforts.includes(input.reasoningEffort)) throw Error('This reasoning effort is not supported by the selected model')
+          if (!configuration.reasoningEffort || !model.efforts.includes(configuration.reasoningEffort)) configuration.reasoningEffort = model.defaultEffort
+        }
       }
       snapshot = this.read(id)
       if (this.stopping) throw Error('Application is shutting down')
@@ -791,6 +911,14 @@ export class ThreadOrchestrator {
     }
     if (['review', 'compact'].includes(name)) { await this.send(id, text); return { kind: 'applied' } }
     if (name === 'rewind' && argument && !/^[1-9][0-9]{0,2}$/.test(argument)) throw Error('Specify the number of turns to rewind (1–999)')
+    if (name === 'rewind' && argument) {
+      // Verified path: the provider is rewound and proven before local history changes.
+      const turns = snapshot.turns ?? [], count = Number(argument)
+      const target = turns[turns.length - count]
+      if (!target) throw Error(`This conversation has only ${turns.length} turn${turns.length === 1 ? '' : 's'}.`)
+      const result = await this.rewind(id, target.id)
+      return { kind: 'applied', title: `Rewound ${result.removedTurns} turn${result.removedTurns === 1 ? '' : 's'}` }
+    }
     if (name === 'rewind' && !argument) return { kind: 'panel', title: 'Rewind conversation', text: 'Remove the most recent turn from the native conversation. Files are not reverted.', rows: [{ id: '/rewind 1', label: 'Rewind one turn' }] }
     // Reserve ownership while starting/querying a provider operation.
     this.configuring.add(id)
@@ -885,6 +1013,25 @@ export class ThreadOrchestrator {
     this.applyEvent(id, event, generation)
   }
 
+  private storeContext(id: string, report: ThreadContextReport): void {
+    try {
+      const snapshot = this.read(id)
+      snapshot.thread.contextReport = report
+      this.save(snapshot, { eventsFrom: snapshot.events.length })
+    } catch { /* Thread may have been deleted while the provider was reporting. */ }
+  }
+
+  /** Reads the provider's context report; only while idle, and a failure keeps the previous report. */
+  async contextUsage(id: string): Promise<ThreadContextReport | null> {
+    const adapter = this.adapters.get(id)
+    const previous = this.read(id).thread.contextReport ?? null
+    if (!adapter?.contextUsage || this.busy.has(id) || this.finalizing.has(id)) return previous
+    const report = await adapter.contextUsage().catch(() => null)
+    if (!report) return previous
+    this.storeContext(id, report)
+    return report
+  }
+
   private flushDeltas(id: string): void {
     const buffer = this.deltaBuffers.get(id)
     if (!buffer) return
@@ -895,6 +1042,7 @@ export class ThreadOrchestrator {
 
   private applyEvent(id: string, event: ThreadEvent, generation?: number): void {
     if (this.stopping) return
+    if (event.type === 'context-usage') { this.storeContext(id, event.report); return }
     let snapshot: ThreadSnapshot
     try { snapshot = this.read(id) } catch {
       this.busy.delete(id)
@@ -1008,6 +1156,11 @@ export class ThreadOrchestrator {
       })
       snapshot.thread.status = event.status === 'completed' ? 'idle' : event.status
       snapshot.thread.lastTurnStatus = event.status
+      // A stopped or failed turn must not silently start the next queued message:
+      // the user decides whether the follow-up still makes sense.
+      if (event.status !== 'completed' && snapshot.thread.queue?.some(item => item.state === 'queued')) {
+        snapshot.thread.queuePause = { reason: event.status, since: Date.now(), ...(turn?.id ? { turnId: turn.id } : {}) }
+      }
       this.busy.delete(id)
       // Native patch notifications may omit files changed by shell commands.
       // Compare against the pre-turn working tree for both providers, while
@@ -1034,6 +1187,7 @@ export class ThreadOrchestrator {
         void task.finally(() => this.finalizationTasks.delete(task)).catch(() => {})
       })
       else queueMicrotask(() => void this.drainQueue(id))
+      queueMicrotask(() => void this.contextUsage(id))
     } else if (event.type === 'delta') {
       const existingIndex = snapshot.events.findIndex(value => value.type === 'message' && value.role === 'assistant' && value.id === event.id)
       const existing = existingIndex >= 0 ? snapshot.events[existingIndex] : undefined
@@ -1171,6 +1325,7 @@ export class ThreadOrchestrator {
     if (this.stopping || this.busy.has(id) || this.finalizing.has(id) || this.configuring.has(id)) return
     let snapshot: ThreadSnapshot
     try { snapshot = this.read(id) } catch { return }
+    if (snapshot.thread.queuePause) return
     const item = snapshot.thread.queue?.find(value => value.state === 'queued')
     if (!item) return
     item.state = 'sending'

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { CodexConversationAdapter, type ConversationTransport } from '../electron/main/services/conversation/codex-conversation'
 import type { ThreadEvent } from '../shared/types/thread'
 
-function fixture(usageResult: unknown = {}, usageError = false, mcpResult: unknown = {}, observation: { thread?: unknown; turns?: unknown } = {}) {
+function fixture(usageResult: unknown = {}, usageError = false, mcpResult: unknown = {}, observation: { thread?: unknown; turns?: unknown; revert?: (params: Record<string, unknown>) => { error: string } | void } = {}) {
   let receive: (chunk: Uint8Array) => void = () => {}
   let closeListener: () => void = () => {}
   const requests: Record<string, unknown>[] = []
@@ -16,11 +16,13 @@ function fixture(usageResult: unknown = {}, usageError = false, mcpResult: unkno
         : message.method === 'turn/start' || message.method === 'review/start' || message.method === 'thread/queue/start' ? { turn: { id: 'turn-A' } }
           : message.method === 'thread/queue/add' ? { queuedSubmission: { id: 'queued-A', clientUserMessageId: message.params.clientUserMessageId, input: message.params.input } }
           : message.method === 'thread/read' ? typeof observation.thread === 'function' ? observation.thread() : observation.thread ?? {}
-          : message.method === 'thread/turns/list' ? observation.turns ?? {}
+          : message.method === 'thread/turns/list' ? typeof observation.turns === 'function' ? observation.turns(message.params) : observation.turns ?? {}
           : message.method === 'mcpServerStatus/list' ? mcpResult
           : message.method === 'mcpServer/oauth/login' ? { authorizationUrl: 'https://provider.example/authorize?state=test' }
           : message.method === 'app/read' ? { data: [{ id: message.params.appIds[0], name: 'Example app', tools: [{ name: 'search' }] }] }
           : message.method === 'model/list' ? { data: [{ id: 'native-model', model: 'native-model', displayName: 'Native model', defaultReasoningEffort: 'low', supportedReasoningEfforts: [{ reasoningEffort: 'low' }, { reasoningEffort: 'high' }] }] } : {}
+      const revert = message.method === 'thread/revert' ? observation.revert?.(message.params) : undefined
+      if (revert?.error) { queueMicrotask(() => receive(Buffer.from(JSON.stringify({ id: message.id, error: { code: -32601, message: revert.error } }) + '\n'))); return }
       queueMicrotask(() => receive(Buffer.from(JSON.stringify(message.method === 'account/rateLimits/read'
         ? usageError ? { id: message.id, error: { code: 1, message: 'Usage unavailable' } } : { id: message.id, result: usageResult }
         : { id: message.id, result }) + '\n')))
@@ -248,6 +250,48 @@ describe('Codex conversation adapter', () => {
     expect(f.requests.at(-1)).toMatchObject({ method: 'plugin/uninstall', params: { pluginId: 'reviewer@market' } })
     await expect(f.adapter.command('apps', 'github')).resolves.toMatchObject({ rows: [{ label: 'Example app', detail: '1 tools' }] })
     await expect(f.adapter.command('mcp', 'login')).rejects.toThrow('Use /mcp')
+    await f.adapter.dispose()
+  })
+  describe('rewind', () => {
+    const history = (ids: () => string[]) => (params: Record<string, unknown>) => ({ data: ids().map(id => ({ id })), nextCursor: null, params })
+    it('reverts, re-reads the provider turns and accepts only the exact prefix', async () => {
+      let turns = ['t1', 't2', 't3']
+      const f = fixture({}, false, {}, { turns: history(() => turns), revert: params => { turns = turns.slice(0, turns.indexOf(String(params.beforeTurnId))) } })
+      await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
+      await f.adapter.rewind('t2')
+      expect(f.requests.find(request => request.method === 'thread/revert')).toMatchObject({ params: { threadId: 'native-A', beforeTurnId: 't2' } })
+      expect(turns).toEqual(['t1'])
+      await f.adapter.dispose()
+    })
+
+    it('rejects when the provider history does not match the expected prefix', async () => {
+      const f = fixture({}, false, {}, { turns: history(() => ['t1', 't2', 't3']), revert: () => {} })
+      await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
+      await expect(f.adapter.rewind('t2')).rejects.toMatchObject({ code: 'proof-mismatch' })
+      await f.adapter.dispose()
+    })
+
+    it('reports an app-server without thread/revert as unsupported', async () => {
+      const f = fixture({}, false, {}, { turns: history(() => ['t1', 't2']), revert: () => ({ error: 'Method not found' }) })
+      await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
+      await expect(f.adapter.rewind('t2')).rejects.toMatchObject({ code: 'unsupported' })
+      await f.adapter.dispose()
+    })
+
+    it('refuses a turn the provider does not hold without calling revert', async () => {
+      const f = fixture({}, false, {}, { turns: history(() => ['t1']), revert: () => {} })
+      await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
+      await expect(f.adapter.rewind('gone')).rejects.toMatchObject({ code: 'unavailable' })
+      expect(f.requests.some(request => request.method === 'thread/revert')).toBe(false)
+      await f.adapter.dispose()
+    })
+  })
+  it('reports the context window from token usage notifications', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
+    await f.adapter.send('Measure')
+    f.emit({ method: 'thread/tokenUsage/updated', params: { threadId: 'native-A', turnId: 'turn-A', tokenUsage: { modelContextWindow: 100_000, last: { totalTokens: 40_000 }, total: { totalTokens: 400_000 } } } })
+    expect(f.events.at(-1)).toMatchObject({ type: 'context-usage', report: { usedTokens: 40_000, windowTokens: 100_000, percentage: 40, source: 'codex-token-usage' } })
     await f.adapter.dispose()
   })
   it('retains public plan progress and the consolidated turn diff', async () => {

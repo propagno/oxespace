@@ -40,6 +40,8 @@ import { ThreadConversationActions } from './ThreadConversationActions'
 import { ThreadRequestCard } from './ThreadRequestCard'
 import { ThreadApprovalDetails } from './ThreadApprovalDetails'
 import { ThreadPromptQueue } from './ThreadPromptQueue'
+import { ThreadDeliveryNote } from './ThreadDeliveryNote'
+import { ThreadRewindControl } from './ThreadRewindControl'
 import { ThreadSubagentActivity } from './ThreadSubagentActivity'
 import { VoiceHud } from '../Voice/VoiceHud'
 import { DelegationCreateDialog } from '../Delegation/DelegationCreateDialog'
@@ -514,6 +516,15 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
               {event.role === 'assistant' && (final || turnEvents.find(value => value.type === 'message' && value.role === 'assistant') === event) && <div className="thread-agent-label"><AgentProviderIcon provider={snapshot?.thread.provider ?? 'claude'} size={16} />{snapshot?.thread.provider === 'claude' ? 'Claude' : 'Codex'}{final && <span className="thread-final-label">Final response</span>}</div>}
               {event.role === 'user' && event.attachments?.length ? <ul className="thread-sent-attachments" aria-label="Message attachments">{event.attachments.map(attachment => <li key={attachment.id} title={attachment.name}><ImageIcon size={13} aria-hidden="true" /><span>{attachment.name}</span><small>{Math.ceil(attachment.bytes / 1024)} KB</small></li>)}</ul> : null}
               <ThreadMessageBody text={displayText} role={event.role} />
+              {event.role === 'user' && snapshot?.deliveries?.[event.id] && snapshot.deliveries[event.id].state !== 'delivered' ? <ThreadDeliveryNote delivery={snapshot.deliveries[event.id]} disabled={pending} onResend={() => void action(() => api!.send(snapshot.thread.id, event.text, event.attachments?.map(attachment => attachment.id) ?? []))} /> : null}
+              {event.role === 'user' && snapshot && !running && api?.rewind && snapshot.thread.capabilities?.features.rewind?.enabled && (() => {
+                const turns = snapshot.turns ?? [], index = turns.findIndex(turn => turn.id === event.id)
+                return index >= 0 && (turns[index].nativeId || snapshot.thread.provider === 'claude' && index > 0) ? <ThreadRewindControl laterTurns={turns.length - index} disabled={pending} onRewind={options => action(async () => {
+                  const result = await api.rewind!(snapshot.thread.id, event.id, options)
+                  useThreadStore.getState().updateSnapshot(result.snapshot)
+                  if (result.fileError) throw Error(`Conversation rewound. Files were not fully restored: ${result.fileError}`)
+                })} /> : null
+              })()}
               {event.historicalQuestions?.length ? <ThreadHistoricalQuestions questions={event.historicalQuestions} /> : null}
               {event.role === 'assistant' && event.id === lastConversationMessage?.id && quickReplies.length > 0 && <div className="thread-quick-replies" aria-label="Suggested replies"><small>Choose a reply to review before sending</small><div>{quickReplies.map(option => <button type="button" key={option.value} onClick={() => { useThreadStore.getState().setDraft(snapshot!.thread.id, option.value); requestAnimationFrame(() => textarea.current?.focus()) }}>{option.label}</button>)}</div></div>}
               {event.role !== 'user' && event.attachments?.length ? <div className="thread-message-attachments" aria-label="Message attachments">{event.attachments.map(attachment => <span key={attachment.id}><Paperclip size={11} />{attachment.name}<small>{Math.ceil(attachment.bytes / 1024)} KB</small></span>)}</div> : null}
@@ -550,7 +561,11 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
       {degradedConnection && !needsLogin && <div className="thread-connection-notice is-warning" role="status"><AlertCircle size={14} /><span>{degradedConnection.detail || 'Provider connection is unavailable.'}{degradedConnection.nextRetryAt ? ` You can retry after ${new Date(degradedConnection.nextRetryAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}.` : ''}</span></div>}
       {snapshot && blocksThreadInput(snapshot.thread) && <div className="thread-connection-notice"><TerminalSquare size={14} /><span>Recover the saved conversation to continue here.</span><button type="button" disabled={pending} onClick={() => void action(returnFromCli)}>Recover conversation</button></div>}
       {(error || !api) && <div role="alert" className="thread-action-error"><span>{error || 'Thread service unavailable. Restart the updated application.'}</span><button type="button" aria-label="Dismiss error" onClick={() => setError('')}>×</button></div>}
-      {snapshot?.thread.queue && <ThreadPromptQueue items={snapshot.thread.queue} disabled={pending} onUpdate={(itemId, text) => action(() => api!.updateQueued!(snapshot.thread.id, itemId, text))} onDelete={itemId => action(() => api!.deleteQueued!(snapshot.thread.id, itemId))} onRestore={item => action(async () => {
+      {snapshot?.thread.queue && <ThreadPromptQueue items={snapshot.thread.queue} disabled={pending} pause={snapshot.thread.queuePause}
+        onResume={api?.resumeQueue ? () => action(() => api.resumeQueue!(snapshot.thread.id)) : undefined}
+        onSendNow={api?.sendQueuedNow ? itemId => action(() => api.sendQueuedNow!(snapshot.thread.id, itemId)) : undefined}
+        onClear={() => action(async () => { for (const item of snapshot.thread.queue ?? []) if (item.state !== 'sending') await api!.deleteQueued!(snapshot.thread.id, item.id) })}
+        onUpdate={(itemId, text) => action(() => api!.updateQueued!(snapshot.thread.id, itemId, text))} onDelete={itemId => action(() => api!.deleteQueued!(snapshot.thread.id, itemId))} onRestore={item => action(async () => {
         await api!.deleteQueued!(snapshot.thread.id, item.id, true)
         useThreadStore.getState().setDraft(snapshot.thread.id, item.text)
         useThreadStore.getState().clearAttachments(snapshot.thread.id)
@@ -581,7 +596,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
           <button type="button" className="thread-command-trigger" aria-label="Voice input" title="Voice input · Ctrl+Shift+V" disabled={!snapshot || pending || !voice.isSupported} onClick={voice.toggle}><Mic size={14} /></button>
           {snapshot && <ThreadConfigurationBar key={snapshot.thread.id} thread={snapshot.thread} openControl={openControl} onControlClosed={() => setOpenControl(null)} onError={setError} onConfigured={value => useThreadStore.getState().updateSnapshot(value)} />}
           {running && snapshot?.thread.capabilities?.features.steering?.enabled && <button type="button" className="thread-command-trigger" aria-label="Steer active turn" title="Send guidance to the active turn" disabled={pending || (!draft.trim() && !attachments.length)} onClick={() => send('steer')}><CornerDownLeft size={14} /></button>}
-          {snapshot && <ThreadUsageRing provider={snapshot.thread.provider} idle={!running} />}
+          {snapshot && <ThreadUsageRing provider={snapshot.thread.provider} idle={!running} threadId={snapshot.thread.id} context={snapshot.thread.contextReport} />}
           {running && <button type="button" className="thread-stop" aria-label="Stop turn" title="Stop turn" disabled={pending} onClick={() => void action(() => api!.interrupt(snapshot!.thread.id))}><Square size={13} /></button>}
           <button type="submit" className="thread-send" aria-label={running ? 'Queue follow-up' : 'Send'} title={running ? 'Queue follow-up · Enter' : 'Send · Enter'} disabled={!snapshot || (!draft.trim() && !attachments.length) || pending || Boolean(snapshot.thread.cliActive)}><ArrowUp size={16} /></button></footer>
       </form>
