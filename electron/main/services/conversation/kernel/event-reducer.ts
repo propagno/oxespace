@@ -13,6 +13,7 @@
  */
 import type { ThreadEvent, ThreadRequest, ThreadSnapshot } from '../../../../../shared/types/thread'
 import type { ThreadHistoryWriteOptions } from '../thread-history'
+import { isTerminalToolState, nextToolState } from './tool-call-machine'
 
 type TurnStatus = 'completed' | 'interrupted' | 'failed'
 type OperationState = 'acknowledged' | 'running' | 'completed' | 'cancelled' | 'failed'
@@ -170,7 +171,9 @@ export function reduceThreadEvent(snapshot: ThreadSnapshot, event: ThreadEvent, 
     const index = snapshot.events.findIndex(value => 'id' in value && value.id === (event as { id?: string }).id && value.type === event.type)
     if (index >= 0) {
       const previous = snapshot.events[index]
-      snapshot.events[index] = event.type === 'tool' && previous.type === 'tool' ? { ...previous, ...event, name: event.name === 'Tool result' ? previous.name : event.name, detail: event.detail || previous.detail } : event
+      snapshot.events[index] = event.type === 'tool' && previous.type === 'tool'
+        ? { ...previous, ...event, name: event.name === 'Tool result' ? previous.name : event.name, detail: event.detail || previous.detail, state: nextToolState(previous.state, event.state), ...(isTerminalToolState(previous.state) && previous.completedAt !== undefined ? { completedAt: previous.completedAt } : {}) }
+        : event
       eventsFrom = Math.min(eventsFrom, index)
     } else snapshot.events.push(event)
     if (event.type === 'approval-resolved' || event.type === 'request-resolved') snapshot.thread.status = ctx.pendingRequestCount() ? 'approval' : 'running'

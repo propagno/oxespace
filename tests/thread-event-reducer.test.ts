@@ -114,3 +114,25 @@ describe('reduceThreadEvent', () => {
     expect(kinds(r.before)).toEqual(['refresh-capabilities'])
   })
 })
+
+describe('tool-call transitions in the reducer', () => {
+  it('a late "running" report never revives a finished or settled call', () => {
+    const s = snapshot()
+    reduceThreadEvent(s, { type: 'tool', id: 'x', name: 'Bash', state: 'running', detail: 'make' }, ctx())
+    reduceThreadEvent(s, { type: 'tool', id: 'x', name: 'Tool result', state: 'completed', detail: '', output: 'ok', completedAt: 50 }, ctx())
+    reduceThreadEvent(s, { type: 'tool', id: 'x', name: 'Bash', state: 'running', detail: 'make' }, ctx())
+    expect(s.events.find(e => e.type === 'tool')).toMatchObject({ state: 'completed', output: 'ok', completedAt: 50 })
+
+    const u = snapshot()
+    u.events.push({ type: 'tool', id: 'y', name: 'Bash', state: 'unknown', detail: 'x' })
+    reduceThreadEvent(u, { type: 'tool', id: 'y', name: 'Bash', state: 'running', detail: 'x' }, ctx())
+    expect(u.events.find(e => e.type === 'tool')).toMatchObject({ state: 'unknown' })
+  })
+
+  it('an unknown call can still learn its real outcome', () => {
+    const s = snapshot()
+    s.events.push({ type: 'tool', id: 'y', name: 'Bash', state: 'unknown', detail: 'x' })
+    reduceThreadEvent(s, { type: 'tool', id: 'y', name: 'Tool result', state: 'failed', detail: '', exitCode: 2 }, ctx())
+    expect(s.events.find(e => e.type === 'tool')).toMatchObject({ state: 'failed', exitCode: 2, name: 'Bash' })
+  })
+})
