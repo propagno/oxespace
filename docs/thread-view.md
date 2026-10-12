@@ -117,6 +117,55 @@ Limits: the Claude fork drops the cursor for older native history that was not y
 imported; prompts rewritten by a skill or `/command` expansion can make the
 transcript check refuse the rewind rather than guess.
 
+## Attention, approvals, interrupt and cost
+
+**Attention.** One decision (`src/utils/threadAttention.ts`) drives both the unread
+marker and the OS notification. Only a *transition* notifies: a turn that finished
+(known to have completed), a request for approval, or a failure. A first sighting,
+an unchanged status, a turn you stopped yourself and a turn whose outcome is
+unknown say nothing. A thread you are watching in a focused window is not
+interrupted. It runs even while Code mode is showing, and clicking the
+notification opens the thread (`thread:<id>` on the notification channel).
+
+**Shortcuts** (Thread mode only, always with Ctrl+Alt held so they never compete
+with typing): `PageDown` / `PageUp` next / previous conversation (pinned first,
+then most recent, archived and hidden projects skipped, wraps around), `N` new
+conversation.
+
+**Search.** The sidebar filter matches title, provider and path, and also the
+*content* of the conversation through the native transcript index (3+ characters,
+debounced). A thread never opened here is still found if its session exists.
+
+**Approvals (Claude).** The card uses what the CLI sends with the request: its
+title, description, `decision_reason` and `blocked_path`. When the CLI proposes
+permission rules the card also offers *Allow session*; choosing it returns those
+rules to the CLI unchanged (`updatedPermissions`) - OXESpace never authors a rule.
+A plain *Approve* grants only that call. An `ExitPlanMode` approval shows the plan
+as prose and never offers to remember the decision.
+
+**Provider retries.** A `system/api_retry` frame (rate limit, overload) is one
+activity line revised per attempt, not a failure; a later retry storm starts a
+fresh line.
+
+**Interrupt (Claude).** Stop sends the CLI's own `interrupt` control request and
+waits up to 2 s for the turn to end; the errored result that follows is reported
+as *interrupted*. The session and its background tasks stay alive. If the CLI does
+not stop in time, or the request cannot be written, the process is ended as
+before. The behaviour was validated with a fake transport; confirm it against the
+installed CLI version.
+
+**Cost.** Claude's `result` frame carries `total_cost_usd` and token usage. Each
+turn is folded into a running `costReport` (metadata only, never in the timeline)
+and shown as a small "≈ US$" chip beside the usage ring. For a subscription
+account the figure is the API-equivalent estimate, not a charge; the tooltip says
+so. Codex reports tokens only and shows no cost.
+
+**Building blocks not yet wired to the UI.** `shell-command-rules.ts` (safe
+allow/deny for shell approvals: sub-command splitting, no smuggled second command,
+narrow rule suggestions), `path-safety.ts` (Windows-aware workspace containment)
+and `shared/agentLeadStatusFold.ts` (a finished lead stays "working" while child
+work lives) are implemented and tested but nothing consumes them yet.
+
 ## Commands in the composer
 
 Type `/` at the start of a message, click the slash button, or press `Ctrl+/`
