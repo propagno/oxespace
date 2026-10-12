@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Check, Copy, Search } from 'lucide-react'
 import type { SessionSummary } from '../../../shared/types/session'
+import type { SessionSearchResult } from '../../../shared/types/session-search'
 import { DesktopDialog } from '../Navigation/DesktopDialog'
 
 export function ProviderSessionFinder({ workspaceId, rootPath, onClose }: { workspaceId: string; rootPath: string; onClose: () => void }) {
@@ -9,6 +10,21 @@ export function ProviderSessionFinder({ workspaceId, rootPath, onClose }: { work
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
   const [copied, setCopied] = useState<string | null>(null)
+  // Full-text hits from the transcript index; the list above only matches the
+  // first message, which is rarely what a person remembers a session by.
+  const [content, setContent] = useState<SessionSearchResult | null>(null)
+
+  useEffect(() => {
+    const text = query.trim()
+    if (text.length < 2) { setContent(null); return }
+    let active = true
+    const timer = window.setTimeout(() => {
+      void Promise.resolve(window.oxe.session.search?.({ query: text, cwd: rootPath, limit: 12 }))
+        .then((result) => { if (active) setContent(result ?? null) })
+        .catch(() => { if (active) setContent(null) })
+    }, 250)
+    return () => { active = false; window.clearTimeout(timer) }
+  }, [query, rootPath])
 
   useEffect(() => {
     let active = true
@@ -44,6 +60,15 @@ export function ProviderSessionFinder({ workspaceId, rootPath, onClose }: { work
         <div className="desktop-provider-session-id"><code>{session.sessionId}</code><div><button type="button" aria-label={`Copiar ID da sessão ${session.provider} ${session.sessionId}`} onClick={() => void copy(session.sessionId, `id:${session.sessionId}`)}>{copied === `id:${session.sessionId}` ? <Check size={13} /> : <Copy size={13} />}{copied === `id:${session.sessionId}` ? 'Copiado' : 'Copiar ID'}</button><button type="button" aria-label={`Copiar comando para retomar ${session.provider} ${session.sessionId}`} onClick={() => void copy(`${session.provider === 'claude' ? 'claude --resume' : 'codex resume'} ${session.sessionId}`, `command:${session.sessionId}`)}>{copied === `command:${session.sessionId}` ? <Check size={13} /> : <Copy size={13} />}{copied === `command:${session.sessionId}` ? 'Copiado' : 'Copiar comando'}</button></div></div>
       </article>)}
     </div> : <p className="desktop-provider-session-empty">{query ? 'Nenhuma sessão corresponde à busca.' : 'Nenhuma sessão do Codex ou Claude encontrada neste diretório.'}</p>}
+    {content && content.hits.length > 0 && <div className="desktop-provider-session-list" aria-label="Resultados no conteúdo das conversas">
+      <p className="terminal-session-identity-note">No conteúdo das conversas{content.indexing ? ' (indexação em andamento)' : ''}:</p>
+      {content.hits.map(hit => <article key={`hit:${hit.agent}:${hit.sessionId}`} className="desktop-provider-session-card">
+        <div className="desktop-provider-session-heading"><strong>{hit.title || `${hit.agent === 'codex' ? 'Codex' : 'Claude'} session`}</strong><span>{hit.agent === 'codex' ? 'Codex' : 'Claude'}</span></div>
+        <p>{hit.snippet}</p>
+        <div className="desktop-provider-session-id"><code>{hit.sessionId}</code><div><button type="button" aria-label={`Copiar comando para retomar ${hit.agent} ${hit.sessionId}`} onClick={() => void copy(hit.resumeCommand, `hit:${hit.sessionId}`)}>{copied === `hit:${hit.sessionId}` ? <Check size={13} /> : <Copy size={13} />}{copied === `hit:${hit.sessionId}` ? 'Copiado' : 'Copiar comando'}</button></div></div>
+      </article>)}
+    </div>}
+    {content && content.hits.length === 0 && content.indexing && <p className="terminal-session-identity-note" role="status">Indexando conversas…</p>}
     <p className="desktop-provider-session-help">No Thread, use <code>/resume &lt;ID da sessão nativa&gt;</code> para abrir a mesma conversa neste projeto.</p>
   </DesktopDialog>
 }

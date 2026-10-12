@@ -73,6 +73,10 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Cleanup scan: stat-only probes of a worktree's own git metadata (HEAD,
   // reflog tail) to estimate idleness. Never reads source files.
   'electron/main/services/github/worktree-cleanup.ts',
+  // Session search index: read-only scan of the agents' own transcript
+  // folders (~/.claude/projects, ~/.codex/sessions) into a private cache file.
+  // Outside the workspace tree; transcripts are never written.
+  'electron/main/services/session-search/index.ts',
   // Agent status hooks: writes one managed hook script under <userData> and
   // merges our entries into the agents' own config (~/.claude/settings.json,
   // ~/.codex/hooks.json). Outside the workspace tree; never source files.

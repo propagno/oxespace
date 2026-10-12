@@ -229,7 +229,8 @@ export const IPC_CHANNELS = {
     list: 'session:list',
     fork: 'session:fork',
     delete: 'session:delete',
-    cleanup: 'session:cleanup'
+    cleanup: 'session:cleanup',
+    search: 'session:search'
   },
   skill: {
     list: 'skill:list',
@@ -824,6 +825,8 @@ export interface SessionApi {
   fork(input: import('./session').ForkSessionInput): Promise<import('./session').ForkSessionResult>
   delete(input: { workspaceRootPath: string; sessionId: string; provider: import('./agent').AgentProvider }): Promise<boolean>
   cleanup(input: { workspaceId: string; workspaceRootPath: string; provider: import('./agent').AgentProvider }): Promise<number>
+  /** Full-text search across the native Claude Code and Codex transcripts. */
+  search(input: import('./session-search').SessionSearchInput): Promise<import('./session-search').SessionSearchResult>
 }
 
 export interface SkillApi {
