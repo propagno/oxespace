@@ -48,6 +48,22 @@ describe('MCP normal Thread handoff', () => {
       expect(manager.send).toHaveBeenCalledOnce()
       await expect(send.handler({ ...message, threadId: source.id, key: 'send-other' }, ctx)).rejects.toThrow('not created by this origin')
       await expect(send.handler({ ...message, text: 'different' }, ctx)).rejects.toThrow('different message')
+
+      // The origin reads back what happened in its destination, incrementally.
+      const read = findTool('oxespace_thread_read')!
+      const destination = manager.read(first.threadId)
+      destination.events.push({ type: 'message', id: 'u1', role: 'user', text: 'Investigate' }, { type: 'tool', id: 't1', name: 'Bash', state: 'completed', detail: 'ls' }, { type: 'message', id: 'a1', role: 'assistant', text: 'Found it' })
+      destination.thread.status = 'idle'
+      const page = JSON.parse((await read.handler({ threadId: first.threadId }, ctx)).content[0].text!) as { messages: { role: string; text: string }[]; cursor: number; status: string }
+      expect(page.status).toBe('idle')
+      expect(page.messages).toEqual([{ role: 'user', text: 'Investigate' }, { role: 'assistant', text: 'Found it' }])
+      destination.events.push({ type: 'message', id: 'a2', role: 'assistant', text: 'x'.repeat(5000) })
+      const next = JSON.parse((await read.handler({ threadId: first.threadId, cursor: page.cursor }, ctx)).content[0].text!) as { messages: { text: string }[]; truncated?: boolean }
+      expect(next.messages).toHaveLength(1)
+      expect(next.messages[0].text.length).toBeLessThan(5000)
+      expect(next.truncated).toBe(true)
+      // Conversations outside this origin's lineage stay private.
+      await expect(read.handler({ threadId: source.id }, ctx)).rejects.toThrow('not created by this origin')
     } finally { db.close() }
   })
 })
