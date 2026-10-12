@@ -1,7 +1,7 @@
 import { FileCode2, ChevronDown, ChevronRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { parseThreadPatch } from '../../../shared/threadPatch'
-import type { ThreadArtifact } from '../../../shared/types/thread'
+import type { ThreadArtifact, ThreadTurnFileStatus } from '../../../shared/types/thread'
 import { ThreadPatch } from './ThreadPatch'
 import type { ThreadEvent } from '../../../shared/types/thread'
 import { changeSummary, threadChanges, turnChanges, threadFileLabel, type ThreadChangeEntry } from './threadChanges'
@@ -34,10 +34,24 @@ export function FileStats({ file }: { file: ThreadChangeEntry['file'] }) {
 }
 const CHANGE_PREVIEW_FILES = 3
 
-export function ThreadTurnChanges({ events, root, onOpen, onViewChanges, onUndo }: { events: ThreadEvent[]; root: string; onOpen(entry: ThreadChangeEntry): void; onViewChanges?(): void; onUndo?(): Promise<void> }) {
+const relativeKey = (path: string, root: string): string => {
+  const label = threadFileLabel(path, root).replace(/\\/g, '/').replace(/^\.\//, '')
+  return /^[a-z]:\//i.test(root.replace(/\\/g, '/')) ? label.toLowerCase() : label
+}
+
+export function ThreadTurnChanges({ events, root, onOpen, onViewChanges, onUndo, loadFileStates, onUndoFile }: { events: ThreadEvent[]; root: string; onOpen(entry: ThreadChangeEntry): void; onViewChanges?(): void; onUndo?(): Promise<void>; loadFileStates?(): Promise<ThreadTurnFileStatus[]>; onUndoFile?(path: string): Promise<void> }) {
   const [showAll, setShowAll] = useState(false)
   const [undo, setUndo] = useState<'idle' | 'confirm' | 'working'>('idle')
   const [undoError, setUndoError] = useState('')
+  // Per-file standing of this turn's checkpoint, keyed by repository-relative path.
+  const [fileStates, setFileStates] = useState<Record<string, ThreadTurnFileStatus>>({})
+  const [undoingFile, setUndoingFile] = useState<string | null>(null)
+  const refreshStates = (): void => {
+    if (!loadFileStates) return
+    void loadFileStates().then(states => setFileStates(Object.fromEntries(states.map(state => [relativeKey(state.path, root), state]))), () => setFileStates({}))
+  }
+  // Loaded once per rendered turn and after each undo; the loader is an inline closure, so it is not a dependency.
+  useEffect(refreshStates, []) // eslint-disable-line react-hooks/exhaustive-deps
   const entries = turnChanges(events), summary = changeSummary(entries)
   if (!entries.length) return events.some(event => event.type === 'turn-diff') ? <p className="thread-turn-timing">No remaining file changes in the provider’s final turn diff.</p> : null
   const files = [...new Map(entries.map(entry => [entry.file.path, entry])).values()]
@@ -58,7 +72,18 @@ export function ThreadTurnChanges({ events, root, onOpen, onViewChanges, onUndo 
       <button type="button" className="thread-change-view" onClick={() => onViewChanges ? onViewChanges() : onOpen(files[0])}>View changes</button>
     </header>
     {undoError && <p role="alert" className="thread-change-error">{undoError}</p>}
-    <div>{shown.map(entry => <button key={entry.key} type="button" onClick={() => onOpen(entry)} title={entry.file.path}><span className="thread-file-path">{threadFileLabel(entry.file.path, root)}</span>{entries.filter(value => value.file.path === entry.file.path).length === 1 && <FileStats file={entry.file} />}</button>)}</div>
+    <div>{shown.map(entry => {
+      const status = fileStates[relativeKey(entry.file.path, root)]
+      return <div key={entry.key} className="thread-change-file">
+        <button type="button" onClick={() => onOpen(entry)} title={entry.file.path}><span className="thread-file-path">{threadFileLabel(entry.file.path, root)}</span>{entries.filter(value => value.file.path === entry.file.path).length === 1 && <FileStats file={entry.file} />}</button>
+        {status?.state === 'reverted' && <span className="thread-change-file-state">Reverted</span>}
+        {status?.state === 'modified' && <span className="thread-change-file-state" title="Edited after this turn; undo would discard that later work">Edited later</span>}
+        {status?.state === 'pending' && onUndoFile && <button type="button" className="thread-change-view" disabled={undoingFile !== null || undo === 'working'} aria-label={`Undo ${threadFileLabel(entry.file.path, root)}`} onClick={() => {
+          setUndoError(''); setUndoingFile(status.path)
+          void onUndoFile(status.path).then(refreshStates, cause => setUndoError(cause instanceof Error ? cause.message : 'Could not undo this file.')).finally(() => setUndoingFile(null))
+        }}>{undoingFile === status.path ? 'Undoing…' : 'Undo file'}</button>}
+      </div>
+    })}</div>
     {files.length > CHANGE_PREVIEW_FILES && <button type="button" className="thread-change-more" aria-expanded={showAll} onClick={() => setShowAll(value => !value)}>{showAll ? 'Show less' : `Show ${files.length - CHANGE_PREVIEW_FILES} more`}<ChevronDown size={13} aria-hidden="true" /></button>}
   </section>
 }

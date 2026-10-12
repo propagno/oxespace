@@ -21,6 +21,14 @@ export interface ThreadCheckpointSummary {
 }
 
 interface FileImage { exists: boolean; content?: Buffer; hash?: string }
+
+/**
+ * Where one file of a turn stands now: still as the turn left it (`pending`),
+ * back to how it was before the turn (`reverted`), or edited since (`modified`,
+ * which cannot be undone without losing that later work).
+ */
+export type CheckpointFileState = 'pending' | 'reverted' | 'modified'
+export interface CheckpointFileStatus { path: string; state: CheckpointFileState; preExists: boolean; postExists: boolean }
 interface CheckpointRow {
   id: string; thread_id: string; turn_id: string | null; root_path: string; base_commit: string | null
   label: string | null; state: ThreadCheckpointSummary['state']; created_at: number; finalized_at: number | null
@@ -115,9 +123,12 @@ export class ThreadCheckpointService {
     const files = this.db.prepare('SELECT path, pre_exists, pre_content, pre_hash, post_exists, post_hash FROM conversation_checkpoint_files WHERE checkpoint_id = ? ORDER BY path').all(checkpointId) as CheckpointFileRow[]
     const current = new Map<string, FileImage>()
     const conflicts: string[] = []
+    const alreadyReverted = new Set<string>()
     for (const file of files) {
       const image = await readImage(root, file.path)
       current.set(file.path, image)
+      // A file the user already undid on its own is not a conflict for the whole turn.
+      if (matches(image, imageFromRow(file, 'pre'))) { alreadyReverted.add(file.path); continue }
       if (image.exists !== Boolean(file.post_exists) || image.hash !== (file.post_hash ?? undefined)) conflicts.push(file.path)
     }
     if (conflicts.length) {
@@ -128,6 +139,7 @@ export class ThreadCheckpointService {
     const applied: string[] = []
     try {
       for (const file of files) {
+        if (alreadyReverted.has(file.path)) continue
         await applyImage(root, file.path, imageFromRow(file, 'pre'))
         applied.push(file.path)
       }
@@ -138,6 +150,53 @@ export class ThreadCheckpointService {
     }
     this.db.prepare("UPDATE conversation_checkpoints SET state = 'restored', restored_at = ?, error = NULL WHERE id = ?").run(Date.now(), checkpointId)
     return this.summary(this.row(checkpointId))
+  }
+
+  /** The most recent checkpoint captured for a turn, if any. */
+  forTurn(threadId: string, turnId: string): ThreadCheckpointSummary | undefined {
+    const row = this.db.prepare('SELECT * FROM conversation_checkpoints WHERE thread_id = ? AND turn_id = ? ORDER BY created_at DESC LIMIT 1').get(threadId, turnId) as CheckpointRow | undefined
+    return row ? this.summary(row) : undefined
+  }
+
+  /** Per-file standing of a finalized checkpoint against the working tree. */
+  async fileStates(threadId: string, checkpointId: string): Promise<CheckpointFileStatus[]> {
+    const checkpoint = this.row(checkpointId)
+    if (checkpoint.thread_id !== threadId) throw Error('Checkpoint does not belong to this conversation')
+    if (checkpoint.state === 'open' || checkpoint.state === 'failed') return []
+    const root = await canonicalRoot(checkpoint.root_path)
+    const files = this.db.prepare('SELECT path, pre_exists, pre_content, pre_hash, post_exists, post_hash FROM conversation_checkpoint_files WHERE checkpoint_id = ? ORDER BY path').all(checkpointId) as CheckpointFileRow[]
+    const states: CheckpointFileStatus[] = []
+    for (const file of files) {
+      const current = await readImage(root, file.path).catch(() => undefined)
+      const state: CheckpointFileState = current && matches(current, imageFromRow(file, 'pre')) ? 'reverted'
+        : current && current.exists === Boolean(file.post_exists) && current.hash === (file.post_hash ?? undefined) ? 'pending'
+          : 'modified'
+      states.push({ path: file.path, state, preExists: Boolean(file.pre_exists), postExists: Boolean(file.post_exists) })
+    }
+    return states
+  }
+
+  /**
+   * Undoes one file of a turn: restores its pre-turn content (or removes a file
+   * the turn created). Refused when the file was edited after the turn, so
+   * later work is never overwritten; a file already back to its pre-turn state
+   * is left alone.
+   */
+  async restoreFile(threadId: string, checkpointId: string, path: string): Promise<CheckpointFileState> {
+    const checkpoint = this.row(checkpointId)
+    if (checkpoint.thread_id !== threadId) throw Error('Checkpoint does not belong to this conversation')
+    if (checkpoint.state !== 'ready' && checkpoint.state !== 'conflict') throw Error('Only a ready or conflict checkpoint can be restored')
+    const root = await canonicalRoot(checkpoint.root_path)
+    const file = this.db.prepare('SELECT path, pre_exists, pre_content, pre_hash, post_exists, post_hash FROM conversation_checkpoint_files WHERE checkpoint_id = ? AND path = ?').get(checkpointId, safeRelative(path)) as CheckpointFileRow | undefined
+    if (!file) throw Error('That file was not changed by this turn')
+    const current = await readImage(root, file.path)
+    const pre = imageFromRow(file, 'pre')
+    if (matches(current, pre)) return 'reverted'
+    if (current.exists !== Boolean(file.post_exists) || current.hash !== (file.post_hash ?? undefined)) {
+      throw Error(`${file.path} changed after this turn; undoing it would discard that later work`)
+    }
+    await applyImage(root, file.path, pre)
+    return 'reverted'
   }
 
   delete(threadId: string, checkpointId: string): void {
@@ -215,6 +274,7 @@ function imageFromRow(row: CheckpointFileRow, side: 'pre' | 'post'): FileImage {
 }
 
 function hash(content: Buffer): string { return createHash('sha256').update(content).digest('hex') }
+function matches(a: FileImage, b: FileImage): boolean { return a.exists === b.exists && (!a.exists || a.hash === b.hash) }
 function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error) }
 
 async function statusPaths(root: string): Promise<Set<string>> {

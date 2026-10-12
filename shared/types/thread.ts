@@ -424,6 +424,8 @@ export interface ThreadApi {
   reorderQueued?(id: string, itemIds: string[]): Promise<void>
   contextUsage?(id: string): Promise<ThreadContextReport | null>
   stopTask?(id: string, taskId: string): Promise<void>
+  turnFiles?(id: string, turnId: string): Promise<ThreadTurnFileStatus[]>
+  undoTurnFile?(id: string, turnId: string, path: string): Promise<void>
   rewind?(id: string, turnId: string, options?: { restoreFiles?: boolean }): Promise<ThreadRewindResult>
   readSince?(id: string, cursor: ThreadSyncCursor): Promise<ThreadDelta>
   resumeQueue?(id: string): Promise<void>
@@ -434,6 +436,9 @@ export interface ThreadApi {
   pin(id: string, pinned: boolean): Promise<void>
   onChanged(listener: (value: { threadId: string }) => void): () => void
 }
+
+/** One file changed by a turn, against the working tree now. */
+export interface ThreadTurnFileStatus { path: string; state: 'pending' | 'reverted' | 'modified'; preExists: boolean; postExists: boolean }
 
 export interface ThreadCliState {
   running: boolean

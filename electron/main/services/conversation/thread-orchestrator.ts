@@ -457,6 +457,23 @@ export class ThreadOrchestrator {
     await adapter.interrupt()
   }
 
+  /** Per-file standing of a turn's changes, for review (pending / reverted / modified). */
+  async turnFiles(id: string, turnId: string): Promise<import('./thread-checkpoints').CheckpointFileStatus[]> {
+    this.read(id)
+    const checkpoint = this.checkpoints.forTurn(id, turnId)
+    return checkpoint ? this.checkpoints.fileStates(id, checkpoint.id) : []
+  }
+
+  /** Undoes one file of a finished turn. Refused while a turn or configuration owns the conversation. */
+  async undoTurnFile(id: string, turnId: string, path: string): Promise<void> {
+    this.read(id)
+    if (this.busy.has(id) || this.configuring.has(id) || this.finalizing.has(id)) throw Error('Finish the active operation before undoing changes')
+    const checkpoint = this.checkpoints.forTurn(id, turnId)
+    if (!checkpoint) throw Error('No checkpoint exists for this turn')
+    await this.checkpoints.restoreFile(id, checkpoint.id, path)
+    this.changed(id)
+  }
+
   /** Stops one running background task of the conversation's provider session. */
   async stopTask(id: string, taskId: string): Promise<void> {
     const adapter = this.adapters.get(id)

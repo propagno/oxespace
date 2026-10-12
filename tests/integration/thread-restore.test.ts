@@ -26,6 +26,52 @@ function fixture() {
   return { root, service: new ThreadCheckpointService(db) }
 }
 
+describe('Thread per-file undo', () => {
+  it('undoes one file of a turn, leaves the others, and reports each file state', async () => {
+    const { root, service } = fixture()
+    const checkpoint = await service.begin({ threadId: 'thread', turnId: 'turn-1', rootPath: root })
+    writeFileSync(join(root, 'tracked.txt'), 'agent edit\n')
+    writeFileSync(join(root, 'new.txt'), 'created by agent\n')
+    await service.finalize(checkpoint)
+    expect(service.forTurn('thread', 'turn-1')?.id).toBe(checkpoint)
+
+    expect(await service.restoreFile('thread', checkpoint, 'new.txt')).toBe('reverted')
+    expect(existsSync(join(root, 'new.txt'))).toBe(false)
+    expect(readFileSync(join(root, 'tracked.txt'), 'utf8')).toBe('agent edit\n')
+    const states = Object.fromEntries((await service.fileStates('thread', checkpoint)).map(file => [file.path, file.state]))
+    expect(states).toEqual({ 'new.txt': 'reverted', 'tracked.txt': 'pending' })
+    // Undoing an already reverted file is a no-op, not an error.
+    expect(await service.restoreFile('thread', checkpoint, 'new.txt')).toBe('reverted')
+    expect(execFileSync('git', ['diff', '--cached', '--name-only'], { cwd: root, encoding: 'utf8' })).toBe('')
+  })
+
+  it('refuses to undo a file edited after the turn, and never touches files outside the turn', async () => {
+    const { root, service } = fixture()
+    const checkpoint = await service.begin({ threadId: 'thread', turnId: 'turn-1', rootPath: root })
+    writeFileSync(join(root, 'tracked.txt'), 'agent edit\n')
+    await service.finalize(checkpoint)
+    writeFileSync(join(root, 'tracked.txt'), 'user edit after the turn\n')
+    expect((await service.fileStates('thread', checkpoint))[0].state).toBe('modified')
+    await expect(service.restoreFile('thread', checkpoint, 'tracked.txt')).rejects.toThrow('changed after this turn')
+    expect(readFileSync(join(root, 'tracked.txt'), 'utf8')).toBe('user edit after the turn\n')
+    await expect(service.restoreFile('thread', checkpoint, 'dirty.txt')).rejects.toThrow('not changed by this turn')
+    await expect(service.restoreFile('thread', checkpoint, '../escape.txt')).rejects.toThrow('unsafe path')
+    await expect(service.restoreFile('other-thread', checkpoint, 'tracked.txt')).rejects.toThrow('does not belong')
+  })
+
+  it('a whole-turn undo after a per-file undo restores the rest instead of conflicting', async () => {
+    const { root, service } = fixture()
+    const checkpoint = await service.begin({ threadId: 'thread', turnId: 'turn-1', rootPath: root })
+    writeFileSync(join(root, 'tracked.txt'), 'agent edit\n')
+    writeFileSync(join(root, 'new.txt'), 'created by agent\n')
+    await service.finalize(checkpoint)
+    await service.restoreFile('thread', checkpoint, 'tracked.txt')
+    expect(await service.restore('thread', checkpoint)).toMatchObject({ state: 'restored' })
+    expect(readFileSync(join(root, 'tracked.txt'), 'utf8')).toBe('base\n')
+    expect(existsSync(join(root, 'new.txt'))).toBe(false)
+  })
+})
+
 describe('Thread file checkpoints', () => {
   it('restores clean, dirty and new files without touching the Git index', async () => {
     const { root, service } = fixture()
