@@ -31,8 +31,12 @@ export function registerOxeQueryMock(): void {
   ipcMain.handle(IPC_CHANNELS.oxeQuery.call, (_event, request: { op: string; input?: Input }) => {
     const input = request.input ?? {}
     switch (request.op) {
-      case 'containers.engines': return ok([{ engine: 'docker', available: true, version: '27.0.0', context: 'default' }, { engine: 'podman', available: false, error: 'podman was not found on PATH' }])
-      case 'containers.list': return ok({ engine: 'docker', containers: containers.map(container => ({ ...container })) })
+      case 'containers.engines':
+        if (process.env.OXE_MOCK_ENGINE === 'stopped') return ok([{ engine: 'docker', available: false, state: 'stopped', version: '27.0.0', error: 'docker is installed but its daemon is not reachable. Start Docker Desktop or the Docker service and try again.' }, { engine: 'podman', available: false, state: 'missing', error: 'podman was not found.' }])
+        return ok([{ engine: 'docker', available: true, version: '27.0.0', context: 'default' }, { engine: 'podman', available: false, error: 'podman was not found on PATH' }])
+      case 'containers.list':
+        if (process.env.OXE_MOCK_ENGINE === 'stopped') return fail('daemon', 'docker is installed but its daemon is not reachable. Start Docker Desktop or the Docker service and try again.')
+        return ok({ engine: 'docker', containers: containers.map(container => ({ ...container })) })
       case 'containers.action': {
         const target = containers.find(container => container.id === input.id || container.name === input.id)
         if (!target) return fail('not-found', 'That container no longer exists.')

@@ -29,6 +29,15 @@ test('OxeQuery lists containers, runs commands and queries PostgreSQL and MongoD
     await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
     await expect(page.locator('.workbench-titlebar-context')).toContainText('OxeQuery')
 
+    // Geometry: the sidebar sits to the left of the work area, not above it.
+    const sidebar = await page.locator('.oq-sidebar').boundingBox()
+    const surface = await page.locator('.workspace-surface.oq-surface').boundingBox()
+    expect(sidebar && surface).toBeTruthy()
+    expect(surface!.x).toBeGreaterThanOrEqual(sidebar!.x + sidebar!.width)
+    expect(Math.abs(surface!.y - sidebar!.y)).toBeLessThan(8)
+    expect(sidebar!.height).toBeGreaterThan(300)
+    await expect(page.locator('main.app-shell')).toHaveCSS('display', 'grid')
+
     // Containers
     const list = page.getByRole('table', { name: 'Container list' })
     await expect(list.getByRole('button', { name: 'pg-dev', exact: true })).toBeVisible()
@@ -62,7 +71,7 @@ test('OxeQuery lists containers, runs commands and queries PostgreSQL and MongoD
     // PostgreSQL from the container
     await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
     await expect(page.getByRole('tab', { name: 'pg-dev' })).toBeVisible()
-    await expect(page.locator('.oq-sidebar').getByRole('button', { name: 'pg-dev', exact: true })).toBeVisible()
+    await expect(page.locator('.oq-sidebar').getByRole('region', { name: 'Connections' }).getByRole('button', { name: /^pg-dev/ }).first()).toBeVisible()
     const tree = page.getByRole('navigation', { name: 'Schema' })
     await expect(tree.getByRole('button', { name: 'users', exact: true })).toBeVisible()
     await tree.getByRole('button', { name: 'users', exact: true }).click()
@@ -70,6 +79,13 @@ test('OxeQuery lists containers, runs commands and queries PostgreSQL and MongoD
     await expect(grid.getByRole('cell', { name: 'alice', exact: true })).toBeVisible()
     await expect(grid.getByRole('cell', { name: 'NULL', exact: true })).toBeVisible()
     await expect(page.locator('.oq-results-bar')).toContainText('public.users')
+
+    // Grid: sort by a column and inspect a row.
+    await page.locator('.oq-grid-header').getByText('name', { exact: false }).first().click()
+    await expect(page.locator('.oq-grid-header [aria-sort="ascending"]')).toHaveCount(1)
+    await page.locator('.oq-grid-row').first().click()
+    await expect(page.getByRole('complementary', { name: 'Row details' })).toContainText('alice@example.com')
+    await page.getByRole('button', { name: 'Close row details' }).click()
 
     // The editor runs SQL; a destructive statement needs an explicit confirmation.
     await page.locator('.oq-editor .monaco-editor').click()
@@ -121,4 +137,61 @@ test('OxeQuery lists containers, runs commands and queries PostgreSQL and MongoD
   } finally {
     await app.close()
   }
+})
+
+test('OxeQuery explains a stopped container engine and keeps checking', async () => {
+  test.setTimeout(60000)
+  const root = mkdtempSync(join(tmpdir(), 'oxespace-oxequery-engine-'))
+  const repo = join(root, 'repo'); mkdirSync(repo)
+  const app = await electron.launch({ args: [join(process.cwd(), 'e2e/electron-main.cjs')], env: {
+    ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'app.sqlite3'), OXE_MOCK_ENGINE: 'stopped'
+  } })
+  try {
+    const page = await app.firstWindow()
+    await page.waitForLoadState('domcontentloaded')
+    await page.getByTestId('btn-new-workspace').click()
+    await page.getByTestId('wizard-dir-input').fill(repo)
+    await page.getByTestId('wizard-layout-card-1').click()
+    await page.getByTestId('wizard-launch-btn').click()
+    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
+    const problem = page.getByRole('alert').filter({ hasText: 'Docker is not running' })
+    await expect(problem).toBeVisible()
+    await expect(problem).toContainText('Start Docker Desktop')
+    await expect(problem.getByRole('button', { name: 'Check again' })).toBeEnabled()
+    // Connections remain usable without an engine.
+    await page.getByRole('button', { name: 'New connection' }).first().click()
+    await expect(page.getByRole('dialog', { name: 'New connection' })).toBeVisible()
+  } finally { await app.close() }
+})
+
+test('the connection form fills itself from a pasted connection string', async () => {
+  test.setTimeout(60000)
+  const root = mkdtempSync(join(tmpdir(), 'oxespace-oxequery-url-'))
+  const repo = join(root, 'repo'); mkdirSync(repo)
+  const app = await electron.launch({ args: [join(process.cwd(), 'e2e/electron-main.cjs')], env: {
+    ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'app.sqlite3')
+  } })
+  try {
+    const page = await app.firstWindow()
+    await page.waitForLoadState('domcontentloaded')
+    await page.getByTestId('btn-new-workspace').click()
+    await page.getByTestId('wizard-dir-input').fill(repo)
+    await page.getByTestId('wizard-layout-card-1').click()
+    await page.getByTestId('wizard-launch-btn').click()
+    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
+    await page.getByRole('button', { name: 'New connection' }).first().click()
+    const dialog = page.getByRole('dialog', { name: 'New connection' })
+    await dialog.getByPlaceholder('postgres://user:password@localhost:5432/app').fill('mongodb://root:s3cret@db.internal:27018/shop')
+    await expect(dialog.getByRole('radio', { name: /MongoDB/ })).toHaveAttribute('aria-checked', 'true')
+    await expect(dialog.getByLabel('Host')).toHaveValue('db.internal')
+    await expect(dialog.getByLabel('Port')).toHaveValue('27018')
+    await expect(dialog.getByLabel('User')).toHaveValue('root')
+    await expect(dialog.getByLabel('Name')).toHaveValue('root@db.internal/shop')
+    await dialog.getByPlaceholder('postgres://user:password@localhost:5432/app').fill('mysql://x/y')
+    await expect(dialog.getByRole('alert')).toContainText('Unsupported')
+    // Production with writes on is called out before anything is saved.
+    await dialog.getByRole('radio', { name: 'Production' }).click()
+    await dialog.getByRole('checkbox', { name: /Read-only/ }).uncheck()
+    await expect(dialog.getByRole('note')).toContainText('production connection with writes enabled')
+  } finally { await app.close() }
 })

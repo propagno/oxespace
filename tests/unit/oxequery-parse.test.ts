@@ -71,3 +71,41 @@ describe('container runtime input validation', () => {
     expect(explainEngineError('podman', 'Error: no such container x').code).toBe('not-found')
   })
 })
+
+describe('engine discovery', () => {
+  it('lists the platform install locations used when PATH does not have the CLI', async () => {
+    const { engineInstallPaths } = await import('../../electron/main/services/oxequery/container-runtime')
+    expect(engineInstallPaths('docker', 'win32', { ProgramFiles: 'C:\Program Files' })).toEqual(['C:\Program Files\Docker\Docker\resources\bin\docker.exe'])
+    expect(engineInstallPaths('podman', 'win32', { ProgramFiles: 'C:\Program Files', LOCALAPPDATA: 'C:\Users\me\AppData\Local' })).toContain('C:\Users\me\AppData\Local\Programs\Podman\podman.exe')
+    expect(engineInstallPaths('docker', 'darwin', {})).toContain('/Applications/Docker.app/Contents/Resources/bin/docker')
+    expect(engineInstallPaths('podman', 'linux', {})).toEqual(['/usr/bin/podman', '/usr/local/bin/podman'])
+  })
+
+  it('finds the CLI at an install path, reports a stopped daemon and recovers when it starts', async () => {
+    const { ContainerRuntime } = await import('../../electron/main/services/oxequery/container-runtime')
+    let daemonUp = false
+    const seen: string[] = []
+    const host = {
+      id: 'fake', kind: 'local' as const, readTextFile: async () => '', writeTextFile: async () => undefined,
+      exec: async (command: string, args: string[]) => {
+        seen.push(command)
+        const onPath = command === 'docker'
+        if (args[0] === 'version') return onPath ? { code: -1, stdout: '', stderr: 'ENOENT', timedOut: false } : command.includes('Docker') ? { code: 0, stdout: '27.1.0\n', stderr: '', timedOut: false } : { code: -1, stdout: '', stderr: 'ENOENT', timedOut: false }
+        if (args[0] === 'info') return daemonUp ? { code: 0, stdout: '27.1.0\n', stderr: '', timedOut: false } : { code: 1, stdout: '', stderr: 'error during connect: dockerDesktopLinuxEngine', timedOut: false }
+        if (args[0] === 'context') return { code: 0, stdout: 'desktop-linux\n', stderr: '', timedOut: false }
+        if (args[0] === 'ps') return { code: 0, stdout: '', stderr: '', timedOut: false }
+        return { code: 0, stdout: '', stderr: '', timedOut: false }
+      }
+    }
+    const runtime = new ContainerRuntime({ host, emit: () => undefined, platform: 'win32', env: { ProgramFiles: 'C:\Program Files' } })
+    const stopped = await runtime.engines(true)
+    expect(stopped.find(info => info.engine === 'docker')).toMatchObject({ available: false, state: 'stopped', binary: 'C:\Program Files\Docker\Docker\resources\bin\docker.exe' })
+    expect(stopped.find(info => info.engine === 'podman')).toMatchObject({ state: 'missing' })
+    await expect(runtime.list()).rejects.toMatchObject({ code: 'daemon' })
+    daemonUp = true
+    await runtime.engines(true)
+    await expect(runtime.list()).resolves.toMatchObject({ engine: 'docker' })
+    // Later calls use the path that answered, not the bare name that did not.
+    expect(seen.at(-1)).toBe('C:\Program Files\Docker\Docker\resources\bin\docker.exe')
+  })
+})

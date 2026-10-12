@@ -52,6 +52,26 @@ export interface ContainerRuntimeOptions {
   emit: (event: OxeQueryEvent) => void
   spawnProcess?: SpawnProcess
   preferred?: () => ContainerEngine | undefined
+  platform?: NodeJS.Platform
+  env?: NodeJS.ProcessEnv
+}
+
+/** Known CLI locations by platform; only used when the bare command is not on PATH. */
+export function engineInstallPaths(engine: ContainerEngine, platform: NodeJS.Platform, env: NodeJS.ProcessEnv): string[] {
+  const exe = platform === 'win32' ? '.exe' : ''
+  if (platform === 'win32') {
+    const programFiles = [env.ProgramFiles, env['ProgramFiles(x86)'], env.ProgramW6432].filter((value): value is string => Boolean(value))
+    const local = env.LOCALAPPDATA
+    return engine === 'docker'
+      ? programFiles.map(base => `${base}\Docker\Docker\resources\bin\docker${exe}`)
+      : [...programFiles.map(base => `${base}\RedHat\Podman\podman${exe}`), ...programFiles.map(base => `${base}\Podman\podman${exe}`), ...(local ? [`${local}\Programs\Podman\podman${exe}`] : [])]
+  }
+  if (platform === 'darwin') {
+    return engine === 'docker'
+      ? ['/usr/local/bin/docker', '/opt/homebrew/bin/docker', '/Applications/Docker.app/Contents/Resources/bin/docker']
+      : ['/opt/homebrew/bin/podman', '/usr/local/bin/podman', '/opt/podman/bin/podman']
+  }
+  return engine === 'docker' ? ['/usr/bin/docker', '/usr/local/bin/docker', '/snap/bin/docker'] : ['/usr/bin/podman', '/usr/local/bin/podman']
 }
 
 /**
@@ -68,23 +88,50 @@ export class ContainerRuntime {
     this.spawnProcess = options.spawnProcess ?? ((command, args) => spawn(command, args, { shell: false, windowsHide: true, stdio: 'pipe' }))
   }
 
+  /** The executable that answered for each engine: the bare name when PATH has it, else a known install path. */
+  private readonly binaries = new Map<ContainerEngine, string>()
+  private cachedAt = 0
+
   private run(engine: ContainerEngine, args: string[], timeoutMs = 20_000, maxOutputBytes = 2 * 1024 * 1024) {
-    return this.options.host.exec(engine, args, { cwd: tmpdir(), timeoutMs, maxOutputBytes })
+    return this.options.host.exec(this.binaries.get(engine) ?? engine, args, { cwd: tmpdir(), timeoutMs, maxOutputBytes })
   }
 
+  /** PATH first, then the places each platform installs the CLI. GUI launches often have a trimmed PATH. */
+  private async locate(engine: ContainerEngine): Promise<{ binary: string; version: string; stderr: string } | null> {
+    const platform = this.options.platform ?? process.platform
+    for (const candidate of [engine, ...engineInstallPaths(engine, platform, this.options.env ?? process.env)]) {
+      const result = await this.options.host.exec(candidate, ['version', '--format', '{{.Client.Version}}'], { cwd: tmpdir(), timeoutMs: 8000, maxOutputBytes: 64 * 1024 })
+      // Exit 1 with a client version still means "installed, daemon down".
+      if (result.code !== -1 || result.stdout.trim()) return { binary: candidate, version: result.stdout.trim(), stderr: result.stderr }
+    }
+    return null
+  }
+
+  /**
+   * Engines are re-checked often enough that starting Docker Desktop is noticed
+   * without restarting the app: a healthy answer is cached for 10 s, a failing one
+   * for 1 s.
+   */
   async engines(refresh = false): Promise<ContainerEngineInfo[]> {
-    if (this.cache && !refresh) return this.cache
+    const healthy = this.cache?.some(info => info.available) ?? false
+    if (this.cache && !refresh && Date.now() - this.cachedAt < (healthy ? 10_000 : 1_000)) return this.cache
     this.cache = await Promise.all(ENGINES.map(async (engine): Promise<ContainerEngineInfo> => {
-      const version = await this.run(engine, ['version', '--format', '{{.Client.Version}}'], 8000)
-      if (version.code === -1 && !version.stdout) return { engine, available: false, error: `${engine} was not found on PATH` }
+      const found = await this.locate(engine)
+      if (!found) {
+        this.binaries.delete(engine)
+        return { engine, available: false, state: 'missing', error: `${engine} was not found. Install ${engine === 'docker' ? 'Docker Desktop or Docker Engine' : 'Podman'} to see containers.` }
+      }
+      this.binaries.set(engine, found.binary)
       const server = await this.run(engine, ['info', '--format', '{{.ServerVersion}}'], 8000)
       const context = engine === 'docker' ? (await this.run(engine, ['context', 'show'], 4000)).stdout.trim() : ''
       if (server.code !== 0) {
-        const error = explainEngineError(engine, server.stderr || version.stderr)
-        return { engine, available: false, ...(version.stdout.trim() ? { version: version.stdout.trim() } : {}), ...(context ? { context } : {}), error: error.message }
+        const error = explainEngineError(engine, server.stderr || found.stderr)
+        return { engine, available: false, state: error.code === 'daemon' && /permission/i.test(error.message) ? 'denied' : 'stopped', binary: found.binary,
+          ...(found.version ? { version: found.version } : {}), ...(context ? { context } : {}), error: error.message }
       }
-      return { engine, available: true, version: server.stdout.trim() || version.stdout.trim(), ...(context ? { context } : {}) }
+      return { engine, available: true, state: 'ready', binary: found.binary, version: server.stdout.trim() || found.version, ...(context ? { context } : {}) }
     }))
+    this.cachedAt = Date.now()
     return this.cache
   }
 
@@ -98,8 +145,9 @@ export class ContainerRuntime {
     const usable = infos.filter(info => info.available)
     const pick = usable.find(info => info.engine === preferred) ?? usable[0]
     if (pick) return pick.engine
-    const error = infos.find(info => info.error)?.error
-    throw new ContainerRuntimeError(infos.some(info => info.version) ? 'daemon' : 'engine-missing', error ?? 'Install Docker or Podman to see containers.')
+    const blocked = infos.find(info => info.state === 'stopped' || info.state === 'denied')
+    if (blocked) throw new ContainerRuntimeError('daemon', blocked.error ?? `${blocked.engine} is installed but not running.`)
+    throw new ContainerRuntimeError('engine-missing', 'Docker or Podman was not found. Install Docker Desktop, Docker Engine or Podman to see containers.')
   }
 
   async list(engine?: ContainerEngine): Promise<{ engine: ContainerEngine; containers: ContainerSummary[] }> {
@@ -153,7 +201,7 @@ export class ContainerRuntime {
   async shellCommand(id: string, shell: 'sh' | 'bash' = 'sh', engine?: ContainerEngine): Promise<{ file: string; args: string[]; engine: ContainerEngine }> {
     const resolved = await this.resolve(engine)
     if (shell !== 'sh' && shell !== 'bash') throw new ContainerRuntimeError('invalid', 'Unsupported shell')
-    return { file: resolved, args: ['exec', '-it', assertContainerId(id), shell], engine: resolved }
+    return { file: this.binaries.get(resolved) ?? resolved, args: ['exec', '-it', assertContainerId(id), shell], engine: resolved }
   }
 
   async logsStart(id: string, tail = 200, engine?: ContainerEngine): Promise<string> {
@@ -161,7 +209,7 @@ export class ContainerRuntime {
     const resolved = await this.resolve(engine)
     const streamId = randomUUID()
     const lines = Math.max(0, Math.min(Math.trunc(tail), 5000))
-    const child = this.spawnProcess(resolved, ['logs', '--follow', '--timestamps', '--tail', String(lines), assertContainerId(id)])
+    const child = this.spawnProcess(this.binaries.get(resolved) ?? resolved, ['logs', '--follow', '--timestamps', '--tail', String(lines), assertContainerId(id)])
     const stream: LogStream = { child, buffer: [], pending: '', timer: setInterval(() => this.flush(streamId), LOG_FLUSH_MS) }
     this.streams.set(streamId, stream)
     const feed = (chunk: Buffer): void => {

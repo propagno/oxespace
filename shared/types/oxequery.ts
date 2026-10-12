@@ -8,9 +8,15 @@
 export type ContainerEngine = 'docker' | 'podman'
 export type DatabaseEngine = 'postgres' | 'mongodb'
 
+export type ContainerEngineState = 'ready' | 'missing' | 'stopped' | 'denied'
+
 export interface ContainerEngineInfo {
   engine: ContainerEngine
   available: boolean
+  /** ready: usable; missing: CLI not found; stopped: CLI found but the daemon does not answer; denied: socket permission. */
+  state?: ContainerEngineState
+  /** The executable that answered (a full path when PATH did not have it). */
+  binary?: string
   version?: string
   /** `docker context show`; a remote context means the daemon is not local. */
   context?: string

@@ -11,17 +11,29 @@ GPLv3 and its MongoDB support is commercial, while OXESpace is MIT).
 
 ## What it does
 
-- **Containers**: list with state and published ports, filter, start / stop /
-  restart, details (image, command, ports, networks, mounts, environment
-  *names only*), live logs, run a command once, and an interactive shell.
-- **PostgreSQL**: saved connections, schema tree, table browse with paging,
-  SQL editor (Monaco), cancel, row limit, copy as CSV / JSON.
+- **Containers**: every container the engine knows (running first) with state,
+  published ports and a running / stopped / databases summary. Start, stop,
+  restart, details (image, command, ports, networks, mounts, environment *names
+  only*), live logs, run a command once, and an interactive shell. The sidebar
+  lists them too, with a PG / Mongo tag on database images.
+- **Engine discovery**: Docker or Podman is found on PATH, then in the usual
+  install locations (Docker Desktop, Homebrew, `/usr/bin`, Podman installers).
+  A stopped daemon, a missing CLI and a permission problem each get their own
+  explanation, and the page keeps checking, so starting Docker Desktop is noticed
+  without a restart.
+- **Connections**: paste a `postgres://` or `mongodb://` string to fill the form,
+  mark the environment (local / development / production), read-only by default,
+  test before saving.
+- **PostgreSQL**: schema tree with filter, table browse with paging and
+  structure, multiple query tabs, SQL editor (Monaco), per-connection history,
+  cancel, row limit, sortable grid, row details panel, copy as CSV / JSON.
 - **MongoDB**: database and collection tree, `find` (filter, projection, sort,
-  paging), `aggregate`, indexes, documents as EJSON.
-- **From a container**: the database button on a Postgres or MongoDB container
-  creates the connection (host, published port, user, database and password
-  from the container's environment). The password goes straight to secure
-  storage and is never shown.
+  paging), `aggregate`, indexes, documents or a table view.
+- **From a container**: **Query** on a Postgres or MongoDB container creates the
+  connection (host, published port, user, database and password from the
+  container's environment). The password goes straight to secure storage and is
+  never shown.
+- **Idle connections** are closed after 10 minutes and at most 12 stay open.
 
 ## Safety model
 

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState, type ReactElement } from 'react'
 import { ChevronDown, ChevronRight, Play } from 'lucide-react'
 import type { MongoCollectionInfo, MongoDatabaseInfo, MongoResult, OxeQueryConnection } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
+import { flattenDocuments } from './mongo-view'
+import { ResultGrid } from './ResultGrid'
 
 const PAGE = 50
 type Mode = 'find' | 'aggregate'
@@ -29,6 +31,8 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
   const [error, setError] = useState('')
   const [running, setRunning] = useState(false)
   const [indexes, setIndexes] = useState('')
+  const [view, setView] = useState<'documents' | 'table'>('documents')
+  const table = view === 'table' && result ? flattenDocuments(result.documents) : null
 
   useEffect(() => {
     let active = true
@@ -100,11 +104,14 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
             <span className="oq-spacer" />
             {mode === 'find' && <><button type="button" disabled={running || skip === 0} onClick={() => void run(Math.max(0, skip - PAGE))}>Previous</button>
               <button type="button" disabled={running || !result?.truncated} onClick={() => void run(skip + PAGE)}>Next</button></>}
+            <div role="group" aria-label="Result view" className="oq-segment"><button type="button" role="radio" aria-checked={view === 'documents'} data-selected={view === 'documents'} onClick={() => setView('documents')}>Documents</button>
+              <button type="button" role="radio" aria-checked={view === 'table'} data-selected={view === 'table'} onClick={() => setView('table')}>Table</button></div>
             {result && <button type="button" onClick={() => copy(`[${result.documents.join(',\n')}]`)}>Copy JSON</button>}
           </div>
           {indexes && <details className="oq-columns"><summary>Indexes</summary><pre>{indexes}</pre></details>}
-          <div className="oq-documents">{result?.documents.map((document, index) => <details key={index} open={index < 3}>
-            <summary>{summaryOf(document)}</summary><pre>{pretty(document)}</pre></details>)}</div>
+          {table ? <div className="oq-results-body"><ResultGrid columns={table.columns} rows={table.rows} onCopy={copy} /></div>
+            : <div className="oq-documents">{result?.documents.map((document, index) => <details key={index} open={index < 3}>
+              <summary>{summaryOf(document)}</summary><pre>{pretty(document)}</pre></details>)}</div>}
         </div>
       </>}
     </div>

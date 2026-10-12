@@ -16,12 +16,15 @@ interface OxeQueryState {
   connectionsError: string | null
   tabs: OxeQueryTab[]
   activeTab: string
+  /** Container whose details are open; shared so the sidebar can open it. */
+  selectedContainer: string | null
   dialog: { open: boolean; editing: OxeQueryConnection | null }
   refreshContainers(engine?: ContainerEngine): Promise<void>
   refreshConnections(): Promise<void>
   openConnection(connection: OxeQueryConnection): void
   closeTab(id: string): void
   setActiveTab(id: string): void
+  selectContainer(id: string | null): void
   openDialog(editing?: OxeQueryConnection | null): void
   closeDialog(): void
   forgetConnection(id: string): void
@@ -32,7 +35,7 @@ let containerRequest = 0
 
 export const useOxeQueryStore = create<OxeQueryState>((set, get) => ({
   engines: [], containers: [], containersError: null, containersLoading: false, connections: [], connectionsError: null,
-  tabs: [CONTAINERS], activeTab: 'containers', dialog: { open: false, editing: null },
+  tabs: [CONTAINERS], activeTab: 'containers', selectedContainer: null, dialog: { open: false, editing: null },
 
   refreshContainers: async engine => {
     const request = ++containerRequest
@@ -67,6 +70,7 @@ export const useOxeQueryStore = create<OxeQueryState>((set, get) => ({
   }),
 
   setActiveTab: id => set({ activeTab: id }),
+  selectContainer: id => set({ selectedContainer: id, ...(id ? { activeTab: 'containers' } : {}) }),
   openDialog: editing => set({ dialog: { open: true, editing: editing ?? null } }),
   closeDialog: () => set({ dialog: { open: false, editing: null } }),
   forgetConnection: id => set(state => ({

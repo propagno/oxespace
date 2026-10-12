@@ -54,8 +54,12 @@ function sessionKey(connection: ResolvedConnection): string {
   return createHash('sha256').update(JSON.stringify([connection.engine, connection.host, connection.port, connection.database, connection.username, connection.password ?? '', connection.sslMode, connection.readOnly])).digest('hex')
 }
 
-interface PgSession { key: string; client: Client; running: boolean }
-interface MongoSession { key: string; client: MongoClient }
+interface PgSession { key: string; client: Client; running: boolean; lastUsed: number }
+interface MongoSession { key: string; client: MongoClient; lastUsed: number }
+
+/** A connection nobody used for this long is closed; it reopens on the next request. */
+const IDLE_MS = 10 * 60_000
+const MAX_SESSIONS = 12
 
 /**
  * The database drivers. It runs inside the OxeQuery worker, so a slow or broken
@@ -64,6 +68,26 @@ interface MongoSession { key: string; client: MongoClient }
 export class OxeQueryCore {
   private readonly pg = new Map<string, PgSession>()
   private readonly mongo = new Map<string, MongoSession>()
+  private readonly reaper: ReturnType<typeof setInterval>
+
+  constructor() {
+    this.reaper = setInterval(() => void this.reapIdle(), 60_000)
+    this.reaper.unref?.()
+  }
+
+  /** Closes sessions idle past the limit, and the least recently used one when too many are open. */
+  async reapIdle(now = Date.now()): Promise<number> {
+    const sessions = [
+      ...[...this.pg].filter(([, session]) => !session.running).map(([id, session]) => ({ id, lastUsed: session.lastUsed })),
+      ...[...this.mongo].map(([id, session]) => ({ id, lastUsed: session.lastUsed }))
+    ].sort((a, b) => a.lastUsed - b.lastUsed)
+    const total = new Set([...this.pg.keys(), ...this.mongo.keys()]).size
+    const stale = sessions.filter(session => now - session.lastUsed > IDLE_MS).map(session => session.id)
+    const surplus = total > MAX_SESSIONS ? sessions.filter(session => !stale.includes(session.id)).slice(0, total - MAX_SESSIONS).map(session => session.id) : []
+    const closing = [...new Set([...stale, ...surplus])]
+    await Promise.allSettled(closing.map(id => this.closeConnection(id)))
+    return closing.length
+  }
 
   // ---- Postgres -----------------------------------------------------------
 
@@ -79,14 +103,14 @@ export class OxeQueryCore {
   private async pgSession(connection: ResolvedConnection): Promise<PgSession> {
     const key = sessionKey(connection)
     const existing = this.pg.get(connection.id)
-    if (existing?.key === key) return existing
+    if (existing?.key === key) { existing.lastUsed = Date.now(); return existing }
     if (existing) await this.closeConnection(connection.id)
     const client = new Client(this.pgConfig(connection))
     client.on('error', () => { if (this.pg.get(connection.id)?.client === client) this.pg.delete(connection.id) })
     try { await client.connect() } catch (error) {
       throw new OxeQueryError('connect', redact(error instanceof Error ? error.message : 'Connection failed', connection.password))
     }
-    const session = { key, client, running: false }
+    const session = { key, client, running: false, lastUsed: Date.now() }
     this.pg.set(connection.id, session)
     return session
   }
@@ -139,6 +163,7 @@ export class OxeQueryCore {
       client.off('notice', onNotice)
       if (readOnly) await client.query('ROLLBACK').catch(() => undefined)
       session.running = false
+      session.lastUsed = Date.now()
     }
   }
 
@@ -220,14 +245,14 @@ export class OxeQueryCore {
   private async mongoSession(connection: ResolvedConnection): Promise<MongoClient> {
     const key = sessionKey(connection)
     const existing = this.mongo.get(connection.id)
-    if (existing?.key === key) return existing.client
+    if (existing?.key === key) { existing.lastUsed = Date.now(); return existing.client }
     if (existing) await this.closeConnection(connection.id)
     const client = new MongoClient(this.mongoUri(connection), { serverSelectionTimeoutMS: CONNECT_TIMEOUT_MS, connectTimeoutMS: CONNECT_TIMEOUT_MS, maxPoolSize: 4 })
     try { await client.connect() } catch (error) {
       await client.close().catch(() => undefined)
       throw new OxeQueryError('connect', redact(error instanceof Error ? error.message : 'Connection failed', connection.password))
     }
-    this.mongo.set(connection.id, { key, client })
+    this.mongo.set(connection.id, { key, client, lastUsed: Date.now() })
     return client
   }
 
@@ -328,6 +353,7 @@ export class OxeQueryCore {
   }
 
   async closeAll(): Promise<void> {
+    clearInterval(this.reaper)
     await Promise.allSettled([...new Set([...this.pg.keys(), ...this.mongo.keys()])].map(id => this.closeConnection(id)))
   }
 }

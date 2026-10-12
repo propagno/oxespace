@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
-import { Database, Play, RefreshCw, RotateCw, Square, SquareTerminal } from 'lucide-react'
-import type { ContainerAction, ContainerExecResult, ContainerInspect, ContainerPort, ContainerSummary } from '../../../shared/types/oxequery'
+import { Boxes, Database, Play, Plus, RefreshCw, RotateCw, Square, SquareTerminal } from 'lucide-react'
+import type { ContainerAction, ContainerEngineInfo, ContainerExecResult, ContainerInspect, ContainerPort, ContainerSummary } from '../../../shared/types/oxequery'
 import { TerminalPane } from '../Panes/TerminalPane'
 import { errorMessage, oq } from './client'
 import { useOxeQueryStore } from './oxequery.store'
@@ -25,8 +25,10 @@ export function ContainersPanel({ active }: { active: boolean }): ReactElement {
   const loading = useOxeQueryStore(state => state.containersLoading)
   const engine = useOxeQueryStore(state => state.engine)
   const engines = useOxeQueryStore(state => state.engines)
+  const connections = useOxeQueryStore(state => state.connections)
   const refresh = useOxeQueryStore(state => state.refreshContainers)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const selectedId = useOxeQueryStore(state => state.selectedContainer)
+  const setSelectedId = useOxeQueryStore(state => state.selectContainer)
   const [query, setQuery] = useState('')
   const [onlyRunning, setOnlyRunning] = useState(false)
   const [notice, setNotice] = useState('')
@@ -45,9 +47,10 @@ export function ContainersPanel({ active }: { active: boolean }): ReactElement {
     if (onlyRunning && container.state !== 'running') return false
     const needle = query.trim().toLowerCase()
     return !needle || container.name.toLowerCase().includes(needle) || container.image.toLowerCase().includes(needle)
-  }), [containers, onlyRunning, query])
+  }).sort((a, b) => Number(b.state === 'running') - Number(a.state === 'running') || a.name.localeCompare(b.name)), [containers, onlyRunning, query])
   const selected = containers.find(container => container.id === selectedId) ?? null
   const available = engines.filter(info => info.available)
+  const databaseContainers = containers.filter(container => isDatabaseImage(container.image)).length
 
   const act = async (container: ContainerSummary, action: ContainerAction): Promise<void> => {
     setBusyId(container.id); setNotice('')
@@ -65,9 +68,9 @@ export function ContainersPanel({ active }: { active: boolean }): ReactElement {
   }
 
   if (error && containers.length === 0) {
-    return <section className="oq-containers"><div className="oq-empty" role="alert"><h3>Containers unavailable</h3><p>{error}</p>
-      <button type="button" onClick={() => void refresh()}><RefreshCw size={13} aria-hidden="true" />Try again</button></div></section>
+    return <EngineProblem message={error} engines={engines} loading={loading} onRetry={() => void refresh()} />
   }
+  const running = containers.filter(container => container.state === 'running').length
 
   return <section className="oq-containers" aria-label="Containers">
     <header className="oq-toolbar">
@@ -75,15 +78,22 @@ export function ContainersPanel({ active }: { active: boolean }): ReactElement {
       <label className="oq-check"><input type="checkbox" checked={onlyRunning} onChange={event => setOnlyRunning(event.target.checked)} />Running only</label>
       {available.length > 1 && <select aria-label="Container engine" value={engine} onChange={event => void refresh(event.target.value as 'docker' | 'podman')}>
         {available.map(info => <option key={info.engine} value={info.engine}>{info.engine}</option>)}</select>}
-      {engine && <small className="oq-muted" title={available.find(info => info.engine === engine)?.version ?? ''}>{engine}{available.find(info => info.engine === engine)?.context ? ` · ${available.find(info => info.engine === engine)?.context}` : ''}</small>}
+      {engine && <small className="oq-muted" title={`Container engine${available.find(info => info.engine === engine)?.version ? ` ${available.find(info => info.engine === engine)?.version}` : ''}`}>Engine: {engine}{available.find(info => info.engine === engine)?.context ? ` (${available.find(info => info.engine === engine)?.context})` : ''}</small>}
       <span className="oq-spacer" />
+      <button type="button" onClick={() => useOxeQueryStore.getState().openDialog(null)}><Plus size={13} aria-hidden="true" />New connection</button>
       <button type="button" onClick={() => void refresh()} disabled={loading} aria-label="Refresh containers" title="Refresh"><RefreshCw size={14} aria-hidden="true" /></button>
     </header>
+    {containers.length > 0 && <div className="oq-summary" aria-label="Summary">
+      <span><strong>{running}</strong> running</span><span><strong>{containers.length - running}</strong> stopped</span>
+      <span><strong>{databaseContainers}</strong> database{databaseContainers === 1 ? '' : 's'}</span>
+      {loading && <span className="oq-muted">Updating…</span>}</div>}
+    {connections.length === 0 && databaseContainers > 0 && <p className="oq-hint" role="note">
+      <Database size={14} aria-hidden="true" /> To query a database, press <strong>Query</strong> on a PostgreSQL or MongoDB container below, or use <strong>New connection</strong> for a server that is not in a container.</p>}
     {notice && <p role="alert" className="oq-error">{notice}</p>}
     <div className="oq-containers-body">
       <div className="oq-table-wrap">
         {visible.length === 0 ? <div className="oq-empty"><p>{containers.length ? 'No container matches the filter.' : 'No containers yet.'}</p></div> :
-          <table className="oq-table" aria-label="Container list"><thead><tr><th>Name</th><th>Image</th><th>State</th><th>Ports</th><th aria-label="Actions" /></tr></thead>
+          <table className="oq-table" aria-label="Container list"><thead><tr><th>Name</th><th>Image</th><th>State</th><th>Ports</th><th className="oq-actions-head">Actions</th></tr></thead>
             <tbody>{visible.map(container => <tr key={container.id} className={container.id === selectedId ? 'is-selected' : undefined} onClick={() => setSelectedId(container.id)}>
               <td><button type="button" className="oq-link" onClick={() => setSelectedId(container.id)}>{container.name}</button></td>
               <td title={container.image}>{container.image}</td>
@@ -92,11 +102,11 @@ export function ContainersPanel({ active }: { active: boolean }): ReactElement {
               <td className="oq-actions" onClick={event => event.stopPropagation()}>
                 {container.state === 'running'
                   ? <>
-                    <button type="button" aria-label={`Restart ${container.name}`} title="Restart" disabled={busyId === container.id} onClick={() => void act(container, 'restart')}><RotateCw size={13} aria-hidden="true" /></button>
-                    <button type="button" aria-label={`Stop ${container.name}`} title="Stop" disabled={busyId === container.id} onClick={() => void act(container, 'stop')}><Square size={13} aria-hidden="true" /></button>
+                    <button type="button" aria-label={`Restart ${container.name}`} title="Restart this container" disabled={busyId === container.id} onClick={() => void act(container, 'restart')}><RotateCw size={13} aria-hidden="true" /><span>Restart</span></button>
+                    <button type="button" aria-label={`Stop ${container.name}`} title="Stop this container" disabled={busyId === container.id} onClick={() => void act(container, 'stop')}><Square size={13} aria-hidden="true" /><span>Stop</span></button>
                   </>
-                  : <button type="button" aria-label={`Start ${container.name}`} title="Start" disabled={busyId === container.id} onClick={() => void act(container, 'start')}><Play size={13} aria-hidden="true" /></button>}
-                {isDatabaseImage(container.image) && <button type="button" aria-label={`Connect to ${container.name}`} title="Create a connection to this database" disabled={busyId === container.id} onClick={() => void connect(container)}><Database size={13} aria-hidden="true" /></button>}
+                  : <button type="button" aria-label={`Start ${container.name}`} title="Start this container" disabled={busyId === container.id} onClick={() => void act(container, 'start')}><Play size={13} aria-hidden="true" /><span>Start</span></button>}
+                {isDatabaseImage(container.image) && <button type="button" className="oq-connect" aria-label={`Connect to ${container.name}`} title="Create a connection to this database and open it" disabled={busyId === container.id || container.state !== 'running'} onClick={() => void connect(container)}><Database size={13} aria-hidden="true" /><span>Query</span></button>}
               </td>
             </tr>)}</tbody></table>}
       </div>
@@ -224,4 +234,19 @@ function Shell({ container, engine }: { container: ContainerSummary; engine?: 'd
       <button type="button" onClick={() => setNonce(value => value + 1)}>New session</button></div>
     <div className="oq-shell-terminal"><TerminalPane key={paneId} pane={pane} workspaceId="oxequery" workspaceRootPath="" autoStart /></div>
   </div>
+}
+
+function EngineProblem({ message, engines, loading, onRetry }: { message: string; engines: ContainerEngineInfo[]; loading: boolean; onRetry: () => void }): ReactElement {
+  const stopped = engines.find(info => info.state === 'stopped' || info.state === 'denied')
+  const missing = !stopped && engines.length > 0 && engines.every(info => info.state === 'missing')
+  const linux = typeof navigator !== 'undefined' && /linux/i.test(navigator.userAgent)
+  return <section className="oq-containers"><div className="oq-empty oq-engine-problem" role="alert">
+    <Boxes size={28} aria-hidden="true" />
+    <h3>{missing ? 'No container engine found' : stopped?.state === 'denied' ? 'Not allowed to use Docker' : stopped ? `${stopped.engine === 'docker' ? 'Docker' : 'Podman'} is not running` : 'Containers unavailable'}</h3>
+    <p>{message}</p>
+    {stopped?.state === 'denied' && <p className="oq-muted">Add your user to the <code>docker</code> group, then sign in again.</p>}
+    {stopped?.state === 'stopped' && <p className="oq-muted">{linux ? <>Start it with <code>sudo systemctl start docker</code>.</> : stopped.engine === 'docker' ? 'Open Docker Desktop and wait until it says it is running.' : <>Start the machine with <code>podman machine start</code>.</>} This page checks again by itself.</p>}
+    {missing && <p className="oq-muted">Install Docker Desktop, Docker Engine or Podman. OxeQuery uses their command-line tool, so anything that works in your terminal works here.</p>}
+    <button type="button" onClick={onRetry} disabled={loading}><RefreshCw size={13} aria-hidden="true" />{loading ? 'Checking…' : 'Check again'}</button>
+  </div></section>
 }
