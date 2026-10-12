@@ -344,7 +344,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
       const timer = setTimeout(() => { this.interruptWaiter = null; resolve(false) }, INTERRUPT_GRACE_MS)
       this.interruptWaiter = () => { clearTimeout(timer); this.interruptWaiter = null; resolve(true) }
       this.interruptRequested = true
-      try { transport.write(JSON.stringify({ type: 'control_request', request_id: `interrupt:${randomUUID()}`, request: { subtype: 'interrupt' } }) + '\n') }
+      try { transport.write(JSON.stringify({ type: 'control_request', request_id: `interrupt:${randomUUID()}`, request: { subtype: 'interrupt', cancel_queued: true } }) + '\n') }
       catch { clearTimeout(timer); this.interruptWaiter = null; resolve(false) }
     })
   }

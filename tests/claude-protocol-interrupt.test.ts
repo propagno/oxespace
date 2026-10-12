@@ -39,6 +39,8 @@ describe('Claude cooperative interrupt', () => {
 
     const pending = f.adapter.interrupt()
     expect(interruptWrites(f.turns[0])).toHaveLength(1)
+    // Anything the CLI itself had queued is withdrawn with the turn (cancel_queued).
+    expect(interruptWrites(f.turns[0])[0].request).toMatchObject({ subtype: 'interrupt', cancel_queued: true })
     // The CLI answers by ending the turn with an errored result.
     f.emit({ type: 'result', subtype: 'error_during_execution', is_error: true })
     await pending

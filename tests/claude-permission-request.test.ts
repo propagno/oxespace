@@ -118,3 +118,33 @@ describe('Claude approval scope', () => {
     await f.adapter.dispose()
   })
 })
+
+describe('describePermissionRequest: rules the CLI states about remembering', () => {
+  const suggestion = { type: 'addRules', rules: [{ toolName: 'Bash', ruleContent: 'git status:*' }], behavior: 'allow', destination: 'session' }
+
+  it('never offers to remember when the CLI suppresses the always-allow row', () => {
+    const p = describePermissionRequest({ permission_suggestions: [suggestion], suppress_always_allow_rule: true }, 'Bash', {})
+    expect(p.decisions).toEqual(['accept', 'decline'])
+    expect(p.suggestions).toEqual([])
+  })
+
+  it('does not offer to remember a safety check that needs a person', () => {
+    for (const extra of [{ classifier_approvable: false }, { decision_reason_type: 'safetyCheck' }]) {
+      const p = describePermissionRequest({ permission_suggestions: [suggestion], ...extra }, 'Bash', {})
+      expect(p.decisions).toEqual(['accept', 'decline'])
+    }
+    // classifier_approvable true is not a reason to withhold it.
+    expect(describePermissionRequest({ permission_suggestions: [suggestion], classifier_approvable: true }, 'Bash', {}).decisions).toContain('acceptForSession')
+  })
+
+  it('removes ANSI sequences from the reason, not just the escape byte', () => {
+    const p = describePermissionRequest({ decision_reason: '\u001b[31mDangerous\u001b[0m rm \u001b]0;title\u0007here' }, 'Bash', {})
+    expect(p.detail).toContain('Motivo: Dangerous rm here')
+    expect(p.detail).not.toMatch(/\[31m|\[0m|title/)
+  })
+
+  it('names the ask rule that forced the prompt', () => {
+    const p = describePermissionRequest({ matched_ask_rule: { source: 'projectSettings', tool_name: 'Bash', rule_content: 'git push:*' } }, 'Bash', {})
+    expect(p.detail).toContain('Regra de confirmação: Bash (git push:*)')
+  })
+})
