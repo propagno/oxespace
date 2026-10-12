@@ -2,7 +2,10 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+
+// Each test spawns many real git processes; a loaded Windows box needs room.
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 })
 import { openInMemoryDatabase } from '../../electron/main/db/index'
 import { GhExec } from '../../electron/main/services/github/gh-exec'
 import { GitHubRepositoryService } from '../../electron/main/services/github/repository.service'

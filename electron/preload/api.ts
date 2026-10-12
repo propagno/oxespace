@@ -89,6 +89,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       list: () => ipc.invoke(IPC_CHANNELS.thread.list) as ReturnType<import('../../shared/types/thread').ThreadApi['list']>,
       create: input => ipc.invoke(IPC_CHANNELS.thread.create, input) as ReturnType<import('../../shared/types/thread').ThreadApi['create']>,
       read: id => ipc.invoke(IPC_CHANNELS.thread.read, id) as ReturnType<import('../../shared/types/thread').ThreadApi['read']>,
+      rewind: (id, turnId, options) => ipc.invoke(IPC_CHANNELS.thread.rewind, id, turnId, options) as Promise<import('../../shared/types/thread').ThreadRewindResult>,
+      readSince: (id, cursor) => ipc.invoke(IPC_CHANNELS.thread.readSince, id, cursor) as Promise<import('../../shared/types/thread').ThreadDelta>,
       history: (id, before, limit) => ipc.invoke(IPC_CHANNELS.thread.history, id, before, limit) as Promise<import('../../shared/types/thread').ThreadHistoryPage>,
       attach: (id, input) => ipc.invoke(IPC_CHANNELS.thread.attach, id, input) as Promise<import('../../shared/types/thread').ThreadAttachment>,
       removeAttachment: (id, attachmentId) => ipc.invoke(IPC_CHANNELS.thread.removeAttachment, id, attachmentId) as Promise<void>,
@@ -322,6 +324,10 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
         ipc.invoke(IPC_CHANNELS.github.resolveWorktreeBase, input) as Promise<import('../../shared/types/github').GitHubWorktreeBase>,
       getWorktreeStatus: (input) =>
         ipc.invoke(IPC_CHANNELS.github.getWorktreeStatus, input) as Promise<import('../../shared/types/github').GitHubWorktreeStatus>,
+      scanWorktreeCleanup: (input) =>
+        ipc.invoke(IPC_CHANNELS.github.scanWorktreeCleanup, input) as Promise<import('../../shared/types/worktree-cleanup').WorktreeCleanupCandidate[]>,
+      removeWorktreeCleanup: (input) =>
+        ipc.invoke(IPC_CHANNELS.github.removeWorktreeCleanup, input) as Promise<import('../../shared/types/worktree-cleanup').WorktreeCleanupRemoveResult[]>,
       getRepoConfig: (input) =>
         ipc.invoke(IPC_CHANNELS.github.getRepoConfig, input) as Promise<import('../../shared/types/repo-config').RepoConfigSnapshot>,
       approveRepoHook: (input) =>

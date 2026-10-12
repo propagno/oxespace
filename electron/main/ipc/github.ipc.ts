@@ -22,6 +22,8 @@ import {
   parseGitHubWorkspaceInput,
   parseGitHubWorktreePathInput,
   parseRepoConfigInput,
+  parseWorktreeCleanupScanInput,
+  parseWorktreeCleanupRemoveInput,
   parseApproveRepoHookInput
 } from './validation'
 
@@ -82,6 +84,12 @@ export function registerGitHubIpc(db: AppDatabase, service = new GitHubService(d
   )
   ipcMain.handle(IPC_CHANNELS.github.getWorktreeStatus, (_event, input: unknown) =>
     service.getWorktreeStatus(parseGitHubWorktreePathInput(input))
+  )
+  ipcMain.handle(IPC_CHANNELS.github.scanWorktreeCleanup, (_event, input: unknown) =>
+    service.scanWorktreeCleanup(parseWorktreeCleanupScanInput(input))
+  )
+  ipcMain.handle(IPC_CHANNELS.github.removeWorktreeCleanup, (_event, input: unknown) =>
+    service.removeWorktreeCleanup(parseWorktreeCleanupRemoveInput(input))
   )
   ipcMain.handle(IPC_CHANNELS.github.getRepoConfig, (_event, input: unknown) =>
     service.repoConfigSnapshot(parseRepoConfigInput(input).rootPath)

@@ -4,6 +4,7 @@ import { parseWorktreeRemovalError, type GitHubWorktreeBase, type GitHubWorktree
 import type { RepoConfigSnapshot, RepoHookKind } from '../../../shared/types/repo-config'
 import type { WorkspacePane } from '../../../shared/types/workspace'
 import { selectWorktrees, useWorktreeStore } from '../../store/worktree.store'
+import { WorktreeCleanupPanel } from './WorktreeCleanupPanel'
 import { useWorkspaceStore } from '../../store/workspace.store'
 
 /** A worktree the user asked to remove, plus what removing it would destroy. */
@@ -50,6 +51,7 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
   const setPaneRootPath = useWorkspaceStore((s) => s.setPaneRootPath)
 
   const [creating, setCreating] = useState(false)
+  const [showCleanup, setShowCleanup] = useState(false)
   const [newBranch, setNewBranch] = useState('')
   // Path layering: derived = workspaceParent + repo + slug(branch). Browse
   // sets parentOverride (keeps slug syncing with the branch field). Editing
@@ -265,6 +267,16 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
         <button
           type="button"
           className="icon-button worktree-panel-refresh"
+          aria-label="Clean up worktrees"
+          title="Clean up worktrees"
+          aria-pressed={showCleanup}
+          onClick={() => setShowCleanup((v) => !v)}
+        >
+          <Trash2 size={11} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          className="icon-button worktree-panel-refresh"
           aria-label="Refresh worktree list"
           title="Refresh"
           onClick={() => void refresh(workspaceId, workspaceRootPath)}
@@ -290,6 +302,8 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
       ) : null}
 
       <RepoHooksNotice rootPath={workspaceRootPath} />
+
+      {showCleanup ? <WorktreeCleanupPanel workspaceId={workspaceId} rootPath={workspaceRootPath} /> : null}
 
       {onlyMainExists ? (
         <div className="worktree-panel-solo-hint" role="note">

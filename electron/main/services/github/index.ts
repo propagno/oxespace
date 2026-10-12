@@ -49,6 +49,8 @@ import type {
 } from '../../../../shared/types/github'
 import { GhExec, type SpawnAsyncFn } from './gh-exec'
 import { GitHubRepositoryService } from './repository.service'
+import { WorktreeCleanup } from './worktree-cleanup'
+import type { WorktreeCleanupCandidate, WorktreeCleanupRemoveInput, WorktreeCleanupRemoveResult, WorktreeCleanupScanInput } from '../../../../shared/types/worktree-cleanup'
 import { snapshotRepoConfig } from '../repo-config/loader'
 import { RepoHookTrust } from '../repo-config/trust'
 import type { RepoConfigSnapshot, RepoHookKind } from '../../../../shared/types/repo-config'
@@ -70,6 +72,7 @@ export class GitHubService {
   private readonly actions: GitHubActionsService
   private readonly checkpoints: GitHubCheckpointService
   private readonly hookTrust: RepoHookTrust
+  private readonly cleanup: WorktreeCleanup
 
   constructor(db: AppDatabase, options: { spawnCommand?: SpawnAsyncFn; now?: () => number } = {}) {
     // One kernel, four collaborators. The CLI and repository caches live here,
@@ -80,6 +83,10 @@ export class GitHubService {
     this.actions = new GitHubActionsService(this.gh)
     this.checkpoints = new GitHubCheckpointService(db, this.gh)
     this.hookTrust = new RepoHookTrust(db)
+    this.cleanup = new WorktreeCleanup({
+      gh: this.gh,
+      removeWorktree: (input) => this.repository.removeWorktree(input)
+    })
   }
 
   /**
@@ -103,6 +110,14 @@ export class GitHubService {
     }
     this.hookTrust.approve(rootPath, kind, script)
     return snapshotRepoConfig(rootPath, this.hookTrust)
+  }
+
+  scanWorktreeCleanup(input: WorktreeCleanupScanInput): Promise<WorktreeCleanupCandidate[]> {
+    return this.cleanup.scan(input)
+  }
+
+  removeWorktreeCleanup(input: WorktreeCleanupRemoveInput): Promise<WorktreeCleanupRemoveResult[]> {
+    return this.cleanup.remove(input)
   }
 
   repoConfigSnapshot(rootPath: string): Promise<RepoConfigSnapshot> {

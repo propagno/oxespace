@@ -780,6 +780,41 @@ export function parseGitHubWorktreePathInput(value: unknown): import('../../../s
   }
 }
 
+function expectStringList(value: unknown, name: string): string[] {
+  if (value === undefined) return []
+  if (!Array.isArray(value) || value.some((v) => typeof v !== 'string')) throw new Error(`${name} must be a string array`)
+  return value as string[]
+}
+
+function parseCleanupContext(value: unknown): import('../../../shared/types/worktree-cleanup').WorktreeCleanupContext {
+  const input = value === undefined ? {} : expectRecord(value, 'worktree-cleanup context')
+  return {
+    activePaths: expectStringList(input.activePaths, 'activePaths'),
+    runningTerminalPaths: expectStringList(input.runningTerminalPaths, 'runningTerminalPaths'),
+    liveAgentPaths: expectStringList(input.liveAgentPaths, 'liveAgentPaths')
+  }
+}
+
+export function parseWorktreeCleanupScanInput(value: unknown): import('../../../shared/types/worktree-cleanup').WorktreeCleanupScanInput {
+  const input = expectRecord(value, 'github:scan-worktree-cleanup input')
+  return { rootPath: expectNonEmptyString(input.rootPath, 'rootPath'), context: parseCleanupContext(input.context) }
+}
+
+export function parseWorktreeCleanupRemoveInput(value: unknown): import('../../../shared/types/worktree-cleanup').WorktreeCleanupRemoveInput {
+  const input = expectRecord(value, 'github:remove-worktree-cleanup input')
+  if (!Array.isArray(input.targets) || input.targets.length === 0 || input.targets.length > 200) {
+    throw new Error('targets must be a non-empty array')
+  }
+  return {
+    rootPath: expectNonEmptyString(input.rootPath, 'rootPath'),
+    context: parseCleanupContext(input.context),
+    targets: input.targets.map((raw: unknown) => {
+      const target = expectRecord(raw, 'cleanup target')
+      return { path: expectNonEmptyString(target.path, 'path'), force: target.force === true }
+    })
+  }
+}
+
 export function parseRepoConfigInput(value: unknown): { rootPath: string } {
   const input = expectRecord(value, 'github:repo-config input')
   return { rootPath: expectNonEmptyString(input.rootPath, 'rootPath') }
