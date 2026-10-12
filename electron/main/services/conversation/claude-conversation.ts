@@ -6,6 +6,7 @@ import { JsonLinesDecoder } from './json-lines'
 import { CLAUDE_THREAD_ARGS, claudeRuntimeCatalog } from './claude-command-catalog'
 import { threadFailure } from './thread-failure'
 import { createApiRetryTracker } from './claude-api-retry'
+import { describePermissionRequest } from './claude-permission-request'
 
 /** How long a cooperative interrupt may take before the process is ended instead. */
 const INTERRUPT_GRACE_MS = 2_000
@@ -21,7 +22,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
   readonly capabilities = { resume: true, approvals: true, attachments: true, modelSelection: true, questions: true, permissions: false, elicitation: false, queue: false, steering: false, nativeSessions: true }
   readonly evidence: ConversationProtocolEvidence = { transport: 'claude-print-stream-json', verified: 'fixture' }
   private context: ({ rootPath: string; nativeSessionId: string | null } & ThreadConfiguration) | null = null
-  private approvals = new Map<string, { input: Record<string, unknown>; toolName: string; questions?: Map<string, string> }>()
+  private approvals = new Map<string, { input: Record<string, unknown>; toolName: string; questions?: Map<string, string>; suggestions?: unknown[]; toolUseId?: string }>()
   private emit: (event: ThreadEvent) => void = () => {}
   private transport: PrintTransport | null = null
   private initialized: { resolve(): void; reject(error: Error): void } | null = null
@@ -216,7 +217,8 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
           const request = record(event.request)
           if (request.subtype === 'can_use_tool') {
             const input = record(request.input), toolName = String(request.tool_name || 'tool')
-            this.approvals.set(event.request_id, { input, toolName })
+            const permission = describePermissionRequest(request, toolName, input)
+            this.approvals.set(event.request_id, { input, toolName, suggestions: permission.suggestions, toolUseId: permission.toolUseId })
             if (toolName === 'AskUserQuestion') {
               const nativeQuestions = new Map<string, string>()
               const questions = (Array.isArray(input.questions) ? input.questions : []).slice(0, 20).map(value => {
@@ -230,8 +232,8 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
               this.approvals.set(event.request_id, { input, toolName, questions: nativeQuestions })
               this.emit({ type: 'request', id: event.request_id, request: { id: event.request_id, nativeId: event.request_id, nativeMethod: 'can_use_tool:AskUserQuestion', kind: 'question', title: 'Claude needs your input', generation: 0, createdAt: Date.now(), state: 'pending', questions } })
             } else {
-              this.emit({ type: 'request', id: event.request_id, request: { id: event.request_id, nativeId: event.request_id, nativeMethod: `can_use_tool:${toolName}`, kind: 'approval', title: `Approve ${toolName}`, detail: JSON.stringify(input, null, 2).slice(0, 12000), generation: 0, createdAt: Date.now(), state: 'pending', availableDecisions: ['accept', 'decline'] } })
-              this.emit({ type: 'approval', id: event.request_id, title: `Approve ${toolName}`, detail: JSON.stringify(input, null, 2).slice(0, 12000) })
+              this.emit({ type: 'request', id: event.request_id, request: { id: event.request_id, nativeId: event.request_id, nativeMethod: `can_use_tool:${toolName}`, kind: 'approval', title: permission.title, detail: permission.detail, generation: 0, createdAt: Date.now(), state: 'pending', availableDecisions: permission.decisions } })
+              this.emit({ type: 'approval', id: event.request_id, title: permission.title, detail: permission.detail })
             }
           } else transport.write(JSON.stringify({ type: 'control_response', response: { subtype: 'error', request_id: event.request_id, error: 'Unsupported host request' } }) + '\n')
         } else if (event.type === 'system' && event.subtype === 'init' && typeof event.session_id === 'string') {
@@ -357,7 +359,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
     if (pending.questions && response.answers && [...pending.questions.keys()].some(id => !response.answers![id]?.some(value => value.trim()))) throw Error('Answer every question before sending.')
     const updatedInput = pending.toolName === 'AskUserQuestion' ? { ...pending.input, answers: Object.fromEntries(answers) } : pending.input
     const accept = response.decision ? ['accept', 'acceptForSession'].includes(response.decision) : Boolean(response.answers)
-    this.transport.write(JSON.stringify({ type: 'control_response', response: { subtype: 'success', request_id: requestId, response: accept ? { behavior: 'allow', updatedInput } : { behavior: 'deny', message: response.decision === 'cancel' ? 'Cancelled by the user' : 'Declined by the user' } } }) + '\n')
+    this.transport.write(JSON.stringify({ type: 'control_response', response: { subtype: 'success', request_id: requestId, response: accept ? { behavior: 'allow', updatedInput, ...(response.decision === 'acceptForSession' && pending.suggestions?.length ? { updatedPermissions: pending.suggestions } : {}), ...(pending.toolUseId ? { toolUseID: pending.toolUseId } : {}) } : { behavior: 'deny', message: response.decision === 'cancel' ? 'Cancelled by the user' : 'Declined by the user' } } }) + '\n')
     this.approvals.delete(requestId)
     this.emit({ type: 'request-resolved', id: requestId, ...requestOutcome(pending.toolName === 'AskUserQuestion' ? 'question' : 'approval', response), resolvedAt: Date.now() })
     this.emit({ type: 'approval-resolved', id: requestId })
