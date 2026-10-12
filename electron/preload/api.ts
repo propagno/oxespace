@@ -82,6 +82,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       removeAttachment: (id, attachmentId) => ipc.invoke(IPC_CHANNELS.thread.removeAttachment, id, attachmentId) as Promise<void>,
       send: (id, text, attachmentIds) => ipc.invoke(IPC_CHANNELS.thread.send, id, text, attachmentIds) as Promise<void>,
       steer: (id, text, attachmentIds) => ipc.invoke(IPC_CHANNELS.thread.steer, id, text, attachmentIds) as Promise<void>,
+      stopTask: (id, taskId) => ipc.invoke(IPC_CHANNELS.thread.stopTask, id, taskId) as Promise<void>,
       updateQueued: (id, itemId, text) => ipc.invoke(IPC_CHANNELS.thread.updateQueued, id, itemId, text) as Promise<void>,
         deleteQueued: (id, itemId, preserveAttachments) => ipc.invoke(IPC_CHANNELS.thread.deleteQueued, id, itemId, preserveAttachments) as Promise<void>,
       reorderQueued: (id, itemIds) => ipc.invoke(IPC_CHANNELS.thread.reorderQueued, id, itemIds) as Promise<void>,

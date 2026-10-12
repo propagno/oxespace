@@ -457,6 +457,15 @@ export class ThreadOrchestrator {
     await adapter.interrupt()
   }
 
+  /** Stops one running background task of the conversation's provider session. */
+  async stopTask(id: string, taskId: string): Promise<void> {
+    const adapter = this.adapters.get(id)
+    if (!adapter?.stopTask) throw Error('This provider cannot stop background tasks from Thread')
+    const running = this.read(id).events.some(event => event.type === 'subagent' && event.state === 'running' && event.receiverThreadIds.includes(taskId))
+    if (!running) throw Error('That background task is no longer running')
+    await adapter.stopTask(taskId)
+  }
+
   async approve(id: string, requestId: string, decision: 'accept' | 'decline'): Promise<void> {
     await this.respond(id, requestId, { decision })
   }

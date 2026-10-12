@@ -102,6 +102,8 @@
 .thread-subagent header { display: flex; align-items: center; gap: 8px; color: var(--tx-primary); }
 .thread-subagent header strong { min-width: 0; overflow-wrap: anywhere; }
 .thread-subagent-state { margin-left: auto; color: var(--tx-muted); font-size: var(--fs-2xs); text-transform: capitalize; }
+.thread-subagent-stop { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--bd-subtle, currentColor); border-radius: var(--radius-pill, 999px); background: transparent; color: var(--tx-secondary); font-size: var(--fs-2xs); cursor: pointer; }
+.thread-subagent-stop:disabled { opacity: .5; cursor: default; }
 .thread-subagent-state.is-running { color: var(--accent); }
 .thread-subagent-state.is-failed { color: var(--dot-red); }
 .thread-subagent-config { margin: 8px 0 0 22px; color: var(--tx-muted); }

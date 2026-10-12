@@ -21,7 +21,7 @@ function record(value: unknown): Record<string, unknown> {
 
 /** Official persistent print+stream-json transport, explicit resume after disconnection. */
 export class ClaudeConversationAdapter implements AgentConversationAdapter {
-  readonly capabilities = { resume: true, approvals: true, attachments: true, modelSelection: true, questions: true, permissions: false, elicitation: false, queue: false, steering: false, nativeSessions: true }
+  readonly capabilities = { resume: true, approvals: true, attachments: true, modelSelection: true, questions: true, permissions: false, elicitation: false, queue: false, steering: false, nativeSessions: true, stopTasks: true }
   readonly evidence: ConversationProtocolEvidence = { transport: 'claude-print-stream-json', verified: 'fixture' }
   private context: ({ rootPath: string; nativeSessionId: string | null } & ThreadConfiguration) | null = null
   private approvals = new Map<string, { input: Record<string, unknown>; toolName: string; questions?: Map<string, string>; suggestions?: unknown[]; toolUseId?: string }>()
@@ -45,6 +45,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
   private disposed = false
   private busy = false
   private pendingContext = new Map<string, { resolve: (report: ThreadContextReport | null) => void; timer: ReturnType<typeof setTimeout> }>()
+  private pendingControl = new Map<string, { resolve: (error: string | null) => void; timer: ReturnType<typeof setTimeout> }>()
   private fileTools = new Map<string, ThreadFileChange[]>()
   private todoTools = new Map<string, Extract<ThreadEvent, { type: 'plan' }>['steps']>()
 
@@ -152,6 +153,33 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
     })
   }
 
+  /**
+   * Stops one background task with the CLI's own `stop_task` control request and
+   * waits for its answer. The task's terminal state still arrives through the
+   * normal task events; this only reports whether the CLI accepted the request.
+   */
+  stopTask(taskId: string): Promise<void> {
+    const transport = this.transport
+    if (!transport || this.disposed) return Promise.reject(Error('The provider session is not connected'))
+    if (!/^[\w.:-]{1,200}$/.test(taskId)) return Promise.reject(Error('Invalid task identifier'))
+    const requestId = `stop-task:${randomUUID()}`
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => { this.pendingControl.delete(requestId); reject(Error('The provider did not confirm the stop request')) }, 5_000)
+      this.pendingControl.set(requestId, { timer, resolve: error => error ? reject(Error(error)) : resolve() })
+      try { transport.write(JSON.stringify({ type: 'control_request', request_id: requestId, request: { subtype: 'stop_task', task_id: taskId } }) + '\n') }
+      catch (error) { clearTimeout(timer); this.pendingControl.delete(requestId); reject(error instanceof Error ? error : Error(String(error))) }
+    })
+  }
+
+  private settleControl(requestId: string, error: string | null): boolean {
+    const pending = this.pendingControl.get(requestId)
+    if (!pending) return false
+    clearTimeout(pending.timer)
+    this.pendingControl.delete(requestId)
+    pending.resolve(error)
+    return true
+  }
+
   private settleContext(requestId: string, report: ThreadContextReport | null): boolean {
     const pending = this.pendingContext.get(requestId)
     if (!pending) return false
@@ -190,6 +218,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
         if (event.type === 'control_response') {
           const response = record(event.response)
           if (typeof response.request_id === 'string' && this.settleContext(response.request_id, response.subtype === 'success' ? normalizeClaudeContext(response.response) : null)) return
+          if (typeof response.request_id === 'string' && this.settleControl(response.request_id, response.subtype === 'success' ? null : typeof response.error === 'string' ? response.error.slice(0, 500) : 'The provider refused the request')) return
         }
         if (typeof event.uuid === 'string') {
           if (this.seenMessages.has(event.uuid)) return
@@ -399,6 +428,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
     this.disposed = true
     this.initialized?.reject(Error('Agent connection disposed'))
     for (const requestId of [...this.pendingContext.keys()]) this.settleContext(requestId, null)
+    for (const requestId of [...this.pendingControl.keys()]) this.settleControl(requestId, 'Agent connection disposed')
     this.busy = false
     this.approvals.clear()
     await this.transport?.close()

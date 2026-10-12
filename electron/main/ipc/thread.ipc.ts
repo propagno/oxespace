@@ -190,6 +190,7 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings): { st
     return service.create({ workspaceId: `thread:${context.projectId}`, projectId: context.projectId, rootPath: context.rootPath, provider: value.provider })
   })
   ipcMain.handle(IPC_CHANNELS.thread.send, (event, id: unknown, text: unknown, attachmentIds: unknown) => { sender(event); return manager.then(service => service.send(string(id), string(text), stringList(attachmentIds, 8))) })
+  ipcMain.handle(IPC_CHANNELS.thread.stopTask, (event, id: unknown, taskId: unknown) => { sender(event); return manager.then(service => service.stopTask(string(id), string(taskId))) })
   ipcMain.handle(IPC_CHANNELS.thread.steer, (event, id: unknown, text: unknown, attachmentIds: unknown) => { sender(event); return manager.then(service => service.steer(string(id), string(text), stringList(attachmentIds, 8))) })
   ipcMain.handle(IPC_CHANNELS.thread.updateQueued, (event, id: unknown, itemId: unknown, text: unknown) => { sender(event); return manager.then(service => service.updateQueued(string(id), string(itemId), string(text))) })
   ipcMain.handle(IPC_CHANNELS.thread.deleteQueued, (event, id: unknown, itemId: unknown, preserveAttachments: unknown) => { sender(event); return manager.then(service => service.deleteQueued(string(id), string(itemId), preserveAttachments === true)) })

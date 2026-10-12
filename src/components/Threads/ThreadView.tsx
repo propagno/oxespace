@@ -503,7 +503,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
         <ThreadTimelineWindow key={snapshot?.thread.id ?? 'empty'} rows={timelineRows} scrollRef={timeline} followingRef={following} onViewportUpdateRef={updateTimelineViewport}>{({ event, key, turnId, turnEvents, firstInTurn, lastInTurn }) => <section className={`thread-turn thread-virtual-turn${firstInTurn ? ' is-turn-start' : ''}${lastInTurn ? ' is-turn-end' : ''}`} data-turn-id={turnId}>{(() => {
           if (event.type === 'activity-group') return <ThreadActivityGroup key={key} events={event.events} mode={viewMode} />
           if (event.type === 'plan') return <ThreadPlan key={key} event={event} />
-          if (event.type === 'subagent') return <ThreadSubagentActivity key={key} event={event} compact />
+          if (event.type === 'subagent') return <ThreadSubagentActivity key={key} event={event} compact stopping={pending} onStop={snapshot?.thread.capabilities?.features.subagentLifecycle?.enabled && api?.stopTask && event.receiverThreadIds[0] ? () => void action(() => api.stopTask!(snapshot.thread.id, event.receiverThreadIds[0])) : undefined} />
           if (event.type === 'tool' && event.files?.length) return <ThreadFileActivity key={key} event={event} root={snapshot?.thread.rootPath ?? ''} threadId={snapshot!.thread.id} onOpen={openFile} />
           if (event.type === 'message') {
             if (event.role === 'assistant' && authText(event.text)) return null

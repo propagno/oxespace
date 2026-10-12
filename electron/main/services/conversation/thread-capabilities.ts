@@ -43,9 +43,11 @@ export function threadCapabilityManifest(provider: ThreadProvider, native?: Conv
       subagentObservation: provider === 'codex'
         ? experimental(true, 'Codex reports collaboration events; lifecycle remains owned by the active native turn')
         : experimental(true, 'Native task events are observed after the parent result; real-account lifecycle validation is pending'),
-      subagentLifecycle: capability(false, provider === 'codex'
-        ? 'The Codex app-server version in use does not expose independent, idempotent child lifecycle operations'
-        : 'Claude headless mode does not expose spawn, interrupt, resume or retry operations for child agents'),
+      subagentLifecycle: native?.stopTasks
+        ? capability(true, 'Running background tasks can be stopped; spawn, resume and retry stay with the provider', 'native')
+        : capability(false, provider === 'codex'
+          ? 'The Codex app-server version in use does not expose independent, idempotent child lifecycle operations'
+          : 'Claude headless mode does not expose spawn, interrupt, resume or retry operations for child agents'),
       additionalProviders: capability(false, 'Code providers without a supported headless protocol remain Code-only')
     }
   }

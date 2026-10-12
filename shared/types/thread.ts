@@ -322,6 +322,8 @@ export interface ConversationCapabilities {
   nativeSessions?: boolean
   /** The adapter can rewind provider history and prove the result. */
   rewind?: boolean
+  /** The adapter can stop one background task of the provider session. */
+  stopTasks?: boolean
 }
 
 export interface ConversationProtocolEvidence {
@@ -352,6 +354,8 @@ export interface AgentConversationAdapter {
   rewind?(beforeNativeTurnId: string): Promise<void>
   /** Ask the provider what fills the context window. Resolves null when unavailable. */
   contextUsage?(): Promise<ThreadContextReport | null>
+  /** Stops one provider background task (a shell or agent the session started). */
+  stopTask?(taskId: string): Promise<void>
   interrupt(): Promise<void>
   approve(requestId: string, decision: 'accept' | 'decline'): Promise<void>
   respondRequest?(requestId: string, response: ThreadRequestResponse): Promise<void>
@@ -419,6 +423,7 @@ export interface ThreadApi {
   deleteQueued?(id: string, itemId: string, preserveAttachments?: boolean): Promise<void>
   reorderQueued?(id: string, itemIds: string[]): Promise<void>
   contextUsage?(id: string): Promise<ThreadContextReport | null>
+  stopTask?(id: string, taskId: string): Promise<void>
   rewind?(id: string, turnId: string, options?: { restoreFiles?: boolean }): Promise<ThreadRewindResult>
   readSince?(id: string, cursor: ThreadSyncCursor): Promise<ThreadDelta>
   resumeQueue?(id: string): Promise<void>
