@@ -13,6 +13,7 @@ import { ThreadHistory, type ThreadHistoryWriteOptions } from './thread-history'
 import { ThreadRewindError, planLocalRewind } from './thread-rewind'
 import { addTurnCost } from './thread-cost'
 import { reduceThreadEvent, type KernelEffect } from './kernel/event-reducer'
+import { mergeTurnConfiguration, turnConfiguration } from './kernel/turn-configuration'
 import { forkClaudeBefore } from './claude-transcript-fork'
 import { ThreadRequestRegistry } from './thread-request-registry'
 import type { ThreadAttachmentStore } from './thread-attachments'
@@ -360,7 +361,7 @@ export class ThreadOrchestrator {
       const operation = this.history.beginOperation({ threadId: id, generation: snapshot.thread.generation ?? 1, kind: 'queue' })
       const item: ThreadQueuedInput = { id: randomUUID(), operationId: operation.id, text, attachmentIds,
         ...(attachments.length ? { attachments: attachments.map(({ path: _path, ...attachment }) => attachment) } : {}),
-        configuration: { model: snapshot.thread.model, reasoningEffort: snapshot.thread.reasoningEffort, access: snapshot.thread.access ?? 'read-only', networkAccess: snapshot.thread.networkAccess ?? false, approvalPolicy: snapshot.thread.approvalPolicy ?? 'on-request', mode: snapshot.thread.mode ?? 'default', hooksEnabled: snapshot.thread.hooksEnabled ?? false },
+        configuration: turnConfiguration(snapshot.thread),
         createdAt: Date.now(), state: 'queued' }
       try {
         if (this.busy.has(id) && adapter?.enqueue) {
@@ -407,7 +408,7 @@ export class ThreadOrchestrator {
     const eventsFrom = snapshot.events.length
     snapshot.events.push({ type: 'message', id: turnId, role: 'user', text, ...(attachments.length ? { attachments: attachments.map(({ path: _path, ...attachment }) => attachment) } : {}) })
     snapshot.turns ??= []
-    snapshot.turns.push({ id: turnId, operationId: operation.id, sequence: snapshot.turns.length + 1, startedAt: Date.now(), status: 'running', configuration: { model: snapshot.thread.model, reasoningEffort: snapshot.thread.reasoningEffort, access: snapshot.thread.access ?? 'read-only', networkAccess: snapshot.thread.networkAccess ?? false, approvalPolicy: snapshot.thread.approvalPolicy ?? 'on-request', mode: snapshot.thread.mode ?? 'default', hooksEnabled: snapshot.thread.hooksEnabled ?? false }, ...(attachmentIds.length ? { attachmentIds: [...attachmentIds] } : {}) })
+    snapshot.turns.push({ id: turnId, operationId: operation.id, sequence: snapshot.turns.length + 1, startedAt: Date.now(), status: 'running', configuration: turnConfiguration(snapshot.thread), ...(attachmentIds.length ? { attachmentIds: [...attachmentIds] } : {}) })
     snapshot.events.push({ type: 'activity', id: `activity:${turnId}:preparing`, phase: 'preparing', at: Date.now() })
     this.save(snapshot, { eventsFrom, operationId: operation.id })
     try {
@@ -748,7 +749,7 @@ export class ThreadOrchestrator {
       if (blocksThreadInput(snapshot.thread)) throw Error('Recover this conversation before changing its configuration')
       if ((snapshot.thread.configurationRevision ?? 0) !== revision) throw Error('Configuration changed. Refresh this conversation and try again.')
       const previous = snapshot.thread.pendingConfiguration ?? snapshot.thread
-      const configuration: ThreadConfiguration = { model: input.model ?? previous.model, reasoningEffort: input.reasoningEffort ?? previous.reasoningEffort, access: input.access ?? previous.access ?? 'read-only', networkAccess: input.networkAccess ?? previous.networkAccess ?? false, approvalPolicy: input.approvalPolicy ?? previous.approvalPolicy ?? 'on-request', mode: input.mode ?? previous.mode ?? 'default', hooksEnabled: input.hooksEnabled ?? previous.hooksEnabled ?? false }
+      const configuration: ThreadConfiguration = mergeTurnConfiguration(previous, input)
       if (configuration.access === 'read-only') configuration.hooksEnabled = false
       if (input.model || input.reasoningEffort !== undefined) {
         const catalog = await this.models(id)
@@ -1268,7 +1269,7 @@ export class ThreadOrchestrator {
         const attachments = await this.resolveAttachments(id, item.attachmentIds ?? [])
         latest.events.push({ type: 'message', id: item.id, role: 'user', text: item.text, ...(attachments.length ? { attachments: attachments.map(({ path: _path, ...attachment }) => attachment) } : {}) })
         latest.turns ??= []
-        latest.turns.push({ id: item.id, ...(item.operationId ? { operationId: item.operationId } : {}), sequence: latest.turns.length + 1, startedAt: Date.now(), status: 'running', configuration: { model: latest.thread.model, reasoningEffort: latest.thread.reasoningEffort, access: latest.thread.access ?? 'read-only', networkAccess: latest.thread.networkAccess ?? false, approvalPolicy: latest.thread.approvalPolicy ?? 'on-request', mode: latest.thread.mode ?? 'default', hooksEnabled: latest.thread.hooksEnabled ?? false }, ...(item.attachmentIds?.length ? { attachmentIds: [...item.attachmentIds] } : {}) })
+        latest.turns.push({ id: item.id, ...(item.operationId ? { operationId: item.operationId } : {}), sequence: latest.turns.length + 1, startedAt: Date.now(), status: 'running', configuration: turnConfiguration(latest.thread), ...(item.attachmentIds?.length ? { attachmentIds: [...item.attachmentIds] } : {}) })
         const checkpointId = await this.checkpoints.begin({ threadId: id, turnId: item.id, rootPath: latest.thread.rootPath, label: item.text.trim().slice(0, 80) }).catch(() => undefined)
         if (checkpointId) this.turnCheckpoints.set(item.id, checkpointId)
         if (item.operationId) this.history.transitionOperation(id, item.operationId, 'running')

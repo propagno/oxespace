@@ -302,7 +302,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
     if (!snapshot) return
     const field = textarea.current
     const position = field?.selectionStart ?? draft.length
-    const needsSpace = position > 0 && !/s/.test(draft[position - 1] ?? '')
+    const needsSpace = position > 0 && !/\s/.test(draft[position - 1] ?? '')
     const text = draft.slice(0, position) + (needsSpace ? ' @' : '@') + draft.slice(position)
     const next = position + (needsSpace ? 2 : 1)
     useThreadStore.getState().setDraft(snapshot.thread.id, text)
