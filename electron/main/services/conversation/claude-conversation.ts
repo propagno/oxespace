@@ -5,6 +5,7 @@ import type { ConversationTransport } from './codex-conversation'
 import { JsonLinesDecoder } from './json-lines'
 import { CLAUDE_THREAD_ARGS, claudeRuntimeCatalog } from './claude-command-catalog'
 import { threadFailure } from './thread-failure'
+import { createApiRetryTracker } from './claude-api-retry'
 import { requestOutcome } from '../../../../shared/threadRequestOutcome'
 
 type PrintTransport = ConversationTransport & { endInput(): void }
@@ -29,6 +30,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
   private selectedModel: string | undefined
   private localPlanId = ''
   private tasks = new Map<string, Extract<ThreadEvent, { type: 'subagent' }>>()
+  private readonly apiRetries = createApiRetryTracker(() => `claude-retry:${randomUUID()}`)
   private readonly seenMessages = new Set<string>()
   private streamMessageId = ''
   private disposed = false
@@ -130,6 +132,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
   private finish(status: 'completed' | 'failed' | 'interrupted'): void {
       if (this.completed || this.disposed) return
       this.completed = true
+      this.apiRetries.reset()
       this.busy = false
       this.approvals.clear()
       if (status === 'completed' && this.selectedModel) {
@@ -152,6 +155,12 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
           if (this.seenMessages.has(event.uuid)) return
           this.seenMessages.add(event.uuid)
           if (this.seenMessages.size > 4096) this.seenMessages.delete(this.seenMessages.values().next().value!)
+        }
+        // A provider retry is not a failure; it is one line revised per attempt.
+        const retry = this.apiRetries.observe(event)
+        if (retry) {
+          this.emit({ type: 'activity', id: retry.id, phase: 'connecting', at: Date.now(), summary: retry.summary })
+          return
         }
         if (event.type === 'system' && ['task_started', 'task_progress', 'task_notification', 'task_updated'].includes(String(event.subtype)) && typeof event.task_id === 'string') {
           const patch = event.subtype === 'task_updated' ? record(event.patch) : {}

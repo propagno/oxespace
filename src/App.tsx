@@ -58,6 +58,7 @@ import { useWorktreeStore } from './store/worktree.store'
 import { useVoiceStore } from './store/voice.store'
 import { useAgentNotifications } from './hooks/useAgentNotifications'
 import { useAgentHookStatus } from './hooks/useAgentHookStatus'
+import { THREAD_NOTIFICATION_PANE_PREFIX, useThreadAttention } from './hooks/useThreadAttention'
 import { useTerminalPrefsStore, TERMINAL_PREFS_DEFAULTS, FONT_SIZE_MIN, FONT_SIZE_MAX } from './store/terminal-prefs.store'
 import { useSettingsStore } from './store/settings.store'
 
@@ -463,6 +464,7 @@ export function App(): ReactElement {
 
   useAgentNotifications()
   useAgentHookStatus()
+  useThreadAttention(applicationView)
 
   // Clicking a notification focuses the originating pane (window focus + restore
   // is handled in main); here we switch to its workspace and select the pane.
@@ -470,6 +472,13 @@ export function App(): ReactElement {
     const api = window.oxe?.notifications
     if (!api) return
     return api.onActivate(({ paneId, workspaceId }) => {
+      // Thread notifications carry `thread:<id>` instead of a terminal pane id.
+      if (paneId.startsWith(THREAD_NOTIFICATION_PANE_PREFIX)) {
+        setHasOpenedThread(true)
+        setApplicationView('thread')
+        void useThreadStore.getState().select(paneId.slice(THREAD_NOTIFICATION_PANE_PREFIX.length))
+        return
+      }
       if (useWorkspaceStore.getState().activeWorkspaceId !== workspaceId) {
         void setActiveWorkspace(workspaceId)
       }
