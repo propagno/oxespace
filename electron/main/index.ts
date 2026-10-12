@@ -41,6 +41,10 @@ import { AgentService } from './services/agent.service'
 import { registerMemoryIpc } from './ipc/memory.ipc'
 import { registerAgentHooksIpc } from './ipc/agent-hooks.ipc'
 import { AgentHookServer } from './services/agent-hooks/server'
+import { registerAutomationsIpc } from './ipc/automations.ipc'
+import { AutomationService } from './services/automations/service'
+import { AutomationStore } from './services/automations/store'
+import { runHook } from './services/repo-config/hook-runner'
 import { fallbackShellProfiles } from './services/shell-profile.defaults'
 import { isLoopbackHttpUrl, isSafeExternalUrl } from './utils/external-url'
 import { applyLoginShellPath } from './utils/login-shell-path'
@@ -221,6 +225,26 @@ async function registerIpcHandlers(): Promise<() => void> {
   registerSearchIpc()
   const gitHubService = registerGitHubIpc(db)
   gitHubService.configureWorktreeLifecycle({ stopTerminalsWithin: (dir) => terminalManager.stopWithin(dir) })
+  // Scheduled automations. Their own SQLite file keeps them independent of the
+  // application schema; a store that cannot open only disables this feature.
+  try {
+    const automations = new AutomationService({
+      store: new AutomationStore(join(app.getPath('userData'), 'automations.sqlite3')),
+      createWorktree: (input) => gitHubService.createWorktree(input),
+      resolveBaseRef: async (rootPath) => (await gitHubService.resolveWorktreeBase({ workspaceId: '', rootPath })).baseRef,
+      runCommand: runHook,
+      onChange: (event) => {
+        for (const window of BrowserWindow.getAllWindows()) {
+          window.webContents.send(IPC_CHANNELS.automations.onChange, event)
+        }
+      }
+    })
+    registerAutomationsIpc(automations)
+    automations.start()
+    app.once('before-quit', () => automations.stop())
+  } catch (error) {
+    log.warn('Automations unavailable', error)
+  }
   registerLinearIpc(db, gitHubService)
   registerIntegrationIpc(db)
   const backgroundManager = new BackgroundManager(db, {

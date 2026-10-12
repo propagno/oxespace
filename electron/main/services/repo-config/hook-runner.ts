@@ -19,6 +19,8 @@ export interface RunHookOptions {
   cwd: string
   env?: Record<string, string>
   timeoutMs?: number
+  /** Written to the process's stdin, then closed. Absent: stdin is closed immediately. */
+  input?: string
 }
 
 function createSink(): { push(chunk: Buffer): void; text(): string } {
@@ -85,7 +87,7 @@ export function runHook(script: string, options: RunHookOptions): Promise<HookOu
         shell: isWindows ? process.env.ComSpec || 'cmd.exe' : '/bin/bash',
         windowsHide: true,
         detached: !isWindows,
-        stdio: ['ignore', 'pipe', 'pipe'],
+        stdio: [options.input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
         env: {
           ...process.env,
           GIT_TERMINAL_PROMPT: '0',
@@ -98,6 +100,11 @@ export function runHook(script: string, options: RunHookOptions): Promise<HookOu
       return
     }
 
+    if (options.input !== undefined) {
+      // EPIPE when the process exits before reading everything is not an error here.
+      child.stdin?.on('error', () => undefined)
+      child.stdin?.end(options.input)
+    }
     // Stream errors must be swallowed: an unhandled one would take down main.
     child.stdout?.on('data', (c: Buffer) => out.push(c)).on('error', () => undefined)
     child.stderr?.on('data', (c: Buffer) => err.push(c)).on('error', () => undefined)

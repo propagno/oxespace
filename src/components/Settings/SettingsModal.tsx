@@ -23,6 +23,7 @@ import type { AgentProfile, AgentProvider, AgentReadiness } from '../../../share
 import type { VoiceModelSize, VoiceModelStatus } from '../../../shared/types/voice'
 import type { AgentHookAgent, AgentHooksStatus } from '../../../shared/types/agent-hooks'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
+import { AutomationsSettings } from './AutomationsSettings'
 import { useAgentStore } from '../../store/agent.store'
 import { useVoiceStore } from '../../store/voice.store'
 import { useSettingsStore, VISITED_WORKSPACES_CAP_MAX, VISITED_WORKSPACES_CAP_MIN } from '../../store/settings.store'
@@ -1171,6 +1172,8 @@ function NotificationsSettingsSection({ onClose }: { onClose: () => void }): Rea
         </button>
 
         <AgentHooksSetting />
+
+        <AutomationsSettings />
 
         <div className="settings-form-group">
           <h3 className="settings-form-group-title">Performance</h3>

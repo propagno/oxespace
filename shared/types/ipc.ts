@@ -186,6 +186,15 @@ export const IPC_CHANNELS = {
     ensureModel: 'voice:ensure-model',
     onModelProgress: 'voice:on-model-progress'
   },
+  automations: {
+    list: 'automations:list',
+    create: 'automations:create',
+    setEnabled: 'automations:set-enabled',
+    remove: 'automations:remove',
+    runNow: 'automations:run-now',
+    runs: 'automations:runs',
+    onChange: 'automations:on-change'
+  },
   agentHooks: {
     status: 'agent-hooks:status',
     install: 'agent-hooks:install',
@@ -619,6 +628,16 @@ export interface AgentNotificationPayload {
   workspaceId: string
 }
 
+export interface AutomationsApi {
+  list(): Promise<import('./automation').Automation[]>
+  create(input: import('./automation').AutomationInput): Promise<import('./automation').Automation>
+  setEnabled(input: { id: string; enabled: boolean }): Promise<import('./automation').Automation>
+  remove(id: string): Promise<void>
+  runNow(id: string): Promise<import('./automation').AutomationRun | null>
+  runs(id: string): Promise<import('./automation').AutomationRun[]>
+  onChange(listener: (event: { automationId: string; run: import('./automation').AutomationRun | null }) => void): () => void
+}
+
 export interface AgentHooksApi {
   status(): Promise<import('./agent-hooks').AgentHooksStatus[]>
   install(agent: import('./agent-hooks').AgentHookAgent): Promise<import('./agent-hooks').AgentHooksStatus>
@@ -703,6 +722,7 @@ export interface OxeApi {
   voice: VoiceApi
   notifications: NotificationsApi
   agentHooks: AgentHooksApi
+  automations: AutomationsApi
   oxe: OxeIntegrationApi
   copilot: CopilotApi
   agentCredits: AgentCreditsApi

@@ -270,6 +270,16 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       onModelProgress: (listener) =>
         subscribe<import('../../shared/types/voice').VoiceModelProgressEvent>(ipc, IPC_CHANNELS.voice.onModelProgress, listener)
     },
+    automations: {
+      list: () => ipc.invoke(IPC_CHANNELS.automations.list) as Promise<import('../../shared/types/automation').Automation[]>,
+      create: (input) => ipc.invoke(IPC_CHANNELS.automations.create, input) as Promise<import('../../shared/types/automation').Automation>,
+      setEnabled: (input) => ipc.invoke(IPC_CHANNELS.automations.setEnabled, input) as Promise<import('../../shared/types/automation').Automation>,
+      remove: (id) => ipc.invoke(IPC_CHANNELS.automations.remove, id) as Promise<void>,
+      runNow: (id) => ipc.invoke(IPC_CHANNELS.automations.runNow, id) as Promise<import('../../shared/types/automation').AutomationRun | null>,
+      runs: (id) => ipc.invoke(IPC_CHANNELS.automations.runs, id) as Promise<import('../../shared/types/automation').AutomationRun[]>,
+      onChange: (listener) =>
+        subscribe<{ automationId: string; run: import('../../shared/types/automation').AutomationRun | null }>(ipc, IPC_CHANNELS.automations.onChange, listener)
+    },
     agentHooks: {
       status: () => ipc.invoke(IPC_CHANNELS.agentHooks.status) as Promise<import('../../shared/types/agent-hooks').AgentHooksStatus[]>,
       install: (agent) => ipc.invoke(IPC_CHANNELS.agentHooks.install, agent) as Promise<import('../../shared/types/agent-hooks').AgentHooksStatus>,
