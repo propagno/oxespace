@@ -63,12 +63,13 @@ describe('PaneContent', () => {
     })
   })
 
-  test('renders terminal panes and future pane stubs', () => {
+  test('renders terminal panes and future pane stubs', async () => {
     render(<PaneContent pane={createPane('terminal')} workspaceId="workspace-1" autoStart={false} />)
     expect(screen.getByTestId('terminal-pane')).toHaveTextContent('Terminal')
 
     render(<PaneContent pane={createPane('editor')} workspaceId="workspace-1" autoStart={false} />)
-    expect(screen.getByTestId('editor-pane')).toHaveTextContent('EditorPane')
+    // The editor pane is loaded on demand so it stays out of the entry bundle.
+    expect(await screen.findByTestId('editor-pane')).toHaveTextContent('EditorPane')
   })
 })
 

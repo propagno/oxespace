@@ -47,7 +47,8 @@ const MARKDOWN_CHUNK_PARTS = [
 export default defineConfig({
   main: {
     plugins: [
-      externalizeDepsPlugin(),
+      // The database drivers are bundled into the OxeQuery worker, not shipped as node_modules.
+      externalizeDepsPlugin({ exclude: ['pg', 'pg-cursor', 'mongodb', 'bson'] }),
       {
         name: 'copy-db-migrations',
         closeBundle() {
@@ -116,7 +117,8 @@ export default defineConfig({
     ],
     build: {
       rollupOptions: {
-        external: ['better-sqlite3', 'node-pty'],
+        // Optional driver add-ons are never installed; leave them as runtime requires.
+        external: ['better-sqlite3', 'node-pty', 'pg-native', 'pg-cloudflare', '@aws-sdk/credential-providers', '@mongodb-js/zstd', 'gcp-metadata', 'kerberos', 'mongodb-client-encryption', 'snappy', 'socks'],
         output: {
           // Keep optional documentation descriptors outside the main entry.
           // A few bytes of platform-dependent output must not decide release
@@ -129,6 +131,7 @@ export default defineConfig({
           index: resolve(__dirname, 'electron/main/index.ts'),
           'semantic-worker': resolve(__dirname, 'electron/main/workers/semantic-worker.ts'),
           'native-history-worker': resolve(__dirname, 'electron/main/workers/native-history-worker.ts'),
+          'oxequery-worker': resolve(__dirname, 'electron/main/workers/oxequery-worker.ts'),
           // CodeGraph parsing worker — keeps tree-sitter parsing off the main
           // thread so it doesn't block (and time out) semantic embedding on the
           // initial index. extraction/index.ts loads it from out/main/parse-worker.js.
@@ -140,6 +143,8 @@ export default defineConfig({
   preload: {
     plugins: [externalizeDepsPlugin()],
     build: {
+      // The bridge is a long table of one-line forwarders; minifying it keeps the 40 kB budget meaningful.
+      minify: 'esbuild',
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'electron/preload/index.ts'),

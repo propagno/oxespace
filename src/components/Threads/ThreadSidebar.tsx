@@ -21,8 +21,8 @@ function relativeTime(timestamp: number): string {
   const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000))
   return minutes < 1 ? 'now' : minutes < 60 ? `${minutes}m` : minutes < 1440 ? `${Math.floor(minutes / 60)}h` : `${Math.floor(minutes / 1440)}d`
 }
-export function ThreadSidebar({ onCreate, onModeChange, onAccounts, onAddProject, onOpenInCode }: {
-  onCreate: (projectId: string, rootPath?: string) => void; onModeChange?: () => void; onAccounts?: () => void; onAddProject?: () => void; onOpenInCode?: (rootPath: string) => Promise<void>
+export function ThreadSidebar({ onCreate, onModeChange, onSelectMode, onAccounts, onAddProject, onOpenInCode }: {
+  onCreate: (projectId: string, rootPath?: string) => void; onModeChange?: () => void; onSelectMode?: (mode: 'code' | 'thread' | 'data') => void; onAccounts?: () => void; onAddProject?: () => void; onOpenInCode?: (rootPath: string) => Promise<void>
 }) {
   const { threads, projects, unavailableProjects, selectedId, secondaryId, expanded, errors, loading, select, openSecondary, toggle, hiddenProjects, unreadIds, markRead, markUnread } = useThreadStore()
   const [confirmation, setConfirmation] = useState<{ kind: 'thread' | 'archive' | 'project'; id: string; title: string } | null>(null)
@@ -98,7 +98,7 @@ export function ThreadSidebar({ onCreate, onModeChange, onAccounts, onAddProject
       onPointerDown={e => { resizing.current = true; e.currentTarget.setPointerCapture(e.pointerId); e.preventDefault() }}
       onPointerMove={e => { if (resizing.current) setWidth(e.clientX - (e.currentTarget.parentElement?.getBoundingClientRect().left ?? 0)) }}
       onPointerUp={() => { resizing.current = false }} onPointerCancel={() => { resizing.current = false }} onLostPointerCapture={() => { resizing.current = false }} />}
-    <NavigationRail mode="thread" collapsed={collapsed} onModeChange={onModeChange} onToggle={toggleCollapse}
+    <NavigationRail mode="thread" collapsed={collapsed} onModeChange={onModeChange} onSelectMode={onSelectMode} onToggle={toggleCollapse}
       primary={[{ id: 'add-project', label: 'Add project', icon: FolderPlus, onClick: onAddProject }]}
       context={{ id: 'accounts', label: 'Accounts', ariaLabel: 'Agent accounts', icon: UserRound, onClick: onAccounts }} />
     {!collapsed && <div className="nav-panel">

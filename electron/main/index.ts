@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, session, shell } from 'electron'
+import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, safeStorage, session, shell } from 'electron'
 import log from 'electron-log/main.js'
 import { recordRuntime, startRuntimeDiagnostics, stopRuntimeDiagnostics } from './services/runtime-diagnostics'
 import { initAutoUpdater, registerAppUpdateIpc } from './updater'
@@ -163,7 +163,9 @@ async function registerIpcHandlers(): Promise<() => void> {
   // A bind failure only costs the hook signal; the heuristic keeps working.
   void agentHookServer.start().catch((error) => log.warn('Agent hook server unavailable', error))
   app.once('before-quit', () => agentHookServer.stop())
+  const oxeQueryShells: { shellFor?: (paneId: string) => { file: string; args: string[] } | undefined } = {}
   const terminalManager: TerminalManager = new TerminalManager(db, {
+    oxeQueryShell: paneId => oxeQueryShells.shellFor?.(paneId),
     prepareLaunch: (input) => memoryService.prepareLaunch(input),
     isManagedPane: paneId => delegationService?.ownsPane(paneId) ?? false,
     onLaunchExit: (paneId) => { memoryService.endLaunch(paneId); executions.end(paneId); delegationService?.exited(paneId) },
@@ -261,6 +263,20 @@ async function registerIpcHandlers(): Promise<() => void> {
   })
   registerBackgroundIpc(backgroundManager)
   registerSessionIpc(db)
+  // OxeQuery: container runtime + database worker. Loaded lazily so its code stays out of the entry chunk.
+  try {
+    const [{ OxeQueryService }, { OxeQueryWorkerClient }, { registerOxeQueryIpc, broadcastOxeQueryEvent }, { LocalExecutionHost }] = await Promise.all([
+      import('./services/oxequery/service'), import('./services/oxequery/worker-client'), import('./ipc/oxequery.ipc'), import('./runtime/execution-host')
+    ])
+    const oxeQuery = new OxeQueryService({
+      db, host: new LocalExecutionHost(), emit: broadcastOxeQueryEvent,
+      cipher: { available: () => safeStorage.isEncryptionAvailable(), encrypt: value => safeStorage.encryptString(value), decrypt: value => safeStorage.decryptString(value) },
+      worker: new OxeQueryWorkerClient(join(app.getAppPath(), 'out', 'main', 'oxequery-worker.js'))
+    })
+    oxeQueryShells.shellFor = paneId => oxeQuery.shellFor(paneId)
+    registerOxeQueryIpc(oxeQuery)
+    app.once('before-quit', () => { void oxeQuery.dispose() })
+  } catch (error) { log.warn('OxeQuery unavailable', error) }
   const { registerThreadIpc } = await import('./ipc/thread.ipc')
   const delegatedThreadObserver: { current?: (thread: import('../../shared/types/thread').ConversationThread) => void } = {}
   const threadManager = registerThreadIpc(db, {

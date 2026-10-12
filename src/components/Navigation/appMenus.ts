@@ -11,8 +11,8 @@ export interface AppMenu { id: string; label: string; items: AppMenuNode[] }
 export interface AppMenuContext {
   /** The same actions the command palette runs; menus never own behaviour. */
   actions: CommandPaletteAction[]
-  applicationView: 'code' | 'thread'
-  setApplicationView(view: 'code' | 'thread'): void
+  applicationView: 'code' | 'thread' | 'data'
+  setApplicationView(view: 'code' | 'thread' | 'data'): void
   openSettings(): void
   addThreadProject(): void
   version: string
@@ -67,6 +67,7 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
       id: 'view', label: 'View', items: compact([
         { kind: 'radio', id: 'view-code', label: 'Code', checked: ctx.applicationView === 'code', onSelect: () => ctx.setApplicationView('code') },
         { kind: 'radio', id: 'view-thread', label: 'Thread', checked: ctx.applicationView === 'thread', onSelect: () => ctx.setApplicationView('thread') },
+        { kind: 'radio', id: 'view-data', label: 'OxeQuery', checked: ctx.applicationView === 'data', onSelect: () => ctx.setApplicationView('data') },
         sep('view-1'),
         fromAction('toggle-sidebar', 'Toggle sidebar', 'Ctrl+B'),
         fromAction('toggle-editor', 'Toggle editor', 'Ctrl+E'),

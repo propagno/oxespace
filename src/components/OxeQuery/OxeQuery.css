@@ -1,0 +1,126 @@
+/* OxeQuery: containers and databases. Everything here loads with the lazy chunk. */
+.app-shell.oq-shell { grid-template-columns: var(--thread-sidebar-width, 280px) minmax(0, 1fr); min-height: 0; overflow: hidden; }
+.workspace-surface.oq-surface { min-height: 0; overflow: hidden; }
+.oq-host { display: flex; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
+
+.oq-sidebar { position: relative; display: flex; flex-direction: row; min-height: 0; overflow: hidden; background: var(--bg-sidebar); color: var(--tx-primary); }
+.oq-sidebar-content { flex: 1; min-width: 0; overflow-y: auto; padding: 10px 8px 16px; display: grid; align-content: start; gap: 14px; }
+.oq-sidebar-content header { padding: 2px 8px; font-size: var(--fs-sm); }
+.oq-sidebar-content h3 { display: flex; align-items: center; justify-content: space-between; margin: 0 0 4px; padding: 0 8px; color: var(--tx-muted); font-size: var(--fs-2xs); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.oq-nav-item { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 6px 8px; border: 0; border-radius: var(--nav-radius, 6px); color: inherit; background: transparent; font: inherit; font-size: var(--fs-xs); text-align: left; cursor: pointer; }
+.oq-nav-item span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oq-nav-item small { color: var(--tx-muted); }
+.oq-nav-item:hover, .oq-icon:hover { background: color-mix(in srgb, var(--tx-primary) 6%, transparent); }
+.oq-nav-item[aria-current='page'] { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.oq-connection-row { display: flex; align-items: center; gap: 2px; }
+.oq-connection-row .oq-icon { opacity: 0; }
+.oq-connection-row:hover .oq-icon, .oq-connection-row:focus-within .oq-icon { opacity: 1; }
+.oq-icon { display: inline-grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: var(--radius-sm); color: var(--tx-muted); background: transparent; cursor: pointer; }
+.oq-prod { color: var(--dot-red); }
+.oq-muted { color: var(--tx-muted); font-size: var(--fs-xs); }
+.oq-error { margin: 6px 0; color: var(--dot-red); font-size: var(--fs-xs); white-space: pre-wrap; }
+.oq-ok { margin: 6px 0; color: var(--dot-green, var(--tx-secondary)); font-size: var(--fs-xs); }
+
+.oq-view { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; background: var(--bg-app); color: var(--tx-primary); }
+.oq-tabs { display: flex; gap: 2px; padding: 6px 8px 0; border-bottom: 1px solid var(--bd-base); overflow-x: auto; }
+.oq-tab { display: inline-flex; align-items: center; border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+.oq-tab[data-active='true'] { background: var(--bg-elevated); box-shadow: inset 0 -2px 0 var(--accent); }
+.oq-tab button { padding: 6px 10px; border: 0; color: inherit; background: transparent; font: inherit; font-size: var(--fs-xs); cursor: pointer; }
+.oq-tab .oq-tab-close { padding: 4px; color: var(--tx-muted); }
+.oq-panels { position: relative; flex: 1; min-height: 0; }
+.oq-panel { position: absolute; inset: 0; display: flex; min-height: 0; }
+.oq-panel[hidden] { display: none; }
+
+.oq-toolbar, .oq-editor-toolbar, .oq-results-bar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; font-size: var(--fs-xs); }
+.oq-toolbar input[type='search'], .oq-toolbar input:not([type]) { flex: 1; min-width: 120px; max-width: 320px; padding: 5px 8px; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); color: inherit; background: var(--bg-input, transparent); font: inherit; }
+.oq-spacer { flex: 1; }
+.oq-check, .oq-inline { display: inline-flex; align-items: center; gap: 6px; }
+.oq-view button { font: inherit; }
+.oq-toolbar button, .oq-editor-toolbar button, .oq-results-bar button, .oq-run button, .oq-confirm button, .oq-dialog-actions button, .oq-empty button, .oq-details nav button {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); color: inherit; background: transparent; font-size: var(--fs-xs); cursor: pointer; }
+.oq-view button:disabled { opacity: .45; cursor: default; }
+.oq-view button[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.oq-primary { border-color: transparent !important; color: var(--bg-app) !important; background: var(--accent) !important; }
+.oq-danger { border-color: transparent !important; color: #fff !important; background: var(--dot-red) !important; }
+.oq-view select, .oq-view textarea, .oq-form input, .oq-form select { border: 1px solid var(--bd-base); border-radius: var(--radius-sm); color: inherit; background: var(--bg-input, transparent); font: inherit; font-size: var(--fs-xs); }
+.oq-view select { padding: 3px 6px; }
+.oq-empty { display: grid; place-content: center; gap: 8px; width: 100%; padding: 32px; text-align: center; color: var(--tx-secondary); }
+
+.oq-containers { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
+.oq-containers-body { display: flex; flex: 1; min-height: 0; }
+.oq-table-wrap { flex: 1; min-width: 0; overflow: auto; }
+.oq-table { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); }
+.oq-table th { position: sticky; top: 0; padding: 6px 10px; text-align: left; color: var(--tx-muted); background: var(--bg-app); font-weight: 500; }
+.oq-table td { padding: 6px 10px; border-top: 1px solid var(--bd-base); max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oq-table tbody tr { cursor: pointer; }
+.oq-table tbody tr:hover, .oq-table tbody tr.is-selected { background: color-mix(in srgb, var(--tx-primary) 5%, transparent); }
+.oq-link { padding: 0; border: 0; color: var(--tx-primary); background: transparent; font-weight: 500; cursor: pointer; }
+.oq-state { display: inline-block; margin-right: 8px; padding: 1px 8px; border-radius: var(--radius-pill, 999px); font-size: var(--fs-2xs); background: var(--ov-3, #8884); }
+.oq-state[data-state='running'] { color: var(--dot-green, #4ade80); background: color-mix(in srgb, var(--dot-green, #4ade80) 16%, transparent); }
+.oq-state[data-state='exited'], .oq-state[data-state='dead'] { color: var(--tx-muted); }
+.oq-state[data-state='paused'], .oq-state[data-state='restarting'] { color: var(--dot-yellow, #facc15); }
+.oq-actions { display: flex; gap: 4px; justify-content: flex-end; }
+.oq-actions button { display: inline-grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); color: inherit; background: transparent; cursor: pointer; }
+
+.oq-details { display: flex; flex-direction: column; width: min(520px, 48%); min-width: 320px; border-left: 1px solid var(--bd-base); background: var(--bg-elevated); }
+.oq-details > header { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; }
+.oq-details > header button { border: 0; color: inherit; background: transparent; font-size: 18px; cursor: pointer; }
+.oq-details > nav { display: flex; gap: 6px; padding: 0 12px 8px; }
+.oq-overview { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; margin: 0; padding: 4px 12px 12px; font-size: var(--fs-xs); overflow: auto; }
+.oq-overview dt { color: var(--tx-muted); }
+.oq-overview dd { margin: 0; min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.oq-logs, .oq-run, .oq-term { display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 0 4px 8px; }
+.oq-logs pre, .oq-run pre, .oq-columns pre, .oq-documents pre { margin: 0; padding: 8px 12px; overflow: auto; font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; line-height: 1.45; }
+.oq-logs pre { flex: 1; min-height: 0; background: var(--bg-app); white-space: pre-wrap; word-break: break-word; }
+.oq-run { padding: 0 12px; gap: 6px; }
+.oq-run-result pre { max-height: 360px; background: var(--bg-app); border: 1px solid var(--bd-base); border-radius: var(--radius-sm); }
+.oq-shell-terminal { flex: 1; min-height: 240px; position: relative; }
+
+.oq-workbench { display: flex; flex: 1; min-width: 0; min-height: 0; }
+.oq-tree { width: 220px; flex-shrink: 0; overflow: auto; padding: 8px; border-right: 1px solid var(--bd-base); font-size: var(--fs-xs); }
+.oq-tree-node, .oq-tree-leaf button { display: flex; align-items: center; gap: 4px; width: 100%; padding: 4px 6px; border: 0; border-radius: var(--radius-sm); color: inherit; background: transparent; font-size: var(--fs-xs); text-align: left; cursor: pointer; }
+.oq-tree-leaf { display: flex; align-items: center; padding-left: 16px; }
+.oq-tree-leaf button:first-child { flex: 1; min-width: 0; }
+.oq-tree-leaf button:last-child { width: auto; color: var(--tx-muted); opacity: 0; }
+.oq-tree-leaf:hover button:last-child { opacity: 1; }
+.oq-tree-node:hover, .oq-tree-leaf button:hover { background: color-mix(in srgb, var(--tx-primary) 6%, transparent); }
+.oq-tree-leaf small { margin-left: 6px; color: var(--tx-muted); }
+.oq-workbench-main { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
+.oq-editor { height: 220px; min-height: 120px; resize: vertical; overflow: hidden; border-block: 1px solid var(--bd-base); }
+.oq-badge { padding: 1px 8px; border-radius: var(--radius-pill, 999px); font-size: var(--fs-2xs); background: var(--ov-3, #8884); }
+.oq-badge[data-environment='prod'] { color: #fff; background: var(--dot-red); }
+.oq-badge[data-readonly='false'] { color: var(--dot-yellow, #facc15); }
+.oq-confirm { margin: 8px 10px; padding: 10px 12px; border: 1px solid var(--dot-red); border-radius: var(--radius-md); background: color-mix(in srgb, var(--dot-red) 8%, transparent); font-size: var(--fs-xs); }
+.oq-confirm ul { margin: 6px 0; padding-left: 18px; }
+.oq-confirm div { display: flex; gap: 8px; justify-content: flex-end; }
+.oq-results { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.oq-columns { margin: 0 10px 6px; font-size: var(--fs-xs); }
+.oq-columns table { border-collapse: collapse; }
+.oq-columns td { padding: 2px 12px 2px 0; color: var(--tx-secondary); }
+
+.oq-grid { flex: 1; min-height: 120px; overflow: auto; position: relative; font-size: 12px; font-family: var(--font-mono, ui-monospace, monospace); }
+.oq-grid-inner { position: relative; }
+.oq-grid-header, .oq-grid-row { display: flex; position: absolute; left: 0; height: 26px; }
+.oq-grid-header { top: 0; z-index: 1; background: var(--bg-elevated); border-bottom: 1px solid var(--bd-base); }
+.oq-grid-row { border-bottom: 1px solid color-mix(in srgb, var(--bd-base) 55%, transparent); }
+.oq-grid-header > span, .oq-grid-row > span { flex-shrink: 0; padding: 0 8px; line-height: 26px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oq-grid-header small { margin-left: 6px; color: var(--tx-muted); font-weight: 400; }
+.oq-grid-index { width: 56px; color: var(--tx-muted); text-align: right; }
+.oq-grid-row .is-null { color: var(--tx-muted); font-style: italic; }
+
+.oq-mongo-inputs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 8px 10px; }
+.oq-mongo-inputs label { display: grid; gap: 4px; font-size: var(--fs-2xs); color: var(--tx-muted); }
+.oq-mongo-inputs textarea { padding: 6px 8px; font-family: var(--font-mono, ui-monospace, monospace); resize: vertical; }
+.oq-mongo-wide { grid-column: 1 / -1; }
+.oq-documents { flex: 1; min-height: 0; overflow: auto; padding: 0 10px 12px; }
+.oq-documents details { margin-bottom: 4px; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); }
+.oq-documents summary { padding: 6px 10px; font-size: var(--fs-xs); cursor: pointer; font-family: var(--font-mono, ui-monospace, monospace); }
+
+.oq-dialog { width: min(560px, calc(100vw - 48px)); }
+.oq-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+.oq-form label { display: grid; gap: 4px; font-size: var(--fs-xs); color: var(--tx-secondary); }
+.oq-form input, .oq-form select { padding: 6px 8px; }
+.oq-form .oq-form-wide { grid-column: 1 / -1; }
+.oq-form .oq-check { display: flex; grid-column: 1 / -1; }
+.oq-form .oq-check input { width: auto; }
+.oq-dialog-actions { display: flex; gap: 8px; margin-top: 16px; }

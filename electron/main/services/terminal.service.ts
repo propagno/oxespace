@@ -4,6 +4,7 @@ import type { IPty, IPtyForkOptions } from 'node-pty'
 import { spawn } from 'node-pty'
 import { existsSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
+import { homedir } from 'node:os'
 import { delimiter, extname, join } from 'node:path'
 import type { AppDatabase } from '../db/index'
 import { killProcess } from '../utils/process-cleanup'
@@ -34,6 +35,8 @@ interface TerminalManagerOptions {
   executionEnvironment?: (input: { paneId: string; workspaceId: string; cwd: string }) => Record<string, string>
   agentMcpArgs?: (executable: string, args: string[]) => string[]
   isManagedPane?: (paneId: string) => boolean
+  /** Main-process-registered container shells (`oxequery-shell:*`); the renderer never supplies the command. */
+  oxeQueryShell?: (paneId: string) => { file: string; args: string[] } | undefined
 }
 
 export interface ManagedTerminalStart extends TerminalStartInput {
@@ -108,6 +111,7 @@ export class TerminalManager {
   private readonly executionEnvironment?: TerminalManagerOptions['executionEnvironment']
   private readonly agentMcpArgs?: TerminalManagerOptions['agentMcpArgs']
   private readonly isManagedPane?: TerminalManagerOptions['isManagedPane']
+  private readonly oxeQueryShell?: TerminalManagerOptions['oxeQueryShell']
   private readonly sessions = new Map<string, TerminalSession>()
   private readonly pty: PtyModule
   private readonly launchContextStatement: ReturnType<AppDatabase['prepare']>
@@ -127,6 +131,7 @@ export class TerminalManager {
     this.executionEnvironment = options.executionEnvironment
     this.agentMcpArgs = options.agentMcpArgs
     this.isManagedPane = options.isManagedPane
+    this.oxeQueryShell = options.oxeQueryShell
     this.pty = options.pty ?? { spawn }
     this.env = options.env ?? process.env
     this.platform = options.platform ?? process.platform
@@ -193,6 +198,12 @@ export class TerminalManager {
       if (!shell) throw Error('Configure a shell profile in Settings first.')
       launch = { pane_root_path: thread.rootPath, workspace_root_path: thread.rootPath, shell_profile_id: shell.id, shell_profile_name: shell.name, shell_executable: shell.executable, shell_args_json: shell.args_json }
     }
+    const oxeShell = this.oxeQueryShell?.(input.paneId)
+    if (oxeShell) {
+      if (input.agentCommand || input.launch || input.initialPrompt || input.agentArgs?.length) throw Error('Container shells start the registered command only.')
+      const home = homedir()
+      launch = { pane_root_path: home, workspace_root_path: home, shell_profile_id: 'oxequery-shell', shell_profile_name: 'Container shell', shell_executable: oxeShell.file, shell_args_json: JSON.stringify(oxeShell.args) } as TerminalLaunchContextRow
+    }
     if (!launch) {
       const workspaceExists = this.workspaceExistsStatement.get(input.workspaceId)
       if (!workspaceExists) throw new Error(`Workspace ${input.workspaceId} not found`)
@@ -226,10 +237,10 @@ export class TerminalManager {
       GLAMOUR_STYLE: 'dark',
       BAT_THEME: 'TwoDark'
     }
-    if (this.executionEnvironment && !threadShell) finalEnv = { ...finalEnv, ...this.executionEnvironment({ paneId: input.paneId, workspaceId: input.workspaceId, cwd }) }
+    if (this.executionEnvironment && !threadShell && !oxeShell) finalEnv = { ...finalEnv, ...this.executionEnvironment({ paneId: input.paneId, workspaceId: input.workspaceId, cwd }) }
     // Optional launch integrations only return environment; provider failures
     // never prevent the shell/agent from starting or touch its output stream.
-    if (this.prepareLaunch && !threadShell) {
+    if (this.prepareLaunch && !threadShell && !oxeShell) {
       const integration = new AbortController()
       const cancel = (): void => integration.abort()
       signal.addEventListener('abort', cancel, { once: true })

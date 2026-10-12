@@ -186,6 +186,10 @@ export const IPC_CHANNELS = {
     ensureModel: 'voice:ensure-model',
     onModelProgress: 'voice:on-model-progress'
   },
+  oxeQuery: {
+    call: 'oxeQuery:call',
+    onEvent: 'oxeQuery:event'
+  },
   automations: {
     list: 'automations:list',
     create: 'automations:create',
@@ -723,6 +727,7 @@ export interface OxeApi {
   notifications: NotificationsApi
   agentHooks: AgentHooksApi
   automations: AutomationsApi
+  oxeQuery: import('./oxequery').OxeQueryApi
   oxe: OxeIntegrationApi
   copilot: CopilotApi
   agentCredits: AgentCreditsApi

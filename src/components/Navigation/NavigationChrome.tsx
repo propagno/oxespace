@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { ChevronsLeft, ChevronsRight, MessagesSquare, Settings2, SquareTerminal, type LucideIcon } from 'lucide-react'
+import { ChevronsLeft, ChevronsRight, DatabaseZap, MessagesSquare, Settings2, SquareTerminal, type LucideIcon } from 'lucide-react'
 import { useUIStore } from '../../store/ui.store'
 import './NavigationChrome.css'
 
@@ -19,16 +19,26 @@ export interface RailAction {
  * used to be split between the header, quick-nav and footer so each destination
  * exists exactly once (names and test ids are unchanged).
  */
-export function NavigationRail({ mode, collapsed, onModeChange, primary, context, onToggle, children }: {
-  mode: 'code' | 'thread'; collapsed: boolean; onModeChange?: () => void
+export type NavigationMode = 'code' | 'thread' | 'data'
+
+export function NavigationRail({ mode, collapsed, onModeChange, onSelectMode, primary, context, onToggle, children }: {
+  mode: NavigationMode; collapsed: boolean; onModeChange?: () => void
+  /** When present it handles every mode button; `onModeChange` keeps the older two-way Code/Thread switch. */
+  onSelectMode?: (mode: NavigationMode) => void
   primary: RailAction[]; context: RailAction; onToggle: () => void; children?: ReactNode
 }) {
   const openSettings = useUIStore(state => state.toggleSettings)
   const ContextIcon = context.icon
+  const select = (target: NavigationMode): void => {
+    if (target === mode) return
+    if (onSelectMode) onSelectMode(target)
+    else if (target !== 'data') onModeChange?.()
+  }
   return <div className="nav-rail" data-collapsed={collapsed}>
     <nav className="nav-rail-group" aria-label="Application view">
-      <button type="button" className="nav-rail-btn" aria-label="Code" title="Code" aria-pressed={mode === 'code'} onClick={mode === 'thread' ? onModeChange : undefined}><SquareTerminal size={17} aria-hidden="true" /></button>
-      <button type="button" className="nav-rail-btn" aria-label="Thread" title="Thread" aria-pressed={mode === 'thread'} onClick={mode === 'code' ? onModeChange : undefined}><MessagesSquare size={17} aria-hidden="true" /></button>
+      <button type="button" className="nav-rail-btn" aria-label="Code" title="Code" aria-pressed={mode === 'code'} onClick={() => select('code')}><SquareTerminal size={17} aria-hidden="true" /></button>
+      <button type="button" className="nav-rail-btn" aria-label="Thread" title="Thread" aria-pressed={mode === 'thread'} onClick={() => select('thread')}><MessagesSquare size={17} aria-hidden="true" /></button>
+      {(onSelectMode || mode === 'data') && <button type="button" className="nav-rail-btn" aria-label="OxeQuery" title="OxeQuery: containers and databases" aria-pressed={mode === 'data'} onClick={() => select('data')}><DatabaseZap size={17} aria-hidden="true" /></button>}
     </nav>
     <span className="nav-rail-separator" aria-hidden="true" />
     <nav className="nav-rail-group" aria-label="Primary navigation">

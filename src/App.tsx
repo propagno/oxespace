@@ -17,6 +17,9 @@ const DelegatedWorkDialog = lazy(() => import('./components/Delegation/Delegated
 const TeamDialog = lazy(() => import('./components/Teams/TeamDialog').then(m => ({ default: m.TeamDialog })))
 const ThreadGrid = lazy(() => import('./components/Threads/ThreadGrid').then(m => ({ default: m.ThreadGrid })))
 const ThreadSidebar = lazy(() => import('./components/Threads/ThreadSidebar').then(m => ({ default: m.ThreadSidebar })))
+// OxeQuery (containers + databases) is entirely lazy: nothing of it is in the entry chunk until first use.
+const OxeQuerySidebar = lazy(() => import('./components/OxeQuery/OxeQuerySidebar').then(m => ({ default: m.OxeQuerySidebar })))
+const OxeQueryView = lazy(() => import('./components/OxeQuery/OxeQueryView').then(m => ({ default: m.OxeQueryView })))
 const ProviderAccountsPanel = lazy(() => import('./components/Threads/ProviderAccountsPanel').then(m => ({ default: m.ProviderAccountsPanel })))
 const NewThreadDialog = lazy(() => import('./components/Threads/ThreadDialogs').then(m => ({ default: m.NewThreadDialog })))
 const AddThreadProjectDialog = lazy(() => import('./components/Threads/ThreadDialogs').then(m => ({ default: m.AddThreadProjectDialog })))
@@ -83,11 +86,17 @@ const IS_MAC = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platfor
 
 export function App(): ReactElement {
   const appVersion = window.oxe?.app?.version ?? 'dev'
-  const [applicationView, setApplicationView] = useState<'code' | 'thread'>('code')
+  const [applicationView, setApplicationView] = useState<'code' | 'thread' | 'data'>('code')
   const [delegatedWorkOpen, setDelegatedWorkOpen] = useState(false)
   const [teamScope, setTeamScope] = useState<import('../shared/types/team').TeamScope | null>(null)
   const [delegationTarget, setDelegationTarget] = useState<{ workspaceId: string; taskId: string } | null>(null)
   const [hasOpenedThread, setHasOpenedThread] = useState(false)
+  const [hasOpenedData, setHasOpenedData] = useState(false)
+  const selectMode = (mode: 'code' | 'thread' | 'data'): void => {
+    if (mode === 'thread') setHasOpenedThread(true)
+    if (mode === 'data') setHasOpenedData(true)
+    setApplicationView(mode)
+  }
   const [newThreadWorkspaceId, setNewThreadWorkspaceId] = useState<string | null | undefined>(undefined)
   const [newThreadRootPath, setNewThreadRootPath] = useState<string | undefined>()
   const [isThreadProjectOpen, setThreadProjectOpen] = useState(false)
@@ -954,16 +963,16 @@ export function App(): ReactElement {
   }
 
   return (
-    <ThemeProvider themeId={applicationView === 'thread' ? undefined : activeWorkspace?.themeId} density={applicationView === 'thread' ? undefined : activeWorkspace?.uiDensity}>
-      <main className={`app-shell${applicationView === 'thread' ? ' thread-shell' : isSidebarCollapsed ? ' sidebar-collapsed' : ''}`} style={applicationView === 'thread' ? { '--thread-sidebar-width': `${isSidebarCollapsed ? 48 : codeSidebarWidth}px` } as CSSProperties : { '--sidebar-w': `${codeSidebarWidth}px` } as CSSProperties}>
+    <ThemeProvider themeId={applicationView !== 'code' ? undefined : activeWorkspace?.themeId} density={applicationView !== 'code' ? undefined : activeWorkspace?.uiDensity}>
+      <main className={`app-shell${applicationView === 'thread' ? ' thread-shell' : applicationView === 'data' ? ' oq-shell' : isSidebarCollapsed ? ' sidebar-collapsed' : ''}`} style={applicationView !== 'code' ? { '--thread-sidebar-width': `${isSidebarCollapsed ? 48 : codeSidebarWidth}px` } as CSSProperties : { '--sidebar-w': `${codeSidebarWidth}px` } as CSSProperties}>
       <header className="workbench-titlebar" aria-label="OXESpace workbench">
-        <div className="workbench-titlebar-brand"><OxeLogo size={15} /><strong>OXESpace</strong>{!IS_MAC && <Suspense fallback={null}><AppMenuBar context={{ actions: commandActions, applicationView, setApplicationView, openSettings: () => { if (!isSettingsOpen) toggleSettings() }, addThreadProject: () => setThreadProjectOpen(true), version: appVersion }} /></Suspense>}</div>
-        <div className="workbench-titlebar-context" title={applicationView === 'thread' ? threadSnapshot?.thread.rootPath ?? 'Thread' : activeWorkspace?.rootPath ?? 'No workspace'}>
-          <span>{applicationView === 'thread' ? 'Thread' : 'Code'}</span>
+        <div className="workbench-titlebar-brand"><OxeLogo size={15} /><strong>OXESpace</strong>{!IS_MAC && <Suspense fallback={null}><AppMenuBar context={{ actions: commandActions, applicationView, setApplicationView: selectMode, openSettings: () => { if (!isSettingsOpen) toggleSettings() }, addThreadProject: () => setThreadProjectOpen(true), version: appVersion }} /></Suspense>}</div>
+        <div className="workbench-titlebar-context" title={applicationView === 'data' ? 'Containers and databases' : applicationView === 'thread' ? threadSnapshot?.thread.rootPath ?? 'Thread' : activeWorkspace?.rootPath ?? 'No workspace'}>
+          <span>{applicationView === 'data' ? 'OxeQuery' : applicationView === 'thread' ? 'Thread' : 'Code'}</span>
           <span className="workbench-titlebar-separator" aria-hidden="true">/</span>
-          <strong>{applicationView === 'thread' ? threadProject?.displayName ?? 'Conversations' : activeWorkspace?.name ?? 'No workspace'}</strong>
+          <strong>{applicationView === 'data' ? 'Containers & databases' : applicationView === 'thread' ? threadProject?.displayName ?? 'Conversations' : activeWorkspace?.name ?? 'No workspace'}</strong>
         </div>
-        <div className="workbench-titlebar-trailing"><button type="button" className="workspace-topbar-action" disabled={applicationView === 'thread' ? !threadProject : !activeWorkspace} onClick={() => {
+        <div className="workbench-titlebar-trailing"><button type="button" className="workspace-topbar-action" disabled={applicationView === 'data' || (applicationView === 'thread' ? !threadProject : !activeWorkspace)} onClick={() => {
           const id = applicationView === 'thread' ? threadProject?.projectId : activeWorkspace?.id
           if (id) setTeamScope({ kind: applicationView === 'thread' ? 'thread' : 'code', id })
         }}>Team</button><UpdateBanner /><AppUpdateIndicator /><span className="workbench-titlebar-version">v{appVersion}</span></div>
@@ -980,7 +989,8 @@ export function App(): ReactElement {
       {delegatedWorkOpen && <Suspense fallback={null}><DelegatedWorkDialog workspaces={workspaces} workspaceId={delegationTarget?.workspaceId ?? (applicationView === 'thread' ? threadSnapshot?.thread.workspaceId ?? activeWorkspaceId ?? '' : activeWorkspaceId ?? '')} focusTaskId={delegationTarget?.taskId}
         origin={applicationView === 'thread' ? threadSelection ? { kind: 'thread', id: threadSelection } : undefined : activePane ? { kind: 'pane', id: activePane.id } : undefined}
         onClose={() => { setDelegatedWorkOpen(false); setDelegationTarget(null) }} onOpen={openDelegation} /></Suspense>}
-      {applicationView === 'thread' ? <Suspense fallback={<aside className="thread-navigation" aria-label="Thread sidebar" />}><ThreadSidebar onCreate={(id, rootPath) => { setNewThreadRootPath(rootPath); setNewThreadWorkspaceId(id) }} onModeChange={() => setApplicationView('code')} onAccounts={openThreadAccounts} onAddProject={() => setThreadProjectOpen(true)} onOpenInCode={async rootPath => {
+      {applicationView === 'data' ? <Suspense fallback={<aside className="thread-navigation" aria-label="OxeQuery sidebar" />}><OxeQuerySidebar onSelectMode={selectMode} /></Suspense>
+      : applicationView === 'thread' ? <Suspense fallback={<aside className="thread-navigation" aria-label="Thread sidebar" />}><ThreadSidebar onSelectMode={selectMode} onCreate={(id, rootPath) => { setNewThreadRootPath(rootPath); setNewThreadWorkspaceId(id) }} onModeChange={() => setApplicationView('code')} onAccounts={openThreadAccounts} onAddProject={() => setThreadProjectOpen(true)} onOpenInCode={async rootPath => {
         const existing = (await window.oxe.workspace.list()).find(workspace => isSameRootPath(workspace.rootPath, rootPath, window.oxe.app.platform))
         if (existing) await setActiveWorkspace(existing.id)
         else await createWorkspace({ rootPath, layoutPreset: 1, autoStart: false })
@@ -1000,9 +1010,10 @@ export function App(): ReactElement {
         onOpenScripts={toggleScriptsPanel}
         onOpenSearch={openCommandMenu}
         onSwitchToThread={() => { setHasOpenedThread(true); setApplicationView('thread') }}
+        onSelectMode={selectMode}
         integrationGroups={integrationGroups}
       />}
-      <section className={`workspace-surface${applicationView === 'thread' ? ' thread-workspace-surface' : ''}`}>
+      <section className={`workspace-surface${applicationView === 'thread' ? ' thread-workspace-surface' : applicationView === 'data' ? ' oq-surface' : ''}`}>
         {error ? <div className="error-banner">{error}</div> : null}
         {appNotice ? (
           <div className="error-banner">
@@ -1014,8 +1025,9 @@ export function App(): ReactElement {
           <div className="empty-state">
             <h3>Loading workspaces</h3>
           </div>
-        ) : activeWorkspace || applicationView === 'thread' ? (
+        ) : activeWorkspace || applicationView === 'thread' || applicationView === 'data' ? (
           <>
+            {hasOpenedData && <div className="oq-host" style={{ display: applicationView === 'data' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'data'}><Suspense fallback={<div className="empty-state">Loading OxeQuery…</div>}><OxeQueryView active={applicationView === 'data'} /></Suspense></div>}
             {hasOpenedThread && <div className="thread-host" style={{ display: applicationView === 'thread' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'thread'}><Suspense fallback={<div className="empty-state">Loading threads…</div>}><ThreadGrid onNewThread={newThread} onAccounts={openThreadAccounts} onDelegations={() => setDelegatedWorkOpen(true)} /></Suspense></div>}
             {workspaces
               // Include the active id synchronously. On a first visit the MRU

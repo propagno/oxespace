@@ -32,6 +32,26 @@ describe('TerminalManager', () => {
     } finally { manager.stopAll(); db.close(); rmSync(root, { recursive: true, force: true }) }
   })
 
+  test('starts a registered container shell with exactly the registered command and nothing else', async () => {
+    const db = openInMemoryDatabase()
+    const pty = createFakePtyModule()
+    const registered = new Map([['oxequery-shell:11111111-1111-4111-8111-111111111111', { file: 'docker', args: ['exec', '-it', 'pg-dev', 'sh'] }]])
+    const manager = new TerminalManager(db, { pty, platform: 'linux', oxeQueryShell: paneId => registered.get(paneId),
+      executionEnvironment: () => { throw Error('container shells must not receive workspace execution credentials') },
+      prepareLaunch: async () => { throw Error('container shells must not run launch integrations') } })
+    const input = { workspaceId: 'oxequery', paneId: 'oxequery-shell:11111111-1111-4111-8111-111111111111', disableRtk: true }
+    try {
+      await expect(manager.start({ ...input, agentCommand: 'rm -rf /' })).rejects.toThrow('registered command only')
+      await expect(manager.start({ ...input, launch: { executable: 'sh', args: ['-c', 'id'] } })).rejects.toThrow('registered command only')
+      await manager.start(input)
+      expect(pty.spawn).toHaveBeenCalledTimes(1)
+      expect(pty.spawn).toHaveBeenCalledWith('docker', ['exec', '-it', 'pg-dev', 'sh'], expect.anything())
+      // A pane id nobody registered is just a pane that does not exist.
+      await expect(manager.start({ ...input, paneId: 'oxequery-shell:22222222-2222-4222-8222-222222222222' })).rejects.toThrow()
+      expect(pty.spawn).toHaveBeenCalledTimes(1)
+    } finally { manager.stopAll(); db.close() }
+  })
+
   test('passes an exact native resume ID as separate agent arguments', async () => {
     const db = openInMemoryDatabase()
     const workspace = new WorkspaceService(db).create({ rootPath: 'C:/repo', layout: '1x1', autoStart: false })

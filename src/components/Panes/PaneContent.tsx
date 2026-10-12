@@ -1,9 +1,12 @@
-import { type ReactElement } from 'react'
+import { lazy, Suspense, type ReactElement } from 'react'
 import type { WorkspacePane } from '../../../shared/types/workspace'
-import { EditorPane } from '../Editor/EditorPane'
-import { ReviewPane } from '../Review/ReviewPane'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { TerminalPane } from './TerminalPane'
+
+// Editor and Review panes (Monaco, diff cards) are only needed once such a pane exists, so they stay out of the entry chunk.
+const EditorPane = lazy(() => import('../Editor/EditorPane').then(m => ({ default: m.EditorPane })))
+const ReviewPane = lazy(() => import('../Review/ReviewPane').then(m => ({ default: m.ReviewPane })))
+const loading = <div className="pane-loading" role="status" aria-label="Loading pane" />
 
 interface PaneContentProps {
   pane: WorkspacePane
@@ -18,11 +21,11 @@ export function PaneContent({ autoStart, pane, workspaceId, workspaceRootPath }:
   switch (pane.type) {
     case 'editor':
       return workspace
-        ? <EditorPane workspaceId={workspaceId} rootPath={workspace.rootPath} />
+        ? <Suspense fallback={loading}><EditorPane workspaceId={workspaceId} rootPath={workspace.rootPath} /></Suspense>
         : <TerminalPane pane={pane} workspaceId={workspaceId} workspaceRootPath={workspaceRootPath} autoStart={autoStart} />
     case 'review':
       return workspace
-        ? <ReviewPane workspaceId={workspaceId} rootPath={workspace.rootPath} />
+        ? <Suspense fallback={loading}><ReviewPane workspaceId={workspaceId} rootPath={workspace.rootPath} /></Suspense>
         : <TerminalPane pane={pane} workspaceId={workspaceId} workspaceRootPath={workspaceRootPath} autoStart={autoStart} />
     case 'terminal':
     case 'tasks':
