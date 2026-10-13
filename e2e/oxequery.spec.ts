@@ -293,6 +293,15 @@ test('OxeQuery stages a row edit, shows the SQL, applies it, exports a table and
     await expect(importDialog).toContainText('Imported 2 rows')
     await importDialog.getByRole('button', { name: 'Close', exact: true }).last().click()
 
+    // Saved queries and history come from the app database.
+    await page.getByRole('button', { name: 'Library' }).click()
+    const library = page.getByRole('dialog', { name: 'Saved queries and history' })
+    await expect(library).toContainText('Active users')
+    await library.getByRole('tab', { name: /History/ }).click()
+    await expect(library).toContainText('SELECT now()')
+    await page.keyboard.press('Escape')
+    await page.getByRole('button', { name: 'Library' }).click()
+
     // The execution plan is shown as a tree and marks the heavy step.
     await page.locator('.oq-editor .monaco-editor').click()
     await page.keyboard.press('Control+A')

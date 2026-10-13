@@ -11,6 +11,7 @@ import { MongoInputError, OxeQueryError, type ResolvedConnection } from './oxequ
 import { guardSql } from './sql-guard'
 import type { OxeQueryWorkerClient } from './worker-client'
 import { PickedFiles, type PickedKind } from './picked-files'
+import { LibraryInputError, QueryLibrary } from './query-library'
 
 type Raw = Record<string, unknown>
 const ACTIONS = new Set(['start', 'stop', 'restart', 'pause', 'unpause'])
@@ -43,7 +44,7 @@ function engine(value: unknown): ContainerEngine | undefined {
 export function toErrorInfo(error: unknown): OxeQueryErrorInfo {
   if (error instanceof OxeQueryError) return { code: error.code, message: error.message, ...(error.reasons.length ? { reasons: error.reasons } : {}) }
   if (error instanceof ContainerRuntimeError) return { code: error.code, message: error.message }
-  if (error instanceof ConnectionInputError || error instanceof MongoInputError) return { code: 'invalid', message: error.message }
+  if (error instanceof ConnectionInputError || error instanceof MongoInputError || error instanceof LibraryInputError) return { code: 'invalid', message: error.message }
   return { code: 'failed', message: error instanceof Error ? error.message.slice(0, 400) : 'OxeQuery failed.' }
 }
 
@@ -70,6 +71,7 @@ export class OxeQueryService {
   private readonly worker: OxeQueryServiceOptions['worker']
   private readonly shells = new Map<string, { file: string; args: string[] }>()
   private readonly picked = new PickedFiles()
+  private readonly library: QueryLibrary
   private readonly pickFile?: OxeQueryServiceOptions['pickFile']
   private readonly pickSavePath?: OxeQueryServiceOptions['pickSavePath']
   private readonly pickImportPath?: OxeQueryServiceOptions['pickImportPath']
@@ -79,6 +81,7 @@ export class OxeQueryService {
 
   constructor(options: OxeQueryServiceOptions) {
     this.connections = new ConnectionStore(options.db, options.cipher, this.picked)
+    this.library = new QueryLibrary(options.db)
     this.pickFile = options.pickFile
     this.pickSavePath = options.pickSavePath
     this.pickImportPath = options.pickImportPath
@@ -175,9 +178,28 @@ export class OxeQueryService {
       case 'sql.schemas': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.schemas', connection))
       case 'sql.tables': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.tables', connection, { schema: str(input.schema, 'Schema', 255) }))
       case 'sql.table': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.table', connection, { schema: str(input.schema, 'Schema', 255), table: str(input.table, 'Table', 255) }))
-      case 'sql.run': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.run', connection, {
-        sql: str(input.sql, 'SQL', 1024 * 1024), maxRows: optionalInt(input.maxRows, 1, 10_000), confirmed: input.confirmed === true
-      }))
+      case 'sql.run': return this.requireEngine(input.connectionId, 'postgres', async connection => {
+        const sql = str(input.sql, 'SQL', 1024 * 1024)
+        const started = Date.now()
+        try {
+          const result = await this.worker.call<{ columns: unknown[]; rowCount: number; affectedRows?: number }>('sql.run', connection, {
+            sql, maxRows: optionalInt(input.maxRows, 1, 10_000), confirmed: input.confirmed === true
+          })
+          this.library.record(connection.id, { sql, durationMs: Date.now() - started, rows: result.columns.length ? result.rowCount : result.affectedRows ?? null, ok: true })
+          return result
+        } catch (error) {
+          // A statement waiting for confirmation did not run, so it is not history yet.
+          if (!(error instanceof OxeQueryError && error.code === 'confirm')) this.library.record(connection.id, { sql, durationMs: Date.now() - started, rows: null, ok: false })
+          throw error
+        }
+      })
+      case 'library.list': return this.library.list(this.resolve(input.connectionId).id)
+      case 'library.save': return this.library.save({
+        connectionId: this.resolve(input.connectionId).id, name: str(input.name, 'Name', 120), sql: str(input.sql, 'SQL', 100_000),
+        ...(typeof input.id === 'string' && input.id ? { id: input.id.slice(0, 64) } : {})
+      })
+      case 'library.delete': return { deleted: this.library.remove(this.resolve(input.connectionId).id, str(input.id, 'Query', 64)) }
+      case 'library.clearHistory': return { deleted: this.library.clearHistory(this.resolve(input.connectionId).id) }
       case 'sql.browse': {
         const browse: SqlBrowseInput = {
           connectionId: str(input.connectionId, 'Connection', 64), schema: str(input.schema, 'Schema', 255), table: str(input.table, 'Table', 255),

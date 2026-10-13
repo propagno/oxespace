@@ -257,6 +257,9 @@ export interface SqlExplain {
 }
 export interface SqlExplainInput { connectionId: string; sql: string; analyze?: boolean; confirmed?: boolean }
 
+export interface SavedQuery { id: string; connectionId: string; name: string; sql: string; createdAt: number; updatedAt: number }
+export interface QueryHistoryItem { id: number; sql: string; ranAt: number; durationMs: number | null; rows: number | null; ok: boolean }
+
 export type ExportFormat = 'csv' | 'json' | 'ndjson' | 'sql'
 export type ExportSource =
   | { kind: 'sql'; sql: string }
@@ -403,6 +406,10 @@ export interface OxeQueryOps {
   'mongo.write': { input: MongoWriteInput; output: MongoWriteResult }
   'export.run': { input: ExportInput; output: ExportResult }
   'sql.explain': { input: SqlExplainInput; output: SqlExplain }
+  'library.list': { input: { connectionId: string }; output: { saved: SavedQuery[]; history: QueryHistoryItem[] } }
+  'library.save': { input: { connectionId: string; id?: string; name: string; sql: string }; output: SavedQuery }
+  'library.delete': { input: { connectionId: string; id: string }; output: { deleted: boolean } }
+  'library.clearHistory': { input: { connectionId: string }; output: { deleted: number } }
   'export.cancel': { input: { exportId: string }; output: { cancelled: boolean } }
   'import.preview': { input: { connectionId: string; target: ImportTarget }; output: ImportPreview }
   'import.run': { input: ImportRunInput; output: ImportResult }

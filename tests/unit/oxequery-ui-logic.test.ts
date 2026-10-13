@@ -1,32 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { HISTORY_LIMIT, pushHistory, readHistory, writeHistory } from '../../src/components/OxeQuery/query-history'
 import { sortedOrder, toCsv } from '../../src/components/OxeQuery/ResultGrid'
-
-describe('query history', () => {
-  const entry = (sql: string, at = 1) => ({ sql, at, ms: 3, rows: 1, ok: true })
-
-  it('keeps the newest first and a statement only once', () => {
-    let history = pushHistory([], entry('SELECT 1', 1))
-    history = pushHistory(history, entry('SELECT 2', 2))
-    history = pushHistory(history, entry('  SELECT 1  ', 3))
-    expect(history.map(item => item.sql)).toEqual(['SELECT 1', 'SELECT 2'])
-    expect(history[0].at).toBe(3)
-  })
-
-  it('ignores blank statements and stays bounded', () => {
-    expect(pushHistory([], entry('   '))).toEqual([])
-    let history = [] as ReturnType<typeof pushHistory>
-    for (let index = 0; index < HISTORY_LIMIT + 20; index++) history = pushHistory(history, entry(`SELECT ${index}`, index))
-    expect(history).toHaveLength(HISTORY_LIMIT)
-    expect(history[0].sql).toBe(`SELECT ${HISTORY_LIMIT + 19}`)
-  })
-
-  it('survives corrupt or unavailable storage', () => {
-    expect(readHistory('c', { getItem: () => '{not json' })).toEqual([])
-    expect(readHistory('c', { getItem: () => JSON.stringify([{ sql: 5 }, { sql: 'ok', at: 1 }]) })).toEqual([{ sql: 'ok', at: 1 }])
-    expect(() => writeHistory('c', [], { setItem: () => { throw new Error('quota') } })).not.toThrow()
-  })
-})
 
 describe('result grid helpers', () => {
   const rows: unknown[][] = [[10, 'b'], [2, 'a'], [null, 'c'], [33, null]]

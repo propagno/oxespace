@@ -1,12 +1,12 @@
 import Editor, { type OnMount } from '@monaco-editor/react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
-import { ChevronDown, ChevronRight, Gauge, History, Play, Plus, Square, Table2, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, Gauge, Play, Plus, Square, Table2, X } from 'lucide-react'
 // Side-effect: self-hosted Monaco (no CDN), required before <Editor> mounts.
 import '../../lib/monacoSetup'
 import type { OxeQueryConnection, SqlExplain, SqlResult, SqlTable, SqlTableDetails } from '../../../shared/types/oxequery'
 import { OxeQueryClientError, errorMessage, oq } from './client'
 import { ResultGrid, displayCell, toCsv, toJsonRows } from './ResultGrid'
-import { pushHistory, readHistory, writeHistory, type HistoryEntry } from './query-history'
+import { LibraryMenu } from './LibraryMenu'
 import { ExportButton, TableEditor } from './TableEditor'
 import { ImportButton } from './ImportDialog'
 import { ExplainView } from './ExplainView'
@@ -43,8 +43,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   const [maxRows, setMaxRows] = useState(500)
   const [pending, setPending] = useState<Pending | null>(null)
   const [selectedRow, setSelectedRow] = useState<number | null>(null)
-  const [history, setHistory] = useState<HistoryEntry[]>(() => readHistory(connection.id))
-  const [historyOpen, setHistoryOpen] = useState(false)
+  const [libraryTick, setLibraryTick] = useState(0)
   const editor = useRef<Parameters<OnMount>[0] | null>(null)
   const pendingExplain = useRef<string | null>(null)
   const active = tabs.find(tab => tab.id === activeId) ?? tabs[0]
@@ -55,14 +54,6 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
     setTabs(current => current.map(tab => tab.id === id ? { ...tab, ...change } : tab))
   }, [])
 
-  const record = useCallback((entry: HistoryEntry): void => {
-    setHistory(current => {
-      const next = pushHistory(current, entry)
-      writeHistory(connection.id, next)
-      return next
-    })
-  }, [connection.id])
-
   const run = useCallback(async (text: string, confirmed = false): Promise<void> => {
     const tab = activeRef.current
     if (!text.trim()) return
@@ -72,15 +63,13 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
     try {
       const result = await oq('sql.run', { connectionId: connection.id, sql: text, maxRows, confirmed })
       patch(tab.id, { result })
-      record({ sql: text, at: started, ms: result.durationMs, rows: result.columns.length ? result.rowCount : result.affectedRows ?? null, ok: true })
     } catch (cause) {
       if (cause instanceof OxeQueryClientError && cause.code === 'confirm') setPending({ sql: text, reasons: cause.reasons })
       else {
         patch(tab.id, { result: null, error: errorMessage(cause) })
-        record({ sql: text, at: started, ms: Date.now() - started, rows: null, ok: false })
       }
-    } finally { setRunning(false) }
-  }, [connection.id, maxRows, patch, record])
+    } finally { setRunning(false); setLibraryTick(value => value + 1) }
+  }, [connection.id, maxRows, patch])
 
   const explain = useCallback(async (analyze: boolean, confirmed = false): Promise<void> => {
     const tab = activeRef.current
@@ -158,13 +147,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
         <button type="button" onClick={() => { pendingExplain.current = null; void explain(true) }} disabled={running} title="Run the statement and show real timings. A statement that changes data is rolled back.">Analyze</button>
         <button type="button" onClick={cancel} disabled={!running} title="Cancel the running statement"><Square size={13} aria-hidden="true" />Cancel</button>
         <label className="oq-inline">Limit<select value={maxRows} onChange={event => setMaxRows(Number(event.target.value))}>{ROW_LIMITS.map(value => <option key={value} value={value}>{value} rows</option>)}</select></label>
-        <div className="oq-history">
-          <button type="button" aria-expanded={historyOpen} onClick={() => setHistoryOpen(value => !value)} disabled={history.length === 0}><History size={13} aria-hidden="true" />History</button>
-          {historyOpen && <ul role="listbox" aria-label="Query history">{history.map(item => <li key={`${item.at}:${item.sql}`}>
-            <button type="button" role="option" aria-selected="false" title={item.sql} onClick={() => { patch(active.id, { sql: item.sql }); setHistoryOpen(false) }}>
-              <code>{item.sql.replace(/\s+/g, ' ').slice(0, 90)}</code>
-              <small>{item.ok ? `${item.rows ?? '–'} rows · ${item.ms} ms` : 'failed'} · {new Date(item.at).toLocaleTimeString()}</small></button></li>)}</ul>}
-        </div>
+        <LibraryMenu connection={connection} currentSql={active.sql} refreshKey={libraryTick} onPick={sql => patch(active.id, { sql })} />
         <span className="oq-spacer" />
         <span className="oq-badge" data-environment={connection.environment}>{connection.environment}</span>
         <span className="oq-badge" data-readonly={connection.readOnly} title={connection.readOnly ? 'The server refuses statements that change data' : 'This connection can change data'}>{connection.readOnly ? 'read-only' : 'read-write'}</span>
