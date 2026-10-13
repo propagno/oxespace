@@ -1,49 +1,10 @@
-<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <!-- Dark navy background: deep space, not purple -->
-    <linearGradient id="bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#0E1F30"/>
-      <stop offset="100%" stop-color="#070F1A"/>
-    </linearGradient>
-    <!-- Subtle teal ambient at center -->
-    <radialGradient id="amb" cx="128" cy="128" r="88" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#12C79A" stop-opacity="0.09"/>
-      <stop offset="100%" stop-color="#12C79A" stop-opacity="0"/>
-    </radialGradient>
-    <!-- Arc gradient: teal → sky (diagonal, bottom-left to top-right) -->
-    <linearGradient id="arc" x1="70" y1="186" x2="186" y2="70" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#12C79A"/>
-      <stop offset="100%" stop-color="#38BDF8"/>
-    </linearGradient>
-    <!-- Node bloom -->
-    <filter id="bloom" x="-70%" y="-70%" width="240%" height="240%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-  </defs>
-
-  <!-- Background -->
-  <rect width="256" height="256" rx="56" fill="url(#bg)"/>
-  <rect width="256" height="256" rx="56" fill="url(#amb)"/>
-
-  <!--
-    270° orbital arc — OXESpace mark.
-    Center 128,128  Radius 82  Gap at bottom-right.
-    Start (bottom-left): 128 − 82·0.707 = 70.0 , 128 + 82·0.707 = 186.0
-    End   (top-right):   128 + 82·0.707 = 186.0 , 128 − 82·0.707 = 70.0
-    large-arc=1 sweep=1 → 270° clockwise through left → top → right
-  -->
-  <path d="M 70 186 A 82 82 0 1 1 186 70"
-        stroke="url(#arc)" stroke-width="12" fill="none" stroke-linecap="round"/>
-
-  <!-- Terminal prompt ">_" centered in arc -->
-  <path d="M 90 106 L 118 128 L 90 150"
-        stroke="white" stroke-width="11.5" fill="none"
-        stroke-linecap="round" stroke-linejoin="round" opacity="0.86"/>
-  <rect x="126" y="115" width="22" height="26" rx="5" fill="white" opacity="0.60"/>
-
-  <!-- Agent node at arc end: sky blue ring + white core -->
-  <circle cx="186" cy="70" r="17" fill="#38BDF8" opacity="0.20" filter="url(#bloom)"/>
-  <circle cx="186" cy="70" r="10.5" fill="#38BDF8"/>
-  <circle cx="186" cy="70" r="5" fill="white"/>
+<svg width="256" height="256" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+  <!-- OXESpace · Mandacaru (docs/design/brand.md): white cactus on caatinga green, with the sertão sun. -->
+  <rect width="44" height="44" rx="10" fill="#1f6b4a"/>
+  <g transform="translate(4.4 4.4) scale(0.8)" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M22 39V8"/>
+    <path d="M22 27h-6a4 4 0 0 1-4-4v-7"/>
+    <path d="M22 21h6a4 4 0 0 0 4-4v-6"/>
+  </g>
+  <circle cx="12.4" cy="11.2" r="2.8" fill="#e8a33d"/>
 </svg>

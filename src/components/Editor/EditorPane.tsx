@@ -7,6 +7,7 @@ import { useOxeVoice } from '../../hooks/useOxeVoice'
 // never reaches for the jsdelivr CDN — works behind corporate VPN/proxy and
 // satisfies the packaged-build CSP. Must run before <Editor> mounts.
 import '../../lib/monacoSetup'
+import { MONACO_THEME } from '../../lib/monacoTheme'
 import type { FileTreeNode } from '../../../shared/types/ipc'
 import { selectActiveFile, useEditorStore } from '../../store/editor.store'
 import { isBinaryPreview, previewKind } from '../Preview/previewKind'
@@ -375,14 +376,14 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
               <Editor
                 height={editorHeight}
                 width={editorWidth}
-                theme="vs-dark"
+                theme={MONACO_THEME}
                 language={file.language}
                 value={file.content}
                 loading={<div className="editor-loading">Loading</div>}
                 options={{
                   minimap: { enabled: false },
                   fontSize: 13,
-                  fontFamily: 'Cascadia Code, JetBrains Mono, Fira Code, DejaVu Sans Mono, monospace',
+                  fontFamily: "'IBM Plex Mono', 'Cascadia Code', 'JetBrains Mono', 'DejaVu Sans Mono', monospace",
                   automaticLayout: true,
                   scrollBeyondLastLine: false,
                   scrollbar: {

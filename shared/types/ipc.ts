@@ -75,7 +75,8 @@ export const IPC_CHANNELS = {
     getUpdateState: 'app:get-update-state',
     checkForUpdates: 'app:check-for-updates',
     quitAndInstall: 'app:quit-and-install',
-    onUpdateState: 'app:update-state'
+    onUpdateState: 'app:update-state',
+    setAppearance: 'app:set-appearance'
   },
   rtk: {
     getStatus: 'rtk:get-status',
@@ -691,6 +692,8 @@ export interface AppUpdateApi {
   checkForUpdates(): Promise<import('./updater').AppUpdateState>
   quitAndInstall(): Promise<boolean>
   onUpdateState(listener: (state: import('./updater').AppUpdateState) => void): () => void
+  /** Mirrors the person's light/dark choice into the native window; resolves to the mode in effect. */
+  setAppearance?(mode: 'system' | 'light' | 'dark'): Promise<'light' | 'dark'>
 }
 
 export interface RtkApi {

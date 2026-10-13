@@ -3,6 +3,7 @@ import log from 'electron-log/main.js'
 import { recordRuntime, startRuntimeDiagnostics, stopRuntimeDiagnostics } from './services/runtime-diagnostics'
 import { initAutoUpdater, registerAppUpdateIpc } from './updater'
 import { RendererRecoveryPolicy } from './renderer-recovery'
+import { initialWindowColors, registerAppearanceIpc } from './ipc/appearance.ipc'
 import { randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -111,6 +112,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   // App update + RTK sidecar IPC are always registered (even on native failure
   // / e2e mocks below) so Settings and the update banner keep working.
   registerAppUpdateIpc()
+  registerAppearanceIpc()
   void registerRtkIpc()
   registerBrowserPreviewIpc()
 
@@ -684,7 +686,7 @@ function createMainWindow(): BrowserWindow {
   // its traffic lights inset and its native application menu.
   const frameOptions: Partial<Electron.BrowserWindowConstructorOptions> = process.platform === 'darwin'
     ? { titleBarStyle: 'hiddenInset' }
-    : { titleBarStyle: 'hidden', titleBarOverlay: { color: '#00000000', symbolColor: '#c5c5c5', height: 36 } }
+    : { titleBarStyle: 'hidden', titleBarOverlay: { color: '#00000000', symbolColor: initialWindowColors().symbols, height: 36 } }
 
   const mainWindow = new BrowserWindow({
     width: 1280,
@@ -694,7 +696,7 @@ function createMainWindow(): BrowserWindow {
     show: false,
     title: 'OXESpace',
     icon: iconPath,
-    backgroundColor: '#0d0f14',
+    backgroundColor: initialWindowColors().background,
     ...frameOptions,
     webPreferences: {
       preload: join(app.getAppPath(), 'out', 'preload', 'index.cjs'),

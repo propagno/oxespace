@@ -1,40 +1,10 @@
-import { DiffEditor, type Monaco } from '@monaco-editor/react'
+import { DiffEditor } from '@monaco-editor/react'
 import { useEffect, useRef, type ReactElement } from 'react'
 import type { DiffComment, DiffSide } from '../../../shared/types/diff-comments'
 import { attachLineComments } from './diffLineComments'
 // Self-hosts Monaco and registers its workers (CSP-compliant, offline).
 import '../../lib/monacoSetup'
-
-const THEME = 'oxe-diff'
-
-function token(name: string, fallback: string): string {
-  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-  return value.startsWith('#') ? value : fallback
-}
-
-/** Diff colours follow the workspace theme; additions/removals match the reference. */
-function defineTheme(monaco: Monaco): void {
-  monaco.editor.defineTheme(THEME, {
-    base: 'vs-dark',
-    inherit: true,
-    rules: [],
-    colors: {
-      'editor.background': token('--bg-app', '#21222c'),
-      'editorGutter.background': token('--bg-app', '#21222c'),
-      'editor.lineHighlightBackground': '#00000000',
-      'editorLineNumber.foreground': token('--tx-muted', '#8a8a8f'),
-      'diffEditor.insertedLineBackground': '#2ea04326',
-      'diffEditor.removedLineBackground': '#f8514926',
-      'diffEditor.insertedTextBackground': '#2ea04340',
-      'diffEditor.removedTextBackground': '#f8514940',
-      'diffEditorGutter.insertedLineBackground': '#2ea04340',
-      'diffEditorGutter.removedLineBackground': '#f8514940',
-      'diffEditor.unchangedRegionBackground': token('--bg-sidebar', '#282a36'),
-      'diffEditor.unchangedRegionForeground': token('--tx-secondary', '#c5c5c5'),
-      'diffEditor.border': token('--wb-border', '#414249')
-    }
-  })
-}
+import { MONACO_THEME, defineMonacoTheme } from '../../lib/monacoTheme'
 
 const HIDDEN_LINES = /^(\d+) hidden lines?$/
 
@@ -70,8 +40,8 @@ export default function MonacoDiff({ original, modified, language, path, review 
     original={original}
     modified={modified}
     language={language}
-    theme={THEME}
-    beforeMount={defineTheme}
+    theme={MONACO_THEME}
+    beforeMount={defineMonacoTheme}
     onMount={(editor, monaco) => {
       for (const dispose of cleanup.current.splice(0)) dispose()
       const dom = editor.getContainerDomNode()
@@ -81,9 +51,6 @@ export default function MonacoDiff({ original, modified, language, path, review 
         frame = requestAnimationFrame(() => relabelFolds(dom))
       })
       observer.observe(dom, { childList: true, subtree: true, characterData: true })
-      // Follow workspace theme switches without remounting the editor.
-      const themeObserver = new MutationObserver(() => { defineTheme(monaco); monaco.editor.setTheme(THEME) })
-      themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
       relabelFolds(dom)
       const comments = attachLineComments(editor, monaco, {
         comments: () => latest.current?.comments ?? [],
@@ -91,7 +58,7 @@ export default function MonacoDiff({ original, modified, language, path, review 
         remove: id => latest.current?.onRemove(id)
       })
       sync.current = comments.sync
-      cleanup.current.push(() => { sync.current = null; comments.dispose(); cancelAnimationFrame(frame); observer.disconnect(); themeObserver.disconnect() })
+      cleanup.current.push(() => { sync.current = null; comments.dispose(); cancelAnimationFrame(frame); observer.disconnect() })
     }}
     options={{
       readOnly: true,

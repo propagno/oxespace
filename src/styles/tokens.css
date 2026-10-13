@@ -1,85 +1,74 @@
-/* ─── Design tokens ──────────────────────────────────────────────────────── */
+/* ─── Compatibility bridge ─────────────────────────────────────────────────
+   The design tokens live in src/design/tokens and are generated into
+   tokens.generated.css (light and dark mode). This file maps the names the
+   existing CSS still uses onto those semantic roles, so every surface follows
+   the active mode while it is migrated to src/ui. Do not add new names here;
+   use the semantic tokens (--surface-*, --text-*, --border-*, --intent-*). */
 :root {
   /* Backgrounds */
-  --bg-app:           #21222c;
-  --bg-sidebar:       #282a36;
-  --bg-elevated:      #32333c;
-  --bg-tile:          #21222c;
-  --bg-tile-header:   #282a36;
-  --bg-tile-agent:    #21222c;
-  --bg-tile-content:  #21222c;
-  --bg-terminal-surface: #21222c;
-  --bg-statusbar:     #282a36;
-  --bg-ws-active:     #353846;
-  --bg-ws-hover:      #353846;
-  --bg-modal:         #32333c;
-  --bg-input:         #282a36;
-  --bg-segment:       #32333c;
-  --bg-hover:         var(--nav-hover);
-  --bg-subtle:        var(--wb-raised);
-  /* Aliases for names that were referenced in component CSS without a
-     definition (the whole declaration was silently dropped). */
-  --bg-surface:       var(--wb-raised);
-  --warning:          var(--dot-yellow);
+  --bg-app:             var(--surface-canvas);
+  --bg-sidebar:         var(--surface-chrome);
+  --bg-elevated:        var(--surface-raised);
+  --bg-tile:            var(--surface-base);
+  --bg-tile-header:     var(--surface-chrome);
+  --bg-tile-agent:      var(--surface-base);
+  --bg-tile-content:    var(--surface-base);
+  --bg-terminal-surface: var(--surface-base);
+  --bg-statusbar:       var(--surface-chrome);
+  --bg-ws-active:       var(--fill-selected);
+  --bg-ws-hover:        var(--fill-hover);
+  --bg-modal:           var(--surface-overlay);
+  --bg-input:           var(--surface-base);
+  --bg-segment:         var(--surface-sunken);
+  --bg-hover:           var(--fill-hover);
+  --bg-subtle:          var(--surface-raised);
+  --bg-surface:         var(--surface-raised);
+  --warning:            var(--intent-warning-solid);
 
-  /* Workbench roles are shared by Code, Thread and settings. */
-  --wb-canvas:        var(--bg-app);
-  --wb-sidebar:       var(--bg-sidebar);
-  --wb-chrome:        var(--bg-sidebar);
-  --wb-raised:        var(--bg-elevated);
-  --wb-selection:     #353846;
-  --wb-border:        #414249;
-  --wb-focus:         #717fb8;
+  /* Workbench roles */
+  --wb-canvas:          var(--surface-canvas);
+  --wb-sidebar:         var(--surface-chrome);
+  --wb-chrome:          var(--surface-chrome);
+  --wb-raised:          var(--surface-raised);
+  --wb-selection:       var(--fill-selected);
+  --wb-border:          var(--border-default);
+  --wb-focus:           var(--border-focus);
 
   /* Borders */
-  --bd-tile:          1px solid var(--wb-border);
-  --bd-divider:       var(--wb-border);
-  --bd-sidebar:       var(--wb-border);
-  --bd-ws-active:     var(--wb-focus);
-  --bd-input:         var(--wb-border);
-  --bd-input-focus:   var(--wb-focus);
-  --bd-subtle:        var(--wb-border);
-  --bd-base:          var(--wb-border);
+  --bd-tile:            1px solid var(--border-default);
+  --bd-divider:         var(--border-default);
+  --bd-sidebar:         var(--border-default);
+  --bd-ws-active:       var(--border-focus);
+  --bd-input:           var(--border-default);
+  --bd-input-focus:     var(--border-focus);
+  --bd-subtle:          var(--border-subtle);
+  --bd-base:            var(--border-default);
 
-  /* Text — WCAG AA on near-black: muted ≥4.5:1 body, secondary clearer hierarchy */
-  --tx-primary:       #f8f8f2;
-  --tx-secondary:     #c5c5c5;
-  --tx-muted:         #a6a6a7;
-  --tx-label:         #a6a6a7;
-  --tx-agent-meta:    #c5c5c5;
+  /* Text */
+  --tx-primary:         var(--text-primary);
+  --tx-secondary:       var(--text-secondary);
+  --tx-muted:           var(--text-muted);
+  --tx-label:           var(--text-muted);
+  --tx-agent-meta:      var(--text-secondary);
+  --tx-status-failure:  var(--intent-danger-fg);
 
-  /* Status dots */
-  --dot-green:        #34d474;
-  --dot-orange:       #f97316;
-  --dot-yellow:       #fbbf24;
-  --dot-blue:         #60a5fa;
-  --dot-purple:       #c084fc;
-  --dot-gray:         #3b4260;
-  --dot-red:          #f87171;
+  /* Status colors */
+  --dot-green:          var(--intent-success-solid);
+  --dot-orange:         var(--intent-warning-solid);
+  --dot-yellow:         var(--intent-warning-solid);
+  --dot-blue:           var(--intent-info-solid);
+  --dot-purple:         var(--avatar-2);
+  --dot-gray:           var(--text-disabled);
+  --dot-red:            var(--intent-danger-solid);
 
-  /* Brand — OXESpace identity */
-  --brand:            #8b97cc;
-  --brand-light:      #aeb9e0;
-  --brand-lightest:   #d8def2;
-  --brand-dark:       #343d62;
-  --brand-glow:       rgba(113, 127, 184, 0.28);
-
-  /* Provider icons */
-  --provider-claude:  #b5694a;
-  --provider-copilot: #24b2d5;
-  --provider-antigravity: #1a73e8;
-  --provider-codex:   #10a37f;
-  --provider-cursor:  #6366f1;
-  --provider-grok:    #111111;
-  --provider-custom:  #475569;
-
-  /* Avatar palette */
-  --avatar-1: #2563eb;
-  --avatar-2: #7c3aed;
-  --avatar-3: #db2777;
-  --avatar-4: #d97706;
-  --avatar-5: #059669;
-  --avatar-6: #0891b2;
+  /* Brand (the accent of the active mode) */
+  --brand:              var(--accent);
+  --brand-light:        var(--text-accent);
+  --brand-lightest:     var(--accent-soft);
+  --brand-dark:         var(--accent-hover);
+  --brand-glow:         color-mix(in srgb, var(--accent) 28%, transparent);
+  --badge-bg:           var(--accent);
+  --badge-text:         var(--text-on-accent);
 
   /* Pane active state */
   --bg-pane-active-header: color-mix(in srgb, var(--accent) 6%, transparent);
@@ -87,25 +76,19 @@
   --glow-pane-active:      0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
 
   /* Badge / status surfaces */
-  --bg-badge-running:  rgba(52, 212, 116, 0.12);
-  --bg-badge-error:    rgba(248, 113, 113, 0.12);
-  --bg-badge-idle:     rgba(99, 107, 117, 0.12);
-
-  /* Accents */
-  --accent:           #aeb9e0;
-  --accent-hover:     #d8def2;
-  --badge-bg:         #28190e;
-  --badge-text:       #fff;
+  --bg-badge-running:   var(--intent-success-bg);
+  --bg-badge-error:     var(--intent-danger-bg);
+  --bg-badge-idle:      var(--fill-hover);
 
   /* Sizing */
   --nav-row-h: 32px;
-  --control-h: 30px;
+  --control-h: var(--control-lg);
   --chrome-h: 42px;
   --chrome-inset: 14px;
-  --nav-radius: 5px;
-  --surface-radius: 8px;
-  --nav-selected: var(--wb-selection);
-  --nav-hover: color-mix(in srgb, var(--tx-primary) 8%, transparent);
+  --nav-radius: var(--radius-sm);
+  --surface-radius: var(--radius-md);
+  --nav-selected: var(--fill-selected);
+  --nav-hover: var(--fill-hover);
   --sidebar-w:        280px;
   --sidebar-w-collapsed: var(--rail-w);
   --tile-header-h:    40px;
@@ -113,299 +96,89 @@
   --tile-statusbar-h: 28px;
   --ws-item-h:        40px;
 
-  /* Window frame — inset panels with a shared gap and radius (redesign). */
+  /* Window frame */
   --frame-gap:        6px;
-  --frame-radius:     12px;
-  --panel-radius:     10px;
+  --frame-radius:     var(--radius-lg);
+  --panel-radius:     var(--radius-lg);
   --rail-w:           48px;
-  --hit-min:          28px;
+  --hit-min:          var(--control-md);
 
-  /* Radii — standardized after Claude-style redesign (replaces ad-hoc 5/7/10/12 values) */
-  /* Neutral overlays for hover / selected / divider fills on dark surfaces. */
-  --ov-1: rgba(255, 255, 255, 0.04);
-  --ov-2: rgba(255, 255, 255, 0.07);
-  --ov-3: rgba(255, 255, 255, 0.11);
+  /* Neutral overlays follow the mode: a tint of the text color. */
+  --ov-1: color-mix(in srgb, var(--text-primary) 4%, transparent);
+  --ov-2: color-mix(in srgb, var(--text-primary) 7%, transparent);
+  --ov-3: color-mix(in srgb, var(--text-primary) 11%, transparent);
+  --surface-quiet:    var(--ov-1);
+  --surface-hover:    var(--fill-hover);
+  --surface-active:   var(--fill-pressed);
+
+  /* Radii */
   --radius-xs:        4px;
-  --radius-sm:        5px;
-  --radius-md:        8px;
-  --radius-lg:        12px;
-  --radius-pill:      999px;
+  --radius-pill:      var(--radius-full);
 
-  /* Spacing scale — anchor primitives to a consistent vertical rhythm */
-  --space-xs:         4px;
-  --space-sm:         8px;
-  --space-md:         12px;
-  --space-lg:         16px;
-  --space-xl:         24px;
-  --space-2xl:        32px;
+  /* Spacing */
+  --space-xs:         var(--space-1);
+  --space-sm:         var(--space-2);
+  --space-md:         var(--space-3);
+  --space-lg:         var(--space-4);
+  --space-xl:         var(--space-6);
+  --space-2xl:        var(--space-8);
 
-  /* Shadows — Claude-style: low elevation, very gentle, never saturated */
-  --shadow-sm:        0 1px 2px rgba(0, 0, 0, 0.20);
-  --shadow-md:        0 4px 12px rgba(0, 0, 0, 0.28);
-  --shadow-lg:        0 8px 24px rgba(0, 0, 0, 0.35);
-  --shadow-modal:     0 12px 40px rgba(0, 0, 0, 0.40), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  /* Shadows */
+  --shadow-sm:        var(--elevation-1);
+  --shadow-md:        var(--elevation-2);
+  --shadow-lg:        var(--elevation-3);
+  --shadow-modal:     var(--elevation-4);
 
-  /* Motion — slower than the original 80–100ms feel, matches Claude's ease-out */
-  --transition-fast:  120ms ease-out;
-  --transition-base:  200ms ease-out;
-  --transition-slow:  320ms ease-out;
+  /* Motion */
+  --transition-fast:  var(--duration-fast) var(--ease-standard);
+  --transition-base:  var(--duration-base) var(--ease-standard);
+  --transition-slow:  var(--duration-slow) var(--ease-standard);
 
-  /* Translucent surfaces — reuse instead of sprinkling rgba literals across files */
-  --surface-quiet:    rgba(255, 255, 255, 0.03);
-  --surface-hover:    rgba(255, 255, 255, 0.06);
-  --surface-active:   rgba(255, 255, 255, 0.08);
-
-  /* Terminal workbench — one elevated surface per pane, never a card inside a
-     card. These derive from the active workspace theme instead of pinning the
-     terminal shell to Midnight's near-black palette. */
-  --workspace-canvas: var(--wb-canvas);
-  --pane-surface: var(--bg-tile-content);
-  --pane-surface-raised: var(--wb-raised);
-  --pane-border: var(--wb-border);
-  --pane-border-active: var(--wb-focus);
+  /* Terminal workbench */
+  --workspace-canvas: var(--surface-canvas);
+  --pane-surface: var(--surface-base);
+  --pane-surface-raised: var(--surface-raised);
+  --pane-border: var(--border-default);
+  --pane-border-active: var(--border-focus);
   --pane-radius: var(--panel-radius);
   --pane-gap: var(--frame-gap);
   --pane-shadow: none;
-  --pane-shadow-active: 0 0 0 1px var(--wb-focus);
+  --pane-shadow-active: 0 0 0 1px var(--border-focus);
 
-  /* Fonts — Inter is bundled (@fontsource-variable/inter) so the UI is stable
-     everywhere. The rest are per-OS preferences: Segoe/Cascadia/Consolas exist
-     only on Windows, so the Linux families are listed before the generic
-     keyword or the mono stack would fall through to a bitmap default. */
-  --font-ui:   'Inter Variable', 'Inter', 'Segoe UI Variable', 'Segoe UI', 'Ubuntu', 'Cantarell', 'DejaVu Sans', system-ui, -apple-system, sans-serif;
-  --font-mono: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', 'Consolas', 'DejaVu Sans Mono', 'Ubuntu Mono', 'Liberation Mono', ui-monospace, monospace;
+  /* Type scale */
+  --fs-2xs:    var(--text-2xs);
+  --fs-xs:     var(--text-xs);
+  --fs-sm:     var(--text-sm);
+  --fs-base:   var(--text-md);
+  --fs-lg:     var(--text-lg);
+  --fs-xl:     var(--text-xl);
+  --fs-2xl:    22px;
+  --fs-display: var(--text-display);
+  --lh-base:   var(--leading-normal);
+  --lh-tight:  var(--leading-snug);
 
-  /* Type scale — mirrors Codex Desktop baseline (14px primary). */
-  --fs-base:   14px;  /* body, primary UI text */
-  --fs-lg:     15px;  /* primary headings inside panels */
-  --fs-sm:     13px;  /* secondary UI text, sidebar list items */
-  --fs-xs:     12px;  /* metadata, hint text, badges */
-  --fs-2xs:    11px;  /* dense status chips, last resort */
-  --fs-xl:     18px;  /* section titles */
-  --fs-2xl:    22px;  /* page titles */
-  --fs-display: 28px; /* hero / empty-state headline */
-  --lh-base:   1.5;
-  --lh-tight:  1.35;
-
-  color: var(--tx-primary);
-  background: var(--bg-app);
+  color: var(--text-primary);
+  background: var(--surface-canvas);
   font-family: var(--font-ui);
-  font-size: var(--fs-base);
-  line-height: var(--lh-base);
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  /* Render native controls (select popups, scrollbars, pickers) in dark mode
-     so <select> dropdown lists don't open with a white background. */
-  color-scheme: dark;
 }
 
-/* Belt-and-suspenders: explicit dark option colors for the native dropdown
-   popup, since some Chromium builds ignore color-scheme for <option> bg. */
+/* Explicit option colors for the native dropdown popup, since some Chromium
+   builds ignore color-scheme for <option> backgrounds. */
 select option,
 select optgroup {
-  background-color: var(--bg-elevated);
-  color: var(--tx-primary);
+  background-color: var(--surface-overlay);
+  color: var(--text-primary);
 }
 
 :root[data-density='comfortable'] {
   --nav-row-h: 40px;
-  --control-h: 36px;
-  --fs-base:   15px;
-  --fs-lg:     16px;
-  --fs-sm:     14px;
-  --fs-xs:     13px;
-  --fs-2xs:    12px;
-}
-
-:root[data-theme='midnight'] {
-  --bg-app: #21222c;
-  --bg-sidebar: #282a36;
-  --bg-elevated: #32333c;
-  --bg-tile: #21222c;
-  --bg-tile-header: #282a36;
-  --bg-tile-agent: #21222c;
-  --bg-tile-content: #21222c;
-  --bg-terminal-surface: #21222c;
-  --bg-statusbar: #282a36;
-  --bg-ws-active: #353846;
-  --bg-ws-hover: #353846;
-  --bg-modal: #32333c;
-  --bg-input: #282a36;
-  --bg-segment: #32333c;
-  --wb-selection: #353846;
-  --wb-border: #414249;
-  --wb-focus: #717fb8;
-  --tx-primary: #f8f8f2;
-  --tx-secondary: #c5c5c5;
-  --tx-muted: #a6a6a7;
-  --accent: #aeb9e0;
-  --accent-hover: #d8def2;
-}
-
-/* Keep existing palettes coherent when a workspace has a non-default theme. */
-:root[data-theme]:not([data-theme='midnight']) {
-  --wb-border: var(--bd-divider);
-  --wb-selection: color-mix(in srgb, var(--tx-primary) 9%, var(--bg-sidebar));
-  --wb-focus: var(--accent);
-}
-
-:root[data-theme='nord'] {
-  --bg-app: #0b1119;
-  --bg-sidebar: #101722;
-  --bg-elevated: #182230;
-  --bg-tile-content: #0b1119;
-  --bd-divider: #223044;
-  --bd-sidebar: #253449;
-  --tx-primary: #eceff4;
-  --tx-secondary: #d0dae8;
-  --tx-muted: #9aabbf;
-  --accent: #88c0d0;
-  --accent-hover: #8fbcbb;
-  --bd-ws-active: #88c0d0;
-}
-
-:root[data-theme='dracula'] {
-  --bg-app: #070707;
-  --bg-sidebar: #09090b;
-  --bg-elevated: #121215;
-  --bg-tile-content: #070707;
-  --bd-divider: rgba(255, 255, 255, 0.08);
-  --bd-sidebar: rgba(255, 255, 255, 0.08);
-  --tx-primary: #f8f8f2;
-  --tx-secondary: #d8d2fa;
-  --tx-muted: #a8a0c4;
-  --accent: #10b981;
-  --accent-hover: #34d399;
-  --bd-ws-active: #10b981;
-}
-
-:root[data-theme='ocean'] {
-  --bg-app: #001318;
-  --bg-sidebar: #031f26;
-  --bg-elevated: #082b33;
-  --bg-tile-content: #001318;
-  --bd-divider: #12414d;
-  --bd-sidebar: #103943;
-  --tx-primary: #e6fbff;
-  --tx-secondary: #b0e8f2;
-  --tx-muted: #7eb0ba;
-  --accent: #22d3ee;
-  --accent-hover: #67e8f9;
-  --bd-ws-active: #22d3ee;
-}
-
-:root[data-theme='monokai'] {
-  --bg-app: #11110d;
-  --bg-sidebar: #17170f;
-  --bg-elevated: #24251a;
-  --bg-tile-content: #11110d;
-  --bd-divider: #343522;
-  --bd-sidebar: #2b2c1c;
-  --tx-primary: #f8f8f2;
-  --tx-secondary: #e0e1c8;
-  --tx-muted: #b0b190;
-  --accent: #a6e22e;
-  --accent-hover: #f4bf75;
-  --bd-ws-active: #a6e22e;
-}
-
-:root[data-theme='amber'] {
-  --bg-app: #130d05;
-  --bg-sidebar: #1a1107;
-  --bg-elevated: #27190a;
-  --bg-tile-content: #130d05;
-  --bd-divider: #3b260d;
-  --bd-sidebar: #33200a;
-  --tx-primary: #fff7ed;
-  --tx-secondary: #fed7aa;
-  --tx-muted: #d4a574;
-  --accent: #f59e0b;
-  --accent-hover: #fbbf24;
-  --bd-ws-active: #f59e0b;
-}
-
-:root[data-theme='rose-pine'] {
-  --bg-app: #191724;
-  --bg-sidebar: #1f1d2e;
-  --bg-elevated: #26233a;
-  --bg-tile-content: #191724;
-  --bd-divider: #2a2837;
-  --bd-sidebar: #312f42;
-  --tx-primary: #e0def4;
-  --tx-secondary: #d0b8f0;
-  --tx-muted: #b0acc8;
-  --accent: #ebbcba;
-  --accent-hover: #f6c177;
-  --bd-ws-active: #ebbcba;
-}
-
-:root[data-theme='gruvbox'] {
-  --bg-app: #1d2021;
-  --bg-sidebar: #282828;
-  --bg-elevated: #3c3836;
-  --bg-tile-content: #1d2021;
-  --bd-divider: #504945;
-  --bd-sidebar: #665c54;
-  --tx-primary: #ebdbb2;
-  --tx-secondary: #d5c4a1;
-  --tx-muted: #bdae93;
-  --accent: #fabd2f;
-  --accent-hover: #fe8019;
-  --bd-ws-active: #fabd2f;
-}
-
-:root[data-theme='one-dark'] {
-  --bg-app: #282c34;
-  --bg-sidebar: #21252b;
-  --bg-elevated: #282c34;
-  --bg-tile-content: #282c34;
-  --bd-divider: #181a1f;
-  --bd-sidebar: #181a1f;
-  --tx-primary: #e6e8eb;
-  --tx-secondary: #b0b6c0;
-  --tx-muted: #969daa;
-  --accent: #61afef;
-  --accent-hover: #98c379;
-  --bd-ws-active: #61afef;
-}
-
-:root[data-theme='synthwave84'] {
-  --bg-app: #2b213a;
-  --bg-sidebar: #241b2f;
-  --bg-elevated: #372948;
-  --bg-tile-content: #2b213a;
-  --bd-divider: #44355b;
-  --bd-sidebar: #382c4a;
-  --tx-primary: #f0efe1;
-  --tx-secondary: #fdfdfd;
-  --tx-muted: #a8aeb8;
-  --accent: #ff7edb;
-  --accent-hover: #36ade2;
-  --bd-ws-active: #ff7edb;
-}
-
-:root[data-theme='github-dark'] {
-  --bg-app: #0d1117;
-  --bg-sidebar: #161b22;
-  --bg-elevated: #21262d;
-  --bg-tile-content: #0d1117;
-  --bd-divider: #30363d;
-  --bd-sidebar: #21262d;
-  --tx-primary: #e6edf3;
-  --tx-secondary: #b1bac4;
-  --tx-muted: #8b949e;
-  --accent: #58a6ff;
-  --accent-hover: #1f6feb;
-  --bd-ws-active: #58a6ff;
-}
-
-:root[data-density='comfortable'] {
   --tile-header-h: 46px;
   --tile-agent-h: 92px;
   --tile-statusbar-h: 34px;
   --ws-item-h: 46px;
 }
-
-
-:root { --tx-status-failure: color-mix(in srgb, var(--dot-red) 75%, var(--tx-primary)); }

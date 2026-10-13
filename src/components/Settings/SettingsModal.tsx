@@ -15,9 +15,11 @@ import {
   RefreshCw,
   Settings2,
   SquareTerminal,
+  Palette,
   X,
   Zap
 } from 'lucide-react'
+import { AppearanceSettings } from './AppearanceSettings'
 import { useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import type { AgentProfile, AgentProvider, AgentReadiness } from '../../../shared/types/agent'
 import type { VoiceModelSize, VoiceModelStatus } from '../../../shared/types/voice'
@@ -66,10 +68,11 @@ function formatCheckedAgo(ts: number | null): string | null {
   return `Checked ${Math.floor(sec / 86400)} d ago`
 }
 
-export type SettingsSection = 'providers' | 'terminal' | 'voice' | 'notifications' | 'updates' | 'diagnostics'
+export type SettingsSection = 'providers' | 'appearance' | 'terminal' | 'voice' | 'notifications' | 'updates' | 'diagnostics'
 
 export function SettingsContent({ section, ...props }: SettingsModalProps & { section: SettingsSection }): ReactElement {
   switch (section) {
+    case 'appearance': return <AppearanceSettingsSection onClose={props.onClose} />
     case 'terminal': return <TerminalSettingsSection onClose={props.onClose} />
     case 'voice': return <VoiceSettingsSection onClose={props.onClose} />
     case 'notifications': return <NotificationsSettingsSection onClose={props.onClose} />
@@ -142,6 +145,7 @@ function SettingsSwitch({
 
 const NAV_ITEMS: Array<{ id: SettingsSection; label: string; icon: ReactNode }> = [
   { id: 'providers', label: 'Agents', icon: <Bot size={14} aria-hidden="true" /> },
+  { id: 'appearance', label: 'Appearance', icon: <Palette size={14} aria-hidden="true" /> },
   { id: 'terminal', label: 'Terminal', icon: <SquareTerminal size={14} aria-hidden="true" /> },
   { id: 'voice', label: 'Voice', icon: <Mic size={14} aria-hidden="true" /> },
   { id: 'notifications', label: 'Notifications', icon: <Bell size={14} aria-hidden="true" /> },
@@ -201,7 +205,9 @@ export function SettingsModal({
           </p>
         </aside>
 
-        {section === 'terminal' ? (
+        {section === 'appearance' ? (
+          <AppearanceSettingsSection onClose={onClose} />
+        ) : section === 'terminal' ? (
           <TerminalSettingsSection onClose={onClose} />
         ) : section === 'voice' ? (
           <VoiceSettingsSection onClose={onClose} />
@@ -908,6 +914,15 @@ function TerminalPreview({ prefs }: { prefs: TerminalPrefs }): ReactElement {
         {prefs.backgroundOpacity < 1 ? ` · ${Math.round(prefs.backgroundOpacity * 100)}%` : ''}
       </div>
     </div>
+  )
+}
+
+function AppearanceSettingsSection({ onClose }: { onClose: () => void }): ReactElement {
+  return (
+    <section className="settings-modal-content" aria-labelledby="settings-appearance-title">
+      <SettingsContentHeader kicker="Global appearance" title="Appearance" titleId="settings-appearance-title" description="Choose light or dark mode for the whole app, or follow your operating system." onClose={onClose} />
+      <div className="settings-content-body settings-form"><AppearanceSettings /></div>
+    </section>
   )
 }
 

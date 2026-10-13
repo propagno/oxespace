@@ -1,115 +1,51 @@
-import { useId, type ReactElement } from 'react'
+import type { ReactElement } from 'react'
+import styles from './OxeLogo.module.css'
 
 interface OxeLogoProps {
   size?: number
   variant?: 'full' | 'compact' | 'wordmark' | 'hero'
 }
 
+/** App-icon colors: caatinga green tile, white cactus, sertão sun (docs/design/brand.md). */
+const TILE = '#1f6b4a'
+const SUN = '#e8a33d'
+
 /**
- * OXESpace mark — a 270° orbital arc with an agent node.
+ * The OXESpace mark: a mandacaru drawn as one branching stroke (a task that
+ * splits into agents) with the sertão sun beside it.
  *
- * Concept: an AI agent (node) orbiting a terminal workspace.
- * The arc opens at the bottom-right, suggesting forward motion.
- *
- * variant="full"     — arc on dark rounded-square background (app icon, collapsed sidebar)
- * variant="compact"  — arc on transparent background (inline use on dark surfaces)
- * variant="wordmark" — logo + "OXESpace" text inline, for sidebar header / about / settings
- * variant="hero"     — large logo + wordmark stacked, used in empty-states and splash
+ * variant="full"     — white cactus on the caatinga tile (app icon, title bar)
+ * variant="compact"  — cactus in the current text color, no tile
+ * variant="wordmark" — compact mark + "oxespace"
+ * variant="hero"     — tile + wordmark + tagline, for empty states
  */
 export function OxeLogo({ size = 28, variant = 'full' }: OxeLogoProps): ReactElement {
   if (variant === 'wordmark') {
-    return (
-      <span className="oxe-wordmark" aria-label="OXESpace">
-        <OxeLogo size={size} variant="compact" />
-        <span className="oxe-wordmark-text" style={{ fontSize: `${Math.round(size * 0.62)}px` }}>
-          <span className="oxe-wordmark-strong">OXE</span>Space
-        </span>
-      </span>
-    )
+    return <span className={styles.wordmark} aria-label="OXESpace">
+      <OxeMark size={size} tile={false} />
+      <span className={styles.word} style={{ fontSize: Math.round(size * 0.72) }}>oxespace</span>
+    </span>
   }
-
   if (variant === 'hero') {
-    return (
-      <span className="oxe-hero" aria-label="OXESpace">
-        <OxeLogo size={size} variant="full" />
-        <span className="oxe-hero-text" style={{ fontSize: `${Math.round(size * 0.45)}px` }}>
-          <span className="oxe-wordmark-strong">OXE</span>Space
-        </span>
-        <span className="oxe-hero-tagline">Agentic Terminal Workspace</span>
-      </span>
-    )
+    return <span className={styles.hero} aria-label="OXESpace">
+      <OxeMark size={size} tile />
+      <span className={styles.word} style={{ fontSize: Math.round(size * 0.46) }}>oxespace</span>
+      <span className={styles.tagline}>Agents and terminals for your projects</span>
+    </span>
   }
-
-  return <OxeMark size={size} variant={variant} />
+  return <OxeMark size={size} tile={variant === 'full'} />
 }
 
-function OxeMark({ size, variant }: { size: number; variant: 'full' | 'compact' }): ReactElement {
-  const uid = useId()
-
-  const cx = size / 2
-  const cy = size / 2
-  const arcR = size * 0.32
-  const f = 0.7071 // cos/sin 45°
-
-  // Arc endpoints
-  // Start: bottom-left  (225° in standard coords → SVG bottom-left)
-  const sx = cx - arcR * f
-  const sy = cy + arcR * f
-  // End: top-right (315° in standard coords → SVG top-right)
-  const ex = cx + arcR * f
-  const ey = cy - arcR * f
-
-  const sw = Math.max(1.4, size * 0.051)
-  const nodeR = Math.max(1.4, size * 0.087)
-  const coreR = Math.max(0.7, size * 0.046)
-
-  // M startX startY A r r 0 large-arc sweep endX endY
-  // large-arc=1, sweep=1 (clockwise) → 270° arc through left/top, gap at bottom-right
-  const arcPath = `M ${sx.toFixed(2)} ${sy.toFixed(2)} A ${arcR.toFixed(2)} ${arcR.toFixed(2)} 0 1 1 ${ex.toFixed(2)} ${ey.toFixed(2)}`
-
-  const arcGradId = `${uid}-arc`
-  const bgGradId  = `${uid}-bg`
-  const ambGradId = `${uid}-amb`
-
-  if (variant === 'compact') {
-    return (
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} fill="none" aria-hidden="true">
-        <defs>
-          <linearGradient id={arcGradId} x1={sx} y1={sy} x2={ex} y2={ey} gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#12C79A"/>
-            <stop offset="100%" stopColor="#38BDF8"/>
-          </linearGradient>
-        </defs>
-        <path d={arcPath} stroke={`url(#${arcGradId})`} strokeWidth={sw} fill="none" strokeLinecap="round"/>
-        <circle cx={ex} cy={ey} r={nodeR} fill="#38BDF8"/>
-        <circle cx={ex} cy={ey} r={coreR} fill="white"/>
-      </svg>
-    )
-  }
-
-  const rx = size * 0.22
-
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <defs>
-        <linearGradient id={bgGradId} x1="0" y1="0" x2={size} y2={size} gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#0E1F30"/>
-          <stop offset="100%" stopColor="#070F1A"/>
-        </linearGradient>
-        <radialGradient id={ambGradId} cx={cx} cy={cy} r={size * 0.35} gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#12C79A" stopOpacity="0.10"/>
-          <stop offset="100%" stopColor="#12C79A" stopOpacity="0"/>
-        </radialGradient>
-        <linearGradient id={arcGradId} x1={sx} y1={sy} x2={ex} y2={ey} gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#12C79A"/>
-          <stop offset="100%" stopColor="#38BDF8"/>
-        </linearGradient>
-      </defs>
-      <rect width={size} height={size} rx={rx} fill={`url(#${bgGradId})`}/>
-      <rect width={size} height={size} rx={rx} fill={`url(#${ambGradId})`}/>
-      <path d={arcPath} stroke={`url(#${arcGradId})`} strokeWidth={sw} fill="none" strokeLinecap="round"/>
-      <circle cx={ex} cy={ey} r={nodeR} fill="#38BDF8"/>
-      <circle cx={ex} cy={ey} r={coreR} fill="white"/>
-    </svg>
-  )
+export function OxeMark({ size, tile }: { size: number; tile: boolean }): ReactElement {
+  // Drawn on a 44-unit grid; the stroke is 1/11 of the size. The sun drops below 20px.
+  const stroke = tile ? '#ffffff' : 'currentColor'
+  return <svg className={styles.mark} width={size} height={size} viewBox="0 0 44 44" fill="none" aria-hidden="true">
+    {tile && <rect width="44" height="44" rx="11" fill={TILE} />}
+    <g transform={tile ? 'translate(4.4 4.4) scale(0.8)' : undefined} stroke={stroke} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 39V8" />
+      <path d="M22 27h-6a4 4 0 0 1-4-4v-7" />
+      <path d="M22 21h6a4 4 0 0 0 4-4v-6" />
+    </g>
+    {size >= 20 && <circle cx={tile ? 12.4 : 10} cy={tile ? 11.2 : 8.5} r={tile ? 2.8 : 3.4} fill={SUN} />}
+  </svg>
 }

@@ -1,0 +1,52 @@
+.options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-3);
+}
+
+.option {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard);
+}
+
+.option:hover { border-color: var(--border-strong); }
+.option:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.option[aria-checked='true'] { border-color: var(--accent); background: var(--accent-soft); }
+
+.label { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); font-weight: var(--weight-medium); }
+.hint { font-size: var(--text-xs); color: var(--text-muted); }
+
+/* A miniature window in each mode's own colors, independent of the active mode. */
+.preview {
+  height: 64px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 28% 1fr;
+}
+.preview[data-preview='system'] { grid-template-columns: 1fr 1fr; }
+.half { display: grid; grid-template-columns: 34% 1fr; }
+.side { border-right: 1px solid rgb(0 0 0 / 0.08); }
+.body { display: grid; align-content: end; gap: 4px; padding: 8px; }
+.line { height: 4px; border-radius: 2px; }
+.line:last-child { width: 60%; }
+
+/* Fixed sample colors: these show the other mode, so they cannot follow the active tokens. */
+.light { background: #f6f8f7; }
+.light .side { background: #edf1ee; }
+.light .line { background: #bbc9bf; }
+.light .line:first-child { background: #006d42; }
+.dark { background: #0d100e; }
+.dark .side { background: #131714; border-right-color: rgb(255 255 255 / 0.06); }
+.dark .line { background: #3c4940; }
+.dark .line:first-child { background: #f5a939; }

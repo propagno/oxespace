@@ -1,0 +1,29 @@
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  line-height: 1;
+  color: var(--text-primary);
+}
+
+.word {
+  font-family: var(--font-display);
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.01em;
+}
+
+.hero {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  line-height: 1.1;
+  color: var(--text-primary);
+}
+
+.tagline {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.mark { flex: none; display: block; }

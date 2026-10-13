@@ -1,10 +1,11 @@
-import { loader } from '@monaco-editor/react'
+import { loader, type Monaco } from '@monaco-editor/react'
 import * as monaco from 'monaco-editor'
 import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
 import JsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker'
 import CssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker'
 import HtmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker'
 import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
+import { followMonacoTheme } from './monacoTheme'
 
 /**
  * Self-host Monaco. By default `@monaco-editor/react` loads the editor AMD
@@ -42,3 +43,6 @@ const monacoEnvironment: monaco.Environment = {
 
 // Use the bundled instance instead of fetching from the CDN.
 loader.config({ monaco })
+
+// One theme for every editor, redefined from the design tokens when the mode changes.
+followMonacoTheme(monaco as unknown as Monaco)

@@ -1,0 +1,28 @@
+/** Non-color scales: one source for spacing, type, shape, layers and motion. */
+
+export const FONT = {
+  display: "'Bricolage Grotesque Variable', 'Bricolage Grotesque', 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif",
+  ui: "'IBM Plex Sans', 'Segoe UI Variable', 'Segoe UI', 'Ubuntu', 'Cantarell', system-ui, -apple-system, sans-serif",
+  mono: "'IBM Plex Mono', 'Cascadia Code', 'JetBrains Mono', 'Consolas', 'DejaVu Sans Mono', ui-monospace, monospace"
+} as const
+
+/** Spacing in 4px steps. */
+export const SPACE = { 0: '0px', 1: '4px', 2: '8px', 3: '12px', 4: '16px', 5: '20px', 6: '24px', 8: '32px', 10: '40px', 12: '48px' } as const
+
+/** Type sizes for compact density; comfortable adds one pixel to each step up to `lg`. */
+export const TEXT = { '2xs': 11, xs: 12, sm: 13, md: 14, lg: 16, xl: 20, display: 28 } as const
+export const WEIGHT = { regular: 400, medium: 500, semibold: 600, bold: 700 } as const
+export const LEADING = { tight: 1.25, snug: 1.4, normal: 1.55 } as const
+
+export const RADIUS = { sm: '6px', md: '8px', lg: '12px', xl: '16px', full: '999px' } as const
+
+/** Control heights per density. */
+export const CONTROL = { compact: { sm: 24, md: 28, lg: 32 }, comfortable: { sm: 28, md: 32, lg: 36 } } as const
+
+/** Named layers; nothing else sets a z-index. */
+export const LAYER = { base: 0, raised: 1, sticky: 10, dropdown: 100, overlay: 200, modal: 300, toast: 400, tooltip: 500 } as const
+
+export const MOTION = {
+  'duration-fast': '120ms', 'duration-base': '200ms', 'duration-slow': '320ms',
+  'ease-standard': 'cubic-bezier(0.2, 0, 0, 1)', 'ease-emphasized': 'cubic-bezier(0.3, 0, 0, 1.2)'
+} as const

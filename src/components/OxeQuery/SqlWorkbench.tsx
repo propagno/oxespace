@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } 
 import { ChevronDown, ChevronRight, Gauge, Play, Plus, Square, Table2, X } from 'lucide-react'
 // Side-effect: self-hosted Monaco (no CDN), required before <Editor> mounts.
 import '../../lib/monacoSetup'
+import { MONACO_THEME } from '../../lib/monacoTheme'
 import type { OxeQueryConnection, SqlExplain, SqlResult, SqlTable, SqlTableDetails } from '../../../shared/types/oxequery'
 import { OxeQueryClientError, errorMessage, oq } from './client'
 import { ResultGrid, displayCell, toCsv, toJsonRows } from './ResultGrid'
@@ -49,9 +50,9 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   const monacoRef = useRef<Parameters<OnMount>[1] | null>(null)
   /** Offset of the run text within the editor (non-zero when a selection was run). */
   const runBase = useRef(0)
-  const active = tabs.find(tab => tab.id === activeId) ?? tabs[0]
   /** The text behind each tab's result, so Export matches the rows on screen even after the editor was edited. */
   const executed = useRef(new Map<string, string>())
+  const active = tabs.find(tab => tab.id === activeId) ?? tabs[0]
   const activeRef = useRef(active)
   activeRef.current = active
 
@@ -87,11 +88,11 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
     const started = Date.now()
     try {
       const result = await oq('sql.run', { connectionId: connection.id, sql: text, maxRows, confirmed })
-      patch(tab.id, { result })
       executed.current.set(tab.id, text)
-    } catch (cause) {
+      patch(tab.id, { result })
       // New or dropped tables and columns must show up in suggestions without reconnecting.
       if (/^(CREATE|ALTER|DROP)/i.test(result.command ?? '')) cacheFor(connection).clear()
+    } catch (cause) {
       if (cause instanceof OxeQueryClientError && cause.code === 'confirm') setPending({ sql: text, reasons: cause.reasons })
       else {
         patch(tab.id, { result: null, error: errorMessage(cause) })
@@ -185,7 +186,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
         <span className="oq-badge" data-environment={connection.environment}>{connection.environment}</span>
         <span className="oq-badge" data-readonly={connection.readOnly} title={connection.readOnly ? 'The server refuses statements that change data' : 'This connection can change data'}>{connection.readOnly ? 'read-only' : 'read-write'}</span>
       </div>
-      <div className="oq-editor"><Editor key={active.id} height="100%" language="sql" theme="vs-dark" value={active.sql} onChange={value => patch(active.id, { sql: value ?? '' })}
+      <div className="oq-editor"><Editor key={active.id} height="100%" language="sql" theme={MONACO_THEME} value={active.sql} onChange={value => patch(active.id, { sql: value ?? '' })}
         onMount={(instance, monaco) => { editor.current = instance; monacoRef.current = monaco; bindCompletion(monaco, connection); instance.onDidFocusEditorText(() => bindCompletion(monaco, connection)); instance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => runRef.current()) }}
         options={{ minimap: { enabled: false }, fontSize: 13, scrollBeyondLastLine: false, wordWrap: 'on', automaticLayout: true, tabSize: 2, padding: { top: 8 } }} /></div>
       {pending && <div className="oq-confirm" role="alertdialog" aria-label="Confirm statement">
