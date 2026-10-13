@@ -67,6 +67,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   // link or junction out of the project is judged by its target. Never reads
   // or writes file contents.
   'electron/main/services/conversation/thread-permissions.ts',
+  // First-message project brief: reads package.json (size-bounded) and checks a
+  // few manifest files exist. Never other contents, never writes.
+  'electron/main/services/conversation/project-brief.ts',
   // Model-default detection reads only the fixed, size-bounded provider
   // settings files (project .claude/.codex and the user's provider home).
   'electron/main/services/conversation/thread-model-override.ts',

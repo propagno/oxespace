@@ -13,6 +13,7 @@ import { ThreadHistory, type ThreadHistoryWriteOptions } from './thread-history'
 import { ThreadRewindError, planLocalRewind } from './thread-rewind'
 import { addTurnCost } from './thread-cost'
 import { resolveMentionContext } from './thread-context-resolver'
+import { briefBlock, projectBrief } from './project-brief'
 import { reduceThreadEvent, type KernelEffect } from './kernel/event-reducer'
 import { mergeTurnConfiguration, turnConfiguration } from './kernel/turn-configuration'
 import { runThreadCommand, type CommandHost } from './kernel/command-router'
@@ -400,6 +401,7 @@ export class ThreadOrchestrator {
     this.busy.add(id) // reserve before any asynchronous launch
     let input: ThreadAgentInput = { text }
     let mentioned: Awaited<ReturnType<typeof resolveMentionContext>> = { block: '', files: [] }
+    let brief = ''
     try {
       input = await this.commandService?.prepare(snapshot.thread, text) ?? input
       if (input.nativeCli) {
@@ -412,6 +414,11 @@ export class ThreadOrchestrator {
       if (!text.trim().startsWith('/')) {
         mentioned = await resolveMentionContext(snapshot.thread.rootPath, text).catch(() => mentioned)
         if (mentioned.block) input = { ...input, text: input.text + mentioned.block }
+        // The first message of a conversation carries a short orientation to the project.
+        if (!snapshot.turns?.length && !snapshot.thread.nativeSessionId) {
+          brief = await projectBrief(snapshot.thread.rootPath, snapshot.thread.provider).catch(() => '')
+          if (brief) input = { ...input, text: input.text + briefBlock(brief) }
+        }
       }
       snapshot = this.read(id)
       if (this.stopping) throw new Error('Application is shutting down')
@@ -423,7 +430,7 @@ export class ThreadOrchestrator {
     const turnId = randomUUID()
     const operation = this.history.beginOperation({ threadId: id, turnId, generation: snapshot.thread.generation ?? 1, kind: 'turn' })
     const eventsFrom = snapshot.events.length
-    snapshot.events.push({ type: 'message', id: turnId, role: 'user', text, ...(attachments.length ? { attachments: attachments.map(({ path: _path, ...attachment }) => attachment) } : {}), ...(mentioned.files.length ? { context: mentioned.files } : {}) })
+    snapshot.events.push({ type: 'message', id: turnId, role: 'user', text, ...(attachments.length ? { attachments: attachments.map(({ path: _path, ...attachment }) => attachment) } : {}), ...(mentioned.files.length ? { context: mentioned.files } : {}), ...(brief ? { brief } : {}) })
     snapshot.turns ??= []
     snapshot.turns.push({ id: turnId, operationId: operation.id, sequence: snapshot.turns.length + 1, startedAt: Date.now(), status: 'running', configuration: turnConfiguration(snapshot.thread), ...(attachmentIds.length ? { attachmentIds: [...attachmentIds] } : {}) })
     snapshot.events.push({ type: 'activity', id: `activity:${turnId}:preparing`, phase: 'preparing', at: Date.now() })

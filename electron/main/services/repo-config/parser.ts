@@ -84,6 +84,8 @@ export function parseOxeYaml(content: string): RepoConfig | null {
     worktree: { sharedDirectories: normalizeSharedDirectories(worktree.sharedDirectories) },
     defaultTabs: normalizeDefaultTabs(root.defaultTabs)
   }
+  const thread = asRecord(root.thread)
+  if (thread && typeof thread.brief === 'boolean') config.thread = { brief: thread.brief }
   const setup = asTrimmedString(scripts.setup)
   const archive = asTrimmedString(scripts.archive)
   if (setup) config.scripts.setup = setup
@@ -93,6 +95,7 @@ export function parseOxeYaml(content: string): RepoConfig | null {
     !config.scripts.setup &&
     !config.scripts.archive &&
     config.worktree.sharedDirectories.length === 0 &&
-    config.defaultTabs.length === 0
+    config.defaultTabs.length === 0 &&
+    !config.thread
   return empty ? null : config
 }

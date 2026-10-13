@@ -755,3 +755,6 @@
 .thread-mcp-health-popover li { display: flex; justify-content: space-between; gap: 8px; }
 .thread-mcp-health-popover li.is-failed small, .thread-mcp-health-popover li.is-needs-auth small { color: var(--dot-red); }
 .thread-mcp-health-popover button { justify-self: start; }
+.thread-sent-brief { margin-top: 4px; color: var(--tx-secondary); font-size: var(--fs-2xs); }
+.thread-sent-brief summary { cursor: pointer; }
+.thread-sent-brief pre { margin: 4px 0 0; padding: 6px 8px; border: 1px solid var(--bd-base); border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }

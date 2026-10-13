@@ -21,6 +21,11 @@ export interface RepoConfig {
     sharedDirectories: string[]
   }
   defaultTabs: RepoConfigTab[]
+  /** Thread conversations in this project. */
+  thread?: {
+    /** Attach the short project brief to a conversation's first message (default true). */
+    brief?: boolean
+  }
 }
 
 export type RepoHookKind = 'setup' | 'archive'
