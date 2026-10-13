@@ -10,6 +10,7 @@ import { pushHistory, readHistory, writeHistory, type HistoryEntry } from './que
 import { ExportButton, TableEditor } from './TableEditor'
 import { ImportButton } from './ImportDialog'
 import { ExplainView } from './ExplainView'
+import { bindCompletion } from './sql-completion'
 
 const ROW_LIMITS = [100, 500, 1000, 5000]
 const PAGE = 100
@@ -169,7 +170,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
         <span className="oq-badge" data-readonly={connection.readOnly} title={connection.readOnly ? 'The server refuses statements that change data' : 'This connection can change data'}>{connection.readOnly ? 'read-only' : 'read-write'}</span>
       </div>
       <div className="oq-editor"><Editor key={active.id} height="100%" language="sql" theme="vs-dark" value={active.sql} onChange={value => patch(active.id, { sql: value ?? '' })}
-        onMount={(instance, monaco) => { editor.current = instance; instance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => runRef.current()) }}
+        onMount={(instance, monaco) => { editor.current = instance; bindCompletion(monaco, connection); instance.onDidFocusEditorText(() => bindCompletion(monaco, connection)); instance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => runRef.current()) }}
         options={{ minimap: { enabled: false }, fontSize: 13, scrollBeyondLastLine: false, wordWrap: 'on', automaticLayout: true, tabSize: 2, padding: { top: 8 } }} /></div>
       {pending && <div className="oq-confirm" role="alertdialog" aria-label="Confirm statement">
         <strong>{pending.explain ? 'Analyze runs this statement' : 'This statement is destructive'}</strong>
