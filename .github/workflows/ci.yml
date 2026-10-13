@@ -429,9 +429,42 @@ jobs:
             dist/sbom-${{ matrix.label }}.spdx.json
             dist/SHA256SUMS-${{ matrix.label }}.txt
 
+  # OxeQuery against real PostgreSQL, MongoDB, an SSH server and TLS. Ubuntu runners
+  # ship Docker; the tests start and remove their own containers. This is a release
+  # gate: a database client that was only ever tested against mocks must not ship.
+  oxequery-live:
+    name: OxeQuery live tests (PostgreSQL, MongoDB, SSH, TLS)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.0
+
+      - name: Node.js 22
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Build native modules for Node
+        run: npm run rebuild:native:node
+
+      - name: Pull the images the tests use
+        run: |
+          docker pull postgres:16-alpine
+          docker pull mongo:7
+          docker pull alpine:3.20
+
+      - name: Live tests
+        env:
+          OXE_LIVE: "1"
+        run: npx vitest run tests/live/oxequery-live.test.ts tests/live/oxequery-connectivity-live.test.ts tests/live/oxequery-writes-live.test.ts
+
   release:
     name: Publish GitHub Release
-    needs: build
+    needs: [build, oxequery-live]
     if: needs.build.outputs.should_release == 'true'
     runs-on: windows-2022
     timeout-minutes: 30
