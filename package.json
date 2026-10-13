@@ -52,6 +52,7 @@
     "security:audit": "npm audit --omit=dev --package-lock-only --audit-level=moderate",
     "security:audit:tools": "npm audit --package-lock-only --audit-level=high",
     "verify:claude-protocol": "node scripts/probe-claude-protocol.cjs",
+    "verify:providers": "node scripts/probe-providers.cjs",
     "test:thread:native": "vitest run tests/integration/thread-native-campaign.test.ts --maxWorkers=1",
     "notices:generate": "node scripts/bundled-dependencies.mjs notices",
     "notices:check": "node scripts/bundled-dependencies.mjs check",

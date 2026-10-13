@@ -160,11 +160,124 @@ and shown as a small "≈ US$" chip beside the usage ring. For a subscription
 account the figure is the API-equivalent estimate, not a charge; the tooltip says
 so. Codex reports tokens only and shows no cost.
 
-**Building blocks not yet wired to the UI.** `shell-command-rules.ts` (safe
-allow/deny for shell approvals: sub-command splitting, no smuggled second command,
-narrow rule suggestions), `path-safety.ts` (Windows-aware workspace containment)
-and `shared/agentLeadStatusFold.ts` (a finished lead stays "working" while child
-work lives) are implemented and tested but nothing consumes them yet.
+**Cost.** Codex turns now report their tokens too (summed from each model request,
+cached input split out), without a cost. Every finished turn is also written to a
+usage ledger; see *Spending* below.
+
+## Permissions, rules and audit
+
+**Rules** answer the provider's approval prompts on your behalf
+(`kernel/permission-policy.ts`, stored by `thread-permissions.ts`, migrations 068
+and 073). A rule is an *allow* or *deny* for a **command** (`npm run test`, or a
+`/regex/`), for **files** (a glob such as `src/**`, relative to the project) or for
+an **MCP tool** (`server/tool`, or `server/*` for every tool of a server). Rules
+belong to one project or to all projects.
+
+- A command is approved only when every sub-command of the line is allowed;
+  chained commands (`;`, `&&`, substitution) are split first. Built-in risky
+  commands (`rm -rf`, `git push --force`, `Remove-Item -Recurse`, `curl | sh`...) are
+  never declined silently: they ask and are marked *high-risk*.
+- An edit is approved only when every path is inside the project (links and
+  junctions resolved; Windows device names, 8.3 names and alternate streams
+  refused) and covered by an allow rule.
+- A denied MCP tool is also removed before the session starts: Claude receives it as
+  `--disallowedTools`; Codex receives `disabled_tools` (or `enabled=false`) for the
+  servers OXESpace attaches. Servers configured in Codex itself stay under Codex.
+- Rules never widen what the CLI allows; they only answer prompts it raised. Rules
+  that would allow everything (`**`, `/.*/`, `*/*`) are rejected.
+
+An unruled prompt shows why it is asking and offers **Always allow ...** with the
+narrowest rule. `/rules` lists, adds and removes rules and shows the audit trail:
+approvals, policy decisions, rule changes, undo/rewind and access changes, by you,
+a rule or OXESpace, kept for 180 days.
+
+**Auto-accept edits (Claude).** With workspace write access, a switch in the
+configuration bar runs Claude in `acceptEdits` mode: edits inside the project are
+approved without asking; commands still ask. Codex has no equivalent and keeps its
+sandbox and approval policy.
+
+## Reviewing a turn
+
+Each turn that changed files lists them under the turn. **Review** opens a file's
+changes as separate blocks (a line diff against the checkpoint taken before the
+turn). A block can be undone on its own, as can the whole file or the whole turn
+(rewind with file restore). Undoing a block and then the file still restores the
+original. A block can also be sent to the composer as a review comment for the
+agent. Files with CRLF line endings under `core.autocrlf` keep them.
+
+**Commit & pull request** (workbench panel) stages, commits and pushes, and drafts
+the commit message and pull request from the conversation: its title, the asks of
+the turns that changed files and the files they changed. A pull request waits
+until local commits are pushed.
+
+Every finished turn also has a **verdict** (`shared/threadTurnVerdict.ts`): status,
+files changed, tool calls and failures, duration. A failed turn shows the action
+that fits the failure (retry, wait, sign in, compact, review permissions).
+
+## Context
+
+- **Project brief.** The first message of a conversation carries a short brief
+  (at most 3 KB): branch and uncommitted changes, stack, build and test scripts,
+  instruction files and which OXESpace tools to use. It is shown on the message.
+  Turn it off per project with `thread: { brief: false }` in `oxe.yaml`.
+- **@-mentions** attach the mentioned files' content to the prompt.
+- **`/instructions`** lists the `CLAUDE.md`, `.claude/rules/*` or `AGENTS.md` files
+  the agent reads for this folder.
+- **OXESpace tools in a Thread**: semantic search, hybrid explore, memory,
+  documentation and the CodeGraph tools (`oxespace_code_search`, `_callers`,
+  `_callees`, `_impact`, `_node`, `_status`) work from a conversation and only ever
+  query its own project. A read-only conversation keeps the lookups.
+- **MCP health.** A chip in the composer appears only when an MCP server failed to
+  start or needs sign-in (Claude reports this at session start; for Codex use
+  `/mcp`).
+
+## Agent Work
+
+A conversation can split a job into tasks that run in parallel worker
+conversations (`services/work/work-service.ts`, migration 072). The agent calls
+`oxespace_work_plan` with tasks, their dependencies and an optional budget:
+
+- A task starts when every task it depends on succeeded, and receives their
+  results in its prompt. A task whose dependency failed or was cancelled is
+  cancelled.
+- Workers run in the same project with at most the supervisor's access, never full
+  access. Tasks that may edit files take turns in a project because they share the
+  working tree. At most 4 workers run per project and 12 overall; a worker can plan
+  work of its own, one level deep.
+- The supervisor hears back in its own queue when a task fails or waits for an
+  answer, and once when the run ends. Notes close together arrive as one message;
+  a run wakes its supervisor at most 30 times.
+- A USD or turn budget, read from the usage ledger, stops the run and every
+  worker. Cancelling a run or a task stops running workers.
+- `oxespace_work_status`, `_result`, `_message` (a follow-up; a finished task runs
+  again) and `_cancel` complete the tools; `oxespace_thread_read` reads a worker's
+  conversation.
+
+`/work` lists the runs a conversation supervises or works for, their tasks, results
+and spending, opens a worker and cancels a run. After a restart, tasks whose worker
+is no longer running are settled as failed; tasks not yet started start.
+
+Teams and Delegation keep their own tools for now; Agent Work does not migrate their
+data.
+
+## Spending
+
+`/spending` sums the usage ledger (migration 071) by day, model and conversation,
+for this conversation, the project or everything, over 7, 30 or 90 days. Claude
+turns carry the API-equivalent estimate (not a charge on a subscription); Codex
+turns carry tokens only. Rows outlive a deleted conversation. Turns are recorded
+from 0.17.0 on.
+
+## Finding, editing and accessibility
+
+- **Ctrl+F** finds text anywhere in the conversation, including parts not yet
+  scrolled into view, and highlights each match; Enter and Shift+Enter move between
+  matches. Editors and terminals keep their own Ctrl+F.
+- **Edit** on one of your messages rewinds to it and puts its text back in the
+  composer; **Quote in reply** quotes an answer. **Esc** in the composer stops the
+  running turn.
+- Screen readers hear when a turn starts, needs input, finishes or fails (a polite
+  live region, at most once every 2 seconds).
 
 ## Commands in the composer
 
@@ -199,29 +312,13 @@ App Server operations. Native skills also stay in Thread: Codex receives its
 `$name` text and structured skill item; Claude SDK commands/skills use the print
 adapter. The ordinary conversation's planning/read-only limits still apply.
 
-TUI-only commands such as permissions and native session pickers display an
-action card. Unknown commands receive the same explicit action rather than an
-AI prompt. **Open advanced tools** starts the actual CLI in a separate dialog;
-it never replaces or unmounts conversation history and the composer. The header
-**Tools** button opens the auxiliary dialog directly. No slash command starts a
-terminal automatically. Closing its dialog leaves a running CLI available through
-**Show tools**; **Return to conversation** closes its session and imports history.
+TUI-only commands such as native session pickers are listed as unavailable in
+Thread, with the reason; unknown commands get the same explicit answer instead of
+an AI prompt. The native interactive CLI no longer runs inside a Thread.
 
-Complete any native sign-in or project trust prompt, click **Insert command**,
-then press Enter inside the CLI. Insertion never submits Enter automatically.
-Native selectors, tools, permissions and confirmations use the provider's own
-interface. Interactive execution follows native permissions; ordinary
-conversation retains its existing planning/read-only mode. Thread CLI processes
-and shortcuts are isolated from Code terminals.
-
-Exit with `/quit`, then choose **Return to thread** to import public conversation
-text and continue with the selected saved resume ID. If a session change/fork
-does not emit a recognized resume footer, use **Saved session → Link session**
-with its native UUID, including after exit. The backend validates the exact
-project and never selects the newest session. Failed imports block ordinary
-sends until recovery. Private thinking, tool payloads, raw terminal output and
-child/sidechain sessions are not imported. Claude rewind imports only the active
-parent chain. Terminal output stays in a bounded in-memory buffer.
+Desktop commands handled by OXESpace itself include `/rules` (permission rules and
+audit), `/spending`, `/work` (Agent Work), `/instructions`, `/diff` (changes panel),
+`/checkpoint`, `/rename`, `/resume` and `/delegations`.
 
 Stable operations still run directly in conversation: Claude `/context`,
 `/compact [focus]` and `/model <name>`; Codex `/compact`, `/model <id> [effort]`
@@ -245,15 +342,29 @@ Native skills execute through the conversation adapter with its existing limits;
 the auxiliary CLI remains available for its full native tools and approvals.
 
 Subscription preflight still applies, except native sign-in/out commands. The
-Accounts dialog remains available for connecting both providers. An active CLI
-owns its thread: return before starting an ordinary turn. Restart marks the CLI
-interrupted and requires explicit recovery; commands never resume automatically.
+Accounts dialog remains available for connecting both providers.
 
 See [implementation and verification](plans/thread-cli-commands-implementation.md),
 [Claude interactive commands](https://code.claude.com/docs/en/interactive-mode)
 and [Codex CLI commands](https://developers.openai.com/codex/cli/slash-commands).
 
-## Verification (Windows, 2026-09-17)
+## Verification
+
+`npm run verify:providers` (`scripts/probe-providers.cjs`) checks the installed
+CLIs without sending a prompt: Claude answers `initialize` and
+`interrupt{cancel_queued}` when launched with the flags Thread uses
+(`--permission-mode acceptEdits`, `--disallowedTools`); Codex accepts the
+`disabled_tools` override, `initialize` and `thread/start`. On 2026-10-13 it
+passed with Claude Code 2.1.296 and Codex 0.155.1.
+
+Agent Work, the usage ledger, permission rules and per-change review are covered by
+deterministic tests with a fake provider (`tests/integration/agent-work.test.ts`,
+`thread-usage`, `thread-permissions`, `thread-restore`). The live suite
+(`OXE_LIVE=1 tests/live/thread-live.test.ts`) spends real quota and runs only
+when authorized.
+
+### Earlier verification (Windows, 2026-09-17)
+
 
 Native Codex initialization and the account status protocols of both installed
 clients passed, without starting inference or changing accounts. Unit/component,
