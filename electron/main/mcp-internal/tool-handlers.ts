@@ -110,7 +110,7 @@ const sameRoot = (a: string, b: string): boolean => {
   return norm(a) === norm(b)
 }
 
-async function requireProjectScope(ctx: ToolContext): Promise<ProjectScope> {
+export async function requireProjectScope(ctx: ToolContext): Promise<ProjectScope> {
   let execution: ReturnType<NonNullable<typeof ctx.executions>['authenticate']> | undefined
   try { execution = ctx.executions?.authenticate(ctx.executionId, ctx.executionToken, ctx.workspaceId) } catch { /* Generic MCP callers may not have an execution. */ }
   if (execution?.owner.kind === 'thread') {

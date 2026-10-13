@@ -31,6 +31,7 @@ import { automationTools } from './automation-tools'
 import { DOCUMENTATION_TOOLS } from './documentation-tools'
 import { THREAD_HANDOFF_TOOLS } from './thread-handoff-tools'
 import { OXEQUERY_TOOLS } from './oxequery-tools'
+import { CODE_GRAPH_TOOLS } from './code-graph-tools'
 
 export interface ToolContext {
   captureRoot?: string
@@ -72,6 +73,7 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   ...TEAM_TOOLS,
   ...THREAD_HANDOFF_TOOLS,
   ...OXEQUERY_TOOLS,
+  ...CODE_GRAPH_TOOLS,
   {
     descriptor: {
       name: 'oxespace_list_workspaces',
