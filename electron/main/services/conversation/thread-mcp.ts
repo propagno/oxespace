@@ -22,6 +22,7 @@ export const THREAD_MCP_TOOLS = ['oxespace_team_status', 'oxespace_team_inbox', 
   'oxespace_code_search', 'oxespace_code_callers', 'oxespace_code_callees', 'oxespace_code_impact', 'oxespace_code_node', 'oxespace_code_status',
   'oxespace_open_web_preview', 'oxespace_capture_web_preview',
   'oxespace_thread_create', 'oxespace_thread_send', 'oxespace_thread_read',
+  'oxespace_work_plan', 'oxespace_work_status', 'oxespace_work_result', 'oxespace_work_message', 'oxespace_work_cancel',
   'oxespace_preview_interact', 'oxespace_documentation_create', 'oxespace_documentation_get', 'oxespace_documentation_list',
   'oxespace_documentation_capture', 'oxespace_documentation_checkpoint', 'oxespace_documentation_image', 'oxespace_documentation_export',
   'oxespace_delegation_targets', 'oxespace_delegation_preflight', 'oxespace_delegate_task', 'oxespace_delegation_status',
@@ -40,7 +41,7 @@ export const THREAD_READ_ONLY_MCP_TOOLS = ['oxespace_capabilities', 'oxespace_ex
   'oxespace_memory_search', 'oxespace_memory_sessions', 'oxespace_memory_handoffs',
   'oxespace_semantic_search', 'oxespace_hybrid_explore', 'oxespace_list_agents', 'oxespace_list_workspaces',
   'oxespace_code_search', 'oxespace_code_callers', 'oxespace_code_callees', 'oxespace_code_impact', 'oxespace_code_node', 'oxespace_code_status',
-  'oxespace_documentation_get', 'oxespace_documentation_list', 'oxespace_thread_read',
+  'oxespace_documentation_get', 'oxespace_documentation_list', 'oxespace_thread_read', 'oxespace_work_status', 'oxespace_work_result',
   'oxespace_team_status', 'oxespace_team_inbox', 'oxespace_delegation_status', 'oxespace_delegation_inbox', 'oxespace_delegation_result']
 
 /** The empty strict configuration Claude receives for a read-only conversation. */

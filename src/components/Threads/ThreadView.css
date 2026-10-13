@@ -269,6 +269,26 @@
 .thread-permissions-audit li { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 8px; color: var(--tx-secondary); font-size: var(--fs-xs); }
 .thread-permissions-audit li span:last-child { color: var(--tx-primary); overflow-wrap: anywhere; }
 .thread-permissions-actor.is-policy { color: var(--accent, inherit); }
+.thread-work { display: grid; gap: 14px; font-size: var(--fs-sm); }
+.thread-work p { margin: 0; color: var(--tx-secondary); line-height: 1.5; }
+.thread-work-run { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--bd-base); border-radius: 8px; }
+.thread-work-run header { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
+.thread-work-run header > div { flex: 1 1 200px; min-width: 0; }
+.thread-work-run h3 { margin: 0; font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.thread-work-run small { color: var(--tx-secondary); }
+.thread-work-tasks { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.thread-work-task { display: grid; gap: 4px; padding: 6px 8px; border-left: 3px solid var(--bd-base); }
+.thread-work-task.is-running, .thread-work-task.is-ready { border-left-color: var(--accent, var(--tx-secondary)); }
+.thread-work-task.is-succeeded { border-left-color: var(--dot-green, var(--tx-secondary)); }
+.thread-work-task.is-failed, .thread-work-task.is-blocked { border-left-color: var(--dot-red); }
+.thread-work-task-head { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: baseline; }
+.thread-work-task-head strong { overflow-wrap: anywhere; }
+.thread-work-task-head small { color: var(--tx-secondary); font-size: var(--fs-xs); }
+.thread-work-task-head button { margin-left: auto; }
+.thread-work-status { font-size: var(--fs-xs); font-weight: 600; text-transform: uppercase; letter-spacing: .02em; color: var(--tx-secondary); }
+.thread-work-task.is-failed .thread-work-status, .thread-work-task.is-blocked .thread-work-status { color: var(--dot-red); }
+.thread-work-reason { font-size: var(--fs-xs); }
+.thread-work-summary { white-space: pre-wrap; font-size: var(--fs-xs); max-height: 200px; overflow: auto; }
 .thread-usage { display: grid; gap: 14px; font-size: var(--fs-sm); }
 .thread-usage h3 { margin: 0 0 6px; font-size: var(--fs-sm); }
 .thread-usage p { margin: 0; color: var(--tx-secondary); line-height: 1.5; }

@@ -89,7 +89,7 @@ export const THREAD_HANDOFF_TOOLS: ToolEntry[] = [
   }
   ,
   {
-    descriptor: { name: 'oxespace_thread_read', description: 'Read what happened in a Thread this origin created with oxespace_thread_create: its status and the messages since a cursor. Pass the returned cursor next time to read only new messages.', inputSchema: {
+    descriptor: { name: 'oxespace_thread_read', description: 'Read what happened in a Thread this origin created with oxespace_thread_create or oxespace_work_plan: its status and the messages since a cursor. Pass the returned cursor next time to read only new messages.', inputSchema: {
       type: 'object', properties: {
         threadId: { type: 'string' },
         cursor: { type: 'integer', minimum: 0, description: 'Value returned by a previous read; omit to read the latest messages.' },
@@ -102,8 +102,9 @@ export const THREAD_HANDOFF_TOOLS: ToolEntry[] = [
       if (!ctx.db || !ctx.threads) throw new Error('Thread service is unavailable')
       const threadId = values.threadId
       if (typeof threadId !== 'string' || !threadId) throw new Error('Provide the destination threadId')
-      // Only the lineage this origin created is readable; other conversations stay private.
+      // Only the lineage this origin created is readable: its handoffs and its Agent Work workers.
       const owned = ctx.db.prepare('SELECT 1 FROM mcp_thread_handoffs WHERE origin_thread_id = ? AND destination_thread_id = ?').get(originId, threadId)
+        ?? ((await ctx.threads).work.isWorkerOf(originId, threadId) || undefined)
       if (!owned) throw new Error('Destination Thread was not created by this origin execution')
       const limit = typeof values.limit === 'number' && Number.isInteger(values.limit) ? Math.min(50, Math.max(1, values.limit)) : 20
       const cursor = typeof values.cursor === 'number' && Number.isInteger(values.cursor) && values.cursor >= 0 ? values.cursor : undefined

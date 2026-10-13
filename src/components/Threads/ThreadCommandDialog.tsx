@@ -7,6 +7,7 @@ import { DetailList } from '../Navigation/DetailList'
 import { ThreadUsageDetails } from './ThreadFailureCard'
 import ThreadPermissionsPanel from './ThreadPermissionsPanel'
 import ThreadUsagePanel from './ThreadUsagePanel'
+import ThreadWorkPanel from './ThreadWorkPanel'
 import type { ThreadPanelState } from './threadCommandPanels'
 
 function sessionDate(timestamp: number): string { return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(timestamp) }
@@ -41,6 +42,7 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
     {error && <p role="alert">{error}</p>}
     {panel.surface === 'rename' ? <form onSubmit={event => { event.preventDefault(); void action(async () => { await runCommand(`/rename ${rename}`); onClose() }) }}><label>Conversation name<input aria-label="Conversation name" value={rename} maxLength={120} onChange={event => setRename(event.target.value)} /></label><button type="submit" disabled={pending || !rename.trim()}>Rename conversation</button></form>
     : panel.surface === 'rules' && snapshot ? <ThreadPermissionsPanel threadId={snapshot.thread.id} />
+    : panel.surface === 'work' && snapshot ? <ThreadWorkPanel threadId={snapshot.thread.id} onOpenThread={threadId => { onClose(); void useThreadStore.getState().select(threadId) }} />
     : panel.surface === 'spending' && snapshot ? <ThreadUsagePanel threadId={snapshot.thread.id} />
     : panel.surface === 'sessions' ? <div className="thread-resume-sections">
       <label className="thread-resume-search">Find a session<input aria-label="Find a session" type="search" placeholder="Search prompt, model, branch, date or ID" value={resumeQuery} onChange={event => setResumeQuery(event.target.value)} /></label>

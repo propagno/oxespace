@@ -29,6 +29,8 @@ import { ThreadPortableService } from './thread-portable'
 import { ThreadCheckpointService } from './thread-checkpoints'
 import { ThreadPermissionStore } from './thread-permissions'
 import { ThreadUsageLedger } from './thread-usage'
+import { WorkService } from '../work/work-service'
+import type { WorkRun } from '../../../../shared/types/work'
 import { recordRuntime } from '../runtime-diagnostics'
 import { hasUnconfirmedTurnTools, recoverPublicTurn } from './thread-result-recovery'
 import type { NativeStateResult } from './codex-state-reader'
@@ -83,6 +85,8 @@ export class ThreadOrchestrator {
   private readonly checkpoints: ThreadCheckpointService
   private readonly permissions: ThreadPermissionStore
   private readonly usage: ThreadUsageLedger
+  /** Agent Work: plans a supervising conversation runs through worker conversations. */
+  readonly work: WorkService
   private readonly turnCheckpoints = new Map<string, string>()
   private readonly busy = new Set<string>()
   private readonly nativePageLoads = new Map<string, Promise<void>>()
@@ -126,6 +130,14 @@ export class ThreadOrchestrator {
       if (recovered) this.save(snapshot, { eventsFrom })
       this.snapshots.delete(row.id)
     }
+    this.work = new WorkService(db, {
+      read: threadId => this.read(threadId), create: context => this.create(context),
+      configure: (threadId, input, revision) => this.configure(threadId, input, revision),
+      command: (threadId, text) => this.command(threadId, text), send: (threadId, text) => this.send(threadId, text),
+      interrupt: threadId => this.interrupt(threadId), subscribe: (threadId, listener) => this.subscribe(threadId, listener)
+    })
+    // After subclasses finish constructing: workers that ran before a restart are settled, ready work starts.
+    queueMicrotask(() => { try { this.work.resume() } catch { /* Agent Work recovery is best effort. */ } })
   }
 
   list(): ConversationThread[] {
@@ -817,6 +829,7 @@ export class ThreadOrchestrator {
   async stop(): Promise<void> {
     for (const id of this.deltaBuffers.keys()) this.flushDeltas(id)
     this.stopping = true
+    this.work.stop()
     const observations = Promise.allSettled([...this.observations.values()])
     await this.stateReader?.stop()
     await this.nativeCli?.closeHistoryReader?.()
@@ -1010,6 +1023,18 @@ export class ThreadOrchestrator {
     if (!rule) throw Error('That rule does not apply to this project')
     this.permissions.remove(ruleId)
     this.audit(id, { action: 'rule-removed', actor: 'user', summary: `Removed ${rule.decision} ${rule.kind} ${rule.pattern}${rule.projectRoot ? '' : ' (all projects)'}` })
+  }
+
+  workRuns(id: string): WorkRun[] {
+    this.read(id)
+    return this.work.runsFor(id)
+  }
+
+  async cancelWork(id: string, runId: string): Promise<WorkRun> {
+    const run = this.work.run(runId)
+    // The person may cancel from the supervisor or from any of its workers.
+    if (run.supervisorThreadId !== id && !run.tasks.some(task => task.threadId === id)) throw Error('This run is not related to the conversation')
+    return this.work.cancel(runId, 'user')
   }
 
   usageSummary(id: string, options: { scope?: 'thread' | 'project' | 'all'; days?: number } = {}): ThreadUsageSummary {

@@ -89,7 +89,7 @@ export interface ThreadCapabilityManifest {
 export interface ThreadUsageWindow { label: string; usedPercent: number; resetsAt?: number; windowMinutes?: number }
 export interface ThreadUsage { windows: ThreadUsageWindow[]; checkedAt: number }
 export interface ThreadFailure { id: string; occurredAt: number; code: 'authentication' | 'usage' | 'rate-limit' | 'context' | 'budget' | 'server' | 'network' | 'sandbox' | 'configuration' | 'session-busy' | 'unknown'; message: string; detail?: string; providerCode?: string; httpStatus?: number; usage?: ThreadUsage; usageUnavailable?: boolean }
-export interface ThreadCommandResult { kind: 'applied' | 'panel' | 'navigate'; title?: string; text?: string; externalUrl?: string; surface?: 'model' | 'effort' | 'permissions' | 'accounts' | 'commands' | 'sessions' | 'rename' | 'settings' | 'delegations' | 'changes' | 'rules' | 'spending'; threadId?: string; usage?: ThreadUsage; rows?: { label: string; detail?: string; id?: string; turnId?: string }[] }
+export interface ThreadCommandResult { kind: 'applied' | 'panel' | 'navigate'; title?: string; text?: string; externalUrl?: string; surface?: 'model' | 'effort' | 'permissions' | 'accounts' | 'commands' | 'sessions' | 'rename' | 'settings' | 'delegations' | 'changes' | 'rules' | 'spending' | 'work'; threadId?: string; usage?: ThreadUsage; rows?: { label: string; detail?: string; id?: string; turnId?: string }[] }
 /** Resolved in the main process; skill paths are never accepted from the renderer. */
 export interface ThreadAttachment {
   id: string
@@ -497,6 +497,8 @@ export interface ThreadApi {
   removePermissionRule?(id: string, ruleId: string): Promise<void>
   auditLog?(id: string, options?: { scope?: 'thread' | 'project'; before?: number; limit?: number }): Promise<ThreadAuditEntry[]>
   usageSummary?(id: string, options?: { scope?: 'thread' | 'project' | 'all'; days?: number }): Promise<ThreadUsageSummary>
+  workRuns?(id: string): Promise<import('./work').WorkRun[]>
+  cancelWork?(id: string, runId: string): Promise<import('./work').WorkRun>
   rewind?(id: string, turnId: string, options?: { restoreFiles?: boolean }): Promise<ThreadRewindResult>
   readSince?(id: string, cursor: ThreadSyncCursor): Promise<ThreadDelta>
   resumeQueue?(id: string): Promise<void>
