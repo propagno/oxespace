@@ -2,6 +2,8 @@ import type { ReactNode } from 'react'
 import { ChevronsLeft, ChevronsRight, DatabaseZap, MessagesSquare, Settings2, SquareTerminal, type LucideIcon } from 'lucide-react'
 import { useUIStore } from '../../store/ui.store'
 import './NavigationChrome.css'
+import { cx } from '../../ui'
+import styles from './NavigationRail.module.css'
 
 export interface RailAction {
   id: string
@@ -34,23 +36,23 @@ export function NavigationRail({ mode, collapsed, onModeChange, onSelectMode, pr
     if (onSelectMode) onSelectMode(target)
     else if (target !== 'data') onModeChange?.()
   }
-  return <div className="nav-rail" data-collapsed={collapsed}>
-    <nav className="nav-rail-group" aria-label="Application view">
-      <button type="button" className="nav-rail-btn" aria-label="Code" title="Code" aria-pressed={mode === 'code'} onClick={() => select('code')}><SquareTerminal size={17} aria-hidden="true" /></button>
-      <button type="button" className="nav-rail-btn" aria-label="Thread" title="Thread" aria-pressed={mode === 'thread'} onClick={() => select('thread')}><MessagesSquare size={17} aria-hidden="true" /></button>
-      {(onSelectMode || mode === 'data') && <button type="button" className="nav-rail-btn" aria-label="OxeQuery" title="OxeQuery: containers and databases" aria-pressed={mode === 'data'} onClick={() => select('data')}><DatabaseZap size={17} aria-hidden="true" /></button>}
+  return <div className={cx('nav-rail', styles.rail)} data-collapsed={collapsed}>
+    <nav className={styles.group} aria-label="Application view">
+      <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label="Code" title="Code" aria-pressed={mode === 'code'} onClick={() => select('code')}><SquareTerminal size={17} aria-hidden="true" /></button>
+      <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label="Thread" title="Thread" aria-pressed={mode === 'thread'} onClick={() => select('thread')}><MessagesSquare size={17} aria-hidden="true" /></button>
+      {(onSelectMode || mode === 'data') && <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label="OxeQuery" title="OxeQuery: containers and databases" aria-pressed={mode === 'data'} onClick={() => select('data')}><DatabaseZap size={17} aria-hidden="true" /></button>}
     </nav>
-    <span className="nav-rail-separator" aria-hidden="true" />
-    <nav className="nav-rail-group" aria-label="Primary navigation">
+    <span className={styles.separator} aria-hidden="true" />
+    <nav className={styles.group} aria-label="Primary navigation">
       {primary.map(({ id, label, ariaLabel, icon: Icon, onClick, testId, disabled }) =>
-        <button key={id} type="button" className="nav-rail-btn" aria-label={ariaLabel ?? label} title={label} data-testid={testId} disabled={disabled} onClick={onClick}><Icon size={17} aria-hidden="true" /></button>)}
+        <button key={id} type="button" className={cx('nav-rail-btn', styles.button)} aria-label={ariaLabel ?? label} title={label} data-testid={testId} disabled={disabled} onClick={onClick}><Icon size={17} aria-hidden="true" /></button>)}
     </nav>
     {children}
-    <span className="nav-rail-spacer" />
-    <footer className="nav-rail-group nav-rail-footer">
-      <button type="button" className="nav-rail-btn" aria-label={context.ariaLabel ?? context.label} title={context.label} data-testid={context.testId} onClick={context.onClick}><ContextIcon size={17} aria-hidden="true" /></button>
-      <button type="button" className="nav-rail-btn" aria-label="Open settings" title="Settings" onClick={openSettings}><Settings2 size={17} aria-hidden="true" /></button>
-      <button type="button" className="nav-rail-btn" aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} onClick={onToggle}>{collapsed ? <ChevronsRight size={17} aria-hidden="true" /> : <ChevronsLeft size={17} aria-hidden="true" />}</button>
+    <span className={styles.spacer} />
+    <footer className={cx('nav-rail-footer', styles.group)}>
+      <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label={context.ariaLabel ?? context.label} title={context.label} data-testid={context.testId} onClick={context.onClick}><ContextIcon size={17} aria-hidden="true" /></button>
+      <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label="Open settings" title="Settings" onClick={openSettings}><Settings2 size={17} aria-hidden="true" /></button>
+      <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} onClick={onToggle}>{collapsed ? <ChevronsRight size={17} aria-hidden="true" /> : <ChevronsLeft size={17} aria-hidden="true" />}</button>
     </footer>
   </div>
 }

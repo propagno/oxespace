@@ -66,15 +66,6 @@
 
 /* ─── Icon rail + tree panel (Codex-style sidebar) ───────────────────────── */
 .sidebar.sidebar-redesign, .thread-navigation { display: flex; flex-direction: row; }
-.nav-rail { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: none; width: var(--rail-w); min-height: 0; padding: 8px 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; }
-.nav-rail-group { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 0; padding: 0; border: 0; }
-.nav-rail .nav-rail-btn { position: relative; display: grid; place-items: center; width: 36px; height: 36px; min-height: 0; padding: 0; border: 0; border-radius: var(--nav-radius); background: transparent; color: var(--tx-secondary); cursor: pointer; }
-.nav-rail .nav-rail-btn:hover { background: var(--nav-hover); color: var(--tx-primary); }
-.nav-rail .nav-rail-btn[aria-pressed='true'] { background: var(--nav-selected); color: var(--tx-primary); }
-.nav-rail .nav-rail-btn:disabled { opacity: .4; cursor: default; }
-.nav-rail .nav-rail-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.nav-rail-separator { width: 20px; height: 1px; margin: 4px 0; background: var(--wb-border); }
-.nav-rail-spacer { flex: 1; min-height: 8px; }
 .nav-panel { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
 .nav-panel-title { display: flex; align-items: center; height: var(--chrome-h); min-height: var(--chrome-h); padding: 0 var(--chrome-inset) 0 6px; }
 .nav-panel-title strong { font-size: var(--fs-sm); font-weight: 600; color: var(--tx-primary); }
@@ -85,5 +76,3 @@
 .pane-row-time.recent { color: var(--brand-light); }
 .pane-intent-button, .panel-scope-badge { min-height: var(--hit-min); display: inline-flex; align-items: center; }
 
-/* Divider between the icon rail and the project tree. */
-.nav-rail { border-right: 1px solid var(--wb-border); }

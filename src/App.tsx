@@ -1,5 +1,6 @@
 import { Activity, Columns2, FilePlus2, FolderOpen, Github, Grid2x2, LayoutDashboard, ListTodo, Maximize, Mic, Palette, Plus, RotateCw, Search, Settings2, Sliders, Split, Square, StopCircle, Wrench } from 'lucide-react'
-import { Toaster, TooltipProvider } from './ui'
+import { Button, cx, Toaster, TooltipProvider } from './ui'
+import titleBar from './components/Navigation/TitleBar.module.css'
 import { Suspense, lazy, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import type { AgentProfile } from '../shared/types/agent'
@@ -971,17 +972,17 @@ export function App(): ReactElement {
     <ThemeProvider themeId={applicationView !== 'code' ? undefined : activeWorkspace?.themeId} density={applicationView !== 'code' ? undefined : activeWorkspace?.uiDensity}>
       <TooltipProvider>
       <main className={`app-shell${applicationView === 'thread' ? ' thread-shell' : applicationView === 'data' ? ' oq-shell' : isSidebarCollapsed ? ' sidebar-collapsed' : ''}`} style={applicationView !== 'code' ? { '--thread-sidebar-width': `${isSidebarCollapsed ? 48 : codeSidebarWidth}px` } as CSSProperties : { '--sidebar-w': `${codeSidebarWidth}px` } as CSSProperties}>
-      <header className="workbench-titlebar" aria-label="OXESpace workbench">
-        <div className="workbench-titlebar-brand"><OxeLogo size={15} /><strong>OXESpace</strong>{!IS_MAC && <Suspense fallback={null}><AppMenuBar context={{ actions: commandActions, applicationView, setApplicationView: selectMode, openSettings: () => { if (!isSettingsOpen) toggleSettings() }, addThreadProject: () => setThreadProjectOpen(true), version: appVersion }} /></Suspense>}</div>
-        <div className="workbench-titlebar-context" title={applicationView === 'data' ? 'Containers and databases' : applicationView === 'thread' ? threadSnapshot?.thread.rootPath ?? 'Thread' : activeWorkspace?.rootPath ?? 'No workspace'}>
+      <header className={cx('workbench-titlebar', titleBar.bar)} aria-label="OXESpace workbench">
+        <div className={titleBar.brand}><OxeLogo size={18} /><strong className={titleBar.word}>oxespace</strong>{!IS_MAC && <Suspense fallback={null}><AppMenuBar context={{ actions: commandActions, applicationView, setApplicationView: selectMode, openSettings: () => { if (!isSettingsOpen) toggleSettings() }, addThreadProject: () => setThreadProjectOpen(true), version: appVersion }} /></Suspense>}</div>
+        <div className={cx('workbench-titlebar-context', titleBar.context)} title={applicationView === 'data' ? 'Containers and databases' : applicationView === 'thread' ? threadSnapshot?.thread.rootPath ?? 'Thread' : activeWorkspace?.rootPath ?? 'No workspace'}>
           <span>{applicationView === 'data' ? 'OxeQuery' : applicationView === 'thread' ? 'Thread' : 'Code'}</span>
-          <span className="workbench-titlebar-separator" aria-hidden="true">/</span>
+          <span className={titleBar.separator} aria-hidden="true">/</span>
           <strong>{applicationView === 'data' ? 'Containers & databases' : applicationView === 'thread' ? threadProject?.displayName ?? 'Conversations' : activeWorkspace?.name ?? 'No workspace'}</strong>
         </div>
-        <div className="workbench-titlebar-trailing"><button type="button" className="workspace-topbar-action" disabled={applicationView === 'data' || (applicationView === 'thread' ? !threadProject : !activeWorkspace)} onClick={() => {
+        <div className={titleBar.trailing}><Button size="sm" disabled={applicationView === 'data' || (applicationView === 'thread' ? !threadProject : !activeWorkspace)} onClick={() => {
           const id = applicationView === 'thread' ? threadProject?.projectId : activeWorkspace?.id
           if (id) setTeamScope({ kind: applicationView === 'thread' ? 'thread' : 'code', id })
-        }}>Team</button><UpdateBanner /><AppUpdateIndicator /><span className="workbench-titlebar-version">v{appVersion}</span></div>
+        }}>Team</Button><UpdateBanner /><AppUpdateIndicator /><span className={titleBar.version}>v{appVersion}</span></div>
       </header>
       {teamScope && <Suspense fallback={null}><TeamDialog key={`${teamScope.kind}:${teamScope.id}`} scope={teamScope} owner={teamScope.kind === 'thread' && threadSnapshot ? { kind: 'thread', id: threadSnapshot.thread.id } : teamScope.kind === 'code' && activePane ? { kind: 'pane', id: activePane.id } : undefined} onClose={() => setTeamScope(null)} /></Suspense>}
       {delegationNotice && <div role="status" style={{ position: 'fixed', bottom: 18, right: 18, zIndex: 190, padding: 14, borderRadius: 10, background: 'var(--bg-elevated, #19191f)', border: '1px solid var(--accent)', maxWidth: 340 }}>

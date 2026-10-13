@@ -36,33 +36,6 @@ body {
 .app-shell.sidebar-collapsed {
   grid-template-columns: var(--sidebar-w-collapsed) minmax(0, 1fr);
 }
-.workbench-titlebar {
-  grid-column: 1 / -1;
-  grid-row: 1;
-  display: grid;
-  grid-template-columns: minmax(max-content, 1fr) minmax(120px, 600px) max-content;
-  column-gap: 12px;
-  align-items: center;
-  min-width: 0;
-  padding: 0 12px;
-  /* Span the full window width even though the shell is padded. */
-  margin: 0 calc(var(--frame-gap) * -1);
-  /* Keep the title bar draggable and clear of the native caption buttons. */
-  padding-right: max(12px, calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw)));
-  background: var(--wb-chrome);
-  color: var(--tx-secondary);
-  font-size: var(--fs-xs);
-  -webkit-app-region: drag;
-}
-:root[data-platform='darwin'] .workbench-titlebar { padding-left: 78px; }
-.workbench-titlebar :is(button, a, input, select, [role='button']) { -webkit-app-region: no-drag; }
-.workbench-titlebar-brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.workbench-titlebar-brand strong { font-weight: 600; color: var(--tx-primary); }
-.workbench-titlebar-context { display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; height: 25px; padding: 0 12px; border: 1px solid var(--wb-border); border-radius: var(--nav-radius); background: var(--wb-canvas); }
-.workbench-titlebar-context strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; color: var(--tx-primary); }
-.workbench-titlebar-separator, .workbench-titlebar-version { color: var(--tx-muted); }
-.workbench-titlebar-version { justify-self: end; white-space: nowrap; }
-.workbench-titlebar-trailing { display: flex; align-items: center; justify-self: end; gap: 10px; }
 .app-update-indicator { position: relative; }
 .app-update-trigger { display: grid; place-items: center; position: relative; width: 28px; height: 28px; padding: 0; border: 1px solid var(--wb-border); border-radius: var(--nav-radius); background: var(--wb-canvas); color: var(--accent); cursor: pointer; }
 .app-update-trigger:hover, .app-update-trigger[aria-expanded="true"] { background: var(--nav-hover); }

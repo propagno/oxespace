@@ -1,0 +1,41 @@
+.bar {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr) minmax(120px, 560px) max-content;
+  column-gap: var(--space-3);
+  align-items: center;
+  min-width: 0;
+  /* Span the full window width even though the shell is padded. */
+  margin: 0 calc(var(--frame-gap) * -1);
+  padding: 0 var(--space-3);
+  /* Keep the title bar draggable and clear of the native caption buttons. */
+  padding-right: max(12px, calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw)));
+  background: var(--surface-chrome);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  -webkit-app-region: drag;
+}
+:root[data-platform='darwin'] .bar { padding-left: 78px; }
+.bar :is(button, a, input, select, [role='button']) { -webkit-app-region: no-drag; }
+
+.brand { display: flex; align-items: center; gap: var(--space-2); min-width: 0; color: var(--text-primary); }
+.word { font-family: var(--font-display); font-size: var(--text-md); font-weight: var(--weight-bold); letter-spacing: -0.01em; }
+
+.context {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-width: 0;
+  height: 26px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--surface-canvas);
+}
+.context strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-medium); color: var(--text-primary); }
+.separator, .version { color: var(--text-muted); }
+
+.trailing { display: flex; align-items: center; justify-self: end; gap: var(--space-2); }
+.version { white-space: nowrap; font-family: var(--font-mono); font-size: var(--text-2xs); }
