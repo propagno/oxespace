@@ -42,7 +42,7 @@ function engine(value: unknown): ContainerEngine | undefined {
 }
 
 export function toErrorInfo(error: unknown): OxeQueryErrorInfo {
-  if (error instanceof OxeQueryError) return { code: error.code, message: error.message, ...(error.reasons.length ? { reasons: error.reasons } : {}) }
+  if (error instanceof OxeQueryError) return { code: error.code, message: error.message, ...(error.reasons.length ? { reasons: error.reasons } : {}), ...error.detail }
   if (error instanceof ContainerRuntimeError) return { code: error.code, message: error.message }
   if (error instanceof ConnectionInputError || error instanceof MongoInputError || error instanceof LibraryInputError) return { code: 'invalid', message: error.message }
   return { code: 'failed', message: error instanceof Error ? error.message.slice(0, 400) : 'OxeQuery failed.' }

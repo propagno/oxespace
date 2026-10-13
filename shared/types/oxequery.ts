@@ -424,6 +424,11 @@ export interface OxeQueryErrorInfo {
   message: string
   /** Why a statement was flagged, when code is 'confirm' or 'read-only'. */
   reasons?: string[]
+  /** 1-based character offset of the error in the statement the server received. */
+  position?: number
+  /** PostgreSQL SQLSTATE, e.g. 42P01. */
+  sqlState?: string
+  hint?: string
 }
 
 /** Errors travel as data so the renderer keeps their code (a rejected IPC call loses it). */

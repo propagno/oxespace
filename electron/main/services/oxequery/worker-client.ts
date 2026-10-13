@@ -37,7 +37,7 @@ export class OxeQueryWorkerClient {
   private start(): Worker {
     const worker = new Worker(this.path, { resourceLimits: { maxOldGenerationSizeMb: 512 } })
     this.worker = worker
-    worker.on('message', (message: { requestId: number; result?: unknown; progress?: unknown; error?: { code: OxeQueryError['code']; message: string; reasons?: string[] } }) => {
+    worker.on('message', (message: { requestId: number; result?: unknown; progress?: unknown; error?: { code: OxeQueryError['code']; message: string; reasons?: string[]; detail?: OxeQueryError['detail'] } }) => {
       if (this.worker !== worker) return
       const request = this.pending.get(message.requestId)
       if (!request) return
@@ -49,7 +49,7 @@ export class OxeQueryWorkerClient {
         return
       }
       clearTimeout(request.timer); this.pending.delete(message.requestId)
-      if (message.error) request.reject(new OxeQueryError(message.error.code, message.error.message, message.error.reasons ?? []))
+      if (message.error) request.reject(new OxeQueryError(message.error.code, message.error.message, message.error.reasons ?? [], message.error.detail ?? {}))
       else request.resolve(message.result)
     })
     worker.on('error', () => { if (this.worker === worker) void this.reset('The database worker stopped unexpectedly. Retry the operation.') })

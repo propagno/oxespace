@@ -81,7 +81,7 @@ parentPort?.on('message', (request: Request) => {
     (error: unknown) => parentPort?.postMessage({
       requestId: request.requestId,
       error: error instanceof OxeQueryError
-        ? { code: error.code, message: error.message, reasons: error.reasons }
+        ? { code: error.code, message: error.message, reasons: error.reasons, detail: error.detail }
         : error instanceof MongoInputError ? { code: 'invalid', message: error.message, reasons: [] }
         : { code: 'query', message: error instanceof Error ? error.message : 'Operation failed', reasons: [] }
     })

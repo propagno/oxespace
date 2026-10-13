@@ -157,6 +157,13 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
     await expect(core.sqlExplain(pg, { sql: 'EXPLAIN SELECT 1' })).rejects.toMatchObject({ code: 'invalid' })
   })
 
+  it('reports where a statement failed and its SQLSTATE', async () => {
+    const sql = 'SELECT id, nope FROM people'
+    const error = await core.sqlRun(pg, sql).catch(cause => cause as { code: string; detail: { position?: number; sqlState?: string } })
+    expect(error).toMatchObject({ code: 'query', detail: { sqlState: '42703' } })
+    expect(sql.slice((error as { detail: { position: number } }).detail.position - 1, (error as { detail: { position: number } }).detail.position + 3)).toBe('nope')
+  })
+
   it('writes MongoDB documents with a conflict check, and imports with ordered:false', async () => {
     const target = { connectionId: 'mongo', database: 'shop', collection: 'items' }
     const inserted = await core.mongoWrite(mongo, { ...target, op: 'insert', document: '{"_id": 1, "name": "pen", "stock": 5}' })

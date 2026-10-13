@@ -9,8 +9,11 @@ export type OxeQueryErrorCode =
   | 'read-only' | 'confirm' | 'invalid' | 'connect' | 'query' | 'timeout' | 'cancelled'
   | 'host-key-unknown' | 'host-key-changed' | 'tunnel' | 'conflict'
 
+/** Where and why a statement failed, as reported by the server. */
+export interface ErrorDetail { position?: number; sqlState?: string; hint?: string }
+
 export class OxeQueryError extends Error {
-  constructor(readonly code: OxeQueryErrorCode, message: string, readonly reasons: string[] = []) { super(message) }
+  constructor(readonly code: OxeQueryErrorCode, message: string, readonly reasons: string[] = [], readonly detail: ErrorDetail = {}) { super(message) }
 }
 
 export class MongoInputError extends Error {}

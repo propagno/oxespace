@@ -202,7 +202,13 @@ export class OxeQueryCore {
       const message = error instanceof Error ? error.message : 'Query failed'
       if (/canceling statement due to user request/i.test(message)) throw new OxeQueryError('cancelled', 'The query was cancelled.')
       if (/statement timeout/i.test(message)) throw new OxeQueryError('timeout', `The query ran longer than ${Math.round(this.timeoutOf(connection) / 1000)}s and was stopped.`)
-      throw new OxeQueryError('query', redact(message, connection.password))
+      const server = error as { position?: string; code?: string; hint?: string }
+      const position = Number(server.position)
+      throw new OxeQueryError('query', redact(message, connection.password), [], {
+        ...(Number.isInteger(position) && position > 0 ? { position } : {}),
+        ...(typeof server.code === 'string' && /^[0-9A-Z]{5}$/.test(server.code) ? { sqlState: server.code } : {}),
+        ...(typeof server.hint === 'string' && server.hint ? { hint: redact(server.hint, connection.password).slice(0, 300) } : {})
+      })
     } finally {
       client.off('notice', onNotice)
       if (readOnly) await client.query('ROLLBACK').catch(() => undefined)

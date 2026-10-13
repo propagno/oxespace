@@ -3,11 +3,17 @@ import type { OxeQueryErrorInfo, OxeQueryOp, OxeQueryOps } from '../../../shared
 export class OxeQueryClientError extends Error {
   readonly code: OxeQueryErrorInfo['code']
   readonly reasons: string[]
+  readonly position?: number
+  readonly sqlState?: string
+  readonly hint?: string
   constructor(info: OxeQueryErrorInfo) {
     super(info.message)
     this.name = 'OxeQueryClientError'
     this.code = info.code
     this.reasons = info.reasons ?? []
+    if (info.position !== undefined) this.position = info.position
+    if (info.sqlState) this.sqlState = info.sqlState
+    if (info.hint) this.hint = info.hint
   }
 }
 
@@ -21,5 +27,6 @@ export async function oq<K extends OxeQueryOp>(op: K, input: OxeQueryOps[K]['inp
 }
 
 export function errorMessage(error: unknown): string {
+  if (error instanceof OxeQueryClientError && error.hint) return `${error.message}\nHint: ${error.hint}`
   return error instanceof Error ? error.message : 'Something went wrong.'
 }

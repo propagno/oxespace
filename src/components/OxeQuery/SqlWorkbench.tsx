@@ -46,6 +46,9 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   const [libraryTick, setLibraryTick] = useState(0)
   const editor = useRef<Parameters<OnMount>[0] | null>(null)
   const pendingExplain = useRef<string | null>(null)
+  const monacoRef = useRef<Parameters<OnMount>[1] | null>(null)
+  /** Offset of the run text within the editor (non-zero when a selection was run). */
+  const runBase = useRef(0)
   const active = tabs.find(tab => tab.id === activeId) ?? tabs[0]
   const activeRef = useRef(active)
   activeRef.current = active
@@ -54,11 +57,31 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
     setTabs(current => current.map(tab => tab.id === id ? { ...tab, ...change } : tab))
   }, [])
 
+  const clearMarkers = useCallback((): void => {
+    const model = editor.current?.getModel()
+    if (model && monacoRef.current) monacoRef.current.editor.setModelMarkers(model, 'oxequery', [])
+  }, [])
+
+  /** Underlines the token the server complained about. `offset` is 0-based within the editor text. */
+  const markError = useCallback((offset: number, message: string): void => {
+    const model = editor.current?.getModel()
+    const monaco = monacoRef.current
+    if (!model || !monaco) return
+    const start = model.getPositionAt(Math.max(0, offset))
+    const word = model.getWordAtPosition(start)
+    monaco.editor.setModelMarkers(model, 'oxequery', [{
+      severity: monaco.MarkerSeverity.Error, message,
+      startLineNumber: start.lineNumber, startColumn: start.column,
+      endLineNumber: start.lineNumber, endColumn: word && word.endColumn > start.column ? word.endColumn : start.column + 1
+    }])
+  }, [])
+
   const run = useCallback(async (text: string, confirmed = false): Promise<void> => {
     const tab = activeRef.current
     if (!text.trim()) return
     setRunning(true); setPending(null); setSelectedRow(null)
     patch(tab.id, { error: '', browse: null, details: null, explain: null })
+    clearMarkers()
     const started = Date.now()
     try {
       const result = await oq('sql.run', { connectionId: connection.id, sql: text, maxRows, confirmed })
@@ -67,9 +90,10 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
       if (cause instanceof OxeQueryClientError && cause.code === 'confirm') setPending({ sql: text, reasons: cause.reasons })
       else {
         patch(tab.id, { result: null, error: errorMessage(cause) })
+        if (cause instanceof OxeQueryClientError && cause.position) markError(cause.position - 1 + runBase.current, cause.message)
       }
     } finally { setRunning(false); setLibraryTick(value => value + 1) }
-  }, [connection.id, maxRows, patch])
+  }, [clearMarkers, connection.id, markError, maxRows, patch])
 
   const explain = useCallback(async (analyze: boolean, confirmed = false): Promise<void> => {
     const tab = activeRef.current
@@ -93,6 +117,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
     const instance = editor.current
     const selection = instance?.getSelection()
     const selected = selection && !selection.isEmpty() ? instance?.getModel()?.getValueInRange(selection) : ''
+    runBase.current = selected && selection ? (instance?.getModel()?.getOffsetAt(selection.getStartPosition()) ?? 0) : 0
     void run(selected || activeRef.current.sql)
   }, [run])
   const runRef = useRef(runCurrent)
@@ -153,7 +178,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
         <span className="oq-badge" data-readonly={connection.readOnly} title={connection.readOnly ? 'The server refuses statements that change data' : 'This connection can change data'}>{connection.readOnly ? 'read-only' : 'read-write'}</span>
       </div>
       <div className="oq-editor"><Editor key={active.id} height="100%" language="sql" theme="vs-dark" value={active.sql} onChange={value => patch(active.id, { sql: value ?? '' })}
-        onMount={(instance, monaco) => { editor.current = instance; bindCompletion(monaco, connection); instance.onDidFocusEditorText(() => bindCompletion(monaco, connection)); instance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => runRef.current()) }}
+        onMount={(instance, monaco) => { editor.current = instance; monacoRef.current = monaco; bindCompletion(monaco, connection); instance.onDidFocusEditorText(() => bindCompletion(monaco, connection)); instance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => runRef.current()) }}
         options={{ minimap: { enabled: false }, fontSize: 13, scrollBeyondLastLine: false, wordWrap: 'on', automaticLayout: true, tabSize: 2, padding: { top: 8 } }} /></div>
       {pending && <div className="oq-confirm" role="alertdialog" aria-label="Confirm statement">
         <strong>{pending.explain ? 'Analyze runs this statement' : 'This statement is destructive'}</strong>
