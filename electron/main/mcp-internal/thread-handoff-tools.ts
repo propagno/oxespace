@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import type { ToolContext, ToolEntry } from './tool-registry'
 import { ThreadProjectService } from '../services/conversation/thread-projects'
+import { turnVerdict } from '../../../shared/threadTurnVerdict'
 
 function input(args: unknown): Record<string, unknown> {
   if (!args || typeof args !== 'object' || Array.isArray(args)) throw new Error('Arguments must be an object')
@@ -124,12 +125,18 @@ export const THREAD_HANDOFF_TOOLS: ToolEntry[] = [
       const last = window.at(-1)
       const nextCursor = last ? last.index + 1 : cursor ?? snapshot.events.length
       const pending = snapshot.events.filter(event => event.type === 'request' && event.request.state === 'pending').length
+      // Files, tool outcomes and failure guidance of the latest turn, so a supervisor need not infer them
+      // from prose. The closing message is already among `messages`.
+      const latestTurn = snapshot.turns?.at(-1)
+      const verdict = latestTurn ? turnVerdict(snapshot, latestTurn.id) : undefined
+      const lastTurn = verdict ? (({ summary: _summary, ...rest }) => rest)(verdict) : null
       return result({
         threadId,
         status: snapshot.thread.status,
         lastTurnStatus: snapshot.thread.lastTurnStatus ?? null,
         turns: snapshot.turns?.length ?? 0,
         pendingRequests: pending,
+        lastTurn,
         messages,
         cursor: nextCursor,
         hasMore: cursor !== undefined && indexed.length > window.length,

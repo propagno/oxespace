@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { AlertCircle, ChevronDown, Loader2, RefreshCw } from 'lucide-react'
-import type { ThreadEvent, ThreadUsage } from '../../../shared/types/thread'
+import type { ThreadEvent, ThreadFailure, ThreadUsage } from '../../../shared/types/thread'
+import { failureGuidance } from '../../../shared/threadTurnVerdict'
 import './ThreadFailureCard.css'
 
 export function usageTime(timestamp: number): string {
@@ -40,9 +41,14 @@ export function ThreadUsageDetails({ usage, provider }: { usage: ThreadUsage; pr
   </section>
 }
 
-export function ThreadFailureCard({ event, latest, refreshUsage, onAccounts, onRetry, disabled }: {
+export function ThreadFailureCard({ event, latest, refreshUsage, onAccounts, onRetry, onCompact, onPermissions, disabled }: {
   event: Extract<ThreadEvent, { type: 'completed' }>; latest: boolean
-  refreshUsage?: () => Promise<ThreadUsage>; onAccounts?: () => void; onRetry?: () => void; disabled?: boolean
+  refreshUsage?: () => Promise<ThreadUsage>; onAccounts?: () => void; onRetry?: () => void
+  /** Offered when the context window is full. */
+  onCompact?: () => void
+  /** Offered when the sandbox or the configuration blocked the turn. */
+  onPermissions?: () => void
+  disabled?: boolean
 }) {
   const failure = event.failure
   const [currentUsage, setCurrentUsage] = useState<ThreadUsage>(), [loading, setLoading] = useState(false), [refreshError, setRefreshError] = useState('')
@@ -50,7 +56,13 @@ export function ThreadFailureCard({ event, latest, refreshUsage, onAccounts, onR
   const usage = currentUsage && (!failure?.usage || currentUsage.checkedAt >= failure.usage.checkedAt) ? currentUsage : failure?.usage
   // Previously saved failures were classified as unknown; render them correctly without rewriting history.
   const code = failure?.detail && /already has an active writer|active writer/i.test(failure.detail) ? 'session-busy' : failure?.code ?? event.errorCode
-  const title = code === 'session-busy' ? 'Session active elsewhere' : code === 'authentication' ? 'Sign-in required' : code === 'usage' ? 'Usage allowance exhausted' : code === 'rate-limit' ? 'Request limit reached' : code === 'network' ? 'Connection failed' : code === 'server' ? 'Provider unavailable' : 'Turn failed'
+  // Older events carry only a free-form errorCode; anything unrecognised reads as a generic failure.
+  const guidance = failureGuidance(code as ThreadFailure['code'] | undefined)
+  const title = guidance.title
+  // Retrying is offered only where sending the same turn again can succeed without changing anything.
+  const retry = onRetry && (guidance.retryable || guidance.action === 'wait') ? onRetry : undefined
+  const compact = guidance.action === 'compact' ? onCompact : undefined
+  const permissions = guidance.action === 'review-permissions' || guidance.action === 'change-configuration' ? onPermissions : undefined
   const refresh = async () => {
     if (!refreshUsage || refreshing.current) return
     refreshing.current = true; setLoading(true); setRefreshError('')
@@ -68,9 +80,11 @@ export function ThreadFailureCard({ event, latest, refreshUsage, onAccounts, onR
       {!usage && code !== 'authentication' && code !== 'session-busy' && <p className="thread-failure-note">{failure?.usageUnavailable ? 'Current usage could not be retrieved. The provider has not confirmed a reset time.' : refreshUsage && failure ? 'Checking current provider usage…' : 'Usage and reset time were not recorded for this failure.'}</p>}
       {usage && failure?.usageUnavailable && !currentUsage && <p className="thread-failure-note">Could not refresh usage. The snapshot above was checked at the displayed time.</p>}
       {refreshError && <p role="alert" className="thread-failure-note">{refreshError}</p>}
-      {(code !== 'session-busy' && (refreshUsage || onRetry) || code === 'authentication' && onAccounts) && <footer>
+      {(code !== 'session-busy' && (refreshUsage || retry || compact || permissions) || code === 'authentication' && onAccounts) && <footer>
         {code === 'authentication' && onAccounts && <button type="button" onClick={onAccounts}>Reconnect account</button>}
-        {onRetry && <button type="button" disabled={disabled} onClick={onRetry}>Retry turn</button>}
+        {compact && <button type="button" disabled={disabled} onClick={compact}>Compact conversation</button>}
+        {permissions && <button type="button" disabled={disabled} onClick={permissions}>{guidance.action === 'review-permissions' ? 'Review permissions' : 'Change configuration'}</button>}
+        {retry && <button type="button" disabled={disabled} onClick={retry}>Retry turn</button>}
         {refreshUsage && <button type="button" disabled={loading} onClick={() => void refresh()}>{loading ? <Loader2 size={13} className="thread-spin" /> : <RefreshCw size={13} />}{loading ? 'Checking usage…' : 'Refresh usage'}</button>}
       </footer>}
     </div>
