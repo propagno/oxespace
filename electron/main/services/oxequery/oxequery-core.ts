@@ -90,6 +90,8 @@ interface MongoSession { key: string; client: MongoClient; lastUsed: number; tun
 /** A connection nobody used for this long is closed; it reopens on the next request. */
 const IDLE_MS = 10 * 60_000
 const MAX_SESSIONS = 12
+/** How long a catalog read waits for the query that is using the connection. */
+const META_WAIT_MS = 10_000
 
 /**
  * The database drivers. It runs inside the OxeQuery worker, so a slow or broken
@@ -161,8 +163,18 @@ export class OxeQueryCore {
     return session
   }
 
-  private async pgRun(connection: ResolvedConnection, sql: string, params: unknown[], maxRows: number, readOnly: boolean): Promise<SqlResult> {
+  /**
+   * Catalog reads for the tree and autocomplete share the connection with the user's query.
+   * They wait for it instead of failing with "already running", so the tree does not go
+   * empty (and stay empty) whenever a long statement is in flight.
+   */
+  private pgMeta(connection: ResolvedConnection, sql: string, params: unknown[], maxRows: number, readOnly: boolean): Promise<SqlResult> {
+    return this.pgRun(connection, sql, params, maxRows, readOnly, META_WAIT_MS)
+  }
+
+  private async pgRun(connection: ResolvedConnection, sql: string, params: unknown[], maxRows: number, readOnly: boolean, waitMs = 0): Promise<SqlResult> {
     const session = await this.pgSession(connection)
+    for (const deadline = Date.now() + waitMs; session.running && Date.now() < deadline;) await new Promise(resolve => setTimeout(resolve, 50))
     if (session.running) throw new OxeQueryError('invalid', 'This connection is already running a query. Wait for it or cancel it.')
     session.running = true
     const started = Date.now()
@@ -237,18 +249,18 @@ export class OxeQueryCore {
     const offset = Math.max(0, Math.min(Math.trunc(input.offset ?? 0) || 0, 10_000_000))
     const order = input.orderBy ? ` ORDER BY ${quoteIdentifier(input.orderBy.column)} ${input.orderBy.direction === 'desc' ? 'DESC' : 'ASC'}` : ''
     const sql = `SELECT * FROM ${quoteIdentifier(input.schema)}.${quoteIdentifier(input.table)}${order} LIMIT ${limit + 1} OFFSET ${offset}`
-    const result = await this.pgRun(connection, sql, [], limit, true)
+    const result = await this.pgMeta(connection, sql, [], limit, true)
     return result
   }
 
   async sqlSchemas(connection: ResolvedConnection): Promise<string[]> {
-    const result = await this.pgRun(connection, `SELECT nspname FROM pg_namespace WHERE nspname NOT LIKE 'pg\\_toast%' AND nspname NOT LIKE 'pg\\_temp%'
+    const result = await this.pgMeta(connection, `SELECT nspname FROM pg_namespace WHERE nspname NOT LIKE 'pg\\_toast%' AND nspname NOT LIKE 'pg\\_temp%'
       ORDER BY (nspname = 'public') DESC, (nspname IN ('pg_catalog', 'information_schema')), nspname`, [], 500, true)
     return result.rows.map(row => String(row[0]))
   }
 
   async sqlTables(connection: ResolvedConnection, schema: string): Promise<SqlTable[]> {
-    const result = await this.pgRun(connection, `SELECT c.relname, c.relkind, c.reltuples::bigint FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    const result = await this.pgMeta(connection, `SELECT c.relname, c.relkind, c.reltuples::bigint FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
       WHERE n.nspname = $1 AND c.relkind IN ('r', 'v', 'm', 'f', 'p') ORDER BY c.relname`, [schema], 5000, true)
     const kinds: Record<string, SqlTable['kind']> = { r: 'table', v: 'view', m: 'materialized view', f: 'foreign table', p: 'partitioned table' }
     return result.rows.map(row => ({ schema, name: String(row[0]), kind: kinds[String(row[1])] ?? 'table', ...(Number(row[2]) >= 0 ? { approxRows: Number(row[2]) } : {}) }))
@@ -256,13 +268,13 @@ export class OxeQueryCore {
 
   async sqlTable(connection: ResolvedConnection, schema: string, table: string): Promise<SqlTableDetails> {
     const oid = `(SELECT c.oid FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = $1 AND c.relname = $2)`
-    const columns = await this.pgRun(connection, `SELECT a.attname, format_type(a.atttypid, a.atttypmod), NOT a.attnotnull, pg_get_expr(d.adbin, d.adrelid),
+    const columns = await this.pgMeta(connection, `SELECT a.attname, format_type(a.atttypid, a.atttypmod), NOT a.attnotnull, pg_get_expr(d.adbin, d.adrelid),
         COALESCE(a.attnum = ANY (SELECT unnest(i.indkey) FROM pg_index i WHERE i.indrelid = a.attrelid AND i.indisprimary), false), a.attnum
       FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
       WHERE a.attrelid = ${oid} AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum`, [schema, table], 2000, true)
-    const indexes = await this.pgRun(connection, `SELECT ic.relname, pg_get_indexdef(i.indexrelid), i.indisunique, i.indisprimary
+    const indexes = await this.pgMeta(connection, `SELECT ic.relname, pg_get_indexdef(i.indexrelid), i.indisunique, i.indisprimary
       FROM pg_index i JOIN pg_class ic ON ic.oid = i.indexrelid WHERE i.indrelid = ${oid} ORDER BY ic.relname`, [schema, table], 500, true)
-    const foreign = await this.pgRun(connection, `SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid = ${oid} AND contype = 'f' ORDER BY conname`, [schema, table], 500, true)
+    const foreign = await this.pgMeta(connection, `SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid = ${oid} AND contype = 'f' ORDER BY conname`, [schema, table], 500, true)
     return {
       columns: columns.rows.map(row => ({ name: String(row[0]), type: String(row[1]), nullable: Boolean(row[2]), ...(row[3] ? { default: String(row[3]) } : {}), primaryKey: Boolean(row[4]), position: Number(row[5]) })),
       indexes: indexes.rows.map(row => ({ name: String(row[0]), definition: String(row[1]), unique: Boolean(row[2]), primary: Boolean(row[3]) })),
@@ -289,16 +301,16 @@ export class OxeQueryCore {
   /** Columns and the key used to find a row. A table with neither a primary key nor a unique NOT NULL index is not editable. */
   private async columnMeta(connection: ResolvedConnection, schema: string, table: string): Promise<{ columns: ColumnMeta[]; kind: string | null }> {
     const target = `(SELECT c.oid FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = $1 AND c.relname = $2)`
-    const kind = await this.pgRun(connection, `SELECT c.relkind FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = $1 AND c.relname = $2`, [schema, table], 1, true)
+    const kind = await this.pgMeta(connection, `SELECT c.relkind FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = $1 AND c.relname = $2`, [schema, table], 1, true)
     const relkind = kind.rows[0] ? String(kind.rows[0][0]) : null
-    const columns = await this.pgRun(connection, `SELECT a.attname, format_type(a.atttypid, a.atttypmod), a.attnotnull, a.atthasdef,
+    const columns = await this.pgMeta(connection, `SELECT a.attname, format_type(a.atttypid, a.atttypmod), a.attnotnull, a.atthasdef,
         (a.attgenerated <> '' OR a.attidentity = 'a') AS generated
       FROM pg_attribute a WHERE a.attrelid = ${target} AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum`, [schema, table], 2000, true)
-    const primary = await this.pgRun(connection, `SELECT a.attname FROM pg_index i JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY (i.indkey)
+    const primary = await this.pgMeta(connection, `SELECT a.attname FROM pg_index i JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY (i.indkey)
       WHERE i.indrelid = ${target} AND i.indisprimary`, [schema, table], 64, true)
     let keyNames = primary.rows.map(row => String(row[0]))
     if (keyNames.length === 0) {
-      const unique = await this.pgRun(connection, `SELECT array_agg(a.attname ORDER BY a.attnum)::text[] FROM pg_index i
+      const unique = await this.pgMeta(connection, `SELECT array_agg(a.attname ORDER BY a.attnum)::text[] FROM pg_index i
         JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY (i.indkey)
         WHERE i.indrelid = ${target} AND i.indisunique AND i.indpred IS NULL AND i.indexprs IS NULL
         GROUP BY i.indexrelid HAVING bool_and(a.attnotnull) ORDER BY count(*), i.indexrelid LIMIT 1`, [schema, table], 1, true)
@@ -384,6 +396,12 @@ export class OxeQueryCore {
     tunnel?.onClose(() => { if (this.mongo.get(connection.id) === session) this.mongo.delete(connection.id) })
     this.mongo.set(connection.id, session)
     return client
+  }
+
+  /** A long export or import counts as use: without this the idle reaper closes the client under it. */
+  private touchMongo(connection: ResolvedConnection): void {
+    const session = this.mongo.get(connection.id)
+    if (session) session.lastUsed = Date.now()
   }
 
   private mongoError(error: unknown, connection: ResolvedConnection): OxeQueryError {
@@ -517,7 +535,7 @@ export class OxeQueryCore {
   }
 
   async sqlFunctions(connection: ResolvedConnection, schema: string): Promise<SqlFunctionInfo[]> {
-    const result = await this.pgRun(connection, `SELECT p.oid::int, p.proname, pg_get_function_identity_arguments(p.oid), p.prokind
+    const result = await this.pgMeta(connection, `SELECT p.oid::int, p.proname, pg_get_function_identity_arguments(p.oid), p.prokind
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
       WHERE n.nspname = $1 AND p.prokind IN ('f', 'p') ORDER BY p.proname, p.oid LIMIT 1000`, [schema], 1000, true)
     return result.rows.map(row => ({ oid: Number(row[0]), name: String(row[1]), args: String(row[2]), kind: row[3] === 'p' ? 'procedure' as const : 'function' as const }))
@@ -527,22 +545,22 @@ export class OxeQueryCore {
   async sqlDefinition(connection: ResolvedConnection, target: SqlDefinitionTarget): Promise<{ text: string }> {
     if (target.kind === 'function') {
       if (!Number.isInteger(target.oid) || target.oid <= 0) throw new OxeQueryError('invalid', 'Choose a function.')
-      const result = await this.pgRun(connection, 'SELECT pg_get_functiondef($1::oid)', [target.oid], 1, true)
+      const result = await this.pgMeta(connection, 'SELECT pg_get_functiondef($1::oid)', [target.oid], 1, true)
       return { text: String(result.rows[0]?.[0] ?? '') }
     }
     const qualified = `${quoteIdentifier(target.schema)}.${quoteIdentifier(target.name)}`
     if (target.kind === 'view') {
-      const result = await this.pgRun(connection, `SELECT c.relkind, pg_get_viewdef(c.oid, true) FROM pg_class c WHERE c.oid = to_regclass($1) AND c.relkind IN ('v', 'm')`, [qualified], 1, true)
+      const result = await this.pgMeta(connection, `SELECT c.relkind, pg_get_viewdef(c.oid, true) FROM pg_class c WHERE c.oid = to_regclass($1) AND c.relkind IN ('v', 'm')`, [qualified], 1, true)
       const row = result.rows[0]
       if (!row) throw new OxeQueryError('invalid', 'That view no longer exists.')
       return { text: `CREATE ${row[0] === 'm' ? 'MATERIALIZED VIEW' : 'VIEW'} ${qualified} AS\n${String(row[1]).trim()}` }
     }
-    const columns = await this.pgRun(connection, `SELECT a.attname, format_type(a.atttypid, a.atttypmod), a.attnotnull, pg_get_expr(d.adbin, d.adrelid), a.attgenerated
+    const columns = await this.pgMeta(connection, `SELECT a.attname, format_type(a.atttypid, a.atttypmod), a.attnotnull, pg_get_expr(d.adbin, d.adrelid), a.attgenerated
       FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
       WHERE a.attrelid = to_regclass($1) AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum`, [qualified], 1000, true)
     if (columns.rows.length === 0) throw new OxeQueryError('invalid', 'That table no longer exists.')
-    const constraints = await this.pgRun(connection, `SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid = to_regclass($1) ORDER BY contype DESC, conname`, [qualified], 500, true)
-    const indexes = await this.pgRun(connection, `SELECT indexdef FROM pg_indexes WHERE schemaname = $1 AND tablename = $2
+    const constraints = await this.pgMeta(connection, `SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid = to_regclass($1) ORDER BY contype DESC, conname`, [qualified], 500, true)
+    const indexes = await this.pgMeta(connection, `SELECT indexdef FROM pg_indexes WHERE schemaname = $1 AND tablename = $2
       AND indexname NOT IN (SELECT conname FROM pg_constraint WHERE conrelid = to_regclass($3)) ORDER BY indexname`, [target.schema, target.name, qualified], 500, true)
     const lines = columns.rows.map(row => {
       const generated = row[4] === 's' ? ` GENERATED ALWAYS AS (${String(row[3])}) STORED` : ''
@@ -683,6 +701,7 @@ export class OxeQueryCore {
           if (batch.length === 0) return
           const documents = batch
           batch = []
+          this.touchMongo(connection)
           if (dryRun) { inserted += documents.length; return }
           try {
             const outcome = await collection.insertMany(documents, { ordered: false })
@@ -795,7 +814,7 @@ export class OxeQueryCore {
     let lastReport = 0
     const report = (force = false): void => {
       const now = Date.now()
-      if (force || now - lastReport > 250) { lastReport = now; hooks.progress(rows, sink.bytes) }
+      if (force || now - lastReport > 250) { lastReport = now; this.touchMongo(connection); hooks.progress(rows, sink.bytes) }
     }
     try {
       if (input.source.kind === 'collection') {

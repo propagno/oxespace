@@ -54,3 +54,25 @@ describe('suggest', () => {
     expect(suggest(cache, 'SELECT * FROM audit.', 'SELECT * FROM audit.').map(item => item.label)).toEqual(['events'])
   })
 })
+
+describe('SchemaCache after a failed load', () => {
+  it('asks the server again once the pause has passed', async () => {
+    vi.useFakeTimers()
+    try {
+      const { oq } = await import('../../src/components/OxeQuery/client')
+      const ask = vi.mocked(oq)
+      ask.mockReset()
+      ask.mockRejectedValueOnce(new Error('connection busy')).mockResolvedValue(['public'] as never)
+      const cache = new SchemaCache('retry')
+      expect(cache.schemaNames()).toEqual([])
+      await vi.advanceTimersByTimeAsync(0)
+      expect(cache.schemaNames()).toEqual([])
+      expect(ask).toHaveBeenCalledTimes(1)
+      await vi.advanceTimersByTimeAsync(3100)
+      expect(cache.schemaNames()).toEqual([])
+      await vi.advanceTimersByTimeAsync(0)
+      expect(ask).toHaveBeenCalledTimes(2)
+      expect(cache.schemaNames()).toEqual(['public'])
+    } finally { vi.useRealTimers() }
+  })
+})

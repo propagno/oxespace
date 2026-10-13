@@ -41,6 +41,9 @@ export function collectAliases(sql: string, defaultSchema = 'public'): Map<strin
   return map
 }
 
+/** How long after a failed load the same load may be attempted again. */
+const RETRY_AFTER_MS = 3000
+
 /** Per-connection cache of what the editor can suggest; loaded lazily and never blocks typing. */
 export class SchemaCache {
   private schemas: string[] | null = null
@@ -51,7 +54,9 @@ export class SchemaCache {
 
   private once(key: string, load: () => Promise<void>): void {
     if (this.inflight.has(key)) return
-    this.inflight.set(key, load().catch(() => undefined))
+    // A failed load (the connection was busy, a blip) is forgotten after a short pause so the
+    // next keystroke asks again, instead of leaving the editor without suggestions for good.
+    this.inflight.set(key, load().catch(() => { setTimeout(() => this.inflight.delete(key), RETRY_AFTER_MS) }))
   }
 
   schemaNames(): string[] {
