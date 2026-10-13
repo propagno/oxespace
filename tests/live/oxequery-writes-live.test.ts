@@ -216,7 +216,7 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
     expect((await core.mongoIndexes(mongo, 'shop', 'items')).some(index => index.name === 'name_1')).toBe(false)
   })
 
-  it('lets an approved agent read masked rows, and the server itself refuses a write hidden in a read', async () => {
+  it('lets an approved agent read masked rows and refuses a sequence call before it reaches the server', async () => {
     await exec('CREATE TABLE accounts (id serial PRIMARY KEY, email text, password_hash text)')
     await exec(`INSERT INTO accounts (email, password_hash) VALUES ('a@example.com', 'pbkdf2$abcdef')`)
     await exec('CREATE SEQUENCE agent_seq')
@@ -240,9 +240,9 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
     expect(read.rows[0]).toEqual([1, 'a@example.com', '«masked»'])
     expect(read.masked).toEqual(['password_hash'])
     // A statement that looks like a read but writes is stopped by the READ ONLY transaction, not by a guess.
-    await expect(gateway.handle('oxespace_db_query', { connection: 'live', sql: `SELECT nextval('agent_seq')` }, actor)).rejects.toMatchObject({ code: 'query' })
+    await expect(gateway.handle('oxespace_db_query', { connection: 'live', sql: `SELECT nextval('agent_seq')` }, actor)).rejects.toMatchObject({ code: 'not-read' })
     expect(await scalar(`SELECT is_called FROM agent_seq`)).toBe('false')
-    expect(prompts).toHaveLength(2)
+    expect(prompts).toHaveLength(1)
     db.close()
   })
 
@@ -275,5 +275,22 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
       try { docker('volume', 'rm', '-f', `${name}-data`) } catch { /* gone */ }
     }
   }, 240_000)
+
+  it('the server, not the guard, keeps a READ ONLY transaction read-only', async () => {
+    const { Client } = await import('pg')
+    const client = new Client({ host: pg.host, port: pg.port, user: pg.username, password: pg.password, database: pg.database })
+    await client.connect()
+    try {
+      await client.query('BEGIN READ ONLY')
+      await client.query('SELECT 1')
+      // A statement the guard would let through still cannot lift the mode.
+      await expect(client.query(`SELECT set_config('transaction_read_only', 'off', false)`)).rejects.toThrow(/read-write|read-only/)
+      await client.query('ROLLBACK')
+      await client.query('BEGIN READ ONLY')
+      await client.query('SELECT 1')
+      await expect(client.query(`INSERT INTO people (name) VALUES ('sneaky')`)).rejects.toThrow(/read-only transaction/)
+    } finally { await client.query('ROLLBACK').catch(() => undefined); await client.end() }
+    expect(await scalar(`SELECT count(*) FROM people WHERE name = 'sneaky'`)).toBe('0')
+  })
 
 })

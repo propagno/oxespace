@@ -111,10 +111,83 @@ function classify(words: string[]): { kind: Kind; reason?: string } {
   return { kind: 'write', reason: `${first} is not a recognised read-only statement` }
 }
 
+/**
+ * Functions that reach outside the database even inside a READ ONLY transaction:
+ * server files, large objects on disk, other servers, other sessions, the server's
+ * configuration, advisory locks, and functions that run SQL text given as a string
+ * (which would hide any of the above from a scan).
+ */
+const OUTSIDE_REACH = new Set([
+  'pg_read_file', 'pg_read_binary_file', 'pg_ls_dir', 'pg_ls_logdir', 'pg_ls_waldir', 'pg_ls_tmpdir', 'pg_ls_archive_statusdir', 'pg_stat_file', 'pg_file_write',
+  'pg_file_read', 'pg_file_rename', 'pg_file_unlink', 'pg_logdir_ls', 'lo_import', 'lo_export', 'lo_from_bytea', 'lo_put', 'lo_create', 'lo_unlink', 'lowrite',
+  'dblink', 'dblink_connect', 'dblink_connect_u', 'dblink_exec', 'dblink_send_query', 'dblink_open', 'dblink_fetch', 'dblink_get_result',
+  'pg_terminate_backend', 'pg_cancel_backend', 'pg_reload_conf', 'pg_rotate_logfile', 'pg_switch_wal', 'pg_create_restore_point', 'pg_backup_start', 'pg_backup_stop',
+  'pg_start_backup', 'pg_stop_backup', 'pg_promote', 'set_config', 'pg_advisory_lock', 'pg_advisory_lock_shared', 'pg_try_advisory_lock', 'pg_try_advisory_lock_shared',
+  'pg_advisory_xact_lock', 'pg_advisory_xact_lock_shared', 'pg_try_advisory_xact_lock', 'pg_try_advisory_xact_lock_shared',
+  'query_to_xml', 'query_to_xml_and_xmlschema', 'query_to_xmlschema', 'cursor_to_xml', 'cursor_to_xmlschema', 'nextval', 'setval'
+])
+
+/** SQL with comments, string literals and dollar-quoted bodies blanked; quoted identifiers are kept. */
+function blankLiterals(sql: string): string {
+  let out = ''
+  for (let index = 0; index < sql.length;) {
+    const char = sql[index], next = sql[index + 1]
+    if (char === '-' && next === '-') { while (index < sql.length && sql[index] !== '\n') index++; out += ' '; continue }
+    if (char === '/' && next === '*') {
+      let depth = 1
+      index += 2
+      while (index < sql.length && depth > 0) {
+        if (sql[index] === '/' && sql[index + 1] === '*') { depth++; index += 2 } else if (sql[index] === '*' && sql[index + 1] === '/') { depth--; index += 2 } else index++
+      }
+      out += ' '
+      continue
+    }
+    if (char === '\'') {
+      const escapes = /[eE]/.test(sql[index - 1] ?? '') && !/[A-Za-z0-9_]/.test(sql[index - 2] ?? '')
+      index++
+      while (index < sql.length) {
+        if (escapes && sql[index] === '\\') { index += 2; continue }
+        if (sql[index] === '\'') { if (sql[index + 1] === '\'') { index += 2; continue } index++; break }
+        index++
+      }
+      out += "''"
+      continue
+    }
+    if (char === '$') {
+      const tag = /^\$[A-Za-z_]*\$/.exec(sql.slice(index))
+      if (tag) {
+        const close = sql.indexOf(tag[0], index + tag[0].length)
+        index = close === -1 ? sql.length : close + tag[0].length
+        out += "''"
+        continue
+      }
+    }
+    out += char
+    index++
+  }
+  return out
+}
+
+/** Names from the list above that the statement calls, in any case, quoted or schema-qualified. */
+export function outsideReach(sql: string): string[] {
+  const text = blankLiterals(sql)
+  const found = new Set<string>()
+  for (const match of text.matchAll(/(?:^|[^\w$"])"?([A-Za-z_][\w$]*)"?\s*\(/g)) {
+    const name = match[1].toLowerCase()
+    if (OUTSIDE_REACH.has(name)) found.add(name)
+  }
+  return [...found]
+}
+
 export function guardSql(sql: string): SqlGuardVerdict {
   const statements = tokenizeStatements(sql)
   let kind: Kind = 'empty'
   const reasons: string[] = []
+  const reach = statements.length ? outsideReach(sql) : []
+  if (reach.length) {
+    kind = 'write'
+    reasons.push(`Calls ${reach.join(', ')}, which reaches outside the database (server files, other servers, other sessions or the server's configuration).`)
+  }
   for (const statement of statements) {
     const verdict = classify(statement)
     if (SEVERITY[verdict.kind] > SEVERITY[kind]) kind = verdict.kind
