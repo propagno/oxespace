@@ -24,6 +24,7 @@ import { authText, ThreadMessageBody } from './ThreadMessageRow'
 import { ThreadHeader } from './ThreadHeader'
 import { useThreadShortcuts } from './useThreadShortcuts'
 import { ThreadFindBar } from './ThreadFindBar'
+import { ThreadAnnouncer } from './ThreadAnnouncer'
 import { ThreadTimelineEntry } from './ThreadTimelineEntry'
 import { ThreadComposerForm } from './ThreadComposerForm'
 import { ThreadDockQueue, ThreadDockRequests } from './ThreadDockRequests'
@@ -248,6 +249,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
       </div>
     </div>
     <div className="thread-composer-dock"><div className="thread-composer-column">
+      {snapshot && <ThreadAnnouncer thread={snapshot.thread} pendingRequests={pendingRequests.length} />}
       {snapshot && <ThreadDockRequests snapshot={snapshot} pendingRequests={pendingRequests} pending={pending} action={action} />}
       {scroll.showEnd && <button type="button" className="thread-scroll-end" onClick={scrollEnd}><ArrowDown size={12} />Latest messages{scroll.newMessages > 0 ? ` · ${scroll.newMessages}` : ''}</button>}
       {snapshot && needsLogin && <div className="thread-connection-notice">{needsLogin ? <><AlertCircle size={14} /><span>{authFailure ? `Sign in to ${snapshot.thread.provider === 'claude' ? 'Claude Code' : 'Codex'}` : accountMessage(account)}</span><button type="button" onClick={onAccounts}>{authFailure ? 'Reconnect' : 'Connect'}</button>{authFailure && lastPrompt?.type === 'message' && <button type="button" title="Resend after connecting" disabled={pending || account?.state !== 'connected' || account.method !== 'subscription'} onClick={() => void action(() => api!.send(snapshot.thread.id, lastPrompt.text, lastPrompt.attachments?.map(attachment => attachment.id) ?? []))}>Retry</button>}</> : <><Check size={14} /><span>{account ? `${snapshot.thread.provider === 'claude' ? 'Claude Code' : 'Codex'} connected` : 'Checking agent connection…'}</span></>}</div>}
