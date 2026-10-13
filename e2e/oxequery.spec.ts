@@ -366,3 +366,47 @@ test('OxeQuery shows container stats and resources and creates a database from a
     await app.close()
   }
 })
+
+test('every control in the OxeQuery views has an accessible name', async () => {
+  test.setTimeout(120000)
+  const root = mkdtempSync(join(tmpdir(), 'oxespace-oxequery-'))
+  const repo = join(root, 'repo'); mkdirSync(repo)
+  const app = await electron.launch({ args: [join(process.cwd(), 'e2e/electron-main.cjs')], env: {
+    ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'app.sqlite3')
+  } })
+  const unnamed = (): string => `(() => {
+    const view = document.querySelector('.oq-view'); const out = []
+    const label = el => (el.getAttribute('aria-label') || el.getAttribute('aria-labelledby') && document.getElementById(el.getAttribute('aria-labelledby'))?.textContent
+      || el.getAttribute('title') || el.textContent || (el.labels && [...el.labels].map(l => l.textContent).join(' ')) || el.getAttribute('placeholder') || '').trim()
+    for (const el of view.querySelectorAll('button, input, select, textarea, [role="button"], [role="tab"]')) {
+      if (el.closest('[hidden]') || el.type === 'hidden' || el.closest('.monaco-editor')) continue
+      if (!label(el)) out.push(el.outerHTML.slice(0, 120))
+    }
+    return out
+  })()`
+  try {
+    const page = await app.firstWindow()
+    await page.waitForLoadState('domcontentloaded')
+    await page.getByTestId('btn-new-workspace').click()
+    await page.getByTestId('wizard-dir-input').fill(repo)
+    await page.getByTestId('wizard-layout-card-1').click()
+    await page.getByTestId('wizard-launch-btn').click()
+    await expect(page.locator('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]').first()).toBeVisible()
+    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
+    await expect(page.getByRole('table', { name: 'Container list' })).toBeVisible()
+    expect(await page.evaluate(unnamed())).toEqual([])
+
+    await page.getByRole('tab', { name: 'Activity' }).click()
+    await expect(page.getByRole('region', { name: 'Agent activity' })).toBeVisible()
+    expect(await page.evaluate(unnamed())).toEqual([])
+
+    await page.getByRole('tab', { name: 'Containers' }).click()
+    await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
+    await page.getByRole('navigation', { name: 'Schema' }).getByRole('button', { name: 'users', exact: true }).click()
+    await expect(page.locator('.oq-grid')).toBeVisible()
+    await page.getByRole('button', { name: 'Library' }).click()
+    expect(await page.evaluate(unnamed())).toEqual([])
+  } finally {
+    await app.close()
+  }
+})
