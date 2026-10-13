@@ -75,8 +75,8 @@ describe('container runtime input validation', () => {
 describe('engine discovery', () => {
   it('lists the platform install locations used when PATH does not have the CLI', async () => {
     const { engineInstallPaths } = await import('../../electron/main/services/oxequery/container-runtime')
-    expect(engineInstallPaths('docker', 'win32', { ProgramFiles: 'C:\Program Files' })).toEqual(['C:\Program Files\Docker\Docker\resources\bin\docker.exe'])
-    expect(engineInstallPaths('podman', 'win32', { ProgramFiles: 'C:\Program Files', LOCALAPPDATA: 'C:\Users\me\AppData\Local' })).toContain('C:\Users\me\AppData\Local\Programs\Podman\podman.exe')
+    expect(engineInstallPaths('docker', 'win32', { ProgramFiles: String.raw`C:\Program Files` })).toEqual([String.raw`C:\Program Files\Docker\Docker\resources\bin\docker.exe`])
+    expect(engineInstallPaths('podman', 'win32', { ProgramFiles: String.raw`C:\Program Files`, LOCALAPPDATA: String.raw`C:\Users\me\AppData\Local` })).toContain(String.raw`C:\Users\me\AppData\Local\Programs\Podman\podman.exe`)
     expect(engineInstallPaths('docker', 'darwin', {})).toContain('/Applications/Docker.app/Contents/Resources/bin/docker')
     expect(engineInstallPaths('podman', 'linux', {})).toEqual(['/usr/bin/podman', '/usr/local/bin/podman'])
   })
@@ -97,15 +97,15 @@ describe('engine discovery', () => {
         return { code: 0, stdout: '', stderr: '', timedOut: false }
       }
     }
-    const runtime = new ContainerRuntime({ host, emit: () => undefined, platform: 'win32', env: { ProgramFiles: 'C:\Program Files' } })
+    const runtime = new ContainerRuntime({ host, emit: () => undefined, platform: 'win32', env: { ProgramFiles: String.raw`C:\Program Files` } })
     const stopped = await runtime.engines(true)
-    expect(stopped.find(info => info.engine === 'docker')).toMatchObject({ available: false, state: 'stopped', binary: 'C:\Program Files\Docker\Docker\resources\bin\docker.exe' })
+    expect(stopped.find(info => info.engine === 'docker')).toMatchObject({ available: false, state: 'stopped', binary: String.raw`C:\Program Files\Docker\Docker\resources\bin\docker.exe` })
     expect(stopped.find(info => info.engine === 'podman')).toMatchObject({ state: 'missing' })
     await expect(runtime.list()).rejects.toMatchObject({ code: 'daemon' })
     daemonUp = true
     await runtime.engines(true)
     await expect(runtime.list()).resolves.toMatchObject({ engine: 'docker' })
     // Later calls use the path that answered, not the bare name that did not.
-    expect(seen.at(-1)).toBe('C:\Program Files\Docker\Docker\resources\bin\docker.exe')
+    expect(seen.at(-1)).toBe(String.raw`C:\Program Files\Docker\Docker\resources\bin\docker.exe`)
   })
 })

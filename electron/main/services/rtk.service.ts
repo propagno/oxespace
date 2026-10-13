@@ -10,6 +10,8 @@ import type { RtkUpdateState } from '../../../shared/types/updater'
 const execFileAsync = promisify(execFile)
 
 const RTK_REPO = 'rtk-ai/rtk'
+/** No bytes for this long aborts a download. */
+const DOWNLOAD_IDLE_TIMEOUT_MS = 30_000
 /** Don't hammer GitHub Releases more than once per this window (background). */
 const CHECK_TTL_MS = 6 * 60 * 60 * 1000
 
@@ -38,6 +40,9 @@ function downloadFile(url: string, dest: string): Promise<void> {
       fs.unlink(dest).catch(() => {})
       reject(err)
     })
+    // A connection that goes quiet would otherwise hang the download (and, until now,
+    // the first terminal) forever.
+    request.setTimeout(DOWNLOAD_IDLE_TIMEOUT_MS, () => request.destroy(new Error('RTK download timed out')))
   })
 }
 

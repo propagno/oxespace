@@ -243,8 +243,16 @@ test('a connection through an SSH tunnel asks to trust the host key, then connec
     await expect(prompt).toContainText('SHA256:')
     await prompt.getByRole('button', { name: /Trust this key/ }).click()
     await expect(dialog.getByRole('status')).toContainText('Connected')
+    // Testing again, then saving, updates the one record that "Test" created.
+    await dialog.getByRole('button', { name: 'Test connection' }).click()
+    await expect(dialog.getByRole('status')).toContainText('Connected')
     await dialog.getByRole('button', { name: 'Save and open' }).click()
     await expect(page.getByRole('tab', { name: 'Behind bastion' })).toBeVisible()
+    const saved = await page.evaluate(async () => {
+      const result = await window.oxe.oxeQuery.call('connections.list', {}) as { ok: boolean; value?: Array<{ name: string }> }
+      return (result.value ?? []).filter(connection => connection.name === 'Behind bastion').length
+    })
+    expect(saved, 'Test + Test + Save keeps a single connection').toBe(1)
   } finally { await app.close() }
 })
 

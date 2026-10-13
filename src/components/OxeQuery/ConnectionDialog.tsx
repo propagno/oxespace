@@ -118,13 +118,18 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
   }
 
   const chooseEngine = (next: DatabaseEngine): void => {
-    if (editing) return
+    if (recordId) return
     setEngine(next)
     setPort(current => (Number(current) === DEFAULT_PORT[engine] ? String(DEFAULT_PORT[next]) : current))
   }
 
+  // "Test" has to save first (the secrets live in the store). The id it was saved
+  // under is kept, so testing again updates that record instead of adding another.
+  const [savedId, setSavedId] = useState<string | null>(null)
+  const recordId = editing?.id ?? savedId
+
   const input = (): OxeQueryConnectionInput => ({
-    ...(editing ? { id: editing.id } : {}), name, engine, host, port: Number(port), database, username, sslMode, environment, readOnly,
+    ...(recordId ? { id: recordId } : {}), name, engine, host, port: Number(port), database, username, sslMode, environment, readOnly,
     ...(editing?.containerRef ? { containerRef: editing.containerRef } : {}),
     ...(password ? { password } : {}), ...(clearPassword ? { clearPassword: true } : {}),
     ...(ca ? { caHandle: ca.handle } : {}), ...(clearCa ? { clearCa: true } : {}),
@@ -165,6 +170,7 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
     setBusy(true); setError(''); setOutcome(null)
     try {
       const saved = await save()
+      setSavedId(saved.id)
       await useOxeQueryStore.getState().refreshConnections()
       await runTest(saved.id)
     } catch (cause) { setOutcome({ kind: 'fail', message: errorMessage(cause) }) } finally { setBusy(false) }

@@ -1,7 +1,10 @@
 import { Worker } from 'node:worker_threads'
 import { OxeQueryError, type ResolvedConnection } from './oxequery-errors'
 
-interface Pending { resolve: (value: unknown) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout>; onProgress?: (progress: unknown) => void }
+interface Pending { resolve: (value: unknown) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout>; budgetMs: number; onProgress?: (progress: unknown) => void }
+
+/** Slack on top of the server-side statement timeout, so the server reports its own timeout first. */
+const STATEMENT_SLACK_MS = 30_000
 
 /** A lazily started worker; a crash fails the requests in flight and the next call starts a fresh one. */
 export class OxeQueryWorkerClient {
@@ -17,9 +20,13 @@ export class OxeQueryWorkerClient {
     if (this.pending.size >= 32) return Promise.reject(new OxeQueryError('invalid', 'Too many database requests are running. Wait for one to finish.'))
     const worker = this.worker ?? this.start()
     const requestId = ++this.sequence
+    // A connection may allow statements of up to an hour; the worker must not be
+    // restarted (killing every connection and tunnel) before the server gives up.
+    const statementMs = connection?.statementTimeoutMs
+    const budgetMs = statementMs ? Math.max(this.timeoutMs, statementMs + STATEMENT_SLACK_MS) : this.timeoutMs
     return new Promise<T>((resolve, reject) => {
-      const timer = setTimeout(() => { void this.reset('The database worker timed out and was restarted.') }, this.timeoutMs)
-      this.pending.set(requestId, { resolve: resolve as (value: unknown) => void, reject, timer, ...(onProgress ? { onProgress } : {}) })
+      const timer = setTimeout(() => { void this.reset('The database worker timed out and was restarted.') }, budgetMs)
+      this.pending.set(requestId, { resolve: resolve as (value: unknown) => void, reject, timer, budgetMs, ...(onProgress ? { onProgress } : {}) })
       try { worker.postMessage({ requestId, op, connection, input }) } catch {
         clearTimeout(timer); this.pending.delete(requestId)
         reject(new OxeQueryError('invalid', 'The request could not be sent.'))
@@ -44,7 +51,7 @@ export class OxeQueryWorkerClient {
       if (message.progress !== undefined) {
         // A long export is alive: its time budget restarts with every report.
         clearTimeout(request.timer)
-        request.timer = setTimeout(() => { void this.reset('The database worker timed out and was restarted.') }, this.timeoutMs)
+        request.timer = setTimeout(() => { void this.reset('The database worker timed out and was restarted.') }, request.budgetMs)
         request.onProgress?.(message.progress)
         return
       }

@@ -8,6 +8,7 @@ import { AgentService } from '../services/agent.service'
 import type { AgentAccountContext } from '../../../shared/types/agentAuth'
 import { MemoryProjectService } from '../services/memory/memory-project.service'
 import { ThreadProjectService } from '../services/conversation/thread-projects'
+import { parsePermissionRuleInput } from '../services/conversation/thread-permissions'
 import type { ThreadMcpBindings } from '../services/conversation/thread-mcp'
 import type { ThreadRequestResponse } from '../../../shared/types/thread'
 
@@ -197,12 +198,7 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings): { st
   ipcMain.handle(IPC_CHANNELS.thread.permissionRules, (event, id: unknown) => { sender(event); return manager.then(service => service.permissionRules(string(id))) })
   ipcMain.handle(IPC_CHANNELS.thread.addPermissionRule, (event, id: unknown, rule: unknown) => {
     sender(event)
-    if (!rule || typeof rule !== 'object' || Array.isArray(rule)) throw Error('Invalid permission rule')
-    const value = rule as Record<string, unknown>
-    if (value.kind !== 'command' && value.kind !== 'path') throw Error('Invalid permission rule kind')
-    if (value.decision !== 'allow' && value.decision !== 'deny') throw Error('Invalid permission rule decision')
-    if (value.scope !== 'project' && value.scope !== 'global') throw Error('Invalid permission rule scope')
-    const input = { kind: value.kind, pattern: string(value.pattern), decision: value.decision, scope: value.scope } as const
+    const input = parsePermissionRuleInput(rule)
     return manager.then(service => service.addPermissionRule(string(id), input))
   })
   ipcMain.handle(IPC_CHANNELS.thread.removePermissionRule, (event, id: unknown, ruleId: unknown) => { sender(event); return manager.then(service => service.removePermissionRule(string(id), string(ruleId))) })

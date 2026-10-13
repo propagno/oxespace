@@ -93,6 +93,8 @@ const EXITED_SESSION_TTL_MS = 30 * 60 * 1000
 const MAX_LIVE_PTYS = 24
 /** A session must be quiet this long before it is considered reclaimable. */
 const RECLAIM_IDLE_MS = 30_000
+/** How long a terminal waits for RTK to be ready before it starts without it. */
+const RTK_START_BUDGET_MS = 3_000
 
 interface TerminalLaunchContextRow {
   pane_root_path: string | null
@@ -266,11 +268,20 @@ export class TerminalManager {
     }
     
     if (!input.disableRtk) {
+      // The first launch downloads RTK. A slow or stalled connection must not hold the
+      // shell back: after the budget the terminal starts without it (the download goes on
+      // in the background and the next terminal picks it up).
+      let budget: ReturnType<typeof setTimeout> | undefined
       try {
-        const rtkBin = await this.rtkService.ensureRtk()
-        finalEnv = { ...finalEnv, PATH: `${rtkBin}${delimiter}${finalEnv.PATH ?? ''}` }
+        const rtkBin = await Promise.race([
+          this.rtkService.ensureRtk(),
+          new Promise<null>((resolveBudget) => { budget = setTimeout(() => resolveBudget(null), RTK_START_BUDGET_MS) })
+        ])
+        if (rtkBin) finalEnv = { ...finalEnv, PATH: `${rtkBin}${delimiter}${finalEnv.PATH ?? ''}` }
       } catch (err) {
         // Fall back gracefully if download fails
+      } finally {
+        if (budget) clearTimeout(budget)
       }
     } else {
       finalEnv = { ...finalEnv, RTK_DISABLED: '1' }
