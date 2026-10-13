@@ -112,3 +112,16 @@ export function redactDocument(text: string, max = 2000): string {
     return value.length > max ? `${value.slice(0, max)}…` : value
   } catch { return text.length > max ? `${text.slice(0, max)}…` : text }
 }
+
+/**
+ * One line of container output on its way to a model. Programs print connection strings,
+ * bearer tokens and `password=...` in their logs; those values are replaced so a log tail
+ * does not become a credential leak. Best effort: logs stay untrusted either way.
+ */
+export function maskLogLine(line: string): string {
+  return line
+    .replace(/\b([a-z][a-z0-9+.-]*:\/\/)([^\s/:@]+):([^\s@/]+)@/gi, '$1$2:***@')
+    .replace(/\b(bearer|basic)\s+[A-Za-z0-9._~+/=-]{8,}/gi, '$1 ***')
+    .replace(/\b(password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key|authorization)(["']?\s*[:=]\s*["']?)([^\s"',;&]+)/gi, '$1$2***')
+    .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*/g, '[private key]')
+}

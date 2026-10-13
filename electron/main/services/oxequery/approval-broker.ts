@@ -32,6 +32,8 @@ export type ApprovalState =
 
 export const APPROVAL_TTL_MS = 5 * 60_000
 const DENY_MEMORY_MS = 60_000
+/** "Allow reads for this run" lapses on its own: the broker is not told when an execution ends. */
+const SESSION_READ_TTL_MS = 4 * 60 * 60_000
 
 export function textHash(text: string): string {
   return createHash('sha256').update(text).digest('hex')
@@ -48,7 +50,7 @@ interface Pending { requestId: string; promise: Promise<ApprovalDecision> }
 export class ApprovalBroker {
   private readonly grants = new Map<string, number>()
   private readonly denials = new Map<string, number>()
-  private readonly sessionReads = new Set<string>()
+  private readonly sessionReads = new Map<string, number>()
   private readonly pending = new Map<string, Pending>()
 
   constructor(private readonly prompter: ApprovalPrompter | undefined, private readonly now: () => number = Date.now, private readonly defaultWaitMs = 45_000) {}
@@ -57,10 +59,14 @@ export class ApprovalBroker {
     return `${executionKey}|${connectionId}|${tool}|${hash}`
   }
 
+  private expireSessionReads(now: number): void {
+    for (const [key, at] of this.sessionReads) if (now - at > SESSION_READ_TTL_MS) this.sessionReads.delete(key)
+  }
+
   /** Forget everything an execution was granted (it ended). */
   endExecution(executionKey: string): void {
     for (const key of [...this.grants.keys()]) if (key.startsWith(`${executionKey}|`)) this.grants.delete(key)
-    for (const key of [...this.sessionReads]) if (key.startsWith(`${executionKey}|`)) this.sessionReads.delete(key)
+    for (const key of [...this.sessionReads.keys()]) if (key.startsWith(`${executionKey}|`)) this.sessionReads.delete(key)
   }
 
   async require(
@@ -72,6 +78,7 @@ export class ApprovalBroker {
     const hash = textHash(request.text)
     const key = this.key(executionKey, connectionId, request.tool, hash)
     const now = this.now()
+    this.expireSessionReads(now)
     if (request.risk === 'read' && this.sessionReads.has(`${executionKey}|${connectionId}|read`)) return { state: 'approved', via: 'session' }
     const granted = this.grants.get(key)
     if (granted !== undefined) {
@@ -95,7 +102,7 @@ export class ApprovalBroker {
         if (decision === 'deny') this.denials.set(key, at + DENY_MEMORY_MS)
         else {
           this.grants.set(key, at + APPROVAL_TTL_MS)
-          if (decision === 'allow-session' && request.risk === 'read') this.sessionReads.add(`${executionKey}|${connectionId}|read`)
+          if (decision === 'allow-session' && request.risk === 'read') this.sessionReads.set(`${executionKey}|${connectionId}|read`, this.now())
         }
         return decision
       })

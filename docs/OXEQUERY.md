@@ -106,8 +106,12 @@ SqlWorkbench / MongoWorkbench        ConnectionStore          mongodb + bson
   documents that clash are reported and the rest are inserted.
 ## Agents (MCP)
 
-AI agents running in a Thread reach OxeQuery through ten tools. **Nothing is available
+AI agents running in a Thread reach OxeQuery through ten tools. **No database is available
 until a person sets *Agent access* on a connection** (Connection → Limits and agents).
+Listing containers and reading a container's recent log lines need no connection: the
+list shows names, images, state and ports, and log lines are cut to 400 characters,
+masked (connection-string passwords, bearer tokens, `password=`/`token=` values, private
+keys) and marked untrusted. Starting, stopping or restarting a container always asks you.
 
 | Access | What an agent may do |
 |---|---|
