@@ -11,7 +11,7 @@ vi.mock('electron-log/main.js', () => ({
   default: { info: () => undefined, warn: () => undefined }
 }))
 
-const { updaterSupportsThisInstall, isNewerRelease, checkForAppUpdates } = await import('../../electron/main/updater')
+const { updaterSupportsThisInstall, isNewerRelease, newestVersion, checkForAppUpdates } = await import('../../electron/main/updater')
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -22,6 +22,18 @@ describe('published release comparison', () => {
     expect(isNewerRelease('v0.14.2', '0.14.2')).toBe(false)
     expect(isNewerRelease('v0.14.1', '0.14.2')).toBe(false)
     expect(isNewerRelease('unknown', '0.14.2')).toBe(false)
+  })
+
+  test('orders pre-releases below their stable release and compares their numbers', () => {
+    expect(isNewerRelease('v0.16.0', '0.16.0-beta.8')).toBe(true)
+    expect(isNewerRelease('v0.16.0-beta.8', '0.16.0')).toBe(false)
+    expect(isNewerRelease('v0.16.0-beta.10', '0.16.0-beta.9')).toBe(true)
+    expect(isNewerRelease('v0.16.0-beta.9', '0.16.0-beta.10')).toBe(false)
+    expect(isNewerRelease('v0.16.0-beta.2', '0.16.0-beta.2')).toBe(false)
+    expect(isNewerRelease('v0.17.0-beta.1', '0.16.0')).toBe(true)
+    expect(newestVersion(['v0.16.0-beta.8', 'v0.16.0', 'v0.15.2', 'junk'])).toBe('0.16.0')
+    expect(newestVersion(['v0.17.0-beta.1', 'v0.16.0'])).toBe('0.17.0-beta.1')
+    expect(newestVersion(['nope'])).toBeNull()
   })
 
   test('dev builds detect updates but offer manual installation', async () => {

@@ -44,6 +44,27 @@ describe('Claude print conversation', () => {
     await expect(f.adapter.respondRequest('q', { answers: {} })).rejects.toThrow('no longer pending')
     await f.adapter.dispose()
   })
+  it('shows a tool result delivered as typed blocks instead of an empty output', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: 'native' }, event => f.events.push(event))
+    await f.adapter.send('Read')
+    f.emit(0, { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'read', content: [{ type: 'text', text: 'first part' }, { type: 'image', source: {} }, { type: 'text', text: 'second part' }] }] } })
+    const tool = f.events.find(event => event.type === 'tool' && event.id === 'read')
+    expect(tool).toMatchObject({ type: 'tool', state: 'completed', output: ['first part', '[image]', 'second part'].join('\n') })
+    await f.adapter.dispose()
+  })
+
+  it('keeps the turn alive when one protocol line is larger than 1 MiB', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: 'native' }, event => f.events.push(event))
+    await f.adapter.send('Big file')
+    f.emit(0, { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'big', content: 'x'.repeat(2 * 1024 * 1024) }] } })
+    f.emit(0, { type: 'result', subtype: 'success' })
+    expect(f.events.some(event => event.type === 'tool' && event.id === 'big' && event.state === 'completed')).toBe(true)
+    expect(f.events.some(event => event.type === 'turn' && (event as { state?: string }).state === 'failed')).toBe(false)
+    await f.adapter.dispose()
+  })
+
   it('receives two background returns after result and a native continuation without another user send', async () => {
     const f = fixture()
     await f.adapter.start({ rootPath: '/project', nativeSessionId: 'native', access: 'workspace-write' }, event => f.events.push(event))

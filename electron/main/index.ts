@@ -2,6 +2,7 @@ import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, safeStor
 import log from 'electron-log/main.js'
 import { recordRuntime, startRuntimeDiagnostics, stopRuntimeDiagnostics } from './services/runtime-diagnostics'
 import { initAutoUpdater, registerAppUpdateIpc } from './updater'
+import { RendererRecoveryPolicy } from './renderer-recovery'
 import { randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -801,10 +802,25 @@ function createMainWindow(): BrowserWindow {
     log.error('Renderer failed to load', { errorCode, errorDescription, validatedURL })
     if (isDev) console.error('[OXESpace] Renderer failed to load', { errorCode, errorDescription, validatedURL })
   })
+  const rendererRecovery = new RendererRecoveryPolicy()
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
     recordRuntime('renderer-gone', { kind: 'Renderer', state: details.reason, exitCode: details.exitCode })
     log.error('Renderer process gone', details)
     if (isDev) console.error('[OXESpace] Renderer process gone', details)
+    // Terminals live in the main process, so a reloaded window reattaches to them.
+    const next = rendererRecovery.decide(details.reason)
+    if (next === 'reload' && !mainWindow.isDestroyed()) {
+      setTimeout(() => { if (!mainWindow.isDestroyed()) mainWindow.webContents.reload() }, 250)
+    } else if (next === 'give-up' && !mainWindow.isDestroyed()) {
+      void dialog.showMessageBox(mainWindow, {
+        type: 'error',
+        title: 'OXESpace stopped responding',
+        message: 'The interface keeps crashing.',
+        detail: 'Your terminals and agents are still running. Restart OXESpace to bring the interface back; diagnostics can be exported from Settings > Diagnostics.',
+        buttons: ['OK'],
+        defaultId: 0
+      })
+    }
   })
   mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
     if (isDev && level >= 2) console.error(`[OXESpace renderer:${level}] ${message} (${sourceId}:${line})`)

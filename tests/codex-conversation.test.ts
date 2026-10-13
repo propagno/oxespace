@@ -383,6 +383,13 @@ describe('Codex conversation adapter', () => {
     expect(f.requests.at(-1)).toMatchObject({ method: 'turn/interrupt', params: { turnId: 'turn-A' } })
     await f.adapter.dispose()
   })
+  it('forks with the sandbox name and approval policy of the thread', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: null, access: 'full-access', approvalPolicy: 'never' }, event => f.events.push(event))
+    await f.adapter.command('fork', '')
+    expect(f.requests.at(-1)).toMatchObject({ method: 'thread/fork', params: { threadId: 'native-A', sandbox: 'danger-full-access', approvalPolicy: 'never' } })
+    await f.adapter.dispose()
+  })
   it('passes resolved native skills as structured input and routes compact to its native method', async () => {
     const f = fixture()
     await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
