@@ -6,7 +6,7 @@ import { JsonLinesDecoder } from './json-lines'
 import { CLAUDE_THREAD_ARGS, claudeRuntimeCatalog } from './claude-command-catalog'
 import { threadFailure } from './thread-failure'
 import { normalizeClaudeContext } from './thread-context'
-import { readClaudeResultCost } from './thread-cost'
+import { readClaudeResultCost, stepFromProcessTotal } from './thread-cost'
 import { createApiRetryTracker } from './claude-api-retry'
 import { describePermissionRequest } from './claude-permission-request'
 import { toolResultText } from './tool-result-text'
@@ -47,6 +47,8 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
   private readonly seenMessages = new Set<string>()
   private streamMessageId = ''
   private disposed = false
+  /** `total_cost_usd` of the last `result` of the running process; `result` reports a process total. */
+  private processCostUsd = 0
   private busy = false
   private pendingContext = new Map<string, { resolve: (report: ThreadContextReport | null) => void; timer: ReturnType<typeof setTimeout> }>()
   private pendingControl = new Map<string, { resolve: (error: string | null) => void; timer: ReturnType<typeof setTimeout> }>()
@@ -100,6 +102,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
     this.selectedModel = text.trim().match(/^\/model\s+([a-z0-9][a-z0-9._:/\[\]-]*)$/i)?.[1]
     try {
       const fresh = !this.transport
+      if (fresh) this.processCostUsd = 0
       const transport = this.transport ??= this.createTransport(args, this.context.rootPath)
       if (fresh) {
       const decoder = new JsonLinesDecoder(value => this.receive(value, transport), MAX_PROTOCOL_LINE_BYTES)
@@ -366,7 +369,14 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
             this.emit({ type: 'message', id: randomUUID(), role: 'assistant', text: event.result.slice(0, 65536) })
           }
           const turnCost = readClaudeResultCost(event)
-          if (turnCost) this.emit({ type: 'turn-cost', ...turnCost })
+          if (turnCost) {
+            if (turnCost.usd !== undefined) {
+              const step = stepFromProcessTotal(this.processCostUsd, turnCost.usd)
+              this.processCostUsd = step.total
+              turnCost.usd = step.turnUsd
+            }
+            this.emit({ type: 'turn-cost', ...turnCost })
+          }
           this.finish(this.authenticationFailed || event.is_error === true || event.subtype !== 'success' ? 'failed' : 'completed')
         }
   }

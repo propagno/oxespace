@@ -42,14 +42,22 @@ export function readCodexRequestTokens(last: unknown): TurnCost | null {
   return { inputTokens: Math.max(0, (input ?? 0) - (cached ?? 0)), outputTokens: output ?? 0, cacheReadTokens: cached ?? 0 }
 }
 
+/**
+ * Claude's `result` frame carries `total_cost_usd` for the whole *process*, not the turn:
+ * a persistent session reports 0.5, then 1.2, then 2.0 for three turns that cost 0.5, 0.7
+ * and 0.8. Summing the frames as if they were per turn made a long conversation's cost
+ * grow quadratically. The turn's own cost is the step from the previous total; a total
+ * that went down means a new process started counting from zero.
+ */
+export function stepFromProcessTotal(previousTotal: number, total: number): { turnUsd: number; total: number } {
+  const turnUsd = total >= previousTotal ? total - previousTotal : total
+  return { turnUsd: Math.round(turnUsd * 1e6) / 1e6, total }
+}
+
 const sum = (previous: number | undefined, delta: number | undefined): number | undefined =>
   previous === undefined && delta === undefined ? undefined : (previous ?? 0) + (delta ?? 0)
 
-/**
- * `usd` from the CLI is cumulative for the *process* in some versions and per
- * turn in others; it is treated as per-turn here, which is what `result`
- * documents. A turn without a cost still counts as a turn.
- */
+/** `turn.usd` is this turn's own cost (see `stepFromProcessTotal`). A turn without a cost still counts as a turn. */
 export function addTurnCost(previous: ThreadCostReport | undefined, turn: TurnCost, now: number, source: ThreadCostReport['source'] = 'claude-result'): ThreadCostReport {
   return {
     totalUsd: (previous?.totalUsd ?? 0) + (turn.usd ?? 0),

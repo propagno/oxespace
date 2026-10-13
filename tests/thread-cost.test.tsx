@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { ClaudeConversationAdapter } from '../electron/main/services/conversation/claude-conversation'
-import { addTurnCost, readClaudeResultCost } from '../electron/main/services/conversation/thread-cost'
+import { addTurnCost, readClaudeResultCost, stepFromProcessTotal } from '../electron/main/services/conversation/thread-cost'
 import { ThreadCostChip, formatThreadCost } from '../src/components/Threads/ThreadCostChip'
 import type { ThreadEvent } from '../shared/types/thread'
 
@@ -64,6 +64,46 @@ describe('Claude adapter reports turn cost', () => {
     expect(costIndex).toBeLessThan(doneIndex)
     expect(events[costIndex]).toMatchObject({ type: 'turn-cost', usd: 0.05, inputTokens: 10, outputTokens: 20 })
     await adapter.dispose()
+  })
+})
+
+describe('Claude adapter reports the cost of each turn, not the process total', () => {
+  function fixture() {
+    const turns: { data: (c: Uint8Array) => void; close: () => void }[] = []
+    const adapter = new ClaudeConversationAdapter(() => {
+      const turn = { data: (_c: Uint8Array) => {}, close: () => {} }
+      turns.push(turn)
+      return {
+        write: (text: string) => {
+          const m = JSON.parse(text) as Record<string, unknown>
+          if (m.type === 'control_request' && m.request_id === 'initialize') {
+            turn.data(Buffer.from(JSON.stringify({ type: 'control_response', response: { subtype: 'success', request_id: 'initialize', response: { commands: [], models: [] } } }) + '\n'))
+          }
+        },
+        onData: (cb: (c: Uint8Array) => void) => { turn.data = cb },
+        onClose: (cb: () => void) => { turn.close = cb },
+        close: vi.fn(async () => turn.close())
+      }
+    })
+    const events: ThreadEvent[] = []
+    return { adapter, turns, events, result: (index: number, total: number) => turns[index].data(Buffer.from(JSON.stringify({ type: 'result', subtype: 'success', total_cost_usd: total }) + '\n')) }
+  }
+  const usd = (events: ThreadEvent[]) => events.filter(event => event.type === 'turn-cost').map(event => (event as { usd?: number }).usd)
+
+  it('turns a running process total into per-turn amounts', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/p', nativeSessionId: 'n' }, event => f.events.push(event))
+    await f.adapter.send('one'); f.result(0, 0.5)
+    await f.adapter.send('two'); f.result(0, 1.2)
+    await f.adapter.send('three'); f.result(0, 2.0)
+    expect(usd(f.events)).toEqual([0.5, 0.7, 0.8])
+    await f.adapter.dispose()
+  })
+
+  it('counts a total that went down as a new process starting from zero', () => {
+    expect(stepFromProcessTotal(2.0, 0.3)).toEqual({ turnUsd: 0.3, total: 0.3 })
+    expect(stepFromProcessTotal(0, 0.5)).toEqual({ turnUsd: 0.5, total: 0.5 })
+    expect(stepFromProcessTotal(1.2, 2.0).turnUsd).toBeCloseTo(0.8)
   })
 })
 
