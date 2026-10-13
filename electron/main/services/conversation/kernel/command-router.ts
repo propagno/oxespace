@@ -49,7 +49,7 @@ export async function runThreadCommand(host: CommandHost, id: string, text: stri
     const aliases: Record<string, string> = { delegation: 'delegations', approvals: 'permissions', 'allowed-tools': 'permissions', name: 'rename', clear: 'new', reset: 'new', cwd: 'pwd', plugin: 'plugins', config: 'settings', login: 'accounts', exit: 'quit' }
     name = aliases[name] ?? name
     if (!hasDesktopCommand(thread.provider, name)) throw Error(`/${name} is not available in Thread yet. Use /help to see supported commands.`)
-    if (argument && ['help', 'skills', 'accounts', 'settings', 'pwd', 'status', 'capabilities', 'instructions', 'rules', 'copy', 'export', 'stop', 'new', 'quit', 'diff', 'usage', 'fork', 'hooks', 'experimental', 'debug-config', 'ps', 'memories'].includes(name)) throw Error(`/${name} does not accept arguments in Thread.`)
+    if (argument && ['help', 'skills', 'accounts', 'settings', 'pwd', 'status', 'capabilities', 'instructions', 'rules', 'spending', 'copy', 'export', 'stop', 'new', 'quit', 'diff', 'usage', 'fork', 'hooks', 'experimental', 'debug-config', 'ps', 'memories'].includes(name)) throw Error(`/${name} does not accept arguments in Thread.`)
     if (name === 'delegations' && argument && !/^[a-z0-9-]{8,128}$/i.test(argument)) throw Error('Use /delegation <taskId> with an exact delegation ID.')
     if (name === 'resume' && argument) {
       const local = host.db.prepare('SELECT id FROM conversation_threads WHERE id = ?').get(argument) as { id: string } | undefined
@@ -149,6 +149,7 @@ export async function runThreadCommand(host: CommandHost, id: string, text: stri
     // The changes panel shows branch and uncommitted diffs with line comments for the agent.
     if (name === 'diff') return { kind: 'panel', surface: 'changes', title: 'Project changes' }
     if (name === 'rules') return { kind: 'panel', surface: 'rules', title: 'Permission rules' }
+    if (name === 'spending') return { kind: 'panel', surface: 'spending', title: 'Spending' }
     if (name === 'checkpoint') {
       const [action = 'list', checkpointId, extra] = argument.split(/\s+/).filter(Boolean)
       if (extra || !['list', 'restore', 'delete'].includes(action) || action !== 'list' && !checkpointId) throw Error('Use /checkpoint, /checkpoint restore <id>, or /checkpoint delete <id>')

@@ -294,6 +294,18 @@ describe('Codex conversation adapter', () => {
     expect(f.events.at(-1)).toMatchObject({ type: 'context-usage', report: { usedTokens: 40_000, windowTokens: 100_000, percentage: 40, source: 'codex-token-usage' } })
     await f.adapter.dispose()
   })
+  it('reports the tokens of every model request in a turn when the turn ends', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
+    await f.adapter.send('Measure')
+    const usage = (last: Record<string, number>) => f.emit({ method: 'thread/tokenUsage/updated', params: { threadId: 'native-A', turnId: 'turn-A', tokenUsage: { modelContextWindow: 100_000, last: { totalTokens: 1, ...last }, total: { totalTokens: 9 } } } })
+    usage({ inputTokens: 1000, cachedInputTokens: 600, outputTokens: 40 })
+    usage({ inputTokens: 1200, cachedInputTokens: 1000, outputTokens: 60 })
+    expect(f.events.some(event => event.type === 'turn-cost')).toBe(false)
+    f.emit({ method: 'turn/completed', params: { threadId: 'native-A', turn: { id: 'turn-A', status: 'completed' } } })
+    expect(f.events.slice(-2)).toEqual([{ type: 'turn-cost', inputTokens: 600, outputTokens: 100, cacheReadTokens: 1600 }, { type: 'completed', status: 'completed' }])
+    await f.adapter.dispose()
+  })
   it('retains public plan progress and the consolidated turn diff', async () => {
     const f = fixture()
     await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../../db'
-import type { AgentConversationAdapter, ConversationThread, ThreadAgentInput, ThreadCommandCatalog, ThreadEvent, ThreadSnapshot, ThreadRequest, ThreadRequestResponse, ThreadQueuedInput, ThreadContextReport, ThreadRewindResult, ThreadAuditEntry, ThreadFileHunk, ThreadPermissionRule } from '../../../../shared/types/thread'
+import type { AgentConversationAdapter, ConversationThread, ThreadAgentInput, ThreadCommandCatalog, ThreadEvent, ThreadSnapshot, ThreadRequest, ThreadRequestResponse, ThreadQueuedInput, ThreadContextReport, ThreadRewindResult, ThreadAuditEntry, ThreadFileHunk, ThreadPermissionRule, ThreadUsageSummary } from '../../../../shared/types/thread'
 import type { ThreadNativeCli } from './thread-cli'
 import type { ThreadModelCatalog, ThreadConfiguration, ThreadCommandResult } from '../../../../shared/types/thread'
 import type { ThreadModelService } from './thread-models'
@@ -28,6 +28,7 @@ import { ThreadExportService } from './thread-export.service'
 import { ThreadPortableService } from './thread-portable'
 import { ThreadCheckpointService } from './thread-checkpoints'
 import { ThreadPermissionStore } from './thread-permissions'
+import { ThreadUsageLedger } from './thread-usage'
 import { recordRuntime } from '../runtime-diagnostics'
 import { hasUnconfirmedTurnTools, recoverPublicTurn } from './thread-result-recovery'
 import type { NativeStateResult } from './codex-state-reader'
@@ -81,6 +82,7 @@ export class ThreadOrchestrator {
   private readonly portable = new ThreadPortableService()
   private readonly checkpoints: ThreadCheckpointService
   private readonly permissions: ThreadPermissionStore
+  private readonly usage: ThreadUsageLedger
   private readonly turnCheckpoints = new Map<string, string>()
   private readonly busy = new Set<string>()
   private readonly nativePageLoads = new Map<string, Promise<void>>()
@@ -107,6 +109,7 @@ export class ThreadOrchestrator {
     this.exports = new ThreadExportService((threadId, artifactId) => this.history.artifact(threadId, artifactId))
     this.checkpoints = new ThreadCheckpointService(db)
     this.permissions = new ThreadPermissionStore(db)
+    this.usage = new ThreadUsageLedger(db)
     try { this.permissions.prune() } catch { /* Audit retention is best effort. */ }
     // A persisted running state is not proof that its process survived a restart.
     for (const row of db.prepare('SELECT id FROM conversation_threads').all() as { id: string }[]) {
@@ -872,8 +875,11 @@ export class ThreadOrchestrator {
     try {
       const snapshot = this.read(id)
       const { type: _type, ...cost } = turn
-      snapshot.thread.costReport = addTurnCost(snapshot.thread.costReport, cost, Date.now())
+      const now = Date.now()
+      snapshot.thread.costReport = addTurnCost(snapshot.thread.costReport, cost, now, snapshot.thread.provider === 'codex' ? 'codex-token-usage' : 'claude-result')
       this.save(snapshot, { eventsFrom: snapshot.events.length })
+      const model = snapshot.thread.model ?? snapshot.thread.contextReport?.model
+      try { this.usage.record({ ...cost, threadId: id, projectRoot: snapshot.thread.rootPath, provider: snapshot.thread.provider, ...(model ? { model } : {}), at: now }) } catch { /* The ledger is best effort; the conversation keeps its own total. */ }
     } catch { /* Thread may have been deleted while the provider was reporting. */ }
   }
 
@@ -1004,6 +1010,12 @@ export class ThreadOrchestrator {
     if (!rule) throw Error('That rule does not apply to this project')
     this.permissions.remove(ruleId)
     this.audit(id, { action: 'rule-removed', actor: 'user', summary: `Removed ${rule.decision} ${rule.kind} ${rule.pattern}${rule.projectRoot ? '' : ' (all projects)'}` })
+  }
+
+  usageSummary(id: string, options: { scope?: 'thread' | 'project' | 'all'; days?: number } = {}): ThreadUsageSummary {
+    const thread = this.read(id).thread
+    const scope = options.scope ?? 'project'
+    return this.usage.summary({ scope, threadId: id, projectRoot: thread.rootPath, days: options.days })
   }
 
   auditLog(id: string, options: { scope?: 'thread' | 'project'; before?: number; limit?: number } = {}): ThreadAuditEntry[] {

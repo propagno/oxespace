@@ -269,6 +269,19 @@
 .thread-permissions-audit li { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 8px; color: var(--tx-secondary); font-size: var(--fs-xs); }
 .thread-permissions-audit li span:last-child { color: var(--tx-primary); overflow-wrap: anywhere; }
 .thread-permissions-actor.is-policy { color: var(--accent, inherit); }
+.thread-usage { display: grid; gap: 14px; font-size: var(--fs-sm); }
+.thread-usage h3 { margin: 0 0 6px; font-size: var(--fs-sm); }
+.thread-usage p { margin: 0; color: var(--tx-secondary); line-height: 1.5; }
+.thread-usage-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.thread-usage-filters [role="radiogroup"] { display: flex; flex-wrap: wrap; gap: 12px; }
+.thread-usage-total strong { color: var(--tx-primary); font-size: var(--fs-md, 14px); font-variant-numeric: tabular-nums; }
+.thread-usage-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; max-height: 240px; overflow: auto; }
+.thread-usage-list li { display: grid; grid-template-columns: minmax(0, 11rem) minmax(40px, 1fr) auto; gap: 8px; align-items: center; font-size: var(--fs-xs); }
+.thread-usage-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thread-usage-bar { height: 6px; border-radius: 3px; background: var(--bd-base); overflow: hidden; }
+.thread-usage-bar span { display: block; height: 100%; background: var(--accent, var(--tx-secondary)); }
+.thread-usage-value { color: var(--tx-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+@media (max-width: 520px) { .thread-usage-list li { grid-template-columns: minmax(0, 1fr) auto; } .thread-usage-bar { display: none; } }
 .thread-request-policy { margin: 8px 12px; padding: 8px 10px; border: 1px solid var(--bd-base); border-radius: 6px; color: var(--tx-secondary); font-size: var(--fs-xs); line-height: 1.5; overflow-wrap: anywhere; }
 .thread-request-policy ul { margin: 0; padding-left: 16px; }
 .thread-request-policy.is-high-risk { border-color: var(--dot-red); }

@@ -89,7 +89,7 @@ export interface ThreadCapabilityManifest {
 export interface ThreadUsageWindow { label: string; usedPercent: number; resetsAt?: number; windowMinutes?: number }
 export interface ThreadUsage { windows: ThreadUsageWindow[]; checkedAt: number }
 export interface ThreadFailure { id: string; occurredAt: number; code: 'authentication' | 'usage' | 'rate-limit' | 'context' | 'budget' | 'server' | 'network' | 'sandbox' | 'configuration' | 'session-busy' | 'unknown'; message: string; detail?: string; providerCode?: string; httpStatus?: number; usage?: ThreadUsage; usageUnavailable?: boolean }
-export interface ThreadCommandResult { kind: 'applied' | 'panel' | 'navigate'; title?: string; text?: string; externalUrl?: string; surface?: 'model' | 'effort' | 'permissions' | 'accounts' | 'commands' | 'sessions' | 'rename' | 'settings' | 'delegations' | 'changes' | 'rules'; threadId?: string; usage?: ThreadUsage; rows?: { label: string; detail?: string; id?: string; turnId?: string }[] }
+export interface ThreadCommandResult { kind: 'applied' | 'panel' | 'navigate'; title?: string; text?: string; externalUrl?: string; surface?: 'model' | 'effort' | 'permissions' | 'accounts' | 'commands' | 'sessions' | 'rename' | 'settings' | 'delegations' | 'changes' | 'rules' | 'spending'; threadId?: string; usage?: ThreadUsage; rows?: { label: string; detail?: string; id?: string; turnId?: string }[] }
 /** Resolved in the main process; skill paths are never accepted from the renderer. */
 export interface ThreadAttachment {
   id: string
@@ -184,6 +184,26 @@ export interface ThreadAuditEntry {
   summary: string
   detail?: string
 }
+/** Spending of one group (a day, a model or a conversation) in the usage ledger. */
+export interface ThreadUsageBucket {
+  key: string
+  label: string
+  turns: number
+  /** Turns whose provider reported a cost; Codex reports tokens only. */
+  pricedTurns: number
+  usd: number
+  inputTokens: number
+  outputTokens: number
+  cacheReadTokens: number
+}
+export interface ThreadUsageSummary {
+  scope: 'thread' | 'project' | 'all'
+  since: number
+  total: ThreadUsageBucket
+  byDay: ThreadUsageBucket[]
+  byModel: ThreadUsageBucket[]
+  byThread: ThreadUsageBucket[]
+}
 export interface ThreadRequestResponse {
   decision?: 'accept' | 'acceptForSession' | 'decline' | 'cancel'
   answers?: Record<string, string[]>
@@ -218,7 +238,7 @@ export interface ThreadCostReport {
   outputTokens?: number
   cacheReadTokens?: number
   updatedAt: number
-  source: 'claude-result'
+  source: 'claude-result' | 'codex-token-usage'
 }
 
 export interface ThreadContextReport {
@@ -476,6 +496,7 @@ export interface ThreadApi {
   addPermissionRule?(id: string, rule: { kind: ThreadPermissionRule['kind']; pattern: string; decision: ThreadPermissionRule['decision']; scope: 'project' | 'global' }): Promise<ThreadPermissionRule>
   removePermissionRule?(id: string, ruleId: string): Promise<void>
   auditLog?(id: string, options?: { scope?: 'thread' | 'project'; before?: number; limit?: number }): Promise<ThreadAuditEntry[]>
+  usageSummary?(id: string, options?: { scope?: 'thread' | 'project' | 'all'; days?: number }): Promise<ThreadUsageSummary>
   rewind?(id: string, turnId: string, options?: { restoreFiles?: boolean }): Promise<ThreadRewindResult>
   readSince?(id: string, cursor: ThreadSyncCursor): Promise<ThreadDelta>
   resumeQueue?(id: string): Promise<void>

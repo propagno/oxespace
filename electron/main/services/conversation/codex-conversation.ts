@@ -5,6 +5,7 @@ import { AgentRpcPeer, type AgentRpcMessage } from './rpc-peer'
 import { parseThreadUsage, threadFailure, ThreadAgentError } from './thread-failure'
 import { requestOutcome } from '../../../../shared/threadRequestOutcome'
 import { normalizeCodexTokenUsage } from './thread-context'
+import { readCodexRequestTokens, type TurnCost } from './thread-cost'
 import { ThreadRewindError, readAllTurnIds, verifyRevert } from './thread-rewind'
 
 // Codex can send a completed command or compaction item as one JSON-RPC frame.
@@ -69,6 +70,8 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
   private usageRequest?: Promise<ThreadUsage>
   private usageSnapshots: Record<string, Record<string, unknown>> = {}
   private turnError?: ThreadFailure
+  /** Tokens of the model requests in the running turn, reported as its cost when it ends. */
+  private turnTokens?: TurnCost
   private lastNativeSignalAt = 0
   private nativeSignalRevision = 0
   private terminalEvidence?: { turnId: string; state: 'completed' | 'failed'; revision: number }
@@ -149,6 +152,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     if (this.busy) throw new Error('A conversation turn is already running')
     if (!input.trim() || Buffer.byteLength(input) > 64 * 1024) throw new Error('Invalid conversation input')
     this.busy = true
+    this.turnTokens = undefined
     this.turnError = undefined
     this.reasoningSummaries.clear()
     this.commandOutputs.clear()
@@ -274,6 +278,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
   async startQueued(nativeId?: string): Promise<void> {
     if (!this.rpc || this.busy) throw Error('Conversation is not ready to start queued input')
     this.busy = true
+    this.turnTokens = undefined
     this.reasoningSummaries.clear()
     this.commandOutputs.clear()
     try {
@@ -534,6 +539,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     this.reasoningSummaries.clear()
     this.commandOutputs.clear()
     this.approvals.clear()
+    this.emitTurnTokens()
     this.emit({ type: 'completed', status: 'failed', error: failure.message, errorCode: failure.code, failure })
     if (failure.code === 'authentication' || failure.code === 'session-busy' || typeof error === 'string') return
     void this.readUsage().then(usage => {
@@ -579,6 +585,12 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     if (message.method === 'thread/tokenUsage/updated') {
       const report = normalizeCodexTokenUsage(params.tokenUsage, this.model)
       if (report) this.emit({ type: 'context-usage', report })
+      const request = this.busy ? readCodexRequestTokens(record(params.tokenUsage).last) : null
+      if (request) this.turnTokens = {
+        inputTokens: (this.turnTokens?.inputTokens ?? 0) + (request.inputTokens ?? 0),
+        outputTokens: (this.turnTokens?.outputTokens ?? 0) + (request.outputTokens ?? 0),
+        cacheReadTokens: (this.turnTokens?.cacheReadTokens ?? 0) + (request.cacheReadTokens ?? 0)
+      }
       return
     }
     if (message.method === 'error') {
@@ -686,8 +698,15 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
       this.commandOutputs.clear()
       this.turnId = ''
       this.approvals.clear()
+      this.emitTurnTokens()
       this.emit({ type: 'completed', status })
     }
+  }
+
+  private emitTurnTokens(): void {
+    const tokens = this.turnTokens
+    this.turnTokens = undefined
+    if (tokens) this.emit({ type: 'turn-cost', ...tokens })
   }
 
   private hostRequest(message: AgentRpcMessage): void {

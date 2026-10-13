@@ -91,6 +91,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       addPermissionRule: (id, rule) => ipc.invoke(IPC_CHANNELS.thread.addPermissionRule, id, rule) as Promise<import('../../shared/types/thread').ThreadPermissionRule>,
       removePermissionRule: (id, ruleId) => ipc.invoke(IPC_CHANNELS.thread.removePermissionRule, id, ruleId) as Promise<void>,
       auditLog: (id, options) => ipc.invoke(IPC_CHANNELS.thread.auditLog, id, options) as Promise<import('../../shared/types/thread').ThreadAuditEntry[]>,
+      usageSummary: (id, options) => ipc.invoke(IPC_CHANNELS.thread.usageSummary, id, options) as Promise<import('../../shared/types/thread').ThreadUsageSummary>,
       updateQueued: (id, itemId, text) => ipc.invoke(IPC_CHANNELS.thread.updateQueued, id, itemId, text) as Promise<void>,
         deleteQueued: (id, itemId, preserveAttachments) => ipc.invoke(IPC_CHANNELS.thread.deleteQueued, id, itemId, preserveAttachments) as Promise<void>,
       reorderQueued: (id, itemIds) => ipc.invoke(IPC_CHANNELS.thread.reorderQueued, id, itemIds) as Promise<void>,

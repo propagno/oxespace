@@ -2,7 +2,7 @@
  * Per-turn cost reported by Claude in its `result` frame (`total_cost_usd` and
  * `usage`). For a subscription account the figure is the API-equivalent value,
  * not money charged, so it is presented as an estimate. Codex reports tokens
- * only and is not covered here.
+ * only; its turns are summed from `thread/tokenUsage/updated` and carry no cost.
  */
 import type { ThreadCostReport } from '../../../../shared/types/thread'
 
@@ -30,6 +30,18 @@ export function readClaudeResultCost(event: Record<string, unknown>): TurnCost |
   return Object.values(cost).some(value => value !== undefined) ? cost : null
 }
 
+/**
+ * One Codex model request's tokens (`tokenUsage.last`). OpenAI counts cached
+ * input inside `inputTokens`; it is split out so input means the same thing
+ * for both providers.
+ */
+export function readCodexRequestTokens(last: unknown): TurnCost | null {
+  const value = last && typeof last === 'object' ? last as Record<string, unknown> : {}
+  const input = amount(value.inputTokens, 1e9), cached = amount(value.cachedInputTokens, 1e9), output = amount(value.outputTokens, 1e9)
+  if (input === undefined && output === undefined) return null
+  return { inputTokens: Math.max(0, (input ?? 0) - (cached ?? 0)), outputTokens: output ?? 0, cacheReadTokens: cached ?? 0 }
+}
+
 const sum = (previous: number | undefined, delta: number | undefined): number | undefined =>
   previous === undefined && delta === undefined ? undefined : (previous ?? 0) + (delta ?? 0)
 
@@ -38,7 +50,7 @@ const sum = (previous: number | undefined, delta: number | undefined): number | 
  * turn in others; it is treated as per-turn here, which is what `result`
  * documents. A turn without a cost still counts as a turn.
  */
-export function addTurnCost(previous: ThreadCostReport | undefined, turn: TurnCost, now: number): ThreadCostReport {
+export function addTurnCost(previous: ThreadCostReport | undefined, turn: TurnCost, now: number, source: ThreadCostReport['source'] = 'claude-result'): ThreadCostReport {
   return {
     totalUsd: (previous?.totalUsd ?? 0) + (turn.usd ?? 0),
     turns: (previous?.turns ?? 0) + 1,
@@ -47,6 +59,6 @@ export function addTurnCost(previous: ThreadCostReport | undefined, turn: TurnCo
     ...(sum(previous?.outputTokens, turn.outputTokens) !== undefined ? { outputTokens: sum(previous?.outputTokens, turn.outputTokens) } : {}),
     ...(sum(previous?.cacheReadTokens, turn.cacheReadTokens) !== undefined ? { cacheReadTokens: sum(previous?.cacheReadTokens, turn.cacheReadTokens) } : {}),
     updatedAt: now,
-    source: 'claude-result'
+    source
   }
 }

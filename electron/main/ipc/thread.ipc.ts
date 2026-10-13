@@ -206,6 +206,13 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings): { st
     return manager.then(service => service.addPermissionRule(string(id), input))
   })
   ipcMain.handle(IPC_CHANNELS.thread.removePermissionRule, (event, id: unknown, ruleId: unknown) => { sender(event); return manager.then(service => service.removePermissionRule(string(id), string(ruleId))) })
+  ipcMain.handle(IPC_CHANNELS.thread.usageSummary, (event, id: unknown, options: unknown) => {
+    sender(event)
+    const value = options && typeof options === 'object' && !Array.isArray(options) ? options as Record<string, unknown> : {}
+    const scope = value.scope === 'thread' || value.scope === 'all' ? value.scope : 'project' as const
+    const days = typeof value.days === 'number' && Number.isInteger(value.days) ? value.days : undefined
+    return manager.then(service => service.usageSummary(string(id), { scope, days }))
+  })
   ipcMain.handle(IPC_CHANNELS.thread.auditLog, (event, id: unknown, options: unknown) => {
     sender(event)
     const value = options && typeof options === 'object' && !Array.isArray(options) ? options as Record<string, unknown> : {}
