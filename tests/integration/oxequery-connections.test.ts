@@ -121,3 +121,41 @@ describe('migration 067', () => {
     db.close()
   })
 })
+
+describe('upgrade rehearsal 066 → 070', () => {
+  const run = (db: Database.Database, file: string): void => { db.exec(readFileSync(join(process.cwd(), 'electron/main/db/migrations', file), 'utf8')) }
+
+  it('keeps a populated database intact and wires the new tables to it', () => {
+    const db = new Database(':memory:')
+    db.pragma('foreign_keys = ON')
+    run(db, '066_oxequery_connections.sql')
+    db.prepare("INSERT INTO oxequery_connections (id, name, engine, host, port, database_name, username, ssl_mode, read_only, environment, has_password, created_at, updated_at) VALUES ('a', 'A', 'postgres', 'h', 5432, 'd', 'u', 'disable', 1, 'local', 0, 1, 1)").run()
+    db.prepare("INSERT INTO oxequery_connections (id, name, engine, host, port, database_name, username, ssl_mode, read_only, environment, has_password, created_at, updated_at) VALUES ('b', 'B', 'mongodb', 'm', 27017, '', 'root', 'require', 0, 'prod', 1, 1, 1)").run()
+    for (const file of ['067_oxequery_connectivity.sql', '069_oxequery_library.sql', '070_oxequery_audit.sql']) run(db, file)
+    expect(db.pragma('user_version', { simple: true })).toBe(70)
+    expect(db.prepare('SELECT id, name, environment, agent_access FROM oxequery_connections ORDER BY id').all()).toEqual([
+      { id: 'a', name: 'A', environment: 'local', agent_access: 'off' },
+      { id: 'b', name: 'B', environment: 'prod', agent_access: 'off' }
+    ])
+    // Agents are off for everything that existed before the upgrade.
+    expect(db.prepare("SELECT count(*) AS n FROM oxequery_connections WHERE agent_access <> 'off'").get()).toEqual({ n: 0 })
+
+    db.prepare("INSERT INTO oxequery_saved_queries (id, connection_id, name, sql, created_at, updated_at) VALUES ('q', 'a', 'n', 'SELECT 1', 1, 1)").run()
+    db.prepare("INSERT INTO oxequery_query_history (connection_id, sql, ran_at, ok) VALUES ('a', 'SELECT 1', 1, 1)").run()
+    db.prepare("INSERT INTO oxequery_audit (ts, actor, tool, decision, outcome, connection_id) VALUES (1, 'thread:1', 'oxespace_db_query', 'approved', 'ok', 'a')").run()
+    db.prepare("DELETE FROM oxequery_connections WHERE id = 'a'").run()
+    // Saved queries and history go with the connection; the audit trail is kept.
+    expect(db.prepare('SELECT count(*) AS n FROM oxequery_saved_queries').get()).toEqual({ n: 0 })
+    expect(db.prepare('SELECT count(*) AS n FROM oxequery_query_history').get()).toEqual({ n: 0 })
+    expect(db.prepare('SELECT count(*) AS n FROM oxequery_audit').get()).toEqual({ n: 1 })
+    db.close()
+  })
+
+  it('is safe to run the new migrations twice', () => {
+    const db = new Database(':memory:')
+    run(db, '066_oxequery_connections.sql')
+    for (const file of ['067_oxequery_connectivity.sql', '069_oxequery_library.sql', '070_oxequery_audit.sql']) run(db, file)
+    expect(() => { run(db, '069_oxequery_library.sql'); run(db, '070_oxequery_audit.sql') }).not.toThrow()
+    db.close()
+  })
+})
