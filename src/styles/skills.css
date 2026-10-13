@@ -351,8 +351,8 @@
 
 .skill-row-buttons .primary-btn {
   border: 0;
-  background: var(--tx-primary);
-  color: var(--bg-app);
+  background: var(--accent);
+  color: var(--text-on-accent);
 }
 
 .skill-row-buttons .ghost-btn {

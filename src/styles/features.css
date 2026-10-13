@@ -4254,13 +4254,13 @@
   background: var(--bg-app);
 }
 .new-workspace-create-btn {
-  background: var(--tx-primary);
-  color: var(--bg-app);
+  background: var(--accent);
+  color: var(--text-on-accent);
   border: none;
   box-shadow: none;
 }
 .new-workspace-create-btn:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--tx-primary) 90%, var(--bg-app));
+  background: var(--accent-hover);
 
 }
 .new-workspace-create-btn:disabled {

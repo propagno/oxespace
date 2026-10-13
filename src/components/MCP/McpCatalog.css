@@ -2,7 +2,7 @@
 .mcp-panel.is-catalog { width: min(940px, 94vw); }
 .mcp-view-tabs { display: inline-flex; gap: 2px; margin: 0 14px 10px; padding: 3px; border-radius: var(--radius-pill); background: var(--wb-raised); }
 .mcp-view-tabs button { height: 28px; padding: 0 14px; border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--tx-secondary); font: inherit; font-size: var(--fs-xs); font-weight: 600; cursor: pointer; }
-.mcp-view-tabs button[aria-selected='true'] { background: var(--tx-primary); color: var(--bg-app); }
+.mcp-view-tabs button[aria-selected='true'] { background: var(--fill-selected); color: var(--text-primary); }
 .mcp-view-tabs button:not([aria-selected='true']):hover { color: var(--tx-primary); }
 .mcp-view-tabs small { margin-left: 6px; opacity: .7; }
 

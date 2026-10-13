@@ -25,6 +25,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     // The assertions below inspect every action row; Normal (the default) folds them into summaries.
     await page.waitForLoadState('load')
     await page.evaluate(() => localStorage.setItem('oxe.thread.viewMode', 'verbose'))
+    // OXESPACE_AUDIT_MODE=light|dark pins the appearance for visual review; unset follows the OS.
+    if (process.env.OXESPACE_AUDIT_MODE) await page.evaluate(mode => localStorage.setItem('oxe-settings', JSON.stringify({ state: { appearance: mode, notificationsEnabled: true, visitedWorkspacesCap: 5 }, version: 3 })), process.env.OXESPACE_AUDIT_MODE)
     await page.reload()
     await page.waitForLoadState('domcontentloaded')
     if (process.env.OXESPACE_VISUAL_AUDIT_OUTPUT) {

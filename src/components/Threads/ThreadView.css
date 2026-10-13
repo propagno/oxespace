@@ -124,7 +124,7 @@
 .thread-model-picker .thread-model-description { margin-bottom: 0; }
 .thread-model-picker footer { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 16px; }
 .thread-model-picker footer span { display: inline-flex; align-items: center; gap: 6px; color: var(--tx-muted); font-size: var(--fs-2xs); }
-.thread-view .thread-model-picker footer button { padding: 7px 12px; background: var(--tx-primary); color: var(--bg-app); }
+.thread-view .thread-model-picker footer button { padding: 7px 12px; background: var(--accent); color: var(--text-on-accent); }
 .thread-native-cli { grid-row: 2 / 4; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
 .thread-native-toolbar { display: flex; align-items: center; gap: 8px; flex-shrink: 0; min-height: 40px; padding: 6px 16px; border-bottom: 1px solid var(--bd-base); font-size: var(--fs-xs); color: var(--tx-secondary); }
 .thread-native-toolbar strong { font-weight: 500; color: var(--tx-primary); }
@@ -167,7 +167,8 @@
 .thread-view .thread-message-actions button:hover, .thread-view .thread-message-actions button:focus-visible { color: var(--tx-primary); background: var(--bg-hover); border-color: var(--tx-muted); }
 .thread-message-assistant { position: relative; padding-right: 36px; }
 .thread-message-assistant .thread-message-actions { position: absolute; top: 0; right: 0; margin: 0; opacity: 0; transition: opacity 120ms ease; }
-.thread-message-assistant.is-final-response { padding: 12px 96px 12px 15px; border-left: 2px solid var(--accent); border-radius: 0 8px 8px 0; background: color-mix(in srgb, var(--accent) 4%, var(--bg-app)); }
+/* The closing answer of a turn stands as its own card; the rest of the turn reads as running text. */
+.thread-message-assistant.is-final-response { padding: 14px 96px 14px 16px; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-raised); box-shadow: var(--elevation-1); }
 .thread-message-assistant.is-final-response .thread-message-actions { top: 10px; right: 10px; opacity: 1; }
 .thread-view .thread-message-assistant.is-final-response .thread-message-actions button { width: auto; min-width: 56px; gap: 5px; padding: 0 7px; font-size: max(11px, calc(var(--thread-reader-font-size) - 5px)); }
 .thread-final-label { margin-left: 5px; color: var(--accent); font-size: max(11px, calc(var(--thread-reader-font-size) - 4px)); font-weight: 600; }
@@ -211,7 +212,7 @@
 .thread-request pre, .thread-request-url { max-height: 180px; margin: 0; overflow: auto; padding: 10px 14px; border-top: 1px solid var(--bd-base); color: var(--tx-secondary); white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-2xs); }
 .thread-request > footer { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 14px; }
 .thread-request > footer button { min-height: 30px; padding: 5px 10px; border: 1px solid var(--bd-base); }
-.thread-request > footer button:first-child { background: var(--tx-primary); color: var(--bg-app); }
+.thread-request > footer button:first-child { background: var(--accent); color: var(--text-on-accent); }
 .thread-request > footer .thread-request-decline { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; background: transparent; color: var(--tx-secondary); }
 .thread-request.is-resolved { display: flex; align-items: center; gap: 7px; padding: 7px 10px; color: var(--tx-muted); font-size: var(--fs-xs); }
 .thread-request.is-resolved > span { display: grid; gap: 3px; min-width: 0; }
@@ -377,9 +378,9 @@
 .thread-composer textarea::placeholder { color: var(--tx-muted); }
 .thread-composer footer { display: flex; align-items: center; gap: 10px; margin-top: 8px; min-height: 28px; }
 .thread-composer footer small { color: var(--tx-muted); font-size: var(--fs-2xs); }
-.thread-composer footer .thread-send, .thread-composer footer .thread-stop { margin-left: auto; padding: 6px; width: 28px; height: 28px; flex: 0 0 28px; justify-content: center; background: var(--tx-primary); color: var(--bg-app); border-radius: var(--nav-radius); }
+.thread-composer footer .thread-send, .thread-composer footer .thread-stop { margin-left: auto; padding: 6px; width: 28px; height: 28px; flex: 0 0 28px; justify-content: center; background: var(--accent); color: var(--text-on-accent); border-radius: var(--nav-radius); }
 .thread-composer footer .thread-stop + .thread-send { margin-left: 0; }
-.thread-composer footer .thread-send:hover, .thread-composer footer .thread-stop:hover { background: color-mix(in srgb, var(--tx-primary) 90%, var(--accent)); }
+.thread-composer footer .thread-send:hover, .thread-composer footer .thread-stop:hover { background: var(--accent-hover); }
 .thread-composer-column .thread-scroll-end { display: flex; position: absolute; z-index: 2; bottom: calc(100% + 8px); right: 0; padding: 5px 10px; border: 1px solid var(--bd-base); background: var(--bg-elevated); white-space: nowrap; font-size: var(--fs-2xs); }
 @container (max-width: 700px) { .thread-heading-context { display: none; } .thread-heading-actions .thread-review-trigger { width: 30px; height: 30px; justify-content: center; padding: 0; } .thread-heading-actions .thread-review-trigger span { display: none; } }
 .thread-connection-notice { display: flex; align-items: center; gap: 8px; min-height: 36px; max-height: 60px; padding: 4px 0 8px; font-size: var(--fs-xs); color: var(--tx-muted); }
@@ -398,11 +399,11 @@
 .thread-create-dialog .thread-dialog-error { color: var(--dot-red); }
 .thread-create-dialog footer, .thread-accounts-dialog footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 .thread-create-dialog footer button, .thread-accounts-dialog footer button { height: 36px; padding: 0 12px; border: 1px solid var(--bd-base); }
-.thread-create-dialog .thread-primary, .thread-accounts-dialog .thread-primary { background: var(--tx-primary); color: var(--bg-app); border: 1px solid transparent; }
+.thread-create-dialog .thread-primary, .thread-accounts-dialog .thread-primary { background: var(--accent); color: var(--text-on-accent); border: 1px solid transparent; }
 .thread-edit-retry-dialog footer button { color: var(--tx-primary); background: var(--bg-elevated); }
 .thread-edit-retry-dialog footer button:hover:not(:disabled) { color: var(--tx-primary); background: var(--bg-hover); }
-.thread-edit-retry-dialog footer .thread-primary { color: var(--bg-app); background: var(--tx-primary); border-color: var(--tx-primary); }
-.thread-edit-retry-dialog footer .thread-primary:hover:not(:disabled) { color: var(--bg-app); background: color-mix(in srgb, var(--tx-primary) 88%, var(--accent)); }
+.thread-edit-retry-dialog footer .thread-primary { color: var(--text-on-accent); background: var(--accent); border-color: var(--accent); }
+.thread-edit-retry-dialog footer .thread-primary:hover:not(:disabled) { color: var(--text-on-accent); background: var(--accent-hover); }
 .thread-edit-retry-dialog footer .thread-primary:disabled { opacity: 1; color: var(--tx-secondary); background: var(--bg-hover); border-color: var(--bd-base); cursor: wait; }
 .thread-accounts-dialog>header { display: flex; align-items: flex-start; justify-content: space-between; }
 .thread-account-card { border: 1px solid var(--bd-base); border-radius: var(--surface-radius); padding: 16px; margin-bottom: 12px; }
@@ -622,7 +623,7 @@
 .thread-question-body { min-height:60px; overflow:auto; flex:1 1 auto; overscroll-behavior:contain; scrollbar-width: thin; }
 .thread-question-steps { padding:0 14px; }
 .thread-question-steps button { min-height:28px; border:1px solid var(--bd-base); border-radius:var(--radius-sm); padding:3px 8px; }
-.thread-request > footer .thread-request-answer { background:var(--tx-primary); color:var(--bg-app); border-radius:var(--radius-sm); }
+.thread-request > footer .thread-request-answer { background: var(--accent); color: var(--text-on-accent); border-radius:var(--radius-sm); }
 .thread-request footer { flex-wrap:wrap; gap:8px; }
 .thread-request footer > small { flex-basis:100%; color:var(--tx-secondary); }
 .thread-access-directory { overflow-wrap:anywhere; color:var(--tx-secondary); }
@@ -631,7 +632,7 @@
 .thread-access-dialog .desktop-dialog-footer { display:flex; justify-content:flex-end; gap:8px; padding:16px 24px; border-top:1px solid var(--bd-base); }
 .thread-access-dialog button { min-height:32px; }
 .thread-access-dialog .desktop-dialog-footer button { padding:6px 12px; border:1px solid var(--bd-base); border-radius:var(--radius-sm); }
-.thread-access-dialog .desktop-dialog-footer button:last-child { background:var(--tx-primary); color:var(--bg-app); }
+.thread-access-dialog .desktop-dialog-footer button:last-child { background: var(--accent); color: var(--text-on-accent); }
 .thread-access-dialog .desktop-dialog-body p + p { margin-top:12px; }
 .thread-turn-timing.is-warning .thread-turn-outcome { color:var(--warning, #d9ad59); }
 
@@ -668,7 +669,7 @@
 .thread-config-switch strong { font-weight: 500; }
 .thread-config-switch small { margin-top: 3px; color: var(--tx-muted); font-size: var(--fs-2xs); }
 .thread-config-switch > i { position: relative; flex: none; width: 28px; height: 16px; border-radius: var(--radius-pill); background: var(--wb-border); transition: background var(--transition-fast); }
-.thread-config-switch > i::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--tx-primary); transition: transform var(--transition-fast); }
+.thread-config-switch > i::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--surface-raised); box-shadow: var(--elevation-1); transition: transform var(--transition-fast); }
 .thread-config-switch[aria-checked='true'] > i { background: var(--accent); }
 .thread-config-switch[aria-checked='true'] > i::after { transform: translateX(12px); }
 
@@ -707,7 +708,7 @@
 .thread-request input[type='text']:focus-visible, .thread-request input[type='password']:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
 .thread-request > footer { flex-wrap: nowrap; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--wb-border); }
 .thread-request footer > small { flex: 1 1 auto; flex-basis: auto; order: 0; color: var(--tx-muted); font-size: var(--fs-xs); }
-.thread-request > footer .thread-request-answer, .thread-request > footer button:first-child:not(.thread-request-decline) { order: 2; min-height: 30px; padding: 0 14px; border: 0; border-radius: var(--radius-pill); background: var(--tx-primary); color: var(--bg-app); font-weight: 600; }
+.thread-request > footer .thread-request-answer, .thread-request > footer button:first-child:not(.thread-request-decline) { order: 2; min-height: 30px; padding: 0 14px; border: 0; border-radius: var(--radius-pill); background: var(--accent); color: var(--text-on-accent); font-weight: 600; }
 .thread-request > footer .thread-request-answer:disabled { opacity: .45; }
 .thread-request > footer .thread-request-decline { order: 1; margin-left: 0; border: 0; border-radius: var(--radius-pill); }
 .thread-request > footer .thread-request-decline:hover { background: var(--nav-hover); color: var(--tx-primary); }
@@ -744,7 +745,8 @@
 .thread-composer footer .thread-usage-ring { width: 28px; height: 28px; padding: 0; justify-content: center; }
 
 /* What the user sent: a quiet bubble, attachments as chips above the text, no action buttons. */
-.thread-message-user { display: flex; flex-direction: column; gap: 8px; padding: 10px 14px; border: 0; background: var(--ov-1); border-radius: var(--panel-radius); }
+/* Your messages sit on the accent tint, rounded except toward the edge they come from. */
+.thread-message-user { display: flex; flex-direction: column; gap: 8px; padding: 10px 14px; border: 0; background: var(--accent-soft); border-radius: var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-lg); }
 .thread-message-user > .thread-markdown, .thread-message-user > .thread-long-prompt { color: var(--tx-primary); }
 .thread-sent-attachments, .thread-sent-context { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .thread-sent-attachments li, .thread-sent-context li { display: inline-flex; align-items: center; gap: 6px; max-width: min(280px, 100%); height: 26px; padding: 0 9px; border: 1px solid var(--wb-border); border-radius: var(--radius-pill); background: var(--bg-app); color: var(--tx-secondary); font-size: var(--fs-xs); }
