@@ -11,7 +11,9 @@ import { join } from 'node:path'
  * Output: e2e/screenshots/redesign-audit/{shots,metrics}. Not part of CI.
  * Run: npx playwright test --config playwright.tools.config.ts redesign-audit.spec.ts
  */
-const OUT = join(process.cwd(), 'e2e', 'screenshots', 'redesign-audit')
+// OXESPACE_AUDIT_MODE=light|dark captures that mode into its own folder; unset keeps the default.
+const MODE = process.env.OXESPACE_AUDIT_MODE === 'light' || process.env.OXESPACE_AUDIT_MODE === 'dark' ? process.env.OXESPACE_AUDIT_MODE : undefined
+const OUT = join(process.cwd(), 'e2e', 'screenshots', MODE ? `redesign-audit-${MODE}` : 'redesign-audit')
 const SHOTS = join(OUT, 'shots')
 const METRICS = join(OUT, 'metrics')
 
@@ -122,6 +124,14 @@ test('redesign audit', async () => {
   page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text().slice(0, 300)) })
   page.on('pageerror', e => consoleErrors.push(`pageerror: ${e.message.slice(0, 300)}`))
   await page.waitForLoadState('domcontentloaded')
+  if (MODE) {
+    // The window may still navigate while it boots; let it settle before writing the setting.
+    await page.waitForLoadState('load')
+    await page.waitForTimeout(1500)
+    await page.evaluate(mode => localStorage.setItem('oxe-settings', JSON.stringify({ state: { appearance: mode, notificationsEnabled: true, visitedWorkspacesCap: 5 }, version: 3 })), MODE)
+    await page.reload()
+    await page.waitForLoadState('domcontentloaded')
+  }
   await page.waitForTimeout(1000)
   await resize(app, 1440, 900)
 
