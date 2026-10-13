@@ -120,6 +120,16 @@ export function useThreadVirtualizer(keys: string[], scrollRef: RefObject<HTMLEl
     const index = range.start + offset
     return { index, key, start: geometry.offsets[index], size: geometry.sizes[index] } satisfies ThreadVirtualItem
   }), [geometry, keys, range])
-  return { spaceRef, updateViewport, totalSize: geometry.total, paddingTop: geometry.offsets[range.start] ?? geometry.total,
+  /** Brings a row into view near the top, leaving follow mode; used by find. */
+  const scrollToIndex = useCallback((index: number) => {
+    const scroll = scrollRef.current, space = spaceRef.current
+    if (!scroll || !space || index < 0 || index >= keys.length) return
+    followingRef.current = false
+    // Measured against the scroller itself: offsetTop is relative to an outer positioned ancestor.
+    const spaceTop = space.getBoundingClientRect().top - scroll.getBoundingClientRect().top + scroll.scrollTop
+    scroll.scrollTop = Math.max(0, spaceTop + geometry.offsets[index] - 48)
+    updateViewport()
+  }, [followingRef, geometry, keys.length, scrollRef, updateViewport])
+  return { spaceRef, updateViewport, scrollToIndex, totalSize: geometry.total, paddingTop: geometry.offsets[range.start] ?? geometry.total,
     paddingBottom: geometry.total - (geometry.offsets[range.end] ?? geometry.total), items, measure, mountedCount: items.length }
 }

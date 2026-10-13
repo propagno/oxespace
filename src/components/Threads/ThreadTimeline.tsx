@@ -15,11 +15,13 @@ function MeasuredTimelineRow({ item, onMeasure, children }: { item: ThreadVirtua
   return <div ref={ref} className="thread-virtual-row" data-thread-row={item.key}>{children}</div>
 }
 
-export function ThreadTimelineWindow<T extends { key: string }>({ rows, scrollRef, followingRef, onViewportUpdateRef, children }: {
+export function ThreadTimelineWindow<T extends { key: string }>({ rows, scrollRef, followingRef, onViewportUpdateRef, scrollToRef, children }: {
   rows: T[]
   scrollRef: RefObject<HTMLElement | null>
   followingRef: MutableRefObject<boolean>
   onViewportUpdateRef?: MutableRefObject<(() => void) | null>
+  /** Receives a function that scrolls a row index into view. */
+  scrollToRef?: MutableRefObject<((index: number) => void) | null>
   children: (row: T, index: number) => ReactNode
 }) {
   const keys = useMemo(() => rows.map(row => row.key), [rows])
@@ -29,6 +31,11 @@ export function ThreadTimelineWindow<T extends { key: string }>({ rows, scrollRe
     onViewportUpdateRef.current = virtual.updateViewport
     return () => { onViewportUpdateRef.current = null }
   }, [onViewportUpdateRef, virtual.updateViewport])
+  useLayoutEffect(() => {
+    if (!scrollToRef) return
+    scrollToRef.current = virtual.scrollToIndex
+    return () => { scrollToRef.current = null }
+  }, [scrollToRef, virtual.scrollToIndex])
   return <div ref={virtual.spaceRef} className="thread-virtual-space" style={{ paddingTop: virtual.paddingTop, paddingBottom: virtual.paddingBottom }} data-mounted-rows={virtual.mountedCount} data-total-rows={rows.length}>
     {virtual.items.map(item => <MeasuredTimelineRow key={item.key} item={item} onMeasure={virtual.measure}>{children(rows[item.index], item.index)}</MeasuredTimelineRow>)}
   </div>

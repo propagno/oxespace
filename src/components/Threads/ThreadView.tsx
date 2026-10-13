@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { AlertCircle, ArrowDown, ArrowUp, Check, Loader2, MessageSquarePlus, TerminalSquare, Image as ImageIcon } from 'lucide-react'
 import { blocksThreadInput } from '../../../shared/threadHistoryNotice'
 import type { Workspace } from '../../../shared/types/workspace'
@@ -23,6 +23,7 @@ import { useThreadWorkbenchStore, type ThreadPanel } from '../../store/thread-wo
 import { authText, ThreadMessageBody } from './ThreadMessageRow'
 import { ThreadHeader } from './ThreadHeader'
 import { useThreadShortcuts } from './useThreadShortcuts'
+import { ThreadFindBar } from './ThreadFindBar'
 import { ThreadTimelineEntry } from './ThreadTimelineEntry'
 import { ThreadComposerForm } from './ThreadComposerForm'
 import { ThreadDockQueue, ThreadDockRequests } from './ThreadDockRequests'
@@ -81,7 +82,10 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
     const current = useThreadWorkbenchStore.getState().views[snapshot.thread.id]?.panel ?? null
     useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: current === panelId && !keepOpen ? null : panelId })
   }
-  useThreadShortcuts({ active, voice, togglePanel, openControl: setOpenControl })
+  const [finding, setFinding] = useState(false)
+  const scrollToRow = useRef<((index: number) => void) | null>(null)
+  const scrollTo = useCallback((index: number) => scrollToRow.current?.(index), [])
+  useThreadShortcuts({ active, voice, togglePanel, openControl: setOpenControl, onFind: () => setFinding(true) })
   const closeReview = () => { if (snapshot) useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: null }); requestAnimationFrame(() => textarea.current?.focus()) }
   const appendToConversation = (prompt: string) => {
     if (!snapshot) return
@@ -229,12 +233,13 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
       onExport={snapshot && api?.exportPortable ? () => void action(async () => { const path = await api.exportPortable!(snapshot.thread.id); if (path) setPanel({ kind: 'panel', title: 'Conversation exported', text: path }) }) : undefined}
       onImport={snapshot && api?.importPortable ? () => { setPending(true); setError(''); void api.importPortable!(snapshot.thread.id).then(imported => { if (imported) useThreadStore.getState().adopt(imported) }).catch(cause => setError(cause instanceof Error ? cause.message : 'Could not import conversation.')).finally(() => setPending(false)) } : undefined}
       onDelegate={() => setDelegationOpen(true)} onPin={() => { if (snapshot) void action(() => api!.pin(snapshot.thread.id, !snapshot.thread.pinned)) }} />
+    {finding && <ThreadFindBar rows={timelineRows} scrollRoot={timeline} scrollTo={scrollTo} onClose={() => { setFinding(false); requestAnimationFrame(() => textarea.current?.focus()) }} />}
     <div ref={timeline} className="thread-timeline" tabIndex={0} aria-label="Conversation history" {...scroll.timelineProps}>
       <div ref={scroll.content} className="thread-reading-column">
         {snapshot?.page?.hasMore && <button type="button" className="thread-load-earlier" disabled={scroll.loadingEarlier} onClick={() => void scroll.loadEarlier()}>{scroll.loadingEarlier ? <Loader2 size={13} className="thread-spin" /> : <ArrowUp size={13} />}Load earlier messages</button>}
         {scroll.historyFeedback?.id === selectedId && <p className="thread-history-feedback" role={scroll.historyFeedback.error ? 'alert' : 'status'}>{scroll.historyFeedback.text}</p>}
         {!snapshot && <div className="thread-welcome"><span className="thread-welcome-mark"><MessageSquarePlus size={26} strokeWidth={1.5} /></span><h2>{selectedId ? 'Opening conversation…' : 'What would you like to work on?'}</h2><p>{selectedId ? 'Loading the selected conversation.' : 'Select + beside a project to start a conversation, or add a project in the sidebar.'}</p></div>}
-        <ThreadTimelineWindow key={snapshot?.thread.id ?? 'empty'} rows={timelineRows} scrollRef={timeline} followingRef={scroll.following} onViewportUpdateRef={scroll.updateTimelineViewport}>{row => <ThreadTimelineEntry row={row} snapshot={snapshot} viewMode={viewMode} running={running} pending={pending} pendingRequests={pendingRequests}
+        <ThreadTimelineWindow key={snapshot?.thread.id ?? 'empty'} rows={timelineRows} scrollRef={timeline} followingRef={scroll.following} onViewportUpdateRef={scroll.updateTimelineViewport} scrollToRef={scrollToRow}>{row => <ThreadTimelineEntry row={row} snapshot={snapshot} viewMode={viewMode} running={running} pending={pending} pendingRequests={pendingRequests}
           lastResult={lastResult} lastMessageId={lastConversationMessage?.id} quickReplies={quickReplies} copiedMessageId={copiedMessageId} action={action} runCommand={runCommand} onAccounts={onAccounts}
           onCopy={(id, text) => void copyMessage(id, text)} onPermissions={() => setOpenControl('permissions')} onQuote={text => appendToConversation(quoteMarkdown(text))} onDraft={appendToConversation}
           onQuickReply={value => { useThreadStore.getState().setDraft(snapshot!.thread.id, value); requestAnimationFrame(() => textarea.current?.focus()) }} />}</ThreadTimelineWindow>

@@ -8,11 +8,12 @@ import type { ThreadPanel } from '../../store/thread-workbench.store'
  * side panels, configuration pickers, and the global voice events.
  * Inactive cells (side-by-side layouts) listen to nothing.
  */
-export function useThreadShortcuts({ active, voice, togglePanel, openControl }: {
+export function useThreadShortcuts({ active, voice, togglePanel, openControl, onFind }: {
   active: boolean
   voice: ReturnType<typeof useOxeVoice>
   togglePanel: (panel: ThreadPanel) => void
   openControl: (control: 'model' | 'effort' | 'permissions') => void
+  onFind: () => void
 }) {
   useEffect(() => {
     if (!active) return
@@ -28,7 +29,10 @@ export function useThreadShortcuts({ active, voice, togglePanel, openControl }: 
     const onKey = (event: KeyboardEvent): void => {
       const key = event.key.toLowerCase()
       const inTerminal = event.target instanceof Element && Boolean(event.target.closest('.xterm'))
-      if (event.ctrlKey && !event.altKey && !event.shiftKey && key === 'o' && !inTerminal) { event.preventDefault(); useThreadViewModeStore.getState().cycle() }
+      // Editors and terminals keep their own find.
+      const inEditor = event.target instanceof Element && Boolean(event.target.closest('.xterm, .monaco-editor, .cm-editor'))
+      if (event.ctrlKey && !event.altKey && !event.shiftKey && key === 'f' && !inEditor) { event.preventDefault(); onFind() }
+      else if (event.ctrlKey && !event.altKey && !event.shiftKey && key === 'o' && !inTerminal) { event.preventDefault(); useThreadViewModeStore.getState().cycle() }
       else if (event.ctrlKey && !event.altKey && !event.shiftKey && event.key === '`') { event.preventDefault(); togglePanel('terminal') }
       else if (event.ctrlKey && event.shiftKey && !event.altKey && key === 'd') { event.preventDefault(); togglePanel('changes') }
       else if (event.ctrlKey && event.shiftKey && !event.altKey && key === 'b') { event.preventDefault(); togglePanel('preview') }

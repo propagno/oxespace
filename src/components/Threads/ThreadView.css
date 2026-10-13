@@ -758,3 +758,9 @@
 .thread-sent-brief { margin-top: 4px; color: var(--tx-secondary); font-size: var(--fs-2xs); }
 .thread-sent-brief summary { cursor: pointer; }
 .thread-sent-brief pre { margin: 4px 0 0; padding: 6px 8px; border: 1px solid var(--bd-base); border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.thread-find { display: flex; align-items: center; gap: 4px; margin: 0 auto; padding: 6px 12px; width: min(100%, var(--thread-reading-width, 820px)); color: var(--tx-secondary); font-size: var(--fs-xs); }
+.thread-find input { flex: 1; min-width: 0; padding: 4px 8px; border: 1px solid var(--bd-base); border-radius: 6px; color: var(--tx-primary); background: var(--bg-app); font: inherit; }
+.thread-find span { min-width: 64px; text-align: right; }
+.thread-find button { display: inline-flex; padding: 4px; border: 0; color: inherit; background: transparent; cursor: pointer; }
+.thread-find button:disabled { opacity: .4; cursor: default; }
+::highlight(thread-find) { color: #000; background-color: #f5c84c; }
