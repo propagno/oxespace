@@ -115,14 +115,14 @@
 /* Thin neutral scrollbar used by ported Orca primitives (command list, etc.). */
 .scrollbar-sleek {
   scrollbar-width: thin;
-  scrollbar-color: rgb(255 255 255 / 0.18) transparent;
+  scrollbar-color: color-mix(in srgb, var(--text-primary) 18%, transparent) transparent;
 }
 .scrollbar-sleek::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 .scrollbar-sleek::-webkit-scrollbar-thumb {
-  background: rgb(255 255 255 / 0.14);
+  background: color-mix(in srgb, var(--text-primary) 14%, transparent);
   border-radius: var(--radius-xs);
 }
 .scrollbar-sleek::-webkit-scrollbar-track {

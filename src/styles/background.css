@@ -294,8 +294,8 @@
   overflow: auto;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
-  background: #020403;
-  color: #d6fbe8;
+  background: var(--surface-sunken);
+  color: var(--text-primary);
   font-family: var(--font-mono);
   font-size: var(--fs-2xs);
   line-height: 1.55;
@@ -315,7 +315,7 @@
 }
 
 .bg-jobs-dock-output pre::-webkit-scrollbar-thumb {
-  background: rgba(18, 199, 154, 0.35);
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
   border-radius: var(--radius-pill);
 }
 

@@ -22,10 +22,10 @@
 .semantic-quality-card strong { color: var(--tx-primary); font-size: var(--fs-xs); text-transform: capitalize; }
 .semantic-quality-card span:last-child { color: var(--tx-muted); font-size: var(--fs-2xs); line-height: 1.35; }
 .semantic-quality-label { color: var(--tx-secondary); font-size: var(--fs-2xs); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
-.semantic-confidence--high { border-color: color-mix(in srgb, #34d399 45%, var(--bd-subtle)); }
-.semantic-confidence--medium { border-color: color-mix(in srgb, #fbbf24 45%, var(--bd-subtle)); }
-.semantic-confidence--low { border-color: color-mix(in srgb, #f45b69 50%, var(--bd-subtle)); }
-.semantic-trust-note { margin: 8px 14px 0; padding: 7px 9px; border-left: 2px solid #fbbf24; background: color-mix(in srgb, #fbbf24 7%, transparent); color: var(--tx-secondary); font-size: var(--fs-2xs); line-height: 1.4; }
+.semantic-confidence--high { border-color: color-mix(in srgb, var(--intent-success-solid) 45%, var(--bd-subtle)); }
+.semantic-confidence--medium { border-color: color-mix(in srgb, var(--intent-warning-solid) 45%, var(--bd-subtle)); }
+.semantic-confidence--low { border-color: color-mix(in srgb, var(--intent-danger-solid) 50%, var(--bd-subtle)); }
+.semantic-trust-note { margin: 8px 14px 0; padding: 7px 9px; border-left: 2px solid var(--intent-warning-solid); background: color-mix(in srgb, var(--intent-warning-solid) 7%, transparent); color: var(--tx-secondary); font-size: var(--fs-2xs); line-height: 1.4; }
 
 @media (max-width: 640px) {
   .semantic-activity-meta { flex-wrap: wrap; }
@@ -112,8 +112,8 @@
 
 /* Level accents — shared by the filter chips and the log lines. */
 .semantic-log--debug .semantic-activity-level, .semantic-activity-chip.semantic-log--debug { color: var(--tx-muted); }
-.semantic-log--info  .semantic-activity-level, .semantic-activity-chip.semantic-log--info  { color: #60A5FA; }
-.semantic-log--warn  .semantic-activity-level, .semantic-activity-chip.semantic-log--warn  { color: #FBBF24; }
-.semantic-log--error .semantic-activity-level, .semantic-activity-chip.semantic-log--error { color: #F45B69; }
-.semantic-activity-line.semantic-log--error .semantic-activity-msg { color: #FFB1B8; }
-.semantic-activity-line.semantic-log--warn .semantic-activity-msg { color: #FCD9A1; }
+.semantic-log--info  .semantic-activity-level, .semantic-activity-chip.semantic-log--info  { color: var(--intent-info-fg); }
+.semantic-log--warn  .semantic-activity-level, .semantic-activity-chip.semantic-log--warn  { color: var(--intent-warning-fg); }
+.semantic-log--error .semantic-activity-level, .semantic-activity-chip.semantic-log--error { color: var(--intent-danger-fg); }
+.semantic-activity-line.semantic-log--error .semantic-activity-msg { color: var(--intent-danger-fg); }
+.semantic-activity-line.semantic-log--warn .semantic-activity-msg { color: var(--intent-warning-fg); }

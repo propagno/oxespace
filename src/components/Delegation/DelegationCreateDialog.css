@@ -85,7 +85,7 @@
 .delegation-preview dt { color: var(--tx-muted); }
 .delegation-preview dd { min-width: 0; margin: 0; color: var(--tx-secondary); overflow-wrap: anywhere; }
 .delegation-preview p { margin: 0; color: var(--tx-muted); }
-.delegation-preview-error { margin: 16px 0 0; color: var(--danger, #d66a6a); font-size: var(--fs-xs); }
+.delegation-preview-error { margin: 16px 0 0; color: var(--danger, var(--intent-danger-fg)); font-size: var(--fs-xs); }
 .delegation-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; padding: 14px 24px; border-top: 1px solid var(--bd-base); background: var(--bg-modal); }
 .delegation-footer > span { color: var(--tx-muted); font-size: var(--fs-xs); }
 .delegation-footer > div { display: flex; justify-content: flex-end; gap: 8px; }

@@ -90,8 +90,8 @@
 
 .sidebar-rail-workspace.active .sidebar-rail-workspace-btn {
   color: var(--tx-primary);
-  border-color: rgba(18, 199, 154, 0.2);
-  background: rgba(18, 199, 154, 0.04);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
 }
 
 .sidebar-rail-workspace-btn:hover {
@@ -128,7 +128,7 @@
   width: 100%;
   height: 36px;
   padding: 0 34px 0 32px;
-  background: rgba(0, 0, 0, 0.22);
+  background: color-mix(in srgb, var(--surface-sunken) 22%, transparent);
   border: 1px solid var(--ov-2);
   border-radius: var(--radius-lg);
   color: var(--tx-primary);
@@ -142,7 +142,7 @@
 .sidebar-search-input:focus {
   border-color: color-mix(in srgb, var(--brand) 50%, transparent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 16%, transparent);
-  background: rgba(0, 0, 0, 0.32);
+  background: color-mix(in srgb, var(--surface-sunken) 32%, transparent);
 }
 
 .sidebar-search-input::placeholder {
@@ -187,7 +187,7 @@
   bottom: 4px;
   width: 3px;
   border-radius: var(--radius-xs);
-  background: #10b981;
+  background: var(--accent);
   box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
 }
 
@@ -332,7 +332,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
   font-size: var(--fs-2xs);
   font-family: var(--font-mono);
   overflow: hidden;
@@ -349,7 +349,7 @@
 
 .ws-group-branch-icon {
   flex-shrink: 0;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-muted);
 }
 
 /* Only rendered when two or more workspaces sit on the same folder, which
@@ -497,7 +497,7 @@
   width: 100%;
   padding: 1px 4px;
   margin: -2px -4px;
-  border: 1px solid rgba(0, 214, 201, 0.45);
+  border: 1px solid var(--accent-border);
   border-radius: var(--radius-sm);
   background: var(--bg-app);
   color: var(--tx-primary);
@@ -550,7 +550,7 @@
 }
 
 .ws-group-context-menu button.danger:hover {
-  background: rgba(244, 91, 105, 0.10);
+  background: var(--intent-danger-bg);
 }
 
 /* Remove-workspace confirmation modal. Full-screen backdrop + centered
@@ -563,7 +563,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.55);
+  background: var(--scrim);
   backdrop-filter: blur(6px);
   animation: model-selector-fade 140ms ease-out;
 }
@@ -632,10 +632,10 @@
   align-items: center;
   gap: 5px;
   padding: 7px 14px;
-  border: 1px solid rgba(244, 91, 105, 0.45);
+  border: 1px solid var(--intent-danger-border);
   border-radius: var(--radius-sm);
-  background: rgba(244, 91, 105, 0.16);
-  color: #FFB1B8;
+  background: var(--intent-danger-bg);
+  color: var(--intent-danger-fg);
   font-size: var(--fs-xs);
   font-weight: 600;
   cursor: pointer;
@@ -643,9 +643,9 @@
 }
 
 .ws-remove-modal-confirm:hover {
-  background: rgba(244, 91, 105, 0.24);
-  border-color: rgba(244, 91, 105, 0.65);
-  color: #FFCED2;
+  background: var(--intent-danger-bg);
+  border-color: var(--intent-danger-solid);
+  color: var(--text-primary);
 }
 
 /* ─── Pane session row ──────────────────────────────────────────────────── */
@@ -878,8 +878,8 @@
 /* Thinking: pulse the avatar background so a moving pane is easy to spot in
    a sidebar with many rows. */
 .pane-row-state-mark.activity-thinking {
-  border-color: rgba(52, 212, 116, 0.22);
-  background: rgba(52, 212, 116, 0.12);
+  border-color: var(--intent-success-border);
+  background: var(--intent-success-bg);
   color: var(--dot-green);
   animation: oxe-activity-pulse 1.4s ease-in-out infinite;
 }
@@ -887,14 +887,14 @@
 /* Awaiting: solid brand-accent ring so it reads as "your turn", distinct from
    the pulsing green of an actively-streaming agent. */
 .pane-row-state-mark.activity-awaiting {
-  border-color: rgba(18, 199, 154, 0.35);
-  background: rgba(18, 199, 154, 0.14);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
   color: var(--brand);
 }
 
 .pane-row-state-mark.activity-starting {
-  border-color: rgba(251, 191, 36, 0.22);
-  background: rgba(251, 191, 36, 0.12);
+  border-color: var(--intent-warning-border);
+  background: var(--intent-warning-bg);
   color: var(--dot-yellow);
   animation: oxe-activity-pulse 1.6s ease-in-out infinite;
 }
@@ -908,8 +908,8 @@
 
 .pane-row-state-mark.error,
 .pane-row-state-mark.activity-error {
-  border-color: rgba(248, 113, 113, 0.22);
-  background: rgba(248, 113, 113, 0.12);
+  border-color: var(--intent-danger-border);
+  background: var(--intent-danger-bg);
   color: var(--dot-red);
 }
 
@@ -940,7 +940,7 @@
 
 .pane-session-resume {
   font-size: var(--fs-2xs);
-  color: var(--accent, #3b82f6);
+  color: var(--accent, var(--intent-info-fg));
   white-space: nowrap;
   flex-shrink: 0;
   opacity: 0.7;
@@ -1015,7 +1015,7 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--dot-yellow, #fbbf24);
+  background: var(--dot-yellow, var(--intent-warning-solid));
   animation: dot-pulse 900ms ease-in-out infinite;
 }
 
@@ -1025,7 +1025,7 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--dot-red, #f87171);
+  background: var(--dot-red, var(--intent-danger-solid));
 }
 
 /* Unread dot — solid brand teal, no halo. The previous blue (#3B82F6 with
@@ -1090,7 +1090,7 @@
 }
 
 .pane-status-dot.idle {
-  background: rgba(255, 255, 255, 0.2);
+  background: color-mix(in srgb, var(--text-primary) 20%, transparent);
 }
 
 @keyframes dot-pulse {
@@ -1140,7 +1140,7 @@
 
 .ws-group-list:hover::-webkit-scrollbar-thumb,
 .sidebar-rail-list:hover::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.16);
+  background: color-mix(in srgb, var(--text-primary) 16%, transparent);
 }
 
 /* Clutter reduction for secondary badges in workspace row */
@@ -1177,7 +1177,7 @@
 }
 
 .sidebar-integration-row.active {
-  background: rgba(0, 214, 201, 0.05);
+  background: var(--accent-soft);
 }
 
 .sidebar-integration-row.open {
@@ -1245,8 +1245,8 @@
   text-transform: uppercase;
 }
 
-.sidebar-integration-row-status.status-active { background: rgba(52, 212, 116, 0.14); color: var(--dot-green); }
-.sidebar-integration-row-status.status-paused { background: rgba(251, 191, 36, 0.14); color: var(--dot-yellow); }
+.sidebar-integration-row-status.status-active { background: var(--intent-success-bg); color: var(--dot-green); }
+.sidebar-integration-row-status.status-paused { background: var(--intent-warning-bg); color: var(--dot-yellow); }
 .sidebar-integration-row-status.status-done { background: var(--ov-1); color: var(--tx-muted); }
 
 .sidebar-integration-row-members {
@@ -1300,7 +1300,7 @@
 }
 
 .sidebar-integration-row-member.active {
-  background: rgba(0, 214, 201, 0.08);
+  background: var(--accent-soft);
   color: var(--tx-primary);
   box-shadow: inset 2px 0 0 var(--brand);
 }
@@ -1309,9 +1309,9 @@
   grid-row: span 2;
   min-width: 36px;
   padding: 2px 7px;
-  border: 1px solid rgba(0, 214, 201, 0.30);
+  border: 1px solid var(--accent-border);
   border-radius: var(--radius-pill);
-  background: rgba(0, 214, 201, 0.16);
+  background: var(--accent-soft);
   color: var(--accent);
   font-size: var(--fs-2xs);
   font-weight: 700;
@@ -1357,7 +1357,7 @@
   width: 28px;
   height: 28px;
   border-radius: var(--radius-md);
-  background: rgba(0, 214, 201, 0.1);
+  background: var(--accent-soft);
   color: var(--accent);
   font-size: var(--fs-xs);
   font-weight: 800;
@@ -1383,8 +1383,8 @@
 
 .sidebar-rail-integration-member:hover,
 .sidebar-rail-integration-member.active {
-  border-color: rgba(0, 214, 201, 0.45);
-  background: rgba(0, 214, 201, 0.14);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
   color: var(--tx-primary);
 }
 
@@ -1477,9 +1477,9 @@
 
 .error-banner {
   margin: 0;
-  border-bottom: 1px solid rgba(248, 113, 113, 0.15);
-  background: rgba(239, 68, 68, 0.08);
-  color: #fca5a5;
+  border-bottom: 1px solid var(--intent-danger-border);
+  background: var(--intent-danger-bg);
+  color: var(--intent-danger-fg);
   padding: 8px 16px;
   font-size: var(--fs-xs);
 }
@@ -1623,9 +1623,9 @@
 
 .workspace-toolbar-button:hover,
 .workspace-toolbar-button.active {
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: color-mix(in srgb, var(--text-primary) 20%, transparent);
   background: linear-gradient(180deg, var(--ov-3) 0%, var(--ov-1) 100%);
-  color: #fff;
+  color: var(--text-primary);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 var(--ov-3);
 }
@@ -1649,10 +1649,9 @@
   overflow: hidden;
   border: 1px solid var(--ov-3);
   border-radius: var(--radius-lg);
-  background:
-    radial-gradient(120% 80% at 0% 0%, color-mix(in srgb, var(--brand) 14%, transparent) 0%, transparent 42%),
-    radial-gradient(90% 60% at 100% 0%, rgba(120, 140, 255, 0.08) 0%, transparent 40%),
-    rgba(14, 14, 18, 0.96);
+  background: radial-gradient(120% 80% at 0% 0%, color-mix(in srgb, var(--brand) 14%, transparent) 0%, transparent 42%),
+    radial-gradient(90% 60% at 100% 0%, var(--intent-info-bg) 0%, transparent 40%),
+    color-mix(in srgb, var(--surface-sunken) 96%, transparent);
   backdrop-filter: blur(28px) saturate(160%);
   box-shadow:
     0 40px 120px rgba(0, 0, 0, 0.72),
@@ -1683,7 +1682,7 @@
   width: 38px;
   height: 38px;
   border-radius: var(--radius-lg);
-  color: var(--brand-light, #5eead4);
+  color: var(--brand-light, var(--text-accent));
   background:
     linear-gradient(145deg, color-mix(in srgb, var(--brand) 28%, transparent), var(--ov-1));
   border: 1px solid color-mix(in srgb, var(--brand) 35%, transparent);
@@ -1742,7 +1741,7 @@
   height: 40px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--ov-2);
-  background: rgba(0, 0, 0, 0.28);
+  background: color-mix(in srgb, var(--surface-sunken) 28%, transparent);
   flex-shrink: 0;
   transition: border-color 120ms, box-shadow 120ms;
 }
@@ -1871,7 +1870,7 @@
   padding: 11px 12px;
   border: 1px solid var(--ov-2);
   border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.025);
+  background: color-mix(in srgb, var(--text-primary) 3%, transparent);
   color: var(--tx-secondary);
   text-align: left;
   cursor: pointer;
@@ -1883,7 +1882,7 @@
 }
 
 .tools-modal-card:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.055);
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
   border-color: var(--ov-3);
   color: var(--tx-primary);
   transform: translateY(-1px);
@@ -1923,24 +1922,24 @@
 }
 
 .tools-modal-card-icon.tone-project {
-  color: #c4b5fd;
-  background: rgba(167, 139, 250, 0.12);
-  border-color: rgba(167, 139, 250, 0.22);
+  color: var(--text-primary);
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
 }
 .tools-modal-card-icon.tone-dev {
-  color: #7dd3fc;
-  background: rgba(56, 189, 248, 0.12);
-  border-color: rgba(56, 189, 248, 0.22);
+  color: var(--intent-info-fg);
+  background: var(--intent-info-bg);
+  border-color: var(--intent-info-border);
 }
 .tools-modal-card-icon.tone-ai {
-  color: #5eead4;
+  color: var(--text-accent);
   background: color-mix(in srgb, var(--brand) 16%, transparent);
   border-color: color-mix(in srgb, var(--brand) 28%, transparent);
 }
 .tools-modal-card-icon.tone-system {
-  color: #fcd34d;
-  background: rgba(251, 191, 36, 0.1);
-  border-color: rgba(251, 191, 36, 0.2);
+  color: var(--intent-warning-fg);
+  background: var(--intent-warning-bg);
+  border-color: var(--intent-warning-border);
 }
 
 .tools-modal-card:hover:not(:disabled) .tools-modal-card-icon,
@@ -1988,7 +1987,7 @@
   font-weight: 750;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--brand-light, #5eead4);
+  color: var(--brand-light, var(--text-accent));
   padding: 2px 6px;
   border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--brand) 18%, transparent);
@@ -2018,7 +2017,7 @@
   padding: 3px 6px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--ov-2);
-  background: rgba(0, 0, 0, 0.25);
+  background: color-mix(in srgb, var(--surface-sunken) 25%, transparent);
 }
 
 .tools-modal-empty {
@@ -2068,7 +2067,7 @@
   padding: 12px 20px 14px;
   border-top: 1px solid var(--ov-2);
   flex-shrink: 0;
-  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.18));
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--surface-sunken) 18%, transparent));
 }
 
 .tools-modal-footer-hint {
@@ -2095,7 +2094,7 @@
   width: 3px;
   height: 3px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.18);
+  background: color-mix(in srgb, var(--text-primary) 18%, transparent);
   flex-shrink: 0;
 }
 
@@ -2226,7 +2225,7 @@
 }
 .resize-handle[data-resize-handle-active],
 .resize-handle:hover {
-  background: color-mix(in srgb, var(--accent, #12c79a) 55%, var(--ov-3));
+  background: color-mix(in srgb, var(--accent, var(--accent)) 55%, var(--ov-3));
 }
 .resize-handle-vertical {
   width: 1px;

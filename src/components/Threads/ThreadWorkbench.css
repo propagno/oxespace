@@ -133,7 +133,7 @@
 .thread-review-scrim { display: none; }
 .thread-review-accessible-title { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .thread-workbench.is-drawer > .thread-review-host { position: absolute; top: 0; right: 0; bottom: 0; z-index: 20; border-left: 1px solid var(--bd-base); box-shadow: -8px 0 24px #0004; }
-.thread-workbench.is-drawer > .thread-review-scrim { display: block; position: absolute; inset: 0; z-index: 19; padding: 0; border: 0; border-radius: 0; background: #0005; }
+.thread-workbench.is-drawer > .thread-review-scrim { display: block; position: absolute; inset: 0; z-index: 19; padding: 0; border: 0; border-radius: 0; background: color-mix(in srgb, var(--surface-sunken) 33%, transparent); }
 .thread-workbench .thread-reading-column { width: min(100%, var(--thread-canvas-max)); max-width: none; padding-inline: clamp(20px, 3vw, 48px); }
 .thread-workbench .thread-composer-column { width: min(100%, var(--thread-canvas-max)); max-width: none; }
 .thread-markdown-reader .thread-markdown :is(h1,h2,h3) { margin-top: 28px; }

@@ -9,7 +9,7 @@
 .delegated-work-list article { padding: 16px 0; border-bottom: 1px solid var(--bd-base); }
 .delegated-work-list header { display: flex; justify-content: space-between; gap: 16px; }
 .delegated-work-list p { color: var(--tx-secondary); margin: 8px 0; overflow-wrap: anywhere; white-space: pre-wrap; }
-.delegated-work-list [role=alert] { color: var(--error, #e78080); }
+.delegated-work-list [role=alert] { color: var(--error, var(--intent-danger-fg)); }
 .delegated-work-branch { display: flex; align-items: center; gap: 6px; }
 .delegated-work-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
 .delegated-work-list summary { cursor: pointer; color: var(--tx-secondary); font-size: var(--fs-xs); }

@@ -9,7 +9,7 @@
   justify-content: center;
   padding: 52px 24px 24px;
   /* Plain dimmer — was a teal radial-gradient. */
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--scrim);
   backdrop-filter: blur(8px);
   animation: model-selector-fade 140ms ease-out;
   overflow: hidden;
@@ -63,9 +63,9 @@
 
 .mcp-panel-error {
   padding: 9px 16px;
-  background: rgba(244, 91, 105, 0.10);
-  border-bottom: 1px solid rgba(244, 91, 105, 0.20);
-  color: #FFB1B8;
+  background: var(--intent-danger-bg);
+  border-bottom: 1px solid var(--intent-danger-border);
+  color: var(--intent-danger-fg);
   font-size: var(--fs-2xs);
   flex: 0 0 auto;
 }
@@ -73,8 +73,8 @@
 .mcp-panel-sync-note {
   margin: 10px 16px 0;
   padding: 8px 12px;
-  background: rgba(96, 165, 250, 0.08);
-  border: 1px solid rgba(96, 165, 250, 0.18);
+  background: var(--intent-info-bg);
+  border: 1px solid var(--intent-info-border);
   border-radius: var(--radius-md);
   color: var(--tx-muted);
   font-size: var(--fs-2xs);
@@ -182,10 +182,10 @@
 .mcp-builtin-row {
   display: flex;
   flex-direction: column;
-  background: rgba(0, 214, 201, 0.04);
-  border-color: rgba(0, 214, 201, 0.20);
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
 }
-.mcp-builtin-row:hover { border-color: rgba(0, 214, 201, 0.32); background: rgba(0, 214, 201, 0.06); }
+.mcp-builtin-row:hover { border-color: var(--accent-border); background: var(--accent-soft); }
 
 .mcp-builtin-row .mcp-server-main {
   border: 0;
@@ -201,12 +201,12 @@
 .mcp-builtin-row { position: relative; }
 
 .mcp-builtin-status {
-  background: rgba(0, 214, 201, 0.12);
+  background: var(--accent-soft);
   color: var(--accent);
   font-family: var(--font-mono);
 }
 .mcp-builtin-status.off {
-  background: rgba(180, 180, 180, 0.12);
+  background: color-mix(in srgb, var(--text-primary) 12%, transparent);
   color: var(--tx-muted);
 }
 
@@ -239,8 +239,8 @@
   justify-content: space-between;
   gap: 8px;
   padding: 6px 12px;
-  border-top: 1px solid rgba(0, 214, 201, 0.18);
-  background: rgba(0, 214, 201, 0.05);
+  border-top: 1px solid var(--accent-border);
+  background: var(--accent-soft);
   color: var(--accent-hover);
   font-size: var(--fs-2xs);
 }
@@ -256,13 +256,13 @@
   color: var(--accent);
   cursor: pointer;
 }
-.mcp-builtin-notice button:hover { background: rgba(0, 214, 201, 0.15); }
+.mcp-builtin-notice button:hover { background: var(--accent-soft); }
 
 /* Tool catalogue — visible when the user expands the built-in card. */
 .mcp-builtin-tools {
   padding: 8px 14px 12px;
-  border-top: 1px solid rgba(0, 214, 201, 0.18);
-  background: rgba(0, 214, 201, 0.025);
+  border-top: 1px solid var(--accent-border);
+  background: var(--accent-soft);
 }
 
 .mcp-builtin-tools-title {
@@ -356,7 +356,7 @@
 .mcp-server-tag.scope-global { background: var(--surface-quiet); color: var(--tx-secondary); }
 
 .mcp-server-err {
-  color: #FFB1B8;
+  color: var(--intent-danger-fg);
   font-size: var(--fs-2xs);
   font-style: italic;
 }
@@ -394,12 +394,12 @@
 }
 
 .mcp-server-actions .primary-btn {
-  background: #12C79A;
+  background: var(--accent);
   border: 0;
-  color: #061a14;
+  color: var(--text-on-accent);
 }
 
-.mcp-server-actions .primary-btn:hover:not(:disabled) { background: #6EEBD4; }
+.mcp-server-actions .primary-btn:hover:not(:disabled) { background: var(--accent); }
 .mcp-server-actions button:disabled { opacity: 0.4; cursor: default; }
 
 .mcp-server-detail {
@@ -422,10 +422,10 @@
   align-items: center;
   gap: 8px;
   padding: 8px 10px;
-  border: 1px solid rgba(255, 200, 100, 0.18);
+  border: 1px solid var(--intent-warning-border);
   border-radius: var(--radius-md);
-  background: rgba(255, 200, 100, 0.06);
-  color: #FFE082;
+  background: var(--intent-warning-bg);
+  color: var(--intent-warning-fg);
   font-size: var(--fs-2xs);
 }
 
@@ -454,8 +454,8 @@
 
 .mcp-inline-confirm .primary-btn {
   border: 0;
-  background: #12C79A;
-  color: #061a14;
+  background: var(--accent);
+  color: var(--text-on-accent);
 }
 
 .mcp-server-config {
@@ -478,7 +478,7 @@
 }
 
 .mcp-server-tools-header {
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-secondary);
   font-size: var(--fs-2xs);
   font-weight: 700;
   letter-spacing: 0.5px;
@@ -554,7 +554,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-secondary);
   font-size: var(--fs-2xs);
   font-weight: 700;
   letter-spacing: 0.5px;
@@ -567,7 +567,7 @@
   padding: 8px 10px;
   border: 1px solid var(--ov-3);
   border-radius: var(--radius-sm);
-  background: rgba(0, 0, 0, 0.30);
+  background: color-mix(in srgb, var(--surface-sunken) 30%, transparent);
   color: var(--tx-primary);
   font-size: var(--fs-xs);
   font-family: var(--font-mono);
@@ -578,13 +578,13 @@
 
 .mcp-create-form input:focus,
 .mcp-create-form select:focus,
-.mcp-create-form textarea:focus { border-color: rgba(110, 235, 212, 0.55); }
+.mcp-create-form textarea:focus { border-color: var(--accent-border); }
 
 .mcp-create-error {
   padding: 7px 10px;
   border-radius: var(--radius-sm);
-  background: rgba(244, 91, 105, 0.10);
-  color: #FFB1B8;
+  background: var(--intent-danger-bg);
+  color: var(--intent-danger-fg);
   font-size: var(--fs-2xs);
 }
 
@@ -607,9 +607,9 @@
 }
 
 .mcp-create-actions .primary-btn {
-  background: #12C79A;
+  background: var(--accent);
   border: 0;
-  color: #061a14;
+  color: var(--text-on-accent);
 }
 
 .mcp-create-actions .primary-btn:disabled { opacity: 0.4; cursor: default; }

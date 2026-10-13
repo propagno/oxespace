@@ -10,5 +10,5 @@
 .usage-provider-card [data-slot=card-content] { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 15px; }
 .usage-card-meta, .usage-source-note { color: var(--tx-muted); font-size: var(--fs-2xs); }
 .usage-source-note { grid-column: 1 / -1; padding-top: 8px; border-top: 1px solid var(--bd-base); }
-.usage-stale-note { grid-column: 1 / -1; color: var(--dot-amber, #dfad52); font-size: var(--fs-2xs); }
+.usage-stale-note { grid-column: 1 / -1; color: var(--dot-amber, var(--intent-warning-fg)); font-size: var(--fs-2xs); }
 .usage-footnote { margin: 0; color: var(--tx-muted); font-size: var(--fs-2xs); }

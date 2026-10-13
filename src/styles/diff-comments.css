@@ -8,7 +8,7 @@
   border: none;
   border-radius: var(--radius-xs);
   background: transparent;
-  color: var(--brand, #12c79a);
+  color: var(--brand, var(--text-accent));
   cursor: pointer;
   vertical-align: middle;
   transition: opacity 120ms ease, background 120ms ease;
@@ -19,19 +19,19 @@
 }
 
 .diff-comment-add:hover {
-  background: rgba(18, 199, 154, 0.15);
+  background: var(--accent-soft);
 }
 
 .diff-comment-row .diff-comment-cell {
   padding: 5px 10px;
-  background: rgba(18, 199, 154, 0.06);
-  border-left: 2px solid var(--brand, #12c79a);
+  background: var(--accent-soft);
+  border-left: 2px solid var(--brand, var(--accent));
   font-family: inherit;
   white-space: normal;
 }
 
 .diff-comment-icon {
-  color: var(--brand, #12c79a);
+  color: var(--brand, var(--text-accent));
   margin-right: 6px;
   vertical-align: text-bottom;
 }
@@ -52,21 +52,21 @@
 }
 
 .diff-comment-delete:hover {
-  color: var(--dot-red, #f87171);
-  background: rgba(248, 113, 113, 0.12);
+  color: var(--dot-red, var(--intent-danger-fg));
+  background: var(--intent-danger-bg);
 }
 
 .diff-comment-row--editor .diff-comment-cell {
-  background: rgba(18, 199, 154, 0.04);
+  background: var(--accent-soft);
 }
 
 .diff-comment-input {
   width: 100%;
   resize: vertical;
   padding: 5px 8px;
-  border: 1px solid rgba(18, 199, 154, 0.35);
+  border: 1px solid var(--accent-border);
   border-radius: var(--radius-sm);
-  background: var(--bg-input, #020407);
+  background: var(--bg-input, var(--surface-sunken));
   color: var(--tx-primary);
   font: inherit;
   font-size: var(--fs-2xs);
@@ -74,7 +74,7 @@
 
 .diff-comment-input:focus {
   outline: none;
-  border-color: var(--brand, #12c79a);
+  border-color: var(--brand, var(--accent));
 }
 
 .diff-comment-actions {
@@ -93,8 +93,8 @@
 }
 
 .diff-comment-save {
-  background: var(--brand, #12c79a);
-  color: #04120d;
+  background: var(--brand, var(--accent));
+  color: var(--text-on-accent);
   font-weight: 600;
 }
 
@@ -113,10 +113,10 @@
   align-items: center;
   gap: 5px;
   padding: 3px 10px;
-  border: 1px solid rgba(18, 199, 154, 0.4);
+  border: 1px solid var(--accent-border);
   border-radius: var(--radius-sm);
-  background: rgba(18, 199, 154, 0.12);
-  color: var(--brand, #12c79a);
+  background: var(--accent-soft);
+  color: var(--brand, var(--text-accent));
   font-size: var(--fs-2xs);
   font-weight: 600;
   cursor: pointer;
@@ -124,10 +124,10 @@
 }
 
 .review-send-comments:hover {
-  background: rgba(18, 199, 154, 0.22);
+  background: var(--accent-soft);
 }
 
 .review-pane-alert--info {
-  border-left: 2px solid var(--brand, #12c79a);
+  border-left: 2px solid var(--brand, var(--accent));
   color: var(--tx-secondary);
 }
