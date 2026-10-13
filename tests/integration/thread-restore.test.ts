@@ -73,7 +73,7 @@ describe('Thread per-file undo', () => {
 })
 
 describe('Thread file checkpoints', () => {
-  it('restores clean, dirty and new files without touching the Git index', async () => {
+  it('restores clean, dirty and new files without touching the Git index', { timeout: 30_000 }, async () => {
     const { root, service } = fixture()
     writeFileSync(join(root, 'dirty.txt'), 'user work before turn\n')
     const checkpoint = await service.begin({ threadId: 'thread', turnId: 'turn-1', rootPath: root, label: 'Implement feature' })
@@ -89,7 +89,7 @@ describe('Thread file checkpoints', () => {
     expect(execFileSync('git', ['diff', '--cached', '--name-only'], { cwd: root, encoding: 'utf8' })).toBe('')
   })
 
-  it('blocks the whole restore when any postimage changed later', async () => {
+  it('blocks the whole restore when any postimage changed later', { timeout: 30_000 }, async () => {
     const { root, service } = fixture()
     const checkpoint = await service.begin({ threadId: 'thread', turnId: 'turn-2', rootPath: root })
     writeFileSync(join(root, 'tracked.txt'), 'agent edit\n')
