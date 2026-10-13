@@ -87,11 +87,11 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
     const started = Date.now()
     try {
       const result = await oq('sql.run', { connectionId: connection.id, sql: text, maxRows, confirmed })
-      patch(tab.id, { result })
       executed.current.set(tab.id, text)
-    } catch (cause) {
+      patch(tab.id, { result })
       // New or dropped tables and columns must show up in suggestions without reconnecting.
       if (/^(CREATE|ALTER|DROP)/i.test(result.command ?? '')) cacheFor(connection).clear()
+    } catch (cause) {
       if (cause instanceof OxeQueryClientError && cause.code === 'confirm') setPending({ sql: text, reasons: cause.reasons })
       else {
         patch(tab.id, { result: null, error: errorMessage(cause) })
