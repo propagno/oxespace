@@ -41,6 +41,7 @@ export function ContainersPanel({ active }: { active: boolean }): ReactElement {
   const [project, setProject] = useState('')
   const [newDatabase, setNewDatabase] = useState(false)
   const [showResources, setShowResources] = useState(false)
+  const [pendingAction, setPendingAction] = useState<{ container: ContainerSummary; action: ContainerAction } | null>(null)
 
   useEffect(() => {
     if (!active) return
@@ -86,6 +87,12 @@ export function ContainersPanel({ active }: { active: boolean }): ReactElement {
     catch (cause) { setNotice(errorMessage(cause)) } finally { setBusyId(null) }
   }
 
+  /** Stopping or restarting a database interrupts whoever is using it, so it asks first. */
+  const request = (container: ContainerSummary, action: ContainerAction): void => {
+    if (isDatabaseImage(container.image) && (action === 'stop' || action === 'restart')) setPendingAction({ container, action })
+    else void act(container, action)
+  }
+
   const connect = async (container: ContainerSummary): Promise<void> => {
     setBusyId(container.id); setNotice('')
     try {
@@ -99,6 +106,8 @@ export function ContainersPanel({ active }: { active: boolean }): ReactElement {
     return <EngineProblem message={error} engines={engines} loading={loading} onRetry={() => void refresh()} />
   }
   const running = containers.filter(container => container.state === 'running').length
+  const context = available.find(info => info.engine === engine)?.context
+  const remoteContext = context && !['default', 'desktop-linux', 'desktop-windows', 'orbstack', 'colima', 'rancher-desktop'].includes(context) ? context : ''
 
   return <section className="oq-containers" aria-label="Containers">
     <header className="oq-toolbar">
@@ -120,6 +129,14 @@ export function ContainersPanel({ active }: { active: boolean }): ReactElement {
     {connections.length === 0 && databaseContainers > 0 && <p className="oq-hint" role="note">
       <Database size={14} aria-hidden="true" /> To query a database, press <strong>Query</strong> on a PostgreSQL or MongoDB container below, or use <strong>New connection</strong> for a server that is not in a container.</p>}
     {notice && <p role="alert" className="oq-error">{notice}</p>}
+    {remoteContext && <p className="oq-hint" role="note">Docker context <strong>{remoteContext}</strong> is active. Everything here — including stop, remove and run command — acts on that host, not on this computer.</p>}
+    {pendingAction && <div className="oq-confirm" role="alertdialog" aria-label="Confirm container action">
+      <strong>{pendingAction.action === 'stop' ? 'Stop' : 'Restart'} {pendingAction.container.name}?</strong>
+      <ul><li>This is a database container; open connections and running queries are interrupted.</li>
+        {pendingAction.container.labels?.['oxequery.managed'] === '1' && <li>It was created by OxeQuery; its data is kept in a named volume.</li>}</ul>
+      <div><button type="button" onClick={() => setPendingAction(null)}>Cancel</button>
+        <button type="button" className="oq-danger" onClick={() => { const { container, action } = pendingAction; setPendingAction(null); void act(container, action) }}>{pendingAction.action === 'stop' ? 'Stop' : 'Restart'}</button></div>
+    </div>}
     <div className="oq-containers-body">
       <div className="oq-table-wrap">
         {visible.length === 0 ? <div className="oq-empty"><p>{containers.length ? 'No container matches the filter.' : 'No containers yet.'}</p></div> :
@@ -133,8 +150,8 @@ export function ContainersPanel({ active }: { active: boolean }): ReactElement {
               <td className="oq-actions" onClick={event => event.stopPropagation()}>
                 {container.state === 'running'
                   ? <>
-                    <button type="button" aria-label={`Restart ${container.name}`} title="Restart this container" disabled={busyId === container.id} onClick={() => void act(container, 'restart')}><RotateCw size={13} aria-hidden="true" /><span>Restart</span></button>
-                    <button type="button" aria-label={`Stop ${container.name}`} title="Stop this container" disabled={busyId === container.id} onClick={() => void act(container, 'stop')}><Square size={13} aria-hidden="true" /><span>Stop</span></button>
+                    <button type="button" aria-label={`Restart ${container.name}`} title="Restart this container" disabled={busyId === container.id} onClick={() => request(container, 'restart')}><RotateCw size={13} aria-hidden="true" /><span>Restart</span></button>
+                    <button type="button" aria-label={`Stop ${container.name}`} title="Stop this container" disabled={busyId === container.id} onClick={() => request(container, 'stop')}><Square size={13} aria-hidden="true" /><span>Stop</span></button>
                   </>
                   : <button type="button" aria-label={`Start ${container.name}`} title="Start this container" disabled={busyId === container.id} onClick={() => void act(container, 'start')}><Play size={13} aria-hidden="true" /><span>Start</span></button>}
                 {isDatabaseImage(container.image) && <button type="button" className="oq-connect" aria-label={`Connect to ${container.name}`} title="Create a connection to this database and open it" disabled={busyId === container.id || container.state !== 'running'} onClick={() => void connect(container)}><Database size={13} aria-hidden="true" /><span>Query</span></button>}

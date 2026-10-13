@@ -52,6 +52,13 @@ test('OxeQuery lists containers, runs commands and queries PostgreSQL and MongoD
     await page.getByRole('searchbox', { name: 'Filter containers' }).fill('')
 
     await page.getByRole('button', { name: 'Stop pg-dev' }).click()
+    // A database container asks before it is interrupted.
+    const stopConfirm = page.getByRole('alertdialog', { name: 'Confirm container action' })
+    await expect(stopConfirm).toContainText('interrupted')
+    await stopConfirm.getByRole('button', { name: 'Cancel' }).click()
+    await expect(list.getByRole('row', { name: /pg-dev/ })).toContainText('running')
+    await page.getByRole('button', { name: 'Stop pg-dev' }).click()
+    await stopConfirm.getByRole('button', { name: 'Stop', exact: true }).click()
     await expect(list.getByRole('row', { name: /pg-dev/ })).toContainText('exited')
     await page.getByRole('button', { name: 'Start pg-dev' }).click()
     await expect(list.getByRole('row', { name: /pg-dev/ })).toContainText('running')
