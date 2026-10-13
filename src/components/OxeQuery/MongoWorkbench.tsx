@@ -4,6 +4,7 @@ import type { MongoCollectionInfo, MongoDatabaseInfo, MongoResult, OxeQueryConne
 import { OxeQueryClientError, errorMessage, oq } from './client'
 import { ExportButton } from './TableEditor'
 import { ImportButton } from './ImportDialog'
+import { MongoInsights } from './MongoInsights'
 import { flattenDocuments } from './mongo-view'
 import { ResultGrid } from './ResultGrid'
 
@@ -32,7 +33,6 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
   const [result, setResult] = useState<MongoResult | null>(null)
   const [error, setError] = useState('')
   const [running, setRunning] = useState(false)
-  const [indexes, setIndexes] = useState('')
   const [view, setView] = useState<'documents' | 'table'>('documents')
   const table = view === 'table' && result ? flattenDocuments(result.documents) : null
   // `original` is the document as it was read (null for a new one); it is sent back so a concurrent change is detected.
@@ -70,8 +70,7 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
   }, [connection.id, filter, mode, pipeline, projection, sort, target])
 
   const select = (database: string, collection: string): void => {
-    setTarget({ database, collection }); setResult(null); setError(''); setSkip(0); setIndexes('')
-    oq('mongo.indexes', { connectionId: connection.id, database, collection }).then(list => setIndexes(list.map(index => `${index.name}${index.unique ? ' (unique)' : ''}: ${index.keys}`).join('\n')), () => undefined)
+    setTarget({ database, collection }); setResult(null); setError(''); setSkip(0)
   }
 
   useEffect(() => { if (target) void run(0) }, [target]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -136,7 +135,7 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
             {target && <ImportButton connection={connection} target={{ kind: 'collection', database: target.database, collection: target.collection }} onImported={() => void run(0)} />}
             {target && !connection.readOnly && <button type="button" onClick={() => { setWriteError(''); setConfirm(null); setEditing({ original: null, text: '{\n  \n}', mode: 'edit' }) }}><Plus size={13} aria-hidden="true" />New document</button>}
           </div>
-          {indexes && <details className="oq-columns"><summary>Indexes</summary><pre>{indexes}</pre></details>}
+          {target && <MongoInsights connection={connection} database={target.database} collection={target.collection} />}
           {editing && <div className="oq-edit-form" role="group" aria-label={editing.mode === 'delete' ? 'Delete document' : editing.original === null ? 'New document' : 'Edit document'}>
             <header><strong>{editing.mode === 'delete' ? 'Delete this document?' : editing.original === null ? 'New document' : 'Edit document'}</strong></header>
             {editing.mode === 'edit' && <textarea aria-label="Document (EJSON)" spellCheck={false} rows={12} value={editing.text} onChange={event => setEditing({ ...editing, text: event.target.value })} />}

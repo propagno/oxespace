@@ -344,6 +344,28 @@ export class OxeQueryService {
         })
         return { ...result, ...(result.cancelled ? {} : { path, fileName: path.split(/[\\/]/).pop() }) }
       }
+      case 'mongo.schema': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.schema', connection, {
+        database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), sampleSize: optionalInt(input.sampleSize, 10, 1000)
+      }))
+      case 'mongo.createIndex':
+      case 'mongo.dropIndex': return this.requireEngine(input.connectionId, 'mongodb', connection => {
+        if ((connection.environment === 'prod' || op === 'mongo.dropIndex') && input.confirmed !== true) {
+          throw new OxeQueryError('confirm', 'Confirmation is required.', [
+            ...(connection.environment === 'prod' ? ['This is a production connection.'] : []),
+            ...(op === 'mongo.dropIndex' ? ['Dropping an index can make queries much slower.'] : ['Building an index on a large collection can take a while and use disk and memory.'])
+          ])
+        }
+        return this.worker.call(op, connection, op === 'mongo.createIndex'
+          ? { database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), keys: str(input.keys, 'Index keys', 4096), unique: input.unique === true }
+          : { database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), name: str(input.name, 'Index name', 255) })
+      })
+      case 'sql.functions': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.functions', connection, { schema: str(input.schema, 'Schema', 255) }))
+      case 'sql.definition': return this.requireEngine(input.connectionId, 'postgres', connection => {
+        const kind = str(input.kind, 'Kind', 16)
+        if (kind === 'function') return this.worker.call('sql.definition', connection, { kind, oid: Number(input.oid) })
+        if (kind !== 'table' && kind !== 'view') throw new OxeQueryError('invalid', 'Unsupported object kind.')
+        return this.worker.call('sql.definition', connection, { kind, schema: str(input.schema, 'Schema', 255), name: str(input.name, 'Name', 255) })
+      })
       case 'mongo.indexes': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.indexes', connection, {
         database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255)
       }))

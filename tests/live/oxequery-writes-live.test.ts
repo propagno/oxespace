@@ -184,4 +184,30 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
     const found = await core.mongoFind(mongo, { ...target, sort: '{"_id": 1}' })
     expect(found.documents).toHaveLength(3)
   })
+  it('re-creates a table, a view and a function from the catalog', async () => {
+    await exec('CREATE VIEW adults AS SELECT id, name FROM people WHERE age >= 18')
+    await exec(`CREATE FUNCTION add_one(i int) RETURNS int LANGUAGE sql AS 'SELECT i + 1'`)
+    const table = await core.sqlDefinition(pg, { kind: 'table', schema: 'public', name: 'people' })
+    expect(table.text).toMatch(/CREATE TABLE "public"."people"/)
+    expect(table.text).toMatch(/PRIMARY KEY/)
+    expect((await core.sqlDefinition(pg, { kind: 'view', schema: 'public', name: 'adults' })).text).toMatch(/CREATE VIEW "public"."adults" AS/)
+    const functions = await core.sqlFunctions(pg, 'public')
+    const fn = functions.find(item => item.name === 'add_one')!
+    expect(fn.args).toBe('i integer')
+    expect((await core.sqlDefinition(pg, { kind: 'function', oid: fn.oid })).text).toMatch(/FUNCTION public.add_one/)
+  })
+
+  it('infers a MongoDB schema and manages indexes', async () => {
+    const schema = await core.mongoSchema(mongo, 'shop', 'items')
+    expect(schema.sampled).toBeGreaterThan(0)
+    expect(schema.fields.map(field => field.path)).toContain('name')
+    const created = await core.mongoCreateIndex(mongo, { database: 'shop', collection: 'items', keys: '{"name": 1}', unique: true })
+    expect(created.name).toBe('name_1')
+    expect((await core.mongoIndexes(mongo, 'shop', 'items')).some(index => index.name === 'name_1' && index.unique)).toBe(true)
+    await expect(core.mongoCreateIndex(mongo, { database: 'shop', collection: 'items', keys: '{"$bad": 1}' })).rejects.toMatchObject({ code: 'invalid' })
+    await expect(core.mongoDropIndex(mongo, { database: 'shop', collection: 'items', name: '_id_' })).rejects.toMatchObject({ code: 'invalid' })
+    await core.mongoDropIndex(mongo, { database: 'shop', collection: 'items', name: 'name_1' })
+    expect((await core.mongoIndexes(mongo, 'shop', 'items')).some(index => index.name === 'name_1')).toBe(false)
+  })
+
 })

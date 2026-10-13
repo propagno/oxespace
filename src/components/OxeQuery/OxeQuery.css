@@ -290,3 +290,10 @@
 .oq-library-save { display: flex; gap: 6px; }
 .oq-library-save input { flex: 1; }
 .oq-library-wrap { position: relative; }
+
+/* ---- Collection insights -------------------------------------------------- */
+.oq-insights { display: flex; flex-direction: column; }
+.oq-index-list { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.oq-index-list li { display: flex; gap: 8px; align-items: center; }
+.oq-index-form { display: flex; gap: 8px; align-items: center; }
+.oq-index-form input[type="text"], .oq-index-form input:not([type]) { flex: 1; font-family: var(--sh-font-mono, monospace); }

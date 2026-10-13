@@ -15,6 +15,8 @@ import { EJSON } from 'bson'
 import { buildStatements, previewStatements, type ColumnMeta, type RowChange } from './table-editor'
 import { createSink } from './export-writer'
 import { parsePlan, planHints } from './plan-parser'
+import { inferSchema } from './mongo-schema'
+import type { MongoSchema, SqlDefinitionTarget, SqlFunctionInfo } from '../../../../shared/types/oxequery'
 import type { SqlExplain } from '../../../../shared/types/oxequery'
 import { openRejects, readRecords, type ImportFormat } from './import-reader'
 import type { ImportTarget } from '../../../../shared/types/oxequery'
@@ -476,6 +478,79 @@ export class OxeQueryCore {
       const indexes = await client.db(database).collection(collection).indexes()
       return indexes.map(index => ({ name: String(index.name), keys: JSON.stringify(index.key), unique: Boolean(index.unique) }))
     } catch (error) { throw this.mongoError(error, connection) }
+  }
+
+  /** Field paths and types inferred from a random sample; a guide, not a contract. */
+  async mongoSchema(connection: ResolvedConnection, database: string, collection: string, sampleSize = 200): Promise<MongoSchema> {
+    const size = Math.max(10, Math.min(Math.trunc(sampleSize) || 200, 1000))
+    try {
+      const client = await this.mongoSession(connection)
+      const documents = await client.db(database).collection(collection).aggregate([{ $sample: { size } }], { maxTimeMS: 20_000 }).toArray()
+      return { sampled: documents.length, ...inferSchema(documents) }
+    } catch (error) { throw this.mongoError(error, connection) }
+  }
+
+  async mongoCreateIndex(connection: ResolvedConnection, input: { database: string; collection: string; keys: string; unique?: boolean }): Promise<{ name: string }> {
+    if (connection.readOnly) throw new OxeQueryError('read-only', 'This connection is read-only. Turn read-only off to change indexes.')
+    const keys = parseDocument(input.keys, 'Index keys')
+    const entries = Object.entries(keys)
+    if (entries.length === 0 || entries.length > 32) throw new OxeQueryError('invalid', 'An index needs between 1 and 32 keys.')
+    for (const [field, direction] of entries) {
+      if (!field || field.startsWith('$')) throw new OxeQueryError('invalid', `"${field}" is not a valid field name.`)
+      if (![1, -1, 'text', '2dsphere', 'hashed'].includes(direction as never)) throw new OxeQueryError('invalid', `The direction of "${field}" must be 1, -1, "text", "2dsphere" or "hashed".`)
+    }
+    try {
+      const client = await this.mongoSession(connection)
+      const name = await client.db(input.database).collection(input.collection).createIndex(keys as never, { ...(input.unique ? { unique: true } : {}), background: true })
+      return { name }
+    } catch (error) { throw this.mongoError(error, connection) }
+  }
+
+  async mongoDropIndex(connection: ResolvedConnection, input: { database: string; collection: string; name: string }): Promise<{ dropped: boolean }> {
+    if (connection.readOnly) throw new OxeQueryError('read-only', 'This connection is read-only. Turn read-only off to change indexes.')
+    if (input.name === '_id_' || input.name === '*') throw new OxeQueryError('invalid', 'The _id index cannot be dropped.')
+    try {
+      const client = await this.mongoSession(connection)
+      await client.db(input.database).collection(input.collection).dropIndex(input.name)
+      return { dropped: true }
+    } catch (error) { throw this.mongoError(error, connection) }
+  }
+
+  async sqlFunctions(connection: ResolvedConnection, schema: string): Promise<SqlFunctionInfo[]> {
+    const result = await this.pgRun(connection, `SELECT p.oid::int, p.proname, pg_get_function_identity_arguments(p.oid), p.prokind
+      FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = $1 AND p.prokind IN ('f', 'p') ORDER BY p.proname, p.oid LIMIT 1000`, [schema], 1000, true)
+    return result.rows.map(row => ({ oid: Number(row[0]), name: String(row[1]), args: String(row[2]), kind: row[3] === 'p' ? 'procedure' as const : 'function' as const }))
+  }
+
+  /** Re-creates the statement that defines a table, view or function, from the catalog. */
+  async sqlDefinition(connection: ResolvedConnection, target: SqlDefinitionTarget): Promise<{ text: string }> {
+    if (target.kind === 'function') {
+      if (!Number.isInteger(target.oid) || target.oid <= 0) throw new OxeQueryError('invalid', 'Choose a function.')
+      const result = await this.pgRun(connection, 'SELECT pg_get_functiondef($1::oid)', [target.oid], 1, true)
+      return { text: String(result.rows[0]?.[0] ?? '') }
+    }
+    const qualified = `${quoteIdentifier(target.schema)}.${quoteIdentifier(target.name)}`
+    if (target.kind === 'view') {
+      const result = await this.pgRun(connection, `SELECT c.relkind, pg_get_viewdef(c.oid, true) FROM pg_class c WHERE c.oid = to_regclass($1) AND c.relkind IN ('v', 'm')`, [qualified], 1, true)
+      const row = result.rows[0]
+      if (!row) throw new OxeQueryError('invalid', 'That view no longer exists.')
+      return { text: `CREATE ${row[0] === 'm' ? 'MATERIALIZED VIEW' : 'VIEW'} ${qualified} AS\n${String(row[1]).trim()}` }
+    }
+    const columns = await this.pgRun(connection, `SELECT a.attname, format_type(a.atttypid, a.atttypmod), a.attnotnull, pg_get_expr(d.adbin, d.adrelid), a.attgenerated
+      FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+      WHERE a.attrelid = to_regclass($1) AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum`, [qualified], 1000, true)
+    if (columns.rows.length === 0) throw new OxeQueryError('invalid', 'That table no longer exists.')
+    const constraints = await this.pgRun(connection, `SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid = to_regclass($1) ORDER BY contype DESC, conname`, [qualified], 500, true)
+    const indexes = await this.pgRun(connection, `SELECT indexdef FROM pg_indexes WHERE schemaname = $1 AND tablename = $2
+      AND indexname NOT IN (SELECT conname FROM pg_constraint WHERE conrelid = to_regclass($3)) ORDER BY indexname`, [target.schema, target.name, qualified], 500, true)
+    const lines = columns.rows.map(row => {
+      const generated = row[4] === 's' ? ` GENERATED ALWAYS AS (${String(row[3])}) STORED` : ''
+      const fallback = !generated && row[3] ? ` DEFAULT ${String(row[3])}` : ''
+      return `  ${quoteIdentifier(String(row[0]))} ${String(row[1])}${generated}${fallback}${row[2] ? ' NOT NULL' : ''}`
+    })
+    for (const row of constraints.rows) lines.push(`  CONSTRAINT ${quoteIdentifier(String(row[0]))} ${String(row[1])}`)
+    return { text: [`CREATE TABLE ${qualified} (\n${lines.join(',\n')}\n);`, ...indexes.rows.map(row => `${String(row[0])};`)].join('\n') }
   }
 
   private mongoResult(documents: Document[], limit: number, started: number, total?: number): MongoResult {

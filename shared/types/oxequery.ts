@@ -357,6 +357,12 @@ export interface MongoResult {
   total?: number
 }
 export interface MongoIndexInfo { name: string; keys: string; unique: boolean }
+export interface MongoSchemaField { path: string; /** Percent of sampled documents that have the field. */ presence: number; types: { type: string; count: number }[] }
+export interface MongoSchema { sampled: number; fields: MongoSchemaField[]; truncated: boolean }
+export interface SqlFunctionInfo { oid: number; name: string; args: string; kind: 'function' | 'procedure' }
+export type SqlDefinitionTarget =
+  | { kind: 'table' | 'view'; schema: string; name: string }
+  | { kind: 'function'; oid: number }
 
 export type ContainerLogEvent = { type: 'container-log'; streamId: string; lines: string[] } | { type: 'container-log-end'; streamId: string; reason: string }
 export type OxeQueryEvent = ContainerLogEvent | { type: 'containers-changed' } | { type: 'export-progress'; exportId: string; rows: number; bytes: number } | { type: 'import-progress'; importId: string; rows: number }
@@ -403,6 +409,11 @@ export interface OxeQueryOps {
   'mongo.find': { input: MongoFindInput; output: MongoResult }
   'mongo.aggregate': { input: MongoAggregateInput; output: MongoResult }
   'mongo.indexes': { input: { connectionId: string; database: string; collection: string }; output: MongoIndexInfo[] }
+  'mongo.schema': { input: { connectionId: string; database: string; collection: string; sampleSize?: number }; output: MongoSchema }
+  'mongo.createIndex': { input: { connectionId: string; database: string; collection: string; keys: string; unique?: boolean; confirmed?: boolean }; output: { name: string } }
+  'mongo.dropIndex': { input: { connectionId: string; database: string; collection: string; name: string; confirmed?: boolean }; output: { dropped: boolean } }
+  'sql.functions': { input: { connectionId: string; schema: string }; output: SqlFunctionInfo[] }
+  'sql.definition': { input: { connectionId: string } & SqlDefinitionTarget; output: { text: string } }
   'mongo.write': { input: MongoWriteInput; output: MongoWriteResult }
   'export.run': { input: ExportInput; output: ExportResult }
   'sql.explain': { input: SqlExplainInput; output: SqlExplain }

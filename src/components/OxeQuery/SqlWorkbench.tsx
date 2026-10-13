@@ -17,7 +17,7 @@ const PAGE = 100
 const MAX_TABS = 12
 
 interface Pending { sql: string; reasons: string[]; explain?: 'analyze' }
-interface Browse { schema: string; table: string; offset: number }
+interface Browse { schema: string; table: string; offset: number; kind?: string }
 interface QueryTab {
   id: string
   title: string
@@ -132,7 +132,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
         oq('sql.browse', { connectionId: connection.id, schema: table.schema, table: table.name, limit: PAGE, offset }),
         offset === 0 ? oq('sql.table', { connectionId: connection.id, schema: table.schema, table: table.name }) : Promise.resolve(null)
       ])
-      patch(tab.id, { result: rows, browse: { schema: table.schema, table: table.name, offset }, ...(meta ? { details: meta } : {}), title: table.name })
+      patch(tab.id, { result: rows, browse: { schema: table.schema, table: table.name, offset, kind: table.kind }, ...(meta ? { details: meta } : {}), title: table.name })
     } catch (cause) { patch(tab.id, { error: errorMessage(cause) }) } finally { setRunning(false) }
   }, [connection.id, patch])
 
@@ -204,6 +204,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
         {active.error && <div role="alert" className="oq-query-error"><strong>Query failed</strong><pre>{active.error}</pre></div>}
         {result?.notices?.map(notice => <p key={notice} className="oq-muted oq-notice">{notice}</p>)}
         {active.details && <ColumnsPanel details={active.details} />}
+        {active.browse && <DefinitionPanel key={`${active.browse.schema}.${active.browse.table}`} connection={connection} schema={active.browse.schema} name={active.browse.table} kind={active.browse.kind} onOpen={text => addTab(text)} />}
         {active.browse && result && <TableEditor key={`${active.browse.schema}.${active.browse.table}`} connection={connection} schema={active.browse.schema} table={active.browse.table}
           result={result} selectedRow={selectedRow} onClearSelection={() => setSelectedRow(null)}
           onApplied={() => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: 'table' }, active.browse!.offset)} />}
@@ -226,6 +227,28 @@ function summary(result: SqlResult, browse: Browse | null): string {
   if (browse) return `rows ${browse.offset + 1}–${browse.offset + result.rowCount} · ${result.durationMs} ms`
   if (result.columns.length === 0) return `${result.command ?? 'Done'}${result.affectedRows !== undefined ? ` · ${result.affectedRows} rows affected` : ''} · ${result.durationMs} ms`
   return `${result.rowCount} row${result.rowCount === 1 ? '' : 's'}${result.truncated ? ' (limited — more exist)' : ''} · ${result.durationMs} ms`
+}
+
+function DefinitionPanel({ connection, schema, name, kind, onOpen }: { connection: OxeQueryConnection; schema: string; name: string; kind?: string; onOpen: (sql: string) => void }): ReactElement {
+  const [open, setOpen] = useState(false)
+  const [text, setText] = useState<string | null>(null)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    if (!open || text !== null) return
+    let alive = true
+    const objectKind = kind && kind.includes('view') ? 'view' : 'table'
+    oq('sql.definition', { connectionId: connection.id, kind: objectKind, schema, name }).then(value => { if (alive) setText(value.text) }, cause => { if (alive) setError(errorMessage(cause)) })
+    return () => { alive = false }
+  }, [open, text, connection.id, schema, name, kind])
+  return <section className="oq-columns" aria-label="Definition">
+    <button type="button" className="oq-disclosure" aria-expanded={open} onClick={() => setOpen(value => !value)}>
+      {open ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />}Definition (DDL)</button>
+    {open && <div className="oq-columns-grid">
+      {error ? <p role="alert" className="oq-error">{error}</p> : text === null ? <p className="oq-muted" aria-busy="true">Reading the catalog…</p>
+        : <><pre className="oq-sql-preview">{text}</pre>
+          <div className="oq-staged-actions"><button type="button" onClick={() => copy(text)}>Copy</button><button type="button" onClick={() => onOpen(text)}>Open in a new tab</button></div></>}
+    </div>}
+  </section>
 }
 
 function ColumnsPanel({ details }: { details: SqlTableDetails }): ReactElement {
