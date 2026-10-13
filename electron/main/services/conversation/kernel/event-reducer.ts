@@ -115,6 +115,7 @@ export function reduceThreadEvent(snapshot: ThreadSnapshot, event: ThreadEvent, 
     if (activeTurn?.status === 'running') Object.assign(activeTurn.configuration, { ...(event.model !== undefined ? { model: event.model } : {}), ...(event.reasoningEffort !== undefined ? { reasoningEffort: event.reasoningEffort } : {}), ...(event.access !== undefined ? { access: event.access } : {}), ...(event.networkAccess !== undefined ? { networkAccess: event.networkAccess } : {}), ...(event.approvalPolicy !== undefined ? { approvalPolicy: event.approvalPolicy } : {}), ...(event.hooksEnabled !== undefined ? { hooksEnabled: event.hooksEnabled } : {}) })
   } else if (event.type === 'session') {
     snapshot.thread.nativeSessionId = event.nativeSessionId
+    if (event.mcpServers) snapshot.thread.mcpServers = { servers: event.mcpServers, checkedAt: ctx.now() }
   } else if (event.type === 'completed') {
     const turn = snapshot.turns?.at(-1)
     const now = ctx.now()

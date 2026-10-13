@@ -273,3 +273,11 @@ describe('Claude context usage', () => {
     await f.adapter.dispose()
   })
 })
+
+describe('Claude MCP server status', () => {
+  it('keeps name and known status of each server reported at init', async () => {
+    const { mcpServerStatuses } = await import('../electron/main/services/conversation/claude-conversation')
+    expect(mcpServerStatuses([{ name: 'github', status: 'connected' }, { name: 'jira', status: 'needs-auth' }, { name: 'x', status: 'weird' }, { status: 'failed' }]))
+      .toEqual([{ name: 'github', status: 'connected' }, { name: 'jira', status: 'needs-auth' }, { name: 'x', status: 'unknown' }])
+  })
+})

@@ -7,6 +7,7 @@ import { useUIStore } from '../../store/ui.store'
 import { VoiceHud } from '../Voice/VoiceHud'
 import { ThreadConfigurationBar } from './ThreadConfigurationBar'
 import { ThreadCostChip } from './ThreadCostChip'
+import { ThreadMcpHealth } from './ThreadMcpHealth'
 import { ThreadUsageRing } from './ThreadUsageRing'
 import type { useOxeVoice } from '../../hooks/useOxeVoice'
 
@@ -72,6 +73,7 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
       <button type="button" className="thread-command-trigger" aria-label="Voice input" title="Voice input · Ctrl+Shift+V" disabled={!snapshot || pending || !voice.isSupported} onClick={voice.toggle}><Mic size={14} /></button>
       {snapshot && <ThreadConfigurationBar key={snapshot.thread.id} thread={snapshot.thread} openControl={openControl} onControlClosed={onControlClosed} onError={onError} onConfigured={value => useThreadStore.getState().updateSnapshot(value)} />}
       {running && snapshot?.thread.capabilities?.features.steering?.enabled && <button type="button" className="thread-command-trigger" aria-label="Steer active turn" title="Send guidance to the active turn" disabled={pending || (!draft.trim() && !attachments.length)} onClick={() => onSend('steer')}><CornerDownLeft size={14} /></button>}
+      {snapshot && <ThreadMcpHealth thread={snapshot.thread} />}
       {snapshot && <ThreadCostChip cost={snapshot.thread.costReport} />}
       {snapshot && <ThreadUsageRing provider={snapshot.thread.provider} idle={!running} threadId={snapshot.thread.id} context={snapshot.thread.contextReport} />}
       {running && <button type="button" className="thread-stop" aria-label="Stop turn" title="Stop turn · Esc" disabled={pending} onClick={onInterrupt}><Square size={13} /></button>}

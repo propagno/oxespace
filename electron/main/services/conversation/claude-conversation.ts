@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
-import type { AgentConversationAdapter, ConversationProtocolEvidence, ThreadAgentInput, ThreadEvent, ThreadConfiguration, ThreadFileChange, ThreadAttachment, ThreadRequestResponse, ThreadContextReport } from '../../../../shared/types/thread'
+import type { AgentConversationAdapter, ThreadMcpServerStatus, ConversationProtocolEvidence, ThreadAgentInput, ThreadEvent, ThreadConfiguration, ThreadFileChange, ThreadAttachment, ThreadRequestResponse, ThreadContextReport } from '../../../../shared/types/thread'
 import type { ConversationTransport } from './codex-conversation'
 import { JsonLinesDecoder } from './json-lines'
 import { CLAUDE_THREAD_ARGS, claudeRuntimeCatalog } from './claude-command-catalog'
@@ -304,7 +304,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
           this.evidence.protocolVersion = 'stream-json'
           this.evidence.verified = 'native'
           this.context!.nativeSessionId = event.session_id
-          this.emit({ type: 'session', nativeSessionId: event.session_id })
+          this.emit({ type: 'session', nativeSessionId: event.session_id, ...(Array.isArray(event.mcp_servers) ? { mcpServers: mcpServerStatuses(event.mcp_servers) } : {}) })
         } else if (event.type === 'stream_event') {
           const streamed = record(event.event)
           if (streamed.type === 'message_start') this.streamMessageId = typeof record(streamed.message).id === 'string' ? String(record(streamed.message).id) : randomUUID()
@@ -446,4 +446,15 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
       this.emit(unknown)
     }
   }
+}
+
+const MCP_STATUSES = new Set(['connected', 'failed', 'needs-auth', 'pending', 'disabled'])
+/** `system/init` lists each configured MCP server with its startup status. */
+export function mcpServerStatuses(value: unknown[]): ThreadMcpServerStatus[] {
+  return value.slice(0, 100).flatMap(item => {
+    const entry = record(item)
+    const name = typeof entry.name === 'string' ? entry.name.slice(0, 120) : ''
+    const status = typeof entry.status === 'string' && MCP_STATUSES.has(entry.status) ? entry.status as ThreadMcpServerStatus['status'] : 'unknown'
+    return name ? [{ name, status }] : []
+  })
 }

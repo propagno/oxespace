@@ -748,3 +748,10 @@
 .thread-hunk-comment { display: grid; gap: 6px; padding: 6px 8px 8px; }
 .thread-hunk-comment textarea { min-height: 56px; resize: vertical; font: inherit; }
 .thread-hunk-comment button { justify-self: end; }
+.thread-mcp-health { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--dot-red); border-radius: 999px; color: var(--dot-red); background: transparent; font: inherit; font-size: var(--fs-2xs); cursor: pointer; }
+.thread-mcp-health-popover { z-index: 120; display: grid; gap: 6px; max-width: 320px; padding: 13px; border: 1px solid var(--bd-base); border-radius: var(--surface-radius); background: var(--bg-elevated); color: var(--tx-primary); box-shadow: 0 14px 34px #0006; font-size: var(--fs-xs); }
+.thread-mcp-health-popover > span { color: var(--tx-secondary); }
+.thread-mcp-health-popover ul { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.thread-mcp-health-popover li { display: flex; justify-content: space-between; gap: 8px; }
+.thread-mcp-health-popover li.is-failed small, .thread-mcp-health-popover li.is-needs-auth small { color: var(--dot-red); }
+.thread-mcp-health-popover button { justify-self: start; }

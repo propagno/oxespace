@@ -153,6 +153,7 @@ export interface ThreadRequest {
   /** What OXESpace's permission rules say about this approval. */
   policy?: ThreadRequestPolicy
 }
+export interface ThreadMcpServerStatus { name: string; status: 'connected' | 'failed' | 'needs-auth' | 'pending' | 'disabled' | 'unknown' }
 /** One change block of a turn's file, undoable on its own; `id` pins the exact change. */
 export interface ThreadFileHunk extends LineHunk { id: string }
 /** A rule OXESpace answers approval prompts with; `projectRoot` null means every project. */
@@ -308,6 +309,8 @@ export interface ConversationThread {
   contextReport?: ThreadContextReport
   /** Running cost estimate; never part of the timeline. */
   costReport?: ThreadCostReport
+  /** MCP servers the provider reported when its session started. */
+  mcpServers?: { servers: ThreadMcpServerStatus[]; checkedAt: number }
   capabilities?: ThreadCapabilityManifest
   connection?: ThreadConnectionStatus
   providerObservation?: ThreadProviderObservation
@@ -323,7 +326,7 @@ export interface ThreadProviderObservation {
 
 export type ThreadEvent =
   | { type: 'continuation-started'; id: string; at: number }
-  | { type: 'session'; nativeSessionId: string }
+  | { type: 'session'; nativeSessionId: string; mcpServers?: ThreadMcpServerStatus[] }
   /** Transport liveness only; the orchestrator updates metadata without saving a timeline row. */
   | { type: 'native-signal'; at: number }
   /** Metadata only: stored on the thread, never added to the timeline. */
