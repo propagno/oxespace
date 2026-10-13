@@ -730,6 +730,7 @@
 .thread-usage-bar > span { display: block; height: 100%; background: currentColor; }
 .thread-rewind-trigger { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; padding: 2px 6px; border: 0; color: var(--tx-muted); background: transparent; font: inherit; font-size: var(--fs-2xs); opacity: 0; }
 .thread-message:hover .thread-rewind-trigger, .thread-rewind-trigger:focus-visible { opacity: 1; }
+.thread-rewind-triggers { display: inline-flex; gap: 2px; }
 .thread-rewind-confirm { display: grid; gap: 6px; margin-top: 6px; padding: 8px 10px; border: 1px solid var(--bd-base); border-radius: var(--radius-md); background: var(--bg-elevated); color: var(--tx-secondary); font-size: var(--fs-xs); }
 .thread-rewind-confirm p { margin: 0; }
 .thread-rewind-confirm span { display: flex; gap: 6px; }
