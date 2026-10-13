@@ -1,6 +1,6 @@
-import { existsSync, watch as fsWatch, type FSWatcher } from 'node:fs'
+import { existsSync, promises as fsp, watch as fsWatch, type FSWatcher } from 'node:fs'
 import { spawn, type SpawnOptions } from 'node:child_process'
-import { join } from 'node:path'
+import { join, resolve as resolvePath } from 'node:path'
 import type { GitBranchStatus, GitControlFile, GitControlStatus, GitDiff, GitDiffFile, GitDiffInput, GitDiffSummary, GitDiffSummaryFile, GitFileOriginal, GitSummaryStatus } from '../../../shared/types/git'
 
 export interface SpawnGitResult {
@@ -22,6 +22,10 @@ interface WatchEntry {
 const MAX_FILES = 300
 const MAX_LINES_PER_FILE = 2000
 const SPAWN_TIMEOUT_MS = 30_000
+// New files an agent creates are untracked, so `git diff` never lists them. They are
+// added to the summary, bounded: how many are read for a line count and how large.
+const MAX_UNTRACKED_FILES = 500
+const MAX_UNTRACKED_COUNT_BYTES = 1024 * 1024
 const RESOLVE_TIMEOUT_MS = 5_000
 // Cache strategy: cache POSITIVE resolutions forever (git path doesn't move
 // at runtime). Negative results (git not found) cache only for the duration
@@ -432,12 +436,44 @@ export class GitService {
     ])
     if (names.status !== 0) return { ...empty, mergeBase: from, error: names.stderr || 'Git diff is unavailable.' }
     const files = buildDiffSummaryFiles(names.stdout, numbers.stdout)
+    if (includeUncommitted) {
+      const known = new Set(files.map(file => file.path))
+      for (const added of await this.untrackedSummary(rootPath)) if (!known.has(added.path)) files.push(added)
+    }
     return {
       files,
       additions: files.reduce((sum, file) => sum + file.additions, 0),
       deletions: files.reduce((sum, file) => sum + file.deletions, 0),
       base, mergeBase: from, includeUncommitted, compiledAt: Date.now()
     }
+  }
+
+  /** Untracked, non-ignored files as added files, with a line count when they are small text files. */
+  private async untrackedSummary(rootPath: string): Promise<GitDiffSummaryFile[]> {
+    const listed = await this.spawnGit(['-c', 'core.quotePath=false', 'ls-files', '--others', '--exclude-standard', '-z'], rootPath)
+    if (listed.status !== 0) return []
+    const paths = listed.stdout.split('\0').filter(Boolean)
+    const out: GitDiffSummaryFile[] = []
+    for (const path of paths.slice(0, MAX_UNTRACKED_FILES)) {
+      let additions = 0
+      let binary = false
+      try {
+        const absolute = resolvePath(rootPath, path)
+        const stat = await fsp.stat(absolute)
+        if (!stat.isFile()) continue
+        if (stat.size > MAX_UNTRACKED_COUNT_BYTES) binary = true
+        else {
+          const content = await fsp.readFile(absolute)
+          binary = content.subarray(0, 8000).includes(0)
+          if (!binary && content.length > 0) {
+            for (const byte of content) if (byte === 10) additions++
+            if (content[content.length - 1] !== 10) additions++
+          }
+        }
+      } catch { continue }
+      out.push({ path, status: 'A', additions, deletions: 0, binary })
+    }
+    return out
   }
 
   /** Base-side content for one file (`git show <mergeBase>:<path>`). */

@@ -43,6 +43,17 @@ const toAudit = (row: AuditRow): ThreadAuditEntry => ({
   ...(row.thread_id ? { threadId: row.thread_id } : {}), ...(row.project_root ? { projectRoot: row.project_root } : {}), ...(row.detail ? { detail: row.detail } : {})
 })
 
+/** The shape the renderer may send when adding a rule; anything else is refused before it reaches the store. */
+export function parsePermissionRuleInput(rule: unknown): { kind: ThreadPermissionRule['kind']; pattern: string; decision: ThreadPermissionRule['decision']; scope: 'project' | 'global' } {
+  if (!rule || typeof rule !== 'object' || Array.isArray(rule)) throw Error('Invalid permission rule')
+  const value = rule as Record<string, unknown>
+  if (value.kind !== 'command' && value.kind !== 'path' && value.kind !== 'tool') throw Error('Invalid permission rule kind')
+  if (value.decision !== 'allow' && value.decision !== 'deny') throw Error('Invalid permission rule decision')
+  if (value.scope !== 'project' && value.scope !== 'global') throw Error('Invalid permission rule scope')
+  if (typeof value.pattern !== 'string') throw Error('Invalid permission rule pattern')
+  return { kind: value.kind, pattern: value.pattern, decision: value.decision, scope: value.scope }
+}
+
 /** Rejects rules that would silently allow everything. */
 export function validatePermissionRule(kind: string, pattern: string, decision: string): string {
   if (kind !== 'command' && kind !== 'path' && kind !== 'tool') throw Error('Unknown rule kind')

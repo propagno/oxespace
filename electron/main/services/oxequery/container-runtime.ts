@@ -65,9 +65,12 @@ export function engineInstallPaths(engine: ContainerEngine, platform: NodeJS.Pla
   if (platform === 'win32') {
     const programFiles = [env.ProgramFiles, env['ProgramFiles(x86)'], env.ProgramW6432].filter((value): value is string => Boolean(value))
     const local = env.LOCALAPPDATA
+    // Joined with an explicit separator: backslashes inside a template literal are escapes
+    // (`\r` and `\b` would silently become control characters).
+    const win = (...parts: string[]): string => parts.join('\\')
     return engine === 'docker'
-      ? programFiles.map(base => `${base}\Docker\Docker\resources\bin\docker${exe}`)
-      : [...programFiles.map(base => `${base}\RedHat\Podman\podman${exe}`), ...programFiles.map(base => `${base}\Podman\podman${exe}`), ...(local ? [`${local}\Programs\Podman\podman${exe}`] : [])]
+      ? programFiles.map(base => win(base, 'Docker', 'Docker', 'resources', 'bin', `docker${exe}`))
+      : [...programFiles.map(base => win(base, 'RedHat', 'Podman', `podman${exe}`)), ...programFiles.map(base => win(base, 'Podman', `podman${exe}`)), ...(local ? [win(local, 'Programs', 'Podman', `podman${exe}`)] : [])]
   }
   if (platform === 'darwin') {
     return engine === 'docker'

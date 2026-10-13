@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openInMemoryDatabase } from '../../electron/main/db/index'
 import { WorkspaceService } from '../../electron/main/services/workspace.service'
+import { RtkService } from '../../electron/main/services/rtk.service'
 import { __resetExecutableCacheForTests, TerminalManager, resolveExecutable } from '../../electron/main/services/terminal.service'
 
 describe('TerminalManager', () => {
@@ -63,6 +64,21 @@ describe('TerminalManager', () => {
       expect(pty.spawn).toHaveBeenCalledWith('codex', ['resume', id, '--no-alt-screen'], expect.anything())
     } finally { manager.stopAll(); db.close() }
   })
+  test('a stalled RTK download does not hold the first terminal back', async () => {
+    const db = openInMemoryDatabase()
+    const workspace = new WorkspaceService(db).create({ rootPath: 'C:/repo', layout: '1x1', autoStart: false })
+    const pty = createFakePtyModule()
+    const ensure = vi.spyOn(RtkService.prototype, 'ensureRtk').mockImplementation(() => new Promise<string>(() => undefined))
+    const manager = new TerminalManager(db, { pty, platform: 'linux' })
+    try {
+      const started = Date.now()
+      await manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id, agentCommand: 'codex' })
+      expect(Date.now() - started).toBeLessThan(8000)
+      expect(pty.spawn).toHaveBeenCalledTimes(1)
+      expect(ensure).toHaveBeenCalled()
+    } finally { ensure.mockRestore(); manager.stopAll(); db.close() }
+  }, 15_000)
+
   test('managed launches preserve structured arguments and refuse a missing worktree fallback', async () => {
     const root = mkdtempSync(join(tmpdir(), 'oxe-managed-launch-'))
     const db = openInMemoryDatabase()
