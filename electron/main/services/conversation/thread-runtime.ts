@@ -13,7 +13,8 @@ import { ThreadNativeCli } from './thread-cli'
 import { NativeHistoryWorkerClient } from './native-history-worker-client'
 import { CodexStateReader } from './codex-state-reader'
 import { ThreadModelService } from './thread-models'
-import { bindThreadMcp, threadMcpArguments, type ThreadMcpBindings } from './thread-mcp'
+import { bindThreadMcp, deniedMcpTools, threadMcpArguments, type ThreadMcpBindings } from './thread-mcp'
+import { ThreadPermissionStore } from './thread-permissions'
 import { readManagedMcp } from './thread-managed-mcp'
 import { ThreadAttachmentStore } from './thread-attachments'
 
@@ -48,7 +49,9 @@ export function createThreadManager(db: AppDatabase, accounts: NativeAccountServ
         .filter(row => norm(row.root_path) === norm(thread.rootPath)).map(row => row.id)
       const managed = readManagedMcp(db, [thread.workspaceId, ...projectWorkspaces])
       const env = { ...managed.env, ...prepared }
-      const transport = (args: string[], cwd: string) => new AgentProcessTransport(profile.command, threadMcpArguments(thread.provider, args, mcp.bridge, managed), cwd, env, { thread: thread.id, generation: thread.generation })
+      // Deny rules for MCP tools take effect when the session starts.
+      const denied = deniedMcpTools(new ThreadPermissionStore(db).rules(thread.rootPath))
+      const transport = (args: string[], cwd: string) => new AgentProcessTransport(profile.command, threadMcpArguments(thread.provider, args, mcp.bridge, managed, denied), cwd, env, { thread: thread.id, generation: thread.generation })
       const adapter = thread.provider === 'claude' ? new ClaudeConversationAdapter(transport)
         : new CodexConversationAdapter(transport(['app-server', '--listen', 'stdio://'], thread.rootPath))
       return bindThreadMcp(adapter, () => mcp.end(thread.id, executionId))

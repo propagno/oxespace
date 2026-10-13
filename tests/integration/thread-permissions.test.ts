@@ -64,6 +64,20 @@ describe('evaluatePermission', () => {
       .toMatchObject({ decision: 'ask', suggestions: [{ kind: 'path', pattern: 'docs/**' }] })
   })
 
+  it('answers MCP tool calls from tool rules and offers the tool or its whole server', () => {
+    const rules = [rule('tool', 'github/*'), rule('tool', 'db/drop_table', 'deny'), rule('tool', 'db/query')]
+    expect(evaluatePermission(approval({ toolName: 'mcp__github__create_issue' }), root, rules)?.decision).toBe('allow')
+    expect(evaluatePermission(approval({ toolName: 'mcp__db__drop_table' }), root, rules)?.decision).toBe('deny')
+    expect(evaluatePermission(approval({ toolName: 'mcp__db__query' }), root, rules)?.decision).toBe('allow')
+    expect(evaluatePermission(approval({ toolName: 'mcp__my_server__do__thing' }), root, rules)).toMatchObject({ decision: 'ask', suggestions: [
+      { kind: 'tool', pattern: 'my_server/do__thing' }, { kind: 'tool', pattern: 'my_server/*' }
+    ] })
+    expect(evaluatePermission(approval({ toolName: 'WebFetch' }), root, rules)).toBeUndefined()
+    expect(() => validatePermissionRule('tool', '*/*', 'allow')).toThrow(/server\/tool/)
+    expect(() => validatePermissionRule('tool', 'github', 'deny')).toThrow(/server\/tool/)
+    expect(validatePermissionRule('tool', ' github/* ', 'allow')).toBe('github/*')
+  })
+
   it('leaves requests it cannot reason about to the provider prompt', () => {
     expect(evaluatePermission({ kind: 'question' }, root, [])).toBeUndefined()
     expect(evaluatePermission(approval({}), root, [rule('command', 'git status')])).toBeUndefined()

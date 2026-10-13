@@ -3,6 +3,8 @@ import { Trash2 } from 'lucide-react'
 import type { ThreadAuditEntry, ThreadPermissionRule } from '../../../shared/types/thread'
 
 const ACTOR: Record<ThreadAuditEntry['actor'], string> = { user: 'You', policy: 'Rule', system: 'OXESpace' }
+const KIND: Record<ThreadPermissionRule['kind'], string> = { command: 'Command', path: 'Files', tool: 'MCP tool' }
+const PLACEHOLDER: Record<ThreadPermissionRule['kind'], string> = { command: 'npm run test   or   /^git (status|diff)/', path: 'src/**   or   .env*', tool: 'github/create_issue   or   github/*' }
 
 /** Saved permission rules for the conversation's project, and the decisions recorded for it. */
 export default function ThreadPermissionsPanel({ threadId }: { threadId: string }) {
@@ -35,11 +37,11 @@ export default function ThreadPermissionsPanel({ threadId }: { threadId: string 
     {error && <p role="alert">{error}</p>}
     <section>
       <h3>Rules</h3>
-      <p>OXESpace answers the agent's approval prompts with these rules. Allow rules approve only when every command in a line, or every file, is covered; deny rules decline. Anything else still asks you.</p>
+      <p>OXESpace answers the agent's approval prompts with these rules. Allow rules approve only when every command in a line, or every file, is covered; deny rules decline. Anything else still asks you. A denied MCP tool is also removed from the agent's tools when its next session starts.</p>
       {rules === null ? <p>Loading…</p> : rules.length === 0 ? <p>No rules yet. Use "Always allow" on an approval, or add one below.</p> : <ul className="thread-permissions-rules">
         {rules.map(rule => <li key={rule.id}>
           <span className={`thread-permissions-decision is-${rule.decision}`}>{rule.decision === 'allow' ? 'Allow' : 'Deny'}</span>
-          <span>{rule.kind === 'command' ? 'Command' : 'Files'}</span>
+          <span>{KIND[rule.kind]}</span>
           <code>{rule.pattern}</code>
           <small>{rule.projectRoot ? 'This project' : 'All projects'}</small>
           <button type="button" aria-label={`Remove rule ${rule.pattern}`} title="Remove rule" disabled={busy} onClick={() => void run(() => api.removePermissionRule!(threadId, rule.id))}><Trash2 size={13} /></button>
@@ -47,8 +49,8 @@ export default function ThreadPermissionsPanel({ threadId }: { threadId: string 
       </ul>}
       <form className="thread-permissions-add" onSubmit={event => { event.preventDefault(); void run(async () => { await api.addPermissionRule!(threadId, { kind, pattern, decision, scope: global ? 'global' : 'project' }); setPattern('') }) }}>
         <select aria-label="Rule decision" value={decision} onChange={event => setDecision(event.target.value as ThreadPermissionRule['decision'])}><option value="allow">Allow</option><option value="deny">Deny</option></select>
-        <select aria-label="Rule kind" value={kind} onChange={event => setKind(event.target.value as ThreadPermissionRule['kind'])}><option value="command">Command</option><option value="path">Files</option></select>
-        <input aria-label="Rule pattern" value={pattern} maxLength={500} placeholder={kind === 'command' ? 'npm run test   or   /^git (status|diff)/' : 'src/**   or   .env*'} onChange={event => setPattern(event.target.value)} />
+        <select aria-label="Rule kind" value={kind} onChange={event => setKind(event.target.value as ThreadPermissionRule['kind'])}><option value="command">Command</option><option value="path">Files</option><option value="tool">MCP tool</option></select>
+        <input aria-label="Rule pattern" value={pattern} maxLength={500} placeholder={PLACEHOLDER[kind]} onChange={event => setPattern(event.target.value)} />
         <label><input type="checkbox" checked={global} onChange={event => setGlobal(event.target.checked)} />All projects</label>
         <button type="submit" disabled={busy || !pattern.trim()}>Add rule</button>
       </form>

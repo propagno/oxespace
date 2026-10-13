@@ -29,11 +29,12 @@ function realpath(path: string): string {
 }
 
 const MAX_PATTERN = 500
+const TOOL_PATTERN = /^[A-Za-z0-9_.-]{1,100}\/(\*|[A-Za-z0-9_.-]{1,200})$/
 const MAX_RULES = 500
 const AUDIT_RETENTION_MS = 180 * 24 * 60 * 60 * 1000
 const MAX_AUDIT_TEXT = 2000
 
-interface RuleRow { id: string; project_root: string | null; kind: 'command' | 'path'; pattern: string; decision: 'allow' | 'deny'; created_at: number }
+interface RuleRow { id: string; project_root: string | null; kind: ThreadPermissionRule['kind']; pattern: string; decision: 'allow' | 'deny'; created_at: number }
 interface AuditRow { id: number; thread_id: string | null; project_root: string | null; at: number; action: ThreadAuditEntry['action']; actor: ThreadAuditEntry['actor']; summary: string; detail: string | null }
 
 const toRule = (row: RuleRow): ThreadPermissionRule => ({ id: row.id, projectRoot: row.project_root, kind: row.kind, pattern: row.pattern, decision: row.decision, createdAt: row.created_at })
@@ -44,7 +45,7 @@ const toAudit = (row: AuditRow): ThreadAuditEntry => ({
 
 /** Rejects rules that would silently allow everything. */
 export function validatePermissionRule(kind: string, pattern: string, decision: string): string {
-  if (kind !== 'command' && kind !== 'path') throw Error('Unknown rule kind')
+  if (kind !== 'command' && kind !== 'path' && kind !== 'tool') throw Error('Unknown rule kind')
   if (decision !== 'allow' && decision !== 'deny') throw Error('Unknown rule decision')
   const value = pattern.trim()
   if (!value || value.length > MAX_PATTERN || value.includes('\0')) throw Error(`A rule must contain 1 to ${MAX_PATTERN} characters`)
@@ -52,6 +53,7 @@ export function validatePermissionRule(kind: string, pattern: string, decision: 
   if (regex) {
     try { new RegExp(regex[1], regex[2]) } catch { throw Error('The rule is not a valid regular expression') }
   }
+  if (kind === 'tool' && !TOOL_PATTERN.test(value)) throw Error('Name an MCP tool as server/tool, or every tool of a server as server/*')
   if (decision === 'allow') {
     if (kind === 'command' && regex && /^(\.\*|\.\+|\^?\.\*\$?)$/.test(regex[1])) throw Error('A rule that allows every command is not accepted')
     if (kind === 'path' && /^(\*\*?(\/\*\*?)*|\.)$/.test(value)) throw Error('A rule that allows edits to every file is not accepted; name a folder such as src/**')
@@ -68,7 +70,7 @@ export class ThreadPermissionStore {
   }
 
   /** The policy verdict for an approval in a project; undefined when no rule can reason about it. */
-  evaluate(projectRoot: string, request: Pick<ThreadRequest, 'kind' | 'command' | 'paths'>): ThreadRequestPolicy | undefined {
+  evaluate(projectRoot: string, request: Pick<ThreadRequest, 'kind' | 'command' | 'paths' | 'toolName'>): ThreadRequestPolicy | undefined {
     if (request.kind !== 'approval') return undefined
     return evaluatePermission(request, projectRoot, this.rules(projectRoot), { realpath })
   }

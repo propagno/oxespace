@@ -65,8 +65,31 @@ function evaluatePaths(paths: string[], rootPath: string, rules: ThreadPermissio
   return { decision, reasons, suggestions }
 }
 
+/** `mcp__server__tool` (Claude's name for an MCP tool) as server and tool. */
+export function mcpToolName(toolName: string | undefined): { server: string; tool: string } | undefined {
+  const match = toolName?.match(/^mcp__(.+?)__(.+)$/)
+  return match ? { server: match[1], tool: match[2] } : undefined
+}
+
+function toolRuleMatches(pattern: string, server: string, tool: string): boolean {
+  const [ruleServer, ruleTool] = pattern.split('/')
+  return ruleServer === server && (ruleTool === '*' || ruleTool === tool)
+}
+
+/** Allow or deny rules for an MCP tool call; anything unruled asks, offering the tool or its server. */
+function evaluateTool(server: string, tool: string, rules: ThreadPermissionRule[]): ThreadRequestPolicy {
+  const toolRules = rules.filter(rule => rule.kind === 'tool')
+  const denied = toolRules.find(rule => rule.decision === 'deny' && toolRuleMatches(rule.pattern, server, tool))
+  if (denied) return { decision: 'deny', reasons: [`A ferramenta ${server}/${tool} é bloqueada pela regra ${denied.pattern}.`] }
+  if (toolRules.some(rule => rule.decision === 'allow' && toolRuleMatches(rule.pattern, server, tool))) return { decision: 'allow', reasons: ['Coberto pelas regras de permissão do projeto.'] }
+  return { decision: 'ask', reasons: [`A ferramenta ${server}/${tool} não está coberta por uma regra.`], suggestions: [
+    { kind: 'tool', pattern: `${server}/${tool}`, label: `a ferramenta ${tool} de ${server}` },
+    { kind: 'tool', pattern: `${server}/*`, label: `todas as ferramentas de ${server}` }
+  ] }
+}
+
 export function evaluatePermission(
-  request: Pick<ThreadRequest, 'kind' | 'command' | 'paths'>,
+  request: Pick<ThreadRequest, 'kind' | 'command' | 'paths' | 'toolName'>,
   rootPath: string,
   rules: ThreadPermissionRule[],
   options: PathSafetyOptions = {}
@@ -74,7 +97,9 @@ export function evaluatePermission(
   if (request.kind !== 'approval') return undefined
   const command = request.command?.trim()
   const paths = (request.paths ?? []).filter(Boolean)
-  // Nothing OXESpace can reason about (an MCP tool, a web fetch): the provider's prompt stands.
+  const mcp = mcpToolName(request.toolName)
+  if (mcp && !command && !paths.length) return evaluateTool(mcp.server, mcp.tool, rules)
+  // Nothing OXESpace can reason about (a web fetch, a native tool): the provider's prompt stands.
   if (!command && !paths.length) return undefined
 
   const parts: { decision: Decision; reasons: string[]; suggestions: ThreadPermissionSuggestion[]; risk?: 'high' }[] = []

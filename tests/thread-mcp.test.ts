@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest'
-import { bindThreadMcp, threadMcpArguments } from '../electron/main/services/conversation/thread-mcp'
+import { bindThreadMcp, deniedMcpTools, threadMcpArguments } from '../electron/main/services/conversation/thread-mcp'
 import type { AgentConversationAdapter } from '../shared/types/thread'
 
 it('adds the OXESpace bridge while preserving Claude CLI MCP inheritance and permissions', () => {
@@ -27,6 +27,24 @@ it('injects Codex MCP options before app-server without embedding secrets in arg
   expect(args.join(' ')).toContain('OXESPACE_EXECUTION_ID')
   expect(args.join(' ')).toContain('OXESPACE_EXECUTION_TOKEN')
   expect(args.join(' ')).toContain('--allowed-tools')
+})
+
+it('removes denied MCP tools before the session starts', () => {
+  const denied = deniedMcpTools([
+    { kind: 'tool', decision: 'deny', pattern: 'github/delete_repo' }, { kind: 'tool', decision: 'deny', pattern: 'oxespace-delegation/*' },
+    { kind: 'tool', decision: 'allow', pattern: 'github/*' }, { kind: 'command', decision: 'deny', pattern: 'rm' }
+  ])
+  expect(denied).toEqual([{ server: 'github', tool: 'delete_repo' }, { server: 'oxespace-delegation', tool: '*' }])
+  const claude = threadMcpArguments('claude', ['--tools', 'default'], '/bridge.cjs', undefined, denied)
+  expect(claude.slice(-2)).toEqual(['--disallowedTools', 'mcp__github__delete_repo,mcp__oxespace-delegation'])
+  // Codex only hears about servers OXESpace attaches; github is configured in Codex itself.
+  const codex = threadMcpArguments('codex', ['app-server'], '/bridge.cjs', undefined, denied)
+  expect(codex).toContain('mcp_servers.oxespace-delegation.enabled=false')
+  expect(codex.join(' ')).not.toContain('github')
+  expect(codex.at(-1)).toBe('app-server')
+  const scoped = threadMcpArguments('codex', ['app-server'], '/bridge.cjs', undefined, [{ server: 'oxespace-delegation', tool: 'oxespace_work_plan' }])
+  expect(scoped).toContain('mcp_servers.oxespace-delegation.disabled_tools=["oxespace_work_plan"]')
+  expect(threadMcpArguments('claude', ['--tools', 'default'], '/bridge.cjs')).not.toContain('--disallowedTools')
 })
 
 it('releases a Thread memory lease even if provider cleanup fails, and only once', async () => {

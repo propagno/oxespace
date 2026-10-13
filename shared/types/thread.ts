@@ -160,12 +160,13 @@ export interface ThreadFileHunk extends LineHunk { id: string }
 export interface ThreadPermissionRule {
   id: string
   projectRoot: string | null
-  kind: 'command' | 'path'
+  /** `tool`: an MCP tool, as `server/tool` or `server/*`. */
+  kind: 'command' | 'path' | 'tool'
   pattern: string
   decision: 'allow' | 'deny'
   createdAt: number
 }
-export interface ThreadPermissionSuggestion { kind: 'command' | 'path'; pattern: string; label: string }
+export interface ThreadPermissionSuggestion { kind: ThreadPermissionRule['kind']; pattern: string; label: string }
 /** `allow`/`deny` are answered without asking; `ask` leaves the prompt to the person. */
 export interface ThreadRequestPolicy {
   decision: 'allow' | 'deny' | 'ask'
