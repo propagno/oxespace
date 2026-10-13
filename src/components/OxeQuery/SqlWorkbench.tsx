@@ -10,7 +10,7 @@ import { LibraryMenu } from './LibraryMenu'
 import { ExportButton, TableEditor } from './TableEditor'
 import { ImportButton } from './ImportDialog'
 import { ExplainView } from './ExplainView'
-import { bindCompletion } from './sql-completion'
+import { bindCompletion, cacheFor } from './sql-completion'
 
 const ROW_LIMITS = [100, 500, 1000, 5000]
 const PAGE = 100
@@ -40,7 +40,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   const [tabs, setTabs] = useState<QueryTab[]>(() => [newTab('SELECT now();', 'Query 1')])
   const [activeId, setActiveId] = useState(tabs[0].id)
   const [running, setRunning] = useState(false)
-  const [maxRows, setMaxRows] = useState(500)
+  const [maxRows, setMaxRows] = useState(connection.maxRows)
   const [pending, setPending] = useState<Pending | null>(null)
   const [selectedRow, setSelectedRow] = useState<number | null>(null)
   const [libraryTick, setLibraryTick] = useState(0)
@@ -50,6 +50,8 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   /** Offset of the run text within the editor (non-zero when a selection was run). */
   const runBase = useRef(0)
   const active = tabs.find(tab => tab.id === activeId) ?? tabs[0]
+  /** The text behind each tab's result, so Export matches the rows on screen even after the editor was edited. */
+  const executed = useRef(new Map<string, string>())
   const activeRef = useRef(active)
   activeRef.current = active
 
@@ -86,7 +88,10 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
     try {
       const result = await oq('sql.run', { connectionId: connection.id, sql: text, maxRows, confirmed })
       patch(tab.id, { result })
+      executed.current.set(tab.id, text)
     } catch (cause) {
+      // New or dropped tables and columns must show up in suggestions without reconnecting.
+      if (/^(CREATE|ALTER|DROP)/i.test(result.command ?? '')) cacheFor(connection).clear()
       if (cause instanceof OxeQueryClientError && cause.code === 'confirm') setPending({ sql: text, reasons: cause.reasons })
       else {
         patch(tab.id, { result: null, error: errorMessage(cause) })
@@ -128,10 +133,13 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
     setRunning(true); setPending(null); setSelectedRow(null)
     patch(tab.id, { error: '' })
     try {
-      const [rows, meta] = await Promise.all([
-        oq('sql.browse', { connectionId: connection.id, schema: table.schema, table: table.name, limit: PAGE, offset }),
-        offset === 0 ? oq('sql.table', { connectionId: connection.id, schema: table.schema, table: table.name }) : Promise.resolve(null)
-      ])
+      const known = offset > 0 ? tab.details : null
+      const meta = offset === 0 ? await oq('sql.table', { connectionId: connection.id, schema: table.schema, table: table.name }) : null
+      const key = (meta ?? known)?.columns.find(column => column.primaryKey)
+      const rows = await oq('sql.browse', {
+        connectionId: connection.id, schema: table.schema, table: table.name, limit: PAGE, offset,
+        ...(key ? { orderBy: { column: key.name, direction: 'asc' as const } } : {})
+      })
       patch(tab.id, { result: rows, browse: { schema: table.schema, table: table.name, offset, kind: table.kind }, ...(meta ? { details: meta } : {}), title: table.name })
     } catch (cause) { patch(tab.id, { error: errorMessage(cause) }) } finally { setRunning(false) }
   }, [connection.id, patch])
@@ -171,7 +179,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
         <button type="button" onClick={() => { pendingExplain.current = null; void explain(false) }} disabled={running} title="Show the execution plan without running the statement"><Gauge size={13} aria-hidden="true" />Explain</button>
         <button type="button" onClick={() => { pendingExplain.current = null; void explain(true) }} disabled={running} title="Run the statement and show real timings. A statement that changes data is rolled back.">Analyze</button>
         <button type="button" onClick={cancel} disabled={!running} title="Cancel the running statement"><Square size={13} aria-hidden="true" />Cancel</button>
-        <label className="oq-inline">Limit<select value={maxRows} onChange={event => setMaxRows(Number(event.target.value))}>{ROW_LIMITS.map(value => <option key={value} value={value}>{value} rows</option>)}</select></label>
+        <label className="oq-inline">Limit<select value={maxRows} onChange={event => setMaxRows(Number(event.target.value))}>{[...new Set([...ROW_LIMITS, connection.maxRows])].sort((a, b) => a - b).map(value => <option key={value} value={value}>{value} rows</option>)}</select></label>
         <LibraryMenu connection={connection} currentSql={active.sql} refreshKey={libraryTick} onPick={sql => patch(active.id, { sql })} />
         <span className="oq-spacer" />
         <span className="oq-badge" data-environment={connection.environment}>{connection.environment}</span>
@@ -193,8 +201,8 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
           <span className="oq-spacer" />
           {active.browse && <><button type="button" disabled={running || active.browse.offset === 0} onClick={() => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: 'table' }, Math.max(0, active.browse!.offset - PAGE))}>Previous</button>
             <button type="button" disabled={running || !result?.truncated} onClick={() => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: 'table' }, active.browse!.offset + PAGE)}>Next</button></>}
-          {(active.browse || (result && columns.length > 0 && active.sql.trim())) && <ExportButton connection={connection}
-            source={active.browse ? { kind: 'table', schema: active.browse.schema, table: active.browse.table } : { kind: 'sql', sql: active.sql }}
+          {(active.browse || (result && columns.length > 0 && (executed.current.get(active.id) ?? active.sql).trim())) && <ExportButton connection={connection}
+            source={active.browse ? { kind: 'table', schema: active.browse.schema, table: active.browse.table } : { kind: 'sql', sql: executed.current.get(active.id) ?? active.sql }}
             label={active.browse ? 'Export table' : 'Export query'} />}
           {active.browse && <ImportButton connection={connection} target={{ kind: 'table', schema: active.browse.schema, table: active.browse.table }}
             onImported={() => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: 'table' }, 0)} />}

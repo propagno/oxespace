@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_BYTES, MAX_CELL, MAX_ROWS, compilePatterns, isSensitiveName, redactDocument, redactStatement, shapeDocuments, shapeRows } from '../../electron/main/services/oxequery/agent-output'
+import { MAX_BYTES, MAX_CELL, MAX_ROWS, compilePatterns, maskLogLine, isSensitiveName, redactDocument, redactStatement, shapeDocuments, shapeRows } from '../../electron/main/services/oxequery/agent-output'
 
 describe('shapeRows', () => {
   it('masks sensitive columns, clips long cells and defaults to 50 rows', () => {
@@ -43,5 +43,15 @@ describe('audit redaction', () => {
   })
   it('masks sensitive keys in documents', () => {
     expect(redactDocument('{"password":"p","n":1}')).toBe('{"password":"«masked»","n":1}')
+  })
+})
+
+describe('maskLogLine', () => {
+  it('hides credentials a program printed but keeps the rest of the line', () => {
+    expect(maskLogLine('connecting to postgres://app:s3cr3t@db:5432/app')).toBe('connecting to postgres://app:***@db:5432/app')
+    expect(maskLogLine('Authorization: Bearer abcdefghijklmnop1234')).toBe('Authorization: *** ***')
+    expect(maskLogLine('retry with password=hunter2 and user=app')).toBe('retry with password=*** and user=app')
+    expect(maskLogLine('{"api_key": "abc123", "level": "info"}')).toBe('{"api_key": "***", "level": "info"}')
+    expect(maskLogLine('listening on port 5432')).toBe('listening on port 5432')
   })
 })
