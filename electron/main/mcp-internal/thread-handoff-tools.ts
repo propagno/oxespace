@@ -104,7 +104,7 @@ export const THREAD_HANDOFF_TOOLS: ToolEntry[] = [
       if (typeof threadId !== 'string' || !threadId) throw new Error('Provide the destination threadId')
       // Only the lineage this origin created is readable: its handoffs and its Agent Work workers.
       const owned = ctx.db.prepare('SELECT 1 FROM mcp_thread_handoffs WHERE origin_thread_id = ? AND destination_thread_id = ?').get(originId, threadId)
-        ?? ((await ctx.threads).work.isWorkerOf(originId, threadId) || undefined)
+        ?? ((await ctx.threads).work?.isWorkerOf(originId, threadId) || undefined)
       if (!owned) throw new Error('Destination Thread was not created by this origin execution')
       const limit = typeof values.limit === 'number' && Number.isInteger(values.limit) ? Math.min(50, Math.max(1, values.limit)) : 20
       const cursor = typeof values.cursor === 'number' && Number.isInteger(values.cursor) && values.cursor >= 0 ? values.cursor : undefined

@@ -171,7 +171,7 @@ exports[`Thread event pipeline (golden) > a full successful turn 1`] = `
       "inputTokens": 5,
       "lastTurnUsd": 0.02,
       "outputTokens": 7,
-      "source": "claude-result",
+      "source": "codex-token-usage",
       "totalUsd": 0.02,
       "turns": 1,
       "updatedAt": "<time>",
