@@ -75,7 +75,8 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
     const sessionId = this.context.nativeSessionId ?? randomUUID()
     const localPlanId = randomUUID()
     const writable = this.context.access === 'workspace-write' || this.context.access === 'full-access'
-    const permissionMode = this.context.mode === 'plan' ? 'plan' : this.context.access === 'full-access' ? 'bypassPermissions' : 'default'
+    const permissionMode = this.context.mode === 'plan' ? 'plan' : this.context.access === 'full-access' ? 'bypassPermissions'
+      : this.context.mode === 'acceptEdits' && this.context.access === 'workspace-write' ? 'acceptEdits' : 'default'
     const settings = !writable
       ? '{"disableAllHooks":true,"disableSkillShellExecution":true}'
       : this.context.hooksEnabled ? undefined : '{"disableAllHooks":true}'

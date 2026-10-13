@@ -12,7 +12,7 @@ const EVENT_TYPES = new Set(['session', 'native-signal', 'activity', 'message', 
 interface PortableConversation {
   title: string
   provider: 'claude' | 'codex'
-  configuration: { model?: string; reasoningEffort?: string; access?: 'read-only' | 'workspace-write' | 'full-access'; networkAccess?: boolean; approvalPolicy?: 'untrusted' | 'on-request' | 'never'; mode?: 'default' | 'plan'; hooksEnabled?: boolean }
+  configuration: { model?: string; reasoningEffort?: string; access?: 'read-only' | 'workspace-write' | 'full-access'; networkAccess?: boolean; approvalPolicy?: 'untrusted' | 'on-request' | 'never'; mode?: 'default' | 'plan' | 'acceptEdits'; hooksEnabled?: boolean }
   events: ThreadEvent[]
   turns: ThreadTurn[]
 }
@@ -106,7 +106,7 @@ export class ThreadPortableService {
       configuration.approvalPolicy = configurationSource.approvalPolicy as NonNullable<PortableConversation['configuration']['approvalPolicy']>
     }
     if (configurationSource.mode !== undefined) {
-      if (!['default', 'plan'].includes(String(configurationSource.mode))) throw Error('Invalid collaboration mode')
+      if (!['default', 'plan', 'acceptEdits'].includes(String(configurationSource.mode))) throw Error('Invalid collaboration mode')
       configuration.mode = configurationSource.mode as NonNullable<PortableConversation['configuration']['mode']>
     }
     for (const key of ['networkAccess', 'hooksEnabled'] as const) {

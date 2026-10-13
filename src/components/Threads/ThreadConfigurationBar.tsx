@@ -66,6 +66,7 @@ export function ThreadConfigurationBar({ thread, onConfigured, onError, openCont
       {proposedHooks && <div className="thread-access-confirm"><p>Provider hooks can execute configured commands before or after tool calls. Enable them for this conversation?</p><button type="button" onClick={() => void apply({ hooksEnabled: true })}>Enable hooks</button><button type="button" onClick={() => setProposedHooks(false)}>Cancel</button></div>}
       <p className="thread-config-section-label">Mode</p>
       <button type="button" role="switch" aria-checked={desired.mode === 'plan'} className="thread-config-switch" onClick={() => void apply({ mode: desired.mode === 'plan' ? 'default' : 'plan' })}><span><strong>Planning mode</strong><small>Plan first; no changes until you approve.</small></span><i aria-hidden="true" /></button>
+      {thread.provider === 'claude' && desired.access === 'workspace-write' && <button type="button" role="switch" aria-checked={desired.mode === 'acceptEdits'} className="thread-config-switch" onClick={() => void apply({ mode: desired.mode === 'acceptEdits' ? 'default' : 'acceptEdits' })}><span><strong>Auto-accept edits</strong><small>File edits in this project are applied without asking. Commands and other tools still ask.</small></span><i aria-hidden="true" /></button>}
       {thread.provider === 'codex' && <p className="thread-config-hint">Access and approvals are separate. MCP servers may still ask, even with Never ask.</p>}
     </div>, false, thread.provider === 'codex' && desired.access !== 'read-only' && desired.approvalPolicy === 'never' ? 'Never ask' : undefined)}
     {proposedAccess && <DesktopDialog className="thread-access-dialog" returnFocusTo={() => accessTrigger.current} title={proposedAccess === 'full-access' ? 'Allow expanded access?' : 'Change conversation access?'} description="Review the access this agent will receive before applying it." onClose={() => { if (!saving) setProposedAccess(null) }}>
@@ -74,5 +75,6 @@ export function ThreadConfigurationBar({ thread, onConfigured, onError, openCont
     </DesktopDialog>}
     {thread.pendingConfiguration && <small className="thread-config-pending" title="The current turn keeps its configuration. Your selection applies to the next message.">Next turn</small>}
     {desired.mode === 'plan' && <small>Plan</small>}
+    {desired.mode === 'acceptEdits' && <small>Auto-edit</small>}
   </div>
 }

@@ -230,6 +230,23 @@ describe('Claude print conversation', () => {
     expect(f.turns[0].args).toEqual(expect.arrayContaining(['--permission-mode', 'default', '--permission-prompts', 'host', '--tools', 'default']))
     await f.adapter.dispose()
   })
+  it('auto-accepts edits only when the conversation may write, and tells the agent why a request was declined', async () => {
+    const writable = fixture()
+    await writable.adapter.start({ rootPath: '/project', nativeSessionId: null, access: 'workspace-write', mode: 'acceptEdits' }, event => writable.events.push(event))
+    await writable.adapter.send('Edit')
+    expect(writable.turns[0].args).toEqual(expect.arrayContaining(['--permission-mode', 'acceptEdits']))
+    writable.emit(0, { type: 'control_request', request_id: 'bash', request: { subtype: 'can_use_tool', tool_name: 'Bash', input: { command: 'git push' } } })
+    expect(writable.events.at(-2)).toMatchObject({ type: 'request', request: { toolName: 'Bash', command: 'git push' } })
+    await writable.adapter.respondRequest!('bash', { decision: 'decline', reason: 'Blocked by a rule.' })
+    expect(writable.turns[0].writes.at(-1)).toMatchObject({ response: { request_id: 'bash', response: { behavior: 'deny', message: 'Blocked by a rule.' } } })
+    await writable.adapter.dispose()
+
+    const readOnly = fixture()
+    await readOnly.adapter.start({ rootPath: '/project', nativeSessionId: null, access: 'read-only', mode: 'acceptEdits' }, event => readOnly.events.push(event))
+    await readOnly.adapter.send('Look')
+    expect(readOnly.turns[0].args).toEqual(expect.arrayContaining(['--permission-mode', 'default']))
+    await readOnly.adapter.dispose()
+  })
 })
 
 describe('Claude context usage', () => {

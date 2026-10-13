@@ -61,7 +61,8 @@ export interface ThreadConfiguration {
   access?: 'read-only' | 'workspace-write' | 'full-access'
   networkAccess?: boolean
   approvalPolicy?: 'untrusted' | 'on-request' | 'never'
-  mode?: 'default' | 'plan'
+  /** `acceptEdits` (Claude): file edits in the project are approved without asking. */
+  mode?: 'default' | 'plan' | 'acceptEdits'
   /** Native provider hooks. Disabled by default and never allowed in read-only. */
   hooksEnabled?: boolean
 }
@@ -174,7 +175,7 @@ export interface ThreadAuditEntry {
   threadId?: string
   projectRoot?: string
   at: number
-  action: 'approval' | 'policy' | 'rule-added' | 'rule-removed' | 'undo-file' | 'rewind'
+  action: 'approval' | 'policy' | 'rule-added' | 'rule-removed' | 'undo-file' | 'rewind' | 'configuration'
   actor: 'user' | 'policy' | 'system'
   summary: string
   detail?: string
@@ -290,7 +291,8 @@ export interface ConversationThread {
   access?: ThreadConfiguration['access']
   networkAccess?: boolean
   approvalPolicy?: ThreadConfiguration['approvalPolicy']
-  mode?: 'default' | 'plan'
+  /** `acceptEdits` (Claude): file edits in the project are approved without asking. */
+  mode?: 'default' | 'plan' | 'acceptEdits'
   hooksEnabled?: boolean
   configurationRevision?: number
   pendingConfiguration?: ThreadConfiguration

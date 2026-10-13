@@ -166,7 +166,7 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings): { st
     if (value.access !== undefined && !['read-only', 'workspace-write', 'full-access'].includes(String(value.access))) throw Error('Invalid access mode')
     if (value.networkAccess !== undefined && typeof value.networkAccess !== 'boolean') throw Error('Invalid network access')
     if (value.approvalPolicy !== undefined && !['untrusted', 'on-request', 'never'].includes(String(value.approvalPolicy))) throw Error('Invalid approval policy')
-    if (value.mode !== undefined && !['default', 'plan'].includes(String(value.mode))) throw Error('Invalid collaboration mode')
+    if (value.mode !== undefined && !['default', 'plan', 'acceptEdits'].includes(String(value.mode))) throw Error('Invalid collaboration mode')
     if (value.hooksEnabled !== undefined && typeof value.hooksEnabled !== 'boolean') throw Error('Invalid hooks setting')
     return manager.then(service => service.configure(string(id), value, Number(revision)))
   })

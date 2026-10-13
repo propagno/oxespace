@@ -102,7 +102,7 @@ describe('Thread approvals answered by permission rules', () => {
     const factory = vi.fn(async () => ({
       capabilities: { resume: true, approvals: true, attachments: false, modelSelection: false },
       start: vi.fn(async (_context, listener) => { emit = listener; listener({ type: 'session', nativeSessionId: 'n' }) }),
-      send: vi.fn(async () => {}), interrupt: vi.fn(async () => {}), approve: vi.fn(async () => {}), dispose: vi.fn(async () => {}),
+      send: vi.fn(async () => {}), interrupt: vi.fn(async () => {}), approve: vi.fn(async () => {}), dispose: vi.fn(async () => {}), configure: vi.fn(async () => {}),
       respondRequest: vi.fn(async (id: string, response: ThreadRequestResponse) => {
         responses.push({ id, response })
         emit({ type: 'request-resolved', id, state: 'resolved', resolution: response.decision === 'accept' ? 'approved' : 'declined', resolvedAt: Date.now() })
@@ -115,7 +115,8 @@ describe('Thread approvals answered by permission rules', () => {
     const request = (requestId: string, fields: Partial<ThreadRequest>) => emit({ type: 'request', id: requestId, request: {
       id: requestId, nativeId: requestId, nativeMethod: 'can_use_tool:Bash', kind: 'approval', title: 'Approve Bash', generation: 0, createdAt: Date.now(), state: 'pending', availableDecisions: ['accept', 'decline'], ...fields
     } })
-    return { root, manager, id, request, responses }
+    const finish = () => emit({ type: 'completed', status: 'completed' })
+    return { root, manager, id, request, responses, finish }
   }
   const settle = () => new Promise(resolve => setTimeout(resolve, 20))
 
@@ -143,6 +144,19 @@ describe('Thread approvals answered by permission rules', () => {
       ['user', 'rule-added', 'Deny command git push'],
       ['user', 'rule-added', 'Allow command npm run test']
     ])
+    await manager.stop()
+  })
+
+  it('auto-accepts edits only for writable Claude conversations and records access changes', { timeout: 30_000 }, async () => {
+    const { manager, id, root, finish } = await setup()
+    finish(); await settle()
+    const readOnly = await manager.configure(id, { mode: 'acceptEdits' }, manager.read(id).thread.configurationRevision ?? 0)
+    expect(readOnly.thread.mode).toBe('default')
+    const writable = await manager.configure(id, { access: 'workspace-write', mode: 'acceptEdits' }, readOnly.thread.configurationRevision ?? 0)
+    expect(writable.thread).toMatchObject({ access: 'workspace-write', mode: 'acceptEdits' })
+    expect(manager.auditLog(id)[0]).toMatchObject({ action: 'configuration', summary: expect.stringContaining('mode to acceptEdits') })
+    const codex = manager.create({ workspaceId: 'A', projectId: 'p', rootPath: root, provider: 'codex' }).thread.id
+    await expect(manager.configure(codex, { access: 'workspace-write', mode: 'acceptEdits' }, 0)).rejects.toThrow(/Claude/)
     await manager.stop()
   })
 

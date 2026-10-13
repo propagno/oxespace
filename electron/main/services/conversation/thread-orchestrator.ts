@@ -696,8 +696,12 @@ export class ThreadOrchestrator {
       if (blocksThreadInput(snapshot.thread)) throw Error('Recover this conversation before changing its configuration')
       if ((snapshot.thread.configurationRevision ?? 0) !== revision) throw Error('Configuration changed. Refresh this conversation and try again.')
       const previous = snapshot.thread.pendingConfiguration ?? snapshot.thread
+      const before = turnConfiguration(previous)
       const configuration: ThreadConfiguration = mergeTurnConfiguration(previous, input)
       if (configuration.access === 'read-only') configuration.hooksEnabled = false
+      // Auto-accepting edits is a Claude permission mode that only means something when edits are allowed.
+      if (configuration.mode === 'acceptEdits' && snapshot.thread.provider !== 'claude') throw Error('Auto-accepting edits is available for Claude conversations')
+      if (configuration.mode === 'acceptEdits' && configuration.access !== 'workspace-write') configuration.mode = 'default'
       if (input.model || input.reasoningEffort !== undefined) {
         const catalog = await this.models(id)
         configuration.model ??= catalog.defaultModel
@@ -724,6 +728,8 @@ export class ThreadOrchestrator {
       }
       snapshot.thread.configurationRevision = revision + 1
       this.save(snapshot, { eventsFrom: snapshot.events.length })
+      const changed = (['access', 'mode', 'approvalPolicy', 'networkAccess', 'hooksEnabled'] as const).filter(key => before[key] !== configuration[key])
+      if (changed.length) this.audit(id, { action: 'configuration', actor: 'user', summary: `Changed ${changed.map(key => `${key} to ${String(configuration[key] ?? 'default')}`).join(', ')}${this.busy.has(id) ? ' (from the next turn)' : ''}` })
       return snapshot
     } finally { this.configuring.delete(id) }
   }
