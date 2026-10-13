@@ -36,3 +36,11 @@
 .thread-tool-surface:has(> .thread-source-switch), .workspace-editor-content:has(> .git-control-view-switch) { flex-direction: column; }
 .workspace-editor-content > .git-control-view-switch { flex: none; }
 .thread-tool-surface:has(> .thread-source-switch) > .git-control, .thread-tool-surface:has(> .thread-source-switch) > .github-panel, .workspace-editor-content:has(> .git-control-view-switch) > .git-control, .workspace-editor-content:has(> .git-control-view-switch) > .github-panel { flex: 1; width: 100%; min-height: 0; }
+.git-control-commit { flex-wrap: wrap; }
+.git-control-pr { border-top: 1px solid var(--bd-base); padding-top: 13px; }
+.git-control-pr summary { display: flex; align-items: center; gap: 5px; cursor: pointer; font-weight: 600; }
+.git-control-pr form { display: flex; flex-direction: column; gap: 7px; margin-top: 8px; }
+.git-control-pr label { display: flex; flex-direction: column; gap: 4px; }
+.git-control-pr input:not([type="checkbox"]), .git-control-pr textarea { min-width: 0; width: 100%; resize: vertical; padding: 8px; color: var(--tx-primary); background: var(--bg-app); border: 1px solid var(--bd-base); border-radius: var(--radius-sm); font: inherit; }
+.git-control-pr .git-control-check { flex-direction: row; align-items: center; }
+.git-control-pr button { align-self: flex-start; padding: 6px 10px; }

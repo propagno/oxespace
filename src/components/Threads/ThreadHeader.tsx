@@ -44,7 +44,7 @@ export function ThreadHeader({ thread, workspace, branch, pending, running, acti
         <DropdownMenu.Portal><DropdownMenu.Content className="thread-more-menu" align="end" sideOffset={6}>
           <DropdownMenu.Label className="thread-more-label">Panels</DropdownMenu.Label>
           <DropdownMenu.RadioGroup value={activePanel ?? ''} onValueChange={value => onTogglePanel(value as ThreadPanel, true)}>
-            {([['files', 'Files'], ['search', 'Find in files'], ['scripts', 'Scripts'], ['background', 'Background activity']] as const).map(([id, label]) =>
+            {([['git', 'Commit & pull request'], ['files', 'Files'], ['search', 'Find in files'], ['scripts', 'Scripts'], ['background', 'Background activity']] as const).map(([id, label]) =>
               <DropdownMenu.RadioItem key={id} value={id} className="thread-more-item" aria-label={label}>{label}<DropdownMenu.ItemIndicator><Check size={13} /></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}
           </DropdownMenu.RadioGroup>
           <DropdownMenu.Separator className="thread-more-separator" />

@@ -5,7 +5,11 @@ import { useEditorStore } from '../../store/editor.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import './GitControlPanel.css'
 
-type Props = { workspaceId: string; rootPath: string; onOpenFile?: (path: string) => void }
+type Props = {
+  workspaceId: string; rootPath: string; onOpenFile?: (path: string) => void
+  /** Commit message and pull request drafted from a conversation, offered for editing. */
+  draft?: () => { message: string; prTitle: string; prBody: string }
+}
 
 function FileGroup({ title, files, action, onAction, onOpenFile }: {
   title: string; files: GitControlFile[]; action?: string; onAction?: (path: string) => void; onOpenFile?: (path: string) => void
@@ -21,12 +25,14 @@ function FileGroup({ title, files, action, onAction, onOpenFile }: {
 }
 
 /** Local Git surface: no GitHub CLI, network request or history prefetch on open. */
-export function GitControlPanel({ workspaceId, rootPath, onOpenFile }: Props) {
+export function GitControlPanel({ workspaceId, rootPath, onOpenFile, draft }: Props) {
   const [status, setStatus] = useState<GitControlStatus | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [message, setMessage] = useState('')
+  const [pr, setPr] = useState<{ title: string; body: string; draft: boolean } | null>(null)
+  const [notice, setNotice] = useState('')
   const request = useRef(0)
   const cancelPending = useCallback(() => { request.current++ }, [])
   const input = { workspaceId, rootPath }
@@ -86,8 +92,24 @@ export function GitControlPanel({ workspaceId, rootPath, onOpenFile }: Props) {
         <details><summary>Remote actions <span className="git-control-upstream">{status.upstream ?? 'Upstream not set'}</span><ChevronDown size={13} /></summary><div><button type="button" disabled={busy} onClick={() => void mutate(() => window.oxe.github.fetch(input))}>Fetch</button><button type="button" disabled={busy || !status.ahead} onClick={() => void mutate(() => window.oxe.github.push(input))}><Upload size={12} /> Push</button></div></details></div>
       {staged.length > 0 && <form className="git-control-commit" onSubmit={event => { event.preventDefault(); if (!message.trim()) return; void mutate(async () => { await window.oxe.github.commit({ ...input, message: message.trim() }); setMessage('') }) }}>
         <label htmlFor={`git-control-message-${workspaceId}`}>Commit message</label><textarea id={`git-control-message-${workspaceId}`} value={message} rows={2} maxLength={1000} placeholder="Describe your changes" onChange={event => setMessage(event.target.value)} />
+        {draft && <button type="button" disabled={busy} onClick={() => setMessage(draft().message)}>Draft from conversation</button>}
         <button type="submit" disabled={busy || !staged.length || !message.trim()}>Commit {staged.length ? `${staged.length} staged` : ''}</button>
       </form>}
+      {draft && status.upstream && <details className="git-control-pr" onToggle={event => { if ((event.currentTarget as HTMLDetailsElement).open && !pr) { const value = draft(); setPr({ title: value.prTitle, body: value.prBody, draft: true }) } }}>
+        <summary>Pull request<ChevronDown size={13} /></summary>
+        {pr && <form onSubmit={event => { event.preventDefault(); if (!pr.title.trim()) return; void mutate(async () => {
+          const result = await window.oxe.github.createPullRequest({ ...input, title: pr.title.trim(), body: pr.body, draft: pr.draft })
+          if (!result.ok) throw Error(result.message || 'The pull request was not created.')
+          setNotice(result.message || 'Pull request created.')
+        }) }}>
+          <label>Title<input value={pr.title} maxLength={200} onChange={event => setPr({ ...pr, title: event.target.value })} /></label>
+          <label>Description<textarea value={pr.body} rows={6} maxLength={20000} onChange={event => setPr({ ...pr, body: event.target.value })} /></label>
+          <label className="git-control-check"><input type="checkbox" checked={pr.draft} onChange={event => setPr({ ...pr, draft: event.target.checked })} />Open as draft</label>
+          {status.ahead ? <p className="git-control-note">Push your {status.ahead} local commit{status.ahead === 1 ? '' : 's'} first so the pull request includes them.</p> : null}
+          <button type="submit" disabled={busy || !pr.title.trim() || Boolean(status.ahead)}>Create pull request</button>
+        </form>}
+      </details>}
+      {notice && <p role="status" className="git-control-note">{notice}</p>}
     </>}
   </div>
 }
