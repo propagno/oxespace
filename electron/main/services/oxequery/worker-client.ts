@@ -1,7 +1,14 @@
 import { Worker } from 'node:worker_threads'
 import { OxeQueryError, type ResolvedConnection } from './oxequery-errors'
+import { maskLogLine } from './agent-output'
 
 interface Pending { resolve: (value: unknown) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout>; budgetMs: number; onProgress?: (progress: unknown) => void }
+
+/** One line about a worker failure with credentials in URLs and key=value pairs masked. */
+function describeFault(error: unknown): string {
+  const raw = error instanceof Error ? `${error.name}: ${error.message}` : String(error ?? '')
+  return maskLogLine(raw.replace(/\s+/g, ' ').trim())
+}
 
 /** Slack on top of the server-side statement timeout, so the server reports its own timeout first. */
 const STATEMENT_SLACK_MS = 30_000
@@ -13,7 +20,8 @@ export class OxeQueryWorkerClient {
   private closed = false
   private readonly pending = new Map<number, Pending>()
 
-  constructor(private readonly path: string, private readonly timeoutMs = 120_000) {}
+  /** `onFault` receives what the worker died of, for the log; the message the user sees carries a short, masked form. */
+  constructor(private readonly path: string, private readonly timeoutMs = 120_000, private readonly onFault?: (detail: string) => void) {}
 
   call<T>(op: string, connection?: ResolvedConnection, input?: unknown, onProgress?: (progress: unknown) => void): Promise<T> {
     if (this.closed) return Promise.reject(new OxeQueryError('invalid', 'OxeQuery is shutting down.'))
@@ -59,8 +67,17 @@ export class OxeQueryWorkerClient {
       if (message.error) request.reject(new OxeQueryError(message.error.code, message.error.message, message.error.reasons ?? [], message.error.detail ?? {}))
       else request.resolve(message.result)
     })
-    worker.on('error', () => { if (this.worker === worker) void this.reset('The database worker stopped unexpectedly. Retry the operation.') })
-    worker.on('exit', () => { if (this.worker === worker) void this.reset('The database worker exited. Retry the operation.') })
+    worker.on('error', (error: unknown) => {
+      if (this.worker !== worker) return
+      const detail = describeFault(error)
+      try { this.onFault?.(detail) } catch { /* logging must not stop the reset */ }
+      void this.reset(`The database worker stopped unexpectedly${detail ? ` (${detail.slice(0, 160)})` : ''}. Retry the operation.`)
+    })
+    worker.on('exit', (code: number) => {
+      if (this.worker !== worker) return
+      try { this.onFault?.(`worker exited with code ${code}`) } catch { /* see above */ }
+      void this.reset(`The database worker exited (code ${code}). Retry the operation.`)
+    })
     return worker
   }
 

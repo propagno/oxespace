@@ -1,3 +1,4 @@
+import { connectionHint } from './connect-hint'
 import { createHash } from 'node:crypto'
 import { Client } from 'pg'
 import Cursor from 'pg-cursor'
@@ -88,6 +89,8 @@ interface PgSession { key: string; client: Client; running: boolean; lastUsed: n
 interface MongoSession { key: string; client: MongoClient; lastUsed: number; tunnel?: OpenTunnel }
 
 /** A connection nobody used for this long is closed; it reopens on the next request. */
+const withConnectionHint = (message: string, connection: ResolvedConnection): string => `${message}${connectionHint(message, connection)}`
+
 const IDLE_MS = 10 * 60_000
 const MAX_SESSIONS = 12
 /** How long a catalog read waits for the query that is using the connection. */
@@ -154,7 +157,7 @@ export class OxeQueryCore {
     client.on('error', () => { if (this.pg.get(connection.id)?.client === client) { this.pg.delete(connection.id); void tunnel?.close() } })
     try { await client.connect() } catch (error) {
       await tunnel?.close()
-      throw new OxeQueryError('connect', redact(error instanceof Error ? error.message : 'Connection failed', connection.password, connection.ssh?.password, connection.ssh?.passphrase))
+      throw new OxeQueryError('connect', withConnectionHint(redact(error instanceof Error ? error.message : 'Connection failed', connection.password, connection.ssh?.password, connection.ssh?.passphrase), connection))
     }
     const session: PgSession = { key, client, running: false, lastUsed: Date.now(), endpoint, ...(tunnel ? { tunnel } : {}) }
     // A tunnel that drops under a live session would leave a client talking to nothing.
@@ -390,7 +393,7 @@ export class OxeQueryCore {
     try { await client.connect() } catch (error) {
       await client.close().catch(() => undefined)
       await tunnel?.close()
-      throw new OxeQueryError('connect', redact(error instanceof Error ? error.message : 'Connection failed', connection.password, connection.ssh?.password, connection.ssh?.passphrase))
+      throw new OxeQueryError('connect', withConnectionHint(redact(error instanceof Error ? error.message : 'Connection failed', connection.password, connection.ssh?.password, connection.ssh?.passphrase), connection))
     }
     const session: MongoSession = { key, client, lastUsed: Date.now(), ...(tunnel ? { tunnel } : {}) }
     tunnel?.onClose(() => { if (this.mongo.get(connection.id) === session) this.mongo.delete(connection.id) })
@@ -913,7 +916,7 @@ export class OxeQueryCore {
       return { ok: true, message: 'Connected', serverVersion: `MongoDB ${String(info.version ?? '')}`.trim(), latencyMs: Date.now() - started }
     } catch (error) {
       if (error instanceof OxeQueryError) return { ok: false, message: error.message, code: error.code, ...(error.reasons.length ? { reasons: error.reasons } : {}) }
-      return { ok: false, message: error instanceof Error ? redact(error.message, connection.password) : 'Connection failed' }
+      return { ok: false, message: error instanceof Error ? withConnectionHint(redact(error.message, connection.password), connection) : 'Connection failed' }
     }
   }
 
