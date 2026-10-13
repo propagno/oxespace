@@ -224,6 +224,39 @@ export interface MongoWriteInput {
 }
 export interface MongoWriteResult { matched: number; modified: number; deleted: number; insertedId?: string }
 
+export interface PlanNode {
+  nodeType: string
+  relation?: string
+  index?: string
+  alias?: string
+  joinType?: string
+  /** The condition the node applies, in the words of the plan. */
+  detail?: string
+  startupCost: number
+  totalCost: number
+  planRows: number
+  /** Present after EXPLAIN ANALYZE. */
+  actualRows?: number
+  actualMs?: number
+  loops?: number
+  /** Time spent in this node alone (ANALYZE only). */
+  selfMs?: number
+  selfCost?: number
+  readBlocks?: number
+  /** 0..1 of the whole plan's time (or cost) spent in this node alone. */
+  selfCostShare: number
+  children: PlanNode[]
+}
+export interface SqlExplain {
+  analyze: boolean
+  plan: PlanNode
+  nodeCount: number
+  planningMs?: number
+  executionMs?: number
+  hints: string[]
+}
+export interface SqlExplainInput { connectionId: string; sql: string; analyze?: boolean; confirmed?: boolean }
+
 export type ExportFormat = 'csv' | 'json' | 'ndjson' | 'sql'
 export type ExportSource =
   | { kind: 'sql'; sql: string }
@@ -369,6 +402,7 @@ export interface OxeQueryOps {
   'mongo.indexes': { input: { connectionId: string; database: string; collection: string }; output: MongoIndexInfo[] }
   'mongo.write': { input: MongoWriteInput; output: MongoWriteResult }
   'export.run': { input: ExportInput; output: ExportResult }
+  'sql.explain': { input: SqlExplainInput; output: SqlExplain }
   'export.cancel': { input: { exportId: string }; output: { cancelled: boolean } }
   'import.preview': { input: { connectionId: string; target: ImportTarget }; output: ImportPreview }
   'import.run': { input: ImportRunInput; output: ImportResult }

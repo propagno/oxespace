@@ -1,20 +1,21 @@
 import Editor, { type OnMount } from '@monaco-editor/react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
-import { ChevronDown, ChevronRight, History, Play, Plus, Square, Table2, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, Gauge, History, Play, Plus, Square, Table2, X } from 'lucide-react'
 // Side-effect: self-hosted Monaco (no CDN), required before <Editor> mounts.
 import '../../lib/monacoSetup'
-import type { OxeQueryConnection, SqlResult, SqlTable, SqlTableDetails } from '../../../shared/types/oxequery'
+import type { OxeQueryConnection, SqlExplain, SqlResult, SqlTable, SqlTableDetails } from '../../../shared/types/oxequery'
 import { OxeQueryClientError, errorMessage, oq } from './client'
 import { ResultGrid, displayCell, toCsv, toJsonRows } from './ResultGrid'
 import { pushHistory, readHistory, writeHistory, type HistoryEntry } from './query-history'
 import { ExportButton, TableEditor } from './TableEditor'
 import { ImportButton } from './ImportDialog'
+import { ExplainView } from './ExplainView'
 
 const ROW_LIMITS = [100, 500, 1000, 5000]
 const PAGE = 100
 const MAX_TABS = 12
 
-interface Pending { sql: string; reasons: string[] }
+interface Pending { sql: string; reasons: string[]; explain?: 'analyze' }
 interface Browse { schema: string; table: string; offset: number }
 interface QueryTab {
   id: string
@@ -24,10 +25,11 @@ interface QueryTab {
   error: string
   browse: Browse | null
   details: SqlTableDetails | null
+  explain: SqlExplain | null
 }
 
 let counter = 0
-const newTab = (sql = '', title?: string): QueryTab => ({ id: `q${++counter}`, title: title ?? `Query ${counter}`, sql, result: null, error: '', browse: null, details: null })
+const newTab = (sql = '', title?: string): QueryTab => ({ id: `q${++counter}`, title: title ?? `Query ${counter}`, sql, result: null, error: '', browse: null, details: null, explain: null })
 
 function copy(text: string): void {
   void window.oxe?.clipboard?.writeText(text).catch(() => undefined)
@@ -43,6 +45,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   const [history, setHistory] = useState<HistoryEntry[]>(() => readHistory(connection.id))
   const [historyOpen, setHistoryOpen] = useState(false)
   const editor = useRef<Parameters<OnMount>[0] | null>(null)
+  const pendingExplain = useRef<string | null>(null)
   const active = tabs.find(tab => tab.id === activeId) ?? tabs[0]
   const activeRef = useRef(active)
   activeRef.current = active
@@ -63,7 +66,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
     const tab = activeRef.current
     if (!text.trim()) return
     setRunning(true); setPending(null); setSelectedRow(null)
-    patch(tab.id, { error: '', browse: null, details: null })
+    patch(tab.id, { error: '', browse: null, details: null, explain: null })
     const started = Date.now()
     try {
       const result = await oq('sql.run', { connectionId: connection.id, sql: text, maxRows, confirmed })
@@ -77,6 +80,24 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
       }
     } finally { setRunning(false) }
   }, [connection.id, maxRows, patch, record])
+
+  const explain = useCallback(async (analyze: boolean, confirmed = false): Promise<void> => {
+    const tab = activeRef.current
+    const instance = editor.current
+    const selection = instance?.getSelection()
+    const selected = selection && !selection.isEmpty() ? instance?.getModel()?.getValueInRange(selection) : ''
+    const text = pendingExplain.current ?? (selected || tab.sql)
+    if (!text.trim()) return
+    setRunning(true); setPending(null)
+    patch(tab.id, { error: '' })
+    try {
+      patch(tab.id, { explain: await oq('sql.explain', { connectionId: connection.id, sql: text, analyze, confirmed }), result: null, browse: null, details: null })
+      pendingExplain.current = null
+    } catch (cause) {
+      if (cause instanceof OxeQueryClientError && cause.code === 'confirm') { pendingExplain.current = text; setPending({ sql: text, reasons: cause.reasons, explain: 'analyze' }) }
+      else patch(tab.id, { explain: null, error: errorMessage(cause) })
+    } finally { setRunning(false) }
+  }, [connection.id, patch])
 
   const runCurrent = useCallback((): void => {
     const instance = editor.current
@@ -106,7 +127,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
     setTabs(current => [...current, tab]); setActiveId(tab.id); setSelectedRow(null)
   }
   const closeTab = (id: string): void => {
-    if (tabs.length === 1) { patch(id, { sql: '', result: null, error: '', browse: null, details: null }); return }
+    if (tabs.length === 1) { patch(id, { sql: '', result: null, error: '', browse: null, details: null, explain: null }); return }
     const index = tabs.findIndex(tab => tab.id === id)
     const next = tabs.filter(tab => tab.id !== id)
     setTabs(next)
@@ -132,6 +153,8 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
       </div>
       <div className="oq-editor-toolbar">
         <button type="button" className="oq-primary" onClick={runCurrent} disabled={running} title="Run (Ctrl+Enter). Runs the selection when there is one."><Play size={13} aria-hidden="true" />Run<kbd>Ctrl ↵</kbd></button>
+        <button type="button" onClick={() => { pendingExplain.current = null; void explain(false) }} disabled={running} title="Show the execution plan without running the statement"><Gauge size={13} aria-hidden="true" />Explain</button>
+        <button type="button" onClick={() => { pendingExplain.current = null; void explain(true) }} disabled={running} title="Run the statement and show real timings. A statement that changes data is rolled back.">Analyze</button>
         <button type="button" onClick={cancel} disabled={!running} title="Cancel the running statement"><Square size={13} aria-hidden="true" />Cancel</button>
         <label className="oq-inline">Limit<select value={maxRows} onChange={event => setMaxRows(Number(event.target.value))}>{ROW_LIMITS.map(value => <option key={value} value={value}>{value} rows</option>)}</select></label>
         <div className="oq-history">
@@ -149,10 +172,10 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
         onMount={(instance, monaco) => { editor.current = instance; instance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => runRef.current()) }}
         options={{ minimap: { enabled: false }, fontSize: 13, scrollBeyondLastLine: false, wordWrap: 'on', automaticLayout: true, tabSize: 2, padding: { top: 8 } }} /></div>
       {pending && <div className="oq-confirm" role="alertdialog" aria-label="Confirm statement">
-        <strong>This statement is destructive</strong>
+        <strong>{pending.explain ? 'Analyze runs this statement' : 'This statement is destructive'}</strong>
         <ul>{pending.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>
         {connection.environment === 'prod' && <p className="oq-error">This is a production connection.</p>}
-        <div><button type="button" onClick={() => setPending(null)}>Cancel</button><button type="button" className="oq-danger" onClick={() => void run(pending.sql, true)}>Run anyway</button></div>
+        <div><button type="button" onClick={() => { pendingExplain.current = null; setPending(null) }}>Cancel</button><button type="button" className="oq-danger" onClick={() => pending.explain ? void explain(true, true) : void run(pending.sql, true)}>{pending.explain ? 'Analyze anyway' : 'Run anyway'}</button></div>
       </div>}
       <div className="oq-results">
         <div className="oq-results-bar">
@@ -176,7 +199,8 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
           result={result} selectedRow={selectedRow} onClearSelection={() => setSelectedRow(null)}
           onApplied={() => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: 'table' }, active.browse!.offset)} />}
         <div className="oq-results-body">
-          {result && columns.length > 0 ? <ResultGrid columns={columns} types={types} rows={result.rows} onCopy={copy} selected={selectedRow} onSelect={index => setSelectedRow(current => current === index ? null : index)} />
+          {active.explain ? <ExplainView explain={active.explain} onClose={() => patch(active.id, { explain: null })} />
+            : result && columns.length > 0 ? <ResultGrid columns={columns} types={types} rows={result.rows} onCopy={copy} selected={selectedRow} onSelect={index => setSelectedRow(current => current === index ? null : index)} />
             : result && !active.error ? <div className="oq-empty"><p>{result.command ?? 'Done'}{result.affectedRows !== undefined ? ` · ${result.affectedRows} row${result.affectedRows === 1 ? '' : 's'} affected` : ''}</p></div>
               : !active.error && <div className="oq-empty"><p>Write a query and press <kbd>Ctrl ↵</kbd>, or pick a table on the left.</p></div>}
           {row && <aside className="oq-row-detail" aria-label="Row details">

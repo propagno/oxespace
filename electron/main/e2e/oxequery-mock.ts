@@ -83,6 +83,8 @@ export function registerOxeQueryMock(): void {
         targetColumns: [{ name: 'id', type: 'integer', nullable: false, hasDefault: true, generated: false }, { name: 'email', type: 'text', nullable: false, hasDefault: false, generated: false }], mapping: { id: 'id', email: 'email' } })
       case 'import.run': return ok({ dryRun: Boolean((input as { dryRun?: boolean }).dryRun), inserted: 2, rejected: 0, rejects: [], durationMs: 3 })
       case 'import.cancel': return ok({ cancelled: false })
+      case 'sql.explain': return ok({ analyze: Boolean((input as { analyze?: boolean }).analyze), nodeCount: 2, hints: [], planningMs: 0.2, executionMs: 1.4,
+        plan: { nodeType: 'Sort', startupCost: 1, totalCost: 9, planRows: 3, selfCostShare: 0.1, children: [{ nodeType: 'Seq Scan', relation: 'public.users', startupCost: 0, totalCost: 8, planRows: 3, selfCostShare: 0.9, children: [] }] } })
       case 'export.run': return ok({ rows: 3, bytes: 128, durationMs: 4, path: 'C:/exports/users.csv', fileName: 'users.csv' })
       case 'export.cancel': return ok({ cancelled: false })
       case 'files.pick': return ok({ handle: randomUUID(), name: `${String(input.kind)}.pem` })

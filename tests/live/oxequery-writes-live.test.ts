@@ -143,6 +143,20 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
     expect(await scalar('SELECT count(*) FROM contacts WHERE id = 10')).toBe('0')
   })
 
+  it('explains a statement and rolls back an analyzed write', async () => {
+    const estimated = await core.sqlExplain(pg, { sql: 'SELECT * FROM big WHERE id = 5' })
+    expect(estimated.analyze).toBe(false)
+    expect(estimated.plan.nodeType).toMatch(/Scan/)
+    const before = await scalar('SELECT count(*) FROM contacts')
+    const analyzed = await core.sqlExplain(pg, { sql: 'DELETE FROM contacts', analyze: true })
+    expect(analyzed.analyze).toBe(true)
+    expect(analyzed.executionMs).toBeGreaterThanOrEqual(0)
+    expect(await scalar('SELECT count(*) FROM contacts')).toBe(before)
+    await expect(core.sqlExplain({ ...pg, readOnly: true }, { sql: 'DELETE FROM contacts', analyze: true })).rejects.toMatchObject({ code: 'read-only' })
+    await expect(core.sqlExplain(pg, { sql: 'SELECT 1; SELECT 2' })).rejects.toMatchObject({ code: 'invalid' })
+    await expect(core.sqlExplain(pg, { sql: 'EXPLAIN SELECT 1' })).rejects.toMatchObject({ code: 'invalid' })
+  })
+
   it('writes MongoDB documents with a conflict check, and imports with ordered:false', async () => {
     const target = { connectionId: 'mongo', database: 'shop', collection: 'items' }
     const inserted = await core.mongoWrite(mongo, { ...target, op: 'insert', document: '{"_id": 1, "name": "pen", "stock": 5}' })

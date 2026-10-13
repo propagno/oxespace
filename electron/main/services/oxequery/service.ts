@@ -223,6 +223,17 @@ export class OxeQueryService {
           document: optionalString(input.document), expected: optionalString(input.expected)
         })
       })
+      case 'sql.explain': {
+        const sql = str(input.sql, 'SQL', 1024 * 1024)
+        const analyze = input.analyze === true
+        return this.requireEngine(input.connectionId, 'postgres', connection => {
+          const verdict = guardSql(sql)
+          if (analyze && verdict.kind !== 'read' && verdict.kind !== 'empty' && input.confirmed !== true) {
+            throw new OxeQueryError('confirm', 'Confirmation is required.', ['ANALYZE runs the statement. Its changes are rolled back, but triggers and sequences still run.', ...verdict.reasons])
+          }
+          return this.worker.call('sql.explain', connection, { sql, analyze })
+        })
+      }
       case 'import.cancel': {
         const importId = str(input.importId, 'Import', 64)
         return this.worker.call('import.cancel', undefined, { importId })

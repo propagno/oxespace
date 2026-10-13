@@ -14,6 +14,8 @@ import { parseDocument, parsePipeline, toEjson } from './mongo-guard'
 import { EJSON } from 'bson'
 import { buildStatements, previewStatements, type ColumnMeta, type RowChange } from './table-editor'
 import { createSink } from './export-writer'
+import { parsePlan, planHints } from './plan-parser'
+import type { SqlExplain } from '../../../../shared/types/oxequery'
 import { openRejects, readRecords, type ImportFormat } from './import-reader'
 import type { ImportTarget } from '../../../../shared/types/oxequery'
 import type { ExportFormat, ExportSource } from '../../../../shared/types/oxequery'
@@ -476,6 +478,56 @@ export class OxeQueryCore {
       truncated: documents.length > limit,
       durationMs: Date.now() - started,
       ...(total !== undefined ? { total } : {})
+    }
+  }
+
+  // ---- Explain ------------------------------------------------------------
+
+  /**
+   * The execution plan of one statement. Plain EXPLAIN never runs it. ANALYZE does:
+   * a statement that only reads runs in a READ ONLY transaction, and one that changes
+   * data runs in a transaction that is always rolled back, so the plan shows real
+   * timings without keeping any change.
+   */
+  async sqlExplain(connection: ResolvedConnection, input: { sql: string; analyze?: boolean }): Promise<SqlExplain> {
+    if (typeof input.sql !== 'string' || input.sql.length > 1024 * 1024) throw new OxeQueryError('invalid', 'The SQL is empty or too large.')
+    const verdict = guardSql(input.sql)
+    if (verdict.kind === 'empty') throw new OxeQueryError('invalid', 'There is nothing to explain.')
+    if (verdict.statements !== 1) throw new OxeQueryError('invalid', 'Explain one statement at a time.')
+    if (/^\s*(--[^\n]*\n\s*|\/\*[\s\S]*?\*\/\s*)*explain\b/i.test(input.sql)) throw new OxeQueryError('invalid', 'Write the statement without EXPLAIN; it is added for you.')
+    const analyze = Boolean(input.analyze)
+    const mutating = isMutating(verdict)
+    if (analyze && mutating && connection.readOnly) throw new OxeQueryError('read-only', 'Analyzing a statement that changes data runs it. Turn read-only off first.', verdict.reasons)
+    const body = input.sql.replace(/;\s*$/, '')
+    const session = await this.pgSession(connection)
+    if (session.running) throw new OxeQueryError('invalid', 'This connection is already running a query. Wait for it or cancel it.')
+    session.running = true
+    const { client } = session
+    try {
+      await client.query(analyze && mutating ? 'BEGIN' : 'BEGIN READ ONLY')
+      const options = analyze ? 'FORMAT JSON, ANALYZE, BUFFERS' : 'FORMAT JSON'
+      const outcome = await client.query({ text: `EXPLAIN (${options}) ${body}`, rowMode: 'array' })
+      const cell = (outcome.rows[0] as unknown[] | undefined)?.[0]
+      const document = typeof cell === 'string' ? JSON.parse(cell) as unknown : cell
+      const { plan, nodeCount } = parsePlan(document)
+      const root = (Array.isArray(document) ? document[0] : document) as Record<string, unknown> | undefined
+      const planning = root?.['Planning Time']
+      const execution = root?.['Execution Time']
+      return {
+        analyze, plan, nodeCount, hints: planHints(plan),
+        ...(typeof planning === 'number' ? { planningMs: planning } : {}),
+        ...(typeof execution === 'number' ? { executionMs: execution } : {})
+      }
+    } catch (error) {
+      if (error instanceof OxeQueryError) throw error
+      const message = error instanceof Error ? error.message : 'EXPLAIN failed'
+      if (/canceling statement due to user request/i.test(message)) throw new OxeQueryError('cancelled', 'The query was cancelled.')
+      if (/statement timeout/i.test(message)) throw new OxeQueryError('timeout', `The query ran longer than ${Math.round(this.timeoutOf(connection) / 1000)}s and was stopped.`)
+      throw new OxeQueryError('query', redact(message, connection.password))
+    } finally {
+      await client.query('ROLLBACK').catch(() => undefined)
+      session.running = false
+      session.lastUsed = Date.now()
     }
   }
 

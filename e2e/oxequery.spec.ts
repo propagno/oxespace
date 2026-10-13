@@ -291,6 +291,18 @@ test('OxeQuery stages a row edit, shows the SQL, applies it, exports a table and
     await expect(importDialog).toContainText('would be imported')
     await importDialog.getByRole('button', { name: 'Import', exact: true }).click()
     await expect(importDialog).toContainText('Imported 2 rows')
+    await importDialog.getByRole('button', { name: 'Close', exact: true }).last().click()
+
+    // The execution plan is shown as a tree and marks the heavy step.
+    await page.locator('.oq-editor .monaco-editor').click()
+    await page.keyboard.press('Control+A')
+    await page.keyboard.type('SELECT * FROM users ORDER BY id')
+    await page.getByRole('button', { name: 'Explain', exact: true }).click()
+    const plan = page.getByRole('region', { name: 'Execution plan' })
+    await expect(plan).toContainText('Seq Scan')
+    await expect(plan).toContainText('public.users')
+    await plan.getByRole('button', { name: 'Close plan' }).click()
+    await expect(plan).toHaveCount(0)
   } finally {
     await app.close()
   }

@@ -53,6 +53,8 @@ async function handle(request: Request): Promise<unknown> {
         })
       } finally { exports.delete(exportId) }
     }
+    case 'sql.explain':
+      return core.sqlExplain(connection, input as never)
     case 'import.preview':
       return core.importPreview(connection, input as never)
     case 'import.run': {
