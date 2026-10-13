@@ -49,9 +49,10 @@ test('sidebar sessions and full-page settings preserve terminal DOM', async () =
     expect(await settings.boundingBox()).toEqual({ x: 0, y: 0, width: 1280, height: 720 })
     await page.screenshot({ path: test.info().outputPath('settings-general.png') })
     await scope.getByRole('button', { name: /Current workspace/ }).click()
-    await expect(page.getByRole('radio', { name: 'Nord' })).toBeVisible()
+    await expect(page.getByRole('radio', { name: /Comfortable/ })).toBeVisible()
     await page.screenshot({ path: test.info().outputPath('settings-workspace.png') })
-    await page.getByRole('radio', { name: 'Nord' }).click()
+    // An unsaved workspace change (density) makes leaving ask first.
+    await page.getByRole('radio', { name: /Comfortable/ }).click()
     await page.getByRole('button', { name: 'Back to work' }).click()
     await expect(page.getByRole('dialog', { name: 'Save your changes?' })).toBeVisible()
     await page.getByRole('button', { name: 'Discard', exact: true }).click()

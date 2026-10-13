@@ -69,7 +69,7 @@
 .changes-editor .monaco-diff-editor .diff-hidden-lines { font-size: var(--fs-xs); }
 
 /* File-type chips, viewed state */
-.changes-kind { display: inline-grid; place-items: center; flex: none; min-width: 24px; height: 16px; padding: 0 3px; border-radius: var(--radius-xs); background: color-mix(in srgb, var(--kind) 16%, transparent); color: var(--kind); font: 700 var(--fs-2xs)/1 var(--font-mono); letter-spacing: -.02em; }
+.changes-kind { display: inline-grid; place-items: center; flex: none; min-width: 24px; height: 16px; padding: 0 3px; border-radius: var(--radius-xs); background: color-mix(in srgb, var(--kind) 16%, transparent); /* Language hue pulled toward the text color so it stays readable in both modes. */ color: color-mix(in srgb, var(--kind) 55%, var(--text-primary)); font: 700 var(--fs-2xs)/1 var(--font-mono); letter-spacing: -.02em; }
 .changes-tree-row.is-A .changes-tree-name { color: var(--dot-green); }
 .changes-tree-row.is-D .changes-tree-name { color: var(--dot-red); text-decoration: line-through; }
 .changes-tree-row.is-viewed { opacity: .55; }

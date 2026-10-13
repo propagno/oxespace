@@ -94,12 +94,12 @@ function decodeOsc52ClipboardWrite(data: string): string | null {
 // Search-match highlight colors passed to @xterm/addon-search. The decorations
 // are what make Ctrl+F usable: every match gets a subtle wash, the active one a
 // stronger accent + overview-ruler mark.
-const SEARCH_DECORATIONS = {
-  matchBackground: '#12c79a33',
-  matchOverviewRuler: '#12c79a66',
-  activeMatchBackground: '#12c79a66',
-  activeMatchColorOverviewRuler: '#12c79a'
-} as const
+// Built from the active mode's accent each time a search runs.
+function searchDecorations() {
+  const value = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()
+  const accent = /^#[0-9a-f]{6}$/i.test(value) ? value : '#1f6b4a'
+  return { matchBackground: `${accent}33`, matchOverviewRuler: `${accent}66`, activeMatchBackground: `${accent}66`, activeMatchColorOverviewRuler: accent }
+}
 
 /**
  * Build the xterm color theme from the live CSS design tokens. Read at
@@ -859,7 +859,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
       setSearchResults(null)
       return
     }
-    const options = { decorations: SEARCH_DECORATIONS, incremental }
+    const options = { decorations: searchDecorations(), incremental }
     if (direction === 'next') addon.findNext(query, options)
     else addon.findPrevious(query, options)
   }, [])

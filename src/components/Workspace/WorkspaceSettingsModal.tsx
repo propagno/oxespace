@@ -1,7 +1,8 @@
 import { Brain, Check, GitBranch, Maximize2, Minimize2, Palette, SquareTerminal, X } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent, type ReactElement } from 'react'
 import type { ShellProfile, UpdateWorkspaceSettingsInput, Workspace, WorkspaceDensity, WorkspaceLayoutPreset, WorkspaceThemeId } from '../../../shared/types/workspace'
-import { LAYOUT_PRESETS, WORKSPACE_THEMES } from './workspaceOptions'
+import { LAYOUT_PRESETS } from './workspaceOptions'
+import { AppearanceSettings } from '../Settings/AppearanceSettings'
 import { WorkspaceMemorySettings } from './WorkspaceMemorySettings'
 import { WorkspaceDelegationSettings } from './WorkspaceDelegationSettings'
 import { Dialog, DialogContent, DialogTitle, LEGACY_MODAL_OVERLAY } from '@/components/ui/dialog'
@@ -10,7 +11,7 @@ import './WorkspaceSettingsModal.css'
 import { DefaultShellSettings } from './DefaultShellSettings'
 
 export const SETTINGS_PAGES = [
-  { id: 'appearance', label: 'Appearance', hint: 'Theme & layout', icon: Palette, description: 'Make this workspace feel like yours. Preview your theme and pane layout before saving.' },
+  { id: 'appearance', label: 'Appearance', hint: 'Mode, density & layout', icon: Palette, description: 'Choose light or dark mode, and preview density and pane layout before saving.' },
   { id: 'terminal', label: 'Terminal', hint: 'Text & default shell', icon: SquareTerminal, description: 'Set your default shell and customize how terminal sessions look in this workspace.' },
   { id: 'memory', label: 'Project memory', hint: 'Shared knowledge', icon: Brain, description: 'Keep project knowledge across worktrees without sharing agent conversations.' },
   { id: 'delegation', label: 'Agent delegation', hint: 'Parallel work', icon: GitBranch, description: 'Let agents hand off a focused task to a new worktree and independent terminal.' }
@@ -38,23 +39,6 @@ const PRESET_GRIDS: Record<WorkspaceLayoutPreset, { rows: number; cols: number }
   12: { rows: 3, cols: 4 },
   14: { rows: 2, cols: 7 },
   16: { rows: 4, cols: 4 }
-}
-
-// Per-theme palette — mirrors the runtime tokens in tokens.css so the preview
-// shows the SELECTED theme regardless of the app's currently-active theme.
-interface ThemePalette { bg: string; elevated: string; tx: string; muted: string; accent: string }
-const THEME_PALETTES: Record<WorkspaceThemeId, ThemePalette> = {
-  midnight: { bg: '#21222c', elevated: '#32333c', tx: '#f8f8f2', muted: '#a6a6a7', accent: '#717fb8' },
-  nord:     { bg: '#0b1119', elevated: '#182230', tx: '#eceff4', muted: '#9aabbf', accent: '#88c0d0' },
-  dracula:  { bg: '#151320', elevated: '#282a36', tx: '#f8f8f2', muted: '#a8a0c4', accent: '#bd93f9' },
-  ocean:    { bg: '#001318', elevated: '#082b33', tx: '#e6fbff', muted: '#7eb0ba', accent: '#22d3ee' },
-  monokai:  { bg: '#11110d', elevated: '#24251a', tx: '#f8f8f2', muted: '#b0b190', accent: '#a6e22e' },
-  amber:    { bg: '#130d05', elevated: '#27190a', tx: '#fff7ed', muted: '#d4a574', accent: '#f59e0b' },
-  'rose-pine': { bg: '#191724', elevated: '#1f1d2e', tx: '#e0def4', muted: '#b0acc8', accent: '#ebbcba' },
-  gruvbox:     { bg: '#1d2021', elevated: '#282828', tx: '#ebdbb2', muted: '#bdae93', accent: '#fabd2f' },
-  'one-dark':  { bg: '#282c34', elevated: '#21252b', tx: '#e6e8eb', muted: '#8b929e', accent: '#61afef' },
-  synthwave84: { bg: '#2b213a', elevated: '#241b2f', tx: '#f0efe1', muted: '#a8aeb8', accent: '#ff7edb' },
-  'github-dark': { bg: '#0d1117', elevated: '#161b22', tx: '#e6edf3', muted: '#8b949e', accent: '#58a6ff' }
 }
 
 const CURSOR_OPTIONS: Array<{ value: TerminalCursorStyle; label: string }> = [
@@ -94,7 +78,6 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
   // Resolved terminal prefs (global ← workspace override) — drives the preview
   // live as the user edits the Terminal section below.
   const terminalPrefs = useResolvedTerminalPrefs(workspace.id)
-  const activePal = THEME_PALETTES[themeId]
 
   const save = async (): Promise<boolean> => {
     setSaving(true)
@@ -139,11 +122,6 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
         <form
           className="ws-settings-form-v2"
           onSubmit={handleSubmit}
-          style={{
-            '--accent': activePal.accent,
-            '--brand-glow': `${activePal.accent}33`,
-            '--bd-pane-active': activePal.accent
-          } as React.CSSProperties}
         >
           <div className="ws-settings-body">
             {!embedded && <nav className="ws-settings-nav" aria-label="Workspace settings sections">
@@ -165,45 +143,9 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
                   <h3 id="ws-section-appearance">Appearance</h3>
                 </header>
 
-                <div className="ws-settings-field-label">Theme</div>
-                <div className="theme-card-grid" role="radiogroup" aria-label="Theme">
-                  {WORKSPACE_THEMES.map((theme) => {
-                    const pal = THEME_PALETTES[theme.id]
-                    const selected = themeId === theme.id
-                    return (
-                      <button
-                        key={theme.id}
-                        type="button"
-                        role="radio"
-                        aria-checked={selected}
-                        className={`theme-card${selected ? ' selected' : ''}`}
-                        onClick={() => setThemeId(theme.id)}
-                      >
-                        <div className="theme-card-preview" style={{ background: pal.bg, padding: 0 }} aria-hidden="true">
-                          {/* Mini Sidebar */}
-                          <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: '12px', background: pal.elevated, borderRight: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '6px', gap: '3px' }}>
-                            <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: pal.accent }} />
-                            <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'rgba(255,255,255,0.15)' }} />
-                            <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'rgba(255,255,255,0.15)' }} />
-                          </div>
-                          {/* Mini Editor content */}
-                          <div style={{ marginLeft: '12px', height: '100%', display: 'flex', flexDirection: 'column', gap: '4px', padding: '10px 8px 6px', justifyContent: 'flex-end' }}>
-                            <div style={{ display: 'flex', gap: '2px', width: '100%', height: '14px', marginBottom: 'auto' }}>
-                              <div style={{ flex: 1, background: pal.elevated, borderRadius: '2px', border: `1px solid ${pal.accent}4d` }} />
-                              <div style={{ flex: 1, background: pal.elevated, borderRadius: '2px' }} />
-                            </div>
-                            <span className="theme-card-line" style={{ background: pal.muted, opacity: 0.4 }} />
-                            <span className="theme-card-line short" style={{ background: pal.muted, opacity: 0.4 }} />
-                          </div>
-                        </div>
-                        <div className="theme-card-meta">
-                          <span className="theme-card-name">{theme.label}</span>
-                          {selected ? <Check size={11} aria-hidden="true" /> : null}
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
+                <div className="ws-settings-field-label">Mode</div>
+                <AppearanceSettings />
+                <p className="ws-settings-hint">Light and dark mode apply to the whole app. Density is saved for this workspace.</p>
 
                 <div className="ws-settings-field-label">Density</div>
                 <div className="density-toggle" role="radiogroup" aria-label="Density">
@@ -261,7 +203,7 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
           {saved && !error ? <div className="ws-settings-saved" role="status"><Check size={14} aria-hidden="true" />Workspace settings saved</div> : null}
 
           <footer className="modal-actions">
-            <p>{page === 'memory' ? 'Memory changes use Apply memory settings above.' : page === 'delegation' ? 'Delegation changes apply immediately.' : 'Save applies theme, density, layout and default shell.'}</p>
+            <p>{page === 'memory' ? 'Memory changes use Apply memory settings above.' : page === 'delegation' ? 'Delegation changes apply immediately.' : 'Save applies density, layout and default shell. Mode applies right away.'}</p>
             <button type="button" className="secondary-action" onClick={embedded ? discard : onClose}>{embedded ? 'Discard changes' : 'Close'}</button>
             <button type="submit" className="primary-action" disabled={isSaving}>{isSaving ? 'Saving…' : 'Save workspace settings'}</button>
           </footer>
@@ -282,20 +224,18 @@ function WorkspacePreview({ name, themeId, density, layoutPreset, prefs }: {
   layoutPreset: WorkspaceLayoutPreset
   prefs: TerminalPrefs
 }): ReactElement {
-  const pal = THEME_PALETTES[themeId]
   const grid = PRESET_GRIDS[layoutPreset]
   const gap = density === 'compact' ? 3 : 6
-  const themeLabel = WORKSPACE_THEMES.find((t) => t.id === themeId)?.label ?? themeId
   // Clamp the sample text size so big fonts don't overflow the small preview.
   const sampleSize = Math.max(9, Math.min(prefs.fontSize, 16))
 
   return (
     <div className="ws-preview">
       <div className="ws-preview-label">Preview</div>
-      <div className="ws-preview-window" style={{ background: pal.bg, borderColor: 'rgba(255,255,255,0.10)' }}>
-        <div className="ws-preview-titlebar" style={{ background: pal.elevated }}>
-          <span className="ws-preview-dot" style={{ background: pal.accent }} />
-          <span className="ws-preview-title" style={{ color: pal.tx }}>{name}</span>
+      <div className="ws-preview-window">
+        <div className="ws-preview-titlebar">
+          <span className="ws-preview-dot" />
+          <span className="ws-preview-title">{name}</span>
         </div>
         <div
           className="ws-preview-grid"
@@ -303,23 +243,23 @@ function WorkspacePreview({ name, themeId, density, layoutPreset, prefs }: {
           aria-hidden="true"
         >
           {Array.from({ length: layoutPreset }).map((_, i) => (
-            <div key={i} className="ws-preview-tile" style={{ background: pal.elevated, borderColor: i === 0 ? pal.accent : 'transparent' }} />
+            <div key={i} className={`ws-preview-tile${i === 0 ? ' is-active' : ''}`} />
           ))}
         </div>
         <div
           className="ws-preview-sample"
-          style={{ background: pal.elevated, fontFamily: prefs.fontFamily, fontSize: sampleSize, lineHeight: prefs.lineHeight, letterSpacing: prefs.letterSpacing }}
+          style={{ fontFamily: prefs.fontFamily, fontSize: sampleSize, lineHeight: prefs.lineHeight, letterSpacing: prefs.letterSpacing }}
         >
-          <div><span style={{ color: pal.accent }}>~/{name.toLowerCase().replace(/\s+/g, '-').slice(0, 16)}</span> <span style={{ color: pal.muted }}>main</span></div>
-          <div><span style={{ color: pal.accent }}>❯</span> <span style={{ color: pal.tx }}>npm run dev</span></div>
-          <div style={{ color: pal.muted }}>
+          <div><span className="ws-preview-accent">~/{name.toLowerCase().replace(/\s+/g, '-').slice(0, 16)}</span> <span className="ws-preview-muted">main</span></div>
+          <div><span className="ws-preview-accent">❯</span> <span>npm run dev</span></div>
+          <div className="ws-preview-muted">
             ready in 312 ms
-            <span className={`ws-preview-cursor cursor-${prefs.cursorStyle}${prefs.cursorBlink ? ' blink' : ''}`} style={{ background: pal.accent, borderColor: pal.accent }} />
+            <span className={`ws-preview-cursor cursor-${prefs.cursorStyle}${prefs.cursorBlink ? ' blink' : ''}`} />
           </div>
         </div>
       </div>
       <div className="ws-preview-caption">
-        {themeLabel} · {density === 'compact' ? 'Compact' : 'Comfortable'} · {layoutPreset} panes · {prefs.fontSize}px
+        {density === 'compact' ? 'Compact' : 'Comfortable'} · {layoutPreset} panes · {prefs.fontSize}px
       </div>
     </div>
   )
