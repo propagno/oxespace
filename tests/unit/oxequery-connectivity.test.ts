@@ -6,6 +6,19 @@ import { mongoTlsOptions, mongoUri, pgSsl } from '../../electron/main/services/o
 import { fingerprintOf, openTunnel, probeHostKey } from '../../electron/main/services/oxequery/ssh-tunnel'
 import type { ResolvedConnection } from '../../electron/main/services/oxequery/oxequery-errors'
 
+/**
+ * ssh2's ed25519 key generator now and then produces a key its own parser refuses
+ * ("Malformed OpenSSH private key"). The tests need a key that parses, so draw again.
+ */
+function freshKeyPair(): { private: string; public: string } {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const pair = utils.generateKeyPairSync('ed25519')
+    const parsed = utils.parseKey(pair.private)
+    if (!(parsed instanceof Error)) return pair
+  }
+  throw new Error('Could not generate a parseable ed25519 key')
+}
+
 const base = (change: Partial<ResolvedConnection> = {}): ResolvedConnection => ({ id: 'c', engine: 'postgres', host: 'db.example.com', port: 5432, database: 'app', username: 'me', sslMode: 'disable', readOnly: true, ...change })
 
 describe('TLS options', () => {
@@ -60,7 +73,7 @@ describe('SSH tunnel', () => {
 
   /** A real SSH server on loopback that accepts one key or password and forwards channels to an echo service. */
   async function sshServer(options: { password?: string; clientPublicKey?: string } = {}) {
-    const hostKey = utils.generateKeyPairSync('ed25519').private
+    const hostKey = freshKeyPair().private
     const echo: TcpServer = createTcpServer(socket => socket.on('data', chunk => socket.write(`echo:${chunk.toString()}`)))
     await new Promise<void>(resolve => echo.listen(0, '127.0.0.1', resolve))
     const echoPort = (echo.address() as { port: number }).port
@@ -116,7 +129,7 @@ describe('SSH tunnel', () => {
   })
 
   it('authenticates with a private key', async () => {
-    const pair = utils.generateKeyPairSync('ed25519')
+    const pair = freshKeyPair()
     const privatePem = pair.private
     const server = await sshServer({ clientPublicKey: pair.public })
     const tunnel = await openTunnel({ host: '127.0.0.1', port: server.port, user: 'dev', privateKey: privatePem, pinnedFingerprint: server.fingerprint }, { host: '127.0.0.1', port: server.echoPort })
