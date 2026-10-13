@@ -9,10 +9,14 @@ import { normalizeClaudeContext } from './thread-context'
 import { readClaudeResultCost } from './thread-cost'
 import { createApiRetryTracker } from './claude-api-retry'
 import { describePermissionRequest } from './claude-permission-request'
+import { toolResultText } from './tool-result-text'
 
 /** How long a cooperative interrupt may take before the process is ended instead. */
 const INTERRUPT_GRACE_MS = 2_000
 import { requestOutcome } from '../../../../shared/threadRequestOutcome'
+
+/** A single protocol line: a large file read or an inline image can exceed 1 MiB (Codex allows the same 32 MiB). */
+const MAX_PROTOCOL_LINE_BYTES = 32 * 1024 * 1024
 
 type PrintTransport = ConversationTransport & { endInput(): void }
 function record(value: unknown): Record<string, unknown> {
@@ -98,7 +102,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
       const fresh = !this.transport
       const transport = this.transport ??= this.createTransport(args, this.context.rootPath)
       if (fresh) {
-      const decoder = new JsonLinesDecoder(value => this.receive(value, transport))
+      const decoder = new JsonLinesDecoder(value => this.receive(value, transport), MAX_PROTOCOL_LINE_BYTES)
       transport.onData(chunk => {
         if (this.disposed || this.transport !== transport) return
         if (Date.now() - this.lastNativeSignalAt >= 2_000) {
@@ -344,7 +348,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
           if (Array.isArray(content)) for (const block of content.map(record)) {
             if (block.type === 'tool_result' && typeof block.tool_use_id === 'string') {
               const files = this.fileTools.get(block.tool_use_id)?.map(file => ({ ...file, state: block.is_error ? 'failed' as const : 'completed' as const }))
-              this.emit({ type: 'tool', id: block.tool_use_id, name: 'Tool result', state: block.is_error ? 'failed' : 'completed', detail: '', output: typeof block.content === 'string' ? block.content.slice(0, 65536) : '', completedAt: Date.now(), ...(files ? { files } : {}) })
+              this.emit({ type: 'tool', id: block.tool_use_id, name: 'Tool result', state: block.is_error ? 'failed' : 'completed', detail: '', output: toolResultText(block.content), completedAt: Date.now(), ...(files ? { files } : {}) })
               this.fileTools.delete(block.tool_use_id)
               const steps = this.todoTools.get(block.tool_use_id)
               if (steps && !block.is_error) this.emit({ type: 'plan', id: `plan:${this.localPlanId}`, steps })

@@ -65,6 +65,8 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
   private access: ThreadConfiguration['access'] = 'read-only'
   private networkAccess = false
   private approvalPolicy: NonNullable<ThreadConfiguration['approvalPolicy']> = 'on-request'
+  /** The access level as the app-server names it (`full-access` is `danger-full-access` there). */
+  private get nativeSandbox(): string { return this.access === 'full-access' ? 'danger-full-access' : this.access }
   private mode: ThreadConfiguration['mode'] = 'default'
   private usage?: ThreadUsage
   private usageRequest?: Promise<ThreadUsage>
@@ -131,7 +133,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
         cwd: context.rootPath,
         modelProvider: 'openai',
         approvalPolicy: this.approvalPolicy,
-        sandbox: this.access === 'full-access' ? 'danger-full-access' : this.access,
+        sandbox: this.nativeSandbox,
         ...(context.model ? { model: context.model } : {}), ...(context.reasoningEffort ? { effort: context.reasoningEffort } : {})
       }))
       this.threadId = text(record(response.thread).id)
@@ -444,7 +446,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
       hooks: ['hooks/list', { cwd: this.rootPath }], experimental: ['experimentalFeature/list', {}],
       'debug-config': ['config/read', { cwd: this.rootPath, includeLayers: true }],
       ps: ['thread/backgroundTerminals/list', { threadId: this.threadId }], memories: ['config/read', { cwd: this.rootPath, includeLayers: false }],
-      fork: ['thread/fork', { threadId: this.threadId, cwd: this.rootPath, sandbox: this.access, approvalPolicy: 'on-request' }],
+      fork: ['thread/fork', { threadId: this.threadId, cwd: this.rootPath, sandbox: this.nativeSandbox, approvalPolicy: this.approvalPolicy }],
       rewind: ['thread/rollback', { threadId: this.threadId, numTurns: Number(argument) || 1 }]
     }
     const operation = methods[name]
