@@ -85,6 +85,13 @@ export function registerOxeQueryMock(): void {
       case 'import.cancel': return ok({ cancelled: false })
       case 'sql.explain': return ok({ analyze: Boolean((input as { analyze?: boolean }).analyze), nodeCount: 2, hints: [], planningMs: 0.2, executionMs: 1.4,
         plan: { nodeType: 'Sort', startupCost: 1, totalCost: 9, planRows: 3, selfCostShare: 0.1, children: [{ nodeType: 'Seq Scan', relation: 'public.users', startupCost: 0, totalCost: 8, planRows: 3, selfCostShare: 0.9, children: [] }] } })
+      case 'containers.stats': return ok([{ id: 'c1', name: 'pg-dev', cpuPercent: 1.5, memoryPercent: 3, memoryUsage: '60MiB / 2GiB', netIO: '1kB / 2kB', blockIO: '0B / 0B', pids: 8 }])
+      case 'resources.images': return ok([{ id: 'img1', repository: 'postgres', tag: '16', size: '430MB', created: '2 weeks ago' }])
+      case 'resources.volumes': return ok([{ name: 'pg-dev-data', driver: 'local' }])
+      case 'resources.networks': return ok([{ id: 'n1', name: 'bridge', driver: 'bridge', scope: 'local' }, { id: 'n2', name: 'app-net', driver: 'bridge', scope: 'local' }])
+      case 'resources.usage': return ok([{ type: 'Images', total: 3, active: 1, size: '1.2GB', reclaimable: '800MB (66%)' }])
+      case 'resources.remove': return ok({ ok: true })
+      case 'containers.createDatabase': return ok({ ...connections[0], id: 'new-db', name: String((input as { name?: string }).name) })
       case 'audit.list': return ok([{ id: 1, ts: Date.now(), actor: 'thread:abc', connectionId: 'c1', connectionName: 'pg-dev', engine: 'postgres', environment: 'dev', tool: 'oxespace_db_query', textHash: 'h', text: "SELECT * FROM users WHERE email = '?'", decision: 'approved', outcome: 'ok', rows: 3, durationMs: 5, errorCode: null }])
       case 'library.list': return ok({ saved: [{ id: 's1', connectionId: String(input.connectionId), name: 'Active users', sql: 'SELECT * FROM users', createdAt: 1, updatedAt: 1 }], history: [{ id: 1, sql: 'SELECT now()', ranAt: Date.now(), durationMs: 3, rows: 1, ok: true }] })
       case 'library.save': return ok({ id: 's2', connectionId: String(input.connectionId), name: String(input.name), sql: String(input.sql), createdAt: 1, updatedAt: 1 })

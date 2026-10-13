@@ -322,3 +322,40 @@ test('OxeQuery stages a row edit, shows the SQL, applies it, exports a table and
     await app.close()
   }
 })
+
+test('OxeQuery shows container stats and resources and creates a database from a wizard', async () => {
+  test.setTimeout(120000)
+  const root = mkdtempSync(join(tmpdir(), 'oxespace-oxequery-'))
+  const repo = join(root, 'repo'); mkdirSync(repo)
+  const app = await electron.launch({ args: [join(process.cwd(), 'e2e/electron-main.cjs')], env: {
+    ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'app.sqlite3')
+  } })
+  try {
+    const page = await app.firstWindow()
+    await page.waitForLoadState('domcontentloaded')
+    await page.getByTestId('btn-new-workspace').click()
+    await page.getByTestId('wizard-dir-input').fill(repo)
+    await page.getByTestId('wizard-layout-card-1').click()
+    await page.getByTestId('wizard-launch-btn').click()
+    await expect(page.locator('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]').first()).toBeVisible()
+    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
+
+    await expect(page.getByRole('table', { name: 'Container list' })).toContainText('1.5%')
+
+    await page.getByRole('button', { name: 'Images, volumes and networks' }).click()
+    const resources = page.getByRole('region', { name: 'Images, volumes and networks' })
+    await expect(resources.getByRole('table', { name: 'Images' })).toContainText('postgres')
+    await resources.getByRole('tab', { name: /volumes/ }).click()
+    await resources.getByRole('button', { name: 'Remove volume pg-dev-data' }).click()
+    await expect(page.getByRole('alertdialog', { name: 'Confirm remove' })).toContainText('cannot be recovered')
+    await page.getByRole('alertdialog', { name: 'Confirm remove' }).getByRole('button', { name: 'Cancel' }).click()
+
+    await page.getByRole('button', { name: 'New database' }).click()
+    const wizard = page.getByRole('dialog', { name: 'New database' })
+    await wizard.getByLabel('Name').fill('orders-db')
+    await wizard.getByRole('button', { name: 'Create and connect' }).click()
+    await expect(page.getByRole('tab', { name: 'orders-db' })).toBeVisible()
+  } finally {
+    await app.close()
+  }
+})

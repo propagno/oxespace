@@ -138,6 +138,28 @@ export class OxeQueryService {
       case 'containers.engines': return this.containers.engines(true)
       case 'containers.list': return this.containers.list(engine(input.engine))
       case 'containers.inspect': return this.containers.inspect(str(input.id, 'Container', 128), engine(input.engine))
+      case 'containers.stats': return this.containers.stats(engine(input.engine))
+      case 'resources.images': return this.containers.images(engine(input.engine))
+      case 'resources.volumes': return this.containers.volumes(engine(input.engine))
+      case 'resources.networks': return this.containers.networks(engine(input.engine))
+      case 'resources.usage': return this.containers.usage(engine(input.engine))
+      case 'resources.remove': {
+        const kind = str(input.kind, 'Kind', 16)
+        if (kind !== 'image' && kind !== 'volume' && kind !== 'network') throw new OxeQueryError('invalid', 'Unsupported resource kind.')
+        await this.containers.removeResource(kind, str(input.id, 'Resource', 200), engine(input.engine))
+        return { ok: true }
+      }
+      case 'containers.createDatabase': {
+        const kind = str(input.engine, 'Engine', 16)
+        if (kind !== 'postgres' && kind !== 'mongodb') throw new OxeQueryError('invalid', 'Choose PostgreSQL or MongoDB.')
+        const name = str(input.name, 'Name', 41)
+        const created = await this.containers.createDatabase({ engine: kind, name, tag: str(input.tag, 'Version', 24), ...(typeof input.port === 'number' ? { port: input.port } : {}) }, engine(input.engineName))
+        // A fresh server needs a moment before it accepts logins; the connection is saved now and the workbench retries.
+        return this.connections.save({
+          name, engine: kind, host: '127.0.0.1', port: created.port, database: created.database, username: created.username, password: created.password,
+          readOnly: false, environment: 'local', containerRef: name
+        })
+      }
       case 'containers.action': {
         const action = str(input.action, 'Action', 16)
         if (!ACTIONS.has(action)) throw new OxeQueryError('invalid', 'Unsupported container action.')

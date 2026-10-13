@@ -14,6 +14,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { OxeQueryCore } from '../../electron/main/services/oxequery/oxequery-core'
 import type { ResolvedConnection } from '../../electron/main/services/oxequery/oxequery-errors'
 import { AgentGateway, type GatewayDeps } from '../../electron/main/services/oxequery/agent-gateway'
+import { ContainerRuntime } from '../../electron/main/services/oxequery/container-runtime'
+import { LocalExecutionHost } from '../../electron/main/runtime/execution-host'
 import { ApprovalBroker } from '../../electron/main/services/oxequery/approval-broker'
 import { AuditLog } from '../../electron/main/services/oxequery/audit-log'
 import { openInMemoryDatabase } from '../../electron/main/db'
@@ -243,5 +245,35 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
     expect(prompts).toHaveLength(2)
     db.close()
   })
+
+  it('creates a database container, lists resources and refuses to remove what is in use', async () => {
+    const runtime = new ContainerRuntime({ host: new LocalExecutionHost(), emit: () => undefined })
+    const name = `oxe-new-${suffix}`
+    try {
+      const created = await runtime.createDatabase({ engine: 'postgres', name, tag: '16-alpine' })
+      expect(created.port).toBeGreaterThan(1023)
+      expect(created.password.length).toBeGreaterThanOrEqual(20)
+      // The password reached the server through the environment: the login works.
+      const fresh: ResolvedConnection = { id: 'fresh', engine: 'postgres', host: '127.0.0.1', port: created.port, database: created.database, username: created.username, password: created.password, sslMode: 'disable', readOnly: true }
+      await until('new database accepts logins', async () => { await core.sqlRun(fresh, 'SELECT 1'); return true })
+      const stats = await runtime.stats()
+      expect(stats.some(item => item.name === name)).toBe(true)
+      expect((await runtime.volumes()).some(item => item.name === `${name}-data`)).toBe(true)
+      expect((await runtime.images()).some(item => item.repository.includes('postgres'))).toBe(true)
+      expect((await runtime.networks()).some(item => item.name === 'bridge')).toBe(true)
+      expect((await runtime.usage()).length).toBeGreaterThan(0)
+      await expect(runtime.removeResource('volume', `${name}-data`)).rejects.toThrow()
+      await expect(runtime.createDatabase({ engine: 'postgres', name, tag: '16-alpine' })).rejects.toThrow(/already exists/)
+      await expect(runtime.createDatabase({ engine: 'postgres', name: 'Bad Name', tag: '16' })).rejects.toThrow(/lowercase/)
+      await expect(runtime.createDatabase({ engine: 'postgres', name: 'x1', tag: '16; rm -rf /' })).rejects.toThrow(/tag/)
+      await core.closeConnection('fresh')
+      docker('rm', '-f', name)
+      await runtime.removeResource('volume', `${name}-data`)
+      expect((await runtime.volumes()).some(item => item.name === `${name}-data`)).toBe(false)
+    } finally {
+      try { docker('rm', '-f', name) } catch { /* gone */ }
+      try { docker('volume', 'rm', '-f', `${name}-data`) } catch { /* gone */ }
+    }
+  }, 240_000)
 
 })

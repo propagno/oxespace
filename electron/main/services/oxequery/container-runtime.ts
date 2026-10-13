@@ -3,9 +3,12 @@ import { randomUUID } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import type { ExecutionHost } from '../../runtime/execution-host'
 import type {
-  ConnectionSuggestion, ContainerAction, ContainerEngine, ContainerEngineInfo, ContainerExecResult, ContainerInspect, ContainerSummary, OxeQueryEvent
+  ConnectionSuggestion, ContainerAction, ContainerEngine, ContainerEngineInfo, ContainerExecResult, ContainerInspect, ContainerStat, ContainerSummary, DiskUsageRow, ImageInfo, NetworkInfo,
+  OxeQueryEvent, ResourceKind, VolumeInfo
 } from '../../../../shared/types/oxequery'
-import { parseContainerList, parseInspect, suggestFromInspect } from './container-parse'
+import { parseContainerList, parseDiskUsage, parseImages, parseInspect, parseNetworks, parseStats, parseVolumes, suggestFromInspect } from './container-parse'
+import { createServer } from 'node:net'
+import { randomBytes } from 'node:crypto'
 
 const ENGINES: ContainerEngine[] = ['docker', 'podman']
 const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/
@@ -92,8 +95,8 @@ export class ContainerRuntime {
   private readonly binaries = new Map<ContainerEngine, string>()
   private cachedAt = 0
 
-  private run(engine: ContainerEngine, args: string[], timeoutMs = 20_000, maxOutputBytes = 2 * 1024 * 1024) {
-    return this.options.host.exec(this.binaries.get(engine) ?? engine, args, { cwd: tmpdir(), timeoutMs, maxOutputBytes })
+  private run(engine: ContainerEngine, args: string[], timeoutMs = 20_000, maxOutputBytes = 2 * 1024 * 1024, env?: Record<string, string>) {
+    return this.options.host.exec(this.binaries.get(engine) ?? engine, args, { cwd: tmpdir(), timeoutMs, maxOutputBytes, ...(env ? { env } : {}) })
   }
 
   /** PATH first, then the places each platform installs the CLI. GUI launches often have a trimmed PATH. */
@@ -204,6 +207,66 @@ export class ContainerRuntime {
     return { file: this.binaries.get(resolved) ?? resolved, args: ['exec', '-it', assertContainerId(id), shell], engine: resolved }
   }
 
+  /** CPU and memory of the running containers, once. */
+  async stats(engine?: ContainerEngine): Promise<ContainerStat[]> {
+    const resolved = await this.resolve(engine)
+    const result = await this.run(resolved, ['stats', '--no-stream', '--format', resolved === 'podman' ? 'json' : '{{json .}}'], 25_000)
+    if (result.code !== 0) throw explainEngineError(resolved, result.stderr)
+    return parseStats(result.stdout)
+  }
+
+  private async listing<T>(engine: ContainerEngine | undefined, args: string[], parse: (stdout: string) => T[]): Promise<T[]> {
+    const resolved = await this.resolve(engine)
+    const result = await this.run(resolved, [...args, '--format', '{{json .}}'])
+    if (result.code !== 0) throw explainEngineError(resolved, result.stderr)
+    return parse(result.stdout)
+  }
+
+  images(engine?: ContainerEngine): Promise<ImageInfo[]> { return this.listing(engine, ['images'], parseImages) }
+  volumes(engine?: ContainerEngine): Promise<VolumeInfo[]> { return this.listing(engine, ['volume', 'ls'], parseVolumes) }
+  networks(engine?: ContainerEngine): Promise<NetworkInfo[]> { return this.listing(engine, ['network', 'ls'], parseNetworks) }
+  usage(engine?: ContainerEngine): Promise<DiskUsageRow[]> { return this.listing(engine, ['system', 'df'], parseDiskUsage) }
+
+  /** Removes one unused image, volume or network. The engine itself refuses one that is in use. */
+  async removeResource(kind: ResourceKind, id: string, engine?: ContainerEngine): Promise<void> {
+    const resolved = await this.resolve(engine)
+    const target = assertContainerId(id)
+    const args = kind === 'image' ? ['image', 'rm', target] : kind === 'volume' ? ['volume', 'rm', target] : ['network', 'rm', target]
+    if (kind !== 'image' && kind !== 'volume' && kind !== 'network') throw new ContainerRuntimeError('invalid', 'Unsupported resource kind')
+    const result = await this.run(resolved, args, 60_000)
+    if (result.code !== 0) throw explainEngineError(resolved, result.stderr)
+    this.options.emit({ type: 'containers-changed' })
+  }
+
+  /**
+   * Starts a PostgreSQL or MongoDB container bound to 127.0.0.1 on a free port, with a
+   * named data volume and a generated password. The password goes to the engine
+   * through the child's environment, not its command line.
+   */
+  async createDatabase(input: { engine: 'postgres' | 'mongodb'; name: string; tag: string; port?: number }, engine?: ContainerEngine): Promise<{ containerId: string; port: number; password: string; username: string; database: string }> {
+    const name = input.name
+    if (!/^[a-z0-9][a-z0-9_.-]{1,40}$/.test(name)) throw new ContainerRuntimeError('invalid', 'Use 2–41 lowercase letters, digits, "-", "_" or "." for the name.')
+    if (!/^(latest|[0-9]{1,2}(\.[0-9]{1,2}){0,2}(-[a-z]{3,12})?)$/.test(input.tag)) throw new ContainerRuntimeError('invalid', 'That image tag is not accepted. Use a version such as 17 or 16-alpine.')
+    const resolved = await this.resolve(engine)
+    const inner = input.engine === 'postgres' ? 5432 : 27017
+    const port = input.port ?? await freePort(inner)
+    if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new ContainerRuntimeError('invalid', 'Choose a port between 1024 and 65535.')
+    const password = randomBytes(18).toString('base64url')
+    const image = input.engine === 'postgres' ? `postgres:${input.tag}` : `mongo:${input.tag}`
+    const volume = `${name}-data`
+    const args = input.engine === 'postgres'
+      ? ['run', '-d', '--name', name, '--label', 'oxequery.managed=1', '-p', `127.0.0.1:${port}:5432`, '-v', `${volume}:/var/lib/postgresql/data`, '-e', 'POSTGRES_PASSWORD', '-e', 'POSTGRES_DB=app', image]
+      : ['run', '-d', '--name', name, '--label', 'oxequery.managed=1', '-p', `127.0.0.1:${port}:27017`, '-v', `${volume}:/data/db`, '-e', 'MONGO_INITDB_ROOT_USERNAME=root', '-e', 'MONGO_INITDB_ROOT_PASSWORD', image]
+    const result = await this.run(resolved, args, 300_000, 64 * 1024, { [input.engine === 'postgres' ? 'POSTGRES_PASSWORD' : 'MONGO_INITDB_ROOT_PASSWORD']: password })
+    if (result.code !== 0) {
+      if (/already in use|Conflict/i.test(result.stderr)) throw new ContainerRuntimeError('invalid', `A container named "${name}" already exists.`)
+      if (/port is already allocated|address already in use/i.test(result.stderr)) throw new ContainerRuntimeError('invalid', `Port ${port} is already in use. Choose another.`)
+      throw explainEngineError(resolved, result.stderr)
+    }
+    this.options.emit({ type: 'containers-changed' })
+    return { containerId: result.stdout.trim().slice(0, 64), port, password, username: input.engine === 'postgres' ? 'postgres' : 'root', database: input.engine === 'postgres' ? 'app' : 'admin' }
+  }
+
   /** The last lines of a container's log, once (for an agent); streaming is `logsStart`. */
   async logsTail(id: string, tail = 100, engine?: ContainerEngine): Promise<string> {
     const resolved = await this.resolve(engine)
@@ -264,4 +327,14 @@ export class ContainerRuntime {
   dispose(): void {
     for (const streamId of [...this.streams.keys()]) this.logsStop(streamId)
   }
+}
+
+/** The preferred port when nothing listens on it, otherwise any free one. */
+function freePort(preferred: number): Promise<number> {
+  const attempt = (port: number): Promise<number> => new Promise((resolve, reject) => {
+    const server = createServer()
+    server.once('error', reject)
+    server.listen(port, '127.0.0.1', () => { const { port: bound } = server.address() as { port: number }; server.close(() => resolve(bound)) })
+  })
+  return attempt(preferred).catch(() => attempt(0))
 }

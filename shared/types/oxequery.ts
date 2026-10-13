@@ -43,6 +43,32 @@ export interface ContainerSummary {
   labels: Record<string, string>
 }
 
+export interface ContainerStat {
+  id: string
+  name: string
+  cpuPercent: number
+  memoryPercent: number
+  memoryUsage: string
+  netIO: string
+  blockIO: string
+  pids: number
+}
+export interface ImageInfo { id: string; repository: string; tag: string; size: string; created: string }
+export interface VolumeInfo { name: string; driver: string }
+export interface NetworkInfo { id: string; name: string; driver: string; scope: string }
+export interface DiskUsageRow { type: string; total: number; active: number; size: string; reclaimable: string }
+export type ResourceKind = 'image' | 'volume' | 'network'
+export interface CreateDatabaseInput {
+  engine: DatabaseEngine
+  /** Container name; also names the data volume. */
+  name: string
+  /** Image tag, e.g. `17` or `16-alpine`. */
+  tag: string
+  /** Host port; the next free one is chosen when omitted. */
+  port?: number
+  engineName?: ContainerEngine
+}
+
 export interface ContainerInspect {
   id: string
   name: string
@@ -436,6 +462,13 @@ export interface OxeQueryOps {
   'mongo.write': { input: MongoWriteInput; output: MongoWriteResult }
   'export.run': { input: ExportInput; output: ExportResult }
   'sql.explain': { input: SqlExplainInput; output: SqlExplain }
+  'containers.stats': { input: { engine?: ContainerEngine }; output: ContainerStat[] }
+  'resources.images': { input: { engine?: ContainerEngine }; output: ImageInfo[] }
+  'resources.volumes': { input: { engine?: ContainerEngine }; output: VolumeInfo[] }
+  'resources.networks': { input: { engine?: ContainerEngine }; output: NetworkInfo[] }
+  'resources.usage': { input: { engine?: ContainerEngine }; output: DiskUsageRow[] }
+  'resources.remove': { input: { kind: ResourceKind; id: string; engine?: ContainerEngine }; output: { ok: true } }
+  'containers.createDatabase': { input: CreateDatabaseInput; output: OxeQueryConnection }
   'audit.list': { input: { connectionId?: string; limit?: number }; output: OxeQueryAuditEntry[] }
   'library.list': { input: { connectionId: string }; output: { saved: SavedQuery[]; history: QueryHistoryItem[] } }
   'library.save': { input: { connectionId: string; id?: string; name: string; sql: string }; output: SavedQuery }

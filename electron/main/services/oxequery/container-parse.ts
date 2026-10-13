@@ -1,4 +1,6 @@
-import type { ContainerInspect, ContainerPort, ContainerState, ContainerSummary, ConnectionSuggestion, DatabaseEngine } from '../../../../shared/types/oxequery'
+import type {
+  ContainerInspect, ContainerPort, ContainerState, ContainerStat, ContainerSummary, ConnectionSuggestion, DatabaseEngine, DiskUsageRow, ImageInfo, NetworkInfo, VolumeInfo
+} from '../../../../shared/types/oxequery'
 
 const STATES = new Set<ContainerState>(['running', 'exited', 'paused', 'restarting', 'created', 'dead', 'removing'])
 const MAX_RANGE = 64
@@ -232,4 +234,67 @@ export function suggestFromInspect(stdout: string): { suggestion: ConnectionSugg
     },
     ...(password ? { password } : {})
   }
+}
+
+/** One JSON object per line (Docker) or one JSON array (Podman). */
+function jsonEntries(stdout: string): Record<string, unknown>[] {
+  const trimmed = stdout.trim()
+  if (!trimmed) return []
+  if (trimmed.startsWith('[')) {
+    try { return (JSON.parse(trimmed) as unknown[]).map(record) } catch { return [] }
+  }
+  const out: Record<string, unknown>[] = []
+  for (const line of trimmed.split(/\r?\n/)) {
+    if (!line.trim()) continue
+    try { out.push(record(JSON.parse(line))) } catch { /* partial line */ }
+  }
+  return out
+}
+
+function percent(value: unknown): number {
+  const number = Number.parseFloat(text(value).replace('%', ''))
+  return Number.isFinite(number) ? number : 0
+}
+
+export function parseStats(stdout: string): ContainerStat[] {
+  return jsonEntries(stdout).map(entry => ({
+    id: (text(entry.ID) || text(entry.Container) || text(entry.id)).slice(0, 64),
+    name: text(entry.Name) || text(entry.name),
+    cpuPercent: percent(entry.CPUPerc ?? entry.CPU ?? entry.cpu_percent),
+    memoryPercent: percent(entry.MemPerc ?? entry.mem_percent),
+    memoryUsage: text(entry.MemUsage) || text(entry.mem_usage),
+    netIO: text(entry.NetIO) || text(entry.net_io),
+    blockIO: text(entry.BlockIO) || text(entry.block_io),
+    pids: Number(entry.PIDs ?? entry.pids) || 0
+  })).filter(item => item.id || item.name)
+}
+
+export function parseImages(stdout: string): ImageInfo[] {
+  return jsonEntries(stdout).map(entry => {
+    const names = Array.isArray(entry.Names) ? entry.Names.map(text) : []
+    const named = names[0] ? /^(.*?)(?::([^:/]+))?$/.exec(names[0]) : null
+    return {
+      id: (text(entry.ID) || text(entry.Id)).replace(/^sha256:/, '').slice(0, 64),
+      repository: text(entry.Repository) || named?.[1] || '<none>',
+      tag: text(entry.Tag) || named?.[2] || '<none>',
+      size: text(entry.Size) || (typeof entry.Size === 'number' ? `${(entry.Size / 1e6).toFixed(0)}MB` : ''),
+      created: text(entry.CreatedSince) || text(entry.CreatedAt)
+    }
+  }).filter(item => item.id)
+}
+
+export function parseVolumes(stdout: string): VolumeInfo[] {
+  return jsonEntries(stdout).map(entry => ({ name: text(entry.Name), driver: text(entry.Driver) || 'local' })).filter(item => item.name)
+}
+
+export function parseNetworks(stdout: string): NetworkInfo[] {
+  return jsonEntries(stdout).map(entry => ({
+    id: (text(entry.ID) || text(entry.Id)).slice(0, 64), name: text(entry.Name), driver: text(entry.Driver), scope: text(entry.Scope)
+  })).filter(item => item.name)
+}
+
+export function parseDiskUsage(stdout: string): DiskUsageRow[] {
+  return jsonEntries(stdout).map(entry => ({
+    type: text(entry.Type), total: Number(entry.TotalCount ?? entry.Total) || 0, active: Number(entry.Active) || 0, size: text(entry.Size), reclaimable: text(entry.Reclaimable)
+  })).filter(item => item.type)
 }
