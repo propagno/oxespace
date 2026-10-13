@@ -24,7 +24,7 @@ describe('safe worktree removal (real git)', () => {
   let stopped: string[]
 
   beforeEach(() => {
-    sandbox = realpathSync(mkdtempSync(join(tmpdir(), 'oxe-wt-')))
+    sandbox = realpathSync.native(mkdtempSync(join(tmpdir(), 'oxe-wt-')))
     root = join(sandbox, 'main')
     mkdirSync(root)
     git(root, 'init', '-b', 'main')

@@ -22,7 +22,7 @@ describe('worktree cleanup (real git)', () => {
   let cleanup: WorktreeCleanup
 
   beforeEach(() => {
-    sandbox = realpathSync(mkdtempSync(join(tmpdir(), 'oxe-clean-')))
+    sandbox = realpathSync.native(mkdtempSync(join(tmpdir(), 'oxe-clean-')))
     root = join(sandbox, 'main')
     mkdirSync(root)
     git(root, 'init', '-b', 'main')

@@ -11,7 +11,7 @@ import Database from 'better-sqlite3'
 import type { Database as DatabaseHandle } from 'better-sqlite3'
 import { closeSync, fstatSync, openSync, readSync, readdirSync, statSync, unlinkSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { basename, join, resolve } from 'node:path'
+import { basename, join } from 'node:path'
 import type {
   SessionSearchAgent,
   SessionSearchHit,
@@ -269,7 +269,7 @@ export class SessionSearchIndex {
     const empty: SessionSearchResult = { hits: [], mode: 'none', indexedSessions: this.indexedSessions, indexing: this.indexing }
     if (parsed.terms.length === 0) return empty
 
-    const cwdPrefix = input.cwd ? resolve(input.cwd).replace(/\\/g, '/').toLowerCase() : null
+    const cwdPrefix = input.cwd ? input.cwd.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase() : null
     const select = this.db.prepare(
       `SELECT f.agent AS agent, f.session_id AS sessionId, f.title AS title, f.cwd AS cwd,
               f.updated_at AS updatedAt, f.messages AS messages,
