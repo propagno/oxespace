@@ -451,6 +451,10 @@ jobs:
       - name: Build native modules for Node
         run: npm run rebuild:native:node
 
+      # tests/live/oxequery-live.test.ts drives the real worker bundle.
+      - name: Build the main process and worker
+        run: npx electron-vite build
+
       - name: Pull the images the tests use
         run: |
           docker pull postgres:16-alpine
