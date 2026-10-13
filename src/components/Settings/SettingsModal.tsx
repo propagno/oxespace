@@ -1068,7 +1068,7 @@ function AgentHooksSetting(): ReactElement | null {
   useEffect(() => {
     let cancelled = false
     void Promise.resolve(window.oxe?.agentHooks?.status?.())
-      .then((next) => { if (!cancelled) setStatuses(next ?? null) })
+      .then((next) => { if (!cancelled) setStatuses(Array.isArray(next) ? next : null) })
       .catch(() => { if (!cancelled) setStatuses(null) })
     return () => { cancelled = true }
   }, [])
