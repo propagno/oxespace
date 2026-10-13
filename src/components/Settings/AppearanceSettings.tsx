@@ -11,9 +11,8 @@ const OPTIONS: Array<{ id: Appearance; label: string; hint: string; icon: typeof
 ]
 
 function Preview({ mode }: { mode: Appearance }): ReactElement {
-  const half = (tone: 'light' | 'dark') => <div className={`${styles.half} ${styles[tone]}`}><div className={styles.side} /><div className={styles.body}><span className={styles.line} /><span className={styles.line} /></div></div>
-  if (mode === 'system') return <div className={styles.preview} data-preview="system" aria-hidden="true">{half('light')}{half('dark')}</div>
-  return <div className={`${styles.preview} ${styles[mode]}`} aria-hidden="true"><div className={styles.side} /><div className={styles.body}><span className={styles.line} /><span className={styles.line} /></div></div>
+  const half = (tone: 'light' | 'dark') => <div className={styles.half} data-mode={tone}><div className={styles.side} /><div className={styles.body}><span className={styles.line} /><span className={styles.line} /></div></div>
+  return <div className={styles.preview} data-preview={mode} aria-hidden="true">{mode === 'system' ? <>{half('light')}{half('dark')}</> : half(mode)}</div>
 }
 
 /** Light, dark or system mode for the whole app. */

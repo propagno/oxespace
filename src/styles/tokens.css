@@ -3,8 +3,9 @@
    tokens.generated.css (light and dark mode). This file maps the names the
    existing CSS still uses onto those semantic roles, so every surface follows
    the active mode while it is migrated to src/ui. Do not add new names here;
-   use the semantic tokens (--surface-*, --text-*, --border-*, --intent-*). */
-:root {
+   use the semantic tokens (--surface-*, --text-*, --border-*, --intent-*).
+   Declared on [data-mode] too, so a subtree that forces a mode re-resolves them. */
+:root, [data-mode] {
   /* Backgrounds */
   --bg-app:             var(--surface-canvas);
   --bg-sidebar:         var(--surface-chrome);
@@ -156,7 +157,9 @@
   --fs-display: var(--text-display);
   --lh-base:   var(--leading-normal);
   --lh-tight:  var(--leading-snug);
+}
 
+:root {
   color: var(--text-primary);
   background: var(--surface-canvas);
   font-family: var(--font-ui);

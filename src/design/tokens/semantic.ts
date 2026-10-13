@@ -45,7 +45,10 @@ export function colorRoles(mode: Mode): ColorRoles {
     'text-muted': ink(light ? 0.5 : 0.72),
     'text-disabled': s(n, 8),
     'text-on-accent': light ? '#ffffff' : s(accent, 1),
-    'text-on-solid': '#ffffff',
+    // Labels on intent solids (danger, success, info buttons): white on light, ink on dark.
+    'text-on-solid': light ? '#ffffff' : s(n, 1),
+    // Initials on avatar and provider colors, which are the same in both modes.
+    'text-on-identity': '#ffffff',
     'text-accent': s(accent, 11),
     'text-link': s(p.info, 11),
     // Borders.

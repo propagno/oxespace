@@ -1,4 +1,5 @@
 import { Activity, Columns2, FilePlus2, FolderOpen, Github, Grid2x2, LayoutDashboard, ListTodo, Maximize, Mic, Palette, Plus, RotateCw, Search, Settings2, Sliders, Split, Square, StopCircle, Wrench } from 'lucide-react'
+import { Toaster, TooltipProvider } from './ui'
 import { Suspense, lazy, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import type { AgentProfile } from '../shared/types/agent'
@@ -968,6 +969,7 @@ export function App(): ReactElement {
 
   return (
     <ThemeProvider themeId={applicationView !== 'code' ? undefined : activeWorkspace?.themeId} density={applicationView !== 'code' ? undefined : activeWorkspace?.uiDensity}>
+      <TooltipProvider>
       <main className={`app-shell${applicationView === 'thread' ? ' thread-shell' : applicationView === 'data' ? ' oq-shell' : isSidebarCollapsed ? ' sidebar-collapsed' : ''}`} style={applicationView !== 'code' ? { '--thread-sidebar-width': `${isSidebarCollapsed ? 48 : codeSidebarWidth}px` } as CSSProperties : { '--sidebar-w': `${codeSidebarWidth}px` } as CSSProperties}>
       <header className="workbench-titlebar" aria-label="OXESpace workbench">
         <div className="workbench-titlebar-brand"><OxeLogo size={15} /><strong>OXESpace</strong>{!IS_MAC && <Suspense fallback={null}><AppMenuBar context={{ actions: commandActions, applicationView, setApplicationView: selectMode, openSettings: () => { if (!isSettingsOpen) toggleSettings() }, addThreadProject: () => setThreadProjectOpen(true), version: appVersion }} /></Suspense>}</div>
@@ -1304,6 +1306,8 @@ export function App(): ReactElement {
       </Suspense>
       </ErrorBoundary>
       </main>
+      <Toaster />
+      </TooltipProvider>
     </ThemeProvider>
   )
 }

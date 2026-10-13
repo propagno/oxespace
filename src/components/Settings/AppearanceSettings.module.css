@@ -25,28 +25,19 @@
 .label { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); font-weight: var(--weight-medium); }
 .hint { font-size: var(--text-xs); color: var(--text-muted); }
 
-/* A miniature window in each mode's own colors, independent of the active mode. */
+/* A miniature window rendered in each mode's own tokens (data-mode on the preview). */
 .preview {
   height: 64px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
   overflow: hidden;
   display: grid;
-  grid-template-columns: 28% 1fr;
+  grid-template-columns: 1fr;
 }
 .preview[data-preview='system'] { grid-template-columns: 1fr 1fr; }
-.half { display: grid; grid-template-columns: 34% 1fr; }
-.side { border-right: 1px solid rgb(0 0 0 / 0.08); }
+.half { display: grid; grid-template-columns: 30% 1fr; background: var(--surface-canvas); }
+.side { background: var(--surface-chrome); border-right: 1px solid var(--border-subtle); }
 .body { display: grid; align-content: end; gap: 4px; padding: 8px; }
-.line { height: 4px; border-radius: 2px; }
+.line { height: 4px; border-radius: 2px; background: var(--border-strong); }
+.line:first-child { background: var(--accent); }
 .line:last-child { width: 60%; }
-
-/* Fixed sample colors: these show the other mode, so they cannot follow the active tokens. */
-.light { background: #f6f8f7; }
-.light .side { background: #edf1ee; }
-.light .line { background: #bbc9bf; }
-.light .line:first-child { background: #006d42; }
-.dark { background: #0d100e; }
-.dark .side { background: #131714; border-right-color: rgb(255 255 255 / 0.06); }
-.dark .line { background: #3c4940; }
-.dark .line:first-child { background: #f5a939; }

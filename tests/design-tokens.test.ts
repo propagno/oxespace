@@ -53,6 +53,7 @@ describe('design tokens', () => {
       it('labels on solid fills and intent colors are AA', () => {
         expect(contrast(roles['text-on-accent'], roles.accent)).toBeGreaterThanOrEqual(4.5)
         expect(contrast(roles['text-on-accent'], roles['accent-hover'])).toBeGreaterThanOrEqual(4.5)
+        for (const solid of ['danger', 'success', 'info']) expect.soft(contrast(roles['text-on-solid'], roles[`intent-${solid}-solid`]), `label on ${solid} solid`).toBeGreaterThanOrEqual(4.5)
         for (const intent of ['success', 'warning', 'danger', 'info']) {
           expect.soft(contrast(roles[`intent-${intent}-fg`], roles[`intent-${intent}-bg`]), `${intent} text on its background`).toBeGreaterThanOrEqual(4.5)
           expect.soft(contrast(roles[`intent-${intent}-fg`], roles['surface-raised']), `${intent} text on a raised surface`).toBeGreaterThanOrEqual(4.5)

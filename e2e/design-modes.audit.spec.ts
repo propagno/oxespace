@@ -42,5 +42,16 @@ test('captures the main surfaces in light and dark mode', async () => {
       await page.keyboard.press('Escape')
       await page.waitForTimeout(200)
     }
+    // The design-system viewer renders both modes side by side.
+    await setMode(page, 'light')
+    await page.keyboard.press('Control+Shift+D')
+    await page.waitForTimeout(500)
+    for (const section of ['Components', 'Color', 'Brand']) {
+      const button = page.getByRole('button', { name: section, exact: true })
+      if (!(await button.count())) continue
+      await button.click()
+      await page.waitForTimeout(250)
+      await page.screenshot({ path: join(OUT, `design-system-${section.toLowerCase()}.png`) })
+    }
   } finally { await app.close() }
 })
