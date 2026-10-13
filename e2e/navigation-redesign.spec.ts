@@ -18,14 +18,19 @@ test('sidebar sessions and full-page settings preserve terminal DOM', async () =
     await page.getByTestId('wizard-launch-btn').click()
     await expect(page.getByTestId('terminal-pane')).toHaveCount(2)
     await expect(page.locator('.workbench-titlebar-context')).toContainText('Code')
-    const palette = await page.evaluate(() => ({
-      canvas: getComputedStyle(document.querySelector('.workspace-surface')!).backgroundColor,
-      sidebar: getComputedStyle(document.querySelector('.sidebar')!).backgroundColor,
-      titlebar: getComputedStyle(document.querySelector('.workbench-titlebar')!).backgroundColor
-    }))
-    expect(palette.canvas).toBe('rgb(33, 34, 44)')
-    expect(palette.sidebar).toBe('rgb(40, 42, 54)')
-    expect(palette.titlebar).toBe('rgb(40, 42, 54)')
+    // Surfaces follow the design tokens of the active mode (light or dark).
+    const palette = await page.evaluate(() => {
+      const token = (name: string) => { const el = document.createElement('span'); el.style.backgroundColor = `var(${name})`; document.body.append(el); const value = getComputedStyle(el).backgroundColor; el.remove(); return value }
+      return {
+        canvas: getComputedStyle(document.querySelector('.workspace-surface')!).backgroundColor,
+        sidebar: getComputedStyle(document.querySelector('.sidebar')!).backgroundColor,
+        titlebar: getComputedStyle(document.querySelector('.workbench-titlebar')!).backgroundColor,
+        expected: { canvas: token('--surface-canvas'), chrome: token('--surface-chrome') }
+      }
+    })
+    expect(palette.canvas).toBe(palette.expected.canvas)
+    expect(palette.sidebar).toBe(palette.expected.chrome)
+    expect(palette.titlebar).toBe(palette.expected.chrome)
     await expect(page.getByTestId('pane-session-row')).toHaveCount(2)
     await page.getByTestId('pane-session-row').last().click()
     await page.getByTestId('terminal-pane').first().evaluate(el => el.setAttribute('data-preserved', 'yes'))
@@ -36,7 +41,7 @@ test('sidebar sessions and full-page settings preserve terminal DOM', async () =
     await expect(page.getByRole('button', {name:/^General Navigation/})).toHaveAttribute('aria-current','page')
     await page.getByRole('button', {name:/^General Navigation/}).click()
     await expect(page.getByRole('heading', { name: 'General', exact: true })).toBeVisible()
-    await expect(page.locator('.settings-general-grid .settings-general-destination')).toHaveCount(5)
+    await expect(page.locator('.settings-general-grid .settings-general-destination')).toHaveCount(6)
     await page.locator('.settings-general-grid').getByRole('button', { name: /Terminal Font/ }).click()
     await expect(page.getByRole('heading', { name: 'Terminal', exact: true })).toBeVisible()
     await page.getByRole('button', {name:/^General Navigation/}).click()

@@ -65,7 +65,8 @@ test('workspace settings navigation and responsive visual review', async () => {
     await page.keyboard.press('Escape')
     await expect(modal).not.toBeVisible()
     await page.setViewportSize({ width: 1360, height: 900 })
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'nord')
+    // A saved workspace theme no longer recolors the app; the mode stays light or dark.
+    await expect(page.locator('html')).toHaveAttribute('data-mode', /^(light|dark)$/)
     await page.screenshot({ path: info.outputPath('1360-Code-Nord.png') })
     await page.setViewportSize({ width: 600, height: 600 })
     expect(await page.locator('body').evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
@@ -87,7 +88,7 @@ test('workspace settings navigation and responsive visual review', async () => {
     await modal.getByRole('radio', { name: 'Dracula' }).click()
     await modal.getByRole('button', { name: 'Save workspace settings' }).click()
     await page.keyboard.press('Escape')
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dracula')
+    await expect(page.locator('html')).toHaveAttribute('data-mode', /^(light|dark)$/)
     await page.screenshot({ path: info.outputPath('1360-Code-Dracula.png') })
   } finally { await app.close() }
 })

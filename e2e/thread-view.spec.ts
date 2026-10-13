@@ -378,7 +378,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     expect(readyIcon.color).toBe(await page.evaluate(() => { const el = document.createElement('span'); el.style.color = 'var(--dot-blue)'; document.body.append(el); const color = getComputedStyle(el).color; el.remove(); return color }))
     await expect(projectTree.locator('.thread-project-children')).toHaveCSS('border-left-style', 'solid')
     await page.screenshot({ path: 'test-results/thread-project-hierarchy.png' })
-    await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe('midnight')
+    // Color comes from light or dark mode; workspace palettes no longer apply.
+    await expect.poll(() => page.evaluate(() => document.documentElement.dataset.mode)).toMatch(/^(light|dark)$/)
     await page.getByRole('button', { name: 'Thread text size' }).click()
     await expect(page.locator('output[aria-label="Thread text size"]')).toHaveText('14px')
     await page.getByRole('button', { name: 'Increase thread text size' }).click()
