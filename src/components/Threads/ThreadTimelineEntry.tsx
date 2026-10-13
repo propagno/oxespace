@@ -32,7 +32,7 @@ async function undoTurnChanges(threadId: string, turnId: string): Promise<void> 
 }
 
 /** One virtual row of the conversation, plus the turn's changes and timing after its last row. */
-export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending, pendingRequests, lastResult, lastMessageId, quickReplies, copiedMessageId, action, runCommand, onCopy, onQuickReply, onQuote, onAccounts, onPermissions }: {
+export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending, pendingRequests, lastResult, lastMessageId, quickReplies, copiedMessageId, action, runCommand, onCopy, onQuickReply, onQuote, onDraft, onAccounts, onPermissions }: {
   row: ThreadTimelineItem
   snapshot: ThreadSnapshot | null
   viewMode: ThreadViewMode
@@ -48,6 +48,8 @@ export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending,
   onCopy: (id: string, text: string) => void
   onQuickReply: (value: string) => void
   onQuote: (text: string) => void
+  /** Appends text to the composer, e.g. a review comment for the agent. */
+  onDraft: (text: string) => void
   onAccounts?: () => void
   onPermissions: () => void
 }) {
@@ -81,7 +83,10 @@ export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending,
   })()
   const finished = lastInTurn && turnEvents.some(value => value.type === 'completed')
   return <section className={`thread-turn thread-virtual-turn${firstInTurn ? ' is-turn-start' : ''}${lastInTurn ? ' is-turn-end' : ''}`} data-turn-id={turnId}>{body}
-    {finished && <ThreadTurnChanges events={turnEvents} root={snapshot?.thread.rootPath ?? ''} onOpen={openFile} onViewChanges={() => { if (snapshot) useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'changes' }) }} onUndo={snapshot && !running && turnId ? () => undoTurnChanges(snapshot.thread.id, turnId) : undefined} loadFileStates={snapshot && turnId && api?.turnFiles ? () => api.turnFiles!(snapshot.thread.id, turnId) : undefined} onUndoFile={snapshot && !running && turnId && api?.undoTurnFile ? async path => { await api.undoTurnFile!(snapshot.thread.id, turnId, path); await useThreadStore.getState().refresh(snapshot.thread.id) } : undefined} />}
+    {finished && <ThreadTurnChanges events={turnEvents} root={snapshot?.thread.rootPath ?? ''} onOpen={openFile} onViewChanges={() => { if (snapshot) useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'changes' }) }} onUndo={snapshot && !running && turnId ? () => undoTurnChanges(snapshot.thread.id, turnId) : undefined} loadFileStates={snapshot && turnId && api?.turnFiles ? () => api.turnFiles!(snapshot.thread.id, turnId) : undefined} onUndoFile={snapshot && !running && turnId && api?.undoTurnFile ? async path => { await api.undoTurnFile!(snapshot.thread.id, turnId, path); await useThreadStore.getState().refresh(snapshot.thread.id) } : undefined}
+      loadHunks={snapshot && turnId && api?.turnFileHunks ? path => api.turnFileHunks!(snapshot.thread.id, turnId, path) : undefined}
+      onUndoHunk={snapshot && !running && turnId && api?.undoTurnHunk ? async (path, hunkId) => { await api.undoTurnHunk!(snapshot.thread.id, turnId, path, hunkId); await useThreadStore.getState().refresh(snapshot.thread.id) } : undefined}
+      onComment={onDraft} />}
     {finished && <ThreadTurnTiming turn={snapshot?.turns?.find(value => value.id === turnId)} events={turnEvents} />}
   </section>
 }

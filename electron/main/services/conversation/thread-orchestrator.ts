@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../../db'
-import type { AgentConversationAdapter, ConversationThread, ThreadAgentInput, ThreadCommandCatalog, ThreadEvent, ThreadSnapshot, ThreadRequest, ThreadRequestResponse, ThreadQueuedInput, ThreadContextReport, ThreadRewindResult, ThreadAuditEntry, ThreadPermissionRule } from '../../../../shared/types/thread'
+import type { AgentConversationAdapter, ConversationThread, ThreadAgentInput, ThreadCommandCatalog, ThreadEvent, ThreadSnapshot, ThreadRequest, ThreadRequestResponse, ThreadQueuedInput, ThreadContextReport, ThreadRewindResult, ThreadAuditEntry, ThreadFileHunk, ThreadPermissionRule } from '../../../../shared/types/thread'
 import type { ThreadNativeCli } from './thread-cli'
 import type { ThreadModelCatalog, ThreadConfiguration, ThreadCommandResult } from '../../../../shared/types/thread'
 import type { ThreadModelService } from './thread-models'
@@ -490,6 +490,24 @@ export class ThreadOrchestrator {
     if (!checkpoint) throw Error('No checkpoint exists for this turn')
     await this.checkpoints.restoreFile(id, checkpoint.id, path)
     this.audit(id, { action: 'undo-file', actor: 'user', summary: `Undid ${path}` })
+    this.changed(id)
+  }
+
+  /** The change blocks one turn made to a file, for keep/undo review. */
+  async turnFileHunks(id: string, turnId: string, path: string): Promise<ThreadFileHunk[]> {
+    this.read(id)
+    const checkpoint = this.checkpoints.forTurn(id, turnId)
+    return checkpoint ? this.checkpoints.fileHunks(id, checkpoint.id, path) : []
+  }
+
+  /** Undoes one change block of a finished turn. Refused while a turn or configuration owns the conversation. */
+  async undoTurnHunk(id: string, turnId: string, path: string, hunkId: string): Promise<void> {
+    this.read(id)
+    if (this.busy.has(id) || this.configuring.has(id) || this.finalizing.has(id)) throw Error('Finish the active operation before undoing changes')
+    const checkpoint = this.checkpoints.forTurn(id, turnId)
+    if (!checkpoint) throw Error('No checkpoint exists for this turn')
+    await this.checkpoints.restoreHunk(id, checkpoint.id, path, hunkId)
+    this.audit(id, { action: 'undo-file', actor: 'user', summary: `Undid one change in ${path}` })
     this.changed(id)
   }
 

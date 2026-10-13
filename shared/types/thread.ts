@@ -1,3 +1,4 @@
+import type { LineHunk } from '../lineDiff'
 /** Conversation identity is distinct from native session, memory run and pane IDs. */
 export type ThreadProvider = 'claude' | 'codex'
 export type ThreadStatus = 'idle' | 'running' | 'approval' | 'interrupted' | 'failed'
@@ -152,6 +153,8 @@ export interface ThreadRequest {
   /** What OXESpace's permission rules say about this approval. */
   policy?: ThreadRequestPolicy
 }
+/** One change block of a turn's file, undoable on its own; `id` pins the exact change. */
+export interface ThreadFileHunk extends LineHunk { id: string }
 /** A rule OXESpace answers approval prompts with; `projectRoot` null means every project. */
 export interface ThreadPermissionRule {
   id: string
@@ -464,6 +467,8 @@ export interface ThreadApi {
   stopTask?(id: string, taskId: string): Promise<void>
   turnFiles?(id: string, turnId: string): Promise<ThreadTurnFileStatus[]>
   undoTurnFile?(id: string, turnId: string, path: string): Promise<void>
+  turnFileHunks?(id: string, turnId: string, path: string): Promise<ThreadFileHunk[]>
+  undoTurnHunk?(id: string, turnId: string, path: string, hunkId: string): Promise<void>
   permissionRules?(id: string): Promise<ThreadPermissionRule[]>
   addPermissionRule?(id: string, rule: { kind: ThreadPermissionRule['kind']; pattern: string; decision: ThreadPermissionRule['decision']; scope: 'project' | 'global' }): Promise<ThreadPermissionRule>
   removePermissionRule?(id: string, ruleId: string): Promise<void>

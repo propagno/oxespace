@@ -1,10 +1,11 @@
 import { FileCode2, ChevronDown, ChevronRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { parseThreadPatch } from '../../../shared/threadPatch'
-import type { ThreadArtifact, ThreadTurnFileStatus } from '../../../shared/types/thread'
+import type { ThreadArtifact, ThreadFileHunk, ThreadTurnFileStatus } from '../../../shared/types/thread'
 import { ThreadPatch } from './ThreadPatch'
 import type { ThreadEvent } from '../../../shared/types/thread'
 import { changeSummary, threadChanges, turnChanges, threadFileLabel, type ThreadChangeEntry } from './threadChanges'
+import { ThreadHunkReview } from './ThreadHunkReview'
 
 export function ThreadFileActivity({ event, root, threadId, onOpen }: { event: Extract<ThreadEvent, { type: 'tool' }>; root: string; threadId: string; onOpen(entry: ThreadChangeEntry): void }) {
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -39,13 +40,14 @@ const relativeKey = (path: string, root: string): string => {
   return /^[a-z]:\//i.test(root.replace(/\\/g, '/')) ? label.toLowerCase() : label
 }
 
-export function ThreadTurnChanges({ events, root, onOpen, onViewChanges, onUndo, loadFileStates, onUndoFile }: { events: ThreadEvent[]; root: string; onOpen(entry: ThreadChangeEntry): void; onViewChanges?(): void; onUndo?(): Promise<void>; loadFileStates?(): Promise<ThreadTurnFileStatus[]>; onUndoFile?(path: string): Promise<void> }) {
+export function ThreadTurnChanges({ events, root, onOpen, onViewChanges, onUndo, loadFileStates, onUndoFile, loadHunks, onUndoHunk, onComment }: { events: ThreadEvent[]; root: string; onOpen(entry: ThreadChangeEntry): void; onViewChanges?(): void; onUndo?(): Promise<void>; loadFileStates?(): Promise<ThreadTurnFileStatus[]>; onUndoFile?(path: string): Promise<void>; loadHunks?(path: string): Promise<ThreadFileHunk[]>; onUndoHunk?(path: string, hunkId: string): Promise<void>; onComment?(text: string): void }) {
   const [showAll, setShowAll] = useState(false)
   const [undo, setUndo] = useState<'idle' | 'confirm' | 'working'>('idle')
   const [undoError, setUndoError] = useState('')
   // Per-file standing of this turn's checkpoint, keyed by repository-relative path.
   const [fileStates, setFileStates] = useState<Record<string, ThreadTurnFileStatus>>({})
   const [undoingFile, setUndoingFile] = useState<string | null>(null)
+  const [reviewing, setReviewing] = useState<string | null>(null)
   const refreshStates = (): void => {
     if (!loadFileStates) return
     void loadFileStates().then(states => setFileStates(Object.fromEntries(states.map(state => [relativeKey(state.path, root), state]))), () => setFileStates({}))
@@ -82,6 +84,9 @@ export function ThreadTurnChanges({ events, root, onOpen, onViewChanges, onUndo,
           setUndoError(''); setUndoingFile(status.path)
           void onUndoFile(status.path).then(refreshStates, cause => setUndoError(cause instanceof Error ? cause.message : 'Could not undo this file.')).finally(() => setUndoingFile(null))
         }}>{undoingFile === status.path ? 'Undoing…' : 'Undo file'}</button>}
+        {status?.state === 'pending' && loadHunks && onUndoHunk && <button type="button" className="thread-change-view" aria-expanded={reviewing === status.path} aria-label={`Review changes in ${threadFileLabel(entry.file.path, root)}`} onClick={() => setReviewing(reviewing === status.path ? null : status.path)}>{reviewing === status.path ? 'Close review' : 'Review'}</button>}
+        {reviewing === status?.path && loadHunks && onUndoHunk && <ThreadHunkReview path={status.path} disabled={undoingFile !== null || undo === 'working'} loadHunks={() => loadHunks(status.path)}
+          onUndoHunk={async hunkId => { await onUndoHunk(status.path, hunkId); refreshStates() }} onComment={text => onComment?.(text)} />}
       </div>
     })}</div>
     {files.length > CHANGE_PREVIEW_FILES && <button type="button" className="thread-change-more" aria-expanded={showAll} onClick={() => setShowAll(value => !value)}>{showAll ? 'Show less' : `Show ${files.length - CHANGE_PREVIEW_FILES} more`}<ChevronDown size={13} aria-hidden="true" /></button>}

@@ -192,6 +192,8 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings): { st
   ipcMain.handle(IPC_CHANNELS.thread.send, (event, id: unknown, text: unknown, attachmentIds: unknown) => { sender(event); return manager.then(service => service.send(string(id), string(text), stringList(attachmentIds, 8))) })
   ipcMain.handle(IPC_CHANNELS.thread.turnFiles, (event, id: unknown, turnId: unknown) => { sender(event); return manager.then(service => service.turnFiles(string(id), string(turnId))) })
   ipcMain.handle(IPC_CHANNELS.thread.undoTurnFile, (event, id: unknown, turnId: unknown, path: unknown) => { sender(event); return manager.then(service => service.undoTurnFile(string(id), string(turnId), string(path))) })
+  ipcMain.handle(IPC_CHANNELS.thread.turnFileHunks, (event, id: unknown, turnId: unknown, path: unknown) => { sender(event); return manager.then(service => service.turnFileHunks(string(id), string(turnId), string(path))) })
+  ipcMain.handle(IPC_CHANNELS.thread.undoTurnHunk, (event, id: unknown, turnId: unknown, path: unknown, hunkId: unknown) => { sender(event); return manager.then(service => service.undoTurnHunk(string(id), string(turnId), string(path), string(hunkId))) })
   ipcMain.handle(IPC_CHANNELS.thread.permissionRules, (event, id: unknown) => { sender(event); return manager.then(service => service.permissionRules(string(id))) })
   ipcMain.handle(IPC_CHANNELS.thread.addPermissionRule, (event, id: unknown, rule: unknown) => {
     sender(event)

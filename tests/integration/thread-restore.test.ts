@@ -114,3 +114,40 @@ describe('Thread file checkpoints', () => {
     await expect(service.restore('another-thread', checkpoint)).rejects.toThrow('does not belong')
   }, 15000)
 })
+
+describe('Thread per-change undo', () => {
+  const base = 'one\r\ntwo\r\nthree\r\nfour\r\nfive\r\nsix\r\n'
+  async function turn() {
+    const f = fixture()
+    writeFileSync(join(f.root, 'tracked.txt'), base)
+    execFileSync('git', ['commit', '-am', 'crlf'], { cwd: f.root, stdio: 'pipe' })
+    const checkpoint = await f.service.begin({ threadId: 'thread', turnId: 'turn-1', rootPath: f.root })
+    writeFileSync(join(f.root, 'tracked.txt'), 'one\r\nTWO\r\nthree\r\nfour\r\nFIVE\r\nsix\r\nseven\r\n')
+    await f.service.finalize(checkpoint)
+    return { ...f, checkpoint }
+  }
+
+  it('lists change blocks, undoes one byte-exactly, and keeps file and turn undo working afterwards', { timeout: 30_000 }, async () => {
+    const { root, service, checkpoint } = await turn()
+    const hunks = await service.fileHunks('thread', checkpoint, 'tracked.txt')
+    expect(hunks.map(hunk => [hunk.oldLines, hunk.newLines])).toEqual([[['two\r'], ['TWO\r']], [['five\r'], ['FIVE\r']], [[], ['seven\r']]])
+    await service.restoreHunk('thread', checkpoint, 'tracked.txt', hunks[1].id)
+    expect(readFileSync(join(root, 'tracked.txt'), 'utf8')).toBe('one\r\nTWO\r\nthree\r\nfour\r\nfive\r\nsix\r\nseven\r\n')
+    expect((await service.fileStates('thread', checkpoint))[0].state).toBe('pending')
+    expect((await service.fileHunks('thread', checkpoint, 'tracked.txt')).length).toBe(2)
+    // The same block cannot be undone twice.
+    await expect(service.restoreHunk('thread', checkpoint, 'tracked.txt', hunks[1].id)).rejects.toThrow('no longer in the file')
+    await service.restore('thread', checkpoint)
+    expect(readFileSync(join(root, 'tracked.txt'), 'utf8')).toBe(base)
+  })
+
+  it('refuses block review for a file edited after the turn and lists none for a new file', { timeout: 30_000 }, async () => {
+    const { root, service, checkpoint } = await turn()
+    writeFileSync(join(root, 'tracked.txt'), 'user rewrite\n')
+    await expect(service.fileHunks('thread', checkpoint, 'tracked.txt')).rejects.toThrow('changed after this turn')
+    const second = await service.begin({ threadId: 'thread', turnId: 'turn-2', rootPath: root })
+    writeFileSync(join(root, 'created.txt'), 'new\n')
+    await service.finalize(second)
+    expect(await service.fileHunks('thread', second, 'created.txt')).toEqual([])
+  })
+})

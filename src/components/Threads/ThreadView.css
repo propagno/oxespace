@@ -735,3 +735,16 @@
 .thread-rewind-confirm p { margin: 0; }
 .thread-rewind-confirm span { display: flex; gap: 6px; }
 .thread-rewind-confirm button { padding: 3px 8px; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); color: var(--tx-primary); background: transparent; font: inherit; }
+.thread-change-summary .thread-change-file:has(.thread-hunk-review) { flex-wrap: wrap; }
+.thread-hunk-review { display: grid; gap: 8px; margin: 6px 0 4px; flex: 1 0 100%; min-width: 0; }
+.thread-hunk-note { margin: 4px 0; color: var(--tx-secondary); font-size: var(--fs-xs); }
+.thread-hunk { border: 1px solid var(--bd-base); border-radius: 6px; overflow: hidden; }
+.thread-hunk header { display: flex; align-items: center; gap: 6px; padding: 4px 8px; color: var(--tx-secondary); font-size: var(--fs-xs); }
+.thread-hunk header span { flex: 1; }
+.thread-hunk pre { margin: 0; padding: 6px 8px; max-height: 320px; overflow: auto; font-size: var(--fs-xs); line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.thread-hunk pre .is-added { color: var(--dot-green, inherit); }
+.thread-hunk pre .is-removed { color: var(--dot-red); }
+.thread-hunk-more { color: var(--tx-secondary); }
+.thread-hunk-comment { display: grid; gap: 6px; padding: 6px 8px 8px; }
+.thread-hunk-comment textarea { min-height: 56px; resize: vertical; font: inherit; }
+.thread-hunk-comment button { justify-self: end; }
