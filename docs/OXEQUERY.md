@@ -104,6 +104,38 @@ SqlWorkbench / MongoWorkbench        ConnectionStore          mongodb + bson
   all-or-nothing; unreadable rows are skipped and written to
   `<file>.rejects.ndjson`. MongoDB uses `insertMany` with `ordered: false`, so
   documents that clash are reported and the rest are inserted.
+## Agents (MCP)
+
+AI agents running in a Thread reach OxeQuery through ten tools. **Nothing is available
+until a person sets *Agent access* on a connection** (Connection → Limits and agents).
+
+| Access | What an agent may do |
+|---|---|
+| `off` (default) | Nothing; the connection is not even described. |
+| `read` | Describe schemas freely. Read data only with your approval of the exact request. |
+| `write` | Also change data, each statement approved. Never on a `prod` connection, never on a read-only connection. |
+
+- **Approval.** A native dialog shows the connection, its environment and the exact
+  statement; the default button is *Deny*. A grant is single use, expires in five
+  minutes and is bound to the execution, the connection, the tool and the SHA-256 of
+  the text: change one character and you are asked again. If you have not answered
+  yet, the tool returns *approval pending*; the agent asks you and calls again with
+  identical arguments. *Allow reads on this connection for this run* exists for reads
+  only. A request longer than 6 000 characters is refused rather than shortened.
+- **Reads** run in a `READ ONLY` transaction chosen by the server, one statement
+  at a time per connection, with a 20 s limit; the driver's connection is never
+  switched to read-write by an agent.
+- **Output** is limited (50 rows by default, 200 max, 16 KB, 512 characters per cell),
+  values of columns/keys that look sensitive (`password`, `token`, `secret`, `api_key`,
+  `ssn`, `card`…) are replaced by `«masked»`, and every result says it is untrusted
+  data and that instructions inside it must not be followed.
+- **Limits.** 30 calls per minute per execution.
+- **Audit.** The *Activity* tab lists every request: who, which connection, the
+  statement with string literals removed, the decision and the outcome. The table is
+  append-only and entries are kept 90 days.
+- **Providers.** Claude with `bypassPermissions` and Codex with `approvalPolicy: never`
+  do not ask for these tools; the dialog above is what protects you. Read-only Threads
+  are not given the tools at all.
 ## Limits (by design, for now)
 
 - Import does not infer or convert types for CSV into MongoDB (values stay text), and a

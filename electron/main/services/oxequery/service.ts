@@ -12,6 +12,9 @@ import { guardSql } from './sql-guard'
 import type { OxeQueryWorkerClient } from './worker-client'
 import { PickedFiles, type PickedKind } from './picked-files'
 import { LibraryInputError, QueryLibrary } from './query-library'
+import { AgentGateway } from './agent-gateway'
+import { ApprovalBroker, type ApprovalPrompter } from './approval-broker'
+import { AuditLog } from './audit-log'
 
 type Raw = Record<string, unknown>
 const ACTIONS = new Set(['start', 'stop', 'restart', 'pause', 'unpause'])
@@ -62,6 +65,8 @@ export interface OxeQueryServiceOptions {
   pickSavePath?: (suggestedName: string, format: 'csv' | 'json' | 'ndjson' | 'sql') => Promise<string | null>
   /** Native open dialog for an import file. */
   pickImportPath?: () => Promise<string | null>
+  /** How a person is asked to approve an agent's request. Without one, every approval is denied. */
+  approvalPrompter?: ApprovalPrompter
 }
 
 /** Validates every operation, resolves secrets, and routes to containers or the database worker. */
@@ -72,6 +77,10 @@ export class OxeQueryService {
   private readonly shells = new Map<string, { file: string; args: string[] }>()
   private readonly picked = new PickedFiles()
   private readonly library: QueryLibrary
+  private readonly auditLog: AuditLog
+  /** What the internal MCP tools call; policy and approval live inside it. */
+  readonly agent: AgentGateway
+  readonly approvals: ApprovalBroker
   private readonly pickFile?: OxeQueryServiceOptions['pickFile']
   private readonly pickSavePath?: OxeQueryServiceOptions['pickSavePath']
   private readonly pickImportPath?: OxeQueryServiceOptions['pickImportPath']
@@ -88,6 +97,21 @@ export class OxeQueryService {
     this.emit = options.emit
     this.containers = options.runtime ?? new ContainerRuntime({ host: options.host, emit: options.emit, preferred: options.preferredEngine })
     this.worker = options.worker
+    this.auditLog = new AuditLog(options.db)
+    this.auditLog.prune()
+    this.approvals = new ApprovalBroker(options.approvalPrompter)
+    this.agent = new AgentGateway({
+      list: () => this.connections.list(),
+      resolve: id => this.connections.resolve(id),
+      call: (op, connection, input) => this.worker.call(op, connection, input),
+      containers: {
+        list: () => this.containers.list(),
+        logsTail: (id, tail) => this.containers.logsTail(id, tail),
+        action: (id, action) => this.containers.action(id, action)
+      },
+      broker: this.approvals,
+      audit: this.auditLog
+    })
   }
 
   /** Lookup for the terminal service; the renderer can only ask to open a pane it was handed. */
@@ -193,6 +217,7 @@ export class OxeQueryService {
           throw error
         }
       })
+      case 'audit.list': return this.auditLog.list({ ...(typeof input.connectionId === 'string' ? { connectionId: input.connectionId.slice(0, 64) } : {}), limit: optionalInt(input.limit, 1, 500) })
       case 'library.list': return this.library.list(this.resolve(input.connectionId).id)
       case 'library.save': return this.library.save({
         connectionId: this.resolve(input.connectionId).id, name: str(input.name, 'Name', 120), sql: str(input.sql, 'SQL', 100_000),

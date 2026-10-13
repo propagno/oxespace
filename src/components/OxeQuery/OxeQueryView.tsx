@@ -1,6 +1,7 @@
 import { useEffect, type ReactElement } from 'react'
 import { X } from 'lucide-react'
 import { ConnectionDialog } from './ConnectionDialog'
+import { ActivityPanel } from './ActivityPanel'
 import { ContainersPanel } from './ContainersPanel'
 import { MongoWorkbench } from './MongoWorkbench'
 import { SqlWorkbench } from './SqlWorkbench'
@@ -21,13 +22,14 @@ export function OxeQueryView({ active }: { active: boolean }): ReactElement {
     <div className="oq-tabs" role="tablist" aria-label="Open views">
       {tabs.map(tab => <span key={tab.id} className="oq-tab" data-active={tab.id === activeTab}>
         <button type="button" role="tab" aria-selected={tab.id === activeTab} onClick={() => setActiveTab(tab.id)}>{tab.title}</button>
-        {tab.id !== 'containers' && <button type="button" aria-label={`Close ${tab.title}`} className="oq-tab-close" onClick={() => closeTab(tab.id)}><X size={12} aria-hidden="true" /></button>}
+        {tab.kind === 'connection' && <button type="button" aria-label={`Close ${tab.title}`} className="oq-tab-close" onClick={() => closeTab(tab.id)}><X size={12} aria-hidden="true" /></button>}
       </span>)}
     </div>
     <div className="oq-panels">
       {tabs.map(tab => {
         const visible = tab.id === activeTab
         if (tab.kind === 'containers') return <div key={tab.id} className="oq-panel" hidden={!visible} role="tabpanel"><ContainersPanel active={active && visible} /></div>
+        if (tab.kind === 'activity') return <div key={tab.id} className="oq-panel" hidden={!visible} role="tabpanel"><ActivityPanel active={active && visible} /></div>
         const connection = connections.find(item => item.id === tab.connectionId)
         return <div key={tab.id} className="oq-panel" hidden={!visible} role="tabpanel">
           {!connection ? <div className="oq-empty"><p>This connection no longer exists.</p></div>

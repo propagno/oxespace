@@ -302,6 +302,12 @@ test('OxeQuery stages a row edit, shows the SQL, applies it, exports a table and
     await page.keyboard.press('Escape')
     await page.getByRole('button', { name: 'Library' }).click()
 
+    // What agents asked for is listed in the Activity tab.
+    await page.getByRole('tab', { name: 'Activity' }).click()
+    await expect(page.getByRole('region', { name: 'Agent activity' })).toContainText('thread:abc')
+    await expect(page.getByRole('region', { name: 'Agent activity' })).toContainText('db_query')
+    await page.getByRole('tab', { name: 'pg-dev' }).click()
+
     // The execution plan is shown as a tree and marks the heavy step.
     await page.locator('.oq-editor .monaco-editor').click()
     await page.keyboard.press('Control+A')

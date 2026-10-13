@@ -264,6 +264,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   registerBackgroundIpc(backgroundManager)
   registerSessionIpc(db)
   // OxeQuery: container runtime + database worker. Loaded lazily so its code stays out of the entry chunk.
+  let oxeQueryAgent: import('./services/oxequery/agent-gateway').AgentGateway | undefined
   try {
     const [{ OxeQueryService }, { OxeQueryWorkerClient }, { registerOxeQueryIpc, broadcastOxeQueryEvent }, { LocalExecutionHost }] = await Promise.all([
       import('./services/oxequery/service'), import('./services/oxequery/worker-client'), import('./ipc/oxequery.ipc'), import('./runtime/execution-host')
@@ -274,8 +275,10 @@ async function registerIpcHandlers(): Promise<() => void> {
       worker: new OxeQueryWorkerClient(join(app.getAppPath(), 'out', 'main', 'oxequery-worker.js')),
       pickFile: (await import('./services/oxequery/file-picker')).pickCredentialFile,
       pickSavePath: (await import('./services/oxequery/file-picker')).pickExportPath,
-      pickImportPath: (await import('./services/oxequery/file-picker')).pickImportPath
+      pickImportPath: (await import('./services/oxequery/file-picker')).pickImportPath,
+      approvalPrompter: (await import('./services/oxequery/approval-prompter')).nativeApprovalPrompter
     })
+    oxeQueryAgent = oxeQuery.agent
     oxeQueryShells.shellFor = paneId => oxeQuery.shellFor(paneId)
     registerOxeQueryIpc(oxeQuery)
     app.once('before-quit', () => { void oxeQuery.dispose() })
@@ -405,6 +408,7 @@ async function registerIpcHandlers(): Promise<() => void> {
       catch (e) { return { agentProfileId: p.agentProfileId, name: p.name, supported: false, reason: String(e) } }
     }),
     memory: memoryService,
+    oxeQuery: () => oxeQueryAgent,
     db,
     mcpManager,
     workspaceServ: internalMcpWorkspaceServ,

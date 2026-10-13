@@ -85,6 +85,7 @@ export function registerOxeQueryMock(): void {
       case 'import.cancel': return ok({ cancelled: false })
       case 'sql.explain': return ok({ analyze: Boolean((input as { analyze?: boolean }).analyze), nodeCount: 2, hints: [], planningMs: 0.2, executionMs: 1.4,
         plan: { nodeType: 'Sort', startupCost: 1, totalCost: 9, planRows: 3, selfCostShare: 0.1, children: [{ nodeType: 'Seq Scan', relation: 'public.users', startupCost: 0, totalCost: 8, planRows: 3, selfCostShare: 0.9, children: [] }] } })
+      case 'audit.list': return ok([{ id: 1, ts: Date.now(), actor: 'thread:abc', connectionId: 'c1', connectionName: 'pg-dev', engine: 'postgres', environment: 'dev', tool: 'oxespace_db_query', textHash: 'h', text: "SELECT * FROM users WHERE email = '?'", decision: 'approved', outcome: 'ok', rows: 3, durationMs: 5, errorCode: null }])
       case 'library.list': return ok({ saved: [{ id: 's1', connectionId: String(input.connectionId), name: 'Active users', sql: 'SELECT * FROM users', createdAt: 1, updatedAt: 1 }], history: [{ id: 1, sql: 'SELECT now()', ranAt: Date.now(), durationMs: 3, rows: 1, ok: true }] })
       case 'library.save': return ok({ id: 's2', connectionId: String(input.connectionId), name: String(input.name), sql: String(input.sql), createdAt: 1, updatedAt: 1 })
       case 'library.delete': return ok({ deleted: true })

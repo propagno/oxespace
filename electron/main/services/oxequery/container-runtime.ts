@@ -204,6 +204,16 @@ export class ContainerRuntime {
     return { file: this.binaries.get(resolved) ?? resolved, args: ['exec', '-it', assertContainerId(id), shell], engine: resolved }
   }
 
+  /** The last lines of a container's log, once (for an agent); streaming is `logsStart`. */
+  async logsTail(id: string, tail = 100, engine?: ContainerEngine): Promise<string> {
+    const resolved = await this.resolve(engine)
+    const lines = Math.max(1, Math.min(Math.trunc(tail), 500))
+    const result = await this.run(resolved, ['logs', '--timestamps', '--tail', String(lines), assertContainerId(id)], 15_000, 256 * 1024)
+    if (result.code !== 0) throw explainEngineError(resolved, result.stderr)
+    // `docker logs` sends the container's stderr to its own stderr.
+    return `${result.stdout}${result.stdout && result.stderr ? '\n' : ''}${result.stderr}`
+  }
+
   async logsStart(id: string, tail = 200, engine?: ContainerEngine): Promise<string> {
     if (this.streams.size >= LOG_MAX_STREAMS) throw new ContainerRuntimeError('failed', 'Too many log streams are open. Close one first.')
     const resolved = await this.resolve(engine)

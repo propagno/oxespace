@@ -65,3 +65,18 @@ describe('query library', () => {
     expect((db.prepare('SELECT count(*) AS n FROM oxequery_saved_queries').get() as { n: number }).n).toBe(0)
   })
 })
+
+describe('audit log', () => {
+  it('is append-only and prunes only old rows', async () => {
+    const { AuditLog } = await import('../../electron/main/services/oxequery/audit-log')
+    const db = openInMemoryDatabase(); databases.push(db)
+    let clock = 1_700_000_000_000
+    const log = new AuditLog(db, () => clock)
+    log.record({ actor: 'thread:1', tool: 'oxespace_db_query', decision: 'approved', outcome: 'ok', text: 'SELECT 1' })
+    expect(() => db.prepare("UPDATE oxequery_audit SET decision = 'denied'").run()).toThrow(/append-only/)
+    clock += 91 * 86_400_000
+    log.record({ actor: 'thread:1', tool: 'oxespace_db_query', decision: 'approved', outcome: 'ok' })
+    expect(log.prune()).toBe(1)
+    expect(log.list()).toHaveLength(1)
+  })
+})

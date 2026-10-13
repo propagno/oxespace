@@ -4,6 +4,7 @@ import { errorMessage, oq } from './client'
 
 export type OxeQueryTab =
   | { id: 'containers'; kind: 'containers'; title: string }
+  | { id: 'activity'; kind: 'activity'; title: string }
   | { id: string; kind: 'connection'; title: string; connectionId: string }
 
 interface OxeQueryState {
@@ -31,11 +32,12 @@ interface OxeQueryState {
 }
 
 const CONTAINERS: OxeQueryTab = { id: 'containers', kind: 'containers', title: 'Containers' }
+const ACTIVITY: OxeQueryTab = { id: 'activity', kind: 'activity', title: 'Activity' }
 let containerRequest = 0
 
 export const useOxeQueryStore = create<OxeQueryState>((set, get) => ({
   engines: [], containers: [], containersError: null, containersLoading: false, connections: [], connectionsError: null,
-  tabs: [CONTAINERS], activeTab: 'containers', selectedContainer: null, dialog: { open: false, editing: null },
+  tabs: [CONTAINERS, ACTIVITY], activeTab: 'containers', selectedContainer: null, dialog: { open: false, editing: null },
 
   refreshContainers: async engine => {
     const request = ++containerRequest
@@ -64,7 +66,7 @@ export const useOxeQueryStore = create<OxeQueryState>((set, get) => ({
   }),
 
   closeTab: id => set(state => {
-    if (id === 'containers') return state
+    if (id === 'containers' || id === 'activity') return state
     const tabs = state.tabs.filter(tab => tab.id !== id)
     return { tabs, activeTab: state.activeTab === id ? 'containers' : state.activeTab }
   }),

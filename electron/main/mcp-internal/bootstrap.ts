@@ -57,6 +57,7 @@ export interface InternalMcpDeps {
   executions?: import('../services/execution-registry').ExecutionRegistry
   delegationAgents?: () => unknown
   memory?: import('../services/memory/memory.service').MemoryService
+  oxeQuery?: () => import('../services/oxequery/agent-gateway').AgentGateway | undefined
   db: AppDatabase
   mcpManager: McpManager
   workspaceServ: WorkspaceService

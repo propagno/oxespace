@@ -30,6 +30,7 @@ import { TEAM_TOOLS } from './team-tools'
 import { automationTools } from './automation-tools'
 import { DOCUMENTATION_TOOLS } from './documentation-tools'
 import { THREAD_HANDOFF_TOOLS } from './thread-handoff-tools'
+import { OXEQUERY_TOOLS } from './oxequery-tools'
 
 export interface ToolContext {
   captureRoot?: string
@@ -43,6 +44,8 @@ export interface ToolContext {
   executionToken?: string
   delegationAgents?: () => unknown
   memory?: import('../services/memory/memory.service').MemoryService
+  /** OxeQuery's agent gateway, available once the service has started. */
+  oxeQuery?: () => import('../services/oxequery/agent-gateway').AgentGateway | undefined
   memoryRunId?: string
   workspaceId: string | null
   workspaceServ: WorkspaceService
@@ -68,6 +71,7 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   ...DELEGATION_TOOLS,
   ...TEAM_TOOLS,
   ...THREAD_HANDOFF_TOOLS,
+  ...OXEQUERY_TOOLS,
   {
     descriptor: {
       name: 'oxespace_list_workspaces',

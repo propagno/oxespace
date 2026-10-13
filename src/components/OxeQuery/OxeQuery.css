@@ -297,3 +297,11 @@
 .oq-index-list li { display: flex; gap: 8px; align-items: center; }
 .oq-index-form { display: flex; gap: 8px; align-items: center; }
 .oq-index-form input[type="text"], .oq-index-form input:not([type]) { flex: 1; font-family: var(--sh-font-mono, monospace); }
+
+/* ---- Agent activity ------------------------------------------------------- */
+.oq-activity { display: flex; flex-direction: column; gap: 8px; padding: 12px; height: 100%; overflow: auto; }
+.oq-activity-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.oq-activity-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.oq-activity-table th, .oq-activity-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--sh-border, #2a2a33); vertical-align: top; }
+.oq-activity-table code { display: block; opacity: 0.75; max-width: 520px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oq-activity-table tr[data-decision="denied"] td:nth-child(5), .oq-activity-table tr[data-decision="refused"] td:nth-child(5) { color: #e5534b; }

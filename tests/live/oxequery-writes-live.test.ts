@@ -13,6 +13,10 @@ import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { OxeQueryCore } from '../../electron/main/services/oxequery/oxequery-core'
 import type { ResolvedConnection } from '../../electron/main/services/oxequery/oxequery-errors'
+import { AgentGateway, type GatewayDeps } from '../../electron/main/services/oxequery/agent-gateway'
+import { ApprovalBroker } from '../../electron/main/services/oxequery/approval-broker'
+import { AuditLog } from '../../electron/main/services/oxequery/audit-log'
+import { openInMemoryDatabase } from '../../electron/main/db'
 
 const live = process.env.OXE_LIVE === '1'
 const suffix = Math.random().toString(36).slice(2, 8)
@@ -208,6 +212,36 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
     await expect(core.mongoDropIndex(mongo, { database: 'shop', collection: 'items', name: '_id_' })).rejects.toMatchObject({ code: 'invalid' })
     await core.mongoDropIndex(mongo, { database: 'shop', collection: 'items', name: 'name_1' })
     expect((await core.mongoIndexes(mongo, 'shop', 'items')).some(index => index.name === 'name_1')).toBe(false)
+  })
+
+  it('lets an approved agent read masked rows, and the server itself refuses a write hidden in a read', async () => {
+    await exec('CREATE TABLE accounts (id serial PRIMARY KEY, email text, password_hash text)')
+    await exec(`INSERT INTO accounts (email, password_hash) VALUES ('a@example.com', 'pbkdf2$abcdef')`)
+    await exec('CREATE SEQUENCE agent_seq')
+    const db = openInMemoryDatabase()
+    const prompts: string[] = []
+    const deps: GatewayDeps = {
+      list: () => [{ id: 'pg', name: 'live', engine: 'postgres', environment: 'dev', readOnly: false, agentAccess: 'write' } as never],
+      resolve: () => pg,
+      call: async (op, connection, input) => {
+        const value = input as { sql: string; maxRows?: number }
+        if (op === 'sql.run') return core.sqlRun(connection!, value.sql, { maxRows: value.maxRows, confirmed: (input as { confirmed?: boolean }).confirmed }) as never
+        return {} as never
+      },
+      containers: { list: async () => ({ containers: [] }), logsTail: async () => '', action: async () => undefined },
+      broker: new ApprovalBroker({ ask: async request => { prompts.push(request.text); return 'allow-once' } }),
+      audit: new AuditLog(db)
+    }
+    const gateway = new AgentGateway(deps)
+    const actor = { key: 'e1', label: 'thread:live' }
+    const read = await gateway.handle('oxespace_db_query', { connection: 'live', sql: 'SELECT id, email, password_hash FROM accounts' }, actor) as { rows: unknown[][]; masked: string[] }
+    expect(read.rows[0]).toEqual([1, 'a@example.com', '«masked»'])
+    expect(read.masked).toEqual(['password_hash'])
+    // A statement that looks like a read but writes is stopped by the READ ONLY transaction, not by a guess.
+    await expect(gateway.handle('oxespace_db_query', { connection: 'live', sql: `SELECT nextval('agent_seq')` }, actor)).rejects.toMatchObject({ code: 'query' })
+    expect(await scalar(`SELECT is_called FROM agent_seq`)).toBe('false')
+    expect(prompts).toHaveLength(2)
+    db.close()
   })
 
 })
