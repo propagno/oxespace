@@ -93,6 +93,7 @@
     "react-resizable-panels": "^2.1.7",
     "remark-gfm": "^4.0.1",
     "simple-icons": "^16.34.0",
+    "sql-formatter": "^15.9.0",
     "tree-sitter-wasms": "^0.1.13",
     "web-tree-sitter": "0.25.9",
     "zustand": "^4.5.5"
