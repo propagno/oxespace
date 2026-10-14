@@ -9,6 +9,8 @@ import { PickedFiles, assertPem } from './picked-files'
 /** Encryption seam: Electron's safeStorage in the app, a fake in tests. */
 export interface SecretCipher {
   available(): boolean
+  /** Why secrets cannot be stored, when they cannot. */
+  problem?(): string | null
   encrypt(value: string): Buffer
   decrypt(value: Buffer): string
 }
@@ -218,7 +220,7 @@ export class ConnectionStore {
     }
 
     if (secrets.length && !this.cipher.available()) {
-      throw new ConnectionInputError('Secure storage is unavailable on this system, so passwords, keys and certificates cannot be saved. Use a connection that does not need them.')
+      throw new ConnectionInputError(this.cipher.problem?.() ?? 'Secure storage is unavailable on this system, so passwords, keys and certificates cannot be saved. Use a connection that does not need them.')
     }
     if ((value.sslMode === 'verify-ca') && !hasCa && !secrets.some(entry => entry.part === 'ca')) {
       // The system trust store may be enough for a public CA, so this is allowed but not silent.
