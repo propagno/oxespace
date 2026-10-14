@@ -185,7 +185,8 @@ export class ContainerRuntime {
         return { engine, available: false, state: 'missing', error: `${engine} was not found. Install ${engine === 'docker' ? 'Docker Desktop or Docker Engine' : 'Podman'} to see containers.` }
       }
       this.binaries.set(engine, found.binary)
-      const server = await this.run(engine, ['info', '--format', '{{.ServerVersion}}'], 8000)
+      // Docker calls the daemon's version ServerVersion; Podman's `info` has no such field and says Version.Version.
+      const server = await this.run(engine, ['info', '--format', engine === 'podman' ? '{{.Version.Version}}' : '{{.ServerVersion}}'], 8000)
       const context = engine === 'docker' ? (await this.run(engine, ['context', 'show'], 4000)).stdout.trim() : ''
       if (server.code !== 0) {
         const error = explainEngineError(engine, server.stderr || found.stderr)
