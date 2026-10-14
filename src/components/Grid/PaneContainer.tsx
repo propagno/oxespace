@@ -84,8 +84,8 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
     if (!detailsOpen) return
     let active = true
     setSessionDetails(null); setSessionDetailsError('')
-    if (!window.oxe?.terminal?.status) { setSessionDetailsError('Detalhes da sessão indisponíveis'); return }
-    void window.oxe.terminal.status(pane.id).then(value => { if (active) setSessionDetails(value) }).catch(() => { if (active) setSessionDetailsError('Não foi possível consultar a sessão') })
+    if (!window.oxe?.terminal?.status) { setSessionDetailsError('Session details unavailable'); return }
+    void window.oxe.terminal.status(pane.id).then(value => { if (active) setSessionDetails(value) }).catch(() => { if (active) setSessionDetailsError('Could not read the session') })
     return () => { active = false }
   }, [detailsOpen, pane.id, terminalState.status])
   const [menuHeight, setMenuHeight] = useState(320)
@@ -213,7 +213,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
               type="button"
               className="tile-btn pane-search-btn"
               aria-label="Search in terminal"
-              title="Buscar (Ctrl+F)"
+              title="Search (Ctrl+F)"
               disabled={!terminalCanMutate}
               onClick={(e) => {
                 e.stopPropagation()
@@ -240,7 +240,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
               type="button"
               className={`tile-btn${menuOpen ? ' active' : ''}`}
               aria-label="More pane actions"
-              title="Mais ações"
+              title="More actions"
               aria-haspopup="menu"
               aria-expanded={menuOpen}
               onClick={(e) => {
@@ -256,7 +256,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
               <div className="pane-actions-popover" role="menu" data-testid="pane-actions-menu" style={{ maxHeight: menuHeight, overflowY: 'auto', width: 'min(260px, 75vw)', maxWidth: 'calc(100vw - 32px)' }}>
                 {isTerminalPane ? (
                   <>
-                    <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={event => { event.stopPropagation(); runMenuAction(() => setDetailsOpen(true)) }}><Info size={13} aria-hidden="true" />Detalhes</button>
+                    <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={event => { event.stopPropagation(); runMenuAction(() => setDetailsOpen(true)) }}><Info size={13} aria-hidden="true" />Details</button>
                     <div className="pane-actions-popover-sep" aria-hidden="true" />
                     <button
                       type="button"
@@ -271,7 +271,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                       }}
                     >
                       <Eraser size={13} aria-hidden="true" />
-                      Limpar terminal
+                      Clear terminal
                     </button>
                     <button
                       type="button"
@@ -286,7 +286,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                       }}
                     >
                       <RotateCcw size={13} aria-hidden="true" />
-                      Nova sessão
+                      New session
                     </button>
                     <div className="pane-actions-popover-sep" aria-hidden="true" />
                   </>
@@ -301,7 +301,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                   }}
                 >
                   <PanelRight size={13} aria-hidden="true" />
-                  Dividir vertical
+                  Split vertical
                 </button>
                 <button
                   type="button"
@@ -313,13 +313,13 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                   }}
                 >
                   <PanelBottom size={13} aria-hidden="true" />
-                  Dividir horizontal
+                  Split horizontal
                 </button>
                 {onArrange ? <>
                   <div className="pane-actions-popover-sep" aria-hidden="true" />
-                  <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('bottom')) }}><PanelBottom size={13} aria-hidden="true" />Mover abaixo do painel anterior</button>
-                  <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('right')) }}><PanelRight size={13} aria-hidden="true" />Mover à direita do painel anterior</button>
-                  <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('balance')) }}><RotateCcw size={13} aria-hidden="true" />Equilibrar divisões</button>
+                  <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('bottom')) }}><PanelBottom size={13} aria-hidden="true" />Move below the previous pane</button>
+                  <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('right')) }}><PanelRight size={13} aria-hidden="true" />Move to the right of the previous pane</button>
+                  <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('balance')) }}><RotateCcw size={13} aria-hidden="true" />Balance splits</button>
                 </> : null}
                 {onClose ? (
                   <>
@@ -334,7 +334,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                       }}
                     >
                       <X size={13} aria-hidden="true" />
-                      Fechar pane
+                      Close pane
                     </button>
                   </>
                 ) : null}
@@ -344,27 +344,27 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
         </div>
       </header>
       <PaneContent pane={pane} workspaceId={workspace.id} workspaceRootPath={workspace.rootPath} autoStart={autoStart} />
-      {detailsOpen && <DesktopDialog className="desktop-details-dialog" title="Detalhes do terminal" description="Estado do terminal e sessões do agente neste diretório." onClose={() => setDetailsOpen(false)}>
-        <p className="terminal-session-identity-note">O terminal não informa qual conversa do Codex ou Claude está aberta. Procure a sessão nativa pelo início da conversa e horário para obter o ID usado no resume.</p>
+      {detailsOpen && <DesktopDialog className="desktop-details-dialog" title="Terminal details" description="Terminal state and agent sessions in this directory." onClose={() => setDetailsOpen(false)}>
+        <p className="terminal-session-identity-note">The terminal does not report which Codex or Claude conversation is open. Find the native session by the start of the conversation and its time to get the ID used to resume.</p>
         <DetailList rows={[
           { label: 'Terminal', detail: display.title },
-          { label: 'Status', detail: ({ idle: 'Não iniciado', starting: 'Iniciando', running: 'Em execução', exited: 'Encerrado', error: 'Erro' })[terminalState.status] },
-          { label: 'Atividade', detail: terminalState.status === 'running' ? terminalState.isWorking ? 'Em andamento' : 'Sem atividade recente' : '—' },
-          { label: 'Agente', detail: agentProfile?.name ?? '—' },
-          { label: 'Shell', detail: shellProfileName ?? 'Padrão do workspace' },
-          { label: 'Diretório', detail: pane.rootPath ?? workspace.rootPath },
-          ...(terminalState.error ? [{ label: 'Erro', detail: terminalState.error }] : [])
+          { label: 'Status', detail: ({ idle: 'Not started', starting: 'Starting', running: 'Running', exited: 'Exited', error: 'Error' })[terminalState.status] },
+          { label: 'Activity', detail: terminalState.status === 'running' ? terminalState.isWorking ? 'Working' : 'No recent activity' : '—' },
+          { label: 'Agent', detail: agentProfile?.name ?? '—' },
+          { label: 'Shell', detail: shellProfileName ?? 'Workspace default' },
+          { label: 'Directory', detail: pane.rootPath ?? workspace.rootPath },
+          ...(terminalState.error ? [{ label: 'Error', detail: terminalState.error }] : [])
         ]} />
-        <button type="button" className="terminal-provider-session-action" onClick={() => { setDetailsOpen(false); setProviderSessionsOpen(true) }}>Encontrar sessões do Codex ou Claude</button>
-        <details className="terminal-technical-details"><summary>IDs internos e processo do terminal</summary><DetailList rows={[
-          { label: 'ID da sessão PTY (terminal)', detail: sessionDetails?.sessionId ?? (sessionDetailsError || (sessionDetails ? 'Sem sessão em execução' : 'Consultando…')) },
-          { label: 'ID do painel (OXESpace)', detail: pane.id },
-          { label: 'ID do workspace (OXESpace)', detail: workspace.id },
-          ...(sessionDetails?.launchDirectory ? [{ label: 'Diretório de início', detail: sessionDetails.launchDirectory }] : []),
-          ...(pane.rootPath !== workspace.rootPath ? [{ label: 'Caminho do workspace', detail: workspace.rootPath }] : []),
-          ...(sessionDetails?.executable ? [{ label: 'Executável', detail: sessionDetails.executable }] : []),
-          ...(sessionDetails?.pid ? [{ label: 'PID do processo', detail: String(sessionDetails.pid) }] : []),
-          ...(sessionDetails?.startedAt ? [{ label: 'Terminal iniciado em', detail: new Date(sessionDetails.startedAt).toLocaleString() }] : [])
+        <button type="button" className="terminal-provider-session-action" onClick={() => { setDetailsOpen(false); setProviderSessionsOpen(true) }}>Find Codex or Claude sessions</button>
+        <details className="terminal-technical-details"><summary>Internal IDs and terminal process</summary><DetailList rows={[
+          { label: 'PTY session ID (terminal)', detail: sessionDetails?.sessionId ?? (sessionDetailsError || (sessionDetails ? 'No running session' : 'Reading…')) },
+          { label: 'Pane ID (OXESpace)', detail: pane.id },
+          { label: 'Workspace ID (OXESpace)', detail: workspace.id },
+          ...(sessionDetails?.launchDirectory ? [{ label: 'Start directory', detail: sessionDetails.launchDirectory }] : []),
+          ...(pane.rootPath !== workspace.rootPath ? [{ label: 'Workspace path', detail: workspace.rootPath }] : []),
+          ...(sessionDetails?.executable ? [{ label: 'Executable', detail: sessionDetails.executable }] : []),
+          ...(sessionDetails?.pid ? [{ label: 'Process ID', detail: String(sessionDetails.pid) }] : []),
+          ...(sessionDetails?.startedAt ? [{ label: 'Terminal started at', detail: new Date(sessionDetails.startedAt).toLocaleString() }] : [])
         ]} /></details>
       </DesktopDialog>}
       {providerSessionsOpen && <ProviderSessionFinder workspaceId={workspace.id} rootPath={pane.rootPath ?? workspace.rootPath} onClose={() => setProviderSessionsOpen(false)} />}

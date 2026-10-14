@@ -71,7 +71,7 @@ describe('McpManager trust gates', () => {
       transport: 'stdio',
       config: { transport: 'stdio', command: 'node', args: ['server.js'], env: { GITHUB_TOKEN: 'secret' } },
       enabled: true
-    })).toThrow('Env sensível bloqueado')
+    })).toThrow('Sensitive environment blocked')
 
     db.close()
   })
@@ -91,8 +91,8 @@ describe('McpManager trust gates', () => {
       trusted: true
     })
 
-    await expect(manager.start(server.id)).rejects.toThrow('Executável "definitely-missing-mcp-command" não encontrado')
-    expect(health.some((event) => event.status === 'unhealthy' && event.message?.includes('não encontrado'))).toBe(true)
+    await expect(manager.start(server.id)).rejects.toThrow('Executable "definitely-missing-mcp-command" not found')
+    expect(health.some((event) => event.status === 'unhealthy' && event.message?.includes('not found'))).toBe(true)
 
     db.close()
   })

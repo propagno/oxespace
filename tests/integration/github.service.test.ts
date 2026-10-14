@@ -232,7 +232,7 @@ describe('GitHubService', () => {
     })
     const dirtyService = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: dirtySpawn })
     await expect(dirtyService.pullFfOnly({ workspaceId: 'ws-1', rootPath: 'C:/projects/repo' }))
-      .rejects.toThrow(/commit ou stash/i)
+      .rejects.toThrow(/commit or stash/i)
 
     const cleanSpawn = vi.fn(async (_cmd: string, args: string[]) => {
       if (args[0] === 'status') return { stdout: '', stderr: '', status: 0, error: undefined }

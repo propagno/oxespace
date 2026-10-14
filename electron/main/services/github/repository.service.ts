@@ -115,7 +115,7 @@ export class GitHubRepositoryService {
 
   async fetch(input: GitHubWorkspaceInput): Promise<GitHubMessageResult> {
     await this.gh.runGit(['fetch', '--all', '--prune'], input.rootPath)
-    return ok('Fetch concluído.')
+    return ok('Fetch complete.')
   }
 
   /**
@@ -124,7 +124,7 @@ export class GitHubRepositoryService {
    */
   async pullFfOnly(input: GitHubWorkspaceInput): Promise<GitHubMessageResult> {
     if (await this.gh.hasWorkingTreeChanges(input.rootPath)) {
-      throw new Error('Working tree possui mudanças. Faça commit ou stash antes de atualizar a branch.')
+      throw new Error('The working tree has changes. Commit or stash them before updating the branch.')
     }
     await this.gh.runGit(['pull', '--ff-only'], input.rootPath)
     return ok('Branch atualizada (fast-forward).')
@@ -180,13 +180,13 @@ export class GitHubRepositoryService {
 
   async push(input: GitHubWorkspaceInput): Promise<GitHubMessageResult> {
     await this.gh.runGit(['push'], input.rootPath)
-    return ok('Push concluído.')
+    return ok('Push complete.')
   }
 
   async commitAndPush(input: GitHubCommitInput): Promise<GitHubMessageResult> {
     await this.commit(input)
     await this.push(input)
-    return ok('Commit e push concluídos.')
+    return ok('Commit and push complete.')
   }
 
   async listBranches(input: GitHubWorkspaceInput): Promise<GitHubBranch[]> {
@@ -213,7 +213,7 @@ export class GitHubRepositoryService {
 
   async checkoutBranch(input: { rootPath: string; name: string; force?: boolean }): Promise<GitHubMessageResult> {
     if (!input.force && await this.gh.hasWorkingTreeChanges(input.rootPath)) {
-      throw new Error('Working tree possui mudanças. Confirme checkout forçado ou faça commit/stash antes.')
+      throw new Error('The working tree has changes. Confirm a forced checkout, or commit or stash them first.')
     }
 
     if (input.name.startsWith('origin/')) {
@@ -303,7 +303,7 @@ export class GitHubRepositoryService {
         try {
           await this.gh.runGit(['fetch', remoteName, '--prune'], input.rootPath)
         } catch {
-          warning = ` Aviso: o fetch de ${remoteName} falhou — a base pode estar desatualizada.`
+          warning = ` Warning: fetching ${remoteName} failed — the base may be out of date.`
         }
       }
     }
@@ -338,7 +338,7 @@ export class GitHubRepositoryService {
     const setup = config.scripts.setup
     if (!setup) return notes
     if (!this.lifecycle?.trust.isTrusted(rootPath, 'setup', setup)) {
-      return ' Aviso: o hook setup do oxe.yaml não foi aprovado e não foi executado.'
+      return ' Warning: the oxe.yaml setup hook was not approved and did not run.'
     }
     const outcome = await runHook(setup, {
       cwd: worktreePath,
@@ -348,9 +348,9 @@ export class GitHubRepositoryService {
         OXE_WORKSPACE_NAME: worktreePath.replace(/\\/g, '/').split('/').pop() ?? ''
       }
     })
-    if (outcome.status === 'passed') notes += ' Hook setup concluído.'
-    else if (outcome.status === 'failed') notes += ` Aviso: o hook setup saiu com código ${outcome.exitCode}.`
-    else notes += ' Aviso: o hook setup não terminou de forma verificável.'
+    if (outcome.status === 'passed') notes += ' Setup hook complete.'
+    else if (outcome.status === 'failed') notes += ` Warning: the setup hook exited with code ${outcome.exitCode}.`
+    else notes += ' Warning: the setup hook did not end in a verifiable way.'
     return notes
   }
 

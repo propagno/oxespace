@@ -77,11 +77,11 @@ export function ReviewPane({ workspaceId, rootPath }: ReviewPaneProps): ReactEle
     if (wsComments.length === 0) return
     const result = await pasteIntoAgentTerminal(workspaceId, formatDiffComments(wsComments))
     if (!result.ok) {
-      setSendNotice('Nenhum terminal disponível para receber os comentários.')
+      setSendNotice('No terminal is available to receive the comments.')
       return
     }
     clearComments(workspaceId)
-    setSendNotice(`${wsComments.length} comentário(s) colados no agente — pressione Enter para submeter.`)
+    setSendNotice(`${wsComments.length} comment(s) pasted into the agent. Press Enter to submit.`)
     window.setTimeout(() => setSendNotice(null), 6000)
   }, [wsComments, workspaceId, clearComments])
 

@@ -237,7 +237,7 @@ export function WorkspaceSplitGrid({
               <div
                 className="split-drag-grip"
                 data-testid="split-drag-grip"
-                title="Arrastar para reposicionar"
+                title="Drag to reposition pane"
                 onPointerDown={beginPaneDrag(r.paneId)}
               />
             ) : null}

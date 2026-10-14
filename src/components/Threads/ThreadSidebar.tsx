@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { cx } from '../../ui'
+import { ConfirmDialog, cx } from '../../ui'
 import styles from './ThreadSidebar.module.css'
 import { useThreadContentSearch } from '../../hooks/useThreadContentSearch'
 import { AlignJustify, Archive, ArchiveRestore, Check, ChevronDown, Circle, CircleAlert, CircleCheck, CircleX, Columns2, PanelsTopLeft, FolderPlus, Loader2, MoreHorizontal, Pencil, Pin, Plus, Settings2, Square, Trash2, X, UserRound } from 'lucide-react'
@@ -104,7 +104,7 @@ export function ThreadSidebar({ onCreate, onModeChange, onSelectMode, onAccounts
       primary={[{ id: 'add-project', label: 'Add project', icon: FolderPlus, onClick: onAddProject }]}
       context={{ id: 'accounts', label: 'Accounts', ariaLabel: 'Agent accounts', icon: UserRound, onClick: onAccounts }} />
     {!collapsed && <div className="nav-panel">
-      <div className="nav-panel-title"><strong>Sessions</strong></div>
+      <div className="nav-panel-title"><strong>Conversations</strong></div>
       <div className={cx('thread-nav-actions', styles.search)}>
         <SearchField className="thread-nav-search" ref={search} label="Filter threads" placeholder="Filter threads" value={query} onChange={setQuery} shortcut="/" />
       </div>
@@ -158,9 +158,15 @@ export function ThreadSidebar({ onCreate, onModeChange, onSelectMode, onAccounts
         <footer><button type="button" disabled={acting} onClick={() => setRenameTarget(null)}>Cancel</button><button type="submit" className="thread-primary" disabled={acting || !renameValue.trim() || renameValue.trim() === renameTarget.title}>{acting ? 'Renaming…' : 'Rename conversation'}</button></footer>
       </form>
     </DesktopDialog>}
-    {confirmation && <DesktopDialog className="thread-create-dialog" title={confirmation.kind === 'thread' ? 'Delete thread' : confirmation.kind === 'archive' ? 'Archive conversation' : 'Remove project'} description={confirmation.kind === 'thread' ? `Delete “${confirmation.title}” from OXESpace? An active turn will stop. The provider session and project files are kept.` : confirmation.kind === 'archive' ? `Archive “${confirmation.title}”? An active turn will stop. You can restore it from Archived in this sidebar.` : `Remove “${confirmation.title}” from the Thread sidebar? Its conversations, files and Code workspaces remain. Restore this project individually from Removed projects or add its folder again.`} onClose={() => { if (!acting) setConfirmation(null) }}>
-      {actionError && <p role="alert">{actionError}</p>}
-      <footer><button type="button" disabled={acting} onClick={() => setConfirmation(null)}>Cancel</button><button type="button" className="thread-primary" disabled={acting} onClick={() => {
+    {confirmation && <ConfirmDialog
+      title={confirmation.kind === 'thread' ? 'Delete thread' : confirmation.kind === 'archive' ? 'Archive conversation' : 'Remove project'}
+      description={confirmation.kind === 'thread' ? `Delete “${confirmation.title}” from OXESpace? An active turn will stop. The provider session and project files are kept.` : confirmation.kind === 'archive' ? `Archive “${confirmation.title}”? An active turn will stop. You can restore it from Archived in this sidebar.` : `Remove “${confirmation.title}” from the Thread sidebar? Its conversations, files and Code workspaces remain. Restore this project individually from Removed projects or add its folder again.`}
+      confirmLabel={acting ? 'Please wait…' : confirmation.kind === 'thread' ? 'Delete thread' : confirmation.kind === 'archive' ? 'Archive conversation' : 'Remove project'}
+      danger={confirmation.kind !== 'archive'}
+      busy={acting}
+      error={actionError}
+      onCancel={() => setConfirmation(null)}
+      onConfirm={() => {
         setActing(true); setActionError('')
         void (async () => {
           try {
@@ -175,7 +181,6 @@ export function ThreadSidebar({ onCreate, onModeChange, onSelectMode, onAccounts
           } catch (error) { setActionError(error instanceof Error ? error.message : 'Could not complete the action.') }
           finally { setActing(false) }
         })()
-      }}>{acting ? 'Please wait…' : confirmation.kind === 'thread' ? 'Delete thread' : confirmation.kind === 'archive' ? 'Archive conversation' : 'Remove project'}</button></footer>
-    </DesktopDialog>}
+      }} />}
   </aside>
 }

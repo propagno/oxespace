@@ -1,0 +1,30 @@
+import type { ReactElement, ReactNode } from 'react'
+import { Button } from './Button'
+import { Dialog } from './Overlay'
+
+export interface ConfirmDialogProps {
+  title: string
+  /** What will happen, in plain words. Required: a confirmation without a consequence is just a speed bump. */
+  description: ReactNode
+  confirmLabel: string
+  cancelLabel?: string
+  /** Destructive actions get the danger button; focus starts on the safe button either way. */
+  danger?: boolean
+  busy?: boolean
+  error?: string
+  onConfirm: () => void
+  onCancel: () => void
+  children?: ReactNode
+}
+
+/** Confirm or cancel one action. Replaces `window.confirm` and the hand-built confirmation dialogs. */
+export function ConfirmDialog({ title, description, confirmLabel, cancelLabel = 'Cancel', danger = false, busy = false, error, onConfirm, onCancel, children }: ConfirmDialogProps): ReactElement {
+  return <Dialog title={title} description={description} size="sm" onClose={() => { if (!busy) onCancel() }}
+    footer={<>
+      <Button variant="secondary" autoFocus disabled={busy} onClick={onCancel}>{cancelLabel}</Button>
+      <Button variant={danger ? 'danger' : 'primary'} disabled={busy} onClick={onConfirm}>{confirmLabel}</Button>
+    </>}>
+    {children}
+    {error ? <p role="alert">{error}</p> : null}
+  </Dialog>
+}

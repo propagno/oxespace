@@ -66,8 +66,8 @@ export function describePermissionRequest(
   const reason = pick(request, 'decision_reason', 'decisionReason')
   const blocked = pick(request, 'blocked_path', 'blockedPath')
   if (description) lines.push(description)
-  if (reason) lines.push(`Motivo: ${reason}`)
-  if (blocked) lines.push(`Caminho fora do espaço de trabalho: ${blocked}`)
+  if (reason) lines.push(`Reason: ${reason}`)
+  if (blocked) lines.push(`Path outside the workspace: ${blocked}`)
 
   // Which user-configured "ask" rule forced this prompt, when the CLI says so.
   const matched = request.matched_ask_rule
@@ -75,7 +75,7 @@ export function describePermissionRequest(
     const rule = matched as Record<string, unknown>
     const content = text(rule.rule_content)
     const label = [text(rule.tool_name), content && `(${content})`].filter(Boolean).join(' ')
-    if (label) lines.push(`Regra de confirmação: ${label}`)
+    if (label) lines.push(`Confirmation rule: ${label}`)
   }
 
   const inputText = JSON.stringify(input, null, 2) ?? ''

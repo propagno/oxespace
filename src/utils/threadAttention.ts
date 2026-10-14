@@ -44,10 +44,10 @@ export function decideThreadAttention({ previous, current, viewing }: ThreadAtte
 }
 
 export function threadAttentionText(kind: ThreadAttentionKind, title: string): { title: string; body: string } {
-  const name = title.trim() || 'Conversa'
+  const name = title.trim() || 'Conversation'
   switch (kind) {
-    case 'needs-approval': return { title: `${name} — precisa de aprovação`, body: 'O agente está aguardando sua decisão para continuar.' }
-    case 'failed': return { title: `${name} — falhou`, body: 'O turno terminou com erro. Abra a conversa para ver o motivo.' }
-    case 'finished': return { title: `${name} — terminou`, body: 'O agente concluiu o turno.' }
+    case 'needs-approval': return { title: `${name} — needs approval`, body: 'The agent is waiting for your decision to continue.' }
+    case 'failed': return { title: `${name} — failed`, body: 'The turn ended with an error. Open the conversation to see why.' }
+    case 'finished': return { title: `${name} — finished`, body: 'The agent completed the turn.' }
   }
 }

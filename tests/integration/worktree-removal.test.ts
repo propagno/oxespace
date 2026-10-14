@@ -118,7 +118,7 @@ describe('safe worktree removal (real git)', () => {
     git(unmerged, 'add', '.')
     git(unmerged, 'commit', '-m', 'work')
     const result = await service.removeWorktree({ rootPath: root, path: unmerged, deleteBranch: true })
-    expect(result.message).toContain('mantido')
+    expect(result.message).toContain('kept')
     expect(git(root, 'branch', '--list', 'unmerged').trim()).not.toBe('')
   })
 
@@ -174,7 +174,7 @@ describe('safe worktree removal (real git)', () => {
       writeConfig('scripts:\n  archive: "exit 7"\n')
       const wt = await addWorktree('unapproved')
       const result = await service.removeWorktree({ rootPath: root, path: wt })
-      expect(result.message).toContain('não foi aprovado')
+      expect(result.message).toContain('was not approved')
       expect(existsSync(wt)).toBe(false)
     })
   })

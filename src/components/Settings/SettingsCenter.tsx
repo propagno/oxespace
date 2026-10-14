@@ -1,6 +1,7 @@
 import { Activity, ArrowLeft, ArrowUpCircle, Bell, ChevronRight, Mic, Palette, Settings2, SquareTerminal, X } from 'lucide-react'
 import { useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
+import { Button, Dialog } from '../../ui'
 import { SettingsContent, type SettingsModalProps, type SettingsSection } from './SettingsModal'
 import { SETTINGS_PAGES, WorkspaceSettingsModal } from '../Workspace/WorkspaceSettingsModal'
 import type { ShellProfile, UpdateWorkspaceSettingsInput, Workspace } from '../../../shared/types/workspace'
@@ -126,16 +127,17 @@ export function SettingsCenter(props: SettingsModalProps & {
             : destination.page === 'general' ? <GeneralSettings onNavigate={page => go({ scope: 'application', page })} /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
         </div>
       </main>
-      {pending && <ModalRoot open onOpenChange={open => { if (!open && !saving) setPending(null) }}><ModalSurface className="settings-unsaved" scrimClassName="settings-unsaved-overlay" aria-describedby={undefined}>
-        <ModalTitle>Save your changes?</ModalTitle><p>Your workspace has unapplied changes. If saving fails, stay here to inspect the error and try again.</p>
-        <div><button disabled={saving} onClick={() => setPending(null)}>Stay</button>
-          <button disabled={saving} onClick={() => { draft.current?.discard(); const action = pending; setPending(null); action() }}>Discard</button>
-          <button className="primary-action" disabled={saving} onClick={async () => {
+      {pending && <Dialog title="Save your changes?" size="sm" onClose={() => { if (!saving) setPending(null) }}
+        description="Your workspace has unapplied changes. If saving fails, stay here to inspect the error and try again."
+        footer={<>
+          <Button disabled={saving} autoFocus onClick={() => setPending(null)}>Stay</Button>
+          <Button variant="danger" disabled={saving} onClick={() => { draft.current?.discard(); const action = pending; setPending(null); action() }}>Discard</Button>
+          <Button variant="primary" loading={saving} onClick={async () => {
             setSaving(true)
             try { if (await draft.current?.save()) { const action = pending; setPending(null); action() } }
             finally { setSaving(false) }
-          }}>{saving ? 'Saving…' : 'Save and continue'}</button></div>
-      </ModalSurface></ModalRoot>}
+          }}>{saving ? 'Saving…' : 'Save and continue'}</Button>
+        </>} />}
     </ModalSurface>
   </ModalRoot>
 }
@@ -143,7 +145,7 @@ export function SettingsCenter(props: SettingsModalProps & {
 function GeneralSettings({ onNavigate }: { onNavigate: (page: SettingsSection) => void }): ReactElement {
   const cap = useSettingsStore(s => s.visitedWorkspacesCap)
   const setCap = useSettingsStore(s => s.setVisitedWorkspacesCap)
-  return <section className="settings-general"><h2>General</h2><p>Choose a part of OXESpace to configure. Every card opens an existing settings page.</p>
+  return <section className="settings-general"><h2>General</h2><p>Pick an area to configure. Application settings apply everywhere.</p>
     <h3>Explore settings</h3>
     <div className="settings-general-grid">{appPages.filter(page => page.id !== 'general').map(({ id, icon: Icon, label, hint }) =>
       <button key={id} type="button" className="settings-general-destination" onClick={() => onNavigate(id)}>

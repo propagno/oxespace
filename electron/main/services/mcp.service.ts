@@ -198,7 +198,7 @@ export class McpManager {
     if (!server) throw new Error(`MCP server ${id} not found`)
     if (!server.trusted) throw new Error('MCP server is not trusted. Review its command/env and mark it trusted before starting.')
     if (server.transport !== 'stdio') {
-      throw new Error('Apenas transporte stdio é suportado nesta versão. HTTP/SSE virão na Onda 6.')
+      throw new Error('Only the stdio transport is supported in this version. HTTP and SSE are not available yet.')
     }
     const inFlight = this.starting.get(id)
     if (inFlight) return inFlight
@@ -506,7 +506,7 @@ function killProcessTree(child: ChildProcessWithoutNullStreams | null): void {
 
 function validateConfig(transport: McpTransport, config: McpServerConfig, trusted = false): void {
   if (config.transport !== transport) {
-    throw new Error(`Config transport "${config.transport}" não bate com server transport "${transport}"`)
+    throw new Error(`Config transport "${config.transport}" does not match server transport "${transport}"`)
   }
   if (config.transport === 'stdio') {
     if (!config.command?.trim()) throw new Error('stdio requer command')
@@ -514,7 +514,7 @@ function validateConfig(transport: McpTransport, config: McpServerConfig, truste
     if (!trusted) {
       const sensitiveKeys = Object.keys(config.env ?? {}).filter((key) => /(token|secret|password|key|credential)/i.test(key))
       if (sensitiveKeys.length > 0) {
-        throw new Error(`Env sensível bloqueado em server MCP não confiável: ${sensitiveKeys.join(', ')}`)
+        throw new Error(`Sensitive environment blocked on an untrusted MCP server: ${sensitiveKeys.join(', ')}`)
       }
     }
   } else {
@@ -618,10 +618,10 @@ function formatSpawnError(command: string, err: unknown): string {
   const code = typeof err === 'object' && err !== null && 'code' in err ? String((err as { code?: unknown }).code) : null
   const rawMessage = err instanceof Error ? err.message : String(err)
   if (code === 'ENOENT') {
-    const suffix = process.platform === 'win32' && !path.extname(command) ? `. No Windows, o OXESpace também procura por ${command}.cmd no PATH.` : ''
-    return `Executável "${command}" não encontrado${suffix} Instale a dependência necessária ou configure o caminho absoluto do comando no servidor MCP.`
+    const suffix = process.platform === 'win32' && !path.extname(command) ? `. On Windows, OXESpace also looks for ${command}.cmd on the PATH.` : ''
+    return `Executable "${command}" not found${suffix} Install the required dependency or set the command's absolute path in the MCP server.`
   }
-  return `Falha ao iniciar "${command}": ${rawMessage}`
+  return `Could not start "${command}": ${rawMessage}`
 }
 
 function timeout<T>(ms: number, message: string): Promise<T> {

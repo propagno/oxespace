@@ -400,7 +400,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
 
       {isRunning ? (
         <div className="terminal-content">
-          <ErrorBoundary label="o terminal">
+          <ErrorBoundary label="the terminal">
           <TerminalView
             paneId={pane.id}
             workspaceId={workspaceId}

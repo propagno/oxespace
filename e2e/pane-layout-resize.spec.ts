@@ -18,7 +18,7 @@ test('three terminals resize in both axes without replacing terminal DOM', async
     await page.getByTestId('wizard-launch-btn').click()
     await expect(page.getByTestId('terminal-pane')).toHaveCount(2)
     await page.getByRole('button', { name: 'More pane actions' }).nth(1).click()
-    await page.getByRole('menuitem', { name: 'Dividir horizontal', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Split horizontal', exact: true }).click()
     await expect(page.getByTestId('terminal-pane')).toHaveCount(3)
     const grid = page.getByTestId('workspace-split-grid')
     await grid.evaluate(el => { el.querySelectorAll('.terminal-pane').forEach(node => node.setAttribute('data-preserved', 'yes')) })

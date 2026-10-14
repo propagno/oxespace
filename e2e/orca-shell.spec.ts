@@ -91,7 +91,7 @@ test('renders the Orca-inspired project, editor and source-control shell', async
     await expect(page.getByTestId('workspace-github-panel')).toBeVisible()
     await expect(page.locator('.git-control')).toBeVisible()
     await expect(page.locator('.git-control-empty').getByText('Working tree clean')).toBeVisible()
-    await expect(page.getByText('Algo falhou ao renderizar esta janela.')).toHaveCount(0)
+    await expect(page.getByText('Something went wrong while rendering this window.')).toHaveCount(0)
     expect(pageErrors).toEqual([])
 
     await page.screenshot({ path: join(process.cwd(), 'e2e', 'screenshots', '22-orca-shell-source-control.png') })

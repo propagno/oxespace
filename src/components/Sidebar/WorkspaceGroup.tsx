@@ -2,6 +2,7 @@ import { Check, ChevronDown, GripVertical, Network, Pencil, Settings, Trash2, X 
 import { memo, useEffect, useRef, useState, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import { selectIntegrationsForWorkspace, useIntegrationStore } from '../../store/integration.store'
+import { ConfirmDialog } from '../../ui'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { useWorkspaceActivity, type WorkspaceActivity } from '../../hooks/useWorkspaceActivity'
@@ -367,46 +368,8 @@ interface RemoveWorkspaceModalProps {
  * their code.
  */
 function RemoveWorkspaceModal({ workspaceName, onCancel, onConfirm }: RemoveWorkspaceModalProps): ReactElement {
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') onCancel()
-      if (event.key === 'Enter') onConfirm()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onCancel, onConfirm])
-
-  return (
-    <div className="ws-remove-backdrop" role="presentation" onMouseDown={onCancel}>
-      <div
-        className="ws-remove-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="ws-remove-title"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <header className="ws-remove-modal-header">
-          <h2 id="ws-remove-title">Remove workspace?</h2>
-          <button type="button" className="ws-remove-modal-close" aria-label="Cancel" onClick={onCancel}>
-            <X size={13} aria-hidden="true" />
-          </button>
-        </header>
-        <p className="ws-remove-modal-body">
-          <strong>{workspaceName}</strong> will be removed from the sidebar. The folder on disk
-          stays untouched — you can re-add it later via <em>New workspace</em>.
-        </p>
-        <footer className="ws-remove-modal-actions">
-          <button type="button" className="ghost-btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button type="button" className="ws-remove-modal-confirm" onClick={onConfirm}>
-            <Check size={13} aria-hidden="true" />
-            Remove workspace
-          </button>
-        </footer>
-      </div>
-    </div>
-  )
+  return <ConfirmDialog title="Remove workspace?" danger confirmLabel="Remove workspace" onCancel={onCancel} onConfirm={onConfirm}
+    description={<><strong>{workspaceName}</strong> will be removed from the sidebar. The folder on disk stays untouched — you can re-add it later via <em>New workspace</em>.</>} />
 }
 
 function activitySummary(a: WorkspaceActivity): string {

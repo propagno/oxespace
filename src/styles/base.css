@@ -10,7 +10,6 @@ body {
   min-width: 0;
   overflow: hidden;
   background: var(--bg-app);
-  color-scheme: dark;
 }
 
 /* NOTE: the bare `button`/`input`/focus-visible element resets that used to live

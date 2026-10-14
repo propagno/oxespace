@@ -94,7 +94,7 @@ export class AgentHookInstaller {
     const path = this.targets[agent]()
     const doc = await readJson(path)
     if (doc.hooks !== undefined && (!doc.hooks || typeof doc.hooks !== 'object' || Array.isArray(doc.hooks))) {
-      throw new Error('A configuração de hooks existente está malformada.')
+      throw new Error('The existing hooks configuration is malformed.')
     }
     return { path, doc, hooks: { ...((doc.hooks as Record<string, unknown> | undefined) ?? {}) } }
   }
@@ -102,10 +102,10 @@ export class AgentHookInstaller {
   /** Entry list for an event with our handler stripped; throws if it is malformed. */
   private stripOurs(event: string, entries: unknown): unknown[] {
     if (entries === undefined) return []
-    if (!Array.isArray(entries)) throw new Error(`Os hooks de ${event} existentes estão malformados.`)
+    if (!Array.isArray(entries)) throw new Error(`The existing ${event} hooks are malformed.`)
     return entries.flatMap((entry: HookEntry) => {
       if (!isOurs(entry)) return [entry]
-      if (!entry || !Array.isArray(entry.hooks)) throw new Error(`Um hook gerenciado de ${event} está malformado.`)
+      if (!entry || !Array.isArray(entry.hooks)) throw new Error(`A managed ${event} hook is malformed.`)
       const rest = entry.hooks.filter((hook) => !isOurs(hook))
       return rest.length ? [{ ...entry, hooks: rest }] : []
     })

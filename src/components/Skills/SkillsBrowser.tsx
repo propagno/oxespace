@@ -57,14 +57,14 @@ export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId
 
   const handleUseSkill = async (skill: SkillDefinition): Promise<void> => {
     if (!activePaneId) {
-      setNotice('Selecione ou inicie um terminal antes de usar uma skill.')
+      setNotice('Select or start a terminal before using a skill.')
       return
     }
     setBusySkill(skill.name)
     setNotice(null)
     try {
       await invoke(skill.name, activePaneId, argumentBySkill[skill.name] ?? '')
-      setNotice(`/${skill.name} enviada para o terminal ativo.`)
+      setNotice(`/${skill.name} sent to the active terminal.`)
     } catch (err) {
       setNotice(toMessage(err))
     } finally {
@@ -326,7 +326,7 @@ function SkillRow({ argument, busy, canEdit, canUse, onArgumentChange, onCopy, o
             type="text"
             value={argument}
             onChange={(event) => onArgumentChange(event.currentTarget.value)}
-            placeholder="Optional skill argument..."
+            placeholder="Optional skill argument…"
             aria-label={`Argument for /${skill.name}`}
           />
           <div className="skill-row-buttons">

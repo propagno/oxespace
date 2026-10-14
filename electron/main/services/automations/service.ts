@@ -126,7 +126,7 @@ export class AutomationService {
         this.deps.store.setNextRun(automation.id, nextOccurrence(automation.schedule, now))
         const lateBy = now - scheduledFor
         if (lateBy > automation.graceMinutes * 60_000 + 2 * TICK_MS) {
-          const run = this.deps.store.createRun(automation.id, scheduledFor, 'skipped_missed', 'O horário agendado passou enquanto o aplicativo estava inativo.')
+          const run = this.deps.store.createRun(automation.id, scheduledFor, 'skipped_missed', 'The scheduled time passed while the app was not running.')
           this.deps.onChange?.({ automationId: automation.id, run })
           continue
         }
@@ -140,7 +140,7 @@ export class AutomationService {
   private async dispatch(automation: Automation, scheduledFor: number): Promise<AutomationRun | null> {
     const store = this.deps.store
     if (store.hasActiveRun(automation.id)) {
-      const run = store.createRun(automation.id, scheduledFor, 'skipped_busy', 'A execução anterior ainda está em andamento.')
+      const run = store.createRun(automation.id, scheduledFor, 'skipped_busy', 'The previous run is still in progress.')
       this.deps.onChange?.({ automationId: automation.id, run })
       return run
     }
@@ -171,7 +171,7 @@ export class AutomationService {
     if (automation.precheck) {
       const check = await this.deps.runCommand(automation.precheck, { cwd: automation.rootPath, timeoutMs: 2 * 60_000 })
       if (check.status !== 'passed') {
-        emit({ status: 'skipped_precheck', finishedAt: this.now(), outputTail: tail(check.output), message: 'A verificação prévia não passou.' })
+        emit({ status: 'skipped_precheck', finishedAt: this.now(), outputTail: tail(check.output), message: 'The pre-check did not pass.' })
         return
       }
     }
@@ -213,32 +213,32 @@ export class AutomationService {
     if (outcome.status === 'passed') {
       emit({ status: 'completed', finishedAt: this.now(), exitCode: 0, outputTail: tail(outcome.output), message: null })
     } else if (outcome.status === 'failed') {
-      emit({ status: 'failed', finishedAt: this.now(), exitCode: outcome.exitCode, outputTail: tail(outcome.output), message: `O agente saiu com código ${outcome.exitCode}.` })
+      emit({ status: 'failed', finishedAt: this.now(), exitCode: outcome.exitCode, outputTail: tail(outcome.output), message: `The agent exited with code ${outcome.exitCode}.` })
     } else {
       emit({
         status: 'failed',
         finishedAt: this.now(),
         outputTail: tail(outcome.output),
-        message: outcome.reason === 'timeout' ? 'O agente excedeu o tempo limite e foi encerrado.' : 'O agente terminou sem resultado verificável.'
+        message: outcome.reason === 'timeout' ? 'The agent exceeded its time limit and was stopped.' : 'The agent ended without a verifiable result.'
       })
     }
   }
 
   private require(id: string): Automation {
     const automation = this.deps.store.get(id)
-    if (!automation) throw new Error('Automação não encontrada.')
+    if (!automation) throw new Error('Automation not found.')
     return automation
   }
 
   private validate(input: AutomationInput): void {
     if (!input.name.trim()) throw new Error('Informe um nome.')
     if (!input.prompt.trim()) throw new Error('Informe o prompt.')
-    if (!input.rootPath.trim()) throw new Error('Informe o repositório.')
-    if (input.agent !== 'claude' && input.agent !== 'codex') throw new Error('Agente inválido.')
+    if (!input.rootPath.trim()) throw new Error('Choose a repository.')
+    if (input.agent !== 'claude' && input.agent !== 'codex') throw new Error('Invalid agent.')
     const scheduleError = validateSchedule(input.schedule)
     if (scheduleError) throw new Error(scheduleError)
     if (input.timeoutMinutes !== undefined && (!Number.isInteger(input.timeoutMinutes) || input.timeoutMinutes < 1 || input.timeoutMinutes > 24 * 60)) {
-      throw new Error('Tempo limite inválido.')
+      throw new Error('Invalid time limit.')
     }
   }
 }

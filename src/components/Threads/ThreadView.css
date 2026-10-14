@@ -323,12 +323,6 @@
 @media (max-width: 1000px) { .thread-heading { padding: 0 16px; gap: 10px; } .thread-heading-context { max-width: 160px; } .thread-reading-column { padding: 16px; } .thread-composer-dock { padding: 0 calc(16px + var(--thread-scrollbar-width, 0px)) 12px 16px; } }
 @media (max-height: 600px) { .thread-composer-dock { padding-bottom: 8px; } .thread-composer { padding: 10px; } .thread-welcome { margin-top: 8px; } .thread-connection-notice { padding-top: 2px; padding-bottom: 4px; min-height: 32px; } }
 
-.thread-timeline::-webkit-scrollbar, .thread-project-list::-webkit-scrollbar { width: 8px; height: 8px; }
-.thread-timeline::-webkit-scrollbar-track, .thread-project-list::-webkit-scrollbar-track { background: transparent; }
-.thread-timeline::-webkit-scrollbar-thumb, .thread-project-list::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--tx-primary) 20%, transparent); border: 2px solid transparent; background-clip: padding-box; border-radius: var(--radius-sm); }
-.thread-timeline::-webkit-scrollbar-thumb:hover, .thread-project-list::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--tx-primary) 30%, transparent); }
-.thread-timeline::-webkit-scrollbar-button, .thread-project-list::-webkit-scrollbar-button { display: none; }
-
 .thread-resize:hover, .thread-resize:focus-visible { background: color-mix(in srgb, var(--accent) 35%, transparent); }
 .thread-create-dialog p, .thread-account-card p, .thread-accounts-dialog p { font-size: var(--fs-xs); color: var(--tx-muted); line-height: 1.5; }
 .thread-accounts-dialog button { height: var(--control-h); }

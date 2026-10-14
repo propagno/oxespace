@@ -106,7 +106,7 @@ export class GitHubService {
     const current = await snapshotRepoConfig(rootPath, this.hookTrust)
     const script = current.config?.scripts[kind]
     if (!script || current.hashes[kind] !== contentHash) {
-      throw new Error('O hook mudou desde que foi exibido. Revise o oxe.yaml e aprove novamente.')
+      throw new Error('The hook changed since it was shown. Review oxe.yaml and approve again.')
     }
     this.hookTrust.approve(rootPath, kind, script)
     return snapshotRepoConfig(rootPath, this.hookTrust)

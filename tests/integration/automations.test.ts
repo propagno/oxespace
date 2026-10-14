@@ -10,7 +10,7 @@ const local = (y: number, mo: number, d: number, h = 0, mi = 0): number => new D
 describe('schedule arithmetic', () => {
   test('interval adds minutes and enforces a floor', () => {
     expect(nextOccurrence({ kind: 'interval', everyMinutes: 30 }, 1000)).toBe(1000 + 30 * 60_000)
-    expect(validateSchedule({ kind: 'interval', everyMinutes: 1 })).toMatch(/mínimo/)
+    expect(validateSchedule({ kind: 'interval', everyMinutes: 1 })).toMatch(/minimum/)
     expect(nextOccurrence({ kind: 'interval', everyMinutes: 1 }, 0)).toBeNull()
   })
 
@@ -177,7 +177,7 @@ describe('AutomationService', () => {
     now = service.list()[0].nextRunAt!
     await service.tick()
     await service.idle()
-    expect(service.runs(a.id)[0].message).toMatch(/tempo limite/)
+    expect(service.runs(a.id)[0].message).toMatch(/time limit/)
   })
 
   test('a run in flight makes the next occurrence skipped_busy', async () => {
@@ -213,14 +213,14 @@ describe('AutomationService', () => {
     await service.runNow(a.id)
     await service.idle()
     expect(created).toHaveLength(1)
-    await expect(service.runNow('missing')).rejects.toThrow(/não encontrada/)
+    await expect(service.runNow('missing')).rejects.toThrow(/not found/)
   })
 
   test('validation rejects bad input', () => {
     expect(() => service.create(input({ name: ' ' }))).toThrow(/nome/)
     expect(() => service.create(input({ prompt: '' }))).toThrow(/prompt/)
     expect(() => service.create(input({ schedule: { kind: 'cron', expression: 'x' } }))).toThrow(/cron/)
-    expect(() => service.create(input({ timeoutMinutes: 0 }))).toThrow(/limite/)
+    expect(() => service.create(input({ timeoutMinutes: 0 }))).toThrow(/time limit/)
   })
 
   test('runs interrupted by a restart are failed on start', async () => {

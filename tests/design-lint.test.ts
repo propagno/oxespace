@@ -52,4 +52,26 @@ describe('design lint', () => {
     const report = targets.flatMap(path => violations(readFileSync(path, 'utf8')).map(item => `${relative(ROOT, path)}:${item.line} ${item.rule} — ${item.text}`))
     expect(report).toEqual([])
   })
+
+  describe('legacy stylesheets', () => {
+    const legacy = files(join(ROOT, 'src'), path => path.endsWith('.css') && !path.endsWith('.module.css') && !/tokens\.generated|OxeQuery/.test(path))
+    const stripComments = (css: string): string => css.replace(/\/\*[\s\S]*?\*\//g, match => match.replace(/[^\n]/g, ''))
+    const lines = (path: string): string[] => stripComments(readFileSync(path, 'utf8')).split(/\r?\n/)
+
+    it('never pins a color scheme; the mode comes from the tokens', () => {
+      const report = legacy.flatMap(path => lines(path).flatMap((text, index) => /color-scheme:\s*dark/.test(text) ? [`${relative(ROOT, path)}:${index + 1}`] : []))
+      expect(report).toEqual([])
+    })
+
+    it('has no color literal outside shadows', () => {
+      const report = legacy.flatMap(path => lines(path).flatMap((text, index) =>
+        /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?)\(/i.test(text) && !/shadow|--elevation/.test(text) ? [`${relative(ROOT, path)}:${index + 1} ${text.trim()}`] : []))
+      expect(report).toEqual([])
+    })
+
+    it('does not add !important (ratchet: lower the number as they are removed)', () => {
+      const count = legacy.reduce((sum, path) => sum + lines(path).filter(text => text.includes('!important')).length, 0)
+      expect(count).toBeLessThanOrEqual(59)
+    })
+  })
 })

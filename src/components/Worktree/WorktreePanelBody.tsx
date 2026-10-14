@@ -531,7 +531,7 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
   )
 }
 
-const HOOK_LABEL: Record<RepoHookKind, string> = { setup: 'setup (ao criar um worktree)', archive: 'archive (antes de remover um worktree)' }
+const HOOK_LABEL: Record<RepoHookKind, string> = { setup: 'setup (when creating a worktree)', archive: 'archive (before removing a worktree)' }
 
 /**
  * Shows oxe.yaml hook scripts that have not been approved and lets the user
@@ -568,16 +568,16 @@ function RepoHooksNotice({ rootPath }: { rootPath: string }): ReactElement | nul
   }
 
   return (
-    <div className="worktree-remove-confirm" role="group" aria-label="Hooks do oxe.yaml pendentes de aprovação">
+    <div className="worktree-remove-confirm" role="group" aria-label="oxe.yaml hooks waiting for approval">
       {pending.map((kind) => (
         <div key={kind}>
           <div className="worktree-remove-confirm-head">
             <AlertTriangle size={12} aria-hidden="true" />
-            <strong>Hook {HOOK_LABEL[kind]} aguardando aprovação</strong>
+            <strong>Hook {HOOK_LABEL[kind]} waiting for approval</strong>
           </div>
           <pre className="worktree-remove-confirm-body">{snapshot.config?.scripts[kind]}</pre>
           <div className="worktree-remove-confirm-actions">
-            <button type="button" className="primary-btn" onClick={() => void approve(kind)}>Aprovar este script</button>
+            <button type="button" className="primary-btn" onClick={() => void approve(kind)}>Approve this script</button>
           </div>
         </div>
       ))}

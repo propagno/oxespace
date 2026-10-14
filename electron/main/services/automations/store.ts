@@ -194,7 +194,7 @@ export class AutomationStore {
   failInterruptedRuns(now: number): number {
     return this.db
       .prepare(
-        "UPDATE automation_runs SET status = 'failed', finished_at = ?, message = 'Interrompido: o aplicativo foi encerrado.' WHERE status IN ('pending','running')"
+        "UPDATE automation_runs SET status = 'failed', finished_at = ?, message = 'Interrupted: the application was closed.' WHERE status IN ('pending','running')"
       )
       .run(now).changes
   }

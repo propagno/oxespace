@@ -56,9 +56,9 @@ export class GitHubCheckpointService {
 
   async restoreCheckpoint(input: GitHubRestoreCheckpointInput): Promise<GitHubMessageResult> {
     const row = this.db.prepare('SELECT * FROM github_checkpoints WHERE id = ? AND workspace_id = ?').get(input.checkpointId, input.workspaceId) as CheckpointRow | undefined
-    if (!row) throw new Error('Checkpoint não encontrado.')
+    if (!row) throw new Error('Checkpoint not found.')
     if (await this.gh.hasWorkingTreeChanges(input.rootPath)) {
-      throw new Error('Restore bloqueado: working tree possui mudanças. Faça commit/stash ou limpe o workspace antes.')
+      throw new Error('Restore blocked: the working tree has changes. Commit or stash them, or clean the workspace first.')
     }
     if (row.patch.trim()) await this.gh.runGit(['apply', '--whitespace=nowarn', '-'], input.rootPath, row.patch)
     return ok('Checkpoint restaurado para arquivos rastreados.')

@@ -64,16 +64,16 @@ export function validateSchedule(schedule: AutomationSchedule): string | null {
     case 'interval':
       return Number.isInteger(schedule.everyMinutes) && schedule.everyMinutes >= MIN_INTERVAL_MINUTES
         ? null
-        : `O intervalo mínimo é ${MIN_INTERVAL_MINUTES} minutos.`
+        : `The minimum interval is ${MIN_INTERVAL_MINUTES} minutes.`
     case 'daily':
-      return validTime(schedule.hour, schedule.minute) ? null : 'Horário inválido.'
+      return validTime(schedule.hour, schedule.minute) ? null : 'Invalid time.'
     case 'weekly':
-      if (!validTime(schedule.hour, schedule.minute)) return 'Horário inválido.'
+      if (!validTime(schedule.hour, schedule.minute)) return 'Invalid time.'
       return schedule.days.length > 0 && schedule.days.every((d) => Number.isInteger(d) && d >= 0 && d <= 6)
         ? null
         : 'Escolha ao menos um dia da semana.'
     case 'cron':
-      return parseCron(schedule.expression) ? null : 'Expressão cron inválida (5 campos).'
+      return parseCron(schedule.expression) ? null : 'Invalid cron expression (5 fields).'
   }
 }
 

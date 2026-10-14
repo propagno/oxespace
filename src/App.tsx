@@ -709,7 +709,7 @@ export function App(): ReactElement {
         })
       }
     },
-    { id: 'design-system', title: 'Design System: Open Viewer', subtitle: 'Ctrl+Shift+D', icon: Palette, category: 'View', run: () => { setDesignSystemOpen(true) } },
+    { id: 'design-system', title: 'Design System: Open Viewer', subtitle: 'Tokens and components in light and dark', icon: Palette, category: 'View', run: () => { setDesignSystemOpen(true) } },
 
     // Theme
     ...WORKSPACE_THEMES.map((theme) => ({
@@ -824,11 +824,6 @@ export function App(): ReactElement {
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && key === 'v') {
         event.preventDefault()
         toggleActivePaneVoice()
-        return
-      }
-      if ((event.ctrlKey || event.metaKey) && event.shiftKey && key === 'd') {
-        event.preventDefault()
-        setDesignSystemOpen((prev) => !prev)
         return
       }
       if ((event.ctrlKey || event.metaKey) && key === 'r' && activePane?.type === 'terminal') {
@@ -1100,7 +1095,7 @@ export function App(): ReactElement {
           }} />}
         </Suspense>
       </section>
-      <ErrorBoundary label="esta janela">
+      <ErrorBoundary label="this window">
       <Suspense fallback={null}>
       {isNewWorkspaceOpen ? (
         <NewWorkspaceModal

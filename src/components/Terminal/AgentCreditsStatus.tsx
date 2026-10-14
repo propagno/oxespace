@@ -67,7 +67,7 @@ function buildTitle(name: string, windows: CreditsWindow[]): string {
     const reset = formatReset(weekly.resetsAtMs)
     parts.push(`semanal ${weekly.usedPct}%${reset ? ` · renova ${reset}` : ''}`)
   }
-  if (session) parts.push(`sessão ${session.usedPct}%`)
+  if (session) parts.push(`session ${session.usedPct}%`)
   return `${name}: ${parts.join(' · ')}`
 }
 

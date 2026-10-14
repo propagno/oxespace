@@ -51,7 +51,7 @@ export function ReviewToolbar({
           type="button"
           className="review-send-comments"
           data-testid="review-send-comments"
-          title="Enviar os comentários do diff para o agente ativo"
+          title="Send the diff comments to the active agent"
           onClick={onSendComments}
         >
           <Send size={11} aria-hidden="true" />
