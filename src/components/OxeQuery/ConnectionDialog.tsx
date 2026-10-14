@@ -199,7 +199,7 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
       </section>}
 
       {!editing && <label className="oq-url"><span><Link2 size={13} aria-hidden="true" /> Connection string <small>(optional — fills the form)</small></span>
-        <input value={url} onChange={event => applyUrl(event.target.value)} placeholder="postgres://user:password@localhost:5432/app" spellCheck={false} autoComplete="off" />
+        <input value={url} onChange={event => applyUrl(event.target.value)} placeholder={engine === 'mongodb' ? 'mongodb://user:password@localhost:27017/app' : 'postgres://user:password@localhost:5432/app'} spellCheck={false} autoComplete="off" />
         {urlError && <em role="alert">{urlError}</em>}</label>}
 
       <div className="oq-form">

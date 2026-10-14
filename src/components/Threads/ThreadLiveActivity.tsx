@@ -21,6 +21,9 @@ function runningToolLabel(tool: Tool, verbose = true): string {
   return `Using ${tool.name}`
 }
 
+/** How long a background task may be reported as running without ever being reported finished. */
+export const BACKGROUND_TRUST_MS = 2 * 60 * 60 * 1000
+
 export interface LiveActivity {
   label: string
   elapsed: string
@@ -35,10 +38,15 @@ export interface LiveActivity {
 /** A status is evidence of a provider event or transport data, never an inferred thought. */
 export function deriveThreadLiveActivity(snapshot: ThreadSnapshot, now: number, verbose = true): LiveActivity | null {
   const thread = snapshot.thread
-  const background = snapshot.events.filter(event => event.type === 'subagent' && event.state === 'running')
-  if (thread.status !== 'running' && thread.status !== 'approval' && !background.length) return null
+  // A background task whose end the provider never reported would otherwise keep this panel (and
+  // its clock) alive for good; after this long it is no longer shown as active.
+  const background = snapshot.events.filter(event => event.type === 'subagent' && event.state === 'running' && (event.startedAt === undefined || now - event.startedAt < BACKGROUND_TRUST_MS))
+  const turnRunning = thread.status === 'running' || thread.status === 'approval'
+  if (!turnRunning && !background.length) return null
   const turn = snapshot.turns?.at(-1)
-  const startedAt = turn?.startedAt ?? thread.updatedAt
+  const backgroundStart = Math.min(...background.map(event => event.type === 'subagent' ? event.startedAt ?? now : now))
+  // With the turn finished, the clock measures the background work, not a turn that is over.
+  const startedAt = turnRunning ? turn?.startedAt ?? thread.updatedAt : Number.isFinite(backgroundStart) ? backgroundStart : thread.updatedAt
   let startIndex = -1
   for (let index = snapshot.events.length - 1; index >= 0; index--) {
     const event = snapshot.events[index]
@@ -56,16 +64,17 @@ export function deriveThreadLiveActivity(snapshot: ThreadSnapshot, now: number, 
   let label = 'Waiting for the next agent update'
   if (awaitingInput) label = thread.status === 'approval' && !actionableRequest && signalAgeMs >= 60_000 ? 'Input request unavailable' : 'Waiting for your input'
   else if (connection?.state === 'degraded' || connection?.state === 'reconnecting') label = 'Reconnecting to the agent'
+  else if (background.length && !turnRunning) label = `Waiting for ${background.length} background ${background.length === 1 ? 'task' : 'tasks'}`
   else if (runningTool) label = runningToolLabel(runningTool, verbose)
   else if (activity?.phase === 'preparing') label = 'Preparing project context'
   else if (connection?.state === 'starting' || activity?.phase === 'connecting' && connection?.state !== 'connected') label = 'Connecting to the agent'
-  else if (background.length && thread.status !== 'running') label = `Waiting for ${background.length} background ${background.length === 1 ? 'task' : 'tasks'}`
   else if (activity?.phase === 'responding' && now - activity.at < 15_000) label = 'Receiving response'
   else if (activity?.phase === 'reasoning') label = 'Analyzing request'
   return {
     label, elapsed: duration(now - startedAt),
-    signalAge: lastSignal ? `Last provider signal ${duration(signalAgeMs)} ago` : `No provider signal yet · ${duration(signalAgeMs)}`,
-    stale: signalAgeMs >= 60_000 && (!awaitingInput || !actionableRequest),
+    signalAge: !turnRunning ? 'Background work reported by the provider' : lastSignal ? `Last provider signal ${duration(signalAgeMs)} ago` : `No provider signal yet · ${duration(signalAgeMs)}`,
+    // Quiet background work is normal; only a running turn that goes silent is a doubt worth showing.
+    stale: turnRunning && signalAgeMs >= 60_000 && (!awaitingInput || !actionableRequest),
     awaitingInput,
     reconnecting: connection?.state === 'degraded' || connection?.state === 'reconnecting',
     summary: activity?.summary,

@@ -12,6 +12,7 @@ import { ThreadAgentError, threadFailure } from './thread-failure'
 import { ThreadHistory, type ThreadHistoryWriteOptions } from './thread-history'
 import { ThreadRewindError, planLocalRewind } from './thread-rewind'
 import { addTurnCost } from './thread-cost'
+import { deriveThreadTitle } from './thread-title'
 import { resolveMentionContext } from './thread-context-resolver'
 import { briefBlock, projectBrief } from './project-brief'
 import { reduceThreadEvent, type KernelEffect } from './kernel/event-reducer'
@@ -441,7 +442,7 @@ export class ThreadOrchestrator {
     snapshot.thread.status = 'running'
     delete snapshot.thread.providerObservation
     delete snapshot.thread.queuePause
-    if (snapshot.thread.title === 'New thread' && !text.trim().startsWith('/')) snapshot.thread.title = text.trim().slice(0, 80)
+    if (snapshot.thread.title === 'New thread' && !text.trim().startsWith('/')) snapshot.thread.title = deriveThreadTitle(text)
     const turnId = randomUUID()
     const operation = this.history.beginOperation({ threadId: id, turnId, generation: snapshot.thread.generation ?? 1, kind: 'turn' })
     const eventsFrom = snapshot.events.length

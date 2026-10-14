@@ -39,4 +39,14 @@ describe('live Thread activity', () => {
     snapshot.thread.status = 'idle'
     expect(deriveThreadLiveActivity(snapshot, 3_000)).toBeNull()
   })
+
+  it('does not show a finished turn as waiting for a provider update because a background task never reported its end', () => {
+    const snapshot = fixture()
+    snapshot.thread.status = 'idle'
+    snapshot.turns![0].status = 'completed'
+    snapshot.events.push({ type: 'subagent', id: 'task', action: 'Background command', state: 'running', receiverThreadIds: ['t'], agents: [], startedAt: 5_000 })
+    const hour = 3_600_000
+    expect(deriveThreadLiveActivity(snapshot, 5_000 + 20 * 60_000)).toMatchObject({ label: 'Waiting for 1 background task', stale: false, elapsed: '20m 00s' })
+    expect(deriveThreadLiveActivity(snapshot, 5_000 + 3 * hour)).toBeNull()
+  })
 })
