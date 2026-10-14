@@ -83,28 +83,28 @@ test('OxeQuery lists containers, runs commands and queries PostgreSQL and MongoD
     await expect(tree.getByRole('button', { name: 'users', exact: true })).toBeVisible()
     await tree.getByRole('button', { name: 'users', exact: true }).click()
     const grid = page.locator('.oq-grid')
-    await expect(grid.getByRole('cell', { name: 'alice', exact: true })).toBeVisible()
-    await expect(grid.getByRole('cell', { name: 'NULL', exact: true })).toBeVisible()
+    await expect(grid.getByRole('gridcell', { name: 'alice', exact: true })).toBeVisible()
+    await expect(grid.getByRole('gridcell', { name: 'NULL', exact: true })).toBeVisible()
     await expect(page.locator('.oq-results-bar')).toContainText('public.users')
 
     // Grid: sort by a column and inspect a row.
     await page.locator('.oq-grid-header').getByText('name', { exact: false }).first().click()
     await expect(page.locator('.oq-grid-header [aria-sort="ascending"]')).toHaveCount(1)
-    await page.locator('.oq-grid-row').first().click()
+    await page.locator('.oq-grid-row .oq-grid-index').first().click()
     await expect(page.getByRole('complementary', { name: 'Row details' })).toContainText('alice@example.com')
     await page.getByRole('button', { name: 'Close row details' }).click()
 
     // The editor runs SQL; a destructive statement needs an explicit confirmation.
     await page.locator('.oq-editor .monaco-editor').click()
     await page.keyboard.press('Control+A')
-    await page.keyboard.type('SELECT * FROM users')
+    await page.keyboard.insertText('SELECT * FROM users')
     await page.getByRole('button', { name: /^Run/ }).first().click()
-    await expect(grid.getByRole('cell', { name: 'carol', exact: true })).toBeVisible()
+    await expect(grid.getByRole('gridcell', { name: 'carol', exact: true })).toBeVisible()
     await expect(page.locator('.oq-badge[data-readonly="true"]')).toBeVisible()
 
     await page.locator('.oq-editor .monaco-editor').click()
     await page.keyboard.press('Control+A')
-    await page.keyboard.type('DELETE FROM users')
+    await page.keyboard.insertText('DELETE FROM users')
     await page.getByRole('button', { name: /^Run/ }).first().click()
     // Read-only connection: the statement is refused before it can be confirmed.
     await expect(page.getByRole('alert').filter({ hasText: 'read-only' })).toBeVisible()
@@ -117,7 +117,7 @@ test('OxeQuery lists containers, runs commands and queries PostgreSQL and MongoD
     await expect(page.locator('.oq-badge[data-readonly="false"]')).toBeVisible()
     await page.locator('.oq-editor .monaco-editor').click()
     await page.keyboard.press('Control+A')
-    await page.keyboard.type('DELETE FROM users')
+    await page.keyboard.insertText('DELETE FROM users')
     await page.getByRole('button', { name: /^Run/ }).first().click()
     const confirm = page.getByRole('alertdialog', { name: 'Confirm statement' })
     await expect(confirm).toContainText('WHERE')
@@ -291,7 +291,7 @@ test('OxeQuery stages a row edit, shows the SQL, applies it, exports a table and
     await page.getByRole('navigation', { name: 'Schema' }).getByRole('button', { name: 'users', exact: true }).click()
 
     await page.getByRole('button', { name: 'Edit rows' }).click()
-    await page.locator('.oq-grid-row').first().click()
+    await page.locator('.oq-grid-row .oq-grid-index').first().click()
     const form = page.getByRole('group', { name: 'Edit row' })
     await form.locator('label', { hasText: 'email' }).locator('input').fill('changed@example.com')
     await form.getByRole('button', { name: 'Stage update' }).click()
@@ -332,7 +332,7 @@ test('OxeQuery stages a row edit, shows the SQL, applies it, exports a table and
     // The execution plan is shown as a tree and marks the heavy step.
     await page.locator('.oq-editor .monaco-editor').click()
     await page.keyboard.press('Control+A')
-    await page.keyboard.type('SELECT * FROM users ORDER BY id')
+    await page.keyboard.insertText('SELECT * FROM users ORDER BY id')
     await page.getByRole('button', { name: 'Explain', exact: true }).click()
     const plan = page.getByRole('region', { name: 'Execution plan' })
     await expect(plan).toContainText('Seq Scan')
@@ -423,4 +423,70 @@ test('every control in the OxeQuery views has an accessible name', async () => {
   } finally {
     await app.close()
   }
+})
+
+test('the SQL workbench runs scripts, asks for parameters, keeps a transaction and remembers its tabs', async () => {
+  test.setTimeout(120000)
+  const root = mkdtempSync(join(tmpdir(), 'oxespace-oxequery-workbench-'))
+  const repo = join(root, 'repo'); mkdirSync(repo)
+  const app = await electron.launch({ args: [join(process.cwd(), 'e2e/electron-main.cjs')], env: {
+    ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'app.sqlite3')
+  } })
+  try {
+    const page = await app.firstWindow()
+    await page.waitForLoadState('domcontentloaded')
+    await page.getByTestId('btn-new-workspace').click()
+    await page.getByTestId('wizard-dir-input').fill(repo)
+    await page.getByTestId('wizard-layout-card-1').click()
+    await page.getByTestId('wizard-launch-btn').click()
+    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
+    await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
+    await expect(page.getByRole('tab', { name: 'pg-dev' })).toBeVisible()
+    const editor = page.locator('.oq-editor .monaco-editor')
+    // Escape closes the suggestion list, which would otherwise take the Enter of a shortcut.
+    const type = async (text: string): Promise<void> => { await editor.click(); await page.keyboard.press('Control+A'); await page.keyboard.insertText(text); await page.keyboard.press('Escape') }
+
+    // Run all: one result tab per statement.
+    await type('SELECT 1; SELECT 2;')
+    await page.keyboard.press('Control+Shift+Enter')
+    const results = page.getByRole('tablist', { name: 'Results' })
+    await expect(results.getByRole('tab')).toHaveCount(2)
+    await results.getByRole('tab').nth(1).click()
+    await expect(page.locator('.oq-grid').getByRole('gridcell', { name: 'alice', exact: true })).toBeVisible()
+
+    // A parameter is asked for before the statement runs.
+    await type('SELECT * FROM users WHERE id = :id')
+    await page.keyboard.press('Escape')
+    await page.getByRole('button', { name: /^Run/ }).first().click()
+    const params = page.getByRole('form', { name: 'Query parameters' })
+    await expect(params).toBeVisible()
+    await params.getByRole('textbox').fill('1')
+    await params.getByRole('button', { name: 'Run', exact: true }).click()
+    await expect(page.locator('.oq-grid').getByRole('gridcell', { name: 'alice', exact: true })).toBeVisible()
+
+    // A transaction the person opens is theirs to end (a read-only connection has nothing to commit).
+    await page.locator('.oq-sidebar').getByRole('button', { name: 'Edit pg-dev' }).click()
+    const settings = page.getByRole('dialog', { name: 'Edit connection' })
+    await settings.getByRole('checkbox', { name: /Read-only/ }).uncheck()
+    await settings.getByRole('button', { name: 'Save' }).click()
+    await page.getByRole('button', { name: 'Begin transaction' }).click()
+    await expect(page.getByRole('status').filter({ hasText: 'Transaction open' })).toBeVisible()
+    await page.getByRole('button', { name: 'Commit' }).click()
+    await expect(page.getByRole('button', { name: 'Begin transaction' })).toBeVisible()
+
+    // Copy as, and the filter bar of a browsed table.
+    await expect(page.getByLabel('Copy results as')).toBeVisible()
+    await page.getByRole('navigation', { name: 'Schema' }).getByRole('button', { name: 'users', exact: true }).click()
+    await page.getByRole('button', { name: 'Filter' }).click()
+    await expect(page.getByRole('form', { name: 'Filter rows' }).getByLabel('Column')).toBeVisible()
+
+    // The tabs come back when the connection is opened again.
+    await type('SELECT remembered_text')
+    await expect.poll(async () => page.evaluate(async () => {
+      const list = await window.oxe.oxeQuery.call('connections.list', {}) as { ok: boolean; value?: Array<{ id: string; name: string }> }
+      const id = list.value?.find(item => item.name === 'pg-dev')?.id ?? ''
+      const loaded = await window.oxe.oxeQuery.call('workspace.load', { connectionId: id }) as { value?: { state: { tabs: Array<{ sql: string }> } | null } }
+      return JSON.stringify(loaded.value?.state?.tabs ?? [])
+    }), { timeout: 10000 }).toContain('remembered_text')
+  } finally { await app.close() }
 })

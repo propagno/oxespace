@@ -18,6 +18,7 @@ export function registerOxeQueryMock(): void {
     { id: 'c3', name: 'old-job', image: 'alpine:3', state: 'exited', status: 'Exited (0) 3 days ago', ports: [], labels: {} }
   ]
   const connections: OxeQueryConnection[] = []
+  const workspaces = new Map<string, unknown>()
   let tx: { state: 'none' | 'open' | 'failed'; statements: number; since?: number } = { state: 'none', statements: 0 }
   const send = (event: unknown): void => { for (const window of BrowserWindow.getAllWindows()) window.webContents.send(IPC_CHANNELS.oxeQuery.onEvent, event) }
   const fail = (code: OxeQueryErrorInfo['code'], message: string, reasons?: string[]) => ({ ok: false as const, error: { code, message, ...(reasons ? { reasons } : {}) } })
@@ -150,6 +151,8 @@ export function registerOxeQueryMock(): void {
         else if (action === 'commit' || action === 'rollback') tx = { state: 'none', statements: 0 }
         return ok(tx)
       }
+      case 'workspace.load': return ok({ state: workspaces.get(String(input.connectionId)) ?? null })
+      case 'workspace.save': workspaces.set(String(input.connectionId), input.state); return ok({ ok: true })
       case 'sql.cancel': return ok({ cancelled: false })
       case 'sql.check': return ok({ kind: 'read', reasons: [], statements: 1 })
       case 'mongo.databases': return ok([{ name: 'shop' }, { name: 'admin' }])

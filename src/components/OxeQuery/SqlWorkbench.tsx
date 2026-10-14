@@ -80,6 +80,17 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   const loadedRef = useRef(false)
   loadedRef.current = loaded
 
+  // The editor owns its text while a person types (a controlled value drops keystrokes that arrive
+  // between a render and its state); text that comes from elsewhere (the library, a definition) is pushed in.
+  const typed = useRef({ id: active.id, text: active.sql })
+  useEffect(() => {
+    const instance = editor.current
+    // Text the editor itself produced is already there; only a change from elsewhere is pushed in.
+    if (typed.current.id === active.id && typed.current.text === active.sql) return
+    typed.current = { id: active.id, text: active.sql }
+    if (instance && instance.getValue() !== active.sql) instance.setValue(active.sql)
+  }, [active.id, active.sql])
+
   // ---- transaction state ---------------------------------------------------------------------------
   const refreshTx = useCallback(async (): Promise<void> => {
     if (connection.readOnly) return
@@ -257,14 +268,16 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
         <span className="oq-badge" data-readonly={connection.readOnly} title={connection.readOnly ? 'The server refuses statements that change data' : 'This connection can change data'}>{connection.readOnly ? 'read-only' : 'read-write'}</span>
       </div>
       {notice && <p role="alert" className="oq-error oq-notice">{notice}</p>}
-      <div className="oq-editor"><Editor key={active.id} height="100%" language="sql" theme={MONACO_THEME} value={active.sql} onChange={value => patch(active.id, { sql: value ?? '' })}
+      <div className="oq-editor"><Editor key={active.id} height="100%" language="sql" theme={MONACO_THEME} defaultValue={active.sql} onChange={value => { typed.current = { id: active.id, text: value ?? '' }; patch(active.id, { sql: value ?? '' }) }}
         onMount={(instance, monaco) => {
           editor.current = instance; monacoRef.current = monaco; bindCompletion(monaco, connection); registerSqlExtras(monaco)
           instance.onDidFocusEditorText(() => bindCompletion(monaco, connection))
           instance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => runRef.current())
           instance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.Enter, () => runAllRef.current())
         }}
-        options={{ minimap: { enabled: false }, fontSize: 13, scrollBeyondLastLine: false, wordWrap: 'on', automaticLayout: true, tabSize: 2, padding: { top: 8 }, formatOnPaste: false }} /></div>
+        options={{ minimap: { enabled: false }, fontSize: 13, scrollBeyondLastLine: false, wordWrap: 'on', automaticLayout: true, tabSize: 2, padding: { top: 8 }, formatOnPaste: false,
+          // Space, `(` and `.` end a word in SQL; they must not also accept whatever suggestion is highlighted (Enter and Tab do).
+          acceptSuggestionOnCommitCharacter: false }} /></div>
       {paramsAsk && <ParamsBar names={paramsAsk.names} values={paramValues}
         onChange={(name, value) => setParamValues(current => ({ ...current, [name]: value }))}
         onRun={() => { const ask = paramsAsk; setParamsAsk(null); void run(ask.text, ask.base, ask.confirmed) }} onCancel={() => setParamsAsk(null)} />}
