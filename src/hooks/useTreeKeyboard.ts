@@ -8,6 +8,9 @@ import { useCallback, useEffect, useState, type KeyboardEvent } from 'react'
  * - Right expands a collapsed folder, or moves to its first child when open.
  * - Left collapses an open folder, or moves to the parent row.
  * - Enter and Space keep the row's own activation (rows are buttons).
+ * - A row may own one inline control (for example a "reviewed" checkbox) marked with
+ *   `data-tree-action`. It is not a tab stop; Right on the row moves to it, Left moves
+ *   back, Up / Down leave it for the neighbouring rows, and its own keys (Space) work.
  *
  * Only one row is in the tab order (roving tabindex), so Tab enters and leaves the tree
  * in one step instead of stopping on every file.
@@ -16,6 +19,7 @@ import { useCallback, useEffect, useState, type KeyboardEvent } from 'react'
  * rows load lazily or mount from nested components.
  */
 const ITEM = '[role="treeitem"]'
+const ACTION = '[data-tree-action]'
 
 function level(element: Element | undefined): number {
   return Number(element?.getAttribute('aria-level') ?? 1)
@@ -24,17 +28,28 @@ function level(element: Element | undefined): number {
 /** Exported for tests; use `useTreeKeyboard` in components. */
 export function handleTreeKeyDown(event: KeyboardEvent<HTMLElement>): void {
   if (event.altKey || event.ctrlKey || event.metaKey) return
-  const row = event.target as HTMLElement
-  // Controls inside a row (a checkbox, a menu button) keep their own keys.
-  if (row.getAttribute('role') !== 'treeitem') return
+  const target = event.target as HTMLElement
   const rows = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(ITEM))
+  const go = (destination: HTMLElement | null | undefined): void => {
+    if (!destination) return
+    event.preventDefault()
+    destination.focus()
+  }
+  // An inline control owned by a row: arrows hand focus back to the tree, other keys stay its own.
+  if (target.matches(ACTION)) {
+    const owner = target.parentElement?.querySelector<HTMLElement>(ITEM) ?? null
+    const ownerIndex = owner ? rows.indexOf(owner) : -1
+    if (ownerIndex < 0) return
+    if (event.key === 'ArrowLeft') go(owner)
+    else if (event.key === 'ArrowDown') go(rows[ownerIndex + 1])
+    else if (event.key === 'ArrowUp') go(rows[ownerIndex - 1])
+    return
+  }
+  // Any other control inside a row (a menu button) keeps its own keys.
+  if (target.getAttribute('role') !== 'treeitem') return
+  const row = target
   const index = rows.indexOf(row)
   if (index < 0) return
-  const go = (target: HTMLElement | undefined): void => {
-    if (!target) return
-    event.preventDefault()
-    target.focus()
-  }
   const expanded = row.getAttribute('aria-expanded')
   switch (event.key) {
     case 'ArrowDown': go(rows[index + 1]); break
@@ -47,6 +62,8 @@ export function handleTreeKeyDown(event: KeyboardEvent<HTMLElement>): void {
         row.click()
       } else if (expanded === 'true' && level(rows[index + 1]) === level(row) + 1) {
         go(rows[index + 1])
+      } else if (expanded === null) {
+        go(row.parentElement?.querySelector<HTMLElement>(ACTION))
       }
       break
     case 'ArrowLeft':

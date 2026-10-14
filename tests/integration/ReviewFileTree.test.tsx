@@ -69,16 +69,61 @@ describe('ReviewFileTree as an ARIA tree', () => {
     expect(item(/^src/)).toHaveFocus()
   })
 
-  test('Enter selects the file and the reviewed checkbox keeps its own keys', async () => {
+  test('Enter selects the file', async () => {
     const user = userEvent.setup()
     const props = renderTree()
     item(/README\.md/).focus()
     await user.keyboard('{Enter}')
     expect(props.onSelectFile).toHaveBeenCalledWith('README.md')
-    const box = screen.getByRole('checkbox', { name: 'Mark README.md as reviewed' })
-    box.focus()
-    await user.keyboard('{ArrowDown}')
-    expect(box).toHaveFocus()
+  })
+
+  describe('the reviewed checkbox', () => {
+    const box = (path: string): HTMLElement => screen.getByRole('checkbox', { name: `Mark ${path} as reviewed` })
+
+    test('is not a tab stop, so Tab crosses the tree in one step', async () => {
+      renderTree()
+      for (const checkbox of screen.getAllByRole('checkbox')) expect(checkbox).toHaveAttribute('tabindex', '-1')
+      await waitFor(() => expect(screen.getAllByRole('treeitem').filter(row => row.tabIndex === 0)).toHaveLength(1))
+    })
+
+    test('Right on a file row moves focus to its checkbox and Left moves back', async () => {
+      const user = userEvent.setup()
+      renderTree()
+      item(/^app\.ts/).focus()
+      await user.keyboard('{ArrowRight}')
+      expect(box('src/app.ts')).toHaveFocus()
+      await user.keyboard('{ArrowLeft}')
+      expect(item(/^app\.ts/)).toHaveFocus()
+    })
+
+    test('Space on the checkbox marks the file as reviewed without selecting it', async () => {
+      const user = userEvent.setup()
+      const props = renderTree()
+      item(/^app\.ts/).focus()
+      await user.keyboard('{ArrowRight}')
+      await user.keyboard(' ')
+      expect(props.onToggleReviewed).toHaveBeenCalledWith('src/app.ts')
+      expect(props.onSelectFile).not.toHaveBeenCalled()
+    })
+
+    test('Up and Down on the checkbox go to the neighbouring rows', async () => {
+      const user = userEvent.setup()
+      renderTree()
+      item(/^app\.ts/).focus()
+      await user.keyboard('{ArrowRight}{ArrowDown}')
+      expect(item(/README\.md/)).toHaveFocus()
+      item(/^app\.ts/).focus()
+      await user.keyboard('{ArrowRight}{ArrowUp}')
+      expect(item(/util\.ts/)).toHaveFocus()
+    })
+
+    test('Right on a folder still expands or enters it rather than reaching a checkbox', async () => {
+      const user = userEvent.setup()
+      renderTree()
+      item(/^src/).focus()
+      await user.keyboard('{ArrowRight}')
+      expect(item(/^lib/)).toHaveFocus()
+    })
   })
 
   test('flat mode lists every file at the first level', () => {

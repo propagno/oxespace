@@ -113,6 +113,8 @@ function FileRow({ depth, file, label, onSelect, onToggleReviewed, reviewed, sel
       <input
         type="checkbox"
         className="review-tree-checkbox"
+        tabIndex={-1}
+        data-tree-action=""
         checked={reviewed}
         onChange={onToggleReviewed}
         onClick={(e) => e.stopPropagation()}
