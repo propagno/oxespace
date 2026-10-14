@@ -1,8 +1,9 @@
-import { useEffect, useState, type ReactElement } from 'react'
+import { useEffect, useRef, useState, type ReactElement } from 'react'
 import { BookMarked, History, Trash2 } from 'lucide-react'
 import type { OxeQueryConnection, QueryHistoryItem, SavedQuery } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
 import { groupSaved } from './library-folders'
+import { useEdgeAlign } from './useEdgeAlign'
 
 /** Saved queries and history for one connection; both live in the app database, not in the page. */
 export function LibraryMenu({ connection, currentSql, refreshKey, onPick, describe = text => text.replace(/\s+/g, ' ') }: {
@@ -45,9 +46,11 @@ export function LibraryMenu({ connection, currentSql, refreshKey, onPick, descri
     try { await oq('library.clearHistory', { connectionId: connection.id }); setHistory([]) } catch (cause) { setError(errorMessage(cause)) }
   }
 
-  return <div className="oq-library-wrap">
+  const wrap = useRef<HTMLDivElement | null>(null)
+  const side = useEdgeAlign(wrap, open, 436)
+  return <div className="oq-library-wrap" ref={wrap}>
     <button type="button" aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen(value => !value)}><BookMarked size={13} aria-hidden="true" />Library</button>
-    {open && <div className="oq-library" role="dialog" aria-label="Saved queries and history">
+    {open && <div className="oq-library" data-side={side} role="dialog" aria-label="Saved queries and history">
       <div role="tablist" className="oq-segment">
         <button type="button" role="tab" aria-selected={tab === 'saved'} data-selected={tab === 'saved'} onClick={() => setTab('saved')}><BookMarked size={12} aria-hidden="true" />Saved ({saved.length})</button>
         <button type="button" role="tab" aria-selected={tab === 'history'} data-selected={tab === 'history'} onClick={() => setTab('history')}><History size={12} aria-hidden="true" />History ({history.length})</button>

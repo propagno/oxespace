@@ -327,6 +327,8 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
         </div>
         {error && <div role="alert" className="oq-query-error"><strong>Query failed</strong>{error.sqlState && <small> SQLSTATE {error.sqlState}</small>}<pre>{error.message}</pre>{error.hint && <p className="oq-muted">Hint: {error.hint}</p>}{looksLikeLostConnection(error.message) && <ReconnectBar connection={connection} />}</div>}
         {result?.notices?.map(text => <p key={text} className="oq-muted oq-notice">{text}</p>)}
+        {/* Structure, filter, definition and row editing sit in one wrapping row; an open one takes the full width. */}
+        <div className="oq-extras">
         {active.details && <ColumnsPanel details={active.details} />}
         {active.browse && active.details && <FilterBar key={`${active.browse.schema}.${active.browse.table}:${JSON.stringify(active.browse.filters)}`} columns={active.details.columns} filters={active.browse.filters}
           onApply={filters => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: active.browse!.kind as SqlTable['kind'] }, { offset: 0, filters })} />}
@@ -334,6 +336,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
         {active.browse && result && <TableEditor key={`${active.browse.schema}.${active.browse.table}`} connection={connection} schema={active.browse.schema} table={active.browse.table}
           result={result} selectedRow={selectedRow} onClearSelection={() => setSelectedRow(null)}
           onApplied={() => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: 'table' }, { offset: active.browse!.offset })} />}
+        </div>
         <div className="oq-results-body">
           {active.explain ? <ExplainView explain={active.explain} onClose={() => patch(active.id, { explain: null })} />
             : result && columns.length > 0 ? <ResultGrid columns={columns} types={types} rows={result.rows} onCopy={copy} selected={selectedRow} tableName={qualified}

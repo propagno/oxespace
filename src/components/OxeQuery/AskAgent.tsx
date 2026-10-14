@@ -1,7 +1,8 @@
-import { useState, type ReactElement } from 'react'
+import { useRef, useState, type ReactElement } from 'react'
 import { Sparkles } from 'lucide-react'
 import { pasteIntoAgentTerminal } from '../../lib/sendToAgent'
 import { useWorkspaceStore } from '../../store/workspace.store'
+import { useEdgeAlign } from './useEdgeAlign'
 import { buildAgentPrompt, type AskContext, type AskKind } from './agent-prompt'
 
 /**
@@ -24,9 +25,11 @@ export function AskAgent({ context, hasError, hasPlan }: { context: AskContext; 
     if (result.ok) { setOpen(false); setWriting(false); setRequest('') }
   }
   const hasText = Boolean(context.sql?.trim())
-  return <span className="oq-ask">
+  const wrap = useRef<HTMLSpanElement | null>(null)
+  const side = useEdgeAlign(wrap, open, 256)
+  return <span className="oq-ask" ref={wrap}>
     <button type="button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(value => !value)}><Sparkles size={13} aria-hidden="true" />Ask agent</button>
-    {open && <div className="oq-ask-menu" role="menu" aria-label="Ask the agent">
+    {open && <div className="oq-ask-menu" data-side={side} role="menu" aria-label="Ask the agent">
       <button type="button" role="menuitem" disabled={!hasText} onClick={() => void send('explain')}>Explain this {context.engine === 'postgres' ? 'statement' : 'query'}</button>
       <button type="button" role="menuitem" disabled={!hasError} onClick={() => void send('fix')}>Fix this error</button>
       <button type="button" role="menuitem" disabled={!hasPlan} onClick={() => void send('plan')}>Read this plan</button>

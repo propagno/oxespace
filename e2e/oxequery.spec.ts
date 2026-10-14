@@ -612,7 +612,7 @@ test('the schema tree groups objects, searches every schema, pins tables and wor
     await expect(page.locator('.oq-results-bar')).toContainText('public.orders')
     await item('users').click({ position: { x: 12, y: 8 } })
     await expect(page.locator('.oq-results-bar')).toContainText('public.users')
-    await expect(page.locator('.oq-results > section[aria-label="Definition"]')).toHaveCount(1)
+    await expect(page.locator('.oq-results section[aria-label="Definition"]')).toHaveCount(1)
 
     // Pinning keeps a table at the top.
     await item('orders').hover()

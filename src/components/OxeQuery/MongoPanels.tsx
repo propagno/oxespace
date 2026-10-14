@@ -19,7 +19,7 @@ function TreeNode({ name, value, depth, open }: { name: string | null; value: un
   const entries: Array<[string, unknown]> = Array.isArray(value) ? value.map((item, index) => [String(index), item]) : Object.entries(value as Record<string, unknown>)
   const brackets = Array.isArray(value) ? `[${entries.length}]` : `{${entries.length}}`
   return <details className={styles.branch} open={depth < open} role="treeitem" aria-level={depth + 1}>
-    <summary>{label}<span className={styles.count}>{brackets}</span></summary>
+    <summary>{label}<span className={styles.size}>{brackets}</span></summary>
     <div className={styles.children} role="group">{entries.map(([key, child]) => <TreeNode key={key} name={key} value={child} depth={depth + 1} open={open} />)}</div>
   </details>
 }
