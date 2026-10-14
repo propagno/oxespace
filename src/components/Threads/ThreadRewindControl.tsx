@@ -1,5 +1,6 @@
 import { useState, type ReactElement } from 'react'
 import { History, Pencil } from 'lucide-react'
+import { Checkbox } from '../../ui'
 
 /**
  * Rewind the conversation to just before a user message, optionally to edit and
@@ -24,7 +25,7 @@ export function ThreadRewindControl({ laterTurns, disabled, onRewind, onEdit }: 
   const run = mode === 'edit' && onEdit ? onEdit : onRewind
   return <div className="thread-rewind-confirm" role="group" aria-label={mode === 'edit' ? 'Confirm edit' : 'Confirm rewind'}>
     <p>{mode === 'edit' ? 'To edit this message, it and ' : 'Removes this message and '}{laterTurns === 1 ? 'its reply' : `${laterTurns} turns`} {mode === 'edit' ? 'are removed from the conversation, in the provider\'s history too, and the text returns to the composer.' : 'from the conversation, in the provider\'s history too.'} This can't be undone.</p>
-    <label><input type="checkbox" checked={restoreFiles} onChange={event => setRestoreFiles(event.target.checked)} /> Also restore files changed by those turns</label>
+    <Checkbox checked={restoreFiles} onChange={event => setRestoreFiles(event.target.checked)} label="Also restore files changed by those turns" />
     <span>
       <button type="button" disabled={busy || disabled} onClick={() => { setBusy(true); void run({ restoreFiles }).finally(() => { setBusy(false); setMode(null) }) }}>{mode === 'edit' ? 'Rewind and edit' : 'Rewind'}</button>
       <button type="button" disabled={busy} onClick={() => setMode(null)}>Cancel</button>

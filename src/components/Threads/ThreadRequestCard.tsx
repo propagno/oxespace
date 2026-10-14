@@ -3,7 +3,7 @@ import { AlertCircle, Check, Shield, X } from 'lucide-react'
 import type { ThreadPermissionSuggestion, ThreadRequest, ThreadRequestResponse } from '../../../shared/types/thread'
 import { ThreadApprovalDetails } from './ThreadApprovalDetails'
 import { requestOutcomeLabel } from '../../../shared/threadRequestOutcome'
-import { cx } from '../../ui'
+import { cx, Select } from '../../ui'
 import styles from './ThreadRequestCard.module.css'
 
 // In-memory only: preserve drafts across view remounts, never persist secrets.
@@ -100,7 +100,7 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond, on
       const options = Array.isArray(schema.enum) ? schema.enum.filter((value): value is string => typeof value === 'string') : []
       return <label key={name} className={cx('thread-request-field', styles.field)}><span>{title}{required.has(name) ? ' *' : ''}</span>{description && <small>{description}</small>}
         {schema.type === 'boolean' ? <input type="checkbox" checked={Boolean(form[name])} onChange={event => setForm(value => ({ ...value, [name]: event.target.checked }))} />
-          : options.length ? <select value={String(form[name] ?? '')} onChange={event => setForm(value => ({ ...value, [name]: event.target.value }))}><option value="">Select…</option>{options.map(value => <option key={value}>{value}</option>)}</select>
+          : options.length ? <Select value={String(form[name] ?? '')} onChange={event => setForm(value => ({ ...value, [name]: event.target.value }))}><option value="">Select…</option>{options.map(value => <option key={value}>{value}</option>)}</Select>
           : <input type={schema.type === 'number' || schema.type === 'integer' ? 'number' : 'text'} value={String(form[name] ?? '')} onChange={event => setForm(value => ({ ...value, [name]: schema.type === 'number' || schema.type === 'integer' ? Number(event.target.value) : event.target.value }))} />}
       </label>
     })}

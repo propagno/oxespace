@@ -1,6 +1,6 @@
 import { Activity, ChevronDown, ChevronRight, Circle, CircleDot, Play, Plus, RotateCw, Search, ShieldCheck, Square, Trash2, Wrench, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
-import { useModalSurface } from '../../ui'
+import { useModalSurface, Button, TextField, Select, TextArea } from '../../ui'
 import type { CreateMcpServerInput, McpHealthStatus, McpServer, McpStdioConfig } from '../../../shared/types/mcp'
 import { selectMcpServers, useMcpStore } from '../../store/mcp.store'
 import { parseMcpJson } from './parseMcpJson'
@@ -165,18 +165,18 @@ export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement 
             <span className="mcp-panel-scope">{workspaceId ? 'workspace' : 'global'}</span>
           </div>
           <div className="mcp-panel-actions">
-            <button
-              type="button"
-              className="icon-button"
+            <Button
+             
+              variant="ghost" size="sm" square
               aria-label="Refresh"
               disabled={loading}
               onClick={() => void load(workspaceId)}
             >
               <RotateCw size={14} className={loading ? 'usage-spin' : ''} aria-hidden="true" />
-            </button>
-            <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
+            </Button>
+            <Button variant="ghost" size="sm" square aria-label="Close" onClick={onClose}>
               <X size={14} aria-hidden="true" />
-            </button>
+            </Button>
           </div>
         </header>
 
@@ -184,7 +184,7 @@ export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement 
 
         <label className="mcp-panel-search">
           <Search size={14} aria-hidden="true" />
-          <input type="search" aria-label="Search MCP servers" placeholder="Search connections" value={query} onChange={(event) => setQuery(event.target.value)} />
+          <TextField type="search" aria-label="Search MCP servers" placeholder="Search connections" value={query} onChange={(event) => setQuery(event.target.value)} />
         </label>
 
         {view === 'installed' && (
@@ -385,17 +385,17 @@ function McpServerRow({ server, busy, expanded, trustPrompt, removePrompt, onTog
 
       <div className="mcp-server-actions">
         {isRunning ? (
-          <button type="button" className="ghost-btn small" disabled={busy} onClick={onStop} title="Stop">
+          <Button variant="ghost" size="sm" disabled={busy} onClick={onStop} title="Stop">
             <Square size={12} aria-hidden="true" /> Stop
-          </button>
+          </Button>
         ) : (
-          <button type="button" className="primary-btn small" disabled={busy} onClick={onStart} title="Start handshake">
+          <Button variant="primary" size="sm" disabled={busy} onClick={onStart} title="Start handshake">
             <Play size={12} aria-hidden="true" /> Start
-          </button>
+          </Button>
         )}
-        <button type="button" className="icon-button" aria-label="Remove" disabled={busy} onClick={onRemove}>
+        <Button variant="ghost" size="sm" square aria-label="Remove" disabled={busy} onClick={onRemove}>
           <Trash2 size={12} aria-hidden="true" />
-        </button>
+        </Button>
       </div>
 
       {expanded ? (
@@ -409,15 +409,15 @@ function McpServerRow({ server, busy, expanded, trustPrompt, removePrompt, onTog
           {trustPrompt ? (
             <div className="mcp-inline-confirm">
               <span>Trust this server and start now?</span>
-              <button type="button" className="ghost-btn small" disabled={busy} onClick={onCancelTrust}>Cancel</button>
-              <button type="button" className="primary-btn small" disabled={busy} onClick={onTrustAndStart}>Trust and start</button>
+              <Button variant="ghost" size="sm" disabled={busy} onClick={onCancelTrust}>Cancel</Button>
+              <Button variant="primary" size="sm" disabled={busy} onClick={onTrustAndStart}>Trust and start</Button>
             </div>
           ) : null}
           {removePrompt ? (
             <div className="mcp-inline-confirm">
               <span>Remove "{server.name}"?</span>
-              <button type="button" className="ghost-btn small" disabled={busy} onClick={onCancelRemove}>Cancel</button>
-              <button type="button" className="primary-btn small" disabled={busy} onClick={onRemove}>Remove</button>
+              <Button variant="ghost" size="sm" disabled={busy} onClick={onCancelRemove}>Cancel</Button>
+              <Button variant="primary" size="sm" disabled={busy} onClick={onRemove}>Remove</Button>
             </div>
           ) : null}
           <div className="mcp-server-config">
@@ -717,7 +717,7 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
         <>
           <div className="mcp-create-template-field">
             <label htmlFor="mcp-template-select">Template</label>
-            <select
+            <Select
               id="mcp-template-select"
               value={templateId}
               onChange={(event) => applyTemplate(event.currentTarget.value)}
@@ -730,7 +730,7 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
                   ))}
                 </optgroup>
               ))}
-            </select>
+            </Select>
             <span className="mcp-create-template-hint">
               <strong>{selectedTemplate.category}</strong> · {selectedTemplate.description}
             </span>
@@ -738,27 +738,27 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
           <div className="mcp-create-row">
             <label>
               Name
-              <input value={name} onChange={(event) => setName(event.currentTarget.value)} placeholder="filesystem" disabled={busy} />
+              <TextField value={name} onChange={(event) => setName(event.currentTarget.value)} placeholder="filesystem" disabled={busy} />
             </label>
             <label>
               Scope
-              <select value={scope} onChange={(event) => setScope(event.currentTarget.value as typeof scope)} disabled={busy || !workspaceId}>
+              <Select value={scope} onChange={(event) => setScope(event.currentTarget.value as typeof scope)} disabled={busy || !workspaceId}>
                 <option value="global">Global</option>
                 {workspaceId ? <option value="workspace">This workspace only</option> : null}
-              </select>
+              </Select>
             </label>
           </div>
           <label>
             Command
-            <input value={command} onChange={(event) => setCommand(event.currentTarget.value)} placeholder="npx" disabled={busy} />
+            <TextField value={command} onChange={(event) => setCommand(event.currentTarget.value)} placeholder="npx" disabled={busy} />
           </label>
           <label>
             Args (space-separated)
-            <input value={argsText} onChange={(event) => setArgsText(event.currentTarget.value)} placeholder="-y @modelcontextprotocol/server-filesystem /tmp" disabled={busy} />
+            <TextField value={argsText} onChange={(event) => setArgsText(event.currentTarget.value)} placeholder="-y @modelcontextprotocol/server-filesystem /tmp" disabled={busy} />
           </label>
           <label>
             Env (KEY=VAL, one per line — optional)
-            <textarea value={envText} onChange={(event) => setEnvText(event.currentTarget.value)} placeholder={'GITHUB_TOKEN=ghp_...\nDEBUG=1'} rows={3} disabled={busy} />
+            <TextArea value={envText} onChange={(event) => setEnvText(event.currentTarget.value)} placeholder={'GITHUB_TOKEN=ghp_...\nDEBUG=1'} rows={3} disabled={busy} />
           </label>
         </>
       ) : (
@@ -766,14 +766,14 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
           <div className="mcp-create-row">
             <label>
               Scope
-              <select value={scope} onChange={(event) => setScope(event.currentTarget.value as typeof scope)} disabled={busy || !workspaceId}>
+              <Select value={scope} onChange={(event) => setScope(event.currentTarget.value as typeof scope)} disabled={busy || !workspaceId}>
                 <option value="global">Global</option>
                 {workspaceId ? <option value="workspace">This workspace only</option> : null}
-              </select>
+              </Select>
             </label>
             <label>
               Name (only if JSON omits it)
-              <input
+              <TextField
                 value={jsonName}
                 onChange={(event) => setJsonName(event.currentTarget.value)}
                 placeholder="github"
@@ -803,11 +803,11 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
 
       {error ? <div className="mcp-create-error">{error}</div> : null}
       <div className="mcp-create-actions">
-        <button type="button" className="ghost-btn" onClick={onCancel} disabled={busy}>Cancel</button>
+        <Button variant="ghost" onClick={onCancel} disabled={busy}>Cancel</Button>
         {mode === 'form' ? (
-          <button type="submit" className="primary-btn" disabled={busy || !name.trim() || !command.trim()}>Add server</button>
+          <Button type="submit" variant="primary" disabled={busy || !name.trim() || !command.trim()}>Add server</Button>
         ) : (
-          <button type="submit" className="primary-btn" disabled={busy || !jsonText.trim()}>Add from JSON</button>
+          <Button type="submit" variant="primary" disabled={busy || !jsonText.trim()}>Add from JSON</Button>
         )}
       </div>
     </form>

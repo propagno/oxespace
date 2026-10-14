@@ -3,6 +3,7 @@ import { Check, Copy, Search } from 'lucide-react'
 import type { SessionSummary } from '../../../shared/types/session'
 import type { SessionSearchResult } from '../../../shared/types/session-search'
 import { DesktopDialog } from '../Navigation/DesktopDialog'
+import { TextField } from '../../ui'
 
 export function ProviderSessionFinder({ workspaceId, rootPath, onClose }: { workspaceId: string; rootPath: string; onClose: () => void }) {
   const [sessions, setSessions] = useState<SessionSummary[]>([])
@@ -51,7 +52,7 @@ export function ProviderSessionFinder({ workspaceId, rootPath, onClose }: { work
 
   return <DesktopDialog className="desktop-provider-sessions-dialog" title="Codex and Claude sessions" description="Native conversations saved in this directory. Identify the session by the start of the conversation and its time." onClose={onClose}>
     <p className="terminal-session-identity-note">Terminal (PTY), pane and workspace IDs do not resume a provider conversation. A terminal may have opened several native sessions.</p>
-    <label className="desktop-provider-session-search"><Search size={14} aria-hidden="true" /><input type="search" aria-label="Search native sessions" placeholder="Search message, model or session ID" value={query} onChange={event => setQuery(event.target.value)} /></label>
+    <label className="desktop-provider-session-search"><Search size={14} aria-hidden="true" /><TextField type="search" aria-label="Search native sessions" placeholder="Search message, model or session ID" value={query} onChange={event => setQuery(event.target.value)} /></label>
     {error && <p className="desktop-provider-session-error" role="alert">{error}</p>}
     {loading ? <p role="status">Loading native sessions…</p> : matches.length ? <div className="desktop-provider-session-list">
       {matches.map(session => <article key={`${session.provider}:${session.sessionId}`} className="desktop-provider-session-card">

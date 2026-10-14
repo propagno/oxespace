@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowUpFromLine, CheckCircle2, ChevronDown, ChevronRight, CircleDot, Clock, Copy, Download, ExternalLink, Github, GitBranch, GitPullRequest, Link2, Minus, Play, Plus, RefreshCw, Tag, Terminal, TrendingUp } from 'lucide-react'
-import { copyText } from '../../ui'
+import { copyText, Button, Checkbox, TextField, TextArea, Select, EmptyState } from '../../ui'
 import type { GitHubBranch, GitHubCliStatus, GitHubCommit, GitHubCommitDetails, GitHubConnectedRepository, GitHubFileChange, GitHubPanelTab, GitHubPullRequest, GitHubRelease, GitHubWorkflow, GitHubWorkflowJob, GitHubWorkflowRun, GitHubWorkflowRunDetails, GitHubWorkspaceStatus } from '../../../shared/types/github'
 import { selectGitHubWorkspace, useGitHubStore } from '../../store/github.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
@@ -244,8 +244,8 @@ export function GitHubPanel({ activeTab: propTab, onOpenFile, onRunCommand, onTa
             <strong>{confirmAction.title}</strong>
             <span>{confirmAction.detail}</span>
           </div>
-          <button type="button" className="ghost-btn" onClick={() => setConfirmAction(null)}>Cancel</button>
-          <button type="button" className="primary-btn" disabled={state.loading} onClick={() => { const c = confirmAction; setConfirmAction(null); void c.run() }}>Confirm</button>
+          <Button variant="ghost" onClick={() => setConfirmAction(null)}>Cancel</Button>
+          <Button variant="primary" disabled={state.loading} onClick={() => { const c = confirmAction; setConfirmAction(null); void c.run() }}>Confirm</Button>
         </div>
       ) : null}
     </section>
@@ -318,9 +318,9 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
             <span>{status?.branch ?? 'no branch'}</span>
           </div>
           <div className="github-tab-header-actions">
-            <button
-              type="button"
-              className="gh-icon-btn"
+            <Button
+             
+              variant="ghost" size="sm" square
               title="Refresh status (branch, ahead/behind, changes)"
               aria-label="Refresh status"
               data-testid="github-status-refresh"
@@ -328,7 +328,7 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
               onClick={onRefresh}
             >
               <RefreshCw size={14} aria-hidden="true" />
-            </button>
+            </Button>
           </div>
         </div>
         <div className="github-tab-sep" />
@@ -450,7 +450,7 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
                 onOpenFile={onOpenFile}
               />
             ) : null}
-            {changes.length === 0 ? <div className="github-changes-empty">Working tree clean</div> : null}
+            {changes.length === 0 ? <EmptyState title="Working tree clean" /> : null}
           </div>
           <div className="github-changes-meta">
             <span>Last commit {status?.lastCommitRelative ?? '—'}</span>
@@ -549,7 +549,7 @@ function CheckpointsTab({ checkpoints, loading, onCreate, onRestore, onDelete, o
             <Clock size={14} aria-hidden="true" />
             <span>Checkpoints ({checkpoints.length})</span>
           </div>
-          <button type="button" className="gh-icon-btn" title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></button>
+          <Button variant="ghost" size="sm" square title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></Button>
         </div>
         <div className="github-tab-sep" />
         {checkpoints.length === 0 ? (
@@ -568,8 +568,8 @@ function CheckpointsTab({ checkpoints, loading, onCreate, onRestore, onDelete, o
                   {cp.description ? <p>{cp.description}</p> : null}
                 </div>
                 <div className="github-list-row-actions">
-                  <button type="button" className="ghost-btn" onClick={() => onRestore(cp.id, cp.name)}>Restore</button>
-                  <button type="button" className="ghost-btn" onClick={() => onDelete(cp.id)}>Delete</button>
+                  <Button variant="ghost" onClick={() => onRestore(cp.id, cp.name)}>Restore</Button>
+                  <Button variant="ghost" onClick={() => onDelete(cp.id)}>Delete</Button>
                 </div>
               </div>
             ))}
@@ -577,8 +577,8 @@ function CheckpointsTab({ checkpoints, loading, onCreate, onRestore, onDelete, o
         )}
       </div>
       <div className="github-checkpoints-footer">
-        <input value={name} placeholder="Checkpoint name (e.g. before-refactor)..." onChange={(e) => setName(e.target.value)} />
-        <input value={description} placeholder="Description (optional)..." onChange={(e) => setDescription(e.target.value)} />
+        <TextField value={name} placeholder="Checkpoint name (e.g. before-refactor)..." onChange={(e) => setName(e.target.value)} />
+        <TextField value={description} placeholder="Description (optional)..." onChange={(e) => setDescription(e.target.value)} />
         <button type="button" className="github-full-primary-btn" disabled={loading || !trimmedName} onClick={() => { onCreate(trimmedName, description.trim() || undefined); setName(''); setDescription('') }}>
           Create Checkpoint
         </button>
@@ -609,7 +609,7 @@ function ReposTab({ connectedRepositories, rootPath, workspaceId, status, onConn
       <div className="github-tab-scroll">
         <div className="github-tab-header">
           <div className="github-tab-header-title"><span>Repository</span></div>
-          <button type="button" className="gh-icon-btn" title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></button>
+          <Button variant="ghost" size="sm" square title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></Button>
         </div>
         <div className="github-tab-sep" />
 
@@ -648,8 +648,8 @@ function ReposTab({ connectedRepositories, rootPath, workspaceId, status, onConn
         </div>
         {showConnectForm ? (
           <div className="github-connect-form">
-            <input value={connectInput} placeholder="owner/repo" onChange={(e) => setConnectInput(e.target.value)} />
-            <button type="button" className="ghost-btn" disabled={!connectInput.trim()} onClick={() => { onConnect(connectInput.trim()); setConnectInput(''); setShowConnectForm(false) }}>Connect</button>
+            <TextField value={connectInput} placeholder="owner/repo" onChange={(e) => setConnectInput(e.target.value)} />
+            <Button variant="ghost" disabled={!connectInput.trim()} onClick={() => { onConnect(connectInput.trim()); setConnectInput(''); setShowConnectForm(false) }}>Connect</Button>
           </div>
         ) : null}
         {connectedRepositories.length === 0 ? (
@@ -691,7 +691,7 @@ function GitignoreRow({ rootPath, workspaceId }: { rootPath: string; workspaceId
           <span className="github-gitignore-exists">exists</span>
           <div className="github-gitignore-right">
             <span className="github-muted">{info.lines} lines</span>
-            <button type="button" className="ghost-btn github-edit-btn">Edit <ChevronDown size={12} aria-hidden="true" /></button>
+            <Button variant="ghost" className="github-edit-btn">Edit <ChevronDown size={12} aria-hidden="true" /></Button>
           </div>
         </>
       ) : (
@@ -721,7 +721,7 @@ function BranchesTab({ branches, status, onCheckout, onCreate, onRefresh }: {
         <div className="github-tab-header">
           <div className="github-tab-header-title"><span>Branches</span></div>
           <div className="github-tab-header-actions">
-            <button type="button" className="gh-icon-btn" title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></button>
+            <Button variant="ghost" size="sm" square title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></Button>
             <button type="button" className="github-outline-btn" onClick={() => setShowCreate((v) => !v)}>+ New Branch</button>
           </div>
         </div>
@@ -737,9 +737,9 @@ function BranchesTab({ branches, status, onCheckout, onCreate, onRefresh }: {
 
         {showCreate ? (
           <div className="github-connect-form">
-            <input value={newName} placeholder="new-branch-name" autoFocus onChange={(e) => setNewName(e.target.value)} />
-            <button type="button" className="ghost-btn" disabled={!newName.trim()} onClick={() => { onCreate(newName.trim()); setNewName(''); setShowCreate(false) }}>Create</button>
-            <button type="button" className="ghost-btn" onClick={() => setShowCreate(false)}>Cancel</button>
+            <TextField value={newName} placeholder="new-branch-name" autoFocus onChange={(e) => setNewName(e.target.value)} />
+            <Button variant="ghost" disabled={!newName.trim()} onClick={() => { onCreate(newName.trim()); setNewName(''); setShowCreate(false) }}>Create</Button>
+            <Button variant="ghost" onClick={() => setShowCreate(false)}>Cancel</Button>
           </div>
         ) : null}
 
@@ -758,12 +758,12 @@ function BranchesTab({ branches, status, onCheckout, onCreate, onRefresh }: {
                 {branch.current ? (
                   <span className="github-current-badge">current</span>
                 ) : (
-                  <button type="button" className="ghost-btn github-branch-action-btn" onClick={() => onCheckout(branch.name)}>Checkout</button>
+                  <Button variant="ghost" className="github-branch-action-btn" onClick={() => onCheckout(branch.name)}>Checkout</Button>
                 )}
               </div>
             </div>
           ))}
-          {branches.length === 0 ? <div className="github-empty">No branches found.</div> : null}
+          {branches.length === 0 ? <EmptyState title="No branches found." /> : null}
         </div>
       </div>
     </div>
@@ -836,7 +836,7 @@ function PullRequestsTab({ prs, status, loading, input, onCreate, onRefresh }: {
         <div className="github-tab-header">
           <div className="github-tab-header-title"><span>Pull Requests</span></div>
           <div className="github-tab-header-actions">
-            <button type="button" className="gh-icon-btn" title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></button>
+            <Button variant="ghost" size="sm" square title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></Button>
             <button type="button" className="github-outline-btn" onClick={() => repoName && window.open(`https://github.com/${repoName}/compare`, '_blank')}>+ New PR</button>
           </div>
         </div>
@@ -869,7 +869,7 @@ function PullRequestsTab({ prs, status, loading, input, onCreate, onRefresh }: {
               <span className="github-pr-author-name">{pr.author ?? ''}</span>
             </button>
           ))}
-          {filtered.length === 0 ? <div className="github-empty">No pull requests found.</div> : null}
+          {filtered.length === 0 ? <EmptyState title="No pull requests found." /> : null}
         </div>
       </div>
     </div>
@@ -905,7 +905,7 @@ function CommitsTab({ commitDetails, commits, loading, status, onLoadDetails, on
             <code className="github-detail-sha">{selected?.shortOid ?? selectedOid.slice(0, 7)}</code>
           </div>
           <div className="github-tab-sep" />
-          {!selected && loading ? <div className="github-empty">Loading commit…</div> : null}
+          {!selected && loading ? <EmptyState title="Loading commit…" /> : null}
           {selected ? <CommitDetailView details={selected} /> : null}
         </div>
       </div>
@@ -917,7 +917,7 @@ function CommitsTab({ commitDetails, commits, loading, status, onLoadDetails, on
       <div className="github-tab-scroll">
         <div className="github-tab-header">
           <div className="github-tab-header-title"><span>Commits</span></div>
-          <button type="button" className="gh-icon-btn" title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></button>
+          <Button variant="ghost" size="sm" square title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></Button>
         </div>
         <div className="github-tab-sep" />
 
@@ -946,7 +946,7 @@ function CommitsTab({ commitDetails, commits, loading, status, onLoadDetails, on
               </div>
             </button>
           ))}
-          {commits.length === 0 ? <div className="github-empty">No commits found.</div> : null}
+          {commits.length === 0 ? <EmptyState title="No commits found." /> : null}
         </div>
       </div>
     </div>
@@ -1042,12 +1042,12 @@ function ReleasesTab({ releases, status, loading, onCreate, onRefresh }: {
           </div>
           <div className="github-tab-sep" />
           <div className="github-release-form-body">
-            <label>Tag<input value={tagName} placeholder="v1.0.0" onChange={(e) => setTagName(e.target.value)} /></label>
-            <label>Title (optional)<input value={title} placeholder="Release title" onChange={(e) => setTitle(e.target.value)} /></label>
-            <label>Release Notes (optional)<textarea value={notes} placeholder="Describe the release…" onChange={(e) => setNotes(e.target.value)} /></label>
+            <label>Tag<TextField value={tagName} placeholder="v1.0.0" onChange={(e) => setTagName(e.target.value)} /></label>
+            <label>Title (optional)<TextField value={title} placeholder="Release title" onChange={(e) => setTitle(e.target.value)} /></label>
+            <label>Release Notes (optional)<TextArea value={notes} placeholder="Describe the release…" onChange={(e) => setNotes(e.target.value)} /></label>
             <div className="github-check-row">
-              <label><input type="checkbox" checked={draft} onChange={(e) => setDraft(e.target.checked)} /> Draft</label>
-              <label><input type="checkbox" checked={prerelease} onChange={(e) => setPrerelease(e.target.checked)} /> Pre-release</label>
+              <Checkbox checked={draft} onChange={(e) => setDraft(e.target.checked)} label="Draft" />
+              <Checkbox checked={prerelease} onChange={(e) => setPrerelease(e.target.checked)} label="Pre-release" />
             </div>
             <button type="button" className="github-full-primary-btn" disabled={loading || !tagName.trim()} onClick={() => onCreate({ tagName: tagName.trim(), title: title.trim() || undefined, notes: notes.trim() || undefined, draft, prerelease, generateNotes: !notes.trim() })}>
               Create Release
@@ -1064,7 +1064,7 @@ function ReleasesTab({ releases, status, loading, onCreate, onRefresh }: {
         <div className="github-tab-header">
           <div className="github-tab-header-title"><span>Releases</span></div>
           <div className="github-tab-header-actions">
-            <button type="button" className="gh-icon-btn" title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></button>
+            <Button variant="ghost" size="sm" square title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></Button>
             <button type="button" className="github-outline-btn" onClick={() => setShowCreate(true)}>+ New Release</button>
           </div>
         </div>
@@ -1089,7 +1089,7 @@ function ReleasesTab({ releases, status, loading, onCreate, onRefresh }: {
               </div>
             </button>
           ))}
-          {releases.length === 0 ? <div className="github-empty">No releases found.</div> : null}
+          {releases.length === 0 ? <EmptyState title="No releases found." /> : null}
         </div>
       </div>
     </div>
@@ -1194,12 +1194,12 @@ function ActionsTab({ workflows, workflowRuns, workflowRunDetails, loading, work
               {f === 'all' ? 'All' : f === 'failed' ? 'Failed' : 'In progress'}
             </button>
           ))}
-          <button type="button" className="gh-icon-btn" title="Refresh" onClick={onRefresh}>
+          <Button variant="ghost" size="sm" square title="Refresh" onClick={onRefresh}>
             <RefreshCw size={14} aria-hidden="true" className={loading ? 'usage-spin' : undefined} />
-          </button>
-          <button type="button" className="gh-icon-btn" title="Run workflow" onClick={() => setShowRunForm((v) => !v)}>
+          </Button>
+          <Button variant="ghost" size="sm" square title="Run workflow" onClick={() => setShowRunForm((v) => !v)}>
             <Play size={14} aria-hidden="true" />
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -1215,7 +1215,7 @@ function ActionsTab({ workflows, workflowRuns, workflowRunDetails, loading, work
       <div className="github-actions-v2-split">
         <aside className="github-actions-v2-tree">
           {groups.length === 0 ? (
-            <div className="github-empty">No workflows found.</div>
+            <EmptyState title="No workflows found." />
           ) : (
             groups.map(({ workflow, runs }) => {
               const collapsed = collapsedWorkflows.has(workflow.name)
@@ -1233,7 +1233,7 @@ function ActionsTab({ workflows, workflowRuns, workflowRunDetails, loading, work
                   </button>
                   {!collapsed && (
                     runs.length === 0 ? (
-                      <div className="github-actions-v2-empty">No runs</div>
+                      <EmptyState title="No runs" />
                     ) : (
                       runs.map((run) => (
                         <button
@@ -1269,7 +1269,7 @@ function ActionsTab({ workflows, workflowRuns, workflowRunDetails, loading, work
               onRerun={(failedOnly) => onRerun(selectedRun.databaseId, failedOnly)}
             />
           ) : (
-            <div className="github-empty">Select a workflow run to view details.</div>
+            <EmptyState title="Select a workflow run to view details." />
           )}
         </section>
       </div>
@@ -1354,13 +1354,13 @@ function RunDetail({ run, details, rootPath, workspaceId, onRefresh, onRerun }: 
       </dl>
 
       <div className="github-actions-v2-detail-actions">
-        <button type="button" className="ghost-btn" onClick={() => onRerun(false)}>
+        <Button variant="ghost" onClick={() => onRerun(false)}>
           <RefreshCw size={12} aria-hidden="true" /> Re-run all
-        </button>
+        </Button>
         {isFailed ? (
-          <button type="button" className="ghost-btn" onClick={() => onRerun(true)}>
+          <Button variant="ghost" onClick={() => onRerun(true)}>
             <RefreshCw size={12} aria-hidden="true" /> Re-run failed
-          </button>
+          </Button>
         ) : null}
         <button
           type="button"
@@ -1381,13 +1381,13 @@ function RunDetail({ run, details, rootPath, workspaceId, onRefresh, onRerun }: 
           </button>
         ) : null}
         {run.url ? (
-          <button type="button" className="ghost-btn" onClick={() => window.open(run.url ?? '', '_blank')}>
+          <Button variant="ghost" onClick={() => window.open(run.url ?? '', '_blank')}>
             <ExternalLink size={12} aria-hidden="true" /> Open in GitHub
-          </button>
+          </Button>
         ) : null}
-        <button type="button" className="ghost-btn" onClick={onRefresh}>
+        <Button variant="ghost" onClick={onRefresh}>
           <RefreshCw size={12} aria-hidden="true" /> Refresh steps
-        </button>
+        </Button>
       </div>
 
       <WorkflowRuntimeTree run={details ?? run} jobs={details?.jobs ?? []} workspaceId={workspaceId} />
@@ -1408,22 +1408,22 @@ function RunDetail({ run, details, rootPath, workspaceId, onRefresh, onRerun }: 
             <span>{logsMode === 'failed' ? 'Failed-step logs' : 'Full run logs'}</span>
             <div className="github-actions-v2-logs-header-actions">
               {logs.truncated ? <span className="github-actions-v2-logs-truncated">truncated</span> : null}
-              <button
-                type="button"
-                className="ghost-btn small"
+              <Button
+               
+                variant="ghost" size="sm"
                 onClick={() => void copyText(logs.text, 'Logs')}
                 title="Copy logs to clipboard"
               >
                 <Copy size={12} aria-hidden="true" /> Copy
-              </button>
-              <button
-                type="button"
-                className="ghost-btn small"
+              </Button>
+              <Button
+               
+                variant="ghost" size="sm"
                 onClick={() => { setLogs(null); setLogsMode(null) }}
                 aria-label="Close logs"
               >
                 Hide
-              </button>
+              </Button>
             </div>
           </header>
           <pre className="github-actions-v2-logs-body">{logs.text}</pre>
@@ -1521,20 +1521,20 @@ function RunWorkflowForm({ workflows, loading, onRun, onCancel }: {
   return (
     <div className="github-actions-v2-runform">
       <div className="github-actions-v2-runform-row">
-        <select value={workflowId} onChange={(e) => setWorkflowId(e.currentTarget.value)}>
+        <Select value={workflowId} onChange={(e) => setWorkflowId(e.currentTarget.value)}>
           <option value="">Select workflow…</option>
           {workflows.map((w) => <option key={w.id} value={String(w.id)}>{w.name}</option>)}
-        </select>
-        <input value={ref} placeholder="ref (optional)" onChange={(e) => setRef(e.currentTarget.value)} />
+        </Select>
+        <TextField value={ref} placeholder="ref (optional)" onChange={(e) => setRef(e.currentTarget.value)} />
       </div>
-      <textarea
+      <TextArea
         value={fieldsText}
         placeholder="inputs (optional) — one key=value per line"
         rows={3}
         onChange={(e) => setFieldsText(e.currentTarget.value)}
       />
       <div className="github-actions-v2-runform-actions">
-        <button type="button" className="ghost-btn" onClick={onCancel}>Cancel</button>
+        <Button variant="ghost" onClick={onCancel}>Cancel</Button>
         <button
           type="button"
           className="github-full-primary-btn"
@@ -1591,7 +1591,7 @@ function SettingsTab({ status, rootPath, connectedRepositories, onRunCommand, on
       <div className="github-tab-scroll">
         <div className="github-tab-header">
           <div className="github-tab-header-title"><span>Settings</span></div>
-          <button type="button" className="gh-icon-btn" title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></button>
+          <Button variant="ghost" size="sm" square title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></Button>
         </div>
         <div className="github-tab-sep" />
 
@@ -1616,10 +1616,10 @@ function SettingsTab({ status, rootPath, connectedRepositories, onRunCommand, on
           ) : (
             <div className="github-not-connected-row">
               <span>{cli?.available ? 'Not authenticated — run gh auth login' : 'GitHub CLI not installed'}</span>
-              <button type="button" className="ghost-btn" onClick={() => onRunCommand('gh auth login')}>
+              <Button variant="ghost" onClick={() => onRunCommand('gh auth login')}>
                 <Terminal size={12} aria-hidden="true" />
                 gh auth login
-              </button>
+              </Button>
             </div>
           )}
 
@@ -1629,7 +1629,7 @@ function SettingsTab({ status, rootPath, connectedRepositories, onRunCommand, on
               <button type="button" className="github-text-btn">+ Add repository</button>
             </div>
             {connectedRepositories.length === 0 ? (
-              <div className="github-settings-repos-empty">No repositories connected. Add one to start syncing issues.</div>
+              <EmptyState title="No repositories connected. Add one to start syncing issues." />
             ) : (
               <div className="github-list">
                 {connectedRepositories.map((r) => (
@@ -1682,7 +1682,7 @@ function GitHubCliSetup({ cli, onRunCommand }: { cli: GitHubCliStatus | null; on
           {installCmds.map((cmd) => (
             <div key={cmd} className="github-setup-cmd-row">
               <code>{cmd}</code>
-              <button type="button" className="ghost-btn" title="Copy" onClick={() => copyCmd(cmd)}><Copy size={12} aria-hidden="true" /></button>
+              <Button variant="ghost" title="Copy" onClick={() => copyCmd(cmd)}><Copy size={12} aria-hidden="true" /></Button>
             </div>
           ))}
           <a className="github-setup-link" href="https://cli.github.com" target="_blank" rel="noreferrer">
@@ -1696,10 +1696,10 @@ function GitHubCliSetup({ cli, onRunCommand }: { cli: GitHubCliStatus | null; on
         <span className="github-setup-block-label">Authenticate</span>
         <div className="github-setup-cmd-row">
           <code>gh auth login</code>
-          <button type="button" className="primary-btn" onClick={() => onRunCommand('gh auth login')}>
+          <Button variant="primary" onClick={() => onRunCommand('gh auth login')}>
             <Terminal size={12} aria-hidden="true" />
             Run
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -1752,7 +1752,7 @@ function GitHubEmbeddedTerminal({ command, workspaceId, onDismiss }: {
       <div className="github-terminal-header">
         <Terminal size={12} aria-hidden="true" />
         <span>Terminal</span>
-        <button type="button" className="gh-icon-btn" title="Close" onClick={onDismiss}>×</button>
+        <Button variant="ghost" size="sm" square title="Close" onClick={onDismiss}>×</Button>
       </div>
       <div className="github-terminal-body">
         <TerminalView

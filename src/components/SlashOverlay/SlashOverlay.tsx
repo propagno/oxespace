@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { SlashCommandDefinition } from '../../../shared/types/slash'
 import type { SkillDefinition } from '../../../shared/types/skill'
 import { filterSlashCommands } from '../../lib/slashCommands'
+import { Button } from '../../ui'
 
 interface SlashOverlayProps {
   paneId: string
@@ -107,9 +108,9 @@ export function SlashOverlay({ paneId, paneLabel, skills = [], onClose, onExecut
             <Slash size={12} aria-hidden="true" />
             <span>{paneLabel}</span>
           </div>
-          <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
+          <Button variant="ghost" size="sm" square aria-label="Close" onClick={onClose}>
             <X size={14} aria-hidden="true" />
-          </button>
+          </Button>
         </header>
 
         {pendingCommand ? (

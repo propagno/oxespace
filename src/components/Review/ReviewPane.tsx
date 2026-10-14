@@ -7,6 +7,7 @@ import { selectGitState, useGitStore } from '../../store/git.store'
 import { DiffCard } from './DiffCard'
 import { ReviewFileTree } from './ReviewFileTree'
 import { ReviewToolbar } from './ReviewToolbar'
+import { EmptyState } from '../../ui'
 
 interface ReviewPaneProps {
   workspaceId: string
@@ -160,7 +161,7 @@ export function ReviewPane({ workspaceId, rootPath }: ReviewPaneProps): ReactEle
         </div>
       )}
 
-      {ws.isLoading && <div className="review-pane-empty">Loading diff…</div>}
+      {ws.isLoading && <EmptyState title="Loading diff…" />}
       {ws.error && (
         <div className="review-pane-alert">
           <span>{ws.error}</span>
@@ -215,7 +216,7 @@ export function ReviewPane({ workspaceId, rootPath }: ReviewPaneProps): ReactEle
                 onSelect={() => undefined}
               />
             ) : (
-              <div className="review-pane-empty">Select a file in the tree to view its diff.</div>
+              <EmptyState title="Select a file in the tree to view its diff." />
             )}
           </div>
         </div>

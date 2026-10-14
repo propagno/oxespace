@@ -8,6 +8,7 @@ import type {
   AutomationSchedule
 } from '../../../shared/types/automation'
 import { useWorkspaceStore } from '../../store/workspace.store'
+import { Button, TextField, Select, TextArea } from '../../ui'
 
 const STATUS_LABEL: Record<AutomationRunStatus, string> = {
   pending: 'queued',
@@ -137,14 +138,14 @@ export function AutomationsSettings(): ReactElement | null {
               </small>
             </span>
             <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <button type="button" className="settings-btn ghost" title="Run now" aria-label={`Run ${a.name} now`}
-                onClick={() => void guard(() => api.runNow(a.id))}><Play size={12} aria-hidden="true" /></button>
-              <button type="button" className="settings-btn ghost" title={a.enabled ? 'Disable' : 'Enable'}
+              <Button variant="ghost" title="Run now" aria-label={`Run ${a.name} now`}
+                onClick={() => void guard(() => api.runNow(a.id))}><Play size={12} aria-hidden="true" /></Button>
+              <Button variant="ghost" title={a.enabled ? 'Disable' : 'Enable'}
                 onClick={() => void guard(() => api.setEnabled({ id: a.id, enabled: !a.enabled }))}>
                 {a.enabled ? 'Active' : 'Paused'}
-              </button>
-              <button type="button" className="settings-btn ghost" title="Delete" aria-label={`Delete ${a.name}`}
-                onClick={() => void guard(() => api.remove(a.id))}><Trash2 size={12} aria-hidden="true" /></button>
+              </Button>
+              <Button variant="ghost" title="Delete" aria-label={`Delete ${a.name}`}
+                onClick={() => void guard(() => api.remove(a.id))}><Trash2 size={12} aria-hidden="true" /></Button>
             </span>
           </div>
         )
@@ -155,34 +156,34 @@ export function AutomationsSettings(): ReactElement | null {
       {creating ? (
         <div className="settings-form-group">
           <label className="settings-field">Name
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nightly review" />
+            <TextField value={name} onChange={(e) => setName(e.target.value)} placeholder="Nightly review" />
           </label>
           <label className="settings-field">Repository
-            <select value={rootPath} onChange={(e) => setRootPath(e.target.value)}>
+            <Select value={rootPath} onChange={(e) => setRootPath(e.target.value)}>
               <option value="">Select…</option>
               {workspaces.map((w) => <option key={w.id} value={w.rootPath}>{w.name} — {w.rootPath}</option>)}
-            </select>
+            </Select>
           </label>
           <label className="settings-field">Agent
-            <select value={agent} onChange={(e) => setAgent(e.target.value as AutomationAgent)}>
+            <Select value={agent} onChange={(e) => setAgent(e.target.value as AutomationAgent)}>
               <option value="claude">Claude Code</option>
               <option value="codex">Codex</option>
-            </select>
+            </Select>
           </label>
           <label className="settings-field">Prompt
-            <textarea rows={4} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
+            <TextArea rows={4} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
           </label>
           <label className="settings-field">Frequency
-            <select value={kind} onChange={(e) => setKind(e.target.value as ScheduleKind)}>
+            <Select value={kind} onChange={(e) => setKind(e.target.value as ScheduleKind)}>
               <option value="interval">Every N minutes</option>
               <option value="daily">Daily</option>
               <option value="weekly">Weekly</option>
               <option value="cron">Cron</option>
-            </select>
+            </Select>
           </label>
           {kind === 'interval' ? (
             <label className="settings-field">Minutes (min. 5)
-              <input type="number" min={5} value={every} onChange={(e) => setEvery(Number(e.target.value))} />
+              <TextField type="number" min={5} value={every} onChange={(e) => setEvery(Number(e.target.value))} />
             </label>
           ) : null}
           {kind === 'daily' || kind === 'weekly' ? (
@@ -202,26 +203,26 @@ export function AutomationsSettings(): ReactElement | null {
           ) : null}
           {kind === 'cron' ? (
             <label className="settings-field">Expression (minute hour day month weekday)
-              <input value={cron} onChange={(e) => setCron(e.target.value)} />
+              <TextField value={cron} onChange={(e) => setCron(e.target.value)} />
             </label>
           ) : null}
           <label className="settings-field">Pre-check (optional)
-            <input value={precheck} onChange={(e) => setPrecheck(e.target.value)} placeholder="git diff --quiet origin/main || exit 0" />
+            <TextField value={precheck} onChange={(e) => setPrecheck(e.target.value)} placeholder="git diff --quiet origin/main || exit 0" />
             <span className="settings-field-hint">Command run at the repository root; the run only continues if it exits with code 0.</span>
           </label>
           <label className="settings-field">Extra agent arguments (optional)
-            <input value={extraArgs} onChange={(e) => setExtraArgs(e.target.value)} placeholder="--permission-mode acceptEdits" />
+            <TextField value={extraArgs} onChange={(e) => setExtraArgs(e.target.value)} placeholder="--permission-mode acceptEdits" />
             <span className="settings-field-hint">There is no interactive approval, so the agent only uses what these arguments allow.</span>
           </label>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="button" className="settings-btn" onClick={() => void submit()}>Create automation</button>
-            <button type="button" className="settings-btn ghost" onClick={() => setCreating(false)}>Cancel</button>
+            <Button variant="secondary" onClick={() => void submit()}>Create automation</Button>
+            <Button variant="ghost" onClick={() => setCreating(false)}>Cancel</Button>
           </div>
         </div>
       ) : (
-        <button type="button" className="settings-btn ghost" onClick={() => setCreating(true)}>
+        <Button variant="ghost" onClick={() => setCreating(true)}>
           <Plus size={14} aria-hidden="true" /> New automation
-        </button>
+        </Button>
       )}
     </div>
   )

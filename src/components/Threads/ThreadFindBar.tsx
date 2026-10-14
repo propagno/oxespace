@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { ChevronDown, ChevronUp, X } from 'lucide-react'
 import type { ThreadTimelineItem } from './threadTimelineModel'
 import { findRows, textRanges } from './threadFind'
+import { TextField } from '../../ui'
 
 type Highlights = { set(name: string, value: unknown): void; delete(name: string): void }
 const highlights = (): Highlights | undefined => (globalThis.CSS as unknown as { highlights?: Highlights } | undefined)?.highlights
@@ -46,7 +47,7 @@ export function ThreadFindBar({ rows, scrollRoot, scrollTo, onClose }: {
   useEffect(() => () => highlights()?.delete('thread-find'), [])
   const step = (delta: number) => { if (matches.length) setCurrent(value => (Math.min(value, matches.length - 1) + delta + matches.length) % matches.length) }
   return <div className="thread-find" role="search" aria-label="Find in conversation">
-    <input ref={input} type="search" aria-label="Find in conversation" placeholder="Find in conversation" value={query} onChange={event => setQuery(event.target.value)}
+    <TextField ref={input} type="search" aria-label="Find in conversation" placeholder="Find in conversation" value={query} onChange={event => setQuery(event.target.value)}
       onKeyDown={event => {
         if (event.key === 'Enter') { event.preventDefault(); step(event.shiftKey ? -1 : 1) }
         else if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onClose() }

@@ -475,15 +475,8 @@ function WorkspaceSurfaceComponent({
 
   const toolbar = (
     <header className="workspace-topbar" aria-label="Workspace status">
-      <div className="workspace-topbar-breadcrumb">
-        <span className="workspace-topbar-name">{workspace.name}</span>
-        {showSubPath ? (
-          <>
-            <span className="workspace-topbar-divider">/</span>
-            <span className="workspace-topbar-path" title={workspace.rootPath}>{folderName}</span>
-          </>
-        ) : null}
-      </div>
+      {/* The workspace name lives in the title bar; the strip only adds the folder when it differs from it. */}
+      {showSubPath ? <div className="workspace-topbar-breadcrumb"><span className="workspace-topbar-path" title={workspace.rootPath}>{folderName}</span></div> : null}
       <div className="workspace-topbar-spacer" />
       <button type="button" className="workspace-topbar-action" aria-label="Open connections" title="Connections and MCP servers" onClick={openConnections}>
         <PlugZap size={14} aria-hidden="true" /><span>Connections</span>

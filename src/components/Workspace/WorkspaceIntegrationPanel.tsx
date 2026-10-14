@@ -2,6 +2,7 @@ import { Maximize2, Network, X } from 'lucide-react'
 import type { ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import { IntegrationPanel } from '../Integration/IntegrationPanel'
+import { Button } from '../../ui'
 
 interface WorkspaceIntegrationPanelProps {
   activePaneId: string | null
@@ -26,12 +27,12 @@ export function WorkspaceIntegrationPanel({ activePaneId, isExpanded, onCollapse
           <strong>Multi-repo coordination</strong>
         </div>
         <div className="workspace-editor-actions">
-          <button type="button" className="icon-button" aria-label="Expand multi-repo coordination panel" onClick={onToggleExpanded}>
+          <Button variant="ghost" size="sm" square aria-label="Expand multi-repo coordination panel" onClick={onToggleExpanded}>
             <Maximize2 size={14} aria-hidden="true" />
-          </button>
-          <button type="button" className="icon-button" aria-label="Close multi-repo coordination panel" onClick={onCollapse}>
+          </Button>
+          <Button variant="ghost" size="sm" square aria-label="Close multi-repo coordination panel" onClick={onCollapse}>
             <X size={14} aria-hidden="true" />
-          </button>
+          </Button>
         </div>
       </header>
       <IntegrationPanel

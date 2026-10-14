@@ -642,3 +642,7 @@
 .thread-more-item:has(> svg:first-child) { justify-content: flex-start; gap: 8px; }
 .thread-more-item[data-disabled] { opacity: .45; }
 .thread-more-label output { margin-left: 6px; color: var(--tx-primary); font-weight: 600; }
+
+/* The composer footer reads as three groups: add to the prompt, model and access, then status and send. */
+.thread-composer-group { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.thread-composer-status { padding-left: 8px; border-left: 1px solid var(--bd-base); }

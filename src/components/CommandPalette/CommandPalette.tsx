@@ -1,5 +1,6 @@
 import { History, Search, X, type LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { Button, TextField } from '../../ui'
 
 export interface CommandPaletteAction {
   id: string
@@ -166,7 +167,7 @@ export function CommandPalette({ actions, onClose }: CommandPaletteProps): React
       >
         <header className="command-palette-search">
           <Search size={16} aria-hidden="true" />
-          <input
+          <TextField
             autoFocus
             value={query}
             onChange={(event) => setQuery(event.currentTarget.value)}
@@ -176,9 +177,9 @@ export function CommandPalette({ actions, onClose }: CommandPaletteProps): React
             aria-controls="command-palette-list"
             aria-activedescendant={flatItems[activeIndex] ? `cp-item-${flatItems[activeIndex].id}` : undefined}
           />
-          <button type="button" className="icon-button" aria-label="Close command palette" onClick={onClose}>
+          <Button variant="ghost" size="sm" square aria-label="Close command palette" onClick={onClose}>
             <X size={14} aria-hidden="true" />
-          </button>
+          </Button>
         </header>
         <div id="command-palette-list" className="command-palette-list command-palette-list-v2" ref={listRef} role="listbox">
           {groups.map((group) => (

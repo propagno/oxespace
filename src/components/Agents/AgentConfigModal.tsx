@@ -3,6 +3,7 @@ import { type FormEvent, type ReactElement, useState } from 'react'
 import type { AgentProfile, AgentProvider, AgentReadiness } from '../../../shared/types/agent'
 import { BUILTIN_PROVIDERS, type UpdateAgentProfileInput } from '../../../shared/types/agent'
 import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
+import { Button, TextField, Select, TextArea } from '../../ui'
 
 const PROVIDER_LABEL: Record<(typeof BUILTIN_PROVIDERS)[number], string> = {
   claude: 'Claude',
@@ -118,9 +119,9 @@ export function AgentConfigModal({
                 which is what DialogContent's aria-labelledby points at. */}
             <h2>{isNew ? 'New custom agent' : 'Configure agent'}</h2>
           </ModalTitle>
-          <button type="button" className="icon-button" aria-label="Close modal" onClick={onClose}>
+          <Button variant="ghost" size="sm" square aria-label="Close modal" onClick={onClose}>
             <X size={16} aria-hidden="true" />
-          </button>
+          </Button>
         </header>
 
         {readiness && !isCustom ? (
@@ -149,7 +150,7 @@ export function AgentConfigModal({
         <form className="modal-form" onSubmit={(e) => void handleSubmit(e)}>
           <label className="field">
             <span>Name</span>
-            <input
+            <TextField
               type="text"
               value={name}
               disabled={profile.isBuiltin}
@@ -163,7 +164,7 @@ export function AgentConfigModal({
             <>
               <label className="field">
                 <span>Parent provider</span>
-                <select
+                <Select
                   value={parentProvider}
                   onChange={(e) => setParentProvider(e.target.value as AgentProvider)}
                   data-testid="select-parent-provider"
@@ -171,12 +172,12 @@ export function AgentConfigModal({
                   {BUILTIN_PROVIDERS.map((provider) => (
                     <option key={provider} value={provider}>{PROVIDER_LABEL[provider]}</option>
                   ))}
-                </select>
+                </Select>
               </label>
 
               <label className="field">
                 <span>Skill prompt</span>
-                <textarea
+                <TextArea
                   value={systemPrompt}
                   onChange={(e) => setSystemPrompt(e.target.value)}
                   placeholder="You are a Java 8+ expert. Review this code for best practices, performance, and correctness."
@@ -188,7 +189,7 @@ export function AgentConfigModal({
           ) : (
             <label className="field">
               <span>Command</span>
-              <input
+              <TextField
                 type="text"
                 value={command}
                 onChange={(e) => setCommand(e.target.value)}
@@ -219,17 +220,17 @@ export function AgentConfigModal({
           ) : null}
 
           <footer className="modal-actions">
-            <button type="button" className="secondary-action" onClick={onClose}>
+            <Button variant="secondary" onClick={onClose}>
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              className="primary-action"
+              variant="primary"
               disabled={isSubmitting}
               data-testid="btn-save-agent"
             >
               {isNew ? 'Create' : 'Save'}
-            </button>
+            </Button>
           </footer>
         </form>
       </ModalSurface>

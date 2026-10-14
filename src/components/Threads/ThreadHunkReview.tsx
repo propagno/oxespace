@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { ThreadFileHunk } from '../../../shared/types/thread'
+import { TextArea } from '../../ui'
 
 const MAX_SHOWN_LINES = 40
 
@@ -46,7 +47,7 @@ export function ThreadHunkReview({ path, loadHunks, onUndoHunk, onComment, disab
         </header>
         <pre>{shown.slice(0, MAX_SHOWN_LINES).map(([sign, line], row) => <span key={row} className={sign === '+' ? 'is-added' : 'is-removed'}>{sign} {line.replace(/\r$/, '')}{'\n'}</span>)}{shown.length > MAX_SHOWN_LINES && <span className="thread-hunk-more">… {shown.length - MAX_SHOWN_LINES} more lines</span>}</pre>
         {commenting === hunk.id && <form className="thread-hunk-comment" onSubmit={event => { event.preventDefault(); if (!comment.trim()) return; onComment(hunkComment(path, hunk, comment)); setCommenting(null); setComment('') }}>
-          <textarea aria-label="Comment for the agent" value={comment} maxLength={4000} placeholder="What should the agent change here?" onChange={event => setComment(event.target.value)} />
+          <TextArea aria-label="Comment for the agent" value={comment} maxLength={4000} placeholder="What should the agent change here?" onChange={event => setComment(event.target.value)} />
           <button type="submit" disabled={!comment.trim()}>Add to message</button>
         </form>}
       </section>

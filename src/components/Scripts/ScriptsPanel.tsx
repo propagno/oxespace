@@ -1,6 +1,6 @@
 import { Code2, FileCode2, Play, RotateCw, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactElement } from 'react'
-import { useModalSurface } from '../../ui'
+import { useModalSurface, Button, TextField } from '../../ui'
 import type { FileTreeNode } from '../../../shared/types/ipc'
 import type { Workspace } from '../../../shared/types/workspace'
 import {
@@ -94,20 +94,20 @@ export function ScriptsPanel({ embedded = false, onClose, onOpenBackground, work
           <span>{scripts.length} found</span>
         </div>
         <div className="scripts-panel-actions">
-          <button type="button" className="icon-button" aria-label="Refresh scripts" disabled={loading} onClick={() => void load()}>
+          <Button variant="ghost" size="sm" square aria-label="Refresh scripts" disabled={loading} onClick={() => void load()}>
             <RotateCw size={14} className={loading ? 'usage-spin' : ''} aria-hidden="true" />
-          </button>
+          </Button>
           {!embedded ? (
-            <button type="button" className="icon-button" aria-label="Close scripts" onClick={onClose}>
+            <Button variant="ghost" size="sm" square aria-label="Close scripts" onClick={onClose}>
               <X size={14} aria-hidden="true" />
-            </button>
+            </Button>
           ) : null}
         </div>
       </header>
 
       <div className="scripts-panel-search">
         <Search size={14} aria-hidden="true" />
-        <input value={query} placeholder="Search .ps1 or .sh scripts..." onChange={(event) => setQuery(event.currentTarget.value)} />
+        <TextField value={query} placeholder="Search .ps1 or .sh scripts..." onChange={(event) => setQuery(event.currentTarget.value)} />
       </div>
 
       {error ? <div className="scripts-panel-error">{error}</div> : null}

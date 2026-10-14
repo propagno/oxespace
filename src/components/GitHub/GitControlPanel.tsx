@@ -4,6 +4,7 @@ import type { GitControlFile, GitControlStatus } from '../../../shared/types/git
 import { useEditorStore } from '../../store/editor.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import './GitControlPanel.css'
+import { TextArea, TextField, EmptyState } from '../../ui'
 
 type Props = {
   workspaceId: string; rootPath: string; onOpenFile?: (path: string) => void
@@ -80,7 +81,7 @@ export function GitControlPanel({ workspaceId, rootPath, onOpenFile, draft }: Pr
     </header>
     {error && <p role="alert" className="git-control-error">{error}</p>}
     {status?.truncated && <p role="status" className="git-control-note">Showing the first 1,000 changed paths. Git status is larger than this view.</p>}
-    {!status && !error && <p className="git-control-empty">Reading local Git changes…</p>}
+    {!status && !error && <EmptyState title="Reading local Git changes…" />}
     {status && !status.error && <>
       <FileGroup title="Conflicts" files={conflicts} onOpenFile={openFile} />
       {conflicts.length > 0 && <p className="git-control-note">Resolve conflicts in the editor, then stage the resolved files before committing.</p>}
@@ -91,7 +92,7 @@ export function GitControlPanel({ workspaceId, rootPath, onOpenFile, draft }: Pr
       <div className="git-control-actions">{(changed.length > 0 || untracked.length > 0) && <button type="button" disabled={busy} onClick={() => void mutate(() => window.oxe.github.stageAll(input))}>Stage all</button>}
         <details><summary>Remote actions <span className="git-control-upstream">{status.upstream ?? 'Upstream not set'}</span><ChevronDown size={14} /></summary><div><button type="button" disabled={busy} onClick={() => void mutate(() => window.oxe.github.fetch(input))}>Fetch</button><button type="button" disabled={busy || !status.ahead} onClick={() => void mutate(() => window.oxe.github.push(input))}><Upload size={12} /> Push</button></div></details></div>
       {staged.length > 0 && <form className="git-control-commit" onSubmit={event => { event.preventDefault(); if (!message.trim()) return; void mutate(async () => { await window.oxe.github.commit({ ...input, message: message.trim() }); setMessage('') }) }}>
-        <label htmlFor={`git-control-message-${workspaceId}`}>Commit message</label><textarea id={`git-control-message-${workspaceId}`} value={message} rows={2} maxLength={1000} placeholder="Describe your changes" onChange={event => setMessage(event.target.value)} />
+        <label htmlFor={`git-control-message-${workspaceId}`}>Commit message</label><TextArea id={`git-control-message-${workspaceId}`} value={message} rows={2} maxLength={1000} placeholder="Describe your changes" onChange={event => setMessage(event.target.value)} />
         {draft && <button type="button" disabled={busy} onClick={() => setMessage(draft().message)}>Draft from conversation</button>}
         <button type="submit" disabled={busy || !staged.length || !message.trim()}>Commit {staged.length ? `${staged.length} staged` : ''}</button>
       </form>}
@@ -102,8 +103,8 @@ export function GitControlPanel({ workspaceId, rootPath, onOpenFile, draft }: Pr
           if (!result.ok) throw Error(result.message || 'The pull request was not created.')
           setNotice(result.message || 'Pull request created.')
         }) }}>
-          <label>Title<input value={pr.title} maxLength={200} onChange={event => setPr({ ...pr, title: event.target.value })} /></label>
-          <label>Description<textarea value={pr.body} rows={6} maxLength={20000} onChange={event => setPr({ ...pr, body: event.target.value })} /></label>
+          <label>Title<TextField value={pr.title} maxLength={200} onChange={event => setPr({ ...pr, title: event.target.value })} /></label>
+          <label>Description<TextArea value={pr.body} rows={6} maxLength={20000} onChange={event => setPr({ ...pr, body: event.target.value })} /></label>
           <label className="git-control-check"><input type="checkbox" checked={pr.draft} onChange={event => setPr({ ...pr, draft: event.target.checked })} />Open as draft</label>
           {status.ahead ? <p className="git-control-note">Push your {status.ahead} local commit{status.ahead === 1 ? '' : 's'} first so the pull request includes them.</p> : null}
           <button type="submit" disabled={busy || !pr.title.trim() || Boolean(status.ahead)}>Create pull request</button>

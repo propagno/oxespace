@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ThreadUsageBucket, ThreadUsageSummary } from '../../../shared/types/thread'
 import { formatThreadCost } from './ThreadCostChip'
+import { Select } from '../../ui'
 
 type Scope = ThreadUsageSummary['scope']
 const SCOPES: [Scope, string][] = [['thread', 'This conversation'], ['project', 'This project'], ['all', 'All projects']]
@@ -51,7 +52,7 @@ export default function ThreadUsagePanel({ threadId }: { threadId: string }) {
     {error && <p role="alert">{error}</p>}
     <div className="thread-usage-filters">
       <div role="radiogroup" aria-label="Spending scope">{SCOPES.map(([value, label]) => <label key={value}><input type="radio" name="usage-scope" checked={scope === value} onChange={() => setScope(value)} />{label}</label>)}</div>
-      <select aria-label="Spending period" value={days} onChange={event => setDays(Number(event.target.value))}>{PERIODS.map(value => <option key={value} value={value}>Last {value} days</option>)}</select>
+      <Select aria-label="Spending period" value={days} onChange={event => setDays(Number(event.target.value))}>{PERIODS.map(value => <option key={value} value={value}>Last {value} days</option>)}</Select>
     </div>
     {!summary ? <p>Loading…</p> : <>
       <p className="thread-usage-total"><strong>{usageLabel(summary.total)}</strong></p>

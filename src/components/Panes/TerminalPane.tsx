@@ -17,6 +17,7 @@ import { ContextUsageStatus } from '../Terminal/ContextUsageStatus'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import { VoiceHud } from '../Voice/VoiceHud'
 import { DesktopDialog } from '../Navigation/DesktopDialog'
+import { TextField } from '../../ui'
 interface TerminalPaneProps {
   pane: WorkspacePane
   workspaceId: string
@@ -512,7 +513,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         </div>
       </div>
       {restoreOpen && <DesktopDialog className="terminal-restore-dialog" title="Restore provider session" description={`Choose a saved ${agentCreditsProvider === 'claude' ? 'Claude' : 'Codex'} conversation from this directory. The current terminal process closes only after you select one.`} onClose={() => { if (!restoreBusy) setRestoreOpen(false) }}>
-        <label>Search sessions<input aria-label="Search saved sessions" value={restoreQuery} onChange={event => setRestoreQuery(event.target.value)} placeholder="Prompt, model or session ID" /></label>
+        <label>Search sessions<TextField aria-label="Search saved sessions" value={restoreQuery} onChange={event => setRestoreQuery(event.target.value)} placeholder="Prompt, model or session ID" /></label>
         {restoreError && <p role="alert">{restoreError}</p>}
         <div className="terminal-restore-list">
           {restoreBusy && !savedSessions.length && <p>Loading saved sessions…</p>}

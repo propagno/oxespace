@@ -1,6 +1,7 @@
 import { Send, X } from 'lucide-react'
 import { useState, type ReactElement } from 'react'
 import { formatDesignGrab, type DesignGrabPayload } from '../../../shared/types/design-mode'
+import { Button } from '../../ui'
 
 interface DesignGrabSheetProps {
   payload: DesignGrabPayload
@@ -25,9 +26,9 @@ export function DesignGrabSheet({ onDismiss, onSend, payload, screenshot }: Desi
           <strong>{payload.tagName}</strong>
           <code>{payload.selector}</code>
         </div>
-        <button type="button" className="icon-button" aria-label="Discard selection" onClick={onDismiss}>
+        <Button variant="ghost" size="sm" square aria-label="Discard selection" onClick={onDismiss}>
           <X size={14} aria-hidden="true" />
-        </button>
+        </Button>
       </header>
 
       <div className="design-grab-body scrollbar-sleek">

@@ -12,6 +12,7 @@ import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { useWorktreeStore } from '../../store/worktree.store'
 import { deriveStatusTone } from '../../utils/paneDisplay'
+import { Button } from '../../ui'
 
 const REASON_LABEL: Record<WorktreeCleanupReason, string> = {
   'idle-clean': 'idle for 30+ days',
@@ -157,7 +158,7 @@ export function WorktreeCleanupPanel({ workspaceId, rootPath }: { workspaceId: s
       ) : null}
       {message ? <p className="worktree-remove-confirm-body" role="status">{message}</p> : null}
       <div className="worktree-remove-confirm-actions">
-        <button type="button" className="ghost-btn" onClick={() => void scan()} disabled={busy}>Reanalisar</button>
+        <Button variant="ghost" onClick={() => void scan()} disabled={busy}>Reanalisar</Button>
         <button
           type="button"
           className={risky.length > 0 ? 'danger-btn' : 'primary-btn'}
