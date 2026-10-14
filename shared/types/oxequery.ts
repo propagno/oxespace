@@ -267,7 +267,16 @@ export interface SqlColumnInfo { name: string; type: string; nullable: boolean; 
 export interface SqlIndexInfo { name: string; definition: string; unique: boolean; primary: boolean }
 export interface SqlConstraintInfo { name: string; kind: 'primary' | 'unique' | 'check' | 'exclusion'; definition: string }
 export interface SqlTableProperties { kind: string; owner: string; comment?: string; sizeBytes: number; estimatedRows: number }
-export interface SqlTableDetails { columns: SqlColumnInfo[]; indexes: SqlIndexInfo[]; foreignKeys: { name: string; definition: string }[]; constraints: SqlConstraintInfo[]; properties: SqlTableProperties | null }
+export interface SqlDependent { kind: 'foreign key' | 'view'; schema: string; name: string }
+export interface SqlPrivilege { grantee: string; privilege: string; grantable: boolean }
+export interface SqlTableDetails {
+  columns: SqlColumnInfo[]; indexes: SqlIndexInfo[]; foreignKeys: { name: string; definition: string }[]; constraints: SqlConstraintInfo[]; properties: SqlTableProperties | null
+  /** What breaks if the table is dropped: tables that reference it and views that read it. */
+  dependents: SqlDependent[]
+  privileges: SqlPrivilege[]
+}
+export interface SqlDatabaseInfo { name: string; owner: string; encoding: string; sizeBytes: number | null; connectionLimit: number; current: boolean }
+export interface SqlRoleInfo { name: string; superuser: boolean; createDatabase: boolean; createRole: boolean; login: boolean; replication: boolean; connectionLimit: number; memberOf: string[] }
 
 export interface SqlBrowseInput {
   connectionId: string
@@ -535,6 +544,10 @@ export interface OxeQueryOps {
   'mongo.createIndex': { input: { connectionId: string; database: string; collection: string; keys: string; unique?: boolean; confirmed?: boolean }; output: { name: string } }
   'mongo.dropIndex': { input: { connectionId: string; database: string; collection: string; name: string; confirmed?: boolean }; output: { dropped: boolean } }
   'sql.functions': { input: { connectionId: string; schema: string }; output: SqlFunctionInfo[] }
+  'sql.databases': { input: { connectionId: string }; output: SqlDatabaseInfo[] }
+  'sql.createDatabase': { input: { connectionId: string; name: string; owner?: string; template?: string; encoding?: string }; output: { ok: true } }
+  'sql.dropDatabase': { input: { connectionId: string; name: string; confirmed?: boolean }; output: { ok: true } }
+  'sql.roles': { input: { connectionId: string }; output: SqlRoleInfo[] }
   'sql.objects': { input: { connectionId: string; schema: string }; output: SqlObjects }
   'sql.extensions': { input: { connectionId: string }; output: SqlExtensionInfo[] }
   'sql.search': { input: { connectionId: string; query: string }; output: SqlSearchResult }

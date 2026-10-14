@@ -302,6 +302,34 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
     await core.maintenance(pg, { schema: 'public', table: 'items', action: 'reindex', confirmed: true })
   })
 
+  it('shows what depends on a table and who may use it, and lists, creates and drops databases and roles', async () => {
+    await exec('CREATE TABLE parents (id int PRIMARY KEY)')
+    await exec('CREATE TABLE kids (id int, parent int REFERENCES parents (id))')
+    await exec('CREATE VIEW parent_ids AS SELECT id FROM parents')
+    await exec('CREATE ROLE reader_x NOLOGIN')
+    await exec('GRANT SELECT ON parents TO reader_x')
+    const details = await core.sqlTable(pg, 'public', 'parents')
+    expect(details.dependents).toEqual([{ kind: 'foreign key', schema: 'public', name: 'kids' }, { kind: 'view', schema: 'public', name: 'parent_ids' }])
+    expect(details.privileges).toContainEqual({ grantee: 'reader_x', privilege: 'SELECT', grantable: false })
+    expect(details.privileges.some(item => item.grantee === 'oxe' && item.privilege === 'DELETE')).toBe(true)
+
+    const roles = await core.sqlRoles(pg)
+    expect(roles.find(role => role.name === 'oxe')).toMatchObject({ superuser: true, login: true })
+    expect(roles.find(role => role.name === 'reader_x')).toMatchObject({ login: false, superuser: false })
+    expect(roles.some(role => role.name.startsWith('pg_'))).toBe(false)
+
+    await core.sqlCreateDatabase(pg, { name: 'scratch db', encoding: 'UTF8', template: 'template0' })
+    const databases = await core.sqlDatabases(pg)
+    expect(databases.find(item => item.name === 'scratch db')).toMatchObject({ current: false, encoding: 'UTF8' })
+    expect(databases.find(item => item.name === 'appdb')?.current).toBe(true)
+    await expect(core.sqlCreateDatabase(pg, { name: 'bad', encoding: 'EBCDIC' })).rejects.toMatchObject({ code: 'invalid' })
+    await expect(core.sqlCreateDatabase({ ...pg, readOnly: true }, { name: 'nope' })).rejects.toMatchObject({ code: 'read-only' })
+    await expect(core.sqlDropDatabase(pg, { name: 'scratch db' })).rejects.toMatchObject({ code: 'confirm' })
+    await expect(core.sqlDropDatabase(pg, { name: 'appdb', confirmed: true })).rejects.toMatchObject({ code: 'invalid' })
+    await core.sqlDropDatabase(pg, { name: 'scratch db', confirmed: true })
+    expect((await core.sqlDatabases(pg)).some(item => item.name === 'scratch db')).toBe(false)
+  })
+
   it('lists sequences, types, triggers and extensions, finds objects by name and re-creates their definitions', async () => {
     await exec(`CREATE TYPE mood AS ENUM ('sad', 'it''s ok', 'happy')`)
     await exec('CREATE TYPE pair AS (a int, b text)')

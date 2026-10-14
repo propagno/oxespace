@@ -607,6 +607,29 @@ test('the schema tree groups objects, searches every schema, pins tables and wor
     await expect(item('public.orders')).toBeVisible()
     await page.getByRole('button', { name: 'Unpin orders' }).first().click({ force: true }).catch(() => undefined)
 
+    // The server's databases and roles are one click away; a drop waits for an explicit confirmation.
+    await page.getByRole('button', { name: 'Server: databases and roles' }).click()
+    const server = page.getByRole('dialog', { name: /Server of/ })
+    await expect(server.getByRole('table', { name: 'Databases' })).toContainText('reports')
+    await expect(server.getByRole('button', { name: 'Drop app' })).toHaveCount(0)
+    await server.getByRole('tab', { name: 'Roles' }).click()
+    await expect(server.getByRole('table', { name: 'Roles' })).toContainText('superuser')
+    // A read-only connection can look but not change.
+    await expect(server.getByRole('button', { name: 'Create database' })).toHaveCount(0)
+    await server.getByRole('button', { name: 'Close' }).first().click()
+    await page.locator('.oq-sidebar').getByRole('button', { name: 'Edit pg-dev' }).click()
+    const settings = page.getByRole('dialog', { name: 'Edit connection' })
+    await settings.getByRole('checkbox', { name: /Read-only/ }).uncheck()
+    await settings.getByRole('button', { name: 'Save' }).click()
+    await page.getByRole('button', { name: 'Server: databases and roles' }).click()
+    await server.getByRole('tab', { name: 'Databases' }).click()
+    await expect(server.getByRole('button', { name: 'Create database' })).toBeVisible()
+    await server.getByRole('button', { name: 'Drop reports' }).click()
+    await expect(server.getByRole('button', { name: 'Drop database' })).toBeDisabled()
+    await server.getByRole('checkbox', { name: /cannot be recovered/ }).check()
+    await expect(server.getByRole('button', { name: 'Drop database' })).toBeEnabled()
+    await server.getByRole('button', { name: 'Close' }).first().click()
+
     // One search covers every schema, and a type opens as its definition.
     const search = page.getByRole('searchbox', { name: 'Search objects' })
     await search.fill('users')

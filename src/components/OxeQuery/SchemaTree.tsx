@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactElement } from 'react'
-import { ChevronDown, ChevronRight, Pin, PinOff, Plus, RefreshCw, Search } from 'lucide-react'
+import { ChevronDown, ChevronRight, Pin, PinOff, Plus, RefreshCw, Search, Server } from 'lucide-react'
 import type { OxeQueryConnection, SqlDefinitionTarget, SqlExtensionInfo, SqlSearchHit, SqlTable, WorkspaceState } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
+import { ServerPanel } from './ServerPanel'
 import { StructureEditor, type StructureOutcome } from './StructureEditor'
 import { ROW_HEIGHT, buildRows, keyMove, pinKey, rowsFromHits, windowOf, type SchemaData, type TreeItem, type TreeKey, type TreeRow } from './tree-model'
 
@@ -59,6 +60,7 @@ export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInser
   const [scrollTop, setScrollTop] = useState(0)
   const [viewport, setViewport] = useState(FALLBACK_VIEWPORT)
   const [structure, setStructure] = useState<{ schema: string; table: string | null } | null>(null)
+  const [server, setServer] = useState(false)
   const scroller = useRef<HTMLDivElement | null>(null)
   const generation = useRef(0)
 
@@ -230,6 +232,7 @@ export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInser
       <label className="oq-tree-search"><Search size={12} aria-hidden="true" />
         <input type="search" aria-label="Search objects" placeholder="Search all schemas" value={filter} onChange={event => setFilter(event.target.value)} /></label>
       <button type="button" className="oq-icon" aria-label="Refresh schema" title="Refresh" onClick={reload}><RefreshCw size={13} aria-hidden="true" /></button>
+      <button type="button" className="oq-icon" aria-label="Server: databases and roles" title="Databases and roles" onClick={() => setServer(true)}><Server size={13} aria-hidden="true" /></button>
     </div>
     {error && <p role="alert" className="oq-error">{error}</p>}
     {notice && <p role="status" className="oq-ok">{notice}</p>}
@@ -240,6 +243,7 @@ export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInser
         {visible.map((row, offset) => renderRow(row, range.start + offset))}
       </div>
     </div>
+    {server && <ServerPanel connection={connection} onClose={() => setServer(false)} />}
     {structure && <StructureEditor connection={connection} schema={structure.schema} table={structure.table} onClose={() => setStructure(null)}
       onChanged={(outcome: StructureOutcome) => { void loadSchema(structure.schema); if (outcome.kind === 'created' || outcome.kind === 'altered') onOpen({ schema: structure.schema, name: outcome.table, kind: 'table' }) }} />}
   </nav>

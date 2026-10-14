@@ -111,6 +111,9 @@ export function registerOxeQueryMock(): void {
       case 'mongo.dropIndex': return ok({ dropped: true })
       case 'sql.functions': return ok(input.schema === 'public' ? [{ oid: 4001, name: 'touch', args: '', kind: 'function' }] : [])
       case 'sql.objects': return ok(input.schema === 'public' ? { sequences: [{ name: 'ticket_seq', dataType: 'bigint', lastValue: 7 }], types: [{ oid: 4002, name: 'mood', kind: 'enum', values: ['sad', 'happy'] }], triggers: [], truncated: false } : { sequences: [], types: [], triggers: [], truncated: false })
+      case 'sql.databases': return ok([{ name: 'app', owner: 'oxe', encoding: 'UTF8', sizeBytes: 8388608, connectionLimit: -1, current: true }, { name: 'reports', owner: 'oxe', encoding: 'UTF8', sizeBytes: 7340032, connectionLimit: -1, current: false }])
+      case 'sql.roles': return ok([{ name: 'oxe', superuser: true, createDatabase: true, createRole: true, login: true, replication: false, connectionLimit: -1, memberOf: [] }, { name: 'readers', superuser: false, createDatabase: false, createRole: false, login: false, replication: false, connectionLimit: -1, memberOf: [] }])
+      case 'sql.createDatabase': case 'sql.dropDatabase': return ok({ ok: true })
       case 'sql.extensions': return ok([{ name: 'pgcrypto', version: '1.3', schema: 'public' }])
       case 'sql.search': {
         const needle = String(input.query ?? '').toLowerCase()
@@ -140,7 +143,7 @@ export function registerOxeQueryMock(): void {
       }
       case 'sql.schemas': return ok(['public', 'audit'])
       case 'sql.tables': return ok(input.schema === 'public' ? { tables: [{ schema: 'public', name: 'users', kind: 'table', approxRows: 3 }, { schema: 'public', name: 'orders', kind: 'table', approxRows: 10 }, { schema: 'public', name: 'active_users', kind: 'view' }, { schema: 'public', name: 'daily_totals', kind: 'materialized view' }], total: 4 } : { tables: [], total: 0 })
-      case 'sql.table': return ok({ columns: [{ name: 'id', type: 'integer', nullable: false, primaryKey: true, position: 1 }, { name: 'name', type: 'text', nullable: false, primaryKey: false, position: 2 }], indexes: [{ name: 'users_pkey', definition: 'CREATE UNIQUE INDEX users_pkey ON users (id)', unique: true, primary: true }], foreignKeys: [], constraints: [{ name: 'users_pkey', kind: 'primary', definition: 'PRIMARY KEY (id)' }], properties: { kind: 'table', owner: 'oxe', sizeBytes: 16384, estimatedRows: 2 } })
+      case 'sql.table': return ok({ columns: [{ name: 'id', type: 'integer', nullable: false, primaryKey: true, position: 1 }, { name: 'name', type: 'text', nullable: false, primaryKey: false, position: 2 }], indexes: [{ name: 'users_pkey', definition: 'CREATE UNIQUE INDEX users_pkey ON users (id)', unique: true, primary: true }], foreignKeys: [], constraints: [{ name: 'users_pkey', kind: 'primary', definition: 'PRIMARY KEY (id)' }], properties: { kind: 'table', owner: 'oxe', sizeBytes: 16384, estimatedRows: 2 }, dependents: [{ kind: 'view', schema: 'public', name: 'active_users' }], privileges: [{ grantee: 'oxe', privilege: 'SELECT', grantable: true }] })
       case 'sql.browse': return ok(users)
       case 'sql.run': {
         const target = connection(input.connectionId)

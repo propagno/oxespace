@@ -11,6 +11,8 @@ const details: SqlTableDetails = {
   ],
   indexes: [{ name: 'users_pkey', definition: '', unique: true, primary: true }, { name: 'users_email_key', definition: '', unique: true, primary: false }, { name: 'users_name', definition: '', unique: false, primary: false }],
   foreignKeys: [],
+  dependents: [],
+  privileges: [],
   constraints: [{ name: 'users_pkey', kind: 'primary', definition: 'PRIMARY KEY (id)' }, { name: 'users_email_key', kind: 'unique', definition: 'UNIQUE (email)' }],
   properties: { kind: 'table', owner: 'oxe', sizeBytes: 8192, estimatedRows: 3, comment: 'people' }
 }

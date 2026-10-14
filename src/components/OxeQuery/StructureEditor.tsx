@@ -104,6 +104,14 @@ export function StructureEditor({ connection, schema, table, onClose, onChanged 
       <div><dt>Size</dt><dd>{bytes(details.properties.sizeBytes)}</dd></div>
       <div><dt>Rows (estimate)</dt><dd>{details.properties.estimatedRows.toLocaleString()}</dd></div>
     </dl>}
+    {details && details.dependents.length > 0 && <>
+      <h4 className={styles.heading}>Used by</h4>
+      <ul className={styles.list} aria-label="Dependents">{details.dependents.map(item => <li key={`${item.kind}:${item.schema}.${item.name}`}><span>{item.schema}.{item.name}</span><span className={styles.note}>{item.kind}</span></li>)}</ul>
+    </>}
+    {details && details.privileges.length > 0 && <>
+      <h4 className={styles.heading}>Privileges</h4>
+      <ul className={styles.list} aria-label="Privileges">{details.privileges.map(item => <li key={`${item.grantee}:${item.privilege}`}><span>{item.grantee}</span><span className={styles.note}>{item.privilege}{item.grantable ? ' (can grant)' : ''}</span></li>)}</ul>
+    </>}
     <TextField mono label="Name" value={draft.tableName} onChange={event => edit({ ...draft, tableName: event.target.value })} />
     <TextArea label="Comment" rows={2} value={draft.comment} onChange={event => edit({ ...draft, comment: event.target.value })} />
     <h4 className={styles.heading}>Maintenance</h4>

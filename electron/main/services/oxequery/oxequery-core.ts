@@ -5,7 +5,7 @@ import Cursor from 'pg-cursor'
 import { MongoClient, type Document } from 'mongodb'
 import type {
   ConnectionTestResult, MongoWriteInput, MongoWriteResult, SqlApplyInput, SqlApplyResult, SqlEditability, MongoAggregateInput, MongoCollectionInfo, MongoDatabaseInfo, MongoFindInput, MongoIndexInfo, MongoResult,
-  SqlBrowseInput, SqlColumn, SqlResult, SqlTable, SqlTableDetails, SqlConstraintInfo, SqlObjects, SqlTypeInfo, SqlExtensionInfo, SqlSearchResult, SqlSearchHit,SqlTables, ScriptStatementResult, SqlScriptResult
+  SqlBrowseInput, SqlColumn, SqlResult, SqlTable, SqlTableDetails, SqlConstraintInfo, SqlObjects, SqlTypeInfo, SqlDatabaseInfo, SqlRoleInfo, SqlExtensionInfo, SqlSearchResult, SqlSearchHit,SqlTables, ScriptStatementResult, SqlScriptResult
 } from '../../../../shared/types/oxequery'
 import { guardSql, isMutating, quoteIdentifier, tokenizeStatements } from './sql-guard'
 import { buildFilterClause } from './filter-clause'
@@ -395,6 +395,15 @@ export class OxeQueryCore {
     const constraints = await this.pgMeta(connection, `SELECT conname, contype, pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid = ${oid} AND contype IN ('p', 'u', 'c', 'x') ORDER BY contype, conname`, [schema, table], 500, true)
     const properties = await this.pgMeta(connection, `SELECT c.relkind, pg_get_userbyid(c.relowner), obj_description(c.oid, 'pg_class'), pg_total_relation_size(c.oid), c.reltuples::bigint
       FROM pg_class c WHERE c.oid = ${oid}`, [schema, table], 1, true)
+    const dependents = await this.pgMeta(connection, `SELECT DISTINCT kind, schema, name FROM (
+        SELECT 'foreign key' AS kind, n.nspname AS schema, c.relname AS name FROM pg_constraint k JOIN pg_class c ON c.oid = k.conrelid JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE k.contype = 'f' AND k.confrelid = ${oid} AND k.conrelid <> k.confrelid
+        UNION ALL
+        SELECT 'view', n.nspname, v.relname FROM pg_depend d JOIN pg_rewrite r ON r.oid = d.objid JOIN pg_class v ON v.oid = r.ev_class JOIN pg_namespace n ON n.oid = v.relnamespace
+          WHERE d.classid = 'pg_rewrite'::regclass AND d.refobjid = ${oid} AND v.oid <> d.refobjid
+      ) found ORDER BY kind, schema, name LIMIT 200`, [schema, table], 200, true)
+    const privileges = await this.pgMeta(connection, `SELECT CASE a.grantee WHEN 0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END, a.privilege_type, a.is_grantable
+      FROM pg_class c CROSS JOIN LATERAL aclexplode(COALESCE(c.relacl, acldefault('r', c.relowner))) a WHERE c.oid = ${oid} ORDER BY 1, 2`, [schema, table], 500, true)
     const kinds: Record<string, SqlConstraintInfo['kind']> = { p: 'primary', u: 'unique', c: 'check', x: 'exclusion' }
     const relkinds: Record<string, string> = { r: 'table', v: 'view', m: 'materialized view', f: 'foreign table', p: 'partitioned table' }
     const props = properties.rows[0]
@@ -407,6 +416,8 @@ export class OxeQueryCore {
       indexes: indexes.rows.map(row => ({ name: String(row[0]), definition: String(row[1]), unique: Boolean(row[2]), primary: Boolean(row[3]) })),
       foreignKeys: foreign.rows.map(row => ({ name: String(row[0]), definition: String(row[1]) })),
       constraints: constraints.rows.map(row => ({ name: String(row[0]), kind: kinds[String(row[1])] ?? 'check', definition: String(row[2]) })),
+      dependents: dependents.rows.map(row => ({ kind: String(row[0]) as 'foreign key' | 'view', schema: String(row[1]), name: String(row[2]) })),
+      privileges: privileges.rows.map(row => ({ grantee: String(row[0]), privilege: String(row[1]), grantable: Boolean(row[2]) })),
       properties: props ? { kind: relkinds[String(props[0])] ?? String(props[0]), owner: String(props[1]), ...(props[2] ? { comment: String(props[2]) } : {}), sizeBytes: Number(props[3]), estimatedRows: Math.max(0, Number(props[4])) } : null
     }
   }
@@ -748,6 +759,43 @@ export class OxeQueryCore {
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
       WHERE n.nspname = $1 AND p.prokind IN ('f', 'p') ORDER BY p.proname, p.oid LIMIT 1000`, [schema], 1000, true)
     return result.rows.map(row => ({ oid: Number(row[0]), name: String(row[1]), args: String(row[2]), kind: row[3] === 'p' ? 'procedure' as const : 'function' as const }))
+  }
+
+  async sqlDatabases(connection: ResolvedConnection): Promise<SqlDatabaseInfo[]> {
+    const result = await this.pgMeta(connection, `SELECT d.datname, pg_get_userbyid(d.datdba), pg_encoding_to_char(d.encoding), CASE WHEN has_database_privilege(d.datname, 'CONNECT') THEN pg_database_size(d.datname) END,
+        d.datconnlimit, d.datname = current_database()
+      FROM pg_database d WHERE NOT d.datistemplate ORDER BY d.datname`, [], 500, true)
+    return result.rows.map(row => ({ name: String(row[0]), owner: String(row[1]), encoding: String(row[2]), sizeBytes: row[3] === null ? null : Number(row[3]), connectionLimit: Number(row[4]), current: Boolean(row[5]) }))
+  }
+
+  async sqlRoles(connection: ResolvedConnection): Promise<SqlRoleInfo[]> {
+    const result = await this.pgMeta(connection, `SELECT r.rolname, r.rolsuper, r.rolcreatedb, r.rolcreaterole, r.rolcanlogin, r.rolreplication, r.rolconnlimit,
+        COALESCE((SELECT array_agg(g.rolname ORDER BY g.rolname) FROM pg_auth_members m JOIN pg_roles g ON g.oid = m.roleid WHERE m.member = r.oid), '{}')
+      FROM pg_roles r WHERE r.rolname NOT LIKE 'pg\\_%' ORDER BY r.rolname`, [], 1000, true)
+    return result.rows.map(row => ({
+      name: String(row[0]), superuser: Boolean(row[1]), createDatabase: Boolean(row[2]), createRole: Boolean(row[3]), login: Boolean(row[4]), replication: Boolean(row[5]), connectionLimit: Number(row[6]),
+      memberOf: Array.isArray(row[7]) ? (row[7] as unknown[]).map(String) : []
+    }))
+  }
+
+  /** CREATE DATABASE cannot run inside a transaction, so it goes out as the only statement of the session. */
+  async sqlCreateDatabase(connection: ResolvedConnection, input: { name: string; owner?: string; template?: string; encoding?: string }): Promise<{ ok: true }> {
+    if (connection.readOnly) throw new OxeQueryError('read-only', 'This connection is read-only. Turn read-only off to create a database.')
+    const encodings = ['UTF8', 'LATIN1', 'SQL_ASCII']
+    if (input.encoding !== undefined && !encodings.includes(input.encoding)) throw new OxeQueryError('invalid', 'Choose UTF8, LATIN1 or SQL_ASCII.')
+    const clauses = [
+      input.owner ? `OWNER ${quoteIdentifier(input.owner)}` : '', input.template ? `TEMPLATE ${quoteIdentifier(input.template)}` : '', input.encoding ? `ENCODING '${input.encoding}'` : ''
+    ].filter(Boolean).join(' ')
+    await this.pgRun(connection, `CREATE DATABASE ${quoteIdentifier(input.name)} ${clauses}`.trim(), [], 1, false)
+    return { ok: true }
+  }
+
+  async sqlDropDatabase(connection: ResolvedConnection, input: { name: string; confirmed?: boolean }): Promise<{ ok: true }> {
+    if (connection.readOnly) throw new OxeQueryError('read-only', 'This connection is read-only. Turn read-only off to drop a database.')
+    if (input.name === connection.database) throw new OxeQueryError('invalid', 'This connection is using that database. Connect to another one to drop it.')
+    if (!input.confirmed) throw new OxeQueryError('confirm', `Dropping the database "${input.name}" deletes all of its data for good.`)
+    await this.pgRun(connection, `DROP DATABASE ${quoteIdentifier(input.name)}`, [], 1, false)
+    return { ok: true }
   }
 
   /** Sequences, user types and triggers of one schema (each list capped, with a flag when it was). */

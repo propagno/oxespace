@@ -471,6 +471,13 @@ export class OxeQueryService {
           : { database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), name: str(input.name, 'Index name', 255) })
       })
       case 'sql.functions': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.functions', connection, { schema: str(input.schema, 'Schema', 255) }))
+      case 'sql.databases': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.databases', connection))
+      case 'sql.roles': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.roles', connection))
+      case 'sql.createDatabase': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.createDatabase', connection, {
+        name: str(input.name, 'Name', 63), ...(typeof input.owner === 'string' && input.owner ? { owner: input.owner.slice(0, 63) } : {}),
+        ...(typeof input.template === 'string' && input.template ? { template: input.template.slice(0, 63) } : {}), ...(typeof input.encoding === 'string' && input.encoding ? { encoding: input.encoding.slice(0, 20) } : {})
+      }))
+      case 'sql.dropDatabase': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.dropDatabase', connection, { name: str(input.name, 'Name', 63), confirmed: input.confirmed === true }))
       case 'sql.objects': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.objects', connection, { schema: str(input.schema, 'Schema', 255) }))
       case 'sql.extensions': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.extensions', connection))
       case 'sql.search': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.search', connection, { query: str(input.query, 'Search', 200) }))
