@@ -258,7 +258,7 @@ function WorkspaceGroupComponent({
         <div className="ws-group-trailing">
           {terminalCount > 0 && onToggleTerminals ? (
             <button type="button" className="ws-group-expand-btn" aria-label={`${terminalCount} terminals in ${workspace.name}${duplicate ? ` #${duplicate.index}` : ''}`} title={`${terminalCount} terminals`} aria-expanded={terminalsExpanded} onClick={(event) => { event.stopPropagation(); onToggleTerminals() }}>
-              <ChevronDown size={13} aria-hidden="true" />
+              <ChevronDown size={14} aria-hidden="true" />
             </button>
           ) : null}
           {integrations.length > 0 ? (
@@ -270,7 +270,7 @@ function WorkspaceGroupComponent({
               onClick={handleIntegrationBadgeClick}
               data-testid="ws-group-integration-badge"
             >
-              <Network size={11} aria-hidden="true" />
+              <Network size={12} aria-hidden="true" />
               {integrations.length > 1 ? <span className="ws-group-integration-count">{integrations.length}</span> : null}
             </button>
           ) : null}
@@ -283,7 +283,7 @@ function WorkspaceGroupComponent({
               onClick={handleContextMenu}
               data-testid="ws-group-settings-btn"
             >
-              <Settings size={13} aria-hidden="true" />
+              <Settings size={14} aria-hidden="true" />
             </button>
           )}
         </div>

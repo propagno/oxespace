@@ -27,7 +27,7 @@ export function WorkspaceIntegrationPanel({ activePaneId, isExpanded, onCollapse
         </div>
         <div className="workspace-editor-actions">
           <button type="button" className="icon-button" aria-label="Expand multi-repo coordination panel" onClick={onToggleExpanded}>
-            <Maximize2 size={13} aria-hidden="true" />
+            <Maximize2 size={14} aria-hidden="true" />
           </button>
           <button type="button" className="icon-button" aria-label="Close multi-repo coordination panel" onClick={onCollapse}>
             <X size={14} aria-hidden="true" />

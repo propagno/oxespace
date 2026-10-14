@@ -4,7 +4,7 @@ import type { ThreadProjectSummary } from '../../../shared/types/thread'
 import { DesktopDialog } from '../Navigation/DesktopDialog'
 import { useThreadStore } from '../../store/thread.store'
 
-export function ThreadProjectSettingsDialog({ project, unavailable, onClose }: { project: ThreadProjectSummary; unavailable: boolean; onClose(): void }) {
+export function ThreadProjectSettingsDialog({ project, unavailable, onClose, returnFocusTo }: { project: ThreadProjectSummary; unavailable: boolean; onClose(): void; returnFocusTo?: () => HTMLElement | null }) {
   const scope = `thread:${project.projectId}`
   const [snapshot, setSnapshot] = useState<DelegationSnapshot | null>(null)
   const [path, setPath] = useState('')
@@ -34,7 +34,7 @@ export function ThreadProjectSettingsDialog({ project, unavailable, onClose }: {
   }
   const needsRelink = unavailable || directoryMissing
   return <DesktopDialog className="thread-create-dialog thread-project-dialog thread-project-settings" title={`Thread project · ${project.displayName}`}
-    description="These settings apply to this Thread project. Code workspace settings are separate." onClose={onClose}>
+    description="These settings apply to this Thread project. Code workspace settings are separate." onClose={onClose} returnFocusTo={returnFocusTo}>
     <div className="thread-project-settings-body"><div className="thread-create-section"><strong>Project directory</strong><p className="thread-project-current-path" title={project.contexts[0]?.rootPath}>{project.contexts[0]?.rootPath}</p>
       {needsRelink && <p role="alert">This directory is unavailable. Choose its new location to resume work.</p>}
       <details className="thread-project-relink" open={needsRelink || undefined}><summary>{needsRelink ? 'Relink missing directory' : 'Change project directory'}</summary>

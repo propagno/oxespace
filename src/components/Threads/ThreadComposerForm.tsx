@@ -63,11 +63,11 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
       onKeyDown={e => { if (mentions.onKeyDown(e)) return; if (commands.onKeyDown(e)) return; if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); onSend() } else if (e.key === 'Escape' && running && !pending) { e.preventDefault(); e.stopPropagation(); onInterrupt() } }} />
     <footer><button type="button" className="thread-command-trigger" aria-label="Show thread commands" title="Commands & skills · Ctrl+/" aria-haspopup="listbox" aria-expanded={commands.open} disabled={blocked} onMouseDown={e => e.preventDefault()} onClick={commands.show}><Slash size={14} /></button>
       <DropdownMenu.Root>
-        <DropdownMenu.Trigger asChild><button type="button" className="thread-command-trigger" aria-label="Add to prompt" title="Attach, mention a file or connect tools" disabled={!snapshot || pending}><Plus size={15} /></button></DropdownMenu.Trigger>
+        <DropdownMenu.Trigger asChild><button type="button" className="thread-command-trigger" aria-label="Add to prompt" title="Attach, mention a file or connect tools" disabled={!snapshot || pending}><Plus size={14} /></button></DropdownMenu.Trigger>
         <DropdownMenu.Portal><DropdownMenu.Content collisionPadding={{ top: 44, right: 8, bottom: 8, left: 8 }} className="thread-more-menu" side="top" align="start" sideOffset={8}>
-          <DropdownMenu.Item className="thread-more-item" disabled={attachments.length >= 8 || !api?.attach} onSelect={() => fileInput.current?.click()}><span><Paperclip size={13} /> Attach image</span></DropdownMenu.Item>
-          <DropdownMenu.Item className="thread-more-item" onSelect={onInsertMention}><span><AtSign size={13} /> Mention a file</span></DropdownMenu.Item>
-          <DropdownMenu.Item className="thread-more-item" onSelect={() => useUIStore.getState().openMcpPanel()}><span><Plug size={13} /> MCP connections</span></DropdownMenu.Item>
+          <DropdownMenu.Item className="thread-more-item" disabled={attachments.length >= 8 || !api?.attach} onSelect={() => fileInput.current?.click()}><span><Paperclip size={14} /> Attach image</span></DropdownMenu.Item>
+          <DropdownMenu.Item className="thread-more-item" onSelect={onInsertMention}><span><AtSign size={14} /> Mention a file</span></DropdownMenu.Item>
+          <DropdownMenu.Item className="thread-more-item" onSelect={() => useUIStore.getState().openMcpPanel()}><span><Plug size={14} /> MCP connections</span></DropdownMenu.Item>
         </DropdownMenu.Content></DropdownMenu.Portal>
       </DropdownMenu.Root>
       <button type="button" className="thread-command-trigger" aria-label="Voice input" title="Voice input · Ctrl+Shift+V" disabled={!snapshot || pending || !voice.isSupported} onClick={voice.toggle}><Mic size={14} /></button>
@@ -76,7 +76,7 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
       {snapshot && <ThreadMcpHealth thread={snapshot.thread} />}
       {snapshot && <ThreadCostChip cost={snapshot.thread.costReport} />}
       {snapshot && <ThreadUsageRing provider={snapshot.thread.provider} idle={!running} threadId={snapshot.thread.id} context={snapshot.thread.contextReport} />}
-      {running && <button type="button" className="thread-stop" aria-label="Stop turn" title="Stop turn · Esc" disabled={pending} onClick={onInterrupt}><Square size={13} /></button>}
+      {running && <button type="button" className="thread-stop" aria-label="Stop turn" title="Stop turn · Esc" disabled={pending} onClick={onInterrupt}><Square size={14} /></button>}
       <button type="submit" className="thread-send" aria-label={running ? 'Queue follow-up' : 'Send'} title={running ? 'Queue follow-up · Enter' : 'Send · Enter'} disabled={blocked || (!draft.trim() && !attachments.length)}><ArrowUp size={16} /></button></footer>
   </form>
 }

@@ -27,16 +27,16 @@ export function WorkspaceEditorPanel({ isExpanded, onCollapse, onToggleExpanded,
     <section className="workspace-editor-panel" data-testid="workspace-editor-panel">
       <header className="workspace-editor-header">
         <div className="workspace-editor-title">
-          <Files size={13} aria-hidden="true" />
+          <Files size={14} aria-hidden="true" />
           <span>{workspace.name}</span>
           <PanelScopeBadge workspaceId={workspace.id} scope={scope} />
         </div>
         <div className="workspace-editor-actions repository-view-actions" aria-label="Repository views">
           <button type="button" className="tile-btn active" aria-label="Files and editor" title="Files and editor">
-            <Files size={13} aria-hidden="true" />
+            <Files size={14} aria-hidden="true" />
           </button>
           <button type="button" className="tile-btn" aria-label="Source control" title="Source control" onClick={openSourceControl}>
-            <GitBranch size={13} aria-hidden="true" />
+            <GitBranch size={14} aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -48,7 +48,7 @@ export function WorkspaceEditorPanel({ isExpanded, onCollapse, onToggleExpanded,
             {isExpanded ? <Minimize2 size={12} aria-hidden="true" /> : <Maximize2 size={12} aria-hidden="true" />}
           </button>
           <button type="button" className="tile-btn" aria-label="Collapse editor" title="Collapse editor" onClick={onCollapse}>
-            <ChevronsRight size={13} aria-hidden="true" />
+            <ChevronsRight size={14} aria-hidden="true" />
           </button>
         </div>
       </header>

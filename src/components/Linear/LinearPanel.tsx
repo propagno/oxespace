@@ -140,7 +140,7 @@ export function LinearPanel({ onClose, rootPath, workspaceId }: LinearPanelProps
                 Done
               </label>
               <div className="linear-search">
-                <Search size={13} aria-hidden="true" />
+                <Search size={14} aria-hidden="true" />
                 <input
                   className="linear-input"
                   placeholder="Filter issues…"

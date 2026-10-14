@@ -76,6 +76,6 @@
 /* Hit targets and contrast raised to the audit baseline (28px, AA text). */
 .pane-header .tile-btn, .workspace-editor-actions .tile-btn, .sidebar-section-action-btn, .ws-group-expand-btn { min-width: var(--hit-min); min-height: var(--hit-min); }
 .pane-row-time { font-size: var(--fs-2xs); }
-.pane-row-time.recent { color: var(--brand-light); }
+.pane-row-time.recent { color: var(--text-secondary); }
 .pane-intent-button, .panel-scope-badge { min-height: var(--hit-min); display: inline-flex; align-items: center; }
 

@@ -153,19 +153,19 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
               disabled={!workspaceId || reindexing}
               onClick={() => void handleReindex()}
             >
-              <RefreshCw size={13} aria-hidden="true" className={reindexing ? 'spin' : undefined} />
+              <RefreshCw size={14} aria-hidden="true" className={reindexing ? 'spin' : undefined} />
             </button>
             <button type="button" className="icon-button" aria-label={paused ? 'Resume' : 'Pause'} title={paused ? 'Resume stream' : 'Pause stream'} onClick={() => setPaused((p) => !p)}>
-              {paused ? <Play size={13} aria-hidden="true" /> : <Pause size={13} aria-hidden="true" />}
+              {paused ? <Play size={14} aria-hidden="true" /> : <Pause size={14} aria-hidden="true" />}
             </button>
             <button type="button" className="icon-button" aria-label="Copy logs" title="Copy visible logs" onClick={handleCopy}>
-              <Copy size={13} aria-hidden="true" />
+              <Copy size={14} aria-hidden="true" />
             </button>
             <button type="button" className="icon-button" aria-label="Export logs" title="Export logs (.log)" onClick={handleExport}>
-              <Download size={13} aria-hidden="true" />
+              <Download size={14} aria-hidden="true" />
             </button>
             <button type="button" className="icon-button" aria-label="Clear view" title="Clear view" onClick={() => setLogs([])}>
-              <Trash2 size={13} aria-hidden="true" />
+              <Trash2 size={14} aria-hidden="true" />
             </button>
             <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
               <X size={14} aria-hidden="true" />

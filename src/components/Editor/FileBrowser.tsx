@@ -105,7 +105,7 @@ function FileNode({ node, onOpenFile, rootPath, selectedPath, loadDirectory, chi
           title={node.relativePath}
         >
           {isExpanded ? <ChevronDown size={12} aria-hidden="true" /> : <ChevronRight size={12} aria-hidden="true" />}
-          <Folder size={13} aria-hidden="true" />
+          <Folder size={14} aria-hidden="true" />
           <span>{node.name}</span>
         </button>
         {isExpanded ? (
@@ -141,7 +141,7 @@ function FileNode({ node, onOpenFile, rootPath, selectedPath, loadDirectory, chi
       onDragStart={handleDragStart}
       onClick={() => onOpenFile(node.relativePath)}
     >
-      <FileText size={13} aria-hidden="true" />
+      <FileText size={14} aria-hidden="true" />
       <span>{node.name}</span>
     </button>
   )

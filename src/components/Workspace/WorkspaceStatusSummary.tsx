@@ -32,7 +32,7 @@ export function WorkspaceStatusSummary({ workspace }: WorkspaceStatusSummaryProp
   return (
     <div className="workspace-status-summary" role="status" aria-live="polite">
       <span className="workspace-status-pill">
-        <Activity size={11} aria-hidden="true" />
+        <Activity size={12} aria-hidden="true" />
         <strong>{counts.total}</strong>
         <span className="workspace-status-pill-label">{counts.total === 1 ? 'agent' : 'agents'}</span>
       </span>

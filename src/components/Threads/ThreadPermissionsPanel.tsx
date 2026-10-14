@@ -44,7 +44,7 @@ export default function ThreadPermissionsPanel({ threadId }: { threadId: string 
           <span>{KIND[rule.kind]}</span>
           <code>{rule.pattern}</code>
           <small>{rule.projectRoot ? 'This project' : 'All projects'}</small>
-          <button type="button" aria-label={`Remove rule ${rule.pattern}`} title="Remove rule" disabled={busy} onClick={() => void run(() => api.removePermissionRule!(threadId, rule.id))}><Trash2 size={13} /></button>
+          <button type="button" aria-label={`Remove rule ${rule.pattern}`} title="Remove rule" disabled={busy} onClick={() => void run(() => api.removePermissionRule!(threadId, rule.id))}><Trash2 size={14} /></button>
         </li>)}
       </ul>}
       <form className="thread-permissions-add" onSubmit={event => { event.preventDefault(); void run(async () => { await api.addPermissionRule!(threadId, { kind, pattern, decision, scope: global ? 'global' : 'project' }); setPattern('') }) }}>

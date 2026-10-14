@@ -166,7 +166,7 @@ export function IntegrationsStatusChips({ workspace, isActive = true }: Integrat
         <span className={`workspace-integrations-health tone-${overallTone}`} aria-hidden="true" />
         <span className="workspace-integrations-label">Systems</span>
         <span className="workspace-integrations-count">{attentionCount > 0 ? `${attentionCount} alert${attentionCount === 1 ? '' : 's'}` : `${activeCount}/5`}</span>
-        <ChevronDown size={11} className="workspace-integrations-chevron" aria-hidden="true" />
+        <ChevronDown size={12} className="workspace-integrations-chevron" aria-hidden="true" />
       </button>
 
       {open ? (
@@ -176,16 +176,16 @@ export function IntegrationsStatusChips({ workspace, isActive = true }: Integrat
             <span>{activeCount} active</span>
           </div>
 
-          <IntegrationRow icon={<Github size={13} />} label="GitHub" detail={githubStatus?.loggedIn ? 'Connected' : githubStatus ? 'Disconnected' : 'Checking…'} active={githubStatus?.loggedIn === true} />
-          <IntegrationRow icon={<Server size={13} />} label="MCP" detail={`${totalRunningMcp} running`} active={totalRunningMcp > 0} />
+          <IntegrationRow icon={<Github size={14} />} label="GitHub" detail={githubStatus?.loggedIn ? 'Connected' : githubStatus ? 'Disconnected' : 'Checking…'} active={githubStatus?.loggedIn === true} />
+          <IntegrationRow icon={<Server size={14} />} label="MCP" detail={`${totalRunningMcp} running`} active={totalRunningMcp > 0} />
           <IntegrationRow
-            icon={<Zap size={13} />}
+            icon={<Zap size={14} />}
             label="RTK"
             detail={rtk.updateAvailable ? `Update ${rtk.latestVersion} available` : rtkActive ? `Active${rtk.version ? ` · ${rtk.version}` : ''}` : 'Disabled'}
             active={rtkActive}
             attention={rtk.updateAvailable}
           />
-          <IntegrationRow icon={<Activity size={13} />} label="Caveman" detail={cavemanActive ? 'Active' : 'Disabled'} active={cavemanActive} />
+          <IntegrationRow icon={<Activity size={14} />} label="Caveman" detail={cavemanActive ? 'Active' : 'Disabled'} active={cavemanActive} />
 
           <button
             type="button"
@@ -196,7 +196,7 @@ export function IntegrationsStatusChips({ workspace, isActive = true }: Integrat
             onClick={() => setOverride(workspace.id, 'semanticSearchEnabled', !semanticEnabled)}
             data-testid="chip-semantic"
           >
-            <span className="workspace-integrations-row-icon"><Brain size={13} aria-hidden="true" /></span>
+            <span className="workspace-integrations-row-icon"><Brain size={14} aria-hidden="true" /></span>
             <span className="workspace-integrations-row-copy">
               <strong>Semantic</strong>
               <span>{semanticEnabled && semanticStatus?.indexing ? 'Indexing…' : semanticEnabled ? (semanticStatus?.lastError ? 'Needs attention' : `${semanticStatus?.count ?? 0} files`) : 'Disabled'}</span>

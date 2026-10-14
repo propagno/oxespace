@@ -29,13 +29,13 @@ export function AppUpdateIndicator(): ReactElement | null {
 
   return <div className="app-update-indicator" ref={rootRef}>
     <button type="button" className="app-update-trigger" aria-label={label} aria-expanded={open} aria-haspopup="dialog" title={label} onClick={() => setOpen(value => !value)}>
-      {app.status === 'downloading' ? <Download size={15} /> : <ArrowUpCircle size={15} />}
+      {app.status === 'downloading' ? <Download size={14} /> : <ArrowUpCircle size={14} />}
       <span className="app-update-dot" aria-hidden="true" />
     </button>
     {open && <div className="app-update-popover" role="dialog" aria-label="OXESpace update">
       <strong>OXESpace {app.availableVersion}</strong>
       <p>{manual ? 'A newer release is available. Development and Linux package installs update manually.' : app.status === 'downloaded' ? 'Downloaded and ready to install.' : app.status === 'downloading' ? `Downloading… ${app.progress ?? 0}%` : 'Downloading in the background.'}</p>
-      {manual ? <a href={RELEASE_URL} target="_blank" rel="noopener noreferrer">Open releases <ArrowUpCircle size={13} /></a> : app.status === 'downloaded' ? <button type="button" onClick={() => void quitAndInstall()}><RefreshCw size={13} /> Restart and install</button> : null}
+      {manual ? <a href={RELEASE_URL} target="_blank" rel="noopener noreferrer">Open releases <ArrowUpCircle size={14} /></a> : app.status === 'downloaded' ? <button type="button" onClick={() => void quitAndInstall()}><RefreshCw size={14} /> Restart and install</button> : null}
     </div>}
   </div>
 }

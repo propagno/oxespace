@@ -75,7 +75,7 @@ export function SettingsCenter(props: SettingsModalProps & {
       onCloseAutoFocus={event => { if (returnPane.current) { event.preventDefault(); requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('oxe:focus-pane', { detail: { paneId: returnPane.current } }))) } }}
       onPointerDownOutside={event => event.preventDefault()}>
       <aside className="settings-center-nav">
-        <ModalTitle className="settings-center-title"><Settings2 size={18} />Settings</ModalTitle>
+        <ModalTitle className="settings-center-title"><Settings2 size={16} />Settings</ModalTitle>
         <SearchField className="settings-search" ref={search} label="Search settings" placeholder="Filter categories" value={query} onChange={setQuery} shortcut="Ctrl F" />
         <div className="settings-scope"><span>Settings for</span>
           <div className="settings-scope-choices" role="group" aria-label="Settings scope">
@@ -103,7 +103,7 @@ export function SettingsCenter(props: SettingsModalProps & {
         </nav>
         <div className="settings-nav-footer">
           <p className="settings-scope-note" title={workspace?.rootPath}>{workspace ? workspace.name : 'Applies across workspaces'}</p>
-          <button className="settings-back" onClick={close}><ArrowLeft size={15} />Back to work</button>
+          <button className="settings-back" onClick={close}><ArrowLeft size={14} />Back to work</button>
         </div>
       </aside>
       <main className="settings-center-main">

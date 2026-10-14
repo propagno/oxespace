@@ -63,7 +63,7 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond, on
   }
   if (request.state !== 'pending') return <details className={cx(`thread-request-history is-${request.state}`, styles.history)}>
     <summary className={cx('thread-request is-resolved', styles.resolved)}>
-    {request.resolution === 'answered' || request.resolution === 'approved' ? <Check size={13} /> : <AlertCircle size={13} />}
+    {request.resolution === 'answered' || request.resolution === 'approved' ? <Check size={14} /> : <AlertCircle size={14} />}
     <span><strong>{request.questions?.[0]?.question ?? request.title}</strong><small>{requestOutcomeLabel(request)}{policy && policy.decision !== 'ask' && (request.resolution === 'approved' || request.resolution === 'declined') ? ' · by a permission rule' : ''}{request.resolution === 'answered' && turnResult === 'failed' ? ' · The turn failed afterward; see the error below.' : request.resolution === 'answered' && turnResult === 'interrupted' ? ' · The turn was interrupted afterward.' : ''}</small></span>
     {request.resolvedAt && <time title={new Date(request.resolvedAt).toLocaleString()}>{new Date(request.resolvedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>}
     </summary>
@@ -78,7 +78,7 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond, on
     </div>
   </details>
   return <section ref={card} className={cx(`thread-request thread-request-${request.kind}`, styles.root, request.kind === 'question' && styles.question)} aria-label={requestLabel}>
-    <header>{request.kind === 'permissions' ? <Shield size={15} /> : <AlertCircle size={15} />}<div><strong>{requestLabel}</strong>{request.kind !== 'approval' && request.detail && <p>{request.detail}</p>}</div></header>
+    <header>{request.kind === 'permissions' ? <Shield size={14} /> : <AlertCircle size={14} />}<div><strong>{requestLabel}</strong>{request.kind !== 'approval' && request.detail && <p>{request.detail}</p>}</div></header>
     {request.kind === 'elicitation' && <p className={styles.context}>This MCP server requested confirmation or information. Full access controls filesystem and command access; it does not answer MCP requests.</p>}
     {request.kind === 'approval' && request.nativeMethod?.startsWith('can_use_tool:mcp__') && <p className={styles.context}>This request comes from an MCP tool. Full access does not approve requests made by the connected provider or MCP server.</p>}
     {request.kind === 'approval' && <ThreadApprovalDetails command={request.command ?? request.detail ?? ''} cwd={request.cwd} reason={request.reason} fileChanges={request.title === 'Approve file changes'} toolName={request.nativeMethod?.startsWith('can_use_tool:') ? request.nativeMethod.slice('can_use_tool:'.length) : undefined} />}
@@ -115,7 +115,7 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond, on
       {request.kind === 'approval' && (request.availableDecisions ?? ['accept', 'decline']).filter(decision => decision === 'accept' || decision === 'acceptForSession').map(decision => <button type="button" key={decision} disabled={disabled} onClick={() => void submit({ decision })}>{decision === 'acceptForSession' ? 'Allow session' : 'Approve'}</button>)}
       {/* MCP tool suggestions are alternatives (the tool, or its whole server); the others must all be saved together. */}
       {request.kind === 'approval' && remember && (remember.every(item => item.kind === 'tool') ? remember.map(item => [item]) : [remember]).map(group => <button key={group.map(item => item.pattern).join(',')} type="button" className={cx('thread-request-remember', styles.remember)} disabled={disabled} title={`Saves ${group.map(item => item.pattern).join(', ')} as an allow rule for this project`} onClick={() => void rememberAndApprove(group)}>Always allow {group.map(item => item.label).join(', ')}</button>)}
-      <button type="button" className={cx('thread-request-decline', styles.decline)} disabled={disabled} onClick={() => void submit({ decision: request.availableDecisions?.includes('cancel') ? 'cancel' : 'decline' })}><X size={13} />{request.availableDecisions?.includes('cancel') ? 'Cancel' : 'Decline'}</button>
+      <button type="button" className={cx('thread-request-decline', styles.decline)} disabled={disabled} onClick={() => void submit({ decision: request.availableDecisions?.includes('cancel') ? 'cancel' : 'decline' })}><X size={14} />{request.availableDecisions?.includes('cancel') ? 'Cancel' : 'Decline'}</button>
     </footer>
   </section>
 }

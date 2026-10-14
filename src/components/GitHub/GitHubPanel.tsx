@@ -100,7 +100,7 @@ export function GitHubPanel({ activeTab: propTab, onOpenFile, onRunCommand, onTa
         ))}
         {state.refreshing && !state.loading ? (
           <span className="github-refreshing" aria-live="polite">
-            <RefreshCw size={11} className="github-refreshing-spin" aria-hidden="true" />
+            <RefreshCw size={12} className="github-refreshing-spin" aria-hidden="true" />
             Refreshing…
           </span>
         ) : null}
@@ -327,7 +327,7 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
               disabled={loading}
               onClick={onRefresh}
             >
-              <RefreshCw size={13} aria-hidden="true" />
+              <RefreshCw size={14} aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -343,11 +343,11 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
         >
           <div className="github-sync-card-main">
             <span className={`github-sync-icon state-${sync.kind}`} aria-hidden="true">
-              {sync.kind === 'behind' || sync.kind === 'diverged' ? <ArrowDownToLine size={18} />
-                : sync.kind === 'ahead' ? <ArrowUpFromLine size={18} />
-                  : sync.kind === 'dirty-behind' ? <AlertTriangle size={18} />
-                    : sync.kind === 'no-remote' ? <AlertTriangle size={18} />
-                      : <CheckCircle2 size={18} />}
+              {sync.kind === 'behind' || sync.kind === 'diverged' ? <ArrowDownToLine size={16} />
+                : sync.kind === 'ahead' ? <ArrowUpFromLine size={16} />
+                  : sync.kind === 'dirty-behind' ? <AlertTriangle size={16} />
+                    : sync.kind === 'no-remote' ? <AlertTriangle size={16} />
+                      : <CheckCircle2 size={16} />}
             </span>
             <div className="github-sync-copy">
               <strong data-testid="github-sync-title">{sync.title}</strong>
@@ -355,11 +355,11 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
               {(ahead > 0 || behind > 0) ? (
                 <div className="github-sync-pills" aria-label="Commits vs remote">
                   <span className={`github-sync-pill${ahead > 0 ? ' active up' : ''}`} title="Local commits not pushed">
-                    <ArrowUpFromLine size={11} aria-hidden="true" />
+                    <ArrowUpFromLine size={12} aria-hidden="true" />
                     {ahead} outgoing
                   </span>
                   <span className={`github-sync-pill${behind > 0 ? ' active down' : ''}`} title="Remote commits not pulled">
-                    <ArrowDownToLine size={11} aria-hidden="true" />
+                    <ArrowDownToLine size={12} aria-hidden="true" />
                     {behind} incoming
                   </span>
                 </div>
@@ -375,7 +375,7 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
               title="Fetch remote updates without changing your files"
               onClick={onFetch}
             >
-              <Download size={13} aria-hidden="true" />
+              <Download size={14} aria-hidden="true" />
               Fetch
             </button>
             <button
@@ -386,7 +386,7 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
               title={pullTitle}
               onClick={onPullFfOnly}
             >
-              <ArrowDownToLine size={13} aria-hidden="true" />
+              <ArrowDownToLine size={14} aria-hidden="true" />
               Pull{behind > 0 ? ` ${behind}` : ''}
             </button>
             <button
@@ -397,13 +397,13 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
               title={pushTitle}
               onClick={onPush}
             >
-              <ArrowUpFromLine size={13} aria-hidden="true" />
+              <ArrowUpFromLine size={14} aria-hidden="true" />
               Push{ahead > 0 ? ` ${ahead}` : ''}
             </button>
           </div>}
           {sync.kind === 'dirty-behind' ? (
             <div className="github-sync-callout" data-testid="github-dirty-behind-callout" role="status">
-              <AlertTriangle size={13} aria-hidden="true" />
+              <AlertTriangle size={14} aria-hidden="true" />
               <span>
                 Uncommitted changes block Pull. Commit or stash first.
               </span>
@@ -411,7 +411,7 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
           ) : null}
           {sync.kind === 'no-remote' ? (
             <div className="github-sync-callout" data-testid="github-no-remote-callout" role="status">
-              <AlertTriangle size={13} aria-hidden="true" />
+              <AlertTriangle size={14} aria-hidden="true" />
               <span>
                 In a terminal: <code>git remote -v</code> then{' '}
                 <code>git remote add origin &lt;url&gt;</code>.
@@ -518,7 +518,7 @@ function GitChangeGroup({ action, changes, disabled, onAction, onOpenFile, title
               title={`${action === 'stage' ? 'Stage' : 'Unstage'} ${change.path}`}
               onClick={() => onAction(change.path)}
             >
-              {action === 'stage' ? <Plus size={13} aria-hidden="true" /> : <Minus size={13} aria-hidden="true" />}
+              {action === 'stage' ? <Plus size={14} aria-hidden="true" /> : <Minus size={14} aria-hidden="true" />}
             </button>
           </div>
         )
@@ -549,7 +549,7 @@ function CheckpointsTab({ checkpoints, loading, onCreate, onRestore, onDelete, o
             <Clock size={14} aria-hidden="true" />
             <span>Checkpoints ({checkpoints.length})</span>
           </div>
-          <button type="button" className="gh-icon-btn" title="Refresh" onClick={onRefresh}><RefreshCw size={13} aria-hidden="true" /></button>
+          <button type="button" className="gh-icon-btn" title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></button>
         </div>
         <div className="github-tab-sep" />
         {checkpoints.length === 0 ? (
@@ -609,7 +609,7 @@ function ReposTab({ connectedRepositories, rootPath, workspaceId, status, onConn
       <div className="github-tab-scroll">
         <div className="github-tab-header">
           <div className="github-tab-header-title"><span>Repository</span></div>
-          <button type="button" className="gh-icon-btn" title="Refresh" onClick={onRefresh}><RefreshCw size={13} aria-hidden="true" /></button>
+          <button type="button" className="gh-icon-btn" title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></button>
         </div>
         <div className="github-tab-sep" />
 
@@ -691,7 +691,7 @@ function GitignoreRow({ rootPath, workspaceId }: { rootPath: string; workspaceId
           <span className="github-gitignore-exists">exists</span>
           <div className="github-gitignore-right">
             <span className="github-muted">{info.lines} lines</span>
-            <button type="button" className="ghost-btn github-edit-btn">Edit <ChevronDown size={11} aria-hidden="true" /></button>
+            <button type="button" className="ghost-btn github-edit-btn">Edit <ChevronDown size={12} aria-hidden="true" /></button>
           </div>
         </>
       ) : (
@@ -721,7 +721,7 @@ function BranchesTab({ branches, status, onCheckout, onCreate, onRefresh }: {
         <div className="github-tab-header">
           <div className="github-tab-header-title"><span>Branches</span></div>
           <div className="github-tab-header-actions">
-            <button type="button" className="gh-icon-btn" title="Refresh" onClick={onRefresh}><RefreshCw size={13} aria-hidden="true" /></button>
+            <button type="button" className="gh-icon-btn" title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></button>
             <button type="button" className="github-outline-btn" onClick={() => setShowCreate((v) => !v)}>+ New Branch</button>
           </div>
         </div>
@@ -729,7 +729,7 @@ function BranchesTab({ branches, status, onCheckout, onCreate, onRefresh }: {
 
         {repoName ? (
           <div className="github-repo-badge">
-            <Link2 size={13} aria-hidden="true" />
+            <Link2 size={14} aria-hidden="true" />
             <span>{repoName}</span>
             {detected ? <span className="github-detected">(detected)</span> : null}
           </div>
@@ -747,7 +747,7 @@ function BranchesTab({ branches, status, onCheckout, onCreate, onRefresh }: {
           {branches.map((branch) => (
             <div key={`${branch.remote ? 'r' : 'l'}-${branch.name}`} className={`github-branch-row${branch.current ? ' current' : ''}`}>
               <div className="github-branch-left">
-                <TrendingUp size={13} aria-hidden="true" />
+                <TrendingUp size={14} aria-hidden="true" />
                 <div className="github-branch-info">
                   <strong>{branch.name}</strong>
                   {branch.sha ? <span className="github-sha-text">{branch.sha}</span> : null}
@@ -803,7 +803,7 @@ function PullRequestsTab({ prs, status, loading, input, onCreate, onRefresh }: {
       <div className="github-tab-layout">
         <div className="github-tab-scroll">
           <div className="github-detail-header-row">
-            <button type="button" className="github-back-btn" onClick={() => setSelected(null)}><ArrowLeft size={15} aria-hidden="true" /></button>
+            <button type="button" className="github-back-btn" onClick={() => setSelected(null)}><ArrowLeft size={14} aria-hidden="true" /></button>
             <span className="github-detail-title">#{selected.number} {selected.title}</span>
           </div>
           <div className="github-tab-sep" />
@@ -836,7 +836,7 @@ function PullRequestsTab({ prs, status, loading, input, onCreate, onRefresh }: {
         <div className="github-tab-header">
           <div className="github-tab-header-title"><span>Pull Requests</span></div>
           <div className="github-tab-header-actions">
-            <button type="button" className="gh-icon-btn" title="Refresh" onClick={onRefresh}><RefreshCw size={13} aria-hidden="true" /></button>
+            <button type="button" className="gh-icon-btn" title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></button>
             <button type="button" className="github-outline-btn" onClick={() => repoName && window.open(`https://github.com/${repoName}/compare`, '_blank')}>+ New PR</button>
           </div>
         </div>
@@ -844,7 +844,7 @@ function PullRequestsTab({ prs, status, loading, input, onCreate, onRefresh }: {
 
         {repoName ? (
           <div className="github-repo-badge">
-            <Link2 size={13} aria-hidden="true" />
+            <Link2 size={14} aria-hidden="true" />
             <span>{repoName}</span>
             {detected ? <span className="github-detected">(detected)</span> : null}
           </div>
@@ -901,7 +901,7 @@ function CommitsTab({ commitDetails, commits, loading, status, onLoadDetails, on
       <div className="github-tab-layout">
         <div className="github-tab-scroll">
           <div className="github-detail-header-row">
-            <button type="button" className="github-back-btn" onClick={() => setSelectedOid(null)}><ArrowLeft size={15} aria-hidden="true" /></button>
+            <button type="button" className="github-back-btn" onClick={() => setSelectedOid(null)}><ArrowLeft size={14} aria-hidden="true" /></button>
             <code className="github-detail-sha">{selected?.shortOid ?? selectedOid.slice(0, 7)}</code>
           </div>
           <div className="github-tab-sep" />
@@ -917,13 +917,13 @@ function CommitsTab({ commitDetails, commits, loading, status, onLoadDetails, on
       <div className="github-tab-scroll">
         <div className="github-tab-header">
           <div className="github-tab-header-title"><span>Commits</span></div>
-          <button type="button" className="gh-icon-btn" title="Refresh" onClick={onRefresh}><RefreshCw size={13} aria-hidden="true" /></button>
+          <button type="button" className="gh-icon-btn" title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></button>
         </div>
         <div className="github-tab-sep" />
 
         {repoName ? (
           <div className="github-repo-badge">
-            <Link2 size={13} aria-hidden="true" />
+            <Link2 size={14} aria-hidden="true" />
             <span>{repoName}</span>
             {detected ? <span className="github-detected">(detected)</span> : null}
           </div>
@@ -933,7 +933,7 @@ function CommitsTab({ commitDetails, commits, loading, status, onLoadDetails, on
           <select className="github-branch-select" defaultValue="">
             <option value="">Default branch</option>
           </select>
-          <ChevronDown size={13} className="github-select-chevron" aria-hidden="true" />
+          <ChevronDown size={14} className="github-select-chevron" aria-hidden="true" />
         </div>
 
         <div className="github-list">
@@ -1013,7 +1013,7 @@ function ReleasesTab({ releases, status, loading, onCreate, onRefresh }: {
       <div className="github-tab-layout">
         <div className="github-tab-scroll">
           <div className="github-detail-header-row">
-            <button type="button" className="github-back-btn" onClick={() => setSelected(null)}><ArrowLeft size={15} aria-hidden="true" /></button>
+            <button type="button" className="github-back-btn" onClick={() => setSelected(null)}><ArrowLeft size={14} aria-hidden="true" /></button>
             <span className="github-detail-title">{selected.name ?? selected.tagName}</span>
           </div>
           <div className="github-tab-sep" />
@@ -1037,7 +1037,7 @@ function ReleasesTab({ releases, status, loading, onCreate, onRefresh }: {
       <div className="github-tab-layout">
         <div className="github-tab-scroll">
           <div className="github-detail-header-row">
-            <button type="button" className="github-back-btn" onClick={() => setShowCreate(false)}><ArrowLeft size={15} aria-hidden="true" /></button>
+            <button type="button" className="github-back-btn" onClick={() => setShowCreate(false)}><ArrowLeft size={14} aria-hidden="true" /></button>
             <span className="github-detail-title">New Release</span>
           </div>
           <div className="github-tab-sep" />
@@ -1064,7 +1064,7 @@ function ReleasesTab({ releases, status, loading, onCreate, onRefresh }: {
         <div className="github-tab-header">
           <div className="github-tab-header-title"><span>Releases</span></div>
           <div className="github-tab-header-actions">
-            <button type="button" className="gh-icon-btn" title="Refresh" onClick={onRefresh}><RefreshCw size={13} aria-hidden="true" /></button>
+            <button type="button" className="gh-icon-btn" title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></button>
             <button type="button" className="github-outline-btn" onClick={() => setShowCreate(true)}>+ New Release</button>
           </div>
         </div>
@@ -1072,7 +1072,7 @@ function ReleasesTab({ releases, status, loading, onCreate, onRefresh }: {
 
         {repoName ? (
           <div className="github-repo-badge">
-            <Link2 size={13} aria-hidden="true" />
+            <Link2 size={14} aria-hidden="true" />
             <span>{repoName}</span>
             {detected ? <span className="github-detected">(detected)</span> : null}
           </div>
@@ -1195,10 +1195,10 @@ function ActionsTab({ workflows, workflowRuns, workflowRunDetails, loading, work
             </button>
           ))}
           <button type="button" className="gh-icon-btn" title="Refresh" onClick={onRefresh}>
-            <RefreshCw size={13} aria-hidden="true" className={loading ? 'usage-spin' : undefined} />
+            <RefreshCw size={14} aria-hidden="true" className={loading ? 'usage-spin' : undefined} />
           </button>
           <button type="button" className="gh-icon-btn" title="Run workflow" onClick={() => setShowRunForm((v) => !v)}>
-            <Play size={13} aria-hidden="true" />
+            <Play size={14} aria-hidden="true" />
           </button>
         </div>
       </header>
@@ -1226,7 +1226,7 @@ function ActionsTab({ workflows, workflowRuns, workflowRunDetails, loading, work
                     className="github-actions-v2-workflow-row"
                     onClick={() => toggleWorkflow(workflow.name)}
                   >
-                    {collapsed ? <ChevronRight size={11} aria-hidden="true" /> : <ChevronDown size={11} aria-hidden="true" />}
+                    {collapsed ? <ChevronRight size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}
                     <RunStatusIcon status="workflow" conclusion={null} />
                     <span className="github-actions-v2-workflow-name">{workflow.name}</span>
                     <span className="github-actions-v2-workflow-meta">{runs.length}</span>
@@ -1355,11 +1355,11 @@ function RunDetail({ run, details, rootPath, workspaceId, onRefresh, onRerun }: 
 
       <div className="github-actions-v2-detail-actions">
         <button type="button" className="ghost-btn" onClick={() => onRerun(false)}>
-          <RefreshCw size={11} aria-hidden="true" /> Re-run all
+          <RefreshCw size={12} aria-hidden="true" /> Re-run all
         </button>
         {isFailed ? (
           <button type="button" className="ghost-btn" onClick={() => onRerun(true)}>
-            <RefreshCw size={11} aria-hidden="true" /> Re-run failed
+            <RefreshCw size={12} aria-hidden="true" /> Re-run failed
           </button>
         ) : null}
         <button
@@ -1368,7 +1368,7 @@ function RunDetail({ run, details, rootPath, workspaceId, onRefresh, onRerun }: 
           disabled={logsLoading}
           onClick={() => void fetchLogs('all')}
         >
-          <Terminal size={11} aria-hidden="true" /> {logsLoading && logsMode === 'all' ? `Loading… ${logsElapsed}s` : 'View logs'}
+          <Terminal size={12} aria-hidden="true" /> {logsLoading && logsMode === 'all' ? `Loading… ${logsElapsed}s` : 'View logs'}
         </button>
         {isFailed ? (
           <button
@@ -1377,16 +1377,16 @@ function RunDetail({ run, details, rootPath, workspaceId, onRefresh, onRerun }: 
             disabled={logsLoading}
             onClick={() => void fetchLogs('failed')}
           >
-            <Terminal size={11} aria-hidden="true" /> {logsLoading && logsMode === 'failed' ? `Loading… ${logsElapsed}s` : 'Failed-only logs'}
+            <Terminal size={12} aria-hidden="true" /> {logsLoading && logsMode === 'failed' ? `Loading… ${logsElapsed}s` : 'Failed-only logs'}
           </button>
         ) : null}
         {run.url ? (
           <button type="button" className="ghost-btn" onClick={() => window.open(run.url ?? '', '_blank')}>
-            <ExternalLink size={11} aria-hidden="true" /> Open in GitHub
+            <ExternalLink size={12} aria-hidden="true" /> Open in GitHub
           </button>
         ) : null}
         <button type="button" className="ghost-btn" onClick={onRefresh}>
-          <RefreshCw size={11} aria-hidden="true" /> Refresh steps
+          <RefreshCw size={12} aria-hidden="true" /> Refresh steps
         </button>
       </div>
 
@@ -1414,7 +1414,7 @@ function RunDetail({ run, details, rootPath, workspaceId, onRefresh, onRerun }: 
                 onClick={() => void copyText(logs.text, 'Logs')}
                 title="Copy logs to clipboard"
               >
-                <Copy size={10} aria-hidden="true" /> Copy
+                <Copy size={12} aria-hidden="true" /> Copy
               </button>
               <button
                 type="button"
@@ -1591,7 +1591,7 @@ function SettingsTab({ status, rootPath, connectedRepositories, onRunCommand, on
       <div className="github-tab-scroll">
         <div className="github-tab-header">
           <div className="github-tab-header-title"><span>Settings</span></div>
-          <button type="button" className="gh-icon-btn" title="Refresh" onClick={onRefresh}><RefreshCw size={13} aria-hidden="true" /></button>
+          <button type="button" className="gh-icon-btn" title="Refresh" onClick={onRefresh}><RefreshCw size={14} aria-hidden="true" /></button>
         </div>
         <div className="github-tab-sep" />
 

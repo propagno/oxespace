@@ -252,7 +252,7 @@ export function Sidebar({
 
         {filtered.length === 0 ? (
           <div className="sidebar-empty-state">
-            <FolderOpen size={22} aria-hidden="true" />
+            <FolderOpen size={20} aria-hidden="true" />
             <p>{searchQuery ? 'No matching workspaces.' : 'No workspaces yet.'}</p>
           </div>
         ) : (

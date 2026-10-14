@@ -72,13 +72,13 @@ export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending,
     if (event.type === 'approval') {
       if (snapshot?.events.some(value => value.type === 'request' && value.id === event.id)) return null
       const unresolved = snapshot?.thread.status === 'approval' && !snapshot.events.some(e => e.type === 'approval-resolved' && e.id === event.id)
-      return <details key={key} className="thread-approval" open={Boolean(unresolved)}><summary><AlertCircle size={13} />{event.title}</summary><ThreadApprovalDetails command={event.detail} fileChanges={event.title === 'Approve file changes'} />{unresolved && <div className="thread-approval-actions"><button type="button" disabled={pending} onClick={() => void action(() => api!.approve(snapshot!.thread.id, event.id, 'accept'))}>Approve</button><button type="button" disabled={pending} onClick={() => void action(() => api!.approve(snapshot!.thread.id, event.id, 'decline'))}>Decline</button></div>}</details>
+      return <details key={key} className="thread-approval" open={Boolean(unresolved)}><summary><AlertCircle size={14} />{event.title}</summary><ThreadApprovalDetails command={event.detail} fileChanges={event.title === 'Approve file changes'} />{unresolved && <div className="thread-approval-actions"><button type="button" disabled={pending} onClick={() => void action(() => api!.approve(snapshot!.thread.id, event.id, 'accept'))}>Approve</button><button type="button" disabled={pending} onClick={() => void action(() => api!.approve(snapshot!.thread.id, event.id, 'decline'))}>Decline</button></div>}</details>
     }
     if (event.type === 'completed') return event.status === 'failed' ? <ThreadFailureCard key={key} event={event} latest={event === lastResult} onAccounts={onAccounts} disabled={pending} onCompact={() => void action(() => runCommand('/compact'))} onPermissions={onPermissions} onRetry={(() => { const prompt = turnEvents.find(value => value.type === 'message' && value.role === 'user'); return prompt?.type === 'message' ? () => void action(() => api!.send(snapshot!.thread.id, prompt.text, prompt.attachments?.map(attachment => attachment.id) ?? [])) : undefined })()} refreshUsage={snapshot?.thread.provider === 'codex' && api?.command ? async () => {
       const result = await api.command!(snapshot.thread.id, '/usage')
       if (!result.usage) throw Error('Usage unavailable')
       return result.usage
-    } : undefined} /> : event.status === 'interrupted' ? <p key={key} className="thread-turn-status"><AlertCircle size={13} />{event.error || 'Interrupted'}</p> : null
+    } : undefined} /> : event.status === 'interrupted' ? <p key={key} className="thread-turn-status"><AlertCircle size={14} />{event.error || 'Interrupted'}</p> : null
     return null
   })()
   const finished = lastInTurn && turnEvents.some(value => value.type === 'completed')

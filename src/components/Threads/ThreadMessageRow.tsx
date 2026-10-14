@@ -46,7 +46,7 @@ export function ThreadMessageRow({ event, turnEvents, snapshot, running, pending
   const final = event.role === 'assistant' && threadTurnPresentation(turnEvents).finalMessageId === event.id
   return <article className={`thread-message thread-message-${event.role}${final ? ' is-final-response' : ''}`}>
     {event.role === 'assistant' && (final || turnEvents.find(value => value.type === 'message' && value.role === 'assistant') === event) && <div className="thread-agent-label"><AgentProviderIcon provider={snapshot?.thread.provider ?? 'claude'} size={16} />{snapshot?.thread.provider === 'claude' ? 'Claude' : 'Codex'}{final && <span className="thread-final-label">Final response</span>}</div>}
-    {event.role === 'user' && event.attachments?.length ? <ul className="thread-sent-attachments" aria-label="Message attachments">{event.attachments.map(attachment => <li key={attachment.id} title={attachment.name}><ImageIcon size={13} aria-hidden="true" /><span>{attachment.name}</span><small>{Math.ceil(attachment.bytes / 1024)} KB</small></li>)}</ul> : null}
+    {event.role === 'user' && event.attachments?.length ? <ul className="thread-sent-attachments" aria-label="Message attachments">{event.attachments.map(attachment => <li key={attachment.id} title={attachment.name}><ImageIcon size={14} aria-hidden="true" /><span>{attachment.name}</span><small>{Math.ceil(attachment.bytes / 1024)} KB</small></li>)}</ul> : null}
     <ThreadMessageBody text={displayText} role={event.role} />
     {event.role === 'user' && event.context?.length ? <ul className="thread-sent-context" aria-label="Attached file context">{event.context.map(file => <li key={file.path} title={`${file.bytes} bytes attached${file.truncated ? ' (truncated)' : ''}`}><FileText size={12} aria-hidden="true" /><span>{file.path}</span>{file.truncated && <small>truncated</small>}</li>)}</ul> : null}
     {event.role === 'user' && event.brief ? <details className="thread-sent-brief"><summary>Project brief attached</summary><pre>{event.brief}</pre></details> : null}
@@ -64,10 +64,10 @@ export function ThreadMessageRow({ event, turnEvents, snapshot, running, pending
     })()}
     {event.historicalQuestions?.length ? <ThreadHistoricalQuestions questions={event.historicalQuestions} /> : null}
     {event.role === 'assistant' && quickReplies.length > 0 && <div className="thread-quick-replies" aria-label="Suggested replies"><small>Choose a reply to review before sending</small><div>{quickReplies.map(option => <button type="button" key={option.value} onClick={() => onQuickReply(option.value)}>{option.label}</button>)}</div></div>}
-    {event.role !== 'user' && event.attachments?.length ? <div className="thread-message-attachments" aria-label="Message attachments">{event.attachments.map(attachment => <span key={attachment.id}><Paperclip size={11} />{attachment.name}<small>{Math.ceil(attachment.bytes / 1024)} KB</small></span>)}</div> : null}
+    {event.role !== 'user' && event.attachments?.length ? <div className="thread-message-attachments" aria-label="Message attachments">{event.attachments.map(attachment => <span key={attachment.id}><Paperclip size={12} />{attachment.name}<small>{Math.ceil(attachment.bytes / 1024)} KB</small></span>)}</div> : null}
     {event.role === 'assistant' && <div className="thread-message-actions">
-      <button type="button" aria-label="Quote in reply" title="Quote in reply" onClick={() => onQuote(copyText)}><Quote size={13} /></button>
-      <button type="button" aria-label={copied ? 'Message copied' : final ? 'Copy final response' : 'Copy response'} title={copied ? 'Copied' : final ? 'Copy final response' : 'Copy response'} onClick={() => onCopy(event.id, copyText)}>{copied ? <Check size={13} /> : <Copy size={13} />}{final && <span>{copied ? 'Copied' : 'Copy'}</span>}</button>
+      <button type="button" aria-label="Quote in reply" title="Quote in reply" onClick={() => onQuote(copyText)}><Quote size={14} /></button>
+      <button type="button" aria-label={copied ? 'Message copied' : final ? 'Copy final response' : 'Copy response'} title={copied ? 'Copied' : final ? 'Copy final response' : 'Copy response'} onClick={() => onCopy(event.id, copyText)}>{copied ? <Check size={14} /> : <Copy size={14} />}{final && <span>{copied ? 'Copied' : 'Copy'}</span>}</button>
     </div>}
   </article>
 }

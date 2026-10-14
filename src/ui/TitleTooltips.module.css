@@ -1,0 +1,16 @@
+.tip {
+  position: fixed;
+  z-index: var(--layer-tooltip);
+  max-width: 320px;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface-inverse);
+  color: var(--surface-canvas);
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  pointer-events: none;
+  white-space: pre-line;
+  animation: fade var(--duration-fast) var(--ease-standard);
+}
+
+@keyframes fade { from { opacity: 0; } }

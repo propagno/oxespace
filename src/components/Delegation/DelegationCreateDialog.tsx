@@ -146,6 +146,6 @@ export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceI
       </div>
       {error && <p role="alert" className="delegation-preview-error">{error}</p>}
     </div>
-    <footer className="delegation-footer"><span>Preview the checkout before starting the agent.</span><div><button type="button" disabled={loading} onClick={onClose}>Cancel</button><button type="button" disabled={loading || !objective.trim() || (strategy !== 'generated' && !branch.trim())} onClick={() => void inspect()}>{loading ? <><Loader2 size={13} className="thread-spin" />Working…</> : 'Preview checkout'}</button><button type="button" className="thread-primary" disabled={loading || !profileId || !preview?.ready || !handoff.trim() || !acceptance.trim()} onClick={() => void create()}>Create delegation</button></div></footer>
+    <footer className="delegation-footer"><span>Preview the checkout before starting the agent.</span><div><button type="button" disabled={loading} onClick={onClose}>Cancel</button><button type="button" disabled={loading || !objective.trim() || (strategy !== 'generated' && !branch.trim())} onClick={() => void inspect()}>{loading ? <><Loader2 size={14} className="thread-spin" />Working…</> : 'Preview checkout'}</button><button type="button" className="thread-primary" disabled={loading || !profileId || !preview?.ready || !handoff.trim() || !acceptance.trim()} onClick={() => void create()}>Create delegation</button></div></footer>
   </DesktopDialog>
 }

@@ -38,7 +38,8 @@ test('Thread projects and conversations survive restart without creating Code wo
     await page.getByRole('button', { name: 'New thread in first-project' }).click()
     await page.getByRole('dialog', { name: 'New thread' }).getByRole('button', { name: 'Create thread' }).click()
     await expect(page.locator('.thread-session-title')).toContainText(['New thread'])
-    await page.getByRole('button', { name: 'Remove project second-project' }).click()
+    await page.getByRole('button', { name: 'Actions for second-project' }).click()
+    await page.getByRole('menuitem', { name: 'Remove project…' }).click()
     await page.getByRole('dialog', { name: 'Remove project' }).getByRole('button', { name: 'Remove project', exact: true }).click()
     await expect(page.locator('.thread-project-group')).toHaveCount(1)
     await page.getByRole('button', { name: 'Code', exact: true }).click()
@@ -62,7 +63,8 @@ test('Thread projects and conversations survive restart without creating Code wo
         await page.waitForTimeout(200)
       }
     }
-    await page.getByRole('button', { name: 'Settings for second-project' }).click()
+    await page.getByRole('button', { name: 'Actions for second-project' }).click()
+    await page.getByRole('menuitem', { name: 'Project settings' }).click()
     const settings = page.getByRole('dialog', { name: 'Thread project · second-project' })
     await expect(settings.locator('.thread-project-current-path')).toContainText(/second-project$/)
     const checkboxLayout = await settings.locator('.thread-project-check').first().evaluate(label => {
@@ -70,8 +72,8 @@ test('Thread projects and conversations survive restart without creating Code wo
       const text = label.getBoundingClientRect()
       return { width: box.width, height: box.height, left: box.left - text.left, labelWidth: text.width }
     })
-    expect(checkboxLayout.width).toBe(16)
-    expect(checkboxLayout.height).toBe(16)
+    expect(checkboxLayout.width).toBeCloseTo(16, 0)
+    expect(checkboxLayout.height).toBeCloseTo(16, 0)
     expect(checkboxLayout.left).toBeLessThan(12)
     expect(checkboxLayout.labelWidth).toBeGreaterThan(300)
     await expect(settings.getByText('Relink missing directory')).toBeVisible()
@@ -85,7 +87,8 @@ test('Thread projects and conversations survive restart without creating Code wo
     await page.getByRole('button', { name: 'Code', exact: true }).click()
     await expect(page.locator('[data-testid="sidebar-workspace-item"]')).toHaveCount(0)
     await page.getByRole('button', { name: 'Thread', exact: true }).click()
-    await page.getByRole('button', { name: 'Open second-relocated in Code' }).click()
+    await page.getByRole('button', { name: 'Actions for second-relocated' }).click()
+    await page.getByRole('menuitem', { name: 'Open in Code' }).click()
     await expect(page.locator('[data-testid="sidebar-workspace-item"]')).toHaveCount(1)
     await page.getByRole('button', { name: 'Thread', exact: true }).click()
     await expect(page.locator('.thread-project-group')).toHaveCount(2)

@@ -44,9 +44,9 @@ export function PanelScopeBadge({ scope, workspaceId }: PanelScopeBadgeProps): R
       aria-label={title}
       data-testid="panel-scope-badge"
     >
-      {scope.isWorktree ? <FolderTree size={10} aria-hidden="true" /> : null}
+      {scope.isWorktree ? <FolderTree size={12} aria-hidden="true" /> : null}
       <span className="panel-scope-badge-label">{label}</span>
-      {pinned ? <Pin size={10} aria-hidden="true" /> : <PinOff size={10} aria-hidden="true" className="panel-scope-badge-pin-hint" />}
+      {pinned ? <Pin size={12} aria-hidden="true" /> : <PinOff size={12} aria-hidden="true" className="panel-scope-badge-pin-hint" />}
     </button>
   )
 }

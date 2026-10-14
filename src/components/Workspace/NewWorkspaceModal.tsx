@@ -188,7 +188,7 @@ export function NewWorkspaceModal({
       >
         <header className="new-workspace-header">
           <span className="new-workspace-header-icon" aria-hidden="true">
-            <OxeLogo size={18} variant="compact" />
+            <OxeLogo size={16} variant="compact" />
           </span>
           <div className="new-workspace-header-text">
             <ModalTitle asChild>
@@ -247,7 +247,7 @@ export function NewWorkspaceModal({
                 onClick={() => void handlePickFolder()}
                 disabled={isPickingFolder}
               >
-                <FolderOpen size={13} aria-hidden="true" />
+                <FolderOpen size={14} aria-hidden="true" />
                 {isPickingFolder ? 'Picking…' : 'Browse'}
               </button>
             </div>
@@ -437,7 +437,7 @@ function AgentChip({
           aria-label={removeLabel}
           data-testid={decTestId}
         >
-          <Minus size={11} aria-hidden="true" />
+          <Minus size={12} aria-hidden="true" />
         </button>
         <span data-testid={countTestId}>{count}</span>
         <button
@@ -448,7 +448,7 @@ function AgentChip({
           aria-label={incLabel}
           data-testid={incTestId}
         >
-          <Plus size={11} aria-hidden="true" />
+          <Plus size={12} aria-hidden="true" />
         </button>
       </span>
     </div>

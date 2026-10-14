@@ -47,7 +47,7 @@ export function DiffCard({ diffMode, file, isReviewed, isSelected, onSelect, onT
           aria-expanded={!collapsed}
           onClick={(e) => { e.stopPropagation(); setCollapsed((c) => !c) }}
         >
-          {collapsed ? <ChevronRight size={11} aria-hidden="true" /> : <ChevronDown size={11} aria-hidden="true" />}
+          {collapsed ? <ChevronRight size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}
         </button>
 
         <label className="review-card-reviewed" onClick={(e) => e.stopPropagation()}>
@@ -57,7 +57,7 @@ export function DiffCard({ diffMode, file, isReviewed, isSelected, onSelect, onT
             onChange={onToggleReviewed}
             aria-label={`Mark ${file.path} as reviewed`}
           />
-          {isReviewed ? <Check size={10} aria-hidden="true" /> : null}
+          {isReviewed ? <Check size={12} aria-hidden="true" /> : null}
           <span className="review-card-reviewed-text">{isReviewed ? 'Reviewed' : 'Mark reviewed'}</span>
         </label>
 
@@ -142,7 +142,7 @@ function CommentRows({ anchor, colSpan, comments, isEditing, onCancelEdit, onRem
       {comments.map((c) => (
         <tr key={c.id} className="diff-comment-row" data-testid="diff-comment-row">
           <td className="review-diff-content diff-comment-cell" colSpan={colSpan}>
-            <MessageSquarePlus size={11} aria-hidden="true" className="diff-comment-icon" />
+            <MessageSquarePlus size={12} aria-hidden="true" className="diff-comment-icon" />
             <span className="diff-comment-body">{c.body}</span>
             <button
               type="button"
@@ -150,7 +150,7 @@ function CommentRows({ anchor, colSpan, comments, isEditing, onCancelEdit, onRem
               aria-label="Delete comment"
               onClick={(e) => { e.stopPropagation(); onRemove(c.id) }}
             >
-              <Trash2 size={11} aria-hidden="true" />
+              <Trash2 size={12} aria-hidden="true" />
             </button>
           </td>
         </tr>
@@ -220,7 +220,7 @@ function UnifiedDiff({ hunks, label, filePath, workspaceId }: DiffViewProps): Re
                           title="Comentar esta linha"
                           onClick={(e) => { e.stopPropagation(); setEditing(key) }}
                         >
-                          <MessageSquarePlus size={11} aria-hidden="true" />
+                          <MessageSquarePlus size={12} aria-hidden="true" />
                         </button>
                       ) : null}
                     </td>
@@ -329,7 +329,7 @@ function SideBySideDiff({ hunks, label, filePath, workspaceId }: DiffViewProps):
                           title="Comentar esta linha"
                           onClick={(e) => { e.stopPropagation(); setEditing(key) }}
                         >
-                          <MessageSquarePlus size={11} aria-hidden="true" />
+                          <MessageSquarePlus size={12} aria-hidden="true" />
                         </button>
                       ) : null}
                     </td>

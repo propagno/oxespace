@@ -15,7 +15,7 @@ afterEach(() => { cleanup(); __resetGitBranchCacheForTests(); window.oxe = origi
 test('three terminal branches follow pane roots without repeating the branch in the status bar', async () => {
   const getBranch = vi.fn(async ({ rootPath }: {rootPath:string}) => ({ branch: `feat/${rootPath.split('/').at(-1)}`, detached: false, shortSha: null }))
   window.oxe = { ...original, git: { ...original?.git, getBranch } }
-  const view = render(<>{workspace.panes.map(p => <PaneBranchBadge key={p.id} workspace={workspace} pane={p} />)}<AppStatusBar workspace={workspace} activePaneId="b" appVersion="test" /></>)
+  const view = render(<>{workspace.panes.map(p => <PaneBranchBadge key={p.id} workspace={workspace} pane={p} />)}<AppStatusBar workspace={workspace} activePaneId="b" /></>)
   await waitFor(() => expect(screen.getAllByText('feat/payment')).toHaveLength(1))
   expect(screen.getByText('feat/auth')).toBeTruthy()
   expect(screen.getByText('feat/frontend')).toBeTruthy()
@@ -30,7 +30,7 @@ test('three terminal branches follow pane roots without repeating the branch in 
 test('focus refresh updates the pane badge, including detached HEAD and failures', async () => {
   const getBranch = vi.fn().mockResolvedValue({branch:'feat/auth',detached:false,shortSha:null})
   window.oxe = { ...original, git: { ...original?.git, getBranch } }
-  render(<><PaneBranchBadge workspace={workspace} pane={workspace.panes[0]} /><AppStatusBar workspace={workspace} activePaneId="a" appVersion="test" /></>)
+  render(<><PaneBranchBadge workspace={workspace} pane={workspace.panes[0]} /><AppStatusBar workspace={workspace} activePaneId="a" /></>)
   await waitFor(() => expect(screen.getAllByText('feat/auth')).toHaveLength(1))
   getBranch.mockResolvedValue({branch:null,detached:true,shortSha:'abc1234'})
   act(() => { window.dispatchEvent(new Event('focus')) })

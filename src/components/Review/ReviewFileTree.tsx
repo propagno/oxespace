@@ -77,7 +77,7 @@ function DirRow({ node, depth, isCollapsed, onToggleCollapsed }: DirRowProps): R
       onClick={onToggleCollapsed}
       aria-expanded={!isCollapsed}
     >
-      {isCollapsed ? <ChevronRight size={11} aria-hidden="true" /> : <ChevronDown size={11} aria-hidden="true" />}
+      {isCollapsed ? <ChevronRight size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}
       <span className="review-tree-dir-name">{node.name}</span>
       <span className="review-tree-dir-meta">
         {node.fileCount > 0 ? `${node.reviewedCount}/${node.fileCount}` : ''}
@@ -120,7 +120,7 @@ function FileRow({ depth, file, label, onSelect, onToggleReviewed, reviewed, sel
         onClick={onSelect}
         title={file.path}
       >
-        <File size={10} aria-hidden="true" className="review-tree-file-icon" />
+        <File size={12} aria-hidden="true" className="review-tree-file-icon" />
         <span className="review-tree-file-label">{label}</span>
         <span className="review-tree-stats">
           {file.additions > 0 && <span className="review-stat-add">+{file.additions}</span>}

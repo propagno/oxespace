@@ -588,7 +588,8 @@ describe('Thread workspace UI', () => {
     render(<><ThreadSidebar workspaces={[f.workspace]} onCreate={vi.fn()} /><ThreadView workspace={f.workspace} onDelegations={onDelegations} /></>)
     expect(screen.queryByRole('button', { name: /Implement worktree fix/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Delegated work' })).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'MCP connections' }))
+    fireEvent.keyDown(screen.getByRole('button', { name: 'More actions' }), { key: 'Enter' })
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'MCP connections' }))
     expect(useUIStore.getState().isMcpPanelOpen).toBe(true)
   })
   it('retains distinct drafts when selecting another thread', async () => {

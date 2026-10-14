@@ -230,7 +230,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
           aria-controls="integration-create-form"
           title={showCreateForm ? 'Close setup' : 'Set up multi-repo coordination'}
         >
-          {showCreateForm ? <X size={13} aria-hidden="true" /> : <Plus size={13} aria-hidden="true" />}
+          {showCreateForm ? <X size={14} aria-hidden="true" /> : <Plus size={14} aria-hidden="true" />}
           {showCreateForm ? 'Close' : 'Set up'}
         </button>
       </div>
@@ -262,7 +262,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
               onClick={() => void handleCreateGroup()}
               disabled={!name.trim() || !goal.trim()}
             >
-              <Plus size={13} aria-hidden="true" />
+              <Plus size={14} aria-hidden="true" />
               Start coordination
             </button>
           </div>
@@ -322,7 +322,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
                   title="Generate a brief for the active agent"
                   aria-label="Generate brief"
                 >
-                  <Send size={13} aria-hidden="true" />
+                  <Send size={14} aria-hidden="true" />
                 </button>
                 <button
                   type="button"
@@ -333,7 +333,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
                   aria-label="Group actions"
                   title="More actions"
                 >
-                  <MoreHorizontal size={13} aria-hidden="true" />
+                  <MoreHorizontal size={14} aria-hidden="true" />
                 </button>
                 {showGroupMenu ? (
                   <div className="integration-active-menu" role="menu">
@@ -417,7 +417,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
                       <span className="integration-member-role" title={ROLE_LABELS[member.role]}>{member.role}</span>
                       <span className="integration-member-name">{member.alias}</span>
                       <span className="integration-member-branch" title={member.branch ?? 'no git branch'}>
-                        <GitBranch size={10} aria-hidden="true" />
+                        <GitBranch size={12} aria-hidden="true" />
                         {member.branch ?? 'no branch'}
                       </span>
                       <span className="integration-member-status">
@@ -453,7 +453,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
               })}
 
               <li className="integration-add-member-row">
-                <Link2 size={11} aria-hidden="true" className="integration-add-icon" />
+                <Link2 size={12} aria-hidden="true" className="integration-add-icon" />
                 <select
                   className="integration-add-select"
                   value={memberWorkspaceId}
@@ -475,7 +475,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
                   {memberPanes.map((pane) => <option key={pane.id} value={pane.id}>{paneLabel(pane)}</option>)}
                 </select>
                 <button type="button" className="integration-add-action" onClick={() => void handleAddMember()} title="Add workspace to this coordination">
-                  <Plus size={11} aria-hidden="true" />
+                  <Plus size={12} aria-hidden="true" />
                   Add
                 </button>
               </li>
@@ -484,7 +484,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
 
           <DisclosureSection
             label="Handoffs to act on"
-            icon={<Send size={13} aria-hidden="true" />}
+            icon={<Send size={14} aria-hidden="true" />}
             badge={useIntegrationStore.getState().handoffs[activeGroup.id]?.filter((h) => h.status !== 'saved').length || 0}
             open={showHandoffs}
             onToggle={() => setShowHandoffs((value) => !value)}
@@ -502,7 +502,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
 
           <DisclosureSection
             label="Brief for the active agent"
-            icon={<Network size={13} aria-hidden="true" />}
+            icon={<Network size={14} aria-hidden="true" />}
             open={showContext}
             onToggle={() => setShowContext((value) => !value)}
           >

@@ -32,7 +32,7 @@ export function AgentSection({
             disabled={isDiscovering}
             onClick={onDiscover}
           >
-            <RefreshCw size={11} aria-hidden="true" className={isDiscovering ? 'spin' : undefined} />
+            <RefreshCw size={12} aria-hidden="true" className={isDiscovering ? 'spin' : undefined} />
           </button>
         </div>
       </div>

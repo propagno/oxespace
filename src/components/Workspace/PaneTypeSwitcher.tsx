@@ -39,7 +39,7 @@ export function PaneTypeSwitcher({ activePaneType, onChangePaneType }: PaneTypeS
         aria-expanded={open}
       >
         <span className="pane-type-switcher-label">{activePaneType ?? '—'}</span>
-        <ChevronDown size={10} aria-hidden="true" />
+        <ChevronDown size={12} aria-hidden="true" />
       </button>
       {open && (
         <div className="pane-type-popover" role="listbox" aria-label="Pane types">
@@ -53,7 +53,7 @@ export function PaneTypeSwitcher({ activePaneType, onChangePaneType }: PaneTypeS
               onClick={() => { onChangePaneType(type); setOpen(false) }}
             >
               <span className="pane-type-popover-check">
-                {type === activePaneType && <Check size={10} aria-hidden="true" />}
+                {type === activePaneType && <Check size={12} aria-hidden="true" />}
               </span>
               {type}
             </button>

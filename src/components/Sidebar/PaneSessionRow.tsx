@@ -191,7 +191,7 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
 
         <div className="pane-row-title-line">
           {agentProfile ? <AgentProviderIcon provider={agentProfile.provider} /> : <SquareTerminal size={12} aria-hidden="true" />}
-          {pane.originPaneId && <span title="Delegated task" aria-label="Delegated task"><GitBranch size={11} /></span>}
+          {pane.originPaneId && <span title="Delegated task" aria-label="Delegated task"><GitBranch size={12} /></span>}
           <span
             className="pane-row-title"
             title={label}

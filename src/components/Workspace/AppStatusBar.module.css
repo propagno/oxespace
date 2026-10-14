@@ -20,7 +20,8 @@
 .group { display: flex; align-items: center; gap: var(--space-3); min-width: 0; overflow: hidden; }
 
 .item { display: flex; align-items: center; gap: var(--space-1); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.strong { color: var(--text-secondary); }
+.strong { min-width: 0; color: var(--text-secondary); }
+.path { overflow: hidden; max-width: 46ch; font-family: var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
 .connected { color: var(--intent-success-fg); }
 
 /* Shells kept alive for workspaces that are not open: normal, but worth noticing. */

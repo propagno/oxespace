@@ -26,8 +26,13 @@ function workspaceLabel(w: Workspace): string {
   return w.name?.trim() || w.rootPath.split(/[\\/]/).filter(Boolean).pop() || w.rootPath
 }
 
-function paneLabel(p: WorkspacePane): string {
-  return p.displayName?.trim() || p.agentName?.trim() || (p.type === 'terminal' ? 'Terminal' : p.type)
+function paneLabel(p: WorkspacePane, siblings: WorkspacePane[] = []): string {
+  const named = p.displayName?.trim() || p.agentName?.trim()
+  if (named) return named
+  if (p.type !== 'terminal') return p.type
+  // Unnamed terminals are told apart by position, not listed as identical rows.
+  const index = siblings.filter(item => item.type === 'terminal').findIndex(item => item.id === p.id)
+  return index >= 0 ? `Terminal ${index + 1}` : 'Terminal'
 }
 
 /** Semantic hits carry absolute paths; the editor opens workspace-relative ones. */
@@ -163,7 +168,7 @@ export function CommandMenu({
     (w) => !q || matchesTokens(`${workspaceLabel(w)} ${w.rootPath}`, q)
   )
   const panes = workspace?.panes ?? []
-  const matchedPanes = panes.filter((p) => !q || matchesTokens(paneLabel(p), q))
+  const matchedPanes = panes.filter((p) => !q || matchesTokens(paneLabel(p, panes), q))
   const matchedActions = actions.filter((a) => {
     if (a.disabled) return false
     if (!q) return true
@@ -227,7 +232,7 @@ export function CommandMenu({
                 onSelect={() => runAction(() => onSelectPane(p.id))}
               >
                 <Bot />
-                <span className={commandStyles.label}>{paneLabel(p)}</span>
+                <span className={commandStyles.label}>{paneLabel(p, panes)}</span>
                 {p.agentName && p.displayName ? (
                   <span className={commandStyles.detail}>{p.agentName}</span>
                 ) : null}

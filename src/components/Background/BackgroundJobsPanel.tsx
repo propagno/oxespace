@@ -200,7 +200,7 @@ function JobCard({ busy, expanded, job, onRemove, onStop, onToggleExpanded }: Jo
       <div className="bg-jobs-dock-card-actions">
         {isRunning ? (
           <button type="button" className="bg-jobs-dock-stop" aria-label="Stop job" disabled={busy} onClick={(event) => { event.stopPropagation(); onStop() }}>
-            <Square size={11} aria-hidden="true" /> Stop
+            <Square size={12} aria-hidden="true" /> Stop
           </button>
         ) : (
           <button
@@ -211,7 +211,7 @@ function JobCard({ busy, expanded, job, onRemove, onStop, onToggleExpanded }: Jo
             disabled={busy}
             onClick={(event) => { event.stopPropagation(); onRemove() }}
           >
-            <Trash2 size={11} aria-hidden="true" />
+            <Trash2 size={12} aria-hidden="true" />
           </button>
         )}
       </div>

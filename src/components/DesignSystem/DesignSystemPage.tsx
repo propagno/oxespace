@@ -23,7 +23,7 @@ function BothModes({ children }: { children: () => ReactNode }): ReactElement {
 function BrandSection(): ReactElement {
   return <>
     <h2 className={styles.sectionTitle}>Mark and wordmark</h2>
-    <BothModes>{() => <div className={styles.brandTile}><OxeLogo size={64} variant="hero" /><div className={styles.row}><OxeLogo size={32} /><OxeLogo size={24} variant="compact" /><OxeLogo size={22} variant="wordmark" /></div></div>}</BothModes>
+    <BothModes>{() => <div className={styles.brandTile}><OxeLogo size={64} variant="hero" /><div className={styles.row}><OxeLogo size={32} /><OxeLogo size={24} variant="compact" /><OxeLogo size={20} variant="wordmark" /></div></div>}</BothModes>
     <h2 className={styles.sectionTitle}>Brand scales</h2>
     <BothModes>{() => <ScaleList names={['caatinga', 'sun']} />}</BothModes>
   </>
@@ -118,7 +118,7 @@ function Gallery(): ReactElement {
     </div>
     <Meter label="Context" value={62} detail="124k of 200k" /><Meter label="Weekly limit" value={93} />
     <Tabs label="Example tabs" value={tab} onChange={setTab} tabs={[{ value: 'changes', label: <><GitBranch size={14} />Changes</>, content: <p>3 files changed</p> }, { value: 'files', label: 'Files', content: <p>src/auth/session.ts</p> }]} />
-    <Panel title="Recent conversations" actions={<IconButton label="Close" icon={<X size={14} />} size="sm" />}><EmptyState icon={<Bell size={18} />} title="No conversations yet" actions={<Button variant="primary" size="sm">Start one</Button>}>Start a conversation to work on this project with an agent.</EmptyState></Panel>
+    <Panel title="Recent conversations" actions={<IconButton label="Close" icon={<X size={14} />} size="sm" />}><EmptyState icon={<Bell size={16} />} title="No conversations yet" actions={<Button variant="primary" size="sm">Start one</Button>}>Start a conversation to work on this project with an agent.</EmptyState></Panel>
     <div className={styles.row}><Button size="sm" onClick={() => toast({ title: 'Committed 3 files', intent: 'success', description: 'feat/login-redirect' })}>Show success toast</Button><Button size="sm" onClick={() => toast({ title: 'Push failed', intent: 'danger', description: 'The remote rejected the branch.', action: { label: 'Retry', run: () => {} } })}>Show failure toast</Button></div>
   </div>
 }
@@ -130,14 +130,14 @@ export function DesignSystemPage({ onClose }: { onClose: () => void }): ReactEle
   return <div className={styles.page} role="dialog" aria-modal="true" aria-label="Design system" onKeyDown={event => { if (event.key === 'Escape') onClose() }}>
     <ScaleVariables />
     <nav className={styles.nav} aria-label="Design system sections">
-      <h1 className={styles.navTitle}><OxeLogo size={22} variant="compact" />Design system</h1>
+      <h1 className={styles.navTitle}><OxeLogo size={20} variant="compact" />Design system</h1>
       {SECTIONS.map(item => <button key={item.id} type="button" className={styles.navItem} aria-current={item.id === section ? 'page' : undefined} onClick={() => setSection(item.id)}>{item.label}</button>)}
       <p className={styles.navFoot}>Tokens: src/design/tokens · Primitives: src/ui</p>
     </nav>
     <main className={styles.main}>
       <header className={styles.header}>
         <div><h2 className={styles.title}>{current.label}</h2><p className={styles.lead}>Mandacaru, the OXESpace design system. Everything here is rendered from the tokens and primitives the app uses, in light and dark mode.</p></div>
-        <IconButton label="Close design system" icon={<X size={18} />} onClick={onClose} />
+        <IconButton label="Close design system" icon={<X size={16} />} onClick={onClose} />
       </header>
       {section === 'brand' ? <BrandSection /> : section === 'color' ? <ColorSection /> : section === 'type' ? <TypeSection /> : section === 'shape' ? <ShapeSection /> : <BothModes>{() => <Gallery />}</BothModes>}
     </main>

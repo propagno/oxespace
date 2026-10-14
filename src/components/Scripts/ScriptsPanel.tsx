@@ -95,7 +95,7 @@ export function ScriptsPanel({ embedded = false, onClose, onOpenBackground, work
         </div>
         <div className="scripts-panel-actions">
           <button type="button" className="icon-button" aria-label="Refresh scripts" disabled={loading} onClick={() => void load()}>
-            <RotateCw size={13} className={loading ? 'usage-spin' : ''} aria-hidden="true" />
+            <RotateCw size={14} className={loading ? 'usage-spin' : ''} aria-hidden="true" />
           </button>
           {!embedded ? (
             <button type="button" className="icon-button" aria-label="Close scripts" onClick={onClose}>
@@ -106,7 +106,7 @@ export function ScriptsPanel({ embedded = false, onClose, onOpenBackground, work
       </header>
 
       <div className="scripts-panel-search">
-        <Search size={13} aria-hidden="true" />
+        <Search size={14} aria-hidden="true" />
         <input value={query} placeholder="Search .ps1 or .sh scripts..." onChange={(event) => setQuery(event.currentTarget.value)} />
       </div>
 
