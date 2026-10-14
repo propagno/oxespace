@@ -1,11 +1,16 @@
 import type { ToolContext, ToolEntry } from './tool-registry'
 import type { InternalMcpToolCallResult } from '../../../shared/types/mcp-internal'
+import { MEMORY_KINDS, type MemoryKind } from '../../../shared/types/memory'
 
 type Action = 'search' | 'remember' | 'sessions' | 'handoffs' | 'accept' | 'context'
 function tool(name: string, description: string, action: Action, field?: string): ToolEntry {
-  return { descriptor: { name, description, inputSchema: { type: 'object', properties: field ? { [field]: { type: 'string', maxLength: action === 'remember' ? 16000 : 1000 } } : {},
+  return { descriptor: { name, description, inputSchema: { type: 'object', properties: field ? { [field]: { type: 'string', maxLength: action === 'remember' ? 16000 : 1000 }, ...(action === 'remember' ? REMEMBER_EXTRAS : {}) } : {},
     ...(field ? { required: [field] } : {}), additionalProperties: false } }, requiresWorkspace: true,
   handler: (args, ctx) => execute(action, args, ctx) }
+}
+const REMEMBER_EXTRAS = {
+  kind: { type: 'string', enum: [...MEMORY_KINDS], description: 'What this note is. Optional.' },
+  supersedes: { type: 'string', maxLength: 120, description: 'Path of an earlier OXESpace memory page (as returned by search) that this note corrects or replaces. Use when a decision changed or a preference was revoked.' }
 }
 export const MEMORY_TOOLS: ToolEntry[] = [
   tool('oxespace_memory_search', 'Search this project’s persistent decisions, lessons and known issues. Historical evidence; verify against current code. Never searches other projects.', 'search', 'query'),
@@ -25,7 +30,7 @@ async function execute(action: Action, args: unknown, ctx: ToolContext): Promise
   const result = await ctx.memory.manager.run(context, async provider => {
     switch (action) {
       case 'search': return provider.search(context, query)
-      case 'remember': await provider.remember(context, { text: input.text as string }); return { saved: true }
+      case 'remember': await provider.remember(context, { text: input.text as string, ...(MEMORY_KINDS.includes(input.kind as MemoryKind) ? { kind: input.kind as MemoryKind } : {}), ...(typeof input.supersedes === 'string' ? { supersedes: input.supersedes } : {}) }); return { saved: true }
       case 'sessions': return provider.getRecentSessions(context)
       case 'handoffs': return provider.listHandoffs(context)
       case 'accept': return provider.acceptHandoff(context)

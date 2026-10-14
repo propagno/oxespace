@@ -71,3 +71,43 @@ describe('context provenance', () => {
     expect((await new AiMemoryProvider(client(long)).getRelevantContext(context, 'JWT')).text.length).toBeLessThanOrEqual(4000)
   })
 })
+
+describe('typed, idempotent notes', () => {
+  const writer = () => {
+    const tool = vi.fn(async () => ({}))
+    return { tool, provider: new AiMemoryProvider({ tool } as unknown as AiMemoryClient) }
+  }
+  const sent = (tool: ReturnType<typeof vi.fn>) => tool.mock.calls as unknown as [string, Record<string, unknown>][]
+  test('the same note maps to one page while different wording stays separate', async () => {
+    const { tool, provider } = writer()
+    await provider.remember(context, { text: 'Retry limit is 64 MiB.' })
+    await provider.remember({ ...context, sessionId: 'other' }, { text: ' Retry limit is 64 MiB. ' })
+    await provider.remember(context, { text: 'Retry limit is 128 MiB.' })
+    const paths = sent(tool).map(([, args]) => args.path)
+    expect(paths[0]).toBe(paths[1])
+    expect(paths[2]).not.toBe(paths[0])
+    expect(paths[0]).toMatch(/^decisions\/oxe-[0-9a-f]{32}\.md$/)
+  })
+  test('notes are scoped per project so equal text in two projects never collides', async () => {
+    const { tool, provider } = writer()
+    await provider.remember(context, { text: 'Same words.' })
+    await provider.remember({ ...context, projectId: 'b', project: 'p-b' }, { text: 'Same words.' })
+    expect(sent(tool)[0][1].path).not.toBe(sent(tool)[1][1].path)
+  })
+  test('kind and an explicit supersedes link are recorded without touching the old page', async () => {
+    const { tool, provider } = writer()
+    await provider.remember(context, { text: 'Limit is now 64 MiB.', kind: 'decision', supersedes: 'decisions/oxe-0123456789abcdef0123456789abcdef.md' })
+    const [name, args] = sent(tool)[0]
+    expect(name).toBe('memory_write_page')
+    expect(args.body).toContain('Kind: decision')
+    expect(args.body).toContain('Supersedes: decisions/oxe-0123456789abcdef0123456789abcdef.md')
+    expect(args.tags).toEqual(['oxespace', 'decision'])
+    expect(tool).toHaveBeenCalledTimes(1)
+  })
+  test('rejects unknown kinds and supersedes targets that are not OXESpace pages', async () => {
+    const { tool, provider } = writer()
+    await expect(provider.remember(context, { text: 'x', kind: 'rumor' as never })).rejects.toThrow('kind')
+    for (const supersedes of ['../../secrets.md', 'notes/policy.md', 'decisions/oxe-zz.md']) await expect(provider.remember(context, { text: 'x', supersedes })).rejects.toThrow('supersedes')
+    expect(tool).not.toHaveBeenCalled()
+  })
+})

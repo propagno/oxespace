@@ -8,7 +8,10 @@ export interface MemoryContext {
   sessionId?: string
 }
 
-export interface MemoryInput { text: string; title?: string }
+export type MemoryKind = 'decision' | 'lesson' | 'issue' | 'todo' | 'preference'
+export const MEMORY_KINDS: readonly MemoryKind[] = ['decision', 'lesson', 'issue', 'todo', 'preference']
+/** supersedes is the page path of an earlier note this one corrects; nothing is merged or deleted automatically. */
+export interface MemoryInput { text: string; title?: string; kind?: MemoryKind; supersedes?: string }
 export interface MemoryResult { text: string; path?: string; source: string; title?: string; updatedAt?: string; score?: number }
 export interface MemorySession { sessionId: string; agentId: string; cwd: string; ended: boolean }
 export interface MemoryHandoff { id: string; summary: string; cwd?: string; state: string; nextSteps: string[]; openQuestions: string[]; filesTouched: string[] }

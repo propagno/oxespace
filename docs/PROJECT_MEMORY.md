@@ -137,7 +137,7 @@ Tools exposed through the existing OXESpace MCP bridge:
 | Tool | Purpose |
 | --- | --- |
 | `oxespace_memory_search` | Explicit project-scoped query, at most 8 results |
-| `oxespace_memory_remember` | Concise learning, unique page per write |
+| `oxespace_memory_remember` | Concise learning; optional `kind` (decision, lesson, issue, todo, preference) and `supersedes` (path of an earlier OXESpace page). Identical notes map to one page; a superseding note links the old page and never edits or deletes it |
 | `oxespace_memory_sessions` | Recent sessions including open sessions |
 | `oxespace_memory_handoffs` | History, questions, next steps and touched files; does not consume |
 | `oxespace_memory_accept_handoff` | Explicit acceptance of next eligible checkout handoff |

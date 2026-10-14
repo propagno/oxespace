@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto'
 import { promisify } from 'node:util'
 import Database from 'better-sqlite3'
 import { AiMemoryClient } from '../../electron/main/services/memory/ai-memory.client'
+import { AiMemoryProvider } from '../../electron/main/services/memory/ai-memory.provider'
 import { MemoryOutbox } from '../../electron/main/services/memory/memory-outbox'
 import { MemoryDeliveryWorker } from '../../electron/main/services/memory/memory-delivery'
 
@@ -194,5 +195,20 @@ describe.skipIf(!binary)('AI Memory 2.6.2 external lifecycle contract', () => {
     const after = await client.request(route) as Handoffs
     expect(after.handoffs.find(row => row.id === selected.id)?.state).toBe('accepted')
     expect(after.handoffs.find(row => row.summary === 'SecondContractOffer')?.state).not.toBe('accepted')
+  }, 15000)
+
+  test('typed notes are idempotent per wording and a superseding note keeps the old page readable', async () => {
+    const provider = new AiMemoryProvider(client)
+    const ctx = { projectId: 'synthetic-note', ...scope, cwd }
+    const original = 'NoteContractLimit is 128 MiB per queue.'
+    await provider.remember(ctx, { text: original, kind: 'decision' })
+    await provider.remember(ctx, { text: original, kind: 'decision' })
+    const first = (await provider.search(ctx, 'NoteContractLimit')).filter(hit => hit.path?.startsWith('decisions/oxe-'))
+    expect(first).toHaveLength(1)
+    await provider.remember(ctx, { text: 'NoteContractLimit is now 64 MiB per queue.', kind: 'decision', supersedes: first[0].path })
+    const all = (await provider.search(ctx, 'NoteContractLimit')).filter(hit => hit.path?.startsWith('decisions/oxe-'))
+    expect(all).toHaveLength(2)
+    expect(all.find(hit => hit.text.includes('128 MiB'))).toBeDefined()
+    expect(all.find(hit => hit.text.includes(first[0].path!) && hit.text.includes('64 MiB'))).toBeDefined()
   }, 15000)
 })
