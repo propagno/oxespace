@@ -20,6 +20,21 @@ export interface TunnelOptions {
   createClient?: () => Client
 }
 
+/**
+ * The socket of the user's SSH agent: SSH_AUTH_SOCK on Linux and macOS, the OpenSSH agent's named pipe
+ * on Windows. Null when there is none to talk to.
+ */
+export function agentSocket(env: NodeJS.ProcessEnv = process.env, platform: NodeJS.Platform = process.platform): string | null {
+  if (env.SSH_AUTH_SOCK) return env.SSH_AUTH_SOCK
+  return platform === 'win32' ? String.raw`\\.\pipe\openssh-ssh-agent` : null
+}
+
+function agentSocketOrFail(): string {
+  const socket = agentSocket()
+  if (!socket) throw new OxeQueryError('tunnel', 'No SSH agent was found (SSH_AUTH_SOCK is not set). Start ssh-agent and add your key with ssh-add, or choose another sign-in method.')
+  return socket
+}
+
 /** True when the SSH client library loaded into this bundle. */
 export function tunnelAvailable(): boolean {
   return typeof Client === 'function'
@@ -58,6 +73,7 @@ export async function openTunnel(ssh: TunnelSettings, target: Endpoint, options:
     username: ssh.user,
     ...(ssh.privateKey ? { privateKey: ssh.privateKey, ...(ssh.passphrase ? { passphrase: ssh.passphrase } : {}) } : {}),
     ...(ssh.password && !ssh.privateKey ? { password: ssh.password } : {}),
+    ...(ssh.agent ? { agent: agentSocketOrFail() } : {}),
     readyTimeout: options.connectTimeoutMs ?? 10_000,
     keepaliveInterval: options.keepaliveMs ?? 15_000,
     keepaliveCountMax: 3,

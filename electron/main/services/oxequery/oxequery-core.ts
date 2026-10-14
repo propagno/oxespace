@@ -157,7 +157,8 @@ export class OxeQueryCore {
   /** The address to dial: the server itself, or the local end of its SSH tunnel. */
   private async reach(connection: ResolvedConnection): Promise<{ endpoint: Endpoint; tunnel?: OpenTunnel }> {
     if (!connection.ssh) return { endpoint: { host: connection.host, port: connection.port } }
-    const tunnel = await openTunnel(connection.ssh, { host: connection.host, port: connection.port })
+    const keepalive = connection.keepaliveSeconds
+    const tunnel = await openTunnel(connection.ssh, { host: connection.host, port: connection.port }, keepalive === undefined ? {} : { keepaliveMs: keepalive * 1000 })
     return { endpoint: tunnel.endpoint, tunnel }
   }
 
@@ -167,7 +168,9 @@ export class OxeQueryCore {
       host: endpoint.host, port: endpoint.port, database: connection.database || 'postgres', user: connection.username || undefined, password: connection.password,
       ssl: pgSsl(connection),
       connectionTimeoutMillis: CONNECT_TIMEOUT_MS, statement_timeout: timeout, query_timeout: timeout + 5000,
-      application_name: 'OxeQuery'
+      application_name: 'OxeQuery',
+      // TCP keep-alive keeps a quiet connection from being dropped by a firewall or a load balancer.
+      keepAlive: (connection.keepaliveSeconds ?? 30) > 0, keepAliveInitialDelayMillis: (connection.keepaliveSeconds ?? 30) * 1000
     }
   }
 

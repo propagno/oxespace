@@ -27,7 +27,7 @@ export function registerOxeQueryMock(): void {
   const connection = (id: unknown): OxeQueryConnection | undefined => connections.find(item => item.id === id)
   const trusted = new Set<string>()
   const FINGERPRINT = 'SHA256:' + 'k8Yq1mR2vN5xT7wZ0aB3cD6eF9gH2jL4nP6rS8uV0xY'
-  const extras = { hasCa: false, hasClientCert: false, mongo: { authSource: '', replicaSet: '', directConnection: true, srv: false, extraHosts: [] as string[] }, statementTimeoutMs: 60000, maxRows: 500, agentAccess: 'off' as const }
+  const extras = { hasCa: false, hasClientCert: false, mongo: { authSource: '', replicaSet: '', directConnection: true, srv: false, extraHosts: [] as string[] }, statementTimeoutMs: 60000, maxRows: 500, agentAccess: 'off' as const, group: '', favorite: false, color: '' as const, maskPatterns: [] as string[], lastUsedAt: 0, keepaliveSeconds: 30 }
 
   const users: SqlResult = {
     columns: [{ name: 'id', type: 'int4' }, { name: 'name', type: 'text' }, { name: 'email', type: 'text' }],

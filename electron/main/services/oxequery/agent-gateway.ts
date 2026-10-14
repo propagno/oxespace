@@ -229,7 +229,7 @@ export class AgentGateway {
       const result = await this.deps.call<{ columns: { name: string }[]; rows: unknown[][]; truncated: boolean; durationMs: number }>('sql.run', connection, {
         sql, maxRows: bounded(args.maxRows, DEFAULT_ROWS, 1, MAX_ROWS), confirmed: false
       })
-      const shaped = shapeRows(result.columns.map(column => column.name), result.rows, { maxRows: bounded(args.maxRows, DEFAULT_ROWS, 1, MAX_ROWS), extraPatterns: compilePatterns(undefined) })
+      const shaped = shapeRows(result.columns.map(column => column.name), result.rows, { maxRows: bounded(args.maxRows, DEFAULT_ROWS, 1, MAX_ROWS), extraPatterns: compilePatterns(info.maskPatterns) })
       return { rows: shaped.rowCount, body: { ...shaped, truncated: shaped.truncated || result.truncated, durationMs: result.durationMs } }
     })
   }
@@ -248,7 +248,7 @@ export class AgentGateway {
     const body = `${database}.${collection} ${kind}\n${JSON.stringify(request, null, 2)}`
     return this.read(actor, info, tool, body, textHash(body), redactDocument(JSON.stringify(request)), [], async connection => {
       const result = await this.deps.call<{ documents: string[]; truncated: boolean; durationMs: number }>(kind === 'find' ? 'mongo.find' : 'mongo.aggregate', connection, request)
-      const shaped = shapeDocuments(result.documents, { maxDocs: limit })
+      const shaped = shapeDocuments(result.documents, { maxDocs: limit, extraPatterns: compilePatterns(info.maskPatterns) })
       return { rows: shaped.count, body: { ...shaped, truncated: shaped.truncated || result.truncated, durationMs: result.durationMs } }
     })
   }

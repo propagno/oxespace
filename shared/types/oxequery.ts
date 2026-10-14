@@ -130,7 +130,10 @@ export interface ConnectionSuggestion {
  */
 export type SslMode = 'disable' | 'prefer' | 'require' | 'verify-ca' | 'verify-full'
 export type AgentAccess = 'off' | 'read' | 'write'
-export type SshAuth = 'key' | 'password'
+export type SshAuth = 'key' | 'password' | 'agent'
+/** Identity colors for a connection's tab and bar; the page maps each to a design token. */
+export const CONNECTION_COLORS = ['blue', 'violet', 'pink', 'amber', 'green', 'teal'] as const
+export type ConnectionColor = typeof CONNECTION_COLORS[number]
 
 export interface SshSettings { host: string; port: number; user: string; auth: SshAuth; hasSecret: boolean; keyName?: string }
 export interface MongoOptions { authSource: string; replicaSet: string; directConnection: boolean; srv: boolean; extraHosts: string[] }
@@ -156,6 +159,17 @@ export interface OxeQueryConnection {
   statementTimeoutMs: number
   maxRows: number
   agentAccess: AgentAccess
+  /** Folder in the connection list; empty for none. */
+  group: string
+  favorite: boolean
+  color: ConnectionColor | ''
+  /** Column or field names (any part of the name) the agent gateway hides for this connection. */
+  maskPatterns: string[]
+  lastUsedAt: number
+  /** Seconds between keep-alive probes on the connection and its SSH tunnel; 0 turns them off. */
+  keepaliveSeconds: number
+  /** Connected for this session only: not saved, gone when the app closes. */
+  ephemeral?: boolean
   createdAt: number
   updatedAt: number
 }
@@ -186,6 +200,11 @@ export interface OxeQueryConnectionInput {
   statementTimeoutMs?: number
   maxRows?: number
   agentAccess?: AgentAccess
+  group?: string
+  favorite?: boolean
+  color?: ConnectionColor | ''
+  maskPatterns?: string[]
+  keepaliveSeconds?: number
 }
 
 export interface ConnectionTestResult {
@@ -552,6 +571,12 @@ export interface OxeQueryOps {
   'containers.shell': { input: { engine?: ContainerEngine; id: string; shell?: 'sh' | 'bash' }; output: { paneId: string } }
   'containers.suggestConnection': { input: { engine?: ContainerEngine; id: string }; output: ConnectionSuggestion | null }
   'connections.list': { input: Record<string, never>; output: OxeQueryConnection[] }
+  'connections.update': { input: { id: string; group?: string; favorite?: boolean; color?: ConnectionColor | '' }; output: OxeQueryConnection }
+  'connections.duplicate': { input: { id: string }; output: OxeQueryConnection }
+  'connections.connectEphemeral': { input: OxeQueryConnectionInput; output: OxeQueryConnection }
+  'connections.reconnect': { input: { id: string }; output: ConnectionTestResult }
+  'connections.export': { input: { ids?: string[] }; output: { saved: boolean; count: number } }
+  'connections.import': { input: Record<string, never>; output: { imported: number; skipped: number } }
   'connections.save': { input: OxeQueryConnectionInput; output: OxeQueryConnection }
   'connections.delete': { input: { id: string }; output: { ok: true } }
   'connections.test': { input: { id: string }; output: ConnectionTestResult }

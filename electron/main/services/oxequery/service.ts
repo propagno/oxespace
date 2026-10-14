@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto'
+import { readFile, writeFile } from 'node:fs/promises'
+import { exportConnections, parseConnectionsFile } from './connection-transfer'
 import type { AppDatabase } from '../../db'
 import type { ExecutionHost } from '../../runtime/execution-host'
 import type {
@@ -235,6 +237,41 @@ export class OxeQueryService {
         return { ok: true }
       }
       case 'connections.test': return this.worker.call('test', this.resolve(input.id))
+      case 'connections.update': return this.connections.update(str(input.id, 'Connection', 64), {
+        ...(typeof input.group === 'string' ? { group: input.group } : {}), ...(typeof input.favorite === 'boolean' ? { favorite: input.favorite } : {}),
+        ...(typeof input.color === 'string' ? { color: input.color } : {})
+      })
+      case 'connections.duplicate': return this.connections.duplicate(str(input.id, 'Connection', 64))
+      case 'connections.connectEphemeral': return this.connections.saveEphemeral(input as unknown as OxeQueryConnectionInput)
+      case 'connections.reconnect': {
+        // Drop the sessions (and any tunnel) and dial again, so a connection the network cut can be picked up without a restart.
+        const connection = this.resolve(input.id)
+        await this.worker.call('close', connection).catch(() => undefined)
+        return this.worker.call('test', connection)
+      }
+      case 'connections.export': {
+        if (!this.pickSavePath) throw new OxeQueryError('invalid', 'Saving files is not available here.')
+        const wanted = Array.isArray(input.ids) ? new Set(input.ids.map(String)) : null
+        const list = this.connections.list().filter(item => !wanted || wanted.has(item.id))
+        const path = await this.pickSavePath('oxequery-connections.json', 'json')
+        if (!path) return { saved: false, count: 0 }
+        await writeFile(path, exportConnections(list), { encoding: 'utf8', flag: 'wx' })
+        return { saved: true, count: list.filter(item => !item.ephemeral).length }
+      }
+      case 'connections.import': {
+        if (!this.pickImportPath) throw new OxeQueryError('invalid', 'Choosing files is not available here.')
+        const path = await this.pickImportPath()
+        if (!path) return { imported: 0, skipped: 0 }
+        const text = await readFile(path, { encoding: 'utf8' })
+        if (text.length > 2 * 1024 * 1024) throw new OxeQueryError('invalid', 'That file is too large to be a connections export.')
+        let parsed: ReturnType<typeof parseConnectionsFile>
+        try { parsed = parseConnectionsFile(text) } catch (error) { throw new OxeQueryError('invalid', error instanceof Error ? error.message : 'That file cannot be imported.') }
+        let imported = 0, skipped = parsed.skipped
+        for (const entry of parsed.inputs) {
+          try { this.connections.save(entry); imported++ } catch { skipped++ }
+        }
+        return { imported, skipped }
+      }
       case 'connections.trustHostKey': {
         // The host and port come from the saved connection, never from the caller.
         const connection = this.connections.get(str(input.id, 'Connection', 64))
@@ -267,11 +304,11 @@ export class OxeQueryService {
           const result = await this.worker.call<{ columns: unknown[]; rowCount: number; affectedRows?: number }>('sql.run', connection, {
             sql, maxRows: optionalInt(input.maxRows, 1, 100_000), confirmed: input.confirmed === true, params: sqlParams(input.params)
           })
-          this.library.record(connection.id, { sql, durationMs: Date.now() - started, rows: result.columns.length ? result.rowCount : result.affectedRows ?? null, ok: true })
+          this.remember(connection.id, { sql, durationMs: Date.now() - started, rows: result.columns.length ? result.rowCount : result.affectedRows ?? null, ok: true })
           return result
         } catch (error) {
           // A statement waiting for confirmation did not run, so it is not history yet.
-          if (!(error instanceof OxeQueryError && error.code === 'confirm')) this.library.record(connection.id, { sql, durationMs: Date.now() - started, rows: null, ok: false })
+          if (!(error instanceof OxeQueryError && error.code === 'confirm')) this.remember(connection.id, { sql, durationMs: Date.now() - started, rows: null, ok: false })
           throw error
         }
       })
@@ -282,7 +319,7 @@ export class OxeQueryService {
         // Every statement that ran is history on its own, so a statement can be found and run again.
         for (const entry of outcome.statements) {
           const text = sql.slice(entry.start, entry.end)
-          this.library.record(connection.id, { sql: text, durationMs: entry.result?.durationMs ?? Date.now() - started, rows: entry.result ? (entry.result.columns.length ? entry.result.rowCount : entry.result.affectedRows ?? null) : null, ok: !entry.error })
+          this.remember(connection.id, { sql: text, durationMs: entry.result?.durationMs ?? Date.now() - started, rows: entry.result ? (entry.result.columns.length ? entry.result.rowCount : entry.result.affectedRows ?? null) : null, ok: !entry.error })
         }
         return outcome
       })
@@ -291,16 +328,17 @@ export class OxeQueryService {
         if (!['begin', 'commit', 'rollback', 'status'].includes(action)) throw new OxeQueryError('invalid', 'Unsupported transaction action.')
         return this.worker.call('sql.tx', connection, { action })
       })
-      case 'workspace.load': return { state: this.workspaces.load(this.resolve(input.connectionId).id) }
-      case 'workspace.save': { this.workspaces.save(this.resolve(input.connectionId).id, input.state); return { ok: true } }
+      // An unsaved connection keeps no workspace, saved queries or history: those belong to saved connections.
+      case 'workspace.load': { const id = this.resolve(input.connectionId).id; return { state: this.connections.isEphemeral(id) ? null : this.workspaces.load(id) } }
+      case 'workspace.save': { const id = this.resolve(input.connectionId).id; if (!this.connections.isEphemeral(id)) this.workspaces.save(id, input.state); return { ok: true } }
       case 'audit.list': return this.auditLog.list({ ...(typeof input.connectionId === 'string' ? { connectionId: input.connectionId.slice(0, 64) } : {}), limit: optionalInt(input.limit, 1, 500) })
-      case 'library.list': return this.library.list(this.resolve(input.connectionId).id)
-      case 'library.save': return this.library.save({
+      case 'library.list': { const id = this.resolve(input.connectionId).id; return this.connections.isEphemeral(id) ? { saved: [], history: [] } : this.library.list(id) }
+      case 'library.save': if (this.connections.isEphemeral(this.resolve(input.connectionId).id)) throw new OxeQueryError('invalid', 'Save this connection to keep queries.'); return this.library.save({
         connectionId: this.resolve(input.connectionId).id, name: str(input.name, 'Name', 120), sql: str(input.sql, 'SQL', 100_000),
         ...(typeof input.id === 'string' && input.id ? { id: input.id.slice(0, 64) } : {})
       })
-      case 'library.delete': return { deleted: this.library.remove(this.resolve(input.connectionId).id, str(input.id, 'Query', 64)) }
-      case 'library.clearHistory': return { deleted: this.library.clearHistory(this.resolve(input.connectionId).id) }
+      case 'library.delete': { const id = this.resolve(input.connectionId).id; return { deleted: this.connections.isEphemeral(id) ? false : this.library.remove(id, str(input.id, 'Query', 64)) } }
+      case 'library.clearHistory': { const id = this.resolve(input.connectionId).id; return { deleted: this.connections.isEphemeral(id) ? 0 : this.library.clearHistory(id) } }
       case 'sql.browse': {
         const browse: SqlBrowseInput = {
           connectionId: str(input.connectionId, 'Connection', 64), schema: str(input.schema, 'Schema', 255), table: str(input.table, 'Table', 255),
@@ -536,6 +574,11 @@ export class OxeQueryService {
     }
   }
 
+  /** History belongs to saved connections: an unsaved one leaves none. */
+  private remember(connectionId: string, entry: Parameters<QueryLibrary['record']>[1]): void {
+    if (!this.connections.isEphemeral(connectionId)) this.library.record(connectionId, entry)
+  }
+
   /**
    * A MongoDB read, kept in the connection's history as it was typed. Only the first page counts: turning
    * pages is not a new query.
@@ -544,7 +587,7 @@ export class OxeQueryService {
     const query = build()
     const started = Date.now()
     const record = (rows: number | null, ok: boolean): void => {
-      if (!skip) this.library.record(connectionId, { sql: stringifyMongoQuery(query), durationMs: Date.now() - started, rows, ok })
+      if (!skip) this.remember(connectionId, { sql: stringifyMongoQuery(query), durationMs: Date.now() - started, rows, ok })
     }
     try {
       const result = await run(query)
@@ -584,6 +627,7 @@ export class OxeQueryService {
   private async requireEngine<T>(id: unknown, expected: ResolvedConnection['engine'], run: (connection: ResolvedConnection) => Promise<T>): Promise<T> {
     const connection = this.resolve(id)
     if (connection.engine !== expected) throw new OxeQueryError('invalid', `This operation needs a ${expected === 'postgres' ? 'PostgreSQL' : 'MongoDB'} connection.`)
+    this.connections.touch(connection.id)
     return run(connection)
   }
 
