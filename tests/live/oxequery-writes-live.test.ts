@@ -26,7 +26,9 @@ const PG = `oxe-writes-pg-${suffix}`
 const MONGO = `oxe-writes-mongo-${suffix}`
 const PASSWORD = 'oxe-writes-pw'
 
-const docker = (...args: string[]): string => execFileSync('docker', args, { encoding: 'utf8' }).trim()
+// The engine under test: Docker by default, Podman with OXE_CONTAINER_ENGINE=podman (CI runs both).
+const ENGINE = process.env.OXE_CONTAINER_ENGINE === 'podman' ? 'podman' : 'docker'
+const docker = (...args: string[]): string => execFileSync(ENGINE, args, { encoding: 'utf8' }).trim()
 const hostPort = (name: string, inner: number): number => Number(docker('port', name, String(inner)).split('\n')[0].split(':').pop())
 const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms))
 async function until(label: string, check: () => boolean | Promise<boolean>, timeoutMs = 90_000): Promise<void> {
@@ -46,8 +48,8 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
   const exec = async (sql: string): Promise<void> => { await core.sqlRun(pg, sql, { confirmed: true }) }
 
   beforeAll(async () => {
-    docker('run', '-d', '--name', PG, '-e', 'POSTGRES_USER=oxe', '-e', 'POSTGRES_DB=appdb', '-e', `POSTGRES_PASSWORD=${PASSWORD}`, '-p', '127.0.0.1::5432', 'postgres:16-alpine')
-    docker('run', '-d', '--name', MONGO, '-e', 'MONGO_INITDB_ROOT_USERNAME=root', '-e', `MONGO_INITDB_ROOT_PASSWORD=${PASSWORD}`, '-p', '127.0.0.1::27017', 'mongo:7')
+    docker('run', '-d', '--name', PG, '-e', 'POSTGRES_USER=oxe', '-e', 'POSTGRES_DB=appdb', '-e', `POSTGRES_PASSWORD=${PASSWORD}`, '-p', '127.0.0.1::5432', 'docker.io/library/postgres:16-alpine')
+    docker('run', '-d', '--name', MONGO, '-e', 'MONGO_INITDB_ROOT_USERNAME=root', '-e', `MONGO_INITDB_ROOT_PASSWORD=${PASSWORD}`, '-p', '127.0.0.1::27017', 'docker.io/library/mongo:7')
     await until('postgres ready', () => docker('exec', PG, 'pg_isready', '-U', 'oxe', '-d', 'appdb').includes('accepting'))
     pg = { id: 'pg', engine: 'postgres', host: '127.0.0.1', port: hostPort(PG, 5432), database: 'appdb', username: 'oxe', password: PASSWORD, sslMode: 'disable', readOnly: false }
     await until('postgres accepts queries', async () => { await exec('SELECT 1'); return true })
@@ -536,7 +538,7 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
   })
 
   it('creates a database container, lists resources and refuses to remove what is in use', async () => {
-    const runtime = new ContainerRuntime({ host: new LocalExecutionHost(), emit: () => undefined })
+    const runtime = new ContainerRuntime({ host: new LocalExecutionHost(), emit: () => undefined, preferred: () => ENGINE })
     const name = `oxe-new-${suffix}`
     try {
       const created = await runtime.createDatabase({ engine: 'postgres', name, tag: '16-alpine' })

@@ -313,7 +313,9 @@ export class ContainerRuntime {
     const port = input.port ?? await freePort(inner)
     if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new ContainerRuntimeError('invalid', 'Choose a port between 1024 and 65535.')
     const password = randomBytes(18).toString('base64url')
-    const image = input.engine === 'postgres' ? `postgres:${input.tag}` : `mongo:${input.tag}`
+    // Podman does not guess a registry for a short name unless the machine is set up for it; saying it works everywhere.
+    const registry = resolved === 'podman' ? 'docker.io/library/' : ''
+    const image = input.engine === 'postgres' ? `${registry}postgres:${input.tag}` : `${registry}mongo:${input.tag}`
     const volume = `${name}-data`
     const args = input.engine === 'postgres'
       ? ['run', '-d', '--name', name, '--label', 'oxequery.managed=1', '-p', `127.0.0.1:${port}:5432`, '-v', `${volume}:/var/lib/postgresql/data`, '-e', 'POSTGRES_PASSWORD', '-e', 'POSTGRES_DB=app', image]
@@ -328,7 +330,6 @@ export class ContainerRuntime {
     return { containerId: result.stdout.trim().slice(0, 64), port, password, username: input.engine === 'postgres' ? 'postgres' : 'root', database: input.engine === 'postgres' ? 'app' : 'admin' }
   }
 
-  /** The last lines of a container's log, once (for an agent); streaming is `logsStart`. */
   /**
    * Up, down, start, stop, restart or logs for the Compose project a container belongs to. The folder
    * and files are read from that container's own labels, so what runs is the project the engine
@@ -351,6 +352,7 @@ export class ContainerRuntime {
     return { output }
   }
 
+  /** The last lines of a container's log, once (for an agent); streaming is `logsStart`. */
   async logsTail(id: string, tail = 100, engine?: ContainerEngine): Promise<string> {
     const resolved = await this.resolve(engine)
     const lines = Math.max(1, Math.min(Math.trunc(tail), 500))

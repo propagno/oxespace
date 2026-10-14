@@ -786,6 +786,15 @@ test('connections can be favorited, grouped, colored, duplicated, found by searc
     await expect(list.getByRole('button', { name: /^Not saved/ })).toBeVisible()
     await expect(list.getByRole('button', { name: 'Edit scratch' })).toHaveCount(0)
 
+    // OxeQuery's own settings: the most an agent may be given, by kind of environment.
+    await page.getByRole('button', { name: 'OxeQuery settings' }).click()
+    const prefs = page.getByRole('dialog', { name: 'OxeQuery settings' })
+    await expect(prefs.getByRole('combobox', { name: 'Production' }).locator('option[value="write"]')).toBeDisabled()
+    await prefs.getByRole('combobox', { name: 'Development' }).selectOption('read')
+    await prefs.getByRole('button', { name: 'Save' }).click()
+    await expect(prefs.getByRole('status')).toContainText('Saved')
+    await prefs.getByRole('button', { name: 'Close' }).first().click()
+
     // Enough connections to need search.
     await list.getByRole('button', { name: 'Duplicate pg-dev' }).first().click()
     await list.getByRole('button', { name: 'Duplicate pg-dev' }).first().click()

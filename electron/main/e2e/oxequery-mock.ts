@@ -73,6 +73,7 @@ export function registerOxeQueryMock(): void {
       case 'containers.logsStop': return ok({ ok: true })
       case 'containers.shell': return ok({ paneId: `oxequery-shell:${randomUUID()}` })
       case 'connections.list': return ok(connections.map(item => ({ ...item })))
+      case 'preferences.get': case 'preferences.set': return ok({ historyLimit: Number(input.historyLimit ?? 200), auditRetentionDays: Number(input.auditRetentionDays ?? 90), agentCeiling: { local: 'write', dev: 'write', prod: 'read', ...(input.agentCeiling as object | undefined) } })
       case 'connections.update': {
         const target = connections.find(item => item.id === input.id)
         if (!target) return fail('invalid', 'That connection no longer exists.')

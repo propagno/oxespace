@@ -9,6 +9,7 @@ import type {
 } from '../../../../shared/types/oxequery'
 import { ConnectionInputError, ConnectionStore, type SecretCipher } from './connection-store'
 import { ContainerRuntime, ContainerRuntimeError } from './container-runtime'
+import { PreferenceInputError, PreferenceStore } from './preferences'
 import { COMPOSE_ACTIONS, type ComposeAction } from './compose'
 import { MongoInputError, OxeQueryError, type ResolvedConnection } from './oxequery-errors'
 import { guardSql } from './sql-guard'
@@ -99,7 +100,7 @@ function engine(value: unknown): ContainerEngine | undefined {
 export function toErrorInfo(error: unknown): OxeQueryErrorInfo {
   if (error instanceof OxeQueryError) return { code: error.code, message: error.message, ...(error.reasons.length ? { reasons: error.reasons } : {}), ...error.detail }
   if (error instanceof ContainerRuntimeError) return { code: error.code, message: error.message }
-  if (error instanceof ConnectionInputError || error instanceof MongoInputError || error instanceof LibraryInputError || error instanceof WorkspaceInputError) return { code: 'invalid', message: error.message }
+  if (error instanceof ConnectionInputError || error instanceof PreferenceInputError || error instanceof MongoInputError || error instanceof LibraryInputError || error instanceof WorkspaceInputError) return { code: 'invalid', message: error.message }
   return { code: 'failed', message: error instanceof Error ? error.message.slice(0, 400) : 'OxeQuery failed.' }
 }
 
@@ -129,6 +130,7 @@ export class OxeQueryService {
   private readonly shells = new Map<string, { file: string; args: string[] }>()
   private readonly picked = new PickedFiles()
   private readonly library: QueryLibrary
+  private readonly preferences: PreferenceStore
   private readonly workspaces: WorkspaceStore
   private readonly auditLog: AuditLog
   /** What the internal MCP tools call; policy and approval live inside it. */
@@ -143,7 +145,8 @@ export class OxeQueryService {
 
   constructor(options: OxeQueryServiceOptions) {
     this.connections = new ConnectionStore(options.db, options.cipher, this.picked)
-    this.library = new QueryLibrary(options.db)
+    this.preferences = new PreferenceStore(options.db)
+    this.library = new QueryLibrary(options.db, Date.now, () => this.preferences.get().historyLimit)
     this.workspaces = new WorkspaceStore(options.db)
     this.library.scrubHistory()
     this.pickFile = options.pickFile
@@ -153,10 +156,11 @@ export class OxeQueryService {
     this.containers = options.runtime ?? new ContainerRuntime({ host: options.host, emit: options.emit, preferred: options.preferredEngine })
     this.worker = options.worker
     this.auditLog = new AuditLog(options.db)
-    this.auditLog.prune()
+    this.auditLog.prune(this.preferences.get().auditRetentionDays)
     this.approvals = new ApprovalBroker(options.approvalPrompter)
     this.agent = new AgentGateway({
       list: () => this.connections.list(),
+      ceiling: environment => this.preferences.get().agentCeiling[environment],
       resolve: id => this.connections.resolve(id),
       call: (op, connection, input) => this.worker.call(op, connection, input),
       containers: {
@@ -251,6 +255,12 @@ export class OxeQueryService {
       case 'containers.suggestConnection': {
         const found = await this.containers.suggestConnection(str(input.id, 'Container', 128), engine(input.engine))
         return found?.suggestion ?? null
+      }
+      case 'preferences.get': return this.preferences.get()
+      case 'preferences.set': {
+        const next = this.preferences.set(input)
+        this.auditLog.prune(next.auditRetentionDays)
+        return next
       }
       case 'connections.list': return this.connections.list()
       case 'connections.save': {

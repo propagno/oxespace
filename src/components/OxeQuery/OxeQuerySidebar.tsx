@@ -1,8 +1,10 @@
-import { useEffect, type ReactElement } from 'react'
-import { Boxes, Plus, RefreshCw } from 'lucide-react'
+import { Suspense, lazy, useEffect, useState, type ReactElement } from 'react'
+import { Boxes, Plus, RefreshCw, Settings } from 'lucide-react'
 import { NavigationRail } from '../Navigation/NavigationChrome'
 import { useUIStore } from '../../store/ui.store'
 import { ConnectionList } from './ConnectionList'
+
+const PreferencesDialog = lazy(() => import('./PreferencesDialog').then(module => ({ default: module.PreferencesDialog })))
 import { useOxeQueryStore } from './oxequery.store'
 import { isDatabaseImage } from './ContainersPanel'
 import './OxeQuery.css'
@@ -16,6 +18,7 @@ export function OxeQuerySidebar({ onSelectMode }: { onSelectMode: (mode: 'code' 
   const selectedContainer = useOxeQueryStore(state => state.selectedContainer)
   const containersError = useOxeQueryStore(state => state.containersError)
 
+  const [settings, setSettings] = useState(false)
   useEffect(() => { void useOxeQueryStore.getState().refreshConnections() }, [])
 
   const running = containers.filter(container => container.state === 'running').length
@@ -26,7 +29,7 @@ export function OxeQuerySidebar({ onSelectMode }: { onSelectMode: (mode: 'code' 
       primary={[{ id: 'new-connection', label: 'New connection', icon: Plus, onClick: () => useOxeQueryStore.getState().openDialog(null) }]}
       context={{ id: 'refresh', label: 'Refresh containers', ariaLabel: 'Refresh containers', icon: RefreshCw, onClick: () => { void useOxeQueryStore.getState().refreshContainers(); void useOxeQueryStore.getState().refreshConnections() } }} />
     {!collapsed && <div className="oq-sidebar-content">
-      <header><strong>OxeQuery</strong></header>
+      <header><strong>OxeQuery</strong><button type="button" className="oq-icon" aria-label="OxeQuery settings" title="Settings" onClick={() => setSettings(true)}><Settings size={13} aria-hidden="true" /></button></header>
       <section aria-label="Containers">
         <h3>Containers</h3>
         <button type="button" className="oq-nav-item" aria-current={activeTab === 'containers' ? 'page' : undefined} onClick={() => useOxeQueryStore.getState().setActiveTab('containers')}>
@@ -41,5 +44,6 @@ ${container.status}`}
       </section>
       <ConnectionList activeTab={activeTab} />
     </div>}
+    <Suspense fallback={null}>{settings && <PreferencesDialog onClose={() => setSettings(false)} />}</Suspense>
   </aside>
 }

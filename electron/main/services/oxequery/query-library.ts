@@ -16,11 +16,11 @@ interface HistoryRow { id: number; sql: string; ran_at: number; duration_ms: num
 
 /** Saved queries and run history, kept in the app database next to the connections. */
 export class QueryLibrary {
-  constructor(private readonly db: AppDatabase, private readonly now: () => number = Date.now) {}
+  constructor(private readonly db: AppDatabase, private readonly now: () => number = Date.now, private readonly historyLimit: () => number = () => HISTORY_LIMIT) {}
 
   list(connectionId: string): { saved: SavedQuery[]; history: QueryHistoryItem[] } {
     const saved = this.db.prepare('SELECT * FROM oxequery_saved_queries WHERE connection_id = ? ORDER BY name COLLATE NOCASE').all(connectionId) as SavedRow[]
-    const history = this.db.prepare('SELECT id, sql, ran_at, duration_ms, row_count, ok FROM oxequery_query_history WHERE connection_id = ? ORDER BY ran_at DESC, id DESC LIMIT ?').all(connectionId, HISTORY_LIMIT) as HistoryRow[]
+    const history = this.db.prepare('SELECT id, sql, ran_at, duration_ms, row_count, ok FROM oxequery_query_history WHERE connection_id = ? ORDER BY ran_at DESC, id DESC LIMIT ?').all(connectionId, this.historyLimit()) as HistoryRow[]
     return {
       saved: saved.map(row => ({ id: row.id, connectionId: row.connection_id, name: row.name, sql: row.sql, createdAt: row.created_at, updatedAt: row.updated_at })),
       history: history.map(row => ({ id: row.id, sql: row.sql, ranAt: row.ran_at, durationMs: row.duration_ms, rows: row.row_count, ok: row.ok === 1 }))
@@ -62,7 +62,7 @@ export class QueryLibrary {
           .run(connectionId, sql, now, entry.durationMs, entry.rows, entry.ok ? 1 : 0)
         this.db.prepare('DELETE FROM oxequery_query_history WHERE connection_id = ? AND ran_at < ?').run(connectionId, now - HISTORY_DAYS * 86_400_000)
         this.db.prepare(`DELETE FROM oxequery_query_history WHERE connection_id = ? AND id NOT IN
-          (SELECT id FROM oxequery_query_history WHERE connection_id = ? ORDER BY ran_at DESC, id DESC LIMIT ?)`).run(connectionId, connectionId, HISTORY_LIMIT)
+          (SELECT id FROM oxequery_query_history WHERE connection_id = ? ORDER BY ran_at DESC, id DESC LIMIT ?)`).run(connectionId, connectionId, this.historyLimit())
       })()
     } catch { /* history is a convenience */ }
   }

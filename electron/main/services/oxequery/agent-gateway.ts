@@ -1,4 +1,5 @@
-import type { ContainerAction, ContainerSummary, OxeQueryConnection } from '../../../../shared/types/oxequery'
+import { effectiveAgentAccess } from './preferences'
+import type { AgentAccess, ContainerAction, ContainerSummary, OxeQueryConnection } from '../../../../shared/types/oxequery'
 import { maskLogLine, DEFAULT_ROWS, MAX_ROWS, UNTRUSTED_NOTICE, compilePatterns, redactDocument, redactStatement, shapeDocuments, shapeRows } from './agent-output'
 import { textHash, type ApprovalBroker } from './approval-broker'
 import type { AuditLog, AuditRecord } from './audit-log'
@@ -19,6 +20,8 @@ export interface AgentActor {
 
 export interface GatewayDeps {
   list(): OxeQueryConnection[]
+  /** The most agents may be given on a connection of this kind (OxeQuery settings); without it, no cap beyond the connection's own. */
+  ceiling?(environment: OxeQueryConnection['environment']): AgentAccess
   resolve(id: string): ResolvedConnection
   call<T>(op: string, connection: ResolvedConnection | undefined, input?: unknown): Promise<T>
   containers: {
@@ -97,9 +100,14 @@ export class AgentGateway {
   }
 
   private access(connection: OxeQueryConnection, need: 'read' | 'write'): void {
-    if (connection.agentAccess === 'off') throw new AgentToolError(`Agent access to "${connection.name}" is off. A person can enable it in the connection settings.`, 'access-off')
+    const cap = this.deps.ceiling?.(connection.environment) ?? 'write'
+    const granted = effectiveAgentAccess(connection.agentAccess, cap)
+    if (granted === 'off') {
+      if (connection.agentAccess !== 'off') throw new AgentToolError(`OxeQuery settings do not allow agents on ${connection.environment} connections.`, 'access-off')
+      throw new AgentToolError(`Agent access to "${connection.name}" is off. A person can enable it in the connection settings.`, 'access-off')
+    }
     if (need === 'write') {
-      if (connection.agentAccess !== 'write') throw new AgentToolError(`"${connection.name}" allows agents to read only.`, 'access-read-only')
+      if (granted !== 'write') throw new AgentToolError(`"${connection.name}" allows agents to read only.`, 'access-read-only')
       if (connection.environment === 'prod') throw new AgentToolError('Agents cannot change data on a production connection.', 'prod-write')
       if (connection.readOnly) throw new AgentToolError(`"${connection.name}" is read-only.`, 'read-only')
     }

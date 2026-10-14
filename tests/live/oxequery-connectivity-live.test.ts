@@ -24,7 +24,9 @@ const VOLUME = `oxe-conn-certs-${suffix}`
 const PASSWORD = 'oxe-conn-pw'
 const SSH_PASSWORD = 'oxe-ssh-pw'
 
-const docker = (...args: string[]): string => execFileSync('docker', args, { encoding: 'utf8' }).trim()
+// The engine under test: Docker by default, Podman with OXE_CONTAINER_ENGINE=podman (CI runs both).
+const ENGINE = process.env.OXE_CONTAINER_ENGINE === 'podman' ? 'podman' : 'docker'
+const docker = (...args: string[]): string => execFileSync(ENGINE, args, { encoding: 'utf8' }).trim()
 const hostPort = (name: string, inner: number): number => Number(docker('port', name, String(inner)).split('\n')[0].split(':').pop())
 
 async function freePort(): Promise<number> {
@@ -56,15 +58,15 @@ describe.skipIf(!live)('OxeQuery connectivity against real servers', () => {
     docker('network', 'create', NETWORK)
     docker('volume', 'create', VOLUME)
     // A self-signed server certificate valid for 127.0.0.1 and localhost.
-    docker('run', '--rm', '-v', `${VOLUME}:/certs`, 'alpine:3.20', 'sh', '-c',
+    docker('run', '--rm', '-v', `${VOLUME}:/certs`, 'docker.io/library/alpine:3.20', 'sh', '-c',
       'apk add --no-cache openssl >/dev/null && openssl req -new -x509 -days 2 -nodes -subj "/CN=oxe-test" -addext "subjectAltName=DNS:localhost" -keyout /certs/server.key -out /certs/server.crt && chmod 600 /certs/server.key && chown 70:70 /certs/server.key /certs/server.crt')
-    serverCert = docker('run', '--rm', '-v', `${VOLUME}:/certs`, 'alpine:3.20', 'cat', '/certs/server.crt')
+    serverCert = docker('run', '--rm', '-v', `${VOLUME}:/certs`, 'docker.io/library/alpine:3.20', 'cat', '/certs/server.crt')
 
     docker('run', '-d', '--name', PG_TLS, '-v', `${VOLUME}:/certs`, '-e', 'POSTGRES_USER=oxe', '-e', 'POSTGRES_DB=appdb', '-e', `POSTGRES_PASSWORD=${PASSWORD}`,
-      '-p', '127.0.0.1::5432', 'postgres:16-alpine', '-c', 'ssl=on', '-c', 'ssl_cert_file=/certs/server.crt', '-c', 'ssl_key_file=/certs/server.key')
-    docker('run', '-d', '--name', PG, '--network', NETWORK, '-e', 'POSTGRES_USER=oxe', '-e', 'POSTGRES_DB=appdb', '-e', `POSTGRES_PASSWORD=${PASSWORD}`, 'postgres:16-alpine')
-    docker('run', '-d', '--name', MONGO, '--network', NETWORK, '-e', 'MONGO_INITDB_ROOT_USERNAME=root', '-e', `MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}`, 'mongo:7')
-    docker('run', '-d', '--name', SSHD, '--network', NETWORK, '-p', '127.0.0.1::22', 'alpine:3.20', 'sh', '-c',
+      '-p', '127.0.0.1::5432', 'docker.io/library/postgres:16-alpine', '-c', 'ssl=on', '-c', 'ssl_cert_file=/certs/server.crt', '-c', 'ssl_key_file=/certs/server.key')
+    docker('run', '-d', '--name', PG, '--network', NETWORK, '-e', 'POSTGRES_USER=oxe', '-e', 'POSTGRES_DB=appdb', '-e', `POSTGRES_PASSWORD=${PASSWORD}`, 'docker.io/library/postgres:16-alpine')
+    docker('run', '-d', '--name', MONGO, '--network', NETWORK, '-e', 'MONGO_INITDB_ROOT_USERNAME=root', '-e', `MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}`, 'docker.io/library/mongo:7')
+    docker('run', '-d', '--name', SSHD, '--network', NETWORK, '-p', '127.0.0.1::22', 'docker.io/library/alpine:3.20', 'sh', '-c',
       `apk add --no-cache openssh >/dev/null && ssh-keygen -A && adduser -D oxe && echo 'oxe:${SSH_PASSWORD}' | chpasswd && exec /usr/sbin/sshd -D -e -o AllowTcpForwarding=yes -o PasswordAuthentication=yes -o UsePAM=no`)
 
     await until('tls postgres ready', () => docker('exec', PG_TLS, 'pg_isready', '-U', 'oxe', '-d', 'appdb').includes('accepting'))

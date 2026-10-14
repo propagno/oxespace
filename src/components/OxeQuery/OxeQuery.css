@@ -430,3 +430,4 @@
 .oq-ask-menu > button { text-align: left; }
 .oq-ask-menu form { display: flex; gap: 4px; }
 .oq-ask-menu input { flex: 1; min-width: 0; padding: 4px 6px; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); color: inherit; background: var(--bg-input, transparent); font: inherit; font-size: var(--fs-xs); }
+.oq-sidebar-content > header { display: flex; align-items: center; justify-content: space-between; }

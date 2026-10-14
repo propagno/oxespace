@@ -433,9 +433,14 @@ jobs:
   # ship Docker; the tests start and remove their own containers. This is a release
   # gate: a database client that was only ever tested against mocks must not ship.
   oxequery-live:
-    name: OxeQuery live tests (PostgreSQL, MongoDB, SSH, TLS)
+    name: OxeQuery live tests (${{ matrix.engine }}; PostgreSQL, MongoDB, SSH, TLS)
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        # The same suite against each container engine a person may have.
+        engine: [docker, podman]
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.0
 
@@ -457,13 +462,15 @@ jobs:
 
       - name: Pull the images the tests use
         run: |
-          docker pull postgres:16-alpine
-          docker pull mongo:7
-          docker pull alpine:3.20
+          ${{ matrix.engine }} --version
+          ${{ matrix.engine }} pull docker.io/library/postgres:16-alpine
+          ${{ matrix.engine }} pull docker.io/library/mongo:7
+          ${{ matrix.engine }} pull docker.io/library/alpine:3.20
 
       - name: Live tests
         env:
           OXE_LIVE: "1"
+          OXE_CONTAINER_ENGINE: ${{ matrix.engine }}
         run: npx vitest run tests/live/oxequery-live.test.ts tests/live/oxequery-connectivity-live.test.ts tests/live/oxequery-writes-live.test.ts
 
   release:

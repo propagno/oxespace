@@ -174,6 +174,16 @@ export interface OxeQueryConnection {
   updatedAt: number
 }
 
+/** OxeQuery's settings. */
+export interface OxeQueryPreferences {
+  /** Statements kept in each connection's history. */
+  historyLimit: number
+  /** Days the agent audit log is kept. */
+  auditRetentionDays: number
+  /** The most an agent may be given on a connection of each kind, whatever the connection says. */
+  agentCeiling: Record<ConnectionEnvironment, AgentAccess>
+}
+
 export interface OxeQueryConnectionInput {
   id?: string
   name: string
@@ -595,6 +605,8 @@ export interface OxeQueryOps {
   'connections.reconnect': { input: { id: string }; output: ConnectionTestResult }
   'connections.export': { input: { ids?: string[] }; output: { saved: boolean; count: number } }
   'connections.import': { input: Record<string, never>; output: { imported: number; skipped: number } }
+  'preferences.get': { input: Record<string, never>; output: OxeQueryPreferences }
+  'preferences.set': { input: Partial<Omit<OxeQueryPreferences, 'agentCeiling'>> & { agentCeiling?: Partial<OxeQueryPreferences['agentCeiling']> }; output: OxeQueryPreferences }
   'connections.save': { input: OxeQueryConnectionInput; output: OxeQueryConnection }
   'connections.delete': { input: { id: string }; output: { ok: true } }
   'connections.test': { input: { id: string }; output: ConnectionTestResult }

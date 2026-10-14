@@ -24,7 +24,7 @@ interface Harness {
 }
 
 /** `decide` answers immediately; with `manual` the prompt stays open until `answer` is called. */
-function harness(connections: OxeQueryConnection[], options: { decide?: ApprovalDecision; manual?: boolean; rows?: unknown[][]; now?: () => number; waitMs?: number } = {}): Harness {
+function harness(connections: OxeQueryConnection[], options: { decide?: ApprovalDecision; manual?: boolean; rows?: unknown[][]; now?: () => number; waitMs?: number; ceiling?: (environment: string) => 'off' | 'read' | 'write' } = {}): Harness {
   const db = openInMemoryDatabase(); databases.push(db)
   const asked: ApprovalRequest[] = []
   let release: ((decision: ApprovalDecision) => void) | undefined
@@ -39,6 +39,7 @@ function harness(connections: OxeQueryConnection[], options: { decide?: Approval
   const audit = new AuditLog(db)
   const deps: GatewayDeps = {
     list: () => connections,
+    ...(options.ceiling ? { ceiling: options.ceiling as GatewayDeps['ceiling'] } : {}),
     resolve: id => ({ id, engine: connections.find(item => item.id === id)!.engine, host: 'h', port: 1, database: 'd', username: 'u', password: 'SECRET', sslMode: 'disable', readOnly: connections.find(item => item.id === id)!.readOnly }),
     call: async (op, resolved, input) => {
       calls.push({ op, ...(resolved ? { connection: resolved } : {}), input })
@@ -63,6 +64,15 @@ describe('agent gateway: access policy', () => {
     expect(await code(h.gateway.handle('oxespace_db_query', { connection: 'shop', sql: 'SELECT 1' }, actor))).toBe('access-off')
     expect(h.calls).toHaveLength(0)
     expect(h.asked).toHaveLength(0)
+  })
+
+  it('caps what agents get by the kind of environment, whatever the connection says', async () => {
+    const dev = harness([connection({ agentAccess: 'write', environment: 'dev', readOnly: false })], { ceiling: () => 'read' })
+    expect(await code(dev.gateway.handle('oxespace_db_execute', { connection: 'shop', sql: 'UPDATE t SET a = 1 WHERE id = 1' }, actor))).toBe('access-read-only')
+    expect(await code(dev.gateway.handle('oxespace_db_query', { connection: 'shop', sql: 'SELECT 1' }, actor))).toBe('ok')
+    const off = harness([connection({ agentAccess: 'read', environment: 'local' })], { ceiling: environment => environment === 'local' ? 'off' : 'read' })
+    expect(await code(off.gateway.handle('oxespace_db_query', { connection: 'shop', sql: 'SELECT 1' }, actor))).toBe('access-off')
+    expect(off.calls).toHaveLength(0)
   })
 
   it('lists connections without secrets', async () => {
