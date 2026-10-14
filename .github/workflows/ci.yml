@@ -32,6 +32,11 @@ on:
         description: Optional release tag (vX.Y.Z). Empty = v{package.json version}
         required: false
         type: string
+      packaged_smoke_only:
+        description: Build the installer layout and run the packaged-app E2E on both platforms without publishing anything
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   # Never cancel an in-flight tag release path; PR/main builds may cancel.
@@ -148,6 +153,9 @@ jobs:
           $isPrerelease = $channel -ne 'latest'
 
           "should_release=$($shouldRelease.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          # Package and run the packaged-app E2E without any publishing step (the release job only reads should_release).
+          $packagedSmoke = $event -eq 'workflow_dispatch' -and '${{ inputs.packaged_smoke_only }}' -eq 'true' -and -not $shouldRelease
+          "packaged_smoke=$($packagedSmoke.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "prerelease=$($isPrerelease.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
@@ -285,7 +293,7 @@ jobs:
       # prepare:model pulls @xenova/transformers → sharp. npm ci --ignore-scripts
       # leaves the sharp native binary missing; rebuild it for the Node ABI only.
       - name: Install sharp native bindings for model prepare
-        if: steps.plan.outputs.should_release == 'true'
+        if: (steps.plan.outputs.should_release == 'true' || steps.plan.outputs.packaged_smoke == 'true')
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -293,7 +301,7 @@ jobs:
           npm rebuild sharp
 
       - name: Package installer (${{ matrix.label }})
-        if: steps.plan.outputs.should_release == 'true'
+        if: (steps.plan.outputs.should_release == 'true' || steps.plan.outputs.packaged_smoke == 'true')
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -309,7 +317,7 @@ jobs:
           npx electron-builder ${{ matrix.builder_flag }} --config.npmRebuild=false --config.publish.channel=${{ steps.plan.outputs.channel }} --publish never
 
       - name: E2E packaged Linux build
-        if: steps.plan.outputs.should_release == 'true' && runner.os == 'Linux'
+        if: (steps.plan.outputs.should_release == 'true' || steps.plan.outputs.packaged_smoke == 'true') && runner.os == 'Linux'
         shell: bash
         run: |
           executable="$(find "$GITHUB_WORKSPACE/dist/linux-unpacked" -maxdepth 1 -type f -perm -u+x -iname 'oxespace*' -print -quit)"
@@ -356,7 +364,7 @@ jobs:
       # installer writes) so a broken asarUnpack or extraResource fails here
       # rather than on a user's machine.
       - name: E2E packaged Windows build
-        if: steps.plan.outputs.should_release == 'true' && runner.os == 'Windows'
+        if: (steps.plan.outputs.should_release == 'true' || steps.plan.outputs.packaged_smoke == 'true') && runner.os == 'Windows'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
