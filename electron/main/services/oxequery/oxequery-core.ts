@@ -903,12 +903,12 @@ export class OxeQueryCore {
         try {
           await client.query('BEGIN READ ONLY')
           const cursor = client.query(new Cursor(sql, [], { rowMode: 'array' }))
-          const read = (count: number): Promise<{ rows: unknown[][]; fields: { name: string }[] }> =>
+          const read = (count: number): Promise<{ rows: unknown[][]; fields: { name: string; dataTypeID?: number }[] }> =>
             new Promise((resolve, reject) => cursor.read(count, (error, batch, result) => error ? reject(error) : resolve({ rows: batch as unknown[][], fields: ((result as { fields?: { name: string }[] }).fields ?? []) })))
           let headerWritten = false
           for (;;) {
             const batch = await read(1000)
-            if (!headerWritten) { await sink.start(batch.fields.map(field => field.name)); headerWritten = true }
+            if (!headerWritten) { await sink.start(batch.fields.map(field => field.name), batch.fields.map(field => field.dataTypeID)); headerWritten = true }
             if (batch.rows.length === 0) break
             for (const row of batch.rows) {
               if (rows >= limit) break
