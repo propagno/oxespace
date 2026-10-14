@@ -1,5 +1,7 @@
 import { Activity, Columns2, FilePlus2, FolderOpen, Github, Grid2x2, LayoutDashboard, ListTodo, Maximize, Mic, Palette, Plus, RotateCw, Search, Settings2, Sliders, Split, Square, StopCircle, Wrench } from 'lucide-react'
 import { useContributedCommands } from './utils/commandRegistry'
+import './components/OxeQuery/oxequery.commands'
+import { onOxeQueryAction, performOxeQueryAction } from './components/OxeQuery/oxequery-bridge'
 import { TOOL_CATALOG, type ToolId } from './components/Workspace/toolCatalog'
 import { Button, cx, Toaster, TitleTooltips, TooltipProvider, EmptyState } from './ui'
 import titleBar from './components/Navigation/TitleBar.module.css'
@@ -102,6 +104,8 @@ export function App(): ReactElement {
     if (mode === 'data') setHasOpenedData(true)
     setApplicationView(mode)
   }
+  // The palette's OxeQuery entries: open the view first, then let the action find its control.
+  useEffect(() => onOxeQueryAction(action => { selectMode('data'); performOxeQueryAction(action) }), [])
   const [newThreadWorkspaceId, setNewThreadWorkspaceId] = useState<string | null | undefined>(undefined)
   const [newThreadRootPath, setNewThreadRootPath] = useState<string | undefined>()
   const [isThreadProjectOpen, setThreadProjectOpen] = useState(false)

@@ -843,3 +843,35 @@ test('a Compose project can be brought up, read and taken down from the containe
     await expect(confirm).toHaveCount(0)
   } finally { await app.close() }
 })
+
+test('the command palette opens OxeQuery and its dialogs from anywhere', async () => {
+  test.setTimeout(60000)
+  const root = mkdtempSync(join(tmpdir(), 'oxespace-oxequery-palette-'))
+  const repo = join(root, 'repo'); mkdirSync(repo)
+  const app = await electron.launch({ args: [join(process.cwd(), 'e2e/electron-main.cjs')], env: {
+    ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'app.sqlite3')
+  } })
+  try {
+    const page = await app.firstWindow()
+    await page.waitForLoadState('domcontentloaded')
+    await page.getByTestId('btn-new-workspace').click()
+    await page.getByTestId('wizard-dir-input').fill(repo)
+    await page.getByTestId('wizard-layout-card-1').click()
+    await page.getByTestId('wizard-launch-btn').click()
+    await expect(page.locator('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]').first()).toBeVisible()
+    // Still in Code view: OxeQuery was never opened, so the palette entry has to open it.
+    await page.mouse.click(400, 12)
+    await page.keyboard.press('Control+k')
+    await page.keyboard.type('New database connection')
+    await page.getByText('New database connection', { exact: true }).click()
+    await expect(page.getByRole('dialog', { name: 'New connection' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog', { name: 'New connection' })).toHaveCount(0)
+    // And settings.
+    await page.mouse.click(400, 12)
+    await page.keyboard.press('Control+k')
+    await page.keyboard.type('OxeQuery settings')
+    await page.getByText('OxeQuery settings', { exact: true }).click()
+    await expect(page.getByRole('dialog', { name: 'OxeQuery settings' })).toBeVisible()
+  } finally { await app.close() }
+})

@@ -5,6 +5,8 @@ import { errorMessage, oq } from './client'
 import { organize } from './connection-list-model'
 import { useOxeQueryStore } from './oxequery.store'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
+import { Button } from '../../ui/Button'
+import { EmptyState } from '../../ui/Display'
 
 /** The saved connections: favorites, recent, groups, search, and the actions on one connection. */
 export function ConnectionList({ activeTab }: { activeTab: string }): ReactElement {
@@ -59,7 +61,7 @@ export function ConnectionList({ activeTab }: { activeTab: string }): ReactEleme
     {pendingDelete && <ConfirmDialog danger title={`Delete “${pendingDelete.name}”?`} confirmLabel="Delete"
       description="Its saved password, keys and certificates are removed too. The database itself is not touched."
       onCancel={() => setPendingDelete(null)} onConfirm={() => void remove(pendingDelete.id)} />}
-    {connections.length === 0 && !connectionsError && <p className="oq-muted">No connections yet. Press <strong>Query</strong> on a database container, or add one with +.</p>}
+    {connections.length === 0 && !connectionsError && <EmptyState compact title="No connections yet" actions={<Button size="sm" onClick={() => store().openDialog(null)}>Add connection</Button>}>Press Query on a database container, or add one by hand.</EmptyState>}
     {search.trim() && sections.length === 0 && <p className="oq-muted" role="status">Nothing matches “{search.trim()}”.</p>}
     {sections.map(section => {
       const headed = sections.length > 1 || section.id === 'results' || section.id.startsWith('group:')

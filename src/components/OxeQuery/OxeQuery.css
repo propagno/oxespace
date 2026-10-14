@@ -573,3 +573,4 @@ td:has(> .oq-actions) { width: 1%; }
   .oq-actions button { min-width: var(--control-sm); padding: 0 var(--space-1); }
   .oq-actions button > span { display: none; }
 }
+.oq-nav-item { min-height: var(--control-md); }
