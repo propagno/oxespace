@@ -16,6 +16,8 @@ export default defineConfig({
     // The default 5 s is too tight when the machine is busy: a slow capture would fail
     // as a timeout even though nothing visual changed. This is the assertion-wide timeout.
     timeout: 20_000,
-    toHaveScreenshot: { maxDiffPixelRatio: 0.002, animations: 'disabled' }
+    // A small absolute tolerance absorbs anti-aliasing noise (Monaco diffs differ by ~14 px)
+    // while still failing on a real change: a 20x20 icon is already 400 px.
+    toHaveScreenshot: { maxDiffPixels: 60, animations: 'disabled' }
   }
 })

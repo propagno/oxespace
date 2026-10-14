@@ -13,7 +13,19 @@ import { expect, type Locator, type Page } from '@playwright/test'
  * the same pixels either way. The counted badges (needs you / failed) are deterministic
  * and stay visible.
  */
-const HIDDEN_WHEN_LIVE = ['[data-testid="working-indicator"]']
+const HIDDEN_WHEN_LIVE = [
+  '[data-testid="working-indicator"]',
+  // Terminal canvases are live content. They are hidden rather than masked because a mask
+  // is painted over everything, which would cover any overlay (palette, menus) above them.
+  '.xterm',
+  // Pane resize grips fade in with focus and pointer state, which no fixed wait settles.
+  '.resize-handle',
+  // The agent count / status chips follow real PTY activity and change width, and the
+  // right-aligned group then shifts its neighbours. The whole strip is hidden; it has no
+  // visual coverage until agents come from a fixture instead of live terminals.
+  '.workspace-topbar > *',
+  '.split-resize-handle'
+]
 
 const VOLATILE_SELECTORS = [
   '[data-visual-volatile]',
@@ -25,9 +37,14 @@ const VOLATILE_SELECTORS = [
 export interface SurfaceOptions {
   /** Restrict the comparison to one element instead of the whole window. */
   target?: Locator
-  /** Extra regions to mask for this surface only. */
-  mask?: Locator[]
-  maxDiffPixelRatio?: number
+  /**
+   * Elements whose text varies between runs (temp paths, relative times). They are hidden,
+   * not masked: a mask box takes the width of the current text, so proportional-font text
+   * of different widths moves the box edge by a few pixels and fails the comparison.
+   */
+  hide?: Locator[]
+  /** Per-surface tolerance in pixels; the default lives in playwright.visual.config.ts. */
+  maxDiffPixels?: number
 }
 
 /** Waits for fonts and a quiet frame, then compares against the stored baseline. */
@@ -39,12 +56,16 @@ export async function expectSurface(page: Page, name: string, options: SurfaceOp
   // Two animation frames let layout and transitions settle without a fixed sleep.
   await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
   await page.addStyleTag({
-    content: `*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}${HIDDEN_WHEN_LIVE.map(selector => `${selector}{visibility:hidden!important}`).join('')}`
+    content: `*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}*{scrollbar-width:none!important}*::-webkit-scrollbar{display:none!important}${[...HIDDEN_WHEN_LIVE, '[data-visual-hidden]'].map(selector => `${selector}{visibility:hidden!important}`).join('')}`
   })
-  const mask = [...VOLATILE_SELECTORS.map(selector => page.locator(selector)), ...(options.mask ?? [])]
+  for (const locator of options.hide ?? []) {
+    await locator.evaluateAll(elements => elements.forEach(element => element.setAttribute('data-visual-hidden', '')))
+  }
+  const mask = VOLATILE_SELECTORS.map(selector => page.locator(selector))
   await expect(options.target ?? page).toHaveScreenshot(`${name}.png`, {
     mask,
     animations: 'disabled',
-    maxDiffPixelRatio: options.maxDiffPixelRatio
+    // Only override the config default when asked: an explicit `undefined` replaces it.
+    ...(options.maxDiffPixels === undefined ? {} : { maxDiffPixels: options.maxDiffPixels })
   })
 }

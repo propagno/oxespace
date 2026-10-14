@@ -20,10 +20,10 @@ for (const theme of THEMES) {
         await expectSurface(page, `empty-${theme}-${viewport.name}`)
 
         await openDemoWorkspace(page, workspaceRoot)
-        // Relative times ("Just now"), the random temp path and blinking terminal
-        // cursors change between runs. Terminal rendering gets its own spec.
+        // Relative times ("Just now"), the random temp path and terminal
+        // output change between runs. Terminals are hidden by expectSurface.
         await expectSurface(page, `workspace-${theme}-${viewport.name}`, {
-          mask: [page.locator('.pane-row-time'), page.locator('.app-statusbar [class*="path"]'), page.locator('.xterm')]
+          hide: [page.locator('.pane-row-time'), page.locator('.app-statusbar [class*="path"]')]
         })
 
         expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false)

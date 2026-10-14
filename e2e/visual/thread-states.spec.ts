@@ -29,7 +29,7 @@ for (const theme of THEMES) {
         await expectSurface(page, `thread-${state}-${theme}`, {
           // Time is frozen, so ages and countdowns are stable. Code terminals stay mounted
           // behind Thread: masking `.xterm` here would hide the conversation itself.
-          mask: [page.locator('.app-statusbar [class*="path"]')]
+          hide: [page.locator('.app-statusbar [class*="path"]')]
         })
         expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false)
       }
