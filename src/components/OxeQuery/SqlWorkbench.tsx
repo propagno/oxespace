@@ -283,7 +283,10 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
         <span className="oq-badge" data-readonly={connection.readOnly} title={connection.readOnly ? 'The server refuses statements that change data' : 'This connection can change data'}>{connection.readOnly ? 'read-only' : 'read-write'}</span>
       </div>
       {notice && <p role="alert" className="oq-error oq-notice">{notice}</p>}
-      <div className="oq-editor"><Editor key={active.id} height="100%" language="sql" theme={MONACO_THEME} defaultValue={active.sql} onChange={value => patch(active.id, { sql: value ?? '' })}
+      {/* Ctrl+Shift+Enter is also a built-in Monaco chord (insert a line above) and some platforms resolve it before ours: taken here, in the capture phase, it always means "run all". */}
+      <div className="oq-editor" onKeyDownCapture={event => {
+        if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); runAllRef.current() }
+      }}><Editor key={active.id} height="100%" language="sql" theme={MONACO_THEME} defaultValue={active.sql} onChange={value => patch(active.id, { sql: value ?? '' })}
         onMount={(instance, monaco) => {
           editor.current = instance; monacoRef.current = monaco; bindCompletion(monaco, connection); registerSqlExtras(monaco)
           instance.onDidFocusEditorText(() => bindCompletion(monaco, connection))

@@ -551,7 +551,7 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
       expect(stats.some(item => item.name === name)).toBe(true)
       expect((await runtime.volumes()).some(item => item.name === `${name}-data`)).toBe(true)
       expect((await runtime.images()).some(item => item.repository.includes('postgres'))).toBe(true)
-      expect((await runtime.networks()).some(item => item.name === 'bridge')).toBe(true)
+      expect((await runtime.networks()).some(item => item.name === (ENGINE === 'podman' ? 'podman' : 'bridge'))).toBe(true)
       expect((await runtime.usage()).length).toBeGreaterThan(0)
       await expect(runtime.removeResource('volume', `${name}-data`)).rejects.toThrow()
       await expect(runtime.createDatabase({ engine: 'postgres', name, tag: '16-alpine' })).rejects.toThrow(/already exists/)
