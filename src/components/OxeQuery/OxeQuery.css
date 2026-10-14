@@ -111,6 +111,7 @@
 .oq-grid { flex: 1; min-height: 120px; overflow: auto; position: relative; font-size: 12px; font-family: var(--font-mono, ui-monospace, monospace); }
 .oq-grid-inner { position: relative; }
 .oq-grid-header, .oq-grid-row { display: flex; position: absolute; left: 0; height: 26px; }
+.oq-grid-header { position: sticky; }
 .oq-grid-header { top: 0; z-index: 1; background: var(--bg-elevated); border-bottom: 1px solid var(--bd-base); }
 .oq-grid-row { border-bottom: 1px solid color-mix(in srgb, var(--bd-base) 55%, transparent); }
 .oq-grid-header > span, .oq-grid-row > span { flex-shrink: 0; padding: 0 8px; line-height: 26px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -314,3 +315,20 @@
 .oq-resources { display: flex; flex-direction: column; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--sh-border, #2a2a33); max-height: 280px; overflow: auto; }
 .oq-resources > header { display: flex; align-items: center; gap: 8px; }
 .oq-stats { display: flex; flex-direction: column; font-variant-numeric: tabular-nums; }
+
+/* Grid: sticky header and row numbers, a block selection and column resizing. */
+.oq-grid:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.oq-grid-header { position: sticky; top: 0; left: 0; z-index: 2; }
+.oq-grid-header > span[role='columnheader'] { position: relative; }
+.oq-grid-index { position: sticky; left: 0; z-index: 1; background: var(--bg-elevated); }
+.oq-grid-row:hover .oq-grid-index { background: var(--bg-elevated); }
+.oq-grid-row .oq-grid-index { cursor: pointer; }
+.oq-grid-row .oq-grid-index:hover { color: var(--tx-primary); }
+.oq-grid-row [role='gridcell'] { user-select: none; }
+.oq-grid-row [role='gridcell'].is-range { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.oq-grid-row [role='gridcell'].is-focus { outline: 2px solid var(--accent); outline-offset: -2px; }
+.oq-grid-resize { position: absolute; top: 0; right: 0; width: 6px; height: 100%; cursor: col-resize; }
+.oq-grid-resize:hover { background: color-mix(in srgb, var(--accent) 50%, transparent); }
+.oq-grid-hide, .oq-grid-unhide { margin-left: 6px; padding: 0 4px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--tx-muted); cursor: pointer; font-size: 11px; opacity: 0; }
+.oq-grid-header > span:hover .oq-grid-hide, .oq-grid-hide:focus-visible { opacity: 1; }
+.oq-grid-unhide { opacity: 1; color: var(--accent); }
