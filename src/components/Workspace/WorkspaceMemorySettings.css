@@ -21,3 +21,10 @@
 .coordination-destinations { margin: 16px 0; border: 1px solid var(--bd-subtle); border-radius: var(--radius-md); padding: 12px; }
 .coordination-destinations > summary { cursor: pointer; color: var(--tx-primary); font-weight: 600; }
 .coordination-destinations > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.memory-settings .memory-pipeline { display: grid; gap: 4px; margin: 12px 0; }
+.memory-settings .memory-pipeline > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.memory-settings .memory-pipeline dt { color: var(--tx-secondary); min-width: 14rem; }
+.memory-settings .memory-pipeline dd { margin: 0; color: var(--tx-primary); overflow-wrap: anywhere; }
+.memory-settings .memory-offer { display: grid; gap: 6px; margin: 8px 0; padding: 10px 12px; border: 1px solid var(--bd-subtle); border-radius: var(--radius-md); }
+.memory-settings .memory-offer strong, .memory-settings .memory-offer small, .memory-settings .memory-offer li { overflow-wrap: anywhere; }
+.memory-settings .memory-offer small { color: var(--tx-secondary); }

@@ -4,7 +4,7 @@ import { mkdir, readFile, writeFile, copyFile, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import type { AppDatabase } from '../../db'
-import type { MemoryApi, MemoryContext, MemorySession, MemoryWorkspaceStatus } from '../../../../shared/types/memory'
+import type { MemoryApi, MemoryContext, MemorySession, MemoryStorageUsage, MemoryWorkspaceStatus } from '../../../../shared/types/memory'
 import type { ThreadEvent, ThreadSnapshot } from '../../../../shared/types/thread'
 import { MemoryProjectService, projectIdentity } from './memory-project.service'
 import { MemoryRuntime, memoryEnvironment, writePrivateJson } from './memory-runtime'
@@ -15,6 +15,7 @@ import { McpConfigSync } from '../mcp-sync.service'
 import { buildTomlTable } from '../../vendor/codegraph/installer/targets/toml'
 import { matchingMemoryMarker } from './memory-marker'
 import { MemoryOutbox, type MemoryDelivery } from './memory-outbox'
+import { measureMemoryStorage } from './memory-storage'
 import { MemoryDeliveryWorker } from './memory-delivery'
 
 interface Run {
@@ -80,9 +81,16 @@ export class MemoryService implements MemoryApi {
       if (health.status === 'unavailable' && this.runtime.lastError) health.message = this.runtime.lastError
     }
     if (!outboxReady && settings.enabled) health.message = 'Thread memory queue is unavailable; automatic external capture is disabled'
+    const delivery = this.delivery.stats()
+    // Only stages this process can observe are reported; consolidation stays unknown on purpose.
+    health.pipeline = {
+      capture: !settings.enabled || !settings.automaticCapture ? 'disabled' : outboxReady ? 'active' : 'failed',
+      delivery: !settings.enabled ? 'unknown' : delivery.state,
+      consolidation: 'unknown'
+    }
     return { projectId: context.projectId, settings, runtime: this.runtime.settings(), health,
       rollbackAvailable: await this.runtime.rollbackAvailable(),
-      ...(outboxReady ? { outbox: { ...this.outbox.stats(), ...this.delivery.stats() } } : {}),
+      ...(outboxReady ? { outbox: { ...this.outbox.stats(), ...delivery } } : {}),
       sessions: [...this.runs.values()].filter(run => run.context.projectId === context.projectId && run.active).flatMap(run => [...run.sessions.values()]) }
   }
   async configure(input: Parameters<MemoryApi['configure']>[0]): Promise<MemoryWorkspaceStatus> {
@@ -130,6 +138,28 @@ export class MemoryService implements MemoryApi {
   async recent(workspaceId: string) {
     const context = await this.projects.workspace(workspaceId)
     return this.manager.run(context, provider => provider.recent(context))
+  }
+  private storageCache: { at: number; value: MemoryStorageUsage } | undefined
+  /** Cached for a minute: a scan is bounded but not free. */
+  async storage(): Promise<MemoryStorageUsage> {
+    if (this.storageCache && Date.now() - this.storageCache.at < 60_000) return this.storageCache.value
+    const value = await measureMemoryStorage(this.runtime.directory)
+    this.storageCache = { at: Date.now(), value }
+    return value
+  }
+  async handoffs(workspaceId: string) {
+    const context = await this.projects.workspace(workspaceId)
+    return this.manager.run(context, provider => provider.listHandoffs(context), 'read')
+  }
+  async acceptHandoff(input: Parameters<MemoryApi['acceptHandoff']>[0]) {
+    const context = await this.projects.workspace(input.workspaceId)
+    // Reject before consuming: the offer must still be listed for this project.
+    return this.manager.run(context, async provider => {
+      await provider.acceptHandoff(context, input.handoffId)
+      const accepted = (await provider.listHandoffs(context)).find(handoff => handoff.id === input.handoffId)
+      if (!accepted) throw new Error('Accepted handoff could not be read back')
+      return accepted
+    })
   }
   async init(): Promise<void> {
     if (this.stopping) return

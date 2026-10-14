@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronRight, File } from 'lucide-react'
 import { type ReactElement } from 'react'
+import { useTreeKeyboard } from '../../hooks/useTreeKeyboard'
 import type { GitDiffFile } from '../../../shared/types/git'
 
 interface DirNode {
@@ -72,6 +73,8 @@ function DirRow({ node, depth, isCollapsed, onToggleCollapsed }: DirRowProps): R
   return (
     <button
       type="button"
+      role="treeitem"
+      aria-level={depth + 1}
       className={`review-tree-dir${allReviewed ? ' all-reviewed' : ''}`}
       style={{ paddingLeft: depth * 12 + 4 }}
       onClick={onToggleCollapsed}
@@ -103,12 +106,15 @@ interface FileRowProps {
 function FileRow({ depth, file, label, onSelect, onToggleReviewed, reviewed, selected }: FileRowProps): ReactElement {
   return (
     <div
+      role="none"
       className={`review-tree-file${selected ? ' selected' : ''}${reviewed ? ' reviewed' : ''}`}
       style={{ paddingLeft: depth * 12 + 8 }}
     >
       <input
         type="checkbox"
         className="review-tree-checkbox"
+        tabIndex={-1}
+        data-tree-action=""
         checked={reviewed}
         onChange={onToggleReviewed}
         onClick={(e) => e.stopPropagation()}
@@ -116,6 +122,9 @@ function FileRow({ depth, file, label, onSelect, onToggleReviewed, reviewed, sel
       />
       <button
         type="button"
+        role="treeitem"
+        aria-level={depth + 1}
+        aria-selected={selected}
         className="review-tree-file-body"
         onClick={onSelect}
         title={file.path}
@@ -148,7 +157,7 @@ function RenderNode({ node, depth, reviewedFiles, collapsedDirs, selectedFile, o
       {node.children.map((child) => {
         const collapsed = collapsedDirs.has(child.fullPath)
         return (
-          <div key={child.fullPath}>
+          <div key={child.fullPath} role="none">
             <DirRow
               node={child}
               depth={depth}
@@ -211,6 +220,7 @@ export function ReviewFileTree({
 }: ReviewFileTreeProps): ReactElement {
   const reviewedSet = new Set(reviewedFiles)
   const collapsedSet = new Set(collapsedDirs)
+  const treeNav = useTreeKeyboard<HTMLDivElement>()
 
   return (
     <div className="review-file-tree review-file-tree-v2">
@@ -230,7 +240,7 @@ export function ReviewFileTree({
         </div>
       </div>
 
-      <div className="review-file-tree-list" role="tree">
+      <div className="review-file-tree-list" role="tree" aria-label="Review files" ref={treeNav.ref} onKeyDown={treeNav.onKeyDown}>
         {treeMode === 'structured' ? (
           <RenderNode
             node={buildTree(files, reviewedSet)}

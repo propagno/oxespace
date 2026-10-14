@@ -58,8 +58,8 @@ describe('EditorPane', () => {
     const user = userEvent.setup()
     render(<EditorPane workspaceId="workspace-1" rootPath="C:/repo" />)
 
-    await user.click(await screen.findByRole('button', { name: /src/i }))
-    await user.click(await screen.findByRole('button', { name: /index\.ts/i }))
+    await user.click(await screen.findByRole('treeitem', { name: /src/i }))
+    await user.click(await screen.findByRole('treeitem', { name: /index\.ts/i }))
     const monaco = await screen.findByLabelText('monaco-typescript')
     expect(monaco).toHaveValue('const a = 1')
     expect(monaco).toHaveAttribute('data-height', '100%')
@@ -79,20 +79,20 @@ describe('EditorPane', () => {
     const user = userEvent.setup()
     render(<EditorPane workspaceId="workspace-1" rootPath="C:/repo" />)
 
-    const directory = await screen.findByRole('button', { name: /src/i })
+    const directory = await screen.findByRole('treeitem', { name: /src/i })
     expect(directory).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.queryByRole('button', { name: /index\.ts/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('treeitem', { name: /index\.ts/i })).not.toBeInTheDocument()
 
     await user.click(directory)
     expect(directory).toHaveAttribute('aria-expanded', 'true')
-    expect(screen.getByRole('button', { name: /index\.ts/i })).toBeInTheDocument()
+    expect(screen.getByRole('treeitem', { name: /index\.ts/i })).toBeInTheDocument()
 
     await user.click(directory)
     expect(directory).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.queryByRole('button', { name: /index\.ts/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('treeitem', { name: /index\.ts/i })).not.toBeInTheDocument()
 
     await user.click(directory)
-    await user.click(screen.getByRole('button', { name: /index\.ts/i }))
+    await user.click(screen.getByRole('treeitem', { name: /index\.ts/i }))
 
     expect(await screen.findByLabelText('monaco-typescript')).toHaveValue('const a = 1')
     expect(document.querySelector('.editor-body')).toBeInTheDocument()
@@ -117,8 +117,8 @@ describe('EditorPane', () => {
     const user = userEvent.setup()
     render(<EditorPane workspaceId="workspace-1" rootPath="C:/repo" />)
 
-    await user.click(await screen.findByRole('button', { name: /src/i }))
-    await user.click(await screen.findByRole('button', { name: /index\.ts/i }))
+    await user.click(await screen.findByRole('treeitem', { name: /src/i }))
+    await user.click(await screen.findByRole('treeitem', { name: /index\.ts/i }))
     await user.clear(screen.getByLabelText('monaco-typescript'))
     await user.type(screen.getByLabelText('monaco-typescript'), 'local')
 

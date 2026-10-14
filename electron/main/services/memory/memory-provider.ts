@@ -11,5 +11,6 @@ export interface MemoryProvider {
   getRelevantContext(context: MemoryContext, task?: string): Promise<ProjectContext>
   getRecentSessions(context: MemoryContext): Promise<MemorySession[]>
   listHandoffs(context: MemoryContext): Promise<MemoryHandoff[]>
-  acceptHandoff(context: MemoryContext): Promise<unknown>
+  /** Accepts exactly the offer with this ID; never falls back to another eligible offer. */
+  acceptHandoff(context: MemoryContext, handoffId: string): Promise<unknown>
 }

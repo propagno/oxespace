@@ -2,6 +2,10 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { ConversationThread, ThreadAttachment, ThreadProjectSummary, ThreadSnapshot } from '../../shared/types/thread'
 import { cacheThreadSnapshot, retainThreadSnapshots } from './threadSnapshotCache'
+import { createDraftWriter, loadStoredDrafts } from '../utils/threadDrafts'
+
+// Read once, before the store exists: the writer needs the saved edit times to let old drafts expire.
+const storedDrafts = loadStoredDrafts()
 
 interface ThreadState {
   threads: ConversationThread[]; projects: ThreadProjectSummary[]; unavailableProjects: string[]
@@ -41,7 +45,7 @@ function deltaEnabled(): boolean {
 }
 let generation = 0, catalogGeneration = 0, projectGeneration = 0
 export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
-  threads: [], projects: [], unavailableProjects: [], selectedId: null, snapshot: null, secondaryId: null, activeCell: 'primary', snapshotCache: {}, snapshotCacheOrder: [], drafts: {}, attachments: {}, scrollPositions: {}, expanded: {}, errors: {}, loading: false, hiddenProjects: [], unreadIds: [],
+  threads: [], projects: [], unavailableProjects: [], selectedId: null, snapshot: null, secondaryId: null, activeCell: 'primary', snapshotCache: {}, snapshotCacheOrder: [], drafts: storedDrafts.drafts, attachments: {}, scrollPositions: {}, expanded: {}, errors: {}, loading: false, hiddenProjects: [], unreadIds: [],
   markUnread: id => set(state => ({ unreadIds: [...new Set([...state.unreadIds, id])] })),
   markRead: id => set(state => ({ unreadIds: state.unreadIds.filter(value => value !== id) })),
   hideProject: async id => {
@@ -197,3 +201,12 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
     unreadIds: Array.isArray(value?.unreadIds) ? [...new Set(value.unreadIds.filter((id): id is string => typeof id === 'string'))] : [],
     expanded: Object.fromEntries(Object.entries(value?.expanded ?? {}).filter(([, v]) => typeof v === 'boolean')) as Record<string, boolean> }
 } }))
+
+// Drafts survive a restart. Writes are debounced and flushed when the window closes, so
+// the last keystrokes are not lost if the app is closed right after typing.
+const draftWriter = createDraftWriter(400, undefined, storedDrafts)
+useThreadStore.subscribe((state, previous) => { if (state.drafts !== previous.drafts) draftWriter.schedule(state.drafts) })
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', () => draftWriter.flush())
+  window.addEventListener('beforeunload', () => draftWriter.flush())
+}

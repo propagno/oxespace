@@ -9,6 +9,9 @@ function text(value: unknown): string {
 export function registerMemoryIpc(service: MemoryApi): void {
   ipcMain.handle(IPC_CHANNELS.memory.status, (_event, workspaceId) => service.status(text(workspaceId)))
   ipcMain.handle(IPC_CHANNELS.memory.recent, (_event, workspaceId) => service.recent(text(workspaceId)))
+  ipcMain.handle(IPC_CHANNELS.memory.handoffs, (_event, workspaceId) => service.handoffs(text(workspaceId)))
+  ipcMain.handle(IPC_CHANNELS.memory.acceptHandoff, (_event, input) => service.acceptHandoff({ workspaceId: text(input?.workspaceId), handoffId: text(input?.handoffId) }))
+  ipcMain.handle(IPC_CHANNELS.memory.storage, () => service.storage())
   ipcMain.handle(IPC_CHANNELS.memory.install, () => service.install())
   ipcMain.handle(IPC_CHANNELS.memory.rollback, (_event, workspaceId) => service.rollback(text(workspaceId)))
   ipcMain.handle(IPC_CHANNELS.memory.setupAgents, (_event, workspaceId) => service.setupAgents(text(workspaceId)))

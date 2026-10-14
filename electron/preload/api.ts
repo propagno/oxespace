@@ -142,7 +142,10 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       rollback: (id) => ipc.invoke(IPC_CHANNELS.memory.rollback, id) as ReturnType<OxeApi['memory']['rollback']>,
       setupAgents: (id) => ipc.invoke(IPC_CHANNELS.memory.setupAgents, id) as Promise<string>,
       search: (input) => ipc.invoke(IPC_CHANNELS.memory.search, input) as ReturnType<OxeApi['memory']['search']>,
-      recent: (id) => ipc.invoke(IPC_CHANNELS.memory.recent, id) as ReturnType<OxeApi['memory']['recent']>
+      recent: (id) => ipc.invoke(IPC_CHANNELS.memory.recent, id) as ReturnType<OxeApi['memory']['recent']>,
+      storage: () => ipc.invoke(IPC_CHANNELS.memory.storage) as ReturnType<OxeApi['memory']['storage']>,
+      handoffs: (id) => ipc.invoke(IPC_CHANNELS.memory.handoffs, id) as ReturnType<OxeApi['memory']['handoffs']>,
+      acceptHandoff: (input) => ipc.invoke(IPC_CHANNELS.memory.acceptHandoff, input) as ReturnType<OxeApi['memory']['acceptHandoff']>
     },
     app: {
       version: packageJson.version,

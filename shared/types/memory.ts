@@ -8,8 +8,11 @@ export interface MemoryContext {
   sessionId?: string
 }
 
-export interface MemoryInput { text: string; title?: string }
-export interface MemoryResult { text: string; path?: string; source: string }
+export type MemoryKind = 'decision' | 'lesson' | 'issue' | 'todo' | 'preference'
+export const MEMORY_KINDS: readonly MemoryKind[] = ['decision', 'lesson', 'issue', 'todo', 'preference']
+/** supersedes is the page path of an earlier note this one corrects; nothing is merged or deleted automatically. */
+export interface MemoryInput { text: string; title?: string; kind?: MemoryKind; supersedes?: string }
+export interface MemoryResult { text: string; path?: string; source: string; title?: string; updatedAt?: string; score?: number }
 export interface MemorySession { sessionId: string; agentId: string; cwd: string; ended: boolean }
 export interface MemoryHandoff { id: string; summary: string; cwd?: string; state: string; nextSteps: string[]; openQuestions: string[]; filesTouched: string[] }
 export interface ProjectContext { text: string; sources: string[] }
@@ -44,8 +47,10 @@ export interface MemoryWorkspaceStatus {
   health: MemoryHealth
   sessions: MemorySession[]
   rollbackAvailable?: boolean
-  outbox?: { pending: number; quarantined: number; bytes: number; refused: number; stored: number; replayed: number; dropped: number; failed: number }
+  outbox?: { pending: number; quarantined: number; bytes: number; refused: number; stored: number; replayed: number; dropped: number; failed: number; oldestAt?: number; lastDeliveredAt?: number; lastFailureAt?: number }
 }
+/** Physical bytes per top-level entry of the memory directory. Informational only: nothing here is deleted by the app. */
+export interface MemoryStorageUsage { categories: Record<string, number>; totalBytes: number; truncated: boolean; measuredAt: number }
 export type MemoryReply<T> = { status: 'ok'; value: T } | { status: 'disabled' | 'unavailable'; message: string }
 export interface MemoryApi {
   status(workspaceId: string): Promise<MemoryWorkspaceStatus>
@@ -55,4 +60,9 @@ export interface MemoryApi {
   setupAgents(workspaceId: string): Promise<string>
   search(input: { workspaceId: string; query: string }): Promise<MemoryReply<MemoryResult[]>>
   recent(workspaceId: string): Promise<MemoryReply<MemoryResult[]>>
+  storage(): Promise<MemoryStorageUsage>
+  /** Offers are listed without being consumed. */
+  handoffs(workspaceId: string): Promise<MemoryReply<MemoryHandoff[]>>
+  /** Consumes exactly this offer; stale or already accepted offers are refused. */
+  acceptHandoff(input: { workspaceId: string; handoffId: string }): Promise<MemoryReply<MemoryHandoff>>
 }

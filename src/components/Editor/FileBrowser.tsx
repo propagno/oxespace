@@ -2,6 +2,7 @@ import { ChevronDown, ChevronRight, FileText, Folder } from 'lucide-react'
 import { useState, type ReactElement } from 'react'
 import type { FileTreeNode } from '../../../shared/types/ipc'
 import { EmptyState } from '../../ui'
+import { useTreeKeyboard } from '../../hooks/useTreeKeyboard'
 
 interface FileBrowserProps {
   nodes: FileTreeNode[]
@@ -15,6 +16,7 @@ export function FileBrowser({ nodes, onOpenFile, rootPath, selectedPath, workspa
   const [childrenByPath, setChildrenByPath] = useState<Record<string, FileTreeNode[]>>({})
   const [loadingByPath, setLoadingByPath] = useState<Record<string, boolean>>({})
   const [errorByPath, setErrorByPath] = useState<Record<string, string>>({})
+  const tree = useTreeKeyboard<HTMLDivElement>()
 
   const loadDirectory = async (relativePath: string): Promise<FileTreeNode[]> => {
     if (childrenByPath[relativePath]) return childrenByPath[relativePath]
@@ -38,10 +40,14 @@ export function FileBrowser({ nodes, onOpenFile, rootPath, selectedPath, workspa
 
   return (
     <nav className="editor-browser" aria-label="Workspace files">
-      {nodes.map((node) => (
+      <div className="editor-browser-tree" role="tree" aria-label="Files" ref={tree.ref} onKeyDown={tree.onKeyDown}>
+      {nodes.map((node, index) => (
         <FileNode
           key={node.relativePath}
           node={node}
+          level={1}
+          position={index + 1}
+          siblings={nodes.length}
           rootPath={rootPath}
           selectedPath={selectedPath}
           onOpenFile={onOpenFile}
@@ -51,12 +57,17 @@ export function FileBrowser({ nodes, onOpenFile, rootPath, selectedPath, workspa
           errorByPath={errorByPath}
         />
       ))}
+      </div>
     </nav>
   )
 }
 
 interface FileNodeProps {
   node: FileTreeNode
+  /** 1-based depth, position among siblings and sibling count: the tree's ARIA coordinates. */
+  level: number
+  position: number
+  siblings: number
   rootPath: string
   selectedPath: string | null
   onOpenFile: (relativePath: string) => void
@@ -74,7 +85,7 @@ function buildAbsolutePath(rootPath: string, relativePath: string): string {
   return full.includes(' ') ? `"${full}"` : full
 }
 
-function FileNode({ node, onOpenFile, rootPath, selectedPath, loadDirectory, childrenByPath, loadingByPath, errorByPath }: FileNodeProps): ReactElement {
+function FileNode({ node, level, position, siblings, onOpenFile, rootPath, selectedPath, loadDirectory, childrenByPath, loadingByPath, errorByPath }: FileNodeProps): ReactElement {
   const [isExpanded, setIsExpanded] = useState(false)
 
   const handleDragStart = (event: React.DragEvent): void => {
@@ -99,6 +110,10 @@ function FileNode({ node, onOpenFile, rootPath, selectedPath, loadDirectory, chi
         <button
           type="button"
           className="editor-browser-directory"
+          role="treeitem"
+          aria-level={level}
+          aria-posinset={position}
+          aria-setsize={siblings}
           aria-expanded={isExpanded}
           draggable
           onDragStart={handleDragStart}
@@ -114,10 +129,13 @@ function FileNode({ node, onOpenFile, rootPath, selectedPath, loadDirectory, chi
             {isLoading ? <EmptyState compact title="Loading" /> : null}
             {error ? <div className="editor-error">{error}</div> : null}
             {!isLoading && !error && children.length === 0 ? <EmptyState compact title="Empty" /> : null}
-            {children.map((child) => (
+            {children.map((child, childIndex) => (
               <FileNode
                 key={child.relativePath}
                 node={child}
+                level={level + 1}
+                position={childIndex + 1}
+                siblings={children.length}
                 rootPath={rootPath}
                 selectedPath={selectedPath}
                 onOpenFile={onOpenFile}
@@ -137,6 +155,11 @@ function FileNode({ node, onOpenFile, rootPath, selectedPath, loadDirectory, chi
     <button
       type="button"
       className={`editor-browser-file${selectedPath === node.relativePath ? ' active' : ''}`}
+      role="treeitem"
+      aria-level={level}
+      aria-posinset={position}
+      aria-setsize={siblings}
+      aria-selected={selectedPath === node.relativePath}
       title={node.relativePath}
       draggable
       onDragStart={handleDragStart}

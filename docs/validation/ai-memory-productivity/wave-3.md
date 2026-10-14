@@ -49,3 +49,18 @@ node scripts/test-electron.mjs tests/integration/memory-thread.native.test.ts --
 ```
 
 Ainda ficam pendentes o piloto visual autenticado na janela do Electron, a revisão Linux desta onda e a matriz completa Code/Thread × provedor × SO. T07/V07 permanece aberto até essas evidências existirem.
+
+## Piloto autenticado — 2026-10-14
+
+Campanha `tests/integration/memory-thread.native.test.ts` (ThreadManager → MemoryService → `hook --check-capture` → outbox → `/hook/batch`) com o binário oficial 2.6.2 Windows x64 (ZIP `740952e3…`, executável `409eeb65…`, ambos conferidos) e contas reais conectadas.
+
+| Provedor | Resultado | Observação |
+|---|---|---|
+| Claude Code | Aprovado | Dois turnos na mesma conexão, interrupção, reinício dos serviços e retomada do ID nativo; sem dupla persistência. |
+| Codex CLI 0.155.1 | Aprovado (28 s) | A primeira execução falhou no turno 1 por configuração da conta: o modelo padrão `gpt-6-astra` não é aceito com ChatGPT (HTTP 400). Repetido com `CODEX_HOME` temporário usando `gpt-6-luna`; a configuração do usuário não foi alterada e a cópia temporária foi apagada. |
+
+**Limites mantidos:** é uma campanha pelos adaptadores e serviços reais, **não** um piloto dentro da janela do Electron; a criptografia do token continua substituída na fixture (sem `safeStorage`). A cobertura de UI vem de testes de componente e do E2E com IPC simulado. Linux: a workflow `Memory compatibility` aprovou as quatro células na revisão `fdc0191` (contratos 2.1.0/2.6.2 e regressões de outbox/serviço), sem provedores autenticados no Linux. A matriz Code × Thread × provedor × SO continua parcial e o piloto humano de um dia (V14) não foi feito.
+
+## Status para a 1.0
+
+Seguro para liberar como **beta opt-in** (desligado por padrão, rótulo "Beta" no painel). Não é elegível para "estável": faltam retomada/handoff (T08–T11), benchmark pareado (V12), carga de 2 h e piloto de 1 dia (V14) e pacote instalado certificado (T16).

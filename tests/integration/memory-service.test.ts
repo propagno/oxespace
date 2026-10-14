@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { openInMemoryDatabase, type AppDatabase } from '../../electron/main/db'
 import { WorkspaceService } from '../../electron/main/services/workspace.service'
 import { MemoryService } from '../../electron/main/services/memory/memory.service'
+import { AiMemoryProvider } from '../../electron/main/services/memory/ai-memory.provider'
 import type { ThreadSnapshot } from '../../shared/types/thread'
 
 vi.mock('electron', () => ({ safeStorage: { isEncryptionAvailable: () => true,
@@ -41,6 +42,32 @@ describe('execution-scoped memory facade', () => {
     release()
     await operation
     expect(await service.prepareLaunch({ paneId: 'thread:allowed', workspaceId: workspace.id, cwd: root, captureOwner: 'native' })).toHaveProperty('OXESPACE_MEMORY_RUN')
+  })
+  test('status reports observable pipeline stages and leaves consolidation unknown', async () => {
+    const { workspace, service, context } = await fixture()
+    vi.spyOn(service.runtime, 'client').mockImplementation(() => { throw new Error('offline') })
+    const enabled = await service.status(workspace.id)
+    expect(enabled.health.pipeline).toEqual({ capture: 'active', delivery: 'idle', consolidation: 'unknown' })
+    service.projects.configure(context.projectId, { enabled: true, automaticCapture: false, automaticContext: false })
+    expect((await service.status(workspace.id)).health.pipeline).toMatchObject({ capture: 'disabled', consolidation: 'unknown' })
+    service.projects.configure(context.projectId, { enabled: false, automaticCapture: false, automaticContext: false })
+    expect((await service.status(workspace.id)).health.pipeline).toEqual({ capture: 'disabled', delivery: 'unknown', consolidation: 'unknown' })
+  })
+  test('handoff reads never consume and accept forwards exactly the chosen id', async () => {
+    const { workspace, service } = await fixture()
+    const offers = [{ id: 'a', summary: 'A', state: 'open', nextSteps: [], openQuestions: [], filesTouched: [] }, { id: 'b', summary: 'B', state: 'open', nextSteps: [], openQuestions: [], filesTouched: [] }]
+    vi.spyOn(AiMemoryProvider.prototype, 'listHandoffs').mockImplementation(async () => offers)
+    const accept = vi.spyOn(AiMemoryProvider.prototype, 'acceptHandoff').mockImplementation(async () => { offers[1].state = 'accepted'; return {} })
+    expect(await service.handoffs(workspace.id)).toMatchObject({ status: 'ok', value: [{ id: 'a' }, { id: 'b' }] })
+    expect(accept).not.toHaveBeenCalled()
+    const accepted = await service.acceptHandoff({ workspaceId: workspace.id, handoffId: 'b' })
+    expect(accept).toHaveBeenCalledWith(expect.objectContaining({ project: expect.any(String) }), 'b')
+    expect(accepted).toMatchObject({ status: 'ok', value: { id: 'b', state: 'accepted' } })
+  })
+  test('a failed or stale accept is reported as unavailable without a success', async () => {
+    const { workspace, service } = await fixture()
+    vi.spyOn(AiMemoryProvider.prototype, 'acceptHandoff').mockRejectedValue(new Error('Handoff offer not found'))
+    expect(await service.acceptHandoff({ workspaceId: workspace.id, handoffId: 'gone' })).toMatchObject({ status: 'unavailable' })
   })
   test('hookless Thread has a scoped MCP run but cannot claim native capture', async () => {
     const { workspace, service, root } = await fixture()

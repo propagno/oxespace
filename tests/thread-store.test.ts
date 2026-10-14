@@ -121,3 +121,20 @@ describe('Thread navigation store', () => {
     expect(useThreadStore.getState().activeCell).toBe('secondary')
   })
 })
+
+describe('Thread drafts across a restart', () => {
+  it('persists a draft after typing stops and restores it in a fresh store', async () => {
+    try {
+      localStorage.removeItem('oxe.thread-drafts')
+      useThreadStore.getState().setDraft('thread-a', 'half written message')
+      // Real timers: the store's writer may already hold a pending debounce from setup.
+      await new Promise(resolve => setTimeout(resolve, 600))
+      expect(JSON.parse(localStorage.getItem('oxe.thread-drafts') ?? '{}')).toEqual({ 'thread-a': { text: 'half written message', at: expect.any(Number) } })
+      vi.resetModules()
+      const fresh = await import('../src/store/thread.store')
+      expect(fresh.useThreadStore.getState().drafts).toEqual({ 'thread-a': 'half written message' })
+    } finally {
+      localStorage.removeItem('oxe.thread-drafts')
+    }
+  })
+})
