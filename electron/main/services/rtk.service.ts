@@ -6,6 +6,7 @@ import * as https from 'node:https'
 import * as fs from 'node:fs/promises'
 import log from 'electron-log'
 import type { RtkUpdateState } from '../../../shared/types/updater'
+import { verifyArchiveChecksum } from './rtk-checksum'
 
 const execFileAsync = promisify(execFile)
 
@@ -286,12 +287,19 @@ export class RtkService {
     }
 
     const archivePath = join(this.binDir, isZip ? 'rtk.zip' : 'rtk.tar.gz')
+    const checksumsPath = join(this.binDir, 'rtk-checksums.txt')
+    const assetName = url.slice(url.lastIndexOf('/') + 1)
+    const checksumsUrl = `${url.slice(0, url.lastIndexOf('/') + 1)}checksums.txt`
     const stagingDir = join(this.binDir, '.rtk-staging')
     try {
       await fs.rm(stagingDir, { recursive: true, force: true })
       await fs.mkdir(stagingDir, { recursive: true })
       await downloadFile(url, archivePath)
-      log.info('[RtkService] RTK archive downloaded, extracting...')
+      // The archive is executed, so it is checked against the checksum the release
+      // publishes before anything is extracted. A missing or wrong checksum aborts.
+      await downloadFile(checksumsUrl, checksumsPath)
+      await verifyArchiveChecksum(archivePath, assetName, readFileSync(checksumsPath, 'utf8'))
+      log.info('[RtkService] RTK archive verified, extracting...')
 
       if (isZip) {
         await execFileAsync('tar', ['-xf', archivePath, '-C', stagingDir])
@@ -342,6 +350,7 @@ export class RtkService {
       if (existsSync(archivePath)) {
         await fs.unlink(archivePath).catch(() => {})
       }
+      await fs.unlink(checksumsPath).catch(() => {})
       await fs.rm(stagingDir, { recursive: true, force: true }).catch(() => {})
     }
   }
