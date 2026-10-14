@@ -531,7 +531,7 @@ jobs:
 
   release:
     name: Publish GitHub Release
-    needs: [build, oxequery-live, memory-compatibility]
+    needs: [build, oxequery-live, oxequery-live-versions, memory-compatibility]
     if: needs.build.outputs.should_release == 'true'
     runs-on: windows-2022
     timeout-minutes: 30
