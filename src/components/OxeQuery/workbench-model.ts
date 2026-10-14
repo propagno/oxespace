@@ -76,3 +76,8 @@ export function completeFilters(filters: SqlFilter[]): SqlFilter[] {
 export const FILTER_LABELS: Record<SqlFilter['op'], string> = {
   eq: 'equals', ne: 'is not', lt: '<', lte: '≤', gt: '>', gte: '≥', contains: 'contains', startsWith: 'starts with', endsWith: 'ends with', null: 'is empty', notNull: 'is not empty', in: 'is one of'
 }
+
+/** True for the errors a dropped connection produces: the next statement can dial again, and a person may want to do it now. */
+export function looksLikeLostConnection(message: string): boolean {
+  return /connection terminated|connection closed|client has encountered a connection error|econnreset|econnrefused|epipe|etimedout|socket (hang up|closed)|server closed the connection|topology (was )?destroyed|pool (was )?cleared|tunnel|connection d+ to S+ closed|MongoNetworkError/i.test(message)
+}

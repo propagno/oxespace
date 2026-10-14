@@ -6,6 +6,8 @@ import { OxeQueryClientError, errorMessage, oq } from './client'
 import { ExportButton } from './TableEditor'
 import { ImportButton } from './ImportDialog'
 import { LibraryMenu } from './LibraryMenu'
+import { ReconnectBar } from './ReconnectBar'
+import { looksLikeLostConnection } from './workbench-model'
 import { MongoInsights } from './MongoInsights'
 import { DocumentTree, ExplainCard } from './MongoPanels'
 import { PAGE_SIZES, cloneDocument, documentLabel, jsonProblem, prettyDocument } from './mongo-model'
@@ -202,6 +204,7 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
           </> : <label className="oq-mongo-wide">Pipeline<textarea aria-label="Pipeline" aria-invalid={problems.pipeline ? true : undefined} spellCheck={false} value={pipeline} onChange={event => setPipeline(event.target.value)} rows={7} />{problems.pipeline && <small className="oq-field-error" role="alert">{problems.pipeline}</small>}</label>}
         </div>
         {error && <p role="alert" className="oq-error">{error}</p>}
+        {error && looksLikeLostConnection(error) && <ReconnectBar connection={connection} onReconnected={() => void run(0)} />}
         {explain && <ExplainCard explain={explain} onClose={() => setExplain(null)} />}
         <div className="oq-results">
           <div className="oq-results-bar">

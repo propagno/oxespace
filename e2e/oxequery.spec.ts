@@ -724,3 +724,56 @@ test('the MongoDB workbench validates its fields, explains a plan, shows a tree,
     await expect(page.getByRole('dialog', { name: 'New collection in shop' }).getByRole('button', { name: 'Create' })).toBeDisabled()
   } finally { await app.close() }
 })
+
+test('connections can be favorited, grouped, colored, duplicated, found by search and opened without saving', async () => {
+  test.setTimeout(120000)
+  const root = mkdtempSync(join(tmpdir(), 'oxespace-oxequery-organize-'))
+  const repo = join(root, 'repo'); mkdirSync(repo)
+  const app = await electron.launch({ args: [join(process.cwd(), 'e2e/electron-main.cjs')], env: {
+    ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'app.sqlite3')
+  } })
+  try {
+    const page = await app.firstWindow()
+    await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0].setSize(1024, 700) })
+    await page.waitForLoadState('domcontentloaded')
+    await page.getByTestId('btn-new-workspace').click()
+    await page.getByTestId('wizard-dir-input').fill(repo)
+    await page.getByTestId('wizard-layout-card-1').click()
+    await page.getByTestId('wizard-launch-btn').click()
+    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
+    await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
+    await expect(page.getByRole('tab', { name: 'pg-dev' })).toBeVisible()
+    const list = page.getByRole('region', { name: 'Connections' })
+
+    // Group and color in the form show up as a heading and on the tab.
+    await list.getByRole('button', { name: 'Edit pg-dev' }).click()
+    const form = page.getByRole('dialog', { name: 'Edit connection' })
+    await form.getByLabel('Group').fill('Client A')
+    await form.getByRole('radio', { name: 'teal' }).click()
+    await form.getByRole('button', { name: 'Save' }).click()
+    await expect(list.getByRole('button', { name: /^Client A/ })).toBeVisible()
+    await expect(page.locator('.oq-tab[data-color="teal"]')).toHaveCount(1)
+
+    // Favorite and duplicate.
+    await list.getByRole('button', { name: 'Favorite pg-dev' }).first().click()
+    await expect(list.getByRole('button', { name: /^Favorites/ })).toBeVisible()
+    await list.getByRole('button', { name: 'Duplicate pg-dev' }).first().click()
+    await expect(list.getByRole('button', { name: 'Edit pg-dev copy' }).first()).toBeVisible()
+
+    // Without saving: it is listed apart, and a tab opens for it.
+    await list.getByRole('button', { name: 'New connection' }).click()
+    const dialog = page.getByRole('dialog', { name: 'New connection' })
+    await dialog.getByLabel('Name').fill('scratch')
+    await dialog.getByRole('button', { name: 'Connect without saving' }).click()
+    await expect(page.getByRole('tab', { name: 'scratch' })).toBeVisible()
+    await expect(list.getByRole('button', { name: /^Not saved/ })).toBeVisible()
+    await expect(list.getByRole('button', { name: 'Edit scratch' })).toHaveCount(0)
+
+    // Enough connections to need search.
+    await list.getByRole('button', { name: 'Duplicate pg-dev' }).first().click()
+    await list.getByRole('button', { name: 'Duplicate pg-dev' }).first().click()
+    await page.getByRole('searchbox', { name: 'Search connections' }).fill('scratch')
+    await expect(list.getByRole('button', { name: /^Matches/ })).toBeVisible()
+    await expect(list.getByRole('button', { name: 'Close scratch' })).toBeVisible()
+  } finally { await app.close() }
+})

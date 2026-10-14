@@ -12,12 +12,13 @@ import { displayCell, formatRows, type CopyFormat } from './grid-format'
 import { LibraryMenu } from './LibraryMenu'
 import { ExportButton, TableEditor } from './TableEditor'
 import { SchemaTree } from './SchemaTree'
+import { ReconnectBar } from './ReconnectBar'
 import { ImportButton } from './ImportDialog'
 import { ExplainView } from './ExplainView'
 import { bindCompletion, cacheFor } from './sql-completion'
 import { registerSqlExtras } from './sql-snippets'
 import { CellViewer, FilterBar, ParamsBar, TxBar } from './WorkbenchPanels'
-import { MAX_TABS, completeFilters, newTab, outputsFromScript, restoreWorkspace, serializeWorkspace, type Browse, type Output, type ParamValue, type QueryTab } from './workbench-model'
+import { MAX_TABS, completeFilters, looksLikeLostConnection, newTab, outputsFromScript, restoreWorkspace, serializeWorkspace, type Browse, type Output, type ParamValue, type QueryTab } from './workbench-model'
 
 const ROW_LIMITS = [100, 500, 1000, 5000, 10_000, 50_000, 100_000]
 const PAGE = 100
@@ -313,7 +314,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
           {result && columns.length > 0 && <select aria-label="Copy results as" value="" onChange={event => { if (event.target.value) copyAs(event.target.value as CopyFormat) }}>
             <option value="">Copy as…</option><option value="csv">CSV</option><option value="tsv">TSV (spreadsheet)</option><option value="json">JSON</option><option value="markdown">Markdown table</option><option value="insert">INSERT statements</option></select>}
         </div>
-        {error && <div role="alert" className="oq-query-error"><strong>Query failed</strong>{error.sqlState && <small> SQLSTATE {error.sqlState}</small>}<pre>{error.message}</pre>{error.hint && <p className="oq-muted">Hint: {error.hint}</p>}</div>}
+        {error && <div role="alert" className="oq-query-error"><strong>Query failed</strong>{error.sqlState && <small> SQLSTATE {error.sqlState}</small>}<pre>{error.message}</pre>{error.hint && <p className="oq-muted">Hint: {error.hint}</p>}{looksLikeLostConnection(error.message) && <ReconnectBar connection={connection} />}</div>}
         {result?.notices?.map(text => <p key={text} className="oq-muted oq-notice">{text}</p>)}
         {active.details && <ColumnsPanel details={active.details} />}
         {active.browse && active.details && <FilterBar key={`${active.browse.schema}.${active.browse.table}:${JSON.stringify(active.browse.filters)}`} columns={active.details.columns} filters={active.browse.filters}

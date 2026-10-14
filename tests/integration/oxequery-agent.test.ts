@@ -171,6 +171,16 @@ describe('agent gateway: approval', () => {
 })
 
 describe('agent gateway: MongoDB, containers and limits', () => {
+  it('masks the names a person added for this connection, in rows and in documents', async () => {
+    const rows = harness([connection({ maskPatterns: ['mail'] })])
+    const result = await rows.gateway.handle('oxespace_db_query', { connection: 'shop', sql: 'SELECT id, email, password_hash FROM users' }, actor) as { rows: unknown[][]; masked: string[] }
+    expect(result.masked).toEqual(['email', 'password_hash'])
+    expect(result.rows[0]).toEqual([1, '«masked»', '«masked»'])
+    const docs = harness([connection({ engine: 'mongodb', maskPatterns: ['name'] })])
+    const found = await docs.gateway.handle('oxespace_mongo_find', { connection: 'shop', database: 'd', collection: 'c' }, actor) as { documents: Record<string, unknown>[] }
+    expect(found.documents[0].name).toBe('«masked»')
+  })
+
   it('masks sensitive keys in documents at any depth', async () => {
     const h = harness([connection({ engine: 'mongodb' })])
     const result = await h.gateway.handle('oxespace_mongo_find', { connection: 'shop', database: 'd', collection: 'c' }, actor) as { documents: Record<string, unknown>[]; masked: string[] }

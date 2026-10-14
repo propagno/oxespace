@@ -40,3 +40,13 @@ describe('parameters and filters', () => {
       .toEqual([{ column: 'a', op: 'null' }, { column: 'b', op: 'contains', value: 'x' }])
   })
 })
+
+describe('lost connections', () => {
+  it('recognizes what a dropped connection says, and not an ordinary query error', async () => {
+    const { looksLikeLostConnection } = await import('../../src/components/OxeQuery/workbench-model')
+    expect(looksLikeLostConnection('Connection terminated unexpectedly')).toBe(true)
+    expect(looksLikeLostConnection('read ECONNRESET')).toBe(true)
+    expect(looksLikeLostConnection('MongoNetworkError: connection 3 to host:27017 closed')).toBe(true)
+    expect(looksLikeLostConnection('relation "users" does not exist')).toBe(false)
+  })
+})

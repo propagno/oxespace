@@ -69,10 +69,33 @@ export function registerOxeQueryMock(): void {
       case 'containers.logsStop': return ok({ ok: true })
       case 'containers.shell': return ok({ paneId: `oxequery-shell:${randomUUID()}` })
       case 'connections.list': return ok(connections.map(item => ({ ...item })))
+      case 'connections.update': {
+        const target = connections.find(item => item.id === input.id)
+        if (!target) return fail('invalid', 'That connection no longer exists.')
+        if (typeof input.group === 'string') target.group = input.group
+        if (typeof input.favorite === 'boolean') target.favorite = input.favorite
+        if (typeof input.color === 'string') target.color = input.color as OxeQueryConnection['color']
+        return ok({ ...target })
+      }
+      case 'connections.duplicate': {
+        const target = connections.find(item => item.id === input.id)
+        if (!target) return fail('invalid', 'That connection no longer exists.')
+        const copy = { ...target, id: randomUUID(), name: target.name + ' copy', favorite: false }
+        connections.push(copy)
+        return ok(copy)
+      }
+      case 'connections.connectEphemeral': {
+        const made = { ...extras, id: 'tmp-' + randomUUID(), name: String(input.name), engine: input.engine as 'postgres' | 'mongodb', host: String(input.host), port: Number(input.port), database: String(input.database ?? ''), username: String(input.username ?? ''), sslMode: 'disable' as const, readOnly: input.readOnly !== false, environment: 'local' as const, hasPassword: Boolean(input.password), ephemeral: true, createdAt: Date.now(), updatedAt: Date.now() }
+        connections.push(made)
+        return ok(made)
+      }
+      case 'connections.reconnect': return ok({ ok: true, message: 'Connected', serverVersion: 'PostgreSQL 16' })
+      case 'connections.export': return ok({ saved: true, count: connections.length })
+      case 'connections.import': return ok({ imported: 0, skipped: 0 })
       case 'connections.save': {
         const saved: OxeQueryConnection = { id: String(input.id ?? randomUUID()), name: String(input.name), engine: input.engine as 'postgres' | 'mongodb', host: String(input.host), port: Number(input.port),
           database: String(input.database ?? ''), username: String(input.username ?? ''), readOnly: input.readOnly !== false, environment: (input.environment as 'local') ?? 'local',
-          hasPassword: Boolean(input.password), ...extras, sslMode: (input.sslMode as OxeQueryConnection['sslMode']) ?? 'disable',
+          hasPassword: Boolean(input.password), ...extras, group: String(input.group ?? ''), favorite: input.favorite === true, color: (input.color as OxeQueryConnection['color']) ?? '', sslMode: (input.sslMode as OxeQueryConnection['sslMode']) ?? 'disable',
           ...((input.ssh as { enabled?: boolean; host?: string; port?: number; user?: string; auth?: 'key' | 'password' } | undefined)?.enabled
             ? { ssh: { host: String((input.ssh as { host?: string }).host), port: Number((input.ssh as { port?: number }).port ?? 22), user: String((input.ssh as { user?: string }).user), auth: (input.ssh as { auth?: 'key' | 'password' }).auth ?? 'key', hasSecret: true } } : {}),
           createdAt: Date.now(), updatedAt: Date.now() }
