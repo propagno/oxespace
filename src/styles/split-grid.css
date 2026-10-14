@@ -92,7 +92,16 @@
   transform: translateX(-50%);
   border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--tx-muted) 42%, transparent);
-  transition: width 150ms ease, background 150ms ease;
+  opacity: 0;
+  transition: width 150ms ease, background 150ms ease, opacity 150ms ease;
+}
+
+/* The grip only shows when the pane is the target of attention, so panes at rest stay clean. */
+.split-pane-slot:hover .split-drag-grip::before,
+.split-pane-slot:focus-within .split-drag-grip::before,
+.split-drag-grip:hover::before,
+.split-drag-grip:active::before {
+  opacity: 1;
 }
 
 .split-drag-grip:hover::before,
@@ -117,5 +126,5 @@
   background: color-mix(in srgb, var(--accent) 18%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent) 58%, transparent);
   border-radius: var(--pane-radius);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--elevation-3);
 }

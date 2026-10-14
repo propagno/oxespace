@@ -3,7 +3,7 @@
 .mcp-panel-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 145;
+  z-index: var(--layer-overlay);
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -121,22 +121,6 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-.mcp-panel-list::-webkit-scrollbar,
-.mcp-server-detail::-webkit-scrollbar {
-  width: 8px;
-}
-
-.mcp-panel-list::-webkit-scrollbar-track,
-.mcp-server-detail::-webkit-scrollbar-track {
-  background: var(--ov-1);
-}
-
-.mcp-panel-list::-webkit-scrollbar-thumb,
-.mcp-server-detail::-webkit-scrollbar-thumb {
-  background: var(--surface-active);
-  border-radius: var(--radius-pill);
 }
 
 .mcp-panel-empty {

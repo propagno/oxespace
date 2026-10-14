@@ -41,15 +41,15 @@ describe('Claude api_retry', () => {
 
   it('renders reason, status, attempt and delay', () => {
     const text = describeApiRetry(frame())!.summary
-    expect(text).toMatch(/limite de requisições/)
+    expect(text).toMatch(/rate limit/)
     expect(text).toMatch(/HTTP 429/)
-    expect(text).toMatch(/tentativa 1 de 10/)
+    expect(text).toMatch(/attempt 1 of 10/)
     expect(text).toMatch(/2s/)
   })
 
   it('tolerates missing fields', () => {
     const text = describeApiRetry({ type: 'system', subtype: 'api_retry' })!.summary
-    expect(text).toMatch(/tentando novamente/)
+    expect(text).toMatch(/retrying/)
   })
 
   it('revises one row per run and starts a new row for a later storm', () => {

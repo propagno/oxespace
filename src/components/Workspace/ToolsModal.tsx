@@ -242,7 +242,7 @@ export function ToolsModal({
       tone: 'system',
       icon: <PanelLeft size={16} aria-hidden="true" />,
       label: 'Workspace Settings',
-      detail: 'Theme, layout, density, shell',
+      detail: 'Layout, density and shell',
       onClick: () => run(onOpenWorkspaceSettings)
     }
   ]

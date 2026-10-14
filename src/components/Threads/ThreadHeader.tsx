@@ -31,7 +31,7 @@ export function ThreadHeader({ thread, workspace, branch, pending, running, acti
     {thread && <ThreadConversationActions thread={thread} disabled={pending} onCommand={onCommand} onExport={onExport} onImport={onImport} />}</div>
     <div className="thread-heading-actions">
     <Popover.Root><Popover.Trigger asChild><button type="button" className="thread-icon-action" aria-label="Thread text size" title="Thread text size"><Type size={15} /></button></Popover.Trigger>
-      <Popover.Portal><Popover.Content className="thread-font-popover" side="bottom" align="end" sideOffset={8}>
+      <Popover.Portal><Popover.Content collisionPadding={{ top: 44, right: 8, bottom: 8, left: 8 }} className="thread-font-popover" side="bottom" align="end" sideOffset={8}>
         <strong>Conversation text</strong><span>Adjust reading size</span>
         <div className="thread-font-controls"><button type="button" aria-label="Decrease thread text size" disabled={threadFontSize <= THREAD_FONT_MIN} onClick={() => setThreadFontSize(threadFontSize - 1)}><Minus size={14} /></button><output aria-label="Thread text size">{threadFontSize}px</output><button type="button" aria-label="Increase thread text size" disabled={threadFontSize >= THREAD_FONT_MAX} onClick={() => setThreadFontSize(threadFontSize + 1)}><Plus size={14} /></button></div>
         <button type="button" className="thread-font-reset" disabled={threadFontSize === THREAD_FONT_DEFAULT} onClick={() => setThreadFontSize(THREAD_FONT_DEFAULT)}>Reset to default</button>
@@ -41,7 +41,7 @@ export function ThreadHeader({ thread, workspace, branch, pending, running, acti
         <button key={id} type="button" className="thread-review-trigger thread-panel-toggle" aria-label={label} title={`${label} · ${shortcut}`} aria-pressed={activePanel === id} onClick={() => onTogglePanel(id)}><Icon size={14} /><span>{label}</span></button>)}
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild><button type="button" className="thread-icon-action" aria-label="More workbench panels" title="Files, search, scripts, background activity and transcript view"><MoreHorizontal size={16} /></button></DropdownMenu.Trigger>
-        <DropdownMenu.Portal><DropdownMenu.Content className="thread-more-menu" align="end" sideOffset={6}>
+        <DropdownMenu.Portal><DropdownMenu.Content collisionPadding={{ top: 44, right: 8, bottom: 8, left: 8 }} className="thread-more-menu" align="end" sideOffset={6}>
           <DropdownMenu.Label className="thread-more-label">Panels</DropdownMenu.Label>
           <DropdownMenu.RadioGroup value={activePanel ?? ''} onValueChange={value => onTogglePanel(value as ThreadPanel, true)}>
             {([['git', 'Commit & pull request'], ['files', 'Files'], ['search', 'Find in files'], ['scripts', 'Scripts'], ['background', 'Background activity']] as const).map(([id, label]) =>

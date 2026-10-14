@@ -5,11 +5,14 @@ import { IconButton } from './Button'
 import { cx } from './cx'
 import styles from './Overlay.module.css'
 
+/** Floating layers keep clear of the title bar so they never rise over the window controls. */
+const CHROME_COLLISION = { top: 44, right: 8, bottom: 8, left: 8 }
+
 export interface DialogProps {
   title: ReactNode
   description?: ReactNode
   onClose: () => void
-  children: ReactNode
+  children?: ReactNode
   /** Buttons at the bottom; the primary action goes last. */
   footer?: ReactNode
   size?: 'sm' | 'md' | 'lg' | 'xl'
@@ -17,6 +20,15 @@ export interface DialogProps {
   /** Element to focus when the dialog closes; defaults to what had focus before it opened. */
   returnFocusTo?: () => HTMLElement | null
   testId?: string
+}
+
+/**
+ * Opening focus goes to the dialog itself unless a child already took it (a safe button in a confirmation).
+ * The close button is first in tab order, and focusing it would open its tooltip, which then eats the first Escape.
+ */
+export function focusSurfaceUnlessChosen(event: Event): void {
+  const surface = event.currentTarget as HTMLElement | null
+  if (surface && !surface.contains(document.activeElement)) { event.preventDefault(); surface.focus({ preventScroll: true }) }
 }
 
 /** A modal dialog: title, optional description, body, and footer actions. Escape and the scrim close it. */
@@ -28,6 +40,7 @@ export function Dialog({ title, description, onClose, children, footer, size = '
       <RadixDialog.Content className={cx(styles.dialog, size !== 'md' && styles[size], className)} data-testid={testId}
         // Without a description, tell Radix there is none instead of pointing at a missing element.
         {...(description ? {} : { 'aria-describedby': undefined })}
+        onOpenAutoFocus={focusSurfaceUnlessChosen}
         onCloseAutoFocus={event => {
           event.preventDefault()
           const target = returnFocusTo?.() ?? previous.current
@@ -40,7 +53,7 @@ export function Dialog({ title, description, onClose, children, footer, size = '
           </div>
           <IconButton label="Close" icon={<X size={16} />} size="sm" onClick={onClose} />
         </header>
-        <div className={styles.dialogBody}>{children}</div>
+        {children ? <div className={styles.dialogBody}>{children}</div> : null}
         {footer && <footer className={styles.dialogFooter}>{footer}</footer>}
       </RadixDialog.Content>
     </RadixDialog.Portal>
@@ -62,7 +75,7 @@ export function Popover({ trigger, children, open, onOpenChange, align = 'start'
   return <RadixPopover.Root open={open} onOpenChange={onOpenChange}>
     <RadixPopover.Trigger asChild>{trigger}</RadixPopover.Trigger>
     <RadixPopover.Portal>
-      <RadixPopover.Content className={cx(styles.floating, styles.popover)} align={align} side={side} sideOffset={6} collisionPadding={8} aria-label={label}>{children}</RadixPopover.Content>
+      <RadixPopover.Content className={cx(styles.floating, styles.popover)} align={align} side={side} sideOffset={6} collisionPadding={CHROME_COLLISION} aria-label={label}>{children}</RadixPopover.Content>
     </RadixPopover.Portal>
   </RadixPopover.Root>
 }
@@ -85,7 +98,7 @@ export function Menu({ trigger, items, align = 'start', label }: MenuProps): Rea
   return <RadixMenu.Root>
     <RadixMenu.Trigger asChild>{trigger}</RadixMenu.Trigger>
     <RadixMenu.Portal>
-      <RadixMenu.Content className={cx(styles.floating, styles.menu)} align={align} sideOffset={6} collisionPadding={8} aria-label={label}>
+      <RadixMenu.Content className={cx(styles.floating, styles.menu)} align={align} sideOffset={6} collisionPadding={CHROME_COLLISION} aria-label={label}>
         {items.map((item, index) => {
           if (item.type === 'separator') return <RadixMenu.Separator key={index} className={styles.menuSeparator} />
           if (item.type === 'label') return <RadixMenu.Label key={index} className={styles.menuLabel}>{item.label}</RadixMenu.Label>
@@ -108,8 +121,9 @@ export function TooltipProvider({ children }: { children: ReactNode }): ReactEle
 
 /** A short hint on hover and keyboard focus. Never the only place for information a person needs. */
 export function Tooltip({ content, children, side = 'top' }: { content: ReactNode; children: ReactElement; side?: 'top' | 'right' | 'bottom' | 'left' }): ReactElement {
-  return <RadixTooltip.Root>
+  // A local provider keeps a tooltip working in isolation (tests, portals); the app-level one shares the open delay.
+  return <RadixTooltip.Provider delayDuration={400} skipDelayDuration={200}><RadixTooltip.Root>
     <RadixTooltip.Trigger asChild>{children}</RadixTooltip.Trigger>
     <RadixTooltip.Portal><RadixTooltip.Content className={styles.tooltip} side={side} sideOffset={6} collisionPadding={8}>{content}</RadixTooltip.Content></RadixTooltip.Portal>
-  </RadixTooltip.Root>
+  </RadixTooltip.Root></RadixTooltip.Provider>
 }

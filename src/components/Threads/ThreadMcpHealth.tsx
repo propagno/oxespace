@@ -19,7 +19,7 @@ export function ThreadMcpHealth({ thread }: { thread: ConversationThread }): Rea
   if (!broken.length) return null
   return <Popover.Root>
     <Popover.Trigger asChild><button type="button" className="thread-mcp-health" aria-label={`${broken.length} MCP ${broken.length === 1 ? 'server' : 'servers'} unavailable`}><Plug size={12} aria-hidden="true" />MCP · {broken.length}</button></Popover.Trigger>
-    <Popover.Portal><Popover.Content className="thread-mcp-health-popover" side="top" align="end" sideOffset={8}>
+    <Popover.Portal><Popover.Content collisionPadding={{ top: 44, right: 8, bottom: 8, left: 8 }} className="thread-mcp-health-popover" side="top" align="end" sideOffset={8}>
       <strong>MCP servers</strong>
       <span>As reported when this conversation's session started.</span>
       <ul>{servers.map(server => <li key={server.name} className={`is-${server.status}`}><code>{server.name}</code><small>{LABEL[server.status]}</small></li>)}</ul>

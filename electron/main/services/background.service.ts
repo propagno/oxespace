@@ -135,7 +135,7 @@ export class BackgroundManager {
       })
     } catch (err) {
       this.transitionJob(id, 'failed', null)
-      throw new Error(`Falha ao iniciar background job: ${err instanceof Error ? err.message : String(err)}`)
+      throw new Error(`Could not start background job: ${err instanceof Error ? err.message : String(err)}`)
     }
 
     const runtime: RuntimeJob = {

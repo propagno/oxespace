@@ -167,7 +167,7 @@ describe('useOxeVoice', () => {
     await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('listening'))
     act(() => recorderCb!.onChunk(speech()))
     await user.click(screen.getByText('release'))
-    await screen.findByText('Transcrevendo…')
+    await screen.findByText('Transcribing…')
     await user.click(screen.getByRole('button', { name: 'Close voice input' }))
     await act(async () => resolveText({ text: 'Late text', durationMs: 1 }))
     expect(insert).not.toHaveBeenCalled()
@@ -180,7 +180,7 @@ describe('useOxeVoice', () => {
     vi.mocked(window.oxe.voice.ensureModel).mockImplementation(() => new Promise(resolve => { resolveModel = resolve }))
     render(<Harness onFinalText={vi.fn()} />)
     await user.click(screen.getByText('toggle'))
-    await screen.findByText('Baixando modelo de voz… 0%')
+    await screen.findByText('Downloading voice model… 0%')
     await user.click(screen.getByRole('button', { name: 'Close voice input' }))
     const progress = vi.mocked(window.oxe.voice.onModelProgress).mock.calls[0][0]
     act(() => progress({ size: 'base', progress: 0, receivedBytes: 0, totalBytes: null, done: true, error: 'Late download error' }))

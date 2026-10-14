@@ -36,13 +36,13 @@ export function colorRoles(mode: Mode): ColorRoles {
     // Interaction fills on neutral surfaces.
     'fill-hover': light ? s(n, 4) : s(n, 4),
     'fill-pressed': s(n, 5),
-    'fill-selected': s(accent, 4),
-    'fill-selected-strong': s(accent, 5),
+    'fill-selected': light ? s(accent, 4) : s(n, 5),
+    'fill-selected-strong': light ? s(accent, 5) : s(n, 6),
     // Text.
     // Three readable levels, set by lightness so each stays AA on every surface.
     'text-primary': ink(light ? 0.24 : 0.95),
     'text-secondary': ink(light ? 0.39 : 0.84),
-    'text-muted': ink(light ? 0.5 : 0.72),
+    'text-muted': ink(light ? 0.47 : 0.72),
     'text-disabled': s(n, 8),
     'text-on-accent': light ? '#ffffff' : s(accent, 1),
     // Labels on intent solids (danger, success, info buttons): white on light, ink on dark.

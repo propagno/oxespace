@@ -88,7 +88,7 @@ export class SessionService {
    */
   forkSession(input: ForkSessionInput): ForkSessionResult {
     if (input.provider !== 'claude') {
-      throw new Error(`Fork ainda não é suportado para provider "${input.provider}". Apenas Claude por enquanto.`)
+      throw new Error(`Fork is not supported yet for provider "${input.provider}". Only Claude for now.`)
     }
 
     assertSessionId(input.parentSessionId, 'parentSessionId')
@@ -97,7 +97,7 @@ export class SessionService {
     // safeJoin pins both filenames inside projectDir even if the UUID check is bypassed.
     const parentPath = safeJoin(projectDir, `${input.parentSessionId}.jsonl`)
     if (!existsSync(parentPath)) {
-      throw new Error(`Sessão parente não encontrada em ${parentPath}`)
+      throw new Error(`Parent session not found at ${parentPath}`)
     }
 
     const forkSessionId = randomUUID()

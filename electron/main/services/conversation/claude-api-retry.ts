@@ -13,11 +13,11 @@ export interface ApiRetryNotice {
 type Frame = Record<string, unknown>
 
 const REASON: Record<string, string> = {
-  rate_limit: 'limite de requisições',
-  overloaded: 'provedor sobrecarregado',
-  server_error: 'erro do servidor',
-  timeout: 'tempo esgotado',
-  connection: 'falha de conexão'
+  rate_limit: 'rate limit',
+  overloaded: 'provider overloaded',
+  server_error: 'server error',
+  timeout: 'timed out',
+  connection: 'connection failure'
 }
 
 const int = (value: unknown): number | null => (typeof value === 'number' && Number.isFinite(value) ? Math.floor(value) : null)
@@ -30,11 +30,11 @@ export function describeApiRetry(frame: Frame): { attempt: number | null; summar
   const delay = int(frame.retry_delay_ms)
   const status = int(frame.error_status)
   const error = typeof frame.error === 'string' ? frame.error : ''
-  const reason = REASON[error] ?? (error ? error.replace(/_/g, ' ').slice(0, 60) : 'erro temporário do provedor')
+  const reason = REASON[error] ?? (error ? error.replace(/_/g, ' ').slice(0, 60) : 'temporary provider error')
 
-  const parts = [`O provedor está tentando novamente — ${reason}${status ? ` (HTTP ${status})` : ''}`]
-  if (attempt !== null) parts.push(max ? `tentativa ${attempt} de ${max}` : `tentativa ${attempt}`)
-  if (delay !== null && delay > 0) parts.push(`próxima em ${Math.max(1, Math.round(delay / 1000))}s`)
+  const parts = [`The provider is retrying — ${reason}${status ? ` (HTTP ${status})` : ''}`]
+  if (attempt !== null) parts.push(max ? `attempt ${attempt} of ${max}` : `attempt ${attempt}`)
+  if (delay !== null && delay > 0) parts.push(`next in ${Math.max(1, Math.round(delay / 1000))}s`)
   return { attempt, summary: `${parts.join(', ')}.` }
 }
 

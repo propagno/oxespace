@@ -19,14 +19,14 @@ export function ThreadCostChip({ cost: stored }: { cost?: ThreadCostReport }): R
   const cost = repairLegacyCost(stored)
   if (!cost || cost.totalUsd <= 0) return null
   const parts = [
-    `Estimativa equivalente à API, acumulada em ${cost.turns} ${cost.turns === 1 ? 'turno' : 'turnos'}. Não é uma cobrança.`,
-    cost.lastTurnUsd !== undefined ? `Último turno: ${formatThreadCost(cost.lastTurnUsd)}` : '',
-    cost.inputTokens !== undefined ? `Entrada: ${compact(cost.inputTokens)} tokens` : '',
-    cost.outputTokens !== undefined ? `Saída: ${compact(cost.outputTokens)} tokens` : '',
-    cost.cacheReadTokens !== undefined ? `Cache lido: ${compact(cost.cacheReadTokens)} tokens` : ''
+    `API-equivalent estimate, summed over ${cost.turns} ${cost.turns === 1 ? 'turn' : 'turns'}. Not a charge.`,
+    cost.lastTurnUsd !== undefined ? `Last turn: ${formatThreadCost(cost.lastTurnUsd)}` : '',
+    cost.inputTokens !== undefined ? `Input: ${compact(cost.inputTokens)} tokens` : '',
+    cost.outputTokens !== undefined ? `Output: ${compact(cost.outputTokens)} tokens` : '',
+    cost.cacheReadTokens !== undefined ? `Cache read: ${compact(cost.cacheReadTokens)} tokens` : ''
   ].filter(Boolean)
   return (
-    <span className="thread-cost-chip" title={parts.join('\n')} aria-label={`Custo estimado ${formatThreadCost(cost.totalUsd)}`}>
+    <span className="thread-cost-chip" title={parts.join('\n')} aria-label={`Estimated cost ${formatThreadCost(cost.totalUsd)}`}>
       ≈ {formatThreadCost(cost.totalUsd)}
     </span>
   )

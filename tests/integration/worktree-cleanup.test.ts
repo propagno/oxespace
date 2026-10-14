@@ -116,7 +116,7 @@ describe('worktree cleanup (real git)', () => {
     expect(by(clean), JSON.stringify(results)).toMatchObject({ ok: true })
     expect(existsSync(clean)).toBe(false)
     expect(by(dirty).ok).toBe(false)
-    expect(by(dirty).message).toContain('confirmação')
+    expect(by(dirty).message).toContain('confirmation')
     expect(existsSync(dirty)).toBe(true)
     expect(by(busy).ok).toBe(false)
     expect(existsSync(busy)).toBe(true)

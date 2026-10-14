@@ -9,7 +9,7 @@ export function McpBrandTile({ entry, size = 40 }: { entry: McpCatalogEntry; siz
   return <span className="mcp-brand-tile" style={{ width: size, height: size }} aria-hidden="true">
     {entry.brand.icon
       ? <svg viewBox="0 0 24 24" width={size * 0.55} height={size * 0.55}><path d={entry.brand.icon.path} fill={color} /></svg>
-      : <span className="mcp-brand-letter" style={{ background: `#${entry.brand.hex}`, fontSize: size * 0.42 }}>{entry.name.slice(0, 1).toUpperCase()}</span>}
+      : <span className="mcp-brand-letter" style={{ background: `#${entry.brand.hex}`, color: readableOn(entry.brand.hex), fontSize: size * 0.42 }}>{entry.name.slice(0, 1).toUpperCase()}</span>}
   </span>
 }
 
@@ -68,4 +68,11 @@ export function McpCatalog({ servers, query, busyId, onAdd, onStart, onStop }: {
     </section>)}
     <p className="mcp-catalog-count">{MCP_CATALOG.length} connectors</p>
   </div>
+}
+
+/** White or near-black lettering, whichever reads better on a brand color (WCAG relative luminance). */
+function readableOn(hex: string): string {
+  const [r, g, b] = [0, 2, 4].map(index => parseInt(hex.slice(index, index + 2), 16) / 255).map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4)
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
+  return (1.05 / (luminance + 0.05)) >= ((luminance + 0.05) / 0.05) ? '#ffffff' : '#111111'
 }

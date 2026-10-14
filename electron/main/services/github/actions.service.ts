@@ -103,7 +103,7 @@ export class GitHubActionsService {
    */
   async getRunLogs(input: { rootPath: string; runId: number; failedOnly: boolean }): Promise<{ logs: string; truncated: boolean; bytes: number }> {
     const status = await this.gh.detectCli(input.rootPath)
-    if (!status.available || !status.authenticated) throw new Error(status.message ?? 'GitHub CLI indisponível.')
+    if (!status.available || !status.authenticated) throw new Error(status.message ?? 'GitHub CLI unavailable.')
     const args = ['run', 'view', String(input.runId), input.failedOnly ? '--log-failed' : '--log']
     const result = await this.gh.spawn(
       status.path ?? 'gh',
@@ -114,7 +114,7 @@ export class GitHubActionsService {
       { GH_PAGER: '', PAGER: '', NO_COLOR: '1' }
     )
     if (result.status !== 0 || result.error) {
-      throw new Error(sanitizeError(result.stderr || result.stdout || result.error?.message || 'Falha ao buscar logs.'))
+      throw new Error(sanitizeError(result.stderr || result.stdout || result.error?.message || 'Could not fetch logs.'))
     }
     const stripped = stripAnsi(result.stdout ?? '')
     const bytes = Buffer.byteLength(stripped, 'utf8')

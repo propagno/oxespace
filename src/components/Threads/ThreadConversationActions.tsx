@@ -14,7 +14,7 @@ export function ThreadConversationActions({ thread, disabled, onCommand, onExpor
 
   return <DropdownMenu.Root>
     <DropdownMenu.Trigger asChild><button type="button" className="thread-conversation-menu" aria-label="Conversation actions" title="Conversation actions" disabled={disabled}><MoreHorizontal size={17} aria-hidden="true" /></button></DropdownMenu.Trigger>
-    <DropdownMenu.Portal><DropdownMenu.Content className="thread-actions-dropdown" align="start" sideOffset={7} collisionPadding={12} aria-label="Conversation actions">
+    <DropdownMenu.Portal><DropdownMenu.Content className="thread-actions-dropdown" align="start" sideOffset={7} collisionPadding={{ top: 44, right: 12, bottom: 12, left: 12 }} aria-label="Conversation actions">
       <DropdownMenu.Label className="thread-actions-label">Current conversation<span title={thread.title}>{thread.title}</span></DropdownMenu.Label>
       <DropdownMenu.Group>
         {item('/rename', 'Rename conversation', Pencil)}

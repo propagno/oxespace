@@ -49,7 +49,7 @@ import './components/Threads/ThreadView.css'
 import { AppStatusBar } from './components/Workspace/AppStatusBar'
 import { UpdateBanner } from './components/Updates/UpdateBanner'
 import { AppUpdateIndicator } from './components/Updates/AppUpdateIndicator'
-import { LAYOUT_PRESETS, WORKSPACE_DENSITIES, WORKSPACE_THEMES } from './components/Workspace/workspaceOptions'
+import { LAYOUT_PRESETS, WORKSPACE_DENSITIES } from './components/Workspace/workspaceOptions'
 import { useAgentStore } from './store/agent.store'
 import { useEditorStore } from './store/editor.store'
 import { useTerminalStore } from './store/terminal.store'
@@ -675,7 +675,7 @@ export function App(): ReactElement {
   const commandActions: CommandPaletteAction[] = [
     // Workspace
     { id: 'new-workspace', title: 'Create workspace', subtitle: 'Open the New Workspace wizard', icon: FilePlus2, category: 'Workspace', keywords: ['new', 'open', 'project'], run: openNewWorkspaceFromUI },
-    { id: 'workspace-settings', title: 'Open workspace settings', subtitle: 'Theme, layout, density, shell', icon: Sliders, category: 'Workspace', disabled: !activeWorkspace, run: openWorkspaceSettings },
+    { id: 'workspace-settings', title: 'Open workspace settings', subtitle: 'Layout, density and shell', icon: Sliders, category: 'Workspace', disabled: !activeWorkspace, run: openWorkspaceSettings },
     { id: 'toggle-sidebar', title: 'Toggle sidebar', subtitle: 'Ctrl+B', icon: LayoutDashboard, category: 'Workspace', run: toggleSidebar },
     { id: 'open-tools', title: 'Open Tools', subtitle: 'Panels, MCP, workspace tools', icon: Settings2, category: 'Workspace', keywords: ['tools', 'panels', 'mcp', 'gear'], run: openTools },
 
@@ -709,20 +709,17 @@ export function App(): ReactElement {
         })
       }
     },
-    { id: 'design-system', title: 'Design System: Open Viewer', subtitle: 'Ctrl+Shift+D', icon: Palette, category: 'View', run: () => { setDesignSystemOpen(true) } },
+    { id: 'design-system', title: 'Design System: Open Viewer', subtitle: 'Tokens and components in light and dark', icon: Palette, category: 'View', run: () => { setDesignSystemOpen(true) } },
 
-    // Theme
-    ...WORKSPACE_THEMES.map((theme) => ({
-      id: `theme-${theme.id}`,
-      title: `Theme: ${theme.label}`,
-      subtitle: 'Workspace theme',
+    // Appearance: one app-wide choice (light, dark or follow the system).
+    ...(['system', 'light', 'dark'] as const).map((appearance) => ({
+      id: `appearance-${appearance}`,
+      title: `Appearance: ${appearance === 'system' ? 'Follow system' : appearance === 'light' ? 'Light' : 'Dark'}`,
+      subtitle: 'Applies to the whole application',
       icon: Palette,
-      category: 'Theme',
-      keywords: [theme.id, 'color', 'palette'],
-      disabled: !activeWorkspace,
-      run: () => {
-        if (activeWorkspace) void updateSettings({ workspaceId: activeWorkspace.id, themeId: theme.id })
-      }
+      category: 'Appearance',
+      keywords: ['theme', 'mode', 'color', 'light', 'dark'],
+      run: () => useSettingsStore.getState().setAppearance(appearance)
     })),
 
     // Density
@@ -731,7 +728,7 @@ export function App(): ReactElement {
       title: `Density: ${density.label}`,
       subtitle: 'Workspace density',
       icon: Sliders,
-      category: 'Theme',
+      category: 'Appearance',
       disabled: !activeWorkspace,
       run: () => {
         if (activeWorkspace) void updateSettings({ workspaceId: activeWorkspace.id, uiDensity: density.id })
@@ -824,11 +821,6 @@ export function App(): ReactElement {
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && key === 'v') {
         event.preventDefault()
         toggleActivePaneVoice()
-        return
-      }
-      if ((event.ctrlKey || event.metaKey) && event.shiftKey && key === 'd') {
-        event.preventDefault()
-        setDesignSystemOpen((prev) => !prev)
         return
       }
       if ((event.ctrlKey || event.metaKey) && key === 'r' && activePane?.type === 'terminal') {
@@ -1100,7 +1092,7 @@ export function App(): ReactElement {
           }} />}
         </Suspense>
       </section>
-      <ErrorBoundary label="esta janela">
+      <ErrorBoundary label="this window">
       <Suspense fallback={null}>
       {isNewWorkspaceOpen ? (
         <NewWorkspaceModal

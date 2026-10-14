@@ -1,9 +1,11 @@
 import { AlertCircle, ArrowLeft, ArrowRight, Camera, ExternalLink, LoaderCircle, MousePointerClick, Minus, Monitor, MonitorPlay, Plus, RotateCw, Smartphone, Tablet, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { useModalSurface } from '../../ui'
 import type { DesignGrabPayload } from '../../../shared/types/design-mode'
 import type { BrowserPreviewEvent, BrowserPreviewSessionState } from '../../../shared/types/browser-preview'
 import type { Workspace } from '../../../shared/types/workspace'
 import { pasteIntoAgentTerminal } from '../../lib/sendToAgent'
+import { ConfirmDialog } from '../../ui'
 import { useUIStore } from '../../store/ui.store'
 import { DesignGrabSheet } from './DesignGrabSheet'
 import { NativePreviewHost } from './NativePreviewHost'
@@ -57,8 +59,11 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
   const [allowExternal, setAllowExternal] = useState(false)
   const externalPageBlocked = Boolean(url && !normalizePreviewUrl(url, allowExternal))
   const [agentDocumentation, setAgentDocumentation] = useState(false)
+  const [consentOpen, setConsentOpen] = useState(false)
   // #3 Design Mode: pick an element in the previewed page and hand it to an agent.
   const [designMode, setDesignMode] = useState(false)
+  // Escape first leaves Design Mode (the hint says so), then closes the panel.
+  const surface = useModalSurface<HTMLElement>(() => { if (designMode) setDesignMode(false); else onClose() }, !embedded)
   const [grab, setGrab] = useState<{ payload: DesignGrabPayload; screenshot: string | null } | null>(null)
   // `send()` and `capturePage()` throw until the guest emits dom-ready.
   const [guestReady, setGuestReady] = useState(false)
@@ -270,11 +275,14 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
         </button>
       </div>
 
+      {consentOpen && <ConfirmDialog title="Allow agents to inspect this preview?" confirmLabel="Allow access" onCancel={() => setConsentOpen(false)}
+        onConfirm={() => { setAgentDocumentation(true); setConsentOpen(false) }}
+        description="Agents in this workspace can read the page and capture screenshots. Page content and screenshots may be sent to the agent vendor. Inputs are masked automatically, but review captures for other private data. Each click, fill or navigation still asks for separate approval." />}
       <div className="web-preview-agent-access">
         <label className="web-preview-external-toggle" title="Allow agents in this workspace to inspect and capture this preview. Captures can be sent to the agent vendor. Inputs are masked, but other private data needs explicit redaction. Click/fill/navigation require confirmation. Resets when the preview closes.">
           <input type="checkbox" aria-label="Agent documentation access" checked={agentDocumentation} onChange={event => {
             if (!event.currentTarget.checked) { setAgentDocumentation(false); return }
-            setAgentDocumentation(window.confirm('Allow agents to inspect and capture this preview? Page content and screenshots may be sent to the agent vendor. Review captures for private data; inputs are masked automatically. Each click, fill or navigation asks for separate approval.'))
+            setConsentOpen(true)
           }} />Agent access
         </label>
         <span>{agentDocumentation ? 'Actions ask for approval' : 'Documentation access is off'}</span>
@@ -329,7 +337,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
 
   return (
     <div className="web-preview-backdrop" role="presentation" onMouseDown={onClose}>
-      <section className="web-preview-panel" role="dialog" aria-modal="true" aria-label="Web Preview" data-browser-owner={previewKey} data-agent-automation={String(agentDocumentation)} onMouseDown={(event) => event.stopPropagation()}>
+      <section className="web-preview-panel" role="dialog" aria-modal="true" aria-label="Web Preview" {...surface} data-browser-owner={previewKey} data-agent-automation={String(agentDocumentation)} onMouseDown={(event) => event.stopPropagation()}>
         {content}
       </section>
     </div>

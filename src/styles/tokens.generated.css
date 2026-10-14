@@ -78,7 +78,7 @@
   --fill-selected-strong: #c8e9d5;
   --text-primary: #1a211c;
   --text-secondary: #404742;
-  --text-muted: #5d6660;
+  --text-muted: #555d57;
   --text-disabled: #a1b3a6;
   --text-on-accent: #ffffff;
   --text-on-solid: #ffffff;
@@ -155,8 +155,8 @@
   --surface-inverse: #e7efe9;
   --fill-hover: #212723;
   --fill-pressed: #27302a;
-  --fill-selected: #362000;
-  --fill-selected-strong: #412700;
+  --fill-selected: #27302a;
+  --fill-selected-strong: #303a33;
   --text-primary: #e8f1ea;
   --text-secondary: #c4cdc7;
   --text-muted: #9ea7a1;

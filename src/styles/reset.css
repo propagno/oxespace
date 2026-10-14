@@ -408,6 +408,12 @@ input:where([type='button'], [type='reset'], [type='submit']),
 /* Visually hidden, still read by screen readers. */
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0; }
 
+/* One scrollbar for the whole app, from the tokens, so it follows light and dark mode.
+   The standard properties also make Chromium ignore ::-webkit-scrollbar styling. */
+@layer base {
+  * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+}
+
 /* Thin scrollbar for dense lists. */
 .scrollbar-sleek { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
 .scrollbar-sleek::-webkit-scrollbar { width: 8px; height: 8px; }

@@ -119,10 +119,10 @@ describe('ThreadCostChip', () => {
     const { container, rerender } = render(<ThreadCostChip />)
     expect(container).toBeEmptyDOMElement()
     rerender(<ThreadCostChip cost={{ totalUsd: 0.42, turns: 3, lastTurnUsd: 0.1, updatedAt: 1, source: 'claude-result-step' }} />)
-    const chip = screen.getByLabelText('Custo estimado US$ 0.42')
+    const chip = screen.getByLabelText('Estimated cost US$ 0.42')
     expect(chip).toHaveTextContent('≈ US$ 0.42')
-    expect(chip.getAttribute('title')).toMatch(/Não é uma cobrança/)
-    expect(chip.getAttribute('title')).toMatch(/3 turnos/)
+    expect(chip.getAttribute('title')).toMatch(/Not a charge/)
+    expect(chip.getAttribute('title')).toMatch(/3 turns/)
   })
 })
 

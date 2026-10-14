@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowUpFromLine, CheckCircle2, ChevronDown, ChevronRight, CircleDot, Clock, Copy, Download, ExternalLink, Github, GitBranch, GitPullRequest, Link2, Minus, Play, Plus, RefreshCw, Tag, Terminal, TrendingUp } from 'lucide-react'
+import { copyText } from '../../ui'
 import type { GitHubBranch, GitHubCliStatus, GitHubCommit, GitHubCommitDetails, GitHubConnectedRepository, GitHubFileChange, GitHubPanelTab, GitHubPullRequest, GitHubRelease, GitHubWorkflow, GitHubWorkflowJob, GitHubWorkflowRun, GitHubWorkflowRunDetails, GitHubWorkspaceStatus } from '../../../shared/types/github'
 import { selectGitHubWorkspace, useGitHubStore } from '../../store/github.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
@@ -123,15 +124,15 @@ export function GitHubPanel({ activeTab: propTab, onOpenFile, onRunCommand, onTa
                 onPullFfOnly={() => requestConfirm(
                   'Pull (fast-forward)',
                   status?.behind
-                    ? `Baixar ${status.behind} commit${status.behind === 1 ? '' : 's'} do remoto (git pull --ff-only).`
-                    : 'Atualizar a branch local a partir do remoto (fast-forward only).',
+                    ? `Pull ${status.behind} commit${status.behind === 1 ? '' : 's'} from the remote (git pull --ff-only).`
+                    : 'Update the local branch from the remote (fast-forward only).',
                   () => useGitHubStore.getState().pullFfOnly(input)
                 )}
                 onPush={() => requestConfirm(
                   'Push to remote',
                   status?.ahead
-                    ? `Enviar ${status.ahead} commit${status.ahead === 1 ? '' : 's'} para o remoto.`
-                    : 'Enviar a branch atual para o remoto.',
+                    ? `Push ${status.ahead} commit${status.ahead === 1 ? '' : 's'} to the remote.`
+                    : 'Push the current branch to the remote.',
                   () => useGitHubStore.getState().push(input)
                 )}
                 onStageAll={() => requestConfirm('Stage all', buildStageAllPreview(status), () => useGitHubStore.getState().stageAll(input))}
@@ -147,7 +148,7 @@ export function GitHubPanel({ activeTab: propTab, onOpenFile, onRunCommand, onTa
               <CheckpointsTab
                 checkpoints={state.checkpoints}
                 loading={state.loading}
-                onCreate={(name, description) => requestConfirm('Criar checkpoint', name, () => useGitHubStore.getState().createCheckpoint({ ...input, name, description }))}
+                onCreate={(name, description) => requestConfirm('Create checkpoint', name, () => useGitHubStore.getState().createCheckpoint({ ...input, name, description }))}
                 onRestore={(id, name) => requestConfirm('Restaurar checkpoint', name, () => useGitHubStore.getState().restoreCheckpoint({ ...input, checkpointId: id }))}
                 onDelete={(id) => void useGitHubStore.getState().deleteCheckpoint(workspaceId, id)}
                 onRefresh={() => void useGitHubStore.getState().loadTab(input, 'checkpoints')}
@@ -169,7 +170,7 @@ export function GitHubPanel({ activeTab: propTab, onOpenFile, onRunCommand, onTa
                 branches={state.branches}
                 status={status}
                 onCheckout={(name) => requestConfirm('Checkout branch', name, () => useGitHubStore.getState().checkoutBranch({ ...input, name }))}
-                onCreate={(name) => requestConfirm('Criar branch', name, () => useGitHubStore.getState().createBranch({ ...input, name, checkout: true }))}
+                onCreate={(name) => requestConfirm('Create branch', name, () => useGitHubStore.getState().createBranch({ ...input, name, checkout: true }))}
                 onRefresh={() => void useGitHubStore.getState().loadTab(input, 'branches')}
               />
             )}
@@ -179,7 +180,7 @@ export function GitHubPanel({ activeTab: propTab, onOpenFile, onRunCommand, onTa
                 status={status}
                 loading={state.loading}
                 input={input}
-                onCreate={(title, body) => requestConfirm('Criar pull request', title, () => useGitHubStore.getState().createPullRequest({ ...input, title, body }))}
+                onCreate={(title, body) => requestConfirm('Create pull request', title, () => useGitHubStore.getState().createPullRequest({ ...input, title, body }))}
                 onRefresh={() => void useGitHubStore.getState().loadTab(input, 'prs')}
               />
             )}
@@ -198,7 +199,7 @@ export function GitHubPanel({ activeTab: propTab, onOpenFile, onRunCommand, onTa
                 releases={state.releases}
                 status={status}
                 loading={state.loading}
-                onCreate={(release) => requestConfirm('Criar release', release.tagName, () => useGitHubStore.getState().createRelease({ ...input, ...release }))}
+                onCreate={(release) => requestConfirm('Create release', release.tagName, () => useGitHubStore.getState().createRelease({ ...input, ...release }))}
                 onRefresh={() => void useGitHubStore.getState().loadTab(input, 'releases')}
               />
             )}
@@ -680,7 +681,7 @@ function GitignoreRow({ rootPath, workspaceId }: { rootPath: string; workspaceId
     }).catch(() => setInfo({ exists: false, lines: 0 }))
   }, [rootPath])
 
-  if (!info) return <div className="github-gitignore-row"><span>.gitignore</span><span className="github-muted">loading...</span></div>
+  if (!info) return <div className="github-gitignore-row"><span>.gitignore</span><span className="github-muted">loading…</span></div>
 
   return (
     <div className="github-gitignore-row">
@@ -904,7 +905,7 @@ function CommitsTab({ commitDetails, commits, loading, status, onLoadDetails, on
             <code className="github-detail-sha">{selected?.shortOid ?? selectedOid.slice(0, 7)}</code>
           </div>
           <div className="github-tab-sep" />
-          {!selected && loading ? <div className="github-empty">Loading commit...</div> : null}
+          {!selected && loading ? <div className="github-empty">Loading commit…</div> : null}
           {selected ? <CommitDetailView details={selected} /> : null}
         </div>
       </div>
@@ -1043,7 +1044,7 @@ function ReleasesTab({ releases, status, loading, onCreate, onRefresh }: {
           <div className="github-release-form-body">
             <label>Tag<input value={tagName} placeholder="v1.0.0" onChange={(e) => setTagName(e.target.value)} /></label>
             <label>Title (optional)<input value={title} placeholder="Release title" onChange={(e) => setTitle(e.target.value)} /></label>
-            <label>Release Notes (optional)<textarea value={notes} placeholder="Describe the release..." onChange={(e) => setNotes(e.target.value)} /></label>
+            <label>Release Notes (optional)<textarea value={notes} placeholder="Describe the release…" onChange={(e) => setNotes(e.target.value)} /></label>
             <div className="github-check-row">
               <label><input type="checkbox" checked={draft} onChange={(e) => setDraft(e.target.checked)} /> Draft</label>
               <label><input type="checkbox" checked={prerelease} onChange={(e) => setPrerelease(e.target.checked)} /> Pre-release</label>
@@ -1410,7 +1411,7 @@ function RunDetail({ run, details, rootPath, workspaceId, onRefresh, onRerun }: 
               <button
                 type="button"
                 className="ghost-btn small"
-                onClick={() => void navigator.clipboard?.writeText(logs.text).catch(() => undefined)}
+                onClick={() => void copyText(logs.text, 'Logs')}
                 title="Copy logs to clipboard"
               >
                 <Copy size={10} aria-hidden="true" /> Copy
@@ -1663,7 +1664,7 @@ function GitHubCliSetup({ cli, onRunCommand }: { cli: GitHubCliStatus | null; on
     ? ['winget install GitHub.cli', 'scoop install gh']
     : ['sudo apt install gh', 'sudo dnf install gh']
 
-  const copyCmd = (cmd: string): void => { void navigator.clipboard?.writeText(cmd) }
+  const copyCmd = (cmd: string): void => { void copyText(cmd, 'Command') }
 
   return (
     <div className="github-cli-setup">

@@ -225,7 +225,7 @@ function JobCard({ busy, expanded, job, onRemove, onStop, onToggleExpanded }: Jo
             <pre>{formatOutput(output)}</pre>
           ) : (
             <div className="bg-jobs-dock-output-empty">
-              {isRunning ? 'Aguardando output do processo...' : 'Nenhum output capturado para este job.'}
+              {isRunning ? 'Waiting for process output…' : 'No output captured for this job.'}
             </div>
           )}
         </div>

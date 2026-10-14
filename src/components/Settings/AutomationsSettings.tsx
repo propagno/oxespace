@@ -10,24 +10,24 @@ import type {
 import { useWorkspaceStore } from '../../store/workspace.store'
 
 const STATUS_LABEL: Record<AutomationRunStatus, string> = {
-  pending: 'na fila',
-  running: 'executando',
-  completed: 'concluída',
-  failed: 'falhou',
-  dispatch_failed: 'falha ao criar worktree',
-  skipped_precheck: 'ignorada (verificação prévia)',
-  skipped_missed: 'ignorada (horário perdido)',
-  skipped_busy: 'ignorada (execução anterior ativa)'
+  pending: 'queued',
+  running: 'running',
+  completed: 'completed',
+  failed: 'failed',
+  dispatch_failed: 'could not create the worktree',
+  skipped_precheck: 'skipped (pre-check)',
+  skipped_missed: 'skipped (missed time)',
+  skipped_busy: 'skipped (previous run still active)'
 }
 
-const DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 function describeSchedule(s: AutomationSchedule): string {
   const time = (h: number, m: number): string => `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
   switch (s.kind) {
-    case 'interval': return `a cada ${s.everyMinutes} min`
-    case 'daily': return `todo dia às ${time(s.hour, s.minute)}`
-    case 'weekly': return `${s.days.map((d) => DAYS[d]).join(', ')} às ${time(s.hour, s.minute)}`
+    case 'interval': return `every ${s.everyMinutes} min`
+    case 'daily': return `every day at ${time(s.hour, s.minute)}`
+    case 'weekly': return `${s.days.map((d) => DAYS[d]).join(', ')} at ${time(s.hour, s.minute)}`
     case 'cron': return `cron ${s.expression}`
   }
 }
@@ -115,13 +115,13 @@ export function AutomationsSettings(): ReactElement | null {
 
   return (
     <div className="settings-form-group">
-      <h3 className="settings-form-group-title">Automações agendadas</h3>
+      <h3 className="settings-form-group-title">Scheduled automations</h3>
       <div className="settings-callout">
-        Executa um agente com um prompt em um <strong>worktree novo</strong> no horário escolhido, sem terminal aberto. O app
-        precisa estar rodando; horários perdidos são ignorados, não executados depois.
+        Runs an agent with a prompt in a <strong>new worktree</strong> at the chosen time, with no terminal open. The app
+        must be running; missed times are skipped, not run later.
       </div>
 
-      {items.length === 0 ? <p className="settings-field-hint">Nenhuma automação criada.</p> : null}
+      {items.length === 0 ? <p className="settings-field-hint">No automations yet.</p> : null}
       {items.map((a) => {
         const last = runs[a.id]
         return (
@@ -130,20 +130,20 @@ export function AutomationsSettings(): ReactElement | null {
               <strong>{a.name}</strong>
               <small>
                 {a.agent === 'codex' ? 'Codex' : 'Claude'} · {describeSchedule(a.schedule)}
-                {a.nextRunAt && a.enabled ? ` · próxima: ${new Date(a.nextRunAt).toLocaleString()}` : ''}
+                {a.nextRunAt && a.enabled ? ` · next: ${new Date(a.nextRunAt).toLocaleString()}` : ''}
                 <br />
-                {last ? `Última: ${STATUS_LABEL[last.status]}${last.message ? ` — ${last.message}` : ''}` : 'Ainda não executou.'}
+                {last ? `Last: ${STATUS_LABEL[last.status]}${last.message ? ` — ${last.message}` : ''}` : 'Has not run yet.'}
                 {last?.branch ? ` (${last.branch})` : ''}
               </small>
             </span>
             <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <button type="button" className="settings-btn ghost" title="Executar agora" aria-label={`Executar ${a.name} agora`}
+              <button type="button" className="settings-btn ghost" title="Run now" aria-label={`Run ${a.name} now`}
                 onClick={() => void guard(() => api.runNow(a.id))}><Play size={12} aria-hidden="true" /></button>
-              <button type="button" className="settings-btn ghost" title={a.enabled ? 'Desativar' : 'Ativar'}
+              <button type="button" className="settings-btn ghost" title={a.enabled ? 'Disable' : 'Enable'}
                 onClick={() => void guard(() => api.setEnabled({ id: a.id, enabled: !a.enabled }))}>
-                {a.enabled ? 'Ativa' : 'Pausada'}
+                {a.enabled ? 'Active' : 'Paused'}
               </button>
-              <button type="button" className="settings-btn ghost" title="Excluir" aria-label={`Excluir ${a.name}`}
+              <button type="button" className="settings-btn ghost" title="Delete" aria-label={`Delete ${a.name}`}
                 onClick={() => void guard(() => api.remove(a.id))}><Trash2 size={12} aria-hidden="true" /></button>
             </span>
           </div>
@@ -154,16 +154,16 @@ export function AutomationsSettings(): ReactElement | null {
 
       {creating ? (
         <div className="settings-form-group">
-          <label className="settings-field">Nome
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Revisão noturna" />
+          <label className="settings-field">Name
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nightly review" />
           </label>
-          <label className="settings-field">Repositório
+          <label className="settings-field">Repository
             <select value={rootPath} onChange={(e) => setRootPath(e.target.value)}>
-              <option value="">Selecione…</option>
+              <option value="">Select…</option>
               {workspaces.map((w) => <option key={w.id} value={w.rootPath}>{w.name} — {w.rootPath}</option>)}
             </select>
           </label>
-          <label className="settings-field">Agente
+          <label className="settings-field">Agent
             <select value={agent} onChange={(e) => setAgent(e.target.value as AutomationAgent)}>
               <option value="claude">Claude Code</option>
               <option value="codex">Codex</option>
@@ -172,26 +172,26 @@ export function AutomationsSettings(): ReactElement | null {
           <label className="settings-field">Prompt
             <textarea rows={4} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
           </label>
-          <label className="settings-field">Frequência
+          <label className="settings-field">Frequency
             <select value={kind} onChange={(e) => setKind(e.target.value as ScheduleKind)}>
-              <option value="interval">A cada N minutos</option>
-              <option value="daily">Diária</option>
-              <option value="weekly">Semanal</option>
+              <option value="interval">Every N minutes</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
               <option value="cron">Cron</option>
             </select>
           </label>
           {kind === 'interval' ? (
-            <label className="settings-field">Minutos (mín. 5)
+            <label className="settings-field">Minutes (min. 5)
               <input type="number" min={5} value={every} onChange={(e) => setEvery(Number(e.target.value))} />
             </label>
           ) : null}
           {kind === 'daily' || kind === 'weekly' ? (
-            <label className="settings-field">Horário
+            <label className="settings-field">Time
               <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
             </label>
           ) : null}
           {kind === 'weekly' ? (
-            <div className="settings-field" role="group" aria-label="Dias da semana">
+            <div className="settings-field" role="group" aria-label="Days of the week">
               {DAYS.map((label, day) => (
                 <label key={label} style={{ marginRight: 8 }}>
                   <input type="checkbox" checked={days.includes(day)}
@@ -201,26 +201,26 @@ export function AutomationsSettings(): ReactElement | null {
             </div>
           ) : null}
           {kind === 'cron' ? (
-            <label className="settings-field">Expressão (min hora dia mês dia-semana)
+            <label className="settings-field">Expression (minute hour day month weekday)
               <input value={cron} onChange={(e) => setCron(e.target.value)} />
             </label>
           ) : null}
-          <label className="settings-field">Verificação prévia (opcional)
+          <label className="settings-field">Pre-check (optional)
             <input value={precheck} onChange={(e) => setPrecheck(e.target.value)} placeholder="git diff --quiet origin/main || exit 0" />
-            <span className="settings-field-hint">Comando executado na raiz do repositório; a execução só segue se sair com código 0.</span>
+            <span className="settings-field-hint">Command run at the repository root; the run only continues if it exits with code 0.</span>
           </label>
-          <label className="settings-field">Argumentos extras do agente (opcional)
+          <label className="settings-field">Extra agent arguments (optional)
             <input value={extraArgs} onChange={(e) => setExtraArgs(e.target.value)} placeholder="--permission-mode acceptEdits" />
-            <span className="settings-field-hint">Sem aprovação interativa, o agente só usa o que estes argumentos permitirem.</span>
+            <span className="settings-field-hint">There is no interactive approval, so the agent only uses what these arguments allow.</span>
           </label>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="button" className="settings-btn" onClick={() => void submit()}>Criar automação</button>
-            <button type="button" className="settings-btn ghost" onClick={() => setCreating(false)}>Cancelar</button>
+            <button type="button" className="settings-btn" onClick={() => void submit()}>Create automation</button>
+            <button type="button" className="settings-btn ghost" onClick={() => setCreating(false)}>Cancel</button>
           </div>
         </div>
       ) : (
         <button type="button" className="settings-btn ghost" onClick={() => setCreating(true)}>
-          <Plus size={13} aria-hidden="true" /> Nova automação
+          <Plus size={13} aria-hidden="true" /> New automation
         </button>
       )}
     </div>

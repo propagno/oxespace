@@ -42,7 +42,7 @@ export function ThreadConfigurationBar({ thread, onConfigured, onError, openCont
   }
   const selector = (kind: string, label: string, text: string, children: React.ReactNode, disabled = false, badge?: string) => <Popover.Root open={opened === kind} onOpenChange={open => { if (open) setOpened(kind); else if (!proposedAccess) close() }}>
     <Popover.Trigger asChild><button ref={kind === 'permissions' ? accessTrigger : undefined} type="button" className={`thread-config-trigger${kind === 'permissions' ? ' is-permissions' : ''}`} aria-label={label} disabled={saving || disabled} title={text}>{kind === 'permissions' && <Shield size={12} />}<span>{text}</span>{badge && <i className="thread-config-badge">{badge}</i>}{saving ? <Loader2 size={12} className="thread-spin" /> : <ChevronDown size={12} />}</button></Popover.Trigger>
-    <Popover.Portal><Popover.Content className="thread-config-popover" side="top" align="start" sideOffset={10} collisionPadding={16} avoidCollisions sticky="always" aria-label={label}>
+    <Popover.Portal><Popover.Content className="thread-config-popover" side="top" align="start" sideOffset={10} collisionPadding={{ top: 44, right: 16, bottom: 16, left: 16 }} avoidCollisions sticky="always" aria-label={label}>
       <header>{label}{kind !== 'permissions' && <button type="button" aria-label="Refresh models" onClick={() => setRefresh(value => value + 1)} disabled={loading}><RefreshCw size={13} /></button>}</header><div className="thread-config-scroll">{children}</div>
     </Popover.Content></Popover.Portal>
   </Popover.Root>

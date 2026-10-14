@@ -923,7 +923,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
             ref={searchInputRef}
             type="text"
             className="terminal-search-input"
-            placeholder="Buscar no terminal…"
+            placeholder="Search in terminal…"
             aria-label="Search terminal"
             value={searchQuery}
             onChange={(e) => {
@@ -943,13 +943,13 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
             }}
           />
           <span className="terminal-search-count" aria-live="polite">{searchCountLabel}</span>
-          <button type="button" className="terminal-search-btn" aria-label="Previous match" title="Anterior (Shift+Enter)" onClick={() => runSearch(searchQuery, 'prev')}>
+          <button type="button" className="terminal-search-btn" aria-label="Previous match" title="Previous (Shift+Enter)" onClick={() => runSearch(searchQuery, 'prev')}>
             <ArrowUp size={12} aria-hidden="true" />
           </button>
-          <button type="button" className="terminal-search-btn" aria-label="Next match" title="Próximo (Enter)" onClick={() => runSearch(searchQuery, 'next')}>
+          <button type="button" className="terminal-search-btn" aria-label="Next match" title="Next (Enter)" onClick={() => runSearch(searchQuery, 'next')}>
             <ArrowDown size={12} aria-hidden="true" />
           </button>
-          <button type="button" className="terminal-search-btn" aria-label="Close search" title="Fechar (Esc)" onClick={closeSearch}>
+          <button type="button" className="terminal-search-btn" aria-label="Close search" title="Close (Esc)" onClick={closeSearch}>
             <X size={12} aria-hidden="true" />
           </button>
         </div>

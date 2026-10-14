@@ -34,7 +34,8 @@ describe('token bridge', () => {
     const components = readFileSync(join(process.cwd(), 'src/styles/components.css'), 'utf8')
     for (const [selector, source] of [['.tools-modal', layout], ['.modal-dialog-surface', components]] as const) {
       const block = new RegExp(`\\${selector}\\s*\\{([^}]*)\\}`).exec(source)?.[1] ?? ''
-      const zIndex = Number(/z-index:\s*(\d+)/.exec(block)?.[1])
+      const declared = /z-index:\s*(?:var\(--layer-(\w+)\)|(\d+))/.exec(block)
+      const zIndex = declared?.[1] ? LAYER[declared[1] as keyof typeof LAYER] : Number(declared?.[2])
       expect(zIndex, `${selector} must declare a z-index`).toBeGreaterThan(0)
       expect(zIndex, `${selector} sits under the scrim`).toBeGreaterThanOrEqual(scrimZ)
     }

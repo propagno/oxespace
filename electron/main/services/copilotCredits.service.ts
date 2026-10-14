@@ -89,7 +89,7 @@ export class CopilotCreditsService {
     }
     const parsed = parseCopilotUser(result.stdout)
     if (!parsed) {
-      return { ...EMPTY_COPILOT_CREDITS, installed: true, error: 'Não foi possível interpretar copilot_internal/user.' }
+      return { ...EMPTY_COPILOT_CREDITS, installed: true, error: 'Could not parse copilot_internal/user.' }
     }
     return parsed
   }

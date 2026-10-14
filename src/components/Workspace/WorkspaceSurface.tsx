@@ -556,7 +556,7 @@ function WorkspaceSurfaceComponent({
                   </nav>}
                   <div className="workspace-panel-stack-content" role={sidePanels.length > 1 ? 'tabpanel' : undefined} aria-label={sidePanels.length > 1 && activeSideId ? sideLabels[activeSideId] : undefined}>
                     {sidePanels.map(panel => <div key={panel.id} hidden={panel.id !== activeSideId}>
-                      <ErrorBoundary label="este painel"><Suspense fallback={<div className="workspace-editor-panel" data-testid="panel-loading" />}>{panel.content}</Suspense></ErrorBoundary>
+                      <ErrorBoundary label="this panel"><Suspense fallback={<div className="workspace-editor-panel" data-testid="panel-loading" />}>{panel.content}</Suspense></ErrorBoundary>
                     </div>)}
                   </div>
                 </div>

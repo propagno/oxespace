@@ -21,7 +21,7 @@
   width: min(880px, 92vw);
   height: min(680px, 86vh);
   background: var(--bg-elevated);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--elevation-4);
   overflow: hidden;
 }
 

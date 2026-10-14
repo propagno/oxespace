@@ -51,11 +51,11 @@ const UNANALYSABLE = /\$\(|`|<\(|>\(|\$\{[^}]*\}|\beval\b/
 
 /** Flags that turn an otherwise harmless command into a writer/executor. */
 const DANGEROUS_FLAGS: Array<{ command: string; flag: RegExp; why: string }> = [
-  { command: 'find', flag: /^-(exec|execdir|delete|ok|okdir|fprint|fls)\b/, why: 'find pode executar ou apagar arquivos' },
-  { command: 'sed', flag: /^-i/, why: 'sed -i edita arquivos' },
-  { command: 'rg', flag: /^--(pre|hostname-bin)/, why: 'rg --pre executa um programa' },
-  { command: 'git', flag: /^(-c|--exec-path|--upload-pack|--receive-pack)/, why: 'esta opção do git pode executar programas' },
-  { command: 'git', flag: /^(-f|--force|--force-with-lease|--force-if-includes|-D|--hard|--mirror)$/, why: 'esta opção do git descarta ou sobrescreve trabalho' }
+  { command: 'find', flag: /^-(exec|execdir|delete|ok|okdir|fprint|fls)\b/, why: 'find can run or delete files' },
+  { command: 'sed', flag: /^-i/, why: 'sed -i edits files' },
+  { command: 'rg', flag: /^--(pre|hostname-bin)/, why: 'rg --pre runs a program' },
+  { command: 'git', flag: /^(-c|--exec-path|--upload-pack|--receive-pack)/, why: 'this git option can run programs' },
+  { command: 'git', flag: /^(-f|--force|--force-with-lease|--force-if-includes|-D|--hard|--mirror)$/, why: 'this git option discards or overwrites work' }
 ]
 
 /** Splits on unquoted `&&`, `||`, `;`, `|`, `&` and newlines; null when it cannot be done safely. */
@@ -149,7 +149,7 @@ function dangerousFlag(tokens: string[]): string | null {
 export function evaluateShellCommand(line: string, rules: ShellRules): ShellEvaluation {
   const subcommands = splitShellCommand(line)
   if (!subcommands || subcommands.length === 0) {
-    return { decision: 'ask', reasons: ['O comando usa substituição ou aspas que não podem ser analisadas com segurança.'], subcommands: [] }
+    return { decision: 'ask', reasons: ['The command uses substitution or quoting that cannot be analysed safely.'], subcommands: [] }
   }
 
   const reasons: string[] = []
@@ -159,13 +159,13 @@ export function evaluateShellCommand(line: string, rules: ShellRules): ShellEval
     if (tokens.length === 0) continue
 
     if (rules.deny.some((rule) => ruleMatches(rule, sub, tokens))) {
-      return { decision: 'deny', reasons: [`"${sub}" está na lista de bloqueio.`], subcommands }
+      return { decision: 'deny', reasons: [`"${sub}" is on the block list.`], subcommands }
     }
     const head = baseName(tokens[0])
     const explicitlyAllowed = rules.allow.some((rule) => ruleMatches(rule, sub, tokens))
 
     if (DEFAULT_DENY.has(head) && !explicitlyAllowed) {
-      return { decision: 'deny', reasons: [`"${head}" é bloqueado por padrão.`], subcommands, byDefault: true }
+      return { decision: 'deny', reasons: [`"${head}" is blocked by default.`], subcommands, byDefault: true }
     }
     const flag = dangerousFlag(tokens)
     if (flag) {
@@ -174,12 +174,12 @@ export function evaluateShellCommand(line: string, rules: ShellRules): ShellEval
       continue
     }
     if (writesFile(tokens)) {
-      reasons.push(`"${sub}" grava em arquivo por redirecionamento.`)
+      reasons.push(`"${sub}" writes to a file through redirection.`)
       allAllowed = false
       continue
     }
     if (!explicitlyAllowed) {
-      reasons.push(`"${sub}" não está na lista de permitidos.`)
+      reasons.push(`"${sub}" is not on the allow list.`)
       allAllowed = false
     }
   }

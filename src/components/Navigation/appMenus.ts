@@ -84,7 +84,7 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
         fromAction('split-horizontal', 'Split pane down', 'Ctrl+Shift+-'),
         fromAction('maximize-pane', 'Maximize pane', 'Ctrl+Shift+Enter'),
         sep('view-4'),
-        fromAction('design-system', 'Design system', 'Ctrl+Shift+D')
+        fromAction('design-system', 'Design system')
       ])
     },
     {

@@ -1,5 +1,7 @@
 import { Brain, Copy, Download, Pause, Play, RefreshCw, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { copyText } from '../../ui'
+import { useModalSurface } from '../../ui'
 import type { SemanticLogEntry, SemanticLogLevel, SemanticSearchMode, SemanticStatus } from '../../../shared/types/ipc'
 import { useTerminalPrefsStore } from '../../store/terminal-prefs.store'
 
@@ -18,6 +20,7 @@ const LEVELS: SemanticLogLevel[] = ['debug', 'info', 'warn', 'error']
  * available for offline analysis.
  */
 export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivityPanelProps): ReactElement {
+  const surface = useModalSurface<HTMLElement>(onClose)
   const [logs, setLogs] = useState<SemanticLogEntry[]>([])
   const [status, setStatus] = useState<SemanticStatus | null>(null)
   const [paused, setPaused] = useState(false)
@@ -70,7 +73,7 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
     [visible]
   )
 
-  const handleCopy = (): void => { void navigator.clipboard?.writeText(asText()).catch(() => undefined) }
+  const handleCopy = (): void => { void copyText(asText(), 'Activity log') }
 
   const handleExport = (): void => {
     const blob = new Blob([asText()], { type: 'text/plain;charset=utf-8' })
@@ -131,6 +134,7 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
         role="dialog"
         aria-modal="true"
         aria-label="Semantic activity"
+        {...surface}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header className="mcp-panel-header">

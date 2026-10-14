@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { cx } from '../../ui'
+import { ConfirmDialog, cx } from '../../ui'
 import styles from './ThreadSidebar.module.css'
 import { useThreadContentSearch } from '../../hooks/useThreadContentSearch'
 import { AlignJustify, Archive, ArchiveRestore, Check, ChevronDown, Circle, CircleAlert, CircleCheck, CircleX, Columns2, PanelsTopLeft, FolderPlus, Loader2, MoreHorizontal, Pencil, Pin, Plus, Settings2, Square, Trash2, X, UserRound } from 'lucide-react'
@@ -83,7 +83,7 @@ export function ThreadSidebar({ onCreate, onModeChange, onSelectMode, onAccounts
     <span className={cx('thread-session-content', styles.content)}><span className={cx('thread-session-title', styles.title)}>{thread.title}</span><span className={cx('thread-session-meta', styles.meta)}><span className={cx('thread-session-provider', styles.provider)}><AgentProviderIcon provider={thread.provider} size={density === 'compact' ? 12 : 14} /><span>{thread.provider === 'claude' ? 'Claude Code' : 'Codex'}</span></span><span className={cx('thread-session-state', styles.state)} data-status={status.kind}>{status.label}</span>{thread.pinned && <Pin size={10} aria-label="Pinned" />}<small>{relativeTime(thread.updatedAt)}</small></span></span>
   </button><button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Open ${thread.title} side by side`} title="Open side by side" disabled={secondaryId === thread.id} onClick={() => void openSecondary(thread.id).catch(error => setActionError(error instanceof Error ? error.message : 'Could not open conversation.'))}><Columns2 size={13} /></button><DropdownMenu.Root>
     <DropdownMenu.Trigger asChild><button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Actions for ${thread.title}`} title="Conversation actions"><MoreHorizontal size={13} /></button></DropdownMenu.Trigger>
-    <DropdownMenu.Portal><DropdownMenu.Content className="thread-actions-dropdown" side="right" align="start" sideOffset={5} collisionPadding={8} aria-label={`Actions for ${thread.title}`}>
+    <DropdownMenu.Portal><DropdownMenu.Content className="thread-actions-dropdown" side="right" align="start" sideOffset={5} collisionPadding={{ top: 44, right: 8, bottom: 8, left: 8 }} aria-label={`Actions for ${thread.title}`}>
       <DropdownMenu.Item className="thread-action-item" disabled={secondaryId === thread.id} onSelect={() => void openSecondary(thread.id).catch(error => setActionError(error instanceof Error ? error.message : 'Could not open conversation.'))}><Columns2 size={14} />Open to the side</DropdownMenu.Item>
       <DropdownMenu.Item className="thread-action-item" disabled={thread.status === 'running' || thread.status === 'approval'} onSelect={() => { setActionError(''); setRenameTarget(thread); setRenameValue(thread.title) }}><Pencil size={14} />Rename conversation…</DropdownMenu.Item>
       <DropdownMenu.Item className="thread-action-item" onSelect={() => void (async () => { try { await window.oxe.thread!.pin(thread.id, !thread.pinned); await useThreadStore.getState().refresh(thread.id) } catch (error) { setActionError(error instanceof Error ? error.message : 'Could not update pin.') } })()}><Pin size={14} />{thread.pinned ? 'Unpin conversation' : 'Pin conversation'}</DropdownMenu.Item>
@@ -104,7 +104,7 @@ export function ThreadSidebar({ onCreate, onModeChange, onSelectMode, onAccounts
       primary={[{ id: 'add-project', label: 'Add project', icon: FolderPlus, onClick: onAddProject }]}
       context={{ id: 'accounts', label: 'Accounts', ariaLabel: 'Agent accounts', icon: UserRound, onClick: onAccounts }} />
     {!collapsed && <div className="nav-panel">
-      <div className="nav-panel-title"><strong>Sessions</strong></div>
+      <div className="nav-panel-title"><strong>Conversations</strong></div>
       <div className={cx('thread-nav-actions', styles.search)}>
         <SearchField className="thread-nav-search" ref={search} label="Filter threads" placeholder="Filter threads" value={query} onChange={setQuery} shortcut="/" />
       </div>
@@ -158,9 +158,15 @@ export function ThreadSidebar({ onCreate, onModeChange, onSelectMode, onAccounts
         <footer><button type="button" disabled={acting} onClick={() => setRenameTarget(null)}>Cancel</button><button type="submit" className="thread-primary" disabled={acting || !renameValue.trim() || renameValue.trim() === renameTarget.title}>{acting ? 'Renaming…' : 'Rename conversation'}</button></footer>
       </form>
     </DesktopDialog>}
-    {confirmation && <DesktopDialog className="thread-create-dialog" title={confirmation.kind === 'thread' ? 'Delete thread' : confirmation.kind === 'archive' ? 'Archive conversation' : 'Remove project'} description={confirmation.kind === 'thread' ? `Delete “${confirmation.title}” from OXESpace? An active turn will stop. The provider session and project files are kept.` : confirmation.kind === 'archive' ? `Archive “${confirmation.title}”? An active turn will stop. You can restore it from Archived in this sidebar.` : `Remove “${confirmation.title}” from the Thread sidebar? Its conversations, files and Code workspaces remain. Restore this project individually from Removed projects or add its folder again.`} onClose={() => { if (!acting) setConfirmation(null) }}>
-      {actionError && <p role="alert">{actionError}</p>}
-      <footer><button type="button" disabled={acting} onClick={() => setConfirmation(null)}>Cancel</button><button type="button" className="thread-primary" disabled={acting} onClick={() => {
+    {confirmation && <ConfirmDialog
+      title={confirmation.kind === 'thread' ? 'Delete thread' : confirmation.kind === 'archive' ? 'Archive conversation' : 'Remove project'}
+      description={confirmation.kind === 'thread' ? `Delete “${confirmation.title}” from OXESpace? An active turn will stop. The provider session and project files are kept.` : confirmation.kind === 'archive' ? `Archive “${confirmation.title}”? An active turn will stop. You can restore it from Archived in this sidebar.` : `Remove “${confirmation.title}” from the Thread sidebar? Its conversations, files and Code workspaces remain. Restore this project individually from Removed projects or add its folder again.`}
+      confirmLabel={acting ? 'Please wait…' : confirmation.kind === 'thread' ? 'Delete thread' : confirmation.kind === 'archive' ? 'Archive conversation' : 'Remove project'}
+      danger={confirmation.kind !== 'archive'}
+      busy={acting}
+      error={actionError}
+      onCancel={() => setConfirmation(null)}
+      onConfirm={() => {
         setActing(true); setActionError('')
         void (async () => {
           try {
@@ -175,7 +181,6 @@ export function ThreadSidebar({ onCreate, onModeChange, onSelectMode, onAccounts
           } catch (error) { setActionError(error instanceof Error ? error.message : 'Could not complete the action.') }
           finally { setActing(false) }
         })()
-      }}>{acting ? 'Please wait…' : confirmation.kind === 'thread' ? 'Delete thread' : confirmation.kind === 'archive' ? 'Archive conversation' : 'Remove project'}</button></footer>
-    </DesktopDialog>}
+      }} />}
   </aside>
 }

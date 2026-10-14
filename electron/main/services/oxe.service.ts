@@ -180,7 +180,7 @@ export class OxeService {
 
     const detected = await this.detect(false)
     if (!detected.installed) {
-      return { ok: false, url: null, port: null, mode: null, error: 'oxe-cc não está instalado.' }
+      return { ok: false, url: null, port: null, mode: null, error: 'oxe-cc is not installed.' }
     }
     if (!versionGte(detected.version, MIN_EMBED_DASHBOARD_VERSION)) {
       const ext = await this.openDashboard(rootPath)
@@ -210,7 +210,7 @@ export class OxeService {
       }
       const timer = setTimeout(() => {
         try { child.kill() } catch { /* gone */ }
-        done({ ok: false, url: null, port: null, mode: null, error: 'dashboard não respondeu a tempo.' })
+        done({ ok: false, url: null, port: null, mode: null, error: 'The dashboard did not respond in time.' })
       }, DASHBOARD_LINE_TIMEOUT_MS)
       child.stdout?.setEncoding('utf8')
       const rl = createInterface({ input: child.stdout! })

@@ -72,7 +72,7 @@ test('workspace settings navigation and responsive visual review', async () => {
     await expect(page.locator('.split-pane-slot[data-compact-active]')).toHaveCount(1)
     await expect(page.locator('.split-pane-slot[data-compact-active]').getByTestId('terminal-pane')).toBeVisible()
     await expect(page.locator('.workspace-topbar-breadcrumb')).toBeHidden()
-    await expect(page.locator('.app-statusbar-item.connected')).toBeVisible()
+    await expect(page.locator('.app-statusbar')).toBeVisible()
     const initialPaneId = await page.locator('.split-pane-slot[data-compact-active]').getByTestId('terminal-pane').getAttribute('data-pane-id')
     await page.locator('.sidebar').getByText('terminal 2', { exact: true }).click()
     await expect.poll(() => page.locator('.split-pane-slot[data-compact-active]').getByTestId('terminal-pane').getAttribute('data-pane-id')).not.toBe(initialPaneId)

@@ -48,7 +48,7 @@ describe('cleanup flows', () => {
     render(<WorkspaceGrid workspace={workspace} maximizedPaneId={null} onClosePane={onClosePane} onToggleMaximize={() => undefined} />)
     // Close pane lives in the ⋯ overflow menu (header chrome).
     await user.click(screen.getAllByLabelText('More pane actions')[0])
-    await user.click(screen.getByRole('menuitem', { name: /Fechar pane/i }))
+    await user.click(screen.getByRole('menuitem', { name: /Close pane/i }))
 
     expect(onClosePane).toHaveBeenCalledWith(workspace.panes[0].id)
     db.close()

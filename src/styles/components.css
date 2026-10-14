@@ -21,7 +21,7 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  z-index: 200;
+  z-index: var(--layer-overlay);
 }
 
 /* ─── Premium Tooltips ───────────────────────────────────────────────────── */
@@ -55,10 +55,10 @@
   letter-spacing: 0.01em;
   padding: 8px 14px;
   border-radius: var(--radius-md);
-  box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.6), inset 0 1px 0 var(--ov-2);
+  box-shadow: var(--elevation-3), inset 0 1px 0 var(--ov-2);
   text-align: center;
   backdrop-filter: blur(12px) saturate(140%);
-  z-index: 10001;
+  z-index: var(--layer-tooltip);
 }
 
 [data-tooltip]::before {
@@ -72,7 +72,7 @@
   border-bottom: 1px solid var(--ov-3);
   transform: translateX(-50%) translateY(4px) rotate(45deg) scale(0.96);
   backdrop-filter: blur(12px) saturate(140%);
-  z-index: 10000;
+  z-index: var(--layer-tooltip);
 }
 
 [data-tooltip]:hover::after {
@@ -112,7 +112,7 @@
    with fixed, collision-aware coordinates by ViewportTooltip. */
 .viewport-tooltip {
   position: fixed;
-  z-index: 2147483647;
+  z-index: var(--layer-tooltip);
   box-sizing: border-box;
   width: max-content;
   max-width: min(360px, calc(100vw - 16px));
@@ -121,7 +121,7 @@
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--surface-sunken) 96%, transparent);
   color: var(--text-primary);
-  box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.72), inset 0 1px 0 var(--ov-2);
+  box-shadow: var(--elevation-3), inset 0 1px 0 var(--ov-2);
   font-family: var(--font-mono);
   font-size: var(--fs-2xs);
   font-weight: 500;
@@ -410,7 +410,7 @@
   border: 1px solid var(--ov-3);
   border-radius: var(--radius-lg);
   background: var(--surface-sunken);
-  box-shadow: var(--shadow-modal), 0 40px 120px rgba(0, 0, 0, 0.72);
+  box-shadow: var(--elevation-4);
 }
 
 .settings-modal-nav {
@@ -1106,7 +1106,7 @@
   height: 18px;
   border-radius: 50%;
   background: var(--surface-raised);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--elevation-1);
   transition: transform 140ms;
 }
 
@@ -1530,9 +1530,6 @@
   overflow-x: hidden;
   padding: 4px 0 8px;
 }
-.agent-list::-webkit-scrollbar { width: 3px; }
-.agent-list::-webkit-scrollbar-track { background: transparent; }
-.agent-list::-webkit-scrollbar-thumb { background: var(--ov-3); border-radius: var(--radius-xs); }
 
 .agent-item {
   display: flex;
@@ -1737,7 +1734,7 @@
 .command-palette-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 120;
+  z-index: calc(var(--layer-dropdown) + 20);
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -1754,7 +1751,7 @@
   border: 1px solid var(--bd-base);
   border-radius: var(--panel-radius);
   background: var(--bg-modal);
-  box-shadow: 0 24px 80px rgba(0,0,0,0.72);
+  box-shadow: var(--elevation-4);
 }
 
 .command-palette-search {
@@ -1830,7 +1827,7 @@
 .slash-overlay-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 140;
+  z-index: calc(var(--layer-dropdown) + 40);
   display: flex;
   align-items: flex-start;
   justify-content: center;

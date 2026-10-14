@@ -181,7 +181,7 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
     <header className="changes-toolbar">
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild><button type="button" className="changes-pill" aria-label="Change scope">{SCOPE_LABEL[scope]}<ChevronDown size={12} aria-hidden="true" /></button></DropdownMenu.Trigger>
-        <DropdownMenu.Portal><DropdownMenu.Content className="changes-menu" align="start" sideOffset={6}>
+        <DropdownMenu.Portal><DropdownMenu.Content collisionPadding={{ top: 44, right: 8, bottom: 8, left: 8 }} className="changes-menu" align="start" sideOffset={6}>
           <DropdownMenu.RadioGroup value={scope} onValueChange={value => { setScope(value as Scope); setSelectedPath(null) }}>
             <DropdownMenu.RadioItem value="branch" className="changes-menu-item">All changes on this branch<DropdownMenu.ItemIndicator><Check size={13} /></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>
             <DropdownMenu.RadioItem value="uncommitted" className="changes-menu-item">Uncommitted changes<DropdownMenu.ItemIndicator><Check size={13} /></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>
@@ -193,7 +193,7 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
         <Popover.Trigger asChild><button type="button" className="changes-pill changes-branches" aria-label="Compare branches" disabled={scope === 'uncommitted'}>
           <GitBranch size={13} aria-hidden="true" /><span>{current ?? 'HEAD'}</span><span aria-hidden="true">→</span><span>{effectiveBase ?? '…'}</span><ChevronDown size={12} aria-hidden="true" />
         </button></Popover.Trigger>
-        <Popover.Portal><Popover.Content className="changes-menu changes-branch-menu" align="start" sideOffset={6} aria-label="Select base branch">
+        <Popover.Portal><Popover.Content collisionPadding={{ top: 44, right: 8, bottom: 8, left: 8 }} className="changes-menu changes-branch-menu" align="start" sideOffset={6} aria-label="Select base branch">
           <label className="changes-menu-search"><Search size={13} aria-hidden="true" /><input autoFocus aria-label="Search branches" placeholder="Search branches" value={branchQuery} onChange={event => setBranchQuery(event.target.value)} /></label>
           <p className="changes-menu-heading">Branches</p>
           <ul>{visibleBranches.map(branch => <li key={branch}><Popover.Close asChild><button type="button" className="changes-menu-item" onClick={() => { setBase(branch); setSelectedPath(null) }}><GitBranch size={13} aria-hidden="true" /><span>{branch}</span>{branch === base && <Check size={13} aria-hidden="true" />}</button></Popover.Close></li>)}

@@ -14,7 +14,7 @@ describe('describePermissionRequest', () => {
     )
     expect(p.title).toBe('Claude wants to run a command')
     expect(p.detail).toContain('List files')
-    expect(p.detail).toContain('Motivo: No allow rule matched')
+    expect(p.detail).toContain('Reason: No allow rule matched')
     expect(p.detail).toContain('C:\\outside\\x')
     expect(p.detail).toContain('"command": "ls"')
   })
@@ -139,12 +139,12 @@ describe('describePermissionRequest: rules the CLI states about remembering', ()
 
   it('removes ANSI sequences from the reason, not just the escape byte', () => {
     const p = describePermissionRequest({ decision_reason: '\u001b[31mDangerous\u001b[0m rm \u001b]0;title\u0007here' }, 'Bash', {})
-    expect(p.detail).toContain('Motivo: Dangerous rm here')
+    expect(p.detail).toContain('Reason: Dangerous rm here')
     expect(p.detail).not.toMatch(/\[31m|\[0m|title/)
   })
 
   it('names the ask rule that forced the prompt', () => {
     const p = describePermissionRequest({ matched_ask_rule: { source: 'projectSettings', tool_name: 'Bash', rule_content: 'git push:*' } }, 'Bash', {})
-    expect(p.detail).toContain('Regra de confirmação: Bash (git push:*)')
+    expect(p.detail).toContain('Confirmation rule: Bash (git push:*)')
   })
 })

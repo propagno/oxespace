@@ -23,13 +23,13 @@ import { checkWorkspacePath, type PathSafetyOptions } from '../path-safety'
 type Decision = ThreadRequestPolicy['decision']
 
 const REASON_FOR: Record<string, string> = {
-  'outside-workspace': 'fica fora do projeto',
-  'device-name': 'usa um nome de dispositivo reservado do Windows',
-  'alternate-stream': 'usa um fluxo alternativo de dados',
-  'short-name': 'usa um nome curto 8.3 que pode esconder o destino',
-  'device-prefix': 'usa um prefixo de dispositivo do Windows',
-  'trailing-dot-or-space': 'termina em ponto ou espaço, que o Windows remove',
-  invalid: 'não é um caminho válido'
+  'outside-workspace': 'is outside the project',
+  'device-name': 'uses a reserved Windows device name',
+  'alternate-stream': 'uses an alternate data stream',
+  'short-name': 'uses a short 8.3 name that can hide the target',
+  'device-prefix': 'uses a Windows device prefix',
+  'trailing-dot-or-space': 'ends in a dot or space, which Windows removes',
+  invalid: 'is not a valid path'
 }
 
 function pathMatcher(pattern: string, windows: boolean): (path: string) => boolean {
@@ -48,19 +48,19 @@ function evaluatePaths(paths: string[], rootPath: string, rules: ThreadPermissio
   for (const candidate of paths) {
     const verdict = checkWorkspacePath(rootPath, candidate, options)
     if (!verdict.safe) {
-      reasons.push(`"${candidate}" ${REASON_FOR[verdict.reason] ?? 'não pode ser verificado'}.`)
+      reasons.push(`"${candidate}" ${REASON_FOR[verdict.reason] ?? 'cannot be verified'}.`)
       decision = 'ask'
       continue
     }
     const local = path.relative(root, verdict.resolved).split(/[\\/]/).join('/') || '.'
     const denied = deny.find(rule => pathMatcher(rule.pattern, windows)(local))
-    if (denied) return { decision: 'deny' as const, reasons: [`"${local}" é bloqueado pela regra ${denied.pattern}.`], suggestions: [] }
+    if (denied) return { decision: 'deny' as const, reasons: [`"${local}" is blocked by the rule ${denied.pattern}.`], suggestions: [] }
     if (allow.some(rule => pathMatcher(rule.pattern, windows)(local))) continue
-    reasons.push(`"${local}" não está coberto por uma regra de edição.`)
+    reasons.push(`"${local}" is not covered by an edit rule.`)
     if (decision === 'allow') decision = 'ask'
     const dir = local.includes('/') ? local.slice(0, local.indexOf('/')) : ''
     const pattern = dir ? `${dir}/**` : local
-    if (!suggestions.some(item => item.pattern === pattern)) suggestions.push({ kind: 'path', pattern, label: dir ? `edições em ${dir}/` : `edições em ${local}` })
+    if (!suggestions.some(item => item.pattern === pattern)) suggestions.push({ kind: 'path', pattern, label: dir ? `edits in ${dir}/` : `edits to ${local}` })
   }
   return { decision, reasons, suggestions }
 }
@@ -80,11 +80,11 @@ function toolRuleMatches(pattern: string, server: string, tool: string): boolean
 function evaluateTool(server: string, tool: string, rules: ThreadPermissionRule[]): ThreadRequestPolicy {
   const toolRules = rules.filter(rule => rule.kind === 'tool')
   const denied = toolRules.find(rule => rule.decision === 'deny' && toolRuleMatches(rule.pattern, server, tool))
-  if (denied) return { decision: 'deny', reasons: [`A ferramenta ${server}/${tool} é bloqueada pela regra ${denied.pattern}.`] }
-  if (toolRules.some(rule => rule.decision === 'allow' && toolRuleMatches(rule.pattern, server, tool))) return { decision: 'allow', reasons: ['Coberto pelas regras de permissão do projeto.'] }
-  return { decision: 'ask', reasons: [`A ferramenta ${server}/${tool} não está coberta por uma regra.`], suggestions: [
-    { kind: 'tool', pattern: `${server}/${tool}`, label: `a ferramenta ${tool} de ${server}` },
-    { kind: 'tool', pattern: `${server}/*`, label: `todas as ferramentas de ${server}` }
+  if (denied) return { decision: 'deny', reasons: [`The tool ${server}/${tool} is blocked by the rule ${denied.pattern}.`] }
+  if (toolRules.some(rule => rule.decision === 'allow' && toolRuleMatches(rule.pattern, server, tool))) return { decision: 'allow', reasons: ['Covered by the project permission rules.'] }
+  return { decision: 'ask', reasons: [`The tool ${server}/${tool} is not covered by a rule.`], suggestions: [
+    { kind: 'tool', pattern: `${server}/${tool}`, label: `the tool ${tool} of ${server}` },
+    { kind: 'tool', pattern: `${server}/*`, label: `every tool of ${server}` }
   ] }
 }
 
@@ -120,7 +120,7 @@ export function evaluatePermission(
 
   const denied = parts.find(part => part.decision === 'deny')
   if (denied) return { decision: 'deny', reasons: denied.reasons }
-  if (parts.every(part => part.decision === 'allow')) return { decision: 'allow', reasons: ['Coberto pelas regras de permissão do projeto.'] }
+  if (parts.every(part => part.decision === 'allow')) return { decision: 'allow', reasons: ['Covered by the project permission rules.'] }
   const suggestions = parts.flatMap(part => part.suggestions)
   return {
     decision: 'ask',

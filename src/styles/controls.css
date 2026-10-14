@@ -1,0 +1,93 @@
+/* ─── Control family ───────────────────────────────────────────────────────
+   The hand-written button classes that predate src/ui share one size scale,
+   radius, type and focus ring, the same as `Button`: 24 / 28 / 32 px tall.
+   Contextual rules with two or more classes keep winning, as before. New
+   buttons use `Button` and `IconButton` from src/ui instead of these. */
+
+/* Text buttons: 28 px, secondary look. */
+.ghost-btn,
+.secondary-action,
+.settings-btn {
+  min-height: var(--control-md);
+  height: auto;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  line-height: 1.2;
+}
+.ghost-btn:hover:not(:disabled),
+.secondary-action:hover:not(:disabled),
+.settings-btn:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--fill-hover);
+  color: var(--text-primary);
+}
+
+/* Primary buttons: 28 px, accent. */
+.primary-btn,
+.primary-action {
+  min-height: var(--control-md);
+  height: auto;
+  padding: 0 var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  line-height: 1.2;
+}
+.primary-btn:hover:not(:disabled),
+.primary-action:hover:not(:disabled) { background: var(--accent-hover); }
+
+/* Icon buttons: square, 28 px (24 px for the dense panel and tile variants), hit area never below 24 px. */
+.icon-button,
+.gh-icon-btn,
+.tile-btn {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--control-md);
+  height: var(--control-md);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+}
+.gh-icon-btn,
+.tile-btn { width: var(--control-sm); height: var(--control-sm); }
+.icon-button:hover:not(:disabled),
+.gh-icon-btn:hover:not(:disabled),
+.tile-btn:hover:not(:disabled) { background: var(--fill-hover); color: var(--text-primary); }
+/* A larger invisible target around the dense variants, so a 24 px glyph box is still easy to hit. */
+.gh-icon-btn::after,
+.tile-btn::after { content: ""; position: absolute; inset: -2px; }
+
+.ghost-btn:disabled,
+.primary-btn:disabled,
+.primary-action:disabled,
+.secondary-action:disabled,
+.settings-btn:disabled,
+.icon-button:disabled,
+.gh-icon-btn:disabled,
+.tile-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* One focus ring for every control. */
+:where(button, [role="button"], [role="tab"], [role="menuitem"], a, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Small controls keep a 24 px target even when their glyph is smaller. */
+.new-workspace-agent-chip-step { min-width: var(--control-sm); min-height: var(--control-sm); }
+.semantic-activity-chip { min-height: var(--control-sm); }
+.web-preview-tab > button[aria-label^="Close tab"] { min-width: var(--control-sm); min-height: var(--control-sm); display: inline-grid; place-items: center; }
+
+/* Native checkboxes and radios follow the accent and are never smaller than 16 px. */
+input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; accent-color: var(--accent); }

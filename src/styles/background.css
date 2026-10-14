@@ -38,10 +38,6 @@
   scrollbar-width: none;
 }
 
-.bg-jobs-dock-filters::-webkit-scrollbar {
-  display: none;
-}
-
 .bg-jobs-dock-filter {
   display: inline-flex;
   align-items: center;
@@ -303,20 +299,6 @@
   word-break: normal;
   overflow-wrap: normal;
   tab-size: 2;
-}
-
-.bg-jobs-dock-output pre::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.bg-jobs-dock-output pre::-webkit-scrollbar-track {
-  background: var(--ov-1);
-}
-
-.bg-jobs-dock-output pre::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--accent) 35%, transparent);
-  border-radius: var(--radius-pill);
 }
 
 .bg-jobs-dock-output-empty {

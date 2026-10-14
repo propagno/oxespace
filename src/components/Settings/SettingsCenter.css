@@ -1,6 +1,6 @@
 /* Settings is a desktop surface with independent navigation and content scroll. */
-.settings-center-overlay { position: fixed; inset: 0; z-index: 199; background: var(--scrim); }
-.settings-center { position: fixed; inset: 0; z-index: 200; display: grid; grid-template-columns: var(--settings-navigation-width, 248px) minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; background: var(--bg-app); color: var(--tx-primary); }
+.settings-center-overlay { position: fixed; inset: 0; z-index: calc(var(--layer-overlay) - 1); background: var(--scrim); }
+.settings-center { position: fixed; inset: 0; z-index: var(--layer-overlay); display: grid; grid-template-columns: var(--settings-navigation-width, 248px) minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; background: var(--bg-app); color: var(--tx-primary); }
 .settings-center-nav { display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 0; padding: 0 12px 12px; border-right: 1px solid var(--bd-base); background: var(--bg-sidebar); }
 .settings-center-title { display: flex; align-items: center; gap: 9px; height: var(--chrome-h); min-height: var(--chrome-h); margin: 0 -12px; padding: 0 var(--chrome-inset); border-bottom: 1px solid var(--bd-base); font-size: var(--fs-sm); font-weight: 600; letter-spacing: -.15px; }
 .settings-center-title svg { color: var(--tx-muted); }
@@ -137,15 +137,7 @@
 .settings-center .ws-settings-form-v2 .modal-actions p { font-size: var(--fs-2xs); }
 .settings-center .ws-settings-saved { display: flex; align-items: center; gap: 7px; padding: 7px 24px; color: var(--accent); font-size: var(--fs-xs); }
 .settings-center .ws-settings-form-v2 .modal-error { margin: 0 24px; }
-/* The guard remains above Settings and preserves the draft after failed saves. */
-.settings-unsaved-overlay { position: fixed; inset: 0; z-index: 220; background: var(--scrim); }
-.settings-unsaved { position: fixed; z-index: 221; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(440px, 90vw); padding: 24px; border: 1px solid var(--bd-base); border-radius: var(--radius-lg); background: var(--bg-elevated); color: var(--tx-primary); box-shadow: 0 16px 60px #0005; }
-.settings-unsaved h2 { margin: 0 0 12px; font-size: var(--fs-lg); font-weight: 600; }
-.settings-unsaved p { margin: 0 0 20px; color: var(--tx-secondary); font-size: var(--fs-xs); line-height: 1.6; }
-.settings-unsaved > div { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
-.settings-unsaved button { padding: 8px 12px; border: 1px solid var(--bd-base); border-radius: var(--nav-radius); background: transparent; color: var(--tx-primary); font-size: var(--fs-xs); cursor: pointer; }
-.settings-unsaved button.primary-action { background: var(--accent); color: var(--text-on-accent); }
-.settings-center :is(button, input, select):focus-visible, .settings-unsaved button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.settings-center :is(button, input, select):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (max-width: 1100px) {
   .settings-center .settings-update-card { grid-template-columns: minmax(0, 1fr); }
   .settings-center .settings-update-actions { grid-column: 1; grid-row: 4; justify-content: flex-start; margin: 6px 0 0 40px; }

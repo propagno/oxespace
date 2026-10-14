@@ -22,7 +22,7 @@ test('scope navigation protects drafts and supports discard without saving', asy
   expect(screen.getByRole('radio', { name: /Compact/ })).toHaveAttribute('aria-checked', 'true')
   fireEvent.click(screen.getByRole('group', { name: 'Settings scope' }).querySelector('button')!)
   fireEvent.click(screen.getByRole('button', { name: 'Discard', exact: true }))
-  expect(screen.getByRole('heading', { name: 'General' })).toBeVisible()
+  expect(screen.getByRole('heading', { name: 'Appearance' })).toBeVisible()
   expect(onSave).not.toHaveBeenCalled()
 })
 test('failed save does not leave the workspace or dismiss the guard', async () => {

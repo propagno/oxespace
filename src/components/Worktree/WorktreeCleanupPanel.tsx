@@ -14,27 +14,27 @@ import { useWorktreeStore } from '../../store/worktree.store'
 import { deriveStatusTone } from '../../utils/paneDisplay'
 
 const REASON_LABEL: Record<WorktreeCleanupReason, string> = {
-  'idle-clean': 'parado há 30+ dias',
-  merged: 'já mesclado',
-  'missing-directory': 'pasta ausente'
+  'idle-clean': 'idle for 30+ days',
+  merged: 'already merged',
+  'missing-directory': 'folder missing'
 }
 
 const BLOCKER_LABEL: Record<WorktreeCleanupBlocker, string> = {
-  locked: 'bloqueado (git lock)',
-  'git-status-error': 'estado do git ilegível',
-  'dirty-files': 'alterações não commitadas',
-  'unpushed-commits': 'commits não enviados',
-  'unknown-base': 'base desconhecida',
-  'active-workspace': 'painel ativo',
-  'running-terminal': 'terminal em execução',
-  'live-agent': 'agente trabalhando'
+  locked: 'locked (git lock)',
+  'git-status-error': 'git status unreadable',
+  'dirty-files': 'uncommitted changes',
+  'unpushed-commits': 'unpushed commits',
+  'unknown-base': 'unknown base',
+  'active-workspace': 'active pane',
+  'running-terminal': 'terminal running',
+  'live-agent': 'agent working'
 }
 
 function relativeAge(at: number | null): string {
-  if (at === null) return 'atividade desconhecida'
+  if (at === null) return 'activity unknown'
   const days = Math.floor((Date.now() - at) / 86_400_000)
-  if (days < 1) return 'ativo hoje'
-  return `parado há ${days} ${days === 1 ? 'dia' : 'dias'}`
+  if (days < 1) return 'active today'
+  return `idle for ${days} ${days === 1 ? 'day' : 'days'}`
 }
 
 /** Collects what only the renderer knows: open panes, shells and agents, by path. */
@@ -121,9 +121,9 @@ export function WorktreeCleanupPanel({ workspaceId, rootPath }: { workspaceId: s
         <strong>Limpeza de worktrees</strong>
       </div>
       {candidates === null ? (
-        <p className="worktree-remove-confirm-body">Analisando…</p>
+        <p className="worktree-remove-confirm-body">Scanning…</p>
       ) : candidates.length === 0 ? (
-        <p className="worktree-remove-confirm-body">Nenhum worktree além do principal.</p>
+        <p className="worktree-remove-confirm-body">No worktree besides the main one.</p>
       ) : (
         <ul className="worktree-remove-confirm-body" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
           {candidates.map((c) => {
@@ -141,7 +141,7 @@ export function WorktreeCleanupPanel({ workspaceId, rootPath }: { workspaceId: s
                   <strong>{c.branch ?? '(detached)'}</strong> — {relativeAge(c.lastActivityAt)}
                   <br />
                   <small>
-                    {c.reasons.length > 0 ? c.reasons.map((r) => REASON_LABEL[r]).join(', ') : 'sem motivo para remover'}
+                    {c.reasons.length > 0 ? c.reasons.map((r) => REASON_LABEL[r]).join(', ') : 'no reason to remove'}
                     {c.blockers.length > 0 ? ` · ${c.blockers.map((b) => BLOCKER_LABEL[b]).join(', ')}` : ''}
                   </small>
                 </span>
@@ -152,7 +152,7 @@ export function WorktreeCleanupPanel({ workspaceId, rootPath }: { workspaceId: s
       )}
       {risky.length > 0 ? (
         <p className="worktree-remove-confirm-body" role="alert">
-          {risky.length} worktree(s) selecionado(s) têm trabalho não salvo ou estado desconhecido; removê-los descarta esse trabalho.
+          {risky.length} selected worktree(s) have unsaved work or an unknown state; removing them discards that work.
         </p>
       ) : null}
       {message ? <p className="worktree-remove-confirm-body" role="status">{message}</p> : null}
@@ -164,7 +164,7 @@ export function WorktreeCleanupPanel({ workspaceId, rootPath }: { workspaceId: s
           onClick={() => void removeSelected()}
           disabled={busy || chosen.length === 0}
         >
-          {busy ? 'Trabalhando…' : `Remover ${chosen.length} selecionado(s)`}
+          {busy ? 'Trabalhando…' : `Remove ${chosen.length} selected`}
         </button>
       </div>
     </div>

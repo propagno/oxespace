@@ -1,5 +1,6 @@
 import { Copy, Download, Edit3, FileText, FolderOpen, Play, Plus, RotateCw, Sparkles, X } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactElement } from 'react'
+import { useModalSurface } from '../../ui'
 import { BUILTIN_PROVIDERS, type AgentProvider } from '../../../shared/types/agent'
 import type { SkillDefinition } from '../../../shared/types/skill'
 import { useSkillStore } from '../../store/skill.store'
@@ -13,6 +14,7 @@ interface SkillsBrowserProps {
 }
 
 export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId, workspaceRootPath }: SkillsBrowserProps): ReactElement {
+  const surface = useModalSurface<HTMLElement>(onClose)
   const skills = useSkillStore((s) => s.skills)
   const loading = useSkillStore((s) => s.loading)
   const error = useSkillStore((s) => s.error)
@@ -57,14 +59,14 @@ export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId
 
   const handleUseSkill = async (skill: SkillDefinition): Promise<void> => {
     if (!activePaneId) {
-      setNotice('Selecione ou inicie um terminal antes de usar uma skill.')
+      setNotice('Select or start a terminal before using a skill.')
       return
     }
     setBusySkill(skill.name)
     setNotice(null)
     try {
       await invoke(skill.name, activePaneId, argumentBySkill[skill.name] ?? '')
-      setNotice(`/${skill.name} enviada para o terminal ativo.`)
+      setNotice(`/${skill.name} sent to the active terminal.`)
     } catch (err) {
       setNotice(toMessage(err))
     } finally {
@@ -136,6 +138,7 @@ export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId
         role="dialog"
         aria-modal="true"
         aria-label="Skills"
+        {...surface}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header className="skills-browser-header">
@@ -326,7 +329,7 @@ function SkillRow({ argument, busy, canEdit, canUse, onArgumentChange, onCopy, o
             type="text"
             value={argument}
             onChange={(event) => onArgumentChange(event.currentTarget.value)}
-            placeholder="Optional skill argument..."
+            placeholder="Optional skill argument…"
             aria-label={`Argument for /${skill.name}`}
           />
           <div className="skill-row-buttons">

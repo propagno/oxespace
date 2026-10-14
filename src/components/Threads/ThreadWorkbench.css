@@ -68,7 +68,7 @@
 .thread-review-heading { height: 48px; flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 0 8px; border-bottom: 1px solid var(--bd-base); background: var(--bg-tile-header); }
 .thread-review-menu { position: relative; margin-right: auto; min-width: 0; }
 .thread-review-menu > button { color: var(--tx-primary); font-weight: 500; }
-.thread-review-menu-items { z-index: 100; width: 220px; padding: 5px; border: 1px solid var(--bd-base); border-radius: var(--surface-radius); background: var(--bg-elevated); color: var(--tx-primary); box-shadow: 0 8px 24px #0004; font: var(--fs-xs) var(--font-ui); }
+.thread-review-menu-items { z-index: var(--layer-dropdown); width: 220px; padding: 5px; border: 1px solid var(--bd-base); border-radius: var(--surface-radius); background: var(--bg-elevated); color: var(--tx-primary); box-shadow: 0 8px 24px #0004; font: var(--fs-xs) var(--font-ui); }
 .thread-review-menu-item { display: flex; align-items: center; min-height: 34px; padding: 6px 9px; border-radius: var(--nav-radius); cursor: pointer; outline: none; }
 .thread-review-menu-item[data-highlighted] { background: color-mix(in srgb, var(--tx-primary) 7%, transparent); }
 .thread-review-menu-item > span { margin-left: auto; display: inline-flex; }

@@ -1,5 +1,6 @@
 import { Code2, FileCode2, Play, RotateCw, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactElement } from 'react'
+import { useModalSurface } from '../../ui'
 import type { FileTreeNode } from '../../../shared/types/ipc'
 import type { Workspace } from '../../../shared/types/workspace'
 import {
@@ -29,6 +30,7 @@ const MAX_SCRIPT_DIRECTORIES = 220
 const MAX_SCRIPT_ENTRIES = 200
 
 export function ScriptsPanel({ embedded = false, onClose, onOpenBackground, workspace }: ScriptsPanelProps): ReactElement {
+  const surface = useModalSurface<HTMLElement>(onClose, !embedded)
   const startJob = useBackgroundStore((state) => state.startJob)
   const [scripts, setScripts] = useState<ScriptEntry[]>([])
   const [query, setQuery] = useState('')
@@ -141,7 +143,7 @@ export function ScriptsPanel({ embedded = false, onClose, onOpenBackground, work
 
   return (
     <div className="scripts-panel-backdrop" role="presentation" onMouseDown={onClose}>
-      <section className="scripts-panel" role="dialog" aria-modal="true" aria-label="Scripts" onMouseDown={(event) => event.stopPropagation()}>
+      <section className="scripts-panel" role="dialog" aria-modal="true" aria-label="Scripts" {...surface} onMouseDown={(event) => event.stopPropagation()}>
         {content}
       </section>
     </div>

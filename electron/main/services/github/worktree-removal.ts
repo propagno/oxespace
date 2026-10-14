@@ -73,19 +73,19 @@ export async function removeWorktreeSafely(
 
   // 1 — structure
   if (!target) {
-    throw new WorktreeRemovalError('protected', `${input.path} não é um worktree registrado deste repositório.`)
+    throw new WorktreeRemovalError('protected', `${input.path} is not a registered worktree of this repository.`)
   }
-  if (target.isMain) throw new WorktreeRemovalError('protected', 'O checkout principal não pode ser removido.')
+  if (target.isMain) throw new WorktreeRemovalError('protected', 'The main checkout cannot be removed.')
   if (norm(target.path) === norm(homedir()) || within(primary, target.path)) {
-    throw new WorktreeRemovalError('protected', 'Este caminho contém o repositório principal ou a pasta pessoal.')
+    throw new WorktreeRemovalError('protected', 'This path contains the main repository or the home folder.')
   }
   if (trees.some((t) => t !== target && within(t.path, target.path))) {
-    throw new WorktreeRemovalError('protected', 'Este worktree contém outro worktree registrado.')
+    throw new WorktreeRemovalError('protected', 'This worktree contains another registered worktree.')
   }
 
   // 2 — lock
   if (target.locked) {
-    throw new WorktreeRemovalError('locked', 'O worktree está bloqueado (git worktree lock). Desbloqueie antes de remover.')
+    throw new WorktreeRemovalError('locked', 'The worktree is locked (git worktree lock). Unlock it before removing.')
   }
 
   // The config comes from the worktree itself so a branch-specific oxe.yaml
@@ -96,7 +96,7 @@ export async function removeWorktreeSafely(
   const archive = config?.scripts.archive
   if (archive && !target.prunable) {
     if (!deps.trust.isTrusted(primary, 'archive', archive)) {
-      notes.push('O hook archive não foi aprovado e foi ignorado.')
+      notes.push('The archive hook was not approved and was skipped.')
     } else {
       const outcome = await runHook(archive, {
         cwd: target.path,
@@ -109,13 +109,13 @@ export async function removeWorktreeSafely(
       if (outcome.status !== 'passed' && !input.allowFailedArchiveHook) {
         const why =
           outcome.status === 'failed'
-            ? `saiu com código ${outcome.exitCode}`
+            ? `exited with code ${outcome.exitCode}`
             : outcome.reason === 'timeout'
               ? 'excedeu o tempo limite'
-              : 'terminou sem resultado verificável'
+              : 'ended without a verifiable result'
         throw new WorktreeRemovalError('archive-failed', `O hook archive ${why}. ${outcome.output.trim().slice(-400)}`.trim())
       }
-      if (outcome.status !== 'passed') notes.push('O hook archive falhou e foi dispensado.')
+      if (outcome.status !== 'passed') notes.push('The archive hook failed and was dismissed.')
     }
   }
 
@@ -133,7 +133,7 @@ export async function removeWorktreeSafely(
       if (blocking.length > 0) {
         throw new WorktreeRemovalError(
           'dirty',
-          `O worktree tem ${blocking.length} alteração(ões) não commitada(s). Use forçar para descartá-las.`
+          `The worktree has ${blocking.length} uncommitted change(s). Use force to discard them.`
         )
       }
     }
@@ -170,7 +170,7 @@ export async function removeWorktreeSafely(
     } catch (rmError) {
       throw new WorktreeRemovalError(
         'git-failed',
-        `Worktree desregistrado, mas a pasta não pôde ser apagada: ${rmError instanceof Error ? rmError.message : String(rmError)}`
+        `Worktree unregistered, but the folder could not be deleted: ${rmError instanceof Error ? rmError.message : String(rmError)}`
       )
     }
     await deps.gh.tryGit(['worktree', 'prune'], input.rootPath)
@@ -182,7 +182,7 @@ export async function removeWorktreeSafely(
       await deps.gh.runGit(['branch', '-d', '--', target.branch], input.rootPath)
       notes.push(`Branch ${target.branch} removido.`)
     } catch {
-      notes.push(`Branch ${target.branch} mantido: possui commits não mesclados.`)
+      notes.push(`Branch ${target.branch} kept: it has unmerged commits.`)
     }
   }
 

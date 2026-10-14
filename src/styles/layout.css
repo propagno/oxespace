@@ -170,10 +170,6 @@
   padding: 0 0 8px;
 }
 
-.ws-group-list::-webkit-scrollbar { width: 3px; }
-.ws-group-list::-webkit-scrollbar-track { background: transparent; }
-.ws-group-list::-webkit-scrollbar-thumb { background: var(--ov-3); border-radius: var(--radius-xs); }
-
 .ws-group {
   position: relative;
   margin: 2px 6px;
@@ -516,7 +512,7 @@
    for consistency, plus icons on the menuitems so the actions are scannable. */
 .ws-group-context-menu {
   position: fixed;
-  z-index: 1000;
+  z-index: var(--layer-tooltip);
   min-width: 200px;
   padding: 5px;
   border: 1px solid var(--bd-base);
@@ -552,102 +548,6 @@
 .ws-group-context-menu button.danger:hover {
   background: var(--intent-danger-bg);
 }
-
-/* Remove-workspace confirmation modal. Full-screen backdrop + centered
-   dialog — same backdrop motif used by the worktree menu (now retired)
-   so the affordance feels consistent across the app. */
-.ws-remove-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 200;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--scrim);
-  backdrop-filter: blur(6px);
-  animation: model-selector-fade 140ms ease-out;
-}
-
-.ws-remove-modal {
-  width: min(420px, calc(100vw - 48px));
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 16px 18px 14px;
-  border: 1px solid var(--bd-base);
-  border-radius: var(--radius-md);
-  background: var(--bg-elevated);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
-}
-
-.ws-remove-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.ws-remove-modal-header h2 {
-  margin: 0;
-  color: var(--tx-primary);
-  font-size: var(--fs-base);
-  font-weight: 700;
-}
-
-.ws-remove-modal-close {
-  width: 22px;
-  height: 22px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--tx-muted);
-  cursor: pointer;
-}
-
-.ws-remove-modal-close:hover {
-  background: var(--surface-hover);
-  color: var(--tx-primary);
-}
-
-.ws-remove-modal-body {
-  margin: 0;
-  color: var(--tx-secondary);
-  font-size: var(--fs-xs);
-  line-height: 1.55;
-}
-
-.ws-remove-modal-body strong { color: var(--tx-primary); }
-.ws-remove-modal-body em { color: var(--accent); font-style: normal; }
-
-.ws-remove-modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.ws-remove-modal-confirm {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 7px 14px;
-  border: 1px solid var(--intent-danger-border);
-  border-radius: var(--radius-sm);
-  background: var(--intent-danger-bg);
-  color: var(--intent-danger-fg);
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  cursor: pointer;
-  transition: background var(--transition-base), border-color var(--transition-base);
-}
-
-.ws-remove-modal-confirm:hover {
-  background: var(--intent-danger-bg);
-  border-color: var(--intent-danger-solid);
-  color: var(--text-primary);
-}
-
 /* ─── Pane session row ──────────────────────────────────────────────────── */
 .pane-session-row {
   display: flex;
@@ -954,7 +854,7 @@
 
 .pane-session-context-menu {
   position: fixed;
-  z-index: 1000;
+  z-index: var(--layer-tooltip);
   min-width: 150px;
   padding: 5px;
   border: 1px solid var(--bd-base);
@@ -991,7 +891,7 @@
 /* Recent activity timestamp — uses the brand teal at full strength so it
    reads as "fresh" without introducing a third green accent (the previous
    #5CBD6D didn't match either the brand or the dot-green status token). */
-.pane-row-time.recent { color: var(--brand); }
+.pane-row-time.recent { color: var(--text-secondary); }
 
 /* Status indicator slot (left of preview) */
 .pane-row-status-indicator {
@@ -1119,28 +1019,6 @@
 .sidebar-empty-state p {
   font-size: var(--fs-xs);
   margin: 0;
-}
-
-/* Custom scrollbars for sidebar lists */
-.ws-group-list::-webkit-scrollbar,
-.sidebar-rail-list::-webkit-scrollbar {
-  width: 6px;
-}
-
-.ws-group-list::-webkit-scrollbar-track,
-.sidebar-rail-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.ws-group-list::-webkit-scrollbar-thumb,
-.sidebar-rail-list::-webkit-scrollbar-thumb {
-  background: var(--ov-2);
-  border-radius: var(--radius-xs);
-}
-
-.ws-group-list:hover::-webkit-scrollbar-thumb,
-.sidebar-rail-list:hover::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--text-primary) 16%, transparent);
 }
 
 /* Clutter reduction for secondary badges in workspace row */
@@ -1517,7 +1395,7 @@
   border-bottom: 1px solid var(--pane-border);
   background: var(--wb-canvas);
   box-shadow: none;
-  z-index: 10;
+  z-index: var(--layer-sticky);
 }
 
 .workspace-topbar-breadcrumb {
@@ -1611,7 +1489,7 @@
   font-size: var(--fs-xs);
   font-weight: 500;
   letter-spacing: 0.3px;
-  box-shadow: inset 0 1px 0 var(--ov-1), 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: inset 0 1px 0 var(--ov-1), var(--elevation-1);
   transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
   overflow: hidden;
   white-space: nowrap;
@@ -1627,7 +1505,7 @@
   background: linear-gradient(180deg, var(--ov-3) 0%, var(--ov-1) 100%);
   color: var(--text-primary);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 var(--ov-3);
+  box-shadow: var(--elevation-2), inset 0 1px 0 var(--ov-3);
 }
 
 /* ─── Tools modal (sidebar gear hub) ─────────────────────────────────────── */
@@ -1641,7 +1519,7 @@
   /* Must match LEGACY_MODAL_OVERLAY's z-index (200), not sit below it: the
      content renders after the overlay in the portal, so an equal z-index puts
      it on top. A lower value let the blurred scrim paint over the hub. */
-  z-index: 200;
+  z-index: var(--layer-overlay);
   display: flex;
   flex-direction: column;
   width: min(860px, calc(100vw - 28px));
@@ -1654,9 +1532,7 @@
     color-mix(in srgb, var(--surface-sunken) 96%, transparent);
   backdrop-filter: blur(28px) saturate(160%);
   box-shadow:
-    0 40px 120px rgba(0, 0, 0, 0.72),
-    0 0 0 1px var(--ov-1) inset,
-    0 1px 0 var(--ov-2) inset;
+    var(--elevation-4), 0 0 0 1px var(--ov-1) inset, 0 1px 0 var(--ov-2) inset;
 }
 
 .tools-modal-header {
@@ -1886,7 +1762,7 @@
   border-color: var(--ov-3);
   color: var(--tx-primary);
   transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--elevation-3);
 }
 
 .tools-modal-card.active {
@@ -1895,8 +1771,7 @@
   border-color: color-mix(in srgb, var(--brand) 40%, transparent);
   color: var(--tx-primary);
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--brand) 12%, transparent),
-    0 10px 28px color-mix(in srgb, var(--brand) 10%, transparent);
+    0 0 0 1px color-mix(in srgb, var(--brand) 12%, transparent), 0 10px 28px color-mix(in srgb, var(--brand) 10%, transparent);
 }
 
 .tools-modal-card:disabled,
@@ -1921,30 +1796,14 @@
   transition: color 120ms, background 120ms, border-color 120ms, box-shadow 120ms;
 }
 
-.tools-modal-card-icon.tone-project {
-  color: var(--text-primary);
-  background: var(--accent-soft);
-  border-color: var(--accent-border);
-}
-.tools-modal-card-icon.tone-dev {
-  color: var(--intent-info-fg);
-  background: var(--intent-info-bg);
-  border-color: var(--intent-info-border);
-}
-.tools-modal-card-icon.tone-ai {
-  color: var(--text-accent);
-  background: color-mix(in srgb, var(--brand) 16%, transparent);
-  border-color: color-mix(in srgb, var(--brand) 28%, transparent);
-}
-.tools-modal-card-icon.tone-system {
-  color: var(--intent-warning-fg);
-  background: var(--intent-warning-bg);
-  border-color: var(--intent-warning-border);
-}
+/* One neutral icon tile for every category; the group heading already says which kind of tool it is.
+   The accent marks what is open right now and what the pointer is over. */
+.tools-modal-card:hover:not(:disabled) .tools-modal-card-icon { color: var(--text-primary); background: var(--fill-hover); }
+.tools-modal-card.active .tools-modal-card-icon { color: var(--text-accent); background: var(--accent-soft); border-color: var(--accent-border); }
 
 .tools-modal-card:hover:not(:disabled) .tools-modal-card-icon,
 .tools-modal-card.active .tools-modal-card-icon {
-  box-shadow: 0 0 16px var(--ov-2);
+  box-shadow: var(--elevation-1);
 }
 
 .tools-modal-card-body {
@@ -2306,7 +2165,7 @@
   padding: 0 6px;
 }
 .workspace-panel-stack { display: flex; flex-direction: column; width: 100%; min-width: 0; height: 100%; overflow: hidden; background: var(--bg-app); }
-.workspace-panel-stack-tabs { display: flex; flex: none; gap: 2px; min-width: 0; min-height: 38px; padding: 4px 6px; overflow-x: auto; scrollbar-width: thin; border-bottom: 1px solid var(--bd-base); background: var(--bg-elevated); }
+.workspace-panel-stack-tabs { display: flex; flex: none; gap: 2px; min-width: 0; flex-wrap: wrap; min-height: 38px; padding: 4px 6px; border-bottom: 1px solid var(--bd-base); background: var(--bg-elevated); }
 .workspace-panel-stack-tabs button { flex: none; min-height: 28px; padding: 3px 10px; border: 1px solid transparent; border-radius: var(--radius-sm); color: var(--tx-secondary); background: transparent; font: inherit; font-size: var(--fs-xs); white-space: nowrap; cursor: pointer; }
 .workspace-panel-stack-tabs button:hover { color: var(--tx-primary); background: var(--bg-hover); }
 .workspace-panel-stack-tabs button[aria-selected="true"] { color: var(--tx-primary); border-color: var(--bd-base); background: var(--bg-subtle); }

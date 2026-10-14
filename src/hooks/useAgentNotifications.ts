@@ -91,7 +91,7 @@ export function useAgentNotifications(): void {
               !windowFocused
             ) {
               existing.notifiedAwaiting = true
-              notify(`${label} — aguardando você`, `${ws.name}: o agente terminou e espera sua resposta.`)
+              notify(`${label} — waiting for you`, `${ws.name}: the agent finished and is waiting for your reply.`)
             }
           } else {
             existing.awaitingSince = null
@@ -101,9 +101,9 @@ export function useAgentNotifications(): void {
           // exited / error fire once on the transition into that tone.
           if (tone !== existing.tone && !isViewing) {
             if (tone === 'exited') {
-              notify(`${label} — sessão encerrada`, `${ws.name}: o terminal do agente foi finalizado.`)
+              notify(`${label} — session ended`, `${ws.name}: the agent terminal was closed.`)
             } else if (tone === 'error') {
-              notify(`${label} — precisa de atenção`, `${ws.name}: ${entry.error ?? 'o agente encontrou um erro.'}`)
+              notify(`${label} — needs attention`, `${ws.name}: ${entry.error ?? 'the agent hit an error.'}`)
             }
           }
 
