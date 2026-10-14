@@ -13,6 +13,9 @@ export default defineConfig({
   // Baselines are split by platform: font rasterisation differs between Windows and Linux.
   snapshotPathTemplate: '{testDir}/__screenshots__/{platform}/{testFilePath}/{arg}{ext}',
   expect: {
+    // The default 5 s is too tight when the machine is busy: a slow capture would fail
+    // as a timeout even though nothing visual changed. This is the assertion-wide timeout.
+    timeout: 20_000,
     toHaveScreenshot: { maxDiffPixelRatio: 0.002, animations: 'disabled' }
   }
 })

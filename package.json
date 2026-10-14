@@ -32,7 +32,7 @@
     "bench:semantic:gate": "node scripts/semantic-quality-gate.mjs",
     "test:visual": "playwright test --config playwright.visual.config.ts",
     "test:visual:update": "playwright test --config playwright.visual.config.ts --update-snapshots",
-    "shots:ui":"playwright test --config playwright.tools.config.ts screenshots.spec.ts",
+    "shots:ui": "playwright test --config playwright.tools.config.ts screenshots.spec.ts",
     "shots:settings": "playwright test --config playwright.tools.config.ts settings-tabs.spec.ts",
     "prepare:model": "node scripts/fetch-semantic-model.mjs",
     "postinstall": "npm run rebuild:native",
