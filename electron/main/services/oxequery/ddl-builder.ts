@@ -210,7 +210,7 @@ function createStatements(schema: string, table: string, definition: CreateTable
 }
 
 /** The statements for one structure action and what is worth warning about. Writes nothing. */
-export function planStructure(schema: string, table: string, action: StructureAction): StructurePlan {
+export function planStructure(schema: string, table: string, action: StructureAction, copyColumns?: string[]): StructurePlan {
   const warnings: string[] = []
   switch (action.kind) {
     case 'create':
@@ -237,7 +237,11 @@ export function planStructure(schema: string, table: string, action: StructureAc
     case 'duplicate': {
       const copy = qualified(schema, action.to)
       const statements = [`CREATE TABLE ${copy} (LIKE ${qualified(schema, table)} INCLUDING ALL)`]
-      if (action.withData) { statements.push(`INSERT INTO ${copy} SELECT * FROM ${qualified(schema, table)}`); warnings.push('Copying the rows can take a while on a large table.') }
+      if (action.withData) {
+        // Generated columns cannot be written, so the copy names the others; identity values are kept as they are.
+        const names = copyColumns && copyColumns.length ? copyColumns.map(name => ident(name, 'A column')).join(', ') : null
+        statements.push(names ? `INSERT INTO ${copy} (${names}) OVERRIDING SYSTEM VALUE SELECT ${names} FROM ${qualified(schema, table)}` : `INSERT INTO ${copy} OVERRIDING SYSTEM VALUE SELECT * FROM ${qualified(schema, table)}`)
+        warnings.push('Copying the rows can take a while on a large table.') }
       return { statements, warnings, destructive: false }
     }
     default: throw invalid('Unsupported structure action.')

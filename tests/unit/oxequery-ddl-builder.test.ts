@@ -72,7 +72,7 @@ describe('drop, truncate, duplicate', () => {
 
   it('copies the structure, and the rows on request', () => {
     expect(planStructure('s', 't', { kind: 'duplicate', to: 't2' }).statements).toEqual(['CREATE TABLE "s"."t2" (LIKE "s"."t" INCLUDING ALL)'])
-    expect(planStructure('s', 't', { kind: 'duplicate', to: 't2', withData: true }).statements).toHaveLength(2)
+    expect(planStructure('s', 't', { kind: 'duplicate', to: 't2', withData: true }, ['a', 'b']).statements[1]).toBe('INSERT INTO "s"."t2" ("a", "b") OVERRIDING SYSTEM VALUE SELECT "a", "b" FROM "s"."t"')
   })
 })
 

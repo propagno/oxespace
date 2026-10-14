@@ -504,7 +504,8 @@ export class OxeQueryCore {
    */
   async structureApply(connection: ResolvedConnection, input: Pick<StructureInput, 'schema' | 'table' | 'action' | 'confirmed'>): Promise<StructureResult> {
     if (connection.readOnly) throw new OxeQueryError('read-only', 'This connection is read-only. Turn read-only off to change the structure.')
-    const plan = planStructure(input.schema, input.table, input.action)
+    const copyColumns = input.action.kind === 'duplicate' && input.action.withData ? await this.writableColumns(connection, input.schema, input.table) : undefined
+    const plan = planStructure(input.schema, input.table, input.action, copyColumns)
     if ((plan.destructive || connection.environment === 'prod') && !input.confirmed) {
       throw new OxeQueryError('confirm', plan.destructive ? 'This change cannot be undone and needs confirmation.' : 'This is a production connection: confirm the structure change.', plan.warnings)
     }
@@ -534,6 +535,12 @@ export class OxeQueryCore {
       session.running = false
       session.lastUsed = Date.now()
     }
+  }
+
+  /** The columns of a table that accept a written value (not stored-generated ones), in table order. */
+  private async writableColumns(connection: ResolvedConnection, schema: string, table: string): Promise<string[]> {
+    const result = await this.pgMeta(connection, "SELECT column_name FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 AND is_generated = 'NEVER' ORDER BY ordinal_position", [schema, table], 1000, true)
+    return result.rows.map(row => String(row[0]))
   }
 
   /** VACUUM, ANALYZE and REINDEX cannot run inside a transaction block, so they go out as one statement. */

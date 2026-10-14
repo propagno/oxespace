@@ -252,6 +252,56 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
     const found = await core.mongoFind(mongo, { ...target, sort: '{"_id": 1}' })
     expect(found.documents).toHaveLength(3)
   })
+  it('creates, alters, duplicates and drops a table, all or nothing', async () => {
+    const create = { kind: 'create' as const, table: {
+      columns: [
+        { name: 'id', type: 'bigint', nullable: false, identity: 'always' as const },
+        { name: 'sku', type: 'text', nullable: false },
+        { name: 'price', type: 'numeric(10,2)', nullable: true, default: '0' },
+        { name: 'total', type: 'numeric', nullable: true, generated: 'price * 2' }
+      ],
+      constraints: [{ kind: 'primary' as const, columns: ['id'] }, { kind: 'unique' as const, name: 'items_sku_key', columns: ['sku'] }, { kind: 'check' as const, name: 'price_ok', expression: 'price >= 0' }],
+      indexes: [{ name: 'items_price', columns: ['price'], where: 'price > 0' }],
+      comment: 'catalog'
+    } }
+    const preview = core.structurePreview(pg, { schema: 'public', table: 'items', action: create })
+    expect(preview.statements[0]).toMatch(/^CREATE TABLE "public"."items"/)
+    await core.structureApply(pg, { schema: 'public', table: 'items', action: create })
+    await exec(`INSERT INTO items (sku, price) VALUES ('a', 5)`)
+    expect(await scalar(`SELECT total FROM items WHERE sku = 'a'`)).toBe('10.00')
+    expect(await scalar(`SELECT obj_description('public.items'::regclass)`)).toBe('catalog')
+
+    // The second change fails, so the first must not stay.
+    await expect(core.structureApply(pg, { schema: 'public', table: 'items', action: { kind: 'alter', changes: [
+      { op: 'addColumn', column: { name: 'note', type: 'text', nullable: true } },
+      { op: 'addConstraint', constraint: { kind: 'check', name: 'bad', expression: 'price < 0' } }
+    ] } })).rejects.toMatchObject({ code: 'query', detail: { sqlState: '23514' } })
+    expect(await scalar(`SELECT count(*) FROM information_schema.columns WHERE table_name = 'items' AND column_name = 'note'`)).toBe('0')
+
+    await core.structureApply(pg, { schema: 'public', table: 'items', action: { kind: 'alter', changes: [
+      { op: 'addColumn', column: { name: 'note', type: 'text', nullable: true } },
+      { op: 'renameColumn', from: 'note', to: 'remark' },
+      { op: 'alterColumn', name: 'sku', type: 'varchar(40)' },
+      { op: 'addIndex', index: { name: 'items_remark', columns: ['remark'] } }
+    ] }, confirmed: true })
+    expect(await scalar(`SELECT count(*) FROM information_schema.columns WHERE table_name = 'items' AND column_name = 'remark'`)).toBe('1')
+
+    await core.structureApply(pg, { schema: 'public', table: 'items', action: { kind: 'duplicate', to: 'items_copy', withData: true } })
+    expect(await scalar('SELECT count(*) FROM items_copy')).toBe('1')
+
+    // Destructive actions wait for confirmation; a read-only connection refuses all of them.
+    await expect(core.structureApply(pg, { schema: 'public', table: 'items_copy', action: { kind: 'drop' } })).rejects.toMatchObject({ code: 'confirm' })
+    await expect(core.structureApply({ ...pg, readOnly: true }, { schema: 'public', table: 'items_copy', action: { kind: 'drop' }, confirmed: true })).rejects.toMatchObject({ code: 'read-only' })
+    await core.structureApply(pg, { schema: 'public', table: 'items_copy', action: { kind: 'truncate' }, confirmed: true })
+    expect(await scalar('SELECT count(*) FROM items_copy')).toBe('0')
+    await core.structureApply(pg, { schema: 'public', table: 'items_copy', action: { kind: 'drop' }, confirmed: true })
+    expect(await scalar(`SELECT to_regclass('public.items_copy') IS NULL`)).toBe('true')
+
+    await core.maintenance(pg, { schema: 'public', table: 'items', action: 'vacuum-analyze' })
+    await expect(core.maintenance(pg, { schema: 'public', table: 'items', action: 'reindex' })).rejects.toMatchObject({ code: 'confirm' })
+    await core.maintenance(pg, { schema: 'public', table: 'items', action: 'reindex', confirmed: true })
+  })
+
   it('re-creates a table, a view and a function from the catalog', async () => {
     await exec('CREATE VIEW adults AS SELECT id, name FROM people WHERE age >= 18')
     await exec(`CREATE FUNCTION add_one(i int) RETURNS int LANGUAGE sql AS 'SELECT i + 1'`)
