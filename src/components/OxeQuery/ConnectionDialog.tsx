@@ -291,7 +291,7 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
       <Section title="Limits and agents" hint={agentAccess === 'off' ? 'agents off' : `agents: ${agentAccess}`} open={open.limits} onToggle={() => toggle('limits')}>
         <div className="oq-form">
           <label>Statement timeout (seconds)<input type="number" min={1} max={3600} value={timeoutSeconds} onChange={event => setTimeoutSeconds(event.target.value)} /></label>
-          <label>Default row limit<input type="number" min={1} max={10000} value={maxRows} onChange={event => setMaxRows(event.target.value)} /></label>
+          <label>Default row limit<input type="number" min={1} max={100000} value={maxRows} onChange={event => setMaxRows(event.target.value)} /></label>
           <label className="oq-form-wide">AI agents
             <select value={agentAccess} onChange={event => setAgentAccess(event.target.value as AgentAccess)}>
               <option value="off">No access (default)</option>

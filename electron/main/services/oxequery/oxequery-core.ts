@@ -26,7 +26,7 @@ import type { ImportTarget } from '../../../../shared/types/oxequery'
 import type { ExportFormat, ExportSource } from '../../../../shared/types/oxequery'
 
 const DEFAULT_ROWS = 500
-const MAX_ROWS = 10_000
+const MAX_ROWS = 100_000
 const MAX_CELL = 64 * 1024
 const CONNECT_TIMEOUT_MS = 8000
 const STATEMENT_TIMEOUT_MS = 60_000

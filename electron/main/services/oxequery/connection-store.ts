@@ -112,7 +112,7 @@ export function normalizeConnectionInput(input: OxeQueryConnectionInput): Normal
   const statementTimeoutMs = input.statementTimeoutMs ?? 60_000
   if (!Number.isInteger(statementTimeoutMs) || statementTimeoutMs < 1000 || statementTimeoutMs > 3_600_000) throw new ConnectionInputError('The statement timeout must be between 1 second and 1 hour.')
   const maxRows = input.maxRows ?? 500
-  if (!Number.isInteger(maxRows) || maxRows < 1 || maxRows > 10_000) throw new ConnectionInputError('The row limit must be between 1 and 10 000.')
+  if (!Number.isInteger(maxRows) || maxRows < 1 || maxRows > 100_000) throw new ConnectionInputError('The row limit must be between 1 and 100 000.')
   const agentAccess = input.agentAccess ?? 'off'
   if (!AGENT.has(agentAccess)) throw new ConnectionInputError('Unsupported agent access level.')
   // Agents never write to production, whatever else is configured.

@@ -264,7 +264,7 @@ export class OxeQueryService {
         const started = Date.now()
         try {
           const result = await this.worker.call<{ columns: unknown[]; rowCount: number; affectedRows?: number }>('sql.run', connection, {
-            sql, maxRows: optionalInt(input.maxRows, 1, 10_000), confirmed: input.confirmed === true, params: sqlParams(input.params)
+            sql, maxRows: optionalInt(input.maxRows, 1, 100_000), confirmed: input.confirmed === true, params: sqlParams(input.params)
           })
           this.library.record(connection.id, { sql, durationMs: Date.now() - started, rows: result.columns.length ? result.rowCount : result.affectedRows ?? null, ok: true })
           return result
@@ -277,7 +277,7 @@ export class OxeQueryService {
       case 'sql.script': return this.requireEngine(input.connectionId, 'postgres', async connection => {
         const sql = str(input.sql, 'SQL', 1024 * 1024)
         const started = Date.now()
-        const outcome = await this.worker.call<SqlScriptResult>('sql.script', connection, { sql, maxRows: optionalInt(input.maxRows, 1, 10_000), confirmed: input.confirmed === true })
+        const outcome = await this.worker.call<SqlScriptResult>('sql.script', connection, { sql, maxRows: optionalInt(input.maxRows, 1, 100_000), confirmed: input.confirmed === true })
         // Every statement that ran is history on its own, so a statement can be found and run again.
         for (const entry of outcome.statements) {
           const text = sql.slice(entry.start, entry.end)
