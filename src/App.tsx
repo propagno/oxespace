@@ -1,5 +1,6 @@
 import { Activity, Columns2, FilePlus2, FolderOpen, Github, Grid2x2, LayoutDashboard, ListTodo, Maximize, Mic, Palette, Plus, RotateCw, Search, Settings2, Sliders, Split, Square, StopCircle, Wrench } from 'lucide-react'
 import { useContributedCommands } from './utils/commandRegistry'
+import { FirstRunChecklist } from './components/Onboarding/FirstRunChecklist'
 import { TOOL_CATALOG, type ToolId } from './components/Workspace/toolCatalog'
 import { Button, cx, Toaster, TitleTooltips, TooltipProvider, EmptyState } from './ui'
 import titleBar from './components/Navigation/TitleBar.module.css'
@@ -1084,6 +1085,7 @@ export function App(): ReactElement {
               <Button variant="ghost" size="sm" onClick={() => selectMode('thread')}>Open Thread</Button>
               <Button variant="ghost" size="sm" onClick={() => selectMode('data')}>Open OxeQuery</Button>
             </div>
+            <FirstRunChecklist />
           </div>
         )}
         {applicationView === 'code' && <AppStatusBar workspace={activeWorkspace ?? null} activePaneId={activePane?.id ?? null} />}
