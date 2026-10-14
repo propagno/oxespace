@@ -105,7 +105,8 @@
 .oq-confirm { margin: 8px 10px; padding: 10px 12px; border: 1px solid var(--dot-red); border-radius: var(--radius-md); background: color-mix(in srgb, var(--dot-red) 8%, transparent); font-size: var(--fs-xs); }
 .oq-confirm ul { margin: 6px 0; padding-left: 18px; }
 .oq-confirm div { display: flex; gap: 8px; justify-content: flex-end; }
-.oq-results { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.oq-results { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; }
+.oq-results > .oq-results-bar { position: sticky; top: 0; z-index: 2; background: var(--bg-app); }
 .oq-columns { margin: 0 10px 6px; font-size: var(--fs-xs); }
 .oq-columns table { border-collapse: collapse; }
 .oq-columns td { padding: 2px 12px 2px 0; color: var(--tx-secondary); }
@@ -206,7 +207,8 @@
 .oq-history code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; }
 .oq-history small { color: var(--tx-muted); }
 .oq-results-title { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
-.oq-results-body { position: relative; display: flex; flex: 1; min-height: 0; }
+/* In a short window the panels above the grid scroll instead of squeezing it to nothing. */
+.oq-results-body { position: relative; display: flex; flex: 1 0 220px; min-height: 220px; }
 .oq-results-body .oq-grid { flex: 1; min-width: 0; }
 .oq-query-error { margin: 8px 10px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--dot-red) 50%, transparent); border-radius: var(--radius-md); background: color-mix(in srgb, var(--dot-red) 8%, transparent); font-size: var(--fs-xs); }
 .oq-query-error pre { margin: 6px 0 0; white-space: pre-wrap; font-family: var(--font-mono, ui-monospace, monospace); color: var(--tx-primary); }

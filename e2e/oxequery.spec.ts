@@ -17,6 +17,7 @@ test('OxeQuery lists containers, runs commands and queries PostgreSQL and MongoD
   } })
   try {
     const page = await app.firstWindow()
+    await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0].setSize(1024, 700) })
     await page.waitForLoadState('domcontentloaded')
     await page.getByTestId('btn-new-workspace').click()
     await page.getByTestId('wizard-dir-input').fill(repo)
@@ -434,6 +435,8 @@ test('the SQL workbench runs scripts, asks for parameters, keeps a transaction a
   } })
   try {
     const page = await app.firstWindow()
+    // The size of a CI runner's screen, so a layout that only fits a large window shows up here.
+    await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0].setSize(1024, 700) })
     await page.waitForLoadState('domcontentloaded')
     await page.getByTestId('btn-new-workspace').click()
     await page.getByTestId('wizard-dir-input').fill(repo)
@@ -444,7 +447,7 @@ test('the SQL workbench runs scripts, asks for parameters, keeps a transaction a
     await expect(page.getByRole('tab', { name: 'pg-dev' })).toBeVisible()
     const editor = page.locator('.oq-editor .monaco-editor')
     // Escape closes the suggestion list, which would otherwise take the Enter of a shortcut.
-    const type = async (text: string): Promise<void> => { await editor.click(); await page.keyboard.press('Control+A'); await page.keyboard.insertText(text); await page.keyboard.press('Escape') }
+    const type = async (text: string): Promise<void> => { await editor.click(); await expect(page.locator('.oq-editor .monaco-editor.focused')).toBeVisible(); await page.keyboard.press('Control+A'); await page.keyboard.insertText(text); await page.keyboard.press('Escape') }
 
     // Run all: one result tab per statement.
     await type('SELECT 1; SELECT 2;')
