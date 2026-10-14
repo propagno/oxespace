@@ -47,3 +47,23 @@
   border-radius: 0 var(--radius-full) var(--radius-full) 0;
   background: var(--accent);
 }
+
+/* Count of what needs a person in this mode; amber for "needs you", red when only failures remain. */
+.badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--intent-warning-solid);
+  color: var(--text-on-solid);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  pointer-events: none;
+}
+.badgeFailed { background: var(--intent-danger-solid); }

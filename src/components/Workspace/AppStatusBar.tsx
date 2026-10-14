@@ -58,10 +58,6 @@ export function AppStatusBar({ activePaneId, appVersion, workspace }: AppStatusB
             {backgroundPaneIds.length} background
           </button>
         ) : null}
-        <span className={cx('app-statusbar-item connected', styles.item, styles.connected)}>
-          <Radio size={10} aria-hidden="true" />
-          local
-        </span>
         <span className={styles.item}>v{appVersion}</span>
       </div>
     </footer>

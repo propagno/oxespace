@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowUpFromLine, CheckCircle2, ChevronDown, ChevronRight, CircleDot, Clock, Copy, Download, ExternalLink, Github, GitBranch, GitPullRequest, Link2, Minus, Play, Plus, RefreshCw, Tag, Terminal, TrendingUp } from 'lucide-react'
+import { copyText } from '../../ui'
 import type { GitHubBranch, GitHubCliStatus, GitHubCommit, GitHubCommitDetails, GitHubConnectedRepository, GitHubFileChange, GitHubPanelTab, GitHubPullRequest, GitHubRelease, GitHubWorkflow, GitHubWorkflowJob, GitHubWorkflowRun, GitHubWorkflowRunDetails, GitHubWorkspaceStatus } from '../../../shared/types/github'
 import { selectGitHubWorkspace, useGitHubStore } from '../../store/github.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
@@ -1410,7 +1411,7 @@ function RunDetail({ run, details, rootPath, workspaceId, onRefresh, onRerun }: 
               <button
                 type="button"
                 className="ghost-btn small"
-                onClick={() => void navigator.clipboard?.writeText(logs.text).catch(() => undefined)}
+                onClick={() => void copyText(logs.text, 'Logs')}
                 title="Copy logs to clipboard"
               >
                 <Copy size={10} aria-hidden="true" /> Copy
@@ -1663,7 +1664,7 @@ function GitHubCliSetup({ cli, onRunCommand }: { cli: GitHubCliStatus | null; on
     ? ['winget install GitHub.cli', 'scoop install gh']
     : ['sudo apt install gh', 'sudo dnf install gh']
 
-  const copyCmd = (cmd: string): void => { void navigator.clipboard?.writeText(cmd) }
+  const copyCmd = (cmd: string): void => { void copyText(cmd, 'Command') }
 
   return (
     <div className="github-cli-setup">

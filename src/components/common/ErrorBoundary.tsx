@@ -36,7 +36,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return (
       <div className="error-boundary-fallback" role="alert">
         <p>Something went wrong while rendering {this.props.label ?? 'this component'}.</p>
-        <code>{this.state.error.message}</code>
+        <details><summary>Details</summary><code>{this.state.error.message}</code></details>
         <button type="button" className="ghost-btn small" onClick={this.reset}>Try again</button>
       </div>
     )

@@ -36,7 +36,14 @@ async function measure(page: Page): Promise<unknown> {
     const gaps: Record<string, number> = {}
     const small: Array<{ name: string; tag: string; w: number; h: number }> = []
     const unnamed: Array<{ tag: string; cls: string; w: number; h: number }> = []
-    const rgb = (v: string) => (v.match(/[\d.]+/g) ?? []).map(Number)
+    // Computed colors can be `color(srgb …)` or `oklab(…)` (color-mix output), so ask a canvas for plain RGBA.
+    const ctx = document.createElement('canvas').getContext('2d', { willReadFrequently: true })!
+    const rgb = (v: string): number[] => {
+      if (!v || v === 'transparent') return [0, 0, 0, 0]
+      ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = '#000'; ctx.fillStyle = v; ctx.fillRect(0, 0, 1, 1)
+      const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data
+      return [r, g, b, a / 255]
+    }
     const lum = (c: number[]) => c.slice(0, 3).map(x => x / 255).map(x => x <= .04045 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4)
       .reduce((s, x, i) => s + x * [.2126, .7152, .0722][i], 0)
     const contrast: Array<{ text: string; ratio: number; size: string }> = []
@@ -56,7 +63,7 @@ async function measure(page: Page): Promise<unknown> {
         if (bg.length && fg.length >= 3 && (fg.length === 3 || fg[3] === 1)) {
           const a = lum(fg), b = lum(bg), ratio = (Math.max(a, b) + .05) / (Math.min(a, b) + .05)
           const px = parseFloat(s.fontSize)
-          if (ratio < (px >= 24 || px >= 18.66 && +s.fontWeight >= 700 ? 3 : 4.5)) contrast.push({ text: (el.textContent ?? '').trim().slice(0, 50), ratio: Math.round(ratio * 100) / 100, size: s.fontSize })
+          if (ratio < (px >= 24 || px >= 18.66 && +s.fontWeight >= 700 ? 3 : 4.5)) contrast.push({ cls: String((el as HTMLElement).className).slice(0, 60), parent: String(el.parentElement?.className ?? '').slice(0, 40), text: (el.textContent ?? '').trim().slice(0, 50), ratio: Math.round(ratio * 100) / 100, size: s.fontSize })
         }
       }
       if (s.borderRadius !== '0px') tally(radii, s.borderRadius)

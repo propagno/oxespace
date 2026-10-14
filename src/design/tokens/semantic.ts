@@ -42,7 +42,7 @@ export function colorRoles(mode: Mode): ColorRoles {
     // Three readable levels, set by lightness so each stays AA on every surface.
     'text-primary': ink(light ? 0.24 : 0.95),
     'text-secondary': ink(light ? 0.39 : 0.84),
-    'text-muted': ink(light ? 0.5 : 0.72),
+    'text-muted': ink(light ? 0.47 : 0.72),
     'text-disabled': s(n, 8),
     'text-on-accent': light ? '#ffffff' : s(accent, 1),
     // Labels on intent solids (danger, success, info buttons): white on light, ink on dark.

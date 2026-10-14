@@ -891,7 +891,7 @@
 /* Recent activity timestamp — uses the brand teal at full strength so it
    reads as "fresh" without introducing a third green accent (the previous
    #5CBD6D didn't match either the brand or the dot-green status token). */
-.pane-row-time.recent { color: var(--brand); }
+.pane-row-time.recent { color: var(--text-secondary); }
 
 /* Status indicator slot (left of preview) */
 .pane-row-status-indicator {
@@ -1796,30 +1796,14 @@
   transition: color 120ms, background 120ms, border-color 120ms, box-shadow 120ms;
 }
 
-.tools-modal-card-icon.tone-project {
-  color: var(--text-primary);
-  background: var(--accent-soft);
-  border-color: var(--accent-border);
-}
-.tools-modal-card-icon.tone-dev {
-  color: var(--intent-info-fg);
-  background: var(--intent-info-bg);
-  border-color: var(--intent-info-border);
-}
-.tools-modal-card-icon.tone-ai {
-  color: var(--text-accent);
-  background: color-mix(in srgb, var(--brand) 16%, transparent);
-  border-color: color-mix(in srgb, var(--brand) 28%, transparent);
-}
-.tools-modal-card-icon.tone-system {
-  color: var(--intent-warning-fg);
-  background: var(--intent-warning-bg);
-  border-color: var(--intent-warning-border);
-}
+/* One neutral icon tile for every category; the group heading already says which kind of tool it is.
+   The accent marks what is open right now and what the pointer is over. */
+.tools-modal-card:hover:not(:disabled) .tools-modal-card-icon { color: var(--text-primary); background: var(--fill-hover); }
+.tools-modal-card.active .tools-modal-card-icon { color: var(--text-accent); background: var(--accent-soft); border-color: var(--accent-border); }
 
 .tools-modal-card:hover:not(:disabled) .tools-modal-card-icon,
 .tools-modal-card.active .tools-modal-card-icon {
-  box-shadow: 0 0 16px var(--ov-2);
+  box-shadow: var(--elevation-1);
 }
 
 .tools-modal-card-body {

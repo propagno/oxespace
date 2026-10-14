@@ -1,5 +1,6 @@
 import { Brain, Copy, Download, Pause, Play, RefreshCw, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { copyText } from '../../ui'
 import { useModalSurface } from '../../ui'
 import type { SemanticLogEntry, SemanticLogLevel, SemanticSearchMode, SemanticStatus } from '../../../shared/types/ipc'
 import { useTerminalPrefsStore } from '../../store/terminal-prefs.store'
@@ -72,7 +73,7 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
     [visible]
   )
 
-  const handleCopy = (): void => { void navigator.clipboard?.writeText(asText()).catch(() => undefined) }
+  const handleCopy = (): void => { void copyText(asText(), 'Activity log') }
 
   const handleExport = (): void => {
     const blob = new Blob([asText()], { type: 'text/plain;charset=utf-8' })

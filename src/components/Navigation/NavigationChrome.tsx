@@ -4,6 +4,7 @@ import { useUIStore } from '../../store/ui.store'
 import './NavigationChrome.css'
 import { cx } from '../../ui'
 import styles from './NavigationRail.module.css'
+import { describeAttention, useAttentionSummary, type AttentionCounts } from '../../hooks/useAttentionSummary'
 
 export interface RailAction {
   id: string
@@ -31,6 +32,7 @@ export function NavigationRail({ mode, collapsed, onModeChange, onSelectMode, pr
 }) {
   const openSettings = useUIStore(state => state.toggleSettings)
   const ContextIcon = context.icon
+  const attention = useAttentionSummary()
   const select = (target: NavigationMode): void => {
     if (target === mode) return
     if (onSelectMode) onSelectMode(target)
@@ -38,8 +40,8 @@ export function NavigationRail({ mode, collapsed, onModeChange, onSelectMode, pr
   }
   return <div className={cx('nav-rail', styles.rail)} data-collapsed={collapsed}>
     <nav className={styles.group} aria-label="Application view">
-      <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label="Code" title="Code" aria-pressed={mode === 'code'} onClick={() => select('code')}><SquareTerminal size={17} aria-hidden="true" /></button>
-      <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label="Thread" title="Thread" aria-pressed={mode === 'thread'} onClick={() => select('thread')}><MessagesSquare size={17} aria-hidden="true" /></button>
+      <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label="Code" title="Code" aria-pressed={mode === 'code'} onClick={() => select('code')}><SquareTerminal size={17} aria-hidden="true" />{(attention.code.needsYou + attention.code.failed) > 0 && <AttentionBadge counts={attention.code} />}</button>
+      <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label="Thread" title="Thread" aria-pressed={mode === 'thread'} onClick={() => select('thread')}><MessagesSquare size={17} aria-hidden="true" />{(attention.thread.needsYou + attention.thread.failed) > 0 && <AttentionBadge counts={attention.thread} />}</button>
       {(onSelectMode || mode === 'data') && <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label="OxeQuery" title="OxeQuery: containers and databases" aria-pressed={mode === 'data'} onClick={() => select('data')}><DatabaseZap size={17} aria-hidden="true" /></button>}
     </nav>
     <span className={styles.separator} aria-hidden="true" />
@@ -55,4 +57,9 @@ export function NavigationRail({ mode, collapsed, onModeChange, onSelectMode, pr
       <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} onClick={onToggle}>{collapsed ? <ChevronsRight size={17} aria-hidden="true" /> : <ChevronsLeft size={17} aria-hidden="true" />}</button>
     </footer>
   </div>
+}
+
+function AttentionBadge({ counts }: { counts: AttentionCounts }) {
+  const total = counts.needsYou + counts.failed
+  return <span className={cx(styles.badge, counts.needsYou === 0 && styles.badgeFailed)} role="status" aria-label={describeAttention(counts)} data-testid="attention-badge">{total > 9 ? '9+' : total}</span>
 }

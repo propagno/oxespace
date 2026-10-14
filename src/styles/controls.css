@@ -83,3 +83,11 @@
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
+
+/* Small controls keep a 24 px target even when their glyph is smaller. */
+.new-workspace-agent-chip-step { min-width: var(--control-sm); min-height: var(--control-sm); }
+.semantic-activity-chip { min-height: var(--control-sm); }
+.web-preview-tab > button[aria-label^="Close tab"] { min-width: var(--control-sm); min-height: var(--control-sm); display: inline-grid; place-items: center; }
+
+/* Native checkboxes and radios follow the accent and are never smaller than 16 px. */
+input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; accent-color: var(--accent); }
