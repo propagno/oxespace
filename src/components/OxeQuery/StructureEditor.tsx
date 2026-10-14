@@ -160,7 +160,7 @@ export function StructureEditor({ connection, schema, table, onClose, onChanged 
         {note && <p role="status" className={styles.ok}>{note}</p>}
       </>
 
-  return <Dialog title={creating ? `New table in ${schema}` : `${schema}.${table}`} description={creating ? 'Define the columns, keys and indexes, then review the SQL before it runs.' : 'Edit the columns, keys and indexes. Nothing changes until you apply.'}
+  return <Dialog className="oq-scope" title={creating ? `New table in ${schema}` : `${schema}.${table}`} description={creating ? 'Define the columns, keys and indexes, then review the SQL before it runs.' : 'Edit the columns, keys and indexes. Nothing changes until you apply.'}
     size="xl" onClose={onClose} testId="structure-editor"
     footer={<>
       <Button variant="ghost" onClick={onClose}>Close</Button>

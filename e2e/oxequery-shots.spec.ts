@@ -37,7 +37,7 @@ test('captures the OxeQuery surfaces', async () => {
     await page.getByRole('dialog', { name: 'Edit connection' }).waitFor()
     await shot('2-connection-dialog')
     const settings = page.getByRole('dialog', { name: 'Edit connection' })
-    await settings.getByRole('checkbox', { name: /Read-only/ }).uncheck()
+    await settings.getByRole('switch', { name: /Read-only/ }).setChecked(false)
     await settings.getByRole('button', { name: 'Save' }).click()
     await page.getByRole('treeitem', { name: 'users', exact: true }).click({ position: { x: 12, y: 8 } })
     await expect(page.getByRole('gridcell', { name: 'alice', exact: true })).toBeVisible()

@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { MongoStats, MongoValidation, OxeQueryConnection } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
 import { jsonProblem } from './mongo-model'
+import { Select } from '../../ui/Field'
 
 const bytes = (value: number): string => value < 1024 ? `${value} B` : value < 1024 ** 2 ? `${(value / 1024).toFixed(1)} KB` : value < 1024 ** 3 ? `${(value / 1024 ** 2).toFixed(1)} MB` : `${(value / 1024 ** 3).toFixed(2)} GB`
 
@@ -71,10 +72,10 @@ export function CollectionFacts({ connection, database, collection }: { connecti
               placeholder={'{ "$jsonSchema": { "bsonType": "object", "required": ["name"] } }'} onChange={event => setText(event.target.value)} />
             {problem && <small className="oq-field-error" role="alert">{problem}</small>}
           </label>
-          <label>Applies to<select aria-label="Validation level" value={level} disabled={connection.readOnly} onChange={event => setLevel(event.target.value as MongoValidation['level'])}>
-            <option value="strict">all inserts and updates</option><option value="moderate">updates of documents that already pass</option><option value="off">nothing (off)</option></select></label>
-          <label>On a violation<select aria-label="Validation action" value={action} disabled={connection.readOnly} onChange={event => setAction(event.target.value as MongoValidation['action'])}>
-            <option value="error">refuse the write</option><option value="warn">allow it and log a warning</option></select></label>
+          <label>Applies to<Select className="oq-select" aria-label="Validation level" value={level} disabled={connection.readOnly} onChange={event => setLevel(event.target.value as MongoValidation['level'])}>
+            <option value="strict">all inserts and updates</option><option value="moderate">updates of documents that already pass</option><option value="off">nothing (off)</option></Select></label>
+          <label>On a violation<Select className="oq-select" aria-label="Validation action" value={action} disabled={connection.readOnly} onChange={event => setAction(event.target.value as MongoValidation['action'])}>
+            <option value="error">refuse the write</option><option value="warn">allow it and log a warning</option></Select></label>
           {!connection.readOnly && <button type="button" className="oq-primary" disabled={problem !== null} onClick={() => void save()}>Save validation</button>}
           {saved && <p role="status" className="oq-ok">{saved}</p>}
         </div>

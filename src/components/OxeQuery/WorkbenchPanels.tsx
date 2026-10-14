@@ -3,6 +3,8 @@ import { Plus, X } from 'lucide-react'
 import type { SqlColumnInfo, SqlFilter, SqlFilterOp, SqlTxState } from '../../../shared/types/oxequery'
 import { describeCell } from './grid-format'
 import { FILTER_LABELS, completeFilters, type ParamValue } from './workbench-model'
+import { Select } from '../../ui/Field'
+import { Button } from '../../ui/Button'
 
 /** Values for the `:name` / `$1` parameters of the statement about to run. */
 export function ParamsBar({ names, values, onChange, onRun, onCancel }: {
@@ -31,14 +33,14 @@ export function ParamsBar({ names, values, onChange, onRun, onCancel }: {
 /** Begin, commit and roll back, with the state of the connection's transaction. */
 export function TxBar({ state, busy, onAction }: { state: SqlTxState; busy: boolean; onAction: (action: 'begin' | 'commit' | 'rollback') => void }): ReactElement {
   if (state.state === 'none') {
-    return <button type="button" onClick={() => onAction('begin')} disabled={busy} title="Group the statements that follow into one transaction you commit or roll back yourself">Begin transaction</button>
+    return <Button size="sm" onClick={() => onAction('begin')} disabled={busy} title="Group the statements that follow into one transaction you commit or roll back yourself">Begin transaction</Button>
   }
   const failed = state.state === 'failed'
   return <span className="oq-tx" data-state={state.state} role="status">
     <strong>{failed ? 'Transaction failed' : 'Transaction open'}</strong>
     <span>{state.statements} statement{state.statements === 1 ? '' : 's'}</span>
-    <button type="button" className="oq-primary" onClick={() => onAction('commit')} disabled={busy || failed} title={failed ? 'A statement failed; only Roll back is possible' : 'Make the changes permanent'}>Commit</button>
-    <button type="button" className="oq-danger" onClick={() => onAction('rollback')} disabled={busy} title="Discard the changes">Roll back</button>
+    <Button size="sm" variant="primary" onClick={() => onAction('commit')} disabled={busy || failed} title={failed ? 'A statement failed; only Roll back is possible' : 'Make the changes permanent'}>Commit</Button>
+    <Button size="sm" variant="danger" onClick={() => onAction('rollback')} disabled={busy} title="Discard the changes">Roll back</Button>
   </span>
 }
 
@@ -53,10 +55,10 @@ export function FilterBar({ columns, filters, onApply }: { columns: SqlColumnInf
   const clear = (): void => { setDraft([]); onApply([]) }
   return <form className="oq-filters" aria-label="Filter rows" onSubmit={event => { event.preventDefault(); apply() }}>
     {draft.map((filter, index) => <span key={index} className="oq-filter">
-      <select aria-label="Column" value={filter.column} onChange={event => change(index, { column: event.target.value })}>
-        {columns.map(column => <option key={column.name} value={column.name}>{column.name}</option>)}</select>
-      <select aria-label="Condition" value={filter.op} onChange={event => change(index, { op: event.target.value as SqlFilterOp })}>
-        {(Object.keys(FILTER_LABELS) as SqlFilterOp[]).map(op => <option key={op} value={op}>{FILTER_LABELS[op]}</option>)}</select>
+      <Select className="oq-select" aria-label="Column" value={filter.column} onChange={event => change(index, { column: event.target.value })}>
+        {columns.map(column => <option key={column.name} value={column.name}>{column.name}</option>)}</Select>
+      <Select className="oq-select" aria-label="Condition" value={filter.op} onChange={event => change(index, { op: event.target.value as SqlFilterOp })}>
+        {(Object.keys(FILTER_LABELS) as SqlFilterOp[]).map(op => <option key={op} value={op}>{FILTER_LABELS[op]}</option>)}</Select>
       {NEEDS_VALUE(filter.op) && <input aria-label="Value" value={filter.value ?? ''} placeholder={filter.op === 'in' ? 'a, b, c' : 'value'} spellCheck={false} onChange={event => change(index, { value: event.target.value })} />}
       <button type="button" className="oq-icon" aria-label="Remove condition" onClick={() => setDraft(current => current.filter((_, position) => position !== index))}><X size={12} aria-hidden="true" /></button>
     </span>)}

@@ -14,6 +14,7 @@ import { DocumentTree, ExplainCard } from './MongoPanels'
 import { PAGE_SIZES, cloneDocument, documentLabel, jsonProblem, prettyDocument } from './mongo-model'
 import { flattenDocuments } from './mongo-view'
 import { ResultGrid } from './ResultGrid'
+import { Select } from '../../ui/Field'
 
 // Dialogs are only needed when opened: they load on first use and stay out of the workbench's own chunk.
 const BulkPanel = lazy(() => import('./MongoDialogs').then(module => ({ default: module.BulkPanel })))
@@ -187,7 +188,7 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
       {!target ? <div className="oq-empty"><p>Select a collection.</p>{error && <p role="alert" className="oq-error">{error}</p>}</div> : <>
         <div className="oq-editor-toolbar">
           <strong>{target.database}.{target.collection}</strong>
-          <div role="group" aria-label="Query type"><button type="button" aria-pressed={mode === 'find'} onClick={() => setMode('find')}>Find</button><button type="button" aria-pressed={mode === 'aggregate'} onClick={() => setMode('aggregate')}>Aggregate</button></div>
+          <div role="group" aria-label="Query type" className="oq-segment"><button type="button" aria-pressed={mode === 'find'} onClick={() => setMode('find')}>Find</button><button type="button" aria-pressed={mode === 'aggregate'} onClick={() => setMode('aggregate')}>Aggregate</button></div>
           <span className="oq-spacer" />
           <AskAgent hasError={Boolean(error)} hasPlan={false} context={{
             connectionName: connection.name, engine: 'mongodb', environment: connection.environment,
@@ -197,7 +198,7 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
           <LibraryMenu connection={connection} currentSql={queryText} refreshKey={libraryTick} onPick={pick} describe={describeMongoQuery} />
           <span className="oq-badge" data-environment={connection.environment}>{connection.environment}</span>
           <span className="oq-badge" data-readonly={connection.readOnly}>{connection.readOnly ? 'read-only' : 'read-write'}</span>
-          <label className="oq-inline">Limit <select aria-label="Documents per page" value={limit} onChange={event => setLimit(Number(event.target.value))}>{PAGE_SIZES.map(size => <option key={size} value={size}>{size}</option>)}</select></label>
+          <label className="oq-inline">Limit <Select className="oq-select" aria-label="Documents per page" value={limit} onChange={event => setLimit(Number(event.target.value))}>{PAGE_SIZES.map(size => <option key={size} value={size}>{size}</option>)}</Select></label>
           <button type="button" disabled={running || invalid} onClick={() => void explainQuery()}>Explain</button>
           {running ? <button type="button" onClick={() => void cancel()}><Square size={13} aria-hidden="true" />Cancel</button>
             : <button type="button" className="oq-primary" disabled={invalid} onClick={() => void run(0)}><Play size={13} aria-hidden="true" />Run</button>}

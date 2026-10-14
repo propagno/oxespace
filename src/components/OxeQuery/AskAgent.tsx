@@ -1,8 +1,10 @@
-import { useRef, useState, type ReactElement } from 'react'
+import { useState, type ReactElement } from 'react'
 import { Sparkles } from 'lucide-react'
 import { pasteIntoAgentTerminal } from '../../lib/sendToAgent'
 import { useWorkspaceStore } from '../../store/workspace.store'
-import { useEdgeAlign } from './useEdgeAlign'
+import { Button } from '../../ui/Button'
+import { TextField } from '../../ui/Field'
+import { Dialog, Menu } from '../../ui/Overlay'
 import { buildAgentPrompt, type AskContext, type AskKind } from './agent-prompt'
 
 /**
@@ -12,7 +14,6 @@ import { buildAgentPrompt, type AskContext, type AskKind } from './agent-prompt'
  */
 export function AskAgent({ context, hasError, hasPlan }: { context: AskContext; hasError: boolean; hasPlan: boolean }): ReactElement {
   const workspaceId = useWorkspaceStore(state => state.activeWorkspaceId)
-  const [open, setOpen] = useState(false)
   const [writing, setWriting] = useState(false)
   const [request, setRequest] = useState('')
   const [message, setMessage] = useState('')
@@ -22,24 +23,28 @@ export function AskAgent({ context, hasError, hasPlan }: { context: AskContext; 
     if (!workspaceId) { setMessage('Open a workspace with an agent terminal first.'); return }
     const result = await pasteIntoAgentTerminal(workspaceId, buildAgentPrompt(kind, { ...context, ...(kind === 'write' ? { request } : {}) }))
     setMessage(result.message)
-    if (result.ok) { setOpen(false); setWriting(false); setRequest('') }
+    if (result.ok) { setWriting(false); setRequest('') }
   }
   const hasText = Boolean(context.sql?.trim())
-  const wrap = useRef<HTMLSpanElement | null>(null)
-  const side = useEdgeAlign(wrap, open, 256)
-  return <span className="oq-ask" ref={wrap}>
-    <button type="button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(value => !value)}><Sparkles size={13} aria-hidden="true" />Ask agent</button>
-    {open && <div className="oq-ask-menu" data-side={side} role="menu" aria-label="Ask the agent">
-      <button type="button" role="menuitem" disabled={!hasText} onClick={() => void send('explain')}>Explain this {context.engine === 'postgres' ? 'statement' : 'query'}</button>
-      <button type="button" role="menuitem" disabled={!hasError} onClick={() => void send('fix')}>Fix this error</button>
-      <button type="button" role="menuitem" disabled={!hasPlan} onClick={() => void send('plan')}>Read this plan</button>
-      {writing
-        ? <form onSubmit={event => { event.preventDefault(); void send('write') }}>
-          <input aria-label="What should the query do?" autoFocus value={request} onChange={event => setRequest(event.target.value)} placeholder="Orders per customer last month…" />
-          <button type="submit" disabled={!request.trim()}>Paste prompt</button></form>
-        : <button type="button" role="menuitem" onClick={() => setWriting(true)}>Write a query…</button>}
-      <small className="oq-muted">Pastes a prompt into your agent terminal. Rows are never included.</small>
-    </div>}
+  return <span className="oq-ask">
+    <Menu label="Ask the agent" trigger={<Button size="sm" title="Pastes a prompt into your agent terminal. Rows are never included." icon={<Sparkles size={13} aria-hidden="true" />}>Ask agent</Button>}
+      items={[
+        { label: `Explain this ${context.engine === 'postgres' ? 'statement' : 'query'}`, disabled: !hasText, onSelect: () => void send('explain') },
+        { label: 'Fix this error', disabled: !hasError, onSelect: () => void send('fix') },
+        { label: 'Read this plan', disabled: !hasPlan, onSelect: () => void send('plan') },
+        { type: 'separator' },
+        { label: 'Write a query…', onSelect: () => setWriting(true) },
+        { type: 'separator' },
+        { type: 'label', label: 'Rows are never included' }
+      ]} />
     {message && <small className="oq-muted" role="status">{message}</small>}
+    {writing && <Dialog title="Write a query" size="sm" onClose={() => setWriting(false)}
+      description="Describe what it should do. A prompt with the table and column names is pasted into your agent terminal; rows are never included."
+      footer={<><Button onClick={() => setWriting(false)}>Cancel</Button>
+        <Button variant="primary" disabled={!request.trim()} onClick={() => void send('write')}>Paste prompt</Button></>}>
+      <form onSubmit={event => { event.preventDefault(); if (request.trim()) void send('write') }}>
+        <TextField label="What should the query do?" autoFocus value={request} onChange={event => setRequest(event.target.value)} placeholder="Orders per customer last month…" />
+      </form>
+    </Dialog>}
   </span>
 }

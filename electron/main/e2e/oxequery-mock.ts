@@ -181,6 +181,7 @@ export function registerOxeQueryMock(): void {
         const mutating = /^\s*(insert|update|delete|drop|truncate|create|alter)/i.test(sql)
         if (target?.readOnly && mutating) return fail('read-only', 'This connection is read-only. Turn read-only off to run statements that change data.')
         if (/^\s*delete\s+from\s+\w+\s*;?\s*$/i.test(sql) && input.confirmed !== true) return fail('confirm', 'This statement is destructive and needs confirmation.', ['DELETE without a WHERE clause affects every row'])
+        if (/^\s*selec\s/i.test(sql)) return fail('query', 'syntax error at or near "SELEC"')
         if (mutating) return ok({ columns: [], rows: [], rowCount: 0, truncated: false, durationMs: 2, command: 'DELETE', affectedRows: 3 })
         return ok(users)
       }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactElement } from 'react'
 import type { ContainerEngineCandidate } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
 import { useOxeQueryStore } from './oxequery.store'
+import { Select } from '../../ui/Field'
 
 /** What to tell a person whose containers are not where OxeQuery is looking. Null when nothing needs saying. */
 export function engineAdvice(candidates: ContainerEngineCandidate[], shown: number): string | null {
@@ -42,10 +43,10 @@ export function EngineBar({ active, shown }: { active: boolean; shown: number })
   const selected = candidates.find(entry => entry.selected)
   return <div className="oq-engine-bar">
     <label>Docker engine
-      <select value={selected?.id ?? ''} onChange={event => void choose(event.target.value)}>
+      <Select className="oq-select" value={selected?.id ?? ''} onChange={event => void choose(event.target.value)}>
         {candidates.map(entry => <option key={entry.id} value={entry.id} disabled={entry.state === 'not-checked'}>
           {entry.label}{entry.containers !== undefined ? ` (${entry.containers})` : ''}{stateLabel[entry.state]}</option>)}
-      </select></label>
+      </Select></label>
     {advice && <p className="oq-hint" role="note">{advice}</p>}
     {failure && <p role="alert" className="oq-error">{failure}</p>}
   </div>

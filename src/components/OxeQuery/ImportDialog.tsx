@@ -5,6 +5,7 @@ import { Dialog } from '../../ui/Overlay'
 import { Upload } from 'lucide-react'
 import type { ImportConflict, ImportPreview, ImportReadOptions, ImportResult, ImportTarget, OxeQueryConnection } from '../../../shared/types/oxequery'
 import { OxeQueryClientError, errorMessage, oq } from './client'
+import { Select } from '../../ui/Field'
 
 /**
  * Import a CSV, JSON or NDJSON file into a table or collection. The file is
@@ -72,7 +73,7 @@ export function ImportButton({ connection, target, onImported }: { connection: O
   return <>
     <button type="button" disabled={busy !== ''} onClick={() => void choose()}><Upload size={13} aria-hidden="true" />Import</button>
     {error && !preview && <span role="alert" className="oq-error">{error}</span>}
-    {preview && <Dialog title={`Import into ${destination}`} size="lg" onClose={() => { if (busy === '') close() }}
+    {preview && <Dialog className="oq-scope" title={`Import into ${destination}`} size="lg" onClose={() => { if (busy === '') close() }}
       footer={<>
         <Button onClick={close}>Close</Button>
         <Button disabled={busy !== '' || mapped === 0} onClick={() => void run(true)}>Dry run</Button>
@@ -82,12 +83,12 @@ export function ImportButton({ connection, target, onImported }: { connection: O
 
         {preview.format === 'csv' && <fieldset className="oq-import-options">
           <legend>How the file is read</legend>
-          <label>Delimiter<select aria-label="Delimiter" value={options.delimiter ?? 'auto'} onChange={event => void reread({ ...options, delimiter: event.target.value as ImportReadOptions['delimiter'] })}>
+          <label>Delimiter<Select className="oq-select" aria-label="Delimiter" value={options.delimiter ?? 'auto'} onChange={event => void reread({ ...options, delimiter: event.target.value as ImportReadOptions['delimiter'] })}>
             <option value="auto">Detect{preview.detected ? ` (${preview.detected.delimiter === '\t' ? 'tab' : preview.detected.delimiter})` : ''}</option>
-            <option value=",">Comma ,</option><option value=";">Semicolon ;</option><option value={'\t'}>Tab</option><option value="|">Pipe |</option></select></label>
-          <label>Encoding<select aria-label="Encoding" value={options.encoding ?? 'auto'} onChange={event => void reread({ ...options, encoding: event.target.value as ImportReadOptions['encoding'] })}>
+            <option value=",">Comma ,</option><option value=";">Semicolon ;</option><option value={'\t'}>Tab</option><option value="|">Pipe |</option></Select></label>
+          <label>Encoding<Select className="oq-select" aria-label="Encoding" value={options.encoding ?? 'auto'} onChange={event => void reread({ ...options, encoding: event.target.value as ImportReadOptions['encoding'] })}>
             <option value="auto">Detect{preview.detected ? ` (${preview.detected.encoding})` : ''}</option><option value="utf-8">UTF-8</option><option value="windows-1252">Windows-1252 (Excel, Western Europe)</option>
-            <option value="utf-16le">UTF-16 LE</option><option value="utf-16be">UTF-16 BE</option></select></label>
+            <option value="utf-16le">UTF-16 LE</option><option value="utf-16be">UTF-16 BE</option></Select></label>
           <label className="oq-inline"><input type="checkbox" aria-label="First row is a header" checked={options.hasHeader !== false} onChange={event => void reread({ ...options, hasHeader: event.target.checked })} />First row is a header</label>
         </fieldset>}
 
@@ -97,17 +98,17 @@ export function ImportButton({ connection, target, onImported }: { connection: O
             <td>{field}</td>
             <td className="oq-muted">{preview.sample.slice(0, 2).map(row => row[index]).filter(Boolean).join(' · ').slice(0, 60)}</td>
             <td>{target.kind === 'table'
-              ? <select aria-label={`Column for ${field}`} value={mapping[field] ?? ''} onChange={event => setMapping(current => ({ ...current, [field]: event.target.value }))}>
+              ? <Select className="oq-select" aria-label={`Column for ${field}`} value={mapping[field] ?? ''} onChange={event => setMapping(current => ({ ...current, [field]: event.target.value }))}>
                 <option value="">— skip —</option>
                 {preview.targetColumns.filter(column => !column.generated).map(column => <option key={column.name} value={column.name}>{column.name} ({column.type})</option>)}
-              </select>
+              </Select>
               : <input aria-label={`Field name for ${field}`} value={mapping[field] ?? ''} placeholder="— skip —" onChange={event => setMapping(current => ({ ...current, [field]: event.target.value }))} />}</td>
           </tr>)}</tbody>
         </table>
         {target.kind === 'table' && <fieldset className="oq-import-options">
           <legend>If a row with the same key already exists</legend>
-          <label>Then<select aria-label="When a key exists" value={conflict.mode} onChange={event => setConflict({ ...conflict, mode: event.target.value as ImportConflict['mode'] })}>
-            <option value="error">Stop the import (nothing is kept)</option><option value="skip">Skip that row</option><option value="update">Update that row</option></select></label>
+          <label>Then<Select className="oq-select" aria-label="When a key exists" value={conflict.mode} onChange={event => setConflict({ ...conflict, mode: event.target.value as ImportConflict['mode'] })}>
+            <option value="error">Stop the import (nothing is kept)</option><option value="skip">Skip that row</option><option value="update">Update that row</option></Select></label>
           {conflict.mode !== 'error' && <div role="group" aria-label="Key columns" className="oq-import-keys">
             <span className="oq-muted">Rows match on {conflict.mode === 'update' ? '' : '(optional) '}the columns that make up a unique key:</span>
             {[...new Set(Object.values(mapping).filter(Boolean))].map(column => <label key={column} className="oq-inline"><input type="checkbox" checked={conflict.columns.includes(column)}

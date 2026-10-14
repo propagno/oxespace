@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
-import { Boxes, Database, Play, Plus, RefreshCw, RotateCw, Square, SquareTerminal } from 'lucide-react'
+import { Boxes, ChevronDown, ChevronRight, Database, Play, Plus, RefreshCw, RotateCw, Square, SquareTerminal } from 'lucide-react'
 import type { ContainerAction, ContainerEngineInfo, ContainerExecResult, ContainerInspect, ContainerPort, ContainerStat, ContainerSummary } from '../../../shared/types/oxequery'
 import { TerminalPane } from '../Panes/TerminalPane'
 import { OxeQueryClientError, errorMessage, oq } from './client'
 import { useOxeQueryStore } from './oxequery.store'
 import { NewDatabaseDialog, ResourcesPanel } from './ResourcesPanel'
 import { EngineBar } from './EngineBar'
+import { Select } from '../../ui/Field'
 
 const STATS_MS = 5000
 const COMPOSE_LABEL = 'com.docker.compose.project'
@@ -134,9 +135,9 @@ export function ContainersPanel({ active }: { active: boolean }): ReactElement {
     <header className="oq-toolbar">
       <input type="search" placeholder="Filter containers" aria-label="Filter containers" value={query} onChange={event => setQuery(event.target.value)} />
       <label className="oq-check"><input type="checkbox" checked={onlyRunning} onChange={event => setOnlyRunning(event.target.checked)} />Running only</label>
-      {projects.length > 0 && <select aria-label="Compose project" value={project} onChange={event => setProject(event.target.value)}><option value="">All projects</option>{projects.map(value => <option key={value} value={value}>{value}</option>)}</select>}
-      {available.length > 1 && <select aria-label="Container engine" value={engine} onChange={event => void refresh(event.target.value as 'docker' | 'podman')}>
-        {available.map(info => <option key={info.engine} value={info.engine}>{info.engine}</option>)}</select>}
+      {projects.length > 0 && <Select className="oq-select" aria-label="Compose project" value={project} onChange={event => setProject(event.target.value)}><option value="">All projects</option>{projects.map(value => <option key={value} value={value}>{value}</option>)}</Select>}
+      {available.length > 1 && <Select className="oq-select" aria-label="Container engine" value={engine} onChange={event => void refresh(event.target.value as 'docker' | 'podman')}>
+        {available.map(info => <option key={info.engine} value={info.engine}>{info.engine}</option>)}</Select>}
       {engine && <small className="oq-muted" title={`Container engine${available.find(info => info.engine === engine)?.version ? ` ${available.find(info => info.engine === engine)?.version}` : ''}`}>Engine: {engine}{available.find(info => info.engine === engine)?.context ? ` (${available.find(info => info.engine === engine)?.context})` : ''}</small>}
       <span className="oq-spacer" />
       <button type="button" onClick={() => setNewDatabase(true)} title="Start a PostgreSQL or MongoDB container and connect to it"><Database size={13} aria-hidden="true" />New database</button>
@@ -173,9 +174,9 @@ export function ContainersPanel({ active }: { active: boolean }): ReactElement {
               <td><button type="button" className="oq-link" onClick={() => setSelectedId(container.id)}>{container.name}</button>{container.labels?.[COMPOSE_LABEL] && <small className="oq-muted"> {container.labels[COMPOSE_LABEL]}</small>}</td>
               <td title={container.image}>{container.image}</td>
               <td><span className="oq-state" data-state={container.state}>{container.state}</span><small className="oq-muted">{container.status}</small></td>
-              <td className="oq-stats">{(() => { const stat = stats[container.id.slice(0, 12)] ?? stats[container.name]; return container.state === 'running' && stat ? <><span>{stat.cpuPercent.toFixed(1)}%</span><small className="oq-muted">{stat.memoryUsage.split('/')[0].trim()} · {stat.memoryPercent.toFixed(0)}%</small></> : <span className="oq-muted">–</span> })()}</td>
+              <td><div className="oq-stats">{(() => { const stat = stats[container.id.slice(0, 12)] ?? stats[container.name]; return container.state === 'running' && stat ? <><span>{stat.cpuPercent.toFixed(1)}%</span><small className="oq-muted">{stat.memoryUsage.split('/')[0].trim()} · {stat.memoryPercent.toFixed(0)}%</small></> : <span className="oq-muted">–</span> })()}</div></td>
               <td>{formatPorts(container.ports)}</td>
-              <td className="oq-actions" onClick={event => event.stopPropagation()}>
+              <td onClick={event => event.stopPropagation()}><div className="oq-actions">
                 {container.state === 'running'
                   ? <>
                     <button type="button" aria-label={`Restart ${container.name}`} title="Restart this container" disabled={busyId === container.id} onClick={() => request(container, 'restart')}><RotateCw size={13} aria-hidden="true" /><span>Restart</span></button>
@@ -183,12 +184,12 @@ export function ContainersPanel({ active }: { active: boolean }): ReactElement {
                   </>
                   : <button type="button" aria-label={`Start ${container.name}`} title="Start this container" disabled={busyId === container.id} onClick={() => void act(container, 'start')}><Play size={13} aria-hidden="true" /><span>Start</span></button>}
                 {isDatabaseImage(container.image) && <button type="button" className="oq-connect" aria-label={`Connect to ${container.name}`} title="Create a connection to this database and open it" disabled={busyId === container.id || container.state !== 'running'} onClick={() => void connect(container)}><Database size={13} aria-hidden="true" /><span>Query</span></button>}
-              </td>
+              </div></td>
             </tr>)}</tbody></table>}
       </div>
       {selected && <ContainerDetails key={selected.id} container={selected} engine={engine} onClose={() => setSelectedId(null)} />}
     </div>
-    <button type="button" className="oq-disclosure" aria-expanded={showResources} onClick={() => setShowResources(value => !value)}>Images, volumes and networks</button>
+    <button type="button" className="oq-disclosure" aria-expanded={showResources} onClick={() => setShowResources(value => !value)}>{showResources ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />}Images, volumes and networks</button>
     {showResources && <ResourcesPanel engine={engine} active={active} />}
     {newDatabase && <NewDatabaseDialog engine={engine} onClose={() => setNewDatabase(false)} />}
   </section>
@@ -309,7 +310,7 @@ function Shell({ container, engine }: { container: ContainerSummary; engine?: 'd
   if (!paneId) return <p className="oq-muted">Opening shell…</p>
   const pane = { id: paneId, workspaceId: 'oxequery', type: 'terminal' as const, rowIndex: 0, columnIndex: 0, shellProfileId: null, status: 'idle' as const, agentProfileId: null, agentName: null, displayName: `${container.name} shell`, createdAt: null, rootPath: null }
   return <div className="oq-term">
-    <div className="oq-toolbar"><SquareTerminal size={14} aria-hidden="true" /><select aria-label="Shell" value={shell} onChange={event => setShell(event.target.value as 'sh' | 'bash')}><option value="sh">sh</option><option value="bash">bash</option></select>
+    <div className="oq-toolbar"><SquareTerminal size={14} aria-hidden="true" /><Select className="oq-select" aria-label="Shell" value={shell} onChange={event => setShell(event.target.value as 'sh' | 'bash')}><option value="sh">sh</option><option value="bash">bash</option></Select>
       <button type="button" onClick={() => setNonce(value => value + 1)}>New session</button></div>
     <div className="oq-shell-terminal"><TerminalPane key={paneId} pane={pane} workspaceId="oxequery" workspaceRootPath="" autoStart /></div>
   </div>

@@ -90,7 +90,7 @@ export function ServerPanel({ connection, onClose }: { connection: OxeQueryConne
     </div>
   </div>
 
-  return <Dialog title={`Server of ${connection.name}`} description="Databases and roles on this PostgreSQL server." size="lg" onClose={onClose} testId="server-panel"
+  return <Dialog className="oq-scope" title={`Server of ${connection.name}`} description="Databases and roles on this PostgreSQL server." size="lg" onClose={onClose} testId="server-panel"
     footer={<Button variant="ghost" onClick={onClose}>Close</Button>}>
     {error && <p role="alert" className={styles.error}>{error}</p>}
     {!databases && !error ? <p className={styles.note}>Loading…</p>

@@ -113,7 +113,7 @@ test('OxeQuery lists containers, runs commands and queries PostgreSQL and MongoD
     // Allow writes, then the destructive guard asks first.
     await page.locator('.oq-sidebar').getByRole('button', { name: 'Edit pg-dev' }).click()
     const dialog = page.getByRole('dialog', { name: 'Edit connection' })
-    await dialog.getByRole('checkbox', { name: /Read-only/ }).uncheck()
+    await dialog.getByRole('switch', { name: /Read-only/ }).setChecked(false)
     await dialog.getByRole('button', { name: 'Save' }).click()
     await expect(page.locator('.oq-badge[data-readonly="false"]')).toBeVisible()
     await page.locator('.oq-editor .monaco-editor').click()
@@ -209,7 +209,7 @@ test('the connection form fills itself from a pasted connection string', async (
     await expect(dialog.getByRole('alert')).toContainText('Unsupported')
     // Production with writes on is called out before anything is saved.
     await dialog.getByRole('radio', { name: 'Production' }).click()
-    await dialog.getByRole('checkbox', { name: /Read-only/ }).uncheck()
+    await dialog.getByRole('switch', { name: /Read-only/ }).setChecked(false)
     await expect(dialog.getByRole('note')).toContainText('production connection with writes enabled')
   } finally { await app.close() }
 })
@@ -291,7 +291,7 @@ test('OxeQuery stages a row edit, shows the SQL, applies it, exports a table and
     await expect(page.getByRole('button', { name: 'Edit rows' })).toBeDisabled()
     await page.locator('.oq-sidebar').getByRole('button', { name: 'Edit pg-dev' }).click()
     const dialog = page.getByRole('dialog', { name: 'Edit connection' })
-    await dialog.getByRole('checkbox', { name: /Read-only/ }).uncheck()
+    await dialog.getByRole('switch', { name: /Read-only/ }).setChecked(false)
     await dialog.getByRole('button', { name: 'Save' }).click()
     await page.getByRole('navigation', { name: 'Schema' }).getByRole('treeitem', { name: 'users', exact: true }).click({ position: { x: 12, y: 8 } })
 
@@ -487,7 +487,7 @@ test('the SQL workbench runs scripts, asks for parameters, keeps a transaction a
     // A transaction the person opens is theirs to end (a read-only connection has nothing to commit).
     await page.locator('.oq-sidebar').getByRole('button', { name: 'Edit pg-dev' }).click()
     const settings = page.getByRole('dialog', { name: 'Edit connection' })
-    await settings.getByRole('checkbox', { name: /Read-only/ }).uncheck()
+    await settings.getByRole('switch', { name: /Read-only/ }).setChecked(false)
     await settings.getByRole('button', { name: 'Save' }).click()
     await page.getByRole('button', { name: 'Begin transaction' }).click()
     await expect(page.getByRole('status').filter({ hasText: 'Transaction open' })).toBeVisible()
@@ -535,7 +535,7 @@ test('the structure editor reviews the SQL of a new table and of an altered one 
     await expect(tree.getByRole('button', { name: 'New table in public' })).toHaveCount(0)
     await page.locator('.oq-sidebar').getByRole('button', { name: 'Edit pg-dev' }).click()
     const settings = page.getByRole('dialog', { name: 'Edit connection' })
-    await settings.getByRole('checkbox', { name: /Read-only/ }).uncheck()
+    await settings.getByRole('switch', { name: /Read-only/ }).setChecked(false)
     await settings.getByRole('button', { name: 'Save' }).click()
 
     // New table: the SQL is shown before anything runs.
@@ -636,7 +636,7 @@ test('the schema tree groups objects, searches every schema, pins tables and wor
     await server.getByRole('button', { name: 'Close' }).first().click()
     await page.locator('.oq-sidebar').getByRole('button', { name: 'Edit pg-dev' }).click()
     const settings = page.getByRole('dialog', { name: 'Edit connection' })
-    await settings.getByRole('checkbox', { name: /Read-only/ }).uncheck()
+    await settings.getByRole('switch', { name: /Read-only/ }).setChecked(false)
     await settings.getByRole('button', { name: 'Save' }).click()
     await page.getByRole('button', { name: 'Server: databases and roles' }).click()
     await server.getByRole('tab', { name: 'Databases' }).click()
@@ -660,7 +660,7 @@ test('the schema tree groups objects, searches every schema, pins tables and wor
 
     // Asking the agent is a menu; what needs an error or a plan stays off until there is one.
     await page.getByRole('button', { name: 'Ask agent' }).click()
-    const ask = page.getByRole('menu', { name: 'Ask the agent' })
+    const ask = page.getByRole('menu', { name: 'Ask agent' })
     await expect(ask.getByRole('menuitem', { name: /^Explain this/ })).toBeEnabled()
     await expect(ask.getByRole('menuitem', { name: 'Fix this error' })).toBeDisabled()
     await expect(ask.getByRole('menuitem', { name: 'Read this plan' })).toBeDisabled()
@@ -688,7 +688,7 @@ test('the MongoDB workbench validates its fields, explains a plan, shows a tree,
     await expect(page.getByRole('tab', { name: 'mongo-dev' })).toBeVisible()
     await page.locator('.oq-sidebar').getByRole('button', { name: 'Edit mongo-dev' }).click()
     const settings = page.getByRole('dialog', { name: 'Edit connection' })
-    await settings.getByRole('checkbox', { name: /Read-only/ }).uncheck()
+    await settings.getByRole('switch', { name: /Read-only/ }).setChecked(false)
     await settings.getByRole('button', { name: 'Save' }).click()
     const sidebar = page.getByRole('navigation', { name: 'Databases' })
     await sidebar.getByRole('button', { name: 'shop', exact: true }).click()

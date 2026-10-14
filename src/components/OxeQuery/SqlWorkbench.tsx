@@ -1,5 +1,6 @@
 import Editor, { type OnMount } from '@monaco-editor/react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { Button } from '../../ui/Button'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { ChevronDown, ChevronRight, Gauge, Play, Plus, Square, Table2, X } from 'lucide-react'
 // Side-effect: self-hosted Monaco (no CDN), required before <Editor> mounts.
@@ -22,6 +23,7 @@ import { bindCompletion, cacheFor } from './sql-completion'
 import { registerSqlExtras } from './sql-snippets'
 import { CellViewer, FilterBar, ParamsBar, TxBar } from './WorkbenchPanels'
 import { MAX_TABS, completeFilters, looksLikeLostConnection, newTab, outputsFromScript, restoreWorkspace, serializeWorkspace, type Browse, type Output, type ParamValue, type QueryTab } from './workbench-model'
+import { Select } from '../../ui/Field'
 
 const ROW_LIMITS = [100, 500, 1000, 5000, 10_000, 50_000, 100_000]
 const PAGE = 100
@@ -264,25 +266,30 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
           <button type="button" className="oq-tab-close" aria-label={`Close ${tab.title}`} onClick={() => closeTab(tab.id)}><X size={11} aria-hidden="true" /></button>
         </span>)}
         <button type="button" className="oq-qtab-add" aria-label="New query" title="New query tab" disabled={tabs.length >= MAX_TABS} onClick={() => addTab('')}><Plus size={13} aria-hidden="true" /></button>
+        <span className="oq-spacer" />
+        <span className="oq-badge" data-environment={connection.environment}>{connection.environment}</span>
+        <span className="oq-badge" data-readonly={connection.readOnly} title={connection.readOnly ? 'The server refuses statements that change data' : 'This connection can change data'}>{connection.readOnly ? 'read-only' : 'read-write'}</span>
       </div>
       <div className="oq-editor-toolbar">
-        <button type="button" className="oq-primary" onClick={runCurrent} disabled={running} title="Run the selection, or the statement the cursor is in (Ctrl+Enter)"><Play size={13} aria-hidden="true" />Run<kbd>Ctrl ↵</kbd></button>
-        <button type="button" onClick={runAll} disabled={running} title="Run every statement, one after the other (Ctrl+Shift+Enter)">Run all</button>
-        <button type="button" onClick={() => { pendingExplain.current = null; void explain(false) }} disabled={running} title="Show the execution plan without running the statement"><Gauge size={13} aria-hidden="true" />Explain</button>
-        <button type="button" onClick={() => { pendingExplain.current = null; void explain(true) }} disabled={running} title="Run the statement and show real timings. A statement that changes data is rolled back.">Analyze</button>
-        <button type="button" onClick={cancel} disabled={!running} title="Cancel the running statement"><Square size={13} aria-hidden="true" />Cancel</button>
-        <button type="button" onClick={format} title="Format the SQL (Shift+Alt+F)">Format</button>
-        <label className="oq-inline">Limit<select value={maxRows} onChange={event => setMaxRows(Number(event.target.value))}>{[...new Set([...ROW_LIMITS, connection.maxRows])].sort((a, b) => a - b).map(value => <option key={value} value={value}>{value.toLocaleString('en-US')} rows</option>)}</select></label>
+        <div className="oq-tb-group" role="group" aria-label="Run">
+          <Button size="sm" variant="primary" icon={<Play size={13} aria-hidden="true" />} onClick={runCurrent} disabled={running} title="Run the selection, or the statement the cursor is in (Ctrl+Enter)">Run</Button>
+          <Button size="sm" onClick={runAll} disabled={running} title="Run every statement, one after the other (Ctrl+Shift+Enter)">Run all</Button>
+          {running && <Button size="sm" icon={<Square size={13} aria-hidden="true" />} onClick={cancel} title="Cancel the running statement">Cancel</Button>}
+        </div>
+        <div className="oq-tb-group" role="group" aria-label="Plan and format">
+          <Button size="sm" icon={<Gauge size={13} aria-hidden="true" />} onClick={() => { pendingExplain.current = null; void explain(false) }} disabled={running} title="Show the execution plan without running the statement">Explain</Button>
+          <Button size="sm" onClick={() => { pendingExplain.current = null; void explain(true) }} disabled={running} title="Run the statement and show real timings. A statement that changes data is rolled back.">Analyze</Button>
+          <Button size="sm" onClick={format} title="Format the SQL (Shift+Alt+F)">Format</Button>
+        </div>
+        <label className="oq-inline">Limit<Select className="oq-select" value={maxRows} onChange={event => setMaxRows(Number(event.target.value))}>{[...new Set([...ROW_LIMITS, connection.maxRows])].sort((a, b) => a - b).map(value => <option key={value} value={value}>{value.toLocaleString('en-US')} rows</option>)}</Select></label>
+        <span className="oq-spacer" />
+        {!connection.readOnly && <TxBar state={tx} busy={running} onAction={action => void txAction(action)} />}
+        <LibraryMenu connection={connection} currentSql={active.sql} refreshKey={libraryTick} onPick={sql => replaceText(active.id, sql)} />
         <AskAgent hasError={Boolean(error)} hasPlan={Boolean(active.explain)} context={{
           connectionName: connection.name, engine: 'postgres', environment: connection.environment, sql: active.sql,
           ...(error ? { errorMessage: error.message, ...(error.sqlState ? { sqlState: error.sqlState } : {}) } : {}), explain: active.explain,
           ...(active.browse && active.details ? { tables: [describeTable(active.browse.schema, active.browse.table, active.details.columns)] } : {})
         }} />
-        <LibraryMenu connection={connection} currentSql={active.sql} refreshKey={libraryTick} onPick={sql => replaceText(active.id, sql)} />
-        {!connection.readOnly && <TxBar state={tx} busy={running} onAction={action => void txAction(action)} />}
-        <span className="oq-spacer" />
-        <span className="oq-badge" data-environment={connection.environment}>{connection.environment}</span>
-        <span className="oq-badge" data-readonly={connection.readOnly} title={connection.readOnly ? 'The server refuses statements that change data' : 'This connection can change data'}>{connection.readOnly ? 'read-only' : 'read-write'}</span>
       </div>
       {notice && <p role="alert" className="oq-error oq-notice">{notice}</p>}
       {/* Ctrl+Shift+Enter is also a built-in Monaco chord (insert a line above) and some platforms resolve it before ours: taken here, in the capture phase, it always means "run all". */}
@@ -324,8 +331,8 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
             label={active.browse ? 'Export table' : 'Export query'} />}
           {active.browse && <ImportButton connection={connection} target={{ kind: 'table', schema: active.browse.schema, table: active.browse.table }}
             onImported={() => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: 'table' })} />}
-          {result && columns.length > 0 && <select aria-label="Copy results as" value="" onChange={event => { if (event.target.value) copyAs(event.target.value as CopyFormat) }}>
-            <option value="">Copy as…</option><option value="csv">CSV</option><option value="tsv">TSV (spreadsheet)</option><option value="json">JSON</option><option value="markdown">Markdown table</option><option value="insert">INSERT statements</option></select>}
+          {result && columns.length > 0 && <Select className="oq-select" aria-label="Copy results as" value="" onChange={event => { if (event.target.value) copyAs(event.target.value as CopyFormat) }}>
+            <option value="">Copy as…</option><option value="csv">CSV</option><option value="tsv">TSV (spreadsheet)</option><option value="json">JSON</option><option value="markdown">Markdown table</option><option value="insert">INSERT statements</option></Select>}
         </div>
         {error && <div role="alert" className="oq-query-error"><strong>Query failed</strong>{error.sqlState && <small> SQLSTATE {error.sqlState}</small>}<pre>{error.message}</pre>{error.hint && <p className="oq-muted">Hint: {error.hint}</p>}{looksLikeLostConnection(error.message) && <ReconnectBar connection={connection} />}</div>}
         {result?.notices?.map(text => <p key={text} className="oq-muted oq-notice">{text}</p>)}

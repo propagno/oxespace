@@ -52,7 +52,7 @@ export function BulkPanel({ connection, database, collection, filter, onClose, o
   }
 
   const verb = op === 'deleteMany' ? 'deleted' : 'changed'
-  return <Dialog title={`Change many in ${collection}`} description="Count the documents first; the change runs only for the number you confirm." size="lg" onClose={onClose} testId="mongo-bulk"
+  return <Dialog className="oq-scope" title={`Change many in ${collection}`} description="Count the documents first; the change runs only for the number you confirm." size="lg" onClose={onClose} testId="mongo-bulk"
     footer={<><Button variant="ghost" onClick={onClose}>Close</Button>
       <Button variant="secondary" loading={busy} disabled={problem !== null} onClick={() => void count()}>Count matches</Button>
       <Button variant={op === 'deleteMany' ? 'danger' : 'primary'} loading={busy} disabled={counted === null || counted === 0 || !confirmed || connection.readOnly} onClick={() => void apply()}>
@@ -99,7 +99,7 @@ export function CollectionDialog({ connection, mode, onClose, onDone }: { connec
   }
 
   const title = mode.kind === 'create' ? `New collection in ${mode.database}` : mode.kind === 'rename' ? `Rename ${mode.collection}` : `Drop ${mode.collection}`
-  return <Dialog title={title} size="sm" onClose={onClose} testId="mongo-collection"
+  return <Dialog className="oq-scope" title={title} size="sm" onClose={onClose} testId="mongo-collection"
     footer={<><Button variant="ghost" onClick={onClose}>Cancel</Button>
       <Button variant={mode.kind === 'drop' ? 'danger' : 'primary'} loading={busy} disabled={connection.readOnly || (mode.kind !== 'drop' && !name.trim()) || (mode.kind === 'drop' && !confirmed)} onClick={() => void submit()}>
         {mode.kind === 'create' ? 'Create' : mode.kind === 'rename' ? 'Rename' : 'Drop collection'}</Button></>}>

@@ -46,6 +46,7 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
   const scroller = useRef<HTMLDivElement | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [height, setHeight] = useState(360)
+  const [viewWidth, setViewWidth] = useState(0)
   const [localSort, setLocalSort] = useState<GridSort | null>(null)
   const sort = controlledSort !== undefined ? controlledSort : localSort
   const [overrides, setOverrides] = useState<Record<number, number>>({})
@@ -63,9 +64,14 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
     const sample = rows.slice(0, 50).reduce((longest, row) => Math.max(longest, shown(row[index]).length), name.length)
     return Math.max(80, Math.min(sample * 8 + 24, 420))
   }), [columns, rows])
-  const widthOf = useCallback((index: number): number => overrides[index] ?? autoWidths[index], [overrides, autoWidths])
+  const baseWidth = useCallback((index: number): number => overrides[index] ?? autoWidths[index], [overrides, autoWidths])
+  // A narrow result fills the pane: the last column takes what the others leave.
+  const naturalTotal = visible.reduce((sum, index) => sum + baseWidth(index), 0) + 56
+  const extra = Math.max(0, viewWidth - naturalTotal)
+  const lastVisible = visible[visible.length - 1]
+  const widthOf = useCallback((index: number): number => baseWidth(index) + (index === lastVisible ? extra : 0), [baseWidth, lastVisible, extra])
   const order = useMemo(() => (onSort || !sort ? null : sortedOrder(rows, sort.column, sort.direction)), [rows, sort, onSort])
-  const total = visible.reduce((sum, index) => sum + widthOf(index), 0) + 56
+  const total = naturalTotal + extra
   const start = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN)
   const end = Math.min(rows.length, Math.ceil((scrollTop + height) / ROW_HEIGHT) + OVERSCAN)
 
@@ -152,7 +158,7 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
   const activeRow = focus?.row ?? -1
   return <div className="oq-grid" role="grid" aria-label={label} aria-rowcount={rows.length + 1} aria-colcount={visible.length} aria-multiselectable="true" tabIndex={0}
     aria-activedescendant={focus ? `${label}-cell-${focus.row}-${focus.column}` : undefined} onKeyDown={onKeyDown}
-    ref={element => { scroller.current = element; if (element && element.clientHeight && element.clientHeight !== height) setHeight(element.clientHeight) }}
+    ref={element => { scroller.current = element; if (element && element.clientHeight && element.clientHeight !== height) setHeight(element.clientHeight); if (element && element.clientWidth !== viewWidth) setViewWidth(element.clientWidth) }}
     onScroll={event => setScrollTop(event.currentTarget.scrollTop)}>
     <div className="oq-grid-inner" style={{ width: total, height: (rows.length + 1) * ROW_HEIGHT }}>
       <div className="oq-grid-header" role="row" style={{ width: total }}>

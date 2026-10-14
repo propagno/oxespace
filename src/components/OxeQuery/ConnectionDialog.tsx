@@ -6,6 +6,7 @@ import { buildConnectionUrl, parseConnectionUrl } from './connection-url'
 import { useOxeQueryStore } from './oxequery.store'
 import { Button } from '../../ui/Button'
 import { Dialog } from '../../ui/Overlay'
+import { Select, SegmentedControl, Switch } from '../../ui/Field'
 
 const DEFAULT_PORT: Record<DatabaseEngine, number> = { postgres: 5432, mongodb: 27017 }
 const ENGINES: { id: DatabaseEngine; label: string; hint: string; Icon: typeof Database }[] = [
@@ -223,7 +224,7 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
 
   const title = editing ? 'Edit connection' : 'New connection'
   const description = editing?.containerRef ? `Created from the container ${editing.containerRef}.` : 'Connect to a database running here, in a container or on another server.'
-  return <Dialog title={title} description={description} size="lg" onClose={() => { if (!busy) close() }}
+  return <Dialog className="oq-scope" title={title} description={description} size="lg" onClose={() => { if (!busy) close() }}
     footer={<>
       <Button disabled={busy} onClick={() => void check()}>{busy ? 'Working…' : 'Test connection'}</Button>
       {!editing && <Button disabled={busy} onClick={() => void connectOnce()} title="Nothing is saved: the connection, its password, history and tabs are gone when you close the app">Connect without saving</Button>}
@@ -237,10 +238,8 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
           <Icon size={18} aria-hidden="true" /><span><strong>{label}</strong><small>{hint}</small></span></button>)}
       </section>}
 
-      <div role="radiogroup" aria-label="Connect by" className="oq-segment oq-connect-by">
-        <span>Connect by</span>
-        <button type="button" role="radio" aria-checked={mode === 'host'} data-selected={mode === 'host'} onClick={() => switchMode('host')}>Host</button>
-        <button type="button" role="radio" aria-checked={mode === 'url'} data-selected={mode === 'url'} onClick={() => switchMode('url')}>URL</button>
+      <div className="oq-connect-by"><span>Connect by</span>
+        <SegmentedControl label="Connect by" value={mode} onChange={switchMode} options={[{ value: 'host', label: 'Host' }, { value: 'url', label: 'URL' }]} />
       </div>
 
       {mode === 'url' && <label className="oq-url"><span><Link2 size={13} aria-hidden="true" /> Connection string</span>
@@ -273,14 +272,13 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
           {ENVIRONMENTS.map(item => <button key={item.id} type="button" role="radio" aria-checked={environment === item.id} data-selected={environment === item.id} data-environment={item.id}
             onClick={() => { setEnvironment(item.id); if (item.id === 'prod' && agentAccess === 'write') setAgentAccess('read') }}>{item.label}</button>)}
         </div>
-        <label className="oq-switch"><input type="checkbox" checked={readOnly} onChange={event => setReadOnly(event.target.checked)} />
-          <span><strong>Read-only</strong><small>The server refuses statements that change data. Turn off to write.</small></span></label>
+        <Switch checked={readOnly} onChange={setReadOnly} label="Read-only" description="The server refuses statements that change data. Turn off to write." />
         {environment === 'prod' && !readOnly && <p className="oq-warning" role="note"><ShieldAlert size={14} aria-hidden="true" /> This is a production connection with writes enabled. Destructive statements will still ask first.</p>}
       </section>
 
       <Section title="Security (TLS)" hint={sslMode === 'disable' ? 'off' : sslMode === 'require' ? 'not verified' : 'verified'} open={open.tls} onToggle={() => toggle('tls')}>
-        <label className="oq-form-wide">Encryption<select value={sslMode} onChange={event => setSslMode(event.target.value as SslMode)}>
-          {TLS_MODES.map(mode => <option key={mode.id} value={mode.id}>{mode.label}</option>)}</select></label>
+        <label className="oq-form-wide">Encryption<Select className="oq-select" value={sslMode} onChange={event => setSslMode(event.target.value as SslMode)}>
+          {TLS_MODES.map(mode => <option key={mode.id} value={mode.id}>{mode.label}</option>)}</Select></label>
         {sslMode === 'require' && <p className="oq-warning" role="note"><ShieldAlert size={14} aria-hidden="true" /> The connection is encrypted but the server is not authenticated, so someone in the middle could impersonate it.</p>}
         {(sslMode === 'verify-ca' || sslMode === 'verify-full') && <>
           <FilePick label="CA certificate" kind="ca" picked={ca} existing={Boolean(editing?.hasCa) && !clearCa} onPicked={file => { setCa(file); setClearCa(false) }} onClear={() => { setCa(null); setClearCa(true) }} />
@@ -296,7 +294,7 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
           <label>SSH host<input value={sshHost} onChange={event => setSshHost(event.target.value)} spellCheck={false} required /></label>
           <label>SSH port<input type="number" min={1} max={65535} value={sshPort} onChange={event => setSshPort(event.target.value)} /></label>
           <label>SSH user<input value={sshUser} onChange={event => setSshUser(event.target.value)} spellCheck={false} autoComplete="off" required /></label>
-          <label>Authentication<select value={sshAuth} onChange={event => setSshAuth(event.target.value as SshAuth)}><option value="key">Private key</option><option value="password">Password</option><option value="agent">SSH agent</option></select></label>
+          <label>Authentication<Select className="oq-select" value={sshAuth} onChange={event => setSshAuth(event.target.value as SshAuth)}><option value="key">Private key</option><option value="password">Password</option><option value="agent">SSH agent</option></Select></label>
           {sshAuth === 'agent' ? <p className="oq-muted oq-form-wide">Uses the keys loaded in your running SSH agent (SSH_AUTH_SOCK, or the OpenSSH agent on Windows). Nothing is stored here.</p> : sshAuth === 'key'
             ? <div className="oq-form-wide">
               <FilePick label="Private key" kind="sshKey" picked={sshKey} existing={Boolean(editing?.ssh?.hasSecret && editing.ssh.auth === 'key')}
@@ -325,11 +323,11 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
           <label>Statement timeout (seconds)<input type="number" min={1} max={3600} value={timeoutSeconds} onChange={event => setTimeoutSeconds(event.target.value)} /></label>
           <label>Default row limit<input type="number" min={1} max={100000} value={maxRows} onChange={event => setMaxRows(event.target.value)} /></label>
           <label className="oq-form-wide">AI agents
-            <select value={agentAccess} onChange={event => setAgentAccess(event.target.value as AgentAccess)}>
+            <Select className="oq-select" value={agentAccess} onChange={event => setAgentAccess(event.target.value as AgentAccess)}>
               <option value="off">No access (default)</option>
               <option value="read">Read — agents may ask to read, each request needs your approval</option>
               <option value="write" disabled={environment === 'prod'}>Read and write — every change needs your approval</option>
-            </select>
+            </Select>
           </label>
           {environment === 'prod' && <p className="oq-muted oq-form-wide">Agents can never write to a production connection.</p>}
           <label>Keep-alive (seconds)<input type="number" min={0} max={3600} value={keepalive} onChange={event => setKeepalive(event.target.value)} /><small>0 turns it off</small></label>

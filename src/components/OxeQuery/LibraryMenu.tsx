@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type ReactElement } from 'react'
+import { useEffect, useState, type ReactElement } from 'react'
 import { BookMarked, History, Trash2 } from 'lucide-react'
 import type { OxeQueryConnection, QueryHistoryItem, SavedQuery } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
 import { groupSaved } from './library-folders'
-import { useEdgeAlign } from './useEdgeAlign'
+import { Button, IconButton } from '../../ui/Button'
+import { Popover } from '../../ui/Overlay'
 
 /** Saved queries and history for one connection; both live in the app database, not in the page. */
 export function LibraryMenu({ connection, currentSql, refreshKey, onPick, describe = text => text.replace(/\s+/g, ' ') }: {
@@ -46,11 +47,9 @@ export function LibraryMenu({ connection, currentSql, refreshKey, onPick, descri
     try { await oq('library.clearHistory', { connectionId: connection.id }); setHistory([]) } catch (cause) { setError(errorMessage(cause)) }
   }
 
-  const wrap = useRef<HTMLDivElement | null>(null)
-  const side = useEdgeAlign(wrap, open, 436)
-  return <div className="oq-library-wrap" ref={wrap}>
-    <button type="button" aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen(value => !value)}><BookMarked size={13} aria-hidden="true" />Library</button>
-    {open && <div className="oq-library" data-side={side} role="dialog" aria-label="Saved queries and history">
+  return <Popover open={open} onOpenChange={setOpen} align="end" label="Saved queries and history"
+    trigger={<Button size="sm" aria-haspopup="dialog" icon={<BookMarked size={13} aria-hidden="true" />}>Library</Button>}>
+    <div className="oq-library oq-scope">
       <div role="tablist" className="oq-segment">
         <button type="button" role="tab" aria-selected={tab === 'saved'} data-selected={tab === 'saved'} onClick={() => setTab('saved')}><BookMarked size={12} aria-hidden="true" />Saved ({saved.length})</button>
         <button type="button" role="tab" aria-selected={tab === 'history'} data-selected={tab === 'history'} onClick={() => setTab('history')}><History size={12} aria-hidden="true" />History ({history.length})</button>
@@ -59,13 +58,13 @@ export function LibraryMenu({ connection, currentSql, refreshKey, onPick, descri
       {tab === 'saved' && <>
         <form className="oq-library-save" onSubmit={event => { event.preventDefault(); void save() }}>
           <input aria-label="Name for the current query" placeholder="Save as… (Folder/Name)" value={name} maxLength={120} onChange={event => setName(event.target.value)} />
-          <button type="button" className="oq-primary" disabled={!name.trim() || !currentSql.trim()} onClick={() => void save()}>Save</button>
+          <Button size="sm" variant="primary" disabled={!name.trim() || !currentSql.trim()} onClick={() => void save()}>Save</Button>
         </form>
         <ul>{groupSaved(saved).flatMap(group => [
           ...(group.folder ? [<li key={`folder:${group.folder}`} className="oq-library-folder" role="presentation"><strong>{group.folder}</strong></li>] : []),
           ...group.items.map(({ query: item, label }) => <li key={item.id}>
             <button type="button" title={item.sql} onClick={() => { onPick(item.sql); setOpen(false) }}><strong>{label}</strong><code>{describe(item.sql).slice(0, 80)}</code></button>
-            <button type="button" aria-label={`Delete ${item.name}`} onClick={() => void remove(item.id)}><Trash2 size={12} aria-hidden="true" /></button>
+            <IconButton size="sm" label={`Delete ${item.name}`} icon={<Trash2 size={12} aria-hidden="true" />} onClick={() => void remove(item.id)} />
           </li>)
         ])}</ul>
         {saved.length === 0 && <p className="oq-muted">Nothing saved yet.</p>}
@@ -76,8 +75,8 @@ export function LibraryMenu({ connection, currentSql, refreshKey, onPick, descri
             <code>{describe(item.sql).slice(0, 90)}</code>
             <small>{item.ok ? `${item.rows ?? '–'} rows · ${item.durationMs ?? '–'} ms` : 'failed'} · {new Date(item.ranAt).toLocaleString()}</small>
           </button></li>)}</ul>
-        {history.length === 0 ? <p className="oq-muted">Statements you run appear here.</p> : <button type="button" onClick={() => void clear()}>Clear history</button>}
+        {history.length === 0 ? <p className="oq-muted">Statements you run appear here.</p> : <Button size="sm" onClick={() => void clear()}>Clear history</Button>}
       </>}
-    </div>}
-  </div>
+    </div>
+  </Popover>
 }

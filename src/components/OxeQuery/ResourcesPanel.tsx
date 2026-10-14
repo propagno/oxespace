@@ -88,7 +88,7 @@ export function NewDatabaseDialog({ engine, onClose }: { engine?: ContainerEngin
     } catch (cause) { setError(errorMessage(cause)) } finally { setBusy(false) }
   }
 
-  return <Dialog title="New database" size="md" onClose={() => { if (!busy) onClose() }}
+  return <Dialog className="oq-scope" title="New database" size="md" onClose={() => { if (!busy) onClose() }}
     description={<>Starts a container bound to <code>127.0.0.1</code> with a named volume and a generated password, then connects to it. The first start may need to download the image.</>}
     footer={<>
       <Button disabled={busy} onClick={onClose}>Cancel</Button>

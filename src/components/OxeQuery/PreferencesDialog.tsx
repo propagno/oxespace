@@ -27,7 +27,7 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): ReactEl
   }
   const change = (patch: Partial<OxeQueryPreferences>): void => { setSaved(false); setValue(current => current ? { ...current, ...patch } : current) }
 
-  return <Dialog title="OxeQuery settings" description="What is kept, and how far agents may go." size="md" onClose={onClose} testId="oxequery-preferences"
+  return <Dialog className="oq-scope" title="OxeQuery settings" description="What is kept, and how far agents may go." size="md" onClose={onClose} testId="oxequery-preferences"
     footer={<><Button variant="ghost" onClick={onClose}>Close</Button><Button variant="primary" loading={busy} disabled={!value} onClick={() => void save()}>Save</Button></>}>
     {error && <p role="alert">{error}</p>}
     {!value && !error ? <p>Loading…</p> : value && <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
