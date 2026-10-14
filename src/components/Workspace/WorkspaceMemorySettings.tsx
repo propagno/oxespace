@@ -64,7 +64,7 @@ export function WorkspaceMemorySettings({ workspaceId }: { workspaceId: string }
   }
   const dirty = !!status && (JSON.stringify(settings) !== JSON.stringify(status.settings) || JSON.stringify(runtime) !== JSON.stringify(status.runtime) || !!token)
   return <section className="ws-settings-section memory-settings" aria-labelledby="ws-memory-title" aria-busy={busy}>
-    <header className="ws-settings-section-header"><h3 id="ws-memory-title">Shared Project Memory</h3></header>
+    <header className="ws-settings-section-header"><h3 id="ws-memory-title">Shared Project Memory</h3><span className="memory-badge" data-state="beta" title="Opt-in and still being certified across providers and platforms">Beta</span></header>
     <div className="memory-status-line"><span>AI Memory</span><span className="memory-badge" data-state={status?.health.status}>{busy ? 'Working…' : status?.health.status ?? 'Loading…'}</span></div>
     {status?.health.message && <p className="memory-feedback" role="status">{status.health.message}</p>}
     <p>Local knowledge shared across this repository’s worktrees. Each agent keeps its own session.</p>

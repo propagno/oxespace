@@ -4,6 +4,18 @@ Project memory is optional infrastructure. Worktrees own code changes, Git owns
 committed history, and each Claude/Codex process keeps its own native session.
 Persistent knowledge belongs to the project, not to a terminal or worktree path.
 
+## Release status: beta, opt-in
+
+Shared Project Memory ships as **Beta** and stays off until a user enables it per project. It is safe to try; it is not yet certified as stable.
+
+**Verified:** pinned AI Memory 2.6.2 with checksum, upgrade from 2.1.0 with rollback, project-scoped identity across worktrees, durable capture queue with recovery, and authenticated Claude Code and Codex Thread campaigns on Windows (see `docs/validation/ai-memory-productivity/wave-3.md`). The native contract suites run on Windows and Linux in CI and gate releases.
+
+**Not yet certified:** an authenticated pilot inside the Electron window, Linux with authenticated providers, exact-ID handoff and resume UI, a paired productivity benchmark, a 2-hour load run and the installed-package matrix.
+
+**Known limits:** Windows is experimental upstream; Codex final answers are not captured by the native mechanism; no WSL or SSH; search is lexical (embeddings off); the hook token is stored as a local plaintext file; there is no in-app reset of stored memory; the integration depends on the third-party AI Memory project.
+
+**Diagnostics:** Settings shows capture, delivery and consolidation separately. Consolidation is reported as *unknown* because the service does not expose it. "Copy diagnostics" exports counts and timestamps only.
+
 ## Enable in OXESpace
 
 1. Open Workspace Settings → Shared Project Memory.

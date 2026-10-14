@@ -1,6 +1,6 @@
 ---
 oxe_doc: plan
-status: proposed
+status: in_progress
 updated: 2026-10-14
 inputs:
   - PLAN.md
@@ -51,6 +51,12 @@ Ordem estrita: T08 (contexto com proveniência) → T09 (remember idempotente/su
 3. Pacote instalado Win/Linux: instalação limpa, upgrade 2.1.0→2.6.2, rollback, smoke Code/Thread.
 4. Documentar limites que permanecem (Windows experimental upstream, sem WSL/SSH, token em arquivo, busca lexical, Codex sem resposta final nativa, sem reset de memória) em `docs/PROJECT_MEMORY.md` e nas notas.
 **Saída:** V12 e V14 aprovados ou, se a meta não for batida, a feature segue com rótulo beta e flags experimentais (decisão do usuário).
+
+## Andamento (2026-10-14)
+- **B:** concluída (gate no release; 4 células verdes em run 38601799574).
+- **C:** concluída localmente (T12: pipeline, idade da fila, última entrega, diagnóstico exportável).
+- **A:** campanha autenticada Claude+Codex aprovada no Windows pelos adaptadores reais; pendentes o piloto dentro da janela do Electron e Linux com provedores autenticados. Linux sem autenticação coberto pela workflow de compatibilidade.
+- **M1 (beta opt-in):** liberado com rótulo Beta e limites em docs/PROJECT_MEMORY.md; D–F seguem para o rótulo estável.
 
 ## Cronograma sugerido (dependências)
 `A ∥ B` → `C` → `D (T08→T11)` → `E` → `F`. A e B desbloqueiam a decisão "1.0 com memória beta" já ao fim de A+B+C; D–F são necessários só para rotular como estável.
