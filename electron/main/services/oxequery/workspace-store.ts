@@ -4,6 +4,7 @@ import type { WorkspaceState } from '../../../../shared/types/oxequery'
 export const MAX_WORKSPACE_TABS = 12
 const MAX_TAB_SQL = 200_000
 const MAX_TOTAL = 1_500_000
+const MAX_PINNED = 50
 
 export class WorkspaceInputError extends Error {}
 
@@ -24,7 +25,15 @@ export function normalizeWorkspace(value: unknown): WorkspaceState {
   }
   if (tabs.length === 0) throw new WorkspaceInputError('A workspace needs at least one tab.')
   const activeId = typeof raw.activeId === 'string' && tabs.some(tab => tab.id === raw.activeId) ? raw.activeId : tabs[0].id
-  return { v: 1, activeId, tabs }
+  const kinds = ['table', 'view', 'materialized view', 'foreign table', 'partitioned table']
+  const pinned = Array.isArray(raw.pinned)
+    ? raw.pinned.slice(0, MAX_PINNED).flatMap(entry => {
+      const item = entry && typeof entry === 'object' ? entry as Record<string, unknown> : {}
+      return typeof item.schema === 'string' && typeof item.name === 'string' && item.schema.length <= 255 && item.name.length <= 255 && kinds.includes(String(item.kind))
+        ? [{ schema: item.schema, name: item.name, kind: item.kind as NonNullable<WorkspaceState['pinned']>[number]['kind'] }] : []
+    })
+    : []
+  return { v: 1, activeId, tabs, ...(pinned.length ? { pinned } : {}) }
 }
 
 /** The query tabs of each connection, kept in the app database. */

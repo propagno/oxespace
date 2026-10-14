@@ -81,8 +81,8 @@ test('OxeQuery lists containers, runs commands and queries PostgreSQL and MongoD
     await expect(page.getByRole('tab', { name: 'pg-dev' })).toBeVisible()
     await expect(page.locator('.oq-sidebar').getByRole('region', { name: 'Connections' }).getByRole('button', { name: /^pg-dev/ }).first()).toBeVisible()
     const tree = page.getByRole('navigation', { name: 'Schema' })
-    await expect(tree.getByRole('button', { name: 'users', exact: true })).toBeVisible()
-    await tree.getByRole('button', { name: 'users', exact: true }).click()
+    await expect(tree.getByRole('treeitem', { name: 'users', exact: true })).toBeVisible()
+    await tree.getByRole('treeitem', { name: 'users', exact: true }).click({ position: { x: 12, y: 8 } })
     const grid = page.locator('.oq-grid')
     await expect(grid.getByRole('gridcell', { name: 'alice', exact: true })).toBeVisible()
     await expect(grid.getByRole('gridcell', { name: 'NULL', exact: true })).toBeVisible()
@@ -281,7 +281,7 @@ test('OxeQuery stages a row edit, shows the SQL, applies it, exports a table and
     await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
     await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
     await expect(page.getByRole('tab', { name: 'pg-dev' })).toBeVisible()
-    await page.getByRole('navigation', { name: 'Schema' }).getByRole('button', { name: 'users', exact: true }).click()
+    await page.getByRole('navigation', { name: 'Schema' }).getByRole('treeitem', { name: 'users', exact: true }).click({ position: { x: 12, y: 8 } })
 
     // A read-only connection explains why rows cannot be edited.
     await expect(page.getByRole('button', { name: 'Edit rows' })).toBeDisabled()
@@ -289,7 +289,7 @@ test('OxeQuery stages a row edit, shows the SQL, applies it, exports a table and
     const dialog = page.getByRole('dialog', { name: 'Edit connection' })
     await dialog.getByRole('checkbox', { name: /Read-only/ }).uncheck()
     await dialog.getByRole('button', { name: 'Save' }).click()
-    await page.getByRole('navigation', { name: 'Schema' }).getByRole('button', { name: 'users', exact: true }).click()
+    await page.getByRole('navigation', { name: 'Schema' }).getByRole('treeitem', { name: 'users', exact: true }).click({ position: { x: 12, y: 8 } })
 
     await page.getByRole('button', { name: 'Edit rows' }).click()
     await page.locator('.oq-grid-row .oq-grid-index').first().click()
@@ -417,7 +417,7 @@ test('every control in the OxeQuery views has an accessible name', async () => {
 
     await page.getByRole('tab', { name: 'Containers' }).click()
     await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
-    await page.getByRole('navigation', { name: 'Schema' }).getByRole('button', { name: 'users', exact: true }).click()
+    await page.getByRole('navigation', { name: 'Schema' }).getByRole('treeitem', { name: 'users', exact: true }).click({ position: { x: 12, y: 8 } })
     await expect(page.locator('.oq-grid')).toBeVisible()
     await page.getByRole('button', { name: 'Library' }).click()
     expect(await page.evaluate(unnamed())).toEqual([])
@@ -479,7 +479,7 @@ test('the SQL workbench runs scripts, asks for parameters, keeps a transaction a
 
     // Copy as, and the filter bar of a browsed table.
     await expect(page.getByLabel('Copy results as')).toBeVisible()
-    await page.getByRole('navigation', { name: 'Schema' }).getByRole('button', { name: 'users', exact: true }).click()
+    await page.getByRole('navigation', { name: 'Schema' }).getByRole('treeitem', { name: 'users', exact: true }).click({ position: { x: 12, y: 8 } })
     await page.getByRole('button', { name: 'Filter' }).click()
     await expect(page.getByRole('form', { name: 'Filter rows' }).getByLabel('Column')).toBeVisible()
 
@@ -514,7 +514,7 @@ test('the structure editor reviews the SQL of a new table and of an altered one 
 
     // A read-only connection can look but not change: no way to start.
     const tree = page.getByRole('navigation', { name: 'Schema' })
-    await expect(tree.getByRole('button', { name: 'users', exact: true })).toBeVisible()
+    await expect(tree.getByRole('treeitem', { name: 'users', exact: true })).toBeVisible()
     await expect(tree.getByRole('button', { name: 'New table in public' })).toHaveCount(0)
     await page.locator('.oq-sidebar').getByRole('button', { name: 'Edit pg-dev' }).click()
     const settings = page.getByRole('dialog', { name: 'Edit connection' })
@@ -536,7 +536,8 @@ test('the structure editor reviews the SQL of a new table and of an altered one 
     await expect(dialog).toHaveCount(0)
 
     // Existing table: dropping a column is destructive and waits for confirmation.
-    await tree.getByRole('button', { name: 'Structure of users' }).click({ force: true })
+    await tree.getByRole('treeitem', { name: 'users', exact: true }).hover()
+    await tree.getByRole('button', { name: 'Structure of users' }).click()
     const editor = page.getByRole('dialog', { name: 'public.users' })
     await editor.getByRole('button', { name: 'Drop name' }).click()
     await editor.getByRole('button', { name: 'Review SQL' }).click()
@@ -550,5 +551,71 @@ test('the structure editor reviews the SQL of a new table and of an altered one 
     // Changing the draft discards the review, so what runs is always what was shown.
     await editor.getByRole('button', { name: 'Keep name' }).click()
     await expect(editor.getByRole('region', { name: 'Review' })).toHaveCount(0)
+  } finally { await app.close() }
+})
+
+test('the schema tree groups objects, searches every schema, pins tables and works from the keyboard', async () => {
+  test.setTimeout(120000)
+  const root = mkdtempSync(join(tmpdir(), 'oxespace-oxequery-tree-'))
+  const repo = join(root, 'repo'); mkdirSync(repo)
+  const app = await electron.launch({ args: [join(process.cwd(), 'e2e/electron-main.cjs')], env: {
+    ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'app.sqlite3')
+  } })
+  try {
+    const page = await app.firstWindow()
+    await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0].setSize(1024, 700) })
+    await page.waitForLoadState('domcontentloaded')
+    await page.getByTestId('btn-new-workspace').click()
+    await page.getByTestId('wizard-dir-input').fill(repo)
+    await page.getByTestId('wizard-layout-card-1').click()
+    await page.getByTestId('wizard-launch-btn').click()
+    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
+    await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
+    const tree = page.getByRole('tree', { name: 'Schema objects' })
+    const item = (name: string) => tree.getByRole('treeitem', { name, exact: true })
+
+    // Every kind of object has its own branch; empty branches are not shown.
+    for (const category of ['Tables', 'Views', 'Materialized views', 'Functions', 'Sequences', 'Types']) await expect(item(category)).toBeVisible()
+    await expect(tree.getByRole('treeitem', { name: 'Triggers' })).toHaveCount(0)
+    await expect(item('users')).toBeVisible()
+    await expect(item('active_users')).toHaveCount(0)
+    await item('Views').click()
+    await expect(item('active_users')).toBeVisible()
+
+    // Arrow keys close and open a branch, and Down walks the rows.
+    await item('Tables').focus()
+    await page.keyboard.press('ArrowLeft')
+    await expect(item('Tables')).toHaveAttribute('aria-expanded', 'false')
+    await expect(item('users')).toHaveCount(0)
+    await page.keyboard.press('ArrowRight')
+    await expect(item('users')).toBeVisible()
+    await page.keyboard.press('ArrowDown')
+    await expect(item('users')).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(page.locator('.oq-results-bar')).toContainText('public.users')
+
+    // Browsing another table replaces the panels above the grid instead of piling them up.
+    await item('orders').click({ position: { x: 12, y: 8 } })
+    await expect(page.locator('.oq-results-bar')).toContainText('public.orders')
+    await item('users').click({ position: { x: 12, y: 8 } })
+    await expect(page.locator('.oq-results-bar')).toContainText('public.users')
+    await expect(page.locator('.oq-results > section[aria-label="Definition"]')).toHaveCount(1)
+
+    // Pinning keeps a table at the top.
+    await item('orders').hover()
+    await page.getByRole('button', { name: 'Pin orders' }).click()
+    await expect(item('public.orders')).toBeVisible()
+    await page.getByRole('button', { name: 'Unpin orders' }).first().click({ force: true }).catch(() => undefined)
+
+    // One search covers every schema, and a type opens as its definition.
+    const search = page.getByRole('searchbox', { name: 'Search objects' })
+    await search.fill('users')
+    await expect(item('users_log')).toBeVisible()
+    await expect(item('users')).toBeVisible()
+    await search.fill('zzz')
+    await expect(page.getByText('Nothing matches')).toBeVisible()
+    await search.fill('mood')
+    await item('mood (enum)').click()
+    await expect(page.locator('.oq-editor .view-lines')).toContainText('CREATE TYPE')
   } finally { await app.close() }
 })

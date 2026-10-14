@@ -5,7 +5,7 @@ import Cursor from 'pg-cursor'
 import { MongoClient, type Document } from 'mongodb'
 import type {
   ConnectionTestResult, MongoWriteInput, MongoWriteResult, SqlApplyInput, SqlApplyResult, SqlEditability, MongoAggregateInput, MongoCollectionInfo, MongoDatabaseInfo, MongoFindInput, MongoIndexInfo, MongoResult,
-  SqlBrowseInput, SqlColumn, SqlResult, SqlTable, SqlTableDetails, SqlConstraintInfo, SqlTables, ScriptStatementResult, SqlScriptResult
+  SqlBrowseInput, SqlColumn, SqlResult, SqlTable, SqlTableDetails, SqlConstraintInfo, SqlObjects, SqlTypeInfo, SqlExtensionInfo, SqlSearchResult, SqlSearchHit,SqlTables, ScriptStatementResult, SqlScriptResult
 } from '../../../../shared/types/oxequery'
 import { guardSql, isMutating, quoteIdentifier, tokenizeStatements } from './sql-guard'
 import { buildFilterClause } from './filter-clause'
@@ -750,8 +750,95 @@ export class OxeQueryCore {
     return result.rows.map(row => ({ oid: Number(row[0]), name: String(row[1]), args: String(row[2]), kind: row[3] === 'p' ? 'procedure' as const : 'function' as const }))
   }
 
+  /** Sequences, user types and triggers of one schema (each list capped, with a flag when it was). */
+  async sqlObjects(connection: ResolvedConnection, schema: string): Promise<SqlObjects> {
+    const cap = 1000
+    const sequences = await this.pgMeta(connection, `SELECT sequencename, data_type::text, last_value FROM pg_sequences WHERE schemaname = $1 ORDER BY sequencename LIMIT ${cap + 1}`, [schema], cap + 1, true)
+    const types = await this.pgMeta(connection, `SELECT t.oid::int, t.typname, t.typtype,
+        (SELECT string_agg(e.enumlabel, chr(10) ORDER BY e.enumsortorder) FROM pg_enum e WHERE e.enumtypid = t.oid)
+      FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+      WHERE n.nspname = $1 AND t.typtype IN ('e', 'c', 'd', 'r') AND (t.typtype <> 'c' OR EXISTS (SELECT 1 FROM pg_class c WHERE c.oid = t.typrelid AND c.relkind = 'c'))
+      ORDER BY t.typname LIMIT ${cap + 1}`, [schema], cap + 1, true)
+    const triggers = await this.pgMeta(connection, `SELECT t.oid::int, t.tgname, c.relname, pg_get_triggerdef(t.oid), t.tgenabled <> 'D'
+      FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE NOT t.tgisinternal AND n.nspname = $1 ORDER BY c.relname, t.tgname LIMIT ${cap + 1}`, [schema], cap + 1, true)
+    const kinds: Record<string, SqlTypeInfo['kind']> = { e: 'enum', c: 'composite', d: 'domain', r: 'range' }
+    return {
+      sequences: sequences.rows.slice(0, cap).map(row => ({ name: String(row[0]), dataType: String(row[1]), lastValue: row[2] === null ? null : Number(row[2]) })),
+      types: types.rows.slice(0, cap).map(row => ({ oid: Number(row[0]), name: String(row[1]), kind: kinds[String(row[2])] ?? 'composite', ...(row[3] ? { values: String(row[3]).split('\n') } : {}) })),
+      triggers: triggers.rows.slice(0, cap).map(row => ({ oid: Number(row[0]), name: String(row[1]), table: String(row[2]), definition: String(row[3]), enabled: Boolean(row[4]) })),
+      truncated: sequences.rows.length > cap || types.rows.length > cap || triggers.rows.length > cap
+    }
+  }
+
+  async sqlExtensions(connection: ResolvedConnection): Promise<SqlExtensionInfo[]> {
+    const result = await this.pgMeta(connection, 'SELECT e.extname, e.extversion, n.nspname FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace ORDER BY e.extname', [], 500, true)
+    return result.rows.map(row => ({ name: String(row[0]), version: String(row[1]), schema: String(row[2]) }))
+  }
+
+  /** Finds tables, views, functions, sequences and types by name in every schema except the system ones. */
+  async sqlSearch(connection: ResolvedConnection, query: string): Promise<SqlSearchResult> {
+    const text = query.trim()
+    if (text.length === 0) return { hits: [], truncated: false }
+    const pattern = `%${text.replace(/[\\%_]/g, match => `\\${match}`)}%`
+    const cap = 200
+    const result = await this.pgMeta(connection, `
+      SELECT * FROM (
+        SELECT CASE c.relkind WHEN 'r' THEN 'table' WHEN 'v' THEN 'view' WHEN 'm' THEN 'materialized view' WHEN 'f' THEN 'foreign table' WHEN 'p' THEN 'partitioned table' ELSE 'sequence' END AS kind,
+               n.nspname AS schema, c.relname AS name, NULL::text AS args, NULL::int AS oid
+          FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind IN ('r', 'v', 'm', 'f', 'p', 'S') AND c.relname ILIKE $1
+        UNION ALL
+        SELECT CASE p.prokind WHEN 'p' THEN 'procedure' ELSE 'function' END, n.nspname, p.proname, pg_get_function_identity_arguments(p.oid), p.oid::int
+          FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE p.prokind IN ('f', 'p') AND p.proname ILIKE $1
+        UNION ALL
+        SELECT 'type', n.nspname, t.typname, NULL, t.oid::int
+          FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE t.typtype IN ('e', 'd', 'r') AND t.typname ILIKE $1
+      ) found WHERE schema NOT IN ('pg_catalog', 'information_schema') AND schema NOT LIKE 'pg\\_toast%' AND schema NOT LIKE 'pg\\_temp%'
+      ORDER BY (lower(name) = lower($2)) DESC, name, schema LIMIT ${cap + 1}`, [pattern, text], cap + 1, true)
+    return {
+      hits: result.rows.slice(0, cap).map(row => ({
+        kind: String(row[0]) as SqlSearchHit['kind'], schema: String(row[1]), name: String(row[2]),
+        ...(row[3] !== null ? { args: String(row[3]) } : {}), ...(row[4] !== null ? { oid: Number(row[4]) } : {})
+      })),
+      truncated: result.rows.length > cap
+    }
+  }
+
+  /** `CREATE TYPE` for an enum, a composite, a domain or a range, from the catalog. */
+  private async typeDefinition(connection: ResolvedConnection, oid: number): Promise<string> {
+    const info = await this.pgMeta(connection, `SELECT n.nspname, t.typname, t.typtype, t.typrelid::int, format_type(t.typbasetype, t.typtypmod), t.typnotnull, pg_get_expr(t.typdefaultbin, 0)
+      FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE t.oid = $1::oid`, [oid], 1, true)
+    const row = info.rows[0]
+    if (!row) throw new OxeQueryError('invalid', 'That type no longer exists.')
+    const name = `${quoteIdentifier(String(row[0]))}.${quoteIdentifier(String(row[1]))}`
+    switch (String(row[2])) {
+      case 'e': {
+        const labels = await this.pgMeta(connection, 'SELECT enumlabel FROM pg_enum WHERE enumtypid = $1::oid ORDER BY enumsortorder', [oid], 10_000, true)
+        return `CREATE TYPE ${name} AS ENUM (${labels.rows.map(label => `'${String(label[0]).replace(/'/g, "''")}'`).join(', ')});`
+      }
+      case 'c': {
+        const attributes = await this.pgMeta(connection, `SELECT attname, format_type(atttypid, atttypmod) FROM pg_attribute WHERE attrelid = $1::oid AND attnum > 0 AND NOT attisdropped ORDER BY attnum`, [Number(row[3])], 1000, true)
+        return `CREATE TYPE ${name} AS (\n${attributes.rows.map(attribute => `  ${quoteIdentifier(String(attribute[0]))} ${String(attribute[1])}`).join(',\n')}\n);`
+      }
+      case 'd': return `CREATE DOMAIN ${name} AS ${String(row[4])}${row[6] ? ` DEFAULT ${String(row[6])}` : ''}${row[5] ? ' NOT NULL' : ''};`
+      default: return `-- ${name} is a range type; its definition is not generated.`
+    }
+  }
+
   /** Re-creates the statement that defines a table, view or function, from the catalog. */
   async sqlDefinition(connection: ResolvedConnection, target: SqlDefinitionTarget): Promise<{ text: string }> {
+    if (target.kind === 'trigger' || target.kind === 'type') {
+      if (!Number.isInteger(target.oid) || target.oid <= 0) throw new OxeQueryError('invalid', 'Choose an object.')
+      if (target.kind === 'type') return { text: await this.typeDefinition(connection, target.oid) }
+      const result = await this.pgMeta(connection, 'SELECT pg_get_triggerdef($1::oid, true)', [target.oid], 1, true)
+      return { text: `${String(result.rows[0]?.[0] ?? '')};` }
+    }
+    if (target.kind === 'sequence') {
+      const result = await this.pgMeta(connection, 'SELECT data_type::text, start_value, min_value, max_value, increment_by, cycle, cache_size FROM pg_sequences WHERE schemaname = $1 AND sequencename = $2', [target.schema, target.name], 1, true)
+      const row = result.rows[0]
+      if (!row) throw new OxeQueryError('invalid', 'That sequence no longer exists.')
+      return { text: `CREATE SEQUENCE ${quoteIdentifier(target.schema)}.${quoteIdentifier(target.name)} AS ${String(row[0])} START ${String(row[1])} INCREMENT ${String(row[4])} MINVALUE ${String(row[2])} MAXVALUE ${String(row[3])} CACHE ${String(row[6])}${row[5] ? ' CYCLE' : ' NO CYCLE'};` }
+    }
     if (target.kind === 'function') {
       if (!Number.isInteger(target.oid) || target.oid <= 0) throw new OxeQueryError('invalid', 'Choose a function.')
       const result = await this.pgMeta(connection, 'SELECT pg_get_functiondef($1::oid)', [target.oid], 1, true)

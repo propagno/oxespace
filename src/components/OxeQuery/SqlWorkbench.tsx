@@ -4,14 +4,14 @@ import { ChevronDown, ChevronRight, Gauge, Play, Plus, Square, Table2, X } from 
 // Side-effect: self-hosted Monaco (no CDN), required before <Editor> mounts.
 import '../../lib/monacoSetup'
 import { MONACO_THEME } from '../../lib/monacoTheme'
-import type { OxeQueryConnection, SqlFilter, SqlResult, SqlTable, SqlTableDetails, SqlTxState } from '../../../shared/types/oxequery'
+import type { OxeQueryConnection, SqlFilter, SqlResult, SqlTable, SqlTableDetails, SqlTxState, WorkspaceState } from '../../../shared/types/oxequery'
 import { namedToPositional, scanParameters, splitStatements, statementAt } from '../../../shared/sqlText'
 import { OxeQueryClientError, errorMessage, oq } from './client'
 import { ResultGrid, type GridSort } from './ResultGrid'
 import { displayCell, formatRows, type CopyFormat } from './grid-format'
 import { LibraryMenu } from './LibraryMenu'
 import { ExportButton, TableEditor } from './TableEditor'
-import { StructureEditor, type StructureOutcome } from './StructureEditor'
+import { SchemaTree } from './SchemaTree'
 import { ImportButton } from './ImportDialog'
 import { ExplainView } from './ExplainView'
 import { bindCompletion, cacheFor } from './sql-completion'
@@ -35,6 +35,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   const [tabs, setTabs] = useState<QueryTab[]>(() => [newTab('SELECT now();', 'Query 1')])
   const [activeId, setActiveId] = useState(tabs[0].id)
   const [loaded, setLoaded] = useState(false)
+  const [pinned, setPinned] = useState<NonNullable<WorkspaceState['pinned']>>([])
   const [running, setRunning] = useState(false)
   const [maxRows, setMaxRows] = useState(connection.maxRows)
   const [pending, setPending] = useState<Pending | null>(null)
@@ -61,22 +62,22 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
     let alive = true
     oq('workspace.load', { connectionId: connection.id }).then(({ state }) => {
       if (!alive) return
-      if (state) { const restored = restoreWorkspace(state); setTabs(restored.tabs); setActiveId(restored.activeId) }
+      if (state) { const restored = restoreWorkspace(state); setTabs(restored.tabs); setActiveId(restored.activeId); setPinned(restored.pinned) }
       setLoaded(true)
     }, () => { if (alive) setLoaded(true) })
     return () => { alive = false }
   }, [connection.id])
 
-  const latest = useRef({ tabs, activeId })
-  latest.current = { tabs, activeId }
+  const latest = useRef({ tabs, activeId, pinned })
+  latest.current = { tabs, activeId, pinned }
   const saveNow = useCallback((): void => {
-    void oq('workspace.save', { connectionId: connection.id, state: serializeWorkspace(latest.current.tabs, latest.current.activeId) }).catch(() => undefined)
+    void oq('workspace.save', { connectionId: connection.id, state: serializeWorkspace(latest.current.tabs, latest.current.activeId, latest.current.pinned) }).catch(() => undefined)
   }, [connection.id])
   useEffect(() => {
     if (!loaded) return
     const timer = window.setTimeout(saveNow, SAVE_DELAY_MS)
     return () => window.clearTimeout(timer)
-  }, [loaded, tabs, activeId, saveNow])
+  }, [loaded, tabs, activeId, pinned, saveNow])
   useEffect(() => () => { if (loadedRef.current) saveNow() }, [saveNow])
   const loadedRef = useRef(false)
   loadedRef.current = loaded
@@ -245,7 +246,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   const executedText = active.browse ? null : output?.text ?? null
 
   return <div className="oq-workbench">
-    <SchemaTree connection={connection} onOpen={table => void openTable(table)} onInsert={text => addTab(text)} />
+    <SchemaTree connection={connection} pinned={pinned} onPinnedChange={setPinned} onOpen={table => void openTable(table)} onInsert={text => addTab(text)} />
     <div className="oq-workbench-main">
       <div className="oq-qtabs" role="tablist" aria-label="Queries">
         {tabs.map(tab => <span key={tab.id} className="oq-qtab" data-active={tab.id === active.id}>
@@ -312,7 +313,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
         {active.details && <ColumnsPanel details={active.details} />}
         {active.browse && active.details && <FilterBar key={`${active.browse.schema}.${active.browse.table}:${JSON.stringify(active.browse.filters)}`} columns={active.details.columns} filters={active.browse.filters}
           onApply={filters => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: active.browse!.kind as SqlTable['kind'] }, { offset: 0, filters })} />}
-        {active.browse && <DefinitionPanel key={`${active.browse.schema}.${active.browse.table}`} connection={connection} schema={active.browse.schema} name={active.browse.table} kind={active.browse.kind} onOpen={text => addTab(text)} />}
+        {active.browse && <DefinitionPanel connection={connection} schema={active.browse.schema} name={active.browse.table} kind={active.browse.kind} onOpen={text => addTab(text)} />}
         {active.browse && result && <TableEditor key={`${active.browse.schema}.${active.browse.table}`} connection={connection} schema={active.browse.schema} table={active.browse.table}
           result={result} selectedRow={selectedRow} onClearSelection={() => setSelectedRow(null)}
           onApplied={() => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: 'table' }, { offset: active.browse!.offset })} />}
@@ -344,6 +345,8 @@ function DefinitionPanel({ connection, schema, name, kind, onOpen }: { connectio
   const [open, setOpen] = useState(false)
   const [text, setText] = useState<string | null>(null)
   const [error, setError] = useState('')
+  // Not keyed by the table: replacing a keyed sibling here left the old panel in the page. The state is reset instead.
+  useEffect(() => { setOpen(false); setText(null); setError('') }, [schema, name])
   useEffect(() => {
     if (!open || text !== null) return
     let alive = true
@@ -373,51 +376,4 @@ function ColumnsPanel({ details }: { details: SqlTableDetails }): ReactElement {
       {details.indexes.length > 0 && <ul>{details.indexes.map(index => <li key={index.name} title={index.definition}>{index.name}{index.primary ? ' · primary' : index.unique ? ' · unique' : ''}</li>)}</ul>}
     </div>}
   </section>
-}
-
-function SchemaTree({ connection, onOpen, onInsert }: { connection: OxeQueryConnection; onOpen: (table: SqlTable) => void; onInsert: (sql: string) => void }): ReactElement {
-  const [schemas, setSchemas] = useState<string[]>([])
-  const [tables, setTables] = useState<Record<string, SqlTable[]>>({})
-  const [totals, setTotals] = useState<Record<string, number>>({})
-  const [openSchemas, setOpenSchemas] = useState<Set<string>>(new Set(['public']))
-  const [filter, setFilter] = useState('')
-  const [error, setError] = useState('')
-  const [structure, setStructure] = useState<{ schema: string; table: string | null } | null>(null)
-  const load = useCallback(async (schema: string): Promise<void> => {
-    try {
-      const { tables: list, total } = await oq('sql.tables', { connectionId: connection.id, schema })
-      setTables(current => ({ ...current, [schema]: list })); setTotals(current => ({ ...current, [schema]: total }))
-    }
-    catch (cause) { setError(errorMessage(cause)) }
-  }, [connection.id])
-  useEffect(() => {
-    let alive = true
-    oq('sql.schemas', { connectionId: connection.id }).then(list => { if (alive) { setSchemas(list); if (list.includes('public')) void load('public') } }, cause => { if (alive) setError(errorMessage(cause)) })
-    return () => { alive = false }
-  }, [connection.id, load])
-  const toggle = (schema: string): void => {
-    setOpenSchemas(current => { const next = new Set(current); if (next.has(schema)) next.delete(schema); else { next.add(schema); if (!tables[schema]) void load(schema) } return next })
-  }
-  const needle = filter.trim().toLowerCase()
-  return <nav className="oq-tree" aria-label="Schema">
-    <input type="search" className="oq-tree-filter" aria-label="Filter tables" placeholder="Filter tables" value={filter} onChange={event => setFilter(event.target.value)} />
-    {error && <p role="alert" className="oq-error">{error}</p>}
-    {schemas.map(schema => {
-      const list = (tables[schema] ?? []).filter(table => !needle || table.name.toLowerCase().includes(needle))
-      const expanded = openSchemas.has(schema) || (needle !== '' && list.length > 0)
-      return <div key={schema}>
-        <button type="button" className="oq-tree-node" aria-expanded={expanded} onClick={() => toggle(schema)}>
-          {expanded ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />}{schema}</button>
-        {expanded && !connection.readOnly && <button type="button" className="oq-tree-new" aria-label={`New table in ${schema}`} title="Create a table" onClick={() => setStructure({ schema, table: null })}><Plus size={12} aria-hidden="true" /> New table</button>}
-        {expanded && (totals[schema] ?? 0) > (tables[schema]?.length ?? 0) && <p className="oq-muted" role="note">Showing {tables[schema]?.length} of {totals[schema]} tables. Use the filter or a query to reach the rest.</p>}
-        {expanded && list.map(table => <div key={table.name} className="oq-tree-leaf">
-          <button type="button" title={`Browse ${schema}.${table.name}`} onClick={() => onOpen(table)}>{table.name}<small>{table.kind === 'table' ? '' : table.kind}</small></button>
-          <button type="button" aria-label={`Write a query for ${table.name}`} title="Open a new query for this table" onClick={() => onInsert(`SELECT *\nFROM "${schema.replace(/"/g, '""')}"."${table.name.replace(/"/g, '""')}"\nLIMIT 100;`)}>Query</button>
-          {table.kind === 'table' && <button type="button" aria-label={`Structure of ${table.name}`} title="View or change columns, keys and indexes" onClick={() => setStructure({ schema, table: table.name })}>Structure</button>}
-        </div>)}
-      </div>
-    })}
-    {structure && <StructureEditor connection={connection} schema={structure.schema} table={structure.table} onClose={() => setStructure(null)}
-      onChanged={(outcome: StructureOutcome) => { void load(structure.schema); if (outcome.kind === 'created' || outcome.kind === 'altered') onOpen({ schema: structure.schema, name: outcome.table, kind: 'table' }) }} />}
-  </nav>
 }

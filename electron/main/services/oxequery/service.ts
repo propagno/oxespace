@@ -471,10 +471,13 @@ export class OxeQueryService {
           : { database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), name: str(input.name, 'Index name', 255) })
       })
       case 'sql.functions': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.functions', connection, { schema: str(input.schema, 'Schema', 255) }))
+      case 'sql.objects': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.objects', connection, { schema: str(input.schema, 'Schema', 255) }))
+      case 'sql.extensions': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.extensions', connection))
+      case 'sql.search': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.search', connection, { query: str(input.query, 'Search', 200) }))
       case 'sql.definition': return this.requireEngine(input.connectionId, 'postgres', connection => {
         const kind = str(input.kind, 'Kind', 16)
-        if (kind === 'function') return this.worker.call('sql.definition', connection, { kind, oid: Number(input.oid) })
-        if (kind !== 'table' && kind !== 'view') throw new OxeQueryError('invalid', 'Unsupported object kind.')
+        if (kind === 'function' || kind === 'trigger' || kind === 'type') return this.worker.call('sql.definition', connection, { kind, oid: Number(input.oid) })
+        if (kind !== 'table' && kind !== 'view' && kind !== 'sequence') throw new OxeQueryError('invalid', 'Unsupported object kind.')
         return this.worker.call('sql.definition', connection, { kind, schema: str(input.schema, 'Schema', 255), name: str(input.name, 'Name', 255) })
       })
       case 'mongo.indexes': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.indexes', connection, {

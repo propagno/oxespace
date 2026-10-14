@@ -302,6 +302,41 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
     await core.maintenance(pg, { schema: 'public', table: 'items', action: 'reindex', confirmed: true })
   })
 
+  it('lists sequences, types, triggers and extensions, finds objects by name and re-creates their definitions', async () => {
+    await exec(`CREATE TYPE mood AS ENUM ('sad', 'it''s ok', 'happy')`)
+    await exec('CREATE TYPE pair AS (a int, b text)')
+    await exec('CREATE DOMAIN positive AS int CHECK (VALUE > 0)')
+    await exec('CREATE SEQUENCE ticket_seq START 100 INCREMENT 5')
+    await exec('CREATE TABLE audited (id int)')
+    await exec(`CREATE FUNCTION touch() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$`)
+    await exec('CREATE TRIGGER audited_touch BEFORE INSERT ON audited FOR EACH ROW EXECUTE FUNCTION touch()')
+    await exec('CREATE EXTENSION IF NOT EXISTS pgcrypto')
+
+    const objects = await core.sqlObjects(pg, 'public')
+    expect(objects.sequences.map(item => item.name)).toContain('ticket_seq')
+    expect(objects.types.find(item => item.name === 'mood')).toMatchObject({ kind: 'enum', values: ['sad', "it's ok", 'happy'] })
+    expect(objects.types.find(item => item.name === 'pair')?.kind).toBe('composite')
+    expect(objects.types.find(item => item.name === 'positive')?.kind).toBe('domain')
+    // A table's row type is not a user type.
+    expect(objects.types.map(item => item.name)).not.toContain('audited')
+    const trigger = objects.triggers.find(item => item.name === 'audited_touch')!
+    expect(trigger).toMatchObject({ table: 'audited', enabled: true })
+
+    expect((await core.sqlExtensions(pg)).map(item => item.name)).toContain('pgcrypto')
+
+    expect((await core.sqlSearch(pg, 'MOO')).hits).toEqual([{ kind: 'type', schema: 'public', name: 'mood', oid: expect.any(Number) }])
+    // LIKE wildcards in the search are text, not patterns.
+    expect((await core.sqlSearch(pg, '%')).hits).toEqual([])
+    expect((await core.sqlSearch(pg, 'audited')).hits.map(item => `${item.kind}:${item.name}`)).toEqual(['table:audited'])
+
+    const typeOf = (name: string) => objects.types.find(item => item.name === name)!.oid
+    expect((await core.sqlDefinition(pg, { kind: 'type', oid: typeOf('mood') })).text).toBe(`CREATE TYPE "public"."mood" AS ENUM ('sad', 'it''s ok', 'happy');`)
+    expect((await core.sqlDefinition(pg, { kind: 'type', oid: typeOf('pair') })).text).toMatch(/"a" integer,\n {2}"b" text/)
+    expect((await core.sqlDefinition(pg, { kind: 'type', oid: typeOf('positive') })).text).toBe('CREATE DOMAIN "public"."positive" AS integer;')
+    expect((await core.sqlDefinition(pg, { kind: 'sequence', schema: 'public', name: 'ticket_seq' })).text).toMatch(/START 100 INCREMENT 5/)
+    expect((await core.sqlDefinition(pg, { kind: 'trigger', oid: trigger.oid })).text).toMatch(/CREATE TRIGGER audited_touch BEFORE INSERT ON (public\.)?audited/)
+  })
+
   it('re-creates a table, a view and a function from the catalog', async () => {
     await exec('CREATE VIEW adults AS SELECT id, name FROM people WHERE age >= 18')
     await exec(`CREATE FUNCTION add_one(i int) RETURNS int LANGUAGE sql AS 'SELECT i + 1'`)

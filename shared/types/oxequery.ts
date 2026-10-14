@@ -244,6 +244,8 @@ export interface WorkspaceState {
   v: 1
   activeId: string
   tabs: { id: string; title: string; sql: string; pinned?: boolean }[]
+  /** Tables the person pinned to the top of the schema tree. */
+  pinned?: { schema: string; name: string; kind: SqlTable['kind'] }[]
 }
 
 export interface SqlTxState { state: 'none' | 'open' | 'failed'; statements: number; since?: number }
@@ -462,9 +464,18 @@ export interface MongoIndexInfo { name: string; keys: string; unique: boolean }
 export interface MongoSchemaField { path: string; /** Percent of sampled documents that have the field. */ presence: number; types: { type: string; count: number }[] }
 export interface MongoSchema { sampled: number; fields: MongoSchemaField[]; truncated: boolean }
 export interface SqlFunctionInfo { oid: number; name: string; args: string; kind: 'function' | 'procedure' }
+export interface SqlSequenceInfo { name: string; dataType: string; lastValue: number | null }
+export interface SqlTypeInfo { oid: number; name: string; kind: 'enum' | 'composite' | 'domain' | 'range'; values?: string[] }
+export interface SqlTriggerInfo { oid: number; name: string; table: string; definition: string; enabled: boolean }
+export interface SqlObjects { sequences: SqlSequenceInfo[]; types: SqlTypeInfo[]; triggers: SqlTriggerInfo[]; truncated: boolean }
+export interface SqlExtensionInfo { name: string; version: string; schema: string }
+export interface SqlSearchHit { kind: SqlTable['kind'] | 'function' | 'procedure' | 'sequence' | 'type'; schema: string; name: string; args?: string; oid?: number }
+export interface SqlSearchResult { hits: SqlSearchHit[]; truncated: boolean }
 export type SqlDefinitionTarget =
-  | { kind: 'table' | 'view'; schema: string; name: string }
+  | { kind: 'table' | 'view' | 'sequence'; schema: string; name: string }
   | { kind: 'function'; oid: number }
+  | { kind: 'trigger'; oid: number }
+  | { kind: 'type'; oid: number }
 
 export type ContainerLogEvent = { type: 'container-log'; streamId: string; lines: string[] } | { type: 'container-log-end'; streamId: string; reason: string }
 export type OxeQueryEvent = ContainerLogEvent | { type: 'containers-changed' } | { type: 'export-progress'; exportId: string; rows: number; bytes: number } | { type: 'import-progress'; importId: string; rows: number }
@@ -524,6 +535,9 @@ export interface OxeQueryOps {
   'mongo.createIndex': { input: { connectionId: string; database: string; collection: string; keys: string; unique?: boolean; confirmed?: boolean }; output: { name: string } }
   'mongo.dropIndex': { input: { connectionId: string; database: string; collection: string; name: string; confirmed?: boolean }; output: { dropped: boolean } }
   'sql.functions': { input: { connectionId: string; schema: string }; output: SqlFunctionInfo[] }
+  'sql.objects': { input: { connectionId: string; schema: string }; output: SqlObjects }
+  'sql.extensions': { input: { connectionId: string }; output: SqlExtensionInfo[] }
+  'sql.search': { input: { connectionId: string; query: string }; output: SqlSearchResult }
   'sql.definition': { input: { connectionId: string } & SqlDefinitionTarget; output: { text: string } }
   'mongo.write': { input: MongoWriteInput; output: MongoWriteResult }
   'mongo.document': { input: { connectionId: string; database: string; collection: string; id: string }; output: { text: string } }

@@ -87,16 +87,6 @@
 .oq-shell-terminal { flex: 1; min-height: 240px; position: relative; }
 
 .oq-workbench { display: flex; flex: 1; min-width: 0; min-height: 0; }
-.oq-tree { width: 220px; flex-shrink: 0; overflow: auto; padding: 8px; border-right: 1px solid var(--bd-base); font-size: var(--fs-xs); }
-.oq-tree-node, .oq-tree-leaf button { display: flex; align-items: center; gap: 4px; width: 100%; padding: 4px 6px; border: 0; border-radius: var(--radius-sm); color: inherit; background: transparent; font-size: var(--fs-xs); text-align: left; cursor: pointer; }
-.oq-tree-leaf { display: flex; align-items: center; padding-left: 16px; }
-.oq-tree-leaf button:first-child { flex: 1; min-width: 0; }
-.oq-tree-leaf button:not(:first-child) { width: auto; color: var(--tx-muted); opacity: 0; }
-.oq-tree-leaf:hover button:not(:first-child), .oq-tree-leaf:focus-within button:not(:first-child) { opacity: 1; }
-.oq-tree .oq-tree-new { width: auto; margin: 0 0 2px 16px; padding: 2px 6px; border: 0; color: var(--tx-muted); background: transparent; font-size: var(--fs-2xs); display: flex; align-items: center; gap: 4px; cursor: pointer; }
-.oq-tree .oq-tree-new:hover { color: var(--tx-primary); }
-.oq-tree-node:hover, .oq-tree-leaf button:hover { background: color-mix(in srgb, var(--tx-primary) 6%, transparent); }
-.oq-tree-leaf small { margin-left: 6px; color: var(--tx-muted); }
 .oq-workbench-main { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
 .oq-editor { height: 170px; min-height: 100px; resize: vertical; overflow: hidden; border-block: 1px solid var(--bd-base); }
 .oq-badge { padding: 1px 8px; border-radius: var(--radius-pill, 999px); font-size: var(--fs-2xs); background: var(--ov-3, #8884); }
@@ -105,6 +95,27 @@
 .oq-confirm { margin: 8px 10px; padding: 10px 12px; border: 1px solid var(--dot-red); border-radius: var(--radius-md); background: color-mix(in srgb, var(--dot-red) 8%, transparent); font-size: var(--fs-xs); }
 .oq-confirm ul { margin: 6px 0; padding-left: 18px; }
 .oq-confirm div { display: flex; gap: 8px; justify-content: flex-end; }
+.oq-tree { display: flex; flex-direction: column; width: 240px; flex-shrink: 0; min-height: 0; padding: 8px 0 0; border-right: 1px solid var(--bd-base); font-size: var(--fs-xs); }
+.oq-tree > p { margin: 4px 8px; }
+.oq-tree-head { display: flex; align-items: center; gap: 4px; padding: 0 8px 6px; }
+.oq-tree-search { display: flex; flex: 1; align-items: center; gap: 6px; min-width: 0; padding: 0 8px; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); color: var(--tx-muted); background: var(--bg-input, transparent); }
+.oq-tree-search:focus-within { border-color: var(--accent); }
+.oq-tree-search input { flex: 1; min-width: 0; padding: 5px 0; border: 0; outline: 0; color: var(--tx-primary); background: transparent; font: inherit; }
+/* Only the rows on screen exist: a schema can hold thousands of objects. */
+.oq-tree-scroll { position: relative; flex: 1; min-height: 0; overflow: auto; outline: 0; }
+.oq-tree-inner { position: relative; min-width: 100%; }
+.oq-tree-row { position: absolute; left: 0; right: 0; display: flex; align-items: center; gap: 4px; box-sizing: border-box; padding-right: 6px; border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap; }
+.oq-tree-row[role='none'] { cursor: default; }
+.oq-tree-row:hover { background: color-mix(in srgb, var(--tx-primary) 6%, transparent); }
+.oq-tree-row[aria-selected='true']:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.oq-tree-row[data-kind='schema'], .oq-tree-row[data-kind='extensions'], .oq-tree-row[data-kind='pinned'] { font-weight: 600; }
+.oq-tree-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.oq-tree-row small { flex: none; color: var(--tx-muted); }
+.oq-tree-spacer { display: inline-block; width: 13px; flex: none; }
+.oq-tree-actions { display: none; flex: none; gap: 2px; }
+.oq-tree-row:hover .oq-tree-actions, .oq-tree-row:focus-within .oq-tree-actions, .oq-tree-row[aria-selected='true'] .oq-tree-actions { display: inline-flex; }
+.oq-tree-actions button, .oq-tree-new { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border: 0; border-radius: var(--radius-sm); color: var(--tx-muted); background: transparent; font: inherit; font-size: var(--fs-2xs); cursor: pointer; }
+.oq-tree-actions button:hover, .oq-tree-new:hover { color: var(--tx-primary); background: color-mix(in srgb, var(--tx-primary) 10%, transparent); }
 .oq-results { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; }
 .oq-results > .oq-results-bar { position: sticky; top: 0; z-index: 2; background: var(--bg-app); }
 .oq-columns { margin: 0 10px 6px; font-size: var(--fs-xs); }
@@ -224,7 +235,6 @@
 .oq-columns-grid { display: flex; gap: 24px; padding: 4px 0 8px 18px; overflow: auto; }
 .oq-columns-grid th { padding: 2px 14px 2px 0; text-align: left; color: var(--tx-muted); font-weight: 500; }
 .oq-columns-grid ul { margin: 0; padding-left: 16px; color: var(--tx-secondary); }
-.oq-tree-filter { width: 100%; margin-bottom: 6px; padding: 5px 8px; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); color: inherit; background: var(--bg-input, transparent); font: inherit; font-size: var(--fs-xs); }
 
 /* ── Connection dialog: sections, file pickers, host key ──────────────────── */
 .oq-section { margin: 8px 0; border-top: 1px solid var(--bd-base); padding-top: 4px; }

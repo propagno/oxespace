@@ -34,18 +34,18 @@ export interface QueryTab {
 let counter = 0
 export const newTab = (sql = '', title?: string): QueryTab => ({ id: `q${++counter}`, title: title ?? `Query ${counter}`, sql, outputs: [], outputIndex: 0, browse: null, details: null, explain: null })
 
-export function serializeWorkspace(tabs: QueryTab[], activeId: string): WorkspaceState {
-  return { v: 1, activeId, tabs: tabs.map(tab => ({ id: tab.id, title: tab.title, sql: tab.sql, ...(tab.pinned ? { pinned: true } : {}) })) }
+export function serializeWorkspace(tabs: QueryTab[], activeId: string, pinned: NonNullable<WorkspaceState['pinned']> = []): WorkspaceState {
+  return { v: 1, activeId, tabs: tabs.map(tab => ({ id: tab.id, title: tab.title, sql: tab.sql, ...(tab.pinned ? { pinned: true } : {}) })), ...(pinned.length ? { pinned } : {}) }
 }
 
 /** Tabs from a saved workspace; the id counter moves past the restored ids so new tabs do not repeat them. */
-export function restoreWorkspace(state: WorkspaceState): { tabs: QueryTab[]; activeId: string } {
+export function restoreWorkspace(state: WorkspaceState): { tabs: QueryTab[]; activeId: string; pinned: NonNullable<WorkspaceState['pinned']> } {
   const tabs = state.tabs.slice(0, MAX_TABS).map((tab): QueryTab => ({ id: tab.id, title: tab.title, sql: tab.sql, outputs: [], outputIndex: 0, browse: null, details: null, explain: null, ...(tab.pinned ? { pinned: true } : {}) }))
   for (const tab of tabs) {
     const match = /^q(\d+)$/.exec(tab.id)
     if (match) counter = Math.max(counter, Number(match[1]))
   }
-  return { tabs, activeId: tabs.some(tab => tab.id === state.activeId) ? state.activeId : tabs[0].id }
+  return { tabs, activeId: tabs.some(tab => tab.id === state.activeId) ? state.activeId : tabs[0].id, pinned: state.pinned ?? [] }
 }
 
 /** The outputs of a script run, as tabs; a script that stopped on an error ends with that error. */

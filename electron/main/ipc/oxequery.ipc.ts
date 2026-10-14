@@ -12,7 +12,7 @@ const OPS = new Set<OxeQueryOp>([
   'containers.suggestConnection', 'connections.list', 'connections.save', 'connections.delete', 'connections.test', 'connections.fromContainer',
   'connections.trustHostKey', 'connections.knownHosts', 'connections.forgetHostKey', 'files.pick',
   'sql.schemas', 'sql.tables', 'sql.table', 'workspace.load', 'workspace.save', 'sql.run', 'sql.script', 'sql.tx', 'sql.browse', 'sql.cancel', 'sql.check', 'sql.editability', 'sql.previewChanges', 'sql.apply', 'sql.structure.preview', 'sql.structure.apply', 'sql.maintenance',
-  'mongo.databases', 'mongo.document', 'mongo.collections', 'mongo.find', 'mongo.aggregate', 'mongo.indexes', 'mongo.schema', 'mongo.createIndex', 'mongo.dropIndex', 'sql.functions', 'sql.definition', 'mongo.write', 'export.run', 'export.cancel', 'sql.explain', 'containers.stats', 'resources.images', 'resources.volumes', 'resources.networks', 'resources.usage', 'resources.remove', 'containers.createDatabase', 'audit.list', 'library.list', 'library.save', 'library.delete', 'library.clearHistory', 'import.preview', 'import.run', 'import.cancel'
+  'mongo.databases', 'mongo.document', 'mongo.collections', 'mongo.find', 'mongo.aggregate', 'mongo.indexes', 'mongo.schema', 'mongo.createIndex', 'mongo.dropIndex', 'sql.functions', 'sql.objects', 'sql.extensions', 'sql.search', 'sql.definition', 'mongo.write', 'export.run', 'export.cancel', 'sql.explain', 'containers.stats', 'resources.images', 'resources.volumes', 'resources.networks', 'resources.usage', 'resources.remove', 'containers.createDatabase', 'audit.list', 'library.list', 'library.save', 'library.delete', 'library.clearHistory', 'import.preview', 'import.run', 'import.cancel'
 ])
 
 function fromMainFrame(event: IpcMainInvokeEvent): void {
