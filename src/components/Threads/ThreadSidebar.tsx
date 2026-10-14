@@ -1,4 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
+import { cx } from '../../ui'
+import styles from './ThreadSidebar.module.css'
 import { useThreadContentSearch } from '../../hooks/useThreadContentSearch'
 import { AlignJustify, Archive, ArchiveRestore, Check, ChevronDown, Circle, CircleAlert, CircleCheck, CircleX, Columns2, PanelsTopLeft, FolderPlus, Loader2, MoreHorizontal, Pencil, Pin, Plus, Settings2, Square, Trash2, X, UserRound } from 'lucide-react'
 import type { ConversationThread } from '../../../shared/types/thread'
@@ -74,13 +76,13 @@ export function ThreadSidebar({ onCreate, onModeChange, onSelectMode, onAccounts
   }
   const row = (thread: ConversationThread) => {
     const status = threadNavigationStatus(thread), unread = unreadIds.includes(thread.id)
-    return <div key={thread.id} className={`thread-navigation-row${unread ? ' is-unread' : ''}`}><button type="button" className="thread-navigation-item" aria-current={selectedId === thread.id ? 'page' : undefined}
+    return <div key={thread.id} className={cx('thread-navigation-row', styles.row, unread && cx('is-unread', styles.unread))}><button type="button" className={cx('thread-navigation-item', styles.item)} aria-current={selectedId === thread.id ? 'page' : undefined}
     title={`${thread.title}\n${thread.provider} · ${status.label}${unread ? ' · Unread' : ''}\n${thread.rootPath}`} onClick={() => void select(thread.id)}>
-    {unread && <span className="thread-unread-marker" aria-label="Unread conversation" />}
-    <span className="thread-session-indicator" data-status={status.kind} aria-hidden="true">{status.kind === 'ready' ? <Circle size={12} /> : status.kind === 'completed' ? <CircleCheck size={12} /> : status.kind === 'attention' ? <CircleAlert size={12} /> : status.kind === 'failed' ? <CircleX size={12} /> : status.kind === 'interrupted' ? <Square size={11} /> : null}</span>
-    <span className="thread-session-content"><span className="thread-session-title">{thread.title}</span><span className="thread-session-meta"><span className="thread-session-provider"><AgentProviderIcon provider={thread.provider} size={density === 'compact' ? 12 : 14} /><span>{thread.provider === 'claude' ? 'Claude Code' : 'Codex'}</span></span><span className="thread-session-state" data-status={status.kind}>{status.label}</span>{thread.pinned && <Pin size={10} aria-label="Pinned" />}<small>{relativeTime(thread.updatedAt)}</small></span></span>
-  </button><button type="button" className="thread-row-action" aria-label={`Open ${thread.title} side by side`} title="Open side by side" disabled={secondaryId === thread.id} onClick={() => void openSecondary(thread.id).catch(error => setActionError(error instanceof Error ? error.message : 'Could not open conversation.'))}><Columns2 size={13} /></button><DropdownMenu.Root>
-    <DropdownMenu.Trigger asChild><button type="button" className="thread-row-action" aria-label={`Actions for ${thread.title}`} title="Conversation actions"><MoreHorizontal size={13} /></button></DropdownMenu.Trigger>
+    {unread && <span className={cx('thread-unread-marker', styles.unreadMark)} aria-label="Unread conversation" />}
+    <span className={cx('thread-session-indicator', styles.indicator)} data-status={status.kind} aria-hidden="true">{status.kind === 'ready' ? <Circle size={12} /> : status.kind === 'completed' ? <CircleCheck size={12} /> : status.kind === 'attention' ? <CircleAlert size={12} /> : status.kind === 'failed' ? <CircleX size={12} /> : status.kind === 'interrupted' ? <Square size={11} /> : null}</span>
+    <span className={cx('thread-session-content', styles.content)}><span className={cx('thread-session-title', styles.title)}>{thread.title}</span><span className={cx('thread-session-meta', styles.meta)}><span className={cx('thread-session-provider', styles.provider)}><AgentProviderIcon provider={thread.provider} size={density === 'compact' ? 12 : 14} /><span>{thread.provider === 'claude' ? 'Claude Code' : 'Codex'}</span></span><span className={cx('thread-session-state', styles.state)} data-status={status.kind}>{status.label}</span>{thread.pinned && <Pin size={10} aria-label="Pinned" />}<small>{relativeTime(thread.updatedAt)}</small></span></span>
+  </button><button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Open ${thread.title} side by side`} title="Open side by side" disabled={secondaryId === thread.id} onClick={() => void openSecondary(thread.id).catch(error => setActionError(error instanceof Error ? error.message : 'Could not open conversation.'))}><Columns2 size={13} /></button><DropdownMenu.Root>
+    <DropdownMenu.Trigger asChild><button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Actions for ${thread.title}`} title="Conversation actions"><MoreHorizontal size={13} /></button></DropdownMenu.Trigger>
     <DropdownMenu.Portal><DropdownMenu.Content className="thread-actions-dropdown" side="right" align="start" sideOffset={5} collisionPadding={8} aria-label={`Actions for ${thread.title}`}>
       <DropdownMenu.Item className="thread-action-item" disabled={secondaryId === thread.id} onSelect={() => void openSecondary(thread.id).catch(error => setActionError(error instanceof Error ? error.message : 'Could not open conversation.'))}><Columns2 size={14} />Open to the side</DropdownMenu.Item>
       <DropdownMenu.Item className="thread-action-item" disabled={thread.status === 'running' || thread.status === 'approval'} onSelect={() => { setActionError(''); setRenameTarget(thread); setRenameValue(thread.title) }}><Pencil size={14} />Rename conversation…</DropdownMenu.Item>
@@ -103,43 +105,43 @@ export function ThreadSidebar({ onCreate, onModeChange, onSelectMode, onAccounts
       context={{ id: 'accounts', label: 'Accounts', ariaLabel: 'Agent accounts', icon: UserRound, onClick: onAccounts }} />
     {!collapsed && <div className="nav-panel">
       <div className="nav-panel-title"><strong>Sessions</strong></div>
-      <div className="thread-nav-actions">
+      <div className={cx('thread-nav-actions', styles.search)}>
         <SearchField className="thread-nav-search" ref={search} label="Filter threads" placeholder="Filter threads" value={query} onChange={setQuery} shortcut="/" />
       </div>
-      <nav className="thread-project-list" aria-label="Thread projects">
-        {loading && !threads.length && <p className="thread-nav-empty" role="status">Loading conversations…</p>}
-        {Object.entries(errors).map(([id, error]) => <div key={id} className="thread-catalog-error" role="alert"><p>{error}</p><button type="button" onClick={() => { void useThreadStore.getState().load(); void useThreadStore.getState().loadProjects() }}>Retry</button></div>)}
+      <nav className={cx('thread-project-list', styles.list)} aria-label="Thread projects">
+        {loading && !threads.length && <p className={cx('thread-nav-empty', styles.empty)} role="status">Loading conversations…</p>}
+        {Object.entries(errors).map(([id, error]) => <div key={id} className={cx('thread-catalog-error', styles.error)} role="alert"><p>{error}</p><button type="button" onClick={() => { void useThreadStore.getState().load(); void useThreadStore.getState().loadProjects() }}>Retry</button></div>)}
         {threads.some(t => t.pinned && matches(t, projects.find(p => p.projectId === t.projectId)?.displayName ?? '')) && <section><h2> Pinned</h2>{threads.filter(t => t.pinned && matches(t, projects.find(p => p.projectId === t.projectId)?.displayName ?? '')).map(row)}</section>}
-        {!!groups.length && <div className="thread-list-heading"><h2>Projects</h2><button type="button" aria-label="Compact thread list" title={density === 'compact' ? 'Use comfortable spacing' : 'Use compact spacing'} aria-pressed={density === 'compact'} onClick={() => setDensity(density === 'compact' ? 'comfortable' : 'compact')}><AlignJustify size={14} aria-hidden="true" /></button></div>}
-        {groups.map(group => <section key={group.id} className={`thread-project-group${selected?.projectId === group.id ? ' is-active' : ''}`}>
-          <div className="thread-project-heading">
-          <button type="button" className="thread-project-toggle" title={group.path} aria-expanded={query ? true : expanded[group.id] ?? true} onClick={() => toggle(group.id)}><ChevronDown size={12} /><span className="thread-project-name">{group.name}</span>{unavailableProjects.includes(group.id) && <small>Directory missing</small>}{groups.filter(g => g.name === group.name).length > 1 && <small>{group.path.split(/[\\/]/).slice(-2).join('/')}</small>}</button>
-          <button type="button" className="thread-row-action" aria-label={`New thread in ${group.name}`} title="New thread in this project" disabled={!group.rootPath || unavailableProjects.includes(group.id)} onClick={() => onCreate(group.id, group.rootPath)}><Plus size={14} /></button>
-          <button type="button" className="thread-row-action" aria-label={`Settings for ${group.name}`} title="Thread project settings" onClick={() => setProjectSettingsId(group.id)}><Settings2 size={13} /></button>
-          {group.rootPath && <button type="button" className="thread-row-action" aria-label={`Open ${group.name} in Code`} title="Open this directory in Code" disabled={unavailableProjects.includes(group.id)} onClick={() => void onOpenInCode?.(group.rootPath!).catch(error => setActionError(error instanceof Error ? error.message : 'Could not open project in Code.'))}><PanelsTopLeft size={13} /></button>}
-          <button type="button" className="thread-row-action" aria-label={`Remove project ${group.name}`} title="Remove project from Thread sidebar" onClick={() => { setActionError(''); setConfirmation({ kind: 'project', id: group.id, title: group.name }) }}><X size={13} /></button>
+        {!!groups.length && <div className={cx('thread-list-heading', styles.listHeading)}><h2>Projects</h2><button type="button" aria-label="Compact thread list" title={density === 'compact' ? 'Use comfortable spacing' : 'Use compact spacing'} aria-pressed={density === 'compact'} onClick={() => setDensity(density === 'compact' ? 'comfortable' : 'compact')}><AlignJustify size={14} aria-hidden="true" /></button></div>}
+        {groups.map(group => <section key={group.id} className={cx('thread-project-group', styles.group, selected?.projectId === group.id && cx('is-active', styles.active))}>
+          <div className={cx('thread-project-heading', styles.heading)}>
+          <button type="button" className={cx('thread-project-toggle', styles.toggle)} title={group.path} aria-expanded={query ? true : expanded[group.id] ?? true} onClick={() => toggle(group.id)}><ChevronDown size={12} /><span className={cx('thread-project-name', styles.name)}>{group.name}</span>{unavailableProjects.includes(group.id) && <small>Directory missing</small>}{groups.filter(g => g.name === group.name).length > 1 && <small>{group.path.split(/[\\/]/).slice(-2).join('/')}</small>}</button>
+          <button type="button" className={cx('thread-row-action', styles.action)} aria-label={`New thread in ${group.name}`} title="New thread in this project" disabled={!group.rootPath || unavailableProjects.includes(group.id)} onClick={() => onCreate(group.id, group.rootPath)}><Plus size={14} /></button>
+          <button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Settings for ${group.name}`} title="Thread project settings" onClick={() => setProjectSettingsId(group.id)}><Settings2 size={13} /></button>
+          {group.rootPath && <button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Open ${group.name} in Code`} title="Open this directory in Code" disabled={unavailableProjects.includes(group.id)} onClick={() => void onOpenInCode?.(group.rootPath!).catch(error => setActionError(error instanceof Error ? error.message : 'Could not open project in Code.'))}><PanelsTopLeft size={13} /></button>}
+          <button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Remove project ${group.name}`} title="Remove project from Thread sidebar" onClick={() => { setActionError(''); setConfirmation({ kind: 'project', id: group.id, title: group.name }) }}><X size={13} /></button>
           </div>
-          {(query || (expanded[group.id] ?? true)) && <div className="thread-project-children"><div className="thread-project-rows">{(() => {
+          {(query || (expanded[group.id] ?? true)) && <div className={cx('thread-project-children', styles.children)}><div className={cx('thread-project-rows', styles.rows)}>{(() => {
             const limit = query || expandedProjects.includes(group.id) ? Infinity : THREAD_ROWS_PER_PROJECT
             const visible = group.threads.filter((thread, index) => index < limit || thread.id === selectedId)
-            return <>{visible.map(row)}{group.threads.length > visible.length && <button type="button" className="thread-show-more" onClick={() => setExpandedProjects(value => [...value, group.id])}>Show {group.threads.length - visible.length} more</button>}</>
+            return <>{visible.map(row)}{group.threads.length > visible.length && <button type="button" className={cx('thread-show-more', styles.showMore)} onClick={() => setExpandedProjects(value => [...value, group.id])}>Show {group.threads.length - visible.length} more</button>}</>
           })()}</div></div>}
         </section>)}
-        {archived.length > 0 && <section className="thread-archived-section" aria-label="Archived conversations">
-          <button type="button" className="thread-project-toggle" aria-expanded={query ? true : showArchived} onClick={() => setShowArchived(value => !value)}><ChevronDown size={12} /><span>Archived</span><small>{archived.length}</small></button>
-          {(query || showArchived) && archived.map(thread => <div key={thread.id} className="thread-navigation-row thread-archived-row">
-            <button type="button" className="thread-navigation-item" disabled={restoringId !== null} title={`${thread.title}\n${thread.provider} · ${thread.rootPath}`} onClick={() => void restoreArchived(thread)}><span>{thread.title}</span><small>{relativeTime(thread.updatedAt)}</small></button>
-            <button type="button" className="thread-row-action" aria-label={`Restore ${thread.title}`} title="Restore conversation" disabled={restoringId !== null} onClick={() => void restoreArchived(thread)}>{restoringId === thread.id ? <Loader2 size={13} className="thread-spin" /> : <ArchiveRestore size={13} />}</button>
+        {archived.length > 0 && <section className={cx('thread-archived-section', styles.section)} aria-label="Archived conversations">
+          <button type="button" className={cx('thread-project-toggle', styles.toggle)} aria-expanded={query ? true : showArchived} onClick={() => setShowArchived(value => !value)}><ChevronDown size={12} /><span>Archived</span><small>{archived.length}</small></button>
+          {(query || showArchived) && archived.map(thread => <div key={thread.id} className={cx('thread-navigation-row thread-archived-row', styles.row, styles.archivedRow)}>
+            <button type="button" className={cx('thread-navigation-item', styles.item)} disabled={restoringId !== null} title={`${thread.title}\n${thread.provider} · ${thread.rootPath}`} onClick={() => void restoreArchived(thread)}><span>{thread.title}</span><small>{relativeTime(thread.updatedAt)}</small></button>
+            <button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Restore ${thread.title}`} title="Restore conversation" disabled={restoringId !== null} onClick={() => void restoreArchived(thread)}>{restoringId === thread.id ? <Loader2 size={13} className="thread-spin" /> : <ArchiveRestore size={13} />}</button>
           </div>)}
         </section>}
-        {actionError && <p className="thread-catalog-error" role="alert">{actionError}</p>}
-        {!loading && !groups.length && <p className="thread-nav-empty">{query ? 'No conversations found.' : hiddenProjects.length ? 'Restore a project below or add another folder.' : 'Add a project to start a conversation.'}</p>}
-        {hiddenProjects.length > 0 && <section className="thread-hidden-section" aria-label="Removed projects">
+        {actionError && <p className={cx('thread-catalog-error', styles.error)} role="alert">{actionError}</p>}
+        {!loading && !groups.length && <p className={cx('thread-nav-empty', styles.empty)}>{query ? 'No conversations found.' : hiddenProjects.length ? 'Restore a project below or add another folder.' : 'Add a project to start a conversation.'}</p>}
+        {hiddenProjects.length > 0 && <section className={cx('thread-hidden-section', styles.section)} aria-label="Removed projects">
           <h2>Removed projects</h2>
           {hiddenProjects.map(id => {
             const project = projects.find(item => item.projectId === id)
             if (!project) return null
-            return <button key={id} type="button" className="thread-restore-project" title={project.identityLabel} onClick={() => void useThreadStore.getState().restoreProject(id).catch(error => setActionError(error instanceof Error ? error.message : 'Could not restore project.'))}><ArchiveRestore size={13} aria-hidden="true" /><span>{project.displayName}</span><small>Restore</small></button>
+            return <button key={id} type="button" className={cx('thread-restore-project', styles.restore)} title={project.identityLabel} onClick={() => void useThreadStore.getState().restoreProject(id).catch(error => setActionError(error instanceof Error ? error.message : 'Could not restore project.'))}><ArchiveRestore size={13} aria-hidden="true" /><span>{project.displayName}</span><small>Restore</small></button>
           })}
         </section>}
       </nav>
