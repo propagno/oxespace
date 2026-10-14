@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactElement } from 'react'
 import { BookMarked, History, Trash2 } from 'lucide-react'
 import type { OxeQueryConnection, QueryHistoryItem, SavedQuery } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
+import { groupSaved } from './library-folders'
 
 /** Saved queries and history for one connection; both live in the app database, not in the page. */
 export function LibraryMenu({ connection, currentSql, refreshKey, onPick, describe = text => text.replace(/\s+/g, ' ') }: {
@@ -54,13 +55,16 @@ export function LibraryMenu({ connection, currentSql, refreshKey, onPick, descri
       {error && <p role="alert" className="oq-error">{error}</p>}
       {tab === 'saved' && <>
         <form className="oq-library-save" onSubmit={event => { event.preventDefault(); void save() }}>
-          <input aria-label="Name for the current query" placeholder="Save the current query as…" value={name} maxLength={120} onChange={event => setName(event.target.value)} />
+          <input aria-label="Name for the current query" placeholder="Save as… (Folder/Name)" value={name} maxLength={120} onChange={event => setName(event.target.value)} />
           <button type="button" className="oq-primary" disabled={!name.trim() || !currentSql.trim()} onClick={() => void save()}>Save</button>
         </form>
-        <ul>{saved.map(item => <li key={item.id}>
-          <button type="button" title={item.sql} onClick={() => { onPick(item.sql); setOpen(false) }}><strong>{item.name}</strong><code>{describe(item.sql).slice(0, 80)}</code></button>
-          <button type="button" aria-label={`Delete ${item.name}`} onClick={() => void remove(item.id)}><Trash2 size={12} aria-hidden="true" /></button>
-        </li>)}</ul>
+        <ul>{groupSaved(saved).flatMap(group => [
+          ...(group.folder ? [<li key={`folder:${group.folder}`} className="oq-library-folder" role="presentation"><strong>{group.folder}</strong></li>] : []),
+          ...group.items.map(({ query: item, label }) => <li key={item.id}>
+            <button type="button" title={item.sql} onClick={() => { onPick(item.sql); setOpen(false) }}><strong>{label}</strong><code>{describe(item.sql).slice(0, 80)}</code></button>
+            <button type="button" aria-label={`Delete ${item.name}`} onClick={() => void remove(item.id)}><Trash2 size={12} aria-hidden="true" /></button>
+          </li>)
+        ])}</ul>
         {saved.length === 0 && <p className="oq-muted">Nothing saved yet.</p>}
       </>}
       {tab === 'history' && <>
