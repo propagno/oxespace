@@ -56,7 +56,7 @@ export const pickCredentialFile: FilePicker = async kind => {
     title: TITLES[kind],
     properties: ['openFile' as const],
     filters: kind === 'sshKey'
-      ? [{ name: 'Private keys', extensions: ['pem', 'key', 'ppk', ''] }, { name: 'All files', extensions: ['*'] }]
+      ? [{ name: 'Private keys', extensions: ['pem', 'key', ''] }, { name: 'All files', extensions: ['*'] }]
       : [{ name: 'PEM files', extensions: ['pem', 'crt', 'cer', 'key'] }, { name: 'All files', extensions: ['*'] }]
   }
   const result = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options)

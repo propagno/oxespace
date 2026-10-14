@@ -28,7 +28,7 @@ export function ResourcesPanel({ engine, active }: { engine?: ContainerEngine; a
 
   const remove = async (): Promise<void> => {
     if (!confirming) return
-    try { await oq('resources.remove', { kind: confirming.kind, id: confirming.id, engine }); setConfirming(null); await load() }
+    try { await oq('resources.remove', { kind: confirming.kind, id: confirming.id, engine, confirmed: true }); setConfirming(null); await load() }
     catch (cause) { setError(errorMessage(cause)); setConfirming(null) }
   }
 

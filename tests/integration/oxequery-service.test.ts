@@ -203,3 +203,21 @@ describe('OxeQuery service', () => {
     expect(worker.call.mock.calls.filter(call => call[0] === 'close')).toHaveLength(2)
   })
 })
+
+describe('destructive resource operations', () => {
+  it('removes a volume only when the request carries the confirmation', async () => {
+    const { service, calls } = fixture()
+    await expect(service.call('resources.remove', { kind: 'volume', id: 'pgdata' })).resolves.toMatchObject({ ok: false, error: { code: 'confirm' } })
+    expect(calls.some(call => call.args[0] === 'volume' && call.args[1] === 'rm')).toBe(false)
+    await expect(service.call('resources.remove', { kind: 'volume', id: 'pgdata', confirmed: true })).resolves.toMatchObject({ ok: true })
+    expect(calls.some(call => call.args[0] === 'volume' && call.args.includes('rm'))).toBe(true)
+  })
+})
+
+describe('private keys', () => {
+  it('explains how to convert a PuTTY key instead of failing later', async () => {
+    const { assertPem } = await import('../../electron/main/services/oxequery/picked-files')
+    expect(() => assertPem('PuTTY-User-Key-File-3: ssh-ed25519\nEncryption: none', 'The SSH key')).toThrow(/puttygen/)
+    expect(() => assertPem('hello', 'The SSH key')).toThrow(/not a PEM/)
+  })
+})

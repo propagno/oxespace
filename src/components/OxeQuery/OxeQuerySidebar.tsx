@@ -23,8 +23,9 @@ export function OxeQuerySidebar({ onSelectMode }: { onSelectMode: (mode: 'code' 
 
   const running = containers.filter(container => container.state === 'running').length
   const listed = [...containers].sort((a, b) => Number(b.state === 'running') - Number(a.state === 'running') || a.name.localeCompare(b.name)).slice(0, 12)
-  const remove = async (id: string, name: string): Promise<void> => {
-    if (!window.confirm(`Delete the connection "${name}"? Its saved password is removed too.`)) return
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null)
+  const remove = async (id: string): Promise<void> => {
+    setPendingDelete(null)
     try { await oq('connections.delete', { id }); useOxeQueryStore.getState().forgetConnection(id) }
     catch (cause) { setNotice(errorMessage(cause)) }
   }
@@ -51,6 +52,12 @@ ${container.status}`}
         <h3>Connections<button type="button" className="oq-icon" aria-label="New connection" title="New connection" onClick={() => useOxeQueryStore.getState().openDialog(null)}><Plus size={14} aria-hidden="true" /></button></h3>
         {connectionsError && <p role="alert" className="oq-error">{connectionsError}</p>}
         {notice && <p role="alert" className="oq-error">{notice}</p>}
+        {pendingDelete && <div className="oq-confirm" role="alertdialog" aria-label="Confirm delete connection" onKeyDown={event => { if (event.key === 'Escape') setPendingDelete(null) }}>
+          <strong>Delete “{pendingDelete.name}”?</strong>
+          <p>Its saved password, keys and certificates are removed too. The database itself is not touched.</p>
+          <div><button type="button" autoFocus onClick={() => setPendingDelete(null)}>Cancel</button>
+            <button type="button" className="oq-danger" onClick={() => void remove(pendingDelete.id)}>Delete</button></div>
+        </div>}
         {connections.length === 0 && !connectionsError && <p className="oq-muted">No connections yet. Press <strong>Query</strong> on a database container, or add one with +.</p>}
         {connections.map(connection => <div key={connection.id} className="oq-connection-row">
           <button type="button" className="oq-nav-item" aria-current={activeTab === `connection:${connection.id}` ? 'page' : undefined}
@@ -59,7 +66,7 @@ ${container.status}`}
             <small className="oq-engine-tag">{connection.engine === 'mongodb' ? 'Mongo' : 'PG'}</small>
             {connection.environment !== 'local' && <small className={connection.environment === 'prod' ? 'oq-prod' : 'oq-env'}>{connection.environment}</small>}</button>
           <button type="button" className="oq-icon" aria-label={`Edit ${connection.name}`} title="Edit" onClick={() => useOxeQueryStore.getState().openDialog(connection)}><Pencil size={12} aria-hidden="true" /></button>
-          <button type="button" className="oq-icon" aria-label={`Delete ${connection.name}`} title="Delete" onClick={() => void remove(connection.id, connection.name)}><Trash2 size={12} aria-hidden="true" /></button>
+          <button type="button" className="oq-icon" aria-label={`Delete ${connection.name}`} title="Delete" onClick={() => setPendingDelete({ id: connection.id, name: connection.name })}><Trash2 size={12} aria-hidden="true" /></button>
         </div>)}
       </section>
     </div>}

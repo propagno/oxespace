@@ -491,7 +491,7 @@ export interface OxeQueryOps {
   'resources.volumes': { input: { engine?: ContainerEngine }; output: VolumeInfo[] }
   'resources.networks': { input: { engine?: ContainerEngine }; output: NetworkInfo[] }
   'resources.usage': { input: { engine?: ContainerEngine }; output: DiskUsageRow[] }
-  'resources.remove': { input: { kind: ResourceKind; id: string; engine?: ContainerEngine }; output: { ok: true } }
+  'resources.remove': { input: { kind: ResourceKind; id: string; engine?: ContainerEngine; confirmed?: boolean }; output: { ok: true } }
   'containers.createDatabase': { input: CreateDatabaseInput; output: OxeQueryConnection }
   'audit.list': { input: { connectionId?: string; limit?: number }; output: OxeQueryAuditEntry[] }
   'library.list': { input: { connectionId: string }; output: { saved: SavedQuery[]; history: QueryHistoryItem[] } }

@@ -149,6 +149,8 @@ export class OxeQueryService {
       case 'resources.remove': {
         const kind = str(input.kind, 'Kind', 16)
         if (kind !== 'image' && kind !== 'volume' && kind !== 'network') throw new OxeQueryError('invalid', 'Unsupported resource kind.')
+        // A volume is somebody's data: the main process asks for the confirmation itself.
+        if (kind === 'volume' && input.confirmed !== true) throw new OxeQueryError('confirm', 'Removing a volume deletes the data in it.', ['Removing a volume deletes the data in it for good.'])
         await this.containers.removeResource(kind, str(input.id, 'Resource', 200), engine(input.engine))
         return { ok: true }
       }
