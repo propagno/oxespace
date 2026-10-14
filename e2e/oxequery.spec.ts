@@ -192,6 +192,10 @@ test('the connection form fills itself from a pasted connection string', async (
     // PostgreSQL opens on its separate fields, MongoDB on its connection string.
     await expect(dialog.getByRole('radio', { name: 'Host' })).toHaveAttribute('aria-checked', 'true')
     await dialog.getByRole('radio', { name: 'URL' }).click()
+    // The example in the empty field follows the chosen engine.
+    await expect(dialog.getByLabel('Connection string')).toHaveAttribute('placeholder', /^postgres:\/\//)
+    await dialog.getByRole('radio', { name: /MongoDB/ }).click()
+    await expect(dialog.getByLabel('Connection string')).toHaveAttribute('placeholder', /^mongodb:\/\//)
     await dialog.getByLabel('Connection string').fill('mongodb://root:s3cret@db.internal:27018/shop')
     await expect(dialog.getByRole('radio', { name: /MongoDB/ })).toHaveAttribute('aria-checked', 'true')
     await expect(dialog.getByRole('radio', { name: /MongoDB/ })).toHaveAttribute('aria-checked', 'true')
