@@ -23,13 +23,17 @@ test('workspace panels remain readable when several tools are open', async () =>
       await page.getByTestId('tools-modal').getByRole('menuitem', { name: new RegExp(`^${name}`) }).click()
     }
     const tabs = page.getByRole('tablist', { name: 'Open workspace panels' })
-    await expect(tabs.getByRole('tab')).toHaveCount(5)
+    await expect(tabs.getByRole('tab')).toHaveCount(4)
+    await expect(tabs.getByRole('button', { name: 'More panels (1)' })).toBeVisible()
     await expect(tabs.getByRole('tab', { name: 'Review', exact: true })).toHaveAttribute('aria-selected', 'true')
     await expect(page.getByTestId('workspace-review-panel')).toBeVisible()
     await page.getByTestId('workspace-review-panel').evaluate(el => el.setAttribute('data-preserved', 'yes'))
     await page.screenshot({ path: test.info().outputPath('panel-stack.png') })
     for (const name of ['Source control', 'Scripts', 'Web preview', 'Background activity', 'Review']) {
-      await tabs.getByRole('tab', { name, exact: true }).click()
+      if (!await tabs.getByRole('tab', { name, exact: true }).isVisible()) {
+        await tabs.getByRole('button', { name: /^More panels/ }).click()
+        await page.getByRole('menuitem', { name, exact: true }).click()
+      } else await tabs.getByRole('tab', { name, exact: true }).click()
       await expect(tabs.getByRole('tab', { name, exact: true })).toHaveAttribute('aria-selected', 'true')
       await expect(page.getByRole('tabpanel', { name })).toBeVisible()
       await expect(page.locator('.workspace-panel-stack-content > div:not([hidden]) .workspace-editor-panel')).toBeVisible()

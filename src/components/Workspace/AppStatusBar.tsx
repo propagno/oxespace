@@ -8,10 +8,9 @@ import styles from './AppStatusBar.module.css'
 interface AppStatusBarProps {
   workspace: Workspace | null
   activePaneId: string | null
-  appVersion: string
 }
 
-export function AppStatusBar({ activePaneId, appVersion, workspace }: AppStatusBarProps): ReactElement {
+export function AppStatusBar({ activePaneId, workspace }: AppStatusBarProps): ReactElement {
   const activePane = workspace?.panes.find((pane) => pane.id === activePaneId) ?? null
 
   // Shells outlive their view now, so a workspace left behind can still be
@@ -35,14 +34,14 @@ export function AppStatusBar({ activePaneId, appVersion, workspace }: AppStatusB
       <div className={styles.group}>
         <span className={cx(styles.item, styles.strong)} title={workspace?.rootPath ?? 'No project selected'}>
           <FolderGit2 size={12} aria-hidden="true" />
-          {workspace?.name ?? 'OXESpace'}
+          <span className={styles.path}>{workspace?.rootPath ?? 'No project selected'}</span>
         </span>
       </div>
       <div className={styles.group}>
         {workspace ? (
           <span className={styles.item} title="Open workspace panes">
             <PanelsTopLeft size={12} aria-hidden="true" />
-            {workspace.panes.length}
+            {workspace.panes.length} {workspace.panes.length === 1 ? 'pane' : 'panes'}
           </span>
         ) : null}
         {activePane ? <span className={styles.item}>{activePane.displayName ?? activePane.agentName ?? activePane.type}</span> : null}
@@ -58,7 +57,6 @@ export function AppStatusBar({ activePaneId, appVersion, workspace }: AppStatusB
             {backgroundPaneIds.length} background
           </button>
         ) : null}
-        <span className={styles.item}>v{appVersion}</span>
       </div>
     </footer>
   )

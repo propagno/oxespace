@@ -2173,3 +2173,4 @@
 .workspace-panel-stack-content { flex: 1; width: 100%; min-width: 0; min-height: 0; overflow: hidden; }
 .workspace-panel-stack-content > * { height: 100%; }
 .workspace-panel-stack-content > [hidden] { display: none; }
+.workspace-panel-stack-tabs .workspace-panel-stack-more { display: inline-flex; flex: none; align-items: center; gap: 4px; margin-left: auto; }

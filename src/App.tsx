@@ -1,5 +1,6 @@
 import { Activity, Columns2, FilePlus2, FolderOpen, Github, Grid2x2, LayoutDashboard, ListTodo, Maximize, Mic, Palette, Plus, RotateCw, Search, Settings2, Sliders, Split, Square, StopCircle, Wrench } from 'lucide-react'
-import { Button, cx, Toaster, TooltipProvider } from './ui'
+import { TOOL_CATALOG, type ToolId } from './components/Workspace/toolCatalog'
+import { Button, cx, Toaster, TitleTooltips, TooltipProvider } from './ui'
 import titleBar from './components/Navigation/TitleBar.module.css'
 import { Suspense, lazy, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useShallow } from 'zustand/react/shallow'
@@ -672,6 +673,12 @@ export function App(): ReactElement {
     openNewWorkspace()
   }
 
+  const toolHandlers: Partial<Record<ToolId, () => void>> = {
+    integration: openIntegrationPanel, github: toggleGitHubPanel, worktrees: toggleWorktreePanel, scripts: toggleScriptsPanel, search: toggleSearchPanel,
+    'web-preview': toggleWebPreviewPanel, background: toggleBackgroundPanel, mcp: openMcpPanel, skills: openSkillsBrowser, semantic: () => setSemanticActivityOpen(true),
+    editor: toggleEditor, review: toggleReviewPanel, slash: () => { if (activePane) openSlashOverlay(activePane.id) }
+  }
+
   const commandActions: CommandPaletteAction[] = [
     // Workspace
     { id: 'new-workspace', title: 'Create workspace', subtitle: 'Open the New Workspace wizard', icon: FilePlus2, category: 'Workspace', keywords: ['new', 'open', 'project'], run: openNewWorkspaceFromUI },
@@ -679,36 +686,26 @@ export function App(): ReactElement {
     { id: 'toggle-sidebar', title: 'Toggle sidebar', subtitle: 'Ctrl+B', icon: LayoutDashboard, category: 'Workspace', run: toggleSidebar },
     { id: 'open-tools', title: 'Open Tools', subtitle: 'Panels, MCP, workspace tools', icon: Settings2, category: 'Workspace', keywords: ['tools', 'panels', 'mcp', 'gear'], run: openTools },
 
+    // Tools: the same catalogue the Tools hub renders, so the palette and the hub never disagree.
+    ...TOOL_CATALOG.filter(tool => tool.id !== 'palette' && tool.id !== 'ws-settings').map(tool => ({
+      id: `tool-${tool.id}`,
+      title: tool.label,
+      subtitle: tool.shortcut ? `${tool.detail} · ${tool.shortcut}` : tool.detail,
+      icon: tool.icon,
+      category: tool.group,
+      keywords: tool.keywords,
+      disabled: tool.id === 'slash' ? !activePane : !['mcp', 'skills', 'semantic'].includes(tool.id) && !activeWorkspace,
+      run: toolHandlers[tool.id] ?? (() => undefined)
+    })),
+
     // AI & Agents
-    { id: 'open-mcp', title: 'Open MCP servers', subtitle: 'Model Context Protocol tools', icon: Wrench, category: 'AI & Agents', keywords: ['mcp', 'tools'], run: openMcpPanel },
     { id: 'open-linear', title: 'Open Linear issues', subtitle: 'Issues, boards and worktree from issue', icon: ListTodo, category: 'Git & Repo', keywords: ['linear', 'issue', 'ticket', 'board', 'worktree'], run: openLinearPanel },
-    { id: 'open-skills', title: 'Open Skills', subtitle: 'Browse markdown skill prompts', icon: Activity, category: 'AI & Agents', keywords: ['skill', 'slash'], run: openSkillsBrowser },
-    { id: 'open-integration', title: 'Open multi-repo coordination', subtitle: 'Align agents, context and handoffs', icon: Grid2x2, category: 'Workspace', keywords: ['integration', 'coordination', 'srv', 'bff', 'fed', 'handoff'], disabled: !activeWorkspace, run: openIntegrationPanel },
 
     // View
     { id: 'balance-pane-layout', title: 'Balance terminal panes', subtitle: 'Restore equal sizes within each split', icon: Columns2, category: 'View', disabled: !activeWorkspace, run: () => { if (activeWorkspace) usePaneLayoutStore.getState().balance(activeWorkspace.id) } },
-    { id: 'toggle-editor', title: 'Toggle editor', subtitle: 'Ctrl+E', icon: LayoutDashboard, category: 'View', disabled: !activeWorkspace, run: toggleEditor },
-    { id: 'github-open-panel', title: 'GitHub: Open tools panel', icon: Github, category: 'View', keywords: ['git', 'pr', 'workflow', 'actions'], disabled: !activeWorkspace, run: toggleGitHubPanel },
     { id: 'find-in-files', title: 'Search files & commands', subtitle: 'Ctrl+K / Ctrl+J · unified search', icon: Search, category: 'View', keywords: ['search', 'grep', 'ripgrep', 'rg', 'find', 'text', 'regex', 'command'], disabled: !activeWorkspace, run: openCommandMenu },
     { id: 'toggle-split-layout', title: 'Toggle Split Layout', subtitle: 'F2 · recursive resizable panes (default on)', icon: Columns2, category: 'View', keywords: ['split', 'pane', 'layout', 'f2', 'tree'], disabled: !activeWorkspace, run: () => useUIStore.getState().toggleSplitLayout() },
     { id: 'open-usage', title: 'Usage & Rate Limits', subtitle: 'Claude, Codex & Copilot quota + resets', icon: Activity, category: 'AI & Agents', keywords: ['usage', 'quota', 'credits', 'rate', 'limit', 'tokens'], run: () => useUIStore.getState().openUsage() },
-    {
-      id: 'toggle-background-dock',
-      title: 'Background jobs: Toggle dock',
-      subtitle: 'Right-side panel',
-      icon: Activity,
-      category: 'View',
-      keywords: ['bg', 'job', 'task'],
-      disabled: !activeWorkspace,
-      run: () => {
-        if (!activeWorkspace) return
-        void updateBackgroundState({
-          workspaceId: activeWorkspace.id,
-          backgroundPanelVisible: !activeWorkspace.backgroundPanelVisible,
-          backgroundPanelExpanded: activeWorkspace.backgroundPanelVisible ? false : activeWorkspace.backgroundPanelExpanded
-        })
-      }
-    },
     { id: 'design-system', title: 'Design System: Open Viewer', subtitle: 'Tokens and components in light and dark', icon: Palette, category: 'View', run: () => { setDesignSystemOpen(true) } },
 
     // Appearance: one app-wide choice (light, dark or follow the system).
@@ -963,6 +960,7 @@ export function App(): ReactElement {
   return (
     <ThemeProvider themeId={applicationView !== 'code' ? undefined : activeWorkspace?.themeId} density={applicationView !== 'code' ? undefined : activeWorkspace?.uiDensity}>
       <TooltipProvider>
+      <TitleTooltips />
       <main className={`app-shell${applicationView === 'thread' ? ' thread-shell' : applicationView === 'data' ? ' oq-shell' : isSidebarCollapsed ? ' sidebar-collapsed' : ''}`} style={applicationView !== 'code' ? { '--thread-sidebar-width': `${isSidebarCollapsed ? 48 : codeSidebarWidth}px` } as CSSProperties : { '--sidebar-w': `${codeSidebarWidth}px` } as CSSProperties}>
       <header className={cx('workbench-titlebar', titleBar.bar)} aria-label="OXESpace workbench">
         <div className={titleBar.brand}><OxeLogo size={16} /><strong className={titleBar.word}>oxespace</strong>{!IS_MAC && <Suspense fallback={null}><AppMenuBar context={{ actions: commandActions, applicationView, setApplicationView: selectMode, openSettings: () => { if (!isSettingsOpen) toggleSettings() }, addThreadProject: () => setThreadProjectOpen(true), version: appVersion }} /></Suspense>}</div>
@@ -1082,7 +1080,7 @@ export function App(): ReactElement {
             </button>
           </div>
         )}
-        {applicationView === 'code' && <AppStatusBar workspace={activeWorkspace ?? null} activePaneId={activePane?.id ?? null} appVersion={appVersion} />}
+        {applicationView === 'code' && <AppStatusBar workspace={activeWorkspace ?? null} activePaneId={activePane?.id ?? null} />}
         <Suspense fallback={null}>
           {accountsOpen && (threadProject ?? threadProjects[0]) && <ProviderAccountsPanel workspaceId={threadSnapshot?.thread.workspaceId ?? `thread:${(threadProject ?? threadProjects[0]).projectId}`} onClose={() => setAccountsOpen(false)} />}
           {newThreadWorkspaceId !== undefined && <NewThreadDialog initialProjectId={newThreadWorkspaceId} initialRootPath={newThreadRootPath} onClose={() => { setNewThreadWorkspaceId(undefined); setNewThreadRootPath(undefined) }} />}

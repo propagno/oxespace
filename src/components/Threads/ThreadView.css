@@ -638,3 +638,7 @@
 .thread-create-dialog .thread-project-selection > strong { color: var(--tx-muted); font-size: var(--fs-2xs); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
 .thread-create-dialog .thread-project-selection > span { color: var(--tx-primary); font-size: var(--fs-base); font-weight: 600; }
 .thread-create-dialog .thread-project-selection > code { overflow-wrap: anywhere; color: var(--tx-secondary); font-size: var(--fs-2xs); }
+
+.thread-more-item:has(> svg:first-child) { justify-content: flex-start; gap: 8px; }
+.thread-more-item[data-disabled] { opacity: .45; }
+.thread-more-label output { margin-left: 6px; color: var(--tx-primary); font-weight: 600; }
