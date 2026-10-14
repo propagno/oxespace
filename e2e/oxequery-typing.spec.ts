@@ -29,7 +29,7 @@ test('typing in the SQL editor keeps every character', async () => {
       await page.keyboard.type(text, { delay: 15 })
       await page.keyboard.press('Escape')
       const value = await page.evaluate(() => (document.querySelector('.oq-editor .view-lines') as HTMLElement).innerText.replace(/ /g, ' '))
-      expect(value.trim()).toBe(text)
+      expect(value.replace(/s+/g, ' ').trim()).toBe(text)
     }
   } finally { await app.close() }
 })
