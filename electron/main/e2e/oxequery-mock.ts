@@ -14,8 +14,8 @@ type Input = Record<string, unknown>
 
 export function registerOxeQueryMock(): void {
   const containers: ContainerSummary[] = [
-    { id: 'c1', name: 'pg-dev', image: 'postgres:16', state: 'running', status: 'Up 2 hours', ports: [{ hostIp: '0.0.0.0', hostPort: 5432, containerPort: 5432, protocol: 'tcp' }], labels: {} },
-    { id: 'c2', name: 'mongo-dev', image: 'mongo:7', state: 'running', status: 'Up 2 hours', ports: [{ hostIp: '0.0.0.0', hostPort: 27017, containerPort: 27017, protocol: 'tcp' }], labels: {} },
+    { id: 'c1', name: 'pg-dev', image: 'postgres:16', state: 'running', status: 'Up 2 hours', ports: [{ hostIp: '0.0.0.0', hostPort: 5432, containerPort: 5432, protocol: 'tcp' }], labels: { 'com.docker.compose.project': 'shop' } },
+    { id: 'c2', name: 'mongo-dev', image: 'mongo:7', state: 'running', status: 'Up 2 hours', ports: [{ hostIp: '0.0.0.0', hostPort: 27017, containerPort: 27017, protocol: 'tcp' }], labels: { 'com.docker.compose.project': 'shop' } },
     { id: 'c3', name: 'old-job', image: 'alpine:3', state: 'exited', status: 'Exited (0) 3 days ago', ports: [], labels: {} }
   ]
   const connections: OxeQueryConnection[] = []
@@ -47,6 +47,10 @@ export function registerOxeQueryMock(): void {
       case 'containers.list':
         if (process.env.OXE_MOCK_ENGINE === 'stopped') return fail('daemon', 'docker is installed but its daemon is not reachable. Start Docker Desktop or the Docker service and try again.')
         return ok({ engine: 'docker', containers: containers.map(container => ({ ...container })) })
+      case 'containers.compose': {
+        if (input.action === 'down' && input.confirmed !== true) return fail('confirm', 'Taking a project down removes its containers and networks.')
+        return ok({ output: input.action === 'logs' ? 'web-1  | ready\napi-1  | listening' : 'done' })
+      }
       case 'containers.action': {
         const target = containers.find(container => container.id === input.id || container.name === input.id)
         if (!target) return fail('not-found', 'That container no longer exists.')

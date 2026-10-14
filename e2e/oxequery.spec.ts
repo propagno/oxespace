@@ -649,6 +649,14 @@ test('the schema tree groups objects, searches every schema, pins tables and wor
     await search.fill('mood')
     await item('mood (enum)').click()
     await expect(page.locator('.oq-editor .view-lines')).toContainText('CREATE TYPE')
+
+    // Asking the agent is a menu; what needs an error or a plan stays off until there is one.
+    await page.getByRole('button', { name: 'Ask agent' }).click()
+    const ask = page.getByRole('menu', { name: 'Ask the agent' })
+    await expect(ask.getByRole('menuitem', { name: /^Explain this/ })).toBeEnabled()
+    await expect(ask.getByRole('menuitem', { name: 'Fix this error' })).toBeDisabled()
+    await expect(ask.getByRole('menuitem', { name: 'Read this plan' })).toBeDisabled()
+    await expect(ask).toContainText('Rows are never included')
   } finally { await app.close() }
 })
 
@@ -784,5 +792,37 @@ test('connections can be favorited, grouped, colored, duplicated, found by searc
     await page.getByRole('searchbox', { name: 'Search connections' }).fill('scratch')
     await expect(list.getByRole('button', { name: /^Matches/ })).toBeVisible()
     await expect(list.getByRole('button', { name: 'Close scratch' })).toBeVisible()
+  } finally { await app.close() }
+})
+
+test('a Compose project can be brought up, read and taken down from the containers page', async () => {
+  test.setTimeout(120000)
+  const root = mkdtempSync(join(tmpdir(), 'oxespace-oxequery-compose-'))
+  const repo = join(root, 'repo'); mkdirSync(repo)
+  const app = await electron.launch({ args: [join(process.cwd(), 'e2e/electron-main.cjs')], env: {
+    ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'app.sqlite3')
+  } })
+  try {
+    const page = await app.firstWindow()
+    await page.waitForLoadState('domcontentloaded')
+    await page.getByTestId('btn-new-workspace').click()
+    await page.getByTestId('wizard-dir-input').fill(repo)
+    await page.getByTestId('wizard-layout-card-1').click()
+    await page.getByTestId('wizard-launch-btn').click()
+    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
+    await expect(page.getByRole('region', { name: 'Compose project actions' })).toHaveCount(0)
+    await page.getByRole('combobox', { name: 'Compose project' }).selectOption('shop')
+    const actions = page.getByRole('region', { name: 'Compose project actions' })
+    await expect(actions).toContainText('shop')
+    await actions.getByRole('button', { name: 'Logs' }).click()
+    await expect(actions).toContainText('web-1  | ready')
+    await actions.getByRole('button', { name: 'Close output' }).click()
+    await actions.getByRole('button', { name: 'Restart' }).click()
+    await expect(actions.getByRole('button', { name: 'Restart' })).toBeEnabled()
+    await actions.getByRole('button', { name: 'Down…' }).click()
+    const confirm = actions.getByRole('alertdialog', { name: 'Confirm compose down' })
+    await expect(confirm).toContainText('Named volumes are kept')
+    await confirm.getByRole('button', { name: 'Cancel' }).click()
+    await expect(confirm).toHaveCount(0)
   } finally { await app.close() }
 })

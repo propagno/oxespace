@@ -8,6 +8,8 @@ import type {
 } from '../../../../shared/types/oxequery'
 import { classifyProbe, isLocalEndpoint, parseContainerList, parseContexts, parseDiskUsage, parseImages, parseInspect, parseNetworks, parseStats, parseVolumes, suggestFromInspect } from './container-parse'
 import { createServer } from 'node:net'
+import { stat } from 'node:fs/promises'
+import { composeArgs, composeTarget, type ComposeAction } from './compose'
 import { randomBytes } from 'node:crypto'
 
 const ENGINES: ContainerEngine[] = ['docker', 'podman']
@@ -327,6 +329,28 @@ export class ContainerRuntime {
   }
 
   /** The last lines of a container's log, once (for an agent); streaming is `logsStart`. */
+  /**
+   * Up, down, start, stop, restart or logs for the Compose project a container belongs to. The folder
+   * and files are read from that container's own labels, so what runs is the project the engine
+   * started, in the folder it started from; nothing about the path comes from the page.
+   */
+  async compose(id: string, action: ComposeAction, options: { tail?: number } = {}, engine?: ContainerEngine): Promise<{ output: string }> {
+    const resolved = await this.resolve(engine)
+    const target = composeTarget(await this.inspectRaw(resolved, id))
+    if (!target) throw new ContainerRuntimeError('invalid', 'This container does not belong to a Compose project the engine can describe (it needs the project folder label).')
+    const folder = await stat(target.directory).catch(() => null)
+    if (!folder?.isDirectory()) throw new ContainerRuntimeError('failed', `The project folder ${target.directory} is not on this computer (or was moved). Run compose where the project lives.`)
+    for (const file of target.files) if (!(await stat(file).catch(() => null))?.isFile()) throw new ContainerRuntimeError('failed', `The compose file ${file} no longer exists.`)
+    const result = await this.options.host.exec(this.binaries.get(resolved) ?? resolved, [...this.target(resolved), ...composeArgs(target, action, options.tail)], {
+      cwd: target.directory, timeoutMs: action === 'logs' ? 30_000 : 300_000, maxOutputBytes: 512 * 1024
+    })
+    if (result.timedOut) throw new ContainerRuntimeError('failed', `Compose ${action} took too long and was stopped. It may still be finishing in the engine.`)
+    const output = `${result.stdout}${result.stdout && result.stderr ? '\n' : ''}${result.stderr}`.trim()
+    if (result.code !== 0) throw new ContainerRuntimeError('failed', output.slice(-600) || `Compose ${action} failed (exit code ${result.code}). Is the compose plugin installed?`)
+    if (action !== 'logs') this.options.emit({ type: 'containers-changed' })
+    return { output }
+  }
+
   async logsTail(id: string, tail = 100, engine?: ContainerEngine): Promise<string> {
     const resolved = await this.resolve(engine)
     const lines = Math.max(1, Math.min(Math.trunc(tail), 500))

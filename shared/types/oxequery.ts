@@ -581,6 +581,7 @@ export interface OxeQueryOps {
   'containers.useCandidate': { input: { id: string | null }; output: ContainerEngineCandidate[] }
   'containers.list': { input: { engine?: ContainerEngine }; output: { engine: ContainerEngine; containers: ContainerSummary[] } }
   'containers.inspect': { input: { engine?: ContainerEngine; id: string }; output: ContainerInspect }
+  'containers.compose': { input: { engine?: ContainerEngine; id: string; action: 'up' | 'down' | 'start' | 'stop' | 'restart' | 'logs'; confirmed?: boolean; tail?: number }; output: { output: string } }
   'containers.action': { input: { engine?: ContainerEngine; id: string; action: ContainerAction }; output: { ok: true } }
   'containers.exec': { input: { engine?: ContainerEngine; id: string; argv: string[]; timeoutMs?: number }; output: ContainerExecResult }
   'containers.logsStart': { input: { engine?: ContainerEngine; id: string; tail?: number }; output: { streamId: string } }

@@ -46,7 +46,7 @@ function harness(connections: OxeQueryConnection[], options: { decide?: Approval
       if (op === 'mongo.find') return { documents: ['{"_id":{"$oid":"1"},"name":"pen","api_key":"k"}'], truncated: false, durationMs: 1 } as never
       return {} as never
     },
-    containers: { list: async () => ({ containers: [] }), logsTail: async () => 'one\ntwo', action: async () => undefined },
+    containers: { list: async () => ({ containers: [{ id: 'abc123def456', name: 'pg-dev', image: 'postgres:16', state: 'running', status: 'Up', ports: [], labels: {} }, { id: 'zzz999yyy888', name: 'secret-job', image: 'alpine', state: 'running', status: 'Up', ports: [], labels: {} }] }), logsTail: async () => 'one\ntwo', action: async () => undefined },
     broker: new ApprovalBroker(prompter, options.now, options.waitMs),
     audit,
     ...(options.now ? { now: options.now } : {})
@@ -205,8 +205,21 @@ describe('agent gateway: MongoDB, containers and limits', () => {
     expect(await code(h.gateway.handle('oxespace_db_connections', {}, actor))).toBe('ok')
   })
 
+  it('shows agents only containers a person opted in through a connection, and refuses the rest', async () => {
+    const h = harness([connection({ containerRef: 'pg-dev' }), connection({ id: 'c2', name: 'quiet', containerRef: 'secret-job', agentAccess: 'off' })])
+    const listed = await h.gateway.handle('oxespace_containers_list', {}, actor) as { containers: { name: string }[] }
+    expect(listed.containers.map(item => item.name)).toEqual(['pg-dev'])
+    expect(await code(h.gateway.handle('oxespace_container_logs', { container: 'secret-job' }, actor))).toBe('access-off')
+    expect(await code(h.gateway.handle('oxespace_container_action', { container: 'zzz999yyy888', action: 'stop' }, actor))).toBe('access-off')
+    expect(h.asked).toHaveLength(0)
+    const none = harness([connection({ agentAccess: 'off', containerRef: 'pg-dev' })])
+    const empty = await none.gateway.handle('oxespace_containers_list', {}, actor) as { containers: unknown[]; note: string }
+    expect(empty.containers).toEqual([])
+    expect(empty.note).toMatch(/opts a container in/)
+  })
+
   it('reads container logs without approval and asks before an action', async () => {
-    const h = harness([connection({})], { decide: 'deny' })
+    const h = harness([connection({ containerRef: 'pg-dev' })], { decide: 'deny' })
     const logs = await h.gateway.handle('oxespace_container_logs', { container: 'pg-dev', tail: 50 }, actor) as { untrusted: boolean; lines: string[] }
     expect(logs).toMatchObject({ untrusted: true, lines: ['one', 'two'] })
     expect(await code(h.gateway.handle('oxespace_container_action', { container: 'pg-dev', action: 'stop' }, actor))).toBe('denied')

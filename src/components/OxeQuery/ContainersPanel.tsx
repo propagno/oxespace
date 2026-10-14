@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { Boxes, Database, Play, Plus, RefreshCw, RotateCw, Square, SquareTerminal } from 'lucide-react'
 import type { ContainerAction, ContainerEngineInfo, ContainerExecResult, ContainerInspect, ContainerPort, ContainerStat, ContainerSummary } from '../../../shared/types/oxequery'
 import { TerminalPane } from '../Panes/TerminalPane'
-import { errorMessage, oq } from './client'
+import { OxeQueryClientError, errorMessage, oq } from './client'
 import { useOxeQueryStore } from './oxequery.store'
 import { NewDatabaseDialog, ResourcesPanel } from './ResourcesPanel'
 import { EngineBar } from './EngineBar'
@@ -94,6 +94,25 @@ export function ContainersPanel({ active }: { active: boolean }): ReactElement {
     else void act(container, action)
   }
 
+  // One Compose project at a time: its folder is read from its containers' labels by the main process.
+  const [composeBusy, setComposeBusy] = useState('')
+  const [composeOutput, setComposeOutput] = useState<{ title: string; text: string } | null>(null)
+  const [confirmDown, setConfirmDown] = useState(false)
+  const projectContainers = project ? containers.filter(container => container.labels?.[COMPOSE_LABEL] === project) : []
+  const compose = async (action: 'up' | 'down' | 'start' | 'stop' | 'restart' | 'logs', confirmed = false): Promise<void> => {
+    const first = projectContainers[0]
+    if (!first) return
+    setComposeBusy(action); setNotice(''); setConfirmDown(false)
+    try {
+      const result = await oq('containers.compose', { id: first.id, action, engine, confirmed, ...(action === 'logs' ? { tail: 200 } : {}) })
+      setComposeOutput(action === 'logs' || result.output ? { title: `${project} · ${action}`, text: result.output || 'Done.' } : null)
+      if (action !== 'logs') await refresh()
+    } catch (cause) {
+      if (cause instanceof OxeQueryClientError && cause.code === 'confirm') setConfirmDown(true)
+      else setNotice(errorMessage(cause))
+    } finally { setComposeBusy('') }
+  }
+
   const connect = async (container: ContainerSummary): Promise<void> => {
     setBusyId(container.id); setNotice('')
     try {
@@ -131,6 +150,17 @@ export function ContainersPanel({ active }: { active: boolean }): ReactElement {
       <Database size={14} aria-hidden="true" /> To query a database, press <strong>Query</strong> on a PostgreSQL or MongoDB container below, or use <strong>New connection</strong> for a server that is not in a container.</p>}
     <EngineBar active={active} shown={containers.length} />
     {notice && <p role="alert" className="oq-error">{notice}</p>}
+    {project && <section className="oq-compose" aria-label="Compose project actions">
+      <strong>{project}</strong><small className="oq-muted">{projectContainers.filter(container => container.state === 'running').length} of {projectContainers.length} running</small>
+      {(['up', 'start', 'stop', 'restart', 'logs'] as const).map(action => <button key={action} type="button" disabled={composeBusy !== ''} onClick={() => void compose(action)}>
+        {composeBusy === action ? '…' : action === 'up' ? 'Up' : action[0]!.toUpperCase() + action.slice(1)}</button>)}
+      <button type="button" className="oq-danger" disabled={composeBusy !== ''} onClick={() => void compose('down')}>Down…</button>
+      {confirmDown && <div className="oq-confirm" role="alertdialog" aria-label="Confirm compose down">
+        <strong>Take {project} down?</strong><ul><li>Its containers and networks are removed.</li><li>Named volumes are kept.</li></ul>
+        <div><button type="button" onClick={() => setConfirmDown(false)}>Cancel</button><button type="button" className="oq-danger" onClick={() => void compose('down', true)}>Take down</button></div>
+      </div>}
+      {composeOutput && <div className="oq-compose-output"><header><strong>{composeOutput.title}</strong><button type="button" aria-label="Close output" onClick={() => setComposeOutput(null)}>Close</button></header><pre>{composeOutput.text}</pre></div>}
+    </section>}
     {remoteContext && <p className="oq-hint" role="note">Docker context <strong>{remoteContext}</strong> is active. Everything here — including stop, remove and run command — acts on that host, not on this computer.</p>}
     {pendingAction && <div className="oq-confirm" role="alertdialog" aria-label="Confirm container action">
       <strong>{pendingAction.action === 'stop' ? 'Stop' : 'Restart'} {pendingAction.container.name}?</strong>

@@ -419,3 +419,14 @@
 .oq-import-options label { display: grid; gap: 4px; }
 .oq-import-options label.oq-inline { display: inline-flex; }
 .oq-import-keys { display: flex; flex-wrap: wrap; gap: 4px 12px; width: 100%; }
+
+.oq-compose { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 10px; padding: 8px 12px; border: 1px solid var(--bd-base); border-radius: var(--radius-md); font-size: var(--fs-xs); }
+.oq-compose button { padding: 4px 10px; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); color: inherit; background: transparent; cursor: pointer; }
+.oq-compose-output { flex-basis: 100%; }
+.oq-compose-output header { display: flex; justify-content: space-between; align-items: center; }
+.oq-compose-output pre { max-height: 220px; overflow: auto; margin: 4px 0 0; padding: 8px; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--tx-primary) 6%, transparent); font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; white-space: pre-wrap; }
+.oq-ask { position: relative; display: inline-flex; align-items: center; gap: 6px; }
+.oq-ask-menu { position: absolute; top: calc(100% + 4px); right: 0; display: grid; gap: 4px; min-width: 240px; padding: 8px; border: 1px solid var(--bd-base); border-radius: var(--radius-md); background: var(--bg-elevated); box-shadow: 0 8px 24px color-mix(in srgb, var(--tx-primary) 18%, transparent); }
+.oq-ask-menu > button { text-align: left; }
+.oq-ask-menu form { display: flex; gap: 4px; }
+.oq-ask-menu input { flex: 1; min-width: 0; padding: 4px 6px; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); color: inherit; background: var(--bg-input, transparent); font: inherit; font-size: var(--fs-xs); }

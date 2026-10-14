@@ -9,6 +9,7 @@ import type {
 } from '../../../../shared/types/oxequery'
 import { ConnectionInputError, ConnectionStore, type SecretCipher } from './connection-store'
 import { ContainerRuntime, ContainerRuntimeError } from './container-runtime'
+import { COMPOSE_ACTIONS, type ComposeAction } from './compose'
 import { MongoInputError, OxeQueryError, type ResolvedConnection } from './oxequery-errors'
 import { guardSql } from './sql-guard'
 import type { OxeQueryWorkerClient } from './worker-client'
@@ -223,6 +224,14 @@ export class OxeQueryService {
         if (!ACTIONS.has(action)) throw new OxeQueryError('invalid', 'Unsupported container action.')
         await this.containers.action(str(input.id, 'Container', 128), action as ContainerAction, engine(input.engine))
         return { ok: true }
+      }
+      case 'containers.compose': {
+        const action = str(input.action, 'Action', 16)
+        if (!COMPOSE_ACTIONS.has(action)) throw new OxeQueryError('invalid', 'Unsupported Compose action.')
+        if (action === 'down' && input.confirmed !== true) {
+          throw new OxeQueryError('confirm', 'Taking a project down removes its containers and networks.', ['Named volumes are kept.', 'Anything running from this project stops.'])
+        }
+        return this.containers.compose(str(input.id, 'Container', 128), action as ComposeAction, { ...(optionalInt(input.tail, 1, 500) !== undefined ? { tail: optionalInt(input.tail, 1, 500) } : {}) }, engine(input.engine))
       }
       case 'containers.exec': {
         const argv = input.argv

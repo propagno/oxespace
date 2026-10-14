@@ -13,6 +13,8 @@ import { LibraryMenu } from './LibraryMenu'
 import { ExportButton, TableEditor } from './TableEditor'
 import { SchemaTree } from './SchemaTree'
 import { ReconnectBar } from './ReconnectBar'
+import { AskAgent } from './AskAgent'
+import { describeTable } from './agent-prompt'
 import { ImportButton } from './ImportDialog'
 import { ExplainView } from './ExplainView'
 import { bindCompletion, cacheFor } from './sql-completion'
@@ -269,6 +271,11 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
         <button type="button" onClick={cancel} disabled={!running} title="Cancel the running statement"><Square size={13} aria-hidden="true" />Cancel</button>
         <button type="button" onClick={format} title="Format the SQL (Shift+Alt+F)">Format</button>
         <label className="oq-inline">Limit<select value={maxRows} onChange={event => setMaxRows(Number(event.target.value))}>{[...new Set([...ROW_LIMITS, connection.maxRows])].sort((a, b) => a - b).map(value => <option key={value} value={value}>{value.toLocaleString('en-US')} rows</option>)}</select></label>
+        <AskAgent hasError={Boolean(error)} hasPlan={Boolean(active.explain)} context={{
+          connectionName: connection.name, engine: 'postgres', environment: connection.environment, sql: active.sql,
+          ...(error ? { errorMessage: error.message, ...(error.sqlState ? { sqlState: error.sqlState } : {}) } : {}), explain: active.explain,
+          ...(active.browse && active.details ? { tables: [describeTable(active.browse.schema, active.browse.table, active.details.columns)] } : {})
+        }} />
         <LibraryMenu connection={connection} currentSql={active.sql} refreshKey={libraryTick} onPick={sql => replaceText(active.id, sql)} />
         {!connection.readOnly && <TxBar state={tx} busy={running} onAction={action => void txAction(action)} />}
         <span className="oq-spacer" />

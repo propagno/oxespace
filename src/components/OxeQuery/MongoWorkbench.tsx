@@ -7,6 +7,7 @@ import { ExportButton } from './TableEditor'
 import { ImportButton } from './ImportDialog'
 import { LibraryMenu } from './LibraryMenu'
 import { ReconnectBar } from './ReconnectBar'
+import { AskAgent } from './AskAgent'
 import { looksLikeLostConnection } from './workbench-model'
 import { MongoInsights } from './MongoInsights'
 import { DocumentTree, ExplainCard } from './MongoPanels'
@@ -188,6 +189,11 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
           <strong>{target.database}.{target.collection}</strong>
           <div role="group" aria-label="Query type"><button type="button" aria-pressed={mode === 'find'} onClick={() => setMode('find')}>Find</button><button type="button" aria-pressed={mode === 'aggregate'} onClick={() => setMode('aggregate')}>Aggregate</button></div>
           <span className="oq-spacer" />
+          <AskAgent hasError={Boolean(error)} hasPlan={false} context={{
+            connectionName: connection.name, engine: 'mongodb', environment: connection.environment,
+            sql: mode === 'find' ? `db.${target.collection}.find(${filter.trim() || '{}'}${projection.trim() ? `, ${projection.trim()}` : ''})${sort.trim() ? `.sort(${sort.trim()})` : ''}` : `db.${target.collection}.aggregate(${pipeline.trim()})`,
+            ...(error ? { errorMessage: error } : {}), tables: [`${target.database}.${target.collection}`]
+          }} />
           <LibraryMenu connection={connection} currentSql={queryText} refreshKey={libraryTick} onPick={pick} describe={describeMongoQuery} />
           <span className="oq-badge" data-environment={connection.environment}>{connection.environment}</span>
           <span className="oq-badge" data-readonly={connection.readOnly}>{connection.readOnly ? 'read-only' : 'read-write'}</span>
