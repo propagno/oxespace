@@ -1,3 +1,4 @@
+import { stat } from 'node:fs/promises'
 import { isAbsolute } from 'node:path'
 
 export type ComposeAction = 'up' | 'down' | 'start' | 'stop' | 'restart' | 'logs'
@@ -25,6 +26,14 @@ export function composeTarget(inspectJson: string): ComposeTarget | null {
   if (!project || !PROJECT.test(project) || !directory || !isAbsolute(directory) || /\0/.test(directory)) return null
   if (files.some(file => !isAbsolute(file) || /\0/.test(file) || !/\.ya?ml$/i.test(file))) return null
   return { project, directory, files }
+}
+
+/** Whether the project's folder and files are on this computer; the message says what is missing. */
+export async function missingProjectPart(target: ComposeTarget): Promise<string | null> {
+  const folder = await stat(target.directory).catch(() => null)
+  if (!folder?.isDirectory()) return `The project folder ${target.directory} is not on this computer (or was moved). Run compose where the project lives.`
+  for (const file of target.files) if (!(await stat(file).catch(() => null))?.isFile()) return `The compose file ${file} no longer exists.`
+  return null
 }
 
 /** The arguments after the engine's own: one `compose` call, scoped to the project, never a shell string. */

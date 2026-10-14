@@ -1,6 +1,20 @@
+import { readFile, stat, writeFile } from 'node:fs/promises'
 import type { OxeQueryConnection, OxeQueryConnectionInput } from '../../../../shared/types/oxequery'
 
 const MAX_IMPORT = 200
+const MAX_FILE_BYTES = 2 * 1024 * 1024
+
+/** Writes the export to the file the person chose in a native save dialog; an existing file is never overwritten. */
+export async function writeExportFile(path: string, text: string): Promise<void> {
+  await writeFile(path, text, { encoding: 'utf8', flag: 'wx', mode: 0o600 })
+}
+
+/** Reads the one file chosen in a native open dialog, if it is small enough to be an export. */
+export async function readImportFile(path: string): Promise<string> {
+  const info = await stat(path)
+  if (!info.isFile() || info.size > MAX_FILE_BYTES) throw new Error('That file is too large to be a connections export.')
+  return readFile(path, { encoding: 'utf8' })
+}
 
 /**
  * Connections as a file a person can keep or share. Everything needed to reconnect except secrets:

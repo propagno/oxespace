@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { readFile, writeFile } from 'node:fs/promises'
-import { exportConnections, parseConnectionsFile } from './connection-transfer'
+import { exportConnections, parseConnectionsFile, readImportFile, writeExportFile } from './connection-transfer'
 import type { AppDatabase } from '../../db'
 import type { ExecutionHost } from '../../runtime/execution-host'
 import type {
@@ -294,15 +293,15 @@ export class OxeQueryService {
         const list = this.connections.list().filter(item => !wanted || wanted.has(item.id))
         const path = await this.pickSavePath('oxequery-connections.json', 'json')
         if (!path) return { saved: false, count: 0 }
-        await writeFile(path, exportConnections(list), { encoding: 'utf8', flag: 'wx' })
+        await writeExportFile(path, exportConnections(list))
         return { saved: true, count: list.filter(item => !item.ephemeral).length }
       }
       case 'connections.import': {
         if (!this.pickImportPath) throw new OxeQueryError('invalid', 'Choosing files is not available here.')
         const path = await this.pickImportPath()
         if (!path) return { imported: 0, skipped: 0 }
-        const text = await readFile(path, { encoding: 'utf8' })
-        if (text.length > 2 * 1024 * 1024) throw new OxeQueryError('invalid', 'That file is too large to be a connections export.')
+        let text: string
+        try { text = await readImportFile(path) } catch (error) { throw new OxeQueryError('invalid', error instanceof Error ? error.message : 'That file cannot be read.') }
         let parsed: ReturnType<typeof parseConnectionsFile>
         try { parsed = parseConnectionsFile(text) } catch (error) { throw new OxeQueryError('invalid', error instanceof Error ? error.message : 'That file cannot be imported.') }
         let imported = 0, skipped = parsed.skipped

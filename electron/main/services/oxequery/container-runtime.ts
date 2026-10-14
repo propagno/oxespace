@@ -8,8 +8,7 @@ import type {
 } from '../../../../shared/types/oxequery'
 import { classifyProbe, isLocalEndpoint, parseContainerList, parseContexts, parseDiskUsage, parseImages, parseInspect, parseNetworks, parseStats, parseVolumes, suggestFromInspect } from './container-parse'
 import { createServer } from 'node:net'
-import { stat } from 'node:fs/promises'
-import { composeArgs, composeTarget, type ComposeAction } from './compose'
+import { composeArgs, composeTarget, missingProjectPart, type ComposeAction } from './compose'
 import { randomBytes } from 'node:crypto'
 
 const ENGINES: ContainerEngine[] = ['docker', 'podman']
@@ -339,9 +338,8 @@ export class ContainerRuntime {
     const resolved = await this.resolve(engine)
     const target = composeTarget(await this.inspectRaw(resolved, id))
     if (!target) throw new ContainerRuntimeError('invalid', 'This container does not belong to a Compose project the engine can describe (it needs the project folder label).')
-    const folder = await stat(target.directory).catch(() => null)
-    if (!folder?.isDirectory()) throw new ContainerRuntimeError('failed', `The project folder ${target.directory} is not on this computer (or was moved). Run compose where the project lives.`)
-    for (const file of target.files) if (!(await stat(file).catch(() => null))?.isFile()) throw new ContainerRuntimeError('failed', `The compose file ${file} no longer exists.`)
+    const missing = await missingProjectPart(target)
+    if (missing) throw new ContainerRuntimeError('failed', missing)
     const result = await this.options.host.exec(this.binaries.get(resolved) ?? resolved, [...this.target(resolved), ...composeArgs(target, action, options.tail)], {
       cwd: target.directory, timeoutMs: action === 'logs' ? 30_000 : 300_000, maxOutputBytes: 512 * 1024
     })

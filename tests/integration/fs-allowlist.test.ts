@@ -85,6 +85,15 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Reads the one file chosen in a native open dialog (200 MB cap, streamed) and, for rows it cannot
   // read, writes `<file>.rejects.ndjson` beside it with flag 'wx'; the renderer never supplies a path.
   'electron/main/services/oxequery/import-reader.ts',
+  // Writes an Excel workbook to the one file chosen in a native save dialog (flag 'wx', mode 0600, removed
+  // again when cancelled), staging the sheet in a private temporary directory it removes afterwards.
+  'electron/main/services/oxequery/xlsx-writer.ts',
+  // The connections export and import: one file chosen in a native dialog (flag 'wx' on write, 2 MB cap on
+  // read); the renderer supplies no path and the file carries no secret.
+  'electron/main/services/oxequery/connection-transfer.ts',
+  // Checks that a Compose project's folder and files exist before running compose there; the paths come from
+  // the engine's own container labels, never from the renderer.
+  'electron/main/services/oxequery/compose.ts',
   'electron/main/services/shell-profile.service.ts',
   'electron/main/services/skill.service.ts',
   'electron/main/services/terminal.service.ts',
