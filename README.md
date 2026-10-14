@@ -34,15 +34,15 @@ It runs entirely on your machine. Your repositories stay where they are, the age
 
 ## What you can do
 
-### Two ways to work with an agent
+### Three modes
 
-| | **Code** | **Thread** |
-|---|---|---|
-| What it is | A grid of real terminals (PTY) per workspace | A native conversation with Claude Code or Codex |
-| Best for | Running any CLI, shells, dev servers, several agents side by side | Asking, planning and reviewing with approvals, questions, attachments and history |
-| Agents | Claude Code, Codex, Copilot CLI, Cursor, Grok and any command you configure | Claude Code and Codex, using your own subscription sign-in |
+| | **Code** | **Thread** | **OxeQuery** |
+|---|---|---|---|
+| What it is | A grid of real terminals (PTY) per workspace | A native conversation with Claude Code or Codex | Containers, PostgreSQL and MongoDB in one place |
+| Best for | Running any CLI, shells, dev servers, several agents side by side | Asking, planning and reviewing with approvals, questions, attachments and history | Seeing your Docker or Podman containers and querying and editing data safely |
+| Agents | Claude Code, Codex, Copilot CLI, Cursor, Grok and any command you configure | Claude Code and Codex, using your own subscription sign-in | Optional MCP tools for agents, off by default and approved by you per statement |
 
-Switch between them from the rail on the left; running terminals are preserved while you are in Thread.
+Switch between them from the rail on the left; running terminals are preserved while you are in Thread. OxeQuery is new in 0.17 and has had less real-world use than Code and Thread. See [OxeQuery](docs/OXEQUERY.md) for what it does and its current limits.
 
 ### Thread mode
 
@@ -88,7 +88,7 @@ Monaco editor and file tree · Find in Files (ripgrep) · scripts and background
 
 ## Install
 
-> **Status.** OXESpace is moving from `0.16.0-beta.8` to its first stable release. Betas remain available from the **Releases** page and are marked *Pre-release*.
+> **Status.** OXESpace is a `0.x` product. While the major version is `0`, a minor release may change behaviour and storage, and the notes of each release say so. Pre-releases are marked *Pre-release* on the **Releases** page. What a `1.0` will and will not promise is drafted in [Compatibility](docs/COMPATIBILITY.md).
 
 | Platform | Download | Updates |
 |---|---|---|
