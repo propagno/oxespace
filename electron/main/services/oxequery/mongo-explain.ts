@@ -36,7 +36,9 @@ function plannerOf(explain: Plan): { planner: Plan | null; stats: Plan | null } 
 /** What an explain says in words: the access path, the work done and what to look at. */
 export function summarizeExplain(explain: Plan, raw: string): MongoExplainSummary {
   const { planner, stats } = plannerOf(explain)
-  const winning = asRecord(planner?.winningPlan)
+  // MongoDB 8 wraps a slot-based plan: the stages a person cares about are under winningPlan.queryPlan.
+  const winningPlan = asRecord(planner?.winningPlan)
+  const winning = asRecord(winningPlan?.queryPlan) ?? winningPlan
   const stages = stagesOf(winning)
   const stage = ['COLLSCAN', 'IXSCAN', 'COUNT_SCAN', 'DISTINCT_SCAN'].find(name => stages.includes(name)) ?? stages[stages.length - 1] ?? 'unknown'
   const docsExamined = asNumber(stats?.totalDocsExamined)
