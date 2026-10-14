@@ -2,7 +2,7 @@ import { useState, type FormEvent, type ReactElement, type ReactNode } from 'rea
 import { CheckCircle2, ChevronDown, ChevronRight, Database, FileKey, Leaf, Link2, ShieldAlert, ShieldCheck, XCircle } from 'lucide-react'
 import type { AgentAccess, ConnectionEnvironment, DatabaseEngine, OxeQueryConnection, OxeQueryConnectionInput, PickKind, SshAuth, SslMode } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
-import { parseConnectionUrl } from './connection-url'
+import { buildConnectionUrl, parseConnectionUrl } from './connection-url'
 import { useOxeQueryStore } from './oxequery.store'
 
 const DEFAULT_PORT: Record<DatabaseEngine, number> = { postgres: 5432, mongodb: 27017 }
@@ -70,6 +70,9 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
   const [readOnly, setReadOnly] = useState(editing?.readOnly ?? true)
   const [url, setUrl] = useState('')
   const [urlError, setUrlError] = useState('')
+  // Like DBeaver's "Connect by" and Compass's URI box: a connection string or the separate fields.
+  // MongoDB users usually hold a URI, PostgreSQL users usually fill in a host.
+  const [mode, setMode] = useState<'host' | 'url'>('host')
 
   const [sslMode, setSslMode] = useState<SslMode>(editing?.sslMode ?? 'disable')
   const [ca, setCa] = useState<Picked | null>(null)
@@ -117,9 +120,19 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
     setName(current => current || `${value.username ? `${value.username}@` : ''}${value.host}${value.database ? `/${value.database}` : ''}`)
   }
 
+  const currentUrlParts = () => ({ engine, host, port: Number(port) || DEFAULT_PORT[engine], database, username, sslMode, mongo: { authSource, replicaSet, directConnection: direct, srv, extraHosts: extraHosts.split(/\r?\n|,/).map(entry => entry.trim()).filter(Boolean) } })
+  const switchMode = (next: 'host' | 'url'): void => {
+    if (next === mode) return
+    // Going to the string writes it from the fields (without the password); coming back keeps what the string filled in.
+    if (next === 'url' && !url.trim()) { setUrl(buildConnectionUrl(currentUrlParts())); setUrlError('') }
+    setMode(next)
+  }
+  const derivedName = `${username ? `${username}@` : ''}${host}${database ? `/${database}` : ''}`
+
   const chooseEngine = (next: DatabaseEngine): void => {
     if (recordId) return
     setEngine(next)
+    if (!url.trim()) setMode(next === 'mongodb' ? 'url' : 'host')
     setPort(current => (Number(current) === DEFAULT_PORT[engine] ? String(DEFAULT_PORT[next]) : current))
   }
 
@@ -129,7 +142,7 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
   const recordId = editing?.id ?? savedId
 
   const input = (): OxeQueryConnectionInput => ({
-    ...(recordId ? { id: recordId } : {}), name, engine, host, port: Number(port), database, username, sslMode, environment, readOnly,
+    ...(recordId ? { id: recordId } : {}), name: name.trim() || derivedName, engine, host, port: Number(port), database, username, sslMode, environment, readOnly,
     ...(editing?.containerRef ? { containerRef: editing.containerRef } : {}),
     ...(password ? { password } : {}), ...(clearPassword ? { clearPassword: true } : {}),
     ...(ca ? { caHandle: ca.handle } : {}), ...(clearCa ? { clearCa: true } : {}),
@@ -198,12 +211,20 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
           <Icon size={18} aria-hidden="true" /><span><strong>{label}</strong><small>{hint}</small></span></button>)}
       </section>}
 
-      {!editing && <label className="oq-url"><span><Link2 size={13} aria-hidden="true" /> Connection string <small>(optional — fills the form)</small></span>
-        <input value={url} onChange={event => applyUrl(event.target.value)} placeholder="postgres://user:password@localhost:5432/app" spellCheck={false} autoComplete="off" />
-        {urlError && <em role="alert">{urlError}</em>}</label>}
+      <div role="radiogroup" aria-label="Connect by" className="oq-segment oq-connect-by">
+        <span>Connect by</span>
+        <button type="button" role="radio" aria-checked={mode === 'host'} data-selected={mode === 'host'} onClick={() => switchMode('host')}>Host</button>
+        <button type="button" role="radio" aria-checked={mode === 'url'} data-selected={mode === 'url'} onClick={() => switchMode('url')}>URL</button>
+      </div>
+
+      {mode === 'url' && <label className="oq-url"><span><Link2 size={13} aria-hidden="true" /> Connection string</span>
+        <textarea rows={2} value={url} required onChange={event => applyUrl(event.target.value)} spellCheck={false} autoComplete="off" aria-label="Connection string"
+          placeholder={engine === 'mongodb' ? 'mongodb://user:password@localhost:27017/app' : 'postgres://user:password@localhost:5432/app'} />
+        {urlError ? <em role="alert">{urlError}</em> : <small>The password in the string is kept in the system's secure storage, not in the connection record. Pasting a string fills in the other settings.</small>}</label>}
 
       <div className="oq-form">
-        <label className="oq-form-wide">Name<input value={name} onChange={event => setName(event.target.value)} placeholder={engine === 'postgres' ? 'Local Postgres' : 'Local MongoDB'} required autoFocus /></label>
+        <label className="oq-form-wide">Name<input value={name} onChange={event => setName(event.target.value)} placeholder={derivedName.trim() && derivedName !== '127.0.0.1' ? derivedName : engine === 'postgres' ? 'Local Postgres' : 'Local MongoDB'} autoFocus /></label>
+        {mode === 'host' && <>
         <label>{srv ? 'Seed list host' : 'Host'}<input value={host} onChange={event => setHost(event.target.value)} required spellCheck={false} /></label>
         {!srv && <label>Port<input type="number" min={1} max={65535} value={port} onChange={event => setPort(event.target.value)} required /></label>}
         <label>User<input value={username} onChange={event => setUsername(event.target.value)} autoComplete="off" spellCheck={false} /></label>
@@ -212,6 +233,7 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
         <label className="oq-form-wide">Database<input value={database} onChange={event => setDatabase(event.target.value)} spellCheck={false}
           placeholder={engine === 'postgres' ? 'postgres' : 'optional'} /></label>
         {editing?.hasPassword && <label className="oq-check oq-form-wide"><input type="checkbox" checked={clearPassword} onChange={event => setClearPassword(event.target.checked)} />Remove the saved password</label>}
+        </>}
       </div>
 
       <section className="oq-safety" aria-label="Safety">

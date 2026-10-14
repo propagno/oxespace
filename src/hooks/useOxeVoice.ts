@@ -58,7 +58,19 @@ function toMicError(err: unknown): string {
 export function useOxeVoice({ enabled, onFinalText }: UseOxeVoiceOptions): UseOxeVoiceResult {
   const modelSize = useVoiceStore((s) => s.modelSize)
 
-  const supported = isSupportedRuntime()
+  const runtimeSupported = isSupportedRuntime()
+  // The speech engine ships only in some builds (not on Linux): without it the microphone
+  // would offer a feature that can only fail, so it is reported as unsupported up front.
+  const [engineReady, setEngineReady] = useState<boolean | null>(null)
+  useEffect(() => {
+    if (!enabled || !runtimeSupported) return
+    let cancelled = false
+    void Promise.resolve(window.oxe?.voice?.getModelStatus?.(modelSize))
+      .then(current => { if (!cancelled && current) setEngineReady(current.engineReady !== false) })
+      .catch(() => undefined)
+    return () => { cancelled = true }
+  }, [enabled, runtimeSupported, modelSize])
+  const supported = runtimeSupported && engineReady !== false
   const [status, setStatus] = useState<OxeVoiceStatus>(supported ? 'idle' : 'unsupported')
   const [error, setError] = useState<string | null>(null)
   const [level, setLevel] = useState(0)

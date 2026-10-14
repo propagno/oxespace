@@ -68,7 +68,7 @@ describe('Thread turns reach the usage ledger', () => {
     expect(summary.total).toMatchObject({ turns: 1, pricedTurns: 1, usd: 0.12, inputTokens: 30, outputTokens: 7 })
     expect(summary.byThread[0]).toMatchObject({ key: id })
     expect(summary.byThread[0].label).not.toBe('Deleted conversation')
-    expect(manager.read(id).thread.costReport).toMatchObject({ totalUsd: 0.12, source: 'claude-result' })
+    expect(manager.read(id).thread.costReport).toMatchObject({ totalUsd: 0.12, source: 'claude-result-step' })
     await manager.stop()
   })
 })

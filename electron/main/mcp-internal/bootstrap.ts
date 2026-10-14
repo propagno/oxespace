@@ -58,6 +58,7 @@ export interface InternalMcpDeps {
   delegationAgents?: () => unknown
   memory?: import('../services/memory/memory.service').MemoryService
   oxeQuery?: () => import('../services/oxequery/agent-gateway').AgentGateway | undefined
+  oxeQueryError?: () => string | undefined
   db: AppDatabase
   mcpManager: McpManager
   workspaceServ: WorkspaceService
@@ -92,6 +93,8 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
     documentation: () => documentation ??= import('../services/documentation/runtime').then(module => module.createDocumentationRuntime(deps.db, join(app.getPath('userData'), 'documentation'))).catch(error => { documentation = undefined; throw error }),
     delegation: deps.delegation, executions: deps.executions, delegationAgents: deps.delegationAgents, team: deps.team,
     memory: deps.memory,
+    oxeQuery: deps.oxeQuery,
+    oxeQueryError: deps.oxeQueryError,
     workspaceServ: deps.workspaceServ,
     github: deps.github,
     background: deps.background,

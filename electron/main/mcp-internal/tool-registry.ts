@@ -48,6 +48,8 @@ export interface ToolContext {
   memory?: import('../services/memory/memory.service').MemoryService
   /** OxeQuery's agent gateway, available once the service has started. */
   oxeQuery?: () => import('../services/oxequery/agent-gateway').AgentGateway | undefined
+  /** Why OxeQuery is not running, when it failed to start. */
+  oxeQueryError?: () => string | undefined
   memoryRunId?: string
   workspaceId: string | null
   workspaceServ: WorkspaceService

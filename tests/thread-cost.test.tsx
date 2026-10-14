@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { ClaudeConversationAdapter } from '../electron/main/services/conversation/claude-conversation'
-import { addTurnCost, readClaudeResultCost } from '../electron/main/services/conversation/thread-cost'
+import { addTurnCost, readClaudeResultCost, stepFromProcessTotal } from '../electron/main/services/conversation/thread-cost'
+import { repairLegacyCost } from '../shared/threadCostRepair'
 import { ThreadCostChip, formatThreadCost } from '../src/components/Threads/ThreadCostChip'
 import type { ThreadEvent } from '../shared/types/thread'
 
@@ -67,6 +68,46 @@ describe('Claude adapter reports turn cost', () => {
   })
 })
 
+describe('Claude adapter reports the cost of each turn, not the process total', () => {
+  function fixture() {
+    const turns: { data: (c: Uint8Array) => void; close: () => void }[] = []
+    const adapter = new ClaudeConversationAdapter(() => {
+      const turn = { data: (_c: Uint8Array) => {}, close: () => {} }
+      turns.push(turn)
+      return {
+        write: (text: string) => {
+          const m = JSON.parse(text) as Record<string, unknown>
+          if (m.type === 'control_request' && m.request_id === 'initialize') {
+            turn.data(Buffer.from(JSON.stringify({ type: 'control_response', response: { subtype: 'success', request_id: 'initialize', response: { commands: [], models: [] } } }) + '\n'))
+          }
+        },
+        onData: (cb: (c: Uint8Array) => void) => { turn.data = cb },
+        onClose: (cb: () => void) => { turn.close = cb },
+        close: vi.fn(async () => turn.close())
+      }
+    })
+    const events: ThreadEvent[] = []
+    return { adapter, turns, events, result: (index: number, total: number) => turns[index].data(Buffer.from(JSON.stringify({ type: 'result', subtype: 'success', total_cost_usd: total }) + '\n')) }
+  }
+  const usd = (events: ThreadEvent[]) => events.filter(event => event.type === 'turn-cost').map(event => (event as { usd?: number }).usd)
+
+  it('turns a running process total into per-turn amounts', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/p', nativeSessionId: 'n' }, event => f.events.push(event))
+    await f.adapter.send('one'); f.result(0, 0.5)
+    await f.adapter.send('two'); f.result(0, 1.2)
+    await f.adapter.send('three'); f.result(0, 2.0)
+    expect(usd(f.events)).toEqual([0.5, 0.7, 0.8])
+    await f.adapter.dispose()
+  })
+
+  it('counts a total that went down as a new process starting from zero', () => {
+    expect(stepFromProcessTotal(2.0, 0.3)).toEqual({ turnUsd: 0.3, total: 0.3 })
+    expect(stepFromProcessTotal(0, 0.5)).toEqual({ turnUsd: 0.5, total: 0.5 })
+    expect(stepFromProcessTotal(1.2, 2.0).turnUsd).toBeCloseTo(0.8)
+  })
+})
+
 describe('ThreadCostChip', () => {
   it('formats small amounts without showing a misleading zero', () => {
     expect(formatThreadCost(0)).toBe('US$ 0.00')
@@ -77,10 +118,28 @@ describe('ThreadCostChip', () => {
   it('renders nothing without a cost and an estimate label with one', () => {
     const { container, rerender } = render(<ThreadCostChip />)
     expect(container).toBeEmptyDOMElement()
-    rerender(<ThreadCostChip cost={{ totalUsd: 0.42, turns: 3, lastTurnUsd: 0.1, updatedAt: 1, source: 'claude-result' }} />)
+    rerender(<ThreadCostChip cost={{ totalUsd: 0.42, turns: 3, lastTurnUsd: 0.1, updatedAt: 1, source: 'claude-result-step' }} />)
     const chip = screen.getByLabelText('Custo estimado US$ 0.42')
     expect(chip).toHaveTextContent('≈ US$ 0.42')
     expect(chip.getAttribute('title')).toMatch(/Não é uma cobrança/)
     expect(chip.getAttribute('title')).toMatch(/3 turnos/)
+  })
+})
+
+describe('repairLegacyCost', () => {
+  it('replaces a sum of running totals by the last total, which is what the process had cost', () => {
+    const legacy = { totalUsd: 25935.06, turns: 40, lastTurnUsd: 4.2, updatedAt: 1, source: 'claude-result' as const }
+    expect(repairLegacyCost(legacy)).toMatchObject({ totalUsd: 4.2, source: 'claude-result-step', turns: 40 })
+  })
+
+  it('leaves reports written by the fixed code and Codex reports alone', () => {
+    const fixed = { totalUsd: 3, turns: 3, lastTurnUsd: 1, updatedAt: 1, source: 'claude-result-step' as const }
+    expect(repairLegacyCost(fixed)).toBe(fixed)
+    expect(repairLegacyCost(undefined)).toBeUndefined()
+  })
+
+  it('shows the repaired amount in the chip', () => {
+    const { container } = render(<ThreadCostChip cost={{ totalUsd: 19333.93, turns: 30, lastTurnUsd: 2.5, updatedAt: 1, source: 'claude-result' }} />)
+    expect(container).toHaveTextContent('US$ 2.50')
   })
 })

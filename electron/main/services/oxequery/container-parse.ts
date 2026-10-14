@@ -298,3 +298,30 @@ export function parseDiskUsage(stdout: string): DiskUsageRow[] {
     type: text(entry.Type), total: Number(entry.TotalCount ?? entry.Total) || 0, active: Number(entry.Active) || 0, size: text(entry.Size), reclaimable: text(entry.Reclaimable)
   })).filter(item => item.type)
 }
+
+
+export interface DockerContext { name: string; endpoint: string; current: boolean }
+
+/** `docker context ls --format '{{json .}}'`: one object per line. */
+export function parseContexts(stdout: string): DockerContext[] {
+  const out: DockerContext[] = []
+  for (const line of stdout.split(/\r?\n/)) {
+    if (!line.trim()) continue
+    try {
+      const value = JSON.parse(line) as { Name?: unknown; DockerEndpoint?: unknown; Current?: unknown }
+      if (typeof value.Name === 'string' && /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/.test(value.Name)) {
+        out.push({ name: value.Name, endpoint: typeof value.DockerEndpoint === 'string' ? value.DockerEndpoint : '', current: value.Current === true })
+      }
+    } catch { /* a line that is not JSON is not a context */ }
+  }
+  return out
+}
+
+/** Whether `docker ps` against one daemon worked, was refused for this user, or found nothing there. */
+export function classifyProbe(code: number, stderr: string): 'ready' | 'denied' | 'unreachable' {
+  if (code === 0) return 'ready'
+  return /permission denied|got permission denied/i.test(stderr) ? 'denied' : 'unreachable'
+}
+
+/** Only local sockets and pipes are contacted; an ssh:// or tcp:// context is somebody else's machine. */
+export const isLocalEndpoint = (endpoint: string): boolean => /^(unix:\/\/|npipe:\/\/)/.test(endpoint)

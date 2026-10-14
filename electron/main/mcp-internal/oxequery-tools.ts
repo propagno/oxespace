@@ -22,7 +22,10 @@ function tool(name: string, description: string, properties: Record<string, unkn
     requiresWorkspace: false,
     handler: async (args, ctx: ToolContext) => {
       const gateway = ctx.oxeQuery?.()
-      if (!gateway) throw new Error('OxeQuery is unavailable')
+      if (!gateway) {
+        const reason = ctx.oxeQueryError?.()
+        throw new Error(reason ? `OxeQuery is unavailable: ${reason}` : 'OxeQuery is unavailable')
+      }
       const execution = ctx.executions?.authenticate(ctx.executionId, ctx.executionToken, ctx.workspaceId)
       if (!execution) throw new Error('Call this tool from a live OXESpace agent execution')
       try {

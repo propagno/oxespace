@@ -5,6 +5,7 @@ import { TerminalPane } from '../Panes/TerminalPane'
 import { errorMessage, oq } from './client'
 import { useOxeQueryStore } from './oxequery.store'
 import { NewDatabaseDialog, ResourcesPanel } from './ResourcesPanel'
+import { EngineBar } from './EngineBar'
 
 const STATS_MS = 5000
 const COMPOSE_LABEL = 'com.docker.compose.project'
@@ -128,6 +129,7 @@ export function ContainersPanel({ active }: { active: boolean }): ReactElement {
       {loading && <span className="oq-muted">Updating…</span>}</div>}
     {connections.length === 0 && databaseContainers > 0 && <p className="oq-hint" role="note">
       <Database size={14} aria-hidden="true" /> To query a database, press <strong>Query</strong> on a PostgreSQL or MongoDB container below, or use <strong>New connection</strong> for a server that is not in a container.</p>}
+    <EngineBar active={active} shown={containers.length} />
     {notice && <p role="alert" className="oq-error">{notice}</p>}
     {remoteContext && <p className="oq-hint" role="note">Docker context <strong>{remoteContext}</strong> is active. Everything here — including stop, remove and run command — acts on that host, not on this computer.</p>}
     {pendingAction && <div className="oq-confirm" role="alertdialog" aria-label="Confirm container action">

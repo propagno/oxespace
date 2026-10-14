@@ -100,7 +100,7 @@ describe('useOxeVoice', () => {
   })
 
   test('downloads the model on first use before listening', async () => {
-    ;(window.oxe.voice.getModelStatus as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    ;(window.oxe.voice.getModelStatus as ReturnType<typeof vi.fn>).mockResolvedValue({
       size: 'base', ready: false, path: 'x', engineReady: true
     })
     const user = userEvent.setup()

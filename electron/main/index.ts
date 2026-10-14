@@ -268,6 +268,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   registerSessionIpc(db)
   // OxeQuery: container runtime + database worker. Loaded lazily so its code stays out of the entry chunk.
   let oxeQueryAgent: import('./services/oxequery/agent-gateway').AgentGateway | undefined
+  let oxeQueryStartupError: string | undefined
   try {
     const [{ OxeQueryService }, { OxeQueryWorkerClient }, { registerOxeQueryIpc, broadcastOxeQueryEvent }, { LocalExecutionHost }] = await Promise.all([
       import('./services/oxequery/service'), import('./services/oxequery/worker-client'), import('./ipc/oxequery.ipc'), import('./runtime/execution-host')
@@ -275,7 +276,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     const oxeQuery = new OxeQueryService({
       db, host: new LocalExecutionHost(), emit: broadcastOxeQueryEvent,
       cipher: { available: () => safeStorage.isEncryptionAvailable(), encrypt: value => safeStorage.encryptString(value), decrypt: value => safeStorage.decryptString(value) },
-      worker: new OxeQueryWorkerClient(join(app.getAppPath(), 'out', 'main', 'oxequery-worker.js')),
+      worker: new OxeQueryWorkerClient(join(app.getAppPath(), 'out', 'main', 'oxequery-worker.js'), undefined, detail => log.error('OxeQuery worker failed', detail)),
       pickFile: (await import('./services/oxequery/file-picker')).pickCredentialFile,
       pickSavePath: (await import('./services/oxequery/file-picker')).pickExportPath,
       pickImportPath: (await import('./services/oxequery/file-picker')).pickImportPath,
@@ -285,7 +286,13 @@ async function registerIpcHandlers(): Promise<() => void> {
     oxeQueryShells.shellFor = paneId => oxeQuery.shellFor(paneId)
     registerOxeQueryIpc(oxeQuery)
     app.once('before-quit', () => { void oxeQuery.dispose() })
-  } catch (error) { log.warn('OxeQuery unavailable', error) }
+  } catch (error) {
+    log.warn('OxeQuery unavailable', error)
+    const { describeStartupFailure } = await import('./services/oxequery/startup-failure')
+    oxeQueryStartupError = describeStartupFailure(error)
+    // The view asks through this channel; answer with the reason instead of "no handler registered".
+    ipcMain.handle(IPC_CHANNELS.oxeQuery.call, () => ({ ok: false, error: { code: 'failed', message: `OxeQuery did not start: ${oxeQueryStartupError}` } }))
+  }
   const { registerThreadIpc } = await import('./ipc/thread.ipc')
   const delegatedThreadObserver: { current?: (thread: import('../../shared/types/thread').ConversationThread) => void } = {}
   const threadManager = registerThreadIpc(db, {
@@ -412,6 +419,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     }),
     memory: memoryService,
     oxeQuery: () => oxeQueryAgent,
+    oxeQueryError: () => oxeQueryStartupError,
     db,
     mcpManager,
     workspaceServ: internalMcpWorkspaceServ,
