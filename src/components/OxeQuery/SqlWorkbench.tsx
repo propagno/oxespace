@@ -62,7 +62,13 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
     let alive = true
     oq('workspace.load', { connectionId: connection.id }).then(({ state }) => {
       if (!alive) return
-      if (state) { const restored = restoreWorkspace(state); setTabs(restored.tabs); setActiveId(restored.activeId); setPinned(restored.pinned) }
+      if (state) {
+        const restored = restoreWorkspace(state)
+        setTabs(restored.tabs); setActiveId(restored.activeId); setPinned(restored.pinned)
+        // The editor is keyed by tab id, so it is only reused (and needs the text) when the id happens to be the same.
+        const shown = restored.tabs.find(tab => tab.id === restored.activeId)
+        if (shown && editor.current && activeRef.current.id === shown.id && editor.current.getValue() !== shown.sql) editor.current.setValue(shown.sql)
+      }
       setLoaded(true)
     }, () => { if (alive) setLoaded(true) })
     return () => { alive = false }
@@ -82,16 +88,15 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   const loadedRef = useRef(false)
   loadedRef.current = loaded
 
-  // The editor owns its text while a person types (a controlled value drops keystrokes that arrive
-  // between a render and its state); text that comes from elsewhere (the library, a definition) is pushed in.
-  const typed = useRef({ id: active.id, text: active.sql })
-  useEffect(() => {
+  // The editor owns its text while a person types: a controlled value drops keystrokes that arrive between a
+  // render and its state, and so would comparing state with the editor to decide whether to push (state lags
+  // behind the editor while keys are still coming in). Text that comes from elsewhere (the library, a restored
+  // workspace) is therefore pushed in on purpose, here, and never inferred.
+  const replaceText = useCallback((id: string, text: string): void => {
+    patch(id, { sql: text })
     const instance = editor.current
-    // Text the editor itself produced is already there; only a change from elsewhere is pushed in.
-    if (typed.current.id === active.id && typed.current.text === active.sql) return
-    typed.current = { id: active.id, text: active.sql }
-    if (instance && instance.getValue() !== active.sql) instance.setValue(active.sql)
-  }, [active.id, active.sql])
+    if (instance && activeRef.current.id === id && instance.getValue() !== text) instance.setValue(text)
+  }, [patch])
 
   // ---- transaction state ---------------------------------------------------------------------------
   const refreshTx = useCallback(async (): Promise<void> => {
@@ -225,7 +230,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
     setTabs(current => [...current, tab]); setActiveId(tab.id); setSelectedRow(null); setCell(null)
   }
   const closeTab = (id: string): void => {
-    if (tabs.length === 1) { patch(id, { sql: '', outputs: [], outputIndex: 0, browse: null, details: null, explain: null }); return }
+    if (tabs.length === 1) { patch(id, { outputs: [], outputIndex: 0, browse: null, details: null, explain: null }); replaceText(id, ''); return }
     const index = tabs.findIndex(tab => tab.id === id)
     const next = tabs.filter(tab => tab.id !== id)
     setTabs(next)
@@ -263,14 +268,14 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
         <button type="button" onClick={cancel} disabled={!running} title="Cancel the running statement"><Square size={13} aria-hidden="true" />Cancel</button>
         <button type="button" onClick={format} title="Format the SQL (Shift+Alt+F)">Format</button>
         <label className="oq-inline">Limit<select value={maxRows} onChange={event => setMaxRows(Number(event.target.value))}>{[...new Set([...ROW_LIMITS, connection.maxRows])].sort((a, b) => a - b).map(value => <option key={value} value={value}>{value.toLocaleString('en-US')} rows</option>)}</select></label>
-        <LibraryMenu connection={connection} currentSql={active.sql} refreshKey={libraryTick} onPick={sql => patch(active.id, { sql })} />
+        <LibraryMenu connection={connection} currentSql={active.sql} refreshKey={libraryTick} onPick={sql => replaceText(active.id, sql)} />
         {!connection.readOnly && <TxBar state={tx} busy={running} onAction={action => void txAction(action)} />}
         <span className="oq-spacer" />
         <span className="oq-badge" data-environment={connection.environment}>{connection.environment}</span>
         <span className="oq-badge" data-readonly={connection.readOnly} title={connection.readOnly ? 'The server refuses statements that change data' : 'This connection can change data'}>{connection.readOnly ? 'read-only' : 'read-write'}</span>
       </div>
       {notice && <p role="alert" className="oq-error oq-notice">{notice}</p>}
-      <div className="oq-editor"><Editor key={active.id} height="100%" language="sql" theme={MONACO_THEME} defaultValue={active.sql} onChange={value => { typed.current = { id: active.id, text: value ?? '' }; patch(active.id, { sql: value ?? '' }) }}
+      <div className="oq-editor"><Editor key={active.id} height="100%" language="sql" theme={MONACO_THEME} defaultValue={active.sql} onChange={value => patch(active.id, { sql: value ?? '' })}
         onMount={(instance, monaco) => {
           editor.current = instance; monacoRef.current = monaco; bindCompletion(monaco, connection); registerSqlExtras(monaco)
           instance.onDidFocusEditorText(() => bindCompletion(monaco, connection))

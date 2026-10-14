@@ -18,6 +18,9 @@ test('typing in the SQL editor keeps every character', async () => {
     await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
     await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
     await expect(page.getByRole('tab', { name: 'pg-dev' })).toBeVisible()
+    // A slow machine renders late while keys keep arriving; this is how a CI runner behaves, so the test asks for it.
+    const session = await page.context().newCDPSession(page)
+    await session.send('Emulation.setCPUThrottlingRate', { rate: 6 })
     const text = 'SELECT id, name FROM users WHERE id = 1 AND name LIKE ' + "'a%'" + ' ORDER BY id'
     for (let round = 0; round < 3; round++) {
       await page.locator('.oq-editor .monaco-editor').click()
