@@ -49,6 +49,8 @@ export interface MemoryWorkspaceStatus {
   rollbackAvailable?: boolean
   outbox?: { pending: number; quarantined: number; bytes: number; refused: number; stored: number; replayed: number; dropped: number; failed: number; oldestAt?: number; lastDeliveredAt?: number; lastFailureAt?: number }
 }
+/** Physical bytes per top-level entry of the memory directory. Informational only: nothing here is deleted by the app. */
+export interface MemoryStorageUsage { categories: Record<string, number>; totalBytes: number; truncated: boolean; measuredAt: number }
 export type MemoryReply<T> = { status: 'ok'; value: T } | { status: 'disabled' | 'unavailable'; message: string }
 export interface MemoryApi {
   status(workspaceId: string): Promise<MemoryWorkspaceStatus>
@@ -58,6 +60,7 @@ export interface MemoryApi {
   setupAgents(workspaceId: string): Promise<string>
   search(input: { workspaceId: string; query: string }): Promise<MemoryReply<MemoryResult[]>>
   recent(workspaceId: string): Promise<MemoryReply<MemoryResult[]>>
+  storage(): Promise<MemoryStorageUsage>
   /** Offers are listed without being consumed. */
   handoffs(workspaceId: string): Promise<MemoryReply<MemoryHandoff[]>>
   /** Consumes exactly this offer; stale or already accepted offers are refused. */

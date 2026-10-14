@@ -4,7 +4,7 @@ import { mkdir, readFile, writeFile, copyFile, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import type { AppDatabase } from '../../db'
-import type { MemoryApi, MemoryContext, MemorySession, MemoryWorkspaceStatus } from '../../../../shared/types/memory'
+import type { MemoryApi, MemoryContext, MemorySession, MemoryStorageUsage, MemoryWorkspaceStatus } from '../../../../shared/types/memory'
 import type { ThreadEvent, ThreadSnapshot } from '../../../../shared/types/thread'
 import { MemoryProjectService, projectIdentity } from './memory-project.service'
 import { MemoryRuntime, memoryEnvironment, writePrivateJson } from './memory-runtime'
@@ -15,6 +15,7 @@ import { McpConfigSync } from '../mcp-sync.service'
 import { buildTomlTable } from '../../vendor/codegraph/installer/targets/toml'
 import { matchingMemoryMarker } from './memory-marker'
 import { MemoryOutbox, type MemoryDelivery } from './memory-outbox'
+import { measureMemoryStorage } from './memory-storage'
 import { MemoryDeliveryWorker } from './memory-delivery'
 
 interface Run {
@@ -137,6 +138,14 @@ export class MemoryService implements MemoryApi {
   async recent(workspaceId: string) {
     const context = await this.projects.workspace(workspaceId)
     return this.manager.run(context, provider => provider.recent(context))
+  }
+  private storageCache: { at: number; value: MemoryStorageUsage } | undefined
+  /** Cached for a minute: a scan is bounded but not free. */
+  async storage(): Promise<MemoryStorageUsage> {
+    if (this.storageCache && Date.now() - this.storageCache.at < 60_000) return this.storageCache.value
+    const value = await measureMemoryStorage(this.runtime.directory)
+    this.storageCache = { at: Date.now(), value }
+    return value
   }
   async handoffs(workspaceId: string) {
     const context = await this.projects.workspace(workspaceId)

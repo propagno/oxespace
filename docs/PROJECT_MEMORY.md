@@ -177,6 +177,7 @@ later boundaries, but finalization/consolidation is not guaranteed after a crash
   to the chosen agent: a cloud-backed Claude/Codex session may send it to its
   vendor. Enabling automatic context is consent for that agent-context flow, not
   for silently adding an external memory summarizer/embedding provider.
+- Settings shows a read-only disk inventory of the memory directory (bounded scan, links not followed, cached for a minute). The app never deletes or compacts it; there is no cleanup action in this release.
 - Disabling memory prevents new integration operations; it does not delete past
   knowledge or withdraw events already admitted to the native spool. Hooks and
   marker files remain inert until re-enabled. Runtime files and knowledge are

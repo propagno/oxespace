@@ -120,3 +120,19 @@ describe('WorkspaceMemorySettings resume', () => {
     expect(screen.getByText(/No handoff offers/)).toBeInTheDocument()
   })
 })
+
+describe('WorkspaceMemorySettings storage', () => {
+  test('shows a read-only disk inventory and a partial-scan marker', async () => {
+    const status = { projectId: 'project', sessions: [], settings: { enabled: true, automaticCapture: false, automaticContext: false },
+      runtime: { mode: 'managed', executable: 'ai-memory', url: 'http://127.0.0.1:49374' }, health: { status: 'ready' } }
+    const storage = vi.fn(async () => ({ categories: { data: 5 * 1024 * 1024, outbox: 2048 }, totalBytes: 5 * 1024 * 1024 + 2048, truncated: true, measuredAt: Date.now() }))
+    vi.stubGlobal('oxe', { memory: { status: vi.fn(async () => status), storage, handoffs: vi.fn(async () => ({ status: 'ok', value: [] })) } })
+    render(<WorkspaceMemorySettings workspaceId="ws" />)
+    const line = await screen.findByText(/Disk used by memory/)
+    expect(line).toHaveTextContent('5.0 MiB+')
+    expect(line).toHaveTextContent('data 5.0 MiB')
+    expect(line).toHaveTextContent('outbox 2.0 KiB')
+    expect(line).toHaveTextContent('partial scan')
+    expect(line).toHaveTextContent('never deletes')
+  })
+})

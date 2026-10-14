@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import './WorkspaceMemorySettings.css'
-import type { MemoryHandoff, MemorySettings, MemoryRuntimeSettings, MemoryWorkspaceStatus } from '../../../shared/types/memory'
+import type { MemoryHandoff, MemoryStorageUsage, MemorySettings, MemoryRuntimeSettings, MemoryWorkspaceStatus } from '../../../shared/types/memory'
 import { Button, Checkbox, Select, TextField } from '../../ui'
 
 const STAGE_LABEL: Record<string, string> = {
@@ -8,6 +8,13 @@ const STAGE_LABEL: Record<string, string> = {
   idle: 'Nothing waiting', pending: 'Waiting to send', delivering: 'Sending', running: 'Running'
 }
 const POLL_MS = 10_000
+
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`
+  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MiB`
+  return `${(bytes / 1024 ** 3).toFixed(2)} GiB`
+}
 
 export function formatAge(from: number | undefined, now: number): string {
   if (!from) return 'never'
@@ -35,6 +42,7 @@ export function WorkspaceMemorySettings({ workspaceId }: { workspaceId: string }
   const [memories, setMemories] = useState<string[]>([])
   const [now, setNow] = useState(() => Date.now())
   const [offers, setOffers] = useState<{ state: 'idle' | 'loading' | 'error'; items: MemoryHandoff[]; error?: string }>({ state: 'idle', items: [] })
+  const [storage, setStorage] = useState<MemoryStorageUsage | null>(null)
   const [dismissed, setDismissed] = useState<string[]>([])
   const [resumed, setResumed] = useState<MemoryHandoff | null>(null)
   useEffect(() => {
@@ -61,6 +69,13 @@ export function WorkspaceMemorySettings({ workspaceId }: { workspaceId: string }
     else setOffers({ state: 'idle', items: [] })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId, memoryReady])
+  useEffect(() => {
+    setStorage(null)
+    if (!status?.settings.enabled || typeof window.oxe?.memory?.storage !== 'function') return
+    let alive = true
+    void window.oxe.memory.storage().then(value => { if (alive) setStorage(value) }).catch(() => {})
+    return () => { alive = false }
+  }, [workspaceId, status?.settings.enabled])
   const available = offers.items.filter(offer => offer.state !== 'accepted' && !dismissed.includes(offer.id))
   // One status read at a time, only while the panel is visible and memory is on.
   useEffect(() => {
@@ -145,6 +160,7 @@ export function WorkspaceMemorySettings({ workspaceId }: { workspaceId: string }
       <div><dt>Consolidation</dt><dd>{STAGE_LABEL[status.health.pipeline.consolidation]}</dd></div>
     </dl>}
     {status?.outbox && <p>Local memory queue (all projects): {status.outbox.pending} pending{status.outbox.pending > 0 && status.outbox.oldestAt ? ` (oldest ${formatAge(status.outbox.oldestAt, now)})` : ''} · {status.outbox.quarantined} quarantined · {status.outbox.refused} refused · {Math.ceil(status.outbox.bytes / 1024)} KiB used · last delivery {formatAge(status.outbox.lastDeliveredAt, now)}{status.outbox.lastFailureAt ? ` · last failure ${formatAge(status.outbox.lastFailureAt, now)}` : ''}</p>}
+    {storage && <p>Disk used by memory (read-only, this app never deletes it): {formatBytes(storage.totalBytes)}{storage.truncated ? '+' : ''}{Object.entries(storage.categories).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([name, bytes]) => ` · ${name} ${formatBytes(bytes)}`).join('')}{storage.truncated ? ' (partial scan)' : ''}</p>}
     {status && <p><button type="button" onClick={() => void navigator.clipboard?.writeText(diagnosticsReport(status, Date.now())).then(() => setMessage('Sanitized diagnostics copied (counts and timestamps only).')).catch(() => setMessage('Could not copy diagnostics.'))}>Copy diagnostics</button></p>}
     {message && <p className="memory-feedback" role={failure ? 'alert' : 'status'}>{message}</p>}
     {memories.length > 0 && <details><summary>Recent memories</summary>{memories.map((item, index) => <pre key={index} style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{item}</pre>)}</details>}
