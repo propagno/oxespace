@@ -57,9 +57,9 @@
 .oq-table tbody tr:hover, .oq-table tbody tr.is-selected { background: color-mix(in srgb, var(--tx-primary) 5%, transparent); }
 .oq-link { padding: 0; border: 0; color: var(--tx-primary); background: transparent; font-weight: 500; cursor: pointer; }
 .oq-state { display: inline-block; margin-right: 8px; padding: 1px 8px; border-radius: var(--radius-pill, 999px); font-size: var(--fs-2xs); background: var(--ov-3, #8884); }
-.oq-state[data-state='running'] { color: var(--dot-green, #4ade80); background: color-mix(in srgb, var(--dot-green, #4ade80) 16%, transparent); }
+.oq-state[data-state='running'] { color: var(--intent-success-fg); background: var(--intent-success-bg); }
 .oq-state[data-state='exited'], .oq-state[data-state='dead'] { color: var(--tx-muted); }
-.oq-state[data-state='paused'], .oq-state[data-state='restarting'] { color: var(--dot-yellow, #facc15); }
+.oq-state[data-state='paused'], .oq-state[data-state='restarting'] { color: var(--intent-warning-fg); background: var(--intent-warning-bg); }
 .oq-actions { display: flex; gap: 4px; justify-content: flex-end; }
 .oq-actions button { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 9px; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); color: inherit; background: transparent; font-size: var(--fs-xs); white-space: nowrap; cursor: pointer; }
 .oq-actions button:hover { background: color-mix(in srgb, var(--tx-primary) 8%, transparent); }
