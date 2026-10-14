@@ -136,7 +136,7 @@ export class OxeQueryService {
     const input = record(rawInput ?? {})
     switch (op) {
       case 'system.ping': return this.worker.call('ping')
-      case 'containers.engines': return this.containers.engines(true)
+      case 'containers.engines': return this.containers.engines(input.refresh === true)
       case 'containers.candidates': return this.containers.candidates()
       case 'containers.useCandidate': return this.containers.useCandidate(input && typeof input === 'object' && typeof (input as { id?: unknown }).id === 'string' ? (input as { id: string }).id : null)
       case 'containers.list': return this.containers.list(engine(input.engine))

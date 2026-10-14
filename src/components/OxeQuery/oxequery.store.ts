@@ -34,6 +34,7 @@ interface OxeQueryState {
 const CONTAINERS: OxeQueryTab = { id: 'containers', kind: 'containers', title: 'Containers' }
 const ACTIVITY: OxeQueryTab = { id: 'activity', kind: 'activity', title: 'Activity' }
 let containerRequest = 0
+let refreshCount = 0
 
 export const useOxeQueryStore = create<OxeQueryState>((set, get) => ({
   engines: [], containers: [], containersError: null, containersLoading: false, connections: [], connectionsError: null,
@@ -51,7 +52,13 @@ export const useOxeQueryStore = create<OxeQueryState>((set, get) => ({
       if (request !== containerRequest) return
       set({ containers: [], containersError: errorMessage(error), containersLoading: false })
     }
-    try { set({ engines: await oq('containers.engines', {}) }) } catch { /* the list error already explains it */ }
+    // Asking the Docker CLI about its own version and daemon costs several processes. While the list
+    // works, once in a while is enough; when it fails, every refresh looks again (the user may have
+    // just started Docker).
+    refreshCount++
+    if (get().containersError || get().engines.length === 0 || refreshCount % 10 === 0) {
+      try { set({ engines: await oq('containers.engines', { refresh: !!get().containersError }) }) } catch { /* the list error already explains it */ }
+    }
   },
 
   refreshConnections: async () => {

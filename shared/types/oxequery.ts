@@ -439,7 +439,7 @@ export interface KnownHost { host: string; port: number; fingerprint: string; fi
 export interface OxeQueryOps {
   /** Proves the database worker loads and its bundled drivers are present. */
   'system.ping': { input: Record<string, never>; output: { ok: true; drivers: { postgres: boolean; mongodb: boolean; ssh: boolean }; node: string } }
-  'containers.engines': { input: Record<string, never>; output: ContainerEngineInfo[] }
+  'containers.engines': { input: { refresh?: boolean }; output: ContainerEngineInfo[] }
   'containers.candidates': { input: Record<string, never>; output: ContainerEngineCandidate[] }
   'containers.useCandidate': { input: { id: string | null }; output: ContainerEngineCandidate[] }
   'containers.list': { input: { engine?: ContainerEngine }; output: { engine: ContainerEngine; containers: ContainerSummary[] } }
