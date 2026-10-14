@@ -141,8 +141,15 @@ describe.skipIf(!binary)('AI Memory native contract', () => {
     const brief = await provider.getRelevantContext(ctx, 'HandoffCanary')
     expect(brief.text.length).toBeLessThanOrEqual(4000)
     expect(await provider.listHandoffs(ctx)).toEqual(before)
-    await provider.acceptHandoff(ctx)
-    await eventually(async () => (await provider.listHandoffs(ctx)).some(h => h.state === 'accepted'))
+    const offer = before.find(h => h.state !== 'accepted')!
+    if ((await client.capabilities()).exactHandoff) {
+      await provider.acceptHandoff(ctx, offer.id)
+      await eventually(async () => (await provider.listHandoffs(ctx)).some(h => h.id === offer.id && h.state === 'accepted'))
+    } else {
+      // A server that cannot honour the id must not consume anything on our behalf.
+      await expect(provider.acceptHandoff(ctx, offer.id)).rejects.toThrow('cannot accept a specific handoff')
+      expect((await provider.listHandoffs(ctx)).some(h => h.state === 'accepted')).toBe(false)
+    }
   }, 30000)
   test('concurrent automatic capture respects project scope even when actor activity switches', async () => {
     const a = await context('capture-a', 'claude-code')
