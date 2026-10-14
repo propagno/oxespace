@@ -101,6 +101,29 @@ describe('durable memory outbox', () => {
 })
 
 describe('batch delivery', () => {
+  test('reports the oldest pending event and delivery timestamps for diagnostics', async () => {
+    const outbox = await queue()
+    expect(outbox.stats().oldestAt).toBeUndefined()
+    const base = Date.now() - 60_000
+    const older = record('older', 'native-1', base)
+    await outbox.admit(record('newer', 'native-1', base + 4_000))
+    await outbox.admit(older)
+    expect(outbox.stats().oldestAt).toBe(base)
+    const hookBatch = vi.fn(async () => ({ status: 500, body: {} }))
+    let now = base + 70_000
+    const worker = new MemoryDeliveryWorker(outbox, () => ({ hookBatch }) as unknown as AiMemoryClient, undefined, () => now)
+    try {
+      await worker.flush()
+      expect(worker.stats()).toMatchObject({ state: 'failed', lastFailureAt: base + 70_000 })
+      expect(worker.stats().lastDeliveredAt).toBeUndefined()
+      hookBatch.mockImplementation(async () => ({ status: 200, body: { accepted: 2 } }))
+      now = base + 200_000
+      await worker.flush()
+      expect(worker.stats().lastDeliveredAt).toBe(base + 200_000)
+      expect(outbox.stats().oldestAt).toBeUndefined()
+    } finally { await worker.stop() }
+  })
+
   test('does not lose a wakeup admitted while an empty scan is completing', async () => {
     const outbox = await queue()
     let release!: () => void

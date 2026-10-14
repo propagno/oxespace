@@ -44,7 +44,7 @@ export interface MemoryWorkspaceStatus {
   health: MemoryHealth
   sessions: MemorySession[]
   rollbackAvailable?: boolean
-  outbox?: { pending: number; quarantined: number; bytes: number; refused: number; stored: number; replayed: number; dropped: number; failed: number }
+  outbox?: { pending: number; quarantined: number; bytes: number; refused: number; stored: number; replayed: number; dropped: number; failed: number; oldestAt?: number; lastDeliveredAt?: number; lastFailureAt?: number }
 }
 export type MemoryReply<T> = { status: 'ok'; value: T } | { status: 'disabled' | 'unavailable'; message: string }
 export interface MemoryApi {

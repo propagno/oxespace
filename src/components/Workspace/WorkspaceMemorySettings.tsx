@@ -3,6 +3,27 @@ import './WorkspaceMemorySettings.css'
 import type { MemorySettings, MemoryRuntimeSettings, MemoryWorkspaceStatus } from '../../../shared/types/memory'
 import { Button, Checkbox, Select, TextField } from '../../ui'
 
+const STAGE_LABEL: Record<string, string> = {
+  unknown: 'Unknown (not observable)', disabled: 'Off', active: 'Accepting events', suspended: 'Suspended', failed: 'Failing',
+  idle: 'Nothing waiting', pending: 'Waiting to send', delivering: 'Sending', running: 'Running'
+}
+const POLL_MS = 10_000
+
+export function formatAge(from: number | undefined, now: number): string {
+  if (!from) return 'never'
+  const seconds = Math.max(0, Math.round((now - from) / 1000))
+  if (seconds < 60) return `${seconds}s ago`
+  if (seconds < 3600) return `${Math.round(seconds / 60)} min ago`
+  return `${Math.round(seconds / 3600)} h ago`
+}
+
+/** Counts and timestamps only — never memory content, tokens or paths. */
+export function diagnosticsReport(status: MemoryWorkspaceStatus, now: number): string {
+  return JSON.stringify({ generatedAt: new Date(now).toISOString(), projectId: status.projectId, settings: status.settings, runtimeMode: status.runtime.mode,
+    health: { status: status.health.status, errorCode: status.health.errorCode, pipeline: status.health.pipeline }, outbox: status.outbox,
+    openSessions: status.sessions.filter(s => !s.ended).length }, null, 2)
+}
+
 export function WorkspaceMemorySettings({ workspaceId }: { workspaceId: string }): ReactElement {
   const [status, setStatus] = useState<MemoryWorkspaceStatus | null>(null)
   const [settings, setSettings] = useState<MemorySettings>({ enabled: false, automaticCapture: false, automaticContext: false })
@@ -12,6 +33,7 @@ export function WorkspaceMemorySettings({ workspaceId }: { workspaceId: string }
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState(false)
   const [memories, setMemories] = useState<string[]>([])
+  const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     let alive = true
     setStatus(null)
@@ -23,6 +45,18 @@ export function WorkspaceMemorySettings({ workspaceId }: { workspaceId: string }
     }).catch(() => { if (alive) setMessage('Memory service is unavailable') })
     return () => { alive = false }
   }, [workspaceId])
+  // One status read at a time, only while the panel is visible and memory is on.
+  useEffect(() => {
+    if (!status?.settings.enabled || !window.oxe?.memory) return
+    let alive = true
+    let reading = false
+    const timer = setInterval(() => {
+      if (reading || document.hidden) return
+      reading = true
+      void window.oxe.memory.status(workspaceId).then(value => { if (alive) { setStatus(current => current && JSON.stringify(current.settings) === JSON.stringify(value.settings) ? value : current); setNow(Date.now()) } }).catch(() => {}).finally(() => { reading = false })
+    }, POLL_MS)
+    return () => { alive = false; clearInterval(timer) }
+  }, [workspaceId, status?.settings.enabled])
   const act = async (fn: () => Promise<void>): Promise<void> => {
     setBusy(true); setMessage(''); setFailure(false)
     try { await fn() } catch (error) { setFailure(true); setMessage(error instanceof Error ? error.message : 'Memory operation failed') }
@@ -65,7 +99,13 @@ export function WorkspaceMemorySettings({ workspaceId }: { workspaceId: string }
     </fieldset>
     <p className="memory-next-step">{dirty ? 'Unsaved changes. Apply memory settings before configuring agents.' : !status?.settings.enabled ? 'To get started: download the runtime, select Enabled, then apply settings.' : status.health.status !== 'ready' ? 'The service must be ready before agent setup. Check the error above and apply again.' : 'Configure Claude / Codex, then open new agent terminals and approve their hooks and MCP tools.'}</p>
     {status && <p>Project: {status.projectId} · Connected sessions: {status.sessions.filter(s => !s.ended).length}</p>}
-    {status?.outbox && <p>Local memory queue (all projects): {status.outbox.pending} pending · {status.outbox.quarantined} quarantined · {status.outbox.refused} refused · {Math.ceil(status.outbox.bytes / 1024)} KiB used</p>}
+    {status?.health.pipeline && <dl className="memory-pipeline" aria-label="Memory pipeline">
+      <div><dt>Capture</dt><dd>{STAGE_LABEL[status.health.pipeline.capture]}</dd></div>
+      <div><dt>Delivery to memory service</dt><dd>{STAGE_LABEL[status.health.pipeline.delivery]}</dd></div>
+      <div><dt>Consolidation</dt><dd>{STAGE_LABEL[status.health.pipeline.consolidation]}</dd></div>
+    </dl>}
+    {status?.outbox && <p>Local memory queue (all projects): {status.outbox.pending} pending{status.outbox.pending > 0 && status.outbox.oldestAt ? ` (oldest ${formatAge(status.outbox.oldestAt, now)})` : ''} · {status.outbox.quarantined} quarantined · {status.outbox.refused} refused · {Math.ceil(status.outbox.bytes / 1024)} KiB used · last delivery {formatAge(status.outbox.lastDeliveredAt, now)}{status.outbox.lastFailureAt ? ` · last failure ${formatAge(status.outbox.lastFailureAt, now)}` : ''}</p>}
+    {status && <p><button type="button" onClick={() => void navigator.clipboard?.writeText(diagnosticsReport(status, Date.now())).then(() => setMessage('Sanitized diagnostics copied (counts and timestamps only).')).catch(() => setMessage('Could not copy diagnostics.'))}>Copy diagnostics</button></p>}
     {message && <p className="memory-feedback" role={failure ? 'alert' : 'status'}>{message}</p>}
     {memories.length > 0 && <details><summary>Recent memories</summary>{memories.map((item, index) => <pre key={index} style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{item}</pre>)}</details>}
   </section>

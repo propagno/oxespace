@@ -80,9 +80,16 @@ export class MemoryService implements MemoryApi {
       if (health.status === 'unavailable' && this.runtime.lastError) health.message = this.runtime.lastError
     }
     if (!outboxReady && settings.enabled) health.message = 'Thread memory queue is unavailable; automatic external capture is disabled'
+    const delivery = this.delivery.stats()
+    // Only stages this process can observe are reported; consolidation stays unknown on purpose.
+    health.pipeline = {
+      capture: !settings.enabled || !settings.automaticCapture ? 'disabled' : outboxReady ? 'active' : 'failed',
+      delivery: !settings.enabled ? 'unknown' : delivery.state,
+      consolidation: 'unknown'
+    }
     return { projectId: context.projectId, settings, runtime: this.runtime.settings(), health,
       rollbackAvailable: await this.runtime.rollbackAvailable(),
-      ...(outboxReady ? { outbox: { ...this.outbox.stats(), ...this.delivery.stats() } } : {}),
+      ...(outboxReady ? { outbox: { ...this.outbox.stats(), ...delivery } } : {}),
       sessions: [...this.runs.values()].filter(run => run.context.projectId === context.projectId && run.active).flatMap(run => [...run.sessions.values()]) }
   }
   async configure(input: Parameters<MemoryApi['configure']>[0]): Promise<MemoryWorkspaceStatus> {

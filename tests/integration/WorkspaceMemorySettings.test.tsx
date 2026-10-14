@@ -44,3 +44,28 @@ describe('WorkspaceMemorySettings', () => {
     expect(memory.setupAgents).not.toHaveBeenCalled()
   })
 })
+
+describe('WorkspaceMemorySettings pipeline diagnostics', () => {
+  test('separates capture, delivery and consolidation, shows queue age and copies counts only', async () => {
+    const now = Date.now()
+    const status = { projectId: 'project', sessions: [], settings: { enabled: true, automaticCapture: true, automaticContext: false },
+      runtime: { mode: 'managed', executable: 'ai-memory', url: 'http://127.0.0.1:49374' },
+      health: { status: 'ready', pipeline: { capture: 'active', delivery: 'pending', consolidation: 'unknown' } },
+      outbox: { pending: 3, quarantined: 1, bytes: 2048, refused: 0, stored: 5, replayed: 0, dropped: 0, failed: 2, oldestAt: now - 120_000, lastFailureAt: now - 30_000 } }
+    const writeText = vi.fn(async () => undefined)
+    vi.stubGlobal('navigator', { clipboard: { writeText } })
+    vi.stubGlobal('oxe', { memory: { status: vi.fn(async () => status) } })
+    render(<WorkspaceMemorySettings workspaceId="ws" />)
+    const pipeline = await screen.findByLabelText('Memory pipeline')
+    expect(pipeline).toHaveTextContent('Accepting events')
+    expect(pipeline).toHaveTextContent('Waiting to send')
+    expect(pipeline).toHaveTextContent('Unknown (not observable)')
+    expect(screen.getByText(/3 pending \(oldest 2 min ago\)/)).toBeInTheDocument()
+    expect(screen.getByText(/last delivery never/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Copy diagnostics' }))
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
+    const report = JSON.parse((writeText.mock.calls[0] as unknown as [string])[0])
+    expect(report.outbox.pending).toBe(3)
+    expect(JSON.stringify(report)).not.toMatch(/token|executable|127\.0\.0\.1/i)
+  })
+})

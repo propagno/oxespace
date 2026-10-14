@@ -42,6 +42,16 @@ describe('execution-scoped memory facade', () => {
     await operation
     expect(await service.prepareLaunch({ paneId: 'thread:allowed', workspaceId: workspace.id, cwd: root, captureOwner: 'native' })).toHaveProperty('OXESPACE_MEMORY_RUN')
   })
+  test('status reports observable pipeline stages and leaves consolidation unknown', async () => {
+    const { workspace, service, context } = await fixture()
+    vi.spyOn(service.runtime, 'client').mockImplementation(() => { throw new Error('offline') })
+    const enabled = await service.status(workspace.id)
+    expect(enabled.health.pipeline).toEqual({ capture: 'active', delivery: 'idle', consolidation: 'unknown' })
+    service.projects.configure(context.projectId, { enabled: true, automaticCapture: false, automaticContext: false })
+    expect((await service.status(workspace.id)).health.pipeline).toMatchObject({ capture: 'disabled', consolidation: 'unknown' })
+    service.projects.configure(context.projectId, { enabled: false, automaticCapture: false, automaticContext: false })
+    expect((await service.status(workspace.id)).health.pipeline).toEqual({ capture: 'disabled', delivery: 'unknown', consolidation: 'unknown' })
+  })
   test('hookless Thread has a scoped MCP run but cannot claim native capture', async () => {
     const { workspace, service, root } = await fixture()
     const env = await service.prepareLaunch({ paneId: `thread:synthetic`, workspaceId: workspace.id, cwd: root,
