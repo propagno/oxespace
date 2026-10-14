@@ -1,5 +1,5 @@
 import { connectionHint } from './connect-hint'
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { Client } from 'pg'
 import Cursor from 'pg-cursor'
 import { MongoClient, type Document } from 'mongodb'
@@ -15,13 +15,14 @@ import { splitStatements } from '../../../../shared/sqlText'
 import { OxeQueryError, type ResolvedConnection } from './oxequery-errors'
 import { mongoTlsOptions, mongoUri, pgSsl, type Endpoint } from './connection-options'
 import { openTunnel, tunnelAvailable, type OpenTunnel } from './ssh-tunnel'
-import { editableEjson, parseDocument, parseEditableDocument, parsePipeline } from './mongo-guard'
+import { editableEjson, parseDocument, parseEditableDocument, parsePipeline, parseUpdate, parseValidator, toEjson } from './mongo-guard'
+import { summarizeExplain } from './mongo-explain'
 import { EJSON } from 'bson'
 import { buildStatements, previewStatements, type ColumnMeta, type RowChange } from './table-editor'
 import { createSink } from './export-writer'
 import { parsePlan, planHints } from './plan-parser'
 import { inferSchema } from './mongo-schema'
-import type { MongoSchema, SqlDefinitionTarget, SqlFunctionInfo } from '../../../../shared/types/oxequery'
+import type { MongoBulkInput, MongoBulkResult, MongoCollectionAction, MongoExplainInput, MongoExplainSummary, MongoSchema, MongoStats, MongoValidation, SqlDefinitionTarget, SqlFunctionInfo } from '../../../../shared/types/oxequery'
 import type { SqlExplain } from '../../../../shared/types/oxequery'
 import { openRejects, readRecords, type ImportFormat } from './import-reader'
 import type { ImportTarget } from '../../../../shared/types/oxequery'
@@ -105,7 +106,7 @@ function sessionKey(connection: ResolvedConnection): string {
 /** open: a transaction the person began; failed: a statement in it failed, so only ROLLBACK is accepted. */
 type TxState = 'none' | 'open' | 'failed'
 interface PgSession { key: string; client: Client; running: boolean; lastUsed: number; endpoint: Endpoint; tunnel?: OpenTunnel; tx: TxState; txStatements: number; txSince?: number }
-interface MongoSession { key: string; client: MongoClient; lastUsed: number; tunnel?: OpenTunnel }
+interface MongoSession { key: string; client: MongoClient; lastUsed: number; tunnel?: OpenTunnel; /** Comment tagged on the running find or aggregate, so it can be found and stopped. */ operation?: string }
 
 /** A connection nobody used for this long is closed; it reopens on the next request. */
 const withConnectionHint = (message: string, connection: ResolvedConnection): string => `${message}${connectionHint(message, connection)}`
@@ -620,8 +621,147 @@ export class OxeQueryCore {
   private mongoError(error: unknown, connection: ResolvedConnection): OxeQueryError {
     if (error instanceof OxeQueryError) return error
     const message = error instanceof Error ? error.message : 'Operation failed'
+    if (/operation was interrupted|interrupted at shutdown|operation was killed/i.test(message)) return new OxeQueryError('cancelled', 'The operation was cancelled.')
     if (/time limit|exceeded time|MaxTimeMSExpired/i.test(message)) return new OxeQueryError('timeout', 'The operation exceeded its time limit and was stopped.')
     return new OxeQueryError('query', redact(message, connection.password))
+  }
+
+  /** The connection's statement timeout, in the server's own unit. */
+  private mongoTimeout(connection: ResolvedConnection): number {
+    return Math.min(Math.max(connection.statementTimeoutMs ?? 30_000, 1000), 3_600_000)
+  }
+
+  /** Runs a read with a comment on it, so `mongoCancel` can find the operation on the server. */
+  private async tagged<T>(connection: ResolvedConnection, run: (comment: string) => Promise<T>): Promise<T> {
+    const session = this.mongo.get(connection.id)
+    const comment = `oxequery:${randomUUID()}`
+    if (session) session.operation = comment
+    try { return await run(comment) } finally { if (session && session.operation === comment) delete session.operation }
+  }
+
+  /** Stops the find or aggregate this connection is running: finds it by its comment and kills it. */
+  async mongoCancel(connection: ResolvedConnection): Promise<boolean> {
+    const session = this.mongo.get(connection.id)
+    const comment = session?.operation
+    if (!session || !comment) return false
+    try {
+      const admin = session.client.db('admin')
+      const current = await admin.command({ currentOp: 1, 'command.comment': comment }) as { inprog?: Array<{ opid?: number | string }> }
+      let killed = false
+      for (const operation of current.inprog ?? []) {
+        if (operation.opid === undefined) continue
+        await admin.command({ killOp: 1, op: operation.opid })
+        killed = true
+      }
+      return killed
+    } catch { return false }
+  }
+
+  /**
+   * updateMany and deleteMany, after counting. A dry run only counts. The real run needs the count the
+   * person saw (`expectedCount`) and their confirmation: if the number moved, nothing runs.
+   */
+  async mongoBulk(connection: ResolvedConnection, input: MongoBulkInput): Promise<MongoBulkResult> {
+    if (connection.readOnly && !input.dryRun) throw new OxeQueryError('read-only', 'This connection is read-only. Turn read-only off to change documents.')
+    const filter = parseDocument(input.filter, 'Filter') as Document
+    const update = input.op === 'updateMany' ? parseUpdate(input.update, 'Update') : undefined
+    try {
+      const client = await this.mongoSession(connection)
+      const collection = client.db(input.database).collection(input.collection)
+      const matched = await collection.countDocuments(filter, { maxTimeMS: this.mongoTimeout(connection) })
+      if (input.dryRun) return { matched, modified: 0, deleted: 0, dryRun: true }
+      const reasons = [`${matched} document${matched === 1 ? '' : 's'} will be ${input.op === 'deleteMany' ? 'deleted' : 'changed'}.`]
+      if (Object.keys(filter).length === 0) reasons.push('The filter is empty: every document in the collection matches.')
+      if (!input.confirmed) throw new OxeQueryError('confirm', 'This change needs your confirmation.', reasons)
+      if (input.expectedCount !== matched) {
+        throw new OxeQueryError('conflict', `${matched} document${matched === 1 ? ' matches' : 's match'} now, not the ${input.expectedCount ?? 'counted'} you confirmed. Count again and confirm.`)
+      }
+      if (input.op === 'deleteMany') {
+        const result = await collection.deleteMany(filter, { maxTimeMS: this.mongoTimeout(connection) })
+        return { matched, modified: 0, deleted: result.deletedCount, dryRun: false }
+      }
+      const result = await collection.updateMany(filter, update as Document, { maxTimeMS: this.mongoTimeout(connection) })
+      return { matched: result.matchedCount, modified: result.modifiedCount, deleted: 0, dryRun: false }
+    } catch (error) { throw this.mongoError(error, connection) }
+  }
+
+  /** Create, rename or drop a collection. */
+  async mongoCollectionAction(connection: ResolvedConnection, input: { database: string; collection: string; action: MongoCollectionAction; confirmed?: boolean }): Promise<{ ok: true }> {
+    if (connection.readOnly) throw new OxeQueryError('read-only', 'This connection is read-only. Turn read-only off to change collections.')
+    const checkName = (name: string): void => {
+      if (!name || name.includes('$') || name.includes('\0') || name.startsWith('system.') || Buffer.byteLength(name) > 120) throw new OxeQueryError('invalid', 'A collection name cannot be empty, contain "$", or start with "system.".')
+    }
+    checkName(input.collection)
+    const action = input.action
+    if (action.kind === 'rename') checkName(action.to)
+    if (action.kind === 'drop' && !input.confirmed) throw new OxeQueryError('confirm', `Dropping "${input.collection}" deletes the collection and all of its documents for good.`)
+    try {
+      const database = (await this.mongoSession(connection)).db(input.database)
+      if (action.kind === 'create') {
+        await database.createCollection(input.collection, action.capped ? { capped: true, size: action.sizeBytes ?? 1_048_576, ...(action.maxDocuments ? { max: action.maxDocuments } : {}) } : {})
+      } else if (action.kind === 'rename') {
+        await database.collection(input.collection).rename(action.to, { dropTarget: false })
+      } else {
+        await database.collection(input.collection).drop()
+      }
+      return { ok: true }
+    } catch (error) { throw this.mongoError(error, connection) }
+  }
+
+  async mongoStats(connection: ResolvedConnection, database: string, collection: string): Promise<MongoStats> {
+    try {
+      const client = await this.mongoSession(connection)
+      const [row] = await client.db(database).collection(collection).aggregate([{ $collStats: { storageStats: {} } }], { maxTimeMS: 10_000 }).toArray()
+      const stats = (row?.storageStats ?? {}) as Record<string, unknown>
+      const number = (value: unknown): number => typeof value === 'number' ? value : Number(value ?? 0) || 0
+      return {
+        documents: number(stats.count), sizeBytes: number(stats.size), avgDocumentBytes: number(stats.avgObjSize), storageBytes: number(stats.storageSize),
+        indexes: number(stats.nindexes), indexBytes: number(stats.totalIndexSize), capped: stats.capped === true
+      }
+    } catch (error) { throw this.mongoError(error, connection) }
+  }
+
+  async mongoValidation(connection: ResolvedConnection, database: string, collection: string): Promise<MongoValidation> {
+    try {
+      const client = await this.mongoSession(connection)
+      const [info] = await client.db(database).listCollections({ name: collection }).toArray()
+      const options = ((info as { options?: Record<string, unknown> } | undefined)?.options ?? {})
+      const validator = options.validator && typeof options.validator === 'object' && Object.keys(options.validator).length > 0 ? options.validator : null
+      return {
+        validator: validator ? JSON.stringify(JSON.parse(toEjson(validator, 1024 * 1024).text), null, 2) : null,
+        level: options.validationLevel === 'off' || options.validationLevel === 'moderate' ? options.validationLevel : 'strict',
+        action: options.validationAction === 'warn' ? 'warn' : 'error'
+      }
+    } catch (error) { throw this.mongoError(error, connection) }
+  }
+
+  async mongoSetValidation(connection: ResolvedConnection, input: { database: string; collection: string; validator: string | null; level: MongoValidation['level']; action: MongoValidation['action'] }): Promise<{ ok: true }> {
+    if (connection.readOnly) throw new OxeQueryError('read-only', 'This connection is read-only. Turn read-only off to change validation.')
+    const validator = parseValidator(input.validator ?? undefined)
+    try {
+      const client = await this.mongoSession(connection)
+      await client.db(input.database).command({ collMod: input.collection, validator: validator ?? {}, validationLevel: input.level, validationAction: input.action })
+      return { ok: true }
+    } catch (error) { throw this.mongoError(error, connection) }
+  }
+
+  /** The planner's account of a find or aggregate, in words (and the raw answer next to it). */
+  async mongoExplain(connection: ResolvedConnection, input: MongoExplainInput): Promise<MongoExplainSummary> {
+    const verbosity = input.verbosity ?? 'executionStats'
+    try {
+      const client = await this.mongoSession(connection)
+      const collection = client.db(input.database).collection(input.collection)
+      const maxTimeMS = this.mongoTimeout(connection)
+      let explain: Document
+      if (input.kind === 'aggregate') {
+        explain = await collection.aggregate(parsePipeline(input.pipeline ?? '[]', connection.readOnly), { maxTimeMS }).explain(verbosity) as Document
+      } else {
+        const projection = input.projection?.trim() ? parseDocument(input.projection, 'Projection') : undefined
+        const sort = input.sort?.trim() ? parseDocument(input.sort, 'Sort') : undefined
+        explain = await collection.find(parseDocument(input.filter, 'Filter'), { ...(projection ? { projection } : {}), ...(sort ? { sort: sort as never } : {}), maxTimeMS }).explain(verbosity) as Document
+      }
+      return summarizeExplain(explain as Record<string, unknown>, toEjson(explain, 256 * 1024).text)
+    } catch (error) { throw this.mongoError(error, connection) }
   }
 
   async mongoDatabases(connection: ResolvedConnection): Promise<MongoDatabaseInfo[]> {
@@ -655,7 +795,7 @@ export class OxeQueryCore {
     try {
       const client = await this.mongoSession(connection)
       const collection = client.db(input.database).collection(input.collection)
-      const found = await collection.find(filter, { ...(projection ? { projection } : {}), ...(sort ? { sort: sort as never } : {}), limit: limit + 1, skip, maxTimeMS: 30_000, promoteValues: false }).toArray()
+      const found = await this.tagged(connection, comment => collection.find(filter, { ...(projection ? { projection } : {}), ...(sort ? { sort: sort as never } : {}), limit: limit + 1, skip, maxTimeMS: this.mongoTimeout(connection), promoteValues: false, comment }).toArray())
       let total: number | undefined
       try { total = await collection.countDocuments(filter, { maxTimeMS: 5000 }) } catch { /* A slow count is not worth failing the query. */ }
       return this.mongoResult(found, limit, started, total)
@@ -668,7 +808,9 @@ export class OxeQueryCore {
     const started = Date.now()
     try {
       const client = await this.mongoSession(connection)
-      const documents = await client.db(input.database).collection(input.collection).aggregate([...pipeline, { $limit: limit + 1 }], { maxTimeMS: 30_000, promoteValues: false }).toArray()
+      const skip = Math.max(0, Math.min(Math.trunc(input.skip ?? 0) || 0, 10_000_000))
+      const stages = [...pipeline, ...(skip > 0 ? [{ $skip: skip }] : []), { $limit: limit + 1 }]
+      const documents = await this.tagged(connection, comment => client.db(input.database).collection(input.collection).aggregate(stages, { maxTimeMS: this.mongoTimeout(connection), promoteValues: false, comment }).toArray())
       return this.mongoResult(documents, limit, started)
     } catch (error) { throw this.mongoError(error, connection) }
   }

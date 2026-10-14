@@ -100,3 +100,39 @@ export function parseEditableDocument(text: string | undefined, label: string): 
   walk(value, key => { if (FORBIDDEN.has(key)) throw new MongoInputError(`${key} runs server-side code and is not allowed.`) })
   return value as Record<string, unknown>
 }
+
+const UPDATE_OPERATORS = new Set(['$set', '$unset', '$inc', '$mul', '$min', '$max', '$rename', '$currentDate', '$push', '$pull', '$pullAll', '$addToSet', '$pop', '$setOnInsert'])
+const UPDATE_STAGES = new Set(['$set', '$unset', '$addFields', '$project', '$replaceRoot', '$replaceWith'])
+
+/**
+ * An update for updateMany: update operators only (`{"$set": {...}}`), or a short pipeline of
+ * field-shaping stages. A plain replacement document is refused: with many documents it would
+ * overwrite each of them.
+ */
+export function parseUpdate(text: string | undefined, label: string): Record<string, unknown> | Record<string, unknown>[] {
+  const value = parseEjson(text, label, undefined)
+  if (value === undefined) throw new MongoInputError(`${label} is empty.`)
+  walk(value, key => { if (FORBIDDEN.has(key)) throw new MongoInputError(`${key} runs server-side code and is not allowed.`) })
+  if (Array.isArray(value)) {
+    if (value.length === 0 || value.length > 16) throw new MongoInputError(`${label} needs between 1 and 16 stages.`)
+    for (const stage of value) {
+      const keys = stage && typeof stage === 'object' && !Array.isArray(stage) ? Object.keys(stage) : []
+      if (keys.length !== 1 || !UPDATE_STAGES.has(keys[0]!)) throw new MongoInputError(`${label} stages must be one of ${[...UPDATE_STAGES].join(', ')}.`)
+    }
+    return value as Record<string, unknown>[]
+  }
+  if (!value || typeof value !== 'object') throw new MongoInputError(`${label} must be a JSON object or array.`)
+  const keys = Object.keys(value)
+  if (keys.length === 0) throw new MongoInputError(`${label} changes nothing.`)
+  const unknown = keys.filter(key => !UPDATE_OPERATORS.has(key))
+  if (unknown.length) throw new MongoInputError(`${label} must use update operators such as $set; ${unknown.join(', ')} ${unknown.length === 1 ? 'is' : 'are'} not allowed.`)
+  return value as Record<string, unknown>
+}
+
+/** A collection validator: a `$jsonSchema` (optionally next to other query operators). Null clears it. */
+export function parseValidator(text: string | undefined): Record<string, unknown> | null {
+  if (text === undefined || text.trim() === '') return null
+  const value = parseDocument(text, 'Validator')
+  if (Object.keys(value).length === 0) return null
+  return value
+}

@@ -214,6 +214,77 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
     expect(await scalar('SELECT count(*) FROM ledger')).toBe('3')
   })
 
+  it('changes and deletes many MongoDB documents only after counting, and manages collections, validation and plans', async () => {
+    const db = 'bulkdb'
+    const target = { connectionId: 'mongo', database: db, collection: 'orders' }
+    await core.mongoCollectionAction(mongo, { database: db, collection: 'orders', action: { kind: 'create' } })
+    for (let index = 1; index <= 30; index++) await core.mongoWrite(mongo, { ...target, op: 'insert', document: JSON.stringify({ _id: index, status: index <= 20 ? 'open' : 'done', qty: index }) })
+
+    // A dry run counts and writes nothing; the real run needs the number that was shown.
+    expect(await core.mongoBulk(mongo, { ...target, op: 'updateMany', filter: '{"status":"open"}', update: '{"$set":{"status":"late"}}', dryRun: true })).toEqual({ matched: 20, modified: 0, deleted: 0, dryRun: true })
+    await expect(core.mongoBulk(mongo, { ...target, op: 'updateMany', filter: '{"status":"open"}', update: '{"$set":{"status":"late"}}' })).rejects.toMatchObject({ code: 'confirm' })
+    await expect(core.mongoBulk(mongo, { ...target, op: 'updateMany', filter: '{"status":"open"}', update: '{"$set":{"status":"late"}}', confirmed: true, expectedCount: 19 })).rejects.toMatchObject({ code: 'conflict' })
+    expect((await core.mongoFind(mongo, { ...target, filter: '{"status":"late"}' })).total).toBe(0)
+    expect(await core.mongoBulk(mongo, { ...target, op: 'updateMany', filter: '{"status":"open"}', update: '{"$set":{"status":"late"}}', confirmed: true, expectedCount: 20 })).toMatchObject({ matched: 20, modified: 20 })
+    // A replacement document would overwrite every match; only update operators are accepted.
+    await expect(core.mongoBulk(mongo, { ...target, op: 'updateMany', filter: '{}', update: '{"status":"x"}', dryRun: true })).rejects.toThrow(/update operators/)
+    await expect(core.mongoBulk(mongo, { ...target, op: 'updateMany', filter: '{"$where":"1"}', update: '{"$set":{"a":1}}', dryRun: true })).rejects.toThrow(/server-side code/)
+    await expect(core.mongoBulk({ ...mongo, readOnly: true }, { ...target, op: 'deleteMany', filter: '{}', confirmed: true, expectedCount: 30 })).rejects.toMatchObject({ code: 'read-only' })
+    await expect(core.mongoBulk(mongo, { ...target, op: 'deleteMany', filter: '{}', confirmed: true, expectedCount: 30 }).then(result => result.deleted)).resolves.toBe(30)
+    expect((await core.mongoFind(mongo, target)).documents).toHaveLength(0)
+
+    // Collections: create, rename, drop (the drop waits for confirmation).
+    await core.mongoCollectionAction(mongo, { database: db, collection: 'capped_log', action: { kind: 'create', capped: true, sizeBytes: 4096, maxDocuments: 5 } })
+    expect((await core.mongoStats(mongo, db, 'capped_log')).capped).toBe(true)
+    await core.mongoCollectionAction(mongo, { database: db, collection: 'capped_log', action: { kind: 'rename', to: 'log2' } })
+    expect((await core.mongoCollections(mongo, db)).map(item => item.name)).toEqual(expect.arrayContaining(['log2', 'orders']))
+    await expect(core.mongoCollectionAction(mongo, { database: db, collection: 'log2', action: { kind: 'drop' } })).rejects.toMatchObject({ code: 'confirm' })
+    await expect(core.mongoCollectionAction(mongo, { database: db, collection: 'a$b', action: { kind: 'create' } })).rejects.toMatchObject({ code: 'invalid' })
+    await core.mongoCollectionAction(mongo, { database: db, collection: 'log2', action: { kind: 'drop' }, confirmed: true })
+    expect((await core.mongoCollections(mongo, db)).map(item => item.name)).not.toContain('log2')
+
+    // Validation: read, set a schema, see it refuse a bad document, clear it.
+    expect(await core.mongoValidation(mongo, db, 'orders')).toEqual({ validator: null, level: 'strict', action: 'error' })
+    const schema = '{"$jsonSchema":{"bsonType":"object","required":["qty"],"properties":{"qty":{"bsonType":"int"}}}}'
+    await core.mongoSetValidation(mongo, { database: db, collection: 'orders', validator: schema, level: 'strict', action: 'error' })
+    expect((await core.mongoValidation(mongo, db, 'orders')).validator).toContain('"required"')
+    await expect(core.mongoWrite(mongo, { ...target, op: 'insert', document: '{"_id": 99, "qty": "many"}' })).rejects.toThrow(/validation/i)
+    await core.mongoSetValidation(mongo, { database: db, collection: 'orders', validator: null, level: 'strict', action: 'error' })
+    expect((await core.mongoValidation(mongo, db, 'orders')).validator).toBeNull()
+
+    // Plans: a filter on an unindexed field scans; with an index it does not.
+    for (let index = 1; index <= 200; index++) await core.mongoWrite(mongo, { ...target, op: 'insert', document: JSON.stringify({ _id: 1000 + index, sku: 's' + index, qty: index }) })
+    const scan = await core.mongoExplain(mongo, { ...target, kind: 'find', filter: '{"sku":"s7"}' })
+    expect(scan).toMatchObject({ stage: 'COLLSCAN', docsExamined: 200, returned: 1 })
+    expect(scan.warnings.join(' ')).toMatch(/no index/)
+    await core.mongoCreateIndex(mongo, { database: db, collection: 'orders', keys: '{"sku":1}' })
+    const indexed = await core.mongoExplain(mongo, { ...target, kind: 'find', filter: '{"sku":"s7"}' })
+    expect(indexed).toMatchObject({ stage: 'IXSCAN', index: 'sku_1', docsExamined: 1 })
+    const aggregated = await core.mongoExplain(mongo, { ...target, kind: 'aggregate', pipeline: '[{"$match":{"sku":"s7"}},{"$group":{"_id":null,"n":{"$sum":1}}}]' })
+    expect(['IXSCAN', 'COUNT_SCAN']).toContain(aggregated.stage)
+
+    // Aggregate pages with $skip.
+    const pageOne = await core.mongoAggregate(mongo, { ...target, pipeline: '[{"$sort":{"_id":1}}]', limit: 50 })
+    const pageTwo = await core.mongoAggregate(mongo, { ...target, pipeline: '[{"$sort":{"_id":1}}]', limit: 50, skip: 50 })
+    expect(pageOne.documents).toHaveLength(50)
+    expect(pageOne.truncated).toBe(true)
+    expect(JSON.parse(pageTwo.documents[0]!)._id).toBe(JSON.parse(pageOne.documents[49]!)._id + 1)
+  })
+
+  it('stops a long MongoDB query from the outside', async () => {
+    const target = { connectionId: 'mongo', database: 'bulkdb', collection: 'orders' }
+    // A self-join three levels deep: millions of intermediate documents, many seconds of work.
+    const heavy = '[{"$lookup":{"from":"orders","pipeline":[{"$match":{}}],"as":"a"}},{"$unwind":"$a"},{"$lookup":{"from":"orders","pipeline":[{"$match":{}}],"as":"b"}},{"$unwind":"$b"},{"$lookup":{"from":"orders","pipeline":[{"$match":{}}],"as":"c"}},{"$unwind":"$c"},{"$group":{"_id":null,"n":{"$sum":1}}}]'
+    const running = core.mongoAggregate(mongo, { ...target, pipeline: heavy })
+    const outcome = running.then(() => 'finished', (error: { code?: string }) => error.code ?? 'error')
+    let cancelled = false
+    for (let attempt = 0; attempt < 20 && !cancelled; attempt++) { await sleep(250); cancelled = await core.mongoCancel(mongo) }
+    expect(cancelled).toBe(true)
+    expect(await outcome).toBe('cancelled')
+    // Nothing is left tagged: a second cancel has nothing to stop.
+    expect(await core.mongoCancel(mongo)).toBe(false)
+  }, 60_000)
+
   it('edits a MongoDB document without retyping its numbers, and loads one too large to list', async () => {
     const target = { connectionId: 'mongo', database: 'shop', collection: 'typed' }
     await core.mongoWrite(mongo, { ...target, op: 'insert', document: '{"_id": 1, "count": {"$numberLong": "7"}, "ratio": {"$numberDouble": "2.0"}, "price": {"$numberDecimal": "1.10"}, "label": "a", "blob": "' + 'x'.repeat(70_000) + '"}' })

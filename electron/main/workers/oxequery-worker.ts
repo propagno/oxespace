@@ -88,6 +88,13 @@ async function handle(request: Request): Promise<unknown> {
     case 'sql.extensions': return core.sqlExtensions(connection)
     case 'sql.search': return core.sqlSearch(connection, String(input.query ?? ''))
     case 'sql.definition': return core.sqlDefinition(connection, input as never)
+    case 'mongo.bulk': return core.mongoBulk(connection, input as never)
+    case 'mongo.collection': return core.mongoCollectionAction(connection, input as never)
+    case 'mongo.stats': return core.mongoStats(connection, String(input.database ?? ''), String(input.collection ?? ''))
+    case 'mongo.validation': return core.mongoValidation(connection, String(input.database ?? ''), String(input.collection ?? ''))
+    case 'mongo.setValidation': return core.mongoSetValidation(connection, input as never)
+    case 'mongo.explain': return core.mongoExplain(connection, input as never)
+    case 'mongo.cancel': return { cancelled: await core.mongoCancel(connection) }
     case 'mongo.indexes': return core.mongoIndexes(connection, String(input.database ?? ''), String(input.collection ?? ''))
     default: throw new OxeQueryError('invalid', 'Unknown OxeQuery operation.')
   }

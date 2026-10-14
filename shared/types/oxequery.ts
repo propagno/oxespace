@@ -458,6 +458,51 @@ export interface MongoAggregateInput {
   /** EJSON array text. */
   pipeline: string
   limit?: number
+  skip?: number
+}
+export interface MongoBulkInput {
+  connectionId: string
+  database: string
+  collection: string
+  op: 'updateMany' | 'deleteMany'
+  filter: string
+  /** Update operators (or a short pipeline) for updateMany. */
+  update?: string
+  /** Count what would change and write nothing. */
+  dryRun?: boolean
+  /** The count the person saw and agreed to; a different count now means the data moved, so nothing runs. */
+  expectedCount?: number
+  confirmed?: boolean
+}
+export interface MongoBulkResult { matched: number; modified: number; deleted: number; dryRun: boolean }
+export type MongoCollectionAction =
+  | { kind: 'create'; capped?: boolean; sizeBytes?: number; maxDocuments?: number }
+  | { kind: 'rename'; to: string }
+  | { kind: 'drop' }
+export interface MongoStats { documents: number; sizeBytes: number; avgDocumentBytes: number; storageBytes: number; indexes: number; indexBytes: number; capped: boolean }
+export interface MongoValidation { validator: string | null; level: 'off' | 'moderate' | 'strict'; action: 'error' | 'warn' }
+export interface MongoExplainSummary {
+  stage: string
+  index?: string
+  keysExamined?: number
+  docsExamined?: number
+  returned?: number
+  timeMs?: number
+  stages: string[]
+  warnings: string[]
+  /** The server's answer as EJSON, for a person who wants all of it. */
+  raw: string
+}
+export interface MongoExplainInput {
+  connectionId: string
+  database: string
+  collection: string
+  kind: 'find' | 'aggregate'
+  filter?: string
+  projection?: string
+  sort?: string
+  pipeline?: string
+  verbosity?: 'queryPlanner' | 'executionStats'
 }
 export interface MongoResult {
   /** One EJSON (relaxed) string per document. */
@@ -539,6 +584,13 @@ export interface OxeQueryOps {
   'mongo.collections': { input: { connectionId: string; database: string }; output: MongoCollectionInfo[] }
   'mongo.find': { input: MongoFindInput; output: MongoResult }
   'mongo.aggregate': { input: MongoAggregateInput; output: MongoResult }
+  'mongo.bulk': { input: MongoBulkInput; output: MongoBulkResult }
+  'mongo.collection': { input: { connectionId: string; database: string; collection: string; action: MongoCollectionAction; confirmed?: boolean }; output: { ok: true } }
+  'mongo.stats': { input: { connectionId: string; database: string; collection: string }; output: MongoStats }
+  'mongo.validation': { input: { connectionId: string; database: string; collection: string }; output: MongoValidation }
+  'mongo.setValidation': { input: { connectionId: string; database: string; collection: string; validator: string | null; level: MongoValidation['level']; action: MongoValidation['action'] }; output: { ok: true } }
+  'mongo.explain': { input: MongoExplainInput; output: MongoExplainSummary }
+  'mongo.cancel': { input: { connectionId: string }; output: { cancelled: boolean } }
   'mongo.indexes': { input: { connectionId: string; database: string; collection: string }; output: MongoIndexInfo[] }
   'mongo.schema': { input: { connectionId: string; database: string; collection: string; sampleSize?: number }; output: MongoSchema }
   'mongo.createIndex': { input: { connectionId: string; database: string; collection: string; keys: string; unique?: boolean; confirmed?: boolean }; output: { name: string } }

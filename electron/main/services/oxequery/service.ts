@@ -339,7 +339,7 @@ export class OxeQueryService {
         projection: optionalString(input.projection), sort: optionalString(input.sort), limit: optionalInt(input.limit, 1, 1000), skip: optionalInt(input.skip, 0, 10_000_000)
       }))
       case 'mongo.aggregate': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.aggregate', connection, {
-        database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), pipeline: str(input.pipeline, 'Pipeline', 262_144), limit: optionalInt(input.limit, 1, 1000)
+        database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), pipeline: str(input.pipeline, 'Pipeline', 262_144), limit: optionalInt(input.limit, 1, 1000), skip: optionalInt(input.skip, 0, 10_000_000)
       }))
       case 'mongo.document': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.document', connection, {
         database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), id: str(input.id, 'Document id', 4096)
@@ -487,6 +487,42 @@ export class OxeQueryService {
         if (kind !== 'table' && kind !== 'view' && kind !== 'sequence') throw new OxeQueryError('invalid', 'Unsupported object kind.')
         return this.worker.call('sql.definition', connection, { kind, schema: str(input.schema, 'Schema', 255), name: str(input.name, 'Name', 255) })
       })
+      case 'mongo.bulk': return this.requireEngine(input.connectionId, 'mongodb', connection => {
+        const op = str(input.op, 'Operation', 16)
+        if (op !== 'updateMany' && op !== 'deleteMany') throw new OxeQueryError('invalid', 'Unsupported bulk operation.')
+        return this.worker.call('mongo.bulk', connection, {
+          database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), op, filter: str(input.filter, 'Filter', 262_144),
+          ...(typeof input.update === 'string' ? { update: input.update.slice(0, 262_144) } : {}), dryRun: input.dryRun === true,
+          ...(Number.isInteger(input.expectedCount) ? { expectedCount: input.expectedCount } : {}), confirmed: input.confirmed === true
+        })
+      })
+      case 'mongo.collection': return this.requireEngine(input.connectionId, 'mongodb', connection => {
+        const action = record(input.action)
+        const kind = str(action.kind, 'Action', 16)
+        if (kind !== 'create' && kind !== 'rename' && kind !== 'drop') throw new OxeQueryError('invalid', 'Unsupported collection action.')
+        return this.worker.call('mongo.collection', connection, {
+          database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), confirmed: input.confirmed === true,
+          action: kind === 'rename' ? { kind, to: str(action.to, 'New name', 255) }
+            : kind === 'create' ? { kind, capped: action.capped === true, ...(optionalInt(action.sizeBytes, 1, 1 << 40) !== undefined ? { sizeBytes: optionalInt(action.sizeBytes, 1, 1 << 40) } : {}), ...(optionalInt(action.maxDocuments, 1, 1_000_000_000) !== undefined ? { maxDocuments: optionalInt(action.maxDocuments, 1, 1_000_000_000) } : {}) }
+              : { kind }
+        })
+      })
+      case 'mongo.stats': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.stats', connection, { database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255) }))
+      case 'mongo.validation': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.validation', connection, { database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255) }))
+      case 'mongo.setValidation': return this.requireEngine(input.connectionId, 'mongodb', connection => {
+        const level = str(input.level, 'Level', 16), action = str(input.action, 'Action', 16)
+        if (!['off', 'moderate', 'strict'].includes(level) || !['error', 'warn'].includes(action)) throw new OxeQueryError('invalid', 'Unsupported validation level or action.')
+        return this.worker.call('mongo.setValidation', connection, {
+          database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255),
+          validator: typeof input.validator === 'string' ? input.validator.slice(0, 262_144) : null, level, action
+        })
+      })
+      case 'mongo.explain': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.explain', connection, {
+        database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), kind: input.kind === 'aggregate' ? 'aggregate' : 'find',
+        filter: optionalString(input.filter), projection: optionalString(input.projection), sort: optionalString(input.sort), pipeline: optionalString(input.pipeline),
+        verbosity: input.verbosity === 'queryPlanner' ? 'queryPlanner' : 'executionStats'
+      }))
+      case 'mongo.cancel': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.cancel', connection))
       case 'mongo.indexes': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.indexes', connection, {
         database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255)
       }))
