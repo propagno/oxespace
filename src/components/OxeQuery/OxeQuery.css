@@ -482,3 +482,4 @@
 .oq-containers > .oq-disclosure { width: 100%; margin: 0; padding: 8px 12px; border-top: 1px solid var(--border-default); text-align: left; }
 .oq-library li > button:first-child { align-items: flex-start; text-align: left; }
 .oq-library li > button:first-child strong { font-weight: 600; }
+.oq-dialog-form { display: flex; flex-direction: column; gap: 10px; }

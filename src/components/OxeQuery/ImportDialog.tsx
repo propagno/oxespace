@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactElement } from 'react'
-import { createPortal } from 'react-dom'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
-import { Upload, X } from 'lucide-react'
+import { Button } from '../../ui/Button'
+import { Dialog } from '../../ui/Overlay'
+import { Upload } from 'lucide-react'
 import type { ImportConflict, ImportPreview, ImportReadOptions, ImportResult, ImportTarget, OxeQueryConnection } from '../../../shared/types/oxequery'
 import { OxeQueryClientError, errorMessage, oq } from './client'
 
@@ -71,9 +72,12 @@ export function ImportButton({ connection, target, onImported }: { connection: O
   return <>
     <button type="button" disabled={busy !== ''} onClick={() => void choose()}><Upload size={13} aria-hidden="true" />Import</button>
     {error && !preview && <span role="alert" className="oq-error">{error}</span>}
-    {preview && createPortal(<div className="desktop-dialog-overlay" onMouseDown={event => { if (event.target === event.currentTarget) close() }}>
-      <div className="desktop-dialog oq-dialog oq-import" role="dialog" aria-modal="true" aria-label={`Import into ${destination}`}>
-        <header><strong>Import into {destination}</strong><button type="button" aria-label="Close" onClick={close}><X size={14} aria-hidden="true" /></button></header>
+    {preview && <Dialog title={`Import into ${destination}`} size="lg" onClose={() => { if (busy === '') close() }}
+      footer={<>
+        <Button onClick={close}>Close</Button>
+        <Button disabled={busy !== '' || mapped === 0} onClick={() => void run(true)}>Dry run</Button>
+        <Button variant="primary" disabled={busy !== '' || mapped === 0} onClick={() => void run(false)}>Import</Button>
+      </>}>
         <p className="oq-muted">{preview.fileName} · {preview.format.toUpperCase()} · {(preview.bytes / 1024).toFixed(1)} KB</p>
 
         {preview.format === 'csv' && <fieldset className="oq-import-options">
@@ -128,12 +132,6 @@ export function ImportButton({ connection, target, onImported }: { connection: O
           onCancel={() => setConfirm(null)} onConfirm={() => void run(false, true)}>
           <ul>{confirm.map(item => <li key={item}>{item}</li>)}</ul>
         </ConfirmDialog>}
-        <footer>
-          <button type="button" onClick={close}>Close</button>
-          <button type="button" disabled={busy !== '' || mapped === 0} onClick={() => void run(true)}>Dry run</button>
-          <button type="button" className="oq-primary" disabled={busy !== '' || mapped === 0} onClick={() => void run(false)}>Import</button>
-        </footer>
-      </div>
-    </div>, document.body)}
+    </Dialog>}
   </>
 }

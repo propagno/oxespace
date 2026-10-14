@@ -4,6 +4,8 @@ import { CONNECTION_COLORS, type AgentAccess, type ConnectionColor, type Connect
 import { errorMessage, oq } from './client'
 import { buildConnectionUrl, parseConnectionUrl } from './connection-url'
 import { useOxeQueryStore } from './oxequery.store'
+import { Button } from '../../ui/Button'
+import { Dialog } from '../../ui/Overlay'
 
 const DEFAULT_PORT: Record<DatabaseEngine, number> = { postgres: 5432, mongodb: 27017 }
 const ENGINES: { id: DatabaseEngine; label: string; hint: string; Icon: typeof Database }[] = [
@@ -219,11 +221,17 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
 
   const toggle = (key: keyof typeof open): void => setOpen(current => ({ ...current, [key]: !current[key] }))
 
-  return <div className="desktop-dialog-overlay" onMouseDown={event => { if (event.target === event.currentTarget) close() }}>
-    <form className="desktop-dialog oq-dialog" role="dialog" aria-modal="true" aria-label={editing ? 'Edit connection' : 'New connection'} onSubmit={event => void submit(event)}>
-      <header className="desktop-dialog-header"><div><h2>{editing ? 'Edit connection' : 'New connection'}</h2>
-        <p>{editing?.containerRef ? `Created from the container ${editing.containerRef}.` : 'Connect to a database running here, in a container or on another server.'}</p></div></header>
-
+  const title = editing ? 'Edit connection' : 'New connection'
+  const description = editing?.containerRef ? `Created from the container ${editing.containerRef}.` : 'Connect to a database running here, in a container or on another server.'
+  return <Dialog title={title} description={description} size="lg" onClose={() => { if (!busy) close() }}
+    footer={<>
+      <Button disabled={busy} onClick={() => void check()}>{busy ? 'Working…' : 'Test connection'}</Button>
+      {!editing && <Button disabled={busy} onClick={() => void connectOnce()} title="Nothing is saved: the connection, its password, history and tabs are gone when you close the app">Connect without saving</Button>}
+      <span className="oq-spacer" />
+      <Button disabled={busy} onClick={close}>Cancel</Button>
+      <Button type="submit" form="oq-connection-form" variant="primary" disabled={busy}>{editing ? 'Save' : 'Save and open'}</Button>
+    </>}>
+    <form id="oq-connection-form" className="oq-dialog-form" onSubmit={event => void submit(event)}>
       {!editing && <section className="oq-engines" role="radiogroup" aria-label="Engine">
         {ENGINES.map(({ id, label, hint, Icon }) => <button key={id} type="button" role="radio" aria-checked={engine === id} className="oq-engine" data-selected={engine === id} onClick={() => chooseEngine(id)}>
           <Icon size={18} aria-hidden="true" /><span><strong>{label}</strong><small>{hint}</small></span></button>)}
@@ -342,14 +350,6 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
         <p><ShieldAlert size={15} aria-hidden="true" /> <strong>The SSH server's host key changed.</strong> This can mean the server was rebuilt, or that someone is intercepting the connection. Do not continue until you have confirmed it with whoever runs the server.</p>
         <code className="oq-fingerprint">trusted: {outcome.expected}</code><code className="oq-fingerprint">now: {outcome.actual}</code>
       </div>}
-
-      <footer className="oq-dialog-actions">
-        <button type="button" onClick={() => void check()} disabled={busy}>{busy ? 'Working…' : 'Test connection'}</button>
-        {!editing && <button type="button" onClick={() => void connectOnce()} disabled={busy} title="Nothing is saved: the connection, its password, history and tabs are gone when you close the app">Connect without saving</button>}
-        <span className="oq-spacer" />
-        <button type="button" onClick={close} disabled={busy}>Cancel</button>
-        <button type="submit" className="oq-primary" disabled={busy}>{editing ? 'Save' : 'Save and open'}</button>
-      </footer>
     </form>
-  </div>
+  </Dialog>
 }

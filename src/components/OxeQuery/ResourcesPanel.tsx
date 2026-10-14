@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactElement } from 'react'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
+import { Button } from '../../ui/Button'
+import { Dialog } from '../../ui/Overlay'
 import { Database, HardDrive, Trash2 } from 'lucide-react'
 import type { ContainerEngine, DiskUsageRow, ImageInfo, NetworkInfo, ResourceKind, VolumeInfo } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
@@ -86,10 +88,13 @@ export function NewDatabaseDialog({ engine, onClose }: { engine?: ContainerEngin
     } catch (cause) { setError(errorMessage(cause)) } finally { setBusy(false) }
   }
 
-  return <div className="desktop-dialog-overlay" onMouseDown={event => { if (event.target === event.currentTarget && !busy) onClose() }}>
-    <form className="desktop-dialog oq-dialog" role="dialog" aria-modal="true" aria-label="New database" onSubmit={event => void submit(event)}>
-      <h2><Database size={16} aria-hidden="true" /> New database</h2>
-      <p className="oq-muted">Starts a container bound to <code>127.0.0.1</code> with a named volume and a generated password, then connects to it. The first start may need to download the image.</p>
+  return <Dialog title="New database" size="md" onClose={() => { if (!busy) onClose() }}
+    description={<>Starts a container bound to <code>127.0.0.1</code> with a named volume and a generated password, then connects to it. The first start may need to download the image.</>}
+    footer={<>
+      <Button disabled={busy} onClick={onClose}>Cancel</Button>
+      <Button type="submit" form="oq-new-database-form" variant="primary" disabled={busy || !name.trim()} loading={busy}>{busy ? 'Creating…' : 'Create and connect'}</Button>
+    </>}>
+    <form id="oq-new-database-form" className="oq-dialog-form" onSubmit={event => void submit(event)}>
       <div role="group" aria-label="Engine" className="oq-segment">
         {(['postgres', 'mongodb'] as const).map(value => <button key={value} type="button" role="radio" aria-checked={kind === value} data-selected={kind === value}
           onClick={() => { setKind(value); setTag(value === 'postgres' ? '17' : '8') }}>{value === 'postgres' ? 'PostgreSQL' : 'MongoDB'}</button>)}
@@ -99,10 +104,6 @@ export function NewDatabaseDialog({ engine, onClose }: { engine?: ContainerEngin
       <small id="oq-tag-hint" className="oq-muted">An image tag such as {kind === 'postgres' ? '17, 16-alpine' : '8, 7'}.</small>
       <label>Host port <small className="oq-muted">(optional)</small><input type="number" min={1024} max={65535} value={port} onChange={event => setPort(event.target.value)} placeholder="first free port" /></label>
       {error && <p role="alert" className="oq-error">{error}</p>}
-      <footer className="oq-dialog-actions">
-        <button type="button" onClick={onClose} disabled={busy}>Cancel</button>
-        <button type="submit" className="oq-primary" disabled={busy || !name.trim()}>{busy ? 'Creating…' : 'Create and connect'}</button>
-      </footer>
     </form>
-  </div>
+  </Dialog>
 }
