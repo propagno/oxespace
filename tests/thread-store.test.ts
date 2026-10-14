@@ -129,7 +129,7 @@ describe('Thread drafts across a restart', () => {
       useThreadStore.getState().setDraft('thread-a', 'half written message')
       // Real timers: the store's writer may already hold a pending debounce from setup.
       await new Promise(resolve => setTimeout(resolve, 600))
-      expect(JSON.parse(localStorage.getItem('oxe.thread-drafts') ?? '{}')).toEqual({ 'thread-a': 'half written message' })
+      expect(JSON.parse(localStorage.getItem('oxe.thread-drafts') ?? '{}')).toEqual({ 'thread-a': { text: 'half written message', at: expect.any(Number) } })
       vi.resetModules()
       const fresh = await import('../src/store/thread.store')
       expect(fresh.useThreadStore.getState().drafts).toEqual({ 'thread-a': 'half written message' })
