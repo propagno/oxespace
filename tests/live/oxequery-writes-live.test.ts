@@ -149,6 +149,49 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
     expect(await scalar('SELECT count(*) FROM contacts WHERE id = 10')).toBe('0')
   })
 
+  it('imports a semicolon file in Windows-1252 without a header, and merges rows by key', async () => {
+    await exec('CREATE TABLE people_sync (id int PRIMARY KEY, name text NOT NULL, city text)')
+    await exec(`INSERT INTO people_sync VALUES (1, 'Ana', 'Lisboa'), (2, 'Bruno', 'Porto')`)
+    const target = { kind: 'table' as const, schema: 'public', table: 'people_sync' }
+    const file = join(dir, 'pessoas.csv')
+    // "João" and "São Paulo" in Windows-1252 (one byte per accent), semicolons, no header row.
+    writeFileSync(file, Buffer.concat([Buffer.from('2;Bruno;Faro\n3;', 'latin1'), Buffer.from('Jo\xe3o;S\xe3o Paulo\n', 'latin1'), Buffer.from('1;Ana;Lisboa\n', 'latin1')]))
+    const options = { delimiter: ';' as const, hasHeader: false, encoding: 'windows-1252' as const }
+    const preview = await core.importPreview(pg, { path: file, format: 'csv', target, options })
+    expect(preview.fields).toEqual(['column_1', 'column_2', 'column_3'])
+    expect(preview.sample[1]).toEqual(['3', 'João', 'São Paulo'])
+    expect(preview.detected).toEqual({ delimiter: ';', encoding: 'windows-1252' })
+    const mapping = { column_1: 'id', column_2: 'name', column_3: 'city' }
+
+    // The default refuses a row whose key exists, and keeps nothing.
+    await expect(core.importRun(pg, { path: file, format: 'csv', target, mapping, options }, never)).rejects.toMatchObject({ code: 'query' })
+    expect(await scalar('SELECT count(*) FROM people_sync')).toBe('2')
+    // Skip leaves the existing rows alone and adds the new one.
+    const skipped = await core.importRun(pg, { path: file, format: 'csv', target, mapping, options, conflict: { mode: 'skip', columns: ['id'] } }, never)
+    expect(skipped).toMatchObject({ inserted: 1, skipped: 2 })
+    expect(await scalar('SELECT city FROM people_sync WHERE id = 2')).toBe('Porto')
+    expect(await scalar('SELECT name FROM people_sync WHERE id = 3')).toBe('João')
+    // Update changes the rows that exist and reports each kind.
+    await exec('DELETE FROM people_sync WHERE id = 3')
+    const merged = await core.importRun(pg, { path: file, format: 'csv', target, mapping, options, conflict: { mode: 'update', columns: ['id'] } }, never)
+    expect(merged).toMatchObject({ inserted: 1, updated: 2 })
+    expect(await scalar('SELECT city FROM people_sync WHERE id = 2')).toBe('Faro')
+    // An update needs its key, and the key must be a mapped column.
+    await expect(core.importRun(pg, { path: file, format: 'csv', target, mapping, options, conflict: { mode: 'update', columns: [] } }, never)).rejects.toMatchObject({ code: 'invalid' })
+    await expect(core.importRun(pg, { path: file, format: 'csv', target, mapping: { column_2: 'name' }, options, conflict: { mode: 'update', columns: ['id'] } }, never)).rejects.toMatchObject({ code: 'invalid' })
+  })
+
+  it('exports a table and a query as an Excel workbook, refusing to overwrite', async () => {
+    const path = join(dir, 'people.xlsx')
+    const result = await core.exportRun(pg, { path, format: 'xlsx', source: { kind: 'table', schema: 'public', table: 'people_sync' } }, never)
+    expect(result.rows).toBe(3)
+    const zip = readFileSync(path)
+    expect(zip.subarray(0, 2).toString()).toBe('PK')
+    expect(zip.includes(Buffer.from('xl/worksheets/sheet1.xml'))).toBe(true)
+    await expect(core.exportRun(pg, { path, format: 'xlsx', source: { kind: 'sql', sql: 'SELECT 1' } }, never)).rejects.toThrow()
+    expect(readFileSync(path).equals(zip)).toBe(true)
+  })
+
   it('explains a statement and rolls back an analyzed write', async () => {
     const estimated = await core.sqlExplain(pg, { sql: 'SELECT * FROM big WHERE id = 5' })
     expect(estimated.analyze).toBe(false)

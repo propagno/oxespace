@@ -390,7 +390,7 @@ export interface OxeQueryAuditEntry {
   errorCode: string | null
 }
 
-export type ExportFormat = 'csv' | 'json' | 'ndjson' | 'sql'
+export type ExportFormat = 'csv' | 'json' | 'ndjson' | 'sql' | 'xlsx'
 export type ExportSource =
   | { kind: 'sql'; sql: string }
   | { kind: 'table'; schema: string; table: string }
@@ -417,6 +417,14 @@ export interface ExportResult {
 export type ImportTarget =
   | { kind: 'table'; schema: string; table: string }
   | { kind: 'collection'; database: string; collection: string }
+/** How a CSV file is read. */
+export interface ImportReadOptions {
+  delimiter?: 'auto' | ',' | ';' | '\t' | '|'
+  hasHeader?: boolean
+  encoding?: 'auto' | 'utf-8' | 'utf-16le' | 'utf-16be' | 'windows-1252'
+}
+/** What to do with a row whose key already exists in a table. */
+export interface ImportConflict { mode: 'error' | 'skip' | 'update'; columns: string[] }
 export interface ImportPreview {
   /** Handle for the chosen file; the page never learns its path. */
   importId: string
@@ -431,6 +439,9 @@ export interface ImportPreview {
   targetColumns: { name: string; type: string; nullable: boolean; hasDefault: boolean; generated: boolean }[]
   /** Suggested file field → column mapping (same name, case-insensitive). */
   mapping: Record<string, string>
+  /** The options in force and what was guessed, for a CSV. */
+  options?: ImportReadOptions
+  detected?: { delimiter: string; encoding: string }
   dismissed?: boolean
 }
 export interface ImportRunInput {
@@ -443,10 +454,16 @@ export interface ImportRunInput {
   dryRun?: boolean
   emptyAsNull?: boolean
   confirmed?: boolean
+  options?: ImportReadOptions
+  conflict?: ImportConflict
 }
 export interface ImportResult {
   dryRun: boolean
   inserted: number
+  /** Rows that already existed and were changed (conflict mode update). */
+  updated?: number
+  /** Rows that already existed and were left alone (conflict mode skip). */
+  skipped?: number
   rejected: number
   /** First rejected rows with the reason. */
   rejects: { row: number; reason: string }[]
@@ -647,6 +664,7 @@ export interface OxeQueryOps {
   'library.clearHistory': { input: { connectionId: string }; output: { deleted: number } }
   'export.cancel': { input: { exportId: string }; output: { cancelled: boolean } }
   'import.preview': { input: { connectionId: string; target: ImportTarget }; output: ImportPreview }
+  'import.reparse': { input: { connectionId: string; importId: string; target: ImportTarget; options: ImportReadOptions }; output: ImportPreview }
   'import.run': { input: ImportRunInput; output: ImportResult }
   'import.cancel': { input: { importId: string }; output: { cancelled: boolean } }
 }

@@ -3,6 +3,15 @@ import { open, readFile, stat, type FileHandle } from 'node:fs/promises'
 import { OxeQueryError } from './oxequery-errors'
 
 export type ImportFormat = 'csv' | 'ndjson' | 'json'
+
+/** How a CSV is read: chosen by the person when the guess is wrong. */
+export interface ImportOptions {
+  /** `auto` looks at the first line. */
+  delimiter?: 'auto' | ',' | ';' | '\t' | '|'
+  /** False when the first row is data: columns are then called column_1, column_2… */
+  hasHeader?: boolean
+  encoding?: 'auto' | TextEncodingName
+}
 export const MAX_IMPORT_BYTES = 200 * 1024 * 1024
 
 export type ImportItem =
@@ -90,6 +99,13 @@ export function detectEncoding(head: Buffer): { encoding: TextEncodingName; bomL
   } catch { return { encoding: 'windows-1252', bomLength: 0 } }
 }
 
+/** The person's choice wins over the guess; a byte-order mark still says how many bytes to skip. */
+export function chooseEncoding(head: Buffer, forced?: ImportOptions['encoding']): { encoding: TextEncodingName; bomLength: number } {
+  const detected = detectEncoding(head)
+  if (!forced || forced === 'auto') return detected
+  return { encoding: forced, bomLength: forced === detected.encoding ? detected.bomLength : 0 }
+}
+
 async function readHead(path: string): Promise<Buffer> {
   let handle: FileHandle | undefined
   try {
@@ -100,14 +116,14 @@ async function readHead(path: string): Promise<Buffer> {
   } finally { await handle?.close() }
 }
 
-async function sniff(path: string): Promise<string> {
+async function sniff(path: string, forced?: ImportOptions['encoding']): Promise<string> {
   const head = await readHead(path)
-  const { encoding, bomLength } = detectEncoding(head)
+  const { encoding, bomLength } = chooseEncoding(head, forced)
   return new TextDecoder(encoding).decode(head.subarray(bomLength, bomLength + 8192))
 }
 
-async function* textChunks(path: string): AsyncGenerator<string> {
-  const { encoding, bomLength } = detectEncoding(await readHead(path))
+async function* textChunks(path: string, forced?: ImportOptions['encoding']): AsyncGenerator<string> {
+  const { encoding, bomLength } = chooseEncoding(await readHead(path), forced)
   const decoder = new TextDecoder(encoding)
   let skip = bomLength
   for await (const chunk of createReadStream(path, { highWaterMark: 256 * 1024 })) {
@@ -120,19 +136,33 @@ async function* textChunks(path: string): AsyncGenerator<string> {
   if (rest) yield rest
 }
 
+/** The delimiter a CSV most likely uses: the one that splits its first line into the most fields. */
+export function guessDelimiter(path: string, firstLine: string): string {
+  return path.toLowerCase().endsWith('.tsv') ? '\t' : [',', ';', '\t', '|'].map(item => [item, firstLine.split(item).length] as const).sort((a, b) => b[1] - a[1])[0]![0]
+}
+
+/** What was chosen or guessed for a CSV, in words a person can check. */
+export async function describeFile(path: string, options: ImportOptions): Promise<{ delimiter: string; encoding: TextEncodingName }> {
+  const head = await readHead(path)
+  const { encoding } = chooseEncoding(head, options.encoding)
+  const first = (await sniff(path, options.encoding)).split(/\r?\n/, 1)[0] ?? ''
+  return { delimiter: options.delimiter && options.delimiter !== 'auto' ? options.delimiter : guessDelimiter(path, first), encoding }
+}
+
 /** Records of the file, one per row, each as an object. A bad row is reported, not fatal. */
-export async function* readRecords(path: string, format: ImportFormat): AsyncGenerator<ImportItem> {
+export async function* readRecords(path: string, format: ImportFormat, options: ImportOptions = {}): AsyncGenerator<ImportItem> {
   await checkSize(path)
   if (format === 'csv') {
-    const head = (await sniff(path)).split(/\r?\n/, 1)[0] ?? ''
-    const delimiter = path.toLowerCase().endsWith('.tsv') ? '\t' : [',', ';', '\t'].map(item => [item, head.split(item).length] as const).sort((a, b) => b[1] - a[1])[0][0]
+    const head = (await sniff(path, options.encoding)).split(/\r?\n/, 1)[0] ?? ''
+    const delimiter = options.delimiter && options.delimiter !== 'auto' ? options.delimiter : guessDelimiter(path, head)
+    const hasHeader = options.hasHeader !== false
     let header: string[] | null = null
     let row = 0
-    for await (const fields of parseCsv(textChunks(path), delimiter)) {
+    for await (const fields of parseCsv(textChunks(path, options.encoding), delimiter)) {
       if (!header) {
-        header = fields.map((name, index) => name.trim() || `column_${index + 1}`)
+        header = fields.map((name, index) => hasHeader ? name.trim() || `column_${index + 1}` : `column_${index + 1}`)
         if (new Set(header).size !== header.length) throw new OxeQueryError('invalid', 'The CSV header has repeated column names.')
-        continue
+        if (hasHeader) continue
       }
       row++
       if (fields.length !== header.length) { yield { row, error: `Expected ${header.length} fields but found ${fields.length}.`, raw: fields.join(delimiter).slice(0, 300) }; continue }

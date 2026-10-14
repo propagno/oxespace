@@ -112,7 +112,9 @@ export function registerOxeQueryMock(): void {
       case 'sql.maintenance': return ok({ statement: maintenanceStatement(String(input.schema), String(input.table), String(input.action)), durationMs: 1 })
       case 'mongo.write': return ok({ matched: 1, modified: 1, deleted: 0 })
       case 'import.preview': return ok({ importId: 'imp-mock', fileName: 'users.csv', format: 'csv', bytes: 96, fields: ['id', 'email'], sample: [['1', 'a@example.com'], ['2', 'b@example.com']],
-        targetColumns: [{ name: 'id', type: 'integer', nullable: false, hasDefault: true, generated: false }, { name: 'email', type: 'text', nullable: false, hasDefault: false, generated: false }], mapping: { id: 'id', email: 'email' } })
+        targetColumns: [{ name: 'id', type: 'integer', nullable: false, hasDefault: true, generated: false }, { name: 'email', type: 'text', nullable: false, hasDefault: false, generated: false }], mapping: { id: 'id', email: 'email' }, options: { delimiter: 'auto', hasHeader: true, encoding: 'auto' }, detected: { delimiter: ',', encoding: 'utf-8' } })
+      case 'import.reparse': return ok({ importId: 'imp-mock', fileName: 'users.csv', format: 'csv', bytes: 96, fields: (input.options as { hasHeader?: boolean } | undefined)?.hasHeader === false ? ['column_1', 'column_2'] : ['id', 'email'], sample: [['1', 'a@example.com']],
+        targetColumns: [], mapping: (input.options as { hasHeader?: boolean } | undefined)?.hasHeader === false ? {} : { id: 'id', email: 'email' }, options: input.options, detected: { delimiter: ';', encoding: 'windows-1252' } })
       case 'import.run': return ok({ dryRun: Boolean((input as { dryRun?: boolean }).dryRun), inserted: 2, rejected: 0, rejects: [], durationMs: 3 })
       case 'import.cancel': return ok({ cancelled: false })
       case 'sql.explain': return ok({ analyze: Boolean((input as { analyze?: boolean }).analyze), nodeCount: 2, hints: [], planningMs: 0.2, executionMs: 1.4,

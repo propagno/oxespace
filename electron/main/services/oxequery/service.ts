@@ -18,6 +18,7 @@ import { WorkspaceInputError, WorkspaceStore } from './workspace-store'
 import { AgentGateway } from './agent-gateway'
 import { ApprovalBroker, type ApprovalPrompter } from './approval-broker'
 import { AuditLog } from './audit-log'
+import type { ExportFormat } from '../../../../shared/types/oxequery'
 import { stringifyMongoQuery, type MongoQueryText } from '../../../../shared/mongoQueryText'
 
 type Raw = Record<string, unknown>
@@ -32,6 +33,25 @@ function str(value: unknown, label: string, max = 4096): string {
   if (typeof value !== 'string' || value.length === 0 || value.length > max || value.includes('\0')) throw new OxeQueryError('invalid', `${label} is required.`)
   return value
 }
+/** CSV reading options from the page, each checked against what is allowed. */
+function readOptions(value: unknown): { delimiter: string; hasHeader: boolean; encoding: string } {
+  const raw = record(value ?? {})
+  const delimiters = ['auto', ',', ';', '\t', '|']
+  const encodings = ['auto', 'utf-8', 'utf-16le', 'utf-16be', 'windows-1252']
+  return {
+    delimiter: delimiters.includes(String(raw.delimiter)) ? String(raw.delimiter) : 'auto', hasHeader: raw.hasHeader !== false,
+    encoding: encodings.includes(String(raw.encoding)) ? String(raw.encoding) : 'auto'
+  }
+}
+
+/** What to do with rows whose key exists, or nothing for the default of refusing the import. */
+function readConflict(value: unknown): { mode: 'skip' | 'update'; columns: string[] } | undefined {
+  const raw = record(value ?? {})
+  if (raw.mode !== 'skip' && raw.mode !== 'update') return undefined
+  const columns = Array.isArray(raw.columns) ? raw.columns.map(entry => String(entry).slice(0, 255)).slice(0, 16) : []
+  return { mode: raw.mode, columns }
+}
+
 function optionalString(value: unknown, max = 262_144): string | undefined {
   if (value === undefined || value === null || value === '') return undefined
   if (typeof value !== 'string' || value.length > max || value.includes('\0')) throw new OxeQueryError('invalid', 'Invalid text input.')
@@ -93,7 +113,7 @@ export interface OxeQueryServiceOptions {
   /** Native chooser for certificates and keys; absent in tests and headless runs. */
   pickFile?: (kind: PickedKind) => Promise<{ name: string; content: string } | null>
   /** Native save dialog for exports; absent in tests and headless runs. */
-  pickSavePath?: (suggestedName: string, format: 'csv' | 'json' | 'ndjson' | 'sql') => Promise<string | null>
+  pickSavePath?: (suggestedName: string, format: ExportFormat) => Promise<string | null>
   /** Native open dialog for an import file. */
   pickImportPath?: () => Promise<string | null>
   /** How a person is asked to approve an agent's request. Without one, every approval is denied. */
@@ -424,7 +444,7 @@ export class OxeQueryService {
         const { detectFormat, checkSize } = await import('./import-reader')
         const format = detectFormat(path)
         const bytes = await checkSize(path)
-        const preview = await this.worker.call<{ fields: string[]; sample: string[][]; targetColumns: { name: string }[] }>('import.preview', connection, { path, format, target })
+        const preview = await this.worker.call<{ fields: string[]; sample: string[][]; targetColumns: { name: string }[]; detected?: { delimiter: string; encoding: string } }>('import.preview', connection, { path, format, target })
         const now = Date.now()
         for (const [key, value] of this.imports) if (value.expires < now) this.imports.delete(key)
         const importId = `imp-${randomUUID()}`
@@ -435,7 +455,23 @@ export class OxeQueryService {
           const match = target.kind === 'table' ? lower.get(field.toLowerCase()) : field
           if (match) mapping[field] = match
         }
-        return { importId, fileName: path.split(/[\\/]/).pop() ?? 'file', format, bytes, ...preview, mapping }
+        return { importId, fileName: path.split(/[\\/]/).pop() ?? 'file', format, bytes, ...preview, mapping, options: { delimiter: 'auto', hasHeader: true, encoding: 'auto' } }
+      }
+      case 'import.reparse': {
+        // The same file read another way: a different delimiter, no header row, another encoding.
+        const connection = this.resolve(input.connectionId)
+        const target = this.importTarget(connection.engine, input.target)
+        const file = this.imports.get(str(input.importId, 'Import', 80))
+        if (!file || file.expires < Date.now()) throw new OxeQueryError('invalid', 'Choose the file again; this selection expired.')
+        const options = readOptions(input.options)
+        const preview = await this.worker.call<{ fields: string[]; sample: string[][]; targetColumns: { name: string }[]; detected?: { delimiter: string; encoding: string } }>('import.preview', connection, { path: file.path, format: file.format, target, options })
+        const lower = new Map(preview.targetColumns.map(column => [column.name.toLowerCase(), column.name]))
+        const mapping: Record<string, string> = {}
+        for (const field of preview.fields) {
+          const match = target.kind === 'table' ? lower.get(field.toLowerCase()) : field
+          if (match) mapping[field] = match
+        }
+        return { importId: str(input.importId, 'Import', 80), fileName: file.path.split(/[\\/]/).pop() ?? 'file', format: file.format, bytes: 0, ...preview, mapping, options }
       }
       case 'import.run': {
         const connection = this.resolve(input.connectionId)
@@ -451,7 +487,7 @@ export class OxeQueryService {
         if (!dryRun && connection.environment === 'prod' && input.confirmed !== true) {
           throw new OxeQueryError('confirm', 'Confirmation is required.', ['This connection is marked as production.', 'Import adds rows that cannot be taken back automatically.'])
         }
-        return this.worker.call('import.run', connection, { importId, path: file.path, format: file.format, target, mapping: clean, dryRun, emptyAsNull: input.emptyAsNull !== false },
+        return this.worker.call('import.run', connection, { importId, path: file.path, format: file.format, target, mapping: clean, dryRun, emptyAsNull: input.emptyAsNull !== false, options: readOptions(input.options), ...(readConflict(input.conflict) ? { conflict: readConflict(input.conflict) } : {}) },
           progress => {
             const value = progress as { rows?: number }
             if (typeof value.rows === 'number') this.emit({ type: 'import-progress', importId, rows: value.rows })
@@ -465,7 +501,7 @@ export class OxeQueryService {
         const connection = this.resolve(input.connectionId)
         const exportId = str(input.exportId, 'Export', 64)
         const format = str(input.format, 'Format', 16)
-        if (!['csv', 'json', 'ndjson', 'sql'].includes(format)) throw new OxeQueryError('invalid', 'Unsupported export format.')
+        if (!['csv', 'json', 'ndjson', 'sql', 'xlsx'].includes(format)) throw new OxeQueryError('invalid', 'Unsupported export format.')
         if (format === 'sql' && connection.engine !== 'postgres') throw new OxeQueryError('invalid', 'SQL export is for PostgreSQL tables and queries.')
         const source = record(input.source)
         let suggested = 'export'
@@ -483,7 +519,7 @@ export class OxeQueryService {
           suggested = String(normalized.collection)
         } else throw new OxeQueryError('invalid', 'That source cannot be exported from this connection.')
         if (!this.pickSavePath) throw new OxeQueryError('invalid', 'Saving files is not available here.')
-        const path = await this.pickSavePath(suggested, format as 'csv' | 'json' | 'ndjson' | 'sql')
+        const path = await this.pickSavePath(suggested, format as ExportFormat)
         if (!path) return { dismissed: true, rows: 0, bytes: 0, durationMs: 0 }
         const options = input.options && typeof input.options === 'object' ? input.options as Raw : {}
         const result = await this.worker.call<{ rows: number; bytes: number; durationMs: number; cancelled: boolean }>('export.run', connection, {

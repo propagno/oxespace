@@ -413,3 +413,9 @@
 .oq-reconnect { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 10px; padding: 8px 12px; border: 1px solid var(--dot-yellow, var(--bd-base)); border-radius: var(--radius-md); font-size: var(--fs-xs); }
 .oq-reconnect span { flex: 1 1 260px; }
 .oq-reconnect em { flex-basis: 100%; font-style: normal; color: var(--tx-secondary); }
+
+.oq-import-options { display: flex; flex-wrap: wrap; align-items: end; gap: 8px 16px; margin: 8px 0; padding: 8px 12px; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); font-size: var(--fs-xs); }
+.oq-import-options legend { padding: 0 4px; color: var(--tx-muted); }
+.oq-import-options label { display: grid; gap: 4px; }
+.oq-import-options label.oq-inline { display: inline-flex; }
+.oq-import-keys { display: flex; flex-wrap: wrap; gap: 4px 12px; width: 100%; }

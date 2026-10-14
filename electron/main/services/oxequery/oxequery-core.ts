@@ -20,11 +20,13 @@ import { summarizeExplain } from './mongo-explain'
 import { EJSON } from 'bson'
 import { buildStatements, previewStatements, type ColumnMeta, type RowChange } from './table-editor'
 import { createSink } from './export-writer'
+import { createXlsxSink } from './xlsx-writer'
 import { parsePlan, planHints } from './plan-parser'
 import { inferSchema } from './mongo-schema'
 import type { MongoBulkInput, MongoBulkResult, MongoCollectionAction, MongoExplainInput, MongoExplainSummary, MongoSchema, MongoStats, MongoValidation, SqlDefinitionTarget, SqlFunctionInfo } from '../../../../shared/types/oxequery'
 import type { SqlExplain } from '../../../../shared/types/oxequery'
-import { openRejects, readRecords, type ImportFormat } from './import-reader'
+import { describeFile, openRejects, readRecords, type ImportFormat, type ImportOptions } from './import-reader'
+import type { ImportConflict } from '../../../../shared/types/oxequery'
 import type { ImportTarget } from '../../../../shared/types/oxequery'
 import type { ExportFormat, ExportSource } from '../../../../shared/types/oxequery'
 
@@ -1140,12 +1142,12 @@ export class OxeQueryCore {
   // ---- Import -------------------------------------------------------------
 
   /** The first rows of a file and the destination's columns, so a mapping can be chosen. */
-  async importPreview(connection: ResolvedConnection, input: { path: string; format: ImportFormat; target: ImportTarget }): Promise<{
-    fields: string[]; sample: string[][]; targetColumns: { name: string; type: string; nullable: boolean; hasDefault: boolean; generated: boolean }[]
+  async importPreview(connection: ResolvedConnection, input: { path: string; format: ImportFormat; target: ImportTarget; options?: ImportOptions }): Promise<{
+    fields: string[]; sample: string[][]; targetColumns: { name: string; type: string; nullable: boolean; hasDefault: boolean; generated: boolean }[]; detected?: { delimiter: string; encoding: string }
   }> {
     const fields: string[] = []
     const rows: Record<string, unknown>[] = []
-    for await (const item of readRecords(input.path, input.format)) {
+    for await (const item of readRecords(input.path, input.format, input.options)) {
       if (!('record' in item)) continue
       for (const key of Object.keys(item.record)) if (!fields.includes(key)) fields.push(key)
       rows.push(item.record)
@@ -1157,7 +1159,8 @@ export class OxeQueryCore {
       if (connection.engine !== 'postgres') throw new OxeQueryError('invalid', 'A table import needs a PostgreSQL connection.')
       targetColumns = (await this.columnMeta(connection, input.target.schema, input.target.table)).columns.map(({ name, type, nullable, hasDefault, generated }) => ({ name, type, nullable, hasDefault, generated }))
     } else if (connection.engine !== 'mongodb') throw new OxeQueryError('invalid', 'A collection import needs a MongoDB connection.')
-    return { fields, sample: rows.map(record => fields.map(field => text(record[field]))), targetColumns }
+    const detected = input.format === 'csv' ? await describeFile(input.path, input.options ?? {}) : undefined
+    return { fields, sample: rows.map(record => fields.map(field => text(record[field]))), targetColumns, ...(detected ? { detected } : {}) }
   }
 
   /**
@@ -1167,9 +1170,9 @@ export class OxeQueryCore {
    */
   async importRun(
     connection: ResolvedConnection,
-    input: { path: string; format: ImportFormat; target: ImportTarget; mapping: Record<string, string>; dryRun?: boolean; emptyAsNull?: boolean },
+    input: { path: string; format: ImportFormat; target: ImportTarget; mapping: Record<string, string>; dryRun?: boolean; emptyAsNull?: boolean; options?: ImportOptions; conflict?: ImportConflict },
     hooks: { cancelled(): boolean; progress(rows: number): void }
-  ): Promise<{ dryRun: boolean; inserted: number; rejected: number; rejects: { row: number; reason: string }[]; rejectsPath?: string; cancelled: boolean; durationMs: number }> {
+  ): Promise<{ dryRun: boolean; inserted: number; updated?: number; skipped?: number; rejected: number; rejects: { row: number; reason: string }[]; rejectsPath?: string; cancelled: boolean; durationMs: number }> {
     if (connection.readOnly) throw new OxeQueryError('read-only', 'This connection is read-only. Turn read-only off to import data.')
     const started = Date.now()
     const dryRun = Boolean(input.dryRun)
@@ -1191,11 +1194,13 @@ export class OxeQueryCore {
       await rejectsFile?.write(`${JSON.stringify({ row, reason, ...(raw ? { raw } : {}) })}\n`)
     }
     let inserted = 0
+    let updated = 0
+    let skipped = 0
     let lastReport = 0
     const report = (seen: number): void => { const now = Date.now(); if (now - lastReport > 250) { lastReport = now; hooks.progress(seen) } }
-    const finish = async (cancelled: boolean): Promise<{ dryRun: boolean; inserted: number; rejected: number; rejects: { row: number; reason: string }[]; rejectsPath?: string; cancelled: boolean; durationMs: number }> => {
+    const finish = async (cancelled: boolean): Promise<{ dryRun: boolean; inserted: number; updated?: number; skipped?: number; rejected: number; rejects: { row: number; reason: string }[]; rejectsPath?: string; cancelled: boolean; durationMs: number }> => {
       await rejectsFile?.close().catch(() => undefined)
-      return { dryRun, inserted, rejected, rejects, ...(rejectsPath ? { rejectsPath } : {}), cancelled, durationMs: Date.now() - started }
+      return { dryRun, inserted, ...(updated ? { updated } : {}), ...(skipped ? { skipped } : {}), rejected, rejects, ...(rejectsPath ? { rejectsPath } : {}), cancelled, durationMs: Date.now() - started }
     }
     try {
       if (input.target.kind === 'collection') {
@@ -1220,7 +1225,7 @@ export class OxeQueryCore {
             for (const writeError of failure.writeErrors) await reject(seen, String(writeError.errmsg ?? 'The document was refused.').slice(0, 200))
           }
         }
-        for await (const item of readRecords(input.path, input.format)) {
+        for await (const item of readRecords(input.path, input.format, input.options)) {
           if (hooks.cancelled()) return await finish(true)
           seen++
           if (!('record' in item)) { await reject(item.row, item.error, item.raw); continue }
@@ -1252,8 +1257,21 @@ export class OxeQueryCore {
       const fieldsByColumn = destinations.map(name => Object.entries(input.mapping).find(([, target]) => target === name)![0])
       const perBatch = Math.max(1, Math.min(1000, Math.floor(60_000 / metas.length)))
       const table = `${quoteIdentifier(input.target.schema)}.${quoteIdentifier(input.target.table)}`
+      // What to do with a row whose key exists: refuse the import (default), leave the row, or update it.
+      const conflict = input.conflict && input.conflict.mode !== 'error' ? input.conflict : null
+      for (const name of conflict?.columns ?? []) {
+        if (!columns.some(column => column.name === name)) throw new OxeQueryError('invalid', `The table has no column "${name}" to match rows on.`)
+        if (!destinations.includes(name)) throw new OxeQueryError('invalid', `The key column "${name}" must be mapped to a file field.`)
+      }
+      if (conflict?.mode === 'update' && conflict.columns.length === 0) throw new OxeQueryError('invalid', 'Choose the key column or columns that identify an existing row.')
+      const keyList = conflict && conflict.columns.length ? ` (${conflict.columns.map(quoteIdentifier).join(', ')})` : ''
+      const updatable = destinations.filter(name => !(conflict?.columns ?? []).includes(name))
+      const reportsInserts = conflict?.mode === 'update' && updatable.length > 0
+      const conflictSql = !conflict ? '' : conflict.mode === 'skip' || updatable.length === 0
+        ? ` ON CONFLICT${keyList} DO NOTHING`
+        : ` ON CONFLICT${keyList} DO UPDATE SET ${updatable.map(name => `${quoteIdentifier(name)} = EXCLUDED.${quoteIdentifier(name)}`).join(', ')} RETURNING (xmax = 0) AS inserted`
       const insertSql = (count: number): string => `INSERT INTO ${table} (${metas.map(meta => quoteIdentifier(meta.name)).join(', ')}) VALUES ${
-        Array.from({ length: count }, (_, rowIndex) => `(${metas.map((meta, columnIndex) => `$${rowIndex * metas.length + columnIndex + 1}::${meta.type}`).join(', ')})`).join(', ')}`
+        Array.from({ length: count }, (_, rowIndex) => `(${metas.map((meta, columnIndex) => `$${rowIndex * metas.length + columnIndex + 1}::${meta.type}`).join(', ')})`).join(', ')}${conflictSql}`
       const session = await this.pgSession(connection)
       if (session.running) throw new OxeQueryError('invalid', 'This connection is already running a query. Wait for it or cancel it.')
     if (session.tx !== 'none') throw new OxeQueryError('invalid', 'A transaction is open on this connection. Commit or roll it back first.')
@@ -1265,14 +1283,21 @@ export class OxeQueryCore {
         if (batch.length === 0) return
         const rows = batch
         batch = []
-        await client.query({ text: insertSql(rows.length), values: rows.flat() })
-        inserted += rows.length
+        const outcome = await client.query({ text: insertSql(rows.length), values: rows.flat() })
+        if (reportsInserts) {
+          const fresh = (outcome.rows as { inserted: boolean }[]).filter(row => row.inserted === true).length
+          inserted += fresh
+          updated += outcome.rows.length - fresh
+        } else if (conflict) {
+          inserted += outcome.rowCount ?? 0
+          skipped += rows.length - (outcome.rowCount ?? 0)
+        } else inserted += rows.length
       }
       try {
         await client.query('BEGIN')
         try {
-          for await (const item of readRecords(input.path, input.format)) {
-            if (hooks.cancelled()) { await client.query('ROLLBACK'); inserted = 0; return await finish(true) }
+          for await (const item of readRecords(input.path, input.format, input.options)) {
+            if (hooks.cancelled()) { await client.query('ROLLBACK'); inserted = 0; updated = 0; skipped = 0; return await finish(true) }
             rowsSeen++
             if (!('record' in item)) { await reject(item.row, item.error, item.raw); continue }
             batch.push(fieldsByColumn.map((field, index) => {
@@ -1288,7 +1313,7 @@ export class OxeQueryCore {
           await client.query(dryRun ? 'ROLLBACK' : 'COMMIT')
         } catch (error) {
           await client.query('ROLLBACK').catch(() => undefined)
-          inserted = 0
+          inserted = 0; updated = 0; skipped = 0
           throw error
         }
       } finally { session.running = false; session.lastUsed = Date.now() }
@@ -1317,7 +1342,7 @@ export class OxeQueryCore {
     const started = Date.now()
     const limit = Math.max(1, Math.min(Math.trunc(input.options?.maxRows ?? 5_000_000) || 5_000_000, 20_000_000))
     const tableName = input.source.kind === 'table' ? `${quoteIdentifier(input.source.schema)}.${quoteIdentifier(input.source.table)}` : input.source.kind === 'collection' ? undefined : '"query_result"'
-    const sink = createSink(input.format, input.path, { ...input.options, ...(tableName ? { tableName } : {}) })
+    const sink = input.format === 'xlsx' ? createXlsxSink(input.path) : createSink(input.format, input.path, { ...input.options, ...(tableName ? { tableName } : {}) })
     let rows = 0
     let lastReport = 0
     const report = (force = false): void => {
@@ -1364,11 +1389,14 @@ export class OxeQueryCore {
         }
         session.running = true
         const { client } = session
+        let cursor: Cursor | null = null
+        let cursorClosed = false
         try {
           await client.query('BEGIN READ ONLY')
-          const cursor = client.query(new Cursor(sql, [], { rowMode: 'array' }))
+          const opened = client.query(new Cursor(sql, [], { rowMode: 'array' }))
+          cursor = opened
           const read = (count: number): Promise<{ rows: unknown[][]; fields: { name: string; dataTypeID?: number }[] }> =>
-            new Promise((resolve, reject) => cursor.read(count, (error, batch, result) => error ? reject(error) : resolve({ rows: batch as unknown[][], fields: ((result as { fields?: { name: string }[] }).fields ?? []) })))
+            new Promise((resolve, reject) => opened.read(count, (error, batch, result) => error ? reject(error) : resolve({ rows: batch as unknown[][], fields: ((result as { fields?: { name: string }[] } | undefined)?.fields ?? []) })))
           let headerWritten = false
           for (;;) {
             const batch = await read(1000)
@@ -1380,11 +1408,14 @@ export class OxeQueryCore {
               rows++
             }
             report()
-            if (hooks.cancelled()) { await new Promise<void>(resolve => cursor.close(() => resolve())); await sink.abort(); return { rows, bytes: sink.bytes, durationMs: Date.now() - started, cancelled: true } }
+            if (hooks.cancelled()) { cursorClosed = true; await new Promise<void>(resolve => opened.close(() => resolve())); await sink.abort(); return { rows, bytes: sink.bytes, durationMs: Date.now() - started, cancelled: true } }
             if (rows >= limit) break
           }
-          await new Promise<void>(resolve => cursor.close(() => resolve()))
+          cursorClosed = true
+          await new Promise<void>(resolve => opened.close(() => resolve()))
         } finally {
+          // An open cursor holds the session: a failure (a file that cannot be written, say) must close it before ROLLBACK can run.
+          if (cursor && !cursorClosed) { const open = cursor; await new Promise<void>(resolve => open.close(() => resolve())).catch(() => undefined) }
           await client.query('ROLLBACK').catch(() => undefined)
           session.running = false
           session.lastUsed = Date.now()
