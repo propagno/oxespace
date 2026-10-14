@@ -12,6 +12,10 @@ import { OxeQueryCore } from '../../electron/main/services/oxequery/oxequery-cor
 import { probeHostKey } from '../../electron/main/services/oxequery/ssh-tunnel'
 import type { ResolvedConnection } from '../../electron/main/services/oxequery/oxequery-errors'
 
+/** The server versions under test; CI runs the suite against several (OXE_LIVE_PG_IMAGE / OXE_LIVE_MONGO_IMAGE). */
+const PG_IMAGE = process.env.OXE_LIVE_PG_IMAGE ?? 'docker.io/library/postgres:16-alpine'
+const MONGO_IMAGE = process.env.OXE_LIVE_MONGO_IMAGE ?? 'docker.io/library/mongo:7'
+
 const live = process.env.OXE_LIVE === '1'
 const suffix = Math.random().toString(36).slice(2, 8)
 const NETWORK = `oxe-conn-${suffix}`
@@ -63,9 +67,9 @@ describe.skipIf(!live)('OxeQuery connectivity against real servers', () => {
     serverCert = docker('run', '--rm', '-v', `${VOLUME}:/certs`, 'docker.io/library/alpine:3.20', 'cat', '/certs/server.crt')
 
     docker('run', '-d', '--name', PG_TLS, '-v', `${VOLUME}:/certs`, '-e', 'POSTGRES_USER=oxe', '-e', 'POSTGRES_DB=appdb', '-e', `POSTGRES_PASSWORD=${PASSWORD}`,
-      '-p', '127.0.0.1::5432', 'docker.io/library/postgres:16-alpine', '-c', 'ssl=on', '-c', 'ssl_cert_file=/certs/server.crt', '-c', 'ssl_key_file=/certs/server.key')
-    docker('run', '-d', '--name', PG, '--network', NETWORK, '-e', 'POSTGRES_USER=oxe', '-e', 'POSTGRES_DB=appdb', '-e', `POSTGRES_PASSWORD=${PASSWORD}`, 'docker.io/library/postgres:16-alpine')
-    docker('run', '-d', '--name', MONGO, '--network', NETWORK, '-e', 'MONGO_INITDB_ROOT_USERNAME=root', '-e', `MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}`, 'docker.io/library/mongo:7')
+      '-p', '127.0.0.1::5432', PG_IMAGE, '-c', 'ssl=on', '-c', 'ssl_cert_file=/certs/server.crt', '-c', 'ssl_key_file=/certs/server.key')
+    docker('run', '-d', '--name', PG, '--network', NETWORK, '-e', 'POSTGRES_USER=oxe', '-e', 'POSTGRES_DB=appdb', '-e', `POSTGRES_PASSWORD=${PASSWORD}`, PG_IMAGE)
+    docker('run', '-d', '--name', MONGO, '--network', NETWORK, '-e', 'MONGO_INITDB_ROOT_USERNAME=root', '-e', `MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}`, MONGO_IMAGE)
     docker('run', '-d', '--name', SSHD, '--network', NETWORK, '-p', '127.0.0.1::22', 'docker.io/library/alpine:3.20', 'sh', '-c',
       `apk add --no-cache openssh >/dev/null && ssh-keygen -A && adduser -D oxe && echo 'oxe:${SSH_PASSWORD}' | chpasswd && exec /usr/sbin/sshd -D -e -o AllowTcpForwarding=yes -o PasswordAuthentication=yes -o UsePAM=no`)
 

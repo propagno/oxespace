@@ -324,7 +324,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
         </div>}
         <div className="oq-results-bar">
           {active.browse && <span className="oq-results-title"><Table2 size={13} aria-hidden="true" /> {active.browse.schema}.{active.browse.table}</span>}
-          <span className="oq-muted">{running ? 'Running…' : result ? summary(result, active.browse) : 'Results appear here.'}</span>
+          <span className="oq-muted">{running ? 'Running…' : result ? summary(result, active.browse) : error ? 'No result' : 'Results appear here.'}</span>
           <span className="oq-spacer" />
           {active.browse && <><button type="button" disabled={running || active.browse.offset === 0} onClick={() => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: 'table' }, { offset: Math.max(0, active.browse!.offset - PAGE) })}>Previous</button>
             <button type="button" disabled={running || !result?.truncated} onClick={() => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: 'table' }, { offset: active.browse!.offset + PAGE })}>Next</button></>}

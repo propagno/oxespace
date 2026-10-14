@@ -473,6 +473,53 @@ jobs:
           OXE_CONTAINER_ENGINE: ${{ matrix.engine }}
         run: npx vitest run tests/live/oxequery-live.test.ts tests/live/oxequery-connectivity-live.test.ts tests/live/oxequery-writes-live.test.ts
 
+  # The same suite against the server versions people actually run: the oldest and the newest
+  # supported PostgreSQL (12, 17) and MongoDB (5, 8), plus the middle ones. Docker only; the
+  # engine matrix above already covers Podman against the default versions.
+  oxequery-live-versions:
+    name: OxeQuery live tests (PostgreSQL ${{ matrix.pg }}, MongoDB ${{ matrix.mongo }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { pg: "12-alpine", mongo: "5.0" }
+          - { pg: "14-alpine", mongo: "6.0" }
+          - { pg: "17-alpine", mongo: "8.0" }
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.0
+
+      - name: Node.js 22
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Build native modules for Node
+        run: npm run rebuild:native:node
+
+      - name: Build the main process and worker
+        run: npx electron-vite build
+
+      - name: Pull the images the tests use
+        run: |
+          docker pull docker.io/library/postgres:${{ matrix.pg }}
+          docker pull docker.io/library/mongo:${{ matrix.mongo }}
+          docker pull docker.io/library/postgres:16-alpine
+          docker pull docker.io/library/alpine:3.20
+
+      - name: Live tests
+        env:
+          OXE_LIVE: "1"
+          OXE_CONTAINER_ENGINE: docker
+          OXE_LIVE_PG_IMAGE: docker.io/library/postgres:${{ matrix.pg }}
+          OXE_LIVE_MONGO_IMAGE: docker.io/library/mongo:${{ matrix.mongo }}
+        run: npx vitest run tests/live/oxequery-live.test.ts tests/live/oxequery-connectivity-live.test.ts tests/live/oxequery-writes-live.test.ts
+
   # Native AI Memory contracts (Windows/Linux x 2.1.0/2.6.2). PRs run the
   # path-filtered standalone workflow instead; main, tags and dispatch always gate here.
   memory-compatibility:

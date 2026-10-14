@@ -15,6 +15,10 @@ import { OxeQueryService } from '../../electron/main/services/oxequery/service'
 import { OxeQueryWorkerClient } from '../../electron/main/services/oxequery/worker-client'
 import type { OxeQueryEvent, OxeQueryOp, OxeQueryOps } from '../../shared/types/oxequery'
 
+/** The server versions under test; CI runs the suite against several (OXE_LIVE_PG_IMAGE / OXE_LIVE_MONGO_IMAGE). */
+const PG_IMAGE = process.env.OXE_LIVE_PG_IMAGE ?? 'docker.io/library/postgres:16-alpine'
+const MONGO_IMAGE = process.env.OXE_LIVE_MONGO_IMAGE ?? 'docker.io/library/mongo:7'
+
 const live = process.env.OXE_LIVE === '1'
 const suffix = Math.random().toString(36).slice(2, 8)
 const PG = `oxe-live-pg-${suffix}`, MONGO = `oxe-live-mongo-${suffix}`
@@ -59,8 +63,8 @@ ${peek(() => docker('logs', '--tail', '15', PG))}`)
       cipher: { available: () => true, encrypt: value => Buffer.from(`enc:${value}`), decrypt: value => value.toString().replace(/^enc:/, '') },
       worker: new OxeQueryWorkerClient(workerPath), preferredEngine: () => ENGINE
     })
-    docker('run', '-d', '--name', PG, '-e', 'POSTGRES_USER=oxe', '-e', 'POSTGRES_DB=appdb', '-e', `POSTGRES_PASSWORD=${PG_PASSWORD}`, '-p', '127.0.0.1::5432', 'docker.io/library/postgres:16-alpine')
-    docker('run', '-d', '--name', MONGO, '-e', 'MONGO_INITDB_ROOT_USERNAME=root', '-e', `MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}`, '-p', '127.0.0.1::27017', 'docker.io/library/mongo:7')
+    docker('run', '-d', '--name', PG, '-e', 'POSTGRES_USER=oxe', '-e', 'POSTGRES_DB=appdb', '-e', `POSTGRES_PASSWORD=${PG_PASSWORD}`, '-p', '127.0.0.1::5432', PG_IMAGE)
+    docker('run', '-d', '--name', MONGO, '-e', 'MONGO_INITDB_ROOT_USERNAME=root', '-e', `MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}`, '-p', '127.0.0.1::27017', MONGO_IMAGE)
     await until('postgres ready', async () => {
       const answer = await call('containers.exec', { id: PG, argv: ['pg_isready', '-U', 'oxe', '-d', 'appdb'] })
       lastAnswer = JSON.stringify(answer).slice(0, 400)
@@ -85,7 +89,7 @@ ${peek(() => docker('logs', '--tail', '15', PG))}`)
     const { engine, containers } = await call('containers.list', {})
     expect(engine).toBe(ENGINE)
     const pg = containers.find(container => container.name === PG)!
-    expect(pg).toMatchObject({ state: 'running', image: expect.stringContaining('postgres:16-alpine') })
+    expect(pg).toMatchObject({ state: 'running', image: expect.stringContaining(PG_IMAGE.replace("docker.io/library/", "")) })
     expect(pg.ports.some(port => port.containerPort === 5432 && port.hostPort)).toBe(true)
     const inspected = await call('containers.inspect', { id: PG })
     expect(inspected.envNames).toContain('POSTGRES_PASSWORD')

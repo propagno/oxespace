@@ -20,6 +20,10 @@ import { ApprovalBroker } from '../../electron/main/services/oxequery/approval-b
 import { AuditLog } from '../../electron/main/services/oxequery/audit-log'
 import { openInMemoryDatabase } from '../../electron/main/db'
 
+/** The server versions under test; CI runs the suite against several (OXE_LIVE_PG_IMAGE / OXE_LIVE_MONGO_IMAGE). */
+const PG_IMAGE = process.env.OXE_LIVE_PG_IMAGE ?? 'docker.io/library/postgres:16-alpine'
+const MONGO_IMAGE = process.env.OXE_LIVE_MONGO_IMAGE ?? 'docker.io/library/mongo:7'
+
 const live = process.env.OXE_LIVE === '1'
 const suffix = Math.random().toString(36).slice(2, 8)
 const PG = `oxe-writes-pg-${suffix}`
@@ -48,8 +52,8 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
   const exec = async (sql: string): Promise<void> => { await core.sqlRun(pg, sql, { confirmed: true }) }
 
   beforeAll(async () => {
-    docker('run', '-d', '--name', PG, '-e', 'POSTGRES_USER=oxe', '-e', 'POSTGRES_DB=appdb', '-e', `POSTGRES_PASSWORD=${PASSWORD}`, '-p', '127.0.0.1::5432', 'docker.io/library/postgres:16-alpine')
-    docker('run', '-d', '--name', MONGO, '-e', 'MONGO_INITDB_ROOT_USERNAME=root', '-e', `MONGO_INITDB_ROOT_PASSWORD=${PASSWORD}`, '-p', '127.0.0.1::27017', 'docker.io/library/mongo:7')
+    docker('run', '-d', '--name', PG, '-e', 'POSTGRES_USER=oxe', '-e', 'POSTGRES_DB=appdb', '-e', `POSTGRES_PASSWORD=${PASSWORD}`, '-p', '127.0.0.1::5432', PG_IMAGE)
+    docker('run', '-d', '--name', MONGO, '-e', 'MONGO_INITDB_ROOT_USERNAME=root', '-e', `MONGO_INITDB_ROOT_PASSWORD=${PASSWORD}`, '-p', '127.0.0.1::27017', MONGO_IMAGE)
     await until('postgres ready', () => docker('exec', PG, 'pg_isready', '-U', 'oxe', '-d', 'appdb').includes('accepting'))
     pg = { id: 'pg', engine: 'postgres', host: '127.0.0.1', port: hostPort(PG, 5432), database: 'appdb', username: 'oxe', password: PASSWORD, sslMode: 'disable', readOnly: false }
     await until('postgres accepts queries', async () => { await exec('SELECT 1'); return true })
