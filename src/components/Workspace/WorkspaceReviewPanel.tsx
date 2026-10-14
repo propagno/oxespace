@@ -49,7 +49,7 @@ export function WorkspaceReviewPanel({ isExpanded, onCollapse, onToggleExpanded,
             {isExpanded ? <Minimize2 size={12} aria-hidden="true" /> : <Maximize2 size={12} aria-hidden="true" />}
           </button>
           <button type="button" className="tile-btn" aria-label="Collapse review" title="Collapse review" onClick={onCollapse}>
-            <ChevronsRight size={13} aria-hidden="true" />
+            <ChevronsRight size={14} aria-hidden="true" />
           </button>
         </div>
       </header>

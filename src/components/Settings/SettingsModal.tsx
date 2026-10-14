@@ -271,7 +271,7 @@ function DiagnosticsSettingsSection({ onClose }: { onClose: () => void }): React
         onClose={onClose}
         actions={
           <button type="button" className="settings-btn ghost" onClick={refresh} title="Re-run checks">
-            <RefreshCw size={13} aria-hidden="true" />
+            <RefreshCw size={14} aria-hidden="true" />
             <span>Refresh</span>
           </button>
         }
@@ -315,7 +315,7 @@ function DiagnosticsSettingsSection({ onClose }: { onClose: () => void }): React
 
         <div className="settings-inline-actions">
           <button type="button" className="settings-btn primary" onClick={exportReport}>
-            <Download size={13} aria-hidden="true" /> Export report
+            <Download size={14} aria-hidden="true" /> Export report
           </button>
         </div>
       </div>
@@ -503,7 +503,7 @@ function ProvidersSettingsSection({
                 onClick={() => void handleUseInPane(profile)}
                 data-testid={`btn-use-agent-${profile.provider}`}
               >
-                <Play size={13} aria-hidden="true" />
+                <Play size={14} aria-hidden="true" />
                 {usingId === profile.agentProfileId ? 'Starting…' : 'Use in pane'}
               </button>
             ) : null}
@@ -516,7 +516,7 @@ function ProvidersSettingsSection({
                 onClick={() => openInstallDocs(install.url)}
                 data-testid={`btn-install-docs-${profile.provider}`}
               >
-                <ExternalLink size={13} aria-hidden="true" />
+                <ExternalLink size={14} aria-hidden="true" />
                 Install guide
               </button>
             ) : null}
@@ -528,7 +528,7 @@ function ProvidersSettingsSection({
               onClick={() => onConfigureAgent(profile)}
               data-testid={`btn-configure-agent-${profile.provider}`}
             >
-              <Settings2 size={13} aria-hidden="true" />
+              <Settings2 size={14} aria-hidden="true" />
               {status === 'missing' ? 'Fix path' : 'Configure'}
             </button>
           </div>
@@ -555,7 +555,7 @@ function ProvidersSettingsSection({
             disabled={isDiscoveringAgents}
             onClick={onDiscoverAgents}
           >
-            <RefreshCw size={13} aria-hidden="true" className={isDiscoveringAgents ? 'spin' : undefined} />
+            <RefreshCw size={14} aria-hidden="true" className={isDiscoveringAgents ? 'spin' : undefined} />
             <span>{isDiscoveringAgents ? 'Checking…' : 'Health check'}</span>
           </button>
         }
@@ -591,7 +591,7 @@ function ProvidersSettingsSection({
 
         {allMissing ? (
           <div className="settings-onboarding" data-testid="providers-onboarding" role="status">
-            <Bot size={22} aria-hidden="true" />
+            <Bot size={20} aria-hidden="true" />
             <div>
               <p>Get an agent CLI on this machine</p>
               <span>
@@ -622,7 +622,7 @@ function ProvidersSettingsSection({
               onClick={onDiscoverAgents}
               data-testid="btn-onboarding-health-check"
             >
-              <RefreshCw size={13} aria-hidden="true" className={isDiscoveringAgents ? 'spin' : undefined} />
+              <RefreshCw size={14} aria-hidden="true" className={isDiscoveringAgents ? 'spin' : undefined} />
               {isDiscoveringAgents ? 'Checking…' : 'Detect CLIs'}
             </button>
           </div>
@@ -630,7 +630,7 @@ function ProvidersSettingsSection({
 
         {agentProfiles.length === 0 ? (
           <div className="settings-empty" role="status">
-            <Bot size={22} aria-hidden="true" />
+            <Bot size={20} aria-hidden="true" />
             <p>No providers found</p>
             <span>Run a health check to discover installed agent CLIs.</span>
             <button
@@ -639,7 +639,7 @@ function ProvidersSettingsSection({
               disabled={isDiscoveringAgents}
               onClick={onDiscoverAgents}
             >
-              <RefreshCw size={13} aria-hidden="true" className={isDiscoveringAgents ? 'spin' : undefined} />
+              <RefreshCw size={14} aria-hidden="true" className={isDiscoveringAgents ? 'spin' : undefined} />
               Run health check
             </button>
           </div>
@@ -837,12 +837,12 @@ function VoiceSettingsSection({ onClose }: { onClose: () => void }): ReactElemen
               disabled={busy || !model?.engineReady}
               onClick={() => void downloadModel()}
             >
-              <Download size={13} aria-hidden="true" />
+              <Download size={14} aria-hidden="true" />
               {busy ? 'Downloading…' : 'Download model'}
             </button>
           ) : (
             <div className="settings-status-ok-line">
-              <Check size={13} aria-hidden="true" />
+              <Check size={14} aria-hidden="true" />
               Model ready for push-to-talk
             </div>
           )}
@@ -1179,7 +1179,7 @@ function NotificationsSettingsSection({ onClose }: { onClose: () => void }): Rea
           disabled={!notificationsEnabled}
           data-testid="btn-test-notification"
         >
-          <Bell size={13} aria-hidden="true" />
+          <Bell size={14} aria-hidden="true" />
           Send test notification
         </button>
 
@@ -1326,7 +1326,7 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
                 data-testid="btn-check-app-updates"
                 title="Check GitHub Releases for a new version"
               >
-                <RefreshCw size={13} aria-hidden="true" />
+                <RefreshCw size={14} aria-hidden="true" />
                 Check for updates
               </button>
               {app.status === 'downloaded' ? (
@@ -1336,11 +1336,11 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
                   onClick={() => void quitAndInstall()}
                   data-testid="btn-install-app-update"
                 >
-                  <Download size={13} aria-hidden="true" />
+                  <Download size={14} aria-hidden="true" />
                   Restart & install
                 </button>
               ) : null}
-              {manualInstall && app.status === 'available' ? <a className="settings-btn primary" href="https://github.com/propagno/oxespace/releases/latest" target="_blank" rel="noopener noreferrer"><Download size={13} aria-hidden="true" /> Open releases</a> : null}
+              {manualInstall && app.status === 'available' ? <a className="settings-btn primary" href="https://github.com/propagno/oxespace/releases/latest" target="_blank" rel="noopener noreferrer"><Download size={14} aria-hidden="true" /> Open releases</a> : null}
             </div>
             <p className="settings-update-hint">
               {manualInstall ? 'Development and Linux package installs cannot update in place. Use the latest release or update your development checkout.' : 'Downloads in the background. Restart to apply.'}
@@ -1382,7 +1382,7 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
                 onClick={() => void checkRtk()}
                 data-testid="btn-check-rtk"
               >
-                <RefreshCw size={13} aria-hidden="true" />
+                <RefreshCw size={14} aria-hidden="true" />
                 Check RTK
               </button>
               <button
@@ -1392,7 +1392,7 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
                 onClick={() => void updateRtk()}
                 data-testid="btn-update-rtk"
               >
-                <Download size={13} aria-hidden="true" />
+                <Download size={14} aria-hidden="true" />
                 {rtk.installed ? 'Update RTK' : 'Install RTK'}
               </button>
             </div>

@@ -30,7 +30,7 @@ export function AgentItem({ profile, readiness, onConfigure }: AgentItemProps): 
         title="Configure"
         onClick={() => onConfigure(profile)}
       >
-        <Settings size={11} aria-hidden="true" />
+        <Settings size={12} aria-hidden="true" />
       </button>
     </div>
   )

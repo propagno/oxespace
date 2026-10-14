@@ -8,7 +8,7 @@
 .memory-settings fieldset > br { display: none; }
 .memory-settings label { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0; color: var(--tx-primary, var(--text-primary)); }
 .memory-settings input:not([type="checkbox"]), .memory-settings select { display: block; width: 100%; min-width: 0; padding: 9px 11px; border: 1px solid var(--bd-subtle, var(--border-default)); border-radius: var(--radius-md); background: var(--bg-elevated, var(--surface-canvas)); color: var(--tx-primary, var(--text-primary)); font: inherit; }
-.memory-settings input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent); flex-shrink: 0; }
+.memory-settings input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); flex-shrink: 0; }
 .memory-settings fieldset > div { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .memory-settings button { border: 1px solid var(--bd-subtle, var(--border-default)); border-radius: var(--radius-md); padding: 8px 12px; background: var(--bg-elevated, var(--surface-canvas)); color: var(--tx-primary, var(--text-primary)); font: inherit; cursor: pointer; }
 .memory-settings button.primary-action { background: var(--accent); color: var(--text-on-accent); border-color: var(--accent); }

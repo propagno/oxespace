@@ -34,14 +34,14 @@ export function AppStatusBar({ activePaneId, appVersion, workspace }: AppStatusB
     <footer className={cx('app-statusbar', styles.bar)} aria-label="Workspace status bar">
       <div className={styles.group}>
         <span className={cx(styles.item, styles.strong)} title={workspace?.rootPath ?? 'No project selected'}>
-          <FolderGit2 size={11} aria-hidden="true" />
+          <FolderGit2 size={12} aria-hidden="true" />
           {workspace?.name ?? 'OXESpace'}
         </span>
       </div>
       <div className={styles.group}>
         {workspace ? (
           <span className={styles.item} title="Open workspace panes">
-            <PanelsTopLeft size={11} aria-hidden="true" />
+            <PanelsTopLeft size={12} aria-hidden="true" />
             {workspace.panes.length}
           </span>
         ) : null}
@@ -54,7 +54,7 @@ export function AppStatusBar({ activePaneId, appVersion, workspace }: AppStatusB
             title={`${backgroundPaneIds.length} terminal${backgroundPaneIds.length === 1 ? '' : 's'} still running in workspaces that are not open. Click to stop them.`}
             data-testid="background-sessions"
           >
-            <Moon size={11} aria-hidden="true" />
+            <Moon size={12} aria-hidden="true" />
             {backgroundPaneIds.length} background
           </button>
         ) : null}

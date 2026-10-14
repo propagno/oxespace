@@ -173,7 +173,7 @@ export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId
               onClick={() => setCreating(true)}
               data-testid="btn-new-skill"
             >
-              <Plus size={13} aria-hidden="true" />
+              <Plus size={14} aria-hidden="true" />
             </button>
             <button
               type="button"
@@ -182,7 +182,7 @@ export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId
               disabled={loading}
               onClick={() => void refresh(workspaceRootPath ?? undefined)}
             >
-              <RotateCw size={13} className={loading ? 'usage-spin' : ''} aria-hidden="true" />
+              <RotateCw size={14} className={loading ? 'usage-spin' : ''} aria-hidden="true" />
             </button>
             <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
               <X size={14} aria-hidden="true" />
@@ -309,7 +309,7 @@ function SkillRow({ argument, busy, canEdit, canUse, onArgumentChange, onCopy, o
     <div className={`skill-row source-${skill.source}`}>
       <div className="skill-row-main">
         <div className="skill-row-title">
-          <FileText size={11} aria-hidden="true" />
+          <FileText size={12} aria-hidden="true" />
           <strong>/{skill.name}</strong>
           {skill.category ? <span className="skill-row-category">{skill.category}</span> : null}
         </div>
@@ -321,7 +321,7 @@ function SkillRow({ argument, busy, canEdit, canUse, onArgumentChange, onCopy, o
             <span className="skill-row-agents">all agents</span>
           )}
           <span className="skill-row-path" title={skill.filePath}>
-            <FolderOpen size={9} aria-hidden="true" /> {compactPath(skill.filePath)}
+            <FolderOpen size={12} aria-hidden="true" /> {compactPath(skill.filePath)}
           </span>
         </div>
         <div className="skill-row-controls">
@@ -334,13 +334,13 @@ function SkillRow({ argument, busy, canEdit, canUse, onArgumentChange, onCopy, o
           />
           <div className="skill-row-buttons">
             <button type="button" className="primary-btn small" disabled={!canUse || busy} onClick={onUse} title={canUse ? 'Send to the active terminal' : 'Select an active terminal'}>
-              <Play size={11} aria-hidden="true" /> Use
+              <Play size={12} aria-hidden="true" /> Use
             </button>
             <button type="button" className="ghost-btn small" disabled={busy} onClick={onCopy} title="Copy rendered prompt">
-              <Copy size={11} aria-hidden="true" /> Copy
+              <Copy size={12} aria-hidden="true" /> Copy
             </button>
             <button type="button" className="ghost-btn small" disabled={!canEdit || busy} onClick={onEdit} title={skill.source === 'workspace' ? 'Edit in the editor' : 'Global skills must be copied into the workspace before editing'}>
-              <Edit3 size={11} aria-hidden="true" /> Edit
+              <Edit3 size={12} aria-hidden="true" /> Edit
             </button>
           </div>
         </div>

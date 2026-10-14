@@ -78,7 +78,7 @@ export function useFileMentions({ workspaceId, rootPath, draft, caret, enabled, 
       const slash = file.lastIndexOf('/')
       return <button key={file} type="button" role="option" aria-selected={index === selected} className={index === selected ? 'is-selected' : undefined}
         onMouseDown={event => { event.preventDefault(); pick(file) }} onMouseEnter={() => setSelected(index)}>
-        <File size={13} aria-hidden="true" /><strong>{file.slice(slash + 1)}</strong><small>{slash > 0 ? file.slice(0, slash) : ''}</small>
+        <File size={14} aria-hidden="true" /><strong>{file.slice(slash + 1)}</strong><small>{slash > 0 ? file.slice(0, slash) : ''}</small>
       </button>
     })}
   </div> : null

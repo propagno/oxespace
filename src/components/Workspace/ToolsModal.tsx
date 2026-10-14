@@ -288,7 +288,7 @@ export function ToolsModal({
         <header className="tools-modal-header">
           <div className="tools-modal-brand">
             <span className="tools-modal-brand-icon" aria-hidden="true">
-              <Settings2 size={18} />
+              <Settings2 size={16} />
             </span>
             <div>
               <ModalTitle asChild>

@@ -123,7 +123,8 @@ export function TooltipProvider({ children }: { children: ReactNode }): ReactEle
 export function Tooltip({ content, children, side = 'top' }: { content: ReactNode; children: ReactElement; side?: 'top' | 'right' | 'bottom' | 'left' }): ReactElement {
   // A local provider keeps a tooltip working in isolation (tests, portals); the app-level one shares the open delay.
   return <RadixTooltip.Provider delayDuration={400} skipDelayDuration={200}><RadixTooltip.Root>
-    <RadixTooltip.Trigger asChild>{children}</RadixTooltip.Trigger>
+    {/* Inside a dialog a focus-opened tooltip would take the first Escape away from the dialog, so only hover opens it there. */}
+    <RadixTooltip.Trigger asChild onFocus={event => { if (event.currentTarget.closest('[role="dialog"], [role="alertdialog"]')) event.preventDefault() }}>{children}</RadixTooltip.Trigger>
     <RadixTooltip.Portal><RadixTooltip.Content className={styles.tooltip} side={side} sideOffset={6} collisionPadding={8}>{content}</RadixTooltip.Content></RadixTooltip.Portal>
   </RadixTooltip.Root></RadixTooltip.Provider>
 }

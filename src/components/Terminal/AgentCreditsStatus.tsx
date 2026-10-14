@@ -47,7 +47,7 @@ export function AgentCreditsStatus({ provider }: { provider: AgentProvider }): R
       content={title}
       ariaLabel={`${name} credits: ${pct}%`}
     >
-      <Icon size={10} aria-hidden="true" />
+      <Icon size={12} aria-hidden="true" />
       <span className="chip-label">{pct}%</span>
     </ViewportTooltip>
   )

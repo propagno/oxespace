@@ -16,7 +16,7 @@ export function ThreadPromptQueue({ items, disabled, pause, onClear, onDelete, o
     ;[next[index], next[target]] = [next[target], next[index]]
     void onReorder(next.map(item => item.id))
   }
-  return <section className="thread-prompt-queue" aria-label="Queued follow-ups"><header><Clock3 size={13} /><strong>Queued follow-ups</strong><small>{items.length}</small></header>
+  return <section className="thread-prompt-queue" aria-label="Queued follow-ups"><header><Clock3 size={14} /><strong>Queued follow-ups</strong><small>{items.length}</small></header>
     {pause && <div className="thread-queue-pause" role="status"><span>Queue paused — the last turn {pause.reason === 'failed' ? 'failed' : 'was interrupted'}. Nothing is sent until you decide.</span>
       {onResume && <button type="button" disabled={disabled} onClick={() => void onResume()}>Resume</button>}
       {onSendNow && items.some(item => item.state === 'queued') && <button type="button" disabled={disabled} onClick={() => void onSendNow(items.find(item => item.state === 'queued')!.id)}>Send next now</button>}

@@ -121,15 +121,15 @@ export function MemberEditor({ member, panes, confirmingRemoval, isRemoving, onC
           onClick={onRemove}
           disabled={busy || isRemoving}
         >
-          <Trash2 size={11} aria-hidden="true" />
+          <Trash2 size={12} aria-hidden="true" />
           {isRemoving ? 'Removing…' : confirmingRemoval ? 'Confirm removal' : 'Remove member'}
         </button>
         <button type="button" className="ghost-btn small" onClick={onClose} disabled={busy}>
-          <X size={11} aria-hidden="true" />
+          <X size={12} aria-hidden="true" />
           Cancel
         </button>
         <button type="button" className="primary-btn small" onClick={() => void handleSave()} disabled={busy}>
-          <Save size={11} aria-hidden="true" />
+          <Save size={12} aria-hidden="true" />
           {busy ? 'Saving…' : 'Save'}
         </button>
       </div>
@@ -151,7 +151,7 @@ export function MemberEditButton({ onClick, isEditing }: MemberEditButtonProps):
       aria-label={isEditing ? 'Close member editor' : 'Edit member'}
       title={isEditing ? 'Close' : 'Edit member'}
     >
-      <Pencil size={11} aria-hidden="true" />
+      <Pencil size={12} aria-hidden="true" />
     </button>
   )
 }

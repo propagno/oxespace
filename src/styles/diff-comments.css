@@ -11,7 +11,7 @@
   color: var(--brand, var(--text-accent));
   cursor: pointer;
   vertical-align: middle;
-  transition: opacity 120ms ease, background 120ms ease;
+  transition: opacity var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard);
 }
 
 .diff-line--commentable:hover .diff-comment-add {

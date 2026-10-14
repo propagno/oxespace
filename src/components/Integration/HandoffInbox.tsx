@@ -265,7 +265,7 @@ function HandoffComposer({ content, currentMemberId, isSending, onContentChange,
       </label>
       <div className="integration-handoff-composer-actions">
         <button type="button" className="primary-btn small" onClick={onSend} disabled={!currentMemberId || !hasRecipients || !targetMemberId || !content.trim() || isSending}>
-          <Send size={11} aria-hidden="true" />
+          <Send size={12} aria-hidden="true" />
           {isSending ? 'Sending handoff…' : 'Send handoff'}
         </button>
       </div>
@@ -319,12 +319,12 @@ function HandoffRow({ handoff, fromMember, toMember, isCurrentRecipient, isApply
       <footer className="integration-handoff-actions">
         {isHistory ? (
           <button type="button" className="ghost-btn small" onClick={onApply} title="Mark as active again so it shows on top">
-            <Send size={11} aria-hidden="true" />
+            <Send size={12} aria-hidden="true" />
             Re-open
           </button>
         ) : canApply ? (
           <button type="button" className="primary-btn small" disabled={isApplying} onClick={onApply}>
-            <CheckCircle2 size={11} aria-hidden="true" />
+            <CheckCircle2 size={12} aria-hidden="true" />
             {isApplying ? 'Applying…' : 'Apply to agent'}
           </button>
         ) : !isHistory && handoff.status === 'sent' && !toMember?.paneId ? (

@@ -127,7 +127,7 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
             {!embedded && <nav className="ws-settings-nav" aria-label="Workspace settings sections">
               <span className="ws-settings-nav-label">WORKSPACE</span>
               {SETTINGS_PAGES.map(({ id, label, hint, icon: Icon }) => <button key={id} type="button" aria-pressed={page === id} aria-controls={`ws-page-${id}`} onClick={() => { setPage(id); if (contentRef.current) contentRef.current.scrollTop = 0 }}>
-                <Icon size={17} aria-hidden="true" /><span><strong>{label}</strong><small>{hint}</small></span>
+                <Icon size={16} aria-hidden="true" /><span><strong>{label}</strong><small>{hint}</small></span>
               </button>)}
               <p>Settings scoped to<br /><strong>{workspace.name}</strong></p>
             </nav>}
@@ -151,12 +151,12 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
                 <div className="density-toggle" role="radiogroup" aria-label="Density">
                   <button type="button" role="radio" aria-checked={uiDensity === 'compact'}
                     className={`density-option${uiDensity === 'compact' ? ' selected' : ''}`} onClick={() => setUiDensity('compact')}>
-                    <Minimize2 size={13} aria-hidden="true" />
+                    <Minimize2 size={14} aria-hidden="true" />
                     <span>Compact</span>
                   </button>
                   <button type="button" role="radio" aria-checked={uiDensity === 'comfortable'}
                     className={`density-option${uiDensity === 'comfortable' ? ' selected' : ''}`} onClick={() => setUiDensity('comfortable')}>
-                    <Maximize2 size={13} aria-hidden="true" />
+                    <Maximize2 size={14} aria-hidden="true" />
                     <span>Comfortable</span>
                   </button>
                 </div>

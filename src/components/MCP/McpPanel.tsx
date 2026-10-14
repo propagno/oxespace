@@ -172,7 +172,7 @@ export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement 
               disabled={loading}
               onClick={() => void load(workspaceId)}
             >
-              <RotateCw size={13} className={loading ? 'usage-spin' : ''} aria-hidden="true" />
+              <RotateCw size={14} className={loading ? 'usage-spin' : ''} aria-hidden="true" />
             </button>
             <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
               <X size={14} aria-hidden="true" />
@@ -321,7 +321,7 @@ function McpBuiltinCard({ status, busy, notice, toolCount, onRegenerate, onDismi
         disabled={busy}
         title="Generate a new auth token. Open agent panes need to restart to pick it up."
       >
-        <RotateCw size={11} className={busy ? 'usage-spin' : ''} aria-hidden="true" />
+        <RotateCw size={12} className={busy ? 'usage-spin' : ''} aria-hidden="true" />
         {busy ? 'Regenerating…' : 'Regenerate token'}
       </button>
       {expanded && tools.length > 0 ? (
@@ -341,7 +341,7 @@ function McpBuiltinCard({ status, busy, notice, toolCount, onRegenerate, onDismi
         <div className="mcp-builtin-notice" role="status">
           <span>{notice}</span>
           <button type="button" onClick={onDismissNotice} aria-label="Dismiss notice">
-            <X size={11} aria-hidden="true" />
+            <X size={12} aria-hidden="true" />
           </button>
         </div>
       ) : null}
@@ -386,15 +386,15 @@ function McpServerRow({ server, busy, expanded, trustPrompt, removePrompt, onTog
       <div className="mcp-server-actions">
         {isRunning ? (
           <button type="button" className="ghost-btn small" disabled={busy} onClick={onStop} title="Stop">
-            <Square size={11} aria-hidden="true" /> Stop
+            <Square size={12} aria-hidden="true" /> Stop
           </button>
         ) : (
           <button type="button" className="primary-btn small" disabled={busy} onClick={onStart} title="Start handshake">
-            <Play size={11} aria-hidden="true" /> Start
+            <Play size={12} aria-hidden="true" /> Start
           </button>
         )}
         <button type="button" className="icon-button" aria-label="Remove" disabled={busy} onClick={onRemove}>
-          <Trash2 size={11} aria-hidden="true" />
+          <Trash2 size={12} aria-hidden="true" />
         </button>
       </div>
 
@@ -402,7 +402,7 @@ function McpServerRow({ server, busy, expanded, trustPrompt, removePrompt, onTog
         <div className="mcp-server-detail">
           {!server.trusted ? (
             <div className="mcp-server-trust-box">
-              <ShieldCheck size={13} aria-hidden="true" />
+              <ShieldCheck size={14} aria-hidden="true" />
               <span>Review command, args and env before starting. MCP servers can execute local code.</span>
             </div>
           ) : null}
@@ -457,14 +457,14 @@ function McpServerRow({ server, busy, expanded, trustPrompt, removePrompt, onTog
 function HealthIndicator({ status }: { status: McpHealthStatus }): ReactElement {
   switch (status) {
     case 'healthy':
-      return <CircleDot size={11} className="status-healthy" aria-label="healthy" />
+      return <CircleDot size={12} className="status-healthy" aria-label="healthy" />
     case 'starting':
-      return <CircleDot size={11} className="bg-jobs-pulse status-running" aria-label="starting" />
+      return <CircleDot size={12} className="bg-jobs-pulse status-running" aria-label="starting" />
     case 'unhealthy':
-      return <Circle size={11} className="status-failed" aria-label="unhealthy" />
+      return <Circle size={12} className="status-failed" aria-label="unhealthy" />
     case 'unknown':
     default:
-      return <Circle size={11} className="status-killed" aria-label="unknown" />
+      return <Circle size={12} className="status-killed" aria-label="unknown" />
   }
 }
 

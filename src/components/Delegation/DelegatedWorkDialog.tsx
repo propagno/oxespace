@@ -58,7 +58,7 @@ export function DelegatedWorkDialog({ workspaces, workspaceId, focusTaskId, orig
       {!filtered.length && <p>{busy ? 'Loading delegated work…' : query ? 'No matching tasks on loaded pages.' : 'No delegated work in this project.'}</p>}
       {filtered.map(task => <article key={task.id}>
         <header><strong>{task.objective}</strong><span data-state={task.state}>{task.state}</span></header>
-        <p className="delegated-work-branch"><GitBranch size={13} />{task.branch}</p>
+        <p className="delegated-work-branch"><GitBranch size={14} />{task.branch}</p>
         <p>{task.nativeSession?.provider ?? task.agentProfileId} · {task.surface ?? 'terminal'} · {new Date(task.updatedAt).toLocaleString()}</p>
         {task.lastReport && <p>{task.lastReport}</p>}
         {task.error && <p role="alert">{task.error}</p>}

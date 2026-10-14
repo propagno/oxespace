@@ -19,7 +19,7 @@ export function ThreadModelPicker({ event, thread, pending, onSelect }: {
       <label>Model<div className="thread-model-select"><select aria-label="Model" value={model?.id ?? ''} disabled={pending} onChange={e => { setModelId(e.target.value); setEffort(''); setApplied(false) }}><option value="" disabled>Select a model</option>{event.models.map(value => <option key={value.id} value={value.id}>{value.label}</option>)}</select><ChevronDown size={14} /></div></label>
       {model?.description && <p className="thread-model-description">{model.description}</p>}
       {model && model.efforts.length > 0 && <label>Reasoning effort<div className="thread-model-select"><select aria-label="Reasoning effort" value={selectedEffort} disabled={pending} onChange={e => { setEffort(e.target.value); setApplied(false) }}>{model.efforts.map(value => <option key={value} value={value}>{value}</option>)}</select><ChevronDown size={14} /></div></label>}
-      <footer>{confirmed && <span role="status"><Check size={13} />Model selected</span>}<button type="submit" disabled={!model || pending || confirmed}>Use model</button></footer>
+      <footer>{confirmed && <span role="status"><Check size={14} />Model selected</span>}<button type="submit" disabled={!model || pending || confirmed}>Use model</button></footer>
     </form> : <p>No models returned by the CLI. Reopen /model after checking your connection.</p>}
   </section>
 }

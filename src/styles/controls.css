@@ -91,3 +91,23 @@
 
 /* Native checkboxes and radios follow the accent and are never smaller than 16 px. */
 input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; accent-color: var(--accent); }
+
+/* Empty panels read the same everywhere: quiet text, one size, comfortable line height. */
+:where(
+  .bg-jobs-panel-empty, .changes-empty, .git-control-empty, .github-empty, .github-empty-center, .github-empty-inline,
+  .github-actions-v2-empty, .github-changes-empty, .integration-empty, .integration-empty-inline, .linear-empty,
+  .mcp-panel-empty, .scripts-panel-empty, .semantic-activity-empty, .skills-browser-empty, .tools-modal-empty,
+  .thread-review-empty, .editor-empty, .editor-browser-empty, .settings-empty, .worktree-menu-empty,
+  .workspace-list-empty, .sidebar-empty-state
+) {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+/* Plain buttons inside a grid-laid settings section keep their natural width instead of stretching across the card. */
+.ws-settings-section > button, .memory-settings > button, .memory-feedback > button { justify-self: start; align-self: flex-start; width: auto; }
+
+/* Sliders and search fields keep a comfortable 24 px+ hit area. */
+input[type="range"] { min-height: var(--control-sm); }
+input[type="search"] { min-height: var(--control-md); }

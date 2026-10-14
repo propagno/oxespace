@@ -141,7 +141,7 @@ export function AgentConfigModal({
               onClick={onHealthCheck}
               style={{ marginLeft: 'auto' }}
             >
-              <RefreshCw size={11} aria-hidden="true" className={isDiscovering ? 'spin' : undefined} />
+              <RefreshCw size={12} aria-hidden="true" className={isDiscovering ? 'spin' : undefined} />
             </button>
           </div>
         ) : null}

@@ -1,4 +1,4 @@
-import { Eraser, Info, Maximize2, Minimize2, MoreHorizontal, PanelBottom, PanelRight, Pencil, RotateCcw, Search, X } from 'lucide-react'
+import { Eraser, Info, Maximize2, Minimize2, MoreHorizontal, PanelBottom, PanelRight, Pencil, RotateCcw, Search, SquareTerminal, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { TerminalStatusResult } from '../../../shared/types/ipc'
@@ -170,7 +170,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
           >
             {agentProfile ? (
               <AgentProviderIcon provider={agentProfile.provider} />
-            ) : null}
+            ) : <SquareTerminal size={14} aria-hidden="true" />}
             <span className="pane-agent-chip-label">{display.providerLabel}</span>
           </span>
           <span className="pane-header-divider" aria-hidden="true">/</span>
@@ -203,7 +203,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
               onClick={(e) => e.stopPropagation()}
             >
               <span className="pane-intent-text">{display.title}</span>
-              <Pencil size={10} className="pane-intent-edit-hint" aria-hidden="true" />
+              <Pencil size={12} className="pane-intent-edit-hint" aria-hidden="true" />
             </button>
           )}
         </div>
@@ -256,7 +256,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
               <div className="pane-actions-popover" role="menu" data-testid="pane-actions-menu" style={{ maxHeight: menuHeight, overflowY: 'auto', width: 'min(260px, 75vw)', maxWidth: 'calc(100vw - 32px)' }}>
                 {isTerminalPane ? (
                   <>
-                    <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={event => { event.stopPropagation(); runMenuAction(() => setDetailsOpen(true)) }}><Info size={13} aria-hidden="true" />Details</button>
+                    <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={event => { event.stopPropagation(); runMenuAction(() => setDetailsOpen(true)) }}><Info size={14} aria-hidden="true" />Details</button>
                     <div className="pane-actions-popover-sep" aria-hidden="true" />
                     <button
                       type="button"
@@ -270,7 +270,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                         })
                       }}
                     >
-                      <Eraser size={13} aria-hidden="true" />
+                      <Eraser size={14} aria-hidden="true" />
                       Clear terminal
                     </button>
                     <button
@@ -285,7 +285,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                         })
                       }}
                     >
-                      <RotateCcw size={13} aria-hidden="true" />
+                      <RotateCcw size={14} aria-hidden="true" />
                       New session
                     </button>
                     <div className="pane-actions-popover-sep" aria-hidden="true" />
@@ -300,7 +300,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                     runMenuAction(() => onSplitVertical?.(pane.id))
                   }}
                 >
-                  <PanelRight size={13} aria-hidden="true" />
+                  <PanelRight size={14} aria-hidden="true" />
                   Split vertical
                 </button>
                 <button
@@ -312,14 +312,14 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                     runMenuAction(() => onSplitHorizontal?.(pane.id))
                   }}
                 >
-                  <PanelBottom size={13} aria-hidden="true" />
+                  <PanelBottom size={14} aria-hidden="true" />
                   Split horizontal
                 </button>
                 {onArrange ? <>
                   <div className="pane-actions-popover-sep" aria-hidden="true" />
-                  <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('bottom')) }}><PanelBottom size={13} aria-hidden="true" />Move below the previous pane</button>
-                  <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('right')) }}><PanelRight size={13} aria-hidden="true" />Move to the right of the previous pane</button>
-                  <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('balance')) }}><RotateCcw size={13} aria-hidden="true" />Balance splits</button>
+                  <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('bottom')) }}><PanelBottom size={14} aria-hidden="true" />Move below the previous pane</button>
+                  <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('right')) }}><PanelRight size={14} aria-hidden="true" />Move to the right of the previous pane</button>
+                  <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('balance')) }}><RotateCcw size={14} aria-hidden="true" />Balance splits</button>
                 </> : null}
                 {onClose ? (
                   <>
@@ -333,7 +333,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                         runMenuAction(() => onClose(pane.id))
                       }}
                     >
-                      <X size={13} aria-hidden="true" />
+                      <X size={14} aria-hidden="true" />
                       Close pane
                     </button>
                   </>

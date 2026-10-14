@@ -31,16 +31,16 @@ export function WorkspaceGitHubPanel({ activeTab, isExpanded, onCollapse, onTabC
     <section className="workspace-editor-panel workspace-github-panel" data-testid="workspace-github-panel">
       <header className="workspace-editor-header">
         <div className="workspace-editor-title">
-          <GitBranch size={13} aria-hidden="true" />
+          <GitBranch size={14} aria-hidden="true" />
           <span>{workspace.name}</span>
           <PanelScopeBadge workspaceId={workspace.id} scope={scope} />
         </div>
         <div className="workspace-editor-actions repository-view-actions" aria-label="Repository views">
           <button type="button" className="tile-btn" aria-label="Files and editor" title="Files and editor" onClick={openFiles}>
-            <Files size={13} aria-hidden="true" />
+            <Files size={14} aria-hidden="true" />
           </button>
           <button type="button" className="tile-btn active" aria-label="Source control" title="Source control">
-            <GitBranch size={13} aria-hidden="true" />
+            <GitBranch size={14} aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -52,7 +52,7 @@ export function WorkspaceGitHubPanel({ activeTab, isExpanded, onCollapse, onTabC
             {isExpanded ? <Minimize2 size={12} aria-hidden="true" /> : <Maximize2 size={12} aria-hidden="true" />}
           </button>
           <button type="button" className="tile-btn" aria-label="Collapse GitHub panel" title="Collapse GitHub panel" onClick={onCollapse}>
-            <ChevronsRight size={13} aria-hidden="true" />
+            <ChevronsRight size={14} aria-hidden="true" />
           </button>
         </div>
       </header>

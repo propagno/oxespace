@@ -6,10 +6,10 @@ import './PrStatusBar.css'
 const POLL_MS = 30_000
 
 const ICON: Record<GitHubCheckState, ReactElement> = {
-  success: <Check size={13} aria-hidden="true" />,
-  failure: <X size={13} aria-hidden="true" />,
-  pending: <CircleDashed size={13} aria-hidden="true" />,
-  neutral: <Check size={13} aria-hidden="true" />
+  success: <Check size={14} aria-hidden="true" />,
+  failure: <X size={14} aria-hidden="true" />,
+  pending: <CircleDashed size={14} aria-hidden="true" />,
+  neutral: <Check size={14} aria-hidden="true" />
 }
 const LABEL: Record<GitHubCheckState, string> = { success: 'Passed', failure: 'Failed', pending: 'Running', neutral: 'Skipped' }
 
@@ -92,14 +92,14 @@ export function PrStatusBar({ workspaceId, rootPath, onFix }: {
         <span className="pr-status-title">#{status.number} {status.title}</span>
         {status.isDraft && <i className="pr-status-chip">Draft</i>}
         <span className="pr-status-summary" role="status"><i className="pr-status-dot" aria-hidden="true" />CI · {summary}</span>
-        <ChevronDown size={13} aria-hidden="true" />
+        <ChevronDown size={14} aria-hidden="true" />
       </button>
       <span className="pr-status-actions">
-        {failing && onFix && <button type="button" className="is-primary" onClick={() => onFix(ciFixPrompt(status))}><Wrench size={13} aria-hidden="true" />Fix failing checks</button>}
+        {failing && onFix && <button type="button" className="is-primary" onClick={() => onFix(ciFixPrompt(status))}><Wrench size={14} aria-hidden="true" />Fix failing checks</button>}
         <button type="button" aria-pressed={status.autoMerge} disabled={busy} onClick={() => void toggleAutoMerge()} title="Merge (squash) automatically once every required check passes">
-          {busy ? <Loader2 size={13} className="usage-spin" aria-hidden="true" /> : <GitMerge size={13} aria-hidden="true" />}Auto-merge{status.autoMerge ? ' on' : ''}
+          {busy ? <Loader2 size={14} className="usage-spin" aria-hidden="true" /> : <GitMerge size={14} aria-hidden="true" />}Auto-merge{status.autoMerge ? ' on' : ''}
         </button>
-        {status.url && <button type="button" aria-label="Open pull request on GitHub" title="Open on GitHub" onClick={() => window.open(status.url!, '_blank', 'noopener,noreferrer')}><ExternalLink size={13} aria-hidden="true" /></button>}
+        {status.url && <button type="button" aria-label="Open pull request on GitHub" title="Open on GitHub" onClick={() => window.open(status.url!, '_blank', 'noopener,noreferrer')}><ExternalLink size={14} aria-hidden="true" /></button>}
       </span>
     </div>
     {notice && <p className="pr-status-notice" role="alert">{notice}</p>}

@@ -22,7 +22,7 @@ export function AppearanceSettings(): ReactElement {
   return <div className={styles.options} role="radiogroup" aria-label="Appearance">
     {OPTIONS.map(({ id, label, hint, icon: Icon }) => <button key={id} type="button" role="radio" aria-checked={appearance === id} className={styles.option} onClick={() => setAppearance(id)}>
       <Preview mode={id} />
-      <span className={styles.label}><Icon size={14} aria-hidden="true" />{label}{appearance === id && <Check size={13} aria-hidden="true" />}</span>
+      <span className={styles.label}><Icon size={14} aria-hidden="true" />{label}{appearance === id && <Check size={14} aria-hidden="true" />}</span>
       <span className={styles.hint}>{hint}</span>
     </button>)}
   </div>

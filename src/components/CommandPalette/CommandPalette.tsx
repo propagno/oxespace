@@ -184,7 +184,7 @@ export function CommandPalette({ actions, onClose }: CommandPaletteProps): React
           {groups.map((group) => (
             <section key={group.label} className="command-palette-group">
               <header className="command-palette-group-header">
-                {group.label === 'Recent' ? <History size={10} aria-hidden="true" /> : null}
+                {group.label === 'Recent' ? <History size={12} aria-hidden="true" /> : null}
                 <span>{group.label}</span>
               </header>
               {group.items.map((action) => {

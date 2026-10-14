@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { ConfirmDialog, cx } from '../../ui'
+import { ConfirmDialog, Menu, cx } from '../../ui'
 import styles from './ThreadSidebar.module.css'
 import { useThreadContentSearch } from '../../hooks/useThreadContentSearch'
-import { AlignJustify, Archive, ArchiveRestore, Check, ChevronDown, Circle, CircleAlert, CircleCheck, CircleX, Columns2, PanelsTopLeft, FolderPlus, Loader2, MoreHorizontal, Pencil, Pin, Plus, Settings2, Square, Trash2, X, UserRound } from 'lucide-react'
+import { AlignJustify, Archive, ArchiveRestore, Check, ChevronDown, Circle, CircleAlert, CircleCheck, CircleX, Columns2, FolderPlus, Loader2, MoreHorizontal, Pencil, Pin, Plus, Square, Trash2, UserRound } from 'lucide-react'
 import type { ConversationThread } from '../../../shared/types/thread'
 import { DropdownMenu } from 'radix-ui'
 import { useThreadStore } from '../../store/thread.store'
@@ -79,10 +79,10 @@ export function ThreadSidebar({ onCreate, onModeChange, onSelectMode, onAccounts
     return <div key={thread.id} className={cx('thread-navigation-row', styles.row, unread && cx('is-unread', styles.unread))}><button type="button" className={cx('thread-navigation-item', styles.item)} aria-current={selectedId === thread.id ? 'page' : undefined}
     title={`${thread.title}\n${thread.provider} · ${status.label}${unread ? ' · Unread' : ''}\n${thread.rootPath}`} onClick={() => void select(thread.id)}>
     {unread && <span className={cx('thread-unread-marker', styles.unreadMark)} aria-label="Unread conversation" />}
-    <span className={cx('thread-session-indicator', styles.indicator)} data-status={status.kind} aria-hidden="true">{status.kind === 'ready' ? <Circle size={12} /> : status.kind === 'completed' ? <CircleCheck size={12} /> : status.kind === 'attention' ? <CircleAlert size={12} /> : status.kind === 'failed' ? <CircleX size={12} /> : status.kind === 'interrupted' ? <Square size={11} /> : null}</span>
-    <span className={cx('thread-session-content', styles.content)}><span className={cx('thread-session-title', styles.title)}>{thread.title}</span><span className={cx('thread-session-meta', styles.meta)}><span className={cx('thread-session-provider', styles.provider)}><AgentProviderIcon provider={thread.provider} size={density === 'compact' ? 12 : 14} /><span>{thread.provider === 'claude' ? 'Claude Code' : 'Codex'}</span></span><span className={cx('thread-session-state', styles.state)} data-status={status.kind}>{status.label}</span>{thread.pinned && <Pin size={10} aria-label="Pinned" />}<small>{relativeTime(thread.updatedAt)}</small></span></span>
-  </button><button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Open ${thread.title} side by side`} title="Open side by side" disabled={secondaryId === thread.id} onClick={() => void openSecondary(thread.id).catch(error => setActionError(error instanceof Error ? error.message : 'Could not open conversation.'))}><Columns2 size={13} /></button><DropdownMenu.Root>
-    <DropdownMenu.Trigger asChild><button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Actions for ${thread.title}`} title="Conversation actions"><MoreHorizontal size={13} /></button></DropdownMenu.Trigger>
+    <span className={cx('thread-session-indicator', styles.indicator)} data-status={status.kind} aria-hidden="true">{status.kind === 'ready' ? <Circle size={12} /> : status.kind === 'completed' ? <CircleCheck size={12} /> : status.kind === 'attention' ? <CircleAlert size={12} /> : status.kind === 'failed' ? <CircleX size={12} /> : status.kind === 'interrupted' ? <Square size={12} /> : null}</span>
+    <span className={cx('thread-session-content', styles.content)}><span className={cx('thread-session-title', styles.title)}>{thread.title}</span><span className={cx('thread-session-meta', styles.meta)}><span className={cx('thread-session-provider', styles.provider)}><AgentProviderIcon provider={thread.provider} size={density === 'compact' ? 12 : 14} /><span>{thread.provider === 'claude' ? 'Claude Code' : 'Codex'}</span></span><span className={cx('thread-session-state', styles.state)} data-status={status.kind}>{status.label}</span>{thread.pinned && <Pin size={12} aria-label="Pinned" />}<small>{relativeTime(thread.updatedAt)}</small></span></span>
+  </button><button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Open ${thread.title} side by side`} title="Open side by side" disabled={secondaryId === thread.id} onClick={() => void openSecondary(thread.id).catch(error => setActionError(error instanceof Error ? error.message : 'Could not open conversation.'))}><Columns2 size={14} /></button><DropdownMenu.Root>
+    <DropdownMenu.Trigger asChild><button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Actions for ${thread.title}`} title="Conversation actions"><MoreHorizontal size={14} /></button></DropdownMenu.Trigger>
     <DropdownMenu.Portal><DropdownMenu.Content className="thread-actions-dropdown" side="right" align="start" sideOffset={5} collisionPadding={{ top: 44, right: 8, bottom: 8, left: 8 }} aria-label={`Actions for ${thread.title}`}>
       <DropdownMenu.Item className="thread-action-item" disabled={secondaryId === thread.id} onSelect={() => void openSecondary(thread.id).catch(error => setActionError(error instanceof Error ? error.message : 'Could not open conversation.'))}><Columns2 size={14} />Open to the side</DropdownMenu.Item>
       <DropdownMenu.Item className="thread-action-item" disabled={thread.status === 'running' || thread.status === 'approval'} onSelect={() => { setActionError(''); setRenameTarget(thread); setRenameValue(thread.title) }}><Pencil size={14} />Rename conversation…</DropdownMenu.Item>
@@ -117,9 +117,14 @@ export function ThreadSidebar({ onCreate, onModeChange, onSelectMode, onAccounts
           <div className={cx('thread-project-heading', styles.heading)}>
           <button type="button" className={cx('thread-project-toggle', styles.toggle)} title={group.path} aria-expanded={query ? true : expanded[group.id] ?? true} onClick={() => toggle(group.id)}><ChevronDown size={12} /><span className={cx('thread-project-name', styles.name)}>{group.name}</span>{unavailableProjects.includes(group.id) && <small>Directory missing</small>}{groups.filter(g => g.name === group.name).length > 1 && <small>{group.path.split(/[\\/]/).slice(-2).join('/')}</small>}</button>
           <button type="button" className={cx('thread-row-action', styles.action)} aria-label={`New thread in ${group.name}`} title="New thread in this project" disabled={!group.rootPath || unavailableProjects.includes(group.id)} onClick={() => onCreate(group.id, group.rootPath)}><Plus size={14} /></button>
-          <button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Settings for ${group.name}`} title="Thread project settings" onClick={() => setProjectSettingsId(group.id)}><Settings2 size={13} /></button>
-          {group.rootPath && <button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Open ${group.name} in Code`} title="Open this directory in Code" disabled={unavailableProjects.includes(group.id)} onClick={() => void onOpenInCode?.(group.rootPath!).catch(error => setActionError(error instanceof Error ? error.message : 'Could not open project in Code.'))}><PanelsTopLeft size={13} /></button>}
-          <button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Remove project ${group.name}`} title="Remove project from Thread sidebar" onClick={() => { setActionError(''); setConfirmation({ kind: 'project', id: group.id, title: group.name }) }}><X size={13} /></button>
+          <Menu label={`${group.name} project actions`} align="end"
+            trigger={<button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Actions for ${group.name}`} data-project-actions={group.id}><MoreHorizontal size={14} /></button>}
+            items={[
+              { label: 'Project settings', onSelect: () => setProjectSettingsId(group.id) },
+              ...(group.rootPath ? [{ label: 'Open in Code', disabled: unavailableProjects.includes(group.id), onSelect: () => void onOpenInCode?.(group.rootPath!).catch(error => setActionError(error instanceof Error ? error.message : 'Could not open project in Code.')) }] : []),
+              { type: 'separator' as const },
+              { label: 'Remove project…', danger: true, onSelect: () => { setActionError(''); setConfirmation({ kind: 'project', id: group.id, title: group.name }) } }
+            ]} />
           </div>
           {(query || (expanded[group.id] ?? true)) && <div className={cx('thread-project-children', styles.children)}><div className={cx('thread-project-rows', styles.rows)}>{(() => {
             const limit = query || expandedProjects.includes(group.id) ? Infinity : THREAD_ROWS_PER_PROJECT
@@ -131,7 +136,7 @@ export function ThreadSidebar({ onCreate, onModeChange, onSelectMode, onAccounts
           <button type="button" className={cx('thread-project-toggle', styles.toggle)} aria-expanded={query ? true : showArchived} onClick={() => setShowArchived(value => !value)}><ChevronDown size={12} /><span>Archived</span><small>{archived.length}</small></button>
           {(query || showArchived) && archived.map(thread => <div key={thread.id} className={cx('thread-navigation-row thread-archived-row', styles.row, styles.archivedRow)}>
             <button type="button" className={cx('thread-navigation-item', styles.item)} disabled={restoringId !== null} title={`${thread.title}\n${thread.provider} · ${thread.rootPath}`} onClick={() => void restoreArchived(thread)}><span>{thread.title}</span><small>{relativeTime(thread.updatedAt)}</small></button>
-            <button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Restore ${thread.title}`} title="Restore conversation" disabled={restoringId !== null} onClick={() => void restoreArchived(thread)}>{restoringId === thread.id ? <Loader2 size={13} className="thread-spin" /> : <ArchiveRestore size={13} />}</button>
+            <button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Restore ${thread.title}`} title="Restore conversation" disabled={restoringId !== null} onClick={() => void restoreArchived(thread)}>{restoringId === thread.id ? <Loader2 size={14} className="thread-spin" /> : <ArchiveRestore size={14} />}</button>
           </div>)}
         </section>}
         {actionError && <p className={cx('thread-catalog-error', styles.error)} role="alert">{actionError}</p>}
@@ -141,13 +146,13 @@ export function ThreadSidebar({ onCreate, onModeChange, onSelectMode, onAccounts
           {hiddenProjects.map(id => {
             const project = projects.find(item => item.projectId === id)
             if (!project) return null
-            return <button key={id} type="button" className={cx('thread-restore-project', styles.restore)} title={project.identityLabel} onClick={() => void useThreadStore.getState().restoreProject(id).catch(error => setActionError(error instanceof Error ? error.message : 'Could not restore project.'))}><ArchiveRestore size={13} aria-hidden="true" /><span>{project.displayName}</span><small>Restore</small></button>
+            return <button key={id} type="button" className={cx('thread-restore-project', styles.restore)} title={project.identityLabel} onClick={() => void useThreadStore.getState().restoreProject(id).catch(error => setActionError(error instanceof Error ? error.message : 'Could not restore project.'))}><ArchiveRestore size={14} aria-hidden="true" /><span>{project.displayName}</span><small>Restore</small></button>
           })}
         </section>}
       </nav>
     </div>}
     {projectSettingsId && projects.find(project => project.projectId === projectSettingsId) &&
-      <ThreadProjectSettingsDialog project={projects.find(project => project.projectId === projectSettingsId)!} unavailable={unavailableProjects.includes(projectSettingsId)} onClose={() => setProjectSettingsId(null)} />}
+      <ThreadProjectSettingsDialog project={projects.find(project => project.projectId === projectSettingsId)!} unavailable={unavailableProjects.includes(projectSettingsId)} onClose={() => setProjectSettingsId(null)} returnFocusTo={() => document.querySelector<HTMLElement>(`[data-project-actions="${projectSettingsId}"]`)} />}
     {renameTarget && <DesktopDialog className="thread-create-dialog" title="Rename conversation" description="The new name appears in the session list and conversation header." onClose={() => { if (!acting) setRenameTarget(null) }}>
       <form onSubmit={event => { event.preventDefault(); const title = renameValue.trim(); if (!title || !window.oxe.thread?.command) return
         setActing(true); setActionError('')

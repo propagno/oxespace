@@ -60,7 +60,7 @@ export function ThreadTurnChanges({ events, root, onOpen, onViewChanges, onUndo,
   const shown = showAll ? files : files.slice(0, CHANGE_PREVIEW_FILES)
   return <section className="thread-change-summary" aria-label="Changed files">
     <header>
-      <FileCode2 size={15} aria-hidden="true" />
+      <FileCode2 size={14} aria-hidden="true" />
       <span><strong>Edited {summary.files} {summary.files === 1 ? 'file' : 'files'}</strong>{summary.exact ? <FileStats file={{ ...entries[0].file, additions: summary.additions, deletions: summary.deletions }} /> : <small>{summary.operations} {summary.operations === 1 ? 'operation' : 'operations'}</small>}</span>
       {onUndo && (undo === 'idle'
         ? <button type="button" className="thread-change-view" onClick={() => { setUndoError(''); setUndo('confirm') }}>Undo</button>
@@ -89,6 +89,6 @@ export function ThreadTurnChanges({ events, root, onOpen, onViewChanges, onUndo,
           onUndoHunk={async hunkId => { await onUndoHunk(status.path, hunkId); refreshStates() }} onComment={text => onComment?.(text)} />}
       </div>
     })}</div>
-    {files.length > CHANGE_PREVIEW_FILES && <button type="button" className="thread-change-more" aria-expanded={showAll} onClick={() => setShowAll(value => !value)}>{showAll ? 'Show less' : `Show ${files.length - CHANGE_PREVIEW_FILES} more`}<ChevronDown size={13} aria-hidden="true" /></button>}
+    {files.length > CHANGE_PREVIEW_FILES && <button type="button" className="thread-change-more" aria-expanded={showAll} onClick={() => setShowAll(value => !value)}>{showAll ? 'Show less' : `Show ${files.length - CHANGE_PREVIEW_FILES} more`}<ChevronDown size={14} aria-hidden="true" /></button>}
   </section>
 }

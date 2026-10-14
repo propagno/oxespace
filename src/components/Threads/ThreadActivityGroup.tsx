@@ -66,16 +66,16 @@ export function ThreadActivityGroup({ events, mode = 'verbose' }: { events: Tool
     const event = events[0]
     return <details className={`thread-activity-single${event.state === 'failed' ? ' has-failure' : ''}`}>
       <summary>{event.state === 'running' ? <Loader2 size={14} className="thread-spin" /> : event.state === 'failed' ? <CircleAlert size={14} /> : event.state === 'unknown' ? <CircleHelp size={14} /> : <TerminalSquare size={14} />}
-        <span>{mode === 'verbose' ? names[event.name] ?? event.name : summarizeActivity([event])}{mode === 'verbose' && <small>{toolSummary(event)}</small>}</span><ChevronDown size={13} /></summary>
+        <span>{mode === 'verbose' ? names[event.name] ?? event.name : summarizeActivity([event])}{mode === 'verbose' && <small>{toolSummary(event)}</small>}</span><ChevronDown size={14} /></summary>
       <ThreadToolDiagnostic event={event} />
     </details>
   }
   return <details className={`thread-activity-group${failures ? ' has-failure' : ''}`}>
     <summary>{running ? <Loader2 size={14} className="thread-spin" /> : failures ? <CircleAlert size={14} /> : unconfirmed ? <CircleHelp size={14} /> : <Check size={14} />}{mode === 'verbose'
       ? <span>{running ? 'Running actions' : failures ? 'Actions need attention' : unconfirmed ? 'Actions need verification' : commands ? 'Ran commands' : reading ? 'Explored the project' : 'Completed actions'}<small> · {events.length} {events.length === 1 ? 'action' : 'actions'}{failures ? ` · ${failures} failed` : ''}{unconfirmed ? ` · ${unconfirmed} unconfirmed` : ''}</small></span>
-      : <span>{summarizeActivity(events)}{running ? '…' : ''}{(failures > 0 || unconfirmed > 0) && <small>{failures ? ` · ${failures} failed` : ''}{unconfirmed ? ` · ${unconfirmed} unconfirmed` : ''}</small>}</span>}<ChevronDown size={13} /></summary>
+      : <span>{summarizeActivity(events)}{running ? '…' : ''}{(failures > 0 || unconfirmed > 0) && <small>{failures ? ` · ${failures} failed` : ''}{unconfirmed ? ` · ${unconfirmed} unconfirmed` : ''}</small>}</span>}<ChevronDown size={14} /></summary>
     <div className="thread-activity-items">{events.filter(event => event.state !== 'completed').map(event => renderItem(event))}
-      {events.some(event => event.state === 'completed') && <details className="thread-activity-completed"><summary>Completed actions <small>{events.filter(event => event.state === 'completed').length}</small><ChevronDown size={13} /></summary>
+      {events.some(event => event.state === 'completed') && <details className="thread-activity-completed"><summary>Completed actions <small>{events.filter(event => event.state === 'completed').length}</small><ChevronDown size={14} /></summary>
         {events.filter(event => event.state === 'completed').map(event => renderItem(event))}
       </details>}
     </div>
@@ -84,7 +84,7 @@ export function ThreadActivityGroup({ events, mode = 'verbose' }: { events: Tool
 
 function renderItem(event: Tool) {
   return <details key={event.id} className="thread-activity-item">
-    <summary><TerminalSquare size={13} /><span>{names[event.name] ?? event.name}<small>{toolSummary(event)}</small></span><span className="thread-activity-state">{event.state === 'running' ? 'Running' : event.state === 'failed' ? 'Failed' : event.state === 'unknown' ? 'Unconfirmed' : 'Done'}</span></summary>
+    <summary><TerminalSquare size={14} /><span>{names[event.name] ?? event.name}<small>{toolSummary(event)}</small></span><span className="thread-activity-state">{event.state === 'running' ? 'Running' : event.state === 'failed' ? 'Failed' : event.state === 'unknown' ? 'Unconfirmed' : 'Done'}</span></summary>
     <ThreadToolDiagnostic event={event} />
   </details>
 }

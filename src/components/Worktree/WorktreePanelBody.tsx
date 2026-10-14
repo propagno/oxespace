@@ -248,7 +248,7 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
     <div className="worktree-panel-body">
       <section className="worktree-panel-active-pane" aria-label="Active pane worktree">
         <div className="worktree-panel-active-row">
-          <FolderTree size={11} aria-hidden="true" />
+          <FolderTree size={12} aria-hidden="true" />
           {activePane ? (
             <>
               <span className="worktree-panel-active-label">Active pane</span>
@@ -272,7 +272,7 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
           aria-pressed={showCleanup}
           onClick={() => setShowCleanup((v) => !v)}
         >
-          <Trash2 size={11} aria-hidden="true" />
+          <Trash2 size={12} aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -282,7 +282,7 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
           onClick={() => void refresh(workspaceId, workspaceRootPath)}
           disabled={loading}
         >
-          <RotateCw size={11} className={loading ? 'usage-spin' : ''} aria-hidden="true" />
+          <RotateCw size={12} className={loading ? 'usage-spin' : ''} aria-hidden="true" />
         </button>
       </section>
 
@@ -296,7 +296,7 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
             title="Dismiss"
             onClick={dismissError}
           >
-            <X size={11} aria-hidden="true" />
+            <X size={12} aria-hidden="true" />
           </button>
         </div>
       ) : null}
@@ -307,7 +307,7 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
 
       {onlyMainExists ? (
         <div className="worktree-panel-solo-hint" role="note">
-          <FolderTree size={13} aria-hidden="true" />
+          <FolderTree size={14} aria-hidden="true" />
           <span>This repo has only the main worktree. Create one below to isolate work on another branch without affecting the current pane.</span>
         </div>
       ) : null}
@@ -339,16 +339,16 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
                 >
                   <div className="worktree-menu-item-main">
                     <div className="worktree-menu-item-row">
-                      <GitBranch size={11} aria-hidden="true" />
+                      <GitBranch size={12} aria-hidden="true" />
                       <strong>{wt.branch ?? '(detached)'}</strong>
                       {wt.isMain ? <span className="worktree-tag main">main</span> : null}
-                      {wt.locked ? <span className="worktree-tag locked"><Lock size={9} aria-hidden="true" /> locked</span> : null}
+                      {wt.locked ? <span className="worktree-tag locked"><Lock size={12} aria-hidden="true" /> locked</span> : null}
                       {wt.prunable ? <span className="worktree-tag prunable">prunable</span> : null}
                     </div>
                     <span className="worktree-menu-item-path">{wt.path}</span>
                   </div>
                   <div className="worktree-menu-item-aside">
-                    {isCurrent ? <div className="worktree-menu-check"><Check size={13} aria-hidden="true" /></div> : null}
+                    {isCurrent ? <div className="worktree-menu-check"><Check size={14} aria-hidden="true" /></div> : null}
                     {!wt.isMain ? (
                       <button
                         type="button"
@@ -446,7 +446,7 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
             aria-expanded={showAdvanced}
             disabled={busy}
           >
-            {showAdvanced ? <ChevronDown size={11} aria-hidden="true" /> : <ChevronRight size={11} aria-hidden="true" />}
+            {showAdvanced ? <ChevronDown size={12} aria-hidden="true" /> : <ChevronRight size={12} aria-hidden="true" />}
             <span>Advanced</span>
           </button>
 

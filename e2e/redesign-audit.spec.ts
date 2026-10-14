@@ -209,7 +209,7 @@ test('redesign audit', async () => {
       await page.locator('.settings-center').waitFor({ timeout: 5000 })
       for (const scope of ['Application', 'Workspace']) {
         await step(`scope-${scope}`, async () => {
-          await page.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: scope, exact: true }).click()
+          await page.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: scope === 'Application' ? scope : /Current workspace/ }).click()
           const nav = page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button')
           const n = await nav.count()
           for (let i = 0; i < n; i++) {

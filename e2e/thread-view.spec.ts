@@ -595,7 +595,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.keyboard.press('Home')
     await expect.poll(() => timeline.evaluate(el => el.scrollTop)).toBe(0)
     await page.keyboard.press('End')
-    await expect.poll(() => timeline.evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop)).toBeLessThanOrEqual(64)
+    await expect.poll(() => timeline.evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop)).toBeLessThanOrEqual(72)
     await page.keyboard.press('PageUp')
     await expect.poll(() => timeline.evaluate(el => el.scrollTop)).toBeLessThan(end - 100)
     await page.mouse.wheel(0, -1)
@@ -971,7 +971,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.getByRole('region', { name: 'Archived conversations' })).toHaveCount(0)
     if (process.env.OXESPACE_VISUAL_AUDIT_OUTPUT) {
       await page.setViewportSize({ width: 900, height: 600 })
-      await page.getByRole('button', { name: 'Settings for repo', exact: true }).click()
+      await page.getByRole('button', { name: 'Actions for repo', exact: true }).click()
+      await page.getByRole('menuitem', { name: 'Project settings' }).click()
       await expect(page.getByRole('dialog')).toBeVisible()
       await page.screenshot({ path: 'test-results/thread-project-settings-audit.png' })
       for (let index = 0; index < 15; index++) {
@@ -980,7 +981,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
       }
       await page.keyboard.press('Escape')
       await expect(page.getByRole('dialog')).toHaveCount(0)
-      await expect(page.getByRole('button', { name: 'Settings for repo', exact: true })).toBeFocused()
+      await expect(page.getByRole('button', { name: 'Actions for repo', exact: true })).toBeFocused()
     }
   } finally {
     await app.close()

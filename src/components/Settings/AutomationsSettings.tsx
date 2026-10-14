@@ -220,7 +220,7 @@ export function AutomationsSettings(): ReactElement | null {
         </div>
       ) : (
         <button type="button" className="settings-btn ghost" onClick={() => setCreating(true)}>
-          <Plus size={13} aria-hidden="true" /> New automation
+          <Plus size={14} aria-hidden="true" /> New automation
         </button>
       )}
     </div>

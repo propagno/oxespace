@@ -250,9 +250,9 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
           External
         </label>
         <div className="web-preview-zoom-controls" aria-label="Zoom controls">
-          <button type="button" aria-label="Zoom out" onClick={zoomOut}><Minus size={13} aria-hidden="true" /></button>
+          <button type="button" aria-label="Zoom out" onClick={zoomOut}><Minus size={14} aria-hidden="true" /></button>
           <span>{zoom}%</span>
-          <button type="button" aria-label="Zoom in" onClick={zoomIn}><Plus size={13} aria-hidden="true" /></button>
+          <button type="button" aria-label="Zoom in" onClick={zoomIn}><Plus size={14} aria-hidden="true" /></button>
         </div>
         <button type="button" className="web-preview-nav-button" aria-label="Desktop viewport" aria-pressed={viewport === 'desktop'} onClick={() => setViewport('desktop')}><Monitor size={14} aria-hidden="true" /></button>
         <button type="button" className="web-preview-nav-button" aria-label="Tablet viewport" aria-pressed={viewport === 'tablet'} onClick={() => setViewport('tablet')}><Tablet size={14} aria-hidden="true" /></button>

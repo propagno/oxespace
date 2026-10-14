@@ -104,7 +104,7 @@ export function SlashOverlay({ paneId, paneLabel, skills = [], onClose, onExecut
       >
         <header className="slash-overlay-header">
           <div className="slash-overlay-pane-tag">
-            <Slash size={11} aria-hidden="true" />
+            <Slash size={12} aria-hidden="true" />
             <span>{paneLabel}</span>
           </div>
           <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>

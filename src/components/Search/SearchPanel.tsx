@@ -66,7 +66,7 @@ export function SearchPanel({ workspace, onOpenFile }: SearchPanelProps): ReactE
   return (
     <div className="search-panel" data-testid="search-panel">
       <div className="search-panel-input-row">
-        <SearchIcon size={13} aria-hidden="true" className="search-panel-input-icon" />
+        <SearchIcon size={14} aria-hidden="true" className="search-panel-input-icon" />
         <input
           ref={inputRef}
           type="search"
@@ -78,7 +78,7 @@ export function SearchPanel({ workspace, onOpenFile }: SearchPanelProps): ReactE
           autoComplete="off"
           spellCheck={false}
         />
-        {loading ? <Loader2 size={13} aria-hidden="true" className="search-panel-spinner" /> : null}
+        {loading ? <Loader2 size={14} aria-hidden="true" className="search-panel-spinner" /> : null}
       </div>
 
       <div className="search-panel-toggles" role="group" aria-label="Search options">
@@ -89,7 +89,7 @@ export function SearchPanel({ workspace, onOpenFile }: SearchPanelProps): ReactE
           title="Match case"
           onClick={() => setOption('caseSensitive', !options.caseSensitive)}
         >
-          <CaseSensitive size={13} aria-hidden="true" />
+          <CaseSensitive size={14} aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -98,7 +98,7 @@ export function SearchPanel({ workspace, onOpenFile }: SearchPanelProps): ReactE
           title="Use regular expression"
           onClick={() => setOption('isRegex', !options.isRegex)}
         >
-          <Regex size={13} aria-hidden="true" />
+          <Regex size={14} aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -107,7 +107,7 @@ export function SearchPanel({ workspace, onOpenFile }: SearchPanelProps): ReactE
           title="Include git-ignored and hidden files"
           onClick={() => setOption('includeIgnored', !options.includeIgnored)}
         >
-          <EyeOff size={13} aria-hidden="true" />
+          <EyeOff size={14} aria-hidden="true" />
         </button>
         <input
           type="text"

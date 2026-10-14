@@ -85,7 +85,7 @@ export function ThreadFailureCard({ event, latest, refreshUsage, onAccounts, onR
         {compact && <button type="button" disabled={disabled} onClick={compact}>Compact conversation</button>}
         {permissions && <button type="button" disabled={disabled} onClick={permissions}>{guidance.action === 'review-permissions' ? 'Review permissions' : 'Change configuration'}</button>}
         {retry && <button type="button" disabled={disabled} onClick={retry}>Retry turn</button>}
-        {refreshUsage && <button type="button" disabled={loading} onClick={() => void refresh()}>{loading ? <Loader2 size={13} className="thread-spin" /> : <RefreshCw size={13} />}{loading ? 'Checking usage…' : 'Refresh usage'}</button>}
+        {refreshUsage && <button type="button" disabled={loading} onClick={() => void refresh()}>{loading ? <Loader2 size={14} className="thread-spin" /> : <RefreshCw size={14} />}{loading ? 'Checking usage…' : 'Refresh usage'}</button>}
       </footer>}
     </div>
   </details>

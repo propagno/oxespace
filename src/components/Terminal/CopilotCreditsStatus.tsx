@@ -60,7 +60,7 @@ export function CopilotCreditsStatus(): ReactElement | null {
       content={title}
       ariaLabel={`Copilot credits: ${label}`}
     >
-      <Bot size={10} aria-hidden="true" />
+      <Bot size={12} aria-hidden="true" />
       <span className="chip-label">{label}</span>
     </ViewportTooltip>
   )
