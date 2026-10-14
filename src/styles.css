@@ -41,3 +41,4 @@
 @import './styles/preview.css' layer(oxe-legacy);
 @import './styles/linear.css' layer(oxe-legacy);
 @import './styles/orca-shell.css' layer(oxe-legacy);
+@import './styles/controls.css' layer(oxe-legacy);

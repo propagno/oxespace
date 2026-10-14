@@ -1,5 +1,6 @@
 import { Activity, ChevronDown, ChevronRight, Circle, CircleDot, Play, Plus, RotateCw, Search, ShieldCheck, Square, Trash2, Wrench, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
+import { useModalSurface } from '../../ui'
 import type { CreateMcpServerInput, McpHealthStatus, McpServer, McpStdioConfig } from '../../../shared/types/mcp'
 import { selectMcpServers, useMcpStore } from '../../store/mcp.store'
 import { parseMcpJson } from './parseMcpJson'
@@ -14,6 +15,7 @@ interface McpPanelProps {
 }
 
 export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement {
+  const surface = useModalSurface<HTMLElement>(onClose)
   const serversSelector = useCallback(selectMcpServers(workspaceId), [workspaceId])
   const servers = useMcpStore(serversSelector).filter((server): server is McpServer => Boolean(server))
   const loading = useMcpStore((s) => s.loading)
@@ -153,6 +155,7 @@ export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement 
         role="dialog"
         aria-modal="true"
         aria-label="Connections"
+        {...surface}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header className="mcp-panel-header">

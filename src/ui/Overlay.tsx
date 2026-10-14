@@ -22,6 +22,15 @@ export interface DialogProps {
   testId?: string
 }
 
+/**
+ * Opening focus goes to the dialog itself unless a child already took it (a safe button in a confirmation).
+ * The close button is first in tab order, and focusing it would open its tooltip, which then eats the first Escape.
+ */
+export function focusSurfaceUnlessChosen(event: Event): void {
+  const surface = event.currentTarget as HTMLElement | null
+  if (surface && !surface.contains(document.activeElement)) { event.preventDefault(); surface.focus({ preventScroll: true }) }
+}
+
 /** A modal dialog: title, optional description, body, and footer actions. Escape and the scrim close it. */
 export function Dialog({ title, description, onClose, children, footer, size = 'md', className, returnFocusTo, testId }: DialogProps): ReactElement {
   const previous = useRef(document.activeElement instanceof HTMLElement ? document.activeElement : null)
@@ -31,6 +40,7 @@ export function Dialog({ title, description, onClose, children, footer, size = '
       <RadixDialog.Content className={cx(styles.dialog, size !== 'md' && styles[size], className)} data-testid={testId}
         // Without a description, tell Radix there is none instead of pointing at a missing element.
         {...(description ? {} : { 'aria-describedby': undefined })}
+        onOpenAutoFocus={focusSurfaceUnlessChosen}
         onCloseAutoFocus={event => {
           event.preventDefault()
           const target = returnFocusTo?.() ?? previous.current
@@ -111,8 +121,9 @@ export function TooltipProvider({ children }: { children: ReactNode }): ReactEle
 
 /** A short hint on hover and keyboard focus. Never the only place for information a person needs. */
 export function Tooltip({ content, children, side = 'top' }: { content: ReactNode; children: ReactElement; side?: 'top' | 'right' | 'bottom' | 'left' }): ReactElement {
-  return <RadixTooltip.Root>
+  // A local provider keeps a tooltip working in isolation (tests, portals); the app-level one shares the open delay.
+  return <RadixTooltip.Provider delayDuration={400} skipDelayDuration={200}><RadixTooltip.Root>
     <RadixTooltip.Trigger asChild>{children}</RadixTooltip.Trigger>
     <RadixTooltip.Portal><RadixTooltip.Content className={styles.tooltip} side={side} sideOffset={6} collisionPadding={8}>{content}</RadixTooltip.Content></RadixTooltip.Portal>
-  </RadixTooltip.Root>
+  </RadixTooltip.Root></RadixTooltip.Provider>
 }

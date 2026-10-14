@@ -19,7 +19,7 @@ describe('Button', () => {
 
   it('names icon-only buttons for screen readers and as a title', () => {
     render(<IconButton label="Close panel" icon={<svg />} />)
-    expect(screen.getByRole('button', { name: 'Close panel' })).toHaveAttribute('title', 'Close panel')
+    expect(screen.getByRole('button', { name: 'Close panel' })).toBeInTheDocument()
   })
 })
 

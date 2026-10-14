@@ -512,7 +512,7 @@
    for consistency, plus icons on the menuitems so the actions are scannable. */
 .ws-group-context-menu {
   position: fixed;
-  z-index: 1000;
+  z-index: var(--layer-tooltip);
   min-width: 200px;
   padding: 5px;
   border: 1px solid var(--bd-base);
@@ -854,7 +854,7 @@
 
 .pane-session-context-menu {
   position: fixed;
-  z-index: 1000;
+  z-index: var(--layer-tooltip);
   min-width: 150px;
   padding: 5px;
   border: 1px solid var(--bd-base);
@@ -1395,7 +1395,7 @@
   border-bottom: 1px solid var(--pane-border);
   background: var(--wb-canvas);
   box-shadow: none;
-  z-index: 10;
+  z-index: var(--layer-sticky);
 }
 
 .workspace-topbar-breadcrumb {
@@ -1519,7 +1519,7 @@
   /* Must match LEGACY_MODAL_OVERLAY's z-index (200), not sit below it: the
      content renders after the overlay in the portal, so an equal z-index puts
      it on top. A lower value let the blurred scrim paint over the hub. */
-  z-index: 200;
+  z-index: var(--layer-overlay);
   display: flex;
   flex-direction: column;
   width: min(860px, calc(100vw - 28px));

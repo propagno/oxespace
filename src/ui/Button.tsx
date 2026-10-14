@@ -1,4 +1,5 @@
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react'
+import { Tooltip } from './Overlay'
 import { cx } from './cx'
 import styles from './Button.module.css'
 
@@ -29,7 +30,8 @@ export interface IconButtonProps extends Omit<ButtonProps, 'children' | 'icon'> 
 }
 
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton({ label, icon, variant = 'ghost', className, title, ...rest }, ref) {
-  return <Button ref={ref} variant={variant} aria-label={label} title={title ?? label} className={cx(styles.icon, className)} icon={icon} {...rest} />
+  const button = <Button ref={ref} variant={variant} aria-label={label} title={title} className={cx(styles.icon, className)} icon={icon} {...rest} />
+  return title === undefined && !rest.disabled ? <Tooltip content={label}>{button}</Tooltip> : button
 })
 
 /** Buttons joined edge to edge, such as a split action. */

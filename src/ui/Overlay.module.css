@@ -36,7 +36,7 @@
 
 /* Floating surfaces: popover, menus, tooltip */
 .floating {
-  z-index: var(--layer-dropdown);
+  z-index: calc(var(--layer-modal) + 10); /* above dialogs, so a menu opened inside one is not hidden */
   min-width: 180px;
   max-width: min(420px, calc(100vw - 16px));
   background: var(--surface-overlay);

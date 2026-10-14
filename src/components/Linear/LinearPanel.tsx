@@ -1,5 +1,6 @@
 import { ExternalLink, GitBranch, KeyRound, RefreshCw, Search, X } from 'lucide-react'
 import { useEffect, useState, type ReactElement } from 'react'
+import { useModalSurface } from '../../ui'
 import type { LinearIssue, LinearIssueScope } from '../../../shared/types/linear'
 import { useLinearStore } from '../../store/linear.store'
 
@@ -20,6 +21,7 @@ const SCOPES: { id: LinearIssueScope; label: string }[] = [
  * lives in the main process (safeStorage) and is never sent back here.
  */
 export function LinearPanel({ onClose, rootPath, workspaceId }: LinearPanelProps): ReactElement {
+  const surface = useModalSurface<HTMLElement>(onClose)
   const state = useLinearStore()
   const [apiKeyDraft, setApiKeyDraft] = useState('')
   const [busyIssueId, setBusyIssueId] = useState<string | null>(null)
@@ -44,6 +46,7 @@ export function LinearPanel({ onClose, rootPath, workspaceId }: LinearPanelProps
         role="dialog"
         aria-modal="true"
         aria-label="Linear issues"
+        {...surface}
         data-testid="linear-panel"
         onMouseDown={(event) => event.stopPropagation()}
       >

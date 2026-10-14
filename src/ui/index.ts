@@ -10,3 +10,4 @@ export { Dialog, Popover, Menu, Tooltip, TooltipProvider, type MenuEntry } from 
 export { Badge, StatusDot, Panel, Toolbar, ToolbarSpacer, EmptyState, Spinner, Separator, Tabs, Meter, Avatar, type Intent, type Status } from './Display'
 export { toast, dismissToast, Toaster, type ToastInput } from './Toast'
 export { cx } from './cx'
+export { useModalSurface } from './useModalSurface'

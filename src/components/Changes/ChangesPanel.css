@@ -53,7 +53,7 @@
 .changes-status.is-R { color: var(--dot-blue); }
 
 /* Menus (Radix portals) */
-.changes-menu { z-index: 300; min-width: 220px; padding: 6px; border: 1px solid var(--wb-border); border-radius: var(--radius-lg); background: var(--bg-elevated); color: var(--tx-primary); box-shadow: var(--shadow-lg); font-size: var(--fs-xs); }
+.changes-menu { z-index: var(--layer-modal); min-width: 220px; padding: 6px; border: 1px solid var(--wb-border); border-radius: var(--radius-lg); background: var(--bg-elevated); color: var(--tx-primary); box-shadow: var(--shadow-lg); font-size: var(--fs-xs); }
 .changes-branch-menu { width: min(340px, 90vw); }
 .changes-menu ul { max-height: 280px; margin: 0; padding: 0; overflow: auto; list-style: none; }
 .changes-menu-search { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 8px; color: var(--tx-muted); }

@@ -1,5 +1,6 @@
 import { AlertCircle, ArrowLeft, ArrowRight, Camera, ExternalLink, LoaderCircle, MousePointerClick, Minus, Monitor, MonitorPlay, Plus, RotateCw, Smartphone, Tablet, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { useModalSurface } from '../../ui'
 import type { DesignGrabPayload } from '../../../shared/types/design-mode'
 import type { BrowserPreviewEvent, BrowserPreviewSessionState } from '../../../shared/types/browser-preview'
 import type { Workspace } from '../../../shared/types/workspace'
@@ -61,6 +62,8 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
   const [consentOpen, setConsentOpen] = useState(false)
   // #3 Design Mode: pick an element in the previewed page and hand it to an agent.
   const [designMode, setDesignMode] = useState(false)
+  // Escape first leaves Design Mode (the hint says so), then closes the panel.
+  const surface = useModalSurface<HTMLElement>(() => { if (designMode) setDesignMode(false); else onClose() }, !embedded)
   const [grab, setGrab] = useState<{ payload: DesignGrabPayload; screenshot: string | null } | null>(null)
   // `send()` and `capturePage()` throw until the guest emits dom-ready.
   const [guestReady, setGuestReady] = useState(false)
@@ -334,7 +337,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
 
   return (
     <div className="web-preview-backdrop" role="presentation" onMouseDown={onClose}>
-      <section className="web-preview-panel" role="dialog" aria-modal="true" aria-label="Web Preview" data-browser-owner={previewKey} data-agent-automation={String(agentDocumentation)} onMouseDown={(event) => event.stopPropagation()}>
+      <section className="web-preview-panel" role="dialog" aria-modal="true" aria-label="Web Preview" {...surface} data-browser-owner={previewKey} data-agent-automation={String(agentDocumentation)} onMouseDown={(event) => event.stopPropagation()}>
         {content}
       </section>
     </div>

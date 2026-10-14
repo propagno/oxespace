@@ -50,8 +50,8 @@ test('three terminals resize in both axes without replacing terminal DOM', async
     await expect(grid).toBeVisible()
     await page.screenshot({ path: test.info().outputPath('compact-panes.png') })
     await page.getByRole('button', { name: 'More pane actions' }).last().click()
-    await expect(page.getByRole('menuitem', { name: 'Equilibrar divisões' })).toBeVisible()
-    await page.getByRole('menuitem', { name: 'Equilibrar divisões' }).scrollIntoViewIfNeeded()
+    await expect(page.getByRole('menuitem', { name: 'Balance splits' })).toBeVisible()
+    await page.getByRole('menuitem', { name: 'Balance splits' }).scrollIntoViewIfNeeded()
     const menuBox = (await page.getByTestId('pane-actions-menu').boundingBox())!
     expect(menuBox.y + menuBox.height).toBeLessThanOrEqual(650)
     await page.screenshot({ path: test.info().outputPath('layout-menu.png') })

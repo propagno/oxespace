@@ -36,7 +36,7 @@ export function SettingsCenter(props: SettingsModalProps & {
       if (saved?.scope === 'application' && appPages.some(p => p.id === saved.page)) return saved
       if (props.allowWorkspaceScope !== false && saved?.scope === 'workspace' && props.workspaces.some(w => w.id === saved.workspaceId) && SETTINGS_PAGES.some(p => p.id === saved.page)) return saved
     } catch { /* Invalid preferences use safe defaults. */ }
-    return { scope: 'application', page: 'general' }
+    return { scope: 'application', page: 'appearance' }
   })
   const navigationWidth = useNavigationPrefs(state => state.width)
   const [query, setQuery] = useState('')
@@ -79,7 +79,7 @@ export function SettingsCenter(props: SettingsModalProps & {
         <SearchField className="settings-search" ref={search} label="Search settings" placeholder="Filter categories" value={query} onChange={setQuery} shortcut="Ctrl F" />
         <div className="settings-scope"><span>Settings for</span>
           <div className="settings-scope-choices" role="group" aria-label="Settings scope">
-            <button type="button" aria-pressed={destination.scope === 'application'} onClick={() => go({ scope: 'application', page: 'general' })}>Application</button>
+            <button type="button" aria-pressed={destination.scope === 'application'} onClick={() => go({ scope: 'application', page: 'appearance' })}>Application</button>
             {scopeWorkspace && <button type="button" aria-pressed={destination.scope === 'workspace'} title={scopeWorkspace.rootPath}
               onClick={() => go({ scope: 'workspace', workspaceId: scopeWorkspace.id, page: 'appearance' })}>
               <span>{scopeWorkspace.name}</span><small>Current workspace</small>
@@ -124,7 +124,7 @@ export function SettingsCenter(props: SettingsModalProps & {
               props.onClose()
             })} />
             : <section className="settings-general"><h2>Workspace closed</h2><p>Select another workspace or return to work.</p></section>
-            : destination.page === 'general' ? <GeneralSettings onNavigate={page => go({ scope: 'application', page })} /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
+            : destination.page === 'general' ? <GeneralSettings /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
         </div>
       </main>
       {pending && <Dialog title="Save your changes?" size="sm" onClose={() => { if (!saving) setPending(null) }}
@@ -142,15 +142,10 @@ export function SettingsCenter(props: SettingsModalProps & {
   </ModalRoot>
 }
 
-function GeneralSettings({ onNavigate }: { onNavigate: (page: SettingsSection) => void }): ReactElement {
+function GeneralSettings(): ReactElement {
   const cap = useSettingsStore(s => s.visitedWorkspacesCap)
   const setCap = useSettingsStore(s => s.setVisitedWorkspacesCap)
-  return <section className="settings-general"><h2>General</h2><p>Pick an area to configure. Application settings apply everywhere.</p>
-    <h3>Explore settings</h3>
-    <div className="settings-general-grid">{appPages.filter(page => page.id !== 'general').map(({ id, icon: Icon, label, hint }) =>
-      <button key={id} type="button" className="settings-general-destination" onClick={() => onNavigate(id)}>
-        <span><Icon size={16} aria-hidden="true" /><strong>{label}</strong></span><small>{hint}</small>
-      </button>)}</div>
+  return <section className="settings-general"><h2>General</h2><p>Preferences that apply across every workspace.</p>
     <h3>Workspace navigation</h3>
     <div className="settings-general-card"><div><label htmlFor="workspace-cache-cap">Recently visited workspaces kept ready</label>
       <p>Keep terminal views available when switching workspaces. Changes apply automatically.</p></div>

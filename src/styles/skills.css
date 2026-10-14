@@ -3,7 +3,7 @@
 .skills-browser-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 145;
+  z-index: var(--layer-overlay);
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -443,7 +443,7 @@
 .bg-jobs-panel-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 145;
+  z-index: var(--layer-overlay);
   display: flex;
   align-items: flex-start;
   justify-content: center;

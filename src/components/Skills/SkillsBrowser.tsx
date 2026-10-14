@@ -1,5 +1,6 @@
 import { Copy, Download, Edit3, FileText, FolderOpen, Play, Plus, RotateCw, Sparkles, X } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactElement } from 'react'
+import { useModalSurface } from '../../ui'
 import { BUILTIN_PROVIDERS, type AgentProvider } from '../../../shared/types/agent'
 import type { SkillDefinition } from '../../../shared/types/skill'
 import { useSkillStore } from '../../store/skill.store'
@@ -13,6 +14,7 @@ interface SkillsBrowserProps {
 }
 
 export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId, workspaceRootPath }: SkillsBrowserProps): ReactElement {
+  const surface = useModalSurface<HTMLElement>(onClose)
   const skills = useSkillStore((s) => s.skills)
   const loading = useSkillStore((s) => s.loading)
   const error = useSkillStore((s) => s.error)
@@ -136,6 +138,7 @@ export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId
         role="dialog"
         aria-modal="true"
         aria-label="Skills"
+        {...surface}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header className="skills-browser-header">
