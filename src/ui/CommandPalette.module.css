@@ -1,0 +1,55 @@
+.content {
+  position: fixed;
+  z-index: var(--layer-modal);
+  top: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(660px, 90vw);
+  overflow: hidden;
+  background: var(--surface-overlay);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--elevation-4);
+  outline: none;
+  animation: rise var(--duration-base) var(--ease-standard);
+}
+.scrim { position: fixed; inset: 0; z-index: var(--layer-modal); background: var(--scrim); }
+
+.command { display: flex; flex-direction: column; width: 100%; }
+
+.inputWrap { display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-4); border-bottom: 1px solid var(--border-subtle); color: var(--text-muted); }
+.input { flex: 1; min-width: 0; height: 48px; border: 0; background: transparent; color: var(--text-primary); font: inherit; font-size: var(--text-md); outline: none; }
+.input::placeholder { color: var(--text-muted); }
+
+.list { max-height: min(420px, 60vh); overflow-x: hidden; overflow-y: auto; padding: var(--space-1); scroll-padding: var(--space-4) 0; scrollbar-width: thin; }
+
+.empty { padding: var(--space-6) 0; text-align: center; font-size: var(--text-sm); color: var(--text-muted); }
+
+.group { overflow: hidden; }
+.group [cmdk-group-heading] { padding: var(--space-2) var(--space-2) var(--space-1); font-size: var(--text-2xs); font-weight: var(--weight-semibold); letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 36px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  cursor: default;
+  user-select: none;
+  outline: none;
+}
+.item[data-selected='true'] { background: var(--fill-selected); }
+.item[data-disabled='true'] { pointer-events: none; opacity: 0.5; }
+.item svg { flex: none; width: 16px; height: 16px; color: var(--text-secondary); pointer-events: none; }
+
+/* Parts of an item: the name, then a muted detail that truncates, then an optional trailing hint. */
+.label { flex: none; }
+.detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-xs); color: var(--text-muted); }
+.trailing { margin-left: auto; flex: none; font-size: var(--text-xs); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.truncate { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+@keyframes rise { from { opacity: 0; transform: translate(-50%, 6px); } }

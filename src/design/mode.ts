@@ -24,8 +24,6 @@ export function applyMode(mode: ColorMode): void {
   const root = document.documentElement
   if (root.dataset.mode === mode) return
   root.dataset.mode = mode
-  // shadcn primitives still read the `.dark` class until they are replaced.
-  root.classList.toggle('dark', mode === 'dark')
 }
 
 /** The saved choice, read synchronously before the first paint so the app never flashes the wrong mode. */

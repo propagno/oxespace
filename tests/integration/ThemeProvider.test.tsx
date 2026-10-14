@@ -17,7 +17,6 @@ describe('ThemeProvider', () => {
     act(() => useSettingsStore.getState().setAppearance('system'))
     delete document.documentElement.dataset.mode
     delete document.documentElement.dataset.density
-    document.documentElement.classList.remove('dark')
   })
 
   test('applies the density and the mode the person chose', () => {
@@ -25,11 +24,9 @@ describe('ThemeProvider', () => {
     act(() => useSettingsStore.getState().setAppearance('dark'))
     render(<ThemeProvider density="comfortable"><div /></ThemeProvider>)
     expect(document.documentElement.dataset.mode).toBe('dark')
-    expect(document.documentElement.classList.contains('dark')).toBe(true)
     expect(document.documentElement.dataset.density).toBe('comfortable')
     act(() => useSettingsStore.getState().setAppearance('light'))
     expect(document.documentElement.dataset.mode).toBe('light')
-    expect(document.documentElement.classList.contains('dark')).toBe(false)
   })
 
   test('follows the operating system in system mode', () => {

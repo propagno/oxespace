@@ -7,7 +7,7 @@ import { OxeLogo } from '../Brand/OxeLogo'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { buildAgentSlots, type AgentCount } from './fleetUtils'
 import { LAYOUT_PRESETS } from './workspaceOptions'
-import { Dialog, DialogContent, DialogDescription, DialogTitle, DESKTOP_DIALOG_OVERLAY } from '@/components/ui/dialog'
+import { ModalDescription, ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
 
 export interface WizardLaunchInput {
   rootPath: string
@@ -172,10 +172,8 @@ export function NewWorkspaceModal({
   const canLaunch = hasFolder && !isSubmitting
 
   return (
-    <Dialog open onOpenChange={(next) => { if (!next) closeAndRestoreFocus() }}>
-      <DialogContent
-        unstyled
-        showCloseButton={false}
+    <ModalRoot open onOpenChange={(next) => { if (!next) closeAndRestoreFocus() }}>
+      <ModalSurface
         onCloseAutoFocus={event => {
           event.preventDefault()
           if (!isSubmitting) requestAnimationFrame(() => {
@@ -185,7 +183,7 @@ export function NewWorkspaceModal({
             target?.focus({ preventScroll: true })
           })
         }}
-        overlayClassName={DESKTOP_DIALOG_OVERLAY}
+        scrimClassName="desktop-dialog-overlay"
         className="modal new-workspace-modal-v2 modal-dialog-surface desktop-dialog"
       >
         <header className="new-workspace-header">
@@ -193,12 +191,12 @@ export function NewWorkspaceModal({
             <OxeLogo size={18} variant="compact" />
           </span>
           <div className="new-workspace-header-text">
-            <DialogTitle asChild>
+            <ModalTitle asChild>
               <h2>{selectedExisting ? 'Open existing workspace' : 'Create new workspace'}</h2>
-            </DialogTitle>
-            <DialogDescription asChild>
+            </ModalTitle>
+            <ModalDescription asChild>
               <p>{selectedExisting ? 'Choose the workspace to continue where you left off.' : 'Pick a folder, layout, and optional agents.'}</p>
-            </DialogDescription>
+            </ModalDescription>
           </div>
           <button type="button" className="icon-button" aria-label="Close" onClick={closeAndRestoreFocus}>
             <X size={14} aria-hidden="true" />
@@ -377,8 +375,8 @@ export function NewWorkspaceModal({
             {isSubmitting ? (selectedExisting ? 'Opening…' : 'Creating…') : selectedExisting ? 'Open workspace' : 'Create workspace'}
           </button>
         </footer>
-      </DialogContent>
-    </Dialog>
+      </ModalSurface>
+    </ModalRoot>
   )
 }
 

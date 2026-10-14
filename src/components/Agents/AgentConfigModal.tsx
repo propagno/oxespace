@@ -2,7 +2,7 @@ import { RefreshCw, Trash2, X } from 'lucide-react'
 import { type FormEvent, type ReactElement, useState } from 'react'
 import type { AgentProfile, AgentProvider, AgentReadiness } from '../../../shared/types/agent'
 import { BUILTIN_PROVIDERS, type UpdateAgentProfileInput } from '../../../shared/types/agent'
-import { Dialog, DialogContent, DialogTitle, LEGACY_MODAL_OVERLAY } from '@/components/ui/dialog'
+import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
 
 const PROVIDER_LABEL: Record<(typeof BUILTIN_PROVIDERS)[number], string> = {
   claude: 'Claude',
@@ -108,19 +108,16 @@ export function AgentConfigModal({
   }
 
   return (
-    <Dialog open onOpenChange={(next) => { if (!next) onClose() }}>
-      <DialogContent
-        unstyled
-        showCloseButton={false}
-        overlayClassName={LEGACY_MODAL_OVERLAY}
+    <ModalRoot open onOpenChange={(next) => { if (!next) onClose() }}>
+      <ModalSurface
         className="modal modal-wide modal-dialog-surface"
       >
         <header className="modal-header">
-          <DialogTitle asChild>
+          <ModalTitle asChild>
             {/* No manual id: `asChild` lets Radix put its own generated id here,
                 which is what DialogContent's aria-labelledby points at. */}
             <h2>{isNew ? 'New custom agent' : 'Configure agent'}</h2>
-          </DialogTitle>
+          </ModalTitle>
           <button type="button" className="icon-button" aria-label="Close modal" onClick={onClose}>
             <X size={16} aria-hidden="true" />
           </button>
@@ -235,7 +232,7 @@ export function AgentConfigModal({
             </button>
           </footer>
         </form>
-      </DialogContent>
-    </Dialog>
+      </ModalSurface>
+    </ModalRoot>
   )
 }

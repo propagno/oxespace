@@ -1,6 +1,6 @@
 import { Activity, ArrowLeft, ArrowUpCircle, Bell, ChevronRight, Mic, Palette, Settings2, SquareTerminal, X } from 'lucide-react'
 import { useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
-import { Dialog, DialogContent, DialogTitle } from '../ui/dialog'
+import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
 import { SettingsContent, type SettingsModalProps, type SettingsSection } from './SettingsModal'
 import { SETTINGS_PAGES, WorkspaceSettingsModal } from '../Workspace/WorkspaceSettingsModal'
 import type { ShellProfile, UpdateWorkspaceSettingsInput, Workspace } from '../../../shared/types/workspace'
@@ -69,12 +69,12 @@ export function SettingsCenter(props: SettingsModalProps & {
   const close = (): void => navigate(props.onClose)
   const pages = destination.scope === 'workspace' ? SETTINGS_PAGES : appPages
   const filtered = pages.filter(p => `${p.label} ${p.hint}`.toLowerCase().includes(query.toLowerCase()))
-  return <Dialog open onOpenChange={open => { if (!open && !pending) close() }}>
-    <DialogContent unstyled showCloseButton={false} className="settings-center" style={{ '--settings-navigation-width': `${navigationWidth}px` } as CSSProperties} overlayClassName="settings-center-overlay" aria-describedby={undefined}
+  return <ModalRoot open onOpenChange={open => { if (!open && !pending) close() }}>
+    <ModalSurface className="settings-center" style={{ '--settings-navigation-width': `${navigationWidth}px` } as CSSProperties} scrimClassName="settings-center-overlay" aria-describedby={undefined}
       onCloseAutoFocus={event => { if (returnPane.current) { event.preventDefault(); requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('oxe:focus-pane', { detail: { paneId: returnPane.current } }))) } }}
       onPointerDownOutside={event => event.preventDefault()}>
       <aside className="settings-center-nav">
-        <DialogTitle className="settings-center-title"><Settings2 size={18} />Settings</DialogTitle>
+        <ModalTitle className="settings-center-title"><Settings2 size={18} />Settings</ModalTitle>
         <SearchField className="settings-search" ref={search} label="Search settings" placeholder="Filter categories" value={query} onChange={setQuery} shortcut="Ctrl F" />
         <div className="settings-scope"><span>Settings for</span>
           <div className="settings-scope-choices" role="group" aria-label="Settings scope">
@@ -126,8 +126,8 @@ export function SettingsCenter(props: SettingsModalProps & {
             : destination.page === 'general' ? <GeneralSettings onNavigate={page => go({ scope: 'application', page })} /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
         </div>
       </main>
-      {pending && <Dialog open onOpenChange={open => { if (!open && !saving) setPending(null) }}><DialogContent unstyled showCloseButton={false} className="settings-unsaved" overlayClassName="settings-unsaved-overlay" aria-describedby={undefined}>
-        <DialogTitle>Save your changes?</DialogTitle><p>Your workspace has unapplied changes. If saving fails, stay here to inspect the error and try again.</p>
+      {pending && <ModalRoot open onOpenChange={open => { if (!open && !saving) setPending(null) }}><ModalSurface className="settings-unsaved" scrimClassName="settings-unsaved-overlay" aria-describedby={undefined}>
+        <ModalTitle>Save your changes?</ModalTitle><p>Your workspace has unapplied changes. If saving fails, stay here to inspect the error and try again.</p>
         <div><button disabled={saving} onClick={() => setPending(null)}>Stay</button>
           <button disabled={saving} onClick={() => { draft.current?.discard(); const action = pending; setPending(null); action() }}>Discard</button>
           <button className="primary-action" disabled={saving} onClick={async () => {
@@ -135,9 +135,9 @@ export function SettingsCenter(props: SettingsModalProps & {
             try { if (await draft.current?.save()) { const action = pending; setPending(null); action() } }
             finally { setSaving(false) }
           }}>{saving ? 'Saving…' : 'Save and continue'}</button></div>
-      </DialogContent></Dialog>}
-    </DialogContent>
-  </Dialog>
+      </ModalSurface></ModalRoot>}
+    </ModalSurface>
+  </ModalRoot>
 }
 
 function GeneralSettings({ onNavigate }: { onNavigate: (page: SettingsSection) => void }): ReactElement {

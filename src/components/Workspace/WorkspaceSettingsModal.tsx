@@ -5,7 +5,7 @@ import { LAYOUT_PRESETS } from './workspaceOptions'
 import { AppearanceSettings } from '../Settings/AppearanceSettings'
 import { WorkspaceMemorySettings } from './WorkspaceMemorySettings'
 import { WorkspaceDelegationSettings } from './WorkspaceDelegationSettings'
-import { Dialog, DialogContent, DialogTitle, LEGACY_MODAL_OVERLAY } from '@/components/ui/dialog'
+import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
 import { useResolvedTerminalPrefs, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import './WorkspaceSettingsModal.css'
 import { DefaultShellSettings } from './DefaultShellSettings'
@@ -108,9 +108,9 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
         {!embedded &&
         <header className="modal-header">
           <div className="ws-settings-title-group">
-            <DialogTitle asChild>
+            <ModalTitle asChild>
               <h2>Workspace settings</h2>
-            </DialogTitle>
+            </ModalTitle>
             <span className="ws-settings-subtitle">{workspace.name}</span>
             <span className="ws-settings-root" title={workspace.rootPath}>{workspace.rootPath}</span>
           </div>
@@ -210,9 +210,9 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
         </form>
       </>
   if (embedded) return <div className="workspace-settings-modal-v2 settings-workspace-content">{content}</div>
-  return <Dialog open onOpenChange={(next) => { if (!next) onClose() }}>
-    <DialogContent unstyled showCloseButton={false} overlayClassName={LEGACY_MODAL_OVERLAY} className="modal workspace-settings-modal-v2 modal-dialog-surface">{content}</DialogContent>
-  </Dialog>
+  return <ModalRoot open onOpenChange={(next) => { if (!next) onClose() }}>
+    <ModalSurface className="modal workspace-settings-modal-v2 modal-dialog-surface">{content}</ModalSurface>
+  </ModalRoot>
 }
 
 /* ── Live preview ─────────────────────────────────────────────────── */

@@ -29,7 +29,7 @@ import { AutomationsSettings } from './AutomationsSettings'
 import { useAgentStore } from '../../store/agent.store'
 import { useVoiceStore } from '../../store/voice.store'
 import { useSettingsStore, VISITED_WORKSPACES_CAP_MAX, VISITED_WORKSPACES_CAP_MIN } from '../../store/settings.store'
-import { Dialog, DialogContent, DialogTitle, LEGACY_MODAL_OVERLAY } from '@/components/ui/dialog'
+import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
 import { TERMINAL_PREFS_DEFAULTS, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useUpdaterStore } from '../../store/updater.store'
 
@@ -166,11 +166,8 @@ export function SettingsModal({
   const [section, setSection] = useState<SettingsSection>('providers')
 
   return (
-    <Dialog open onOpenChange={(next) => { if (!next) onClose() }}>
-      <DialogContent
-        unstyled
-        showCloseButton={false}
-        overlayClassName={LEGACY_MODAL_OVERLAY}
+    <ModalRoot open onOpenChange={(next) => { if (!next) onClose() }}>
+      <ModalSurface
         className="settings-modal modal-dialog-surface"
         data-testid="settings-modal"
       >
@@ -181,9 +178,9 @@ export function SettingsModal({
             </span>
             <div>
               <span>OXESpace</span>
-              <DialogTitle asChild>
+              <ModalTitle asChild>
                 <strong>Agents</strong>
-              </DialogTitle>
+              </ModalTitle>
             </div>
           </header>
           <nav>
@@ -229,8 +226,8 @@ export function SettingsModal({
             onUseProviderInPane={onUseProviderInPane}
           />
         )}
-      </DialogContent>
-    </Dialog>
+      </ModalSurface>
+    </ModalRoot>
   )
 }
 

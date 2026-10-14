@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import { Activity, Brain, Code2, Command, FolderTree, Github, GitCompareArrows, MonitorPlay, Network, PanelLeft, Search, Settings2, Sparkles, Wrench, X, Slash, FileCode2 } from 'lucide-react'
 import { useUIStore } from '../../store/ui.store'
-import { Dialog, DialogContent, DialogDescription, DialogTitle, DESKTOP_DIALOG_OVERLAY } from '@/components/ui/dialog'
+import { ModalDescription, ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
 
 export interface ToolsActiveState {
   github: boolean
@@ -266,12 +266,10 @@ export function ToolsModal({
   const hasAnyResults = groups.length > 0
 
   return (
-    <Dialog open onOpenChange={(next) => { if (!next) onClose() }}>
+    <ModalRoot open onOpenChange={(next) => { if (!next) onClose() }}>
       {/* `unstyled`: the hub keeps its own layered-gradient surface and only
           borrows Radix's focus trap, Escape and outside-click behaviour. */}
-      <DialogContent
-        unstyled
-        showCloseButton={false}
+      <ModalSurface
         onCloseAutoFocus={event => {
           event.preventDefault()
           if (!navigatingRef.current) requestAnimationFrame(() => {
@@ -283,7 +281,7 @@ export function ToolsModal({
             target?.focus({ preventScroll: true })
           })
         }}
-        overlayClassName={DESKTOP_DIALOG_OVERLAY}
+        scrimClassName="desktop-dialog-overlay"
         className="tools-modal desktop-dialog"
         data-testid="tools-modal"
       >
@@ -293,16 +291,16 @@ export function ToolsModal({
               <Settings2 size={18} />
             </span>
             <div>
-              <DialogTitle asChild>
+              <ModalTitle asChild>
                 <strong>Tools</strong>
-              </DialogTitle>
-              <DialogDescription asChild>
+              </ModalTitle>
+              <ModalDescription asChild>
                 <span>
                   {activeCount > 0
                     ? `${activeCount} panel${activeCount === 1 ? '' : 's'} open · workspace hub`
                     : 'Panels, agents & system actions'}
                 </span>
-              </DialogDescription>
+              </ModalDescription>
             </div>
           </div>
           <button
@@ -379,8 +377,8 @@ export function ToolsModal({
           </span>
           <span className="tools-modal-footer-meta">{filtered.length} tools</span>
         </footer>
-      </DialogContent>
-    </Dialog>
+      </ModalSurface>
+    </ModalRoot>
   )
 }
 

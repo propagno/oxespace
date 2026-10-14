@@ -157,6 +157,13 @@
   --fs-display: var(--text-display);
   --lh-base:   var(--leading-normal);
   --lh-tight:  var(--leading-snug);
+
+  /* Names the retired shadcn layer defined, still read by OxeQuery's CSS. */
+  --sh-border: var(--border-default);
+  --sh-surface: var(--surface-raised);
+  --sh-surface-raised: var(--surface-overlay);
+  --sh-accent: var(--accent);
+  --sh-font-mono: var(--font-mono);
 }
 
 :root {

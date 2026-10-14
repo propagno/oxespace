@@ -10,9 +10,8 @@ import '@fontsource/ibm-plex-mono/500.css'
 import '@fontsource-variable/bricolage-grotesque'
 import { App } from './App'
 import { applyMode, resolveMode, savedAppearance } from './design/mode'
-// F1: shadcn/Tailwind foundation must load BEFORE styles.css so OXESpace tokens
-// win the names both systems share (see ui-kit.css coexistence contract).
-import './styles/ui-kit.css'
+// Layer order and the base reset load before every other stylesheet.
+import './styles/reset.css'
 import './styles.css'
 import '@xyflow/react/dist/style.css'
 

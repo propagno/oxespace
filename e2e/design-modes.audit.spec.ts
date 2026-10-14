@@ -14,7 +14,6 @@ const OUT = join(process.cwd(), 'e2e', 'screenshots', 'design-modes')
 async function setMode(page: Page, mode: 'light' | 'dark'): Promise<void> {
   await page.evaluate(value => {
     document.documentElement.dataset.mode = value
-    document.documentElement.classList.toggle('dark', value === 'dark')
   }, mode)
   await page.waitForTimeout(150)
 }

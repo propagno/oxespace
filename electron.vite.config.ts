@@ -2,7 +2,6 @@ import { cpSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
 
 /**
  * Folder under resources/whisper holding this host's whisper.cpp build. The
@@ -176,7 +175,6 @@ export default defineConfig({
     root: '.',
     plugins: [
       react(),
-      tailwindcss(),
       {
         name: 'inject-prod-csp',
         apply: 'build',
