@@ -43,6 +43,8 @@
 
 /* Empty state */
 .empty { display: grid; justify-items: center; gap: var(--space-2); padding: var(--space-8) var(--space-4); text-align: center; color: var(--text-secondary); }
+.emptyCompact { padding: var(--space-3) var(--space-2); }
+.emptyCompact .emptyTitle { font-family: inherit; font-size: var(--text-sm); font-weight: var(--weight-regular); color: var(--text-muted); }
 .emptyIcon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: var(--radius-lg); background: var(--accent-soft); color: var(--text-accent); }
 .emptyTitle { margin: 0; font-family: var(--font-display); font-size: var(--text-lg); font-weight: var(--weight-semibold); color: var(--text-primary); }
 .emptyText { margin: 0; max-width: 46ch; font-size: var(--text-sm); line-height: var(--leading-normal); }

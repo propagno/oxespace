@@ -155,8 +155,8 @@ export function LinearPanel({ onClose, rootPath, workspaceId }: LinearPanelProps
             </div>
 
             <div className="linear-body scrollbar-sleek">
-              {state.isLoading ? <EmptyState title="Loading issues…" /> : null}
-              {!state.isLoading && state.issues.length === 0 ? <EmptyState title="No issues match this filter." /> : null}
+              {state.isLoading ? <EmptyState compact title="Loading issues…" /> : null}
+              {!state.isLoading && state.issues.length === 0 ? <EmptyState compact title="No issues match this filter." /> : null}
               {state.issues.map((issue) => (
                 <article key={issue.id} className="linear-issue" data-testid={`linear-issue-${issue.identifier}`}>
                   <div className="linear-issue-main">

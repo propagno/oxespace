@@ -325,7 +325,7 @@ export function NewWorkspaceModal({
                 incLabel={`Add another ${shellLabel}`}
               />
               {agentProfiles.length === 0 ? (
-                <EmptyState title="No agents configured. The workspace will start with default shells." />
+                <EmptyState compact title="No agents configured. The workspace will start with default shells." />
               ) : (
                 agentProfiles.map((agent) => {
                   const count = agentCounts[agent.agentProfileId] ?? 0

@@ -161,7 +161,7 @@ export function ReviewPane({ workspaceId, rootPath }: ReviewPaneProps): ReactEle
         </div>
       )}
 
-      {ws.isLoading && <EmptyState title="Loading diff…" />}
+      {ws.isLoading && <EmptyState compact title="Loading diff…" />}
       {ws.error && (
         <div className="review-pane-alert">
           <span>{ws.error}</span>
@@ -216,7 +216,7 @@ export function ReviewPane({ workspaceId, rootPath }: ReviewPaneProps): ReactEle
                 onSelect={() => undefined}
               />
             ) : (
-              <EmptyState title="Select a file in the tree to view its diff." />
+              <EmptyState compact title="Select a file in the tree to view its diff." />
             )}
           </div>
         </div>

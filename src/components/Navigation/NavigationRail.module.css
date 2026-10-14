@@ -67,3 +67,8 @@
   pointer-events: none;
 }
 .badgeFailed { background: var(--intent-danger-solid); }
+
+/* Agents are busy and nothing needs you: a small breathing dot, calm rather than alarming. */
+.working { position: absolute; top: 4px; right: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); pointer-events: none; animation: breathe 1800ms var(--ease-standard) infinite; }
+@keyframes breathe { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .working { animation: none; } }

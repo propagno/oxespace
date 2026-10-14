@@ -450,7 +450,7 @@ function StatusTab({ loading, status, onFetch, onPullFfOnly, onPush, onStageAll,
                 onOpenFile={onOpenFile}
               />
             ) : null}
-            {changes.length === 0 ? <EmptyState title="Working tree clean" /> : null}
+            {changes.length === 0 ? <EmptyState compact title="Working tree clean" /> : null}
           </div>
           <div className="github-changes-meta">
             <span>Last commit {status?.lastCommitRelative ?? '—'}</span>
@@ -763,7 +763,7 @@ function BranchesTab({ branches, status, onCheckout, onCreate, onRefresh }: {
               </div>
             </div>
           ))}
-          {branches.length === 0 ? <EmptyState title="No branches found." /> : null}
+          {branches.length === 0 ? <EmptyState compact title="No branches found." /> : null}
         </div>
       </div>
     </div>
@@ -869,7 +869,7 @@ function PullRequestsTab({ prs, status, loading, input, onCreate, onRefresh }: {
               <span className="github-pr-author-name">{pr.author ?? ''}</span>
             </button>
           ))}
-          {filtered.length === 0 ? <EmptyState title="No pull requests found." /> : null}
+          {filtered.length === 0 ? <EmptyState compact title="No pull requests found." /> : null}
         </div>
       </div>
     </div>
@@ -905,7 +905,7 @@ function CommitsTab({ commitDetails, commits, loading, status, onLoadDetails, on
             <code className="github-detail-sha">{selected?.shortOid ?? selectedOid.slice(0, 7)}</code>
           </div>
           <div className="github-tab-sep" />
-          {!selected && loading ? <EmptyState title="Loading commit…" /> : null}
+          {!selected && loading ? <EmptyState compact title="Loading commit…" /> : null}
           {selected ? <CommitDetailView details={selected} /> : null}
         </div>
       </div>
@@ -946,7 +946,7 @@ function CommitsTab({ commitDetails, commits, loading, status, onLoadDetails, on
               </div>
             </button>
           ))}
-          {commits.length === 0 ? <EmptyState title="No commits found." /> : null}
+          {commits.length === 0 ? <EmptyState compact title="No commits found." /> : null}
         </div>
       </div>
     </div>
@@ -1089,7 +1089,7 @@ function ReleasesTab({ releases, status, loading, onCreate, onRefresh }: {
               </div>
             </button>
           ))}
-          {releases.length === 0 ? <EmptyState title="No releases found." /> : null}
+          {releases.length === 0 ? <EmptyState compact title="No releases found." /> : null}
         </div>
       </div>
     </div>
@@ -1215,7 +1215,7 @@ function ActionsTab({ workflows, workflowRuns, workflowRunDetails, loading, work
       <div className="github-actions-v2-split">
         <aside className="github-actions-v2-tree">
           {groups.length === 0 ? (
-            <EmptyState title="No workflows found." />
+            <EmptyState compact title="No workflows found." />
           ) : (
             groups.map(({ workflow, runs }) => {
               const collapsed = collapsedWorkflows.has(workflow.name)
@@ -1233,7 +1233,7 @@ function ActionsTab({ workflows, workflowRuns, workflowRunDetails, loading, work
                   </button>
                   {!collapsed && (
                     runs.length === 0 ? (
-                      <EmptyState title="No runs" />
+                      <EmptyState compact title="No runs" />
                     ) : (
                       runs.map((run) => (
                         <button
@@ -1269,7 +1269,7 @@ function ActionsTab({ workflows, workflowRuns, workflowRunDetails, loading, work
               onRerun={(failedOnly) => onRerun(selectedRun.databaseId, failedOnly)}
             />
           ) : (
-            <EmptyState title="Select a workflow run to view details." />
+            <EmptyState compact title="Select a workflow run to view details." />
           )}
         </section>
       </div>
@@ -1629,7 +1629,7 @@ function SettingsTab({ status, rootPath, connectedRepositories, onRunCommand, on
               <button type="button" className="github-text-btn">+ Add repository</button>
             </div>
             {connectedRepositories.length === 0 ? (
-              <EmptyState title="No repositories connected. Add one to start syncing issues." />
+              <EmptyState compact title="No repositories connected. Add one to start syncing issues." />
             ) : (
               <div className="github-list">
                 {connectedRepositories.map((r) => (

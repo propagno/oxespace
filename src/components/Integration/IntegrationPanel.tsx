@@ -272,7 +272,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
 
       {error || memberActionError ? <div className="integration-error" role="alert">{memberActionError ?? error}</div> : null}
       {panelNotice ? <div className="integration-notice" role="status">{panelNotice}</div> : null}
-      {isLoading ? <EmptyState title="Loading integration groups…" /> : null}
+      {isLoading ? <EmptyState compact title="Loading integration groups…" /> : null}
 
       {visibleGroups.length > 1 ? (
         <nav className="integration-group-tabs" aria-label="Integration groups">

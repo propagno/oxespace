@@ -63,11 +63,11 @@
 /* Drag-to-split: top-center grip per pane. Subtle at rest, lights on hover. */
 .split-drag-grip {
   position: absolute;
-  top: 5px;
+  top: 0;
   left: 50%;
   transform: translateX(-50%);
   width: 36px;
-  height: 12px;
+  height: 8px;
   z-index: 6;
   border-radius: var(--radius-pill);
   background: transparent;
@@ -85,7 +85,7 @@
 .split-drag-grip::before {
   content: "";
   position: absolute;
-  top: 5px;
+  top: 2px;
   left: 50%;
   width: 18px;
   height: 2px;

@@ -228,7 +228,7 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
               {!large && <span className="changes-banner-nav"><button type="button" aria-label="Previous file" onClick={() => go(-1)} disabled={index <= 0}><ChevronLeft size={14} /></button><button type="button" aria-label="Next file" onClick={() => go(1)} disabled={index >= ordered.length - 1}><ChevronRight size={14} /></button></span>}
             </div>
             <div className="changes-editor">
-              {selected.binary ? <EmptyState title="Binary file; no text diff available." />
+              {selected.binary ? <EmptyState compact title="Binary file; no text diff available." />
                 : contentError ? <p role="alert" className="changes-error">{contentError}</p>
                 : content?.path !== selected.path ? <p className="changes-empty" role="status">Loading diff…</p>
                 : <>

@@ -261,7 +261,7 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
     <div className="editor-pane" ref={paneRef}>
       <aside className="editor-sidebar" style={{ flexBasis: visibleTreeWidth }}>
         <div className="editor-sidebar-title">Files</div>
-        {isLoadingTree ? <EmptyState title="Loading" /> : null}
+        {isLoadingTree ? <EmptyState compact title="Loading" /> : null}
         {treeError ? <div className="editor-error">{treeError}</div> : null}
         {!isLoadingTree && !treeError ? <FileBrowser nodes={tree} rootPath={rootPath} workspaceId={workspaceId} selectedPath={activePath} onOpenFile={handleOpenFile} /> : null}
       </aside>
@@ -400,7 +400,7 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
               />
             </div>
           ) : null}
-          {!binaryFile && !file ? <EmptyState title="Select a file" /> : null}
+          {!binaryFile && !file ? <EmptyState compact title="Select a file" /> : null}
         </div>
       </section>
     </div>

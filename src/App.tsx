@@ -1,4 +1,5 @@
 import { Activity, Columns2, FilePlus2, FolderOpen, Github, Grid2x2, LayoutDashboard, ListTodo, Maximize, Mic, Palette, Plus, RotateCw, Search, Settings2, Sliders, Split, Square, StopCircle, Wrench } from 'lucide-react'
+import { useContributedCommands } from './utils/commandRegistry'
 import { TOOL_CATALOG, type ToolId } from './components/Workspace/toolCatalog'
 import { Button, cx, Toaster, TitleTooltips, TooltipProvider, EmptyState } from './ui'
 import titleBar from './components/Navigation/TitleBar.module.css'
@@ -679,7 +680,10 @@ export function App(): ReactElement {
     editor: toggleEditor, review: toggleReviewPanel, slash: () => { if (activePane) openSlashOverlay(activePane.id) }
   }
 
+  const contributedCommands = useContributedCommands()
+
   const commandActions: CommandPaletteAction[] = [
+    ...contributedCommands,
     // Workspace
     { id: 'new-workspace', title: 'Create workspace', subtitle: 'Open the New Workspace wizard', icon: FilePlus2, category: 'Workspace', keywords: ['new', 'open', 'project'], run: openNewWorkspaceFromUI },
     { id: 'workspace-settings', title: 'Open workspace settings', subtitle: 'Layout, density and shell', icon: Sliders, category: 'Workspace', disabled: !activeWorkspace, run: openWorkspaceSettings },
@@ -1024,8 +1028,8 @@ export function App(): ReactElement {
           </div>
         ) : activeWorkspace || applicationView === 'thread' || applicationView === 'data' ? (
           <>
-            {hasOpenedData && <div className="oq-host" style={{ display: applicationView === 'data' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'data'}><Suspense fallback={<EmptyState title="Loading OxeQuery…" />}><OxeQueryView active={applicationView === 'data'} /></Suspense></div>}
-            {hasOpenedThread && <div className="thread-host" style={{ display: applicationView === 'thread' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'thread'}><Suspense fallback={<EmptyState title="Loading threads…" />}><ThreadGrid onNewThread={newThread} onAccounts={openThreadAccounts} onDelegations={() => setDelegatedWorkOpen(true)} /></Suspense></div>}
+            {hasOpenedData && <div className="oq-host" style={{ display: applicationView === 'data' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'data'}><Suspense fallback={<EmptyState compact title="Loading OxeQuery…" />}><OxeQueryView active={applicationView === 'data'} /></Suspense></div>}
+            {hasOpenedThread && <div className="thread-host" style={{ display: applicationView === 'thread' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'thread'}><Suspense fallback={<EmptyState compact title="Loading threads…" />}><ThreadGrid onNewThread={newThread} onAccounts={openThreadAccounts} onDelegations={() => setDelegatedWorkOpen(true)} /></Suspense></div>}
             {workspaces
               // Include the active id synchronously. On a first visit the MRU
               // effect has not run yet, but the user should never wait an extra
@@ -1074,10 +1078,12 @@ export function App(): ReactElement {
           <div className="empty-state">
             <OxeLogo size={72} variant="hero" />
             <p>Select a folder to start your first agentic terminal workspace.</p>
-            <button type="button" className="empty-state-cta" onClick={openNewWorkspaceFromUI}>
-              <Plus size={14} aria-hidden="true" />
-              New workspace
-            </button>
+            <Button variant="primary" size="lg" icon={<Plus size={14} aria-hidden="true" />} onClick={openNewWorkspaceFromUI}>New workspace</Button>
+            <div className="empty-state-alt" role="group" aria-label="Other ways to start">
+              <span>Or start somewhere else</span>
+              <Button variant="ghost" size="sm" onClick={() => selectMode('thread')}>Open Thread</Button>
+              <Button variant="ghost" size="sm" onClick={() => selectMode('data')}>Open OxeQuery</Button>
+            </div>
           </div>
         )}
         {applicationView === 'code' && <AppStatusBar workspace={activeWorkspace ?? null} activePaneId={activePane?.id ?? null} />}

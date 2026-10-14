@@ -33,7 +33,7 @@ export function FileBrowser({ nodes, onOpenFile, rootPath, selectedPath, workspa
   }
 
   if (nodes.length === 0) {
-    return <EmptyState title="No files" />
+    return <EmptyState compact title="No files" />
   }
 
   return (
@@ -111,9 +111,9 @@ function FileNode({ node, onOpenFile, rootPath, selectedPath, loadDirectory, chi
         </button>
         {isExpanded ? (
           <div className="editor-browser-children">
-            {isLoading ? <EmptyState title="Loading" /> : null}
+            {isLoading ? <EmptyState compact title="Loading" /> : null}
             {error ? <div className="editor-error">{error}</div> : null}
-            {!isLoading && !error && children.length === 0 ? <EmptyState title="Empty" /> : null}
+            {!isLoading && !error && children.length === 0 ? <EmptyState compact title="Empty" /> : null}
             {children.map((child) => (
               <FileNode
                 key={child.relativePath}

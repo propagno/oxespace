@@ -40,7 +40,7 @@ export function AgentSection({
 
       <div className="agent-list">
         {profiles.length === 0 ? (
-          <EmptyState title="No agent profiles." />
+          <EmptyState compact title="No agent profiles." />
         ) : (
           profiles.map((profile) => (
             <AgentItem

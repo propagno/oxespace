@@ -9,8 +9,8 @@
 .changes-pill:focus-visible, .changes-icon:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .changes-branches span:not([aria-hidden]) { min-width: 0; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .changes-totals { display: inline-flex; gap: 6px; font-variant-numeric: tabular-nums; }
-.is-add { color: var(--dot-green); }
-.is-del { color: var(--dot-red); }
+.is-add { color: var(--intent-success-fg); }
+.is-del { color: var(--intent-danger-fg); }
 .changes-icon { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: var(--nav-radius); background: transparent; color: var(--tx-secondary); cursor: pointer; }
 .changes-icon:hover:not(:disabled) { background: var(--nav-hover); color: var(--tx-primary); }
 .changes-spin { animation: changes-spin 1s linear infinite; }
@@ -105,3 +105,9 @@
 .changes-review-comments { flex: none; white-space: nowrap; }
 .changes-review-comments b { font-weight: 600; color: var(--tx-primary); }
 @container (max-width: 640px) { .changes-review-label { display: none; } }
+
+/* In a narrow side panel the file list stacks above the diff instead of squeezing it to a sliver. */
+@container (max-width: 560px) {
+  .changes-body { flex-direction: column-reverse; }
+  .changes-files { flex: 0 0 auto; width: auto; max-height: 34%; border-left: 0; border-bottom: 1px solid var(--wb-border); }
+}

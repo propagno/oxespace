@@ -4,7 +4,7 @@ import { OxeLogo } from '../Brand/OxeLogo'
 import { colorRoles } from '../../design/tokens/semantic'
 import { palette, SCALE_SPECS, type ScaleName } from '../../design/tokens/palette'
 import { RADIUS, SPACE, TEXT } from '../../design/tokens/scales'
-import { Badge, Button, ButtonGroup, Checkbox, EmptyState, IconButton, Kbd, Menu, Meter, Panel, SegmentedControl, Select, Spinner, StatusDot, Switch, Tabs, TextArea, TextField, Toolbar, ToolbarSpacer, Tooltip, toast } from '../../ui'
+import { Badge, Button, ButtonGroup, Checkbox, EmptyState, IconButton, Kbd, Menu, Meter, Panel, SegmentedControl, Select, Spinner, StatusDot, Switch, Tabs, TextArea, TextField, Toolbar, ToolbarSpacer, Tooltip, toast, useModalSurface } from '../../ui'
 import styles from './DesignSystemPage.module.css'
 
 type Section = 'brand' | 'color' | 'type' | 'shape' | 'components'
@@ -127,7 +127,8 @@ function Gallery(): ReactElement {
 export function DesignSystemPage({ onClose }: { onClose: () => void }): ReactElement {
   const [section, setSection] = useState<Section>('components')
   const current = SECTIONS.find(item => item.id === section)!
-  return <div className={styles.page} role="dialog" aria-modal="true" aria-label="Design system" onKeyDown={event => { if (event.key === 'Escape') onClose() }}>
+  const surface = useModalSurface<HTMLDivElement>(onClose)
+  return <div className={styles.page} role="dialog" aria-modal="true" aria-label="Design system" {...surface}>
     <ScaleVariables />
     <nav className={styles.nav} aria-label="Design system sections">
       <h1 className={styles.navTitle}><OxeLogo size={20} variant="compact" />Design system</h1>

@@ -81,7 +81,7 @@ export function GitControlPanel({ workspaceId, rootPath, onOpenFile, draft }: Pr
     </header>
     {error && <p role="alert" className="git-control-error">{error}</p>}
     {status?.truncated && <p role="status" className="git-control-note">Showing the first 1,000 changed paths. Git status is larger than this view.</p>}
-    {!status && !error && <EmptyState title="Reading local Git changes…" />}
+    {!status && !error && <EmptyState compact title="Reading local Git changes…" />}
     {status && !status.error && <>
       <FileGroup title="Conflicts" files={conflicts} onOpenFile={openFile} />
       {conflicts.length > 0 && <p className="git-control-note">Resolve conflicts in the editor, then stage the resolved files before committing.</p>}
