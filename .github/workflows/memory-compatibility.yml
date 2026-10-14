@@ -2,6 +2,8 @@ name: Memory compatibility
 
 on:
   workflow_dispatch:
+  # Called by ci.yml so a release cannot publish without the native memory contracts.
+  workflow_call:
   pull_request:
     paths:
       - 'electron/main/services/memory/**'

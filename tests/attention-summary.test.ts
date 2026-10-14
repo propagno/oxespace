@@ -12,15 +12,19 @@ describe('useAttentionSummary', () => {
 
   it('counts conversations that need approval or failed, across projects', () => {
     useThreadStore.setState({
-      threads: [{ id: 'a', status: 'approval' }, { id: 'b', status: 'failed' }, { id: 'c', status: 'idle' }, { id: 'd', status: 'approval' }] as never
+      threads: [{ id: 'a', status: 'approval' }, { id: 'b', status: 'failed' }, { id: 'c', status: 'idle' }, { id: 'd', status: 'approval' }, { id: 'e', status: 'running' }] as never
     })
     const { result } = renderHook(() => useAttentionSummary())
-    expect(result.current.thread).toEqual({ needsYou: 2, failed: 1 })
-    expect(result.current.code).toEqual({ needsYou: 0, failed: 0 })
+    expect(result.current.thread).toEqual({ needsYou: 2, failed: 1, working: 1 })
+    expect(result.current.code).toEqual({ needsYou: 0, failed: 0, working: 0 })
   })
 
+  it('says how many are working only when nothing else needs attention', () => {
+    expect(describeAttention({ needsYou: 0, failed: 0, working: 2 })).toBe('2 working')
+    expect(describeAttention({ needsYou: 1, failed: 0, working: 2 })).toBe('1 needs you')
+  })
   it('words the count so it is not color alone', () => {
-    expect(describeAttention({ needsYou: 1, failed: 0 })).toBe('1 needs you')
-    expect(describeAttention({ needsYou: 3, failed: 2 })).toBe('3 need you, 2 failed')
+    expect(describeAttention({ needsYou: 1, failed: 0, working: 0 })).toBe('1 needs you')
+    expect(describeAttention({ needsYou: 3, failed: 2, working: 0 })).toBe('3 need you, 2 failed')
   })
 })

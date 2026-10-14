@@ -15,6 +15,8 @@ export default defineConfig({
     '**/perf-benchmark.spec.ts',
     '**/browser-preview-performance.spec.ts',
     '**/screenshots.spec.ts',
+    // Pixel-regression suite has its own config and per-platform baselines.
+    '**/visual/**',
     // Packaged-artifact smokes need a built installer and are driven by the
     // release leg of CI with OXESPACE_PACKAGED_EXECUTABLE set.
     '**/packaged-linux.spec.ts',

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactElement } from 're
 import type { BackgroundJob, BackgroundJobStatus } from '../../../shared/types/background'
 import type { DelegationTask } from '../../../shared/types/delegation'
 import { selectJobs, selectOutput, useBackgroundStore } from '../../store/background.store'
+import { Button } from '../../ui'
 
 interface BackgroundJobsPanelProps {
   workspaceId: string
@@ -99,14 +100,14 @@ export function BackgroundJobsPanel({ workspaceId }: BackgroundJobsPanelProps): 
     <section className="bg-jobs-dock" aria-label="Background activity">
       <header className="bg-jobs-dock-toolbar">
         <span className="bg-jobs-dock-count">{source === 'jobs' ? `${jobs.length} job${jobs.length === 1 ? '' : 's'}` : `${delegated.length} delegated task${delegated.length === 1 ? '' : 's'}`}</span>
-        <button
-          type="button"
-          className="icon-button"
+        <Button
+         
+          variant="ghost" size="sm" square
           aria-label="Refresh background jobs"
           onClick={() => { if (source === 'jobs') void loadJobs(workspaceId); else setDelegatedRefresh(value => value + 1) }}
         >
           <RotateCw size={12} aria-hidden="true" />
-        </button>
+        </Button>
       </header>
 
       <nav className="bg-jobs-source-tabs" aria-label="Activity source">

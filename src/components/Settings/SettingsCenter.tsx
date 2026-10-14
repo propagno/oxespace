@@ -1,7 +1,7 @@
 import { Activity, ArrowLeft, ArrowUpCircle, Bell, ChevronRight, Mic, Palette, Settings2, SquareTerminal, X } from 'lucide-react'
 import { useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
-import { Button, Dialog } from '../../ui'
+import { Button, Dialog, TextField } from '../../ui'
 import { SettingsContent, type SettingsModalProps, type SettingsSection } from './SettingsModal'
 import { SETTINGS_PAGES, WorkspaceSettingsModal } from '../Workspace/WorkspaceSettingsModal'
 import type { ShellProfile, UpdateWorkspaceSettingsInput, Workspace } from '../../../shared/types/workspace'
@@ -149,6 +149,6 @@ function GeneralSettings(): ReactElement {
     <h3>Workspace navigation</h3>
     <div className="settings-general-card"><div><label htmlFor="workspace-cache-cap">Recently visited workspaces kept ready</label>
       <p>Keep terminal views available when switching workspaces. Changes apply automatically.</p></div>
-      <input id="workspace-cache-cap" type="number" min={VISITED_WORKSPACES_CAP_MIN} max={VISITED_WORKSPACES_CAP_MAX} value={cap} onChange={e => { const value = e.currentTarget.valueAsNumber; if (Number.isFinite(value)) setCap(value) }} />
+      <TextField id="workspace-cache-cap" type="number" min={VISITED_WORKSPACES_CAP_MIN} max={VISITED_WORKSPACES_CAP_MAX} value={cap} onChange={e => { const value = e.currentTarget.valueAsNumber; if (Number.isFinite(value)) setCap(value) }} />
     </div></section>
 }

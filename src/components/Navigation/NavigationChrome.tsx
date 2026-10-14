@@ -40,8 +40,8 @@ export function NavigationRail({ mode, collapsed, onModeChange, onSelectMode, pr
   }
   return <div className={cx('nav-rail', styles.rail)} data-collapsed={collapsed}>
     <nav className={styles.group} aria-label="Application view">
-      <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label="Code" title="Code" aria-pressed={mode === 'code'} onClick={() => select('code')}><SquareTerminal size={16} aria-hidden="true" />{(attention.code.needsYou + attention.code.failed) > 0 && <AttentionBadge counts={attention.code} />}</button>
-      <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label="Thread" title="Thread" aria-pressed={mode === 'thread'} onClick={() => select('thread')}><MessagesSquare size={16} aria-hidden="true" />{(attention.thread.needsYou + attention.thread.failed) > 0 && <AttentionBadge counts={attention.thread} />}</button>
+      <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label="Code" title="Code" aria-pressed={mode === 'code'} onClick={() => select('code')}><SquareTerminal size={16} aria-hidden="true" />{(attention.code.needsYou + attention.code.failed + attention.code.working) > 0 && <AttentionBadge counts={attention.code} />}</button>
+      <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label="Thread" title="Thread" aria-pressed={mode === 'thread'} onClick={() => select('thread')}><MessagesSquare size={16} aria-hidden="true" />{(attention.thread.needsYou + attention.thread.failed + attention.thread.working) > 0 && <AttentionBadge counts={attention.thread} />}</button>
       {(onSelectMode || mode === 'data') && <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label="OxeQuery" title="OxeQuery: containers and databases" aria-pressed={mode === 'data'} onClick={() => select('data')}><DatabaseZap size={16} aria-hidden="true" /></button>}
     </nav>
     <span className={styles.separator} aria-hidden="true" />
@@ -61,5 +61,6 @@ export function NavigationRail({ mode, collapsed, onModeChange, onSelectMode, pr
 
 function AttentionBadge({ counts }: { counts: AttentionCounts }) {
   const total = counts.needsYou + counts.failed
+  if (total === 0) return <span className={styles.working} role="status" aria-label={describeAttention(counts)} data-testid="working-indicator" />
   return <span className={cx(styles.badge, counts.needsYou === 0 && styles.badgeFailed)} role="status" aria-label={describeAttention(counts)} data-testid="attention-badge">{total > 9 ? '9+' : total}</span>
 }

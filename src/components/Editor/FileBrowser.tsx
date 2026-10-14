@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronRight, FileText, Folder } from 'lucide-react'
 import { useState, type ReactElement } from 'react'
 import type { FileTreeNode } from '../../../shared/types/ipc'
+import { EmptyState } from '../../ui'
 
 interface FileBrowserProps {
   nodes: FileTreeNode[]
@@ -32,7 +33,7 @@ export function FileBrowser({ nodes, onOpenFile, rootPath, selectedPath, workspa
   }
 
   if (nodes.length === 0) {
-    return <div className="editor-browser-empty">No files</div>
+    return <EmptyState compact title="No files" />
   }
 
   return (
@@ -110,9 +111,9 @@ function FileNode({ node, onOpenFile, rootPath, selectedPath, loadDirectory, chi
         </button>
         {isExpanded ? (
           <div className="editor-browser-children">
-            {isLoading ? <div className="editor-browser-empty">Loading</div> : null}
+            {isLoading ? <EmptyState compact title="Loading" /> : null}
             {error ? <div className="editor-error">{error}</div> : null}
-            {!isLoading && !error && children.length === 0 ? <div className="editor-browser-empty">Empty</div> : null}
+            {!isLoading && !error && children.length === 0 ? <EmptyState compact title="Empty" /> : null}
             {children.map((child) => (
               <FileNode
                 key={child.relativePath}

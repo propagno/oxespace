@@ -6,6 +6,7 @@ import type { WorkspacePane } from '../../../shared/types/workspace'
 import { selectWorktrees, useWorktreeStore } from '../../store/worktree.store'
 import { WorktreeCleanupPanel } from './WorktreeCleanupPanel'
 import { useWorkspaceStore } from '../../store/workspace.store'
+import { Button, TextField } from '../../ui'
 
 /** A worktree the user asked to remove, plus what removing it would destroy. */
 interface PendingRemoval {
@@ -264,26 +265,26 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
             <span className="worktree-panel-active-hint">No active pane — click a pane to target it.</span>
           )}
         </div>
-        <button
-          type="button"
-          className="icon-button worktree-panel-refresh"
+        <Button
+         
+          variant="ghost" size="sm" square className="worktree-panel-refresh"
           aria-label="Clean up worktrees"
           title="Clean up worktrees"
           aria-pressed={showCleanup}
           onClick={() => setShowCleanup((v) => !v)}
         >
           <Trash2 size={12} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className="icon-button worktree-panel-refresh"
+        </Button>
+        <Button
+         
+          variant="ghost" size="sm" square className="worktree-panel-refresh"
           aria-label="Refresh worktree list"
           title="Refresh"
           onClick={() => void refresh(workspaceId, workspaceRootPath)}
           disabled={loading}
         >
           <RotateCw size={12} className={loading ? 'usage-spin' : ''} aria-hidden="true" />
-        </button>
+        </Button>
       </section>
 
       {error || localError ? (
@@ -350,9 +351,9 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
                   <div className="worktree-menu-item-aside">
                     {isCurrent ? <div className="worktree-menu-check"><Check size={14} aria-hidden="true" /></div> : null}
                     {!wt.isMain ? (
-                      <button
-                        type="button"
-                        className="icon-button worktree-menu-remove"
+                      <Button
+                       
+                        variant="ghost" size="sm" square className="worktree-menu-remove"
                         aria-label={`Remove worktree ${wt.branch ?? wt.path}`}
                         title="Remove worktree"
                         aria-expanded={isPendingRemoval}
@@ -360,7 +361,7 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
                         disabled={busy}
                       >
                         <Trash2 size={12} aria-hidden="true" />
-                      </button>
+                      </Button>
                     ) : null}
                   </div>
                 </button>
@@ -382,7 +383,7 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
         <div className="worktree-menu-create">
           <div className="worktree-menu-create-field">
             <label htmlFor="wt-branch">Branch name</label>
-            <input
+            <TextField
               id="wt-branch"
               autoFocus
               value={newBranch}
@@ -455,7 +456,7 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
               <div className="worktree-menu-create-field">
                 <label htmlFor="wt-path">Custom path</label>
                 <div className="worktree-menu-create-path-row">
-                  <input
+                  <TextField
                     id="wt-path"
                     value={effectivePath}
                     onChange={(event) => setPathOverride(event.currentTarget.value)}
@@ -498,22 +499,22 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
           ) : null}
 
           <div className="worktree-menu-create-actions">
-            <button
-              type="button"
-              className="ghost-btn"
+            <Button
+             
+              variant="ghost"
               onClick={() => { setCreating(false); setLocalError(null); resetCreateForm() }}
               disabled={busy}
             >
               Cancel
-            </button>
-            <button
-              type="button"
-              className="primary-btn"
+            </Button>
+            <Button
+             
+              variant="primary"
               onClick={() => void handleCreate()}
               disabled={busy || !newBranch.trim()}
             >
               {busy ? 'Creating…' : 'Create worktree'}
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
@@ -577,7 +578,7 @@ function RepoHooksNotice({ rootPath }: { rootPath: string }): ReactElement | nul
           </div>
           <pre className="worktree-remove-confirm-body">{snapshot.config?.scripts[kind]}</pre>
           <div className="worktree-remove-confirm-actions">
-            <button type="button" className="primary-btn" onClick={() => void approve(kind)}>Approve this script</button>
+            <Button variant="primary" onClick={() => void approve(kind)}>Approve this script</Button>
           </div>
         </div>
       ))}
@@ -628,7 +629,7 @@ function WorktreeRemovalConfirm({ busy, onCancel, onConfirm, pending }: {
             : <>This worktree still holds {losses.join(', ')}. Removing it deletes {needsForce ? 'that work permanently' : 'the folder'}.</>}
       </p>
       <div className="worktree-remove-confirm-actions">
-        <button type="button" className="ghost-btn" onClick={onCancel} disabled={busy}>Cancel</button>
+        <Button variant="ghost" onClick={onCancel} disabled={busy}>Cancel</Button>
         <button
           type="button"
           className={needsForce ? 'danger-btn' : 'primary-btn'}

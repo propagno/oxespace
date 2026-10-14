@@ -61,7 +61,7 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
       onChange={e => { onCaret(e.target.selectionStart); commands.onChange(e.target.value, e.target.selectionStart) }} onSelect={e => { onCaret(e.currentTarget.selectionStart); commands.onSelect(e.currentTarget.selectionStart) }} onFocus={commands.onFocus} onBlur={commands.onBlur}
       onPaste={event => { const files = [...event.clipboardData.files].filter(file => file.type.startsWith('image/')); if (files.length) { event.preventDefault(); onUpload(files) } }}
       onKeyDown={e => { if (mentions.onKeyDown(e)) return; if (commands.onKeyDown(e)) return; if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); onSend() } else if (e.key === 'Escape' && running && !pending) { e.preventDefault(); e.stopPropagation(); onInterrupt() } }} />
-    <footer><button type="button" className="thread-command-trigger" aria-label="Show thread commands" title="Commands & skills · Ctrl+/" aria-haspopup="listbox" aria-expanded={commands.open} disabled={blocked} onMouseDown={e => e.preventDefault()} onClick={commands.show}><Slash size={14} /></button>
+    <footer><div className="thread-composer-group"><button type="button" className="thread-command-trigger" aria-label="Show thread commands" title="Commands & skills · Ctrl+/" aria-haspopup="listbox" aria-expanded={commands.open} disabled={blocked} onMouseDown={e => e.preventDefault()} onClick={commands.show}><Slash size={14} /></button>
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild><button type="button" className="thread-command-trigger" aria-label="Add to prompt" title="Attach, mention a file or connect tools" disabled={!snapshot || pending}><Plus size={14} /></button></DropdownMenu.Trigger>
         <DropdownMenu.Portal><DropdownMenu.Content collisionPadding={{ top: 44, right: 8, bottom: 8, left: 8 }} className="thread-more-menu" side="top" align="start" sideOffset={8}>
@@ -70,12 +70,13 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
           <DropdownMenu.Item className="thread-more-item" onSelect={() => useUIStore.getState().openMcpPanel()}><span><Plug size={14} /> MCP connections</span></DropdownMenu.Item>
         </DropdownMenu.Content></DropdownMenu.Portal>
       </DropdownMenu.Root>
-      <button type="button" className="thread-command-trigger" aria-label="Voice input" title="Voice input · Ctrl+Shift+V" disabled={!snapshot || pending || !voice.isSupported} onClick={voice.toggle}><Mic size={14} /></button>
+      <button type="button" className="thread-command-trigger" aria-label="Voice input" title="Voice input · Ctrl+Shift+V" disabled={!snapshot || pending || !voice.isSupported} onClick={voice.toggle}><Mic size={14} /></button></div>
       {snapshot && <ThreadConfigurationBar key={snapshot.thread.id} thread={snapshot.thread} openControl={openControl} onControlClosed={onControlClosed} onError={onError} onConfigured={value => useThreadStore.getState().updateSnapshot(value)} />}
       {running && snapshot?.thread.capabilities?.features.steering?.enabled && <button type="button" className="thread-command-trigger" aria-label="Steer active turn" title="Send guidance to the active turn" disabled={pending || (!draft.trim() && !attachments.length)} onClick={() => onSend('steer')}><CornerDownLeft size={14} /></button>}
-      {snapshot && <ThreadMcpHealth thread={snapshot.thread} />}
-      {snapshot && <ThreadCostChip cost={snapshot.thread.costReport} />}
-      {snapshot && <ThreadUsageRing provider={snapshot.thread.provider} idle={!running} threadId={snapshot.thread.id} context={snapshot.thread.contextReport} />}
+      {snapshot && <div className="thread-composer-group thread-composer-status">
+      <ThreadMcpHealth thread={snapshot.thread} />
+      <ThreadCostChip cost={snapshot.thread.costReport} />
+      <ThreadUsageRing provider={snapshot.thread.provider} idle={!running} threadId={snapshot.thread.id} context={snapshot.thread.contextReport} /></div>}
       {running && <button type="button" className="thread-stop" aria-label="Stop turn" title="Stop turn · Esc" disabled={pending} onClick={onInterrupt}><Square size={14} /></button>}
       <button type="submit" className="thread-send" aria-label={running ? 'Queue follow-up' : 'Send'} title={running ? 'Queue follow-up · Enter' : 'Send · Enter'} disabled={blocked || (!draft.trim() && !attachments.length)}><ArrowUp size={16} /></button></footer>
   </form>

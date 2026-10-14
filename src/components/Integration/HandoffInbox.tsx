@@ -2,6 +2,7 @@ import { Archive, CheckCircle2, Send } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactElement } from 'react'
 import type { IntegrationGroup, IntegrationHandoff } from '../../../shared/types/integration'
 import { useIntegrationStore } from '../../store/integration.store'
+import { Button, Select, TextField, TextArea } from '../../ui'
 
 interface HandoffInboxProps {
   group: IntegrationGroup
@@ -192,14 +193,14 @@ export function HandoffInbox({ group, currentMemberId, onSelectMember }: Handoff
         ))}
       </div>
       {history.length > 0 ? (
-        <button
-          type="button"
-          className="ghost-btn small integration-handoff-toggle"
+        <Button
+         
+          variant="ghost" size="sm" className="integration-handoff-toggle"
           onClick={() => setShowHistory((value) => !value)}
         >
           <Archive size={12} aria-hidden="true" />
           {showHistory ? `Hide applied (${history.length})` : `Show applied (${history.length})`}
-        </button>
+        </Button>
       ) : null}
       {showHistory ? (
         <div className="integration-handoff-list integration-handoff-history">
@@ -250,24 +251,24 @@ function HandoffComposer({ content, currentMemberId, isSending, onContentChange,
       <div className="integration-handoff-composer-fields">
         <label className="integration-field">
           <span>Recipient</span>
-          <select value={targetMemberId} onChange={(event) => onTargetChange(event.currentTarget.value)} disabled={!currentMemberId || !hasRecipients || isSending}>
+          <Select value={targetMemberId} onChange={(event) => onTargetChange(event.currentTarget.value)} disabled={!currentMemberId || !hasRecipients || isSending}>
             {recipients.map((member) => <option key={member.id} value={member.id}>{member.role.toUpperCase()} · {member.alias}{member.paneId ? '' : ' — no agent linked'}</option>)}
-          </select>
+          </Select>
         </label>
         <label className="integration-field">
           <span>Subject</span>
-          <input value={title} onChange={(event) => onTitleChange(event.currentTarget.value)} placeholder="e.g. Validate the checkout contract" disabled={!currentMemberId || !hasRecipients || isSending} />
+          <TextField value={title} onChange={(event) => onTitleChange(event.currentTarget.value)} placeholder="e.g. Validate the checkout contract" disabled={!currentMemberId || !hasRecipients || isSending} />
         </label>
       </div>
       <label className="integration-field">
         <span>What should happen next?</span>
-        <textarea value={content} onChange={(event) => onContentChange(event.currentTarget.value)} placeholder="Include the decision, relevant context and the next action." rows={3} disabled={!currentMemberId || !hasRecipients || isSending} />
+        <TextArea value={content} onChange={(event) => onContentChange(event.currentTarget.value)} placeholder="Include the decision, relevant context and the next action." rows={3} disabled={!currentMemberId || !hasRecipients || isSending} />
       </label>
       <div className="integration-handoff-composer-actions">
-        <button type="button" className="primary-btn small" onClick={onSend} disabled={!currentMemberId || !hasRecipients || !targetMemberId || !content.trim() || isSending}>
+        <Button variant="primary" size="sm" onClick={onSend} disabled={!currentMemberId || !hasRecipients || !targetMemberId || !content.trim() || isSending}>
           <Send size={12} aria-hidden="true" />
           {isSending ? 'Sending handoff…' : 'Send handoff'}
-        </button>
+        </Button>
       </div>
     </section>
   )
@@ -318,15 +319,15 @@ function HandoffRow({ handoff, fromMember, toMember, isCurrentRecipient, isApply
       <pre className="integration-handoff-body">{handoff.content}</pre>
       <footer className="integration-handoff-actions">
         {isHistory ? (
-          <button type="button" className="ghost-btn small" onClick={onApply} title="Mark as active again so it shows on top">
+          <Button variant="ghost" size="sm" onClick={onApply} title="Mark as active again so it shows on top">
             <Send size={12} aria-hidden="true" />
             Re-open
-          </button>
+          </Button>
         ) : canApply ? (
-          <button type="button" className="primary-btn small" disabled={isApplying} onClick={onApply}>
+          <Button variant="primary" size="sm" disabled={isApplying} onClick={onApply}>
             <CheckCircle2 size={12} aria-hidden="true" />
             {isApplying ? 'Applying…' : 'Apply to agent'}
-          </button>
+          </Button>
         ) : !isHistory && handoff.status === 'sent' && !toMember?.paneId ? (
           <span className="integration-handoff-hint">Bind a pane to {toLabel} to apply.</span>
         ) : null}

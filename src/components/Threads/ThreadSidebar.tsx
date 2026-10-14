@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { ConfirmDialog, Menu, cx } from '../../ui'
+import { ConfirmDialog, Menu, cx, TextField } from '../../ui'
 import styles from './ThreadSidebar.module.css'
 import { useThreadContentSearch } from '../../hooks/useThreadContentSearch'
 import { AlignJustify, Archive, ArchiveRestore, Check, ChevronDown, Circle, CircleAlert, CircleCheck, CircleX, Columns2, FolderPlus, Loader2, MoreHorizontal, Pencil, Pin, Plus, Square, Trash2, UserRound } from 'lucide-react'
@@ -158,7 +158,7 @@ export function ThreadSidebar({ onCreate, onModeChange, onSelectMode, onAccounts
         setActing(true); setActionError('')
         void window.oxe.thread.command(renameTarget.id, `/rename ${title}`).then(async () => { await useThreadStore.getState().refresh(renameTarget.id); setRenameTarget(null) }).catch(error => setActionError(error instanceof Error ? error.message : 'Could not rename conversation.')).finally(() => setActing(false))
       }}>
-        <label>Conversation name<input aria-label="Conversation name" autoFocus maxLength={120} value={renameValue} onChange={event => setRenameValue(event.target.value)} /></label>
+        <label>Conversation name<TextField aria-label="Conversation name" autoFocus maxLength={120} value={renameValue} onChange={event => setRenameValue(event.target.value)} /></label>
         {actionError && <p role="alert">{actionError}</p>}
         <footer><button type="button" disabled={acting} onClick={() => setRenameTarget(null)}>Cancel</button><button type="submit" className="thread-primary" disabled={acting || !renameValue.trim() || renameValue.trim() === renameTarget.title}>{acting ? 'Renaming…' : 'Rename conversation'}</button></footer>
       </form>

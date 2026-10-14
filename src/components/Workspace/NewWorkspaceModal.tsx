@@ -8,6 +8,7 @@ import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { buildAgentSlots, type AgentCount } from './fleetUtils'
 import { LAYOUT_PRESETS } from './workspaceOptions'
 import { ModalDescription, ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
+import { Button, EmptyState } from '../../ui'
 
 export interface WizardLaunchInput {
   rootPath: string
@@ -198,9 +199,9 @@ export function NewWorkspaceModal({
               <p>{selectedExisting ? 'Choose the workspace to continue where you left off.' : 'Pick a folder, layout, and optional agents.'}</p>
             </ModalDescription>
           </div>
-          <button type="button" className="icon-button" aria-label="Close" onClick={closeAndRestoreFocus}>
+          <Button variant="ghost" size="sm" square aria-label="Close" onClick={closeAndRestoreFocus}>
             <X size={14} aria-hidden="true" />
-          </button>
+          </Button>
         </header>
 
         <div className="new-workspace-body">
@@ -324,7 +325,7 @@ export function NewWorkspaceModal({
                 incLabel={`Add another ${shellLabel}`}
               />
               {agentProfiles.length === 0 ? (
-                <p className="new-workspace-empty">No agents configured. The workspace will start with default shells.</p>
+                <EmptyState compact title="No agents configured. The workspace will start with default shells." />
               ) : (
                 agentProfiles.map((agent) => {
                   const count = agentCounts[agent.agentProfileId] ?? 0
@@ -361,19 +362,19 @@ export function NewWorkspaceModal({
         </div>
 
         <footer className="new-workspace-footer">
-          <button type="button" className="secondary-action" onClick={closeAndRestoreFocus}>
+          <Button variant="secondary" onClick={closeAndRestoreFocus}>
             Cancel
-          </button>
-          <button
-            type="button"
-            className="primary-action new-workspace-create-btn"
+          </Button>
+          <Button
+           
+            variant="primary" className="new-workspace-create-btn"
             onClick={() => void handleLaunch()}
             disabled={!canLaunch}
             data-testid="wizard-launch-btn"
             title={!hasFolder ? 'Choose a folder first' : undefined}
           >
             {isSubmitting ? (selectedExisting ? 'Opening…' : 'Creating…') : selectedExisting ? 'Open workspace' : 'Create workspace'}
-          </button>
+          </Button>
         </footer>
       </ModalSurface>
     </ModalRoot>

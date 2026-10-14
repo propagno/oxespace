@@ -1,6 +1,7 @@
 import { Activity, Columns2, FilePlus2, FolderOpen, Github, Grid2x2, LayoutDashboard, ListTodo, Maximize, Mic, Palette, Plus, RotateCw, Search, Settings2, Sliders, Split, Square, StopCircle, Wrench } from 'lucide-react'
+import { useContributedCommands } from './utils/commandRegistry'
 import { TOOL_CATALOG, type ToolId } from './components/Workspace/toolCatalog'
-import { Button, cx, Toaster, TitleTooltips, TooltipProvider } from './ui'
+import { Button, cx, Toaster, TitleTooltips, TooltipProvider, EmptyState } from './ui'
 import titleBar from './components/Navigation/TitleBar.module.css'
 import { Suspense, lazy, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useShallow } from 'zustand/react/shallow'
@@ -679,7 +680,10 @@ export function App(): ReactElement {
     editor: toggleEditor, review: toggleReviewPanel, slash: () => { if (activePane) openSlashOverlay(activePane.id) }
   }
 
+  const contributedCommands = useContributedCommands()
+
   const commandActions: CommandPaletteAction[] = [
+    ...contributedCommands,
     // Workspace
     { id: 'new-workspace', title: 'Create workspace', subtitle: 'Open the New Workspace wizard', icon: FilePlus2, category: 'Workspace', keywords: ['new', 'open', 'project'], run: openNewWorkspaceFromUI },
     { id: 'workspace-settings', title: 'Open workspace settings', subtitle: 'Layout, density and shell', icon: Sliders, category: 'Workspace', disabled: !activeWorkspace, run: openWorkspaceSettings },
@@ -977,11 +981,11 @@ export function App(): ReactElement {
       {teamScope && <Suspense fallback={null}><TeamDialog key={`${teamScope.kind}:${teamScope.id}`} scope={teamScope} owner={teamScope.kind === 'thread' && threadSnapshot ? { kind: 'thread', id: threadSnapshot.thread.id } : teamScope.kind === 'code' && activePane ? { kind: 'pane', id: activePane.id } : undefined} onClose={() => setTeamScope(null)} /></Suspense>}
       {delegationNotice && <div role="status" style={{ position: 'fixed', bottom: 18, right: 18, zIndex: 190, padding: 14, borderRadius: 10, background: 'var(--bg-elevated, #19191f)', border: '1px solid var(--accent)', maxWidth: 340 }}>
         <p>Delegated task updated</p>
-        <button type="button" className="secondary-action" onClick={() => {
+        <Button variant="secondary" onClick={() => {
           setDelegatedWorkOpen(true)
           setDelegationNotice(null)
-        }}>View task</button>
-        <button type="button" className="secondary-action" onClick={() => setDelegationNotice(null)}>Dismiss</button>
+        }}>View task</Button>
+        <Button variant="secondary" onClick={() => setDelegationNotice(null)}>Dismiss</Button>
       </div>}
       {delegatedWorkOpen && <Suspense fallback={null}><DelegatedWorkDialog workspaces={workspaces} workspaceId={delegationTarget?.workspaceId ?? (applicationView === 'thread' ? threadSnapshot?.thread.workspaceId ?? activeWorkspaceId ?? '' : activeWorkspaceId ?? '')} focusTaskId={delegationTarget?.taskId}
         origin={applicationView === 'thread' ? threadSelection ? { kind: 'thread', id: threadSelection } : undefined : activePane ? { kind: 'pane', id: activePane.id } : undefined}
@@ -1015,7 +1019,7 @@ export function App(): ReactElement {
         {appNotice ? (
           <div className="error-banner">
             <span>{appNotice}</span>
-            <button type="button" className="ghost-btn small" onClick={() => setAppNotice(null)}>Dismiss</button>
+            <Button variant="ghost" size="sm" onClick={() => setAppNotice(null)}>Dismiss</Button>
           </div>
         ) : null}
         {isLoading ? (
@@ -1024,8 +1028,8 @@ export function App(): ReactElement {
           </div>
         ) : activeWorkspace || applicationView === 'thread' || applicationView === 'data' ? (
           <>
-            {hasOpenedData && <div className="oq-host" style={{ display: applicationView === 'data' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'data'}><Suspense fallback={<div className="empty-state">Loading OxeQuery…</div>}><OxeQueryView active={applicationView === 'data'} /></Suspense></div>}
-            {hasOpenedThread && <div className="thread-host" style={{ display: applicationView === 'thread' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'thread'}><Suspense fallback={<div className="empty-state">Loading threads…</div>}><ThreadGrid onNewThread={newThread} onAccounts={openThreadAccounts} onDelegations={() => setDelegatedWorkOpen(true)} /></Suspense></div>}
+            {hasOpenedData && <div className="oq-host" style={{ display: applicationView === 'data' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'data'}><Suspense fallback={<EmptyState compact title="Loading OxeQuery…" />}><OxeQueryView active={applicationView === 'data'} /></Suspense></div>}
+            {hasOpenedThread && <div className="thread-host" style={{ display: applicationView === 'thread' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'thread'}><Suspense fallback={<EmptyState compact title="Loading threads…" />}><ThreadGrid onNewThread={newThread} onAccounts={openThreadAccounts} onDelegations={() => setDelegatedWorkOpen(true)} /></Suspense></div>}
             {workspaces
               // Include the active id synchronously. On a first visit the MRU
               // effect has not run yet, but the user should never wait an extra
@@ -1074,10 +1078,12 @@ export function App(): ReactElement {
           <div className="empty-state">
             <OxeLogo size={72} variant="hero" />
             <p>Select a folder to start your first agentic terminal workspace.</p>
-            <button type="button" className="empty-state-cta" onClick={openNewWorkspaceFromUI}>
-              <Plus size={14} aria-hidden="true" />
-              New workspace
-            </button>
+            <Button variant="primary" size="lg" icon={<Plus size={14} aria-hidden="true" />} onClick={openNewWorkspaceFromUI}>New workspace</Button>
+            <div className="empty-state-alt" role="group" aria-label="Other ways to start">
+              <span>Or start somewhere else</span>
+              <Button variant="ghost" size="sm" onClick={() => selectMode('thread')}>Open Thread</Button>
+              <Button variant="ghost" size="sm" onClick={() => selectMode('data')}>Open OxeQuery</Button>
+            </div>
           </div>
         )}
         {applicationView === 'code' && <AppStatusBar workspace={activeWorkspace ?? null} activePaneId={activePane?.id ?? null} />}

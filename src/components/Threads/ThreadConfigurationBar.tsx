@@ -3,6 +3,7 @@ import { ChevronDown, Check, Loader2, RefreshCw, Shield } from 'lucide-react'
 import { Popover } from 'radix-ui'
 import { DesktopDialog } from '../Navigation/DesktopDialog'
 import type { ConversationThread, ThreadConfiguration, ThreadModelCatalog, ThreadSnapshot } from '../../../shared/types/thread'
+import { TextField } from '../../ui'
 
 export function ThreadConfigurationBar({ thread, onConfigured, onError, openControl, onControlClosed }: {
   thread: ConversationThread; onConfigured: (snapshot: ThreadSnapshot) => void; onError: (message: string) => void
@@ -48,7 +49,7 @@ export function ThreadConfigurationBar({ thread, onConfigured, onError, openCont
   </Popover.Root>
   return <div className="thread-configuration" aria-label="Conversation configuration">
     {selector('model', 'Select model', model?.label ?? desired.model ?? (loading ? 'Loading models…' : catalog.defaultKnown === false ? 'Provider default' : 'Select model'), <>
-      {catalog.models.length > 8 && <input aria-label="Filter models" placeholder="Search models…" value={query} onChange={event => setQuery(event.target.value)} />}
+      {catalog.models.length > 8 && <TextField aria-label="Filter models" placeholder="Search models…" value={query} onChange={event => setQuery(event.target.value)} />}
       {error ? <p role="alert">{error}<button type="button" onClick={() => setRefresh(value => value + 1)}>Try again</button></p> : loading ? <p role="status">Loading models…</p> : !catalog.models.length ? <p>No models available.</p> : <div className="thread-config-options">{catalog.models.filter(value => `${value.label} ${value.id}`.toLowerCase().includes(query.toLowerCase())).map(value => <button type="button" key={value.id} aria-pressed={modelId === value.id} onClick={() => void apply({ model: value.id, ...(effort && value.efforts.includes(effort) ? { reasoningEffort: effort } : value.defaultEffort ? { reasoningEffort: value.defaultEffort } : {}) })}><span><strong>{value.label}</strong><small>{value.description}</small></span>{modelId === value.id && <Check size={14} />}</button>)}</div>}
     </>)}
     {selector('effort', 'Select effort', effort ? effort[0].toUpperCase() + effort.slice(1) : 'Automatic', <div className="thread-config-options">{effortOptions.map(value => <button type="button" key={value} aria-pressed={effort === value} onClick={() => void apply({ ...(model ? { model: model.id } : {}), reasoningEffort: value })}><span>{value[0].toUpperCase() + value.slice(1)}</span>{effort === value && <Check size={14} />}</button>)}</div>, !effortOptions.length)}

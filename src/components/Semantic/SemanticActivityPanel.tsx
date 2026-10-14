@@ -1,6 +1,6 @@
 import { Brain, Copy, Download, Pause, Play, RefreshCw, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
-import { copyText } from '../../ui'
+import { copyText, Button, Select } from '../../ui'
 import { useModalSurface } from '../../ui'
 import type { SemanticLogEntry, SemanticLogLevel, SemanticSearchMode, SemanticStatus } from '../../../shared/types/ipc'
 import { useTerminalPrefsStore } from '../../store/terminal-prefs.store'
@@ -144,9 +144,9 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
             <span className="mcp-panel-scope" data-testid="semantic-status-label">{statusLabel}</span>
           </div>
           <div className="mcp-panel-actions">
-            <button
-              type="button"
-              className="icon-button"
+            <Button
+             
+              variant="ghost" size="sm" square
               aria-label="Reindex workspace"
               title="Clear embeddings and re-crawl this workspace"
               data-testid="btn-semantic-reindex"
@@ -154,22 +154,22 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
               onClick={() => void handleReindex()}
             >
               <RefreshCw size={14} aria-hidden="true" className={reindexing ? 'spin' : undefined} />
-            </button>
-            <button type="button" className="icon-button" aria-label={paused ? 'Resume' : 'Pause'} title={paused ? 'Resume stream' : 'Pause stream'} onClick={() => setPaused((p) => !p)}>
+            </Button>
+            <Button variant="ghost" size="sm" square aria-label={paused ? 'Resume' : 'Pause'} title={paused ? 'Resume stream' : 'Pause stream'} onClick={() => setPaused((p) => !p)}>
               {paused ? <Play size={14} aria-hidden="true" /> : <Pause size={14} aria-hidden="true" />}
-            </button>
-            <button type="button" className="icon-button" aria-label="Copy logs" title="Copy visible logs" onClick={handleCopy}>
+            </Button>
+            <Button variant="ghost" size="sm" square aria-label="Copy logs" title="Copy visible logs" onClick={handleCopy}>
               <Copy size={14} aria-hidden="true" />
-            </button>
-            <button type="button" className="icon-button" aria-label="Export logs" title="Export logs (.log)" onClick={handleExport}>
+            </Button>
+            <Button variant="ghost" size="sm" square aria-label="Export logs" title="Export logs (.log)" onClick={handleExport}>
               <Download size={14} aria-hidden="true" />
-            </button>
-            <button type="button" className="icon-button" aria-label="Clear view" title="Clear view" onClick={() => setLogs([])}>
+            </Button>
+            <Button variant="ghost" size="sm" square aria-label="Clear view" title="Clear view" onClick={() => setLogs([])}>
               <Trash2 size={14} aria-hidden="true" />
-            </button>
-            <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
+            </Button>
+            <Button variant="ghost" size="sm" square aria-label="Close" onClick={onClose}>
               <X size={14} aria-hidden="true" />
-            </button>
+            </Button>
           </div>
         </header>
 
@@ -178,7 +178,7 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
           <span className="semantic-activity-meta-hint">offline · local embeddings + FTS5</span>
           <label className="semantic-mode-control">
             Retrieval mode
-            <select
+            <Select
               value={status?.mode ?? 'auto'}
               disabled={!workspaceId}
               aria-label="Semantic retrieval mode"
@@ -187,7 +187,7 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
               <option value="auto">Auto · intent-aware</option>
               <option value="explore">Explore · token-first</option>
               <option value="exhaustive">Exhaustive · quality-first</option>
-            </select>
+            </Select>
           </label>
         </div>
 

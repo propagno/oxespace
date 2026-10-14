@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import './WorkspaceMemorySettings.css'
 import type { MemorySettings, MemoryRuntimeSettings, MemoryWorkspaceStatus } from '../../../shared/types/memory'
+import { Button, Checkbox, Select, TextField } from '../../ui'
 
 export function WorkspaceMemorySettings({ workspaceId }: { workspaceId: string }): ReactElement {
   const [status, setStatus] = useState<MemoryWorkspaceStatus | null>(null)
@@ -34,25 +35,25 @@ export function WorkspaceMemorySettings({ workspaceId }: { workspaceId: string }
     {status?.health.message && <p className="memory-feedback" role="status">{status.health.message}</p>}
     <p>Local knowledge shared across this repository’s worktrees. Each agent keeps its own session.</p>
     <fieldset disabled={busy || !status} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
-    <label><input type="checkbox" checked={settings.enabled} disabled={busy} onChange={e => setSettings({ ...settings, enabled: e.target.checked })} /> Enabled</label>
+    <Checkbox checked={settings.enabled} disabled={busy} onChange={e => setSettings({ ...settings, enabled: e.target.checked })} label="Enabled" />
     <br />
-    <label><input type="checkbox" checked={settings.automaticCapture} disabled={busy} onChange={e => setSettings({ ...settings, automaticCapture: e.target.checked })} /> Capture project activity (native Code hooks and supported Thread events)</label>
+    <Checkbox checked={settings.automaticCapture} disabled={busy} onChange={e => setSettings({ ...settings, automaticCapture: e.target.checked })} label="Capture project activity (native Code hooks and supported Thread events)" />
     <br />
-    <label><input type="checkbox" checked={settings.automaticContext} disabled={busy} onChange={e => setSettings({ ...settings, automaticContext: e.target.checked })} /> Supply relevant context to new agent sessions</label>
+    <Checkbox checked={settings.automaticContext} disabled={busy} onChange={e => setSettings({ ...settings, automaticContext: e.target.checked })} label="Supply relevant context to new agent sessions" />
     <p className="memory-privacy">Captured prompts, tool activity and supported Claude assistant excerpts stay in the local memory service. Context supplied to a cloud agent can be sent to that agent’s vendor. No cloud model is configured for the managed memory service.</p>
     <h4 className="memory-runtime-heading">Runtime configuration</h4>
-    <label>Runtime <select value={runtime.mode} disabled={busy} onChange={e => setRuntime({ ...runtime, mode: e.target.value as MemoryRuntimeSettings['mode'] })}>
+    <label>Runtime <Select value={runtime.mode} disabled={busy} onChange={e => setRuntime({ ...runtime, mode: e.target.value as MemoryRuntimeSettings['mode'] })}>
       <option value="managed">Managed local service</option><option value="connected">Existing local service</option>
-    </select></label>
+    </Select></label>
     <br />
-    <label>AI Memory executable <input value={runtime.executable} disabled={busy} onChange={e => setRuntime({ ...runtime, executable: e.target.value })} /></label>
+    <label>AI Memory executable <TextField value={runtime.executable} disabled={busy} onChange={e => setRuntime({ ...runtime, executable: e.target.value })} /></label>
     <br />
-    <label>Local service URL <input value={runtime.url} disabled={busy} onChange={e => setRuntime({ ...runtime, url: e.target.value })} /></label>
-    {runtime.mode === 'connected' && <><p>Existing service configuration controls external model calls. Connect only after reviewing its privacy settings.</p><label>Bearer token <input type="password" autoComplete="off" value={token} disabled={busy} onChange={e => setToken(e.target.value)} /></label></>}
+    <label>Local service URL <TextField value={runtime.url} disabled={busy} onChange={e => setRuntime({ ...runtime, url: e.target.value })} /></label>
+    {runtime.mode === 'connected' && <><p>Existing service configuration controls external model calls. Connect only after reviewing its privacy settings.</p><label>Bearer token <TextField type="password" autoComplete="off" value={token} disabled={busy} onChange={e => setToken(e.target.value)} /></label></>}
     <p>Native Windows support is experimental. Agent terminals continue working when memory is unavailable.</p>
     <div>
       <button type="button" disabled={busy} onClick={() => void act(async () => { const executable = await window.oxe.memory.install(); setRuntime({ ...runtime, executable }); setMessage('Verified AI Memory 2.6.2 downloaded. Apply settings to upgrade with a retained rollback snapshot.') })}>Download local runtime</button>{' '}
-      <button className="primary-action" type="button" disabled={busy} onClick={() => void act(async () => { const value = await window.oxe.memory.configure({ workspaceId, settings, runtime, ...(token ? { token } : {}) }); setStatus(value); setSettings(value.settings); setRuntime(value.runtime); setToken(''); setFailure(value.settings.enabled && value.health.status !== 'ready'); setMessage(!value.settings.enabled ? 'Settings saved. Memory is disabled. Select Enabled and apply to start the service.' : value.health.status === 'ready' ? 'Memory is ready. Configure agents, then start a new terminal.' : value.health.message || 'Settings saved, but the service could not start. Check the executable and local service URL, then apply again.') })}>Apply memory settings</button>{' '}
+      <Button variant="primary" disabled={busy} onClick={() => void act(async () => { const value = await window.oxe.memory.configure({ workspaceId, settings, runtime, ...(token ? { token } : {}) }); setStatus(value); setSettings(value.settings); setRuntime(value.runtime); setToken(''); setFailure(value.settings.enabled && value.health.status !== 'ready'); setMessage(!value.settings.enabled ? 'Settings saved. Memory is disabled. Select Enabled and apply to start the service.' : value.health.status === 'ready' ? 'Memory is ready. Configure agents, then start a new terminal.' : value.health.message || 'Settings saved, but the service could not start. Check the executable and local service URL, then apply again.') })}>Apply memory settings</Button>{' '}
       <button type="button" disabled={busy || dirty || status?.health.status !== 'ready' || !status?.settings.enabled} onClick={() => void act(async () => setMessage(await window.oxe.memory.setupAgents(workspaceId)))}>Configure Claude / Codex</button>{' '}
       {status?.rollbackAvailable && <button type="button" disabled={busy || dirty} onClick={() => void act(async () => {
         const value = await window.oxe.memory.rollback(workspaceId)

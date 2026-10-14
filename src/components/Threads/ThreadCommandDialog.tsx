@@ -9,6 +9,7 @@ import ThreadPermissionsPanel from './ThreadPermissionsPanel'
 import ThreadUsagePanel from './ThreadUsagePanel'
 import ThreadWorkPanel from './ThreadWorkPanel'
 import type { ThreadPanelState } from './threadCommandPanels'
+import { TextField } from '../../ui'
 
 function sessionDate(timestamp: number): string { return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(timestamp) }
 
@@ -40,12 +41,12 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
   }
   return <DesktopDialog className={`thread-command-dialog desktop-details-dialog${panel.surface === 'sessions' ? ' thread-resume-dialog' : ''}`} title={panel.surface === 'sessions' ? 'Resume work' : panel.title || 'Conversation'} description={panel.surface === 'sessions' ? 'Choose a saved conversation or provider session in this project.' : 'Manage this conversation without leaving Thread.'} onClose={onClose}>
     {error && <p role="alert">{error}</p>}
-    {panel.surface === 'rename' ? <form onSubmit={event => { event.preventDefault(); void action(async () => { await runCommand(`/rename ${rename}`); onClose() }) }}><label>Conversation name<input aria-label="Conversation name" value={rename} maxLength={120} onChange={event => setRename(event.target.value)} /></label><button type="submit" disabled={pending || !rename.trim()}>Rename conversation</button></form>
+    {panel.surface === 'rename' ? <form onSubmit={event => { event.preventDefault(); void action(async () => { await runCommand(`/rename ${rename}`); onClose() }) }}><label>Conversation name<TextField aria-label="Conversation name" value={rename} maxLength={120} onChange={event => setRename(event.target.value)} /></label><button type="submit" disabled={pending || !rename.trim()}>Rename conversation</button></form>
     : panel.surface === 'rules' && snapshot ? <ThreadPermissionsPanel threadId={snapshot.thread.id} />
     : panel.surface === 'work' && snapshot ? <ThreadWorkPanel threadId={snapshot.thread.id} onOpenThread={threadId => { onClose(); void useThreadStore.getState().select(threadId) }} />
     : panel.surface === 'spending' && snapshot ? <ThreadUsagePanel threadId={snapshot.thread.id} />
     : panel.surface === 'sessions' ? <div className="thread-resume-sections">
-      <label className="thread-resume-search">Find a session<input aria-label="Find a session" type="search" placeholder="Search prompt, model, branch, date or ID" value={resumeQuery} onChange={event => setResumeQuery(event.target.value)} /></label>
+      <label className="thread-resume-search">Find a session<TextField aria-label="Find a session" type="search" placeholder="Search prompt, model, branch, date or ID" value={resumeQuery} onChange={event => setResumeQuery(event.target.value)} /></label>
       <section><h3>Saved conversations</h3><p>The current conversation is already open. Send a message to continue its native session.</p>
         <div className="thread-panel-list">{useThreadStore.getState().threads.filter(thread => thread.id !== snapshot?.thread.id && thread.provider === snapshot?.thread.provider && thread.rootPath === snapshot?.thread.rootPath && resumeMatches([thread.title, thread.nativeSessionId, thread.id, thread.status])).map(thread => <button key={thread.id} type="button" disabled={pending} onClick={() => void action(() => runCommand(`/resume ${thread.id}`))}><strong>{thread.title}</strong><span>{thread.nativeSessionId ? `Session ${thread.nativeSessionId}` : 'Not started'} · {thread.archived ? 'Archived' : thread.status}</span></button>)}
           {!useThreadStore.getState().threads.some(thread => thread.id !== snapshot?.thread.id && thread.provider === snapshot?.thread.provider && thread.rootPath === snapshot?.thread.rootPath && resumeMatches([thread.title, thread.nativeSessionId, thread.id, thread.status])) && <p>{resumeQuery ? 'No saved conversations match this search.' : 'No other saved conversation for this provider and directory.'}</p>}
@@ -64,7 +65,7 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
         </div>
       </section>
       <section><h3>Open an exact native session</h3><p>Use a Claude or Codex session ID from this directory. OXESpace verifies its provider and path before linking it.</p>
-        <form onSubmit={event => { event.preventDefault(); void action(() => runCommand(`/resume ${nativeResumeId.trim()}`)) }}><label className="thread-resume-native-label">Native session ID<input aria-label="Native session ID" value={nativeResumeId} onChange={event => setNativeResumeId(event.target.value)} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" /></label><button type="submit" disabled={pending || !nativeResumeId.trim()}>Open session</button></form>
+        <form onSubmit={event => { event.preventDefault(); void action(() => runCommand(`/resume ${nativeResumeId.trim()}`)) }}><label className="thread-resume-native-label">Native session ID<TextField aria-label="Native session ID" value={nativeResumeId} onChange={event => setNativeResumeId(event.target.value)} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" /></label><button type="submit" disabled={pending || !nativeResumeId.trim()}>Open session</button></form>
       </section>
     </div>
     : panel.surface === 'delegations' ? <div className="thread-panel-list">{panel.rows?.length ? panel.rows.map((row, index) => <button key={index} type="button" disabled={pending || !row.id} onClick={() => { if (row.id) { onClose(); void useThreadStore.getState().select(row.id) } }}><strong>{row.label}</strong>{row.detail && <span>{row.detail}</span>}</button>) : <p>No delegated work in this project.</p>}</div>

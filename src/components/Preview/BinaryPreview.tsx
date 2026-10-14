@@ -1,5 +1,6 @@
 import { useState, type ReactElement } from 'react'
 import { useBinaryPreview } from './useBinaryPreview'
+import { EmptyState } from '../../ui'
 
 interface BinaryPreviewProps {
   workspaceId: string
@@ -19,7 +20,7 @@ export function BinaryPreview({ kind, relativePath, rootPath, workspaceId }: Bin
 
   if (preview.isLoading) return <div className="editor-loading">Loading preview</div>
   if (preview.error) return <div className="editor-error">{preview.error}</div>
-  if (!preview.data) return <div className="editor-empty">Select a file</div>
+  if (!preview.data) return <EmptyState compact title="Select a file" />
 
   if (kind === 'pdf') {
     return (

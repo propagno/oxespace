@@ -473,9 +473,18 @@ jobs:
           OXE_CONTAINER_ENGINE: ${{ matrix.engine }}
         run: npx vitest run tests/live/oxequery-live.test.ts tests/live/oxequery-connectivity-live.test.ts tests/live/oxequery-writes-live.test.ts
 
+  # Native AI Memory contracts (Windows/Linux x 2.1.0/2.6.2). PRs run the
+  # path-filtered standalone workflow instead; main, tags and dispatch always gate here.
+  memory-compatibility:
+    name: Memory compatibility
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/memory-compatibility.yml
+
   release:
     name: Publish GitHub Release
-    needs: [build, oxequery-live]
+    needs: [build, oxequery-live, memory-compatibility]
     if: needs.build.outputs.should_release == 'true'
     runs-on: windows-2022
     timeout-minutes: 30

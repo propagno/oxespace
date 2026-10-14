@@ -3,6 +3,7 @@ import type { AgentTeam, TeamRole, TeamScope } from '../../../shared/types/team'
 import { DesktopDialog } from '../Navigation/DesktopDialog'
 import './TeamDialog.css'
 import { TeamMessages } from './TeamMessages'
+import { Button, TextField } from '../../ui'
 
 const roles: Record<TeamRole, string> = { coordinator: 'Coordinator / integrator', 'project-manager': 'Project manager', 'product-manager': 'Product manager', developer: 'Developer', reviewer: 'Reviewer' }
 export function TeamDialog({ scope, owner, onClose }: { scope: TeamScope; owner?: { kind: 'thread' | 'pane'; id: string }; onClose: () => void }) {
@@ -46,13 +47,13 @@ export function TeamDialog({ scope, owner, onClose }: { scope: TeamScope; owner?
         </ul>
         {!team.members.some(m => !m.archived) && <p>No members yet. Add a coordinator or another project role.</p>}
         <form onSubmit={event => { event.preventDefault(); void change(async () => { const value = await api!.add(scope, team.revision, name, role); setName(''); return value }) }}>
-          <label>Member name<input value={name} onChange={e => setName(e.target.value)} required maxLength={100} placeholder="e.g. Authentication developer" /></label>
+          <label>Member name<TextField value={name} onChange={e => setName(e.target.value)} required maxLength={100} placeholder="e.g. Authentication developer" /></label>
           <fieldset><legend>Role</legend><div className="team-role-options">{Object.entries(roles).map(([value, label]) => <label key={value}><input type="radio" name="team-role" value={value} checked={role === value} onChange={() => setRole(value as TeamRole)} disabled={value === 'coordinator' && team.members.some(m => !m.archived && m.role === 'coordinator')} />{label}</label>)}</div></fieldset>
-          <button type="submit" className="primary-action" disabled={busy || !name.trim()}>{busy ? 'Saving…' : 'Add member'}</button>
+          <Button type="submit" variant="primary" disabled={busy || !name.trim()}>{busy ? 'Saving…' : 'Add member'}</Button>
         </form>
         {team.members.filter(m => m.id === selected && !m.archived).map(member => <TeamMessages key={member.id} scope={scope} member={member} members={team.members} />)}
       </>}
     </div>
-    <footer className="team-dialog-footer"><button type="button" className="secondary-action" onClick={onClose}>Done</button></footer>
+    <footer className="team-dialog-footer"><Button variant="secondary" onClick={onClose}>Done</Button></footer>
   </DesktopDialog>
 }

@@ -1080,39 +1080,6 @@
   min-width: 0;
 }
 
-/* Switch */
-.settings-switch {
-  position: relative;
-  width: 42px;
-  height: 24px;
-  flex-shrink: 0;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: var(--ov-3);
-  cursor: pointer;
-  transition: background 140ms;
-  padding: 0;
-}
-
-.settings-switch.on {
-  background: color-mix(in srgb, var(--brand) 70%, var(--accent));
-}
-
-.settings-switch-thumb {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--surface-raised);
-  box-shadow: var(--elevation-1);
-  transition: transform 140ms;
-}
-
-.settings-switch.on .settings-switch-thumb {
-  transform: translateX(18px);
-}
 
 .settings-toggle-row {
   display: flex;

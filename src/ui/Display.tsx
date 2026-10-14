@@ -42,8 +42,8 @@ export function Toolbar({ children, label, className }: { children: ReactNode; l
 export const ToolbarSpacer = (): ReactElement => <span className={styles.toolbarSpacer} />
 
 /** What a place looks like with nothing in it: what belongs here and how to add the first one. */
-export function EmptyState({ icon, title, children, actions }: { icon?: ReactNode; title: ReactNode; children?: ReactNode; actions?: ReactNode }): ReactElement {
-  return <div className={styles.empty}>
+export function EmptyState({ icon, title, children, actions, compact = false }: { icon?: ReactNode; title: ReactNode; children?: ReactNode; actions?: ReactNode; /** A quiet one-line message for lists and small panels. */ compact?: boolean }): ReactElement {
+  return <div className={cx(styles.empty, compact && styles.emptyCompact)}>
     {icon && <span className={styles.emptyIcon} aria-hidden="true">{icon}</span>}
     <p className={styles.emptyTitle}>{title}</p>
     {children && <p className={styles.emptyText}>{children}</p>}

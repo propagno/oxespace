@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { Button } from '../../ui'
 
 interface ErrorBoundaryProps {
   children: ReactNode
@@ -37,7 +38,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       <div className="error-boundary-fallback" role="alert">
         <p>Something went wrong while rendering {this.props.label ?? 'this component'}.</p>
         <details><summary>Details</summary><code>{this.state.error.message}</code></details>
-        <button type="button" className="ghost-btn small" onClick={this.reset}>Try again</button>
+        <Button variant="ghost" size="sm" onClick={this.reset}>Try again</Button>
       </div>
     )
   }

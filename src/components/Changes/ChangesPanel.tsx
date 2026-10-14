@@ -6,6 +6,7 @@ import { formatDiffComments } from '../../../shared/types/diff-comments'
 import { useDiffCommentsStore } from '../../store/diff-comments.store'
 import { buildChangeTree, chooseBase, filterChangedFiles, formatCount, isLargeDiff, languageFor, normalizeBranchName, orderedFiles, splitPath, type ChangeTreeNode } from './changesModel'
 import './ChangesPanel.css'
+import { TextField, EmptyState } from '../../ui'
 
 const MonacoDiff = lazy(() => import('./MonacoDiff'))
 
@@ -194,7 +195,7 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
           <GitBranch size={14} aria-hidden="true" /><span>{current ?? 'HEAD'}</span><span aria-hidden="true">→</span><span>{effectiveBase ?? '…'}</span><ChevronDown size={12} aria-hidden="true" />
         </button></Popover.Trigger>
         <Popover.Portal><Popover.Content collisionPadding={{ top: 44, right: 8, bottom: 8, left: 8 }} className="changes-menu changes-branch-menu" align="start" sideOffset={6} aria-label="Select base branch">
-          <label className="changes-menu-search"><Search size={14} aria-hidden="true" /><input autoFocus aria-label="Search branches" placeholder="Search branches" value={branchQuery} onChange={event => setBranchQuery(event.target.value)} /></label>
+          <label className="changes-menu-search"><Search size={14} aria-hidden="true" /><TextField autoFocus aria-label="Search branches" placeholder="Search branches" value={branchQuery} onChange={event => setBranchQuery(event.target.value)} /></label>
           <p className="changes-menu-heading">Branches</p>
           <ul>{visibleBranches.map(branch => <li key={branch}><Popover.Close asChild><button type="button" className="changes-menu-item" onClick={() => { setBase(branch); setSelectedPath(null) }}><GitBranch size={14} aria-hidden="true" /><span>{branch}</span>{branch === base && <Check size={14} aria-hidden="true" />}</button></Popover.Close></li>)}
             {!visibleBranches.length && <li className="changes-menu-empty">No branches match.</li>}</ul>
@@ -227,7 +228,7 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
               {!large && <span className="changes-banner-nav"><button type="button" aria-label="Previous file" onClick={() => go(-1)} disabled={index <= 0}><ChevronLeft size={14} /></button><button type="button" aria-label="Next file" onClick={() => go(1)} disabled={index >= ordered.length - 1}><ChevronRight size={14} /></button></span>}
             </div>
             <div className="changes-editor">
-              {selected.binary ? <p className="changes-empty">Binary file; no text diff available.</p>
+              {selected.binary ? <EmptyState compact title="Binary file; no text diff available." />
                 : contentError ? <p role="alert" className="changes-error">{contentError}</p>
                 : content?.path !== selected.path ? <p className="changes-empty" role="status">Loading diff…</p>
                 : <>
@@ -238,7 +239,7 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
           </>}
       </div>
       <aside className="changes-files" aria-label="Changed files">
-        <label className="changes-filter"><Search size={14} aria-hidden="true" /><input aria-label="Filter files" placeholder="Filter files…" value={query} onChange={event => setQuery(event.target.value)} /></label>
+        <label className="changes-filter"><Search size={14} aria-hidden="true" /><TextField aria-label="Filter files" placeholder="Filter files…" value={query} onChange={event => setQuery(event.target.value)} /></label>
         <ul className="changes-tree">{tree.map(node => <TreeNode key={`${node.kind}:${node.path}`} node={node} depth={0} selected={selected?.path ?? null} collapsed={collapsed} viewed={viewed} onToggle={toggleDir} onSelect={setSelectedPath} />)}</ul>
         {!!summary?.files.length && <footer className="changes-files-footer">{viewedCount}/{summary.files.length} viewed</footer>}
       </aside>

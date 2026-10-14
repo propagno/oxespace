@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import type { ThreadAuditEntry, ThreadPermissionRule } from '../../../shared/types/thread'
+import { Checkbox, Select, TextField } from '../../ui'
 
 const ACTOR: Record<ThreadAuditEntry['actor'], string> = { user: 'You', policy: 'Rule', system: 'OXESpace' }
 const KIND: Record<ThreadPermissionRule['kind'], string> = { command: 'Command', path: 'Files', tool: 'MCP tool' }
@@ -48,10 +49,10 @@ export default function ThreadPermissionsPanel({ threadId }: { threadId: string 
         </li>)}
       </ul>}
       <form className="thread-permissions-add" onSubmit={event => { event.preventDefault(); void run(async () => { await api.addPermissionRule!(threadId, { kind, pattern, decision, scope: global ? 'global' : 'project' }); setPattern('') }) }}>
-        <select aria-label="Rule decision" value={decision} onChange={event => setDecision(event.target.value as ThreadPermissionRule['decision'])}><option value="allow">Allow</option><option value="deny">Deny</option></select>
-        <select aria-label="Rule kind" value={kind} onChange={event => setKind(event.target.value as ThreadPermissionRule['kind'])}><option value="command">Command</option><option value="path">Files</option><option value="tool">MCP tool</option></select>
-        <input aria-label="Rule pattern" value={pattern} maxLength={500} placeholder={PLACEHOLDER[kind]} onChange={event => setPattern(event.target.value)} />
-        <label><input type="checkbox" checked={global} onChange={event => setGlobal(event.target.checked)} />All projects</label>
+        <Select aria-label="Rule decision" value={decision} onChange={event => setDecision(event.target.value as ThreadPermissionRule['decision'])}><option value="allow">Allow</option><option value="deny">Deny</option></Select>
+        <Select aria-label="Rule kind" value={kind} onChange={event => setKind(event.target.value as ThreadPermissionRule['kind'])}><option value="command">Command</option><option value="path">Files</option><option value="tool">MCP tool</option></Select>
+        <TextField aria-label="Rule pattern" value={pattern} maxLength={500} placeholder={PLACEHOLDER[kind]} onChange={event => setPattern(event.target.value)} />
+        <Checkbox checked={global} onChange={event => setGlobal(event.target.checked)} label="All projects" />
         <button type="submit" disabled={busy || !pattern.trim()}>Add rule</button>
       </form>
     </section>

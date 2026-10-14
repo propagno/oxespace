@@ -12,11 +12,13 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /** Shows a spinner and blocks clicks while an action runs. */
   loading?: boolean
   icon?: ReactNode
+  /** A square, icon-only button; the caller supplies the accessible name. */
+  square?: boolean
 }
 
 /** The one button. Primary is for the single main action of a view; most buttons are secondary or ghost. */
-export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button({ variant = 'secondary', size = 'md', loading = false, icon, className, children, disabled, type = 'button', ...rest }, ref) {
-  return <button ref={ref} type={type} className={cx(styles.button, styles[variant], size !== 'md' && styles[size], className)}
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button({ variant = 'secondary', size = 'md', loading = false, icon, square = false, className, children, disabled, type = 'button', ...rest }, ref) {
+  return <button ref={ref} type={type} className={cx(styles.button, styles[variant], size !== 'md' && styles[size], square && styles.icon, className)}
     disabled={disabled || loading} aria-busy={loading || undefined} {...rest}>
     {loading ? <span className={styles.spinner} aria-hidden="true" /> : icon}
     {children}

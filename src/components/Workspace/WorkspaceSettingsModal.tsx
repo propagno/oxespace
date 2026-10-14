@@ -9,6 +9,7 @@ import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
 import { useResolvedTerminalPrefs, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import './WorkspaceSettingsModal.css'
 import { DefaultShellSettings } from './DefaultShellSettings'
+import { Button, Select } from '../../ui'
 
 export const SETTINGS_PAGES = [
   { id: 'appearance', label: 'Appearance', hint: 'Mode, density & layout', icon: Palette, description: 'Choose light or dark mode, and preview density and pane layout before saving.' },
@@ -114,9 +115,9 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
             <span className="ws-settings-subtitle">{workspace.name}</span>
             <span className="ws-settings-root" title={workspace.rootPath}>{workspace.rootPath}</span>
           </div>
-          <button type="button" className="icon-button" aria-label="Close workspace settings" onClick={onClose}>
+          <Button variant="ghost" size="sm" square aria-label="Close workspace settings" onClick={onClose}>
             <X size={16} aria-hidden="true" />
-          </button>
+          </Button>
         </header>}
 
         <form
@@ -204,8 +205,8 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
 
           <footer className="modal-actions">
             <p>{page === 'memory' ? 'Memory changes use Apply memory settings above.' : page === 'delegation' ? 'Delegation changes apply immediately.' : 'Save applies density, layout and default shell. Mode applies right away.'}</p>
-            <button type="button" className="secondary-action" onClick={embedded ? discard : onClose}>{embedded ? 'Discard changes' : 'Close'}</button>
-            <button type="submit" className="primary-action" disabled={isSaving}>{isSaving ? 'Saving…' : 'Save workspace settings'}</button>
+            <Button variant="secondary" onClick={embedded ? discard : onClose}>{embedded ? 'Discard changes' : 'Close'}</Button>
+            <Button type="submit" variant="primary" disabled={isSaving}>{isSaving ? 'Saving…' : 'Save workspace settings'}</Button>
           </footer>
         </form>
       </>
@@ -298,10 +299,10 @@ function TerminalOverrideSection({ workspaceId }: { workspaceId: string }): Reac
         <div className="ws-terminal-overrides">
           <label className="field">
             <span>Font</span>
-            <select value={resolved.fontFamily} onChange={(e) => setOverride(workspaceId, 'fontFamily', e.target.value)}>
+            <Select value={resolved.fontFamily} onChange={(e) => setOverride(workspaceId, 'fontFamily', e.target.value)}>
               {FONT_PRESETS.map((f) => <option key={f} value={f}>{f.split(',')[0]}</option>)}
               {FONT_PRESETS.includes(resolved.fontFamily) ? null : <option value={resolved.fontFamily}>{resolved.fontFamily.split(',')[0]}</option>}
-            </select>
+            </Select>
           </label>
           <label className="field">
             <span>Font size — {resolved.fontSize}px</span>
@@ -314,9 +315,9 @@ function TerminalOverrideSection({ workspaceId }: { workspaceId: string }): Reac
           </label>
           <label className="field">
             <span>Cursor</span>
-            <select value={resolved.cursorStyle} onChange={(e) => setOverride(workspaceId, 'cursorStyle', e.target.value as TerminalCursorStyle)}>
+            <Select value={resolved.cursorStyle} onChange={(e) => setOverride(workspaceId, 'cursorStyle', e.target.value as TerminalCursorStyle)}>
               {WS_CURSOR_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
+            </Select>
           </label>
         </div>
       ) : (

@@ -1,6 +1,6 @@
 import { ExternalLink, GitBranch, KeyRound, RefreshCw, Search, X } from 'lucide-react'
 import { useEffect, useState, type ReactElement } from 'react'
-import { useModalSurface } from '../../ui'
+import { useModalSurface, Button, EmptyState } from '../../ui'
 import type { LinearIssue, LinearIssueScope } from '../../../shared/types/linear'
 import { useLinearStore } from '../../store/linear.store'
 
@@ -59,17 +59,17 @@ export function LinearPanel({ onClose, rootPath, workspaceId }: LinearPanelProps
           <div className="linear-header-actions">
             {connected ? (
               <>
-                <button type="button" className="icon-button" aria-label="Refresh issues" onClick={() => void state.loadIssues()}>
+                <Button variant="ghost" size="sm" square aria-label="Refresh issues" onClick={() => void state.loadIssues()}>
                   <RefreshCw size={14} aria-hidden="true" />
-                </button>
+                </Button>
                 <button type="button" className="linear-text-button" onClick={() => void state.disconnect()}>
                   Disconnect
                 </button>
               </>
             ) : null}
-            <button type="button" className="icon-button" aria-label="Close Linear" onClick={onClose}>
+            <Button variant="ghost" size="sm" square aria-label="Close Linear" onClick={onClose}>
               <X size={14} aria-hidden="true" />
-            </button>
+            </Button>
           </div>
         </header>
 
@@ -155,8 +155,8 @@ export function LinearPanel({ onClose, rootPath, workspaceId }: LinearPanelProps
             </div>
 
             <div className="linear-body scrollbar-sleek">
-              {state.isLoading ? <div className="linear-empty">Loading issues…</div> : null}
-              {!state.isLoading && state.issues.length === 0 ? <div className="linear-empty">No issues match this filter.</div> : null}
+              {state.isLoading ? <EmptyState compact title="Loading issues…" /> : null}
+              {!state.isLoading && state.issues.length === 0 ? <EmptyState compact title="No issues match this filter." /> : null}
               {state.issues.map((issue) => (
                 <article key={issue.id} className="linear-issue" data-testid={`linear-issue-${issue.identifier}`}>
                   <div className="linear-issue-main">
@@ -181,14 +181,14 @@ export function LinearPanel({ onClose, rootPath, workspaceId }: LinearPanelProps
                       <GitBranch size={12} aria-hidden="true" />
                       {busyIssueId === issue.id ? 'Creating…' : 'Worktree'}
                     </button>
-                    <button
-                      type="button"
-                      className="icon-button"
+                    <Button
+                     
+                      variant="ghost" size="sm" square
                       aria-label={`Open ${issue.identifier} in Linear`}
                       onClick={() => window.open(issue.url, '_blank', 'noopener')}
                     >
                       <ExternalLink size={12} aria-hidden="true" />
-                    </button>
+                    </Button>
                   </div>
                 </article>
               ))}

@@ -1,6 +1,6 @@
 import { AlertCircle, ArrowLeft, ArrowRight, Camera, ExternalLink, LoaderCircle, MousePointerClick, Minus, Monitor, MonitorPlay, Plus, RotateCw, Smartphone, Tablet, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
-import { useModalSurface } from '../../ui'
+import { useModalSurface, Button } from '../../ui'
 import type { DesignGrabPayload } from '../../../shared/types/design-mode'
 import type { BrowserPreviewEvent, BrowserPreviewSessionState } from '../../../shared/types/browser-preview'
 import type { Workspace } from '../../../shared/types/workspace'
@@ -206,9 +206,9 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
         </div>
         <div className="web-preview-actions">
           {!embedded ? (
-            <button type="button" className="icon-button" aria-label="Close web preview" onClick={onClose}>
+            <Button variant="ghost" size="sm" square aria-label="Close web preview" onClick={onClose}>
               <X size={14} aria-hidden="true" />
-            </button>
+            </Button>
           ) : null}
         </div>
       </header>
