@@ -462,7 +462,11 @@ test('the SQL workbench runs scripts, asks for parameters, keeps a transaction a
     await type('SELECT 1; SELECT 2;')
     await page.keyboard.press('Control+Shift+Enter')
     const results = page.getByRole('tablist', { name: 'Results' })
-    await expect(results.getByRole('tab')).toHaveCount(2)
+    // If the shortcut did nothing, say what the editor and the results area held instead of only "0 tabs".
+    await expect(async () => {
+      const seen = await page.evaluate(() => ({ editor: (document.querySelector('.oq-editor .view-lines') as HTMLElement | null)?.innerText ?? null, bar: (document.querySelector('.oq-results-bar') as HTMLElement | null)?.innerText ?? null, error: (document.querySelector('.oq-query-error') as HTMLElement | null)?.innerText ?? null }))
+      expect(await results.getByRole('tab').count(), JSON.stringify(seen)).toBe(2)
+    }).toPass({ timeout: 8000 })
     await results.getByRole('tab').nth(1).click()
     await expect(page.locator('.oq-grid').getByRole('gridcell', { name: 'alice', exact: true })).toBeVisible()
 
