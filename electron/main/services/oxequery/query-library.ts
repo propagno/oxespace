@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../../db'
 import type { QueryHistoryItem, SavedQuery } from '../../../../shared/types/oxequery'
+import { containsSqlSecret, redactSqlSecrets } from './sql-secrets'
 
 export const HISTORY_LIMIT = 200
 export const HISTORY_DAYS = 90
@@ -50,7 +51,8 @@ export class QueryLibrary {
 
   /** One row per distinct statement; the newest run replaces the older one. Never throws: history must not break a query. */
   record(connectionId: string, entry: { sql: string; durationMs: number | null; rows: number | null; ok: boolean }): void {
-    const sql = entry.sql.trim()
+    // A password typed into a statement is not kept: the history stays for 90 days.
+    const sql = redactSqlSecrets(entry.sql.trim())
     if (!sql || sql.length > MAX_HISTORY_SQL) return
     try {
       const now = this.now()
@@ -63,6 +65,21 @@ export class QueryLibrary {
           (SELECT id FROM oxequery_query_history WHERE connection_id = ? ORDER BY ran_at DESC, id DESC LIMIT ?)`).run(connectionId, connectionId, HISTORY_LIMIT)
       })()
     } catch { /* history is a convenience */ }
+  }
+
+  /** Removes secrets from history written before they were redacted. Safe to run on every start. */
+  scrubHistory(): number {
+    let changed = 0
+    try {
+      const rows = this.db.prepare('SELECT id, sql FROM oxequery_query_history').all() as { id: number; sql: string }[]
+      const update = this.db.prepare('UPDATE oxequery_query_history SET sql = ? WHERE id = ?')
+      for (const row of rows) {
+        if (!containsSqlSecret(row.sql)) continue
+        const clean = redactSqlSecrets(row.sql)
+        if (clean !== row.sql) { update.run(clean, row.id); changed++ }
+      }
+    } catch { /* history is a convenience */ }
+    return changed
   }
 
   clearHistory(connectionId: string): number {

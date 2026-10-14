@@ -91,6 +91,7 @@ export class OxeQueryService {
   constructor(options: OxeQueryServiceOptions) {
     this.connections = new ConnectionStore(options.db, options.cipher, this.picked)
     this.library = new QueryLibrary(options.db)
+    this.library.scrubHistory()
     this.pickFile = options.pickFile
     this.pickSavePath = options.pickSavePath
     this.pickImportPath = options.pickImportPath
