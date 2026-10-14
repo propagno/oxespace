@@ -559,7 +559,8 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
       await expect(runtime.createDatabase({ engine: 'postgres', name: 'x1', tag: '16; rm -rf /' })).rejects.toThrow(/tag/)
       await core.closeConnection('fresh')
       docker('rm', '-f', name)
-      await runtime.removeResource('volume', `${name}-data`)
+      // An engine may take a moment to release a removed container's volume.
+      await until('volume released', async () => { try { await runtime.removeResource('volume', `${name}-data`); return true } catch { return false } }, 20_000)
       expect((await runtime.volumes()).some(item => item.name === `${name}-data`)).toBe(false)
     } finally {
       try { docker('rm', '-f', name) } catch { /* gone */ }

@@ -43,7 +43,11 @@ describe.skipIf(!live)('OxeQuery against real Docker, PostgreSQL and MongoDB', (
   const until = async (label: string, check: () => Promise<boolean> | boolean, timeoutMs = 90_000): Promise<void> => {
     const deadline = Date.now() + timeoutMs
     while (Date.now() < deadline) { if (await check()) return; await new Promise(resolve => setTimeout(resolve, 1000)) }
-    throw Error(`Timed out: ${label}`)
+    // What the engine says about its containers is the first thing anyone debugging this needs.
+    const peek = (run: () => string): string => { try { return run() } catch (error) { return `(${error instanceof Error ? error.message.slice(0, 200) : 'failed'})` } }
+    throw Error(`Timed out: ${label}
+${peek(() => docker('ps', '-a', '--format', '{{.Names}} {{.Status}}'))}
+${peek(() => docker('logs', '--tail', '15', PG))}`)
   }
 
   beforeAll(async () => {
