@@ -64,7 +64,7 @@ function quoteIdentifier(name: string): string {
 
 export interface RowSink {
   /** Called once with the column names, before any row. */
-  start(columns: string[], typeOids?: number[]): Promise<void>
+  start(columns: string[], typeOids?: (number | undefined)[]): Promise<void>
   row(values: unknown[]): Promise<void>
   end(): Promise<void>
   /** Closes and deletes a partial file. */
