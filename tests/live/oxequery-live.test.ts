@@ -40,12 +40,13 @@ describe.skipIf(!live)('OxeQuery against real Docker, PostgreSQL and MongoDB', (
     if (response.ok) throw Error(`Expected ${op} to fail`)
     return response.error
   }
+  let lastAnswer = ''
   const until = async (label: string, check: () => Promise<boolean> | boolean, timeoutMs = 90_000): Promise<void> => {
     const deadline = Date.now() + timeoutMs
     while (Date.now() < deadline) { if (await check()) return; await new Promise(resolve => setTimeout(resolve, 1000)) }
     // What the engine says about its containers is the first thing anyone debugging this needs.
     const peek = (run: () => string): string => { try { return run() } catch (error) { return `(${error instanceof Error ? error.message.slice(0, 200) : 'failed'})` } }
-    throw Error(`Timed out: ${label}
+    throw Error(`Timed out: ${label} (last answer: ${lastAnswer})
 ${peek(() => docker('ps', '-a', '--format', '{{.Names}} {{.Status}}'))}
 ${peek(() => docker('logs', '--tail', '15', PG))}`)
   }
@@ -60,7 +61,11 @@ ${peek(() => docker('logs', '--tail', '15', PG))}`)
     })
     docker('run', '-d', '--name', PG, '-e', 'POSTGRES_USER=oxe', '-e', 'POSTGRES_DB=appdb', '-e', `POSTGRES_PASSWORD=${PG_PASSWORD}`, '-p', '127.0.0.1::5432', 'docker.io/library/postgres:16-alpine')
     docker('run', '-d', '--name', MONGO, '-e', 'MONGO_INITDB_ROOT_USERNAME=root', '-e', `MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}`, '-p', '127.0.0.1::27017', 'docker.io/library/mongo:7')
-    await until('postgres ready', async () => (await call('containers.exec', { id: PG, argv: ['pg_isready', '-U', 'oxe', '-d', 'appdb'] })).exitCode === 0)
+    await until('postgres ready', async () => {
+      const answer = await call('containers.exec', { id: PG, argv: ['pg_isready', '-U', 'oxe', '-d', 'appdb'] })
+      lastAnswer = JSON.stringify(answer).slice(0, 400)
+      return answer.exitCode === 0
+    })
     await until('mongo ready', async () => (await call('containers.exec', { id: MONGO, argv: ['mongosh', '--quiet', '-u', 'root', '-p', MONGO_PASSWORD, '--authenticationDatabase', 'admin', '--eval', 'db.runCommand({ ping: 1 }).ok'] })).stdout.trim().endsWith('1'))
   }, 240_000)
 

@@ -236,17 +236,37 @@ export function suggestFromInspect(stdout: string): { suggestion: ConnectionSugg
   }
 }
 
-/** One JSON object per line (Docker) or one JSON array (Podman). */
-function jsonEntries(stdout: string): Record<string, unknown>[] {
-  const trimmed = stdout.trim()
-  if (!trimmed) return []
-  if (trimmed.startsWith('[')) {
-    try { return (JSON.parse(trimmed) as unknown[]).map(record) } catch { return [] }
+/**
+ * The objects in a listing: one per line (Docker), one array (Podman), or objects written out over several
+ * lines one after another (what a Go template's `json` can print). Scans for each top-level value, honoring
+ * strings, so a brace inside a name cannot split an object.
+ */
+export function jsonEntries(stdout: string): Record<string, unknown>[] {
+  const text = stdout.trim()
+  if (!text) return []
+  if (text.startsWith('[')) {
+    try { return (JSON.parse(text) as unknown[]).map(record) } catch { return [] }
   }
   const out: Record<string, unknown>[] = []
-  for (const line of trimmed.split(/\r?\n/)) {
-    if (!line.trim()) continue
-    try { out.push(record(JSON.parse(line))) } catch { /* partial line */ }
+  let depth = 0
+  let begin = -1
+  let inString = false
+  for (let index = 0; index < text.length; index++) {
+    const char = text[index]!
+    if (inString) {
+      if (char === '\\') index++
+      else if (char === '"') inString = false
+      continue
+    }
+    if (char === '"') inString = true
+    else if (char === '{') { if (depth === 0) begin = index; depth++ }
+    else if (char === '}' && depth > 0) {
+      depth--
+      if (depth === 0 && begin >= 0) {
+        try { out.push(record(JSON.parse(text.slice(begin, index + 1)))) } catch { /* a partial object */ }
+        begin = -1
+      }
+    }
   }
   return out
 }

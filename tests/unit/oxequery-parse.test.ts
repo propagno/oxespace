@@ -109,3 +109,16 @@ describe('engine discovery', () => {
     expect(seen.at(-1)).toBe(String.raw`C:\Program Files\Docker\Docker\resources\bin\docker.exe`)
   })
 })
+
+describe('listings in every shape an engine prints them', () => {
+  const volumes = [{ Name: 'a-data', Driver: 'local' }, { Name: 'b {odd} "name"', Driver: 'local' }]
+  it('reads one object per line, one array, and objects spread over several lines', async () => {
+    const { parseVolumes } = await import('../../electron/main/services/oxequery/container-parse')
+    const names = (text: string): string[] => parseVolumes(text).map(item => item.name)
+    expect(names(volumes.map(entry => JSON.stringify(entry)).join('\n'))).toEqual(['a-data', 'b {odd} "name"'])
+    expect(names(JSON.stringify(volumes))).toEqual(['a-data', 'b {odd} "name"'])
+    expect(names(volumes.map(entry => JSON.stringify(entry, null, 2)).join('\n'))).toEqual(['a-data', 'b {odd} "name"'])
+    expect(names('')).toEqual([])
+    expect(names('{"Name": "half')).toEqual([])
+  })
+})
