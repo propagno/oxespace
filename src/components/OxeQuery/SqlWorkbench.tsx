@@ -138,7 +138,8 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
     const model = instance?.getModel()
     const selection = instance?.getSelection()
     if (instance && model && selection && !selection.isEmpty()) return { text: model.getValueInRange(selection), base: model.getOffsetAt(selection.getStartPosition()) }
-    const sql = activeRef.current.sql
+    // The editor's own text: state lags behind it while keys are still arriving (a slow machine, a fast typist).
+    const sql = instance?.getValue() ?? activeRef.current.sql
     const position = instance?.getPosition()
     const span = statementAt(sql, position && model ? model.getOffsetAt(position) : 0)
     return span ? { text: span.text, base: span.start } : null
@@ -202,7 +203,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   }, [connection.id, currentStatement, patch])
 
   const runCurrent = useCallback((): void => { const target = currentStatement(); if (target) void run(target.text, target.base) }, [currentStatement, run])
-  const runAll = useCallback((): void => { const sql = activeRef.current.sql; const selection = editor.current?.getSelection(); void run(selection && !selection.isEmpty() ? editor.current?.getModel()?.getValueInRange(selection) ?? sql : sql, 0) }, [run])
+  const runAll = useCallback((): void => { const sql = editor.current?.getValue() ?? activeRef.current.sql; const selection = editor.current?.getSelection(); void run(selection && !selection.isEmpty() ? editor.current?.getModel()?.getValueInRange(selection) ?? sql : sql, 0) }, [run])
   const runRef = useRef(runCurrent); runRef.current = runCurrent
   const runAllRef = useRef(runAll); runAllRef.current = runAll
 

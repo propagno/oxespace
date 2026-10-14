@@ -309,7 +309,8 @@ export function parseVolumes(stdout: string): VolumeInfo[] {
 
 export function parseNetworks(stdout: string): NetworkInfo[] {
   return jsonEntries(stdout).map(entry => ({
-    id: (text(entry.ID) || text(entry.Id)).slice(0, 64), name: text(entry.Name), driver: text(entry.Driver), scope: text(entry.Scope)
+    // Docker prints Name, ID, Driver, Scope; Podman prints the same fields in lower case.
+    id: (text(entry.ID) || text(entry.Id) || text(entry.id)).slice(0, 64), name: text(entry.Name) || text(entry.name), driver: text(entry.Driver) || text(entry.driver), scope: text(entry.Scope) || text(entry.scope)
   })).filter(item => item.name)
 }
 

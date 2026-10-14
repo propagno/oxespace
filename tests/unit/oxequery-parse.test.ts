@@ -122,3 +122,11 @@ describe('listings in every shape an engine prints them', () => {
     expect(names('{"Name": "half')).toEqual([])
   })
 })
+
+describe('networks as Docker and Podman print them', () => {
+  it('reads upper-case and lower-case fields', async () => {
+    const { parseNetworks } = await import('../../electron/main/services/oxequery/container-parse')
+    expect(parseNetworks('{"ID":"abc","Name":"bridge","Driver":"bridge","Scope":"local"}')).toEqual([{ id: 'abc', name: 'bridge', driver: 'bridge', scope: 'local' }])
+    expect(parseNetworks('[{"id":"def","name":"podman","driver":"bridge"}]')).toEqual([{ id: 'def', name: 'podman', driver: 'bridge', scope: '' }])
+  })
+})
