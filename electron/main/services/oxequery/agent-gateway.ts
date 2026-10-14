@@ -193,7 +193,7 @@ export class AgentGateway {
           const schema = optionalText(args.schema, 255)
           const table = optionalText(args.table, 255)
           if (!schema) return { schemas: await this.deps.call<string[]>('sql.schemas', connection) }
-          if (!table) return { schema, tables: (await this.deps.call<{ name: string; kind: string }[]>('sql.tables', connection, { schema })).slice(0, 300) }
+          if (!table) return { schema, tables: (await this.deps.call<{ tables: { name: string; kind: string }[]; total: number }>('sql.tables', connection, { schema })).tables.slice(0, 300) }
           const details = await this.deps.call<{ columns: { name: string; type: string; nullable: boolean; primaryKey?: boolean }[]; indexes: { name: string; definition: string }[] }>('sql.table', connection, { schema, table })
           return { schema, table, columns: details.columns, indexes: details.indexes.slice(0, 30).map(index => ({ name: index.name, definition: index.definition.slice(0, 300) })) }
         }

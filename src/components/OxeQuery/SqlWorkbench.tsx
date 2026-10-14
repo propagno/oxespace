@@ -235,7 +235,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
 function summary(result: SqlResult, browse: Browse | null): string {
   if (browse) return `rows ${browse.offset + 1}–${browse.offset + result.rowCount} · ${result.durationMs} ms`
   if (result.columns.length === 0) return `${result.command ?? 'Done'}${result.affectedRows !== undefined ? ` · ${result.affectedRows} rows affected` : ''} · ${result.durationMs} ms`
-  return `${result.rowCount} row${result.rowCount === 1 ? '' : 's'}${result.truncated ? ' (limited — more exist)' : ''} · ${result.durationMs} ms`
+  return `${result.rowCount} row${result.rowCount === 1 ? '' : 's'}${result.truncated ? (result.limitedBy === 'bytes' ? ' (cut: the result is too large to show — narrow the query or export it)' : ' (limited — more exist)') : ''} · ${result.durationMs} ms`
 }
 
 function DefinitionPanel({ connection, schema, name, kind, onOpen }: { connection: OxeQueryConnection; schema: string; name: string; kind?: string; onOpen: (sql: string) => void }): ReactElement {
@@ -276,11 +276,15 @@ function ColumnsPanel({ details }: { details: SqlTableDetails }): ReactElement {
 function SchemaTree({ connection, onOpen, onInsert }: { connection: OxeQueryConnection; onOpen: (table: SqlTable) => void; onInsert: (sql: string) => void }): ReactElement {
   const [schemas, setSchemas] = useState<string[]>([])
   const [tables, setTables] = useState<Record<string, SqlTable[]>>({})
+  const [totals, setTotals] = useState<Record<string, number>>({})
   const [openSchemas, setOpenSchemas] = useState<Set<string>>(new Set(['public']))
   const [filter, setFilter] = useState('')
   const [error, setError] = useState('')
   const load = useCallback(async (schema: string): Promise<void> => {
-    try { const list = await oq('sql.tables', { connectionId: connection.id, schema }); setTables(current => ({ ...current, [schema]: list })) }
+    try {
+      const { tables: list, total } = await oq('sql.tables', { connectionId: connection.id, schema })
+      setTables(current => ({ ...current, [schema]: list })); setTotals(current => ({ ...current, [schema]: total }))
+    }
     catch (cause) { setError(errorMessage(cause)) }
   }, [connection.id])
   useEffect(() => {
@@ -301,6 +305,7 @@ function SchemaTree({ connection, onOpen, onInsert }: { connection: OxeQueryConn
       return <div key={schema}>
         <button type="button" className="oq-tree-node" aria-expanded={expanded} onClick={() => toggle(schema)}>
           {expanded ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />}{schema}</button>
+        {expanded && (totals[schema] ?? 0) > (tables[schema]?.length ?? 0) && <p className="oq-muted" role="note">Showing {tables[schema]?.length} of {totals[schema]} tables. Use the filter or a query to reach the rest.</p>}
         {expanded && list.map(table => <div key={table.name} className="oq-tree-leaf">
           <button type="button" title={`Browse ${schema}.${table.name}`} onClick={() => onOpen(table)}>{table.name}<small>{table.kind === 'table' ? '' : table.kind}</small></button>
           <button type="button" aria-label={`Write a query for ${table.name}`} title="Open a new query for this table" onClick={() => onInsert(`SELECT *\nFROM "${schema.replace(/"/g, '""')}"."${table.name.replace(/"/g, '""')}"\nLIMIT 100;`)}>Query</button>

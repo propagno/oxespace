@@ -203,6 +203,8 @@ export interface SqlResult {
   rowCount: number
   /** More rows exist than were returned. */
   truncated: boolean
+  /** Why the rows stop: the row limit, or the size of the result. */
+  limitedBy?: 'rows' | 'bytes'
   durationMs: number
   command?: string
   affectedRows?: number
@@ -224,6 +226,8 @@ export interface SqlGuardVerdict {
 }
 
 export interface SqlTable { schema: string; name: string; kind: 'table' | 'view' | 'materialized view' | 'foreign table' | 'partitioned table'; approxRows?: number }
+/** The tables of one schema; `total` is larger than `tables.length` when the list was cut. */
+export interface SqlTables { tables: SqlTable[]; total: number }
 export interface SqlColumnInfo { name: string; type: string; nullable: boolean; default?: string; primaryKey: boolean; position: number }
 export interface SqlIndexInfo { name: string; definition: string; unique: boolean; primary: boolean }
 export interface SqlTableDetails { columns: SqlColumnInfo[]; indexes: SqlIndexInfo[]; foreignKeys: { name: string; definition: string }[] }
@@ -458,7 +462,7 @@ export interface OxeQueryOps {
   'files.pick': { input: { kind: PickKind }; output: { handle: string; name: string } | null }
   'connections.fromContainer': { input: { engine?: ContainerEngine; id: string; name?: string }; output: OxeQueryConnection }
   'sql.schemas': { input: { connectionId: string }; output: string[] }
-  'sql.tables': { input: { connectionId: string; schema: string }; output: SqlTable[] }
+  'sql.tables': { input: { connectionId: string; schema: string }; output: SqlTables }
   'sql.table': { input: { connectionId: string; schema: string; table: string }; output: SqlTableDetails }
   'sql.run': { input: SqlRunInput; output: SqlResult }
   'sql.browse': { input: SqlBrowseInput; output: SqlResult }

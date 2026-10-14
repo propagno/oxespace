@@ -122,7 +122,8 @@ describe.skipIf(!live)('OxeQuery against real Docker, PostgreSQL and MongoDB', (
     await call('sql.run', { connectionId: id, sql: "INSERT INTO people (name, born) SELECT 'person ' || n, DATE '2000-01-01' + n FROM generate_series(1, 1200) n" })
 
     expect(await call('sql.schemas', { connectionId: id })).toContain('public')
-    const tables = await call('sql.tables', { connectionId: id, schema: 'public' })
+    const { tables, total } = await call('sql.tables', { connectionId: id, schema: 'public' })
+    expect(total).toBe(tables.length)
     expect(tables.find(table => table.name === 'people')).toMatchObject({ kind: 'table' })
     const details = await call('sql.table', { connectionId: id, schema: 'public', table: 'people' })
     expect(details.columns.map(column => column.name)).toEqual(['id', 'name', 'born'])

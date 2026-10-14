@@ -125,7 +125,7 @@ export function registerOxeQueryMock(): void {
         return ok(created)
       }
       case 'sql.schemas': return ok(['public', 'audit'])
-      case 'sql.tables': return ok(input.schema === 'public' ? [{ schema: 'public', name: 'users', kind: 'table', approxRows: 3 }, { schema: 'public', name: 'orders', kind: 'table', approxRows: 10 }] : [])
+      case 'sql.tables': return ok(input.schema === 'public' ? { tables: [{ schema: 'public', name: 'users', kind: 'table', approxRows: 3 }, { schema: 'public', name: 'orders', kind: 'table', approxRows: 10 }], total: 2 } : { tables: [], total: 0 })
       case 'sql.table': return ok({ columns: [{ name: 'id', type: 'integer', nullable: false, primaryKey: true, position: 1 }, { name: 'name', type: 'text', nullable: false, primaryKey: false, position: 2 }], indexes: [{ name: 'users_pkey', definition: 'CREATE UNIQUE INDEX users_pkey ON users (id)', unique: true, primary: true }], foreignKeys: [] })
       case 'sql.browse': return ok(users)
       case 'sql.run': {

@@ -5,7 +5,7 @@ import Cursor from 'pg-cursor'
 import { MongoClient, type Document } from 'mongodb'
 import type {
   ConnectionTestResult, MongoWriteInput, MongoWriteResult, SqlApplyInput, SqlApplyResult, SqlEditability, MongoAggregateInput, MongoCollectionInfo, MongoDatabaseInfo, MongoFindInput, MongoIndexInfo, MongoResult,
-  SqlBrowseInput, SqlColumn, SqlResult, SqlTable, SqlTableDetails
+  SqlBrowseInput, SqlColumn, SqlResult, SqlTable, SqlTableDetails, SqlTables
 } from '../../../../shared/types/oxequery'
 import { guardSql, isMutating, quoteIdentifier } from './sql-guard'
 import { OxeQueryError, type ResolvedConnection } from './oxequery-errors'
@@ -44,6 +44,19 @@ export function redact(message: string, ...secrets: (string | undefined)[]): str
     for (const form of new Set([secret, encodeURIComponent(secret)])) result = result.split(form).join('***')
   }
   return result.slice(0, 600)
+}
+
+/** A result larger than this is cut, whatever the row limit says: it travels through two processes to a web page. */
+export const MAX_RESULT_BYTES = 32 * 1024 * 1024
+
+/** Rows up to a size budget (an estimate: text length, 8 bytes for a number); reports whether it cut. */
+export function capRowsByBytes(rows: unknown[][], maxBytes = MAX_RESULT_BYTES): { rows: unknown[][]; cut: boolean } {
+  let used = 0
+  for (let index = 0; index < rows.length; index++) {
+    for (const value of rows[index]) used += typeof value === 'string' ? value.length : value === null ? 1 : 8
+    if (used > maxBytes) return { rows: rows.slice(0, Math.max(1, index)), cut: true }
+  }
+  return { rows, cut: false }
 }
 
 export function cell(value: unknown): unknown {
@@ -91,6 +104,8 @@ interface MongoSession { key: string; client: MongoClient; lastUsed: number; tun
 /** A connection nobody used for this long is closed; it reopens on the next request. */
 const withConnectionHint = (message: string, connection: ResolvedConnection): string => `${message}${connectionHint(message, connection)}`
 
+/** How many tables of one schema are listed; the tree says so when there are more. */
+const MAX_TABLES_LISTED = 20_000
 const IDLE_MS = 10 * 60_000
 const MAX_SESSIONS = 12
 /** How long a catalog read waits for the query that is using the connection. */
@@ -194,9 +209,10 @@ export class OxeQueryCore {
         const raw = await client.query({ text: sql, rowMode: 'array' })
         const last = (Array.isArray(raw) ? raw[raw.length - 1] : raw) as { fields?: { name: string; dataTypeID: number }[]; rows?: unknown[][]; command?: string; rowCount?: number | null } | undefined
         const rows = (last?.rows ?? []).slice(0, maxRows + 1)
+        const capped = capRowsByBytes(rows.slice(0, maxRows).map(row => row.map(cell)))
         result = {
           columns: (last?.fields ?? []).map((field): SqlColumn => ({ name: field.name, type: TYPE_NAMES[field.dataTypeID] ?? `oid:${field.dataTypeID}` })),
-          rows: rows.slice(0, maxRows).map(row => row.map(cell)), rowCount: Math.min(rows.length, maxRows), truncated: rows.length > maxRows,
+          rows: capped.rows, rowCount: capped.rows.length, truncated: rows.length > maxRows || capped.cut, ...(capped.cut ? { limitedBy: 'bytes' as const } : rows.length > maxRows ? { limitedBy: 'rows' as const } : {}),
           durationMs: 0, ...(last?.command ? { command: last.command } : {}), ...(typeof last?.rowCount === 'number' ? { affectedRows: last.rowCount } : {})
         }
       } else {
@@ -205,9 +221,10 @@ export class OxeQueryCore {
           new Promise((resolve, reject) => cursor.read(count, (error, rows, outcome) => error ? reject(error) : resolve({ rows: rows as unknown[][], result: outcome as never })))
         try {
           const { rows, result: outcome } = await read(maxRows + 1)
+          const capped = capRowsByBytes(rows.slice(0, maxRows).map(row => row.map(cell)))
           result = {
             columns: (outcome.fields ?? []).map((field): SqlColumn => ({ name: field.name, type: TYPE_NAMES[field.dataTypeID] ?? `oid:${field.dataTypeID}` })),
-            rows: rows.slice(0, maxRows).map(row => row.map(cell)), rowCount: Math.min(rows.length, maxRows), truncated: rows.length > maxRows, durationMs: 0,
+            rows: capped.rows, rowCount: capped.rows.length, truncated: rows.length > maxRows || capped.cut, ...(capped.cut ? { limitedBy: 'bytes' as const } : rows.length > maxRows ? { limitedBy: 'rows' as const } : {}), durationMs: 0,
             ...(outcome.command ? { command: outcome.command } : {}), ...(typeof outcome.rowCount === 'number' && outcome.command !== 'SELECT' ? { affectedRows: outcome.rowCount } : {})
           }
         } finally {
@@ -262,11 +279,12 @@ export class OxeQueryCore {
     return result.rows.map(row => String(row[0]))
   }
 
-  async sqlTables(connection: ResolvedConnection, schema: string): Promise<SqlTable[]> {
-    const result = await this.pgMeta(connection, `SELECT c.relname, c.relkind, c.reltuples::bigint FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-      WHERE n.nspname = $1 AND c.relkind IN ('r', 'v', 'm', 'f', 'p') ORDER BY c.relname`, [schema], 5000, true)
+  async sqlTables(connection: ResolvedConnection, schema: string): Promise<SqlTables> {
+    const result = await this.pgMeta(connection, `SELECT c.relname, c.relkind, c.reltuples::bigint, count(*) OVER () FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = $1 AND c.relkind IN ('r', 'v', 'm', 'f', 'p') ORDER BY c.relname LIMIT ${MAX_TABLES_LISTED}`, [schema], MAX_TABLES_LISTED, true)
     const kinds: Record<string, SqlTable['kind']> = { r: 'table', v: 'view', m: 'materialized view', f: 'foreign table', p: 'partitioned table' }
-    return result.rows.map(row => ({ schema, name: String(row[0]), kind: kinds[String(row[1])] ?? 'table', ...(Number(row[2]) >= 0 ? { approxRows: Number(row[2]) } : {}) }))
+    const tables = result.rows.map(row => ({ schema, name: String(row[0]), kind: kinds[String(row[1])] ?? 'table', ...(Number(row[2]) >= 0 ? { approxRows: Number(row[2]) } : {}) }))
+    return { tables, total: result.rows.length ? Number(result.rows[0][3]) : 0 }
   }
 
   async sqlTable(connection: ResolvedConnection, schema: string, table: string): Promise<SqlTableDetails> {
