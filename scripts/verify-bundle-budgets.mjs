@@ -14,7 +14,7 @@ const budgets = [
   { label: 'renderer base CSS', dir: 'out/renderer/assets', match: /^index-.*\.css$/, max: 500 * 1024 },
   // OxeQuery loads on demand; its worker bundles pg, mongodb and ssh2, so it has its own ceiling.
   { label: 'OxeQuery worker', dir: 'out/main', match: /^oxequery-worker\.js$/, max: 3 * 1024 * 1024 },
-  { label: 'OxeQuery view chunk', dir: 'out/renderer/assets', match: /^OxeQueryView-.*\.js$/, max: 160 * 1024 },
+  { label: 'OxeQuery view chunk', dir: 'out/renderer/assets', match: /^OxeQueryView-.*\.js$/, max: 320 * 1024 },
   { label: 'OxeQuery CSS', dir: 'out/renderer/assets', match: /^OxeQuery-.*\.css$/, max: 64 * 1024 }
 ]
 

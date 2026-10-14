@@ -11,6 +11,8 @@ export interface Output {
   label: string
   /** Offset of the statement in the editor text, to put an error marker in the right place. */
   start: number
+  /** The whole statement, for Export and for running it again. */
+  text: string
   result?: SqlResult
   error?: { message: string; position?: number; sqlState?: string; hint?: string }
 }
@@ -47,9 +49,9 @@ export function restoreWorkspace(state: WorkspaceState): { tabs: QueryTab[]; act
 }
 
 /** The outputs of a script run, as tabs; a script that stopped on an error ends with that error. */
-export function outputsFromScript(statements: ScriptStatementResult[], baseOffset: number): Output[] {
+export function outputsFromScript(statements: ScriptStatementResult[], baseOffset: number, source: string): Output[] {
   return statements.map(entry => ({
-    id: `s${entry.index}`, label: entry.sql.replace(/\s+/g, ' ').slice(0, 40) || `Statement ${entry.index + 1}`, start: baseOffset + entry.start,
+    id: `s${entry.index}`, label: entry.sql.replace(/\s+/g, ' ').slice(0, 40) || `Statement ${entry.index + 1}`, start: baseOffset + entry.start, text: source.slice(entry.start, entry.end),
     ...(entry.result ? { result: entry.result } : {}),
     ...(entry.error ? { error: { message: entry.error.message, ...(entry.error.position ? { position: entry.error.position } : {}), ...(entry.error.sqlState ? { sqlState: entry.error.sqlState } : {}), ...(entry.error.hint ? { hint: entry.error.hint } : {}) } } : {})
   }))

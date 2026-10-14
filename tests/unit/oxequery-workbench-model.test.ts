@@ -4,7 +4,7 @@ import { completeFilters, missingParameters, newTab, outputsFromScript, restoreW
 describe('workspace round trip', () => {
   it('saves text only and restores tabs without results, moving the id counter past them', () => {
     const first = newTab('SELECT 1', 'One')
-    const second = { ...newTab('SELECT 2', 'Two'), pinned: true, outputs: [{ id: 's0', label: 'x', start: 0 }] }
+    const second = { ...newTab('SELECT 2', 'Two'), pinned: true, outputs: [{ id: 's0', label: 'x', start: 0, text: 'x' }] }
     const saved = serializeWorkspace([first, second], second.id)
     expect(JSON.stringify(saved)).not.toContain('outputs')
     const restored = restoreWorkspace({ ...saved, tabs: [{ id: 'q40', title: 'Old', sql: 'SELECT 40' }, { id: 'q41', title: 'Older', sql: '' }], activeId: 'q41' })
@@ -23,7 +23,7 @@ describe('script outputs', () => {
     const outputs = outputsFromScript([
       { index: 0, start: 0, end: 8, sql: 'SELECT 1', result: { columns: [], rows: [], rowCount: 0, truncated: false, durationMs: 1 } },
       { index: 1, start: 10, end: 30, sql: 'SELECT\n  *\n FROM nope', error: { code: 'query', message: 'relation "nope" does not exist', position: 17, sqlState: '42P01' } }
-    ], 100)
+    ], 100, ['SELECT 1;', '', 'SELECT', '  *', ' FROM nope'].join('\n'))
     expect(outputs.map(output => output.label)).toEqual(['SELECT 1', 'SELECT * FROM nope'])
     expect(outputs[1]).toMatchObject({ start: 110, error: { position: 17, sqlState: '42P01' } })
   })
