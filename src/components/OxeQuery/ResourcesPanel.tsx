@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactElement } from 'react'
+import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { Database, HardDrive, Trash2 } from 'lucide-react'
 import type { ContainerEngine, DiskUsageRow, ImageInfo, NetworkInfo, ResourceKind, VolumeInfo } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
@@ -45,12 +46,9 @@ export function ResourcesPanel({ engine, active }: { engine?: ContainerEngine; a
       {usage.length > 0 && <small className="oq-muted">{usage.map(row => `${row.type}: ${row.size}${row.reclaimable ? ` (${row.reclaimable.replace(/\s*\(.*\)/, '')} reclaimable)` : ''}`).join(' · ')}</small>}
     </header>
     {error && <p role="alert" className="oq-error">{error}</p>}
-    {confirming && <div className="oq-confirm" role="alertdialog" aria-label="Confirm remove">
-      <strong>Remove {confirming.kind} {confirming.label}?</strong>
-      <ul><li>{confirming.kind === 'volume' ? 'The data in this volume is deleted and cannot be recovered.' : confirming.kind === 'image' ? 'Containers can no longer be created from it until it is pulled again.' : 'Containers attached to this network are not affected, but it is removed.'}</li>
-        <li>The engine refuses when it is still in use.</li></ul>
-      <div><button type="button" onClick={() => setConfirming(null)}>Cancel</button><button type="button" className="oq-danger" onClick={() => void remove()}>Remove</button></div>
-    </div>}
+    {confirming && <ConfirmDialog danger title={`Remove ${confirming.kind} ${confirming.label}?`} confirmLabel="Remove"
+      description={<>{confirming.kind === 'volume' ? 'The data in this volume is deleted and cannot be recovered.' : confirming.kind === 'image' ? 'Containers can no longer be created from it until it is pulled again.' : 'Containers attached to this network are not affected, but it is removed.'} The engine refuses when it is still in use.</>}
+      onCancel={() => setConfirming(null)} onConfirm={() => void remove()} />}
     <div className="oq-table-wrap">
       {tab === 'images' && <table className="oq-table" aria-label="Images"><thead><tr><th>Repository</th><th>Tag</th><th>Size</th><th>Created</th><th /></tr></thead>
         <tbody>{images.map(item => <tr key={item.id}><td>{item.repository}</td><td>{item.tag}</td><td>{item.size}</td><td>{item.created}</td>

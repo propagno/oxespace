@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ReactElement } from 'react'
+import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react'
 import type { MongoIndexInfo, MongoSchema, OxeQueryConnection } from '../../../shared/types/oxequery'
 import { OxeQueryClientError, errorMessage, oq } from './client'
@@ -61,10 +62,11 @@ export function MongoInsights({ connection, database, collection }: { connection
           <label className="oq-inline"><input type="checkbox" checked={unique} onChange={event => setUnique(event.target.checked)} />Unique</label>
           <button type="submit"><Plus size={12} aria-hidden="true" />Create index</button>
         </form>}
-        {confirm && <div className="oq-confirm" role="alertdialog" aria-label="Confirm index change">
-          <strong>Confirm this index change</strong><ul>{confirm.reasons.map(item => <li key={item}>{item}</li>)}</ul>
-          <div><button type="button" onClick={() => setConfirm(null)}>Cancel</button><button type="button" className="oq-danger" onClick={confirm.action}>Continue</button></div>
-        </div>}
+        {confirm && <ConfirmDialog danger title="Confirm this index change" confirmLabel="Continue"
+          description="Check these before the index changes."
+          onCancel={() => setConfirm(null)} onConfirm={confirm.action}>
+          <ul>{confirm.reasons.map(item => <li key={item}>{item}</li>)}</ul>
+        </ConfirmDialog>}
       </div>}
     </section>
     <CollectionFacts connection={connection} database={database} collection={collection} />

@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import { createPortal } from 'react-dom'
+import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { Upload, X } from 'lucide-react'
 import type { ImportConflict, ImportPreview, ImportReadOptions, ImportResult, ImportTarget, OxeQueryConnection } from '../../../shared/types/oxequery'
 import { OxeQueryClientError, errorMessage, oq } from './client'
@@ -122,10 +123,11 @@ export function ImportButton({ connection, target, onImported }: { connection: O
           {result.rejects.length > 0 && <ul>{result.rejects.slice(0, 8).map(item => <li key={item.row}>Row {item.row}: {item.reason}</li>)}</ul>}
           {result.rejectsPath && <p className="oq-muted">Rejected rows saved to {result.rejectsPath.split(/[\\/]/).pop()}.</p>}
         </div>}
-        {confirm && <div className="oq-confirm" role="alertdialog" aria-label="Confirm import">
-          <strong>Confirm this import</strong><ul>{confirm.map(item => <li key={item}>{item}</li>)}</ul>
-          <div><button type="button" onClick={() => setConfirm(null)}>Back</button><button type="button" className="oq-danger" onClick={() => void run(false, true)}>Import anyway</button></div>
-        </div>}
+        {confirm && <ConfirmDialog danger title="Confirm this import" confirmLabel="Import anyway" cancelLabel="Back"
+          description="Check these before anything is written."
+          onCancel={() => setConfirm(null)} onConfirm={() => void run(false, true)}>
+          <ul>{confirm.map(item => <li key={item}>{item}</li>)}</ul>
+        </ConfirmDialog>}
         <footer>
           <button type="button" onClick={close}>Close</button>
           <button type="button" disabled={busy !== '' || mapped === 0} onClick={() => void run(true)}>Dry run</button>

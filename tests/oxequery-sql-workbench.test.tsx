@@ -107,7 +107,7 @@ describe('SqlWorkbench', () => {
     })
     type('DROP TABLE users')
     run()
-    const confirm = await screen.findByRole('alertdialog', { name: 'Confirm statement' })
+    const confirm = await screen.findByRole('dialog', { name: 'This statement is destructive' })
     expect(confirm).toHaveTextContent('DROP TABLE removes the table')
     fireEvent.click(within(confirm).getByRole('button', { name: 'Run anyway' }))
     await waitFor(() => expect(api.callsOf('sql.run').at(-1)).toMatchObject({ confirmed: true }))

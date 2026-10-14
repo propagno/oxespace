@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
+import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { Download, Eye, Pencil, Plus, Trash2, Undo2, X } from 'lucide-react'
 import type { ExportFormat, OxeQueryConnection, SqlCellValue, SqlEditability, SqlResult, SqlRowChange } from '../../../shared/types/oxequery'
 import { OxeQueryClientError, errorMessage, oq } from './client'
@@ -182,12 +183,11 @@ export function TableEditor({ connection, schema, table, result, selectedRow, on
       </li>)}</ul>
       {statements && <pre className="oq-sql-preview" aria-label="SQL that will run">{statements.join('\n')}</pre>}
       {error && <p role="alert" className="oq-error">{error}{conflict && ' Reload the table to see the current values.'}</p>}
-      {confirmReasons && <div className="oq-confirm" role="alertdialog" aria-label="Confirm changes">
-        <strong>Confirm these changes</strong>
+      {confirmReasons && <ConfirmDialog danger title="Confirm these changes" confirmLabel="Apply changes" cancelLabel="Back" busy={busy}
+        description="Check these before the changes are applied."
+        onCancel={() => setConfirmReasons(null)} onConfirm={() => void apply(true)}>
         <ul>{confirmReasons.map(item => <li key={item}>{item}</li>)}</ul>
-        <div><button type="button" onClick={() => setConfirmReasons(null)}>Back</button>
-          <button type="button" className="oq-danger" disabled={busy} onClick={() => void apply(true)}>Apply changes</button></div>
-      </div>}
+      </ConfirmDialog>}
       <div className="oq-staged-actions">
         <button type="button" disabled={busy} onClick={() => void viewSql()}><Eye size={13} aria-hidden="true" />View SQL</button>
         <button type="button" disabled={busy} onClick={() => { setStaged([]); setStatements(null); setError(''); setConfirmReasons(null) }}>Discard all</button>

@@ -1,5 +1,6 @@
 import Editor, { type OnMount } from '@monaco-editor/react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { ChevronDown, ChevronRight, Gauge, Play, Plus, Square, Table2, X } from 'lucide-react'
 // Side-effect: self-hosted Monaco (no CDN), required before <Editor> mounts.
 import '../../lib/monacoSetup'
@@ -300,12 +301,13 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
       {paramsAsk && <ParamsBar names={paramsAsk.names} values={paramValues}
         onChange={(name, value) => setParamValues(current => ({ ...current, [name]: value }))}
         onRun={() => { const ask = paramsAsk; setParamsAsk(null); void run(ask.text, ask.base, ask.confirmed) }} onCancel={() => setParamsAsk(null)} />}
-      {pending && <div className="oq-confirm" role="alertdialog" aria-label="Confirm statement">
-        <strong>{pending.explain ? 'Analyze runs this statement' : 'This statement is destructive'}</strong>
+      {pending && <ConfirmDialog danger title={pending.explain ? 'Analyze runs this statement' : 'This statement is destructive'}
+        confirmLabel={pending.explain ? 'Analyze anyway' : 'Run anyway'}
+        description={connection.environment === 'prod' ? 'This is a production connection.' : 'Check these before it runs.'}
+        onCancel={() => { pendingExplain.current = null; setPending(null) }}
+        onConfirm={() => pending.explain ? void explain(true, true) : void run(pending.text, pending.base, true)}>
         <ul>{pending.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>
-        {connection.environment === 'prod' && <p className="oq-error">This is a production connection.</p>}
-        <div><button type="button" onClick={() => { pendingExplain.current = null; setPending(null) }}>Cancel</button><button type="button" className="oq-danger" onClick={() => pending.explain ? void explain(true, true) : void run(pending.text, pending.base, true)}>{pending.explain ? 'Analyze anyway' : 'Run anyway'}</button></div>
-      </div>}
+      </ConfirmDialog>}
       <div className="oq-results">
         {active.outputs.length > 1 && <div className="oq-output-tabs" role="tablist" aria-label="Results">
           {active.outputs.map((entry, index) => <button key={entry.id} type="button" role="tab" aria-selected={index === active.outputIndex} data-error={entry.error ? 'true' : undefined}

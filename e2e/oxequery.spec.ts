@@ -54,7 +54,7 @@ test('OxeQuery lists containers, runs commands and queries PostgreSQL and MongoD
 
     await page.getByRole('button', { name: 'Stop pg-dev' }).click()
     // A database container asks before it is interrupted.
-    const stopConfirm = page.getByRole('alertdialog', { name: 'Confirm container action' })
+    const stopConfirm = page.getByRole('dialog', { name: /^(Stop|Restart) .+ ?$/ })
     await expect(stopConfirm).toContainText('interrupted')
     await stopConfirm.getByRole('button', { name: 'Cancel' }).click()
     await expect(list.getByRole('row', { name: /pg-dev/ })).toContainText('running')
@@ -120,7 +120,7 @@ test('OxeQuery lists containers, runs commands and queries PostgreSQL and MongoD
     await page.keyboard.press('Control+A')
     await page.keyboard.insertText('DELETE FROM users')
     await page.getByRole('button', { name: /^Run/ }).first().click()
-    const confirm = page.getByRole('alertdialog', { name: 'Confirm statement' })
+    const confirm = page.getByRole('dialog', { name: 'This statement is destructive' })
     await expect(confirm).toContainText('WHERE')
     await confirm.getByRole('button', { name: 'Run anyway' }).click()
     await expect(page.locator('.oq-results-bar')).toContainText('3 rows affected')
@@ -378,8 +378,8 @@ test('OxeQuery shows container stats and resources and creates a database from a
     await expect(resources.getByRole('table', { name: 'Images' })).toContainText('postgres')
     await resources.getByRole('tab', { name: /volumes/ }).click()
     await resources.getByRole('button', { name: 'Remove volume pg-dev-data' }).click()
-    await expect(page.getByRole('alertdialog', { name: 'Confirm remove' })).toContainText('cannot be recovered')
-    await page.getByRole('alertdialog', { name: 'Confirm remove' }).getByRole('button', { name: 'Cancel' }).click()
+    await expect(page.getByRole('dialog', { name: /^Remove (volume|image|network) / })).toContainText('cannot be recovered')
+    await page.getByRole('dialog', { name: /^Remove (volume|image|network) / }).getByRole('button', { name: 'Cancel' }).click()
 
     await page.getByRole('button', { name: 'New database' }).click()
     const wizard = page.getByRole('dialog', { name: 'New database' })
@@ -833,7 +833,7 @@ test('a Compose project can be brought up, read and taken down from the containe
     await actions.getByRole('button', { name: 'Restart' }).click()
     await expect(actions.getByRole('button', { name: 'Restart' })).toBeEnabled()
     await actions.getByRole('button', { name: 'Down…' }).click()
-    const confirm = actions.getByRole('alertdialog', { name: 'Confirm compose down' })
+    const confirm = page.getByRole('dialog', { name: /^Take .+ down.$/ })
     await expect(confirm).toContainText('Named volumes are kept')
     await confirm.getByRole('button', { name: 'Cancel' }).click()
     await expect(confirm).toHaveCount(0)

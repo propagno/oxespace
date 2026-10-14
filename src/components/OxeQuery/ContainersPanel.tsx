@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { Boxes, Database, Play, Plus, RefreshCw, RotateCw, Square, SquareTerminal } from 'lucide-react'
 import type { ContainerAction, ContainerEngineInfo, ContainerExecResult, ContainerInspect, ContainerPort, ContainerStat, ContainerSummary } from '../../../shared/types/oxequery'
 import { TerminalPane } from '../Panes/TerminalPane'
@@ -155,20 +156,15 @@ export function ContainersPanel({ active }: { active: boolean }): ReactElement {
       {(['up', 'start', 'stop', 'restart', 'logs'] as const).map(action => <button key={action} type="button" disabled={composeBusy !== ''} onClick={() => void compose(action)}>
         {composeBusy === action ? '…' : action === 'up' ? 'Up' : action[0]!.toUpperCase() + action.slice(1)}</button>)}
       <button type="button" className="oq-danger" disabled={composeBusy !== ''} onClick={() => void compose('down')}>Down…</button>
-      {confirmDown && <div className="oq-confirm" role="alertdialog" aria-label="Confirm compose down">
-        <strong>Take {project} down?</strong><ul><li>Its containers and networks are removed.</li><li>Named volumes are kept.</li></ul>
-        <div><button type="button" onClick={() => setConfirmDown(false)}>Cancel</button><button type="button" className="oq-danger" onClick={() => void compose('down', true)}>Take down</button></div>
-      </div>}
+      {confirmDown && <ConfirmDialog danger title={`Take ${project} down?`} confirmLabel="Take down"
+        description={<>Its containers and networks are removed. Named volumes are kept.</>}
+        onCancel={() => setConfirmDown(false)} onConfirm={() => void compose('down', true)} />}
       {composeOutput && <div className="oq-compose-output"><header><strong>{composeOutput.title}</strong><button type="button" aria-label="Close output" onClick={() => setComposeOutput(null)}>Close</button></header><pre>{composeOutput.text}</pre></div>}
     </section>}
     {remoteContext && <p className="oq-hint" role="note">Docker context <strong>{remoteContext}</strong> is active. Everything here — including stop, remove and run command — acts on that host, not on this computer.</p>}
-    {pendingAction && <div className="oq-confirm" role="alertdialog" aria-label="Confirm container action">
-      <strong>{pendingAction.action === 'stop' ? 'Stop' : 'Restart'} {pendingAction.container.name}?</strong>
-      <ul><li>This is a database container; open connections and running queries are interrupted.</li>
-        {pendingAction.container.labels?.['oxequery.managed'] === '1' && <li>It was created by OxeQuery; its data is kept in a named volume.</li>}</ul>
-      <div><button type="button" onClick={() => setPendingAction(null)}>Cancel</button>
-        <button type="button" className="oq-danger" onClick={() => { const { container, action } = pendingAction; setPendingAction(null); void act(container, action) }}>{pendingAction.action === 'stop' ? 'Stop' : 'Restart'}</button></div>
-    </div>}
+    {pendingAction && <ConfirmDialog danger title={`${pendingAction.action === 'stop' ? 'Stop' : 'Restart'} ${pendingAction.container.name}?`} confirmLabel={pendingAction.action === 'stop' ? 'Stop' : 'Restart'}
+      description={<>This is a database container; open connections and running queries are interrupted.{pendingAction.container.labels?.['oxequery.managed'] === '1' && ' It was created by OxeQuery; its data is kept in a named volume.'}</>}
+      onCancel={() => setPendingAction(null)} onConfirm={() => { const { container, action } = pendingAction; setPendingAction(null); void act(container, action) }} />}
     <div className="oq-containers-body">
       <div className="oq-table-wrap">
         {visible.length === 0 ? <div className="oq-empty"><p>{containers.length ? 'No container matches the filter.' : 'No containers yet.'}</p></div> :

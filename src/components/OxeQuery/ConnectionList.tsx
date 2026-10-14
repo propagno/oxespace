@@ -4,6 +4,7 @@ import type { OxeQueryConnection } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
 import { organize } from './connection-list-model'
 import { useOxeQueryStore } from './oxequery.store'
+import { ConfirmDialog } from '../../ui/ConfirmDialog'
 
 /** The saved connections: favorites, recent, groups, search, and the actions on one connection. */
 export function ConnectionList({ activeTab }: { activeTab: string }): ReactElement {
@@ -55,12 +56,9 @@ export function ConnectionList({ activeTab }: { activeTab: string }): ReactEleme
     {connections.length > 4 && <label className="oq-conn-search"><Search size={12} aria-hidden="true" /><input type="search" aria-label="Search connections" placeholder="Search connections" value={search} onChange={event => setSearch(event.target.value)} /></label>}
     {connectionsError && <p role="alert" className="oq-error">{connectionsError}</p>}
     {notice && <p role="status" className="oq-muted">{notice}</p>}
-    {pendingDelete && <div className="oq-confirm" role="alertdialog" aria-label="Confirm delete connection" onKeyDown={event => { if (event.key === 'Escape') setPendingDelete(null) }}>
-      <strong>Delete “{pendingDelete.name}”?</strong>
-      <p>Its saved password, keys and certificates are removed too. The database itself is not touched.</p>
-      <div><button type="button" autoFocus onClick={() => setPendingDelete(null)}>Cancel</button>
-        <button type="button" className="oq-danger" onClick={() => void remove(pendingDelete.id)}>Delete</button></div>
-    </div>}
+    {pendingDelete && <ConfirmDialog danger title={`Delete “${pendingDelete.name}”?`} confirmLabel="Delete"
+      description="Its saved password, keys and certificates are removed too. The database itself is not touched."
+      onCancel={() => setPendingDelete(null)} onConfirm={() => void remove(pendingDelete.id)} />}
     {connections.length === 0 && !connectionsError && <p className="oq-muted">No connections yet. Press <strong>Query</strong> on a database container, or add one with +.</p>}
     {search.trim() && sections.length === 0 && <p className="oq-muted" role="status">Nothing matches “{search.trim()}”.</p>}
     {sections.map(section => {

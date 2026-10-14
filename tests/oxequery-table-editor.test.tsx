@@ -80,7 +80,7 @@ describe('TableEditor', () => {
       return { applied: 1, statements: [] }
     })
     fireEvent.click(screen.getByRole('button', { name: 'Apply 1' }))
-    const confirm = await screen.findByRole('alertdialog', { name: 'Confirm changes' })
+    const confirm = await screen.findByRole('dialog', { name: 'Confirm these changes' })
     expect(confirm).toHaveTextContent('1 row will be deleted.')
     fireEvent.click(within(confirm).getByRole('button', { name: 'Apply changes' }))
     await waitFor(() => expect(api.callsOf('sql.apply').at(-1)).toMatchObject({ confirmed: true }))
