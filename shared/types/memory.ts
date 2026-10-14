@@ -58,4 +58,8 @@ export interface MemoryApi {
   setupAgents(workspaceId: string): Promise<string>
   search(input: { workspaceId: string; query: string }): Promise<MemoryReply<MemoryResult[]>>
   recent(workspaceId: string): Promise<MemoryReply<MemoryResult[]>>
+  /** Offers are listed without being consumed. */
+  handoffs(workspaceId: string): Promise<MemoryReply<MemoryHandoff[]>>
+  /** Consumes exactly this offer; stale or already accepted offers are refused. */
+  acceptHandoff(input: { workspaceId: string; handoffId: string }): Promise<MemoryReply<MemoryHandoff>>
 }

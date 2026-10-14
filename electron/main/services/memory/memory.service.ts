@@ -138,6 +138,20 @@ export class MemoryService implements MemoryApi {
     const context = await this.projects.workspace(workspaceId)
     return this.manager.run(context, provider => provider.recent(context))
   }
+  async handoffs(workspaceId: string) {
+    const context = await this.projects.workspace(workspaceId)
+    return this.manager.run(context, provider => provider.listHandoffs(context), 'read')
+  }
+  async acceptHandoff(input: Parameters<MemoryApi['acceptHandoff']>[0]) {
+    const context = await this.projects.workspace(input.workspaceId)
+    // Reject before consuming: the offer must still be listed for this project.
+    return this.manager.run(context, async provider => {
+      await provider.acceptHandoff(context, input.handoffId)
+      const accepted = (await provider.listHandoffs(context)).find(handoff => handoff.id === input.handoffId)
+      if (!accepted) throw new Error('Accepted handoff could not be read back')
+      return accepted
+    })
+  }
   async init(): Promise<void> {
     if (this.stopping) return
     if (await this.outbox.init().then(() => true, () => false)) this.delivery.wake()

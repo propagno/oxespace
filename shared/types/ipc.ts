@@ -69,7 +69,8 @@ export const IPC_CHANNELS = {
   delegation: { create: 'delegation:create', status: 'delegation:status', preview: 'delegation:preview', configure: 'delegation:configure', control: 'delegation:control', changed: 'delegation:changed', configureTarget: 'delegation:configure-target', adopt: 'delegation:adopt' },
   memory: {
     status: 'memory:status', configure: 'memory:configure', install: 'memory:install', rollback: 'memory:rollback',
-    setupAgents: 'memory:setup-agents', search: 'memory:search', recent: 'memory:recent'
+    setupAgents: 'memory:setup-agents', search: 'memory:search', recent: 'memory:recent',
+    handoffs: 'memory:handoffs', acceptHandoff: 'memory:accept-handoff'
   },
   app: {
     getUpdateState: 'app:get-update-state',

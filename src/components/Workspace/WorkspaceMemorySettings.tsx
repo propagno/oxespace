@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import './WorkspaceMemorySettings.css'
-import type { MemorySettings, MemoryRuntimeSettings, MemoryWorkspaceStatus } from '../../../shared/types/memory'
+import type { MemoryHandoff, MemorySettings, MemoryRuntimeSettings, MemoryWorkspaceStatus } from '../../../shared/types/memory'
 import { Button, Checkbox, Select, TextField } from '../../ui'
 
 const STAGE_LABEL: Record<string, string> = {
@@ -34,6 +34,9 @@ export function WorkspaceMemorySettings({ workspaceId }: { workspaceId: string }
   const [failure, setFailure] = useState(false)
   const [memories, setMemories] = useState<string[]>([])
   const [now, setNow] = useState(() => Date.now())
+  const [offers, setOffers] = useState<{ state: 'idle' | 'loading' | 'error'; items: MemoryHandoff[]; error?: string }>({ state: 'idle', items: [] })
+  const [dismissed, setDismissed] = useState<string[]>([])
+  const [resumed, setResumed] = useState<MemoryHandoff | null>(null)
   useEffect(() => {
     let alive = true
     setStatus(null)
@@ -45,6 +48,20 @@ export function WorkspaceMemorySettings({ workspaceId }: { workspaceId: string }
     }).catch(() => { if (alive) setMessage('Memory service is unavailable') })
     return () => { alive = false }
   }, [workspaceId])
+  const memoryReady = !!status?.settings.enabled && status.health.status === 'ready'
+  const loadOffers = (): Promise<void> => {
+    setOffers(current => ({ ...current, state: 'loading' }))
+    return window.oxe.memory.handoffs(workspaceId).then(result => {
+      setOffers(result.status === 'ok' ? { state: 'idle', items: result.value } : { state: 'error', items: [], error: result.message })
+    }).catch(() => setOffers({ state: 'error', items: [], error: 'Could not read handoff offers.' }))
+  }
+  useEffect(() => {
+    setDismissed([]); setResumed(null)
+    if (memoryReady && typeof window.oxe?.memory?.handoffs === 'function') void loadOffers()
+    else setOffers({ state: 'idle', items: [] })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaceId, memoryReady])
+  const available = offers.items.filter(offer => offer.state !== 'accepted' && !dismissed.includes(offer.id))
   // One status read at a time, only while the panel is visible and memory is on.
   useEffect(() => {
     if (!status?.settings.enabled || !window.oxe?.memory) return
@@ -62,6 +79,14 @@ export function WorkspaceMemorySettings({ workspaceId }: { workspaceId: string }
     try { await fn() } catch (error) { setFailure(true); setMessage(error instanceof Error ? error.message : 'Memory operation failed') }
     finally { setBusy(false) }
   }
+  const resume = (offer: MemoryHandoff): Promise<void> => act(async () => {
+    const result = await window.oxe.memory.acceptHandoff({ workspaceId, handoffId: offer.id })
+    if (result.status !== 'ok') { await loadOffers(); throw new Error('That offer is no longer available. The list was refreshed.') }
+    setResumed(result.value)
+    await loadOffers()
+  })
+  const handoffText = (handoff: MemoryHandoff): string => [handoff.summary, ...handoff.nextSteps.map(step => `- ${step}`), ...handoff.openQuestions.map(question => `? ${question}`),
+    ...(handoff.filesTouched.length ? [`Files: ${handoff.filesTouched.join(', ')}`] : [])].join('\n')
   const dirty = !!status && (JSON.stringify(settings) !== JSON.stringify(status.settings) || JSON.stringify(runtime) !== JSON.stringify(status.runtime) || !!token)
   return <section className="ws-settings-section memory-settings" aria-labelledby="ws-memory-title" aria-busy={busy}>
     <header className="ws-settings-section-header"><h3 id="ws-memory-title">Shared Project Memory</h3><span className="memory-badge" data-state="beta" title="Opt-in and still being certified across providers and platforms">Beta</span></header>
@@ -99,6 +124,21 @@ export function WorkspaceMemorySettings({ workspaceId }: { workspaceId: string }
     </fieldset>
     <p className="memory-next-step">{dirty ? 'Unsaved changes. Apply memory settings before configuring agents.' : !status?.settings.enabled ? 'To get started: download the runtime, select Enabled, then apply settings.' : status.health.status !== 'ready' ? 'The service must be ready before agent setup. Check the error above and apply again.' : 'Configure Claude / Codex, then open new agent terminals and approve their hooks and MCP tools.'}</p>
     {status && <p>Project: {status.projectId} · Connected sessions: {status.sessions.filter(s => !s.ended).length}</p>}
+    {memoryReady && <section className="memory-resume" aria-labelledby="memory-resume-title">
+      <h4 id="memory-resume-title" className="memory-runtime-heading">Resume previous work</h4>
+      {offers.state === 'loading' && <p role="status">Looking for handoff offers…</p>}
+      {offers.state === 'error' && <p role="alert">{offers.error} <button type="button" onClick={() => void loadOffers()}>Try again</button></p>}
+      {offers.state === 'idle' && available.length === 0 && !resumed && <p>No handoff offers for this project. Reading this list never consumes an offer.</p>}
+      {available.map(offer => <article key={offer.id} className="memory-offer">
+        <strong>{offer.summary || 'Untitled handoff'}</strong>
+        <small>From {offer.cwd ?? 'an unknown checkout'}. This is history, not code: verify changes in Git.</small>
+        {offer.nextSteps.length > 0 && <ul>{offer.nextSteps.slice(0, 3).map((step, index) => <li key={index}>{step}</li>)}</ul>}
+        <div><Button variant="primary" disabled={busy} onClick={() => void resume(offer)}>Resume</Button>{' '}<button type="button" disabled={busy} onClick={() => setDismissed(current => [...current, offer.id])}>Dismiss</button></div>
+      </article>)}
+      {resumed && <div className="memory-offer" role="status"><strong>Accepted: {resumed.summary}</strong>
+        <pre>{handoffText(resumed)}</pre>
+        <button type="button" onClick={() => void navigator.clipboard?.writeText(`Historical handoff (${resumed.cwd ?? 'unknown checkout'}; read-only):\n${handoffText(resumed)}`).then(() => setMessage('Handoff copied. Paste it into the composer to continue.')).catch(() => setMessage('Could not copy the handoff.'))}>Copy for composer</button></div>}
+    </section>}
     {status?.health.pipeline && <dl className="memory-pipeline" aria-label="Memory pipeline">
       <div><dt>Capture</dt><dd>{STAGE_LABEL[status.health.pipeline.capture]}</dd></div>
       <div><dt>Delivery to memory service</dt><dd>{STAGE_LABEL[status.health.pipeline.delivery]}</dd></div>

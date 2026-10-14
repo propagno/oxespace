@@ -132,6 +132,8 @@ the upstream `GET /handoff` **consumes** a handoff. With automatic context off,
 the wrapper omits native SessionStart; later substantive native events create the
 session normally. Routine refresh and context reads use non-consuming history.
 
+Settings → Shared Project Memory shows **Resume previous work** when the service is ready: handoff offers for the project are listed (reading never consumes one), **Resume** accepts exactly the chosen offer and shows it with a *Copy for composer* action, and **Dismiss** hides an offer locally. A stale or already accepted offer is refused and the list refreshes. The accepted text is historical evidence, not code; nothing is injected into a running agent automatically.
+
 Tools exposed through the existing OXESpace MCP bridge:
 
 | Tool | Purpose |

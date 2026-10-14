@@ -69,3 +69,54 @@ describe('WorkspaceMemorySettings pipeline diagnostics', () => {
     expect(JSON.stringify(report)).not.toMatch(/token|executable|127\.0\.0\.1/i)
   })
 })
+
+describe('WorkspaceMemorySettings resume', () => {
+  const base = { projectId: 'project', sessions: [], settings: { enabled: true, automaticCapture: false, automaticContext: false },
+    runtime: { mode: 'managed', executable: 'ai-memory', url: 'http://127.0.0.1:49374' }, health: { status: 'ready' } }
+  const offer = (id: string, summary: string, state = 'open') => ({ id, summary, state, cwd: '/work/tree-b', nextSteps: ['Run the cursor expiry check'], openQuestions: ['Is paging stable?'], filesTouched: ['src/page.ts'] })
+  test('lists offers without consuming, resumes exactly the chosen one and copies it', async () => {
+    const writeText = vi.fn(async () => undefined)
+    vi.stubGlobal('navigator', { clipboard: { writeText } })
+    let items = [offer('h1', 'First offer'), offer('h2', 'Second offer')]
+    const acceptHandoff = vi.fn(async ({ handoffId }: { handoffId: string }) => {
+      const chosen = items.find(item => item.id === handoffId)!
+      items = items.map(item => item.id === handoffId ? { ...item, state: 'accepted' } : item)
+      return { status: 'ok', value: { ...chosen, state: 'accepted' } }
+    })
+    const handoffs = vi.fn(async () => ({ status: 'ok', value: items }))
+    vi.stubGlobal('oxe', { memory: { status: vi.fn(async () => base), handoffs, acceptHandoff } })
+    render(<WorkspaceMemorySettings workspaceId="ws" />)
+    expect(await screen.findByText('First offer')).toBeInTheDocument()
+    expect(screen.getByText('Second offer')).toBeInTheDocument()
+    expect(acceptHandoff).not.toHaveBeenCalled()
+    fireEvent.click(screen.getAllByRole('button', { name: 'Resume' })[1])
+    await waitFor(() => expect(acceptHandoff).toHaveBeenCalledWith({ workspaceId: 'ws', handoffId: 'h2' }))
+    await waitFor(() => expect(screen.getByText('Accepted: Second offer')).toBeInTheDocument())
+    expect(screen.getByText('First offer')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Copy for composer' }))
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(expect.stringContaining('read-only')))
+  })
+  test('explains a stale offer, refreshes the list and lets the user dismiss', async () => {
+    let items = [offer('h1', 'Stale offer')]
+    const handoffs = vi.fn(async () => ({ status: 'ok', value: items }))
+    const acceptHandoff = vi.fn(async () => { items = []; return { status: 'unavailable', message: 'gone' } })
+    vi.stubGlobal('oxe', { memory: { status: vi.fn(async () => base), handoffs, acceptHandoff } })
+    render(<WorkspaceMemorySettings workspaceId="ws" />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Resume' }))
+    expect(await screen.findByText(/no longer available/)).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText(/No handoff offers for this project/)).toBeInTheDocument())
+  })
+  test('shows an error with a retry and an empty state, and hides dismissed offers', async () => {
+    const handoffs = vi.fn()
+      .mockResolvedValueOnce({ status: 'unavailable', message: 'Project memory is temporarily unavailable.' })
+      .mockResolvedValue({ status: 'ok', value: [offer('h1', 'Only offer')] })
+    vi.stubGlobal('oxe', { memory: { status: vi.fn(async () => base), handoffs, acceptHandoff: vi.fn() } })
+    render(<WorkspaceMemorySettings workspaceId="ws" />)
+    expect(await screen.findByRole('alert')).toHaveTextContent('temporarily unavailable')
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByText('Only offer')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+    expect(screen.queryByText('Only offer')).not.toBeInTheDocument()
+    expect(screen.getByText(/No handoff offers/)).toBeInTheDocument()
+  })
+})
