@@ -2408,6 +2408,13 @@
   overscroll-behavior: contain;
 }
 
+.editor-browser-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
 .editor-browser-directory,
 .editor-browser-file {
   display: flex;

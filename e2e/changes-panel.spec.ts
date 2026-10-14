@@ -40,9 +40,9 @@ test('Changes panel lists branch changes, switches base and shows a side-by-side
     await expect(panel.getByRole('button', { name: 'Compare branches' })).toContainText('main')
 
     const files = panel.getByRole('complementary', { name: 'Changed files' })
-    await expect(files.getByRole('button', { name: 'app.ts' })).toBeVisible()
-    await expect(files.getByRole('button', { name: 'docs.md' })).toBeVisible()
-    await files.getByRole('button', { name: 'app.ts' }).click()
+    await expect(files.getByRole('treeitem', { name: 'app.ts' })).toBeVisible()
+    await expect(files.getByRole('treeitem', { name: 'docs.md' })).toBeVisible()
+    await files.getByRole('treeitem', { name: 'app.ts' }).click()
     await expect(panel.locator('.changes-file-path strong')).toHaveText('app.ts')
     // Monaco renders both sides and folds the unchanged regions.
     await expect(panel.locator('.monaco-diff-editor')).toBeVisible({ timeout: 15000 })
@@ -71,7 +71,7 @@ test('Changes panel lists branch changes, switches base and shows a side-by-side
     await expect(panel.getByRole('group', { name: 'Review comments' })).toHaveCount(0)
 
     await files.getByLabel('Filter files').fill('docs')
-    await expect(files.getByRole('button', { name: 'app.ts' })).toHaveCount(0)
+    await expect(files.getByRole('treeitem', { name: 'app.ts' })).toHaveCount(0)
     await expect(panel.locator('.changes-file-path strong')).toHaveText('docs.md')
 
     await panel.getByRole('button', { name: 'Change scope' }).click()

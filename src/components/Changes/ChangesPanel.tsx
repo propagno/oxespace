@@ -3,6 +3,7 @@ import { Check, CheckCircle2, Circle, ChevronDown, ChevronLeft, ChevronRight, Fi
 import { DropdownMenu, Popover } from 'radix-ui'
 import type { GitDiffSummary, GitDiffSummaryFile, GitFileOriginal } from '../../../shared/types/git'
 import { formatDiffComments } from '../../../shared/types/diff-comments'
+import { useTreeKeyboard } from '../../hooks/useTreeKeyboard'
 import { useDiffCommentsStore } from '../../store/diff-comments.store'
 import { buildChangeTree, chooseBase, filterChangedFiles, formatCount, isLargeDiff, languageFor, normalizeBranchName, orderedFiles, splitPath, type ChangeTreeNode } from './changesModel'
 import './ChangesPanel.css'
@@ -43,16 +44,16 @@ function TreeNode({ node, depth, selected, collapsed, viewed, onToggle, onSelect
   node: ChangeTreeNode; depth: number; selected: string | null; collapsed: Set<string>; viewed: Set<string>; onToggle(path: string): void; onSelect(path: string): void
 }): ReactElement {
   if (node.kind === 'file') {
-    return <li><button type="button" className={`changes-tree-row is-${node.file!.status}${viewed.has(signature(node.file!)) ? ' is-viewed' : ''}`} aria-current={selected === node.path ? 'true' : undefined} style={{ paddingLeft: 8 + depth * 14 }} onClick={() => onSelect(node.path)} title={node.path}>
+    return <li role="none"><button type="button" role="treeitem" aria-level={depth + 1} aria-selected={selected === node.path} className={`changes-tree-row is-${node.file!.status}${viewed.has(signature(node.file!)) ? ' is-viewed' : ''}`} aria-current={selected === node.path ? 'true' : undefined} style={{ paddingLeft: 8 + depth * 14 }} onClick={() => onSelect(node.path)} title={node.path}>
       <KindBadge path={node.path} /><span className="changes-tree-name">{node.name}</span><Counts additions={node.additions} deletions={node.deletions} />
     </button></li>
   }
   const open = !collapsed.has(node.path)
-  return <li>
-    <button type="button" className="changes-tree-row is-dir" aria-expanded={open} style={{ paddingLeft: 8 + depth * 14 }} onClick={() => onToggle(node.path)} title={node.path}>
+  return <li role="none">
+    <button type="button" role="treeitem" aria-level={depth + 1} className="changes-tree-row is-dir" aria-expanded={open} style={{ paddingLeft: 8 + depth * 14 }} onClick={() => onToggle(node.path)} title={node.path}>
       {open ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}<span className="changes-tree-name">{node.name}</span>
     </button>
-    {open && <ul>{node.children.map(child => <TreeNode key={`${child.kind}:${child.path}`} node={child} depth={depth + 1} selected={selected} collapsed={collapsed} viewed={viewed} onToggle={onToggle} onSelect={onSelect} />)}</ul>}
+    {open && <ul role="none">{node.children.map(child => <TreeNode key={`${child.kind}:${child.path}`} node={child} depth={depth + 1} selected={selected} collapsed={collapsed} viewed={viewed} onToggle={onToggle} onSelect={onSelect} />)}</ul>}
   </li>
 }
 
@@ -74,6 +75,7 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
   const [error, setError] = useState('')
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [query, setQuery] = useState('')
+  const treeNav = useTreeKeyboard<HTMLUListElement>()
   const [branchQuery, setBranchQuery] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [content, setContent] = useState<{ path: string; original: GitFileOriginal; modified: string } | null>(null)
@@ -240,7 +242,7 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
       </div>
       <aside className="changes-files" aria-label="Changed files">
         <label className="changes-filter"><Search size={14} aria-hidden="true" /><TextField aria-label="Filter files" placeholder="Filter files…" value={query} onChange={event => setQuery(event.target.value)} /></label>
-        <ul className="changes-tree">{tree.map(node => <TreeNode key={`${node.kind}:${node.path}`} node={node} depth={0} selected={selected?.path ?? null} collapsed={collapsed} viewed={viewed} onToggle={toggleDir} onSelect={setSelectedPath} />)}</ul>
+        <ul className="changes-tree" role="tree" aria-label="Changed files" ref={treeNav.ref} onKeyDown={treeNav.onKeyDown}>{tree.map(node => <TreeNode key={`${node.kind}:${node.path}`} node={node} depth={0} selected={selected?.path ?? null} collapsed={collapsed} viewed={viewed} onToggle={toggleDir} onSelect={setSelectedPath} />)}</ul>
         {!!summary?.files.length && <footer className="changes-files-footer">{viewedCount}/{summary.files.length} viewed</footer>}
       </aside>
     </div>
