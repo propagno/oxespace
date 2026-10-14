@@ -1,7 +1,7 @@
 .section { display: grid; gap: var(--space-3); padding-top: var(--space-3); }
 .scroll { overflow: auto; max-height: 46vh; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
 .grid { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
-.grid th { position: sticky; top: 0; z-index: 1; padding: var(--space-2); text-align: left; color: var(--text-muted); background: var(--surface-raised); font-weight: var(--weight-medium); }
+.grid th { position: sticky; top: 0; padding: var(--space-2); text-align: left; color: var(--text-muted); background: var(--surface-raised); font-weight: var(--weight-medium); }
 .grid td { padding: var(--space-1) var(--space-2); border-top: 1px solid var(--border-subtle); vertical-align: middle; }
 .grid tr[data-removed] td { opacity: 0.5; text-decoration: line-through; }
 .grid tr[data-new] td:first-child { box-shadow: inset 3px 0 0 var(--intent-success-solid); }
