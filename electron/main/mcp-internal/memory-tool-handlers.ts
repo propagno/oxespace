@@ -17,15 +17,15 @@ export const MEMORY_TOOLS: ToolEntry[] = [
   tool('oxespace_memory_remember', 'Record a concise verified project learning, architectural decision, failed approach, completed work or TODO. Do this at meaningful milestones without waiting for a remember request. Exclude secrets and full transcripts.', 'remember', 'text'),
   tool('oxespace_memory_sessions', 'Read recent independent agent sessions for this project.', 'sessions'),
   tool('oxespace_memory_handoffs', 'Read project handoff history without consuming or accepting a handoff.', 'handoffs'),
-  tool('oxespace_memory_accept_handoff', 'Explicitly accept the next eligible handoff for this checkout. Consumes a single-use handoff; call only when taking over work.', 'accept'),
+  tool('oxespace_memory_accept_handoff', 'Explicitly accept ONE handoff offer by its id (list ids with oxespace_memory_handoffs). Consumes that single-use offer and no other; call only when taking over that work.', 'accept', 'handoff_id'),
   tool('oxespace_project_context', 'Build bounded context from persistent project knowledge and the CodeGraph for this exact checkout. Each source can fail independently.', 'context', 'query')
 ]
 async function execute(action: Action, args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
   if (!ctx.memory || !ctx.memoryRunId || !ctx.workspaceId) throw new Error('Memory requires an explicitly bound agent execution; active-workspace fallback is forbidden')
   const context = await ctx.memory.contextForRun(ctx.memoryRunId, ctx.workspaceId)
   const input = args && typeof args === 'object' ? args as Record<string, unknown> : {}
-  const field = action === 'remember' ? 'text' : 'query'
-  if (['search', 'remember', 'context'].includes(action) && (typeof input[field] !== 'string' || !(input[field] as string).trim())) throw new Error(`${field} is required`)
+  const field = action === 'remember' ? 'text' : action === 'accept' ? 'handoff_id' : 'query'
+  if (['search', 'remember', 'context', 'accept'].includes(action) && (typeof input[field] !== 'string' || !(input[field] as string).trim())) throw new Error(`${field} is required`)
   const query = typeof input.query === 'string' ? input.query.slice(0, 1000) : ''
   const result = await ctx.memory.manager.run(context, async provider => {
     switch (action) {
@@ -33,7 +33,7 @@ async function execute(action: Action, args: unknown, ctx: ToolContext): Promise
       case 'remember': await provider.remember(context, { text: input.text as string, ...(MEMORY_KINDS.includes(input.kind as MemoryKind) ? { kind: input.kind as MemoryKind } : {}), ...(typeof input.supersedes === 'string' ? { supersedes: input.supersedes } : {}) }); return { saved: true }
       case 'sessions': return provider.getRecentSessions(context)
       case 'handoffs': return provider.listHandoffs(context)
-      case 'accept': return provider.acceptHandoff(context)
+      case 'accept': return provider.acceptHandoff(context, String(input.handoff_id).trim().slice(0, 200))
       case 'context': return provider.getRelevantContext(context, query)
     }
   }, action === 'remember' ? 'write' : action === 'accept' ? undefined : 'read')

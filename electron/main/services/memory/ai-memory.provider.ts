@@ -66,8 +66,14 @@ export class AiMemoryProvider implements MemoryProvider {
     return (result.handoffs ?? []).map(h => ({ id: String(h.id), summary: String(h.summary ?? ''), cwd: typeof h.cwd === 'string' ? h.cwd : undefined,
       state: String(h.state), nextSteps: strings(h.next_steps), openQuestions: strings(h.open_questions), filesTouched: strings(h.files_touched) }))
   }
-  async acceptHandoff(ctx: MemoryContext): Promise<unknown> {
-    return this.client.tool('memory_handoff_accept', { ...this.scope(ctx), cwd: ctx.cwd })
+  async acceptHandoff(ctx: MemoryContext, handoffId: string): Promise<unknown> {
+    if (!handoffId.trim()) throw new Error('A handoff id is required; list the offers first')
+    // An older server would ignore the id and consume whichever offer it likes.
+    if (!(await this.client.capabilities()).exactHandoff) throw new Error('This memory server cannot accept a specific handoff; nothing was consumed')
+    const offer = (await this.listHandoffs(ctx)).find(handoff => handoff.id === handoffId)
+    if (!offer) throw new Error('Handoff offer not found for this project; it may have been consumed elsewhere. List the offers again')
+    if (offer.state === 'accepted') throw new Error('Handoff offer was already accepted; list the offers again')
+    return this.client.tool('memory_handoff_accept', { ...this.scope(ctx), cwd: ctx.cwd, handoff_id: handoffId })
   }
 }
 

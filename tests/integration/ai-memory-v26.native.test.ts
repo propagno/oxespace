@@ -211,4 +211,20 @@ describe.skipIf(!binary)('AI Memory 2.6.2 external lifecycle contract', () => {
     expect(all.find(hit => hit.text.includes('128 MiB'))).toBeDefined()
     expect(all.find(hit => hit.text.includes(first[0].path!) && hit.text.includes('64 MiB'))).toBeDefined()
   }, 15000)
+
+  test('the provider accepts only the requested offer and rejects a second attempt', async () => {
+    const provider = new AiMemoryProvider(client)
+    const ctx = { projectId: 'synthetic-handoff', ...scope, cwd }
+    await client.tool('memory_handoff_begin', { ...scope, cwd, summary: 'ProviderOfferOne', next_steps: ['One.'] })
+    await client.tool('memory_handoff_begin', { ...scope, cwd, summary: 'ProviderOfferTwo', next_steps: ['Two.'] })
+    const offers = await provider.listHandoffs(ctx)
+    const one = offers.find(offer => offer.summary === 'ProviderOfferOne')!
+    const two = offers.find(offer => offer.summary === 'ProviderOfferTwo')!
+    await provider.acceptHandoff(ctx, one.id)
+    const after = await provider.listHandoffs(ctx)
+    expect(after.find(offer => offer.id === one.id)?.state).toBe('accepted')
+    expect(after.find(offer => offer.id === two.id)?.state).not.toBe('accepted')
+    await expect(provider.acceptHandoff(ctx, one.id)).rejects.toThrow('already accepted')
+    await expect(provider.acceptHandoff(ctx, 'does-not-exist')).rejects.toThrow('not found')
+  }, 15000)
 })

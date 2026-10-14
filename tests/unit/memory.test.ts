@@ -111,3 +111,28 @@ describe('typed, idempotent notes', () => {
     expect(tool).not.toHaveBeenCalled()
   })
 })
+
+describe('exact handoff acceptance', () => {
+  const offers = [{ id: 'h1', summary: 'First', state: 'open' }, { id: 'h2', summary: 'Second', state: 'accepted' }]
+  function fixture(exactHandoff = true) {
+    const tool = vi.fn(async () => ({ accepted: true }))
+    const client = { tool, request: vi.fn(async () => ({ handoffs: offers })), capabilities: vi.fn(async () => ({ exactHandoff, createHandoff: true, sessionObservations: true })) }
+    return { tool, provider: new AiMemoryProvider(client as unknown as AiMemoryClient) }
+  }
+  test('sends the chosen id with the project scope and consumes nothing else', async () => {
+    const { tool, provider } = fixture()
+    await provider.acceptHandoff(context, 'h1')
+    expect(tool).toHaveBeenCalledTimes(1)
+    expect(tool).toHaveBeenCalledWith('memory_handoff_accept', expect.objectContaining({ workspace: context.workspace, project: context.project, cwd: context.cwd, handoff_id: 'h1' }))
+  })
+  test('refuses stale, already accepted, missing-id and unsupported servers without calling accept', async () => {
+    const { tool, provider } = fixture()
+    await expect(provider.acceptHandoff(context, 'gone')).rejects.toThrow('not found')
+    await expect(provider.acceptHandoff(context, 'h2')).rejects.toThrow('already accepted')
+    await expect(provider.acceptHandoff(context, '  ')).rejects.toThrow('id is required')
+    const old = fixture(false)
+    await expect(old.provider.acceptHandoff(context, 'h1')).rejects.toThrow('cannot accept a specific handoff')
+    expect(tool).not.toHaveBeenCalled()
+    expect(old.tool).not.toHaveBeenCalled()
+  })
+})
