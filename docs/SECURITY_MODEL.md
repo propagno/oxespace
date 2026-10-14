@@ -47,6 +47,9 @@ OxeQuery connects the app to databases and to the local container engine, and ex
 | The container engine | Command injection through names or arguments | `execFile` with an argv array and a fixed subcommand set; identifiers validated by pattern; no shell strings |
 | Network reach | A renderer opening sockets or a tunnel to arbitrary hosts | CSP `connect-src 'self'`; sockets live in worker threads; SSH host keys are pinned and a changed key is a hard failure |
 | Files | Path traversal in import and export | The renderer never supplies a path; main opens the native dialog and the worker writes only to the chosen file |
+| Structure changes and bulk edits | A DDL statement or a many-document write built from text typed in a page | Structure is sent as data and the main process writes the DDL: every name quoted, types matched against a pattern, one validated expression for a default or check; updates are operator-only; a bulk change runs only for the count the person confirmed |
+| Exported connections | Passwords or keys leaving in a shared file | The export carries no secret; an import switches agents off and skips tunnels that would need a key or password |
+| Agent reach by environment | An agent given more than the person meant on a sensitive connection | Settings cap agent access per kind of environment (production: read at most); containers are visible only through a connection with agent access on; per-connection masked names |
 | Bundled drivers | Vulnerable or unlicensed code shipped inside the worker | `oxeBundledDependencies`, `security:audit:bundled`, license allowlist and `THIRD_PARTY_NOTICES.md` checked in CI |
 
 Provider permission prompts are **not** a control for these tools: Claude in `bypassPermissions` and Codex with `approvalPolicy: never` do not ask. The OxeQuery gateway is the authority.
