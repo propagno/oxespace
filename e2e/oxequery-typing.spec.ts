@@ -21,6 +21,7 @@ test('typing in the SQL editor keeps every character', async () => {
     const text = 'SELECT id, name FROM users WHERE id = 1 AND name LIKE ' + "'a%'" + ' ORDER BY id'
     for (let round = 0; round < 3; round++) {
       await page.locator('.oq-editor .monaco-editor').click()
+      await expect(page.locator('.oq-editor .monaco-editor.focused')).toBeVisible()
       await page.keyboard.press('Control+A')
       await page.keyboard.type(text, { delay: 15 })
       await page.keyboard.press('Escape')

@@ -5,7 +5,7 @@ import Cursor from 'pg-cursor'
 import { MongoClient, type Document } from 'mongodb'
 import type {
   ConnectionTestResult, MongoWriteInput, MongoWriteResult, SqlApplyInput, SqlApplyResult, SqlEditability, MongoAggregateInput, MongoCollectionInfo, MongoDatabaseInfo, MongoFindInput, MongoIndexInfo, MongoResult,
-  SqlBrowseInput, SqlColumn, SqlResult, SqlTable, SqlTableDetails, SqlTables, ScriptStatementResult, SqlScriptResult
+  SqlBrowseInput, SqlColumn, SqlResult, SqlTable, SqlTableDetails, SqlConstraintInfo, SqlTables, ScriptStatementResult, SqlScriptResult
 } from '../../../../shared/types/oxequery'
 import { guardSql, isMutating, quoteIdentifier, tokenizeStatements } from './sql-guard'
 import { buildFilterClause } from './filter-clause'
@@ -385,16 +385,29 @@ export class OxeQueryCore {
   async sqlTable(connection: ResolvedConnection, schema: string, table: string): Promise<SqlTableDetails> {
     const oid = `(SELECT c.oid FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = $1 AND c.relname = $2)`
     const columns = await this.pgMeta(connection, `SELECT a.attname, format_type(a.atttypid, a.atttypmod), NOT a.attnotnull, pg_get_expr(d.adbin, d.adrelid),
-        COALESCE(a.attnum = ANY (SELECT unnest(i.indkey) FROM pg_index i WHERE i.indrelid = a.attrelid AND i.indisprimary), false), a.attnum
+        COALESCE(a.attnum = ANY (SELECT unnest(i.indkey) FROM pg_index i WHERE i.indrelid = a.attrelid AND i.indisprimary), false), a.attnum,
+        a.attidentity, a.attgenerated, col_description(a.attrelid, a.attnum)
       FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
       WHERE a.attrelid = ${oid} AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum`, [schema, table], 2000, true)
     const indexes = await this.pgMeta(connection, `SELECT ic.relname, pg_get_indexdef(i.indexrelid), i.indisunique, i.indisprimary
       FROM pg_index i JOIN pg_class ic ON ic.oid = i.indexrelid WHERE i.indrelid = ${oid} ORDER BY ic.relname`, [schema, table], 500, true)
     const foreign = await this.pgMeta(connection, `SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid = ${oid} AND contype = 'f' ORDER BY conname`, [schema, table], 500, true)
+    const constraints = await this.pgMeta(connection, `SELECT conname, contype, pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid = ${oid} AND contype IN ('p', 'u', 'c', 'x') ORDER BY contype, conname`, [schema, table], 500, true)
+    const properties = await this.pgMeta(connection, `SELECT c.relkind, pg_get_userbyid(c.relowner), obj_description(c.oid, 'pg_class'), pg_total_relation_size(c.oid), c.reltuples::bigint
+      FROM pg_class c WHERE c.oid = ${oid}`, [schema, table], 1, true)
+    const kinds: Record<string, SqlConstraintInfo['kind']> = { p: 'primary', u: 'unique', c: 'check', x: 'exclusion' }
+    const relkinds: Record<string, string> = { r: 'table', v: 'view', m: 'materialized view', f: 'foreign table', p: 'partitioned table' }
+    const props = properties.rows[0]
     return {
-      columns: columns.rows.map(row => ({ name: String(row[0]), type: String(row[1]), nullable: Boolean(row[2]), ...(row[3] ? { default: String(row[3]) } : {}), primaryKey: Boolean(row[4]), position: Number(row[5]) })),
+      columns: columns.rows.map(row => ({
+        name: String(row[0]), type: String(row[1]), nullable: Boolean(row[2]), ...(row[3] && row[7] !== 's' ? { default: String(row[3]) } : {}), primaryKey: Boolean(row[4]), position: Number(row[5]),
+        ...(row[6] === 'a' ? { identity: 'always' as const } : row[6] === 'd' ? { identity: 'by-default' as const } : {}),
+        ...(row[7] === 's' && row[3] ? { generated: String(row[3]) } : {}), ...(row[8] ? { comment: String(row[8]) } : {})
+      })),
       indexes: indexes.rows.map(row => ({ name: String(row[0]), definition: String(row[1]), unique: Boolean(row[2]), primary: Boolean(row[3]) })),
-      foreignKeys: foreign.rows.map(row => ({ name: String(row[0]), definition: String(row[1]) }))
+      foreignKeys: foreign.rows.map(row => ({ name: String(row[0]), definition: String(row[1]) })),
+      constraints: constraints.rows.map(row => ({ name: String(row[0]), kind: kinds[String(row[1])] ?? 'check', definition: String(row[2]) })),
+      properties: props ? { kind: relkinds[String(props[0])] ?? String(props[0]), owner: String(props[1]), ...(props[2] ? { comment: String(props[2]) } : {}), sizeBytes: Number(props[3]), estimatedRows: Math.max(0, Number(props[4])) } : null
     }
   }
 

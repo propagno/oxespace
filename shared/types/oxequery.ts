@@ -261,9 +261,11 @@ export interface SqlGuardVerdict {
 export interface SqlTable { schema: string; name: string; kind: 'table' | 'view' | 'materialized view' | 'foreign table' | 'partitioned table'; approxRows?: number }
 /** The tables of one schema; `total` is larger than `tables.length` when the list was cut. */
 export interface SqlTables { tables: SqlTable[]; total: number }
-export interface SqlColumnInfo { name: string; type: string; nullable: boolean; default?: string; primaryKey: boolean; position: number }
+export interface SqlColumnInfo { name: string; type: string; nullable: boolean; default?: string; primaryKey: boolean; position: number; identity?: 'always' | 'by-default'; generated?: string; comment?: string }
 export interface SqlIndexInfo { name: string; definition: string; unique: boolean; primary: boolean }
-export interface SqlTableDetails { columns: SqlColumnInfo[]; indexes: SqlIndexInfo[]; foreignKeys: { name: string; definition: string }[] }
+export interface SqlConstraintInfo { name: string; kind: 'primary' | 'unique' | 'check' | 'exclusion'; definition: string }
+export interface SqlTableProperties { kind: string; owner: string; comment?: string; sizeBytes: number; estimatedRows: number }
+export interface SqlTableDetails { columns: SqlColumnInfo[]; indexes: SqlIndexInfo[]; foreignKeys: { name: string; definition: string }[]; constraints: SqlConstraintInfo[]; properties: SqlTableProperties | null }
 
 export interface SqlBrowseInput {
   connectionId: string

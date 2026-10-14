@@ -490,3 +490,62 @@ test('the SQL workbench runs scripts, asks for parameters, keeps a transaction a
     }), { timeout: 10000 }).toContain('remembered_text')
   } finally { await app.close() }
 })
+
+test('the structure editor reviews the SQL of a new table and of an altered one before applying', async () => {
+  test.setTimeout(120000)
+  const root = mkdtempSync(join(tmpdir(), 'oxespace-oxequery-structure-'))
+  const repo = join(root, 'repo'); mkdirSync(repo)
+  const app = await electron.launch({ args: [join(process.cwd(), 'e2e/electron-main.cjs')], env: {
+    ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'app.sqlite3')
+  } })
+  try {
+    const page = await app.firstWindow()
+    await page.waitForLoadState('domcontentloaded')
+    await page.getByTestId('btn-new-workspace').click()
+    await page.getByTestId('wizard-dir-input').fill(repo)
+    await page.getByTestId('wizard-layout-card-1').click()
+    await page.getByTestId('wizard-launch-btn').click()
+    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
+    await page.getByRole('button', { name: 'Connect to pg-dev' }).click()
+    await expect(page.getByRole('tab', { name: 'pg-dev' })).toBeVisible()
+
+    // A read-only connection can look but not change: no way to start.
+    const tree = page.getByRole('navigation', { name: 'Schema' })
+    await expect(tree.getByRole('button', { name: 'users', exact: true })).toBeVisible()
+    await expect(tree.getByRole('button', { name: 'New table in public' })).toHaveCount(0)
+    await page.locator('.oq-sidebar').getByRole('button', { name: 'Edit pg-dev' }).click()
+    const settings = page.getByRole('dialog', { name: 'Edit connection' })
+    await settings.getByRole('checkbox', { name: /Read-only/ }).uncheck()
+    await settings.getByRole('button', { name: 'Save' }).click()
+
+    // New table: the SQL is shown before anything runs.
+    await tree.getByRole('button', { name: 'New table in public' }).click()
+    const dialog = page.getByRole('dialog', { name: 'New table in public' })
+    await expect(dialog.getByText('Give the table a name.')).toBeVisible()
+    await dialog.getByLabel('Table name').fill('orders')
+    await dialog.getByRole('button', { name: 'Add column' }).click()
+    await dialog.getByLabel('Name of new column').fill('total')
+    await dialog.getByLabel('Type of total').fill('numeric(10,2)')
+    await dialog.getByRole('button', { name: 'Review SQL' }).click()
+    await expect(dialog.getByRole('region', { name: 'Review' })).toContainText('CREATE TABLE "public"."orders"')
+    await expect(dialog.getByRole('region', { name: 'Review' })).toContainText('"total" numeric(10,2)')
+    await dialog.getByRole('button', { name: 'Create table' }).click()
+    await expect(dialog).toHaveCount(0)
+
+    // Existing table: dropping a column is destructive and waits for confirmation.
+    await tree.getByRole('button', { name: 'Structure of users' }).click({ force: true })
+    const editor = page.getByRole('dialog', { name: 'public.users' })
+    await editor.getByRole('button', { name: 'Drop name' }).click()
+    await editor.getByRole('button', { name: 'Review SQL' }).click()
+    const review = editor.getByRole('region', { name: 'Review' })
+    await expect(review).toContainText('DROP COLUMN "name"')
+    await expect(review).toContainText('deletes its data for good')
+    const apply = editor.getByRole('button', { name: 'Apply changes' })
+    await expect(apply).toBeDisabled()
+    await review.getByRole('checkbox', { name: /cannot be undone/ }).check()
+    await expect(apply).toBeEnabled()
+    // Changing the draft discards the review, so what runs is always what was shown.
+    await editor.getByRole('button', { name: 'Keep name' }).click()
+    await expect(editor.getByRole('region', { name: 'Review' })).toHaveCount(0)
+  } finally { await app.close() }
+})

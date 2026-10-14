@@ -11,6 +11,7 @@ import { ResultGrid, type GridSort } from './ResultGrid'
 import { displayCell, formatRows, type CopyFormat } from './grid-format'
 import { LibraryMenu } from './LibraryMenu'
 import { ExportButton, TableEditor } from './TableEditor'
+import { StructureEditor, type StructureOutcome } from './StructureEditor'
 import { ImportButton } from './ImportDialog'
 import { ExplainView } from './ExplainView'
 import { bindCompletion, cacheFor } from './sql-completion'
@@ -381,6 +382,7 @@ function SchemaTree({ connection, onOpen, onInsert }: { connection: OxeQueryConn
   const [openSchemas, setOpenSchemas] = useState<Set<string>>(new Set(['public']))
   const [filter, setFilter] = useState('')
   const [error, setError] = useState('')
+  const [structure, setStructure] = useState<{ schema: string; table: string | null } | null>(null)
   const load = useCallback(async (schema: string): Promise<void> => {
     try {
       const { tables: list, total } = await oq('sql.tables', { connectionId: connection.id, schema })
@@ -406,12 +408,16 @@ function SchemaTree({ connection, onOpen, onInsert }: { connection: OxeQueryConn
       return <div key={schema}>
         <button type="button" className="oq-tree-node" aria-expanded={expanded} onClick={() => toggle(schema)}>
           {expanded ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />}{schema}</button>
+        {expanded && !connection.readOnly && <button type="button" className="oq-tree-new" aria-label={`New table in ${schema}`} title="Create a table" onClick={() => setStructure({ schema, table: null })}><Plus size={12} aria-hidden="true" /> New table</button>}
         {expanded && (totals[schema] ?? 0) > (tables[schema]?.length ?? 0) && <p className="oq-muted" role="note">Showing {tables[schema]?.length} of {totals[schema]} tables. Use the filter or a query to reach the rest.</p>}
         {expanded && list.map(table => <div key={table.name} className="oq-tree-leaf">
           <button type="button" title={`Browse ${schema}.${table.name}`} onClick={() => onOpen(table)}>{table.name}<small>{table.kind === 'table' ? '' : table.kind}</small></button>
           <button type="button" aria-label={`Write a query for ${table.name}`} title="Open a new query for this table" onClick={() => onInsert(`SELECT *\nFROM "${schema.replace(/"/g, '""')}"."${table.name.replace(/"/g, '""')}"\nLIMIT 100;`)}>Query</button>
+          {table.kind === 'table' && <button type="button" aria-label={`Structure of ${table.name}`} title="View or change columns, keys and indexes" onClick={() => setStructure({ schema, table: table.name })}>Structure</button>}
         </div>)}
       </div>
     })}
+    {structure && <StructureEditor connection={connection} schema={structure.schema} table={structure.table} onClose={() => setStructure(null)}
+      onChanged={(outcome: StructureOutcome) => { void load(structure.schema); if (outcome.kind === 'created' || outcome.kind === 'altered') onOpen({ schema: structure.schema, name: outcome.table, kind: 'table' }) }} />}
   </nav>
 }
