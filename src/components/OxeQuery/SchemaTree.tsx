@@ -4,6 +4,7 @@ import type { OxeQueryConnection, SqlDefinitionTarget, SqlExtensionInfo, SqlSear
 import { errorMessage, oq } from './client'
 import type { StructureOutcome } from './StructureEditor'
 import { ROW_HEIGHT, buildRows, keyMove, pinKey, rowsFromHits, windowOf, type SchemaData, type TreeItem, type TreeKey, type TreeRow } from './tree-model'
+import { toast } from '../../ui/Toast'
 
 // Dialogs are only needed when opened: they load on first use and stay out of the tree's own chunk.
 const ServerPanel = lazy(() => import('./ServerPanel').then(module => ({ default: module.ServerPanel })))
@@ -167,7 +168,7 @@ export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInser
     setError(''); setNotice('')
     try {
       await oq('sql.run', { connectionId: connection.id, sql: `REFRESH MATERIALIZED VIEW ${quote(table.schema)}.${quote(table.name)}` })
-      setNotice(`Refreshed ${table.schema}.${table.name}.`)
+      toast({ title: `Refreshed ${table.schema}.${table.name}`, intent: 'success', duration: 2000 })
     } catch (cause) { setError(errorMessage(cause)) }
   }
 

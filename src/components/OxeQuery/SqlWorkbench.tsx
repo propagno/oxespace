@@ -16,6 +16,7 @@ import { ExportButton, TableEditor } from './TableEditor'
 import { SchemaTree } from './SchemaTree'
 import { ReconnectBar } from './ReconnectBar'
 import { AskAgent } from './AskAgent'
+import { QueryError } from './QueryError'
 import { describeTable } from './agent-prompt'
 import { ImportButton } from './ImportDialog'
 import { ExplainView } from './ExplainView'
@@ -24,6 +25,7 @@ import { registerSqlExtras } from './sql-snippets'
 import { CellViewer, FilterBar, ParamsBar, TxBar } from './WorkbenchPanels'
 import { MAX_TABS, completeFilters, looksLikeLostConnection, newTab, outputsFromScript, restoreWorkspace, serializeWorkspace, type Browse, type Output, type ParamValue, type QueryTab } from './workbench-model'
 import { Select } from '../../ui/Field'
+import { copyText } from '../../ui/clipboard'
 
 const ROW_LIMITS = [100, 500, 1000, 5000, 10_000, 50_000, 100_000]
 const PAGE = 100
@@ -33,8 +35,8 @@ const SAVE_DELAY_MS = 700
 interface Pending { text: string; base: number; reasons: string[]; explain?: 'analyze' }
 interface ParamsAsk { text: string; base: number; names: string[]; confirmed: boolean }
 
-function copy(text: string): void {
-  void window.oxe?.clipboard?.writeText(text).catch(() => undefined)
+function copy(text: string, what = 'Text'): void {
+  void copyText(text, what)
 }
 
 export function SqlWorkbench({ connection }: { connection: OxeQueryConnection }): ReactElement {
@@ -254,7 +256,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   const types = useMemo(() => result?.columns.map(column => column.type) ?? [], [result])
   const row = selectedRow !== null && result ? result.rows[selectedRow] : null
   const qualified = active.browse ? `"${active.browse.schema.replace(/"/g, '""')}"."${active.browse.table.replace(/"/g, '""')}"` : undefined
-  const copyAs = (format: CopyFormat): void => { if (result) copy(formatRows(format, columns, result.rows, qualified)) }
+  const copyAs = (format: CopyFormat): void => { if (result) copy(formatRows(format, columns, result.rows, qualified), 'Results') }
   const executedText = active.browse ? null : output?.text ?? null
 
   return <div className="oq-workbench">
@@ -334,7 +336,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
           {result && columns.length > 0 && <Select className="oq-select" aria-label="Copy results as" value="" onChange={event => { if (event.target.value) copyAs(event.target.value as CopyFormat) }}>
             <option value="">Copy as…</option><option value="csv">CSV</option><option value="tsv">TSV (spreadsheet)</option><option value="json">JSON</option><option value="markdown">Markdown table</option><option value="insert">INSERT statements</option></Select>}
         </div>
-        {error && <div role="alert" className="oq-query-error"><strong>Query failed</strong>{error.sqlState && <small> SQLSTATE {error.sqlState}</small>}<pre>{error.message}</pre>{error.hint && <p className="oq-muted">Hint: {error.hint}</p>}{looksLikeLostConnection(error.message) && <ReconnectBar connection={connection} />}</div>}
+        {error && <QueryError error={{ message: error.message, sqlState: error.sqlState, hint: error.hint, position: error.position }}>{looksLikeLostConnection(error.message) && <ReconnectBar connection={connection} />}</QueryError>}
         {result?.notices?.map(text => <p key={text} className="oq-muted oq-notice">{text}</p>)}
         {/* Structure, filter, definition and row editing sit in one wrapping row; an open one takes the full width. */}
         <div className="oq-extras">

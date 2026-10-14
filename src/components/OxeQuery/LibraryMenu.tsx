@@ -5,6 +5,7 @@ import { errorMessage, oq } from './client'
 import { groupSaved } from './library-folders'
 import { Button, IconButton } from '../../ui/Button'
 import { Popover } from '../../ui/Overlay'
+import { toast } from '../../ui/Toast'
 
 /** Saved queries and history for one connection; both live in the app database, not in the page. */
 export function LibraryMenu({ connection, currentSql, refreshKey, onPick, describe = text => text.replace(/\s+/g, ' ') }: {
@@ -37,6 +38,7 @@ export function LibraryMenu({ connection, currentSql, refreshKey, onPick, descri
       const created = await oq('library.save', { connectionId: connection.id, name, sql: currentSql })
       setSaved(current => [...current.filter(item => item.id !== created.id), created].sort((a, b) => a.name.localeCompare(b.name)))
       setName(''); setError('')
+      toast({ title: 'Query saved', description: created.name, intent: 'success', duration: 2500 })
     } catch (cause) { setError(errorMessage(cause)) }
   }
   const remove = async (id: string): Promise<void> => {

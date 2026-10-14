@@ -714,7 +714,7 @@ test('the MongoDB workbench validates its fields, explains a plan, shows a tree,
     await page.getByRole('radio', { name: 'Tree' }).click()
     await expect(page.getByRole('tree', { name: 'Document' }).first()).toContainText('sku-1')
     await page.getByRole('button', { name: 'Clone document' }).first().click()
-    const form = page.getByRole('group', { name: 'New document' })
+    const form = page.getByRole('dialog', { name: 'New document' })
     await expect(form.getByRole('textbox')).not.toHaveValue(/_id/)
     await expect(form.getByRole('textbox')).toHaveValue(/sku-1/)
     await form.getByRole('button', { name: 'Cancel' }).click()

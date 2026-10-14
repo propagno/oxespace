@@ -574,3 +574,13 @@ td:has(> .oq-actions) { width: 1%; }
   .oq-actions button > span { display: none; }
 }
 .oq-nav-item { min-height: var(--control-md); }
+
+/* A failed statement: headline and next step first, the engine's own words collapsed. */
+.oq-query-error { display: grid; gap: var(--space-2); }
+.oq-query-error-head { display: flex; align-items: flex-start; gap: var(--space-2); color: var(--intent-danger-fg); }
+.oq-query-error-head > svg { margin-top: 2px; }
+.oq-query-error-head > div { flex: 1; min-width: 0; }
+.oq-query-error-head p { margin: 2px 0 0; color: var(--text-primary); font-size: var(--text-sm); }
+.oq-query-error-detail summary { cursor: pointer; color: var(--text-secondary); }
+.oq-query-error-detail summary small { margin-left: var(--space-2); color: var(--text-muted); }
+.oq-query-error-detail pre { margin: var(--space-2) 0 0; }

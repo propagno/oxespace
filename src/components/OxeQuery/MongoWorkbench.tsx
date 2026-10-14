@@ -1,5 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
-import { ChevronDown, ChevronRight, Copy, Pencil, Play, Plus, RefreshCw, Square, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, Copy, Database, Pencil, Play, Plus, RefreshCw, Square, Trash2 } from 'lucide-react'
 import type { MongoCollectionInfo, MongoDatabaseInfo, MongoExplainSummary, MongoResult, OxeQueryConnection } from '../../../shared/types/oxequery'
 import { describeMongoQuery, parseMongoQuery, stringifyMongoQuery } from '../../../shared/mongoQueryText'
 import { OxeQueryClientError, errorMessage, oq } from './client'
@@ -8,13 +8,19 @@ import { ImportButton } from './ImportDialog'
 import { LibraryMenu } from './LibraryMenu'
 import { ReconnectBar } from './ReconnectBar'
 import { AskAgent } from './AskAgent'
+import { QueryError } from './QueryError'
 import { looksLikeLostConnection } from './workbench-model'
 import { MongoInsights } from './MongoInsights'
 import { DocumentTree, ExplainCard } from './MongoPanels'
 import { PAGE_SIZES, cloneDocument, documentLabel, jsonProblem, prettyDocument } from './mongo-model'
 import { flattenDocuments } from './mongo-view'
 import { ResultGrid } from './ResultGrid'
-import { Select } from '../../ui/Field'
+import { Select, TextArea } from '../../ui/Field'
+import { Button } from '../../ui/Button'
+import { ConfirmDialog } from '../../ui/ConfirmDialog'
+import { Dialog } from '../../ui/Overlay'
+import { copyText } from '../../ui/clipboard'
+import { EmptyState } from '../../ui/Display'
 
 // Dialogs are only needed when opened: they load on first use and stay out of the workbench's own chunk.
 const BulkPanel = lazy(() => import('./MongoDialogs').then(module => ({ default: module.BulkPanel })))
@@ -25,8 +31,8 @@ type View = 'documents' | 'tree' | 'table'
 type Target = { database: string; collection: string }
 type CollectionDialogState = { kind: 'create'; database: string } | { kind: 'rename'; database: string; collection: string } | { kind: 'drop'; database: string; collection: string }
 
-function copy(text: string): void {
-  void window.oxe?.clipboard?.writeText(text).catch(() => undefined)
+function copy(text: string, what = 'Text'): void {
+  void copyText(text, what)
 }
 
 export function MongoWorkbench({ connection }: { connection: OxeQueryConnection }): ReactElement {
@@ -185,7 +191,7 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
       </div>
     </nav>
     <div className="oq-workbench-main">
-      {!target ? <div className="oq-empty"><p>Select a collection.</p>{error && <p role="alert" className="oq-error">{error}</p>}</div> : <>
+      {!target ? <div className="oq-empty"><EmptyState icon={<Database size={20} />} title="Pick a collection">Choose one in the list on the left to find, aggregate or edit its documents.</EmptyState>{error && <QueryError error={{ message: error }} />}</div> : <>
         <div className="oq-editor-toolbar">
           <strong>{target.database}.{target.collection}</strong>
           <div role="group" aria-label="Query type" className="oq-segment"><button type="button" aria-pressed={mode === 'find'} onClick={() => setMode('find')}>Find</button><button type="button" aria-pressed={mode === 'aggregate'} onClick={() => setMode('aggregate')}>Aggregate</button></div>
@@ -210,8 +216,7 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
             <label>Sort<textarea aria-label="Sort" aria-invalid={problems.sort ? true : undefined} spellCheck={false} value={sort} onChange={event => setSort(event.target.value)} rows={2} placeholder='{ "createdAt": -1 }' />{problems.sort && <small className="oq-field-error" role="alert">{problems.sort}</small>}</label>
           </> : <label className="oq-mongo-wide">Pipeline<textarea aria-label="Pipeline" aria-invalid={problems.pipeline ? true : undefined} spellCheck={false} value={pipeline} onChange={event => setPipeline(event.target.value)} rows={7} />{problems.pipeline && <small className="oq-field-error" role="alert">{problems.pipeline}</small>}</label>}
         </div>
-        {error && <p role="alert" className="oq-error">{error}</p>}
-        {error && looksLikeLostConnection(error) && <ReconnectBar connection={connection} onReconnected={() => void run(0)} />}
+        {error && <QueryError error={{ message: error }}>{looksLikeLostConnection(error) && <ReconnectBar connection={connection} onReconnected={() => void run(0)} />}</QueryError>}
         {explain && <ExplainCard explain={explain} onClose={() => setExplain(null)} />}
         <div className="oq-results">
           <div className="oq-results-bar">
@@ -222,28 +227,30 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
             <div role="group" aria-label="Result view" className="oq-segment">
               {(['documents', 'tree', 'table'] as const).map(name => <button key={name} type="button" role="radio" aria-checked={view === name} data-selected={view === name} onClick={() => setView(name)}>{name === 'documents' ? 'Documents' : name === 'tree' ? 'Tree' : 'Table'}</button>)}
             </div>
-            {result && <button type="button" onClick={() => copy(`[${result.documents.join(',\n')}]`)}>Copy JSON</button>}
+            {result && <button type="button" onClick={() => copy(`[${result.documents.join(',\n')}]`, 'Documents')}>Copy JSON</button>}
             <ExportButton connection={connection} label="Export collection" source={{ kind: 'collection', ...target, ...(mode === 'find' && filter.trim() && filter.trim() !== '{}' && !problems.filter ? { filter } : {}) }} />
             <ImportButton connection={connection} target={{ kind: 'collection', ...target }} onImported={() => void run(0)} />
             {!connection.readOnly && <button type="button" onClick={() => { setWriteError(''); setConfirm(null); setEditing({ original: null, text: '{\n  \n}', mode: 'edit' }) }}><Plus size={13} aria-hidden="true" />New document</button>}
             {!connection.readOnly && mode === 'find' && <button type="button" onClick={() => setBulk(true)}>Change many…</button>}
           </div>
           <MongoInsights connection={connection} database={target.database} collection={target.collection} />
-          {editing && <div className="oq-edit-form" role="group" aria-label={editing.mode === 'delete' ? 'Delete document' : editing.original === null ? 'New document' : 'Edit document'}>
-            <header><strong>{editing.mode === 'delete' ? 'Delete this document?' : editing.original === null ? 'New document' : 'Edit document'}</strong></header>
-            {editing.mode === 'edit' && <textarea aria-label="Document (EJSON)" spellCheck={false} rows={12} value={editing.text} onChange={event => setEditing({ ...editing, text: event.target.value })} />}
-            {editing.mode === 'delete' && <pre>{prettyDocument(editing.original ?? '')}</pre>}
+          {editing && <Dialog className="oq-scope" size="lg" onClose={() => { if (!writing) { setEditing(null); setConfirm(null); setWriteError('') } }}
+            title={editing.mode === 'delete' ? 'Delete this document?' : editing.original === null ? 'New document' : 'Edit document'}
+            description={editing.mode === 'delete' ? 'The document is removed from the collection. This cannot be undone.' : 'Extended JSON: types such as ObjectId, dates and Long keep their type when saved.'}
+            footer={<>
+              <Button disabled={writing} onClick={() => { setEditing(null); setConfirm(null); setWriteError('') }}>Cancel</Button>
+              <Button variant={editing.mode === 'delete' ? 'danger' : 'primary'} loading={writing} onClick={() => void write(false)}>
+                {editing.mode === 'delete' ? 'Delete' : editing.original === null ? 'Insert' : 'Save'}</Button>
+            </>}>
+            {editing.mode === 'edit' && <TextArea mono aria-label="Document (EJSON)" spellCheck={false} rows={14} value={editing.text} onChange={event => setEditing({ ...editing, text: event.target.value })} />}
+            {editing.mode === 'delete' && <pre className="oq-doc-preview">{prettyDocument(editing.original ?? '')}</pre>}
             {writeError && <p role="alert" className="oq-error">{writeError}</p>}
-            {confirm && <div className="oq-confirm" role="alertdialog" aria-label="Confirm change">
-              <strong>Confirm this change</strong><ul>{confirm.map(item => <li key={item}>{item}</li>)}</ul>
-              {connection.environment === 'prod' && <p className="oq-error">This is a production connection.</p>}
-            </div>}
-            <footer>
-              <button type="button" onClick={() => { setEditing(null); setConfirm(null); setWriteError('') }}>Cancel</button>
-              <button type="button" className={editing.mode === 'delete' ? 'oq-danger' : 'oq-primary'} disabled={writing} onClick={() => void write(confirm !== null)}>
-                {confirm ? 'Confirm' : editing.mode === 'delete' ? 'Delete' : editing.original === null ? 'Insert' : 'Save'}</button>
-            </footer>
-          </div>}
+            {confirm && <ConfirmDialog danger title="Confirm this change" confirmLabel="Confirm" busy={writing}
+              description={connection.environment === 'prod' ? 'This is a production connection.' : 'Check these before it is written.'}
+              onCancel={() => setConfirm(null)} onConfirm={() => void write(true)}>
+              <ul>{confirm.map(item => <li key={item}>{item}</li>)}</ul>
+            </ConfirmDialog>}
+          </Dialog>}
           {table ? <div className="oq-results-body"><ResultGrid columns={table.columns} rows={table.rows} onCopy={copy} /></div>
             : <div className="oq-documents">{result?.documents.map((document, index) => <details key={index} open={index < 3}>
               <summary>{documentLabel(document)}{!connection.readOnly && <span className="oq-doc-actions">

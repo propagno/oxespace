@@ -6,6 +6,7 @@ import { Upload } from 'lucide-react'
 import type { ImportConflict, ImportPreview, ImportReadOptions, ImportResult, ImportTarget, OxeQueryConnection } from '../../../shared/types/oxequery'
 import { OxeQueryClientError, errorMessage, oq } from './client'
 import { Select } from '../../ui/Field'
+import { toast } from '../../ui/Toast'
 
 /**
  * Import a CSV, JSON or NDJSON file into a table or collection. The file is
@@ -59,6 +60,7 @@ export function ImportButton({ connection, target, onImported }: { connection: O
     try {
       const outcome = await oq('import.run', { connectionId: connection.id, importId: preview.importId, target, mapping, dryRun, emptyAsNull, confirmed, options, ...(target.kind === 'table' && conflict.mode !== 'error' ? { conflict } : {}) })
       setResult(outcome); setConfirm(null)
+      if (!dryRun) toast({ title: 'Import finished', description: `${outcome.inserted.toLocaleString()} row${outcome.inserted === 1 ? '' : 's'} imported, ${outcome.rejected.toLocaleString()} rejected.`, intent: outcome.rejected ? 'warning' : 'success' })
       if (!dryRun && !outcome.cancelled) onImported()
     } catch (cause) {
       if (cause instanceof OxeQueryClientError && cause.code === 'confirm') setConfirm(cause.reasons)

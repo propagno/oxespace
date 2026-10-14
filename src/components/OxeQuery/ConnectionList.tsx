@@ -7,6 +7,7 @@ import { useOxeQueryStore } from './oxequery.store'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { Button } from '../../ui/Button'
 import { EmptyState } from '../../ui/Display'
+import { toast } from '../../ui/Toast'
 
 /** The saved connections: favorites, recent, groups, search, and the actions on one connection. */
 export function ConnectionList({ activeTab }: { activeTab: string }): ReactElement {
@@ -50,10 +51,10 @@ export function ConnectionList({ activeTab }: { activeTab: string }): ReactEleme
     <h3>Connections<span className="oq-h3-actions">
       <button type="button" className="oq-icon" aria-label="Import connections" title="Import connections from a file" onClick={() => void run(async () => {
         const result = await oq('connections.import', {})
-        if (result.imported || result.skipped) setNotice(`${result.imported} imported${result.skipped ? `, ${result.skipped} skipped (a tunnel with a key or password cannot be imported)` : ''}.`)
+        if (result.imported || result.skipped) toast({ title: `${result.imported} connection${result.imported === 1 ? '' : 's'} imported`, ...(result.skipped ? { description: `${result.skipped} skipped: a tunnel with a key or password cannot be imported.`, intent: 'warning' as const } : { intent: 'success' as const }) })
       })}><Upload size={13} aria-hidden="true" /></button>
       <button type="button" className="oq-icon" aria-label="Export connections" title="Export connections to a file (no passwords)" disabled={connections.length === 0}
-        onClick={() => void run(async () => { const result = await oq('connections.export', {}); if (result.saved) setNotice(`${result.count} exported without passwords or keys.`) })}><Download size={13} aria-hidden="true" /></button>
+        onClick={() => void run(async () => { const result = await oq('connections.export', {}); if (result.saved) toast({ title: `${result.count} connection${result.count === 1 ? '' : 's'} exported`, description: 'Passwords and keys are not included.', intent: 'success' }) })}><Download size={13} aria-hidden="true" /></button>
       <button type="button" className="oq-icon" aria-label="New connection" title="New connection" onClick={() => store().openDialog(null)}><Plus size={14} aria-hidden="true" /></button></span></h3>
     {connections.length > 4 && <label className="oq-conn-search"><Search size={12} aria-hidden="true" /><input type="search" aria-label="Search connections" placeholder="Search connections" value={search} onChange={event => setSearch(event.target.value)} /></label>}
     {connectionsError && <p role="alert" className="oq-error">{connectionsError}</p>}

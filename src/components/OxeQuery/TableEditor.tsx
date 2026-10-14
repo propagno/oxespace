@@ -4,6 +4,7 @@ import { Download, Eye, Pencil, Plus, Trash2, Undo2, X } from 'lucide-react'
 import type { ExportFormat, OxeQueryConnection, SqlCellValue, SqlEditability, SqlResult, SqlRowChange } from '../../../shared/types/oxequery'
 import { OxeQueryClientError, errorMessage, oq } from './client'
 import { displayCell } from './ResultGrid'
+import { toast } from '../../ui/Toast'
 
 interface Props {
   connection: OxeQueryConnection
@@ -124,6 +125,7 @@ export function TableEditor({ connection, schema, table, result, selectedRow, on
     setBusy(true); setError(''); setConflict(false)
     try {
       await oq('sql.apply', { ...input, confirmed })
+      toast({ title: `${staged.length} change${staged.length === 1 ? '' : 's'} applied`, intent: 'success', duration: 3000 })
       setStaged([]); setStatements(null); setConfirmReasons(null)
       onApplied()
     } catch (cause) {

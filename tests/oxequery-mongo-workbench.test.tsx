@@ -68,7 +68,7 @@ describe('MongoWorkbench', () => {
     expect(trees[0]).toHaveTextContent('{5}')
     expect(trees[1]).toHaveTextContent('Long(9)')
     fireEvent.click(screen.getAllByRole('button', { name: 'Clone document' })[0]!)
-    const form = screen.getByRole('group', { name: 'New document' })
+    const form = screen.getByRole('dialog', { name: 'New document' })
     const text = (within(form).getByRole('textbox') as HTMLTextAreaElement).value
     expect(JSON.parse(text)).toMatchObject({ sku: 'sku-1', qty: 5 })
     expect(JSON.parse(text)._id).toBeUndefined()
