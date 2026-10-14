@@ -47,7 +47,8 @@ describe('Claude background task stop', () => {
     await f.adapter.send('Go')
     const refused = f.adapter.stopTask('bash_2')
     f.answer(f.stopRequests()[0].request_id as string, { subtype: 'error', error: 'No such task' })
-    await expect(refused).rejects.toThrow('No such task')
+    // The CLI does not know the task, so it is not running: the request succeeds in clearing it.
+    await expect(refused).resolves.toBeUndefined()
 
     const silent = f.adapter.stopTask('bash_3')
     const assertion = expect(silent).rejects.toThrow('did not confirm')

@@ -239,7 +239,8 @@ export interface ThreadCostReport {
   outputTokens?: number
   cacheReadTokens?: number
   updatedAt: number
-  source: 'claude-result' | 'codex-token-usage'
+  /** claude-result: written before 0.17.2, summed running totals; claude-result-step: each turn's own step. */
+  source: 'claude-result' | 'claude-result-step' | 'codex-token-usage'
 }
 
 export interface ThreadContextReport {

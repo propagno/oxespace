@@ -15,6 +15,8 @@ import { toolResultText } from './tool-result-text'
 const INTERRUPT_GRACE_MS = 2_000
 import { requestOutcome } from '../../../../shared/threadRequestOutcome'
 
+const DISPOSED = 'Agent connection disposed'
+
 /** A single protocol line: a large file read or an inline image can exceed 1 MiB (Codex allows the same 32 MiB). */
 const MAX_PROTOCOL_LINE_BYTES = 32 * 1024 * 1024
 
@@ -173,7 +175,13 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
     const requestId = `stop-task:${randomUUID()}`
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => { this.pendingControl.delete(requestId); reject(Error('The provider did not confirm the stop request')) }, 5_000)
-      this.pendingControl.set(requestId, { timer, resolve: error => error ? reject(Error(error)) : resolve() })
+      // A task the CLI no longer knows is not running: the request is refused, and keeping it listed
+      // as running would leave the conversation waiting for something that cannot end.
+      this.pendingControl.set(requestId, { timer, resolve: error => {
+        if (error === DISPOSED) { reject(Error(error)); return }
+        if (error) this.markTaskUnknown(taskId)
+        resolve()
+      } })
       try { transport.write(JSON.stringify({ type: 'control_request', request_id: requestId, request: { subtype: 'stop_task', task_id: taskId } }) + '\n') }
       catch (error) { clearTimeout(timer); this.pendingControl.delete(requestId); reject(error instanceof Error ? error : Error(String(error))) }
     })
@@ -446,11 +454,19 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
     this.disposed = true
     this.initialized?.reject(Error('Agent connection disposed'))
     for (const requestId of [...this.pendingContext.keys()]) this.settleContext(requestId, null)
-    for (const requestId of [...this.pendingControl.keys()]) this.settleControl(requestId, 'Agent connection disposed')
+    for (const requestId of [...this.pendingControl.keys()]) this.settleControl(requestId, DISPOSED)
     this.busy = false
     this.approvals.clear()
     await this.transport?.close()
     this.transport = null
+  }
+
+  private markTaskUnknown(taskId: string): void {
+    for (const [id, task] of this.tasks) if (task.state === 'running' && task.receiverThreadIds.includes(taskId)) {
+      const unknown = { ...task, state: 'unknown' as const, completedAt: Date.now(), agents: task.agents.map(agent => ({ ...agent, status: 'unknown' as const })) }
+      this.tasks.set(id, unknown)
+      this.emit(unknown)
+    }
   }
 
   private markTasksUnknown(): void {

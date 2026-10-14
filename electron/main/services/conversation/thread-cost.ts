@@ -58,7 +58,7 @@ const sum = (previous: number | undefined, delta: number | undefined): number | 
   previous === undefined && delta === undefined ? undefined : (previous ?? 0) + (delta ?? 0)
 
 /** `turn.usd` is this turn's own cost (see `stepFromProcessTotal`). A turn without a cost still counts as a turn. */
-export function addTurnCost(previous: ThreadCostReport | undefined, turn: TurnCost, now: number, source: ThreadCostReport['source'] = 'claude-result'): ThreadCostReport {
+export function addTurnCost(previous: ThreadCostReport | undefined, turn: TurnCost, now: number, source: ThreadCostReport['source'] = 'claude-result-step'): ThreadCostReport {
   return {
     totalUsd: (previous?.totalUsd ?? 0) + (turn.usd ?? 0),
     turns: (previous?.turns ?? 0) + 1,

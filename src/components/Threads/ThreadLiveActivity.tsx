@@ -31,6 +31,10 @@ export interface LiveActivity {
   stale: boolean
   awaitingInput: boolean
   reconnecting: boolean
+  /** False once the turn is over and only background work is being waited for. */
+  turnRunning: boolean
+  /** Provider ids of the background tasks still listed as running. */
+  taskIds: string[]
   summary?: string
   tools: Tool[]
 }
@@ -76,6 +80,8 @@ export function deriveThreadLiveActivity(snapshot: ThreadSnapshot, now: number, 
     // Quiet background work is normal; only a running turn that goes silent is a doubt worth showing.
     stale: turnRunning && signalAgeMs >= 60_000 && (!awaitingInput || !actionableRequest),
     awaitingInput,
+    turnRunning,
+    taskIds: turnRunning ? [] : background.flatMap(event => event.type === 'subagent' ? event.receiverThreadIds : []),
     reconnecting: connection?.state === 'degraded' || connection?.state === 'reconnecting',
     summary: activity?.summary,
     tools: tools.slice(-4)
@@ -84,6 +90,7 @@ export function deriveThreadLiveActivity(snapshot: ThreadSnapshot, now: number, 
 
 export function ThreadLiveActivity({ snapshot }: { snapshot: ThreadSnapshot }) {
   const [now, setNow] = useState(Date.now())
+  const [stopping, setStopping] = useState(false)
   useEffect(() => {
     setNow(Date.now())
     const timer = window.setInterval(() => setNow(Date.now()), 1_000)
@@ -99,6 +106,10 @@ export function ThreadLiveActivity({ snapshot }: { snapshot: ThreadSnapshot }) {
       {activity.stale || activity.awaitingInput ? <AlertCircle size={14} aria-hidden="true" /> : <Loader2 size={14} className="thread-spin" aria-hidden="true" />}
       <span role="status"><strong title={activity.label}>{activity.stale && !activity.awaitingInput ? terminalObserved ? 'Provider result available · synchronizing required' : check.observation?.state === 'running' ? 'Provider confirms execution is active' : check.observation?.state === 'awaiting-input' ? 'Provider is waiting for input' : 'Waiting for a confirmed provider update' : activity.label}</strong></span><time title="Total time for this turn, including previous commands and waiting for input" aria-label={`Turn elapsed ${activity.elapsed}`}>Turn · {activity.elapsed}</time>
     </div>
+    {!activity.turnRunning && activity.taskIds.length > 0 && <button type="button" className="thread-live-activity-stop" disabled={stopping} onClick={() => {
+      setStopping(true)
+      void Promise.allSettled(activity.taskIds.map(taskId => window.oxe.thread?.stopTask?.(snapshot.thread.id, taskId))).finally(() => setStopping(false))
+    }}>{stopping ? 'Stopping…' : 'Stop waiting'}</button>}
     <div className="thread-live-activity-meta"><span>{activity.signalAge}</span>{activity.stale && <>{!terminalObserved && <span>Execution may still be active.</span>}</>}</div>
     {activity.stale && <div className="thread-live-activity-meta" role="status">
       {check.checking ? <span>Checking provider state…</span> : check.observation && <span>{check.observation.state === 'running' ? 'Provider confirms execution is active.' : check.observation.state === 'awaiting-input' ? 'Provider is waiting for input. Open Diagnostics to inspect the request.' : check.observation.state === 'completed' || check.observation.state === 'failed' || check.observation.state === 'interrupted' ? `Provider reports ${check.observation.state}. Local output still needs reconciliation.` : 'Execution outcome is not confirmed. Your message was not resent.'}</span>}

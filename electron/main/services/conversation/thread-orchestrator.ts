@@ -12,6 +12,7 @@ import { ThreadAgentError, threadFailure } from './thread-failure'
 import { ThreadHistory, type ThreadHistoryWriteOptions } from './thread-history'
 import { ThreadRewindError, planLocalRewind } from './thread-rewind'
 import { addTurnCost } from './thread-cost'
+import { repairLegacyCost } from '../../../../shared/threadCostRepair'
 import { deriveThreadTitle } from './thread-title'
 import { resolveMentionContext } from './thread-context-resolver'
 import { briefBlock, projectBrief } from './project-brief'
@@ -537,9 +538,14 @@ export class ThreadOrchestrator {
   /** Stops one running background task of the conversation's provider session. */
   async stopTask(id: string, taskId: string): Promise<void> {
     const adapter = this.adapters.get(id)
-    if (!adapter?.stopTask) throw Error('This provider cannot stop background tasks from Thread')
-    const running = this.read(id).events.some(event => event.type === 'subagent' && event.state === 'running' && event.receiverThreadIds.includes(taskId))
-    if (!running) throw Error('That background task is no longer running')
+    const task = this.read(id).events.find((event): event is Extract<ThreadEvent, { type: 'subagent' }> => event.type === 'subagent' && event.state === 'running' && event.receiverThreadIds.includes(taskId))
+    if (!task) throw Error('That background task is no longer running')
+    if (adapter && !adapter.stopTask) throw Error('This provider cannot stop background tasks from Thread')
+    if (!adapter?.stopTask) {
+      // No provider session is left to ask: the task cannot be running, so it stops being listed as running.
+      this.applyEvent(id, { ...task, state: 'unknown', completedAt: Date.now(), agents: task.agents.map(agent => ({ ...agent, status: 'unknown' as const })) })
+      return
+    }
     await adapter.stopTask(taskId)
   }
 
@@ -890,7 +896,7 @@ export class ThreadOrchestrator {
       const snapshot = this.read(id)
       const { type: _type, ...cost } = turn
       const now = Date.now()
-      snapshot.thread.costReport = addTurnCost(snapshot.thread.costReport, cost, now, snapshot.thread.provider === 'codex' ? 'codex-token-usage' : 'claude-result')
+      snapshot.thread.costReport = addTurnCost(repairLegacyCost(snapshot.thread.costReport), cost, now, snapshot.thread.provider === 'codex' ? 'codex-token-usage' : 'claude-result-step')
       this.save(snapshot, { eventsFrom: snapshot.events.length })
       const model = snapshot.thread.model ?? snapshot.thread.contextReport?.model
       try { this.usage.record({ ...cost, threadId: id, projectRoot: snapshot.thread.rootPath, provider: snapshot.thread.provider, ...(model ? { model } : {}), at: now }) } catch { /* The ledger is best effort; the conversation keeps its own total. */ }
