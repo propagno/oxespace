@@ -3,7 +3,7 @@ import type { AppDatabase } from '../../db'
 import type { ExecutionHost } from '../../runtime/execution-host'
 import type {
   ContainerAction, ContainerEngine, OxeQueryConnection, OxeQueryConnectionInput, OxeQueryErrorInfo, OxeQueryEvent, OxeQueryOp, OxeQueryOps, OxeQueryResponse,
-  SqlBrowseInput
+  SqlBrowseInput, SqlFilter, SqlFilterOp, SqlScriptResult
 } from '../../../../shared/types/oxequery'
 import { ConnectionInputError, ConnectionStore, type SecretCipher } from './connection-store'
 import { ContainerRuntime, ContainerRuntimeError } from './container-runtime'
@@ -38,6 +38,33 @@ function optionalInt(value: unknown, min: number, max: number): number | undefin
   if (!Number.isSafeInteger(value) || (value as number) < min || (value as number) > max) throw new OxeQueryError('invalid', 'Invalid number.')
   return value as number
 }
+const FILTER_OPS = new Set<string>(['eq', 'ne', 'lt', 'lte', 'gt', 'gte', 'contains', 'startsWith', 'endsWith', 'null', 'notNull', 'in'])
+
+/** Values for `$1`, `$2`…: text or null, a bounded number of them. */
+function sqlParams(value: unknown): (string | null)[] | undefined {
+  if (value === undefined) return undefined
+  if (!Array.isArray(value) || value.length > 100) throw new OxeQueryError('invalid', 'Invalid parameters.')
+  return value.map(entry => {
+    if (entry === null) return null
+    if (typeof entry !== 'string' || entry.length > 65_536 || entry.includes('\0')) throw new OxeQueryError('invalid', 'A parameter must be text.')
+    return entry
+  })
+}
+
+function sqlFilters(value: unknown): SqlFilter[] {
+  if (!Array.isArray(value) || value.length > 20) throw new OxeQueryError('invalid', 'Invalid filters.')
+  return value.map(entry => {
+    const item = record(entry)
+    if (typeof item.op !== 'string' || !FILTER_OPS.has(item.op)) throw new OxeQueryError('invalid', 'Unsupported filter.')
+    const filter: SqlFilter = { column: str(item.column, 'Column', 255), op: item.op as SqlFilterOp }
+    if (item.value !== undefined && item.value !== null) {
+      if (typeof item.value !== 'string' || item.value.length > 4096 || item.value.includes('\0')) throw new OxeQueryError('invalid', 'A filter value must be text.')
+      filter.value = item.value
+    }
+    return filter
+  })
+}
+
 function engine(value: unknown): ContainerEngine | undefined {
   if (value === undefined) return undefined
   if (value !== 'docker' && value !== 'podman') throw new OxeQueryError('invalid', 'Unknown container engine.')
@@ -234,7 +261,7 @@ export class OxeQueryService {
         const started = Date.now()
         try {
           const result = await this.worker.call<{ columns: unknown[]; rowCount: number; affectedRows?: number }>('sql.run', connection, {
-            sql, maxRows: optionalInt(input.maxRows, 1, 10_000), confirmed: input.confirmed === true
+            sql, maxRows: optionalInt(input.maxRows, 1, 10_000), confirmed: input.confirmed === true, params: sqlParams(input.params)
           })
           this.library.record(connection.id, { sql, durationMs: Date.now() - started, rows: result.columns.length ? result.rowCount : result.affectedRows ?? null, ok: true })
           return result
@@ -243,6 +270,22 @@ export class OxeQueryService {
           if (!(error instanceof OxeQueryError && error.code === 'confirm')) this.library.record(connection.id, { sql, durationMs: Date.now() - started, rows: null, ok: false })
           throw error
         }
+      })
+      case 'sql.script': return this.requireEngine(input.connectionId, 'postgres', async connection => {
+        const sql = str(input.sql, 'SQL', 1024 * 1024)
+        const started = Date.now()
+        const outcome = await this.worker.call<SqlScriptResult>('sql.script', connection, { sql, maxRows: optionalInt(input.maxRows, 1, 10_000), confirmed: input.confirmed === true })
+        // Every statement that ran is history on its own, so a statement can be found and run again.
+        for (const entry of outcome.statements) {
+          const text = sql.slice(entry.start, entry.end)
+          this.library.record(connection.id, { sql: text, durationMs: entry.result?.durationMs ?? Date.now() - started, rows: entry.result ? (entry.result.columns.length ? entry.result.rowCount : entry.result.affectedRows ?? null) : null, ok: !entry.error })
+        }
+        return outcome
+      })
+      case 'sql.tx': return this.requireEngine(input.connectionId, 'postgres', connection => {
+        const action = str(input.action, 'Action', 16)
+        if (!['begin', 'commit', 'rollback', 'status'].includes(action)) throw new OxeQueryError('invalid', 'Unsupported transaction action.')
+        return this.worker.call('sql.tx', connection, { action })
       })
       case 'audit.list': return this.auditLog.list({ ...(typeof input.connectionId === 'string' ? { connectionId: input.connectionId.slice(0, 64) } : {}), limit: optionalInt(input.limit, 1, 500) })
       case 'library.list': return this.library.list(this.resolve(input.connectionId).id)
@@ -261,6 +304,7 @@ export class OxeQueryService {
           const order = record(input.orderBy)
           browse.orderBy = { column: str(order.column, 'Column', 255), direction: order.direction === 'desc' ? 'desc' : 'asc' }
         }
+        if (input.filters !== undefined) browse.filters = sqlFilters(input.filters)
         return this.requireEngine(browse.connectionId, 'postgres', connection => this.worker.call('sql.browse', connection, browse))
       }
       case 'sql.cancel': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.cancel', connection))

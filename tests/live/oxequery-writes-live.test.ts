@@ -170,6 +170,50 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
     expect(sql.slice((error as { detail: { position: number } }).detail.position - 1, (error as { detail: { position: number } }).detail.position + 3)).toBe('nope')
   })
 
+  it('runs a script statement by statement, binds parameters, filters a table and keeps a transaction open', async () => {
+    await exec('CREATE TABLE ledger (id serial primary key, who text, amount numeric, note text)')
+    const script = await core.sqlScript(pg, "INSERT INTO ledger (who, amount, note) VALUES ('ana', 10, 'first; one'), ('bo', 25.5, NULL); SELECT count(*) FROM ledger; SELECT * FROM missing_table; SELECT 'never runs'")
+    expect(script.statements.map(entry => entry.error ? 'error' : entry.result?.command)).toEqual(['INSERT', 'SELECT', 'error'])
+    expect(script.stoppedAt).toBe(2)
+    expect(script.statements[1].result?.rows[0][0]).toBe('2')
+    expect(script.statements[2].error).toMatchObject({ code: 'query', sqlState: '42P01' })
+    // The statements before the failure stay done: each one ran on its own.
+    expect(await scalar('SELECT count(*) FROM ledger')).toBe('2')
+
+    const bound = await core.sqlRun(pg, 'SELECT who FROM ledger WHERE amount > $1 AND note IS NOT DISTINCT FROM $2', { params: ['20', null] })
+    expect(bound.rows).toEqual([['bo']])
+    await expect(core.sqlRun(pg, 'SELECT $1; SELECT $1', { params: ['a'] })).rejects.toMatchObject({ code: 'invalid' })
+
+    const page = await core.sqlBrowse(pg, { connectionId: 'pg', schema: 'public', table: 'ledger', filters: [{ column: 'who', op: 'contains', value: 'A' }, { column: 'amount', op: 'gte', value: '1' }] })
+    expect(page.rows.map(row => row[1])).toEqual(['ana'])
+    expect(page.totalRows).toBe(1)
+    const listed = await core.sqlBrowse(pg, { connectionId: 'pg', schema: 'public', table: 'ledger', filters: [{ column: 'who', op: 'in', value: 'ana, bo, nobody' }], orderBy: { column: 'id', direction: 'desc' } })
+    expect(listed.rows.map(row => row[1])).toEqual(['bo', 'ana'])
+    await expect(core.sqlBrowse(pg, { connectionId: 'pg', schema: 'public', table: 'ledger', filters: [{ column: 'amount', op: 'eq', value: 'not a number' }] })).rejects.toMatchObject({ code: 'query' })
+
+    expect(core.txState(pg)).toMatchObject({ state: 'none' })
+    expect(await core.sqlTx(pg, 'begin')).toMatchObject({ state: 'open' })
+    await core.sqlRun(pg, "INSERT INTO ledger (who, amount) VALUES ('cy', 1)")
+    expect(core.txState(pg)).toMatchObject({ state: 'open', statements: 1 })
+    expect(await scalar('SELECT count(*) FROM ledger')).toBe('3')
+    expect(await core.sqlTx(pg, 'rollback')).toMatchObject({ state: 'none' })
+    expect(await scalar('SELECT count(*) FROM ledger')).toBe('2')
+
+    await core.sqlTx(pg, 'begin')
+    await core.sqlRun(pg, "INSERT INTO ledger (who, amount) VALUES ('di', 2)")
+    await expect(core.sqlRun(pg, 'SELECT * FROM nope')).rejects.toMatchObject({ code: 'query' })
+    expect(core.txState(pg)).toMatchObject({ state: 'failed' })
+    await expect(core.sqlRun(pg, 'SELECT 1')).rejects.toThrow(/Roll it back/)
+    await core.sqlTx(pg, 'rollback')
+    expect(await scalar('SELECT count(*) FROM ledger')).toBe('2')
+
+    await core.sqlTx(pg, 'begin')
+    await core.sqlRun(pg, "INSERT INTO ledger (who, amount) VALUES ('ed', 3)")
+    await core.sqlRun(pg, 'COMMIT')
+    expect(core.txState(pg)).toMatchObject({ state: 'none' })
+    expect(await scalar('SELECT count(*) FROM ledger')).toBe('3')
+  })
+
   it('edits a MongoDB document without retyping its numbers, and loads one too large to list', async () => {
     const target = { connectionId: 'mongo', database: 'shop', collection: 'typed' }
     await core.mongoWrite(mongo, { ...target, op: 'insert', document: '{"_id": 1, "count": {"$numberLong": "7"}, "ratio": {"$numberDouble": "2.0"}, "price": {"$numberDecimal": "1.10"}, "label": "a", "blob": "' + 'x'.repeat(70_000) + '"}' })

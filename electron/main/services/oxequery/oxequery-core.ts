@@ -5,9 +5,11 @@ import Cursor from 'pg-cursor'
 import { MongoClient, type Document } from 'mongodb'
 import type {
   ConnectionTestResult, MongoWriteInput, MongoWriteResult, SqlApplyInput, SqlApplyResult, SqlEditability, MongoAggregateInput, MongoCollectionInfo, MongoDatabaseInfo, MongoFindInput, MongoIndexInfo, MongoResult,
-  SqlBrowseInput, SqlColumn, SqlResult, SqlTable, SqlTableDetails, SqlTables
+  SqlBrowseInput, SqlColumn, SqlResult, SqlTable, SqlTableDetails, SqlTables, ScriptStatementResult, SqlScriptResult
 } from '../../../../shared/types/oxequery'
-import { guardSql, isMutating, quoteIdentifier } from './sql-guard'
+import { guardSql, isMutating, quoteIdentifier, tokenizeStatements } from './sql-guard'
+import { buildFilterClause } from './filter-clause'
+import { splitStatements } from '../../../../shared/sqlText'
 import { OxeQueryError, type ResolvedConnection } from './oxequery-errors'
 import { mongoTlsOptions, mongoUri, pgSsl, type Endpoint } from './connection-options'
 import { openTunnel, tunnelAvailable, type OpenTunnel } from './ssh-tunnel'
@@ -98,7 +100,9 @@ function sessionKey(connection: ResolvedConnection): string {
   ])).digest('hex')
 }
 
-interface PgSession { key: string; client: Client; running: boolean; lastUsed: number; endpoint: Endpoint; tunnel?: OpenTunnel }
+/** open: a transaction the person began; failed: a statement in it failed, so only ROLLBACK is accepted. */
+type TxState = 'none' | 'open' | 'failed'
+interface PgSession { key: string; client: Client; running: boolean; lastUsed: number; endpoint: Endpoint; tunnel?: OpenTunnel; tx: TxState; txStatements: number; txSince?: number }
 interface MongoSession { key: string; client: MongoClient; lastUsed: number; tunnel?: OpenTunnel }
 
 /** A connection nobody used for this long is closed; it reopens on the next request. */
@@ -106,6 +110,8 @@ const withConnectionHint = (message: string, connection: ResolvedConnection): st
 
 /** How many tables of one schema are listed; the tree says so when there are more. */
 const MAX_TABLES_LISTED = 20_000
+/** A script this long is a migration, not a query tab. */
+const MAX_SCRIPT_STATEMENTS = 500
 const IDLE_MS = 10 * 60_000
 const MAX_SESSIONS = 12
 /** How long a catalog read waits for the query that is using the connection. */
@@ -128,7 +134,7 @@ export class OxeQueryCore {
   /** Closes sessions idle past the limit, and the least recently used one when too many are open. */
   async reapIdle(now = Date.now()): Promise<number> {
     const sessions = [
-      ...[...this.pg].filter(([, session]) => !session.running).map(([id, session]) => ({ id, lastUsed: session.lastUsed })),
+      ...[...this.pg].filter(([, session]) => !session.running && session.tx === 'none').map(([id, session]) => ({ id, lastUsed: session.lastUsed })),
       ...[...this.mongo].map(([id, session]) => ({ id, lastUsed: session.lastUsed }))
     ].sort((a, b) => a.lastUsed - b.lastUsed)
     const total = new Set([...this.pg.keys(), ...this.mongo.keys()]).size
@@ -174,7 +180,7 @@ export class OxeQueryCore {
       await tunnel?.close()
       throw new OxeQueryError('connect', withConnectionHint(redact(error instanceof Error ? error.message : 'Connection failed', connection.password, connection.ssh?.password, connection.ssh?.passphrase), connection))
     }
-    const session: PgSession = { key, client, running: false, lastUsed: Date.now(), endpoint, ...(tunnel ? { tunnel } : {}) }
+    const session: PgSession = { key, client, running: false, lastUsed: Date.now(), endpoint, tx: 'none', txStatements: 0, ...(tunnel ? { tunnel } : {}) }
     // A tunnel that drops under a live session would leave a client talking to nothing.
     tunnel?.onClose(() => { if (this.pg.get(connection.id) === session) this.pg.delete(connection.id) })
     this.pg.set(connection.id, session)
@@ -200,9 +206,14 @@ export class OxeQueryCore {
     const notices: string[] = []
     const onNotice = (notice: { message?: string }): void => { if (notices.length < 20 && notice.message) notices.push(notice.message.slice(0, 500)) }
     client.on('notice', onNotice)
+    // A transaction the person opened is theirs to end: no wrapper of ours around its statements.
+    const manual = session.tx !== 'none'
     try {
-      if (readOnly) await client.query('BEGIN READ ONLY')
+      if (readOnly && !manual) await client.query('BEGIN READ ONLY')
       const verdict = guardSql(sql)
+      if (session.tx === 'failed' && !/^\s*(ROLLBACK|ABORT)\b/i.test(sql)) {
+        throw new OxeQueryError('invalid', 'The transaction failed. Roll it back before running anything else.')
+      }
       let result: SqlResult
       if (verdict.statements > 1 && params.length === 0) {
         // Several statements need the simple protocol; results are capped afterwards.
@@ -231,8 +242,11 @@ export class OxeQueryCore {
           await new Promise<void>(resolve => cursor.close(() => resolve()))
         }
       }
+      this.trackTransaction(session, sql)
       return { ...result, durationMs: Date.now() - started, ...(notices.length ? { notices } : {}) }
     } catch (error) {
+      if (session.tx === 'open') session.tx = 'failed'
+      if (error instanceof OxeQueryError) throw error
       const message = error instanceof Error ? error.message : 'Query failed'
       if (/canceling statement due to user request/i.test(message)) throw new OxeQueryError('cancelled', 'The query was cancelled.')
       if (/statement timeout/i.test(message)) throw new OxeQueryError('timeout', `The query ran longer than ${Math.round(this.timeoutOf(connection) / 1000)}s and was stopped.`)
@@ -245,32 +259,111 @@ export class OxeQueryCore {
       })
     } finally {
       client.off('notice', onNotice)
-      if (readOnly) await client.query('ROLLBACK').catch(() => undefined)
+      if (readOnly && !manual) await client.query('ROLLBACK').catch(() => undefined)
       session.running = false
       session.lastUsed = Date.now()
     }
   }
 
-  async sqlRun(connection: ResolvedConnection, sql: string, options: { maxRows?: number; confirmed?: boolean } = {}): Promise<SqlResult> {
+  /** Keeps the transaction flag in step with BEGIN, COMMIT and ROLLBACK, however they were issued. */
+  private trackTransaction(session: PgSession, sql: string): void {
+    const words = tokenizeStatements(sql)
+    for (const statement of words) {
+      const [first, second] = statement
+      if (first === 'BEGIN' || (first === 'START' && second === 'TRANSACTION')) { if (session.tx === 'none') { session.tx = 'open'; session.txStatements = 0; session.txSince = Date.now() } }
+      else if (first === 'COMMIT' || first === 'END' || first === 'ABORT' || (first === 'ROLLBACK' && second !== 'TO' && statement[2] !== 'SAVEPOINT')) { session.tx = 'none'; session.txStatements = 0; delete session.txSince }
+      else if (session.tx === 'open') session.txStatements++
+    }
+  }
+
+  /** The transaction of one connection, for the toolbar. */
+  txState(connection: ResolvedConnection): { state: TxState; statements: number; since?: number } {
+    const session = this.pg.get(connection.id)
+    return session ? { state: session.tx, statements: session.txStatements, ...(session.txSince ? { since: session.txSince } : {}) } : { state: 'none', statements: 0 }
+  }
+
+  /** Opens, commits or rolls back the transaction of a connection; SQL the person types does the same through `trackTransaction`. */
+  async sqlTx(connection: ResolvedConnection, action: 'begin' | 'commit' | 'rollback'): Promise<{ state: TxState; statements: number; since?: number }> {
+    if (action === 'begin') {
+      if (connection.readOnly) throw new OxeQueryError('read-only', 'This connection is read-only, so there is nothing to commit. Turn read-only off to work in a transaction.')
+      const session = await this.pgSession(connection)
+      if (session.tx !== 'none') throw new OxeQueryError('invalid', 'A transaction is already open on this connection.')
+      await this.pgRun(connection, 'BEGIN', [], 1, false)
+    } else {
+      const session = this.pg.get(connection.id)
+      if (!session || session.tx === 'none') throw new OxeQueryError('invalid', 'There is no open transaction on this connection.')
+      await this.pgRun(connection, action === 'commit' ? 'COMMIT' : 'ROLLBACK', [], 1, false)
+    }
+    return this.txState(connection)
+  }
+
+  /** The statement's own checks: empty, read-only, destructive. Throws when it may not run. */
+  private checkStatement(connection: ResolvedConnection, sql: string, confirmed: boolean | undefined): void {
     if (typeof sql !== 'string' || sql.length > 1024 * 1024) throw new OxeQueryError('invalid', 'The SQL is empty or too large.')
     const verdict = guardSql(sql)
     if (verdict.kind === 'empty') throw new OxeQueryError('invalid', 'There is nothing to run.')
     if (connection.readOnly && isMutating(verdict)) {
       throw new OxeQueryError('read-only', 'This connection is read-only. Turn read-only off to run statements that change data.', verdict.reasons)
     }
-    if (verdict.kind === 'destructive' && !options.confirmed) {
+    if (verdict.kind === 'destructive' && !confirmed) {
       throw new OxeQueryError('confirm', 'This statement is destructive and needs confirmation.', verdict.reasons)
     }
-    return this.pgRun(connection, sql, [], clampRows(options.maxRows ?? connection.maxRows), connection.readOnly)
+  }
+
+  async sqlRun(connection: ResolvedConnection, sql: string, options: { maxRows?: number; confirmed?: boolean; params?: (string | null)[] } = {}): Promise<SqlResult> {
+    this.checkStatement(connection, sql, options.confirmed)
+    const params = options.params ?? []
+    if (params.length > 0 && guardSql(sql).statements > 1) throw new OxeQueryError('invalid', 'Parameters work with one statement at a time.')
+    return this.pgRun(connection, sql, params, clampRows(options.maxRows ?? connection.maxRows), connection.readOnly)
+  }
+
+  /**
+   * Runs a script statement by statement, each on its own, and stops at the first failure. Everything is
+   * checked before the first one runs, so a read-only connection or an unconfirmed DROP in the middle
+   * does not leave half a script behind.
+   */
+  async sqlScript(connection: ResolvedConnection, sql: string, options: { maxRows?: number; confirmed?: boolean } = {}): Promise<SqlScriptResult> {
+    if (typeof sql !== 'string' || sql.length > 1024 * 1024) throw new OxeQueryError('invalid', 'The SQL is empty or too large.')
+    const spans = splitStatements(sql)
+    if (spans.length === 0) throw new OxeQueryError('invalid', 'There is nothing to run.')
+    if (spans.length > MAX_SCRIPT_STATEMENTS) throw new OxeQueryError('invalid', `A script can have up to ${MAX_SCRIPT_STATEMENTS} statements.`)
+    const reasons = new Set<string>()
+    for (const span of spans) {
+      try { this.checkStatement(connection, span.text, options.confirmed) } catch (error) {
+        if (error instanceof OxeQueryError && error.code === 'confirm') { for (const reason of error.reasons) reasons.add(reason); continue }
+        throw error
+      }
+    }
+    if (reasons.size) throw new OxeQueryError('confirm', 'This script has destructive statements and needs confirmation.', [...reasons])
+    const statements: ScriptStatementResult[] = []
+    const maxRows = clampRows(options.maxRows ?? connection.maxRows)
+    for (const [index, span] of spans.entries()) {
+      const entry: ScriptStatementResult = { index, start: span.start, end: span.end, sql: span.text.slice(0, 200) }
+      try { entry.result = await this.pgRun(connection, span.text, [], maxRows, connection.readOnly) } catch (error) {
+        const failure = error instanceof OxeQueryError ? error : new OxeQueryError('query', error instanceof Error ? error.message : 'Statement failed')
+        entry.error = { code: failure.code, message: failure.message, ...failure.detail }
+        statements.push(entry)
+        return { statements, stoppedAt: index }
+      }
+      statements.push(entry)
+    }
+    return { statements }
   }
 
   async sqlBrowse(connection: ResolvedConnection, input: SqlBrowseInput): Promise<SqlResult> {
     const limit = clampRows(input.limit ?? Math.min(100, connection.maxRows ?? 100))
     const offset = Math.max(0, Math.min(Math.trunc(input.offset ?? 0) || 0, 10_000_000))
     const order = input.orderBy ? ` ORDER BY ${quoteIdentifier(input.orderBy.column)} ${input.orderBy.direction === 'desc' ? 'DESC' : 'ASC'}` : ''
-    const sql = `SELECT * FROM ${quoteIdentifier(input.schema)}.${quoteIdentifier(input.table)}${order} LIMIT ${limit + 1} OFFSET ${offset}`
-    const result = await this.pgMeta(connection, sql, [], limit, true)
-    return result
+    const { where, params } = buildFilterClause(input.filters ?? [])
+    const table = `${quoteIdentifier(input.schema)}.${quoteIdentifier(input.table)}`
+    const sql = `SELECT * FROM ${table}${where}${order} LIMIT ${limit + 1} OFFSET ${offset}`
+    const result = await this.pgMeta(connection, sql, params, limit, true)
+    if (params.length === 0 && !where) return result
+    // A filter changes how many rows there are, so the page says how many match (a slow count is not worth failing for).
+    try {
+      const counted = await this.pgMeta(connection, `SELECT count(*) FROM ${table}${where}`, params, 1, true)
+      return { ...result, totalRows: Number(counted.rows[0]?.[0] ?? 0) }
+    } catch { return result }
   }
 
   async sqlSchemas(connection: ResolvedConnection): Promise<string[]> {
@@ -369,6 +462,7 @@ export class OxeQueryCore {
     const statements = buildStatements(input.schema, input.table, editable.columns, input.changes as RowChange[])
     const session = await this.pgSession(connection)
     if (session.running) throw new OxeQueryError('invalid', 'This connection is already running a query. Wait for it or cancel it.')
+    if (session.tx !== 'none') throw new OxeQueryError('invalid', 'A transaction is open on this connection. Commit or roll it back first.')
     session.running = true
     const { client } = session
     try {
@@ -645,6 +739,7 @@ export class OxeQueryCore {
     const body = input.sql.replace(/;\s*$/, '')
     const session = await this.pgSession(connection)
     if (session.running) throw new OxeQueryError('invalid', 'This connection is already running a query. Wait for it or cancel it.')
+    if (session.tx !== 'none') throw new OxeQueryError('invalid', 'A transaction is open on this connection. Commit or roll it back first.')
     session.running = true
     const { client } = session
     try {
@@ -794,6 +889,7 @@ export class OxeQueryCore {
         Array.from({ length: count }, (_, rowIndex) => `(${metas.map((meta, columnIndex) => `$${rowIndex * metas.length + columnIndex + 1}::${meta.type}`).join(', ')})`).join(', ')}`
       const session = await this.pgSession(connection)
       if (session.running) throw new OxeQueryError('invalid', 'This connection is already running a query. Wait for it or cancel it.')
+    if (session.tx !== 'none') throw new OxeQueryError('invalid', 'A transaction is open on this connection. Commit or roll it back first.')
       session.running = true
       const { client } = session
       let batch: (string | null)[][] = []
@@ -890,6 +986,7 @@ export class OxeQueryCore {
       } else {
         const session = await this.pgSession(connection)
         if (session.running) throw new OxeQueryError('invalid', 'This connection is already running a query. Wait for it or cancel it.')
+    if (session.tx !== 'none') throw new OxeQueryError('invalid', 'A transaction is open on this connection. Commit or roll it back first.')
         let sql: string
         if (input.source.kind === 'table') sql = `SELECT * FROM ${quoteIdentifier(input.source.schema)}.${quoteIdentifier(input.source.table)}`
         else {

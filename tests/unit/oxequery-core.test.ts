@@ -14,7 +14,7 @@ describe('session lifecycle', () => {
     const core = new OxeQueryCore(); cores.push(core)
     const internals = core as unknown as Internals
     const ended: string[] = []
-    const session = (id: string, lastUsed: number, running = false) => ({ key: id, running, lastUsed, client: { end: async () => { ended.push(id) } } })
+    const session = (id: string, lastUsed: number, running = false) => ({ key: id, running, tx: 'none', lastUsed, client: { end: async () => { ended.push(id) } } })
     const now = 100 * 60_000
     internals.pg.set('idle', session('idle', now - 11 * 60_000))
     internals.pg.set('busy', session('busy', now - 30 * 60_000, true))

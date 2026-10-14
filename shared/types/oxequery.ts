@@ -205,6 +205,8 @@ export interface SqlResult {
   truncated: boolean
   /** Why the rows stop: the row limit, or the size of the result. */
   limitedBy?: 'rows' | 'bytes'
+  /** Exact number of rows a filtered table browse matches, when it was cheap to count. */
+  totalRows?: number
   durationMs: number
   command?: string
   affectedRows?: number
@@ -217,7 +219,29 @@ export interface SqlRunInput {
   maxRows?: number
   /** The user confirmed a statement the guard flagged. */
   confirmed?: boolean
+  /** Values for `$1`, `$2`…; text the server casts to the parameter's type (null is NULL). */
+  params?: (string | null)[]
 }
+
+/** A script: every statement runs on its own, in order, and the run stops at the first one that fails. */
+export interface SqlScriptInput { connectionId: string; sql: string; maxRows?: number; confirmed?: boolean }
+export interface ScriptStatementResult {
+  index: number
+  /** Offsets of the statement in the script text. */
+  start: number
+  end: number
+  /** The first characters of the statement. */
+  sql: string
+  result?: SqlResult
+  error?: { code: string; message: string; position?: number; sqlState?: string; hint?: string }
+}
+export interface SqlScriptResult { statements: ScriptStatementResult[]; stoppedAt?: number }
+
+export interface SqlTxState { state: 'none' | 'open' | 'failed'; statements: number; since?: number }
+
+export type SqlFilterOp = 'eq' | 'ne' | 'lt' | 'lte' | 'gt' | 'gte' | 'contains' | 'startsWith' | 'endsWith' | 'null' | 'notNull' | 'in'
+/** One condition of the table filter bar. `value` is text the server casts to the column type. */
+export interface SqlFilter { column: string; op: SqlFilterOp; value?: string }
 
 export interface SqlGuardVerdict {
   kind: 'read' | 'write' | 'ddl' | 'destructive' | 'empty'
@@ -239,6 +263,7 @@ export interface SqlBrowseInput {
   limit?: number
   offset?: number
   orderBy?: { column: string; direction: 'asc' | 'desc' }
+  filters?: SqlFilter[]
 }
 
 /** One edit to a table row. Values are text that the server casts to the column type, or null. */
@@ -467,6 +492,8 @@ export interface OxeQueryOps {
   'sql.run': { input: SqlRunInput; output: SqlResult }
   'sql.browse': { input: SqlBrowseInput; output: SqlResult }
   'sql.cancel': { input: { connectionId: string }; output: { cancelled: boolean } }
+  'sql.script': { input: SqlScriptInput; output: SqlScriptResult }
+  'sql.tx': { input: { connectionId: string; action: 'begin' | 'commit' | 'rollback' | 'status' }; output: SqlTxState }
   'sql.editability': { input: { connectionId: string; schema: string; table: string }; output: SqlEditability }
   /** The statements a set of changes would run, with values written in. Executes nothing. */
   'sql.previewChanges': { input: SqlApplyInput; output: { statements: string[] } }

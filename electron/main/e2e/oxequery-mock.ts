@@ -6,6 +6,7 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
+import { splitStatements } from '../../../shared/sqlText'
 import type { ContainerSummary, OxeQueryConnection, OxeQueryErrorInfo, SqlResult } from '../../../shared/types/oxequery'
 
 type Input = Record<string, unknown>
@@ -17,6 +18,7 @@ export function registerOxeQueryMock(): void {
     { id: 'c3', name: 'old-job', image: 'alpine:3', state: 'exited', status: 'Exited (0) 3 days ago', ports: [], labels: {} }
   ]
   const connections: OxeQueryConnection[] = []
+  let tx: { state: 'none' | 'open' | 'failed'; statements: number; since?: number } = { state: 'none', statements: 0 }
   const send = (event: unknown): void => { for (const window of BrowserWindow.getAllWindows()) window.webContents.send(IPC_CHANNELS.oxeQuery.onEvent, event) }
   const fail = (code: OxeQueryErrorInfo['code'], message: string, reasons?: string[]) => ({ ok: false as const, error: { code, message, ...(reasons ? { reasons } : {}) } })
   const ok = <T,>(value: T) => ({ ok: true as const, value })
@@ -136,6 +138,17 @@ export function registerOxeQueryMock(): void {
         if (/^\s*delete\s+from\s+\w+\s*;?\s*$/i.test(sql) && input.confirmed !== true) return fail('confirm', 'This statement is destructive and needs confirmation.', ['DELETE without a WHERE clause affects every row'])
         if (mutating) return ok({ columns: [], rows: [], rowCount: 0, truncated: false, durationMs: 2, command: 'DELETE', affectedRows: 3 })
         return ok(users)
+      }
+      case 'sql.script': {
+        const sql = String(input.sql ?? '')
+        const spans = splitStatements(sql)
+        return ok({ statements: spans.map((span, index) => ({ index, start: span.start, end: span.end, sql: span.text.slice(0, 200), result: users })) })
+      }
+      case 'sql.tx': {
+        const action = String(input.action)
+        if (action === 'begin') tx = { state: 'open', statements: 0, since: Date.now() }
+        else if (action === 'commit' || action === 'rollback') tx = { state: 'none', statements: 0 }
+        return ok(tx)
       }
       case 'sql.cancel': return ok({ cancelled: false })
       case 'sql.check': return ok({ kind: 'read', reasons: [], statements: 1 })
