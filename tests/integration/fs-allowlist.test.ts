@@ -29,6 +29,11 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Producer-owned, crash-recoverable delivery queue under the private memory
   // directory; files carry opaque names and are never derived from workspace paths.
   'electron/main/services/memory/memory-outbox.ts',
+  // Read-only size inventory of the private memory directory: counts bytes, never reads
+  // file contents, follows no links and deletes nothing.
+  'electron/main/services/memory/memory-storage.ts',
+  // Streams the RTK archive the app itself downloaded to hash it before extraction.
+  'electron/main/services/rtk-checksum.ts',
   // Documentation owns generated artifacts under userData/documentation only.
   // Tool callers supply IDs, never filesystem paths or workspace destinations.
   'electron/main/services/documentation/documentation.service.ts',
