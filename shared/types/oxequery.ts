@@ -237,6 +237,13 @@ export interface ScriptStatementResult {
 }
 export interface SqlScriptResult { statements: ScriptStatementResult[]; stoppedAt?: number }
 
+/** The query tabs of a connection as they are saved: text only, never results. */
+export interface WorkspaceState {
+  v: 1
+  activeId: string
+  tabs: { id: string; title: string; sql: string; pinned?: boolean }[]
+}
+
 export interface SqlTxState { state: 'none' | 'open' | 'failed'; statements: number; since?: number }
 
 export type SqlFilterOp = 'eq' | 'ne' | 'lt' | 'lte' | 'gt' | 'gte' | 'contains' | 'startsWith' | 'endsWith' | 'null' | 'notNull' | 'in'
@@ -493,6 +500,8 @@ export interface OxeQueryOps {
   'sql.browse': { input: SqlBrowseInput; output: SqlResult }
   'sql.cancel': { input: { connectionId: string }; output: { cancelled: boolean } }
   'sql.script': { input: SqlScriptInput; output: SqlScriptResult }
+  'workspace.load': { input: { connectionId: string }; output: { state: WorkspaceState | null } }
+  'workspace.save': { input: { connectionId: string; state: WorkspaceState }; output: { ok: true } }
   'sql.tx': { input: { connectionId: string; action: 'begin' | 'commit' | 'rollback' | 'status' }; output: SqlTxState }
   'sql.editability': { input: { connectionId: string; schema: string; table: string }; output: SqlEditability }
   /** The statements a set of changes would run, with values written in. Executes nothing. */

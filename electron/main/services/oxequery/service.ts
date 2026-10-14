@@ -12,6 +12,7 @@ import { guardSql } from './sql-guard'
 import type { OxeQueryWorkerClient } from './worker-client'
 import { PickedFiles, type PickedKind } from './picked-files'
 import { LibraryInputError, QueryLibrary } from './query-library'
+import { WorkspaceInputError, WorkspaceStore } from './workspace-store'
 import { AgentGateway } from './agent-gateway'
 import { ApprovalBroker, type ApprovalPrompter } from './approval-broker'
 import { AuditLog } from './audit-log'
@@ -74,7 +75,7 @@ function engine(value: unknown): ContainerEngine | undefined {
 export function toErrorInfo(error: unknown): OxeQueryErrorInfo {
   if (error instanceof OxeQueryError) return { code: error.code, message: error.message, ...(error.reasons.length ? { reasons: error.reasons } : {}), ...error.detail }
   if (error instanceof ContainerRuntimeError) return { code: error.code, message: error.message }
-  if (error instanceof ConnectionInputError || error instanceof MongoInputError || error instanceof LibraryInputError) return { code: 'invalid', message: error.message }
+  if (error instanceof ConnectionInputError || error instanceof MongoInputError || error instanceof LibraryInputError || error instanceof WorkspaceInputError) return { code: 'invalid', message: error.message }
   return { code: 'failed', message: error instanceof Error ? error.message.slice(0, 400) : 'OxeQuery failed.' }
 }
 
@@ -104,6 +105,7 @@ export class OxeQueryService {
   private readonly shells = new Map<string, { file: string; args: string[] }>()
   private readonly picked = new PickedFiles()
   private readonly library: QueryLibrary
+  private readonly workspaces: WorkspaceStore
   private readonly auditLog: AuditLog
   /** What the internal MCP tools call; policy and approval live inside it. */
   readonly agent: AgentGateway
@@ -118,6 +120,7 @@ export class OxeQueryService {
   constructor(options: OxeQueryServiceOptions) {
     this.connections = new ConnectionStore(options.db, options.cipher, this.picked)
     this.library = new QueryLibrary(options.db)
+    this.workspaces = new WorkspaceStore(options.db)
     this.library.scrubHistory()
     this.pickFile = options.pickFile
     this.pickSavePath = options.pickSavePath
@@ -287,6 +290,8 @@ export class OxeQueryService {
         if (!['begin', 'commit', 'rollback', 'status'].includes(action)) throw new OxeQueryError('invalid', 'Unsupported transaction action.')
         return this.worker.call('sql.tx', connection, { action })
       })
+      case 'workspace.load': return { state: this.workspaces.load(this.resolve(input.connectionId).id) }
+      case 'workspace.save': { this.workspaces.save(this.resolve(input.connectionId).id, input.state); return { ok: true } }
       case 'audit.list': return this.auditLog.list({ ...(typeof input.connectionId === 'string' ? { connectionId: input.connectionId.slice(0, 64) } : {}), limit: optionalInt(input.limit, 1, 500) })
       case 'library.list': return this.library.list(this.resolve(input.connectionId).id)
       case 'library.save': return this.library.save({
