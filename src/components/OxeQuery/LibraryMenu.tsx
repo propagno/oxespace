@@ -4,12 +4,14 @@ import type { OxeQueryConnection, QueryHistoryItem, SavedQuery } from '../../../
 import { errorMessage, oq } from './client'
 
 /** Saved queries and history for one connection; both live in the app database, not in the page. */
-export function LibraryMenu({ connection, currentSql, refreshKey, onPick }: {
+export function LibraryMenu({ connection, currentSql, refreshKey, onPick, describe = text => text.replace(/\s+/g, ' ') }: {
   connection: OxeQueryConnection
   currentSql: string
   /** Changes after every run so a reopened menu is current. */
   refreshKey: number
   onPick: (sql: string) => void
+  /** What a list shows for an entry; defaults to the text on one line. */
+  describe?: (sql: string) => string
 }): ReactElement {
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState<'saved' | 'history'>('saved')
@@ -56,7 +58,7 @@ export function LibraryMenu({ connection, currentSql, refreshKey, onPick }: {
           <button type="button" className="oq-primary" disabled={!name.trim() || !currentSql.trim()} onClick={() => void save()}>Save</button>
         </form>
         <ul>{saved.map(item => <li key={item.id}>
-          <button type="button" title={item.sql} onClick={() => { onPick(item.sql); setOpen(false) }}><strong>{item.name}</strong><code>{item.sql.replace(/\s+/g, ' ').slice(0, 80)}</code></button>
+          <button type="button" title={item.sql} onClick={() => { onPick(item.sql); setOpen(false) }}><strong>{item.name}</strong><code>{describe(item.sql).slice(0, 80)}</code></button>
           <button type="button" aria-label={`Delete ${item.name}`} onClick={() => void remove(item.id)}><Trash2 size={12} aria-hidden="true" /></button>
         </li>)}</ul>
         {saved.length === 0 && <p className="oq-muted">Nothing saved yet.</p>}
@@ -64,7 +66,7 @@ export function LibraryMenu({ connection, currentSql, refreshKey, onPick }: {
       {tab === 'history' && <>
         <ul>{history.map(item => <li key={item.id}>
           <button type="button" title={item.sql} onClick={() => { onPick(item.sql); setOpen(false) }}>
-            <code>{item.sql.replace(/\s+/g, ' ').slice(0, 90)}</code>
+            <code>{describe(item.sql).slice(0, 90)}</code>
             <small>{item.ok ? `${item.rows ?? '–'} rows · ${item.durationMs ?? '–'} ms` : 'failed'} · {new Date(item.ranAt).toLocaleString()}</small>
           </button></li>)}</ul>
         {history.length === 0 ? <p className="oq-muted">Statements you run appear here.</p> : <button type="button" onClick={() => void clear()}>Clear history</button>}

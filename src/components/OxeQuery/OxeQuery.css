@@ -364,3 +364,23 @@
 .oq-output-tabs button { max-width: 220px; padding: 4px 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--tx-secondary); font: inherit; font-size: var(--fs-xs); cursor: pointer; }
 .oq-output-tabs button[aria-selected='true'] { color: var(--tx-primary); border-bottom-color: var(--accent); }
 .oq-output-tabs button[data-error='true'] { color: var(--dot-red); }
+
+/* The MongoDB sidebar: databases and their collections. */
+.oq-mtree-body { flex: 1; min-height: 0; overflow: auto; padding: 0 8px 8px; }
+.oq-mnode-row { display: flex; align-items: center; gap: 2px; }
+.oq-mnode, .oq-mleaf > button:first-child { display: flex; flex: 1; align-items: center; gap: 4px; min-width: 0; padding: 4px 6px; border: 0; border-radius: var(--radius-sm); color: inherit; background: transparent; font-size: var(--fs-xs); text-align: left; cursor: pointer; }
+.oq-mleaf { display: flex; align-items: center; padding-left: 16px; }
+.oq-mleaf small { margin-left: 6px; color: var(--tx-muted); }
+.oq-mleaf-actions { display: none; flex: none; gap: 2px; }
+.oq-mleaf:hover .oq-mleaf-actions, .oq-mleaf:focus-within .oq-mleaf-actions { display: inline-flex; }
+.oq-mleaf-actions button { display: inline-grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: var(--radius-sm); color: var(--tx-muted); background: transparent; cursor: pointer; }
+.oq-mnode:hover, .oq-mleaf > button:first-child:hover, .oq-mleaf-actions button:hover { background: color-mix(in srgb, var(--tx-primary) 8%, transparent); }
+.oq-mleaf > button[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.oq-field-error { color: var(--dot-red); font-size: var(--fs-2xs); }
+.oq-mongo-inputs textarea[aria-invalid='true'] { border-color: var(--dot-red); }
+.oq-facts { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 0; padding: 4px 0 8px 18px; }
+.oq-facts dt { color: var(--tx-muted); font-size: var(--fs-2xs); }
+.oq-facts dd { margin: 0; }
+.oq-rules { flex-direction: column; align-items: flex-start; }
+.oq-rules label { display: grid; gap: 4px; width: min(560px, 100%); font-size: var(--fs-2xs); color: var(--tx-muted); }
+.oq-rules textarea { padding: 6px 8px; font-family: var(--font-mono, ui-monospace, monospace); resize: vertical; }

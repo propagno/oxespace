@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactElement } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactElement } from 'react'
 import { ChevronDown, ChevronRight, Pin, PinOff, Plus, RefreshCw, Search, Server } from 'lucide-react'
 import type { OxeQueryConnection, SqlDefinitionTarget, SqlExtensionInfo, SqlSearchHit, SqlTable, WorkspaceState } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
-import { ServerPanel } from './ServerPanel'
-import { StructureEditor, type StructureOutcome } from './StructureEditor'
+import type { StructureOutcome } from './StructureEditor'
 import { ROW_HEIGHT, buildRows, keyMove, pinKey, rowsFromHits, windowOf, type SchemaData, type TreeItem, type TreeKey, type TreeRow } from './tree-model'
+
+// Dialogs are only needed when opened: they load on first use and stay out of the tree's own chunk.
+const ServerPanel = lazy(() => import('./ServerPanel').then(module => ({ default: module.ServerPanel })))
+const StructureEditor = lazy(() => import('./StructureEditor').then(module => ({ default: module.StructureEditor })))
 
 type Pinned = NonNullable<WorkspaceState['pinned']>
 
@@ -243,8 +246,10 @@ export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInser
         {visible.map((row, offset) => renderRow(row, range.start + offset))}
       </div>
     </div>
+    <Suspense fallback={null}>
     {server && <ServerPanel connection={connection} onClose={() => setServer(false)} />}
     {structure && <StructureEditor connection={connection} schema={structure.schema} table={structure.table} onClose={() => setStructure(null)}
       onChanged={(outcome: StructureOutcome) => { void loadSchema(structure.schema); if (outcome.kind === 'created' || outcome.kind === 'altered') onOpen({ schema: structure.schema, name: outcome.table, kind: 'table' }) }} />}
+    </Suspense>
   </nav>
 }

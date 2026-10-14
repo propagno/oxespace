@@ -174,6 +174,13 @@ export function registerOxeQueryMock(): void {
       case 'mongo.document': return ok({ text: JSON.stringify({ _id: { $oid: '507f1f77bcf86cd799439011' }, sku: 'sku-1', qty: 5 }) })
       case 'mongo.find': return ok({ documents: [{ _id: { $oid: '507f1f77bcf86cd799439011' }, sku: 'sku-1', qty: 5 }, { _id: { $oid: '507f1f77bcf86cd799439012' }, sku: 'sku-2', qty: 9 }].map(doc => JSON.stringify(doc)), truncated: false, durationMs: 6, total: 2 })
       case 'mongo.aggregate': return ok({ documents: [JSON.stringify({ _id: 'even', n: 60 })], truncated: false, durationMs: 5 })
+      case 'mongo.bulk': return ok({ matched: 3, modified: input.dryRun === true ? 0 : 3, deleted: 0, dryRun: input.dryRun === true })
+      case 'mongo.collection': return ok({ ok: true })
+      case 'mongo.stats': return ok({ documents: 1200, sizeBytes: 480000, avgDocumentBytes: 400, storageBytes: 262144, indexes: 2, indexBytes: 65536, capped: false })
+      case 'mongo.validation': return ok({ validator: null, level: 'strict', action: 'error' })
+      case 'mongo.setValidation': return ok({ ok: true })
+      case 'mongo.explain': return ok({ stage: 'COLLSCAN', keysExamined: 0, docsExamined: 1200, returned: 3, timeMs: 4, stages: ['COLLSCAN'], warnings: ['The whole collection is read: no index serves this query. An index on the filtered or sorted fields would help.'], raw: '{"queryPlanner":{}}' })
+      case 'mongo.cancel': return ok({ cancelled: false })
       case 'mongo.indexes': return ok([{ name: '_id_', keys: '{"_id":1}', unique: true }])
       default: return fail('invalid', 'Unknown OxeQuery operation.')
     }

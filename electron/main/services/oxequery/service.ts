@@ -16,6 +16,7 @@ import { WorkspaceInputError, WorkspaceStore } from './workspace-store'
 import { AgentGateway } from './agent-gateway'
 import { ApprovalBroker, type ApprovalPrompter } from './approval-broker'
 import { AuditLog } from './audit-log'
+import { stringifyMongoQuery, type MongoQueryText } from '../../../../shared/mongoQueryText'
 
 type Raw = Record<string, unknown>
 const ACTIONS = new Set(['start', 'stop', 'restart', 'pause', 'unpause'])
@@ -334,13 +335,18 @@ export class OxeQueryService {
       })
       case 'mongo.databases': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.databases', connection))
       case 'mongo.collections': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.collections', connection, { database: str(input.database, 'Database', 255) }))
-      case 'mongo.find': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.find', connection, {
-        database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), filter: optionalString(input.filter),
-        projection: optionalString(input.projection), sort: optionalString(input.sort), limit: optionalInt(input.limit, 1, 1000), skip: optionalInt(input.skip, 0, 10_000_000)
-      }))
-      case 'mongo.aggregate': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.aggregate', connection, {
-        database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), pipeline: str(input.pipeline, 'Pipeline', 262_144), limit: optionalInt(input.limit, 1, 1000), skip: optionalInt(input.skip, 0, 10_000_000)
-      }))
+      case 'mongo.find': return this.requireEngine(input.connectionId, 'mongodb', connection => this.recordMongo(connection.id, optionalInt(input.skip, 0, 10_000_000), () => ({
+        kind: 'find' as const, database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), filter: optionalString(input.filter),
+        projection: optionalString(input.projection), sort: optionalString(input.sort)
+      }), query => this.worker.call<{ documents: unknown[] }>('mongo.find', connection, {
+        database: query.database, collection: query.collection, filter: query.filter, projection: query.projection, sort: query.sort,
+        limit: optionalInt(input.limit, 1, 1000), skip: optionalInt(input.skip, 0, 10_000_000)
+      })))
+      case 'mongo.aggregate': return this.requireEngine(input.connectionId, 'mongodb', connection => this.recordMongo(connection.id, optionalInt(input.skip, 0, 10_000_000), () => ({
+        kind: 'aggregate' as const, database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), pipeline: str(input.pipeline, 'Pipeline', 262_144)
+      }), query => this.worker.call<{ documents: unknown[] }>('mongo.aggregate', connection, {
+        database: query.database, collection: query.collection, pipeline: query.pipeline, limit: optionalInt(input.limit, 1, 1000), skip: optionalInt(input.skip, 0, 10_000_000)
+      })))
       case 'mongo.document': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.document', connection, {
         database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), id: str(input.id, 'Document id', 4096)
       }))
@@ -527,6 +533,26 @@ export class OxeQueryService {
         database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255)
       }))
       default: throw new OxeQueryError('invalid', 'Unknown OxeQuery operation.')
+    }
+  }
+
+  /**
+   * A MongoDB read, kept in the connection's history as it was typed. Only the first page counts: turning
+   * pages is not a new query.
+   */
+  private async recordMongo<Query extends Omit<MongoQueryText, 'v'>>(connectionId: string, skip: number | undefined, build: () => Query, run: (query: Query) => Promise<{ documents: unknown[] }>): Promise<{ documents: unknown[] }> {
+    const query = build()
+    const started = Date.now()
+    const record = (rows: number | null, ok: boolean): void => {
+      if (!skip) this.library.record(connectionId, { sql: stringifyMongoQuery(query), durationMs: Date.now() - started, rows, ok })
+    }
+    try {
+      const result = await run(query)
+      record(result.documents.length, true)
+      return result
+    } catch (error) {
+      record(null, false)
+      throw error
     }
   }
 

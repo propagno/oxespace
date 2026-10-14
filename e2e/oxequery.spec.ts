@@ -642,3 +642,85 @@ test('the schema tree groups objects, searches every schema, pins tables and wor
     await expect(page.locator('.oq-editor .view-lines')).toContainText('CREATE TYPE')
   } finally { await app.close() }
 })
+
+test('the MongoDB workbench validates its fields, explains a plan, shows a tree, clones, counts before changing many and manages collections', async () => {
+  test.setTimeout(120000)
+  const root = mkdtempSync(join(tmpdir(), 'oxespace-oxequery-mongo-'))
+  const repo = join(root, 'repo'); mkdirSync(repo)
+  const app = await electron.launch({ args: [join(process.cwd(), 'e2e/electron-main.cjs')], env: {
+    ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'app.sqlite3')
+  } })
+  try {
+    const page = await app.firstWindow()
+    await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0].setSize(1024, 700) })
+    await page.waitForLoadState('domcontentloaded')
+    await page.getByTestId('btn-new-workspace').click()
+    await page.getByTestId('wizard-dir-input').fill(repo)
+    await page.getByTestId('wizard-layout-card-1').click()
+    await page.getByTestId('wizard-launch-btn').click()
+    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
+    await page.getByRole('button', { name: 'Connect to mongo-dev' }).click()
+    await expect(page.getByRole('tab', { name: 'mongo-dev' })).toBeVisible()
+    await page.locator('.oq-sidebar').getByRole('button', { name: 'Edit mongo-dev' }).click()
+    const settings = page.getByRole('dialog', { name: 'Edit connection' })
+    await settings.getByRole('checkbox', { name: /Read-only/ }).uncheck()
+    await settings.getByRole('button', { name: 'Save' }).click()
+    const sidebar = page.getByRole('navigation', { name: 'Databases' })
+    await sidebar.getByRole('button', { name: 'shop', exact: true }).click()
+    await sidebar.getByRole('button', { name: 'items', exact: true }).click()
+    await expect(page.getByText('_id: 507f1f77bcf86cd799439011')).toBeVisible()
+
+    // A field that is not JSON says so and stops the run, instead of failing on the server.
+    const filter = page.getByRole('textbox', { name: 'Filter', exact: true })
+    await filter.fill('{"qty":')
+    await expect(page.getByRole('alert').filter({ hasText: 'Not valid JSON' })).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Run/ }).first()).toBeDisabled()
+    await filter.fill('{"qty": {"$gt": 1}}')
+    await expect(page.getByRole('button', { name: /^Run/ }).first()).toBeEnabled()
+
+    // The plan, in words.
+    await page.getByRole('button', { name: 'Explain' }).click()
+    const plan = page.getByRole('region', { name: 'Query plan' })
+    await expect(plan).toContainText('COLLSCAN')
+    await expect(plan).toContainText('no index serves this query')
+    await plan.getByRole('button', { name: 'Close' }).click()
+
+    // Tree view opens nested documents and keeps typed values; Clone starts a new document without the _id.
+    await page.getByRole('radio', { name: 'Tree' }).click()
+    await expect(page.getByRole('tree', { name: 'Document' }).first()).toContainText('sku-1')
+    await page.getByRole('button', { name: 'Clone document' }).first().click()
+    const form = page.getByRole('group', { name: 'New document' })
+    await expect(form.getByRole('textbox')).not.toHaveValue(/_id/)
+    await expect(form.getByRole('textbox')).toHaveValue(/sku-1/)
+    await form.getByRole('button', { name: 'Cancel' }).click()
+
+    // Changing many: count first; the change waits for the confirmation of that number.
+    await page.getByRole('button', { name: 'Change many…' }).click()
+    const bulk = page.getByRole('dialog', { name: /Change many/ })
+    await expect(bulk.getByRole('button', { name: 'Update documents' })).toBeDisabled()
+    await bulk.getByRole('button', { name: 'Count matches' }).click()
+    await expect(bulk.getByRole('status')).toContainText('3 documents match')
+    await expect(bulk.getByRole('button', { name: 'Update documents' })).toBeDisabled()
+    await bulk.getByRole('checkbox', { name: /3 documents will be changed/ }).check()
+    await expect(bulk.getByRole('button', { name: 'Update documents' })).toBeEnabled()
+    await bulk.getByRole('combobox', { name: 'Operation' }).selectOption('deleteMany')
+    // Switching the operation forgets the count and the tick.
+    await expect(bulk.getByRole('button', { name: 'Delete documents' })).toBeDisabled()
+    await bulk.getByRole('button', { name: 'Close' }).first().click()
+
+    // Statistics and validation of the collection, and collection management.
+    await page.getByRole('button', { name: /^Statistics/ }).click()
+    await expect(page.getByRole('region', { name: 'Collection statistics' })).toContainText(/1[.,]?200/)
+    await page.getByRole('button', { name: /^Validation/ }).click()
+    await expect(page.getByRole('textbox', { name: 'Validation rules' })).toBeVisible()
+    await sidebar.getByRole('button', { name: 'items', exact: true }).hover()
+    await sidebar.getByRole('button', { name: 'Drop items' }).click()
+    const drop = page.getByRole('dialog', { name: 'Drop items' })
+    await expect(drop.getByRole('button', { name: 'Drop collection' })).toBeDisabled()
+    await drop.getByRole('checkbox', { name: /cannot be recovered/ }).check()
+    await expect(drop.getByRole('button', { name: 'Drop collection' })).toBeEnabled()
+    await drop.getByRole('button', { name: 'Cancel' }).click()
+    await sidebar.getByRole('button', { name: 'New collection in shop' }).click()
+    await expect(page.getByRole('dialog', { name: 'New collection in shop' }).getByRole('button', { name: 'Create' })).toBeDisabled()
+  } finally { await app.close() }
+})

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactElement } from 'react'
 import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react'
 import type { MongoIndexInfo, MongoSchema, OxeQueryConnection } from '../../../shared/types/oxequery'
 import { OxeQueryClientError, errorMessage, oq } from './client'
+import { CollectionFacts } from './CollectionFacts'
 
 /** Inferred schema and indexes of the selected collection. */
 export function MongoInsights({ connection, database, collection }: { connection: OxeQueryConnection; database: string; collection: string }): ReactElement {
@@ -66,6 +67,7 @@ export function MongoInsights({ connection, database, collection }: { connection
         </div>}
       </div>}
     </section>
+    <CollectionFacts connection={connection} database={database} collection={collection} />
     {error && <p role="alert" className="oq-error">{error}</p>}
   </div>
 }
