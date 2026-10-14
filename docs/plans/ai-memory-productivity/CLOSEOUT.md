@@ -56,6 +56,9 @@ Ordem estrita: T08 (contexto com proveniência) → T09 (remember idempotente/su
 - **B:** concluída (gate no release; 4 células verdes em run 38601799574).
 - **C:** concluída localmente (T12: pipeline, idade da fila, última entrega, diagnóstico exportável).
 - **A:** campanha autenticada Claude+Codex aprovada no Windows pelos adaptadores reais; pendentes o piloto dentro da janela do Electron e Linux com provedores autenticados. Linux sem autenticação coberto pela workflow de compatibilidade.
+- **D:** concluída em código e testes: T08 (fonte/data/dedupe/moldura de histórico não confiável), T09 (notas tipadas, idempotentes, `supersedes` explícito; validado no binário 2.6.2), T10 (aceite por ID exato, recusa oferta obsoleta e servidor sem suporte; validado no 2.6.2), T11 ("Resume previous work" nas configurações). V10 em Playwright (zoom 200%, 800 px) não foi executado: cobertura por testes de componente.
+- **E:** T13 reduzido entregue (inventário de disco somente leitura); T14 adiado e desligado.
+- **F:** pendente e não automatizável agora (benchmark pareado com julgamento humano, carga de 2 h, piloto de 1 dia, pacote instalado).
 - **M1 (beta opt-in):** liberado com rótulo Beta e limites em docs/PROJECT_MEMORY.md; D–F seguem para o rótulo estável.
 
 ## Cronograma sugerido (dependências)
