@@ -23,6 +23,21 @@ export interface ContainerEngineInfo {
   error?: string
 }
 
+/** A Docker daemon this computer can reach: a named context or the system socket. */
+export interface ContainerEngineCandidate {
+  /** `context:<name>` or `socket:system`; the only values `containers.useCandidate` accepts. */
+  id: string
+  label: string
+  endpoint: string
+  /** The one the Docker CLI uses when nothing is chosen. */
+  current: boolean
+  /** The one OxeQuery is using now. */
+  selected: boolean
+  /** ready: answered; denied: the socket refuses this user; unreachable: no daemon; not-checked: remote endpoints are never contacted. */
+  state: 'ready' | 'denied' | 'unreachable' | 'not-checked'
+  containers?: number
+}
+
 export interface ContainerPort {
   hostIp?: string
   hostPort?: number
@@ -419,6 +434,8 @@ export interface OxeQueryOps {
   /** Proves the database worker loads and its bundled drivers are present. */
   'system.ping': { input: Record<string, never>; output: { ok: true; drivers: { postgres: boolean; mongodb: boolean; ssh: boolean }; node: string } }
   'containers.engines': { input: Record<string, never>; output: ContainerEngineInfo[] }
+  'containers.candidates': { input: Record<string, never>; output: ContainerEngineCandidate[] }
+  'containers.useCandidate': { input: { id: string | null }; output: ContainerEngineCandidate[] }
   'containers.list': { input: { engine?: ContainerEngine }; output: { engine: ContainerEngine; containers: ContainerSummary[] } }
   'containers.inspect': { input: { engine?: ContainerEngine; id: string }; output: ContainerInspect }
   'containers.action': { input: { engine?: ContainerEngine; id: string; action: ContainerAction }; output: { ok: true } }

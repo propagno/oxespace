@@ -3,10 +3,10 @@ import { randomUUID } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import type { ExecutionHost } from '../../runtime/execution-host'
 import type {
-  ConnectionSuggestion, ContainerAction, ContainerEngine, ContainerEngineInfo, ContainerExecResult, ContainerInspect, ContainerStat, ContainerSummary, DiskUsageRow, ImageInfo, NetworkInfo,
+  ConnectionSuggestion, ContainerAction, ContainerEngine, ContainerEngineCandidate, ContainerEngineInfo, ContainerExecResult, ContainerInspect, ContainerStat, ContainerSummary, DiskUsageRow, ImageInfo, NetworkInfo,
   OxeQueryEvent, ResourceKind, VolumeInfo
 } from '../../../../shared/types/oxequery'
-import { parseContainerList, parseDiskUsage, parseImages, parseInspect, parseNetworks, parseStats, parseVolumes, suggestFromInspect } from './container-parse'
+import { classifyProbe, isLocalEndpoint, parseContainerList, parseContexts, parseDiskUsage, parseImages, parseInspect, parseNetworks, parseStats, parseVolumes, suggestFromInspect } from './container-parse'
 import { createServer } from 'node:net'
 import { randomBytes } from 'node:crypto'
 
@@ -98,8 +98,64 @@ export class ContainerRuntime {
   private readonly binaries = new Map<ContainerEngine, string>()
   private cachedAt = 0
 
-  private run(engine: ContainerEngine, args: string[], timeoutMs = 20_000, maxOutputBytes = 2 * 1024 * 1024, env?: Record<string, string>) {
+  /** The daemon a person picked when the default one is not where their containers are. */
+  private selection: { id: string; args: string[] } | null = null
+
+  /** Global flags that point the Docker CLI at the chosen daemon (never set for Podman). */
+  private target(engine: ContainerEngine): string[] {
+    return engine === 'docker' && this.selection ? this.selection.args : []
+  }
+
+  private runRaw(engine: ContainerEngine, args: string[], timeoutMs = 20_000, maxOutputBytes = 2 * 1024 * 1024, env?: Record<string, string>) {
     return this.options.host.exec(this.binaries.get(engine) ?? engine, args, { cwd: tmpdir(), timeoutMs, maxOutputBytes, ...(env ? { env } : {}) })
+  }
+
+  private run(engine: ContainerEngine, args: string[], timeoutMs = 20_000, maxOutputBytes = 2 * 1024 * 1024, env?: Record<string, string>) {
+    return this.runRaw(engine, [...this.target(engine), ...args], timeoutMs, maxOutputBytes, env)
+  }
+
+  /**
+   * The Docker daemons this computer can reach and whether this user may use them. A machine can
+   * have Docker Desktop (an empty daemon) and the system engine (where the containers are, behind
+   * the `docker` group): without this, the first one is all that is ever shown. Remote contexts
+   * are listed but never contacted.
+   */
+  async candidates(): Promise<ContainerEngineCandidate[]> {
+    await this.engines()
+    if (!this.binaries.has('docker')) return []
+    const listed = await this.runRaw('docker', ['context', 'ls', '--format', '{{json .}}'], 6000)
+    const contexts = listed.code === 0 ? parseContexts(listed.stdout).slice(0, 12) : []
+    const platform = this.options.platform ?? process.platform
+    const systemSocket = 'unix:///var/run/docker.sock'
+    const entries: { id: string; label: string; endpoint: string; current: boolean; args: string[] }[] = contexts.map(context => ({
+      id: `context:${context.name}`, label: context.name, endpoint: context.endpoint, current: context.current, args: ['--context', context.name]
+    }))
+    if (platform === 'linux' && !entries.some(entry => entry.endpoint === systemSocket)) {
+      entries.push({ id: 'socket:system', label: 'System Docker engine', endpoint: systemSocket, current: false, args: ['-H', systemSocket] })
+    }
+    const chosen = this.selection?.id ?? entries.find(entry => entry.current)?.id
+    return Promise.all(entries.map(async (entry): Promise<ContainerEngineCandidate> => {
+      const base = { id: entry.id, label: entry.label, endpoint: entry.endpoint, current: entry.current, selected: entry.id === chosen }
+      if (!isLocalEndpoint(entry.endpoint)) return { ...base, state: 'not-checked' }
+      const probe = await this.runRaw('docker', [...entry.args, 'ps', '--all', '--quiet'], 6000, 256 * 1024)
+      const state = classifyProbe(probe.code, probe.stderr)
+      return { ...base, state, ...(state === 'ready' ? { containers: probe.stdout.split(/\r?\n/).filter(Boolean).length } : {}) }
+    }))
+  }
+
+  /** `null` goes back to the Docker CLI's own default. Only an id from `candidates()` is accepted. */
+  async useCandidate(id: string | null): Promise<ContainerEngineCandidate[]> {
+    if (id === null) this.selection = null
+    else {
+      const known = await this.candidates()
+      const pick = known.find(entry => entry.id === id)
+      if (!pick) throw new ContainerRuntimeError('invalid', 'That Docker engine is not available on this computer.')
+      if (pick.state === 'not-checked') throw new ContainerRuntimeError('invalid', 'Remote Docker contexts are not used by OxeQuery.')
+      this.selection = { id, args: id === 'socket:system' ? ['-H', 'unix:///var/run/docker.sock'] : ['--context', id.slice('context:'.length)] }
+    }
+    this.cache = null
+    this.options.emit({ type: 'containers-changed' })
+    return this.candidates()
   }
 
   /** PATH first, then the places each platform installs the CLI. GUI launches often have a trimmed PATH. */
@@ -207,7 +263,7 @@ export class ContainerRuntime {
   async shellCommand(id: string, shell: 'sh' | 'bash' = 'sh', engine?: ContainerEngine): Promise<{ file: string; args: string[]; engine: ContainerEngine }> {
     const resolved = await this.resolve(engine)
     if (shell !== 'sh' && shell !== 'bash') throw new ContainerRuntimeError('invalid', 'Unsupported shell')
-    return { file: this.binaries.get(resolved) ?? resolved, args: ['exec', '-it', assertContainerId(id), shell], engine: resolved }
+    return { file: this.binaries.get(resolved) ?? resolved, args: [...this.target(resolved), 'exec', '-it', assertContainerId(id), shell], engine: resolved }
   }
 
   /** CPU and memory of the running containers, once. */
@@ -285,7 +341,7 @@ export class ContainerRuntime {
     const resolved = await this.resolve(engine)
     const streamId = randomUUID()
     const lines = Math.max(0, Math.min(Math.trunc(tail), 5000))
-    const child = this.spawnProcess(this.binaries.get(resolved) ?? resolved, ['logs', '--follow', '--timestamps', '--tail', String(lines), assertContainerId(id)])
+    const child = this.spawnProcess(this.binaries.get(resolved) ?? resolved, [...this.target(resolved), 'logs', '--follow', '--timestamps', '--tail', String(lines), assertContainerId(id)])
     const stream: LogStream = { child, buffer: [], pending: '', timer: setInterval(() => this.flush(streamId), LOG_FLUSH_MS) }
     this.streams.set(streamId, stream)
     const feed = (chunk: Buffer): void => {

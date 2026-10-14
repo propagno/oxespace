@@ -35,6 +35,8 @@ export function registerOxeQueryMock(): void {
     const input = request.input ?? {}
     switch (request.op) {
       case 'system.ping': return ok({ ok: true, drivers: { postgres: true, mongodb: true, ssh: true }, node: process.version })
+      case 'containers.candidates': return ok([])
+      case 'containers.useCandidate': return ok([])
       case 'containers.engines':
         if (process.env.OXE_MOCK_ENGINE === 'stopped') return ok([{ engine: 'docker', available: false, state: 'stopped', version: '27.0.0', error: 'docker is installed but its daemon is not reachable. Start Docker Desktop or the Docker service and try again.' }, { engine: 'podman', available: false, state: 'missing', error: 'podman was not found.' }])
         return ok([{ engine: 'docker', available: true, version: '27.0.0', context: 'default' }, { engine: 'podman', available: false, error: 'podman was not found on PATH' }])

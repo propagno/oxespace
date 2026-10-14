@@ -8,7 +8,7 @@ export interface OxeQueryIpcService {
 
 const OPS = new Set<OxeQueryOp>([
   'system.ping',
-  'containers.engines', 'containers.list', 'containers.inspect', 'containers.action', 'containers.exec', 'containers.logsStart', 'containers.logsStop', 'containers.shell',
+  'containers.engines', 'containers.candidates', 'containers.useCandidate', 'containers.list', 'containers.inspect', 'containers.action', 'containers.exec', 'containers.logsStart', 'containers.logsStop', 'containers.shell',
   'containers.suggestConnection', 'connections.list', 'connections.save', 'connections.delete', 'connections.test', 'connections.fromContainer',
   'connections.trustHostKey', 'connections.knownHosts', 'connections.forgetHostKey', 'files.pick',
   'sql.schemas', 'sql.tables', 'sql.table', 'sql.run', 'sql.browse', 'sql.cancel', 'sql.check', 'sql.editability', 'sql.previewChanges', 'sql.apply',

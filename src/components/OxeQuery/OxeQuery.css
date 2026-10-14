@@ -67,6 +67,10 @@
 .oq-actions-head { text-align: right !important; }
 .oq-hint { display: flex; align-items: center; gap: 8px; margin: 0 10px 6px; padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); border-radius: var(--radius-md); background: color-mix(in srgb, var(--accent) 8%, transparent); color: var(--tx-secondary); font-size: var(--fs-xs); }
 .oq-hint svg { flex: none; color: var(--accent); }
+.oq-engine-bar { display: grid; gap: 6px; margin: 0 10px 6px; }
+.oq-engine-bar label { display: flex; align-items: center; gap: 8px; font-size: var(--fs-xs); color: var(--tx-secondary); }
+.oq-engine-bar select { min-width: 0; flex: 1; }
+.oq-engine-bar .oq-hint { margin: 0; }
 
 .oq-details { display: flex; flex-direction: column; width: min(520px, 48%); min-width: 320px; border-left: 1px solid var(--bd-base); background: var(--bg-elevated); }
 .oq-details > header { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; }
