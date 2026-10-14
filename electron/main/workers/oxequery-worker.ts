@@ -70,6 +70,7 @@ async function handle(request: Request): Promise<unknown> {
       } finally { exports.delete(importId) }
     }
     case 'mongo.write': return core.mongoWrite(connection, input as unknown as MongoWriteInput)
+    case 'mongo.document': return core.mongoDocument(connection, { database: String(input.database ?? ''), collection: String(input.collection ?? ''), id: String(input.id ?? '') })
     case 'mongo.schema': return core.mongoSchema(connection, String(input.database ?? ''), String(input.collection ?? ''), typeof input.sampleSize === 'number' ? input.sampleSize : undefined)
     case 'mongo.createIndex': return core.mongoCreateIndex(connection, input as never)
     case 'mongo.dropIndex': return core.mongoDropIndex(connection, input as never)

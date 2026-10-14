@@ -11,7 +11,7 @@ import { guardSql, isMutating, quoteIdentifier } from './sql-guard'
 import { OxeQueryError, type ResolvedConnection } from './oxequery-errors'
 import { mongoTlsOptions, mongoUri, pgSsl, type Endpoint } from './connection-options'
 import { openTunnel, tunnelAvailable, type OpenTunnel } from './ssh-tunnel'
-import { parseDocument, parsePipeline, toEjson } from './mongo-guard'
+import { editableEjson, parseDocument, parseEditableDocument, parsePipeline } from './mongo-guard'
 import { EJSON } from 'bson'
 import { buildStatements, previewStatements, type ColumnMeta, type RowChange } from './table-editor'
 import { createSink } from './export-writer'
@@ -445,7 +445,7 @@ export class OxeQueryCore {
     try {
       const client = await this.mongoSession(connection)
       const collection = client.db(input.database).collection(input.collection)
-      const found = await collection.find(filter, { ...(projection ? { projection } : {}), ...(sort ? { sort: sort as never } : {}), limit: limit + 1, skip, maxTimeMS: 30_000 }).toArray()
+      const found = await collection.find(filter, { ...(projection ? { projection } : {}), ...(sort ? { sort: sort as never } : {}), limit: limit + 1, skip, maxTimeMS: 30_000, promoteValues: false }).toArray()
       let total: number | undefined
       try { total = await collection.countDocuments(filter, { maxTimeMS: 5000 }) } catch { /* A slow count is not worth failing the query. */ }
       return this.mongoResult(found, limit, started, total)
@@ -458,15 +458,16 @@ export class OxeQueryCore {
     const started = Date.now()
     try {
       const client = await this.mongoSession(connection)
-      const documents = await client.db(input.database).collection(input.collection).aggregate([...pipeline, { $limit: limit + 1 }], { maxTimeMS: 30_000 }).toArray()
+      const documents = await client.db(input.database).collection(input.collection).aggregate([...pipeline, { $limit: limit + 1 }], { maxTimeMS: 30_000, promoteValues: false }).toArray()
       return this.mongoResult(documents, limit, started)
     } catch (error) { throw this.mongoError(error, connection) }
   }
 
   async mongoWrite(connection: ResolvedConnection, input: MongoWriteInput): Promise<MongoWriteResult> {
     if (connection.readOnly) throw new OxeQueryError('read-only', 'This connection is read-only. Turn read-only off to change documents.')
-    const document = input.op === 'delete' ? undefined : parseDocument(input.document, 'Document')
-    const expected = input.expected ? parseDocument(input.expected, 'Original document') : undefined
+    // Edited documents keep their BSON types: Int64, Double 5.0 and Decimal128 are not turned into plain numbers.
+    const document = input.op === 'delete' ? undefined : parseEditableDocument(input.document, 'Document')
+    const expected = input.expected ? parseEditableDocument(input.expected, 'Original document') : undefined
     if (input.op !== 'insert' && (!expected || expected._id === undefined)) throw new OxeQueryError('invalid', 'A change to an existing document needs the original document, including its _id.')
     if (input.op === 'replace' && document && document._id !== undefined && EJSON.stringify(document._id as never) !== EJSON.stringify(expected!._id as never)) {
       throw new OxeQueryError('invalid', 'The _id of a document cannot be changed.')
@@ -478,17 +479,23 @@ export class OxeQueryCore {
         const result = await collection.insertOne(document as Document)
         return { matched: 0, modified: 0, deleted: 0, insertedId: EJSON.stringify(result.insertedId as never, { relaxed: true }) }
       }
-      // Compare what is stored now with what the person was looking at.
-      const current = await collection.findOne({ _id: expected!._id } as Document)
-      if (!current) throw new OxeQueryError('conflict', 'The document no longer exists. Reload the collection.')
-      if (EJSON.stringify(current as never, { relaxed: true }) !== EJSON.stringify(expected as never, { relaxed: true })) {
-        throw new OxeQueryError('conflict', 'The document changed since you opened it, so nothing was saved. Reload it and apply your edit again.')
+      // The write itself only matches a document that still equals what the person was looking at
+      // (`$$ROOT` against the original, compared by the server), so a change landing between a
+      // read and this write cannot be overwritten. A miss is explained by a second look.
+      const unchanged = { _id: expected!._id, $expr: { $eq: ['$$ROOT', { $literal: expected }] } } as Document
+      const explainMiss = async (): Promise<never> => {
+        const exists = await collection.countDocuments({ _id: expected!._id } as Document, { limit: 1 })
+        throw new OxeQueryError('conflict', exists
+          ? 'The document changed since you opened it, so nothing was saved. Reload it and apply your edit again.'
+          : 'The document no longer exists. Reload the collection.')
       }
       if (input.op === 'delete') {
-        const result = await collection.deleteOne({ _id: expected!._id } as Document)
+        const result = await collection.deleteOne(unchanged)
+        if (result.deletedCount === 0) return explainMiss()
         return { matched: result.deletedCount, modified: 0, deleted: result.deletedCount }
       }
-      const result = await collection.replaceOne({ _id: expected!._id } as Document, { ...(document as Document), _id: expected!._id })
+      const result = await collection.replaceOne(unchanged, { ...(document as Document), _id: expected!._id })
+      if (result.matchedCount === 0) return explainMiss()
       return { matched: result.matchedCount, modified: result.modifiedCount, deleted: 0 }
     } catch (error) { throw this.mongoError(error, connection) }
   }
@@ -574,9 +581,26 @@ export class OxeQueryCore {
     return { text: [`CREATE TABLE ${qualified} (\n${lines.join(',\n')}\n);`, ...indexes.rows.map(row => `${String(row[0])};`)].join('\n') }
   }
 
+  /** One whole document, for the edit form of one that was too large to list. */
+  async mongoDocument(connection: ResolvedConnection, input: { database: string; collection: string; id: string }): Promise<{ text: string }> {
+    const id = parseEditableDocument(`{"_id":${input.id}}`, 'Document id')._id
+    try {
+      const client = await this.mongoSession(connection)
+      const found = await client.db(input.database).collection(input.collection).findOne({ _id: id } as Document, { promoteValues: false })
+      if (!found) throw new OxeQueryError('invalid', 'The document no longer exists. Reload the collection.')
+      const whole = editableEjson(found, 4 * 1024 * 1024)
+      if (whole.truncated) throw new OxeQueryError('invalid', 'This document is larger than 4 MB and cannot be edited here.')
+      return { text: whole.text }
+    } catch (error) { throw this.mongoError(error, connection) }
+  }
+
   private mongoResult(documents: Document[], limit: number, started: number, total?: number): MongoResult {
+    const shown = documents.slice(0, limit).map(document => editableEjson(document))
+    const sliced = documents.slice(0, limit)
+    const oversized = shown.flatMap((entry, index) => entry.truncated ? [{ index, id: editableEjson(sliced[index]._id).text }] : [])
     return {
-      documents: documents.slice(0, limit).map(document => toEjson(document).text),
+      documents: shown.map(entry => entry.text),
+      ...(oversized.length ? { oversized } : {}),
       truncated: documents.length > limit,
       durationMs: Date.now() - started,
       ...(total !== undefined ? { total } : {})

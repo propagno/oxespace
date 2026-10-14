@@ -411,6 +411,8 @@ export interface MongoAggregateInput {
 export interface MongoResult {
   /** One EJSON (relaxed) string per document. */
   documents: string[]
+  /** Positions of documents whose text was cut at 64 KB; they are fetched whole before an edit. */
+  oversized?: { index: number; /** The document's `_id` as editable EJSON. */ id: string }[]
   truncated: boolean
   durationMs: number
   /** Total matching documents when it was cheap to learn. */
@@ -477,6 +479,7 @@ export interface OxeQueryOps {
   'sql.functions': { input: { connectionId: string; schema: string }; output: SqlFunctionInfo[] }
   'sql.definition': { input: { connectionId: string } & SqlDefinitionTarget; output: { text: string } }
   'mongo.write': { input: MongoWriteInput; output: MongoWriteResult }
+  'mongo.document': { input: { connectionId: string; database: string; collection: string; id: string }; output: { text: string } }
   'export.run': { input: ExportInput; output: ExportResult }
   'sql.explain': { input: SqlExplainInput; output: SqlExplain }
   'containers.stats': { input: { engine?: ContainerEngine }; output: ContainerStat[] }

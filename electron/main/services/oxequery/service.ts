@@ -283,6 +283,9 @@ export class OxeQueryService {
       case 'mongo.aggregate': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.aggregate', connection, {
         database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), pipeline: str(input.pipeline, 'Pipeline', 262_144), limit: optionalInt(input.limit, 1, 1000)
       }))
+      case 'mongo.document': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.document', connection, {
+        database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), id: str(input.id, 'Document id', 4096)
+      }))
       case 'mongo.write': return this.requireEngine(input.connectionId, 'mongodb', connection => {
         const op = str(input.op, 'Operation', 16)
         if (!['insert', 'replace', 'delete'].includes(op)) throw new OxeQueryError('invalid', 'Unsupported write operation.')

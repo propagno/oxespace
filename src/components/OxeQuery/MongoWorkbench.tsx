@@ -75,6 +75,18 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
 
   useEffect(() => { if (target) void run(0) }, [target]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  /** Opens the edit or delete form; a document too large to be listed is fetched whole first. */
+  const openDocument = async (index: number, listed: string, mode: 'edit' | 'delete'): Promise<void> => {
+    setWriteError(''); setConfirm(null)
+    let original = listed
+    const large = result?.oversized?.find(entry => entry.index === index)
+    if (large && target) {
+      try { original = (await oq('mongo.document', { connectionId: connection.id, database: target.database, collection: target.collection, id: large.id })).text }
+      catch (cause) { setError(errorMessage(cause)); return }
+    }
+    setEditing({ original, text: mode === 'edit' ? pretty(original) : '', mode })
+  }
+
   const write = async (confirmed = false): Promise<void> => {
     if (!target || !editing) return
     setWriting(true); setWriteError('')
@@ -154,8 +166,8 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
           {table ? <div className="oq-results-body"><ResultGrid columns={table.columns} rows={table.rows} onCopy={copy} /></div>
             : <div className="oq-documents">{result?.documents.map((document, index) => <details key={index} open={index < 3}>
               <summary>{summaryOf(document)}{!connection.readOnly && <span className="oq-doc-actions">
-                <button type="button" aria-label="Edit document" onClick={event => { event.preventDefault(); setWriteError(''); setConfirm(null); setEditing({ original: document, text: pretty(document), mode: 'edit' }) }}><Pencil size={12} aria-hidden="true" /></button>
-                <button type="button" aria-label="Delete document" onClick={event => { event.preventDefault(); setWriteError(''); setConfirm(null); setEditing({ original: document, text: '', mode: 'delete' }) }}><Trash2 size={12} aria-hidden="true" /></button>
+                <button type="button" aria-label="Edit document" onClick={event => { event.preventDefault(); void openDocument(index, document, 'edit') }}><Pencil size={12} aria-hidden="true" /></button>
+                <button type="button" aria-label="Delete document" onClick={event => { event.preventDefault(); void openDocument(index, document, 'delete') }}><Trash2 size={12} aria-hidden="true" /></button>
               </span>}</summary><pre>{pretty(document)}</pre></details>)}</div>}
         </div>
       </>}

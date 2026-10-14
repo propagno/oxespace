@@ -170,6 +170,24 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
     expect(sql.slice((error as { detail: { position: number } }).detail.position - 1, (error as { detail: { position: number } }).detail.position + 3)).toBe('nope')
   })
 
+  it('edits a MongoDB document without retyping its numbers, and loads one too large to list', async () => {
+    const target = { connectionId: 'mongo', database: 'shop', collection: 'typed' }
+    await core.mongoWrite(mongo, { ...target, op: 'insert', document: '{"_id": 1, "count": {"$numberLong": "7"}, "ratio": {"$numberDouble": "2.0"}, "price": {"$numberDecimal": "1.10"}, "label": "a", "blob": "' + 'x'.repeat(70_000) + '"}' })
+    const listed = await core.mongoFind(mongo, { ...target, limit: 5 })
+    // 70 KB of text does not fit a listing: it is marked, and fetched whole before an edit.
+    expect(listed.oversized).toEqual([{ index: 0, id: '1' }])
+    const whole = (await core.mongoDocument(mongo, { database: 'shop', collection: 'typed', id: '1' })).text
+    expect(JSON.parse(whole)).toMatchObject({ count: { $numberLong: '7' }, ratio: { $numberDouble: '2.0' }, price: { $numberDecimal: '1.10' }, label: 'a' })
+    const edited = whole.replace('"label":"a"', '"label":"b"')
+    expect(edited).not.toBe(whole)
+    await core.mongoWrite(mongo, { ...target, op: 'replace', document: edited, expected: whole })
+    const stored = JSON.parse((await core.mongoDocument(mongo, { database: 'shop', collection: 'typed', id: '1' })).text)
+    expect(stored).toMatchObject({ count: { $numberLong: '7' }, ratio: { $numberDouble: '2.0' }, price: { $numberDecimal: '1.10' }, label: 'b' })
+    // `whole` is stale now: neither a replace nor a delete may go through, and nothing is changed.
+    await expect(core.mongoWrite(mongo, { ...target, op: 'delete', expected: whole })).rejects.toMatchObject({ code: 'conflict' })
+    expect(JSON.parse((await core.mongoDocument(mongo, { database: 'shop', collection: 'typed', id: '1' })).text).label).toBe('b')
+  })
+
   it('writes MongoDB documents with a conflict check, and imports with ordered:false', async () => {
     const target = { connectionId: 'mongo', database: 'shop', collection: 'items' }
     const inserted = await core.mongoWrite(mongo, { ...target, op: 'insert', document: '{"_id": 1, "name": "pen", "stock": 5}' })

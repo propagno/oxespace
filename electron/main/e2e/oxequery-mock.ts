@@ -141,6 +141,7 @@ export function registerOxeQueryMock(): void {
       case 'sql.check': return ok({ kind: 'read', reasons: [], statements: 1 })
       case 'mongo.databases': return ok([{ name: 'shop' }, { name: 'admin' }])
       case 'mongo.collections': return ok(input.database === 'shop' ? [{ name: 'items', type: 'collection' }, { name: 'orders', type: 'collection' }] : [])
+      case 'mongo.document': return ok({ text: JSON.stringify({ _id: { $oid: '507f1f77bcf86cd799439011' }, sku: 'sku-1', qty: 5 }) })
       case 'mongo.find': return ok({ documents: [{ _id: { $oid: '507f1f77bcf86cd799439011' }, sku: 'sku-1', qty: 5 }, { _id: { $oid: '507f1f77bcf86cd799439012' }, sku: 'sku-2', qty: 9 }].map(doc => JSON.stringify(doc)), truncated: false, durationMs: 6, total: 2 })
       case 'mongo.aggregate': return ok({ documents: [JSON.stringify({ _id: 'even', n: 60 })], truncated: false, durationMs: 5 })
       case 'mongo.indexes': return ok([{ name: '_id_', keys: '{"_id":1}', unique: true }])
