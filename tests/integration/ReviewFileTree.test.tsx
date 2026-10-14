@@ -29,6 +29,13 @@ describe('ReviewFileTree as an ARIA tree', () => {
     expect(item(/^src/)).toHaveAttribute('aria-expanded', 'true')
   })
 
+  test('describes the checkbox shortcut once, on the tree, not on every row', () => {
+    renderTree()
+    const tree = screen.getByRole('tree', { name: 'Review files' })
+    expect(tree).toHaveAccessibleDescription(/Right Arrow to reach its reviewed checkbox/)
+    for (const row of screen.getAllByRole('treeitem')) expect(row).not.toHaveAttribute('aria-describedby')
+  })
+
   test('marks the selected file and keeps one row in the tab order', async () => {
     renderTree({ selectedFile: 'src/app.ts' })
     expect(item(/^app\.ts/)).toHaveAttribute('aria-selected', 'true')
