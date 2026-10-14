@@ -5,6 +5,8 @@
  * `OxeQueryOps`. Secrets (database passwords) never appear in an output type.
  */
 
+import type { MaintenanceAction, StructureAction, StructurePlan, StructureResult } from './oxequery-structure'
+
 export type ContainerEngine = 'docker' | 'podman'
 export type DatabaseEngine = 'postgres' | 'mongodb'
 
@@ -507,6 +509,9 @@ export interface OxeQueryOps {
   /** The statements a set of changes would run, with values written in. Executes nothing. */
   'sql.previewChanges': { input: SqlApplyInput; output: { statements: string[] } }
   'sql.apply': { input: SqlApplyInput; output: SqlApplyResult }
+  'sql.structure.preview': { input: { connectionId: string; schema: string; table: string; action: StructureAction }; output: StructurePlan }
+  'sql.structure.apply': { input: { connectionId: string; schema: string; table: string; action: StructureAction; confirmed?: boolean }; output: StructureResult }
+  'sql.maintenance': { input: { connectionId: string; schema: string; table: string; action: MaintenanceAction; confirmed?: boolean }; output: { statement: string; durationMs: number } }
   'sql.check': { input: { connectionId: string; sql: string }; output: SqlGuardVerdict }
   'mongo.databases': { input: { connectionId: string }; output: MongoDatabaseInfo[] }
   'mongo.collections': { input: { connectionId: string; database: string }; output: MongoCollectionInfo[] }

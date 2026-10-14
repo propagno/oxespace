@@ -39,6 +39,9 @@ async function handle(request: Request): Promise<unknown> {
     case 'sql.editability': return core.sqlEditability(connection, String(input.schema ?? ''), String(input.table ?? ''))
     case 'sql.previewChanges': return { statements: await core.sqlPreviewChanges(connection, input as never) }
     case 'sql.apply': return core.sqlApply(connection, input as never)
+    case 'sql.structure.preview': return core.structurePreview(connection, input as never)
+    case 'sql.structure.apply': return core.structureApply(connection, input as never)
+    case 'sql.maintenance': return core.maintenance(connection, input as never)
     case 'mongo.databases': return core.mongoDatabases(connection)
     case 'mongo.collections': return core.mongoCollections(connection, String(input.database ?? ''))
     case 'mongo.find': return core.mongoFind(connection, input as unknown as MongoFindInput)

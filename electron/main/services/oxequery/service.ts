@@ -325,6 +325,13 @@ export class OxeQueryService {
         if (reasons.length && input.confirmed !== true) throw new OxeQueryError('confirm', 'These changes need your confirmation.', reasons)
         return this.worker.call('sql.apply', connection, change)
       })
+      case 'sql.structure.preview': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.structure.preview', connection, this.structureInput(input)))
+      case 'sql.structure.apply': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.structure.apply', connection, { ...this.structureInput(input), confirmed: input.confirmed === true }))
+      case 'sql.maintenance': return this.requireEngine(input.connectionId, 'postgres', connection => {
+        const action = str(input.action, 'Action', 32)
+        if (!['vacuum', 'analyze', 'vacuum-analyze', 'reindex'].includes(action)) throw new OxeQueryError('invalid', 'Unsupported maintenance action.')
+        return this.worker.call('sql.maintenance', connection, { schema: str(input.schema, 'Schema', 255), table: str(input.table, 'Table', 255), action, confirmed: input.confirmed === true })
+      })
       case 'mongo.databases': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.databases', connection))
       case 'mongo.collections': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.collections', connection, { database: str(input.database, 'Database', 255) }))
       case 'mongo.find': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.find', connection, {
@@ -475,6 +482,13 @@ export class OxeQueryService {
       }))
       default: throw new OxeQueryError('invalid', 'Unknown OxeQuery operation.')
     }
+  }
+
+  /** The shape only: ddl-builder validates every name, type and expression before any statement exists. */
+  private structureInput(input: Raw): { schema: string; table: string; action: unknown } {
+    const action = record(input.action)
+    if (!['create', 'alter', 'drop', 'truncate', 'duplicate'].includes(String(action.kind))) throw new OxeQueryError('invalid', 'Unsupported structure action.')
+    return { schema: str(input.schema, 'Schema', 255), table: str(input.table, 'Table', 255), action }
   }
 
   /** Structure only: the worker validates every column against the catalog. */

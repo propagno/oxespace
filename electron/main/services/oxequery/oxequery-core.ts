@@ -9,6 +9,8 @@ import type {
 } from '../../../../shared/types/oxequery'
 import { guardSql, isMutating, quoteIdentifier, tokenizeStatements } from './sql-guard'
 import { buildFilterClause } from './filter-clause'
+import { maintenanceStatement, planStructure } from './ddl-builder'
+import type { MaintenanceAction, StructureInput, StructurePlan, StructureResult } from '../../../../shared/types/oxequery-structure'
 import { splitStatements } from '../../../../shared/sqlText'
 import { OxeQueryError, type ResolvedConnection } from './oxequery-errors'
 import { mongoTlsOptions, mongoUri, pgSsl, type Endpoint } from './connection-options'
@@ -484,6 +486,71 @@ export class OxeQueryCore {
       if (error instanceof OxeQueryError) throw error
       const message = error instanceof Error ? error.message : 'The change failed'
       throw new OxeQueryError('query', redact(message, connection.password))
+    } finally {
+      session.running = false
+      session.lastUsed = Date.now()
+    }
+  }
+
+  /** The DDL a structure action would run, without running it. */
+  structurePreview(_connection: ResolvedConnection, input: Pick<StructureInput, 'schema' | 'table' | 'action'>): StructurePlan {
+    return planStructure(input.schema, input.table, input.action)
+  }
+
+  /**
+   * Runs a structure action in one transaction (PostgreSQL DDL is transactional): the first failing
+   * statement rolls everything back. Destructive plans need `confirmed`, and a production connection
+   * counts any structure change as one.
+   */
+  async structureApply(connection: ResolvedConnection, input: Pick<StructureInput, 'schema' | 'table' | 'action' | 'confirmed'>): Promise<StructureResult> {
+    if (connection.readOnly) throw new OxeQueryError('read-only', 'This connection is read-only. Turn read-only off to change the structure.')
+    const plan = planStructure(input.schema, input.table, input.action)
+    if ((plan.destructive || connection.environment === 'prod') && !input.confirmed) {
+      throw new OxeQueryError('confirm', plan.destructive ? 'This change cannot be undone and needs confirmation.' : 'This is a production connection: confirm the structure change.', plan.warnings)
+    }
+    const session = await this.pgSession(connection)
+    if (session.running) throw new OxeQueryError('invalid', 'This connection is already running a query. Wait for it or cancel it.')
+    if (session.tx !== 'none') throw new OxeQueryError('invalid', 'A transaction is open on this connection. Commit or roll it back first.')
+    session.running = true
+    const started = Date.now()
+    const { client } = session
+    try {
+      await client.query('BEGIN')
+      try {
+        for (const statement of plan.statements) await client.query(statement)
+        await client.query('COMMIT')
+      } catch (error) {
+        await client.query('ROLLBACK').catch(() => undefined)
+        throw error
+      }
+      return { ...plan, applied: true, durationMs: Date.now() - started }
+    } catch (error) {
+      if (error instanceof OxeQueryError) throw error
+      const pg = error as { message?: string; code?: string; hint?: string }
+      throw new OxeQueryError('query', redact(pg.message ?? 'The change failed', connection.password), [], {
+        ...(pg.code ? { sqlState: pg.code } : {}), ...(pg.hint ? { hint: pg.hint } : {})
+      })
+    } finally {
+      session.running = false
+      session.lastUsed = Date.now()
+    }
+  }
+
+  /** VACUUM, ANALYZE and REINDEX cannot run inside a transaction block, so they go out as one statement. */
+  async maintenance(connection: ResolvedConnection, input: { schema: string; table: string; action: MaintenanceAction; confirmed?: boolean }): Promise<{ statement: string; durationMs: number }> {
+    if (connection.readOnly) throw new OxeQueryError('read-only', 'This connection is read-only. Turn read-only off to run maintenance.')
+    const statement = maintenanceStatement(input.schema, input.table, input.action)
+    if (input.action === 'reindex' && !input.confirmed) throw new OxeQueryError('confirm', 'REINDEX locks the table while it rebuilds its indexes. Confirm to continue.')
+    const session = await this.pgSession(connection)
+    if (session.running) throw new OxeQueryError('invalid', 'This connection is already running a query. Wait for it or cancel it.')
+    if (session.tx !== 'none') throw new OxeQueryError('invalid', 'A transaction is open on this connection. Commit or roll it back first.')
+    session.running = true
+    const started = Date.now()
+    try {
+      await session.client.query(statement)
+      return { statement, durationMs: Date.now() - started }
+    } catch (error) {
+      throw new OxeQueryError('query', redact(error instanceof Error ? error.message : 'Maintenance failed', connection.password))
     } finally {
       session.running = false
       session.lastUsed = Date.now()

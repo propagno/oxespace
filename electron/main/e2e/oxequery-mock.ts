@@ -7,6 +7,7 @@ import { BrowserWindow, ipcMain } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import { splitStatements } from '../../../shared/sqlText'
+import { maintenanceStatement, planStructure } from '../services/oxequery/ddl-builder'
 import type { ContainerSummary, OxeQueryConnection, OxeQueryErrorInfo, SqlResult } from '../../../shared/types/oxequery'
 
 type Input = Record<string, unknown>
@@ -83,6 +84,9 @@ export function registerOxeQueryMock(): void {
       case 'sql.editability': return ok({ editable: true, columns: [{ name: 'id', type: 'integer', nullable: false, hasDefault: true, generated: false, key: true }, { name: 'email', type: 'text', nullable: false, hasDefault: false, generated: false, key: false }] })
       case 'sql.previewChanges': return ok({ statements: ['UPDATE "public"."users" SET "email" = $1::text WHERE "id" = $2::integer;'] })
       case 'sql.apply': return ok({ applied: 1, statements: [] })
+      case 'sql.structure.preview': return ok(planStructure(String(input.schema), String(input.table), input.action as never))
+      case 'sql.structure.apply': return ok({ ...planStructure(String(input.schema), String(input.table), input.action as never), applied: true, durationMs: 1 })
+      case 'sql.maintenance': return ok({ statement: maintenanceStatement(String(input.schema), String(input.table), String(input.action)), durationMs: 1 })
       case 'mongo.write': return ok({ matched: 1, modified: 1, deleted: 0 })
       case 'import.preview': return ok({ importId: 'imp-mock', fileName: 'users.csv', format: 'csv', bytes: 96, fields: ['id', 'email'], sample: [['1', 'a@example.com'], ['2', 'b@example.com']],
         targetColumns: [{ name: 'id', type: 'integer', nullable: false, hasDefault: true, generated: false }, { name: 'email', type: 'text', nullable: false, hasDefault: false, generated: false }], mapping: { id: 'id', email: 'email' } })
