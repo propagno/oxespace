@@ -16,7 +16,7 @@ describe('splitStatements', () => {
       "CREATE FUNCTION f() RETURNS int AS $body$ BEGIN RETURN 1; END; $body$ LANGUAGE plpgsql;",
       String.raw`SELECT E'it\'s; ok', 'it''s; ok'`
     ].join('\n')
-    expect(splitStatements(sql).map(span => span.text.slice(0, 22))).toEqual(["SELECT 'a;b', \"c;d\"", 'SELECT 2', 'CREATE FUNCTION f() RE', String.raw`SELECT E'it\'s; ok', `])
+    expect(splitStatements(sql).map(span => span.text.slice(0, 22))).toEqual(["SELECT 'a;b', \"c;d\"", 'SELECT 2', 'CREATE FUNCTION f() RE', String.raw`SELECT E'it\'s; ok', '`])
   })
 
   it('drops fragments that are only whitespace or comments', () => {
