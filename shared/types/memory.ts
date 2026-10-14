@@ -9,7 +9,7 @@ export interface MemoryContext {
 }
 
 export interface MemoryInput { text: string; title?: string }
-export interface MemoryResult { text: string; path?: string; source: string }
+export interface MemoryResult { text: string; path?: string; source: string; title?: string; updatedAt?: string; score?: number }
 export interface MemorySession { sessionId: string; agentId: string; cwd: string; ended: boolean }
 export interface MemoryHandoff { id: string; summary: string; cwd?: string; state: string; nextSteps: string[]; openQuestions: string[]; filesTouched: string[] }
 export interface ProjectContext { text: string; sources: string[] }
