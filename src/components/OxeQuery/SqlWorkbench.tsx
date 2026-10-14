@@ -284,7 +284,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
           <Button size="sm" onClick={format} title="Format the SQL (Shift+Alt+F)">Format</Button>
         </div>
         <label className="oq-inline">Limit<Select className="oq-select" value={maxRows} onChange={event => setMaxRows(Number(event.target.value))}>{[...new Set([...ROW_LIMITS, connection.maxRows])].sort((a, b) => a - b).map(value => <option key={value} value={value}>{value.toLocaleString('en-US')} rows</option>)}</Select></label>
-        <span className="oq-spacer" />
+        <div className="oq-tb-group oq-tb-end">
         {!connection.readOnly && <TxBar state={tx} busy={running} onAction={action => void txAction(action)} />}
         <LibraryMenu connection={connection} currentSql={active.sql} refreshKey={libraryTick} onPick={sql => replaceText(active.id, sql)} />
         <AskAgent hasError={Boolean(error)} hasPlan={Boolean(active.explain)} context={{
@@ -292,6 +292,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
           ...(error ? { errorMessage: error.message, ...(error.sqlState ? { sqlState: error.sqlState } : {}) } : {}), explain: active.explain,
           ...(active.browse && active.details ? { tables: [describeTable(active.browse.schema, active.browse.table, active.details.columns)] } : {})
         }} />
+        </div>
       </div>
       {notice && <p role="alert" className="oq-error oq-notice">{notice}</p>}
       {/* Ctrl+Shift+Enter is also a built-in Monaco chord (insert a line above) and some platforms resolve it before ours: taken here, in the capture phase, it always means "run all". */}

@@ -23,6 +23,7 @@
     "test:electron": "node scripts/test-electron.mjs",
     "bench:thread": "node scripts/bench-thread.mjs",
     "test:coverage": "vitest run --coverage --maxWorkers=1",
+    "test:coverage:oxequery": "node scripts/test-electron.mjs tests/unit/oxequery tests/oxequery tests/integration/oxequery --coverage --coverage.reporter=text-summary --coverage.reporter=json-summary --coverage.include=\"electron/main/services/oxequery/**\" --coverage.include=\"src/components/OxeQuery/**\" --coverage.include=\"shared/**/oxequery*\" --coverage.thresholds.lines=60 --coverage.thresholds.statements=60 --coverage.thresholds.branches=60 --coverage.thresholds.functions=60",
     "test:e2e": "playwright test",
     "bench:cpu": "vitest bench --run tests/bench/hotpaths.bench.ts",
     "bench:services": "vitest bench --run tests/bench/services.bench.ts",

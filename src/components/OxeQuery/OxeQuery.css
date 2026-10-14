@@ -555,6 +555,8 @@ td:has(> .oq-actions) { width: 1%; }
 /* SQL toolbar: run controls, plan controls and limit on the left; transaction, library and agent on the right. */
 .oq-editor-toolbar { flex-wrap: wrap; row-gap: var(--space-2); }
 .oq-tb-group { display: inline-flex; align-items: center; gap: var(--space-1); }
+/* The right-hand group moves as one: when the bar is too narrow it drops to its own row, aligned right, instead of leaving one button alone. */
+.oq-tb-end { margin-left: auto; gap: var(--space-2); flex-wrap: wrap; }
 .oq-tb-group kbd { margin-left: var(--space-1); padding: 0 var(--space-1); border: 1px solid color-mix(in srgb, currentColor 35%, transparent); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: 14px; opacity: .85; }
 .oq-qtabs .oq-badge { flex: none; }
 .oq-qtabs { padding-right: var(--space-3); }

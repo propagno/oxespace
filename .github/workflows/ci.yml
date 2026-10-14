@@ -238,6 +238,11 @@ jobs:
           npm run fix:native
           npm run verify:native
 
+      # OxeQuery carries its own floor: unit, component and integration tests together cover at least 60%.
+      - name: OxeQuery coverage gate
+        shell: bash
+        run: npm run test:coverage:oxequery
+
       - name: E2E smoke (Windows)
         if: runner.os == 'Windows'
         shell: pwsh

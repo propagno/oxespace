@@ -79,6 +79,17 @@ export function cell(value: unknown): unknown {
   } catch { return String(value) }
 }
 
+/** The names in an array cell: `cell` turns an array into JSON text, and a server may also send the raw `{a,b}` form. */
+export function nameList(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map(String)
+  if (typeof value !== 'string' || value === '') return []
+  try {
+    const parsed: unknown = JSON.parse(value)
+    if (Array.isArray(parsed)) return parsed.map(String)
+  } catch { /* not JSON: the raw array form */ }
+  return value.replace(/^\{|\}$/g, '').split(',').map(name => name.replace(/^"|"$/g, '').trim()).filter(Boolean)
+}
+
 /** A Mongo value as a flat cell: ObjectId and dates unwrap, everything else stays JSON. */
 function mongoCell(value: unknown): unknown {
   if (value === null || value === undefined) return null
@@ -460,8 +471,7 @@ export class OxeQueryCore {
         JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY (i.indkey)
         WHERE i.indrelid = ${target} AND i.indisunique AND i.indpred IS NULL AND i.indexprs IS NULL
         GROUP BY i.indexrelid HAVING bool_and(a.attnotnull) ORDER BY count(*), i.indexrelid LIMIT 1`, [schema, table], 1, true)
-      const names = unique.rows[0]?.[0]
-      keyNames = typeof names === 'string' ? names.replace(/^\{|\}$/g, '').split(',').map(name => name.replace(/^"|"$/g, '')) : []
+      keyNames = nameList(unique.rows[0]?.[0])
     }
     return {
       kind: relkind,
@@ -921,7 +931,7 @@ export class OxeQueryCore {
       FROM pg_roles r WHERE r.rolname NOT LIKE 'pg\\_%' ORDER BY r.rolname`, [], 1000, true)
     return result.rows.map(row => ({
       name: String(row[0]), superuser: Boolean(row[1]), createDatabase: Boolean(row[2]), createRole: Boolean(row[3]), login: Boolean(row[4]), replication: Boolean(row[5]), connectionLimit: Number(row[6]),
-      memberOf: Array.isArray(row[7]) ? (row[7] as unknown[]).map(String) : []
+      memberOf: nameList(row[7])
     }))
   }
 
