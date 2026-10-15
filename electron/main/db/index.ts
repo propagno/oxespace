@@ -471,7 +471,13 @@ export function runMigrations(db: AppDatabase): void {
   // Older self-healing migrations can temporarily lower currentVersion during
   // a re-open. The one-time visual migration must use the version at entry so
   // a later explicit theme choice is never overwritten.
-  if (startingVersion < 58) {
+  // A database an old build left at 57 with a newer schema (see the guard of migration 018 above) has
+  // already had this one-time palette adoption: `conversation_threads.epoch` is added by migration 065,
+  // which runs AFTER this block, so in a genuine upgrade it does not exist yet. Running the adoption
+  // again would reset every workspace theme once more, on the first launch of the fixed build.
+  const pastPaletteAdoption = startingVersion < 58 && hasColumn(db, 'conversation_threads', 'epoch')
+  if (pastPaletteAdoption) db.pragma('user_version = 58')
+  else if (startingVersion < 58) {
     db.transaction(() => db.exec(readMigration('058_workbench_default.sql')))()
   }
   if (startingVersion < 59) migrateThreadProjects(db)

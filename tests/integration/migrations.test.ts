@@ -172,6 +172,11 @@ describe('migrations', () => {
     const db = openInMemoryDatabase()
     try {
       db.prepare("INSERT INTO workspaces (id, name, root_path, layout, theme_id, default_shell_profile_id) VALUES ('legacy', 'Legacy', '/tmp/legacy', '1x1', 'dracula', 'builtin-powershell')").run()
+      // A real version-57 database predates migration 065. Rewinding the number alone would leave a
+      // current schema behind, which the runner treats as already past the adoption (an old build left
+      // exactly that state), so the 065 column is removed to match what a genuine file looks like.
+      db.exec('DROP INDEX IF EXISTS conversation_events_rev')
+      db.exec('ALTER TABLE conversation_threads DROP COLUMN epoch')
       db.pragma('user_version = 57')
       runMigrations(db)
       expect(db.prepare("SELECT theme_id FROM workspaces WHERE id = 'legacy'").get()).toEqual({ theme_id: 'midnight' })

@@ -10,7 +10,7 @@ Atualizado em 2026-10-14. **Não publicado.** Este arquivo só passa a "pronto" 
 
 **Acessibilidade.** Árvores de arquivos com teclado e semântica ARIA, menu Tools com papel de menu, linha de conversa como região. Varredura com axe registrada em [a11y-axe-2026-10-14.md](a11y-axe-2026-10-14.md).
 
-**Banco de dados.** Corrige um defeito presente nas versões 0.15.0 a 0.17.1: o banco alternava a versão do esquema a cada abertura e rotacionava os backups. Ensaios de upgrade a partir de v0.16.0 e v0.17.1.
+**Banco de dados.** Corrige um defeito presente nas versões 0.15.0 a 0.17.1: o banco alternava a versão do esquema a cada abertura (73 para 57 para 73), rotacionava os backups e, a cada dois lançamentos, devolvia o tema escolhido por workspace para `midnight`. A correção também evita que bancos que uma versão antiga deixou em 57 percam o tema mais uma vez no primeiro lançamento da 1.0. Ensaios de upgrade a partir de v0.16.0 e v0.17.1.
 
 ## Limites conhecidos (a declarar nas notas públicas)
 - `mcp-sync` grava `env` e `headers` de servidores MCP em texto puro no `.mcp.json` de cada projeto.
@@ -23,9 +23,9 @@ Atualizado em 2026-10-14. **Não publicado.** Este arquivo só passa a "pronto" 
 | G1 build, typecheck, lint, vitest | _pendente_ | |
 | G2 E2E Windows e Linux, 2 runs seguidos | _pendente_ | |
 | G3 pacote Windows e Linux | run 38644678407 (cffef65) como pré-evidência; _refazer no RC_ | |
-| G4 compatibilidade da memória | _pendente_ | |
+| G4 compatibilidade da memória | run 38734029908 (memory-compatibility, release/1.0.0): 4/4 células verdes, 21/21 testes no 2.6.2 sem skips | 41918c8 |
 | G5 OxeQuery | _pendente_ | |
 | G6 regressão visual | _pendente_ | |
 | G7 segurança | _pendente_ | |
-| G8 upgrade a partir de v0.17.1 | _pendente_ | |
+| G8 upgrade a partir de v0.17.1 | `OXESPACE_UPGRADE_FROM=v0.17.1 node scripts/test-electron.mjs tests/integration/upgrade-rehearsal.native.test.ts`: 6/6 passaram (schema 073 da tag v0.17.1 `876435c0db` para 076) | 6101ca2 |
 | G10 revisão manual 960×640 e axe | axe: 6 elementos serious em 44 (ver relatório) | |
