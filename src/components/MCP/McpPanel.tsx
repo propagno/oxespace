@@ -5,6 +5,7 @@ import type { CreateMcpServerInput, McpHealthStatus, McpServer, McpStdioConfig }
 import { selectMcpServers, useMcpStore } from '../../store/mcp.store'
 import { parseMcpJson } from './parseMcpJson'
 import { McpCatalog } from './McpCatalog'
+import { McpImportPanel } from './McpImportPanel'
 import { envTemplate, type McpCatalogEntry } from './connectorCatalog'
 
 interface FormInitial { name: string; command: string; argsText: string; envText: string; note?: string; requiredEnv?: string[]; /** Came from the curated catalog: trusted and started as soon as it is saved. */ fromCatalog?: boolean }
@@ -26,6 +27,7 @@ export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement 
   const removeServer = useMcpStore((s) => s.remove)
   const updateServer = useMcpStore((s) => s.update)
   const [creating, setCreating] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [view, setView] = useState<'catalog' | 'installed'>('catalog')
   const [catalogBusyId, setCatalogBusyId] = useState<string | null>(null)
   const [formInitial, setFormInitial] = useState<FormInitial | null>(null)
@@ -203,11 +205,19 @@ export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement 
             onCancel={() => { setCreating(false); setFormInitial(null) }}
             onCreated={() => { setCreating(false); setFormInitial(null); setView('installed') }}
           />
+        ) : importing ? (
+          <McpImportPanel workspaceId={workspaceId} onClose={() => setImporting(false)} onChanged={() => void load(workspaceId)} onImported={() => { setImporting(false); void load(workspaceId); setView('installed') }} />
         ) : (
-          <button type="button" className="mcp-panel-add" onClick={() => setCreating(true)}>
-            <Plus size={12} aria-hidden="true" />
-            Add MCP server (stdio)
-          </button>
+          <>
+            <button type="button" className="mcp-panel-add" onClick={() => setCreating(true)}>
+              <Plus size={12} aria-hidden="true" />
+              Add MCP server (stdio)
+            </button>
+            {window.oxe?.mcp?.discover && <button type="button" className="mcp-panel-add" onClick={() => setImporting(true)}>
+              <Plus size={12} aria-hidden="true" />
+              Import from Claude Desktop, Cursor or Windsurf
+            </button>}
+          </>
         )}
 
         <div className="mcp-view-tabs" role="tablist" aria-label="Connections view">
@@ -660,7 +670,7 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
         await create({
           workspaceId: scope === 'workspace' ? workspaceId : null,
           name: entry.name || jsonName.trim(),
-          transport: 'stdio',
+          transport: entry.config.transport,
           config: entry.config,
           enabled: true,
           trusted: false

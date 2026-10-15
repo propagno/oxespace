@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../../db'
-import type { AgentConversationAdapter, ConversationThread, ThreadAgentInput, ThreadCommandCatalog, ThreadEvent, ThreadSnapshot, ThreadRequest, ThreadRequestResponse, ThreadQueuedInput, ThreadContextReport, ThreadRewindResult, ThreadAuditEntry, ThreadFileHunk, ThreadPermissionRule, ThreadUsageSummary } from '../../../../shared/types/thread'
+import type { AgentConversationAdapter, ConversationThread, ThreadAgentInput, ThreadCommandCatalog, ThreadEvent, ThreadSnapshot, ThreadRequest, ThreadRequestResponse, ThreadQueuedInput, ThreadContextReport, ThreadRewindResult, ThreadAuditEntry, ThreadFileHunk, ThreadPermissionRule, ThreadUsageSummary, ThreadDebugPage } from '../../../../shared/types/thread'
 import type { ThreadNativeCli } from './thread-cli'
 import type { ThreadModelCatalog, ThreadConfiguration, ThreadCommandResult } from '../../../../shared/types/thread'
 import type { ThreadModelService } from './thread-models'
@@ -1048,6 +1048,20 @@ export class ThreadOrchestrator {
     const thread = this.read(id).thread
     const scope = options.scope ?? 'project'
     return this.usage.summary({ scope, threadId: id, projectRoot: thread.rootPath, days: options.days })
+  }
+
+  /** Saved events of a conversation, newest matches read first and returned oldest first, for the debug inspector. */
+  debugEvents(id: string, options: { filter?: string; before?: number; limit?: number } = {}): ThreadDebugPage {
+    this.read(id)
+    return this.history.debugEvents(id, options)
+  }
+
+  autoApproveReads(): boolean { return this.permissions.autoApproveReads() }
+
+  setAutoApproveReads(enabled: boolean): boolean {
+    const value = this.permissions.setAutoApproveReads(enabled)
+    this.permissions.audit({ action: 'configuration', actor: 'user', summary: value ? 'Approve read-only commands automatically: on' : 'Approve read-only commands automatically: off' })
+    return value
   }
 
   auditLog(id: string, options: { scope?: 'thread' | 'project'; before?: number; limit?: number } = {}): ThreadAuditEntry[] {

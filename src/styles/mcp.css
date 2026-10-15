@@ -678,3 +678,11 @@
 }
 
 .mcp-create-note { margin: 0 0 10px; padding: 8px 10px; border: 1px solid var(--wb-border); border-radius: var(--radius-md); background: var(--ov-1); color: var(--tx-secondary); font-size: var(--fs-xs); line-height: 1.5; }
+
+.mcp-import { display: grid; gap: 8px; padding: 8px; border: 1px solid var(--bd-base); border-radius: 6px; }
+.mcp-import p { margin: 0; font-size: 12px; }
+.mcp-import fieldset { display: grid; gap: 4px; margin: 0; padding: 6px 8px; border: 1px solid var(--bd-base); border-radius: 6px; }
+.mcp-import-row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 8px; align-items: center; }
+.mcp-import-row code { overflow-wrap: anywhere; font-size: 12px; }
+.mcp-import-row small { grid-column: 2; opacity: 0.75; }
+.mcp-import-actions { display: flex; justify-content: flex-end; gap: 8px; }

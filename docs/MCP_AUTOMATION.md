@@ -31,3 +31,29 @@ Example agent instruction:
 
 Remaining increments are tracked in MCP_AUTOMATION_PLAN.md: durable operation
 journal, events, structured handoff, dependencies/claims and terminal/layout control.
+
+
+## Importing servers from other tools
+
+**Connections > Import from Claude Desktop, Cursor or Windsurf** lists the MCP servers those tools already have
+(their user-level config files only) and adds the ones you pick to the current scope.
+
+- Imported servers are added **untrusted**: review the command and trust each one before it runs.
+- Secrets: the lists show names, commands, URLs and the *names* of environment variables and headers; the values are
+  read again in the main process and never reach the interface.
+- A server that carries a token, key or password cannot be saved untrusted. It is listed with that reason; add it by
+  hand and mark it trusted.
+- Pasted JSON accepts remote servers too (`url`, `headers`, `type` of `http`, `sse` or `streamable-http`).
+- The project `.mcp.json` and the Claude Code user configuration are not imported: OXESpace writes the first and the
+  CLIs read both themselves, so importing would start every server twice.
+
+**Known limitation (release notes):** environment variables and headers of a server are stored in the OXESpace
+database as saved, and are written in plain text to each project's `.mcp.json` when the servers sync. Encrypting the
+database alone would not change that; treat `.mcp.json` as sensitive and keep it out of version control.
+
+## Elicitation forms
+
+When an MCP server asks for input through Codex, the form supports text with length and format limits (email, URL,
+date), numbers and integers with bounds, yes/no, single and multiple choices with titles. Values are checked before
+they are sent and the reason is shown on the field. Claude Code's own elicitation requests are not answered by the
+form yet.

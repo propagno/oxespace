@@ -18,6 +18,8 @@ import picomatch from 'picomatch'
 import { posix, win32 } from 'node:path'
 import type { ThreadPermissionRule, ThreadPermissionSuggestion, ThreadRequest, ThreadRequestPolicy } from '../../../../../shared/types/thread'
 import { evaluateShellCommand, suggestRules } from '../shell-command-rules'
+import { classifyShellRisk, type ShellRisk } from '../shell-risk'
+import { readsOutsideProject } from '../shell-reads'
 import { checkWorkspacePath, type PathSafetyOptions } from '../path-safety'
 
 type Decision = ThreadRequestPolicy['decision']
@@ -92,7 +94,8 @@ export function evaluatePermission(
   request: Pick<ThreadRequest, 'kind' | 'command' | 'paths' | 'toolName'>,
   rootPath: string,
   rules: ThreadPermissionRule[],
-  options: PathSafetyOptions = {}
+  options: PathSafetyOptions = {},
+  settings: { readOnlyList?: boolean } = {}
 ): ThreadRequestPolicy | undefined {
   if (request.kind !== 'approval') return undefined
   const command = request.command?.trim()
@@ -103,13 +106,22 @@ export function evaluatePermission(
   if (!command && !paths.length) return undefined
 
   const parts: { decision: Decision; reasons: string[]; suggestions: ThreadPermissionSuggestion[]; risk?: 'high' }[] = []
+  let viaDefaults = false
+  let shellRisk: ShellRisk | undefined
   if (command) {
+    shellRisk = classifyShellRisk(command)
     const commandRules = rules.filter(rule => rule.kind === 'command')
     const shell = evaluateShellCommand(command, {
       allow: commandRules.filter(rule => rule.decision === 'allow').map(rule => rule.pattern),
-      deny: commandRules.filter(rule => rule.decision === 'deny').map(rule => rule.pattern)
+      deny: commandRules.filter(rule => rule.decision === 'deny').map(rule => rule.pattern),
+      useDefaults: settings.readOnlyList !== false
     })
-    if (shell.decision === 'deny' && shell.byDefault) parts.push({ decision: 'ask', reasons: shell.reasons, suggestions: [], risk: 'high' })
+    // A command the safe list approved must not read outside the project; a rule the person wrote is their call.
+    const outside = shell.decision === 'allow' && shell.defaultSubcommands?.length ? readsOutsideProject(shell.defaultSubcommands, rootPath, options) : []
+    if (shell.viaDefaults && outside.length === 0) viaDefaults = true
+    if (outside.length && shellRisk.level === 'green') shellRisk = { ...shellRisk, level: 'orange' }
+    if (outside.length) parts.push({ decision: 'ask', reasons: outside.slice(0, 5).map(item => `${item.command} reads "${item.path}", which ${item.why}.`), suggestions: [] })
+    else if (shell.decision === 'deny' && shell.byDefault) parts.push({ decision: 'ask', reasons: shell.reasons, suggestions: [], risk: 'high' })
     else parts.push({
       decision: shell.decision,
       reasons: shell.reasons,
@@ -120,12 +132,15 @@ export function evaluatePermission(
 
   const denied = parts.find(part => part.decision === 'deny')
   if (denied) return { decision: 'deny', reasons: denied.reasons }
-  if (parts.every(part => part.decision === 'allow')) return { decision: 'allow', reasons: ['Covered by the project permission rules.'] }
+  if (parts.every(part => part.decision === 'allow')) {
+    return { decision: 'allow', reasons: [viaDefaults ? 'Read-only command from the built-in safe list.' : 'Covered by the project permission rules.'], ...(viaDefaults ? { safeList: true as const } : {}) }
+  }
   const suggestions = parts.flatMap(part => part.suggestions)
   return {
     decision: 'ask',
     reasons: parts.flatMap(part => part.reasons),
     ...(parts.some(part => part.risk) ? { risk: 'high' as const } : {}),
+    ...(shellRisk ? { level: shellRisk.level, ...(shellRisk.warnings.length ? { warnings: shellRisk.warnings } : {}) } : {}),
     // Remembering is only offered when every part has a safe rule to suggest.
     ...(suggestions.length && parts.every(part => part.decision === 'allow' || part.suggestions.length) ? { suggestions } : {})
   }

@@ -49,7 +49,7 @@ export async function runThreadCommand(host: CommandHost, id: string, text: stri
     const aliases: Record<string, string> = { delegation: 'delegations', approvals: 'permissions', 'allowed-tools': 'permissions', name: 'rename', clear: 'new', reset: 'new', cwd: 'pwd', plugin: 'plugins', config: 'settings', login: 'accounts', exit: 'quit' }
     name = aliases[name] ?? name
     if (!hasDesktopCommand(thread.provider, name)) throw Error(`/${name} is not available in Thread yet. Use /help to see supported commands.`)
-    if (argument && ['help', 'skills', 'accounts', 'settings', 'pwd', 'status', 'capabilities', 'instructions', 'rules', 'spending', 'work', 'copy', 'export', 'stop', 'new', 'quit', 'diff', 'usage', 'fork', 'hooks', 'experimental', 'debug-config', 'ps', 'memories'].includes(name)) throw Error(`/${name} does not accept arguments in Thread.`)
+    if (argument && ['help', 'skills', 'accounts', 'settings', 'pwd', 'status', 'capabilities', 'instructions', 'rules', 'spending', 'work', 'events', 'copy', 'export', 'stop', 'new', 'quit', 'diff', 'usage', 'fork', 'hooks', 'experimental', 'debug-config', 'ps', 'memories'].includes(name)) throw Error(`/${name} does not accept arguments in Thread.`)
     if (name === 'delegations' && argument && !/^[a-z0-9-]{8,128}$/i.test(argument)) throw Error('Use /delegation <taskId> with an exact delegation ID.')
     if (name === 'resume' && argument) {
       const local = host.db.prepare('SELECT id FROM conversation_threads WHERE id = ?').get(argument) as { id: string } | undefined
@@ -112,7 +112,7 @@ export async function runThreadCommand(host: CommandHost, id: string, text: stri
       return { kind: 'panel', title: 'Instruction files', text: sources.length
         ? `${thread.provider === 'claude' ? 'Claude Code' : 'Codex'} reads these files when the session starts, in this order. Edit them in the project to change how the agent behaves.`
         : `No ${thread.provider === 'claude' ? 'CLAUDE.md' : 'AGENTS.md'} instruction files were found for this project.`,
-      rows: sources.map(source => ({ label: instructionLabel(source, thread.rootPath), detail: `${scopeLabel[source.scope]} · ${source.bytes.toLocaleString()} bytes` })) }
+      rows: sources.map(source => ({ label: instructionLabel(source, thread.rootPath), detail: `${scopeLabel[source.scope]} · ${source.bytes.toLocaleString()} bytes${source.paths ? ` · only for ${source.paths.join(', ')}` : ''}` })) }
     }
     if (name === 'capabilities') {
       const manifest = thread.capabilities ?? threadCapabilityManifest(thread.provider, host.adapterCapabilities(id))
@@ -151,6 +151,7 @@ export async function runThreadCommand(host: CommandHost, id: string, text: stri
     if (name === 'rules') return { kind: 'panel', surface: 'rules', title: 'Permission rules' }
     if (name === 'work') return { kind: 'panel', surface: 'work', title: 'Agent Work' }
     if (name === 'spending') return { kind: 'panel', surface: 'spending', title: 'Spending' }
+    if (name === 'events') return { kind: 'panel', surface: 'events', title: 'Conversation events' }
     if (name === 'checkpoint') {
       const [action = 'list', checkpointId, extra] = argument.split(/\s+/).filter(Boolean)
       if (extra || !['list', 'restore', 'delete'].includes(action) || action !== 'list' && !checkpointId) throw Error('Use /checkpoint, /checkpoint restore <id>, or /checkpoint delete <id>')

@@ -61,6 +61,38 @@ describe('evaluateShellCommand', () => {
     expect(evaluateShellCommand('sed -i s/a/b/ f', { allow: ['sed'], deny: [] }).decision).toBe('ask')
   })
 
+  it('sees redirects glued to a word, but not inside quotes or fd duplication', () => {
+    expect(evaluateShellCommand('echo x>out', { allow: ['echo'], deny: [] }).decision).toBe('ask')
+    expect(evaluateShellCommand('echo x>>out', { allow: ['echo'], deny: [] }).decision).toBe('ask')
+    expect(evaluateShellCommand('echo hi &>out', { allow: ['echo'], deny: [] }).decision).toBe('ask')
+    expect(evaluateShellCommand('ls 2>/dev/null', rules).decision).toBe('allow')
+    expect(evaluateShellCommand('ls 2>&1', rules).decision).toBe('allow')
+    expect(evaluateShellCommand('ls >&2', rules).decision).toBe('allow')
+    expect(evaluateShellCommand('echo "a>b"', { allow: ['echo'], deny: [] }).decision).toBe('allow')
+    expect(suggestRules('echo x>out')).toEqual([])
+  })
+
+  it('judges a PowerShell wrapper by the script inside it', () => {
+    const ps = { allow: ['Get-Date', 'Get-ChildItem'], deny: [] }
+    expect(evaluateShellCommand('pwsh -NoProfile -Command "Get-Date"', ps).decision).toBe('allow')
+    expect(evaluateShellCommand('"C:\\\\Program Files\\\\PowerShell\\\\7\\\\pwsh.exe" -Command "Get-ChildItem; Get-Date"', ps).decision).toBe('allow')
+    expect(evaluateShellCommand('pwsh -Command "Get-Date; Get-Process"', ps).decision).toBe('ask')
+    const removal = evaluateShellCommand('pwsh -Command "Get-Date; Remove-Item x"', ps)
+    expect(removal.decision).toBe('deny')
+    expect(removal.byDefault).toBe(true)
+    expect(evaluateShellCommand('pwsh -Command "Get-Date | Out-File f"', ps).decision).toBe('ask')
+    expect(evaluateShellCommand('pwsh -Command "Get-Date > f"', ps).decision).toBe('ask')
+    // Blocks and braces cannot be followed, so the wrapper keeps its built-in block (the policy turns it into a high-risk ask).
+    const blocks = evaluateShellCommand('pwsh -Command "Get-ChildItem | ForEach-Object { Remove-Item $_ }"', ps)
+    expect(blocks.decision).toBe('deny')
+    expect(blocks.byDefault).toBe(true)
+  })
+
+  it('still blocks a bare shell with no script to read', () => {
+    expect(evaluateShellCommand('pwsh', { allow: [], deny: [] }).decision).toBe('deny')
+    expect(evaluateShellCommand('pwsh -File run.ps1', { allow: [], deny: [] }).decision).toBe('deny')
+  })
+
   it('supports regex rules', () => {
     expect(evaluateShellCommand('cat src/index.ts', rules).decision).toBe('allow')
     expect(evaluateShellCommand('cat a b', rules).decision).toBe('ask')

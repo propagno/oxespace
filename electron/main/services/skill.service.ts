@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, watch, writeFileSync, type FSWatcher } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { load as loadYaml } from 'js-yaml'
 import { ALL_PROVIDERS, type AgentProvider } from '../../../shared/types/agent'
 import type { CreateSkillInput, SkillDefinition, SkillMetadata } from '../../../shared/types/skill'
 
@@ -227,36 +228,15 @@ function renderSkillFile(meta: { name: string; description: string; agents: Agen
  * Parses a skill markdown file with YAML frontmatter. Returns null when frontmatter
  * is missing or invalid.
  *
- * The parser is intentionally minimal — only supports flat key-value pairs and arrays
- * in `[a, b, c]` format. No nested objects. This is enough for skill metadata.
+ * The header is read as YAML, so block lists, quoted values and multi-line descriptions work.
+ * A header that is not valid YAML (an unquoted `description: use for: x`, say) falls back to the
+ * flat `key: value` and `[a, b]` reading skills have always had, so existing files keep loading.
  */
 export function parseSkillMarkdown(raw: string, filePath: string): (SkillMetadata & { body: string }) | null {
   const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/)
   if (!match) return null
-  const yaml = match[1]
   const body = match[2].trim()
-
-  const data: Record<string, string | string[] | boolean> = {}
-  for (const line of yaml.split(/\r?\n/)) {
-    const trimmed = line.trim()
-    if (!trimmed || trimmed.startsWith('#')) continue
-    const colonIdx = trimmed.indexOf(':')
-    if (colonIdx <= 0) continue
-    const key = trimmed.slice(0, colonIdx).trim()
-    const value = trimmed.slice(colonIdx + 1).trim()
-    if (!key) continue
-    if (value === 'true' || value === 'false') {
-      data[key] = value === 'true'
-    } else if (value.startsWith('[') && value.endsWith(']')) {
-      data[key] = value
-        .slice(1, -1)
-        .split(',')
-        .map((item) => item.trim().replace(/^['"]|['"]$/g, ''))
-        .filter(Boolean)
-    } else {
-      data[key] = value.replace(/^['"]|['"]$/g, '')
-    }
-  }
+  const data = parseFrontmatter(match[1])
 
   const name = typeof data.name === 'string' ? data.name : null
   const description = typeof data.description === 'string' ? data.description : ''
@@ -278,4 +258,50 @@ export function parseSkillMarkdown(raw: string, filePath: string): (SkillMetadat
     hidden: data.hidden === true,
     body
   }
+}
+
+type Frontmatter = Record<string, string | string[] | boolean>
+
+/** YAML first; the older flat reading when the header is not YAML or not a mapping. */
+function parseFrontmatter(yaml: string): Frontmatter {
+  try {
+    const parsed = loadYaml(yaml)
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const data: Frontmatter = {}
+      for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+        if (typeof value === 'boolean') data[key] = value
+        else if (typeof value === 'string') data[key] = value.trim()
+        else if (typeof value === 'number') data[key] = String(value)
+        else if (Array.isArray(value)) data[key] = value.filter(item => typeof item === 'string' || typeof item === 'number').map(item => String(item).trim()).filter(Boolean)
+      }
+      return data
+    }
+  } catch { /* Not YAML: read it the flat way. */ }
+  return parseFlatFrontmatter(yaml)
+}
+
+/** Flat `key: value` lines and `[a, b]` lists: what every skill header was read as before YAML. */
+function parseFlatFrontmatter(yaml: string): Frontmatter {
+  const data: Frontmatter = {}
+  for (const line of yaml.split(/\r?\n/)) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('#')) continue
+    const colonIdx = trimmed.indexOf(':')
+    if (colonIdx <= 0) continue
+    const key = trimmed.slice(0, colonIdx).trim()
+    const value = trimmed.slice(colonIdx + 1).trim()
+    if (!key) continue
+    if (value === 'true' || value === 'false') {
+      data[key] = value === 'true'
+    } else if (value.startsWith('[') && value.endsWith(']')) {
+      data[key] = value
+        .slice(1, -1)
+        .split(',')
+        .map((item) => item.trim().replace(/^['"]|['"]$/g, ''))
+        .filter(Boolean)
+    } else {
+      data[key] = value.replace(/^['"]|['"]$/g, '')
+    }
+  }
+  return data
 }

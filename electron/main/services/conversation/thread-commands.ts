@@ -89,6 +89,7 @@ export class ThreadCommandService {
     }
     if (!entries.has('rules')) entries.set('rules', { name: 'rules', description: 'Permission rules that answer approvals, and the decisions recorded', source: thread.provider, execution: 'desktop' })
     if (!entries.has('work')) entries.set('work', { name: 'work', description: 'Agent Work: tasks this conversation runs in worker conversations', source: thread.provider, execution: 'desktop' })
+    if (!entries.has('events')) entries.set('events', { name: 'events', description: 'Inspect the saved events of this conversation: tools, requests, turns and their timing', source: thread.provider, execution: 'desktop' })
     if (!entries.has('spending')) entries.set('spending', { name: 'spending', description: 'Tokens and estimated cost by day, model and conversation', source: thread.provider, execution: 'desktop' })
     if (!entries.has('instructions')) entries.set('instructions', { name: 'instructions', description: thread.provider === 'claude' ? 'Show which CLAUDE.md and rule files the agent reads' : 'Show which AGENTS.md files the agent reads', source: thread.provider, execution: 'desktop' })
     for (const name of ['effort', 'permissions', 'help', 'accounts', 'settings', 'capabilities', 'delegations', 'delegation']) if (!entries.has(name)) entries.set(name, { name, description: name === 'capabilities' ? 'Show verified Thread capabilities' : name === 'delegations' || name === 'delegation' ? 'Open persistent delegated work' : `Open ${name}`, source: thread.provider, execution: 'desktop' })

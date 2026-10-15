@@ -78,3 +78,24 @@ export interface McpServerHealthEvent {
   status: McpHealthStatus
   message: string | null
 }
+
+/** A server another tool already has, as offered for import. Secret values are never included, only their names. */
+export interface McpDiscoveredServer {
+  name: string
+  transport: McpTransport
+  /** The command line, or the URL. */
+  target: string
+  secretNames: string[]
+  /** A server with this name is already saved in the chosen scope. */
+  exists: boolean
+}
+/** What an import did, server by server: one that cannot be added does not stop the others. */
+export interface McpImportResult {
+  created: McpServer[]
+  failed: Array<{ name: string; reason: string }>
+}
+export interface McpDiscoverySource {
+  id: 'claude-desktop' | 'cursor' | 'windsurf'
+  label: string
+  servers: McpDiscoveredServer[]
+}
