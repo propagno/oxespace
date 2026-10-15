@@ -37,6 +37,8 @@ import { registerDiagnosticsIpc } from './ipc/diagnostics.ipc'
 import { BackgroundManager } from './services/background.service'
 import { TerminalManager } from './services/terminal.service'
 import { MemoryService } from './services/memory/memory.service'
+import { configureExperimentalFeatures, sharedProjectMemoryEnabled } from './services/experimental-features'
+import { gateMemoryTools } from './mcp-internal/tool-registry'
 import { ExecutionRegistry } from './services/execution-registry'
 import { AgentLaunchService, agentMcpArguments, providerForExecutable } from './services/agent-launch.service'
 import { AgentService } from './services/agent.service'
@@ -139,7 +141,10 @@ async function registerIpcHandlers(): Promise<() => void> {
     return noop
   }
 
-  const memoryService = new MemoryService(db, join(app.getPath('userData'), 'memory'))
+  // Shared Project Memory ships off: no service, no settings page, no oxespace_memory_* tools until the flag is on.
+  configureExperimentalFeatures(app.getPath('userData'))
+  gateMemoryTools(sharedProjectMemoryEnabled)
+  const memoryService = new MemoryService(db, join(app.getPath('userData'), 'memory'), sharedProjectMemoryEnabled)
   const { DelegationService } = await import('./services/delegation.service')
   const { registerDelegationIpc } = await import('./ipc/delegation.ipc')
   const executions = new ExecutionRegistry()
@@ -384,7 +389,7 @@ async function registerIpcHandlers(): Promise<() => void> {
       let memory = ''
       try {
         const context = await memoryService.projects.resolve(task.path)
-        const settings = memoryService.projects.settings(context.projectId)
+        const settings = memoryService.effectiveSettings(context.projectId)
         if (settings.enabled && (task.includeMemory ?? settings.automaticContext)) {
           const reply = await memoryService.manager.run(context, provider => provider.getRelevantContext(context, task.objective))
           memory = reply.status === 'ok' ? reply.value.text.slice(0,4000) : ''

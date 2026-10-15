@@ -9,6 +9,7 @@ import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
 import { useResolvedTerminalPrefs, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import './WorkspaceSettingsModal.css'
 import { DefaultShellSettings } from './DefaultShellSettings'
+import { useSharedProjectMemory } from '../../hooks/useSharedProjectMemory'
 import { Button, Select } from '../../ui'
 
 export const SETTINGS_PAGES = [
@@ -72,6 +73,8 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
   const [isSaving, setSaving] = useState(false)
   const [localPage, setPage] = useState<(typeof SETTINGS_PAGES)[number]['id']>('appearance')
   const page = selectedPageId ?? localPage
+  const memoryOn = useSharedProjectMemory(workspace.id) === true
+  const visiblePages = SETTINGS_PAGES.filter(item => item.id !== 'memory' || memoryOn)
   const selectedPage = SETTINGS_PAGES.find(item => item.id === page)!
   const contentRef = useRef<HTMLDivElement>(null)
   useEffect(() => { if (contentRef.current) contentRef.current.scrollTop = 0 }, [page])
@@ -127,14 +130,14 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
           <div className="ws-settings-body">
             {!embedded && <nav className="ws-settings-nav" aria-label="Workspace settings sections">
               <span className="ws-settings-nav-label">WORKSPACE</span>
-              {SETTINGS_PAGES.map(({ id, label, hint, icon: Icon }) => <button key={id} type="button" aria-pressed={page === id} aria-controls={`ws-page-${id}`} onClick={() => { setPage(id); if (contentRef.current) contentRef.current.scrollTop = 0 }}>
+              {visiblePages.map(({ id, label, hint, icon: Icon }) => <button key={id} type="button" aria-pressed={page === id} aria-controls={`ws-page-${id}`} onClick={() => { setPage(id); if (contentRef.current) contentRef.current.scrollTop = 0 }}>
                 <Icon size={16} aria-hidden="true" /><span><strong>{label}</strong><small>{hint}</small></span>
               </button>)}
               <p>Settings scoped to<br /><strong>{workspace.name}</strong></p>
             </nav>}
             <div className="ws-settings-main" ref={contentRef}>
               <header className="ws-settings-page-heading"><h3>{selectedPage.label}</h3><p>{selectedPage.description}</p></header>
-              <div id="ws-page-memory" hidden={page !== 'memory'}><WorkspaceMemorySettings workspaceId={workspace.id} /></div>
+              {memoryOn && <div id="ws-page-memory" hidden={page !== 'memory'}><WorkspaceMemorySettings workspaceId={workspace.id} /></div>}
               <div id="ws-page-delegation" hidden={page !== 'delegation'}><WorkspaceDelegationSettings workspaceId={workspace.id} paneIds={workspace.panes.map(pane => pane.id)} onOpenTerminal={onOpenTerminal} onOpenDiagnostics={onOpenDiagnostics} /></div>
               <div id="ws-page-appearance" className="ws-appearance-layout" hidden={page !== 'appearance'}>
               <div className="ws-appearance-controls">

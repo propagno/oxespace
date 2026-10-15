@@ -1,4 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
+import { rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { scanSurface, writeReport, type Violation } from '../helpers/a11y'
 import { launchApp, openDemoWorkspace, resizeWindow, type Appearance } from '../helpers/launch'
 import { seedGitRepo } from '../helpers/seed'
@@ -8,13 +11,16 @@ import { installThreadFixtures, openThreadWithState, registerThreadProject, setT
  * Accessibility scan (axe, WCAG 2.0/2.1 A and AA) over the surfaces the visual suite already
  * reaches, in both themes. Run with `npm run test:a11y`.
  *
- * Informative for 1.0: it records what it finds in a JSON-lines report (OXE_A11Y_REPORT, default
- * test-results/a11y-report.jsonl) and does not fail. Set OXE_A11Y_STRICT=1 to fail on any violation.
+ * Informative for 1.0: it records what it finds in a JSON-lines report and does not fail. Set
+ * OXE_A11Y_STRICT=1 to fail on any violation. The report goes to OXE_A11Y_REPORT, default
+ * <tmp>/oxespace-a11y-report.jsonl: not under test-results, which Playwright empties on every run.
  */
-const REPORT = process.env.OXE_A11Y_REPORT ?? 'test-results/a11y-report.jsonl'
+const REPORT = process.env.OXE_A11Y_REPORT ?? join(tmpdir(), 'oxespace-a11y-report.jsonl')
 const STRICT = process.env.OXE_A11Y_STRICT === '1'
 const THEMES: Appearance[] = ['light', 'dark']
 const THREAD_SURFACES: ThreadStateName[] = ['empty', 'conversation', 'approval', 'question', 'usage-failure', 'workbench']
+
+test.beforeAll(() => { rmSync(REPORT, { force: true }) })
 
 async function record(violations: Violation[], found: Violation[]): Promise<void> {
   found.push(...violations)

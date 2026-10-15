@@ -300,8 +300,17 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   }
 ]
 
+/** Main sets this from the experimental-features flag; the default keeps every tool (tests). */
+let memoryToolsAllowed: () => boolean = () => true
+export function gateMemoryTools(allowed: () => boolean): void { memoryToolsAllowed = allowed }
+
+/** The tools this build exposes: oxespace_memory_* disappear while Shared Project Memory is off. */
+export function activeTools(): ToolEntry[] {
+  return memoryToolsAllowed() ? TOOL_REGISTRY : TOOL_REGISTRY.filter((entry) => !entry.descriptor.name.startsWith('oxespace_memory_'))
+}
+
 export function findTool(name: string): ToolEntry | null {
-  return TOOL_REGISTRY.find((entry) => entry.descriptor.name === name) ?? null
+  return activeTools().find((entry) => entry.descriptor.name === name) ?? null
 }
 
 /** Helper used by handlers to build a single text content block. */

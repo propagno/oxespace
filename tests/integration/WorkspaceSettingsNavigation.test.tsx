@@ -35,3 +35,31 @@ test('save failures keep the dialog and actionable error visible', async () => {
   await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Could not save. Try again.'))
   expect(onClose).not.toHaveBeenCalled()
 })
+
+const memoryStatus = (featureEnabled?: boolean) => ({ projectId: 'p', sessions: [], settings: { enabled: false, automaticCapture: false, automaticContext: false },
+  runtime: { mode: 'managed', executable: '', url: '' }, health: { status: 'disabled' }, ...(featureEnabled === undefined ? {} : { featureEnabled }) })
+
+test('Shared Project Memory has no navigation entry and no page while the build has it off', async () => {
+  const status = vi.fn(async () => memoryStatus(false))
+  vi.stubGlobal('oxe', { memory: { status } })
+  render(<WorkspaceSettingsModal workspace={workspace} shellProfiles={shells} onSave={vi.fn(async () => {})} onClose={vi.fn()} />)
+  await waitFor(() => expect(status).toHaveBeenCalledWith('ws'))
+  expect(screen.queryByRole('button', { name: /Project memory/ })).toBeNull()
+  expect(screen.queryByText('Shared Project Memory')).toBeNull()
+  expect(screen.queryByText('Beta')).toBeNull()
+  expect(screen.getByRole('button', { name: /Agent delegation/ })).toBeVisible()
+})
+
+test('Shared Project Memory shows when the build reports it on', async () => {
+  vi.stubGlobal('oxe', { memory: { status: vi.fn(async () => memoryStatus(true)) } })
+  render(<WorkspaceSettingsModal workspace={workspace} shellProfiles={shells} onSave={vi.fn(async () => {})} onClose={vi.fn()} />)
+  fireEvent.click(await screen.findByRole('button', { name: /Project memory Shared knowledge/ }))
+  expect(await screen.findByRole('heading', { name: 'Shared Project Memory' })).toBeVisible()
+})
+
+test('a failed feature probe hides the memory page instead of guessing', async () => {
+  vi.stubGlobal('oxe', { memory: { status: vi.fn(async () => { throw new Error('boom') }) } })
+  render(<WorkspaceSettingsModal workspace={workspace} shellProfiles={shells} onSave={vi.fn(async () => {})} onClose={vi.fn()} />)
+  await waitFor(() => expect(screen.getByRole('button', { name: /Agent delegation/ })).toBeVisible())
+  expect(screen.queryByRole('button', { name: /Project memory/ })).toBeNull()
+})

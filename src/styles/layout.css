@@ -312,6 +312,15 @@
   line-height: 1.25;
   min-width: 0;
   transition: color var(--transition-base);
+  /* A real button so the keyboard reaches the row; it must look like the text it replaced. */
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .ws-group-header:hover .ws-group-name {
