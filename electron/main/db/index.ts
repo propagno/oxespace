@@ -211,7 +211,11 @@ export function runMigrations(db: AppDatabase): void {
     currentVersion = db.pragma('user_version', { simple: true }) as number
   }
 
-  if (currentVersion < 18 || !hasColumn(db, 'panes', 'model_override')) {
+  // Only on `< 18`: migration 028 deliberately drops `model_override`, so also testing
+  // for the column here made this block true on every open of a migrated database. It
+  // re-added the column, set user_version to 18 and replayed migrations up to 057,
+  // leaving the version at 57 and taking a backup on every other launch.
+  if (currentVersion < 18) {
     if (!hasColumn(db, 'panes', 'model_override')) {
       db.exec(readMigration('018_pane_model_override.sql'))
     } else {

@@ -46,7 +46,7 @@ export function AddThreadProjectDialog({ onPickFolder, onAdd, onClose }: {
     <form onSubmit={event => { event.preventDefault(); void submit() }}>
       <label>Project folder
         <span className="thread-project-folder-field">
-          <TextField aria-label="Project folder path" value={rootPath} placeholder="C:\\projects\\my-project" onChange={event => setRootPath(event.target.value)} autoFocus />
+          <TextField aria-label="Project folder path" value={rootPath} placeholder={'C:\\projects\\my-project'} onChange={event => setRootPath(event.target.value)} autoFocus />
           <button type="button" disabled={pending || picking} onClick={() => {
             setPicking(true); setError('')
             void onPickFolder().then(path => { if (path) setRootPath(path) }).catch(cause => setError(cause instanceof Error ? cause.message : 'Could not open the folder picker.')).finally(() => setPicking(false))

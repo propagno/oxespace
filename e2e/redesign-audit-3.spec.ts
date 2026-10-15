@@ -12,7 +12,9 @@ import { join } from 'node:path'
  * Run: OXESPACE_AUDIT_MODE=light|dark npx playwright test --config playwright.tools.config.ts redesign-audit-3.spec.ts
  */
 const MODE = process.env.OXESPACE_AUDIT_MODE === 'light' || process.env.OXESPACE_AUDIT_MODE === 'dark' ? process.env.OXESPACE_AUDIT_MODE : 'light'
-const OUT = join(process.cwd(), 'e2e', 'screenshots', `redesign-audit-3-${MODE}`)
+// OXESPACE_AUDIT_SIZE=960x640 reviews the smallest supported window.
+const SIZE = /^(\d+)x(\d+)$/.exec(process.env.OXESPACE_AUDIT_SIZE ?? '')
+const OUT = join(process.cwd(), 'e2e', 'screenshots', `redesign-audit-3-${MODE}${SIZE ? `-${SIZE[1]}x${SIZE[2]}` : ''}`)
 const SHOTS = join(OUT, 'shots')
 const failures: string[] = []
 const found: Array<{ name: string; contrast: unknown[]; small: unknown[]; unnamed: unknown[]; overflow: boolean }> = []
@@ -95,6 +97,7 @@ test('coverage audit', async () => {
     await page.waitForLoadState('load'); await page.waitForTimeout(1500)
     await page.evaluate(mode => localStorage.setItem('oxe-settings', JSON.stringify({ state: { appearance: mode, notificationsEnabled: true, visitedWorkspacesCap: 5 }, version: 3 })), MODE)
     await page.reload(); await page.waitForLoadState('load'); await page.waitForTimeout(2000)
+    if (SIZE) { await app.evaluate(({ BrowserWindow }, [w, h]) => { const win = BrowserWindow.getAllWindows()[0]; win.setSize(w, h); win.center() }, [Number(SIZE[1]), Number(SIZE[2])]); await page.waitForTimeout(800) }
     await page.getByTestId('btn-new-workspace').click()
     await page.getByTestId('wizard-dir-input').fill(repo)
     await page.getByTestId('wizard-launch-btn').click()

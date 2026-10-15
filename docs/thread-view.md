@@ -79,9 +79,11 @@ raw stderr and callback codes are not saved in conversation history.
 Native user/admin configuration remains applicable. Codex can load native MCP
 configuration; filesystem read-only mode does not constrain external MCP effects.
 
-OXESpace memory capture, CodeGraph, internal MCP, preview/delegation, attachments,
-write mode and visual model/reasoning selectors in ordinary conversation remain
-separate follow-up work; the native CLI provides its own tools and selectors.
+Image attachments, the internal MCP tools (`oxespace_thread_*` and Agent Work),
+access and approval modes, and the model and effort selectors are part of Thread;
+the composer section of the README and the 0.17.0 release notes list them. Project
+memory capture is Beta and has its own limits (see `PROJECT_MEMORY.md`). Outside
+those, the native CLI provides its own tools and selectors.
 
 ## Delivery, queue, context and rewind
 

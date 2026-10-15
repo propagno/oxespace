@@ -236,7 +236,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
       onImport={snapshot && api?.importPortable ? () => { setPending(true); setError(''); void api.importPortable!(snapshot.thread.id).then(imported => { if (imported) useThreadStore.getState().adopt(imported) }).catch(cause => setError(cause instanceof Error ? cause.message : 'Could not import conversation.')).finally(() => setPending(false)) } : undefined}
       onDelegate={() => setDelegationOpen(true)} onPin={() => { if (snapshot) void action(() => api!.pin(snapshot.thread.id, !snapshot.thread.pinned)) }} />
     {finding && <ThreadFindBar rows={timelineRows} scrollRoot={timeline} scrollTo={scrollTo} onClose={() => { setFinding(false); requestAnimationFrame(() => textarea.current?.focus()) }} />}
-    <div ref={timeline} className="thread-timeline" tabIndex={0} aria-label="Conversation history" {...scroll.timelineProps}>
+    <div ref={timeline} className="thread-timeline" role="region" tabIndex={0} aria-label="Conversation history" {...scroll.timelineProps}>
       <div ref={scroll.content} className="thread-reading-column">
         {snapshot?.page?.hasMore && <button type="button" className="thread-load-earlier" disabled={scroll.loadingEarlier} onClick={() => void scroll.loadEarlier()}>{scroll.loadingEarlier ? <Loader2 size={14} className="thread-spin" /> : <ArrowUp size={14} />}Load earlier messages</button>}
         {scroll.historyFeedback?.id === selectedId && <p className="thread-history-feedback" role={scroll.historyFeedback.error ? 'alert' : 'status'}>{scroll.historyFeedback.text}</p>}

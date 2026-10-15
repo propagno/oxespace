@@ -21,3 +21,5 @@
 .delegated-work-list li { display: flex; gap: 10px; align-items: baseline; padding: 8px 10px; border: 1px solid var(--bd-base); border-radius: var(--radius-md); font-size: var(--fs-xs); }
 .delegated-work-list li strong { min-width: 88px; text-transform: capitalize; }
 .delegated-work-list li span { color: var(--tx-secondary); overflow-wrap: anywhere; }
+/* The shared 7px dialog padding is taller than the 28px control, which cut the text of the project picker. */
+.delegated-work-dialog select, .delegated-work-dialog input { padding-block: 0; min-height: var(--control-md); }

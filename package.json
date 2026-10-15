@@ -31,6 +31,7 @@
     "bench:web-preview": "playwright test --config playwright.tools.config.ts browser-preview-performance.spec.ts",
     "bench:semantic": "node scripts/semantic-eval.mjs",
     "bench:semantic:gate": "node scripts/semantic-quality-gate.mjs",
+    "test:a11y": "playwright test --config playwright.visual.config.ts a11y-surfaces",
     "test:visual": "playwright test --config playwright.visual.config.ts",
     "test:visual:update": "playwright test --config playwright.visual.config.ts --update-snapshots",
     "shots:ui": "playwright test --config playwright.tools.config.ts screenshots.spec.ts",
@@ -111,6 +112,7 @@
     "sharp": "0.35.5"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@electron/rebuild": "^4.2.1",
     "@eslint/js": "^9.39.5",
     "@playwright/test": "^1.59.1",

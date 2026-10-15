@@ -49,6 +49,13 @@ export class LinearService {
     const trimmed = apiKey.trim()
     if (!trimmed) throw new Error('API key is empty')
 
+    // The key is only ever stored encrypted. Without OS encryption (on Linux, no Secret
+    // Service such as GNOME Keyring or KWallet) it is refused before it is sent anywhere,
+    // rather than saved in plain text next to the rest of the profile.
+    if (!safeStorage.isEncryptionAvailable()) {
+      throw new Error('Secure storage is unavailable on this system, so the Linear API key was not saved. Unlock or install an OS keychain (on Linux, GNOME Keyring or KWallet) and try again.')
+    }
+
     // Validate before persisting so a typo never gets stored as "connected".
     const viewer = await this.query<{ viewer: { name: string; email: string; organization?: { name: string } } }>(
       'query { viewer { name email organization { name } } }',
@@ -56,8 +63,7 @@ export class LinearService {
       trimmed
     )
 
-    const canEncrypt = safeStorage.isEncryptionAvailable()
-    const payload = canEncrypt ? safeStorage.encryptString(trimmed) : Buffer.from(trimmed, 'utf8')
+    const payload = safeStorage.encryptString(trimmed)
     const now = Date.now()
     this.db
       .prepare(
@@ -66,12 +72,12 @@ export class LinearService {
          ON CONFLICT(provider) DO UPDATE SET payload = excluded.payload, encrypted = excluded.encrypted,
            label = excluded.label, updated_at = excluded.updated_at`
       )
-      .run(PROVIDER, payload, canEncrypt ? 1 : 0, viewer.viewer.name, now, now)
+      .run(PROVIDER, payload, 1, viewer.viewer.name, now, now)
     this.cachedKey = trimmed
 
     return {
       connected: true,
-      encrypted: canEncrypt,
+      encrypted: true,
       viewerName: viewer.viewer.name,
       viewerEmail: viewer.viewer.email,
       organization: viewer.viewer.organization?.name ?? null,
