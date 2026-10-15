@@ -204,6 +204,14 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings): { st
   ipcMain.handle(IPC_CHANNELS.thread.removePermissionRule, (event, id: unknown, ruleId: unknown) => { sender(event); return manager.then(service => service.removePermissionRule(string(id), string(ruleId))) })
   ipcMain.handle(IPC_CHANNELS.thread.workRuns, (event, id: unknown) => { sender(event); return manager.then(service => service.workRuns(string(id))) })
   ipcMain.handle(IPC_CHANNELS.thread.cancelWork, (event, id: unknown, runId: unknown) => { sender(event); return manager.then(service => service.cancelWork(string(id), string(runId))) })
+  ipcMain.handle(IPC_CHANNELS.thread.debugEvents, (event, id: unknown, options: unknown) => {
+    sender(event)
+    const value = options && typeof options === 'object' && !Array.isArray(options) ? options as Record<string, unknown> : {}
+    const filter = typeof value.filter === 'string' ? value.filter.slice(0, 500) : undefined
+    const before = typeof value.before === 'number' && Number.isInteger(value.before) ? value.before : undefined
+    const limit = typeof value.limit === 'number' && Number.isInteger(value.limit) ? value.limit : undefined
+    return manager.then(service => service.debugEvents(string(id), { filter, before, limit }))
+  })
   ipcMain.handle(IPC_CHANNELS.thread.usageSummary, (event, id: unknown, options: unknown) => {
     sender(event)
     const value = options && typeof options === 'object' && !Array.isArray(options) ? options as Record<string, unknown> : {}

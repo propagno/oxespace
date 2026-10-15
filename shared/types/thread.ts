@@ -89,7 +89,7 @@ export interface ThreadCapabilityManifest {
 export interface ThreadUsageWindow { label: string; usedPercent: number; resetsAt?: number; windowMinutes?: number }
 export interface ThreadUsage { windows: ThreadUsageWindow[]; checkedAt: number }
 export interface ThreadFailure { id: string; occurredAt: number; code: 'authentication' | 'usage' | 'rate-limit' | 'context' | 'budget' | 'server' | 'network' | 'sandbox' | 'configuration' | 'session-busy' | 'unknown'; message: string; detail?: string; providerCode?: string; httpStatus?: number; usage?: ThreadUsage; usageUnavailable?: boolean }
-export interface ThreadCommandResult { kind: 'applied' | 'panel' | 'navigate'; title?: string; text?: string; externalUrl?: string; surface?: 'model' | 'effort' | 'permissions' | 'accounts' | 'commands' | 'sessions' | 'rename' | 'settings' | 'delegations' | 'changes' | 'rules' | 'spending' | 'work'; threadId?: string; usage?: ThreadUsage; rows?: { label: string; detail?: string; id?: string; turnId?: string }[] }
+export interface ThreadCommandResult { kind: 'applied' | 'panel' | 'navigate'; title?: string; text?: string; externalUrl?: string; surface?: 'model' | 'effort' | 'permissions' | 'accounts' | 'commands' | 'sessions' | 'rename' | 'settings' | 'delegations' | 'changes' | 'rules' | 'spending' | 'work' | 'events'; threadId?: string; usage?: ThreadUsage; rows?: { label: string; detail?: string; id?: string; turnId?: string }[] }
 /** Resolved in the main process; skill paths are never accepted from the renderer. */
 export interface ThreadAttachment {
   id: string
@@ -178,6 +178,32 @@ export interface ThreadRequestPolicy {
   /** Facts worth a second look, such as web content that may carry prompt injection. */
   warnings?: string[]
   suggestions?: ThreadPermissionSuggestion[]
+}
+/** One saved event of a conversation as the debug inspector shows it. */
+export interface ThreadDebugRow {
+  seq: number
+  eventId?: string
+  operationId?: string
+  turnId?: string
+  createdAt: number
+  type: string
+  label: string
+  state?: string
+  durationMs?: number
+  exitCode?: number
+  /** The event as indented JSON, clipped to a size the inspector can show. */
+  payload: string
+  payloadTruncated?: boolean
+}
+export interface ThreadDebugPage {
+  /** Oldest first. */
+  rows: ThreadDebugRow[]
+  /** Rows that matched in the part of the history that was read. */
+  matched: number
+  /** More matching rows exist before the first one returned. */
+  hasMore: boolean
+  /** The search stopped at its limit before reaching the start of the history. */
+  scanLimited: boolean
 }
 export interface ThreadAuditEntry {
   id: number
@@ -501,6 +527,7 @@ export interface ThreadApi {
   addPermissionRule?(id: string, rule: { kind: ThreadPermissionRule['kind']; pattern: string; decision: ThreadPermissionRule['decision']; scope: 'project' | 'global' }): Promise<ThreadPermissionRule>
   removePermissionRule?(id: string, ruleId: string): Promise<void>
   auditLog?(id: string, options?: { scope?: 'thread' | 'project'; before?: number; limit?: number }): Promise<ThreadAuditEntry[]>
+  debugEvents?(id: string, options?: { filter?: string; before?: number; limit?: number }): Promise<ThreadDebugPage>
   usageSummary?(id: string, options?: { scope?: 'thread' | 'project' | 'all'; days?: number }): Promise<ThreadUsageSummary>
   workRuns?(id: string): Promise<import('./work').WorkRun[]>
   cancelWork?(id: string, runId: string): Promise<import('./work').WorkRun>

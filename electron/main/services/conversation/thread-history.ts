@@ -1,7 +1,8 @@
 import { createHash, randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../../db'
-import type { ConversationThread, ThreadArtifact, ThreadDelivery, ThreadDelta, ThreadSyncCursor, ThreadRequest, ThreadEvent, ThreadTurn, ThreadSnapshot, ThreadHistoryPage, ThreadOperation, ThreadOperationKind, ThreadOperationState } from '../../../../shared/types/thread'
+import type { ThreadDebugPage, ThreadDebugRow, ConversationThread, ThreadArtifact, ThreadDelivery, ThreadDelta, ThreadSyncCursor, ThreadRequest, ThreadEvent, ThreadTurn, ThreadSnapshot, ThreadHistoryPage, ThreadOperation, ThreadOperationKind, ThreadOperationState } from '../../../../shared/types/thread'
 import { parseThreadPatch } from '../../../../shared/threadPatch'
+import { compileDebugFilter, summarizeThreadEvent } from '../../../../shared/threadDebug'
 import { canTransitionThreadOperation, createThreadEventEnvelope, deriveThreadDelivery } from './thread-event-envelope'
 
 const DELIVERY_LIMIT = 250
@@ -9,6 +10,10 @@ const DELIVERY_LIMIT = 250
 const DELTA_LIMIT = 500
 const PATCH_LIMIT = 512 * 1024
 const ARTIFACT_LIMIT = 64 * 1024 * 1024
+/** Events the debug inspector reads per request, and the size of each payload it returns. */
+const DEBUG_SCAN_LIMIT = 20000
+const DEBUG_PAYLOAD_LIMIT = 20000
+const DEBUG_SEARCH_LIMIT = 100000
 
 export interface ThreadHistoryWriteOptions {
   /** First event that may have changed. Earlier rows remain untouched. */
@@ -136,6 +141,43 @@ export class ThreadHistory {
       for (const artifact of artifacts) this.db.prepare('INSERT INTO conversation_artifacts (thread_id, id, content, hash, bytes, truncated, source) VALUES (?, ?, ?, ?, ?, ?, ?)')
         .run(threadId, artifact.id, artifact.content, artifact.hash, artifact.bytes, Number(artifact.truncated), artifact.source)
     })()
+  }
+
+  /**
+   * Events with their envelopes, filtered, newest matches read first and returned oldest first.
+   * `before` is a sequence number: only earlier events are read, which is how older rows are paged in.
+   */
+  debugEvents(threadId: string, options: { filter?: string; before?: number; limit?: number } = {}): ThreadDebugPage {
+    const limit = Math.min(Math.max(options.limit ?? 200, 1), 500)
+    const keep = compileDebugFilter(options.filter ?? '')
+    const rows = this.db.prepare(`SELECT e.seq, e.turn_id, e.data_json, v.event_id, v.operation_id, v.created_at
+      FROM conversation_events e LEFT JOIN conversation_event_envelopes v ON v.thread_id = e.thread_id AND v.seq = e.seq
+      WHERE e.thread_id = ? AND (? IS NULL OR e.seq < ?) ORDER BY e.seq DESC LIMIT ?`)
+      .all(threadId, options.before ?? null, options.before ?? null, DEBUG_SCAN_LIMIT) as { seq: number; turn_id: string | null; data_json: string; event_id: string | null; operation_id: string | null; created_at: number | null }[]
+    const picked: ThreadDebugRow[] = []
+    let matched = 0
+    for (const row of rows) {
+      let event: ThreadEvent
+      try { event = JSON.parse(row.data_json) as ThreadEvent } catch { continue }
+      const summary = summarizeThreadEvent(event)
+      const createdAt = row.created_at ?? 0
+      const search = `${event.type}
+${summary.label}
+${summary.state ?? ''}
+${summary.text}`.slice(0, DEBUG_SEARCH_LIMIT).toLowerCase()
+      if (!keep({ createdAt, search })) continue
+      matched += 1
+      if (picked.length >= limit) continue
+      const json = JSON.stringify(event, null, 2)
+      picked.push({
+        seq: row.seq, createdAt, type: event.type, label: summary.label,
+        ...(row.event_id ? { eventId: row.event_id } : {}), ...(row.operation_id ? { operationId: row.operation_id } : {}), ...(row.turn_id ? { turnId: row.turn_id } : {}),
+        ...(summary.state ? { state: summary.state } : {}), ...(summary.durationMs !== undefined ? { durationMs: summary.durationMs } : {}), ...(summary.exitCode !== undefined ? { exitCode: summary.exitCode } : {}),
+        payload: json.length > DEBUG_PAYLOAD_LIMIT ? json.slice(0, DEBUG_PAYLOAD_LIMIT) : json,
+        ...(json.length > DEBUG_PAYLOAD_LIMIT ? { payloadTruncated: true } : {})
+      })
+    }
+    return { rows: picked.reverse(), matched, hasMore: matched > picked.length, scanLimited: rows.length >= DEBUG_SCAN_LIMIT }
   }
 
   page(threadId: string, before?: number, limit = 200): ThreadHistoryPage {

@@ -222,3 +222,60 @@ describe('thread history incremental reads', () => {
     expect(f.history.readSince('thread', { epoch: 'other', revision: 0 })).toEqual({ ok: false, reset: 'epoch' })
   })
 })
+
+describe('Thread debug events', () => {
+  function withTimeline() {
+    const f = fixture()
+    f.snapshot.events.push(
+      { type: 'message', id: 'u1', role: 'user', text: 'Run the tests' },
+      { type: 'tool', id: 't1', name: 'Bash', state: 'completed', detail: 'npm test', output: 'ok 12 passed', exitCode: 0, startedAt: 1000, completedAt: 1450 },
+      { type: 'tool', id: 't2', name: 'Bash', state: 'failed', detail: 'npm run lint', output: 'error: unused variable', exitCode: 1, startedAt: 2000, completedAt: 2100 },
+      { type: 'completed', status: 'completed' }
+    )
+    f.history.write(f.snapshot)
+    return f
+  }
+
+  it('lists events with their envelopes, oldest first, with timing and exit codes', () => {
+    const page = withTimeline().history.debugEvents('thread')
+    expect(page.rows.map(row => row.type)).toEqual(expect.arrayContaining(['message', 'tool', 'completed']))
+    expect(page.rows.map(row => row.seq)).toEqual([...page.rows.map(row => row.seq)].sort((a, b) => a - b))
+    const tool = page.rows.find(row => row.label.startsWith('Bash npm test'))!
+    expect(tool).toMatchObject({ type: 'tool', state: 'completed', durationMs: 450, exitCode: 0 })
+    expect(tool.eventId).toBeTruthy()
+    expect(JSON.parse(tool.payload)).toMatchObject({ output: 'ok 12 passed' })
+    expect(page).toMatchObject({ hasMore: false, scanLimited: false })
+  })
+
+  it('filters by text across output, with exclusions', () => {
+    const f = withTimeline()
+    expect(f.history.debugEvents('thread', { filter: 'unused variable' }).rows.map(row => row.label)).toEqual(['Bash npm run lint'])
+    expect(f.history.debugEvents('thread', { filter: 'tool, !lint' }).rows.map(row => row.label)).toEqual(['Bash npm test'])
+    expect(f.history.debugEvents('thread', { filter: 'failed' }).rows).toHaveLength(1)
+    expect(f.history.debugEvents('thread', { filter: 'nothing like this' }).rows).toEqual([])
+  })
+
+  it('pages older rows in with a sequence cursor', () => {
+    const f = withTimeline()
+    const newest = f.history.debugEvents('thread', { limit: 2 })
+    expect(newest).toMatchObject({ hasMore: true })
+    expect(newest.rows).toHaveLength(2)
+    const older = f.history.debugEvents('thread', { before: newest.rows[0].seq, limit: 50 })
+    expect(older.rows.every(row => row.seq < newest.rows[0].seq)).toBe(true)
+    expect(older.rows.length + newest.rows.length).toBe(f.history.debugEvents('thread').rows.length)
+  })
+
+  it('clips a very large payload instead of sending it whole', () => {
+    const f = fixture()
+    f.snapshot.events.push({ type: 'tool', id: 'big', name: 'Bash', state: 'completed', detail: 'cat big.log', output: 'x'.repeat(60000) })
+    f.history.write(f.snapshot)
+    const row = f.history.debugEvents('thread').rows.find(item => item.label.startsWith('Bash cat'))!
+    expect(row.payloadTruncated).toBe(true)
+    expect(row.payload.length).toBeLessThanOrEqual(20000)
+  })
+
+  it('does not read another conversation', () => {
+    const f = withTimeline()
+    expect(f.history.debugEvents('someone-else').rows).toEqual([])
+  })
+})
