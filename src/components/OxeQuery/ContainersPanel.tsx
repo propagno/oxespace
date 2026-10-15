@@ -149,7 +149,8 @@ export function ContainersPanel({ active }: { active: boolean }): ReactElement {
       <span><strong>{databaseContainers}</strong> database{databaseContainers === 1 ? '' : 's'}</span>
       {loading && <span className="oq-muted">Updating…</span>}</div>}
     {connections.length === 0 && databaseContainers > 0 && <p className="oq-hint" role="note">
-      <Database size={14} aria-hidden="true" /> To query a database, press <strong>Query</strong> on a PostgreSQL or MongoDB container below, or use <strong>New connection</strong> for a server that is not in a container.</p>}
+      <Database size={14} aria-hidden="true" /><span>To query a database, press <strong>Query</strong> on a PostgreSQL or MongoDB container below, or use <strong>New connection</strong> for a server that is not in a container.</span>
+    </p>}
     <EngineBar active={active} shown={containers.length} />
     {notice && <p role="alert" className="oq-error">{notice}</p>}
     {project && <section className="oq-compose" aria-label="Compose project actions">
