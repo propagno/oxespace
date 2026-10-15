@@ -185,15 +185,7 @@ function WorkspaceGroupComponent({
     >
       <div
         className="ws-group-header"
-        role="button"
-        tabIndex={0}
         onClick={handleHeaderClick}
-        onKeyDown={e => {
-          if (!renaming && e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
-            e.preventDefault()
-            handleHeaderClick()
-          }
-        }}
         onContextMenu={handleContextMenu}
         data-testid="sidebar-workspace-select"
       >
@@ -230,12 +222,14 @@ function WorkspaceGroupComponent({
             />
           ) : (
             <>
-              <span
+              <button
+                type="button"
                 className="ws-group-name"
+                onClick={(event) => { event.stopPropagation(); handleHeaderClick() }}
                 title={`${workspace.name}\n${workspace.rootPath}\n(right-click for options)`}
               >
                 {workspace.name}
-              </span>
+              </button>
               {duplicate ? (
                 <div
                   className="ws-group-branch-row"
