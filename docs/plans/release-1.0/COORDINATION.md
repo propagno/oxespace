@@ -77,6 +77,11 @@ Vou fazer push/CI? (o quê, quando):
 - **Dependência `@axe-core/playwright`:** só entra com `npm ci`, `security:audit:tools` e `notices:check` verdes; senão fica fora.
 - **Build:** mensagens de erro com a palavra `import` entre aspas podem quebrar o shim do `electron-vite`; rodar `npm run build` antes de commitar.
 
+## Feito desde os relatórios
+- **Congelamento cumprido (2026-10-14):** as quatro frentes de recurso (aprovação de comandos, `/events`, importação de MCP, skills) estão no branch `feat/thread-approval-safety` (worktree `oxespace-tas`, base `44a7ea7`), um commit por frente (`63e8b62`, `910b6a9`, `36186ec`, `2b1d5bf`). A árvore compartilhada não tem mais nenhum arquivo dessas frentes; typecheck e build passam. Pré-requisito para entrarem depois da 1.0: validar o parser no app empacotado e no `verify:linux`.
+- **G8:** ensaio de upgrade a partir da v0.16.0 passou 6/6; a partir da v0.17.1 só faz sentido depois do merge das migrações 074 a 076 do OxeQuery.
+- **Sem migração pendente** nas sessões de memória e de segurança; a 077 está livre.
+
 ## Riscos conhecidos para as notas de release
 - Memória: **beta opt-in**; sem piloto na janela do Electron, benchmark pareado nem carga de 2 h.
 - `mcp-sync` grava `env` e `headers` em texto puro no `.mcp.json` de cada projeto.
