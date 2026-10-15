@@ -34,3 +34,6 @@ coverage/
 
 # Runtime-downloaded toolkit staging (rtk.exe etc.) — never commit
 /bin/
+
+# Extracted at test time by the upgrade rehearsal
+tests/.upgrade-mirror/
