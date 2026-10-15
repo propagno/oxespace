@@ -116,18 +116,35 @@ for (const theme of THEMES) {
         await page.getByRole('button', { name: 'Open settings', exact: true }).click()
         await expect(page.locator('.settings-center')).toBeVisible()
       })
-      // Every page of the settings center, not only the first one it opens on.
-      // Addressed by position: an innerText label spans lines and does not match `hasText`.
-      const navButtons = page.locator('.settings-center-nav button')
-      const pageCount = Math.min(await navButtons.count().catch(() => 0), 12)
-      for (let index = 0; index < pageCount; index++) {
-        const firstLine = (await navButtons.nth(index).innerText().catch(() => `page ${index}`)).split(String.fromCharCode(10))[0].trim()
-        // "Back to work" leaves the settings center, so every page after it would be unreachable.
-        if (/back to work/i.test(firstLine)) continue
-        await reach(`${theme}/settings-${firstLine.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, found, page, async () => {
-          await navButtons.nth(index).click()
-          await page.waitForTimeout(250)
+      // Every page of the settings center, in each scope. Three things made the earlier loop time out on five
+      // entries, and none of them was the app:
+      //  - `.settings-center-nav button` also matches the scope buttons, "Back to work" and a compact copy of the
+      //    category list (`.settings-compact-category`) that is `display: none` at this width, so clicking those
+      //    entries waited for a visibility that never came;
+      //  - the scope buttons rewrite the list of pages, so positions read before a scope change pointed at
+      //    other entries, or past the end;
+      //  - "Back to work" leaves the settings center.
+      // So only the visible "Settings categories" navigation is used, and it is read again after each scope change.
+      const slug = (text: string): string => text.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+      for (const scope of ['application', 'workspace'] as const) {
+        const scopeButton = scope === 'application'
+          ? page.locator('.settings-scope-choices button').first()
+          : page.locator('.settings-scope-choices button', { hasText: 'Current workspace' })
+        await reach(`${theme}/settings-scope-${scope}`, found, page, async () => {
+          await scopeButton.click()
+          await expect(scopeButton).toHaveAttribute('aria-pressed', 'true')
         })
+        // A scope that did not switch would label the previous scope's pages with the wrong name.
+        if ((await scopeButton.getAttribute('aria-pressed').catch(() => null)) !== 'true') continue
+        const categories = page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button')
+        const count = Math.min(await categories.count().catch(() => 0), 12)
+        for (let index = 0; index < count; index++) {
+          const label = (await categories.nth(index).locator('span').first().innerText().catch(() => `page ${index}`)).trim()
+          await reach(`${theme}/settings-${scope}-${slug(label)}`, found, page, async () => {
+            await categories.nth(index).click()
+            await page.waitForTimeout(250)
+          })
+        }
       }
       await page.getByRole('button', { name: 'Close settings', exact: true }).click().catch(() => undefined)
       await reach(`${theme}/oxequery`, found, page, async () => {
