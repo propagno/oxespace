@@ -8,6 +8,7 @@ import { basename, dirname, join } from 'node:path'
 import type { AppDatabase } from '../../db'
 import type { ThreadAuditEntry, ThreadPermissionRule, ThreadRequest, ThreadRequestPolicy } from '../../../../shared/types/thread'
 import { evaluatePermission } from './kernel/permission-policy'
+import { warmShellParser } from './shell-parse'
 
 /**
  * Follows links and junctions. A file that does not exist yet is resolved
@@ -73,7 +74,10 @@ export function validatePermissionRule(kind: string, pattern: string, decision: 
 }
 
 export class ThreadPermissionStore {
-  constructor(private readonly db: AppDatabase) {}
+  constructor(private readonly db: AppDatabase) {
+    // Approvals decided before the grammar has loaded fall back to the text splitter.
+    void warmShellParser()
+  }
 
   /** Rules that apply to a project: its own plus the global ones. */
   rules(projectRoot: string): ThreadPermissionRule[] {

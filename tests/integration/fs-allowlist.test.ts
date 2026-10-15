@@ -68,6 +68,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   // /instructions: stats the CLAUDE.md / AGENTS.md files the provider CLI
   // would load and lists .claude/rules. Never reads contents, never writes.
   'electron/main/services/conversation/instruction-sources.ts',
+  // Shell parsing: existence probes for the bash grammar and the tree-sitter runtime wasm at
+  // fixed app-asset locations. Never a path from the renderer or the agent, never contents.
+  'electron/main/services/conversation/shell-parse.ts',
   // Permission rules: only realpath() on paths an agent asked to edit, so a
   // link or junction out of the project is judged by its target. Never reads
   // or writes file contents.

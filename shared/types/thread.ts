@@ -173,6 +173,10 @@ export interface ThreadRequestPolicy {
   reasons: string[]
   /** Built-in high-risk command (rm, curl, ssh…) that no rule allows. */
   risk?: 'high'
+  /** How much the command could change: reads only, changes something, or deletes/escalates/publishes. */
+  level?: 'green' | 'orange' | 'red'
+  /** Facts worth a second look, such as web content that may carry prompt injection. */
+  warnings?: string[]
   suggestions?: ThreadPermissionSuggestion[]
 }
 export interface ThreadAuditEntry {
