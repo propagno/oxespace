@@ -24,6 +24,8 @@ export interface ParsedShell {
   unanalysable: boolean
 }
 
+/** A line longer than this is not parsed: the request text is clipped well below it, and a parse must stay quick. */
+const MAX_LINE = 16384
 const COMPUTED_NAME = /[$`]|^\(|^<\(|^>\(/
 const OPAQUE = new Set(['variable_assignment', 'declaration_command', 'function_definition', 'unset_command'])
 
@@ -65,6 +67,9 @@ export function warmShellParser(): Promise<boolean> {
 
 export const shellParserReady = (): boolean => parser !== null
 
+/** Test hook: behave as if the grammar could not be loaded. */
+export function forgetShellParserForTests(): void { parser = null; loading = null }
+
 function visit(node: Node, out: ParsedShell): void {
   if (OPAQUE.has(node.type)) { out.unanalysable = true; return }
   if (node.type === 'command') {
@@ -84,6 +89,7 @@ function visit(node: Node, out: ParsedShell): void {
 /** The simple commands and file writes of a line, or null when the grammar is not loaded. */
 export function parseShell(line: string): ParsedShell | null {
   if (!parser) return null
+  if (line.length > MAX_LINE) return { commands: [], writes: [], unanalysable: true }
   const tree = parser.parse(line)
   const out: ParsedShell = { commands: [], writes: [], unanalysable: false }
   if (!tree || tree.rootNode.hasError) return { ...out, unanalysable: true }

@@ -87,7 +87,24 @@ export class ThreadPermissionStore {
   /** The policy verdict for an approval in a project; undefined when no rule can reason about it. */
   evaluate(projectRoot: string, request: Pick<ThreadRequest, 'kind' | 'command' | 'paths' | 'toolName'>): ThreadRequestPolicy | undefined {
     if (request.kind !== 'approval') return undefined
-    return evaluatePermission(request, projectRoot, this.rules(projectRoot), { realpath })
+    return evaluatePermission(request, projectRoot, this.rules(projectRoot), { realpath }, { readOnlyList: this.autoApproveReads() })
+  }
+
+  /**
+   * Whether the built-in read-only list approves commands without asking. On unless a person turned it off;
+   * if the setting cannot be read the list is off, so a database problem only ever means more questions.
+   */
+  autoApproveReads(): boolean {
+    try {
+      const row = this.db.prepare("SELECT value FROM thread_settings WHERE key = 'auto_approve_reads'").get() as { value: string } | undefined
+      return row ? row.value !== '0' : true
+    } catch { return false }
+  }
+
+  setAutoApproveReads(enabled: boolean): boolean {
+    this.db.prepare("INSERT INTO thread_settings (key, value, updated_at) VALUES ('auto_approve_reads', ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at")
+      .run(enabled ? '1' : '0', Date.now())
+    return enabled
   }
 
   add(input:{ projectRoot: string | null; kind: ThreadPermissionRule['kind']; pattern: string; decision: ThreadPermissionRule['decision'] }): ThreadPermissionRule {

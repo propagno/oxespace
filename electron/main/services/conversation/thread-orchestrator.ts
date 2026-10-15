@@ -1049,6 +1049,14 @@ export class ThreadOrchestrator {
     return this.history.debugEvents(id, options)
   }
 
+  autoApproveReads(): boolean { return this.permissions.autoApproveReads() }
+
+  setAutoApproveReads(enabled: boolean): boolean {
+    const value = this.permissions.setAutoApproveReads(enabled)
+    this.permissions.audit({ action: 'configuration', actor: 'user', summary: value ? 'Approve read-only commands automatically: on' : 'Approve read-only commands automatically: off' })
+    return value
+  }
+
   auditLog(id: string, options: { scope?: 'thread' | 'project'; before?: number; limit?: number } = {}): ThreadAuditEntry[] {
     const thread = this.read(id).thread
     return this.permissions.auditLog(options.scope === 'project' ? { projectRoot: thread.rootPath, before: options.before, limit: options.limit } : { threadId: id, before: options.before, limit: options.limit })

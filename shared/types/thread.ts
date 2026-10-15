@@ -175,9 +175,21 @@ export interface ThreadRequestPolicy {
   risk?: 'high'
   /** How much the command could change: reads only, changes something, or deletes/escalates/publishes. */
   level?: 'green' | 'orange' | 'red'
+  /** Approved by the built-in read-only list rather than by a rule someone saved. */
+  safeList?: true
   /** Facts worth a second look, such as web content that may carry prompt injection. */
   warnings?: string[]
   suggestions?: ThreadPermissionSuggestion[]
+}
+/** The answer of the command analysis for one command line. */
+export interface ThreadShellCheck {
+  /** 'bash-grammar' when the tree-sitter grammar read the line; 'text' when the text splitter did. */
+  parser: 'bash-grammar' | 'text'
+  decision: ThreadRequestPolicy['decision']
+  reasons: string[]
+  level?: 'green' | 'orange' | 'red'
+  warnings?: string[]
+  safeList: boolean
 }
 /** One saved event of a conversation as the debug inspector shows it. */
 export interface ThreadDebugRow {
@@ -528,6 +540,11 @@ export interface ThreadApi {
   removePermissionRule?(id: string, ruleId: string): Promise<void>
   auditLog?(id: string, options?: { scope?: 'thread' | 'project'; before?: number; limit?: number }): Promise<ThreadAuditEntry[]>
   debugEvents?(id: string, options?: { filter?: string; before?: number; limit?: number }): Promise<ThreadDebugPage>
+  /** Whether commands on the built-in read-only list are approved without asking. */
+  autoApproveReads?(): Promise<boolean>
+  setAutoApproveReads?(enabled: boolean): Promise<boolean>
+  /** What Thread would do with a command, using the real analysis and no saved rules. */
+  shellCheck?(command: string): Promise<ThreadShellCheck>
   usageSummary?(id: string, options?: { scope?: 'thread' | 'project' | 'all'; days?: number }): Promise<ThreadUsageSummary>
   workRuns?(id: string): Promise<import('./work').WorkRun[]>
   cancelWork?(id: string, runId: string): Promise<import('./work').WorkRun>

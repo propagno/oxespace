@@ -32,6 +32,8 @@ export interface ShellEvaluation {
   byDefault?: true
   /** Every sub-command was approved, and at least one only by the built-in safe list. */
   viaDefaults?: true
+  /** The sub-commands that only the built-in safe list approved, so their arguments can be looked at again. */
+  defaultSubcommands?: string[]
 }
 
 /** Commands that are denied unless a rule explicitly allows them... and even then they only ask. */
@@ -212,6 +214,7 @@ export function evaluateShellCommand(line: string, rules: ShellRules, depth = 0)
   const reasons: string[] = []
   let allAllowed = true
   let viaDefaults = false
+  const defaultSubcommands: string[] = []
   for (const sub of subcommands) {
     const tokens = tokenize(sub)
     if (tokens.length === 0) continue
@@ -227,7 +230,7 @@ export function evaluateShellCommand(line: string, rules: ShellRules, depth = 0)
       const inner = evaluateShellCommand(script, rules, depth + 1)
       if (inner.decision === 'deny') return { ...inner, subcommands }
       if (inner.decision === 'ask') { reasons.push(...inner.reasons); allAllowed = false }
-      if (inner.viaDefaults) viaDefaults = true
+      if (inner.viaDefaults) { viaDefaults = true; defaultSubcommands.push(...(inner.defaultSubcommands ?? [])) }
       continue
     }
     if (DEFAULT_DENY.has(head) && !explicitlyAllowed) {
@@ -245,7 +248,7 @@ export function evaluateShellCommand(line: string, rules: ShellRules, depth = 0)
       continue
     }
     if (!explicitlyAllowed) {
-      if (rules.useDefaults && matchesDefaultAllow([head, ...tokens.slice(1)].join(' '))) { viaDefaults = true; continue }
+      if (rules.useDefaults && matchesDefaultAllow([head, ...tokens.slice(1)].join(' '))) { viaDefaults = true; defaultSubcommands.push(sub); continue }
       reasons.push(`"${sub}" is not on the allow list.`)
       allAllowed = false
     }
@@ -256,7 +259,7 @@ export function evaluateShellCommand(line: string, rules: ShellRules, depth = 0)
     allAllowed = false
   }
   if (!allAllowed) return { decision: 'ask', reasons, subcommands }
-  return { decision: 'allow', reasons: [], subcommands, ...(viaDefaults ? { viaDefaults: true as const } : {}) }
+  return { decision: 'allow', reasons: [], subcommands, ...(viaDefaults ? { viaDefaults: true as const, defaultSubcommands } : {}) }
 }
 
 export interface RuleSuggestion {
