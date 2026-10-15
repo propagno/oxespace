@@ -6,6 +6,11 @@ name: Accessibility scan (axe)
 
 on:
   workflow_dispatch:
+  # A manual run needs the file on the default branch; a change to this file on a release
+  # branch runs it there, which is how a candidate gets scanned before the file is merged.
+  push:
+    branches: ["release/**"]
+    paths: [".github/workflows/a11y-axe.yml"]
 
 permissions:
   contents: read
