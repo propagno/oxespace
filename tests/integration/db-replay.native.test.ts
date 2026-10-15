@@ -21,8 +21,6 @@ import { LATEST_DB_VERSION, openDatabase } from '../../electron/main/db'
 
 vi.mock('electron', () => ({ app: { getPath: () => tmpdir() } }))
 
-/** Migration 058 deliberately resets every workspace theme once, for databases that start below 58. */
-const THEME_RESET_BELOW = 58
 const FIRST_REPLAYED = 57
 
 let directory = ''
@@ -53,6 +51,38 @@ function rewind(version: number): void {
 }
 
 describe('replaying migrations on a database that already has them', () => {
+  test('a genuine upgrade from below 58 still adopts the new palette once', () => {
+    seedUserData()
+    // Make the file look like a real version-57 database: migration 065 has not run yet.
+    const genuine = new Database(path)
+    genuine.exec('drop index if exists conversation_events_rev')
+    genuine.exec('alter table conversation_threads drop column epoch')
+    genuine.pragma('user_version = 57')
+    genuine.close()
+
+    const db = openDatabase(path)
+    try {
+      expect(db.pragma('user_version', { simple: true })).toBe(LATEST_DB_VERSION)
+      expect(db.prepare("select theme_id from workspaces where id = 'ws'").get()).toEqual({ theme_id: 'midnight' })
+      expect(db.prepare('pragma table_info(conversation_threads)').all().map(column => (column as { name: string }).name)).toContain('epoch')
+    } finally {
+      db.close()
+    }
+    expect(backups()).toHaveLength(1)
+
+    // The user picks a theme after the adoption: the next open must leave it alone.
+    const chosen = new Database(path)
+    chosen.prepare("update workspaces set theme_id = 'nord' where id = 'ws'").run()
+    chosen.close()
+    const again = openDatabase(path)
+    try {
+      expect(again.prepare("select theme_id from workspaces where id = 'ws'").get()).toEqual({ theme_id: 'nord' })
+    } finally {
+      again.close()
+    }
+    expect(backups()).toHaveLength(1)
+  })
+
   const versions = Array.from({ length: Math.max(0, LATEST_DB_VERSION - FIRST_REPLAYED) }, (_, index) => FIRST_REPLAYED + index)
 
   test('the matrix covers at least one rewound version', () => {
@@ -72,8 +102,9 @@ describe('replaying migrations on a database that already has them', () => {
       expect(db.prepare("select name, enabled, trusted from mcp_servers where id = 'm1'").get()).toEqual({ name: 'github', enabled: 1, trusted: 1 })
       const workspace = db.prepare("select name, theme_id from workspaces where id = 'ws'").get() as { name: string; theme_id: string }
       expect(workspace.name).toBe('Mine')
-      // The one deliberate exception: below 58 the one-time palette migration runs, once.
-      expect(workspace.theme_id, `theme after reopening from ${version}`).toBe(version < THEME_RESET_BELOW ? 'midnight' : 'nord')
+      // Migration 058 resets every theme once, but only for a genuine upgrade from below 58. A database
+      // that merely lost its version number has already had it, so the user's choice must survive.
+      expect(workspace.theme_id, `theme after reopening from ${version}`).toBe('nord')
     } finally {
       db.close()
     }
