@@ -15,6 +15,22 @@ Objetivo: chegar a **um único commit candidato (RC)** que passe todos os portõ
 - `package.json` ainda diz `0.17.0`. Tags existentes: `v0.17.0`, `v0.17.1`. Branches de release: `0.17.1`, `0.17.2`, `0.18.0`.
 - A árvore de trabalho é compartilhada entre sessões; há arquivos sem commit de várias frentes, e o build local já quebrou por edição em andamento de outra sessão.
 
+## Ordem do usuário (2026-10-14, noite) — vale acima do resto deste plano
+Todos os itens que as sessões estavam trabalhando devem atingir **maturidade 1.0**, e o release só sai com maturidade 1.0 para tudo o que estava em andamento. O coordenador tem autonomia para demandar e negociar com as sessões e responde pelo sucesso do lançamento. O usuário está ausente: nada de perguntas a ele; decisões ficam registradas aqui.
+Consequências:
+- O congelamento anterior (aprovação de comandos, `/events`, importação de MCP e skills fora da 1.0) está **revogado**: essas frentes voltam ao escopo e precisam atingir a definição de pronto abaixo antes do RC.
+- A memória deixa de ser "beta opt-in" por padrão de escopo: precisa cumprir os critérios de estável ou ficar **fora do release** (desligada e sem superfície) — nunca publicada como beta dentro da 1.0.
+- Não existe release parcial. Se um item não atinge a definição de pronto, o release espera ou o item sai do build por decisão registrada aqui.
+
+## Definição de pronto 1.0 (por item)
+1. Funcionalidade completa para o fluxo principal; nenhum rótulo "beta" ou "experimental" na interface.
+2. Testes automatizados (unidade, integração e E2E do fluxo) verdes no CI em Windows e Linux.
+3. Validado no **app empacotado** em Windows e Linux (job `packaged_smoke_only` do CI ou spec equivalente).
+4. Sem achados críticos ou sérios abertos de acessibilidade ou segurança (axe, revisão de segurança do item).
+5. Documentação e notas de release escritas, com limites conhecidos e dados que o item grava.
+6. Plano de reversão: o que acontece com dados já gravados se o usuário voltar à versão anterior.
+7. Código no branch de integração por commits com caminhos explícitos, sem arquivos soltos na árvore compartilhada.
+
 ## Estratégia de branches
 1. A OxeQuery faz merge de `origin/feat/redesign-wave-0` em `feat/oxequery-2` e resolve `src/App.tsx` (mantém `useContributedCommands`, o registro de comandos e as entradas do OxeQuery).
 2. Quando as duas pontas estiverem verdes, cria-se `release/1.0.0` a partir de `feat/oxequery-2`. A partir daí **só entram correções dos portões**.
