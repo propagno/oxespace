@@ -131,6 +131,8 @@ Open OXESpace, add a project folder, and start in **Code** or **Thread**. The ac
 - **Hardened renderer.** Context isolation and sandboxing are on, file access is confined to the workspace root after canonicalisation, and diagnostics redact paths and credential-shaped values. Details: [Security model](docs/SECURITY_MODEL.md).
 - **Verified releases.** Releases are produced by one pipeline that runs typecheck, lint, tests, build and end-to-end tests on Windows and Linux, then verifies the published payload before it goes live. See the [release pipeline](docs/RELEASE_PIPELINE.md).
 
+What is stored, for how long, and exactly what goes over the network: [Privacy and data handling](docs/PRIVACY.md).
+
 To report a vulnerability, follow [SECURITY.md](SECURITY.md).
 
 ## Build from source
