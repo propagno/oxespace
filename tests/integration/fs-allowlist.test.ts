@@ -69,7 +69,8 @@ const ALLOWED_FS_IMPORTS = new Set([
   // per file and in total, and only as prompt text. Never writes.
   'electron/main/services/conversation/thread-context-resolver.ts',
   // /instructions: stats the CLAUDE.md / AGENTS.md files the provider CLI
-  // would load and lists .claude/rules. Never reads contents, never writes.
+  // would load and lists .claude/rules. For a rule it reads only the first 4 KiB
+  // to find the `paths:` it is limited to. Never writes.
   'electron/main/services/conversation/instruction-sources.ts',
   // Shell parsing: existence probes for the bash grammar and the tree-sitter runtime wasm at
   // fixed app-asset locations. Never a path from the renderer or the agent, never contents.
