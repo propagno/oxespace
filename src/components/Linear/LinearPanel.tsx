@@ -104,7 +104,7 @@ export function LinearPanel({ onClose, rootPath, workspaceId }: LinearPanelProps
               </button>
             </div>
             {state.status && !state.status.encrypted && state.status.connected ? (
-              <small className="linear-warning">OS encryption is unavailable — the key is stored unencrypted.</small>
+              <small className="linear-warning">An earlier version saved this key unencrypted. Disconnect and connect again once OS encryption is available.</small>
             ) : null}
           </div>
         ) : (
