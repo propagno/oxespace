@@ -32,6 +32,8 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Read-only size inventory of the private memory directory: counts bytes, never reads
   // file contents, follows no links and deletes nothing.
   'electron/main/services/memory/memory-storage.ts',
+  // Reads one small JSON flag file (<userData>/experimental.json); no workspace path involved.
+  'electron/main/services/experimental-features.ts',
   // Streams the RTK archive the app itself downloaded to hash it before extraction.
   'electron/main/services/rtk-checksum.ts',
   // Documentation owns generated artifacts under userData/documentation only.

@@ -15,7 +15,7 @@ import type {
   InternalMcpWorktreeChangedEvent
 } from '../../../shared/types/mcp-internal'
 import { createLocalRpcServer, type LocalRpcServer } from './local-rpc-server'
-import { TOOL_REGISTRY } from './tool-registry'
+import { activeTools } from './tool-registry'
 import { WebPreviewBus } from './web-preview-bus'
 import { WorktreeEventBus } from './worktree-event-bus'
 // Embed the bridge script as a string at build time. Vite's `?raw` inlines
@@ -189,8 +189,8 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
       serverRowId,
       lastError,
       uptimeMs: rpcStatus.running ? Date.now() - startedAtMs : 0,
-      toolCount: TOOL_REGISTRY.length,
-      tools: TOOL_REGISTRY.map((entry) => ({
+      toolCount: activeTools().length,
+      tools: activeTools().map((entry) => ({
         name: entry.descriptor.name,
         description: entry.descriptor.description
       }))

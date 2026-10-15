@@ -4,6 +4,7 @@ import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
 import { Button, Dialog, TextField } from '../../ui'
 import { SettingsContent, type SettingsModalProps, type SettingsSection } from './SettingsModal'
 import { SETTINGS_PAGES, WorkspaceSettingsModal } from '../Workspace/WorkspaceSettingsModal'
+import { useSharedProjectMemory } from '../../hooks/useSharedProjectMemory'
 import type { ShellProfile, UpdateWorkspaceSettingsInput, Workspace } from '../../../shared/types/workspace'
 import './SettingsCenter.css'
 import { useUIStore } from '../../store/ui.store'
@@ -68,7 +69,8 @@ export function SettingsCenter(props: SettingsModalProps & {
     try { localStorage.setItem('oxe.settings.destination', JSON.stringify(next)) } catch { /* Preferences are optional. */ }
   })
   const close = (): void => navigate(props.onClose)
-  const pages = destination.scope === 'workspace' ? SETTINGS_PAGES : appPages
+  const memoryOn = useSharedProjectMemory(destination.scope === 'workspace' ? destination.workspaceId : undefined) === true
+  const pages = destination.scope === 'workspace' ? SETTINGS_PAGES.filter(p => p.id !== 'memory' || memoryOn) : appPages
   const filtered = pages.filter(p => `${p.label} ${p.hint}`.toLowerCase().includes(query.toLowerCase()))
   return <ModalRoot open onOpenChange={open => { if (!open && !pending) close() }}>
     <ModalSurface className="settings-center" style={{ '--settings-navigation-width': `${navigationWidth}px` } as CSSProperties} scrimClassName="settings-center-overlay" aria-describedby={undefined}

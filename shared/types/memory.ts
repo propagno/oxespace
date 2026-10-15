@@ -41,6 +41,8 @@ export interface MemoryRuntimeSettings {
   url: string
 }
 export interface MemoryWorkspaceStatus {
+  /** False when Shared Project Memory is not enabled in this build; the interface must then show nothing. */
+  featureEnabled?: boolean
   projectId: string
   settings: MemorySettings
   runtime: MemoryRuntimeSettings

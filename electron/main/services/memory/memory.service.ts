@@ -4,7 +4,7 @@ import { mkdir, readFile, writeFile, copyFile, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import type { AppDatabase } from '../../db'
-import type { MemoryApi, MemoryContext, MemorySession, MemoryStorageUsage, MemoryWorkspaceStatus } from '../../../../shared/types/memory'
+import type { MemoryApi, MemoryContext, MemorySession, MemorySettings, MemoryStorageUsage, MemoryWorkspaceStatus } from '../../../../shared/types/memory'
 import type { ThreadEvent, ThreadSnapshot } from '../../../../shared/types/thread'
 import { MemoryProjectService, projectIdentity } from './memory-project.service'
 import { MemoryRuntime, memoryEnvironment, writePrivateJson } from './memory-runtime'
@@ -59,7 +59,8 @@ export class MemoryService implements MemoryApi {
   private stopPending: Promise<void> | undefined
   private readonly finalizing = new Map<string, Promise<void>>()
   private healthTimer: ReturnType<typeof setInterval> | undefined
-  constructor(private readonly db: AppDatabase, directory: string) {
+  /** @param featureEnabled false = the feature is off: no service start, no launch environment, no capture, no tools. Tests default to on. */
+  constructor(private readonly db: AppDatabase, directory: string, readonly featureEnabled: () => boolean = () => true) {
     this.projects = new MemoryProjectService(db)
     this.runtime = new MemoryRuntime(db, directory)
     this.adapters = new AgentMemoryAdapters(this.runtime)
@@ -68,9 +69,14 @@ export class MemoryService implements MemoryApi {
       const settings = this.projects.settings(record.projectId)
       return settings.enabled && settings.automaticCapture
     })
-    this.manager = new MemoryManager(() => new AiMemoryProvider(this.runtime.client()), id => this.projects.settings(id))
+    this.manager = new MemoryManager(() => new AiMemoryProvider(this.runtime.client()), id => this.effectiveSettings(id))
+  }
+  /** Per-project settings, forced off while the feature is off (stored values are kept untouched). */
+  effectiveSettings(projectId: string): MemorySettings {
+    return this.featureEnabled() ? this.projects.settings(projectId) : { enabled: false, automaticCapture: false, automaticContext: false }
   }
   async status(workspaceId: string): Promise<MemoryWorkspaceStatus> {
+    if (!this.featureEnabled()) return { featureEnabled: false, projectId: '', settings: this.effectiveSettings(''), runtime: { mode: 'managed', executable: '', url: '' }, health: { status: 'disabled' }, sessions: [] }
     const outboxReady = await this.outbox.init().then(() => true, () => false)
     const context = await this.projects.workspace(workspaceId)
     const settings = this.projects.settings(context.projectId)
@@ -162,7 +168,7 @@ export class MemoryService implements MemoryApi {
     })
   }
   async init(): Promise<void> {
-    if (this.stopping) return
+    if (this.stopping || !this.featureEnabled()) return
     if (await this.outbox.init().then(() => true, () => false)) this.delivery.wake()
     if (!this.healthTimer) {
       this.healthTimer = setInterval(() => {
@@ -176,7 +182,7 @@ export class MemoryService implements MemoryApi {
   async prepareLaunch(input: { paneId: string; workspaceId: string; cwd: string; signal?: AbortSignal;
     captureOwner?: 'native' | 'external' | 'none'; expectedAgent?: 'claude-code' | 'codex' }): Promise<Record<string, string>> {
     // Called through an optional generic launch seam. No network/startup wait.
-    if (this.stopping || this.runtimeTransition || input.signal?.aborted || !this.projects.anyEnabled()) return {}
+    if (!this.featureEnabled() || this.stopping || this.runtimeTransition || input.signal?.aborted || !this.projects.anyEnabled()) return {}
     const context = await this.projects.resolve(input.cwd)
     const settings = this.projects.settings(context.projectId)
     if (!settings.enabled) return {}
@@ -222,6 +228,7 @@ export class MemoryService implements MemoryApi {
   }
 
   observeThread(snapshot: ThreadSnapshot, event: ThreadEvent): void {
+    if (!this.featureEnabled()) return
     const run = [...this.runs.values()].find(value => value.paneId === `thread:${snapshot.thread.id}` && value.active && value.captureOwner === 'external')
     if (!run || !['session', 'turn-accepted', 'completed'].includes(event.type)) return
     const turn = snapshot.turns?.at(-1)

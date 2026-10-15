@@ -4,9 +4,11 @@ Project memory is optional infrastructure. Worktrees own code changes, Git owns
 committed history, and each Claude/Codex process keeps its own native session.
 Persistent knowledge belongs to the project, not to a terminal or worktree path.
 
-## Release status: beta, opt-in
+## Release status: experimental, off in the 1.0 build
 
-Shared Project Memory ships as **Beta** and stays off until a user enables it per project. It is safe to try; it is not yet certified as stable.
+Shared Project Memory is **not part of the default 1.0 build**. A feature flag keeps it off: no Settings page or Beta badge, the memory service never starts, no launch environment or capture hooks are produced, and the `oxespace_memory_*` MCP tools are not listed. Nothing stored is touched or deleted, so turning the flag on later restores the previous state.
+
+Turn it on with `OXESPACE_EXPERIMENTAL_MEMORY=1` (`0` forces it off), or with `{"sharedProjectMemory": true}` in `<userData>/experimental.json`. The value is read once at startup; restart the app after changing it. With the flag on, each project still starts disabled and must opt in. In that mode it is a Beta: safe to try, not yet certified as stable.
 
 **Verified:** pinned AI Memory 2.6.2 with checksum, upgrade from 2.1.0 with rollback, project-scoped identity across worktrees, durable capture queue with recovery, and authenticated Claude Code and Codex Thread campaigns on Windows (see `docs/validation/ai-memory-productivity/wave-3.md`). The native contract suites run on Windows and Linux in CI and gate releases.
 
