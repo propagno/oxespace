@@ -77,8 +77,13 @@ describe.skipIf(!live)('OxeQuery connectivity against real servers', () => {
     await until('plain postgres ready', () => docker('exec', PG, 'pg_isready', '-U', 'oxe', '-d', 'appdb').includes('accepting'))
     await until('mongo ready', () => docker('exec', MONGO, 'mongosh', '--quiet', '-u', 'root', '-p', MONGO_PASSWORD, '--authenticationDatabase', 'admin', '--eval', 'db.runCommand({ ping: 1 }).ok').trim().endsWith('1'))
     // A user that lives in the "shop" database, not in "admin".
-    docker('exec', MONGO, 'mongosh', '--quiet', '-u', 'root', '-p', MONGO_PASSWORD, '--authenticationDatabase', 'admin', '--eval',
-      'db.getSiblingDB("shop").createUser({ user: "shopper", pwd: "shop-pw", roles: [{ role: "readWrite", db: "shop" }] }); db.getSiblingDB("shop").items.insertOne({ sku: "a" })')
+    // The image answers ping from a temporary server during its init, then restarts: seed with a script that
+    // can be repeated until the real server is up.
+    await until('mongo seeded', () => {
+      docker('exec', MONGO, 'mongosh', '--quiet', '-u', 'root', '-p', MONGO_PASSWORD, '--authenticationDatabase', 'admin', '--eval',
+        'const shop = db.getSiblingDB("shop"); if (!shop.getUser("shopper")) shop.createUser({ user: "shopper", pwd: "shop-pw", roles: [{ role: "readWrite", db: "shop" }] }); shop.items.updateOne({ sku: "a" }, { $set: { sku: "a" } }, { upsert: true })')
+      return true
+    })
     tlsPort = hostPort(PG_TLS, 5432)
     await until('sshd ready', async () => { sshPort = hostPort(SSHD, 22); return (await probeHostKey({ host: '127.0.0.1', port: sshPort })).startsWith('SHA256:') }, 120_000)
   }, 300_000)
