@@ -1,3 +1,4 @@
+import { packagedLauncher, registerMaturityFlows } from './maturity-flows'
 import { registerPackagedSmoke } from './packaged-smoke'
 
 // Windows counterpart of packaged-linux.spec.ts. Until this existed, the NSIS
@@ -11,4 +12,13 @@ registerPackagedSmoke({
   platform: 'win32',
   label: 'Windows',
   bootBudgetMs: 15_000
+})
+
+// The same 1.0 maturity flows as the unpackaged E2E (window hardening, stable database version,
+// first-run card, file tree), against the shipped binary.
+registerMaturityFlows({
+  label: 'Windows packaged',
+  platform: 'win32',
+  packaged: true,
+  launch: packagedLauncher()
 })
