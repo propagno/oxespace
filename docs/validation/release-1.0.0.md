@@ -10,7 +10,7 @@ Atualizado em 2026-10-14. **Não publicado.** Este arquivo só passa a "pronto" 
 
 **Acessibilidade.** Árvores de arquivos com teclado e semântica ARIA, menu Tools com papel de menu, linha de conversa como região. Varredura com axe registrada em [a11y-axe-2026-10-14.md](a11y-axe-2026-10-14.md).
 
-**Banco de dados.** Corrige um defeito presente nas versões 0.15.0 a 0.17.1: o banco alternava a versão do esquema a cada abertura e rotacionava os backups. Ensaios de upgrade a partir de v0.16.0 e v0.17.1.
+**Banco de dados.** Corrige um defeito presente nas versões 0.15.0 a 0.17.1: o banco alternava a versão do esquema a cada abertura (73 para 57 para 73), rotacionava os backups e, a cada dois lançamentos, devolvia o tema escolhido por workspace para `midnight`. A correção também evita que bancos que uma versão antiga deixou em 57 percam o tema mais uma vez no primeiro lançamento da 1.0. Ensaios de upgrade a partir de v0.16.0 e v0.17.1.
 
 ## Limites conhecidos (a declarar nas notas públicas)
 - `mcp-sync` grava `env` e `headers` de servidores MCP em texto puro no `.mcp.json` de cada projeto.
