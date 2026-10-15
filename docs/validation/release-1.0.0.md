@@ -23,7 +23,7 @@ Atualizado em 2026-10-14. **Não publicado.** Este arquivo só passa a "pronto" 
 | G1 build, typecheck, lint, vitest | run 38733700859: unit/integração, cobertura OxeQuery e build verdes em Windows e Linux | 41918c8 |
 | G2 E2E Windows e Linux, 2 runs seguidos | 1 de 2: run 38733700859 (41918c8); run 38747710417 (35ec31b) verde em Windows e Linux depois de 1 rerun do Windows (gate de performance: boot 3490 ms contra ~925 ms nos runs anteriores, mesmo código de produto; passou no rerun). Falta o par no SHA final | 35ec31b |
 | G3 pacote Windows e Linux | run 38733700859 (41918c8) e run 38747710417 (35ec31b): instalador e E2E do pacote verdes em Windows e Linux (aprovação `shellCheck` incluída); job de publicação ignorado | 35ec31b |
-| G4 compatibilidade da memória | run 38734029908 (memory-compatibility, release/1.0.0): 4/4 células verdes, 21/21 testes no 2.6.2 sem skips | 41918c8 |
+| G4 compatibilidade da memória | run 38780310630 (memory-compatibility, release/1.0.0): 4/4 células verdes (Windows e Linux x 2.1.0 e 2.6.2), 21/21 testes no 2.6.2 sem skips. A memória segue desligada por padrão no build | 869ae0a |
 | G5 OxeQuery | _pendente_ | |
 | G6 regressão visual | _pendente_ | |
 | G7 segurança | revisão `docs/validation/thread-command-approval-security-review.md`; `shellCheck` com parser `bash-grammar` provado no pacote Windows e Linux (run 38747710417). Pendente: revisão manual do cartão de aprovação com provedor real (usuário); se não ocorrer, fica como limite conhecido | 35ec31b |
