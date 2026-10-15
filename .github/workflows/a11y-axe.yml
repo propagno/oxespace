@@ -1,0 +1,69 @@
+name: Accessibility scan (axe)
+
+# Runs the extended axe scan of the app surfaces (both themes, Settings in both scopes) on a
+# release candidate and prints every critical or serious finding. Never publishes anything.
+# See docs/validation/a11y-axe-2026-10-14.md for what the scan covers and its limits.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  axe:
+    name: axe scan (ubuntu)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    env:
+      OXE_A11Y_REPORT: ${{ github.workspace }}/a11y-report.jsonl
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Node.js 22
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Linux system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 libasound2 \
+            libxshmfence1 libnotify4
+
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Build
+        run: npm run build
+
+      - name: Prepare and verify native modules for Electron
+        run: |
+          npm run fix:native
+          npm run verify:native
+
+      - name: Scan
+        run: bash scripts/run-with-xvfb.sh npm run test:a11y
+
+      - name: Critical and serious findings
+        if: always()
+        run: |
+          test -f "$OXE_A11Y_REPORT" || { echo "no report written"; exit 1; }
+          echo "entries: $(wc -l < "$OXE_A11Y_REPORT")"
+          echo "scan-not-reached: $(grep -c '"rule":"scan-not-reached"' "$OXE_A11Y_REPORT" || true)"
+          bad=$(grep -E '"impact":"(critical|serious)"' "$OXE_A11Y_REPORT" || true)
+          if [ -n "$bad" ]; then echo "$bad" | cut -c1-400; echo "::error::critical or serious accessibility findings"; exit 1; fi
+          echo "no critical or serious findings"
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: a11y-report
+          if-no-files-found: ignore
+          retention-days: 14
+          path: a11y-report.jsonl
