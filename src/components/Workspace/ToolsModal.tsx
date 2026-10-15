@@ -33,6 +33,8 @@ interface ToolsModalProps {
   onOpenMcp: () => void
   onOpenSkills: () => void
   onOpenSemanticLogs: () => void
+  /** Absent when no project is selected, which disables the Team entry. */
+  onOpenTeam?: () => void
 }
 
 type ToolTone = 'project' | 'dev' | 'ai' | 'system'
@@ -72,7 +74,8 @@ export function ToolsModal({
   onOpenIntegration,
   onOpenMcp,
   onOpenSkills,
-  onOpenSemanticLogs
+  onOpenSemanticLogs,
+  onOpenTeam
 }: ToolsModalProps): ReactElement {
   const activePaneId = useUIStore((s) => s.activePaneId)
   const openSlashOverlay = useUIStore((s) => s.openSlashOverlay)
@@ -100,7 +103,8 @@ export function ToolsModal({
     integration: onOpenIntegration, github: onToggleGitHub, worktrees: onToggleWorktree, scripts: onToggleScripts, search: onToggleSearch,
     'web-preview': onToggleWebPreview, background: onToggleBackground, mcp: onOpenMcp, skills: onOpenSkills, semantic: onOpenSemanticLogs,
     editor: onToggleEditor, review: onToggleReview, palette: onOpenCommandPalette, 'ws-settings': onOpenWorkspaceSettings,
-    slash: activePaneId ? () => openSlashOverlay(activePaneId) : undefined
+    slash: activePaneId ? () => openSlashOverlay(activePaneId) : undefined,
+    team: onOpenTeam
   }
   const activeById: Partial<Record<ToolId, boolean>> = {
     integration: active.integration, github: active.github, worktrees: active.worktree, scripts: active.scripts, search: active.search,
@@ -115,10 +119,10 @@ export function ToolsModal({
       tone: TONE[meta.group],
       icon: <Icon size={16} aria-hidden="true" />,
       label: meta.label,
-      detail: meta.id === 'slash' && !activePaneId ? 'Focus a terminal first' : meta.detail,
+      detail: meta.id === 'slash' && !activePaneId ? 'Focus a terminal first' : meta.id === 'team' && !onOpenTeam ? 'Select a project first' : meta.detail,
       shortcut: meta.shortcut,
       active: activeById[meta.id],
-      disabled: meta.id === 'slash' ? !activePaneId : undefined,
+      disabled: meta.id === 'slash' ? !activePaneId : meta.id === 'team' ? !onOpenTeam : undefined,
       onClick: () => { if (handler) run(handler) }
     }
   })

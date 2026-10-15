@@ -1,4 +1,4 @@
-import { Activity, Columns2, FilePlus2, FolderOpen, Github, Grid2x2, LayoutDashboard, ListTodo, Maximize, Mic, Palette, Plus, RotateCw, Search, Settings2, Sliders, Split, Square, StopCircle, Wrench } from 'lucide-react'
+import { Activity, Columns2, FilePlus2, FolderOpen, Github, Grid2x2, LayoutDashboard, ListTodo, Maximize, Mic, Palette, Plus, RotateCw, Search, Settings2, Sliders, Split, Square, StopCircle, Users, Wrench } from 'lucide-react'
 import { useContributedCommands } from './utils/commandRegistry'
 import { FirstRunChecklist } from './components/Onboarding/FirstRunChecklist'
 import { TOOL_CATALOG, type ToolId } from './components/Workspace/toolCatalog'
@@ -675,13 +675,23 @@ export function App(): ReactElement {
     openNewWorkspace()
   }
 
+  const threadProjects = useThreadStore(state => state.projects)
+  const threadProject = threadProjects.find(project => project.projectId === threadSnapshot?.thread.projectId)
+
+  // The Team belongs to a project: the selected workspace in Code, the selected project in Thread.
+  const teamTarget = applicationView === 'thread' ? (threadProject ? { kind: 'thread' as const, id: threadProject.projectId } : null)
+    : applicationView === 'code' ? (activeWorkspace ? { kind: 'code' as const, id: activeWorkspace.id } : null) : null
+  const teamDisabledReason = applicationView === 'data' ? 'Team is available in Code and Thread' : applicationView === 'thread' ? 'Select a Thread project to open its team' : 'Open a workspace to open its team'
+  const openTeam = (): void => { if (teamTarget) setTeamScope(teamTarget) }
+
   const toolHandlers: Partial<Record<ToolId, () => void>> = {
     integration: openIntegrationPanel, github: toggleGitHubPanel, worktrees: toggleWorktreePanel, scripts: toggleScriptsPanel, search: toggleSearchPanel,
     'web-preview': toggleWebPreviewPanel, background: toggleBackgroundPanel, mcp: openMcpPanel, skills: openSkillsBrowser, semantic: () => setSemanticActivityOpen(true),
-    editor: toggleEditor, review: toggleReviewPanel, slash: () => { if (activePane) openSlashOverlay(activePane.id) }
+    editor: toggleEditor, review: toggleReviewPanel, team: openTeam, slash: () => { if (activePane) openSlashOverlay(activePane.id) }
   }
 
   const contributedCommands = useContributedCommands()
+
 
   const commandActions: CommandPaletteAction[] = [
     ...contributedCommands,
@@ -699,7 +709,7 @@ export function App(): ReactElement {
       icon: tool.icon,
       category: tool.group,
       keywords: tool.keywords,
-      disabled: tool.id === 'slash' ? !activePane : !['mcp', 'skills', 'semantic'].includes(tool.id) && !activeWorkspace,
+      disabled: tool.id === 'team' ? !teamTarget : tool.id === 'slash' ? !activePane : !['mcp', 'skills', 'semantic'].includes(tool.id) && !activeWorkspace,
       run: toolHandlers[tool.id] ?? (() => undefined)
     })),
 
@@ -900,8 +910,6 @@ export function App(): ReactElement {
     }
   }, [activePane, applicationView, pttHotkey])
 
-  const threadProjects = useThreadStore(state => state.projects)
-  const threadProject = threadProjects.find(project => project.projectId === threadSnapshot?.thread.projectId)
   useEffect(() => {
     if (!hasOpenedThread) return
     void useThreadStore.getState().load()
@@ -974,10 +982,7 @@ export function App(): ReactElement {
           <span className={titleBar.separator} aria-hidden="true">/</span>
           <strong>{applicationView === 'data' ? 'Containers & databases' : applicationView === 'thread' ? threadProject?.displayName ?? 'Conversations' : activeWorkspace?.name ?? 'No workspace'}</strong>
         </div>
-        <div className={titleBar.trailing}><Button size="sm" disabled={applicationView === 'data' || (applicationView === 'thread' ? !threadProject : !activeWorkspace)} onClick={() => {
-          const id = applicationView === 'thread' ? threadProject?.projectId : activeWorkspace?.id
-          if (id) setTeamScope({ kind: applicationView === 'thread' ? 'thread' : 'code', id })
-        }}>Team</Button><UpdateBanner /><AppUpdateIndicator /><span className={titleBar.version}>v{appVersion}</span></div>
+        <div className={titleBar.trailing}><Button size="sm" disabled={!teamTarget} title={teamTarget ? 'Project roles and messages shared by Code and Thread' : teamDisabledReason} onClick={openTeam}>Team</Button><UpdateBanner /><AppUpdateIndicator /><span className={titleBar.version}>v{appVersion}</span></div>
       </header>
       {teamScope && <Suspense fallback={null}><TeamDialog key={`${teamScope.kind}:${teamScope.id}`} scope={teamScope} owner={teamScope.kind === 'thread' && threadSnapshot ? { kind: 'thread', id: threadSnapshot.thread.id } : teamScope.kind === 'code' && activePane ? { kind: 'pane', id: activePane.id } : undefined} onClose={() => setTeamScope(null)} /></Suspense>}
       {delegationNotice && <div role="status" style={{ position: 'fixed', bottom: 18, right: 18, zIndex: 190, padding: 14, borderRadius: 10, background: 'var(--bg-elevated, #19191f)', border: '1px solid var(--accent)', maxWidth: 340 }}>
@@ -1262,6 +1267,7 @@ export function App(): ReactElement {
           onOpenMcp={openMcpPanel}
           onOpenSkills={openSkillsBrowser}
           onOpenSemanticLogs={() => setSemanticActivityOpen(true)}
+          onOpenTeam={teamTarget ? openTeam : undefined}
         />
       ) : null}
       {isDesignSystemOpen ? <DesignSystemPage onClose={() => { setDesignSystemOpen(false) }} /> : null}

@@ -1,7 +1,7 @@
-import { Activity, Brain, Code2, Command, FileCode2, FolderTree, Github, GitCompareArrows, MonitorPlay, Network, PanelLeft, Search, Slash, Sparkles, Wrench, type LucideIcon } from 'lucide-react'
+import { Activity, Brain, Code2, Command, FileCode2, FolderTree, Github, GitCompareArrows, MonitorPlay, Network, PanelLeft, Users, Search, Slash, Sparkles, Wrench, type LucideIcon } from 'lucide-react'
 
 export type ToolGroup = 'Project' | 'Development' | 'AI & Agents' | 'System'
-export type ToolId = 'integration' | 'github' | 'worktrees' | 'scripts' | 'search' | 'web-preview' | 'background' | 'slash' | 'mcp' | 'skills' | 'semantic' | 'editor' | 'review' | 'palette' | 'ws-settings'
+export type ToolId = 'integration' | 'github' | 'worktrees' | 'scripts' | 'search' | 'web-preview' | 'background' | 'slash' | 'mcp' | 'skills' | 'semantic' | 'editor' | 'review' | 'palette' | 'ws-settings' | 'team'
 
 export interface ToolMeta {
   id: ToolId
@@ -21,6 +21,7 @@ export const TOOL_GROUPS: ToolGroup[] = ['Project', 'Development', 'AI & Agents'
  * descriptions, icons and shortcuts cannot drift apart.
  */
 export const TOOL_CATALOG: ToolMeta[] = [
+  { id: 'team', group: 'Project', icon: Users, label: 'Team', detail: 'Project roles and agent inboxes', keywords: ['roles', 'coordinator', 'members', 'inbox', 'agents'] },
   { id: 'integration', group: 'Project', icon: Network, label: 'Multi-repo coordination', detail: 'Align agents, context & handoffs', keywords: ['integration', 'srv', 'bff', 'handoff'] },
   { id: 'github', group: 'Development', icon: Github, label: 'GitHub', detail: 'PRs, commits, workflows', keywords: ['git', 'pr', 'workflow', 'actions'] },
   { id: 'worktrees', group: 'Development', icon: FolderTree, label: 'Worktrees', detail: 'Branch checkouts side-by-side', keywords: ['branch', 'checkout'] },
