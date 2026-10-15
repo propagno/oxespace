@@ -295,6 +295,7 @@
   height: 16px;
   color: inherit;
   opacity: 0;
+  cursor: pointer;
 }
 
 .editor-tab:hover .editor-tab-close,

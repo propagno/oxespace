@@ -2,6 +2,7 @@ name: Accessibility scan (axe)
 
 # Runs the extended axe scan of the app surfaces (both themes, Settings in both scopes) on a
 # release candidate and prints every critical or serious finding. Never publishes anything.
+# (Touching this file on a release branch re-runs the scan.)
 # See docs/validation/a11y-axe-2026-10-14.md for what the scan covers and its limits.
 
 on:

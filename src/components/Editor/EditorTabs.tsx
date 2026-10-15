@@ -110,11 +110,9 @@ export function EditorTabs({
             {tab.pinned ? <Pin size={12} aria-hidden="true" className="editor-tab-pin" /> : null}
             <span className="editor-tab-label">{basename(tab.relativePath)}</span>
             {isDirty ? <span className="editor-tab-dot" aria-label="Unsaved changes" /> : null}
-            <button
-              type="button"
+            {/* A tab cannot own a control: keyboard and assistive tech close with Delete, the pointer uses this. */}
+            <span
               className="editor-tab-close"
-              // A tab cannot own a focusable control: keyboard and assistive tech close with Delete, the pointer uses this button.
-              tabIndex={-1}
               aria-hidden="true"
               onClick={(event) => {
                 event.stopPropagation()
@@ -122,7 +120,7 @@ export function EditorTabs({
               }}
             >
               <X size={12} aria-hidden="true" />
-            </button>
+            </span>
           </div>
         )
       })}
