@@ -837,7 +837,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.getByRole('button', { name: 'Select workbench panel' }).click()
     await page.getByRole('menuitemradio', { name: 'Files', exact: true }).click()
     await expect(page.getByRole('navigation', { name: 'Workspace files' })).toBeVisible()
-    await page.getByRole('button', { name: 'README.md', exact: true }).click()
+    await page.getByRole('treeitem', { name: 'README.md', exact: true }).click()
     await expect(page.getByRole('region', { name: 'Editor' })).toContainText('README.md')
     await page.setViewportSize({ width: 900, height: 720 })
     await expect(page.locator('.thread-workbench')).toHaveClass(/is-drawer/)
