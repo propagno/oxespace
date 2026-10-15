@@ -36,7 +36,7 @@
 .thread-file-verb { color: var(--tx-muted); flex-shrink: 0; }
 .thread-file-path { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-file-stats { display: inline-flex; flex-shrink: 0; gap: 6px; font: 11px var(--font-mono); margin-left: auto; }
-.thread-file-stats > span:first-child { color: var(--dot-green); }
+.thread-file-stats > span:first-child { color: var(--intent-success-fg); }
 .thread-file-stats > span:last-child { color: var(--tx-status-failure); }
 .thread-change-summary { margin: 14px 0 10px; border: 1px solid var(--wb-border); border-radius: var(--radius-lg); overflow: hidden; background: var(--pane-surface-raised); }
 .thread-change-summary > header { display: flex; align-items: center; gap: 10px; padding: 10px 12px; font-size: var(--fs-xs); }

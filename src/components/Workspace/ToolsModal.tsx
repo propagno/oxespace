@@ -220,7 +220,7 @@ export function ToolsModal({
           )}
         </div>
 
-        <div className="tools-modal-body">
+        <div className="tools-modal-body" role={hasAnyResults ? 'menu' : undefined} aria-label={hasAnyResults ? 'Tools' : undefined}>
           {!hasAnyResults ? (
             <div className="tools-modal-empty" role="status">
               <Search size={20} aria-hidden="true" />
@@ -231,8 +231,8 @@ export function ToolsModal({
             </div>
           ) : (
             groups.map((group) => (
-              <section key={group.name} className="tools-modal-group">
-                <header className="tools-modal-group-header">
+              <section key={group.name} className="tools-modal-group" role="group" aria-label={group.name}>
+                <header className="tools-modal-group-header" aria-hidden="true">
                   <h3>{group.name}</h3>
                   <span className="tools-modal-group-count">{group.items.length}</span>
                 </header>

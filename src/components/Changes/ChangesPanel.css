@@ -48,7 +48,7 @@
 .changes-tree-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .changes-counts { display: inline-flex; gap: 5px; flex: none; font-variant-numeric: tabular-nums; }
 .changes-status { flex: none; color: var(--tx-muted); }
-.changes-status.is-A { color: var(--dot-green); }
+.changes-status.is-A { color: var(--intent-success-fg); }
 .changes-status.is-D { color: var(--dot-red); }
 .changes-status.is-R { color: var(--dot-blue); }
 
@@ -70,7 +70,7 @@
 
 /* File-type chips, viewed state */
 .changes-kind { display: inline-grid; place-items: center; flex: none; min-width: 24px; height: 16px; padding: 0 3px; border-radius: var(--radius-xs); background: color-mix(in srgb, var(--kind) 16%, transparent); /* Language hue pulled toward the text color so it stays readable in both modes. */ color: color-mix(in srgb, var(--kind) 55%, var(--text-primary)); font: 700 var(--fs-2xs)/1 var(--font-mono); letter-spacing: -.02em; }
-.changes-tree-row.is-A .changes-tree-name { color: var(--dot-green); }
+.changes-tree-row.is-A .changes-tree-name { color: var(--intent-success-fg); }
 .changes-tree-row.is-D .changes-tree-name { color: var(--dot-red); text-decoration: line-through; }
 .changes-tree-row.is-viewed { opacity: .55; }
 .changes-tree-row.is-viewed[aria-current='true'] { opacity: 1; }
