@@ -195,7 +195,7 @@ export function ReviewPane({ workspaceId, rootPath }: ReviewPaneProps): ReactEle
             />
           </aside>
 
-          <div className="review-pane-diffs">
+          <div className="review-pane-diffs" role="region" aria-label="File diffs" tabIndex={0}>
             {files.length === 0 ? (
               <div className="review-pane-empty">
                 {ws.diff ? 'No changes match the current filters.' : 'No diff loaded yet.'}

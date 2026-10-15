@@ -213,10 +213,10 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
         </div>
       </header>
 
-      <div className="web-preview-tabs" role="tablist" aria-label="Browser tabs">
+      <div className="web-preview-tabs" role="group" aria-label="Browser tabs">
         {tabs.map((tab, index) => <div className="web-preview-tab" key={tab.id} data-browser-tab-id={tab.id} data-active={tab.id === activeTabId} data-loading={tab.loading} data-error={Boolean(tab.error)}>
           {tab.loading ? <LoaderCircle size={12} className="web-preview-tab-spinner" aria-label="Loading" /> : tab.error ? <AlertCircle size={12} aria-label="Page failed" /> : null}
-          <button type="button" role="tab" aria-selected={tab.id === activeTabId} aria-label={`Tab ${index + 1}: ${tab.url ? new URL(tab.url).hostname : 'New tab'}`} onClick={() => changeTab('select',tab.id)}>{tab.url ? new URL(tab.url).hostname : 'New tab'}</button>
+          <button type="button" aria-current={tab.id === activeTabId ? 'true' : undefined} aria-label={`Tab ${index + 1}: ${tab.url ? new URL(tab.url).hostname : 'New tab'}`} onClick={() => changeTab('select',tab.id)}>{tab.url ? new URL(tab.url).hostname : 'New tab'}</button>
           <button type="button" aria-label={`Close tab ${index + 1}`} onClick={() => changeTab('close',tab.id)}><X size={12} aria-hidden="true" /></button>
         </div>)}
         <button type="button" className="web-preview-new-tab" aria-label="New browser tab" onClick={() => changeTab('new')}><Plus size={14} aria-hidden="true" /></button>

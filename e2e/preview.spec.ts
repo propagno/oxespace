@@ -95,7 +95,7 @@ test('preview: markdown, image and pdf render in the editor pane', async () => {
     await tabs.locator('.editor-tab', { hasText: 'NOTES.md' }).click()
     await expect(page.getByTestId('markdown-preview')).toBeVisible()
 
-    await tabs.locator('.editor-tab', { hasText: 'dot.png' }).getByRole('button').click()
+    await tabs.locator('.editor-tab', { hasText: 'dot.png' }).locator('.editor-tab-close').click()
     await expect(tabs.locator('.editor-tab')).toHaveCount(2)
   } finally {
     await electronApp.close()

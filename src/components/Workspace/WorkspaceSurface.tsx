@@ -551,8 +551,10 @@ function WorkspaceSurfaceComponent({
                 onResize={persistSideWidth}
               >
                 <div className="workspace-panel-stack">
-                  {sidePanels.length > 1 && <nav ref={sideTabsRef} className="workspace-panel-stack-tabs" role="tablist" aria-label="Open workspace panels">
-                    {inlineSidePanels.map(panel => <button type="button" role="tab" key={panel.id} aria-selected={panel.id === activeSideId} onClick={() => setPreferredSideId(panel.id)}>{sideLabels[panel.id]}</button>)}
+                  {sidePanels.length > 1 && <nav ref={sideTabsRef} className="workspace-panel-stack-tabs" aria-label="Workspace panels">
+                    <div role="tablist" aria-label="Open workspace panels" className="workspace-panel-stack-tablist">
+                      {inlineSidePanels.map(panel => <button type="button" role="tab" key={panel.id} aria-selected={panel.id === activeSideId} onClick={() => setPreferredSideId(panel.id)}>{sideLabels[panel.id]}</button>)}
+                    </div>
                     {overflowSidePanels.length > 0 && <Menu label="More panels" align="end"
                       trigger={<button type="button" className="workspace-panel-stack-more" aria-label={`More panels (${overflowSidePanels.length})`}><MoreHorizontal size={14} aria-hidden="true" />{overflowSidePanels.length}</button>}
                       items={overflowSidePanels.map(panel => ({ label: sideLabels[panel.id] ?? panel.id, onSelect: () => setPreferredSideId(panel.id) }))} />}

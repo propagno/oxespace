@@ -50,6 +50,7 @@ export function EditorTabs({
             key={tab.relativePath}
             role="tab"
             aria-selected={isActive}
+            aria-keyshortcuts="Delete"
             tabIndex={isActive ? 0 : -1}
             title={tab.relativePath}
             draggable
@@ -67,6 +68,9 @@ export function EditorTabs({
               if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault()
                 onActivate(tab.relativePath)
+              } else if (event.key === 'Delete') {
+                event.preventDefault()
+                onClose(tab.relativePath)
               }
             }}
             onAuxClick={(event) => {
@@ -109,7 +113,9 @@ export function EditorTabs({
             <button
               type="button"
               className="editor-tab-close"
-              aria-label={`Close ${tab.relativePath}`}
+              // A tab cannot own a focusable control: keyboard and assistive tech close with Delete, the pointer uses this button.
+              tabIndex={-1}
+              aria-hidden="true"
               onClick={(event) => {
                 event.stopPropagation()
                 onClose(tab.relativePath)
