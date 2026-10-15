@@ -23,9 +23,9 @@ Atualizado em 2026-10-14. **Não publicado.** Este arquivo só passa a "pronto" 
 | G1 build, typecheck, lint, vitest | _pendente_ | |
 | G2 E2E Windows e Linux, 2 runs seguidos | _pendente_ | |
 | G3 pacote Windows e Linux | run 38644678407 (cffef65) como pré-evidência; _refazer no RC_ | |
-| G4 compatibilidade da memória | _pendente_ | |
+| G4 compatibilidade da memória | run 38734029908 (memory-compatibility, release/1.0.0): 4/4 células verdes, 21/21 testes no 2.6.2 sem skips | 41918c8 |
 | G5 OxeQuery | _pendente_ | |
 | G6 regressão visual | _pendente_ | |
 | G7 segurança | _pendente_ | |
-| G8 upgrade a partir de v0.17.1 | _pendente_ | |
+| G8 upgrade a partir de v0.17.1 | `OXESPACE_UPGRADE_FROM=v0.17.1 node scripts/test-electron.mjs tests/integration/upgrade-rehearsal.native.test.ts`: 6/6 passaram (schema 073 da tag v0.17.1 `876435c0db` para 076) | 6101ca2 |
 | G10 revisão manual 960×640 e axe | axe: 6 elementos serious em 44 (ver relatório) | |
