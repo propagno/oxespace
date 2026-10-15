@@ -192,6 +192,9 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
     expect((await run({action:'inspect'})).error).toContain('enable Agent documentation access')
     await page.getByRole('button',{name:'Close tab 1'}).click()
     await expect.poll(async () => app.evaluate(({webContents},baseUrl) => webContents.getAllWebContents().filter(contents => contents.getURL().startsWith(baseUrl)).length,url)).toBe(0)
+    // Closing the only tab opens a fresh one on the default URL; typing before it is applied is dropped (no active tab yet).
+    await expect(page.locator('.web-preview-address-input')).toHaveValue('http://localhost:3000')
+    await expect(page.locator('.web-preview-tab')).toHaveCount(1)
     failPreview = true
     await page.locator('.web-preview-address-input').fill(`${url}failure`)
     await page.locator('.web-preview-address-input').press('Enter')
