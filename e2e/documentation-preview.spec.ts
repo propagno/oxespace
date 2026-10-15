@@ -19,6 +19,8 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
   try {
     const page=await app.firstWindow()
     page.on('pageerror', error => console.error('Preview renderer error:', error.message))
+    const rendererLog: string[] = []
+    page.on('console', message => { rendererLog.push(`${Date.now()} ${message.type()} ${message.text().slice(0, 240)}`) })
     await page.waitForURL(/index\.html/)
     await page.waitForLoadState('domcontentloaded')
     await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.show(); window.focus() })
@@ -197,7 +199,15 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
     await expect(page.getByTestId('browser-preview-native')).toHaveCount(0)
     failPreview = false
     await page.getByRole('button',{name:'Retry'}).click()
-    await expect(page.getByTestId('browser-preview-native')).toHaveCount(1)
+    try { await expect(page.getByTestId('browser-preview-native')).toHaveCount(1) }
+    catch (error) {
+      // Linux CI intermittently shows no host after Retry; print the state so the next failure carries its own evidence.
+      const state = await page.locator('.web-preview-stage').evaluate(el => el.innerText.slice(0, 400)).catch(() => 'stage unavailable')
+      const tabs = await page.locator('.web-preview-tab').evaluateAll(items => items.map(item => item.getAttribute('data-active') + ':' + item.textContent?.slice(0, 40))).catch(() => [])
+      const guests = await app.evaluate(({webContents}) => webContents.getAllWebContents().map(contents => contents.getType() + ' ' + contents.getURL().slice(0, 80))).catch(() => [])
+      console.log('[doc-preview diag] stage=' + JSON.stringify(state) + ' tabs=' + JSON.stringify(tabs) + ' guests=' + JSON.stringify(guests) + ' renderer=' + JSON.stringify(rendererLog.slice(-12)))
+      throw error
+    }
     await expect(page.getByText('Page unavailable')).toHaveCount(0)
     await expect.poll(async () => app.evaluate(({webContents},baseUrl) => webContents.getAllWebContents().filter(contents => contents.getURL() === `${baseUrl}failure`).length,url)).toBe(1)
     const externalUrl = url.replace('127.0.0.1','localhost.')
