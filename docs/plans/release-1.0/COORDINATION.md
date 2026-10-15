@@ -98,6 +98,12 @@ Vou fazer push/CI? (o quê, quando):
 - **G8:** ensaio de upgrade a partir da v0.16.0 passou 6/6; a partir da v0.17.1 só faz sentido depois do merge das migrações 074 a 076 do OxeQuery.
 - **Sem migração pendente** nas sessões de memória e de segurança; a 077 está livre.
 
+## Integração (2026-10-15)
+- A sessão do OxeQuery não responde (mensagens retidas e depois sumiu da lista). O coordenador assumiu o G5: `release/1.0.0` foi criado em worktree isolado (`oxespace-rc`, `node_modules` próprio) a partir de `origin/feat/oxequery-2` (`1ccc134`) mais o merge de `feat/redesign-wave-0`. Conflito único em `src/App.tsx`, resolvido mantendo `oxequery.commands`, `oxequery-bridge` e o `FirstRunChecklist`. Branch enviado: `origin/release/1.0.0` @ `41918c8`.
+- CI do RC (sem publicar): run 38733700859, `packaged_smoke_only=true`.
+- Memória: opção B (fora do build por padrão). A flag `experimental.sharedProjectMemory` foi entregue em `99f0b4a`.
+- Migração 077 reservada para a frente de aprovação (`077_thread_settings`).
+
 ## Riscos conhecidos para as notas de release
 - Memória: **beta opt-in**; sem piloto na janela do Electron, benchmark pareado nem carga de 2 h.
 - `mcp-sync` grava `env` e `headers` em texto puro no `.mcp.json` de cada projeto.

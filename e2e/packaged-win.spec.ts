@@ -1,5 +1,6 @@
 import { packagedLauncher, registerMaturityFlows } from './maturity-flows'
 import { registerPackagedSmoke } from './packaged-smoke'
+import { registerPackagedMemory } from './packaged-memory'
 
 // Windows counterpart of packaged-linux.spec.ts. Until this existed, the NSIS
 // build — the artifact that actually ships today — was the only packaged output
@@ -22,3 +23,7 @@ registerMaturityFlows({
   packaged: true,
   launch: packagedLauncher()
 })
+
+// Shared Project Memory ships off: the shipped binary must say so. With OXESPACE_PACKAGED_MEMORY=1 and the two
+// official executables (OXESPACE_MEMORY_BIN_210 / _262) it also proves install, upgrade and rollback.
+registerPackagedMemory({ label: 'Windows', platform: 'win32' })
