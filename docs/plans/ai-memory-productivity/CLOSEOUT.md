@@ -84,10 +84,10 @@ Ordem estrita: T08 (contexto com proveniência) → T09 (remember idempotente/su
 
 ## Instabilidade de E2E na branch do redesign (fora do escopo da memória)
 
-Observada em 2026-10-14 nas runs do `ci.yml` de `feat/redesign-wave-0`; o gate de memória não é afetado. Entregue a quem mantém o redesign:
+Observada em 2026-10-14 nas runs do `ci.yml` de `feat/redesign-wave-0`; o gate de memória não é afetado. Triagem da sessão de design (run 38648100596):
 
-- Linux: `e2e/documentation-preview.spec.ts:200` (Retry não remonta `browser-preview-native` em 5 s) falhou em 3 de 4 execuções do job completo; passa isolado, na sequência dos 10 primeiros specs e em CI isolado (5/5).
-- Linux: `e2e/thread-view.spec.ts:327` (run 38648100596, trace no artefato `e2e-traces-linux`): o espaço sidebar → superfície (`--frame-gap`, esperado 6 px) oscila (−26, 4, 33, 7) e termina em 7. Suspeita não confirmada: transição de layout ou arredondamento fracionário.
-- Windows: `e2e/oxequery.spec.ts:121` (diálogo "Confirm statement" não apareceu em 5 s).
-- O `ci.yml` agora guarda traces do Playwright em falhas no Linux (`--trace retain-on-failure`, artefato `e2e-traces-linux`, 7 dias).
-- `electron/main/services/rtk-checksum.ts` foi incluído no allowlist de `fs-allowlist.test.ts` para destravar o teste; revisar se a decisão cabe ao dono desse arquivo.
+- `e2e/thread-view.spec.ts`: regressão real e determinística, não era o `--frame-gap` (os valores -26/4/33/7 eram tentativas intermediárias do poll). O commit 628c461 (ARIA tree) tornou as entradas dos file trees `treeitem`; o spec ainda procurava `button` (linha 840). Corrigido pela sessão de design (commit acd3087 na árvore dela, sem push).
+- `e2e/documentation-preview.spec.ts:200`: tratado como flake de carga; passou em outras runs e 8/8 localmente. Aguarda um trace real de falha no artefato `e2e-traces-linux`.
+- `e2e/oxequery.spec.ts:121`: flake do domínio OxeQuery (alertdialog `.oq-confirm` após Run); a troca por `ui/ConfirmDialog` pode mudar o role.
+- O `ci.yml` guarda traces do Playwright em falhas no Linux (`--trace retain-on-failure`, artefato `e2e-traces-linux`, 7 dias).
+- `electron/main/services/rtk-checksum.ts` entrou no allowlist de `fs-allowlist.test.ts` para destravar o teste; vale o dono do arquivo confirmar.
