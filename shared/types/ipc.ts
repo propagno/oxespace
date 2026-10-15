@@ -261,6 +261,8 @@ export const IPC_CHANNELS = {
     start: 'mcp:start',
     stop: 'mcp:stop',
     openSignIn: 'mcp:open-sign-in',
+    discover: 'mcp:discover',
+    importDiscovered: 'mcp:import-discovered',
     callTool: 'mcp:call-tool',
     onHealth: 'mcp:on-health'
   },
@@ -875,5 +877,9 @@ export interface McpApi {
   /** Reopens the browser sign-in page of a server that is waiting to authenticate. */
   openSignIn(id: string): Promise<boolean>
   callTool(input: import('./mcp').McpCallToolInput): Promise<import('./mcp').McpCallToolResult>
+  /** Servers Claude Desktop, Cursor and Windsurf already have, without their secret values. */
+  discover?(workspaceId: string | null): Promise<import('./mcp').McpDiscoverySource[]>
+  /** Creates the named servers of one source, untrusted, in the global or workspace scope. */
+  importDiscovered?(input: { workspaceId: string | null; source: import('./mcp').McpDiscoverySource['id']; names: string[] }): Promise<import('./mcp').McpImportResult>
   onHealth(listener: (event: import('./mcp').McpServerHealthEvent) => void): () => void
 }

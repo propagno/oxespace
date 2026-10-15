@@ -14,6 +14,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/github/gh-exec.ts',
   'electron/main/services/integration.service.ts',
   'electron/main/services/mcp-sync.service.ts',
+  // Reads the user-level MCP config files of Claude Desktop, Cursor and Windsurf at their fixed locations
+  // (512 KiB at most, JSON only); the renderer never supplies a path.
+  'electron/main/services/mcp-import.service.ts',
   // Optional local memory infrastructure: runtime/config/credentials and agent
   // home configuration, analogous to MCP sync/bootstrap. Never arbitrary source
   // file reads or terminal transcripts. Project probes below read only identity

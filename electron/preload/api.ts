@@ -415,6 +415,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       start: (id) => ipc.invoke(IPC_CHANNELS.mcp.start, id) as Promise<import('../../shared/types/mcp').McpToolDescriptor[]>,
       stop: (id) => ipc.invoke(IPC_CHANNELS.mcp.stop, id) as Promise<void>,
       openSignIn: (id) => ipc.invoke(IPC_CHANNELS.mcp.openSignIn, id) as Promise<boolean>,
+      discover: (workspaceId) => ipc.invoke(IPC_CHANNELS.mcp.discover, workspaceId) as Promise<import('../../shared/types/mcp').McpDiscoverySource[]>,
+      importDiscovered: (input) => ipc.invoke(IPC_CHANNELS.mcp.importDiscovered, input) as Promise<import('../../shared/types/mcp').McpImportResult>,
       callTool: (input) => ipc.invoke(IPC_CHANNELS.mcp.callTool, input) as Promise<import('../../shared/types/mcp').McpCallToolResult>,
       onHealth: (listener) => subscribe<import('../../shared/types/mcp').McpServerHealthEvent>(ipc, IPC_CHANNELS.mcp.onHealth, listener)
     },

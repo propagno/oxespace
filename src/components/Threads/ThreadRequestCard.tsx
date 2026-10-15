@@ -3,6 +3,7 @@ import { AlertCircle, Check, Shield, X } from 'lucide-react'
 import type { ThreadPermissionSuggestion, ThreadRequest, ThreadRequestResponse } from '../../../shared/types/thread'
 import { ThreadApprovalDetails } from './ThreadApprovalDetails'
 import { requestOutcomeLabel } from '../../../shared/threadRequestOutcome'
+import { elicitationContent, elicitationDefaults, elicitationFields, validateElicitationField, type ElicitationValue } from '../../../shared/elicitationForm'
 import { cx, Select } from '../../ui'
 import styles from './ThreadRequestCard.module.css'
 
@@ -38,12 +39,12 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond, on
     drafts.set(draftKey, safe)
     while (drafts.size > 100) drafts.delete(drafts.keys().next().value!)
   }, [answers, draftKey, request.state, request.questions])
-  const [form, setForm] = useState<Record<string, string | number | boolean>>({})
+  const elicitation = useMemo(() => elicitationFields(request.schema), [request.schema])
+  const [form, setForm] = useState<Record<string, ElicitationValue>>(() => elicitationDefaults(elicitation))
+  const [showProblems, setShowProblems] = useState(false)
   const [error, setError] = useState('')
-  const fields = useMemo(() => Object.entries((request.schema?.properties && typeof request.schema.properties === 'object' ? request.schema.properties : {}) as Record<string, Record<string, unknown>>), [request.schema])
   const requestLabel = request.kind === 'approval' && request.nativeMethod === 'can_use_tool:ExitPlanMode' ? 'Review plan'
     : request.kind === 'approval' && request.nativeMethod?.startsWith('can_use_tool:mcp__') ? 'Approve MCP tool request' : request.title
-  const required = new Set(Array.isArray(request.schema?.required) ? request.schema.required.filter((value): value is string => typeof value === 'string') : [])
   const questionsAnswered = Boolean(request.questions?.length) && request.questions!.every(question => answers[question.id]?.some(value => value.trim()))
   const submit = async (response: ThreadRequestResponse) => {
     if (inFlight.current) return
@@ -96,14 +97,19 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond, on
       }) : <input type={question.secret ? 'password' : 'text'} aria-label={question.question} value={answers[question.id]?.[0] ?? ''} onChange={event => setAnswers(current => ({ ...current, [question.id]: [event.target.value] }))} />}
       {!!question.options?.length && <label className={cx('thread-request-field', styles.field)}><span>Other answer</span><input type={question.secret ? 'password' : 'text'} aria-label={`Other answer: ${question.question}`} placeholder="Write your own answer…" value={(answers[question.id] ?? []).filter(value => !question.options!.some(option => (option.value ?? option.label) === value)).join(', ')} onChange={event => setAnswers(current => ({ ...current, [question.id]: [...(question.multiple ? (current[question.id] ?? []).filter(value => question.options!.some(option => (option.value ?? option.label) === value)) : []), ...(event.target.value ? [event.target.value] : [])] }))} /></label>}
     </fieldset>)}</div> : null}
-    {fields.map(([name, schema]) => {
-      const title = typeof schema.title === 'string' ? schema.title : name, description = typeof schema.description === 'string' ? schema.description : ''
-      const options = Array.isArray(schema.enum) ? schema.enum.filter((value): value is string => typeof value === 'string') : []
-      return <label key={name} className={cx('thread-request-field', styles.field)}><span>{title}{required.has(name) ? ' *' : ''}</span>{description && <small>{description}</small>}
-        {schema.type === 'boolean' ? <input type="checkbox" checked={Boolean(form[name])} onChange={event => setForm(value => ({ ...value, [name]: event.target.checked }))} />
-          : options.length ? <Select value={String(form[name] ?? '')} onChange={event => setForm(value => ({ ...value, [name]: event.target.value }))}><option value="">Select…</option>{options.map(value => <option key={value}>{value}</option>)}</Select>
-          : <input type={schema.type === 'number' || schema.type === 'integer' ? 'number' : 'text'} value={String(form[name] ?? '')} onChange={event => setForm(value => ({ ...value, [name]: schema.type === 'number' || schema.type === 'integer' ? Number(event.target.value) : event.target.value }))} />}
-      </label>
+    {elicitation.map(field => {
+      const value = form[field.name], problem = showProblems ? validateElicitationField(field, value) : null
+      const set = (next: ElicitationValue) => setForm(current => ({ ...current, [field.name]: next }))
+      const chosen = Array.isArray(value) ? value : []
+      // A group of checkboxes cannot sit inside a label: each option is its own label.
+      const Wrapper = field.kind === 'multi' ? 'fieldset' : 'label'
+      return <Wrapper key={field.name} className={cx('thread-request-field', styles.field)}><span>{field.title}{field.required ? ' *' : ''}</span>{field.description && <small>{field.description}</small>}
+        {field.kind === 'boolean' ? <input type="checkbox" checked={value === true} onChange={event => set(event.target.checked)} />
+          : field.kind === 'single' ? <Select value={String(value ?? '')} onChange={event => set(event.target.value)}><option value="">Select…</option>{field.options!.map(option => <option key={option.value} value={option.value}>{option.label ?? option.value}</option>)}</Select>
+          : field.kind === 'multi' ? <span role="group" aria-label={field.title}>{field.options!.map(option => <label key={option.value}><input type="checkbox" checked={chosen.includes(option.value)} onChange={event => set(event.target.checked ? [...chosen, option.value] : chosen.filter(item => item !== option.value))} />{option.label ?? option.value}</label>)}</span>
+          : <input type={field.kind === 'number' ? 'number' : field.format === 'email' ? 'email' : 'text'} step={field.integer ? 1 : 'any'} min={field.minimum} max={field.maximum} maxLength={field.maxLength} value={String(value ?? '')} onChange={event => set(event.target.value)} />}
+        {problem && <small role="alert">{problem}</small>}
+      </Wrapper>
     })}
     {request.requestedPermissions && <pre>{JSON.stringify(request.requestedPermissions, null, 2)}</pre>}
     {request.url && <p className={styles.url}>Open the authenticated URL in your browser, then confirm here: <code>{request.url}</code></p>}
@@ -111,7 +117,12 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond, on
     <footer>
       {request.kind === 'question' && <small>{request.questions?.filter(question => answers[question.id]?.some(value => value.trim())).length ?? 0}/{request.questions?.length ?? 0} answered · Review before sending</small>}
       {request.kind === 'question' && <button type="button" className={cx('thread-request-answer', styles.answer)} disabled={disabled || !questionsAnswered} onClick={() => void submit({ answers })}>Answer</button>}
-      {request.kind === 'elicitation' && <button type="button" disabled={disabled || [...required].some(name => form[name] === undefined || form[name] === '')} onClick={() => void submit({ decision: 'accept', content: form })}>Continue</button>}
+      {request.kind === 'elicitation' && <button type="button" disabled={disabled} onClick={() => {
+        // Problems are shown on the fields once, when the person tries to continue.
+        const { content, errors } = elicitationContent(elicitation, form)
+        if (Object.keys(errors).length) { setShowProblems(true); return }
+        void submit({ decision: 'accept', content })
+      }}>Continue</button>}
       {request.kind === 'permissions' && <><button type="button" disabled={disabled} onClick={() => void submit({ decision: 'accept', permissions: request.requestedPermissions ?? {}, scope: 'turn' })}>Allow this turn</button><button type="button" disabled={disabled} onClick={() => void submit({ decision: 'accept', permissions: request.requestedPermissions ?? {}, scope: 'session' })}>Allow session</button></>}
       {request.kind === 'approval' && (request.availableDecisions ?? ['accept', 'decline']).filter(decision => decision === 'accept' || decision === 'acceptForSession').map(decision => <button type="button" key={decision} disabled={disabled} onClick={() => void submit({ decision })}>{decision === 'acceptForSession' ? 'Allow session' : 'Approve'}</button>)}
       {/* MCP tool suggestions are alternatives (the tool, or its whole server); the others must all be saved together. */}
