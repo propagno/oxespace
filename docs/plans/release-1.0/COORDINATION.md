@@ -56,6 +56,33 @@ Riscos/bloqueios:
 Vou fazer push/CI? (o quê, quando):
 ```
 
+## Estado dos portões (2026-10-14, após os relatórios das sessões)
+| # | Estado | O que falta |
+|---|---|---|
+| G1 | parcial | Árvore compartilhada compila (typecheck e build passaram). Falta um run único no SHA do RC. `fs-allowlist` ganhou `rtk-checksum.ts` por pedido do CI; o dono do arquivo deve confirmar |
+| G2 | **pendente** | Últimos runs do redesign: 38644678407 verde; 38648100596 falhou por `thread-view` (corrigido em `acd3087`), `oxequery.spec` e `documentation-preview` são intermitentes. Precisa de 2 runs verdes seguidos no SHA do RC |
+| G3 | verde parcial | Windows e Linux passaram no run 38644678407 (`cffef65`); refazer no RC |
+| G4 | pendente | 4/4 verdes em `dffabe0`; reexecutar no head final |
+| G5 | pendente | Merge de `feat/redesign-wave-0` em `feat/oxequery-2` (1 conflito em `src/App.tsx`), troca para `src/ui`, auditoria. Mensagem do coordenador ainda retida na sessão |
+| G6 | pendente | Local no Windows: baselines regenerados no SHA do RC e 2 execuções verdes seguidas (42 baselines hoje, validados num build anterior). Linux/CI visual fica pós-1.0 |
+| G7 | pendente | Testes de segurança já commitados (`9b3f43a`, `5f39d3e`). O trabalho de aprovação de comandos sai da 1.0 |
+| G8 | pendente | Ensaio com banco v0.17.1 e migrações 074–076 do OxeQuery depois do merge; `4e6dd82` (banco alternava 73→57→73) só está no redesign |
+| G9 | pendente | Notas de release e CHANGELOG; riscos conhecidos abaixo |
+| G10 | pendente | Revisão manual com dados reais e varredura axe (informativa) |
+
+## Decisões
+- **Congelamento de recursos.** Saem da 1.0 e vão para `feat/thread-approval-safety` (branch próprio): aprovação de comandos (`shell-parse`, `shell-risk`, regras padrão), painel `/events`, importação de MCP e skills. Motivo: mudam a postura de segurança e o parser nunca rodou no app empacotado.
+- **Migrações:** o OxeQuery adiciona 074–076; a próxima livre é **077**. Nenhuma migração nova sem reservar o número com o coordenador.
+- **Regressão visual:** gate local no Windows na 1.0; baselines Linux e CI visual ficam pós-1.0.
+- **Dependência `@axe-core/playwright`:** só entra com `npm ci`, `security:audit:tools` e `notices:check` verdes; senão fica fora.
+- **Build:** mensagens de erro com a palavra `import` entre aspas podem quebrar o shim do `electron-vite`; rodar `npm run build` antes de commitar.
+
+## Riscos conhecidos para as notas de release
+- Memória: **beta opt-in**; sem piloto na janela do Electron, benchmark pareado nem carga de 2 h.
+- `mcp-sync` grava `env` e `headers` em texto puro no `.mcp.json` de cada projeto.
+- Banco: o defeito 73→57→73 afetou as versões 0.15.0 a 0.17.1; corrigido em `4e6dd82`. Decisão do usuário: patch 0.17.2 só com essa correção?
+- E2E intermitentes: `documentation-preview` (Linux) e `oxequery.spec` (Windows).
+
 ## Registro de decisões e achados
 - 2026-10-14: `thread-view.spec` falhava por causa de `role="treeitem"` nos file trees (corrigido em `acd3087`); os valores de `--frame-gap` eram tentativas do `expect.poll`.
 - 2026-10-14: `documentation-preview` (Linux) e `oxequery.spec` (Windows) são intermitentes; pacote Windows e Linux passaram no run 38644678407.
