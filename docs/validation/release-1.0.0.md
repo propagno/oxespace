@@ -20,9 +20,9 @@ Atualizado em 2026-10-14. **Não publicado.** Este arquivo só passa a "pronto" 
 ## Evidências (preencher com run, comando e SHA)
 | Portão | Evidência | SHA |
 |---|---|---|
-| G1 build, typecheck, lint, vitest | _pendente_ | |
-| G2 E2E Windows e Linux, 2 runs seguidos | _pendente_ | |
-| G3 pacote Windows e Linux | run 38644678407 (cffef65) como pré-evidência; _refazer no RC_ | |
+| G1 build, typecheck, lint, vitest | run 38733700859: unit/integração, cobertura OxeQuery e build verdes em Windows e Linux | 41918c8 |
+| G2 E2E Windows e Linux, 2 runs seguidos | 1 de 2: run 38733700859 (E2E smoke Windows e Linux verdes); falta o segundo no SHA final | 41918c8 |
+| G3 pacote Windows e Linux | run 38733700859: instalador e E2E do pacote verdes em Windows e Linux; job de publicação ignorado | 41918c8 |
 | G4 compatibilidade da memória | run 38734029908 (memory-compatibility, release/1.0.0): 4/4 células verdes, 21/21 testes no 2.6.2 sem skips | 41918c8 |
 | G5 OxeQuery | _pendente_ | |
 | G6 regressão visual | _pendente_ | |
