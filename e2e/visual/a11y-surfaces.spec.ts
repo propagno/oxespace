@@ -124,6 +124,15 @@ for (const theme of THEMES) {
         await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
         await expect(page.locator('.oq-view')).toBeVisible({ timeout: 15_000 })
       })
+      await reach(`${theme}/oxequery-containers`, found, page, async () => {
+        await page.getByRole('button', { name: 'All containers' }).click()
+        await expect(page.locator('.oq-containers')).toBeVisible()
+      })
+      await reach(`${theme}/oxequery-connection-dialog`, found, page, async () => {
+        await page.getByRole('button', { name: 'New connection' }).first().click()
+        await expect(page.getByRole('dialog')).toBeVisible()
+      })
+      await page.keyboard.press('Escape')
     } finally {
       await app.close()
     }
