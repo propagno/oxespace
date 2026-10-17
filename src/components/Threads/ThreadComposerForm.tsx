@@ -10,6 +10,7 @@ import { ThreadCostChip } from './ThreadCostChip'
 import { ThreadMcpHealth } from './ThreadMcpHealth'
 import { ThreadUsageRing } from './ThreadUsageRing'
 import type { useOxeVoice } from '../../hooks/useOxeVoice'
+import { THREAD_MESSAGE_MAX_CHARS } from '../../../shared/threadLimits'
 
 type Voice = ReturnType<typeof useOxeVoice>
 /** The parts of useThreadCommands / useFileMentions the composer wires into its textarea. */
@@ -51,7 +52,8 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
 }) {
   const api = window.oxe?.thread
   const blocked = !snapshot || pending || Boolean(snapshot.thread.cliActive)
-  return <form className="thread-composer" data-state={composerState} aria-busy={pending} onSubmit={e => { e.preventDefault(); onSend() }} onDragOver={event => { if ([...event.dataTransfer.items].some(item => item.kind === 'file')) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy' } }} onDrop={event => { const files = [...event.dataTransfer.files].filter(file => file.type.startsWith('image/')); if (files.length) { event.preventDefault(); onUpload(files) } }}>
+  const tooLong = draft.length > THREAD_MESSAGE_MAX_CHARS
+  return <form className="thread-composer" data-state={composerState} aria-busy={pending} onSubmit={e => { e.preventDefault(); if (!tooLong) onSend() }} onDragOver={event => { if ([...event.dataTransfer.items].some(item => item.kind === 'file')) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy' } }} onDrop={event => { const files = [...event.dataTransfer.files].filter(file => file.type.startsWith('image/')); if (files.length) { event.preventDefault(); onUpload(files) } }}>
     <VoiceHud status={voice.status} error={voice.error} level={voice.level} modelProgress={voice.modelProgress} onDismiss={voice.dismiss} containerSelector=".thread-view" focusSelector="textarea[data-thread-composer='true']" />
     {commands.popup}
     {mentions.popup}
@@ -78,6 +80,7 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
       <ThreadCostChip cost={snapshot.thread.costReport} />
       <ThreadUsageRing provider={snapshot.thread.provider} idle={!running} threadId={snapshot.thread.id} context={snapshot.thread.contextReport} /></div>}
       {running && <button type="button" className="thread-stop" aria-label="Stop turn" title="Stop turn · Esc" disabled={pending} onClick={onInterrupt}><Square size={14} /></button>}
-      <button type="submit" className="thread-send" aria-label={running ? 'Queue follow-up' : 'Send'} title={running ? 'Queue follow-up · Enter' : 'Send · Enter'} disabled={blocked || (!draft.trim() && !attachments.length)}><ArrowUp size={16} /></button></footer>
+      <button type="submit" className="thread-send" aria-label={running ? 'Queue follow-up' : 'Send'} title={running ? 'Queue follow-up · Enter' : 'Send · Enter'} disabled={blocked || tooLong || (!draft.trim() && !attachments.length)}><ArrowUp size={16} /></button></footer>
+    {tooLong && <p className="thread-composer-limit" role="alert">This message has {draft.length.toLocaleString('en-US')} characters; the limit is {THREAD_MESSAGE_MAX_CHARS.toLocaleString('en-US')}. Attach long text as a file instead.</p>}
   </form>
 }
