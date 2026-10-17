@@ -17,6 +17,8 @@ export interface ThreadConnectionStatus {
   lastNativeSignalAt?: number
   nextRetryAt?: number
   detail?: string
+  /** Set when OXESpace closed an idle session to free memory; the next message resumes it. */
+  suspendedAt?: number
 }
 
 /** Durable identity around a provider or local operation. Visual events remain payloads. */
@@ -544,6 +546,9 @@ export interface ThreadApi {
   /** Whether commands on the built-in read-only list are approved without asking. */
   autoApproveReads?(): Promise<boolean>
   setAutoApproveReads?(enabled: boolean): Promise<boolean>
+  /** Minutes without activity after which a conversation's agent process is closed; 0 never closes it. */
+  idleSuspendMinutes?(): Promise<number>
+  setIdleSuspendMinutes?(minutes: number): Promise<number>
   /** What Thread would do with a command, using the real analysis and no saved rules. */
   shellCheck?(command: string): Promise<ThreadShellCheck>
   usageSummary?(id: string, options?: { scope?: 'thread' | 'project' | 'all'; days?: number }): Promise<ThreadUsageSummary>

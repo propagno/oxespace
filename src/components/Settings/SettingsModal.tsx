@@ -47,6 +47,7 @@ export interface SettingsModalProps {
 }
 
 import { PROVIDER_INSTALL_DOCS } from './providerInstallDocs'
+import { THREAD_IDLE_SUSPEND_CHOICES } from '../../../shared/threadLimits'
 export { PROVIDER_INSTALL_DOCS }
 
 function openInstallDocs(url: string): void {
@@ -660,8 +661,53 @@ function ProvidersSettingsSection({
           <Plus size={14} aria-hidden="true" />
           New custom agent
         </Button>
+
+        <IdleConversationsSetting />
       </div>
     </section>
+  )
+}
+
+/** How long an idle Thread conversation keeps its agent process (and the MCP servers it started) running. */
+function IdleConversationsSetting(): ReactElement | null {
+  const api = window.oxe?.thread
+  const [minutes, setMinutes] = useState<number | null>(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    void Promise.resolve(api?.idleSuspendMinutes?.())
+      .then((value) => { if (!cancelled && typeof value === 'number') setMinutes(value) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [api])
+
+  if (minutes === null || !api?.setIdleSuspendMinutes) return null
+
+  const change = async (next: number): Promise<void> => {
+    setError('')
+    try { setMinutes(await api.setIdleSuspendMinutes!(next)) }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save this setting') }
+  }
+
+  return (
+    <div className="settings-form-group">
+      <h3 className="settings-form-group-title">Idle conversations</h3>
+      <label className="settings-field">
+        <span>Close the agent process after</span>
+        <Select aria-label="Close idle conversations after" value={minutes} onChange={(event) => void change(Number(event.target.value))}>
+          {THREAD_IDLE_SUSPEND_CHOICES.map((value) => (
+            <option key={value} value={value}>{value === 0 ? 'Never' : `${value} minutes without activity`}</option>
+          ))}
+        </Select>
+        <span className="settings-field-hint">
+          Each open Thread conversation keeps an agent process and its MCP servers running. Closing idle ones frees
+          memory; your next message resumes the same session. A conversation with a running turn, a question, queued
+          messages, a background task or a permission allowed for the session stays open.
+        </span>
+      </label>
+      {error && <p className="settings-field-hint" role="alert">{error}</p>}
+    </div>
   )
 }
 

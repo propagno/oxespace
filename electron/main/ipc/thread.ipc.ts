@@ -218,6 +218,12 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings): { st
     if (typeof enabled !== 'boolean') throw Error('Choose on or off')
     return manager.then(service => service.setAutoApproveReads(enabled))
   })
+  ipcMain.handle(IPC_CHANNELS.thread.idleSuspendMinutes, event => { sender(event); return manager.then(service => service.idleSuspendMinutes()) })
+  ipcMain.handle(IPC_CHANNELS.thread.setIdleSuspendMinutes, (event, minutes: unknown) => {
+    sender(event)
+    if (typeof minutes !== 'number' || !Number.isInteger(minutes)) throw Error('Choose a number of minutes')
+    return manager.then(service => service.setIdleSuspendMinutes(minutes))
+  })
   ipcMain.handle(IPC_CHANNELS.thread.shellCheck, (event, command: unknown) => {
     sender(event)
     if (typeof command !== 'string' || !command.trim() || command.length > 4096) throw Error('Give a command of up to 4096 characters')

@@ -93,6 +93,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       auditLog: (id, options) => ipc.invoke(IPC_CHANNELS.thread.auditLog, id, options) as Promise<import('../../shared/types/thread').ThreadAuditEntry[]>,
       autoApproveReads: () => ipc.invoke(IPC_CHANNELS.thread.autoApproveReads) as Promise<boolean>,
       setAutoApproveReads: (enabled) => ipc.invoke(IPC_CHANNELS.thread.setAutoApproveReads, enabled) as Promise<boolean>,
+      idleSuspendMinutes: () => ipc.invoke(IPC_CHANNELS.thread.idleSuspendMinutes) as Promise<number>,
+      setIdleSuspendMinutes: (minutes) => ipc.invoke(IPC_CHANNELS.thread.setIdleSuspendMinutes, minutes) as Promise<number>,
       shellCheck: (command) => ipc.invoke(IPC_CHANNELS.thread.shellCheck, command) as Promise<import('../../shared/types/thread').ThreadShellCheck>,
       debugEvents: (id, options) => ipc.invoke(IPC_CHANNELS.thread.debugEvents, id, options) as Promise<import('../../shared/types/thread').ThreadDebugPage>,
       usageSummary: (id, options) => ipc.invoke(IPC_CHANNELS.thread.usageSummary, id, options) as Promise<import('../../shared/types/thread').ThreadUsageSummary>,
