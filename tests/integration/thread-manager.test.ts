@@ -4,6 +4,7 @@ import { ThreadManager } from '../../electron/main/services/conversation/thread-
 import { ThreadHistory } from '../../electron/main/services/conversation/thread-history'
 import { ThreadAgentError, threadFailure } from '../../electron/main/services/conversation/thread-failure'
 import type { AgentConversationAdapter, ThreadEvent } from '../../shared/types/thread'
+import { THREAD_MESSAGE_MAX_CHARS, THREAD_PROMPT_MAX_CHARS } from '../../shared/threadLimits'
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { removeTempDir } from '../helpers/removeTempDir'
@@ -596,14 +597,22 @@ describe('thread persistence and ownership', () => {
   })
   it('rejects unsupported or oversized skill prompts before auth, history, and process startup', async () => {
     const preflight = vi.fn(async () => {})
-    const commands = { list: vi.fn(async () => ({ commands: [] })), prepare: vi.fn().mockRejectedValueOnce(Error('Unknown command')).mockResolvedValueOnce({ text: 'x'.repeat(65537) }) }
+    const commands = { list: vi.fn(async () => ({ commands: [] })), prepare: vi.fn().mockRejectedValueOnce(Error('Unknown command')).mockResolvedValueOnce({ text: 'x'.repeat(THREAD_PROMPT_MAX_CHARS + 1) }) }
     const f = fixture(preflight, commands), id = f.create(), before = f.manager.read(id)
     await expect(f.manager.send(id, '/unknown')).rejects.toThrow('Unknown command')
-    await expect(f.manager.send(id, '/oversized')).rejects.toThrow('Skill prompt')
+    await expect(f.manager.send(id, '/oversized')).rejects.toThrow('the limit is')
     expect(f.manager.read(id)).toEqual(before)
     expect(preflight).not.toHaveBeenCalled()
     expect(f.factory).not.toHaveBeenCalled()
     expect(f.manager.hasRunning('codex')).toBe(false)
+    await f.manager.stop()
+  })
+  it('sends a message far above the old 64 KiB limit and refuses one over the Thread limit', async () => {
+    const f = fixture(), id = f.create()
+    const long = 'é'.repeat(200_000)
+    await f.manager.send(id, long)
+    expect(f.adapters[0].send).toHaveBeenCalledWith(expect.stringContaining(long), undefined)
+    await expect(f.manager.steer(id, 'x'.repeat(THREAD_MESSAGE_MAX_CHARS + 1))).rejects.toThrow('the limit is 1,000,000')
     await f.manager.stop()
   })
   it('does not mark a turn interrupted when shutdown happens during auth preflight', async () => {

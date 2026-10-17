@@ -4,6 +4,7 @@ import type { AgentConversationAdapter, ConversationProtocolEvidence, ThreadAgen
 import { AgentRpcPeer, type AgentRpcMessage } from './rpc-peer'
 import { parseThreadUsage, threadFailure, ThreadAgentError } from './thread-failure'
 import { requestOutcome } from '../../../../shared/threadRequestOutcome'
+import { THREAD_PROMPT_MAX_CHARS } from '../../../../shared/threadLimits'
 import { normalizeCodexTokenUsage } from './thread-context'
 import { readCodexRequestTokens, type TurnCost } from './thread-cost'
 import { ThreadRewindError, readAllTurnIds, verifyRevert } from './thread-rewind'
@@ -152,7 +153,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
   async send(input: string, skill?: ThreadAgentInput['skill'], attachments: ThreadAttachment[] = []): Promise<void> {
     if (!this.rpc || !this.threadId || this.disposed) throw new Error('Conversation is not connected')
     if (this.busy) throw new Error('A conversation turn is already running')
-    if (!input.trim() || Buffer.byteLength(input) > 64 * 1024) throw new Error('Invalid conversation input')
+    if (!input.trim() || input.length > THREAD_PROMPT_MAX_CHARS) throw new Error('Invalid conversation input')
     this.busy = true
     this.turnTokens = undefined
     this.turnError = undefined
