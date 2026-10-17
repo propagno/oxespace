@@ -10,7 +10,7 @@ import ThreadPermissionsPanel from './ThreadPermissionsPanel'
 import ThreadUsagePanel from './ThreadUsagePanel'
 import ThreadWorkPanel from './ThreadWorkPanel'
 import type { ThreadPanelState } from './threadCommandPanels'
-import { TextField } from '../../ui'
+import { Button, TextField } from '../../ui'
 
 function sessionDate(timestamp: number): string { return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(timestamp) }
 
@@ -30,6 +30,13 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
   const [resumeQuery, setResumeQuery] = useState('')
   const [nativeResumeId, setNativeResumeId] = useState('')
   const api = window.oxe?.thread
+  const canRename = !pending && Boolean(rename.trim()) && rename.trim() !== snapshot?.thread.title
+  // A panel whose rows are commands explains them in its text: show it as prose, not as copyable output.
+  const commandRows = panel.rows?.filter(row => row.id) ?? []
+  const explanation = commandRows.length > 0
+  // Archive, delete and rewind ask one question with one action: a confirmation, not a list.
+  const confirm = panel.text && commandRows.length === 1 && panel.rows?.length === 1 && /^\/(archive|delete|rewind)\b/.test(commandRows[0].id!) ? commandRows[0] : null
+  const confirmDestructive = Boolean(confirm && /^\/(delete|rewind)\b/.test(confirm.id!))
   const resume = panel.resume
   const resumeTasks = resume?.tasks ?? [], nativeSessions = resume?.nativeSessions ?? []
   const resumeMatches = (parts: Array<string | number | null | undefined>) => !resumeQuery.trim() || parts.some(value => String(value ?? '').toLowerCase().includes(resumeQuery.trim().toLowerCase()))
@@ -42,7 +49,10 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
   }
   return <DesktopDialog className={`thread-command-dialog desktop-details-dialog${panel.surface === 'sessions' ? ' thread-resume-dialog' : ''}`} title={panel.surface === 'sessions' ? 'Resume work' : panel.title || 'Conversation'} description={panel.surface === 'sessions' ? 'Choose a saved conversation or provider session in this project.' : 'Manage this conversation without leaving Thread.'} onClose={onClose}>
     {error && <p role="alert">{error}</p>}
-    {panel.surface === 'rename' ? <form onSubmit={event => { event.preventDefault(); void action(async () => { await runCommand(`/rename ${rename}`); onClose() }) }}><label>Conversation name<TextField aria-label="Conversation name" value={rename} maxLength={120} onChange={event => setRename(event.target.value)} /></label><button type="submit" disabled={pending || !rename.trim()}>Rename conversation</button></form>
+    {panel.surface === 'rename' ? <form className="thread-command-form" onSubmit={event => { event.preventDefault(); if (!canRename) return; void action(async () => { await runCommand(`/rename ${rename.trim()}`); onClose() }) }}>
+      <label>Conversation name<TextField aria-label="Conversation name" value={rename} maxLength={120} autoFocus onFocus={event => event.currentTarget.select()} onChange={event => setRename(event.target.value)} /></label>
+      <footer className="thread-command-actions"><Button onClick={onClose}>Cancel</Button><Button type="submit" variant="primary" loading={pending} disabled={!canRename}>Rename conversation</Button></footer>
+    </form>
     : panel.surface === 'rules' && snapshot ? <ThreadPermissionsPanel threadId={snapshot.thread.id} />
     : panel.surface === 'work' && snapshot ? <ThreadWorkPanel threadId={snapshot.thread.id} onOpenThread={threadId => { onClose(); void useThreadStore.getState().select(threadId) }} />
     : panel.surface === 'events' && snapshot ? <ThreadEventsPanel threadId={snapshot.thread.id} />
@@ -71,7 +81,12 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
       </section>
     </div>
     : panel.surface === 'delegations' ? <div className="thread-panel-list">{panel.rows?.length ? panel.rows.map((row, index) => <button key={index} type="button" disabled={pending || !row.id} onClick={() => { if (row.id) { onClose(); void useThreadStore.getState().select(row.id) } }}><strong>{row.label}</strong>{row.detail && <span>{row.detail}</span>}</button>) : <p>No delegated work in this project.</p>}</div>
-    : <>{panel.text !== undefined && <><pre>{panel.text || 'No content available.'}</pre>{panel.externalUrl && <button type="button" onClick={() => window.open(panel.externalUrl, '_blank', 'noopener,noreferrer')}>Open in browser</button>}{panel.text && !panel.externalUrl && <button type="button" onClick={() => void navigator.clipboard.writeText(panel.text!).catch(() => onError('Could not copy text.'))}>Copy text</button>}</>}
+    : confirm ? <>
+      <p className="thread-command-explanation">{panel.text}</p>
+      <footer className="thread-command-actions"><Button onClick={onClose}>Cancel</Button><Button variant={confirmDestructive ? 'danger' : 'primary'} loading={pending} onClick={() => void action(async () => { onClose(); await runCommand(confirm.id!) })}>{confirm.label}</Button></footer>
+    </>
+    : <>{panel.text !== undefined && (explanation ? <p className="thread-command-explanation">{panel.text}</p> : <><pre>{panel.text || 'No content available.'}</pre>
+        <footer className="thread-command-actions">{panel.externalUrl && <Button onClick={() => window.open(panel.externalUrl, '_blank', 'noopener,noreferrer')}>Open in browser</Button>}{panel.text && !panel.externalUrl && <Button onClick={() => void navigator.clipboard.writeText(panel.text!).catch(() => onError('Could not copy text.'))}>Copy text</Button>}</footer></>)}
       {panel.usage ? <ThreadUsageDetails usage={panel.usage} /> : panel.title === 'Conversation status' && panel.rows ? <div className="thread-status-summary">
         <p className="terminal-session-identity-note">The native session ID resumes the Codex or Claude conversation. Thread, project and workspace IDs belong to OXESpace.</p>
         <DetailList rows={['Provider', 'Native session ID (resume)', 'Status', 'Model', 'Effort', 'Access', 'Network', 'Approvals', 'Mode', 'Connection', 'Directory'].flatMap(label => panel.rows!.filter(row => row.label === label))} />
