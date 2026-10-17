@@ -127,12 +127,14 @@ export async function runThreadCommand(host: CommandHost, id: string, text: stri
       for (let attempt = 0; attempt < 50 && host.isBusy(id); attempt++) await new Promise(resolve => setTimeout(resolve, 100))
       if (host.isBusy(id)) throw Error('The active turn has not stopped. Try again after it finishes.')
     }
-    if (host.isBusy(id) || host.isConfiguring(id)) throw Error('Finish the active operation before running this command')
+    // A name is OXESpace's label (and Codex's thread name): it does not touch the turn, so a long or
+    // background-waiting turn must not block it.
     if (name === 'rename') {
       if (!argument) return { kind: 'panel', surface: 'rename', title: 'Rename conversation' }
-      if (thread.provider === 'codex' && thread.nativeSessionId) await (await host.connectAdapter(id, thread)).command?.('rename', argument.slice(0, 120))
+      if (thread.provider === 'codex' && thread.nativeSessionId && !host.isBusy(id)) await (await host.connectAdapter(id, thread)).command?.('rename', argument.slice(0, 120))
       const latest = host.read(id); latest.thread.title = argument.slice(0, 120); host.save(latest, { eventsFrom: latest.events.length }); return { kind: 'applied' }
     }
+    if (host.isBusy(id) || host.isConfiguring(id)) throw Error('Finish the active operation before running this command')
     if (name === 'new') {
       const created = host.create({ workspaceId: thread.workspaceId, projectId: thread.projectId, rootPath: thread.rootPath, provider: thread.provider })
       Object.assign(created.thread, { model: thread.model, reasoningEffort: thread.reasoningEffort, access: thread.access, networkAccess: thread.networkAccess, approvalPolicy: thread.approvalPolicy, mode: thread.mode, hooksEnabled: thread.hooksEnabled })
