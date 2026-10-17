@@ -7,6 +7,7 @@ import type { ThreadModelService } from './thread-models'
 import { hasDesktopCommand } from '../../../../shared/threadDesktopCommands'
 import { blocksThreadInput, PARTIAL_NATIVE_HISTORY_NOTICE } from '../../../../shared/threadHistoryNotice'
 import { formatNativeUserText } from '../../../../shared/native-session-text'
+import { assertThreadMessage, THREAD_PROMPT_MAX_CHARS } from '../../../../shared/threadLimits'
 import { execFile } from 'node:child_process'
 import { ThreadAgentError, threadFailure } from './thread-failure'
 import { ThreadHistory, type ThreadHistoryWriteOptions } from './thread-history'
@@ -380,7 +381,7 @@ export class ThreadOrchestrator {
 
   async send(id: string, text: string, attachmentIds: string[] = []): Promise<void> {
     if (this.stopping) throw new Error('Application is shutting down')
-    if (!text.trim() || Buffer.byteLength(text) > 64 * 1024) throw new Error('Message must contain 1 to 65536 bytes')
+    assertThreadMessage(text)
     if (this.configuring.has(id)) throw new Error('Configuration is already being updated')
     if (this.read(id).thread.cliActive) throw Error('The native CLI already owns this conversation')
     const attachments = attachmentIds.length ? await this.resolveAttachments(id, attachmentIds) : []
@@ -425,7 +426,7 @@ export class ThreadOrchestrator {
         throw Error('This command does not have an integrated Thread handler yet.')
       }
       if (snapshot.thread.cliNotice && blocksThreadInput(snapshot.thread)) throw Error(snapshot.thread.cliNotice)
-      if (!input.text.trim() || Buffer.byteLength(input.text) > 64 * 1024) throw new Error('Skill prompt must contain 1 to 65536 bytes')
+      assertThreadMessage(input.text, THREAD_PROMPT_MAX_CHARS)
       await this.preflight?.(snapshot.thread)
       // `@file` mentions become attached content; the stored message keeps the text as typed.
       if (!text.trim().startsWith('/')) {
@@ -567,7 +568,7 @@ export class ThreadOrchestrator {
   }
 
   async steer(id: string, text: string, attachmentIds: string[] = []): Promise<void> {
-    if (!text.trim() || Buffer.byteLength(text) > 64 * 1024) throw Error('Message must contain 1 to 65536 bytes')
+    assertThreadMessage(text)
     const snapshot = this.read(id), adapter = this.adapters.get(id)
     if (!this.busy.has(id) || !adapter?.steer) throw Error('This provider cannot steer the current turn')
     const attachments = await this.resolveAttachments(id, attachmentIds)
@@ -580,7 +581,7 @@ export class ThreadOrchestrator {
   }
 
   async updateQueued(id: string, itemId: string, text: string): Promise<void> {
-    if (!text.trim() || Buffer.byteLength(text) > 64 * 1024) throw Error('Message must contain 1 to 65536 bytes')
+    assertThreadMessage(text)
     const snapshot = this.read(id), item = snapshot.thread.queue?.find(value => value.id === itemId)
     if (!item || item.state !== 'queued') throw Error('Queued input is unavailable')
     item.text = text

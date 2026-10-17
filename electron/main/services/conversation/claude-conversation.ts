@@ -14,6 +14,7 @@ import { toolResultText } from './tool-result-text'
 /** How long a cooperative interrupt may take before the process is ended instead. */
 const INTERRUPT_GRACE_MS = 2_000
 import { requestOutcome } from '../../../../shared/threadRequestOutcome'
+import { THREAD_PROMPT_MAX_CHARS } from '../../../../shared/threadLimits'
 
 const DISPOSED = 'Agent connection disposed'
 
@@ -67,7 +68,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
   async send(text: string, _skill?: ThreadAgentInput['skill'], attachments: ThreadAttachment[] = []): Promise<void> {
     if (!this.context || this.disposed) throw new Error('Conversation is not connected')
     if (this.busy) throw new Error('A conversation turn is already running')
-    if (!text.trim() || Buffer.byteLength(text) > 64 * 1024) throw new Error('Invalid conversation input')
+    if (!text.trim() || text.length > THREAD_PROMPT_MAX_CHARS) throw new Error('Invalid conversation input')
     this.busy = true
     this.fileTools.clear()
     this.todoTools.clear()
