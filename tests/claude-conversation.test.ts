@@ -40,7 +40,7 @@ describe('Claude print conversation', () => {
     const [first, second] = request.request.questions!
     await expect(f.adapter.respondRequest('q', { answers: { [first.id]: ['Custom DB'] } })).rejects.toThrow('every question')
     await f.adapter.respondRequest('q', { answers: { [first.id]: ['Custom DB'], [second.id]: ['Search', 'Export'] } })
-    expect(f.turns[0].writes.at(-1)).toMatchObject({ response: { response: { updatedInput: { questions, answers: { 'Which database?': 'Custom DB', 'Which features?': ['Search', 'Export'] } } } } })
+    expect(f.turns[0].writes.at(-1)).toMatchObject({ response: { response: { updatedInput: { questions, answers: { 'Which database?': 'Custom DB', 'Which features?': 'Search, Export' } } } } })
     await expect(f.adapter.respondRequest('q', { answers: {} })).rejects.toThrow('no longer pending')
     await f.adapter.dispose()
   })

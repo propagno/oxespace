@@ -440,7 +440,8 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
     const answers = Object.entries(response.answers ?? {}).map(([id, values]) => {
       const question = pending.questions?.get(id)
       if (!question) throw Error('Unknown question. Reopen the active request.')
-      return [question, values.length > 1 ? values : values[0] ?? '']
+      // AskUserQuestion takes one string per question: the chosen labels, or the person's own text, joined like the CLI does.
+      return [question, values.map(value => value.trim()).filter(Boolean).join(', ')]
     })
     if (pending.questions && response.answers && [...pending.questions.keys()].some(id => !response.answers![id]?.some(value => value.trim()))) throw Error('Answer every question before sending.')
     const updatedInput = pending.toolName === 'AskUserQuestion' ? { ...pending.input, answers: Object.fromEntries(answers) } : pending.input
