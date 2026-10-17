@@ -34,7 +34,7 @@ export function OxeQuerySidebar({ onSelectMode }: { onSelectMode: (mode: 'code' 
         <h3>Containers</h3>
         <button type="button" className="oq-nav-item" aria-current={activeTab === 'containers' ? 'page' : undefined} onClick={() => useOxeQueryStore.getState().setActiveTab('containers')}>
           <Boxes size={14} aria-hidden="true" /><span>All containers</span><small>{containers.length ? `${running} running` : ''}</small></button>
-        {containersError && containers.length === 0 && <p className="oq-muted oq-side-note">No container engine is reachable yet.</p>}
+        {containersError && containers.length === 0 && <p className="oq-muted oq-side-note" title={containersError}>{/permission denied/i.test(containersError) ? 'The container engine refused access. Open All containers for the fix.' : 'No container engine is reachable yet.'}</p>}
         {listed.map(container => <button key={container.id} type="button" className="oq-nav-item oq-container-item" title={`${container.name} · ${container.image}
 ${container.status}`}
           aria-current={activeTab === 'containers' && selectedContainer === container.id ? 'true' : undefined} onClick={() => useOxeQueryStore.getState().selectContainer(container.id)}>
