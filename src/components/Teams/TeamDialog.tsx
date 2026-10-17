@@ -49,7 +49,7 @@ export function TeamDialog({ scope, owner, onClose }: { scope: TeamScope; owner?
         <form onSubmit={event => { event.preventDefault(); void change(async () => { const value = await api!.add(scope, team.revision, name, role); setName(''); return value }) }}>
           <label>Member name<TextField value={name} onChange={e => setName(e.target.value)} required maxLength={100} placeholder="e.g. Authentication developer" /></label>
           <fieldset><legend>Role</legend><div className="team-role-options">{Object.entries(roles).map(([value, label]) => <label key={value}><input type="radio" name="team-role" value={value} checked={role === value} onChange={() => setRole(value as TeamRole)} disabled={value === 'coordinator' && team.members.some(m => !m.archived && m.role === 'coordinator')} />{label}</label>)}</div>{team.members.some(m => !m.archived && m.role === 'coordinator') && <small className="team-note">A team has one coordinator. Use Make coordinator on a member to hand the role over.</small>}</fieldset>
-          <Button type="submit" variant="primary" disabled={busy || !name.trim()}>{busy ? 'Saving…' : 'Add member'}</Button>
+          <Button type="submit" variant="primary" className="team-form-submit" disabled={busy || !name.trim()}>{busy ? 'Saving…' : 'Add member'}</Button>
         </form>
         {team.members.filter(m => m.id === selected && !m.archived).map(member => <TeamMessages key={member.id} scope={scope} member={member} members={team.members} />)}
       </>}
