@@ -87,3 +87,12 @@
 .restore:hover, .restore:focus-visible { background: var(--fill-hover); color: var(--text-primary); }
 .restore span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .restore small { margin-left: auto; color: var(--text-muted); }
+
+/* A narrow row cut the provider name to "Clauc…": below this width the icon says it alone (the row tooltip names it). */
+.content { container-type: inline-size; }
+@container (max-width: 230px) { .provider > span { display: none; } }
+
+/* Archived rows: one line of title with an ellipsis instead of a five-line block. */
+.archivedRow .item { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.archivedRow .item > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.archivedRow .item > small { flex: none; color: var(--text-muted); font-size: var(--text-2xs); }
