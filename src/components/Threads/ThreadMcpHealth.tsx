@@ -1,30 +1,29 @@
 import type { ReactElement } from 'react'
 import { Plug } from 'lucide-react'
-import { Popover } from 'radix-ui'
-import type { ConversationThread, ThreadMcpServerStatus } from '../../../shared/types/thread'
+import type { ConversationThread } from '../../../shared/types/thread'
 import { useUIStore } from '../../store/ui.store'
-
-const LABEL: Record<ThreadMcpServerStatus['status'], string> = {
-  connected: 'Connected', failed: 'Failed to start', 'needs-auth': 'Needs sign-in', pending: 'Starting', disabled: 'Disabled', unknown: 'Unknown'
-}
+import { Button, Popover } from '../../ui'
+import { ThreadMcpServerList, brokenMcpServers } from './ThreadMcpServerList'
 
 /**
- * MCP servers that did not start for this conversation. Silent while all is
- * well; a warning chip with the details otherwise, since a missing server
- * means the agent quietly lacks the tools it was expected to use.
+ * The MCP servers this conversation's session loaded. The chip counts the connected ones and turns into a
+ * warning only when a server the person configured failed; claude.ai connectors waiting for a sign-in are
+ * account options, not failures.
  */
 export function ThreadMcpHealth({ thread }: { thread: ConversationThread }): ReactElement | null {
   const servers = thread.mcpServers?.servers ?? []
-  const broken = servers.filter(server => server.status === 'failed' || server.status === 'needs-auth')
-  if (!broken.length) return null
-  return <Popover.Root>
-    <Popover.Trigger asChild><button type="button" className="thread-mcp-health" aria-label={`${broken.length} MCP ${broken.length === 1 ? 'server' : 'servers'} unavailable`}><Plug size={12} aria-hidden="true" />MCP · {broken.length}</button></Popover.Trigger>
-    <Popover.Portal><Popover.Content collisionPadding={{ top: 44, right: 8, bottom: 8, left: 8 }} className="thread-mcp-health-popover" side="top" align="end" sideOffset={8}>
-      <strong>MCP servers</strong>
-      <span>As reported when this conversation's session started.</span>
-      <ul>{servers.map(server => <li key={server.name} className={`is-${server.status}`}><code>{server.name}</code><small>{LABEL[server.status]}</small></li>)}</ul>
-      <button type="button" onClick={() => useUIStore.getState().openMcpPanel()}>Open MCP connections</button>
-      <Popover.Arrow className="thread-font-arrow" />
-    </Popover.Content></Popover.Portal>
-  </Popover.Root>
+  if (!servers.length) return null
+  const connected = servers.filter(server => server.status === 'connected').length
+  const broken = brokenMcpServers(servers)
+  const label = broken.length
+    ? `${broken.length} MCP ${broken.length === 1 ? 'server' : 'servers'} unavailable, ${connected} connected`
+    : `${connected} MCP ${connected === 1 ? 'server' : 'servers'} connected`
+  return <Popover label="MCP servers" side="top" align="end"
+    trigger={<button type="button" className={`thread-mcp-health${broken.length ? ' is-warning' : ''}`} aria-label={label} title={label}><Plug size={12} aria-hidden="true" />MCP · {broken.length ? `${broken.length} failed` : connected}</button>}>
+    <div className="thread-mcp-health-popover">
+      <header><strong>MCP servers</strong><span>As this conversation's session reported them when it started.</span></header>
+      <ThreadMcpServerList servers={servers} />
+      <Button size="sm" onClick={() => useUIStore.getState().openMcpPanel()}>Open connections</Button>
+    </div>
+  </Popover>
 }

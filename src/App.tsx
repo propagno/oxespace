@@ -1154,6 +1154,7 @@ export function App(): ReactElement {
       {isMcpPanelOpen ? (
         <McpPanel
           workspaceId={applicationView === 'thread' ? threadSnapshot?.thread.workspaceId ?? null : activeWorkspace?.id ?? null}
+          conversationServers={applicationView === 'thread' ? threadSnapshot?.thread.mcpServers?.servers : undefined}
           onClose={closeMcpPanel}
         />
       ) : null}

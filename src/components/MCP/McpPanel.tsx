@@ -7,15 +7,19 @@ import { parseMcpJson } from './parseMcpJson'
 import { McpCatalog } from './McpCatalog'
 import { McpImportPanel } from './McpImportPanel'
 import { envTemplate, type McpCatalogEntry } from './connectorCatalog'
+import type { ThreadMcpServerStatus } from '../../../shared/types/thread'
+import { ThreadMcpServerList } from '../Threads/ThreadMcpServerList'
 
 interface FormInitial { name: string; command: string; argsText: string; envText: string; note?: string; requiredEnv?: string[]; /** Came from the curated catalog: trusted and started as soon as it is saved. */ fromCatalog?: boolean }
 
 interface McpPanelProps {
   workspaceId: string | null
+  /** The servers the open Thread conversation's session loaded, from every source the provider reads. */
+  conversationServers?: ThreadMcpServerStatus[]
   onClose: () => void
 }
 
-export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement {
+export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanelProps): ReactElement {
   const surface = useModalSurface<HTMLElement>(onClose)
   const serversSelector = useCallback(selectMcpServers(workspaceId), [workspaceId])
   const servers = useMcpStore(serversSelector).filter((server): server is McpServer => Boolean(server))
@@ -28,7 +32,7 @@ export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement 
   const updateServer = useMcpStore((s) => s.update)
   const [creating, setCreating] = useState(false)
   const [importing, setImporting] = useState(false)
-  const [view, setView] = useState<'catalog' | 'installed'>('catalog')
+  const [view, setView] = useState<'conversation' | 'catalog' | 'installed'>(conversationServers?.length ? 'conversation' : 'catalog')
   const [catalogBusyId, setCatalogBusyId] = useState<string | null>(null)
   const [formInitial, setFormInitial] = useState<FormInitial | null>(null)
   const createServer = useMcpStore((s) => s.create)
@@ -221,11 +225,17 @@ export function McpPanel({ workspaceId, onClose }: McpPanelProps): ReactElement 
         )}
 
         <div className="mcp-view-tabs" role="tablist" aria-label="Connections view">
+          {conversationServers?.length ? <button type="button" role="tab" aria-selected={view === 'conversation'} onClick={() => setView('conversation')}>This conversation<small>{conversationServers.filter(server => server.status === 'connected').length}</small></button> : null}
           <button type="button" role="tab" aria-selected={view === 'catalog'} onClick={() => setView('catalog')}>Catalog</button>
           <button type="button" role="tab" aria-selected={view === 'installed'} onClick={() => setView('installed')}>Installed<small>{otherServers.length + (builtInServer ? 1 : 0)}</small></button>
         </div>
 
-        {view === 'catalog' ? (
+        {view === 'conversation' && conversationServers ? (
+          <div className="mcp-panel-list mcp-panel-conversation">
+            <p className="mcp-panel-sync-note">What the agent of this conversation loaded when its session started: servers from OXESpace, your provider settings, the project's <code>.mcp.json</code> and claude.ai connectors. Changes apply to the next session.</p>
+            <ThreadMcpServerList servers={conversationServers.filter(server => `${server.name} ${server.status}`.toLowerCase().includes(query.trim().toLowerCase()))} />
+          </div>
+        ) : view === 'catalog' ? (
           <div className="mcp-panel-list">
             <McpCatalog servers={otherServers} query={query} busyId={catalogBusyId} onAdd={(entry) => void handleCatalogAdd(entry)} onStart={(server) => void handleStart(server)} onStop={(server) => void handleStop(server.id)} />
           </div>
