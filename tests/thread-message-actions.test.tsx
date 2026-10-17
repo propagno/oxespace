@@ -74,15 +74,17 @@ describe('ThreadHunkReview', () => {
 describe('ThreadMcpHealth', () => {
   const thread = (servers: Array<{ name: string; status: 'connected' | 'failed' | 'needs-auth' }>) => ({ mcpServers: { servers, checkedAt: 1 } }) as never
 
-  it('stays hidden while every server is connected', () => {
-    const { container } = render(<ThreadMcpHealth thread={thread([{ name: 'github', status: 'connected' }])} />)
+  it('stays hidden when the session reported no servers, and counts connected ones otherwise', () => {
+    const { container } = render(<ThreadMcpHealth thread={thread([])} />)
     expect(container).toBeEmptyDOMElement()
+    render(<ThreadMcpHealth thread={thread([{ name: 'github', status: 'connected' }])} />)
+    expect(screen.getByRole('button', { name: '1 MCP server connected' })).toHaveTextContent('MCP · 1')
   })
 
   it('shows how many servers are unavailable and lists them', async () => {
     vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} })
     render(<ThreadMcpHealth thread={thread([{ name: 'github', status: 'connected' }, { name: 'jira', status: 'needs-auth' }, { name: 'db', status: 'failed' }])} />)
-    fireEvent.click(screen.getByRole('button', { name: '2 MCP servers unavailable' }))
+    fireEvent.click(screen.getByRole('button', { name: '2 MCP servers unavailable, 1 connected' }))
     expect(await screen.findByText('Needs sign-in')).toBeInTheDocument()
     expect(screen.getByText('Failed to start')).toBeInTheDocument()
   })
