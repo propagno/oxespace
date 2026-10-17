@@ -55,9 +55,11 @@ export function ThreadSidebar({ onCreate, onModeChange, onSelectMode, onAccounts
       if (!group) continue
       group.threads.push(thread); catalog.set(thread.projectId, group)
     }
-    return [...catalog.values()].map(g => ({ ...g, threads: g.threads.filter(t => !t.pinned && (`${g.name} ${t.title} ${t.provider} ${t.rootPath}`.toLowerCase().includes(query.toLowerCase()) || contentHit(t))).sort((a, b) => b.updatedAt - a.updatedAt) }))
+    // Order by creation, not activity: every streamed event bumps updatedAt, and rows that jumped to the top
+    // while an agent worked moved the conversation the person was about to click.
+    return [...catalog.values()].map(g => ({ ...g, threads: g.threads.filter(t => !t.pinned && (`${g.name} ${t.title} ${t.provider} ${t.rootPath}`.toLowerCase().includes(query.toLowerCase()) || contentHit(t))).sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id)) }))
       .filter(g => !hiddenProjects.includes(g.id) && (!query || g.threads.length || g.name.toLowerCase().includes(query.toLowerCase())))
-      .sort((a, b) => (b.threads[0]?.updatedAt ?? 0) - (a.threads[0]?.updatedAt ?? 0) || a.name.localeCompare(b.name))
+      .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
   }, [projects, threads, query, hiddenProjects, contentHit])
   const archived = useMemo(() => threads.filter(thread => thread.archived && !hiddenProjects.includes(thread.projectId)
     && (`${thread.title} ${thread.provider} ${thread.rootPath} ${projects.find(project => project.projectId === thread.projectId)?.displayName ?? ''}`.toLowerCase().includes(query.toLowerCase()) || contentHit(thread)))
@@ -111,7 +113,7 @@ export function ThreadSidebar({ onCreate, onModeChange, onSelectMode, onAccounts
       <nav className={cx('thread-project-list', styles.list)} aria-label="Thread projects">
         {loading && !threads.length && <p className={cx('thread-nav-empty', styles.empty)} role="status">Loading conversations…</p>}
         {Object.entries(errors).map(([id, error]) => <div key={id} className={cx('thread-catalog-error', styles.error)} role="alert"><p>{error}</p><button type="button" onClick={() => { void useThreadStore.getState().load(); void useThreadStore.getState().loadProjects() }}>Retry</button></div>)}
-        {threads.some(t => t.pinned && matches(t, projects.find(p => p.projectId === t.projectId)?.displayName ?? '')) && <section><h2> Pinned</h2>{threads.filter(t => t.pinned && matches(t, projects.find(p => p.projectId === t.projectId)?.displayName ?? '')).map(row)}</section>}
+        {threads.some(t => t.pinned && matches(t, projects.find(p => p.projectId === t.projectId)?.displayName ?? '')) && <section><h2> Pinned</h2>{threads.filter(t => t.pinned && matches(t, projects.find(p => p.projectId === t.projectId)?.displayName ?? '')).sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id)).map(row)}</section>}
         {!!groups.length && <div className={cx('thread-list-heading', styles.listHeading)}><h2>Projects</h2><button type="button" aria-label="Compact thread list" title={density === 'compact' ? 'Use comfortable spacing' : 'Use compact spacing'} aria-pressed={density === 'compact'} onClick={() => setDensity(density === 'compact' ? 'comfortable' : 'compact')}><AlignJustify size={14} aria-hidden="true" /></button></div>}
         {groups.map(group => <section key={group.id} className={cx('thread-project-group', styles.group, selected?.projectId === group.id && cx('is-active', styles.active))}>
           <div className={cx('thread-project-heading', styles.heading)}>

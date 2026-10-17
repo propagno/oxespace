@@ -143,6 +143,16 @@ describe('Thread workspace UI', () => {
     expect(screen.getByRole('button', { name: 'New thread in Repo' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Other Restore' })).toBeVisible()
   })
+  it('keeps conversations in creation order while one of them is active', () => {
+    const f = fixture()
+    const base = useThreadStore.getState().threads[0]
+    const older = { ...base, id: 'older', title: 'Older conversation', createdAt: 1, updatedAt: 9_000 }
+    const newer = { ...base, id: 'newer', title: 'Newer conversation', createdAt: 2, updatedAt: 3 }
+    useThreadStore.setState({ threads: [older, newer], selectedId: 'newer' })
+    render(<ThreadSidebar workspaces={[f.workspace]} onCreate={vi.fn()} />)
+    const titles = screen.getAllByText(/^(Older|Newer) conversation$/).map(node => node.textContent)
+    expect(titles).toEqual(['Newer conversation', 'Older conversation'])
+  })
   it('creates a thread in the project context and requires confirmation before deleting a conversation', async () => {
     const f = fixture(), onCreate = vi.fn()
     const user = userEvent.setup()
