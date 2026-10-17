@@ -17,6 +17,7 @@ export function useThreadScrollAnchor(snapshot: ThreadSnapshot | null, selectedI
   const lastScrollDirection = useRef<'up' | 'down' | null>(null)
   const scrollIntentTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const restoreTop = useRef<number | null>(null)
+  const lastTop = useRef(0)
   const restoreTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const visibleThread = useRef(selectedId)
   visibleThread.current = selectedId
@@ -30,6 +31,9 @@ export function useThreadScrollAnchor(snapshot: ThreadSnapshot | null, selectedI
   const cancelScrollRestore = (direction?: 'up' | 'down') => {
     userScrollIntent.current = true
     lastScrollDirection.current = direction ?? null
+    // Leaving the end must take effect now: while following, every resize (rows measured as they mount,
+    // a streamed message) pulled the view back down, and a small scroll up shook between the two positions.
+    if (direction === 'up') following.current = false
     if (scrollIntentTimer.current) clearTimeout(scrollIntentTimer.current)
     scrollIntentTimer.current = setTimeout(() => { userScrollIntent.current = false; scrollIntentTimer.current = null }, 900)
     restoreTop.current = null
@@ -105,6 +109,10 @@ export function useThreadScrollAnchor(snapshot: ThreadSnapshot | null, selectedI
       const el = event.currentTarget; if (!el.clientHeight || !snapshot) return
       updateTimelineViewport.current?.()
       if (restoreTop.current !== null) return
+      const movedUp = el.scrollTop < lastTop.current - 1
+      lastTop.current = el.scrollTop
+      // Dragging the scrollbar reports no direction; read it from the movement.
+      if (userScrollIntent.current && movedUp) { following.current = false; lastScrollDirection.current = 'up' }
       if (el.scrollTop <= 32 && snapshot.page?.hasMore && !loadingEarlier) void loadEarlier()
       const atEnd = el.scrollHeight - el.scrollTop - el.clientHeight <= 64
       if (following.current && !atEnd && !userScrollIntent.current) {
