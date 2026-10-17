@@ -4,6 +4,17 @@ import { buildThreadTimeline, flattenThreadTimeline } from '../src/components/Th
 import { computeThreadVirtualRange } from '../src/components/Threads/useThreadVirtualizer'
 
 describe('Thread timeline model', () => {
+  it('leaves background shell commands to the Background activity panel and keeps agents in the reply', () => {
+    const task = { type: 'subagent', state: 'completed', agents: [], receiverThreadIds: ['b1'] } as const
+    const events = [
+      { type: 'message', id: 'user-1', role: 'user', text: 'Build' },
+      { ...task, id: 'bg-1', action: 'Background command' },
+      { ...task, id: 'agent-1', action: 'Background agent' },
+      { type: 'message', id: 'answer-1', role: 'assistant', text: 'Done' }
+    ] as ThreadEvent[]
+    const ids = buildThreadTimeline(events)[0].rows.map(row => (row.event as { id?: string }).id)
+    expect(ids).toEqual(['user-1', 'agent-1', 'answer-1'])
+  })
   it('builds stable turns, filters protocol events and groups adjacent tool activity', () => {
     const events: ThreadEvent[] = [
       { type: 'session', nativeSessionId: 'native' },

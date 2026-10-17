@@ -2176,6 +2176,7 @@
 .workspace-panel-stack { display: flex; flex-direction: column; width: 100%; min-width: 0; height: 100%; overflow: hidden; background: var(--bg-app); }
 .workspace-panel-stack-tabs { display: flex; flex: none; gap: 2px 4px; min-width: 0; flex-wrap: wrap; min-height: 38px; padding: 4px 6px; border-bottom: 1px solid var(--bd-base); background: var(--bg-elevated); }
 .workspace-panel-stack-tabs button { flex: 1 1 auto; text-align: center; min-height: 28px; padding: 3px 10px; border: 1px solid transparent; border-radius: var(--radius-sm); color: var(--tx-secondary); background: transparent; font: inherit; font-size: var(--fs-xs); white-space: nowrap; cursor: pointer; }
+.workspace-panel-stack-tablist { display: contents; }
 .workspace-panel-stack-tabs button:hover { color: var(--tx-primary); background: var(--bg-hover); }
 .workspace-panel-stack-tabs button[aria-selected="true"] { color: var(--tx-primary); border-color: var(--bd-base); background: var(--bg-subtle); }
 .workspace-panel-stack-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }

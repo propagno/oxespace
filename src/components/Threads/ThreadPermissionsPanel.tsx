@@ -11,6 +11,7 @@ const PLACEHOLDER: Record<ThreadPermissionRule['kind'], string> = { command: 'np
 export default function ThreadPermissionsPanel({ threadId }: { threadId: string }) {
   const api = window.oxe?.thread
   const [rules, setRules] = useState<ThreadPermissionRule[] | null>(null)
+  const [autoReads, setAutoReads] = useState<boolean | null>(null)
   const [audit, setAudit] = useState<ThreadAuditEntry[]>([])
   const [scope, setScope] = useState<'thread' | 'project'>('thread')
   const [kind, setKind] = useState<ThreadPermissionRule['kind']>('command')
@@ -22,8 +23,9 @@ export default function ThreadPermissionsPanel({ threadId }: { threadId: string 
 
   const load = useCallback(async () => {
     if (!api?.permissionRules || !api.auditLog) return
-    const [nextRules, nextAudit] = await Promise.all([api.permissionRules(threadId), api.auditLog(threadId, { scope, limit: 200 })])
+    const [nextRules, nextAudit, nextReads] = await Promise.all([api.permissionRules(threadId), api.auditLog(threadId, { scope, limit: 200 }), api.autoApproveReads?.() ?? Promise.resolve(null)])
     setRules(nextRules)
+    setAutoReads(nextReads)
     setAudit(nextAudit)
   }, [api, threadId, scope])
   useEffect(() => { void load().catch(cause => setError(cause instanceof Error ? cause.message : 'Could not load permission rules')) }, [load])
@@ -36,6 +38,11 @@ export default function ThreadPermissionsPanel({ threadId }: { threadId: string 
   if (!api?.permissionRules) return <p>Permission rules are not available in this build.</p>
   return <div className="thread-permissions">
     {error && <p role="alert">{error}</p>}
+    {autoReads !== null && api.setAutoApproveReads && <section>
+      <h3>Read-only commands</h3>
+      <Checkbox checked={autoReads} disabled={busy} label="Approve read-only commands automatically" onChange={event => void run(() => api.setAutoApproveReads!(event.target.checked))} />
+      <p>Commands such as ls, cat, grep, find, git status, git log and git diff are approved without asking when they only read files inside the project. A command that reads outside the project, writes a file, runs another program or uses the network still asks. Rules you saved keep working whether this is on or off.</p>
+    </section>}
     <section>
       <h3>Rules</h3>
       <p>OXESpace answers the agent's approval prompts with these rules. Allow rules approve only when every command in a line, or every file, is covered; deny rules decline. Anything else still asks you. A denied MCP tool is also removed from the agent's tools when its next session starts.</p>

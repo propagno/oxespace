@@ -114,11 +114,16 @@ export default defineConfig({
         }
       }
     ],
+    resolve: {
+      // pg requires pg-cloudflare only on Cloudflare Workers; the bundle made it a static import of a
+      // package the installer does not ship (OxeQuery could not connect on installed 1.0.0 builds).
+      alias: { 'pg-cloudflare': resolve(__dirname, 'electron/main/workers/pg-cloudflare-stub.ts') }
+    },
     build: {
       rollupOptions: {
         // Optional driver add-ons are never installed; leave them as runtime requires.
         // ssh2 tries optional native add-ons (cpu-features, its crypto binding) and falls back to pure JS.
-        external: ['better-sqlite3', 'node-pty', 'pg-native', 'pg-cloudflare', '@aws-sdk/credential-providers', '@mongodb-js/zstd', 'gcp-metadata', 'kerberos', 'mongodb-client-encryption', 'snappy', 'socks', 'cpu-features', /\.node(\?.*)?$/],
+        external: ['better-sqlite3', 'node-pty', 'pg-native', '@aws-sdk/credential-providers', '@mongodb-js/zstd', 'gcp-metadata', 'kerberos', 'mongodb-client-encryption', 'snappy', 'socks', 'cpu-features', /\.node(\?.*)?$/],
         output: {
           // Keep optional documentation descriptors outside the main entry.
           // A few bytes of platform-dependent output must not decide release

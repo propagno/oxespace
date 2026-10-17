@@ -3,11 +3,12 @@ import { randomUUID } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import type { ExecutionHost } from '../../runtime/execution-host'
 import type {
-  ConnectionSuggestion, ContainerAction, ContainerEngine, ContainerEngineInfo, ContainerExecResult, ContainerInspect, ContainerStat, ContainerSummary, DiskUsageRow, ImageInfo, NetworkInfo,
+  ConnectionSuggestion, ContainerAction, ContainerEngine, ContainerEngineCandidate, ContainerEngineInfo, ContainerExecResult, ContainerInspect, ContainerStat, ContainerSummary, DiskUsageRow, ImageInfo, NetworkInfo,
   OxeQueryEvent, ResourceKind, VolumeInfo
 } from '../../../../shared/types/oxequery'
-import { parseContainerList, parseDiskUsage, parseImages, parseInspect, parseNetworks, parseStats, parseVolumes, suggestFromInspect } from './container-parse'
+import { classifyProbe, isLocalEndpoint, parseContainerList, parseContexts, parseDiskUsage, parseImages, parseInspect, parseNetworks, parseStats, parseVolumes, suggestFromInspect } from './container-parse'
 import { createServer } from 'node:net'
+import { composeArgs, composeTarget, missingProjectPart, type ComposeAction } from './compose'
 import { randomBytes } from 'node:crypto'
 
 const ENGINES: ContainerEngine[] = ['docker', 'podman']
@@ -98,8 +99,64 @@ export class ContainerRuntime {
   private readonly binaries = new Map<ContainerEngine, string>()
   private cachedAt = 0
 
-  private run(engine: ContainerEngine, args: string[], timeoutMs = 20_000, maxOutputBytes = 2 * 1024 * 1024, env?: Record<string, string>) {
+  /** The daemon a person picked when the default one is not where their containers are. */
+  private selection: { id: string; args: string[] } | null = null
+
+  /** Global flags that point the Docker CLI at the chosen daemon (never set for Podman). */
+  private target(engine: ContainerEngine): string[] {
+    return engine === 'docker' && this.selection ? this.selection.args : []
+  }
+
+  private runRaw(engine: ContainerEngine, args: string[], timeoutMs = 20_000, maxOutputBytes = 2 * 1024 * 1024, env?: Record<string, string>) {
     return this.options.host.exec(this.binaries.get(engine) ?? engine, args, { cwd: tmpdir(), timeoutMs, maxOutputBytes, ...(env ? { env } : {}) })
+  }
+
+  private run(engine: ContainerEngine, args: string[], timeoutMs = 20_000, maxOutputBytes = 2 * 1024 * 1024, env?: Record<string, string>) {
+    return this.runRaw(engine, [...this.target(engine), ...args], timeoutMs, maxOutputBytes, env)
+  }
+
+  /**
+   * The Docker daemons this computer can reach and whether this user may use them. A machine can
+   * have Docker Desktop (an empty daemon) and the system engine (where the containers are, behind
+   * the `docker` group): without this, the first one is all that is ever shown. Remote contexts
+   * are listed but never contacted.
+   */
+  async candidates(): Promise<ContainerEngineCandidate[]> {
+    await this.engines()
+    if (!this.binaries.has('docker')) return []
+    const listed = await this.runRaw('docker', ['context', 'ls', '--format', '{{json .}}'], 6000)
+    const contexts = listed.code === 0 ? parseContexts(listed.stdout).slice(0, 12) : []
+    const platform = this.options.platform ?? process.platform
+    const systemSocket = 'unix:///var/run/docker.sock'
+    const entries: { id: string; label: string; endpoint: string; current: boolean; args: string[] }[] = contexts.map(context => ({
+      id: `context:${context.name}`, label: context.name, endpoint: context.endpoint, current: context.current, args: ['--context', context.name]
+    }))
+    if (platform === 'linux' && !entries.some(entry => entry.endpoint === systemSocket)) {
+      entries.push({ id: 'socket:system', label: 'System Docker engine', endpoint: systemSocket, current: false, args: ['-H', systemSocket] })
+    }
+    const chosen = this.selection?.id ?? entries.find(entry => entry.current)?.id
+    return Promise.all(entries.map(async (entry): Promise<ContainerEngineCandidate> => {
+      const base = { id: entry.id, label: entry.label, endpoint: entry.endpoint, current: entry.current, selected: entry.id === chosen }
+      if (!isLocalEndpoint(entry.endpoint)) return { ...base, state: 'not-checked' }
+      const probe = await this.runRaw('docker', [...entry.args, 'ps', '--all', '--quiet'], 6000, 256 * 1024)
+      const state = classifyProbe(probe.code, probe.stderr)
+      return { ...base, state, ...(state === 'ready' ? { containers: probe.stdout.split(/\r?\n/).filter(Boolean).length } : {}) }
+    }))
+  }
+
+  /** `null` goes back to the Docker CLI's own default. Only an id from `candidates()` is accepted. */
+  async useCandidate(id: string | null): Promise<ContainerEngineCandidate[]> {
+    if (id === null) this.selection = null
+    else {
+      const known = await this.candidates()
+      const pick = known.find(entry => entry.id === id)
+      if (!pick) throw new ContainerRuntimeError('invalid', 'That Docker engine is not available on this computer.')
+      if (pick.state === 'not-checked') throw new ContainerRuntimeError('invalid', 'Remote Docker contexts are not used by OxeQuery.')
+      this.selection = { id, args: id === 'socket:system' ? ['-H', 'unix:///var/run/docker.sock'] : ['--context', id.slice('context:'.length)] }
+    }
+    this.cache = null
+    this.options.emit({ type: 'containers-changed' })
+    return this.candidates()
   }
 
   /** PATH first, then the places each platform installs the CLI. GUI launches often have a trimmed PATH. */
@@ -128,7 +185,8 @@ export class ContainerRuntime {
         return { engine, available: false, state: 'missing', error: `${engine} was not found. Install ${engine === 'docker' ? 'Docker Desktop or Docker Engine' : 'Podman'} to see containers.` }
       }
       this.binaries.set(engine, found.binary)
-      const server = await this.run(engine, ['info', '--format', '{{.ServerVersion}}'], 8000)
+      // Docker calls the daemon's version ServerVersion; Podman's `info` has no such field and says Version.Version.
+      const server = await this.run(engine, ['info', '--format', engine === 'podman' ? '{{.Version.Version}}' : '{{.ServerVersion}}'], 8000)
       const context = engine === 'docker' ? (await this.run(engine, ['context', 'show'], 4000)).stdout.trim() : ''
       if (server.code !== 0) {
         const error = explainEngineError(engine, server.stderr || found.stderr)
@@ -207,7 +265,7 @@ export class ContainerRuntime {
   async shellCommand(id: string, shell: 'sh' | 'bash' = 'sh', engine?: ContainerEngine): Promise<{ file: string; args: string[]; engine: ContainerEngine }> {
     const resolved = await this.resolve(engine)
     if (shell !== 'sh' && shell !== 'bash') throw new ContainerRuntimeError('invalid', 'Unsupported shell')
-    return { file: this.binaries.get(resolved) ?? resolved, args: ['exec', '-it', assertContainerId(id), shell], engine: resolved }
+    return { file: this.binaries.get(resolved) ?? resolved, args: [...this.target(resolved), 'exec', '-it', assertContainerId(id), shell], engine: resolved }
   }
 
   /** CPU and memory of the running containers, once. */
@@ -255,7 +313,9 @@ export class ContainerRuntime {
     const port = input.port ?? await freePort(inner)
     if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new ContainerRuntimeError('invalid', 'Choose a port between 1024 and 65535.')
     const password = randomBytes(18).toString('base64url')
-    const image = input.engine === 'postgres' ? `postgres:${input.tag}` : `mongo:${input.tag}`
+    // Podman does not guess a registry for a short name unless the machine is set up for it; saying it works everywhere.
+    const registry = resolved === 'podman' ? 'docker.io/library/' : ''
+    const image = input.engine === 'postgres' ? `${registry}postgres:${input.tag}` : `${registry}mongo:${input.tag}`
     const volume = `${name}-data`
     const args = input.engine === 'postgres'
       ? ['run', '-d', '--name', name, '--label', 'oxequery.managed=1', '-p', `127.0.0.1:${port}:5432`, '-v', `${volume}:/var/lib/postgresql/data`, '-e', 'POSTGRES_PASSWORD', '-e', 'POSTGRES_DB=app', image]
@@ -268,6 +328,27 @@ export class ContainerRuntime {
     }
     this.options.emit({ type: 'containers-changed' })
     return { containerId: result.stdout.trim().slice(0, 64), port, password, username: input.engine === 'postgres' ? 'postgres' : 'root', database: input.engine === 'postgres' ? 'app' : 'admin' }
+  }
+
+  /**
+   * Up, down, start, stop, restart or logs for the Compose project a container belongs to. The folder
+   * and files are read from that container's own labels, so what runs is the project the engine
+   * started, in the folder it started from; nothing about the path comes from the page.
+   */
+  async compose(id: string, action: ComposeAction, options: { tail?: number } = {}, engine?: ContainerEngine): Promise<{ output: string }> {
+    const resolved = await this.resolve(engine)
+    const target = composeTarget(await this.inspectRaw(resolved, id))
+    if (!target) throw new ContainerRuntimeError('invalid', 'This container does not belong to a Compose project the engine can describe (it needs the project folder label).')
+    const missing = await missingProjectPart(target)
+    if (missing) throw new ContainerRuntimeError('failed', missing)
+    const result = await this.options.host.exec(this.binaries.get(resolved) ?? resolved, [...this.target(resolved), ...composeArgs(target, action, options.tail)], {
+      cwd: target.directory, timeoutMs: action === 'logs' ? 30_000 : 300_000, maxOutputBytes: 512 * 1024
+    })
+    if (result.timedOut) throw new ContainerRuntimeError('failed', `Compose ${action} took too long and was stopped. It may still be finishing in the engine.`)
+    const output = `${result.stdout}${result.stdout && result.stderr ? '\n' : ''}${result.stderr}`.trim()
+    if (result.code !== 0) throw new ContainerRuntimeError('failed', output.slice(-600) || `Compose ${action} failed (exit code ${result.code}). Is the compose plugin installed?`)
+    if (action !== 'logs') this.options.emit({ type: 'containers-changed' })
+    return { output }
   }
 
   /** The last lines of a container's log, once (for an agent); streaming is `logsStart`. */
@@ -285,7 +366,7 @@ export class ContainerRuntime {
     const resolved = await this.resolve(engine)
     const streamId = randomUUID()
     const lines = Math.max(0, Math.min(Math.trunc(tail), 5000))
-    const child = this.spawnProcess(this.binaries.get(resolved) ?? resolved, ['logs', '--follow', '--timestamps', '--tail', String(lines), assertContainerId(id)])
+    const child = this.spawnProcess(this.binaries.get(resolved) ?? resolved, [...this.target(resolved), 'logs', '--follow', '--timestamps', '--tail', String(lines), assertContainerId(id)])
     const stream: LogStream = { child, buffer: [], pending: '', timer: setInterval(() => this.flush(streamId), LOG_FLUSH_MS) }
     this.streams.set(streamId, stream)
     const feed = (chunk: Buffer): void => {

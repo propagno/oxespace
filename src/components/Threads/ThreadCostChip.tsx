@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react'
 import type { ThreadCostReport } from '../../../shared/types/thread'
+import { repairLegacyCost } from '../../../shared/threadCostRepair'
 
 const compact = (n: number): string => (n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `${Math.round(n / 1_000)}k` : String(Math.round(n)))
 
@@ -14,7 +15,8 @@ export function formatThreadCost(usd: number): string {
  * subscription account this is the API-equivalent value, not a charge, so the
  * chip says "≈" and the tooltip says what it is.
  */
-export function ThreadCostChip({ cost }: { cost?: ThreadCostReport }): ReactElement | null {
+export function ThreadCostChip({ cost: stored }: { cost?: ThreadCostReport }): ReactElement | null {
+  const cost = repairLegacyCost(stored)
   if (!cost || cost.totalUsd <= 0) return null
   const parts = [
     `API-equivalent estimate, summed over ${cost.turns} ${cost.turns === 1 ? 'turn' : 'turns'}. Not a charge.`,

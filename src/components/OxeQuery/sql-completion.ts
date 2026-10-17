@@ -65,8 +65,8 @@ export class SchemaCache {
   }
   tablesOf(schema: string): { name: string; kind: string }[] {
     if (!this.tables.has(schema)) this.once(`t:${schema}`, async () => {
-      const list = await oq('sql.tables', { connectionId: this.connectionId, schema })
-      this.tables.set(schema, list.map(table => ({ name: table.name, kind: table.kind })))
+      const { tables } = await oq('sql.tables', { connectionId: this.connectionId, schema })
+      this.tables.set(schema, tables.map(table => ({ name: table.name, kind: table.kind })))
     })
     return this.tables.get(schema) ?? []
   }

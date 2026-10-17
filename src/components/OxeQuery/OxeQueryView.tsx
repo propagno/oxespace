@@ -20,7 +20,8 @@ export function OxeQueryView({ active }: { active: boolean }): ReactElement {
 
   return <div className="oq-view" aria-label="OxeQuery">
     <div className="oq-tabs" role="tablist" aria-label="Open views">
-      {tabs.map(tab => <span key={tab.id} className="oq-tab" data-active={tab.id === activeTab}>
+      {tabs.map(tab => <span key={tab.id} className="oq-tab" data-active={tab.id === activeTab} data-color={tab.kind === 'connection' ? connections.find(item => item.id === tab.connectionId)?.color || undefined : undefined}
+        data-environment={tab.kind === 'connection' ? connections.find(item => item.id === tab.connectionId)?.environment : undefined}>
         <button type="button" role="tab" aria-selected={tab.id === activeTab} onClick={() => setActiveTab(tab.id)}>{tab.title}</button>
         {tab.kind === 'connection' && <button type="button" aria-label={`Close ${tab.title}`} className="oq-tab-close" onClick={() => closeTab(tab.id)}><X size={12} aria-hidden="true" /></button>}
       </span>)}

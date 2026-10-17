@@ -1,0 +1,28 @@
+.form { display: grid; gap: var(--space-3); }
+.note { color: var(--text-muted); font-size: var(--text-xs); }
+.warn { margin: 0; color: var(--intent-warning-fg); font-size: var(--text-sm); }
+.error { margin: 0; color: var(--intent-danger-fg); font-size: var(--text-sm); white-space: pre-wrap; }
+.ok { margin: 0; color: var(--intent-success-fg); font-size: var(--text-sm); }
+.count { display: grid; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--surface-sunken); font-size: var(--text-sm); }
+
+.tree { padding: var(--space-2) var(--space-3); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-normal); overflow: auto; }
+.branch > summary { cursor: pointer; }
+.children { margin-left: var(--space-4); border-left: 1px solid var(--border-subtle); padding-left: var(--space-2); }
+.leaf { padding-left: var(--space-4); }
+.key { color: var(--text-secondary); }
+.string { color: var(--intent-success-fg); }
+.number { color: var(--intent-info-fg); }
+.boolean { color: var(--intent-warning-fg); }
+.null { color: var(--text-muted); font-style: italic; }
+.id, .date { color: var(--text-accent); }
+.other { color: var(--text-primary); }
+.raw { margin: 0; padding: var(--space-2) var(--space-3); max-height: 40vh; overflow: auto; white-space: pre-wrap; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); }
+
+.explain { display: grid; gap: var(--space-2); margin: var(--space-2) var(--space-3); padding: var(--space-3); border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--surface-raised); font-size: var(--text-sm); }
+.explain header { display: flex; align-items: center; justify-content: space-between; }
+.facts { display: flex; flex-wrap: wrap; gap: var(--space-4); margin: 0; }
+.facts dt { color: var(--text-muted); font-size: var(--text-xs); }
+.facts dd { margin: 0; }
+.facts dd[data-warn] { color: var(--intent-warning-fg); font-weight: var(--weight-medium); }
+.warnings { margin: 0; padding: var(--space-2) var(--space-4); border-radius: var(--radius-sm); color: var(--intent-warning-fg); background: var(--intent-warning-bg); }
+.size { color: var(--text-muted); font-size: var(--text-2xs); }

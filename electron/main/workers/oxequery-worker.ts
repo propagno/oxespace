@@ -28,7 +28,9 @@ async function handle(request: Request): Promise<unknown> {
   switch (request.op) {
     case 'test': return core.test(connection)
     case 'close': await core.closeConnection(connection.id); return { ok: true }
-    case 'sql.run': return core.sqlRun(connection, String(input.sql ?? ''), { maxRows: input.maxRows as number | undefined, confirmed: input.confirmed === true })
+    case 'sql.run': return core.sqlRun(connection, String(input.sql ?? ''), { maxRows: input.maxRows as number | undefined, confirmed: input.confirmed === true, params: input.params as (string | null)[] | undefined })
+    case 'sql.script': return core.sqlScript(connection, String(input.sql ?? ''), { maxRows: input.maxRows as number | undefined, confirmed: input.confirmed === true })
+    case 'sql.tx': return input.action === 'status' ? core.txState(connection) : core.sqlTx(connection, input.action as 'begin' | 'commit' | 'rollback')
     case 'sql.browse': return core.sqlBrowse(connection, input as unknown as SqlBrowseInput)
     case 'sql.schemas': return core.sqlSchemas(connection)
     case 'sql.tables': return core.sqlTables(connection, String(input.schema ?? ''))
@@ -37,6 +39,9 @@ async function handle(request: Request): Promise<unknown> {
     case 'sql.editability': return core.sqlEditability(connection, String(input.schema ?? ''), String(input.table ?? ''))
     case 'sql.previewChanges': return { statements: await core.sqlPreviewChanges(connection, input as never) }
     case 'sql.apply': return core.sqlApply(connection, input as never)
+    case 'sql.structure.preview': return core.structurePreview(connection, input as never)
+    case 'sql.structure.apply': return core.structureApply(connection, input as never)
+    case 'sql.maintenance': return core.maintenance(connection, input as never)
     case 'mongo.databases': return core.mongoDatabases(connection)
     case 'mongo.collections': return core.mongoCollections(connection, String(input.database ?? ''))
     case 'mongo.find': return core.mongoFind(connection, input as unknown as MongoFindInput)
@@ -70,11 +75,26 @@ async function handle(request: Request): Promise<unknown> {
       } finally { exports.delete(importId) }
     }
     case 'mongo.write': return core.mongoWrite(connection, input as unknown as MongoWriteInput)
+    case 'mongo.document': return core.mongoDocument(connection, { database: String(input.database ?? ''), collection: String(input.collection ?? ''), id: String(input.id ?? '') })
     case 'mongo.schema': return core.mongoSchema(connection, String(input.database ?? ''), String(input.collection ?? ''), typeof input.sampleSize === 'number' ? input.sampleSize : undefined)
     case 'mongo.createIndex': return core.mongoCreateIndex(connection, input as never)
     case 'mongo.dropIndex': return core.mongoDropIndex(connection, input as never)
     case 'sql.functions': return core.sqlFunctions(connection, String(input.schema ?? ''))
+    case 'sql.databases': return core.sqlDatabases(connection)
+    case 'sql.createDatabase': return core.sqlCreateDatabase(connection, input as never)
+    case 'sql.dropDatabase': return core.sqlDropDatabase(connection, input as never)
+    case 'sql.roles': return core.sqlRoles(connection)
+    case 'sql.objects': return core.sqlObjects(connection, String(input.schema ?? ''))
+    case 'sql.extensions': return core.sqlExtensions(connection)
+    case 'sql.search': return core.sqlSearch(connection, String(input.query ?? ''))
     case 'sql.definition': return core.sqlDefinition(connection, input as never)
+    case 'mongo.bulk': return core.mongoBulk(connection, input as never)
+    case 'mongo.collection': return core.mongoCollectionAction(connection, input as never)
+    case 'mongo.stats': return core.mongoStats(connection, String(input.database ?? ''), String(input.collection ?? ''))
+    case 'mongo.validation': return core.mongoValidation(connection, String(input.database ?? ''), String(input.collection ?? ''))
+    case 'mongo.setValidation': return core.mongoSetValidation(connection, input as never)
+    case 'mongo.explain': return core.mongoExplain(connection, input as never)
+    case 'mongo.cancel': return { cancelled: await core.mongoCancel(connection) }
     case 'mongo.indexes': return core.mongoIndexes(connection, String(input.database ?? ''), String(input.collection ?? ''))
     default: throw new OxeQueryError('invalid', 'Unknown OxeQuery operation.')
   }

@@ -6,7 +6,7 @@ import { JsonLinesDecoder } from './json-lines'
 import { CLAUDE_THREAD_ARGS, claudeRuntimeCatalog } from './claude-command-catalog'
 import { threadFailure } from './thread-failure'
 import { normalizeClaudeContext } from './thread-context'
-import { readClaudeResultCost } from './thread-cost'
+import { readClaudeResultCost, stepFromProcessTotal } from './thread-cost'
 import { createApiRetryTracker } from './claude-api-retry'
 import { describePermissionRequest } from './claude-permission-request'
 import { toolResultText } from './tool-result-text'
@@ -14,6 +14,8 @@ import { toolResultText } from './tool-result-text'
 /** How long a cooperative interrupt may take before the process is ended instead. */
 const INTERRUPT_GRACE_MS = 2_000
 import { requestOutcome } from '../../../../shared/threadRequestOutcome'
+
+const DISPOSED = 'Agent connection disposed'
 
 /** A single protocol line: a large file read or an inline image can exceed 1 MiB (Codex allows the same 32 MiB). */
 const MAX_PROTOCOL_LINE_BYTES = 32 * 1024 * 1024
@@ -47,6 +49,8 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
   private readonly seenMessages = new Set<string>()
   private streamMessageId = ''
   private disposed = false
+  /** `total_cost_usd` of the last `result` of the running process; `result` reports a process total. */
+  private processCostUsd = 0
   private busy = false
   private pendingContext = new Map<string, { resolve: (report: ThreadContextReport | null) => void; timer: ReturnType<typeof setTimeout> }>()
   private pendingControl = new Map<string, { resolve: (error: string | null) => void; timer: ReturnType<typeof setTimeout> }>()
@@ -100,6 +104,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
     this.selectedModel = text.trim().match(/^\/model\s+([a-z0-9][a-z0-9._:/\[\]-]*)$/i)?.[1]
     try {
       const fresh = !this.transport
+      if (fresh) this.processCostUsd = 0
       const transport = this.transport ??= this.createTransport(args, this.context.rootPath)
       if (fresh) {
       const decoder = new JsonLinesDecoder(value => this.receive(value, transport), MAX_PROTOCOL_LINE_BYTES)
@@ -170,7 +175,13 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
     const requestId = `stop-task:${randomUUID()}`
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => { this.pendingControl.delete(requestId); reject(Error('The provider did not confirm the stop request')) }, 5_000)
-      this.pendingControl.set(requestId, { timer, resolve: error => error ? reject(Error(error)) : resolve() })
+      // A task the CLI no longer knows is not running: the request is refused, and keeping it listed
+      // as running would leave the conversation waiting for something that cannot end.
+      this.pendingControl.set(requestId, { timer, resolve: error => {
+        if (error === DISPOSED) { reject(Error(error)); return }
+        if (error) this.markTaskUnknown(taskId)
+        resolve()
+      } })
       try { transport.write(JSON.stringify({ type: 'control_request', request_id: requestId, request: { subtype: 'stop_task', task_id: taskId } }) + '\n') }
       catch (error) { clearTimeout(timer); this.pendingControl.delete(requestId); reject(error instanceof Error ? error : Error(String(error))) }
     })
@@ -366,7 +377,14 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
             this.emit({ type: 'message', id: randomUUID(), role: 'assistant', text: event.result.slice(0, 65536) })
           }
           const turnCost = readClaudeResultCost(event)
-          if (turnCost) this.emit({ type: 'turn-cost', ...turnCost })
+          if (turnCost) {
+            if (turnCost.usd !== undefined) {
+              const step = stepFromProcessTotal(this.processCostUsd, turnCost.usd)
+              this.processCostUsd = step.total
+              turnCost.usd = step.turnUsd
+            }
+            this.emit({ type: 'turn-cost', ...turnCost })
+          }
           this.finish(this.authenticationFailed || event.is_error === true || event.subtype !== 'success' ? 'failed' : 'completed')
         }
   }
@@ -422,7 +440,8 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
     const answers = Object.entries(response.answers ?? {}).map(([id, values]) => {
       const question = pending.questions?.get(id)
       if (!question) throw Error('Unknown question. Reopen the active request.')
-      return [question, values.length > 1 ? values : values[0] ?? '']
+      // AskUserQuestion takes one string per question: the chosen labels, or the person's own text, joined like the CLI does.
+      return [question, values.map(value => value.trim()).filter(Boolean).join(', ')]
     })
     if (pending.questions && response.answers && [...pending.questions.keys()].some(id => !response.answers![id]?.some(value => value.trim()))) throw Error('Answer every question before sending.')
     const updatedInput = pending.toolName === 'AskUserQuestion' ? { ...pending.input, answers: Object.fromEntries(answers) } : pending.input
@@ -436,11 +455,19 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
     this.disposed = true
     this.initialized?.reject(Error('Agent connection disposed'))
     for (const requestId of [...this.pendingContext.keys()]) this.settleContext(requestId, null)
-    for (const requestId of [...this.pendingControl.keys()]) this.settleControl(requestId, 'Agent connection disposed')
+    for (const requestId of [...this.pendingControl.keys()]) this.settleControl(requestId, DISPOSED)
     this.busy = false
     this.approvals.clear()
     await this.transport?.close()
     this.transport = null
+  }
+
+  private markTaskUnknown(taskId: string): void {
+    for (const [id, task] of this.tasks) if (task.state === 'running' && task.receiverThreadIds.includes(taskId)) {
+      const unknown = { ...task, state: 'unknown' as const, completedAt: Date.now(), agents: task.agents.map(agent => ({ ...agent, status: 'unknown' as const })) }
+      this.tasks.set(id, unknown)
+      this.emit(unknown)
+    }
   }
 
   private markTasksUnknown(): void {

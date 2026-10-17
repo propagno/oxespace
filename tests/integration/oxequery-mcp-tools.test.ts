@@ -43,6 +43,13 @@ describe('OxeQuery MCP tools', () => {
     await expect(entry.handler({}, { ...ctx, oxeQuery: () => undefined } as unknown as ToolContext)).rejects.toThrow(/unavailable/)
   })
 
+  it('says why OxeQuery is unavailable when it failed to start', async () => {
+    const entry = OXEQUERY_TOOLS.find(item => item.descriptor.name === 'oxespace_db_connections')!
+    const ctx = { oxeQuery: () => undefined, oxeQueryError: () => 'Error: worker bundle not found', executions: { authenticate: () => ({ id: 'e1', owner: { kind: 'thread', id: 't1' } }) }, executionId: 'e1', executionToken: 't', workspaceId: 'w' } as unknown as ToolContext
+    await expect(entry.handler({}, ctx)).rejects.toThrow('OxeQuery is unavailable: Error: worker bundle not found')
+    await expect(entry.handler({}, { ...ctx, oxeQueryError: undefined } as unknown as ToolContext)).rejects.toThrow(/^OxeQuery is unavailable$/)
+  })
+
   it('does not leak an unexpected error message to the model', async () => {
     const entry = OXEQUERY_TOOLS.find(item => item.descriptor.name === 'oxespace_db_describe')!
     const gateway = { handle: async () => { throw new Error('connect ECONNREFUSED postgres://u:SECRET@10.0.0.5') } }

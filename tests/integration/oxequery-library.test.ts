@@ -20,6 +20,16 @@ function setup() {
 }
 
 describe('query library', () => {
+  it('does not keep a password typed into a statement, and scrubs history written before', () => {
+    const { library, connection, db } = setup()
+    library.record(connection.id, { sql: "ALTER ROLE app PASSWORD 'hunter2'", durationMs: 1, rows: null, ok: true })
+    expect(library.list(connection.id).history[0].sql).toBe("ALTER ROLE app PASSWORD '***'")
+    db.prepare('INSERT INTO oxequery_query_history (connection_id, sql, ran_at, ok) VALUES (?, ?, ?, 1)').run(connection.id, "CREATE USER u PASSWORD 'old-secret'", 5)
+    expect(library.scrubHistory()).toBe(1)
+    expect(library.list(connection.id).history.map(item => item.sql).join('|')).not.toContain('old-secret')
+    expect(library.scrubHistory()).toBe(0)
+  })
+
   it('keeps one history row per statement, newest first, per connection', () => {
     const { library, connection, other } = setup()
     library.record(connection.id, { sql: 'SELECT 1', durationMs: 3, rows: 1, ok: true })

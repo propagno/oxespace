@@ -35,6 +35,8 @@ export function buildThreadTimeline(events: ThreadEvent[], mode: ThreadViewMode 
   const turns: Array<{ id: string; events: ThreadEvent[] }> = []
   for (const event of events) {
     if (HIDDEN_EVENTS.has(event.type) && event.type !== 'turn-diff') continue
+    // Background shell commands are listed in the Background activity panel; as cards they split the reply.
+    if (event.type === 'subagent' && event.action === 'Background command') continue
     if (event.type === 'message' && event.role === 'user') turns.push({ id: event.id, events: [] })
     if (!turns.length) turns.push({ id: 'initial', events: [] })
     turns[turns.length - 1].events.push(event)

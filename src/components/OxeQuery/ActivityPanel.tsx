@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactElement } from 'react'
 import { RefreshCw, ShieldCheck } from 'lucide-react'
 import type { OxeQueryAuditEntry } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
+import { EmptyState } from '../../ui/Display'
 
 const DECISIONS: Record<string, string> = {
   auto: 'allowed', approved: 'approved', 'approved-session': 'approved (run)', denied: 'declined', refused: 'refused by policy', pending: 'waiting for you'
@@ -34,7 +35,7 @@ export function ActivityPanel({ active }: { active: boolean }): ReactElement {
       <button type="button" onClick={() => void load()}><RefreshCw size={13} aria-hidden="true" />Refresh</button>
     </header>
     {error && <p role="alert" className="oq-error">{error}</p>}
-    {shown.length === 0 && !error ? <div className="oq-empty"><p>Nothing here yet. Agents only reach a database when you turn on agent access for a connection.</p></div>
+    {shown.length === 0 && !error ? <div className="oq-empty"><EmptyState icon={<ShieldCheck size={20} />} title="No agent requests yet">Agents only reach a database when you turn on agent access for a connection. Every request they make appears here, with what you decided.</EmptyState></div>
       : <table className="oq-activity-table">
         <thead><tr><th>When</th><th>Agent</th><th>Connection</th><th>Request</th><th>Decision</th><th>Result</th></tr></thead>
         <tbody>{shown.map(entry => <tr key={entry.id} data-outcome={entry.outcome} data-decision={entry.decision}>

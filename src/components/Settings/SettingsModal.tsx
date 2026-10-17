@@ -805,7 +805,11 @@ function VoiceSettingsSection({ onClose }: { onClose: () => void }): ReactElemen
               <div className="settings-progress-bar" style={{ width: `${progressPct}%` }} />
             </div>
           ) : null}
-          {!model?.ready ? (
+          {model && !model.engineReady ? (
+            <p className="settings-field-hint" role="note">
+              Voice input needs the whisper.cpp engine, which this version ships for Windows only. The model download starts once the engine is available on this system.
+            </p>
+          ) : !model?.ready ? (
             <Button
              
               variant="primary"

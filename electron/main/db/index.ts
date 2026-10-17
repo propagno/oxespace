@@ -11,7 +11,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
  *  pre-migration backup (only back up when an upgrade will actually run).
  *  Exported so the migrations test can catch a constant that drifts from the
  *  version the SQL actually sets. */
-export const LATEST_DB_VERSION = 73
+export const LATEST_DB_VERSION = 77
 /** How many pre-migration backups to retain. */
 const MAX_DB_BACKUPS = 5
 
@@ -502,6 +502,10 @@ export function runMigrations(db: AppDatabase): void {
   if (startingVersion < 71) db.transaction(() => db.exec(readMigration('071_turn_usage.sql')))()
   if (startingVersion < 72) db.transaction(() => db.exec(readMigration('072_agent_work.sql')))()
   if (startingVersion < 73) db.transaction(() => db.exec(readMigration('073_mcp_tool_rules.sql')))()
+  if (startingVersion < 74) db.transaction(() => db.exec(readMigration('074_oxequery_workspace.sql')))()
+  if (startingVersion < 75) db.transaction(() => db.exec(withoutExistingColumns(db, readMigration('075_oxequery_organization.sql'))))()
+  if (startingVersion < 76) db.transaction(() => db.exec(readMigration('076_oxequery_preferences.sql')))()
+  if (startingVersion < 77) db.transaction(() => db.exec(readMigration('077_thread_settings.sql')))()
 }
 
 /** Rebuild the parent without cascading its children or rewriting their IDs. */
@@ -565,6 +569,16 @@ function migrateThreadProjects(db: AppDatabase): void {
 
 function readMigration(name: string): string {
   return readFileSync(join(__dirname, 'migrations', name), 'utf8')
+}
+
+/** SQLite has no ADD COLUMN IF NOT EXISTS. A migration made only of ADD COLUMN statements must survive a replay
+ *  over a schema that already has them (a database whose version number lags its schema), so statements whose
+ *  column exists are dropped before the script runs. */
+function withoutExistingColumns(db: AppDatabase, sql: string): string {
+  return sql.split(/\r?\n/).filter(line => {
+    const match = /^\s*ALTER\s+TABLE\s+(\w+)\s+ADD\s+COLUMN\s+(\w+)/i.exec(line)
+    return !match || !hasColumn(db, match[1], match[2])
+  }).join('\n')
 }
 
 // Direct introspection — no caching. (A memoized variant shipped in v0.2.6 was

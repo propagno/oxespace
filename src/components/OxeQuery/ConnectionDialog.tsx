@@ -1,9 +1,12 @@
 import { useState, type FormEvent, type ReactElement, type ReactNode } from 'react'
 import { CheckCircle2, ChevronDown, ChevronRight, Database, FileKey, Leaf, Link2, ShieldAlert, ShieldCheck, XCircle } from 'lucide-react'
-import type { AgentAccess, ConnectionEnvironment, DatabaseEngine, OxeQueryConnection, OxeQueryConnectionInput, PickKind, SshAuth, SslMode } from '../../../shared/types/oxequery'
+import { CONNECTION_COLORS, type AgentAccess, type ConnectionColor, type ConnectionEnvironment, DatabaseEngine, OxeQueryConnection, OxeQueryConnectionInput, PickKind, SshAuth, SslMode } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
-import { parseConnectionUrl } from './connection-url'
+import { buildConnectionUrl, parseConnectionUrl } from './connection-url'
 import { useOxeQueryStore } from './oxequery.store'
+import { Button } from '../../ui/Button'
+import { Dialog } from '../../ui/Overlay'
+import { Select, SegmentedControl, Switch } from '../../ui/Field'
 
 const DEFAULT_PORT: Record<DatabaseEngine, number> = { postgres: 5432, mongodb: 27017 }
 const ENGINES: { id: DatabaseEngine; label: string; hint: string; Icon: typeof Database }[] = [
@@ -70,6 +73,9 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
   const [readOnly, setReadOnly] = useState(editing?.readOnly ?? true)
   const [url, setUrl] = useState('')
   const [urlError, setUrlError] = useState('')
+  // Like DBeaver's "Connect by" and Compass's URI box: a connection string or the separate fields.
+  // MongoDB users usually hold a URI, PostgreSQL users usually fill in a host.
+  const [mode, setMode] = useState<'host' | 'url'>('host')
 
   const [sslMode, setSslMode] = useState<SslMode>(editing?.sslMode ?? 'disable')
   const [ca, setCa] = useState<Picked | null>(null)
@@ -96,6 +102,12 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
   const [timeoutSeconds, setTimeoutSeconds] = useState(String(Math.round((editing?.statementTimeoutMs ?? 60_000) / 1000)))
   const [maxRows, setMaxRows] = useState(String(editing?.maxRows ?? 500))
   const [agentAccess, setAgentAccess] = useState<AgentAccess>(editing?.agentAccess ?? 'off')
+  const [group, setGroup] = useState(editing?.group ?? '')
+  const [favorite, setFavorite] = useState(editing?.favorite ?? false)
+  const [color, setColor] = useState<ConnectionColor | ''>(editing?.color ?? '')
+  const [maskNames, setMaskNames] = useState((editing?.maskPatterns ?? []).join('\n'))
+  const [keepalive, setKeepalive] = useState(String(editing?.keepaliveSeconds ?? 30))
+  const groups = useOxeQueryStore(state => [...new Set(state.connections.map(item => item.group).filter(Boolean))].sort())
 
   const [open, setOpen] = useState({ tls: sslMode !== 'disable', ssh: Boolean(editing?.ssh), mongo: Boolean(editing && (editing.mongo.authSource || editing.mongo.replicaSet || editing.mongo.srv || editing.mongo.extraHosts.length)), limits: false })
   const [busy, setBusy] = useState(false)
@@ -117,9 +129,19 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
     setName(current => current || `${value.username ? `${value.username}@` : ''}${value.host}${value.database ? `/${value.database}` : ''}`)
   }
 
+  const currentUrlParts = () => ({ engine, host, port: Number(port) || DEFAULT_PORT[engine], database, username, sslMode, mongo: { authSource, replicaSet, directConnection: direct, srv, extraHosts: extraHosts.split(/\r?\n|,/).map(entry => entry.trim()).filter(Boolean) } })
+  const switchMode = (next: 'host' | 'url'): void => {
+    if (next === mode) return
+    // Going to the string writes it from the fields (without the password); coming back keeps what the string filled in.
+    if (next === 'url' && !url.trim()) { setUrl(buildConnectionUrl(currentUrlParts())); setUrlError('') }
+    setMode(next)
+  }
+  const derivedName = `${username ? `${username}@` : ''}${host}${database ? `/${database}` : ''}`
+
   const chooseEngine = (next: DatabaseEngine): void => {
     if (recordId) return
     setEngine(next)
+    if (!url.trim()) setMode(next === 'mongodb' ? 'url' : 'host')
     setPort(current => (Number(current) === DEFAULT_PORT[engine] ? String(DEFAULT_PORT[next]) : current))
   }
 
@@ -129,7 +151,7 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
   const recordId = editing?.id ?? savedId
 
   const input = (): OxeQueryConnectionInput => ({
-    ...(recordId ? { id: recordId } : {}), name, engine, host, port: Number(port), database, username, sslMode, environment, readOnly,
+    ...(recordId ? { id: recordId } : {}), name: name.trim() || derivedName, engine, host, port: Number(port), database, username, sslMode, environment, readOnly,
     ...(editing?.containerRef ? { containerRef: editing.containerRef } : {}),
     ...(password ? { password } : {}), ...(clearPassword ? { clearPassword: true } : {}),
     ...(ca ? { caHandle: ca.handle } : {}), ...(clearCa ? { clearCa: true } : {}),
@@ -139,7 +161,8 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
       ? { enabled: true, host: sshHost, port: Number(sshPort), user: sshUser, auth: sshAuth, ...(sshAuth === 'password' && sshSecret ? { password: sshSecret } : {}),
         ...(sshAuth === 'key' && sshKey ? { keyHandle: sshKey.handle, ...(sshPassphrase ? { passphrase: sshPassphrase } : {}) } : {}) }
       : { enabled: false },
-    statementTimeoutMs: Math.round(Number(timeoutSeconds) * 1000), maxRows: Number(maxRows), agentAccess
+    statementTimeoutMs: Math.round(Number(timeoutSeconds) * 1000), maxRows: Number(maxRows), agentAccess,
+    group: group.trim(), favorite, color, maskPatterns: maskNames.split(/\r?\n/).map(entry => entry.trim()).filter(Boolean), keepaliveSeconds: Math.round(Number(keepalive))
   })
 
   const save = (): Promise<OxeQueryConnection> => oq('connections.save', input())
@@ -152,6 +175,17 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
       await useOxeQueryStore.getState().refreshConnections()
       useOxeQueryStore.getState().closeDialog()
       useOxeQueryStore.getState().openConnection(saved)
+    } catch (cause) { setError(errorMessage(cause)) } finally { setBusy(false) }
+  }
+
+  // The connection lives in memory for this session: no record, no saved password, no history.
+  const connectOnce = async (): Promise<void> => {
+    setBusy(true); setError('')
+    try {
+      const made = await oq('connections.connectEphemeral', input())
+      await useOxeQueryStore.getState().refreshConnections()
+      useOxeQueryStore.getState().closeDialog()
+      useOxeQueryStore.getState().openConnection(made)
     } catch (cause) { setError(errorMessage(cause)) } finally { setBusy(false) }
   }
 
@@ -188,22 +222,40 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
 
   const toggle = (key: keyof typeof open): void => setOpen(current => ({ ...current, [key]: !current[key] }))
 
-  return <div className="desktop-dialog-overlay" onMouseDown={event => { if (event.target === event.currentTarget) close() }}>
-    <form className="desktop-dialog oq-dialog" role="dialog" aria-modal="true" aria-label={editing ? 'Edit connection' : 'New connection'} onSubmit={event => void submit(event)}>
-      <header className="desktop-dialog-header"><div><h2>{editing ? 'Edit connection' : 'New connection'}</h2>
-        <p>{editing?.containerRef ? `Created from the container ${editing.containerRef}.` : 'Connect to a database running here, in a container or on another server.'}</p></div></header>
-
+  const title = editing ? 'Edit connection' : 'New connection'
+  const description = editing?.containerRef ? `Created from the container ${editing.containerRef}.` : 'Connect to a database running here, in a container or on another server.'
+  return <Dialog className="oq-scope" title={title} description={description} size="lg" onClose={() => { if (!busy) close() }}
+    footer={<>
+      <Button disabled={busy} onClick={() => void check()}>{busy ? 'Working…' : 'Test connection'}</Button>
+      {!editing && <Button disabled={busy} onClick={() => void connectOnce()} title="Nothing is saved: the connection, its password, history and tabs are gone when you close the app">Connect without saving</Button>}
+      <span className="oq-spacer" />
+      <Button disabled={busy} onClick={close}>Cancel</Button>
+      <Button type="submit" form="oq-connection-form" variant="primary" disabled={busy}>{editing ? 'Save' : 'Save and open'}</Button>
+    </>}>
+    <form id="oq-connection-form" className="oq-dialog-form" onSubmit={event => void submit(event)}>
       {!editing && <section className="oq-engines" role="radiogroup" aria-label="Engine">
         {ENGINES.map(({ id, label, hint, Icon }) => <button key={id} type="button" role="radio" aria-checked={engine === id} className="oq-engine" data-selected={engine === id} onClick={() => chooseEngine(id)}>
           <Icon size={18} aria-hidden="true" /><span><strong>{label}</strong><small>{hint}</small></span></button>)}
       </section>}
 
-      {!editing && <label className="oq-url"><span><Link2 size={13} aria-hidden="true" /> Connection string <small>(optional — fills the form)</small></span>
-        <input value={url} onChange={event => applyUrl(event.target.value)} placeholder="postgres://user:password@localhost:5432/app" spellCheck={false} autoComplete="off" />
-        {urlError && <em role="alert">{urlError}</em>}</label>}
+      <div className="oq-connect-by"><span>Connect by</span>
+        <SegmentedControl label="Connect by" value={mode} onChange={switchMode} options={[{ value: 'host', label: 'Host' }, { value: 'url', label: 'URL' }]} />
+      </div>
+
+      {mode === 'url' && <label className="oq-url"><span><Link2 size={13} aria-hidden="true" /> Connection string</span>
+        <textarea rows={2} value={url} required onChange={event => applyUrl(event.target.value)} spellCheck={false} autoComplete="off" aria-label="Connection string"
+          placeholder={engine === 'mongodb' ? 'mongodb://user:password@localhost:27017/app' : 'postgres://user:password@localhost:5432/app'} />
+        {urlError ? <em role="alert">{urlError}</em> : <small>The password in the string is kept in the system's secure storage, not in the connection record. Pasting a string fills in the other settings.</small>}</label>}
 
       <div className="oq-form">
-        <label className="oq-form-wide">Name<input value={name} onChange={event => setName(event.target.value)} placeholder={engine === 'postgres' ? 'Local Postgres' : 'Local MongoDB'} required autoFocus /></label>
+        <label className="oq-form-wide">Name<input value={name} onChange={event => setName(event.target.value)} placeholder={derivedName.trim() && derivedName !== '127.0.0.1' ? derivedName : engine === 'postgres' ? 'Local Postgres' : 'Local MongoDB'} autoFocus /></label>
+        <label>Group<input list="oq-groups" value={group} onChange={event => setGroup(event.target.value)} placeholder="No group" maxLength={60} /></label>
+        <datalist id="oq-groups">{groups.map(item => <option key={item} value={item} />)}</datalist>
+        <div className="oq-form-pair"><div role="radiogroup" aria-label="Color" className="oq-swatches">
+          <button type="button" role="radio" aria-checked={color === ''} aria-label="No color" data-color="none" onClick={() => setColor('')} />
+          {CONNECTION_COLORS.map(item => <button key={item} type="button" role="radio" aria-checked={color === item} aria-label={item} data-color={item} onClick={() => setColor(item)} />)}</div>
+          <label className="oq-check"><input type="checkbox" checked={favorite} onChange={event => setFavorite(event.target.checked)} />Favorite</label></div>
+        {mode === 'host' && <>
         <label>{srv ? 'Seed list host' : 'Host'}<input value={host} onChange={event => setHost(event.target.value)} required spellCheck={false} /></label>
         {!srv && <label>Port<input type="number" min={1} max={65535} value={port} onChange={event => setPort(event.target.value)} required /></label>}
         <label>User<input value={username} onChange={event => setUsername(event.target.value)} autoComplete="off" spellCheck={false} /></label>
@@ -212,6 +264,7 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
         <label className="oq-form-wide">Database<input value={database} onChange={event => setDatabase(event.target.value)} spellCheck={false}
           placeholder={engine === 'postgres' ? 'postgres' : 'optional'} /></label>
         {editing?.hasPassword && <label className="oq-check oq-form-wide"><input type="checkbox" checked={clearPassword} onChange={event => setClearPassword(event.target.checked)} />Remove the saved password</label>}
+        </>}
       </div>
 
       <section className="oq-safety" aria-label="Safety">
@@ -219,14 +272,13 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
           {ENVIRONMENTS.map(item => <button key={item.id} type="button" role="radio" aria-checked={environment === item.id} data-selected={environment === item.id} data-environment={item.id}
             onClick={() => { setEnvironment(item.id); if (item.id === 'prod' && agentAccess === 'write') setAgentAccess('read') }}>{item.label}</button>)}
         </div>
-        <label className="oq-switch"><input type="checkbox" checked={readOnly} onChange={event => setReadOnly(event.target.checked)} />
-          <span><strong>Read-only</strong><small>The server refuses statements that change data. Turn off to write.</small></span></label>
+        <Switch checked={readOnly} onChange={setReadOnly} label="Read-only" description="The server refuses statements that change data. Turn off to write." />
         {environment === 'prod' && !readOnly && <p className="oq-warning" role="note"><ShieldAlert size={14} aria-hidden="true" /> This is a production connection with writes enabled. Destructive statements will still ask first.</p>}
       </section>
 
       <Section title="Security (TLS)" hint={sslMode === 'disable' ? 'off' : sslMode === 'require' ? 'not verified' : 'verified'} open={open.tls} onToggle={() => toggle('tls')}>
-        <label className="oq-form-wide">Encryption<select value={sslMode} onChange={event => setSslMode(event.target.value as SslMode)}>
-          {TLS_MODES.map(mode => <option key={mode.id} value={mode.id}>{mode.label}</option>)}</select></label>
+        <label className="oq-form-wide">Encryption<Select className="oq-select" value={sslMode} onChange={event => setSslMode(event.target.value as SslMode)}>
+          {TLS_MODES.map(mode => <option key={mode.id} value={mode.id}>{mode.label}</option>)}</Select></label>
         {sslMode === 'require' && <p className="oq-warning" role="note"><ShieldAlert size={14} aria-hidden="true" /> The connection is encrypted but the server is not authenticated, so someone in the middle could impersonate it.</p>}
         {(sslMode === 'verify-ca' || sslMode === 'verify-full') && <>
           <FilePick label="CA certificate" kind="ca" picked={ca} existing={Boolean(editing?.hasCa) && !clearCa} onPicked={file => { setCa(file); setClearCa(false) }} onClear={() => { setCa(null); setClearCa(true) }} />
@@ -242,8 +294,8 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
           <label>SSH host<input value={sshHost} onChange={event => setSshHost(event.target.value)} spellCheck={false} required /></label>
           <label>SSH port<input type="number" min={1} max={65535} value={sshPort} onChange={event => setSshPort(event.target.value)} /></label>
           <label>SSH user<input value={sshUser} onChange={event => setSshUser(event.target.value)} spellCheck={false} autoComplete="off" required /></label>
-          <label>Authentication<select value={sshAuth} onChange={event => setSshAuth(event.target.value as SshAuth)}><option value="key">Private key</option><option value="password">Password</option></select></label>
-          {sshAuth === 'key'
+          <label>Authentication<Select className="oq-select" value={sshAuth} onChange={event => setSshAuth(event.target.value as SshAuth)}><option value="key">Private key</option><option value="password">Password</option><option value="agent">SSH agent</option></Select></label>
+          {sshAuth === 'agent' ? <p className="oq-muted oq-form-wide">Uses the keys loaded in your running SSH agent (SSH_AUTH_SOCK, or the OpenSSH agent on Windows). Nothing is stored here.</p> : sshAuth === 'key'
             ? <div className="oq-form-wide">
               <FilePick label="Private key" kind="sshKey" picked={sshKey} existing={Boolean(editing?.ssh?.hasSecret && editing.ssh.auth === 'key')}
                 onPicked={file => setSshKey(file)} onClear={() => setSshKey(null)} />
@@ -269,15 +321,18 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
       <Section title="Limits and agents" hint={agentAccess === 'off' ? 'agents off' : `agents: ${agentAccess}`} open={open.limits} onToggle={() => toggle('limits')}>
         <div className="oq-form">
           <label>Statement timeout (seconds)<input type="number" min={1} max={3600} value={timeoutSeconds} onChange={event => setTimeoutSeconds(event.target.value)} /></label>
-          <label>Default row limit<input type="number" min={1} max={10000} value={maxRows} onChange={event => setMaxRows(event.target.value)} /></label>
+          <label>Default row limit<input type="number" min={1} max={100000} value={maxRows} onChange={event => setMaxRows(event.target.value)} /></label>
           <label className="oq-form-wide">AI agents
-            <select value={agentAccess} onChange={event => setAgentAccess(event.target.value as AgentAccess)}>
+            <Select className="oq-select" value={agentAccess} onChange={event => setAgentAccess(event.target.value as AgentAccess)}>
               <option value="off">No access (default)</option>
               <option value="read">Read — agents may ask to read, each request needs your approval</option>
               <option value="write" disabled={environment === 'prod'}>Read and write — every change needs your approval</option>
-            </select>
+            </Select>
           </label>
           {environment === 'prod' && <p className="oq-muted oq-form-wide">Agents can never write to a production connection.</p>}
+          <label>Keep-alive (seconds)<input type="number" min={0} max={3600} value={keepalive} onChange={event => setKeepalive(event.target.value)} /><small>0 turns it off</small></label>
+          <label className="oq-form-wide">Names agents must not see <small>one per line; any column or field containing it is masked</small>
+            <textarea rows={3} value={maskNames} onChange={event => setMaskNames(event.target.value)} spellCheck={false} placeholder="ssn&#10;card_number" /></label>
         </div>
       </Section>
 
@@ -293,13 +348,6 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
         <p><ShieldAlert size={15} aria-hidden="true" /> <strong>The SSH server's host key changed.</strong> This can mean the server was rebuilt, or that someone is intercepting the connection. Do not continue until you have confirmed it with whoever runs the server.</p>
         <code className="oq-fingerprint">trusted: {outcome.expected}</code><code className="oq-fingerprint">now: {outcome.actual}</code>
       </div>}
-
-      <footer className="oq-dialog-actions">
-        <button type="button" onClick={() => void check()} disabled={busy}>{busy ? 'Working…' : 'Test connection'}</button>
-        <span className="oq-spacer" />
-        <button type="button" onClick={close} disabled={busy}>Cancel</button>
-        <button type="submit" className="oq-primary" disabled={busy}>{editing ? 'Save' : 'Save and open'}</button>
-      </footer>
     </form>
-  </div>
+  </Dialog>
 }

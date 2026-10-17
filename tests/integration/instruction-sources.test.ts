@@ -52,3 +52,33 @@ describe('instructionSources', () => {
     } finally { if (saved !== undefined) process.env.CODEX_HOME = saved }
   })
 })
+
+describe('instructionSources rules', () => {
+  it('reads the paths a rule is limited to, user rules and nested rule folders', () => {
+    const { home, repo } = layout()
+    mkdirSync(join(home, '.claude', 'rules'), { recursive: true })
+    writeFileSync(join(home, '.claude', 'rules', 'style.md'), 'always')
+    mkdirSync(join(repo, '.claude', 'rules', 'frontend'), { recursive: true })
+    writeFileSync(join(repo, '.claude', 'rules', 'frontend', 'react.md'), '---\npaths:\n  - "src/**/*.tsx"\n  - src/ui/**\n---\nUse hooks.')
+    writeFileSync(join(repo, '.claude', 'rules', 'a.md'), '---\npaths: "docs/**"\n---\nDocs only.')
+    const saved = process.env.CLAUDE_CONFIG_DIR; delete process.env.CLAUDE_CONFIG_DIR
+    try {
+      const rules = instructionSources('claude', repo, home).filter(source => source.scope === 'rules')
+      expect(rules.map(rule => [instructionLabel(rule, repo, home), rule.paths ?? null])).toEqual([
+        ['~/.claude/rules/style.md', null],
+        ['.claude/rules/a.md', ['docs/**']],
+        ['.claude/rules/b.md', null],
+        ['.claude/rules/frontend/react.md', ['src/**/*.tsx', 'src/ui/**']]
+      ])
+    } finally { if (saved !== undefined) process.env.CLAUDE_CONFIG_DIR = saved }
+  })
+
+  it('treats a rule with a broken or absent header as always applying', () => {
+    const { home, repo } = layout()
+    writeFileSync(join(repo, '.claude', 'rules', 'a.md'), '---\npaths: [unclosed\n---\nx')
+    const saved = process.env.CLAUDE_CONFIG_DIR; delete process.env.CLAUDE_CONFIG_DIR
+    try {
+      expect(instructionSources('claude', repo, home).filter(source => source.scope === 'rules').every(rule => rule.paths === undefined)).toBe(true)
+    } finally { if (saved !== undefined) process.env.CLAUDE_CONFIG_DIR = saved }
+  })
+})

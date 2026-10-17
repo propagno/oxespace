@@ -2080,17 +2080,17 @@
   border: 1px solid transparent;
 }
 .diagnostics-badge.tone-ok {
-  color: var(--dot-green);
+  color: var(--intent-success-fg);
   background: color-mix(in srgb, var(--dot-green) 12%, transparent);
   border-color: color-mix(in srgb, var(--dot-green) 28%, transparent);
 }
 .diagnostics-badge.tone-warning {
-  color: var(--dot-yellow);
+  color: var(--intent-warning-fg);
   background: color-mix(in srgb, var(--dot-yellow) 12%, transparent);
   border-color: color-mix(in srgb, var(--dot-yellow) 28%, transparent);
 }
 .diagnostics-badge.tone-error {
-  color: var(--dot-red);
+  color: var(--intent-danger-fg);
   background: color-mix(in srgb, var(--dot-red) 12%, transparent);
   border-color: color-mix(in srgb, var(--dot-red) 28%, transparent);
 }

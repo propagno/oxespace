@@ -41,6 +41,7 @@ const PEM = /-----BEGIN [A-Z0-9 ]+-----[\s\S]+-----END [A-Z0-9 ]+-----/
 /** Rejects anything that is not a PEM block, so a stray file is not stored as a certificate. */
 export function assertPem(text: string, label: string): string {
   const value = text.trim()
+  if (/^PuTTY-User-Key-File-/.test(value)) throw new Error(`${label} is a PuTTY (.ppk) key. Convert it to OpenSSH first: puttygen key.ppk -O private-openssh -o key.pem`)
   if (!PEM.test(value)) throw new Error(`${label} is not a PEM file.`)
   if (value.length > 64 * 1024) throw new Error(`${label} is too large.`)
   return value

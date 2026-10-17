@@ -10,12 +10,17 @@
  * Pure and platform-agnostic: it reasons about text, never executes anything.
  */
 
+import { matchesDefaultAllow } from './default-shell-rules'
+import { parseShell } from './shell-parse'
+
 export type ShellDecision = 'allow' | 'deny' | 'ask'
 
 export interface ShellRules {
   /** Literal prefixes (`git status`) or `/regex/` matched against one sub-command. */
   allow: string[]
   deny: string[]
+  /** Also approve the built-in read-only commands (`default-shell-rules.ts`). */
+  useDefaults?: boolean
 }
 
 export interface ShellEvaluation {
@@ -25,12 +30,17 @@ export interface ShellEvaluation {
   subcommands: string[]
   /** The deny came from the built-in list, not from a rule someone wrote. */
   byDefault?: true
+  /** Every sub-command was approved, and at least one only by the built-in safe list. */
+  viaDefaults?: true
+  /** The sub-commands that only the built-in safe list approved, so their arguments can be looked at again. */
+  defaultSubcommands?: string[]
 }
 
 /** Commands that are denied unless a rule explicitly allows them... and even then they only ask. */
 const DEFAULT_DENY = new Set([
   'rm', 'rmdir', 'del', 'erase', 'rd', 'curl', 'wget', 'invoke-webrequest', 'iwr', 'chmod', 'chown', 'eval', 'sudo', 'su',
   'dd', 'mkfs', 'format', 'shutdown', 'reboot', 'kill', 'killall', 'taskkill', 'ssh', 'scp', 'nc', 'ncat', 'powershell', 'pwsh',
+  'xargs', 'jq', 'spps', 'set-itemproperty', 'sp', 'set-acl',
   // PowerShell equivalents (names are compared lower-case).
   'remove-item', 'ri', 'clear-content', 'invoke-expression', 'iex', 'invoke-restmethod', 'irm', 'start-process', 'stop-process',
   'set-executionpolicy', 'format-volume', 'clear-disk', 'remove-itemproperty'
@@ -111,7 +121,7 @@ export function tokenize(subcommand: string): string[] {
   return tokens
 }
 
-const baseName = (token: string): string => token.replace(/\\/g, '/').split('/').pop()!.toLowerCase().replace(/\.(exe|cmd|bat|ps1)$/, '')
+export const baseName = (token: string): string => token.replace(/\\/g, '/').split('/').pop()!.toLowerCase().replace(/\.(exe|cmd|bat|ps1)$/, '')
 
 function ruleMatches(rule: string, subcommand: string, tokens: string[]): boolean {
   const regex = rule.match(/^\/(.+)\/([a-z]*)$/)
@@ -125,17 +135,49 @@ function ruleMatches(rule: string, subcommand: string, tokens: string[]): boolea
   return wanted.slice(1).every((token, index) => tokens[index + 1] === token)
 }
 
-/** Redirects that write somewhere other than the null device. */
-function writesFile(tokens: string[]): boolean {
-  for (let i = 0; i < tokens.length; i += 1) {
-    const m = tokens[i].match(/^(?:\d*)(>>?|&>>?)(.*)$/)
-    if (!m) continue
-    const target = (m[2] || tokens[i + 1] || '').toLowerCase()
-    if (target === '/dev/null' || target === 'nul' || target === '$null') continue
-    if (/^&\d$/.test(target)) continue // 2>&1
-    return true
+/**
+ * Targets of the unquoted output redirects in one sub-command, glued or not
+ * (`> f`, `>f`, `x>f`, `2>>f`, `&>f`). File-descriptor duplication (`2>&1`) has no target.
+ */
+function redirectTargets(sub: string): string[] {
+  const targets: string[] = []
+  let quote: '"' | "'" | null = null
+  for (let i = 0; i < sub.length; i += 1) {
+    const ch = sub[i]
+    if (quote) {
+      if (ch === quote) quote = null
+      else if (ch === '\\' && quote === '"') i += 1
+      continue
+    }
+    if (ch === '"' || ch === "'") { quote = ch; continue }
+    if (ch === '\\') { i += 1; continue }
+    if (ch !== '>') continue
+    let j = i + 1
+    while (sub[j] === '>') j += 1
+    if (sub[j] === '&' && /[\d-]/.test(sub[j + 1] ?? '')) { i = j + 1; continue }
+    if (sub[j] === '&') j += 1
+    while (sub[j] === ' ' || sub[j] === '\t') j += 1
+    let target = ''
+    let q: '"' | "'" | null = null
+    for (; j < sub.length; j += 1) {
+      const c = sub[j]
+      if (q) { if (c === q) q = null; else target += c; continue }
+      if (c === '"' || c === "'") { q = c; continue }
+      if (/\s/.test(c) || c === '>' || c === '<') break
+      target += c
+    }
+    targets.push(target)
+    i = j - 1
   }
-  return false
+  return targets
+}
+
+/** Redirects that write somewhere other than the null device. */
+export function writesFile(sub: string): boolean {
+  return redirectTargets(sub).some((raw) => {
+    const target = raw.toLowerCase()
+    return !(target === '/dev/null' || target === 'nul' || target === '$null')
+  })
 }
 
 function dangerousFlag(tokens: string[]): string | null {
@@ -146,14 +188,33 @@ function dangerousFlag(tokens: string[]): string | null {
   return null
 }
 
-export function evaluateShellCommand(line: string, rules: ShellRules): ShellEvaluation {
-  const subcommands = splitShellCommand(line)
+/**
+ * The script of `pwsh -NoProfile -Command "<script>"`, so it is judged by what it
+ * runs rather than by the shell that wraps it. Null for anything else, and for
+ * scripts with blocks or other syntax the splitter cannot follow.
+ */
+export function unwrapPowerShell(tokens: string[]): string | null {
+  if (!/^(powershell|pwsh)$/.test(baseName(tokens[0] ?? ''))) return null
+  let i = 1
+  while (i < tokens.length && /^-/.test(tokens[i]) && !/^-(command|c)$/i.test(tokens[i])) i += 1
+  if (!/^-(command|c)$/i.test(tokens[i] ?? '')) return null
+  const script = tokens.slice(i + 1).join(' ').trim()
+  if (!script || /[{}]/.test(script) || /^-/.test(script)) return null
+  return script
+}
+
+export function evaluateShellCommand(line: string, rules: ShellRules, depth = 0): ShellEvaluation {
+  // The bash grammar reads the line when it has loaded; a PowerShell script inside a wrapper is not bash, so it keeps the text splitter.
+  const parsed = depth === 0 ? parseShell(line) : null
+  const subcommands = parsed ? (parsed.unanalysable ? null : parsed.commands) : splitShellCommand(line)
   if (!subcommands || subcommands.length === 0) {
     return { decision: 'ask', reasons: ['The command uses substitution or quoting that cannot be analysed safely.'], subcommands: [] }
   }
 
   const reasons: string[] = []
   let allAllowed = true
+  let viaDefaults = false
+  const defaultSubcommands: string[] = []
   for (const sub of subcommands) {
     const tokens = tokenize(sub)
     if (tokens.length === 0) continue
@@ -164,6 +225,14 @@ export function evaluateShellCommand(line: string, rules: ShellRules): ShellEval
     const head = baseName(tokens[0])
     const explicitlyAllowed = rules.allow.some((rule) => ruleMatches(rule, sub, tokens))
 
+    const script = depth === 0 && !explicitlyAllowed ? unwrapPowerShell(tokens) : null
+    if (script) {
+      const inner = evaluateShellCommand(script, rules, depth + 1)
+      if (inner.decision === 'deny') return { ...inner, subcommands }
+      if (inner.decision === 'ask') { reasons.push(...inner.reasons); allAllowed = false }
+      if (inner.viaDefaults) { viaDefaults = true; defaultSubcommands.push(...(inner.defaultSubcommands ?? [])) }
+      continue
+    }
     if (DEFAULT_DENY.has(head) && !explicitlyAllowed) {
       return { decision: 'deny', reasons: [`"${head}" is blocked by default.`], subcommands, byDefault: true }
     }
@@ -173,17 +242,24 @@ export function evaluateShellCommand(line: string, rules: ShellRules): ShellEval
       allAllowed = false
       continue
     }
-    if (writesFile(tokens)) {
+    if (writesFile(sub)) {
       reasons.push(`"${sub}" writes to a file through redirection.`)
       allAllowed = false
       continue
     }
     if (!explicitlyAllowed) {
+      if (rules.useDefaults && matchesDefaultAllow([head, ...tokens.slice(1)].join(' '))) { viaDefaults = true; defaultSubcommands.push(sub); continue }
       reasons.push(`"${sub}" is not on the allow list.`)
       allAllowed = false
     }
   }
-  return allAllowed ? { decision: 'allow', reasons: [], subcommands } : { decision: 'ask', reasons, subcommands }
+  const writes = (parsed?.writes ?? []).filter((target) => !['/dev/null', 'nul', '$null'].includes(target.toLowerCase()))
+  if (writes.length) {
+    reasons.push(`The command writes to ${writes[0]} through redirection.`)
+    allAllowed = false
+  }
+  if (!allAllowed) return { decision: 'ask', reasons, subcommands }
+  return { decision: 'allow', reasons: [], subcommands, ...(viaDefaults ? { viaDefaults: true as const, defaultSubcommands } : {}) }
 }
 
 export interface RuleSuggestion {
@@ -206,7 +282,7 @@ export function suggestRules(line: string): RuleSuggestion[] {
     const tokens = tokenize(sub)
     if (tokens.length === 0) continue
     const head = baseName(tokens[0])
-    if (NEVER_SUGGEST.has(head) || DEFAULT_DENY.has(head) || dangerousFlag(tokens) || writesFile(tokens)) return []
+    if (NEVER_SUGGEST.has(head) || DEFAULT_DENY.has(head) || dangerousFlag(tokens) || writesFile(sub)) return []
     let depth = 1
     if (MULTI_LEVEL.has(head) && tokens[1] && !tokens[1].startsWith('-')) {
       depth = 2

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
+import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { Download, Eye, Pencil, Plus, Trash2, Undo2, X } from 'lucide-react'
-import type { OxeQueryConnection, SqlCellValue, SqlEditability, SqlResult, SqlRowChange } from '../../../shared/types/oxequery'
+import type { ExportFormat, OxeQueryConnection, SqlCellValue, SqlEditability, SqlResult, SqlRowChange } from '../../../shared/types/oxequery'
 import { OxeQueryClientError, errorMessage, oq } from './client'
 import { displayCell } from './ResultGrid'
+import { toast } from '../../ui/Toast'
 
 interface Props {
   connection: OxeQueryConnection
@@ -123,6 +125,7 @@ export function TableEditor({ connection, schema, table, result, selectedRow, on
     setBusy(true); setError(''); setConflict(false)
     try {
       await oq('sql.apply', { ...input, confirmed })
+      toast({ title: `${staged.length} change${staged.length === 1 ? '' : 's'} applied`, intent: 'success', duration: 3000 })
       setStaged([]); setStatements(null); setConfirmReasons(null)
       onApplied()
     } catch (cause) {
@@ -182,12 +185,11 @@ export function TableEditor({ connection, schema, table, result, selectedRow, on
       </li>)}</ul>
       {statements && <pre className="oq-sql-preview" aria-label="SQL that will run">{statements.join('\n')}</pre>}
       {error && <p role="alert" className="oq-error">{error}{conflict && ' Reload the table to see the current values.'}</p>}
-      {confirmReasons && <div className="oq-confirm" role="alertdialog" aria-label="Confirm changes">
-        <strong>Confirm these changes</strong>
+      {confirmReasons && <ConfirmDialog danger title="Confirm these changes" confirmLabel="Apply changes" cancelLabel="Back" busy={busy}
+        description="Check these before the changes are applied."
+        onCancel={() => setConfirmReasons(null)} onConfirm={() => void apply(true)}>
         <ul>{confirmReasons.map(item => <li key={item}>{item}</li>)}</ul>
-        <div><button type="button" onClick={() => setConfirmReasons(null)}>Back</button>
-          <button type="button" className="oq-danger" disabled={busy} onClick={() => void apply(true)}>Apply changes</button></div>
-      </div>}
+      </ConfirmDialog>}
       <div className="oq-staged-actions">
         <button type="button" disabled={busy} onClick={() => void viewSql()}><Eye size={13} aria-hidden="true" />View SQL</button>
         <button type="button" disabled={busy} onClick={() => { setStaged([]); setStatements(null); setError(''); setConfirmReasons(null) }}>Discard all</button>
@@ -216,7 +218,7 @@ export function ExportButton({ connection, source, label = 'Export' }: {
     })
   }, [exportId])
 
-  const run = async (format: 'csv' | 'json' | 'ndjson' | 'sql'): Promise<void> => {
+  const run = async (format: ExportFormat): Promise<void> => {
     const id = `exp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
     setExportId(id); setOpen(false); setState({ phase: 'running', rows: 0, text: '' })
     try {
@@ -227,7 +229,7 @@ export function ExportButton({ connection, source, label = 'Export' }: {
     } catch (cause) { setState({ phase: 'error', rows: 0, text: errorMessage(cause) }) }
   }
 
-  const formats: ('csv' | 'json' | 'ndjson' | 'sql')[] = connection.engine === 'postgres' ? ['csv', 'json', 'ndjson', 'sql'] : ['json', 'ndjson', 'csv']
+  const formats: ExportFormat[] = connection.engine === 'postgres' ? ['csv', 'xlsx', 'json', 'ndjson', 'sql'] : ['json', 'ndjson', 'csv', 'xlsx']
   return <span className="oq-export">
     <button type="button" aria-haspopup="menu" aria-expanded={open} disabled={state.phase === 'running'} onClick={() => setOpen(value => !value)}><Download size={13} aria-hidden="true" />{label}</button>
     {open && <ul role="menu" aria-label="Export format">{formats.map(format => <li key={format} role="none"><button type="button" role="menuitem" onClick={() => void run(format)}>{format.toUpperCase()}</button></li>)}</ul>}

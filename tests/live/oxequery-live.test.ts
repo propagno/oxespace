@@ -15,13 +15,19 @@ import { OxeQueryService } from '../../electron/main/services/oxequery/service'
 import { OxeQueryWorkerClient } from '../../electron/main/services/oxequery/worker-client'
 import type { OxeQueryEvent, OxeQueryOp, OxeQueryOps } from '../../shared/types/oxequery'
 
+/** The server versions under test; CI runs the suite against several (OXE_LIVE_PG_IMAGE / OXE_LIVE_MONGO_IMAGE). */
+const PG_IMAGE = process.env.OXE_LIVE_PG_IMAGE ?? 'docker.io/library/postgres:16-alpine'
+const MONGO_IMAGE = process.env.OXE_LIVE_MONGO_IMAGE ?? 'docker.io/library/mongo:7'
+
 const live = process.env.OXE_LIVE === '1'
 const suffix = Math.random().toString(36).slice(2, 8)
 const PG = `oxe-live-pg-${suffix}`, MONGO = `oxe-live-mongo-${suffix}`
 const PG_PASSWORD = 'oxe-live-secret-pw', MONGO_PASSWORD = 'oxe-live-mongo-pw'
 const workerPath = join(process.cwd(), 'out', 'main', 'oxequery-worker.js')
 
-const docker = (...args: string[]): string => execFileSync('docker', args, { encoding: 'utf8' }).trim()
+// The engine under test: Docker by default, Podman with OXE_CONTAINER_ENGINE=podman (CI runs both).
+const ENGINE = process.env.OXE_CONTAINER_ENGINE === 'podman' ? 'podman' : 'docker'
+const docker = (...args: string[]): string => execFileSync(ENGINE, args, { encoding: 'utf8' }).trim()
 
 describe.skipIf(!live)('OxeQuery against real Docker, PostgreSQL and MongoDB', () => {
   const events: OxeQueryEvent[] = []
@@ -38,10 +44,15 @@ describe.skipIf(!live)('OxeQuery against real Docker, PostgreSQL and MongoDB', (
     if (response.ok) throw Error(`Expected ${op} to fail`)
     return response.error
   }
+  let lastAnswer = ''
   const until = async (label: string, check: () => Promise<boolean> | boolean, timeoutMs = 90_000): Promise<void> => {
     const deadline = Date.now() + timeoutMs
     while (Date.now() < deadline) { if (await check()) return; await new Promise(resolve => setTimeout(resolve, 1000)) }
-    throw Error(`Timed out: ${label}`)
+    // What the engine says about its containers is the first thing anyone debugging this needs.
+    const peek = (run: () => string): string => { try { return run() } catch (error) { return `(${error instanceof Error ? error.message.slice(0, 200) : 'failed'})` } }
+    throw Error(`Timed out: ${label} (last answer: ${lastAnswer})
+${peek(() => docker('ps', '-a', '--format', '{{.Names}} {{.Status}}'))}
+${peek(() => docker('logs', '--tail', '15', PG))}`)
   }
 
   beforeAll(async () => {
@@ -50,11 +61,15 @@ describe.skipIf(!live)('OxeQuery against real Docker, PostgreSQL and MongoDB', (
     service = new OxeQueryService({
       db, host: new LocalExecutionHost(), emit: event => events.push(event),
       cipher: { available: () => true, encrypt: value => Buffer.from(`enc:${value}`), decrypt: value => value.toString().replace(/^enc:/, '') },
-      worker: new OxeQueryWorkerClient(workerPath)
+      worker: new OxeQueryWorkerClient(workerPath), preferredEngine: () => ENGINE
     })
-    docker('run', '-d', '--name', PG, '-e', 'POSTGRES_USER=oxe', '-e', 'POSTGRES_DB=appdb', '-e', `POSTGRES_PASSWORD=${PG_PASSWORD}`, '-p', '127.0.0.1::5432', 'postgres:16-alpine')
-    docker('run', '-d', '--name', MONGO, '-e', 'MONGO_INITDB_ROOT_USERNAME=root', '-e', `MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}`, '-p', '127.0.0.1::27017', 'mongo:7')
-    await until('postgres ready', async () => (await call('containers.exec', { id: PG, argv: ['pg_isready', '-U', 'oxe', '-d', 'appdb'] })).exitCode === 0)
+    docker('run', '-d', '--name', PG, '-e', 'POSTGRES_USER=oxe', '-e', 'POSTGRES_DB=appdb', '-e', `POSTGRES_PASSWORD=${PG_PASSWORD}`, '-p', '127.0.0.1::5432', PG_IMAGE)
+    docker('run', '-d', '--name', MONGO, '-e', 'MONGO_INITDB_ROOT_USERNAME=root', '-e', `MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}`, '-p', '127.0.0.1::27017', MONGO_IMAGE)
+    await until('postgres ready', async () => {
+      const answer = await call('containers.exec', { id: PG, argv: ['pg_isready', '-U', 'oxe', '-d', 'appdb'] })
+      lastAnswer = JSON.stringify(answer).slice(0, 400)
+      return answer.exitCode === 0
+    })
     await until('mongo ready', async () => (await call('containers.exec', { id: MONGO, argv: ['mongosh', '--quiet', '-u', 'root', '-p', MONGO_PASSWORD, '--authenticationDatabase', 'admin', '--eval', 'db.runCommand({ ping: 1 }).ok'] })).stdout.trim().endsWith('1'))
   }, 240_000)
 
@@ -70,11 +85,11 @@ describe.skipIf(!live)('OxeQuery against real Docker, PostgreSQL and MongoDB', (
 
   it('lists the containers with their published ports and inspects one without exposing secrets', async () => {
     const engines = await call('containers.engines', {})
-    expect(engines.find(engine => engine.engine === 'docker')).toMatchObject({ available: true })
+    expect(engines.find(engine => engine.engine === ENGINE)).toMatchObject({ available: true })
     const { engine, containers } = await call('containers.list', {})
-    expect(engine).toBe('docker')
+    expect(engine).toBe(ENGINE)
     const pg = containers.find(container => container.name === PG)!
-    expect(pg).toMatchObject({ state: 'running', image: 'postgres:16-alpine' })
+    expect(pg).toMatchObject({ state: 'running', image: expect.stringContaining(PG_IMAGE.replace("docker.io/library/", "")) })
     expect(pg.ports.some(port => port.containerPort === 5432 && port.hostPort)).toBe(true)
     const inspected = await call('containers.inspect', { id: PG })
     expect(inspected.envNames).toContain('POSTGRES_PASSWORD')
@@ -122,7 +137,8 @@ describe.skipIf(!live)('OxeQuery against real Docker, PostgreSQL and MongoDB', (
     await call('sql.run', { connectionId: id, sql: "INSERT INTO people (name, born) SELECT 'person ' || n, DATE '2000-01-01' + n FROM generate_series(1, 1200) n" })
 
     expect(await call('sql.schemas', { connectionId: id })).toContain('public')
-    const tables = await call('sql.tables', { connectionId: id, schema: 'public' })
+    const { tables, total } = await call('sql.tables', { connectionId: id, schema: 'public' })
+    expect(total).toBe(tables.length)
     expect(tables.find(table => table.name === 'people')).toMatchObject({ kind: 'table' })
     const details = await call('sql.table', { connectionId: id, schema: 'public', table: 'people' })
     expect(details.columns.map(column => column.name)).toEqual(['id', 'name', 'born'])
@@ -208,7 +224,7 @@ describe.skipIf(!live)('OxeQuery against real Docker, PostgreSQL and MongoDB', (
   it('opens an interactive shell registration only for a validated container', async () => {
     const { paneId } = await call('containers.shell', { id: PG })
     expect(paneId).toMatch(/^oxequery-shell:[0-9a-f-]{36}$/)
-    expect(service.shellFor(paneId)).toEqual({ file: 'docker', args: ['exec', '-it', PG, 'sh'] })
+    expect(service.shellFor(paneId)).toEqual({ file: ENGINE, args: ['exec', '-it', PG, 'sh'] })
     expect(service.shellFor('oxequery-shell:00000000-0000-0000-0000-000000000000')).toBeUndefined()
     expect((await failure('containers.shell', { id: 'bad id; rm -rf /' })).code).toBe('invalid')
   })

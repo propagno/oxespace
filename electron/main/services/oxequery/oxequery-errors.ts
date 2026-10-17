@@ -27,6 +27,8 @@ export interface TunnelSettings {
   passphrase?: string
   /** `SHA256:<base64>` the user trusted before, if any. */
   pinnedFingerprint?: string
+  /** Authenticate with the running SSH agent (SSH_AUTH_SOCK, or Pageant's pipe on Windows). */
+  agent?: boolean
 }
 
 /** A connection with its secrets resolved. Only ever exists in main and in the database worker. */
@@ -46,4 +48,6 @@ export interface ResolvedConnection {
   ssh?: TunnelSettings
   statementTimeoutMs?: number
   maxRows?: number
+  /** Seconds between keep-alive probes; 0 turns them off. */
+  keepaliveSeconds?: number
 }

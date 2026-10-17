@@ -1,20 +1,26 @@
 import { randomUUID } from 'node:crypto'
+import { exportConnections, parseConnectionsFile, readImportFile, writeExportFile } from './connection-transfer'
 import type { AppDatabase } from '../../db'
 import type { ExecutionHost } from '../../runtime/execution-host'
 import type {
   ContainerAction, ContainerEngine, OxeQueryConnection, OxeQueryConnectionInput, OxeQueryErrorInfo, OxeQueryEvent, OxeQueryOp, OxeQueryOps, OxeQueryResponse,
-  SqlBrowseInput
+  SqlBrowseInput, SqlFilter, SqlFilterOp, SqlScriptResult
 } from '../../../../shared/types/oxequery'
 import { ConnectionInputError, ConnectionStore, type SecretCipher } from './connection-store'
 import { ContainerRuntime, ContainerRuntimeError } from './container-runtime'
+import { PreferenceInputError, PreferenceStore } from './preferences'
+import { COMPOSE_ACTIONS, type ComposeAction } from './compose'
 import { MongoInputError, OxeQueryError, type ResolvedConnection } from './oxequery-errors'
 import { guardSql } from './sql-guard'
 import type { OxeQueryWorkerClient } from './worker-client'
 import { PickedFiles, type PickedKind } from './picked-files'
 import { LibraryInputError, QueryLibrary } from './query-library'
+import { WorkspaceInputError, WorkspaceStore } from './workspace-store'
 import { AgentGateway } from './agent-gateway'
 import { ApprovalBroker, type ApprovalPrompter } from './approval-broker'
 import { AuditLog } from './audit-log'
+import type { ExportFormat } from '../../../../shared/types/oxequery'
+import { stringifyMongoQuery, type MongoQueryText } from '../../../../shared/mongoQueryText'
 
 type Raw = Record<string, unknown>
 const ACTIONS = new Set(['start', 'stop', 'restart', 'pause', 'unpause'])
@@ -28,6 +34,25 @@ function str(value: unknown, label: string, max = 4096): string {
   if (typeof value !== 'string' || value.length === 0 || value.length > max || value.includes('\0')) throw new OxeQueryError('invalid', `${label} is required.`)
   return value
 }
+/** CSV reading options from the page, each checked against what is allowed. */
+function readOptions(value: unknown): { delimiter: string; hasHeader: boolean; encoding: string } {
+  const raw = record(value ?? {})
+  const delimiters = ['auto', ',', ';', '\t', '|']
+  const encodings = ['auto', 'utf-8', 'utf-16le', 'utf-16be', 'windows-1252']
+  return {
+    delimiter: delimiters.includes(String(raw.delimiter)) ? String(raw.delimiter) : 'auto', hasHeader: raw.hasHeader !== false,
+    encoding: encodings.includes(String(raw.encoding)) ? String(raw.encoding) : 'auto'
+  }
+}
+
+/** What to do with rows whose key exists, or nothing for the default of refusing the import. */
+function readConflict(value: unknown): { mode: 'skip' | 'update'; columns: string[] } | undefined {
+  const raw = record(value ?? {})
+  if (raw.mode !== 'skip' && raw.mode !== 'update') return undefined
+  const columns = Array.isArray(raw.columns) ? raw.columns.map(entry => String(entry).slice(0, 255)).slice(0, 16) : []
+  return { mode: raw.mode, columns }
+}
+
 function optionalString(value: unknown, max = 262_144): string | undefined {
   if (value === undefined || value === null || value === '') return undefined
   if (typeof value !== 'string' || value.length > max || value.includes('\0')) throw new OxeQueryError('invalid', 'Invalid text input.')
@@ -38,6 +63,33 @@ function optionalInt(value: unknown, min: number, max: number): number | undefin
   if (!Number.isSafeInteger(value) || (value as number) < min || (value as number) > max) throw new OxeQueryError('invalid', 'Invalid number.')
   return value as number
 }
+const FILTER_OPS = new Set<string>(['eq', 'ne', 'lt', 'lte', 'gt', 'gte', 'contains', 'startsWith', 'endsWith', 'null', 'notNull', 'in'])
+
+/** Values for `$1`, `$2`…: text or null, a bounded number of them. */
+function sqlParams(value: unknown): (string | null)[] | undefined {
+  if (value === undefined) return undefined
+  if (!Array.isArray(value) || value.length > 100) throw new OxeQueryError('invalid', 'Invalid parameters.')
+  return value.map(entry => {
+    if (entry === null) return null
+    if (typeof entry !== 'string' || entry.length > 65_536 || entry.includes('\0')) throw new OxeQueryError('invalid', 'A parameter must be text.')
+    return entry
+  })
+}
+
+function sqlFilters(value: unknown): SqlFilter[] {
+  if (!Array.isArray(value) || value.length > 20) throw new OxeQueryError('invalid', 'Invalid filters.')
+  return value.map(entry => {
+    const item = record(entry)
+    if (typeof item.op !== 'string' || !FILTER_OPS.has(item.op)) throw new OxeQueryError('invalid', 'Unsupported filter.')
+    const filter: SqlFilter = { column: str(item.column, 'Column', 255), op: item.op as SqlFilterOp }
+    if (item.value !== undefined && item.value !== null) {
+      if (typeof item.value !== 'string' || item.value.length > 4096 || item.value.includes('\0')) throw new OxeQueryError('invalid', 'A filter value must be text.')
+      filter.value = item.value
+    }
+    return filter
+  })
+}
+
 function engine(value: unknown): ContainerEngine | undefined {
   if (value === undefined) return undefined
   if (value !== 'docker' && value !== 'podman') throw new OxeQueryError('invalid', 'Unknown container engine.')
@@ -47,7 +99,7 @@ function engine(value: unknown): ContainerEngine | undefined {
 export function toErrorInfo(error: unknown): OxeQueryErrorInfo {
   if (error instanceof OxeQueryError) return { code: error.code, message: error.message, ...(error.reasons.length ? { reasons: error.reasons } : {}), ...error.detail }
   if (error instanceof ContainerRuntimeError) return { code: error.code, message: error.message }
-  if (error instanceof ConnectionInputError || error instanceof MongoInputError || error instanceof LibraryInputError) return { code: 'invalid', message: error.message }
+  if (error instanceof ConnectionInputError || error instanceof PreferenceInputError || error instanceof MongoInputError || error instanceof LibraryInputError || error instanceof WorkspaceInputError) return { code: 'invalid', message: error.message }
   return { code: 'failed', message: error instanceof Error ? error.message.slice(0, 400) : 'OxeQuery failed.' }
 }
 
@@ -62,7 +114,7 @@ export interface OxeQueryServiceOptions {
   /** Native chooser for certificates and keys; absent in tests and headless runs. */
   pickFile?: (kind: PickedKind) => Promise<{ name: string; content: string } | null>
   /** Native save dialog for exports; absent in tests and headless runs. */
-  pickSavePath?: (suggestedName: string, format: 'csv' | 'json' | 'ndjson' | 'sql') => Promise<string | null>
+  pickSavePath?: (suggestedName: string, format: ExportFormat) => Promise<string | null>
   /** Native open dialog for an import file. */
   pickImportPath?: () => Promise<string | null>
   /** How a person is asked to approve an agent's request. Without one, every approval is denied. */
@@ -77,6 +129,8 @@ export class OxeQueryService {
   private readonly shells = new Map<string, { file: string; args: string[] }>()
   private readonly picked = new PickedFiles()
   private readonly library: QueryLibrary
+  private readonly preferences: PreferenceStore
+  private readonly workspaces: WorkspaceStore
   private readonly auditLog: AuditLog
   /** What the internal MCP tools call; policy and approval live inside it. */
   readonly agent: AgentGateway
@@ -90,7 +144,10 @@ export class OxeQueryService {
 
   constructor(options: OxeQueryServiceOptions) {
     this.connections = new ConnectionStore(options.db, options.cipher, this.picked)
-    this.library = new QueryLibrary(options.db)
+    this.preferences = new PreferenceStore(options.db)
+    this.library = new QueryLibrary(options.db, Date.now, () => this.preferences.get().historyLimit)
+    this.workspaces = new WorkspaceStore(options.db)
+    this.library.scrubHistory()
     this.pickFile = options.pickFile
     this.pickSavePath = options.pickSavePath
     this.pickImportPath = options.pickImportPath
@@ -98,10 +155,11 @@ export class OxeQueryService {
     this.containers = options.runtime ?? new ContainerRuntime({ host: options.host, emit: options.emit, preferred: options.preferredEngine })
     this.worker = options.worker
     this.auditLog = new AuditLog(options.db)
-    this.auditLog.prune()
+    this.auditLog.prune(this.preferences.get().auditRetentionDays)
     this.approvals = new ApprovalBroker(options.approvalPrompter)
     this.agent = new AgentGateway({
       list: () => this.connections.list(),
+      ceiling: environment => this.preferences.get().agentCeiling[environment],
       resolve: id => this.connections.resolve(id),
       call: (op, connection, input) => this.worker.call(op, connection, input),
       containers: {
@@ -135,7 +193,9 @@ export class OxeQueryService {
     const input = record(rawInput ?? {})
     switch (op) {
       case 'system.ping': return this.worker.call('ping')
-      case 'containers.engines': return this.containers.engines(true)
+      case 'containers.engines': return this.containers.engines(input.refresh === true)
+      case 'containers.candidates': return this.containers.candidates()
+      case 'containers.useCandidate': return this.containers.useCandidate(input && typeof input === 'object' && typeof (input as { id?: unknown }).id === 'string' ? (input as { id: string }).id : null)
       case 'containers.list': return this.containers.list(engine(input.engine))
       case 'containers.inspect': return this.containers.inspect(str(input.id, 'Container', 128), engine(input.engine))
       case 'containers.stats': return this.containers.stats(engine(input.engine))
@@ -146,6 +206,8 @@ export class OxeQueryService {
       case 'resources.remove': {
         const kind = str(input.kind, 'Kind', 16)
         if (kind !== 'image' && kind !== 'volume' && kind !== 'network') throw new OxeQueryError('invalid', 'Unsupported resource kind.')
+        // A volume is somebody's data: the main process asks for the confirmation itself.
+        if (kind === 'volume' && input.confirmed !== true) throw new OxeQueryError('confirm', 'Removing a volume deletes the data in it.', ['Removing a volume deletes the data in it for good.'])
         await this.containers.removeResource(kind, str(input.id, 'Resource', 200), engine(input.engine))
         return { ok: true }
       }
@@ -166,6 +228,14 @@ export class OxeQueryService {
         await this.containers.action(str(input.id, 'Container', 128), action as ContainerAction, engine(input.engine))
         return { ok: true }
       }
+      case 'containers.compose': {
+        const action = str(input.action, 'Action', 16)
+        if (!COMPOSE_ACTIONS.has(action)) throw new OxeQueryError('invalid', 'Unsupported Compose action.')
+        if (action === 'down' && input.confirmed !== true) {
+          throw new OxeQueryError('confirm', 'Taking a project down removes its containers and networks.', ['Named volumes are kept.', 'Anything running from this project stops.'])
+        }
+        return this.containers.compose(str(input.id, 'Container', 128), action as ComposeAction, { ...(optionalInt(input.tail, 1, 500) !== undefined ? { tail: optionalInt(input.tail, 1, 500) } : {}) }, engine(input.engine))
+      }
       case 'containers.exec': {
         const argv = input.argv
         if (!Array.isArray(argv)) throw new OxeQueryError('invalid', 'A command is required.')
@@ -185,6 +255,12 @@ export class OxeQueryService {
         const found = await this.containers.suggestConnection(str(input.id, 'Container', 128), engine(input.engine))
         return found?.suggestion ?? null
       }
+      case 'preferences.get': return this.preferences.get()
+      case 'preferences.set': {
+        const next = this.preferences.set(input)
+        this.auditLog.prune(next.auditRetentionDays)
+        return next
+      }
       case 'connections.list': return this.connections.list()
       case 'connections.save': {
         const saved = this.connections.save(input as unknown as OxeQueryConnectionInput)
@@ -199,6 +275,41 @@ export class OxeQueryService {
         return { ok: true }
       }
       case 'connections.test': return this.worker.call('test', this.resolve(input.id))
+      case 'connections.update': return this.connections.update(str(input.id, 'Connection', 64), {
+        ...(typeof input.group === 'string' ? { group: input.group } : {}), ...(typeof input.favorite === 'boolean' ? { favorite: input.favorite } : {}),
+        ...(typeof input.color === 'string' ? { color: input.color } : {})
+      })
+      case 'connections.duplicate': return this.connections.duplicate(str(input.id, 'Connection', 64))
+      case 'connections.connectEphemeral': return this.connections.saveEphemeral(input as unknown as OxeQueryConnectionInput)
+      case 'connections.reconnect': {
+        // Drop the sessions (and any tunnel) and dial again, so a connection the network cut can be picked up without a restart.
+        const connection = this.resolve(input.id)
+        await this.worker.call('close', connection).catch(() => undefined)
+        return this.worker.call('test', connection)
+      }
+      case 'connections.export': {
+        if (!this.pickSavePath) throw new OxeQueryError('invalid', 'Saving files is not available here.')
+        const wanted = Array.isArray(input.ids) ? new Set(input.ids.map(String)) : null
+        const list = this.connections.list().filter(item => !wanted || wanted.has(item.id))
+        const path = await this.pickSavePath('oxequery-connections.json', 'json')
+        if (!path) return { saved: false, count: 0 }
+        await writeExportFile(path, exportConnections(list))
+        return { saved: true, count: list.filter(item => !item.ephemeral).length }
+      }
+      case 'connections.import': {
+        if (!this.pickImportPath) throw new OxeQueryError('invalid', 'Choosing files is not available here.')
+        const path = await this.pickImportPath()
+        if (!path) return { imported: 0, skipped: 0 }
+        let text: string
+        try { text = await readImportFile(path) } catch (error) { throw new OxeQueryError('invalid', error instanceof Error ? error.message : 'That file cannot be read.') }
+        let parsed: ReturnType<typeof parseConnectionsFile>
+        try { parsed = parseConnectionsFile(text) } catch (error) { throw new OxeQueryError('invalid', error instanceof Error ? error.message : 'That file cannot be imported.') }
+        let imported = 0, skipped = parsed.skipped
+        for (const entry of parsed.inputs) {
+          try { this.connections.save(entry); imported++ } catch { skipped++ }
+        }
+        return { imported, skipped }
+      }
       case 'connections.trustHostKey': {
         // The host and port come from the saved connection, never from the caller.
         const connection = this.connections.get(str(input.id, 'Connection', 64))
@@ -229,24 +340,43 @@ export class OxeQueryService {
         const started = Date.now()
         try {
           const result = await this.worker.call<{ columns: unknown[]; rowCount: number; affectedRows?: number }>('sql.run', connection, {
-            sql, maxRows: optionalInt(input.maxRows, 1, 10_000), confirmed: input.confirmed === true
+            sql, maxRows: optionalInt(input.maxRows, 1, 100_000), confirmed: input.confirmed === true, params: sqlParams(input.params)
           })
-          this.library.record(connection.id, { sql, durationMs: Date.now() - started, rows: result.columns.length ? result.rowCount : result.affectedRows ?? null, ok: true })
+          this.remember(connection.id, { sql, durationMs: Date.now() - started, rows: result.columns.length ? result.rowCount : result.affectedRows ?? null, ok: true })
           return result
         } catch (error) {
           // A statement waiting for confirmation did not run, so it is not history yet.
-          if (!(error instanceof OxeQueryError && error.code === 'confirm')) this.library.record(connection.id, { sql, durationMs: Date.now() - started, rows: null, ok: false })
+          if (!(error instanceof OxeQueryError && error.code === 'confirm')) this.remember(connection.id, { sql, durationMs: Date.now() - started, rows: null, ok: false })
           throw error
         }
       })
+      case 'sql.script': return this.requireEngine(input.connectionId, 'postgres', async connection => {
+        const sql = str(input.sql, 'SQL', 1024 * 1024)
+        const started = Date.now()
+        const outcome = await this.worker.call<SqlScriptResult>('sql.script', connection, { sql, maxRows: optionalInt(input.maxRows, 1, 100_000), confirmed: input.confirmed === true })
+        // Every statement that ran is history on its own, so a statement can be found and run again.
+        for (const entry of outcome.statements) {
+          const text = sql.slice(entry.start, entry.end)
+          this.remember(connection.id, { sql: text, durationMs: entry.result?.durationMs ?? Date.now() - started, rows: entry.result ? (entry.result.columns.length ? entry.result.rowCount : entry.result.affectedRows ?? null) : null, ok: !entry.error })
+        }
+        return outcome
+      })
+      case 'sql.tx': return this.requireEngine(input.connectionId, 'postgres', connection => {
+        const action = str(input.action, 'Action', 16)
+        if (!['begin', 'commit', 'rollback', 'status'].includes(action)) throw new OxeQueryError('invalid', 'Unsupported transaction action.')
+        return this.worker.call('sql.tx', connection, { action })
+      })
+      // An unsaved connection keeps no workspace, saved queries or history: those belong to saved connections.
+      case 'workspace.load': { const id = this.resolve(input.connectionId).id; return { state: this.connections.isEphemeral(id) ? null : this.workspaces.load(id) } }
+      case 'workspace.save': { const id = this.resolve(input.connectionId).id; if (!this.connections.isEphemeral(id)) this.workspaces.save(id, input.state); return { ok: true } }
       case 'audit.list': return this.auditLog.list({ ...(typeof input.connectionId === 'string' ? { connectionId: input.connectionId.slice(0, 64) } : {}), limit: optionalInt(input.limit, 1, 500) })
-      case 'library.list': return this.library.list(this.resolve(input.connectionId).id)
-      case 'library.save': return this.library.save({
+      case 'library.list': { const id = this.resolve(input.connectionId).id; return this.connections.isEphemeral(id) ? { saved: [], history: [] } : this.library.list(id) }
+      case 'library.save': if (this.connections.isEphemeral(this.resolve(input.connectionId).id)) throw new OxeQueryError('invalid', 'Save this connection to keep queries.'); return this.library.save({
         connectionId: this.resolve(input.connectionId).id, name: str(input.name, 'Name', 120), sql: str(input.sql, 'SQL', 100_000),
         ...(typeof input.id === 'string' && input.id ? { id: input.id.slice(0, 64) } : {})
       })
-      case 'library.delete': return { deleted: this.library.remove(this.resolve(input.connectionId).id, str(input.id, 'Query', 64)) }
-      case 'library.clearHistory': return { deleted: this.library.clearHistory(this.resolve(input.connectionId).id) }
+      case 'library.delete': { const id = this.resolve(input.connectionId).id; return { deleted: this.connections.isEphemeral(id) ? false : this.library.remove(id, str(input.id, 'Query', 64)) } }
+      case 'library.clearHistory': { const id = this.resolve(input.connectionId).id; return { deleted: this.connections.isEphemeral(id) ? 0 : this.library.clearHistory(id) } }
       case 'sql.browse': {
         const browse: SqlBrowseInput = {
           connectionId: str(input.connectionId, 'Connection', 64), schema: str(input.schema, 'Schema', 255), table: str(input.table, 'Table', 255),
@@ -256,6 +386,7 @@ export class OxeQueryService {
           const order = record(input.orderBy)
           browse.orderBy = { column: str(order.column, 'Column', 255), direction: order.direction === 'desc' ? 'desc' : 'asc' }
         }
+        if (input.filters !== undefined) browse.filters = sqlFilters(input.filters)
         return this.requireEngine(browse.connectionId, 'postgres', connection => this.worker.call('sql.browse', connection, browse))
       }
       case 'sql.cancel': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.cancel', connection))
@@ -271,14 +402,29 @@ export class OxeQueryService {
         if (reasons.length && input.confirmed !== true) throw new OxeQueryError('confirm', 'These changes need your confirmation.', reasons)
         return this.worker.call('sql.apply', connection, change)
       })
+      case 'sql.structure.preview': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.structure.preview', connection, this.structureInput(input)))
+      case 'sql.structure.apply': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.structure.apply', connection, { ...this.structureInput(input), confirmed: input.confirmed === true }))
+      case 'sql.maintenance': return this.requireEngine(input.connectionId, 'postgres', connection => {
+        const action = str(input.action, 'Action', 32)
+        if (!['vacuum', 'analyze', 'vacuum-analyze', 'reindex'].includes(action)) throw new OxeQueryError('invalid', 'Unsupported maintenance action.')
+        return this.worker.call('sql.maintenance', connection, { schema: str(input.schema, 'Schema', 255), table: str(input.table, 'Table', 255), action, confirmed: input.confirmed === true })
+      })
       case 'mongo.databases': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.databases', connection))
       case 'mongo.collections': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.collections', connection, { database: str(input.database, 'Database', 255) }))
-      case 'mongo.find': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.find', connection, {
-        database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), filter: optionalString(input.filter),
-        projection: optionalString(input.projection), sort: optionalString(input.sort), limit: optionalInt(input.limit, 1, 1000), skip: optionalInt(input.skip, 0, 10_000_000)
-      }))
-      case 'mongo.aggregate': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.aggregate', connection, {
-        database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), pipeline: str(input.pipeline, 'Pipeline', 262_144), limit: optionalInt(input.limit, 1, 1000)
+      case 'mongo.find': return this.requireEngine(input.connectionId, 'mongodb', connection => this.recordMongo(connection.id, optionalInt(input.skip, 0, 10_000_000), () => ({
+        kind: 'find' as const, database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), filter: optionalString(input.filter),
+        projection: optionalString(input.projection), sort: optionalString(input.sort)
+      }), query => this.worker.call<{ documents: unknown[] }>('mongo.find', connection, {
+        database: query.database, collection: query.collection, filter: query.filter, projection: query.projection, sort: query.sort,
+        limit: optionalInt(input.limit, 1, 1000), skip: optionalInt(input.skip, 0, 10_000_000)
+      })))
+      case 'mongo.aggregate': return this.requireEngine(input.connectionId, 'mongodb', connection => this.recordMongo(connection.id, optionalInt(input.skip, 0, 10_000_000), () => ({
+        kind: 'aggregate' as const, database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), pipeline: str(input.pipeline, 'Pipeline', 262_144)
+      }), query => this.worker.call<{ documents: unknown[] }>('mongo.aggregate', connection, {
+        database: query.database, collection: query.collection, pipeline: query.pipeline, limit: optionalInt(input.limit, 1, 1000), skip: optionalInt(input.skip, 0, 10_000_000)
+      })))
+      case 'mongo.document': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.document', connection, {
+        database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), id: str(input.id, 'Document id', 4096)
       }))
       case 'mongo.write': return this.requireEngine(input.connectionId, 'mongodb', connection => {
         const op = str(input.op, 'Operation', 16)
@@ -316,7 +462,7 @@ export class OxeQueryService {
         const { detectFormat, checkSize } = await import('./import-reader')
         const format = detectFormat(path)
         const bytes = await checkSize(path)
-        const preview = await this.worker.call<{ fields: string[]; sample: string[][]; targetColumns: { name: string }[] }>('import.preview', connection, { path, format, target })
+        const preview = await this.worker.call<{ fields: string[]; sample: string[][]; targetColumns: { name: string }[]; detected?: { delimiter: string; encoding: string } }>('import.preview', connection, { path, format, target })
         const now = Date.now()
         for (const [key, value] of this.imports) if (value.expires < now) this.imports.delete(key)
         const importId = `imp-${randomUUID()}`
@@ -327,7 +473,23 @@ export class OxeQueryService {
           const match = target.kind === 'table' ? lower.get(field.toLowerCase()) : field
           if (match) mapping[field] = match
         }
-        return { importId, fileName: path.split(/[\\/]/).pop() ?? 'file', format, bytes, ...preview, mapping }
+        return { importId, fileName: path.split(/[\\/]/).pop() ?? 'file', format, bytes, ...preview, mapping, options: { delimiter: 'auto', hasHeader: true, encoding: 'auto' } }
+      }
+      case 'import.reparse': {
+        // The same file read another way: a different delimiter, no header row, another encoding.
+        const connection = this.resolve(input.connectionId)
+        const target = this.importTarget(connection.engine, input.target)
+        const file = this.imports.get(str(input.importId, 'Import', 80))
+        if (!file || file.expires < Date.now()) throw new OxeQueryError('invalid', 'Choose the file again; this selection expired.')
+        const options = readOptions(input.options)
+        const preview = await this.worker.call<{ fields: string[]; sample: string[][]; targetColumns: { name: string }[]; detected?: { delimiter: string; encoding: string } }>('import.preview', connection, { path: file.path, format: file.format, target, options })
+        const lower = new Map(preview.targetColumns.map(column => [column.name.toLowerCase(), column.name]))
+        const mapping: Record<string, string> = {}
+        for (const field of preview.fields) {
+          const match = target.kind === 'table' ? lower.get(field.toLowerCase()) : field
+          if (match) mapping[field] = match
+        }
+        return { importId: str(input.importId, 'Import', 80), fileName: file.path.split(/[\\/]/).pop() ?? 'file', format: file.format, bytes: 0, ...preview, mapping, options }
       }
       case 'import.run': {
         const connection = this.resolve(input.connectionId)
@@ -343,7 +505,7 @@ export class OxeQueryService {
         if (!dryRun && connection.environment === 'prod' && input.confirmed !== true) {
           throw new OxeQueryError('confirm', 'Confirmation is required.', ['This connection is marked as production.', 'Import adds rows that cannot be taken back automatically.'])
         }
-        return this.worker.call('import.run', connection, { importId, path: file.path, format: file.format, target, mapping: clean, dryRun, emptyAsNull: input.emptyAsNull !== false },
+        return this.worker.call('import.run', connection, { importId, path: file.path, format: file.format, target, mapping: clean, dryRun, emptyAsNull: input.emptyAsNull !== false, options: readOptions(input.options), ...(readConflict(input.conflict) ? { conflict: readConflict(input.conflict) } : {}) },
           progress => {
             const value = progress as { rows?: number }
             if (typeof value.rows === 'number') this.emit({ type: 'import-progress', importId, rows: value.rows })
@@ -357,7 +519,7 @@ export class OxeQueryService {
         const connection = this.resolve(input.connectionId)
         const exportId = str(input.exportId, 'Export', 64)
         const format = str(input.format, 'Format', 16)
-        if (!['csv', 'json', 'ndjson', 'sql'].includes(format)) throw new OxeQueryError('invalid', 'Unsupported export format.')
+        if (!['csv', 'json', 'ndjson', 'sql', 'xlsx'].includes(format)) throw new OxeQueryError('invalid', 'Unsupported export format.')
         if (format === 'sql' && connection.engine !== 'postgres') throw new OxeQueryError('invalid', 'SQL export is for PostgreSQL tables and queries.')
         const source = record(input.source)
         let suggested = 'export'
@@ -375,7 +537,7 @@ export class OxeQueryService {
           suggested = String(normalized.collection)
         } else throw new OxeQueryError('invalid', 'That source cannot be exported from this connection.')
         if (!this.pickSavePath) throw new OxeQueryError('invalid', 'Saving files is not available here.')
-        const path = await this.pickSavePath(suggested, format as 'csv' | 'json' | 'ndjson' | 'sql')
+        const path = await this.pickSavePath(suggested, format as ExportFormat)
         if (!path) return { dismissed: true, rows: 0, bytes: 0, durationMs: 0 }
         const options = input.options && typeof input.options === 'object' ? input.options as Raw : {}
         const result = await this.worker.call<{ rows: number; bytes: number; durationMs: number; cancelled: boolean }>('export.run', connection, {
@@ -407,17 +569,95 @@ export class OxeQueryService {
           : { database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), name: str(input.name, 'Index name', 255) })
       })
       case 'sql.functions': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.functions', connection, { schema: str(input.schema, 'Schema', 255) }))
+      case 'sql.databases': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.databases', connection))
+      case 'sql.roles': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.roles', connection))
+      case 'sql.createDatabase': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.createDatabase', connection, {
+        name: str(input.name, 'Name', 63), ...(typeof input.owner === 'string' && input.owner ? { owner: input.owner.slice(0, 63) } : {}),
+        ...(typeof input.template === 'string' && input.template ? { template: input.template.slice(0, 63) } : {}), ...(typeof input.encoding === 'string' && input.encoding ? { encoding: input.encoding.slice(0, 20) } : {})
+      }))
+      case 'sql.dropDatabase': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.dropDatabase', connection, { name: str(input.name, 'Name', 63), confirmed: input.confirmed === true }))
+      case 'sql.objects': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.objects', connection, { schema: str(input.schema, 'Schema', 255) }))
+      case 'sql.extensions': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.extensions', connection))
+      case 'sql.search': return this.requireEngine(input.connectionId, 'postgres', connection => this.worker.call('sql.search', connection, { query: str(input.query, 'Search', 200) }))
       case 'sql.definition': return this.requireEngine(input.connectionId, 'postgres', connection => {
         const kind = str(input.kind, 'Kind', 16)
-        if (kind === 'function') return this.worker.call('sql.definition', connection, { kind, oid: Number(input.oid) })
-        if (kind !== 'table' && kind !== 'view') throw new OxeQueryError('invalid', 'Unsupported object kind.')
+        if (kind === 'function' || kind === 'trigger' || kind === 'type') return this.worker.call('sql.definition', connection, { kind, oid: Number(input.oid) })
+        if (kind !== 'table' && kind !== 'view' && kind !== 'sequence') throw new OxeQueryError('invalid', 'Unsupported object kind.')
         return this.worker.call('sql.definition', connection, { kind, schema: str(input.schema, 'Schema', 255), name: str(input.name, 'Name', 255) })
       })
+      case 'mongo.bulk': return this.requireEngine(input.connectionId, 'mongodb', connection => {
+        const op = str(input.op, 'Operation', 16)
+        if (op !== 'updateMany' && op !== 'deleteMany') throw new OxeQueryError('invalid', 'Unsupported bulk operation.')
+        return this.worker.call('mongo.bulk', connection, {
+          database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), op, filter: str(input.filter, 'Filter', 262_144),
+          ...(typeof input.update === 'string' ? { update: input.update.slice(0, 262_144) } : {}), dryRun: input.dryRun === true,
+          ...(Number.isInteger(input.expectedCount) ? { expectedCount: input.expectedCount } : {}), confirmed: input.confirmed === true
+        })
+      })
+      case 'mongo.collection': return this.requireEngine(input.connectionId, 'mongodb', connection => {
+        const action = record(input.action)
+        const kind = str(action.kind, 'Action', 16)
+        if (kind !== 'create' && kind !== 'rename' && kind !== 'drop') throw new OxeQueryError('invalid', 'Unsupported collection action.')
+        return this.worker.call('mongo.collection', connection, {
+          database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), confirmed: input.confirmed === true,
+          action: kind === 'rename' ? { kind, to: str(action.to, 'New name', 255) }
+            : kind === 'create' ? { kind, capped: action.capped === true, ...(optionalInt(action.sizeBytes, 1, 1 << 40) !== undefined ? { sizeBytes: optionalInt(action.sizeBytes, 1, 1 << 40) } : {}), ...(optionalInt(action.maxDocuments, 1, 1_000_000_000) !== undefined ? { maxDocuments: optionalInt(action.maxDocuments, 1, 1_000_000_000) } : {}) }
+              : { kind }
+        })
+      })
+      case 'mongo.stats': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.stats', connection, { database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255) }))
+      case 'mongo.validation': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.validation', connection, { database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255) }))
+      case 'mongo.setValidation': return this.requireEngine(input.connectionId, 'mongodb', connection => {
+        const level = str(input.level, 'Level', 16), action = str(input.action, 'Action', 16)
+        if (!['off', 'moderate', 'strict'].includes(level) || !['error', 'warn'].includes(action)) throw new OxeQueryError('invalid', 'Unsupported validation level or action.')
+        return this.worker.call('mongo.setValidation', connection, {
+          database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255),
+          validator: typeof input.validator === 'string' ? input.validator.slice(0, 262_144) : null, level, action
+        })
+      })
+      case 'mongo.explain': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.explain', connection, {
+        database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255), kind: input.kind === 'aggregate' ? 'aggregate' : 'find',
+        filter: optionalString(input.filter), projection: optionalString(input.projection), sort: optionalString(input.sort), pipeline: optionalString(input.pipeline),
+        verbosity: input.verbosity === 'queryPlanner' ? 'queryPlanner' : 'executionStats'
+      }))
+      case 'mongo.cancel': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.cancel', connection))
       case 'mongo.indexes': return this.requireEngine(input.connectionId, 'mongodb', connection => this.worker.call('mongo.indexes', connection, {
         database: str(input.database, 'Database', 255), collection: str(input.collection, 'Collection', 255)
       }))
       default: throw new OxeQueryError('invalid', 'Unknown OxeQuery operation.')
     }
+  }
+
+  /** History belongs to saved connections: an unsaved one leaves none. */
+  private remember(connectionId: string, entry: Parameters<QueryLibrary['record']>[1]): void {
+    if (!this.connections.isEphemeral(connectionId)) this.library.record(connectionId, entry)
+  }
+
+  /**
+   * A MongoDB read, kept in the connection's history as it was typed. Only the first page counts: turning
+   * pages is not a new query.
+   */
+  private async recordMongo<Query extends Omit<MongoQueryText, 'v'>>(connectionId: string, skip: number | undefined, build: () => Query, run: (query: Query) => Promise<{ documents: unknown[] }>): Promise<{ documents: unknown[] }> {
+    const query = build()
+    const started = Date.now()
+    const record = (rows: number | null, ok: boolean): void => {
+      if (!skip) this.remember(connectionId, { sql: stringifyMongoQuery(query), durationMs: Date.now() - started, rows, ok })
+    }
+    try {
+      const result = await run(query)
+      record(result.documents.length, true)
+      return result
+    } catch (error) {
+      record(null, false)
+      throw error
+    }
+  }
+
+  /** The shape only: ddl-builder validates every name, type and expression before any statement exists. */
+  private structureInput(input: Raw): { schema: string; table: string; action: unknown } {
+    const action = record(input.action)
+    if (!['create', 'alter', 'drop', 'truncate', 'duplicate'].includes(String(action.kind))) throw new OxeQueryError('invalid', 'Unsupported structure action.')
+    return { schema: str(input.schema, 'Schema', 255), table: str(input.table, 'Table', 255), action }
   }
 
   /** Structure only: the worker validates every column against the catalog. */
@@ -441,6 +681,7 @@ export class OxeQueryService {
   private async requireEngine<T>(id: unknown, expected: ResolvedConnection['engine'], run: (connection: ResolvedConnection) => Promise<T>): Promise<T> {
     const connection = this.resolve(id)
     if (connection.engine !== expected) throw new OxeQueryError('invalid', `This operation needs a ${expected === 'postgres' ? 'PostgreSQL' : 'MongoDB'} connection.`)
+    this.connections.touch(connection.id)
     return run(connection)
   }
 

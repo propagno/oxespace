@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
-import { Boxes, Database, Play, Plus, RefreshCw, RotateCw, Square, SquareTerminal } from 'lucide-react'
+import { ConfirmDialog } from '../../ui/ConfirmDialog'
+import { Boxes, ChevronDown, ChevronRight, Database, Play, Plus, RefreshCw, RotateCw, Square, SquareTerminal } from 'lucide-react'
 import type { ContainerAction, ContainerEngineInfo, ContainerExecResult, ContainerInspect, ContainerPort, ContainerStat, ContainerSummary } from '../../../shared/types/oxequery'
 import { TerminalPane } from '../Panes/TerminalPane'
-import { errorMessage, oq } from './client'
+import { OxeQueryClientError, errorMessage, oq } from './client'
 import { useOxeQueryStore } from './oxequery.store'
 import { NewDatabaseDialog, ResourcesPanel } from './ResourcesPanel'
+import { EngineBar } from './EngineBar'
+import { Select } from '../../ui/Field'
 
 const STATS_MS = 5000
 const COMPOSE_LABEL = 'com.docker.compose.project'
@@ -93,6 +96,25 @@ export function ContainersPanel({ active }: { active: boolean }): ReactElement {
     else void act(container, action)
   }
 
+  // One Compose project at a time: its folder is read from its containers' labels by the main process.
+  const [composeBusy, setComposeBusy] = useState('')
+  const [composeOutput, setComposeOutput] = useState<{ title: string; text: string } | null>(null)
+  const [confirmDown, setConfirmDown] = useState(false)
+  const projectContainers = project ? containers.filter(container => container.labels?.[COMPOSE_LABEL] === project) : []
+  const compose = async (action: 'up' | 'down' | 'start' | 'stop' | 'restart' | 'logs', confirmed = false): Promise<void> => {
+    const first = projectContainers[0]
+    if (!first) return
+    setComposeBusy(action); setNotice(''); setConfirmDown(false)
+    try {
+      const result = await oq('containers.compose', { id: first.id, action, engine, confirmed, ...(action === 'logs' ? { tail: 200 } : {}) })
+      setComposeOutput(action === 'logs' || result.output ? { title: `${project} · ${action}`, text: result.output || 'Done.' } : null)
+      if (action !== 'logs') await refresh()
+    } catch (cause) {
+      if (cause instanceof OxeQueryClientError && cause.code === 'confirm') setConfirmDown(true)
+      else setNotice(errorMessage(cause))
+    } finally { setComposeBusy('') }
+  }
+
   const connect = async (container: ContainerSummary): Promise<void> => {
     setBusyId(container.id); setNotice('')
     try {
@@ -113,9 +135,9 @@ export function ContainersPanel({ active }: { active: boolean }): ReactElement {
     <header className="oq-toolbar">
       <input type="search" placeholder="Filter containers" aria-label="Filter containers" value={query} onChange={event => setQuery(event.target.value)} />
       <label className="oq-check"><input type="checkbox" checked={onlyRunning} onChange={event => setOnlyRunning(event.target.checked)} />Running only</label>
-      {projects.length > 0 && <select aria-label="Compose project" value={project} onChange={event => setProject(event.target.value)}><option value="">All projects</option>{projects.map(value => <option key={value} value={value}>{value}</option>)}</select>}
-      {available.length > 1 && <select aria-label="Container engine" value={engine} onChange={event => void refresh(event.target.value as 'docker' | 'podman')}>
-        {available.map(info => <option key={info.engine} value={info.engine}>{info.engine}</option>)}</select>}
+      {projects.length > 0 && <Select className="oq-select" aria-label="Compose project" value={project} onChange={event => setProject(event.target.value)}><option value="">All projects</option>{projects.map(value => <option key={value} value={value}>{value}</option>)}</Select>}
+      {available.length > 1 && <Select className="oq-select" aria-label="Container engine" value={engine} onChange={event => void refresh(event.target.value as 'docker' | 'podman')}>
+        {available.map(info => <option key={info.engine} value={info.engine}>{info.engine}</option>)}</Select>}
       {engine && <small className="oq-muted" title={`Container engine${available.find(info => info.engine === engine)?.version ? ` ${available.find(info => info.engine === engine)?.version}` : ''}`}>Engine: {engine}{available.find(info => info.engine === engine)?.context ? ` (${available.find(info => info.engine === engine)?.context})` : ''}</small>}
       <span className="oq-spacer" />
       <button type="button" onClick={() => setNewDatabase(true)} title="Start a PostgreSQL or MongoDB container and connect to it"><Database size={13} aria-hidden="true" />New database</button>
@@ -127,16 +149,24 @@ export function ContainersPanel({ active }: { active: boolean }): ReactElement {
       <span><strong>{databaseContainers}</strong> database{databaseContainers === 1 ? '' : 's'}</span>
       {loading && <span className="oq-muted">Updating…</span>}</div>}
     {connections.length === 0 && databaseContainers > 0 && <p className="oq-hint" role="note">
-      <Database size={14} aria-hidden="true" /> To query a database, press <strong>Query</strong> on a PostgreSQL or MongoDB container below, or use <strong>New connection</strong> for a server that is not in a container.</p>}
+      <Database size={14} aria-hidden="true" /><span>To query a database, press <strong>Query</strong> on a PostgreSQL or MongoDB container below, or use <strong>New connection</strong> for a server that is not in a container.</span>
+    </p>}
+    <EngineBar active={active} shown={containers.length} />
     {notice && <p role="alert" className="oq-error">{notice}</p>}
+    {project && <section className="oq-compose" aria-label="Compose project actions">
+      <strong>{project}</strong><small className="oq-muted">{projectContainers.filter(container => container.state === 'running').length} of {projectContainers.length} running</small>
+      {(['up', 'start', 'stop', 'restart', 'logs'] as const).map(action => <button key={action} type="button" disabled={composeBusy !== ''} onClick={() => void compose(action)}>
+        {composeBusy === action ? '…' : action === 'up' ? 'Up' : action[0]!.toUpperCase() + action.slice(1)}</button>)}
+      <button type="button" className="oq-danger" disabled={composeBusy !== ''} onClick={() => void compose('down')}>Down…</button>
+      {confirmDown && <ConfirmDialog danger title={`Take ${project} down?`} confirmLabel="Take down"
+        description={<>Its containers and networks are removed. Named volumes are kept.</>}
+        onCancel={() => setConfirmDown(false)} onConfirm={() => void compose('down', true)} />}
+      {composeOutput && <div className="oq-compose-output"><header><strong>{composeOutput.title}</strong><button type="button" aria-label="Close output" onClick={() => setComposeOutput(null)}>Close</button></header><pre>{composeOutput.text}</pre></div>}
+    </section>}
     {remoteContext && <p className="oq-hint" role="note">Docker context <strong>{remoteContext}</strong> is active. Everything here — including stop, remove and run command — acts on that host, not on this computer.</p>}
-    {pendingAction && <div className="oq-confirm" role="alertdialog" aria-label="Confirm container action">
-      <strong>{pendingAction.action === 'stop' ? 'Stop' : 'Restart'} {pendingAction.container.name}?</strong>
-      <ul><li>This is a database container; open connections and running queries are interrupted.</li>
-        {pendingAction.container.labels?.['oxequery.managed'] === '1' && <li>It was created by OxeQuery; its data is kept in a named volume.</li>}</ul>
-      <div><button type="button" onClick={() => setPendingAction(null)}>Cancel</button>
-        <button type="button" className="oq-danger" onClick={() => { const { container, action } = pendingAction; setPendingAction(null); void act(container, action) }}>{pendingAction.action === 'stop' ? 'Stop' : 'Restart'}</button></div>
-    </div>}
+    {pendingAction && <ConfirmDialog danger title={`${pendingAction.action === 'stop' ? 'Stop' : 'Restart'} ${pendingAction.container.name}?`} confirmLabel={pendingAction.action === 'stop' ? 'Stop' : 'Restart'}
+      description={<>This is a database container; open connections and running queries are interrupted.{pendingAction.container.labels?.['oxequery.managed'] === '1' && ' It was created by OxeQuery; its data is kept in a named volume.'}</>}
+      onCancel={() => setPendingAction(null)} onConfirm={() => { const { container, action } = pendingAction; setPendingAction(null); void act(container, action) }} />}
     <div className="oq-containers-body">
       <div className="oq-table-wrap">
         {visible.length === 0 ? <div className="oq-empty"><p>{containers.length ? 'No container matches the filter.' : 'No containers yet.'}</p></div> :
@@ -145,9 +175,9 @@ export function ContainersPanel({ active }: { active: boolean }): ReactElement {
               <td><button type="button" className="oq-link" onClick={() => setSelectedId(container.id)}>{container.name}</button>{container.labels?.[COMPOSE_LABEL] && <small className="oq-muted"> {container.labels[COMPOSE_LABEL]}</small>}</td>
               <td title={container.image}>{container.image}</td>
               <td><span className="oq-state" data-state={container.state}>{container.state}</span><small className="oq-muted">{container.status}</small></td>
-              <td className="oq-stats">{(() => { const stat = stats[container.id.slice(0, 12)] ?? stats[container.name]; return container.state === 'running' && stat ? <><span>{stat.cpuPercent.toFixed(1)}%</span><small className="oq-muted">{stat.memoryUsage.split('/')[0].trim()} · {stat.memoryPercent.toFixed(0)}%</small></> : <span className="oq-muted">–</span> })()}</td>
+              <td><div className="oq-stats">{(() => { const stat = stats[container.id.slice(0, 12)] ?? stats[container.name]; return container.state === 'running' && stat ? <><span>{stat.cpuPercent.toFixed(1)}%</span><small className="oq-muted">{stat.memoryUsage.split('/')[0].trim()} · {stat.memoryPercent.toFixed(0)}%</small></> : <span className="oq-muted">–</span> })()}</div></td>
               <td>{formatPorts(container.ports)}</td>
-              <td className="oq-actions" onClick={event => event.stopPropagation()}>
+              <td onClick={event => event.stopPropagation()}><div className="oq-actions">
                 {container.state === 'running'
                   ? <>
                     <button type="button" aria-label={`Restart ${container.name}`} title="Restart this container" disabled={busyId === container.id} onClick={() => request(container, 'restart')}><RotateCw size={13} aria-hidden="true" /><span>Restart</span></button>
@@ -155,12 +185,12 @@ export function ContainersPanel({ active }: { active: boolean }): ReactElement {
                   </>
                   : <button type="button" aria-label={`Start ${container.name}`} title="Start this container" disabled={busyId === container.id} onClick={() => void act(container, 'start')}><Play size={13} aria-hidden="true" /><span>Start</span></button>}
                 {isDatabaseImage(container.image) && <button type="button" className="oq-connect" aria-label={`Connect to ${container.name}`} title="Create a connection to this database and open it" disabled={busyId === container.id || container.state !== 'running'} onClick={() => void connect(container)}><Database size={13} aria-hidden="true" /><span>Query</span></button>}
-              </td>
+              </div></td>
             </tr>)}</tbody></table>}
       </div>
       {selected && <ContainerDetails key={selected.id} container={selected} engine={engine} onClose={() => setSelectedId(null)} />}
     </div>
-    <button type="button" className="oq-disclosure" aria-expanded={showResources} onClick={() => setShowResources(value => !value)}>Images, volumes and networks</button>
+    <button type="button" className="oq-disclosure" aria-expanded={showResources} onClick={() => setShowResources(value => !value)}>{showResources ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />}Images, volumes and networks</button>
     {showResources && <ResourcesPanel engine={engine} active={active} />}
     {newDatabase && <NewDatabaseDialog engine={engine} onClose={() => setNewDatabase(false)} />}
   </section>
@@ -281,7 +311,7 @@ function Shell({ container, engine }: { container: ContainerSummary; engine?: 'd
   if (!paneId) return <p className="oq-muted">Opening shell…</p>
   const pane = { id: paneId, workspaceId: 'oxequery', type: 'terminal' as const, rowIndex: 0, columnIndex: 0, shellProfileId: null, status: 'idle' as const, agentProfileId: null, agentName: null, displayName: `${container.name} shell`, createdAt: null, rootPath: null }
   return <div className="oq-term">
-    <div className="oq-toolbar"><SquareTerminal size={14} aria-hidden="true" /><select aria-label="Shell" value={shell} onChange={event => setShell(event.target.value as 'sh' | 'bash')}><option value="sh">sh</option><option value="bash">bash</option></select>
+    <div className="oq-toolbar"><SquareTerminal size={14} aria-hidden="true" /><Select className="oq-select" aria-label="Shell" value={shell} onChange={event => setShell(event.target.value as 'sh' | 'bash')}><option value="sh">sh</option><option value="bash">bash</option></Select>
       <button type="button" onClick={() => setNonce(value => value + 1)}>New session</button></div>
     <div className="oq-shell-terminal"><TerminalPane key={paneId} pane={pane} workspaceId="oxequery" workspaceRootPath="" autoStart /></div>
   </div>

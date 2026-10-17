@@ -379,3 +379,46 @@ Visual captures cover midnight/one-dark, 900/1280/1440 widths and Chromium zoom
 Completing browser login with a real account, authenticated inference/resume and
 Linux smoke still require a separate pilot. See the implementation evidence in
 [the redesign plan](plans/thread-desktop-redesign.md).
+
+
+## Command approvals, read-only list and risk
+
+OXESpace answers the approval prompts of Claude Code and Codex for commands it can fully analyse. It only answers
+prompts the provider raised, so it can narrow what runs but never widen what the provider allows.
+
+- **Read-only list.** Commands such as `ls`, `cat`, `grep`, `rg`, `find`, `git status`, `git log`, `git diff`,
+  `docker ps`, `npm ls` and a few PowerShell cmdlets are approved without asking when they only read files inside the
+  project. The switch is **Rules > Read-only commands > Approve read-only commands automatically** (`/rules`), on by
+  default. Turning it off leaves your saved rules working and makes every other command ask, as before.
+- **Always asks:** any redirect to a file (`echo x>out` too), `rm`, network commands, `sudo`, anything not on the
+  list or in a rule, a command whose name the shell computes, and any read **outside the project** (absolute paths,
+  `..`, `~`, `$VAR`) or of a file that usually holds a secret (`.env*`, `*.pem`, `id_rsa`, `.npmrc` ...).
+- **The card** shows a risk level (changes something / destructive or far-reaching), a warning that web content may
+  carry instructions meant for the agent, and the script of `node -e`, `python -c` or `ruby -e` as code. The exact
+  command stays available under "Exact command or request".
+- **Windows and PowerShell:** `pwsh -Command "..."` is judged by the script inside it. Scripts with blocks `{ }` or
+  `-File` keep asking.
+- The bash grammar (tree-sitter) reads the line when its files load; if they cannot be loaded the previous text
+  analysis applies, which asks whenever it is unsure. The full review is in
+  [validation/thread-command-approval-security-review.md](validation/thread-command-approval-security-review.md).
+
+## Inspecting a conversation: `/events`
+
+`/events` opens an inspector of the events saved for the conversation: messages, tool calls with their duration and
+exit code, requests, turn cost and completions, oldest first.
+
+- **Filter** with comma-separated terms (`tool, message`), `!term` to exclude and `before:2026-10-14` /
+  `after:2026-10-14t09:30` to bound the time. The text of tool output is searched too.
+- **Detail:** select a row (or press Enter on it) to see its sequence, event, turn and operation IDs and the saved
+  JSON, clipped at 20,000 characters. **Load earlier events** pages further back; one request reads at most 20,000
+  events, and the inspector says when the search was limited.
+- **Copy as JSON lines** copies the rows that are loaded.
+- It shows what OXESpace saved. It does not show what the provider CLI sent or received (no wire log, no prompt).
+  Tool output may contain secrets from your project; the copy is yours to handle.
+
+## Skills and instruction files
+
+- Skill headers are read as YAML: block lists (`agents:` with `- claude`), quoted values and multi-line descriptions
+  work. A header that is not valid YAML still loads the flat `key: value` way.
+- `/instructions` lists user rules (`~/.claude/rules`), project rules including sub-folders, and for each rule the
+  `paths:` it is limited to ("only for src/**"). Only the first 4 KiB of a rule file is read, for its header.

@@ -20,13 +20,19 @@ import { ApprovalBroker } from '../../electron/main/services/oxequery/approval-b
 import { AuditLog } from '../../electron/main/services/oxequery/audit-log'
 import { openInMemoryDatabase } from '../../electron/main/db'
 
+/** The server versions under test; CI runs the suite against several (OXE_LIVE_PG_IMAGE / OXE_LIVE_MONGO_IMAGE). */
+const PG_IMAGE = process.env.OXE_LIVE_PG_IMAGE ?? 'docker.io/library/postgres:16-alpine'
+const MONGO_IMAGE = process.env.OXE_LIVE_MONGO_IMAGE ?? 'docker.io/library/mongo:7'
+
 const live = process.env.OXE_LIVE === '1'
 const suffix = Math.random().toString(36).slice(2, 8)
 const PG = `oxe-writes-pg-${suffix}`
 const MONGO = `oxe-writes-mongo-${suffix}`
 const PASSWORD = 'oxe-writes-pw'
 
-const docker = (...args: string[]): string => execFileSync('docker', args, { encoding: 'utf8' }).trim()
+// The engine under test: Docker by default, Podman with OXE_CONTAINER_ENGINE=podman (CI runs both).
+const ENGINE = process.env.OXE_CONTAINER_ENGINE === 'podman' ? 'podman' : 'docker'
+const docker = (...args: string[]): string => execFileSync(ENGINE, args, { encoding: 'utf8' }).trim()
 const hostPort = (name: string, inner: number): number => Number(docker('port', name, String(inner)).split('\n')[0].split(':').pop())
 const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms))
 async function until(label: string, check: () => boolean | Promise<boolean>, timeoutMs = 90_000): Promise<void> {
@@ -46,8 +52,8 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
   const exec = async (sql: string): Promise<void> => { await core.sqlRun(pg, sql, { confirmed: true }) }
 
   beforeAll(async () => {
-    docker('run', '-d', '--name', PG, '-e', 'POSTGRES_USER=oxe', '-e', 'POSTGRES_DB=appdb', '-e', `POSTGRES_PASSWORD=${PASSWORD}`, '-p', '127.0.0.1::5432', 'postgres:16-alpine')
-    docker('run', '-d', '--name', MONGO, '-e', 'MONGO_INITDB_ROOT_USERNAME=root', '-e', `MONGO_INITDB_ROOT_PASSWORD=${PASSWORD}`, '-p', '127.0.0.1::27017', 'mongo:7')
+    docker('run', '-d', '--name', PG, '-e', 'POSTGRES_USER=oxe', '-e', 'POSTGRES_DB=appdb', '-e', `POSTGRES_PASSWORD=${PASSWORD}`, '-p', '127.0.0.1::5432', PG_IMAGE)
+    docker('run', '-d', '--name', MONGO, '-e', 'MONGO_INITDB_ROOT_USERNAME=root', '-e', `MONGO_INITDB_ROOT_PASSWORD=${PASSWORD}`, '-p', '127.0.0.1::27017', MONGO_IMAGE)
     await until('postgres ready', () => docker('exec', PG, 'pg_isready', '-U', 'oxe', '-d', 'appdb').includes('accepting'))
     pg = { id: 'pg', engine: 'postgres', host: '127.0.0.1', port: hostPort(PG, 5432), database: 'appdb', username: 'oxe', password: PASSWORD, sslMode: 'disable', readOnly: false }
     await until('postgres accepts queries', async () => { await exec('SELECT 1'); return true })
@@ -149,6 +155,49 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
     expect(await scalar('SELECT count(*) FROM contacts WHERE id = 10')).toBe('0')
   })
 
+  it('imports a semicolon file in Windows-1252 without a header, and merges rows by key', async () => {
+    await exec('CREATE TABLE people_sync (id int PRIMARY KEY, name text NOT NULL, city text)')
+    await exec(`INSERT INTO people_sync VALUES (1, 'Ana', 'Lisboa'), (2, 'Bruno', 'Porto')`)
+    const target = { kind: 'table' as const, schema: 'public', table: 'people_sync' }
+    const file = join(dir, 'pessoas.csv')
+    // "João" and "São Paulo" in Windows-1252 (one byte per accent), semicolons, no header row.
+    writeFileSync(file, Buffer.concat([Buffer.from('2;Bruno;Faro\n3;', 'latin1'), Buffer.from('Jo\xe3o;S\xe3o Paulo\n', 'latin1'), Buffer.from('1;Ana;Lisboa\n', 'latin1')]))
+    const options = { delimiter: ';' as const, hasHeader: false, encoding: 'windows-1252' as const }
+    const preview = await core.importPreview(pg, { path: file, format: 'csv', target, options })
+    expect(preview.fields).toEqual(['column_1', 'column_2', 'column_3'])
+    expect(preview.sample[1]).toEqual(['3', 'João', 'São Paulo'])
+    expect(preview.detected).toEqual({ delimiter: ';', encoding: 'windows-1252' })
+    const mapping = { column_1: 'id', column_2: 'name', column_3: 'city' }
+
+    // The default refuses a row whose key exists, and keeps nothing.
+    await expect(core.importRun(pg, { path: file, format: 'csv', target, mapping, options }, never)).rejects.toMatchObject({ code: 'query' })
+    expect(await scalar('SELECT count(*) FROM people_sync')).toBe('2')
+    // Skip leaves the existing rows alone and adds the new one.
+    const skipped = await core.importRun(pg, { path: file, format: 'csv', target, mapping, options, conflict: { mode: 'skip', columns: ['id'] } }, never)
+    expect(skipped).toMatchObject({ inserted: 1, skipped: 2 })
+    expect(await scalar('SELECT city FROM people_sync WHERE id = 2')).toBe('Porto')
+    expect(await scalar('SELECT name FROM people_sync WHERE id = 3')).toBe('João')
+    // Update changes the rows that exist and reports each kind.
+    await exec('DELETE FROM people_sync WHERE id = 3')
+    const merged = await core.importRun(pg, { path: file, format: 'csv', target, mapping, options, conflict: { mode: 'update', columns: ['id'] } }, never)
+    expect(merged).toMatchObject({ inserted: 1, updated: 2 })
+    expect(await scalar('SELECT city FROM people_sync WHERE id = 2')).toBe('Faro')
+    // An update needs its key, and the key must be a mapped column.
+    await expect(core.importRun(pg, { path: file, format: 'csv', target, mapping, options, conflict: { mode: 'update', columns: [] } }, never)).rejects.toMatchObject({ code: 'invalid' })
+    await expect(core.importRun(pg, { path: file, format: 'csv', target, mapping: { column_2: 'name' }, options, conflict: { mode: 'update', columns: ['id'] } }, never)).rejects.toMatchObject({ code: 'invalid' })
+  })
+
+  it('exports a table and a query as an Excel workbook, refusing to overwrite', async () => {
+    const path = join(dir, 'people.xlsx')
+    const result = await core.exportRun(pg, { path, format: 'xlsx', source: { kind: 'table', schema: 'public', table: 'people_sync' } }, never)
+    expect(result.rows).toBe(3)
+    const zip = readFileSync(path)
+    expect(zip.subarray(0, 2).toString()).toBe('PK')
+    expect(zip.includes(Buffer.from('xl/worksheets/sheet1.xml'))).toBe(true)
+    await expect(core.exportRun(pg, { path, format: 'xlsx', source: { kind: 'sql', sql: 'SELECT 1' } }, never)).rejects.toThrow()
+    expect(readFileSync(path).equals(zip)).toBe(true)
+  })
+
   it('explains a statement and rolls back an analyzed write', async () => {
     const estimated = await core.sqlExplain(pg, { sql: 'SELECT * FROM big WHERE id = 5' })
     expect(estimated.analyze).toBe(false)
@@ -168,6 +217,139 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
     const error = await core.sqlRun(pg, sql).catch(cause => cause as { code: string; detail: { position?: number; sqlState?: string } })
     expect(error).toMatchObject({ code: 'query', detail: { sqlState: '42703' } })
     expect(sql.slice((error as { detail: { position: number } }).detail.position - 1, (error as { detail: { position: number } }).detail.position + 3)).toBe('nope')
+  })
+
+  it('runs a script statement by statement, binds parameters, filters a table and keeps a transaction open', async () => {
+    await exec('CREATE TABLE ledger (id serial primary key, who text, amount numeric, note text)')
+    const script = await core.sqlScript(pg, "INSERT INTO ledger (who, amount, note) VALUES ('ana', 10, 'first; one'), ('bo', 25.5, NULL); SELECT count(*) FROM ledger; SELECT * FROM missing_table; SELECT 'never runs'")
+    expect(script.statements.map(entry => entry.error ? 'error' : entry.result?.command)).toEqual(['INSERT', 'SELECT', 'error'])
+    expect(script.stoppedAt).toBe(2)
+    expect(script.statements[1].result?.rows[0][0]).toBe('2')
+    expect(script.statements[2].error).toMatchObject({ code: 'query', sqlState: '42P01' })
+    // The statements before the failure stay done: each one ran on its own.
+    expect(await scalar('SELECT count(*) FROM ledger')).toBe('2')
+
+    const bound = await core.sqlRun(pg, 'SELECT who FROM ledger WHERE amount > $1 AND note IS NOT DISTINCT FROM $2', { params: ['20', null] })
+    expect(bound.rows).toEqual([['bo']])
+    await expect(core.sqlRun(pg, 'SELECT $1; SELECT $1', { params: ['a'] })).rejects.toMatchObject({ code: 'invalid' })
+
+    const page = await core.sqlBrowse(pg, { connectionId: 'pg', schema: 'public', table: 'ledger', filters: [{ column: 'who', op: 'contains', value: 'A' }, { column: 'amount', op: 'gte', value: '1' }] })
+    expect(page.rows.map(row => row[1])).toEqual(['ana'])
+    expect(page.totalRows).toBe(1)
+    const listed = await core.sqlBrowse(pg, { connectionId: 'pg', schema: 'public', table: 'ledger', filters: [{ column: 'who', op: 'in', value: 'ana, bo, nobody' }], orderBy: { column: 'id', direction: 'desc' } })
+    expect(listed.rows.map(row => row[1])).toEqual(['bo', 'ana'])
+    await expect(core.sqlBrowse(pg, { connectionId: 'pg', schema: 'public', table: 'ledger', filters: [{ column: 'amount', op: 'eq', value: 'not a number' }] })).rejects.toMatchObject({ code: 'query' })
+
+    expect(core.txState(pg)).toMatchObject({ state: 'none' })
+    expect(await core.sqlTx(pg, 'begin')).toMatchObject({ state: 'open' })
+    await core.sqlRun(pg, "INSERT INTO ledger (who, amount) VALUES ('cy', 1)")
+    expect(core.txState(pg)).toMatchObject({ state: 'open', statements: 1 })
+    expect(await scalar('SELECT count(*) FROM ledger')).toBe('3')
+    expect(await core.sqlTx(pg, 'rollback')).toMatchObject({ state: 'none' })
+    expect(await scalar('SELECT count(*) FROM ledger')).toBe('2')
+
+    await core.sqlTx(pg, 'begin')
+    await core.sqlRun(pg, "INSERT INTO ledger (who, amount) VALUES ('di', 2)")
+    await expect(core.sqlRun(pg, 'SELECT * FROM nope')).rejects.toMatchObject({ code: 'query' })
+    expect(core.txState(pg)).toMatchObject({ state: 'failed' })
+    await expect(core.sqlRun(pg, 'SELECT 1')).rejects.toThrow(/Roll it back/)
+    await core.sqlTx(pg, 'rollback')
+    expect(await scalar('SELECT count(*) FROM ledger')).toBe('2')
+
+    await core.sqlTx(pg, 'begin')
+    await core.sqlRun(pg, "INSERT INTO ledger (who, amount) VALUES ('ed', 3)")
+    await core.sqlRun(pg, 'COMMIT')
+    expect(core.txState(pg)).toMatchObject({ state: 'none' })
+    expect(await scalar('SELECT count(*) FROM ledger')).toBe('3')
+  })
+
+  it('changes and deletes many MongoDB documents only after counting, and manages collections, validation and plans', async () => {
+    const db = 'bulkdb'
+    const target = { connectionId: 'mongo', database: db, collection: 'orders' }
+    await core.mongoCollectionAction(mongo, { database: db, collection: 'orders', action: { kind: 'create' } })
+    for (let index = 1; index <= 30; index++) await core.mongoWrite(mongo, { ...target, op: 'insert', document: JSON.stringify({ _id: index, status: index <= 20 ? 'open' : 'done', qty: index }) })
+
+    // A dry run counts and writes nothing; the real run needs the number that was shown.
+    expect(await core.mongoBulk(mongo, { ...target, op: 'updateMany', filter: '{"status":"open"}', update: '{"$set":{"status":"late"}}', dryRun: true })).toEqual({ matched: 20, modified: 0, deleted: 0, dryRun: true })
+    await expect(core.mongoBulk(mongo, { ...target, op: 'updateMany', filter: '{"status":"open"}', update: '{"$set":{"status":"late"}}' })).rejects.toMatchObject({ code: 'confirm' })
+    await expect(core.mongoBulk(mongo, { ...target, op: 'updateMany', filter: '{"status":"open"}', update: '{"$set":{"status":"late"}}', confirmed: true, expectedCount: 19 })).rejects.toMatchObject({ code: 'conflict' })
+    expect((await core.mongoFind(mongo, { ...target, filter: '{"status":"late"}' })).total).toBe(0)
+    expect(await core.mongoBulk(mongo, { ...target, op: 'updateMany', filter: '{"status":"open"}', update: '{"$set":{"status":"late"}}', confirmed: true, expectedCount: 20 })).toMatchObject({ matched: 20, modified: 20 })
+    // A replacement document would overwrite every match; only update operators are accepted.
+    await expect(core.mongoBulk(mongo, { ...target, op: 'updateMany', filter: '{}', update: '{"status":"x"}', dryRun: true })).rejects.toThrow(/update operators/)
+    await expect(core.mongoBulk(mongo, { ...target, op: 'updateMany', filter: '{"$where":"1"}', update: '{"$set":{"a":1}}', dryRun: true })).rejects.toThrow(/server-side code/)
+    await expect(core.mongoBulk({ ...mongo, readOnly: true }, { ...target, op: 'deleteMany', filter: '{}', confirmed: true, expectedCount: 30 })).rejects.toMatchObject({ code: 'read-only' })
+    await expect(core.mongoBulk(mongo, { ...target, op: 'deleteMany', filter: '{}', confirmed: true, expectedCount: 30 }).then(result => result.deleted)).resolves.toBe(30)
+    expect((await core.mongoFind(mongo, target)).documents).toHaveLength(0)
+
+    // Collections: create, rename, drop (the drop waits for confirmation).
+    await core.mongoCollectionAction(mongo, { database: db, collection: 'capped_log', action: { kind: 'create', capped: true, sizeBytes: 4096, maxDocuments: 5 } })
+    expect((await core.mongoStats(mongo, db, 'capped_log')).capped).toBe(true)
+    await core.mongoCollectionAction(mongo, { database: db, collection: 'capped_log', action: { kind: 'rename', to: 'log2' } })
+    expect((await core.mongoCollections(mongo, db)).map(item => item.name)).toEqual(expect.arrayContaining(['log2', 'orders']))
+    await expect(core.mongoCollectionAction(mongo, { database: db, collection: 'log2', action: { kind: 'drop' } })).rejects.toMatchObject({ code: 'confirm' })
+    await expect(core.mongoCollectionAction(mongo, { database: db, collection: 'a$b', action: { kind: 'create' } })).rejects.toMatchObject({ code: 'invalid' })
+    await core.mongoCollectionAction(mongo, { database: db, collection: 'log2', action: { kind: 'drop' }, confirmed: true })
+    expect((await core.mongoCollections(mongo, db)).map(item => item.name)).not.toContain('log2')
+
+    // Validation: read, set a schema, see it refuse a bad document, clear it.
+    expect(await core.mongoValidation(mongo, db, 'orders')).toEqual({ validator: null, level: 'strict', action: 'error' })
+    const schema = '{"$jsonSchema":{"bsonType":"object","required":["qty"],"properties":{"qty":{"bsonType":"int"}}}}'
+    await core.mongoSetValidation(mongo, { database: db, collection: 'orders', validator: schema, level: 'strict', action: 'error' })
+    expect((await core.mongoValidation(mongo, db, 'orders')).validator).toContain('"required"')
+    await expect(core.mongoWrite(mongo, { ...target, op: 'insert', document: '{"_id": 99, "qty": "many"}' })).rejects.toThrow(/validation/i)
+    await core.mongoSetValidation(mongo, { database: db, collection: 'orders', validator: null, level: 'strict', action: 'error' })
+    expect((await core.mongoValidation(mongo, db, 'orders')).validator).toBeNull()
+
+    // Plans: a filter on an unindexed field scans; with an index it does not.
+    for (let index = 1; index <= 200; index++) await core.mongoWrite(mongo, { ...target, op: 'insert', document: JSON.stringify({ _id: 1000 + index, sku: 's' + index, qty: index }) })
+    const scan = await core.mongoExplain(mongo, { ...target, kind: 'find', filter: '{"sku":"s7"}' })
+    expect(scan).toMatchObject({ stage: 'COLLSCAN', docsExamined: 200, returned: 1 })
+    expect(scan.warnings.join(' ')).toMatch(/no index/)
+    await core.mongoCreateIndex(mongo, { database: db, collection: 'orders', keys: '{"sku":1}' })
+    const indexed = await core.mongoExplain(mongo, { ...target, kind: 'find', filter: '{"sku":"s7"}' })
+    expect(indexed).toMatchObject({ stage: 'IXSCAN', index: 'sku_1', docsExamined: 1 })
+    const aggregated = await core.mongoExplain(mongo, { ...target, kind: 'aggregate', pipeline: '[{"$match":{"sku":"s7"}},{"$group":{"_id":null,"n":{"$sum":1}}}]' })
+    expect(['IXSCAN', 'COUNT_SCAN']).toContain(aggregated.stage)
+
+    // Aggregate pages with $skip.
+    const pageOne = await core.mongoAggregate(mongo, { ...target, pipeline: '[{"$sort":{"_id":1}}]', limit: 50 })
+    const pageTwo = await core.mongoAggregate(mongo, { ...target, pipeline: '[{"$sort":{"_id":1}}]', limit: 50, skip: 50 })
+    expect(pageOne.documents).toHaveLength(50)
+    expect(pageOne.truncated).toBe(true)
+    expect(JSON.parse(pageTwo.documents[0]!)._id).toBe(JSON.parse(pageOne.documents[49]!)._id + 1)
+  })
+
+  it('stops a long MongoDB query from the outside', async () => {
+    const target = { connectionId: 'mongo', database: 'bulkdb', collection: 'orders' }
+    // A self-join three levels deep: millions of intermediate documents, many seconds of work.
+    const heavy = '[{"$lookup":{"from":"orders","pipeline":[{"$match":{}}],"as":"a"}},{"$unwind":"$a"},{"$lookup":{"from":"orders","pipeline":[{"$match":{}}],"as":"b"}},{"$unwind":"$b"},{"$lookup":{"from":"orders","pipeline":[{"$match":{}}],"as":"c"}},{"$unwind":"$c"},{"$group":{"_id":null,"n":{"$sum":1}}}]'
+    const running = core.mongoAggregate(mongo, { ...target, pipeline: heavy })
+    const outcome = running.then(() => 'finished', (error: { code?: string }) => error.code ?? 'error')
+    let cancelled = false
+    for (let attempt = 0; attempt < 20 && !cancelled; attempt++) { await sleep(250); cancelled = await core.mongoCancel(mongo) }
+    expect(cancelled).toBe(true)
+    expect(await outcome).toBe('cancelled')
+    // Nothing is left tagged: a second cancel has nothing to stop.
+    expect(await core.mongoCancel(mongo)).toBe(false)
+  }, 60_000)
+
+  it('edits a MongoDB document without retyping its numbers, and loads one too large to list', async () => {
+    const target = { connectionId: 'mongo', database: 'shop', collection: 'typed' }
+    await core.mongoWrite(mongo, { ...target, op: 'insert', document: '{"_id": 1, "count": {"$numberLong": "7"}, "ratio": {"$numberDouble": "2.0"}, "price": {"$numberDecimal": "1.10"}, "label": "a", "blob": "' + 'x'.repeat(70_000) + '"}' })
+    const listed = await core.mongoFind(mongo, { ...target, limit: 5 })
+    // 70 KB of text does not fit a listing: it is marked, and fetched whole before an edit.
+    expect(listed.oversized).toEqual([{ index: 0, id: '1' }])
+    const whole = (await core.mongoDocument(mongo, { database: 'shop', collection: 'typed', id: '1' })).text
+    expect(JSON.parse(whole)).toMatchObject({ count: { $numberLong: '7' }, ratio: { $numberDouble: '2.0' }, price: { $numberDecimal: '1.10' }, label: 'a' })
+    const edited = whole.replace('"label":"a"', '"label":"b"')
+    expect(edited).not.toBe(whole)
+    await core.mongoWrite(mongo, { ...target, op: 'replace', document: edited, expected: whole })
+    const stored = JSON.parse((await core.mongoDocument(mongo, { database: 'shop', collection: 'typed', id: '1' })).text)
+    expect(stored).toMatchObject({ count: { $numberLong: '7' }, ratio: { $numberDouble: '2.0' }, price: { $numberDecimal: '1.10' }, label: 'b' })
+    // `whole` is stale now: neither a replace nor a delete may go through, and nothing is changed.
+    await expect(core.mongoWrite(mongo, { ...target, op: 'delete', expected: whole })).rejects.toMatchObject({ code: 'conflict' })
+    expect(JSON.parse((await core.mongoDocument(mongo, { database: 'shop', collection: 'typed', id: '1' })).text).label).toBe('b')
   })
 
   it('writes MongoDB documents with a conflict check, and imports with ordered:false', async () => {
@@ -190,6 +372,119 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
     const found = await core.mongoFind(mongo, { ...target, sort: '{"_id": 1}' })
     expect(found.documents).toHaveLength(3)
   })
+  it('creates, alters, duplicates and drops a table, all or nothing', async () => {
+    const create = { kind: 'create' as const, table: {
+      columns: [
+        { name: 'id', type: 'bigint', nullable: false, identity: 'always' as const },
+        { name: 'sku', type: 'text', nullable: false },
+        { name: 'price', type: 'numeric(10,2)', nullable: true, default: '0' },
+        { name: 'total', type: 'numeric', nullable: true, generated: 'price * 2' }
+      ],
+      constraints: [{ kind: 'primary' as const, columns: ['id'] }, { kind: 'unique' as const, name: 'items_sku_key', columns: ['sku'] }, { kind: 'check' as const, name: 'price_ok', expression: 'price >= 0' }],
+      indexes: [{ name: 'items_price', columns: ['price'], where: 'price > 0' }],
+      comment: 'catalog'
+    } }
+    const preview = core.structurePreview(pg, { schema: 'public', table: 'items', action: create })
+    expect(preview.statements[0]).toMatch(/^CREATE TABLE "public"."items"/)
+    await core.structureApply(pg, { schema: 'public', table: 'items', action: create })
+    await exec(`INSERT INTO items (sku, price) VALUES ('a', 5)`)
+    expect(await scalar(`SELECT total FROM items WHERE sku = 'a'`)).toBe('10.00')
+    expect(await scalar(`SELECT obj_description('public.items'::regclass)`)).toBe('catalog')
+
+    // The second change fails, so the first must not stay.
+    await expect(core.structureApply(pg, { schema: 'public', table: 'items', action: { kind: 'alter', changes: [
+      { op: 'addColumn', column: { name: 'note', type: 'text', nullable: true } },
+      { op: 'addConstraint', constraint: { kind: 'check', name: 'bad', expression: 'price < 0' } }
+    ] } })).rejects.toMatchObject({ code: 'query', detail: { sqlState: '23514' } })
+    expect(await scalar(`SELECT count(*) FROM information_schema.columns WHERE table_name = 'items' AND column_name = 'note'`)).toBe('0')
+
+    await core.structureApply(pg, { schema: 'public', table: 'items', action: { kind: 'alter', changes: [
+      { op: 'addColumn', column: { name: 'note', type: 'text', nullable: true } },
+      { op: 'renameColumn', from: 'note', to: 'remark' },
+      { op: 'alterColumn', name: 'sku', type: 'varchar(40)' },
+      { op: 'addIndex', index: { name: 'items_remark', columns: ['remark'] } }
+    ] }, confirmed: true })
+    expect(await scalar(`SELECT count(*) FROM information_schema.columns WHERE table_name = 'items' AND column_name = 'remark'`)).toBe('1')
+
+    await core.structureApply(pg, { schema: 'public', table: 'items', action: { kind: 'duplicate', to: 'items_copy', withData: true } })
+    expect(await scalar('SELECT count(*) FROM items_copy')).toBe('1')
+
+    // Destructive actions wait for confirmation; a read-only connection refuses all of them.
+    await expect(core.structureApply(pg, { schema: 'public', table: 'items_copy', action: { kind: 'drop' } })).rejects.toMatchObject({ code: 'confirm' })
+    await expect(core.structureApply({ ...pg, readOnly: true }, { schema: 'public', table: 'items_copy', action: { kind: 'drop' }, confirmed: true })).rejects.toMatchObject({ code: 'read-only' })
+    await core.structureApply(pg, { schema: 'public', table: 'items_copy', action: { kind: 'truncate' }, confirmed: true })
+    expect(await scalar('SELECT count(*) FROM items_copy')).toBe('0')
+    await core.structureApply(pg, { schema: 'public', table: 'items_copy', action: { kind: 'drop' }, confirmed: true })
+    expect(await scalar(`SELECT to_regclass('public.items_copy') IS NULL`)).toBe('true')
+
+    await core.maintenance(pg, { schema: 'public', table: 'items', action: 'vacuum-analyze' })
+    await expect(core.maintenance(pg, { schema: 'public', table: 'items', action: 'reindex' })).rejects.toMatchObject({ code: 'confirm' })
+    await core.maintenance(pg, { schema: 'public', table: 'items', action: 'reindex', confirmed: true })
+  })
+
+  it('shows what depends on a table and who may use it, and lists, creates and drops databases and roles', async () => {
+    await exec('CREATE TABLE parents (id int PRIMARY KEY)')
+    await exec('CREATE TABLE kids (id int, parent int REFERENCES parents (id))')
+    await exec('CREATE VIEW parent_ids AS SELECT id FROM parents')
+    await exec('CREATE ROLE reader_x NOLOGIN')
+    await exec('GRANT SELECT ON parents TO reader_x')
+    const details = await core.sqlTable(pg, 'public', 'parents')
+    expect(details.dependents).toEqual([{ kind: 'foreign key', schema: 'public', name: 'kids' }, { kind: 'view', schema: 'public', name: 'parent_ids' }])
+    expect(details.privileges).toContainEqual({ grantee: 'reader_x', privilege: 'SELECT', grantable: false })
+    expect(details.privileges.some(item => item.grantee === 'oxe' && item.privilege === 'DELETE')).toBe(true)
+
+    const roles = await core.sqlRoles(pg)
+    expect(roles.find(role => role.name === 'oxe')).toMatchObject({ superuser: true, login: true })
+    expect(roles.find(role => role.name === 'reader_x')).toMatchObject({ login: false, superuser: false })
+    expect(roles.some(role => role.name.startsWith('pg_'))).toBe(false)
+
+    await core.sqlCreateDatabase(pg, { name: 'scratch db', encoding: 'UTF8', template: 'template0' })
+    const databases = await core.sqlDatabases(pg)
+    expect(databases.find(item => item.name === 'scratch db')).toMatchObject({ current: false, encoding: 'UTF8' })
+    expect(databases.find(item => item.name === 'appdb')?.current).toBe(true)
+    await expect(core.sqlCreateDatabase(pg, { name: 'bad', encoding: 'EBCDIC' })).rejects.toMatchObject({ code: 'invalid' })
+    await expect(core.sqlCreateDatabase({ ...pg, readOnly: true }, { name: 'nope' })).rejects.toMatchObject({ code: 'read-only' })
+    await expect(core.sqlDropDatabase(pg, { name: 'scratch db' })).rejects.toMatchObject({ code: 'confirm' })
+    await expect(core.sqlDropDatabase(pg, { name: 'appdb', confirmed: true })).rejects.toMatchObject({ code: 'invalid' })
+    await core.sqlDropDatabase(pg, { name: 'scratch db', confirmed: true })
+    expect((await core.sqlDatabases(pg)).some(item => item.name === 'scratch db')).toBe(false)
+  })
+
+  it('lists sequences, types, triggers and extensions, finds objects by name and re-creates their definitions', async () => {
+    await exec(`CREATE TYPE mood AS ENUM ('sad', 'it''s ok', 'happy')`)
+    await exec('CREATE TYPE pair AS (a int, b text)')
+    await exec('CREATE DOMAIN positive AS int CHECK (VALUE > 0)')
+    await exec('CREATE SEQUENCE ticket_seq START 100 INCREMENT 5')
+    await exec('CREATE TABLE audited (id int)')
+    await exec(`CREATE FUNCTION touch() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$`)
+    await exec('CREATE TRIGGER audited_touch BEFORE INSERT ON audited FOR EACH ROW EXECUTE FUNCTION touch()')
+    await exec('CREATE EXTENSION IF NOT EXISTS pgcrypto')
+
+    const objects = await core.sqlObjects(pg, 'public')
+    expect(objects.sequences.map(item => item.name)).toContain('ticket_seq')
+    expect(objects.types.find(item => item.name === 'mood')).toMatchObject({ kind: 'enum', values: ['sad', "it's ok", 'happy'] })
+    expect(objects.types.find(item => item.name === 'pair')?.kind).toBe('composite')
+    expect(objects.types.find(item => item.name === 'positive')?.kind).toBe('domain')
+    // A table's row type is not a user type.
+    expect(objects.types.map(item => item.name)).not.toContain('audited')
+    const trigger = objects.triggers.find(item => item.name === 'audited_touch')!
+    expect(trigger).toMatchObject({ table: 'audited', enabled: true })
+
+    expect((await core.sqlExtensions(pg)).map(item => item.name)).toContain('pgcrypto')
+
+    expect((await core.sqlSearch(pg, 'MOO')).hits).toEqual([{ kind: 'type', schema: 'public', name: 'mood', oid: expect.any(Number) }])
+    // LIKE wildcards in the search are text, not patterns.
+    expect((await core.sqlSearch(pg, '%')).hits).toEqual([])
+    expect((await core.sqlSearch(pg, 'audited')).hits.map(item => `${item.kind}:${item.name}`)).toEqual(['table:audited'])
+
+    const typeOf = (name: string) => objects.types.find(item => item.name === name)!.oid
+    expect((await core.sqlDefinition(pg, { kind: 'type', oid: typeOf('mood') })).text).toBe(`CREATE TYPE "public"."mood" AS ENUM ('sad', 'it''s ok', 'happy');`)
+    expect((await core.sqlDefinition(pg, { kind: 'type', oid: typeOf('pair') })).text).toMatch(/"a" integer,\n {2}"b" text/)
+    expect((await core.sqlDefinition(pg, { kind: 'type', oid: typeOf('positive') })).text).toBe('CREATE DOMAIN "public"."positive" AS integer;')
+    expect((await core.sqlDefinition(pg, { kind: 'sequence', schema: 'public', name: 'ticket_seq' })).text).toMatch(/START 100 INCREMENT 5/)
+    expect((await core.sqlDefinition(pg, { kind: 'trigger', oid: trigger.oid })).text).toMatch(/CREATE TRIGGER audited_touch BEFORE INSERT ON (public\.)?audited/)
+  })
+
   it('re-creates a table, a view and a function from the catalog', async () => {
     await exec('CREATE VIEW adults AS SELECT id, name FROM people WHERE age >= 18')
     await exec(`CREATE FUNCTION add_one(i int) RETURNS int LANGUAGE sql AS 'SELECT i + 1'`)
@@ -247,7 +542,7 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
   })
 
   it('creates a database container, lists resources and refuses to remove what is in use', async () => {
-    const runtime = new ContainerRuntime({ host: new LocalExecutionHost(), emit: () => undefined })
+    const runtime = new ContainerRuntime({ host: new LocalExecutionHost(), emit: () => undefined, preferred: () => ENGINE })
     const name = `oxe-new-${suffix}`
     try {
       const created = await runtime.createDatabase({ engine: 'postgres', name, tag: '16-alpine' })
@@ -260,7 +555,7 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
       expect(stats.some(item => item.name === name)).toBe(true)
       expect((await runtime.volumes()).some(item => item.name === `${name}-data`)).toBe(true)
       expect((await runtime.images()).some(item => item.repository.includes('postgres'))).toBe(true)
-      expect((await runtime.networks()).some(item => item.name === 'bridge')).toBe(true)
+      expect((await runtime.networks()).some(item => item.name === (ENGINE === 'podman' ? 'podman' : 'bridge'))).toBe(true)
       expect((await runtime.usage()).length).toBeGreaterThan(0)
       await expect(runtime.removeResource('volume', `${name}-data`)).rejects.toThrow()
       await expect(runtime.createDatabase({ engine: 'postgres', name, tag: '16-alpine' })).rejects.toThrow(/already exists/)
@@ -268,7 +563,8 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
       await expect(runtime.createDatabase({ engine: 'postgres', name: 'x1', tag: '16; rm -rf /' })).rejects.toThrow(/tag/)
       await core.closeConnection('fresh')
       docker('rm', '-f', name)
-      await runtime.removeResource('volume', `${name}-data`)
+      // An engine may take a moment to release a removed container's volume.
+      await until('volume released', async () => { try { await runtime.removeResource('volume', `${name}-data`); return true } catch { return false } }, 20_000)
       expect((await runtime.volumes()).some(item => item.name === `${name}-data`)).toBe(false)
     } finally {
       try { docker('rm', '-f', name) } catch { /* gone */ }

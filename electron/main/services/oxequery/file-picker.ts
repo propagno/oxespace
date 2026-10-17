@@ -2,6 +2,7 @@ import { BrowserWindow, dialog } from 'electron'
 import { readFile, stat } from 'node:fs/promises'
 import { basename } from 'node:path'
 import type { PickedKind } from './picked-files'
+import type { ExportFormat } from '../../../../shared/types/oxequery'
 
 const MAX_BYTES = 64 * 1024
 
@@ -13,10 +14,10 @@ const TITLES: Record<PickedKind, string> = {
 }
 
 const EXTENSIONS: Record<string, { name: string; extension: string }> = {
-  csv: { name: 'CSV', extension: 'csv' }, json: { name: 'JSON', extension: 'json' }, ndjson: { name: 'Newline-delimited JSON', extension: 'ndjson' }, sql: { name: 'SQL', extension: 'sql' }
+  csv: { name: 'CSV', extension: 'csv' }, json: { name: 'JSON', extension: 'json' }, ndjson: { name: 'Newline-delimited JSON', extension: 'ndjson' }, sql: { name: 'SQL', extension: 'sql' }, xlsx: { name: 'Excel workbook', extension: 'xlsx' }
 }
 
-export type SavePathPicker = (suggestedName: string, format: 'csv' | 'json' | 'ndjson' | 'sql') => Promise<string | null>
+export type SavePathPicker = (suggestedName: string, format: ExportFormat) => Promise<string | null>
 
 /** Native save dialog for an export. The renderer never names the destination. */
 export const pickExportPath: SavePathPicker = async (suggestedName, format) => {
@@ -56,7 +57,7 @@ export const pickCredentialFile: FilePicker = async kind => {
     title: TITLES[kind],
     properties: ['openFile' as const],
     filters: kind === 'sshKey'
-      ? [{ name: 'Private keys', extensions: ['pem', 'key', 'ppk', ''] }, { name: 'All files', extensions: ['*'] }]
+      ? [{ name: 'Private keys', extensions: ['pem', 'key', ''] }, { name: 'All files', extensions: ['*'] }]
       : [{ name: 'PEM files', extensions: ['pem', 'crt', 'cer', 'key'] }, { name: 'All files', extensions: ['*'] }]
   }
   const result = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options)

@@ -4,19 +4,57 @@
  * Claude Code and Codex read these files themselves; OXESpace only lists them
  * so a person can see why the agent behaves as it does. The lookup mirrors the
  * documented order (user scope, then each directory from the repository root
- * down to the working directory) and never reads file contents.
+ * down to the working directory). It reads nothing but the first few KiB of a rule file, to
+ * learn which files the rule is limited to (`paths:` in its header).
  */
-import { existsSync, readdirSync, statSync } from 'node:fs'
+import { closeSync, existsSync, openSync, readdirSync, readSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join, relative, resolve, sep } from 'node:path'
+import { load as loadYaml } from 'js-yaml'
 
 export interface InstructionSource {
   path: string
   scope: 'user' | 'project' | 'directory' | 'local' | 'rules'
   bytes: number
+  /** A rule that applies only when the agent works with files matching these globs. */
+  paths?: string[]
 }
 
 const MAX_RULES = 50
+const RULE_DEPTH = 3
+const HEADER_BYTES = 4096
+
+/** The `paths:` globs of a rule file's YAML header; empty for a rule that always applies. */
+function ruleScope(path: string): string[] {
+  let text = ''
+  try {
+    const fd = openSync(path, 'r')
+    try {
+      const buffer = Buffer.alloc(HEADER_BYTES)
+      text = buffer.subarray(0, readSync(fd, buffer, 0, HEADER_BYTES, 0)).toString('utf8')
+    } finally { closeSync(fd) }
+  } catch { return [] }
+  const header = text.match(/^---\r?\n([\s\S]*?)\r?\n---/)
+  if (!header) return []
+  try {
+    const value = (loadYaml(header[1]) as { paths?: unknown } | null)?.paths
+    const list = typeof value === 'string' ? value.split(',') : Array.isArray(value) ? value : []
+    return list.filter((item): item is string => typeof item === 'string').map(item => item.trim()).filter(Boolean).slice(0, 20)
+  } catch { return [] }
+}
+
+/** Markdown files under a rules folder, folders included, in a stable order. */
+function ruleFiles(dir: string, depth = 0): string[] {
+  let names: import('node:fs').Dirent[]
+  try { names = readdirSync(dir, { withFileTypes: true }) } catch { return [] }
+  names.sort((a, b) => a.name.localeCompare(b.name))
+  const out: string[] = []
+  for (const entry of names) {
+    if (entry.isFile() && entry.name.endsWith('.md')) out.push(join(dir, entry.name))
+    else if (entry.isDirectory() && depth < RULE_DEPTH) out.push(...ruleFiles(join(dir, entry.name), depth + 1))
+  }
+  return out
+}
 
 function fileSize(path: string): number | null {
   try {
@@ -44,22 +82,23 @@ export function instructionSources(provider: 'claude' | 'codex', cwd: string, ho
   const found: InstructionSource[] = []
   const add = (path: string, scope: InstructionSource['scope']): void => {
     const bytes = fileSize(path)
-    if (bytes !== null && !found.some(item => item.path === path)) found.push({ path, scope, bytes })
+    if (bytes === null || found.some(item => item.path === path)) return
+    const paths = scope === 'rules' ? ruleScope(path) : []
+    found.push({ path, scope, bytes, ...(paths.length ? { paths } : {}) })
   }
   const chain = chainFromRepoRoot(cwd)
   const root = chain[0]
   if (provider === 'claude') {
-    add(join(process.env.CLAUDE_CONFIG_DIR || join(home, '.claude'), 'CLAUDE.md'), 'user')
+    const claudeHome = process.env.CLAUDE_CONFIG_DIR || join(home, '.claude')
+    add(join(claudeHome, 'CLAUDE.md'), 'user')
+    for (const file of ruleFiles(join(claudeHome, 'rules')).slice(0, MAX_RULES)) add(file, 'rules')
     for (const dir of chain) {
       const scope = dir === root ? 'project' : 'directory'
       add(join(dir, 'CLAUDE.md'), scope)
       add(join(dir, '.claude', 'CLAUDE.md'), scope)
     }
     add(join(resolve(cwd), 'CLAUDE.local.md'), 'local')
-    const rulesDir = join(root, '.claude', 'rules')
-    try {
-      for (const name of readdirSync(rulesDir).filter(name => name.endsWith('.md')).sort().slice(0, MAX_RULES)) add(join(rulesDir, name), 'rules')
-    } catch { /* no rules directory */ }
+    for (const file of ruleFiles(join(root, '.claude', 'rules')).slice(0, MAX_RULES)) add(file, 'rules')
   } else {
     const codexHome = process.env.CODEX_HOME || join(home, '.codex')
     add(join(codexHome, 'AGENTS.override.md'), 'user')

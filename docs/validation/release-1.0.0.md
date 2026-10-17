@@ -15,17 +15,17 @@ Atualizado em 2026-10-14. **Não publicado.** Este arquivo só passa a "pronto" 
 ## Limites conhecidos (a declarar nas notas públicas)
 - `mcp-sync` grava `env` e `headers` de servidores MCP em texto puro no `.mcp.json` de cada projeto.
 - Os ensaios visuais por pixel são locais no Windows; não há baselines Linux nesta versão (a menos que o job de baselines Linux seja entregue).
-- Itens ainda por registrar: OxeQuery, memória, aprovação de comandos, importação de MCP, /events e skills (dependem do fechamento dos portões G4, G5 e G7).
+- Limites de aprovação, /events, importação MCP e skills estão em docs/releases/1.0.0.md. Pendentes de registro: OxeQuery (G5) e memória (G4).
 
 ## Evidências (preencher com run, comando e SHA)
 | Portão | Evidência | SHA |
 |---|---|---|
-| G1 build, typecheck, lint, vitest | run 38733700859: unit/integração, cobertura OxeQuery e build verdes em Windows e Linux | 41918c8 |
-| G2 E2E Windows e Linux, 2 runs seguidos | 1 de 2: run 38733700859 (E2E smoke Windows e Linux verdes); falta o segundo no SHA final | 41918c8 |
-| G3 pacote Windows e Linux | run 38733700859: instalador e E2E do pacote verdes em Windows e Linux; job de publicação ignorado | 41918c8 |
-| G4 compatibilidade da memória | run 38734029908 (memory-compatibility, release/1.0.0): 4/4 células verdes, 21/21 testes no 2.6.2 sem skips | 41918c8 |
-| G5 OxeQuery | _pendente_ | |
-| G6 regressão visual | _pendente_ | |
-| G7 segurança | _pendente_ | |
-| G8 upgrade a partir de v0.17.1 | `OXESPACE_UPGRADE_FROM=v0.17.1 node scripts/test-electron.mjs tests/integration/upgrade-rehearsal.native.test.ts`: 6/6 passaram (schema 073 da tag v0.17.1 `876435c0db` para 076) | 6101ca2 |
-| G10 revisão manual 960×640 e axe | axe: 6 elementos serious em 44 (ver relatório) | |
+| G1 build, typecheck, lint, vitest | runs 38788636623 e 38792967900: unit/integração, cobertura OxeQuery e build verdes em Windows e Linux; typecheck e lint locais limpos | 801c9c0 |
+| G2 E2E Windows e Linux, 2 runs seguidos | runs 38788636623 e 38792967900 (workflow_dispatch, packaged_smoke_only): E2E smoke verde em Windows e Linux nos dois. Histórico: run 38784025503 (5c3c111) também verde; o `documentation-preview` intermitente no Linux era uma corrida do teste, corrigida em 35ec31b | 801c9c0 |
+| G3 pacote Windows e Linux | runs 38788636623 e 38792967900: instalador e E2E do pacote verdes em Windows e Linux (aprovação `shellCheck` com `bash-grammar`; flag da memória desligada no binário real); job de publicação ignorado nesses runs | 801c9c0 |
+| G4 compatibilidade da memória | run 38780310630 (memory-compatibility, release/1.0.0): 4/4 células verdes (Windows e Linux x 2.1.0 e 2.6.2), 21/21 testes no 2.6.2 sem skips. A memória segue desligada por padrão no build | 869ae0a |
+| G5 OxeQuery | `oxequery-live` (podman, PG/Mongo/SSH/TLS) e `oxequery-live-versions` (PG e Mongo mais antigos e mais novos) verdes nos dois runs finais; E2E de OxeQuery verdes; axe sem achados nas telas varridas. Limite: o axe usa IPC simulado (vê estados vazios) e não houve revisão manual com dados reais | 801c9c0 |
+| G6 regressão visual | **Limite declarado:** baselines win32 não foram regeradas no SHA final; a máquina de trabalho ficou sem memória (build local morto duas vezes pelo sistema). Os baselines anteriores seguem como estavam; não há baselines Linux | |
+| G7 segurança | revisão `docs/validation/thread-command-approval-security-review.md`; `shellCheck` com parser `bash-grammar` provado no pacote Windows e Linux (run 38747710417). Pendente: revisão manual do cartão de aprovação com provedor real (usuário); se não ocorrer, fica como limite conhecido | 35ec31b |
+| G8 upgrade a partir de v0.17.1 | `OXESPACE_UPGRADE_FROM=v0.17.1 node scripts/test-electron.mjs tests/integration/upgrade-rehearsal.native.test.ts`: 6/6; `migrations`, `db-replay`, `db-reopen`: 39/39 | 801c9c0 |
+| G10 revisão manual 960×640 e axe | axe no CI (workflow `a11y-axe`, run 38784281844): 4 testes, 0 violações críticas ou sérias em 27 telas nos dois temas, Settings nos dois escopos. Revisão manual com dados reais não feita (limite) | 81ae6c4 |

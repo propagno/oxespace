@@ -194,3 +194,7 @@
   .settings-scope-choices button { max-width: 95px; }
   .settings-general-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* A select keeps the control height of the ui Select: vertical padding on top of it clipped the text
+   (Voice model on Linux) and the horizontal padding hid the arrow. */
+.settings-center .settings-field select, .settings-field select { height: var(--control-lg); padding: 0 var(--space-6) 0 10px; line-height: normal; }

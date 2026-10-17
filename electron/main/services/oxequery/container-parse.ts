@@ -236,17 +236,37 @@ export function suggestFromInspect(stdout: string): { suggestion: ConnectionSugg
   }
 }
 
-/** One JSON object per line (Docker) or one JSON array (Podman). */
-function jsonEntries(stdout: string): Record<string, unknown>[] {
-  const trimmed = stdout.trim()
-  if (!trimmed) return []
-  if (trimmed.startsWith('[')) {
-    try { return (JSON.parse(trimmed) as unknown[]).map(record) } catch { return [] }
+/**
+ * The objects in a listing: one per line (Docker), one array (Podman), or objects written out over several
+ * lines one after another (what a Go template's `json` can print). Scans for each top-level value, honoring
+ * strings, so a brace inside a name cannot split an object.
+ */
+export function jsonEntries(stdout: string): Record<string, unknown>[] {
+  const text = stdout.trim()
+  if (!text) return []
+  if (text.startsWith('[')) {
+    try { return (JSON.parse(text) as unknown[]).map(record) } catch { return [] }
   }
   const out: Record<string, unknown>[] = []
-  for (const line of trimmed.split(/\r?\n/)) {
-    if (!line.trim()) continue
-    try { out.push(record(JSON.parse(line))) } catch { /* partial line */ }
+  let depth = 0
+  let begin = -1
+  let inString = false
+  for (let index = 0; index < text.length; index++) {
+    const char = text[index]!
+    if (inString) {
+      if (char === '\\') index++
+      else if (char === '"') inString = false
+      continue
+    }
+    if (char === '"') inString = true
+    else if (char === '{') { if (depth === 0) begin = index; depth++ }
+    else if (char === '}' && depth > 0) {
+      depth--
+      if (depth === 0 && begin >= 0) {
+        try { out.push(record(JSON.parse(text.slice(begin, index + 1)))) } catch { /* a partial object */ }
+        begin = -1
+      }
+    }
   }
   return out
 }
@@ -289,7 +309,8 @@ export function parseVolumes(stdout: string): VolumeInfo[] {
 
 export function parseNetworks(stdout: string): NetworkInfo[] {
   return jsonEntries(stdout).map(entry => ({
-    id: (text(entry.ID) || text(entry.Id)).slice(0, 64), name: text(entry.Name), driver: text(entry.Driver), scope: text(entry.Scope)
+    // Docker prints Name, ID, Driver, Scope; Podman prints the same fields in lower case.
+    id: (text(entry.ID) || text(entry.Id) || text(entry.id)).slice(0, 64), name: text(entry.Name) || text(entry.name), driver: text(entry.Driver) || text(entry.driver), scope: text(entry.Scope) || text(entry.scope)
   })).filter(item => item.name)
 }
 
@@ -298,3 +319,30 @@ export function parseDiskUsage(stdout: string): DiskUsageRow[] {
     type: text(entry.Type), total: Number(entry.TotalCount ?? entry.Total) || 0, active: Number(entry.Active) || 0, size: text(entry.Size), reclaimable: text(entry.Reclaimable)
   })).filter(item => item.type)
 }
+
+
+export interface DockerContext { name: string; endpoint: string; current: boolean }
+
+/** `docker context ls --format '{{json .}}'`: one object per line. */
+export function parseContexts(stdout: string): DockerContext[] {
+  const out: DockerContext[] = []
+  for (const line of stdout.split(/\r?\n/)) {
+    if (!line.trim()) continue
+    try {
+      const value = JSON.parse(line) as { Name?: unknown; DockerEndpoint?: unknown; Current?: unknown }
+      if (typeof value.Name === 'string' && /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/.test(value.Name)) {
+        out.push({ name: value.Name, endpoint: typeof value.DockerEndpoint === 'string' ? value.DockerEndpoint : '', current: value.Current === true })
+      }
+    } catch { /* a line that is not JSON is not a context */ }
+  }
+  return out
+}
+
+/** Whether `docker ps` against one daemon worked, was refused for this user, or found nothing there. */
+export function classifyProbe(code: number, stderr: string): 'ready' | 'denied' | 'unreachable' {
+  if (code === 0) return 'ready'
+  return /permission denied|got permission denied/i.test(stderr) ? 'denied' : 'unreachable'
+}
+
+/** Only local sockets and pipes are contacted; an ssh:// or tcp:// context is somebody else's machine. */
+export const isLocalEndpoint = (endpoint: string): boolean => /^(unix:\/\/|npipe:\/\/)/.test(endpoint)

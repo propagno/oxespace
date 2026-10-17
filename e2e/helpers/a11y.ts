@@ -31,7 +31,17 @@ export async function scanSurface(page: Page, surface: string, options: ScanOpti
   // analysed, which is what is wanted here: the preview webviews are third-party content.
   let builder = new AxeBuilder({ page }).setLegacyMode(true).withTags(TAGS).exclude('.xterm').exclude('.monaco-editor').exclude('.monaco-diff-editor')
   for (const selector of options.exclude ?? []) builder = builder.exclude(selector)
+  // OXE_A11Y_STEPS=<file> records when each scan starts and ends. A clean surface writes nothing to the
+  // report, so without this a test that stalls cannot be told apart from one that found nothing.
+  const steps = process.env.OXE_A11Y_STEPS
+  const note = (what: string): void => {
+    if (!steps) return
+    mkdirSync(dirname(steps), { recursive: true })
+    appendFileSync(steps, `${new Date().toISOString().slice(11, 23)} ${what} ${surface}\n`)
+  }
+  note('start')
   const result = await builder.analyze()
+  note(`end(${result.violations.length})`)
   return result.violations.map(violation => ({
     surface,
     rule: violation.id,

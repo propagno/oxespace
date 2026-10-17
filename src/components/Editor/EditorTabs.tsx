@@ -50,6 +50,7 @@ export function EditorTabs({
             key={tab.relativePath}
             role="tab"
             aria-selected={isActive}
+            aria-keyshortcuts="Delete"
             tabIndex={isActive ? 0 : -1}
             title={tab.relativePath}
             draggable
@@ -67,6 +68,9 @@ export function EditorTabs({
               if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault()
                 onActivate(tab.relativePath)
+              } else if (event.key === 'Delete') {
+                event.preventDefault()
+                onClose(tab.relativePath)
               }
             }}
             onAuxClick={(event) => {
@@ -106,17 +110,17 @@ export function EditorTabs({
             {tab.pinned ? <Pin size={12} aria-hidden="true" className="editor-tab-pin" /> : null}
             <span className="editor-tab-label">{basename(tab.relativePath)}</span>
             {isDirty ? <span className="editor-tab-dot" aria-label="Unsaved changes" /> : null}
-            <button
-              type="button"
+            {/* A tab cannot own a control: keyboard and assistive tech close with Delete, the pointer uses this. */}
+            <span
               className="editor-tab-close"
-              aria-label={`Close ${tab.relativePath}`}
+              aria-hidden="true"
               onClick={(event) => {
                 event.stopPropagation()
                 onClose(tab.relativePath)
               }}
             >
               <X size={12} aria-hidden="true" />
-            </button>
+            </span>
           </div>
         )
       })}

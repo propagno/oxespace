@@ -5,6 +5,8 @@
  * `OxeQueryOps`. Secrets (database passwords) never appear in an output type.
  */
 
+import type { MaintenanceAction, StructureAction, StructurePlan, StructureResult } from './oxequery-structure'
+
 export type ContainerEngine = 'docker' | 'podman'
 export type DatabaseEngine = 'postgres' | 'mongodb'
 
@@ -21,6 +23,21 @@ export interface ContainerEngineInfo {
   /** `docker context show`; a remote context means the daemon is not local. */
   context?: string
   error?: string
+}
+
+/** A Docker daemon this computer can reach: a named context or the system socket. */
+export interface ContainerEngineCandidate {
+  /** `context:<name>` or `socket:system`; the only values `containers.useCandidate` accepts. */
+  id: string
+  label: string
+  endpoint: string
+  /** The one the Docker CLI uses when nothing is chosen. */
+  current: boolean
+  /** The one OxeQuery is using now. */
+  selected: boolean
+  /** ready: answered; denied: the socket refuses this user; unreachable: no daemon; not-checked: remote endpoints are never contacted. */
+  state: 'ready' | 'denied' | 'unreachable' | 'not-checked'
+  containers?: number
 }
 
 export interface ContainerPort {
@@ -113,7 +130,10 @@ export interface ConnectionSuggestion {
  */
 export type SslMode = 'disable' | 'prefer' | 'require' | 'verify-ca' | 'verify-full'
 export type AgentAccess = 'off' | 'read' | 'write'
-export type SshAuth = 'key' | 'password'
+export type SshAuth = 'key' | 'password' | 'agent'
+/** Identity colors for a connection's tab and bar; the page maps each to a design token. */
+export const CONNECTION_COLORS = ['blue', 'violet', 'pink', 'amber', 'green', 'teal'] as const
+export type ConnectionColor = typeof CONNECTION_COLORS[number]
 
 export interface SshSettings { host: string; port: number; user: string; auth: SshAuth; hasSecret: boolean; keyName?: string }
 export interface MongoOptions { authSource: string; replicaSet: string; directConnection: boolean; srv: boolean; extraHosts: string[] }
@@ -139,8 +159,29 @@ export interface OxeQueryConnection {
   statementTimeoutMs: number
   maxRows: number
   agentAccess: AgentAccess
+  /** Folder in the connection list; empty for none. */
+  group: string
+  favorite: boolean
+  color: ConnectionColor | ''
+  /** Column or field names (any part of the name) the agent gateway hides for this connection. */
+  maskPatterns: string[]
+  lastUsedAt: number
+  /** Seconds between keep-alive probes on the connection and its SSH tunnel; 0 turns them off. */
+  keepaliveSeconds: number
+  /** Connected for this session only: not saved, gone when the app closes. */
+  ephemeral?: boolean
   createdAt: number
   updatedAt: number
+}
+
+/** OxeQuery's settings. */
+export interface OxeQueryPreferences {
+  /** Statements kept in each connection's history. */
+  historyLimit: number
+  /** Days the agent audit log is kept. */
+  auditRetentionDays: number
+  /** The most an agent may be given on a connection of each kind, whatever the connection says. */
+  agentCeiling: Record<ConnectionEnvironment, AgentAccess>
 }
 
 export interface OxeQueryConnectionInput {
@@ -169,6 +210,11 @@ export interface OxeQueryConnectionInput {
   statementTimeoutMs?: number
   maxRows?: number
   agentAccess?: AgentAccess
+  group?: string
+  favorite?: boolean
+  color?: ConnectionColor | ''
+  maskPatterns?: string[]
+  keepaliveSeconds?: number
 }
 
 export interface ConnectionTestResult {
@@ -188,6 +234,10 @@ export interface SqlResult {
   rowCount: number
   /** More rows exist than were returned. */
   truncated: boolean
+  /** Why the rows stop: the row limit, or the size of the result. */
+  limitedBy?: 'rows' | 'bytes'
+  /** Exact number of rows a filtered table browse matches, when it was cheap to count. */
+  totalRows?: number
   durationMs: number
   command?: string
   affectedRows?: number
@@ -200,7 +250,38 @@ export interface SqlRunInput {
   maxRows?: number
   /** The user confirmed a statement the guard flagged. */
   confirmed?: boolean
+  /** Values for `$1`, `$2`…; text the server casts to the parameter's type (null is NULL). */
+  params?: (string | null)[]
 }
+
+/** A script: every statement runs on its own, in order, and the run stops at the first one that fails. */
+export interface SqlScriptInput { connectionId: string; sql: string; maxRows?: number; confirmed?: boolean }
+export interface ScriptStatementResult {
+  index: number
+  /** Offsets of the statement in the script text. */
+  start: number
+  end: number
+  /** The first characters of the statement. */
+  sql: string
+  result?: SqlResult
+  error?: { code: string; message: string; position?: number; sqlState?: string; hint?: string }
+}
+export interface SqlScriptResult { statements: ScriptStatementResult[]; stoppedAt?: number }
+
+/** The query tabs of a connection as they are saved: text only, never results. */
+export interface WorkspaceState {
+  v: 1
+  activeId: string
+  tabs: { id: string; title: string; sql: string; pinned?: boolean }[]
+  /** Tables the person pinned to the top of the schema tree. */
+  pinned?: { schema: string; name: string; kind: SqlTable['kind'] }[]
+}
+
+export interface SqlTxState { state: 'none' | 'open' | 'failed'; statements: number; since?: number }
+
+export type SqlFilterOp = 'eq' | 'ne' | 'lt' | 'lte' | 'gt' | 'gte' | 'contains' | 'startsWith' | 'endsWith' | 'null' | 'notNull' | 'in'
+/** One condition of the table filter bar. `value` is text the server casts to the column type. */
+export interface SqlFilter { column: string; op: SqlFilterOp; value?: string }
 
 export interface SqlGuardVerdict {
   kind: 'read' | 'write' | 'ddl' | 'destructive' | 'empty'
@@ -209,9 +290,22 @@ export interface SqlGuardVerdict {
 }
 
 export interface SqlTable { schema: string; name: string; kind: 'table' | 'view' | 'materialized view' | 'foreign table' | 'partitioned table'; approxRows?: number }
-export interface SqlColumnInfo { name: string; type: string; nullable: boolean; default?: string; primaryKey: boolean; position: number }
+/** The tables of one schema; `total` is larger than `tables.length` when the list was cut. */
+export interface SqlTables { tables: SqlTable[]; total: number }
+export interface SqlColumnInfo { name: string; type: string; nullable: boolean; default?: string; primaryKey: boolean; position: number; identity?: 'always' | 'by-default'; generated?: string; comment?: string }
 export interface SqlIndexInfo { name: string; definition: string; unique: boolean; primary: boolean }
-export interface SqlTableDetails { columns: SqlColumnInfo[]; indexes: SqlIndexInfo[]; foreignKeys: { name: string; definition: string }[] }
+export interface SqlConstraintInfo { name: string; kind: 'primary' | 'unique' | 'check' | 'exclusion'; definition: string }
+export interface SqlTableProperties { kind: string; owner: string; comment?: string; sizeBytes: number; estimatedRows: number }
+export interface SqlDependent { kind: 'foreign key' | 'view'; schema: string; name: string }
+export interface SqlPrivilege { grantee: string; privilege: string; grantable: boolean }
+export interface SqlTableDetails {
+  columns: SqlColumnInfo[]; indexes: SqlIndexInfo[]; foreignKeys: { name: string; definition: string }[]; constraints: SqlConstraintInfo[]; properties: SqlTableProperties | null
+  /** What breaks if the table is dropped: tables that reference it and views that read it. */
+  dependents: SqlDependent[]
+  privileges: SqlPrivilege[]
+}
+export interface SqlDatabaseInfo { name: string; owner: string; encoding: string; sizeBytes: number | null; connectionLimit: number; current: boolean }
+export interface SqlRoleInfo { name: string; superuser: boolean; createDatabase: boolean; createRole: boolean; login: boolean; replication: boolean; connectionLimit: number; memberOf: string[] }
 
 export interface SqlBrowseInput {
   connectionId: string
@@ -220,6 +314,7 @@ export interface SqlBrowseInput {
   limit?: number
   offset?: number
   orderBy?: { column: string; direction: 'asc' | 'desc' }
+  filters?: SqlFilter[]
 }
 
 /** One edit to a table row. Values are text that the server casts to the column type, or null. */
@@ -305,7 +400,7 @@ export interface OxeQueryAuditEntry {
   errorCode: string | null
 }
 
-export type ExportFormat = 'csv' | 'json' | 'ndjson' | 'sql'
+export type ExportFormat = 'csv' | 'json' | 'ndjson' | 'sql' | 'xlsx'
 export type ExportSource =
   | { kind: 'sql'; sql: string }
   | { kind: 'table'; schema: string; table: string }
@@ -332,6 +427,14 @@ export interface ExportResult {
 export type ImportTarget =
   | { kind: 'table'; schema: string; table: string }
   | { kind: 'collection'; database: string; collection: string }
+/** How a CSV file is read. */
+export interface ImportReadOptions {
+  delimiter?: 'auto' | ',' | ';' | '\t' | '|'
+  hasHeader?: boolean
+  encoding?: 'auto' | 'utf-8' | 'utf-16le' | 'utf-16be' | 'windows-1252'
+}
+/** What to do with a row whose key already exists in a table. */
+export interface ImportConflict { mode: 'error' | 'skip' | 'update'; columns: string[] }
 export interface ImportPreview {
   /** Handle for the chosen file; the page never learns its path. */
   importId: string
@@ -346,6 +449,9 @@ export interface ImportPreview {
   targetColumns: { name: string; type: string; nullable: boolean; hasDefault: boolean; generated: boolean }[]
   /** Suggested file field → column mapping (same name, case-insensitive). */
   mapping: Record<string, string>
+  /** The options in force and what was guessed, for a CSV. */
+  options?: ImportReadOptions
+  detected?: { delimiter: string; encoding: string }
   dismissed?: boolean
 }
 export interface ImportRunInput {
@@ -358,10 +464,16 @@ export interface ImportRunInput {
   dryRun?: boolean
   emptyAsNull?: boolean
   confirmed?: boolean
+  options?: ImportReadOptions
+  conflict?: ImportConflict
 }
 export interface ImportResult {
   dryRun: boolean
   inserted: number
+  /** Rows that already existed and were changed (conflict mode update). */
+  updated?: number
+  /** Rows that already existed and were left alone (conflict mode skip). */
+  skipped?: number
   rejected: number
   /** First rejected rows with the reason. */
   rejects: { row: number; reason: string }[]
@@ -392,10 +504,57 @@ export interface MongoAggregateInput {
   /** EJSON array text. */
   pipeline: string
   limit?: number
+  skip?: number
+}
+export interface MongoBulkInput {
+  connectionId: string
+  database: string
+  collection: string
+  op: 'updateMany' | 'deleteMany'
+  filter: string
+  /** Update operators (or a short pipeline) for updateMany. */
+  update?: string
+  /** Count what would change and write nothing. */
+  dryRun?: boolean
+  /** The count the person saw and agreed to; a different count now means the data moved, so nothing runs. */
+  expectedCount?: number
+  confirmed?: boolean
+}
+export interface MongoBulkResult { matched: number; modified: number; deleted: number; dryRun: boolean }
+export type MongoCollectionAction =
+  | { kind: 'create'; capped?: boolean; sizeBytes?: number; maxDocuments?: number }
+  | { kind: 'rename'; to: string }
+  | { kind: 'drop' }
+export interface MongoStats { documents: number; sizeBytes: number; avgDocumentBytes: number; storageBytes: number; indexes: number; indexBytes: number; capped: boolean }
+export interface MongoValidation { validator: string | null; level: 'off' | 'moderate' | 'strict'; action: 'error' | 'warn' }
+export interface MongoExplainSummary {
+  stage: string
+  index?: string
+  keysExamined?: number
+  docsExamined?: number
+  returned?: number
+  timeMs?: number
+  stages: string[]
+  warnings: string[]
+  /** The server's answer as EJSON, for a person who wants all of it. */
+  raw: string
+}
+export interface MongoExplainInput {
+  connectionId: string
+  database: string
+  collection: string
+  kind: 'find' | 'aggregate'
+  filter?: string
+  projection?: string
+  sort?: string
+  pipeline?: string
+  verbosity?: 'queryPlanner' | 'executionStats'
 }
 export interface MongoResult {
   /** One EJSON (relaxed) string per document. */
   documents: string[]
+  /** Positions of documents whose text was cut at 64 KB; they are fetched whole before an edit. */
+  oversized?: { index: number; /** The document's `_id` as editable EJSON. */ id: string }[]
   truncated: boolean
   durationMs: number
   /** Total matching documents when it was cheap to learn. */
@@ -405,9 +564,18 @@ export interface MongoIndexInfo { name: string; keys: string; unique: boolean }
 export interface MongoSchemaField { path: string; /** Percent of sampled documents that have the field. */ presence: number; types: { type: string; count: number }[] }
 export interface MongoSchema { sampled: number; fields: MongoSchemaField[]; truncated: boolean }
 export interface SqlFunctionInfo { oid: number; name: string; args: string; kind: 'function' | 'procedure' }
+export interface SqlSequenceInfo { name: string; dataType: string; lastValue: number | null }
+export interface SqlTypeInfo { oid: number; name: string; kind: 'enum' | 'composite' | 'domain' | 'range'; values?: string[] }
+export interface SqlTriggerInfo { oid: number; name: string; table: string; definition: string; enabled: boolean }
+export interface SqlObjects { sequences: SqlSequenceInfo[]; types: SqlTypeInfo[]; triggers: SqlTriggerInfo[]; truncated: boolean }
+export interface SqlExtensionInfo { name: string; version: string; schema: string }
+export interface SqlSearchHit { kind: SqlTable['kind'] | 'function' | 'procedure' | 'sequence' | 'type'; schema: string; name: string; args?: string; oid?: number }
+export interface SqlSearchResult { hits: SqlSearchHit[]; truncated: boolean }
 export type SqlDefinitionTarget =
-  | { kind: 'table' | 'view'; schema: string; name: string }
+  | { kind: 'table' | 'view' | 'sequence'; schema: string; name: string }
   | { kind: 'function'; oid: number }
+  | { kind: 'trigger'; oid: number }
+  | { kind: 'type'; oid: number }
 
 export type ContainerLogEvent = { type: 'container-log'; streamId: string; lines: string[] } | { type: 'container-log-end'; streamId: string; reason: string }
 export type OxeQueryEvent = ContainerLogEvent | { type: 'containers-changed' } | { type: 'export-progress'; exportId: string; rows: number; bytes: number } | { type: 'import-progress'; importId: string; rows: number }
@@ -418,9 +586,12 @@ export interface KnownHost { host: string; port: number; fingerprint: string; fi
 export interface OxeQueryOps {
   /** Proves the database worker loads and its bundled drivers are present. */
   'system.ping': { input: Record<string, never>; output: { ok: true; drivers: { postgres: boolean; mongodb: boolean; ssh: boolean }; node: string } }
-  'containers.engines': { input: Record<string, never>; output: ContainerEngineInfo[] }
+  'containers.engines': { input: { refresh?: boolean }; output: ContainerEngineInfo[] }
+  'containers.candidates': { input: Record<string, never>; output: ContainerEngineCandidate[] }
+  'containers.useCandidate': { input: { id: string | null }; output: ContainerEngineCandidate[] }
   'containers.list': { input: { engine?: ContainerEngine }; output: { engine: ContainerEngine; containers: ContainerSummary[] } }
   'containers.inspect': { input: { engine?: ContainerEngine; id: string }; output: ContainerInspect }
+  'containers.compose': { input: { engine?: ContainerEngine; id: string; action: 'up' | 'down' | 'start' | 'stop' | 'restart' | 'logs'; confirmed?: boolean; tail?: number }; output: { output: string } }
   'containers.action': { input: { engine?: ContainerEngine; id: string; action: ContainerAction }; output: { ok: true } }
   'containers.exec': { input: { engine?: ContainerEngine; id: string; argv: string[]; timeoutMs?: number }; output: ContainerExecResult }
   'containers.logsStart': { input: { engine?: ContainerEngine; id: string; tail?: number }; output: { streamId: string } }
@@ -428,6 +599,14 @@ export interface OxeQueryOps {
   'containers.shell': { input: { engine?: ContainerEngine; id: string; shell?: 'sh' | 'bash' }; output: { paneId: string } }
   'containers.suggestConnection': { input: { engine?: ContainerEngine; id: string }; output: ConnectionSuggestion | null }
   'connections.list': { input: Record<string, never>; output: OxeQueryConnection[] }
+  'connections.update': { input: { id: string; group?: string; favorite?: boolean; color?: ConnectionColor | '' }; output: OxeQueryConnection }
+  'connections.duplicate': { input: { id: string }; output: OxeQueryConnection }
+  'connections.connectEphemeral': { input: OxeQueryConnectionInput; output: OxeQueryConnection }
+  'connections.reconnect': { input: { id: string }; output: ConnectionTestResult }
+  'connections.export': { input: { ids?: string[] }; output: { saved: boolean; count: number } }
+  'connections.import': { input: Record<string, never>; output: { imported: number; skipped: number } }
+  'preferences.get': { input: Record<string, never>; output: OxeQueryPreferences }
+  'preferences.set': { input: Partial<Omit<OxeQueryPreferences, 'agentCeiling'>> & { agentCeiling?: Partial<OxeQueryPreferences['agentCeiling']> }; output: OxeQueryPreferences }
   'connections.save': { input: OxeQueryConnectionInput; output: OxeQueryConnection }
   'connections.delete': { input: { id: string }; output: { ok: true } }
   'connections.test': { input: { id: string }; output: ConnectionTestResult }
@@ -439,27 +618,49 @@ export interface OxeQueryOps {
   'files.pick': { input: { kind: PickKind }; output: { handle: string; name: string } | null }
   'connections.fromContainer': { input: { engine?: ContainerEngine; id: string; name?: string }; output: OxeQueryConnection }
   'sql.schemas': { input: { connectionId: string }; output: string[] }
-  'sql.tables': { input: { connectionId: string; schema: string }; output: SqlTable[] }
+  'sql.tables': { input: { connectionId: string; schema: string }; output: SqlTables }
   'sql.table': { input: { connectionId: string; schema: string; table: string }; output: SqlTableDetails }
   'sql.run': { input: SqlRunInput; output: SqlResult }
   'sql.browse': { input: SqlBrowseInput; output: SqlResult }
   'sql.cancel': { input: { connectionId: string }; output: { cancelled: boolean } }
+  'sql.script': { input: SqlScriptInput; output: SqlScriptResult }
+  'workspace.load': { input: { connectionId: string }; output: { state: WorkspaceState | null } }
+  'workspace.save': { input: { connectionId: string; state: WorkspaceState }; output: { ok: true } }
+  'sql.tx': { input: { connectionId: string; action: 'begin' | 'commit' | 'rollback' | 'status' }; output: SqlTxState }
   'sql.editability': { input: { connectionId: string; schema: string; table: string }; output: SqlEditability }
   /** The statements a set of changes would run, with values written in. Executes nothing. */
   'sql.previewChanges': { input: SqlApplyInput; output: { statements: string[] } }
   'sql.apply': { input: SqlApplyInput; output: SqlApplyResult }
+  'sql.structure.preview': { input: { connectionId: string; schema: string; table: string; action: StructureAction }; output: StructurePlan }
+  'sql.structure.apply': { input: { connectionId: string; schema: string; table: string; action: StructureAction; confirmed?: boolean }; output: StructureResult }
+  'sql.maintenance': { input: { connectionId: string; schema: string; table: string; action: MaintenanceAction; confirmed?: boolean }; output: { statement: string; durationMs: number } }
   'sql.check': { input: { connectionId: string; sql: string }; output: SqlGuardVerdict }
   'mongo.databases': { input: { connectionId: string }; output: MongoDatabaseInfo[] }
   'mongo.collections': { input: { connectionId: string; database: string }; output: MongoCollectionInfo[] }
   'mongo.find': { input: MongoFindInput; output: MongoResult }
   'mongo.aggregate': { input: MongoAggregateInput; output: MongoResult }
+  'mongo.bulk': { input: MongoBulkInput; output: MongoBulkResult }
+  'mongo.collection': { input: { connectionId: string; database: string; collection: string; action: MongoCollectionAction; confirmed?: boolean }; output: { ok: true } }
+  'mongo.stats': { input: { connectionId: string; database: string; collection: string }; output: MongoStats }
+  'mongo.validation': { input: { connectionId: string; database: string; collection: string }; output: MongoValidation }
+  'mongo.setValidation': { input: { connectionId: string; database: string; collection: string; validator: string | null; level: MongoValidation['level']; action: MongoValidation['action'] }; output: { ok: true } }
+  'mongo.explain': { input: MongoExplainInput; output: MongoExplainSummary }
+  'mongo.cancel': { input: { connectionId: string }; output: { cancelled: boolean } }
   'mongo.indexes': { input: { connectionId: string; database: string; collection: string }; output: MongoIndexInfo[] }
   'mongo.schema': { input: { connectionId: string; database: string; collection: string; sampleSize?: number }; output: MongoSchema }
   'mongo.createIndex': { input: { connectionId: string; database: string; collection: string; keys: string; unique?: boolean; confirmed?: boolean }; output: { name: string } }
   'mongo.dropIndex': { input: { connectionId: string; database: string; collection: string; name: string; confirmed?: boolean }; output: { dropped: boolean } }
   'sql.functions': { input: { connectionId: string; schema: string }; output: SqlFunctionInfo[] }
+  'sql.databases': { input: { connectionId: string }; output: SqlDatabaseInfo[] }
+  'sql.createDatabase': { input: { connectionId: string; name: string; owner?: string; template?: string; encoding?: string }; output: { ok: true } }
+  'sql.dropDatabase': { input: { connectionId: string; name: string; confirmed?: boolean }; output: { ok: true } }
+  'sql.roles': { input: { connectionId: string }; output: SqlRoleInfo[] }
+  'sql.objects': { input: { connectionId: string; schema: string }; output: SqlObjects }
+  'sql.extensions': { input: { connectionId: string }; output: SqlExtensionInfo[] }
+  'sql.search': { input: { connectionId: string; query: string }; output: SqlSearchResult }
   'sql.definition': { input: { connectionId: string } & SqlDefinitionTarget; output: { text: string } }
   'mongo.write': { input: MongoWriteInput; output: MongoWriteResult }
+  'mongo.document': { input: { connectionId: string; database: string; collection: string; id: string }; output: { text: string } }
   'export.run': { input: ExportInput; output: ExportResult }
   'sql.explain': { input: SqlExplainInput; output: SqlExplain }
   'containers.stats': { input: { engine?: ContainerEngine }; output: ContainerStat[] }
@@ -467,7 +668,7 @@ export interface OxeQueryOps {
   'resources.volumes': { input: { engine?: ContainerEngine }; output: VolumeInfo[] }
   'resources.networks': { input: { engine?: ContainerEngine }; output: NetworkInfo[] }
   'resources.usage': { input: { engine?: ContainerEngine }; output: DiskUsageRow[] }
-  'resources.remove': { input: { kind: ResourceKind; id: string; engine?: ContainerEngine }; output: { ok: true } }
+  'resources.remove': { input: { kind: ResourceKind; id: string; engine?: ContainerEngine; confirmed?: boolean }; output: { ok: true } }
   'containers.createDatabase': { input: CreateDatabaseInput; output: OxeQueryConnection }
   'audit.list': { input: { connectionId?: string; limit?: number }; output: OxeQueryAuditEntry[] }
   'library.list': { input: { connectionId: string }; output: { saved: SavedQuery[]; history: QueryHistoryItem[] } }
@@ -476,6 +677,7 @@ export interface OxeQueryOps {
   'library.clearHistory': { input: { connectionId: string }; output: { deleted: number } }
   'export.cancel': { input: { exportId: string }; output: { cancelled: boolean } }
   'import.preview': { input: { connectionId: string; target: ImportTarget }; output: ImportPreview }
+  'import.reparse': { input: { connectionId: string; importId: string; target: ImportTarget; options: ImportReadOptions }; output: ImportPreview }
   'import.run': { input: ImportRunInput; output: ImportResult }
   'import.cancel': { input: { importId: string }; output: { cancelled: boolean } }
 }

@@ -398,6 +398,11 @@
 .thread-panel-list>div { display: flex; justify-content: space-between; gap: 16px; }
 .thread-panel-list span { color: var(--tx-muted); overflow-wrap: anywhere; }
 .thread-command-dialog form { display: flex; gap: 8px; }
+.thread-command-dialog form.thread-command-form { flex-direction: column; gap: var(--space-3); }
+.thread-command-form label { display: grid; gap: var(--space-1); color: var(--tx-secondary); font-size: var(--fs-sm); }
+.thread-command-explanation { margin: 0; color: var(--tx-secondary); line-height: 1.5; }
+.thread-command-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
+.thread-command-actions:empty { display: none; }
 .thread-command-dialog input { flex: 1; min-width: 0; padding: 8px; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); background: var(--bg-app); color: var(--tx-primary); }
 @media (max-width: 1000px) { .thread-config-trigger span { max-width: 135px; } .thread-composer footer { gap: 4px; } }
 
@@ -614,13 +619,13 @@
 .thread-hunk-comment { display: grid; gap: 6px; padding: 6px 8px 8px; }
 .thread-hunk-comment textarea { min-height: 56px; resize: vertical; font: inherit; }
 .thread-hunk-comment button { justify-self: end; }
-.thread-mcp-health { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--dot-red); border-radius: 999px; color: var(--dot-red); background: transparent; font: inherit; font-size: var(--fs-2xs); cursor: pointer; }
-.thread-mcp-health-popover { z-index: calc(var(--layer-dropdown) + 20); display: grid; gap: 6px; max-width: 320px; padding: 13px; border: 1px solid var(--bd-base); border-radius: var(--surface-radius); background: var(--bg-elevated); color: var(--tx-primary); box-shadow: 0 14px 34px #0006; font-size: var(--fs-xs); }
-.thread-mcp-health-popover > span { color: var(--tx-secondary); }
-.thread-mcp-health-popover ul { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
-.thread-mcp-health-popover li { display: flex; justify-content: space-between; gap: 8px; }
-.thread-mcp-health-popover li.is-failed small, .thread-mcp-health-popover li.is-needs-auth small { color: var(--dot-red); }
-.thread-mcp-health-popover button { justify-self: start; }
+.thread-mcp-health { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--bd-base); border-radius: 999px; color: var(--tx-secondary); background: transparent; font: inherit; font-size: var(--fs-2xs); font-variant-numeric: tabular-nums; cursor: pointer; }
+.thread-mcp-health:hover { color: var(--tx-primary); border-color: var(--bd-strong, var(--bd-base)); }
+.thread-mcp-health.is-warning { border-color: var(--intent-danger-fg); color: var(--intent-danger-fg); }
+.thread-mcp-health-popover { display: grid; gap: var(--space-3); width: min(360px, calc(100vw - 32px)); max-height: min(60vh, 520px); overflow: auto; font-size: var(--fs-xs); }
+.thread-mcp-health-popover header { display: grid; gap: 2px; }
+.thread-mcp-health-popover header span { color: var(--tx-secondary); }
+.thread-mcp-health-popover > button { justify-self: start; }
 .thread-sent-brief { margin-top: 4px; color: var(--tx-secondary); font-size: var(--fs-2xs); }
 .thread-sent-brief summary { cursor: pointer; }
 .thread-sent-brief pre { margin: 4px 0 0; padding: 6px 8px; border: 1px solid var(--bd-base); border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -646,3 +651,4 @@
 /* The composer footer reads as three groups: add to the prompt, model and access, then status and send. */
 .thread-composer-group { display: flex; align-items: center; gap: 2px; min-width: 0; }
 .thread-composer-status { padding-left: 8px; border-left: 1px solid var(--bd-base); }
+.thread-composer-limit { margin: 0; padding: 0 var(--space-3) var(--space-2); color: var(--intent-danger-fg); font-size: var(--fs-xs); }
