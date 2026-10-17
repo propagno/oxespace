@@ -77,6 +77,8 @@ function httpsJson<T>(url: string): Promise<T> {
         }
       })
     }).on('error', reject)
+      // Without a deadline a stalled connection left Settings on "Checking GitHub…" for good.
+      .setTimeout(15_000, function (this: { destroy(error: Error): void }) { this.destroy(new Error('GitHub did not answer within 15 seconds')) })
   })
 }
 
