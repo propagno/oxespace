@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { execFileSync } from 'node:child_process'
 import { rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -61,6 +62,8 @@ for (const theme of THEMES) {
 
       const repo = `${root}/repo`
       seedGitRepo(repo, { withBranchChanges: true })
+      // A linked worktree, so the Worktrees panel offers a removal to confirm.
+      execFileSync('git', ['worktree', 'add', '-q', '-b', 'a11y/tree', `${root}/repo-tree`], { cwd: repo })
       await page.getByTestId('btn-new-workspace').click()
       await page.getByTestId('wizard-dir-input').fill(repo)
       await page.getByTestId('wizard-layout-card-1').click()
@@ -79,7 +82,7 @@ for (const theme of THEMES) {
       await record(await scanSurface(page, `${theme}/command-palette`), found)
       await page.keyboard.press('Escape')
 
-      await openTool(page, /^Review/)
+      await openTool(page, /^Changes$/)
       const panel = page.getByTestId('changes-panel')
       await expect(panel).toBeVisible()
       await panel.getByRole('complementary', { name: 'Changed files' }).getByRole('treeitem', { name: 'app.ts' }).click()
@@ -93,25 +96,41 @@ for (const theme of THEMES) {
         await expect(page.getByText('Changes', { exact: true }).first()).toBeVisible()
       })
 
-      await openTool(page, /^GitHub/)
-      await expect(page.getByTestId('workspace-github-panel')).toBeVisible()
-      await record(await scanSurface(page, `${theme}/github`), found)
+      await reach(`${theme}/github`, found, page, async () => {
+        await openTool(page, /^Commit & pull request$/)
+        await expect(page.getByTestId('workspace-github-panel')).toBeVisible()
+      })
 
       await reach(`${theme}/find-in-files`, found, page, async () => {
-        await openTool(page, /^Find in Files/)
+        await openTool(page, /^Find in files$/)
         await expect(page.getByTestId('workspace-search-panel')).toBeVisible()
       })
       await reach(`${theme}/editor`, found, page, async () => {
-        await openTool(page, /^Editor/)
+        await openTool(page, /^Files$/)
         const editor = page.getByTestId('workspace-editor-panel')
         await expect(editor).toBeVisible()
         await editor.getByRole('tree', { name: 'Files' }).getByRole('treeitem', { name: 'README.md' }).click()
         await expect(editor.getByRole('tab', { name: /README\.md/ })).toBeVisible()
       })
       await reach(`${theme}/web-preview`, found, page, async () => {
-        await openTool(page, /^Web Preview/)
+        await openTool(page, /^Browser$/)
         await expect(page.getByTestId('workspace-web-preview-panel')).toBeVisible()
       })
+      // Dialogs moved onto the ui Dialog (feat/ui-dialogs-1.1). Each is opened, scanned and closed.
+      const dialogScan = async (name: string, open: () => Promise<void>, dialog: () => ReturnType<Page['getByRole']>): Promise<void> => {
+        await reach(`${theme}/dialog-${name}`, found, page, async () => {
+          await open()
+          await expect(dialog()).toBeVisible()
+        })
+        await page.keyboard.press('Escape')
+        await expect(dialog()).toHaveCount(0, { timeout: 5_000 }).catch(() => undefined)
+      }
+      await dialogScan('team', () => page.getByRole('button', { name: 'Team', exact: true }).click(), () => page.getByRole('dialog', { name: 'Team', exact: true }))
+      await dialogScan('delegated-work', () => page.getByRole('button', { name: 'Delegated work', exact: true }).click(), () => page.getByRole('dialog', { name: 'Delegated work', exact: true }))
+      await dialogScan('worktree-removal', async () => {
+        await openTool(page, /^Worktrees$/)
+        await page.getByRole('button', { name: /^Remove worktree / }).first().click()
+      }, () => page.getByRole('dialog').filter({ hasText: /Remove/ }).first())
       await reach(`${theme}/settings`, found, page, async () => {
         await page.getByRole('button', { name: 'Open settings', exact: true }).click()
         await expect(page.locator('.settings-center')).toBeVisible()
@@ -146,6 +165,10 @@ for (const theme of THEMES) {
           })
         }
       }
+      await dialogScan('agent-config', async () => {
+        await page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /Agents/ }).first().click()
+        await page.locator('[data-testid^="btn-configure-agent-"]').first().click()
+      }, () => page.getByRole('dialog').filter({ hasText: /command|Command/ }).last())
       await page.getByRole('button', { name: 'Close settings', exact: true }).click().catch(() => undefined)
       await reach(`${theme}/oxequery`, found, page, async () => {
         await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
@@ -184,6 +207,31 @@ for (const theme of THEMES) {
         await expect(page.locator('.thread-view')).toContainText(THREAD_STATES[state].title.split(' ')[0])
         await record(await scanSurface(page, `${theme}/thread-${state}`), found)
       }
+      // Thread dialogs on the ui Dialog. Each is opened, scanned and closed; one that cannot be opened in the
+      // scripted state is recorded as 'scan-not-reached', not as clean.
+      const dialogScan = async (name: string, open: () => Promise<void>, dialog: () => ReturnType<Page['getByRole']>): Promise<void> => {
+        await reach(`${theme}/dialog-${name}`, found, page, async () => {
+          await open()
+          await expect(dialog()).toBeVisible()
+        })
+        await page.keyboard.press('Escape')
+        await expect(dialog()).toHaveCount(0, { timeout: 5_000 }).catch(() => undefined)
+      }
+      page.setDefaultTimeout(10_000)
+      await dialogScan('thread-new', () => page.getByRole('button', { name: /^New thread/ }).first().click(), () => page.getByRole('dialog', { name: 'New thread' }))
+      await dialogScan('thread-new-worktree', async () => {
+        await page.getByRole('button', { name: /^New thread/ }).first().click()
+        await page.getByRole('dialog', { name: 'New thread' }).getByRole('checkbox', { name: 'Create in a new worktree' }).check()
+      }, () => page.getByRole('dialog', { name: 'New thread' }))
+      await dialogScan('thread-rename', async () => {
+        await page.getByRole('button', { name: /^Actions for / }).first().click()
+        await page.getByRole('menuitem', { name: 'Rename conversation…' }).click()
+      }, () => page.getByRole('dialog').first())
+      await dialogScan('thread-project-settings', async () => {
+        await page.getByRole('button', { name: /^Actions for / }).filter({ hasNot: page.locator('[data-thread-id]') }).last().click()
+        await page.getByRole('menuitem', { name: 'Project settings' }).click()
+      }, () => page.getByRole('dialog', { name: /^Thread project/ }))
+      await dialogScan('thread-accounts', () => page.getByRole('button', { name: 'Agent accounts', exact: true }).click(), () => page.getByRole('dialog', { name: 'Agent accounts' }))
     } finally {
       await app.close()
     }
