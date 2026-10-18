@@ -93,6 +93,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       auditLog: (id, options) => ipc.invoke(IPC_CHANNELS.thread.auditLog, id, options) as Promise<import('../../shared/types/thread').ThreadAuditEntry[]>,
       autoApproveReads: () => ipc.invoke(IPC_CHANNELS.thread.autoApproveReads) as Promise<boolean>,
       setAutoApproveReads: (enabled) => ipc.invoke(IPC_CHANNELS.thread.setAutoApproveReads, enabled) as Promise<boolean>,
+      idleSuspendMinutes: () => ipc.invoke(IPC_CHANNELS.thread.idleSuspendMinutes) as Promise<number>,
+      setIdleSuspendMinutes: (minutes) => ipc.invoke(IPC_CHANNELS.thread.setIdleSuspendMinutes, minutes) as Promise<number>,
       shellCheck: (command) => ipc.invoke(IPC_CHANNELS.thread.shellCheck, command) as Promise<import('../../shared/types/thread').ThreadShellCheck>,
       debugEvents: (id, options) => ipc.invoke(IPC_CHANNELS.thread.debugEvents, id, options) as Promise<import('../../shared/types/thread').ThreadDebugPage>,
       usageSummary: (id, options) => ipc.invoke(IPC_CHANNELS.thread.usageSummary, id, options) as Promise<import('../../shared/types/thread').ThreadUsageSummary>,
@@ -242,6 +244,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       getDiff: (input) => ipc.invoke(IPC_CHANNELS.git.getDiff, input) as Promise<GitDiff>,
       getDiffSummary: (input) => ipc.invoke(IPC_CHANNELS.git.getDiffSummary, input) as Promise<import('../../shared/types/git').GitDiffSummary>,
       getFileOriginal: (input) => ipc.invoke(IPC_CHANNELS.git.getFileOriginal, input) as Promise<import('../../shared/types/git').GitFileOriginal>,
+      getFileAtRef: (input) => ipc.invoke(IPC_CHANNELS.git.getFileAtRef, input) as Promise<import('../../shared/types/git').GitFileOriginal>,
       onDiffUpdate: (listener) => subscribe<GitDiff>(ipc, IPC_CHANNELS.git.onDiffUpdate, listener)
     },
     search: {
@@ -295,7 +298,9 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       install: (agent) => ipc.invoke(IPC_CHANNELS.agentHooks.install, agent) as Promise<import('../../shared/types/agent-hooks').AgentHooksStatus>,
       remove: (agent) => ipc.invoke(IPC_CHANNELS.agentHooks.remove, agent) as Promise<import('../../shared/types/agent-hooks').AgentHooksStatus>,
       onStatus: (listener) =>
-        subscribe<import('../../shared/types/agent-hooks').AgentHookStatusEvent>(ipc, IPC_CHANNELS.agentHooks.onStatus, listener)
+        subscribe<import('../../shared/types/agent-hooks').AgentHookStatusEvent>(ipc, IPC_CHANNELS.agentHooks.onStatus, listener),
+      onLocation: (listener) =>
+        subscribe<import('../../shared/types/agent-hooks').AgentHookLocationEvent>(ipc, IPC_CHANNELS.agentHooks.onLocation, listener)
     },
     notifications: {
       notify: (payload) => ipc.invoke(IPC_CHANNELS.notifications.notify, payload) as Promise<boolean>,

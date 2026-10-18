@@ -9,3 +9,7 @@ export function assertThreadMessage(text: string, limit = THREAD_MESSAGE_MAX_CHA
   if (!text.trim()) throw new Error('Message is empty')
   if (text.length > limit) throw new Error(`This message has ${text.length.toLocaleString('en-US')} characters; the limit is ${limit.toLocaleString('en-US')}. Attach long text as a file instead.`)
 }
+
+/** Idle minutes after which a conversation's agent process is closed (0: never). The next message resumes it. */
+export const THREAD_IDLE_SUSPEND_CHOICES = [0, 5, 15, 30, 60]
+export const THREAD_IDLE_SUSPEND_DEFAULT_MINUTES = 15

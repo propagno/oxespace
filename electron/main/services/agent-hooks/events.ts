@@ -80,6 +80,8 @@ export interface HookPayload {
   agent_id?: unknown
   session_id?: unknown
   source?: unknown
+  /** Working directory of the session; both Claude Code and Codex send it on every hook. */
+  cwd?: unknown
   [key: string]: unknown
 }
 

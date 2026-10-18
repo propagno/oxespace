@@ -51,7 +51,7 @@ describe('transparent file changes', () => {
     expect(screen.getByRole('menuitemradio', { name: 'Find in files' })).toBeVisible()
     expect(screen.getByRole('menuitemradio', { name: 'Scripts' })).toBeVisible()
     expect(screen.getByRole('menuitemradio', { name: 'Background activity' })).toBeVisible()
-    expect(screen.getByRole('menuitemradio', { name: 'Web preview' })).toBeVisible()
+    expect(screen.getByRole('menuitemradio', { name: 'Browser' })).toBeVisible()
     for (const removed of ['Session changes', 'Project changes', 'Source control', 'Agents', 'Plan', 'Activity', 'Diagnostics']) expect(screen.queryByRole('menuitemradio', { name: removed })).toBeNull()
   })
   it('renders native agent lifecycle with child IDs and a collapsible result', () => {

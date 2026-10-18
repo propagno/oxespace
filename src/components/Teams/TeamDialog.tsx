@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { AgentTeam, TeamRole, TeamScope } from '../../../shared/types/team'
-import { DesktopDialog } from '../Navigation/DesktopDialog'
 import './TeamDialog.css'
 import { TeamMessages } from './TeamMessages'
-import { Button, TextField } from '../../ui'
+import { Button, Dialog, TextField } from '../../ui'
 
 const roles: Record<TeamRole, string> = { coordinator: 'Coordinator / integrator', 'project-manager': 'Project manager', 'product-manager': 'Product manager', developer: 'Developer', reviewer: 'Reviewer' }
 export function TeamDialog({ scope, owner, onClose }: { scope: TeamScope; owner?: { kind: 'thread' | 'pane'; id: string }; onClose: () => void }) {
@@ -25,7 +24,7 @@ export function TeamDialog({ scope, owner, onClose }: { scope: TeamScope; owner?
     catch (e) { setError(String(e)); if (api) { try { setTeam(await api.read(scope)) } catch { /* Preserve the original error. */ } } }
     finally { setBusy(false) }
   }
-  return <DesktopDialog className="team-dialog" title="Team" description="Persistent roles for this project, shared by Code and Thread." onClose={onClose}>
+  return <Dialog className="team-dialog" size="lg" title="Team" description="Persistent roles for this project, shared by Code and Thread." onClose={onClose}>
     <div className="team-dialog-body">
       {error && <p role="alert">{error}</p>}
       {!team && !error && <p role="status">Loading team…</p>}
@@ -54,6 +53,5 @@ export function TeamDialog({ scope, owner, onClose }: { scope: TeamScope; owner?
         {team.members.filter(m => m.id === selected && !m.archived).map(member => <TeamMessages key={member.id} scope={scope} member={member} members={team.members} />)}
       </>}
     </div>
-    <footer className="team-dialog-footer"><Button variant="secondary" onClick={onClose}>Done</Button></footer>
-  </DesktopDialog>
+  </Dialog>
 }

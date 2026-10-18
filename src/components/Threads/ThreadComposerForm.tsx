@@ -1,9 +1,9 @@
 import type { ReactNode, RefObject, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { ArrowUp, AtSign, CornerDownLeft, Mic, Paperclip, Plug, Plus, Slash, Square, X } from 'lucide-react'
-import { DropdownMenu } from 'radix-ui'
 import type { ThreadAttachment, ThreadSnapshot } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
 import { useUIStore } from '../../store/ui.store'
+import { Menu } from '../../ui'
 import { VoiceHud } from '../Voice/VoiceHud'
 import { ThreadConfigurationBar } from './ThreadConfigurationBar'
 import { ThreadCostChip } from './ThreadCostChip'
@@ -59,19 +59,16 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
     {mentions.popup}
     {attachments.length > 0 && <div className="thread-attachments" aria-label="Attachments">{attachments.map(attachment => <div key={attachment.id}><span>{attachment.name}</span><small>{Math.ceil(attachment.bytes / 1024)} KB</small><button type="button" aria-label={`Remove ${attachment.name}`} disabled={pending} onClick={() => onRemoveAttachment(attachment.id)}><X size={12} /></button></div>)}</div>}
     <input ref={fileInput} type="file" hidden multiple accept="image/png,image/jpeg,image/webp,image/gif" onChange={event => { onUpload(Array.from(event.target.files ?? [])); event.target.value = '' }} />
-    <textarea ref={textarea} data-thread-composer="true" aria-label={active ? 'Message' : `Message in ${snapshot?.thread.title ?? 'conversation'}`} {...commands.inputProps} placeholder={snapshot ? 'Ask about your project, or / for commands…' : 'Create a thread to get started…'} value={draft} disabled={blocked}
+    <textarea ref={textarea} data-thread-composer="true" data-dialog-return aria-label={active ? 'Message' : `Message in ${snapshot?.thread.title ?? 'conversation'}`} {...commands.inputProps} placeholder={!snapshot ? 'Create a thread to get started…' : snapshot.thread.connection?.suspendedAt ? 'Closed while idle to free memory. Your next message resumes the session…' : 'Ask about your project, or / for commands…'} value={draft} disabled={blocked}
       onChange={e => { onCaret(e.target.selectionStart); commands.onChange(e.target.value, e.target.selectionStart) }} onSelect={e => { onCaret(e.currentTarget.selectionStart); commands.onSelect(e.currentTarget.selectionStart) }} onFocus={commands.onFocus} onBlur={commands.onBlur}
       onPaste={event => { const files = [...event.clipboardData.files].filter(file => file.type.startsWith('image/')); if (files.length) { event.preventDefault(); onUpload(files) } }}
       onKeyDown={e => { if (mentions.onKeyDown(e)) return; if (commands.onKeyDown(e)) return; if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); onSend() } else if (e.key === 'Escape' && running && !pending) { e.preventDefault(); e.stopPropagation(); onInterrupt() } }} />
     <footer><div className="thread-composer-group"><button type="button" className="thread-command-trigger" aria-label="Show thread commands" title="Commands & skills · Ctrl+/" aria-haspopup="listbox" aria-expanded={commands.open} disabled={blocked} onMouseDown={e => e.preventDefault()} onClick={commands.show}><Slash size={14} /></button>
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger asChild><button type="button" className="thread-command-trigger" aria-label="Add to prompt" title="Attach, mention a file or connect tools" disabled={!snapshot || pending}><Plus size={14} /></button></DropdownMenu.Trigger>
-        <DropdownMenu.Portal><DropdownMenu.Content collisionPadding={{ top: 44, right: 8, bottom: 8, left: 8 }} className="thread-more-menu" side="top" align="start" sideOffset={8}>
-          <DropdownMenu.Item className="thread-more-item" disabled={attachments.length >= 8 || !api?.attach} onSelect={() => fileInput.current?.click()}><span><Paperclip size={14} /> Attach image</span></DropdownMenu.Item>
-          <DropdownMenu.Item className="thread-more-item" onSelect={onInsertMention}><span><AtSign size={14} /> Mention a file</span></DropdownMenu.Item>
-          <DropdownMenu.Item className="thread-more-item" onSelect={() => useUIStore.getState().openMcpPanel()}><span><Plug size={14} /> MCP connections</span></DropdownMenu.Item>
-        </DropdownMenu.Content></DropdownMenu.Portal>
-      </DropdownMenu.Root>
+      <Menu label="Add to prompt" side="top" items={[
+        { label: 'Attach image', icon: <Paperclip size={14} />, disabled: attachments.length >= 8 || !api?.attach, onSelect: () => fileInput.current?.click() },
+        { label: 'Mention a file', icon: <AtSign size={14} />, onSelect: onInsertMention },
+        { label: 'MCP connections', icon: <Plug size={14} />, onSelect: () => useUIStore.getState().openMcpPanel() }
+      ]} trigger={<button type="button" className="thread-command-trigger" aria-label="Add to prompt" title="Attach, mention a file or connect tools" disabled={!snapshot || pending}><Plus size={14} /></button>} />
       <button type="button" className="thread-command-trigger" aria-label="Voice input" title="Voice input · Ctrl+Shift+V" disabled={!snapshot || pending || !voice.isSupported} onClick={voice.toggle}><Mic size={14} /></button></div>
       {snapshot && <ThreadConfigurationBar key={snapshot.thread.id} thread={snapshot.thread} openControl={openControl} onControlClosed={onControlClosed} onError={onError} onConfigured={value => useThreadStore.getState().updateSnapshot(value)} />}
       {running && snapshot?.thread.capabilities?.features.steering?.enabled && <button type="button" className="thread-command-trigger" aria-label="Steer active turn" title="Send guidance to the active turn" disabled={pending || (!draft.trim() && !attachments.length)} onClick={() => onSend('steer')}><CornerDownLeft size={14} /></button>}

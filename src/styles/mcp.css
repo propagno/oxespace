@@ -1,20 +1,5 @@
 /* ─── MCP panel ─────────────────────────────────────────────────────────── */
 
-.mcp-panel-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: var(--layer-overlay);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 52px 24px 24px;
-  /* Plain dimmer — was a teal radial-gradient. */
-  background: var(--scrim);
-  backdrop-filter: blur(8px);
-  animation: model-selector-fade 140ms ease-out;
-  overflow: hidden;
-}
-
 .mcp-panel {
   width: min(780px, calc(100vw - 48px));
   max-height: calc(100vh - 76px);

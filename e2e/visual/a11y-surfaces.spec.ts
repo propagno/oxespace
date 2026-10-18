@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { execFileSync } from 'node:child_process'
 import { rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -43,7 +44,7 @@ async function reach(surface: string, found: Violation[], page: Page, open: () =
 
 async function openTool(page: Page, name: RegExp): Promise<void> {
   await page.getByTestId('btn-open-tools').click()
-  await page.getByTestId('tools-modal').getByRole('menuitem', { name }).click()
+  await page.getByRole('menu', { name: 'Panels' }).getByRole('menuitemcheckbox', { name }).click()
 }
 
 for (const theme of THEMES) {
@@ -61,6 +62,8 @@ for (const theme of THEMES) {
 
       const repo = `${root}/repo`
       seedGitRepo(repo, { withBranchChanges: true })
+      // A linked worktree, so the Worktrees panel offers a removal to confirm.
+      execFileSync('git', ['worktree', 'add', '-q', '-b', 'a11y/tree', `${root}/repo-tree`], { cwd: repo })
       await page.getByTestId('btn-new-workspace').click()
       await page.getByTestId('wizard-dir-input').fill(repo)
       await page.getByTestId('wizard-layout-card-1').click()
@@ -70,7 +73,7 @@ for (const theme of THEMES) {
       await record(await scanSurface(page, `${theme}/workspace`), found)
 
       await page.getByTestId('btn-open-tools').click()
-      await expect(page.getByTestId('tools-modal')).toBeVisible()
+      await expect(page.getByRole('menu', { name: 'Panels' })).toBeVisible()
       await record(await scanSurface(page, `${theme}/tools-menu`), found)
       await page.keyboard.press('Escape')
 
@@ -79,7 +82,7 @@ for (const theme of THEMES) {
       await record(await scanSurface(page, `${theme}/command-palette`), found)
       await page.keyboard.press('Escape')
 
-      await openTool(page, /^Review/)
+      await openTool(page, /^Changes$/)
       const panel = page.getByTestId('changes-panel')
       await expect(panel).toBeVisible()
       await panel.getByRole('complementary', { name: 'Changed files' }).getByRole('treeitem', { name: 'app.ts' }).click()
@@ -93,25 +96,41 @@ for (const theme of THEMES) {
         await expect(page.getByText('Changes', { exact: true }).first()).toBeVisible()
       })
 
-      await openTool(page, /^GitHub/)
-      await expect(page.getByTestId('workspace-github-panel')).toBeVisible()
-      await record(await scanSurface(page, `${theme}/github`), found)
+      await reach(`${theme}/github`, found, page, async () => {
+        await openTool(page, /^Commit & pull request$/)
+        await expect(page.getByTestId('workspace-github-panel')).toBeVisible()
+      })
 
       await reach(`${theme}/find-in-files`, found, page, async () => {
-        await openTool(page, /^Find in Files/)
+        await openTool(page, /^Find in files$/)
         await expect(page.getByTestId('workspace-search-panel')).toBeVisible()
       })
       await reach(`${theme}/editor`, found, page, async () => {
-        await openTool(page, /^Editor/)
+        await openTool(page, /^Files$/)
         const editor = page.getByTestId('workspace-editor-panel')
         await expect(editor).toBeVisible()
         await editor.getByRole('tree', { name: 'Files' }).getByRole('treeitem', { name: 'README.md' }).click()
         await expect(editor.getByRole('tab', { name: /README\.md/ })).toBeVisible()
       })
       await reach(`${theme}/web-preview`, found, page, async () => {
-        await openTool(page, /^Web Preview/)
+        await openTool(page, /^Browser$/)
         await expect(page.getByTestId('workspace-web-preview-panel')).toBeVisible()
       })
+      // Dialogs moved onto the ui Dialog (feat/ui-dialogs-1.1). Each is opened, scanned and closed.
+      const dialogScan = async (name: string, open: () => Promise<void>, dialog: () => ReturnType<Page['getByRole']>): Promise<void> => {
+        await reach(`${theme}/dialog-${name}`, found, page, async () => {
+          await open()
+          await expect(dialog()).toBeVisible()
+        })
+        await page.keyboard.press('Escape')
+        await expect(dialog()).toHaveCount(0, { timeout: 5_000 }).catch(() => undefined)
+      }
+      await dialogScan('team', () => page.getByRole('button', { name: 'Team', exact: true }).click(), () => page.getByRole('dialog', { name: 'Team', exact: true }))
+      await dialogScan('delegated-work', () => page.getByRole('button', { name: 'Delegated work', exact: true }).click(), () => page.getByRole('dialog', { name: 'Delegated work', exact: true }))
+      await dialogScan('worktree-removal', async () => {
+        await openTool(page, /^Worktrees$/)
+        await page.getByRole('button', { name: /^Remove worktree / }).first().click()
+      }, () => page.getByRole('dialog').filter({ hasText: /Remove/ }).first())
       await reach(`${theme}/settings`, found, page, async () => {
         await page.getByRole('button', { name: 'Open settings', exact: true }).click()
         await expect(page.locator('.settings-center')).toBeVisible()
@@ -146,6 +165,13 @@ for (const theme of THEMES) {
           })
         }
       }
+      await dialogScan('agent-config', async () => {
+        // The mock lists no agents, so the configuration opens for a new custom agent (Agents page).
+        // The loop above ends in the workspace scope, whose pages do not include Agents.
+        await page.locator('.settings-scope-choices button').first().click()
+        await page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Agents/ }).first().click()
+        await page.getByTestId('btn-new-custom-agent').click()
+      }, () => page.getByRole('dialog').last())
       await page.getByRole('button', { name: 'Close settings', exact: true }).click().catch(() => undefined)
       await reach(`${theme}/oxequery`, found, page, async () => {
         await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
@@ -159,6 +185,21 @@ for (const theme of THEMES) {
         await page.getByRole('button', { name: 'New connection' }).first().click()
         await expect(page.getByRole('dialog')).toBeVisible()
       })
+      // The mock answers a test through an SSH tunnel with an unknown host key.
+      await reach(`${theme}/dialog-ssh-host-key`, found, page, async () => {
+        const connection = page.getByRole('dialog', { name: 'New connection' })
+        await connection.getByLabel('Name').fill('Behind bastion')
+        await connection.getByLabel('Host', { exact: true }).fill('db.private')
+        await connection.getByRole('button', { name: /SSH tunnel/ }).click()
+        await connection.getByRole('checkbox', { name: /Connect through an SSH server/ }).check()
+        await connection.getByLabel('SSH host').fill('bastion.example.com')
+        await connection.getByLabel('SSH user').fill('deploy')
+        await connection.getByRole('button', { name: 'Choose file…' }).click()
+        await expect(connection.getByText('sshKey.pem')).toBeVisible()
+        await connection.getByRole('button', { name: 'Test connection' }).click()
+        await expect(page.getByRole('dialog', { name: 'Trust this SSH host key?' })).toBeVisible()
+      })
+      await page.keyboard.press('Escape')
       await page.keyboard.press('Escape')
     } finally {
       await app.close()
@@ -184,6 +225,50 @@ for (const theme of THEMES) {
         await expect(page.locator('.thread-view')).toContainText(THREAD_STATES[state].title.split(' ')[0])
         await record(await scanSurface(page, `${theme}/thread-${state}`), found)
       }
+      // Thread dialogs on the ui Dialog. Each is opened, scanned and closed; one that cannot be opened in the
+      // scripted state is recorded as 'scan-not-reached', not as clean.
+      const dialogScan = async (name: string, open: () => Promise<void>, dialog: () => ReturnType<Page['getByRole']>): Promise<void> => {
+        await reach(`${theme}/dialog-${name}`, found, page, async () => {
+          await open()
+          await expect(dialog()).toBeVisible()
+        })
+        await page.keyboard.press('Escape')
+        await expect(dialog()).toHaveCount(0, { timeout: 5_000 }).catch(() => undefined)
+      }
+      page.setDefaultTimeout(10_000)
+      await dialogScan('thread-new', () => page.getByRole('button', { name: /^New thread/ }).first().click(), () => page.getByRole('dialog', { name: 'New thread' }))
+      await dialogScan('thread-new-worktree', async () => {
+        await page.getByRole('button', { name: /^New thread/ }).first().click()
+        await page.getByRole('dialog', { name: 'New thread' }).getByRole('checkbox', { name: 'Create in a new worktree' }).check()
+      }, () => page.getByRole('dialog', { name: 'New thread' }))
+      // Row actions show on hover; the row is hovered first, as a person would.
+      const rowMenu = async (item: string): Promise<void> => {
+        const row = page.locator('.thread-navigation-row').first()
+        await row.hover()
+        await row.locator('button[aria-label^="Actions for "]').click()
+        await page.getByRole('menuitem', { name: item }).click()
+      }
+      await dialogScan('thread-rename', () => rowMenu('Rename conversation…'), () => page.getByRole('dialog').first())
+      await dialogScan('thread-project-settings', async () => {
+        const actions = page.locator('button[data-project-actions]').first()
+        await actions.locator('xpath=..').hover()
+        await actions.click()
+        await page.getByRole('menuitem', { name: 'Project settings' }).click()
+      }, () => page.getByRole('dialog', { name: /^Thread project/ }))
+      await dialogScan('thread-accounts', () => page.getByRole('button', { name: 'Agent accounts', exact: true }).click(), () => page.getByRole('dialog', { name: 'Agent accounts' }))
+      // Command confirmations come from the real command router; Escape cancels them, so nothing is archived.
+      // The fixtures stand in for the main process, so the confirmations are opened from the row menu (the
+      // same dialogs /archive and /delete raise).
+      await dialogScan('thread-confirm-archive', () => rowMenu('Archive conversation'), () => page.getByRole('dialog', { name: /^Archive/ }))
+      await dialogScan('thread-confirm-delete', () => rowMenu('Delete conversation'), () => page.getByRole('dialog', { name: /^Delete/ }))
+      await dialogScan('delegation-create', async () => {
+        await page.getByRole('button', { name: 'More actions' }).first().click()
+        await page.getByRole('menuitem', { name: 'Delegate work' }).click()
+      }, () => page.getByRole('dialog', { name: 'Delegate work' }))
+      await dialogScan('thread-confirm-full-access', async () => {
+        await page.getByRole('button', { name: 'Permissions', exact: true }).click()
+        await page.locator('.thread-config-popover').getByRole('button', { name: /Full access/ }).click()
+      }, () => page.getByRole('dialog', { name: 'Allow expanded access?' }))
     } finally {
       await app.close()
     }

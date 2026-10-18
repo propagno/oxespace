@@ -7,7 +7,7 @@ import type { ThreadModelService } from './thread-models'
 import { hasDesktopCommand } from '../../../../shared/threadDesktopCommands'
 import { blocksThreadInput, PARTIAL_NATIVE_HISTORY_NOTICE } from '../../../../shared/threadHistoryNotice'
 import { formatNativeUserText } from '../../../../shared/native-session-text'
-import { assertThreadMessage, THREAD_PROMPT_MAX_CHARS } from '../../../../shared/threadLimits'
+import { assertThreadMessage, THREAD_IDLE_SUSPEND_CHOICES, THREAD_IDLE_SUSPEND_DEFAULT_MINUTES, THREAD_PROMPT_MAX_CHARS } from '../../../../shared/threadLimits'
 import { execFile } from 'node:child_process'
 import { ThreadAgentError, threadFailure } from './thread-failure'
 import { ThreadHistory, type ThreadHistoryWriteOptions } from './thread-history'
@@ -37,6 +37,14 @@ import type { WorkRun } from '../../../../shared/types/work'
 import { recordRuntime } from '../runtime-diagnostics'
 import { hasUnconfirmedTurnTools, recoverPublicTurn } from './thread-result-recovery'
 import type { NativeStateResult } from './codex-state-reader'
+import { canonicalPath, resolveSessionLocation } from '../git-common-dir'
+import { explainMissingFolder, ThreadFolderMissingError } from './thread-worktree'
+
+// Canonical comparison: a Windows short name and its long form are the same folder.
+const sameCheckout = (a: string, b: string): boolean => canonicalPath(a) === canonicalPath(b)
+
+/** How often idle conversations are checked for suspension. */
+const IDLE_SWEEP_MS = 60_000
 
 /** Repair older histories whose provider ended a turn without a matching tool result. */
 function settleCompletedHistoryTools(events: ThreadEvent[]): number {
@@ -98,6 +106,12 @@ export class ThreadOrchestrator {
   private readonly workingTreeBaselines = new Map<string, { patch: string; untracked: Set<string> }>()
   private stopping = false
   private readonly configuring = new Set<string>()
+  /** Last provider event, message or connection per live adapter; drives idle suspension. */
+  private readonly lastActivity = new Map<string, number>()
+  /** Live sessions holding "allow for the session" grants, which a restarted process would forget. */
+  private readonly sessionGrants = new Set<string>()
+  private readonly suspending = new Map<string, Promise<void>>()
+  private readonly idleSweep: ReturnType<typeof setInterval>
 
   constructor(private readonly db: AppDatabase,
     private readonly factory: (thread: ConversationThread) => Promise<AgentConversationAdapter>,
@@ -129,7 +143,7 @@ export class ThreadOrchestrator {
         recovered = true; eventsFrom = 0
       }
       this.checkpoints.failOpen(row.id, 'OXESpace restarted before this checkpoint could be finalized.')
-      if (snapshot.thread.connection && snapshot.thread.connection.state !== 'closed') { snapshot.thread.connection = this.sessions.close(row.id); recovered = true }
+      if (snapshot.thread.connection && (snapshot.thread.connection.state !== 'closed' || snapshot.thread.connection.suspendedAt)) { snapshot.thread.connection = this.sessions.close(row.id); recovered = true }
       if (recovered) this.save(snapshot, { eventsFrom })
       this.snapshots.delete(row.id)
     }
@@ -141,6 +155,65 @@ export class ThreadOrchestrator {
     })
     // After subclasses finish constructing: workers that ran before a restart are settled, ready work starts.
     queueMicrotask(() => { try { this.work.resume() } catch { /* Agent Work recovery is best effort. */ } })
+    this.idleSweep = setInterval(() => { void this.suspendIdle().catch(() => {}) }, IDLE_SWEEP_MS)
+    this.idleSweep.unref?.()
+  }
+
+  /** Minutes without activity before an idle conversation's agent process is closed; 0 keeps it open. */
+  idleSuspendMinutes(): number {
+    try {
+      const row = this.db.prepare("SELECT value FROM thread_settings WHERE key = 'idle_suspend_minutes'").get() as { value: string } | undefined
+      const minutes = row ? Number(row.value) : THREAD_IDLE_SUSPEND_DEFAULT_MINUTES
+      return THREAD_IDLE_SUSPEND_CHOICES.includes(minutes) ? minutes : THREAD_IDLE_SUSPEND_DEFAULT_MINUTES
+    } catch { return 0 }
+  }
+
+  setIdleSuspendMinutes(minutes: number): number {
+    if (!THREAD_IDLE_SUSPEND_CHOICES.includes(minutes)) throw Error(`Choose one of ${THREAD_IDLE_SUSPEND_CHOICES.join(', ')} minutes`)
+    this.db.prepare("INSERT INTO thread_settings (key, value, updated_at) VALUES ('idle_suspend_minutes', ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at").run(String(minutes), Date.now())
+    return minutes
+  }
+
+  /**
+   * Closes the agent process (and the MCP servers it started) of conversations idle longer than the setting.
+   * Nothing is lost: the next message resumes the provider session. A conversation with a running turn, a
+   * pending question, queued input, a background task or session-only grants keeps its process.
+   */
+  async suspendIdle(now = Date.now()): Promise<string[]> {
+    const minutes = this.idleSuspendMinutes()
+    if (!minutes || this.stopping) return []
+    const suspended: string[] = []
+    for (const [id, adapter] of [...this.adapters]) {
+      const since = this.lastActivity.get(id)
+      if (since === undefined) { this.lastActivity.set(id, now); continue }
+      if (now - since < minutes * 60_000 || !this.canSuspend(id)) continue
+      this.adapters.delete(id)
+      this.lastActivity.delete(id)
+      const closing = adapter.dispose().catch(() => {})
+      this.suspending.set(id, closing)
+      try { await closing } finally { if (this.suspending.get(id) === closing) this.suspending.delete(id) }
+      // A message sent while the process was closing already started a new session.
+      if (this.adapters.has(id)) continue
+      try {
+        const snapshot = this.read(id)
+        snapshot.thread.connection = { ...this.sessions.close(id, now), suspendedAt: now }
+        snapshot.thread.capabilities = threadCapabilityManifest(snapshot.thread.provider, adapter.capabilities, false, adapter.evidence, snapshot.thread)
+        this.save(snapshot, { eventsFrom: snapshot.events.length })
+      } catch { /* Deleted while closing. */ }
+      recordRuntime('thread-suspend', { thread: id })
+      suspended.push(id)
+    }
+    return suspended
+  }
+
+  private canSuspend(id: string): boolean {
+    if (this.busy.has(id) || this.finalizing.has(id) || this.configuring.has(id) || this.observations.has(id) || this.sessionGrants.has(id)) return false
+    let snapshot: ThreadSnapshot
+    try { snapshot = this.read(id) } catch { return false }
+    const thread = snapshot.thread
+    if (thread.status === 'running' || thread.status === 'approval' || thread.cliActive || thread.queue?.length) return false
+    if (this.requests.list(id, thread.generation ?? 1).length) return false
+    return !snapshot.events.some(event => event.type === 'subagent' && event.state === 'running')
   }
 
   list(): ConversationThread[] {
@@ -363,7 +436,9 @@ export class ThreadOrchestrator {
   }
 
   async projectDiff(id: string): Promise<import('../../../../shared/types/git').GitDiff> {
-    const { rootPath } = this.read(id).thread
+    const { thread } = this.read(id)
+    // The project's changes live in the worktree the provider moved into, when it reported one.
+    const rootPath = thread.observedLocation?.sameRepository && thread.observedLocation.checkoutRoot ? thread.observedLocation.checkoutRoot : thread.rootPath
     const run = (args: string[]) => new Promise<string>((resolve, reject) => {
       const child = execFile('git', args, { cwd: rootPath, windowsHide: true, maxBuffer: 2 * 1024 * 1024, timeout: 15000 }, (error, stdout) => error ? reject(error) : resolve(stdout))
       child.stdin?.end()
@@ -476,6 +551,8 @@ export class ThreadOrchestrator {
       this.adapters.delete(id)
       await adapter?.dispose().catch(() => {})
       this.history.transitionOperation(id, operation.id, 'failed', failure.message)
+      // A folder that no longer exists is not a settings problem; name it.
+      if (error instanceof ThreadFolderMissingError) throw new Error(error.message)
       throw new Error(failure.code === 'session-busy' ? failure.message : 'Could not run thread agent; check Agent Settings')
     }
   }
@@ -561,6 +638,8 @@ export class ThreadOrchestrator {
     const request = this.requests.list(id, generation).find(value => value.id === requestId)
     if (adapter.respondRequest) await this.requests.resolve(id, requestId, generation, response)
     else await adapter.approve(requestId, response.decision === 'accept' || response.decision === 'acceptForSession' ? 'accept' : 'decline')
+    this.lastActivity.set(id, Date.now())
+    if (response.decision === 'acceptForSession') this.sessionGrants.add(id)
     if (request && (request.kind === 'approval' || request.kind === 'permissions')) {
       const verb = response.decision === 'acceptForSession' ? 'Allowed for the session' : response.decision === 'accept' || response.permissions ? 'Allowed' : 'Declined'
       this.audit(id, { action: 'approval', actor: 'user', summary: `${verb} ${requestSubject(request)}` })
@@ -837,6 +916,7 @@ export class ThreadOrchestrator {
   async stop(): Promise<void> {
     for (const id of this.deltaBuffers.keys()) this.flushDeltas(id)
     this.stopping = true
+    clearInterval(this.idleSweep)
     this.work.stop()
     const observations = Promise.allSettled([...this.observations.values()])
     await this.stateReader?.stop()
@@ -871,6 +951,7 @@ export class ThreadOrchestrator {
 
   private event(id: string, event: ThreadEvent, generation?: number): void {
     if (this.stopping) return
+    this.lastActivity.set(id, Date.now())
     if (event.type === 'delta') {
       if (!this.deltaBuffers.has(id) && !this.db.prepare('SELECT 1 FROM conversation_threads WHERE id = ?').get(id)) { this.applyEvent(id, event); return }
       const buffer = this.deltaBuffers.get(id) ?? new Map<string, { text: string; generation?: number }>()
@@ -888,6 +969,29 @@ export class ThreadOrchestrator {
     try {
       const snapshot = this.read(id)
       snapshot.thread.contextReport = report
+      this.save(snapshot, { eventsFrom: snapshot.events.length })
+    } catch { /* Thread may have been deleted while the provider was reporting. */ }
+  }
+
+  /**
+   * Records where the provider says it works. A worktree of the thread's repository is registered as a
+   * context of the same project, so the review panels may read it; working in `rootPath` clears the record.
+   * Saved only when it changes, since Codex reports a directory with every command.
+   */
+  private storeLocation(id: string, cwd: string): void {
+    try {
+      const snapshot = this.read(id)
+      const location = resolveSessionLocation(cwd, snapshot.thread.rootPath)
+      if (!location) return
+      const atRoot = location.sameRepository && location.checkoutRoot !== null && sameCheckout(location.checkoutRoot, snapshot.thread.rootPath)
+      const next = atRoot ? undefined : location
+      const previous = snapshot.thread.observedLocation
+      if (previous?.checkoutRoot === next?.checkoutRoot && previous?.sameRepository === next?.sameRepository && (previous?.cwd === next?.cwd || next?.sameRepository)) return
+      if (next?.sameRepository && next.checkoutRoot) {
+        this.db.prepare('INSERT OR IGNORE INTO thread_project_contexts (project_id, root_path) VALUES (?, ?)').run(snapshot.thread.projectId, next.checkoutRoot)
+      }
+      if (next) snapshot.thread.observedLocation = next
+      else delete snapshot.thread.observedLocation
       this.save(snapshot, { eventsFrom: snapshot.events.length })
     } catch { /* Thread may have been deleted while the provider was reporting. */ }
   }
@@ -927,6 +1031,7 @@ export class ThreadOrchestrator {
     if (this.stopping) return
     if (event.type === 'context-usage') { this.storeContext(id, event.report); return }
     if (event.type === 'turn-cost') { this.storeCost(id, event); return }
+    if (event.type === 'location') { this.storeLocation(id, event.cwd); return }
     let snapshot: ThreadSnapshot
     try { snapshot = this.read(id) } catch {
       this.busy.delete(id)
@@ -1166,8 +1271,10 @@ export class ThreadOrchestrator {
   }
 
   private async connectAdapter(id: string, thread: ConversationThread, runPreflight = true): Promise<AgentConversationAdapter> {
+    // An idle suspension still closing this conversation's process finishes first.
+    await this.suspending.get(id)
     const existing = this.adapters.get(id)
-    if (existing && !existing.closed) return existing
+    if (existing && !existing.closed) { this.lastActivity.set(id, Date.now()); return existing }
     if (existing?.closed) this.adapters.delete(id)
     this.assertNativeSessionAvailable(id, thread.provider, thread.nativeSessionId)
     if (runPreflight) await this.preflight?.(thread)
@@ -1181,6 +1288,8 @@ export class ThreadOrchestrator {
       adapter = await this.factory(thread)
       if (this.stopping) { await adapter.dispose(); throw Error('Application is shutting down') }
       this.adapters.set(id, adapter)
+      this.lastActivity.set(id, Date.now())
+      this.sessionGrants.delete(id)
       const latest = this.read(id)
       latest.thread.capabilities = threadCapabilityManifest(latest.thread.provider, adapter.capabilities, false, adapter.evidence, latest.thread)
       this.save(latest, { eventsFrom: latest.events.length })
@@ -1191,9 +1300,11 @@ export class ThreadOrchestrator {
       connected.thread.connection = this.sessions.connected(id)
       this.save(connected, { eventsFrom: connected.events.length })
       return adapter
-    } catch (error) {
+    } catch (cause) {
       if (adapter && this.adapters.get(id) === adapter) this.adapters.delete(id)
       await adapter?.dispose().catch(() => {})
+      // A removed worktree makes the provider fail to start with a spawn error; say what actually happened.
+      const error = explainMissingFolder(cause, thread.rootPath)
       try {
         const degraded = this.read(id)
         degraded.thread.connection = this.sessions.failed(id, error instanceof Error ? error.message : 'Provider connection failed')

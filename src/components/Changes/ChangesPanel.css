@@ -7,7 +7,14 @@
 .changes-pill:hover:not(:disabled) { background: var(--nav-hover); }
 .changes-pill:disabled { opacity: .55; cursor: default; }
 .changes-pill:focus-visible, .changes-icon:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.changes-branches span:not([aria-hidden]) { min-width: 0; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.changes-ref span:not([aria-hidden]) { min-width: 4ch; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.changes-sides { display: inline-flex; align-items: center; gap: 2px; min-width: 0; }
+/* In a narrow side panel the two sides move to their own line instead of shrinking to one letter each. */
+.changes-toolbar { flex-wrap: wrap; row-gap: 6px; }
+.changes-ref-menu { width: min(340px, 86vw); color: var(--tx-primary); font-size: var(--fs-xs); }
+.changes-ref-menu ul { max-height: 300px; margin: 0; padding: 0; overflow: auto; list-style: none; }
+.changes-menu-separator { height: 1px; margin: 6px 4px; background: var(--wb-border); }
+@container (max-width: 640px) { .changes-ref span:not([aria-hidden]) { max-width: 96px; } }
 .changes-totals { display: inline-flex; gap: 6px; font-variant-numeric: tabular-nums; }
 .is-add { color: var(--intent-success-fg); }
 .is-del { color: var(--intent-danger-fg); }

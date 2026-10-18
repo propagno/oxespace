@@ -16,6 +16,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { performance } from 'node:perf_hooks'
+import { findPaletteCommand, openConnections } from './helpers/panels'
 
 const REPEATS = 6
 const ENFORCE_BUDGETS = process.env.OXESPACE_PERF_GATE === '1'
@@ -136,6 +137,8 @@ async function createWorkspace(page: Page, requestedRoot?: string): Promise<void
   await page.waitForSelector('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]', {
     state: 'visible'
   })
+  // The terminal starts and takes focus a moment later; measurements begin after that settles.
+  await page.locator('[data-testid="terminal-pane"]').first().waitFor({ state: 'visible' })
 }
 async function timePanelToggle(
   page: Page,
@@ -153,17 +156,20 @@ async function timePanelToggle(
     )
   }
 
-  const modal = page.getByTestId('tools-modal')
-  if (!await modal.isVisible().catch(() => false)) {
-    await page.locator('[data-testid="btn-open-tools"]:visible').click()
-    await modal.waitFor({ state: 'visible' })
+  const menu = page.getByRole('menu', { name: 'Panels' })
+  const item = menu.getByRole('menuitemcheckbox', { name: label, exact: true })
+  // Opening the menu is setup, not the measured interaction. Right after a workspace opens the rail can
+  // still move while terminals mount, and the menu follows it; reopen it once if it went away.
+  let t0 = 0
+  for (let attempt = 0; ; attempt++) {
+    if (!await menu.isVisible().catch(() => false)) {
+      await page.locator('[data-testid="btn-open-tools"]:visible').click()
+      await menu.waitFor({ state: 'visible' })
+    }
+    await item.waitFor({ state: 'visible' })
+    t0 = await page.evaluate(() => performance.now())
+    try { await item.click({ timeout: 5_000 }); break } catch (error) { if (attempt === 1) throw error }
   }
-  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const item = modal.getByRole('menuitem', { name: new RegExp(`^${escapedLabel}(?: \\(|$)`) })
-  await item.waitFor({ state: 'visible' })
-
-  const t0 = await page.evaluate(() => performance.now())
-  await item.click()
   await page.waitForFunction(
     ({ panelTestId, wantVisible }) => {
       const panel = document.querySelector(`[data-testid="${panelTestId}"]`) as HTMLElement | null
@@ -260,8 +266,8 @@ test('shell: sidebar, command menu, tools and split renderer', async () => {
       commandOpen.push(await timeDomToggle(page, () => pressShellShortcut(page, 'Control+k'), 'input[placeholder="Search files and commands…"]', true))
       commandClose.push(await timeDomToggle(page, () => page.keyboard.press('Escape'), 'input[placeholder="Search files and commands…"]', false))
 
-      toolsOpen.push(await timeDomToggle(page, () => page.getByTestId('btn-open-tools').click(), '[data-testid="tools-modal"]', true))
-      toolsClose.push(await timeDomToggle(page, () => page.keyboard.press('Escape'), '[data-testid="tools-modal"]', false))
+      toolsOpen.push(await timeDomToggle(page, () => page.getByTestId('btn-open-tools').click(), '[role="menu"]', true))
+      toolsClose.push(await timeDomToggle(page, () => page.keyboard.press('Escape'), '[role="menu"]', false))
 
       legacyGrid.push(await timeDomToggle(page, () => pressShellShortcut(page, 'F2'), '[data-testid="workspace-grid"]', true))
       splitTree.push(await timeDomToggle(page, () => pressShellShortcut(page, 'F2'), '[data-testid="workspace-split-grid"]', true))
@@ -443,7 +449,7 @@ test('repository: Files ↔ Source Control', async () => {
   const { app, page, pid } = await launchApp()
   try {
     await createWorkspace(page)
-    await timePanelToggle(page, 'Editor', 'workspace-editor-panel', true)
+    await timePanelToggle(page, 'Files', 'workspace-editor-panel', true)
     const toSourceControl: number[] = []
     const toFiles: number[] = []
 
@@ -479,7 +485,12 @@ test('modal surfaces: agents, MCP, skills, semantic, workspace settings and usag
       label: string
       selector: string
       trigger: () => Promise<void>
-    }> = [
+      /** Untimed setup before the trigger (opening and filtering the palette). */
+      prepare?: () => Promise<void>
+    }> = []
+    let option: import('@playwright/test').Locator | null = null
+    const fromPalette = (label: string, selector: string, title: string) => ({ label, selector, prepare: async () => { option = await findPaletteCommand(page, title) }, trigger: () => option!.click() })
+    surfaces.push(
       {
         label: 'Agent Settings',
         selector: '.settings-center',
@@ -488,34 +499,18 @@ test('modal surfaces: agents, MCP, skills, semantic, workspace settings and usag
       {
         label: 'Connections',
         selector: '[role="dialog"][aria-label="Connections"]',
-        trigger: () => page.getByTestId('tools-modal').getByRole('menuitem', { name: 'MCP Servers', exact: true }).click()
+        trigger: () => openConnections(page)
       },
-      {
-        label: 'Skills',
-        selector: '[role="dialog"][aria-label="Skills"]',
-        trigger: () => page.getByTestId('tools-modal').getByRole('menuitem', { name: 'Skills', exact: true }).click()
-      },
-      {
-        label: 'Semantic Activity',
-        selector: '[role="dialog"][aria-label="Semantic activity"]',
-        trigger: () => page.getByTestId('tools-modal').getByRole('menuitem', { name: 'Semantic Activity', exact: true }).click()
-      },
-      {
-        label: 'Workspace Settings',
-        selector: '.workspace-settings-modal-v2',
-        trigger: () => page.getByTestId('tools-modal').getByRole('menuitem', { name: 'Workspace Settings', exact: true }).click()
-      }
-    ]
+      fromPalette('Skills', '[role="dialog"][aria-label="Skills"]', 'Skills'),
+      fromPalette('Semantic Activity', '[role="dialog"][aria-label="Semantic activity"]', 'Semantic index log'),
+      fromPalette('Workspace Settings', '.workspace-settings-modal-v2', 'Open workspace settings')
+    )
 
     for (const surface of surfaces) {
       const opens: number[] = []
       const closes: number[] = []
       for (let i = 0; i < modalRepeats; i++) {
-        // Settings opens from the rail; the Tools modal would cover that button.
-        if (surface.label !== 'Agent Settings') {
-          await page.getByTestId('btn-open-tools').click()
-          await page.getByTestId('tools-modal').waitFor({ state: 'visible' })
-        }
+        await surface.prepare?.()
         opens.push(await timeDomToggle(page, surface.trigger, surface.selector, true))
         closes.push(await timeDomToggle(
           page,
@@ -551,20 +546,15 @@ test('modal surfaces: agents, MCP, skills, semantic, workspace settings and usag
   }
 })
 
+// The panels of the Panels menu (multi-repo coordination and background activity have their own buttons).
 const PANELS: Array<{ label: string; testId: string; closeButtonName?: string }> = [
-  { label: 'GitHub', testId: 'workspace-github-panel' },
-  { label: 'Editor', testId: 'workspace-editor-panel' },
-  { label: 'Review', testId: 'workspace-review-panel' },
+  { label: 'Commit & pull request', testId: 'workspace-github-panel' },
+  { label: 'Files', testId: 'workspace-editor-panel' },
+  { label: 'Changes', testId: 'workspace-review-panel' },
   { label: 'Worktrees', testId: 'workspace-worktree-panel' },
   { label: 'Scripts', testId: 'workspace-scripts-panel' },
-  { label: 'Find in Files', testId: 'workspace-search-panel' },
-  { label: 'Web Preview', testId: 'workspace-web-preview-panel' },
-  {
-    label: 'Multi-repo coordination',
-    testId: 'workspace-integration-panel',
-    closeButtonName: 'Close multi-repo coordination panel'
-  },
-  { label: 'Background Jobs', testId: 'workspace-background-panel' }
+  { label: 'Find in files', testId: 'workspace-search-panel' },
+  { label: 'Browser', testId: 'workspace-web-preview-panel' }
 ]
 
 for (const { label, testId, closeButtonName } of PANELS) {

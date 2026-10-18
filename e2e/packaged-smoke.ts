@@ -4,6 +4,7 @@ import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { performance } from 'node:perf_hooks'
+import { togglePanel } from './helpers/panels'
 
 /**
  * Shared body of the packaged-artifact smoke tests.
@@ -84,8 +85,7 @@ export function registerPackagedSmoke({ platform, label, bootBudgetMs }: Package
         }
       },previewUrl)
       const beforePreview = await metrics()
-      await page.getByTestId('btn-open-tools').click()
-      await page.getByText('Web Preview',{exact:true}).click()
+      await togglePanel(page, 'Browser')
       for (let count = 1; count <= 4; count++) {
         if (count > 1) {
           await page.getByRole('button',{name:'New browser tab'}).click()

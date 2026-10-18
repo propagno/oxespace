@@ -156,8 +156,7 @@ for (const theme of THEMES) {
       await page.getByTestId('wizard-launch-btn').click()
       await expect(page.getByTestId('terminal-pane')).toHaveCount(2)
       await page.waitForTimeout(3000)
-      await page.getByTestId('btn-open-tools').click()
-      await page.getByTestId('tools-modal').getByRole('menuitem', { name: /^Review/ }).click()
+      await togglePanel(page, 'Changes')
       const panel = page.getByTestId('changes-panel')
       await panel.getByRole('complementary', { name: 'Changed files' }).getByRole('treeitem', { name: 'login.js' }).click()
       await expect(panel.locator('.monaco-diff-editor')).toBeVisible({ timeout: 15_000 })
@@ -169,8 +168,7 @@ for (const theme of THEMES) {
       await shoot(page, 'code-review', theme)
 
       // Connections catalog.
-      await page.getByTestId('btn-open-tools').click()
-      await page.getByTestId('tools-modal').getByRole('menuitem', { name: /^MCP Servers/ }).click()
+      await openConnections(page)
       await expect(page.getByRole('dialog', { name: 'Connections' })).toBeVisible()
       await shoot(page, 'mcp-catalog', theme)
       await page.keyboard.press('Escape')
@@ -276,6 +274,7 @@ test('signs in with the right password', () => {
 const RATE_LIMIT_TEST = `import { test, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { isLimited, record, resetForTests } from '../src/auth/rate-limit.js'
+import { togglePanel, openConnections } from './helpers/panels'
 
 beforeEach(resetForTests)
 

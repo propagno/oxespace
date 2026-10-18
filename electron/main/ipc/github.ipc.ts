@@ -2,6 +2,8 @@ import { ipcMain } from 'electron'
 import type { AppDatabase } from '../db/index'
 import { GitHubService } from '../services/github.service'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
+import { threadsInWorktree } from '../services/conversation/thread-worktree'
+import { WorktreeRemovalError } from '../services/github/worktree-removal'
 import {
   parseGitHubCheckoutBranchInput,
   parseGitHubCommitDetailsInput,
@@ -76,9 +78,21 @@ export function registerGitHubIpc(db: AppDatabase, service = new GitHubService(d
   ipcMain.handle(IPC_CHANNELS.github.createWorktree, (_event, input: unknown) =>
     service.createWorktree(parseGitHubCreateWorktreeInput(input))
   )
-  ipcMain.handle(IPC_CHANNELS.github.removeWorktree, (_event, input: unknown) =>
-    service.removeWorktree(parseGitHubRemoveWorktreeInput(input))
-  )
+  // A worktree that conversations work in is not removed out from under them.
+  const attachedThreads = (path: string): string | null => {
+    // The check reads conversations; if that read fails, removal keeps its own safeguards and proceeds.
+    let threads: { id: string; title: string }[]
+    try { threads = threadsInWorktree(db, path) } catch { return null }
+    if (!threads.length) return null
+    const names = threads.slice(0, 3).map(thread => `“${thread.title}”`).join(', ')
+    return `${threads.length} ${threads.length === 1 ? 'conversation works' : 'conversations work'} in this worktree (${names}${threads.length > 3 ? ', …' : ''}). Archive ${threads.length === 1 ? 'it' : 'them'} first.`
+  }
+  ipcMain.handle(IPC_CHANNELS.github.removeWorktree, (_event, input: unknown) => {
+    const parsed = parseGitHubRemoveWorktreeInput(input)
+    const attached = attachedThreads(parsed.path)
+    if (attached) throw new WorktreeRemovalError('threads-attached', attached)
+    return service.removeWorktree(parsed)
+  })
   ipcMain.handle(IPC_CHANNELS.github.resolveWorktreeBase, (_event, input: unknown) =>
     service.resolveWorktreeBase(parseGitHubWorkspaceInput(input))
   )
@@ -88,9 +102,13 @@ export function registerGitHubIpc(db: AppDatabase, service = new GitHubService(d
   ipcMain.handle(IPC_CHANNELS.github.scanWorktreeCleanup, (_event, input: unknown) =>
     service.scanWorktreeCleanup(parseWorktreeCleanupScanInput(input))
   )
-  ipcMain.handle(IPC_CHANNELS.github.removeWorktreeCleanup, (_event, input: unknown) =>
-    service.removeWorktreeCleanup(parseWorktreeCleanupRemoveInput(input))
-  )
+  ipcMain.handle(IPC_CHANNELS.github.removeWorktreeCleanup, async (_event, input: unknown) => {
+    const parsed = parseWorktreeCleanupRemoveInput(input)
+    const refused = parsed.targets.flatMap(target => { const attached = attachedThreads(target.path); return attached ? [{ path: target.path, ok: false, message: attached }] : [] })
+    const removable = parsed.targets.filter(target => !refused.some(entry => entry.path === target.path))
+    const removed = removable.length ? await service.removeWorktreeCleanup({ ...parsed, targets: removable }) : []
+    return [...removed, ...refused]
+  })
   ipcMain.handle(IPC_CHANNELS.github.getRepoConfig, (_event, input: unknown) =>
     service.repoConfigSnapshot(parseRepoConfigInput(input).rootPath)
   )

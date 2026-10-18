@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import ThreadCommandDialog from '../src/components/Threads/ThreadCommandDialog'
 import type { ThreadSnapshot } from '../shared/types/thread'
+import { threadConfirmation } from '../shared/threadConfirmations'
 
 const snapshot = { thread: { id: 't1', title: 'Old name', provider: 'claude', rootPath: '/repo', workspaceId: 'w1' }, events: [] } as unknown as ThreadSnapshot
 
@@ -29,14 +30,20 @@ describe('ThreadCommandDialog', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
-  it('shows archive as a question with Cancel and one action, not as copyable output', async () => {
+  it('asks archive as a question, focused on Cancel, with the same words as the sidebar', async () => {
     const user = userEvent.setup()
-    const { runCommand } = setup({ kind: 'panel', title: 'Archive conversation', text: 'Archive this conversation? You can reopen it from /resume.', rows: [{ id: '/archive confirm', label: 'Archive conversation' }] })
+    const { runCommand } = setup({ kind: 'confirm', confirm: threadConfirmation('archive') })
+    const dialog = screen.getByRole('dialog', { name: 'Archive this conversation?' })
+    expect(dialog).toHaveAccessibleDescription(/You can restore it from Archived in the sidebar or with \/resume/)
     expect(screen.queryByRole('button', { name: 'Copy text' })).toBeNull()
-    expect(screen.getByText('Archive this conversation? You can reopen it from /resume.').tagName).toBe('P')
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus()
     await user.click(screen.getByRole('button', { name: 'Archive conversation' }))
     await waitFor(() => expect(runCommand).toHaveBeenCalledWith('/archive confirm'))
+  })
+
+  it('marks delete and rewind as destructive', () => {
+    setup({ kind: 'confirm', confirm: threadConfirmation('rewind') })
+    expect(screen.getByRole('button', { name: 'Rewind one turn' }).className).toMatch(/danger/)
   })
 
   it('keeps command output copyable', () => {

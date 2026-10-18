@@ -667,6 +667,8 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
           prompt: text(item.prompt).slice(0, 16000) || undefined, model: text(item.model) || undefined, reasoningEffort: text(item.reasoningEffort) || undefined,
           turnId: text(params.turnId), ...(message.method === 'item/started' ? { startedAt: Date.now() } : { completedAt: Date.now() }) })
       } else if (['commandExecution', 'fileChange', 'mcpToolCall', 'dynamicToolCall', 'contextCompaction'].includes(text(item.type))) {
+        // Each command carries the directory it ran in; a worktree the agent moved into shows up here.
+        if (item.type === 'commandExecution' && message.method === 'item/started' && text(item.cwd)) this.emit({ type: 'location', cwd: text(item.cwd) })
         const failed = item.status === 'failed' || item.status === 'declined' || item.success === false || typeof item.exitCode === 'number' && item.exitCode !== 0 || Boolean(item.error)
         this.emit({ type: 'tool', id, name: text(item.type),
           state: message.method === 'item/started' ? 'running' : failed ? 'failed' : 'completed',

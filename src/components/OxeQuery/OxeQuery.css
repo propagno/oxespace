@@ -209,7 +209,7 @@
 .oq-qtab-add { display: inline-grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: var(--radius-sm); color: var(--text-muted); background: transparent; cursor: pointer; }
 .oq-editor-toolbar kbd { margin-left: 6px; padding: 0 5px; border: 1px solid color-mix(in srgb, currentColor 30%, transparent); border-radius: 4px; font-size: 10px; opacity: .8; }
 .oq-history { position: relative; }
-.oq-history ul { position: absolute; z-index: var(--layer-dropdown); top: calc(100% + 4px); left: 0; width: min(560px, 70vw); max-height: 320px; margin: 0; padding: 4px; overflow: auto; list-style: none; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-raised); box-shadow: 0 12px 28px #0006; }
+.oq-history ul { position: absolute; z-index: var(--layer-dropdown); top: calc(100% + 4px); left: 0; width: min(560px, 70vw); max-height: 320px; margin: 0; padding: 4px; overflow: auto; list-style: none; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-raised); box-shadow: var(--elevation-3); }
 .oq-history li button { display: grid; gap: 2px; width: 100%; padding: 6px 8px; border: 0; border-radius: var(--radius-sm); color: inherit; background: transparent; text-align: left; cursor: pointer; }
 .oq-history li button:hover { background: color-mix(in srgb, var(--text-primary) 7%, transparent); }
 .oq-history code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; }

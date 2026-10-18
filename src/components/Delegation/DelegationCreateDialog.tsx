@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { GitBranch, Loader2, Waypoints } from 'lucide-react'
+import { GitBranch, Waypoints } from 'lucide-react'
 import type { DelegationBranchIntent, DelegationPreflight, DelegationTask } from '../../../shared/types/delegation'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { ConversationThread } from '../../../shared/types/thread'
-import { DesktopDialog } from '../Navigation/DesktopDialog'
 import './DelegationCreateDialog.css'
-import { Checkbox, Select, TextArea, TextField } from '../../ui'
+import { Button, Checkbox, Dialog, Select, TextArea, TextField } from '../../ui'
 
 export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceId, origin: suppliedOrigin, onClose, onCreated }: {
   thread?: ConversationThread
@@ -96,7 +95,12 @@ export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceI
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) }
     finally { setLoading(false) }
   }
-  return <DesktopDialog className="delegation-create-dialog" title="Delegate work" description="Start a focused session in its own branch and worktree." onClose={() => { if (!loading) onClose() }}>
+  return <Dialog className="delegation-create-dialog" size="xl" title="Delegate work" description="Start a focused session in its own branch and worktree. Preview the checkout before starting the agent." onClose={() => { if (!loading) onClose() }}
+    footer={<>
+      <Button variant="ghost" loading={loading} disabled={loading || !objective.trim() || (strategy !== 'generated' && !branch.trim())} onClick={() => void inspect()}>Preview checkout</Button>
+      <Button disabled={loading} onClick={onClose}>Cancel</Button>
+      <Button variant="primary" disabled={loading || !profileId || !preview?.ready || !handoff.trim() || !acceptance.trim()} onClick={() => void create()}>Create delegation</Button>
+    </>}>
     <div className="delegation-form-body">
       <div className="delegation-context-row">
         <label>Agent<Select value={profileId} disabled={loading} onChange={event => setProfileId(event.target.value)}>{profiles.map(profile => <option key={profile.agentProfileId} value={profile.agentProfileId}>{profile.name}</option>)}</Select></label>
@@ -147,6 +151,5 @@ export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceI
       </div>
       {error && <p role="alert" className="delegation-preview-error">{error}</p>}
     </div>
-    <footer className="delegation-footer"><span>Preview the checkout before starting the agent.</span><div><button type="button" disabled={loading} onClick={onClose}>Cancel</button><button type="button" disabled={loading || !objective.trim() || (strategy !== 'generated' && !branch.trim())} onClick={() => void inspect()}>{loading ? <><Loader2 size={14} className="thread-spin" />Working…</> : 'Preview checkout'}</button><button type="button" className="thread-primary" disabled={loading || !profileId || !preview?.ready || !handoff.trim() || !acceptance.trim()} onClick={() => void create()}>Create delegation</button></div></footer>
-  </DesktopDialog>
+  </Dialog>
 }

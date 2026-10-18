@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
-import { AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowUpFromLine, CheckCircle2, ChevronDown, ChevronRight, CircleDot, Clock, Copy, Download, ExternalLink, Github, GitBranch, GitPullRequest, Link2, Minus, Play, Plus, RefreshCw, Tag, Terminal, TrendingUp } from 'lucide-react'
+import { AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowUpFromLine, CheckCircle2, ChevronDown, ChevronRight, CircleDot, Clock, Copy, Download, ExternalLink, GitCompareArrows, Github, GitBranch, GitPullRequest, Link2, Minus, Play, Plus, RefreshCw, Tag, Terminal, TrendingUp } from 'lucide-react'
+import { openInChanges } from '../../store/changes-request.store'
+import { WORKBENCH_PANELS } from '../Workbench/panelCatalog'
 import { copyText, Button, Checkbox, TextField, TextArea, Select, EmptyState } from '../../ui'
 import type { GitHubBranch, GitHubCliStatus, GitHubCommit, GitHubCommitDetails, GitHubConnectedRepository, GitHubFileChange, GitHubPanelTab, GitHubPullRequest, GitHubRelease, GitHubWorkflow, GitHubWorkflowJob, GitHubWorkflowRun, GitHubWorkflowRunDetails, GitHubWorkspaceStatus } from '../../../shared/types/github'
 import { selectGitHubWorkspace, useGitHubStore } from '../../store/github.store'
@@ -820,6 +822,13 @@ function PullRequestsTab({ prs, status, loading, input, onCreate, onRefresh }: {
           ) : null}
         </div>
         <div className="github-detail-footer">
+          {selected.headRefName ? (
+            <button type="button" className="github-view-gh-btn" data-testid="github-pr-open-in-changes"
+              title={`Compare ${selected.baseRefName ?? 'main'} with ${selected.headRefName} in ${WORKBENCH_PANELS.changes.label}, without checking it out`}
+              onClick={() => openInChanges(input.workspaceId, { base: selected.baseRefName ?? 'main', head: selected.headRefName ?? undefined })}>
+              View in {WORKBENCH_PANELS.changes.label} <GitCompareArrows size={12} aria-hidden="true" />
+            </button>
+          ) : null}
           {selected.url ? (
             <button type="button" className="github-view-gh-btn" onClick={() => window.open(selected.url ?? '', '_blank')}>
               View on GitHub <ExternalLink size={12} aria-hidden="true" />

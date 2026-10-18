@@ -20,9 +20,12 @@ import { defaultSplitShellProfileId, fallbackShellProfiles } from '../services/s
 // The one real service the mocks keep: file reads are what the editor and
 // preview specs actually assert on, and faking a filesystem would test the fake.
 import { FileSystemService } from '../services/file-system.service'
+import { worktreeOrWorkspaceRoot } from '../ipc/file-system.ipc'
+import { parseWorktreePorcelain } from '../services/github/parsers'
 import { registerOxeQueryMock } from './oxequery-mock'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { ShellProfile, Workspace, WorkspaceLayout, WorkspaceLayoutPreset } from '../../../shared/types/workspace'
+import type { GitCompareMode } from '../../../shared/types/git'
 
 export function registerE2eMockIpcHandlers(): void {
   const shellProfiles: ShellProfile[] = fallbackShellProfiles()
@@ -256,9 +259,10 @@ export function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.tasks.executions, () => [])
   // The file system service needs no native module, so e2e gets the real one —
   // that is what makes the editor, file browser and rich previews testable.
-  const mockFileSystemService = new FileSystemService(
-    (workspaceId) => workspaces.find((workspace) => workspace.id === workspaceId)?.rootPath ?? null
-  )
+  const mockFileSystemService = new FileSystemService((workspaceId, requestedRoot) => {
+    const root = workspaces.find((workspace) => workspace.id === workspaceId)?.rootPath
+    return root ? worktreeOrWorkspaceRoot(root, requestedRoot) : null
+  })
   ipcMain.handle(IPC_CHANNELS.fs.listTree, (_event: IpcMainInvokeEvent, input: unknown) =>
     mockFileSystemService.listTree(input as Parameters<FileSystemService['listTree']>[0])
   )
@@ -294,7 +298,10 @@ export function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.linear.createWorktreeFromIssue, () => {
     throw new Error('Linear is not available in E2E mock mode')
   })
-  ipcMain.handle(IPC_CHANNELS.git.getBranch, () => ({ branch: null, detached: false, shortSha: null, error: 'E2E mock mode' }))
+  // Fixed by default so screenshots do not depend on the branch; a spec that checks branches asks for real git.
+  ipcMain.handle(IPC_CHANNELS.git.getBranch, (_event: IpcMainInvokeEvent, input: { rootPath: string }) =>
+    process.env.OXESPACE_E2E_REAL_GIT_BRANCH === '1' ? new GitService().getBranch(input.rootPath)
+      : { branch: null, detached: false, shortSha: null, error: 'E2E mock mode' })
   ipcMain.handle(IPC_CHANNELS.search.run, () => ({ files: [], totalMatches: 0, totalFiles: 0, truncated: false, elapsedMs: 0 }))
   ipcMain.handle(IPC_CHANNELS.search.listFiles, () => ({ files: [], truncated: false }))
   ipcMain.handle(IPC_CHANNELS.search.cancel, () => undefined)
@@ -321,14 +328,23 @@ export function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.github.unstageFile, () => ({ ok: true, message: 'E2E mock unstaged' }))
   // Changes panel: real read-only git so the e2e can drive a repository it created.
   const gitService = new GitService()
-  ipcMain.handle(IPC_CHANNELS.git.getDiffSummary, (_event: IpcMainInvokeEvent, input: { rootPath: string; base: string; includeUncommitted?: boolean }) =>
-    gitService.getDiffSummary(input.rootPath, input.base, input.includeUncommitted ?? true))
-  ipcMain.handle(IPC_CHANNELS.git.getFileOriginal, (_event: IpcMainInvokeEvent, input: { rootPath: string; base: string; path: string; oldPath?: string }) =>
-    gitService.getFileOriginal(input.rootPath, input.base, input.path, input.oldPath))
+  ipcMain.handle(IPC_CHANNELS.git.getDiffSummary, (_event: IpcMainInvokeEvent, input: { rootPath: string; base: string; includeUncommitted?: boolean; head?: string; mode?: GitCompareMode }) =>
+    gitService.getDiffSummary(input.rootPath, input.base, input.includeUncommitted ?? true, input.head, input.mode))
+  ipcMain.handle(IPC_CHANNELS.git.getFileOriginal, (_event: IpcMainInvokeEvent, input: { rootPath: string; base: string; path: string; oldPath?: string; head?: string; mode?: GitCompareMode }) =>
+    gitService.getFileOriginal(input.rootPath, input.base, input.path, input.oldPath, input.head, input.mode))
+  ipcMain.handle(IPC_CHANNELS.git.getDiff, (_event: IpcMainInvokeEvent, input: { rootPath: string; base: string; includeUncommitted?: boolean; head?: string; mode?: GitCompareMode }) =>
+    gitService.buildDiff(input.rootPath, input.base, input.includeUncommitted ?? true, input.head, input.mode))
+  ipcMain.handle(IPC_CHANNELS.git.getFileAtRef, (_event: IpcMainInvokeEvent, input: { rootPath: string; ref: string; path: string }) =>
+    gitService.getFileAtRef(input.rootPath, input.ref, input.path))
   ipcMain.handle(IPC_CHANNELS.github.resolveWorktreeBase, () => ({ baseRef: 'main', remoteName: null, isRemote: false }))
   ipcMain.handle(IPC_CHANNELS.github.listBranches, (_event: IpcMainInvokeEvent, input: { rootPath: string }) => {
     return new Promise(resolve => execFile('git', ['branch', '--format=%(refname:short)'], { cwd: input.rootPath }, (error, stdout) => {
       resolve(error ? [] : stdout.split(/\r?\n/).map(name => name.trim()).filter(Boolean).map(name => ({ name, current: false, remote: false })))
+    }))
+  })
+  ipcMain.handle(IPC_CHANNELS.github.listWorktrees, (_event: IpcMainInvokeEvent, input: { rootPath: string }) => {
+    return new Promise(resolve => execFile('git', ['worktree', 'list', '--porcelain'], { cwd: input.rootPath }, (error, stdout) => {
+      resolve(error ? [] : parseWorktreePorcelain(stdout, input.rootPath))
     }))
   })
   ipcMain.handle(IPC_CHANNELS.github.listPullRequests, () => [])

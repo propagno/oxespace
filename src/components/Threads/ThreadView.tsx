@@ -38,6 +38,7 @@ const ThreadCommandDialog = lazy(() => import('./ThreadCommandDialog'))
 const ThreadReviewHost = lazy(() => import('./ThreadReviewHost'))
 import { DelegationCreateDialog } from '../Delegation/DelegationCreateDialog'
 import { useOxeVoice } from '../../hooks/useOxeVoice'
+import { threadWorkingRoot } from './threadChanges'
 import './ThreadWorkbench.css'
 import './ThreadView.css'
 
@@ -62,7 +63,8 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   const textarea = useRef<HTMLTextAreaElement>(null), fileInput = useRef<HTMLInputElement>(null), actionInFlight = useRef(false)
   const scroll = useThreadScrollAnchor(snapshot, selectedId)
   const { timeline, scrollEnd } = scroll
-  const branch = useGitBranch(workspace?.id ?? '', snapshot?.thread.rootPath ?? workspace?.rootPath ?? '')
+  // The branch of the checkout the conversation works in, which is a worktree once the provider moves into one.
+  const branch = useGitBranch(workspace?.id ?? '', snapshot ? threadWorkingRoot(snapshot.thread) : workspace?.rootPath ?? '')
   const api = window.oxe?.thread
   const voice = useOxeVoice({ enabled: Boolean(active && snapshot && !snapshot.thread.cliActive), onFinalText: text => {
     if (!snapshot) return
@@ -173,7 +175,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
     else if (result.surface === 'changes') { togglePanel('changes', true); return }
     else if (result.surface === 'sessions') setPanel({ ...result, title: 'Resume work', resume: await loadResumeData(snapshot.thread) })
     else if (result.surface === 'delegations') setPanel(await loadDelegationPanel(snapshot.thread, result))
-    else if (result.kind === 'panel') setPanel(result)
+    else if (result.kind === 'panel' || result.kind === 'confirm') setPanel(result)
     if (useThreadStore.getState().drafts[id] === text) useThreadStore.getState().setDraft(id, '')
     await useThreadStore.getState().refresh(id)
   }

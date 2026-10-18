@@ -186,14 +186,14 @@ test('redesign audit', async () => {
     await step('tools-menu', async () => {
       await page.getByTestId('btn-open-tools').click()
       await capture(page, '10-tools-menu')
-      items = (await page.getByTestId('tools-modal').getByRole('menuitem').allInnerTexts()).map(t => t.split('\n')[0].trim()).filter(Boolean)
+      items = (await page.getByRole('menu', { name: 'Panels' }).getByRole('menuitemcheckbox').allInnerTexts()).map(t => t.split('\n')[0].trim()).filter(Boolean)
       writeFileSync(join(METRICS, 'tools-menu-items.json'), JSON.stringify(items, null, 2))
       await page.keyboard.press('Escape')
     })
     for (const [i, label] of items.entries()) {
       await step(`tool-${label}`, async () => {
         await page.getByTestId('btn-open-tools').click()
-        await page.getByTestId('tools-modal').getByRole('menuitem').filter({ hasText: label }).first().click()
+        await page.getByRole('menu', { name: 'Panels' }).getByRole('menuitemcheckbox').filter({ hasText: label }).first().click()
         await page.waitForTimeout(500)
         await capture(page, `11-tool-${String(i).padStart(2, '0')}-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`)
         const dlg = page.getByRole('dialog').first()

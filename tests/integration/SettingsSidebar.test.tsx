@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
 import type { AgentProfile, AgentReadiness } from '../../shared/types/agent'
 import { AgentConfigModal } from '../../src/components/Agents/AgentConfigModal'
-import { SettingsModal } from '../../src/components/Settings/SettingsModal'
+import { SettingsContent } from '../../src/components/Settings/SettingsModal'
 import { useUpdaterStore } from '../../src/store/updater.store'
 
 const profiles: AgentProfile[] = [
@@ -39,7 +39,8 @@ describe('Settings agents UI', () => {
     const onNewCustomAgent = vi.fn()
 
     render(
-      <SettingsModal
+      <SettingsContent
+        section="providers"
         agentProfiles={profiles}
         agentReadiness={readiness}
         isDiscoveringAgents={false}
@@ -50,9 +51,6 @@ describe('Settings agents UI', () => {
       />
     )
 
-    expect(screen.getByRole('dialog', { name: 'Agents' })).toBeInTheDocument()
-    expect(screen.getByTestId('settings-modal')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^Agents$/i })).toBeInTheDocument()
     expect(screen.getByText('Claude')).toBeInTheDocument()
     expect(screen.getByText('Ready')).toBeInTheDocument()
     expect(screen.getByText('claude 2.1.132')).toBeInTheDocument()
@@ -91,7 +89,8 @@ describe('Settings agents UI', () => {
     const onUseProviderInPane = vi.fn()
 
     render(
-      <SettingsModal
+      <SettingsContent
+        section="providers"
         agentProfiles={profiles}
         agentReadiness={[]}
         isDiscoveringAgents={false}
@@ -116,7 +115,8 @@ describe('Settings agents UI', () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
 
     render(
-      <SettingsModal
+      <SettingsContent
+        section="providers"
         agentProfiles={profiles}
         agentReadiness={[
           { provider: 'claude', command: 'claude', status: 'missing' },
@@ -144,7 +144,8 @@ describe('Settings agents UI', () => {
     const onUseProviderInPane = vi.fn()
 
     render(
-      <SettingsModal
+      <SettingsContent
+        section="providers"
         agentProfiles={profiles}
         agentReadiness={readiness}
         isDiscoveringAgents={false}
@@ -160,51 +161,16 @@ describe('Settings agents UI', () => {
     expect(onUseProviderInPane).toHaveBeenCalledWith(profiles[0])
   })
 
-  test('Escape closes the modal', async () => {
-    const user = userEvent.setup()
-    const onClose = vi.fn()
-
-    render(
-      <SettingsModal
-        agentProfiles={profiles}
-        agentReadiness={readiness}
-        isDiscoveringAgents={false}
-        onClose={onClose}
-        onDiscoverAgents={vi.fn()}
-        onConfigureAgent={vi.fn()}
-        onNewCustomAgent={vi.fn()}
-      />
-    )
-
-    await user.keyboard('{Escape}')
-    expect(onClose).toHaveBeenCalled()
-  })
-
-  test('navigates between settings sections', async () => {
-    const user = userEvent.setup()
-
-    render(
-      <SettingsModal
-        agentProfiles={profiles}
-        agentReadiness={readiness}
-        isDiscoveringAgents={false}
-        onClose={vi.fn()}
-        onDiscoverAgents={vi.fn()}
-        onConfigureAgent={vi.fn()}
-        onNewCustomAgent={vi.fn()}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /^Terminal$/i }))
+  test('renders the terminal, notifications and updates sections', () => {
+    const props = { agentProfiles: profiles, agentReadiness: readiness, isDiscoveringAgents: false, onClose: vi.fn(), onDiscoverAgents: vi.fn(), onConfigureAgent: vi.fn(), onNewCustomAgent: vi.fn() }
+    const view = render(<SettingsContent section="terminal" {...props} />)
     expect(screen.getByRole('heading', { name: 'Terminal' })).toBeInTheDocument()
     expect(screen.getByText(/terminal preview/i)).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: /^Notifications$/i }))
+    view.rerender(<SettingsContent section="notifications" {...props} />)
     expect(screen.getByRole('heading', { name: 'Notifications' })).toBeInTheDocument()
     expect(screen.getByRole('switch', { name: /Notify when an agent needs you/i })).toBeInTheDocument()
     expect(screen.getByTestId('btn-test-notification')).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: /^Updates$/i }))
+    view.rerender(<SettingsContent section="updates" {...props} />)
     expect(screen.getByRole('heading', { name: 'Updates' })).toBeInTheDocument()
     expect(screen.getByTestId('settings-app-update')).toBeInTheDocument()
     // Development builds can check Releases, but installation is manual.
@@ -222,7 +188,6 @@ describe('Settings agents UI', () => {
       expect(screen.getByTestId('btn-check-rtk')).toBeDisabled()
       expect(within(screen.getByTestId('settings-rtk-update')).getByText('Checking', { exact: true })).toHaveClass('muted')
     } finally { act(() => useUpdaterStore.setState({ rtk: previousRtk })) }
-
   })
 
   test('built-in modal allows command edits without delete or secret fields', async () => {

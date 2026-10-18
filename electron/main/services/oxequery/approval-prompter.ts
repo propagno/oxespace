@@ -3,7 +3,7 @@ import type { ApprovalDecision, ApprovalPrompter, ApprovalRequest } from './appr
 
 const VERBS: Record<ApprovalRequest['risk'], string> = {
   read: 'read data',
-  write: 'CHANGE data',
+  write: 'change data in the database',
   action: 'run a container action'
 }
 

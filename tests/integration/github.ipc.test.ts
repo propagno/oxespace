@@ -131,4 +131,18 @@ describe('GitHub IPC adapter', () => {
 
     expect(calls, 'validation must run ahead of the service, not inside it').toEqual([])
   })
+  test('removeWorktree refuses a worktree conversations work in, before the service is called', async () => {
+    for (const channel of ipcMain.channels()) ipcMain.removeHandler(channel)
+    const { service, calls } = createSpyService()
+    const { openInMemoryDatabase } = await import('../../electron/main/db')
+    const db = openInMemoryDatabase()
+    try {
+      db.prepare("INSERT INTO thread_projects (id, identity, root_path, display_name, hidden, created_at, updated_at) VALUES ('p', 'id', 'C:/repo', 'repo', 0, 1, 1)").run()
+      db.prepare("INSERT INTO conversation_threads (id, workspace_id, thread_project_id, data_json, events_json) VALUES ('t', 'thread:p', 'p', ?, '[]')").run(JSON.stringify({ id: 't', title: 'Login fix', rootPath: 'C:/repo-worktrees/fix' }))
+      registerGitHubIpc(db, service)
+      await expect(ipcMain.invoke(IPC_CHANNELS.github.removeWorktree, { rootPath: 'C:/repo', path: 'C:/repo-worktrees/fix' })).rejects.toThrow(/threads-attached.*Login fix/)
+      await ipcMain.invoke(IPC_CHANNELS.github.removeWorktree, { rootPath: 'C:/repo', path: 'C:/repo-worktrees/other' })
+      expect(calls).toEqual(['removeWorktree'])
+    } finally { db.close() }
+  })
 })

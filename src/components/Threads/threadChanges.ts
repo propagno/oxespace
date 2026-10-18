@@ -1,4 +1,13 @@
-import type { ThreadEvent, ThreadFileChange } from '../../../shared/types/thread'
+import type { ConversationThread, ThreadEvent, ThreadFileChange } from '../../../shared/types/thread'
+
+/**
+ * The checkout the conversation is working in: a worktree of the same repository the provider reported
+ * moving into, or the thread's own root. Branch, changes, Git and files follow it.
+ */
+export function threadWorkingRoot(thread: Pick<ConversationThread, 'rootPath' | 'observedLocation'>): string {
+  const observed = thread.observedLocation
+  return observed?.sameRepository && observed.checkoutRoot ? observed.checkoutRoot : thread.rootPath
+}
 
 function pathKey(path: string): string {
   const normalized = path.replace(/\\/g, '/')

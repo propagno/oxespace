@@ -73,7 +73,7 @@ test('Code and Thread share delegation creation, exact recovery and session deta
     await create.getByRole('button', { name: 'Create delegation' }).click()
     await expect.poll(() => app.evaluate(() => (globalThis as Record<string, unknown>).delegationRequest)).toMatchObject({ workspaceId: ws.id, owner: { kind: 'pane' }, input: { agentProfileId: 'codex', objective: 'Fix callback', surface: 'thread', includeMemory: true,
       sourceThreadIds: ['00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002'], branchIntent: { strategy: 'create', name: 'feature/CARD-143' } } })
-    await page.getByRole('button', { name: 'Close delegated work' }).click()
+    await page.getByRole('dialog', { name: 'Delegated work' }).getByRole('button', { name: 'Close', exact: true }).click()
     await page.getByRole('button', { name: 'Thread', exact: true }).click()
     // Thread no longer carries a Delegated work shortcut; it offers MCP connections instead.
     await expect(page.getByRole('button', { name: 'Delegated work', exact: true })).toHaveCount(0)

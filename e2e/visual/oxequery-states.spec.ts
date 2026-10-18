@@ -62,8 +62,14 @@ for (const theme of THEMES) {
       await page.keyboard.press('Escape')
 
       await page.getByRole('tab', { name: 'Activity' }).click()
-      // The first column of the audit table is the time of each entry: it is the moment the test ran.
-      await shot('activity', view, [page.locator('.oq-view tbody tr td:first-child')])
+      // The first column of the audit table is the time of each entry: it is the moment the test ran. Masking
+      // alone is not enough, because the table sizes its columns to that text, so the time is replaced with
+      // a fixed one before the capture.
+      // Only the visible table: the Containers tab keeps its own table in the page while hidden.
+      const when = page.locator('.oq-view tbody tr td:first-child').filter({ visible: true })
+      await expect(when.first()).toBeVisible()
+      await when.evaluateAll(cells => { for (const cell of cells) cell.textContent = '10/18/2026, 8:00 AM' })
+      await shot('activity', view, [when])
     } finally { await app.close() }
   })
 

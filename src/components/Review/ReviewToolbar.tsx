@@ -1,11 +1,20 @@
-import { Check, ChevronLeft, ChevronRight, Columns2, Rows3, Send } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Columns2, FolderGit2, Rows3, Send } from 'lucide-react'
 import { type ReactElement } from 'react'
+import type { GitHubWorktree } from '../../../shared/types/github'
 import type { DiffMode } from '../../store/git.store'
+import { RefPicker, type RefPickerBranch } from '../Changes/RefPicker'
 
-const BASE_OPTIONS = ['origin/main', 'origin/master', '@{upstream}', 'HEAD~1', 'HEAD~5']
+/** Relative refs the old fixed list offered; kept as shortcuts next to the real branches. */
+const BASE_SHORTCUTS = ['@{upstream}', 'HEAD~1', 'HEAD~5']
+const withShortcuts = (branches: RefPickerBranch[]): RefPickerBranch[] => [...branches, ...BASE_SHORTCUTS.map(name => ({ name, remote: false }))]
 
 interface ReviewToolbarProps {
   base: string
+  /** Side B as a ref; null is the work tree. */
+  head: string | null
+  branches: RefPickerBranch[]
+  rootPath: string
+  onHeadChange: (head: string | null) => void
   includeUncommitted: boolean
   hideReviewed: boolean
   sortBy: 'last-edit' | 'name'
@@ -27,6 +36,10 @@ interface ReviewToolbarProps {
 
 export function ReviewToolbar({
   base,
+  head,
+  branches,
+  rootPath,
+  onHeadChange,
   commentCount,
   currentIndex,
   diffMode,
@@ -58,28 +71,33 @@ export function ReviewToolbar({
           <span>Enviar {commentCount} ao agente</span>
         </button>
       ) : null}
-      <span className="review-toolbar-label">Base</span>
-      <select
-        className="review-base-select"
-        value={BASE_OPTIONS.includes(base) ? base : 'custom'}
-        onChange={(e) => {
-          if (e.target.value !== 'custom') onBaseChange(e.target.value)
-        }}
-        aria-label="Diff base branch"
-      >
-        {BASE_OPTIONS.map((opt) => (
-          <option key={opt} value={opt}>{opt}</option>
-        ))}
-        {!BASE_OPTIONS.includes(base) && <option value="custom">{base}</option>}
-      </select>
+      <RefPicker
+        label="Diff base branch"
+        value={base}
+        branches={withShortcuts(branches)}
+        selected={`ref:${base}`}
+        onPickRef={onBaseChange}
+      />
+      <RefPicker
+        label="Compare (side B)"
+        value={head ?? 'Work tree'}
+        icon={head ? undefined : <FolderGit2 size={14} aria-hidden="true" />}
+        branches={branches}
+        worktrees={[{ path: rootPath, branch: 'Work tree', head: null, isMain: true, locked: false } as GitHubWorktree]}
+        selected={head ? `ref:${head}` : `tree:${rootPath}`}
+        onPickRef={onHeadChange}
+        onPickWorktree={() => onHeadChange(null)}
+      />
 
       <div className="review-toolbar-sep" />
 
       <button
         type="button"
-        className={`review-toggle-btn${includeUncommitted ? ' active' : ''}`}
+        className={`review-toggle-btn${includeUncommitted && !head ? ' active' : ''}`}
         onClick={onToggleUncommitted}
-        aria-pressed={includeUncommitted}
+        aria-pressed={includeUncommitted && !head}
+        disabled={Boolean(head)}
+        title={head ? 'A ref has no uncommitted changes' : undefined}
       >
         Uncommitted
       </button>

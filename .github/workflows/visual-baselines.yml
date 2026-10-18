@@ -1,6 +1,6 @@
-name: Visual baselines (Linux)
+name: Visual baselines
 
-# Generates e2e/visual/__screenshots__/linux for review. Never publishes anything and never
+# Generates e2e/visual/__screenshots__/<platform> (linux or win32) for review. Never publishes anything and never
 # commits: download the artifact, look at the images, then commit them by explicit path.
 # See e2e/visual/LINUX-BASELINES.md for the procedure and the reasons for each choice.
 
@@ -11,14 +11,27 @@ on:
         description: Optional override — leave empty to use "Use workflow from"
         required: false
         type: string
+      platform:
+        description: Which baselines to generate
+        required: false
+        default: linux
+        type: choice
+        options: [linux, windows]
 
 permissions:
   contents: read
 
 jobs:
-  linux-baselines:
-    name: Generate and verify Linux visual baselines
-    runs-on: ubuntu-22.04
+  baselines:
+    name: Generate and verify ${{ inputs.platform || 'linux' }} visual baselines
+    runs-on: ${{ inputs.platform == 'windows' && 'windows-2022' || 'ubuntu-22.04' }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      # Windows draws without a virtual display; Linux needs Xvfb.
+      RUN: ${{ inputs.platform != 'windows' && 'bash scripts/run-with-xvfb.sh' || '' }}
+      SHOTS: ${{ inputs.platform == 'windows' && 'win32' || 'linux' }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.0
@@ -33,6 +46,7 @@ jobs:
           cache: npm
 
       - name: Linux system dependencies
+        if: inputs.platform != 'windows'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -54,32 +68,32 @@ jobs:
       # pass warms it up; its result is ignored on purpose.
       - name: Warm-up (result ignored)
         continue-on-error: true
-        run: bash scripts/run-with-xvfb.sh npx playwright test --config playwright.visual.config.ts anchor-surfaces
+        run: $RUN npx playwright test --config playwright.visual.config.ts anchor-surfaces
 
       - name: Generate the baselines
-        run: bash scripts/run-with-xvfb.sh npx playwright test --config playwright.visual.config.ts --update-snapshots
+        run: $RUN npx playwright test --config playwright.visual.config.ts --update-snapshots
 
       # Two consecutive comparisons against what was just written, with no rebuild between them.
       - name: Verify stable, run 1
-        run: bash scripts/run-with-xvfb.sh npx playwright test --config playwright.visual.config.ts
+        run: $RUN npx playwright test --config playwright.visual.config.ts
 
       - name: Verify stable, run 2
-        run: bash scripts/run-with-xvfb.sh npx playwright test --config playwright.visual.config.ts
+        run: $RUN npx playwright test --config playwright.visual.config.ts
 
-      - name: Upload the Linux baselines
+      - name: Upload the baselines
         if: success()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: visual-baselines-linux
+          name: visual-baselines-${{ env.SHOTS }}
           if-no-files-found: error
           retention-days: 14
-          path: e2e/visual/__screenshots__/linux/**
+          path: e2e/visual/__screenshots__/${{ env.SHOTS }}/**
 
       - name: Upload the diffs when it is not stable
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: visual-diffs-linux
+          name: visual-diffs-${{ env.SHOTS }}
           if-no-files-found: ignore
           retention-days: 7
           path: test-results/**

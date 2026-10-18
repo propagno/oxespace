@@ -26,6 +26,13 @@ describe('Thread MCP servers', () => {
     expect(screen.getByRole('button', { name: '3 MCP servers connected' })).toHaveTextContent('MCP · 3')
   })
 
+  it('says the servers are stopped, not failed, while the conversation is closed for being idle', () => {
+    render(<ThreadMcpHealth thread={{ ...thread, connection: { state: 'closed', attempt: 0, changedAt: 1, suspendedAt: 1 } } as ConversationThread} />)
+    const chip = screen.getByRole('button', { name: /stopped while the conversation is idle/ })
+    expect(chip).toHaveTextContent('MCP · stopped')
+    expect(chip).not.toHaveClass('is-warning')
+  })
+
   it('groups the servers by state in the popover', async () => {
     const user = userEvent.setup()
     render(<ThreadMcpHealth thread={thread} />)

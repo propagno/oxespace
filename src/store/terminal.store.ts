@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { sanitizeTerminalPreview, stripTerminalControl } from '../utils/paneDisplay'
+import type { SessionLocation } from '../../shared/types/agent-hooks'
 
 export type TerminalPaneStatus = 'idle' | 'starting' | 'running' | 'exited' | 'error'
 
@@ -17,6 +18,8 @@ export interface TerminalStateEntry {
   /** Last status the agent reported through its own lifecycle hooks. */
   hookState: 'working' | 'waiting' | 'done' | null
   hookAt: number | null
+  /** Where the pane's agent reports working; null until it reports, and again once it ends. */
+  location: SessionLocation | null
   /**
    * The shell is still running in main but no terminal view is rendering it
    * (its workspace fell out of the mounted MRU). The entry is deliberately
@@ -40,6 +43,8 @@ interface TerminalState {
   markRead: (paneId: string) => void
   /** Status reported by the agent's own hooks; `ended` clears it. */
   setHookStatus: (paneId: string, state: 'working' | 'waiting' | 'done' | 'ended', at: number) => void
+  /** Directory the pane's agent reports working in. */
+  setLocation: (paneId: string, location: SessionLocation | null) => void
   /** The view unmounted but the shell keeps running (workspace left the MRU). */
   markDetached: (paneId: string) => void
   /** Heartbeat from a session with no attached view — carries no output. */
@@ -60,6 +65,7 @@ const DEFAULT_STATE: TerminalStateEntry = {
   hasUnread: false,
   hookState: null,
   hookAt: null,
+  location: null,
   detached: false
 }
 
@@ -215,12 +221,19 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
             ...entry,
             hookState: state === 'ended' ? null : state,
             hookAt: state === 'ended' ? null : at,
+            // The agent's directory was its own; once it exits the pane is back in its shell's directory.
+            location: state === 'ended' ? null : entry.location,
             hasUnread: state === 'done' && current.activePaneId !== paneId ? true : entry.hasUnread
           }
         }
       }
     })
   },
+
+  setLocation: (paneId, location) =>
+    set(current => ({
+      panes: { ...current.panes, [paneId]: { ...(current.panes[paneId] ?? DEFAULT_STATE), location } }
+    })),
 
   markRead: (paneId) =>
     set(state => ({

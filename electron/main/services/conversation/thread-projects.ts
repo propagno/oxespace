@@ -48,6 +48,17 @@ export class ThreadProjectService {
     return { projectId, rootPath: selected }
   }
 
+  /** Registers another checkout of the project (a worktree created for a conversation). */
+  addContext(projectId: string, rootPath: string): void {
+    if (!this.db.prepare('SELECT 1 FROM thread_projects WHERE id = ?').get(projectId)) throw Error('Thread project not found')
+    this.db.prepare('INSERT OR IGNORE INTO thread_project_contexts (project_id, root_path) VALUES (?, ?)').run(projectId, rootPath)
+  }
+
+  /** Drops a registered checkout; the project's own root is never removed this way. */
+  removeContext(projectId: string, rootPath: string): void {
+    this.db.prepare('DELETE FROM thread_project_contexts WHERE project_id = ? AND root_path = ? AND root_path <> (SELECT root_path FROM thread_projects WHERE id = ?)').run(projectId, rootPath, projectId)
+  }
+
   setHidden(projectId: string, hidden: boolean): void {
     const result = this.db.prepare('UPDATE thread_projects SET hidden = ?, updated_at = ? WHERE id = ?').run(hidden ? 1 : 0, Date.now(), projectId)
     if (!result.changes) throw Error('Thread project not found')

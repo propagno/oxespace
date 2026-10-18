@@ -532,7 +532,7 @@ describe('thread persistence and ownership', () => {
     expect(await f.manager.command(id, '/permissions')).toMatchObject({ surface: 'permissions' })
     expect(f.factory).not.toHaveBeenCalled()
     expect(f.manager.read(id).events).toHaveLength(0)
-    expect(await f.manager.command(id, '/delete')).toMatchObject({ kind: 'panel', rows: [{ id: '/delete confirm' }] })
+    expect(await f.manager.command(id, '/delete')).toMatchObject({ kind: 'confirm', confirm: { title: 'Delete this conversation?', command: '/delete confirm', danger: true } })
     expect(f.manager.read(id).thread.id).toBe(id)
     await f.manager.command(id, '/archive confirm')
     expect(f.manager.read(id).thread.archived).toBe(true)

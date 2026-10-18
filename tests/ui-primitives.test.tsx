@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Badge, Button, Dialog, EmptyState, IconButton, Meter, SegmentedControl, Select, StatusDot, Switch, Tabs, TextField, Toaster, dismissToast, toast } from '../src/ui'
+import { Badge, Button, Dialog, EmptyState, IconButton, Menu, Meter, SegmentedControl, Select, StatusDot, Switch, Tabs, TextField, Toaster, dismissToast, toast } from '../src/ui'
 
 afterEach(() => { cleanup(); vi.useRealTimers() })
 
@@ -111,5 +111,22 @@ describe('Toast', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Push failed')
     act(() => dismissToast(id))
     expect(screen.queryByText('Push failed')).toBeNull()
+  })
+})
+
+describe('Menu', () => {
+  it('keeps a stepper item open and checks the chosen radio option', async () => {
+    const user = (await import('@testing-library/user-event')).default.setup()
+    const larger = vi.fn(), choose = vi.fn()
+    render(<Menu label="More actions" trigger={<button type="button">More</button>} items={[
+      { label: 'Larger text', keepOpen: true, onSelect: larger },
+      { type: 'radio', value: 'normal', onValueChange: choose, options: [{ value: 'normal', label: 'Normal', ariaLabel: 'Normal view' }, { value: 'summary', label: 'Summary', hint: 'Answers only' }] }
+    ]} />)
+    await user.click(screen.getByRole('button', { name: 'More' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Larger text' }))
+    expect(larger).toHaveBeenCalledOnce()
+    expect(screen.getByRole('menuitemradio', { name: 'Normal view' })).toHaveAttribute('aria-checked', 'true')
+    await user.click(screen.getByRole('menuitemradio', { name: /Summary/ }))
+    expect(choose).toHaveBeenCalledWith('summary')
   })
 })

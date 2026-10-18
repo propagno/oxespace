@@ -31,7 +31,7 @@ vi.mock('../../src/components/Workspace/NewWorkspaceModal', () => ({
 }))
 
 vi.mock('../../src/components/Settings/SettingsModal', () => ({
-  SettingsModal: () => null
+  SettingsContent: () => null
 }))
 
 vi.mock('../../src/components/Agents/AgentConfigModal', () => ({

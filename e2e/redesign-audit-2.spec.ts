@@ -2,6 +2,7 @@ import { _electron as electron, test } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { runPaletteCommand, togglePanel } from './helpers/panels'
 
 const SHOTS = join(process.cwd(), 'e2e', 'screenshots', 'redesign-audit', 'shots')
 
@@ -22,10 +23,14 @@ test('redesign audit part 2', async () => {
     await page.getByTestId('wizard-dir-input').fill(ws)
     await page.getByTestId('wizard-launch-btn').click()
     await page.waitForSelector('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]', { timeout: 10000 })
-    for (const label of ['Skills', 'Semantic Activity', 'Editor', 'Review', 'Command Palette', 'Workspace Settings']) {
+    const open: Record<string, () => Promise<void>> = {
+      Skills: () => runPaletteCommand(page, 'Skills'), 'Semantic index log': () => runPaletteCommand(page, 'Semantic index log'),
+      Files: () => togglePanel(page, 'Files'), Changes: () => togglePanel(page, 'Changes'),
+      'Command palette': () => page.keyboard.press('Control+k'), 'Workspace settings': () => runPaletteCommand(page, 'Open workspace settings')
+    }
+    for (const label of Object.keys(open)) {
       try {
-        await page.getByTestId('btn-open-tools').click({ timeout: 5000 })
-        await page.getByTestId('tools-modal').getByRole('menuitem').filter({ hasText: label }).first().click({ timeout: 5000 })
+        await open[label]()
         await page.waitForTimeout(900); await shot(`13-tool-${label.toLowerCase().replace(/\W+/g, '-')}`)
       } catch (e) { log.push(`${label}: ${(e as Error).message.split('\n')[0]}`) }
       const dlg = page.getByRole('dialog').first()

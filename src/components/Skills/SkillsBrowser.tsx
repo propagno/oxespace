@@ -1,6 +1,6 @@
 import { Copy, Download, Edit3, FileText, FolderOpen, Play, Plus, RotateCw, Sparkles, X } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactElement } from 'react'
-import { useModalSurface, Button, TextField, Select } from '../../ui'
+import { ToolPanel, Button, TextField, Select } from '../../ui'
 import { BUILTIN_PROVIDERS, type AgentProvider } from '../../../shared/types/agent'
 import type { SkillDefinition } from '../../../shared/types/skill'
 import { useSkillStore } from '../../store/skill.store'
@@ -14,7 +14,6 @@ interface SkillsBrowserProps {
 }
 
 export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId, workspaceRootPath }: SkillsBrowserProps): ReactElement {
-  const surface = useModalSurface<HTMLElement>(onClose)
   const skills = useSkillStore((s) => s.skills)
   const loading = useSkillStore((s) => s.loading)
   const error = useSkillStore((s) => s.error)
@@ -132,145 +131,139 @@ export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId
   }
 
   return (
-    <div className="skills-browser-backdrop" role="presentation" onMouseDown={onClose}>
-      <section
-        className="skills-browser"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Skills"
-        {...surface}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <header className="skills-browser-header">
-          <div className="skills-browser-title">
-            <Sparkles size={14} aria-hidden="true" />
-            <strong>Agent Skills</strong>
-            <span className="skills-browser-count">{skills.length} total</span>
-          </div>
-          <div className="skills-browser-actions">
-            {sdlcFullyInstalled ? null : (
-              <Button
-               
-                variant="ghost" size="sm" className="skills-pack-btn"
-                disabled={installingPack}
-                onClick={() => void handleInstallSdlcPack()}
-                title={workspaceRootPath ? 'Install recommended SDLC skills in this workspace' : 'Install recommended SDLC skills for the user'}
-              >
-                <Download size={12} aria-hidden="true" />
-                {installingPack
-                  ? 'Installing…'
-                  : sdlcPartial
-                    ? `Install SDLC pack (${sdlcMissingCount} missing)`
-                    : 'Install SDLC pack'}
-              </Button>
-            )}
+    <ToolPanel
+      className="skills-browser"
+      label="Skills" onClose={onClose}>
+      <header className="skills-browser-header">
+        <div className="skills-browser-title">
+          <Sparkles size={14} aria-hidden="true" />
+          <strong>Agent Skills</strong>
+          <span className="skills-browser-count">{skills.length} total</span>
+        </div>
+        <div className="skills-browser-actions">
+          {sdlcFullyInstalled ? null : (
             <Button
              
-              variant="ghost" size="sm" square
-              aria-label="New skill"
-              title="New skill"
-              disabled={creating}
-              onClick={() => setCreating(true)}
-              data-testid="btn-new-skill"
+              variant="ghost" size="sm" className="skills-pack-btn"
+              disabled={installingPack}
+              onClick={() => void handleInstallSdlcPack()}
+              title={workspaceRootPath ? 'Install recommended SDLC skills in this workspace' : 'Install recommended SDLC skills for the user'}
             >
-              <Plus size={14} aria-hidden="true" />
+              <Download size={12} aria-hidden="true" />
+              {installingPack
+                ? 'Installing…'
+                : sdlcPartial
+                  ? `Install SDLC pack (${sdlcMissingCount} missing)`
+                  : 'Install SDLC pack'}
             </Button>
-            <Button
-             
-              variant="ghost" size="sm" square
-              aria-label="Refresh"
-              disabled={loading}
-              onClick={() => void refresh(workspaceRootPath ?? undefined)}
-            >
-              <RotateCw size={14} className={loading ? 'usage-spin' : ''} aria-hidden="true" />
-            </Button>
-            <Button variant="ghost" size="sm" square aria-label="Close" onClick={onClose}>
-              <X size={14} aria-hidden="true" />
-            </Button>
-          </div>
-        </header>
+          )}
+          <Button
+           
+            variant="ghost" size="sm" square
+            aria-label="New skill"
+            title="New skill"
+            disabled={creating}
+            onClick={() => setCreating(true)}
+            data-testid="btn-new-skill"
+          >
+            <Plus size={14} aria-hidden="true" />
+          </Button>
+          <Button
+           
+            variant="ghost" size="sm" square
+            aria-label="Refresh"
+            disabled={loading}
+            onClick={() => void refresh(workspaceRootPath ?? undefined)}
+          >
+            <RotateCw size={14} className={loading ? 'usage-spin' : ''} aria-hidden="true" />
+          </Button>
+          <Button variant="ghost" size="sm" square aria-label="Close" onClick={onClose}>
+            <X size={14} aria-hidden="true" />
+          </Button>
+        </div>
+      </header>
 
-        {creating ? (
-          <CreateSkillForm
-            workspaceRootPath={workspaceRootPath}
-            onCancel={() => setCreating(false)}
-            onCreate={async (input) => {
-              const created = await createSkill(input)
-              setCreating(false)
-              setNotice(`/${created.name} created at ${compactPath(created.filePath)}`)
-              // Open workspace skills in the editor right away — gets the user
-              // into the file to flesh out the prompt body. User skills can't
-              // be opened in the workspace editor since they live outside it.
-              if (created.source === 'workspace' && workspaceRootPath && workspaceId) {
-                const relativePath = toWorkspaceRelativePath(workspaceRootPath, created.filePath)
-                if (relativePath) onOpenEditor(relativePath)
-              }
-            }}
-          />
+      {creating ? (
+        <CreateSkillForm
+          workspaceRootPath={workspaceRootPath}
+          onCancel={() => setCreating(false)}
+          onCreate={async (input) => {
+            const created = await createSkill(input)
+            setCreating(false)
+            setNotice(`/${created.name} created at ${compactPath(created.filePath)}`)
+            // Open workspace skills in the editor right away — gets the user
+            // into the file to flesh out the prompt body. User skills can't
+            // be opened in the workspace editor since they live outside it.
+            if (created.source === 'workspace' && workspaceRootPath && workspaceId) {
+              const relativePath = toWorkspaceRelativePath(workspaceRootPath, created.filePath)
+              if (relativePath) onOpenEditor(relativePath)
+            }
+          }}
+        />
+      ) : null}
+
+      <div className="skills-browser-search">
+        <TextField
+          type="search"
+          placeholder="Search by name, description or category…"
+          value={filter}
+          onChange={(event) => setFilter(event.currentTarget.value)}
+        />
+      </div>
+
+      {error ? <div className="skills-browser-error">{error}</div> : null}
+      {notice ? <div className="skills-browser-notice">{notice}</div> : null}
+
+      <div className="skills-browser-list">
+        {workspaceSkills.length > 0 ? (
+          <>
+            <div className="skills-section-label">Workspace ({workspaceSkills.length})</div>
+            {workspaceSkills.map((skill) => (
+              <SkillRow
+                key={skill.filePath}
+                skill={skill}
+                argument={argumentBySkill[skill.name] ?? ''}
+                busy={busySkill === skill.name}
+                canUse={Boolean(activePaneId)}
+                canEdit={Boolean(workspaceId && workspaceRootPath)}
+                onArgumentChange={(value) => setArgumentBySkill((state) => ({ ...state, [skill.name]: value }))}
+                onUse={() => void handleUseSkill(skill)}
+                onCopy={() => void handleCopySkill(skill)}
+                onEdit={() => handleEditSkill(skill)}
+              />
+            ))}
+          </>
         ) : null}
 
-        <div className="skills-browser-search">
-          <TextField
-            type="search"
-            placeholder="Search by name, description or category…"
-            value={filter}
-            onChange={(event) => setFilter(event.currentTarget.value)}
-          />
-        </div>
+        {userSkills.length > 0 ? (
+          <>
+            <div className="skills-section-label">User · ~/.oxe/skills ({userSkills.length})</div>
+            {userSkills.map((skill) => (
+              <SkillRow
+                key={skill.filePath}
+                skill={skill}
+                argument={argumentBySkill[skill.name] ?? ''}
+                busy={busySkill === skill.name}
+                canUse={Boolean(activePaneId)}
+                canEdit={Boolean(workspaceId && workspaceRootPath)}
+                onArgumentChange={(value) => setArgumentBySkill((state) => ({ ...state, [skill.name]: value }))}
+                onUse={() => void handleUseSkill(skill)}
+                onCopy={() => void handleCopySkill(skill)}
+                onEdit={() => handleEditSkill(skill)}
+              />
+            ))}
+          </>
+        ) : null}
 
-        {error ? <div className="skills-browser-error">{error}</div> : null}
-        {notice ? <div className="skills-browser-notice">{notice}</div> : null}
-
-        <div className="skills-browser-list">
-          {workspaceSkills.length > 0 ? (
-            <>
-              <div className="skills-section-label">Workspace ({workspaceSkills.length})</div>
-              {workspaceSkills.map((skill) => (
-                <SkillRow
-                  key={skill.filePath}
-                  skill={skill}
-                  argument={argumentBySkill[skill.name] ?? ''}
-                  busy={busySkill === skill.name}
-                  canUse={Boolean(activePaneId)}
-                  canEdit={Boolean(workspaceId && workspaceRootPath)}
-                  onArgumentChange={(value) => setArgumentBySkill((state) => ({ ...state, [skill.name]: value }))}
-                  onUse={() => void handleUseSkill(skill)}
-                  onCopy={() => void handleCopySkill(skill)}
-                  onEdit={() => handleEditSkill(skill)}
-                />
-              ))}
-            </>
-          ) : null}
-
-          {userSkills.length > 0 ? (
-            <>
-              <div className="skills-section-label">User · ~/.oxe/skills ({userSkills.length})</div>
-              {userSkills.map((skill) => (
-                <SkillRow
-                  key={skill.filePath}
-                  skill={skill}
-                  argument={argumentBySkill[skill.name] ?? ''}
-                  busy={busySkill === skill.name}
-                  canUse={Boolean(activePaneId)}
-                  canEdit={Boolean(workspaceId && workspaceRootPath)}
-                  onArgumentChange={(value) => setArgumentBySkill((state) => ({ ...state, [skill.name]: value }))}
-                  onUse={() => void handleUseSkill(skill)}
-                  onCopy={() => void handleCopySkill(skill)}
-                  onEdit={() => handleEditSkill(skill)}
-                />
-              ))}
-            </>
-          ) : null}
-
-          {filtered.length === 0 && !loading ? (
-            <div className="skills-browser-empty">
-              <Sparkles size={32} aria-hidden="true" />
-              <strong>No skills</strong>
-              <span>
-                Create <code>.md</code> files in <code>~/.oxe/skills/</code> or{' '}
-                <code>&lt;workspace&gt;/.oxe/skills/</code> with YAML frontmatter to extend your agents.
-              </span>
-              <pre className="skills-browser-example">{`---
+        {filtered.length === 0 && !loading ? (
+          <div className="skills-browser-empty">
+            <Sparkles size={32} aria-hidden="true" />
+            <strong>No skills</strong>
+            <span>
+              Create <code>.md</code> files in <code>~/.oxe/skills/</code> or{' '}
+              <code>&lt;workspace&gt;/.oxe/skills/</code> with YAML frontmatter to extend your agents.
+            </span>
+            <pre className="skills-browser-example">{`---
 name: refactor
 description: Refactor code in the project's style
 agents: [claude, codex]
@@ -278,17 +271,16 @@ category: refactor
 ---
 
 You are a refactorer. Analyze {{argument}} and propose improvements.`}</pre>
-            </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
+      </div>
 
-        <footer className="skills-browser-footer">
-          <span>
-            Skills appear in <kbd>Ctrl+/</kbd> automatically. Workspace skills override user skills with the same name.
-          </span>
-        </footer>
-      </section>
-    </div>
+      <footer className="skills-browser-footer">
+        <span>
+          Skills appear in <kbd>Ctrl+/</kbd> automatically. Workspace skills override user skills with the same name.
+        </span>
+      </footer>
+    </ToolPanel>
   )
 }
 

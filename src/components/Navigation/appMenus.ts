@@ -1,4 +1,4 @@
-import type { CommandPaletteAction } from '../CommandPalette/CommandPalette'
+import type { CommandPaletteAction } from '../../utils/commandRegistry'
 
 export type AppMenuNode =
   | { kind: 'item'; id: string; label: string; shortcut?: string; disabled?: boolean; onSelect(): void }

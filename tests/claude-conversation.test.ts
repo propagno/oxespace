@@ -302,3 +302,40 @@ describe('Claude MCP server status', () => {
       .toEqual([{ name: 'github', status: 'connected' }, { name: 'jira', status: 'needs-auth' }, { name: 'x', status: 'unknown' }])
   })
 })
+
+describe('Claude session location', () => {
+  it('reports the init directory and the worktree EnterWorktree moved into, and the root again on ExitWorktree', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: 'native' }, event => f.events.push(event))
+    await f.adapter.send('Work in a worktree')
+    f.emit(0, { type: 'system', subtype: 'init', session_id: 'native', cwd: '/project' })
+    f.emit(0, { type: 'assistant', message: { id: 'a', content: [{ type: 'tool_use', id: 'enter', name: 'EnterWorktree', input: { name: 'fix' } }] } })
+    f.emit(0, { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'enter', content: 'Created worktree at /project/.claude/worktrees/fix on branch worktree-fix.' }] } })
+    f.emit(0, { type: 'assistant', message: { id: 'b', content: [{ type: 'tool_use', id: 'exit', name: 'ExitWorktree', input: {} }] } })
+    f.emit(0, { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'exit', content: 'Returned to the original directory.' }] } })
+    // A failed EnterWorktree does not move the session.
+    f.emit(0, { type: 'assistant', message: { id: 'c', content: [{ type: 'tool_use', id: 'failed', name: 'EnterWorktree', input: {} }] } })
+    f.emit(0, { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'failed', is_error: true, content: 'Cannot create /elsewhere' }] } })
+    expect(f.events.filter(event => event.type === 'location')).toEqual([
+      { type: 'location', cwd: '/project' },
+      { type: 'location', cwd: '/project/.claude/worktrees/fix' },
+      { type: 'location', cwd: '/project' }
+    ])
+    await f.adapter.dispose()
+  })
+
+  it('finds the directory in an EnterWorktree result on Windows and POSIX', async () => {
+    const { enteredWorktreePath } = await import('../electron/main/services/conversation/claude-conversation')
+    expect(enteredWorktreePath(String.raw`Switched to C:\repo\.claude\worktrees\a.`)).toBe(String.raw`C:\repo\.claude\worktrees\a`)
+    expect(enteredWorktreePath('Now working in /home/u/repo/.claude/worktrees/b (branch b)')).toBe('/home/u/repo/.claude/worktrees/b')
+    expect(enteredWorktreePath('no path here')).toBeNull()
+  })
+
+  it('reads the path from the wording Claude Code 2.1.301 actually uses, spaces included', async () => {
+    const { enteredWorktreePath } = await import('../electron/main/services/conversation/claude-conversation')
+    // Verbatim from a live `claude -p` session on Windows (2026-10-18), with the profile name changed.
+    const live = String.raw`Created worktree at C:\Users\Jane Doe\repo\.claude\worktrees\fix on branch worktree-fix. The session is now working in the worktree. Use ExitWorktree to leave mid-session, or exit the session to be prompted.`
+    expect(enteredWorktreePath(live)).toBe(String.raw`C:\Users\Jane Doe\repo\.claude\worktrees\fix`)
+    expect(enteredWorktreePath('Created worktree at /home/jane doe/repo/.claude/worktrees/x on branch worktree-x.')).toBe('/home/jane doe/repo/.claude/worktrees/x')
+  })
+})

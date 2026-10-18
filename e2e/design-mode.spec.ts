@@ -3,6 +3,7 @@ import { createServer, type Server } from 'node:http'
 import { mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { togglePanel } from './helpers/panels'
 
 const PAGE = `<!doctype html><html><head><title>Design target</title><style>
   body { margin: 0; font-family: system-ui; background: #101418; color: #e6edf3; }
@@ -58,8 +59,7 @@ test('design mode: picking an element opens the grab sheet', async () => {
     ).toBeVisible()
 
     // Web Preview lives in the Tools hub, not the palette.
-    await page.getByTestId('btn-open-tools').click()
-    await page.getByText('Web Preview', { exact: true }).click()
+    await togglePanel(page, 'Browser')
 
     const address = page.locator('.web-preview-address-input')
     await expect(address).toBeVisible()

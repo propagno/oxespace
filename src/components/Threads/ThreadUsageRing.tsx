@@ -3,6 +3,7 @@ import type { AgentCreditsSnapshot } from '../../../shared/types/agentCredits'
 import type { ThreadContextReport } from '../../../shared/types/thread'
 import { useUIStore } from '../../store/ui.store'
 import { usageResetIn } from './ThreadFailureCard'
+import { Button, Popover } from '../../ui'
 
 const RADIUS = 7
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
@@ -47,15 +48,15 @@ export function ThreadUsageRing({ provider, idle, threadId, context }: { provide
   const label = report ? `${report.percentage}% of the context window used (${compact(report.usedTokens)} of ${compact(report.windowTokens)})` : planLabel
   const high = report ? percent >= 85 : percent >= 90
   const visible = report?.categories.filter(category => category.kind === 'used' || category.kind === 'deferred') ?? []
-  return <span className="thread-usage-wrap">
-    <button type="button" className="thread-usage-ring" aria-label={`Usage: ${label}`} aria-expanded={open} title={label} data-high={high ? 'true' : undefined} onClick={() => setOpen(value => !value)}>
+  return <Popover open={open} onOpenChange={setOpen} side="top" align="end" label="Usage details"
+    trigger={<button type="button" className="thread-usage-ring" aria-label={`Usage: ${label}`} title={label} data-high={high ? 'true' : undefined}>
       <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
         <circle cx="9" cy="9" r={RADIUS} fill="none" strokeWidth="2" className="thread-usage-ring-track" />
         <circle cx="9" cy="9" r={RADIUS} fill="none" strokeWidth="2" strokeLinecap="round" className="thread-usage-ring-value"
           strokeDasharray={CIRCUMFERENCE} strokeDashoffset={CIRCUMFERENCE * (1 - Math.max(0, Math.min(100, percent)) / 100)} transform="rotate(-90 9 9)" />
       </svg>
-    </button>
-    {open && <div className="thread-usage-popover" role="dialog" aria-label="Usage details">
+    </button>}>
+    <div className="thread-usage-popover">
       {report && <section aria-label="Context window">
         <h4>Context window</h4>
         <div className="thread-usage-bar" role="img" aria-label={`${report.percentage}% used`}><span style={{ width: `${Math.min(100, report.percentage)}%` }} /></div>
@@ -66,8 +67,8 @@ export function ThreadUsageRing({ provider, idle, threadId, context }: { provide
       {worst && <section aria-label="Plan usage">
         <h4>Plan usage</h4>
         <p>{planLabel}</p>
-        <button type="button" onClick={() => { setOpen(false); useUIStore.getState().openUsage() }}>Open usage details</button>
+        <Button size="sm" onClick={() => { setOpen(false); useUIStore.getState().openUsage() }}>Open usage details</Button>
       </section>}
-    </div>}
-  </span>
+    </div>
+  </Popover>
 }

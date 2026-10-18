@@ -151,6 +151,8 @@ export interface GitHubRemoveWorktreeInput {
 
 /** Stable reasons a removal can be refused; carried in the error message as `[worktree-removal:<code>]`. */
 export type WorktreeRemovalCode =
+  /** Conversations that are not archived work in this worktree; archive them first. */
+  | 'threads-attached'
   | 'protected'
   | 'locked'
   | 'dirty'

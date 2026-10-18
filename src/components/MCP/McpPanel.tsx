@@ -1,6 +1,6 @@
 import { Activity, ChevronDown, ChevronRight, Circle, CircleDot, Play, Plus, RotateCw, Search, ShieldCheck, Square, Trash2, Wrench, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
-import { useModalSurface, Button, TextField, Select, TextArea } from '../../ui'
+import { ToolPanel, Button, TextField, Select, TextArea } from '../../ui'
 import type { CreateMcpServerInput, McpHealthStatus, McpServer, McpStdioConfig } from '../../../shared/types/mcp'
 import { selectMcpServers, useMcpStore } from '../../store/mcp.store'
 import { parseMcpJson } from './parseMcpJson'
@@ -20,7 +20,6 @@ interface McpPanelProps {
 }
 
 export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanelProps): ReactElement {
-  const surface = useModalSurface<HTMLElement>(onClose)
   const serversSelector = useCallback(selectMcpServers(workspaceId), [workspaceId])
   const servers = useMcpStore(serversSelector).filter((server): server is McpServer => Boolean(server))
   const loading = useMcpStore((s) => s.loading)
@@ -155,137 +154,130 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
   }
 
   return (
-    <div className="mcp-panel-backdrop" role="presentation" onMouseDown={onClose}>
-      <section
-        className={`mcp-panel${view === 'catalog' ? ' is-catalog' : ''}`}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Connections"
-        {...surface}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <header className="mcp-panel-header">
-          <div className="mcp-panel-title">
-            <Activity size={14} aria-hidden="true" />
-            <strong>Connections</strong>
-            <span className="mcp-panel-scope">{workspaceId ? 'workspace' : 'global'}</span>
-          </div>
-          <div className="mcp-panel-actions">
-            <Button
-             
-              variant="ghost" size="sm" square
-              aria-label="Refresh"
-              disabled={loading}
-              onClick={() => void load(workspaceId)}
-            >
-              <RotateCw size={14} className={loading ? 'usage-spin' : ''} aria-hidden="true" />
-            </Button>
-            <Button variant="ghost" size="sm" square aria-label="Close" onClick={onClose}>
-              <X size={14} aria-hidden="true" />
-            </Button>
-          </div>
-        </header>
-
-        {error ? <div className="mcp-panel-error">{error}</div> : null}
-
-        <label className="mcp-panel-search">
-          <Search size={14} aria-hidden="true" />
-          <TextField type="search" aria-label="Search MCP servers" placeholder="Search connections" value={query} onChange={(event) => setQuery(event.target.value)} />
-        </label>
-
-        {view === 'installed' && (
-          <p className="mcp-panel-sync-note">
-            Servers enabled here are written to <code>.mcp.json</code> at the
-            workspace root. Claude Code and Copilot CLI (v1.0+) discover the
-            file automatically — restart the agent session to pick up added or
-            removed tools.
-          </p>
-        )}
-
-        {creating ? (
-          <McpCreateForm
-            workspaceId={workspaceId}
-            initial={formInitial ?? undefined}
-            onCancel={() => { setCreating(false); setFormInitial(null) }}
-            onCreated={() => { setCreating(false); setFormInitial(null); setView('installed') }}
-          />
-        ) : importing ? (
-          <McpImportPanel workspaceId={workspaceId} onClose={() => setImporting(false)} onChanged={() => void load(workspaceId)} onImported={() => { setImporting(false); void load(workspaceId); setView('installed') }} />
-        ) : (
-          <>
-            <button type="button" className="mcp-panel-add" onClick={() => setCreating(true)}>
-              <Plus size={12} aria-hidden="true" />
-              Add MCP server (stdio)
-            </button>
-            {window.oxe?.mcp?.discover && <button type="button" className="mcp-panel-add" onClick={() => setImporting(true)}>
-              <Plus size={12} aria-hidden="true" />
-              Import from Claude Desktop, Cursor or Windsurf
-            </button>}
-          </>
-        )}
-
-        <div className="mcp-view-tabs" role="tablist" aria-label="Connections view">
-          {conversationServers?.length ? <button type="button" role="tab" aria-selected={view === 'conversation'} onClick={() => setView('conversation')}>This conversation<small>{conversationServers.filter(server => server.status === 'connected').length}</small></button> : null}
-          <button type="button" role="tab" aria-selected={view === 'catalog'} onClick={() => setView('catalog')}>Catalog</button>
-          <button type="button" role="tab" aria-selected={view === 'installed'} onClick={() => setView('installed')}>Installed<small>{otherServers.length + (builtInServer ? 1 : 0)}</small></button>
+    <ToolPanel
+      className={`mcp-panel${view === 'catalog' ? ' is-catalog' : ''}`}
+      label="Connections" onClose={onClose}>
+      <header className="mcp-panel-header">
+        <div className="mcp-panel-title">
+          <Activity size={14} aria-hidden="true" />
+          <strong>Connections</strong>
+          <span className="mcp-panel-scope">{workspaceId ? 'workspace' : 'global'}</span>
         </div>
+        <div className="mcp-panel-actions">
+          <Button
+           
+            variant="ghost" size="sm" square
+            aria-label="Refresh"
+            disabled={loading}
+            onClick={() => void load(workspaceId)}
+          >
+            <RotateCw size={14} className={loading ? 'usage-spin' : ''} aria-hidden="true" />
+          </Button>
+          <Button variant="ghost" size="sm" square aria-label="Close" onClick={onClose}>
+            <X size={14} aria-hidden="true" />
+          </Button>
+        </div>
+      </header>
 
-        {view === 'conversation' && conversationServers ? (
-          <div className="mcp-panel-list mcp-panel-conversation">
-            <p className="mcp-panel-sync-note">What the agent of this conversation loaded when its session started: servers from OXESpace, your provider settings, the project's <code>.mcp.json</code> and claude.ai connectors. Changes apply to the next session.</p>
-            <ThreadMcpServerList servers={conversationServers.filter(server => `${server.name} ${server.status}`.toLowerCase().includes(query.trim().toLowerCase()))} />
-          </div>
-        ) : view === 'catalog' ? (
-          <div className="mcp-panel-list">
-            <McpCatalog servers={otherServers} query={query} busyId={catalogBusyId} onAdd={(entry) => void handleCatalogAdd(entry)} onStart={(server) => void handleStart(server)} onStop={(server) => void handleStop(server.id)} />
-          </div>
-        ) : (
+      {error ? <div className="mcp-panel-error">{error}</div> : null}
+
+      <label className="mcp-panel-search">
+        <Search size={14} aria-hidden="true" />
+        <TextField type="search" aria-label="Search MCP servers" placeholder="Search connections" value={query} onChange={(event) => setQuery(event.target.value)} />
+      </label>
+
+      {view === 'installed' && (
+        <p className="mcp-panel-sync-note">
+          Servers enabled here are written to <code>.mcp.json</code> at the
+          workspace root. Claude Code and Copilot CLI (v1.0+) discover the
+          file automatically — restart the agent session to pick up added or
+          removed tools.
+        </p>
+      )}
+
+      {creating ? (
+        <McpCreateForm
+          workspaceId={workspaceId}
+          initial={formInitial ?? undefined}
+          onCancel={() => { setCreating(false); setFormInitial(null) }}
+          onCreated={() => { setCreating(false); setFormInitial(null); setView('installed') }}
+        />
+      ) : importing ? (
+        <McpImportPanel workspaceId={workspaceId} onClose={() => setImporting(false)} onChanged={() => void load(workspaceId)} onImported={() => { setImporting(false); void load(workspaceId); setView('installed') }} />
+      ) : (
+        <>
+          <button type="button" className="mcp-panel-add" onClick={() => setCreating(true)}>
+            <Plus size={12} aria-hidden="true" />
+            Add MCP server (stdio)
+          </button>
+          {window.oxe?.mcp?.discover && <button type="button" className="mcp-panel-add" onClick={() => setImporting(true)}>
+            <Plus size={12} aria-hidden="true" />
+            Import from Claude Desktop, Cursor or Windsurf
+          </button>}
+        </>
+      )}
+
+      <div className="mcp-view-tabs" role="tablist" aria-label="Connections view">
+        {conversationServers?.length ? <button type="button" role="tab" aria-selected={view === 'conversation'} onClick={() => setView('conversation')}>This conversation<small>{conversationServers.filter(server => server.status === 'connected').length}</small></button> : null}
+        <button type="button" role="tab" aria-selected={view === 'catalog'} onClick={() => setView('catalog')}>Catalog</button>
+        <button type="button" role="tab" aria-selected={view === 'installed'} onClick={() => setView('installed')}>Installed<small>{otherServers.length + (builtInServer ? 1 : 0)}</small></button>
+      </div>
+
+      {view === 'conversation' && conversationServers ? (
+        <div className="mcp-panel-list mcp-panel-conversation">
+          <p className="mcp-panel-sync-note">What the agent of this conversation loaded when its session started: servers from OXESpace, your provider settings, the project's <code>.mcp.json</code> and claude.ai connectors. Changes apply to the next session.</p>
+          <ThreadMcpServerList servers={conversationServers.filter(server => `${server.name} ${server.status}`.toLowerCase().includes(query.trim().toLowerCase()))} />
+        </div>
+      ) : view === 'catalog' ? (
         <div className="mcp-panel-list">
-          <McpBuiltinCard
-            status={builtInStatus}
-            busy={builtInBusy}
-            notice={builtInNotice}
-            // Prefer the live status (always reflects TOOL_REGISTRY.length).
-            // The DB row only has `tools` populated AFTER `manager.start(id)`
-            // ran the handshake — and we don't auto-start the internal one
-            // because the bridge is spawned by agent CLIs, not by McpManager.
-            toolCount={builtInStatus?.toolCount ?? builtInServer?.tools.length ?? 0}
-            onRegenerate={() => void handleRegenerateToken()}
-            onDismissNotice={() => setBuiltInNotice(null)}
-          />
-          {visibleServers.length === 0 && !creating ? (
-            <div className="mcp-panel-empty">
-              <Wrench size={32} aria-hidden="true" />
-              <strong>{query ? 'No matching connections' : 'No additional MCP servers'}</strong>
-              <span>{query ? 'Try another name or status.' : 'Add a workspace server when your agents need more tools.'}</span>
-            </div>
-          ) : (
-            visibleServers.map((server) => (
-              <McpServerRow
-                key={server.id}
-                server={server}
-                busy={busy === server.id}
-                expanded={expandedId === server.id}
-                onToggle={() => setExpandedId(expandedId === server.id ? null : server.id)}
-                trustPrompt={trustPromptId === server.id}
-                removePrompt={removePromptId === server.id}
-                onTrustAndStart={() => void handleTrustAndStart(server)}
-                onCancelTrust={() => setTrustPromptId(null)}
-                onStart={() => void handleStart(server)}
-                onStop={() => void handleStop(server.id)}
-                onRemove={() => void handleRemove(server)}
-                onCancelRemove={() => setRemovePromptId(null)}
-              />
-            ))
-          )}
+          <McpCatalog servers={otherServers} query={query} busyId={catalogBusyId} onAdd={(entry) => void handleCatalogAdd(entry)} onStart={(server) => void handleStart(server)} onStop={(server) => void handleStop(server.id)} />
         </div>
+      ) : (
+      <div className="mcp-panel-list">
+        <McpBuiltinCard
+          status={builtInStatus}
+          busy={builtInBusy}
+          notice={builtInNotice}
+          // Prefer the live status (always reflects TOOL_REGISTRY.length).
+          // The DB row only has `tools` populated AFTER `manager.start(id)`
+          // ran the handshake — and we don't auto-start the internal one
+          // because the bridge is spawned by agent CLIs, not by McpManager.
+          toolCount={builtInStatus?.toolCount ?? builtInServer?.tools.length ?? 0}
+          onRegenerate={() => void handleRegenerateToken()}
+          onDismissNotice={() => setBuiltInNotice(null)}
+        />
+        {visibleServers.length === 0 && !creating ? (
+          <div className="mcp-panel-empty">
+            <Wrench size={32} aria-hidden="true" />
+            <strong>{query ? 'No matching connections' : 'No additional MCP servers'}</strong>
+            <span>{query ? 'Try another name or status.' : 'Add a workspace server when your agents need more tools.'}</span>
+          </div>
+        ) : (
+          visibleServers.map((server) => (
+            <McpServerRow
+              key={server.id}
+              server={server}
+              busy={busy === server.id}
+              expanded={expandedId === server.id}
+              onToggle={() => setExpandedId(expandedId === server.id ? null : server.id)}
+              trustPrompt={trustPromptId === server.id}
+              removePrompt={removePromptId === server.id}
+              onTrustAndStart={() => void handleTrustAndStart(server)}
+              onCancelTrust={() => setTrustPromptId(null)}
+              onStart={() => void handleStart(server)}
+              onStop={() => void handleStop(server.id)}
+              onRemove={() => void handleRemove(server)}
+              onCancelRemove={() => setRemovePromptId(null)}
+            />
+          ))
         )}
+      </div>
+      )}
 
-        <footer className="mcp-panel-footer">
-          Running servers expose their tools to agents. Remote connectors sign in through your browser.
-        </footer>
-      </section>
-    </div>
+      <footer className="mcp-panel-footer">
+        Running servers expose their tools to agents. Remote connectors sign in through your browser.
+      </footer>
+    </ToolPanel>
   )
 }
 

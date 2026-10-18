@@ -168,7 +168,7 @@ describe('Thread workspace UI', () => {
     expect(f.api.command).not.toHaveBeenCalled()
     await user.click(screen.getByRole('button', { name: 'Actions for Auth investigation' }))
     await user.click(screen.getByRole('menuitem', { name: 'Delete conversation' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Delete thread', exact: true }))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete conversation', exact: true }))
     await waitFor(() => expect(f.api.command).toHaveBeenCalledWith('thread', '/delete confirm'))
     await waitFor(() => expect(useThreadStore.getState().selectedId).toBeNull())
   })

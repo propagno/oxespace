@@ -17,6 +17,8 @@ export interface ThreadConnectionStatus {
   lastNativeSignalAt?: number
   nextRetryAt?: number
   detail?: string
+  /** Set when OXESpace closed an idle session to free memory; the next message resumes it. */
+  suspendedAt?: number
 }
 
 /** Durable identity around a provider or local operation. Visual events remain payloads. */
@@ -89,7 +91,7 @@ export interface ThreadCapabilityManifest {
 export interface ThreadUsageWindow { label: string; usedPercent: number; resetsAt?: number; windowMinutes?: number }
 export interface ThreadUsage { windows: ThreadUsageWindow[]; checkedAt: number }
 export interface ThreadFailure { id: string; occurredAt: number; code: 'authentication' | 'usage' | 'rate-limit' | 'context' | 'budget' | 'server' | 'network' | 'sandbox' | 'configuration' | 'session-busy' | 'unknown'; message: string; detail?: string; providerCode?: string; httpStatus?: number; usage?: ThreadUsage; usageUnavailable?: boolean }
-export interface ThreadCommandResult { kind: 'applied' | 'panel' | 'navigate'; title?: string; text?: string; externalUrl?: string; surface?: 'model' | 'effort' | 'permissions' | 'accounts' | 'commands' | 'sessions' | 'rename' | 'settings' | 'delegations' | 'changes' | 'rules' | 'spending' | 'work' | 'events'; threadId?: string; usage?: ThreadUsage; rows?: { label: string; detail?: string; id?: string; turnId?: string }[] }
+export interface ThreadCommandResult { kind: 'applied' | 'panel' | 'navigate' | 'confirm'; confirm?: import('../threadConfirmations').ThreadConfirmation; title?: string; text?: string; externalUrl?: string; surface?: 'model' | 'effort' | 'permissions' | 'accounts' | 'commands' | 'sessions' | 'rename' | 'settings' | 'delegations' | 'changes' | 'rules' | 'spending' | 'work' | 'events'; threadId?: string; usage?: ThreadUsage; rows?: { label: string; detail?: string; id?: string; turnId?: string }[] }
 /** Resolved in the main process; skill paths are never accepted from the renderer. */
 export interface ThreadAttachment {
   id: string
@@ -342,6 +344,12 @@ export interface ConversationThread {
   workspaceId: string
   projectId: string
   rootPath: string
+  /**
+   * Set while the provider reports working in another checkout than `rootPath` (a worktree of the same
+   * repository, or a directory outside it). Absent when it works in `rootPath`. `rootPath` itself never
+   * changes: checkpoints and the provider's own session records are tied to it.
+   */
+  observedLocation?: import('./agent-hooks').SessionLocation
   provider: ThreadProvider
   nativeSessionId: string | null
   title: string
@@ -396,6 +404,11 @@ export type ThreadEvent =
   /** Metadata only: stored on the thread, never added to the timeline. */
   | { type: 'context-usage'; report: ThreadContextReport }
   /** Metadata only: one turn's reported cost, folded into the thread's running total. */
+  /**
+   * Metadata only: the directory the provider reports the session working in (Claude's init `cwd`, a
+   * worktree it entered, Codex's command `cwd`). The orchestrator checks it before storing it.
+   */
+  | { type: 'location'; cwd: string }
   | { type: 'turn-cost'; usd?: number; inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheCreationTokens?: number }
   | { type: 'connection-closed'; at: number }
   | { type: 'turn-accepted'; nativeTurnId: string; at: number }
@@ -520,7 +533,11 @@ export interface ThreadApi {
   relinkProject(projectId: string, rootPath: string): Promise<ThreadProjectSummary>
   setProjectHidden(projectId: string, hidden: boolean): Promise<void>
   list(): Promise<ConversationThread[]>
-  create(input: { projectId: string; rootPath?: string; provider: ThreadProvider }): Promise<ThreadSnapshot>
+  /**
+   * With `worktree`, a new branch is created in its own worktree next to the repository and the conversation
+   * starts there. Refusals carry a cause the dialog can show (branch exists, invalid base…).
+   */
+  create(input: { projectId: string; rootPath?: string; provider: ThreadProvider; worktree?: { branch?: string; baseRef?: string } }): Promise<ThreadSnapshot>
   read(id: string): Promise<ThreadSnapshot>
   history?(id: string, before?: number, limit?: number): Promise<ThreadHistoryPage>
   attach?(id: string, input: { name: string; mimeType: ThreadAttachment['mimeType']; data: ArrayBuffer }): Promise<ThreadAttachment>
@@ -544,6 +561,9 @@ export interface ThreadApi {
   /** Whether commands on the built-in read-only list are approved without asking. */
   autoApproveReads?(): Promise<boolean>
   setAutoApproveReads?(enabled: boolean): Promise<boolean>
+  /** Minutes without activity after which a conversation's agent process is closed; 0 never closes it. */
+  idleSuspendMinutes?(): Promise<number>
+  setIdleSuspendMinutes?(minutes: number): Promise<number>
   /** What Thread would do with a command, using the real analysis and no saved rules. */
   shellCheck?(command: string): Promise<ThreadShellCheck>
   usageSummary?(id: string, options?: { scope?: 'thread' | 'project' | 'all'; days?: number }): Promise<ThreadUsageSummary>

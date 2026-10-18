@@ -1,18 +1,5 @@
 /* ─── Skills browser ───────────────────────────────────────────────────── */
 
-.skills-browser-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: var(--layer-overlay);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 80px;
-  background: var(--scrim);
-  backdrop-filter: blur(8px);
-  animation: model-selector-fade 140ms ease-out;
-}
-
 .skills-browser {
   width: min(720px, calc(100vw - 48px));
   max-height: min(720px, calc(100vh - 140px));
@@ -439,19 +426,6 @@
 }
 
 /* ─── Background jobs panel (full view) ────────────────────────────────── */
-
-.bg-jobs-panel-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: var(--layer-overlay);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 80px;
-  background: radial-gradient(ellipse at top, var(--intent-warning-bg) 0%, var(--scrim) 60%);
-  backdrop-filter: blur(8px);
-  animation: model-selector-fade 140ms ease-out;
-}
 
 .bg-jobs-panel {
   width: min(720px, calc(100vw - 48px));

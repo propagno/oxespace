@@ -33,6 +33,8 @@
 .dialogDescription { margin: 0; font-size: var(--text-sm); color: var(--text-secondary); line-height: var(--leading-snug); }
 .dialogBody { padding: 0 var(--space-5) var(--space-4); overflow: auto; min-height: 0; }
 .dialogFooter { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-3) var(--space-5); border-top: 1px solid var(--border-subtle); }
+/* A secondary action (Delete, Preview) sits at the start of the footer, away from the primary one. */
+.dialogFooter > [data-align='start'] { margin-right: auto; }
 
 /* Floating surfaces: popover, menus, tooltip */
 .floating {
@@ -95,3 +97,8 @@
   background: var(--scrim);
   animation: fade var(--duration-base) var(--ease-standard);
 }
+.menuRadioText { display: grid; gap: 1px; min-width: 0; }
+.menuRadioText small { color: var(--text-secondary); font-size: var(--text-2xs); }
+/* Rich labels: a live value (text size) or a shortcut next to the group name. */
+.menuLabel output { margin-left: var(--space-1); color: var(--text-primary); font-weight: var(--weight-semibold); }
+.menuLabel kbd { margin-left: var(--space-1); font: inherit; }

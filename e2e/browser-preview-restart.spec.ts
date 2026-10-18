@@ -3,6 +3,7 @@ import { createServer } from 'node:http'
 import { mkdtempSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { togglePanel } from './helpers/panels'
 
 // A bounded retry distinguishes a transient Electron exit on a shared CI runner
 // from a reproducible failure of the restart/persistence assertion.
@@ -25,8 +26,7 @@ test('browser tabs and agent consent are ephemeral across app restart', async ()
     await page.getByTestId('btn-new-workspace').click()
     await page.getByTestId('wizard-dir-input').fill(repo)
     await page.getByTestId('wizard-launch-btn').click()
-    await page.getByTestId('btn-open-tools').click()
-    await page.getByText('Web Preview',{exact:true}).click()
+    await togglePanel(page, 'Browser')
     const ownerKey = (await page.locator('.web-preview-panel').getAttribute('data-browser-owner'))!
     await page.locator('.web-preview-address-input').fill(url)
     await page.locator('.web-preview-address-input').press('Enter')
@@ -40,8 +40,7 @@ test('browser tabs and agent consent are ephemeral across app restart', async ()
     await page.getByTestId('btn-new-workspace').waitFor({state:'visible'})
     await expect(page.getByTestId('sidebar-workspace-item')).toHaveCount(1)
     await page.getByTestId('sidebar-workspace-item').click()
-    await page.getByTestId('btn-open-tools').click()
-    await page.getByText('Web Preview',{exact:true}).click()
+    await togglePanel(page, 'Browser')
     await expect(page.locator('.web-preview-address-input')).toHaveValue('http://localhost:3000')
     await expect(page.getByTestId('browser-preview-native')).toHaveCount(0)
     await expect(page.getByLabel('Agent documentation access')).not.toBeChecked()

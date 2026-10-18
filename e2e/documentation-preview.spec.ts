@@ -5,6 +5,7 @@ import { existsSync, mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { PreviewAutomation, PreviewRequest, ScreenshotOptions } from '../electron/main/services/documentation/preview-automation'
+import { togglePanel } from './helpers/panels'
 
 test('documentation uses the real guest, confirms actions and masks capture inputs', async () => {
   test.setTimeout(90000)
@@ -25,7 +26,7 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
     await page.waitForLoadState('domcontentloaded')
     await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.show(); window.focus() })
     await page.getByTestId('btn-new-workspace').click();await page.getByTestId('wizard-dir-input').fill(repo);await page.getByTestId('wizard-launch-btn').click()
-    await page.getByTestId('btn-open-tools').click();await page.getByText('Web Preview',{exact:true}).click()
+    await togglePanel(page, 'Browser')
     await page.locator('.web-preview-address-input').fill(url);await page.locator('.web-preview-address-input').press('Enter')
     const view=page.getByTestId('browser-preview-native');await expect(view).toBeVisible()
     const workspaceId=(await page.locator('.web-preview-panel').getAttribute('data-browser-owner'))!
@@ -185,7 +186,7 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
     await page.getByTestId('workspace-web-preview-panel').getByRole('button',{name:'Collapse panel'}).click()
     await expect(page.getByTestId('browser-preview-native')).toHaveCount(0)
     await expect.poll(async () => app.evaluate(({webContents},baseUrl) => webContents.getAllWebContents().filter(contents => contents.getURL().startsWith(baseUrl)).length,url)).toBe(0)
-    await page.getByTestId('btn-open-tools').click();await page.getByText('Web Preview',{exact:true}).click()
+    await togglePanel(page, 'Browser')
     await expect(page.locator('.web-preview-address-input')).toHaveValue(`${url}next`)
     await expect(page.getByTestId('browser-preview-native')).toHaveCount(1)
     await expect(page.getByLabel('Agent documentation access')).not.toBeChecked()

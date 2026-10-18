@@ -249,7 +249,7 @@ test('a connection through an SSH tunnel asks to trust the host key, then connec
     await expect(dialog.getByText('CA certificate')).toBeVisible()
 
     await dialog.getByRole('button', { name: 'Test connection' }).click()
-    const prompt = page.getByRole('alertdialog', { name: 'Trust SSH host key' })
+    const prompt = page.getByRole('dialog', { name: 'Trust this SSH host key?' })
     await expect(prompt).toContainText('bastion.example.com:22')
     await expect(prompt).toContainText('SHA256:')
     await prompt.getByRole('button', { name: /Trust this key/ }).click()

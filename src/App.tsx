@@ -4,6 +4,7 @@ import './components/OxeQuery/oxequery.commands'
 import { onOxeQueryAction, performOxeQueryAction } from './components/OxeQuery/oxequery-bridge'
 import { FirstRunChecklist } from './components/Onboarding/FirstRunChecklist'
 import { TOOL_CATALOG, type ToolId } from './components/Workspace/toolCatalog'
+import { panelMenuEntries, type WorkbenchPanelItem } from './components/Workbench/WorkbenchPanelMenu'
 import { Button, cx, Toaster, TitleTooltips, TooltipProvider, EmptyState } from './ui'
 import titleBar from './components/Navigation/TitleBar.module.css'
 import { Suspense, lazy, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
@@ -14,7 +15,7 @@ import { isSameRootPath } from '../shared/utils/path'
 import { OxeLogo } from './components/Brand/OxeLogo'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { ThemeProvider } from './components/Theme/ThemeProvider'
-import type { CommandPaletteAction } from './components/CommandPalette/CommandPalette'
+import type { CommandPaletteAction } from './utils/commandRegistry'
 // Modals/overlays are user-triggered and infrequent — lazy-load them so they're
 // not in the first-paint bundle.
 const AgentConfigModal = lazy(() => import('./components/Agents/AgentConfigModal').then((m) => ({ default: m.AgentConfigModal })))
@@ -33,7 +34,6 @@ const AddThreadProjectDialog = lazy(() => import('./components/Threads/ThreadDia
 const SlashOverlay = lazy(() => import('./components/SlashOverlay/SlashOverlay').then(m => ({ default: m.SlashOverlay })))
 const CommandMenu = lazy(() => import('./components/CommandMenu/CommandMenu').then(m => ({ default: m.CommandMenu })))
 const UsageModal = lazy(() => import('./components/Usage/UsageModal').then(m => ({ default: m.UsageModal })))
-const ToolsModal = lazy(() => import('./components/Workspace/ToolsModal').then((m) => ({ default: m.ToolsModal })))
 const McpPanel = lazy(() => import('./components/MCP/McpPanel').then((m) => ({ default: m.McpPanel })))
 const LinearPanel = lazy(() => import('./components/Linear/LinearPanel').then((m) => ({ default: m.LinearPanel })))
 const SemanticActivityPanel = lazy(() => import('./components/Semantic/SemanticActivityPanel').then((m) => ({ default: m.SemanticActivityPanel })))
@@ -174,7 +174,6 @@ export function App(): ReactElement {
     openUsage,
     closeUsage,
     isSettingsOpen,
-    isToolsOpen,
     isSidebarCollapsed,
     isNewWorkspaceOpen,
     isWorkspaceSettingsOpen,
@@ -203,8 +202,6 @@ export function App(): ReactElement {
     closeWebPreview,
     openIntegrationPanel,
     closeIntegrationPanel,
-    openTools,
-    closeTools,
     maximizedPaneId,
     setActivePane,
     openNewWorkspace,
@@ -222,7 +219,6 @@ export function App(): ReactElement {
     openUsage: state.openUsage,
     closeUsage: state.closeUsage,
     isSettingsOpen: state.isSettingsOpen,
-    isToolsOpen: state.isToolsOpen,
     isSidebarCollapsed: state.isSidebarCollapsed,
     isNewWorkspaceOpen: state.isNewWorkspaceOpen,
     isWorkspaceSettingsOpen: state.isWorkspaceSettingsOpen,
@@ -251,8 +247,6 @@ export function App(): ReactElement {
     closeWebPreview: state.closeWebPreview,
     openIntegrationPanel: state.openIntegrationPanel,
     closeIntegrationPanel: state.closeIntegrationPanel,
-    openTools: state.openTools,
-    closeTools: state.closeTools,
     maximizedPaneId: state.maximizedPaneId,
     setActivePane: state.setActivePane,
     openNewWorkspace: state.openNewWorkspace,
@@ -688,6 +682,17 @@ export function App(): ReactElement {
   const teamDisabledReason = applicationView === 'data' ? 'Team is available in Code and Thread' : applicationView === 'thread' ? 'Select a Thread project to open its team' : 'Open a workspace to open its team'
   const openTeam = (): void => { if (teamTarget) setTeamScope(teamTarget) }
 
+  // Code's side panels: buttons in the workspace bar for Changes and Browser, the rest in the Panels menu (also on the rail).
+  const codePanelItems: WorkbenchPanelItem[] = activeWorkspace ? [
+    { id: 'changes', active: activeWorkspace.reviewPanelVisible === true, onToggle: toggleReviewPanel },
+    { id: 'browser', active: webPreviewOpenByWorkspace[activeWorkspace.id] === true, onToggle: toggleWebPreviewPanel },
+    { id: 'git', active: activeWorkspace.githubPanelVisible === true, onToggle: toggleGitHubPanel },
+    { id: 'files', active: activeWorkspace.editorVisible === true, onToggle: toggleEditor },
+    { id: 'search', active: isSearchPanelOpen, onToggle: toggleSearchPanel },
+    { id: 'scripts', active: isScriptsPanelOpen, onToggle: toggleScriptsPanel },
+    { id: 'worktrees', active: activeWorkspace.worktreePanelVisible === true, onToggle: toggleWorktreePanel }
+  ] : []
+
   const toolHandlers: Partial<Record<ToolId, () => void>> = {
     integration: openIntegrationPanel, github: toggleGitHubPanel, worktrees: toggleWorktreePanel, scripts: toggleScriptsPanel, search: toggleSearchPanel,
     'web-preview': toggleWebPreviewPanel, background: toggleBackgroundPanel, mcp: openMcpPanel, skills: openSkillsBrowser, semantic: () => setSemanticActivityOpen(true),
@@ -703,10 +708,9 @@ export function App(): ReactElement {
     { id: 'new-workspace', title: 'Create workspace', subtitle: 'Open the New Workspace wizard', icon: FilePlus2, category: 'Workspace', keywords: ['new', 'open', 'project'], run: openNewWorkspaceFromUI },
     { id: 'workspace-settings', title: 'Open workspace settings', subtitle: 'Layout, density and shell', icon: Sliders, category: 'Workspace', disabled: !activeWorkspace, run: openWorkspaceSettings },
     { id: 'toggle-sidebar', title: 'Toggle sidebar', subtitle: 'Ctrl+B', icon: LayoutDashboard, category: 'Workspace', run: toggleSidebar },
-    { id: 'open-tools', title: 'Open Tools', subtitle: 'Panels, MCP, workspace tools', icon: Settings2, category: 'Workspace', keywords: ['tools', 'panels', 'mcp', 'gear'], run: openTools },
 
-    // Tools: the same catalogue the Tools hub renders, so the palette and the hub never disagree.
-    ...TOOL_CATALOG.filter(tool => tool.id !== 'palette' && tool.id !== 'ws-settings').map(tool => ({
+    // Tools: named like the Panels menu and Thread, from the shared panel catalog.
+    ...TOOL_CATALOG.map(tool => ({
       id: `tool-${tool.id}`,
       title: tool.label,
       subtitle: tool.shortcut ? `${tool.detail} · ${tool.shortcut}` : tool.detail,
@@ -795,12 +799,22 @@ export function App(): ReactElement {
         openWorkspaceSettings()
         return
       }
-      if ((event.ctrlKey || event.metaKey) && key === 'b') {
+      if ((event.ctrlKey || event.metaKey) && !event.shiftKey && key === 'b') {
         event.preventDefault()
         toggleSidebar()
         return
       }
       if (applicationView !== 'code') return
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && key === 'd') {
+        event.preventDefault()
+        toggleReviewPanel()
+        return
+      }
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && key === 'b') {
+        event.preventDefault()
+        toggleWebPreviewPanel()
+        return
+      }
       if ((event.ctrlKey || event.metaKey) && key === 'e') {
         event.preventDefault()
         toggleEditor()
@@ -1016,7 +1030,7 @@ export function App(): ReactElement {
         onCloseWorkspace={handleCloseWorkspace}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={toggleSidebar}
-        onOpenTools={openTools}
+        panelMenu={codePanelItems.length ? panelMenuEntries(codePanelItems) : [{ type: 'label', label: 'Open a workspace to use its panels' }]}
         onOpenJobs={toggleBackgroundPanel}
         onOpenScripts={toggleScriptsPanel}
         onOpenSearch={openCommandMenu}
@@ -1079,6 +1093,7 @@ export function App(): ReactElement {
                       onUpdateWorktreeState={(input) => void updateWorktreeState(input)}
                       onRunCommand={(command) => void runCommandInTerminal(command)}
                       activePaneId={isActive ? activePane?.id ?? null : null}
+                      panels={isActive ? codePanelItems : undefined}
                     />
                   </div>
                 )
@@ -1242,37 +1257,6 @@ export function App(): ReactElement {
             }
           }}
           onClose={() => { if (isSettingsOpen) toggleSettings(); closeWorkspaceSettings() }}
-        />
-      ) : null}
-      {isToolsOpen ? (
-        <ToolsModal
-          active={{
-            github: activeWorkspace?.githubPanelVisible === true,
-            editor: activeWorkspace?.editorVisible === true,
-            review: activeWorkspace?.reviewPanelVisible === true,
-            background: activeWorkspace?.backgroundPanelVisible === true,
-            worktree: activeWorkspace?.worktreePanelVisible === true,
-            scripts: isScriptsPanelOpen,
-            webPreview: activeWorkspaceId ? webPreviewOpenByWorkspace[activeWorkspaceId] === true : false,
-            integration: isIntegrationPanelOpen,
-            search: isSearchPanelOpen
-          }}
-          onClose={closeTools}
-          onOpenCommandPalette={openCommandMenu}
-          onOpenWorkspaceSettings={openWorkspaceSettings}
-          onToggleEditor={toggleEditor}
-          onToggleGitHub={toggleGitHubPanel}
-          onToggleReview={toggleReviewPanel}
-          onToggleBackground={toggleBackgroundPanel}
-          onToggleWorktree={toggleWorktreePanel}
-          onToggleScripts={toggleScriptsPanel}
-          onToggleWebPreview={toggleWebPreviewPanel}
-          onToggleSearch={toggleSearchPanel}
-          onOpenIntegration={openIntegrationPanel}
-          onOpenMcp={openMcpPanel}
-          onOpenSkills={openSkillsBrowser}
-          onOpenSemanticLogs={() => setSemanticActivityOpen(true)}
-          onOpenTeam={teamTarget ? openTeam : undefined}
         />
       ) : null}
       {isDesignSystemOpen ? <DesignSystemPage onClose={() => { setDesignSystemOpen(false) }} /> : null}

@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { openConnections, runPaletteCommand, togglePanel } from './helpers/panels'
 
 /**
  * Coverage audit: the surfaces the first audit does not reach (menus, dialogs, panels with real
@@ -136,21 +137,22 @@ test('coverage audit', async () => {
     await surface(page, '25-rail-integration', () => page.getByRole('button', { name: 'Files & commands' }).first().click())
     await surface(page, '26-rail-search', () => page.getByRole('button', { name: 'Open settings' }).first().click())
     // Tools with real repository data.
-    const tool = (label: RegExp) => async () => { await page.getByTestId('btn-open-tools').click(); await page.getByTestId('tools-modal').getByRole('menuitem', { name: label }).click(); await page.waitForTimeout(1200) }
-    await surface(page, '30-tool-github-real', tool(/^GitHub/))
-    await surface(page, '31-tool-review-real', tool(/^Review/))
-    await surface(page, '32-tool-editor-real', tool(/^Editor/))
-    await surface(page, '33-tool-worktrees-real', tool(/^Worktrees/))
-    await surface(page, '34-tool-scripts-real', tool(/^Scripts/))
-    await surface(page, '35-tool-search-real', async () => { await tool(/^Find in Files/)(); await page.getByRole('searchbox').or(page.getByPlaceholder(/Search/i)).first().fill('answer') ; await page.keyboard.press('Enter') })
-    await surface(page, '36-tool-background', tool(/^Background Jobs/))
-    await surface(page, '37-tool-web-preview', tool(/^Web Preview/))
-    await surface(page, '38-tool-mcp', tool(/^MCP Servers/))
-    await surface(page, '39-tool-skills', tool(/^Skills/))
-    await surface(page, '40-tool-semantic', tool(/^Semantic Activity/))
-    await surface(page, '41-tool-slash', tool(/^Terminal Commands/))
-    await surface(page, '42-tool-workspace-settings', tool(/^Workspace Settings/))
-    await surface(page, '43-tool-integration', tool(/^Multi-repo/))
+    const tool = (label: Parameters<typeof togglePanel>[1]) => async () => { await togglePanel(page, label); await page.waitForTimeout(1200) }
+    const command = (title: string) => async () => { await runPaletteCommand(page, title); await page.waitForTimeout(1200) }
+    await surface(page, '30-tool-github-real', tool('Commit & pull request'))
+    await surface(page, '31-tool-review-real', tool('Changes'))
+    await surface(page, '32-tool-editor-real', tool('Files'))
+    await surface(page, '33-tool-worktrees-real', tool('Worktrees'))
+    await surface(page, '34-tool-scripts-real', tool('Scripts'))
+    await surface(page, '35-tool-search-real', async () => { await tool('Find in files')(); await page.getByRole('searchbox').or(page.getByPlaceholder(/Search/i)).first().fill('answer') ; await page.keyboard.press('Enter') })
+    await surface(page, '36-tool-background', async () => { await page.getByRole('button', { name: 'Toggle background activity' }).first().click(); await page.waitForTimeout(1200) })
+    await surface(page, '37-tool-web-preview', tool('Browser'))
+    await surface(page, '38-tool-mcp', async () => { await openConnections(page); await page.waitForTimeout(1200) })
+    await surface(page, '39-tool-skills', command('Skills'))
+    await surface(page, '40-tool-semantic', command('Semantic index log'))
+    await surface(page, '41-tool-slash', command('Terminal Commands'))
+    await surface(page, '42-tool-workspace-settings', command('Open workspace settings'))
+    await surface(page, '43-tool-integration', command('Multi-repo coordination'))
     // Overlays and global.
     await surface(page, '50-palette-query', async () => { await page.keyboard.press('Control+k'); await page.keyboard.type('terminal') })
     await surface(page, '51-usage', async () => { await page.keyboard.press('Control+k'); await page.keyboard.type('Usage'); await page.keyboard.press('Enter') })

@@ -19,6 +19,8 @@ export interface DialogProps {
   className?: string
   /** Element to focus when the dialog closes; defaults to what had focus before it opened. */
   returnFocusTo?: () => HTMLElement | null
+  /** Accessible name of the close button. */
+  closeLabel?: string
   testId?: string
 }
 
@@ -32,7 +34,7 @@ export function focusSurfaceUnlessChosen(event: Event): void {
 }
 
 /** A modal dialog: title, optional description, body, and footer actions. Escape and the scrim close it. */
-export function Dialog({ title, description, onClose, children, footer, size = 'md', className, returnFocusTo, testId }: DialogProps): ReactElement {
+export function Dialog({ title, description, onClose, children, footer, size = 'md', className, returnFocusTo, closeLabel = 'Close', testId }: DialogProps): ReactElement {
   const previous = useRef(document.activeElement instanceof HTMLElement ? document.activeElement : null)
   return <RadixDialog.Root open onOpenChange={open => { if (!open) onClose() }}>
     <RadixDialog.Portal>
@@ -43,15 +45,17 @@ export function Dialog({ title, description, onClose, children, footer, size = '
         onOpenAutoFocus={focusSurfaceUnlessChosen}
         onCloseAutoFocus={event => {
           event.preventDefault()
-          const target = returnFocusTo?.() ?? previous.current
-          if (target?.isConnected) target.focus({ preventScroll: true })
+          const chosen = returnFocusTo?.() ?? previous.current
+          // A trigger that disappeared or was disabled meanwhile hands focus to the view's main input.
+          const target = chosen?.isConnected && !chosen.hasAttribute('disabled') ? chosen : [...document.querySelectorAll<HTMLElement>('[data-dialog-return]')].at(-1)
+          target?.focus({ preventScroll: true })
         }}>
         <header className={styles.dialogHeader}>
           <div>
             <RadixDialog.Title className={styles.dialogTitle}>{title}</RadixDialog.Title>
             {description ? <RadixDialog.Description className={styles.dialogDescription}>{description}</RadixDialog.Description> : null}
           </div>
-          <IconButton label="Close" icon={<X size={16} />} size="sm" onClick={onClose} />
+          <IconButton label={closeLabel} icon={<X size={16} />} size="sm" onClick={onClose} />
         </header>
         {children ? <div className={styles.dialogBody}>{children}</div> : null}
         {footer && <footer className={styles.dialogFooter}>{footer}</footer>}
@@ -68,22 +72,30 @@ export interface PopoverProps {
   align?: 'start' | 'center' | 'end'
   side?: 'top' | 'right' | 'bottom' | 'left'
   label?: string
+  /** Layout for panels with their own header and scroll area (no default padding when set). */
+  className?: string
+  sideOffset?: number
 }
 
 /** Non-modal panel anchored to a trigger, for small forms and details. */
-export function Popover({ trigger, children, open, onOpenChange, align = 'start', side = 'bottom', label }: PopoverProps): ReactElement {
+export function Popover({ trigger, children, open, onOpenChange, align = 'start', side = 'bottom', label, className, sideOffset = 6 }: PopoverProps): ReactElement {
   return <RadixPopover.Root open={open} onOpenChange={onOpenChange}>
     <RadixPopover.Trigger asChild>{trigger}</RadixPopover.Trigger>
     <RadixPopover.Portal>
-      <RadixPopover.Content className={cx(styles.floating, styles.popover)} align={align} side={side} sideOffset={6} collisionPadding={CHROME_COLLISION} aria-label={label}>{children}</RadixPopover.Content>
+      <RadixPopover.Content className={cx(styles.floating, !className && styles.popover, className)} align={align} side={side} sideOffset={sideOffset} collisionPadding={CHROME_COLLISION} aria-label={label}>{children}</RadixPopover.Content>
     </RadixPopover.Portal>
   </RadixPopover.Root>
 }
 
+export interface MenuRadioOption { value: string; label: string; hint?: string; ariaLabel?: string }
+
 export type MenuEntry =
-  | { type?: 'item'; label: string; icon?: ReactNode; shortcut?: string; onSelect: () => void; disabled?: boolean; danger?: boolean }
+  /** keepOpen: the menu stays open after the choice (steppers such as text size). */
+  | { type?: 'item'; label: string; icon?: ReactNode; shortcut?: string; onSelect: () => void; disabled?: boolean; danger?: boolean; keepOpen?: boolean }
   | { type: 'check'; label: string; checked: boolean; onSelect: () => void; disabled?: boolean }
-  | { type: 'label'; label: string }
+  /** One choice out of several; the chosen option is checked. */
+  | { type: 'radio'; value: string; options: MenuRadioOption[]; onValueChange: (value: string) => void }
+  | { type: 'label'; label: ReactNode }
   | { type: 'separator' }
 
 export interface MenuProps {
@@ -91,21 +103,35 @@ export interface MenuProps {
   items: MenuEntry[]
   align?: 'start' | 'center' | 'end'
   label?: string
+  testId?: string
+  side?: 'top' | 'right' | 'bottom' | 'left'
 }
 
-/** A dropdown of actions. Keyboard: arrows move, Enter selects, Escape closes, typing jumps. */
-export function Menu({ trigger, items, align = 'start', label }: MenuProps): ReactElement {
-  return <RadixMenu.Root>
+/**
+ * A dropdown of actions. Keyboard: arrows move, Enter selects, Escape closes, typing jumps.
+ * Not modal: a modal menu marks the rest of the app aria-hidden while its buttons stay focusable
+ * (axe aria-hidden-focus). Focus still moves into the menu and returns to the trigger.
+ * A click outside, Escape or a choice closes it; focus moved by the app (a terminal starting) does not.
+ */
+export function Menu({ trigger, items, align = 'start', label, testId, side }: MenuProps): ReactElement {
+  return <RadixMenu.Root modal={false}>
     <RadixMenu.Trigger asChild>{trigger}</RadixMenu.Trigger>
     <RadixMenu.Portal>
-      <RadixMenu.Content className={cx(styles.floating, styles.menu)} align={align} sideOffset={6} collisionPadding={CHROME_COLLISION} aria-label={label}>
+      <RadixMenu.Content className={cx(styles.floating, styles.menu)} align={align} side={side} sideOffset={6} collisionPadding={CHROME_COLLISION} aria-label={label} data-testid={testId}
+        onFocusOutside={event => event.preventDefault()}>
         {items.map((item, index) => {
           if (item.type === 'separator') return <RadixMenu.Separator key={index} className={styles.menuSeparator} />
           if (item.type === 'label') return <RadixMenu.Label key={index} className={styles.menuLabel}>{item.label}</RadixMenu.Label>
+          if (item.type === 'radio') return <RadixMenu.RadioGroup key={index} value={item.value} onValueChange={item.onValueChange}>
+            {item.options.map(option => <RadixMenu.RadioItem key={option.value} value={option.value} className={styles.menuItem} aria-label={option.ariaLabel ?? option.label}>
+              <span className={styles.menuRadioText}>{option.label}{option.hint && <small>{option.hint}</small>}</span>
+              <RadixMenu.ItemIndicator className={styles.menuCheck}><Check size={14} /></RadixMenu.ItemIndicator>
+            </RadixMenu.RadioItem>)}
+          </RadixMenu.RadioGroup>
           if (item.type === 'check') return <RadixMenu.CheckboxItem key={index} className={styles.menuItem} checked={item.checked} disabled={item.disabled} onSelect={item.onSelect}>
             {item.label}<RadixMenu.ItemIndicator className={styles.menuCheck}><Check size={14} /></RadixMenu.ItemIndicator>
           </RadixMenu.CheckboxItem>
-          return <RadixMenu.Item key={index} className={cx(styles.menuItem, item.danger && styles.danger)} disabled={item.disabled} onSelect={item.onSelect}>
+          return <RadixMenu.Item key={index} className={cx(styles.menuItem, item.danger && styles.danger)} data-danger={item.danger ? 'true' : undefined} disabled={item.disabled} onSelect={event => { if (item.keepOpen) event.preventDefault(); item.onSelect() }}>
             {item.icon}{item.label}{item.shortcut && <span className={styles.menuShortcut}>{item.shortcut}</span>}
           </RadixMenu.Item>
         })}

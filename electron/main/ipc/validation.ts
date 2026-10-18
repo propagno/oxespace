@@ -14,7 +14,7 @@ import type {
   TerminalStopInput,
   TerminalWriteInput
 } from '../../../shared/types/ipc'
-import type { GitDiffInput, GitFileOriginalInput } from '../../../shared/types/git'
+import type { GitCompareMode, GitDiffInput, GitFileAtRefInput, GitFileOriginalInput } from '../../../shared/types/git'
 import type { LinearIssueScope, LinearListIssuesInput, LinearWorktreeFromIssueInput } from '../../../shared/types/linear'
 import type {
   GitHubCheckoutBranchInput,
@@ -407,7 +407,24 @@ export function parseGitDiffInput(value: unknown): GitDiffInput {
     workspaceId: expectNonEmptyString(input.workspaceId, 'workspaceId'),
     rootPath: expectNonEmptyString(input.rootPath, 'rootPath'),
     base: expectGitRef(input.base, 'base'),
-    includeUncommitted: typeof input.includeUncommitted === 'boolean' ? input.includeUncommitted : true
+    includeUncommitted: typeof input.includeUncommitted === 'boolean' ? input.includeUncommitted : true,
+    ...(input.head === undefined || input.head === null ? {} : { head: expectGitRef(input.head, 'head') }),
+    ...(input.mode === undefined || input.mode === null ? {} : { mode: expectCompareMode(input.mode) })
+  }
+}
+
+function expectCompareMode(value: unknown): GitCompareMode {
+  if (value !== 'merge-base' && value !== 'direct') throw new Error('mode must be "merge-base" or "direct"')
+  return value
+}
+
+export function parseGitFileAtRefInput(value: unknown): GitFileAtRefInput {
+  const input = expectRecord(value, 'git:file-at-ref input')
+  return {
+    workspaceId: expectNonEmptyString(input.workspaceId, 'workspaceId'),
+    rootPath: expectNonEmptyString(input.rootPath, 'rootPath'),
+    ref: expectGitRef(input.ref, 'ref'),
+    path: expectRepoRelativePath(input.path, 'path')
   }
 }
 

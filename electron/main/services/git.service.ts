@@ -1,7 +1,7 @@
 import { existsSync, promises as fsp, watch as fsWatch, type FSWatcher } from 'node:fs'
 import { spawn, type SpawnOptions } from 'node:child_process'
 import { join, resolve as resolvePath } from 'node:path'
-import type { GitBranchStatus, GitControlFile, GitControlStatus, GitDiff, GitDiffFile, GitDiffInput, GitDiffSummary, GitDiffSummaryFile, GitFileOriginal, GitSummaryStatus } from '../../../shared/types/git'
+import type { GitBranchStatus, GitCompareMode, GitControlFile, GitControlStatus, GitDiff, GitDiffFile, GitDiffInput, GitDiffSummary, GitDiffSummaryFile, GitFileOriginal, GitSummaryStatus } from '../../../shared/types/git'
 
 export interface SpawnGitResult {
   stdout: string
@@ -375,16 +375,22 @@ export class GitService {
     }
   }
 
-  async buildDiff(rootPath: string, base: string, includeUncommitted: boolean): Promise<GitDiff> {
+  async buildDiff(rootPath: string, base: string, includeUncommitted: boolean, head?: string, mode: GitCompareMode = 'merge-base'): Promise<GitDiff> {
+    // Side B as a ref is its committed state, so the work tree has nothing to add.
+    if (head) includeUncommitted = false
+    const target = head ?? 'HEAD'
+    const range = mode === 'direct' ? [base, target] : [`${base}...${target}`]
     // Run the two diff spawns in parallel — they're independent and the
     // committed one in particular can be slow on big histories.
     const [committedRaw, uncommittedRaw] = await Promise.all([
-      this.spawnGit(['diff', `${base}...HEAD`, '--unified=3', '--', '.'], rootPath),
+      this.spawnGit(['diff', ...range, '--unified=3', '--', '.'], rootPath),
       includeUncommitted
         ? this.spawnGit(['diff', 'HEAD', '--unified=3', '--', '.'], rootPath)
         : Promise.resolve<SpawnGitResult>({ stdout: '', stderr: '', status: 0 })
     ])
 
+    // An unknown ref used to come back as an empty diff, which reads as "no changes".
+    if (committedRaw.status !== 0) throw new Error(committedRaw.stderr.trim() || `Git could not compare ${range.join(' ')}.`)
     const committedFiles = parseDiffOutput(committedRaw.stdout)
     const uncommittedFiles = includeUncommitted ? parseDiffOutput(uncommittedRaw.stdout) : []
     let files = includeUncommitted ? mergeFiles(committedFiles, uncommittedFiles) : committedFiles
@@ -419,7 +425,8 @@ export class GitService {
    * `base`. Large repositories stay cheap because only numstat/name-status run;
    * file contents are fetched one file at a time by `getFileOriginal`.
    */
-  async getDiffSummary(rootPath: string, base: string, includeUncommitted: boolean): Promise<GitDiffSummary> {
+  async getDiffSummary(rootPath: string, base: string, includeUncommitted: boolean, head?: string, mode: GitCompareMode = 'merge-base'): Promise<GitDiffSummary> {
+    if (head || mode === 'direct') return this.getComparisonSummary(rootPath, base, includeUncommitted, head, mode)
     const empty = { files: [], additions: 0, deletions: 0, base, mergeBase: null as string | null, includeUncommitted, compiledAt: Date.now() }
     const mergeBase = await this.spawnGit(['merge-base', base, 'HEAD'], rootPath)
     const from = mergeBase.status === 0 && mergeBase.stdout.trim() ? mergeBase.stdout.trim() : null
@@ -446,6 +453,50 @@ export class GitService {
       deletions: files.reduce((sum, file) => sum + file.deletions, 0),
       base, mergeBase: from, includeUncommitted, compiledAt: Date.now()
     }
+  }
+
+  /**
+   * A chosen pair of sides. Side B is a ref when `head` is set (its committed state; the work tree is
+   * ignored), else the work tree of `rootPath`. Unlike the default comparison, a ref that does not resolve
+   * is an error: falling back to HEAD would show a comparison the user did not ask for.
+   */
+  private async getComparisonSummary(rootPath: string, base: string, includeUncommitted: boolean, head: string | undefined, mode: GitCompareMode): Promise<GitDiffSummary> {
+    const worktreeSide = !head
+    const empty = { files: [], additions: 0, deletions: 0, base, mergeBase: null as string | null, includeUncommitted: worktreeSide && includeUncommitted, head, mode, compiledAt: Date.now() }
+    if (head && !(await this.resolveCommit(rootPath, head))) return { ...empty, error: `“${head}” could not be resolved.` }
+    const from = await this.compareFrom(rootPath, base, head ?? 'HEAD', mode)
+    if (!from) return { ...empty, error: mode === 'direct' ? `“${base}” could not be resolved.` : `“${base}” and “${head ?? 'HEAD'}” have no common ancestor, or one of them could not be resolved.` }
+    const range = head ? [from, head] : [from, ...(includeUncommitted ? [] : ['HEAD'])]
+    const common = ['-c', 'core.quotePath=false', 'diff', '-M', '-z']
+    const [names, numbers] = await Promise.all([
+      this.spawnGit([...common, '--name-status', ...range, '--'], rootPath),
+      this.spawnGit([...common, '--numstat', ...range, '--'], rootPath)
+    ])
+    if (names.status !== 0) return { ...empty, mergeBase: from, error: names.stderr || 'Git diff is unavailable.' }
+    const files = buildDiffSummaryFiles(names.stdout, numbers.stdout)
+    if (worktreeSide && includeUncommitted) {
+      const known = new Set(files.map(file => file.path))
+      for (const added of await this.untrackedSummary(rootPath)) if (!known.has(added.path)) files.push(added)
+    }
+    return {
+      ...empty,
+      files,
+      additions: files.reduce((sum, file) => sum + file.additions, 0),
+      deletions: files.reduce((sum, file) => sum + file.deletions, 0),
+      mergeBase: from
+    }
+  }
+
+  /** Commit side A starts from: the common ancestor of A and B, or A itself in `direct` mode. */
+  private async compareFrom(rootPath: string, base: string, head: string, mode: GitCompareMode): Promise<string | null> {
+    if (mode === 'direct') return this.resolveCommit(rootPath, base)
+    const mergeBase = await this.spawnGit(['merge-base', base, head], rootPath)
+    return mergeBase.status === 0 && mergeBase.stdout.trim() ? mergeBase.stdout.trim() : null
+  }
+
+  private async resolveCommit(rootPath: string, ref: string): Promise<string | null> {
+    const resolved = await this.spawnGit(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], rootPath)
+    return resolved.status === 0 && resolved.stdout.trim() ? resolved.stdout.trim() : null
   }
 
   /** Untracked, non-ignored files as added files, with a line count when they are small text files. */
@@ -477,10 +528,19 @@ export class GitService {
   }
 
   /** Base-side content for one file (`git show <mergeBase>:<path>`). */
-  async getFileOriginal(rootPath: string, base: string, path: string, oldPath?: string): Promise<GitFileOriginal> {
-    const mergeBase = await this.spawnGit(['merge-base', base, 'HEAD'], rootPath)
-    const from = mergeBase.status === 0 && mergeBase.stdout.trim() ? mergeBase.stdout.trim() : 'HEAD'
-    const shown = await this.spawnGit(['show', `${from}:${oldPath ?? path}`], rootPath)
+  async getFileOriginal(rootPath: string, base: string, path: string, oldPath?: string, head?: string, mode: GitCompareMode = 'merge-base'): Promise<GitFileOriginal> {
+    const from = await this.compareFrom(rootPath, base, head ?? 'HEAD', mode) ?? (head || mode === 'direct' ? null : 'HEAD')
+    if (!from) return { content: '', missing: true, binary: false, size: 0, truncated: false }
+    return this.showFile(rootPath, from, oldPath ?? path)
+  }
+
+  /** Content of one file at a ref (`git show <ref>:<path>`), for side B when it is a ref. */
+  async getFileAtRef(rootPath: string, ref: string, path: string): Promise<GitFileOriginal> {
+    return this.showFile(rootPath, ref, path)
+  }
+
+  private async showFile(rootPath: string, ref: string, path: string): Promise<GitFileOriginal> {
+    const shown = await this.spawnGit(['show', `${ref}:${path}`], rootPath)
     if (shown.status !== 0) return { content: '', missing: true, binary: false, size: 0, truncated: false }
     const size = Buffer.byteLength(shown.stdout)
     if (shown.stdout.slice(0, 8000).includes('\0')) return { content: '', missing: false, binary: true, size, truncated: false }

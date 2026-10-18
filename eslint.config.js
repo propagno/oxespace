@@ -34,11 +34,11 @@ export default tseslint.config(
   },
   {
     // The redesign builds every interface from src/ui; Radix stays behind it.
-    // A warning while the legacy panels that still use Radix directly migrate.
     files: ['src/**/*.{ts,tsx}'],
-    ignores: ['src/ui/**'],
+    // The app menu bar (Radix Menubar) and the workbench drawer (a Dialog portalled into the workbench) have no src/ui counterpart.
+    ignores: ['src/ui/**', 'src/components/Navigation/AppMenuBar.tsx', 'src/components/Threads/ThreadReviewHost.tsx'],
     rules: {
-      'no-restricted-imports': ['warn', { paths: [
+      'no-restricted-imports': ['error', { paths: [
         { name: 'radix-ui', message: 'Use the primitives in src/ui instead of Radix directly.' }
       ] }]
     }

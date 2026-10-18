@@ -11,6 +11,7 @@ import { MemoryProjectService } from '../services/memory/memory-project.service'
 import { ThreadProjectService } from '../services/conversation/thread-projects'
 import { parsePermissionRuleInput } from '../services/conversation/thread-permissions'
 import type { ThreadMcpBindings } from '../services/conversation/thread-mcp'
+import { createThreadWorktree, discardThreadWorktree, type ThreadWorktreeHost } from '../services/conversation/thread-worktree'
 import type { ThreadRequestResponse } from '../../../shared/types/thread'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../shared/threadLimits'
 
@@ -65,7 +66,7 @@ function requestResponse(value: unknown): ThreadRequestResponse {
   return result
 }
 
-export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings): { stop(): Promise<void>; manager: Promise<ThreadManager> } {
+export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, worktrees?: ThreadWorktreeHost): { stop(): Promise<void>; manager: Promise<ThreadManager> } {
   const projects = new MemoryProjectService(db)
   const threadProjects = new ThreadProjectService(db)
   // Keep account/project implementation out of the startup entry bundle.
@@ -196,7 +197,22 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings): { st
     const context = threadProjects.context(string(value.projectId), value.rootPath === undefined ? undefined : string(value.rootPath))
     sender(event)
     const service = await manager
-    return service.create({ workspaceId: `thread:${context.projectId}`, projectId: context.projectId, rootPath: context.rootPath, provider: value.provider })
+    if (value.worktree === undefined) return service.create({ workspaceId: `thread:${context.projectId}`, projectId: context.projectId, rootPath: context.rootPath, provider: value.provider })
+    // A new branch in its own worktree: registered as another directory of the same project, so the
+    // conversation, its panels and its checkpoints all work there. Nothing is kept if any step fails.
+    if (!worktrees) throw new Error('Worktrees are unavailable in this session.')
+    const request = value.worktree as Record<string, unknown> | null
+    if (!request || typeof request !== 'object') throw new Error('Invalid worktree input')
+    for (const key of ['branch', 'baseRef'] as const) if (request[key] !== undefined && (typeof request[key] !== 'string' || (request[key] as string).length > 240)) throw new Error(`Invalid worktree ${key}`)
+    const created = await createThreadWorktree(worktrees, context.rootPath, { branch: request.branch as string | undefined, baseRef: request.baseRef as string | undefined })
+    try {
+      threadProjects.addContext(context.projectId, created.rootPath)
+      return await service.create({ workspaceId: `thread:${context.projectId}`, projectId: context.projectId, rootPath: created.rootPath, provider: value.provider })
+    } catch (error) {
+      threadProjects.removeContext(context.projectId, created.rootPath)
+      await discardThreadWorktree(context.rootPath, created.rootPath, created.branch)
+      throw error
+    }
   })
   ipcMain.handle(IPC_CHANNELS.thread.send, (event, id: unknown, text: unknown, attachmentIds: unknown) => { sender(event); return manager.then(service => service.send(string(id), message(text), stringList(attachmentIds, 8))) })
   ipcMain.handle(IPC_CHANNELS.thread.turnFiles, (event, id: unknown, turnId: unknown) => { sender(event); return manager.then(service => service.turnFiles(string(id), string(turnId))) })
@@ -217,6 +233,12 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings): { st
     sender(event)
     if (typeof enabled !== 'boolean') throw Error('Choose on or off')
     return manager.then(service => service.setAutoApproveReads(enabled))
+  })
+  ipcMain.handle(IPC_CHANNELS.thread.idleSuspendMinutes, event => { sender(event); return manager.then(service => service.idleSuspendMinutes()) })
+  ipcMain.handle(IPC_CHANNELS.thread.setIdleSuspendMinutes, (event, minutes: unknown) => {
+    sender(event)
+    if (typeof minutes !== 'number' || !Number.isInteger(minutes)) throw Error('Choose a number of minutes')
+    return manager.then(service => service.setIdleSuspendMinutes(minutes))
   })
   ipcMain.handle(IPC_CHANNELS.thread.shellCheck, (event, command: unknown) => {
     sender(event)

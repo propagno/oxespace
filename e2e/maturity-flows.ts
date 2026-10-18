@@ -2,6 +2,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
+import { togglePanel } from './helpers/panels'
 
 /**
  * Flows that carry the 1.0 maturity claim of the items added for the release, written once and
@@ -156,8 +157,7 @@ export function registerMaturityFlows(options: MaturityFlowsOptions): void {
       await page.getByTestId('wizard-layout-card-1').click()
       await page.getByTestId('wizard-launch-btn').click()
       await page.waitForSelector('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]', { timeout: 30_000 })
-      await page.getByTestId('btn-open-tools').click()
-      await page.getByTestId('tools-modal').getByRole('menuitem', { name: /^Editor/ }).click()
+      await togglePanel(page, 'Files')
       const panel = page.getByTestId('workspace-editor-panel')
       await expect(panel).toBeVisible()
 

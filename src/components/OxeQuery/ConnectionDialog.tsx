@@ -6,6 +6,7 @@ import { buildConnectionUrl, parseConnectionUrl } from './connection-url'
 import { useOxeQueryStore } from './oxequery.store'
 import { Button } from '../../ui/Button'
 import { Dialog } from '../../ui/Overlay'
+import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { Select, SegmentedControl, Switch } from '../../ui/Field'
 
 const DEFAULT_PORT: Record<DatabaseEngine, number> = { postgres: 5432, mongodb: 27017 }
@@ -339,11 +340,11 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
       {error && <p role="alert" className="oq-error">{error}</p>}
       {outcome?.kind === 'ok' && <p role="status" className="oq-outcome oq-outcome-ok"><CheckCircle2 size={15} aria-hidden="true" />{outcome.message}</p>}
       {outcome?.kind === 'fail' && <p role="alert" className="oq-outcome oq-outcome-fail"><XCircle size={15} aria-hidden="true" />{outcome.message}</p>}
-      {outcome?.kind === 'hostkey' && <div role="alertdialog" aria-label="Trust SSH host key" className="oq-hostkey">
-        <p><ShieldCheck size={15} aria-hidden="true" /> <strong>{outcome.host}</strong> has not been seen before. Compare this fingerprint with the one your server reports (for example with <code>ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</code>).</p>
+      {outcome?.kind === 'hostkey' && <ConfirmDialog title="Trust this SSH host key?" confirmLabel="Trust this key and test again" busy={busy}
+        description={<><strong>{outcome.host}</strong> has not been seen before. Compare this fingerprint with the one your server reports (for example with <code>ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</code>).</>}
+        onCancel={() => setOutcome(null)} onConfirm={() => void trustAndRetry()}>
         <code className="oq-fingerprint">{outcome.fingerprint}</code>
-        <div><button type="button" onClick={() => setOutcome(null)} disabled={busy}>Cancel</button><button type="button" className="oq-primary" onClick={() => void trustAndRetry()} disabled={busy}>Trust this key and test again</button></div>
-      </div>}
+      </ConfirmDialog>}
       {outcome?.kind === 'hostkey-changed' && <div role="alert" className="oq-hostkey oq-hostkey-danger">
         <p><ShieldAlert size={15} aria-hidden="true" /> <strong>The SSH server's host key changed.</strong> This can mean the server was rebuilt, or that someone is intercepting the connection. Do not continue until you have confirmed it with whoever runs the server.</p>
         <code className="oq-fingerprint">trusted: {outcome.expected}</code><code className="oq-fingerprint">now: {outcome.actual}</code>

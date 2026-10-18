@@ -1,4 +1,4 @@
-import { ChevronDown, FolderOpen, Plus, Search, Wrench, Waypoints } from 'lucide-react'
+import { ChevronDown, FolderOpen, PanelsTopLeft, Plus, Search, Waypoints } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { IntegrationGroup } from '../../../shared/types/integration'
 import type { Workspace } from '../../../shared/types/workspace'
@@ -7,6 +7,7 @@ import { rootPathKey } from '../../../shared/utils/path'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { useWorkspaceActivity } from '../../hooks/useWorkspaceActivity'
 import { NavigationRail, type RailAction } from '../Navigation/NavigationChrome'
+import type { MenuEntry } from '../../ui'
 import { useNavigationSearch } from '../Navigation/useNavigationSearch'
 import { SearchField } from '../Navigation/SearchField'
 import { SidebarIntegrationRow } from './SidebarIntegrationRow'
@@ -33,7 +34,8 @@ interface SidebarProps {
   isCollapsed: boolean
   onToggleCollapse: () => void
   /** Opens the Tools hub modal (workspace panels, MCP, skills, …). */
-  onOpenTools: () => void
+  /** The Panels menu of the active workspace, shared with its bar. */
+  panelMenu?: MenuEntry[]
   /** Background jobs dock (honest label — not Orca "Tasks" until kanban returns). */
   onOpenJobs?: () => void
   /** Scripts discovery panel. */
@@ -54,7 +56,7 @@ export function Sidebar({
   onCloseWorkspace,
   onNewWorkspace,
   onOpenSearch,
-  onOpenTools,
+  panelMenu,
   onSelectWorkspace,
   onToggleCollapse,
   integrationGroups = [],
@@ -107,7 +109,12 @@ export function Sidebar({
     return workspaces.filter((ws) =>
       ws.name.toLowerCase().includes(q) ||
       cachedBranchLabel(ws.rootPath).toLowerCase().includes(q) ||
-      ws.panes.some((p) => `${p.displayName ?? ''} ${p.agentName ?? p.type} ${profiles.find(profile => profile.agentProfileId === p.agentProfileId)?.name ?? ''} ${p.rootPath ?? ''} ${cachedBranchLabel(p.rootPath ?? ws.rootPath)}`.toLowerCase().includes(q))
+      ws.panes.some((p) => {
+        // A pane whose agent moved into a worktree is found by that worktree's branch too.
+        const moved = useTerminalStore.getState().panes[p.id]?.location
+        const movedText = moved?.sameRepository && moved.checkoutRoot ? `${moved.checkoutRoot} ${cachedBranchLabel(moved.checkoutRoot)}` : ''
+        return `${p.displayName ?? ''} ${p.agentName ?? p.type} ${profiles.find(profile => profile.agentProfileId === p.agentProfileId)?.name ?? ''} ${p.rootPath ?? ''} ${cachedBranchLabel(p.rootPath ?? ws.rootPath)} ${movedText}`.toLowerCase().includes(q)
+      })
     )
   }, [workspaces, searchQuery, profiles])
 
@@ -164,7 +171,7 @@ export function Sidebar({
     ...(onDelegations ? [{ id: 'delegated-work', label: 'Delegated work', icon: Waypoints, onClick: onDelegations }] : []),
     { id: 'search', label: 'Files & commands (Ctrl+J)', ariaLabel: 'Files & commands', icon: Search, onClick: onOpenSearch }
   ]
-  const railContext: RailAction = { id: 'tools', label: 'Tools', ariaLabel: 'Open tools', icon: Wrench, testId: 'btn-open-tools', onClick: onOpenTools }
+  const railContext: RailAction = { id: 'panels', label: 'Panels', ariaLabel: 'Open panels', icon: PanelsTopLeft, testId: 'btn-open-tools', disabled: !panelMenu, menu: panelMenu }
 
   if (isCollapsed) {
     return (
