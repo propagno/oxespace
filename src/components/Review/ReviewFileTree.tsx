@@ -110,24 +110,31 @@ function FileRow({ depth, file, label, onSelect, onToggleReviewed, reviewed, sel
       className={`review-tree-file${selected ? ' selected' : ''}${reviewed ? ' reviewed' : ''}`}
       style={{ paddingLeft: depth * 12 + 8 }}
     >
+      {/* Pointer shortcut only. A tree may own nothing but tree items, so the reviewed state is the item's
+          own aria-checked, toggled with Space; this box is hidden from assistive tech and the Tab order. */}
       <input
         type="checkbox"
         className="review-tree-checkbox"
         tabIndex={-1}
-        data-tree-action=""
+        aria-hidden="true"
         checked={reviewed}
         onChange={onToggleReviewed}
         onClick={(e) => e.stopPropagation()}
-        aria-label={`Mark ${file.path} as reviewed`}
-        title="Mark as reviewed (from the file, press Right Arrow)"
+        title="Mark as reviewed (on the file, press Space)"
       />
       <button
         type="button"
         role="treeitem"
         aria-level={depth + 1}
         aria-selected={selected}
+        aria-checked={reviewed}
         className="review-tree-file-body"
         onClick={onSelect}
+        onKeyDown={(event) => {
+          if (event.key !== ' ') return
+          event.preventDefault()
+          onToggleReviewed()
+        }}
         title={file.path}
       >
         <File size={12} aria-hidden="true" className="review-tree-file-icon" />
@@ -243,7 +250,7 @@ export function ReviewFileTree({
       </div>
 
       {/* Read once when the tree is entered; repeating it on every row would be noise. */}
-      <p id={hintId} className="sr-only">Use the arrow keys to move between files. On a file, press Right Arrow to reach its reviewed checkbox and Space to toggle it; Left Arrow returns to the file.</p>
+      <p id={hintId} className="sr-only">Use the arrow keys to move between files. On a file, press Enter to open it and Space to mark it reviewed.</p>
       {/* A tree must own tree items; with no files there is no tree, only a note. */}
       {files.length === 0 ? <p className="review-file-tree-list review-file-tree-empty">No files to review.</p> : <div className="review-file-tree-list" role="tree" aria-label="Review files" aria-describedby={hintId} ref={treeNav.ref} onKeyDown={treeNav.onKeyDown}>
         {treeMode === 'structured' ? (

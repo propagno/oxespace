@@ -35,10 +35,10 @@ describe('ReviewFileTree as an ARIA tree', () => {
     expect(screen.getByText('No files to review.')).toBeInTheDocument()
   })
 
-  test('describes the checkbox shortcut once, on the tree, not on every row', () => {
+  test('describes the review shortcut once, on the tree, not on every row', () => {
     renderTree()
     const tree = screen.getByRole('tree', { name: 'Review files' })
-    expect(tree).toHaveAccessibleDescription(/Right Arrow to reach its reviewed checkbox/)
+    expect(tree).toHaveAccessibleDescription(/Space to mark it reviewed/)
     for (const row of screen.getAllByRole('treeitem')) expect(row).not.toHaveAttribute('aria-describedby')
   })
 
@@ -90,47 +90,26 @@ describe('ReviewFileTree as an ARIA tree', () => {
     expect(props.onSelectFile).toHaveBeenCalledWith('README.md')
   })
 
-  describe('the reviewed checkbox', () => {
-    const box = (path: string): HTMLElement => screen.getByRole('checkbox', { name: `Mark ${path} as reviewed` })
-
-    test('is not a tab stop, so Tab crosses the tree in one step', async () => {
-      renderTree()
-      for (const checkbox of screen.getAllByRole('checkbox')) expect(checkbox).toHaveAttribute('tabindex', '-1')
+  describe('the reviewed state', () => {
+    test('is the file item’s own aria-checked; the pointer checkbox is hidden and out of the Tab order', async () => {
+      renderTree({ reviewedFiles: ['README.md'] })
+      expect(item(/README\.md/)).toHaveAttribute('aria-checked', 'true')
+      expect(item(/^app\.ts/)).toHaveAttribute('aria-checked', 'false')
+      // The tree owns only tree items (axe aria-required-children).
+      expect(screen.queryAllByRole('checkbox')).toEqual([])
       await waitFor(() => expect(screen.getAllByRole('treeitem').filter(row => row.tabIndex === 0)).toHaveLength(1))
     })
 
-    test('Right on a file row moves focus to its checkbox and Left moves back', async () => {
-      const user = userEvent.setup()
-      renderTree()
-      item(/^app\.ts/).focus()
-      await user.keyboard('{ArrowRight}')
-      expect(box('src/app.ts')).toHaveFocus()
-      await user.keyboard('{ArrowLeft}')
-      expect(item(/^app\.ts/)).toHaveFocus()
-    })
-
-    test('Space on the checkbox marks the file as reviewed without selecting it', async () => {
+    test('Space on a file marks it reviewed without selecting it', async () => {
       const user = userEvent.setup()
       const props = renderTree()
       item(/^app\.ts/).focus()
-      await user.keyboard('{ArrowRight}')
       await user.keyboard(' ')
       expect(props.onToggleReviewed).toHaveBeenCalledWith('src/app.ts')
       expect(props.onSelectFile).not.toHaveBeenCalled()
     })
 
-    test('Up and Down on the checkbox go to the neighbouring rows', async () => {
-      const user = userEvent.setup()
-      renderTree()
-      item(/^app\.ts/).focus()
-      await user.keyboard('{ArrowRight}{ArrowDown}')
-      expect(item(/README\.md/)).toHaveFocus()
-      item(/^app\.ts/).focus()
-      await user.keyboard('{ArrowRight}{ArrowUp}')
-      expect(item(/util\.ts/)).toHaveFocus()
-    })
-
-    test('Right on a folder still expands or enters it rather than reaching a checkbox', async () => {
+    test('Right on a folder still expands or enters it', async () => {
       const user = userEvent.setup()
       renderTree()
       item(/^src/).focus()
