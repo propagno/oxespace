@@ -3,7 +3,7 @@ import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from
 import { Activity, MoreHorizontal, PanelsTopLeft, PlugZap } from 'lucide-react'
 import { Menu } from '../../ui'
 import { WorkbenchPanelMenu, WorkbenchPanelToggle, type WorkbenchPanelItem } from '../Workbench/WorkbenchPanelMenu'
-import { CODE_BAR_PANELS, CODE_MENU_PANELS } from '../Workbench/panelCatalog'
+import { CODE_BAR_PANELS, CODE_MENU_PANELS, WORKBENCH_PANELS } from '../Workbench/panelCatalog'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceWorktreeStateInput, Workspace } from '../../../shared/types/workspace'
 import { WorkspaceGrid } from '../Grid/WorkspaceGrid'
@@ -509,7 +509,12 @@ function WorkspaceSurfaceComponent({
   // mounted.
   const isMaximized = Boolean(maximizedPaneId)
   const showSidePanels = hasSidePanels && !isMaximized
-  const sideLabels: Record<string, string> = { github: 'Source control', review: 'Review', editor: 'Files', background: 'Background activity', worktree: 'Worktrees', scripts: 'Scripts', 'web-preview': 'Web preview', integration: 'Integrations', search: 'Find in files' }
+  // The same names as the Panels menu and Thread (panelCatalog), so a panel is called one thing everywhere.
+  const sideLabels: Record<string, string> = {
+    github: WORKBENCH_PANELS.git.label, review: WORKBENCH_PANELS.changes.label, editor: WORKBENCH_PANELS.files.label,
+    background: WORKBENCH_PANELS.background.label, worktree: WORKBENCH_PANELS.worktrees.label, scripts: WORKBENCH_PANELS.scripts.label,
+    'web-preview': WORKBENCH_PANELS.browser.label, integration: 'Integrations', search: WORKBENCH_PANELS.search.label
+  }
   // Four tabs fit one row at the minimum window width; the rest live in a menu, and the active panel is always a visible tab.
   const SIDE_TAB_LIMIT = 4
   const inlineSidePanels = sidePanels.slice(0, SIDE_TAB_LIMIT)
