@@ -182,6 +182,21 @@ for (const theme of THEMES) {
         await page.getByRole('button', { name: 'New connection' }).first().click()
         await expect(page.getByRole('dialog')).toBeVisible()
       })
+      // The mock answers a test through an SSH tunnel with an unknown host key.
+      await reach(`${theme}/dialog-ssh-host-key`, found, page, async () => {
+        const connection = page.getByRole('dialog', { name: 'New connection' })
+        await connection.getByLabel('Name').fill('Behind bastion')
+        await connection.getByLabel('Host', { exact: true }).fill('db.private')
+        await connection.getByRole('button', { name: /SSH tunnel/ }).click()
+        await connection.getByRole('checkbox', { name: /Connect through an SSH server/ }).check()
+        await connection.getByLabel('SSH host').fill('bastion.example.com')
+        await connection.getByLabel('SSH user').fill('deploy')
+        await connection.getByRole('button', { name: 'Choose file…' }).click()
+        await expect(connection.getByText('sshKey.pem')).toBeVisible()
+        await connection.getByRole('button', { name: 'Test connection' }).click()
+        await expect(page.getByRole('dialog', { name: 'Trust this SSH host key?' })).toBeVisible()
+      })
+      await page.keyboard.press('Escape')
       await page.keyboard.press('Escape')
     } finally {
       await app.close()
@@ -232,6 +247,22 @@ for (const theme of THEMES) {
         await page.getByRole('menuitem', { name: 'Project settings' }).click()
       }, () => page.getByRole('dialog', { name: /^Thread project/ }))
       await dialogScan('thread-accounts', () => page.getByRole('button', { name: 'Agent accounts', exact: true }).click(), () => page.getByRole('dialog', { name: 'Agent accounts' }))
+      // Command confirmations come from the real command router; Escape cancels them, so nothing is archived.
+      const command = async (text: string): Promise<void> => {
+        const composer = page.getByRole('textbox', { name: 'Message' })
+        await composer.fill(text)
+        await composer.press('Enter')
+      }
+      await dialogScan('thread-confirm-archive', () => command('/archive'), () => page.getByRole('dialog', { name: 'Archive this conversation?' }))
+      await dialogScan('thread-confirm-delete', () => command('/delete'), () => page.getByRole('dialog', { name: 'Delete this conversation?' }))
+      await dialogScan('delegation-create', async () => {
+        await page.getByRole('button', { name: 'More actions' }).first().click()
+        await page.getByRole('menuitem', { name: 'Delegate work' }).click()
+      }, () => page.getByRole('dialog', { name: 'Delegate work' }))
+      await dialogScan('thread-confirm-full-access', async () => {
+        await page.getByRole('button', { name: /Permissions|access/i }).first().click()
+        await page.getByRole('menuitemradio', { name: /Full access/ }).or(page.getByRole('option', { name: /Full access/ })).or(page.getByRole('menuitem', { name: /Full access/ })).first().click()
+      }, () => page.getByRole('dialog', { name: 'Allow expanded access?' }))
     } finally {
       await app.close()
     }
