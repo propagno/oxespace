@@ -6,7 +6,7 @@ import type { WorkspacePane } from '../../../shared/types/workspace'
 import { selectWorktrees, useWorktreeStore } from '../../store/worktree.store'
 import { WorktreeCleanupPanel } from './WorktreeCleanupPanel'
 import { useWorkspaceStore } from '../../store/workspace.store'
-import { Button, TextField } from '../../ui'
+import { Button, ConfirmDialog, TextField } from '../../ui'
 
 /** A worktree the user asked to remove, plus what removing it would destroy. */
 interface PendingRemoval {
@@ -616,30 +616,20 @@ function WorktreeRemovalConfirm({ busy, onCancel, onConfirm, pending }: {
   const label = pending.branch ?? pending.path
 
   return (
-    <div className="worktree-remove-confirm" role="alertdialog" aria-label={`Remove worktree ${label}`}>
-      <div className="worktree-remove-confirm-head">
-        <AlertTriangle size={12} aria-hidden="true" />
-        <strong>Remove {label}?</strong>
-      </div>
-      <p className="worktree-remove-confirm-body">
-        {status === null
-          ? 'Checking what this worktree holds…'
-          : losses.length === 0
-            ? 'Everything here is committed and pushed. The folder is deleted; the branch stays.'
-            : <>This worktree still holds {losses.join(', ')}. Removing it deletes {needsForce ? 'that work permanently' : 'the folder'}.</>}
-      </p>
-      <div className="worktree-remove-confirm-actions">
-        <Button variant="ghost" onClick={onCancel} disabled={busy}>Cancel</Button>
-        <button
-          type="button"
-          className={needsForce ? 'danger-btn' : 'primary-btn'}
-          onClick={() => onConfirm(needsForce)}
-          disabled={busy || status === null}
-        >
-          {busy ? 'Removing…' : needsForce ? 'Remove and discard changes' : 'Remove worktree'}
-        </button>
-      </div>
-    </div>
+    <ConfirmDialog
+      title={`Remove ${label}?`}
+      description={status === null
+        ? 'Checking what this worktree holds…'
+        : losses.length === 0
+          ? 'Everything here is committed and pushed. The folder is deleted; the branch stays.'
+          : `This worktree still holds ${losses.join(', ')}. Removing it deletes ${needsForce ? 'that work permanently' : 'the folder'}.`}
+      confirmLabel={needsForce ? 'Remove and discard changes' : 'Remove worktree'}
+      danger={needsForce || losses.length > 0}
+      busy={busy}
+      confirmDisabled={status === null}
+      onCancel={onCancel}
+      onConfirm={() => onConfirm(needsForce)}
+    />
   )
 }
 

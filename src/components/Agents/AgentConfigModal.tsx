@@ -1,9 +1,8 @@
-import { RefreshCw, Trash2, X } from 'lucide-react'
+import { RefreshCw, Trash2 } from 'lucide-react'
 import { type FormEvent, type ReactElement, useState } from 'react'
 import type { AgentProfile, AgentProvider, AgentReadiness } from '../../../shared/types/agent'
 import { BUILTIN_PROVIDERS, type UpdateAgentProfileInput } from '../../../shared/types/agent'
-import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
-import { Button, TextField, Select, TextArea } from '../../ui'
+import { Button, ConfirmDialog, Dialog, IconButton, TextField, Select, TextArea } from '../../ui'
 
 const PROVIDER_LABEL: Record<(typeof BUILTIN_PROVIDERS)[number], string> = {
   claude: 'Claude',
@@ -94,60 +93,50 @@ export function AgentConfigModal({
   }
 
   const handleDelete = async (): Promise<void> => {
-    if (!confirmDelete) {
-      setConfirmDelete(true)
-      return
-    }
     setDeleting(true)
     try {
       await onDelete(profile.agentProfileId)
       onClose()
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Failed to delete agent profile')
+      setConfirmDelete(false)
       setDeleting(false)
     }
   }
 
+  if (confirmDelete) {
+    return <ConfirmDialog title="Delete this agent profile?" description={`“${profile.name}” is removed from OXESpace. Terminals already running it keep running.`}
+      confirmLabel="Delete profile" danger busy={isDeleting} onCancel={() => setConfirmDelete(false)} onConfirm={() => void handleDelete()} />
+  }
+
   return (
-    <ModalRoot open onOpenChange={(next) => { if (!next) onClose() }}>
-      <ModalSurface
-        className="modal modal-wide modal-dialog-surface"
-      >
-        <header className="modal-header">
-          <ModalTitle asChild>
-            {/* No manual id: `asChild` lets Radix put its own generated id here,
-                which is what DialogContent's aria-labelledby points at. */}
-            <h2>{isNew ? 'New custom agent' : 'Configure agent'}</h2>
-          </ModalTitle>
-          <Button variant="ghost" size="sm" square aria-label="Close modal" onClick={onClose}>
-            <X size={16} aria-hidden="true" />
+    <Dialog
+      title={isNew ? 'New custom agent' : 'Configure agent'}
+      description={isCustom ? 'A skill prompt that runs on top of a built-in agent.' : 'The name and command OXESpace uses to start this agent.'}
+      onClose={onClose}
+      footer={<>
+        {!profile.isBuiltin && !isNew ? (
+          <Button variant="ghost" data-align="start" icon={<Trash2 size={14} aria-hidden="true" />} disabled={isDeleting} onClick={() => setConfirmDelete(true)} data-testid="btn-delete-agent">
+            Delete profile
           </Button>
-        </header>
-
-        {readiness && !isCustom ? (
-          <div className="readiness-row" style={{ margin: '0 18px', marginTop: '14px' }}>
-            <span className={`agent-badge ${readiness.status}`}>{readiness.status}</span>
-            {readiness.details ? (
-              <span style={{ fontSize: '12px', color: 'var(--tx-muted)' }}>{readiness.details}</span>
-            ) : null}
-            {readiness.version ? (
-              <span className="readiness-version">{readiness.version}</span>
-            ) : null}
-            <button
-              type="button"
-              className="sidebar-btn"
-              aria-label="Run health check"
-              title="Run health check"
-              disabled={isDiscovering}
-              onClick={onHealthCheck}
-              style={{ marginLeft: 'auto' }}
-            >
-              <RefreshCw size={12} aria-hidden="true" className={isDiscovering ? 'spin' : undefined} />
-            </button>
-          </div>
         ) : null}
+        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button type="submit" form="agent-config-form" variant="primary" loading={isSubmitting} data-testid="btn-save-agent">
+          {isNew ? 'Create' : 'Save'}
+        </Button>
+      </>}
+    >
+      {readiness && !isCustom ? (
+        <div className="readiness-row agent-config-readiness">
+          <span className={`agent-badge ${readiness.status}`}>{readiness.status}</span>
+          {readiness.details ? <span className="agent-config-readiness-detail">{readiness.details}</span> : null}
+          {readiness.version ? <span className="readiness-version">{readiness.version}</span> : null}
+          <IconButton className="agent-config-health" label="Run health check" size="sm" disabled={isDiscovering} onClick={onHealthCheck}
+            icon={<RefreshCw size={12} aria-hidden="true" className={isDiscovering ? 'spin' : undefined} />} />
+        </div>
+      ) : null}
 
-        <form className="modal-form" onSubmit={(e) => void handleSubmit(e)}>
+      <form id="agent-config-form" className="modal-form" onSubmit={(e) => void handleSubmit(e)}>
           <label className="field">
             <span>Name</span>
             <TextField
@@ -203,37 +192,7 @@ export function AgentConfigModal({
             <div className="modal-error" role="alert">{submitError}</div>
           ) : null}
 
-          {!profile.isBuiltin && !isNew ? (
-            <div className="danger-zone">
-              {confirmDelete ? <div className="modal-error">Click Delete profile again to remove "{profile.name}".</div> : null}
-              <button
-                type="button"
-                className="danger-action"
-                disabled={isDeleting}
-                onClick={() => void handleDelete()}
-                data-testid="btn-delete-agent"
-              >
-                <Trash2 size={12} aria-hidden="true" />
-                Delete profile
-              </button>
-            </div>
-          ) : null}
-
-          <footer className="modal-actions">
-            <Button variant="secondary" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={isSubmitting}
-              data-testid="btn-save-agent"
-            >
-              {isNew ? 'Create' : 'Save'}
-            </Button>
-          </footer>
         </form>
-      </ModalSurface>
-    </ModalRoot>
+    </Dialog>
   )
 }

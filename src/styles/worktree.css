@@ -499,58 +499,13 @@
    Sits directly under the row it refers to, so "remove what?" is never a
    question. Two visual states: a plain confirm for a clean worktree, and a
    red one when confirming would discard uncommitted work. */
-.worktree-remove-confirm {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: -2px 0 6px;
-  padding: 10px 12px;
-  border: 1px solid var(--intent-danger-border);
-  border-radius: var(--radius-sm);
-  background: var(--intent-danger-bg);
-}
 
-.worktree-remove-confirm-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--intent-danger-fg);
-  font-size: var(--fs-2xs);
-}
 
-.worktree-remove-confirm-head svg { flex-shrink: 0; }
 
-.worktree-remove-confirm-body {
-  margin: 0;
-  color: var(--tx-secondary);
-  font-size: var(--fs-2xs);
-  line-height: 1.5;
-}
 
-.worktree-remove-confirm-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
 
-.worktree-remove-confirm .danger-btn {
-  padding: 6px 12px;
-  border: 1px solid var(--intent-danger-border);
-  border-radius: var(--radius-sm);
-  background: var(--intent-danger-bg);
-  color: var(--intent-danger-fg);
-  font-size: var(--fs-2xs);
-  font-weight: 600;
-  cursor: pointer;
-  transition: background var(--transition-base), border-color var(--transition-base);
-}
 
-.worktree-remove-confirm .danger-btn:hover:not(:disabled) {
-  background: var(--intent-danger-bg);
-  border-color: var(--intent-danger-solid);
-}
 
-.worktree-remove-confirm .danger-btn:disabled { opacity: 0.45; cursor: default; }
 
 .worktree-menu-item.pending-removal {
   border-color: var(--intent-danger-border);
