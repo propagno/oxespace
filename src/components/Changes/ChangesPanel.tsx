@@ -1,6 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
-import { ArrowLeftRight, Check, CheckCircle2, Circle, ChevronDown, ChevronLeft, ChevronRight, FileMinus2, FilePlus2, FileDiff, FileSymlink, FolderGit2, Info, Loader2, RefreshCw, Search, X } from 'lucide-react'
-import { DropdownMenu } from 'radix-ui'
+import { ArrowLeftRight, CheckCircle2, Circle, ChevronDown, ChevronLeft, ChevronRight, FileMinus2, FilePlus2, FileDiff, FileSymlink, FolderGit2, Info, Loader2, RefreshCw, Search, X } from 'lucide-react'
 import type { GitDiffSummary, GitDiffSummaryFile, GitFileOriginal } from '../../../shared/types/git'
 import type { GitHubWorktree } from '../../../shared/types/github'
 import { formatDiffComments } from '../../../shared/types/diff-comments'
@@ -9,7 +8,7 @@ import { useDiffCommentsStore } from '../../store/diff-comments.store'
 import { buildChangeTree, chooseBase, comparisonKey, filterChangedFiles, formatCount, headLabel, isLargeDiff, isValidRef, languageFor, normalizeBranchName, orderedFiles, splitPath, swapSides, type ChangeTreeNode, type CompareHead, type CompareMode } from './changesModel'
 import { RefPicker, type RefPickerBranch } from './RefPicker'
 import './ChangesPanel.css'
-import { TextField, EmptyState } from '../../ui'
+import { TextField, EmptyState, Menu } from '../../ui'
 
 const MonacoDiff = lazy(() => import('./MonacoDiff'))
 
@@ -246,21 +245,14 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
 
   return <section className="changes-panel" aria-label="Changes" data-testid="changes-panel">
     <header className="changes-toolbar">
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger asChild><button type="button" className="changes-pill" aria-label="Change scope">{SCOPE_LABEL[scope]}{effectiveMode === 'direct' ? ' · direct' : ''}<ChevronDown size={12} aria-hidden="true" /></button></DropdownMenu.Trigger>
-        <DropdownMenu.Portal><DropdownMenu.Content collisionPadding={{ top: 44, right: 8, bottom: 8, left: 8 }} className="changes-menu" align="start" sideOffset={6}>
-          <DropdownMenu.RadioGroup value={scope} onValueChange={value => { setScope(value as Scope); setSelectedPath(null) }}>
-            <DropdownMenu.RadioItem value="branch" className="changes-menu-item">Compare branches<DropdownMenu.ItemIndicator><Check size={14} /></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>
-            <DropdownMenu.RadioItem value="uncommitted" className="changes-menu-item">Uncommitted changes<DropdownMenu.ItemIndicator><Check size={14} /></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>
-          </DropdownMenu.RadioGroup>
-          <DropdownMenu.Separator className="changes-menu-separator" />
-          <DropdownMenu.Label className="changes-menu-heading">Compare from</DropdownMenu.Label>
-          <DropdownMenu.RadioGroup value={mode} onValueChange={value => choose({ mode: value as CompareMode })}>
-            <DropdownMenu.RadioItem value="merge-base" className="changes-menu-item" disabled={scope === 'uncommitted'}>Common ancestor (like a pull request)<DropdownMenu.ItemIndicator><Check size={14} /></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>
-            <DropdownMenu.RadioItem value="direct" className="changes-menu-item" disabled={scope === 'uncommitted'}>Base directly<DropdownMenu.ItemIndicator><Check size={14} /></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>
-          </DropdownMenu.RadioGroup>
-        </DropdownMenu.Content></DropdownMenu.Portal>
-      </DropdownMenu.Root>
+      <Menu label="Change scope" trigger={<button type="button" className="changes-pill" aria-label="Change scope">{SCOPE_LABEL[scope]}{effectiveMode === 'direct' ? ' · direct' : ''}<ChevronDown size={12} aria-hidden="true" /></button>} items={[
+        { type: 'check', label: 'Compare branches', checked: scope === 'branch', onSelect: () => { setScope('branch'); setSelectedPath(null) } },
+        { type: 'check', label: 'Uncommitted changes', checked: scope === 'uncommitted', onSelect: () => { setScope('uncommitted'); setSelectedPath(null) } },
+        { type: 'separator' },
+        { type: 'label', label: 'Compare from' },
+        { type: 'check', label: 'Common ancestor (like a pull request)', checked: mode === 'merge-base', disabled: scope === 'uncommitted', onSelect: () => choose({ mode: 'merge-base' }) },
+        { type: 'check', label: 'Base directly', checked: mode === 'direct', disabled: scope === 'uncommitted', onSelect: () => choose({ mode: 'direct' }) }
+      ]} />
       {summary && <span className="changes-totals" aria-label="Total changes"><span className="is-add">+{formatCount(summary.additions)}</span><span className="is-del">−{formatCount(summary.deletions)}</span></span>}
       <span className="changes-sides" role="group" aria-label="Compared sides">
         <RefPicker label="Base (side A)" value={effectiveBase ?? '…'} branches={branches} selected={`ref:${effectiveBase ?? ''}`} disabled={scope === 'uncommitted'} onPickRef={ref => choose({ base: ref })} />

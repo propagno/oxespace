@@ -75,7 +75,7 @@ test('Changes panel lists branch changes, switches base and shows a side-by-side
     await expect(panel.locator('.changes-file-path strong')).toHaveText('docs.md')
 
     await panel.getByRole('button', { name: 'Change scope' }).click()
-    await page.getByRole('menuitemradio', { name: 'Uncommitted changes' }).click()
+    await page.getByRole('menuitemcheckbox', { name: 'Uncommitted changes' }).click()
     await expect(panel.getByText('No changes')).toBeVisible()
     if (process.env.OXESPACE_README_SHOTS) {
       await openConnections(page)
