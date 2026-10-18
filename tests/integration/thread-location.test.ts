@@ -4,7 +4,7 @@
  * root clears it, and an unrelated directory is recorded as outside the repository.
  */
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -27,7 +27,7 @@ function repository(): { repo: string; tree: string } {
   return { repo, tree }
 }
 
-function fixture(root: string) {
+function fixture(root: string, options: { realWorkingState?: boolean } = {}) {
   const db: AppDatabase = openInMemoryDatabase()
   cleanup.push(() => db.close())
   db.prepare("INSERT INTO workspaces (id, name, root_path, layout, default_shell_profile_id) VALUES ('A', 'A', ?, '1x1', 'builtin-claude')").run(root)
@@ -40,13 +40,70 @@ function fixture(root: string) {
   }) as AgentConversationAdapter)
   const models = { list: vi.fn(async () => ({ defaultModel: 'm', models: [] })), stop: vi.fn(async () => {}) }
   const manager = new ThreadManager(db, factory, vi.fn(), undefined, undefined, undefined, models as never)
-  vi.spyOn(manager as unknown as { workingState: () => Promise<undefined> }, 'workingState').mockResolvedValue(undefined)
+  if (!options.realWorkingState) vi.spyOn(manager as unknown as { workingState: () => Promise<undefined> }, 'workingState').mockResolvedValue(undefined)
   const id = manager.create({ workspaceId: 'A', projectId: 'project-A', rootPath: root, provider: 'claude' }).thread.id
   cleanup.push(() => manager.stop())
   return { db, manager, callbacks, id, read: () => new ThreadHistory(db).read(id) }
 }
 
 describe('Thread working location', () => {
+  // Settles the asynchronous turn bookkeeping (checkpoint, baseline, finalization) between steps.
+  const settle = (): Promise<void> => new Promise(resolve => setTimeout(resolve, 400))
+  const verifiedPaths = (f: ReturnType<typeof fixture>): string[] => f.read().events.flatMap(event => event.type === 'turn-diff' && event.id.startsWith('verified-diff:') ? event.files.map(file => file.path) : [])
+  // Finalizing reads git in every checkout the turn used, which takes a moment on Windows.
+  // Finalizing reads git in every checkout the turn used, which takes a moment on Windows: wait for the
+  // verified diff and for every checkpoint of the turn to be finalized.
+  const finalized = async (f: ReturnType<typeof fixture>): Promise<void> => {
+    const checkpoints = (f.manager as unknown as { checkpoints: { list(id: string): Array<{ turnId?: string; state: string }> } }).checkpoints
+    const end = Date.now() + 8_000
+    const done = (): boolean => {
+      const turnId = f.read().turns?.at(-1)?.id
+      return verifiedPaths(f).length > 0 && checkpoints.list(f.id).filter(checkpoint => checkpoint.turnId === turnId).every(checkpoint => checkpoint.state !== 'open')
+    }
+    while (Date.now() < end && !done()) await new Promise(resolve => setTimeout(resolve, 100))
+  }
+
+
+  it('a turn after a move into a worktree is checkpointed and diffed there, and can be undone there', async () => {
+    const { repo, tree } = repository()
+    const f = fixture(repo, { realWorkingState: true })
+    await f.manager.send(f.id, 'Move')
+    f.callbacks[0]({ type: 'location', cwd: tree })
+    f.callbacks[0]({ type: 'completed', status: 'completed' })
+    await settle()
+
+    await f.manager.send(f.id, 'Edit in the worktree')
+    await settle()
+    writeFileSync(join(tree, 'a.txt'), 'changed in the worktree\n')
+    f.callbacks[0]({ type: 'completed', status: 'completed' })
+    await finalized(f)
+
+    expect(verifiedPaths(f)).toContain('a.txt')
+    const turnId = f.read().turns!.at(-1)!.id
+    expect((await f.manager.turnFiles(f.id, turnId)).map(file => file.path)).toContain('a.txt')
+    await f.manager.undoTurnFile(f.id, turnId, 'a.txt')
+    expect(readFileSync(join(tree, 'a.txt'), 'utf8')).toBe('a\n')
+    expect(readFileSync(join(repo, 'a.txt'), 'utf8')).toBe('a\n')
+  })
+
+  it('a move into a worktree during a turn adds a checkpoint and baseline there', async () => {
+    const { repo, tree } = repository()
+    const f = fixture(repo, { realWorkingState: true })
+    await f.manager.send(f.id, 'Work in a worktree')
+    await settle()
+    f.callbacks[0]({ type: 'location', cwd: tree })
+    await settle()
+    writeFileSync(join(tree, 'new-in-tree.txt'), 'created after the move\n')
+    f.callbacks[0]({ type: 'completed', status: 'completed' })
+    await finalized(f)
+
+    expect(verifiedPaths(f)).toContain('new-in-tree.txt')
+    const turnId = f.read().turns!.at(-1)!.id
+    expect((await f.manager.turnFiles(f.id, turnId)).map(file => file.path)).toContain('new-in-tree.txt')
+    await f.manager.undoTurnFile(f.id, turnId, 'new-in-tree.txt')
+    expect(existsSync(join(tree, 'new-in-tree.txt'))).toBe(false)
+  })
+
   it('follows a worktree of the same repository, registers it for the panels, and clears at the root', async () => {
     const { repo, tree } = repository()
     const f = fixture(repo)
