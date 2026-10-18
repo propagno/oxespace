@@ -760,6 +760,8 @@ function friendlyRemoveError(err: unknown): string {
   const parsed = parseWorktreeRemovalError(err instanceof Error ? err.message : String(err))
   const raw = parsed.message
   if (parsed.code === 'archive-failed') return `${raw} Corrija o hook archive do oxe.yaml, ou remova mesmo assim.`
+  // The message already names the conversations and says to archive them; no override applies.
+  if (parsed.code === 'threads-attached') return raw
   if (parsed.code === 'locked') return raw
   if (/main working tree/i.test(raw)) {
     return 'This is the main worktree — it can\'t be removed from inside the app. Remove other worktrees first, or delete the repo from disk.'

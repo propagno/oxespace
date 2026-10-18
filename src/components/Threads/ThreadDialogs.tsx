@@ -3,7 +3,13 @@ import { useState } from 'react'
 import type { ThreadProvider } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
-import { Button, Dialog, TextField } from '../../ui'
+import { Button, Checkbox, Dialog, TextField } from '../../ui'
+
+/** The main process's own message, without Electron's "Error invoking remote method …: Error:" prefix. */
+function ipcErrorText(cause: unknown): string | null {
+  if (!(cause instanceof Error) || !cause.message) return null
+  return cause.message.replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, '')
+}
 export function NewThreadDialog({ initialProjectId, initialRootPath, onClose }: { initialProjectId: string | null; initialRootPath?: string; onClose: () => void }) {
   const projects = useThreadStore(state => state.projects)
   const choices = projects.filter(project => !project.hidden).flatMap(project => project.contexts.map(context => ({ ...context, projectId: project.projectId, projectName: project.displayName })))
@@ -13,6 +19,9 @@ export function NewThreadDialog({ initialProjectId, initialRootPath, onClose }: 
   const [projectQuery, setProjectQuery] = useState('')
   const [provider, setProvider] = useState<ThreadProvider>('claude')
   const [error, setError] = useState(''), [pending, setPending] = useState(false)
+  // A new branch in its own worktree, next to the repository; the conversation starts there.
+  const [inWorktree, setInWorktree] = useState(false)
+  const [branch, setBranch] = useState(''), [baseRef, setBaseRef] = useState('')
   const filteredProjects = unique.map((context, index) => ({ context, index })).filter(({ context }) => `${context.projectName} ${context.rootPath}`.toLowerCase().includes(projectQuery.toLowerCase()))
   return <Dialog className="thread-create-dialog" title="New thread" description="A separate conversation in your project." onClose={() => { if (!pending) onClose() }}
     footer={<>
@@ -22,11 +31,21 @@ export function NewThreadDialog({ initialProjectId, initialRootPath, onClose }: 
     <form id="new-thread-form" onSubmit={async e => {
       e.preventDefault(); if (pending) return; const context = unique[choice]; if (!context) return
       setPending(true); setError('')
-      try { const snapshot = await window.oxe.thread!.create({ projectId: context.projectId, rootPath: context.rootPath, provider }); useThreadStore.getState().adopt(snapshot); onClose() }
-      catch { setError('Could not create conversation. Check the project directory and try again.') } finally { setPending(false) }
+      const worktree = inWorktree ? { ...(branch.trim() ? { branch: branch.trim() } : {}), ...(baseRef.trim() ? { baseRef: baseRef.trim() } : {}) } : undefined
+      try { const snapshot = await window.oxe.thread!.create({ projectId: context.projectId, rootPath: context.rootPath, provider, ...(worktree ? { worktree } : {}) }); useThreadStore.getState().adopt(snapshot); onClose() }
+      // A worktree refusal names its cause (branch exists, unknown base…); show it instead of a generic line.
+      catch (cause) { setError(worktree ? ipcErrorText(cause) ?? 'Could not create the worktree.' : 'Could not create conversation. Check the project directory and try again.') } finally { setPending(false) }
     }}><div className="thread-create-section thread-project-selection"><strong>Project</strong><span>{unique[choice]?.projectName ?? 'No project available'}</span><code>{unique[choice]?.rootPath}</code>{unique.length > 1 && <Button variant="link" size="sm" className="thread-project-change" aria-expanded={choosingProject} onClick={() => setChoosingProject(value => !value)}>Change project</Button>}{choosingProject && <fieldset className="thread-project-options"><legend>Choose project</legend><TextField aria-label="Filter projects" value={projectQuery} onChange={event => setProjectQuery(event.target.value)} />{filteredProjects.map(({ context, index }) => <label key={context.rootPath}><input type="radio" name="thread-project" checked={choice === index} onChange={() => { setChoice(index); setChoosingProject(false) }} /><span>{context.projectName}<small>{context.rootPath}</small></span></label>)}{!filteredProjects.length && <p role="status">No projects match this search.</p>}</fieldset>}<p>Conversation files and commands use this directory.</p></div>
       <fieldset className="thread-agent-choice"><legend>Agent</legend><div className="thread-agent-options">{(['claude', 'codex'] as const).map(id => <label key={id} className="thread-agent-option" data-selected={provider === id}><input type="radio" name="thread-provider" value={id} checked={provider === id} onChange={() => setProvider(id)} /><span className="thread-agent-option-icon"><AgentProviderIcon provider={id} size={20} /></span><span><strong>{id === 'claude' ? 'Claude Code' : 'Codex'}</strong><small>{id === 'claude' ? 'Claude subscription' : 'ChatGPT subscription'}</small></span>{provider === id && <Check size={14} className="thread-agent-option-check" />}</label>)}</div></fieldset>
-      {error && <p className="thread-dialog-error" role="alert">{error}</p>}
+      <div className="thread-create-section thread-worktree-choice">
+        <Checkbox label="Create in a new worktree" checked={inWorktree} onChange={event => setInWorktree(event.target.checked)} disabled={pending} />
+        <p>A new branch in its own folder next to the project, so this conversation's changes stay apart from your checkout.</p>
+        {inWorktree && <div className="thread-worktree-fields">
+          <TextField label="Branch" mono value={branch} placeholder="thread/<date> (generated)" onChange={event => setBranch(event.target.value)} disabled={pending} />
+          <TextField label="Start from" mono value={baseRef} placeholder="Repository default (e.g. origin/main)" onChange={event => setBaseRef(event.target.value)} disabled={pending} />
+        </div>}
+      </div>
+      {error &&<p className="thread-dialog-error" role="alert">{error}</p>}
     </form>
   </Dialog>
 }
