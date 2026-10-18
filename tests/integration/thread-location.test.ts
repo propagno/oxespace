@@ -68,6 +68,22 @@ describe('Thread working location', () => {
     expect(f.read().thread.observedLocation).toBeUndefined()
   })
 
+  it('says the folder is gone when the provider cannot start because its worktree was removed', async () => {
+    const gone = join(tmpdir(), `oxe-removed-${Date.now()}`)
+    const db: AppDatabase = openInMemoryDatabase()
+    cleanup.push(() => db.close())
+    const factory = vi.fn(async () => ({
+      capabilities: { resume: true, approvals: true, attachments: false, modelSelection: false },
+      start: vi.fn(async () => { throw Object.assign(new Error(`spawn claude ENOENT`), { code: 'ENOENT' }) }),
+      send: vi.fn(async () => {}), interrupt: vi.fn(async () => {}), approve: vi.fn(async () => {}), dispose: vi.fn(async () => {})
+    }) as AgentConversationAdapter)
+    const models = { list: vi.fn(async () => ({ defaultModel: 'm', models: [] })), stop: vi.fn(async () => {}) }
+    const manager = new ThreadManager(db, factory, vi.fn(), undefined, undefined, undefined, models as never)
+    cleanup.push(() => manager.stop())
+    const id = manager.create({ workspaceId: 'A', projectId: 'project-A', rootPath: gone, provider: 'claude' }).thread.id
+    await expect(manager.send(id, 'Continue')).rejects.toThrow(/folder no longer exists/)
+  })
+
   it('records a directory outside the repository without treating it as the project, and ignores bad reports', async () => {
     const { repo } = repository()
     const f = fixture(repo)

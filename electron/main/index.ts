@@ -307,6 +307,11 @@ async function registerIpcHandlers(): Promise<() => void> {
   }
   const { registerThreadIpc } = await import('./ipc/thread.ipc')
   const delegatedThreadObserver: { current?: (thread: import('../../shared/types/thread').ConversationThread) => void } = {}
+  // Conversations started in their own worktree use the same creation path as the Worktrees panel.
+  const threadWorktrees = {
+    createWorktree: (input: import('../../shared/types/github').GitHubCreateWorktreeInput) => gitHubService.createWorktree(input),
+    resolveBaseRef: async (rootPath: string) => (await gitHubService.resolveWorktreeBase({ workspaceId: '', rootPath })).baseRef
+  }
   const threadManager = registerThreadIpc(db, {
     observed: thread => delegatedThreadObserver.current?.(thread),
     bridge: join(app.getPath('userData'), 'bin', 'oxespace-mcp.cjs'),
@@ -325,7 +330,7 @@ async function registerIpcHandlers(): Promise<() => void> {
       executions.endOwner({ kind: 'thread', id: threadId })
     },
     memoryEvent: (snapshot, event) => memoryService.observeThread(snapshot, event)
-  })
+  }, threadWorktrees)
   const skillService = new SkillService({ onChange: broadcastSkillChange })
   registerSkillIpc(skillService, (input) => terminalManager.write(input))
   const mcpManager = new McpManager(db, { emitHealth: broadcastMcpHealth })

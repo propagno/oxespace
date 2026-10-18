@@ -38,6 +38,7 @@ import { recordRuntime } from '../runtime-diagnostics'
 import { hasUnconfirmedTurnTools, recoverPublicTurn } from './thread-result-recovery'
 import type { NativeStateResult } from './codex-state-reader'
 import { canonicalPath, resolveSessionLocation } from '../git-common-dir'
+import { explainMissingFolder, ThreadFolderMissingError } from './thread-worktree'
 
 // Canonical comparison: a Windows short name and its long form are the same folder.
 const sameCheckout = (a: string, b: string): boolean => canonicalPath(a) === canonicalPath(b)
@@ -550,6 +551,8 @@ export class ThreadOrchestrator {
       this.adapters.delete(id)
       await adapter?.dispose().catch(() => {})
       this.history.transitionOperation(id, operation.id, 'failed', failure.message)
+      // A folder that no longer exists is not a settings problem; name it.
+      if (error instanceof ThreadFolderMissingError) throw new Error(error.message)
       throw new Error(failure.code === 'session-busy' ? failure.message : 'Could not run thread agent; check Agent Settings')
     }
   }
@@ -1297,9 +1300,11 @@ export class ThreadOrchestrator {
       connected.thread.connection = this.sessions.connected(id)
       this.save(connected, { eventsFrom: connected.events.length })
       return adapter
-    } catch (error) {
+    } catch (cause) {
       if (adapter && this.adapters.get(id) === adapter) this.adapters.delete(id)
       await adapter?.dispose().catch(() => {})
+      // A removed worktree makes the provider fail to start with a spawn error; say what actually happened.
+      const error = explainMissingFolder(cause, thread.rootPath)
       try {
         const degraded = this.read(id)
         degraded.thread.connection = this.sessions.failed(id, error instanceof Error ? error.message : 'Provider connection failed')

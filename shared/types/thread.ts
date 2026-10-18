@@ -533,7 +533,11 @@ export interface ThreadApi {
   relinkProject(projectId: string, rootPath: string): Promise<ThreadProjectSummary>
   setProjectHidden(projectId: string, hidden: boolean): Promise<void>
   list(): Promise<ConversationThread[]>
-  create(input: { projectId: string; rootPath?: string; provider: ThreadProvider }): Promise<ThreadSnapshot>
+  /**
+   * With `worktree`, a new branch is created in its own worktree next to the repository and the conversation
+   * starts there. Refusals carry a cause the dialog can show (branch exists, invalid base…).
+   */
+  create(input: { projectId: string; rootPath?: string; provider: ThreadProvider; worktree?: { branch?: string; baseRef?: string } }): Promise<ThreadSnapshot>
   read(id: string): Promise<ThreadSnapshot>
   history?(id: string, before?: number, limit?: number): Promise<ThreadHistoryPage>
   attach?(id: string, input: { name: string; mimeType: ThreadAttachment['mimeType']; data: ArrayBuffer }): Promise<ThreadAttachment>
