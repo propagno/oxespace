@@ -1,11 +1,13 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
-import { Check, CheckCircle2, Circle, ChevronDown, ChevronLeft, ChevronRight, FileMinus2, FilePlus2, FileDiff, FileSymlink, Info, Loader2, RefreshCw, Search, X, GitBranch } from 'lucide-react'
-import { DropdownMenu, Popover } from 'radix-ui'
+import { ArrowLeftRight, Check, CheckCircle2, Circle, ChevronDown, ChevronLeft, ChevronRight, FileMinus2, FilePlus2, FileDiff, FileSymlink, FolderGit2, Info, Loader2, RefreshCw, Search, X } from 'lucide-react'
+import { DropdownMenu } from 'radix-ui'
 import type { GitDiffSummary, GitDiffSummaryFile, GitFileOriginal } from '../../../shared/types/git'
+import type { GitHubWorktree } from '../../../shared/types/github'
 import { formatDiffComments } from '../../../shared/types/diff-comments'
 import { useTreeKeyboard } from '../../hooks/useTreeKeyboard'
 import { useDiffCommentsStore } from '../../store/diff-comments.store'
-import { buildChangeTree, chooseBase, filterChangedFiles, formatCount, isLargeDiff, languageFor, normalizeBranchName, orderedFiles, splitPath, type ChangeTreeNode } from './changesModel'
+import { buildChangeTree, chooseBase, comparisonKey, filterChangedFiles, formatCount, headLabel, isLargeDiff, isValidRef, languageFor, normalizeBranchName, orderedFiles, splitPath, swapSides, type ChangeTreeNode, type CompareHead, type CompareMode } from './changesModel'
+import { RefPicker, type RefPickerBranch } from './RefPicker'
 import './ChangesPanel.css'
 import { TextField, EmptyState } from '../../ui'
 
@@ -34,6 +36,29 @@ function KindBadge({ path }: { path: string }): ReactElement {
 }
 
 const signature = (file: GitDiffSummaryFile): string => `${file.path}@${file.additions}:${file.deletions}`
+
+const samePath = (a: string, b: string): boolean => a.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase() === b.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+
+interface SavedComparison { base: string; head: CompareHead | null; mode: CompareMode }
+const comparisonStorageKey = (rootPath: string): string => `oxe.changes.compare:${rootPath}`
+
+/** The last pair chosen for this checkout. Storage can be missing or blocked, so any failure means "none". */
+function readSavedComparison(rootPath: string): SavedComparison | null {
+  try {
+    const value = JSON.parse(localStorage.getItem(comparisonStorageKey(rootPath)) ?? 'null') as Partial<SavedComparison> | null
+    if (!value || typeof value.base !== 'string' || !isValidRef(value.base)) return null
+    const head = value.head
+    const validHead = head == null ? null
+      : head.kind === 'ref' && typeof head.ref === 'string' && isValidRef(head.ref) ? { kind: 'ref' as const, ref: head.ref }
+      : head.kind === 'worktree' && typeof head.path === 'string' ? { kind: 'worktree' as const, path: head.path, branch: typeof head.branch === 'string' ? head.branch : null }
+      : null
+    return { base: value.base, head: validHead, mode: value.mode === 'direct' ? 'direct' : 'merge-base' }
+  } catch { return null }
+}
+
+function saveComparison(rootPath: string, value: SavedComparison): void {
+  try { localStorage.setItem(comparisonStorageKey(rootPath), JSON.stringify(value)) } catch { /* private mode */ }
+}
 
 function Counts({ additions, deletions }: { additions: number; deletions: number }): ReactElement | null {
   if (!additions && !deletions) return null
@@ -68,15 +93,18 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
 }): ReactElement {
   const [scope, setScope] = useState<Scope>('branch')
   const [base, setBase] = useState<string | null>(null)
-  const [branches, setBranches] = useState<string[]>([])
+  const [branches, setBranches] = useState<RefPickerBranch[]>([])
+  const [worktrees, setWorktrees] = useState<GitHubWorktree[]>([])
   const [current, setCurrent] = useState<string | null>(null)
+  // Side B: null is this checkout's work tree (the default); otherwise a ref or another worktree.
+  const [headChoice, setHeadChoice] = useState<CompareHead | null>(null)
+  const [mode, setMode] = useState<CompareMode>('merge-base')
   const [summary, setSummary] = useState<GitDiffSummary | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const treeNav = useTreeKeyboard<HTMLUListElement>()
-  const [branchQuery, setBranchQuery] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [content, setContent] = useState<{ path: string; original: GitFileOriginal; modified: string } | null>(null)
   const [contentError, setContentError] = useState('')
@@ -88,9 +116,19 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
   const clearComments = useDiffCommentsStore(state => state.clear)
   const workspaceComments = useMemo(() => allComments.filter(comment => comment.workspaceId === workspaceId), [allComments, workspaceId])
   const [sendNotice, setSendNotice] = useState('')
-  // "Viewed" marks persist per repository + base and reset when a file's numbers change.
+  const effectiveBase = scope === 'uncommitted' ? 'HEAD' : base
+  // `current` reads `detached@<sha>` for a detached HEAD, which is a label, not a ref.
+  const thisTree: CompareHead = { kind: 'worktree', path: rootPath, branch: current?.startsWith('detached@') ? null : current }
+  const head: CompareHead = scope === 'uncommitted' ? thisTree : headChoice ?? thisTree
+  const effectiveMode: CompareMode = scope === 'uncommitted' ? 'merge-base' : mode
+  const defaultPair = head.kind === 'worktree' && head.path === rootPath && effectiveMode === 'merge-base'
+  // The work tree being compared, which is where git and file reads run; a ref side runs in this checkout.
+  const diffRoot = head.kind === 'worktree' ? head.path : rootPath
+  const headRef = head.kind === 'ref' ? head.ref : undefined
+  // "Viewed" marks persist per repository + comparison and reset when a file's numbers change. The default
+  // pair keeps the key it always had, so marks made before both sides could be chosen survive.
   const [viewed, setViewed] = useState<Set<string>>(new Set())
-  const viewedKey = `oxe.changes.viewed:${rootPath}:${scope === 'uncommitted' ? 'HEAD' : base ?? ''}`
+  const viewedKey = defaultPair ? `oxe.changes.viewed:${rootPath}:${effectiveBase ?? ''}` : `oxe.changes.viewed:${rootPath}:${comparisonKey(effectiveBase ?? '', head, effectiveMode)}`
   useEffect(() => {
     try { setViewed(new Set(JSON.parse(localStorage.getItem(viewedKey) ?? '[]') as string[])) } catch { setViewed(new Set()) }
   }, [viewedKey])
@@ -106,38 +144,59 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
     let active = true
     const input = { workspaceId, rootPath }
     void window.oxe.git.getBranch(input).then(value => { if (active) setCurrent(value.branch ?? (value.shortSha ? `detached@${value.shortSha}` : null)) }, () => undefined)
-    const listed = window.oxe.github.listBranches(input).then(list => (list ?? []).map(branch => normalizeBranchName(branch.name)).filter((name): name is string => name !== null), () => [] as string[])
+    const listed = window.oxe.github.listBranches(input).then(list => (list ?? []).flatMap(branch => {
+      const name = normalizeBranchName(branch.name)
+      return name ? [{ name, remote: branch.remote }] : []
+    }), () => [] as RefPickerBranch[])
     const resolved = window.oxe.github.resolveWorktreeBase(input).then(value => value?.baseRef ?? null, () => null)
-    void Promise.all([listed, resolved]).then(([list, baseRef]) => {
+    const trees = window.oxe.github.listWorktrees(input).then(list => list ?? [], () => [] as GitHubWorktree[])
+    void Promise.all([listed, resolved, trees]).then(([list, baseRef, treeList]) => {
       if (!active) return
-      const names = [...new Set(list)]
-      setBranches(names)
-      setBase(chooseBase(baseRef, names))
+      const unique = [...new Map(list.map(branch => [branch.name, branch])).values()]
+      setBranches(unique)
+      setWorktrees(treeList)
+      const saved = readSavedComparison(rootPath)
+      setBase(saved?.base ?? chooseBase(baseRef, unique.map(branch => branch.name)))
+      setMode(saved?.mode ?? 'merge-base')
+      // A saved worktree side is restored only while that worktree still exists.
+      setHeadChoice(saved?.head?.kind === 'worktree' ? (treeList.some(tree => samePath(tree.path, (saved.head as { path: string }).path)) ? saved.head : null) : saved?.head ?? null)
     })
     return () => { active = false }
   }, [workspaceId, rootPath])
 
-  const effectiveBase = scope === 'uncommitted' ? 'HEAD' : base
+  const choose = (next: { base?: string; head?: CompareHead | null; mode?: CompareMode }): void => {
+    const nextBase = next.base ?? base
+    const nextHead = next.head === undefined ? headChoice : next.head
+    const nextMode = next.mode ?? mode
+    if (next.base !== undefined) setBase(next.base)
+    if (next.head !== undefined) setHeadChoice(next.head)
+    if (next.mode !== undefined) setMode(next.mode)
+    setSelectedPath(null)
+    if (nextBase) saveComparison(rootPath, { base: nextBase, head: nextHead, mode: nextMode })
+  }
+
   const load = useCallback(async (quiet = false) => {
     if (!effectiveBase) return
     const id = ++request.current
     if (!quiet) setLoading(true)
     try {
-      const value = await window.oxe.git.getDiffSummary({ workspaceId, rootPath, base: effectiveBase, includeUncommitted: true })
+      const value = await window.oxe.git.getDiffSummary({ workspaceId, rootPath: diffRoot, base: effectiveBase, includeUncommitted: true, head: headRef, mode: effectiveMode })
       if (id !== request.current) return
       setSummary(value); setError(value.error ?? '')
     } catch (cause) {
       if (id === request.current) setError(cause instanceof Error ? cause.message : 'Could not read changes.')
     } finally { if (id === request.current) setLoading(false) }
-  }, [workspaceId, rootPath, effectiveBase])
+  }, [workspaceId, diffRoot, effectiveBase, headRef, effectiveMode])
 
   useEffect(() => { void load() }, [load])
   useEffect(() => {
+    // Two refs do not change on their own; only a work-tree side is polled.
+    if (headRef) return
     const refresh = (): void => { if (document.visibilityState !== 'hidden') void load(true) }
     const timer = window.setInterval(refresh, POLL_MS)
     window.addEventListener('focus', refresh)
     return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh) }
-  }, [load])
+  }, [load, headRef])
 
   const files = useMemo(() => filterChangedFiles(summary?.files ?? [], query), [summary, query])
   const tree = useMemo(() => buildChangeTree(files), [files])
@@ -146,19 +205,22 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
   const large = isLargeDiff(summary?.files.length ?? 0, (summary?.additions ?? 0) + (summary?.deletions ?? 0))
   const index = selected ? ordered.findIndex(file => file.path === selected.path) : -1
 
-  // Fetch both sides of the selected file; the work tree is read through the allowlisted fs API.
+  // Fetch both sides of the selected file. A work-tree side B is read through the allowlisted fs API, a ref
+  // side B from git.
   const compiledAt = summary?.compiledAt
   useEffect(() => {
     if (!selected || !effectiveBase || selected.binary) { setContent(null); return }
     let active = true
     setContentError('')
-    const original = window.oxe.git.getFileOriginal({ workspaceId, rootPath, base: effectiveBase, includeUncommitted: true, path: selected.path, oldPath: selected.oldPath })
-    const modified = selected.status === 'D' ? Promise.resolve('') : window.oxe.fs.readFile({ workspaceId, rootPath, relativePath: selected.path }).then(result => result.content, () => '')
+    const original = window.oxe.git.getFileOriginal({ workspaceId, rootPath: diffRoot, base: effectiveBase, includeUncommitted: true, path: selected.path, oldPath: selected.oldPath, head: headRef, mode: effectiveMode })
+    const modified = selected.status === 'D' ? Promise.resolve('')
+      : headRef ? window.oxe.git.getFileAtRef({ workspaceId, rootPath, ref: headRef, path: selected.path }).then(result => result.content, () => '')
+      : window.oxe.fs.readFile({ workspaceId, rootPath: diffRoot, relativePath: selected.path }).then(result => result.content, () => '')
     void Promise.all([original, modified]).then(([originalValue, modifiedValue]) => {
       if (active) setContent({ path: selected.path, original: originalValue, modified: modifiedValue })
     }, cause => { if (active) setContentError(cause instanceof Error ? cause.message : 'Could not load this file.') })
     return () => { active = false }
-  }, [selected?.path, selected?.status, selected?.oldPath, selected?.binary, effectiveBase, compiledAt, workspaceId, rootPath])
+  }, [selected?.path, selected?.status, selected?.oldPath, selected?.binary, effectiveBase, compiledAt, workspaceId, rootPath, diffRoot, headRef, effectiveMode])
 
   const sendComments = async (): Promise<void> => {
     if (!onSendComments || !workspaceComments.length) return
@@ -168,7 +230,9 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
     window.setTimeout(() => setSendNotice(''), 5000)
   }
   const go = (offset: number): void => { const next = ordered[index + offset]; if (next) setSelectedPath(next.path) }
-  const visibleBranches = branches.filter(name => name.toLowerCase().includes(branchQuery.toLowerCase()))
+  const swapped = effectiveBase ? swapSides(effectiveBase, head.kind === 'worktree' && head.path === rootPath ? thisTree : head) : null
+  const headSelected = head.kind === 'ref' ? `ref:${head.ref}` : `tree:${worktrees.find(tree => samePath(tree.path, head.path))?.path ?? head.path}`
+  const headText = head.kind === 'worktree' && head.path === rootPath ? (current ?? 'HEAD') : headLabel(head)
   const toggleDir = (path: string): void => setCollapsed(value => { const next = new Set(value); if (next.has(path)) next.delete(path); else next.add(path); return next })
   const name = selected ? splitPath(selected.path) : null
   // Stable identity: the diff redraws its comment zones whenever this object changes.
@@ -183,26 +247,28 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
   return <section className="changes-panel" aria-label="Changes" data-testid="changes-panel">
     <header className="changes-toolbar">
       <DropdownMenu.Root>
-        <DropdownMenu.Trigger asChild><button type="button" className="changes-pill" aria-label="Change scope">{SCOPE_LABEL[scope]}<ChevronDown size={12} aria-hidden="true" /></button></DropdownMenu.Trigger>
+        <DropdownMenu.Trigger asChild><button type="button" className="changes-pill" aria-label="Change scope">{SCOPE_LABEL[scope]}{effectiveMode === 'direct' ? ' · direct' : ''}<ChevronDown size={12} aria-hidden="true" /></button></DropdownMenu.Trigger>
         <DropdownMenu.Portal><DropdownMenu.Content collisionPadding={{ top: 44, right: 8, bottom: 8, left: 8 }} className="changes-menu" align="start" sideOffset={6}>
           <DropdownMenu.RadioGroup value={scope} onValueChange={value => { setScope(value as Scope); setSelectedPath(null) }}>
-            <DropdownMenu.RadioItem value="branch" className="changes-menu-item">All changes on this branch<DropdownMenu.ItemIndicator><Check size={14} /></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>
+            <DropdownMenu.RadioItem value="branch" className="changes-menu-item">Compare branches<DropdownMenu.ItemIndicator><Check size={14} /></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>
             <DropdownMenu.RadioItem value="uncommitted" className="changes-menu-item">Uncommitted changes<DropdownMenu.ItemIndicator><Check size={14} /></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>
+          </DropdownMenu.RadioGroup>
+          <DropdownMenu.Separator className="changes-menu-separator" />
+          <DropdownMenu.Label className="changes-menu-heading">Compare from</DropdownMenu.Label>
+          <DropdownMenu.RadioGroup value={mode} onValueChange={value => choose({ mode: value as CompareMode })}>
+            <DropdownMenu.RadioItem value="merge-base" className="changes-menu-item" disabled={scope === 'uncommitted'}>Common ancestor (like a pull request)<DropdownMenu.ItemIndicator><Check size={14} /></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>
+            <DropdownMenu.RadioItem value="direct" className="changes-menu-item" disabled={scope === 'uncommitted'}>Base directly<DropdownMenu.ItemIndicator><Check size={14} /></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>
           </DropdownMenu.RadioGroup>
         </DropdownMenu.Content></DropdownMenu.Portal>
       </DropdownMenu.Root>
       {summary && <span className="changes-totals" aria-label="Total changes"><span className="is-add">+{formatCount(summary.additions)}</span><span className="is-del">−{formatCount(summary.deletions)}</span></span>}
-      <Popover.Root onOpenChange={open => { if (!open) setBranchQuery('') }}>
-        <Popover.Trigger asChild><button type="button" className="changes-pill changes-branches" aria-label="Compare branches" disabled={scope === 'uncommitted'}>
-          <GitBranch size={14} aria-hidden="true" /><span>{current ?? 'HEAD'}</span><span aria-hidden="true">→</span><span>{effectiveBase ?? '…'}</span><ChevronDown size={12} aria-hidden="true" />
-        </button></Popover.Trigger>
-        <Popover.Portal><Popover.Content collisionPadding={{ top: 44, right: 8, bottom: 8, left: 8 }} className="changes-menu changes-branch-menu" align="start" sideOffset={6} aria-label="Select base branch">
-          <label className="changes-menu-search"><Search size={14} aria-hidden="true" /><TextField autoFocus aria-label="Search branches" placeholder="Search branches" value={branchQuery} onChange={event => setBranchQuery(event.target.value)} /></label>
-          <p className="changes-menu-heading">Branches</p>
-          <ul>{visibleBranches.map(branch => <li key={branch}><Popover.Close asChild><button type="button" className="changes-menu-item" onClick={() => { setBase(branch); setSelectedPath(null) }}><GitBranch size={14} aria-hidden="true" /><span>{branch}</span>{branch === base && <Check size={14} aria-hidden="true" />}</button></Popover.Close></li>)}
-            {!visibleBranches.length && <li className="changes-menu-empty">No branches match.</li>}</ul>
-        </Popover.Content></Popover.Portal>
-      </Popover.Root>
+      <span className="changes-sides" role="group" aria-label="Compared sides">
+        <RefPicker label="Base (side A)" value={effectiveBase ?? '…'} branches={branches} selected={`ref:${effectiveBase ?? ''}`} disabled={scope === 'uncommitted'} onPickRef={ref => choose({ base: ref })} />
+        <button type="button" className="changes-icon" aria-label="Swap sides" title={swapped ? 'Swap sides' : 'A detached work tree cannot become the base'} disabled={scope === 'uncommitted' || !swapped} onClick={() => { if (swapped) choose({ base: swapped.base, head: swapped.head }) }}><ArrowLeftRight size={14} aria-hidden="true" /></button>
+        <RefPicker label="Compare (side B)" value={headText} icon={head.kind === 'worktree' ? <FolderGit2 size={14} aria-hidden="true" /> : undefined} branches={branches} worktrees={worktrees} selected={headSelected} disabled={scope === 'uncommitted'}
+          onPickRef={ref => choose({ head: { kind: 'ref', ref } })}
+          onPickWorktree={tree => choose({ head: samePath(tree.path, rootPath) ? null : { kind: 'worktree', path: tree.path, branch: tree.branch } })} />
+      </span>
       <span className="changes-toolbar-spacer" />
       {workspaceComments.length > 0 && <span className="changes-review-comments" role="group" aria-label="Review comments">
         <span><b>{workspaceComments.length}</b><span className="changes-review-label"> {workspaceComments.length === 1 ? 'comment' : 'comments'}</span></span>

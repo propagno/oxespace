@@ -19,6 +19,27 @@ export interface AgentHookStatusEvent {
   sessionId: string | null
 }
 
+/**
+ * Where an agent session reports it is working, from the `cwd` its hooks carry. It can differ from the
+ * pane's directory when the agent moved into a worktree (`claude --worktree`, EnterWorktree, a `cd`).
+ */
+export interface SessionLocation {
+  /** Directory the agent reported. */
+  cwd: string
+  /** Top of the checkout that contains `cwd`, or null when it is not inside a git checkout. */
+  checkoutRoot: string | null
+  /** True when that checkout belongs to the same repository the pane was launched in. */
+  sameRepository: boolean
+}
+
+export interface AgentHookLocationEvent extends SessionLocation {
+  paneId: string
+  workspaceId: string
+  agent: AgentHookAgent
+  sessionId: string | null
+  at: number
+}
+
 export type AgentHooksInstallState = 'installed' | 'partial' | 'not_installed' | 'error'
 
 export interface AgentHooksStatus {

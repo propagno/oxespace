@@ -10,6 +10,7 @@ import { WorkspaceGrid } from '../Grid/WorkspaceGrid'
 import { WorkspaceSplitGrid } from '../Grid/WorkspaceSplitGrid'
 import { usePaneLayoutStore } from '../../store/pane-layout.store'
 import { useUIStore } from '../../store/ui.store'
+import { useTerminalStore } from '../../store/terminal.store'
 import { resolveWorkspaceScope } from '../../utils/workspaceScope'
 // Side panels are lazy-loaded: they only mount when the user opens them, so
 // keeping them out of the initial bundle cuts first-paint parse/exec time. The
@@ -162,9 +163,11 @@ function WorkspaceSurfaceComponent({
   // follow the active pane, and each header names what it is reading.
   const scopePinned = useUIStore((s) => s.panelScopePinnedByWorkspace[workspace.id] === true)
   const openConnections = useUIStore((s) => s.openMcpPanel)
+  // …including a worktree the pane's agent moved into, as reported by its hooks.
+  const activeLocation = useTerminalStore((s) => (activePaneId ? s.panes[activePaneId]?.location : null) ?? null)
   const panelScope = useMemo(
-    () => resolveWorkspaceScope(workspace, activePaneId, scopePinned),
-    [workspace, activePaneId, scopePinned]
+    () => resolveWorkspaceScope(workspace, activePaneId, scopePinned, activeLocation),
+    [workspace, activePaneId, scopePinned, activeLocation]
   )
 
   const worktreeVisible = workspace.worktreePanelVisible === true

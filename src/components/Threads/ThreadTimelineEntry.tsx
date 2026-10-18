@@ -13,7 +13,7 @@ import { ThreadPlan } from './ThreadPlan'
 import { ThreadRequestCard } from './ThreadRequestCard'
 import { ThreadSubagentActivity } from './ThreadSubagentActivity'
 import { ThreadTurnTiming } from './ThreadTurnTiming'
-import { threadFileLabel, threadFileScope, type ThreadChangeEntry } from './threadChanges'
+import { threadFileLabel, threadFileScope, threadWorkingRoot, type ThreadChangeEntry } from './threadChanges'
 import type { ThreadTimelineItem } from './threadTimelineModel'
 
 /**
@@ -56,8 +56,11 @@ export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending,
   const { event, key, turnId, turnEvents, firstInTurn, lastInTurn } = row
   const api = window.oxe?.thread
   const openFile = (entry: ThreadChangeEntry) => {
-    if (!snapshot || threadFileScope(entry.file.path, snapshot.thread.rootPath) !== 'Project') return
-    void useEditorStore.getState().openFile({ workspaceId: snapshot.thread.workspaceId, rootPath: snapshot.thread.rootPath, relativePath: threadFileLabel(entry.file.path, snapshot.thread.rootPath) })
+    if (!snapshot) return
+    // A file the agent edited in the worktree it moved into opens from that worktree.
+    const root = [threadWorkingRoot(snapshot.thread), snapshot.thread.rootPath].find(candidate => threadFileScope(entry.file.path, candidate) === 'Project')
+    if (!root) return
+    void useEditorStore.getState().openFile({ workspaceId: snapshot.thread.workspaceId, rootPath: root, relativePath: threadFileLabel(entry.file.path, root) })
     useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'files' })
   }
   const body = (() => {

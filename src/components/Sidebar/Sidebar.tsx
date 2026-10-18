@@ -109,7 +109,12 @@ export function Sidebar({
     return workspaces.filter((ws) =>
       ws.name.toLowerCase().includes(q) ||
       cachedBranchLabel(ws.rootPath).toLowerCase().includes(q) ||
-      ws.panes.some((p) => `${p.displayName ?? ''} ${p.agentName ?? p.type} ${profiles.find(profile => profile.agentProfileId === p.agentProfileId)?.name ?? ''} ${p.rootPath ?? ''} ${cachedBranchLabel(p.rootPath ?? ws.rootPath)}`.toLowerCase().includes(q))
+      ws.panes.some((p) => {
+        // A pane whose agent moved into a worktree is found by that worktree's branch too.
+        const moved = useTerminalStore.getState().panes[p.id]?.location
+        const movedText = moved?.sameRepository && moved.checkoutRoot ? `${moved.checkoutRoot} ${cachedBranchLabel(moved.checkoutRoot)}` : ''
+        return `${p.displayName ?? ''} ${p.agentName ?? p.type} ${profiles.find(profile => profile.agentProfileId === p.agentProfileId)?.name ?? ''} ${p.rootPath ?? ''} ${cachedBranchLabel(p.rootPath ?? ws.rootPath)} ${movedText}`.toLowerCase().includes(q)
+      })
     )
   }, [workspaces, searchQuery, profiles])
 

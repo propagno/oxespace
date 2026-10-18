@@ -160,6 +160,7 @@ export const IPC_CHANNELS = {
     getDiff: 'git:get-diff',
     getDiffSummary: 'git:diff-summary',
     getFileOriginal: 'git:file-original',
+    getFileAtRef: 'git:file-at-ref',
     onDiffUpdate: 'git:diff-update'
   },
   search: {
@@ -204,7 +205,8 @@ export const IPC_CHANNELS = {
     status: 'agent-hooks:status',
     install: 'agent-hooks:install',
     remove: 'agent-hooks:remove',
-    onStatus: 'agent-hooks:on-status'
+    onStatus: 'agent-hooks:on-status',
+    onLocation: 'agent-hooks:on-location'
   },
   notifications: {
     notify: 'notifications:notify',
@@ -537,6 +539,7 @@ export interface GitApi {
   getDiff(input: import('./git').GitDiffInput): Promise<import('./git').GitDiff>
   getDiffSummary(input: import('./git').GitDiffInput): Promise<import('./git').GitDiffSummary>
   getFileOriginal(input: import('./git').GitFileOriginalInput): Promise<import('./git').GitFileOriginal>
+  getFileAtRef(input: import('./git').GitFileAtRefInput): Promise<import('./git').GitFileOriginal>
   onDiffUpdate(listener: (diff: import('./git').GitDiff) => void): () => void
 }
 
@@ -651,6 +654,8 @@ export interface AgentHooksApi {
   remove(agent: import('./agent-hooks').AgentHookAgent): Promise<import('./agent-hooks').AgentHooksStatus>
   /** Pane status pushed by an agent's own lifecycle hooks. */
   onStatus(listener: (event: import('./agent-hooks').AgentHookStatusEvent) => void): () => void
+  /** The directory an agent session reports working in, sent when it changes. */
+  onLocation(listener: (event: import('./agent-hooks').AgentHookLocationEvent) => void): () => void
 }
 
 export interface NotificationsApi {

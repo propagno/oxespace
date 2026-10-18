@@ -40,6 +40,8 @@
 .thread-heading h1 { margin: 0; font-size: var(--fs-base); font-weight: 600; line-height: 1.4; letter-spacing: -.15px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-heading-context { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--fs-2xs); color: var(--tx-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-heading-context svg { flex-shrink: 0; }
+/* The provider moved into another worktree: the branch shown is that worktree's. */
+.thread-heading-context[data-moved='true'] { color: var(--accent); }
 .thread-heading .thread-icon-action { min-width: 28px; min-height: 28px; margin-left: auto; flex-shrink: 0; padding: 6px; color: var(--tx-secondary); }
 @media (max-width: 760px) { .thread-heading-context { display: none; } .thread-heading-actions { gap: 3px; } .thread-heading-actions .thread-review-trigger { padding: 5px 6px; } }
 .thread-model-picker { max-width: 460px; margin: 8px 0 20px; padding: 16px; border: 1px solid var(--bd-base); border-radius: var(--surface-radius); background: var(--bg-elevated); }

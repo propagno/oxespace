@@ -79,6 +79,43 @@ function allowed(license) {
   return parts.some(part => ALLOWED.test(part))
 }
 
+/**
+ * Projects OXESpace took design ideas and measured values from, without bundling their code. Listed with
+ * their license so the credit ships with the app; the text is copied here because the project is not a
+ * dependency and is not in node_modules.
+ */
+const ACKNOWLEDGEMENTS = [
+  {
+    name: 'Orca',
+    source: 'https://github.com/stablyai/orca',
+    use: 'Reference for the split-pane workspace model, the workspace jump in the command menu and the timing values of the agent hook events.',
+    license: 'MIT',
+    text: [
+      'MIT License',
+      '',
+      'Copyright (c) 2026 Lovecast Inc.',
+      '',
+      'Permission is hereby granted, free of charge, to any person obtaining a copy',
+      'of this software and associated documentation files (the "Software"), to deal',
+      'in the Software without restriction, including without limitation the rights',
+      'to use, copy, modify, merge, publish, distribute, sublicense, and/or sell',
+      'copies of the Software, and to permit persons to whom the Software is',
+      'furnished to do so, subject to the following conditions:',
+      '',
+      'The above copyright notice and this permission notice shall be included in all',
+      'copies or substantial portions of the Software.',
+      '',
+      'THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR',
+      'IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,',
+      'FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE',
+      'AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER',
+      'LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,',
+      'OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE',
+      'SOFTWARE.'
+    ].join('\n')
+  }
+]
+
 export function render(packages) {
   const lines = [
     '# Third-party notices',
@@ -94,6 +131,10 @@ export function render(packages) {
     const text = licenseText(item.directory)
     if (text) lines.push('', '```text', text, '```')
     lines.push('')
+  }
+  lines.push('# Acknowledgements', '', 'OXESpace does not bundle code from these projects, but took design ideas or values from them.', '')
+  for (const item of ACKNOWLEDGEMENTS) {
+    lines.push(`## ${item.name}`, '', `- License: ${item.license}`, `- Source: ${item.source}`, `- Used for: ${item.use}`, '', '```text', item.text, '```', '')
   }
   return `${lines.join('\n')}\n`
 }

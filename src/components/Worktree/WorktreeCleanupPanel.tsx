@@ -51,6 +51,9 @@ function collectContext(workspaceId: string, rootPath: string): WorktreeCleanupC
     if (!entry) continue
     if (entry.status === 'running') context.runningTerminalPaths.push(path)
     if (deriveStatusTone(entry) === 'thinking') context.liveAgentPaths.push(path)
+    // An agent that moved into another worktree is using that one: it must not be offered for removal.
+    const moved = entry.location?.sameRepository ? entry.location.checkoutRoot : null
+    if (moved) { context.activePaths.push(moved); if (entry.status === 'running') context.liveAgentPaths.push(moved) }
   }
   return context
 }

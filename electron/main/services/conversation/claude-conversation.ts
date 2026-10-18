@@ -14,6 +14,7 @@ import { toolResultText } from './tool-result-text'
 /** How long a cooperative interrupt may take before the process is ended instead. */
 const INTERRUPT_GRACE_MS = 2_000
 import { requestOutcome } from '../../../../shared/threadRequestOutcome'
+import { THREAD_PROMPT_MAX_CHARS } from '../../../../shared/threadLimits'
 
 const DISPOSED = 'Agent connection disposed'
 
@@ -56,6 +57,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
   private pendingControl = new Map<string, { resolve: (error: string | null) => void; timer: ReturnType<typeof setTimeout> }>()
   private fileTools = new Map<string, ThreadFileChange[]>()
   private todoTools = new Map<string, Extract<ThreadEvent, { type: 'plan' }>['steps']>()
+  private worktreeTools = new Map<string, 'EnterWorktree' | 'ExitWorktree'>()
 
   constructor(private readonly createTransport: (args: string[], cwd: string) => PrintTransport) {}
   async start(context: { rootPath: string; nativeSessionId: string | null } & ThreadConfiguration, emit: (event: ThreadEvent) => void): Promise<void> {
@@ -67,7 +69,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
   async send(text: string, _skill?: ThreadAgentInput['skill'], attachments: ThreadAttachment[] = []): Promise<void> {
     if (!this.context || this.disposed) throw new Error('Conversation is not connected')
     if (this.busy) throw new Error('A conversation turn is already running')
-    if (!text.trim() || Buffer.byteLength(text) > 64 * 1024) throw new Error('Invalid conversation input')
+    if (!text.trim() || text.length > THREAD_PROMPT_MAX_CHARS) throw new Error('Invalid conversation input')
     this.busy = true
     this.fileTools.clear()
     this.todoTools.clear()
@@ -320,6 +322,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
           this.evidence.verified = 'native'
           this.context!.nativeSessionId = event.session_id
           this.emit({ type: 'session', nativeSessionId: event.session_id, ...(Array.isArray(event.mcp_servers) ? { mcpServers: mcpServerStatuses(event.mcp_servers) } : {}) })
+          if (typeof event.cwd === 'string') this.emit({ type: 'location', cwd: event.cwd })
         } else if (event.type === 'stream_event') {
           const streamed = record(event.event)
           if (streamed.type === 'message_start') this.streamMessageId = typeof record(streamed.message).id === 'string' ? String(record(streamed.message).id) : randomUUID()
@@ -349,6 +352,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
                 const todo = record(value)
                 return { label: typeof todo.content === 'string' ? todo.content.slice(0, 2000) : '', status: todo.status === 'completed' ? 'completed' as const : todo.status === 'in_progress' ? 'inProgress' as const : 'pending' as const }
               }).filter(todo => Boolean(todo.label)))
+              if (block.name === 'EnterWorktree' || block.name === 'ExitWorktree') this.worktreeTools.set(block.id, block.name)
               const files: ThreadFileChange[] = path && ['Edit', 'Write', 'MultiEdit'].includes(String(block.name)) ? [{ path, kind: 'update', source: 'tool-input', authorship: 'indeterminate', state: 'running', patch: JSON.stringify(input, null, 2) }] : []
               if (files.length) this.fileTools.set(block.id, files)
               this.emit({ type: 'tool', id: block.id, name: typeof block.name === 'string' ? block.name : 'Tool', state: 'running', detail: JSON.stringify(block.input ?? {}, null, 2).slice(0, 12000), startedAt: Date.now(), ...(files.length ? { files } : {}) })
@@ -361,6 +365,13 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
               const files = this.fileTools.get(block.tool_use_id)?.map(file => ({ ...file, state: block.is_error ? 'failed' as const : 'completed' as const }))
               this.emit({ type: 'tool', id: block.tool_use_id, name: 'Tool result', state: block.is_error ? 'failed' : 'completed', detail: '', output: toolResultText(block.content), completedAt: Date.now(), ...(files ? { files } : {}) })
               this.fileTools.delete(block.tool_use_id)
+              // Claude's own worktree tools move the session; the orchestrator checks the reported directory.
+              const worktreeTool = this.worktreeTools.get(block.tool_use_id)
+              this.worktreeTools.delete(block.tool_use_id)
+              if (worktreeTool && !block.is_error) {
+                const cwd = worktreeTool === 'ExitWorktree' ? this.context!.rootPath : enteredWorktreePath(toolResultText(block.content))
+                if (cwd) this.emit({ type: 'location', cwd })
+              }
               const steps = this.todoTools.get(block.tool_use_id)
               if (steps && !block.is_error) this.emit({ type: 'plan', id: `plan:${this.localPlanId}`, steps })
               this.todoTools.delete(block.tool_use_id)
@@ -488,4 +499,13 @@ export function mcpServerStatuses(value: unknown[]): ThreadMcpServerStatus[] {
     const status = typeof entry.status === 'string' && MCP_STATUSES.has(entry.status) ? entry.status as ThreadMcpServerStatus['status'] : 'unknown'
     return name ? [{ name, status }] : []
   })
+}
+
+/**
+ * The directory named in an EnterWorktree result. Claude Code reports it in prose, so the first absolute path
+ * is taken; the orchestrator only keeps it if it is an existing checkout, so a wrong pick is dropped there.
+ */
+export function enteredWorktreePath(text: string): string | null {
+  const match = /([A-Za-z]:[\\/][^\s"'`<>|]+|(?<![\w.])\/[^\s"'`<>|]+)/.exec(text)
+  return match ? match[1].replace(/[.,;:)\]]+$/, '') : null
 }

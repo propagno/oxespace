@@ -7,6 +7,8 @@ import { selectGitState, useGitStore } from '../../store/git.store'
 import { DiffCard } from './DiffCard'
 import { ReviewFileTree } from './ReviewFileTree'
 import { ReviewToolbar } from './ReviewToolbar'
+import { chooseBase, normalizeBranchName } from '../Changes/changesModel'
+import type { RefPickerBranch } from '../Changes/RefPicker'
 import { EmptyState } from '../../ui'
 
 interface ReviewPaneProps {
@@ -25,6 +27,25 @@ export function ReviewPane({ workspaceId, rootPath }: ReviewPaneProps): ReactEle
   const subscribeToUpdates = useGitStore((s) => s.subscribeToUpdates)
   const resetDiff = useGitStore((s) => s.resetDiff)
   const setBase = useGitStore((s) => s.setBase)
+  const setHead = useGitStore((s) => s.setHead)
+  const [branches, setBranches] = useState<RefPickerBranch[]>([])
+  useEffect(() => {
+    let active = true
+    const input = { workspaceId, rootPath }
+    const listed = window.oxe.github.listBranches(input).then(list => (list ?? []).flatMap(branch => { const name = normalizeBranchName(branch.name); return name ? [{ name, remote: branch.remote }] : [] }), () => [] as RefPickerBranch[])
+    const resolved = window.oxe.github.resolveWorktreeBase(input).then(value => value?.baseRef ?? null, () => null)
+    void Promise.all([listed, resolved]).then(([named, baseRef]) => {
+      if (!active) return
+      const unique = [...new Map(named.map(branch => [branch.name, branch])).values()]
+      setBranches(unique)
+      // The stored default (origin/main) does not exist in every repository; pick the base the Changes view
+      // would pick instead of comparing against a ref that is not there.
+      const names = unique.map(branch => branch.name)
+      const current = useGitStore.getState().byWorkspaceId[workspaceId]?.base
+      if ((!current || current === 'origin/main') && names.length && !names.includes('origin/main')) setBase(workspaceId, chooseBase(baseRef, names))
+    })
+    return () => { active = false }
+  }, [workspaceId, rootPath, setBase])
   const setIncludeUncommitted = useGitStore((s) => s.setIncludeUncommitted)
   const toggleReviewed = useGitStore((s) => s.toggleReviewed)
   const clearReviewed = useGitStore((s) => s.clearReviewed)
@@ -100,7 +121,7 @@ export function ReviewPane({ workspaceId, rootPath }: ReviewPaneProps): ReactEle
   useEffect(() => {
     void loadDiff(workspaceId, rootPath)
     return subscribeToUpdates(workspaceId)
-  }, [loadDiff, subscribeToUpdates, workspaceId, rootPath, ws.base, ws.includeUncommitted])
+  }, [loadDiff, subscribeToUpdates, workspaceId, rootPath, ws.base, ws.head, ws.includeUncommitted])
 
   // Auto-select the first file once the diff arrives. Without this the right
   // pane stays empty until the user clicks — confusing for fresh reviewers.
@@ -137,6 +158,10 @@ export function ReviewPane({ workspaceId, rootPath }: ReviewPaneProps): ReactEle
     <div className="review-pane review-pane-v2">
       <ReviewToolbar
         base={ws.base}
+        head={ws.head}
+        branches={branches}
+        rootPath={rootPath}
+        onHeadChange={(head) => setHead(workspaceId, head)}
         includeUncommitted={ws.includeUncommitted}
         hideReviewed={ws.hideReviewed}
         sortBy={ws.sortBy}

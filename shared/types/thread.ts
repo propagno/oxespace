@@ -342,6 +342,12 @@ export interface ConversationThread {
   workspaceId: string
   projectId: string
   rootPath: string
+  /**
+   * Set while the provider reports working in another checkout than `rootPath` (a worktree of the same
+   * repository, or a directory outside it). Absent when it works in `rootPath`. `rootPath` itself never
+   * changes: checkpoints and the provider's own session records are tied to it.
+   */
+  observedLocation?: import('./agent-hooks').SessionLocation
   provider: ThreadProvider
   nativeSessionId: string | null
   title: string
@@ -396,6 +402,11 @@ export type ThreadEvent =
   /** Metadata only: stored on the thread, never added to the timeline. */
   | { type: 'context-usage'; report: ThreadContextReport }
   /** Metadata only: one turn's reported cost, folded into the thread's running total. */
+  /**
+   * Metadata only: the directory the provider reports the session working in (Claude's init `cwd`, a
+   * worktree it entered, Codex's command `cwd`). The orchestrator checks it before storing it.
+   */
+  | { type: 'location'; cwd: string }
   | { type: 'turn-cost'; usd?: number; inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheCreationTokens?: number }
   | { type: 'connection-closed'; at: number }
   | { type: 'turn-accepted'; nativeTurnId: string; at: number }

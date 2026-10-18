@@ -66,6 +66,14 @@ describe('resolveWorkspaceScope', () => {
     const scope = resolveWorkspaceScope(WORKSPACE, 'pane-deleted')
     expect(scope.rootPath).toBe('C:\\work\\repo')
   })
+
+  it('follows the worktree the active pane\'s agent reports working in, unless pinned or another repository', () => {
+    const moved = { cwd: 'C:\\work\\agent-tree\\src', checkoutRoot: 'C:\\work\\agent-tree', sameRepository: true }
+    expect(resolveWorkspaceScope(WORKSPACE, 'pane-main', false, moved)).toMatchObject({ rootPath: 'C:\\work\\agent-tree', isWorktree: true, paneId: 'pane-main' })
+    expect(resolveWorkspaceScope(WORKSPACE, 'pane-main', true, moved).rootPath).toBe('C:\\work\\repo')
+    expect(resolveWorkspaceScope(WORKSPACE, 'pane-main', false, { ...moved, sameRepository: false }).rootPath).toBe('C:\\work\\repo')
+    expect(resolveWorkspaceScope(WORKSPACE, null, false, moved).rootPath).toBe('C:\\work\\repo')
+  })
 })
 
 describe('isSamePath', () => {
