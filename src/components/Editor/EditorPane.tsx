@@ -1,6 +1,8 @@
 import Editor from '@monaco-editor/react'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, useCallback, type ReactElement } from 'react'
-import { Code2, Eye, Mic, MicOff } from 'lucide-react'
+import { Code2, Eye, GitCompareArrows, Mic, MicOff } from 'lucide-react'
+import { openInChanges } from '../../store/changes-request.store'
+import { WORKBENCH_PANELS } from '../Workbench/panelCatalog'
 import type { editor as monacoEditor } from 'monaco-editor'
 import { useOxeVoice } from '../../hooks/useOxeVoice'
 // Side-effect: self-host Monaco (loader.config + local workers) so the Editor
@@ -308,6 +310,18 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
         <header className="editor-toolbar">
           <span className="editor-path">{activePath ?? 'No file selected'}</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {activePath && !workspaceId.startsWith('thread:') ? (
+              <button
+                type="button"
+                className="tile-btn"
+                onClick={() => openInChanges(workspaceId, { path: activePath })}
+                aria-label={`Compare this file in ${WORKBENCH_PANELS.changes.label}`}
+                title={`Compare this file with another branch in ${WORKBENCH_PANELS.changes.label}`}
+                data-testid="editor-open-in-changes"
+              >
+                <GitCompareArrows size={12} aria-hidden="true" />
+              </button>
+            ) : null}
             {isMarkdown ? (
               <button
                 type="button"

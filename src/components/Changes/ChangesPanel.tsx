@@ -7,6 +7,7 @@ import { useTreeKeyboard } from '../../hooks/useTreeKeyboard'
 import { useDiffCommentsStore } from '../../store/diff-comments.store'
 import { buildChangeTree, chooseBase, comparisonKey, filterChangedFiles, formatCount, headLabel, isLargeDiff, isValidRef, languageFor, normalizeBranchName, orderedFiles, splitPath, swapSides, type ChangeTreeNode, type CompareHead, type CompareMode } from './changesModel'
 import { RefPicker, type RefPickerBranch } from './RefPicker'
+import { resolveRequestedRef, useChangesRequestStore } from '../../store/changes-request.store'
 import './ChangesPanel.css'
 import { TextField, EmptyState, Menu } from '../../ui'
 
@@ -97,6 +98,8 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
   const [current, setCurrent] = useState<string | null>(null)
   // Side B: null is this checkout's work tree (the default); otherwise a ref or another worktree.
   const [headChoice, setHeadChoice] = useState<CompareHead | null>(null)
+  // Branches, worktrees and the default pair are loaded.
+  const [ready, setReady] = useState(false)
   const [mode, setMode] = useState<CompareMode>('merge-base')
   const [summary, setSummary] = useState<GitDiffSummary | null>(null)
   const [loading, setLoading] = useState(false)
@@ -159,9 +162,27 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
       setMode(saved?.mode ?? 'merge-base')
       // A saved worktree side is restored only while that worktree still exists.
       setHeadChoice(saved?.head?.kind === 'worktree' ? (treeList.some(tree => samePath(tree.path, (saved.head as { path: string }).path)) ? saved.head : null) : saved?.head ?? null)
+      setReady(true)
     })
-    return () => { active = false }
+    return () => { active = false; setReady(false) }
   }, [workspaceId, rootPath])
+
+  // A comparison another panel asked for (a pull request's branches, one file from the editor). Applied
+  // after the branches are known, so the default choice above does not overwrite it.
+  const pendingRequest = useChangesRequestStore(state => state.byWorkspace[workspaceId])
+  useEffect(() => {
+    if (!ready || !pendingRequest) return
+    useChangesRequestStore.getState().clear(workspaceId)
+    const names = branches.map(branch => branch.name)
+    setScope('branch')
+    choose({
+      ...(pendingRequest.base ? { base: resolveRequestedRef(pendingRequest.base, names) } : {}),
+      ...(pendingRequest.head ? { head: { kind: 'ref' as const, ref: resolveRequestedRef(pendingRequest.head, names) } } : {})
+    })
+    if (pendingRequest.path) { setQuery(pendingRequest.path); setSelectedPath(pendingRequest.path) }
+    // `choose` reads the current state; the request is applied once, when it arrives.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, pendingRequest, workspaceId])
 
   const choose = (next: { base?: string; head?: CompareHead | null; mode?: CompareMode }): void => {
     const nextBase = next.base ?? base

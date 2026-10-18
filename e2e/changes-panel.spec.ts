@@ -162,3 +162,45 @@ test('Changes panel compares any two sides: a branch that is not checked out, sw
     await page.screenshot({ path: test.info().outputPath('classic-sides.png') })
   } finally { await app.close() }
 })
+
+test('the editor opens a file in Changes, where any branch can be picked against it', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'oxe-changes-from-editor-'))
+  const repo = join(root, 'repo')
+  mkdirSync(join(repo, 'src'), { recursive: true })
+  const git = (...args: string[]): void => { execFileSync('git', args, { cwd: repo }) }
+  git('init', '-q', '-b', 'main')
+  git('config', 'user.email', 'e2e@example.com'); git('config', 'user.name', 'E2E')
+  writeFileSync(join(repo, 'src', 'app.ts'), 'export const a = 1\n')
+  writeFileSync(join(repo, 'README.md'), '# repo\n')
+  git('add', '.'); git('commit', '-qm', 'base')
+  git('checkout', '-qb', 'feature/editor')
+  writeFileSync(join(repo, 'src', 'app.ts'), 'export const a = 2\n')
+  writeFileSync(join(repo, 'README.md'), '# repo, changed\n')
+  git('add', '.'); git('commit', '-qm', 'feature')
+
+  const app = await electron.launch({ args: [join(process.cwd(), 'e2e/electron-main.cjs')], env: {
+    ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'db.sqlite3')
+  } })
+  try {
+    const page = await app.firstWindow()
+    await page.setViewportSize({ width: 1500, height: 900 })
+    await page.getByTestId('btn-new-workspace').click()
+    await page.getByTestId('wizard-dir-input').fill(repo)
+    await page.getByTestId('wizard-layout-card-1').click()
+    await page.getByTestId('wizard-launch-btn').click()
+    await expect(page.getByTestId('terminal-pane')).toHaveCount(1)
+
+    await togglePanel(page, 'Files')
+    const editor = page.getByTestId('workspace-editor-panel')
+    await editor.getByRole('tree', { name: 'Files' }).getByRole('treeitem', { name: 'src' }).click()
+    await editor.getByRole('tree', { name: 'Files' }).getByRole('treeitem', { name: 'app.ts' }).click()
+    await editor.getByTestId('editor-open-in-changes').click()
+
+    const panel = page.getByTestId('changes-panel')
+    const files = panel.getByRole('complementary', { name: 'Changed files' })
+    await expect(files.getByLabel('Filter files')).toHaveValue('src/app.ts')
+    await expect(files.getByRole('treeitem', { name: 'app.ts' })).toBeVisible()
+    await expect(files.getByRole('treeitem', { name: 'README.md' })).toHaveCount(0)
+    await expect(panel.locator('.changes-file-path strong')).toHaveText('app.ts')
+  } finally { await app.close() }
+})
