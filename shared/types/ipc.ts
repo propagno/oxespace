@@ -205,7 +205,8 @@ export const IPC_CHANNELS = {
     status: 'agent-hooks:status',
     install: 'agent-hooks:install',
     remove: 'agent-hooks:remove',
-    onStatus: 'agent-hooks:on-status'
+    onStatus: 'agent-hooks:on-status',
+    onLocation: 'agent-hooks:on-location'
   },
   notifications: {
     notify: 'notifications:notify',
@@ -653,6 +654,8 @@ export interface AgentHooksApi {
   remove(agent: import('./agent-hooks').AgentHookAgent): Promise<import('./agent-hooks').AgentHooksStatus>
   /** Pane status pushed by an agent's own lifecycle hooks. */
   onStatus(listener: (event: import('./agent-hooks').AgentHookStatusEvent) => void): () => void
+  /** The directory an agent session reports working in, sent when it changes. */
+  onLocation(listener: (event: import('./agent-hooks').AgentHookLocationEvent) => void): () => void
 }
 
 export interface NotificationsApi {

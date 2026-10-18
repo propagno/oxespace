@@ -1,5 +1,6 @@
-import { readFileSync, realpathSync, statSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
+import { dirname, isAbsolute, join, resolve } from 'node:path'
+import type { SessionLocation } from '../../../shared/types/agent-hooks'
 
 /**
  * The shared git directory of a checkout, read from disk without spawning git: `<root>/.git` when it is a
@@ -27,6 +28,29 @@ export function gitCommonDir(root: string): string | null {
 export function sameRepository(a: string, b: string): boolean {
   const left = gitCommonDir(a)
   return left !== null && left === gitCommonDir(b)
+}
+
+/** Top of the checkout containing `dir`: the nearest ancestor with a `.git` entry, or null. */
+export function findCheckoutRoot(dir: string): string | null {
+  let current = resolve(dir)
+  for (let depth = 0; depth < 64; depth++) {
+    if (existsSync(join(current, '.git'))) return current
+    const parent = dirname(current)
+    if (parent === current) return null
+    current = parent
+  }
+  return null
+}
+
+/**
+ * Where an agent says it is working, relative to the directory its pane was launched in. Only an absolute,
+ * existing directory is accepted: the value comes from the agent's hook payload.
+ */
+export function resolveSessionLocation(cwd: string, launchRoot: string): SessionLocation | null {
+  if (!cwd || cwd.length > 4096 || cwd.includes('\0') || !isAbsolute(cwd)) return null
+  try { if (!statSync(cwd).isDirectory()) return null } catch { return null }
+  const checkoutRoot = findCheckoutRoot(cwd)
+  return { cwd, checkoutRoot, sameRepository: checkoutRoot !== null && sameRepository(checkoutRoot, findCheckoutRoot(launchRoot) ?? launchRoot) }
 }
 
 function normalize(path: string): string {

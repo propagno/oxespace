@@ -36,6 +36,13 @@ import type { WorkRun } from '../../../../shared/types/work'
 import { recordRuntime } from '../runtime-diagnostics'
 import { hasUnconfirmedTurnTools, recoverPublicTurn } from './thread-result-recovery'
 import type { NativeStateResult } from './codex-state-reader'
+import { resolveSessionLocation } from '../git-common-dir'
+import { resolve as resolvePath } from 'node:path'
+
+const sameCheckout = (a: string, b: string): boolean => {
+  const norm = (path: string): string => resolvePath(path).replace(/\\/g, '/').replace(/\/$/, '')
+  return process.platform === 'win32' ? norm(a).toLowerCase() === norm(b).toLowerCase() : norm(a) === norm(b)
+}
 
 /** Repair older histories whose provider ended a turn without a matching tool result. */
 function settleCompletedHistoryTools(events: ThreadEvent[]): number {
@@ -362,7 +369,9 @@ export class ThreadOrchestrator {
   }
 
   async projectDiff(id: string): Promise<import('../../../../shared/types/git').GitDiff> {
-    const { rootPath } = this.read(id).thread
+    const { thread } = this.read(id)
+    // The project's changes live in the worktree the provider moved into, when it reported one.
+    const rootPath = thread.observedLocation?.sameRepository && thread.observedLocation.checkoutRoot ? thread.observedLocation.checkoutRoot : thread.rootPath
     const run = (args: string[]) => new Promise<string>((resolve, reject) => {
       const child = execFile('git', args, { cwd: rootPath, windowsHide: true, maxBuffer: 2 * 1024 * 1024, timeout: 15000 }, (error, stdout) => error ? reject(error) : resolve(stdout))
       child.stdin?.end()
@@ -891,6 +900,29 @@ export class ThreadOrchestrator {
     } catch { /* Thread may have been deleted while the provider was reporting. */ }
   }
 
+  /**
+   * Records where the provider says it works. A worktree of the thread's repository is registered as a
+   * context of the same project, so the review panels may read it; working in `rootPath` clears the record.
+   * Saved only when it changes, since Codex reports a directory with every command.
+   */
+  private storeLocation(id: string, cwd: string): void {
+    try {
+      const snapshot = this.read(id)
+      const location = resolveSessionLocation(cwd, snapshot.thread.rootPath)
+      if (!location) return
+      const atRoot = location.sameRepository && location.checkoutRoot !== null && sameCheckout(location.checkoutRoot, snapshot.thread.rootPath)
+      const next = atRoot ? undefined : location
+      const previous = snapshot.thread.observedLocation
+      if (previous?.checkoutRoot === next?.checkoutRoot && previous?.sameRepository === next?.sameRepository && (previous?.cwd === next?.cwd || next?.sameRepository)) return
+      if (next?.sameRepository && next.checkoutRoot) {
+        this.db.prepare('INSERT OR IGNORE INTO thread_project_contexts (project_id, root_path) VALUES (?, ?)').run(snapshot.thread.projectId, next.checkoutRoot)
+      }
+      if (next) snapshot.thread.observedLocation = next
+      else delete snapshot.thread.observedLocation
+      this.save(snapshot, { eventsFrom: snapshot.events.length })
+    } catch { /* Thread may have been deleted while the provider was reporting. */ }
+  }
+
   private storeCost(id: string, turn: Extract<ThreadEvent, { type: 'turn-cost' }>): void {
     try {
       const snapshot = this.read(id)
@@ -926,6 +958,7 @@ export class ThreadOrchestrator {
     if (this.stopping) return
     if (event.type === 'context-usage') { this.storeContext(id, event.report); return }
     if (event.type === 'turn-cost') { this.storeCost(id, event); return }
+    if (event.type === 'location') { this.storeLocation(id, event.cwd); return }
     let snapshot: ThreadSnapshot
     try { snapshot = this.read(id) } catch {
       this.busy.delete(id)

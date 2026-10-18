@@ -1,5 +1,6 @@
 import { normalizeRootPath } from '../../shared/utils/path'
 import type { Workspace } from '../../shared/types/workspace'
+import type { SessionLocation } from '../../shared/types/agent-hooks'
 
 /**
  * Which directory the workspace-level side panels (GitHub, Review, Editor)
@@ -34,10 +35,13 @@ export interface WorkspaceScope {
 export function resolveWorkspaceScope(
   workspace: Pick<Workspace, 'rootPath' | 'panes'>,
   activePaneId: string | null,
-  pinned = false
+  pinned = false,
+  /** Where the active pane's agent reports working; a checkout of the same repository wins over the pane's root. */
+  location: SessionLocation | null = null
 ): WorkspaceScope {
   const pane = activePaneId ? workspace.panes.find((item) => item.id === activePaneId) ?? null : null
-  const paneRoot = pinned ? null : pane?.rootPath ?? null
+  const observed = location?.sameRepository && location.checkoutRoot ? location.checkoutRoot : null
+  const paneRoot = pinned || !pane ? null : observed ?? pane.rootPath ?? null
   const rootPath = paneRoot ?? workspace.rootPath
   return {
     rootPath,

@@ -45,6 +45,7 @@ import { AgentService } from './services/agent.service'
 import { registerMemoryIpc } from './ipc/memory.ipc'
 import { registerAgentHooksIpc } from './ipc/agent-hooks.ipc'
 import { AgentHookServer } from './services/agent-hooks/server'
+import { resolveSessionLocation } from './services/git-common-dir'
 import { registerAutomationsIpc } from './ipc/automations.ipc'
 import { AutomationService } from './services/automations/service'
 import { AutomationStore } from './services/automations/store'
@@ -157,7 +158,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     authenticate: ({ executionId, token, workspaceId }) => {
       try {
         const execution = executions.authenticate(executionId, token, workspaceId)
-        return execution.owner.kind === 'pane' ? { paneId: execution.owner.id, workspaceId: execution.workspaceId } : null
+        return execution.owner.kind === 'pane' ? { paneId: execution.owner.id, workspaceId: execution.workspaceId, launchRoot: execution.cwd } : null
       } catch {
         return null
       }
@@ -165,6 +166,12 @@ async function registerIpcHandlers(): Promise<() => void> {
     onStatus: (event) => {
       for (const window of BrowserWindow.getAllWindows()) {
         window.webContents.send(IPC_CHANNELS.agentHooks.onStatus, event)
+      }
+    },
+    resolveLocation: resolveSessionLocation,
+    onLocation: (event) => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        window.webContents.send(IPC_CHANNELS.agentHooks.onLocation, event)
       }
     }
   })

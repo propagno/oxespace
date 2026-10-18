@@ -296,7 +296,9 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       install: (agent) => ipc.invoke(IPC_CHANNELS.agentHooks.install, agent) as Promise<import('../../shared/types/agent-hooks').AgentHooksStatus>,
       remove: (agent) => ipc.invoke(IPC_CHANNELS.agentHooks.remove, agent) as Promise<import('../../shared/types/agent-hooks').AgentHooksStatus>,
       onStatus: (listener) =>
-        subscribe<import('../../shared/types/agent-hooks').AgentHookStatusEvent>(ipc, IPC_CHANNELS.agentHooks.onStatus, listener)
+        subscribe<import('../../shared/types/agent-hooks').AgentHookStatusEvent>(ipc, IPC_CHANNELS.agentHooks.onStatus, listener),
+      onLocation: (listener) =>
+        subscribe<import('../../shared/types/agent-hooks').AgentHookLocationEvent>(ipc, IPC_CHANNELS.agentHooks.onLocation, listener)
     },
     notifications: {
       notify: (payload) => ipc.invoke(IPC_CHANNELS.notifications.notify, payload) as Promise<boolean>,

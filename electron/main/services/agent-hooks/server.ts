@@ -12,7 +12,7 @@
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import type { AgentHookAgent, AgentHookStatusEvent } from '../../../../shared/types/agent-hooks'
+import type { AgentHookAgent, AgentHookLocationEvent, AgentHookStatusEvent, SessionLocation } from '../../../../shared/types/agent-hooks'
 import { mapHookEvent, type HookPayload } from './events'
 
 const MAX_BODY_BYTES = 1024 * 1024
@@ -20,8 +20,12 @@ const BODY_TIMEOUT_MS = 5_000
 
 export interface AgentHookServerOptions {
   /** Resolves execution credentials to a pane, or null when they are not valid. */
-  authenticate(input: { executionId: string; token: string; workspaceId: string }): { paneId: string; workspaceId: string } | null
+  authenticate(input: { executionId: string; token: string; workspaceId: string }): { paneId: string; workspaceId: string; launchRoot?: string } | null
   onStatus(event: AgentHookStatusEvent): void
+  /** Resolves the `cwd` a hook reported against the pane's launch directory. */
+  resolveLocation?(cwd: string, launchRoot: string): SessionLocation | null
+  /** Sent when the directory a pane's agent reports working in changes. */
+  onLocation?(event: AgentHookLocationEvent): void
   now?: () => number
 }
 
@@ -105,7 +109,12 @@ export class AgentHookServer {
     done(204)
 
     const record = payload !== null && typeof payload === 'object' ? (payload as HookPayload) : {}
+    const sessionId = typeof record.session_id === 'string' ? record.session_id : null
+    const at = (this.options.now ?? Date.now)()
     const state = mapHookEvent(agent as AgentHookAgent, record)
+    // Location is read from every event, mapped or not, so a move into a worktree shows up at once.
+    if (state === 'ended') this.lastLocation.delete(target.paneId)
+    else this.reportLocation(target, agent as AgentHookAgent, sessionId, record.cwd, at)
     if (!state) return
     this.options.onStatus({
       paneId: target.paneId,
@@ -113,8 +122,21 @@ export class AgentHookServer {
       agent: agent as AgentHookAgent,
       state,
       event: typeof record.hook_event_name === 'string' ? record.hook_event_name : '',
-      at: (this.options.now ?? Date.now)(),
-      sessionId: typeof record.session_id === 'string' ? record.session_id : null
+      at,
+      sessionId
     })
+  }
+
+  /** Last location sent per pane, so an unchanged directory is not re-sent on every tool call. */
+  private readonly lastLocation = new Map<string, string>()
+
+  private reportLocation(target: { paneId: string; workspaceId: string; launchRoot?: string }, agent: AgentHookAgent, sessionId: string | null, cwd: unknown, at: number): void {
+    if (typeof cwd !== 'string' || !target.launchRoot || !this.options.resolveLocation || !this.options.onLocation) return
+    const location = this.options.resolveLocation(cwd, target.launchRoot)
+    if (!location) return
+    const key = `${location.cwd}|${location.checkoutRoot ?? ''}|${location.sameRepository}`
+    if (this.lastLocation.get(target.paneId) === key) return
+    this.lastLocation.set(target.paneId, key)
+    this.options.onLocation({ ...location, paneId: target.paneId, workspaceId: target.workspaceId, agent, sessionId, at })
   }
 }

@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -6,7 +6,8 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { claudeEventPlan, mapHookEvent, versionReaches } from '../../electron/main/services/agent-hooks/events'
 import { AgentHookInstaller, STATUS_HOOK_FILE } from '../../electron/main/services/agent-hooks/installer'
 import { AgentHookServer } from '../../electron/main/services/agent-hooks/server'
-import type { AgentHookStatusEvent } from '../../shared/types/agent-hooks'
+import { resolveSessionLocation } from '../../electron/main/services/git-common-dir'
+import type { AgentHookLocationEvent, AgentHookStatusEvent } from '../../shared/types/agent-hooks'
 
 const HOOK_SCRIPT = join(process.cwd(), 'resources', 'agent-hooks', STATUS_HOOK_FILE)
 
@@ -96,6 +97,52 @@ describe('AgentHookServer', () => {
     const get = await fetch(`http://127.0.0.1:${server.port}/hook`)
     expect(get.status).toBe(204)
     expect(events).toHaveLength(0)
+  })
+
+  test('reports where the session works when a pane opts in, once per change, and forgets it when the agent ends', async () => {
+    const repo = mkdtempSync(join(tmpdir(), 'oxe-hook-loc-'))
+    const tree = `${repo}-tree`
+    const git = (...args: string[]): void => { execFileSync('git', args, { cwd: repo }) }
+    const locations: AgentHookLocationEvent[] = []
+    const located = new AgentHookServer({
+      authenticate: ({ workspaceId }) => ({ paneId: 'pane-1', workspaceId, launchRoot: repo }),
+      onStatus: () => undefined,
+      resolveLocation: resolveSessionLocation,
+      onLocation: (event) => locations.push(event),
+      now: () => 7
+    })
+    await located.start()
+    const send = (payload: Record<string, unknown>): Promise<Response> => fetch(`http://127.0.0.1:${located.port}/hook`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ executionId: 'exec', token: 'secret', workspaceId: 'ws', agent: 'claude-code', payload })
+    })
+    try {
+      git('init', '-q', '-b', 'main'); git('config', 'user.email', 'e@x'); git('config', 'user.name', 'E')
+      writeFileSync(join(repo, 'a.txt'), 'a\n'); git('add', '.'); git('commit', '-qm', 'a')
+      git('worktree', 'add', '-q', '-b', 'agent-work', tree)
+      mkdirSync(join(tree, 'src'))
+
+      await send({ hook_event_name: 'SessionStart', source: 'startup', session_id: 's', cwd: repo })
+      await send({ hook_event_name: 'PostToolUse', session_id: 's', cwd: repo })
+      await send({ hook_event_name: 'PostToolUse', session_id: 's', cwd: join(tree, 'src') })
+      await send({ hook_event_name: 'PostToolUse', session_id: 's', cwd: tmpdir() })
+      await send({ hook_event_name: 'PostToolUse', session_id: 's', cwd: 'relative/path' })
+      // The unchanged second report and the relative path are not sent.
+      expect(locations).toHaveLength(3)
+      expect(locations[0]).toMatchObject({ cwd: repo, checkoutRoot: repo, sameRepository: true })
+      expect(locations[1]).toMatchObject({ cwd: join(tree, 'src'), checkoutRoot: tree, sameRepository: true })
+      expect(locations[2]).toMatchObject({ cwd: tmpdir(), sameRepository: false })
+      expect(locations[1]).toMatchObject({ paneId: 'pane-1', workspaceId: 'ws', agent: 'claude-code', sessionId: 's', at: 7 })
+
+      // After the agent ends, the same directory is reported again for the next session.
+      await send({ hook_event_name: 'SessionEnd', session_id: 's', cwd: tmpdir() })
+      await send({ hook_event_name: 'SessionStart', source: 'startup', session_id: 't', cwd: tmpdir() })
+      expect(locations).toHaveLength(4)
+    } finally {
+      located.stop()
+      rmSync(tree, { recursive: true, force: true })
+      rmSync(repo, { recursive: true, force: true })
+    }
   })
 
   test('the hook script delivers end to end and is inert outside OXESpace', async () => {

@@ -298,7 +298,10 @@ export function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.linear.createWorktreeFromIssue, () => {
     throw new Error('Linear is not available in E2E mock mode')
   })
-  ipcMain.handle(IPC_CHANNELS.git.getBranch, () => ({ branch: null, detached: false, shortSha: null, error: 'E2E mock mode' }))
+  // Fixed by default so screenshots do not depend on the branch; a spec that checks branches asks for real git.
+  ipcMain.handle(IPC_CHANNELS.git.getBranch, (_event: IpcMainInvokeEvent, input: { rootPath: string }) =>
+    process.env.OXESPACE_E2E_REAL_GIT_BRANCH === '1' ? new GitService().getBranch(input.rootPath)
+      : { branch: null, detached: false, shortSha: null, error: 'E2E mock mode' })
   ipcMain.handle(IPC_CHANNELS.search.run, () => ({ files: [], totalMatches: 0, totalFiles: 0, truncated: false, elapsedMs: 0 }))
   ipcMain.handle(IPC_CHANNELS.search.listFiles, () => ({ files: [], truncated: false }))
   ipcMain.handle(IPC_CHANNELS.search.cancel, () => undefined)

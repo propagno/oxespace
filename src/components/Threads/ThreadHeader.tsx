@@ -27,7 +27,11 @@ export function ThreadHeader({ thread, workspace, branch, pending, running, acti
   const threadFontSize = useThreadPrefs(state => state.fontSize)
   const setThreadFontSize = useThreadPrefs(state => state.setFontSize)
   const viewMode = useThreadViewModeStore(state => state.mode)
-  return <header className="thread-heading"><div className="thread-heading-identity"><h1>{thread?.title ?? 'Project conversations'}</h1><span className="thread-heading-context" title={thread?.rootPath ?? workspace?.rootPath}>{workspace?.name ?? 'Your projects'}{branch && <><GitBranch size={12} />{branch}</>}</span>
+  // The provider reported working in another worktree of the repository, or outside it.
+  const observed = thread?.observedLocation
+  const moved = Boolean(observed?.sameRepository && observed.checkoutRoot)
+  const outside = observed && !observed.sameRepository ? observed.cwd : null
+  return <header className="thread-heading"><div className="thread-heading-identity"><h1>{thread?.title ?? 'Project conversations'}</h1><span className="thread-heading-context" data-moved={moved ? 'true' : undefined} title={moved ? `The agent is working in ${thread!.observedLocation!.checkoutRoot}\nConversation opened in ${thread!.rootPath}` : outside ? `${thread!.rootPath}\nThe agent reports working outside this repository: ${outside}` : thread?.rootPath ?? workspace?.rootPath}>{workspace?.name ?? 'Your projects'}{branch && <><GitBranch size={12} />{branch}</>}{moved && <span className="thread-heading-worktree"> · worktree</span>}</span>
     {thread && <ThreadConversationActions thread={thread} disabled={pending} onCommand={onCommand} onExport={onExport} onImport={onImport} />}</div>
     <div className="thread-heading-actions">
     {thread && ([['terminal', 'Terminal', TerminalSquare, 'Ctrl+`'], ['changes', 'Changes', GitCompareArrows, 'Ctrl+Shift+D'], ['preview', 'Browser', Globe, 'Ctrl+Shift+B']] as const).map(([id, label, Icon, shortcut]) =>

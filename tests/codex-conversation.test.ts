@@ -212,6 +212,16 @@ describe('Codex conversation adapter', () => {
     expect(f.events.at(-1)).toMatchObject({ type: 'tool', id: 'command', state: 'completed', output: '1 test passed' })
     await f.adapter.dispose()
   })
+  it('reports the directory each command runs in, once per command', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
+    await f.adapter.send('Work in a worktree')
+    f.emit({ method: 'item/started', params: { threadId: 'native-A', turnId: 'turn-A', item: { id: 'a', type: 'commandExecution', command: 'git worktree add ../fix', cwd: '/project' } } })
+    f.emit({ method: 'item/started', params: { threadId: 'native-A', turnId: 'turn-A', item: { id: 'b', type: 'commandExecution', command: 'npm test', cwd: '/project-fix' } } })
+    f.emit({ method: 'item/completed', params: { threadId: 'native-A', turnId: 'turn-A', item: { id: 'b', type: 'commandExecution', command: 'npm test', cwd: '/project-fix', status: 'completed' } } })
+    expect(f.events.filter(event => event.type === 'location')).toEqual([{ type: 'location', cwd: '/project' }, { type: 'location', cwd: '/project-fix' }])
+    await f.adapter.dispose()
+  })
   it('rejects a turn held by another native writer and leaves usage polling alone', async () => {
     const f = fixture()
     const write = f.transport.write

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sessionChangeGroups, threadFileScope } from '../src/components/Threads/threadChanges'
+import { sessionChangeGroups, threadFileScope, threadWorkingRoot } from '../src/components/Threads/threadChanges'
 import { requestOutcome, requestOutcomeLabel } from '../shared/threadRequestOutcome'
 import type { ThreadEvent, ThreadRequest } from '../shared/types/thread'
 
@@ -35,4 +35,12 @@ it('keeps Linux case-sensitive paths distinct and labels external agent state', 
   expect(threadFileScope('../elsewhere/file.md', '/repo')).toBe('External')
   const files = sessionChangeGroups([{ type: 'tool', id: 'edit', name: 'Edit', state: 'completed', detail: '', files: [{ path: '/repo/Readme.md', kind: 'update' }, { path: '/repo/README.md', kind: 'update' }] }])[0].files
   expect(files).toHaveLength(2)
+})
+
+describe('threadWorkingRoot', () => {
+  it('is the worktree the provider moved into, and the thread root otherwise', () => {
+    expect(threadWorkingRoot({ rootPath: '/repo' })).toBe('/repo')
+    expect(threadWorkingRoot({ rootPath: '/repo', observedLocation: { cwd: '/repo-fix/src', checkoutRoot: '/repo-fix', sameRepository: true } })).toBe('/repo-fix')
+    expect(threadWorkingRoot({ rootPath: '/repo', observedLocation: { cwd: '/elsewhere', checkoutRoot: '/elsewhere', sameRepository: false } })).toBe('/repo')
+  })
 })
