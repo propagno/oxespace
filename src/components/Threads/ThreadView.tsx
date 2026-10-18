@@ -173,7 +173,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
     else if (result.surface === 'changes') { togglePanel('changes', true); return }
     else if (result.surface === 'sessions') setPanel({ ...result, title: 'Resume work', resume: await loadResumeData(snapshot.thread) })
     else if (result.surface === 'delegations') setPanel(await loadDelegationPanel(snapshot.thread, result))
-    else if (result.kind === 'panel') setPanel(result)
+    else if (result.kind === 'panel' || result.kind === 'confirm') setPanel(result)
     if (useThreadStore.getState().drafts[id] === text) useThreadStore.getState().setDraft(id, '')
     await useThreadStore.getState().refresh(id)
   }

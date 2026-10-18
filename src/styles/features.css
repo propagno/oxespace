@@ -2830,9 +2830,7 @@
   .editor-sidebar { flex: 0 0 min(36%, 240px); width: 100%; border-right: 0; border-bottom: 1px solid var(--bd-subtle); }
 }
 
-.terminal-restore-dialog { width: min(620px, calc(100vw - 32px)); max-height: min(720px, calc(100vh - 32px)); display: flex; flex-direction: column; gap: 14px; }
 .terminal-restore-dialog > label { display: grid; gap: 7px; color: var(--tx-secondary); font-size: var(--fs-xs); }
-.terminal-restore-dialog input { width: 100%; color: var(--tx-primary); background: var(--bg-elevated); border: 1px solid var(--bd-base); border-radius: var(--radius-md); padding: 9px 11px; }
 .terminal-restore-list { min-height: 0; overflow: auto; display: grid; align-content: start; gap: 7px; }
 .terminal-restore-list button { display: grid; gap: 4px; width: 100%; padding: 11px 12px; text-align: left; color: var(--tx-primary); background: var(--bg-elevated); border: 1px solid var(--bd-base); border-radius: var(--radius-md); cursor: pointer; }
 .terminal-restore-list button:hover:not(:disabled) { border-color: var(--brand-light, var(--accent)); }

@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Check, Copy, Search } from 'lucide-react'
 import type { SessionSummary } from '../../../shared/types/session'
 import type { SessionSearchResult } from '../../../shared/types/session-search'
-import { DesktopDialog } from '../Navigation/DesktopDialog'
-import { TextField } from '../../ui'
+
+import { Dialog, TextField } from '../../ui'
 
 export function ProviderSessionFinder({ workspaceId, rootPath, onClose }: { workspaceId: string; rootPath: string; onClose: () => void }) {
   const [sessions, setSessions] = useState<SessionSummary[]>([])
@@ -50,7 +50,7 @@ export function ProviderSessionFinder({ workspaceId, rootPath, onClose }: { work
     } catch { setError('Could not copy the session ID.') }
   }
 
-  return <DesktopDialog className="desktop-provider-sessions-dialog" title="Codex and Claude sessions" description="Native conversations saved in this directory. Identify the session by the start of the conversation and its time." onClose={onClose}>
+  return <Dialog className="desktop-provider-sessions-dialog" size="lg" title="Codex and Claude sessions" description="Native conversations saved in this directory. Identify the session by the start of the conversation and its time." onClose={onClose}>
     <p className="terminal-session-identity-note">Terminal (PTY), pane and workspace IDs do not resume a provider conversation. A terminal may have opened several native sessions.</p>
     <label className="desktop-provider-session-search"><Search size={14} aria-hidden="true" /><TextField type="search" aria-label="Search native sessions" placeholder="Search message, model or session ID" value={query} onChange={event => setQuery(event.target.value)} /></label>
     {error && <p className="desktop-provider-session-error" role="alert">{error}</p>}
@@ -71,5 +71,5 @@ export function ProviderSessionFinder({ workspaceId, rootPath, onClose }: { work
     </div>}
     {content && content.hits.length === 0 && content.indexing && <p className="terminal-session-identity-note" role="status">Indexing conversations…</p>}
     <p className="desktop-provider-session-help">In Thread, use <code>/resume &lt;native session ID&gt;</code> to open the same conversation in this project.</p>
-  </DesktopDialog>
+  </Dialog>
 }

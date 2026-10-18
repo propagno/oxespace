@@ -61,7 +61,7 @@ test('session actions open to the side, archive, restore and delete through Elec
 
     await page.getByRole('button', { name: 'Actions for Alpha session' }).click()
     await page.getByRole('menuitem', { name: 'Archive conversation' }).click()
-    await page.getByRole('dialog', { name: 'Archive conversation' }).getByRole('button', { name: 'Archive conversation', exact: true }).click()
+    await page.getByRole('dialog', { name: 'Archive this conversation?' }).getByRole('button', { name: 'Archive conversation', exact: true }).click()
     await expect(alpha).toHaveCount(0)
     const archived = page.getByRole('region', { name: 'Archived conversations' })
     await expect(archived.getByRole('button', { name: 'Archived 1' })).toBeVisible()
@@ -71,7 +71,7 @@ test('session actions open to the side, archive, restore and delete through Elec
 
     await page.getByRole('button', { name: 'Actions for Beta session' }).click()
     await page.getByRole('menuitem', { name: 'Delete conversation' }).click()
-    await page.getByRole('dialog', { name: 'Delete thread' }).getByRole('button', { name: 'Delete thread', exact: true }).click()
+    await page.getByRole('dialog', { name: 'Delete this conversation?' }).getByRole('button', { name: 'Delete conversation', exact: true }).click()
     await expect(beta).toHaveCount(0)
     await expect(alpha).toBeVisible()
     await page.screenshot({ path: test.info().outputPath('thread-session-actions.png') })

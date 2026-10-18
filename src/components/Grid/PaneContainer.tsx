@@ -9,7 +9,7 @@ import { derivePaneDisplayState } from '../../utils/paneDisplay'
 import { PaneContent } from '../Panes/PaneContent'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { PaneBranchBadge } from '../Workspace/PaneBranchBadge'
-import { DesktopDialog } from '../Navigation/DesktopDialog'
+import { Button, Dialog } from '../../ui'
 import { DetailList } from '../Navigation/DetailList'
 import { ProviderSessionFinder } from './ProviderSessionFinder'
 
@@ -347,7 +347,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
         </div>
       </header>
       <PaneContent pane={pane} workspaceId={workspace.id} workspaceRootPath={workspace.rootPath} autoStart={autoStart} />
-      {detailsOpen && <DesktopDialog className="desktop-details-dialog" title="Terminal details" description="Terminal state and agent sessions in this directory." onClose={() => setDetailsOpen(false)}>
+      {detailsOpen && <Dialog className="desktop-details-dialog" title="Terminal details" description="Terminal state and agent sessions in this directory." onClose={() => setDetailsOpen(false)}>
         <p className="terminal-session-identity-note">The terminal does not report which Codex or Claude conversation is open. Find the native session by the start of the conversation and its time to get the ID used to resume.</p>
         <DetailList rows={[
           { label: 'Terminal', detail: display.title },
@@ -358,7 +358,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
           { label: 'Directory', detail: pane.rootPath ?? workspace.rootPath },
           ...(terminalState.error ? [{ label: 'Error', detail: terminalState.error }] : [])
         ]} />
-        <button type="button" className="terminal-provider-session-action" onClick={() => { setDetailsOpen(false); setProviderSessionsOpen(true) }}>Find Codex or Claude sessions</button>
+        <Button size="sm" className="terminal-provider-session-action" onClick={() => { setDetailsOpen(false); setProviderSessionsOpen(true) }}>Find Codex or Claude sessions</Button>
         <details className="terminal-technical-details"><summary>Internal IDs and terminal process</summary><DetailList rows={[
           { label: 'PTY session ID (terminal)', detail: sessionDetails?.sessionId ?? (sessionDetailsError || (sessionDetails ? 'No running session' : 'Reading…')) },
           { label: 'Pane ID (OXESpace)', detail: pane.id },
@@ -369,7 +369,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
           ...(sessionDetails?.pid ? [{ label: 'Process ID', detail: String(sessionDetails.pid) }] : []),
           ...(sessionDetails?.startedAt ? [{ label: 'Terminal started at', detail: new Date(sessionDetails.startedAt).toLocaleString() }] : [])
         ]} /></details>
-      </DesktopDialog>}
+      </Dialog>}
       {providerSessionsOpen && <ProviderSessionFinder workspaceId={workspace.id} rootPath={pane.rootPath ?? workspace.rootPath} onClose={() => setProviderSessionsOpen(false)} />}
     </section>
   )

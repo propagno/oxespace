@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { ConfirmDialog, Menu, cx, TextField } from '../../ui'
+import { Button, ConfirmDialog, Dialog, Menu, cx, TextField } from '../../ui'
 import styles from './ThreadSidebar.module.css'
 import { useThreadContentSearch } from '../../hooks/useThreadContentSearch'
 import { AlignJustify, Archive, ArchiveRestore, Check, ChevronDown, Circle, CircleAlert, CircleCheck, CircleX, Columns2, FolderPlus, Loader2, MoreHorizontal, Pencil, Pin, Plus, Square, Trash2, UserRound } from 'lucide-react'
@@ -10,10 +10,10 @@ import { useUIStore } from '../../store/ui.store'
 import { NavigationRail } from '../Navigation/NavigationChrome'
 import { useNavigationSearch } from '../Navigation/useNavigationSearch'
 import { SearchField } from '../Navigation/SearchField'
-import { DesktopDialog } from '../Navigation/DesktopDialog'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH, SIDEBAR_RESIZE_STEP, useNavigationPrefs } from '../../store/navigation-prefs.store'
 import { threadNavigationStatus } from './threadNavigationStatus'
+import { threadConfirmation } from '../../../shared/threadConfirmations'
 import { ThreadProjectSettingsDialog } from './ThreadProjectSettingsDialog'
 
 /** Threads shown per project before "Show more" (a search or the selected thread always shows). */
@@ -155,21 +155,23 @@ export function ThreadSidebar({ onCreate, onModeChange, onSelectMode, onAccounts
     </div>}
     {projectSettingsId && projects.find(project => project.projectId === projectSettingsId) &&
       <ThreadProjectSettingsDialog project={projects.find(project => project.projectId === projectSettingsId)!} unavailable={unavailableProjects.includes(projectSettingsId)} onClose={() => setProjectSettingsId(null)} returnFocusTo={() => document.querySelector<HTMLElement>(`[data-project-actions="${projectSettingsId}"]`)} />}
-    {renameTarget && <DesktopDialog className="thread-create-dialog" title="Rename conversation" description="The new name appears in the session list and conversation header." onClose={() => { if (!acting) setRenameTarget(null) }}>
-      <form onSubmit={event => { event.preventDefault(); const title = renameValue.trim(); if (!title || !window.oxe.thread?.command) return
+    {renameTarget && <Dialog className="thread-create-dialog" title="Rename conversation" description="The new name appears in the session list and conversation header." onClose={() => { if (!acting) setRenameTarget(null) }}
+      footer={<>
+        <Button disabled={acting} onClick={() => setRenameTarget(null)}>Cancel</Button>
+        <Button variant="primary" type="submit" form="rename-thread-form" disabled={acting || !renameValue.trim() || renameValue.trim() === renameTarget.title}>{acting ? 'Renaming…' : 'Rename conversation'}</Button>
+      </>}>
+      <form id="rename-thread-form" onSubmit={event => { event.preventDefault(); const title = renameValue.trim(); if (!title || !window.oxe.thread?.command) return
         setActing(true); setActionError('')
         void window.oxe.thread.command(renameTarget.id, `/rename ${title}`).then(async () => { await useThreadStore.getState().refresh(renameTarget.id); setRenameTarget(null) }).catch(error => setActionError(error instanceof Error ? error.message : 'Could not rename conversation.')).finally(() => setActing(false))
       }}>
         <label>Conversation name<TextField aria-label="Conversation name" autoFocus maxLength={120} value={renameValue} onChange={event => setRenameValue(event.target.value)} /></label>
         {actionError && <p role="alert">{actionError}</p>}
-        <footer><button type="button" disabled={acting} onClick={() => setRenameTarget(null)}>Cancel</button><button type="submit" className="thread-primary" disabled={acting || !renameValue.trim() || renameValue.trim() === renameTarget.title}>{acting ? 'Renaming…' : 'Rename conversation'}</button></footer>
       </form>
-    </DesktopDialog>}
+    </Dialog>}
     {confirmation && <ConfirmDialog
-      title={confirmation.kind === 'thread' ? 'Delete thread' : confirmation.kind === 'archive' ? 'Archive conversation' : 'Remove project'}
-      description={confirmation.kind === 'thread' ? `Delete “${confirmation.title}” from OXESpace? An active turn will stop. The provider session and project files are kept.` : confirmation.kind === 'archive' ? `Archive “${confirmation.title}”? An active turn will stop. You can restore it from Archived in this sidebar.` : `Remove “${confirmation.title}” from the Thread sidebar? Its conversations, files and Code workspaces remain. Restore this project individually from Removed projects or add its folder again.`}
-      confirmLabel={acting ? 'Please wait…' : confirmation.kind === 'thread' ? 'Delete thread' : confirmation.kind === 'archive' ? 'Archive conversation' : 'Remove project'}
-      danger={confirmation.kind !== 'archive'}
+      {...(confirmation.kind === 'project'
+        ? { title: 'Remove this project?', confirmLabel: 'Remove project', danger: true, description: `Remove “${confirmation.title}” from the Thread sidebar? Its conversations, files and Code workspaces remain. Restore this project individually from Removed projects or add its folder again.` }
+        : threadConfirmation(confirmation.kind === 'thread' ? 'delete' : 'archive', confirmation.title))}
       busy={acting}
       error={actionError}
       onCancel={() => setConfirmation(null)}
@@ -180,7 +182,7 @@ export function ThreadSidebar({ onCreate, onModeChange, onSelectMode, onAccounts
             if (confirmation.kind === 'project') await useThreadStore.getState().hideProject(confirmation.id)
             else {
               if (!window.oxe.thread?.command) throw Error('Restart the updated application to delete threads.')
-              await window.oxe.thread.command(confirmation.id, confirmation.kind === 'archive' ? '/archive confirm' : '/delete confirm')
+              await window.oxe.thread.command(confirmation.id, threadConfirmation(confirmation.kind === 'archive' ? 'archive' : 'delete').command)
               await useThreadStore.getState().load()
               if (confirmation.kind === 'archive') setShowArchived(true)
             }

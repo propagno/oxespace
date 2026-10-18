@@ -19,6 +19,8 @@ export interface DialogProps {
   className?: string
   /** Element to focus when the dialog closes; defaults to what had focus before it opened. */
   returnFocusTo?: () => HTMLElement | null
+  /** Accessible name of the close button. */
+  closeLabel?: string
   testId?: string
 }
 
@@ -32,7 +34,7 @@ export function focusSurfaceUnlessChosen(event: Event): void {
 }
 
 /** A modal dialog: title, optional description, body, and footer actions. Escape and the scrim close it. */
-export function Dialog({ title, description, onClose, children, footer, size = 'md', className, returnFocusTo, testId }: DialogProps): ReactElement {
+export function Dialog({ title, description, onClose, children, footer, size = 'md', className, returnFocusTo, closeLabel = 'Close', testId }: DialogProps): ReactElement {
   const previous = useRef(document.activeElement instanceof HTMLElement ? document.activeElement : null)
   return <RadixDialog.Root open onOpenChange={open => { if (!open) onClose() }}>
     <RadixDialog.Portal>
@@ -43,15 +45,17 @@ export function Dialog({ title, description, onClose, children, footer, size = '
         onOpenAutoFocus={focusSurfaceUnlessChosen}
         onCloseAutoFocus={event => {
           event.preventDefault()
-          const target = returnFocusTo?.() ?? previous.current
-          if (target?.isConnected) target.focus({ preventScroll: true })
+          const chosen = returnFocusTo?.() ?? previous.current
+          // A trigger that disappeared or was disabled meanwhile hands focus to the view's main input.
+          const target = chosen?.isConnected && !chosen.hasAttribute('disabled') ? chosen : [...document.querySelectorAll<HTMLElement>('[data-dialog-return]')].at(-1)
+          target?.focus({ preventScroll: true })
         }}>
         <header className={styles.dialogHeader}>
           <div>
             <RadixDialog.Title className={styles.dialogTitle}>{title}</RadixDialog.Title>
             {description ? <RadixDialog.Description className={styles.dialogDescription}>{description}</RadixDialog.Description> : null}
           </div>
-          <IconButton label="Close" icon={<X size={16} />} size="sm" onClick={onClose} />
+          <IconButton label={closeLabel} icon={<X size={16} />} size="sm" onClick={onClose} />
         </header>
         {children ? <div className={styles.dialogBody}>{children}</div> : null}
         {footer && <footer className={styles.dialogFooter}>{footer}</footer>}

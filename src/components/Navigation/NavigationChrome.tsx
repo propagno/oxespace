@@ -46,8 +46,8 @@ export function NavigationRail({ mode, collapsed, onModeChange, onSelectMode, pr
     </nav>
     <span className={styles.separator} aria-hidden="true" />
     <nav className={styles.group} aria-label="Primary navigation">
-      {primary.map(({ id, label, ariaLabel, icon: Icon, onClick, testId, disabled }) =>
-        <button key={id} type="button" className={cx('nav-rail-btn', styles.button)} aria-label={ariaLabel ?? label} title={label} data-testid={testId} disabled={disabled} onClick={onClick}><Icon size={16} aria-hidden="true" /></button>)}
+      {primary.map(({ id, label, ariaLabel, icon: Icon, onClick, testId, disabled }, index) =>
+        <button key={id} type="button" className={cx('nav-rail-btn', styles.button)} aria-label={ariaLabel ?? label} title={label} data-testid={testId} data-dialog-return={index === 0 ? '' : undefined} disabled={disabled} onClick={onClick}><Icon size={16} aria-hidden="true" /></button>)}
     </nav>
     {children}
     <span className={styles.spacer} />

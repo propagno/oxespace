@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { DelegationSnapshot } from '../../../shared/types/delegation'
 import type { ThreadProjectSummary } from '../../../shared/types/thread'
-import { DesktopDialog } from '../Navigation/DesktopDialog'
 import { useThreadStore } from '../../store/thread.store'
-import { TextField } from '../../ui'
+import { Button, Checkbox, Dialog, TextField } from '../../ui'
 
 export function ThreadProjectSettingsDialog({ project, unavailable, onClose, returnFocusTo }: { project: ThreadProjectSummary; unavailable: boolean; onClose(): void; returnFocusTo?: () => HTMLElement | null }) {
   const scope = `thread:${project.projectId}`
@@ -34,39 +33,39 @@ export function ThreadProjectSettingsDialog({ project, unavailable, onClose, ret
     finally { setBusy(false) }
   }
   const needsRelink = unavailable || directoryMissing
-  return <DesktopDialog className="thread-create-dialog thread-project-dialog thread-project-settings" title={`Thread project · ${project.displayName}`}
+  return <Dialog className="thread-create-dialog thread-project-dialog thread-project-settings" title={`Thread project · ${project.displayName}`}
     description="These settings apply to this Thread project. Code workspace settings are separate." onClose={onClose} returnFocusTo={returnFocusTo}>
     <div className="thread-project-settings-body"><div className="thread-create-section"><strong>Project directory</strong><p className="thread-project-current-path" title={project.contexts[0]?.rootPath}>{project.contexts[0]?.rootPath}</p>
       {needsRelink && <p role="alert">This directory is unavailable. Choose its new location to resume work.</p>}
       <details className="thread-project-relink" open={needsRelink || undefined}><summary>{needsRelink ? 'Relink missing directory' : 'Change project directory'}</summary>
         <label>New directory<TextField aria-label="New project directory" value={relinkPath} onChange={event => setRelinkPath(event.target.value)} placeholder="Absolute path to the project" /></label>
-        <button type="button" disabled={busy || !relinkPath.trim()} onClick={() => void apply(async () => {
+        <Button size="sm" disabled={busy || !relinkPath.trim()} onClick={() => void apply(async () => {
           await window.oxe.thread!.relinkProject(project.projectId, relinkPath.trim())
           await useThreadStore.getState().loadProjects()
           await useThreadStore.getState().load()
           setDirectoryMissing(false)
           setRelinkPath('')
-        })}>Relink directory</button>
+        })}>Relink directory</Button>
       </details>
     </div>
     <div className="thread-create-section"><strong>Agent delegation</strong>
-      <label className="thread-project-check"><input type="checkbox" checked={snapshot?.enabled ?? false} disabled={!snapshot || busy}
-        onChange={event => void apply(() => window.oxe.delegation.configure(scope, event.target.checked))} /> Allow agents in this Thread project to delegate work</label>
+      <Checkbox className="thread-project-check" checked={snapshot?.enabled ?? false} disabled={!snapshot || busy}
+        onChange={event => void apply(() => window.oxe.delegation.configure(scope, event.target.checked))} label="Allow agents in this Thread project to delegate work" />
       <p>Each destination also needs its own opt-in. Cross-project transfers require a separate authorization.</p>
       <label>Destination directory<TextField value={path} onChange={event => { setPath(event.target.value); setConsent(false) }} placeholder="Absolute path to another local repository" /></label>
-      <label className="thread-project-check"><input type="checkbox" checked={evidence} onChange={event => { setEvidence(event.target.checked); setConsent(false) }} /> Include selected committed text as evidence</label>
-      <label className="thread-project-check"><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} /> Authorize handoff to the destination agent for 30 days</label>
-      <button type="button" disabled={!snapshot || busy || !path.trim() || !consent} onClick={() => void apply(async () => {
+      <Checkbox className="thread-project-check" checked={evidence} onChange={event => { setEvidence(event.target.checked); setConsent(false) }} label="Include selected committed text as evidence" />
+      <Checkbox className="thread-project-check" checked={consent} onChange={event => setConsent(event.target.checked)} label="Authorize handoff to the destination agent for 30 days" />
+      <Button size="sm" disabled={!snapshot || busy || !path.trim() || !consent} onClick={() => void apply(async () => {
         await window.oxe.delegation.configureTarget(scope, path.trim(), true, evidence)
         await useThreadStore.getState().loadProjects()
         setPath(''); setConsent(false)
-      })}>Authorize destination</button>
+      })}>Authorize destination</Button>
       {(snapshot?.targets ?? []).map(target => <div className="thread-project-destination" key={target.workspaceId}>
         <strong>{target.name}</strong><small>{target.rootPath} · until {new Date(target.expiresAt).toLocaleDateString()}</small>
-        <button type="button" disabled={busy} onClick={() => void apply(() => window.oxe.delegation.configureTarget(scope, target.rootPath, false, false))}>Revoke</button>
+        <Button size="sm" variant="danger" disabled={busy} onClick={() => void apply(() => window.oxe.delegation.configureTarget(scope, target.rootPath, false, false))}>Revoke</Button>
       </div>)}
     </div>
     {error && <p role="alert">{error}</p>}
-    </div><footer><button type="button" onClick={onClose}>Done</button></footer>
-  </DesktopDialog>
+    </div>
+  </Dialog>
 }

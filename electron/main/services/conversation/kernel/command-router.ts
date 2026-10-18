@@ -5,6 +5,7 @@
  * Moved out of ThreadOrchestrator unchanged. It reaches the orchestrator only
  * through `CommandHost`, which names exactly what a command may touch.
  */
+import { threadConfirmation } from '../../../../../shared/threadConfirmations'
 import type { AppDatabase } from '../../../db'
 import type { AgentConversationAdapter, ConversationCapabilities, ConversationThread, ThreadCommandResult, ThreadConfiguration, ThreadRewindResult, ThreadSnapshot } from '../../../../../shared/types/thread'
 import { hasDesktopCommand } from '../../../../../shared/threadDesktopCommands'
@@ -141,7 +142,7 @@ export async function runThreadCommand(host: CommandHost, id: string, text: stri
       host.save(created, { eventsFrom: created.events.length }); return { kind: 'navigate', threadId: created.thread.id }
     }
     if (name === 'archive' || name === 'delete') {
-      if (argument !== 'confirm') return { kind: 'panel', title: name === 'delete' ? 'Delete conversation' : 'Archive conversation', text: name === 'delete' ? 'Delete this OXESpace conversation? The provider session is retained.' : 'Archive this conversation? You can reopen it from /resume.', rows: [{ id: `/${name} confirm`, label: name === 'delete' ? 'Delete conversation' : 'Archive conversation' }] }
+      if (argument !== 'confirm') return { kind: 'confirm', confirm: threadConfirmation(name) }
       await host.disposeAdapter(id)
       if (name === 'delete') await host.deleteThread(id)
       else { const latest = host.read(id); latest.thread.archived = true; host.save(latest, { eventsFrom: latest.events.length }) }
@@ -175,7 +176,7 @@ export async function runThreadCommand(host: CommandHost, id: string, text: stri
       const result = await host.rewind(id, target.id)
       return { kind: 'applied', title: `Rewound ${result.removedTurns} turn${result.removedTurns === 1 ? '' : 's'}` }
     }
-    if (name === 'rewind' && !argument) return { kind: 'panel', title: 'Rewind conversation', text: 'Remove the most recent turn from the native conversation. Files are not reverted.', rows: [{ id: '/rewind 1', label: 'Rewind one turn' }] }
+    if (name === 'rewind' && !argument) return { kind: 'confirm', confirm: threadConfirmation('rewind') }
     // Reserve ownership while starting/querying a provider operation.
     return host.withConfiguring(id, async () => {
       const adapter = await host.connectAdapter(id, thread)

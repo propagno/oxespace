@@ -4,9 +4,8 @@ import type { AgentAccountContext, AgentAccountSnapshot } from '../../../shared/
 import type { ThreadProvider } from '../../../shared/types/thread'
 import { useAccountStore, selectAccount } from '../../store/account.store'
 import { useThreadStore } from '../../store/thread.store'
-import { DesktopDialog } from '../Navigation/DesktopDialog'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
-import { TextField } from '../../ui'
+import { Button, Dialog, TextField } from '../../ui'
 
 export function accountMessage(status?: AgentAccountSnapshot): string {
   if (!status) return 'Checking connection…'
@@ -33,8 +32,8 @@ function AccountCard({ context }: { context: AgentAccountContext }) {
   const run = async (action: () => Promise<unknown>) => { setPending(true); setError(''); try { await action() } catch { setError('Could not complete this action. Try again.') } finally { setPending(false) } }
   return <section className="thread-account-card"><div className="thread-account-heading"><AgentProviderIcon provider={context.provider} size={28} /><div><strong>{context.provider === 'claude' ? 'Claude Code' : 'Codex'}</strong><small>{context.provider === 'claude' ? 'Claude subscription' : 'ChatGPT subscription'}</small></div>{connected ? <Check size={16} /> : busy ? <Loader2 size={16} className="thread-spin" /> : null}</div>
     <p>{accountMessage(status)}</p>{status?.accountLabel && <small>{status.accountLabel}</small>}
-    {status?.state === 'awaiting-code' && <form className="thread-auth-code" onSubmit={e => { e.preventDefault(); void run(async () => { await window.oxe!.agentAccount!.submitCode(status.attemptId!, code); setCode('') }) }}><label>Sign-in code<TextField autoComplete="off" type="password" value={code} onChange={e => setCode(e.target.value)} /></label><button type="submit" disabled={!code || pending}>Continue</button></form>}
-    <div className="thread-account-actions">{busy ? <><button type="button" disabled={pending} onClick={() => void run(() => window.oxe!.agentAccount!.cancel(status!.attemptId!))}>Cancel sign-in</button>{status?.canOpenBrowser && <button type="button" disabled={pending} onClick={() => void run(() => window.oxe!.agentAccount!.openBrowser(status.attemptId!))}><ExternalLink size={12} />Open browser</button>}</> : <><button type="button" className={connected ? '' : 'thread-primary'} disabled={pending || !window.oxe?.agentAccount} onClick={() => void run(() => useAccountStore.getState().login(context))}>{connected ? 'Reconnect' : 'Connect'}</button>{connected && <button type="button" disabled={pending || !window.oxe?.agentAccount} onClick={() => void run(() => useAccountStore.getState().logout(context))}>Sign out</button>}<button type="button" disabled={pending || !window.oxe?.agentAccount} onClick={() => void run(() => useAccountStore.getState().read(context))}><RefreshCw size={12} />Verify</button></>}</div>
+    {status?.state === 'awaiting-code' && <form className="thread-auth-code" onSubmit={e => { e.preventDefault(); void run(async () => { await window.oxe!.agentAccount!.submitCode(status.attemptId!, code); setCode('') }) }}><label>Sign-in code<TextField autoComplete="off" type="password" value={code} onChange={e => setCode(e.target.value)} /></label><Button variant="primary" type="submit" disabled={!code || pending}>Continue</Button></form>}
+    <div className="thread-account-actions">{busy ? <><Button size="sm" disabled={pending} onClick={() => void run(() => window.oxe!.agentAccount!.cancel(status!.attemptId!))}>Cancel sign-in</Button>{status?.canOpenBrowser && <Button size="sm" icon={<ExternalLink size={12} />} disabled={pending} onClick={() => void run(() => window.oxe!.agentAccount!.openBrowser(status.attemptId!))}>Open browser</Button>}</> : <><Button size="sm" variant={connected ? 'secondary' : 'primary'} disabled={pending || !window.oxe?.agentAccount} onClick={() => void run(() => useAccountStore.getState().login(context))}>{connected ? 'Reconnect' : 'Connect'}</Button>{connected && <Button size="sm" disabled={pending || !window.oxe?.agentAccount} onClick={() => void run(() => useAccountStore.getState().logout(context))}>Sign out</Button>}<Button size="sm" variant="ghost" icon={<RefreshCw size={12} />} disabled={pending || !window.oxe?.agentAccount} onClick={() => void run(() => useAccountStore.getState().read(context))}>Verify</Button></>}</div>
     {error && <p role="alert">{error}</p>}
   </section>
 }
@@ -51,9 +50,8 @@ export function ProviderAccountsPanel({ workspaceId, onClose }: { workspaceId: s
     window.addEventListener('focus', focus)
     return () => { window.removeEventListener('focus', focus) }
   }, [workspaceId, threadId, threadProvider])
-  return <DesktopDialog className="thread-accounts-dialog" title="Agent accounts" description="Use your subscription with the native agent." onClose={onClose}>
+  return <Dialog className="thread-accounts-dialog" title="Agent accounts" description="Use your subscription with the native agent." onClose={onClose}>
     {(['claude', 'codex'] as const).map(provider => <AccountCard key={provider} context={accountContext(provider, workspaceId, thread)} />)}
     <p className="thread-account-note">Credentials stay with Claude Code and Codex. Reconnecting changes the native account also used by your CLI sessions.</p>
-    <footer><button type="button" onClick={onClose}>Done</button></footer>
-  </DesktopDialog>
+  </Dialog>
 }

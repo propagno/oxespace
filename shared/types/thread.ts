@@ -89,7 +89,7 @@ export interface ThreadCapabilityManifest {
 export interface ThreadUsageWindow { label: string; usedPercent: number; resetsAt?: number; windowMinutes?: number }
 export interface ThreadUsage { windows: ThreadUsageWindow[]; checkedAt: number }
 export interface ThreadFailure { id: string; occurredAt: number; code: 'authentication' | 'usage' | 'rate-limit' | 'context' | 'budget' | 'server' | 'network' | 'sandbox' | 'configuration' | 'session-busy' | 'unknown'; message: string; detail?: string; providerCode?: string; httpStatus?: number; usage?: ThreadUsage; usageUnavailable?: boolean }
-export interface ThreadCommandResult { kind: 'applied' | 'panel' | 'navigate'; title?: string; text?: string; externalUrl?: string; surface?: 'model' | 'effort' | 'permissions' | 'accounts' | 'commands' | 'sessions' | 'rename' | 'settings' | 'delegations' | 'changes' | 'rules' | 'spending' | 'work' | 'events'; threadId?: string; usage?: ThreadUsage; rows?: { label: string; detail?: string; id?: string; turnId?: string }[] }
+export interface ThreadCommandResult { kind: 'applied' | 'panel' | 'navigate' | 'confirm'; confirm?: import('../threadConfirmations').ThreadConfirmation; title?: string; text?: string; externalUrl?: string; surface?: 'model' | 'effort' | 'permissions' | 'accounts' | 'commands' | 'sessions' | 'rename' | 'settings' | 'delegations' | 'changes' | 'rules' | 'spending' | 'work' | 'events'; threadId?: string; usage?: ThreadUsage; rows?: { label: string; detail?: string; id?: string; turnId?: string }[] }
 /** Resolved in the main process; skill paths are never accepted from the renderer. */
 export interface ThreadAttachment {
   id: string

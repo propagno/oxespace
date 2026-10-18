@@ -3,15 +3,13 @@
 .workspace-surface.thread-workspace-surface { min-height: 0; overflow: hidden; }
 .thread-host { display: flex; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
 .thread-navigation { position: relative; display: flex; flex-direction: row; min-height: 0; overflow: hidden; background: var(--bg-sidebar); color: var(--tx-primary); }
-.thread-navigation button, .thread-view button, .thread-create-dialog button, .thread-accounts-dialog button { display: inline-flex; align-items: center; gap: 8px; color: inherit; background: transparent; border: 0; border-radius: var(--nav-radius); padding: 7px 10px; font-size: var(--fs-xs); cursor: pointer; box-shadow: none; }
-.thread-navigation button:hover, .thread-view button:hover, .thread-create-dialog button:hover, .thread-accounts-dialog button:hover { background: color-mix(in srgb, var(--tx-primary) 5%, transparent); }
-.thread-navigation button:focus-visible, .thread-view button:focus-visible, .thread-create-dialog button:focus-visible, .thread-accounts-dialog button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.thread-view button:disabled, .thread-create-dialog button:disabled, .thread-accounts-dialog button:disabled { opacity: .45; cursor: default; }
+.thread-navigation button, .thread-view button { display: inline-flex; align-items: center; gap: 8px; color: inherit; background: transparent; border: 0; border-radius: var(--nav-radius); padding: 7px 10px; font-size: var(--fs-xs); cursor: pointer; box-shadow: none; }
+.thread-navigation button:hover, .thread-view button:hover { background: color-mix(in srgb, var(--tx-primary) 5%, transparent); }
+.thread-navigation button:focus-visible, .thread-view button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.thread-view button:disabled { opacity: .45; cursor: default; }
 .thread-resize { position: absolute; top: 0; bottom: 0; right: 0; width: 4px; z-index: var(--layer-sticky); cursor: ew-resize; touch-action: none; }
 /* Match Code's project → child tree while keeping conversation titles primary. */
 .thread-command-dialog .thread-panel-list button span { white-space: pre-line; overflow-wrap: anywhere; }
-.desktop-dialog.thread-resume-dialog { width: min(740px, calc(100vw - 32px)); padding: 24px; overflow: hidden; display: flex; flex-direction: column; }
-.thread-resume-dialog > .desktop-dialog-header { flex-shrink: 0; }
 .thread-resume-sections { display: grid; gap: 22px; min-height: 0; overflow-y: auto; padding-right: 8px; }
 .thread-resume-search { display: grid; gap: 6px; color: var(--tx-secondary); font-size: var(--fs-xs); }
 .thread-resume-search input { width: 100%; }
@@ -296,17 +294,7 @@
 .thread-create-dialog label, .thread-auth-code label { display: grid; gap: 8px; margin: 16px 0; font-size: var(--fs-xs); }
 .thread-create-dialog select, .thread-create-dialog input, .thread-auth-code input { min-height: var(--control-h); min-width: 0; width: 100%; padding: 8px 10px; background: var(--bg-elevated); color: var(--tx-primary); border: 1px solid var(--bd-base); border-radius: var(--nav-radius); font: inherit; }
 .thread-project-folder-field { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
-.thread-project-folder-field button { height: var(--control-h); border: 1px solid var(--bd-base); white-space: nowrap; }
 .thread-create-dialog .thread-dialog-error { color: var(--dot-red); }
-.thread-create-dialog footer, .thread-accounts-dialog footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 20px; }
-.thread-create-dialog footer button, .thread-accounts-dialog footer button { height: 36px; padding: 0 12px; border: 1px solid var(--bd-base); }
-.thread-create-dialog .thread-primary, .thread-accounts-dialog .thread-primary { background: var(--accent); color: var(--text-on-accent); border: 1px solid transparent; }
-.thread-edit-retry-dialog footer button { color: var(--tx-primary); background: var(--bg-elevated); }
-.thread-edit-retry-dialog footer button:hover:not(:disabled) { color: var(--tx-primary); background: var(--bg-hover); }
-.thread-edit-retry-dialog footer .thread-primary { color: var(--text-on-accent); background: var(--accent); border-color: var(--accent); }
-.thread-edit-retry-dialog footer .thread-primary:hover:not(:disabled) { color: var(--text-on-accent); background: var(--accent-hover); }
-.thread-edit-retry-dialog footer .thread-primary:disabled { opacity: 1; color: var(--tx-secondary); background: var(--bg-hover); border-color: var(--bd-base); cursor: wait; }
-.thread-accounts-dialog>header { display: flex; align-items: flex-start; justify-content: space-between; }
 .thread-account-card { border: 1px solid var(--bd-base); border-radius: var(--surface-radius); padding: 16px; margin-bottom: 12px; }
 .thread-account-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .thread-account-heading>div { flex: 1; }
@@ -314,7 +302,6 @@
 .thread-account-heading small, .thread-account-card>small { display: block; font-size: var(--fs-2xs); color: var(--tx-muted); }
 .thread-account-card p { margin: 0 0 10px; }
 .thread-account-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.thread-account-actions button { height: 36px; padding: 0 12px; border: 1px solid var(--bd-base); }
 .thread-accounts-dialog .thread-account-note { font-size: var(--fs-2xs); margin: 16px 0 0; }
 .thread-auth-code { margin: 0 0 12px; }
 .thread-spin { animation: thread-spin 1s linear infinite; }
@@ -325,7 +312,6 @@
 
 .thread-resize:hover, .thread-resize:focus-visible { background: color-mix(in srgb, var(--accent) 35%, transparent); }
 .thread-create-dialog p, .thread-account-card p, .thread-accounts-dialog p { font-size: var(--fs-xs); color: var(--tx-muted); line-height: 1.5; }
-.thread-accounts-dialog button { height: var(--control-h); }
 
 .thread-configuration { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; min-width: 0; }
 .thread-composer .thread-config-trigger { gap: 5px; min-height: 28px; padding: 4px 7px; font-size: var(--fs-xs); color: var(--tx-secondary); }
@@ -343,7 +329,6 @@
 .thread-config-options small { color: var(--tx-muted); font-size: var(--fs-2xs); margin-top: 3px; line-height: 1.4; }
 .thread-config-popover p { padding: 0 8px; color: var(--tx-secondary); line-height: 1.5; overflow-wrap: anywhere; }
 .thread-config-popover input { width: 100%; padding: 8px; border: 1px solid var(--bd-base); background: var(--bg-app); color: inherit; border-radius: var(--radius-sm); }
-.thread-access-confirm { margin: 6px; padding: 4px; border: 1px solid var(--bd-base); border-radius: var(--radius-md); }
 .thread-config-pending { white-space: nowrap; padding: 0 4px; }
 .thread-activity-group, .thread-activity-single { width: 100%; min-width: 0; max-width: min(100%, var(--thread-prose-max)); margin: 6px 0 14px; color: var(--tx-muted); font-size: var(--fs-xs); }
 .thread-activity-single summary { display: flex; align-items: center; gap: 9px; min-height: 30px; padding: 3px 0; cursor: pointer; list-style: none; }
@@ -403,7 +388,6 @@
 .thread-command-explanation { margin: 0; color: var(--tx-secondary); line-height: 1.5; }
 .thread-command-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
 .thread-command-actions:empty { display: none; }
-.thread-command-dialog input { flex: 1; min-width: 0; padding: 8px; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); background: var(--bg-app); color: var(--tx-primary); }
 @media (max-width: 1000px) { .thread-config-trigger span { max-width: 135px; } .thread-composer footer { gap: 4px; } }
 
 .thread-grid { display: grid; grid-template-columns: minmax(0, 1fr); flex: 1; min-width: 0; min-height: 0; overflow: hidden; background: var(--bd-base); }
@@ -432,13 +416,10 @@
 .thread-font-arrow { fill: var(--bg-elevated); }
 
 /* Dialogs use a clear field hierarchy and compact provider choices. */
-.desktop-dialog.thread-create-dialog { width: min(540px, calc(100vw - 32px)); padding: 24px; }
 .thread-create-dialog .thread-create-section { display: grid; gap: 8px; margin-top: 22px; }
 .thread-create-dialog .thread-create-section>label, .thread-agent-choice legend { margin: 0; color: var(--tx-primary); font-size: var(--fs-xs); font-weight: 600; }
 .thread-create-dialog .thread-create-section>p { margin: 0; color: var(--tx-muted); font-size: var(--fs-2xs); }
 .thread-create-dialog .thread-create-section select { min-height: 40px; padding-inline: 12px; background: var(--bg-app); }
-.desktop-dialog.thread-project-settings { max-height: min(82vh, 780px); display: flex; flex-direction: column; overflow: hidden; }
-.thread-project-settings > .desktop-dialog-header, .thread-project-settings > footer { flex-shrink: 0; }
 .thread-project-settings-body { min-height: 0; overflow-y: auto; padding: 0 4px 4px; }
 .thread-project-settings .thread-create-section { padding-top: 16px; border-top: 1px solid var(--bd-base); }
 .thread-project-settings .thread-create-section > strong { color: var(--tx-primary); font-size: var(--fs-sm); }
@@ -446,9 +427,6 @@
 .thread-project-settings .thread-create-section > label:has(input:not([type='checkbox'])) { display: grid; align-items: stretch; }
 .thread-project-settings .thread-create-section input[type='text'], .thread-project-settings .thread-create-section input:not([type]) { width: 100%; min-height: 38px; }
 .thread-project-settings .thread-create-section > label.thread-project-check { display: grid; grid-template-columns: 16px minmax(0, 1fr); align-items: start; gap: 10px; margin: 8px 0; font-weight: 400; }
-.thread-project-settings input[type='checkbox'] { appearance: auto; width: 16px; height: 16px; min-width: 16px; min-height: 16px; padding: 0; margin: 1px 0 0; accent-color: var(--accent); border-radius: var(--radius-xs); }
-.thread-project-settings .thread-create-section > button, .thread-project-settings .thread-project-relink > button { justify-self: start; min-height: 34px; padding: 0 12px; border: 1px solid var(--bd-base); background: var(--bg-elevated); color: var(--tx-primary); }
-.thread-project-settings .thread-create-section > button:hover:not(:disabled), .thread-project-settings .thread-project-relink > button:hover:not(:disabled) { border-color: var(--accent); background: var(--bg-hover); }
 .thread-project-current-path { overflow-wrap: anywhere; }
 .thread-project-relink { margin-top: 4px; }
 .thread-project-relink summary { width: fit-content; color: var(--tx-secondary); font-size: var(--fs-xs); cursor: pointer; }
@@ -470,16 +448,13 @@
 .thread-agent-option strong { font-size: var(--fs-xs); }
 .thread-agent-option small { color: var(--tx-muted); font-size: var(--fs-2xs); }
 .thread-agent-option-check { margin-left: auto; flex-shrink: 0; color: var(--accent); }
-.thread-create-dialog footer { padding-top: 16px; border-top: 1px solid var(--bd-base); }
 @media (max-width: 520px) { .thread-agent-options { grid-template-columns: 1fr; } }
 
-.desktop-dialog.thread-accounts-dialog { width: min(580px, calc(100vw - 32px)); padding: 24px; }
 .thread-accounts-dialog .thread-account-card { padding: 15px 16px; margin-bottom: 10px; background: var(--bg-app); }
 .thread-account-heading { margin-bottom: 9px; }
 .thread-account-heading>.agent-provider-icon { flex: 0 0 28px; }
 .thread-account-heading>div:not(.agent-provider-icon) { flex: 1; min-width: 0; }
 .thread-accounts-dialog .thread-account-note { padding: 10px 12px; margin: 12px 0 0; border: 1px solid var(--bd-base); border-radius: var(--nav-radius); color: var(--tx-muted); background: var(--bg-app); }
-.thread-accounts-dialog footer { padding-top: 14px; margin-top: 14px; border-top: 1px solid var(--bd-base); }
 @media (max-width: 1000px) { .thread-grid.is-split { grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(2, minmax(0, 1fr)); } }
 
 .thread-project-selection { display: grid; gap: 8px; min-width: 0; }
@@ -499,13 +474,6 @@
 .thread-historical-questions > div + div { margin-top: 12px; }
 .thread-historical-questions ul { margin: 6px 0; padding-left: 20px; }
 .thread-access-directory { overflow-wrap:anywhere; color:var(--tx-secondary); }
-.thread-access-dialog { width:min(520px, calc(100vw - 32px)); max-height:calc(100dvh - 32px); display:flex; flex-direction:column; }
-.thread-access-dialog .desktop-dialog-body { overflow:auto; padding:0 24px 20px; line-height:1.6; }
-.thread-access-dialog .desktop-dialog-footer { display:flex; justify-content:flex-end; gap:8px; padding:16px 24px; border-top:1px solid var(--bd-base); }
-.thread-access-dialog button { min-height:32px; }
-.thread-access-dialog .desktop-dialog-footer button { padding:6px 12px; border:1px solid var(--bd-base); border-radius:var(--radius-sm); }
-.thread-access-dialog .desktop-dialog-footer button:last-child { background: var(--accent); color: var(--text-on-accent); }
-.thread-access-dialog .desktop-dialog-body p + p { margin-top:12px; }
 .thread-turn-timing.is-warning .thread-turn-outcome { color: var(--warning, var(--intent-warning-fg)); }
 
 
