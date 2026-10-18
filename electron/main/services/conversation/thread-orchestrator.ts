@@ -37,13 +37,10 @@ import type { WorkRun } from '../../../../shared/types/work'
 import { recordRuntime } from '../runtime-diagnostics'
 import { hasUnconfirmedTurnTools, recoverPublicTurn } from './thread-result-recovery'
 import type { NativeStateResult } from './codex-state-reader'
-import { resolveSessionLocation } from '../git-common-dir'
-import { resolve as resolvePath } from 'node:path'
+import { canonicalPath, resolveSessionLocation } from '../git-common-dir'
 
-const sameCheckout = (a: string, b: string): boolean => {
-  const norm = (path: string): string => resolvePath(path).replace(/\\/g, '/').replace(/\/$/, '')
-  return process.platform === 'win32' ? norm(a).toLowerCase() === norm(b).toLowerCase() : norm(a) === norm(b)
-}
+// Canonical comparison: a Windows short name and its long form are the same folder.
+const sameCheckout = (a: string, b: string): boolean => canonicalPath(a) === canonicalPath(b)
 
 /** Repair older histories whose provider ended a turn without a matching tool result. */
 function settleCompletedHistoryTools(events: ThreadEvent[]): number {

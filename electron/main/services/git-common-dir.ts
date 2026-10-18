@@ -11,17 +11,26 @@ export function gitCommonDir(root: string): string | null {
   try {
     const dotGit = join(root, '.git')
     const stat = statSync(dotGit)
-    if (stat.isDirectory()) return normalize(realpathSync(dotGit))
+    if (stat.isDirectory()) return normalize(realpathSync.native(dotGit))
     if (!stat.isFile()) return null
     const match = /^gitdir:\s*(.+)$/m.exec(readFileSync(dotGit, 'utf8'))
     if (!match) return null
     const gitDir = resolve(root, match[1].trim())
     let common = gitDir
     try { common = resolve(gitDir, readFileSync(join(gitDir, 'commondir'), 'utf8').trim()) } catch { /* not a linked worktree */ }
-    return normalize(realpathSync(common))
+    return normalize(realpathSync.native(common))
   } catch {
     return null
   }
+}
+
+/**
+ * One spelling per directory, for comparing paths. The native realpath expands Windows 8.3 short names
+ * (`C:\Users\RUNNER~1`), which the JavaScript one keeps, while git always writes the long form; without it
+ * the same folder compares unequal. Falls back to the resolved path when the folder does not exist.
+ */
+export function canonicalPath(path: string): string {
+  try { return normalize(realpathSync.native(path)) } catch { return normalize(resolve(path)).replace(/\/+$/, '') }
 }
 
 /** True when both directories are checkouts (main or linked worktrees) of the same repository. */
@@ -49,8 +58,12 @@ export function findCheckoutRoot(dir: string): string | null {
 export function resolveSessionLocation(cwd: string, launchRoot: string): SessionLocation | null {
   if (!cwd || cwd.length > 4096 || cwd.includes('\0') || !isAbsolute(cwd)) return null
   try { if (!statSync(cwd).isDirectory()) return null } catch { return null }
-  const checkoutRoot = findCheckoutRoot(cwd)
-  return { cwd, checkoutRoot, sameRepository: checkoutRoot !== null && sameRepository(checkoutRoot, findCheckoutRoot(launchRoot) ?? launchRoot) }
+  const found = findCheckoutRoot(cwd)
+  const launchCheckout = findCheckoutRoot(launchRoot) ?? launchRoot
+  // The launch checkout itself is reported in the spelling the pane already uses, so a short or long form
+  // of the same folder never reads as a move into another worktree.
+  const checkoutRoot = found !== null && canonicalPath(found) === canonicalPath(launchCheckout) ? launchCheckout : found
+  return { cwd, checkoutRoot, sameRepository: checkoutRoot !== null && sameRepository(checkoutRoot, launchCheckout) }
 }
 
 function normalize(path: string): string {
