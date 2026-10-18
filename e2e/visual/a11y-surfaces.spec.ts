@@ -166,9 +166,10 @@ for (const theme of THEMES) {
         }
       }
       await dialogScan('agent-config', async () => {
-        await page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /Agents/ }).first().click()
-        await page.locator('[data-testid^="btn-configure-agent-"]').first().click()
-      }, () => page.getByRole('dialog').filter({ hasText: /command|Command/ }).last())
+        // The mock lists no agents, so the configuration opens for a new custom agent (General page).
+        await page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /General/ }).first().click()
+        await page.getByTestId('btn-new-custom-agent').click()
+      }, () => page.getByRole('dialog').last())
       await page.getByRole('button', { name: 'Close settings', exact: true }).click().catch(() => undefined)
       await reach(`${theme}/oxequery`, found, page, async () => {
         await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
@@ -238,30 +239,33 @@ for (const theme of THEMES) {
         await page.getByRole('button', { name: /^New thread/ }).first().click()
         await page.getByRole('dialog', { name: 'New thread' }).getByRole('checkbox', { name: 'Create in a new worktree' }).check()
       }, () => page.getByRole('dialog', { name: 'New thread' }))
-      await dialogScan('thread-rename', async () => {
-        await page.getByRole('button', { name: /^Actions for / }).first().click()
-        await page.getByRole('menuitem', { name: 'Rename conversation…' }).click()
-      }, () => page.getByRole('dialog').first())
+      // Row actions show on hover; the row is hovered first, as a person would.
+      const rowMenu = async (item: string): Promise<void> => {
+        const row = page.locator('.thread-navigation-row').first()
+        await row.hover()
+        await row.locator('button[aria-label^="Actions for "]').click()
+        await page.getByRole('menuitem', { name: item }).click()
+      }
+      await dialogScan('thread-rename', () => rowMenu('Rename conversation…'), () => page.getByRole('dialog').first())
       await dialogScan('thread-project-settings', async () => {
-        await page.getByRole('button', { name: /^Actions for / }).filter({ hasNot: page.locator('[data-thread-id]') }).last().click()
+        const actions = page.locator('button[data-project-actions]').first()
+        await actions.locator('xpath=..').hover()
+        await actions.click()
         await page.getByRole('menuitem', { name: 'Project settings' }).click()
       }, () => page.getByRole('dialog', { name: /^Thread project/ }))
       await dialogScan('thread-accounts', () => page.getByRole('button', { name: 'Agent accounts', exact: true }).click(), () => page.getByRole('dialog', { name: 'Agent accounts' }))
       // Command confirmations come from the real command router; Escape cancels them, so nothing is archived.
-      const command = async (text: string): Promise<void> => {
-        const composer = page.getByRole('textbox', { name: 'Message' })
-        await composer.fill(text)
-        await composer.press('Enter')
-      }
-      await dialogScan('thread-confirm-archive', () => command('/archive'), () => page.getByRole('dialog', { name: 'Archive this conversation?' }))
-      await dialogScan('thread-confirm-delete', () => command('/delete'), () => page.getByRole('dialog', { name: 'Delete this conversation?' }))
+      // The fixtures stand in for the main process, so the confirmations are opened from the row menu (the
+      // same dialogs /archive and /delete raise).
+      await dialogScan('thread-confirm-archive', () => rowMenu('Archive conversation'), () => page.getByRole('dialog', { name: /^Archive/ }))
+      await dialogScan('thread-confirm-delete', () => rowMenu('Delete conversation'), () => page.getByRole('dialog', { name: /^Delete/ }))
       await dialogScan('delegation-create', async () => {
         await page.getByRole('button', { name: 'More actions' }).first().click()
         await page.getByRole('menuitem', { name: 'Delegate work' }).click()
       }, () => page.getByRole('dialog', { name: 'Delegate work' }))
       await dialogScan('thread-confirm-full-access', async () => {
-        await page.getByRole('button', { name: /Permissions|access/i }).first().click()
-        await page.getByRole('menuitemradio', { name: /Full access/ }).or(page.getByRole('option', { name: /Full access/ })).or(page.getByRole('menuitem', { name: /Full access/ })).first().click()
+        await page.getByRole('button', { name: 'Permissions', exact: true }).click()
+        await page.locator('.thread-config-popover').getByRole('button', { name: /Full access/ }).click()
       }, () => page.getByRole('dialog', { name: 'Allow expanded access?' }))
     } finally {
       await app.close()
