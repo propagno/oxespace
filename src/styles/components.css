@@ -1,7 +1,6 @@
 /* ─── Modal ──────────────────────────────────────────────────────────────── */
-/* `.modal-backdrop` was removed once every modal moved to <Dialog>: Radix
-   renders the scrim itself. Its look now lives in LEGACY_MODAL_OVERLAY
-   (src/components/ui/dialog.tsx), applied via `overlayClassName`. */
+/* Legacy modal surface classes, kept for the Settings and workspace-settings screens.
+   New dialogs use the ui Dialog (src/ui/Overlay.tsx), which draws its own scrim. */
 
 .modal {
   width: min(480px, calc(100vw - 40px));

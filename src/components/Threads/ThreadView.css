@@ -72,7 +72,7 @@
 .thread-native-cli > footer > div { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: center; }
 .thread-native-link { position: relative; flex-shrink: 0; }
 .thread-native-link summary { cursor: pointer; padding: 2px 0; color: var(--tx-secondary); }
-.thread-native-link form { position: absolute; z-index: 2; bottom: 28px; right: 0; width: min(360px, calc(100vw - 96px)); padding: 16px; background: var(--bg-elevated); border: 1px solid var(--bd-base); border-radius: var(--radius-md); box-shadow: 0 12px 32px #0004; }
+.thread-native-link form { position: absolute; z-index: 2; bottom: 28px; right: 0; width: min(360px, calc(100vw - 96px)); padding: 16px; background: var(--bg-elevated); border: 1px solid var(--bd-base); border-radius: var(--radius-md); box-shadow: var(--elevation-3); }
 .thread-native-link p { margin: 0 0 12px; line-height: 1.5; }
 .thread-native-link label, .thread-native-link small { display: block; margin-bottom: 8px; }
 .thread-native-link input { display: block; width: 100%; margin-top: 6px; padding: 8px; background: var(--bg-input); border: 1px solid var(--bd-base); border-radius: var(--radius-sm); color: var(--tx-primary); }
@@ -251,7 +251,7 @@
 .thread-attachments span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-attachments small { color: var(--tx-muted); white-space: nowrap; }
 .thread-attachments button { display: grid; place-items: center; width: 18px; height: 18px; padding: 0; }
-.thread-command-popup { position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); z-index: 6; display: flex; flex-direction: column; max-height: min(360px, calc(100dvh - 240px)); overflow: hidden; border: 1px solid var(--bd-base); border-radius: var(--surface-radius); background: var(--bg-elevated); color: var(--tx-primary); box-shadow: 0 8px 24px #0002; }
+.thread-command-popup { position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); z-index: 6; display: flex; flex-direction: column; max-height: min(360px, calc(100dvh - 240px)); overflow: hidden; border: 1px solid var(--bd-base); border-radius: var(--surface-radius); background: var(--bg-elevated); color: var(--tx-primary); box-shadow: var(--elevation-3); }
 .thread-command-popup>header { display: flex; align-items: center; gap: 8px; padding: 10px 12px; color: var(--tx-secondary); font-size: var(--fs-xs); border-bottom: 1px solid var(--bd-base); }
 .thread-command-popup>header small { margin-left: auto; color: var(--tx-muted); }
 .thread-command-popup>header>button { margin-left: auto; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: var(--radius-xs); background: transparent; color: var(--tx-muted); cursor: pointer; }
@@ -317,7 +317,7 @@
 .thread-composer .thread-config-trigger { gap: 5px; min-height: 28px; padding: 4px 7px; font-size: var(--fs-xs); color: var(--tx-secondary); }
 .thread-config-trigger span { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-config-trigger:disabled { opacity: .55; }
-.thread-config-popover { z-index: var(--layer-dropdown); width: min(340px, calc(100vw - 32px)); display: flex; flex-direction: column; max-height: min(520px, var(--radix-popover-content-available-height)); overflow: hidden; padding: 0; border: 1px solid var(--wb-border); border-radius: var(--radius-lg); background: var(--bg-elevated); color: var(--tx-primary); box-shadow: 0 12px 40px #0004; font-size: var(--fs-sm); }
+.thread-config-popover { z-index: var(--layer-dropdown); width: min(340px, calc(100vw - 32px)); display: flex; flex-direction: column; max-height: min(520px, var(--radix-popover-content-available-height)); overflow: hidden; padding: 0; border: 1px solid var(--wb-border); border-radius: var(--radius-lg); background: var(--bg-elevated); color: var(--tx-primary); box-shadow: var(--elevation-3); font-size: var(--fs-sm); }
 .thread-config-popover header { flex: none; display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid var(--wb-border); font-weight: 600; }
 .thread-config-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 6px; }
 .thread-config-popover button { display: flex; align-items: center; gap: 8px; padding: 9px; background: transparent; border: 0; border-radius: var(--radius-sm); color: inherit; font: inherit; text-align: left; cursor: pointer; }
@@ -404,7 +404,7 @@
 .thread-view .thread-markdown h3 { font-size: calc(var(--thread-reader-font-size) * 1.14); }
 .thread-view .thread-markdown :is(h4,h5,h6) { font-size: var(--thread-reader-font-size); }
 .thread-view .thread-composer textarea { font-size: var(--thread-reader-font-size); }
-.thread-font-popover { z-index: calc(var(--layer-dropdown) + 20); display: grid; gap: 6px; width: 210px; padding: 13px; border: 1px solid var(--bd-base); border-radius: var(--surface-radius); background: var(--bg-elevated); color: var(--tx-primary); box-shadow: 0 14px 34px #0006; font-size: var(--fs-xs); }
+.thread-font-popover { z-index: calc(var(--layer-dropdown) + 20); display: grid; gap: 6px; width: 210px; padding: 13px; border: 1px solid var(--bd-base); border-radius: var(--surface-radius); background: var(--bg-elevated); color: var(--tx-primary); box-shadow: var(--elevation-3); font-size: var(--fs-xs); }
 .thread-font-popover>strong { font-size: var(--fs-sm); }
 .thread-font-popover>span { color: var(--tx-muted); }
 .thread-font-controls { display: grid; grid-template-columns: 34px 1fr 34px; align-items: center; gap: 6px; margin-top: 6px; }
