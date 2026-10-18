@@ -525,13 +525,6 @@
 /* Title bar panel toggles + "more" menu (Claude Code Desktop layout). */
 .thread-panel-toggle[aria-pressed='true'] { background: var(--nav-selected); color: var(--tx-primary); }
 @media (max-width: 1180px) { .thread-heading .thread-panel-toggle span { display: none; } .thread-heading .thread-panel-toggle { padding: 5px 7px; } }
-.thread-more-menu { z-index: var(--layer-modal); min-width: 240px; padding: 4px; border: 1px solid var(--wb-border); border-radius: var(--radius-md); background: var(--bg-elevated); color: var(--tx-primary); box-shadow: var(--shadow-lg); }
-.thread-more-label { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px 4px; color: var(--tx-muted); font-size: var(--fs-2xs); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
-.thread-more-label kbd { font: inherit; text-transform: none; letter-spacing: 0; }
-.thread-more-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 8px; border-radius: var(--radius-sm); font-size: var(--fs-xs); cursor: default; outline: none; user-select: none; }
-.thread-more-item small { display: block; margin-top: 1px; color: var(--tx-muted); font-size: var(--fs-2xs); }
-.thread-more-item[data-highlighted] { background: var(--nav-hover); }
-.thread-more-separator { height: 1px; margin: 4px 0; background: var(--wb-border); }
 
 /* Prompt box (Claude Code Desktop layout): [+ / mic] model · effort ········ mode · usage · send */
 .thread-composer .thread-configuration { display: contents; }
@@ -613,9 +606,6 @@
 .thread-create-dialog .thread-project-selection > span { color: var(--tx-primary); font-size: var(--fs-base); font-weight: 600; }
 .thread-create-dialog .thread-project-selection > code { overflow-wrap: anywhere; color: var(--tx-secondary); font-size: var(--fs-2xs); }
 
-.thread-more-item:has(> svg:first-child) { justify-content: flex-start; gap: 8px; }
-.thread-more-item[data-disabled] { opacity: .45; }
-.thread-more-label output { margin-left: 6px; color: var(--tx-primary); font-weight: 600; }
 
 /* The composer footer reads as three groups: add to the prompt, model and access, then status and send. */
 .thread-composer-group { display: flex; align-items: center; gap: 2px; min-width: 0; }

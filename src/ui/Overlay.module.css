@@ -97,3 +97,8 @@
   background: var(--scrim);
   animation: fade var(--duration-base) var(--ease-standard);
 }
+.menuRadioText { display: grid; gap: 1px; min-width: 0; }
+.menuRadioText small { color: var(--text-secondary); font-size: var(--text-2xs); }
+/* Rich labels: a live value (text size) or a shortcut next to the group name. */
+.menuLabel output { margin-left: var(--space-1); color: var(--text-primary); font-weight: var(--weight-semibold); }
+.menuLabel kbd { margin-left: var(--space-1); font: inherit; }

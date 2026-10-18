@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, Check, Loader2, RefreshCw, Shield } from 'lucide-react'
-import { Popover } from 'radix-ui'
 import type { ConversationThread, ThreadConfiguration, ThreadModelCatalog, ThreadSnapshot } from '../../../shared/types/thread'
-import { ConfirmDialog, TextField } from '../../ui'
+import { ConfirmDialog, Popover, TextField } from '../../ui'
 
 export function ThreadConfigurationBar({ thread, onConfigured, onError, openControl, onControlClosed }: {
   thread: ConversationThread; onConfigured: (snapshot: ThreadSnapshot) => void; onError: (message: string) => void
@@ -40,12 +39,11 @@ export function ThreadConfigurationBar({ thread, onConfigured, onError, openCont
     } catch (error) { if (identity.current === id) onError(error instanceof Error ? error.message : 'Could not apply configuration') }
     finally { if (identity.current === id) setSaving(false) }
   }
-  const selector = (kind: string, label: string, text: string, children: React.ReactNode, disabled = false, badge?: string) => <Popover.Root open={opened === kind} onOpenChange={open => { if (open) setOpened(kind); else if (!proposedAccess && !proposedNetwork && !proposedNever && !proposedHooks) close() }}>
-    <Popover.Trigger asChild><button ref={kind === 'permissions' ? accessTrigger : undefined} type="button" className={`thread-config-trigger${kind === 'permissions' ? ' is-permissions' : ''}`} aria-label={label} disabled={saving || disabled} title={text}>{kind === 'permissions' && <Shield size={12} />}<span>{text}</span>{badge && <i className="thread-config-badge">{badge}</i>}{saving ? <Loader2 size={12} className="thread-spin" /> : <ChevronDown size={12} />}</button></Popover.Trigger>
-    <Popover.Portal><Popover.Content className="thread-config-popover" side="top" align="start" sideOffset={10} collisionPadding={{ top: 44, right: 16, bottom: 16, left: 16 }} avoidCollisions sticky="always" aria-label={label}>
+  const selector = (kind: string, label: string, text: string, children: React.ReactNode, disabled = false, badge?: string) => <Popover open={opened === kind} onOpenChange={open => { if (open) setOpened(kind); else if (!proposedAccess && !proposedNetwork && !proposedNever && !proposedHooks) close() }}
+    side="top" sideOffset={10} label={label} className="thread-config-popover"
+    trigger={<button ref={kind === 'permissions' ? accessTrigger : undefined} type="button" className={`thread-config-trigger${kind === 'permissions' ? ' is-permissions' : ''}`} aria-label={label} disabled={saving || disabled} title={text}>{kind === 'permissions' && <Shield size={12} />}<span>{text}</span>{badge && <i className="thread-config-badge">{badge}</i>}{saving ? <Loader2 size={12} className="thread-spin" /> : <ChevronDown size={12} />}</button>}>
       <header>{label}{kind !== 'permissions' && <button type="button" aria-label="Refresh models" onClick={() => setRefresh(value => value + 1)} disabled={loading}><RefreshCw size={14} /></button>}</header><div className="thread-config-scroll">{children}</div>
-    </Popover.Content></Popover.Portal>
-  </Popover.Root>
+  </Popover>
   return <div className="thread-configuration" aria-label="Conversation configuration">
     {selector('model', 'Select model', model?.label ?? desired.model ?? (loading ? 'Loading models…' : catalog.defaultKnown === false ? 'Provider default' : 'Select model'), <>
       {catalog.models.length > 8 && <TextField aria-label="Filter models" placeholder="Search models…" value={query} onChange={event => setQuery(event.target.value)} />}

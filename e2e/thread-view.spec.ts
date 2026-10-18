@@ -827,7 +827,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.getByRole('menuitemradio', { name: 'Find in files', exact: true })).toBeVisible()
     await expect(page.getByRole('menuitemradio', { name: 'Scripts', exact: true })).toBeVisible()
     await expect(page.getByRole('menuitemradio', { name: 'Background activity', exact: true })).toBeVisible()
-    await expect(page.getByRole('menuitemradio', { name: 'Web preview', exact: true })).toBeVisible()
+    await expect(page.getByRole('menuitemradio', { name: 'Browser', exact: true })).toBeVisible()
     await expect(page.getByRole('menuitemradio', { name: 'Terminal', exact: true })).toBeVisible()
     for (const removed of ['Session changes', 'Project changes', 'Source control', 'Agents', 'Plan', 'Activity', 'Diagnostics']) await expect(page.getByRole('menuitemradio', { name: removed, exact: true })).toHaveCount(0)
     await page.getByRole('menuitemradio', { name: 'Background activity', exact: true }).click()

@@ -1,5 +1,5 @@
-import { Check, GitBranch, Minus, MoreHorizontal, Pin, Plug, Plus, Waypoints, X } from 'lucide-react'
-import { DropdownMenu } from 'radix-ui'
+import { GitBranch, Minus, MoreHorizontal, Pin, Plug, Plus, Waypoints, X } from 'lucide-react'
+import { Menu, type MenuEntry } from '../../ui'
 import type { ConversationThread } from '../../../shared/types/thread'
 import type { Workspace } from '../../../shared/types/workspace'
 import { THREAD_FONT_DEFAULT, THREAD_FONT_MAX, THREAD_FONT_MIN, useThreadPrefs } from '../../store/thread-prefs.store'
@@ -42,34 +42,28 @@ export function ThreadHeader({ thread, workspace, branch, pending, running, acti
     {thread && <ThreadConversationActions thread={thread} disabled={pending} onCommand={onCommand} onExport={onExport} onImport={onImport} />}</div>
     <div className="thread-heading-actions">
     {thread && THREAD_BAR_PANELS.map(id => <WorkbenchPanelToggle key={id} className="thread-review-trigger thread-panel-toggle" item={{ id, active: activePanel === THREAD_PANEL[id], onToggle: () => onTogglePanel(THREAD_PANEL[id]) }} />)}
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger asChild><button type="button" className="thread-icon-action" aria-label="More actions" title="More actions"><MoreHorizontal size={16} /></button></DropdownMenu.Trigger>
-      <DropdownMenu.Portal><DropdownMenu.Content collisionPadding={{ top: 44, right: 8, bottom: 8, left: 8 }} className="thread-more-menu" align="end" sideOffset={6}>
-        {thread && <>
-          <DropdownMenu.Item className="thread-more-item" disabled={pending || running} onSelect={onDelegate}><Waypoints size={14} aria-hidden="true" />Delegate work</DropdownMenu.Item>
-          <DropdownMenu.Item className="thread-more-item" disabled={pending} onSelect={onPin}><Pin size={14} aria-hidden="true" />{thread.pinned ? 'Unpin thread' : 'Pin thread'}</DropdownMenu.Item>
-        </>}
-        <DropdownMenu.Item className="thread-more-item" onSelect={() => useUIStore.getState().openMcpPanel()}><Plug size={14} aria-hidden="true" />MCP connections</DropdownMenu.Item>
-        <DropdownMenu.Separator className="thread-more-separator" />
-        <DropdownMenu.Label className="thread-more-label">Text size <output aria-label="Thread text size">{threadFontSize}px</output></DropdownMenu.Label>
-        <DropdownMenu.Item className="thread-more-item" disabled={threadFontSize <= THREAD_FONT_MIN} onSelect={event => { event.preventDefault(); setThreadFontSize(threadFontSize - 1) }}><Minus size={14} aria-hidden="true" />Smaller text</DropdownMenu.Item>
-        <DropdownMenu.Item className="thread-more-item" disabled={threadFontSize >= THREAD_FONT_MAX} onSelect={event => { event.preventDefault(); setThreadFontSize(threadFontSize + 1) }}><Plus size={14} aria-hidden="true" />Larger text</DropdownMenu.Item>
-        <DropdownMenu.Item className="thread-more-item" disabled={threadFontSize === THREAD_FONT_DEFAULT} onSelect={event => { event.preventDefault(); setThreadFontSize(THREAD_FONT_DEFAULT) }}>Reset text size</DropdownMenu.Item>
-        {thread && <>
-          <DropdownMenu.Separator className="thread-more-separator" />
-          <DropdownMenu.Label className="thread-more-label">Panels</DropdownMenu.Label>
-          <DropdownMenu.RadioGroup value={activePanel ?? ''} onValueChange={value => onTogglePanel(value as ThreadPanel, true)}>
-            {THREAD_MENU_PANELS.map(id => <DropdownMenu.RadioItem key={id} value={THREAD_PANEL[id]} className="thread-more-item" aria-label={WORKBENCH_PANELS[id].label}>{WORKBENCH_PANELS[id].label}<DropdownMenu.ItemIndicator><Check size={14} /></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}
-          </DropdownMenu.RadioGroup>
-          <DropdownMenu.Separator className="thread-more-separator" />
-          <DropdownMenu.Label className="thread-more-label">Transcript view <kbd>Ctrl+O</kbd></DropdownMenu.Label>
-          <DropdownMenu.RadioGroup value={viewMode} onValueChange={value => useThreadViewModeStore.getState().setMode(value as ThreadViewMode)}>
-            {THREAD_VIEW_MODES.map(mode => <DropdownMenu.RadioItem key={mode} value={mode} className="thread-more-item" aria-label={`${THREAD_VIEW_MODE_LABEL[mode]} view`}>
-              <span>{THREAD_VIEW_MODE_LABEL[mode]}<small>{THREAD_VIEW_MODE_HINT[mode]}</small></span><DropdownMenu.ItemIndicator><Check size={14} /></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}
-          </DropdownMenu.RadioGroup>
-        </>}
-      </DropdownMenu.Content></DropdownMenu.Portal>
-    </DropdownMenu.Root>
+    <Menu label="More actions" align="end" items={[
+      ...(thread ? [
+        { label: 'Delegate work', icon: <Waypoints size={14} aria-hidden="true" />, disabled: pending || running, onSelect: onDelegate },
+        { label: thread.pinned ? 'Unpin thread' : 'Pin thread', icon: <Pin size={14} aria-hidden="true" />, disabled: pending, onSelect: onPin }
+      ] : []),
+      { label: 'MCP connections', icon: <Plug size={14} aria-hidden="true" />, onSelect: () => useUIStore.getState().openMcpPanel() },
+      { type: 'separator' },
+      { type: 'label', label: <>Text size <output aria-label="Thread text size">{threadFontSize}px</output></> },
+      { label: 'Smaller text', icon: <Minus size={14} aria-hidden="true" />, keepOpen: true, disabled: threadFontSize <= THREAD_FONT_MIN, onSelect: () => setThreadFontSize(threadFontSize - 1) },
+      { label: 'Larger text', icon: <Plus size={14} aria-hidden="true" />, keepOpen: true, disabled: threadFontSize >= THREAD_FONT_MAX, onSelect: () => setThreadFontSize(threadFontSize + 1) },
+      { label: 'Reset text size', keepOpen: true, disabled: threadFontSize === THREAD_FONT_DEFAULT, onSelect: () => setThreadFontSize(THREAD_FONT_DEFAULT) },
+      ...(thread ? [
+        { type: 'separator' },
+        { type: 'label', label: 'Panels' },
+        { type: 'radio', value: activePanel ?? '', onValueChange: (value: string) => onTogglePanel(value as ThreadPanel, true),
+          options: THREAD_MENU_PANELS.map(id => ({ value: THREAD_PANEL[id], label: WORKBENCH_PANELS[id].label })) },
+        { type: 'separator' },
+        { type: 'label', label: <>Transcript view <kbd>Ctrl+O</kbd></> },
+        { type: 'radio', value: viewMode, onValueChange: (value: string) => useThreadViewModeStore.getState().setMode(value as ThreadViewMode),
+          options: THREAD_VIEW_MODES.map(mode => ({ value: mode, label: THREAD_VIEW_MODE_LABEL[mode], hint: THREAD_VIEW_MODE_HINT[mode], ariaLabel: `${THREAD_VIEW_MODE_LABEL[mode]} view` })) }
+      ] satisfies MenuEntry[] : [])
+    ]} trigger={<button type="button" className="thread-icon-action" aria-label="More actions" title="More actions"><MoreHorizontal size={16} /></button>} />
     {onCloseCell && <button type="button" className="thread-icon-action" aria-label="Close side-by-side conversation" title="Close side-by-side conversation" onClick={onCloseCell}><X size={14} /></button>}
     </div>
   </header>

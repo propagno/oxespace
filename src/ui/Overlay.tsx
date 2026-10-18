@@ -72,22 +72,30 @@ export interface PopoverProps {
   align?: 'start' | 'center' | 'end'
   side?: 'top' | 'right' | 'bottom' | 'left'
   label?: string
+  /** Layout for panels with their own header and scroll area (no default padding when set). */
+  className?: string
+  sideOffset?: number
 }
 
 /** Non-modal panel anchored to a trigger, for small forms and details. */
-export function Popover({ trigger, children, open, onOpenChange, align = 'start', side = 'bottom', label }: PopoverProps): ReactElement {
+export function Popover({ trigger, children, open, onOpenChange, align = 'start', side = 'bottom', label, className, sideOffset = 6 }: PopoverProps): ReactElement {
   return <RadixPopover.Root open={open} onOpenChange={onOpenChange}>
     <RadixPopover.Trigger asChild>{trigger}</RadixPopover.Trigger>
     <RadixPopover.Portal>
-      <RadixPopover.Content className={cx(styles.floating, styles.popover)} align={align} side={side} sideOffset={6} collisionPadding={CHROME_COLLISION} aria-label={label}>{children}</RadixPopover.Content>
+      <RadixPopover.Content className={cx(styles.floating, !className && styles.popover, className)} align={align} side={side} sideOffset={sideOffset} collisionPadding={CHROME_COLLISION} aria-label={label}>{children}</RadixPopover.Content>
     </RadixPopover.Portal>
   </RadixPopover.Root>
 }
 
+export interface MenuRadioOption { value: string; label: string; hint?: string; ariaLabel?: string }
+
 export type MenuEntry =
-  | { type?: 'item'; label: string; icon?: ReactNode; shortcut?: string; onSelect: () => void; disabled?: boolean; danger?: boolean }
+  /** keepOpen: the menu stays open after the choice (steppers such as text size). */
+  | { type?: 'item'; label: string; icon?: ReactNode; shortcut?: string; onSelect: () => void; disabled?: boolean; danger?: boolean; keepOpen?: boolean }
   | { type: 'check'; label: string; checked: boolean; onSelect: () => void; disabled?: boolean }
-  | { type: 'label'; label: string }
+  /** One choice out of several; the chosen option is checked. */
+  | { type: 'radio'; value: string; options: MenuRadioOption[]; onValueChange: (value: string) => void }
+  | { type: 'label'; label: ReactNode }
   | { type: 'separator' }
 
 export interface MenuProps {
@@ -114,10 +122,16 @@ export function Menu({ trigger, items, align = 'start', label, testId, side }: M
         {items.map((item, index) => {
           if (item.type === 'separator') return <RadixMenu.Separator key={index} className={styles.menuSeparator} />
           if (item.type === 'label') return <RadixMenu.Label key={index} className={styles.menuLabel}>{item.label}</RadixMenu.Label>
+          if (item.type === 'radio') return <RadixMenu.RadioGroup key={index} value={item.value} onValueChange={item.onValueChange}>
+            {item.options.map(option => <RadixMenu.RadioItem key={option.value} value={option.value} className={styles.menuItem} aria-label={option.ariaLabel ?? option.label}>
+              <span className={styles.menuRadioText}>{option.label}{option.hint && <small>{option.hint}</small>}</span>
+              <RadixMenu.ItemIndicator className={styles.menuCheck}><Check size={14} /></RadixMenu.ItemIndicator>
+            </RadixMenu.RadioItem>)}
+          </RadixMenu.RadioGroup>
           if (item.type === 'check') return <RadixMenu.CheckboxItem key={index} className={styles.menuItem} checked={item.checked} disabled={item.disabled} onSelect={item.onSelect}>
             {item.label}<RadixMenu.ItemIndicator className={styles.menuCheck}><Check size={14} /></RadixMenu.ItemIndicator>
           </RadixMenu.CheckboxItem>
-          return <RadixMenu.Item key={index} className={cx(styles.menuItem, item.danger && styles.danger)} data-danger={item.danger ? 'true' : undefined} disabled={item.disabled} onSelect={item.onSelect}>
+          return <RadixMenu.Item key={index} className={cx(styles.menuItem, item.danger && styles.danger)} data-danger={item.danger ? 'true' : undefined} disabled={item.disabled} onSelect={event => { if (item.keepOpen) event.preventDefault(); item.onSelect() }}>
             {item.icon}{item.label}{item.shortcut && <span className={styles.menuShortcut}>{item.shortcut}</span>}
           </RadixMenu.Item>
         })}
