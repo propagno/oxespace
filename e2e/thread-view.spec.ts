@@ -803,16 +803,6 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(inlineRows).toHaveCount(0)
     await expect(page.locator('.thread-activity-group, .thread-activity-single').first()).toBeVisible()
     await page.screenshot({ path: 'test-results/thread-view-normal.png' })
-    if (process.env.OXESPACE_README_SHOTS) {
-      // Marketing capture for the README: Normal view, no side panel.
-      await page.getByRole('button', { name: 'Close workbench panel' }).click()
-      // The fixture lists 70 history rows; show just a few so the capture reads as a real project.
-      const trim = await page.addStyleTag({ content: '.thread-project-rows .thread-navigation-row:nth-child(n+4), .thread-show-more { display: none !important }' })
-      await page.screenshot({ path: 'docs/assets/screenshots/thread.png' })
-      await trim.evaluate(node => node.remove())
-      await page.getByRole('button', { name: 'More actions' }).click()
-      await page.getByRole('menuitemradio', { name: 'Files', exact: true }).click()
-    }
     await page.keyboard.press('Control+o') // normal → verbose
     await expect(inlineRows.first()).toBeVisible()
     await page.keyboard.press('Control+o') // verbose → summary
