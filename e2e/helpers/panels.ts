@@ -11,8 +11,10 @@ export async function togglePanel(page: Page, label: PanelLabel): Promise<void> 
 
 /** Runs a command palette entry by its title (tools without a panel: Skills, Semantic index log…). */
 export async function runPaletteCommand(page: Page, title: string): Promise<void> {
-  await page.keyboard.press('Control+k')
+  // The rail button, not Ctrl+K: right after a workspace opens a terminal may own the keyboard.
+  await page.getByRole('button', { name: 'Files & commands' }).first().click()
   const input = page.getByPlaceholder('Search files and commands…')
+  await input.waitFor({ state: 'visible' })
   await input.fill(title)
   await page.getByRole('option', { name: new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) }).first().click()
 }
