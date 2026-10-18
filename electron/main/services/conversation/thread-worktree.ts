@@ -2,7 +2,8 @@ import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { realpath } from 'node:fs/promises'
-import { basename, dirname, join, resolve as resolvePath } from 'node:path'
+import { basename, dirname, join } from 'node:path'
+import { canonicalPath } from '../git-common-dir'
 import type { GitHubCreateWorktreeInput, GitHubMessageResult } from '../../../../shared/types/github'
 import { checkoutDirectoryName, validateExplicitBranchName } from '../delegation/delegation-branch'
 
@@ -90,10 +91,8 @@ export function generatedBranch(now: Date): string {
  * moved into). Removing that worktree would leave them without a directory, so removal is refused first.
  */
 export function threadsInWorktree(db: { prepare(sql: string): { all(): unknown[] } }, worktreePath: string): { id: string; title: string }[] {
-  const key = (path: string): string => {
-    const value = resolvePath(path).replace(/\\/g, '/').replace(/\/+$/, '')
-    return process.platform === 'win32' ? value.toLowerCase() : value
-  }
+  // Canonical spelling: a conversation saved under a Windows short name still matches the long one.
+  const key = canonicalPath
   const target = key(worktreePath)
   const inside = (path: unknown): boolean => typeof path === 'string' && (key(path) === target || key(path).startsWith(`${target}/`))
   const rows = db.prepare(`SELECT id, json_extract(data_json, '$.title') AS title, json_extract(data_json, '$.rootPath') AS root,
