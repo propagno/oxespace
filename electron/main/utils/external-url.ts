@@ -19,3 +19,18 @@ export function isLoopbackHttpUrl(url: string): boolean {
     return false
   }
 }
+
+/**
+ * Whether a navigation of the main window stays inside the app: the dev server's origin, or the
+ * renderer's own index.html (the hash may change; another file or any remote page may not).
+ */
+export function isAppNavigation(url: string, appUrl: string): boolean {
+  try {
+    const target = new URL(url)
+    const app = new URL(appUrl)
+    if (app.protocol === 'file:') return target.protocol === 'file:' && target.pathname === app.pathname
+    return target.origin === app.origin
+  } catch {
+    return false
+  }
+}
