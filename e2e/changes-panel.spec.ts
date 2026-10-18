@@ -66,7 +66,6 @@ test('Changes panel lists branch changes, switches base and shows a side-by-side
     await expect(panel.getByRole('group', { name: 'Review comments' })).toContainText('1 comment')
     await expect(panel.locator('.oxe-line-comment')).toContainText('Please rename this value')
     await page.screenshot({ path: test.info().outputPath('changes-comment.png') })
-    if (process.env.OXESPACE_README_SHOTS) await page.screenshot({ path: 'docs/assets/screenshots/code-review.png' })
     await panel.locator('.oxe-line-comment-remove').click()
     await expect(panel.getByRole('group', { name: 'Review comments' })).toHaveCount(0)
 
@@ -77,12 +76,5 @@ test('Changes panel lists branch changes, switches base and shows a side-by-side
     await panel.getByRole('button', { name: 'Change scope' }).click()
     await page.getByRole('menuitemradio', { name: 'Uncommitted changes' }).click()
     await expect(panel.getByText('No changes')).toBeVisible()
-    if (process.env.OXESPACE_README_SHOTS) {
-      await page.getByTestId('btn-open-tools').click()
-      await page.getByTestId('tools-modal').getByRole('menuitem', { name: /^MCP Servers/ }).click()
-      await expect(page.getByRole('dialog', { name: 'Connections' })).toBeVisible()
-      await page.waitForTimeout(600)
-      await page.screenshot({ path: 'docs/assets/screenshots/mcp-catalog.png' })
-    }
   } finally { await app.close() }
 })
