@@ -16,7 +16,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { performance } from 'node:perf_hooks'
-import { openConnections, runPaletteCommand } from './helpers/panels'
+import { findPaletteCommand, openConnections } from './helpers/panels'
 
 const REPEATS = 6
 const ENFORCE_BUDGETS = process.env.OXESPACE_PERF_GATE === '1'
@@ -443,7 +443,7 @@ test('repository: Files ↔ Source Control', async () => {
   const { app, page, pid } = await launchApp()
   try {
     await createWorkspace(page)
-    await timePanelToggle(page, 'Editor', 'workspace-editor-panel', true)
+    await timePanelToggle(page, 'Files', 'workspace-editor-panel', true)
     const toSourceControl: number[] = []
     const toFiles: number[] = []
 
@@ -479,7 +479,12 @@ test('modal surfaces: agents, MCP, skills, semantic, workspace settings and usag
       label: string
       selector: string
       trigger: () => Promise<void>
-    }> = [
+      /** Untimed setup before the trigger (opening and filtering the palette). */
+      prepare?: () => Promise<void>
+    }> = []
+    let option: import('@playwright/test').Locator | null = null
+    const fromPalette = (label: string, selector: string, title: string) => ({ label, selector, prepare: async () => { option = await findPaletteCommand(page, title) }, trigger: () => option!.click() })
+    surfaces.push(
       {
         label: 'Agent Settings',
         selector: '.settings-center',
@@ -490,27 +495,16 @@ test('modal surfaces: agents, MCP, skills, semantic, workspace settings and usag
         selector: '[role="dialog"][aria-label="Connections"]',
         trigger: () => openConnections(page)
       },
-      {
-        label: 'Skills',
-        selector: '[role="dialog"][aria-label="Skills"]',
-        trigger: () => runPaletteCommand(page, 'Skills')
-      },
-      {
-        label: 'Semantic Activity',
-        selector: '[role="dialog"][aria-label="Semantic activity"]',
-        trigger: () => runPaletteCommand(page, 'Semantic index log')
-      },
-      {
-        label: 'Workspace Settings',
-        selector: '.workspace-settings-modal-v2',
-        trigger: () => runPaletteCommand(page, 'Open workspace settings')
-      }
-    ]
+      fromPalette('Skills', '[role="dialog"][aria-label="Skills"]', 'Skills'),
+      fromPalette('Semantic Activity', '[role="dialog"][aria-label="Semantic activity"]', 'Semantic index log'),
+      fromPalette('Workspace Settings', '.workspace-settings-modal-v2', 'Open workspace settings')
+    )
 
     for (const surface of surfaces) {
       const opens: number[] = []
       const closes: number[] = []
       for (let i = 0; i < modalRepeats; i++) {
+        await surface.prepare?.()
         opens.push(await timeDomToggle(page, surface.trigger, surface.selector, true))
         closes.push(await timeDomToggle(
           page,

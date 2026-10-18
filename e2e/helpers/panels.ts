@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 
 /** Shared panel names (src/components/Workbench/panelCatalog.ts). */
 export type PanelLabel = 'Changes' | 'Browser' | 'Commit & pull request' | 'Files' | 'Find in files' | 'Scripts' | 'Worktrees'
@@ -9,14 +9,21 @@ export async function togglePanel(page: Page, label: PanelLabel): Promise<void> 
   await page.getByRole('menuitemcheckbox', { name: label, exact: true }).click()
 }
 
-/** Runs a command palette entry by its title (tools without a panel: Skills, Semantic index log…). */
-export async function runPaletteCommand(page: Page, title: string): Promise<void> {
+/** Opens the command palette filtered to one entry and returns that entry, without choosing it. */
+export async function findPaletteCommand(page: Page, title: string): Promise<Locator> {
   // The rail button, not Ctrl+K: right after a workspace opens a terminal may own the keyboard.
   await page.getByRole('button', { name: 'Files & commands' }).first().click()
   const input = page.getByPlaceholder('Search files and commands…')
   await input.waitFor({ state: 'visible' })
   await input.fill(title)
-  await page.getByRole('option', { name: new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) }).first().click()
+  const option = page.getByRole('option', { name: new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) }).first()
+  await option.waitFor({ state: 'visible' })
+  return option
+}
+
+/** Runs a command palette entry by its title (tools without a panel: Skills, Semantic index log…). */
+export async function runPaletteCommand(page: Page, title: string): Promise<void> {
+  await (await findPaletteCommand(page, title)).click()
 }
 
 /** Connections (MCP) has its own button in the workspace bar. */
