@@ -1,4 +1,4 @@
-import { Activity, ArrowLeft, ArrowUpCircle, Bell, ChevronRight, Mic, Palette, Settings2, SquareTerminal, X } from 'lucide-react'
+import { Activity, ArrowLeft, ArrowUpCircle, Bell, Bot, ChevronRight, Mic, Palette, Settings2, SquareTerminal, X } from 'lucide-react'
 import { useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
 import { Button, Dialog, TextField } from '../../ui'
@@ -17,6 +17,7 @@ import { useSettingsStore, VISITED_WORKSPACES_CAP_MAX, VISITED_WORKSPACES_CAP_MI
 export type SettingsDestination = { scope: 'application'; page: 'general' | SettingsSection } | { scope: 'workspace'; workspaceId: string; page: typeof SETTINGS_PAGES[number]['id'] }
 const appPages = [
   { id: 'general', icon: Settings2, label: 'General', hint: 'Navigation and workspace preferences' },
+  { id: 'providers', icon: Bot, label: 'Agents', hint: 'Agent CLIs, custom agents and idle conversations' },
   { id: 'appearance', icon: Palette, label: 'Appearance', hint: 'Light, dark or system mode' },
   { id: 'terminal', icon: SquareTerminal, label: 'Terminal', hint: 'Font, cursor, scrolling and behavior' },
   { id: 'voice', icon: Mic, label: 'Voice', hint: 'Microphone and local transcription' },

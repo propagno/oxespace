@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { SettingsCenter } from '../../src/components/Settings/SettingsCenter'
 import type { Workspace } from '../../shared/types/workspace'
 import { useUIStore } from '../../src/store/ui.store'
@@ -50,6 +50,14 @@ test('explicit initial page overrides the last visited workspace destination', (
   expect(screen.getByRole('group', { name: 'Settings scope' }).querySelector('button')).toHaveAttribute('aria-pressed', 'true')
   expect(screen.getByRole('heading', { name: 'Agents' })).toBeVisible()
   expect(screen.queryByRole('button', {name:/^Agents CLI discovery/})).toBeNull()
+})
+
+test('Agents is a page of application settings, not only a first-run shortcut', () => {
+  render(<SettingsCenter initialPage="general" workspaces={[workspace]} shellProfiles={[]} onSave={vi.fn()} onClose={vi.fn()}
+    agentProfiles={[]} agentReadiness={[]} isDiscoveringAgents={false} onDiscoverAgents={vi.fn()} onConfigureAgent={vi.fn()} onNewCustomAgent={vi.fn()} />)
+  fireEvent.click(within(screen.getByRole('navigation', { name: 'Settings categories' })).getByRole('button', { name: /^Agents/ }))
+  expect(screen.getByRole('heading', { name: 'Agents' })).toBeVisible()
+  expect(screen.getByTestId('btn-new-custom-agent')).toBeVisible()
 })
 
 test('opening a delegated terminal closes the host and reveals the correct pane', async () => {
