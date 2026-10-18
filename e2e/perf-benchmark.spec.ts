@@ -137,6 +137,8 @@ async function createWorkspace(page: Page, requestedRoot?: string): Promise<void
   await page.waitForSelector('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]', {
     state: 'visible'
   })
+  // The terminal starts and takes focus a moment later; measurements begin after that settles.
+  await page.locator('[data-testid="terminal-pane"]').first().waitFor({ state: 'visible' })
 }
 async function timePanelToggle(
   page: Page,
@@ -155,15 +157,19 @@ async function timePanelToggle(
   }
 
   const menu = page.getByRole('menu', { name: 'Panels' })
-  if (!await menu.isVisible().catch(() => false)) {
-    await page.locator('[data-testid="btn-open-tools"]:visible').click()
-    await menu.waitFor({ state: 'visible' })
-  }
   const item = menu.getByRole('menuitemcheckbox', { name: label, exact: true })
-  await item.waitFor({ state: 'visible' })
-
-  const t0 = await page.evaluate(() => performance.now())
-  await item.click()
+  // Opening the menu is setup, not the measured interaction. Right after a workspace opens the rail can
+  // still move while terminals mount, and the menu follows it; reopen it once if it went away.
+  let t0 = 0
+  for (let attempt = 0; ; attempt++) {
+    if (!await menu.isVisible().catch(() => false)) {
+      await page.locator('[data-testid="btn-open-tools"]:visible').click()
+      await menu.waitFor({ state: 'visible' })
+    }
+    await item.waitFor({ state: 'visible' })
+    t0 = await page.evaluate(() => performance.now())
+    try { await item.click({ timeout: 5_000 }); break } catch (error) { if (attempt === 1) throw error }
+  }
   await page.waitForFunction(
     ({ panelTestId, wantVisible }) => {
       const panel = document.querySelector(`[data-testid="${panelTestId}"]`) as HTMLElement | null
