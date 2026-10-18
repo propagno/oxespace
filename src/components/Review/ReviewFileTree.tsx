@@ -244,7 +244,8 @@ export function ReviewFileTree({
 
       {/* Read once when the tree is entered; repeating it on every row would be noise. */}
       <p id={hintId} className="sr-only">Use the arrow keys to move between files. On a file, press Right Arrow to reach its reviewed checkbox and Space to toggle it; Left Arrow returns to the file.</p>
-      <div className="review-file-tree-list" role="tree" aria-label="Review files" aria-describedby={hintId} ref={treeNav.ref} onKeyDown={treeNav.onKeyDown}>
+      {/* A tree must own tree items; with no files there is no tree, only a note. */}
+      {files.length === 0 ? <p className="review-file-tree-list review-file-tree-empty">No files to review.</p> : <div className="review-file-tree-list" role="tree" aria-label="Review files" aria-describedby={hintId} ref={treeNav.ref} onKeyDown={treeNav.onKeyDown}>
         {treeMode === 'structured' ? (
           <RenderNode
             node={buildTree(files, reviewedSet)}
@@ -270,7 +271,7 @@ export function ReviewFileTree({
             />
           ))
         )}
-      </div>
+      </div>}
     </div>
   )
 }

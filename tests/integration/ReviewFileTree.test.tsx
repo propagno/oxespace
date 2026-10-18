@@ -29,6 +29,12 @@ describe('ReviewFileTree as an ARIA tree', () => {
     expect(item(/^src/)).toHaveAttribute('aria-expanded', 'true')
   })
 
+  test('renders no tree without files, since a tree must own items (axe aria-required-children)', () => {
+    renderTree({ files: [] })
+    expect(screen.queryByRole('tree')).toBeNull()
+    expect(screen.getByText('No files to review.')).toBeInTheDocument()
+  })
+
   test('describes the checkbox shortcut once, on the tree, not on every row', () => {
     renderTree()
     const tree = screen.getByRole('tree', { name: 'Review files' })
