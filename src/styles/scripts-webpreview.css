@@ -1,21 +1,5 @@
 /* ─── Scripts panel / Web Preview ─────────────────────────────────────── */
 
-.scripts-panel-backdrop,
-.web-preview-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: var(--layer-overlay);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 52px 24px 24px;
-  /* Was a purple radial-gradient (#a259ff) — neutralise like the other
-     overlays. Purple was the only colour separating this from MCP/Slash. */
-  background: var(--scrim);
-  backdrop-filter: blur(8px);
-  animation: model-selector-fade 140ms ease-out;
-}
-
 .scripts-panel,
 .web-preview-panel {
   position: relative;

@@ -2,17 +2,6 @@
  * #4 · Linear — issues/board panel with worktree-from-issue.
  * ------------------------------------------------------------------------- */
 
-.linear-backdrop {
-  display: flex;
-  position: fixed;
-  z-index: 60;
-  inset: 0;
-  align-items: center;
-  justify-content: center;
-  background: var(--scrim);
-  backdrop-filter: blur(2px);
-}
-
 .linear-panel {
   display: flex;
   flex-direction: column;

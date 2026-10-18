@@ -42,10 +42,10 @@ body {
 .app-update-dot { position: absolute; top: 3px; right: 3px; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
 .rtk-update-indicator .app-update-trigger { color: var(--dot-yellow); }
 .rtk-update-indicator .app-update-dot { background: var(--dot-yellow); }
-.app-update-popover { position: absolute; z-index: calc(var(--layer-dropdown) + 50); top: calc(100% + 8px); right: 0; width: min(310px, calc(100vw - 24px)); padding: 14px; border: 1px solid var(--wb-border); border-radius: var(--surface-radius); background: var(--bg-elevated); box-shadow: 0 12px 32px #0005; color: var(--tx-primary); }
+.app-update-popover { width: min(310px, calc(100vw - 24px)); }
 .app-update-popover strong { font-size: var(--fs-sm); }
 .app-update-popover p { margin: 8px 0 12px; color: var(--tx-secondary); font-size: var(--fs-xs); line-height: 1.5; }
-.app-update-popover :is(button, a) { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 4px 9px; border: 1px solid var(--wb-border); border-radius: var(--nav-radius); background: var(--wb-canvas); color: var(--tx-primary); font: inherit; font-size: var(--fs-xs); text-decoration: none; cursor: pointer; }
+.app-update-popover a { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); }
 .app-shell > :is(.sidebar, .thread-navigation) { grid-column: 1; grid-row: 2; }
 .app-shell > .workspace-surface { grid-column: 2; grid-row: 2; min-height: 0; overflow: hidden; border: 1px solid var(--wb-border); border-radius: var(--frame-radius); }
 @media (prefers-reduced-motion: reduce) {
