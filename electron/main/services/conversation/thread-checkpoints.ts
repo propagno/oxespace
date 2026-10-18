@@ -156,8 +156,11 @@ export class ThreadCheckpointService {
 
   /** The most recent checkpoint captured for a turn, if any. */
   forTurn(threadId: string, turnId: string): ThreadCheckpointSummary | undefined {
-    const row = this.db.prepare('SELECT * FROM conversation_checkpoints WHERE thread_id = ? AND turn_id = ? ORDER BY created_at DESC LIMIT 1').get(threadId, turnId) as CheckpointRow | undefined
-    return row ? this.summary(row) : undefined
+    // A turn that moved into a worktree has one checkpoint per checkout; the one where files changed is the
+    // one to review, and the most recent of those when several did.
+    const rows = this.db.prepare('SELECT * FROM conversation_checkpoints WHERE thread_id = ? AND turn_id = ? ORDER BY created_at DESC').all(threadId, turnId) as CheckpointRow[]
+    const summaries = rows.map(row => this.summary(row))
+    return summaries.find(summary => summary.fileCount > 0) ?? summaries[0]
   }
 
   /** Per-file standing of a finalized checkpoint against the working tree. */
