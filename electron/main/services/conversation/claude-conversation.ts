@@ -507,8 +507,10 @@ export function mcpServerStatuses(value: unknown[]): ThreadMcpServerStatus[] {
  * falls back to the first absolute path. The orchestrator keeps the result only if it is an existing checkout.
  */
 export function enteredWorktreePath(text: string): string | null {
+  // The path is sometimes quoted ("…", “…”, `…`): the wording varies between runs of the same version.
+  const unquote = (value: string): string => value.trim().replace(/^["'`“”‘’]+|["'`“”‘’]+$/g, '')
   const stated = /worktree at (.+?) on branch /i.exec(text)
-  if (stated) return stated[1].trim()
-  const match = /([A-Za-z]:[\\/][^\s"'`<>|]+|(?<![\w.])\/[^\s"'`<>|]+)/.exec(text)
+  if (stated) return unquote(stated[1])
+  const match = /([A-Za-z]:[\\/][^\s"'`“”‘’<>|]+|(?<![\w.])\/[^\s"'`“”‘’<>|]+)/.exec(text)
   return match ? match[1].replace(/[.,;:)\]]+$/, '') : null
 }
