@@ -166,10 +166,10 @@ for (const theme of THEMES) {
         }
       }
       await dialogScan('agent-config', async () => {
-        // The mock lists no agents, so the configuration opens for a new custom agent (General page).
-        // The loop above ends in the workspace scope, whose pages do not include General.
+        // The mock lists no agents, so the configuration opens for a new custom agent (Agents page).
+        // The loop above ends in the workspace scope, whose pages do not include Agents.
         await page.locator('.settings-scope-choices button').first().click()
-        await page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /General/ }).first().click()
+        await page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Agents/ }).first().click()
         await page.getByTestId('btn-new-custom-agent').click()
       }, () => page.getByRole('dialog').last())
       await page.getByRole('button', { name: 'Close settings', exact: true }).click().catch(() => undefined)
