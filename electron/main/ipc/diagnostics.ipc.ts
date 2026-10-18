@@ -1,3 +1,4 @@
+import { requireAppFrame } from './ipc-guards'
 import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import { writeFile } from 'node:fs/promises'
 import type { AppDatabase } from '../db'
@@ -10,8 +11,9 @@ export function registerDiagnosticsIpc(
   internalMcp: InternalMcpHandle,
   service = new DiagnosticsService(db, () => internalMcp.getStatus())
 ): DiagnosticsService {
-  ipcMain.handle(IPC_CHANNELS.diagnostics.getSnapshot, () => service.getSnapshot())
+  ipcMain.handle(IPC_CHANNELS.diagnostics.getSnapshot, (event) => { requireAppFrame(event, 'Diagnostics'); return service.getSnapshot() })
   ipcMain.handle(IPC_CHANNELS.diagnostics.exportReport, async (event) => {
+    requireAppFrame(event, 'Diagnostics')
     const owner = BrowserWindow.fromWebContents(event.sender) ?? undefined
     const options = {
       title: 'Export OXESpace diagnostics',
