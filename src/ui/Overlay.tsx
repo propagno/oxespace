@@ -99,9 +99,13 @@ export interface MenuProps {
   side?: 'top' | 'right' | 'bottom' | 'left'
 }
 
-/** A dropdown of actions. Keyboard: arrows move, Enter selects, Escape closes, typing jumps. */
+/**
+ * A dropdown of actions. Keyboard: arrows move, Enter selects, Escape closes, typing jumps.
+ * Not modal: a modal menu marks the rest of the app aria-hidden while its buttons stay focusable
+ * (axe aria-hidden-focus). Focus still moves into the menu and returns to the trigger.
+ */
 export function Menu({ trigger, items, align = 'start', label, testId, side }: MenuProps): ReactElement {
-  return <RadixMenu.Root>
+  return <RadixMenu.Root modal={false}>
     <RadixMenu.Trigger asChild>{trigger}</RadixMenu.Trigger>
     <RadixMenu.Portal>
       <RadixMenu.Content className={cx(styles.floating, styles.menu)} align={align} side={side} sideOffset={6} collisionPadding={CHROME_COLLISION} aria-label={label} data-testid={testId}>

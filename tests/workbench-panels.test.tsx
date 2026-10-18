@@ -31,4 +31,13 @@ describe('Workbench panels shared by Code and Thread', () => {
     await user.click(screen.getByRole('menuitemcheckbox', { name: 'Files' }))
     expect(onFiles).toHaveBeenCalledOnce()
   })
+
+  it('does not hide the rest of the app from assistive technology while open', async () => {
+    const user = userEvent.setup()
+    render(<><button type="button">Changes</button><WorkbenchPanelMenu items={[{ id: 'files', active: false, onToggle: vi.fn() }]} /></>)
+    await user.click(screen.getByRole('button', { name: 'More panels' }))
+    expect(await screen.findByRole('menuitemcheckbox', { name: 'Files' })).toBeVisible()
+    expect(document.querySelector('[aria-hidden="true"] button')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Changes' })).toBeVisible()
+  })
 })
