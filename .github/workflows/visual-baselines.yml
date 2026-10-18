@@ -30,7 +30,7 @@ jobs:
         shell: bash
     env:
       # Windows draws without a virtual display; Linux needs Xvfb.
-      RUN: ${{ inputs.platform == 'windows' && '' || 'bash scripts/run-with-xvfb.sh' }}
+      RUN: ${{ inputs.platform != 'windows' && 'bash scripts/run-with-xvfb.sh' || '' }}
       SHOTS: ${{ inputs.platform == 'windows' && 'win32' || 'linux' }}
     timeout-minutes: 45
     steps:

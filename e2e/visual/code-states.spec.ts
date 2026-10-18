@@ -46,18 +46,18 @@ for (const theme of THEMES) {
       await expectSurface(page, `code-command-palette-${theme}`, { hide: [...liveMasks(page), randomPath] })
       await page.keyboard.press('Escape')
 
-      await openTool(page, /^Review/)
+      await openTool(page, /^Changes$/)
       const panel = page.getByTestId('changes-panel')
       await expect(panel).toBeVisible()
       await panel.getByRole('complementary', { name: 'Changed files' }).getByRole('treeitem', { name: 'app.ts' }).click()
       await expect(panel.locator('.monaco-diff-editor')).toContainText('unmodified lines', { timeout: 15_000 })
       await expectSurface(page, `code-changes-diff-${theme}`, { hide: liveMasks(page) })
 
-      await openTool(page, /^GitHub/)
+      await openTool(page, /^Commit & pull request$/)
       await expect(page.getByTestId('workspace-github-panel')).toBeVisible()
       await expectSurface(page, `code-github-${theme}`, { hide: liveMasks(page) })
 
-      await openTool(page, /^Find in Files/)
+      await openTool(page, /^Find in files$/)
       await expectSurface(page, `code-search-${theme}`, { hide: liveMasks(page) })
 
       expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false)
@@ -77,7 +77,7 @@ for (const theme of THEMES) {
       await openWorkspace(page, repo, 4)
       await expectSurface(page, `code-four-terminals-${theme}`, { hide: liveMasks(page) })
 
-      await openTool(page, /^Review/)
+      await openTool(page, /^Changes$/)
       await expect(page.getByTestId('changes-panel')).toBeVisible()
       await expectSurface(page, `code-changes-empty-${theme}`, { hide: liveMasks(page) })
 
