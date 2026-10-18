@@ -4,7 +4,6 @@ import styles from './ThreadSidebar.module.css'
 import { useThreadContentSearch } from '../../hooks/useThreadContentSearch'
 import { AlignJustify, Archive, ArchiveRestore, Check, ChevronDown, Circle, CircleAlert, CircleCheck, CircleX, Columns2, FolderPlus, Loader2, MoreHorizontal, Pencil, Pin, Plus, Square, Trash2, UserRound } from 'lucide-react'
 import type { ConversationThread } from '../../../shared/types/thread'
-import { DropdownMenu } from 'radix-ui'
 import { useThreadStore } from '../../store/thread.store'
 import { useUIStore } from '../../store/ui.store'
 import { NavigationRail } from '../Navigation/NavigationChrome'
@@ -83,18 +82,15 @@ export function ThreadSidebar({ onCreate, onModeChange, onSelectMode, onAccounts
     {unread && <span className={cx('thread-unread-marker', styles.unreadMark)} aria-label="Unread conversation" />}
     <span className={cx('thread-session-indicator', styles.indicator)} data-status={status.kind} aria-hidden="true">{status.kind === 'ready' ? <Circle size={12} /> : status.kind === 'completed' ? <CircleCheck size={12} /> : status.kind === 'attention' ? <CircleAlert size={12} /> : status.kind === 'failed' ? <CircleX size={12} /> : status.kind === 'interrupted' ? <Square size={12} /> : null}</span>
     <span className={cx('thread-session-content', styles.content)}><span className={cx('thread-session-title', styles.title)}>{thread.title}</span><span className={cx('thread-session-meta', styles.meta)}><span className={cx('thread-session-provider', styles.provider)}><AgentProviderIcon provider={thread.provider} size={density === 'compact' ? 12 : 14} /><span>{thread.provider === 'claude' ? 'Claude Code' : 'Codex'}</span></span><span className={cx('thread-session-state', styles.state)} data-status={status.kind}>{status.label}</span>{thread.pinned && <Pin size={12} aria-label="Pinned" />}<small>{relativeTime(thread.updatedAt)}</small></span></span>
-  </button><button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Open ${thread.title} side by side`} title="Open side by side" disabled={secondaryId === thread.id} onClick={() => void openSecondary(thread.id).catch(error => setActionError(error instanceof Error ? error.message : 'Could not open conversation.'))}><Columns2 size={14} /></button><DropdownMenu.Root>
-    <DropdownMenu.Trigger asChild><button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Actions for ${thread.title}`} title="Conversation actions"><MoreHorizontal size={14} /></button></DropdownMenu.Trigger>
-    <DropdownMenu.Portal><DropdownMenu.Content className="thread-actions-dropdown" side="right" align="start" sideOffset={5} collisionPadding={{ top: 44, right: 8, bottom: 8, left: 8 }} aria-label={`Actions for ${thread.title}`}>
-      <DropdownMenu.Item className="thread-action-item" disabled={secondaryId === thread.id} onSelect={() => void openSecondary(thread.id).catch(error => setActionError(error instanceof Error ? error.message : 'Could not open conversation.'))}><Columns2 size={14} />Open to the side</DropdownMenu.Item>
-      <DropdownMenu.Item className="thread-action-item" onSelect={() => { setActionError(''); setRenameTarget(thread); setRenameValue(thread.title) }}><Pencil size={14} />Rename conversation…</DropdownMenu.Item>
-      <DropdownMenu.Item className="thread-action-item" onSelect={() => void (async () => { try { await window.oxe.thread!.pin(thread.id, !thread.pinned); await useThreadStore.getState().refresh(thread.id) } catch (error) { setActionError(error instanceof Error ? error.message : 'Could not update pin.') } })()}><Pin size={14} />{thread.pinned ? 'Unpin conversation' : 'Pin conversation'}</DropdownMenu.Item>
-      <DropdownMenu.Item className="thread-action-item" onSelect={() => unreadIds.includes(thread.id) ? markRead(thread.id) : markUnread(thread.id)}>{unreadIds.includes(thread.id) ? <Check size={14} /> : <Circle size={14} />}{unreadIds.includes(thread.id) ? 'Mark as read' : 'Mark as unread'}</DropdownMenu.Item>
-      <DropdownMenu.Separator className="thread-actions-separator" />
-      <DropdownMenu.Item className="thread-action-item" onSelect={() => { setActionError(''); setConfirmation({ kind: 'archive', id: thread.id, title: thread.title }) }}><Archive size={14} />Archive conversation</DropdownMenu.Item>
-      <DropdownMenu.Item className="thread-action-item is-destructive" onSelect={() => { setActionError(''); setConfirmation({ kind: 'thread', id: thread.id, title: thread.title }) }}><Trash2 size={14} />Delete conversation</DropdownMenu.Item>
-    </DropdownMenu.Content></DropdownMenu.Portal>
-  </DropdownMenu.Root></div>
+  </button><button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Open ${thread.title} side by side`} title="Open side by side" disabled={secondaryId === thread.id} onClick={() => void openSecondary(thread.id).catch(error => setActionError(error instanceof Error ? error.message : 'Could not open conversation.'))}><Columns2 size={14} /></button><Menu label={`Actions for ${thread.title}`} side="right" items={[
+    { label: 'Open to the side', icon: <Columns2 size={14} />, disabled: secondaryId === thread.id, onSelect: () => void openSecondary(thread.id).catch(error => setActionError(error instanceof Error ? error.message : 'Could not open conversation.')) },
+    { label: 'Rename conversation…', icon: <Pencil size={14} />, onSelect: () => { setActionError(''); setRenameTarget(thread); setRenameValue(thread.title) } },
+    { label: thread.pinned ? 'Unpin conversation' : 'Pin conversation', icon: <Pin size={14} />, onSelect: () => void (async () => { try { await window.oxe.thread!.pin(thread.id, !thread.pinned); await useThreadStore.getState().refresh(thread.id) } catch (error) { setActionError(error instanceof Error ? error.message : 'Could not update pin.') } })() },
+    { label: unreadIds.includes(thread.id) ? 'Mark as read' : 'Mark as unread', icon: unreadIds.includes(thread.id) ? <Check size={14} /> : <Circle size={14} />, onSelect: () => unreadIds.includes(thread.id) ? markRead(thread.id) : markUnread(thread.id) },
+    { type: 'separator' },
+    { label: 'Archive conversation', icon: <Archive size={14} />, onSelect: () => { setActionError(''); setConfirmation({ kind: 'archive', id: thread.id, title: thread.title }) } },
+    { label: 'Delete conversation', icon: <Trash2 size={14} />, danger: true, onSelect: () => { setActionError(''); setConfirmation({ kind: 'thread', id: thread.id, title: thread.title }) } }
+  ]} trigger={<button type="button" className={cx('thread-row-action', styles.action)} aria-label={`Actions for ${thread.title}`} title="Conversation actions"><MoreHorizontal size={14} /></button>} /></div>
   }
   return <aside className={`thread-navigation${collapsed ? ' thread-navigation-collapsed' : ''}`} data-density={density} aria-label="Thread sidebar">
     {!collapsed && <div className="thread-resize" role="separator" tabIndex={0} aria-label="Thread sidebar width" aria-orientation="vertical" aria-valuemin={SIDEBAR_MIN_WIDTH} aria-valuemax={SIDEBAR_MAX_WIDTH} aria-valuenow={width}

@@ -853,7 +853,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(actionsMenu).toBeVisible()
     await expect(actionsMenu.getByRole('menuitem', { name: 'Find or resume session…' })).toBeVisible()
     await expect(page.getByRole('menuitem', { name: 'Fork conversation' })).toBeVisible()
-    await expect(page.getByRole('menuitem', { name: 'Delete conversation' })).toHaveClass(/is-destructive/)
+    await expect(page.getByRole('menuitem', { name: 'Delete conversation' })).toHaveAttribute('data-danger', 'true')
     const bounds = await actionsMenu.boundingBox()
     expect(bounds!.width).toBeLessThan(280)
     expect(bounds!.height).toBeLessThan(370)

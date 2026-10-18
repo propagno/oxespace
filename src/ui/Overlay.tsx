@@ -96,21 +96,22 @@ export interface MenuProps {
   align?: 'start' | 'center' | 'end'
   label?: string
   testId?: string
+  side?: 'top' | 'right' | 'bottom' | 'left'
 }
 
 /** A dropdown of actions. Keyboard: arrows move, Enter selects, Escape closes, typing jumps. */
-export function Menu({ trigger, items, align = 'start', label, testId }: MenuProps): ReactElement {
+export function Menu({ trigger, items, align = 'start', label, testId, side }: MenuProps): ReactElement {
   return <RadixMenu.Root>
     <RadixMenu.Trigger asChild>{trigger}</RadixMenu.Trigger>
     <RadixMenu.Portal>
-      <RadixMenu.Content className={cx(styles.floating, styles.menu)} align={align} sideOffset={6} collisionPadding={CHROME_COLLISION} aria-label={label} data-testid={testId}>
+      <RadixMenu.Content className={cx(styles.floating, styles.menu)} align={align} side={side} sideOffset={6} collisionPadding={CHROME_COLLISION} aria-label={label} data-testid={testId}>
         {items.map((item, index) => {
           if (item.type === 'separator') return <RadixMenu.Separator key={index} className={styles.menuSeparator} />
           if (item.type === 'label') return <RadixMenu.Label key={index} className={styles.menuLabel}>{item.label}</RadixMenu.Label>
           if (item.type === 'check') return <RadixMenu.CheckboxItem key={index} className={styles.menuItem} checked={item.checked} disabled={item.disabled} onSelect={item.onSelect}>
             {item.label}<RadixMenu.ItemIndicator className={styles.menuCheck}><Check size={14} /></RadixMenu.ItemIndicator>
           </RadixMenu.CheckboxItem>
-          return <RadixMenu.Item key={index} className={cx(styles.menuItem, item.danger && styles.danger)} disabled={item.disabled} onSelect={item.onSelect}>
+          return <RadixMenu.Item key={index} className={cx(styles.menuItem, item.danger && styles.danger)} data-danger={item.danger ? 'true' : undefined} disabled={item.disabled} onSelect={item.onSelect}>
             {item.icon}{item.label}{item.shortcut && <span className={styles.menuShortcut}>{item.shortcut}</span>}
           </RadixMenu.Item>
         })}
