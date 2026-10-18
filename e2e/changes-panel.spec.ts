@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { togglePanel, openConnections } from './helpers/panels'
 
 test('Changes panel lists branch changes, switches base and shows a side-by-side diff', async () => {
   const root = mkdtempSync(join(tmpdir(), 'oxe-changes-'))
@@ -31,8 +32,7 @@ test('Changes panel lists branch changes, switches base and shows a side-by-side
     await page.getByTestId('wizard-launch-btn').click()
     await expect(page.getByTestId('terminal-pane')).toHaveCount(1)
 
-    await page.getByTestId('btn-open-tools').click()
-    await page.getByTestId('tools-modal').getByRole('menuitem', { name: /^Review/ }).click()
+    await togglePanel(page, 'Changes')
     const panel = page.getByTestId('changes-panel')
     await expect(panel).toBeVisible()
 
@@ -78,8 +78,7 @@ test('Changes panel lists branch changes, switches base and shows a side-by-side
     await page.getByRole('menuitemradio', { name: 'Uncommitted changes' }).click()
     await expect(panel.getByText('No changes')).toBeVisible()
     if (process.env.OXESPACE_README_SHOTS) {
-      await page.getByTestId('btn-open-tools').click()
-      await page.getByTestId('tools-modal').getByRole('menuitem', { name: /^MCP Servers/ }).click()
+      await openConnections(page)
       await expect(page.getByRole('dialog', { name: 'Connections' })).toBeVisible()
       await page.waitForTimeout(600)
       await page.screenshot({ path: 'docs/assets/screenshots/mcp-catalog.png' })

@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { scanSurface } from './helpers/a11y'
+import { runPaletteCommand } from './helpers/panels'
 
 /**
  * Skill headers are read as YAML by the real main process: a block list of agents and a folded description
@@ -36,8 +37,7 @@ test('skills with YAML headers load in the Skills dialog', async () => {
       { name: 'legacy-note', description: 'use for: quick notes', agents: ['claude'], category: undefined }
     ]))
 
-    await page.getByTestId('btn-open-tools').click()
-    await page.getByTestId('tools-modal').getByRole('menuitem', { name: 'Skills', exact: true }).click()
+    await runPaletteCommand(page, 'Skills')
     const dialog = page.getByRole('dialog', { name: 'Skills' })
     await expect(dialog).toBeVisible()
     await expect(dialog.getByText('/ship-it', { exact: true })).toBeVisible()

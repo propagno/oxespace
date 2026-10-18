@@ -1,7 +1,9 @@
 import { Suspense, lazy, memo, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from 'react-resizable-panels'
-import { Activity, MoreHorizontal, PlugZap } from 'lucide-react'
+import { Activity, MoreHorizontal, PanelsTopLeft, PlugZap } from 'lucide-react'
 import { Menu } from '../../ui'
+import { WorkbenchPanelMenu, WorkbenchPanelToggle, type WorkbenchPanelItem } from '../Workbench/WorkbenchPanelMenu'
+import { CODE_BAR_PANELS, CODE_MENU_PANELS } from '../Workbench/panelCatalog'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceWorktreeStateInput, Workspace } from '../../../shared/types/workspace'
 import { WorkspaceGrid } from '../Grid/WorkspaceGrid'
@@ -85,6 +87,8 @@ interface WorkspaceSurfaceProps {
   onUpdateWorktreeState: (input: UpdateWorkspaceWorktreeStateInput) => void
   onRunCommand: (command: string) => void
   activePaneId: string | null
+  /** Side panels of the active workspace: Changes and Browser as buttons, the rest in the Panels menu. */
+  panels?: WorkbenchPanelItem[]
 }
 
 const DEFAULT_EDITOR_WIDTH = 40
@@ -107,6 +111,7 @@ function WorkspaceSurfaceComponent({
   onClosePane,
   onActivatePane,
   activePaneId,
+  panels,
   agentProfiles = [],
   scriptsVisible,
   webPreviewVisible,
@@ -478,6 +483,9 @@ function WorkspaceSurfaceComponent({
       {/* The workspace name lives in the title bar; the strip only adds the folder when it differs from it. */}
       {showSubPath ? <div className="workspace-topbar-breadcrumb"><span className="workspace-topbar-path" title={workspace.rootPath}>{folderName}</span></div> : null}
       <div className="workspace-topbar-spacer" />
+      {panels?.filter(item => CODE_BAR_PANELS.includes(item.id)).map(item => <WorkbenchPanelToggle key={item.id} item={item} className="workspace-topbar-action" />)}
+      {panels && <WorkbenchPanelMenu items={panels.filter(item => CODE_MENU_PANELS.includes(item.id))} testId="workspace-panels-menu"
+        trigger={<button type="button" className="workspace-topbar-action" aria-label="More panels" title="More panels"><PanelsTopLeft size={14} aria-hidden="true" /><span>Panels</span></button>} />}
       <button type="button" className="workspace-topbar-action" aria-label="Open connections" title="Connections and MCP servers" onClick={openConnections}>
         <PlugZap size={14} aria-hidden="true" /><span>Connections</span>
       </button>

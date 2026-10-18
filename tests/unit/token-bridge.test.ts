@@ -30,9 +30,9 @@ describe('token bridge', () => {
     // surface below the scrim's layer renders dimmed and unclickable. jsdom does
     // not resolve stacking, so compare the declared values.
     const scrimZ = LAYER.overlay
-    const layout = readFileSync(join(process.cwd(), 'src/styles/layout.css'), 'utf8')
+    const overlay = readFileSync(join(process.cwd(), 'src/ui/Overlay.module.css'), 'utf8')
     const components = readFileSync(join(process.cwd(), 'src/styles/components.css'), 'utf8')
-    for (const [selector, source] of [['.tools-modal', layout], ['.modal-dialog-surface', components]] as const) {
+    for (const [selector, source] of [['.dialog', overlay], ['.modal-dialog-surface', components]] as const) {
       const block = new RegExp(`\\${selector}\\s*\\{([^}]*)\\}`).exec(source)?.[1] ?? ''
       const declared = /z-index:\s*(?:var\(--layer-(\w+)\)|(\d+))/.exec(block)
       const zIndex = declared?.[1] ? LAYER[declared[1] as keyof typeof LAYER] : Number(declared?.[2])

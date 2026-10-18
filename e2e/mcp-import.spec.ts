@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { scanSurface } from './helpers/a11y'
+import { openConnections } from './helpers/panels'
 
 /**
  * Importing servers other tools already have, with the real main process and database (not the mocked native layer): a temporary home holds a Cursor
@@ -38,8 +39,7 @@ test('import MCP servers from Cursor into the Connections panel', async () => {
     await page.getByTestId('wizard-launch-btn').click()
     await expect(page.locator('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]').first()).toBeVisible()
 
-    await page.getByTestId('btn-open-tools').click()
-    await page.getByText('MCP Servers', { exact: true }).click()
+    await openConnections(page)
     const panel = page.getByRole('dialog', { name: 'Connections' })
     await expect(panel).toBeVisible()
 

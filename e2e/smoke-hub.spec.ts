@@ -2,6 +2,7 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { openConnections, runPaletteCommand } from './helpers/panels'
 
 /**
  * Lightweight smoke: workspace → Tools hub → Agent Settings.
@@ -34,7 +35,7 @@ test('smoke: Tools hub and Agent Settings open from sidebar', async () => {
     ).toBeVisible()
 
     await page.getByTestId('btn-open-tools').click()
-    await expect(page.getByTestId('tools-modal')).toBeVisible()
+    await expect(page.getByRole('menu', { name: 'Panels' })).toBeVisible()
     await page.keyboard.press('Escape')
 
     await page.getByRole('button', { name: 'Open settings' }).click()
@@ -44,13 +45,11 @@ test('smoke: Tools hub and Agent Settings open from sidebar', async () => {
     await expect(page.getByTestId('diagnostics-checks')).toContainText('Renderer sandbox')
 
     await page.keyboard.press('Escape')
-    await page.getByTestId('btn-open-tools').click()
-    await page.getByText('MCP Servers', { exact: true }).click()
+    await openConnections(page)
     await expect(page.getByRole('dialog', { name: 'Connections' })).toBeVisible()
     await page.getByRole('button', { name: 'Close' }).click()
 
-    await page.getByTestId('btn-open-tools').click()
-    await page.getByText('Semantic Activity', { exact: true }).click()
+    await runPaletteCommand(page, 'Semantic index log')
     await expect(page.getByRole('dialog', { name: 'Semantic activity' })).toBeVisible()
     await expect(page.getByTestId('semantic-status-label')).toBeVisible()
   } finally {

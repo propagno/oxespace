@@ -53,7 +53,7 @@ describe('Sidebar', () => {
     const activate = vi.spyOn(useWorkspaceStore.getState(), 'setActiveWorkspace').mockResolvedValue(undefined)
     useUIStore.setState({ maximizedPaneId: 'pane-1' })
     render(<Sidebar workspaces={[workspace]} activeWorkspaceId={workspace.id} appVersion="test" onNewWorkspace={vi.fn()}
-      onSelectWorkspace={vi.fn()} onCloseWorkspace={vi.fn()} isCollapsed={false} onToggleCollapse={vi.fn()} onOpenTools={vi.fn()} />)
+      onSelectWorkspace={vi.fn()} onCloseWorkspace={vi.fn()} isCollapsed={false} onToggleCollapse={vi.fn()} />)
     await userEvent.setup().click(screen.getAllByTestId('pane-session-row')[1])
     expect(activate).toHaveBeenCalledWith(workspace.id)
     expect(useUIStore.getState().activePaneId).toBe('pane-2')
@@ -71,6 +71,7 @@ describe('Sidebar', () => {
     const onToggleCollapse = vi.fn()
 
     const onOpenTools = vi.fn()
+    const panelMenu = [{ type: 'check' as const, label: 'Files', checked: false, onSelect: onOpenTools }]
 
     render(
       <Sidebar
@@ -82,7 +83,7 @@ describe('Sidebar', () => {
         onCloseWorkspace={onCloseWorkspace}
         isCollapsed={false}
         onToggleCollapse={onToggleCollapse}
-        onOpenTools={onOpenTools}
+        panelMenu={panelMenu}
       />
     )
 
@@ -127,8 +128,9 @@ describe('Sidebar', () => {
     // state now. Assert they're gone so they don't sneak back.
     expect(screen.queryByRole('tab', { name: /unread/i })).not.toBeInTheDocument()
 
-    // Tools hub entry lives in the sidebar footer (not the workspace topbar).
+    // The rail's Panels button opens the same panel menu as the workspace bar.
     await user.click(screen.getByTestId('btn-open-tools'))
+    await user.click(await screen.findByRole('menuitemcheckbox', { name: 'Files' }))
     expect(onOpenTools).toHaveBeenCalled()
     useUIStore.setState({ isSettingsOpen: false })
     await user.click(screen.getByRole('button', { name: 'Open settings', exact: true }))
@@ -139,6 +141,7 @@ describe('Sidebar', () => {
     const user = userEvent.setup()
     const onSelectWorkspace = vi.fn()
     const onOpenTools = vi.fn()
+    const panelMenu = [{ type: 'check' as const, label: 'Files', checked: false, onSelect: onOpenTools }]
 
     render(
       <Sidebar
@@ -150,7 +153,7 @@ describe('Sidebar', () => {
         onCloseWorkspace={vi.fn()}
         isCollapsed
         onToggleCollapse={vi.fn()}
-        onOpenTools={onOpenTools}
+        panelMenu={panelMenu}
       />
     )
 
@@ -165,6 +168,7 @@ describe('Sidebar', () => {
     expect(onSelectWorkspace).toHaveBeenCalledWith('workspace-1')
 
     await user.click(screen.getByTestId('btn-open-tools'))
+    await user.click(await screen.findByRole('menuitemcheckbox', { name: 'Files' }))
     expect(onOpenTools).toHaveBeenCalled()
   })
 
@@ -185,7 +189,6 @@ describe('Sidebar', () => {
         onCloseWorkspace={vi.fn()}
         isCollapsed={false}
         onToggleCollapse={vi.fn()}
-        onOpenTools={vi.fn()}
       />
     )
 
@@ -207,7 +210,7 @@ describe('Sidebar', () => {
     }
     render(<Sidebar workspaces={[workspace, twin]} activeWorkspaceId={workspace.id} appVersion="test"
       onNewWorkspace={vi.fn()} onSelectWorkspace={vi.fn()} onCloseWorkspace={vi.fn()}
-      isCollapsed={false} onToggleCollapse={vi.fn()} onOpenTools={vi.fn()} />)
+      isCollapsed={false} onToggleCollapse={vi.fn()} />)
 
     const first = screen.getByRole('button', { name: '2 terminals in repo #1' })
     const second = screen.getByRole('button', { name: '2 terminals in repo #2' })
@@ -228,7 +231,7 @@ describe('Sidebar', () => {
     const user = userEvent.setup()
     render(<Sidebar workspaces={[workspace]} activeWorkspaceId={workspace.id} appVersion="test"
       onNewWorkspace={vi.fn()} onSelectWorkspace={vi.fn()} onCloseWorkspace={vi.fn()}
-      isCollapsed={false} onToggleCollapse={vi.fn()} onOpenTools={vi.fn()} />)
+      isCollapsed={false} onToggleCollapse={vi.fn()} />)
     await user.click(screen.getByRole('button', { name: '2 terminals in repo' }))
     expect(screen.queryAllByTestId('pane-session-row')).toHaveLength(0)
     await user.type(screen.getByRole('searchbox', { name: 'Filter workspaces' }), 'repo')

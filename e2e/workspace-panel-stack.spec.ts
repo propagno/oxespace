@@ -2,6 +2,7 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtempSync, mkdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { togglePanel } from './helpers/panels'
 
 test('workspace panels remain readable when several tools are open', async () => {
   test.setTimeout(120000)
@@ -18,10 +19,9 @@ test('workspace panels remain readable when several tools are open', async () =>
     await page.getByTestId('wizard-launch-btn').click()
     await expect(page.getByTestId('terminal-pane')).toHaveCount(4)
     await page.getByTestId('terminal-pane').first().evaluate(el => el.setAttribute('data-preserved', 'yes'))
-    for (const name of ['GitHub', 'Scripts', 'Web Preview', 'Background Jobs', 'Review']) {
-      await page.getByTestId('btn-open-tools').click()
-      await page.getByTestId('tools-modal').getByRole('menuitem', { name: new RegExp(`^${name}`) }).click()
-    }
+    for (const name of ['Commit & pull request', 'Scripts', 'Browser'] as const) await togglePanel(page, name)
+    await page.getByRole('button', { name: 'Toggle background activity' }).first().click()
+    await togglePanel(page, 'Changes')
     const stack = page.getByRole('navigation', { name: 'Workspace panels' })
     const tabs = stack.getByRole('tablist', { name: 'Open workspace panels' })
     await expect(tabs.getByRole('tab')).toHaveCount(4)

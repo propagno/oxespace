@@ -2,6 +2,7 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtempSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { runPaletteCommand } from './helpers/panels'
 
 test('coordination consent and result UI follows settings layout', async () => {
   const root = mkdtempSync(join(tmpdir(), 'oxe-coordination-ui-'))
@@ -29,8 +30,7 @@ test('coordination consent and result UI follows settings layout', async () => {
         route = enabled ? { workspaceId: 'destination', name: 'configuration', rootPath: path, expiresAt: Date.now() + 86400000, allowEvidence } : undefined
       })
     }, ws.id)
-    await page.getByTestId('btn-open-tools').click()
-    await page.getByTestId('tools-modal').getByRole('menuitem', { name: 'Workspace Settings', exact: true }).click()
+    await runPaletteCommand(page, 'Open workspace settings')
     const modal = page.getByRole('dialog', { name: 'Settings', exact: true })
     await modal.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Agent delegation/ }).click()
     const authorize = modal.getByRole('button', { name: 'Authorize local destination' })

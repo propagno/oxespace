@@ -18,7 +18,6 @@ interface UIState {
   settingsInitialPage: 'providers' | undefined
   openAgentSettings: () => void
   /** Tools hub modal (sidebar gear) — distinct from agent Settings. */
-  isToolsOpen: boolean
   isCommandPaletteOpen: boolean
   isCommandMenuOpen: boolean
   isWorkspaceSettingsOpen: boolean
@@ -74,8 +73,6 @@ interface UIState {
   togglePanelScopePin: (workspaceId: string) => void
   openIntegrationPanel: () => void
   closeIntegrationPanel: () => void
-  openTools: () => void
-  closeTools: () => void
   toggleSettings: () => void
   toggleSidebar: () => void
 }
@@ -87,7 +84,6 @@ export const useUIStore = create<UIState>((set) => ({
   isSettingsOpen: false,
   settingsInitialPage: undefined,
   openAgentSettings: () => set({ isSettingsOpen: true, isWorkspaceSettingsOpen: false, settingsInitialPage: 'providers' }),
-  isToolsOpen: false,
   isCommandPaletteOpen: false,
   isCommandMenuOpen: false,
   isWorkspaceSettingsOpen: false,
@@ -151,8 +147,6 @@ export const useUIStore = create<UIState>((set) => ({
   }),
   openIntegrationPanel: () => set({ isIntegrationPanelOpen: true }),
   closeIntegrationPanel: () => set({ isIntegrationPanelOpen: false }),
-  openTools: () => set({ isToolsOpen: true }),
-  closeTools: () => set({ isToolsOpen: false }),
   toggleSettings: () => set((s) => ({ isSettingsOpen: !s.isSettingsOpen, isWorkspaceSettingsOpen: false, settingsInitialPage: undefined })),
   toggleSidebar: () => set((s) => {
     const isSidebarCollapsed = !s.isSidebarCollapsed

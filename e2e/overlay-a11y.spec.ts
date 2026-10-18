@@ -2,6 +2,7 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { openConnections, runPaletteCommand } from './helpers/panels'
 
 /**
  * Every overlay opens with focus inside it, keeps Tab inside, closes on Escape and
@@ -34,16 +35,10 @@ test('overlays take focus, trap Tab and close on Escape', async () => {
       await page.keyboard.press('Escape')
       await expect(overlay, `${name} closes on Escape`).toBeHidden()
     }
-    const fromTools = (label: RegExp) => async (): Promise<void> => {
-      await page.getByTestId('btn-open-tools').click()
-      await page.getByTestId('tools-modal').getByRole('menuitem', { name: label }).click()
-    }
-
-    await exercise('Tools hub', () => page.getByTestId('btn-open-tools').click(), '[data-testid="tools-modal"]')
     await exercise('Command palette', () => page.keyboard.press('Control+k'), '[cmdk-root], [role="dialog"]:has([cmdk-input])')
-    await exercise('MCP servers', fromTools(/^MCP Servers/), '[role="dialog"][aria-label*="Connections" i], [role="dialog"]:has-text("Connections")')
-    await exercise('Skills', fromTools(/^Skills/), '[role="dialog"]:has-text("Skills")')
-    await exercise('Semantic activity', fromTools(/^Semantic Activity/), '[role="dialog"]:has-text("Semantic")')
-    await exercise('Workspace settings', fromTools(/^Workspace Settings/), '[role="dialog"]:has-text("Workspace")')
+    await exercise('MCP servers', () => openConnections(page), '[role="dialog"][aria-label*="Connections" i], [role="dialog"]:has-text("Connections")')
+    await exercise('Skills', () => runPaletteCommand(page, 'Skills'), '[role="dialog"]:has-text("Skills")')
+    await exercise('Semantic activity', () => runPaletteCommand(page, 'Semantic index log'), '[role="dialog"]:has-text("Semantic")')
+    await exercise('Workspace settings', () => runPaletteCommand(page, 'Open workspace settings'), '[role="dialog"]:has-text("Workspace")')
   } finally { await app.close() }
 })

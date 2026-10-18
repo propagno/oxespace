@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { ChevronsLeft, ChevronsRight, DatabaseZap, MessagesSquare, Settings2, SquareTerminal, type LucideIcon } from 'lucide-react'
 import { useUIStore } from '../../store/ui.store'
 import './NavigationChrome.css'
-import { cx } from '../../ui'
+import { cx, Menu, type MenuEntry } from '../../ui'
 import styles from './NavigationRail.module.css'
 import { describeAttention, useAttentionSummary, type AttentionCounts } from '../../hooks/useAttentionSummary'
 
@@ -15,6 +15,8 @@ export interface RailAction {
   onClick?: () => void
   testId?: string
   disabled?: boolean
+  /** Opens a menu instead of running onClick. */
+  menu?: MenuEntry[]
 }
 
 /**
@@ -52,7 +54,7 @@ export function NavigationRail({ mode, collapsed, onModeChange, onSelectMode, pr
     {children}
     <span className={styles.spacer} />
     <footer className={cx('nav-rail-footer', styles.group)}>
-      <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label={context.ariaLabel ?? context.label} title={context.label} data-testid={context.testId} onClick={context.onClick}><ContextIcon size={16} aria-hidden="true" /></button>
+      {context.menu ? <Menu label={context.label} items={context.menu} trigger={<button type="button" className={cx('nav-rail-btn', styles.button)} aria-label={context.ariaLabel ?? context.label} title={context.label} data-testid={context.testId} disabled={context.disabled} onClick={context.menu ? undefined : context.onClick}><ContextIcon size={16} aria-hidden="true" /></button>} /> : <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label={context.ariaLabel ?? context.label} title={context.label} data-testid={context.testId} disabled={context.disabled} onClick={context.menu ? undefined : context.onClick}><ContextIcon size={16} aria-hidden="true" /></button>}
       <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label="Open settings" title="Settings" onClick={openSettings}><Settings2 size={16} aria-hidden="true" /></button>
       <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} onClick={onToggle}>{collapsed ? <ChevronsRight size={16} aria-hidden="true" /> : <ChevronsLeft size={16} aria-hidden="true" />}</button>
     </footer>

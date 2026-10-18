@@ -95,14 +95,15 @@ export interface MenuProps {
   items: MenuEntry[]
   align?: 'start' | 'center' | 'end'
   label?: string
+  testId?: string
 }
 
 /** A dropdown of actions. Keyboard: arrows move, Enter selects, Escape closes, typing jumps. */
-export function Menu({ trigger, items, align = 'start', label }: MenuProps): ReactElement {
+export function Menu({ trigger, items, align = 'start', label, testId }: MenuProps): ReactElement {
   return <RadixMenu.Root>
     <RadixMenu.Trigger asChild>{trigger}</RadixMenu.Trigger>
     <RadixMenu.Portal>
-      <RadixMenu.Content className={cx(styles.floating, styles.menu)} align={align} sideOffset={6} collisionPadding={CHROME_COLLISION} aria-label={label}>
+      <RadixMenu.Content className={cx(styles.floating, styles.menu)} align={align} sideOffset={6} collisionPadding={CHROME_COLLISION} aria-label={label} data-testid={testId}>
         {items.map((item, index) => {
           if (item.type === 'separator') return <RadixMenu.Separator key={index} className={styles.menuSeparator} />
           if (item.type === 'label') return <RadixMenu.Label key={index} className={styles.menuLabel}>{item.label}</RadixMenu.Label>

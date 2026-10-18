@@ -3,6 +3,7 @@ import { createServer } from 'node:http'
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { togglePanel } from './helpers/panels'
 
 test('Web Preview startup, tab count and memory baseline', async () => {
   const root = mkdtempSync(join(tmpdir(), 'oxe-preview-bench-'))
@@ -22,8 +23,7 @@ test('Web Preview startup, tab count and memory baseline', async () => {
     await page.getByTestId('wizard-dir-input').fill(repo)
     await page.getByTestId('wizard-launch-btn').click()
     const panelStarted = performance.now()
-    await page.getByTestId('btn-open-tools').click()
-    await page.getByText('Web Preview',{exact:true}).click()
+    await togglePanel(page, 'Browser')
     await page.locator('.web-preview-address-input').waitFor({state:'visible'})
     const panelMs = Math.round(performance.now() - panelStarted)
     const snapshot = () => app.evaluate(({app,webContents},baseUrl) => {

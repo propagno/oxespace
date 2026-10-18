@@ -2,6 +2,7 @@ import { _electron as electron, expect, test, type Page } from '@playwright/test
 import { mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { togglePanel, openConnections, runPaletteCommand } from './helpers/panels'
 
 const SHOTS_DIR = join(process.cwd(), 'e2e', 'screenshots')
 
@@ -84,15 +85,13 @@ test('captures all surfaces for design review', async () => {
     await page.waitForTimeout(200)
 
     // 10. MCP panel via its actual Tools destination.
-    await page.getByTestId('btn-open-tools').click()
-    await page.getByTestId('tools-modal').getByRole('menuitem', { name: /^MCP Servers/ }).click()
+    await openConnections(page)
     await expect(page.getByRole('dialog', { name: 'MCP servers' })).toBeVisible()
     await shot(page, '11-mcp-panel')
     await page.getByRole('dialog', { name: 'MCP servers' }).getByRole('button', { name: 'Close' }).click()
 
     // 12. Skills browser
-    await page.getByTestId('btn-open-tools').click()
-    await page.getByTestId('tools-modal').getByRole('menuitem', { name: /^Skills/ }).click()
+    await runPaletteCommand(page, 'Skills')
     await expect(page.getByRole('dialog', { name: 'Skills' })).toBeVisible()
     await shot(page, '12-skills-browser')
 
@@ -103,16 +102,13 @@ test('captures all surfaces for design review', async () => {
     await page.getByRole('dialog', { name: 'Skills' }).getByRole('button', { name: 'Close' }).click()
 
     // 14. Editor panel from Tools, then close it before opening another panel.
-    await page.getByTestId('btn-open-tools').click()
-    await page.getByTestId('tools-modal').getByRole('menuitem', { name: /^Editor/ }).click()
+    await togglePanel(page, 'Files')
     await expect(page.getByTestId('workspace-editor-panel')).toBeVisible()
     await shot(page, '14-editor-panel')
-    await page.getByTestId('btn-open-tools').click()
-    await page.getByTestId('tools-modal').getByRole('menuitem', { name: /^Editor/ }).click()
+    await togglePanel(page, 'Files')
 
     // 15. Open GitHub panel via Tools modal
-    await page.getByTestId('btn-open-tools').click()
-    await page.getByTestId('tools-modal').getByRole('menuitem', { name: /^GitHub/ }).click()
+    await togglePanel(page, 'Commit & pull request')
     await expect(page.getByTestId('workspace-github-panel')).toBeVisible()
     await shot(page, '15-github-panel')
     await page.getByTestId('workspace-github-panel').getByRole('button', { name: 'GitHub features' }).click()
@@ -122,40 +118,34 @@ test('captures all surfaces for design review', async () => {
     await shot(page, '15b-github-features')
 
     // 16. Workspace settings, reached through a verified menu action.
-    await page.getByTestId('btn-open-tools').click()
-    await page.getByTestId('tools-modal').getByRole('menuitem', { name: /^Workspace Settings/ }).click()
+    await runPaletteCommand(page, 'Open workspace settings')
     await expect(page.locator('.settings-center')).toBeVisible()
     await shot(page, '16-workspace-settings')
     await page.keyboard.press('Escape')
 
     // 17. Native terminal shortcuts belong to the terminal; use Tools.
-    await page.getByTestId('btn-open-tools').click()
-    await page.getByTestId('tools-modal').getByRole('menuitem', { name: /^Terminal Commands/ }).click()
+    await runPaletteCommand(page, 'Terminal Commands')
     await expect(page.locator('.slash-overlay')).toBeVisible()
     await shot(page, '17-slash-overlay')
     await page.keyboard.press('Escape')
 
     // 18. Scripts panel via Tools modal
-    await page.getByTestId('btn-open-tools').click()
-    await page.getByTestId('tools-modal').getByRole('menuitem', { name: /^Scripts/ }).click()
+    await togglePanel(page, 'Scripts')
     await expect(page.getByTestId('workspace-scripts-panel')).toBeVisible()
     await shot(page, '18-scripts-panel')
 
     // 19. Web preview panel
-    await page.getByTestId('btn-open-tools').click()
-    await page.getByTestId('tools-modal').getByRole('menuitem', { name: /^Web Preview/ }).click()
+    await togglePanel(page, 'Browser')
     await expect(page.getByTestId('workspace-web-preview-panel')).toBeVisible()
     await shot(page, '19-web-preview-panel')
 
     // 20. Background dock
-    await page.getByTestId('btn-open-tools').click()
-    await page.getByTestId('tools-modal').getByRole('menuitem', { name: /^Background Jobs/ }).click()
+    await page.getByRole('button', { name: 'Toggle background activity' }).first().click()
     await expect(page.getByTestId('workspace-background-panel')).toBeVisible()
     await shot(page, '20-background-dock')
 
     // 21. Review panel
-    await page.getByTestId('btn-open-tools').click()
-    await page.getByTestId('tools-modal').getByRole('menuitem', { name: /^Review/ }).click()
+    await togglePanel(page, 'Changes')
     await expect(page.getByTestId('workspace-review-panel')).toBeVisible()
     await shot(page, '21-review-panel')
   } finally {

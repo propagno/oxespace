@@ -43,7 +43,7 @@ async function reach(surface: string, found: Violation[], page: Page, open: () =
 
 async function openTool(page: Page, name: RegExp): Promise<void> {
   await page.getByTestId('btn-open-tools').click()
-  await page.getByTestId('tools-modal').getByRole('menuitem', { name }).click()
+  await page.getByRole('menu', { name: 'Panels' }).getByRole('menuitemcheckbox', { name }).click()
 }
 
 for (const theme of THEMES) {
@@ -70,7 +70,7 @@ for (const theme of THEMES) {
       await record(await scanSurface(page, `${theme}/workspace`), found)
 
       await page.getByTestId('btn-open-tools').click()
-      await expect(page.getByTestId('tools-modal')).toBeVisible()
+      await expect(page.getByRole('menu', { name: 'Panels' })).toBeVisible()
       await record(await scanSurface(page, `${theme}/tools-menu`), found)
       await page.keyboard.press('Escape')
 

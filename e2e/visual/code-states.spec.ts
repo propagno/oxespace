@@ -15,7 +15,7 @@ async function openWorkspace(page: Page, repo: string, layoutCard: 1 | 2 | 4): P
 
 async function openTool(page: Page, name: RegExp): Promise<void> {
   await page.getByTestId('btn-open-tools').click()
-  await page.getByTestId('tools-modal').getByRole('menuitem', { name }).click()
+  await page.getByRole('menu', { name: 'Panels' }).getByRole('menuitemcheckbox', { name }).click()
 }
 
 // Terminals are hidden by expectSurface. The temp path and the sidebar age ("Just now" depends
@@ -35,7 +35,7 @@ for (const theme of THEMES) {
       await expectSurface(page, `code-single-terminal-${theme}`, { hide: liveMasks(page) })
 
       await page.getByTestId('btn-open-tools').click()
-      await expect(page.getByTestId('tools-modal')).toBeVisible()
+      await expect(page.getByRole('menu', { name: 'Panels' })).toBeVisible()
       await expectSurface(page, `code-tools-menu-${theme}`, { hide: liveMasks(page) })
       await page.keyboard.press('Escape')
 

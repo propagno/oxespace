@@ -504,7 +504,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await claude.getByRole('button', { name: 'Reconnect', exact: true }).click()
     await expect(claude.getByText('Complete sign-in in your browser.')).toBeVisible()
     await claude.getByRole('button', { name: 'Cancel sign-in', exact: true }).click()
-    await accountsDialog.getByRole('button', { name: 'Done', exact: true }).click()
+    await accountsDialog.getByRole('button', { name: 'Close', exact: true }).click()
     await page.getByRole('button', { name: 'Retry', exact: true }).click()
     await expect(page.getByText('Verified fixture response', { exact: true })).toBeVisible()
     await expect(page.locator('.thread-navigation-row').filter({ has: page.locator('.thread-session-title', { hasText: 'Authentication flow' }) }).locator('.thread-session-state')).toHaveText('Completed')

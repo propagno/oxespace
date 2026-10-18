@@ -30,8 +30,7 @@ test('Team opens from the title bar, the command palette and the Tools hub, and 
     await page.keyboard.press('Escape')
     await expect(dialog).toBeHidden()
 
-    await page.getByTestId('btn-open-tools').click()
-    await page.getByTestId('tools-modal').getByRole('menuitem', { name: /^Team/ }).click()
+    await page.getByRole('button', { name: 'Team', exact: true }).first().click()
     await expect(dialog).toBeVisible()
     await page.keyboard.press('Escape')
 

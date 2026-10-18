@@ -2,6 +2,7 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtempSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { runPaletteCommand } from './helpers/panels'
 
 test('workspace settings navigation and responsive visual review', async () => {
   const info = test.info()
@@ -15,8 +16,7 @@ test('workspace settings navigation and responsive visual review', async () => {
     await page.getByTestId('btn-new-workspace').click()
     await page.getByTestId('wizard-dir-input').fill(repo)
     await page.getByTestId('wizard-launch-btn').click()
-    await page.getByTestId('btn-open-tools').click()
-    await page.getByTestId('tools-modal').getByRole('menuitem', { name: 'Workspace Settings', exact: true }).click()
+    await runPaletteCommand(page, 'Open workspace settings')
     const modal = page.getByRole('dialog', { name: 'Settings', exact: true })
     await expect(modal).toBeVisible()
     for (const width of [1360, 600]) {
@@ -79,8 +79,7 @@ test('workspace settings navigation and responsive visual review', async () => {
     await expect(page.locator('.split-pane-slot[data-compact-active]').getByTestId('terminal-pane')).toBeVisible()
     await page.screenshot({ path: info.outputPath('600-Code-Dark.png') })
     await page.setViewportSize({ width: 1360, height: 900 })
-    await page.getByTestId('btn-open-tools').click()
-    await page.getByTestId('tools-modal').getByRole('menuitem', { name: 'Workspace Settings', exact: true }).click()
+    await runPaletteCommand(page, 'Open workspace settings')
     await modal.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Appearance/ }).click()
     await modal.getByRole('radio', { name: /^Light/ }).click()
     await page.keyboard.press('Escape')
