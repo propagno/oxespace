@@ -27,6 +27,7 @@ import { threadCapabilityManifest } from './thread-capabilities'
 import { splitThreadPatch } from '../../../../shared/threadPatch'
 import { settleVolatileThreadSnapshot } from './thread-recovery.service'
 import { ThreadSessionSupervisor } from './thread-session-supervisor'
+import { pruneThreadData } from './thread-retention'
 import { ThreadExportService } from './thread-export.service'
 import { ThreadPortableService } from './thread-portable'
 import { ThreadCheckpointService } from './thread-checkpoints'
@@ -46,6 +47,15 @@ const sameCheckout = (a: string, b: string): boolean => canonicalPath(a) === can
 /** The checkout a conversation works in: a worktree of its repository the provider moved into, else its root. */
 const workingRootOf = (thread: ConversationThread): string =>
   thread.observedLocation?.sameRepository && thread.observedLocation.checkoutRoot ? thread.observedLocation.checkoutRoot : thread.rootPath
+
+/** Conversations a restart may have left mid-operation: live status, an open connection, or a task still marked running. */
+const THREADS_NEEDING_RECOVERY = `SELECT id FROM conversation_threads t WHERE
+  json_extract(data_json, '$.status') IN ('running', 'approval')
+  OR json_extract(data_json, '$.cliActive') = 1
+  OR coalesce(json_extract(data_json, '$.connection.state'), 'closed') != 'closed'
+  OR json_extract(data_json, '$.connection.suspendedAt') IS NOT NULL
+  OR EXISTS (SELECT 1 FROM conversation_events e WHERE e.thread_id = t.id
+    AND json_extract(e.data_json, '$.type') = 'subagent' AND json_extract(e.data_json, '$.state') = 'running')`
 
 /** How often idle conversations are checked for suspension. */
 const IDLE_SWEEP_MS = 60_000
@@ -125,6 +135,8 @@ export class ThreadOrchestrator {
   /** Provider connections being opened, so two callers share one process instead of orphaning one. */
   private readonly connecting = new Map<string, Promise<AgentConversationAdapter>>()
   private readonly idleSweep: ReturnType<typeof setInterval>
+  /** Daily retention pass for an app left open for days. */
+  private readonly retentionSweep: ReturnType<typeof setInterval>
 
   constructor(private readonly db: AppDatabase,
     private readonly factory: (thread: ConversationThread) => Promise<AgentConversationAdapter>,
@@ -145,8 +157,11 @@ export class ThreadOrchestrator {
     this.permissions = new ThreadPermissionStore(db)
     this.usage = new ThreadUsageLedger(db)
     try { this.permissions.prune() } catch { /* Audit retention is best effort. */ }
+    try { pruneThreadData(db) } catch { /* Retention is best effort; nothing is lost by skipping it once. */ }
     // A persisted running state is not proof that its process survived a restart.
-    for (const row of db.prepare('SELECT id FROM conversation_threads').all() as { id: string }[]) {
+    // Only conversations whose saved state says something was still live are read in full; the rest stay on disk.
+    this.checkpoints.failAllOpen('OXESpace restarted before this checkpoint could be finalized.')
+    for (const row of db.prepare(THREADS_NEEDING_RECOVERY).all() as { id: string }[]) {
       const snapshot = this.history.read(row.id)
       let recovered = false
       let eventsFrom = snapshot.events.length
@@ -155,7 +170,6 @@ export class ThreadOrchestrator {
         this.history.settleOpenOperations(snapshot.thread.id, 'unknown', 'OXESpace restarted before the provider result was confirmed.')
         recovered = true; eventsFrom = 0
       }
-      this.checkpoints.failOpen(row.id, 'OXESpace restarted before this checkpoint could be finalized.')
       if (snapshot.thread.connection && (snapshot.thread.connection.state !== 'closed' || snapshot.thread.connection.suspendedAt)) { snapshot.thread.connection = this.sessions.close(row.id); recovered = true }
       if (recovered) this.save(snapshot, { eventsFrom })
       this.snapshots.delete(row.id)
@@ -170,6 +184,8 @@ export class ThreadOrchestrator {
     queueMicrotask(() => { try { this.work.resume() } catch { /* Agent Work recovery is best effort. */ } })
     this.idleSweep = setInterval(() => { void this.suspendIdle().catch(() => {}) }, IDLE_SWEEP_MS)
     this.idleSweep.unref?.()
+    this.retentionSweep = setInterval(() => { try { pruneThreadData(this.db) } catch { /* best effort */ } }, 24 * 60 * 60 * 1000)
+    this.retentionSweep.unref?.()
   }
 
   /** Minutes without activity before an idle conversation's agent process is closed; 0 keeps it open. */
@@ -973,6 +989,7 @@ export class ThreadOrchestrator {
     for (const id of this.deltaBuffers.keys()) this.flushDeltas(id)
     this.stopping = true
     clearInterval(this.idleSweep)
+    clearInterval(this.retentionSweep)
     this.work.stop()
     const observations = Promise.allSettled([...this.observations.values()])
     await this.stateReader?.stop()
