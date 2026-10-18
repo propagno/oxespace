@@ -7,7 +7,8 @@ import { OxeLogo } from '../Brand/OxeLogo'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { buildAgentSlots, type AgentCount } from './fleetUtils'
 import { LAYOUT_PRESETS } from './workspaceOptions'
-import { Dialog, DialogContent, DialogDescription, DialogTitle, DESKTOP_DIALOG_OVERLAY } from '@/components/ui/dialog'
+import { ModalDescription, ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
+import { Button, EmptyState } from '../../ui'
 
 export interface WizardLaunchInput {
   rootPath: string
@@ -172,10 +173,8 @@ export function NewWorkspaceModal({
   const canLaunch = hasFolder && !isSubmitting
 
   return (
-    <Dialog open onOpenChange={(next) => { if (!next) closeAndRestoreFocus() }}>
-      <DialogContent
-        unstyled
-        showCloseButton={false}
+    <ModalRoot open onOpenChange={(next) => { if (!next) closeAndRestoreFocus() }}>
+      <ModalSurface
         onCloseAutoFocus={event => {
           event.preventDefault()
           if (!isSubmitting) requestAnimationFrame(() => {
@@ -185,24 +184,24 @@ export function NewWorkspaceModal({
             target?.focus({ preventScroll: true })
           })
         }}
-        overlayClassName={DESKTOP_DIALOG_OVERLAY}
+        scrimClassName="desktop-dialog-overlay"
         className="modal new-workspace-modal-v2 modal-dialog-surface desktop-dialog"
       >
         <header className="new-workspace-header">
           <span className="new-workspace-header-icon" aria-hidden="true">
-            <OxeLogo size={18} variant="compact" />
+            <OxeLogo size={16} variant="compact" />
           </span>
           <div className="new-workspace-header-text">
-            <DialogTitle asChild>
+            <ModalTitle asChild>
               <h2>{selectedExisting ? 'Open existing workspace' : 'Create new workspace'}</h2>
-            </DialogTitle>
-            <DialogDescription asChild>
+            </ModalTitle>
+            <ModalDescription asChild>
               <p>{selectedExisting ? 'Choose the workspace to continue where you left off.' : 'Pick a folder, layout, and optional agents.'}</p>
-            </DialogDescription>
+            </ModalDescription>
           </div>
-          <button type="button" className="icon-button" aria-label="Close" onClick={closeAndRestoreFocus}>
+          <Button variant="ghost" size="sm" square aria-label="Close" onClick={closeAndRestoreFocus}>
             <X size={14} aria-hidden="true" />
-          </button>
+          </Button>
         </header>
 
         <div className="new-workspace-body">
@@ -249,7 +248,7 @@ export function NewWorkspaceModal({
                 onClick={() => void handlePickFolder()}
                 disabled={isPickingFolder}
               >
-                <FolderOpen size={13} aria-hidden="true" />
+                <FolderOpen size={14} aria-hidden="true" />
                 {isPickingFolder ? 'Picking…' : 'Browse'}
               </button>
             </div>
@@ -326,7 +325,7 @@ export function NewWorkspaceModal({
                 incLabel={`Add another ${shellLabel}`}
               />
               {agentProfiles.length === 0 ? (
-                <p className="new-workspace-empty">No agents configured. The workspace will start with default shells.</p>
+                <EmptyState compact title="No agents configured. The workspace will start with default shells." />
               ) : (
                 agentProfiles.map((agent) => {
                   const count = agentCounts[agent.agentProfileId] ?? 0
@@ -363,22 +362,22 @@ export function NewWorkspaceModal({
         </div>
 
         <footer className="new-workspace-footer">
-          <button type="button" className="secondary-action" onClick={closeAndRestoreFocus}>
+          <Button variant="secondary" onClick={closeAndRestoreFocus}>
             Cancel
-          </button>
-          <button
-            type="button"
-            className="primary-action new-workspace-create-btn"
+          </Button>
+          <Button
+           
+            variant="primary" className="new-workspace-create-btn"
             onClick={() => void handleLaunch()}
             disabled={!canLaunch}
             data-testid="wizard-launch-btn"
             title={!hasFolder ? 'Choose a folder first' : undefined}
           >
             {isSubmitting ? (selectedExisting ? 'Opening…' : 'Creating…') : selectedExisting ? 'Open workspace' : 'Create workspace'}
-          </button>
+          </Button>
         </footer>
-      </DialogContent>
-    </Dialog>
+      </ModalSurface>
+    </ModalRoot>
   )
 }
 
@@ -439,7 +438,7 @@ function AgentChip({
           aria-label={removeLabel}
           data-testid={decTestId}
         >
-          <Minus size={11} aria-hidden="true" />
+          <Minus size={12} aria-hidden="true" />
         </button>
         <span data-testid={countTestId}>{count}</span>
         <button
@@ -450,7 +449,7 @@ function AgentChip({
           aria-label={incLabel}
           data-testid={incTestId}
         >
-          <Plus size={11} aria-hidden="true" />
+          <Plus size={12} aria-hidden="true" />
         </button>
       </span>
     </div>

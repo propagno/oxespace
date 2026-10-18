@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import type { Appearance } from '../design/mode'
 
 /**
  * General app preferences, persisted to localStorage (OXESpace has no global
@@ -29,6 +30,9 @@ interface SettingsState {
    */
   visitedWorkspacesCap: number
   setVisitedWorkspacesCap: (cap: number) => void
+  /** Light or dark mode, or follow the operating system. */
+  appearance: Appearance
+  setAppearance: (appearance: Appearance) => void
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -37,16 +41,19 @@ export const useSettingsStore = create<SettingsState>()(
       notificationsEnabled: true,
       setNotificationsEnabled: (notificationsEnabled) => set({ notificationsEnabled }),
       visitedWorkspacesCap: VISITED_WORKSPACES_CAP_DEFAULT,
-      setVisitedWorkspacesCap: (cap) => set({ visitedWorkspacesCap: clampVisitedCap(cap) })
+      setVisitedWorkspacesCap: (cap) => set({ visitedWorkspacesCap: clampVisitedCap(cap) }),
+      appearance: 'system',
+      setAppearance: (appearance) => set({ appearance })
     }),
     {
       name: 'oxe-settings',
-      version: 2,
+      version: 3,
       migrate: (persisted) => {
         const s = (persisted ?? {}) as Partial<SettingsState>
         return {
           notificationsEnabled: s.notificationsEnabled ?? true,
-          visitedWorkspacesCap: clampVisitedCap(s.visitedWorkspacesCap ?? VISITED_WORKSPACES_CAP_DEFAULT)
+          visitedWorkspacesCap: clampVisitedCap(s.visitedWorkspacesCap ?? VISITED_WORKSPACES_CAP_DEFAULT),
+          appearance: s.appearance === 'light' || s.appearance === 'dark' ? s.appearance : 'system'
         }
       }
     }

@@ -17,6 +17,7 @@ import { ContextUsageStatus } from '../Terminal/ContextUsageStatus'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import { VoiceHud } from '../Voice/VoiceHud'
 import { DesktopDialog } from '../Navigation/DesktopDialog'
+import { TextField } from '../../ui'
 interface TerminalPaneProps {
   pane: WorkspacePane
   workspaceId: string
@@ -191,7 +192,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
       const { command: agentCommand, initialPrompt } = await resolveWithIntegrationContext()
       const profile = inferAgentProfile(agentCommand ?? '', allProfiles)
       if (profile && profile.agentProfileId !== pane.agentProfileId) {
-        if (!pane.id.startsWith('thread-shell:')) void setPaneAgent(pane.id, profile.agentProfileId, { preserveSession: true })
+        if (!/^(thread|oxequery)-shell:/.test(pane.id)) void setPaneAgent(pane.id, profile.agentProfileId, { preserveSession: true })
       }
 
       let p = initialPrompt
@@ -253,7 +254,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         typedCommandRef.current = ''
         const matchedProfile = inferAgentProfile(command, allProfiles)
         if (matchedProfile && matchedProfile.agentProfileId !== pane.agentProfileId) {
-          if (!pane.id.startsWith('thread-shell:')) void setPaneAgent(pane.id, matchedProfile.agentProfileId, { preserveSession: true })
+          if (!/^(thread|oxequery)-shell:/.test(pane.id)) void setPaneAgent(pane.id, matchedProfile.agentProfileId, { preserveSession: true })
         } else if (command) {
           setLastIntent(pane.id, command)
         }
@@ -286,7 +287,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
       const { command: agentCommand, initialPrompt } = await resolveWithIntegrationContext()
       const profile = inferAgentProfile(agentCommand ?? '', allProfiles)
       if (profile && profile.agentProfileId !== pane.agentProfileId) {
-        if (!pane.id.startsWith('thread-shell:')) void setPaneAgent(pane.id, profile.agentProfileId, { preserveSession: true })
+        if (!/^(thread|oxequery)-shell:/.test(pane.id)) void setPaneAgent(pane.id, profile.agentProfileId, { preserveSession: true })
       }
       await window.oxe.terminal.stop({ paneId: pane.id })
       await window.oxe.terminal.start({ paneId: pane.id, workspaceId, agentCommand, initialPrompt })
@@ -400,7 +401,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
 
       {isRunning ? (
         <div className="terminal-content">
-          <ErrorBoundary label="o terminal">
+          <ErrorBoundary label="the terminal">
           <TerminalView
             paneId={pane.id}
             workspaceId={workspaceId}
@@ -512,7 +513,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         </div>
       </div>
       {restoreOpen && <DesktopDialog className="terminal-restore-dialog" title="Restore provider session" description={`Choose a saved ${agentCreditsProvider === 'claude' ? 'Claude' : 'Codex'} conversation from this directory. The current terminal process closes only after you select one.`} onClose={() => { if (!restoreBusy) setRestoreOpen(false) }}>
-        <label>Search sessions<input aria-label="Search saved sessions" value={restoreQuery} onChange={event => setRestoreQuery(event.target.value)} placeholder="Prompt, model or session ID" /></label>
+        <label>Search sessions<TextField aria-label="Search saved sessions" value={restoreQuery} onChange={event => setRestoreQuery(event.target.value)} placeholder="Prompt, model or session ID" /></label>
         {restoreError && <p role="alert">{restoreError}</p>}
         <div className="terminal-restore-list">
           {restoreBusy && !savedSessions.length && <p>Loading saved sessions…</p>}

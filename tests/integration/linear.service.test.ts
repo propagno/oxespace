@@ -3,9 +3,11 @@ import { LinearService, sanitizeDirectoryName } from '../../electron/main/servic
 import type { AppDatabase } from '../../electron/main/db/index'
 import type { GitHubService } from '../../electron/main/services/github.service'
 
+const encryption = vi.hoisted(() => ({ available: true }))
+
 vi.mock('electron', () => ({
   safeStorage: {
-    isEncryptionAvailable: () => true,
+    isEncryptionAvailable: () => encryption.available,
     encryptString: (value: string) => Buffer.from(`enc:${value}`, 'utf8'),
     decryptString: (buffer: Buffer) => buffer.toString('utf8').replace(/^enc:/, '')
   }
@@ -49,6 +51,7 @@ describe('LinearService', () => {
 
   beforeEach(() => {
     db = makeDb()
+    encryption.available = true
   })
 
   it('validates the key before storing it, and stores it encrypted', async () => {
@@ -60,6 +63,28 @@ describe('LinearService', () => {
     expect(status).toMatchObject({ connected: true, encrypted: true, viewerName: 'Eduardo', organization: 'OXE' })
     const stored = (db.prepare('SELECT') as unknown as { get: (p: string) => { payload: Buffer } }).get('linear')
     expect(stored.payload.toString('utf8')).toBe('enc:lin_api_abc')
+  })
+
+  it('does not save the key, or send it anywhere, when OS encryption is unavailable', async () => {
+    encryption.available = false
+    const fetchMock = vi.fn()
+    const service = new LinearService(db, {} as GitHubService, fetchMock as unknown as typeof fetch)
+
+    await expect(service.setApiKey('lin_api_abc')).rejects.toThrow(/Secure storage is unavailable.*not saved/)
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect((db.prepare('SELECT') as unknown as { get: (p: string) => unknown }).get('linear')).toBeUndefined()
+  })
+
+  it('still reads a key an earlier version saved unencrypted, so nobody is disconnected', async () => {
+    encryption.available = false
+    db.prepare('INSERT').run('linear', Buffer.from('lin_api_old', 'utf8'), 0, 'Eduardo')
+    const fetchMock = vi.fn(async () => jsonResponse({ data: { viewer: { name: 'Eduardo', email: 'e@x.com' } } }))
+    const service = new LinearService(db, {} as GitHubService, fetchMock as unknown as typeof fetch)
+
+    const status = await service.getStatus()
+
+    expect(status).toMatchObject({ connected: true, encrypted: false, viewerName: 'Eduardo' })
+    expect(fetchMock).toHaveBeenCalled()
   })
 
   it('refuses to store a key the API rejects', async () => {

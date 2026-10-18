@@ -15,19 +15,24 @@ import {
   RefreshCw,
   Settings2,
   SquareTerminal,
+  Palette,
   X,
   Zap
 } from 'lucide-react'
+import { AppearanceSettings } from './AppearanceSettings'
 import { useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import type { AgentProfile, AgentProvider, AgentReadiness } from '../../../shared/types/agent'
 import type { VoiceModelSize, VoiceModelStatus } from '../../../shared/types/voice'
+import type { AgentHookAgent, AgentHooksStatus } from '../../../shared/types/agent-hooks'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
+import { AutomationsSettings } from './AutomationsSettings'
 import { useAgentStore } from '../../store/agent.store'
 import { useVoiceStore } from '../../store/voice.store'
 import { useSettingsStore, VISITED_WORKSPACES_CAP_MAX, VISITED_WORKSPACES_CAP_MIN } from '../../store/settings.store'
-import { Dialog, DialogContent, DialogTitle, LEGACY_MODAL_OVERLAY } from '@/components/ui/dialog'
+import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
 import { TERMINAL_PREFS_DEFAULTS, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useUpdaterStore } from '../../store/updater.store'
+import { Button, Switch, TextField, Select } from '../../ui'
 
 export interface SettingsModalProps {
   agentProfiles: AgentProfile[]
@@ -41,15 +46,8 @@ export interface SettingsModalProps {
   onUseProviderInPane?: (profile: AgentProfile) => void | Promise<void>
 }
 
-/** Official install / docs links for built-in agent CLIs (opened externally). */
-export const PROVIDER_INSTALL_DOCS: Partial<Record<AgentProvider, { label: string; url: string }>> = {
-  claude: { label: 'Install Claude Code', url: 'https://docs.anthropic.com/en/docs/claude-code/overview' },
-  copilot: { label: 'Install Copilot CLI', url: 'https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli' },
-  codex: { label: 'Install Codex CLI', url: 'https://github.com/openai/codex' },
-  cursor: { label: 'Cursor CLI docs', url: 'https://cursor.com/docs' },
-  antigravity: { label: 'Antigravity (agy)', url: 'https://github.com/search?q=antigravity+cli+agy&type=repositories' },
-  grok: { label: 'Grok CLI docs', url: 'https://docs.x.ai/' }
-}
+import { PROVIDER_INSTALL_DOCS } from './providerInstallDocs'
+export { PROVIDER_INSTALL_DOCS }
 
 function openInstallDocs(url: string): void {
   window.open(url, '_blank', 'noopener,noreferrer')
@@ -64,10 +62,11 @@ function formatCheckedAgo(ts: number | null): string | null {
   return `Checked ${Math.floor(sec / 86400)} d ago`
 }
 
-export type SettingsSection = 'providers' | 'terminal' | 'voice' | 'notifications' | 'updates' | 'diagnostics'
+export type SettingsSection = 'providers' | 'appearance' | 'terminal' | 'voice' | 'notifications' | 'updates' | 'diagnostics'
 
 export function SettingsContent({ section, ...props }: SettingsModalProps & { section: SettingsSection }): ReactElement {
   switch (section) {
+    case 'appearance': return <AppearanceSettingsSection onClose={props.onClose} />
     case 'terminal': return <TerminalSettingsSection onClose={props.onClose} />
     case 'voice': return <VoiceSettingsSection onClose={props.onClose} />
     case 'notifications': return <NotificationsSettingsSection onClose={props.onClose} />
@@ -115,31 +114,13 @@ function ReadinessBadge({ status }: { status: ProviderStatus }): ReactElement {
   return <span className={`agent-badge ${tone}`}>{STATUS_LABEL[status]}</span>
 }
 
-function SettingsSwitch({
-  checked,
-  onChange,
-  ariaLabel
-}: {
-  checked: boolean
-  onChange: (next: boolean) => void
-  ariaLabel: string
-}): ReactElement {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={ariaLabel}
-      className={`settings-switch${checked ? ' on' : ''}`}
-      onClick={() => onChange(!checked)}
-    >
-      <span className="settings-switch-thumb" aria-hidden="true" />
-    </button>
-  )
+function SettingsSwitch({ checked, onChange, ariaLabel }: { checked: boolean; onChange: (next: boolean) => void; ariaLabel: string }): ReactElement {
+  return <Switch checked={checked} onChange={onChange} ariaLabel={ariaLabel} />
 }
 
 const NAV_ITEMS: Array<{ id: SettingsSection; label: string; icon: ReactNode }> = [
   { id: 'providers', label: 'Agents', icon: <Bot size={14} aria-hidden="true" /> },
+  { id: 'appearance', label: 'Appearance', icon: <Palette size={14} aria-hidden="true" /> },
   { id: 'terminal', label: 'Terminal', icon: <SquareTerminal size={14} aria-hidden="true" /> },
   { id: 'voice', label: 'Voice', icon: <Mic size={14} aria-hidden="true" /> },
   { id: 'notifications', label: 'Notifications', icon: <Bell size={14} aria-hidden="true" /> },
@@ -160,11 +141,8 @@ export function SettingsModal({
   const [section, setSection] = useState<SettingsSection>('providers')
 
   return (
-    <Dialog open onOpenChange={(next) => { if (!next) onClose() }}>
-      <DialogContent
-        unstyled
-        showCloseButton={false}
-        overlayClassName={LEGACY_MODAL_OVERLAY}
+    <ModalRoot open onOpenChange={(next) => { if (!next) onClose() }}>
+      <ModalSurface
         className="settings-modal modal-dialog-surface"
         data-testid="settings-modal"
       >
@@ -175,9 +153,9 @@ export function SettingsModal({
             </span>
             <div>
               <span>OXESpace</span>
-              <DialogTitle asChild>
+              <ModalTitle asChild>
                 <strong>Agents</strong>
-              </DialogTitle>
+              </ModalTitle>
             </div>
           </header>
           <nav>
@@ -199,7 +177,9 @@ export function SettingsModal({
           </p>
         </aside>
 
-        {section === 'terminal' ? (
+        {section === 'appearance' ? (
+          <AppearanceSettingsSection onClose={onClose} />
+        ) : section === 'terminal' ? (
           <TerminalSettingsSection onClose={onClose} />
         ) : section === 'voice' ? (
           <VoiceSettingsSection onClose={onClose} />
@@ -221,8 +201,8 @@ export function SettingsModal({
             onUseProviderInPane={onUseProviderInPane}
           />
         )}
-      </DialogContent>
-    </Dialog>
+      </ModalSurface>
+    </ModalRoot>
   )
 }
 
@@ -265,10 +245,10 @@ function DiagnosticsSettingsSection({ onClose }: { onClose: () => void }): React
         description="Compact local diagnostics: up to 1.5 MiB for seven days. Export excludes prompts, terminal output and command arguments."
         onClose={onClose}
         actions={
-          <button type="button" className="settings-btn ghost" onClick={refresh} title="Re-run checks">
-            <RefreshCw size={13} aria-hidden="true" />
+          <Button variant="ghost" onClick={refresh} title="Re-run checks">
+            <RefreshCw size={14} aria-hidden="true" />
             <span>Refresh</span>
-          </button>
+          </Button>
         }
       />
       <div className="settings-content-body">
@@ -309,9 +289,9 @@ function DiagnosticsSettingsSection({ onClose }: { onClose: () => void }): React
         {notice ? <div className="settings-callout" role="status">{notice}</div> : null}
 
         <div className="settings-inline-actions">
-          <button type="button" className="settings-btn primary" onClick={exportReport}>
-            <Download size={13} aria-hidden="true" /> Export report
-          </button>
+          <Button variant="primary" onClick={exportReport}>
+            <Download size={14} aria-hidden="true" /> Export report
+          </Button>
         </div>
       </div>
     </section>
@@ -342,9 +322,9 @@ function SettingsContentHeader({
       </div>
       <div className="settings-content-actions">
         {actions}
-        <button type="button" className="icon-button" aria-label="Close" title="Close (Esc)" onClick={onClose}>
+        <Button variant="ghost" size="sm" square aria-label="Close" title="Close (Esc)" onClick={onClose}>
           <X size={16} aria-hidden="true" />
-        </button>
+        </Button>
       </div>
     </header>
   )
@@ -489,43 +469,43 @@ function ProvidersSettingsSection({
                 with the exact command it tried — the same information, at the
                 moment it actually matters. */}
             {(status === 'ready' || status === 'unknown') && onUseProviderInPane ? (
-              <button
-                type="button"
-                className="settings-btn primary"
+              <Button
+               
+                variant="primary"
                 aria-label={`Use ${profile.name} in active pane`}
                 title="Bind to the active terminal"
                 disabled={usingId === profile.agentProfileId}
                 onClick={() => void handleUseInPane(profile)}
                 data-testid={`btn-use-agent-${profile.provider}`}
               >
-                <Play size={13} aria-hidden="true" />
+                <Play size={14} aria-hidden="true" />
                 {usingId === profile.agentProfileId ? 'Starting…' : 'Use in pane'}
-              </button>
+              </Button>
             ) : null}
             {status === 'missing' && install ? (
-              <button
-                type="button"
-                className="settings-btn ghost"
+              <Button
+               
+                variant="ghost"
                 aria-label={install.label}
                 title={install.url}
                 onClick={() => openInstallDocs(install.url)}
                 data-testid={`btn-install-docs-${profile.provider}`}
               >
-                <ExternalLink size={13} aria-hidden="true" />
+                <ExternalLink size={14} aria-hidden="true" />
                 Install guide
-              </button>
+              </Button>
             ) : null}
-            <button
-              type="button"
-              className="settings-btn ghost"
+            <Button
+             
+              variant="ghost"
               aria-label={`Configure ${profile.name}`}
               title="Configure command path or skill"
               onClick={() => onConfigureAgent(profile)}
               data-testid={`btn-configure-agent-${profile.provider}`}
             >
-              <Settings2 size={13} aria-hidden="true" />
+              <Settings2 size={14} aria-hidden="true" />
               {status === 'missing' ? 'Fix path' : 'Configure'}
-            </button>
+            </Button>
           </div>
         </div>
       </article>
@@ -550,7 +530,7 @@ function ProvidersSettingsSection({
             disabled={isDiscoveringAgents}
             onClick={onDiscoverAgents}
           >
-            <RefreshCw size={13} aria-hidden="true" className={isDiscoveringAgents ? 'spin' : undefined} />
+            <RefreshCw size={14} aria-hidden="true" className={isDiscoveringAgents ? 'spin' : undefined} />
             <span>{isDiscoveringAgents ? 'Checking…' : 'Health check'}</span>
           </button>
         }
@@ -586,7 +566,7 @@ function ProvidersSettingsSection({
 
         {allMissing ? (
           <div className="settings-onboarding" data-testid="providers-onboarding" role="status">
-            <Bot size={22} aria-hidden="true" />
+            <Bot size={20} aria-hidden="true" />
             <div>
               <p>Get an agent CLI on this machine</p>
               <span>
@@ -597,46 +577,46 @@ function ProvidersSettingsSection({
             <div className="settings-onboarding-links">
               {(Object.entries(PROVIDER_INSTALL_DOCS) as Array<[AgentProvider, { label: string; url: string }]>).map(
                 ([id, doc]) => (
-                  <button
+                  <Button
                     key={id}
-                    type="button"
-                    className="settings-btn ghost"
+                   
+                    variant="ghost"
                     onClick={() => openInstallDocs(doc.url)}
                     data-testid={`btn-onboarding-install-${id}`}
                   >
                     <ExternalLink size={12} aria-hidden="true" />
                     {doc.label}
-                  </button>
+                  </Button>
                 )
               )}
             </div>
-            <button
-              type="button"
-              className="settings-btn primary"
+            <Button
+             
+              variant="primary"
               disabled={isDiscoveringAgents}
               onClick={onDiscoverAgents}
               data-testid="btn-onboarding-health-check"
             >
-              <RefreshCw size={13} aria-hidden="true" className={isDiscoveringAgents ? 'spin' : undefined} />
+              <RefreshCw size={14} aria-hidden="true" className={isDiscoveringAgents ? 'spin' : undefined} />
               {isDiscoveringAgents ? 'Checking…' : 'Detect CLIs'}
-            </button>
+            </Button>
           </div>
         ) : null}
 
         {agentProfiles.length === 0 ? (
           <div className="settings-empty" role="status">
-            <Bot size={22} aria-hidden="true" />
+            <Bot size={20} aria-hidden="true" />
             <p>No providers found</p>
             <span>Run a health check to discover installed agent CLIs.</span>
-            <button
-              type="button"
-              className="settings-btn primary"
+            <Button
+             
+              variant="primary"
               disabled={isDiscoveringAgents}
               onClick={onDiscoverAgents}
             >
-              <RefreshCw size={13} aria-hidden="true" className={isDiscoveringAgents ? 'spin' : undefined} />
+              <RefreshCw size={14} aria-hidden="true" className={isDiscoveringAgents ? 'spin' : undefined} />
               Run health check
-            </button>
+            </Button>
           </div>
         ) : (
           <>
@@ -671,15 +651,15 @@ function ProvidersSettingsSection({
           </>
         )}
 
-        <button
-          type="button"
-          className="settings-btn primary settings-new-agent-btn"
+        <Button
+         
+          variant="primary" className="settings-new-agent-btn"
           onClick={onNewCustomAgent}
           data-testid="btn-new-custom-agent"
         >
           <Plus size={14} aria-hidden="true" />
           New custom agent
-        </button>
+        </Button>
       </div>
     </section>
   )
@@ -773,20 +753,20 @@ function VoiceSettingsSection({ onClose }: { onClose: () => void }): ReactElemen
       <div className="settings-content-body settings-form">
         <label className="settings-field">
           <span>Language</span>
-          <input type="text" value="Portuguese (Brazil)" readOnly disabled aria-label="Fixed language: Brazilian Portuguese" />
+          <TextField type="text" value="Portuguese (Brazil)" readOnly disabled aria-label="Fixed language: Brazilian Portuguese" />
         </label>
 
         <label className="settings-field">
           <span>Model</span>
-          <select value={modelSize} onChange={(e) => setModelSize(e.target.value as VoiceModelSize)}>
+          <Select value={modelSize} onChange={(e) => setModelSize(e.target.value as VoiceModelSize)}>
             {MODEL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
+          </Select>
         </label>
 
         <div className="settings-field">
           <span>Push-to-talk shortcut</span>
           <div className="settings-hotkey-row">
-            <input
+            <TextField
               type="text"
               value={pttHotkey}
               spellCheck={false}
@@ -825,19 +805,23 @@ function VoiceSettingsSection({ onClose }: { onClose: () => void }): ReactElemen
               <div className="settings-progress-bar" style={{ width: `${progressPct}%` }} />
             </div>
           ) : null}
-          {!model?.ready ? (
-            <button
-              type="button"
-              className="settings-btn primary"
+          {model && !model.engineReady ? (
+            <p className="settings-field-hint" role="note">
+              Voice input needs the whisper.cpp engine, which this version ships for Windows only. The model download starts once the engine is available on this system.
+            </p>
+          ) : !model?.ready ? (
+            <Button
+             
+              variant="primary"
               disabled={busy || !model?.engineReady}
               onClick={() => void downloadModel()}
             >
-              <Download size={13} aria-hidden="true" />
+              <Download size={14} aria-hidden="true" />
               {busy ? 'Downloading…' : 'Download model'}
-            </button>
+            </Button>
           ) : (
             <div className="settings-status-ok-line">
-              <Check size={13} aria-hidden="true" />
+              <Check size={14} aria-hidden="true" />
               Model ready for push-to-talk
             </div>
           )}
@@ -909,6 +893,15 @@ function TerminalPreview({ prefs }: { prefs: TerminalPrefs }): ReactElement {
   )
 }
 
+function AppearanceSettingsSection({ onClose }: { onClose: () => void }): ReactElement {
+  return (
+    <section className="settings-modal-content" aria-labelledby="settings-appearance-title">
+      <SettingsContentHeader kicker="Global appearance" title="Appearance" titleId="settings-appearance-title" description="Choose light or dark mode for the whole app, or follow your operating system." onClose={onClose} />
+      <div className="settings-content-body settings-form"><AppearanceSettings /></div>
+    </section>
+  )
+}
+
 function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactElement {
   const global = useTerminalPrefsStore((s) => s.global)
   const setGlobal = useTerminalPrefsStore((s) => s.setGlobal)
@@ -930,12 +923,12 @@ function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactEle
           <h3 className="settings-form-group-title">Font</h3>
           <label className="settings-field">
             <span>Family</span>
-            <select value={global.fontFamily} onChange={(e) => setGlobal({ fontFamily: e.target.value })}>
+            <Select value={global.fontFamily} onChange={(e) => setGlobal({ fontFamily: e.target.value })}>
               {FONT_PRESETS.map((f) => <option key={f} value={f}>{f.split(',')[0]}</option>)}
               {FONT_PRESETS.includes(global.fontFamily) ? null : (
                 <option value={global.fontFamily}>{global.fontFamily.split(',')[0]}</option>
               )}
-            </select>
+            </Select>
           </label>
 
           <label className="settings-field">
@@ -990,12 +983,12 @@ function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactEle
           <h3 className="settings-form-group-title">Cursor & buffer</h3>
           <label className="settings-field">
             <span>Cursor style</span>
-            <select
+            <Select
               value={global.cursorStyle}
               onChange={(e) => setGlobal({ cursorStyle: e.target.value as TerminalCursorStyle })}
             >
               {CURSOR_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
+            </Select>
           </label>
 
           <div className="settings-toggle-row">
@@ -1052,6 +1045,67 @@ function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactEle
   )
 }
 
+const AGENT_HOOK_LABEL: Record<AgentHookAgent, string> = { 'claude-code': 'Claude Code', codex: 'Codex' }
+
+/**
+ * Installs each agent's status hook in the agent's own config. Explicit and
+ * per-agent because those files are user-global; the heuristic keeps working
+ * whether or not a hook is installed.
+ */
+function AgentHooksSetting(): ReactElement | null {
+  const [statuses, setStatuses] = useState<AgentHooksStatus[] | null>(null)
+  const [busy, setBusy] = useState<AgentHookAgent | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void Promise.resolve(window.oxe?.agentHooks?.status?.())
+      .then((next) => { if (!cancelled) setStatuses(Array.isArray(next) ? next : null) })
+      .catch(() => { if (!cancelled) setStatuses(null) })
+    return () => { cancelled = true }
+  }, [])
+
+  if (!statuses) return null
+
+  const toggle = async (status: AgentHooksStatus): Promise<void> => {
+    setBusy(status.agent)
+    try {
+      const api = window.oxe.agentHooks
+      const next = status.state === 'installed' ? await api.remove(status.agent) : await api.install(status.agent)
+      setStatuses((current) => (current ?? []).map((s) => (s.agent === next.agent ? next : s)))
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  return (
+    <div className="settings-form-group">
+      <h3 className="settings-form-group-title">Agent status hooks</h3>
+      <div className="settings-callout">
+        Let Claude Code and Codex report <strong>working / waiting / done</strong> themselves instead of
+        guessing from terminal output. Writes to the agent&apos;s own config; your existing hooks are kept.
+      </div>
+      {statuses.map((status) => (
+        <div className="settings-toggle-row" key={status.agent}>
+          <span>
+            <strong>{AGENT_HOOK_LABEL[status.agent]}</strong>
+            <small>
+              {status.state === 'installed' && 'Installed.'}
+              {status.state === 'partial' && `Partially installed (missing: ${status.missing.join(', ')}).`}
+              {status.state === 'not_installed' && 'Not installed — using output heuristics.'}
+              {status.state === 'error' && `Cannot update: ${status.detail ?? 'unknown error'}`}
+            </small>
+          </span>
+          <SettingsSwitch
+            checked={status.state === 'installed' || status.state === 'partial'}
+            onChange={() => { if (busy === null) void toggle(status) }}
+            ariaLabel={`Report ${AGENT_HOOK_LABEL[status.agent]} status through hooks`}
+          />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function NotificationsSettingsSection({ onClose }: { onClose: () => void }): ReactElement {
   const notificationsEnabled = useSettingsStore((s) => s.notificationsEnabled)
   const setNotificationsEnabled = useSettingsStore((s) => s.setNotificationsEnabled)
@@ -1097,16 +1151,20 @@ function NotificationsSettingsSection({ onClose }: { onClose: () => void }): Rea
           Only for terminals you are <strong>not watching</strong>.
         </div>
 
-        <button
-          type="button"
-          className="settings-btn ghost"
+        <Button
+         
+          variant="ghost"
           onClick={sendTest}
           disabled={!notificationsEnabled}
           data-testid="btn-test-notification"
         >
-          <Bell size={13} aria-hidden="true" />
+          <Bell size={14} aria-hidden="true" />
           Send test notification
-        </button>
+        </Button>
+
+        <AgentHooksSetting />
+
+        <AutomationsSettings />
 
         <div className="settings-form-group">
           <h3 className="settings-form-group-title">Performance</h3>
@@ -1239,29 +1297,29 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
               <p className="settings-error" data-testid="app-update-error">{app.error}</p>
             ) : null}
             <div className="settings-update-actions">
-              <button
-                type="button"
-                className="settings-btn ghost"
+              <Button
+               
+                variant="ghost"
                 disabled={app.status === 'checking' || app.status === 'downloading'}
                 onClick={() => void checkAppUpdates()}
                 data-testid="btn-check-app-updates"
                 title="Check GitHub Releases for a new version"
               >
-                <RefreshCw size={13} aria-hidden="true" />
+                <RefreshCw size={14} aria-hidden="true" />
                 Check for updates
-              </button>
+              </Button>
               {app.status === 'downloaded' ? (
-                <button
-                  type="button"
-                  className="settings-btn primary"
+                <Button
+                 
+                  variant="primary"
                   onClick={() => void quitAndInstall()}
                   data-testid="btn-install-app-update"
                 >
-                  <Download size={13} aria-hidden="true" />
+                  <Download size={14} aria-hidden="true" />
                   Restart & install
-                </button>
+                </Button>
               ) : null}
-              {manualInstall && app.status === 'available' ? <a className="settings-btn primary" href="https://github.com/propagno/oxespace/releases/latest" target="_blank" rel="noopener noreferrer"><Download size={13} aria-hidden="true" /> Open releases</a> : null}
+              {manualInstall && app.status === 'available' ? <a className="settings-btn primary" href="https://github.com/propagno/oxespace/releases/latest" target="_blank" rel="noopener noreferrer"><Download size={14} aria-hidden="true" /> Open releases</a> : null}
             </div>
             <p className="settings-update-hint">
               {manualInstall ? 'Development and Linux package installs cannot update in place. Use the latest release or update your development checkout.' : 'Downloads in the background. Restart to apply.'}
@@ -1296,26 +1354,26 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
             </p>
             {rtk.error ? <p className="settings-error">{rtk.error}</p> : null}
             <div className="settings-update-actions">
-              <button
-                type="button"
-                className="settings-btn ghost"
+              <Button
+               
+                variant="ghost"
                 disabled={rtk.checking || rtk.updating}
                 onClick={() => void checkRtk()}
                 data-testid="btn-check-rtk"
               >
-                <RefreshCw size={13} aria-hidden="true" />
+                <RefreshCw size={14} aria-hidden="true" />
                 Check RTK
-              </button>
-              <button
-                type="button"
-                className="settings-btn primary"
+              </Button>
+              <Button
+               
+                variant="primary"
                 disabled={rtk.checking || rtk.updating || (!rtk.updateAvailable && rtk.installed)}
                 onClick={() => void updateRtk()}
                 data-testid="btn-update-rtk"
               >
-                <Download size={13} aria-hidden="true" />
+                <Download size={14} aria-hidden="true" />
                 {rtk.installed ? 'Update RTK' : 'Install RTK'}
-              </button>
+              </Button>
             </div>
             <p className="settings-update-hint">Sidecar binary. Updates independently of OXESpace.</p>
           </article>

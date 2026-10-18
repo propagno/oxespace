@@ -47,7 +47,7 @@ export function AgentCreditsStatus({ provider }: { provider: AgentProvider }): R
       content={title}
       ariaLabel={`${name} credits: ${pct}%`}
     >
-      <Icon size={10} aria-hidden="true" />
+      <Icon size={12} aria-hidden="true" />
       <span className="chip-label">{pct}%</span>
     </ViewportTooltip>
   )
@@ -67,7 +67,7 @@ function buildTitle(name: string, windows: CreditsWindow[]): string {
     const reset = formatReset(weekly.resetsAtMs)
     parts.push(`semanal ${weekly.usedPct}%${reset ? ` · renova ${reset}` : ''}`)
   }
-  if (session) parts.push(`sessão ${session.usedPct}%`)
+  if (session) parts.push(`session ${session.usedPct}%`)
   return `${name}: ${parts.join(' · ')}`
 }
 

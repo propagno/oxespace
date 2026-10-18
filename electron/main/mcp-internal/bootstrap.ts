@@ -15,7 +15,7 @@ import type {
   InternalMcpWorktreeChangedEvent
 } from '../../../shared/types/mcp-internal'
 import { createLocalRpcServer, type LocalRpcServer } from './local-rpc-server'
-import { TOOL_REGISTRY } from './tool-registry'
+import { activeTools } from './tool-registry'
 import { WebPreviewBus } from './web-preview-bus'
 import { WorktreeEventBus } from './worktree-event-bus'
 // Embed the bridge script as a string at build time. Vite's `?raw` inlines
@@ -57,6 +57,8 @@ export interface InternalMcpDeps {
   executions?: import('../services/execution-registry').ExecutionRegistry
   delegationAgents?: () => unknown
   memory?: import('../services/memory/memory.service').MemoryService
+  oxeQuery?: () => import('../services/oxequery/agent-gateway').AgentGateway | undefined
+  oxeQueryError?: () => string | undefined
   db: AppDatabase
   mcpManager: McpManager
   workspaceServ: WorkspaceService
@@ -91,6 +93,8 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
     documentation: () => documentation ??= import('../services/documentation/runtime').then(module => module.createDocumentationRuntime(deps.db, join(app.getPath('userData'), 'documentation'))).catch(error => { documentation = undefined; throw error }),
     delegation: deps.delegation, executions: deps.executions, delegationAgents: deps.delegationAgents, team: deps.team,
     memory: deps.memory,
+    oxeQuery: deps.oxeQuery,
+    oxeQueryError: deps.oxeQueryError,
     workspaceServ: deps.workspaceServ,
     github: deps.github,
     background: deps.background,
@@ -188,8 +192,8 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
       serverRowId,
       lastError,
       uptimeMs: rpcStatus.running ? Date.now() - startedAtMs : 0,
-      toolCount: TOOL_REGISTRY.length,
-      tools: TOOL_REGISTRY.map((entry) => ({
+      toolCount: activeTools().length,
+      tools: activeTools().map((entry) => ({
         name: entry.descriptor.name,
         description: entry.descriptor.description
       }))

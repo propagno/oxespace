@@ -7,6 +7,7 @@ import { selectGitState, useGitStore } from '../../store/git.store'
 import { DiffCard } from './DiffCard'
 import { ReviewFileTree } from './ReviewFileTree'
 import { ReviewToolbar } from './ReviewToolbar'
+import { EmptyState } from '../../ui'
 
 interface ReviewPaneProps {
   workspaceId: string
@@ -77,11 +78,11 @@ export function ReviewPane({ workspaceId, rootPath }: ReviewPaneProps): ReactEle
     if (wsComments.length === 0) return
     const result = await pasteIntoAgentTerminal(workspaceId, formatDiffComments(wsComments))
     if (!result.ok) {
-      setSendNotice('Nenhum terminal disponível para receber os comentários.')
+      setSendNotice('No terminal is available to receive the comments.')
       return
     }
     clearComments(workspaceId)
-    setSendNotice(`${wsComments.length} comentário(s) colados no agente — pressione Enter para submeter.`)
+    setSendNotice(`${wsComments.length} comment(s) pasted into the agent. Press Enter to submit.`)
     window.setTimeout(() => setSendNotice(null), 6000)
   }, [wsComments, workspaceId, clearComments])
 
@@ -160,7 +161,7 @@ export function ReviewPane({ workspaceId, rootPath }: ReviewPaneProps): ReactEle
         </div>
       )}
 
-      {ws.isLoading && <div className="review-pane-empty">Loading diff…</div>}
+      {ws.isLoading && <EmptyState compact title="Loading diff…" />}
       {ws.error && (
         <div className="review-pane-alert">
           <span>{ws.error}</span>
@@ -171,7 +172,7 @@ export function ReviewPane({ workspaceId, rootPath }: ReviewPaneProps): ReactEle
         <div className="review-pane-split">
           <aside className="review-pane-tree">
             <div className="review-search">
-              <Search size={11} style={{ color: 'var(--tx-muted)', flexShrink: 0 }} aria-hidden="true" />
+              <Search size={12} style={{ color: 'var(--tx-muted)', flexShrink: 0 }} aria-hidden="true" />
               <input
                 type="text"
                 className="review-search-input"
@@ -194,7 +195,7 @@ export function ReviewPane({ workspaceId, rootPath }: ReviewPaneProps): ReactEle
             />
           </aside>
 
-          <div className="review-pane-diffs">
+          <div className="review-pane-diffs" role="region" aria-label="File diffs" tabIndex={0}>
             {files.length === 0 ? (
               <div className="review-pane-empty">
                 {ws.diff ? 'No changes match the current filters.' : 'No diff loaded yet.'}
@@ -215,7 +216,7 @@ export function ReviewPane({ workspaceId, rootPath }: ReviewPaneProps): ReactEle
                 onSelect={() => undefined}
               />
             ) : (
-              <div className="review-pane-empty">Select a file in the tree to view its diff.</div>
+              <EmptyState compact title="Select a file in the tree to view its diff." />
             )}
           </div>
         </div>

@@ -1,12 +1,38 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
-import type { McpServerHealthEvent } from '../../../shared/types/mcp'
+import type { McpImportResult, McpServerHealthEvent } from '../../../shared/types/mcp'
 import type { McpManager } from '../services/mcp.service'
+import { discoverMcpServers, readDiscoveredServers } from '../services/mcp-import.service'
 
 export function registerMcpIpc(manager: McpManager): void {
   ipcMain.handle(IPC_CHANNELS.mcp.list, (_event, workspaceId: unknown) => {
     const wid = typeof workspaceId === 'string' && workspaceId ? workspaceId : null
     return manager.list(wid)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.mcp.discover, (_event, workspaceId: unknown) => {
+    const wid = typeof workspaceId === 'string' && workspaceId ? workspaceId : null
+    return discoverMcpServers(new Set(manager.list(wid).filter(server => server.workspaceId === wid).map(server => server.name)))
+  })
+
+  ipcMain.handle(IPC_CHANNELS.mcp.importDiscovered, (_event, input: unknown) => {
+    if (!input || typeof input !== 'object') throw new Error('Invalid import input')
+    const { workspaceId, source, names } = input as Record<string, unknown>
+    if (typeof source !== 'string' || !Array.isArray(names) || names.length === 0 || names.length > 100 || !names.every(name => typeof name === 'string')) throw new Error('Choose the servers to add.')
+    const wid = typeof workspaceId === 'string' && workspaceId ? workspaceId : null
+    const taken = new Set(manager.list(wid).filter(server => server.workspaceId === wid).map(server => server.name))
+    // Imported servers stay untrusted until the person trusts them, like pasted JSON.
+    const result: McpImportResult = { created: [], failed: [] }
+    for (const server of readDiscoveredServers(source, names as string[])) {
+      if (taken.has(server.name)) { result.failed.push({ name: server.name, reason: 'A server with this name already exists here.' }); continue }
+      try {
+        result.created.push(manager.create({ workspaceId: wid, name: server.name, transport: server.config.transport, config: server.config, enabled: true, trusted: false }))
+      } catch (cause) {
+        // An untrusted server cannot carry a token, key or password; that one has to be added by hand and trusted.
+        result.failed.push({ name: server.name, reason: cause instanceof Error ? cause.message : 'It could not be added.' })
+      }
+    }
+    return result
   })
 
   ipcMain.handle(IPC_CHANNELS.mcp.create, (_event, input: unknown) => {

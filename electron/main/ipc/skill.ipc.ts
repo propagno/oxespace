@@ -30,7 +30,7 @@ export function registerSkillIpc(
     if (typeof paneId !== 'string' || !paneId) throw new Error('paneId is required')
 
     const skill = service.getSkill(skillName)
-    if (!skill) throw new Error(`Skill "${skillName}" não encontrada`)
+    if (!skill) throw new Error(`Skill "${skillName}" not found`)
 
     const prompt = renderSkillPrompt(skill.body, typeof argument === 'string' ? argument : '')
     terminalWrite({ paneId, data: prompt + '\r' })

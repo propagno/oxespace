@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactElement } from 'react'
 import type { IntegrationMember, IntegrationRole } from '../../../shared/types/integration'
 import type { WorkspacePane } from '../../../shared/types/workspace'
 import { useIntegrationStore } from '../../store/integration.store'
+import { Button, TextField, Select, TextArea } from '../../ui'
 
 interface MemberEditorProps {
   member: IntegrationMember
@@ -74,18 +75,18 @@ export function MemberEditor({ member, panes, confirmingRemoval, isRemoving, onC
       <div className="integration-member-editor-row">
         <label className="integration-member-editor-field">
           <span>Alias</span>
-          <input value={alias} onChange={(e) => setAlias(e.currentTarget.value)} placeholder={member.workspaceName} disabled={busy} />
+          <TextField value={alias} onChange={(e) => setAlias(e.currentTarget.value)} placeholder={member.workspaceName} disabled={busy} />
         </label>
         <label className="integration-member-editor-field">
           <span>Role</span>
-          <select value={role} onChange={(e) => setRole(e.currentTarget.value as IntegrationRole)} disabled={busy}>
+          <Select value={role} onChange={(e) => setRole(e.currentTarget.value as IntegrationRole)} disabled={busy}>
             {ROLES.map((r) => <option key={r} value={r}>{r.toUpperCase()}</option>)}
-          </select>
+          </Select>
         </label>
       </div>
       <label className="integration-member-editor-field">
         <span>Last intent</span>
-        <input
+        <TextField
           value={lastIntent}
           onChange={(e) => setLastIntent(e.currentTarget.value)}
           placeholder="What this member is currently working on"
@@ -94,19 +95,19 @@ export function MemberEditor({ member, panes, confirmingRemoval, isRemoving, onC
       </label>
       <label className="integration-member-editor-field">
         <span>Agent terminal</span>
-        <select value={paneId} onChange={(e) => setPaneId(e.currentTarget.value)} disabled={busy}>
+        <Select value={paneId} onChange={(e) => setPaneId(e.currentTarget.value)} disabled={busy}>
           <option value="">No linked agent terminal</option>
           {panes.map((pane) => (
             <option key={pane.id} value={pane.id}>
               {pane.displayName || pane.agentName || `Terminal ${pane.rowIndex + 1}.${pane.columnIndex + 1}`}
             </option>
           ))}
-        </select>
+        </Select>
         <small className="integration-member-editor-help">Link a terminal to let this member receive handoffs directly.</small>
       </label>
       <label className="integration-member-editor-field">
         <span>Blockers</span>
-        <textarea
+        <TextArea
           value={blockers}
           onChange={(e) => setBlockers(e.currentTarget.value)}
           placeholder="Something else has to land first, missing creds, etc."
@@ -121,17 +122,17 @@ export function MemberEditor({ member, panes, confirmingRemoval, isRemoving, onC
           onClick={onRemove}
           disabled={busy || isRemoving}
         >
-          <Trash2 size={11} aria-hidden="true" />
+          <Trash2 size={12} aria-hidden="true" />
           {isRemoving ? 'Removing…' : confirmingRemoval ? 'Confirm removal' : 'Remove member'}
         </button>
-        <button type="button" className="ghost-btn small" onClick={onClose} disabled={busy}>
-          <X size={11} aria-hidden="true" />
+        <Button variant="ghost" size="sm" onClick={onClose} disabled={busy}>
+          <X size={12} aria-hidden="true" />
           Cancel
-        </button>
-        <button type="button" className="primary-btn small" onClick={() => void handleSave()} disabled={busy}>
-          <Save size={11} aria-hidden="true" />
+        </Button>
+        <Button variant="primary" size="sm" onClick={() => void handleSave()} disabled={busy}>
+          <Save size={12} aria-hidden="true" />
           {busy ? 'Saving…' : 'Save'}
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -151,7 +152,7 @@ export function MemberEditButton({ onClick, isEditing }: MemberEditButtonProps):
       aria-label={isEditing ? 'Close member editor' : 'Edit member'}
       title={isEditing ? 'Close' : 'Edit member'}
     >
-      <Pencil size={11} aria-hidden="true" />
+      <Pencil size={12} aria-hidden="true" />
     </button>
   )
 }

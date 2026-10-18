@@ -30,7 +30,7 @@ export function SidebarIntegrationRow({ group, isActive, activeMemberId, default
         aria-expanded={expanded}
         title={group.goal || group.name}
       >
-        <ChevronDown size={11} className={`sidebar-integration-row-chevron${expanded ? ' open' : ''}`} aria-hidden="true" />
+        <ChevronDown size={12} className={`sidebar-integration-row-chevron${expanded ? ' open' : ''}`} aria-hidden="true" />
         <Zap size={12} className="sidebar-integration-row-icon" aria-hidden="true" />
         <span className="sidebar-integration-row-name">{group.name}</span>
         <span className={`sidebar-integration-row-status status-${group.status}`}>{group.status}</span>
@@ -51,7 +51,7 @@ export function SidebarIntegrationRow({ group, isActive, activeMemberId, default
                   <span className="sidebar-integration-row-role">{member.role}</span>
                   <span className="sidebar-integration-row-alias">{member.alias}</span>
                   <span className="sidebar-integration-row-branch">
-                    <GitBranch size={9} aria-hidden="true" />
+                    <GitBranch size={12} aria-hidden="true" />
                     {member.branch ?? 'no branch'}
                   </span>
                 </button>

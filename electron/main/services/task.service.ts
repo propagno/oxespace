@@ -172,7 +172,7 @@ export class TaskService {
     const pane = input.paneId
       ? this.getRunningPane(task.workspaceId, input.paneId)
       : this.findRunningPane(task.workspaceId)
-    if (!pane) throw new Error('Nenhum terminal ativo')
+    if (!pane) throw new Error('No active terminal')
 
     const agent = this.getAgentProfile(input.agentProfileId ?? pane.agent_profile_id ?? undefined)
     if (!agent) throw new Error('Configure um agente primeiro')
@@ -311,16 +311,16 @@ export class TaskService {
    * the existing dependency graph forward from the proposed target.
    */
   addDependency(taskId: string, dependsOnTaskId: string): Task {
-    if (taskId === dependsOnTaskId) throw new Error('Tarefa não pode depender de si mesma')
+    if (taskId === dependsOnTaskId) throw new Error('A task cannot depend on itself')
     const taskRow = this.db.prepare('SELECT workspace_id FROM tasks WHERE id = ?').get(taskId) as { workspace_id: string } | undefined
     const depRow = this.db.prepare('SELECT workspace_id FROM tasks WHERE id = ?').get(dependsOnTaskId) as { workspace_id: string } | undefined
     if (!taskRow) throw new Error(`Task ${taskId} not found`)
     if (!depRow) throw new Error(`Task ${dependsOnTaskId} not found`)
     if (taskRow.workspace_id !== depRow.workspace_id) {
-      throw new Error('Dependências precisam estar no mesmo workspace')
+      throw new Error('Dependencies must be in the same workspace')
     }
     if (this.wouldCreateCycle(taskId, dependsOnTaskId)) {
-      throw new Error('Essa dependência criaria um ciclo')
+      throw new Error('That dependency would create a cycle')
     }
     this.db
       .prepare('INSERT OR IGNORE INTO task_dependencies (task_id, depends_on_task_id) VALUES (?, ?)')

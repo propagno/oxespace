@@ -132,7 +132,7 @@ export function useThreadCommands({ snapshot, draft, textarea, pending, run, onN
     onSelect: (position: number) => setCursor(position),
     inputProps: { 'aria-autocomplete': 'list' as const, 'aria-haspopup': 'listbox' as const, 'aria-controls': open ? listId : undefined, 'aria-activedescendant': open && commands.length ? `${listId}-${activeIndex}` : undefined },
     popup: open ? <div className="thread-command-popup" style={{ maxHeight: popupHeight }}>
-      <header><Command size={13} /><span>Commands & skills</span>{loading && <small role="status">Loading…</small>}<button type="button" aria-label="Refresh commands" title="Refresh commands" disabled={loading} onMouseDown={event => event.preventDefault()} onClick={() => { refreshRequested.current = true; setCatalogRevision(value => value + 1) }}><RefreshCw size={13} /></button></header>
+      <header><Command size={14} /><span>Commands & skills</span>{loading && <small role="status">Loading…</small>}<button type="button" aria-label="Refresh commands" title="Refresh commands" disabled={loading} onMouseDown={event => event.preventDefault()} onClick={() => { refreshRequested.current = true; setCatalogRevision(value => value + 1) }}><RefreshCw size={14} /></button></header>
       <div className="thread-command-list" id={listId} role="listbox" aria-label="Thread commands" ref={menu}>
         {commands.map((command, index) => <button key={command.name} type="button" role="option" id={`${listId}-${index}`} aria-selected={activeIndex === index} tabIndex={-1}
           onMouseDown={event => event.preventDefault()} onMouseMove={() => setSelected(index)} onClick={() => choose(command)}>

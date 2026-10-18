@@ -8,6 +8,7 @@ import { derivePaneDisplayState, formatPaneStatus, type PaneDisplayTone } from '
 import { ActivityDot } from '../Indicators/ActivityDot'
 import { HandoffInbox } from './HandoffInbox'
 import { MemberEditButton, MemberEditor } from './MemberEditor'
+import { Button, TextField, Select, EmptyState } from '../../ui'
 
 interface IntegrationPanelProps {
   activePaneId: string | null
@@ -230,7 +231,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
           aria-controls="integration-create-form"
           title={showCreateForm ? 'Close setup' : 'Set up multi-repo coordination'}
         >
-          {showCreateForm ? <X size={13} aria-hidden="true" /> : <Plus size={13} aria-hidden="true" />}
+          {showCreateForm ? <X size={14} aria-hidden="true" /> : <Plus size={14} aria-hidden="true" />}
           {showCreateForm ? 'Close' : 'Set up'}
         </button>
       </div>
@@ -244,34 +245,34 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
           <div className="integration-create-grid">
             <label className="integration-field">
               <span>Delivery name</span>
-              <input autoFocus value={name} onChange={(event) => setName(event.currentTarget.value)} placeholder="e.g. Payment flow" />
+              <TextField autoFocus value={name} onChange={(event) => setName(event.currentTarget.value)} placeholder="e.g. Payment flow" />
             </label>
             <label className="integration-field">
               <span>Shared outcome</span>
-              <input value={goal} onChange={(event) => setGoal(event.currentTarget.value)} placeholder="e.g. Ship checkout across frontend and API" />
+              <TextField value={goal} onChange={(event) => setGoal(event.currentTarget.value)} placeholder="e.g. Ship checkout across frontend and API" />
             </label>
             <label className="integration-field">
               <span>This workspace owns</span>
-              <select value={initialRole} onChange={(event) => setInitialRole(event.currentTarget.value as IntegrationRole)}>
+              <Select value={initialRole} onChange={(event) => setInitialRole(event.currentTarget.value as IntegrationRole)}>
                 {ROLES.map((role) => <option key={role} value={role}>{ROLE_LABELS[role]}</option>)}
-              </select>
+              </Select>
             </label>
-            <button
-              type="button"
-              className="primary-btn"
+            <Button
+             
+              variant="primary"
               onClick={() => void handleCreateGroup()}
               disabled={!name.trim() || !goal.trim()}
             >
-              <Plus size={13} aria-hidden="true" />
+              <Plus size={14} aria-hidden="true" />
               Start coordination
-            </button>
+            </Button>
           </div>
         </section>
       ) : null}
 
       {error || memberActionError ? <div className="integration-error" role="alert">{memberActionError ?? error}</div> : null}
       {panelNotice ? <div className="integration-notice" role="status">{panelNotice}</div> : null}
-      {isLoading ? <div className="integration-empty">Loading integration groups...</div> : null}
+      {isLoading ? <EmptyState compact title="Loading integration groups…" /> : null}
 
       {visibleGroups.length > 1 ? (
         <nav className="integration-group-tabs" aria-label="Integration groups">
@@ -294,10 +295,10 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
               : <>Align the repositories, agents and handoffs involved in one delivery.</>}
           </span>
           {groups.length === 0 ? (
-            <button type="button" className="primary-btn small" onClick={() => setShowCreateForm(true)}>
+            <Button variant="primary" size="sm" onClick={() => setShowCreateForm(true)}>
               <Plus size={12} aria-hidden="true" />
               Set up coordination
-            </button>
+            </Button>
           ) : null}
         </div>
       ) : null}
@@ -322,7 +323,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
                   title="Generate a brief for the active agent"
                   aria-label="Generate brief"
                 >
-                  <Send size={13} aria-hidden="true" />
+                  <Send size={14} aria-hidden="true" />
                 </button>
                 <button
                   type="button"
@@ -333,7 +334,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
                   aria-label="Group actions"
                   title="More actions"
                 >
-                  <MoreHorizontal size={13} aria-hidden="true" />
+                  <MoreHorizontal size={14} aria-hidden="true" />
                 </button>
                 {showGroupMenu ? (
                   <div className="integration-active-menu" role="menu">
@@ -417,7 +418,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
                       <span className="integration-member-role" title={ROLE_LABELS[member.role]}>{member.role}</span>
                       <span className="integration-member-name">{member.alias}</span>
                       <span className="integration-member-branch" title={member.branch ?? 'no git branch'}>
-                        <GitBranch size={10} aria-hidden="true" />
+                        <GitBranch size={12} aria-hidden="true" />
                         {member.branch ?? 'no branch'}
                       </span>
                       <span className="integration-member-status">
@@ -453,7 +454,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
               })}
 
               <li className="integration-add-member-row">
-                <Link2 size={11} aria-hidden="true" className="integration-add-icon" />
+                <Link2 size={12} aria-hidden="true" className="integration-add-icon" />
                 <select
                   className="integration-add-select"
                   value={memberWorkspaceId}
@@ -475,7 +476,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
                   {memberPanes.map((pane) => <option key={pane.id} value={pane.id}>{paneLabel(pane)}</option>)}
                 </select>
                 <button type="button" className="integration-add-action" onClick={() => void handleAddMember()} title="Add workspace to this coordination">
-                  <Plus size={11} aria-hidden="true" />
+                  <Plus size={12} aria-hidden="true" />
                   Add
                 </button>
               </li>
@@ -484,7 +485,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
 
           <DisclosureSection
             label="Handoffs to act on"
-            icon={<Send size={13} aria-hidden="true" />}
+            icon={<Send size={14} aria-hidden="true" />}
             badge={useIntegrationStore.getState().handoffs[activeGroup.id]?.filter((h) => h.status !== 'saved').length || 0}
             open={showHandoffs}
             onToggle={() => setShowHandoffs((value) => !value)}
@@ -502,21 +503,21 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
 
           <DisclosureSection
             label="Brief for the active agent"
-            icon={<Network size={13} aria-hidden="true" />}
+            icon={<Network size={14} aria-hidden="true" />}
             open={showContext}
             onToggle={() => setShowContext((value) => !value)}
           >
             <div className="integration-actions">
-              <button type="button" className="ghost-btn small" onClick={() => void handleBuildContext(false)}>Generate brief</button>
-              <button type="button" className="ghost-btn small" onClick={handleSendContext} disabled={!activeGroup || !contextText.trim()}>Send brief to agent</button>
-              <button
-                type="button"
-                className="ghost-btn small"
+              <Button variant="ghost" size="sm" onClick={() => void handleBuildContext(false)}>Generate brief</Button>
+              <Button variant="ghost" size="sm" onClick={handleSendContext} disabled={!activeGroup || !contextText.trim()}>Send brief to agent</Button>
+              <Button
+               
+                variant="ghost" size="sm"
                 onClick={() => { void navigator.clipboard.writeText(contextText); setPanelNotice('Context copied.') }}
                 disabled={!contextText}
               >
                 Copy
-              </button>
+              </Button>
             </div>
             <textarea
               className="integration-context-preview"

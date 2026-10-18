@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { removeTempDir } from '../helpers/removeTempDir'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -50,7 +51,7 @@ describe('GitService.getDiffSummary / getFileOriginal', () => {
     git('commit', '-qm', 'feature work')
     writeFileSync(join(root, 'keep.txt'), 'same\nplus uncommitted\n')
   })
-  afterAll(() => { rmSync(root, { recursive: true, force: true }) })
+  afterAll(() => { removeTempDir(root) })
 
   it('lists committed and uncommitted changes against the base without caps', async () => {
     const summary = await new GitService().getDiffSummary(root, 'main', true)
@@ -77,5 +78,45 @@ describe('GitService.getDiffSummary / getFileOriginal', () => {
   it('reports an unresolvable base without throwing', async () => {
     const summary = await new GitService().getDiffSummary(root, 'does-not-exist', true)
     expect(summary.files.length).toBeGreaterThan(0)
+  })
+})
+
+describe('GitService.getDiffSummary with untracked files', () => {
+  let root = ''
+  const git = (...args: string[]): string => execFileSync('git', args, { cwd: root, encoding: 'utf8' })
+  beforeAll(() => {
+    root = mkdtempSync(join(tmpdir(), 'oxe-git-untracked-'))
+    git('init', '-q', '-b', 'main')
+    git('config', 'user.email', 'test@example.com')
+    git('config', 'user.name', 'Test')
+    writeFileSync(join(root, 'tracked.txt'), 'one\n')
+    writeFileSync(join(root, '.gitignore'), 'ignored.log\n')
+    git('add', '.')
+    git('commit', '-qm', 'base')
+    mkdirSync(join(root, 'src'))
+    writeFileSync(join(root, 'src', 'brand-new.ts'), 'a\nb\nc\n')
+    writeFileSync(join(root, 'no-newline.txt'), 'x')
+    writeFileSync(join(root, 'blob.bin'), Buffer.from([0, 1, 2, 3]))
+    writeFileSync(join(root, 'ignored.log'), 'noise\n')
+  })
+  afterAll(() => { removeTempDir(root) })
+
+  it('lists files the agent created but did not stage, as added files', async () => {
+    const summary = await new GitService().getDiffSummary(root, 'main', true)
+    const byPath = Object.fromEntries(summary.files.map(file => [file.path, file]))
+    expect(byPath['src/brand-new.ts']).toMatchObject({ status: 'A', additions: 3, deletions: 0, binary: false })
+    expect(byPath['no-newline.txt']).toMatchObject({ status: 'A', additions: 1 })
+    expect(byPath['blob.bin']).toMatchObject({ status: 'A', binary: true })
+    expect(byPath['ignored.log']).toBeUndefined()
+    expect(summary.additions).toBe(4)
+  })
+
+  it('does not list them when uncommitted work is left out', async () => {
+    const summary = await new GitService().getDiffSummary(root, 'main', false)
+    expect(summary.files).toEqual([])
+  })
+
+  it('presents an untracked file as new when its base content is requested', async () => {
+    expect(await new GitService().getFileOriginal(root, 'main', 'src/brand-new.ts')).toMatchObject({ missing: true, content: '' })
   })
 })

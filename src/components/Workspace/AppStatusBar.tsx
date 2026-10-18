@@ -2,14 +2,15 @@ import { FolderGit2, PanelsTopLeft, Radio, Moon } from 'lucide-react'
 import { useMemo, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import { useTerminalStore } from '../../store/terminal.store'
+import { cx } from '../../ui'
+import styles from './AppStatusBar.module.css'
 
 interface AppStatusBarProps {
   workspace: Workspace | null
   activePaneId: string | null
-  appVersion: string
 }
 
-export function AppStatusBar({ activePaneId, appVersion, workspace }: AppStatusBarProps): ReactElement {
+export function AppStatusBar({ activePaneId, workspace }: AppStatusBarProps): ReactElement {
   const activePane = workspace?.panes.find((pane) => pane.id === activePaneId) ?? null
 
   // Shells outlive their view now, so a workspace left behind can still be
@@ -29,38 +30,33 @@ export function AppStatusBar({ activePaneId, appVersion, workspace }: AppStatusB
   }
 
   return (
-    <footer className="app-statusbar" aria-label="Workspace status bar">
-      <div className="app-statusbar-group">
-        <span className="app-statusbar-item strong" title={workspace?.rootPath ?? 'No project selected'}>
-          <FolderGit2 size={11} aria-hidden="true" />
-          {workspace?.name ?? 'OXESpace'}
+    <footer className={cx('app-statusbar', styles.bar)} aria-label="Workspace status bar">
+      <div className={styles.group}>
+        <span className={cx(styles.item, styles.strong)} title={workspace?.rootPath ?? 'No project selected'}>
+          <FolderGit2 size={12} aria-hidden="true" />
+          <span className={styles.path}>{workspace?.rootPath ?? 'No project selected'}</span>
         </span>
       </div>
-      <div className="app-statusbar-group">
+      <div className={styles.group}>
         {workspace ? (
-          <span className="app-statusbar-item" title="Open workspace panes">
-            <PanelsTopLeft size={11} aria-hidden="true" />
-            {workspace.panes.length}
+          <span className={styles.item} title="Open workspace panes">
+            <PanelsTopLeft size={12} aria-hidden="true" />
+            {workspace.panes.length} {workspace.panes.length === 1 ? 'pane' : 'panes'}
           </span>
         ) : null}
-        {activePane ? <span className="app-statusbar-item">{activePane.displayName ?? activePane.agentName ?? activePane.type}</span> : null}
+        {activePane ? <span className={styles.item}>{activePane.displayName ?? activePane.agentName ?? activePane.type}</span> : null}
         {backgroundPaneIds.length > 0 ? (
           <button
             type="button"
-            className="app-statusbar-item app-statusbar-action"
+            className={cx(styles.item, styles.action)}
             onClick={stopBackgroundSessions}
             title={`${backgroundPaneIds.length} terminal${backgroundPaneIds.length === 1 ? '' : 's'} still running in workspaces that are not open. Click to stop them.`}
             data-testid="background-sessions"
           >
-            <Moon size={11} aria-hidden="true" />
+            <Moon size={12} aria-hidden="true" />
             {backgroundPaneIds.length} background
           </button>
         ) : null}
-        <span className="app-statusbar-item connected">
-          <Radio size={10} aria-hidden="true" />
-          local
-        </span>
-        <span className="app-statusbar-item muted">v{appVersion}</span>
       </div>
     </footer>
   )

@@ -34,15 +34,15 @@
 .worktree-panel-active-pane {
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: var(--layer-raised);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   padding: 8px 10px;
-  border: 1px solid rgba(0, 214, 201, 0.18);
+  border: 1px solid var(--accent-border);
   border-radius: var(--radius-sm);
-  background: rgba(0, 214, 201, 0.04);
+  background: var(--accent-soft);
 }
 
 .worktree-panel-active-row {
@@ -113,10 +113,10 @@
   justify-content: space-between;
   gap: 8px;
   padding: 8px 10px;
-  border: 1px solid rgba(244, 91, 105, 0.22);
+  border: 1px solid var(--intent-danger-border);
   border-radius: var(--radius-sm);
-  background: rgba(244, 91, 105, 0.10);
-  color: #FFB1B8;
+  background: var(--intent-danger-bg);
+  color: var(--intent-danger-fg);
   font-size: var(--fs-2xs);
   line-height: 1.4;
 }
@@ -132,15 +132,15 @@
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: rgba(255, 177, 184, 0.7);
+  color: var(--intent-danger-fg);
   cursor: pointer;
   flex-shrink: 0;
   transition: background var(--transition-base), color var(--transition-base);
 }
 
 .worktree-menu-error-dismiss:hover {
-  background: rgba(244, 91, 105, 0.18);
-  color: #FFB1B8;
+  background: var(--intent-danger-bg);
+  color: var(--intent-danger-fg);
 }
 
 /* Helpful note when only `master` exists — points to "+ New worktree". */
@@ -198,7 +198,7 @@
 }
 
 .worktree-menu-item:hover { background: var(--surface-hover); border-color: var(--bd-base); }
-.worktree-menu-item.active { background: rgba(0, 214, 201, 0.06); border-color: rgba(0, 214, 201, 0.32); }
+.worktree-menu-item.active { background: var(--accent-soft); border-color: var(--accent-border); }
 .worktree-menu-item.is-active-pane { box-shadow: inset 3px 0 0 var(--brand); }
 .worktree-menu-item.prunable { opacity: 0.55; }
 .worktree-menu-item:disabled { cursor: not-allowed; }
@@ -224,9 +224,9 @@
   text-transform: uppercase;
 }
 
-.worktree-tag.main { background: rgba(0, 214, 201, 0.14); color: var(--accent); }
-.worktree-tag.locked { background: var(--ov-2); color: rgba(255, 255, 255, 0.65); }
-.worktree-tag.prunable { background: rgba(244, 91, 105, 0.12); color: #FFB1B8; }
+.worktree-tag.main { background: var(--accent-soft); color: var(--accent); }
+.worktree-tag.locked { background: var(--ov-2); color: var(--text-secondary); }
+.worktree-tag.prunable { background: var(--intent-danger-bg); color: var(--intent-danger-fg); }
 
 .worktree-menu-item-path {
   color: var(--tx-muted);
@@ -246,12 +246,12 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: rgba(0, 214, 201, 0.20);
+  background: var(--accent-soft);
   color: var(--accent);
 }
 
-.worktree-menu-remove { color: rgba(255, 177, 184, 0.7); }
-.worktree-menu-remove:hover { background: rgba(244, 91, 105, 0.15); color: #FFB1B8; }
+.worktree-menu-remove { color: var(--intent-danger-fg); }
+.worktree-menu-remove:hover { background: var(--intent-danger-bg); color: var(--intent-danger-fg); }
 
 /* Create form (and its dashed-border trigger) sit at the bottom of the
    panel — same as the modal, minus the modal's footer band. */
@@ -272,9 +272,9 @@
 }
 
 .worktree-menu-create-trigger:hover {
-  border-color: rgba(0, 214, 201, 0.32);
+  border-color: var(--accent-border);
   color: var(--accent);
-  background: rgba(0, 214, 201, 0.04);
+  background: var(--accent-soft);
 }
 
 .worktree-menu-create {
@@ -380,7 +380,7 @@
   padding: 6px 10px;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
-  background: rgba(0, 214, 201, 0.04);
+  background: var(--accent-soft);
   min-width: 0;
 }
 
@@ -478,7 +478,7 @@
   padding: 0 5px;
   border: 0;
   border-radius: var(--radius-pill);
-  background: rgba(0, 214, 201, 0.14);
+  background: var(--accent-soft);
   color: var(--accent);
   font-size: var(--fs-2xs);
   font-weight: 700;
@@ -489,7 +489,7 @@
 }
 
 .ws-group-worktree-count:hover {
-  background: rgba(0, 214, 201, 0.24);
+  background: var(--accent-soft);
   color: var(--accent-hover);
 }
 
@@ -505,16 +505,16 @@
   gap: 8px;
   margin: -2px 0 6px;
   padding: 10px 12px;
-  border: 1px solid rgba(244, 91, 105, 0.28);
+  border: 1px solid var(--intent-danger-border);
   border-radius: var(--radius-sm);
-  background: rgba(244, 91, 105, 0.08);
+  background: var(--intent-danger-bg);
 }
 
 .worktree-remove-confirm-head {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #FFB1B8;
+  color: var(--intent-danger-fg);
   font-size: var(--fs-2xs);
 }
 
@@ -535,10 +535,10 @@
 
 .worktree-remove-confirm .danger-btn {
   padding: 6px 12px;
-  border: 1px solid rgba(244, 91, 105, 0.5);
+  border: 1px solid var(--intent-danger-border);
   border-radius: var(--radius-sm);
-  background: rgba(244, 91, 105, 0.16);
-  color: #FFB1B8;
+  background: var(--intent-danger-bg);
+  color: var(--intent-danger-fg);
   font-size: var(--fs-2xs);
   font-weight: 600;
   cursor: pointer;
@@ -546,14 +546,14 @@
 }
 
 .worktree-remove-confirm .danger-btn:hover:not(:disabled) {
-  background: rgba(244, 91, 105, 0.28);
-  border-color: rgba(244, 91, 105, 0.7);
+  background: var(--intent-danger-bg);
+  border-color: var(--intent-danger-solid);
 }
 
 .worktree-remove-confirm .danger-btn:disabled { opacity: 0.45; cursor: default; }
 
 .worktree-menu-item.pending-removal {
-  border-color: rgba(244, 91, 105, 0.35);
+  border-color: var(--intent-danger-border);
 }
 
 /* The base ref is plumbing, so it reads as plumbing — same mono treatment as
@@ -602,14 +602,14 @@
 }
 
 .panel-scope-badge.is-worktree {
-  border-color: rgba(0, 214, 201, 0.32);
-  background: rgba(0, 214, 201, 0.10);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
   color: var(--accent);
 }
 
 .panel-scope-badge.is-worktree:hover {
-  background: rgba(0, 214, 201, 0.18);
-  border-color: rgba(0, 214, 201, 0.5);
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
 }
 
 .panel-scope-badge.is-pinned {

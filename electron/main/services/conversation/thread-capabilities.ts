@@ -26,6 +26,7 @@ export function threadCapabilityManifest(provider: ThreadProvider, native?: Conv
       elicitation: feature('elicitation', 'The provider does not expose MCP elicitation'),
       attachments: feature('attachments', 'The provider does not accept image inputs in this transport'),
       queue: feature('queue', 'Native provider queue is unavailable; follow-ups remain safe in the OXESpace local queue'),
+      rewind: provider === 'claude' ? capability(true, 'Resumes a forked session; the original transcript is kept', 'native') : feature('rewind', 'The provider cannot rewind its conversation history'),
       localQueue: capability(true),
       steering: feature('steering', provider === 'claude' ? 'Claude headless mode cannot steer an active turn' : 'Active-turn steering is unavailable'),
       historyPagination: capability(true),
@@ -42,16 +43,19 @@ export function threadCapabilityManifest(provider: ThreadProvider, native?: Conv
       subagentObservation: provider === 'codex'
         ? experimental(true, 'Codex reports collaboration events; lifecycle remains owned by the active native turn')
         : experimental(true, 'Native task events are observed after the parent result; real-account lifecycle validation is pending'),
-      subagentLifecycle: capability(false, provider === 'codex'
-        ? 'The Codex app-server version in use does not expose independent, idempotent child lifecycle operations'
-        : 'Claude headless mode does not expose spawn, interrupt, resume or retry operations for child agents'),
+      subagentLifecycle: native?.stopTasks
+        ? capability(true, 'Running background tasks can be stopped; spawn, resume and retry stay with the provider', 'native')
+        : capability(false, provider === 'codex'
+          ? 'The Codex app-server version in use does not expose independent, idempotent child lifecycle operations'
+          : 'Claude headless mode does not expose spawn, interrupt, resume or retry operations for child agents'),
       additionalProviders: capability(false, 'Code providers without a supported headless protocol remain Code-only')
     }
   }
   if (provider === 'claude' && (configuration?.access ?? 'read-only') === 'read-only') {
-    for (const name of ['mcp', 'mcpManagement', 'hooks', 'subagentObservation'] as const) {
+    for (const name of ['mcpManagement', 'hooks', 'subagentObservation'] as const) {
       manifest.features[name] = { ...manifest.features[name], enabled: false, authorized: false, reason: 'Disabled by this conversation’s read-only tool policy' }
     }
+    manifest.features.mcp = { ...manifest.features.mcp, reason: 'Restricted by this conversation’s read-only policy: OXESpace lookups only, no user MCP servers' }
   }
   return manifest
 

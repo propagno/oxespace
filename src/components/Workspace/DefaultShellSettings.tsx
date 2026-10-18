@@ -26,10 +26,10 @@ export function DefaultShellSettings({ profiles, selectedId, onSelect, applyToId
           <div className="ws-settings-field-label">{kind === 'agent' ? 'Agent launchers' : 'Command-line shells'} <span className="shell-count">{items.length}</span></div>
           <div className="shell-card-grid">{items.map(profile => <label key={profile.id} className={`shell-choice${selectedId === profile.id ? ' selected' : ''}`}>
             <input type="radio" name="workspace-default-shell" value={profile.id} checked={selectedId === profile.id} onChange={() => onSelect(profile.id)} aria-label={label(profile)} />
-            <Icon size={19} className="shell-choice-icon" aria-hidden="true" />
+            <Icon size={16} className="shell-choice-icon" aria-hidden="true" />
             <span className="shell-card-content"><strong>{label(profile)}</strong><code title={profile.executable}>{profile.executable}</code>
               <small>{profile.id === 'builtin-copilot' ? 'Shell only · start Copilot manually' : kind === 'agent' ? 'Uses your installed CLI' : 'Interactive terminal'}</small></span>
-            {selectedId === profile.id && <Check size={15} className="shell-choice-check" aria-hidden="true" />}
+            {selectedId === profile.id && <Check size={14} className="shell-choice-check" aria-hidden="true" />}
           </label>)}</div>
         </div>
       })}

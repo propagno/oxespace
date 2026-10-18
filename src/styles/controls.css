@@ -1,0 +1,141 @@
+/* ─── Control family ───────────────────────────────────────────────────────
+   The hand-written button classes that predate src/ui share one size scale,
+   radius, type and focus ring, the same as `Button`: 24 / 28 / 32 px tall.
+   Contextual rules with two or more classes keep winning, as before. New
+   buttons use `Button` and `IconButton` from src/ui instead of these. */
+
+/* Text buttons: 28 px, secondary look. */
+.ghost-btn,
+.secondary-action,
+.settings-btn {
+  min-height: var(--control-md);
+  height: auto;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  line-height: 1.2;
+}
+.ghost-btn:hover:not(:disabled),
+.secondary-action:hover:not(:disabled),
+.settings-btn:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--fill-hover);
+  color: var(--text-primary);
+}
+
+/* Primary buttons: 28 px, accent. */
+.primary-btn,
+.primary-action {
+  min-height: var(--control-md);
+  height: auto;
+  padding: 0 var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  line-height: 1.2;
+}
+.primary-btn:hover:not(:disabled),
+.primary-action:hover:not(:disabled) { background: var(--accent-hover); }
+
+/* Icon buttons: square, 28 px (24 px for the dense panel and tile variants), hit area never below 24 px. */
+.icon-button,
+.gh-icon-btn,
+.tile-btn {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--control-md);
+  height: var(--control-md);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+}
+.gh-icon-btn,
+.tile-btn { width: var(--control-sm); height: var(--control-sm); }
+.icon-button:hover:not(:disabled),
+.gh-icon-btn:hover:not(:disabled),
+.tile-btn:hover:not(:disabled) { background: var(--fill-hover); color: var(--text-primary); }
+/* A larger invisible target around the dense variants, so a 24 px glyph box is still easy to hit. */
+.gh-icon-btn::after,
+.tile-btn::after { content: ""; position: absolute; inset: -2px; }
+
+.ghost-btn:disabled,
+.primary-btn:disabled,
+.primary-action:disabled,
+.secondary-action:disabled,
+.settings-btn:disabled,
+.icon-button:disabled,
+.gh-icon-btn:disabled,
+.tile-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* One focus ring for every control. */
+:where(button, [role="button"], [role="tab"], [role="menuitem"], a, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Small controls keep a 24 px target even when their glyph is smaller. */
+.new-workspace-agent-chip-step { min-width: var(--control-sm); min-height: var(--control-sm); }
+.semantic-activity-chip { min-height: var(--control-sm); }
+.web-preview-tab > button[aria-label^="Close tab"] { min-width: var(--control-sm); min-height: var(--control-sm); display: inline-grid; place-items: center; }
+
+/* Native checkboxes and radios follow the accent and are never smaller than 16 px. */
+input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; accent-color: var(--accent); }
+
+/* Empty panels read the same everywhere: quiet text, one size, comfortable line height. */
+:where(
+  .bg-jobs-panel-empty, .changes-empty, .git-control-empty, .github-empty, .github-empty-center, .github-empty-inline,
+  .github-actions-v2-empty, .github-changes-empty, .integration-empty, .integration-empty-inline, .linear-empty,
+  .mcp-panel-empty, .scripts-panel-empty, .semantic-activity-empty, .skills-browser-empty, .tools-modal-empty,
+  .thread-review-empty, .editor-empty, .editor-browser-empty, .settings-empty, .worktree-menu-empty,
+  .workspace-list-empty, .sidebar-empty-state
+) {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+/* Plain buttons inside a grid-laid settings section keep their natural width instead of stretching across the card. */
+.ws-settings-section > button, .memory-settings > button, .memory-feedback > button { justify-self: start; align-self: flex-start; width: auto; }
+
+/* Sliders and search fields keep a comfortable 24 px+ hit area. */
+input[type="range"] { min-height: var(--control-sm); }
+input[type="search"] { min-height: var(--control-md); }
+
+.empty-state .empty-state-alt { display: flex; align-items: center; gap: var(--space-1); margin-top: var(--space-2); color: var(--text-muted); font-size: var(--fs-xs); }
+
+/* Side-panel headers: the workspace name shortens instead of wrapping onto two lines. */
+.workspace-editor-title { min-width: 0; }
+.workspace-editor-title > span:first-of-type { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Right-panel tabs stay on one row; labels shorten instead of wrapping the "more" button underneath. */
+.workspace-panel-stack-tabs { flex-wrap: nowrap; overflow: hidden; }
+.workspace-panel-stack-tabs [role="tab"] { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; padding-inline: var(--space-2); }
+.workspace-panel-stack-tabs .workspace-panel-stack-more { flex: none; margin-left: 0; }
+
+/* Where two scrollbars meet, no stray square. */
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* Compact controls keep a 24 px target. */
+.ws-group-settings-btn, .terminal-search-btn { min-width: var(--control-sm); min-height: var(--control-sm); }
+
+/* A search box that draws its own frame shows one focus ring on the frame, not a second one on the input inside it. */
+:is(.desktop-search, .changes-filter, .changes-menu-search, .settings-search, .mcp-panel-search, .scripts-panel-search, .skills-browser-search, .desktop-provider-session-search, .path-input, .thread-find):focus-within { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+:is(.desktop-search, .changes-filter, .changes-menu-search, .settings-search, .mcp-panel-search, .scripts-panel-search, .skills-browser-search, .desktop-provider-session-search, .path-input, .thread-find) input:focus-visible { outline: none; box-shadow: none; }
+
+/* Side-panel header: the title block yields to the action buttons instead of running under them. */
+.workspace-editor-title { flex: 1 1 0; overflow: hidden; }
+.workspace-editor-title .panel-scope-badge { flex: 0 1 auto; min-width: 0; }
+
+/* In a narrow window the side-panel header keeps the branch chip and drops the workspace name, which the title bar already shows. */
+@media (max-width: 1100px) { .workspace-editor-title > span:first-of-type { display: none; } }

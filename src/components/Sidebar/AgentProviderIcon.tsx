@@ -17,13 +17,13 @@ function ClaudeAsterisk(): ReactElement {
 
 const PROVIDER_TOKENS: Record<AgentProvider, { bg: string; icon: ReactElement }> = {
   claude:       { bg: 'var(--provider-claude)',  icon: <ClaudeAsterisk /> },
-  'gh-copilot': { bg: 'var(--provider-copilot)', icon: <Github size={11} color="white" /> },
-  copilot:      { bg: 'var(--provider-copilot)', icon: <Github size={11} color="white" /> },
-  antigravity:  { bg: 'var(--provider-antigravity)', icon: <Sparkles size={10} color="white" /> },
-  codex:        { bg: 'var(--provider-codex)',   icon: <Code2 size={10} color="white" /> },
-  cursor:       { bg: 'var(--provider-cursor)',  icon: <MousePointer2 size={10} color="white" /> },
-  grok:         { bg: 'var(--provider-grok)',    icon: <Zap size={10} color="white" /> },
-  custom:       { bg: 'var(--provider-custom)',  icon: <Bot size={10} color="white" /> },
+  'gh-copilot': { bg: 'var(--provider-copilot)', icon: <Github size={12} color="white" /> },
+  copilot:      { bg: 'var(--provider-copilot)', icon: <Github size={12} color="white" /> },
+  antigravity:  { bg: 'var(--provider-antigravity)', icon: <Sparkles size={12} color="white" /> },
+  codex:        { bg: 'var(--provider-codex)',   icon: <Code2 size={12} color="white" /> },
+  cursor:       { bg: 'var(--provider-cursor)',  icon: <MousePointer2 size={12} color="white" /> },
+  grok:         { bg: 'var(--provider-grok)',    icon: <Zap size={12} color="white" /> },
+  custom:       { bg: 'var(--provider-custom)',  icon: <Bot size={12} color="white" /> },
 }
 
 export function AgentProviderIcon({ provider, size = 20 }: AgentProviderIconProps): ReactElement {

@@ -49,6 +49,11 @@ import type {
 } from '../../../../shared/types/github'
 import { GhExec, type SpawnAsyncFn } from './gh-exec'
 import { GitHubRepositoryService } from './repository.service'
+import { WorktreeCleanup } from './worktree-cleanup'
+import type { WorktreeCleanupCandidate, WorktreeCleanupRemoveInput, WorktreeCleanupRemoveResult, WorktreeCleanupScanInput } from '../../../../shared/types/worktree-cleanup'
+import { snapshotRepoConfig } from '../repo-config/loader'
+import { RepoHookTrust } from '../repo-config/trust'
+import type { RepoConfigSnapshot, RepoHookKind } from '../../../../shared/types/repo-config'
 import { GitHubReviewService } from './review.service'
 import { GitHubActionsService } from './actions.service'
 import { GitHubCheckpointService } from './checkpoints.service'
@@ -66,6 +71,8 @@ export class GitHubService {
   private readonly review: GitHubReviewService
   private readonly actions: GitHubActionsService
   private readonly checkpoints: GitHubCheckpointService
+  private readonly hookTrust: RepoHookTrust
+  private readonly cleanup: WorktreeCleanup
 
   constructor(db: AppDatabase, options: { spawnCommand?: SpawnAsyncFn; now?: () => number } = {}) {
     // One kernel, four collaborators. The CLI and repository caches live here,
@@ -75,6 +82,46 @@ export class GitHubService {
     this.review = new GitHubReviewService(this.gh)
     this.actions = new GitHubActionsService(this.gh)
     this.checkpoints = new GitHubCheckpointService(db, this.gh)
+    this.hookTrust = new RepoHookTrust(db)
+    this.cleanup = new WorktreeCleanup({
+      gh: this.gh,
+      removeWorktree: (input) => this.repository.removeWorktree(input)
+    })
+  }
+
+  /**
+   * Hooks the repo's oxe.yaml lifecycle (setup/archive, shared links, terminal
+   * teardown) into worktree create/remove. `trust` is built from this
+   * service's own database so approvals live next to the rest of app state.
+   */
+  configureWorktreeLifecycle(options: { stopTerminalsWithin?: (dir: string) => string[] } = {}): void {
+    this.repository.configureWorktreeLifecycle({ trust: this.hookTrust, ...options })
+  }
+
+  /**
+   * Approves the script currently on disk, but only if its hash is the one the
+   * user was shown — an oxe.yaml edited between display and click is refused.
+   */
+  async approveRepoHook(rootPath: string, kind: RepoHookKind, contentHash: string): Promise<RepoConfigSnapshot> {
+    const current = await snapshotRepoConfig(rootPath, this.hookTrust)
+    const script = current.config?.scripts[kind]
+    if (!script || current.hashes[kind] !== contentHash) {
+      throw new Error('The hook changed since it was shown. Review oxe.yaml and approve again.')
+    }
+    this.hookTrust.approve(rootPath, kind, script)
+    return snapshotRepoConfig(rootPath, this.hookTrust)
+  }
+
+  scanWorktreeCleanup(input: WorktreeCleanupScanInput): Promise<WorktreeCleanupCandidate[]> {
+    return this.cleanup.scan(input)
+  }
+
+  removeWorktreeCleanup(input: WorktreeCleanupRemoveInput): Promise<WorktreeCleanupRemoveResult[]> {
+    return this.cleanup.remove(input)
+  }
+
+  repoConfigSnapshot(rootPath: string): Promise<RepoConfigSnapshot> {
+    return snapshotRepoConfig(rootPath, this.hookTrust)
   }
 
   invalidateCaches(cwd: string): void {

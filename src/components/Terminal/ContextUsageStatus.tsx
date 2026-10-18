@@ -50,7 +50,7 @@ export function ContextUsageStatus({ provider, rootPath }: { provider: AgentProv
       content={title}
       ariaLabel={`Context window: ${pct}%`}
     >
-      <Gauge size={10} aria-hidden="true" />
+      <Gauge size={12} aria-hidden="true" />
       <span className="chip-label">ctx {pct}%</span>
     </ViewportTooltip>
   )

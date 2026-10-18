@@ -3,6 +3,7 @@ import { ChevronDown, Check, Loader2, RefreshCw, Shield } from 'lucide-react'
 import { Popover } from 'radix-ui'
 import { DesktopDialog } from '../Navigation/DesktopDialog'
 import type { ConversationThread, ThreadConfiguration, ThreadModelCatalog, ThreadSnapshot } from '../../../shared/types/thread'
+import { TextField } from '../../ui'
 
 export function ThreadConfigurationBar({ thread, onConfigured, onError, openControl, onControlClosed }: {
   thread: ConversationThread; onConfigured: (snapshot: ThreadSnapshot) => void; onError: (message: string) => void
@@ -27,6 +28,8 @@ export function ThreadConfigurationBar({ thread, onConfigured, onError, openCont
   const modelId = desired.model || catalog.defaultModel
   const model = catalog.models.find(model => model.id === modelId)
   const effort = desired.reasoningEffort || model?.defaultEffort
+  // With no known default the provider still chooses the model, so offer the efforts any model supports.
+  const effortOptions = model?.efforts ?? (!desired.model && catalog.defaultKnown === false ? [...new Set(catalog.models.flatMap(value => value.efforts))] : [])
   const close = () => { setOpened(null); setQuery(''); setProposedAccess(null); setProposedNetwork(false); setProposedNever(false); setProposedHooks(false); onControlClosed() }
   const apply = async (configuration: ThreadConfiguration) => {
     const id = thread.id
@@ -40,16 +43,16 @@ export function ThreadConfigurationBar({ thread, onConfigured, onError, openCont
   }
   const selector = (kind: string, label: string, text: string, children: React.ReactNode, disabled = false, badge?: string) => <Popover.Root open={opened === kind} onOpenChange={open => { if (open) setOpened(kind); else if (!proposedAccess) close() }}>
     <Popover.Trigger asChild><button ref={kind === 'permissions' ? accessTrigger : undefined} type="button" className={`thread-config-trigger${kind === 'permissions' ? ' is-permissions' : ''}`} aria-label={label} disabled={saving || disabled} title={text}>{kind === 'permissions' && <Shield size={12} />}<span>{text}</span>{badge && <i className="thread-config-badge">{badge}</i>}{saving ? <Loader2 size={12} className="thread-spin" /> : <ChevronDown size={12} />}</button></Popover.Trigger>
-    <Popover.Portal><Popover.Content className="thread-config-popover" side="top" align="start" sideOffset={10} collisionPadding={16} avoidCollisions sticky="always" aria-label={label}>
-      <header>{label}{kind !== 'permissions' && <button type="button" aria-label="Refresh models" onClick={() => setRefresh(value => value + 1)} disabled={loading}><RefreshCw size={13} /></button>}</header><div className="thread-config-scroll">{children}</div>
+    <Popover.Portal><Popover.Content className="thread-config-popover" side="top" align="start" sideOffset={10} collisionPadding={{ top: 44, right: 16, bottom: 16, left: 16 }} avoidCollisions sticky="always" aria-label={label}>
+      <header>{label}{kind !== 'permissions' && <button type="button" aria-label="Refresh models" onClick={() => setRefresh(value => value + 1)} disabled={loading}><RefreshCw size={14} /></button>}</header><div className="thread-config-scroll">{children}</div>
     </Popover.Content></Popover.Portal>
   </Popover.Root>
   return <div className="thread-configuration" aria-label="Conversation configuration">
-    {selector('model', 'Select model', model?.label ?? desired.model ?? (loading ? 'Loading models…' : 'Select model'), <>
-      {catalog.models.length > 8 && <input aria-label="Filter models" placeholder="Search models…" value={query} onChange={event => setQuery(event.target.value)} />}
+    {selector('model', 'Select model', model?.label ?? desired.model ?? (loading ? 'Loading models…' : catalog.defaultKnown === false ? 'Provider default' : 'Select model'), <>
+      {catalog.models.length > 8 && <TextField aria-label="Filter models" placeholder="Search models…" value={query} onChange={event => setQuery(event.target.value)} />}
       {error ? <p role="alert">{error}<button type="button" onClick={() => setRefresh(value => value + 1)}>Try again</button></p> : loading ? <p role="status">Loading models…</p> : !catalog.models.length ? <p>No models available.</p> : <div className="thread-config-options">{catalog.models.filter(value => `${value.label} ${value.id}`.toLowerCase().includes(query.toLowerCase())).map(value => <button type="button" key={value.id} aria-pressed={modelId === value.id} onClick={() => void apply({ model: value.id, ...(effort && value.efforts.includes(effort) ? { reasoningEffort: effort } : value.defaultEffort ? { reasoningEffort: value.defaultEffort } : {}) })}><span><strong>{value.label}</strong><small>{value.description}</small></span>{modelId === value.id && <Check size={14} />}</button>)}</div>}
     </>)}
-    {selector('effort', 'Select effort', effort ? effort[0].toUpperCase() + effort.slice(1) : 'Automatic', <div className="thread-config-options">{model?.efforts.map(value => <button type="button" key={value} aria-pressed={effort === value} onClick={() => void apply({ model: model.id, reasoningEffort: value })}><span>{value[0].toUpperCase() + value.slice(1)}</span>{effort === value && <Check size={14} />}</button>)}</div>, !model?.efforts.length)}
+    {selector('effort', 'Select effort', effort ? effort[0].toUpperCase() + effort.slice(1) : 'Automatic', <div className="thread-config-options">{effortOptions.map(value => <button type="button" key={value} aria-pressed={effort === value} onClick={() => void apply({ ...(model ? { model: model.id } : {}), reasoningEffort: value })}><span>{value[0].toUpperCase() + value.slice(1)}</span>{effort === value && <Check size={14} />}</button>)}</div>, !effortOptions.length)}
     {selector('permissions', 'Permissions', desired.access === 'full-access' ? 'Full access' : desired.access === 'workspace-write' ? thread.provider === 'claude' ? 'Native permissions' : 'Workspace access' : 'Read only', <div className="thread-config-options">
       <p className="thread-access-directory" title={thread.rootPath}>{thread.rootPath}</p>
       <p className="thread-config-section-label">Access</p>
@@ -64,6 +67,7 @@ export function ThreadConfigurationBar({ thread, onConfigured, onError, openCont
       {proposedHooks && <div className="thread-access-confirm"><p>Provider hooks can execute configured commands before or after tool calls. Enable them for this conversation?</p><button type="button" onClick={() => void apply({ hooksEnabled: true })}>Enable hooks</button><button type="button" onClick={() => setProposedHooks(false)}>Cancel</button></div>}
       <p className="thread-config-section-label">Mode</p>
       <button type="button" role="switch" aria-checked={desired.mode === 'plan'} className="thread-config-switch" onClick={() => void apply({ mode: desired.mode === 'plan' ? 'default' : 'plan' })}><span><strong>Planning mode</strong><small>Plan first; no changes until you approve.</small></span><i aria-hidden="true" /></button>
+      {thread.provider === 'claude' && desired.access === 'workspace-write' && <button type="button" role="switch" aria-checked={desired.mode === 'acceptEdits'} className="thread-config-switch" onClick={() => void apply({ mode: desired.mode === 'acceptEdits' ? 'default' : 'acceptEdits' })}><span><strong>Auto-accept edits</strong><small>File edits in this project are applied without asking. Commands and other tools still ask.</small></span><i aria-hidden="true" /></button>}
       {thread.provider === 'codex' && <p className="thread-config-hint">Access and approvals are separate. MCP servers may still ask, even with Never ask.</p>}
     </div>, false, thread.provider === 'codex' && desired.access !== 'read-only' && desired.approvalPolicy === 'never' ? 'Never ask' : undefined)}
     {proposedAccess && <DesktopDialog className="thread-access-dialog" returnFocusTo={() => accessTrigger.current} title={proposedAccess === 'full-access' ? 'Allow expanded access?' : 'Change conversation access?'} description="Review the access this agent will receive before applying it." onClose={() => { if (!saving) setProposedAccess(null) }}>
@@ -72,5 +76,6 @@ export function ThreadConfigurationBar({ thread, onConfigured, onError, openCont
     </DesktopDialog>}
     {thread.pendingConfiguration && <small className="thread-config-pending" title="The current turn keeps its configuration. Your selection applies to the next message.">Next turn</small>}
     {desired.mode === 'plan' && <small>Plan</small>}
+    {desired.mode === 'acceptEdits' && <small>Auto-edit</small>}
   </div>
 }

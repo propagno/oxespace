@@ -3,6 +3,7 @@ import type { DelegationSnapshot } from '../../../shared/types/delegation'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import './WorkspaceMemorySettings.css'
+import { Button, Checkbox, TextField, Select } from '../../ui'
 
 export function WorkspaceDelegationSettings({ workspaceId, paneIds, onOpenTerminal, onOpenDiagnostics }: { workspaceId: string; paneIds?: string[]; onOpenTerminal?: (paneId: string, workspaceId?: string) => void; onOpenDiagnostics?: () => void }) {
   const [snapshot, setSnapshot] = useState<DelegationSnapshot>({ enabled: false, tasks: [] })
@@ -36,21 +37,21 @@ export function WorkspaceDelegationSettings({ workspaceId, paneIds, onOpenTermin
   return <section className="ws-settings-section memory-settings" aria-labelledby="delegation-title">
     <header className="ws-settings-section-header"><h3 id="delegation-title">Agent delegation</h3></header>
     <p>Delegate parallel work to an independent worktree and persistent conversation. Open Delegated work in either sidebar to create, inspect and resume tasks.</p>
-    <label><input type="checkbox" checked={snapshot.enabled} disabled={!ready || busy} onChange={e => { const enabled = e.target.checked; void act(() => window.oxe.delegation.configure(workspaceId,enabled)) }} /> Allow agents to delegate tasks in this project</label>
+    <Checkbox checked={snapshot.enabled} disabled={!ready || busy} onChange={e => { const enabled = e.target.checked; void act(() => window.oxe.delegation.configure(workspaceId,enabled)) }} label="Allow agents to delegate tasks in this project" />
     <p className="memory-privacy">Delegation starts an independent Claude or Codex session with your selected handoff. Subscription login and conversation permissions still apply.</p>
     <details className="coordination-destinations">
       <summary>Manage authorized destinations ({snapshot.targets?.length ?? 0})</summary>
     <fieldset disabled={busy || !ready}>
       <legend>Authorized destinations</legend>
       <p>Allow this project to launch independent tasks in another local repository for 30 days. Both projects must enable delegation. No clone, push or merge is authorized.</p>
-      <label>Destination repository path<input value={targetPath} onChange={e => { setTargetPath(e.target.value); setConsent(false) }} placeholder="Absolute path to a local Git repository" /></label>
-      <label><input type="checkbox" checked={allowEvidence} onChange={e => { setAllowEvidence(e.target.checked); setConsent(false) }} /> Allow selected committed text files as evidence (up to 64 KB)</label>
-      <label><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} /> I authorize task handoffs{allowEvidence ? ' and selected file content' : ''} to the destination agent, which may send them to its cloud provider.</label>
+      <label>Destination repository path<TextField value={targetPath} onChange={e => { setTargetPath(e.target.value); setConsent(false) }} placeholder="Absolute path to a local Git repository" /></label>
+      <Checkbox checked={allowEvidence} onChange={e => { setAllowEvidence(e.target.checked); setConsent(false) }} label="Allow selected committed text files as evidence (up to 64 KB)" />
+      <Checkbox checked={consent} onChange={e => setConsent(e.target.checked)} label={<>I authorize task handoffs{allowEvidence ? ' and selected file content' : ''} to the destination agent, which may send them to its cloud provider.</>} />
       <p>Analysis mode instructs the agent not to edit files; it is not a security sandbox. Revoking access cannot retract content already delivered.</p>
-      <button type="button" className="primary-action" disabled={!targetPath.trim() || !consent} onClick={() => void act(async () => {
+      <Button variant="primary" disabled={!targetPath.trim() || !consent} onClick={() => void act(async () => {
         await window.oxe.delegation.configureTarget(workspaceId, targetPath, true, allowEvidence)
         setTargetPath(''); setConsent(false); await useWorkspaceStore.getState().bootstrap()
-      })}>Authorize local destination</button>
+      })}>Authorize local destination</Button>
       {(snapshot.targets ?? []).map(target => <article className="memory-feedback" key={target.workspaceId}>
         <strong>{target.name}</strong><p>{target.rootPath}</p>
         <p>Expires {new Date(target.expiresAt).toLocaleDateString()} · Evidence {target.allowEvidence ? 'allowed' : 'disabled'}</p>
@@ -88,10 +89,10 @@ export function WorkspaceDelegationSettings({ workspaceId, paneIds, onOpenTermin
         </>}
       </div>
       {(task.originWorkspaceId ?? task.workspaceId) === workspaceId && <div>
-        <label>Reconnect origin terminal<select value={adoptPane[task.id] ?? ''} onChange={e => setAdoptPane(value => ({ ...value, [task.id]: e.target.value }))}>
+        <label>Reconnect origin terminal<Select value={adoptPane[task.id] ?? ''} onChange={e => setAdoptPane(value => ({ ...value, [task.id]: e.target.value }))}>
           <option value="">Select a running terminal</option>
           {sourcePanes.filter(p => p.id !== task.paneId).map(p => <option key={p.id} value={p.id}>{p.displayName ?? p.id}</option>)}
-        </select></label>
+        </Select></label>
         <button type="button" disabled={busy || !adoptPane[task.id]} onClick={() => void act(() => window.oxe.delegation.adopt(workspaceId, task.id, adoptPane[task.id]))}>Authorize terminal to follow and control this task</button>
       </div>}
       {task.workspaceId === workspaceId && task.paneId && paneIds && !paneIds.includes(task.paneId) && <p>Terminal was closed. Retry recreates it while preserving the worktree and handoff.</p>}

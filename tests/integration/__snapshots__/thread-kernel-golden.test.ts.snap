@@ -1,0 +1,471 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Thread event pipeline (golden) > a failed turn with details pauses a pending queue 1`] = `
+{
+  "events": [
+    {
+      "id": "<id1>",
+      "role": "user",
+      "text": "First",
+      "type": "message",
+    },
+    {
+      "at": "<time>",
+      "id": "activity:<id1>:preparing",
+      "phase": "preparing",
+      "type": "activity",
+    },
+    {
+      "at": "<time>",
+      "id": "activity:<id1>:connecting",
+      "phase": "connecting",
+      "type": "activity",
+    },
+    {
+      "completedAt": "<time>",
+      "detail": "make",
+      "id": "tool-x",
+      "name": "Bash",
+      "state": "unknown",
+      "type": "tool",
+    },
+    {
+      "error": "boom",
+      "errorCode": "server",
+      "failure": {
+        "code": "server",
+        "id": "fail-1",
+        "message": "Provider failed",
+        "occurredAt": "<time>",
+        "usageUnavailable": true,
+      },
+      "status": "failed",
+      "type": "completed",
+    },
+  ],
+  "thread": {
+    "lastTurnStatus": "failed",
+    "nativeSessionId": "native-1",
+    "queuePause": {
+      "reason": "failed",
+      "since": "<time>",
+      "turnId": "<id1>",
+    },
+    "status": "failed",
+  },
+  "turns": [
+    {
+      "configuration": {
+        "access": "read-only",
+        "approvalPolicy": "on-request",
+        "hooksEnabled": false,
+        "mode": "default",
+        "networkAccess": false,
+      },
+      "id": "<id1>",
+      "sequence": 1,
+      "status": "failed",
+    },
+  ],
+}
+`;
+
+exports[`Thread event pipeline (golden) > a full successful turn 1`] = `
+{
+  "events": [
+    {
+      "id": "<id1>",
+      "role": "user",
+      "text": "Build the feature",
+      "type": "message",
+    },
+    {
+      "at": "<time>",
+      "id": "activity:<id1>:preparing",
+      "phase": "preparing",
+      "type": "activity",
+    },
+    {
+      "at": "<time>",
+      "id": "activity:<id1>:connecting",
+      "phase": "connecting",
+      "type": "activity",
+    },
+    {
+      "at": "<time>",
+      "id": "act-1",
+      "phase": "reasoning",
+      "type": "activity",
+    },
+    {
+      "id": "msg-1",
+      "role": "assistant",
+      "text": "Hello",
+      "type": "message",
+    },
+    {
+      "detail": "ls",
+      "exitCode": 0,
+      "id": "tool-1",
+      "name": "Bash",
+      "output": "a.ts",
+      "state": "completed",
+      "turnId": "nt-1",
+      "type": "tool",
+    },
+    {
+      "id": "plan-1",
+      "steps": [
+        {
+          "label": "Read",
+          "status": "completed",
+        },
+        {
+          "label": "Write",
+          "status": "inProgress",
+        },
+      ],
+      "turnId": "nt-1",
+      "type": "plan",
+    },
+    {
+      "files": [
+        {
+          "kind": "update",
+          "path": "a.ts",
+          "state": "completed",
+        },
+      ],
+      "id": "turn-diff:nt-1",
+      "turnId": "nt-1",
+      "type": "turn-diff",
+    },
+    {
+      "id": "mp-1",
+      "models": [],
+      "selectedModel": "big",
+      "type": "model-picker",
+    },
+    {
+      "id": "msg-2",
+      "role": "assistant",
+      "text": "Done",
+      "type": "message",
+    },
+    {
+      "status": "completed",
+      "type": "completed",
+    },
+  ],
+  "thread": {
+    "access": "workspace-write",
+    "contextReport": {
+      "capturedAt": "<time>",
+      "categories": [],
+      "percentage": 10,
+      "source": "codex-token-usage",
+      "usedTokens": 10,
+      "windowTokens": 100,
+    },
+    "costReport": {
+      "inputTokens": 5,
+      "lastTurnUsd": 0.02,
+      "outputTokens": 7,
+      "source": "codex-token-usage",
+      "totalUsd": 0.02,
+      "turns": 1,
+      "updatedAt": "<time>",
+    },
+    "lastTurnStatus": "completed",
+    "model": "big",
+    "nativeSessionId": "native-1",
+    "reasoningEffort": "high",
+    "status": "idle",
+  },
+  "turns": [
+    {
+      "configuration": {
+        "access": "workspace-write",
+        "approvalPolicy": "on-request",
+        "hooksEnabled": false,
+        "mode": "default",
+        "model": "big",
+        "networkAccess": false,
+        "reasoningEffort": "high",
+      },
+      "id": "<id1>",
+      "nativeId": "nt-1",
+      "sequence": 1,
+      "status": "completed",
+    },
+  ],
+}
+`;
+
+exports[`Thread event pipeline (golden) > approvals and requests, including ones left open when the turn ends 1`] = `
+{
+  "events": [
+    {
+      "id": "<id1>",
+      "role": "user",
+      "text": "Do risky things",
+      "type": "message",
+    },
+    {
+      "at": "<time>",
+      "id": "activity:<id1>:preparing",
+      "phase": "preparing",
+      "type": "activity",
+    },
+    {
+      "at": "<time>",
+      "id": "activity:<id1>:connecting",
+      "phase": "connecting",
+      "type": "activity",
+    },
+    {
+      "detail": "rm x",
+      "id": "ap-1",
+      "title": "Approve Bash",
+      "type": "approval",
+    },
+    {
+      "id": "ap-1",
+      "type": "approval-resolved",
+    },
+    {
+      "id": "rq-1",
+      "request": {
+        "availableDecisions": [
+          "accept",
+          "decline",
+        ],
+        "createdAt": "<time>",
+        "generation": 1,
+        "id": "rq-1",
+        "kind": "approval",
+        "nativeId": "rq-1",
+        "nativeMethod": "m",
+        "resolution": "accepted",
+        "resolvedAt": "<time>",
+        "state": "accepted",
+        "title": "Approve Edit",
+      },
+      "type": "request",
+    },
+    {
+      "id": "rq-1",
+      "resolution": "accepted",
+      "resolvedAt": "<time>",
+      "state": "accepted",
+      "type": "request-resolved",
+    },
+    {
+      "id": "rq-2",
+      "request": {
+        "createdAt": "<time>",
+        "generation": 1,
+        "id": "rq-2",
+        "kind": "question",
+        "nativeId": "rq-2",
+        "nativeMethod": "m",
+        "resolution": "interrupted",
+        "resolvedAt": "<time>",
+        "state": "cancelled",
+        "title": "Pick one",
+      },
+      "type": "request",
+    },
+    {
+      "detail": "w",
+      "id": "ap-2",
+      "title": "Approve Write",
+      "type": "approval",
+    },
+    {
+      "id": "rq-2",
+      "resolution": "interrupted",
+      "resolvedAt": "<time>",
+      "state": "cancelled",
+      "type": "request-resolved",
+    },
+    {
+      "id": "ap-2",
+      "type": "approval-resolved",
+    },
+    {
+      "status": "interrupted",
+      "type": "completed",
+    },
+  ],
+  "thread": {
+    "lastTurnStatus": "interrupted",
+    "nativeSessionId": "native-1",
+    "status": "interrupted",
+  },
+  "turns": [
+    {
+      "configuration": {
+        "access": "read-only",
+        "approvalPolicy": "on-request",
+        "hooksEnabled": false,
+        "mode": "default",
+        "networkAccess": false,
+      },
+      "id": "<id1>",
+      "sequence": 1,
+      "status": "interrupted",
+    },
+  ],
+}
+`;
+
+exports[`Thread event pipeline (golden) > late background results and a provider continuation 1`] = `
+{
+  "events": [
+    {
+      "id": "<id1>",
+      "role": "user",
+      "text": "Coordinate",
+      "type": "message",
+    },
+    {
+      "at": "<time>",
+      "id": "activity:<id1>:preparing",
+      "phase": "preparing",
+      "type": "activity",
+    },
+    {
+      "at": "<time>",
+      "id": "activity:<id1>:connecting",
+      "phase": "connecting",
+      "type": "activity",
+    },
+    {
+      "action": "Agent",
+      "agents": [
+        {
+          "message": "Result",
+          "status": "completed",
+          "threadId": "A",
+        },
+      ],
+      "id": "task-A",
+      "receiverThreadIds": [
+        "A",
+      ],
+      "state": "completed",
+      "type": "subagent",
+    },
+    {
+      "status": "completed",
+      "type": "completed",
+    },
+    {
+      "at": "<time>",
+      "id": "cont-1",
+      "phase": "responding",
+      "summary": "The provider is continuing after background activity.",
+      "type": "activity",
+    },
+    {
+      "id": "msg-c",
+      "role": "assistant",
+      "text": "Consolidated",
+      "type": "message",
+    },
+    {
+      "status": "completed",
+      "type": "completed",
+    },
+  ],
+  "thread": {
+    "lastTurnStatus": "completed",
+    "nativeSessionId": "native-1",
+    "status": "idle",
+  },
+  "turns": [
+    {
+      "configuration": {
+        "access": "read-only",
+        "approvalPolicy": "on-request",
+        "hooksEnabled": false,
+        "mode": "default",
+        "networkAccess": false,
+      },
+      "id": "<id1>",
+      "sequence": 1,
+      "status": "completed",
+    },
+    {
+      "configuration": {},
+      "id": "cont-1",
+      "sequence": 2,
+      "status": "completed",
+    },
+  ],
+}
+`;
+
+exports[`Thread event pipeline (golden) > metadata-only and connection events do not add timeline rows 1`] = `
+{
+  "events": [
+    {
+      "id": "<id1>",
+      "role": "user",
+      "text": "Ping",
+      "type": "message",
+    },
+    {
+      "at": "<time>",
+      "id": "activity:<id1>:preparing",
+      "phase": "preparing",
+      "type": "activity",
+    },
+    {
+      "at": "<time>",
+      "id": "activity:<id1>:connecting",
+      "phase": "connecting",
+      "type": "activity",
+    },
+    {
+      "id": "q-1",
+      "item": {
+        "createdAt": "<time>",
+        "id": "q-1",
+        "state": "queued",
+        "text": "later",
+      },
+      "type": "queue",
+    },
+    {
+      "command": "/status",
+      "id": "cli-1",
+      "type": "cli-command",
+    },
+    {
+      "status": "completed",
+      "type": "completed",
+    },
+  ],
+  "thread": {
+    "lastTurnStatus": "completed",
+    "nativeSessionId": "native-1",
+    "status": "idle",
+  },
+  "turns": [
+    {
+      "configuration": {
+        "access": "read-only",
+        "approvalPolicy": "on-request",
+        "hooksEnabled": false,
+        "mode": "default",
+        "networkAccess": false,
+      },
+      "id": "<id1>",
+      "sequence": 1,
+      "status": "completed",
+    },
+  ],
+}
+`;

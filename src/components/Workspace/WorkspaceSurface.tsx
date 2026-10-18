@@ -1,6 +1,7 @@
 import { Suspense, lazy, memo, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from 'react-resizable-panels'
-import { Activity, PlugZap } from 'lucide-react'
+import { Activity, MoreHorizontal, PlugZap } from 'lucide-react'
+import { Menu } from '../../ui'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceWorktreeStateInput, Workspace } from '../../../shared/types/workspace'
 import { WorkspaceGrid } from '../Grid/WorkspaceGrid'
@@ -474,15 +475,8 @@ function WorkspaceSurfaceComponent({
 
   const toolbar = (
     <header className="workspace-topbar" aria-label="Workspace status">
-      <div className="workspace-topbar-breadcrumb">
-        <span className="workspace-topbar-name">{workspace.name}</span>
-        {showSubPath ? (
-          <>
-            <span className="workspace-topbar-divider">/</span>
-            <span className="workspace-topbar-path" title={workspace.rootPath}>{folderName}</span>
-          </>
-        ) : null}
-      </div>
+      {/* The workspace name lives in the title bar; the strip only adds the folder when it differs from it. */}
+      {showSubPath ? <div className="workspace-topbar-breadcrumb"><span className="workspace-topbar-path" title={workspace.rootPath}>{folderName}</span></div> : null}
       <div className="workspace-topbar-spacer" />
       <button type="button" className="workspace-topbar-action" aria-label="Open connections" title="Connections and MCP servers" onClick={openConnections}>
         <PlugZap size={14} aria-hidden="true" /><span>Connections</span>
@@ -505,6 +499,12 @@ function WorkspaceSurfaceComponent({
   const isMaximized = Boolean(maximizedPaneId)
   const showSidePanels = hasSidePanels && !isMaximized
   const sideLabels: Record<string, string> = { github: 'Source control', review: 'Review', editor: 'Files', background: 'Background activity', worktree: 'Worktrees', scripts: 'Scripts', 'web-preview': 'Web preview', integration: 'Integrations', search: 'Find in files' }
+  // Four tabs fit one row at the minimum window width; the rest live in a menu, and the active panel is always a visible tab.
+  const SIDE_TAB_LIMIT = 4
+  const inlineSidePanels = sidePanels.slice(0, SIDE_TAB_LIMIT)
+  const activeSidePanel = sidePanels.find(panel => panel.id === activeSideId)
+  if (activeSidePanel && !inlineSidePanels.includes(activeSidePanel)) inlineSidePanels[SIDE_TAB_LIMIT - 1] = activeSidePanel
+  const overflowSidePanels = sidePanels.filter(panel => !inlineSidePanels.includes(panel))
   const persistSideWidth = (size: number): void => {
     outerSideSizeRef.current = size
     const width = Math.round(size)
@@ -551,12 +551,17 @@ function WorkspaceSurfaceComponent({
                 onResize={persistSideWidth}
               >
                 <div className="workspace-panel-stack">
-                  {sidePanels.length > 1 && <nav ref={sideTabsRef} className="workspace-panel-stack-tabs" role="tablist" aria-label="Open workspace panels">
-                    {sidePanels.map(panel => <button type="button" role="tab" key={panel.id} aria-selected={panel.id === activeSideId} onClick={() => setPreferredSideId(panel.id)}>{sideLabels[panel.id]}</button>)}
+                  {sidePanels.length > 1 && <nav ref={sideTabsRef} className="workspace-panel-stack-tabs" aria-label="Workspace panels">
+                    <div role="tablist" aria-label="Open workspace panels" className="workspace-panel-stack-tablist">
+                      {inlineSidePanels.map(panel => <button type="button" role="tab" key={panel.id} aria-selected={panel.id === activeSideId} onClick={() => setPreferredSideId(panel.id)}>{sideLabels[panel.id]}</button>)}
+                    </div>
+                    {overflowSidePanels.length > 0 && <Menu label="More panels" align="end"
+                      trigger={<button type="button" className="workspace-panel-stack-more" aria-label={`More panels (${overflowSidePanels.length})`}><MoreHorizontal size={14} aria-hidden="true" />{overflowSidePanels.length}</button>}
+                      items={overflowSidePanels.map(panel => ({ label: sideLabels[panel.id] ?? panel.id, onSelect: () => setPreferredSideId(panel.id) }))} />}
                   </nav>}
                   <div className="workspace-panel-stack-content" role={sidePanels.length > 1 ? 'tabpanel' : undefined} aria-label={sidePanels.length > 1 && activeSideId ? sideLabels[activeSideId] : undefined}>
                     {sidePanels.map(panel => <div key={panel.id} hidden={panel.id !== activeSideId}>
-                      <ErrorBoundary label="este painel"><Suspense fallback={<div className="workspace-editor-panel" data-testid="panel-loading" />}>{panel.content}</Suspense></ErrorBoundary>
+                      <ErrorBoundary label="this panel"><Suspense fallback={<div className="workspace-editor-panel" data-testid="panel-loading" />}>{panel.content}</Suspense></ErrorBoundary>
                     </div>)}
                   </div>
                 </div>

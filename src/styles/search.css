@@ -35,7 +35,7 @@
   padding: 6px 8px 6px 26px;
   border: 1px solid var(--border, var(--ov-3));
   border-radius: var(--radius-sm);
-  background: var(--bg-inset, rgba(0, 0, 0, 0.2));
+  background: var(--bg-inset, color-mix(in srgb, var(--surface-sunken) 20%, transparent));
   color: var(--tx-primary);
   font-size: var(--fs-xs);
 }
@@ -64,7 +64,7 @@
 .search-panel-toggles .tile-btn.active {
   color: var(--accent);
   border-color: var(--accent);
-  background: rgba(0, 214, 201, 0.08);
+  background: var(--accent-soft);
 }
 
 .search-panel-globs {
@@ -73,7 +73,7 @@
   padding: 4px 8px;
   border: 1px solid var(--border, var(--ov-3));
   border-radius: var(--radius-sm);
-  background: var(--bg-inset, rgba(0, 0, 0, 0.2));
+  background: var(--bg-inset, color-mix(in srgb, var(--surface-sunken) 20%, transparent));
   color: var(--tx-secondary);
   font-size: var(--fs-2xs);
 }
@@ -90,7 +90,7 @@
 }
 
 .search-panel-error {
-  color: var(--danger, #ff6b6b);
+  color: var(--danger, var(--intent-danger-fg));
   font-size: var(--fs-2xs);
   word-break: break-word;
 }
@@ -191,7 +191,7 @@
 }
 
 .search-hit {
-  background: rgba(0, 214, 201, 0.22);
+  background: var(--accent-soft);
   color: var(--tx-primary);
   border-radius: var(--radius-xs);
 }

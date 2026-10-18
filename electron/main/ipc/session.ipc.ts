@@ -1,4 +1,7 @@
-import { ipcMain } from 'electron'
+import { app, ipcMain } from 'electron'
+import { join } from 'node:path'
+import type { SessionSearchInput } from '../../../shared/types/session-search'
+import { SessionSearchIndex, SessionSearchService } from '../services/session-search'
 import type { AppDatabase } from '../db/index'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { AgentProvider } from '../../../shared/types/agent'
@@ -44,6 +47,14 @@ export function registerSessionIpc(db: AppDatabase, service = new SessionService
     return service.deleteSession(workspaceRootPath, sessionId, provider as AgentProvider)
   })
 
+  // Opened on first use: most sessions never search, and the index is a cache
+  // that costs a file handle and a first scan.
+  let search: SessionSearchService | null = null
+  ipcMain.handle(IPC_CHANNELS.session.search, (_event, input: unknown) => {
+    search ??= new SessionSearchService(new SessionSearchIndex(join(app.getPath('userData'), 'session-search.sqlite3')))
+    return search.search(readSearchInput(input))
+  })
+
   ipcMain.handle(IPC_CHANNELS.session.cleanup, (_event, input: unknown) => {
     const { workspaceId, workspaceRootPath, provider } = readListInput(input)
     return service.cleanupUnusedSessions(workspaceId, workspaceRootPath, provider)
@@ -61,4 +72,17 @@ function readListInput(value: unknown): { workspaceId: string; workspaceRootPath
   if (typeof workspaceRootPath !== 'string' || !workspaceRootPath) throw new Error('workspaceRootPath is required')
   if (typeof provider !== 'string' || !VALID_PROVIDERS.includes(provider as AgentProvider)) throw new Error('invalid provider')
   return { workspaceId, workspaceRootPath, provider: provider as AgentProvider }
+}
+
+function readSearchInput(value: unknown): SessionSearchInput {
+  if (!value || typeof value !== 'object') throw new Error('Invalid search input')
+  const { query, cwd, agent, limit } = value as { query?: unknown; cwd?: unknown; agent?: unknown; limit?: unknown }
+  if (typeof query !== 'string') throw new Error('query is required')
+  if (agent !== undefined && agent !== 'claude' && agent !== 'codex') throw new Error('agent must be "claude" or "codex"')
+  return {
+    query: query.slice(0, 500),
+    cwd: typeof cwd === 'string' && cwd ? cwd : undefined,
+    agent: agent as SessionSearchInput['agent'],
+    limit: typeof limit === 'number' && Number.isFinite(limit) ? Math.floor(limit) : undefined
+  }
 }

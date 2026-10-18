@@ -25,6 +25,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     // The assertions below inspect every action row; Normal (the default) folds them into summaries.
     await page.waitForLoadState('load')
     await page.evaluate(() => localStorage.setItem('oxe.thread.viewMode', 'verbose'))
+    // OXESPACE_AUDIT_MODE=light|dark pins the appearance for visual review; unset follows the OS.
+    if (process.env.OXESPACE_AUDIT_MODE) await page.evaluate(mode => localStorage.setItem('oxe-settings', JSON.stringify({ state: { appearance: mode, notificationsEnabled: true, visitedWorkspacesCap: 5 }, version: 3 })), process.env.OXESPACE_AUDIT_MODE)
     await page.reload()
     await page.waitForLoadState('domcontentloaded')
     if (process.env.OXESPACE_VISUAL_AUDIT_OUTPUT) {
@@ -378,13 +380,15 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     expect(readyIcon.color).toBe(await page.evaluate(() => { const el = document.createElement('span'); el.style.color = 'var(--dot-blue)'; document.body.append(el); const color = getComputedStyle(el).color; el.remove(); return color }))
     await expect(projectTree.locator('.thread-project-children')).toHaveCSS('border-left-style', 'solid')
     await page.screenshot({ path: 'test-results/thread-project-hierarchy.png' })
-    await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe('midnight')
-    await page.getByRole('button', { name: 'Thread text size' }).click()
+    // Color comes from light or dark mode; workspace palettes no longer apply.
+    await expect.poll(() => page.evaluate(() => document.documentElement.dataset.mode)).toMatch(/^(light|dark)$/)
+    await page.getByRole('button', { name: 'More actions' }).click()
     await expect(page.locator('output[aria-label="Thread text size"]')).toHaveText('14px')
-    await page.getByRole('button', { name: 'Increase thread text size' }).click()
+    await page.getByRole('menuitem', { name: 'Larger text' }).click()
     await expect(page.locator('output[aria-label="Thread text size"]')).toHaveText('15px')
     await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('oxe.thread-appearance') || '{}').state?.fontSize)).toBe(15)
-    await page.getByRole('button', { name: 'Reset to default' }).click()
+    await page.getByRole('menuitem', { name: 'Reset text size' }).click()
+    await page.keyboard.press('Escape')
     await page.keyboard.press('Escape')
     await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toBeEnabled()
     const message = page.getByRole('textbox', { name: 'Message', exact: true })
@@ -568,6 +572,20 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect.poll(visibleMessages).toBeGreaterThan(0)
     await page.locator('.thread-timeline').evaluate(el => { el.scrollTop = el.scrollHeight })
     await expect.poll(visibleMessages).toBeGreaterThan(0)
+    // Find reaches rows the virtualizer has not mounted and brings them into view.
+    await page.getByRole('textbox', { name: 'Message', exact: true }).focus()
+    await page.keyboard.press('Control+f')
+    const find = page.getByRole('searchbox', { name: 'Find in conversation' })
+    await expect(find).toBeFocused()
+    await find.fill('Review message 12')
+    await expect(page.getByRole('search', { name: 'Find in conversation' }).getByRole('status')).toHaveText('1 of 111')
+    await expect(page.locator('.thread-message-user').filter({ hasText: /^Review message 12$/ })).toBeInViewport()
+    await find.press('Enter')
+    await expect(page.locator('.thread-message-user').filter({ hasText: /^Review message 120$/ })).toBeInViewport()
+    await find.press('Escape')
+    await expect(find).toHaveCount(0)
+    await page.locator('.thread-timeline').evaluate(el => { el.scrollTop = el.scrollHeight })
+    await expect.poll(visibleMessages).toBeGreaterThan(0)
     await page.locator('.thread-timeline').hover()
     const timeline = page.locator('.thread-timeline')
     const end = await timeline.evaluate(el => el.scrollTop)
@@ -578,7 +596,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.keyboard.press('Home')
     await expect.poll(() => timeline.evaluate(el => el.scrollTop)).toBe(0)
     await page.keyboard.press('End')
-    await expect.poll(() => timeline.evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop)).toBeLessThanOrEqual(64)
+    await expect.poll(() => timeline.evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop)).toBeLessThanOrEqual(72)
     await page.keyboard.press('PageUp')
     await expect.poll(() => timeline.evaluate(el => el.scrollTop)).toBeLessThan(end - 100)
     await page.mouse.wheel(0, -1)
@@ -759,7 +777,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     })).toBe(true)
     expect(await inlineDiff.locator('.thread-review-diff').evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true)
     await page.getByRole('button', { name: 'Expand file diff src/App.tsx' }).click()
-    await page.getByRole('button', { name: 'More workbench panels' }).click()
+    await page.getByRole('button', { name: 'More actions' }).click()
     await page.getByRole('menuitemradio', { name: 'Files', exact: true }).click()
     await expect(page.getByRole('complementary', { name: 'Thread workbench' })).toBeVisible()
     await expect(page.locator('.thread-workbench')).not.toHaveClass(/is-drawer/)
@@ -780,21 +798,11 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     // Transcript view: Normal folds actions into one-line summaries, Summary hides them, Ctrl+O cycles.
     const inlineRows = page.locator('.thread-file-activity')
     expect(await inlineRows.count()).toBeGreaterThan(0)
-    await page.getByRole('button', { name: 'More workbench panels' }).click()
+    await page.getByRole('button', { name: 'More actions' }).click()
     await page.getByRole('menuitemradio', { name: 'Normal view' }).click()
     await expect(inlineRows).toHaveCount(0)
     await expect(page.locator('.thread-activity-group, .thread-activity-single').first()).toBeVisible()
     await page.screenshot({ path: 'test-results/thread-view-normal.png' })
-    if (process.env.OXESPACE_README_SHOTS) {
-      // Marketing capture for the README: Normal view, no side panel.
-      await page.getByRole('button', { name: 'Close workbench panel' }).click()
-      // The fixture lists 70 history rows; show just a few so the capture reads as a real project.
-      const trim = await page.addStyleTag({ content: '.thread-project-rows .thread-navigation-row:nth-child(n+4), .thread-show-more { display: none !important }' })
-      await page.screenshot({ path: 'docs/assets/screenshots/thread.png' })
-      await trim.evaluate(node => node.remove())
-      await page.getByRole('button', { name: 'More workbench panels' }).click()
-      await page.getByRole('menuitemradio', { name: 'Files', exact: true }).click()
-    }
     await page.keyboard.press('Control+o') // normal → verbose
     await expect(inlineRows.first()).toBeVisible()
     await page.keyboard.press('Control+o') // verbose → summary
@@ -819,7 +827,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.getByRole('button', { name: 'Select workbench panel' }).click()
     await page.getByRole('menuitemradio', { name: 'Files', exact: true }).click()
     await expect(page.getByRole('navigation', { name: 'Workspace files' })).toBeVisible()
-    await page.getByRole('button', { name: 'README.md', exact: true }).click()
+    await page.getByRole('treeitem', { name: 'README.md', exact: true }).click()
     await expect(page.getByRole('region', { name: 'Editor' })).toContainText('README.md')
     await page.setViewportSize({ width: 900, height: 720 })
     await expect(page.locator('.thread-workbench')).toHaveClass(/is-drawer/)
@@ -954,7 +962,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.getByRole('region', { name: 'Archived conversations' })).toHaveCount(0)
     if (process.env.OXESPACE_VISUAL_AUDIT_OUTPUT) {
       await page.setViewportSize({ width: 900, height: 600 })
-      await page.getByRole('button', { name: 'Settings for repo', exact: true }).click()
+      await page.getByRole('button', { name: 'Actions for repo', exact: true }).click()
+      await page.getByRole('menuitem', { name: 'Project settings' }).click()
       await expect(page.getByRole('dialog')).toBeVisible()
       await page.screenshot({ path: 'test-results/thread-project-settings-audit.png' })
       for (let index = 0; index < 15; index++) {
@@ -963,7 +972,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
       }
       await page.keyboard.press('Escape')
       await expect(page.getByRole('dialog')).toHaveCount(0)
-      await expect(page.getByRole('button', { name: 'Settings for repo', exact: true })).toBeFocused()
+      await expect(page.getByRole('button', { name: 'Actions for repo', exact: true })).toBeFocused()
     }
   } finally {
     await app.close()

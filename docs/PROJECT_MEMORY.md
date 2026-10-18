@@ -4,6 +4,20 @@ Project memory is optional infrastructure. Worktrees own code changes, Git owns
 committed history, and each Claude/Codex process keeps its own native session.
 Persistent knowledge belongs to the project, not to a terminal or worktree path.
 
+## Release status: experimental, off in the 1.0 build
+
+Shared Project Memory is **not part of the default 1.0 build**. A feature flag keeps it off: no Settings page or Beta badge, the memory service never starts, no launch environment or capture hooks are produced, and the `oxespace_memory_*` MCP tools are not listed. Nothing stored is touched or deleted, so turning the flag on later restores the previous state.
+
+Turn it on with `OXESPACE_EXPERIMENTAL_MEMORY=1` (`0` forces it off), or with `{"sharedProjectMemory": true}` in `<userData>/experimental.json`. The value is read once at startup; restart the app after changing it. With the flag on, each project still starts disabled and must opt in. In that mode it is a Beta: safe to try, not yet certified as stable.
+
+**Verified:** pinned AI Memory 2.6.2 with checksum, upgrade from 2.1.0 with rollback, project-scoped identity across worktrees, durable capture queue with recovery, and authenticated Claude Code and Codex Thread campaigns on Windows (see `docs/validation/ai-memory-productivity/wave-3.md`). The native contract suites run on Windows and Linux in CI and gate releases.
+
+**Not yet certified:** an authenticated pilot inside the Electron window, Linux with authenticated providers, exact-ID handoff and resume UI, a paired productivity benchmark, a 2-hour load run and the installed-package matrix.
+
+**Known limits:** Windows is experimental upstream; Codex final answers are not captured by the native mechanism; no WSL or SSH; search is lexical (embeddings off); the hook token is stored as a local plaintext file; there is no in-app reset of stored memory; the integration depends on the third-party AI Memory project.
+
+**Diagnostics:** Settings shows capture, delivery and consolidation separately. Consolidation is reported as *unknown* because the service does not expose it. "Copy diagnostics" exports counts and timestamps only.
+
 ## Enable in OXESpace
 
 1. Open Workspace Settings → Shared Project Memory.
@@ -120,15 +134,17 @@ the upstream `GET /handoff` **consumes** a handoff. With automatic context off,
 the wrapper omits native SessionStart; later substantive native events create the
 session normally. Routine refresh and context reads use non-consuming history.
 
+Settings → Shared Project Memory shows **Resume previous work** when the service is ready: handoff offers for the project are listed (reading never consumes one), **Resume** accepts exactly the chosen offer and shows it with a *Copy for composer* action, and **Dismiss** hides an offer locally. A stale or already accepted offer is refused and the list refreshes. The accepted text is historical evidence, not code; nothing is injected into a running agent automatically.
+
 Tools exposed through the existing OXESpace MCP bridge:
 
 | Tool | Purpose |
 | --- | --- |
 | `oxespace_memory_search` | Explicit project-scoped query, at most 8 results |
-| `oxespace_memory_remember` | Concise learning, unique page per write |
+| `oxespace_memory_remember` | Concise learning; optional `kind` (decision, lesson, issue, todo, preference) and `supersedes` (path of an earlier OXESpace page). Identical notes map to one page; a superseding note links the old page and never edits or deletes it |
 | `oxespace_memory_sessions` | Recent sessions including open sessions |
 | `oxespace_memory_handoffs` | History, questions, next steps and touched files; does not consume |
-| `oxespace_memory_accept_handoff` | Explicit acceptance of next eligible checkout handoff |
+| `oxespace_memory_accept_handoff` | Accepts exactly one offer by `handoff_id` (list ids with `oxespace_memory_handoffs`). Refuses stale or already accepted offers and servers that cannot accept a specific ID; never falls back to another offer |
 | `oxespace_project_context` | Relevant memory plus CodeGraph for the execution's checkout |
 
 CodeGraph remains authoritative for the current code; memory is historical,
@@ -163,6 +179,7 @@ later boundaries, but finalization/consolidation is not guaranteed after a crash
   to the chosen agent: a cloud-backed Claude/Codex session may send it to its
   vendor. Enabling automatic context is consent for that agent-context flow, not
   for silently adding an external memory summarizer/embedding provider.
+- Settings shows a read-only disk inventory of the memory directory (bounded scan, links not followed, cached for a minute). The app never deletes or compacts it; there is no cleanup action in this release.
 - Disabling memory prevents new integration operations; it does not delete past
   knowledge or withdraw events already admitted to the native spool. Hooks and
   marker files remain inert until re-enabled. Runtime files and knowledge are

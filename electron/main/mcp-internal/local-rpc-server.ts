@@ -5,7 +5,7 @@ import type {
   InternalMcpJsonRpcResponse
 } from '../../../shared/types/mcp-internal'
 import { INTERNAL_MCP_ERROR_CODES } from '../../../shared/types/mcp-internal'
-import { TOOL_REGISTRY, findTool, type ToolContext } from './tool-registry'
+import { activeTools, findTool, type ToolContext } from './tool-registry'
 import { errorResult } from './tool-registry'
 
 /**
@@ -112,7 +112,7 @@ export function createLocalRpcServer(deps: LocalRpcDeps): LocalRpcServer {
     }
 
     if (parsed.method === 'tools/list') {
-      const tools = TOOL_REGISTRY.map((entry) => entry.descriptor)
+      const tools = activeTools().map((entry) => entry.descriptor)
       return { jsonrpc: '2.0', id, result: { tools } }
     }
 
@@ -144,6 +144,8 @@ export function createLocalRpcServer(deps: LocalRpcDeps): LocalRpcServer {
           db: deps.db, threads: deps.threads,
             delegation: deps.delegation, executions: deps.executions, delegationAgents: deps.delegationAgents, executionId, executionToken,
           memory: deps.memory,
+          oxeQuery: deps.oxeQuery,
+          oxeQueryError: deps.oxeQueryError,
           memoryRunId,
           workspaceId,
           workspaceServ: deps.workspaceServ,

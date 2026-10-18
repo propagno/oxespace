@@ -14,6 +14,9 @@ export interface TerminalStateEntry {
   lastIntentAt: number | null
   isWorking: boolean
   hasUnread: boolean
+  /** Last status the agent reported through its own lifecycle hooks. */
+  hookState: 'working' | 'waiting' | 'done' | null
+  hookAt: number | null
   /**
    * The shell is still running in main but no terminal view is rendering it
    * (its workspace fell out of the mounted MRU). The entry is deliberately
@@ -35,6 +38,8 @@ interface TerminalState {
   /** Record the user's most recent committed (Enter-terminated) input. */
   setLastIntent: (paneId: string, intent: string) => void
   markRead: (paneId: string) => void
+  /** Status reported by the agent's own hooks; `ended` clears it. */
+  setHookStatus: (paneId: string, state: 'working' | 'waiting' | 'done' | 'ended', at: number) => void
   /** The view unmounted but the shell keeps running (workspace left the MRU). */
   markDetached: (paneId: string) => void
   /** Heartbeat from a session with no attached view — carries no output. */
@@ -53,6 +58,8 @@ const DEFAULT_STATE: TerminalStateEntry = {
   lastIntentAt: null,
   isWorking: false,
   hasUnread: false,
+  hookState: null,
+  hookAt: null,
   detached: false
 }
 
@@ -193,6 +200,26 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
         }
       }
     }))
+  },
+
+  setHookStatus: (paneId, state, at) => {
+    // The report changes the tone immediately, so a pending decay timer from
+    // the heuristic must not fire against the new state.
+    clearAwaitingTimer(paneId)
+    set((current) => {
+      const entry = current.panes[paneId] ?? DEFAULT_STATE
+      return {
+        panes: {
+          ...current.panes,
+          [paneId]: {
+            ...entry,
+            hookState: state === 'ended' ? null : state,
+            hookAt: state === 'ended' ? null : at,
+            hasUnread: state === 'done' && current.activePaneId !== paneId ? true : entry.hasUnread
+          }
+        }
+      }
+    })
   },
 
   markRead: (paneId) =>

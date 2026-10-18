@@ -1,5 +1,6 @@
 import { GitBranch, SquareTerminal } from 'lucide-react'
 import { useState, useRef, useEffect, type ReactElement } from 'react'
+import { copyText } from '../../ui'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
 import { useTerminalStore } from '../../store/terminal.store'
@@ -127,7 +128,7 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
   function copyContext(): void {
     setMenu(null)
     const context = `${display.meta}\n${display.title}\n${display.subtitle}`
-    void navigator.clipboard?.writeText(context)
+    void copyText(context, 'Session context')
   }
 
   useEffect(() => {
@@ -190,7 +191,7 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
 
         <div className="pane-row-title-line">
           {agentProfile ? <AgentProviderIcon provider={agentProfile.provider} /> : <SquareTerminal size={12} aria-hidden="true" />}
-          {pane.originPaneId && <span title="Delegated task" aria-label="Delegated task"><GitBranch size={11} /></span>}
+          {pane.originPaneId && <span title="Delegated task" aria-label="Delegated task"><GitBranch size={12} /></span>}
           <span
             className="pane-row-title"
             title={label}

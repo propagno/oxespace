@@ -19,6 +19,8 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
   try {
     const page=await app.firstWindow()
     page.on('pageerror', error => console.error('Preview renderer error:', error.message))
+    const rendererLog: string[] = []
+    page.on('console', message => { rendererLog.push(`${Date.now()} ${message.type()} ${message.text().slice(0, 240)}`) })
     await page.waitForURL(/index\.html/)
     await page.waitForLoadState('domcontentloaded')
     await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.show(); window.focus() })
@@ -35,7 +37,7 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
       catch(e){return {error:(e as Error).message}}
     },{input,ws,owner})
     expect((await run({action:'inspect'})).error).toContain('enable Agent documentation access')
-    page.once('dialog',dialog=>dialog.accept());await page.getByLabel('Agent documentation access').check()
+    await page.getByLabel('Agent documentation access').click(); await page.getByRole('button', { name: 'Allow access' }).click()
     await expect.poll(async()=> (await run({action:'inspect'})).error).toBeUndefined()
     const inspected=await run({action:'inspect'})
     expect(JSON.stringify(inspected)).toContain('Customer guide');expect(JSON.stringify(inspected)).not.toContain('PRIVATE')
@@ -89,8 +91,7 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
     expect((await pendingClick).error).toContain('enable Agent documentation access')
     expect(await app.evaluate(({webContents},baseUrl) => webContents.getAllWebContents().find(c=>c.getURL().startsWith(baseUrl))!.executeJavaScript("document.querySelector('h1').textContent"),url)).toBe('Saved Example')
     await app.evaluate(({dialog})=>{dialog.showMessageBox=async()=>({response:1,checkboxChecked:false})})
-    await page.evaluate(() => {window.confirm = () => true})
-    await page.getByLabel('Agent documentation access').check()
+    await page.getByLabel('Agent documentation access').click(); await page.getByRole('button', { name: 'Allow access' }).click()
     await expect.poll(async()=> (await run({action:'inspect'})).error).toBeUndefined()
     // Font metrics differ across Windows/Linux runners. Sample the actual
     // input center rather than a fixed coordinate that may hit white space.
@@ -191,6 +192,9 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
     expect((await run({action:'inspect'})).error).toContain('enable Agent documentation access')
     await page.getByRole('button',{name:'Close tab 1'}).click()
     await expect.poll(async () => app.evaluate(({webContents},baseUrl) => webContents.getAllWebContents().filter(contents => contents.getURL().startsWith(baseUrl)).length,url)).toBe(0)
+    // Closing the only tab opens a fresh one on the default URL; typing before it is applied is dropped (no active tab yet).
+    await expect(page.locator('.web-preview-address-input')).toHaveValue('http://localhost:3000')
+    await expect(page.locator('.web-preview-tab')).toHaveCount(1)
     failPreview = true
     await page.locator('.web-preview-address-input').fill(`${url}failure`)
     await page.locator('.web-preview-address-input').press('Enter')
@@ -198,7 +202,15 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
     await expect(page.getByTestId('browser-preview-native')).toHaveCount(0)
     failPreview = false
     await page.getByRole('button',{name:'Retry'}).click()
-    await expect(page.getByTestId('browser-preview-native')).toHaveCount(1)
+    try { await expect(page.getByTestId('browser-preview-native')).toHaveCount(1) }
+    catch (error) {
+      // Linux CI intermittently shows no host after Retry; print the state so the next failure carries its own evidence.
+      const state = await page.locator('.web-preview-stage').evaluate(el => el.innerText.slice(0, 400)).catch(() => 'stage unavailable')
+      const tabs = await page.locator('.web-preview-tab').evaluateAll(items => items.map(item => item.getAttribute('data-active') + ':' + item.textContent?.slice(0, 40))).catch(() => [])
+      const guests = await app.evaluate(({webContents}) => webContents.getAllWebContents().map(contents => contents.getType() + ' ' + contents.getURL().slice(0, 80))).catch(() => [])
+      console.log('[doc-preview diag] stage=' + JSON.stringify(state) + ' tabs=' + JSON.stringify(tabs) + ' guests=' + JSON.stringify(guests) + ' renderer=' + JSON.stringify(rendererLog.slice(-12)))
+      throw error
+    }
     await expect(page.getByText('Page unavailable')).toHaveCount(0)
     await expect.poll(async () => app.evaluate(({webContents},baseUrl) => webContents.getAllWebContents().filter(contents => contents.getURL() === `${baseUrl}failure`).length,url)).toBe(1)
     const externalUrl = url.replace('127.0.0.1','localhost.')

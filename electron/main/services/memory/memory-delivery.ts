@@ -4,7 +4,7 @@ import { MemoryOutbox, type MemoryOutboxRecord } from './memory-outbox'
 const RESULTS = new Set(['stored', 'replayed', 'resumed', 'ignored_end', 'dropped_policy', 'dropped_subagent', 'dropped_unauthorized', 'dropped_collision', 'dropped_invalid'])
 const STORED = new Set(['stored', 'replayed', 'resumed'])
 
-export interface DeliveryStats { stored: number; replayed: number; dropped: number; failed: number; state: 'idle' | 'pending' | 'delivering' | 'failed' }
+export interface DeliveryStats { stored: number; replayed: number; dropped: number; failed: number; state: 'idle' | 'pending' | 'delivering' | 'failed'; lastDeliveredAt?: number; lastFailureAt?: number }
 
 /** At most two sessions in flight; a session's items remain ordered in one batch. */
 export class MemoryDeliveryWorker {
@@ -47,6 +47,7 @@ export class MemoryDeliveryWorker {
     const work = this.flushOnce().catch(() => {
       this.failures++
       this.counts.failed++
+      this.counts.lastFailureAt = this.now()
       this.counts.state = 'failed'
       this.schedule(this.backoff(this.failures))
       return false
@@ -82,10 +83,11 @@ export class MemoryDeliveryWorker {
       const result = await this.deliver(group)
       const failures = result.complete ? 0 : (this.retries.get(key)?.failures ?? 0) + 1
       this.retries.set(key, { failures, due: this.now() + (failures ? this.backoff(failures) : 0), attempt: ++this.attempt })
-      if (failures) this.counts.failed++
+      if (failures) { this.counts.failed++; this.counts.lastFailureAt = this.now() }
       return result.progress
     }))
     const progress = outcomes.some(Boolean)
+    if (progress) this.counts.lastDeliveredAt = this.now()
     this.counts.state = [...bySession.keys()].some(key => this.retries.get(key)?.failures) ? 'failed' : 'pending'
     this.schedule(Math.min(...[...bySession.keys()].map(key => Math.max(25, (this.retries.get(key)?.due ?? 0) - this.now()))))
     return progress

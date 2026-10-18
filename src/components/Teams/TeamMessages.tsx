@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { TeamMember, TeamMessage, TeamScope } from '../../../shared/types/team'
+import { Button, TextArea } from '../../ui'
 
 export function TeamMessages({ scope, member, members }: { scope: TeamScope; member: TeamMember; members: TeamMember[] }) {
   const [messages, setMessages] = useState<TeamMessage[]>([]), [draft, setDraft] = useState('')
@@ -55,8 +56,8 @@ export function TeamMessages({ scope, member, members }: { scope: TeamScope; mem
         if (live.current) { setDraft(''); pending.current = null; await refresh() }
       } catch (e) { if (live.current) setError(String(e)) }
       finally { if (live.current) setSending(false) }
-    }}><label>Message to {member.name}<textarea value={draft} disabled={sending} maxLength={4000} rows={3} onChange={e => setDraft(e.target.value)} /></label>
-      <button type="submit" disabled={sending || !draft.trim()}>{sending ? 'Saving…' : 'Send to inbox'}</button>
+    }}><label>Message to {member.name}<TextArea value={draft} disabled={sending} maxLength={4000} rows={3} onChange={e => setDraft(e.target.value)} /></label>
+      <Button type="submit" variant="primary" className="team-form-submit" disabled={sending || !draft.trim()}>{sending ? 'Saving…' : 'Send to inbox'}</Button>
     </form>
   </section>
 }

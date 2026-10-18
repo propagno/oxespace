@@ -15,19 +15,19 @@ function setup(onSave = vi.fn(async () => {})) {
 }
 test('scope navigation protects drafts and supports discard without saving', async () => {
   const { onSave } = setup()
-  fireEvent.click(screen.getByRole('radio', { name: 'Nord' }))
+  fireEvent.click(screen.getByRole('radio', { name: /Compact/ }))
   fireEvent.click(screen.getByRole('group', { name: 'Settings scope' }).querySelector('button')!)
   expect(screen.getByRole('dialog', { name: 'Save your changes?' })).toBeVisible()
   fireEvent.click(screen.getByRole('button', { name: 'Stay', exact: true }))
-  expect(screen.getByRole('radio', { name: 'Nord' })).toHaveAttribute('aria-checked', 'true')
+  expect(screen.getByRole('radio', { name: /Compact/ })).toHaveAttribute('aria-checked', 'true')
   fireEvent.click(screen.getByRole('group', { name: 'Settings scope' }).querySelector('button')!)
   fireEvent.click(screen.getByRole('button', { name: 'Discard', exact: true }))
-  expect(screen.getByRole('heading', { name: 'General' })).toBeVisible()
+  expect(screen.getByRole('heading', { name: 'Appearance' })).toBeVisible()
   expect(onSave).not.toHaveBeenCalled()
 })
 test('failed save does not leave the workspace or dismiss the guard', async () => {
   const { onClose } = setup(vi.fn(async () => { throw new Error('Save failed') }))
-  fireEvent.click(screen.getByRole('radio', { name: 'Nord' }))
+  fireEvent.click(screen.getByRole('radio', { name: /Compact/ }))
   fireEvent.click(screen.getByRole('button', { name: 'Back to work' }))
   fireEvent.click(screen.getByRole('button', { name: 'Save and continue' }))
   await waitFor(() => expect(screen.getByRole('alert', { hidden: true })).toHaveTextContent('Save failed'))
@@ -37,9 +37,9 @@ test('failed save does not leave the workspace or dismiss the guard', async () =
 
 test('saving workspace appearance confirms that settings were persisted', async () => {
   const { onSave } = setup()
-  fireEvent.click(screen.getByRole('radio', { name: 'Nord' }))
+  fireEvent.click(screen.getByRole('radio', { name: /Compact/ }))
   fireEvent.click(screen.getByRole('button', { name: 'Save workspace settings' }))
-  await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 'ws', themeId: 'nord' })))
+  await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 'ws', uiDensity: 'compact' })))
   expect(await screen.findByRole('status')).toHaveTextContent('Workspace settings saved')
 })
 

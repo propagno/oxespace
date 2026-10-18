@@ -1,15 +1,26 @@
 import { randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../../db'
-import type { AgentConversationAdapter, ConversationThread, ThreadAgentInput, ThreadCommandCatalog, ThreadEvent, ThreadSnapshot, ThreadRequestResponse, ThreadQueuedInput } from '../../../../shared/types/thread'
-import type { NativeCliSession, ThreadNativeCli } from './thread-cli'
+import type { AgentConversationAdapter, ConversationThread, ThreadAgentInput, ThreadCommandCatalog, ThreadEvent, ThreadSnapshot, ThreadRequest, ThreadRequestResponse, ThreadQueuedInput, ThreadContextReport, ThreadRewindResult, ThreadAuditEntry, ThreadFileHunk, ThreadPermissionRule, ThreadUsageSummary, ThreadDebugPage } from '../../../../shared/types/thread'
+import type { ThreadNativeCli } from './thread-cli'
 import type { ThreadModelCatalog, ThreadConfiguration, ThreadCommandResult } from '../../../../shared/types/thread'
 import type { ThreadModelService } from './thread-models'
 import { hasDesktopCommand } from '../../../../shared/threadDesktopCommands'
 import { blocksThreadInput, PARTIAL_NATIVE_HISTORY_NOTICE } from '../../../../shared/threadHistoryNotice'
 import { formatNativeUserText } from '../../../../shared/native-session-text'
+import { assertThreadMessage, THREAD_PROMPT_MAX_CHARS } from '../../../../shared/threadLimits'
 import { execFile } from 'node:child_process'
 import { ThreadAgentError, threadFailure } from './thread-failure'
 import { ThreadHistory, type ThreadHistoryWriteOptions } from './thread-history'
+import { ThreadRewindError, planLocalRewind } from './thread-rewind'
+import { addTurnCost } from './thread-cost'
+import { repairLegacyCost } from '../../../../shared/threadCostRepair'
+import { deriveThreadTitle } from './thread-title'
+import { resolveMentionContext } from './thread-context-resolver'
+import { briefBlock, projectBrief } from './project-brief'
+import { reduceThreadEvent, type KernelEffect } from './kernel/event-reducer'
+import { mergeTurnConfiguration, turnConfiguration } from './kernel/turn-configuration'
+import { runThreadCommand, type CommandHost } from './kernel/command-router'
+import { forkClaudeBefore } from './claude-transcript-fork'
 import { ThreadRequestRegistry } from './thread-request-registry'
 import type { ThreadAttachmentStore } from './thread-attachments'
 import { threadCapabilityManifest } from './thread-capabilities'
@@ -19,6 +30,10 @@ import { ThreadSessionSupervisor } from './thread-session-supervisor'
 import { ThreadExportService } from './thread-export.service'
 import { ThreadPortableService } from './thread-portable'
 import { ThreadCheckpointService } from './thread-checkpoints'
+import { ThreadPermissionStore } from './thread-permissions'
+import { ThreadUsageLedger } from './thread-usage'
+import { WorkService } from '../work/work-service'
+import type { WorkRun } from '../../../../shared/types/work'
 import { recordRuntime } from '../runtime-diagnostics'
 import { hasUnconfirmedTurnTools, recoverPublicTurn } from './thread-result-recovery'
 import type { NativeStateResult } from './codex-state-reader'
@@ -39,6 +54,13 @@ function settleCompletedHistoryTools(events: ThreadEvent[]): number {
     turnStart = index + 1
   })
   return earliest
+}
+
+/** What an approval was about, for the audit trail. */
+function requestSubject(request: ThreadRequest): string {
+  if (request.command) return `command: ${request.command.slice(0, 500)}`
+  if (request.paths?.length) return `${request.toolName ?? 'edit'}: ${request.paths.join(', ').slice(0, 500)}`
+  return request.title
 }
 
 export class ThreadOrchestrator {
@@ -64,6 +86,10 @@ export class ThreadOrchestrator {
   private readonly exports: ThreadExportService
   private readonly portable = new ThreadPortableService()
   private readonly checkpoints: ThreadCheckpointService
+  private readonly permissions: ThreadPermissionStore
+  private readonly usage: ThreadUsageLedger
+  /** Agent Work: plans a supervising conversation runs through worker conversations. */
+  readonly work: WorkService
   private readonly turnCheckpoints = new Map<string, string>()
   private readonly busy = new Set<string>()
   private readonly nativePageLoads = new Map<string, Promise<void>>()
@@ -72,8 +98,6 @@ export class ThreadOrchestrator {
   private readonly workingTreeBaselines = new Map<string, { patch: string; untracked: Set<string> }>()
   private stopping = false
   private readonly configuring = new Set<string>()
-  private readonly cliSessions = new Map<string, NativeCliSession>()
-  private readonly cliStarting = new Map<string, Promise<import('../../../../shared/types/thread').ThreadCliState>>()
 
   constructor(private readonly db: AppDatabase,
     private readonly factory: (thread: ConversationThread) => Promise<AgentConversationAdapter>,
@@ -83,7 +107,7 @@ export class ThreadOrchestrator {
       list(thread: ConversationThread, forceRefresh?: boolean): Promise<ThreadCommandCatalog>
       prepare(thread: ConversationThread, text: string): Promise<ThreadAgentInput>
       stop?(): Promise<void>
-    }, private readonly nativeCli?: Pick<ThreadNativeCli, 'open' | 'read'> & Partial<Pick<ThreadNativeCli, 'closeHistoryReader'>>,
+    }, private readonly nativeCli?: Pick<ThreadNativeCli, 'read'> & Partial<Pick<ThreadNativeCli, 'closeHistoryReader'>>,
     private readonly modelService?: Pick<ThreadModelService, 'list' | 'stop'>,
     private readonly attachmentStore?: ThreadAttachmentStore,
     private readonly stateReader?: { observe(thread: ConversationThread, nativeTurnId?: string): Promise<import('../../../../shared/types/thread').ThreadProviderObservation>; recover?(thread: ConversationThread, nativeTurnId?: string): Promise<NativeStateResult>; stop(): Promise<void> },
@@ -91,6 +115,9 @@ export class ThreadOrchestrator {
     this.history = new ThreadHistory(db)
     this.exports = new ThreadExportService((threadId, artifactId) => this.history.artifact(threadId, artifactId))
     this.checkpoints = new ThreadCheckpointService(db)
+    this.permissions = new ThreadPermissionStore(db)
+    this.usage = new ThreadUsageLedger(db)
+    try { this.permissions.prune() } catch { /* Audit retention is best effort. */ }
     // A persisted running state is not proof that its process survived a restart.
     for (const row of db.prepare('SELECT id FROM conversation_threads').all() as { id: string }[]) {
       const snapshot = this.history.read(row.id)
@@ -106,6 +133,14 @@ export class ThreadOrchestrator {
       if (recovered) this.save(snapshot, { eventsFrom })
       this.snapshots.delete(row.id)
     }
+    this.work = new WorkService(db, {
+      read: threadId => this.read(threadId), create: context => this.create(context),
+      configure: (threadId, input, revision) => this.configure(threadId, input, revision),
+      command: (threadId, text) => this.command(threadId, text), send: (threadId, text) => this.send(threadId, text),
+      interrupt: threadId => this.interrupt(threadId), subscribe: (threadId, listener) => this.subscribe(threadId, listener)
+    })
+    // After subclasses finish constructing: workers that ran before a restart are settled, ready work starts.
+    queueMicrotask(() => { try { this.work.resume() } catch { /* Agent Work recovery is best effort. */ } })
   }
 
   list(): ConversationThread[] {
@@ -175,6 +210,14 @@ export class ThreadOrchestrator {
       }
     }
     return window
+  }
+
+  /** Incremental counterpart of readForRenderer; a reset tells the caller to reread the window. */
+  readSinceForRenderer(id: string, cursor: import('../../../../shared/types/thread').ThreadSyncCursor): import('../../../../shared/types/thread').ThreadDelta {
+    this.flushDeltas(id)
+    const delta = this.history.readSince(id, cursor)
+    if (delta.ok && !delta.thread.lastTurnStatus) delta.thread.lastTurnStatus = delta.turns.at(-1)?.status
+    return delta
   }
 
   artifact(id: string, artifactId: string): import('../../../../shared/types/thread').ThreadArtifact {
@@ -338,7 +381,7 @@ export class ThreadOrchestrator {
 
   async send(id: string, text: string, attachmentIds: string[] = []): Promise<void> {
     if (this.stopping) throw new Error('Application is shutting down')
-    if (!text.trim() || Buffer.byteLength(text) > 64 * 1024) throw new Error('Message must contain 1 to 65536 bytes')
+    assertThreadMessage(text)
     if (this.configuring.has(id)) throw new Error('Configuration is already being updated')
     if (this.read(id).thread.cliActive) throw Error('The native CLI already owns this conversation')
     const attachments = attachmentIds.length ? await this.resolveAttachments(id, attachmentIds) : []
@@ -348,7 +391,7 @@ export class ThreadOrchestrator {
       const operation = this.history.beginOperation({ threadId: id, generation: snapshot.thread.generation ?? 1, kind: 'queue' })
       const item: ThreadQueuedInput = { id: randomUUID(), operationId: operation.id, text, attachmentIds,
         ...(attachments.length ? { attachments: attachments.map(({ path: _path, ...attachment }) => attachment) } : {}),
-        configuration: { model: snapshot.thread.model, reasoningEffort: snapshot.thread.reasoningEffort, access: snapshot.thread.access ?? 'read-only', networkAccess: snapshot.thread.networkAccess ?? false, approvalPolicy: snapshot.thread.approvalPolicy ?? 'on-request', mode: snapshot.thread.mode ?? 'default', hooksEnabled: snapshot.thread.hooksEnabled ?? false },
+        configuration: turnConfiguration(snapshot.thread),
         createdAt: Date.now(), state: 'queued' }
       try {
         if (this.busy.has(id) && adapter?.enqueue) {
@@ -375,26 +418,39 @@ export class ThreadOrchestrator {
     this.assertNativeSessionAvailable(id, snapshot.thread.provider, snapshot.thread.nativeSessionId)
     this.busy.add(id) // reserve before any asynchronous launch
     let input: ThreadAgentInput = { text }
+    let mentioned: Awaited<ReturnType<typeof resolveMentionContext>> = { block: '', files: [] }
+    let brief = ''
     try {
       input = await this.commandService?.prepare(snapshot.thread, text) ?? input
       if (input.nativeCli) {
         throw Error('This command does not have an integrated Thread handler yet.')
       }
       if (snapshot.thread.cliNotice && blocksThreadInput(snapshot.thread)) throw Error(snapshot.thread.cliNotice)
-      if (!input.text.trim() || Buffer.byteLength(input.text) > 64 * 1024) throw new Error('Skill prompt must contain 1 to 65536 bytes')
+      assertThreadMessage(input.text, THREAD_PROMPT_MAX_CHARS)
       await this.preflight?.(snapshot.thread)
+      // `@file` mentions become attached content; the stored message keeps the text as typed.
+      if (!text.trim().startsWith('/')) {
+        mentioned = await resolveMentionContext(snapshot.thread.rootPath, text).catch(() => mentioned)
+        if (mentioned.block) input = { ...input, text: input.text + mentioned.block }
+        // The first message of a conversation carries a short orientation to the project.
+        if (!snapshot.turns?.length && !snapshot.thread.nativeSessionId) {
+          brief = await projectBrief(snapshot.thread.rootPath, snapshot.thread.provider).catch(() => '')
+          if (brief) input = { ...input, text: input.text + briefBlock(brief) }
+        }
+      }
       snapshot = this.read(id)
       if (this.stopping) throw new Error('Application is shutting down')
     } catch (error) { this.busy.delete(id); throw error }
     snapshot.thread.status = 'running'
     delete snapshot.thread.providerObservation
-    if (snapshot.thread.title === 'New thread' && !text.trim().startsWith('/')) snapshot.thread.title = text.trim().slice(0, 80)
+    delete snapshot.thread.queuePause
+    if (snapshot.thread.title === 'New thread' && !text.trim().startsWith('/')) snapshot.thread.title = deriveThreadTitle(text)
     const turnId = randomUUID()
     const operation = this.history.beginOperation({ threadId: id, turnId, generation: snapshot.thread.generation ?? 1, kind: 'turn' })
     const eventsFrom = snapshot.events.length
-    snapshot.events.push({ type: 'message', id: turnId, role: 'user', text, ...(attachments.length ? { attachments: attachments.map(({ path: _path, ...attachment }) => attachment) } : {}) })
+    snapshot.events.push({ type: 'message', id: turnId, role: 'user', text, ...(attachments.length ? { attachments: attachments.map(({ path: _path, ...attachment }) => attachment) } : {}), ...(mentioned.files.length ? { context: mentioned.files } : {}), ...(brief ? { brief } : {}) })
     snapshot.turns ??= []
-    snapshot.turns.push({ id: turnId, operationId: operation.id, sequence: snapshot.turns.length + 1, startedAt: Date.now(), status: 'running', configuration: { model: snapshot.thread.model, reasoningEffort: snapshot.thread.reasoningEffort, access: snapshot.thread.access ?? 'read-only', networkAccess: snapshot.thread.networkAccess ?? false, approvalPolicy: snapshot.thread.approvalPolicy ?? 'on-request', mode: snapshot.thread.mode ?? 'default', hooksEnabled: snapshot.thread.hooksEnabled ?? false }, ...(attachmentIds.length ? { attachmentIds: [...attachmentIds] } : {}) })
+    snapshot.turns.push({ id: turnId, operationId: operation.id, sequence: snapshot.turns.length + 1, startedAt: Date.now(), status: 'running', configuration: turnConfiguration(snapshot.thread), ...(attachmentIds.length ? { attachmentIds: [...attachmentIds] } : {}) })
     snapshot.events.push({ type: 'activity', id: `activity:${turnId}:preparing`, phase: 'preparing', at: Date.now() })
     this.save(snapshot, { eventsFrom, operationId: operation.id })
     try {
@@ -444,6 +500,56 @@ export class ThreadOrchestrator {
     await adapter.interrupt()
   }
 
+  /** Per-file standing of a turn's changes, for review (pending / reverted / modified). */
+  async turnFiles(id: string, turnId: string): Promise<import('./thread-checkpoints').CheckpointFileStatus[]> {
+    this.read(id)
+    const checkpoint = this.checkpoints.forTurn(id, turnId)
+    return checkpoint ? this.checkpoints.fileStates(id, checkpoint.id) : []
+  }
+
+  /** Undoes one file of a finished turn. Refused while a turn or configuration owns the conversation. */
+  async undoTurnFile(id: string, turnId: string, path: string): Promise<void> {
+    this.read(id)
+    if (this.busy.has(id) || this.configuring.has(id) || this.finalizing.has(id)) throw Error('Finish the active operation before undoing changes')
+    const checkpoint = this.checkpoints.forTurn(id, turnId)
+    if (!checkpoint) throw Error('No checkpoint exists for this turn')
+    await this.checkpoints.restoreFile(id, checkpoint.id, path)
+    this.audit(id, { action: 'undo-file', actor: 'user', summary: `Undid ${path}` })
+    this.changed(id)
+  }
+
+  /** The change blocks one turn made to a file, for keep/undo review. */
+  async turnFileHunks(id: string, turnId: string, path: string): Promise<ThreadFileHunk[]> {
+    this.read(id)
+    const checkpoint = this.checkpoints.forTurn(id, turnId)
+    return checkpoint ? this.checkpoints.fileHunks(id, checkpoint.id, path) : []
+  }
+
+  /** Undoes one change block of a finished turn. Refused while a turn or configuration owns the conversation. */
+  async undoTurnHunk(id: string, turnId: string, path: string, hunkId: string): Promise<void> {
+    this.read(id)
+    if (this.busy.has(id) || this.configuring.has(id) || this.finalizing.has(id)) throw Error('Finish the active operation before undoing changes')
+    const checkpoint = this.checkpoints.forTurn(id, turnId)
+    if (!checkpoint) throw Error('No checkpoint exists for this turn')
+    await this.checkpoints.restoreHunk(id, checkpoint.id, path, hunkId)
+    this.audit(id, { action: 'undo-file', actor: 'user', summary: `Undid one change in ${path}` })
+    this.changed(id)
+  }
+
+  /** Stops one running background task of the conversation's provider session. */
+  async stopTask(id: string, taskId: string): Promise<void> {
+    const adapter = this.adapters.get(id)
+    const task = this.read(id).events.find((event): event is Extract<ThreadEvent, { type: 'subagent' }> => event.type === 'subagent' && event.state === 'running' && event.receiverThreadIds.includes(taskId))
+    if (!task) throw Error('That background task is no longer running')
+    if (adapter && !adapter.stopTask) throw Error('This provider cannot stop background tasks from Thread')
+    if (!adapter?.stopTask) {
+      // No provider session is left to ask: the task cannot be running, so it stops being listed as running.
+      this.applyEvent(id, { ...task, state: 'unknown', completedAt: Date.now(), agents: task.agents.map(agent => ({ ...agent, status: 'unknown' as const })) })
+      return
+    }
+    await adapter.stopTask(taskId)
+  }
+
   async approve(id: string, requestId: string, decision: 'accept' | 'decline'): Promise<void> {
     await this.respond(id, requestId, { decision })
   }
@@ -452,12 +558,17 @@ export class ThreadOrchestrator {
     const snapshot = this.read(id), generation = snapshot.thread.generation ?? 1
     const adapter = this.adapters.get(id)
     if (!adapter) throw new Error('Request has no live execution')
+    const request = this.requests.list(id, generation).find(value => value.id === requestId)
     if (adapter.respondRequest) await this.requests.resolve(id, requestId, generation, response)
     else await adapter.approve(requestId, response.decision === 'accept' || response.decision === 'acceptForSession' ? 'accept' : 'decline')
+    if (request && (request.kind === 'approval' || request.kind === 'permissions')) {
+      const verb = response.decision === 'acceptForSession' ? 'Allowed for the session' : response.decision === 'accept' || response.permissions ? 'Allowed' : 'Declined'
+      this.audit(id, { action: 'approval', actor: 'user', summary: `${verb} ${requestSubject(request)}` })
+    }
   }
 
   async steer(id: string, text: string, attachmentIds: string[] = []): Promise<void> {
-    if (!text.trim() || Buffer.byteLength(text) > 64 * 1024) throw Error('Message must contain 1 to 65536 bytes')
+    assertThreadMessage(text)
     const snapshot = this.read(id), adapter = this.adapters.get(id)
     if (!this.busy.has(id) || !adapter?.steer) throw Error('This provider cannot steer the current turn')
     const attachments = await this.resolveAttachments(id, attachmentIds)
@@ -470,7 +581,7 @@ export class ThreadOrchestrator {
   }
 
   async updateQueued(id: string, itemId: string, text: string): Promise<void> {
-    if (!text.trim() || Buffer.byteLength(text) > 64 * 1024) throw Error('Message must contain 1 to 65536 bytes')
+    assertThreadMessage(text)
     const snapshot = this.read(id), item = snapshot.thread.queue?.find(value => value.id === itemId)
     if (!item || item.state !== 'queued') throw Error('Queued input is unavailable')
     item.text = text
@@ -488,9 +599,114 @@ export class ThreadOrchestrator {
     // local dismissal, not proof that the provider did or did not receive it.
     if (item.state !== 'unknown' && item.nativeId && adapter?.deleteQueued) await adapter.deleteQueued(item.nativeId)
     snapshot.thread.queue = snapshot.thread.queue?.filter(value => value.id !== itemId)
+    if (!snapshot.thread.queue?.some(value => value.state === 'queued')) delete snapshot.thread.queuePause
     if (item.operationId) this.history.transitionOperation(id, item.operationId, 'cancelled', 'Queued input was removed locally.')
     this.save(snapshot, { eventsFrom: snapshot.events.length })
     if (!preserveAttachments) await this.releaseAttachments(id, item.attachmentIds ?? [])
+  }
+
+  /**
+   * Removes `turnId` and every later turn from the conversation. The provider is
+   * rewound first and its history re-read as proof; local history is truncated
+   * only afterwards, so a refusal or a mismatch leaves everything untouched.
+   */
+  async rewind(id: string, turnId: string, options: { restoreFiles?: boolean } = {}): Promise<ThreadRewindResult> {
+    if (this.stopping) throw Error('Application is shutting down')
+    // A just-finished turn is still capturing its diff and checkpoint; that is a moment, not a refusal.
+    if (this.finalizing.has(id)) await Promise.allSettled([...this.finalizationTasks])
+    if (this.busy.has(id) || this.finalizing.has(id) || this.configuring.has(id)) throw new ThreadRewindError('unavailable', 'Finish the active turn before rewinding.')
+    const current = this.read(id)
+    if (current.thread.cliActive) throw new ThreadRewindError('unavailable', 'The native CLI owns this conversation.')
+    if (current.thread.status === 'approval') throw new ThreadRewindError('unavailable', 'Resolve the pending request before rewinding.')
+    if (current.thread.queue?.some(item => item.state === 'sending')) throw new ThreadRewindError('unavailable', 'A queued message is being sent.')
+    const plan = planLocalRewind(current, turnId)
+    const target = plan.dropped[0]
+    const claude = current.thread.provider === 'claude'
+    if (!claude && !target.nativeId) throw new ThreadRewindError('unavailable', 'This turn has no provider identity, so it cannot be rewound safely.')
+    if (claude && !current.thread.nativeSessionId) throw new ThreadRewindError('unavailable', 'This conversation has no Claude session to rewind yet.')
+    this.configuring.add(id)
+    try {
+      let forkedSession: string | undefined
+      if (claude) {
+        // Claude cannot drop history in place: write a fork that ends before the
+        // target prompt and resume that instead. The original stays on disk.
+        const turns = current.turns ?? []
+        const prompts = turns.map(turn => {
+          const event = current.events.find(value => value.type === 'message' && value.role === 'user' && value.id === turn.id)
+          return event?.type === 'message' ? event.text : ''
+        })
+        forkedSession = (await forkClaudeBefore({ rootPath: current.thread.rootPath, sessionId: current.thread.nativeSessionId!, localPrompts: prompts, targetIndex: turns.indexOf(target) })).sessionId
+        // The running process holds the old history in memory; the next send resumes the fork.
+        const live = this.adapters.get(id)
+        this.adapters.delete(id)
+        await live?.dispose().catch(() => {})
+      } else {
+        const adapter = await this.connectAdapter(id, current.thread)
+        if (!adapter.rewind) throw new ThreadRewindError('unsupported', 'This provider cannot rewind a conversation.')
+        await adapter.rewind(target.nativeId!)
+      }
+      // Proven. Recompute against the latest state and commit atomically.
+      const latest = this.read(id)
+      if (forkedSession) {
+        latest.thread.nativeSessionId = forkedSession
+        // Cursor offsets described the original transcript.
+        delete latest.thread.nativeHistoryCursor
+        delete latest.thread.connection
+      }
+      const final = planLocalRewind(latest, turnId)
+      latest.events = final.events
+      latest.turns = final.turns
+      latest.thread.status = 'idle'
+      latest.thread.lastTurnStatus = final.turns.at(-1)?.status
+      delete latest.thread.providerObservation
+      if (latest.thread.queue?.some(item => item.state === 'queued')) latest.thread.queuePause = { reason: 'interrupted', since: Date.now() }
+      latest.thread.updatedAt = Date.now()
+      for (const turn of final.dropped) if (turn.operationId) this.history.transitionOperation(id, turn.operationId, 'cancelled', 'The conversation was rewound.')
+      this.history.write(latest, { eventsFrom: 0, turnsFrom: 0 })
+      this.snapshots.set(id, latest)
+      this.changed(id)
+      const result: ThreadRewindResult = { snapshot: this.readForRenderer(id), removedTurns: final.dropped.length }
+      if (options.restoreFiles) {
+        const dropped = new Set(final.dropped.map(turn => turn.id))
+        const restorable = this.checkpoints.list(id).filter(value => value.turnId && dropped.has(value.turnId) && (value.state === 'ready' || value.state === 'conflict'))
+        let restored = 0
+        try {
+          // Newest first, so each restore sees the working tree its checkpoint recorded.
+          for (const checkpoint of restorable.sort((a, b) => b.createdAt - a.createdAt)) { await this.checkpoints.restore(id, checkpoint.id); restored += checkpoint.fileCount }
+          result.restoredFiles = restored
+        } catch (error) {
+          result.restoredFiles = restored
+          result.fileError = error instanceof Error ? error.message : 'Files could not be restored.'
+        }
+      }
+      this.audit(id, { action: 'rewind', actor: 'user', summary: `Rewound ${result.removedTurns} turn${result.removedTurns === 1 ? '' : 's'}${result.restoredFiles !== undefined ? `, restored ${result.restoredFiles} file${result.restoredFiles === 1 ? '' : 's'}` : ''}`, ...(result.fileError ? { detail: result.fileError } : {}) })
+      return result
+    } finally { this.configuring.delete(id) }
+  }
+
+  /** Clears a pause and lets the queue continue from its first waiting item. */
+  async resumeQueue(id: string): Promise<void> {
+    const snapshot = this.read(id)
+    if (!snapshot.thread.queuePause) return
+    delete snapshot.thread.queuePause
+    this.save(snapshot, { eventsFrom: snapshot.events.length })
+    await this.drainQueue(id)
+  }
+
+  /** Moves one waiting item to the front, then resumes, so the user can pick which follow-up still applies. */
+  async sendQueuedNow(id: string, itemId: string): Promise<void> {
+    const snapshot = this.read(id), queue = snapshot.thread.queue ?? []
+    const item = queue.find(value => value.id === itemId)
+    if (!item || item.state !== 'queued') throw Error('Queued input is unavailable')
+    if (queue[0]?.id !== itemId) {
+      const nativeIds = [item, ...queue.filter(value => value.id !== itemId)].map(value => value.nativeId).filter((value): value is string => Boolean(value))
+      snapshot.thread.queue = [item, ...queue.filter(value => value.id !== itemId)]
+      const adapter = this.adapters.get(id)
+      if (nativeIds.length === queue.length && adapter?.reorderQueued) await adapter.reorderQueued(nativeIds)
+    }
+    delete snapshot.thread.queuePause
+    this.save(snapshot, { eventsFrom: snapshot.events.length })
+    await this.drainQueue(id)
   }
 
   async reorderQueued(id: string, itemIds: string[]): Promise<void> {
@@ -515,109 +731,6 @@ export class ThreadOrchestrator {
     return this.commandService?.list(this.read(id).thread, forceRefresh) ?? Promise.resolve({ commands: [] })
   }
 
-  openCli(id: string, command?: string): Promise<import('../../../../shared/types/thread').ThreadCliState> {
-    if (this.stopping) return Promise.reject(Error('Application is shutting down'))
-    const pending = this.cliStarting.get(id)
-    if (pending) return command ? Promise.reject(Error('Native CLI is already starting')) : pending
-    const current = this.cliSessions.get(id)
-    if (current?.state().running) return command ? Promise.reject(Error('Use the native CLI input while it is open')) : Promise.resolve(current.state())
-    if (this.busy.has(id)) return Promise.reject(Error('Finish or stop the active turn before opening the native CLI'))
-    if ([...this.cliSessions.values()].filter(session => session.state().running).length + this.cliStarting.size >= 8) return Promise.reject(Error('Close a native CLI session before opening another'))
-    const snapshot = this.read(id)
-    if (!this.nativeCli) return Promise.reject(Error('Native CLI support is unavailable. Restart the updated application.'))
-    this.assertNativeSessionAvailable(id, snapshot.thread.provider, snapshot.thread.nativeSessionId)
-    this.busy.add(id)
-    const task = (async () => {
-      try {
-        if (!/^\/(login|logout)(?:\s|$)/.test(command ?? '')) await this.preflight?.(snapshot.thread)
-        if (this.stopping) throw Error('Application is shutting down')
-        const old = this.adapters.get(id)
-        this.adapters.delete(id); await old?.dispose()
-        await current?.close()
-        // Read again after account discovery: never restore stale pane/root metadata.
-        const thread = this.read(id).thread
-        let ended = false
-        const session = await this.nativeCli!.open(thread, command, async (nativeSessionId, interrupted) => {
-          ended = true
-          try {
-            let latest = this.read(id)
-            let eventsFrom = latest.events.length
-            if (nativeSessionId && !this.stopping) {
-              try {
-                const history = await this.nativeCli!.read(thread, nativeSessionId)
-                latest = this.read(id)
-                latest.events = history.events
-                latest.thread.nativeHistoryCursor = history.cursor
-                this.history.clearNativePages(id)
-                eventsFrom = 0
-                if (history.title) latest.thread.title = history.title
-                latest.thread.cliNotice = history.truncated ? PARTIAL_NATIVE_HISTORY_NOTICE : undefined
-                latest.thread.nativeSessionId = nativeSessionId
-              } catch (error) {
-                latest = this.read(id)
-                eventsFrom = latest.events.length
-                latest.thread.cliNotice = 'Native history could not be imported. Use the CLI to resume or link a saved session before continuing.'
-                // A generated ID with no persisted history must never be resumed.
-                if (!thread.nativeSessionId) {
-                  latest.thread.nativeSessionId = null
-                  if ((error as NodeJS.ErrnoException).code === 'ENOENT') latest.thread.cliNotice = undefined
-                }
-              }
-            }
-            latest.thread.cliActive = false
-            latest.thread.status = this.stopping || interrupted ? 'interrupted' : 'idle'
-            this.save(latest, { eventsFrom })
-          } catch { /* workspace removed */ }
-          finally { this.busy.delete(id) }
-        })
-        this.cliSessions.set(id, session)
-        if (this.stopping) { await session.close(); throw Error('Application is shutting down') }
-        const latest = this.read(id)
-        latest.thread.cliActive = !ended && session.state().running
-        if (latest.thread.cliActive && session.state().nativeSessionId) latest.thread.nativeSessionId = session.state().nativeSessionId
-        if (latest.thread.cliActive) latest.thread.status = 'idle'
-        this.save(latest, { eventsFrom: latest.events.length })
-        return session.state()
-      } catch (error) {
-        this.busy.delete(id)
-        const failed = this.cliSessions.get(id)
-        this.cliSessions.delete(id)
-        await failed?.close().catch(() => {})
-        throw error
-      }
-    })().finally(() => this.cliStarting.delete(id))
-    this.cliStarting.set(id, task)
-    return task
-  }
-
-  cli(id: string): NativeCliSession | undefined { this.read(id); return this.cliSessions.get(id) }
-
-  async linkCliSession(id: string, nativeSessionId: string): Promise<void> {
-    if (this.stopping) throw Error('Application is shutting down')
-    const session = this.cli(id)
-    if (!session || !this.nativeCli) throw Error('Open the native CLI before linking a saved session')
-    this.assertNativeSessionAvailable(id, this.read(id).thread.provider, nativeSessionId)
-    await session.linkSession(nativeSessionId)
-    if (session.state().running) return // the native exit imports this selected ID
-    await session.close() // wait for an already pending exit import
-    if (this.cliSessions.get(id) !== session || this.busy.has(id)) throw Error('Finish the active session before linking native history')
-    this.busy.add(id)
-    try {
-      const history = await this.nativeCli.read(this.read(id).thread, nativeSessionId)
-      if (this.stopping) throw Error('Application is shutting down')
-      const old = this.adapters.get(id)
-      this.adapters.delete(id); await old?.dispose()
-      const latest = this.read(id)
-      latest.events = history.events
-      latest.thread.nativeHistoryCursor = history.cursor
-      this.history.clearNativePages(id)
-      latest.thread.nativeSessionId = nativeSessionId
-      latest.thread.cliNotice = history.truncated ? PARTIAL_NATIVE_HISTORY_NOTICE : undefined
-      if (history.title) latest.thread.title = history.title
-      this.save(latest)
-    } finally { this.busy.delete(id) }
-  }
-
   models(id: string, refresh = false): Promise<ThreadModelCatalog> {
     if (!this.modelService) return Promise.reject(Error('Model discovery is unavailable. Restart the updated application.'))
     return this.modelService.list(this.read(id).thread, refresh)
@@ -631,15 +744,24 @@ export class ThreadOrchestrator {
       if (blocksThreadInput(snapshot.thread)) throw Error('Recover this conversation before changing its configuration')
       if ((snapshot.thread.configurationRevision ?? 0) !== revision) throw Error('Configuration changed. Refresh this conversation and try again.')
       const previous = snapshot.thread.pendingConfiguration ?? snapshot.thread
-      const configuration: ThreadConfiguration = { model: input.model ?? previous.model, reasoningEffort: input.reasoningEffort ?? previous.reasoningEffort, access: input.access ?? previous.access ?? 'read-only', networkAccess: input.networkAccess ?? previous.networkAccess ?? false, approvalPolicy: input.approvalPolicy ?? previous.approvalPolicy ?? 'on-request', mode: input.mode ?? previous.mode ?? 'default', hooksEnabled: input.hooksEnabled ?? previous.hooksEnabled ?? false }
+      const before = turnConfiguration(previous)
+      const configuration: ThreadConfiguration = mergeTurnConfiguration(previous, input)
       if (configuration.access === 'read-only') configuration.hooksEnabled = false
+      // Auto-accepting edits is a Claude permission mode that only means something when edits are allowed.
+      if (configuration.mode === 'acceptEdits' && snapshot.thread.provider !== 'claude') throw Error('Auto-accepting edits is available for Claude conversations')
+      if (configuration.mode === 'acceptEdits' && configuration.access !== 'workspace-write') configuration.mode = 'default'
       if (input.model || input.reasoningEffort !== undefined) {
         const catalog = await this.models(id)
         configuration.model ??= catalog.defaultModel
         const model = catalog.models.find(model => model.id === configuration.model)
-        if (!model) throw Error('Select an available model')
-        if (input.reasoningEffort && !model.efforts.includes(input.reasoningEffort)) throw Error('This reasoning effort is not supported by the selected model')
-        if (!configuration.reasoningEffort || !model.efforts.includes(configuration.reasoningEffort)) configuration.reasoningEffort = model.defaultEffort
+        if (!model) {
+          // The provider still picks the model, so only the effort can be checked.
+          if (configuration.model || catalog.defaultKnown !== false) throw Error('Select an available model')
+          if (input.reasoningEffort && !catalog.models.some(value => value.efforts.includes(input.reasoningEffort!))) throw Error('This reasoning effort is not supported by any available model')
+        } else {
+          if (input.reasoningEffort && !model.efforts.includes(input.reasoningEffort)) throw Error('This reasoning effort is not supported by the selected model')
+          if (!configuration.reasoningEffort || !model.efforts.includes(configuration.reasoningEffort)) configuration.reasoningEffort = model.defaultEffort
+        }
       }
       snapshot = this.read(id)
       if (this.stopping) throw Error('Application is shutting down')
@@ -654,12 +776,13 @@ export class ThreadOrchestrator {
       }
       snapshot.thread.configurationRevision = revision + 1
       this.save(snapshot, { eventsFrom: snapshot.events.length })
+      const changed = (['access', 'mode', 'approvalPolicy', 'networkAccess', 'hooksEnabled'] as const).filter(key => before[key] !== configuration[key])
+      if (changed.length) this.audit(id, { action: 'configuration', actor: 'user', summary: `Changed ${changed.map(key => `${key} to ${String(configuration[key] ?? 'default')}`).join(', ')}${this.busy.has(id) ? ' (from the next turn)' : ''}` })
       return snapshot
     } finally { this.configuring.delete(id) }
   }
 
   async recover(id: string): Promise<void> {
-    if (this.cliSessions.has(id) || this.cliStarting.has(id)) await this.stopCli(id)
     if (this.busy.has(id) || this.configuring.has(id)) throw Error('Finish the active operation before recovery')
     this.configuring.add(id)
     try {
@@ -679,172 +802,48 @@ export class ThreadOrchestrator {
   }
 
   async command(id: string, text: string): Promise<ThreadCommandResult> {
-    const match = text.trim().match(/^\/([a-z0-9][a-z0-9_:-]*)(?:\s+([\s\S]*))?$/i)
-    if (!match || text.length > 65536) throw Error('Invalid command')
-    let name = match[1].toLowerCase()
-    const argument = match[2]?.trim() ?? '', snapshot = this.read(id), thread = snapshot.thread
-    const aliases: Record<string, string> = { delegation: 'delegations', approvals: 'permissions', 'allowed-tools': 'permissions', name: 'rename', clear: 'new', reset: 'new', cwd: 'pwd', plugin: 'plugins', config: 'settings', login: 'accounts', exit: 'quit' }
-    name = aliases[name] ?? name
-    if (!hasDesktopCommand(thread.provider, name)) throw Error(`/${name} is not available in Thread yet. Use /help to see supported commands.`)
-    if (argument && ['help', 'skills', 'accounts', 'settings', 'pwd', 'status', 'capabilities', 'copy', 'export', 'stop', 'new', 'quit', 'diff', 'usage', 'fork', 'hooks', 'experimental', 'debug-config', 'ps', 'memories'].includes(name)) throw Error(`/${name} does not accept arguments in Thread.`)
-    if (name === 'delegations' && argument && !/^[a-z0-9-]{8,128}$/i.test(argument)) throw Error('Use /delegation <taskId> with an exact delegation ID.')
-    if (name === 'resume' && argument) {
-      const local = this.db.prepare('SELECT id FROM conversation_threads WHERE id = ?').get(argument) as { id: string } | undefined
-      if (local) {
-        const target = this.read(local.id)
-        if (target.thread.provider !== thread.provider || target.thread.rootPath !== thread.rootPath) throw Error('Choose a conversation from this provider and project')
-        if (target.thread.archived) { target.thread.archived = false; this.save(target, { eventsFrom: target.events.length }) }
-        return { kind: 'navigate', threadId: target.thread.id }
-      }
-      if (!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(argument)) throw Error('Use a saved OXESpace conversation ID or an exact native session UUID.')
-      for (const row of this.db.prepare('SELECT data_json FROM conversation_threads').all() as { data_json: string }[]) {
-        const existing = JSON.parse(row.data_json) as ConversationThread
-        if (existing.nativeSessionId !== argument) continue
-        if (existing.provider !== thread.provider || existing.rootPath !== thread.rootPath) throw Error('Native session is linked to a different provider or project')
-        if (existing.archived) { const restored = this.read(existing.id); restored.thread.archived = false; this.save(restored, { eventsFrom: restored.events.length }) }
-        return { kind: 'navigate', threadId: existing.id }
-      }
-      if (!this.nativeCli) throw Error('Native session import is unavailable')
-      this.assertNativeSessionAvailable(id, thread.provider, argument)
-      const history = await this.nativeCli.read(thread, argument)
-      const imported = this.create({ workspaceId: thread.workspaceId, projectId: thread.projectId, rootPath: thread.rootPath, provider: thread.provider, agentProfileId: thread.agentProfileId })
-      imported.thread.nativeSessionId = argument
-      imported.thread.title = history.title || `Recovered ${thread.provider} session`
-      imported.events = history.events
-      imported.thread.nativeHistoryCursor = history.cursor
-      imported.thread.cliNotice = history.truncated ? PARTIAL_NATIVE_HISTORY_NOTICE : undefined
-      this.save(imported, { eventsFrom: 0 })
-      return { kind: 'navigate', threadId: imported.thread.id }
-    }
-    const surfaces: Record<string, NonNullable<ThreadCommandResult['surface']>> = { help: 'commands', skills: 'commands', accounts: 'accounts', logout: 'accounts', settings: 'settings', resume: 'sessions', delegations: 'delegations' }
-    if (surfaces[name]) return { kind: 'panel', surface: surfaces[name], title: name, ...(name === 'delegations' && argument ? { text: argument } : {}) }
-    if (['model', 'effort', 'permissions'].includes(name)) {
-      if (!argument) return { kind: 'panel', surface: name as 'model' | 'effort' | 'permissions' }
-      const [model, effort, extra] = argument.split(/\s+/)
-      if (extra || name !== 'model' && effort) throw Error('Too many command arguments')
-      if (name === 'permissions' && !['read-only', 'workspace-write', 'full-access'].includes(model)) throw Error('Choose read-only, workspace-write or full-access')
-      await this.configure(id, name === 'model' ? { model, ...(effort ? { reasoningEffort: effort } : {}) } : name === 'effort' ? { reasoningEffort: model } : { access: model as ThreadConfiguration['access'] }, thread.configurationRevision ?? 0)
-      return { kind: 'applied' }
-    }
-    if (name === 'plan') {
-      if (argument && !['on', 'off'].includes(argument)) throw Error('Use /plan on or /plan off')
-      await this.configure(id, { mode: argument === 'off' ? 'default' : 'plan' }, thread.configurationRevision ?? 0); return { kind: 'applied' }
-    }
-    if (name === 'pwd') return { kind: 'panel', title: 'Project directory', text: thread.rootPath }
-    if (name === 'status') {
-      const operation = this.history.operations(id).at(-1)
-      return { kind: 'panel', title: 'Conversation status', rows: [
-      { label: 'Thread ID', detail: thread.id }, { label: 'Project ID', detail: thread.projectId }, { label: 'Workspace ID', detail: thread.workspaceId },
-      { label: 'Provider', detail: thread.provider }, { label: 'Status', detail: thread.status }, { label: 'Model', detail: thread.model || 'Provider default' }, { label: 'Effort', detail: thread.reasoningEffort || 'Automatic' },
-      { label: 'Access', detail: thread.access ?? 'read-only' }, { label: 'Network', detail: thread.networkAccess ? 'allowed' : 'blocked' }, { label: 'Approvals', detail: thread.approvalPolicy ?? 'on-request' }, { label: 'Mode', detail: thread.mode ?? 'default' }, { label: 'Hooks', detail: thread.hooksEnabled ? 'native hooks enabled' : 'disabled' },
-      { label: 'Connection', detail: thread.connection?.state ?? 'closed' }, { label: 'Generation', detail: String(thread.generation ?? 1) },
-      { label: 'Operation', detail: operation ? `${operation.id} · ${operation.state}` : 'None' },
-      { label: 'Directory', detail: thread.rootPath }, { label: 'Native session ID (resume)', detail: thread.nativeSessionId ?? 'Not started' }
-    ] }
-    }
-    if (name === 'capabilities') {
-      const manifest = thread.capabilities ?? threadCapabilityManifest(thread.provider, this.adapters.get(id)?.capabilities)
-      return { kind: 'panel', title: 'Thread capabilities', rows: Object.entries(manifest.features).map(([label, value]) => ({ label, detail: value.implemented ? `${value.verified} · ${value.enabled ? 'enabled' : 'disabled'}` : value.reason ?? 'Unavailable' })) }
-    }
-    if (name === 'copy' || name === 'export') return { kind: 'panel', title: name === 'copy' ? 'Copy response' : 'Export conversation', text: name === 'copy'
-      ? snapshot.events.filter(event => event.type === 'message' && event.role === 'assistant').map(event => event.type === 'message' ? event.text : '').at(-1) ?? ''
-      : this.exports.markdown(this.history.readImported(id)) }
-    if (name === 'stop') { if (this.busy.has(id)) await this.interrupt(id); return { kind: 'applied' } }
-    if ((name === 'archive' || name === 'delete') && argument === 'confirm' && this.busy.has(id)) {
-      await this.interrupt(id)
-      for (let attempt = 0; attempt < 50 && this.busy.has(id); attempt++) await new Promise(resolve => setTimeout(resolve, 100))
-      if (this.busy.has(id)) throw Error('The active turn has not stopped. Try again after it finishes.')
-    }
-    if (this.busy.has(id) || this.configuring.has(id)) throw Error('Finish the active operation before running this command')
-    if (name === 'rename') {
-      if (!argument) return { kind: 'panel', surface: 'rename', title: 'Rename conversation' }
-      if (thread.provider === 'codex' && thread.nativeSessionId) await (await this.connectAdapter(id, thread)).command?.('rename', argument.slice(0, 120))
-      const latest = this.read(id); latest.thread.title = argument.slice(0, 120); this.save(latest, { eventsFrom: latest.events.length }); return { kind: 'applied' }
-    }
-    if (name === 'new') {
-      const created = this.create({ workspaceId: thread.workspaceId, projectId: thread.projectId, rootPath: thread.rootPath, provider: thread.provider })
-      Object.assign(created.thread, { model: thread.model, reasoningEffort: thread.reasoningEffort, access: thread.access, networkAccess: thread.networkAccess, approvalPolicy: thread.approvalPolicy, mode: thread.mode, hooksEnabled: thread.hooksEnabled })
-      this.save(created, { eventsFrom: created.events.length }); return { kind: 'navigate', threadId: created.thread.id }
-    }
-    if (name === 'archive' || name === 'delete') {
-      if (argument !== 'confirm') return { kind: 'panel', title: name === 'delete' ? 'Delete conversation' : 'Archive conversation', text: name === 'delete' ? 'Delete this OXESpace conversation? The provider session is retained.' : 'Archive this conversation? You can reopen it from /resume.', rows: [{ id: `/${name} confirm`, label: name === 'delete' ? 'Delete conversation' : 'Archive conversation' }] }
-      const adapter = this.adapters.get(id)
-      this.adapters.delete(id); await adapter?.dispose()
-      if (name === 'delete') { this.db.prepare('DELETE FROM conversation_threads WHERE id = ?').run(id); this.snapshots.delete(id); await this.attachmentStore?.removeThread(id); this.changed(id) }
-      else { const latest = this.read(id); latest.thread.archived = true; this.save(latest, { eventsFrom: latest.events.length }) }
-      return { kind: 'navigate' }
-    }
-    if (name === 'quit') { const adapter = this.adapters.get(id); this.adapters.delete(id); await adapter?.dispose(); return { kind: 'applied' } }
-    if (name === 'diff') {
-      return { kind: 'panel', title: 'Project changes', text: 'The project changes view is not available. Use git diff in the project terminal.' }
-    }
-    if (name === 'checkpoint') {
-      const [action = 'list', checkpointId, extra] = argument.split(/\s+/).filter(Boolean)
-      if (extra || !['list', 'restore', 'delete'].includes(action) || action !== 'list' && !checkpointId) throw Error('Use /checkpoint, /checkpoint restore <id>, or /checkpoint delete <id>')
-      if (action === 'restore') {
-        const restored = await this.checkpoints.restore(id, checkpointId)
-        return { kind: 'panel', title: 'Checkpoint restored', text: `${restored.fileCount} file${restored.fileCount === 1 ? '' : 's'} restored. Conversation history was not rewound.` }
-      }
-      if (action === 'delete') { this.checkpoints.delete(id, checkpointId); return { kind: 'applied', title: 'Checkpoint deleted' } }
-      const rows = this.checkpoints.list(id).map(value => ({ id: value.state === 'ready' || value.state === 'conflict' ? `/checkpoint restore ${value.id}` : undefined, label: value.label, ...(value.turnId ? { turnId: value.turnId } : {}), detail: `${value.state} · ${value.fileCount} file${value.fileCount === 1 ? '' : 's'} · ${new Date(value.createdAt).toLocaleString()}${value.error ? ` · ${value.error}` : ''}` }))
-      return { kind: 'panel', title: 'File checkpoints', text: 'Restore changes files only. Conversation history, Git index and unrelated dirty files are preserved.', rows }
-    }
-    if (['review', 'compact'].includes(name)) { await this.send(id, text); return { kind: 'applied' } }
-    if (name === 'rewind' && argument && !/^[1-9][0-9]{0,2}$/.test(argument)) throw Error('Specify the number of turns to rewind (1–999)')
-    if (name === 'rewind' && !argument) return { kind: 'panel', title: 'Rewind conversation', text: 'Remove the most recent turn from the native conversation. Files are not reverted.', rows: [{ id: '/rewind 1', label: 'Rewind one turn' }] }
-    // Reserve ownership while starting/querying a provider operation.
-    this.configuring.add(id)
-    try {
-      const adapter = await this.connectAdapter(id, thread)
-      if (!adapter.command) throw Error('This provider does not expose the requested operation')
-      const result = await adapter.command(name, argument)
-      if (name === 'fork' && result.threadId) {
-        const fork = this.create({ workspaceId: thread.workspaceId, projectId: thread.projectId, rootPath: thread.rootPath, provider: thread.provider })
-        fork.thread = { ...fork.thread, nativeSessionId: result.threadId, model: thread.model, reasoningEffort: thread.reasoningEffort, access: thread.access, networkAccess: thread.networkAccess, approvalPolicy: thread.approvalPolicy, mode: thread.mode, hooksEnabled: thread.hooksEnabled, title: `${thread.title} · fork` }
-        if (this.nativeCli) {
-          const history = await this.nativeCli.read(fork.thread, result.threadId)
-          fork.events = history.events
-          fork.thread.nativeHistoryCursor = history.cursor
-          fork.thread.cliNotice = history.truncated ? PARTIAL_NATIVE_HISTORY_NOTICE : undefined
-        } else fork.events = this.history.readImported(id).events
-        this.save(fork)
-        return { kind: 'navigate', threadId: fork.thread.id }
-      }
-      if (name === 'rewind' && this.nativeCli) {
-        const current = this.read(id)
-        if (current.thread.nativeSessionId) {
-          const history = await this.nativeCli.read(current.thread, current.thread.nativeSessionId)
-          current.events = history.events
-          current.thread.nativeHistoryCursor = history.cursor
-          current.thread.cliNotice = history.truncated ? PARTIAL_NATIVE_HISTORY_NOTICE : undefined
-          this.history.clearNativePages(id)
-          this.save(current)
-        }
-      }
-      return result
-    } finally { this.configuring.delete(id) }
+    return runThreadCommand(this.commandHost(), id, text)
   }
 
-  async stopCli(id: string): Promise<void> {
-    this.read(id)
-    if (this.cliStarting.has(id)) await this.cliStarting.get(id)
-    const session = this.cliSessions.get(id)
-    await session?.close()
-    if (this.cliSessions.get(id) === session) this.cliSessions.delete(id)
+  private commandHost(): CommandHost {
+    return {
+      db: this.db, history: this.history, exports: this.exports, checkpoints: this.checkpoints, nativeCli: this.nativeCli,
+      read: id => this.read(id),
+      save: (snapshot, options) => this.save(snapshot, options),
+      create: context => this.create(context),
+      configure: (id, input, revision) => this.configure(id, input, revision),
+      interrupt: id => this.interrupt(id),
+      rewind: (id, turnId) => this.rewind(id, turnId),
+      send: (id, text) => this.send(id, text),
+      connectAdapter: (id, thread) => this.connectAdapter(id, thread),
+      assertNativeSessionAvailable: (id, provider, nativeSessionId) => this.assertNativeSessionAvailable(id, provider, nativeSessionId),
+      adapterCapabilities: id => this.adapters.get(id)?.capabilities,
+      isBusy: id => this.busy.has(id),
+      isConfiguring: id => this.configuring.has(id),
+      withConfiguring: async (id, run) => {
+        this.configuring.add(id)
+        try { return await run() } finally { this.configuring.delete(id) }
+      },
+      disposeAdapter: async id => { const adapter = this.adapters.get(id); this.adapters.delete(id); await adapter?.dispose() },
+      deleteThread: async id => {
+        this.db.prepare('DELETE FROM conversation_threads WHERE id = ?').run(id)
+        this.snapshots.delete(id)
+        await this.attachmentStore?.removeThread(id)
+        this.changed(id)
+      }
+    }
   }
 
   async stop(): Promise<void> {
     for (const id of this.deltaBuffers.keys()) this.flushDeltas(id)
     this.stopping = true
+    this.work.stop()
     const observations = Promise.allSettled([...this.observations.values()])
     await this.stateReader?.stop()
     await this.nativeCli?.closeHistoryReader?.()
     await Promise.allSettled([...this.nativePageLoads.values()])
     await Promise.resolve() // let already scheduled turn finalizers register before closing the database
     await Promise.allSettled([...this.finalizationTasks])
-    await Promise.allSettled([...this.cliStarting.values()])
-    await Promise.allSettled([...this.cliSessions.values()].map(session => session.close()))
-    this.cliSessions.clear()
     await this.commandService?.stop?.()
     await this.modelService?.stop()
     for (const id of this.busy) {
@@ -885,6 +884,37 @@ export class ThreadOrchestrator {
     this.applyEvent(id, event, generation)
   }
 
+  private storeContext(id: string, report: ThreadContextReport): void {
+    try {
+      const snapshot = this.read(id)
+      snapshot.thread.contextReport = report
+      this.save(snapshot, { eventsFrom: snapshot.events.length })
+    } catch { /* Thread may have been deleted while the provider was reporting. */ }
+  }
+
+  private storeCost(id: string, turn: Extract<ThreadEvent, { type: 'turn-cost' }>): void {
+    try {
+      const snapshot = this.read(id)
+      const { type: _type, ...cost } = turn
+      const now = Date.now()
+      snapshot.thread.costReport = addTurnCost(repairLegacyCost(snapshot.thread.costReport), cost, now, snapshot.thread.provider === 'codex' ? 'codex-token-usage' : 'claude-result-step')
+      this.save(snapshot, { eventsFrom: snapshot.events.length })
+      const model = snapshot.thread.model ?? snapshot.thread.contextReport?.model
+      try { this.usage.record({ ...cost, threadId: id, projectRoot: snapshot.thread.rootPath, provider: snapshot.thread.provider, ...(model ? { model } : {}), at: now }) } catch { /* The ledger is best effort; the conversation keeps its own total. */ }
+    } catch { /* Thread may have been deleted while the provider was reporting. */ }
+  }
+
+  /** Reads the provider's context report; only while idle, and a failure keeps the previous report. */
+  async contextUsage(id: string): Promise<ThreadContextReport | null> {
+    const adapter = this.adapters.get(id)
+    const previous = this.read(id).thread.contextReport ?? null
+    if (!adapter?.contextUsage || this.busy.has(id) || this.finalizing.has(id)) return previous
+    const report = await adapter.contextUsage().catch(() => null)
+    if (!report) return previous
+    this.storeContext(id, report)
+    return report
+  }
+
   private flushDeltas(id: string): void {
     const buffer = this.deltaBuffers.get(id)
     if (!buffer) return
@@ -895,6 +925,8 @@ export class ThreadOrchestrator {
 
   private applyEvent(id: string, event: ThreadEvent, generation?: number): void {
     if (this.stopping) return
+    if (event.type === 'context-usage') { this.storeContext(id, event.report); return }
+    if (event.type === 'turn-cost') { this.storeCost(id, event); return }
     let snapshot: ThreadSnapshot
     try { snapshot = this.read(id) } catch {
       this.busy.delete(id)
@@ -927,137 +959,141 @@ export class ThreadOrchestrator {
       this.save(snapshot, { eventsFrom: snapshot.events.length })
       return
     }
-    if (event.type === 'continuation-started') {
-      if (snapshot.turns?.at(-1)?.status !== 'running') {
-        snapshot.turns ??= []
-        snapshot.turns.push({ id: event.id, sequence: snapshot.turns.length + 1, startedAt: event.at, status: 'running', configuration: { model: snapshot.thread.model, access: snapshot.thread.access, reasoningEffort: snapshot.thread.reasoningEffort } })
-        snapshot.thread.status = 'running'
-        this.busy.add(id)
-      }
-      snapshot.events.push({ type: 'activity', id: event.id, phase: 'responding', at: event.at, summary: 'The provider is continuing after background activity.' })
-      this.save(snapshot, { eventsFrom: snapshot.events.length - 1 })
-      return
-    }
-    const activeTurn = snapshot.turns?.at(-1)
-    const operationId = activeTurn?.operationId
-    if (event.type === 'turn-accepted') {
-      if (activeTurn?.status === 'running') {
-        activeTurn.nativeId = event.nativeTurnId
-        delete snapshot.thread.providerObservation
-        if (operationId) this.history.transitionOperation(id, operationId, 'acknowledged')
-        this.save(snapshot, { eventsFrom: snapshot.events.length })
-        this.memoryEvent?.(snapshot, event)
-      }
-      return
-    }
-    let eventsFrom = snapshot.events.length
+    // Side effects the reducer depends on run first, in the original order.
     if (event.type === 'request') {
       const adapter = this.adapters.get(id)
       event.request.generation = snapshot.thread.generation ?? 1
+      const policy = this.evaluatePolicy(snapshot.thread.rootPath, event.request)
+      if (policy) event.request.policy = policy
       if (adapter?.respondRequest) this.requests.register(id, event.request, response => adapter.respondRequest!(event.id, response), expired => {
         try { this.event(id, { type: 'request-resolved', id: expired.id, state: 'expired', resolution: 'unknown', resolvedAt: expired.resolvedAt }, expired.generation) }
         catch { /* The conversation may have been deleted while the timer was pending. */ }
       })
     } else if (event.type === 'request-resolved' && event.state !== 'pending') {
       this.requests.settle(id, event.id, event.state)
-      const requestIndex = snapshot.events.findIndex(value => value.type === 'request' && value.id === event.id)
-      const request = requestIndex >= 0 ? snapshot.events[requestIndex] : undefined
-      if (request?.type === 'request') {
-        request.request.state = event.state
-        request.request.resolution = event.resolution ?? 'unknown'
-        request.request.resolvedAt = event.resolvedAt ?? Date.now()
-      }
-      if (requestIndex >= 0) eventsFrom = Math.min(eventsFrom, requestIndex)
     }
-    if (activeTurn?.status === 'running' && (event.type === 'tool' || event.type === 'subagent' || event.type === 'turn-diff' || event.type === 'plan') && event.turnId) activeTurn.nativeId = event.turnId
-    if (event.type === 'failure-details') {
-      const completedIndex = snapshot.events.findIndex(value => value.type === 'completed' && value.failure?.id === event.id)
-      const completed = completedIndex >= 0 ? snapshot.events[completedIndex] : undefined
-      if (completed?.type !== 'completed' || !completed.failure) return
-      completed.failure = { ...completed.failure, ...(event.usage ? { usage: event.usage } : {}), usageUnavailable: event.usageUnavailable }
-      eventsFrom = Math.min(eventsFrom, completedIndex)
+    const endingTurn = event.type === 'completed' ? snapshot.turns?.at(-1) : undefined
+    const needsVerifiedDiff = event.type === 'completed' && this.workingTreeBaselines.has(id)
+    const needsCheckpoint = Boolean(endingTurn && this.turnCheckpoints.has(endingTurn.id))
+    const invalidated = event.type === 'completed' ? this.requests.invalidate(id, event.status === 'completed' ? 'expired' : 'cancelled') : []
+
+    const result = reduceThreadEvent(snapshot, event, {
+      now: () => Date.now(),
+      pendingRequestCount: () => this.requests.list(id, snapshot.thread.generation ?? 1).length,
+      invalidated,
+      needsVerifiedDiff,
+      needsCheckpoint
+    })
+    this.runEffects(id, snapshot, event, result.before)
+    if (result.save) this.save(snapshot, result.save)
+    this.runEffects(id, snapshot, event, result.after)
+    if (event.type === 'request' && event.request.policy && event.request.policy.decision !== 'ask' && this.adapters.get(id)?.respondRequest) {
+      // After the adapter has finished announcing the request (Claude emits `approval` right after it).
+      const request = event.request
+      queueMicrotask(() => { void this.applyPolicy(id, request) })
     }
-    else if (event.type === 'configuration') {
-      if (event.model !== undefined) snapshot.thread.model = event.model
-      if (event.reasoningEffort !== undefined) snapshot.thread.reasoningEffort = event.reasoningEffort
-      if (event.access !== undefined) snapshot.thread.access = event.access
-      if (event.networkAccess !== undefined) snapshot.thread.networkAccess = event.networkAccess
-      if (event.approvalPolicy !== undefined) snapshot.thread.approvalPolicy = event.approvalPolicy
-      if (event.hooksEnabled !== undefined) snapshot.thread.hooksEnabled = event.hooksEnabled
-      if (activeTurn?.status === 'running') Object.assign(activeTurn.configuration, { ...(event.model !== undefined ? { model: event.model } : {}), ...(event.reasoningEffort !== undefined ? { reasoningEffort: event.reasoningEffort } : {}), ...(event.access !== undefined ? { access: event.access } : {}), ...(event.networkAccess !== undefined ? { networkAccess: event.networkAccess } : {}), ...(event.approvalPolicy !== undefined ? { approvalPolicy: event.approvalPolicy } : {}), ...(event.hooksEnabled !== undefined ? { hooksEnabled: event.hooksEnabled } : {}) })
-    }
-    else if (event.type === 'session') snapshot.thread.nativeSessionId = event.nativeSessionId
-    else if (event.type === 'completed') {
-      const turn = snapshot.turns?.at(-1)
-      if (turn?.status === 'running') { turn.status = event.status; turn.completedAt = Date.now() }
-      // A provider may finish a turn without reporting a tool result. The turn is
-      // over, but success of that command is unverified; never leave it spinning.
-      const turnStart = snapshot.events.findIndex(value => value.type === 'message' && value.role === 'user' && value.id === turn?.id)
-      snapshot.events.forEach((value, index) => {
-        if (turnStart < 0 || index < turnStart || value.type !== 'tool' || value.state !== 'running') return
-        value.state = 'unknown'
-        value.completedAt = Date.now()
-        value.files = value.files?.map(file => ({ ...file, state: file.state === 'running' ? 'unknown' : file.state }))
-        eventsFrom = Math.min(eventsFrom, index)
-      })
-      snapshot.events.forEach((value, index) => {
-        if (value.type === 'turn-diff' && value.turnId === turn?.nativeId) {
-          value.files = value.files.map(file => ({ ...file, state: event.status === 'completed' ? 'completed' : 'failed' }))
-          eventsFrom = Math.min(eventsFrom, index)
+  }
+
+  private evaluatePolicy(rootPath: string, request: ThreadRequest) {
+    try { return this.permissions.evaluate(rootPath, request) } catch { return undefined }
+  }
+
+  /** Answers a request the permission rules decided; on any failure the person still sees the prompt. */
+  private async applyPolicy(id: string, request: ThreadRequest): Promise<void> {
+    const policy = request.policy!, allow = policy.decision === 'allow', decision = allow ? 'accept' as const : 'decline' as const
+    if (request.availableDecisions && !request.availableDecisions.includes(decision)) return
+    try {
+      await this.requests.resolve(id, request.id, request.generation, allow ? { decision } : { decision, reason: `Blocked by an OXESpace permission rule. ${policy.reasons.join(' ')}`.trim() })
+      this.audit(id, { action: 'policy', actor: 'policy', summary: `${allow ? 'Allowed' : 'Declined'} ${requestSubject(request)}`, detail: policy.reasons.join('\n') })
+    } catch { /* Still pending: the person answers it. */ }
+  }
+
+  /** Records a decision; auditing never interrupts the action it describes. */
+  private audit(id: string, entry: Omit<ThreadAuditEntry, 'id' | 'at' | 'threadId' | 'projectRoot'>): void {
+    try { this.permissions.audit({ ...entry, threadId: id, projectRoot: this.read(id).thread.rootPath }) } catch { /* best effort */ }
+  }
+
+  /** Rules that answer this conversation's approvals: its project's and the global ones. */
+  permissionRules(id: string): ThreadPermissionRule[] {
+    return this.permissions.rules(this.read(id).thread.rootPath)
+  }
+
+  addPermissionRule(id: string, input: { kind: ThreadPermissionRule['kind']; pattern: string; decision: ThreadPermissionRule['decision']; scope: 'project' | 'global' }): ThreadPermissionRule {
+    const rootPath = this.read(id).thread.rootPath
+    const rule = this.permissions.add({ projectRoot: input.scope === 'global' ? null : rootPath, kind: input.kind, pattern: input.pattern, decision: input.decision })
+    this.audit(id, { action: 'rule-added', actor: 'user', summary: `${rule.decision === 'allow' ? 'Allow' : 'Deny'} ${rule.kind} ${rule.pattern}${rule.projectRoot ? '' : ' (all projects)'}` })
+    return rule
+  }
+
+  removePermissionRule(id: string, ruleId: string): void {
+    const rootPath = this.read(id).thread.rootPath
+    const rule = this.permissions.rules(rootPath).find(value => value.id === ruleId)
+    if (!rule) throw Error('That rule does not apply to this project')
+    this.permissions.remove(ruleId)
+    this.audit(id, { action: 'rule-removed', actor: 'user', summary: `Removed ${rule.decision} ${rule.kind} ${rule.pattern}${rule.projectRoot ? '' : ' (all projects)'}` })
+  }
+
+  workRuns(id: string): WorkRun[] {
+    this.read(id)
+    return this.work.runsFor(id)
+  }
+
+  async cancelWork(id: string, runId: string): Promise<WorkRun> {
+    const run = this.work.run(runId)
+    // The person may cancel from the supervisor or from any of its workers.
+    if (run.supervisorThreadId !== id && !run.tasks.some(task => task.threadId === id)) throw Error('This run is not related to the conversation')
+    return this.work.cancel(runId, 'user')
+  }
+
+  usageSummary(id: string, options: { scope?: 'thread' | 'project' | 'all'; days?: number } = {}): ThreadUsageSummary {
+    const thread = this.read(id).thread
+    const scope = options.scope ?? 'project'
+    return this.usage.summary({ scope, threadId: id, projectRoot: thread.rootPath, days: options.days })
+  }
+
+  /** Saved events of a conversation, newest matches read first and returned oldest first, for the debug inspector. */
+  debugEvents(id: string, options: { filter?: string; before?: number; limit?: number } = {}): ThreadDebugPage {
+    this.read(id)
+    return this.history.debugEvents(id, options)
+  }
+
+  autoApproveReads(): boolean { return this.permissions.autoApproveReads() }
+
+  setAutoApproveReads(enabled: boolean): boolean {
+    const value = this.permissions.setAutoApproveReads(enabled)
+    this.permissions.audit({ action: 'configuration', actor: 'user', summary: value ? 'Approve read-only commands automatically: on' : 'Approve read-only commands automatically: off' })
+    return value
+  }
+
+  auditLog(id: string, options: { scope?: 'thread' | 'project'; before?: number; limit?: number } = {}): ThreadAuditEntry[] {
+    const thread = this.read(id).thread
+    return this.permissions.auditLog(options.scope === 'project' ? { projectRoot: thread.rootPath, before: options.before, limit: options.limit } : { threadId: id, before: options.before, limit: options.limit })
+  }
+
+  /** Executes reducer effects; the only place event handling touches ownership, history and timers. */
+  private runEffects(id: string, snapshot: ThreadSnapshot, event: ThreadEvent, effects: KernelEffect[]): void {
+    for (const effect of effects) {
+      switch (effect.kind) {
+        case 'busy-add': this.busy.add(id); break
+        case 'busy-delete': this.busy.delete(id); break
+        case 'finalizing-add': this.finalizing.add(id); break
+        case 'operation': this.history.transitionOperation(id, effect.operationId, effect.state, effect.error); break
+        case 'release-attachments': void this.releaseAttachments(id, effect.attachmentIds); break
+        case 'refresh-capabilities': {
+          const adapter = this.adapters.get(id)
+          if (adapter) snapshot.thread.capabilities = threadCapabilityManifest(snapshot.thread.provider, adapter.capabilities, snapshot.thread.connection?.state === 'connected', adapter.evidence, snapshot.thread)
+          break
         }
-      })
-      snapshot.thread.status = event.status === 'completed' ? 'idle' : event.status
-      snapshot.thread.lastTurnStatus = event.status
-      this.busy.delete(id)
-      // Native patch notifications may omit files changed by shell commands.
-      // Compare against the pre-turn working tree for both providers, while
-      // keeping provider patches authoritative for paths they already report.
-      const needsVerifiedDiff = this.workingTreeBaselines.has(id)
-      const needsCheckpoint = Boolean(turn && this.turnCheckpoints.has(turn.id))
-      if (needsVerifiedDiff || needsCheckpoint) this.finalizing.add(id)
-      for (const request of this.requests.invalidate(id, event.status === 'completed' ? 'expired' : 'cancelled')) {
-        const resolution = event.status === 'completed' ? 'turn-completed' : event.status === 'interrupted' ? 'interrupted' : 'turn-failed'
-        const requestIndex = snapshot.events.findIndex(value => value.type === 'request' && value.id === request.id)
-        const persisted = requestIndex >= 0 ? snapshot.events[requestIndex] : undefined
-        if (persisted?.type === 'request') Object.assign(persisted.request, { state: request.state, resolution, resolvedAt: request.resolvedAt })
-        if (requestIndex >= 0) eventsFrom = Math.min(eventsFrom, requestIndex)
-        snapshot.events.push({ type: 'request-resolved', id: request.id, state: request.state, resolution, resolvedAt: request.resolvedAt })
+        case 'finalize': queueMicrotask(() => {
+          const task = this.finalizeTurnThenDrain(id, effect.status, effect.turnId, effect.captureDiff)
+          this.finalizationTasks.add(task)
+          void task.finally(() => this.finalizationTasks.delete(task)).catch(() => {})
+        }); break
+        case 'drain': queueMicrotask(() => void this.drainQueue(id)); break
+        case 'refresh-context': queueMicrotask(() => void this.contextUsage(id)); break
+        case 'memory-event': this.memoryEvent?.(snapshot, event); break
       }
-      const unresolved = snapshot.events.filter(value => value.type === 'approval' && !snapshot.events.some(resolved => resolved.type === 'approval-resolved' && resolved.id === value.id))
-      for (const approval of unresolved) if (approval.type === 'approval') snapshot.events.push({ type: 'approval-resolved', id: approval.id })
-      snapshot.events.push(event)
-      if (operationId) this.history.transitionOperation(id, operationId, event.status === 'completed' ? 'completed' : event.status === 'interrupted' ? 'cancelled' : 'failed', event.error)
-      if (event.status === 'completed' && turn?.attachmentIds?.length) void this.releaseAttachments(id, turn.attachmentIds)
-      if (needsVerifiedDiff || needsCheckpoint) queueMicrotask(() => {
-        const task = this.finalizeTurnThenDrain(id, event.status, turn?.id, needsVerifiedDiff)
-        this.finalizationTasks.add(task)
-        void task.finally(() => this.finalizationTasks.delete(task)).catch(() => {})
-      })
-      else queueMicrotask(() => void this.drainQueue(id))
-    } else if (event.type === 'delta') {
-      const existingIndex = snapshot.events.findIndex(value => value.type === 'message' && value.role === 'assistant' && value.id === event.id)
-      const existing = existingIndex >= 0 ? snapshot.events[existingIndex] : undefined
-      if (existing?.type === 'message') existing.text = (existing.text + event.text).slice(0, 256 * 1024)
-      else snapshot.events.push({ type: 'message', id: event.id, role: 'assistant', text: event.text.slice(0, 256 * 1024) })
-      eventsFrom = existingIndex >= 0 ? Math.min(eventsFrom, existingIndex) : eventsFrom
-    } else {
-      if (event.type === 'approval' || event.type === 'request') snapshot.thread.status = 'approval'
-      const index = snapshot.events.findIndex(value => 'id' in value && value.id === event.id && value.type === event.type)
-      if (index >= 0) {
-        const previous = snapshot.events[index]
-        snapshot.events[index] = event.type === 'tool' && previous.type === 'tool' ? { ...previous, ...event, name: event.name === 'Tool result' ? previous.name : event.name, detail: event.detail || previous.detail } : event
-        eventsFrom = Math.min(eventsFrom, index)
-      }
-      else snapshot.events.push(event)
-      if (event.type === 'approval-resolved' || event.type === 'request-resolved') snapshot.thread.status = this.requests.list(id, snapshot.thread.generation ?? 1).length ? 'approval' : 'running'
     }
-    if (event.type === 'session' || event.type === 'configuration') {
-      const adapter = this.adapters.get(id)
-      if (adapter) snapshot.thread.capabilities = threadCapabilityManifest(snapshot.thread.provider, adapter.capabilities, snapshot.thread.connection?.state === 'connected', adapter.evidence, snapshot.thread)
-    }
-    if (operationId && activeTurn?.status === 'running' && event.type !== 'completed' && event.type !== 'session' && event.type !== 'configuration') this.history.transitionOperation(id, operationId, 'running')
-    this.save(snapshot, { eventsFrom, ...(operationId ? { operationId } : {}) })
-    if (event.type === 'session' || event.type === 'completed') this.memoryEvent?.(snapshot, event)
   }
 
   private save(snapshot: ThreadSnapshot, options?: ThreadHistoryWriteOptions): void {
@@ -1171,6 +1207,7 @@ export class ThreadOrchestrator {
     if (this.stopping || this.busy.has(id) || this.finalizing.has(id) || this.configuring.has(id)) return
     let snapshot: ThreadSnapshot
     try { snapshot = this.read(id) } catch { return }
+    if (snapshot.thread.queuePause) return
     const item = snapshot.thread.queue?.find(value => value.state === 'queued')
     if (!item) return
     item.state = 'sending'
@@ -1186,7 +1223,7 @@ export class ThreadOrchestrator {
         const attachments = await this.resolveAttachments(id, item.attachmentIds ?? [])
         latest.events.push({ type: 'message', id: item.id, role: 'user', text: item.text, ...(attachments.length ? { attachments: attachments.map(({ path: _path, ...attachment }) => attachment) } : {}) })
         latest.turns ??= []
-        latest.turns.push({ id: item.id, ...(item.operationId ? { operationId: item.operationId } : {}), sequence: latest.turns.length + 1, startedAt: Date.now(), status: 'running', configuration: { model: latest.thread.model, reasoningEffort: latest.thread.reasoningEffort, access: latest.thread.access ?? 'read-only', networkAccess: latest.thread.networkAccess ?? false, approvalPolicy: latest.thread.approvalPolicy ?? 'on-request', mode: latest.thread.mode ?? 'default', hooksEnabled: latest.thread.hooksEnabled ?? false }, ...(item.attachmentIds?.length ? { attachmentIds: [...item.attachmentIds] } : {}) })
+        latest.turns.push({ id: item.id, ...(item.operationId ? { operationId: item.operationId } : {}), sequence: latest.turns.length + 1, startedAt: Date.now(), status: 'running', configuration: turnConfiguration(latest.thread), ...(item.attachmentIds?.length ? { attachmentIds: [...item.attachmentIds] } : {}) })
         const checkpointId = await this.checkpoints.begin({ threadId: id, turnId: item.id, rootPath: latest.thread.rootPath, label: item.text.trim().slice(0, 80) }).catch(() => undefined)
         if (checkpointId) this.turnCheckpoints.set(item.id, checkpointId)
         if (item.operationId) this.history.transitionOperation(id, item.operationId, 'running')
@@ -1212,14 +1249,11 @@ export class ThreadOrchestrator {
 
   private assertNativeSessionAvailable(id: string, provider: ConversationThread['provider'], nativeSessionId: string | null): void {
     if (!nativeSessionId) return
-    const owners = new Set([...this.adapters.keys(), ...this.cliSessions.keys()])
-    for (const otherId of owners) {
+    for (const otherId of this.adapters.keys()) {
       if (otherId === id) continue
-      const cli = this.cliSessions.get(otherId)
-      if (!this.adapters.has(otherId) && !cli?.state().running) continue
       try {
         const other = this.read(otherId).thread
-        const activeNativeId = cli?.state().nativeSessionId ?? other.nativeSessionId
+        const activeNativeId = other.nativeSessionId
         if (other.provider === provider && activeNativeId === nativeSessionId) {
           throw Error('This native session is already open in another Thread conversation')
         }

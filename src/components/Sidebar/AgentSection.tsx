@@ -2,6 +2,7 @@ import { RefreshCw } from 'lucide-react'
 import type { ReactElement } from 'react'
 import type { AgentProfile, AgentReadiness } from '../../../shared/types/agent'
 import { AgentItem } from './AgentItem'
+import { EmptyState } from '../../ui'
 
 interface AgentSectionProps {
   profiles: AgentProfile[]
@@ -32,14 +33,14 @@ export function AgentSection({
             disabled={isDiscovering}
             onClick={onDiscover}
           >
-            <RefreshCw size={11} aria-hidden="true" className={isDiscovering ? 'spin' : undefined} />
+            <RefreshCw size={12} aria-hidden="true" className={isDiscovering ? 'spin' : undefined} />
           </button>
         </div>
       </div>
 
       <div className="agent-list">
         {profiles.length === 0 ? (
-          <p className="workspace-list-empty">No agent profiles.</p>
+          <EmptyState compact title="No agent profiles." />
         ) : (
           profiles.map((profile) => (
             <AgentItem

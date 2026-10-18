@@ -17,7 +17,7 @@ export interface MemoryOutboxRecord {
 }
 
 interface StoredRecord extends MemoryOutboxRecord { file: string; bytes: number; sequence: number }
-export interface OutboxStats { pending: number; quarantined: number; bytes: number; refused: number }
+export interface OutboxStats { pending: number; quarantined: number; bytes: number; refused: number; oldestAt?: number }
 const MAX_BYTES = 64 * 1024 * 1024
 const MAX_EVENTS = 10_000
 const MAX_AGE = 7 * 24 * 60 * 60 * 1000
@@ -180,5 +180,9 @@ export class MemoryOutbox {
     })
   }
 
-  stats(): OutboxStats { return { pending: this.records.size, quarantined: this.quarantined, bytes: this.bytes, refused: this.refused } }
+  stats(): OutboxStats {
+    let oldestAt: number | undefined
+    for (const record of this.records.values()) if (oldestAt === undefined || record.createdAt < oldestAt) oldestAt = record.createdAt
+    return { pending: this.records.size, quarantined: this.quarantined, bytes: this.bytes, refused: this.refused, ...(oldestAt === undefined ? {} : { oldestAt }) }
+  }
 }

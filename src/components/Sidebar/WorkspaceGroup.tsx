@@ -2,6 +2,7 @@ import { Check, ChevronDown, GripVertical, Network, Pencil, Settings, Trash2, X 
 import { memo, useEffect, useRef, useState, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import { selectIntegrationsForWorkspace, useIntegrationStore } from '../../store/integration.store'
+import { ConfirmDialog } from '../../ui'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { useWorkspaceActivity, type WorkspaceActivity } from '../../hooks/useWorkspaceActivity'
@@ -184,15 +185,7 @@ function WorkspaceGroupComponent({
     >
       <div
         className="ws-group-header"
-        role="button"
-        tabIndex={0}
         onClick={handleHeaderClick}
-        onKeyDown={e => {
-          if (!renaming && e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
-            e.preventDefault()
-            handleHeaderClick()
-          }
-        }}
         onContextMenu={handleContextMenu}
         data-testid="sidebar-workspace-select"
       >
@@ -229,12 +222,14 @@ function WorkspaceGroupComponent({
             />
           ) : (
             <>
-              <span
+              <button
+                type="button"
                 className="ws-group-name"
+                onClick={(event) => { event.stopPropagation(); handleHeaderClick() }}
                 title={`${workspace.name}\n${workspace.rootPath}\n(right-click for options)`}
               >
                 {workspace.name}
-              </span>
+              </button>
               {duplicate ? (
                 <div
                   className="ws-group-branch-row"
@@ -257,7 +252,7 @@ function WorkspaceGroupComponent({
         <div className="ws-group-trailing">
           {terminalCount > 0 && onToggleTerminals ? (
             <button type="button" className="ws-group-expand-btn" aria-label={`${terminalCount} terminals in ${workspace.name}${duplicate ? ` #${duplicate.index}` : ''}`} title={`${terminalCount} terminals`} aria-expanded={terminalsExpanded} onClick={(event) => { event.stopPropagation(); onToggleTerminals() }}>
-              <ChevronDown size={13} aria-hidden="true" />
+              <ChevronDown size={14} aria-hidden="true" />
             </button>
           ) : null}
           {integrations.length > 0 ? (
@@ -269,7 +264,7 @@ function WorkspaceGroupComponent({
               onClick={handleIntegrationBadgeClick}
               data-testid="ws-group-integration-badge"
             >
-              <Network size={11} aria-hidden="true" />
+              <Network size={12} aria-hidden="true" />
               {integrations.length > 1 ? <span className="ws-group-integration-count">{integrations.length}</span> : null}
             </button>
           ) : null}
@@ -282,7 +277,7 @@ function WorkspaceGroupComponent({
               onClick={handleContextMenu}
               data-testid="ws-group-settings-btn"
             >
-              <Settings size={13} aria-hidden="true" />
+              <Settings size={14} aria-hidden="true" />
             </button>
           )}
         </div>
@@ -367,46 +362,8 @@ interface RemoveWorkspaceModalProps {
  * their code.
  */
 function RemoveWorkspaceModal({ workspaceName, onCancel, onConfirm }: RemoveWorkspaceModalProps): ReactElement {
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') onCancel()
-      if (event.key === 'Enter') onConfirm()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onCancel, onConfirm])
-
-  return (
-    <div className="ws-remove-backdrop" role="presentation" onMouseDown={onCancel}>
-      <div
-        className="ws-remove-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="ws-remove-title"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <header className="ws-remove-modal-header">
-          <h2 id="ws-remove-title">Remove workspace?</h2>
-          <button type="button" className="ws-remove-modal-close" aria-label="Cancel" onClick={onCancel}>
-            <X size={13} aria-hidden="true" />
-          </button>
-        </header>
-        <p className="ws-remove-modal-body">
-          <strong>{workspaceName}</strong> will be removed from the sidebar. The folder on disk
-          stays untouched — you can re-add it later via <em>New workspace</em>.
-        </p>
-        <footer className="ws-remove-modal-actions">
-          <button type="button" className="ghost-btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button type="button" className="ws-remove-modal-confirm" onClick={onConfirm}>
-            <Check size={13} aria-hidden="true" />
-            Remove workspace
-          </button>
-        </footer>
-      </div>
-    </div>
-  )
+  return <ConfirmDialog title="Remove workspace?" danger confirmLabel="Remove workspace" onCancel={onCancel} onConfirm={onConfirm}
+    description={<><strong>{workspaceName}</strong> will be removed from the sidebar. The folder on disk stays untouched — you can re-add it later via <em>New workspace</em>.</>} />
 }
 
 function activitySummary(a: WorkspaceActivity): string {

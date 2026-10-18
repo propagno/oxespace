@@ -2,7 +2,6 @@ import { cpSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
 
 /**
  * Folder under resources/whisper holding this host's whisper.cpp build. The
@@ -47,7 +46,8 @@ const MARKDOWN_CHUNK_PARTS = [
 export default defineConfig({
   main: {
     plugins: [
-      externalizeDepsPlugin(),
+      // The database drivers are bundled into the OxeQuery worker, not shipped as node_modules.
+      externalizeDepsPlugin({ exclude: ['pg', 'pg-cursor', 'mongodb', 'bson'] }),
       {
         name: 'copy-db-migrations',
         closeBundle() {
@@ -114,21 +114,41 @@ export default defineConfig({
         }
       }
     ],
+    resolve: {
+      // pg requires pg-cloudflare only on Cloudflare Workers; the bundle made it a static import of a
+      // package the installer does not ship (OxeQuery could not connect on installed 1.0.0 builds).
+      alias: { 'pg-cloudflare': resolve(__dirname, 'electron/main/workers/pg-cloudflare-stub.ts') }
+    },
     build: {
       rollupOptions: {
-        external: ['better-sqlite3', 'node-pty'],
+        // Optional driver add-ons are never installed; leave them as runtime requires.
+        // ssh2 tries optional native add-ons (cpu-features, its crypto binding) and falls back to pure JS.
+        external: ['better-sqlite3', 'node-pty', 'pg-native', '@aws-sdk/credential-providers', '@mongodb-js/zstd', 'gcp-metadata', 'kerberos', 'mongodb-client-encryption', 'snappy', 'socks', 'cpu-features', /\.node(\?.*)?$/],
         output: {
           // Keep optional documentation descriptors outside the main entry.
           // A few bytes of platform-dependent output must not decide release
           // success; runtime and handlers remain dynamically loaded as before.
           manualChunks(id) {
             if (id.replaceAll('\\', '/').endsWith('/mcp-internal/documentation-tools.ts')) return 'documentation-tools'
-          }
+          },
+          // The OxeQuery worker bundles CommonJS libraries (ssh2, mongodb) that use
+          // `require` and `__dirname`, which do not exist in an ES module chunk.
+          banner: (chunk: { name: string }) => chunk.name === 'oxequery-worker'
+            ? [
+              "import { createRequire as __oxeCreateRequire } from 'node:module';",
+              "import { fileURLToPath as __oxeFileURLToPath } from 'node:url';",
+              "import { dirname as __oxeDirname } from 'node:path';",
+              'const require = __oxeCreateRequire(import.meta.url);',
+              'const __filename = __oxeFileURLToPath(import.meta.url);',
+              'const __dirname = __oxeDirname(__filename);'
+            ].join('\n')
+            : ''
         },
         input: {
           index: resolve(__dirname, 'electron/main/index.ts'),
           'semantic-worker': resolve(__dirname, 'electron/main/workers/semantic-worker.ts'),
           'native-history-worker': resolve(__dirname, 'electron/main/workers/native-history-worker.ts'),
+          'oxequery-worker': resolve(__dirname, 'electron/main/workers/oxequery-worker.ts'),
           // CodeGraph parsing worker — keeps tree-sitter parsing off the main
           // thread so it doesn't block (and time out) semantic embedding on the
           // initial index. extraction/index.ts loads it from out/main/parse-worker.js.
@@ -140,6 +160,8 @@ export default defineConfig({
   preload: {
     plugins: [externalizeDepsPlugin()],
     build: {
+      // The bridge is a long table of one-line forwarders; minifying it keeps the 40 kB budget meaningful.
+      minify: 'esbuild',
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'electron/preload/index.ts'),
@@ -158,7 +180,6 @@ export default defineConfig({
     root: '.',
     plugins: [
       react(),
-      tailwindcss(),
       {
         name: 'inject-prod-csp',
         apply: 'build',

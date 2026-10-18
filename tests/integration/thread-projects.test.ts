@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { removeTempDir } from '../helpers/removeTempDir'
 import { realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -52,6 +53,6 @@ it('registers Thread projects independently and groups worktrees without importi
     expect(catalog.unavailable).toEqual([])
   } finally {
     db.close()
-    rmSync(target, { recursive: true, force: true })
+    removeTempDir(target)
   }
 }, 20000)

@@ -12,3 +12,9 @@ export function deriveThreadComposerState(thread: ConversationThread | undefined
   if (thread.status === 'running') return 'running'
   return 'idle'
 }
+
+/** Text as a Markdown block quote, bounded so a long reply does not flood the composer. */
+export function quoteMarkdown(text: string, limit = 2000): string {
+  const body = text.length > limit ? `${text.slice(0, limit).trimEnd()}…` : text
+  return body.split('\n').map(line => line ? `> ${line}` : '>').join('\n') + '\n\n'
+}

@@ -23,8 +23,31 @@ import type {
 } from '../../../../shared/types/github'
 import { countStatusLines, emptyRepositorySummary, inferCommitArea, inferCommitType, isAbsolutePath, ok, parseStatusLine, parseWorktreePorcelain, parseWorktreeStatusPorcelainV2, splitPair, summarizeCommitFiles } from './parsers'
 import type { GhExec } from './gh-exec'
+import { loadRepoConfig } from '../repo-config/loader'
+import { runHook } from '../repo-config/hook-runner'
+import { createSharedLinks } from '../repo-config/shared-dirs'
+import type { RepoHookTrust } from '../repo-config/trust'
+import { removeWorktreeSafely } from './worktree-removal'
+
+export interface WorktreeLifecycleDeps {
+  trust: RepoHookTrust
+  /** Stops terminals whose cwd is inside `dir`; returns the pane ids stopped. */
+  stopTerminalsWithin?: (dir: string) => string[]
+}
+
 export class GitHubRepositoryService {
+  private lifecycle: WorktreeLifecycleDeps | null = null
+
   constructor(private readonly gh: GhExec) {}
+
+  /**
+   * Wired after construction because the terminal manager is built first and
+   * the collaborators here predate it. Without it, removal still gets the
+   * structural/dirty checks, just not hooks or terminal teardown.
+   */
+  configureWorktreeLifecycle(deps: WorktreeLifecycleDeps): void {
+    this.lifecycle = deps
+  }
 
   async getCliStatus(input: GitHubWorkspaceInput): Promise<GitHubCliStatus> {
     return this.gh.detectCli(input.rootPath)
@@ -92,7 +115,7 @@ export class GitHubRepositoryService {
 
   async fetch(input: GitHubWorkspaceInput): Promise<GitHubMessageResult> {
     await this.gh.runGit(['fetch', '--all', '--prune'], input.rootPath)
-    return ok('Fetch concluído.')
+    return ok('Fetch complete.')
   }
 
   /**
@@ -101,7 +124,7 @@ export class GitHubRepositoryService {
    */
   async pullFfOnly(input: GitHubWorkspaceInput): Promise<GitHubMessageResult> {
     if (await this.gh.hasWorkingTreeChanges(input.rootPath)) {
-      throw new Error('Working tree possui mudanças. Faça commit ou stash antes de atualizar a branch.')
+      throw new Error('The working tree has changes. Commit or stash them before updating the branch.')
     }
     await this.gh.runGit(['pull', '--ff-only'], input.rootPath)
     return ok('Branch atualizada (fast-forward).')
@@ -157,13 +180,13 @@ export class GitHubRepositoryService {
 
   async push(input: GitHubWorkspaceInput): Promise<GitHubMessageResult> {
     await this.gh.runGit(['push'], input.rootPath)
-    return ok('Push concluído.')
+    return ok('Push complete.')
   }
 
   async commitAndPush(input: GitHubCommitInput): Promise<GitHubMessageResult> {
     await this.commit(input)
     await this.push(input)
-    return ok('Commit e push concluídos.')
+    return ok('Commit and push complete.')
   }
 
   async listBranches(input: GitHubWorkspaceInput): Promise<GitHubBranch[]> {
@@ -190,7 +213,7 @@ export class GitHubRepositoryService {
 
   async checkoutBranch(input: { rootPath: string; name: string; force?: boolean }): Promise<GitHubMessageResult> {
     if (!input.force && await this.gh.hasWorkingTreeChanges(input.rootPath)) {
-      throw new Error('Working tree possui mudanças. Confirme checkout forçado ou faça commit/stash antes.')
+      throw new Error('The working tree has changes. Confirm a forced checkout, or commit or stash them first.')
     }
 
     if (input.name.startsWith('origin/')) {
@@ -280,7 +303,7 @@ export class GitHubRepositoryService {
         try {
           await this.gh.runGit(['fetch', remoteName, '--prune'], input.rootPath)
         } catch {
-          warning = ` Aviso: o fetch de ${remoteName} falhou — a base pode estar desatualizada.`
+          warning = ` Warning: fetching ${remoteName} failed — the base may be out of date.`
         }
       }
     }
@@ -294,8 +317,41 @@ export class GitHubRepositoryService {
     }
     await this.gh.runGit(args, input.rootPath)
 
+    warning += await this.prepareNewWorktree(input.rootPath, absolutePath)
+
     const from = baseRef ? ` a partir de ${baseRef}` : ''
     return ok(`Worktree criado em ${absolutePath} (branch ${input.branch}${from}).${warning}`)
+  }
+
+  /**
+   * Applies the repo's oxe.yaml to a worktree that now exists: shared links
+   * first (so setup sees them), then the setup hook. Nothing here may fail the
+   * creation — the worktree is real by now — so problems become a warning.
+   */
+  private async prepareNewWorktree(rootPath: string, worktreePath: string): Promise<string> {
+    const config = (await loadRepoConfig(worktreePath)) ?? (await loadRepoConfig(rootPath))
+    if (!config) return ''
+    let notes = ''
+    if (config.worktree.sharedDirectories.length > 0) {
+      await createSharedLinks(rootPath, worktreePath, config.worktree.sharedDirectories)
+    }
+    const setup = config.scripts.setup
+    if (!setup) return notes
+    if (!this.lifecycle?.trust.isTrusted(rootPath, 'setup', setup)) {
+      return ' Warning: the oxe.yaml setup hook was not approved and did not run.'
+    }
+    const outcome = await runHook(setup, {
+      cwd: worktreePath,
+      env: {
+        OXE_ROOT_PATH: rootPath,
+        OXE_WORKTREE_PATH: worktreePath,
+        OXE_WORKSPACE_NAME: worktreePath.replace(/\\/g, '/').split('/').pop() ?? ''
+      }
+    })
+    if (outcome.status === 'passed') notes += ' Setup hook complete.'
+    else if (outcome.status === 'failed') notes += ` Warning: the setup hook exited with code ${outcome.exitCode}.`
+    else notes += ' Warning: the setup hook did not end in a verifiable way.'
+    return notes
   }
 
   private async refExists(rootPath: string, ref: string): Promise<boolean> {
@@ -304,10 +360,14 @@ export class GitHubRepositoryService {
   }
 
   async removeWorktree(input: GitHubRemoveWorktreeInput): Promise<GitHubMessageResult> {
-    const args = ['worktree', 'remove']
-    if (input.force) args.push('--force')
-    args.push(input.path)
-    await this.gh.runGit(args, input.rootPath)
-    return ok(`Worktree em ${input.path} removido.`)
+    if (!this.lifecycle) {
+      // Not wired (tests, headless use): keep the original behaviour exactly.
+      const args = ['worktree', 'remove']
+      if (input.force) args.push('--force')
+      args.push(input.path)
+      await this.gh.runGit(args, input.rootPath)
+      return ok(`Worktree em ${input.path} removido.`)
+    }
+    return removeWorktreeSafely({ gh: this.gh, ...this.lifecycle }, input)
   }
 }

@@ -20,7 +20,11 @@ import {
   parseGitHubRestoreCheckpointInput,
   parseGitHubWorkflowRunInput,
   parseGitHubWorkspaceInput,
-  parseGitHubWorktreePathInput
+  parseGitHubWorktreePathInput,
+  parseRepoConfigInput,
+  parseWorktreeCleanupScanInput,
+  parseWorktreeCleanupRemoveInput,
+  parseApproveRepoHookInput
 } from './validation'
 
 export function registerGitHubIpc(db: AppDatabase, service = new GitHubService(db)): GitHubService {
@@ -81,6 +85,19 @@ export function registerGitHubIpc(db: AppDatabase, service = new GitHubService(d
   ipcMain.handle(IPC_CHANNELS.github.getWorktreeStatus, (_event, input: unknown) =>
     service.getWorktreeStatus(parseGitHubWorktreePathInput(input))
   )
+  ipcMain.handle(IPC_CHANNELS.github.scanWorktreeCleanup, (_event, input: unknown) =>
+    service.scanWorktreeCleanup(parseWorktreeCleanupScanInput(input))
+  )
+  ipcMain.handle(IPC_CHANNELS.github.removeWorktreeCleanup, (_event, input: unknown) =>
+    service.removeWorktreeCleanup(parseWorktreeCleanupRemoveInput(input))
+  )
+  ipcMain.handle(IPC_CHANNELS.github.getRepoConfig, (_event, input: unknown) =>
+    service.repoConfigSnapshot(parseRepoConfigInput(input).rootPath)
+  )
+  ipcMain.handle(IPC_CHANNELS.github.approveRepoHook, (_event, input: unknown) => {
+    const { rootPath, kind, contentHash } = parseApproveRepoHookInput(input)
+    return service.approveRepoHook(rootPath, kind, contentHash)
+  })
   ipcMain.handle(IPC_CHANNELS.github.listPullRequests, (_event, input: unknown) =>
     service.listPullRequests(parseGitHubPullRequestListInput(input))
   )

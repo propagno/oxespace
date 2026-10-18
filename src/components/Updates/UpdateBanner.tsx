@@ -31,7 +31,7 @@ export function UpdateBanner(): ReactElement | null {
   return (
     <div className="app-update-indicator rtk-update-indicator" ref={rootRef} data-testid="rtk-update-indicator">
       <button type="button" className="app-update-trigger" aria-label={rtk.updating ? 'RTK updating' : `RTK update ${rtk.latestVersion ?? ''} available`} aria-expanded={open} aria-haspopup="dialog" title="RTK update" onClick={() => setOpen(value => !value)}>
-        <Download size={15} aria-hidden="true" />
+        <Download size={14} aria-hidden="true" />
         <span className="app-update-dot" aria-hidden="true" />
       </button>
       {open && <div className="app-update-popover" role="dialog" aria-label="RTK update">

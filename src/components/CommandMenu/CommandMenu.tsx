@@ -4,14 +4,7 @@ import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
 import type { SearchResult } from '../../../shared/types/search'
 import type { SemanticQueryHit } from '../../../shared/types/ipc'
 import type { CommandPaletteAction } from '../CommandPalette/CommandPalette'
-import {
-  CommandDialog,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList
-} from '@/components/ui/command'
+import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, commandStyles } from '../../ui/CommandPalette'
 import { useEditorStore } from '../../store/editor.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 
@@ -33,8 +26,13 @@ function workspaceLabel(w: Workspace): string {
   return w.name?.trim() || w.rootPath.split(/[\\/]/).filter(Boolean).pop() || w.rootPath
 }
 
-function paneLabel(p: WorkspacePane): string {
-  return p.displayName?.trim() || p.agentName?.trim() || (p.type === 'terminal' ? 'Terminal' : p.type)
+function paneLabel(p: WorkspacePane, siblings: WorkspacePane[] = []): string {
+  const named = p.displayName?.trim() || p.agentName?.trim()
+  if (named) return named
+  if (p.type !== 'terminal') return p.type
+  // Unnamed terminals are told apart by position, not listed as identical rows.
+  const index = siblings.filter(item => item.type === 'terminal').findIndex(item => item.id === p.id)
+  return index >= 0 ? `Terminal ${index + 1}` : 'Terminal'
 }
 
 /** Semantic hits carry absolute paths; the editor opens workspace-relative ones. */
@@ -170,7 +168,7 @@ export function CommandMenu({
     (w) => !q || matchesTokens(`${workspaceLabel(w)} ${w.rootPath}`, q)
   )
   const panes = workspace?.panes ?? []
-  const matchedPanes = panes.filter((p) => !q || matchesTokens(paneLabel(p), q))
+  const matchedPanes = panes.filter((p) => !q || matchesTokens(paneLabel(p, panes), q))
   const matchedActions = actions.filter((a) => {
     if (a.disabled) return false
     if (!q) return true
@@ -218,8 +216,8 @@ export function CommandMenu({
                 onSelect={() => runAction(() => onSelectWorkspace(w.id))}
               >
                 <FolderGit2 />
-                <span className="shrink-0">{workspaceLabel(w)}</span>
-                <span className="truncate text-xs text-muted-foreground">{w.rootPath}</span>
+                <span className={commandStyles.label}>{workspaceLabel(w)}</span>
+                <span className={commandStyles.detail}>{w.rootPath}</span>
               </CommandItem>
             ))}
           </CommandGroup>
@@ -234,9 +232,9 @@ export function CommandMenu({
                 onSelect={() => runAction(() => onSelectPane(p.id))}
               >
                 <Bot />
-                <span className="shrink-0">{paneLabel(p)}</span>
+                <span className={commandStyles.label}>{paneLabel(p, panes)}</span>
                 {p.agentName && p.displayName ? (
-                  <span className="truncate text-xs text-muted-foreground">{p.agentName}</span>
+                  <span className={commandStyles.detail}>{p.agentName}</span>
                 ) : null}
               </CommandItem>
             ))}
@@ -250,9 +248,9 @@ export function CommandMenu({
               return (
                 <CommandItem key={a.id} value={`cmd-${a.id}`} onSelect={() => runAction(a.run)}>
                   {Icon ? <Icon /> : null}
-                  <span className="shrink-0">{a.title}</span>
+                  <span className={commandStyles.label}>{a.title}</span>
                   {a.subtitle ? (
-                    <span className="truncate text-xs text-muted-foreground">{a.subtitle}</span>
+                    <span className={commandStyles.detail}>{a.subtitle}</span>
                   ) : null}
                 </CommandItem>
               )
@@ -267,8 +265,8 @@ export function CommandMenu({
               return (
                 <CommandItem key={`name-${p}`} value={`name-${p}`} onSelect={() => openFile(p)}>
                   <FileText />
-                  <span className="shrink-0">{name}</span>
-                  {dir ? <span className="truncate text-xs text-muted-foreground">{dir}</span> : null}
+                  <span className={commandStyles.label}>{name}</span>
+                  {dir ? <span className={commandStyles.detail}>{dir}</span> : null}
                 </CommandItem>
               )
             })}
@@ -283,8 +281,8 @@ export function CommandMenu({
               return (
                 <CommandItem key={`sem-${h.filePath}`} value={`sem-${h.filePath}`} onSelect={() => openFile(rel)}>
                   <Brain />
-                  <span className="shrink-0">{name}</span>
-                  {dir ? <span className="truncate text-xs text-muted-foreground">{dir}</span> : null}
+                  <span className={commandStyles.label}>{name}</span>
+                  {dir ? <span className={commandStyles.detail}>{dir}</span> : null}
                 </CommandItem>
               )
             })}
@@ -301,8 +299,8 @@ export function CommandMenu({
                   onSelect={() => openFile(f.path)}
                 >
                   <FileText />
-                  <span className="truncate">{f.path}</span>
-                  <span className="ml-auto shrink-0 text-xs text-muted-foreground">:{m.lineNumber}</span>
+                  <span className={commandStyles.truncate}>{f.path}</span>
+                  <span className={commandStyles.trailing}>:{m.lineNumber}</span>
                 </CommandItem>
               ))
             )}

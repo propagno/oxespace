@@ -5,6 +5,7 @@ import type { AgentProfile } from '../../../shared/types/agent'
 import type { ConversationThread } from '../../../shared/types/thread'
 import { DesktopDialog } from '../Navigation/DesktopDialog'
 import './DelegationCreateDialog.css'
+import { Checkbox, Select, TextArea, TextField } from '../../ui'
 
 export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceId, origin: suppliedOrigin, onClose, onCreated }: {
   thread?: ConversationThread
@@ -98,10 +99,10 @@ export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceI
   return <DesktopDialog className="delegation-create-dialog" title="Delegate work" description="Start a focused session in its own branch and worktree." onClose={() => { if (!loading) onClose() }}>
     <div className="delegation-form-body">
       <div className="delegation-context-row">
-        <label>Agent<select value={profileId} disabled={loading} onChange={event => setProfileId(event.target.value)}>{profiles.map(profile => <option key={profile.agentProfileId} value={profile.agentProfileId}>{profile.name}</option>)}</select></label>
-        <label>Destination<select value={targetId} disabled={loading} onChange={event => { setTargetId(event.target.value); if (event.target.value.startsWith('thread:')) setSurface('thread') }}><option value={workspaceId}>This project · new worktree</option>{destinations.filter(target => target.workspaceId !== workspaceId).map(target => <option key={target.workspaceId} value={target.workspaceId}>{target.name}</option>)}</select></label>
-        <label>Mode<select value={mode} onChange={event => setMode(event.target.value as typeof mode)}><option value="isolated-change">Implement changes</option><option value="analysis">Analysis only</option></select></label>
-        <label>Open destination in<select value={surface} onChange={event => setSurface(event.target.value as typeof surface)}><option value="thread">Thread conversation</option>{!targetId.startsWith('thread:') && <option value="terminal">Code terminal</option>}</select></label>
+        <label>Agent<Select value={profileId} disabled={loading} onChange={event => setProfileId(event.target.value)}>{profiles.map(profile => <option key={profile.agentProfileId} value={profile.agentProfileId}>{profile.name}</option>)}</Select></label>
+        <label>Destination<Select value={targetId} disabled={loading} onChange={event => { setTargetId(event.target.value); if (event.target.value.startsWith('thread:')) setSurface('thread') }}><option value={workspaceId}>This project · new worktree</option>{destinations.filter(target => target.workspaceId !== workspaceId).map(target => <option key={target.workspaceId} value={target.workspaceId}>{target.name}</option>)}</Select></label>
+        <label>Mode<Select value={mode} onChange={event => setMode(event.target.value as typeof mode)}><option value="isolated-change">Implement changes</option><option value="analysis">Analysis only</option></Select></label>
+        <label>Open destination in<Select value={surface} onChange={event => setSurface(event.target.value as typeof surface)}><option value="thread">Thread conversation</option>{!targetId.startsWith('thread:') && <option value="terminal">Code terminal</option>}</Select></label>
       </div>
       <div className="delegation-columns">
         <section className="delegation-panel" aria-labelledby="delegation-task-heading">
@@ -121,7 +122,7 @@ export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceI
             </div>
             <label className="delegation-memory-option"><input type="checkbox" checked={includeMemory} onChange={event => setIncludeMemory(event.target.checked)} /><span>Include relevant AI Memory <small>Requires AI Memory enabled for this project. Code context is included separately when available.</small></span></label>
           </details>
-          <details className="delegation-evidence"><summary>Committed file evidence <span>Optional · up to 8 paths</span></summary><label>Repository paths, one per line<textarea value={evidence} onChange={event => setEvidence(event.target.value)} placeholder="docs/architecture.md" /></label><p>Only selected committed text is transferred. Local edits stay in this checkout.</p></details>
+          <details className="delegation-evidence"><summary>Committed file evidence <span>Optional · up to 8 paths</span></summary><label>Repository paths, one per line<TextArea value={evidence} onChange={event => setEvidence(event.target.value)} placeholder="docs/architecture.md" /></label><p>Only selected committed text is transferred. Local edits stay in this checkout.</p></details>
         </section>
         <section className="delegation-panel" aria-labelledby="delegation-checkout-heading">
           <div className="delegation-section-heading"><span>02</span><div><h3 id="delegation-checkout-heading">Checkout</h3><p>Choose the branch for the independent worktree.</p></div></div>
@@ -129,14 +130,14 @@ export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceI
             {(['existing', 'create', 'generated'] as const).map(value => <label key={value} data-selected={strategy === value}><input type="radio" name="delegation-branch" checked={strategy === value} onChange={() => { setStrategy(value); setPreview(null) }} />{value === 'existing' ? 'Existing' : value === 'create' ? 'New branch' : 'Generated'}</label>)}
           </fieldset>
           <div className="delegation-branch-fields">
-            {strategy === 'generated' ? <><label>Reference (optional)<input value={reference} onChange={event => { setReference(event.target.value); setPreview(null) }} placeholder="CARD-142" /></label><label>Template<input value={template} onChange={event => { setTemplate(event.target.value); setPreview(null) }} /></label></>
-              : <label>Exact branch<input value={branch} onChange={event => { setBranch(event.target.value); setPreview(null) }} placeholder="feature/CARD-142-login" /></label>}
-            {strategy !== 'existing' && <label>Base ref (optional)<input value={baseRef} onChange={event => { setBaseRef(event.target.value); setPreview(null) }} placeholder="Repository default" /></label>}
+            {strategy === 'generated' ? <><label>Reference (optional)<TextField value={reference} onChange={event => { setReference(event.target.value); setPreview(null) }} placeholder="CARD-142" /></label><label>Template<TextField value={template} onChange={event => { setTemplate(event.target.value); setPreview(null) }} /></label></>
+              : <label>Exact branch<TextField value={branch} onChange={event => { setBranch(event.target.value); setPreview(null) }} placeholder="feature/CARD-142-login" /></label>}
+            {strategy !== 'existing' && <label>Base ref (optional)<TextField value={baseRef} onChange={event => { setBaseRef(event.target.value); setPreview(null) }} placeholder="Repository default" /></label>}
           </div>
           <div className="delegation-options">
-            {strategy === 'existing' && <label><input type="checkbox" checked={reuse} onChange={event => setReuse(event.target.checked)} />Reuse a clean worktree already on this branch</label>}
-            <label><input type="checkbox" checked={fetchBase} onChange={event => setFetchBase(event.target.checked)} />Fetch remote before creating the worktree</label>
-            {fetchBase && <label className="delegation-remote-field">Remote (optional)<input value={remote} onChange={event => { setRemote(event.target.value); setPreview(null) }} placeholder="origin" /></label>}
+            {strategy === 'existing' && <Checkbox checked={reuse} onChange={event => setReuse(event.target.checked)} label="Reuse a clean worktree already on this branch" />}
+            <Checkbox checked={fetchBase} onChange={event => setFetchBase(event.target.checked)} label="Fetch remote before creating the worktree" />
+            {fetchBase && <label className="delegation-remote-field">Remote (optional)<TextField value={remote} onChange={event => { setRemote(event.target.value); setPreview(null) }} placeholder="origin" /></label>}
           </div>
           {preview && <section className="delegation-preview" aria-label="Delegation preview"><header><Waypoints size={14} /><strong>{preview.ready ? 'Ready to delegate' : 'Configuration required'}</strong></header>
             <dl><div><dt>Branch</dt><dd><GitBranch size={12} />{preview.checkout.branch}</dd></div><div><dt>Base</dt><dd>{preview.checkout.baseRef} · {preview.checkout.baseSha.slice(0, 12)}</dd></div><div><dt>Worktree</dt><dd>{preview.checkout.path}</dd></div></dl>
@@ -146,6 +147,6 @@ export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceI
       </div>
       {error && <p role="alert" className="delegation-preview-error">{error}</p>}
     </div>
-    <footer className="delegation-footer"><span>Preview the checkout before starting the agent.</span><div><button type="button" disabled={loading} onClick={onClose}>Cancel</button><button type="button" disabled={loading || !objective.trim() || (strategy !== 'generated' && !branch.trim())} onClick={() => void inspect()}>{loading ? <><Loader2 size={13} className="thread-spin" />Working…</> : 'Preview checkout'}</button><button type="button" className="thread-primary" disabled={loading || !profileId || !preview?.ready || !handoff.trim() || !acceptance.trim()} onClick={() => void create()}>Create delegation</button></div></footer>
+    <footer className="delegation-footer"><span>Preview the checkout before starting the agent.</span><div><button type="button" disabled={loading} onClick={onClose}>Cancel</button><button type="button" disabled={loading || !objective.trim() || (strategy !== 'generated' && !branch.trim())} onClick={() => void inspect()}>{loading ? <><Loader2 size={14} className="thread-spin" />Working…</> : 'Preview checkout'}</button><button type="button" className="thread-primary" disabled={loading || !profileId || !preview?.ready || !handoff.trim() || !acceptance.trim()} onClick={() => void create()}>Create delegation</button></div></footer>
   </DesktopDialog>
 }

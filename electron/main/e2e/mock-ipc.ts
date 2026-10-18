@@ -20,12 +20,14 @@ import { defaultSplitShellProfileId, fallbackShellProfiles } from '../services/s
 // The one real service the mocks keep: file reads are what the editor and
 // preview specs actually assert on, and faking a filesystem would test the fake.
 import { FileSystemService } from '../services/file-system.service'
+import { registerOxeQueryMock } from './oxequery-mock'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { ShellProfile, Workspace, WorkspaceLayout, WorkspaceLayoutPreset } from '../../../shared/types/workspace'
 
 export function registerE2eMockIpcHandlers(): void {
   const shellProfiles: ShellProfile[] = fallbackShellProfiles()
   const workspaces: Workspace[] = []
+  registerOxeQueryMock()
 
   ipcMain.handle(IPC_CHANNELS.workspace.list, () => workspaces)
   ipcMain.handle(IPC_CHANNELS.workspace.shellProfiles, () => shellProfiles)

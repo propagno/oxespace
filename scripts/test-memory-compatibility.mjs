@@ -50,7 +50,7 @@ try {
   if (expired) throw Error('Certification exceeded its 180 second process-tree deadline')
   if (code !== 0) throw Error(`Native contract suite failed (${code})`)
   const summary = JSON.parse(await readFile(report, 'utf8'))
-  const expected = version === '2.6.2' ? 19 : 12
+  const expected = version === '2.6.2' ? 21 : 12
   if (!summary.success || summary.numTotalTests !== expected || summary.numPassedTests !== expected || summary.numPendingTests !== 0 || summary.numTodoTests !== 0) {
     throw Error('Native certification requires every expected test to pass, without skips')
   }

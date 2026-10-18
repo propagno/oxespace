@@ -1,9 +1,11 @@
 import { AlertCircle, ArrowLeft, ArrowRight, Camera, ExternalLink, LoaderCircle, MousePointerClick, Minus, Monitor, MonitorPlay, Plus, RotateCw, Smartphone, Tablet, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { useModalSurface, Button } from '../../ui'
 import type { DesignGrabPayload } from '../../../shared/types/design-mode'
 import type { BrowserPreviewEvent, BrowserPreviewSessionState } from '../../../shared/types/browser-preview'
 import type { Workspace } from '../../../shared/types/workspace'
 import { pasteIntoAgentTerminal } from '../../lib/sendToAgent'
+import { ConfirmDialog } from '../../ui'
 import { useUIStore } from '../../store/ui.store'
 import { DesignGrabSheet } from './DesignGrabSheet'
 import { NativePreviewHost } from './NativePreviewHost'
@@ -57,8 +59,11 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
   const [allowExternal, setAllowExternal] = useState(false)
   const externalPageBlocked = Boolean(url && !normalizePreviewUrl(url, allowExternal))
   const [agentDocumentation, setAgentDocumentation] = useState(false)
+  const [consentOpen, setConsentOpen] = useState(false)
   // #3 Design Mode: pick an element in the previewed page and hand it to an agent.
   const [designMode, setDesignMode] = useState(false)
+  // Escape first leaves Design Mode (the hint says so), then closes the panel.
+  const surface = useModalSurface<HTMLElement>(() => { if (designMode) setDesignMode(false); else onClose() }, !embedded)
   const [grab, setGrab] = useState<{ payload: DesignGrabPayload; screenshot: string | null } | null>(null)
   // `send()` and `capturePage()` throw until the guest emits dom-ready.
   const [guestReady, setGuestReady] = useState(false)
@@ -201,17 +206,17 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
         </div>
         <div className="web-preview-actions">
           {!embedded ? (
-            <button type="button" className="icon-button" aria-label="Close web preview" onClick={onClose}>
+            <Button variant="ghost" size="sm" square aria-label="Close web preview" onClick={onClose}>
               <X size={14} aria-hidden="true" />
-            </button>
+            </Button>
           ) : null}
         </div>
       </header>
 
-      <div className="web-preview-tabs" role="tablist" aria-label="Browser tabs">
+      <div className="web-preview-tabs" role="group" aria-label="Browser tabs">
         {tabs.map((tab, index) => <div className="web-preview-tab" key={tab.id} data-browser-tab-id={tab.id} data-active={tab.id === activeTabId} data-loading={tab.loading} data-error={Boolean(tab.error)}>
           {tab.loading ? <LoaderCircle size={12} className="web-preview-tab-spinner" aria-label="Loading" /> : tab.error ? <AlertCircle size={12} aria-label="Page failed" /> : null}
-          <button type="button" role="tab" aria-selected={tab.id === activeTabId} aria-label={`Tab ${index + 1}: ${tab.url ? new URL(tab.url).hostname : 'New tab'}`} onClick={() => changeTab('select',tab.id)}>{tab.url ? new URL(tab.url).hostname : 'New tab'}</button>
+          <button type="button" aria-current={tab.id === activeTabId ? 'true' : undefined} aria-label={`Tab ${index + 1}: ${tab.url ? new URL(tab.url).hostname : 'New tab'}`} onClick={() => changeTab('select',tab.id)}>{tab.url ? new URL(tab.url).hostname : 'New tab'}</button>
           <button type="button" aria-label={`Close tab ${index + 1}`} onClick={() => changeTab('close',tab.id)}><X size={12} aria-hidden="true" /></button>
         </div>)}
         <button type="button" className="web-preview-new-tab" aria-label="New browser tab" onClick={() => changeTab('new')}><Plus size={14} aria-hidden="true" /></button>
@@ -245,9 +250,9 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
           External
         </label>
         <div className="web-preview-zoom-controls" aria-label="Zoom controls">
-          <button type="button" aria-label="Zoom out" onClick={zoomOut}><Minus size={13} aria-hidden="true" /></button>
+          <button type="button" aria-label="Zoom out" onClick={zoomOut}><Minus size={14} aria-hidden="true" /></button>
           <span>{zoom}%</span>
-          <button type="button" aria-label="Zoom in" onClick={zoomIn}><Plus size={13} aria-hidden="true" /></button>
+          <button type="button" aria-label="Zoom in" onClick={zoomIn}><Plus size={14} aria-hidden="true" /></button>
         </div>
         <button type="button" className="web-preview-nav-button" aria-label="Desktop viewport" aria-pressed={viewport === 'desktop'} onClick={() => setViewport('desktop')}><Monitor size={14} aria-hidden="true" /></button>
         <button type="button" className="web-preview-nav-button" aria-label="Tablet viewport" aria-pressed={viewport === 'tablet'} onClick={() => setViewport('tablet')}><Tablet size={14} aria-hidden="true" /></button>
@@ -270,11 +275,14 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
         </button>
       </div>
 
+      {consentOpen && <ConfirmDialog title="Allow agents to inspect this preview?" confirmLabel="Allow access" onCancel={() => setConsentOpen(false)}
+        onConfirm={() => { setAgentDocumentation(true); setConsentOpen(false) }}
+        description="Agents in this workspace can read the page and capture screenshots. Page content and screenshots may be sent to the agent vendor. Inputs are masked automatically, but review captures for other private data. Each click, fill or navigation still asks for separate approval." />}
       <div className="web-preview-agent-access">
         <label className="web-preview-external-toggle" title="Allow agents in this workspace to inspect and capture this preview. Captures can be sent to the agent vendor. Inputs are masked, but other private data needs explicit redaction. Click/fill/navigation require confirmation. Resets when the preview closes.">
           <input type="checkbox" aria-label="Agent documentation access" checked={agentDocumentation} onChange={event => {
             if (!event.currentTarget.checked) { setAgentDocumentation(false); return }
-            setAgentDocumentation(window.confirm('Allow agents to inspect and capture this preview? Page content and screenshots may be sent to the agent vendor. Review captures for private data; inputs are masked automatically. Each click, fill or navigation asks for separate approval.'))
+            setConsentOpen(true)
           }} />Agent access
         </label>
         <span>{agentDocumentation ? 'Actions ask for approval' : 'Documentation access is off'}</span>
@@ -329,7 +337,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
 
   return (
     <div className="web-preview-backdrop" role="presentation" onMouseDown={onClose}>
-      <section className="web-preview-panel" role="dialog" aria-modal="true" aria-label="Web Preview" data-browser-owner={previewKey} data-agent-automation={String(agentDocumentation)} onMouseDown={(event) => event.stopPropagation()}>
+      <section className="web-preview-panel" role="dialog" aria-modal="true" aria-label="Web Preview" {...surface} data-browser-owner={previewKey} data-agent-automation={String(agentDocumentation)} onMouseDown={(event) => event.stopPropagation()}>
         {content}
       </section>
     </div>

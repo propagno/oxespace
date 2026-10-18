@@ -1,0 +1,44 @@
+#!/usr/bin/env node
+// Fails when a main-process bundle in out/main statically imports a package the installer does not ship.
+//
+// Tests and the packaged smoke run inside the checkout, where Node finds any package in the repository's
+// node_modules by walking up from the app folder. An installed app has no such parent, so a static import of
+// a devDependency (pg-cloudflare in 1.0.0) only breaks on users' machines. Run after `npm run build`.
+import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { builtinModules } from 'node:module'
+import { join, relative } from 'node:path'
+
+const root = process.cwd()
+const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
+const shipped = new Set([...Object.keys(pkg.dependencies ?? {}), ...Object.keys(pkg.optionalDependencies ?? {})])
+const builtins = new Set([...builtinModules, ...builtinModules.map(name => `node:${name}`), 'electron'])
+
+const packageName = specifier => specifier.startsWith('@') ? specifier.split('/').slice(0, 2).join('/') : specifier.split('/')[0]
+
+function files(dir) {
+  return readdirSync(dir).flatMap(name => {
+    const path = join(dir, name)
+    if (statSync(path).isDirectory()) return name === 'mcp-bridge' || name === 'migrations' ? [] : files(path)
+    return /\.(m?js|cjs)$/.test(name) ? [path] : []
+  })
+}
+
+const outMain = join(root, 'out', 'main')
+const problems = []
+for (const file of files(outMain)) {
+  const source = readFileSync(file, 'utf8')
+  // Static ESM imports are evaluated when the module loads, so any missing one kills the whole bundle.
+  for (const match of source.matchAll(/^\s*import\s+(?:[^'";]*?\s+from\s+)?["']([^"'./][^"']*)["']/gm)) {
+    const specifier = match[1]
+    const name = packageName(specifier)
+    if (builtins.has(specifier) || builtins.has(name) || shipped.has(name)) continue
+    problems.push(`${relative(root, file)}: static import of "${specifier}", which is not in package.json dependencies or optionalDependencies`)
+  }
+}
+
+if (problems.length) {
+  console.error('Bundles import packages the installer does not ship:\n' + problems.map(line => `  - ${line}`).join('\n'))
+  console.error('Bundle the package, alias it to a stub, or move it to dependencies.')
+  process.exit(1)
+}
+console.log(`check-bundle-imports: ${files(outMain).length} bundles, every static import is shipped or built in`)

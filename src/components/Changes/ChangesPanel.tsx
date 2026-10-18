@@ -3,9 +3,11 @@ import { Check, CheckCircle2, Circle, ChevronDown, ChevronLeft, ChevronRight, Fi
 import { DropdownMenu, Popover } from 'radix-ui'
 import type { GitDiffSummary, GitDiffSummaryFile, GitFileOriginal } from '../../../shared/types/git'
 import { formatDiffComments } from '../../../shared/types/diff-comments'
+import { useTreeKeyboard } from '../../hooks/useTreeKeyboard'
 import { useDiffCommentsStore } from '../../store/diff-comments.store'
 import { buildChangeTree, chooseBase, filterChangedFiles, formatCount, isLargeDiff, languageFor, normalizeBranchName, orderedFiles, splitPath, type ChangeTreeNode } from './changesModel'
 import './ChangesPanel.css'
+import { TextField, EmptyState } from '../../ui'
 
 const MonacoDiff = lazy(() => import('./MonacoDiff'))
 
@@ -42,16 +44,16 @@ function TreeNode({ node, depth, selected, collapsed, viewed, onToggle, onSelect
   node: ChangeTreeNode; depth: number; selected: string | null; collapsed: Set<string>; viewed: Set<string>; onToggle(path: string): void; onSelect(path: string): void
 }): ReactElement {
   if (node.kind === 'file') {
-    return <li><button type="button" className={`changes-tree-row is-${node.file!.status}${viewed.has(signature(node.file!)) ? ' is-viewed' : ''}`} aria-current={selected === node.path ? 'true' : undefined} style={{ paddingLeft: 8 + depth * 14 }} onClick={() => onSelect(node.path)} title={node.path}>
+    return <li role="none"><button type="button" role="treeitem" aria-level={depth + 1} aria-selected={selected === node.path} className={`changes-tree-row is-${node.file!.status}${viewed.has(signature(node.file!)) ? ' is-viewed' : ''}`} aria-current={selected === node.path ? 'true' : undefined} style={{ paddingLeft: 8 + depth * 14 }} onClick={() => onSelect(node.path)} title={node.path}>
       <KindBadge path={node.path} /><span className="changes-tree-name">{node.name}</span><Counts additions={node.additions} deletions={node.deletions} />
     </button></li>
   }
   const open = !collapsed.has(node.path)
-  return <li>
-    <button type="button" className="changes-tree-row is-dir" aria-expanded={open} style={{ paddingLeft: 8 + depth * 14 }} onClick={() => onToggle(node.path)} title={node.path}>
-      {open ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />}<span className="changes-tree-name">{node.name}</span>
+  return <li role="none">
+    <button type="button" role="treeitem" aria-level={depth + 1} className="changes-tree-row is-dir" aria-expanded={open} style={{ paddingLeft: 8 + depth * 14 }} onClick={() => onToggle(node.path)} title={node.path}>
+      {open ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}<span className="changes-tree-name">{node.name}</span>
     </button>
-    {open && <ul>{node.children.map(child => <TreeNode key={`${child.kind}:${child.path}`} node={child} depth={depth + 1} selected={selected} collapsed={collapsed} viewed={viewed} onToggle={onToggle} onSelect={onSelect} />)}</ul>}
+    {open && <ul role="none">{node.children.map(child => <TreeNode key={`${child.kind}:${child.path}`} node={child} depth={depth + 1} selected={selected} collapsed={collapsed} viewed={viewed} onToggle={onToggle} onSelect={onSelect} />)}</ul>}
   </li>
 }
 
@@ -73,6 +75,7 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
   const [error, setError] = useState('')
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [query, setQuery] = useState('')
+  const treeNav = useTreeKeyboard<HTMLUListElement>()
   const [branchQuery, setBranchQuery] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [content, setContent] = useState<{ path: string; original: GitFileOriginal; modified: string } | null>(null)
@@ -181,22 +184,22 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
     <header className="changes-toolbar">
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild><button type="button" className="changes-pill" aria-label="Change scope">{SCOPE_LABEL[scope]}<ChevronDown size={12} aria-hidden="true" /></button></DropdownMenu.Trigger>
-        <DropdownMenu.Portal><DropdownMenu.Content className="changes-menu" align="start" sideOffset={6}>
+        <DropdownMenu.Portal><DropdownMenu.Content collisionPadding={{ top: 44, right: 8, bottom: 8, left: 8 }} className="changes-menu" align="start" sideOffset={6}>
           <DropdownMenu.RadioGroup value={scope} onValueChange={value => { setScope(value as Scope); setSelectedPath(null) }}>
-            <DropdownMenu.RadioItem value="branch" className="changes-menu-item">All changes on this branch<DropdownMenu.ItemIndicator><Check size={13} /></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>
-            <DropdownMenu.RadioItem value="uncommitted" className="changes-menu-item">Uncommitted changes<DropdownMenu.ItemIndicator><Check size={13} /></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>
+            <DropdownMenu.RadioItem value="branch" className="changes-menu-item">All changes on this branch<DropdownMenu.ItemIndicator><Check size={14} /></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>
+            <DropdownMenu.RadioItem value="uncommitted" className="changes-menu-item">Uncommitted changes<DropdownMenu.ItemIndicator><Check size={14} /></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>
           </DropdownMenu.RadioGroup>
         </DropdownMenu.Content></DropdownMenu.Portal>
       </DropdownMenu.Root>
       {summary && <span className="changes-totals" aria-label="Total changes"><span className="is-add">+{formatCount(summary.additions)}</span><span className="is-del">−{formatCount(summary.deletions)}</span></span>}
       <Popover.Root onOpenChange={open => { if (!open) setBranchQuery('') }}>
         <Popover.Trigger asChild><button type="button" className="changes-pill changes-branches" aria-label="Compare branches" disabled={scope === 'uncommitted'}>
-          <GitBranch size={13} aria-hidden="true" /><span>{current ?? 'HEAD'}</span><span aria-hidden="true">→</span><span>{effectiveBase ?? '…'}</span><ChevronDown size={12} aria-hidden="true" />
+          <GitBranch size={14} aria-hidden="true" /><span>{current ?? 'HEAD'}</span><span aria-hidden="true">→</span><span>{effectiveBase ?? '…'}</span><ChevronDown size={12} aria-hidden="true" />
         </button></Popover.Trigger>
-        <Popover.Portal><Popover.Content className="changes-menu changes-branch-menu" align="start" sideOffset={6} aria-label="Select base branch">
-          <label className="changes-menu-search"><Search size={13} aria-hidden="true" /><input autoFocus aria-label="Search branches" placeholder="Search branches" value={branchQuery} onChange={event => setBranchQuery(event.target.value)} /></label>
+        <Popover.Portal><Popover.Content collisionPadding={{ top: 44, right: 8, bottom: 8, left: 8 }} className="changes-menu changes-branch-menu" align="start" sideOffset={6} aria-label="Select base branch">
+          <label className="changes-menu-search"><Search size={14} aria-hidden="true" /><TextField autoFocus aria-label="Search branches" placeholder="Search branches" value={branchQuery} onChange={event => setBranchQuery(event.target.value)} /></label>
           <p className="changes-menu-heading">Branches</p>
-          <ul>{visibleBranches.map(branch => <li key={branch}><Popover.Close asChild><button type="button" className="changes-menu-item" onClick={() => { setBase(branch); setSelectedPath(null) }}><GitBranch size={13} aria-hidden="true" /><span>{branch}</span>{branch === base && <Check size={13} aria-hidden="true" />}</button></Popover.Close></li>)}
+          <ul>{visibleBranches.map(branch => <li key={branch}><Popover.Close asChild><button type="button" className="changes-menu-item" onClick={() => { setBase(branch); setSelectedPath(null) }}><GitBranch size={14} aria-hidden="true" /><span>{branch}</span>{branch === base && <Check size={14} aria-hidden="true" />}</button></Popover.Close></li>)}
             {!visibleBranches.length && <li className="changes-menu-empty">No branches match.</li>}</ul>
         </Popover.Content></Popover.Portal>
       </Popover.Root>
@@ -204,13 +207,13 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
       {workspaceComments.length > 0 && <span className="changes-review-comments" role="group" aria-label="Review comments">
         <span><b>{workspaceComments.length}</b><span className="changes-review-label"> {workspaceComments.length === 1 ? 'comment' : 'comments'}</span></span>
         {onSendComments && <button type="button" className="is-primary" aria-label="Send comments to agent" title="Send the review comments to the agent" onClick={() => void sendComments()}>Send</button>}
-        <button type="button" aria-label="Discard review comments" title="Discard all review comments" onClick={() => clearComments(workspaceId)}><X size={13} /></button>
+        <button type="button" aria-label="Discard review comments" title="Discard all review comments" onClick={() => clearComments(workspaceId)}><X size={14} /></button>
       </span>}
       <button type="button" className="changes-icon" aria-label="Refresh changes" title="Refresh" onClick={() => void load()} disabled={loading}>{loading ? <Loader2 size={14} className="changes-spin" /> : <RefreshCw size={14} />}</button>
-      {onClose && <button type="button" className="changes-icon" aria-label="Close changes" title="Close" onClick={onClose}><X size={15} /></button>}
+      {onClose && <button type="button" className="changes-icon" aria-label="Close changes" title="Close" onClick={onClose}><X size={14} /></button>}
     </header>
     {large && <div className="changes-banner" role="note"><Info size={14} aria-hidden="true" /><span>This diff is large; showing one file at a time.</span>
-      <span className="changes-banner-nav"><button type="button" aria-label="Previous file" onClick={() => go(-1)} disabled={index <= 0}><ChevronLeft size={15} /></button><button type="button" aria-label="Next file" onClick={() => go(1)} disabled={index < 0 || index >= ordered.length - 1}><ChevronRight size={15} /></button></span></div>}
+      <span className="changes-banner-nav"><button type="button" aria-label="Previous file" onClick={() => go(-1)} disabled={index <= 0}><ChevronLeft size={14} /></button><button type="button" aria-label="Next file" onClick={() => go(1)} disabled={index < 0 || index >= ordered.length - 1}><ChevronRight size={14} /></button></span></div>}
     {error && <p role="alert" className="changes-error">{error}</p>}
     {sendNotice && <p role="status" className="changes-note">{sendNotice}</p>}
     <div className="changes-body">
@@ -224,10 +227,10 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
               <Counts additions={selected.additions} deletions={selected.deletions} />
               <span className="changes-toolbar-spacer" />
               <button type="button" className="changes-viewed" aria-label="Viewed" title="Mark as viewed" aria-pressed={viewed.has(signature(selected))} onClick={() => toggleViewed(selected)}>{viewed.has(signature(selected)) ? <CheckCircle2 size={14} aria-hidden="true" /> : <Circle size={14} aria-hidden="true" />}<span className="changes-viewed-label">Viewed</span></button>
-              {!large && <span className="changes-banner-nav"><button type="button" aria-label="Previous file" onClick={() => go(-1)} disabled={index <= 0}><ChevronLeft size={15} /></button><button type="button" aria-label="Next file" onClick={() => go(1)} disabled={index >= ordered.length - 1}><ChevronRight size={15} /></button></span>}
+              {!large && <span className="changes-banner-nav"><button type="button" aria-label="Previous file" onClick={() => go(-1)} disabled={index <= 0}><ChevronLeft size={14} /></button><button type="button" aria-label="Next file" onClick={() => go(1)} disabled={index >= ordered.length - 1}><ChevronRight size={14} /></button></span>}
             </div>
             <div className="changes-editor">
-              {selected.binary ? <p className="changes-empty">Binary file; no text diff available.</p>
+              {selected.binary ? <EmptyState compact title="Binary file; no text diff available." />
                 : contentError ? <p role="alert" className="changes-error">{contentError}</p>
                 : content?.path !== selected.path ? <p className="changes-empty" role="status">Loading diff…</p>
                 : <>
@@ -238,8 +241,8 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
           </>}
       </div>
       <aside className="changes-files" aria-label="Changed files">
-        <label className="changes-filter"><Search size={13} aria-hidden="true" /><input aria-label="Filter files" placeholder="Filter files…" value={query} onChange={event => setQuery(event.target.value)} /></label>
-        <ul className="changes-tree">{tree.map(node => <TreeNode key={`${node.kind}:${node.path}`} node={node} depth={0} selected={selected?.path ?? null} collapsed={collapsed} viewed={viewed} onToggle={toggleDir} onSelect={setSelectedPath} />)}</ul>
+        <label className="changes-filter"><Search size={14} aria-hidden="true" /><TextField aria-label="Filter files" placeholder="Filter files…" value={query} onChange={event => setQuery(event.target.value)} /></label>
+        <ul className="changes-tree" role="tree" aria-label="Changed files" ref={treeNav.ref} onKeyDown={treeNav.onKeyDown}>{tree.map(node => <TreeNode key={`${node.kind}:${node.path}`} node={node} depth={0} selected={selected?.path ?? null} collapsed={collapsed} viewed={viewed} onToggle={toggleDir} onSelect={setSelectedPath} />)}</ul>
         {!!summary?.files.length && <footer className="changes-files-footer">{viewedCount}/{summary.files.length} viewed</footer>}
       </aside>
     </div>

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-export type ThreadPanel = 'changes' | 'files' | 'search' | 'scripts' | 'background' | 'preview' | 'terminal'
+export type ThreadPanel = 'changes' | 'git' | 'files' | 'search' | 'scripts' | 'background' | 'preview' | 'terminal'
 export interface ThreadWorkbenchView { panel: ThreadPanel | null; selection?: string }
 interface WorkbenchState {
   views: Record<string, ThreadWorkbenchView>

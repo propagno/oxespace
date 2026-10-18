@@ -1,0 +1,16 @@
+.thread-mcp-list { display: grid; gap: var(--space-3); }
+.thread-mcp-list-empty { margin: 0; color: var(--tx-secondary); }
+.thread-mcp-group { display: grid; gap: var(--space-1); }
+.thread-mcp-group h4 { display: flex; align-items: center; gap: var(--space-2); margin: 0; color: var(--tx-primary); font-size: var(--fs-xs); font-weight: 600; }
+.thread-mcp-group h4 small { color: var(--tx-muted); font-weight: 400; font-variant-numeric: tabular-nums; }
+.thread-mcp-group > p { margin: 0; color: var(--tx-muted); font-size: var(--fs-2xs); line-height: 1.4; }
+.thread-mcp-group ul { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.thread-mcp-group li { display: inline-flex; align-items: center; gap: var(--space-1); max-width: 100%; padding: 2px var(--space-2); border: 1px solid var(--bd-base); border-radius: var(--radius-pill); color: var(--tx-secondary); background: var(--bg-subtle); font-size: var(--fs-2xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thread-mcp-source { color: var(--tx-muted); }
+.thread-mcp-dot { width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--tx-muted); }
+.thread-mcp-group.is-connected .thread-mcp-dot { background: var(--intent-success-fg); }
+.thread-mcp-group.is-connected li { color: var(--tx-primary); }
+.thread-mcp-group.is-failed .thread-mcp-dot { background: var(--intent-danger-fg); }
+.thread-mcp-group.is-failed li { border-color: color-mix(in srgb, var(--intent-danger-fg) 45%, transparent); color: var(--intent-danger-fg); }
+.thread-mcp-group.is-starting .thread-mcp-dot { background: var(--intent-info-fg); }
+.thread-mcp-group.is-needs-auth .thread-mcp-dot { background: var(--intent-warning-fg); }

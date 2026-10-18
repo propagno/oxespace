@@ -14,6 +14,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/github/gh-exec.ts',
   'electron/main/services/integration.service.ts',
   'electron/main/services/mcp-sync.service.ts',
+  // Reads the user-level MCP config files of Claude Desktop, Cursor and Windsurf at their fixed locations
+  // (512 KiB at most, JSON only); the renderer never supplies a path.
+  'electron/main/services/mcp-import.service.ts',
   // Optional local memory infrastructure: runtime/config/credentials and agent
   // home configuration, analogous to MCP sync/bootstrap. Never arbitrary source
   // file reads or terminal transcripts. Project probes below read only identity
@@ -29,6 +32,13 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Producer-owned, crash-recoverable delivery queue under the private memory
   // directory; files carry opaque names and are never derived from workspace paths.
   'electron/main/services/memory/memory-outbox.ts',
+  // Read-only size inventory of the private memory directory: counts bytes, never reads
+  // file contents, follows no links and deletes nothing.
+  'electron/main/services/memory/memory-storage.ts',
+  // Reads one small JSON flag file (<userData>/experimental.json); no workspace path involved.
+  'electron/main/services/experimental-features.ts',
+  // Streams the RTK archive the app itself downloaded to hash it before extraction.
+  'electron/main/services/rtk-checksum.ts',
   // Documentation owns generated artifacts under userData/documentation only.
   // Tool callers supply IDs, never filesystem paths or workspace destinations.
   'electron/main/services/documentation/documentation.service.ts',
@@ -56,6 +66,48 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Thread project registration only canonicalizes and checks the selected
   // directory; source-file reads and writes remain in FileSystemService.
   'electron/main/services/conversation/thread-projects.ts',
+  // @-mention context: reads only files the user named in the prompt, inside
+  // the Thread's project (Windows-aware containment, links followed), bounded
+  // per file and in total, and only as prompt text. Never writes.
+  'electron/main/services/conversation/thread-context-resolver.ts',
+  // /instructions: stats the CLAUDE.md / AGENTS.md files the provider CLI
+  // would load and lists .claude/rules. For a rule it reads only the first 4 KiB
+  // to find the `paths:` it is limited to. Never writes.
+  'electron/main/services/conversation/instruction-sources.ts',
+  // Shell parsing: existence probes for the bash grammar and the tree-sitter runtime wasm at
+  // fixed app-asset locations. Never a path from the renderer or the agent, never contents.
+  'electron/main/services/conversation/shell-parse.ts',
+  // Permission rules: only realpath() on paths an agent asked to edit, so a
+  // link or junction out of the project is judged by its target. Never reads
+  // or writes file contents.
+  'electron/main/services/conversation/thread-permissions.ts',
+  // First-message project brief: reads package.json (size-bounded) and checks a
+  // few manifest files exist. Never other contents, never writes.
+  'electron/main/services/conversation/project-brief.ts',
+  // Model-default detection reads only the fixed, size-bounded provider
+  // settings files (project .claude/.codex and the user's provider home).
+  'electron/main/services/conversation/thread-model-override.ts',
+  // Rewinds a Claude session by writing a prefix copy of one UUID-named JSONL
+  // transcript beside it (flag 'wx'); the original is never modified.
+  'electron/main/services/conversation/claude-transcript-fork.ts',
+  // Reads one user-chosen certificate or key (64 KiB at most) from a native open dialog;
+  // the renderer supplies a kind, never a path.
+  'electron/main/services/oxequery/file-picker.ts',
+  // Streams an export to the one file the person chose in a native save dialog (flag 'wx', mode 0600,
+  // removed again when cancelled); the renderer supplies a format, never a path.
+  'electron/main/services/oxequery/export-writer.ts',
+  // Reads the one file chosen in a native open dialog (200 MB cap, streamed) and, for rows it cannot
+  // read, writes `<file>.rejects.ndjson` beside it with flag 'wx'; the renderer never supplies a path.
+  'electron/main/services/oxequery/import-reader.ts',
+  // Writes an Excel workbook to the one file chosen in a native save dialog (flag 'wx', mode 0600, removed
+  // again when cancelled), staging the sheet in a private temporary directory it removes afterwards.
+  'electron/main/services/oxequery/xlsx-writer.ts',
+  // The connections export and import: one file chosen in a native dialog (flag 'wx' on write, 2 MB cap on
+  // read); the renderer supplies no path and the file carries no secret.
+  'electron/main/services/oxequery/connection-transfer.ts',
+  // Checks that a Compose project's folder and files exist before running compose there; the paths come from
+  // the engine's own container labels, never from the renderer.
+  'electron/main/services/oxequery/compose.ts',
   'electron/main/services/shell-profile.service.ts',
   'electron/main/services/skill.service.ts',
   'electron/main/services/terminal.service.ts',
@@ -63,6 +115,24 @@ const ALLOWED_FS_IMPORTS = new Set([
   // recovery. GitHubWorktreeApi owns creation; neither reads/writes source files.
   'electron/main/services/agent-launch.service.ts',
   'electron/main/services/delegation/delegation-git-provisioner.ts',
+  // Worktree lifecycle: reads only the bounded <root>/oxe.yaml, links/unlinks
+  // the repo's declared shared directories (lstat-guarded, never following a
+  // link) and finishes deleting a worktree folder git already de-registered.
+  // Source files are never read or written.
+  'electron/main/services/repo-config/loader.ts',
+  'electron/main/services/repo-config/shared-dirs.ts',
+  'electron/main/services/github/worktree-removal.ts',
+  // Cleanup scan: stat-only probes of a worktree's own git metadata (HEAD,
+  // reflog tail) to estimate idleness. Never reads source files.
+  'electron/main/services/github/worktree-cleanup.ts',
+  // Session search index: read-only scan of the agents' own transcript
+  // folders (~/.claude/projects, ~/.codex/sessions) into a private cache file.
+  // Outside the workspace tree; transcripts are never written.
+  'electron/main/services/session-search/index.ts',
+  // Agent status hooks: writes one managed hook script under <userData> and
+  // merges our entries into the agents' own config (~/.claude/settings.json,
+  // ~/.codex/hooks.json). Outside the workspace tree; never source files.
+  'electron/main/services/agent-hooks/installer.ts',
   // Trusted UI repository registration: realpath identity probes only. No
   // source file reads/writes; evidence reads committed blobs through Git.
   'electron/main/services/coordination/workspace-resolver.ts',

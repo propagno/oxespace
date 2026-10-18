@@ -7,12 +7,14 @@ import { useOxeVoice } from '../../hooks/useOxeVoice'
 // never reaches for the jsdelivr CDN — works behind corporate VPN/proxy and
 // satisfies the packaged-build CSP. Must run before <Editor> mounts.
 import '../../lib/monacoSetup'
+import { MONACO_THEME } from '../../lib/monacoTheme'
 import type { FileTreeNode } from '../../../shared/types/ipc'
 import { selectActiveFile, useEditorStore } from '../../store/editor.store'
 import { isBinaryPreview, previewKind } from '../Preview/previewKind'
 import { ConflictDiff } from './ConflictDiff'
 import { EditorTabs } from './EditorTabs'
 import { FileBrowser } from './FileBrowser'
+import { EmptyState } from '../../ui'
 
 // #10 · Rich previews are lazy so react-markdown and the base64 plumbing stay out
 // of the renderer entry chunk (budget: 500kB).
@@ -259,7 +261,7 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
     <div className="editor-pane" ref={paneRef}>
       <aside className="editor-sidebar" style={{ flexBasis: visibleTreeWidth }}>
         <div className="editor-sidebar-title">Files</div>
-        {isLoadingTree ? <div className="editor-browser-empty">Loading</div> : null}
+        {isLoadingTree ? <EmptyState compact title="Loading" /> : null}
         {treeError ? <div className="editor-error">{treeError}</div> : null}
         {!isLoadingTree && !treeError ? <FileBrowser nodes={tree} rootPath={rootPath} workspaceId={workspaceId} selectedPath={activePath} onOpenFile={handleOpenFile} /> : null}
       </aside>
@@ -375,14 +377,14 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
               <Editor
                 height={editorHeight}
                 width={editorWidth}
-                theme="vs-dark"
+                theme={MONACO_THEME}
                 language={file.language}
                 value={file.content}
                 loading={<div className="editor-loading">Loading</div>}
                 options={{
                   minimap: { enabled: false },
                   fontSize: 13,
-                  fontFamily: 'Cascadia Code, JetBrains Mono, Fira Code, DejaVu Sans Mono, monospace',
+                  fontFamily: "'IBM Plex Mono', 'Cascadia Code', 'JetBrains Mono', 'DejaVu Sans Mono', monospace",
                   automaticLayout: true,
                   scrollBeyondLastLine: false,
                   scrollbar: {
@@ -398,7 +400,7 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
               />
             </div>
           ) : null}
-          {!binaryFile && !file ? <div className="editor-empty">Select a file</div> : null}
+          {!binaryFile && !file ? <EmptyState compact title="Select a file" /> : null}
         </div>
       </section>
     </div>

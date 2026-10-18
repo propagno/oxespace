@@ -1,0 +1,74 @@
+.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
+  width: var(--rail-w);
+  min-height: 0;
+  padding: var(--space-2) 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.group { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); margin: 0; padding: 0; border: 0; }
+.separator { width: 20px; height: 1px; margin: var(--space-1) 0; background: var(--border-default); }
+.spacer { flex: 1; min-height: var(--space-2); }
+
+.button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
+}
+.button:hover { background: var(--fill-hover); color: var(--text-primary); }
+.button:disabled { opacity: 0.4; cursor: default; }
+.button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+
+/* The active mode: accent fill and a mark on the outer edge, like a branch on the trunk. */
+.button[aria-pressed='true'] { background: var(--accent-soft); color: var(--text-accent); }
+.button[aria-pressed='true']::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  border-radius: 0 var(--radius-full) var(--radius-full) 0;
+  background: var(--accent);
+}
+
+/* Count of what needs a person in this mode; amber for "needs you", red when only failures remain. */
+.badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--intent-warning-solid);
+  color: var(--text-on-solid);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  pointer-events: none;
+}
+.badgeFailed { background: var(--intent-danger-solid); }
+
+/* Agents are busy and nothing needs you: a small breathing dot, calm rather than alarming. */
+.working { position: absolute; top: 4px; right: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); pointer-events: none; animation: breathe 1800ms var(--ease-standard) infinite; }
+@keyframes breathe { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .working { animation: none; } }

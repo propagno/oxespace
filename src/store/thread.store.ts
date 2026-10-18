@@ -2,6 +2,10 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { ConversationThread, ThreadAttachment, ThreadProjectSummary, ThreadSnapshot } from '../../shared/types/thread'
 import { cacheThreadSnapshot, retainThreadSnapshots } from './threadSnapshotCache'
+import { createDraftWriter, loadStoredDrafts } from '../utils/threadDrafts'
+
+// Read once, before the store exists: the writer needs the saved edit times to let old drafts expire.
+const storedDrafts = loadStoredDrafts()
 
 interface ThreadState {
   threads: ConversationThread[]; projects: ThreadProjectSummary[]; unavailableProjects: string[]
@@ -35,9 +39,13 @@ interface ThreadState {
   updateSnapshot: (snapshot: ThreadSnapshot) => void
 }
 const refreshVersions = new Map<string, number>()
+/** Kill switch for incremental reads: localStorage `oxe.thread.delta` = 'off' falls back to full reads. */
+function deltaEnabled(): boolean {
+  try { return window.localStorage.getItem('oxe.thread.delta') !== 'off' } catch { return true }
+}
 let generation = 0, catalogGeneration = 0, projectGeneration = 0
 export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
-  threads: [], projects: [], unavailableProjects: [], selectedId: null, snapshot: null, secondaryId: null, activeCell: 'primary', snapshotCache: {}, snapshotCacheOrder: [], drafts: {}, attachments: {}, scrollPositions: {}, expanded: {}, errors: {}, loading: false, hiddenProjects: [], unreadIds: [],
+  threads: [], projects: [], unavailableProjects: [], selectedId: null, snapshot: null, secondaryId: null, activeCell: 'primary', snapshotCache: {}, snapshotCacheOrder: [], drafts: storedDrafts.drafts, attachments: {}, scrollPositions: {}, expanded: {}, errors: {}, loading: false, hiddenProjects: [], unreadIds: [],
   markUnread: id => set(state => ({ unreadIds: [...new Set([...state.unreadIds, id])] })),
   markRead: id => set(state => ({ unreadIds: state.unreadIds.filter(value => value !== id) })),
   hideProject: async id => {
@@ -130,15 +138,34 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
     refreshVersions.set(id, refreshVersion)
     const version = generation
     try {
-      const snapshot = await window.oxe.thread!.read(id)
+      let snapshot: ThreadSnapshot | null = null, incremental = false
+      const held = get().selectedId === id ? get().snapshot : get().snapshotCache[id]
+      if (held?.sync && held.page?.live !== undefined && window.oxe.thread?.readSince && deltaEnabled()) {
+        try {
+          const delta = await window.oxe.thread.readSince(id, { ...held.sync })
+          const current = get().selectedId === id ? get().snapshot : get().snapshotCache[id]
+          // Apply only onto the exact window the cursor described.
+          if (delta.ok && current?.sync?.epoch === held.sync.epoch && current.sync.revision === held.sync.revision) {
+            snapshot = (await import('./threadDelta')).applyThreadDelta(current, delta)
+            incremental = snapshot !== null
+          }
+        } catch { /* Fall back to a full read. */ }
+      }
+      snapshot ??= await window.oxe.thread!.read(id)
+      const resolved = snapshot
       set(state => {
         if (refreshVersion !== refreshVersions.get(id) || !state.threads.some(t => t.id === id)) return state
         const previous = state.threads.find(t => t.id === id)!
+        const snapshot = resolved
         // Keep sidebar order stable during a streamed turn.
         const metadata = snapshot.thread.status === 'running' || snapshot.thread.status === 'approval' ? { ...snapshot.thread, updatedAt: previous.updatedAt } : snapshot.thread
         if (version !== generation || state.selectedId !== id || !state.snapshot || state.snapshot.thread.id !== id) {
           const cache = cacheThreadSnapshot({ snapshots: state.snapshotCache, order: state.snapshotCacheOrder }, snapshot)
           return { threads: state.threads.map(t => t.id === id ? metadata : t), snapshotCache: cache.snapshots, snapshotCacheOrder: cache.order }
+        }
+        if (incremental) {
+          const cache = cacheThreadSnapshot({ snapshots: state.snapshotCache, order: state.snapshotCacheOrder }, snapshot)
+          return { threads: state.threads.map(t => t.id === id ? metadata : t), snapshot, snapshotCache: cache.snapshots, snapshotCacheOrder: cache.order }
         }
         const previousSnapshot = state.snapshot
         const oldTotal = previousSnapshot.page?.total ?? previousSnapshot.events.length
@@ -174,3 +201,12 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
     unreadIds: Array.isArray(value?.unreadIds) ? [...new Set(value.unreadIds.filter((id): id is string => typeof id === 'string'))] : [],
     expanded: Object.fromEntries(Object.entries(value?.expanded ?? {}).filter(([, v]) => typeof v === 'boolean')) as Record<string, boolean> }
 } }))
+
+// Drafts survive a restart. Writes are debounced and flushed when the window closes, so
+// the last keystrokes are not lost if the app is closed right after typing.
+const draftWriter = createDraftWriter(400, undefined, storedDrafts)
+useThreadStore.subscribe((state, previous) => { if (state.drafts !== previous.drafts) draftWriter.schedule(state.drafts) })
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', () => draftWriter.flush())
+  window.addEventListener('beforeunload', () => draftWriter.flush())
+}

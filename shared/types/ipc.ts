@@ -65,18 +65,19 @@ export type { FileSystemApi, FileSystemFileChangedEvent, FileSystemListTreeInput
 export const IPC_CHANNELS = {
   team: { command: 'team:command', messages: 'team:messages', send: 'team:send' },
   agentAccount: { read: 'agent-account:read', login: 'agent-account:login', logout: 'agent-account:logout', cancel: 'agent-account:cancel', code: 'agent-account:code', browser: 'agent-account:browser', changed: 'agent-account:changed' },
-  thread: { projectDiff: 'thread:project-diff', artifact: 'thread:artifact', exportPortable: 'thread:export-portable', importPortable: 'thread:import-portable', models: 'thread:models', configure: 'thread:configure', command: 'thread:command', recover: 'thread:recover', observe: 'thread:observe', commands: 'thread:commands', projects: 'thread:projects', addProject: 'thread:project-add', relinkProject: 'thread:project-relink', setProjectHidden: 'thread:project-hidden', list: 'thread:list', create: 'thread:create', read: 'thread:read', history: 'thread:history', attach: 'thread:attach', removeAttachment: 'thread:remove-attachment', send: 'thread:send', steer: 'thread:steer', updateQueued: 'thread:queue-update', deleteQueued: 'thread:queue-delete', reorderQueued: 'thread:queue-reorder', interrupt: 'thread:interrupt', approve: 'thread:approve', respond: 'thread:respond', pin: 'thread:pin', changed: 'thread:changed' },
-  threadCli: { open: 'thread-cli:open', state: 'thread-cli:state', write: 'thread-cli:write', resize: 'thread-cli:resize', attach: 'thread-cli:attach', detach: 'thread-cli:detach', stop: 'thread-cli:stop', insert: 'thread-cli:insert', link: 'thread-cli:link', data: 'thread-cli:data', exit: 'thread-cli:exit' },
+  thread: { projectDiff: 'thread:project-diff', artifact: 'thread:artifact', exportPortable: 'thread:export-portable', importPortable: 'thread:import-portable', models: 'thread:models', configure: 'thread:configure', command: 'thread:command', recover: 'thread:recover', observe: 'thread:observe', commands: 'thread:commands', projects: 'thread:projects', addProject: 'thread:project-add', relinkProject: 'thread:project-relink', setProjectHidden: 'thread:project-hidden', list: 'thread:list', create: 'thread:create', read: 'thread:read', history: 'thread:history', attach: 'thread:attach', removeAttachment: 'thread:remove-attachment', send: 'thread:send', steer: 'thread:steer', stopTask: 'thread:stop-task', turnFiles: 'thread:turn-files', undoTurnFile: 'thread:undo-turn-file', turnFileHunks: 'thread:turn-file-hunks', undoTurnHunk: 'thread:undo-turn-hunk', permissionRules: 'thread:permission-rules', addPermissionRule: 'thread:permission-rule-add', removePermissionRule: 'thread:permission-rule-remove', auditLog: 'thread:audit-log', debugEvents: 'thread:debug-events', autoApproveReads: 'thread:auto-approve-reads', setAutoApproveReads: 'thread:set-auto-approve-reads', shellCheck: 'thread:shell-check', usageSummary: 'thread:usage-summary', workRuns: 'thread:work-runs', cancelWork: 'thread:work-cancel', updateQueued: 'thread:queue-update', deleteQueued: 'thread:queue-delete', reorderQueued: 'thread:queue-reorder', readSince: 'thread:read-since', rewind: 'thread:rewind', contextUsage: 'thread:context-usage', resumeQueue: 'thread:queue-resume', sendQueuedNow: 'thread:queue-send-now', interrupt: 'thread:interrupt', approve: 'thread:approve', respond: 'thread:respond', pin: 'thread:pin', changed: 'thread:changed' },
   delegation: { create: 'delegation:create', status: 'delegation:status', preview: 'delegation:preview', configure: 'delegation:configure', control: 'delegation:control', changed: 'delegation:changed', configureTarget: 'delegation:configure-target', adopt: 'delegation:adopt' },
   memory: {
     status: 'memory:status', configure: 'memory:configure', install: 'memory:install', rollback: 'memory:rollback',
-    setupAgents: 'memory:setup-agents', search: 'memory:search', recent: 'memory:recent'
+    setupAgents: 'memory:setup-agents', search: 'memory:search', recent: 'memory:recent',
+    handoffs: 'memory:handoffs', storage: 'memory:storage', acceptHandoff: 'memory:accept-handoff'
   },
   app: {
     getUpdateState: 'app:get-update-state',
     checkForUpdates: 'app:check-for-updates',
     quitAndInstall: 'app:quit-and-install',
-    onUpdateState: 'app:update-state'
+    onUpdateState: 'app:update-state',
+    setAppearance: 'app:set-appearance'
   },
   rtk: {
     getStatus: 'rtk:get-status',
@@ -186,6 +187,25 @@ export const IPC_CHANNELS = {
     ensureModel: 'voice:ensure-model',
     onModelProgress: 'voice:on-model-progress'
   },
+  oxeQuery: {
+    call: 'oxeQuery:call',
+    onEvent: 'oxeQuery:event'
+  },
+  automations: {
+    list: 'automations:list',
+    create: 'automations:create',
+    setEnabled: 'automations:set-enabled',
+    remove: 'automations:remove',
+    runNow: 'automations:run-now',
+    runs: 'automations:runs',
+    onChange: 'automations:on-change'
+  },
+  agentHooks: {
+    status: 'agent-hooks:status',
+    install: 'agent-hooks:install',
+    remove: 'agent-hooks:remove',
+    onStatus: 'agent-hooks:on-status'
+  },
   notifications: {
     notify: 'notifications:notify',
     onActivate: 'notifications:on-activate'
@@ -223,7 +243,8 @@ export const IPC_CHANNELS = {
     list: 'session:list',
     fork: 'session:fork',
     delete: 'session:delete',
-    cleanup: 'session:cleanup'
+    cleanup: 'session:cleanup',
+    search: 'session:search'
   },
   skill: {
     list: 'skill:list',
@@ -240,6 +261,8 @@ export const IPC_CHANNELS = {
     start: 'mcp:start',
     stop: 'mcp:stop',
     openSignIn: 'mcp:open-sign-in',
+    discover: 'mcp:discover',
+    importDiscovered: 'mcp:import-discovered',
     callTool: 'mcp:call-tool',
     onHealth: 'mcp:on-health'
   },
@@ -261,6 +284,10 @@ export const IPC_CHANNELS = {
     removeWorktree: 'github:remove-worktree',
     resolveWorktreeBase: 'github:resolve-worktree-base',
     getWorktreeStatus: 'github:get-worktree-status',
+    getRepoConfig: 'github:get-repo-config',
+    scanWorktreeCleanup: 'github:scan-worktree-cleanup',
+    removeWorktreeCleanup: 'github:remove-worktree-cleanup',
+    approveRepoHook: 'github:approve-repo-hook',
     createBranch: 'github:create-branch',
     checkoutBranch: 'github:checkout-branch',
     listPullRequests: 'github:list-pull-requests',
@@ -551,6 +578,11 @@ export interface GitHubApi {
   removeWorktree(input: import('./github').GitHubRemoveWorktreeInput): Promise<GitHubMessageResult>
   resolveWorktreeBase(input: import('./github').GitHubWorkspaceInput): Promise<import('./github').GitHubWorktreeBase>
   getWorktreeStatus(input: import('./github').GitHubWorktreePathInput): Promise<import('./github').GitHubWorktreeStatus>
+  getRepoConfig(input: { rootPath: string }): Promise<import('./repo-config').RepoConfigSnapshot>
+  scanWorktreeCleanup(input: import('./worktree-cleanup').WorktreeCleanupScanInput): Promise<import('./worktree-cleanup').WorktreeCleanupCandidate[]>
+  removeWorktreeCleanup(input: import('./worktree-cleanup').WorktreeCleanupRemoveInput): Promise<import('./worktree-cleanup').WorktreeCleanupRemoveResult[]>
+  /** Approves the hook script whose hash the user was shown; refused if the file changed since. */
+  approveRepoHook(input: { rootPath: string; kind: import('./repo-config').RepoHookKind; contentHash: string }): Promise<import('./repo-config').RepoConfigSnapshot>
   listPullRequests(input: GitHubPullRequestListInput): Promise<GitHubPullRequest[]>
   createPullRequest(input: GitHubCreatePullRequestInput): Promise<GitHubMessageResult>
   getPullRequestStatus(input: GitHubWorkspaceInput): Promise<import('./github').GitHubPrStatus | null>
@@ -603,6 +635,24 @@ export interface AgentNotificationPayload {
   workspaceId: string
 }
 
+export interface AutomationsApi {
+  list(): Promise<import('./automation').Automation[]>
+  create(input: import('./automation').AutomationInput): Promise<import('./automation').Automation>
+  setEnabled(input: { id: string; enabled: boolean }): Promise<import('./automation').Automation>
+  remove(id: string): Promise<void>
+  runNow(id: string): Promise<import('./automation').AutomationRun | null>
+  runs(id: string): Promise<import('./automation').AutomationRun[]>
+  onChange(listener: (event: { automationId: string; run: import('./automation').AutomationRun | null }) => void): () => void
+}
+
+export interface AgentHooksApi {
+  status(): Promise<import('./agent-hooks').AgentHooksStatus[]>
+  install(agent: import('./agent-hooks').AgentHookAgent): Promise<import('./agent-hooks').AgentHooksStatus>
+  remove(agent: import('./agent-hooks').AgentHookAgent): Promise<import('./agent-hooks').AgentHooksStatus>
+  /** Pane status pushed by an agent's own lifecycle hooks. */
+  onStatus(listener: (event: import('./agent-hooks').AgentHookStatusEvent) => void): () => void
+}
+
 export interface NotificationsApi {
   notify(payload: AgentNotificationPayload): Promise<boolean>
   onActivate(listener: (payload: { paneId: string; workspaceId: string }) => void): () => void
@@ -645,6 +695,8 @@ export interface AppUpdateApi {
   checkForUpdates(): Promise<import('./updater').AppUpdateState>
   quitAndInstall(): Promise<boolean>
   onUpdateState(listener: (state: import('./updater').AppUpdateState) => void): () => void
+  /** Mirrors the person's light/dark choice into the native window; resolves to the mode in effect. */
+  setAppearance?(mode: 'system' | 'light' | 'dark'): Promise<'light' | 'dark'>
 }
 
 export interface RtkApi {
@@ -678,6 +730,9 @@ export interface OxeApi {
   clipboard: ClipboardApi
   voice: VoiceApi
   notifications: NotificationsApi
+  agentHooks: AgentHooksApi
+  automations: AutomationsApi
+  oxeQuery: import('./oxequery').OxeQueryApi
   oxe: OxeIntegrationApi
   copilot: CopilotApi
   agentCredits: AgentCreditsApi
@@ -800,6 +855,8 @@ export interface SessionApi {
   fork(input: import('./session').ForkSessionInput): Promise<import('./session').ForkSessionResult>
   delete(input: { workspaceRootPath: string; sessionId: string; provider: import('./agent').AgentProvider }): Promise<boolean>
   cleanup(input: { workspaceId: string; workspaceRootPath: string; provider: import('./agent').AgentProvider }): Promise<number>
+  /** Full-text search across the native Claude Code and Codex transcripts. */
+  search(input: import('./session-search').SessionSearchInput): Promise<import('./session-search').SessionSearchResult>
 }
 
 export interface SkillApi {
@@ -820,5 +877,9 @@ export interface McpApi {
   /** Reopens the browser sign-in page of a server that is waiting to authenticate. */
   openSignIn(id: string): Promise<boolean>
   callTool(input: import('./mcp').McpCallToolInput): Promise<import('./mcp').McpCallToolResult>
+  /** Servers Claude Desktop, Cursor and Windsurf already have, without their secret values. */
+  discover?(workspaceId: string | null): Promise<import('./mcp').McpDiscoverySource[]>
+  /** Creates the named servers of one source, untrusted, in the global or workspace scope. */
+  importDiscovered?(input: { workspaceId: string | null; source: import('./mcp').McpDiscoverySource['id']; names: string[] }): Promise<import('./mcp').McpImportResult>
   onHealth(listener: (event: import('./mcp').McpServerHealthEvent) => void): () => void
 }

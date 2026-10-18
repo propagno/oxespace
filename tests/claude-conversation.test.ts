@@ -40,10 +40,31 @@ describe('Claude print conversation', () => {
     const [first, second] = request.request.questions!
     await expect(f.adapter.respondRequest('q', { answers: { [first.id]: ['Custom DB'] } })).rejects.toThrow('every question')
     await f.adapter.respondRequest('q', { answers: { [first.id]: ['Custom DB'], [second.id]: ['Search', 'Export'] } })
-    expect(f.turns[0].writes.at(-1)).toMatchObject({ response: { response: { updatedInput: { questions, answers: { 'Which database?': 'Custom DB', 'Which features?': ['Search', 'Export'] } } } } })
+    expect(f.turns[0].writes.at(-1)).toMatchObject({ response: { response: { updatedInput: { questions, answers: { 'Which database?': 'Custom DB', 'Which features?': 'Search, Export' } } } } })
     await expect(f.adapter.respondRequest('q', { answers: {} })).rejects.toThrow('no longer pending')
     await f.adapter.dispose()
   })
+  it('shows a tool result delivered as typed blocks instead of an empty output', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: 'native' }, event => f.events.push(event))
+    await f.adapter.send('Read')
+    f.emit(0, { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'read', content: [{ type: 'text', text: 'first part' }, { type: 'image', source: {} }, { type: 'text', text: 'second part' }] }] } })
+    const tool = f.events.find(event => event.type === 'tool' && event.id === 'read')
+    expect(tool).toMatchObject({ type: 'tool', state: 'completed', output: ['first part', '[image]', 'second part'].join('\n') })
+    await f.adapter.dispose()
+  })
+
+  it('keeps the turn alive when one protocol line is larger than 1 MiB', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: 'native' }, event => f.events.push(event))
+    await f.adapter.send('Big file')
+    f.emit(0, { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'big', content: 'x'.repeat(2 * 1024 * 1024) }] } })
+    f.emit(0, { type: 'result', subtype: 'success' })
+    expect(f.events.some(event => event.type === 'tool' && event.id === 'big' && event.state === 'completed')).toBe(true)
+    expect(f.events.some(event => event.type === 'turn' && (event as { state?: string }).state === 'failed')).toBe(false)
+    await f.adapter.dispose()
+  })
+
   it('receives two background returns after result and a native continuation without another user send', async () => {
     const f = fixture()
     await f.adapter.start({ rootPath: '/project', nativeSessionId: 'native', access: 'workspace-write' }, event => f.events.push(event))
@@ -229,5 +250,55 @@ describe('Claude print conversation', () => {
     expect(f.turns[0].args).not.toContain('--settings')
     expect(f.turns[0].args).toEqual(expect.arrayContaining(['--permission-mode', 'default', '--permission-prompts', 'host', '--tools', 'default']))
     await f.adapter.dispose()
+  })
+  it('auto-accepts edits only when the conversation may write, and tells the agent why a request was declined', async () => {
+    const writable = fixture()
+    await writable.adapter.start({ rootPath: '/project', nativeSessionId: null, access: 'workspace-write', mode: 'acceptEdits' }, event => writable.events.push(event))
+    await writable.adapter.send('Edit')
+    expect(writable.turns[0].args).toEqual(expect.arrayContaining(['--permission-mode', 'acceptEdits']))
+    writable.emit(0, { type: 'control_request', request_id: 'bash', request: { subtype: 'can_use_tool', tool_name: 'Bash', input: { command: 'git push' } } })
+    expect(writable.events.at(-2)).toMatchObject({ type: 'request', request: { toolName: 'Bash', command: 'git push' } })
+    await writable.adapter.respondRequest!('bash', { decision: 'decline', reason: 'Blocked by a rule.' })
+    expect(writable.turns[0].writes.at(-1)).toMatchObject({ response: { request_id: 'bash', response: { behavior: 'deny', message: 'Blocked by a rule.' } } })
+    await writable.adapter.dispose()
+
+    const readOnly = fixture()
+    await readOnly.adapter.start({ rootPath: '/project', nativeSessionId: null, access: 'read-only', mode: 'acceptEdits' }, event => readOnly.events.push(event))
+    await readOnly.adapter.send('Look')
+    expect(readOnly.turns[0].args).toEqual(expect.arrayContaining(['--permission-mode', 'default']))
+    await readOnly.adapter.dispose()
+  })
+})
+
+describe('Claude context usage', () => {
+  it('asks the idle session for its context report and correlates the reply', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: 'native' }, event => f.events.push(event))
+    expect(await f.adapter.contextUsage()).toBeNull()
+    await f.adapter.send('Hello')
+    f.emit(0, { type: 'result', subtype: 'success' })
+    const pending = f.adapter.contextUsage()
+    const request = f.turns[0].writes.at(-1) as { request_id: string; request: { subtype: string } }
+    expect(request.request.subtype).toBe('get_context_usage')
+    f.emit(0, { type: 'control_response', response: { subtype: 'success', request_id: request.request_id, response: { totalTokens: 1000, maxTokens: 10000, categories: [{ name: 'Messages', tokens: 1000, kind: 'used' }] } } })
+    await expect(pending).resolves.toMatchObject({ usedTokens: 1000, percentage: 10, source: 'claude-control' })
+    expect(f.events.some(event => event.type === 'context-usage')).toBe(false)
+    await f.adapter.dispose()
+  })
+
+  it('does not interleave a control request with a running turn', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: 'native' }, event => f.events.push(event))
+    await f.adapter.send('Working')
+    await expect(f.adapter.contextUsage()).resolves.toBeNull()
+    await f.adapter.dispose()
+  })
+})
+
+describe('Claude MCP server status', () => {
+  it('keeps name and known status of each server reported at init', async () => {
+    const { mcpServerStatuses } = await import('../electron/main/services/conversation/claude-conversation')
+    expect(mcpServerStatuses([{ name: 'github', status: 'connected' }, { name: 'jira', status: 'needs-auth' }, { name: 'x', status: 'weird' }, { status: 'failed' }]))
+      .toEqual([{ name: 'github', status: 'connected' }, { name: 'jira', status: 'needs-auth' }, { name: 'x', status: 'unknown' }])
   })
 })

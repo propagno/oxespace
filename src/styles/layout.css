@@ -90,8 +90,8 @@
 
 .sidebar-rail-workspace.active .sidebar-rail-workspace-btn {
   color: var(--tx-primary);
-  border-color: rgba(18, 199, 154, 0.2);
-  background: rgba(18, 199, 154, 0.04);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
 }
 
 .sidebar-rail-workspace-btn:hover {
@@ -128,7 +128,7 @@
   width: 100%;
   height: 36px;
   padding: 0 34px 0 32px;
-  background: rgba(0, 0, 0, 0.22);
+  background: color-mix(in srgb, var(--surface-sunken) 22%, transparent);
   border: 1px solid var(--ov-2);
   border-radius: var(--radius-lg);
   color: var(--tx-primary);
@@ -142,7 +142,7 @@
 .sidebar-search-input:focus {
   border-color: color-mix(in srgb, var(--brand) 50%, transparent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 16%, transparent);
-  background: rgba(0, 0, 0, 0.32);
+  background: color-mix(in srgb, var(--surface-sunken) 32%, transparent);
 }
 
 .sidebar-search-input::placeholder {
@@ -170,10 +170,6 @@
   padding: 0 0 8px;
 }
 
-.ws-group-list::-webkit-scrollbar { width: 3px; }
-.ws-group-list::-webkit-scrollbar-track { background: transparent; }
-.ws-group-list::-webkit-scrollbar-thumb { background: var(--ov-3); border-radius: var(--radius-xs); }
-
 .ws-group {
   position: relative;
   margin: 2px 6px;
@@ -187,7 +183,7 @@
   bottom: 4px;
   width: 3px;
   border-radius: var(--radius-xs);
-  background: #10b981;
+  background: var(--accent);
   box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
 }
 
@@ -204,7 +200,7 @@
   border: 1px solid transparent;
   user-select: none;
   box-sizing: border-box;
-  transition: background 150ms ease, border-color 150ms ease;
+  transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard);
 }
 
 .ws-group-header:hover {
@@ -277,7 +273,7 @@
   color: var(--tx-secondary);
   width: 14px;
   height: 14px;
-  transition: transform 200ms ease-out, color var(--transition-base);
+  transition: transform var(--duration-base) var(--ease-standard), color var(--transition-base);
   flex-shrink: 0;
   transform: rotate(-90deg);
 }
@@ -316,6 +312,15 @@
   line-height: 1.25;
   min-width: 0;
   transition: color var(--transition-base);
+  /* A real button so the keyboard reaches the row; it must look like the text it replaced. */
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .ws-group-header:hover .ws-group-name {
@@ -332,7 +337,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
   font-size: var(--fs-2xs);
   font-family: var(--font-mono);
   overflow: hidden;
@@ -349,7 +354,7 @@
 
 .ws-group-branch-icon {
   flex-shrink: 0;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-muted);
 }
 
 /* Only rendered when two or more workspaces sit on the same folder, which
@@ -497,7 +502,7 @@
   width: 100%;
   padding: 1px 4px;
   margin: -2px -4px;
-  border: 1px solid rgba(0, 214, 201, 0.45);
+  border: 1px solid var(--accent-border);
   border-radius: var(--radius-sm);
   background: var(--bg-app);
   color: var(--tx-primary);
@@ -516,7 +521,7 @@
    for consistency, plus icons on the menuitems so the actions are scannable. */
 .ws-group-context-menu {
   position: fixed;
-  z-index: 1000;
+  z-index: var(--layer-tooltip);
   min-width: 200px;
   padding: 5px;
   border: 1px solid var(--bd-base);
@@ -550,104 +555,8 @@
 }
 
 .ws-group-context-menu button.danger:hover {
-  background: rgba(244, 91, 105, 0.10);
+  background: var(--intent-danger-bg);
 }
-
-/* Remove-workspace confirmation modal. Full-screen backdrop + centered
-   dialog — same backdrop motif used by the worktree menu (now retired)
-   so the affordance feels consistent across the app. */
-.ws-remove-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 200;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(6px);
-  animation: model-selector-fade 140ms ease-out;
-}
-
-.ws-remove-modal {
-  width: min(420px, calc(100vw - 48px));
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 16px 18px 14px;
-  border: 1px solid var(--bd-base);
-  border-radius: var(--radius-md);
-  background: var(--bg-elevated);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
-}
-
-.ws-remove-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.ws-remove-modal-header h2 {
-  margin: 0;
-  color: var(--tx-primary);
-  font-size: var(--fs-base);
-  font-weight: 700;
-}
-
-.ws-remove-modal-close {
-  width: 22px;
-  height: 22px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--tx-muted);
-  cursor: pointer;
-}
-
-.ws-remove-modal-close:hover {
-  background: var(--surface-hover);
-  color: var(--tx-primary);
-}
-
-.ws-remove-modal-body {
-  margin: 0;
-  color: var(--tx-secondary);
-  font-size: var(--fs-xs);
-  line-height: 1.55;
-}
-
-.ws-remove-modal-body strong { color: var(--tx-primary); }
-.ws-remove-modal-body em { color: var(--accent); font-style: normal; }
-
-.ws-remove-modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.ws-remove-modal-confirm {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 7px 14px;
-  border: 1px solid rgba(244, 91, 105, 0.45);
-  border-radius: var(--radius-sm);
-  background: rgba(244, 91, 105, 0.16);
-  color: #FFB1B8;
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  cursor: pointer;
-  transition: background var(--transition-base), border-color var(--transition-base);
-}
-
-.ws-remove-modal-confirm:hover {
-  background: rgba(244, 91, 105, 0.24);
-  border-color: rgba(244, 91, 105, 0.65);
-  color: #FFCED2;
-}
-
 /* ─── Pane session row ──────────────────────────────────────────────────── */
 .pane-session-row {
   display: flex;
@@ -878,8 +787,8 @@
 /* Thinking: pulse the avatar background so a moving pane is easy to spot in
    a sidebar with many rows. */
 .pane-row-state-mark.activity-thinking {
-  border-color: rgba(52, 212, 116, 0.22);
-  background: rgba(52, 212, 116, 0.12);
+  border-color: var(--intent-success-border);
+  background: var(--intent-success-bg);
   color: var(--dot-green);
   animation: oxe-activity-pulse 1.4s ease-in-out infinite;
 }
@@ -887,14 +796,14 @@
 /* Awaiting: solid brand-accent ring so it reads as "your turn", distinct from
    the pulsing green of an actively-streaming agent. */
 .pane-row-state-mark.activity-awaiting {
-  border-color: rgba(18, 199, 154, 0.35);
-  background: rgba(18, 199, 154, 0.14);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
   color: var(--brand);
 }
 
 .pane-row-state-mark.activity-starting {
-  border-color: rgba(251, 191, 36, 0.22);
-  background: rgba(251, 191, 36, 0.12);
+  border-color: var(--intent-warning-border);
+  background: var(--intent-warning-bg);
   color: var(--dot-yellow);
   animation: oxe-activity-pulse 1.6s ease-in-out infinite;
 }
@@ -908,8 +817,8 @@
 
 .pane-row-state-mark.error,
 .pane-row-state-mark.activity-error {
-  border-color: rgba(248, 113, 113, 0.22);
-  background: rgba(248, 113, 113, 0.12);
+  border-color: var(--intent-danger-border);
+  background: var(--intent-danger-bg);
   color: var(--dot-red);
 }
 
@@ -940,7 +849,7 @@
 
 .pane-session-resume {
   font-size: var(--fs-2xs);
-  color: var(--accent, #3b82f6);
+  color: var(--accent, var(--intent-info-fg));
   white-space: nowrap;
   flex-shrink: 0;
   opacity: 0.7;
@@ -954,7 +863,7 @@
 
 .pane-session-context-menu {
   position: fixed;
-  z-index: 1000;
+  z-index: var(--layer-tooltip);
   min-width: 150px;
   padding: 5px;
   border: 1px solid var(--bd-base);
@@ -991,7 +900,7 @@
 /* Recent activity timestamp — uses the brand teal at full strength so it
    reads as "fresh" without introducing a third green accent (the previous
    #5CBD6D didn't match either the brand or the dot-green status token). */
-.pane-row-time.recent { color: var(--brand); }
+.pane-row-time.recent { color: var(--text-secondary); }
 
 /* Status indicator slot (left of preview) */
 .pane-row-status-indicator {
@@ -1015,7 +924,7 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--dot-yellow, #fbbf24);
+  background: var(--dot-yellow, var(--intent-warning-solid));
   animation: dot-pulse 900ms ease-in-out infinite;
 }
 
@@ -1025,7 +934,7 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--dot-red, #f87171);
+  background: var(--dot-red, var(--intent-danger-solid));
 }
 
 /* Unread dot — solid brand teal, no halo. The previous blue (#3B82F6 with
@@ -1090,7 +999,7 @@
 }
 
 .pane-status-dot.idle {
-  background: rgba(255, 255, 255, 0.2);
+  background: color-mix(in srgb, var(--text-primary) 20%, transparent);
 }
 
 @keyframes dot-pulse {
@@ -1119,28 +1028,6 @@
 .sidebar-empty-state p {
   font-size: var(--fs-xs);
   margin: 0;
-}
-
-/* Custom scrollbars for sidebar lists */
-.ws-group-list::-webkit-scrollbar,
-.sidebar-rail-list::-webkit-scrollbar {
-  width: 6px;
-}
-
-.ws-group-list::-webkit-scrollbar-track,
-.sidebar-rail-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.ws-group-list::-webkit-scrollbar-thumb,
-.sidebar-rail-list::-webkit-scrollbar-thumb {
-  background: var(--ov-2);
-  border-radius: var(--radius-xs);
-}
-
-.ws-group-list:hover::-webkit-scrollbar-thumb,
-.sidebar-rail-list:hover::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.16);
 }
 
 /* Clutter reduction for secondary badges in workspace row */
@@ -1177,7 +1064,7 @@
 }
 
 .sidebar-integration-row.active {
-  background: rgba(0, 214, 201, 0.05);
+  background: var(--accent-soft);
 }
 
 .sidebar-integration-row.open {
@@ -1205,7 +1092,7 @@
 
 .sidebar-integration-row-chevron {
   color: var(--tx-muted);
-  transition: transform 160ms ease;
+  transition: transform var(--duration-fast) var(--ease-standard);
   flex-shrink: 0;
 }
 
@@ -1245,8 +1132,8 @@
   text-transform: uppercase;
 }
 
-.sidebar-integration-row-status.status-active { background: rgba(52, 212, 116, 0.14); color: var(--dot-green); }
-.sidebar-integration-row-status.status-paused { background: rgba(251, 191, 36, 0.14); color: var(--dot-yellow); }
+.sidebar-integration-row-status.status-active { background: var(--intent-success-bg); color: var(--dot-green); }
+.sidebar-integration-row-status.status-paused { background: var(--intent-warning-bg); color: var(--dot-yellow); }
 .sidebar-integration-row-status.status-done { background: var(--ov-1); color: var(--tx-muted); }
 
 .sidebar-integration-row-members {
@@ -1300,7 +1187,7 @@
 }
 
 .sidebar-integration-row-member.active {
-  background: rgba(0, 214, 201, 0.08);
+  background: var(--accent-soft);
   color: var(--tx-primary);
   box-shadow: inset 2px 0 0 var(--brand);
 }
@@ -1309,9 +1196,9 @@
   grid-row: span 2;
   min-width: 36px;
   padding: 2px 7px;
-  border: 1px solid rgba(0, 214, 201, 0.30);
+  border: 1px solid var(--accent-border);
   border-radius: var(--radius-pill);
-  background: rgba(0, 214, 201, 0.16);
+  background: var(--accent-soft);
   color: var(--accent);
   font-size: var(--fs-2xs);
   font-weight: 700;
@@ -1357,7 +1244,7 @@
   width: 28px;
   height: 28px;
   border-radius: var(--radius-md);
-  background: rgba(0, 214, 201, 0.1);
+  background: var(--accent-soft);
   color: var(--accent);
   font-size: var(--fs-xs);
   font-weight: 800;
@@ -1383,8 +1270,8 @@
 
 .sidebar-rail-integration-member:hover,
 .sidebar-rail-integration-member.active {
-  border-color: rgba(0, 214, 201, 0.45);
-  background: rgba(0, 214, 201, 0.14);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
   color: var(--tx-primary);
 }
 
@@ -1477,9 +1364,9 @@
 
 .error-banner {
   margin: 0;
-  border-bottom: 1px solid rgba(248, 113, 113, 0.15);
-  background: rgba(239, 68, 68, 0.08);
-  color: #fca5a5;
+  border-bottom: 1px solid var(--intent-danger-border);
+  background: var(--intent-danger-bg);
+  color: var(--intent-danger-fg);
   padding: 8px 16px;
   font-size: var(--fs-xs);
 }
@@ -1517,7 +1404,7 @@
   border-bottom: 1px solid var(--pane-border);
   background: var(--wb-canvas);
   box-shadow: none;
-  z-index: 10;
+  z-index: var(--layer-sticky);
 }
 
 .workspace-topbar-breadcrumb {
@@ -1611,7 +1498,7 @@
   font-size: var(--fs-xs);
   font-weight: 500;
   letter-spacing: 0.3px;
-  box-shadow: inset 0 1px 0 var(--ov-1), 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: inset 0 1px 0 var(--ov-1), var(--elevation-1);
   transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
   overflow: hidden;
   white-space: nowrap;
@@ -1623,11 +1510,11 @@
 
 .workspace-toolbar-button:hover,
 .workspace-toolbar-button.active {
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: color-mix(in srgb, var(--text-primary) 20%, transparent);
   background: linear-gradient(180deg, var(--ov-3) 0%, var(--ov-1) 100%);
-  color: #fff;
+  color: var(--text-primary);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 var(--ov-3);
+  box-shadow: var(--elevation-2), inset 0 1px 0 var(--ov-3);
 }
 
 /* ─── Tools modal (sidebar gear hub) ─────────────────────────────────────── */
@@ -1641,7 +1528,7 @@
   /* Must match LEGACY_MODAL_OVERLAY's z-index (200), not sit below it: the
      content renders after the overlay in the portal, so an equal z-index puts
      it on top. A lower value let the blurred scrim paint over the hub. */
-  z-index: 200;
+  z-index: var(--layer-overlay);
   display: flex;
   flex-direction: column;
   width: min(860px, calc(100vw - 28px));
@@ -1649,15 +1536,12 @@
   overflow: hidden;
   border: 1px solid var(--ov-3);
   border-radius: var(--radius-lg);
-  background:
-    radial-gradient(120% 80% at 0% 0%, color-mix(in srgb, var(--brand) 14%, transparent) 0%, transparent 42%),
-    radial-gradient(90% 60% at 100% 0%, rgba(120, 140, 255, 0.08) 0%, transparent 40%),
-    rgba(14, 14, 18, 0.96);
+  background: radial-gradient(120% 80% at 0% 0%, color-mix(in srgb, var(--brand) 14%, transparent) 0%, transparent 42%),
+    radial-gradient(90% 60% at 100% 0%, var(--intent-info-bg) 0%, transparent 40%),
+    color-mix(in srgb, var(--surface-sunken) 96%, transparent);
   backdrop-filter: blur(28px) saturate(160%);
   box-shadow:
-    0 40px 120px rgba(0, 0, 0, 0.72),
-    0 0 0 1px var(--ov-1) inset,
-    0 1px 0 var(--ov-2) inset;
+    var(--elevation-4), 0 0 0 1px var(--ov-1) inset, 0 1px 0 var(--ov-2) inset;
 }
 
 .tools-modal-header {
@@ -1683,7 +1567,7 @@
   width: 38px;
   height: 38px;
   border-radius: var(--radius-lg);
-  color: var(--brand-light, #5eead4);
+  color: var(--brand-light, var(--text-accent));
   background:
     linear-gradient(145deg, color-mix(in srgb, var(--brand) 28%, transparent), var(--ov-1));
   border: 1px solid color-mix(in srgb, var(--brand) 35%, transparent);
@@ -1742,7 +1626,7 @@
   height: 40px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--ov-2);
-  background: rgba(0, 0, 0, 0.28);
+  background: color-mix(in srgb, var(--surface-sunken) 28%, transparent);
   flex-shrink: 0;
   transition: border-color 120ms, box-shadow 120ms;
 }
@@ -1871,7 +1755,7 @@
   padding: 11px 12px;
   border: 1px solid var(--ov-2);
   border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.025);
+  background: color-mix(in srgb, var(--text-primary) 3%, transparent);
   color: var(--tx-secondary);
   text-align: left;
   cursor: pointer;
@@ -1883,11 +1767,11 @@
 }
 
 .tools-modal-card:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.055);
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
   border-color: var(--ov-3);
   color: var(--tx-primary);
   transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--elevation-3);
 }
 
 .tools-modal-card.active {
@@ -1896,8 +1780,7 @@
   border-color: color-mix(in srgb, var(--brand) 40%, transparent);
   color: var(--tx-primary);
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--brand) 12%, transparent),
-    0 10px 28px color-mix(in srgb, var(--brand) 10%, transparent);
+    0 0 0 1px color-mix(in srgb, var(--brand) 12%, transparent), 0 10px 28px color-mix(in srgb, var(--brand) 10%, transparent);
 }
 
 .tools-modal-card:disabled,
@@ -1922,30 +1805,14 @@
   transition: color 120ms, background 120ms, border-color 120ms, box-shadow 120ms;
 }
 
-.tools-modal-card-icon.tone-project {
-  color: #c4b5fd;
-  background: rgba(167, 139, 250, 0.12);
-  border-color: rgba(167, 139, 250, 0.22);
-}
-.tools-modal-card-icon.tone-dev {
-  color: #7dd3fc;
-  background: rgba(56, 189, 248, 0.12);
-  border-color: rgba(56, 189, 248, 0.22);
-}
-.tools-modal-card-icon.tone-ai {
-  color: #5eead4;
-  background: color-mix(in srgb, var(--brand) 16%, transparent);
-  border-color: color-mix(in srgb, var(--brand) 28%, transparent);
-}
-.tools-modal-card-icon.tone-system {
-  color: #fcd34d;
-  background: rgba(251, 191, 36, 0.1);
-  border-color: rgba(251, 191, 36, 0.2);
-}
+/* One neutral icon tile for every category; the group heading already says which kind of tool it is.
+   The accent marks what is open right now and what the pointer is over. */
+.tools-modal-card:hover:not(:disabled) .tools-modal-card-icon { color: var(--text-primary); background: var(--fill-hover); }
+.tools-modal-card.active .tools-modal-card-icon { color: var(--text-accent); background: var(--accent-soft); border-color: var(--accent-border); }
 
 .tools-modal-card:hover:not(:disabled) .tools-modal-card-icon,
 .tools-modal-card.active .tools-modal-card-icon {
-  box-shadow: 0 0 16px var(--ov-2);
+  box-shadow: var(--elevation-1);
 }
 
 .tools-modal-card-body {
@@ -1988,7 +1855,7 @@
   font-weight: 750;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--brand-light, #5eead4);
+  color: var(--brand-light, var(--text-accent));
   padding: 2px 6px;
   border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--brand) 18%, transparent);
@@ -2018,7 +1885,7 @@
   padding: 3px 6px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--ov-2);
-  background: rgba(0, 0, 0, 0.25);
+  background: color-mix(in srgb, var(--surface-sunken) 25%, transparent);
 }
 
 .tools-modal-empty {
@@ -2068,7 +1935,7 @@
   padding: 12px 20px 14px;
   border-top: 1px solid var(--ov-2);
   flex-shrink: 0;
-  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.18));
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--surface-sunken) 18%, transparent));
 }
 
 .tools-modal-footer-hint {
@@ -2095,7 +1962,7 @@
   width: 3px;
   height: 3px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.18);
+  background: color-mix(in srgb, var(--text-primary) 18%, transparent);
   flex-shrink: 0;
 }
 
@@ -2221,12 +2088,12 @@
    without per-pane card borders. Stronger on hover/drag for affordance. */
 .resize-handle {
   background: var(--ov-3);
-  transition: background 120ms ease;
+  transition: background var(--duration-fast) var(--ease-standard);
   z-index: 2;
 }
 .resize-handle[data-resize-handle-active],
 .resize-handle:hover {
-  background: color-mix(in srgb, var(--accent, #12c79a) 55%, var(--ov-3));
+  background: color-mix(in srgb, var(--accent, var(--accent)) 55%, var(--ov-3));
 }
 .resize-handle-vertical {
   width: 1px;
@@ -2307,11 +2174,13 @@
   padding: 0 6px;
 }
 .workspace-panel-stack { display: flex; flex-direction: column; width: 100%; min-width: 0; height: 100%; overflow: hidden; background: var(--bg-app); }
-.workspace-panel-stack-tabs { display: flex; flex: none; gap: 2px; min-width: 0; min-height: 38px; padding: 4px 6px; overflow-x: auto; scrollbar-width: thin; border-bottom: 1px solid var(--bd-base); background: var(--bg-elevated); }
-.workspace-panel-stack-tabs button { flex: none; min-height: 28px; padding: 3px 10px; border: 1px solid transparent; border-radius: var(--radius-sm); color: var(--tx-secondary); background: transparent; font: inherit; font-size: var(--fs-xs); white-space: nowrap; cursor: pointer; }
+.workspace-panel-stack-tabs { display: flex; flex: none; gap: 2px 4px; min-width: 0; flex-wrap: wrap; min-height: 38px; padding: 4px 6px; border-bottom: 1px solid var(--bd-base); background: var(--bg-elevated); }
+.workspace-panel-stack-tabs button { flex: 1 1 auto; text-align: center; min-height: 28px; padding: 3px 10px; border: 1px solid transparent; border-radius: var(--radius-sm); color: var(--tx-secondary); background: transparent; font: inherit; font-size: var(--fs-xs); white-space: nowrap; cursor: pointer; }
+.workspace-panel-stack-tablist { display: contents; }
 .workspace-panel-stack-tabs button:hover { color: var(--tx-primary); background: var(--bg-hover); }
 .workspace-panel-stack-tabs button[aria-selected="true"] { color: var(--tx-primary); border-color: var(--bd-base); background: var(--bg-subtle); }
 .workspace-panel-stack-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .workspace-panel-stack-content { flex: 1; width: 100%; min-width: 0; min-height: 0; overflow: hidden; }
 .workspace-panel-stack-content > * { height: 100%; }
 .workspace-panel-stack-content > [hidden] { display: none; }
+.workspace-panel-stack-tabs .workspace-panel-stack-more { display: inline-flex; flex: none; align-items: center; gap: 4px; margin-left: auto; }

@@ -3,8 +3,9 @@ import type { DelegationSnapshot } from '../../../shared/types/delegation'
 import type { ThreadProjectSummary } from '../../../shared/types/thread'
 import { DesktopDialog } from '../Navigation/DesktopDialog'
 import { useThreadStore } from '../../store/thread.store'
+import { TextField } from '../../ui'
 
-export function ThreadProjectSettingsDialog({ project, unavailable, onClose }: { project: ThreadProjectSummary; unavailable: boolean; onClose(): void }) {
+export function ThreadProjectSettingsDialog({ project, unavailable, onClose, returnFocusTo }: { project: ThreadProjectSummary; unavailable: boolean; onClose(): void; returnFocusTo?: () => HTMLElement | null }) {
   const scope = `thread:${project.projectId}`
   const [snapshot, setSnapshot] = useState<DelegationSnapshot | null>(null)
   const [path, setPath] = useState('')
@@ -34,11 +35,11 @@ export function ThreadProjectSettingsDialog({ project, unavailable, onClose }: {
   }
   const needsRelink = unavailable || directoryMissing
   return <DesktopDialog className="thread-create-dialog thread-project-dialog thread-project-settings" title={`Thread project · ${project.displayName}`}
-    description="These settings apply to this Thread project. Code workspace settings are separate." onClose={onClose}>
+    description="These settings apply to this Thread project. Code workspace settings are separate." onClose={onClose} returnFocusTo={returnFocusTo}>
     <div className="thread-project-settings-body"><div className="thread-create-section"><strong>Project directory</strong><p className="thread-project-current-path" title={project.contexts[0]?.rootPath}>{project.contexts[0]?.rootPath}</p>
       {needsRelink && <p role="alert">This directory is unavailable. Choose its new location to resume work.</p>}
       <details className="thread-project-relink" open={needsRelink || undefined}><summary>{needsRelink ? 'Relink missing directory' : 'Change project directory'}</summary>
-        <label>New directory<input aria-label="New project directory" value={relinkPath} onChange={event => setRelinkPath(event.target.value)} placeholder="Absolute path to the project" /></label>
+        <label>New directory<TextField aria-label="New project directory" value={relinkPath} onChange={event => setRelinkPath(event.target.value)} placeholder="Absolute path to the project" /></label>
         <button type="button" disabled={busy || !relinkPath.trim()} onClick={() => void apply(async () => {
           await window.oxe.thread!.relinkProject(project.projectId, relinkPath.trim())
           await useThreadStore.getState().loadProjects()
@@ -52,7 +53,7 @@ export function ThreadProjectSettingsDialog({ project, unavailable, onClose }: {
       <label className="thread-project-check"><input type="checkbox" checked={snapshot?.enabled ?? false} disabled={!snapshot || busy}
         onChange={event => void apply(() => window.oxe.delegation.configure(scope, event.target.checked))} /> Allow agents in this Thread project to delegate work</label>
       <p>Each destination also needs its own opt-in. Cross-project transfers require a separate authorization.</p>
-      <label>Destination directory<input value={path} onChange={event => { setPath(event.target.value); setConsent(false) }} placeholder="Absolute path to another local repository" /></label>
+      <label>Destination directory<TextField value={path} onChange={event => { setPath(event.target.value); setConsent(false) }} placeholder="Absolute path to another local repository" /></label>
       <label className="thread-project-check"><input type="checkbox" checked={evidence} onChange={event => { setEvidence(event.target.checked); setConsent(false) }} /> Include selected committed text as evidence</label>
       <label className="thread-project-check"><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} /> Authorize handoff to the destination agent for 30 days</label>
       <button type="button" disabled={!snapshot || busy || !path.trim() || !consent} onClick={() => void apply(async () => {

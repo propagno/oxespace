@@ -4,6 +4,7 @@ import type { IPty, IPtyForkOptions } from 'node-pty'
 import { spawn } from 'node-pty'
 import { existsSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
+import { homedir } from 'node:os'
 import { delimiter, extname, join } from 'node:path'
 import type { AppDatabase } from '../db/index'
 import { killProcess } from '../utils/process-cleanup'
@@ -34,6 +35,8 @@ interface TerminalManagerOptions {
   executionEnvironment?: (input: { paneId: string; workspaceId: string; cwd: string }) => Record<string, string>
   agentMcpArgs?: (executable: string, args: string[]) => string[]
   isManagedPane?: (paneId: string) => boolean
+  /** Main-process-registered container shells (`oxequery-shell:*`); the renderer never supplies the command. */
+  oxeQueryShell?: (paneId: string) => { file: string; args: string[] } | undefined
 }
 
 export interface ManagedTerminalStart extends TerminalStartInput {
@@ -90,6 +93,8 @@ const EXITED_SESSION_TTL_MS = 30 * 60 * 1000
 const MAX_LIVE_PTYS = 24
 /** A session must be quiet this long before it is considered reclaimable. */
 const RECLAIM_IDLE_MS = 30_000
+/** How long a terminal waits for RTK to be ready before it starts without it. */
+const RTK_START_BUDGET_MS = 3_000
 
 interface TerminalLaunchContextRow {
   pane_root_path: string | null
@@ -108,6 +113,7 @@ export class TerminalManager {
   private readonly executionEnvironment?: TerminalManagerOptions['executionEnvironment']
   private readonly agentMcpArgs?: TerminalManagerOptions['agentMcpArgs']
   private readonly isManagedPane?: TerminalManagerOptions['isManagedPane']
+  private readonly oxeQueryShell?: TerminalManagerOptions['oxeQueryShell']
   private readonly sessions = new Map<string, TerminalSession>()
   private readonly pty: PtyModule
   private readonly launchContextStatement: ReturnType<AppDatabase['prepare']>
@@ -127,6 +133,7 @@ export class TerminalManager {
     this.executionEnvironment = options.executionEnvironment
     this.agentMcpArgs = options.agentMcpArgs
     this.isManagedPane = options.isManagedPane
+    this.oxeQueryShell = options.oxeQueryShell
     this.pty = options.pty ?? { spawn }
     this.env = options.env ?? process.env
     this.platform = options.platform ?? process.platform
@@ -193,6 +200,12 @@ export class TerminalManager {
       if (!shell) throw Error('Configure a shell profile in Settings first.')
       launch = { pane_root_path: thread.rootPath, workspace_root_path: thread.rootPath, shell_profile_id: shell.id, shell_profile_name: shell.name, shell_executable: shell.executable, shell_args_json: shell.args_json }
     }
+    const oxeShell = this.oxeQueryShell?.(input.paneId)
+    if (oxeShell) {
+      if (input.agentCommand || input.launch || input.initialPrompt || input.agentArgs?.length) throw Error('Container shells start the registered command only.')
+      const home = homedir()
+      launch = { pane_root_path: home, workspace_root_path: home, shell_profile_id: 'oxequery-shell', shell_profile_name: 'Container shell', shell_executable: oxeShell.file, shell_args_json: JSON.stringify(oxeShell.args) } as TerminalLaunchContextRow
+    }
     if (!launch) {
       const workspaceExists = this.workspaceExistsStatement.get(input.workspaceId)
       if (!workspaceExists) throw new Error(`Workspace ${input.workspaceId} not found`)
@@ -226,10 +239,10 @@ export class TerminalManager {
       GLAMOUR_STYLE: 'dark',
       BAT_THEME: 'TwoDark'
     }
-    if (this.executionEnvironment && !threadShell) finalEnv = { ...finalEnv, ...this.executionEnvironment({ paneId: input.paneId, workspaceId: input.workspaceId, cwd }) }
+    if (this.executionEnvironment && !threadShell && !oxeShell) finalEnv = { ...finalEnv, ...this.executionEnvironment({ paneId: input.paneId, workspaceId: input.workspaceId, cwd }) }
     // Optional launch integrations only return environment; provider failures
     // never prevent the shell/agent from starting or touch its output stream.
-    if (this.prepareLaunch && !threadShell) {
+    if (this.prepareLaunch && !threadShell && !oxeShell) {
       const integration = new AbortController()
       const cancel = (): void => integration.abort()
       signal.addEventListener('abort', cancel, { once: true })
@@ -255,11 +268,20 @@ export class TerminalManager {
     }
     
     if (!input.disableRtk) {
+      // The first launch downloads RTK. A slow or stalled connection must not hold the
+      // shell back: after the budget the terminal starts without it (the download goes on
+      // in the background and the next terminal picks it up).
+      let budget: ReturnType<typeof setTimeout> | undefined
       try {
-        const rtkBin = await this.rtkService.ensureRtk()
-        finalEnv = { ...finalEnv, PATH: `${rtkBin}${delimiter}${finalEnv.PATH ?? ''}` }
+        const rtkBin = await Promise.race([
+          this.rtkService.ensureRtk(),
+          new Promise<null>((resolveBudget) => { budget = setTimeout(() => resolveBudget(null), RTK_START_BUDGET_MS) })
+        ])
+        if (rtkBin) finalEnv = { ...finalEnv, PATH: `${rtkBin}${delimiter}${finalEnv.PATH ?? ''}` }
       } catch (err) {
         // Fall back gracefully if download fails
+      } finally {
+        if (budget) clearTimeout(budget)
       }
     } else {
       finalEnv = { ...finalEnv, RTK_DISABLED: '1' }
@@ -531,6 +553,25 @@ export class TerminalManager {
         this.stop({ paneId: session.paneId })
       }
     }
+  }
+
+  /**
+   * Stops every session whose launch directory is `dir` or inside it and
+   * returns the pane ids. Used before deleting a worktree: a shell holding the
+   * directory as its cwd would make the delete fail on Windows.
+   */
+  stopWithin(dir: string): string[] {
+    const norm = (p: string): string => p.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+    const root = norm(dir)
+    const stopped: string[] = []
+    for (const session of [...this.sessions.values()]) {
+      const cwd = norm(session.launchDirectory)
+      if (cwd === root || cwd.startsWith(root + '/')) {
+        this.stop({ paneId: session.paneId })
+        stopped.push(session.paneId)
+      }
+    }
+    return stopped
   }
 
   stopAll(): void {

@@ -3,6 +3,8 @@ import { execFile } from 'node:child_process'
 import { lstat, mkdir, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path'
 import type { AppDatabase } from '../../db'
+import type { ThreadFileHunk } from '../../../../shared/types/thread'
+import { diffLines, joinLines, revertHunk, splitLines, type LineHunk } from '../../../../shared/lineDiff'
 
 const FILE_LIMIT = 2 * 1024 * 1024
 const CHECKPOINT_LIMIT = 32 * 1024 * 1024
@@ -21,6 +23,14 @@ export interface ThreadCheckpointSummary {
 }
 
 interface FileImage { exists: boolean; content?: Buffer; hash?: string }
+
+/**
+ * Where one file of a turn stands now: still as the turn left it (`pending`),
+ * back to how it was before the turn (`reverted`), or edited since (`modified`,
+ * which cannot be undone without losing that later work).
+ */
+export type CheckpointFileState = 'pending' | 'reverted' | 'modified'
+export interface CheckpointFileStatus { path: string; state: CheckpointFileState; preExists: boolean; postExists: boolean }
 interface CheckpointRow {
   id: string; thread_id: string; turn_id: string | null; root_path: string; base_commit: string | null
   label: string | null; state: ThreadCheckpointSummary['state']; created_at: number; finalized_at: number | null
@@ -79,8 +89,8 @@ export class ThreadCheckpointService {
       let bytes = [...existing.values()].reduce((sum, row) => sum + (row.pre_content?.byteLength ?? 0), 0)
       for (const path of paths) {
         const prior = existing.get(path)
-        const pre = prior ? imageFromRow(prior, 'pre') : checkpoint.base_commit ? await gitImage(root, checkpoint.base_commit, path) : { exists: false }
         const post = await readImage(root, path)
+        const pre = prior ? imageFromRow(prior, 'pre') : checkpoint.base_commit ? await gitImage(root, checkpoint.base_commit, path, post) : { exists: false }
         if (!pre.exists && !post.exists) continue
         bytes += prior ? 0 : pre.content?.byteLength ?? 0
         if (bytes > CHECKPOINT_LIMIT) throw Error('Checkpoint exceeds the 32 MiB safety limit')
@@ -115,9 +125,12 @@ export class ThreadCheckpointService {
     const files = this.db.prepare('SELECT path, pre_exists, pre_content, pre_hash, post_exists, post_hash FROM conversation_checkpoint_files WHERE checkpoint_id = ? ORDER BY path').all(checkpointId) as CheckpointFileRow[]
     const current = new Map<string, FileImage>()
     const conflicts: string[] = []
+    const alreadyReverted = new Set<string>()
     for (const file of files) {
       const image = await readImage(root, file.path)
       current.set(file.path, image)
+      // A file the user already undid on its own is not a conflict for the whole turn.
+      if (matches(image, imageFromRow(file, 'pre'))) { alreadyReverted.add(file.path); continue }
       if (image.exists !== Boolean(file.post_exists) || image.hash !== (file.post_hash ?? undefined)) conflicts.push(file.path)
     }
     if (conflicts.length) {
@@ -128,6 +141,7 @@ export class ThreadCheckpointService {
     const applied: string[] = []
     try {
       for (const file of files) {
+        if (alreadyReverted.has(file.path)) continue
         await applyImage(root, file.path, imageFromRow(file, 'pre'))
         applied.push(file.path)
       }
@@ -138,6 +152,100 @@ export class ThreadCheckpointService {
     }
     this.db.prepare("UPDATE conversation_checkpoints SET state = 'restored', restored_at = ?, error = NULL WHERE id = ?").run(Date.now(), checkpointId)
     return this.summary(this.row(checkpointId))
+  }
+
+  /** The most recent checkpoint captured for a turn, if any. */
+  forTurn(threadId: string, turnId: string): ThreadCheckpointSummary | undefined {
+    const row = this.db.prepare('SELECT * FROM conversation_checkpoints WHERE thread_id = ? AND turn_id = ? ORDER BY created_at DESC LIMIT 1').get(threadId, turnId) as CheckpointRow | undefined
+    return row ? this.summary(row) : undefined
+  }
+
+  /** Per-file standing of a finalized checkpoint against the working tree. */
+  async fileStates(threadId: string, checkpointId: string): Promise<CheckpointFileStatus[]> {
+    const checkpoint = this.row(checkpointId)
+    if (checkpoint.thread_id !== threadId) throw Error('Checkpoint does not belong to this conversation')
+    if (checkpoint.state === 'open' || checkpoint.state === 'failed') return []
+    const root = await canonicalRoot(checkpoint.root_path)
+    const files = this.db.prepare('SELECT path, pre_exists, pre_content, pre_hash, post_exists, post_hash FROM conversation_checkpoint_files WHERE checkpoint_id = ? ORDER BY path').all(checkpointId) as CheckpointFileRow[]
+    const states: CheckpointFileStatus[] = []
+    for (const file of files) {
+      const current = await readImage(root, file.path).catch(() => undefined)
+      const state: CheckpointFileState = current && matches(current, imageFromRow(file, 'pre')) ? 'reverted'
+        : current && current.exists === Boolean(file.post_exists) && current.hash === (file.post_hash ?? undefined) ? 'pending'
+          : 'modified'
+      states.push({ path: file.path, state, preExists: Boolean(file.pre_exists), postExists: Boolean(file.post_exists) })
+    }
+    return states
+  }
+
+  /**
+   * Undoes one file of a turn: restores its pre-turn content (or removes a file
+   * the turn created). Refused when the file was edited after the turn, so
+   * later work is never overwritten; a file already back to its pre-turn state
+   * is left alone.
+   */
+  async restoreFile(threadId: string, checkpointId: string, path: string): Promise<CheckpointFileState> {
+    const checkpoint = this.row(checkpointId)
+    if (checkpoint.thread_id !== threadId) throw Error('Checkpoint does not belong to this conversation')
+    if (checkpoint.state !== 'ready' && checkpoint.state !== 'conflict') throw Error('Only a ready or conflict checkpoint can be restored')
+    const root = await canonicalRoot(checkpoint.root_path)
+    const file = this.db.prepare('SELECT path, pre_exists, pre_content, pre_hash, post_exists, post_hash FROM conversation_checkpoint_files WHERE checkpoint_id = ? AND path = ?').get(checkpointId, safeRelative(path)) as CheckpointFileRow | undefined
+    if (!file) throw Error('That file was not changed by this turn')
+    const current = await readImage(root, file.path)
+    const pre = imageFromRow(file, 'pre')
+    if (matches(current, pre)) return 'reverted'
+    if (current.exists !== Boolean(file.post_exists) || current.hash !== (file.post_hash ?? undefined)) {
+      throw Error(`${file.path} changed after this turn; undoing it would discard that later work`)
+    }
+    await applyImage(root, file.path, pre)
+    return 'reverted'
+  }
+
+  /**
+   * The change blocks one turn made to a text file, while the file is still as
+   * the turn (or a previous hunk undo) left it. Empty when there is nothing to
+   * show block by block: binary, too many edits, or edited since.
+   */
+  async fileHunks(threadId: string, checkpointId: string, path: string): Promise<ThreadFileHunk[]> {
+    const { file, current, pre } = await this.pendingTextFile(threadId, checkpointId, path)
+    if (current === null || pre === null) return []
+    return (diffLines(splitLines(pre), splitLines(current)) ?? []).map(hunk => ({ ...hunk, id: hunkId(file.path, hunk) }))
+  }
+
+  /**
+   * Undoes one change block of a turn. The checkpoint then records the file as
+   * the turn's result, so undoing the whole file or turn still restores the
+   * pre-turn content.
+   */
+  async restoreHunk(threadId: string, checkpointId: string, path: string, id: string): Promise<void> {
+    const { root, file, current, pre } = await this.pendingTextFile(threadId, checkpointId, path)
+    if (current === null || pre === null) throw Error(`${path} cannot be undone block by block; undo the whole file instead`)
+    const hunk = (diffLines(splitLines(pre), splitLines(current)) ?? []).find(value => hunkId(file.path, value) === id)
+    if (!hunk) throw Error('That change is no longer in the file. Refresh the changes and try again.')
+    const lines = revertHunk(splitLines(current), hunk)
+    if (!lines) throw Error('That change is no longer in the file. Refresh the changes and try again.')
+    const content = Buffer.from(joinLines(lines), 'utf8')
+    const image: FileImage = { exists: true, content, hash: hash(content) }
+    await applyImage(root, file.path, image)
+    this.db.prepare('UPDATE conversation_checkpoint_files SET post_exists = 1, post_hash = ? WHERE checkpoint_id = ? AND path = ?').run(image.hash, checkpointId, file.path)
+  }
+
+  /** Pre-turn and current text of a file still in its post-turn state; null text for binary or absent sides. */
+  private async pendingTextFile(threadId: string, checkpointId: string, path: string) {
+    const checkpoint = this.row(checkpointId)
+    if (checkpoint.thread_id !== threadId) throw Error('Checkpoint does not belong to this conversation')
+    if (checkpoint.state !== 'ready' && checkpoint.state !== 'conflict') throw Error('Only a ready checkpoint has reviewable changes')
+    const root = await canonicalRoot(checkpoint.root_path)
+    const file = this.db.prepare('SELECT path, pre_exists, pre_content, pre_hash, post_exists, post_hash FROM conversation_checkpoint_files WHERE checkpoint_id = ? AND path = ?').get(checkpointId, safeRelative(path)) as CheckpointFileRow | undefined
+    if (!file) throw Error('That file was not changed by this turn')
+    const image = await readImage(root, file.path)
+    if (!file.post_exists || !image.exists || image.hash !== (file.post_hash ?? undefined)) {
+      if (!matches(image, imageFromRow(file, 'pre'))) throw Error(`${file.path} changed after this turn; review it as a whole file`)
+      return { root, file, current: null, pre: null }
+    }
+    // A file the turn created is all one change; it is undone as a whole file.
+    const pre = file.pre_exists && file.pre_content ? text(Buffer.from(file.pre_content)) : null
+    return { root, file, current: text(image.content!), pre }
   }
 
   delete(threadId: string, checkpointId: string): void {
@@ -215,6 +323,17 @@ function imageFromRow(row: CheckpointFileRow, side: 'pre' | 'post'): FileImage {
 }
 
 function hash(content: Buffer): string { return createHash('sha256').update(content).digest('hex') }
+/** UTF-8 text, or null for content that would not survive a decode/encode round trip. */
+function text(content: Buffer): string | null {
+  if (content.includes(0)) return null
+  const value = content.toString('utf8')
+  return Buffer.from(value, 'utf8').equals(content) ? value : null
+}
+/** Stable for the same change in the same file, so a stale request never undoes a different block. */
+function hunkId(path: string, hunk: LineHunk): string {
+  return createHash('sha256').update(JSON.stringify([path, hunk.oldStart, hunk.oldLines, hunk.newStart, hunk.newLines])).digest('hex').slice(0, 16)
+}
+function matches(a: FileImage, b: FileImage): boolean { return a.exists === b.exists && (!a.exists || a.hash === b.hash) }
 function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error) }
 
 async function statusPaths(root: string): Promise<Set<string>> {
@@ -234,10 +353,22 @@ async function gitNameDiff(root: string, baseCommit: string): Promise<Set<string
   return new Set(output.toString('utf8').split('\0').filter(Boolean).map(safeRelative))
 }
 
-async function gitImage(root: string, commit: string, path: string): Promise<FileImage> {
+/**
+ * The pre-turn content of a file that was clean when the turn began, rebuilt
+ * from the base commit. A clean file can be on disk either as the stored blob
+ * or in its checkout form (autocrlf, eol, smudge filters), and git status
+ * cannot tell which; the form whose line endings match the turn's result is
+ * taken, since edits keep a file's line endings.
+ */
+async function gitImage(root: string, commit: string, path: string, post: FileImage): Promise<FileImage> {
   try {
-    const content = await gitBuffer(root, ['show', `${commit}:${safeRelative(path)}`])
-    if (content.byteLength > FILE_LIMIT) throw Error(`Checkpoint file exceeds 2 MiB: ${path}`)
+    const spec = `${commit}:${safeRelative(path)}`
+    const raw = await gitBuffer(root, ['show', spec])
+    if (raw.byteLength > FILE_LIMIT) throw Error(`Checkpoint file exceeds 2 MiB: ${path}`)
+    const crlf = (content?: Buffer) => Boolean(content?.includes('\r\n'))
+    // Only a CRLF result over an LF blob can mean a converted checkout; anything else keeps the blob (one git call).
+    const filtered = post.exists && crlf(post.content) && !crlf(raw) ? await gitBuffer(root, ['cat-file', '--filters', spec]).catch(() => raw) : raw
+    const content = filtered.byteLength <= FILE_LIMIT && crlf(filtered) ? filtered : raw
     return { exists: true, content, hash: hash(content) }
   } catch (error) {
     if (/does not exist|exists on disk, but not in|Path .* does not exist|bad object/i.test(errorMessage(error))) return { exists: false }

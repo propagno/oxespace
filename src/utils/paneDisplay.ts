@@ -12,6 +12,13 @@ export interface PaneDisplayTerminalState {
   lastIntentAt: number | null
   isWorking: boolean
   hasUnread: boolean
+  /**
+   * Status reported by the agent's own lifecycle hooks (see AgentHookServer).
+   * Absent when hooks are not installed or the agent has not reported; the
+   * output-timing heuristic then decides.
+   */
+  hookState?: 'working' | 'waiting' | 'done' | null
+  hookAt?: number | null
 }
 
 export interface PaneDisplayState {
@@ -227,10 +234,30 @@ export function formatPaneStatus(tone: PaneDisplayTone): string {
   return 'Idle'
 }
 
+const HOOK_WAITING_FRESH_MS = 30 * 60_000
+const HOOK_DONE_FRESH_MS = 5 * 60_000
+// A `working` report only holds while the pane is still alive. Claude redraws
+// its spinner continuously, so output going quiet this long means the agent was
+// killed without a Stop/SessionEnd hook — fall back to the heuristic rather than
+// show a stuck "thinking" dot.
+const HOOK_WORKING_LIVENESS_MS = 3 * 60_000
+
+/** Tone from an agent's own hook report, or null to defer to the heuristic. */
+function deriveHookTone(entry: PaneDisplayTerminalState, now: number): PaneDisplayTone | null {
+  if (entry.status !== 'running' || !entry.hookState || !entry.hookAt) return null
+  const age = now - entry.hookAt
+  if (entry.hookState === 'waiting') return age < HOOK_WAITING_FRESH_MS ? 'awaiting' : null
+  if (entry.hookState === 'done') return age < HOOK_DONE_FRESH_MS ? 'awaiting' : 'idle'
+  const lastSign = Math.max(entry.hookAt, entry.lastActivityAt ?? 0)
+  return now - lastSign < HOOK_WORKING_LIVENESS_MS ? 'thinking' : null
+}
+
 export function deriveStatusTone(entry: PaneDisplayTerminalState): PaneDisplayTone {
   if (entry.status === 'error' || entry.error) return 'error'
   if (entry.status === 'exited') return 'exited'
   if (entry.status === 'starting') return 'starting'
+  const hookTone = deriveHookTone(entry, Date.now())
+  if (hookTone) return hookTone
   if (entry.isWorking) return 'thinking'
   if (entry.status === 'running' && entry.lastIntent) {
     const lastTouchMs = Math.max(entry.lastActivityAt ?? 0, entry.lastIntentAt ?? 0)

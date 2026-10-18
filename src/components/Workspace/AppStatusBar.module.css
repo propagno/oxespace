@@ -1,0 +1,44 @@
+.bar {
+  position: absolute;
+  z-index: var(--layer-sticky);
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  height: 24px;
+  padding: 0 var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-chrome);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+
+.group { display: flex; align-items: center; gap: var(--space-3); min-width: 0; overflow: hidden; }
+
+.item { display: flex; align-items: center; gap: var(--space-1); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.strong { min-width: 0; color: var(--text-secondary); }
+.path { overflow: hidden; max-width: 46ch; font-family: var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.connected { color: var(--intent-success-fg); }
+
+/* Shells kept alive for workspaces that are not open: normal, but worth noticing. */
+.action {
+  padding: 1px var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--intent-warning-bg);
+  color: var(--intent-warning-fg);
+  font: inherit;
+  cursor: pointer;
+}
+.action:hover { background: var(--intent-warning-bg-hover); }
+.action:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+
+@media (max-width: 760px) {
+  .group:first-child .strong,
+  .group:last-child .item:not(.connected):not(.action) { display: none; }
+  .group { gap: var(--space-2); }
+}

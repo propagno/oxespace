@@ -51,10 +51,10 @@ export function ReviewToolbar({
           type="button"
           className="review-send-comments"
           data-testid="review-send-comments"
-          title="Enviar os comentários do diff para o agente ativo"
+          title="Send the diff comments to the active agent"
           onClick={onSendComments}
         >
-          <Send size={11} aria-hidden="true" />
+          <Send size={12} aria-hidden="true" />
           <span>Enviar {commentCount} ao agente</span>
         </button>
       ) : null}
@@ -105,7 +105,7 @@ export function ReviewToolbar({
           onClick={() => onDiffModeChange('unified')}
           title="Unified diff"
         >
-          <Rows3 size={11} aria-hidden="true" />
+          <Rows3 size={12} aria-hidden="true" />
           Unified
         </button>
         <button
@@ -116,7 +116,7 @@ export function ReviewToolbar({
           onClick={() => onDiffModeChange('side-by-side')}
           title="Side-by-side diff"
         >
-          <Columns2 size={11} aria-hidden="true" />
+          <Columns2 size={12} aria-hidden="true" />
           Split
         </button>
       </div>
@@ -137,7 +137,7 @@ export function ReviewToolbar({
       <div className="review-toolbar-sep" />
 
       <span className="review-reviewed-counter" title="Reviewed / total files">
-        <Check size={11} aria-hidden="true" />
+        <Check size={12} aria-hidden="true" />
         {reviewedCount}/{totalFiles}
       </span>
       {reviewedCount > 0 ? (
@@ -148,11 +148,11 @@ export function ReviewToolbar({
 
       <div className="review-counter">
         <button type="button" className="review-nav-btn" onClick={() => onNavigate(-1)} aria-label="Previous file (k)" disabled={currentIndex <= 0}>
-          <ChevronLeft size={10} aria-hidden="true" />
+          <ChevronLeft size={12} aria-hidden="true" />
         </button>
         <span>{totalFiles > 0 ? `${currentIndex + 1}/${totalFiles}` : '0/0'}</span>
         <button type="button" className="review-nav-btn" onClick={() => onNavigate(1)} aria-label="Next file (j)" disabled={currentIndex >= totalFiles - 1}>
-          <ChevronRight size={10} aria-hidden="true" />
+          <ChevronRight size={12} aria-hidden="true" />
         </button>
       </div>
     </div>

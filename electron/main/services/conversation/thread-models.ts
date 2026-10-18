@@ -3,6 +3,13 @@ import { AgentProcessTransport } from './process-transport'
 import { AgentRpcPeer } from './rpc-peer'
 import { CLAUDE_THREAD_ARGS, claudeRuntimeCatalog } from './claude-command-catalog'
 import type { ConversationTransport } from './codex-conversation'
+import { detectModelOverride, type ModelOverrideEvidence } from './thread-model-override'
+
+/** Without a known default the catalog names none, so the picker cannot label a guess as the default. */
+export function withDefaultKnown(catalog: ThreadModelCatalog, mayOverride: boolean): ThreadModelCatalog {
+  if (!mayOverride) return { ...catalog, defaultKnown: true }
+  return { models: catalog.models.map(model => ({ ...model, isDefault: false })), defaultKnown: false }
+}
 
 const object = (value: unknown): Record<string, unknown> => value && typeof value === 'object' ? value as Record<string, unknown> : {}
 export class ThreadModelService {
@@ -10,7 +17,8 @@ export class ThreadModelService {
   private readonly transports = new Set<ConversationTransport>()
   private stopped = false
   constructor(private readonly executable: (thread: ConversationThread) => string,
-    private readonly spawn = (command: string, args: string[], cwd: string): ConversationTransport => new AgentProcessTransport(command, args, cwd)) {}
+    private readonly spawn = (command: string, args: string[], cwd: string): ConversationTransport => new AgentProcessTransport(command, args, cwd),
+    private readonly detectOverride: (provider: ConversationThread['provider'], rootPath: string) => Promise<ModelOverrideEvidence> = detectModelOverride) {}
   list(thread: ConversationThread, refresh = false): Promise<ThreadModelCatalog> {
     if (this.stopped) return Promise.reject(Error('Application is shutting down'))
     const command = this.executable(thread)
@@ -24,7 +32,11 @@ export class ThreadModelService {
       this.cache.delete(settled[0])
     }
     const entry = { expires: Infinity, promise: Promise.resolve<ThreadModelCatalog>({ models: [] }) }
-    entry.promise = this.discover(thread, command).then(result => { entry.expires = Date.now() + 60000; return result }, error => { entry.expires = Date.now() + 5000; throw error })
+    entry.promise = this.discover(thread, command).then(async result => {
+      const evidence = await this.detectOverride(thread.provider, thread.rootPath).catch((): ModelOverrideEvidence => ({ mayOverride: false }))
+      entry.expires = Date.now() + 60000
+      return withDefaultKnown(result, evidence.mayOverride)
+    }, error => { entry.expires = Date.now() + 5000; throw error })
     this.cache.set(key, entry)
     return entry.promise
   }

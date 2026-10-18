@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronRight, File } from 'lucide-react'
-import { type ReactElement } from 'react'
+import { useId, type ReactElement } from 'react'
+import { useTreeKeyboard } from '../../hooks/useTreeKeyboard'
 import type { GitDiffFile } from '../../../shared/types/git'
 
 interface DirNode {
@@ -72,12 +73,14 @@ function DirRow({ node, depth, isCollapsed, onToggleCollapsed }: DirRowProps): R
   return (
     <button
       type="button"
+      role="treeitem"
+      aria-level={depth + 1}
       className={`review-tree-dir${allReviewed ? ' all-reviewed' : ''}`}
       style={{ paddingLeft: depth * 12 + 4 }}
       onClick={onToggleCollapsed}
       aria-expanded={!isCollapsed}
     >
-      {isCollapsed ? <ChevronRight size={11} aria-hidden="true" /> : <ChevronDown size={11} aria-hidden="true" />}
+      {isCollapsed ? <ChevronRight size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}
       <span className="review-tree-dir-name">{node.name}</span>
       <span className="review-tree-dir-meta">
         {node.fileCount > 0 ? `${node.reviewedCount}/${node.fileCount}` : ''}
@@ -103,24 +106,31 @@ interface FileRowProps {
 function FileRow({ depth, file, label, onSelect, onToggleReviewed, reviewed, selected }: FileRowProps): ReactElement {
   return (
     <div
+      role="none"
       className={`review-tree-file${selected ? ' selected' : ''}${reviewed ? ' reviewed' : ''}`}
       style={{ paddingLeft: depth * 12 + 8 }}
     >
       <input
         type="checkbox"
         className="review-tree-checkbox"
+        tabIndex={-1}
+        data-tree-action=""
         checked={reviewed}
         onChange={onToggleReviewed}
         onClick={(e) => e.stopPropagation()}
         aria-label={`Mark ${file.path} as reviewed`}
+        title="Mark as reviewed (from the file, press Right Arrow)"
       />
       <button
         type="button"
+        role="treeitem"
+        aria-level={depth + 1}
+        aria-selected={selected}
         className="review-tree-file-body"
         onClick={onSelect}
         title={file.path}
       >
-        <File size={10} aria-hidden="true" className="review-tree-file-icon" />
+        <File size={12} aria-hidden="true" className="review-tree-file-icon" />
         <span className="review-tree-file-label">{label}</span>
         <span className="review-tree-stats">
           {file.additions > 0 && <span className="review-stat-add">+{file.additions}</span>}
@@ -148,7 +158,7 @@ function RenderNode({ node, depth, reviewedFiles, collapsedDirs, selectedFile, o
       {node.children.map((child) => {
         const collapsed = collapsedDirs.has(child.fullPath)
         return (
-          <div key={child.fullPath}>
+          <div key={child.fullPath} role="none">
             <DirRow
               node={child}
               depth={depth}
@@ -211,6 +221,8 @@ export function ReviewFileTree({
 }: ReviewFileTreeProps): ReactElement {
   const reviewedSet = new Set(reviewedFiles)
   const collapsedSet = new Set(collapsedDirs)
+  const treeNav = useTreeKeyboard<HTMLDivElement>()
+  const hintId = useId()
 
   return (
     <div className="review-file-tree review-file-tree-v2">
@@ -230,7 +242,9 @@ export function ReviewFileTree({
         </div>
       </div>
 
-      <div className="review-file-tree-list" role="tree">
+      {/* Read once when the tree is entered; repeating it on every row would be noise. */}
+      <p id={hintId} className="sr-only">Use the arrow keys to move between files. On a file, press Right Arrow to reach its reviewed checkbox and Space to toggle it; Left Arrow returns to the file.</p>
+      <div className="review-file-tree-list" role="tree" aria-label="Review files" aria-describedby={hintId} ref={treeNav.ref} onKeyDown={treeNav.onKeyDown}>
         {treeMode === 'structured' ? (
           <RenderNode
             node={buildTree(files, reviewedSet)}

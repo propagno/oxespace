@@ -13,7 +13,8 @@ import { ThreadNativeCli } from './thread-cli'
 import { NativeHistoryWorkerClient } from './native-history-worker-client'
 import { CodexStateReader } from './codex-state-reader'
 import { ThreadModelService } from './thread-models'
-import { bindThreadMcp, threadMcpArguments, type ThreadMcpBindings } from './thread-mcp'
+import { bindThreadMcp, deniedMcpTools, threadMcpArguments, type ThreadMcpBindings } from './thread-mcp'
+import { ThreadPermissionStore } from './thread-permissions'
 import { readManagedMcp } from './thread-managed-mcp'
 import { ThreadAttachmentStore } from './thread-attachments'
 
@@ -32,7 +33,7 @@ export function createThreadManager(db: AppDatabase, accounts: NativeAccountServ
   }
   const broadcast = (channel: string, event: unknown) => { for (const window of BrowserWindow.getAllWindows()) window.webContents.send(channel, event) }
   const commands = new ThreadCommandService(executable)
-  const cli = new ThreadNativeCli(executable, { historyReader: new NativeHistoryWorkerClient(join(app.getAppPath(), 'out', 'main', 'native-history-worker.js'), executable), data: event => broadcast(IPC_CHANNELS.threadCli.data, event), exit: event => broadcast(IPC_CHANNELS.threadCli.exit, event) })
+  const cli = new ThreadNativeCli(executable, { historyReader: new NativeHistoryWorkerClient(join(app.getAppPath(), 'out', 'main', 'native-history-worker.js'), executable) })
   return new ThreadManager(db, async thread => {
     const profile = resolveProfile(thread)
     if (!profile) throw new Error('Configure the agent in Agent Settings')
@@ -41,9 +42,16 @@ export function createThreadManager(db: AppDatabase, accounts: NativeAccountServ
       const prepared = await mcp.prepare(thread)
       executionId = prepared.OXESPACE_EXECUTION_ID
       // Servers configured in OXESpace are attached explicitly; their secrets ride in the environment.
-      const managed = readManagedMcp(db, thread.workspaceId)
+      // A Thread's own id is `thread:<project>`; servers scoped to the Code
+      // workspaces opened on the same root belong to this project as well.
+      const norm = (value: string): string => { const unified = value.replace(/\\/g, '/').replace(/\/+$/, ''); return process.platform === 'win32' ? unified.toLowerCase() : unified }
+      const projectWorkspaces = (db.prepare('SELECT id, root_path FROM workspaces').all() as { id: string; root_path: string }[])
+        .filter(row => norm(row.root_path) === norm(thread.rootPath)).map(row => row.id)
+      const managed = readManagedMcp(db, [thread.workspaceId, ...projectWorkspaces])
       const env = { ...managed.env, ...prepared }
-      const transport = (args: string[], cwd: string) => new AgentProcessTransport(profile.command, threadMcpArguments(thread.provider, args, mcp.bridge, managed), cwd, env, { thread: thread.id, generation: thread.generation })
+      // Deny rules for MCP tools take effect when the session starts.
+      const denied = deniedMcpTools(new ThreadPermissionStore(db).rules(thread.rootPath))
+      const transport = (args: string[], cwd: string) => new AgentProcessTransport(profile.command, threadMcpArguments(thread.provider, args, mcp.bridge, managed, denied), cwd, env, { thread: thread.id, generation: thread.generation })
       const adapter = thread.provider === 'claude' ? new ClaudeConversationAdapter(transport)
         : new CodexConversationAdapter(transport(['app-server', '--listen', 'stdio://'], thread.rootPath))
       return bindThreadMcp(adapter, () => mcp.end(thread.id, executionId))

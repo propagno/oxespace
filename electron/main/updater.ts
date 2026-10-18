@@ -14,18 +14,51 @@ import type { AppUpdateState, AppUpdateStatus } from '../../shared/types/updater
  */
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000
 const RELEASES_API = 'https://api.github.com/repos/propagno/oxespace/releases/latest'
+/** Pre-release installs follow the whole list: `latest` never returns a pre-release. */
+const RELEASES_LIST_API = 'https://api.github.com/repos/propagno/oxespace/releases?per_page=20'
+
+interface ParsedVersion { core: number[]; pre: string[] }
+
+function parseVersion(value: string): ParsedVersion | null {
+  const match = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+.*)?$/.exec(value.trim())
+  if (!match) return null
+  return { core: [Number(match[1]), Number(match[2]), Number(match[3])], pre: match[4] ? match[4].split('.') : [] }
+}
+
+/** SemVer precedence: 0.16.0-beta.8 < 0.16.0, and beta.10 > beta.9. */
+function compareVersions(a: ParsedVersion, b: ParsedVersion): number {
+  for (let index = 0; index < 3; index++) {
+    if (a.core[index] !== b.core[index]) return a.core[index] > b.core[index] ? 1 : -1
+  }
+  if (!a.pre.length || !b.pre.length) return a.pre.length === b.pre.length ? 0 : a.pre.length ? -1 : 1
+  for (let index = 0; index < Math.max(a.pre.length, b.pre.length); index++) {
+    const x = a.pre[index], y = b.pre[index]
+    if (x === undefined) return -1
+    if (y === undefined) return 1
+    if (x === y) continue
+    const xNumeric = /^\d+$/.test(x), yNumeric = /^\d+$/.test(y)
+    if (xNumeric && yNumeric) return Number(x) > Number(y) ? 1 : -1
+    if (xNumeric) return -1
+    if (yNumeric) return 1
+    return x > y ? 1 : -1
+  }
+  return 0
+}
 
 export function isNewerRelease(latest: string, current: string): boolean {
-  const parse = (value: string): number[] | null => {
-    const match = /^v?(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/.exec(value.trim())
-    return match ? [Number(match[1]), Number(match[2]), Number(match[3])] : null
-  }
-  const a = parse(latest), b = parse(current)
+  const a = parseVersion(latest), b = parseVersion(current)
   if (!a || !b) return false
-  for (let index = 0; index < 3; index++) {
-    if (a[index] !== b[index]) return a[index] > b[index]
+  return compareVersions(a, b) > 0
+}
+
+/** The highest published version a pre-release install should be offered (pre-releases included). */
+export function newestVersion(tags: string[]): string | null {
+  let best: { tag: string; version: ParsedVersion } | null = null
+  for (const tag of tags) {
+    const version = parseVersion(tag)
+    if (version && (!best || compareVersions(version, best.version) > 0)) best = { tag, version }
   }
-  return false
+  return best ? best.tag.replace(/^v/, '') : null
 }
 
 /**
@@ -78,13 +111,18 @@ export async function checkForAppUpdates(manual = false): Promise<AppUpdateState
   if (!app.isPackaged || !updaterSupportsThisInstall()) {
     setState({ status: 'checking', installMode: 'manual', error: null })
     try {
-      const response = await fetch(RELEASES_API, {
+      const onPrerelease = (parseVersion(app.getVersion())?.pre.length ?? 0) > 0
+      const response = await fetch(onPrerelease ? RELEASES_LIST_API : RELEASES_API, {
         headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'OXESpace' },
         signal: AbortSignal.timeout(10_000)
       })
       if (!response.ok) throw new Error(`Release check failed (${response.status})`)
-      const release = await response.json() as { tag_name?: unknown }
-      const version = typeof release.tag_name === 'string' ? release.tag_name.replace(/^v/, '') : ''
+      const body = await response.json() as unknown
+      const items = Array.isArray(body) ? body : [body]
+      const tags = items
+        .filter((item): item is { tag_name: string; draft?: boolean } => Boolean(item) && typeof (item as { tag_name?: unknown }).tag_name === 'string' && !(item as { draft?: boolean }).draft)
+        .map(item => item.tag_name)
+      const version = newestVersion(tags) ?? ''
       if (!version) throw new Error('Release version unavailable')
       const available = isNewerRelease(version, app.getVersion())
       setState({ status: available ? 'available' : 'not-available', installMode: 'manual', availableVersion: available ? version : null, progress: null, error: null, lastCheckedAt: Date.now() })

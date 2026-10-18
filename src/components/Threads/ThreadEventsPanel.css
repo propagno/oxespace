@@ -1,0 +1,23 @@
+.thread-events { display: grid; gap: 8px; min-width: 0; }
+.thread-events-bar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.thread-events-note { margin: 0; color: var(--text-muted); font-size: 12px; }
+.thread-events-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; min-width: 0; }
+.thread-events-body:has(.thread-events-detail) { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+.thread-events-list { display: grid; align-content: start; gap: 2px; margin: 0; padding: 0; list-style: none; max-height: 420px; overflow: auto; }
+.thread-events-row { display: grid; grid-template-columns: 92px 84px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; width: 100%; padding: 4px 6px; border: 1px solid transparent; border-radius: 6px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.thread-events-row:hover, .thread-events-row[aria-pressed='true'] { border-color: var(--bd-base); background: var(--bg-hover); }
+.thread-events-row.is-failed .thread-events-meta { color: var(--intent-danger-fg); }
+.thread-events-row time, .thread-events-meta { font-variant-numeric: tabular-nums; font-size: 12px; opacity: 0.8; }
+.thread-events-type { font-size: 12px; font-weight: 600; }
+.thread-events-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thread-events-more { width: 100%; }
+.thread-events-detail { min-width: 0; max-height: 420px; overflow: auto; padding: 8px; border: 1px solid var(--bd-base); border-radius: 6px; }
+.thread-events-detail dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 8px; margin: 0 0 8px; font-size: 12px; }
+.thread-events-detail dt { opacity: 0.7; }
+.thread-events-detail dd { margin: 0; overflow-wrap: anywhere; }
+.thread-events-detail pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; }
+@media (max-width: 720px) {
+  .thread-events-body:has(.thread-events-detail) { grid-template-columns: minmax(0, 1fr); }
+  .thread-events-row { grid-template-columns: 84px minmax(0, 1fr); }
+  .thread-events-type, .thread-events-meta { grid-column: 2; }
+}

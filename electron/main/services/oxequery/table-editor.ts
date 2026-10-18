@@ -1,0 +1,134 @@
+import { quoteIdentifier } from './sql-guard'
+import { OxeQueryError } from './oxequery-errors'
+
+/** What the editor needs to know about one column, read from the catalog by the worker. */
+export interface ColumnMeta {
+  name: string
+  /** `format_type` output, e.g. `character varying(255)`. Produced by the server, never by the client. */
+  type: string
+  nullable: boolean
+  hasDefault: boolean
+  /** Generated or identity ALWAYS: the server refuses a value. */
+  generated: boolean
+  /** Part of the key used to find a row (primary key, else a unique index of NOT NULL columns). */
+  key: boolean
+}
+
+export type RowValue = string | number | boolean | null | Record<string, unknown> | unknown[]
+
+export type RowChange =
+  | { kind: 'update'; key: Record<string, RowValue>; set: Record<string, RowValue>; old?: Record<string, RowValue> }
+  | { kind: 'insert'; values: Record<string, RowValue> }
+  | { kind: 'delete'; key: Record<string, RowValue>; old?: Record<string, RowValue> }
+
+export interface BuiltStatement {
+  text: string
+  values: (string | null)[]
+  /** Rows the statement must affect, or null when it does not matter. A different count rolls everything back. */
+  expectRows: number | null
+  summary: string
+}
+
+export const MAX_CHANGES = 500
+const MAX_VALUE = 1024 * 1024
+const TYPE_PATTERN = /^[A-Za-z0-9_ ."()[\],]+$/
+
+function typeOf(column: ColumnMeta): string {
+  if (!TYPE_PATTERN.test(column.type) || column.type.length > 200) throw new OxeQueryError('invalid', `Column "${column.name}" has a type this editor cannot write safely (${column.type.slice(0, 40)}).`)
+  return column.type
+}
+
+/** Everything is sent as text and cast by the server to the column's own type. */
+function param(value: RowValue, column: ColumnMeta): string | null {
+  if (value === null) return null
+  const text = typeof value === 'object' ? JSON.stringify(value) : String(value)
+  if (text.length > MAX_VALUE) throw new OxeQueryError('invalid', `The value for "${column.name}" is too large to save here.`)
+  return text
+}
+
+function find(columns: ColumnMeta[], name: string): ColumnMeta {
+  const column = columns.find(item => item.name === name)
+  if (!column) throw new OxeQueryError('invalid', `The table has no column "${name}".`)
+  return column
+}
+
+function keyPredicate(columns: ColumnMeta[], key: Record<string, RowValue>, values: (string | null)[]): string {
+  const keyColumns = columns.filter(column => column.key)
+  if (keyColumns.length === 0) throw new OxeQueryError('invalid', 'This table has no primary key or unique NOT NULL index, so rows cannot be changed safely.')
+  const given = Object.keys(key)
+  if (given.length !== keyColumns.length || keyColumns.some(column => !given.includes(column.name))) {
+    throw new OxeQueryError('invalid', `A row is identified by ${keyColumns.map(column => `"${column.name}"`).join(', ')}.`)
+  }
+  return keyColumns.map(column => {
+    const value = key[column.name]
+    if (value === null) throw new OxeQueryError('invalid', `The key column "${column.name}" cannot be NULL.`)
+    values.push(param(value, column))
+    return `${quoteIdentifier(column.name)} = $${values.length}::${typeOf(column)}`
+  }).join(' AND ')
+}
+
+/** `col IS NOT DISTINCT FROM $n` for every value the person saw, so a concurrent change is noticed. */
+function unchangedPredicate(columns: ColumnMeta[], old: Record<string, RowValue> | undefined, values: (string | null)[], skip: Set<string>): string {
+  if (!old) return ''
+  const parts: string[] = []
+  for (const [name, value] of Object.entries(old)) {
+    if (skip.has(name)) continue
+    const column = find(columns, name)
+    values.push(param(value, column))
+    parts.push(`${quoteIdentifier(column.name)} IS NOT DISTINCT FROM $${values.length}::${typeOf(column)}`)
+  }
+  return parts.length ? ` AND ${parts.join(' AND ')}` : ''
+}
+
+/**
+ * Turns structured edits into parameterised statements. Identifiers come from the
+ * catalog (and are quoted), values are parameters cast by the server: nothing the
+ * person typed is ever spliced into SQL text.
+ */
+export function buildStatements(schema: string, table: string, columns: ColumnMeta[], changes: RowChange[]): BuiltStatement[] {
+  if (!Array.isArray(changes) || changes.length === 0) throw new OxeQueryError('invalid', 'There are no changes to apply.')
+  if (changes.length > MAX_CHANGES) throw new OxeQueryError('invalid', `At most ${MAX_CHANGES} changes can be applied at once.`)
+  const target = `${quoteIdentifier(schema)}.${quoteIdentifier(table)}`
+  return changes.map((change, index): BuiltStatement => {
+    const values: (string | null)[] = []
+    if (change.kind === 'insert') {
+      const names = Object.keys(change.values)
+      if (names.length === 0) return { text: `INSERT INTO ${target} DEFAULT VALUES`, values, expectRows: 1, summary: `Insert a row (all defaults)` }
+      const cells = names.map(name => {
+        const column = find(columns, name)
+        if (column.generated) throw new OxeQueryError('invalid', `"${name}" is generated by the server and cannot be set.`)
+        values.push(param(change.values[name], column))
+        return `$${values.length}::${typeOf(column)}`
+      })
+      return { text: `INSERT INTO ${target} (${names.map(quoteIdentifier).join(', ')}) VALUES (${cells.join(', ')})`, values, expectRows: 1, summary: `Insert a row (${names.join(', ')})` }
+    }
+    if (change.kind === 'update') {
+      const names = Object.keys(change.set)
+      if (names.length === 0) throw new OxeQueryError('invalid', `Change ${index + 1} sets no column.`)
+      const assignments = names.map(name => {
+        const column = find(columns, name)
+        if (column.generated) throw new OxeQueryError('invalid', `"${name}" is generated by the server and cannot be changed.`)
+        values.push(param(change.set[name], column))
+        return `${quoteIdentifier(name)} = $${values.length}::${typeOf(column)}`
+      })
+      const where = keyPredicate(columns, change.key, values)
+      const unchanged = unchangedPredicate(columns, change.old, values, new Set(Object.keys(change.key)))
+      return { text: `UPDATE ${target} SET ${assignments.join(', ')} WHERE ${where}${unchanged}`, values, expectRows: 1, summary: `Update ${names.join(', ')}` }
+    }
+    if (change.kind === 'delete') {
+      const where = keyPredicate(columns, change.key, values)
+      const unchanged = unchangedPredicate(columns, change.old, values, new Set(Object.keys(change.key)))
+      return { text: `DELETE FROM ${target} WHERE ${where}${unchanged}`, values, expectRows: 1, summary: 'Delete a row' }
+    }
+    throw new OxeQueryError('invalid', `Change ${index + 1} is not an update, insert or delete.`)
+  })
+}
+
+function literal(value: string | null): string {
+  return value === null ? 'NULL' : `'${value.replace(/'/g, "''")}'`
+}
+
+/** The statements with their values written in, for a person to read. This text is never executed. */
+export function previewStatements(statements: BuiltStatement[]): string[] {
+  return statements.map(statement => statement.text.replace(/\$(\d+)/g, (_, position: string) => literal(statement.values[Number(position) - 1] ?? null)) + ';')
+}

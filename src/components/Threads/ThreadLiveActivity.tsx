@@ -21,6 +21,9 @@ function runningToolLabel(tool: Tool, verbose = true): string {
   return `Using ${tool.name}`
 }
 
+/** How long a background task may be reported as running without ever being reported finished. */
+export const BACKGROUND_TRUST_MS = 2 * 60 * 60 * 1000
+
 export interface LiveActivity {
   label: string
   elapsed: string
@@ -28,6 +31,10 @@ export interface LiveActivity {
   stale: boolean
   awaitingInput: boolean
   reconnecting: boolean
+  /** False once the turn is over and only background work is being waited for. */
+  turnRunning: boolean
+  /** Provider ids of the background tasks still listed as running. */
+  taskIds: string[]
   summary?: string
   tools: Tool[]
 }
@@ -35,10 +42,15 @@ export interface LiveActivity {
 /** A status is evidence of a provider event or transport data, never an inferred thought. */
 export function deriveThreadLiveActivity(snapshot: ThreadSnapshot, now: number, verbose = true): LiveActivity | null {
   const thread = snapshot.thread
-  const background = snapshot.events.filter(event => event.type === 'subagent' && event.state === 'running')
-  if (thread.status !== 'running' && thread.status !== 'approval' && !background.length) return null
+  // A background task whose end the provider never reported would otherwise keep this panel (and
+  // its clock) alive for good; after this long it is no longer shown as active.
+  const background = snapshot.events.filter(event => event.type === 'subagent' && event.state === 'running' && (event.startedAt === undefined || now - event.startedAt < BACKGROUND_TRUST_MS))
+  const turnRunning = thread.status === 'running' || thread.status === 'approval'
+  if (!turnRunning && !background.length) return null
   const turn = snapshot.turns?.at(-1)
-  const startedAt = turn?.startedAt ?? thread.updatedAt
+  const backgroundStart = Math.min(...background.map(event => event.type === 'subagent' ? event.startedAt ?? now : now))
+  // With the turn finished, the clock measures the background work, not a turn that is over.
+  const startedAt = turnRunning ? turn?.startedAt ?? thread.updatedAt : Number.isFinite(backgroundStart) ? backgroundStart : thread.updatedAt
   let startIndex = -1
   for (let index = snapshot.events.length - 1; index >= 0; index--) {
     const event = snapshot.events[index]
@@ -56,17 +68,20 @@ export function deriveThreadLiveActivity(snapshot: ThreadSnapshot, now: number, 
   let label = 'Waiting for the next agent update'
   if (awaitingInput) label = thread.status === 'approval' && !actionableRequest && signalAgeMs >= 60_000 ? 'Input request unavailable' : 'Waiting for your input'
   else if (connection?.state === 'degraded' || connection?.state === 'reconnecting') label = 'Reconnecting to the agent'
+  else if (background.length && !turnRunning) label = `Waiting for ${background.length} background ${background.length === 1 ? 'task' : 'tasks'}`
   else if (runningTool) label = runningToolLabel(runningTool, verbose)
   else if (activity?.phase === 'preparing') label = 'Preparing project context'
   else if (connection?.state === 'starting' || activity?.phase === 'connecting' && connection?.state !== 'connected') label = 'Connecting to the agent'
-  else if (background.length && thread.status !== 'running') label = `Waiting for ${background.length} background ${background.length === 1 ? 'task' : 'tasks'}`
   else if (activity?.phase === 'responding' && now - activity.at < 15_000) label = 'Receiving response'
   else if (activity?.phase === 'reasoning') label = 'Analyzing request'
   return {
     label, elapsed: duration(now - startedAt),
-    signalAge: lastSignal ? `Last provider signal ${duration(signalAgeMs)} ago` : `No provider signal yet · ${duration(signalAgeMs)}`,
-    stale: signalAgeMs >= 60_000 && (!awaitingInput || !actionableRequest),
+    signalAge: !turnRunning ? 'Background work reported by the provider' : lastSignal ? `Last provider signal ${duration(signalAgeMs)} ago` : `No provider signal yet · ${duration(signalAgeMs)}`,
+    // Quiet background work is normal; only a running turn that goes silent is a doubt worth showing.
+    stale: turnRunning && signalAgeMs >= 60_000 && (!awaitingInput || !actionableRequest),
     awaitingInput,
+    turnRunning,
+    taskIds: turnRunning ? [] : background.flatMap(event => event.type === 'subagent' ? event.receiverThreadIds : []),
     reconnecting: connection?.state === 'degraded' || connection?.state === 'reconnecting',
     summary: activity?.summary,
     tools: tools.slice(-4)
@@ -75,6 +90,7 @@ export function deriveThreadLiveActivity(snapshot: ThreadSnapshot, now: number, 
 
 export function ThreadLiveActivity({ snapshot }: { snapshot: ThreadSnapshot }) {
   const [now, setNow] = useState(Date.now())
+  const [stopping, setStopping] = useState(false)
   useEffect(() => {
     setNow(Date.now())
     const timer = window.setInterval(() => setNow(Date.now()), 1_000)
@@ -90,6 +106,10 @@ export function ThreadLiveActivity({ snapshot }: { snapshot: ThreadSnapshot }) {
       {activity.stale || activity.awaitingInput ? <AlertCircle size={14} aria-hidden="true" /> : <Loader2 size={14} className="thread-spin" aria-hidden="true" />}
       <span role="status"><strong title={activity.label}>{activity.stale && !activity.awaitingInput ? terminalObserved ? 'Provider result available · synchronizing required' : check.observation?.state === 'running' ? 'Provider confirms execution is active' : check.observation?.state === 'awaiting-input' ? 'Provider is waiting for input' : 'Waiting for a confirmed provider update' : activity.label}</strong></span><time title="Total time for this turn, including previous commands and waiting for input" aria-label={`Turn elapsed ${activity.elapsed}`}>Turn · {activity.elapsed}</time>
     </div>
+    {!activity.turnRunning && activity.taskIds.length > 0 && <button type="button" className="thread-live-activity-stop" disabled={stopping} onClick={() => {
+      setStopping(true)
+      void Promise.allSettled(activity.taskIds.map(taskId => window.oxe.thread?.stopTask?.(snapshot.thread.id, taskId))).finally(() => setStopping(false))
+    }}>{stopping ? 'Stopping…' : 'Stop waiting'}</button>}
     <div className="thread-live-activity-meta"><span>{activity.signalAge}</span>{activity.stale && <>{!terminalObserved && <span>Execution may still be active.</span>}</>}</div>
     {activity.stale && <div className="thread-live-activity-meta" role="status">
       {check.checking ? <span>Checking provider state…</span> : check.observation && <span>{check.observation.state === 'running' ? 'Provider confirms execution is active.' : check.observation.state === 'awaiting-input' ? 'Provider is waiting for input. Open Diagnostics to inspect the request.' : check.observation.state === 'completed' || check.observation.state === 'failed' || check.observation.state === 'interrupted' ? `Provider reports ${check.observation.state}. Local output still needs reconciliation.` : 'Execution outcome is not confirmed. Your message was not resent.'}</span>}

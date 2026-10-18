@@ -1,7 +1,9 @@
-import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, session, shell } from 'electron'
+import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, safeStorage, session, shell } from 'electron'
 import log from 'electron-log/main.js'
 import { recordRuntime, startRuntimeDiagnostics, stopRuntimeDiagnostics } from './services/runtime-diagnostics'
 import { initAutoUpdater, registerAppUpdateIpc } from './updater'
+import { RendererRecoveryPolicy } from './renderer-recovery'
+import { initialWindowColors, registerAppearanceIpc } from './ipc/appearance.ipc'
 import { randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -35,10 +37,18 @@ import { registerDiagnosticsIpc } from './ipc/diagnostics.ipc'
 import { BackgroundManager } from './services/background.service'
 import { TerminalManager } from './services/terminal.service'
 import { MemoryService } from './services/memory/memory.service'
+import { configureExperimentalFeatures, sharedProjectMemoryEnabled } from './services/experimental-features'
+import { gateMemoryTools } from './mcp-internal/tool-registry'
 import { ExecutionRegistry } from './services/execution-registry'
 import { AgentLaunchService, agentMcpArguments, providerForExecutable } from './services/agent-launch.service'
 import { AgentService } from './services/agent.service'
 import { registerMemoryIpc } from './ipc/memory.ipc'
+import { registerAgentHooksIpc } from './ipc/agent-hooks.ipc'
+import { AgentHookServer } from './services/agent-hooks/server'
+import { registerAutomationsIpc } from './ipc/automations.ipc'
+import { AutomationService } from './services/automations/service'
+import { AutomationStore } from './services/automations/store'
+import { runHook } from './services/repo-config/hook-runner'
 import { fallbackShellProfiles } from './services/shell-profile.defaults'
 import { isLoopbackHttpUrl, isSafeExternalUrl } from './utils/external-url'
 import { applyLoginShellPath } from './utils/login-shell-path'
@@ -104,6 +114,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   // App update + RTK sidecar IPC are always registered (even on native failure
   // / e2e mocks below) so Settings and the update banner keep working.
   registerAppUpdateIpc()
+  registerAppearanceIpc()
   void registerRtkIpc()
   registerBrowserPreviewIpc()
 
@@ -130,18 +141,46 @@ async function registerIpcHandlers(): Promise<() => void> {
     return noop
   }
 
-  const memoryService = new MemoryService(db, join(app.getPath('userData'), 'memory'))
+  // Shared Project Memory ships off: no service, no settings page, no oxespace_memory_* tools until the flag is on.
+  configureExperimentalFeatures(app.getPath('userData'))
+  gateMemoryTools(sharedProjectMemoryEnabled)
+  const memoryService = new MemoryService(db, join(app.getPath('userData'), 'memory'), sharedProjectMemoryEnabled)
   const { DelegationService } = await import('./services/delegation.service')
   const { registerDelegationIpc } = await import('./ipc/delegation.ipc')
   const executions = new ExecutionRegistry()
   registerMemoryIpc(memoryService)
+  registerAgentHooksIpc(app.getPath('userData'))
+  // Agents' own lifecycle hooks report here. Deliveries authenticate with the
+  // same per-pane execution credentials the terminal already carries, so a
+  // hook script outside an OXESpace terminal is simply inert.
+  const agentHookServer = new AgentHookServer({
+    authenticate: ({ executionId, token, workspaceId }) => {
+      try {
+        const execution = executions.authenticate(executionId, token, workspaceId)
+        return execution.owner.kind === 'pane' ? { paneId: execution.owner.id, workspaceId: execution.workspaceId } : null
+      } catch {
+        return null
+      }
+    },
+    onStatus: (event) => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        window.webContents.send(IPC_CHANNELS.agentHooks.onStatus, event)
+      }
+    }
+  })
+  // A bind failure only costs the hook signal; the heuristic keeps working.
+  void agentHookServer.start().catch((error) => log.warn('Agent hook server unavailable', error))
+  app.once('before-quit', () => agentHookServer.stop())
+  const oxeQueryShells: { shellFor?: (paneId: string) => { file: string; args: string[] } | undefined } = {}
   const terminalManager: TerminalManager = new TerminalManager(db, {
+    oxeQueryShell: paneId => oxeQueryShells.shellFor?.(paneId),
     prepareLaunch: (input) => memoryService.prepareLaunch(input),
     isManagedPane: paneId => delegationService?.ownsPane(paneId) ?? false,
     onLaunchExit: (paneId) => { memoryService.endLaunch(paneId); executions.end(paneId); delegationService?.exited(paneId) },
     executionEnvironment: (input) => {
       const meta = db.prepare('SELECT port, token FROM internal_mcp_meta LIMIT 1').get() as { port: number; token: string } | undefined
-      return { ...executions.register(input), ...(meta ? { OXESPACE_MCP_PORT: String(meta.port), OXESPACE_MCP_TOKEN: meta.token } : {}) }
+      const hookPort = agentHookServer.port
+      return { ...executions.register(input), ...(hookPort ? { OXESPACE_AGENT_HOOK_PORT: String(hookPort) } : {}), ...(meta ? { OXESPACE_MCP_PORT: String(meta.port), OXESPACE_MCP_TOKEN: meta.token } : {}) }
     },
     agentMcpArgs: (executable, args) => [...agentMcpArguments(providerForExecutable(executable), join(app.getPath('userData'),'bin','oxespace-mcp.cjs')), ...args],
     emitData: (event) => {
@@ -195,6 +234,27 @@ async function registerIpcHandlers(): Promise<() => void> {
   registerGitIpc()
   registerSearchIpc()
   const gitHubService = registerGitHubIpc(db)
+  gitHubService.configureWorktreeLifecycle({ stopTerminalsWithin: (dir) => terminalManager.stopWithin(dir) })
+  // Scheduled automations. Their own SQLite file keeps them independent of the
+  // application schema; a store that cannot open only disables this feature.
+  try {
+    const automations = new AutomationService({
+      store: new AutomationStore(join(app.getPath('userData'), 'automations.sqlite3')),
+      createWorktree: (input) => gitHubService.createWorktree(input),
+      resolveBaseRef: async (rootPath) => (await gitHubService.resolveWorktreeBase({ workspaceId: '', rootPath })).baseRef,
+      runCommand: runHook,
+      onChange: (event) => {
+        for (const window of BrowserWindow.getAllWindows()) {
+          window.webContents.send(IPC_CHANNELS.automations.onChange, event)
+        }
+      }
+    })
+    registerAutomationsIpc(automations)
+    automations.start()
+    app.once('before-quit', () => automations.stop())
+  } catch (error) {
+    log.warn('Automations unavailable', error)
+  }
   registerLinearIpc(db, gitHubService)
   registerIntegrationIpc(db)
   const backgroundManager = new BackgroundManager(db, {
@@ -211,6 +271,33 @@ async function registerIpcHandlers(): Promise<() => void> {
   })
   registerBackgroundIpc(backgroundManager)
   registerSessionIpc(db)
+  // OxeQuery: container runtime + database worker. Loaded lazily so its code stays out of the entry chunk.
+  let oxeQueryAgent: import('./services/oxequery/agent-gateway').AgentGateway | undefined
+  let oxeQueryStartupError: string | undefined
+  try {
+    const [{ OxeQueryService }, { OxeQueryWorkerClient }, { registerOxeQueryIpc, broadcastOxeQueryEvent }, { LocalExecutionHost }] = await Promise.all([
+      import('./services/oxequery/service'), import('./services/oxequery/worker-client'), import('./ipc/oxequery.ipc'), import('./runtime/execution-host')
+    ])
+    const oxeQuery = new OxeQueryService({
+      db, host: new LocalExecutionHost(), emit: broadcastOxeQueryEvent,
+      cipher: (await import('./services/oxequery/secret-cipher')).createSecretCipher(safeStorage),
+      worker: new OxeQueryWorkerClient(join(app.getAppPath(), 'out', 'main', 'oxequery-worker.js'), undefined, detail => log.error('OxeQuery worker failed', detail)),
+      pickFile: (await import('./services/oxequery/file-picker')).pickCredentialFile,
+      pickSavePath: (await import('./services/oxequery/file-picker')).pickExportPath,
+      pickImportPath: (await import('./services/oxequery/file-picker')).pickImportPath,
+      approvalPrompter: (await import('./services/oxequery/approval-prompter')).nativeApprovalPrompter
+    })
+    oxeQueryAgent = oxeQuery.agent
+    oxeQueryShells.shellFor = paneId => oxeQuery.shellFor(paneId)
+    registerOxeQueryIpc(oxeQuery)
+    app.once('before-quit', () => { void oxeQuery.dispose() })
+  } catch (error) {
+    log.warn('OxeQuery unavailable', error)
+    const { describeStartupFailure } = await import('./services/oxequery/startup-failure')
+    oxeQueryStartupError = describeStartupFailure(error)
+    // The view asks through this channel; answer with the reason instead of "no handler registered".
+    ipcMain.handle(IPC_CHANNELS.oxeQuery.call, () => ({ ok: false, error: { code: 'failed', message: `OxeQuery did not start: ${oxeQueryStartupError}` } }))
+  }
   const { registerThreadIpc } = await import('./ipc/thread.ipc')
   const delegatedThreadObserver: { current?: (thread: import('../../shared/types/thread').ConversationThread) => void } = {}
   const threadManager = registerThreadIpc(db, {
@@ -278,6 +365,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   // agent CLI separately (Claude Code, Copilot, …). See plan section 3.
   const internalMcpWorkspaceServ = new WorkspaceService(db)
   const internalMcpGithub = new GitHubService(db)
+  internalMcpGithub.configureWorktreeLifecycle({ stopTerminalsWithin: (dir) => terminalManager.stopWithin(dir) })
   const internalMcpGit = new GitService()
   const codeGraphService = new CodeGraphService(db)
   const delegationAgents = new AgentService(db)
@@ -301,7 +389,7 @@ async function registerIpcHandlers(): Promise<() => void> {
       let memory = ''
       try {
         const context = await memoryService.projects.resolve(task.path)
-        const settings = memoryService.projects.settings(context.projectId)
+        const settings = memoryService.effectiveSettings(context.projectId)
         if (settings.enabled && (task.includeMemory ?? settings.automaticContext)) {
           const reply = await memoryService.manager.run(context, provider => provider.getRelevantContext(context, task.objective))
           memory = reply.status === 'ok' ? reply.value.text.slice(0,4000) : ''
@@ -335,6 +423,8 @@ async function registerIpcHandlers(): Promise<() => void> {
       catch (e) { return { agentProfileId: p.agentProfileId, name: p.name, supported: false, reason: String(e) } }
     }),
     memory: memoryService,
+    oxeQuery: () => oxeQueryAgent,
+    oxeQueryError: () => oxeQueryStartupError,
     db,
     mcpManager,
     workspaceServ: internalMcpWorkspaceServ,
@@ -609,7 +699,7 @@ function createMainWindow(): BrowserWindow {
   // its traffic lights inset and its native application menu.
   const frameOptions: Partial<Electron.BrowserWindowConstructorOptions> = process.platform === 'darwin'
     ? { titleBarStyle: 'hiddenInset' }
-    : { titleBarStyle: 'hidden', titleBarOverlay: { color: '#00000000', symbolColor: '#c5c5c5', height: 36 } }
+    : { titleBarStyle: 'hidden', titleBarOverlay: { color: '#00000000', symbolColor: initialWindowColors().symbols, height: 36 } }
 
   const mainWindow = new BrowserWindow({
     width: 1280,
@@ -619,7 +709,7 @@ function createMainWindow(): BrowserWindow {
     show: false,
     title: 'OXESpace',
     icon: iconPath,
-    backgroundColor: '#0d0f14',
+    backgroundColor: initialWindowColors().background,
     ...frameOptions,
     webPreferences: {
       preload: join(app.getAppPath(), 'out', 'preload', 'index.cjs'),
@@ -727,10 +817,25 @@ function createMainWindow(): BrowserWindow {
     log.error('Renderer failed to load', { errorCode, errorDescription, validatedURL })
     if (isDev) console.error('[OXESpace] Renderer failed to load', { errorCode, errorDescription, validatedURL })
   })
+  const rendererRecovery = new RendererRecoveryPolicy()
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
     recordRuntime('renderer-gone', { kind: 'Renderer', state: details.reason, exitCode: details.exitCode })
     log.error('Renderer process gone', details)
     if (isDev) console.error('[OXESpace] Renderer process gone', details)
+    // Terminals live in the main process, so a reloaded window reattaches to them.
+    const next = rendererRecovery.decide(details.reason)
+    if (next === 'reload' && !mainWindow.isDestroyed()) {
+      setTimeout(() => { if (!mainWindow.isDestroyed()) mainWindow.webContents.reload() }, 250)
+    } else if (next === 'give-up' && !mainWindow.isDestroyed()) {
+      void dialog.showMessageBox(mainWindow, {
+        type: 'error',
+        title: 'OXESpace stopped responding',
+        message: 'The interface keeps crashing.',
+        detail: 'Your terminals and agents are still running. Restart OXESpace to bring the interface back; diagnostics can be exported from Settings > Diagnostics.',
+        buttons: ['OK'],
+        defaultId: 0
+      })
+    }
   })
   mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
     if (isDev && level >= 2) console.error(`[OXESpace renderer:${level}] ${message} (${sourceId}:${line})`)

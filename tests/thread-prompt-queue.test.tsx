@@ -26,3 +26,15 @@ it('returns a queued input to the draft with its captured state', () => {
   fireEvent.click(screen.getByRole('button', { name: 'Return queued input to draft' }))
   expect(restore).toHaveBeenCalledWith(item)
 })
+
+it('shows the pause and lets the user resume, send the next item now or clear', () => {
+  const resume = vi.fn(async () => {}), sendNow = vi.fn(async () => {}), clear = vi.fn(async () => {})
+  render(<ThreadPromptQueue items={[{ id: 'next', text: 'Continue', createdAt: 1, state: 'queued' }]} disabled={false} pause={{ reason: 'interrupted', since: 1 }} onResume={resume} onSendNow={sendNow} onClear={clear} onDelete={vi.fn()} onRestore={vi.fn()} onReorder={vi.fn()} onUpdate={vi.fn()} />)
+  expect(screen.getByRole('status')).toHaveTextContent('Queue paused')
+  fireEvent.click(screen.getByRole('button', { name: 'Resume' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Send next now' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Clear' }))
+  expect(resume).toHaveBeenCalled()
+  expect(sendNow).toHaveBeenCalledWith('next')
+  expect(clear).toHaveBeenCalled()
+})

@@ -27,8 +27,8 @@ export function VoiceHud({ status, error, level, modelProgress, onDismiss, conta
       {[0, 1, 2, 3, 4].map(i => <span key={i} className="oxe-voice-bar" style={{ transform: `scaleY(${Math.max(0.18, Math.min(1, level * (1.4 - Math.abs(i - 2) * .25)))})` }} />)}
     </span> : <span className={`oxe-voice-pulse${status === 'transcribing' ? ' spin' : ''}`} aria-hidden="true" />}
     <span>{error ?? (status === 'requesting' ? 'Acessando microfone…' : status === 'downloading'
-      ? `Baixando modelo de voz… ${Math.round((modelProgress ?? 0) * 100)}%` : status === 'transcribing' ? 'Transcrevendo…' : 'Ouvindo… solte para inserir')}</span>
-    <button type="button" className="oxe-voice-dismiss" aria-label="Close voice input" title="Fechar voz (Esc)" onMouseDown={event => event.preventDefault()} onClick={() => {
+      ? `Downloading voice model… ${Math.round((modelProgress ?? 0) * 100)}%` : status === 'transcribing' ? 'Transcribing…' : 'Listening… release to insert')}</span>
+    <button type="button" className="oxe-voice-dismiss" aria-label="Close voice input" title="Close voice input (Esc)" onMouseDown={event => event.preventDefault()} onClick={() => {
       const pane = element.current?.closest(containerSelector)
       onDismiss()
       pane?.querySelector<HTMLElement>(focusSelector)?.focus()

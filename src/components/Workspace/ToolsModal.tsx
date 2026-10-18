@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react'
-import { Activity, Brain, Code2, Command, FolderTree, Github, GitCompareArrows, MonitorPlay, Network, PanelLeft, Search, Settings2, Sparkles, Wrench, X, Slash, FileCode2 } from 'lucide-react'
+import { Search, Settings2, X } from 'lucide-react'
 import { useUIStore } from '../../store/ui.store'
-import { Dialog, DialogContent, DialogDescription, DialogTitle, DESKTOP_DIALOG_OVERLAY } from '@/components/ui/dialog'
+import { TOOL_CATALOG, TOOL_GROUPS, type ToolGroup, type ToolId } from './toolCatalog'
+import { ModalDescription, ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
 
 export interface ToolsActiveState {
   github: boolean
@@ -32,13 +33,16 @@ interface ToolsModalProps {
   onOpenMcp: () => void
   onOpenSkills: () => void
   onOpenSemanticLogs: () => void
+  /** Absent when no project is selected, which disables the Team entry. */
+  onOpenTeam?: () => void
 }
 
 type ToolTone = 'project' | 'dev' | 'ai' | 'system'
+const TONE: Record<ToolGroup, ToolTone> = { Project: 'project', Development: 'dev', 'AI & Agents': 'ai', System: 'system' }
 
 interface ToolDef {
   id: string
-  group: 'Project' | 'Development' | 'AI & Agents' | 'System'
+  group: ToolGroup
   tone: ToolTone
   icon: ReactNode
   label: string
@@ -70,7 +74,8 @@ export function ToolsModal({
   onOpenIntegration,
   onOpenMcp,
   onOpenSkills,
-  onOpenSemanticLogs
+  onOpenSemanticLogs,
+  onOpenTeam
 }: ToolsModalProps): ReactElement {
   const activePaneId = useUIStore((s) => s.activePaneId)
   const openSlashOverlay = useUIStore((s) => s.openSlashOverlay)
@@ -94,158 +99,33 @@ export function ToolsModal({
     action()
   }
 
-  const tools: ToolDef[] = [
-    {
-      id: 'integration',
-      group: 'Project',
-      tone: 'project',
-      icon: <Network size={16} aria-hidden="true" />,
-      label: 'Multi-repo coordination',
-      detail: 'Align agents, context & handoffs',
-      active: active.integration,
-      onClick: () => run(onOpenIntegration)
-    },
-    {
-      id: 'github',
-      group: 'Development',
-      tone: 'dev',
-      icon: <Github size={16} aria-hidden="true" />,
-      label: 'GitHub',
-      detail: 'PRs, commits, workflows',
-      active: active.github,
-      onClick: () => run(onToggleGitHub)
-    },
-    {
-      id: 'worktrees',
-      group: 'Development',
-      tone: 'dev',
-      icon: <FolderTree size={16} aria-hidden="true" />,
-      label: 'Worktrees',
-      detail: 'Branch checkouts side-by-side',
-      active: active.worktree,
-      onClick: () => run(onToggleWorktree)
-    },
-    {
-      id: 'scripts',
-      group: 'Development',
-      tone: 'dev',
-      icon: <Code2 size={16} aria-hidden="true" />,
-      label: 'Scripts',
-      detail: 'Discover and run project scripts',
-      active: active.scripts,
-      onClick: () => run(onToggleScripts)
-    },
-    {
-      id: 'search',
-      group: 'Development',
-      tone: 'dev',
-      icon: <Search size={16} aria-hidden="true" />,
-      label: 'Find in Files',
-      detail: 'ripgrep text & regex search',
-      shortcut: 'Ctrl+Shift+F',
-      active: active.search,
-      onClick: () => run(onToggleSearch)
-    },
-    {
-      id: 'web-preview',
-      group: 'Development',
-      tone: 'dev',
-      icon: <MonitorPlay size={16} aria-hidden="true" />,
-      label: 'Web Preview',
-      detail: 'Embed localhost previews',
-      active: active.webPreview,
-      onClick: () => run(onToggleWebPreview)
-    },
-    {
-      id: 'background',
-      group: 'Development',
-      tone: 'dev',
-      icon: <Activity size={16} aria-hidden="true" />,
-      label: 'Background Jobs',
-      detail: 'Long-running tasks dock',
-      active: active.background,
-      onClick: () => run(onToggleBackground)
-    },
-    {
-      id: 'slash',
-      group: 'AI & Agents',
-      tone: 'ai',
-      icon: <Slash size={16} aria-hidden="true" />,
-      label: 'Terminal Commands',
-      detail: activePaneId ? 'Slash commands in active pane' : 'Focus a terminal first',
-      shortcut: 'Ctrl+/',
-      disabled: !activePaneId,
-      onClick: () => {
-        if (activePaneId) run(() => openSlashOverlay(activePaneId))
-      }
-    },
-    {
-      id: 'mcp',
-      group: 'AI & Agents',
-      tone: 'ai',
-      icon: <Wrench size={16} aria-hidden="true" />,
-      label: 'MCP Servers',
-      detail: 'Model Context Protocol tools',
-      onClick: () => run(onOpenMcp)
-    },
-    {
-      id: 'skills',
-      group: 'AI & Agents',
-      tone: 'ai',
-      icon: <Sparkles size={16} aria-hidden="true" />,
-      label: 'Skills',
-      detail: 'Markdown skill prompts',
-      onClick: () => run(onOpenSkills)
-    },
-    {
-      id: 'semantic',
-      group: 'AI & Agents',
-      tone: 'ai',
-      icon: <Brain size={16} aria-hidden="true" />,
-      label: 'Semantic Activity',
-      detail: 'Local vector index logs',
-      onClick: () => run(onOpenSemanticLogs)
-    },
-    {
-      id: 'editor',
-      group: 'System',
-      tone: 'system',
-      icon: <FileCode2 size={16} aria-hidden="true" />,
-      label: 'Editor',
-      detail: 'Monaco file browser',
-      active: active.editor,
-      onClick: () => run(onToggleEditor)
-    },
-    {
-      id: 'review',
-      group: 'System',
-      tone: 'system',
-      icon: <GitCompareArrows size={16} aria-hidden="true" />,
-      label: 'Review',
-      detail: 'Diff review pane',
-      active: active.review,
-      onClick: () => run(onToggleReview)
-    },
-    {
-      id: 'palette',
-      group: 'System',
-      tone: 'system',
-      icon: <Command size={16} aria-hidden="true" />,
-      label: 'Command Palette',
-      detail: 'Jump to any command',
-      shortcut: 'Ctrl+K',
-      onClick: () => run(onOpenCommandPalette)
-    },
-    {
-      id: 'ws-settings',
-      group: 'System',
-      tone: 'system',
-      icon: <PanelLeft size={16} aria-hidden="true" />,
-      label: 'Workspace Settings',
-      detail: 'Theme, layout, density, shell',
-      onClick: () => run(onOpenWorkspaceSettings)
+  const handlers: Record<ToolId, (() => void) | undefined> = {
+    integration: onOpenIntegration, github: onToggleGitHub, worktrees: onToggleWorktree, scripts: onToggleScripts, search: onToggleSearch,
+    'web-preview': onToggleWebPreview, background: onToggleBackground, mcp: onOpenMcp, skills: onOpenSkills, semantic: onOpenSemanticLogs,
+    editor: onToggleEditor, review: onToggleReview, palette: onOpenCommandPalette, 'ws-settings': onOpenWorkspaceSettings,
+    slash: activePaneId ? () => openSlashOverlay(activePaneId) : undefined,
+    team: onOpenTeam
+  }
+  const activeById: Partial<Record<ToolId, boolean>> = {
+    integration: active.integration, github: active.github, worktrees: active.worktree, scripts: active.scripts, search: active.search,
+    'web-preview': active.webPreview, background: active.background, editor: active.editor, review: active.review
+  }
+  const tools: ToolDef[] = TOOL_CATALOG.map(meta => {
+    const handler = handlers[meta.id]
+    const Icon = meta.icon
+    return {
+      id: meta.id,
+      group: meta.group,
+      tone: TONE[meta.group],
+      icon: <Icon size={16} aria-hidden="true" />,
+      label: meta.label,
+      detail: meta.id === 'slash' && !activePaneId ? 'Focus a terminal first' : meta.id === 'team' && !onOpenTeam ? 'Select a project first' : meta.detail,
+      shortcut: meta.shortcut,
+      active: activeById[meta.id],
+      disabled: meta.id === 'slash' ? !activePaneId : meta.id === 'team' ? !onOpenTeam : undefined,
+      onClick: () => { if (handler) run(handler) }
     }
-  ]
+  })
 
   const q = query.trim().toLowerCase()
   const filtered = !q
@@ -257,8 +137,7 @@ export function ToolsModal({
       (t.shortcut?.toLowerCase().includes(q) ?? false)
     )
 
-  const groupOrder: ToolDef['group'][] = ['Project', 'Development', 'AI & Agents', 'System']
-  const groups = groupOrder
+  const groups = TOOL_GROUPS
     .map((name) => ({ name, items: filtered.filter((t) => t.group === name) }))
     .filter((g) => g.items.length > 0)
 
@@ -266,12 +145,10 @@ export function ToolsModal({
   const hasAnyResults = groups.length > 0
 
   return (
-    <Dialog open onOpenChange={(next) => { if (!next) onClose() }}>
+    <ModalRoot open onOpenChange={(next) => { if (!next) onClose() }}>
       {/* `unstyled`: the hub keeps its own layered-gradient surface and only
           borrows Radix's focus trap, Escape and outside-click behaviour. */}
-      <DialogContent
-        unstyled
-        showCloseButton={false}
+      <ModalSurface
         onCloseAutoFocus={event => {
           event.preventDefault()
           if (!navigatingRef.current) requestAnimationFrame(() => {
@@ -283,26 +160,26 @@ export function ToolsModal({
             target?.focus({ preventScroll: true })
           })
         }}
-        overlayClassName={DESKTOP_DIALOG_OVERLAY}
+        scrimClassName="desktop-dialog-overlay"
         className="tools-modal desktop-dialog"
         data-testid="tools-modal"
       >
         <header className="tools-modal-header">
           <div className="tools-modal-brand">
             <span className="tools-modal-brand-icon" aria-hidden="true">
-              <Settings2 size={18} />
+              <Settings2 size={16} />
             </span>
             <div>
-              <DialogTitle asChild>
+              <ModalTitle asChild>
                 <strong>Tools</strong>
-              </DialogTitle>
-              <DialogDescription asChild>
+              </ModalTitle>
+              <ModalDescription asChild>
                 <span>
                   {activeCount > 0
                     ? `${activeCount} panel${activeCount === 1 ? '' : 's'} open · workspace hub`
                     : 'Panels, agents & system actions'}
                 </span>
-              </DialogDescription>
+              </ModalDescription>
             </div>
           </div>
           <button
@@ -343,7 +220,7 @@ export function ToolsModal({
           )}
         </div>
 
-        <div className="tools-modal-body">
+        <div className="tools-modal-body" role={hasAnyResults ? 'menu' : undefined} aria-label={hasAnyResults ? 'Tools' : undefined}>
           {!hasAnyResults ? (
             <div className="tools-modal-empty" role="status">
               <Search size={20} aria-hidden="true" />
@@ -354,8 +231,8 @@ export function ToolsModal({
             </div>
           ) : (
             groups.map((group) => (
-              <section key={group.name} className="tools-modal-group">
-                <header className="tools-modal-group-header">
+              <section key={group.name} className="tools-modal-group" role="group" aria-label={group.name}>
+                <header className="tools-modal-group-header" aria-hidden="true">
                   <h3>{group.name}</h3>
                   <span className="tools-modal-group-count">{group.items.length}</span>
                 </header>
@@ -379,8 +256,8 @@ export function ToolsModal({
           </span>
           <span className="tools-modal-footer-meta">{filtered.length} tools</span>
         </footer>
-      </DialogContent>
-    </Dialog>
+      </ModalSurface>
+    </ModalRoot>
   )
 }
 

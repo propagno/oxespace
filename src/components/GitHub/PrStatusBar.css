@@ -16,7 +16,7 @@
 .pr-status-actions button { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; border: 1px solid var(--wb-border); border-radius: var(--radius-pill); background: transparent; color: var(--tx-secondary); font: inherit; cursor: pointer; }
 .pr-status-actions button:hover:not(:disabled) { background: var(--nav-hover); color: var(--tx-primary); }
 .pr-status-actions button[aria-pressed='true'] { border-color: color-mix(in srgb, var(--dot-green) 50%, var(--wb-border)); color: var(--dot-green); }
-.pr-status-actions button.is-primary { border-color: transparent; background: var(--tx-primary); color: var(--bg-app); font-weight: 600; }
+.pr-status-actions button.is-primary { border-color: transparent; background: var(--accent); color: var(--text-on-accent); font-weight: 600; }
 .pr-status-notice { margin: 0; padding: 4px 12px 8px; color: var(--dot-red); }
 .pr-status-checks { display: grid; gap: 1px; margin: 0; padding: 4px 6px 6px; list-style: none; border-top: 1px solid var(--wb-border); max-height: 220px; overflow: auto; }
 .pr-status-checks li { display: flex; align-items: center; gap: 8px; min-height: 26px; padding: 0 8px; border-radius: var(--radius-sm); }

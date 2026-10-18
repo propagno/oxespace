@@ -1,4 +1,5 @@
 import { FitAddon } from '@xterm/addon-fit'
+import { useColorMode } from '../../design/useColorMode'
 import { SearchAddon } from '@xterm/addon-search'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { WebglAddon } from '@xterm/addon-webgl'
@@ -93,12 +94,12 @@ function decodeOsc52ClipboardWrite(data: string): string | null {
 // Search-match highlight colors passed to @xterm/addon-search. The decorations
 // are what make Ctrl+F usable: every match gets a subtle wash, the active one a
 // stronger accent + overview-ruler mark.
-const SEARCH_DECORATIONS = {
-  matchBackground: '#12c79a33',
-  matchOverviewRuler: '#12c79a66',
-  activeMatchBackground: '#12c79a66',
-  activeMatchColorOverviewRuler: '#12c79a'
-} as const
+// Built from the active mode's accent each time a search runs.
+function searchDecorations() {
+  const value = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()
+  const accent = /^#[0-9a-f]{6}$/i.test(value) ? value : '#1f6b4a'
+  return { matchBackground: `${accent}33`, matchOverviewRuler: `${accent}66`, activeMatchBackground: `${accent}66`, activeMatchColorOverviewRuler: accent }
+}
 
 /**
  * Build the xterm color theme from the live CSS design tokens. Read at
@@ -112,31 +113,34 @@ const SEARCH_DECORATIONS = {
  * uninterrupted canvas inside that card.
  */
 function buildTerminalTheme(translucent: boolean): ITheme {
+  // Terminal colors come from the design tokens of the active light or dark mode.
   const tok = (name: string, fallback: string): string => {
     const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
     return v || fallback
   }
+  const ansi = (name: string): string => tok(`--ansi-${name}`, '#808080')
   return {
-    background:          translucent ? '#00000000' : tok('--bg-tile-content', '#0a0a0a'),
-    foreground:          tok('--tx-primary',       '#f1f5f9'),
-    cursor:              tok('--brand-light',      '#6EEBD4'),
-    selectionBackground: tok('--brand-glow',       'rgba(18,199,154,0.28)'),
-    black:               tok('--dot-gray',          '#3b4260'),
-    red:                 tok('--dot-red',           '#f87171'),
-    green:               tok('--dot-green',         '#34d474'),
-    yellow:              tok('--dot-yellow',        '#fbbf24'),
-    blue:                tok('--dot-blue',          '#60a5fa'),
-    magenta:             tok('--dot-purple',        '#c084fc'),
-    cyan:                tok('--brand-light',      '#6EEBD4'),
-    white:               tok('--tx-primary',       '#f1f5f9'),
-    brightBlack:         tok('--tx-muted',          '#94a3b0'),
-    brightRed:           tok('--dot-red',           '#f87171'),
-    brightGreen:         tok('--dot-green',         '#34d399'),
-    brightYellow:        tok('--dot-orange',        '#f97316'),
-    brightBlue:          tok('--brand-light',      '#6EEBD4'),
-    brightMagenta:       tok('--dot-purple',        '#c084fc'),
-    brightCyan:          tok('--brand-lightest',   '#B4F5E8'),
-    brightWhite:         tok('--tx-primary',       '#f1f5f9')
+    background:          translucent ? '#00000000' : tok('--surface-base', '#141615'),
+    foreground:          tok('--text-primary', '#e8f1eb'),
+    cursor:              tok('--accent', '#f5a939'),
+    cursorAccent:        tok('--surface-base', '#141615'),
+    selectionBackground: tok('--fill-selected-strong', '#4a3a1c'),
+    black:               ansi('black'),
+    red:                 ansi('red'),
+    green:               ansi('green'),
+    yellow:              ansi('yellow'),
+    blue:                ansi('blue'),
+    magenta:             ansi('magenta'),
+    cyan:                ansi('cyan'),
+    white:               ansi('white'),
+    brightBlack:         ansi('bright-black'),
+    brightRed:           ansi('bright-red'),
+    brightGreen:         ansi('bright-green'),
+    brightYellow:        ansi('bright-yellow'),
+    brightBlue:          ansi('bright-blue'),
+    brightMagenta:       ansi('bright-magenta'),
+    brightCyan:          ansi('bright-cyan'),
+    brightWhite:         ansi('bright-white')
   }
 }
 
@@ -779,6 +783,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
     }
   }, [paneId, workspaceId, transport])
 
+  const colorMode = useColorMode()
   // Apply prefs + theme to the live terminal without recreating it. Font/cursor
   // changes are immediate; the theme is re-read on the next frame so the
   // workspace's `data-theme` (set by ThemeProvider) has already settled.
@@ -816,6 +821,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
     return () => window.cancelAnimationFrame(raf)
   }, [
     themeId,
+    colorMode,
     prefs.fontFamily,
     prefs.fontSize,
     prefs.lineHeight,
@@ -853,7 +859,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
       setSearchResults(null)
       return
     }
-    const options = { decorations: SEARCH_DECORATIONS, incremental }
+    const options = { decorations: searchDecorations(), incremental }
     if (direction === 'next') addon.findNext(query, options)
     else addon.findPrevious(query, options)
   }, [])
@@ -917,7 +923,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
             ref={searchInputRef}
             type="text"
             className="terminal-search-input"
-            placeholder="Buscar no terminal…"
+            placeholder="Search in terminal…"
             aria-label="Search terminal"
             value={searchQuery}
             onChange={(e) => {
@@ -937,13 +943,13 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
             }}
           />
           <span className="terminal-search-count" aria-live="polite">{searchCountLabel}</span>
-          <button type="button" className="terminal-search-btn" aria-label="Previous match" title="Anterior (Shift+Enter)" onClick={() => runSearch(searchQuery, 'prev')}>
+          <button type="button" className="terminal-search-btn" aria-label="Previous match" title="Previous (Shift+Enter)" onClick={() => runSearch(searchQuery, 'prev')}>
             <ArrowUp size={12} aria-hidden="true" />
           </button>
-          <button type="button" className="terminal-search-btn" aria-label="Next match" title="Próximo (Enter)" onClick={() => runSearch(searchQuery, 'next')}>
+          <button type="button" className="terminal-search-btn" aria-label="Next match" title="Next (Enter)" onClick={() => runSearch(searchQuery, 'next')}>
             <ArrowDown size={12} aria-hidden="true" />
           </button>
-          <button type="button" className="terminal-search-btn" aria-label="Close search" title="Fechar (Esc)" onClick={closeSearch}>
+          <button type="button" className="terminal-search-btn" aria-label="Close search" title="Close (Esc)" onClick={closeSearch}>
             <X size={12} aria-hidden="true" />
           </button>
         </div>

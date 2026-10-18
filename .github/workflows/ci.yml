@@ -32,6 +32,11 @@ on:
         description: Optional release tag (vX.Y.Z). Empty = v{package.json version}
         required: false
         type: string
+      packaged_smoke_only:
+        description: Build the installer layout and run the packaged-app E2E on both platforms without publishing anything
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   # Never cancel an in-flight tag release path; PR/main builds may cancel.
@@ -148,6 +153,9 @@ jobs:
           $isPrerelease = $channel -ne 'latest'
 
           "should_release=$($shouldRelease.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          # Package and run the packaged-app E2E without any publishing step (the release job only reads should_release).
+          $packagedSmoke = $event -eq 'workflow_dispatch' -and '${{ inputs.packaged_smoke_only }}' -eq 'true' -and -not $shouldRelease
+          "packaged_smoke=$($packagedSmoke.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "prerelease=$($isPrerelease.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
@@ -185,6 +193,14 @@ jobs:
       - name: Audit build tools for high and critical advisories
         run: npm run security:audit:tools
 
+      # The OxeQuery worker compiles its database drivers in; they are
+      # devDependencies, so the production audit and SBOM above never see them.
+      - name: Audit bundled runtime packages
+        run: npm run security:audit:bundled
+
+      - name: Check third-party notices and bundled licenses
+        run: npm run notices:check
+
       - name: Verify Electron support window
         run: node scripts/check-runtime-support.mjs
 
@@ -217,6 +233,9 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
           npm run build
+          # Installed apps have no node_modules above them; tests inside the checkout do. 1.0.0 shipped an
+          # OxeQuery worker that imported a devDependency and could not load on any installed build.
+          node scripts/check-bundle-imports.mjs
 
       # E2E launches Electron, so it must run only after the Electron-native
       # binary has been installed and verified. node-pty supplies a
@@ -230,6 +249,11 @@ jobs:
           npm run fix:native
           npm run verify:native
 
+      # OxeQuery carries its own floor: unit, component and integration tests together cover at least 60%.
+      - name: OxeQuery coverage gate
+        shell: bash
+        run: npm run test:coverage:oxequery
+
       - name: E2E smoke (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -242,7 +266,16 @@ jobs:
       # repeated Playwright launches cannot leave the CI job waiting on Xvfb.
       - name: E2E smoke (Linux)
         if: runner.os == 'Linux'
-        run: bash scripts/run-with-xvfb.sh npm run test:e2e
+        run: bash scripts/run-with-xvfb.sh npm run test:e2e -- --trace retain-on-failure
+
+      - name: Upload E2E traces (Linux failures)
+        if: failure() && runner.os == 'Linux'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: e2e-traces-linux
+          if-no-files-found: ignore
+          retention-days: 7
+          path: test-results/**/trace.zip
 
       - name: E2E performance gate (Linux)
         if: runner.os == 'Linux'
@@ -277,7 +310,7 @@ jobs:
       # prepare:model pulls @xenova/transformers → sharp. npm ci --ignore-scripts
       # leaves the sharp native binary missing; rebuild it for the Node ABI only.
       - name: Install sharp native bindings for model prepare
-        if: steps.plan.outputs.should_release == 'true'
+        if: (steps.plan.outputs.should_release == 'true' || steps.plan.outputs.packaged_smoke == 'true')
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -285,7 +318,7 @@ jobs:
           npm rebuild sharp
 
       - name: Package installer (${{ matrix.label }})
-        if: steps.plan.outputs.should_release == 'true'
+        if: (steps.plan.outputs.should_release == 'true' || steps.plan.outputs.packaged_smoke == 'true')
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -301,10 +334,14 @@ jobs:
           npx electron-builder ${{ matrix.builder_flag }} --config.npmRebuild=false --config.publish.channel=${{ steps.plan.outputs.channel }} --publish never
 
       - name: E2E packaged Linux build
-        if: steps.plan.outputs.should_release == 'true' && runner.os == 'Linux'
+        if: (steps.plan.outputs.should_release == 'true' || steps.plan.outputs.packaged_smoke == 'true') && runner.os == 'Linux'
         shell: bash
         run: |
-          executable="$(find "$GITHUB_WORKSPACE/dist/linux-unpacked" -maxdepth 1 -type f -perm -u+x -iname 'oxespace*' -print -quit)"
+          # Run a copy outside the checkout, like /opt/OXESpace: inside it, Node resolves missing packages from
+          # the repository's node_modules and hides packaging bugs.
+          rm -rf "$RUNNER_TEMP/oxespace-installed"
+          cp -a "$GITHUB_WORKSPACE/dist/linux-unpacked" "$RUNNER_TEMP/oxespace-installed"
+          executable="$(find "$RUNNER_TEMP/oxespace-installed" -maxdepth 1 -type f -perm -u+x -iname 'oxespace*' -print -quit)"
           if [[ -z "$executable" ]]; then
             echo "No packaged OXESpace executable found in dist/linux-unpacked." >&2
             exit 1
@@ -348,12 +385,17 @@ jobs:
       # installer writes) so a broken asarUnpack or extraResource fails here
       # rather than on a user's machine.
       - name: E2E packaged Windows build
-        if: steps.plan.outputs.should_release == 'true' && runner.os == 'Windows'
+        if: (steps.plan.outputs.should_release == 'true' || steps.plan.outputs.packaged_smoke == 'true') && runner.os == 'Windows'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          $executable = Get-ChildItem "$env:GITHUB_WORKSPACE/dist/win-unpacked" -Filter 'OXESpace*.exe' -File |
+          # Run a copy outside the checkout, like Program Files: inside it, Node resolves missing packages
+          # from the repository's node_modules and hides packaging bugs.
+          $installed = Join-Path $env:RUNNER_TEMP 'oxespace-installed'
+          if (Test-Path $installed) { Remove-Item -Recurse -Force $installed }
+          Copy-Item -Recurse "$env:GITHUB_WORKSPACE/dist/win-unpacked" $installed
+          $executable = Get-ChildItem $installed -Filter 'OXESpace*.exe' -File |
             Select-Object -First 1
           if (-not $executable) {
             throw 'No packaged OXESpace executable found in dist/win-unpacked.'
@@ -421,9 +463,109 @@ jobs:
             dist/sbom-${{ matrix.label }}.spdx.json
             dist/SHA256SUMS-${{ matrix.label }}.txt
 
+  # OxeQuery against real PostgreSQL, MongoDB, an SSH server and TLS. Ubuntu runners
+  # ship Docker; the tests start and remove their own containers. This is a release
+  # gate: a database client that was only ever tested against mocks must not ship.
+  oxequery-live:
+    name: OxeQuery live tests (${{ matrix.engine }}; PostgreSQL, MongoDB, SSH, TLS)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        # The same suite against each container engine a person may have.
+        engine: [docker, podman]
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.0
+
+      - name: Node.js 22
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Build native modules for Node
+        run: npm run rebuild:native:node
+
+      # tests/live/oxequery-live.test.ts drives the real worker bundle.
+      - name: Build the main process and worker
+        run: npx electron-vite build
+
+      - name: Pull the images the tests use
+        run: |
+          ${{ matrix.engine }} --version
+          ${{ matrix.engine }} pull docker.io/library/postgres:16-alpine
+          ${{ matrix.engine }} pull docker.io/library/mongo:7
+          ${{ matrix.engine }} pull docker.io/library/alpine:3.20
+
+      - name: Live tests
+        env:
+          OXE_LIVE: "1"
+          OXE_CONTAINER_ENGINE: ${{ matrix.engine }}
+        run: npx vitest run tests/live/oxequery-live.test.ts tests/live/oxequery-connectivity-live.test.ts tests/live/oxequery-writes-live.test.ts
+
+  # The same suite against the server versions people actually run: the oldest and the newest
+  # supported PostgreSQL (12, 17) and MongoDB (5, 8), plus the middle ones. Docker only; the
+  # engine matrix above already covers Podman against the default versions.
+  oxequery-live-versions:
+    name: OxeQuery live tests (PostgreSQL ${{ matrix.pg }}, MongoDB ${{ matrix.mongo }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { pg: "12-alpine", mongo: "5.0" }
+          - { pg: "14-alpine", mongo: "6.0" }
+          - { pg: "17-alpine", mongo: "8.0" }
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.0
+
+      - name: Node.js 22
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Build native modules for Node
+        run: npm run rebuild:native:node
+
+      - name: Build the main process and worker
+        run: npx electron-vite build
+
+      - name: Pull the images the tests use
+        run: |
+          docker pull docker.io/library/postgres:${{ matrix.pg }}
+          docker pull docker.io/library/mongo:${{ matrix.mongo }}
+          docker pull docker.io/library/postgres:16-alpine
+          docker pull docker.io/library/alpine:3.20
+
+      - name: Live tests
+        env:
+          OXE_LIVE: "1"
+          OXE_CONTAINER_ENGINE: docker
+          OXE_LIVE_PG_IMAGE: docker.io/library/postgres:${{ matrix.pg }}
+          OXE_LIVE_MONGO_IMAGE: docker.io/library/mongo:${{ matrix.mongo }}
+        run: npx vitest run tests/live/oxequery-live.test.ts tests/live/oxequery-connectivity-live.test.ts tests/live/oxequery-writes-live.test.ts
+
+  # Native AI Memory contracts (Windows/Linux x 2.1.0/2.6.2). PRs run the
+  # path-filtered standalone workflow instead; main, tags and dispatch always gate here.
+  memory-compatibility:
+    name: Memory compatibility
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/memory-compatibility.yml
+
   release:
     name: Publish GitHub Release
-    needs: build
+    needs: [build, oxequery-live, oxequery-live-versions, memory-compatibility]
     if: needs.build.outputs.should_release == 'true'
     runs-on: windows-2022
     timeout-minutes: 30

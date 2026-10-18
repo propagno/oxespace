@@ -92,6 +92,39 @@ async function requireWorkspace(ctx: ToolContext): Promise<{ id: string; rootPat
   )
 }
 
+/**
+ * The project a read-only retrieval tool should look at.
+ *
+ * A Code workspace resolves as before. A Thread resolves to the checkout its
+ * execution was started in, and borrows the Code workspace with the same root
+ * (if the project is also open in Code) so both share one semantic index.
+ * `workspaceId` is null when no such workspace exists.
+ */
+interface ProjectScope { kind: 'code' | 'thread'; rootPath: string; workspaceId: string | null }
+
+const sameRoot = (a: string, b: string): boolean => {
+  const norm = (value: string): string => {
+    const unified = value.replace(/\\/g, '/').replace(/\/+$/, '')
+    return process.platform === 'win32' ? unified.toLowerCase() : unified
+  }
+  return norm(a) === norm(b)
+}
+
+export async function requireProjectScope(ctx: ToolContext): Promise<ProjectScope> {
+  let execution: ReturnType<NonNullable<typeof ctx.executions>['authenticate']> | undefined
+  try { execution = ctx.executions?.authenticate(ctx.executionId, ctx.executionToken, ctx.workspaceId) } catch { /* Generic MCP callers may not have an execution. */ }
+  if (execution?.owner.kind === 'thread') {
+    const rootPath = execution.canonicalRoot || execution.cwd
+    const match = ctx.workspaceServ.list().find(ws => sameRoot(ws.rootPath, rootPath))
+    return { kind: 'thread', rootPath, workspaceId: match?.id ?? null }
+  }
+  if (ctx.workspaceId?.startsWith('thread:')) throw new Error('This Thread execution could not be verified. Start a new turn and try again.')
+  const ws = await requireWorkspace(ctx)
+  return { kind: 'code', rootPath: ws.rootPath, workspaceId: ws.id }
+}
+
+const NO_SEMANTIC_INDEX = 'Semantic search is not available for this project yet: its index is built when the project is open in Code with semantic search enabled. Structural search (oxespace_hybrid_explore) works without it.'
+
 async function listWorkspaces(_args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
   const all = ctx.workspaceServ.list()
   const items: WorkspaceListItem[] = all.map((ws) => ({
@@ -242,9 +275,11 @@ async function openWebPreview(args: unknown, ctx: ToolContext): Promise<Internal
 }
 
 async function semanticSearch(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
-  const { id } = await requireWorkspace(ctx)
+  const scope = await requireProjectScope(ctx)
+  if (!scope.workspaceId) return textResult(NO_SEMANTIC_INDEX)
+  const id = scope.workspaceId
   if (!ctx.semantic.isEnabled(id)) {
-    return textResult('Semantic search is disabled for this workspace.')
+    return textResult(scope.kind === 'thread' ? NO_SEMANTIC_INDEX : 'Semantic search is disabled for this workspace.')
   }
   const input = asRecord(args)
   const query = expectString(input.query, 'query')
@@ -285,7 +320,10 @@ function formatSemanticReport(report: Awaited<ReturnType<ToolContext['semantic']
 }
 
 async function qualityCheck(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
-  const ws = await requireWorkspace(ctx)
+  const scope = await requireProjectScope(ctx)
+  // File reads go through the workspace-scoped file system, which needs a Code workspace for this root.
+  if (!scope.workspaceId) return errorResult('[OXESpace Quality Controller] outcome=infrastructure · retryable=false\nThe quality check reads files through a Code workspace. Open this project in Code once, then retry.')
+  const ws = { id: scope.workspaceId, rootPath: scope.rootPath }
   const input = asRecord(args)
   const baseRef = typeof input.baseRef === 'string' && input.baseRef.trim() ? input.baseRef.trim() : undefined
   const acceptanceCriteria = Array.isArray(input.acceptanceCriteria)
@@ -340,7 +378,8 @@ async function captureWebPreview(args: unknown, ctx: ToolContext): Promise<Inter
 }
 
 async function hybridExplore(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
-  const ws = await requireWorkspace(ctx)
+  const scope = await requireProjectScope(ctx)
+  const ws = { id: scope.workspaceId, rootPath: scope.rootPath }
   const input = asRecord(args) as any
   const query = expectString(input.query, 'query')
   const maxFiles = typeof input.maxFiles === 'number' ? input.maxFiles : 12
@@ -356,6 +395,8 @@ async function hybridExplore(args: unknown, ctx: ToolContext): Promise<InternalM
   //    Keeping the two retrievals independent and unioning them is what raises
   //    recall while staying token-cheap.
   try {
+    // Structural search below needs only the checkout; the semantic half needs an index.
+    if (!ws.id || !ctx.semantic.isEnabled(ws.id)) throw new Error('no semantic index for this project')
     const semanticReport = await ctx.semantic.queryDetailed(ws.id, query, { limit: Math.min(maxFiles, 20), mode, maxTokens })
     if (semanticReport.results.length > 0) {
       text += `${formatSemanticReport(semanticReport)}\n\n`

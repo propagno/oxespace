@@ -35,6 +35,6 @@
 .thread-usage-card .thread-usage-window strong { flex: none; color: var(--tx-primary); font-weight: 600; }
 .thread-usage-card progress { height: 6px; border-radius: var(--radius-pill); background: var(--ov-2); accent-color: var(--tx-primary); }
 .thread-usage-card progress::-webkit-progress-bar { background: var(--ov-2); border-radius: var(--radius-pill); }
-.thread-usage-card progress::-webkit-progress-value { background: var(--tx-primary); border-radius: var(--radius-pill); }
+.thread-usage-card progress::-webkit-progress-value { background: var(--accent); border-radius: var(--radius-pill); }
 .thread-usage-card progress.is-high::-webkit-progress-value { background: var(--dot-red); }
 .thread-usage-card > footer { padding-top: 10px; border-top: 1px solid var(--wb-border); color: var(--tx-muted); font-size: var(--fs-2xs); }

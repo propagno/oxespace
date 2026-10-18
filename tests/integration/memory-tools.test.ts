@@ -45,3 +45,17 @@ describe('project context MCP boundary', () => {
     expect(b.code.status).toBe('unavailable')
   })
 })
+
+describe('handoff acceptance tool', () => {
+  test('requires an exact handoff id and forwards it to the provider', async () => {
+    const acceptHandoff = vi.fn(async () => ({ accepted: true }))
+    const provider = { acceptHandoff } as unknown as MemoryProvider
+    const ctx = { workspaceId: 'ws', memoryRunId: 'run', memory: { contextForRun: vi.fn(async () => context), manager: new MemoryManager(() => provider, settings) } } as unknown as ToolContext
+    const accept = tool('oxespace_memory_accept_handoff')
+    expect(accept.descriptor.inputSchema).toMatchObject({ required: ['handoff_id'] })
+    await expect(accept.handler({}, ctx)).rejects.toThrow('handoff_id is required')
+    expect(acceptHandoff).not.toHaveBeenCalled()
+    await accept.handler({ handoff_id: ' h1 ' }, ctx)
+    expect(acceptHandoff).toHaveBeenCalledWith(context, 'h1')
+  })
+})

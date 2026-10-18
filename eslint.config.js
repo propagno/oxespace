@@ -33,6 +33,17 @@ export default tseslint.config(
     }
   },
   {
+    // The redesign builds every interface from src/ui; Radix stays behind it.
+    // A warning while the legacy panels that still use Radix directly migrate.
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/ui/**'],
+    rules: {
+      'no-restricted-imports': ['warn', { paths: [
+        { name: 'radix-ui', message: 'Use the primitives in src/ui instead of Radix directly.' }
+      ] }]
+    }
+  },
+  {
     files: ['scripts/**', 'e2e/**', 'tests/token-bench/**', 'electron/main/mcp-internal/tool-handlers.ts', 'electron/main/mcp-internal/local-rpc-server.ts'],
     rules: { '@typescript-eslint/no-explicit-any': 'off' }
   }

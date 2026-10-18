@@ -1,0 +1,85 @@
+name: Visual baselines (Linux)
+
+# Generates e2e/visual/__screenshots__/linux for review. Never publishes anything and never
+# commits: download the artifact, look at the images, then commit them by explicit path.
+# See e2e/visual/LINUX-BASELINES.md for the procedure and the reasons for each choice.
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Optional override — leave empty to use "Use workflow from"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  linux-baselines:
+    name: Generate and verify Linux visual baselines
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.0
+        with:
+          ref: ${{ inputs.branch || github.ref }}
+          fetch-depth: 0
+
+      - name: Node.js 22
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Linux system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 libasound2 \
+            libxshmfence1 libnotify4
+
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Build
+        run: npm run build
+
+      - name: Prepare and verify native modules for Electron
+        run: |
+          npm run fix:native
+          npm run verify:native
+
+      # The first launch after a build was slower and failed transiently in local runs. A throwaway
+      # pass warms it up; its result is ignored on purpose.
+      - name: Warm-up (result ignored)
+        continue-on-error: true
+        run: bash scripts/run-with-xvfb.sh npx playwright test --config playwright.visual.config.ts anchor-surfaces
+
+      - name: Generate the baselines
+        run: bash scripts/run-with-xvfb.sh npx playwright test --config playwright.visual.config.ts --update-snapshots
+
+      # Two consecutive comparisons against what was just written, with no rebuild between them.
+      - name: Verify stable, run 1
+        run: bash scripts/run-with-xvfb.sh npx playwright test --config playwright.visual.config.ts
+
+      - name: Verify stable, run 2
+        run: bash scripts/run-with-xvfb.sh npx playwright test --config playwright.visual.config.ts
+
+      - name: Upload the Linux baselines
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: visual-baselines-linux
+          if-no-files-found: error
+          retention-days: 14
+          path: e2e/visual/__screenshots__/linux/**
+
+      - name: Upload the diffs when it is not stable
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: visual-diffs-linux
+          if-no-files-found: ignore
+          retention-days: 7
+          path: test-results/**

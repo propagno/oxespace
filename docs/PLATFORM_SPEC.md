@@ -2,7 +2,7 @@
 
 This document describes what OXESpace is, where it runs, what it depends on and
 what it does and does not promise. It is written from the code and the release
-pipeline, and is updated with each release. Version described: **0.16.x**.
+pipeline, and is updated with each release. Version described: **1.0.x**.
 
 ## 1. Product definition
 
@@ -14,7 +14,9 @@ with coding agents one window for:
   questions, attachments and history (**Thread** mode);
 - reviewing what an agent changed, commenting on lines and sending feedback back;
 - connecting agents to tools through the Model Context Protocol (MCP);
-- keeping optional, local memory and a local semantic index of a project.
+- keeping optional, local memory and a local semantic index of a project;
+- inspecting containers (Docker or Podman) and working with PostgreSQL and
+  MongoDB (**OxeQuery** mode).
 
 It does not host models, proxy provider traffic or require an OXESpace account.
 Agents are the official CLIs, authenticated by the user.
@@ -45,7 +47,7 @@ for pre-releases).
 | Renderer | React 19, TypeScript (strict), Zustand, Radix UI, Tailwind CSS 4 |
 | Terminal | `node-pty`, xterm.js (WebGL renderer) |
 | Editor and diff | Monaco Editor 0.55 (editor, side-by-side diff) |
-| Storage | SQLite (`better-sqlite3`), WAL, versioned migrations (latest: 063) |
+| Storage | SQLite (`better-sqlite3`), WAL, versioned migrations (latest: 073) |
 | Search | ripgrep for text search; `transformers.js` + `web-tree-sitter` + SQLite FTS5 for semantic retrieval |
 | Voice | whisper.cpp CLI (bundled for Windows x64 only) |
 | Packaging | electron-builder 26, electron-updater 6 |
@@ -59,7 +61,9 @@ Preview. See [Architecture](ARCHITECTURE.md).
 
 Maturity labels: **Core** (used in the main flow and covered by end-to-end and
 packaged-build tests), **Available** (shipped and tested, with fewer real-world
-campaigns behind it), **Initial** (works, deliberately narrow).
+campaigns behind it), **Beta** (shipped, but its release gates or a real-world
+campaign are still open; do not rely on it for work you cannot redo), **Initial**
+(works, deliberately narrow).
 
 | Area | What it does | Maturity |
 |---|---|---|
@@ -72,9 +76,11 @@ campaigns behind it), **Initial** (works, deliberately narrow).
 | MCP | Server registry with trust, health, start/stop; 40-entry connector catalog; OAuth sign-in for remote servers via `mcp-remote`; export to CLIs; attachment to Thread | Core |
 | Worktrees and delegation | Create worktrees, delegate a task to an isolated persistent conversation, status and results | Available |
 | Semantic retrieval | Local multilingual index and hybrid search with a token budget | Available |
-| Project memory | Optional local memory across worktrees with capture adapters | Available |
+| Project memory | Optional local memory across worktrees with capture adapters; opt-in, see [Project memory](PROJECT_MEMORY.md) for its limits | Beta |
 | Web Preview and design mode | Embedded browser tabs, interaction tools exposed to agents, element selection | Available |
 | Documentation capture | Capture and export of project documentation artifacts | Available |
+| OxeQuery | Containers (Docker or Podman), PostgreSQL and MongoDB: query, staged edits with conflict checks, import and export, optional approved MCP tools for agents. See [OxeQuery](OXEQUERY.md) | Beta |
+| Agent Work | A Thread conversation splits a job into dependent tasks run by worker conversations with a shared access ceiling and a budget | Beta |
 | Teams | Persistent agent teams with durable inbox and authorization | Initial |
 | Linear | Issues from Linear in the workspace | Available |
 | Voice dictation | Local speech-to-text in the Thread composer and editor | Windows only |
@@ -155,6 +161,12 @@ packaged application. See [Release pipeline](RELEASE_PIPELINE.md).
 - The `.deb` does not update itself.
 - Voice dictation is available on Windows only.
 - Teams is a first, narrow version of agent coordination.
+- OxeQuery has had little real-world use: Podman is covered by fewer tests than
+  Docker, a multi-statement script shows only its last result set, and the data
+  grid has no "load more".
+- Project memory and Agent Work are Beta. Agent Work has no worktree per task.
+- In Thread, a running Claude turn cannot be steered (only queued), and drafts
+  are not kept across an application restart.
 - Linux has CI and packaged-build verification but less field time than Windows
   across desktop environments, drivers and kernels.
 - Review comments on diff lines are stored locally and delivered by pasting
@@ -163,7 +175,11 @@ packaged application. See [Release pipeline](RELEASE_PIPELINE.md).
 
 ## 11. Versioning
 
-Semantic versioning. While the major version is `0`, minor releases may change
-behaviour and storage; every release that changes the database says so in its
-notes, and a verified backup is taken before any migration. Release notes live
-in [`docs/releases`](releases/) and are used as the GitHub Release body.
+Semantic versioning. `1.0.0` is the first stable release (releases before it, `0.x`,
+could change behaviour and storage in a minor version). Every release that changes the
+database says so in its notes, and a verified backup is taken before any migration.
+Release notes live in [`docs/releases`](releases/) and are used as the GitHub Release body.
+
+The long-term compatibility rules (database, MCP tool surface and permission rules,
+support windows and supported agent CLI versions) are still a draft in
+[Compatibility](COMPATIBILITY.md); until its status changes, treat them as intent, not a promise.

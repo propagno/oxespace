@@ -68,7 +68,7 @@ const DEFAULT_CLI_STATUS: GitHubCliStatus = {
   authenticated: false,
   user: null,
   host: null,
-  message: 'GitHub CLI não encontrado. Instale em https://cli.github.com/ e execute gh auth login.',
+  message: 'GitHub CLI not found. Install it from https://cli.github.com/ and run gh auth login.',
   path: null
 }
 
@@ -266,15 +266,15 @@ export class GhExec {
 
   async runGit(args: string[], cwd: string, input?: string): Promise<string> {
     const result = await this.spawn('git', args, cwd, input, 30_000)
-    if (result.status !== 0 || result.error) throw new Error(sanitizeError(result.stderr || result.stdout || result.error?.message || 'Falha ao executar git.'))
+    if (result.status !== 0 || result.error) throw new Error(sanitizeError(result.stderr || result.stdout || result.error?.message || 'Could not run git.'))
     return result.stdout ?? ''
   }
 
   async runGh(args: string[], cwd: string): Promise<string> {
     const status = await this.detectCli(cwd)
-    if (!status.available || !status.authenticated) throw new Error(status.message ?? 'GitHub CLI indisponível.')
+    if (!status.available || !status.authenticated) throw new Error(status.message ?? 'GitHub CLI unavailable.')
     const result = await this.spawn(status.path ?? 'gh', args, cwd, undefined, 60_000)
-    if (result.status !== 0 || result.error) throw new Error(sanitizeError(result.stderr || result.stdout || result.error?.message || 'Falha ao executar gh.'))
+    if (result.status !== 0 || result.error) throw new Error(sanitizeError(result.stderr || result.stdout || result.error?.message || 'Could not run gh.'))
     return result.stdout ?? ''
   }
 

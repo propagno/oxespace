@@ -5,6 +5,7 @@ import type { Workspace } from '../../../shared/types/workspace'
 import { DesktopDialog } from '../Navigation/DesktopDialog'
 import { DelegationCreateDialog } from './DelegationCreateDialog'
 import './DelegatedWorkDialog.css'
+import { Select, TextField } from '../../ui'
 
 export function DelegatedWorkDialog({ workspaces, workspaceId, focusTaskId, origin, onClose, onOpen }: {
   workspaces: Workspace[]; workspaceId: string; focusTaskId?: string | null; origin?: { kind: 'pane' | 'thread'; id: string }
@@ -49,8 +50,8 @@ export function DelegatedWorkDialog({ workspaces, workspaceId, focusTaskId, orig
   if (creating && origin) return <DelegationCreateDialog workspaceId={workspaceId} origin={origin} onClose={() => setCreating(false)} />
   return <DesktopDialog className="delegated-work-dialog" title="Delegated work" description="Independent worktrees, shared knowledge and persistent agent sessions." onClose={onClose}>
     <div className="delegated-work-toolbar">
-      <select aria-label="Delegation project" value={selectedWorkspace} onChange={event => setSelectedWorkspace(event.target.value)}>{workspaces.map(workspace => <option value={workspace.id} key={workspace.id}>{workspace.name}</option>)}</select>
-      <label><Search size={14} /><input aria-label="Search delegated work" placeholder="Search branch, task or session" value={query} onChange={event => setQuery(event.target.value)} /></label>
+      <Select aria-label="Delegation project" value={selectedWorkspace} onChange={event => setSelectedWorkspace(event.target.value)}>{workspaces.map(workspace => <option value={workspace.id} key={workspace.id}>{workspace.name}</option>)}</Select>
+      <label><Search size={14} /><TextField aria-label="Search delegated work" placeholder="Search branch, task or session" value={query} onChange={event => setQuery(event.target.value)} /></label>
       <button type="button" disabled={!origin} onClick={() => setCreating(true)}><Plus size={14} />Delegate work</button>
     </div>
     {error && <p role="alert">{error}</p>}
@@ -58,7 +59,7 @@ export function DelegatedWorkDialog({ workspaces, workspaceId, focusTaskId, orig
       {!filtered.length && <p>{busy ? 'Loading delegated work…' : query ? 'No matching tasks on loaded pages.' : 'No delegated work in this project.'}</p>}
       {filtered.map(task => <article key={task.id}>
         <header><strong>{task.objective}</strong><span data-state={task.state}>{task.state}</span></header>
-        <p className="delegated-work-branch"><GitBranch size={13} />{task.branch}</p>
+        <p className="delegated-work-branch"><GitBranch size={14} />{task.branch}</p>
         <p>{task.nativeSession?.provider ?? task.agentProfileId} · {task.surface ?? 'terminal'} · {new Date(task.updatedAt).toLocaleString()}</p>
         {task.lastReport && <p>{task.lastReport}</p>}
         {task.error && <p role="alert">{task.error}</p>}

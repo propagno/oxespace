@@ -4,7 +4,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'n
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { afterEach, expect, test } from 'vitest'
-import { openDatabase } from '../../electron/main/db/index'
+import { LATEST_DB_VERSION, openDatabase } from '../../electron/main/db/index'
 
 const roots: string[] = []
 const handles: Database.Database[] = []
@@ -36,7 +36,7 @@ test('upgrade snapshot contains committed WAL data and can be opened independent
   expect(backup.pragma('integrity_check', { simple: true })).toBe('ok')
   expect(backup.pragma('user_version', { simple: true })).toBe(61)
   expect(backup.prepare('SELECT value FROM recovery_probe ORDER BY rowid').all()).toEqual([{ value: 'committed' }, { value: 'still in WAL' }])
-  expect(upgraded.pragma('user_version', { simple: true })).toBe(63)
+  expect(upgraded.pragma('user_version', { simple: true })).toBe(LATEST_DB_VERSION)
 })
 
 test('failed backup stops migration and preserves original version and data', () => {

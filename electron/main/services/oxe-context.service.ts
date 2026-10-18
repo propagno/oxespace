@@ -4,7 +4,7 @@ import type { FileSystemService } from './file-system.service'
 import type { GitHubWorktreeApi } from '../../../shared/types/github'
 import type { GitService } from './git.service'
 import type { WorkspaceService } from './workspace.service'
-import { TOOL_REGISTRY } from '../mcp-internal/tool-registry'
+import { activeTools } from '../mcp-internal/tool-registry'
 import { discoverScripts } from './scripts-discovery.service'
 
 /**
@@ -113,7 +113,7 @@ export async function buildPaneManifest(deps: OxeContextDeps, input: BuildPaneMa
   }
 
   // MCP tools — always include so the agent knows what it can call.
-  const toolNames = TOOL_REGISTRY.map((t) => t.descriptor.name).join(', ')
+  const toolNames = activeTools().map((t) => t.descriptor.name).join(', ')
   sections.push(
     [
       '## OXESpace MCP tools available',

@@ -6,10 +6,13 @@ import * as https from 'node:https'
 import * as fs from 'node:fs/promises'
 import log from 'electron-log'
 import type { RtkUpdateState } from '../../../shared/types/updater'
+import { verifyArchiveChecksum } from './rtk-checksum'
 
 const execFileAsync = promisify(execFile)
 
 const RTK_REPO = 'rtk-ai/rtk'
+/** No bytes for this long aborts a download. */
+const DOWNLOAD_IDLE_TIMEOUT_MS = 30_000
 /** Don't hammer GitHub Releases more than once per this window (background). */
 const CHECK_TTL_MS = 6 * 60 * 60 * 1000
 
@@ -38,6 +41,9 @@ function downloadFile(url: string, dest: string): Promise<void> {
       fs.unlink(dest).catch(() => {})
       reject(err)
     })
+    // A connection that goes quiet would otherwise hang the download (and, until now,
+    // the first terminal) forever.
+    request.setTimeout(DOWNLOAD_IDLE_TIMEOUT_MS, () => request.destroy(new Error('RTK download timed out')))
   })
 }
 
@@ -71,6 +77,8 @@ function httpsJson<T>(url: string): Promise<T> {
         }
       })
     }).on('error', reject)
+      // Without a deadline a stalled connection left Settings on "Checking GitHub…" for good.
+      .setTimeout(15_000, function (this: { destroy(error: Error): void }) { this.destroy(new Error('GitHub did not answer within 15 seconds')) })
   })
 }
 
@@ -281,12 +289,19 @@ export class RtkService {
     }
 
     const archivePath = join(this.binDir, isZip ? 'rtk.zip' : 'rtk.tar.gz')
+    const checksumsPath = join(this.binDir, 'rtk-checksums.txt')
+    const assetName = url.slice(url.lastIndexOf('/') + 1)
+    const checksumsUrl = `${url.slice(0, url.lastIndexOf('/') + 1)}checksums.txt`
     const stagingDir = join(this.binDir, '.rtk-staging')
     try {
       await fs.rm(stagingDir, { recursive: true, force: true })
       await fs.mkdir(stagingDir, { recursive: true })
       await downloadFile(url, archivePath)
-      log.info('[RtkService] RTK archive downloaded, extracting...')
+      // The archive is executed, so it is checked against the checksum the release
+      // publishes before anything is extracted. A missing or wrong checksum aborts.
+      await downloadFile(checksumsUrl, checksumsPath)
+      await verifyArchiveChecksum(archivePath, assetName, readFileSync(checksumsPath, 'utf8'))
+      log.info('[RtkService] RTK archive verified, extracting...')
 
       if (isZip) {
         await execFileAsync('tar', ['-xf', archivePath, '-C', stagingDir])
@@ -337,6 +352,7 @@ export class RtkService {
       if (existsSync(archivePath)) {
         await fs.unlink(archivePath).catch(() => {})
       }
+      await fs.unlink(checksumsPath).catch(() => {})
       await fs.rm(stagingDir, { recursive: true, force: true }).catch(() => {})
     }
   }

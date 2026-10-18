@@ -141,7 +141,28 @@ export interface GitHubWorktreeStatus {
 export interface GitHubRemoveWorktreeInput {
   rootPath: string
   path: string
+  /** Discard uncommitted work. Never overrides a lock or a failed archive hook. */
   force?: boolean
+  /** Remove even though the repo's archive hook failed or could not be verified. */
+  allowFailedArchiveHook?: boolean
+  /** Delete the worktree's branch afterwards with `git branch -d` (kept when unmerged). */
+  deleteBranch?: boolean
+}
+
+/** Stable reasons a removal can be refused; carried in the error message as `[worktree-removal:<code>]`. */
+export type WorktreeRemovalCode =
+  | 'protected'
+  | 'locked'
+  | 'dirty'
+  | 'archive-failed'
+  | 'git-failed'
+
+const WORKTREE_REMOVAL_TAG = /^\[worktree-removal:([a-z-]+)\]\s*/
+
+export function parseWorktreeRemovalError(message: string): { code: WorktreeRemovalCode | null; message: string } {
+  const match = WORKTREE_REMOVAL_TAG.exec(message)
+  if (!match) return { code: null, message }
+  return { code: match[1] as WorktreeRemovalCode, message: message.slice(match[0].length) }
 }
 
 export interface GitHubPullRequest {

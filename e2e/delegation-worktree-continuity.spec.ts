@@ -77,6 +77,7 @@ test('Code and Thread share delegation creation, exact recovery and session deta
     await page.getByRole('button', { name: 'Thread', exact: true }).click()
     // Thread no longer carries a Delegated work shortcut; it offers MCP connections instead.
     await expect(page.getByRole('button', { name: 'Delegated work', exact: true })).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'MCP connections', exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'More actions' }).click()
+    await expect(page.getByRole('menuitem', { name: 'MCP connections' })).toBeVisible()
   } finally { await app.close() }
 })

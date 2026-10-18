@@ -1,253 +1,146 @@
-import { X } from 'lucide-react'
-import { useEffect, useState, type ReactElement } from 'react'
-import { type Theme } from '../../design-system/tokens'
+import { useState, type ReactElement, type ReactNode } from 'react'
+import { Bell, Copy, GitBranch, MoreHorizontal, Plus, Search, Trash2, X } from 'lucide-react'
 import { OxeLogo } from '../Brand/OxeLogo'
-import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
-import { ColorPalette } from './sections/ColorPalette'
-import { ComponentShowcase } from './sections/ComponentShowcase'
-import { TypographyScale } from './sections/TypographyScale'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger
-} from '@/components/ui/dialog'
+import { colorRoles } from '../../design/tokens/semantic'
+import { palette, SCALE_SPECS, type ScaleName } from '../../design/tokens/palette'
+import { RADIUS, SPACE, TEXT } from '../../design/tokens/scales'
+import { Badge, Button, ButtonGroup, Checkbox, EmptyState, IconButton, Kbd, Menu, Meter, Panel, SegmentedControl, Select, Spinner, StatusDot, Switch, Tabs, TextArea, TextField, Toolbar, ToolbarSpacer, Tooltip, toast, useModalSurface } from '../../ui'
+import styles from './DesignSystemPage.module.css'
 
-/** F1 verification: shadcn/ui + Tailwind primitives rendering with the ported
- *  token layer, proving the foundation coexists with OXESpace's CSS. */
-function ShadcnButtonDemo(): ReactElement {
-  return (
-    <section className="ds-showcase-section" data-testid="shadcn-demo" style={{ marginTop: 24 }}>
-      <p className="ds-section-subtitle">shadcn/ui · primitives (F1 foundation)</p>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <Button>Default</Button>
-        <Button variant="secondary">Secondary</Button>
-        <Button variant="outline">Outline</Button>
-        <Button variant="ghost">Ghost</Button>
-        <Button variant="destructive">Destructive</Button>
-        <Button variant="link">Link</Button>
-      </div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 12 }}>
-        <Badge>Default</Badge>
-        <Badge variant="secondary">Secondary</Badge>
-        <Badge variant="outline">Outline</Badge>
-        <Badge variant="destructive">Destructive</Badge>
-        <Badge variant="dot">Dot</Badge>
-      </div>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 12, maxWidth: 520 }}>
-        <Input placeholder="shadcn Input…" />
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="outline" size="sm">Hover me</Button>
-            </TooltipTrigger>
-            <TooltipContent>A shadcn tooltip</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button size="sm" data-testid="shadcn-dialog-trigger">Open dialog</Button>
-          </DialogTrigger>
-          <DialogContent data-testid="shadcn-dialog-content">
-            <DialogHeader>
-              <DialogTitle>Dialog title</DialogTitle>
-              <DialogDescription>A ported shadcn dialog on the F1 foundation.</DialogDescription>
-            </DialogHeader>
-          </DialogContent>
-        </Dialog>
-      </div>
-      <Separator className="my-4" />
-      <Card className="max-w-sm">
-        <CardHeader>
-          <CardTitle>Card title</CardTitle>
-          <CardDescription>Card description text.</CardDescription>
-        </CardHeader>
-        <CardContent>Card body content, using the ported tokens.</CardContent>
-      </Card>
-    </section>
-  )
+type Section = 'brand' | 'color' | 'type' | 'shape' | 'components'
+const SECTIONS: Array<{ id: Section; label: string }> = [
+  { id: 'brand', label: 'Brand' }, { id: 'color', label: 'Color' }, { id: 'type', label: 'Type' },
+  { id: 'shape', label: 'Space, shape, depth' }, { id: 'components', label: 'Components' }
+]
+
+/** Renders `children` twice, once per mode, using data-mode subtrees. */
+function BothModes({ children }: { children: () => ReactNode }): ReactElement {
+  return <div className={styles.modes}>
+    {(['light', 'dark'] as const).map(mode => <div key={mode} className={styles.mode} data-mode={mode}><span className={styles.modeLabel}>{mode}</span>{children()}</div>)}
+  </div>
 }
-
-type Section = 'brand' | 'colors' | 'typography' | 'components'
-
-const NAV: { id: Section; label: string }[] = [
-  { id: 'brand',       label: 'Brand' },
-  { id: 'colors',      label: 'Colors' },
-  { id: 'typography',  label: 'Typography' },
-  { id: 'components',  label: 'Components' },
-]
-
-const BRAND_TOKENS = [
-  { name: '--brand',         label: 'Brand' },
-  { name: '--brand-light',   label: 'Brand Light' },
-  { name: '--brand-lightest',label: 'Brand Lightest' },
-  { name: '--brand-dark',    label: 'Brand Dark' },
-]
-
-const PROVIDER_ENTRIES: Array<{ provider: 'claude' | 'gh-copilot' | 'antigravity' | 'codex' | 'cursor' | 'custom'; label: string }> = [
-  { provider: 'claude',    label: 'Claude' },
-  { provider: 'gh-copilot',label: 'Copilot' },
-  { provider: 'antigravity', label: 'Antigravity' },
-  { provider: 'codex',     label: 'Codex' },
-  { provider: 'cursor',    label: 'Cursor' },
-  { provider: 'custom',    label: 'Custom' },
-]
-
-const AVATAR_TOKENS = [
-  { name: '--avatar-1', label: 'Avatar 1' },
-  { name: '--avatar-2', label: 'Avatar 2' },
-  { name: '--avatar-3', label: 'Avatar 3' },
-  { name: '--avatar-4', label: 'Avatar 4' },
-  { name: '--avatar-5', label: 'Avatar 5' },
-  { name: '--avatar-6', label: 'Avatar 6' },
-]
 
 function BrandSection(): ReactElement {
-  return (
-    <div className="ds-showcase" style={{ gap: 32 }}>
-      <section className="ds-showcase-section">
-        <p className="ds-section-subtitle">Logo</p>
-        <div className="ds-showcase-row" style={{ gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-            <OxeLogo size={28} />
-            <span style={{ fontSize: 11, color: 'var(--tx-muted)' }}>28px · full</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-            <OxeLogo size={48} />
-            <span style={{ fontSize: 11, color: 'var(--tx-muted)' }}>48px · full</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-            <OxeLogo size={24} variant="compact" />
-            <span style={{ fontSize: 11, color: 'var(--tx-muted)' }}>24px · compact</span>
-          </div>
-        </div>
-      </section>
-
-      <section className="ds-showcase-section">
-        <p className="ds-section-subtitle">Wordmark + Hero</p>
-        <div className="ds-showcase-row" style={{ gap: 32, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-            <OxeLogo size={22} variant="wordmark" />
-            <span style={{ fontSize: 11, color: 'var(--tx-muted)' }}>22px · wordmark (sidebar)</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-            <OxeLogo size={28} variant="wordmark" />
-            <span style={{ fontSize: 11, color: 'var(--tx-muted)' }}>28px · wordmark (header)</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-            <OxeLogo size={72} variant="hero" />
-            <span style={{ fontSize: 11, color: 'var(--tx-muted)' }}>72px · hero (empty state / splash)</span>
-          </div>
-        </div>
-      </section>
-
-      <section className="ds-showcase-section">
-        <p className="ds-section-subtitle">Brand Palette</p>
-        <div className="ds-swatch-grid">
-          {BRAND_TOKENS.map(({ name, label }) => (
-            <div key={name} className="ds-swatch-item">
-              <div className="ds-swatch-color" style={{ background: `var(${name})` }} />
-              <span className="ds-swatch-label">{label}</span>
-              <span className="ds-swatch-value" style={{ fontFamily: 'var(--font-mono)', fontSize: 9 }}>{name}</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="ds-showcase-section">
-        <p className="ds-section-subtitle">Provider Icons</p>
-        <div className="ds-showcase-row" style={{ flexWrap: 'wrap', gap: 16 }}>
-          {PROVIDER_ENTRIES.map(({ provider, label }) => (
-            <div key={provider} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-              <AgentProviderIcon provider={provider} />
-              <span style={{ fontSize: 10, color: 'var(--tx-muted)' }}>{label}</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="ds-showcase-section">
-        <p className="ds-section-subtitle">Avatar Palette</p>
-        <div className="ds-swatch-grid">
-          {AVATAR_TOKENS.map(({ name, label }) => (
-            <div key={name} className="ds-swatch-item">
-              <div className="ds-swatch-color" style={{ background: `var(${name})`, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 14, fontWeight: 700 }}>
-                {label.at(-1)}
-              </div>
-              <span className="ds-swatch-label">{label}</span>
-            </div>
-          ))}
-        </div>
-      </section>
-    </div>
-  )
+  return <>
+    <h2 className={styles.sectionTitle}>Mark and wordmark</h2>
+    <BothModes>{() => <div className={styles.brandTile}><OxeLogo size={64} variant="hero" /><div className={styles.row}><OxeLogo size={32} /><OxeLogo size={24} variant="compact" /><OxeLogo size={20} variant="wordmark" /></div></div>}</BothModes>
+    <h2 className={styles.sectionTitle}>Brand scales</h2>
+    <BothModes>{() => <ScaleList names={['caatinga', 'sun']} />}</BothModes>
+  </>
 }
 
-interface DesignSystemPageProps {
-  onClose: () => void
+function ScaleList({ names }: { names: ScaleName[] }): ReactElement {
+  // A subtree's mode is only known in CSS, so both palettes are rendered and each column shows its own.
+  return <div className={styles.stack}>{names.map(name => <div key={name} className={styles.scaleRow}><span>{name} · {SCALE_SPECS[name].hue}°</span>
+    <div className={styles.scale}>{Array.from({ length: 12 }, (_, step) => <span key={step} style={{ background: `var(--ds-${name}-${step + 1})` }} title={`${name} ${step + 1}`} />)}</div></div>)}</div>
 }
 
-export function DesignSystemPage({ onClose }: DesignSystemPageProps): ReactElement {
-  const [section, setSection] = useState<Section>('brand')
-  const [theme, setTheme]     = useState<Theme>('default')
+/** Exposes the raw scales as --ds-* variables for the viewer only, per mode. */
+function ScaleVariables(): ReactElement {
+  const css = (['light', 'dark'] as const).map(mode => {
+    const vars = Object.entries(palette(mode)).flatMap(([name, scale]) => scale.map((value, index) => `--ds-${name}-${index + 1}: ${value};`)).join(' ')
+    return `[data-mode='${mode}'] { ${vars} }`
+  }).join('\n')
+  return <style>{css}</style>
+}
 
-  useEffect(() => {
-    const root = document.documentElement
-    if (theme === 'default') {
-      root.removeAttribute('data-theme')
-    } else {
-      root.setAttribute('data-theme', theme)
-    }
-    return () => { root.removeAttribute('data-theme') }
-  }, [theme])
+function ColorSection(): ReactElement {
+  const roles = Object.keys(colorRoles('light')).filter(name => !name.startsWith('ansi-'))
+  const groups: Array<[string, (name: string) => boolean]> = [
+    ['Surfaces and fills', name => name.startsWith('surface-') || name.startsWith('fill-') || name === 'scrim'],
+    ['Text', name => name.startsWith('text-')],
+    ['Borders and focus', name => name.startsWith('border-') || name === 'focus-ring'],
+    ['Accent and brand', name => name.startsWith('accent') || name.startsWith('brand-')],
+    ['Intents', name => name.startsWith('intent-')],
+    ['Code review', name => name.startsWith('diff-')]
+  ]
+  return <>
+    {groups.map(([title, match]) => <div key={title}>
+      <h2 className={styles.sectionTitle}>{title}</h2>
+      <BothModes>{() => <div className={styles.swatches}>{roles.filter(match).map(name => <div key={name} className={styles.swatch}><span className={styles.chip} style={{ background: `var(--${name})` }} /><code>--{name}</code></div>)}</div>}</BothModes>
+    </div>)}
+    <h2 className={styles.sectionTitle}>Scales</h2>
+    <BothModes>{() => <ScaleList names={Object.keys(SCALE_SPECS) as ScaleName[]} />}</BothModes>
+  </>
+}
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', handler)
-    return () => { window.removeEventListener('keydown', handler) }
-  }, [onClose])
-
-  return (
-    <div className="ds-overlay" role="dialog" aria-modal="true" aria-label="Design System Viewer">
-      <div className="ds-panel">
-        <header className="ds-header">
-          <h2 className="ds-title">OXESpace Design System</h2>
-          <button type="button" className="icon-button" aria-label="Close design system" onClick={onClose}>
-            <X size={16} />
-          </button>
-        </header>
-
-        <nav className="ds-nav">
-          {NAV.map(({ id, label }) => (
-            <button
-              key={id}
-              type="button"
-              className={`ds-nav-item ${section === id ? 'active' : ''}`}
-              onClick={() => { setSection(id) }}
-            >
-              {label}
-            </button>
-          ))}
-        </nav>
-
-        <main className="ds-content">
-          {section === 'brand'      && <BrandSection />}
-          {section === 'colors'     && <ColorPalette theme={theme} onThemeChange={setTheme} />}
-          {section === 'typography' && <TypographyScale />}
-          {section === 'components' && <ComponentShowcase />}
-          {section === 'components' && <ShadcnButtonDemo />}
-        </main>
-      </div>
+function TypeSection(): ReactElement {
+  const sizes = Object.entries(TEXT) as Array<[keyof typeof TEXT, number]>
+  return <>
+    <h2 className={styles.sectionTitle}>Families</h2>
+    <div className={styles.stack}>
+      <div className={styles.typeRow}><code>--font-display</code><span style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-display)', fontWeight: 700 }}>Bricolage Grotesque</span></div>
+      <div className={styles.typeRow}><code>--font-ui</code><span style={{ fontSize: 'var(--text-lg)' }}>IBM Plex Sans · The agent finished and changed 3 files.</span></div>
+      <div className={styles.typeRow}><code>--font-mono</code><span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-md)' }}>IBM Plex Mono · git commit -m "fix: redirect"</span></div>
     </div>
-  )
+    <h2 className={styles.sectionTitle}>Scale</h2>
+    <div className={styles.stack}>{sizes.map(([name, px]) => <div key={name} className={styles.typeRow}><code>--text-{name} · {px}px</code><span style={{ fontSize: `var(--text-${name})`, fontFamily: name === 'display' ? 'var(--font-display)' : undefined, fontWeight: name === 'display' || name === 'xl' ? 600 : undefined }}>Review the changes before you commit</span></div>)}</div>
+  </>
+}
+
+function ShapeSection(): ReactElement {
+  return <>
+    <h2 className={styles.sectionTitle}>Spacing</h2>
+    <div className={styles.stack}>{Object.entries(SPACE).filter(([key]) => key !== '0').map(([key, value]) => <div key={key} className={styles.measure}><code>--space-{key} · {value}</code><span className={styles.bar} style={{ width: value }} /></div>)}</div>
+    <h2 className={styles.sectionTitle}>Radius</h2>
+    <div className={styles.row}>{Object.entries(RADIUS).map(([key, value]) => <div key={key} className={styles.stack}><span className={styles.box} style={{ borderRadius: value }} /><code>--radius-{key}</code></div>)}</div>
+    <h2 className={styles.sectionTitle}>Elevation</h2>
+    <BothModes>{() => <div className={styles.row}>{[1, 2, 3, 4].map(level => <div key={level} className={styles.stack}><span className={styles.box} style={{ boxShadow: `var(--elevation-${level})`, borderRadius: 'var(--radius-md)' }} /><code>--elevation-{level}</code></div>)}</div>}</BothModes>
+  </>
+}
+
+function Gallery(): ReactElement {
+  const [on, setOn] = useState(true)
+  const [view, setView] = useState<'all' | 'mine' | 'done'>('all')
+  const [tab, setTab] = useState<'changes' | 'files'>('changes')
+  return <div className={styles.stack}>
+    <div className={styles.row}>
+      <Button variant="primary" icon={<Plus size={14} />}>New conversation</Button>
+      <Button>Secondary</Button><Button variant="ghost">Ghost</Button><Button variant="danger" icon={<Trash2 size={14} />}>Delete</Button>
+      <Button loading>Saving</Button><Button variant="link">Open log</Button>
+    </div>
+    <div className={styles.row}>
+      <Button size="sm">Small</Button><Button size="lg">Large</Button>
+      <Tooltip content="Search (Ctrl+K)"><IconButton label="Search" icon={<Search size={16} />} /></Tooltip>
+      <IconButton label="Copy" icon={<Copy size={16} />} variant="secondary" />
+      <ButtonGroup label="Commit"><Button>Commit</Button><Menu label="Commit options" trigger={<IconButton label="More commit options" icon={<MoreHorizontal size={16} />} variant="secondary" />} items={[{ label: 'Commit and push', onSelect: () => {} }, { label: 'Amend last commit', onSelect: () => {} }, { type: 'separator' }, { label: 'Discard changes', danger: true, onSelect: () => {} }]} /></ButtonGroup>
+    </div>
+    <Toolbar label="Example toolbar"><SegmentedControl label="Filter" value={view} onChange={setView} options={[{ value: 'all', label: 'All' }, { value: 'mine', label: 'Mine' }, { value: 'done', label: 'Done' }]} /><ToolbarSpacer /><Kbd>Ctrl</Kbd><Kbd>K</Kbd></Toolbar>
+    <TextField label="Branch name" placeholder="feat/login-redirect" hint="Created from main" mono />
+    <TextField label="Commit message" defaultValue="wip" error="Describe what changed in a sentence." />
+    <Select label="Model" options={[{ value: 'opus', label: 'Opus' }, { value: 'sonnet', label: 'Sonnet' }]} defaultValue="opus" />
+    <TextArea label="Instructions" placeholder="What should the agent do?" rows={3} />
+    <div className={styles.row}><Checkbox label="Run tests after edits" defaultChecked /></div>
+    <Switch checked={on} onChange={setOn} label="Notify when an agent needs you" description="Only for conversations you are not watching." />
+    <div className={styles.row}>
+      <Badge>Draft</Badge><Badge intent="accent">Running</Badge><Badge intent="success">Merged</Badge><Badge intent="warning">Needs input</Badge><Badge intent="danger">Failed</Badge><Badge intent="info">3 files</Badge>
+      <StatusDot status="running" label="Running" /><StatusDot status="success" label="Done" /><StatusDot status="attention" label="Needs input" /><StatusDot status="danger" label="Failed" /><Spinner />
+    </div>
+    <Meter label="Context" value={62} detail="124k of 200k" /><Meter label="Weekly limit" value={93} />
+    <Tabs label="Example tabs" value={tab} onChange={setTab} tabs={[{ value: 'changes', label: <><GitBranch size={14} />Changes</>, content: <p>3 files changed</p> }, { value: 'files', label: 'Files', content: <p>src/auth/session.ts</p> }]} />
+    <Panel title="Recent conversations" actions={<IconButton label="Close" icon={<X size={14} />} size="sm" />}><EmptyState icon={<Bell size={16} />} title="No conversations yet" actions={<Button variant="primary" size="sm">Start one</Button>}>Start a conversation to work on this project with an agent.</EmptyState></Panel>
+    <div className={styles.row}><Button size="sm" onClick={() => toast({ title: 'Committed 3 files', intent: 'success', description: 'feat/login-redirect' })}>Show success toast</Button><Button size="sm" onClick={() => toast({ title: 'Push failed', intent: 'danger', description: 'The remote rejected the branch.', action: { label: 'Retry', run: () => {} } })}>Show failure toast</Button></div>
+  </div>
+}
+
+/** The design system, rendered from its own source: tokens, scales and every primitive in both modes. */
+export function DesignSystemPage({ onClose }: { onClose: () => void }): ReactElement {
+  const [section, setSection] = useState<Section>('components')
+  const current = SECTIONS.find(item => item.id === section)!
+  const surface = useModalSurface<HTMLDivElement>(onClose)
+  return <div className={styles.page} role="dialog" aria-modal="true" aria-label="Design system" {...surface}>
+    <ScaleVariables />
+    <nav className={styles.nav} aria-label="Design system sections">
+      <h1 className={styles.navTitle}><OxeLogo size={20} variant="compact" />Design system</h1>
+      {SECTIONS.map(item => <button key={item.id} type="button" className={styles.navItem} aria-current={item.id === section ? 'page' : undefined} onClick={() => setSection(item.id)}>{item.label}</button>)}
+      <p className={styles.navFoot}>Tokens: src/design/tokens · Primitives: src/ui</p>
+    </nav>
+    <main className={styles.main}>
+      <header className={styles.header}>
+        <div><h2 className={styles.title}>{current.label}</h2><p className={styles.lead}>Mandacaru, the OXESpace design system. Everything here is rendered from the tokens and primitives the app uses, in light and dark mode.</p></div>
+        <IconButton label="Close design system" icon={<X size={16} />} onClick={onClose} />
+      </header>
+      {section === 'brand' ? <BrandSection /> : section === 'color' ? <ColorSection /> : section === 'type' ? <TypeSection /> : section === 'shape' ? <ShapeSection /> : <BothModes>{() => <Gallery />}</BothModes>}
+    </main>
+  </div>
 }

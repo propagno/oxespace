@@ -11,7 +11,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
  *  pre-migration backup (only back up when an upgrade will actually run).
  *  Exported so the migrations test can catch a constant that drifts from the
  *  version the SQL actually sets. */
-export const LATEST_DB_VERSION = 63
+export const LATEST_DB_VERSION = 77
 /** How many pre-migration backups to retain. */
 const MAX_DB_BACKUPS = 5
 
@@ -211,7 +211,11 @@ export function runMigrations(db: AppDatabase): void {
     currentVersion = db.pragma('user_version', { simple: true }) as number
   }
 
-  if (currentVersion < 18 || !hasColumn(db, 'panes', 'model_override')) {
+  // Only on `< 18`: migration 028 deliberately drops `model_override`, so also testing
+  // for the column here made this block true on every open of a migrated database. It
+  // re-added the column, set user_version to 18 and replayed migrations up to 057,
+  // leaving the version at 57 and taking a backup on every other launch.
+  if (currentVersion < 18) {
     if (!hasColumn(db, 'panes', 'model_override')) {
       db.exec(readMigration('018_pane_model_override.sql'))
     } else {
@@ -467,7 +471,13 @@ export function runMigrations(db: AppDatabase): void {
   // Older self-healing migrations can temporarily lower currentVersion during
   // a re-open. The one-time visual migration must use the version at entry so
   // a later explicit theme choice is never overwritten.
-  if (startingVersion < 58) {
+  // A database an old build left at 57 with a newer schema (see the guard of migration 018 above) has
+  // already had this one-time palette adoption: `conversation_threads.epoch` is added by migration 065,
+  // which runs AFTER this block, so in a genuine upgrade it does not exist yet. Running the adoption
+  // again would reset every workspace theme once more, on the first launch of the fixed build.
+  const pastPaletteAdoption = startingVersion < 58 && hasColumn(db, 'conversation_threads', 'epoch')
+  if (pastPaletteAdoption) db.pragma('user_version = 58')
+  else if (startingVersion < 58) {
     db.transaction(() => db.exec(readMigration('058_workbench_default.sql')))()
   }
   if (startingVersion < 59) migrateThreadProjects(db)
@@ -475,6 +485,27 @@ export function runMigrations(db: AppDatabase): void {
   if (startingVersion < 61) db.transaction(() => db.exec(readMigration('061_persistent_teams.sql')))()
   if (startingVersion < 62) db.transaction(() => db.exec(readMigration('062_team_delivery.sql')))()
   if (startingVersion < 63) db.transaction(() => db.exec(readMigration('063_mcp_thread_handoff.sql')))()
+  if (startingVersion < 64) db.transaction(() => db.exec(readMigration('064_repo_hook_trust.sql')))()
+  // ADD COLUMN is not idempotent and a re-open can replay this step: add only what is missing.
+  if (startingVersion < 65) db.transaction(() => {
+    let migration = readMigration('065_thread_revisions.sql')
+    for (const [table, column] of [['conversation_threads', 'epoch'], ['conversation_threads', 'revision'], ['conversation_events', 'rev']] as const) {
+      if (hasColumn(db, table, column)) migration = migration.split('\n').filter(line => !line.startsWith(`ALTER TABLE ${table} ADD COLUMN ${column} `)).join('\n')
+    }
+    db.exec(migration)
+  })()
+  if (startingVersion < 66) db.transaction(() => db.exec(readMigration('066_oxequery_connections.sql')))()
+  if (startingVersion < 67) db.transaction(() => db.exec(readMigration('067_oxequery_connectivity.sql')))()
+  if (startingVersion < 68) db.transaction(() => db.exec(readMigration('068_thread_permissions.sql')))()
+  if (startingVersion < 69) db.transaction(() => db.exec(readMigration('069_oxequery_library.sql')))()
+  if (startingVersion < 70) db.transaction(() => db.exec(readMigration('070_oxequery_audit.sql')))()
+  if (startingVersion < 71) db.transaction(() => db.exec(readMigration('071_turn_usage.sql')))()
+  if (startingVersion < 72) db.transaction(() => db.exec(readMigration('072_agent_work.sql')))()
+  if (startingVersion < 73) db.transaction(() => db.exec(readMigration('073_mcp_tool_rules.sql')))()
+  if (startingVersion < 74) db.transaction(() => db.exec(readMigration('074_oxequery_workspace.sql')))()
+  if (startingVersion < 75) db.transaction(() => db.exec(withoutExistingColumns(db, readMigration('075_oxequery_organization.sql'))))()
+  if (startingVersion < 76) db.transaction(() => db.exec(readMigration('076_oxequery_preferences.sql')))()
+  if (startingVersion < 77) db.transaction(() => db.exec(readMigration('077_thread_settings.sql')))()
 }
 
 /** Rebuild the parent without cascading its children or rewriting their IDs. */
@@ -538,6 +569,16 @@ function migrateThreadProjects(db: AppDatabase): void {
 
 function readMigration(name: string): string {
   return readFileSync(join(__dirname, 'migrations', name), 'utf8')
+}
+
+/** SQLite has no ADD COLUMN IF NOT EXISTS. A migration made only of ADD COLUMN statements must survive a replay
+ *  over a schema that already has them (a database whose version number lags its schema), so statements whose
+ *  column exists are dropped before the script runs. */
+function withoutExistingColumns(db: AppDatabase, sql: string): string {
+  return sql.split(/\r?\n/).filter(line => {
+    const match = /^\s*ALTER\s+TABLE\s+(\w+)\s+ADD\s+COLUMN\s+(\w+)/i.exec(line)
+    return !match || !hasColumn(db, match[1], match[2])
+  }).join('\n')
 }
 
 // Direct introspection — no caching. (A memoized variant shipped in v0.2.6 was

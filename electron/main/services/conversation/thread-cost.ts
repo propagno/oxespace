@@ -1,0 +1,72 @@
+/**
+ * Per-turn cost reported by Claude in its `result` frame (`total_cost_usd` and
+ * `usage`). For a subscription account the figure is the API-equivalent value,
+ * not money charged, so it is presented as an estimate. Codex reports tokens
+ * only; its turns are summed from `thread/tokenUsage/updated` and carry no cost.
+ */
+import type { ThreadCostReport } from '../../../../shared/types/thread'
+
+export interface TurnCost {
+  usd?: number
+  inputTokens?: number
+  outputTokens?: number
+  cacheReadTokens?: number
+  cacheCreationTokens?: number
+}
+
+const amount = (value: unknown, max: number): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= max ? value : undefined
+
+/** Null when the frame carries nothing worth recording. */
+export function readClaudeResultCost(event: Record<string, unknown>): TurnCost | null {
+  const usage = event.usage && typeof event.usage === 'object' ? (event.usage as Record<string, unknown>) : {}
+  const cost: TurnCost = {
+    usd: amount(event.total_cost_usd, 10_000),
+    inputTokens: amount(usage.input_tokens, 1e9),
+    outputTokens: amount(usage.output_tokens, 1e9),
+    cacheReadTokens: amount(usage.cache_read_input_tokens, 1e9),
+    cacheCreationTokens: amount(usage.cache_creation_input_tokens, 1e9)
+  }
+  return Object.values(cost).some(value => value !== undefined) ? cost : null
+}
+
+/**
+ * One Codex model request's tokens (`tokenUsage.last`). OpenAI counts cached
+ * input inside `inputTokens`; it is split out so input means the same thing
+ * for both providers.
+ */
+export function readCodexRequestTokens(last: unknown): TurnCost | null {
+  const value = last && typeof last === 'object' ? last as Record<string, unknown> : {}
+  const input = amount(value.inputTokens, 1e9), cached = amount(value.cachedInputTokens, 1e9), output = amount(value.outputTokens, 1e9)
+  if (input === undefined && output === undefined) return null
+  return { inputTokens: Math.max(0, (input ?? 0) - (cached ?? 0)), outputTokens: output ?? 0, cacheReadTokens: cached ?? 0 }
+}
+
+/**
+ * Claude's `result` frame carries `total_cost_usd` for the whole *process*, not the turn:
+ * a persistent session reports 0.5, then 1.2, then 2.0 for three turns that cost 0.5, 0.7
+ * and 0.8. Summing the frames as if they were per turn made a long conversation's cost
+ * grow quadratically. The turn's own cost is the step from the previous total; a total
+ * that went down means a new process started counting from zero.
+ */
+export function stepFromProcessTotal(previousTotal: number, total: number): { turnUsd: number; total: number } {
+  const turnUsd = total >= previousTotal ? total - previousTotal : total
+  return { turnUsd: Math.round(turnUsd * 1e6) / 1e6, total }
+}
+
+const sum = (previous: number | undefined, delta: number | undefined): number | undefined =>
+  previous === undefined && delta === undefined ? undefined : (previous ?? 0) + (delta ?? 0)
+
+/** `turn.usd` is this turn's own cost (see `stepFromProcessTotal`). A turn without a cost still counts as a turn. */
+export function addTurnCost(previous: ThreadCostReport | undefined, turn: TurnCost, now: number, source: ThreadCostReport['source'] = 'claude-result-step'): ThreadCostReport {
+  return {
+    totalUsd: (previous?.totalUsd ?? 0) + (turn.usd ?? 0),
+    turns: (previous?.turns ?? 0) + 1,
+    ...(turn.usd !== undefined ? { lastTurnUsd: turn.usd } : previous?.lastTurnUsd !== undefined ? { lastTurnUsd: previous.lastTurnUsd } : {}),
+    ...(sum(previous?.inputTokens, turn.inputTokens) !== undefined ? { inputTokens: sum(previous?.inputTokens, turn.inputTokens) } : {}),
+    ...(sum(previous?.outputTokens, turn.outputTokens) !== undefined ? { outputTokens: sum(previous?.outputTokens, turn.outputTokens) } : {}),
+    ...(sum(previous?.cacheReadTokens, turn.cacheReadTokens) !== undefined ? { cacheReadTokens: sum(previous?.cacheReadTokens, turn.cacheReadTokens) } : {}),
+    updatedAt: now,
+    source
+  }
+}

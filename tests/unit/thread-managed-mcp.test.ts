@@ -61,3 +61,26 @@ describe('Thread managed MCP servers', () => {
     expect(threadMcpArguments('codex', ['app-server'], '/bridge.cjs')).toEqual(threadMcpArguments('codex', ['app-server'], '/bridge.cjs', { servers: [], env: {} }))
   })
 })
+
+describe('Thread managed MCP servers across project workspaces (real database)', () => {
+  it('includes servers scoped to every workspace of the project and lets them shadow a global one', async () => {
+    const { openInMemoryDatabase } = await import('../../electron/main/db/index')
+    const db = openInMemoryDatabase()
+    try {
+      for (const id of ['w1', 'w2', 'other']) db.prepare("INSERT INTO workspaces (id, name, root_path, layout, default_shell_profile_id) VALUES (?, ?, ?, '1x1', 'builtin-claude')").run(id, id, `/root-${id}`)
+      const insert = db.prepare('INSERT INTO mcp_servers (id, workspace_id, name, transport, config_json, enabled, trusted, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      const stdio = (command: string) => JSON.stringify({ transport: 'stdio', command, args: [] })
+      insert.run('g1', null, 'Docs', 'stdio', stdio('global-docs'), 1, 1, 1, 1)
+      insert.run('g2', null, 'Search', 'stdio', stdio('global-search'), 1, 1, 2, 2)
+      insert.run('s1', 'w1', 'Docs', 'stdio', stdio('project-docs'), 1, 1, 3, 3)
+      insert.run('s2', 'w2', 'Tracker', 'stdio', stdio('tracker'), 1, 1, 4, 4)
+      insert.run('s3', 'other', 'Elsewhere', 'stdio', stdio('elsewhere'), 1, 1, 5, 5)
+      insert.run('s4', 'w1', 'Untrusted', 'stdio', stdio('untrusted'), 1, 0, 6, 6)
+
+      const managed = readManagedMcp(db, ['thread:project', 'w1', 'w2'], 'linux')
+      const commands = managed.servers.map(server => server.command)
+      expect(commands).toEqual(['global-search', 'project-docs', 'tracker'])
+      expect(readManagedMcp(db, 'thread:project', 'linux').servers.map(server => server.command)).toEqual(['global-docs', 'global-search'])
+    } finally { db.close() }
+  })
+})

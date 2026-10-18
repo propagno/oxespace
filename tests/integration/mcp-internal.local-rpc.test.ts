@@ -96,6 +96,25 @@ describe('Internal MCP local RPC server', () => {
     expect(create).toHaveBeenCalledOnce()
   })
 
+  test('retrieval tools resolve a Thread to its checkout instead of refusing it', async () => {
+    const env = ctx.executions.register({ owner: { kind: 'thread', id: 'reader-thread' }, workspaceId: 'thread:project', cwd: process.cwd() })
+    const headers = { Authorization: `Bearer ${TOKEN}`, 'x-oxe-workspace-id': 'thread:project',
+      'x-oxe-execution-id': env.OXESPACE_EXECUTION_ID, 'x-oxe-execution-token': env.OXESPACE_EXECUTION_TOKEN }
+    const call = async (name: string) => {
+      const { json } = await postRpc(ctx.port, headers, { jsonrpc: '2.0', id: 90, method: 'tools/call', params: { name, arguments: { query: 'orchestrator' } } })
+      return (json as { result: { isError?: boolean; content: Array<{ text: string }> } }).result
+    }
+    const semantic = await call('oxespace_semantic_search')
+    expect(semantic.isError).toBeUndefined()
+    expect(semantic.content[0].text).toMatch(/not available for this project/)
+    const hybrid = await call('oxespace_hybrid_explore')
+    expect(hybrid.content[0].text).not.toMatch(/requires a Code workspace/)
+    expect(hybrid.content[0].text).toMatch(/Hybrid RAG: Structural AST/)
+    // A Thread whose execution cannot be verified is still refused.
+    const { json } = await postRpc(ctx.port, { ...headers, 'x-oxe-execution-token': 'wrong' }, { jsonrpc: '2.0', id: 91, method: 'tools/call', params: { name: 'oxespace_semantic_search', arguments: { query: 'x' } } })
+    expect(JSON.stringify(json)).toMatch(/could not be verified/)
+  })
+
   test('passes the documentation runtime through RPC to preview interaction', async () => {
     const ws = ctx.workspaceServ.create({ rootPath: process.cwd(), layout: '1x1', autoStart: false })
     const env = ctx.executions.register({ paneId: ws.panes[0].id, workspaceId: ws.id, cwd: process.cwd() })

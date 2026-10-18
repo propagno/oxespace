@@ -1,8 +1,10 @@
-import { Activity, ArrowLeft, ArrowUpCircle, Bell, ChevronRight, Mic, Settings2, SquareTerminal, X } from 'lucide-react'
+import { Activity, ArrowLeft, ArrowUpCircle, Bell, ChevronRight, Mic, Palette, Settings2, SquareTerminal, X } from 'lucide-react'
 import { useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
-import { Dialog, DialogContent, DialogTitle } from '../ui/dialog'
+import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
+import { Button, Dialog, TextField } from '../../ui'
 import { SettingsContent, type SettingsModalProps, type SettingsSection } from './SettingsModal'
 import { SETTINGS_PAGES, WorkspaceSettingsModal } from '../Workspace/WorkspaceSettingsModal'
+import { useSharedProjectMemory } from '../../hooks/useSharedProjectMemory'
 import type { ShellProfile, UpdateWorkspaceSettingsInput, Workspace } from '../../../shared/types/workspace'
 import './SettingsCenter.css'
 import { useUIStore } from '../../store/ui.store'
@@ -15,6 +17,7 @@ import { useSettingsStore, VISITED_WORKSPACES_CAP_MAX, VISITED_WORKSPACES_CAP_MI
 export type SettingsDestination = { scope: 'application'; page: 'general' | SettingsSection } | { scope: 'workspace'; workspaceId: string; page: typeof SETTINGS_PAGES[number]['id'] }
 const appPages = [
   { id: 'general', icon: Settings2, label: 'General', hint: 'Navigation and workspace preferences' },
+  { id: 'appearance', icon: Palette, label: 'Appearance', hint: 'Light, dark or system mode' },
   { id: 'terminal', icon: SquareTerminal, label: 'Terminal', hint: 'Font, cursor, scrolling and behavior' },
   { id: 'voice', icon: Mic, label: 'Voice', hint: 'Microphone and local transcription' },
   { id: 'notifications', icon: Bell, label: 'Notifications', hint: 'Alerts and sounds' },
@@ -34,7 +37,7 @@ export function SettingsCenter(props: SettingsModalProps & {
       if (saved?.scope === 'application' && appPages.some(p => p.id === saved.page)) return saved
       if (props.allowWorkspaceScope !== false && saved?.scope === 'workspace' && props.workspaces.some(w => w.id === saved.workspaceId) && SETTINGS_PAGES.some(p => p.id === saved.page)) return saved
     } catch { /* Invalid preferences use safe defaults. */ }
-    return { scope: 'application', page: 'general' }
+    return { scope: 'application', page: 'appearance' }
   })
   const navigationWidth = useNavigationPrefs(state => state.width)
   const [query, setQuery] = useState('')
@@ -66,18 +69,19 @@ export function SettingsCenter(props: SettingsModalProps & {
     try { localStorage.setItem('oxe.settings.destination', JSON.stringify(next)) } catch { /* Preferences are optional. */ }
   })
   const close = (): void => navigate(props.onClose)
-  const pages = destination.scope === 'workspace' ? SETTINGS_PAGES : appPages
+  const memoryOn = useSharedProjectMemory(destination.scope === 'workspace' ? destination.workspaceId : undefined) === true
+  const pages = destination.scope === 'workspace' ? SETTINGS_PAGES.filter(p => p.id !== 'memory' || memoryOn) : appPages
   const filtered = pages.filter(p => `${p.label} ${p.hint}`.toLowerCase().includes(query.toLowerCase()))
-  return <Dialog open onOpenChange={open => { if (!open && !pending) close() }}>
-    <DialogContent unstyled showCloseButton={false} className="settings-center" style={{ '--settings-navigation-width': `${navigationWidth}px` } as CSSProperties} overlayClassName="settings-center-overlay" aria-describedby={undefined}
+  return <ModalRoot open onOpenChange={open => { if (!open && !pending) close() }}>
+    <ModalSurface className="settings-center" style={{ '--settings-navigation-width': `${navigationWidth}px` } as CSSProperties} scrimClassName="settings-center-overlay" aria-describedby={undefined}
       onCloseAutoFocus={event => { if (returnPane.current) { event.preventDefault(); requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('oxe:focus-pane', { detail: { paneId: returnPane.current } }))) } }}
       onPointerDownOutside={event => event.preventDefault()}>
       <aside className="settings-center-nav">
-        <DialogTitle className="settings-center-title"><Settings2 size={18} />Settings</DialogTitle>
+        <ModalTitle className="settings-center-title"><Settings2 size={16} />Settings</ModalTitle>
         <SearchField className="settings-search" ref={search} label="Search settings" placeholder="Filter categories" value={query} onChange={setQuery} shortcut="Ctrl F" />
         <div className="settings-scope"><span>Settings for</span>
           <div className="settings-scope-choices" role="group" aria-label="Settings scope">
-            <button type="button" aria-pressed={destination.scope === 'application'} onClick={() => go({ scope: 'application', page: 'general' })}>Application</button>
+            <button type="button" aria-pressed={destination.scope === 'application'} onClick={() => go({ scope: 'application', page: 'appearance' })}>Application</button>
             {scopeWorkspace && <button type="button" aria-pressed={destination.scope === 'workspace'} title={scopeWorkspace.rootPath}
               onClick={() => go({ scope: 'workspace', workspaceId: scopeWorkspace.id, page: 'appearance' })}>
               <span>{scopeWorkspace.name}</span><small>Current workspace</small>
@@ -101,7 +105,7 @@ export function SettingsCenter(props: SettingsModalProps & {
         </nav>
         <div className="settings-nav-footer">
           <p className="settings-scope-note" title={workspace?.rootPath}>{workspace ? workspace.name : 'Applies across workspaces'}</p>
-          <button className="settings-back" onClick={close}><ArrowLeft size={15} />Back to work</button>
+          <button className="settings-back" onClick={close}><ArrowLeft size={14} />Back to work</button>
         </div>
       </aside>
       <main className="settings-center-main">
@@ -122,35 +126,31 @@ export function SettingsCenter(props: SettingsModalProps & {
               props.onClose()
             })} />
             : <section className="settings-general"><h2>Workspace closed</h2><p>Select another workspace or return to work.</p></section>
-            : destination.page === 'general' ? <GeneralSettings onNavigate={page => go({ scope: 'application', page })} /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
+            : destination.page === 'general' ? <GeneralSettings /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
         </div>
       </main>
-      {pending && <Dialog open onOpenChange={open => { if (!open && !saving) setPending(null) }}><DialogContent unstyled showCloseButton={false} className="settings-unsaved" overlayClassName="settings-unsaved-overlay" aria-describedby={undefined}>
-        <DialogTitle>Save your changes?</DialogTitle><p>Your workspace has unapplied changes. If saving fails, stay here to inspect the error and try again.</p>
-        <div><button disabled={saving} onClick={() => setPending(null)}>Stay</button>
-          <button disabled={saving} onClick={() => { draft.current?.discard(); const action = pending; setPending(null); action() }}>Discard</button>
-          <button className="primary-action" disabled={saving} onClick={async () => {
+      {pending && <Dialog title="Save your changes?" size="sm" onClose={() => { if (!saving) setPending(null) }}
+        description="Your workspace has unapplied changes. If saving fails, stay here to inspect the error and try again."
+        footer={<>
+          <Button disabled={saving} autoFocus onClick={() => setPending(null)}>Stay</Button>
+          <Button variant="danger" disabled={saving} onClick={() => { draft.current?.discard(); const action = pending; setPending(null); action() }}>Discard</Button>
+          <Button variant="primary" loading={saving} onClick={async () => {
             setSaving(true)
             try { if (await draft.current?.save()) { const action = pending; setPending(null); action() } }
             finally { setSaving(false) }
-          }}>{saving ? 'Saving…' : 'Save and continue'}</button></div>
-      </DialogContent></Dialog>}
-    </DialogContent>
-  </Dialog>
+          }}>{saving ? 'Saving…' : 'Save and continue'}</Button>
+        </>} />}
+    </ModalSurface>
+  </ModalRoot>
 }
 
-function GeneralSettings({ onNavigate }: { onNavigate: (page: SettingsSection) => void }): ReactElement {
+function GeneralSettings(): ReactElement {
   const cap = useSettingsStore(s => s.visitedWorkspacesCap)
   const setCap = useSettingsStore(s => s.setVisitedWorkspacesCap)
-  return <section className="settings-general"><h2>General</h2><p>Choose a part of OXESpace to configure. Every card opens an existing settings page.</p>
-    <h3>Explore settings</h3>
-    <div className="settings-general-grid">{appPages.filter(page => page.id !== 'general').map(({ id, icon: Icon, label, hint }) =>
-      <button key={id} type="button" className="settings-general-destination" onClick={() => onNavigate(id)}>
-        <span><Icon size={16} aria-hidden="true" /><strong>{label}</strong></span><small>{hint}</small>
-      </button>)}</div>
+  return <section className="settings-general"><h2>General</h2><p>Preferences that apply across every workspace.</p>
     <h3>Workspace navigation</h3>
     <div className="settings-general-card"><div><label htmlFor="workspace-cache-cap">Recently visited workspaces kept ready</label>
       <p>Keep terminal views available when switching workspaces. Changes apply automatically.</p></div>
-      <input id="workspace-cache-cap" type="number" min={VISITED_WORKSPACES_CAP_MIN} max={VISITED_WORKSPACES_CAP_MAX} value={cap} onChange={e => { const value = e.currentTarget.valueAsNumber; if (Number.isFinite(value)) setCap(value) }} />
+      <TextField id="workspace-cache-cap" type="number" min={VISITED_WORKSPACES_CAP_MIN} max={VISITED_WORKSPACES_CAP_MAX} value={cap} onChange={e => { const value = e.currentTarget.valueAsNumber; if (Number.isFinite(value)) setCap(value) }} />
     </div></section>
 }

@@ -30,6 +30,9 @@ import { TEAM_TOOLS } from './team-tools'
 import { automationTools } from './automation-tools'
 import { DOCUMENTATION_TOOLS } from './documentation-tools'
 import { THREAD_HANDOFF_TOOLS } from './thread-handoff-tools'
+import { OXEQUERY_TOOLS } from './oxequery-tools'
+import { CODE_GRAPH_TOOLS } from './code-graph-tools'
+import { WORK_TOOLS } from './work-tools'
 
 export interface ToolContext {
   captureRoot?: string
@@ -43,6 +46,10 @@ export interface ToolContext {
   executionToken?: string
   delegationAgents?: () => unknown
   memory?: import('../services/memory/memory.service').MemoryService
+  /** OxeQuery's agent gateway, available once the service has started. */
+  oxeQuery?: () => import('../services/oxequery/agent-gateway').AgentGateway | undefined
+  /** Why OxeQuery is not running, when it failed to start. */
+  oxeQueryError?: () => string | undefined
   memoryRunId?: string
   workspaceId: string | null
   workspaceServ: WorkspaceService
@@ -68,6 +75,9 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   ...DELEGATION_TOOLS,
   ...TEAM_TOOLS,
   ...THREAD_HANDOFF_TOOLS,
+  ...OXEQUERY_TOOLS,
+  ...CODE_GRAPH_TOOLS,
+  ...WORK_TOOLS,
   {
     descriptor: {
       name: 'oxespace_list_workspaces',
@@ -290,8 +300,17 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   }
 ]
 
+/** Main sets this from the experimental-features flag; the default keeps every tool (tests). */
+let memoryToolsAllowed: () => boolean = () => true
+export function gateMemoryTools(allowed: () => boolean): void { memoryToolsAllowed = allowed }
+
+/** The tools this build exposes: oxespace_memory_* disappear while Shared Project Memory is off. */
+export function activeTools(): ToolEntry[] {
+  return memoryToolsAllowed() ? TOOL_REGISTRY : TOOL_REGISTRY.filter((entry) => !entry.descriptor.name.startsWith('oxespace_memory_'))
+}
+
 export function findTool(name: string): ToolEntry | null {
-  return TOOL_REGISTRY.find((entry) => entry.descriptor.name === name) ?? null
+  return activeTools().find((entry) => entry.descriptor.name === name) ?? null
 }
 
 /** Helper used by handlers to build a single text content block. */

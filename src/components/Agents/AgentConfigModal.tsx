@@ -2,7 +2,8 @@ import { RefreshCw, Trash2, X } from 'lucide-react'
 import { type FormEvent, type ReactElement, useState } from 'react'
 import type { AgentProfile, AgentProvider, AgentReadiness } from '../../../shared/types/agent'
 import { BUILTIN_PROVIDERS, type UpdateAgentProfileInput } from '../../../shared/types/agent'
-import { Dialog, DialogContent, DialogTitle, LEGACY_MODAL_OVERLAY } from '@/components/ui/dialog'
+import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
+import { Button, TextField, Select, TextArea } from '../../ui'
 
 const PROVIDER_LABEL: Record<(typeof BUILTIN_PROVIDERS)[number], string> = {
   claude: 'Claude',
@@ -108,22 +109,19 @@ export function AgentConfigModal({
   }
 
   return (
-    <Dialog open onOpenChange={(next) => { if (!next) onClose() }}>
-      <DialogContent
-        unstyled
-        showCloseButton={false}
-        overlayClassName={LEGACY_MODAL_OVERLAY}
+    <ModalRoot open onOpenChange={(next) => { if (!next) onClose() }}>
+      <ModalSurface
         className="modal modal-wide modal-dialog-surface"
       >
         <header className="modal-header">
-          <DialogTitle asChild>
+          <ModalTitle asChild>
             {/* No manual id: `asChild` lets Radix put its own generated id here,
                 which is what DialogContent's aria-labelledby points at. */}
             <h2>{isNew ? 'New custom agent' : 'Configure agent'}</h2>
-          </DialogTitle>
-          <button type="button" className="icon-button" aria-label="Close modal" onClick={onClose}>
+          </ModalTitle>
+          <Button variant="ghost" size="sm" square aria-label="Close modal" onClick={onClose}>
             <X size={16} aria-hidden="true" />
-          </button>
+          </Button>
         </header>
 
         {readiness && !isCustom ? (
@@ -144,7 +142,7 @@ export function AgentConfigModal({
               onClick={onHealthCheck}
               style={{ marginLeft: 'auto' }}
             >
-              <RefreshCw size={11} aria-hidden="true" className={isDiscovering ? 'spin' : undefined} />
+              <RefreshCw size={12} aria-hidden="true" className={isDiscovering ? 'spin' : undefined} />
             </button>
           </div>
         ) : null}
@@ -152,7 +150,7 @@ export function AgentConfigModal({
         <form className="modal-form" onSubmit={(e) => void handleSubmit(e)}>
           <label className="field">
             <span>Name</span>
-            <input
+            <TextField
               type="text"
               value={name}
               disabled={profile.isBuiltin}
@@ -166,7 +164,7 @@ export function AgentConfigModal({
             <>
               <label className="field">
                 <span>Parent provider</span>
-                <select
+                <Select
                   value={parentProvider}
                   onChange={(e) => setParentProvider(e.target.value as AgentProvider)}
                   data-testid="select-parent-provider"
@@ -174,12 +172,12 @@ export function AgentConfigModal({
                   {BUILTIN_PROVIDERS.map((provider) => (
                     <option key={provider} value={provider}>{PROVIDER_LABEL[provider]}</option>
                   ))}
-                </select>
+                </Select>
               </label>
 
               <label className="field">
                 <span>Skill prompt</span>
-                <textarea
+                <TextArea
                   value={systemPrompt}
                   onChange={(e) => setSystemPrompt(e.target.value)}
                   placeholder="You are a Java 8+ expert. Review this code for best practices, performance, and correctness."
@@ -191,7 +189,7 @@ export function AgentConfigModal({
           ) : (
             <label className="field">
               <span>Command</span>
-              <input
+              <TextField
                 type="text"
                 value={command}
                 onChange={(e) => setCommand(e.target.value)}
@@ -222,20 +220,20 @@ export function AgentConfigModal({
           ) : null}
 
           <footer className="modal-actions">
-            <button type="button" className="secondary-action" onClick={onClose}>
+            <Button variant="secondary" onClick={onClose}>
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              className="primary-action"
+              variant="primary"
               disabled={isSubmitting}
               data-testid="btn-save-agent"
             >
               {isNew ? 'Create' : 'Save'}
-            </button>
+            </Button>
           </footer>
         </form>
-      </DialogContent>
-    </Dialog>
+      </ModalSurface>
+    </ModalRoot>
   )
 }

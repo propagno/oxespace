@@ -1,8 +1,12 @@
+import type { LineHunk } from '../lineDiff'
 /** Conversation identity is distinct from native session, memory run and pane IDs. */
 export type ThreadProvider = 'claude' | 'codex'
 export type ThreadStatus = 'idle' | 'running' | 'approval' | 'interrupted' | 'failed'
 export type ThreadOperationState = 'created' | 'sent' | 'acknowledged' | 'running' | 'completed' | 'failed' | 'cancelled' | 'unknown'
 export type ThreadOperationKind = 'turn' | 'queue' | 'request' | 'configuration' | 'command' | 'recovery'
+/** What the user can rely on for a message, derived from its operation. Never claims more than was observed. */
+export type ThreadDeliveryState = 'sending' | 'delivered' | 'unconfirmed' | 'rejected'
+export interface ThreadDelivery { state: ThreadDeliveryState; error?: string; updatedAt: number }
 export type ThreadConnectionState = 'starting' | 'connected' | 'degraded' | 'reconnecting' | 'closed'
 export interface ThreadConnectionStatus {
   state: ThreadConnectionState
@@ -58,11 +62,13 @@ export interface ThreadConfiguration {
   access?: 'read-only' | 'workspace-write' | 'full-access'
   networkAccess?: boolean
   approvalPolicy?: 'untrusted' | 'on-request' | 'never'
-  mode?: 'default' | 'plan'
+  /** `acceptEdits` (Claude): file edits in the project are approved without asking. */
+  mode?: 'default' | 'plan' | 'acceptEdits'
   /** Native provider hooks. Disabled by default and never allowed in read-only. */
   hooksEnabled?: boolean
 }
-export interface ThreadModelCatalog { models: ThreadModel[]; defaultModel?: string; defaultEffort?: string }
+/** `defaultKnown: false` means project or user settings may choose another model, so no default is named. */
+export interface ThreadModelCatalog { models: ThreadModel[]; defaultModel?: string; defaultEffort?: string; defaultKnown?: boolean }
 export type ThreadCapabilityAvailability = 'supported' | 'unavailable' | 'experimental'
 export interface ThreadCapability {
   availability: ThreadCapabilityAvailability
@@ -83,7 +89,7 @@ export interface ThreadCapabilityManifest {
 export interface ThreadUsageWindow { label: string; usedPercent: number; resetsAt?: number; windowMinutes?: number }
 export interface ThreadUsage { windows: ThreadUsageWindow[]; checkedAt: number }
 export interface ThreadFailure { id: string; occurredAt: number; code: 'authentication' | 'usage' | 'rate-limit' | 'context' | 'budget' | 'server' | 'network' | 'sandbox' | 'configuration' | 'session-busy' | 'unknown'; message: string; detail?: string; providerCode?: string; httpStatus?: number; usage?: ThreadUsage; usageUnavailable?: boolean }
-export interface ThreadCommandResult { kind: 'applied' | 'panel' | 'navigate'; title?: string; text?: string; externalUrl?: string; surface?: 'model' | 'effort' | 'permissions' | 'accounts' | 'commands' | 'sessions' | 'rename' | 'settings' | 'delegations'; threadId?: string; usage?: ThreadUsage; rows?: { label: string; detail?: string; id?: string; turnId?: string }[] }
+export interface ThreadCommandResult { kind: 'applied' | 'panel' | 'navigate'; title?: string; text?: string; externalUrl?: string; surface?: 'model' | 'effort' | 'permissions' | 'accounts' | 'commands' | 'sessions' | 'rename' | 'settings' | 'delegations' | 'changes' | 'rules' | 'spending' | 'work' | 'events'; threadId?: string; usage?: ThreadUsage; rows?: { label: string; detail?: string; id?: string; turnId?: string }[] }
 /** Resolved in the main process; skill paths are never accepted from the renderer. */
 export interface ThreadAttachment {
   id: string
@@ -140,6 +146,106 @@ export interface ThreadRequest {
   requestedPermissions?: { fileSystem?: unknown; network?: unknown }
   schema?: Record<string, unknown>
   url?: string
+  /** Provider tool behind an approval (`Bash`, `Edit`, `command`, `fileChange`). */
+  toolName?: string
+  /** Files an approval would write, when the provider says. */
+  paths?: string[]
+  /** What OXESpace's permission rules say about this approval. */
+  policy?: ThreadRequestPolicy
+}
+export interface ThreadMcpServerStatus { name: string; status: 'connected' | 'failed' | 'needs-auth' | 'pending' | 'disabled' | 'unknown' }
+/** One change block of a turn's file, undoable on its own; `id` pins the exact change. */
+export interface ThreadFileHunk extends LineHunk { id: string }
+/** A rule OXESpace answers approval prompts with; `projectRoot` null means every project. */
+export interface ThreadPermissionRule {
+  id: string
+  projectRoot: string | null
+  /** `tool`: an MCP tool, as `server/tool` or `server/*`. */
+  kind: 'command' | 'path' | 'tool'
+  pattern: string
+  decision: 'allow' | 'deny'
+  createdAt: number
+}
+export interface ThreadPermissionSuggestion { kind: ThreadPermissionRule['kind']; pattern: string; label: string }
+/** `allow`/`deny` are answered without asking; `ask` leaves the prompt to the person. */
+export interface ThreadRequestPolicy {
+  decision: 'allow' | 'deny' | 'ask'
+  reasons: string[]
+  /** Built-in high-risk command (rm, curl, ssh…) that no rule allows. */
+  risk?: 'high'
+  /** How much the command could change: reads only, changes something, or deletes/escalates/publishes. */
+  level?: 'green' | 'orange' | 'red'
+  /** Approved by the built-in read-only list rather than by a rule someone saved. */
+  safeList?: true
+  /** Facts worth a second look, such as web content that may carry prompt injection. */
+  warnings?: string[]
+  suggestions?: ThreadPermissionSuggestion[]
+}
+/** The answer of the command analysis for one command line. */
+export interface ThreadShellCheck {
+  /** 'bash-grammar' when the tree-sitter grammar read the line; 'text' when the text splitter did. */
+  parser: 'bash-grammar' | 'text'
+  decision: ThreadRequestPolicy['decision']
+  reasons: string[]
+  level?: 'green' | 'orange' | 'red'
+  warnings?: string[]
+  safeList: boolean
+}
+/** One saved event of a conversation as the debug inspector shows it. */
+export interface ThreadDebugRow {
+  seq: number
+  eventId?: string
+  operationId?: string
+  turnId?: string
+  createdAt: number
+  type: string
+  label: string
+  state?: string
+  durationMs?: number
+  exitCode?: number
+  /** The event as indented JSON, clipped to a size the inspector can show. */
+  payload: string
+  payloadTruncated?: boolean
+}
+export interface ThreadDebugPage {
+  /** Oldest first. */
+  rows: ThreadDebugRow[]
+  /** Rows that matched in the part of the history that was read. */
+  matched: number
+  /** More matching rows exist before the first one returned. */
+  hasMore: boolean
+  /** The search stopped at its limit before reaching the start of the history. */
+  scanLimited: boolean
+}
+export interface ThreadAuditEntry {
+  id: number
+  threadId?: string
+  projectRoot?: string
+  at: number
+  action: 'approval' | 'policy' | 'rule-added' | 'rule-removed' | 'undo-file' | 'rewind' | 'configuration'
+  actor: 'user' | 'policy' | 'system'
+  summary: string
+  detail?: string
+}
+/** Spending of one group (a day, a model or a conversation) in the usage ledger. */
+export interface ThreadUsageBucket {
+  key: string
+  label: string
+  turns: number
+  /** Turns whose provider reported a cost; Codex reports tokens only. */
+  pricedTurns: number
+  usd: number
+  inputTokens: number
+  outputTokens: number
+  cacheReadTokens: number
+}
+export interface ThreadUsageSummary {
+  scope: 'thread' | 'project' | 'all'
+  since: number
+  total: ThreadUsageBucket
+  byDay: ThreadUsageBucket[]
+  byModel: ThreadUsageBucket[]
+  byThread: ThreadUsageBucket[]
 }
 export interface ThreadRequestResponse {
   decision?: 'accept' | 'acceptForSession' | 'decline' | 'cancel'
@@ -147,6 +253,8 @@ export interface ThreadRequestResponse {
   content?: Record<string, unknown>
   permissions?: { fileSystem?: unknown; network?: unknown }
   scope?: 'turn' | 'session'
+  /** Told to the agent when the request is declined, where the provider supports it. */
+  reason?: string
 }
 
 export interface ThreadQueuedInput {
@@ -160,6 +268,47 @@ export interface ThreadQueuedInput {
   createdAt: number
   state: 'queued' | 'sending' | 'failed' | 'unknown'
   error?: string
+}
+
+export interface ThreadContextCategory { name: string; tokens: number; kind: 'used' | 'deferred' | 'buffer' | 'free' }
+/** What fills the model's context window right now, as reported by the provider. */
+/** Accumulated provider-reported cost of a conversation; an estimate, never a bill. */
+export interface ThreadCostReport {
+  totalUsd: number
+  turns: number
+  lastTurnUsd?: number
+  inputTokens?: number
+  outputTokens?: number
+  cacheReadTokens?: number
+  updatedAt: number
+  /** claude-result: written before 0.17.2, summed running totals; claude-result-step: each turn's own step. */
+  source: 'claude-result' | 'claude-result-step' | 'codex-token-usage'
+}
+
+export interface ThreadContextReport {
+  model?: string
+  usedTokens: number
+  windowTokens: number
+  percentage: number
+  autoCompactAtTokens?: number
+  categories: ThreadContextCategory[]
+  capturedAt: number
+  source: 'claude-control' | 'codex-token-usage'
+}
+
+export interface ThreadRewindResult {
+  snapshot: ThreadSnapshot
+  removedTurns: number
+  /** Files restored from the dropped turns' checkpoints, when requested. */
+  restoredFiles?: number
+  /** Why files were not restored; the conversation itself was rewound. */
+  fileError?: string
+}
+
+export interface ThreadQueuePause {
+  reason: 'interrupted' | 'failed'
+  since: number
+  turnId?: string
 }
 
 /** A tool's evidence, distinct from the current working tree. Patches are loaded separately. */
@@ -210,13 +359,22 @@ export interface ConversationThread {
   access?: ThreadConfiguration['access']
   networkAccess?: boolean
   approvalPolicy?: ThreadConfiguration['approvalPolicy']
-  mode?: 'default' | 'plan'
+  /** `acceptEdits` (Claude): file edits in the project are approved without asking. */
+  mode?: 'default' | 'plan' | 'acceptEdits'
   hooksEnabled?: boolean
   configurationRevision?: number
   pendingConfiguration?: ThreadConfiguration
   archived?: boolean
   generation?: number
   queue?: ThreadQueuedInput[]
+  /** Set when a turn ended without completing while input was queued; the next item waits for the user. */
+  queuePause?: ThreadQueuePause
+  /** Latest context-window report; never part of the timeline. */
+  contextReport?: ThreadContextReport
+  /** Running cost estimate; never part of the timeline. */
+  costReport?: ThreadCostReport
+  /** MCP servers the provider reported when its session started. */
+  mcpServers?: { servers: ThreadMcpServerStatus[]; checkedAt: number }
   capabilities?: ThreadCapabilityManifest
   connection?: ThreadConnectionStatus
   providerObservation?: ThreadProviderObservation
@@ -232,13 +390,17 @@ export interface ThreadProviderObservation {
 
 export type ThreadEvent =
   | { type: 'continuation-started'; id: string; at: number }
-  | { type: 'session'; nativeSessionId: string }
+  | { type: 'session'; nativeSessionId: string; mcpServers?: ThreadMcpServerStatus[] }
   /** Transport liveness only; the orchestrator updates metadata without saving a timeline row. */
   | { type: 'native-signal'; at: number }
+  /** Metadata only: stored on the thread, never added to the timeline. */
+  | { type: 'context-usage'; report: ThreadContextReport }
+  /** Metadata only: one turn's reported cost, folded into the thread's running total. */
+  | { type: 'turn-cost'; usd?: number; inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheCreationTokens?: number }
   | { type: 'connection-closed'; at: number }
   | { type: 'turn-accepted'; nativeTurnId: string; at: number }
   | { type: 'activity'; id: string; phase: 'preparing' | 'connecting' | 'reasoning' | 'responding'; at: number; summary?: string }
-  | { type: 'message'; id: string; role: 'user' | 'assistant'; text: string; historicalQuestions?: { title: string; options: string[] | null }[]; attachments?: Omit<ThreadAttachment, 'path'>[] }
+  | { type: 'message'; id: string; role: 'user' | 'assistant'; text: string; historicalQuestions?: { title: string; options: string[] | null }[]; attachments?: Omit<ThreadAttachment, 'path'>[]; context?: { path: string; bytes: number; truncated?: boolean }[]; brief?: string }
   | { type: 'delta'; id: string; text: string }
   | { type: 'tool'; id: string; name: string; state: 'running' | 'completed' | 'failed' | 'unknown'; detail: string; output?: string; exitCode?: number; startedAt?: number; completedAt?: number; turnId?: string; files?: ThreadFileChange[] }
   | { type: 'subagent'; id: string; action: string; state: 'running' | 'completed' | 'failed' | 'interrupted' | 'unknown'; senderThreadId?: string; receiverThreadIds: string[]; agents: ThreadSubagent[]; prompt?: string; model?: string; reasoningEffort?: string; startedAt?: number; completedAt?: number; turnId?: string }
@@ -266,6 +428,10 @@ export interface ConversationCapabilities {
   queue?: boolean
   steering?: boolean
   nativeSessions?: boolean
+  /** The adapter can rewind provider history and prove the result. */
+  rewind?: boolean
+  /** The adapter can stop one background task of the provider session. */
+  stopTasks?: boolean
 }
 
 export interface ConversationProtocolEvidence {
@@ -292,6 +458,12 @@ export interface AgentConversationAdapter {
   updateQueued?(nativeId: string, item: ThreadQueuedInput, attachments?: ThreadAttachment[]): Promise<void>
   deleteQueued?(nativeId: string): Promise<void>
   reorderQueued?(nativeIds: string[]): Promise<void>
+  /** Remove the target turn and every later one from the provider's own history, then prove it. */
+  rewind?(beforeNativeTurnId: string): Promise<void>
+  /** Ask the provider what fills the context window. Resolves null when unavailable. */
+  contextUsage?(): Promise<ThreadContextReport | null>
+  /** Stops one provider background task (a shell or agent the session started). */
+  stopTask?(taskId: string): Promise<void>
   interrupt(): Promise<void>
   approve(requestId: string, decision: 'accept' | 'decline'): Promise<void>
   respondRequest?(requestId: string, response: ThreadRequestResponse): Promise<void>
@@ -304,8 +476,18 @@ export interface ThreadSnapshot {
   /** Actionable requests remain available independently of paginated history. */
   pendingRequests?: ThreadRequest[]
   turns?: ThreadTurn[]
-  page?: { before?: number; hasMore: boolean; total: number }
+  /** Delivery state by user-message id (turn or queued item id). Absent for imported history. */
+  deliveries?: Record<string, ThreadDelivery>
+  page?: { before?: number; hasMore: boolean; total: number; /** Persisted live events; the window's tail maps to seq live-n..live-1. */ live?: number }
+  /** Cursor for readSince. The epoch changes when history is truncated or re-based. */
+  sync?: ThreadSyncCursor
 }
+
+export interface ThreadSyncCursor { epoch: string; revision: number }
+
+export type ThreadDelta =
+  | { ok: true; epoch: string; revision: number; live: number; thread: ConversationThread; events: { seq: number; event: ThreadEvent }[]; turns: ThreadTurn[]; deliveries: Record<string, ThreadDelivery>; pendingRequests: ThreadRequest[] }
+  | { ok: false; reset: 'epoch' | 'unknown' | 'limit' }
 
 export interface ThreadHistoryPage { events: ThreadEvent[]; before?: number; hasMore: boolean; total: number }
 
@@ -332,7 +514,6 @@ export interface ThreadApi {
   command?(id: string, text: string): Promise<ThreadCommandResult>
   recover?(id: string): Promise<void>
   observe?(id: string): Promise<ThreadProviderObservation>
-  cli?: ThreadCliApi
   commands(id: string, forceRefresh?: boolean): Promise<ThreadCommandCatalog>
   projects(): Promise<ThreadProjectCatalog>
   addProject(rootPath: string): Promise<ThreadProjectSummary>
@@ -349,6 +530,29 @@ export interface ThreadApi {
   updateQueued?(id: string, itemId: string, text: string): Promise<void>
   deleteQueued?(id: string, itemId: string, preserveAttachments?: boolean): Promise<void>
   reorderQueued?(id: string, itemIds: string[]): Promise<void>
+  contextUsage?(id: string): Promise<ThreadContextReport | null>
+  stopTask?(id: string, taskId: string): Promise<void>
+  turnFiles?(id: string, turnId: string): Promise<ThreadTurnFileStatus[]>
+  undoTurnFile?(id: string, turnId: string, path: string): Promise<void>
+  turnFileHunks?(id: string, turnId: string, path: string): Promise<ThreadFileHunk[]>
+  undoTurnHunk?(id: string, turnId: string, path: string, hunkId: string): Promise<void>
+  permissionRules?(id: string): Promise<ThreadPermissionRule[]>
+  addPermissionRule?(id: string, rule: { kind: ThreadPermissionRule['kind']; pattern: string; decision: ThreadPermissionRule['decision']; scope: 'project' | 'global' }): Promise<ThreadPermissionRule>
+  removePermissionRule?(id: string, ruleId: string): Promise<void>
+  auditLog?(id: string, options?: { scope?: 'thread' | 'project'; before?: number; limit?: number }): Promise<ThreadAuditEntry[]>
+  debugEvents?(id: string, options?: { filter?: string; before?: number; limit?: number }): Promise<ThreadDebugPage>
+  /** Whether commands on the built-in read-only list are approved without asking. */
+  autoApproveReads?(): Promise<boolean>
+  setAutoApproveReads?(enabled: boolean): Promise<boolean>
+  /** What Thread would do with a command, using the real analysis and no saved rules. */
+  shellCheck?(command: string): Promise<ThreadShellCheck>
+  usageSummary?(id: string, options?: { scope?: 'thread' | 'project' | 'all'; days?: number }): Promise<ThreadUsageSummary>
+  workRuns?(id: string): Promise<import('./work').WorkRun[]>
+  cancelWork?(id: string, runId: string): Promise<import('./work').WorkRun>
+  rewind?(id: string, turnId: string, options?: { restoreFiles?: boolean }): Promise<ThreadRewindResult>
+  readSince?(id: string, cursor: ThreadSyncCursor): Promise<ThreadDelta>
+  resumeQueue?(id: string): Promise<void>
+  sendQueuedNow?(id: string, itemId: string): Promise<void>
   interrupt(id: string): Promise<void>
   approve(id: string, requestId: string, decision: 'accept' | 'decline'): Promise<void>
   respond?(id: string, requestId: string, response: ThreadRequestResponse): Promise<void>
@@ -356,22 +560,11 @@ export interface ThreadApi {
   onChanged(listener: (value: { threadId: string }) => void): () => void
 }
 
+/** One file changed by a turn, against the working tree now. */
+export interface ThreadTurnFileStatus { path: string; state: 'pending' | 'reverted' | 'modified'; preExists: boolean; postExists: boolean }
+
 export interface ThreadCliState {
   running: boolean
   nativeSessionId: string | null
   pendingCommand?: string
-}
-/** Separate from Code panes: no shell, executable, environment or cwd from the renderer. */
-export interface ThreadCliApi {
-  open(id: string, command?: string): Promise<ThreadCliState>
-  state(id: string): Promise<ThreadCliState>
-  write(id: string, data: string): Promise<void>
-  resize(id: string, cols: number, rows: number): Promise<void>
-  attach(id: string): Promise<import('./ipc').TerminalAttachResult>
-  detach(id: string): Promise<void>
-  stop(id: string): Promise<void>
-  insertCommand(id: string): Promise<void>
-  linkSession(id: string, nativeSessionId: string): Promise<void>
-  onData(id: string, listener: (event: import('./ipc').TerminalDataEvent) => void): () => void
-  onExit(id: string, listener: (event: import('./ipc').TerminalExitEvent) => void): () => void
 }

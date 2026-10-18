@@ -4,6 +4,10 @@ import type { AgentConversationAdapter, ConversationProtocolEvidence, ThreadAgen
 import { AgentRpcPeer, type AgentRpcMessage } from './rpc-peer'
 import { parseThreadUsage, threadFailure, ThreadAgentError } from './thread-failure'
 import { requestOutcome } from '../../../../shared/threadRequestOutcome'
+import { THREAD_PROMPT_MAX_CHARS } from '../../../../shared/threadLimits'
+import { normalizeCodexTokenUsage } from './thread-context'
+import { readCodexRequestTokens, type TurnCost } from './thread-cost'
+import { ThreadRewindError, readAllTurnIds, verifyRevert } from './thread-rewind'
 
 // Codex can send a completed command or compaction item as one JSON-RPC frame.
 // Long native sessions have produced frames above 10 MiB; keep a finite ceiling
@@ -49,7 +53,7 @@ function dynamicToolOutput(value: unknown): string {
 
 /** Codex stable App Server protocol. The transport owns process spawning/cleanup. */
 export class CodexConversationAdapter implements AgentConversationAdapter {
-  readonly capabilities = { resume: true, approvals: true, attachments: true, modelSelection: true, questions: true, permissions: true, elicitation: true, queue: true, steering: true, nativeSessions: true }
+  readonly capabilities = { resume: true, approvals: true, attachments: true, modelSelection: true, questions: true, permissions: true, elicitation: true, queue: true, steering: true, nativeSessions: true, rewind: true }
   readonly evidence: ConversationProtocolEvidence = { transport: 'codex-app-server-jsonrpc', verified: 'fixture' }
   private rpc: AgentRpcPeer | null = null
   private threadId = ''
@@ -62,11 +66,15 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
   private access: ThreadConfiguration['access'] = 'read-only'
   private networkAccess = false
   private approvalPolicy: NonNullable<ThreadConfiguration['approvalPolicy']> = 'on-request'
+  /** The access level as the app-server names it (`full-access` is `danger-full-access` there). */
+  private get nativeSandbox(): string { return this.access === 'full-access' ? 'danger-full-access' : this.access ?? 'read-only' }
   private mode: ThreadConfiguration['mode'] = 'default'
   private usage?: ThreadUsage
   private usageRequest?: Promise<ThreadUsage>
   private usageSnapshots: Record<string, Record<string, unknown>> = {}
   private turnError?: ThreadFailure
+  /** Tokens of the model requests in the running turn, reported as its cost when it ends. */
+  private turnTokens?: TurnCost
   private lastNativeSignalAt = 0
   private nativeSignalRevision = 0
   private terminalEvidence?: { turnId: string; state: 'completed' | 'failed'; revision: number }
@@ -126,7 +134,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
         cwd: context.rootPath,
         modelProvider: 'openai',
         approvalPolicy: this.approvalPolicy,
-        sandbox: this.access === 'full-access' ? 'danger-full-access' : this.access,
+        sandbox: this.nativeSandbox,
         ...(context.model ? { model: context.model } : {}), ...(context.reasoningEffort ? { effort: context.reasoningEffort } : {})
       }))
       this.threadId = text(record(response.thread).id)
@@ -145,8 +153,9 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
   async send(input: string, skill?: ThreadAgentInput['skill'], attachments: ThreadAttachment[] = []): Promise<void> {
     if (!this.rpc || !this.threadId || this.disposed) throw new Error('Conversation is not connected')
     if (this.busy) throw new Error('A conversation turn is already running')
-    if (!input.trim() || Buffer.byteLength(input) > 64 * 1024) throw new Error('Invalid conversation input')
+    if (!input.trim() || input.length > THREAD_PROMPT_MAX_CHARS) throw new Error('Invalid conversation input')
     this.busy = true
+    this.turnTokens = undefined
     this.turnError = undefined
     this.reasoningSummaries.clear()
     this.commandOutputs.clear()
@@ -170,6 +179,31 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
       this.fail(failure)
       throw new ThreadAgentError(failure)
     }
+  }
+
+  private async turnIds(): Promise<string[]> {
+    return readAllTurnIds(async cursor => {
+      const result = record(await this.rpc!.request('thread/turns/list', { threadId: this.threadId, limit: 100, sortDirection: 'asc', itemsView: 'notLoaded', ...(cursor ? { cursor } : {}) }))
+      return { ids: (Array.isArray(result.data) ? result.data : []).map(value => text(record(value).id)).filter(Boolean), next: text(result.nextCursor) || null }
+    })
+  }
+
+  /**
+   * Replaces the provider's durable history with the turns before `beforeNativeTurnId`.
+   * Succeeds only after re-reading the provider's turns proves the exact prefix remains.
+   */
+  async rewind(beforeNativeTurnId: string): Promise<void> {
+    if (!this.rpc || !this.threadId || this.disposed) throw new ThreadRewindError('unavailable', 'The provider connection is closed.')
+    if (this.busy || this.approvals.size) throw new ThreadRewindError('unavailable', 'Finish the active turn before rewinding.')
+    const before = await this.turnIds()
+    if (!before.includes(beforeNativeTurnId)) throw new ThreadRewindError('unavailable', 'The provider no longer has that turn.')
+    try { await this.rpc.request('thread/revert', { threadId: this.threadId, beforeTurnId: beforeNativeTurnId }) }
+    catch (error) {
+      const message = error instanceof ThreadAgentError ? error.failure.detail ?? error.failure.message : error instanceof Error ? error.message : ''
+      if (/method not found|unknown (?:variant|method)|not supported|unsupported/i.test(message)) throw new ThreadRewindError('unsupported', 'This Codex version cannot rewind a conversation.')
+      throw new ThreadRewindError('provider-refused', message || 'The provider refused to rewind.')
+    }
+    verifyRevert(before, await this.turnIds(), beforeNativeTurnId)
   }
 
   /** Read-only observation. Never starts/resumes a session or retries an input. */
@@ -247,6 +281,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
   async startQueued(nativeId?: string): Promise<void> {
     if (!this.rpc || this.busy) throw Error('Conversation is not ready to start queued input')
     this.busy = true
+    this.turnTokens = undefined
     this.reasoningSummaries.clear()
     this.commandOutputs.clear()
     try {
@@ -412,7 +447,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
       hooks: ['hooks/list', { cwd: this.rootPath }], experimental: ['experimentalFeature/list', {}],
       'debug-config': ['config/read', { cwd: this.rootPath, includeLayers: true }],
       ps: ['thread/backgroundTerminals/list', { threadId: this.threadId }], memories: ['config/read', { cwd: this.rootPath, includeLayers: false }],
-      fork: ['thread/fork', { threadId: this.threadId, cwd: this.rootPath, sandbox: this.access, approvalPolicy: 'on-request' }],
+      fork: ['thread/fork', { threadId: this.threadId, cwd: this.rootPath, sandbox: this.nativeSandbox, approvalPolicy: this.approvalPolicy }],
       rewind: ['thread/rollback', { threadId: this.threadId, numTurns: Number(argument) || 1 }]
     }
     const operation = methods[name]
@@ -507,6 +542,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     this.reasoningSummaries.clear()
     this.commandOutputs.clear()
     this.approvals.clear()
+    this.emitTurnTokens()
     this.emit({ type: 'completed', status: 'failed', error: failure.message, errorCode: failure.code, failure })
     if (failure.code === 'authentication' || failure.code === 'session-busy' || typeof error === 'string') return
     void this.readUsage().then(usage => {
@@ -548,6 +584,17 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     if (this.busy && Date.now() - this.lastNativeSignalAt >= 2_000) {
       this.lastNativeSignalAt = Date.now()
       this.emit({ type: 'native-signal', at: this.lastNativeSignalAt })
+    }
+    if (message.method === 'thread/tokenUsage/updated') {
+      const report = normalizeCodexTokenUsage(params.tokenUsage, this.model)
+      if (report) this.emit({ type: 'context-usage', report })
+      const request = this.busy ? readCodexRequestTokens(record(params.tokenUsage).last) : null
+      if (request) this.turnTokens = {
+        inputTokens: (this.turnTokens?.inputTokens ?? 0) + (request.inputTokens ?? 0),
+        outputTokens: (this.turnTokens?.outputTokens ?? 0) + (request.outputTokens ?? 0),
+        cacheReadTokens: (this.turnTokens?.cacheReadTokens ?? 0) + (request.cacheReadTokens ?? 0)
+      }
+      return
     }
     if (message.method === 'error') {
       if (this.busy) this.turnError = threadFailure(params.error)
@@ -654,8 +701,15 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
       this.commandOutputs.clear()
       this.turnId = ''
       this.approvals.clear()
+      this.emitTurnTokens()
       this.emit({ type: 'completed', status })
     }
+  }
+
+  private emitTurnTokens(): void {
+    const tokens = this.turnTokens
+    this.turnTokens = undefined
+    if (tokens) this.emit({ type: 'turn-cost', ...tokens })
   }
 
   private hostRequest(message: AgentRpcMessage): void {
@@ -707,6 +761,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     if (method === 'mcpServer/elicitation/request') return { id, nativeId: id, nativeMethod: method, kind: 'elicitation', title: text(params.serverName) || 'MCP input required', detail, generation: 0, createdAt: Date.now(), state: 'pending', turnId: text(params.turnId), schema: record(params.requestedSchema), url: text(params.url) || undefined }
     type RequestDecision = NonNullable<ThreadRequest['availableDecisions']>[number]
     const available = (Array.isArray(params.availableDecisions) ? params.availableDecisions : []).filter((value): value is RequestDecision => typeof value === 'string' && ['accept', 'acceptForSession', 'decline', 'cancel'].includes(value))
-    return { id, nativeId: id, nativeMethod: method, kind: 'approval', title: method.includes('file') || method === 'applyPatchApproval' ? 'Approve file changes' : 'Approve command', detail: detail || 'The agent requests your permission.', ...(command ? { command } : {}), ...(reason ? { reason } : {}), ...(text(params.cwd) ? { cwd: text(params.cwd).slice(0, 1000) } : {}), generation: 0, createdAt: Date.now(), state: 'pending', turnId: text(params.turnId), availableDecisions: available.length ? available : ['accept', 'decline'] }
+    const fileChange = method.includes('file') || method === 'applyPatchApproval'
+    return { id, nativeId: id, nativeMethod: method, kind: 'approval', toolName: fileChange ? 'fileChange' : 'command', title: fileChange ? 'Approve file changes' : 'Approve command', detail: detail || 'The agent requests your permission.', ...(command ? { command } : {}), ...(reason ? { reason } : {}), ...(text(params.cwd) ? { cwd: text(params.cwd).slice(0, 1000) } : {}), generation: 0, createdAt: Date.now(), state: 'pending', turnId: text(params.turnId), availableDecisions: available.length ? available : ['accept', 'decline'] }
   }
 }

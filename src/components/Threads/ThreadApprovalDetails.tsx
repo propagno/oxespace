@@ -1,9 +1,15 @@
 import { useState } from 'react'
 import { ChevronDown, Copy, FilePenLine, TerminalSquare, Wrench } from 'lucide-react'
+import { extractCdPrefix, presentInlineScript } from '../../../shared/commandPresenters'
 import { ThreadMarkdown } from './ThreadMarkdown'
 
 /** A readable preview is deliberately separate from the exact command being approved. */
-export function approvalCommandPreview(command: string): { runner: string; preview: string; target?: string; writesFiles: boolean } {
+export function approvalCommandPreview(command: string): { runner: string; preview: string; target?: string; writesFiles: boolean; directory?: string } {
+  const cd = extractCdPrefix(command)
+  const inline = presentInlineScript(cd?.rest ?? command)
+  if (inline) {
+    return { runner: `${inline.language} script`, preview: inline.script, directory: cd?.directory, writesFiles: /\b(?:writeFile(?:Sync)?|appendFile(?:Sync)?|unlink(?:Sync)?|rmSync|open\(|shutil\.|os\.(?:remove|system)|subprocess|child_process|exec(?:Sync)?\()/i.test(inline.script) }
+  }
   const match = command.match(/^\s*(?:"([^"]+)"|'([^']+)'|(\S+))\s+-(?:Command|c)\s+([\s\S]+)$/i)
   const executable = match?.[1] ?? match?.[2] ?? match?.[3] ?? ''
   const runner = /(?:^|[\\/])pwsh(?:\.exe)?$/i.test(executable) ? 'PowerShell 7' : /(?:^|[\\/])powershell(?:\.exe)?$/i.test(executable) ? 'PowerShell' : executable ? executable.split(/[\\/]/).at(-1) ?? 'Command' : 'Command'
@@ -28,9 +34,9 @@ export function ThreadApprovalDetails({ command, cwd, reason, fileChanges = fals
     : fileChanges ? 'Review the proposed file changes before allowing them.'
     : display.writesFiles ? `This command may modify ${display.target ?? 'project files'}.` : 'Review the command before allowing it to run.'
   return <div className="thread-approval-content">
-    <div className="thread-approval-intent">{isToolRequest ? <Wrench size={16} /> : display.writesFiles || fileChanges ? <FilePenLine size={16} /> : <TerminalSquare size={16} />}<div><strong>{summary}</strong><span>{isToolRequest ? 'Provider tool request' : fileChanges ? 'File changes' : display.runner}{cwd ? ` · ${cwd}` : ''}</span></div></div>
+    <div className="thread-approval-intent">{isToolRequest ? <Wrench size={16} /> : display.writesFiles || fileChanges ? <FilePenLine size={16} /> : <TerminalSquare size={16} />}<div><strong>{summary}</strong><span>{isToolRequest ? 'Provider tool request' : fileChanges ? 'File changes' : display.runner}{cwd || display.directory ? ` · ${cwd ?? display.directory}` : ''}</span></div></div>
     {reason && reason !== command && <p className="thread-approval-reason">Agent reason: {reason}</p>}
     <div className="thread-approval-preview"><div className="thread-approval-preview-heading"><strong>{isPlan ? 'Plan' : isToolRequest ? 'Tool input' : fileChanges ? 'Proposed change' : 'Readable preview'}</strong><small>The exact request is available below</small></div>{plan ? <div className="thread-approval-plan"><ThreadMarkdown text={plan} /></div> : <pre className={isToolRequest ? 'is-structured' : undefined}>{display.preview}</pre>}</div>
-    <details className="thread-approval-raw"><summary>Exact command or request <ChevronDown size={13} /></summary><div><pre>{command}</pre><button type="button" onClick={() => void navigator.clipboard?.writeText(command).then(() => setCopied(true)).catch(() => setCopied(false))}><Copy size={13} />{copied ? 'Copied' : 'Copy exact text'}</button></div></details>
+    <details className="thread-approval-raw"><summary>Exact command or request <ChevronDown size={14} /></summary><div><pre>{command}</pre><button type="button" onClick={() => void navigator.clipboard?.writeText(command).then(() => setCopied(true)).catch(() => setCopied(false))}><Copy size={14} />{copied ? 'Copied' : 'Copy exact text'}</button></div></details>
   </div>
 }

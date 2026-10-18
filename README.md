@@ -1,12 +1,12 @@
 <div align="center">
-  <img src="docs/assets/banner.png" alt="OXESpace" width="820" />
+  <img src="docs/assets/logo.png" alt="OXESpace" width="120" />
 
   <h1>OXESpace</h1>
 
   <p><strong>A desktop workspace for working with coding agents — terminals, native Claude&nbsp;Code and Codex conversations, review, connectors and memory in one window.</strong></p>
 
   <p>
-    <a href="https://github.com/propagno/oxespace/releases/latest"><img src="https://img.shields.io/github/v/release/propagno/oxespace?include_prereleases&color=00d6c9&label=release&style=flat-square" alt="Latest release" /></a>
+    <a href="https://github.com/propagno/oxespace/releases/latest"><img src="https://img.shields.io/github/v/release/propagno/oxespace?color=00d6c9&label=release&style=flat-square" alt="Latest release" /></a>
     <a href="https://github.com/propagno/oxespace/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/propagno/oxespace/ci.yml?branch=main&label=CI&style=flat-square" alt="CI" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/github/license/propagno/oxespace?color=1e3d31&style=flat-square" alt="MIT license" /></a>
     <img src="https://img.shields.io/badge/platforms-Windows%20x64%20%C2%B7%20Linux%20x64-5297ff?style=flat-square" alt="Windows x64 and Linux x64" />
@@ -29,27 +29,30 @@ OXESpace is for people who already work with agents such as **Claude Code** and 
 It runs entirely on your machine. Your repositories stay where they are, the agents are the official CLIs you already have signed in, and nothing is proxied through a service of ours.
 
 <p align="center">
-  <img src="docs/assets/screenshots/thread.png" alt="Thread mode: a Claude Code or Codex conversation with a plan, file edits, a review card and the pull request's CI status" width="900" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/thread-dark.png" />
+    <img src="docs/assets/screenshots/thread-light.png" alt="Thread mode: a finished Codex task with its plan, the files it edited and the pull request checks" width="900" />
+  </picture>
 </p>
 
 ## What you can do
 
-### Two ways to work with an agent
+### Three modes
 
-| | **Code** | **Thread** |
-|---|---|---|
-| What it is | A grid of real terminals (PTY) per workspace | A native conversation with Claude Code or Codex |
-| Best for | Running any CLI, shells, dev servers, several agents side by side | Asking, planning and reviewing with approvals, questions, attachments and history |
-| Agents | Claude Code, Codex, Copilot CLI, Cursor, Grok and any command you configure | Claude Code and Codex, using your own subscription sign-in |
+| | **Code** | **Thread** | **OxeQuery** |
+|---|---|---|---|
+| What it is | A grid of real terminals (PTY) per workspace | A native conversation with Claude Code or Codex | Containers, PostgreSQL and MongoDB in one place |
+| Best for | Running any CLI, shells, dev servers, several agents side by side | Asking, planning and reviewing with approvals, questions, attachments and history | Seeing your Docker or Podman containers and querying and editing data safely |
+| Agents | Claude Code, Codex, Copilot CLI, Cursor, Grok and any command you configure | Claude Code and Codex, using your own subscription sign-in | Optional MCP tools for agents, off by default and approved by you per statement |
 
-Switch between them from the rail on the left; running terminals are preserved while you are in Thread.
+Switch between them from the rail on the left; running terminals are preserved while you are in Thread. OxeQuery is the newest mode and has had less real-world use than Code and Thread. See [OxeQuery](docs/OXEQUERY.md) for what it does and its current limits.
 
 ### Thread mode
 
 - **Reads like a conversation, not a log.** Three transcript views — **Summary**, **Normal** and **Verbose** (`Ctrl+O`) — control how much of the agent's work is shown. Normal folds actions into one line such as *"Ran 4 commands, edited 2 files"*.
 - **Review without leaving.** *Edited N files* cards open the **Changes** panel, offer **Undo** for the turn (via checkpoints) and send review comments back to the agent.
 - **A prompt box that does the work.** `@` mentions project files, `+` attaches images or opens connectors, one control sets access and approvals, and a usage ring shows your plan allowance.
-- **Questions and approvals are first-class.** Agent questions, command and tool approvals, plan approvals and background tasks have their own cards; nothing is auto-approved on your behalf.
+- **Questions and approvals are first-class.** Agent questions, command and tool approvals, plan approvals and background tasks have their own cards. Only a short read-only list (`ls`, `git status`, `grep` and the like, inside the project) and rules you saved are answered for you; the list can be turned off in Rules. Anything that writes, reads outside the project or uses the network asks. See the [approval review](docs/validation/thread-command-approval-security-review.md).
 - **Pull request status in the thread.** The branch's PR, its checks and a ready-made *Fix failing checks* prompt, plus auto-merge, through `gh`.
 - **Terminal, Changes and Browser** are one click away (`Ctrl` + backtick, `Ctrl+Shift+D`, `Ctrl+Shift+B`); files, search, scripts and background activity live in the `⋯` menu.
 
@@ -60,7 +63,10 @@ Switch between them from the rail on the left; running terminals are preserved w
 - **Worktrees and delegation** — hand a task to an isolated worktree with its own persistent conversation.
 
 <p align="center">
-  <img src="docs/assets/screenshots/code-review.png" alt="Code mode with a terminal next to the Changes panel and a line comment on the diff" width="900" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/code-review-dark.png" />
+    <img src="docs/assets/screenshots/code-review-light.png" alt="Code mode: two terminals with git log and the test run, next to the Changes panel with a line comment" width="900" />
+  </picture>
 </p>
 
 ### Connectors (MCP)
@@ -73,13 +79,27 @@ A catalog of ready-to-add servers with brand tiles — **GitHub, Notion, Linear,
 - Only servers you have explicitly trusted are ever exported.
 
 <p align="center">
-  <img src="docs/assets/screenshots/mcp-catalog.png" alt="Connector catalog with Popular and Development sections" width="900" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/mcp-catalog-dark.png" />
+    <img src="docs/assets/screenshots/mcp-catalog-light.png" alt="Connections: the connector catalog and the import from Claude Desktop, Cursor or Windsurf" width="900" />
+  </picture>
+</p>
+
+### OxeQuery
+
+See your Docker or Podman containers, connect to PostgreSQL and MongoDB (also through an SSH tunnel), browse schemas, run queries, explain them and stage edits that are checked for conflicts before they are written. Connections are read-only until you say otherwise, and agents only get database tools you turn on. See [OxeQuery](docs/OXEQUERY.md).
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/oxequery-dark.png" />
+    <img src="docs/assets/screenshots/oxequery-light.png" alt="OxeQuery: a PostgreSQL connection with the schema tree, a query editor and a table" width="900" />
+  </picture>
 </p>
 
 ### Context your agents can use
 
 - **Local semantic search (CodeGraph)** — an on-device, multilingual index (SQLite FTS5, tree-sitter and an embedded `multilingual-e5-base` model) that works offline and under a strict token budget. See [Semantic retrieval](docs/SEMANTIC_RETRIEVAL.md).
-- **Shared project memory** — optional, local-first memory across worktrees. See [Project memory](docs/PROJECT_MEMORY.md).
+- **Shared project memory (beta, opt-in)** — optional, local-first memory across worktrees; off until you turn it on. See [Project memory](docs/PROJECT_MEMORY.md).
 - **Internal MCP bridge** — exposes workspace tools (search, scripts, worktrees, delegation, web preview, documentation) to the agents running inside OXESpace.
 
 ### Everything else in the box
@@ -88,7 +108,7 @@ Monaco editor and file tree · Find in Files (ripgrep) · scripts and background
 
 ## Install
 
-> **Status.** OXESpace is moving from `0.16.0-beta.8` to its first stable release. Betas remain available from the **Releases** page and are marked *Pre-release*.
+> **Status.** `1.0` is the first stable line. Stable installs never receive pre-releases, and the database is backed up before any migration. Long-term compatibility rules are still a [draft](docs/COMPATIBILITY.md); shared project memory is beta and off by default.
 
 | Platform | Download | Updates |
 |---|---|---|
@@ -130,6 +150,8 @@ Open OXESpace, add a project folder, and start in **Code** or **Thread**. The ac
 - **No analytics or telemetry SDK** is bundled. The app talks to the network only for things you turn on: your agent CLIs and their providers, `gh`/GitHub, MCP servers you add, and update checks against GitHub Releases.
 - **Hardened renderer.** Context isolation and sandboxing are on, file access is confined to the workspace root after canonicalisation, and diagnostics redact paths and credential-shaped values. Details: [Security model](docs/SECURITY_MODEL.md).
 - **Verified releases.** Releases are produced by one pipeline that runs typecheck, lint, tests, build and end-to-end tests on Windows and Linux, then verifies the published payload before it goes live. See the [release pipeline](docs/RELEASE_PIPELINE.md).
+
+What is stored, for how long, and exactly what goes over the network: [Privacy and data handling](docs/PRIVACY.md).
 
 To report a vulnerability, follow [SECURITY.md](SECURITY.md).
 

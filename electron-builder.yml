@@ -58,6 +58,8 @@ win:
         - x64
   artifactName: OXESpace-${version}-${arch}.${ext}
   extraResources:
+    - from: THIRD_PARTY_NOTICES.md
+      to: THIRD_PARTY_NOTICES.md
     - from: resources/icon.ico
       to: icon.ico
     # Internal MCP bridge spawned by agent CLIs at runtime — must be on disk
@@ -107,6 +109,8 @@ linux:
       StartupWMClass: OXESpace
       Categories: Development;IDE;
   extraResources:
+    - from: THIRD_PARTY_NOTICES.md
+      to: THIRD_PARTY_NOTICES.md
     - from: resources/icon.png
       to: icon.png
     - from: resources/mcp-bridge

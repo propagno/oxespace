@@ -1,5 +1,6 @@
 import { Copy, Download, Edit3, FileText, FolderOpen, Play, Plus, RotateCw, Sparkles, X } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactElement } from 'react'
+import { useModalSurface, Button, TextField, Select } from '../../ui'
 import { BUILTIN_PROVIDERS, type AgentProvider } from '../../../shared/types/agent'
 import type { SkillDefinition } from '../../../shared/types/skill'
 import { useSkillStore } from '../../store/skill.store'
@@ -13,6 +14,7 @@ interface SkillsBrowserProps {
 }
 
 export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId, workspaceRootPath }: SkillsBrowserProps): ReactElement {
+  const surface = useModalSurface<HTMLElement>(onClose)
   const skills = useSkillStore((s) => s.skills)
   const loading = useSkillStore((s) => s.loading)
   const error = useSkillStore((s) => s.error)
@@ -57,14 +59,14 @@ export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId
 
   const handleUseSkill = async (skill: SkillDefinition): Promise<void> => {
     if (!activePaneId) {
-      setNotice('Selecione ou inicie um terminal antes de usar uma skill.')
+      setNotice('Select or start a terminal before using a skill.')
       return
     }
     setBusySkill(skill.name)
     setNotice(null)
     try {
       await invoke(skill.name, activePaneId, argumentBySkill[skill.name] ?? '')
-      setNotice(`/${skill.name} enviada para o terminal ativo.`)
+      setNotice(`/${skill.name} sent to the active terminal.`)
     } catch (err) {
       setNotice(toMessage(err))
     } finally {
@@ -136,6 +138,7 @@ export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId
         role="dialog"
         aria-modal="true"
         aria-label="Skills"
+        {...surface}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header className="skills-browser-header">
@@ -146,9 +149,9 @@ export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId
           </div>
           <div className="skills-browser-actions">
             {sdlcFullyInstalled ? null : (
-              <button
-                type="button"
-                className="ghost-btn small skills-pack-btn"
+              <Button
+               
+                variant="ghost" size="sm" className="skills-pack-btn"
                 disabled={installingPack}
                 onClick={() => void handleInstallSdlcPack()}
                 title={workspaceRootPath ? 'Install recommended SDLC skills in this workspace' : 'Install recommended SDLC skills for the user'}
@@ -159,31 +162,31 @@ export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId
                   : sdlcPartial
                     ? `Install SDLC pack (${sdlcMissingCount} missing)`
                     : 'Install SDLC pack'}
-              </button>
+              </Button>
             )}
-            <button
-              type="button"
-              className="icon-button"
+            <Button
+             
+              variant="ghost" size="sm" square
               aria-label="New skill"
               title="New skill"
               disabled={creating}
               onClick={() => setCreating(true)}
               data-testid="btn-new-skill"
             >
-              <Plus size={13} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              className="icon-button"
+              <Plus size={14} aria-hidden="true" />
+            </Button>
+            <Button
+             
+              variant="ghost" size="sm" square
               aria-label="Refresh"
               disabled={loading}
               onClick={() => void refresh(workspaceRootPath ?? undefined)}
             >
-              <RotateCw size={13} className={loading ? 'usage-spin' : ''} aria-hidden="true" />
-            </button>
-            <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
+              <RotateCw size={14} className={loading ? 'usage-spin' : ''} aria-hidden="true" />
+            </Button>
+            <Button variant="ghost" size="sm" square aria-label="Close" onClick={onClose}>
               <X size={14} aria-hidden="true" />
-            </button>
+            </Button>
           </div>
         </header>
 
@@ -207,7 +210,7 @@ export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId
         ) : null}
 
         <div className="skills-browser-search">
-          <input
+          <TextField
             type="search"
             placeholder="Search by name, description or category…"
             value={filter}
@@ -306,7 +309,7 @@ function SkillRow({ argument, busy, canEdit, canUse, onArgumentChange, onCopy, o
     <div className={`skill-row source-${skill.source}`}>
       <div className="skill-row-main">
         <div className="skill-row-title">
-          <FileText size={11} aria-hidden="true" />
+          <FileText size={12} aria-hidden="true" />
           <strong>/{skill.name}</strong>
           {skill.category ? <span className="skill-row-category">{skill.category}</span> : null}
         </div>
@@ -318,27 +321,27 @@ function SkillRow({ argument, busy, canEdit, canUse, onArgumentChange, onCopy, o
             <span className="skill-row-agents">all agents</span>
           )}
           <span className="skill-row-path" title={skill.filePath}>
-            <FolderOpen size={9} aria-hidden="true" /> {compactPath(skill.filePath)}
+            <FolderOpen size={12} aria-hidden="true" /> {compactPath(skill.filePath)}
           </span>
         </div>
         <div className="skill-row-controls">
-          <input
+          <TextField
             type="text"
             value={argument}
             onChange={(event) => onArgumentChange(event.currentTarget.value)}
-            placeholder="Optional skill argument..."
+            placeholder="Optional skill argument…"
             aria-label={`Argument for /${skill.name}`}
           />
           <div className="skill-row-buttons">
-            <button type="button" className="primary-btn small" disabled={!canUse || busy} onClick={onUse} title={canUse ? 'Send to the active terminal' : 'Select an active terminal'}>
-              <Play size={11} aria-hidden="true" /> Use
-            </button>
-            <button type="button" className="ghost-btn small" disabled={busy} onClick={onCopy} title="Copy rendered prompt">
-              <Copy size={11} aria-hidden="true" /> Copy
-            </button>
-            <button type="button" className="ghost-btn small" disabled={!canEdit || busy} onClick={onEdit} title={skill.source === 'workspace' ? 'Edit in the editor' : 'Global skills must be copied into the workspace before editing'}>
-              <Edit3 size={11} aria-hidden="true" /> Edit
-            </button>
+            <Button variant="primary" size="sm" disabled={!canUse || busy} onClick={onUse} title={canUse ? 'Send to the active terminal' : 'Select an active terminal'}>
+              <Play size={12} aria-hidden="true" /> Use
+            </Button>
+            <Button variant="ghost" size="sm" disabled={busy} onClick={onCopy} title="Copy rendered prompt">
+              <Copy size={12} aria-hidden="true" /> Copy
+            </Button>
+            <Button variant="ghost" size="sm" disabled={!canEdit || busy} onClick={onEdit} title={skill.source === 'workspace' ? 'Edit in the editor' : 'Global skills must be copied into the workspace before editing'}>
+              <Edit3 size={12} aria-hidden="true" /> Edit
+            </Button>
           </div>
         </div>
       </div>
@@ -447,17 +450,17 @@ function CreateSkillForm({ onCancel, onCreate, workspaceRootPath }: CreateSkillF
       <div className="skills-create-grid">
         <label className="skills-create-field">
           <span>Template</span>
-          <select value={templateId} onChange={(e) => applyTemplate(e.currentTarget.value)}>
+          <Select value={templateId} onChange={(e) => applyTemplate(e.currentTarget.value)}>
             <option value="custom">Custom skill</option>
             {SDLC_SKILL_TEMPLATES.map((template) => (
               <option key={template.name} value={template.name}>{template.name}</option>
             ))}
-          </select>
+          </Select>
         </label>
 
         <label className="skills-create-field">
           <span>Name (kebab-case)</span>
-          <input
+          <TextField
             type="text"
             value={name}
             placeholder="refactor-react"
@@ -468,7 +471,7 @@ function CreateSkillForm({ onCancel, onCreate, workspaceRootPath }: CreateSkillF
 
         <label className="skills-create-field">
           <span>Category (optional)</span>
-          <input
+          <TextField
             type="text"
             value={category}
             placeholder="refactor"
@@ -479,7 +482,7 @@ function CreateSkillForm({ onCancel, onCreate, workspaceRootPath }: CreateSkillF
 
       <label className="skills-create-field">
         <span>Description</span>
-        <input
+        <TextField
           type="text"
           value={description}
           placeholder="Refactor React components in the project's style"
@@ -537,12 +540,12 @@ function CreateSkillForm({ onCancel, onCreate, workspaceRootPath }: CreateSkillF
       {submitError ? <div className="skills-create-error">{submitError}</div> : null}
 
       <footer className="skills-create-actions">
-        <button type="button" className="ghost-btn small" disabled={submitting} onClick={onCancel}>
+        <Button variant="ghost" size="sm" disabled={submitting} onClick={onCancel}>
           Cancel
-        </button>
-        <button type="submit" className="primary-btn small" disabled={submitting}>
+        </Button>
+        <Button type="submit" variant="primary" size="sm" disabled={submitting}>
           {submitting ? 'Creating…' : 'Create skill'}
-        </button>
+        </Button>
       </footer>
     </form>
   )

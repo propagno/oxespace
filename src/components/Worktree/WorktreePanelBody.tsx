@@ -1,9 +1,12 @@
 import { AlertTriangle, Check, ChevronDown, ChevronRight, FolderOpen, FolderTree, GitBranch, Lock, Plus, RotateCw, Trash2, X } from 'lucide-react'
 import { Fragment, useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
-import type { GitHubWorktreeBase, GitHubWorktreeStatus } from '../../../shared/types/github'
+import { parseWorktreeRemovalError, type GitHubWorktreeBase, type GitHubWorktreeStatus } from '../../../shared/types/github'
+import type { RepoConfigSnapshot, RepoHookKind } from '../../../shared/types/repo-config'
 import type { WorkspacePane } from '../../../shared/types/workspace'
 import { selectWorktrees, useWorktreeStore } from '../../store/worktree.store'
+import { WorktreeCleanupPanel } from './WorktreeCleanupPanel'
 import { useWorkspaceStore } from '../../store/workspace.store'
+import { Button, TextField } from '../../ui'
 
 /** A worktree the user asked to remove, plus what removing it would destroy. */
 interface PendingRemoval {
@@ -49,6 +52,7 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
   const setPaneRootPath = useWorkspaceStore((s) => s.setPaneRootPath)
 
   const [creating, setCreating] = useState(false)
+  const [showCleanup, setShowCleanup] = useState(false)
   const [newBranch, setNewBranch] = useState('')
   // Path layering: derived = workspaceParent + repo + slug(branch). Browse
   // sets parentOverride (keeps slug syncing with the branch field). Editing
@@ -245,7 +249,7 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
     <div className="worktree-panel-body">
       <section className="worktree-panel-active-pane" aria-label="Active pane worktree">
         <div className="worktree-panel-active-row">
-          <FolderTree size={11} aria-hidden="true" />
+          <FolderTree size={12} aria-hidden="true" />
           {activePane ? (
             <>
               <span className="worktree-panel-active-label">Active pane</span>
@@ -261,16 +265,26 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
             <span className="worktree-panel-active-hint">No active pane — click a pane to target it.</span>
           )}
         </div>
-        <button
-          type="button"
-          className="icon-button worktree-panel-refresh"
+        <Button
+         
+          variant="ghost" size="sm" square className="worktree-panel-refresh"
+          aria-label="Clean up worktrees"
+          title="Clean up worktrees"
+          aria-pressed={showCleanup}
+          onClick={() => setShowCleanup((v) => !v)}
+        >
+          <Trash2 size={12} aria-hidden="true" />
+        </Button>
+        <Button
+         
+          variant="ghost" size="sm" square className="worktree-panel-refresh"
           aria-label="Refresh worktree list"
           title="Refresh"
           onClick={() => void refresh(workspaceId, workspaceRootPath)}
           disabled={loading}
         >
-          <RotateCw size={11} className={loading ? 'usage-spin' : ''} aria-hidden="true" />
-        </button>
+          <RotateCw size={12} className={loading ? 'usage-spin' : ''} aria-hidden="true" />
+        </Button>
       </section>
 
       {error || localError ? (
@@ -283,14 +297,18 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
             title="Dismiss"
             onClick={dismissError}
           >
-            <X size={11} aria-hidden="true" />
+            <X size={12} aria-hidden="true" />
           </button>
         </div>
       ) : null}
 
+      <RepoHooksNotice rootPath={workspaceRootPath} />
+
+      {showCleanup ? <WorktreeCleanupPanel workspaceId={workspaceId} rootPath={workspaceRootPath} /> : null}
+
       {onlyMainExists ? (
         <div className="worktree-panel-solo-hint" role="note">
-          <FolderTree size={13} aria-hidden="true" />
+          <FolderTree size={14} aria-hidden="true" />
           <span>This repo has only the main worktree. Create one below to isolate work on another branch without affecting the current pane.</span>
         </div>
       ) : null}
@@ -322,20 +340,20 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
                 >
                   <div className="worktree-menu-item-main">
                     <div className="worktree-menu-item-row">
-                      <GitBranch size={11} aria-hidden="true" />
+                      <GitBranch size={12} aria-hidden="true" />
                       <strong>{wt.branch ?? '(detached)'}</strong>
                       {wt.isMain ? <span className="worktree-tag main">main</span> : null}
-                      {wt.locked ? <span className="worktree-tag locked"><Lock size={9} aria-hidden="true" /> locked</span> : null}
+                      {wt.locked ? <span className="worktree-tag locked"><Lock size={12} aria-hidden="true" /> locked</span> : null}
                       {wt.prunable ? <span className="worktree-tag prunable">prunable</span> : null}
                     </div>
                     <span className="worktree-menu-item-path">{wt.path}</span>
                   </div>
                   <div className="worktree-menu-item-aside">
-                    {isCurrent ? <div className="worktree-menu-check"><Check size={13} aria-hidden="true" /></div> : null}
+                    {isCurrent ? <div className="worktree-menu-check"><Check size={14} aria-hidden="true" /></div> : null}
                     {!wt.isMain ? (
-                      <button
-                        type="button"
-                        className="icon-button worktree-menu-remove"
+                      <Button
+                       
+                        variant="ghost" size="sm" square className="worktree-menu-remove"
                         aria-label={`Remove worktree ${wt.branch ?? wt.path}`}
                         title="Remove worktree"
                         aria-expanded={isPendingRemoval}
@@ -343,7 +361,7 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
                         disabled={busy}
                       >
                         <Trash2 size={12} aria-hidden="true" />
-                      </button>
+                      </Button>
                     ) : null}
                   </div>
                 </button>
@@ -365,7 +383,7 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
         <div className="worktree-menu-create">
           <div className="worktree-menu-create-field">
             <label htmlFor="wt-branch">Branch name</label>
-            <input
+            <TextField
               id="wt-branch"
               autoFocus
               value={newBranch}
@@ -429,7 +447,7 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
             aria-expanded={showAdvanced}
             disabled={busy}
           >
-            {showAdvanced ? <ChevronDown size={11} aria-hidden="true" /> : <ChevronRight size={11} aria-hidden="true" />}
+            {showAdvanced ? <ChevronDown size={12} aria-hidden="true" /> : <ChevronRight size={12} aria-hidden="true" />}
             <span>Advanced</span>
           </button>
 
@@ -438,7 +456,7 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
               <div className="worktree-menu-create-field">
                 <label htmlFor="wt-path">Custom path</label>
                 <div className="worktree-menu-create-path-row">
-                  <input
+                  <TextField
                     id="wt-path"
                     value={effectivePath}
                     onChange={(event) => setPathOverride(event.currentTarget.value)}
@@ -481,22 +499,22 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
           ) : null}
 
           <div className="worktree-menu-create-actions">
-            <button
-              type="button"
-              className="ghost-btn"
+            <Button
+             
+              variant="ghost"
               onClick={() => { setCreating(false); setLocalError(null); resetCreateForm() }}
               disabled={busy}
             >
               Cancel
-            </button>
-            <button
-              type="button"
-              className="primary-btn"
+            </Button>
+            <Button
+             
+              variant="primary"
               onClick={() => void handleCreate()}
               disabled={busy || !newBranch.trim()}
             >
               {busy ? 'Creating…' : 'Create worktree'}
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
@@ -510,6 +528,61 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
           <span>New worktree</span>
         </button>
       )}
+    </div>
+  )
+}
+
+const HOOK_LABEL: Record<RepoHookKind, string> = { setup: 'setup (when creating a worktree)', archive: 'archive (before removing a worktree)' }
+
+/**
+ * Shows oxe.yaml hook scripts that have not been approved and lets the user
+ * approve exactly the text shown. Hooks run arbitrary shell, so an unapproved
+ * (or since-edited) script is never run — it just waits here.
+ */
+function RepoHooksNotice({ rootPath }: { rootPath: string }): ReactElement | null {
+  const [snapshot, setSnapshot] = useState<RepoConfigSnapshot | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    // Optional: absent bridges (tests, older preloads) just mean no notice.
+    void Promise.resolve(window.oxe.github.getRepoConfig?.({ rootPath }))
+      .then((next) => { if (!cancelled) setSnapshot(next ?? null) })
+      .catch(() => { if (!cancelled) setSnapshot(null) })
+    return () => { cancelled = true }
+  }, [rootPath])
+
+  const pending = (['setup', 'archive'] as RepoHookKind[]).filter(
+    (kind) => snapshot?.config?.scripts[kind] && snapshot.trusted[kind] === false
+  )
+  if (!snapshot || pending.length === 0) return null
+
+  const approve = async (kind: RepoHookKind): Promise<void> => {
+    const contentHash = snapshot.hashes[kind]
+    if (!contentHash) return
+    try {
+      setSnapshot(await window.oxe.github.approveRepoHook({ rootPath, kind, contentHash }))
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  return (
+    <div className="worktree-remove-confirm" role="group" aria-label="oxe.yaml hooks waiting for approval">
+      {pending.map((kind) => (
+        <div key={kind}>
+          <div className="worktree-remove-confirm-head">
+            <AlertTriangle size={12} aria-hidden="true" />
+            <strong>Hook {HOOK_LABEL[kind]} waiting for approval</strong>
+          </div>
+          <pre className="worktree-remove-confirm-body">{snapshot.config?.scripts[kind]}</pre>
+          <div className="worktree-remove-confirm-actions">
+            <Button variant="primary" onClick={() => void approve(kind)}>Approve this script</Button>
+          </div>
+        </div>
+      ))}
+      {error ? <p className="worktree-remove-confirm-body" role="alert">{error}</p> : null}
     </div>
   )
 }
@@ -556,7 +629,7 @@ function WorktreeRemovalConfirm({ busy, onCancel, onConfirm, pending }: {
             : <>This worktree still holds {losses.join(', ')}. Removing it deletes {needsForce ? 'that work permanently' : 'the folder'}.</>}
       </p>
       <div className="worktree-remove-confirm-actions">
-        <button type="button" className="ghost-btn" onClick={onCancel} disabled={busy}>Cancel</button>
+        <Button variant="ghost" onClick={onCancel} disabled={busy}>Cancel</Button>
         <button
           type="button"
           className={needsForce ? 'danger-btn' : 'primary-btn'}
@@ -694,7 +767,10 @@ function friendlyCreateError(err: unknown, path: string, createNewBranch: boolea
  * folder, not about the worktree.
  */
 function friendlyRemoveError(err: unknown): string {
-  const raw = err instanceof Error ? err.message : String(err)
+  const parsed = parseWorktreeRemovalError(err instanceof Error ? err.message : String(err))
+  const raw = parsed.message
+  if (parsed.code === 'archive-failed') return `${raw} Corrija o hook archive do oxe.yaml, ou remova mesmo assim.`
+  if (parsed.code === 'locked') return raw
   if (/main working tree/i.test(raw)) {
     return 'This is the main worktree — it can\'t be removed from inside the app. Remove other worktrees first, or delete the repo from disk.'
   }

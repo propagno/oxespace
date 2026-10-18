@@ -40,9 +40,9 @@ test('Changes panel lists branch changes, switches base and shows a side-by-side
     await expect(panel.getByRole('button', { name: 'Compare branches' })).toContainText('main')
 
     const files = panel.getByRole('complementary', { name: 'Changed files' })
-    await expect(files.getByRole('button', { name: 'app.ts' })).toBeVisible()
-    await expect(files.getByRole('button', { name: 'docs.md' })).toBeVisible()
-    await files.getByRole('button', { name: 'app.ts' }).click()
+    await expect(files.getByRole('treeitem', { name: 'app.ts' })).toBeVisible()
+    await expect(files.getByRole('treeitem', { name: 'docs.md' })).toBeVisible()
+    await files.getByRole('treeitem', { name: 'app.ts' }).click()
     await expect(panel.locator('.changes-file-path strong')).toHaveText('app.ts')
     // Monaco renders both sides and folds the unchanged regions.
     await expect(panel.locator('.monaco-diff-editor')).toBeVisible({ timeout: 15000 })
@@ -66,23 +66,15 @@ test('Changes panel lists branch changes, switches base and shows a side-by-side
     await expect(panel.getByRole('group', { name: 'Review comments' })).toContainText('1 comment')
     await expect(panel.locator('.oxe-line-comment')).toContainText('Please rename this value')
     await page.screenshot({ path: test.info().outputPath('changes-comment.png') })
-    if (process.env.OXESPACE_README_SHOTS) await page.screenshot({ path: 'docs/assets/screenshots/code-review.png' })
     await panel.locator('.oxe-line-comment-remove').click()
     await expect(panel.getByRole('group', { name: 'Review comments' })).toHaveCount(0)
 
     await files.getByLabel('Filter files').fill('docs')
-    await expect(files.getByRole('button', { name: 'app.ts' })).toHaveCount(0)
+    await expect(files.getByRole('treeitem', { name: 'app.ts' })).toHaveCount(0)
     await expect(panel.locator('.changes-file-path strong')).toHaveText('docs.md')
 
     await panel.getByRole('button', { name: 'Change scope' }).click()
     await page.getByRole('menuitemradio', { name: 'Uncommitted changes' }).click()
     await expect(panel.getByText('No changes')).toBeVisible()
-    if (process.env.OXESPACE_README_SHOTS) {
-      await page.getByTestId('btn-open-tools').click()
-      await page.getByTestId('tools-modal').getByRole('menuitem', { name: /^MCP Servers/ }).click()
-      await expect(page.getByRole('dialog', { name: 'Connections' })).toBeVisible()
-      await page.waitForTimeout(600)
-      await page.screenshot({ path: 'docs/assets/screenshots/mcp-catalog.png' })
-    }
   } finally { await app.close() }
 })
