@@ -29,7 +29,6 @@ import { AutomationsSettings } from './AutomationsSettings'
 import { useAgentStore } from '../../store/agent.store'
 import { useVoiceStore } from '../../store/voice.store'
 import { useSettingsStore, VISITED_WORKSPACES_CAP_MAX, VISITED_WORKSPACES_CAP_MIN } from '../../store/settings.store'
-import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
 import { TERMINAL_PREFS_DEFAULTS, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useUpdaterStore } from '../../store/updater.store'
 import { Button, Switch, TextField, Select } from '../../ui'
@@ -116,94 +115,6 @@ function ReadinessBadge({ status }: { status: ProviderStatus }): ReactElement {
 
 function SettingsSwitch({ checked, onChange, ariaLabel }: { checked: boolean; onChange: (next: boolean) => void; ariaLabel: string }): ReactElement {
   return <Switch checked={checked} onChange={onChange} ariaLabel={ariaLabel} />
-}
-
-const NAV_ITEMS: Array<{ id: SettingsSection; label: string; icon: ReactNode }> = [
-  { id: 'providers', label: 'Agents', icon: <Bot size={14} aria-hidden="true" /> },
-  { id: 'appearance', label: 'Appearance', icon: <Palette size={14} aria-hidden="true" /> },
-  { id: 'terminal', label: 'Terminal', icon: <SquareTerminal size={14} aria-hidden="true" /> },
-  { id: 'voice', label: 'Voice', icon: <Mic size={14} aria-hidden="true" /> },
-  { id: 'notifications', label: 'Notifications', icon: <Bell size={14} aria-hidden="true" /> },
-  { id: 'updates', label: 'Updates', icon: <ArrowUpCircle size={14} aria-hidden="true" /> },
-  { id: 'diagnostics', label: 'Diagnostics', icon: <Activity size={14} aria-hidden="true" /> }
-]
-
-export function SettingsModal({
-  agentProfiles,
-  agentReadiness,
-  isDiscoveringAgents,
-  onClose,
-  onDiscoverAgents,
-  onConfigureAgent,
-  onNewCustomAgent,
-  onUseProviderInPane
-}: SettingsModalProps): ReactElement {
-  const [section, setSection] = useState<SettingsSection>('providers')
-
-  return (
-    <ModalRoot open onOpenChange={(next) => { if (!next) onClose() }}>
-      <ModalSurface
-        className="settings-modal modal-dialog-surface"
-        data-testid="settings-modal"
-      >
-        <aside className="settings-modal-nav" aria-label="Settings sections">
-          <header className="settings-modal-brand">
-            <span className="settings-modal-brand-icon" aria-hidden="true">
-              <Bot size={16} />
-            </span>
-            <div>
-              <span>OXESpace</span>
-              <ModalTitle asChild>
-                <strong>Agents</strong>
-              </ModalTitle>
-            </div>
-          </header>
-          <nav>
-            {NAV_ITEMS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className={`settings-nav-item${section === item.id ? ' active' : ''}`}
-                aria-current={section === item.id ? 'page' : undefined}
-                onClick={() => setSection(item.id)}
-              >
-                {item.icon}
-                <span>{item.label}</span>
-              </button>
-            ))}
-          </nav>
-          <p className="settings-modal-nav-hint">
-            <kbd>Esc</kbd> close
-          </p>
-        </aside>
-
-        {section === 'appearance' ? (
-          <AppearanceSettingsSection onClose={onClose} />
-        ) : section === 'terminal' ? (
-          <TerminalSettingsSection onClose={onClose} />
-        ) : section === 'voice' ? (
-          <VoiceSettingsSection onClose={onClose} />
-        ) : section === 'notifications' ? (
-          <NotificationsSettingsSection onClose={onClose} />
-        ) : section === 'updates' ? (
-          <UpdatesSettingsSection onClose={onClose} />
-        ) : section === 'diagnostics' ? (
-          <DiagnosticsSettingsSection onClose={onClose} />
-        ) : (
-          <ProvidersSettingsSection
-            agentProfiles={agentProfiles}
-            agentReadiness={agentReadiness}
-            isDiscoveringAgents={isDiscoveringAgents}
-            onClose={onClose}
-            onDiscoverAgents={onDiscoverAgents}
-            onConfigureAgent={onConfigureAgent}
-            onNewCustomAgent={onNewCustomAgent}
-            onUseProviderInPane={onUseProviderInPane}
-          />
-        )}
-      </ModalSurface>
-    </ModalRoot>
-  )
 }
 
 function DiagnosticsSettingsSection({ onClose }: { onClose: () => void }): ReactElement {
