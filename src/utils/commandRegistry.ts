@@ -1,6 +1,20 @@
 import { useSyncExternalStore } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import type { CommandPaletteAction } from '../components/CommandPalette/CommandPalette'
+
+/** One command the palette (CommandMenu) lists. */
+export interface CommandPaletteAction {
+  id: string
+  title: string
+  subtitle?: string
+  disabled?: boolean
+  /** Lucide icon component (optional — falls back to a category-derived dot). */
+  icon?: LucideIcon
+  /** Group label shown as a sticky header. Defaults to "General". */
+  category?: string
+  /** Extra search terms (synonyms) that should match this command. */
+  keywords?: string[]
+  run: () => void
+}
 
 /** What a feature module contributes to the command palette without App knowing about it. */
 export interface ContributedCommand {

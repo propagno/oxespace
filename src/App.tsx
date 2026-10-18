@@ -15,7 +15,7 @@ import { isSameRootPath } from '../shared/utils/path'
 import { OxeLogo } from './components/Brand/OxeLogo'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { ThemeProvider } from './components/Theme/ThemeProvider'
-import type { CommandPaletteAction } from './components/CommandPalette/CommandPalette'
+import type { CommandPaletteAction } from './utils/commandRegistry'
 // Modals/overlays are user-triggered and infrequent — lazy-load them so they're
 // not in the first-paint bundle.
 const AgentConfigModal = lazy(() => import('./components/Agents/AgentConfigModal').then((m) => ({ default: m.AgentConfigModal })))

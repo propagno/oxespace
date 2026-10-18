@@ -152,7 +152,7 @@ test('coverage audit', async () => {
     await surface(page, '40-tool-semantic', command('Semantic index log'))
     await surface(page, '41-tool-slash', command('Terminal Commands'))
     await surface(page, '42-tool-workspace-settings', command('Open workspace settings'))
-    await surface(page, '43-tool-integration', tool(/^Multi-repo/))
+    await surface(page, '43-tool-integration', command('Multi-repo coordination'))
     // Overlays and global.
     await surface(page, '50-palette-query', async () => { await page.keyboard.press('Control+k'); await page.keyboard.type('terminal') })
     await surface(page, '51-usage', async () => { await page.keyboard.press('Control+k'); await page.keyboard.type('Usage'); await page.keyboard.press('Enter') })

@@ -1079,7 +1079,6 @@
   min-width: 0;
 }
 
-
 .settings-toggle-row {
   display: flex;
   align-items: flex-start;
@@ -1697,39 +1696,6 @@
   gap: 8px;
 }
 
-.command-palette-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: calc(var(--layer-dropdown) + 20);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 80px;
-  background: var(--scrim);
-}
-
-.command-palette {
-  width: min(620px, calc(100vw - 48px));
-  max-height: min(620px, calc(100vh - 120px));
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border: 1px solid var(--bd-base);
-  border-radius: var(--panel-radius);
-  background: var(--bg-modal);
-  box-shadow: var(--elevation-4);
-}
-
-.command-palette-search {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  height: 44px;
-  padding: 0 10px 0 14px;
-  border-bottom: 1px solid var(--bd-divider);
-  color: var(--tx-muted);
-}
-
 .oxe-suggested-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1759,33 +1725,6 @@
   color: var(--tx-secondary);
   font-size: var(--fs-2xs);
   font-weight: 700;
-}
-
-.command-palette-search input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--tx-primary);
-}
-
-.command-palette-list {
-  overflow: auto;
-  padding: 6px;
-}
-
-.command-palette-item:hover:not(:disabled) {
-  background: var(--ov-2);
-}
-
-.command-palette-empty {
-  color: var(--tx-muted);
-  font-size: var(--fs-2xs);
-}
-
-.command-palette-empty {
-  padding: 18px 10px;
 }
 
 /* ─── Slash Overlay ──────────────────────────────────────────────────────── */

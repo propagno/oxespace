@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { togglePanel } from './helpers/panels'
 
 /**
  * A pane shows the branch its agent works on. The agent hooks report the session's directory; when the agent
@@ -51,8 +52,7 @@ test('pane branch and Review follow the worktree the agent reports working in', 
     await expect(badge).toHaveAttribute('data-moved', 'true')
 
     // The Review panel reads the worktree the agent is in.
-    await page.getByTestId('btn-open-tools').click()
-    await page.getByTestId('tools-modal').getByRole('menuitem', { name: /^Review/ }).click()
+    await togglePanel(page, 'Changes')
     const changes = page.getByTestId('changes-panel')
     await expect(changes.getByRole('button', { name: 'Compare (side B)' })).toContainText('agent/fix')
     await expect(changes.getByRole('complementary', { name: 'Changed files' }).getByRole('treeitem', { name: 'agent-file.ts' })).toBeVisible()

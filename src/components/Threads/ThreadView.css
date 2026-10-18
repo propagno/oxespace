@@ -294,7 +294,7 @@
 .thread-action-error { display: flex; align-items: center; gap: 8px; padding: 6px 0; color: var(--tx-secondary); font-size: var(--fs-xs); max-height: 60px; }
 .thread-action-error span { flex: 1; min-width: 0; overflow: auto; max-height: 48px; }
 .thread-create-dialog label, .thread-auth-code label { display: grid; gap: 8px; margin: 16px 0; font-size: var(--fs-xs); }
-.thread-create-dialog select, .thread-create-dialog input, .thread-auth-code input { min-height: var(--control-h); min-width: 0; width: 100%; padding: 8px 10px; background: var(--bg-elevated); color: var(--tx-primary); border: 1px solid var(--bd-base); border-radius: var(--nav-radius); font: inherit; }
+.thread-create-dialog select, .thread-create-dialog input:not([type='checkbox'], [type='radio']), .thread-auth-code input { min-height: var(--control-h); min-width: 0; width: 100%; padding: 8px 10px; background: var(--bg-elevated); color: var(--tx-primary); border: 1px solid var(--bd-base); border-radius: var(--nav-radius); font: inherit; }
 .thread-project-folder-field { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
 .thread-create-dialog .thread-dialog-error { color: var(--dot-red); }
 .thread-account-card { border: 1px solid var(--bd-base); border-radius: var(--surface-radius); padding: 16px; margin-bottom: 12px; }

@@ -5,6 +5,8 @@ import { join } from 'node:path'
 import { runPaletteCommand } from './helpers/panels'
 
 test('workspace settings navigation and responsive visual review', async () => {
+  // Eight categories at two widths, each with a screenshot.
+  test.setTimeout(90_000)
   const info = test.info()
   const root = mkdtempSync(join(tmpdir(), 'oxe-settings-design-'))
   const repo = join(root, 'demo-repo'); mkdirSync(repo)
