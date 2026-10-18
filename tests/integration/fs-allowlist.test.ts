@@ -125,6 +125,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Cleanup scan: stat-only probes of a worktree's own git metadata (HEAD,
   // reflog tail) to estimate idleness. Never reads source files.
   'electron/main/services/github/worktree-cleanup.ts',
+  // Repository identity: reads only `.git` and the `gitdir`/`commondir` pointers of a checkout to tell
+  // whether two directories are worktrees of the same repository. Never reads source files.
+  'electron/main/services/git-common-dir.ts',
   // Session search index: read-only scan of the agents' own transcript
   // folders (~/.claude/projects, ~/.codex/sessions) into a private cache file.
   // Outside the workspace tree; transcripts are never written.

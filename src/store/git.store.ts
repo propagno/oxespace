@@ -8,6 +8,8 @@ interface WorkspaceGitState {
   isLoading: boolean
   error: string | null
   base: string
+  /** Side B as a ref; null compares the work tree (with or without uncommitted changes). */
+  head: string | null
   includeUncommitted: boolean
   reviewedFiles: string[]
   selectedFile: string | null
@@ -29,6 +31,7 @@ interface GitStoreState {
   resetDiff(workspaceId: string): void
   subscribeToUpdates(workspaceId: string): () => void
   setBase(workspaceId: string, base: string): void
+  setHead(workspaceId: string, head: string | null): void
   setIncludeUncommitted(workspaceId: string, value: boolean): void
   toggleReviewed(workspaceId: string, filePath: string): void
   clearReviewed(workspaceId: string): void
@@ -46,6 +49,7 @@ const DEFAULT_STATE: WorkspaceGitState = {
   isLoading: false,
   error: null,
   base: 'origin/main',
+  head: null,
   includeUncommitted: true,
   reviewedFiles: [],
   selectedFile: null,
@@ -82,7 +86,8 @@ export const useGitStore = create<GitStoreState>((set, get) => ({
         workspaceId,
         rootPath,
         base: ws.base,
-        includeUncommitted: ws.includeUncommitted
+        includeUncommitted: ws.includeUncommitted,
+        ...(ws.head ? { head: ws.head } : {})
       })
       patch(set, workspaceId, { diff, isLoading: false, error: null })
     } catch (error) {
@@ -99,10 +104,15 @@ export const useGitStore = create<GitStoreState>((set, get) => ({
 
   subscribeToUpdates: (workspaceId) =>
     window.oxe.git.onDiffUpdate((diff) => {
+      // The watcher recomputes the work-tree comparison it was started with; it does not apply to a
+      // comparison of two refs, or to a base chosen since.
+      const ws = get().byWorkspaceId[workspaceId] ?? DEFAULT_STATE
+      if (ws.head || diff.base !== ws.base) return
       patch(set, workspaceId, { diff, error: null })
     }),
 
   setBase: (workspaceId, base) => patch(set, workspaceId, { base }),
+  setHead: (workspaceId, head) => patch(set, workspaceId, { head }),
   setIncludeUncommitted: (workspaceId, value) => patch(set, workspaceId, { includeUncommitted: value }),
   toggleReviewed: (workspaceId, filePath) => {
     const ws = get().byWorkspaceId[workspaceId] ?? DEFAULT_STATE

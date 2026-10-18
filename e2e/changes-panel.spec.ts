@@ -37,7 +37,7 @@ test('Changes panel lists branch changes, switches base and shows a side-by-side
     await expect(panel).toBeVisible()
 
     await expect(panel.getByLabel('Total changes')).toContainText('+')
-    await expect(panel.getByRole('button', { name: 'Compare branches' })).toContainText('main')
+    await expect(panel.getByRole('button', { name: 'Base (side A)' })).toContainText('main')
 
     const files = panel.getByRole('complementary', { name: 'Changed files' })
     await expect(files.getByRole('treeitem', { name: 'app.ts' })).toBeVisible()
@@ -84,5 +84,83 @@ test('Changes panel lists branch changes, switches base and shows a side-by-side
       await page.waitForTimeout(600)
       await page.screenshot({ path: 'docs/assets/screenshots/mcp-catalog.png' })
     }
+  } finally { await app.close() }
+})
+
+test('Changes panel compares any two sides: a branch that is not checked out, swapped sides, another worktree', async () => {
+  test.setTimeout(90_000)
+  const root = mkdtempSync(join(tmpdir(), 'oxe-changes-sides-'))
+  const repo = join(root, 'repo')
+  const tree = join(root, 'repo-tree')
+  mkdirSync(repo, { recursive: true })
+  const git = (...args: string[]): void => { execFileSync('git', args, { cwd: repo }) }
+  git('init', '-q', '-b', 'main')
+  git('config', 'user.email', 'e2e@example.com'); git('config', 'user.name', 'E2E')
+  writeFileSync(join(repo, 'README.md'), '# repo\n')
+  git('add', '.'); git('commit', '-qm', 'base')
+  git('checkout', '-qb', 'feature/other')
+  writeFileSync(join(repo, 'feature-only.ts'), 'export const feature = 1\n')
+  git('add', '.'); git('commit', '-qm', 'feature')
+  git('checkout', '-q', 'main')
+  writeFileSync(join(repo, 'main-only.ts'), 'export const main = 1\n')
+  git('add', '.'); git('commit', '-qm', 'main later')
+  git('checkout', '-qb', 'feature/tree')
+  git('checkout', '-q', 'main')
+  git('worktree', 'add', '-q', tree, 'feature/tree')
+  writeFileSync(join(tree, 'in-tree.ts'), 'uncommitted in the other worktree\n')
+
+  const app = await electron.launch({ args: [join(process.cwd(), 'e2e/electron-main.cjs')], env: {
+    ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'db.sqlite3')
+  } })
+  try {
+    const page = await app.firstWindow()
+    await page.setViewportSize({ width: 1500, height: 900 })
+    await page.getByTestId('btn-new-workspace').click()
+    await page.getByTestId('wizard-dir-input').fill(repo)
+    await page.getByTestId('wizard-layout-card-1').click()
+    await page.getByTestId('wizard-launch-btn').click()
+    await expect(page.getByTestId('terminal-pane')).toHaveCount(1)
+    await page.getByTestId('btn-open-tools').click()
+    await page.getByTestId('tools-modal').getByRole('menuitem', { name: /^Review/ }).click()
+    const panel = page.getByTestId('changes-panel')
+    const files = panel.getByRole('complementary', { name: 'Changed files' })
+    await expect(panel).toBeVisible()
+    // main checked out against base main: nothing differs.
+    await expect(panel.getByText('No changes')).toBeVisible()
+
+    // Side B: a branch that is not checked out.
+    await panel.getByRole('button', { name: 'Compare (side B)' }).click()
+    await page.getByRole('dialog', { name: 'Compare (side B)' }).getByRole('button', { name: 'feature/other' }).click()
+    await expect(panel.getByRole('button', { name: 'Compare (side B)' })).toContainText('feature/other')
+    await expect(files.getByRole('treeitem', { name: 'feature-only.ts' })).toBeVisible()
+    await expect(files.getByRole('treeitem', { name: 'main-only.ts' })).toHaveCount(0)
+    await expect(panel.locator('.monaco-diff-editor')).toContainText('export const feature', { timeout: 15000 })
+
+    // Swap: feature/other becomes the base and main the compared side.
+    await panel.getByRole('button', { name: 'Swap sides' }).click()
+    await expect(panel.getByRole('button', { name: 'Base (side A)' })).toContainText('feature/other')
+    await expect(files.getByRole('treeitem', { name: 'main-only.ts' })).toBeVisible()
+    await expect(files.getByRole('treeitem', { name: 'feature-only.ts' })).toHaveCount(0)
+
+    // Side B: another worktree, uncommitted files included, read from that worktree.
+    await panel.getByRole('button', { name: 'Base (side A)' }).click()
+    await page.getByRole('dialog', { name: 'Base (side A)' }).getByRole('button', { name: 'main', exact: true }).click()
+    await panel.getByRole('button', { name: 'Compare (side B)' }).click()
+    await page.getByRole('dialog', { name: 'Compare (side B)' }).getByRole('button', { name: /feature\/tree · worktree/ }).click()
+    await files.getByRole('treeitem', { name: 'in-tree.ts' }).click()
+    await expect(panel.locator('.monaco-diff-editor')).toContainText('uncommitted in the other worktree', { timeout: 15000 })
+    await page.screenshot({ path: test.info().outputPath('changes-sides.png') })
+
+    // The classic review takes the same two sides.
+    await page.getByText('Classic', { exact: true }).first().click()
+    const classic = page.locator('.review-pane')
+    // It used to collapse to zero width in the side panel.
+    await expect(classic).toBeVisible()
+    expect((await classic.boundingBox())?.width ?? 0).toBeGreaterThan(300)
+    await classic.getByRole('button', { name: 'Compare (side B)' }).click()
+    await page.getByRole('dialog', { name: 'Compare (side B)' }).getByRole('button', { name: 'feature/other' }).click()
+    await expect(classic).toContainText('feature-only.ts')
+    await expect(classic.getByRole('button', { name: 'Uncommitted' })).toBeDisabled()
+    await page.screenshot({ path: test.info().outputPath('classic-sides.png') })
   } finally { await app.close() }
 })

@@ -1,6 +1,8 @@
 import { ipcMain } from 'electron'
+import { resolve } from 'node:path'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import { FileSystemService } from '../services/file-system.service'
+import { sameRepository } from '../services/git-common-dir'
 import type { AppDatabase } from '../db/index'
 import {
   parseFileSystemListTreeInput,
@@ -16,7 +18,7 @@ export function registerFileSystemIpc(db: AppDatabase, fileSystemService = new F
     return row?.root_path ?? null
   }
   const row = db.prepare('SELECT root_path FROM workspaces WHERE id = ?').get(workspaceId) as { root_path: string } | undefined
-  return row?.root_path ?? null
+  return row ? worktreeOrWorkspaceRoot(row.root_path, requestedRoot) : null
 })): FileSystemService {
   ipcMain.handle(IPC_CHANNELS.fs.listTree, (_event, input: unknown) => fileSystemService.listTree(parseFileSystemListTreeInput(input)))
   ipcMain.handle(IPC_CHANNELS.fs.readFile, (_event, input: unknown) => fileSystemService.readFile(parseFileSystemReadFileInput(input)))
@@ -33,4 +35,14 @@ export function registerFileSystemIpc(db: AppDatabase, fileSystemService = new F
   })
 
   return fileSystemService
+}
+
+/**
+ * A pane or the Changes panel may work in another checkout of the workspace's repository (a linked worktree).
+ * That checkout is authorized as its own root; any other directory still resolves to the workspace root,
+ * so the service's root comparison rejects it.
+ */
+export function worktreeOrWorkspaceRoot(workspaceRoot: string, requestedRoot: string): string {
+  if (!requestedRoot || resolve(requestedRoot) === resolve(workspaceRoot)) return workspaceRoot
+  return sameRepository(workspaceRoot, requestedRoot) ? requestedRoot : workspaceRoot
 }

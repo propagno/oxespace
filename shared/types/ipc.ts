@@ -160,6 +160,7 @@ export const IPC_CHANNELS = {
     getDiff: 'git:get-diff',
     getDiffSummary: 'git:diff-summary',
     getFileOriginal: 'git:file-original',
+    getFileAtRef: 'git:file-at-ref',
     onDiffUpdate: 'git:diff-update'
   },
   search: {
@@ -537,6 +538,7 @@ export interface GitApi {
   getDiff(input: import('./git').GitDiffInput): Promise<import('./git').GitDiff>
   getDiffSummary(input: import('./git').GitDiffInput): Promise<import('./git').GitDiffSummary>
   getFileOriginal(input: import('./git').GitFileOriginalInput): Promise<import('./git').GitFileOriginal>
+  getFileAtRef(input: import('./git').GitFileAtRefInput): Promise<import('./git').GitFileOriginal>
   onDiffUpdate(listener: (diff: import('./git').GitDiff) => void): () => void
 }
 

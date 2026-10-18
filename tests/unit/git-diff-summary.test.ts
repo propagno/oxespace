@@ -81,6 +81,124 @@ describe('GitService.getDiffSummary / getFileOriginal', () => {
   })
 })
 
+describe('GitService with both sides chosen', () => {
+  let root = ''
+  let tree = ''
+  const git = (...args: string[]): string => execFileSync('git', args, { cwd: root, encoding: 'utf8' })
+  beforeAll(() => {
+    root = mkdtempSync(join(tmpdir(), 'oxe-git-sides-'))
+    git('init', '-q', '-b', 'main')
+    git('config', 'user.email', 'test@example.com')
+    git('config', 'user.name', 'Test')
+    writeFileSync(join(root, 'shared.txt'), 'base\n')
+    writeFileSync(join(root, 'old-name.txt'), 'renamed content\nline two\nline three\n')
+    git('add', '.')
+    git('commit', '-qm', 'base')
+    git('checkout', '-qb', 'feature')
+    writeFileSync(join(root, 'feature.txt'), 'feature only\n')
+    git('mv', 'old-name.txt', 'new-name.txt')
+    git('add', '-A')
+    git('commit', '-qm', 'feature work')
+    // main moves on after feature branched, so "common ancestor" and "direct" give different answers.
+    git('checkout', '-q', 'main')
+    writeFileSync(join(root, 'main-later.txt'), 'main only\n')
+    git('add', '.')
+    git('commit', '-qm', 'main later')
+    git('tag', 'v1')
+    tree = `${root}-tree`
+    git('worktree', 'add', '-q', tree, 'feature')
+    writeFileSync(join(tree, 'feature.txt'), 'feature only\nuncommitted in the worktree\n')
+  })
+  afterAll(() => { removeTempDir(tree); removeTempDir(root) })
+
+  it('compares two refs without checking either out, from their common ancestor', async () => {
+    const summary = await new GitService().getDiffSummary(root, 'main', true, 'feature')
+    expect(summary.error).toBeUndefined()
+    expect(summary.head).toBe('feature')
+    expect(summary.includeUncommitted).toBe(false)
+    const byPath = Object.fromEntries(summary.files.map(file => [file.path, file]))
+    expect(byPath['feature.txt']).toMatchObject({ status: 'A', additions: 1 })
+    expect(byPath['new-name.txt']).toMatchObject({ status: 'R', oldPath: 'old-name.txt' })
+    // A file only main gained after the branch point is not part of feature's changes.
+    expect(byPath['main-later.txt']).toBeUndefined()
+  })
+
+  it('compares the base itself in direct mode', async () => {
+    const summary = await new GitService().getDiffSummary(root, 'main', true, 'feature', 'direct')
+    const byPath = Object.fromEntries(summary.files.map(file => [file.path, file]))
+    expect(byPath['main-later.txt']).toMatchObject({ status: 'D' })
+    expect(byPath['feature.txt']).toMatchObject({ status: 'A' })
+  })
+
+  it('compares the other way round when the sides are swapped', async () => {
+    const summary = await new GitService().getDiffSummary(root, 'feature', true, 'main')
+    const byPath = Object.fromEntries(summary.files.map(file => [file.path, file]))
+    expect(byPath['main-later.txt']).toMatchObject({ status: 'A' })
+    expect(byPath['feature.txt']).toBeUndefined()
+  })
+
+  it('accepts tags and SHAs on either side', async () => {
+    const sha = git('rev-parse', 'feature').trim()
+    const summary = await new GitService().getDiffSummary(root, 'v1', true, sha)
+    expect(summary.error).toBeUndefined()
+    expect(summary.files.some(file => file.path === 'feature.txt')).toBe(true)
+  })
+
+  it('reports a side B that does not exist instead of comparing against HEAD', async () => {
+    const summary = await new GitService().getDiffSummary(root, 'main', true, 'no-such-branch')
+    expect(summary.files).toEqual([])
+    expect(summary.error).toMatch(/no-such-branch/)
+  })
+
+  it('reports a base that does not exist in direct mode', async () => {
+    const summary = await new GitService().getDiffSummary(root, 'no-such-base', true, 'feature', 'direct')
+    expect(summary.files).toEqual([])
+    expect(summary.error).toMatch(/no-such-base/)
+  })
+
+  it('reads both sides of a file from git when side B is a ref', async () => {
+    const service = new GitService()
+    expect(await service.getFileOriginal(root, 'main', 'feature.txt', undefined, 'feature')).toMatchObject({ missing: true })
+    expect((await service.getFileOriginal(root, 'main', 'new-name.txt', 'old-name.txt', 'feature')).content).toBe('renamed content\nline two\nline three\n')
+    expect((await service.getFileAtRef(root, 'feature', 'feature.txt')).content).toBe('feature only\n')
+    expect(await service.getFileAtRef(root, 'main', 'feature.txt')).toMatchObject({ missing: true, content: '' })
+  })
+
+  it('compares another worktree with its uncommitted changes when that worktree is the root', async () => {
+    const summary = await new GitService().getDiffSummary(tree, 'main', true)
+    const byPath = Object.fromEntries(summary.files.map(file => [file.path, file]))
+    expect(byPath['feature.txt']).toMatchObject({ status: 'A', additions: 2 })
+  })
+
+  it('builds the classic review diff for two refs', async () => {
+    const diff = await new GitService().buildDiff(root, 'main', true, 'feature')
+    expect(diff.includeUncommitted).toBe(false)
+    expect(diff.files.map(file => file.path)).toContain('feature.txt')
+    expect(diff.files.map(file => file.path)).not.toContain('main-later.txt')
+  })
+
+  it('reports an unknown base in the classic review instead of showing no changes', async () => {
+    await expect(new GitService().buildDiff(root, 'origin/main', true)).rejects.toThrow()
+  })
+
+  it('treats a linked worktree as the same repository, and an unrelated one as not', async () => {
+    const { sameRepository, gitCommonDir } = await import('../../electron/main/services/git-common-dir')
+    const { worktreeOrWorkspaceRoot } = await import('../../electron/main/ipc/file-system.ipc')
+    expect(sameRepository(root, tree)).toBe(true)
+    // File reads may target another worktree of the workspace's repository, and nothing else.
+    expect(worktreeOrWorkspaceRoot(root, tree)).toBe(tree)
+    expect(worktreeOrWorkspaceRoot(root, root)).toBe(root)
+    const other = mkdtempSync(join(tmpdir(), 'oxe-git-other-'))
+    try {
+      execFileSync('git', ['init', '-q'], { cwd: other })
+      expect(sameRepository(root, other)).toBe(false)
+      expect(worktreeOrWorkspaceRoot(root, other)).toBe(root)
+      expect(worktreeOrWorkspaceRoot(root, tmpdir())).toBe(root)
+      expect(gitCommonDir(join(other, 'missing'))).toBeNull()
+    } finally { removeTempDir(other) }
+  })
+})
+
 describe('GitService.getDiffSummary with untracked files', () => {
   let root = ''
   const git = (...args: string[]): string => execFileSync('git', args, { cwd: root, encoding: 'utf8' })

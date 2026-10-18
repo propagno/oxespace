@@ -85,6 +85,39 @@ export function chooseBase(resolved: string | null, branches: string[]): string 
   return resolved ?? branches[0] ?? 'HEAD'
 }
 
+/**
+ * Side B of a comparison: the work tree of a checkout (this one or another worktree of the repository,
+ * uncommitted changes included) or the committed state of a ref.
+ */
+export type CompareHead = { kind: 'worktree'; path: string; branch: string | null } | { kind: 'ref'; ref: string }
+export type CompareMode = 'merge-base' | 'direct'
+
+/** Same rule as the main process (`expectGitRef`), so a typed ref is refused before it is sent. */
+export function isValidRef(text: string): boolean {
+  return /^[A-Za-z0-9_./@~^{}-]+$/.test(text) && !text.includes('..') && !text.startsWith('-')
+}
+
+export function headLabel(head: CompareHead): string {
+  if (head.kind === 'ref') return head.ref
+  return head.branch ?? 'detached'
+}
+
+/** Identifies one comparison, for the "viewed" marks: a file viewed against one pair is not viewed against another. */
+export function comparisonKey(base: string, head: CompareHead, mode: CompareMode): string {
+  const side = head.kind === 'ref' ? `ref:${head.ref}` : `tree:${head.path}`
+  return mode === 'merge-base' ? `${base}|${side}` : `${base}|${side}|direct`
+}
+
+/**
+ * Exchanges the sides. Side A must be a ref, so a work-tree side B becomes its branch (its committed state);
+ * a detached work tree cannot move to side A and the swap is refused (null).
+ */
+export function swapSides(base: string, head: CompareHead): { base: string; head: CompareHead } | null {
+  const nextBase = head.kind === 'ref' ? head.ref : head.branch
+  if (!nextBase) return null
+  return { base: nextBase, head: { kind: 'ref', ref: base } }
+}
+
 export function splitPath(path: string): { directory: string; name: string } {
   const index = path.lastIndexOf('/')
   return index < 0 ? { directory: '', name: path } : { directory: path.slice(0, index + 1), name: path.slice(index + 1) }

@@ -242,6 +242,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       getDiff: (input) => ipc.invoke(IPC_CHANNELS.git.getDiff, input) as Promise<GitDiff>,
       getDiffSummary: (input) => ipc.invoke(IPC_CHANNELS.git.getDiffSummary, input) as Promise<import('../../shared/types/git').GitDiffSummary>,
       getFileOriginal: (input) => ipc.invoke(IPC_CHANNELS.git.getFileOriginal, input) as Promise<import('../../shared/types/git').GitFileOriginal>,
+      getFileAtRef: (input) => ipc.invoke(IPC_CHANNELS.git.getFileAtRef, input) as Promise<import('../../shared/types/git').GitFileOriginal>,
       onDiffUpdate: (listener) => subscribe<GitDiff>(ipc, IPC_CHANNELS.git.onDiffUpdate, listener)
     },
     search: {
