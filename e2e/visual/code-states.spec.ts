@@ -58,6 +58,11 @@ for (const theme of THEMES) {
       await expectSurface(page, `code-github-${theme}`, { hide: liveMasks(page) })
 
       await openTool(page, /^Find in files$/)
+      // The panel may or may not take focus by the time of the capture; the focus ring then differs between
+      // runs (953 px on the Windows runner). The field is focused on purpose so every run captures the same.
+      const query = page.getByTestId('workspace-search-panel').getByPlaceholder('Find in files…')
+      await query.focus()
+      await expect(query).toBeFocused()
       await expectSurface(page, `code-search-${theme}`, { hide: liveMasks(page) })
 
       expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false)
