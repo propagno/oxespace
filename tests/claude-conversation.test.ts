@@ -330,4 +330,12 @@ describe('Claude session location', () => {
     expect(enteredWorktreePath('Now working in /home/u/repo/.claude/worktrees/b (branch b)')).toBe('/home/u/repo/.claude/worktrees/b')
     expect(enteredWorktreePath('no path here')).toBeNull()
   })
+
+  it('reads the path from the wording Claude Code 2.1.301 actually uses, spaces included', async () => {
+    const { enteredWorktreePath } = await import('../electron/main/services/conversation/claude-conversation')
+    // Verbatim from a live `claude -p` session on Windows (2026-10-18), with the profile name changed.
+    const live = String.raw`Created worktree at C:\Users\Jane Doe\repo\.claude\worktrees\fix on branch worktree-fix. The session is now working in the worktree. Use ExitWorktree to leave mid-session, or exit the session to be prompted.`
+    expect(enteredWorktreePath(live)).toBe(String.raw`C:\Users\Jane Doe\repo\.claude\worktrees\fix`)
+    expect(enteredWorktreePath('Created worktree at /home/jane doe/repo/.claude/worktrees/x on branch worktree-x.')).toBe('/home/jane doe/repo/.claude/worktrees/x')
+  })
 })

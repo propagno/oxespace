@@ -502,10 +502,13 @@ export function mcpServerStatuses(value: unknown[]): ThreadMcpServerStatus[] {
 }
 
 /**
- * The directory named in an EnterWorktree result. Claude Code reports it in prose, so the first absolute path
- * is taken; the orchestrator only keeps it if it is an existing checkout, so a wrong pick is dropped there.
+ * The directory named in an EnterWorktree result. Claude Code 2.1 writes "Created worktree at <path> on branch
+ * <name>. …"; that path is read whole, spaces included (a profile such as C:\Users\Jane Doe). Other wording
+ * falls back to the first absolute path. The orchestrator keeps the result only if it is an existing checkout.
  */
 export function enteredWorktreePath(text: string): string | null {
+  const stated = /worktree at (.+?) on branch /i.exec(text)
+  if (stated) return stated[1].trim()
   const match = /([A-Za-z]:[\\/][^\s"'`<>|]+|(?<![\w.])\/[^\s"'`<>|]+)/.exec(text)
   return match ? match[1].replace(/[.,;:)\]]+$/, '') : null
 }
