@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { WorkbenchPanelMenu, WorkbenchPanelToggle } from '../src/components/Workbench/WorkbenchPanelMenu'
@@ -39,5 +39,17 @@ describe('Workbench panels shared by Code and Thread', () => {
     expect(await screen.findByRole('menuitemcheckbox', { name: 'Files' })).toBeVisible()
     expect(document.querySelector('[aria-hidden="true"] button')).toBeNull()
     expect(screen.getByRole('button', { name: 'Changes' })).toBeVisible()
+  })
+
+  it('stays open when the app moves focus elsewhere, and closes on Escape', async () => {
+    const user = userEvent.setup()
+    render(<><textarea aria-label="Terminal input" /><WorkbenchPanelMenu items={[{ id: 'files', active: false, onToggle: vi.fn() }]} /></>)
+    await user.click(screen.getByRole('button', { name: 'More panels' }))
+    expect(await screen.findByRole('menuitemcheckbox', { name: 'Files' })).toBeVisible()
+    act(() => screen.getByRole('textbox', { name: 'Terminal input' }).focus())
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Files' })).toBeVisible()
+    screen.getByRole('menuitemcheckbox', { name: 'Files' }).focus()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('menuitemcheckbox', { name: 'Files' })).toBeNull()
   })
 })
