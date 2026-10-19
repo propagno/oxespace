@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { openInMemoryDatabase, type AppDatabase } from '../../electron/main/db'
 import type { OxeQueryConnection } from '../../shared/types/oxequery'
 import { AgentGateway, AgentToolError, RATE_PER_MINUTE, type AgentActor, type GatewayDeps } from '../../electron/main/services/oxequery/agent-gateway'
-import { ApprovalBroker, type ApprovalDecision, type ApprovalPrompter, type ApprovalRequest } from '../../electron/main/services/oxequery/approval-broker'
+import { ApprovalBroker, type ApprovalDecision, type ApprovalPrompter, type ApprovalRequest } from '../../electron/main/services/agent-actions/approval-broker'
 import { AuditLog } from '../../electron/main/services/oxequery/audit-log'
 import type { ResolvedConnection } from '../../electron/main/services/oxequery/oxequery-errors'
 

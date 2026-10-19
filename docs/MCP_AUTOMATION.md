@@ -33,6 +33,32 @@ Remaining increments are tracked in MCP_AUTOMATION_PLAN.md: durable operation
 journal, events, structured handoff, dependencies/claims and terminal/layout control.
 
 
+## App tools: levels, approvals and audit
+
+Tools that reach the rest of the app (Git first; GitHub, Threads, Tasks and more follow) are one tool per
+domain with an `action` argument, for example `oxespace_git` with `status`, `branch`, `diff_summary`, `diff`
+and `file_at_ref`. The tool description lists every action with its level. The level is part of the tool,
+never an argument, so a model cannot ask for less checking:
+
+| Level | Who may call | What happens |
+|---|---|---|
+| `read` | Any caller with a workspace | Runs. Not recorded. |
+| `write` | Only an agent with a live OXESpace execution (a Code pane or a Thread) | Rate limited (30 per minute per execution) and recorded. |
+| `confirm` | As `write` | A native dialog shows the exact text; the grant is bound to its SHA-256, single use, five minutes. Answers `approval-pending` until the person decides; call again with the same arguments. |
+
+Calls apply to the caller's own directory (the pane's or Thread's root); a caller without an execution
+gets the workspace it names or the active one. Refusals have a stable `code`: `invalid`, `no-execution`,
+`no-workspace`, `rate-limited`, `too-long`, `denied`, `approval-pending`, `unavailable`, `failed`.
+
+Writes and confirmations are kept for 90 days in `agent_action_audit` (append-only). OxeQuery keeps its own
+trail in `oxequery_audit`; both use the same approval broker (`services/agent-actions`).
+
+Never exposed as tools, by design: answering a Thread's approvals or raising its access, permission rules,
+sign-in and tokens, secrets and trust of external MCP servers, database credentials and host keys, agent
+profiles, repository hooks, Web Preview access to external sites, delegation targets, deleting workspaces,
+bulk cleanup of sessions or worktrees, app and RTK updates, clipboard and voice, and typing into another
+agent's terminal.
+
 ## Importing servers from other tools
 
 **Connections > Import from Claude Desktop, Cursor or Windsurf** lists the MCP servers those tools already have

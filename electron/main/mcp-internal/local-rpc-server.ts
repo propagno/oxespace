@@ -146,6 +146,8 @@ export function createLocalRpcServer(deps: LocalRpcDeps): LocalRpcServer {
           memory: deps.memory,
           oxeQuery: deps.oxeQuery,
           oxeQueryError: deps.oxeQueryError,
+          agentActions: deps.agentActions,
+          git: deps.git,
           memoryRunId,
           workspaceId,
           workspaceServ: deps.workspaceServ,

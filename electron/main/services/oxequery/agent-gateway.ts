@@ -1,7 +1,7 @@
 import { effectiveAgentAccess } from './preferences'
 import type { AgentAccess, ContainerAction, ContainerSummary, OxeQueryConnection } from '../../../../shared/types/oxequery'
 import { maskLogLine, DEFAULT_ROWS, MAX_ROWS, UNTRUSTED_NOTICE, compilePatterns, redactDocument, redactStatement, shapeDocuments, shapeRows } from './agent-output'
-import { textHash, type ApprovalBroker } from './approval-broker'
+import { textHash, type ApprovalBroker } from '../agent-actions/approval-broker'
 import type { AuditLog, AuditRecord } from './audit-log'
 import { OxeQueryError, type ResolvedConnection } from './oxequery-errors'
 import { guardSql } from './sql-guard'
@@ -43,6 +43,7 @@ const LOG_TAIL_MAX = 200
 /** A person approves exactly what they can read; anything longer is refused rather than shortened. */
 export const MAX_REVIEWABLE = 6000
 const CONTAINER_ACTIONS = new Set(['start', 'stop', 'restart'])
+const VERBS = { read: 'read data', write: 'change data in the database', action: 'run a container action' } as const
 
 type Args = Record<string, unknown>
 
@@ -156,7 +157,8 @@ export class AgentGateway {
   private async approve(actor: AgentActor, connection: OxeQueryConnection, tool: string, risk: 'read' | 'write' | 'action', body: string, reasons: string[]): Promise<'auto' | 'approved' | 'approved-session'> {
     if (body.length > MAX_REVIEWABLE) throw new AgentToolError(`This request is longer than ${MAX_REVIEWABLE} characters, which is more than a person can review. Split it into smaller steps.`, 'too-long')
     const state = await this.deps.broker.require(actor.key, connection.id, {
-      actor: actor.label, tool, connectionName: connection.name, environment: connection.environment, engine: connection.engine, risk, text: body, reasons
+      actor: actor.label, tool, title: 'OxeQuery — request from an agent', summary: `${actor.label} wants to ${VERBS[risk]}`,
+      target: `${connection.name} · ${connection.engine} · ${connection.environment}`, sessionLabel: 'Allow reads on this connection for this run', risk, text: body, reasons
     })
     if (state.state === 'approved') return state.via === 'session' ? 'approved-session' : 'approved'
     if (state.state === 'denied') throw new AgentToolError('The person declined this request. Do not retry it unchanged.', 'denied')

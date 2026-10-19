@@ -33,6 +33,7 @@ import { THREAD_HANDOFF_TOOLS } from './thread-handoff-tools'
 import { OXEQUERY_TOOLS } from './oxequery-tools'
 import { CODE_GRAPH_TOOLS } from './code-graph-tools'
 import { WORK_TOOLS } from './work-tools'
+import { GIT_TOOLS } from './git-tools'
 
 export interface ToolContext {
   captureRoot?: string
@@ -51,6 +52,9 @@ export interface ToolContext {
   /** Why OxeQuery is not running, when it failed to start. */
   oxeQueryError?: () => string | undefined
   memoryRunId?: string
+  /** Policy for app tools outside OxeQuery: levels, approvals, rate limit, audit. */
+  agentActions?: import('../services/agent-actions/agent-actions').AgentActions
+  git?: Pick<import('../services/git.service').GitService, 'getStatus' | 'getBranch' | 'getDiffSummary' | 'buildDiff' | 'getFileAtRef'>
   workspaceId: string | null
   workspaceServ: WorkspaceService
   github: GitHubWorktreeApi
@@ -78,6 +82,7 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   ...OXEQUERY_TOOLS,
   ...CODE_GRAPH_TOOLS,
   ...WORK_TOOLS,
+  ...GIT_TOOLS,
   {
     descriptor: {
       name: 'oxespace_list_workspaces',

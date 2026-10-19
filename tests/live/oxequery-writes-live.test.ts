@@ -16,7 +16,7 @@ import type { ResolvedConnection } from '../../electron/main/services/oxequery/o
 import { AgentGateway, type GatewayDeps } from '../../electron/main/services/oxequery/agent-gateway'
 import { ContainerRuntime } from '../../electron/main/services/oxequery/container-runtime'
 import { LocalExecutionHost } from '../../electron/main/runtime/execution-host'
-import { ApprovalBroker } from '../../electron/main/services/oxequery/approval-broker'
+import { ApprovalBroker } from '../../electron/main/services/agent-actions/approval-broker'
 import { AuditLog } from '../../electron/main/services/oxequery/audit-log'
 import { openInMemoryDatabase } from '../../electron/main/db'
 

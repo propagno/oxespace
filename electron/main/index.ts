@@ -261,7 +261,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     import('./ipc/linear.ipc'), import('./ipc/integration.ipc'),
     import('./services/github.service'), import('./services/git.service'), import('./services/codegraph.service')
   ])
-  registerGitIpc()
+  const gitService = registerGitIpc()
   registerSearchIpc()
   const gitHubService = registerGitHubIpc(db)
   gitHubService.configureWorktreeLifecycle({ stopTerminalsWithin: (dir) => terminalManager.stopWithin(dir) })
@@ -315,7 +315,7 @@ async function registerIpcHandlers(): Promise<() => void> {
       pickFile: (await import('./services/oxequery/file-picker')).pickCredentialFile,
       pickSavePath: (await import('./services/oxequery/file-picker')).pickExportPath,
       pickImportPath: (await import('./services/oxequery/file-picker')).pickImportPath,
-      approvalPrompter: (await import('./services/oxequery/approval-prompter')).nativeApprovalPrompter
+      approvalPrompter: (await import('./services/agent-actions/approval-prompter')).nativeApprovalPrompter
     })
     oxeQueryAgent = oxeQuery.agent
     oxeQueryShells.shellFor = paneId => oxeQuery.shellFor(paneId)
@@ -460,6 +460,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     memory: memoryService,
     oxeQuery: () => oxeQueryAgent,
     oxeQueryError: () => oxeQueryStartupError,
+    git: gitService,
     db,
     mcpManager,
     workspaceServ: internalMcpWorkspaceServ,
