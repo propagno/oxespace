@@ -1,4 +1,4 @@
-import { Activity, AlertCircle, ChevronDown, Loader2 } from 'lucide-react'
+import { AlertCircle, Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { ThreadEvent, ThreadSnapshot } from '../../../shared/types/thread'
 import { useThreadStateCheck } from './useThreadStateCheck'
@@ -35,8 +35,6 @@ export interface LiveActivity {
   turnRunning: boolean
   /** Provider ids of the background tasks still listed as running. */
   taskIds: string[]
-  summary?: string
-  tools: Tool[]
 }
 
 /** A status is evidence of a provider event or transport data, never an inferred thought. */
@@ -82,9 +80,7 @@ export function deriveThreadLiveActivity(snapshot: ThreadSnapshot, now: number, 
     awaitingInput,
     turnRunning,
     taskIds: turnRunning ? [] : background.flatMap(event => event.type === 'subagent' ? event.receiverThreadIds : []),
-    reconnecting: connection?.state === 'degraded' || connection?.state === 'reconnecting',
-    summary: activity?.summary,
-    tools: tools.slice(-4)
+    reconnecting: connection?.state === 'degraded' || connection?.state === 'reconnecting'
   }
 }
 
@@ -114,10 +110,5 @@ export function ThreadLiveActivity({ snapshot }: { snapshot: ThreadSnapshot }) {
     {activity.stale && <div className="thread-live-activity-meta" role="status">
       {check.checking ? <span>Checking provider state…</span> : check.observation && <span>{check.observation.state === 'running' ? 'Provider confirms execution is active.' : check.observation.state === 'awaiting-input' ? 'Provider is waiting for input. Open Diagnostics to inspect the request.' : check.observation.state === 'completed' || check.observation.state === 'failed' || check.observation.state === 'interrupted' ? `Provider reports ${check.observation.state}. Local output still needs reconciliation.` : 'Execution outcome is not confirmed. Your message was not resent.'}</span>}
     </div>}
-    {(activity.summary || activity.tools.length > 0) && <details className="thread-live-activity-details">
-      <summary><Activity size={12} />Recent activity<ChevronDown size={12} /></summary>
-      {activity.summary && <p><strong>Provider summary</strong>{activity.summary}</p>}
-      {activity.tools.length > 0 && <ul>{activity.tools.map(tool => <li key={tool.id}><span>{tool.name}{tool.detail && <small> · {threadToolSummary(tool)}</small>}</span><small>{tool.state}</small></li>)}</ul>}
-    </details>}
   </section>
 }

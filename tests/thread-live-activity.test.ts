@@ -31,7 +31,7 @@ describe('live Thread activity', () => {
   it('prioritizes a running tool and an approval over earlier reasoning summaries', () => {
     const snapshot = fixture()
     snapshot.events.push({ type: 'activity', id: 'reasoning', phase: 'reasoning', at: 1_500, summary: 'Checking the dependency graph.' })
-    expect(deriveThreadLiveActivity(snapshot, 2_000)).toMatchObject({ label: 'Analyzing request', summary: 'Checking the dependency graph.' })
+    expect(deriveThreadLiveActivity(snapshot, 2_000)).toMatchObject({ label: 'Analyzing request' })
     snapshot.events.push({ type: 'tool', id: 'command', name: 'commandExecution', state: 'running', detail: 'npm test', startedAt: 2_000 })
     expect(deriveThreadLiveActivity(snapshot, 3_000)).toMatchObject({ label: 'Running command: npm test' })
     snapshot.thread.status = 'approval'
