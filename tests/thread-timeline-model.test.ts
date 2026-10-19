@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ThreadEvent } from '../shared/types/thread'
 import { buildThreadTimeline, flattenThreadTimeline, foldFinishedTurns } from '../src/components/Threads/threadTimelineModel'
-import { turnFoldLabel } from '../src/components/Threads/ThreadTurnFold'
+import { turnFoldLabel, turnTimes } from '../src/components/Threads/ThreadTurnFold'
 import { computeThreadVirtualRange } from '../src/components/Threads/useThreadVirtualizer'
 
 describe('Thread timeline model', () => {
@@ -113,5 +113,21 @@ describe('folding finished turns', () => {
     const folded = foldFinishedTurns(buildThreadTimeline(turn('ask', [thought, tool('a'), tool('b')], [answer, { type: 'completed', status: 'completed' }]), 'normal'), new Set())
     expect(folded[0].rows.some(row => row.event.type === 'reasoning')).toBe(false)
     expect((folded[0].rows.find(row => row.event.type === 'turn-fold')!.event as { steps: number }).steps).toBe(2)
+  })
+
+  it('leaves the time spent waiting for the person out of the turn duration, counting overlaps once', () => {
+    const turn = { id: 'ask', sequence: 1, status: 'completed' as const, startedAt: 0, completedAt: 100_000, configuration: {} as never }
+    const request = (id: string, createdAt: number, resolvedAt?: number): ThreadEvent => ({ type: 'request', id, request: { id, nativeId: id, nativeMethod: 'x', kind: 'approval', title: 'Allow', generation: 0, createdAt, state: resolvedAt ? 'resolved' : 'pending', ...(resolvedAt ? { resolvedAt } : {}) } } as ThreadEvent)
+    const events: ThreadEvent[] = [
+      request('a', 10_000, 40_000),
+      request('b', 30_000, 50_000),
+      request('c', 70_000),
+      { type: 'request-resolved', id: 'c', state: 'resolved', resolvedAt: 80_000 }
+    ]
+    expect(turnTimes(turn, events)).toEqual({ totalMs: 100_000, waitedMs: 50_000, workedMs: 50_000 })
+    expect(turnFoldLabel(3, turn, events)).toBe('Completed 3 steps in 50s')
+    // A request never answered is a wait until the turn ended.
+    expect(turnTimes(turn, [request('d', 90_000)])?.waitedMs).toBe(10_000)
+    expect(turnTimes({ ...turn, completedAt: undefined })).toBeUndefined()
   })
 })

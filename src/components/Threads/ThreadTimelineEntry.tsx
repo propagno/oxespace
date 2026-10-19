@@ -70,7 +70,7 @@ export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending,
     useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'files' })
   }
   const body = (() => {
-    if (event.type === 'turn-fold') return <ThreadTurnFoldRow key={key} fold={event} turn={snapshot?.turns?.find(value => value.id === turnId)} onToggle={() => onToggleFold?.(turnId)} />
+    if (event.type === 'turn-fold') return <ThreadTurnFoldRow key={key} fold={event} turn={snapshot?.turns?.find(value => value.id === turnId)} events={turnEvents} onToggle={() => onToggleFold?.(turnId)} />
     if (event.type === 'activity-group') return <ThreadActivityGroup key={key} events={event.events} mode={viewMode} />
     if (event.type === 'plan') return <ThreadPlan key={key} event={event} />
     if (event.type === 'reasoning') return event.text.trim() ? <ThreadReasoning key={key} event={event} running={running && snapshot?.turns?.at(-1)?.id === turnId} /> : null
