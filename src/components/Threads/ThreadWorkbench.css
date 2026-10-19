@@ -1,3 +1,4 @@
+/* Thread action buttons share one shape, the design-system Button's (radius-sm); pills are for chips and badges, not actions. */
 .thread-workbench { position: relative; display: flex; flex: 1; min-width: 0; min-height: 0; height: 100%; overflow: hidden; background: var(--wb-canvas); color: var(--tx-primary); }
 .thread-workbench .thread-view { width: auto; background: var(--wb-canvas); }
 .thread-heading .thread-review-trigger { border: 1px solid var(--bd-base); flex-shrink: 0; color: var(--tx-secondary); padding: 5px 8px; }
@@ -44,7 +45,7 @@
 .thread-change-summary > header > span { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; }
 .thread-change-summary > header strong { font-weight: 600; color: var(--tx-primary); }
 .thread-change-summary > header small { color: var(--tx-muted); font-size: var(--fs-2xs); }
-.thread-change-summary .thread-change-view { flex: none; height: 26px; padding: 0 10px; border: 1px solid var(--wb-border); border-radius: var(--radius-pill); background: transparent; color: var(--tx-primary); font-size: var(--fs-xs); }
+.thread-change-summary .thread-change-view { flex: none; height: 26px; padding: 0 10px; border: 1px solid var(--wb-border); border-radius: var(--radius-sm); background: transparent; color: var(--tx-primary); font-size: var(--fs-xs); }
 .thread-change-summary .thread-change-view:hover { background: var(--nav-hover); }
 .thread-change-summary > div { border-top: 1px solid var(--wb-border); padding: 2px 4px; }
 .thread-change-summary > div > button { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 30px; padding: 0 8px; border: 0; background: transparent; text-align: left; font-size: var(--fs-xs); color: var(--tx-secondary); }
@@ -179,7 +180,7 @@
 .thread-dock-changes-toggle strong { color: var(--tx-primary); font-weight: 600; white-space: nowrap; }
 .thread-dock-changes-hint { overflow: hidden; color: var(--tx-muted); text-overflow: ellipsis; white-space: nowrap; }
 .thread-dock-changes-actions { display: inline-flex; flex: none; gap: 4px; }
-.thread-dock-changes button { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border: 1px solid var(--bd-subtle, var(--wb-border)); border-radius: var(--radius-pill); background: transparent; color: var(--tx-secondary); font: inherit; cursor: pointer; }
+.thread-dock-changes button { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border: 1px solid var(--bd-subtle, var(--wb-border)); border-radius: var(--radius-sm); background: transparent; color: var(--tx-secondary); font: inherit; cursor: pointer; }
 .thread-dock-changes button:hover:not(:disabled) { background: var(--nav-hover); color: var(--tx-primary); }
 .thread-dock-changes button:disabled { opacity: .5; cursor: default; }
 .thread-dock-changes button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -201,6 +202,6 @@
 .thread-turn.is-superseded { opacity: .45; }
 .thread-dock-rewind { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; padding: 6px 6px 6px 10px; border: 1px solid var(--bd-subtle, var(--wb-border)); border-radius: var(--radius-md); background: var(--bg-elevated); color: var(--tx-secondary); font-size: var(--fs-xs); }
 .thread-dock-rewind > span { flex: 1; min-width: 0; }
-.thread-dock-rewind button { display: inline-flex; flex: none; align-items: center; gap: 4px; height: 24px; padding: 0 10px; border: 1px solid var(--bd-subtle, var(--wb-border)); border-radius: var(--radius-pill); background: transparent; color: var(--tx-primary); font: inherit; cursor: pointer; }
+.thread-dock-rewind button { display: inline-flex; flex: none; align-items: center; gap: 4px; height: 24px; padding: 0 10px; border: 1px solid var(--bd-subtle, var(--wb-border)); border-radius: var(--radius-sm); background: transparent; color: var(--tx-primary); font: inherit; cursor: pointer; }
 .thread-dock-rewind button:hover:not(:disabled) { background: var(--nav-hover); }
 .thread-dock-rewind button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }

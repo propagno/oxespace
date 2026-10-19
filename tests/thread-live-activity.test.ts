@@ -40,6 +40,14 @@ describe('live Thread activity', () => {
     expect(deriveThreadLiveActivity(snapshot, 3_000)).toBeNull()
   })
 
+  it('marks a wait as answerable only while a request is there to answer', () => {
+    const snapshot = fixture()
+    snapshot.thread.status = 'approval'
+    expect(deriveThreadLiveActivity(snapshot, 3_000)).toMatchObject({ awaitingInput: true, actionableRequest: false })
+    snapshot.pendingRequests = [{ id: 'r', nativeId: 'r', nativeMethod: 'x', kind: 'approval', title: 'Allow', generation: 0, createdAt: 2_000, state: 'pending' }]
+    expect(deriveThreadLiveActivity(snapshot, 3_000)).toMatchObject({ awaitingInput: true, actionableRequest: true })
+  })
+
   it('does not show a finished turn as waiting for a provider update because a background task never reported its end', () => {
     const snapshot = fixture()
     snapshot.thread.status = 'idle'

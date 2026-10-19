@@ -5,6 +5,7 @@ import { blocksThreadInput } from '../../../shared/threadHistoryNotice'
 import type { Workspace } from '../../../shared/types/workspace'
 import type { ThreadAttachment } from '../../../shared/types/thread'
 import { useGitBranch } from '../../hooks/useGitBranch'
+import { ThreadEmptyState } from './ThreadEmptyState'
 import { useThreadStore } from '../../store/thread.store'
 import { useThreadPrefs } from '../../store/thread-prefs.store'
 import { useAccountStore, selectAccount } from '../../store/account.store'
@@ -136,7 +137,9 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   const quickReplies = lastConversationMessage?.type === 'message' && lastConversationMessage.role === 'assistant' && snapshot?.thread.status === 'idle' && !snapshot.events.some(e => e.type === 'request' && e.request.state === 'pending')
     ? threadQuickReplies(lastConversationMessage.text) : []
   const authFailure = snapshot?.thread.status === 'failed' && (lastResult?.type === 'completed' && lastResult.errorCode === 'authentication' || turns.at(-1)?.events.some(e => e.type === 'message' && e.role === 'assistant' && authText(e.text)))
-  const needsLogin = Boolean(snapshot && (authFailure || account && (account.state !== 'connected' || account.method !== 'subscription')))
+  // Only something to act on: a failed sign-in, no account, a missing CLI or another auth method. A check that
+  // merely could not confirm the account ('error'), or is still running, is not shown by default.
+  const needsLogin = Boolean(snapshot && (authFailure || account && !['connected', 'error', 'checking', 'connecting'].includes(account.state) || account?.state === 'connected' && account.method !== 'subscription'))
   const degradedConnection = snapshot?.thread.connection?.state === 'degraded' ? snapshot.thread.connection : undefined
   const lastPrompt = snapshot?.events.filter(e => e.type === 'message' && e.role === 'user').at(-1)
   const copyMessage = async (id: string, text: string) => {
@@ -273,6 +276,8 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
           onCopy={(id, text) => void copyMessage(id, text)} onPermissions={() => setOpenControl('permissions')} onQuote={text => appendToConversation(quoteMarkdown(text))} onDraft={appendToConversation}
           onQuickReply={value => { useThreadStore.getState().setDraft(snapshot!.thread.id, value); requestAnimationFrame(() => textarea.current?.focus()) }} onToggleFold={toggleFold} superseded={supersededTurns.has(row.turnId)} />}</ThreadTimelineWindow>
         {pendingMessage && <article className="thread-message thread-message-user thread-message-outgoing" aria-label="Sending message">{pendingMessage.attachments.length > 0 && <ul className="thread-sent-attachments" aria-label="Message attachments">{pendingMessage.attachments.map(attachment => <li key={attachment.id} title={attachment.name}><ImageIcon size={14} aria-hidden="true" /><span>{attachment.name}</span><small>{Math.ceil(attachment.bytes / 1024)} KB</small></li>)}</ul>}<ThreadMessageBody text={pendingMessage.text} role="user" /><small className="thread-message-outgoing-status">Sending…</small></article>}
+        {snapshot && !pendingMessage && !snapshot.page?.hasMore && !snapshot.events.some(event => event.type === 'message' && event.role === 'user') && snapshot.thread.status === 'idle'
+          && <ThreadEmptyState thread={snapshot.thread} branch={branch?.branch} onStarter={prompt => { useThreadStore.getState().setDraft(snapshot.thread.id, prompt); requestAnimationFrame(() => textarea.current?.focus()) }} />}
         {snapshot && <ThreadLiveActivity snapshot={snapshot} />}
       </div>
     </div>
@@ -280,7 +285,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
       {snapshot && <ThreadAnnouncer thread={snapshot.thread} pendingRequests={pendingRequests.length} />}
       {snapshot && <ThreadDockRequests snapshot={snapshot} pendingRequests={pendingRequests} pending={pending} action={action} />}
       {scroll.showEnd && <button type="button" className="thread-scroll-end" onClick={scrollEnd}><ArrowDown size={12} />Latest messages{scroll.newMessages > 0 ? ` · ${scroll.newMessages}` : ''}</button>}
-      {snapshot && needsLogin && <div className="thread-connection-notice">{needsLogin ? <><AlertCircle size={14} /><span>{authFailure ? `Sign in to ${snapshot.thread.provider === 'claude' ? 'Claude Code' : 'Codex'}` : accountMessage(account)}</span><button type="button" onClick={onAccounts}>{authFailure ? 'Reconnect' : 'Connect'}</button>{authFailure && lastPrompt?.type === 'message' && <button type="button" title="Resend after connecting" disabled={pending || account?.state !== 'connected' || account.method !== 'subscription'} onClick={() => void action(() => api!.send(snapshot.thread.id, lastPrompt.text, lastPrompt.attachments?.map(attachment => attachment.id) ?? []))}>Retry</button>}</> : <><Check size={14} /><span>{account ? `${snapshot.thread.provider === 'claude' ? 'Claude Code' : 'Codex'} connected` : 'Checking agent connection…'}</span></>}</div>}
+      {snapshot && needsLogin && <div className="thread-connection-notice"><AlertCircle size={14} /><span>{authFailure ? `Sign in to ${snapshot.thread.provider === 'claude' ? 'Claude Code' : 'Codex'}` : accountMessage(account)}</span><Button size="sm" variant={authFailure && account?.state === 'connected' ? 'secondary' : 'primary'} onClick={onAccounts}>{authFailure ? 'Reconnect' : 'Connect'}</Button>{authFailure && lastPrompt?.type === 'message' && <Button size="sm" variant={account?.state === 'connected' && account.method === 'subscription' ? 'primary' : 'secondary'} title="Resend after connecting" disabled={pending || account?.state !== 'connected' || account.method !== 'subscription'} onClick={() => void action(() => api!.send(snapshot.thread.id, lastPrompt.text, lastPrompt.attachments?.map(attachment => attachment.id) ?? []))}>Retry</Button>}</div>}
       {degradedConnection && !needsLogin && <div className="thread-connection-notice is-warning" role="status"><AlertCircle size={14} /><span>{degradedConnection.detail || 'Provider connection is unavailable.'}{degradedConnection.nextRetryAt ? ` You can retry after ${new Date(degradedConnection.nextRetryAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}.` : ''}</span></div>}
       {snapshot && blocksThreadInput(snapshot.thread) && <div className="thread-connection-notice"><TerminalSquare size={14} /><span>Recover the saved conversation to continue here.</span><button type="button" disabled={pending} onClick={() => void action(returnFromCli)}>Recover conversation</button></div>}
       {(error || !api) && <div role="alert" className="thread-action-error"><span>{error || 'Thread service unavailable. Restart the updated application.'}</span><button type="button" aria-label="Dismiss error" onClick={() => setError('')}>×</button></div>}

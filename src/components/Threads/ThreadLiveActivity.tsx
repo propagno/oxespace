@@ -30,6 +30,8 @@ export interface LiveActivity {
   signalAge: string
   stale: boolean
   awaitingInput: boolean
+  /** A request the person can answer is on screen: its card already says what is awaited. */
+  actionableRequest: boolean
   reconnecting: boolean
   /** False once the turn is over and only background work is being waited for. */
   turnRunning: boolean
@@ -78,6 +80,7 @@ export function deriveThreadLiveActivity(snapshot: ThreadSnapshot, now: number, 
     // Quiet background work is normal; only a running turn that goes silent is a doubt worth showing.
     stale: turnRunning && signalAgeMs >= 60_000 && (!awaitingInput || !actionableRequest),
     awaitingInput,
+    actionableRequest,
     turnRunning,
     taskIds: turnRunning ? [] : background.flatMap(event => event.type === 'subagent' ? event.receiverThreadIds : []),
     reconnecting: connection?.state === 'degraded' || connection?.state === 'reconnecting'
@@ -96,7 +99,8 @@ export function ThreadLiveActivity({ snapshot }: { snapshot: ThreadSnapshot }) {
   const activity = deriveThreadLiveActivity(snapshot, now, viewMode === 'verbose')
   const check = useThreadStateCheck(snapshot, activity?.awaitingInput ?? false)
   const terminalObserved = check.observation && ['completed', 'failed', 'interrupted'].includes(check.observation.state)
-  if (!activity) return null
+  // Waiting on a request whose card is on screen: that card is the status, a banner above it would repeat it.
+  if (!activity || activity.awaitingInput && activity.actionableRequest && !activity.stale) return null
   return <section className={`thread-live-activity${activity.stale ? ' is-stale' : ''}${activity.awaitingInput ? ' is-awaiting-input' : ''}${activity.reconnecting ? ' is-reconnecting' : ''}`} aria-label="Current agent activity">
     <div className="thread-live-activity-main">
       {activity.stale || activity.awaitingInput ? <AlertCircle size={14} aria-hidden="true" /> : <Loader2 size={14} className="thread-spin" aria-hidden="true" />}
