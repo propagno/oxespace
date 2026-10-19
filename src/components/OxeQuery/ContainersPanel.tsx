@@ -8,6 +8,7 @@ import { useOxeQueryStore } from './oxequery.store'
 import { NewDatabaseDialog, ResourcesPanel } from './ResourcesPanel'
 import { EngineBar } from './EngineBar'
 import { Select } from '../../ui/Field'
+import { LoadingState } from '../../ui'
 
 const STATS_MS = 5000
 const COMPOSE_LABEL = 'com.docker.compose.project'
@@ -220,7 +221,7 @@ function Overview({ container, engine }: { container: ContainerSummary; engine?:
     return () => { active = false }
   }, [container.id, engine])
   if (error) return <p role="alert" className="oq-error">{error}</p>
-  if (!inspect) return <p className="oq-muted">Loading…</p>
+  if (!inspect) return <LoadingState label="Loading container details…" />
   return <dl className="oq-overview">
     <dt>Image</dt><dd>{inspect.image}</dd>
     <dt>Command</dt><dd><code>{inspect.command || '—'}</code></dd>

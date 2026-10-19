@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { WorkRun, WorkTask } from '../../../shared/types/work'
 import { formatThreadCost } from './ThreadCostChip'
 import { humanizeError } from '../../utils/humanizeError'
+import { LoadingState } from '../../ui'
 
 const STATUS: Record<WorkTask['status'] | WorkRun['status'], string> = {
   pending: 'Waiting', ready: 'Ready', running: 'Running', blocked: 'Needs input', succeeded: 'Done', failed: 'Failed', cancelled: 'Cancelled'
@@ -51,7 +52,7 @@ export default function ThreadWorkPanel({ threadId, onOpenThread }: { threadId: 
   }
   return <div className="thread-work">
     {error && <p role="alert">{error}</p>}
-    {runs === null ? <p>Loading…</p> : runs.length === 0 ? <p>No Agent Work yet. Ask the agent to split a job into parallel tasks; it plans them with <code>oxespace_work_plan</code> and each task runs in its own conversation.</p>
+    {runs === null ? <LoadingState label="Loading Agent Work…" /> : runs.length === 0 ? <p>No Agent Work yet. Ask the agent to split a job into parallel tasks; it plans them with <code>oxespace_work_plan</code> and each task runs in its own conversation.</p>
       : runs.map(run => <section key={run.id} className="thread-work-run" aria-label={`Run ${run.title}`}>
         <header>
           <div><h3>{run.title}</h3><small>{run.status === 'blocked' ? 'Stopped at budget' : STATUS[run.status]} · {budgetLabel(run)}{run.supervisorThreadId !== threadId ? ' · this conversation is a worker' : ''}</small></div>
