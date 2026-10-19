@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { WorkRun, WorkTask } from '../../../shared/types/work'
 import { formatThreadCost } from './ThreadCostChip'
+import { humanizeError } from '../../utils/humanizeError'
 
 const STATUS: Record<WorkTask['status'] | WorkRun['status'], string> = {
   pending: 'Waiting', ready: 'Ready', running: 'Running', blocked: 'Needs input', succeeded: 'Done', failed: 'Failed', cancelled: 'Cancelled'
@@ -36,7 +37,7 @@ export default function ThreadWorkPanel({ threadId, onOpenThread }: { threadId: 
     if (!api?.workRuns) return
     setRuns(await api.workRuns(threadId))
   }, [api, threadId])
-  useEffect(() => { void load().catch(cause => setError(cause instanceof Error ? cause.message : 'Could not load Agent Work')) }, [load])
+  useEffect(() => { void load().catch(cause => setError(humanizeError(cause, 'Could not load Agent Work'))) }, [load])
   const active = runs?.some(run => run.status === 'running') ?? false
   useEffect(() => {
     if (!active) return
@@ -46,7 +47,7 @@ export default function ThreadWorkPanel({ threadId, onOpenThread }: { threadId: 
   if (!api?.workRuns) return <p>Agent Work is not available in this build.</p>
   const cancel = async (run: WorkRun) => {
     setBusy(true); setError('')
-    try { await api.cancelWork!(threadId, run.id); await load() } catch (cause) { setError(cause instanceof Error ? cause.message : 'The run was not cancelled') } finally { setBusy(false) }
+    try { await api.cancelWork!(threadId, run.id); await load() } catch (cause) { setError(humanizeError(cause, 'The run was not cancelled')) } finally { setBusy(false) }
   }
   return <div className="thread-work">
     {error && <p role="alert">{error}</p>}

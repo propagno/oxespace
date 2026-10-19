@@ -16,6 +16,7 @@ import { OxeLogo } from './components/Brand/OxeLogo'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { ThemeProvider } from './components/Theme/ThemeProvider'
 import type { CommandPaletteAction } from './utils/commandRegistry'
+import { humanizeError } from './utils/humanizeError'
 // Modals/overlays are user-triggered and infrequent — lazy-load them so they're
 // not in the first-paint bundle.
 const AgentConfigModal = lazy(() => import('./components/Agents/AgentConfigModal').then((m) => ({ default: m.AgentConfigModal })))
@@ -625,7 +626,7 @@ export function App(): ReactElement {
           .split(workspaceId, paneId, newPaneId, direction === 'vertical' ? 'horizontal' : 'vertical')
       })
       .catch((cause: unknown) => {
-        setAppNotice(cause instanceof Error ? cause.message : 'Failed to split pane')
+        setAppNotice(humanizeError(cause, 'Failed to split pane'))
       })
   }, [splitPane])
 
@@ -1254,7 +1255,7 @@ export function App(): ReactElement {
               if (isSettingsOpen) toggleSettings()
               closeWorkspaceSettings()
             } catch (err) {
-              setAppNotice(err instanceof Error ? err.message : 'Failed to start agent in pane')
+              setAppNotice(humanizeError(err, 'Failed to start agent in pane'))
             }
           }}
           onClose={() => { if (isSettingsOpen) toggleSettings(); closeWorkspaceSettings() }}

@@ -5,6 +5,7 @@ import type { AgentProfile } from '../../../shared/types/agent'
 import type { ConversationThread } from '../../../shared/types/thread'
 import './DelegationCreateDialog.css'
 import { Button, Checkbox, Dialog, Select, TextArea, TextField } from '../../ui'
+import { humanizeError } from '../../utils/humanizeError'
 
 export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceId, origin: suppliedOrigin, onClose, onCreated }: {
   thread?: ConversationThread
@@ -80,7 +81,7 @@ export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceI
       const result = await window.oxe.delegation.preview(targetId, objective, intent)
       if (current === revision.current) { setPreview(result); if (strategy === 'generated') { try { localStorage.setItem(`oxe.delegation.template.${workspaceId}`, template) } catch { /* Preferences are optional. */ } } }
     }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not resolve this checkout.') }
+    catch (cause) { setError(humanizeError(cause, 'Could not resolve this checkout.')) }
     finally { setLoading(false) }
   }
   const create = async () => {
@@ -92,7 +93,7 @@ export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceI
         targetWorkspaceId: targetId, surface, mode, evidenceFiles: evidence.split(/\r?\n/).map(path => path.trim()).filter(Boolean),
         branchIntent: intent, previewId: preview.previewId, sourceThreadIds, includeMemory })
       onCreated?.(task); onClose()
-    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) }
+    } catch (cause) { setError(humanizeError(cause)) }
     finally { setLoading(false) }
   }
   return <Dialog className="delegation-create-dialog" size="xl" title="Delegate work" description="Start a focused session in its own branch and worktree. Preview the checkout before starting the agent." onClose={() => { if (!loading) onClose() }}

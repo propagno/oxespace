@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import type { ThreadAuditEntry, ThreadPermissionRule } from '../../../shared/types/thread'
 import { Checkbox, Select, TextField } from '../../ui'
+import { humanizeError } from '../../utils/humanizeError'
 
 const ACTOR: Record<ThreadAuditEntry['actor'], string> = { user: 'You', policy: 'Rule', system: 'OXESpace' }
 const KIND: Record<ThreadPermissionRule['kind'], string> = { command: 'Command', path: 'Files', tool: 'MCP tool' }
@@ -28,11 +29,11 @@ export default function ThreadPermissionsPanel({ threadId }: { threadId: string 
     setAutoReads(nextReads)
     setAudit(nextAudit)
   }, [api, threadId, scope])
-  useEffect(() => { void load().catch(cause => setError(cause instanceof Error ? cause.message : 'Could not load permission rules')) }, [load])
+  useEffect(() => { void load().catch(cause => setError(humanizeError(cause, 'Could not load permission rules'))) }, [load])
 
   const run = async (work: () => Promise<unknown>) => {
     setBusy(true); setError('')
-    try { await work(); await load() } catch (cause) { setError(cause instanceof Error ? cause.message : 'The change was not saved') } finally { setBusy(false) }
+    try { await work(); await load() } catch (cause) { setError(humanizeError(cause, 'The change was not saved')) } finally { setBusy(false) }
   }
 
   if (!api?.permissionRules) return <p>Permission rules are not available in this build.</p>

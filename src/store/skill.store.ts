@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { CreateSkillInput, SkillDefinition } from '../../shared/types/skill'
+import { humanizeError } from '../utils/humanizeError'
 
 interface SkillStoreState {
   skills: SkillDefinition[]
@@ -24,7 +25,7 @@ export const useSkillStore = create<SkillStoreState>((set, get) => ({
       const skills = await window.oxe.skill.list({ workspaceRootPath })
       set({ skills, loading: false, error: null, loaded: true })
     } catch (err) {
-      set({ loading: false, error: err instanceof Error ? err.message : String(err), loaded: true })
+      set({ loading: false, error: humanizeError(err), loaded: true })
     }
   },
 

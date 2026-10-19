@@ -6,6 +6,7 @@ import { requestOutcomeLabel } from '../../../shared/threadRequestOutcome'
 import { elicitationContent, elicitationDefaults, elicitationFields, validateElicitationField, type ElicitationValue } from '../../../shared/elicitationForm'
 import { cx, Select } from '../../ui'
 import styles from './ThreadRequestCard.module.css'
+import { humanizeError } from '../../utils/humanizeError'
 
 // In-memory only: preserve drafts across view remounts, never persist secrets.
 const drafts = new Map<string, Record<string, string[]>>()
@@ -51,7 +52,7 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond, on
     inFlight.current = true
     setSending(true)
     setError('')
-    try { await onRespond(response); drafts.delete(draftKey) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not answer this request') }
+    try { await onRespond(response); drafts.delete(draftKey) } catch (cause) { setError(humanizeError(cause, 'Could not answer this request')) }
     finally { inFlight.current = false; setSending(false) }
   }
   const policy = request.policy
@@ -59,7 +60,7 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond, on
   const rememberAndApprove = async (suggestions: ThreadPermissionSuggestion[]) => {
     if (inFlight.current) return
     setError('')
-    try { await onRemember!(suggestions) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save the rule'); return }
+    try { await onRemember!(suggestions) } catch (cause) { setError(humanizeError(cause, 'Could not save the rule')); return }
     await submit({ decision: 'accept' })
   }
   if (request.state !== 'pending') return <details className={cx(`thread-request-history is-${request.state}`, styles.history)}>

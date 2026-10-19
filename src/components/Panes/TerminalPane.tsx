@@ -18,6 +18,7 @@ import { ErrorBoundary } from '../common/ErrorBoundary'
 import { VoiceHud } from '../Voice/VoiceHud'
 
 import { Dialog, TextField } from '../../ui'
+import { humanizeError } from '../../utils/humanizeError'
 interface TerminalPaneProps {
   pane: WorkspacePane
   workspaceId: string
@@ -361,7 +362,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
     try {
       const sessions = await window.oxe.session.list({ workspaceId, workspaceRootPath: effectiveRootPath, provider: agentCreditsProvider })
       setSavedSessions(sessions.sort((a, b) => b.lastUpdatedMs - a.lastUpdatedMs))
-    } catch (cause) { setRestoreError(cause instanceof Error ? cause.message : 'Could not find saved sessions.') }
+    } catch (cause) { setRestoreError(humanizeError(cause, 'Could not find saved sessions.')) }
     finally { setRestoreBusy(false) }
   }, [agentCreditsProvider, effectiveRootPath, workspaceId])
   const restoreSession = useCallback(async (sessionId: string) => {
@@ -374,7 +375,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         agentArgs: agentCreditsProvider === 'claude' ? ['--resume', sessionId] : ['resume', sessionId, '--no-alt-screen'],
         disableRtk: !terminalPrefs.rtkHookEnabled })
       setStatus(pane.id, 'running'); setRestoreOpen(false)
-    } catch (cause) { setStatus(pane.id, 'error', cause instanceof Error ? cause.message : 'Could not resume session.'); setRestoreError(cause instanceof Error ? cause.message : 'Could not resume session.') }
+    } catch (cause) { setStatus(pane.id, 'error', humanizeError(cause, 'Could not resume session.')); setRestoreError(humanizeError(cause, 'Could not resume session.')) }
     finally { setRestoreBusy(false) }
   }, [agentCreditsProvider, allProfiles, pane.agentProfileId, pane.id, setStatus, terminalPrefs.rtkHookEnabled, workspaceId])
   const moreRef = useRef<HTMLDivElement | null>(null)
@@ -526,7 +527,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
 }
 
 function toMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Terminal error'
+  return humanizeError(error, 'Terminal error')
 }
 
 function inferAgentProfile(command: string, profiles: AgentProfile[]): AgentProfile | null {

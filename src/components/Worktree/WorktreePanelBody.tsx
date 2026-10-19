@@ -7,6 +7,7 @@ import { selectWorktrees, useWorktreeStore } from '../../store/worktree.store'
 import { WorktreeCleanupPanel } from './WorktreeCleanupPanel'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { Button, ConfirmDialog, TextField } from '../../ui'
+import { humanizeError } from '../../utils/humanizeError'
 
 /** A worktree the user asked to remove, plus what removing it would destroy. */
 interface PendingRemoval {
@@ -132,7 +133,7 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
       await setPaneRootPath(activePane.id, path)
       try { await window.oxe.terminal.restart({ paneId: activePane.id }) } catch { /* maybe idle */ }
     } catch (err) {
-      setLocalError(err instanceof Error ? err.message : String(err))
+      setLocalError(humanizeError(err))
     } finally {
       setBusy(false)
     }
@@ -236,7 +237,7 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
       setParentOverride(picked.replace(/[\\/]+$/, ''))
       setPathOverride(null)
     } catch (err) {
-      setLocalError(err instanceof Error ? err.message : String(err))
+      setLocalError(humanizeError(err))
     }
   }
 
@@ -564,7 +565,7 @@ function RepoHooksNotice({ rootPath }: { rootPath: string }): ReactElement | nul
       setSnapshot(await window.oxe.github.approveRepoHook({ rootPath, kind, contentHash }))
       setError(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(humanizeError(err))
     }
   }
 
@@ -723,7 +724,7 @@ function deriveWorktreePath(options: {
  * preserve them as a fallback when we don't recognise the failure mode.
  */
 function friendlyCreateError(err: unknown, path: string, createNewBranch: boolean, baseRef: string): string {
-  const raw = err instanceof Error ? err.message : String(err)
+  const raw = humanizeError(err)
   if (/already exists/i.test(raw)) {
     return `Folder "${path}" already exists. Pick a different path — git refuses to create a worktree where files are already present.`
   }
@@ -757,7 +758,7 @@ function friendlyCreateError(err: unknown, path: string, createNewBranch: boolea
  * folder, not about the worktree.
  */
 function friendlyRemoveError(err: unknown): string {
-  const parsed = parseWorktreeRemovalError(err instanceof Error ? err.message : String(err))
+  const parsed = parseWorktreeRemovalError(humanizeError(err))
   const raw = parsed.message
   if (parsed.code === 'archive-failed') return `${raw} Corrija o hook archive do oxe.yaml, ou remova mesmo assim.`
   // The message already names the conversations and says to archive them; no override applies.

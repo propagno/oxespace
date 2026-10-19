@@ -4,6 +4,7 @@ import { ToolPanel, Button, TextField, Select } from '../../ui'
 import { BUILTIN_PROVIDERS, type AgentProvider } from '../../../shared/types/agent'
 import type { SkillDefinition } from '../../../shared/types/skill'
 import { useSkillStore } from '../../store/skill.store'
+import { humanizeError } from '../../utils/humanizeError'
 
 interface SkillsBrowserProps {
   workspaceId: string | null
@@ -544,8 +545,7 @@ function CreateSkillForm({ onCancel, onCreate, workspaceRootPath }: CreateSkillF
 }
 
 function toMessage(error: unknown): string {
-  const raw = error instanceof Error ? error.message : String(error)
-  return raw.replace(/^Error invoking remote method '[^']+':\s*/i, '').replace(/^Error:\s*/i, '').trim()
+  return humanizeError(error, 'The skill action did not complete.')
 }
 
 interface SkillTemplate {

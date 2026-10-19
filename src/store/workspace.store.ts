@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { CreateWorkspaceInput, ShellProfile, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, UpdateWorkspaceWorktreeStateInput, Workspace } from '../../shared/types/workspace'
+import { humanizeError } from '../utils/humanizeError'
 
 interface WorkspaceState {
   workspaces: Workspace[]
@@ -95,7 +96,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       // Rollback the optimistic flip so the UI doesn't lie about state.
       set({
         activeWorkspaceId: previousActiveId,
-        error: err instanceof Error ? err.message : 'Failed to switch workspace'
+        error: humanizeError(err, 'Failed to switch workspace')
       })
     }
   },
@@ -189,7 +190,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         error: null
       }))
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : 'Failed to update review state' })
+      set({ error: humanizeError(err, 'Failed to update review state') })
     }
   },
 
@@ -201,7 +202,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         error: null
       }))
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : 'Failed to update GitHub panel state' })
+      set({ error: humanizeError(err, 'Failed to update GitHub panel state') })
     }
   },
 
@@ -213,7 +214,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         error: null
       }))
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : 'Failed to update Background panel state' })
+      set({ error: humanizeError(err, 'Failed to update Background panel state') })
     }
   },
 
@@ -225,7 +226,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         error: null
       }))
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : 'Failed to update Worktree panel state' })
+      set({ error: humanizeError(err, 'Failed to update Worktree panel state') })
     }
   },
 
@@ -247,7 +248,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       set({ workspaces: fresh, error: null })
     } catch (err) {
       // Roll back on failure so the UI doesn't lie about persistence.
-      set({ workspaces: previous, error: err instanceof Error ? err.message : 'Failed to reorder workspaces' })
+      set({ workspaces: previous, error: humanizeError(err, 'Failed to reorder workspaces') })
     }
   },
 
@@ -267,5 +268,5 @@ export function selectActiveWorkspace(state: WorkspaceState): Workspace | null {
 }
 
 function toMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Unexpected workspace error'
+  return humanizeError(error, 'Unexpected workspace error')
 }

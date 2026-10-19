@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { humanizeError } from '../utils/humanizeError'
 import type {
   CreateMcpServerInput,
   McpHealthStatus,
@@ -131,9 +132,5 @@ export function selectMcpServers(workspaceId: string | null): (state: McpStoreSt
 }
 
 function sanitizeMcpError(err: unknown): string {
-  const raw = err instanceof Error ? err.message : String(err)
-  return raw
-    .replace(/^Error invoking remote method '[^']+':\s*/i, '')
-    .replace(/^Error:\s*/i, '')
-    .trim()
+  return humanizeError(err, 'The MCP server action did not complete.')
 }

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { AgentProvider } from '../../shared/types/agent'
 import { emptyAgentCredits, type AgentCreditsSnapshot } from '../../shared/types/agentCredits'
+import { humanizeError } from '../utils/humanizeError'
 
 /**
  * Global (account-wide, not per-workspace) per-provider quota snapshots — the
@@ -31,7 +32,7 @@ export const useAgentCreditsStore = create<AgentCreditsState>((set, get) => ({
       set((s) => ({
         byProvider: {
           ...s.byProvider,
-          [provider]: { ...emptyAgentCredits(provider), error: err instanceof Error ? err.message : String(err) }
+          [provider]: { ...emptyAgentCredits(provider), error: humanizeError(err) }
         },
         loading: { ...s.loading, [provider]: false }
       }))

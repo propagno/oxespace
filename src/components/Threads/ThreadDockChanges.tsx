@@ -1,6 +1,7 @@
 import { Check, ChevronDown, FileCode2, Loader2, Undo2 } from 'lucide-react'
 import { useCallback, useEffect, useId, useState } from 'react'
 import type { ThreadSnapshot } from '../../../shared/types/thread'
+import { humanizeError } from '../../utils/humanizeError'
 
 /** One file a turn changed that is still as the turn left it: not undone, not edited since, not kept. */
 export interface PendingChange { turnId: string; path: string }
@@ -71,7 +72,7 @@ export function ThreadDockChanges({ snapshot, running, onViewChanges }: { snapsh
       // Newest turn first, so each restore finds the file as that turn left it.
       for (const change of selected) await api.undoTurnFile(threadId, change.turnId, change.path)
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message.replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, '') : 'Could not undo this change.')
+      setError(humanizeError(cause, 'Could not undo this change.'))
     } finally {
       setBusy(null)
       await load()

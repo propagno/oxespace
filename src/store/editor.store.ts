@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import type { FileSystemFileChangedEvent } from '../../shared/types/ipc'
 import { detectEditorLanguage } from '../components/Editor/language'
 import { isBinaryPreview, previewKind } from '../components/Preview/previewKind'
+import { humanizeError } from '../utils/humanizeError'
 
 interface EditorConflict {
   externalContent: string
@@ -356,5 +357,5 @@ export function selectActiveFile(state: EditorState, workspaceId: string): Edito
 }
 
 function toMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Unexpected editor error'
+  return humanizeError(error, 'Unexpected editor error')
 }

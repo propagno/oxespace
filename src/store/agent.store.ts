@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { AgentProfile, AgentReadiness } from '../../shared/types/agent'
 import type { CreateAgentProfileInput, UpdateAgentProfileInput } from '../../shared/types/agent'
+import { humanizeError } from '../utils/humanizeError'
 
 const LAST_HEALTH_KEY = 'oxe-last-agent-health-check-at'
 
@@ -115,5 +116,5 @@ export function selectReadinessByProvider(state: AgentState, provider: string): 
 }
 
 function toMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Unexpected agent error'
+  return humanizeError(error, 'Unexpected agent error')
 }

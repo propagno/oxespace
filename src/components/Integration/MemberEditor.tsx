@@ -4,6 +4,7 @@ import type { IntegrationMember, IntegrationRole } from '../../../shared/types/i
 import type { WorkspacePane } from '../../../shared/types/workspace'
 import { useIntegrationStore } from '../../store/integration.store'
 import { Button, TextField, Select, TextArea } from '../../ui'
+import { humanizeError } from '../../utils/humanizeError'
 
 interface MemberEditorProps {
   member: IntegrationMember
@@ -63,7 +64,7 @@ export function MemberEditor({ member, panes, confirmingRemoval, isRemoving, onC
       })
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(humanizeError(err))
     } finally {
       setBusy(false)
     }

@@ -6,6 +6,7 @@ import { summarizeSemanticStatus } from '../Semantic/semanticStatusSummary'
 import { useResolvedTerminalPrefs, useTerminalPrefsStore } from '../../store/terminal-prefs.store'
 import { selectMcpServers, useMcpStore } from '../../store/mcp.store'
 import { useUpdaterStore } from '../../store/updater.store'
+import { humanizeError } from '../../utils/humanizeError'
 
 interface IntegrationsStatusChipsProps {
   workspace: Workspace
@@ -64,7 +65,7 @@ export function IntegrationsStatusChips({ workspace, isActive = true }: Integrat
         }
       } catch (err) {
         if (mounted) {
-          setGithubStatus({ loggedIn: false, error: err instanceof Error ? err.message : String(err) })
+          setGithubStatus({ loggedIn: false, error: humanizeError(err) })
         }
       }
 

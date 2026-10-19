@@ -10,6 +10,7 @@ import { useEditorStore } from '../../store/editor.store'
 import { useResolvedTerminalPrefs } from '../../store/terminal-prefs.store'
 import { TerminalView } from '../Terminal/TerminalView'
 import { GITHUB_PANEL_TABS as TABS, buildStatusHeadline, describeSyncState } from './githubPanelModel'
+import { humanizeError } from '../../utils/humanizeError'
 export { buildStatusHeadline, describeSyncState } from './githubPanelModel'
 
 interface GitHubPanelProps {
@@ -1338,7 +1339,7 @@ function RunDetail({ run, details, rootPath, workspaceId, onRefresh, onRerun }: 
       setLogs({ text: result.logs, truncated: result.truncated })
     } catch (err) {
       console.error('[GitHubActions] fetch logs failed', err)
-      setLogsError(err instanceof Error ? err.message : String(err))
+      setLogsError(humanizeError(err))
       setLogs(null)
     } finally {
       setLogsLoading(false)
@@ -1740,7 +1741,7 @@ function GitHubEmbeddedTerminal({ command, workspaceId, onDismiss }: {
         if (cancelled) return
         setRunning(true)
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Terminal error')
+        if (!cancelled) setError(humanizeError(err, 'Terminal error'))
       }
     }
     void setup()

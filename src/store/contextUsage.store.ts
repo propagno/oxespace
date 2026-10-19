@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { emptyContextUsage, type ContextUsageChip, type ContextUsageInput } from '../../shared/types/contextUsage'
+import { humanizeError } from '../utils/humanizeError'
 
 /**
  * Live context-window % per (provider + workspace root). Sourced via IPC
@@ -32,7 +33,7 @@ export const useContextUsageStore = create<ContextUsageState>((set, get) => ({
       }))
     } catch (err) {
       set((s) => ({
-        byKey: { ...s.byKey, [key]: { ...emptyContextUsage(input.provider), error: err instanceof Error ? err.message : String(err) } },
+        byKey: { ...s.byKey, [key]: { ...emptyContextUsage(input.provider), error: humanizeError(err) } },
         loading: { ...s.loading, [key]: false }
       }))
     }

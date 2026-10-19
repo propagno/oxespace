@@ -4,6 +4,7 @@ import type { BackgroundJob, BackgroundJobStatus } from '../../../shared/types/b
 import type { DelegationTask } from '../../../shared/types/delegation'
 import { selectJobs, selectOutput, useBackgroundStore } from '../../store/background.store'
 import { Button } from '../../ui'
+import { humanizeError } from '../../utils/humanizeError'
 
 interface BackgroundJobsPanelProps {
   workspaceId: string
@@ -50,7 +51,7 @@ export function BackgroundJobsPanel({ workspaceId }: BackgroundJobsPanelProps): 
         const page = await window.oxe.delegation.status(workspaceId, undefined, 50)
         if (active) { setDelegated(page.tasks); setDelegatedError('') }
       } catch (error) {
-        if (active) setDelegatedError(error instanceof Error ? error.message : 'Could not load delegated work.')
+        if (active) setDelegatedError(humanizeError(error, 'Could not load delegated work.'))
       } finally {
         if (active) setDelegatedLoading(false)
       }

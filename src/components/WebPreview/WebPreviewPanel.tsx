@@ -9,6 +9,7 @@ import { ConfirmDialog } from '../../ui'
 import { useUIStore } from '../../store/ui.store'
 import { DesignGrabSheet } from './DesignGrabSheet'
 import { NativePreviewHost } from './NativePreviewHost'
+import { humanizeError } from '../../utils/humanizeError'
 
 interface WebPreviewPanelProps {
   workspace: Workspace
@@ -48,7 +49,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
     let cancelled = false
     setTabs([])
     setActiveTabId('')
-    void window.oxe.browserPreview.session({ownerKey:previewKey,action:'open'}).then(session => { if (!cancelled) applySession(session) }).catch(error => { if (!cancelled) setCaptureNotice(error instanceof Error ? error.message : 'Could not open browser tabs.') })
+    void window.oxe.browserPreview.session({ownerKey:previewKey,action:'open'}).then(session => { if (!cancelled) applySession(session) }).catch(error => { if (!cancelled) setCaptureNotice(humanizeError(error, 'Could not open browser tabs.')) })
     return () => { cancelled = true }
   },[previewKey,applySession])
   const setDraftUrl = (value: string): void => updateTab(activeTabId, tab => ({ ...tab, draftUrl: value }))
@@ -76,22 +77,22 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
       return
     }
     const nextUrl = normalizedUrl
-    void window.oxe.browserPreview.session({ownerKey:previewKey,action:'navigate',tabId:activeTabId,url:nextUrl,allowExternal}).then(applySession).catch(error => setCaptureNotice(error instanceof Error ? error.message : 'Could not open the page.'))
+    void window.oxe.browserPreview.session({ownerKey:previewKey,action:'navigate',tabId:activeTabId,url:nextUrl,allowExternal}).then(applySession).catch(error => setCaptureNotice(humanizeError(error, 'Could not open the page.')))
   }
 
   const goBack = (): void => {
     if (!canGoBack) return
-    void window.oxe.browserPreview.back({ownerKey:previewKey,tabId:activeTabId}).catch(error => setCaptureNotice(error instanceof Error ? error.message : 'Could not go back.'))
+    void window.oxe.browserPreview.back({ownerKey:previewKey,tabId:activeTabId}).catch(error => setCaptureNotice(humanizeError(error, 'Could not go back.')))
   }
 
   const goForward = (): void => {
     if (!canGoForward) return
-    void window.oxe.browserPreview.forward({ownerKey:previewKey,tabId:activeTabId}).catch(error => setCaptureNotice(error instanceof Error ? error.message : 'Could not go forward.'))
+    void window.oxe.browserPreview.forward({ownerKey:previewKey,tabId:activeTabId}).catch(error => setCaptureNotice(humanizeError(error, 'Could not go forward.')))
   }
 
-  const reload = (): void => { void window.oxe.browserPreview.reload({ownerKey:previewKey,tabId:activeTabId}).catch(error => setCaptureNotice(error instanceof Error ? error.message : 'Could not reload.')) }
+  const reload = (): void => { void window.oxe.browserPreview.reload({ownerKey:previewKey,tabId:activeTabId}).catch(error => setCaptureNotice(humanizeError(error, 'Could not reload.'))) }
   const changeTab = (action:'new'|'select'|'close',tabId?:string): void => {
-    void window.oxe.browserPreview.session({ownerKey:previewKey,action,tabId}).then(applySession).catch(error => setCaptureNotice(error instanceof Error ? error.message : 'Could not update browser tabs.'))
+    void window.oxe.browserPreview.session({ownerKey:previewKey,action,tabId}).then(applySession).catch(error => setCaptureNotice(humanizeError(error, 'Could not update browser tabs.')))
     setDesignMode(false)
   }
 
@@ -175,7 +176,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
     }
     setCaptureNotice(null)
     updateTab(activeTabId, tab => ({ ...tab, draftUrl: pendingWebPreview }))
-    void window.oxe.browserPreview.session({ownerKey:previewKey,action:'navigate',tabId:activeTabId,url:nextUrl,allowExternal}).then(session => { applySession(session); setPendingWebPreview(previewKey, null) }).catch(error => setCaptureNotice(error instanceof Error ? error.message : 'Could not open the page.'))
+    void window.oxe.browserPreview.session({ownerKey:previewKey,action:'navigate',tabId:activeTabId,url:nextUrl,allowExternal}).then(session => { applySession(session); setPendingWebPreview(previewKey, null) }).catch(error => setCaptureNotice(humanizeError(error, 'Could not open the page.')))
   }, [pendingWebPreview, previewKey, activeTabId, setPendingWebPreview, allowExternal, applySession])
   const zoomOut = (): void => setZoom((value) => Math.max(50, value - 10))
   const zoomIn = (): void => setZoom((value) => Math.min(150, value + 10))
@@ -189,7 +190,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
       await window.oxe.browserPreview.captureClipboard({ownerKey:previewKey,tabId:activeTabId})
       setCaptureNotice('Preview copied to the clipboard.')
     } catch (error) {
-      setCaptureNotice(error instanceof Error ? error.message : 'Could not capture the preview.')
+      setCaptureNotice(humanizeError(error, 'Could not capture the preview.'))
     } finally {
       setCapturing(false)
     }

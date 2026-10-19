@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactElement } from 'react'
 import './WorkspaceMemorySettings.css'
 import type { MemoryHandoff, MemoryStorageUsage, MemorySettings, MemoryRuntimeSettings, MemoryWorkspaceStatus } from '../../../shared/types/memory'
 import { Button, Checkbox, Select, TextField } from '../../ui'
+import { humanizeError } from '../../utils/humanizeError'
 
 const STAGE_LABEL: Record<string, string> = {
   unknown: 'Unknown (not observable)', disabled: 'Off', active: 'Accepting events', suspended: 'Suspended', failed: 'Failing',
@@ -91,7 +92,7 @@ export function WorkspaceMemorySettings({ workspaceId }: { workspaceId: string }
   }, [workspaceId, status?.settings.enabled])
   const act = async (fn: () => Promise<void>): Promise<void> => {
     setBusy(true); setMessage(''); setFailure(false)
-    try { await fn() } catch (error) { setFailure(true); setMessage(error instanceof Error ? error.message : 'Memory operation failed') }
+    try { await fn() } catch (error) { setFailure(true); setMessage(humanizeError(error, 'Memory operation failed')) }
     finally { setBusy(false) }
   }
   const resume = (offer: MemoryHandoff): Promise<void> => act(async () => {

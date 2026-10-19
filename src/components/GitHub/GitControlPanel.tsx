@@ -5,6 +5,7 @@ import { useEditorStore } from '../../store/editor.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import './GitControlPanel.css'
 import { Button, TextArea, TextField, EmptyState } from '../../ui'
+import { humanizeError } from '../../utils/humanizeError'
 
 type Props = {
   workspaceId: string; rootPath: string; onOpenFile?: (path: string) => void
@@ -52,7 +53,7 @@ export function GitControlPanel({ workspaceId, rootPath, onOpenFile, draft }: Pr
       const next = await window.oxe.git.getStatus({ workspaceId, rootPath })
       if (generation !== request.current) return
       setStatus(next); setError(next.error ?? '')
-    } catch (cause) { if (generation === request.current) setError(cause instanceof Error ? cause.message : 'Git status is unavailable.') }
+    } catch (cause) { if (generation === request.current) setError(humanizeError(cause, 'Git status is unavailable.')) }
     finally { if (generation === request.current) setRefreshing(false) }
   }, [workspaceId, rootPath])
   useEffect(() => {
@@ -67,7 +68,7 @@ export function GitControlPanel({ workspaceId, rootPath, onOpenFile, draft }: Pr
     if (busy) return
     setBusy(true); setError('')
     try { await operation(); await refresh() }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Git action failed.') }
+    catch (cause) { setError(humanizeError(cause, 'Git action failed.')) }
     finally { setBusy(false) }
   }
   const files = status?.files ?? []

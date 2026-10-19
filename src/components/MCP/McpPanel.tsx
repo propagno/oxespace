@@ -9,6 +9,7 @@ import { McpImportPanel } from './McpImportPanel'
 import { envTemplate, type McpCatalogEntry } from './connectorCatalog'
 import type { ThreadMcpServerStatus } from '../../../shared/types/thread'
 import { ThreadMcpServerList } from '../Threads/ThreadMcpServerList'
+import { humanizeError } from '../../utils/humanizeError'
 
 interface FormInitial { name: string; command: string; argsText: string; envText: string; note?: string; requiredEnv?: string[]; /** Came from the curated catalog: trusted and started as soon as it is saved. */ fromCatalog?: boolean }
 
@@ -73,7 +74,7 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
       setBuiltInStatus(next)
       setBuiltInNotice('Token regenerated. Restart open agent panes to pick up the new env.')
     } catch (err) {
-      setBuiltInNotice(err instanceof Error ? err.message : 'Failed to regenerate token')
+      setBuiltInNotice(humanizeError(err, 'Failed to regenerate token'))
     } finally {
       setBuiltInBusy(false)
     }
@@ -645,7 +646,7 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
       if (initial?.fromCatalog) void useMcpStore.getState().start(created.id).catch(() => undefined)
       onCreated()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(humanizeError(err))
     } finally {
       setBusy(false)
     }
@@ -657,7 +658,7 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
     try {
       entries = parseMcpJson(jsonText)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(humanizeError(err))
       return
     }
     // Anonymous { command, args, env } needs a name; ask the form for one
@@ -680,7 +681,7 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
       }
       onCreated()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(humanizeError(err))
     } finally {
       setBusy(false)
     }

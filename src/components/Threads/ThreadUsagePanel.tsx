@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { ThreadUsageBucket, ThreadUsageSummary } from '../../../shared/types/thread'
 import { formatThreadCost } from './ThreadCostChip'
 import { Select } from '../../ui'
+import { humanizeError } from '../../utils/humanizeError'
 
 type Scope = ThreadUsageSummary['scope']
 const SCOPES: [Scope, string][] = [['thread', 'This conversation'], ['project', 'This project'], ['all', 'All projects']]
@@ -42,7 +43,7 @@ export default function ThreadUsagePanel({ threadId }: { threadId: string }) {
     if (!api?.usageSummary) return
     let live = true
     setError('')
-    api.usageSummary(threadId, { scope, days }).then(value => { if (live) setSummary(value) }, cause => { if (live) setError(cause instanceof Error ? cause.message : 'Could not load spending') })
+    api.usageSummary(threadId, { scope, days }).then(value => { if (live) setSummary(value) }, cause => { if (live) setError(humanizeError(cause, 'Could not load spending')) })
     return () => { live = false }
   }, [api, threadId, scope, days])
   if (!api?.usageSummary) return <p>Spending is not available in this build.</p>

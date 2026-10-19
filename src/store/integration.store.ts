@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { humanizeError } from '../utils/humanizeError'
 import type {
   AddIntegrationMemberInput,
   CreateIntegrationGroupInput,
@@ -182,7 +183,7 @@ function resolveMemberSelection(groups: IntegrationGroup[], activeGroupId: strin
 }
 
 function toMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Unexpected integration error'
+  return humanizeError(error, 'Unexpected integration error')
 }
 
 /**

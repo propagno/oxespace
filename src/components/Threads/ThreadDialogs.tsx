@@ -4,11 +4,11 @@ import type { ThreadProvider } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { Button, Checkbox, Dialog, TextField } from '../../ui'
+import { errorText, humanizeError } from '../../utils/humanizeError'
 
-/** The main process's own message, without Electron's "Error invoking remote method …: Error:" prefix. */
+/** The main process's own message in readable form, or null when the error carries none. */
 function ipcErrorText(cause: unknown): string | null {
-  if (!(cause instanceof Error) || !cause.message) return null
-  return cause.message.replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, '')
+  return errorText(cause) ? humanizeError(cause) : null
 }
 export function NewThreadDialog({ initialProjectId, initialRootPath, onClose }: { initialProjectId: string | null; initialRootPath?: string; onClose: () => void }) {
   const projects = useThreadStore(state => state.projects)
@@ -64,7 +64,7 @@ export function AddThreadProjectDialog({ onPickFolder, onAdd, onClose }: {
     if (!normalized) { setError('Choose a project folder.'); return }
     setPending(true); setError('')
     try { await onAdd(normalized); onClose() }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not add this project.') }
+    catch (cause) { setError(humanizeError(cause, 'Could not add this project.')) }
     finally { setPending(false) }
   }
   return <Dialog className="thread-create-dialog thread-project-dialog" title="Add project" description="Choose a folder to make it available to your Thread conversations." onClose={() => { if (!pending && !picking) onClose() }}
@@ -78,7 +78,7 @@ export function AddThreadProjectDialog({ onPickFolder, onAdd, onClose }: {
           <TextField aria-label="Project folder path" value={rootPath} placeholder={'C:\\projects\\my-project'} onChange={event => setRootPath(event.target.value)} autoFocus />
           <Button icon={<FolderOpen size={14} aria-hidden="true" />} disabled={pending || picking} onClick={() => {
             setPicking(true); setError('')
-            void onPickFolder().then(path => { if (path) setRootPath(path) }).catch(cause => setError(cause instanceof Error ? cause.message : 'Could not open the folder picker.')).finally(() => setPicking(false))
+            void onPickFolder().then(path => { if (path) setRootPath(path) }).catch(cause => setError(humanizeError(cause, 'Could not open the folder picker.'))).finally(() => setPicking(false))
           }}>{picking ? 'Choosing…' : 'Browse'}</Button>
         </span>
       </label>
