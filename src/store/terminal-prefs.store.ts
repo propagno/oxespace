@@ -28,6 +28,8 @@ export interface TerminalPrefs {
   cavemanModeEnabled: boolean
   semanticSearchEnabled: boolean
   semanticSearchMode: SemanticSearchMode
+  /** After the app restarts, Claude Code and Codex panes reopen the session they were in. */
+  resumeAgentSessions: boolean
 }
 
 /** Pre-v4 default, matched in the v4 migration to roll users forward. */
@@ -57,7 +59,8 @@ export const TERMINAL_PREFS_DEFAULTS: TerminalPrefs = {
   rtkHookEnabled: false,
   cavemanModeEnabled: false,
   semanticSearchEnabled: false,
-  semanticSearchMode: 'auto'
+  semanticSearchMode: 'auto',
+  resumeAgentSessions: true
 }
 
 export const FONT_SIZE_MIN = 8

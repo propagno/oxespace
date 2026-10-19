@@ -188,6 +188,8 @@ async function registerIpcHandlers(): Promise<() => void> {
     history: paneId => terminalForHistory?.peek(paneId)?.data ?? null
   })
   registerAgentStateIpc(agentState)
+  const { PaneAgentSessions } = await import('./services/agent-state/pane-sessions')
+  const paneAgentSessions = new PaneAgentSessions(db)
   // Agents' own lifecycle hooks report here. Deliveries authenticate with the
   // same per-pane execution credentials the terminal already carries, so a
   // hook script outside an OXESpace terminal is simply inert.
@@ -201,7 +203,11 @@ async function registerIpcHandlers(): Promise<() => void> {
       }
     },
     onStatus: (event) => {
-      agentState.hook(event.paneId, event.agent === 'codex' ? 'codex' : 'claude', event.state)
+      const hookAgent = event.agent === 'codex' ? 'codex' : 'claude'
+      agentState.hook(event.paneId, hookAgent, event.state)
+      // Remember the native session so the pane can reopen it after a restart; an ended session is forgotten.
+      if (event.state === 'ended') paneAgentSessions.clear(event.paneId)
+      else if (event.sessionId) paneAgentSessions.record(event.paneId, hookAgent, event.sessionId)
       for (const window of BrowserWindow.getAllWindows()) {
         window.webContents.send(IPC_CHANNELS.agentHooks.onStatus, event)
       }
@@ -220,6 +226,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   const terminalManager: TerminalManager = new TerminalManager(db, {
     oxeQueryShell: paneId => oxeQueryShells.shellFor?.(paneId),
     observer: agentState,
+    resumeSession: (paneId, wanted) => paneAgentSessions.take(paneId, wanted),
     prepareLaunch: (input) => memoryService.prepareLaunch(input),
     isManagedPane: paneId => delegationService?.ownsPane(paneId) ?? false,
     onLaunchExit: (paneId) => { memoryService.endLaunch(paneId); executions.end(paneId); delegationService?.exited(paneId) },

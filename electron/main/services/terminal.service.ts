@@ -12,6 +12,8 @@ import { getRtkService, type RtkService } from './rtk.service'
 import { PtyInputQueue } from './pty-input-queue'
 import { PtyOutputBatcher } from './pty-output-batcher'
 import { PtyRingBuffer } from './pty-ring-buffer'
+import { agentFromCommand } from './agent-state/agents'
+import { resumeArgs } from './agent-state/pane-sessions'
 import { PtyModeTracker } from './pty-mode-tracker'
 import type { TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStartInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput } from '../../../shared/types/ipc'
 
@@ -40,6 +42,8 @@ interface TerminalManagerOptions {
   oxeQueryShell?: (paneId: string) => { file: string; args: string[] } | undefined
   /** Sees every terminal's lifecycle and output, e.g. to read what an agent shows on screen. */
   observer?: TerminalObserver
+  /** The agent session to reopen on a pane's first start in this app run (see PaneAgentSessions). */
+  resumeSession?: (paneId: string, wanted: boolean) => { agent: 'claude' | 'codex'; sessionId: string } | null
 }
 
 export interface TerminalObserver {
@@ -125,6 +129,7 @@ export class TerminalManager {
   private readonly isManagedPane?: TerminalManagerOptions['isManagedPane']
   private readonly oxeQueryShell?: TerminalManagerOptions['oxeQueryShell']
   private readonly observer?: TerminalObserver
+  private readonly resumeSession?: TerminalManagerOptions['resumeSession']
   private readonly sessions = new Map<string, TerminalSession>()
   private readonly pty: PtyModule
   private readonly launchContextStatement: ReturnType<AppDatabase['prepare']>
@@ -146,6 +151,7 @@ export class TerminalManager {
     this.isManagedPane = options.isManagedPane
     this.oxeQueryShell = options.oxeQueryShell
     this.observer = options.observer
+    this.resumeSession = options.resumeSession
     this.pty = options.pty ?? { spawn }
     this.env = options.env ?? process.env
     this.platform = options.platform ?? process.platform
@@ -235,6 +241,15 @@ export class TerminalManager {
     let args = input.launch ? input.launch.args : agentParts
       ? [...agentParts.slice(1), ...(input.agentArgs ?? [])]
       : [...shellArgs, ...(input.agentArgs ?? [])]
+    // After an app restart, reopen the agent's own session in this pane (herdr's native session restore).
+    let typedResume: string | null = null
+    const resume = !threadShell && !oxeShell && !input.launch ? this.resumeSession?.(input.paneId, input.resumeAgent === true) ?? null : null
+    if (resume && !input.agentArgs?.length) {
+      const extra = resumeArgs(resume.agent, resume.sessionId)
+      if (agentParts && agentFromCommand(agentParts[0]) === resume.agent) args = [...args, ...extra]
+      // A shell pane where the person started the agent by hand: type the same command there.
+      else if (!agentParts && !input.initialPrompt) typedResume = [resume.agent, ...extra].join(' ')
+    }
     let mcpEnv: Record<string, string> = {}
     if (!input.launch && this.agentMcpArgs) ({ args, env: mcpEnv = {} } = this.agentMcpArgs(executable, args, input.workspaceId))
 
@@ -370,14 +385,15 @@ export class TerminalManager {
       this.emitExit({ paneId: input.paneId, exitCode })
     })
 
-    if (input.initialPrompt) {
+    const typed = input.initialPrompt ?? typedResume
+    if (typed) {
       let sent = false
       ptyProcess.onData(() => {
         if (sent) return
         sent = true
         setTimeout(() => {
           if (this.sessions.has(input.paneId)) {
-            this.sessions.get(input.paneId)?.inputQueue.enqueue(input.initialPrompt! + '\r')
+            this.sessions.get(input.paneId)?.inputQueue.enqueue(typed + '\r')
           }
         }, 800)
       })

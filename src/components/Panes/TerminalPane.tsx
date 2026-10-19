@@ -205,7 +205,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         p = p ? `${CAVEMAN_PROMPT}\n\n${p}` : CAVEMAN_PROMPT
       }
 
-      await window.oxe.terminal.start({ paneId: pane.id, workspaceId, agentCommand, initialPrompt: p, disableRtk: !terminalPrefs.rtkHookEnabled })
+      await window.oxe.terminal.start({ paneId: pane.id, workspaceId, agentCommand, initialPrompt: p, disableRtk: !terminalPrefs.rtkHookEnabled, resumeAgent: !explicitRetry && terminalPrefs.resumeAgentSessions !== false })
       setStatus(pane.id, 'running')
     } catch (error) {
       setStatus(pane.id, 'error', toMessage(error))

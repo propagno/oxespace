@@ -1,4 +1,4 @@
-import { basename } from 'node:path'
+import { agentFromCommand } from './agents'
 import { detect, manifestFor, type AgentManifest, type Detection } from './manifest'
 import { PaneScreen } from './screen'
 
@@ -28,20 +28,7 @@ export interface StateExplain {
   pendingIdle: boolean
 }
 
-/** Executable names (lower case, without extension) and the manifest they use. */
-const EXECUTABLES: Record<string, string> = {
-  claude: 'claude', codex: 'codex', copilot: 'copilot', 'cursor-agent': 'cursor', gemini: 'gemini', grok: 'grok',
-  opencode: 'opencode', qwen: 'qwen', kimi: 'kimi', amp: 'amp', droid: 'droid'
-}
-
-/** The agent an executable or command line starts, if it is one we can read. */
-export function agentFromCommand(command: string | undefined | null): string | null {
-  if (!command) return null
-  const first = command.trim().match(/^"([^"]+)"|^(\S+)/)
-  const token = (first?.[1] ?? first?.[2] ?? '').replace(/\\/g, '/')
-  const name = basename(token).toLowerCase().replace(/\.(exe|cmd|bat|ps1|js|mjs)$/, '')
-  return EXECUTABLES[name] ?? null
-}
+export { agentFromCommand }
 
 const EVAL_DELAY_MS = 300
 const EVAL_MAX_INTERVAL_MS = 1000

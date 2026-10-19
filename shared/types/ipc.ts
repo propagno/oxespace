@@ -392,6 +392,8 @@ export interface TerminalStartInput {
   agentArgs?: string[]
   initialPrompt?: string
   disableRtk?: boolean
+  /** On the pane's first start after the app opens, reopen the agent session its hooks recorded (Claude Code, Codex). */
+  resumeAgent?: boolean
   /**
    * Real viewport at spawn time. Without these the PTY starts at 80x24 and the
    * app reflows on the first resize, which the user sees as a flash.
