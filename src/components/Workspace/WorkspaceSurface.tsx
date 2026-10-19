@@ -1,6 +1,6 @@
 import { Suspense, lazy, memo, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from 'react-resizable-panels'
-import { Activity, MoreHorizontal, PanelsTopLeft, PlugZap } from 'lucide-react'
+import { Activity, MoreHorizontal, Network, PanelsTopLeft, PlugZap, type LucideIcon } from 'lucide-react'
 import { Menu } from '../../ui'
 import { WorkbenchPanelMenu, WorkbenchPanelToggle, type WorkbenchPanelItem } from '../Workbench/WorkbenchPanelMenu'
 import { CODE_BAR_PANELS, CODE_MENU_PANELS, WORKBENCH_PANELS } from '../Workbench/panelCatalog'
@@ -515,6 +515,11 @@ function WorkspaceSurfaceComponent({
     background: WORKBENCH_PANELS.background.label, worktree: WORKBENCH_PANELS.worktrees.label, scripts: WORKBENCH_PANELS.scripts.label,
     'web-preview': WORKBENCH_PANELS.browser.label, integration: 'Integrations', search: WORKBENCH_PANELS.search.label
   }
+  const sideIcons: Record<string, LucideIcon> = {
+    github: WORKBENCH_PANELS.git.icon, review: WORKBENCH_PANELS.changes.icon, editor: WORKBENCH_PANELS.files.icon,
+    background: WORKBENCH_PANELS.background.icon, worktree: WORKBENCH_PANELS.worktrees.icon, scripts: WORKBENCH_PANELS.scripts.icon,
+    'web-preview': WORKBENCH_PANELS.browser.icon, integration: Network, search: WORKBENCH_PANELS.search.icon
+  }
   // Four tabs fit one row at the minimum window width; the rest live in a menu, and the active panel is always a visible tab.
   const SIDE_TAB_LIMIT = 4
   const inlineSidePanels = sidePanels.slice(0, SIDE_TAB_LIMIT)
@@ -569,7 +574,13 @@ function WorkspaceSurfaceComponent({
                 <div className="workspace-panel-stack">
                   {sidePanels.length > 1 && <nav ref={sideTabsRef} className="workspace-panel-stack-tabs" aria-label="Workspace panels">
                     <div role="tablist" aria-label="Open workspace panels" className="workspace-panel-stack-tablist">
-                      {inlineSidePanels.map(panel => <button type="button" role="tab" key={panel.id} aria-selected={panel.id === activeSideId} onClick={() => setPreferredSideId(panel.id)}>{sideLabels[panel.id]}</button>)}
+                      {inlineSidePanels.map(panel => {
+                        const Icon = sideIcons[panel.id]
+                        // The name stays in the tooltip and the accessible name when a narrow strip shows only icons.
+                        return <button type="button" role="tab" key={panel.id} aria-selected={panel.id === activeSideId} aria-label={sideLabels[panel.id]} title={sideLabels[panel.id]} onClick={() => setPreferredSideId(panel.id)}>
+                          {Icon && <Icon size={14} aria-hidden="true" />}<span className="workspace-panel-stack-tab-label">{sideLabels[panel.id]}</span>
+                        </button>
+                      })}
                     </div>
                     {overflowSidePanels.length > 0 && <Menu label="More panels" align="end"
                       trigger={<button type="button" className="workspace-panel-stack-more" aria-label={`More panels (${overflowSidePanels.length})`}><MoreHorizontal size={14} aria-hidden="true" />{overflowSidePanels.length}</button>}

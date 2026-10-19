@@ -2156,8 +2156,20 @@
    This is the headline of the pane: bigger than the chip, primary text colour,
    and allowed to occupy the rest of the row so vibe coders can scan 4 panes
    and instantly read "what is each agent doing right now". */
+/* A narrow pane keeps its name readable: the branch goes first, then the
+   agent's label (its icon stays), instead of the name shrinking to "…". */
+.pane-header { container-type: inline-size; }
+@container (max-width: 360px) {
+  .pane-header .pane-branch-badge,
+  .pane-header .pane-header-divider { display: none; }
+}
+@container (max-width: 260px) {
+  .pane-header .pane-agent-chip-label { display: none; }
+  .pane-header .pane-agent-chip { padding: 0 5px; }
+}
+
 .pane-intent {
-  min-width: 0;
+  min-width: min(8ch, 100%);
   flex: 1;
   color: var(--tx-secondary);
   font-size: var(--fs-xs);
