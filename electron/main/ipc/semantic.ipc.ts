@@ -1,6 +1,7 @@
-import { ipcMain } from 'electron'
+import { BrowserWindow, dialog, ipcMain } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { SemanticService } from '../services/semantic.service'
+import { requireAppFrame } from './ipc-guards'
 
 /**
  * Renderer-facing controls for the Semantic search feature. The toggle state
@@ -69,4 +70,34 @@ export function registerSemanticIpc(semantic: SemanticService): void {
     const cap = typeof limit === 'number' && Number.isFinite(limit) ? Math.min(Math.max(1, Math.trunc(limit)), 20) : 8
     return semantic.query(workspaceId, text, cap).catch(() => [])
   })
+  // Optional vector index (Settings › Agents). The model is not in the installer;
+  // these download it into userData, import it from a folder, or remove it.
+  ipcMain.handle(IPC_CHANNELS.semantic.getVectorStatus, () => semantic.getVectorStatus())
+
+  ipcMain.handle(IPC_CHANNELS.semantic.setVectorIndex, (event, enabled: unknown) => {
+    requireAppFrame(event, 'Semantic index')
+    if (typeof enabled !== 'boolean') throw new Error('semantic:set-vector-index requires an enabled boolean')
+    return semantic.setVectorIndex(enabled)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.semantic.downloadModel, (event) => {
+    requireAppFrame(event, 'Semantic index')
+    return semantic.downloadModel()
+  })
+
+  ipcMain.handle(IPC_CHANNELS.semantic.importModel, async (event) => {
+    requireAppFrame(event, 'Semantic index')
+    const owner = BrowserWindow.fromWebContents(event.sender)
+    const options = { title: 'Import semantic model folder', properties: ['openDirectory' as const] }
+    const result = owner ? await dialog.showOpenDialog(owner, options) : await dialog.showOpenDialog(options)
+    if (result.canceled || !result.filePaths[0]) return semantic.getVectorStatus()
+    return semantic.importModel(result.filePaths[0])
+  })
+
+  ipcMain.handle(IPC_CHANNELS.semantic.removeModel, (event) => {
+    requireAppFrame(event, 'Semantic index')
+    return semantic.removeModel()
+  })
+
+  ipcMain.handle(IPC_CHANNELS.semantic.getUsage, () => semantic.getUsage())
 }

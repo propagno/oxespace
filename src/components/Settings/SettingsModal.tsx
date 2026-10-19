@@ -23,6 +23,7 @@ import { AppearanceSettings } from './AppearanceSettings'
 import { useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import type { AgentProfile, AgentProvider, AgentReadiness } from '../../../shared/types/agent'
 import type { VoiceModelSize, VoiceModelStatus } from '../../../shared/types/voice'
+import type { SemanticUsage, SemanticVectorStatus } from '../../../shared/types/ipc'
 import type { AgentHookAgent, AgentHooksStatus } from '../../../shared/types/agent-hooks'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { AutomationsSettings } from './AutomationsSettings'
@@ -574,6 +575,7 @@ function ProvidersSettingsSection({
         </Button>
 
         <IdleConversationsSetting />
+        <SemanticIndexSetting />
       </div>
     </section>
   )
@@ -617,6 +619,113 @@ function IdleConversationsSetting(): ReactElement | null {
           messages, a background task or a permission allowed for the session stays open.
         </span>
       </label>
+      {error && <p className="settings-field-hint" role="alert">{error}</p>}
+    </div>
+  )
+}
+
+function formatMegabytes(bytes: number): string {
+  return `${Math.round(bytes / (1024 * 1024))} MB`
+}
+
+/**
+ * The optional vector index for the agents' repository search tools. Exact-term
+ * search (FTS5) and structural search (CodeGraph) work without it; turning it on
+ * downloads a ~270 MB embedding model into the app's data folder (it survives
+ * updates), or imports one from a folder on networks without internet access.
+ */
+function SemanticIndexSetting(): ReactElement | null {
+  const api = window.oxe?.semantic
+  const [status, setStatus] = useState<SemanticVectorStatus | null>(null)
+  const [usage, setUsage] = useState<SemanticUsage | null>(null)
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (!api?.getVectorStatus) return
+    let cancelled = false
+    const tick = (): void => {
+      void api.getVectorStatus().then((next) => { if (!cancelled) setStatus(next) }).catch(() => {})
+    }
+    tick()
+    void api.getUsage?.().then((next) => { if (!cancelled) setUsage(next) }).catch(() => {})
+    // Poll quickly only while something is changing (download / model load).
+    const interval = setInterval(tick, status?.state === 'downloading' || status?.state === 'loading' ? 1000 : 5000)
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [api, status?.state])
+
+  if (!api?.getVectorStatus || !status || !status.available) return null
+
+  const run = async (action: () => Promise<SemanticVectorStatus>): Promise<void> => {
+    setError('')
+    setBusy(true)
+    try { setStatus(await action()) }
+    catch (cause) { setError(cause instanceof Error ? cause.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : 'Could not change the semantic index') }
+    finally { setBusy(false) }
+  }
+
+  const progress = status.progress
+  const stateText = status.state === 'off'
+    ? 'Off. Agents search with exact terms (FTS5) and code structure (CodeGraph).'
+    : status.state === 'downloading'
+      ? (progress ? `Downloading model… ${formatMegabytes(progress.loaded)} of ${formatMegabytes(progress.total)}` : 'Downloading model…')
+      : status.state === 'loading'
+        ? 'Loading the model…'
+        : status.state === 'not-installed'
+          ? 'On, but the model is not installed. Download it or import it from a folder.'
+          : status.state === 'error'
+            ? `The model could not load: ${status.error ?? 'unknown error'}`
+            : 'Ready. Agents also search by meaning; files are embedded in the background.'
+  const calls = usage
+    ? Object.values(usage.tools).reduce((sum, tool) => ({
+      withVector: sum.withVector + tool.withVector.calls,
+      withoutVector: sum.withoutVector + tool.withoutVector.calls
+    }), { withVector: 0, withoutVector: 0 })
+    : null
+
+  return (
+    <div className="settings-form-group" data-testid="semantic-index-setting">
+      <h3 className="settings-form-group-title">Semantic index (beta)</h3>
+      <div className="settings-toggle-row">
+        <span>
+          <strong>Search by meaning</strong>
+          <small data-testid="semantic-index-state">{stateText}</small>
+        </span>
+        <SettingsSwitch
+          checked={status.enabled}
+          onChange={(next) => { if (!busy) void run(() => api.setVectorIndex(next)) }}
+          ariaLabel="Search by meaning with the semantic index"
+        />
+      </div>
+      {status.state === 'downloading' && progress && progress.total > 0 && (
+        <div className="settings-progress" role="progressbar" aria-label="Model download" aria-valuenow={Math.floor((progress.loaded / progress.total) * 100)} aria-valuemin={0} aria-valuemax={100}>
+          <div className="settings-progress-bar" style={{ width: `${Math.floor((progress.loaded / progress.total) * 100)}%` }} />
+        </div>
+      )}
+      {status.enabled && (status.state === 'not-installed' || status.state === 'error') && (
+        <div className="settings-inline-actions">
+          <Button size="sm" disabled={busy} onClick={() => void run(() => api.downloadModel())} data-testid="btn-semantic-download">
+            <Download size={14} aria-hidden="true" />
+            Download model (~270 MB)
+          </Button>
+          <Button size="sm" variant="ghost" disabled={busy} onClick={() => void run(() => api.importModel())} data-testid="btn-semantic-import">
+            Import from folder…
+          </Button>
+        </div>
+      )}
+      {status.installed && !status.enabled && (
+        <div className="settings-inline-actions">
+          <Button size="sm" variant="ghost" disabled={busy} onClick={() => void run(() => api.removeModel())}>
+            Remove downloaded model
+          </Button>
+        </div>
+      )}
+      <span className="settings-field-hint">
+        The model ({status.modelId}) runs on this machine and is kept in the app&apos;s data folder, so updates do not
+        download it again. To import, choose a folder with config.json, tokenizer.json, tokenizer_config.json and
+        onnx/model_quantized.onnx.
+        {calls && (calls.withVector + calls.withoutVector) > 0 && ` Agent searches so far: ${calls.withoutVector} without the index, ${calls.withVector} with it (counted on this machine only).`}
+      </span>
       {error && <p className="settings-field-hint" role="alert">{error}</p>}
     </div>
   )
