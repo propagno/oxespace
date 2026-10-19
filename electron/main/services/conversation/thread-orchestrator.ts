@@ -761,6 +761,42 @@ export class ThreadOrchestrator {
    * rewound first and its history re-read as proof; local history is truncated
    * only afterwards, so a refusal or a mismatch leaves everything untouched.
    */
+  /**
+   * Sends a finished turn's prompt again, optionally after undoing that turn's file changes, so a retry
+   * starts from the files the failed attempt started from instead of adding to its partial edits. The undo
+   * uses the turn's checkpoints, newest first; when none exists (pruned after 30 days, or it failed) the
+   * retry is refused with that reason rather than sent onto unknown files.
+   */
+  async retryTurn(id: string, turnId: string, options: { restoreFiles?: boolean } = {}): Promise<{ restoredFiles: number }> {
+    if (this.stopping) throw Error('Application is shutting down')
+    if (this.finalizing.has(id)) await Promise.allSettled([...this.finalizationTasks])
+    if (this.busy.has(id) || this.starting.has(id) || this.finalizing.has(id) || this.configuring.has(id)) throw Error('Finish the active turn before retrying.')
+    const snapshot = this.read(id)
+    const turn = snapshot.turns?.find(value => value.id === turnId)
+    if (!turn || turn.status === 'running') throw Error('This turn cannot be retried.')
+    const prompt = snapshot.events.find(event => event.type === 'message' && event.role === 'user' && event.id === turnId)
+    if (prompt?.type !== 'message') throw Error('The prompt of this turn is not available.')
+    let restoredFiles = 0
+    if (options.restoreFiles) {
+      const checkpoints = this.checkpoints.list(id).filter(checkpoint => checkpoint.turnId === turnId)
+      const restorable = checkpoints.filter(checkpoint => checkpoint.state === 'ready' || checkpoint.state === 'conflict')
+      if (!restorable.length) {
+        throw Error(checkpoints.length
+          ? 'This turn\'s changes cannot be undone: its checkpoint did not complete. Retry without undoing, or undo the files yourself.'
+          : 'This turn\'s changes cannot be undone: it has no checkpoint (it may have been removed after 30 days). Retry without undoing, or undo the files yourself.')
+      }
+      for (const checkpoint of restorable.sort((a, b) => b.createdAt - a.createdAt)) {
+        if (checkpoint.fileCount === 0) continue
+        await this.checkpoints.restore(id, checkpoint.id)
+        restoredFiles += checkpoint.fileCount
+      }
+      this.audit(id, { action: 'undo-file', actor: 'user', summary: `Undid ${restoredFiles} file${restoredFiles === 1 ? '' : 's'} before retrying a turn` })
+      this.changed(id)
+    }
+    await this.send(id, prompt.text, prompt.attachments?.map(attachment => attachment.id) ?? [])
+    return { restoredFiles }
+  }
+
   async rewind(id: string, turnId: string, options: { restoreFiles?: boolean } = {}): Promise<ThreadRewindResult> {
     if (this.stopping) throw Error('Application is shutting down')
     // A just-finished turn is still capturing its diff and checkpoint; that is a moment, not a refusal.

@@ -190,3 +190,7 @@
 .thread-dock-changes-error { margin: 0 10px 8px; color: var(--tx-status-failure, var(--dot-red)); }
 @container (max-width: 520px) { .thread-dock-changes-hint { display: none; } }
 @media (prefers-reduced-motion: reduce) { .thread-dock-changes-chevron { transition: none; } }
+
+/* Retrying a failed turn that changed files: undo them first, or keep them. */
+.thread-retry-choice { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.thread-retry-choice > span { color: var(--tx-secondary); font-size: var(--fs-xs); }

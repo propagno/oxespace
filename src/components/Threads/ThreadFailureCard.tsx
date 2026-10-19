@@ -41,9 +41,13 @@ export function ThreadUsageDetails({ usage, provider }: { usage: ThreadUsage; pr
   </section>
 }
 
-export function ThreadFailureCard({ event, latest, refreshUsage, onAccounts, onRetry, onCompact, onPermissions, disabled }: {
+export function ThreadFailureCard({ event, latest, refreshUsage, onAccounts, onRetry, hasChanges, onCompact, onPermissions, disabled }: {
   event: Extract<ThreadEvent, { type: 'completed' }>; latest: boolean
-  refreshUsage?: () => Promise<ThreadUsage>; onAccounts?: () => void; onRetry?: () => void
+  refreshUsage?: () => Promise<ThreadUsage>; onAccounts?: () => void
+  /** Sends the turn again; `restoreFiles` undoes this turn's file changes first. */
+  onRetry?: (restoreFiles: boolean) => void
+  /** The failed turn changed files: retrying offers to undo them first, so the attempts do not pile up. */
+  hasChanges?: boolean
   /** Offered when the context window is full. */
   onCompact?: () => void
   /** Offered when the sandbox or the configuration blocked the turn. */
@@ -53,6 +57,7 @@ export function ThreadFailureCard({ event, latest, refreshUsage, onAccounts, onR
   const failure = event.failure
   const [currentUsage, setCurrentUsage] = useState<ThreadUsage>(), [loading, setLoading] = useState(false), [refreshError, setRefreshError] = useState('')
   const refreshing = useRef(false)
+  const [choosingRetry, setChoosingRetry] = useState(false)
   const usage = currentUsage && (!failure?.usage || currentUsage.checkedAt >= failure.usage.checkedAt) ? currentUsage : failure?.usage
   // Previously saved failures were classified as unknown; render them correctly without rewriting history.
   const code = failure?.detail && /already has an active writer|active writer/i.test(failure.detail) ? 'session-busy' : failure?.code ?? event.errorCode
@@ -84,7 +89,13 @@ export function ThreadFailureCard({ event, latest, refreshUsage, onAccounts, onR
         {code === 'authentication' && onAccounts && <button type="button" onClick={onAccounts}>Reconnect account</button>}
         {compact && <button type="button" disabled={disabled} onClick={compact}>Compact conversation</button>}
         {permissions && <button type="button" disabled={disabled} onClick={permissions}>{guidance.action === 'review-permissions' ? 'Review permissions' : 'Change configuration'}</button>}
-        {retry && <button type="button" disabled={disabled} onClick={retry}>Retry turn</button>}
+        {retry && !choosingRetry && <button type="button" disabled={disabled} onClick={() => hasChanges ? setChoosingRetry(true) : retry(false)}>Retry turn</button>}
+        {retry && choosingRetry && <span className="thread-retry-choice" role="group" aria-label="Retry this turn">
+          <span>This turn changed files.</span>
+          <button type="button" className="is-primary" disabled={disabled} onClick={() => { setChoosingRetry(false); retry(true) }}>Undo its changes and retry</button>
+          <button type="button" disabled={disabled} onClick={() => { setChoosingRetry(false); retry(false) }}>Retry without undoing</button>
+          <button type="button" onClick={() => setChoosingRetry(false)}>Cancel</button>
+        </span>}
         {refreshUsage && <button type="button" disabled={loading} onClick={() => void refresh()}>{loading ? <Loader2 size={14} className="thread-spin" /> : <RefreshCw size={14} />}{loading ? 'Checking usage…' : 'Refresh usage'}</button>}
       </footer>}
     </div>

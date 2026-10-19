@@ -86,6 +86,35 @@ describe('Thread working location', () => {
     expect(readFileSync(join(repo, 'a.txt'), 'utf8')).toBe('a\n')
   })
 
+  it('retrying a failed turn can undo its file changes first, and refuses the undo without a checkpoint', async () => {
+    const { repo } = repository()
+    const f = fixture(repo, { realWorkingState: true })
+    const sends = (f.manager as unknown as { adapters: Map<string, AgentConversationAdapter> })
+    await f.manager.send(f.id, 'Change a.txt')
+    await settle()
+    writeFileSync(join(repo, 'a.txt'), 'half-done edit\n')
+    f.callbacks[0]({ type: 'completed', status: 'failed', error: 'connection dropped' })
+    await finalized(f).catch(() => undefined)
+    await settle()
+    const turnId = f.read().turns!.at(-1)!.id
+    const adapter = sends.adapters.get(f.id)!
+    const before = (adapter.send as ReturnType<typeof vi.fn>).mock.calls.length
+
+    const result = await f.manager.retryTurn(f.id, turnId, { restoreFiles: true })
+    expect(result.restoredFiles).toBe(1)
+    expect(readFileSync(join(repo, 'a.txt'), 'utf8')).toBe('a\n')
+    const live = sends.adapters.get(f.id)!
+    expect((live.send as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(live === adapter ? before : 0)
+    expect((live.send as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0]).toBe('Change a.txt')
+    f.callbacks.at(-1)!({ type: 'completed', status: 'completed' })
+    await settle()
+
+    // A turn whose checkpoint is gone is not retried onto files nobody can restore.
+    f.db.prepare('DELETE FROM conversation_checkpoints WHERE thread_id = ?').run(f.id)
+    const lastTurn = f.read().turns!.at(-1)!.id
+    await expect(f.manager.retryTurn(f.id, lastTurn, { restoreFiles: true })).rejects.toThrow(/no checkpoint/)
+  })
+
   it('a move into a worktree during a turn adds a checkpoint and baseline there', async () => {
     const { repo, tree } = repository()
     const f = fixture(repo, { realWorkingState: true })

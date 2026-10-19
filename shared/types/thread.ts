@@ -570,6 +570,8 @@ export interface ThreadApi {
   workRuns?(id: string): Promise<import('./work').WorkRun[]>
   cancelWork?(id: string, runId: string): Promise<import('./work').WorkRun>
   rewind?(id: string, turnId: string, options?: { restoreFiles?: boolean }): Promise<ThreadRewindResult>
+  /** Sends a finished turn's prompt again, after undoing that turn's file changes when `restoreFiles` is set. */
+  retryTurn?(id: string, turnId: string, options?: { restoreFiles?: boolean }): Promise<{ restoredFiles: number }>
   readSince?(id: string, cursor: ThreadSyncCursor): Promise<ThreadDelta>
   resumeQueue?(id: string): Promise<void>
   sendQueuedNow?(id: string, itemId: string): Promise<void>
