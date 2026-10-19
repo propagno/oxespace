@@ -148,3 +148,17 @@
 .thread-turn-fold-chevron { transition: transform 120ms ease; }
 .thread-turn-fold[aria-expanded='true'] .thread-turn-fold-chevron { transform: rotate(90deg); }
 @media (prefers-reduced-motion: reduce) { .thread-turn-fold-chevron { transition: none; } }
+
+/* The plan's current step, pinned above the composer while the latest turn still has steps to do. */
+.thread-dock-plan { margin: 0 0 6px; border: 1px solid var(--bd-subtle, var(--wb-border)); border-radius: var(--radius-md); background: var(--bg-elevated); font-size: var(--fs-xs); }
+.thread-dock-plan > summary { display: flex; align-items: center; gap: 8px; min-height: 30px; padding: 0 10px; color: var(--tx-secondary); cursor: pointer; list-style: none; }
+.thread-dock-plan > summary::-webkit-details-marker { display: none; }
+.thread-dock-plan > summary strong { color: var(--tx-primary); font-weight: 600; white-space: nowrap; }
+.thread-dock-plan-current { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thread-dock-plan-chevron { margin-left: auto; transition: transform 120ms ease; }
+.thread-dock-plan[open] .thread-dock-plan-chevron { transform: rotate(180deg); }
+.thread-dock-plan ol { display: grid; gap: 4px; max-height: 160px; margin: 0; padding: 4px 12px 10px; overflow: auto; list-style: none; }
+.thread-dock-plan li { display: flex; align-items: center; gap: 8px; color: var(--tx-secondary); }
+.thread-dock-plan li.is-completed { color: var(--tx-muted); }
+.thread-dock-plan li.is-inProgress { color: var(--tx-primary); }
+@media (prefers-reduced-motion: reduce) { .thread-dock-plan-chevron { transition: none; } }
