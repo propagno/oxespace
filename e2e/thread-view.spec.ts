@@ -824,6 +824,14 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(sticky).toHaveCount(0)
     await page.locator('.thread-timeline').evaluate(el => { el.scrollTop = 260 })
     await expect(sticky).toContainText('Show the files updated in this conversation')
+    // The conversation's provider usage, live in the bottom bar, which sits below the composer instead of over it.
+    const usage = page.getByTestId('usage-status')
+    await expect(usage).toContainText('5h 40% · wk 30%')
+    expect(await page.evaluate(() => {
+      const bar = document.querySelector('.app-statusbar')!.getBoundingClientRect()
+      const composer = document.querySelector('.thread-composer-dock')!.getBoundingClientRect()
+      return composer.bottom <= bar.top + 1
+    })).toBe(true)
     // An opaque strip: the conversation text scrolling under it must not show through.
     expect(await sticky.evaluate(element => getComputedStyle(element).backgroundColor)).toMatch(/^rgb\(/)
     await sticky.click()

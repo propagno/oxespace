@@ -127,6 +127,22 @@ describe('ClaudeCreditsService', () => {
     expect(snap.error).toMatch(/401/)
   })
 
+  test('429 → no further request, even forced, until Retry-After passes', async () => {
+    vi.useFakeTimers({ now: Date.parse('2026-10-19T12:00:00Z') })
+    try {
+      const fetchMock = vi.fn(async () => ({ ok: false, status: 429, headers: { get: (name: string) => name === 'retry-after' ? '300' : null }, json: async () => ({}) }))
+      vi.stubGlobal('fetch', fetchMock)
+      const service = new ClaudeCreditsService(credsPath)
+      expect((await service.getCredits(true)).error).toMatch(/429/)
+      vi.advanceTimersByTime(120_000)
+      await service.getCredits(true)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      vi.advanceTimersByTime(181_000)
+      await service.getCredits(true)
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+    } finally { vi.useRealTimers() }
+  })
+
   test('missing credentials → unavailable, not installed, no fetch', async () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)

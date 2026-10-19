@@ -25,7 +25,8 @@ import type { AgentCreditsProvider } from './types'
  * `exec` mode `rate_limits` can be null, so we skip past such events/files.
  */
 
-const TTL_MS = 5 * 60_000
+// Local files only: cheap enough for the status bar's live reading.
+const TTL_MS = 30_000
 const MAX_SESSION_TAIL_BYTES = 4 * 1024 * 1024
 const SCAN_WINDOW_MS = 14 * 24 * 60 * 60 * 1000
 /** Windows up to this length count as the short "session" window; longer = weekly. */
