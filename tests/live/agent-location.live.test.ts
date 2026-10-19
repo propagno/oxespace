@@ -157,6 +157,22 @@ describe.skipIf(!live)('live agents report where they work', () => {
     expect(events.filter(event => event.type === 'completed')).toHaveLength(1)
   }, 300_000)
 
+  it('Claude: its thinking streams into a reasoning block that closes before the turn ends', async () => {
+    const repo = repository()
+    const events: ThreadEvent[] = []
+    const adapter = new ClaudeConversationAdapter((args, cwd) => new AgentProcessTransport('claude', args, cwd))
+    try {
+      await adapter.start({ rootPath: repo, nativeSessionId: null, access: 'read-only', reasoningEffort: 'high' }, event => events.push(event))
+      await adapter.send('Think it through step by step before answering: how many primes are there below 120? Reply with just the number.')
+      await untilCompleted(events, 180_000)
+    } finally { await adapter.dispose() }
+    const reasoning = events.filter((event): event is Extract<ThreadEvent, { type: 'reasoning' }> => event.type === 'reasoning')
+    console.log('Reasoning:', reasoning.at(-1)?.text.slice(0, 160))
+    expect(reasoning.at(-1)?.text.trim()).toBeTruthy()
+    expect(reasoning.at(-1)?.completedAt).toBeGreaterThanOrEqual(reasoning.at(-1)!.startedAt)
+    expect(events.findIndex(event => event.type === 'reasoning' && event.completedAt !== undefined)).toBeLessThan(events.findIndex(event => event.type === 'completed'))
+  }, 240_000)
+
   it('Claude: the init directory and an EnterWorktree move are reported and resolve to the worktree', async () => {
     const repo = repository()
     const events: ThreadEvent[] = []

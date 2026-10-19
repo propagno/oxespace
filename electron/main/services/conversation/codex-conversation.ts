@@ -8,6 +8,7 @@ import { THREAD_PROMPT_MAX_CHARS } from '../../../../shared/threadLimits'
 import { normalizeCodexTokenUsage } from './thread-context'
 import { readCodexRequestTokens, type TurnCost } from './thread-cost'
 import { ThreadRewindError, readAllTurnIds, verifyRevert } from './thread-rewind'
+import { ReasoningStream } from './reasoning-stream'
 
 // Codex can send a completed command or compaction item as one JSON-RPC frame.
 // Long native sessions have produced frames above 10 MiB; keep a finite ceiling
@@ -82,6 +83,14 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
   private readonly reasoningSummaries = new Map<string, { text: string; emittedAt: number }>()
   private readonly commandOutputs = new Map<string, { text: string; emittedAt: number }>()
   private emit: (event: ThreadEvent) => void = () => {}
+  /** The reasoning summaries kept in the history; `reasoningSummaries` only drives the live phase. */
+  private readonly reasoning = new ReasoningStream(event => this.emit(event))
+
+  /** Closes any reasoning still open, so the history never shows a thought as in progress. */
+  private endReasoning(): void {
+    this.reasoning.completeAll()
+    this.reasoningSummaries.clear()
+  }
   private readonly approvals = new Map<string, { rpcId: string | number; method: string; params: Record<string, unknown> }>()
   private readonly pendingOauth = new Set<string>()
 
@@ -157,7 +166,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     this.busy = true
     this.turnTokens = undefined
     this.turnError = undefined
-    this.reasoningSummaries.clear()
+    this.endReasoning()
     this.commandOutputs.clear()
     try {
       if (!skill && await this.slashCommand(input)) return
@@ -260,7 +269,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     this.turnId = ''
     this.turnError = undefined
     this.terminalEvidence = undefined
-    this.reasoningSummaries.clear()
+    this.endReasoning()
     this.commandOutputs.clear()
     this.recoveredTurns.add(nativeTurnId)
     if (this.recoveredTurns.size > 32) this.recoveredTurns.delete(this.recoveredTurns.values().next().value!)
@@ -282,7 +291,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     if (!this.rpc || this.busy) throw Error('Conversation is not ready to start queued input')
     this.busy = true
     this.turnTokens = undefined
-    this.reasoningSummaries.clear()
+    this.endReasoning()
     this.commandOutputs.clear()
     try {
       const result = record(await this.rpc.request('thread/queue/start', { threadId: this.threadId, queuedSubmissionId: nativeId ?? null }))
@@ -509,7 +518,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     this.emit({ type: 'connection-closed', at: Date.now() })
     this.approvals.clear()
     this.pendingOauth.clear()
-    this.reasoningSummaries.clear()
+    this.endReasoning()
     this.commandOutputs.clear()
     this.rpc?.close()
     await this.transport.close()
@@ -539,7 +548,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     if (this.usage) failure.usage = this.usage
     this.busy = false
     this.turnId = ''
-    this.reasoningSummaries.clear()
+    this.endReasoning()
     this.commandOutputs.clear()
     this.approvals.clear()
     this.emitTurnTokens()
@@ -609,6 +618,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
       const id = text(params.itemId)
       const delta = text(params.delta)
       if (!id || !delta) return
+      this.reasoning.append(`reasoning:${id}`, delta)
       const previous = this.reasoningSummaries.get(id) ?? { text: '', emittedAt: 0 }
       const summary = { text: (previous.text + delta).slice(-3_000), emittedAt: previous.emittedAt }
       const now = Date.now()
@@ -649,8 +659,15 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
       const id = text(item.id)
       if (item.type === 'reasoning' && id) {
         const summary = this.reasoningSummaries.get(id)?.text
-        if (message.method === 'item/started') this.emit({ type: 'activity', id: `reasoning:${id}`, phase: 'reasoning', at: Date.now() })
-        else if (summary) this.emit({ type: 'activity', id: `reasoning:${id}`, phase: 'reasoning', at: Date.now(), summary })
+        if (message.method === 'item/started') {
+          this.reasoning.begin(`reasoning:${id}`)
+          this.emit({ type: 'activity', id: `reasoning:${id}`, phase: 'reasoning', at: Date.now() })
+        } else {
+          // The completed item carries the whole summary, also when no delta streamed.
+          const parts = Array.isArray(item.summary) ? item.summary.map(value => typeof value === 'string' ? value : text(record(value).text)).filter(Boolean) : []
+          this.reasoning.complete(`reasoning:${id}`, parts.join('\n\n') || undefined)
+          if (summary) this.emit({ type: 'activity', id: `reasoning:${id}`, phase: 'reasoning', at: Date.now(), summary })
+        }
       } else if (item.type === 'agentMessage' && message.method === 'item/completed') {
         this.emit({ type: 'message', id, role: 'assistant', text: text(item.text) })
       } else if (item.type === 'collabAgentToolCall') {
@@ -699,7 +716,7 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
         return
       }
       this.busy = false
-      this.reasoningSummaries.clear()
+      this.endReasoning()
       this.commandOutputs.clear()
       this.turnId = ''
       this.approvals.clear()

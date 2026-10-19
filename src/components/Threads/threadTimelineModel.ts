@@ -62,7 +62,8 @@ function staysVisible(row: ThreadTimelineRow, finalAnswerKey: string | undefined
 
 /** Counts the steps a fold stands for: each action inside a group, otherwise one per row. */
 function stepCount(rows: ThreadTimelineRow[]): number {
-  return rows.reduce((sum, row) => sum + (row.event.type === 'activity-group' ? row.event.events.length : 1), 0)
+  // A thought is not a step: "Completed 3 steps" counts what the agent did.
+  return rows.reduce((sum, row) => sum + (row.event.type === 'activity-group' ? row.event.events.length : row.event.type === 'reasoning' ? 0 : 1), 0)
 }
 
 /**

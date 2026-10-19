@@ -10,6 +10,7 @@ import { ThreadFailureCard } from './ThreadFailureCard'
 import { ThreadFileActivity, ThreadTurnChanges } from './ThreadFileActivity'
 import { ThreadMessageRow } from './ThreadMessageRow'
 import { ThreadPlan } from './ThreadPlan'
+import { ThreadReasoning } from './ThreadReasoning'
 import { ThreadRequestCard } from './ThreadRequestCard'
 import { ThreadSubagentActivity } from './ThreadSubagentActivity'
 import { ThreadTurnTiming } from './ThreadTurnTiming'
@@ -72,6 +73,7 @@ export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending,
     if (event.type === 'turn-fold') return <ThreadTurnFoldRow key={key} fold={event} turn={snapshot?.turns?.find(value => value.id === turnId)} onToggle={() => onToggleFold?.(turnId)} />
     if (event.type === 'activity-group') return <ThreadActivityGroup key={key} events={event.events} mode={viewMode} />
     if (event.type === 'plan') return <ThreadPlan key={key} event={event} />
+    if (event.type === 'reasoning') return event.text.trim() ? <ThreadReasoning key={key} event={event} running={running && snapshot?.turns?.at(-1)?.id === turnId} /> : null
     if (event.type === 'subagent') return <ThreadSubagentActivity key={key} event={event} compact stopping={pending} onStop={snapshot?.thread.capabilities?.features.subagentLifecycle?.enabled && api?.stopTask && event.receiverThreadIds[0] ? () => void action(() => api.stopTask!(snapshot.thread.id, event.receiverThreadIds[0])) : undefined} />
     if (event.type === 'tool' && event.files?.length) return <ThreadFileActivity key={key} event={event} root={snapshot?.thread.rootPath ?? ''} threadId={snapshot!.thread.id} onOpen={openFile} />
     if (event.type === 'message') return <ThreadMessageRow key={key} event={event} turnEvents={turnEvents} snapshot={snapshot} running={running} pending={pending} copied={copiedMessageId === event.id} action={action} onCopy={onCopy}

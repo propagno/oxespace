@@ -124,6 +124,12 @@
 .thread-tool summary, .thread-approval summary, .thread-turn-error summary { display: flex; align-items: center; gap: 7px; list-style: none; cursor: pointer; padding: 7px 10px; }
 .thread-tool summary::-webkit-details-marker, .thread-approval summary::-webkit-details-marker, .thread-turn-error summary::-webkit-details-marker { display: none; }
 .thread-tool:not([open]) summary>svg:first-child { transform: rotate(-90deg); }
+.thread-reasoning { margin: 0 0 12px; color: var(--tx-muted); font-size: var(--fs-xs); }
+.thread-reasoning summary { display: inline-flex; align-items: center; gap: 6px; list-style: none; cursor: pointer; padding: 2px 0; }
+.thread-reasoning summary::-webkit-details-marker { display: none; }
+.thread-reasoning:not([open]) summary>svg:first-child { transform: rotate(-90deg); }
+.thread-reasoning.is-streaming summary { color: var(--tx-secondary); }
+.thread-reasoning pre { max-height: 240px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; margin: 4px 0 0; padding: 2px 0 2px 12px; border-left: 2px solid var(--bd-base); font-family: inherit; font-size: var(--fs-xs); font-style: italic; }
 .thread-tool small { color: var(--tx-muted); margin-left: auto; font-size: var(--fs-2xs); }
 .thread-tool pre, .thread-approval pre { max-height: 220px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 10px 12px; margin: 0; border-top: 1px solid var(--bd-base); font-size: var(--fs-2xs); }
 .thread-approval-actions { display: flex; gap: 8px; padding: 8px 10px; }
@@ -342,7 +348,7 @@
 .thread-activity-single summary:hover { color: var(--tx-primary); }
 .thread-activity-single.has-failure summary > svg:first-child { color: var(--dot-red); }
 .thread-activity-single .thread-tool-diagnostic { padding-left: 23px; }
-.thread-virtual-turn > :is(.thread-tool, .thread-approval, .thread-plan, .thread-file-activity, .thread-change-summary) { max-width: var(--thread-prose-max); }
+.thread-virtual-turn > :is(.thread-tool, .thread-approval, .thread-plan, .thread-reasoning, .thread-file-activity, .thread-change-summary) { max-width: var(--thread-prose-max); }
 .thread-activity-group summary { display: flex; align-items: center; gap: 8px; min-height: 36px; cursor: pointer; list-style: none; border-radius: var(--radius-sm); }
 .thread-activity-group summary::-webkit-details-marker { display: none; }
 .thread-activity-group summary:hover { color: var(--tx-primary); background: var(--bg-hover); }

@@ -10,6 +10,7 @@ import { readClaudeResultCost, stepFromProcessTotal } from './thread-cost'
 import { createApiRetryTracker } from './claude-api-retry'
 import { describePermissionRequest } from './claude-permission-request'
 import { toolResultText } from './tool-result-text'
+import { ReasoningStream } from './reasoning-stream'
 
 /** How long a cooperative interrupt may take before the process is ended instead. */
 const INTERRUPT_GRACE_MS = 2_000
@@ -49,6 +50,10 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
   private interruptWaiter: (() => void) | null = null
   private readonly seenMessages = new Set<string>()
   private streamMessageId = ''
+  /** Thinking blocks of the streaming message by content index, and the messages whose thinking streamed. */
+  private readonly thinkingBlocks = new Map<number, string>()
+  private readonly streamedThinking = new Set<string>()
+  private readonly reasoning = new ReasoningStream(event => this.emit(event))
   private disposed = false
   /** `total_cost_usd` of the last `result` of the running process; `result` reports a process total. */
   private processCostUsd = 0
@@ -107,7 +112,8 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
       : this.context.hooksEnabled ? undefined : '{"disableAllHooks":true}'
     // Read-only is a restricted tool surface, not a claim of OS sandboxing.
     // Exclude shell, skills, agents and external MCPs that could mutate state.
-    const runtimeArgs = ['--print', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--include-partial-messages', '--permission-mode', permissionMode, '--permission-prompts', 'host', '--permission-prompt-tool', 'stdio', '--tools', writable ? 'default' : 'Read,Glob,Grep,AskUserQuestion', ...(!writable ? ['--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}'] : []), ...(settings ? ['--settings', settings] : [])]
+    // Without --thinking-display the CLI streams thinking blocks with empty text; "summarized" carries the summary.
+    const runtimeArgs = ['--print', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--include-partial-messages', '--thinking-display', 'summarized', '--permission-mode', permissionMode, '--permission-prompts', 'host', '--permission-prompt-tool', 'stdio', '--tools', writable ? 'default' : 'Read,Glob,Grep,AskUserQuestion', ...(!writable ? ['--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}'] : []), ...(settings ? ['--settings', settings] : [])]
     const args = [...runtimeArgs,
       ...(this.context.model ? ['--model', this.context.model] : []),
       ...(this.context.reasoningEffort ? ['--effort', this.context.reasoningEffort] : []),
@@ -117,6 +123,9 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
     this.authenticationFailed = false
     this.diagnostic = ''
     this.streamMessageId = ''
+    this.thinkingBlocks.clear()
+    this.streamedThinking.clear()
+    this.reasoning.clear()
     this.localPlanId = localPlanId
     this.selectedModel = text.trim().match(/^\/model\s+([a-z0-9][a-z0-9._:/\[\]-]*)$/i)?.[1]
     try {
@@ -233,6 +242,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
         this.context!.model = this.selectedModel
         this.emit({ type: 'configuration', model: this.selectedModel })
       }
+      this.reasoning.completeAll()
       const failure = status === 'failed' ? threadFailure({ message: this.diagnostic, ...(this.authenticationFailed ? { codexErrorInfo: 'authentication_failed' } : {}) }) : undefined
       this.emit({ type: 'completed', status, ...(failure ? { error: failure.message, errorCode: failure.code, failure } : {}) })
     }
@@ -337,7 +347,26 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
           if (typeof event.cwd === 'string') this.emit({ type: 'location', cwd: event.cwd })
         } else if (event.type === 'stream_event') {
           const streamed = record(event.event)
-          if (streamed.type === 'message_start') this.streamMessageId = typeof record(streamed.message).id === 'string' ? String(record(streamed.message).id) : randomUUID()
+          if (streamed.type === 'message_start') {
+            this.streamMessageId = typeof record(streamed.message).id === 'string' ? String(record(streamed.message).id) : randomUUID()
+            this.thinkingBlocks.clear()
+          }
+          const index = typeof streamed.index === 'number' ? streamed.index : 0
+          if (streamed.type === 'content_block_start' && record(streamed.content_block).type === 'thinking') {
+            if (!this.streamMessageId) this.streamMessageId = randomUUID()
+            const id = `thinking:${this.streamMessageId}:${index}`
+            this.thinkingBlocks.set(index, id)
+            this.streamedThinking.add(this.streamMessageId)
+            this.reasoning.begin(id)
+          }
+          if (streamed.type === 'content_block_delta' && record(streamed.delta).type === 'thinking_delta' && typeof record(streamed.delta).thinking === 'string') {
+            const id = this.thinkingBlocks.get(index)
+            if (id) this.reasoning.append(id, String(record(streamed.delta).thinking))
+          }
+          if (streamed.type === 'content_block_stop' && this.thinkingBlocks.has(index)) {
+            this.reasoning.complete(this.thinkingBlocks.get(index)!)
+            this.thinkingBlocks.delete(index)
+          }
           if (streamed.type === 'content_block_delta' && record(streamed.delta).type === 'text_delta' && typeof record(streamed.delta).text === 'string') {
             if (!this.streamMessageId) this.streamMessageId = randomUUID()
             this.emit({ type: 'delta', id: this.streamMessageId, text: String(record(streamed.delta).text) })
@@ -356,6 +385,11 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
             this.diagnostic = answer
             return
           }
+          // Without partial messages the thinking arrives only here, whole.
+          const messageId = typeof record(event.message).id === 'string' ? record(event.message).id as string : ''
+          if (messageId && !this.streamedThinking.has(messageId)) content.map(record).forEach((block, position) => {
+            if (block.type === 'thinking' && typeof block.thinking === 'string' && block.thinking.trim()) this.reasoning.complete(`thinking:${messageId}:${position}`, block.thinking)
+          })
           if (answer) { this.answerShown = true; this.emit({ type: 'message', id: typeof record(event.message).id === 'string' ? record(event.message).id as string : randomUUID(), role: 'assistant', text: answer }) }
           for (const block of content.map(record)) {
             if (block.type === 'tool_use' && typeof block.id === 'string') {

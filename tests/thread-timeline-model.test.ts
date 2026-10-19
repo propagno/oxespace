@@ -107,4 +107,11 @@ describe('folding finished turns', () => {
     expect(turnFoldLabel(4, { id: 'ask', sequence: 1, status: 'completed', startedAt: 0, completedAt: 63_000, configuration: {} as never })).toBe('Completed 4 steps in 1m 3s')
     expect(turnFoldLabel(1)).toBe('Completed 1 step')
   })
+
+  it('folds a thought away with the work but does not count it as a step', () => {
+    const thought: ThreadEvent = { type: 'reasoning', id: 'think', text: 'Plan the change', startedAt: 0, completedAt: 1_000 }
+    const folded = foldFinishedTurns(buildThreadTimeline(turn('ask', [thought, tool('a'), tool('b')], [answer, { type: 'completed', status: 'completed' }]), 'normal'), new Set())
+    expect(folded[0].rows.some(row => row.event.type === 'reasoning')).toBe(false)
+    expect((folded[0].rows.find(row => row.event.type === 'turn-fold')!.event as { steps: number }).steps).toBe(2)
+  })
 })
