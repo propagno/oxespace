@@ -552,10 +552,24 @@ jobs:
       - name: Build the main process and worker
         run: npx electron-vite build
 
+      # MongoDB 8.x refuses to start on Linux 6.19+ (TCMalloc vs the kernel's rseq,
+      # SERVER-121912, no fixed release yet), and runners now come with either kernel.
+      # On a 6.19+ runner the 8.x leg runs on 7.0 and says so; older kernels keep 8.x.
+      - name: Choose the MongoDB image for this runner's kernel
+        id: mongo
+        run: |
+          mongo="${{ matrix.mongo }}"
+          kernel="$(uname -r | cut -d- -f1)"
+          if [ "${mongo%%.*}" -ge 8 ] && [ "$(printf '6.19\n%s\n' "$kernel" | sort -V | head -1)" = "6.19" ]; then
+            echo "::notice title=MongoDB ${mongo} skipped::Linux ${kernel} cannot run MongoDB 8.x (SERVER-121912); this leg uses MongoDB 7.0."
+            mongo="7.0"
+          fi
+          echo "image=docker.io/library/mongo:${mongo}" >> "$GITHUB_OUTPUT"
+
       - name: Pull the images the tests use
         run: |
           docker pull docker.io/library/postgres:${{ matrix.pg }}
-          docker pull docker.io/library/mongo:${{ matrix.mongo }}
+          docker pull ${{ steps.mongo.outputs.image }}
           docker pull docker.io/library/postgres:16-alpine
           docker pull docker.io/library/alpine:3.20
 
@@ -564,7 +578,7 @@ jobs:
           OXE_LIVE: "1"
           OXE_CONTAINER_ENGINE: docker
           OXE_LIVE_PG_IMAGE: docker.io/library/postgres:${{ matrix.pg }}
-          OXE_LIVE_MONGO_IMAGE: docker.io/library/mongo:${{ matrix.mongo }}
+          OXE_LIVE_MONGO_IMAGE: ${{ steps.mongo.outputs.image }}
         run: npx vitest run tests/live/oxequery-live.test.ts tests/live/oxequery-connectivity-live.test.ts tests/live/oxequery-writes-live.test.ts
 
   # Native AI Memory contracts (Windows/Linux x 2.1.0/2.6.2). PRs run the
