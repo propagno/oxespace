@@ -673,47 +673,6 @@
   gap: 8px;
 }
 
-.github-sync-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: 34px;
-  padding: 0 10px;
-  border-radius: var(--radius-md);
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 120ms, border-color 120ms, color 120ms, opacity 120ms;
-}
-
-.github-sync-btn.secondary {
-  border: 1px solid var(--bd-base);
-  background: var(--wb-canvas);
-  color: var(--tx-primary);
-}
-
-.github-sync-btn.secondary:hover:not(:disabled) {
-  background: var(--wb-selection);
-  border-color: var(--accent);
-}
-
-.github-sync-btn.primary {
-  border: 1px solid color-mix(in srgb, var(--brand) 45%, transparent);
-  background: color-mix(in srgb, var(--brand) 18%, transparent);
-  color: var(--brand-light, var(--text-accent));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 10%, transparent);
-}
-
-.github-sync-btn.primary:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--brand) 28%, transparent);
-}
-
-.github-sync-btn:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
 .github-changes-card {
   display: flex;
   flex-direction: column;
@@ -872,27 +831,6 @@
   background: var(--wb-raised);
 }
 
-.github-stage-all-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 36px;
-  border: 1px solid var(--gh-card-border);
-  border-radius: var(--radius-md);
-  background: var(--ov-1);
-  color: var(--gh-text);
-  font-size: var(--fs-xs);
-  font-weight: 650;
-}
-
-.github-stage-all-btn:hover:not(:disabled) {
-  background: var(--ov-2);
-  border-color: var(--ov-3);
-}
-
-.github-stage-all-btn:disabled { opacity: 0.5; cursor: default; }
-
 .github-auto-row {
   display: flex;
   align-items: center;
@@ -919,23 +857,6 @@
 
 .github-commit-ta::placeholder { color: var(--tx-muted); }
 
-.github-commit-submit {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 34px;
-  border: 1px solid var(--bd-base);
-  border-radius: var(--radius-sm);
-  background: var(--wb-canvas);
-  color: var(--tx-primary);
-  font-size: var(--fs-xs);
-  font-weight: 700;
-}
-
-.github-commit-submit:hover:not(:disabled) { background: var(--wb-selection); }
-.github-commit-submit:disabled { opacity: 0.4; cursor: default; }
-
 .github-checkpoints-footer input {
   width: 100%;
   min-height: 36px;
@@ -949,25 +870,6 @@
 }
 
 .github-checkpoints-footer input::placeholder { color: var(--gh-muted); }
-
-.github-full-primary-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 36px;
-  border: 1px solid color-mix(in srgb, var(--brand) 40%, transparent);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--brand) 22%, transparent);
-  color: var(--brand-light, var(--text-accent));
-  font-size: var(--fs-xs);
-  font-weight: 700;
-}
-
-.github-full-primary-btn:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--brand) 32%, transparent);
-}
-.github-full-primary-btn:disabled { opacity: 0.45; cursor: default; }
 
 /* Empty centered state */
 .github-empty-center {
@@ -1050,24 +952,6 @@
 .github-cyan { color: var(--text-accent); font-weight: 700; }
 .github-amber { color: var(--intent-warning-fg); }
 
-.github-push-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 36px;
-  border: 1px solid color-mix(in srgb, var(--brand) 40%, transparent);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--brand) 20%, transparent);
-  color: var(--brand-light, var(--text-accent));
-  font-size: var(--fs-xs);
-  font-weight: 700;
-}
-
-.github-push-btn:hover {
-  background: color-mix(in srgb, var(--brand) 30%, transparent);
-}
-
 .github-gitignore-row {
   display: flex;
   align-items: center;
@@ -1109,17 +993,6 @@
   font-size: var(--fs-xs);
   font-weight: 700;
 }
-
-.github-text-btn {
-  border: 0;
-  background: transparent;
-  color: var(--text-accent);
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.github-text-btn:hover { color: var(--text-accent); }
 
 .github-empty-inline {
   display: block;
@@ -1166,23 +1039,8 @@
   font-weight: 400;
 }
 
-/* Outline button (New Branch, New PR, etc.) */
-.github-outline-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 26px;
-  padding: 0 9px;
-  border: 1px solid var(--accent-border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-accent);
-  font-size: var(--fs-2xs);
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.github-outline-btn:hover { background: var(--accent-soft); }
+/* A design-system Button that fills its row (commit, push, create, run workflow). */
+.github-block-btn { width: 100%; }
 
 /* Branch rows */
 .github-branch-row {
@@ -1389,41 +1247,12 @@
   border-top: 1px solid var(--border-default);
 }
 
-.github-view-gh-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 0;
-  background: transparent;
-  color: var(--text-accent);
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.github-view-gh-btn:hover { color: var(--text-accent); }
-
 /* Detail views */
 .github-detail-header-row {
   display: flex;
   align-items: center;
   gap: 10px;
 }
-
-.github-back-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  flex-shrink: 0;
-}
-
-.github-back-btn:hover { background: var(--surface-canvas); }
 
 .github-detail-title {
   color: var(--text-primary);
