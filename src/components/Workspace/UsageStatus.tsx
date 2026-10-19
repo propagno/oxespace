@@ -22,7 +22,7 @@ export function formatResetIn(resetsAtMs: number | null, now: number): string | 
 /** The short reading for the bar ("5h 42% · wk 18%") and the detail for its tooltip. */
 export function usageText(snapshot: AgentCreditsSnapshot, now: number): { short: string; detail: string; peak: number } {
   const label = (window: CreditsWindow) => window.kind === 'session' ? '5h' : 'wk'
-  const windows = [...snapshot.windows].sort((a, b) => a.kind === b.kind ? 0 : a.kind === 'session' ? -1 : 1)
+  const windows = [...(snapshot.windows ?? [])].sort((a, b) => a.kind === b.kind ? 0 : a.kind === 'session' ? -1 : 1)
   const name = `${snapshot.provider === 'codex' ? 'Codex' : 'Claude'}${snapshot.planLabel ? ` (${snapshot.planLabel})` : ''}`
   const detail = windows.map(window => {
     const reset = formatResetIn(window.resetsAtMs, now)
@@ -53,7 +53,8 @@ export function UsageStatus({ provider }: { provider: Extract<AgentProvider, 'cl
     document.addEventListener('visibilitychange', read)
     return () => { window.clearInterval(timer); window.removeEventListener('focus', read); document.removeEventListener('visibilitychange', read) }
   }, [provider, refresh])
-  if (!snapshot?.available || !snapshot.windows.length) return null
+  // Snapshots come over IPC from an undocumented endpoint: a reading without windows shows nothing, never throws.
+  if (!snapshot?.available || !Array.isArray(snapshot.windows) || !snapshot.windows.length) return null
   const { short, detail, peak } = usageText(snapshot, Date.now())
   const Icon = provider === 'codex' ? Bot : Sparkles
   return <button type="button" className={cx(styles.item, styles.usage, peak >= 100 ? styles.usageCritical : peak >= 80 || snapshot.stale ? styles.usageWarning : undefined)}

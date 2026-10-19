@@ -45,6 +45,13 @@ describe('usage in the status bar', () => {
       expect(get).toHaveBeenLastCalledWith({ provider: 'claude', force: true })
     })
 
+    it('shows nothing, and does not throw, for a reading that lacks its windows', async () => {
+      get.mockResolvedValueOnce({ provider: 'claude', available: true, installed: true, planLabel: 'Pro', source: 'oauth', observedAtMs: now, error: null } as unknown as AgentCreditsSnapshot)
+      render(<UsageStatus provider="claude" />)
+      await act(async () => { await Promise.resolve() })
+      expect(screen.queryByTestId('usage-status')).toBeNull()
+    })
+
     it('shows nothing while the provider has no reading', async () => {
       get.mockResolvedValueOnce(snapshot({ available: false, windows: [], display: null }))
       render(<UsageStatus provider="codex" />)
