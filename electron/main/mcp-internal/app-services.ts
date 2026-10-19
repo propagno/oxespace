@@ -12,7 +12,7 @@ export interface AppServices {
   /** Shows a desktop notification; false when the system does not support them. */
   notify?: (title: string, body: string) => boolean
   terminal?: { peek(paneId: string): { running: boolean; data: string; altScreen: boolean } | null }
-  mcpServers?: Pick<import('../services/mcp.service').McpManager, 'list'>
+  mcpServers?: Pick<import('../services/mcp.service').McpManager, 'list' | 'start' | 'stopRuntime'>
   search?: Pick<import('../services/search.service').SearchService, 'search' | 'listFiles'>
   contextUsage?: Pick<import('../services/contextUsage').ContextUsageService, 'get'>
   credits?: Pick<import('../services/agentCredits').AgentCreditsService, 'getCredits'>
