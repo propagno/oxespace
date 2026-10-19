@@ -28,7 +28,7 @@ function record(value: unknown): Record<string, unknown> {
 
 /** Official persistent print+stream-json transport, explicit resume after disconnection. */
 export class ClaudeConversationAdapter implements AgentConversationAdapter {
-  readonly capabilities = { resume: true, approvals: true, attachments: true, modelSelection: true, questions: true, permissions: false, elicitation: false, queue: false, steering: false, nativeSessions: true, stopTasks: true }
+  readonly capabilities = { resume: true, approvals: true, attachments: true, modelSelection: true, questions: true, permissions: false, elicitation: false, queue: false, steering: true, nativeSessions: true, stopTasks: true }
   readonly evidence: ConversationProtocolEvidence = { transport: 'claude-print-stream-json', verified: 'fixture' }
   private context: ({ rootPath: string; nativeSessionId: string | null } & ThreadConfiguration) | null = null
   private approvals = new Map<string, { input: Record<string, unknown>; toolName: string; questions?: Map<string, string>; suggestions?: unknown[]; toolUseId?: string }>()
@@ -64,6 +64,21 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
     if (this.context || this.disposed) throw new Error('Conversation adapter cannot be started twice')
     this.context = { ...context }
     this.emit = emit
+  }
+
+  /**
+   * Adds a message to the running turn. Claude Code reads stream-json input while it works and applies a
+   * message that arrives mid-turn to that same turn (verified live with 2.1.301: one result, both requests
+   * answered). A message that lands just after the turn ended starts a native continuation, which the
+   * adapter already reports as such.
+   */
+  async steer(text: string, attachments: ThreadAttachment[] = []): Promise<void> {
+    if (!this.context || this.disposed || !this.transport || !this.busy || this.completed) throw new Error('There is no active turn to steer')
+    if (!text.trim() || text.length > THREAD_PROMPT_MAX_CHARS) throw new Error('Invalid conversation input')
+    const sessionId = this.context.nativeSessionId
+    if (!sessionId) throw new Error('The turn has not started yet; try again in a moment')
+    const content = await userContent(text, attachments)
+    this.transport.write(JSON.stringify({ type: 'user', session_id: sessionId, parent_tool_use_id: null, message: { role: 'user', content } }) + '\n')
   }
 
   async send(text: string, _skill?: ThreadAgentInput['skill'], attachments: ThreadAttachment[] = []): Promise<void> {
@@ -140,10 +155,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
         catch (error) { this.initialized.reject(error instanceof Error ? error : Error('Agent initialization failed')) }
       })
       if (this.disposed || this.transport !== transport) throw Error('Agent connection ended before input could be sent')
-      const content: unknown = attachments.length ? [{ type: 'text', text }, ...(await Promise.all(attachments.map(async attachment => {
-        if (!attachment.path) throw Error('Attachment is unavailable')
-        return { type: 'image', source: { type: 'base64', media_type: attachment.mimeType, data: (await readFile(attachment.path)).toString('base64') } }
-      })))] : text
+      const content = await userContent(text, attachments)
       transport.write(JSON.stringify({ type: 'user', session_id: this.context.nativeSessionId ?? sessionId, parent_tool_use_id: null, message: { role: 'user', content } }) + '\n')
     } catch (error) {
       this.diagnostic = error instanceof Error ? error.message : this.diagnostic
@@ -513,4 +525,13 @@ export function enteredWorktreePath(text: string): string | null {
   if (stated) return unquote(stated[1])
   const match = /([A-Za-z]:[\\/][^\s"'`“”‘’<>|]+|(?<![\w.])\/[^\s"'`“”‘’<>|]+)/.exec(text)
   return match ? match[1].replace(/[.,;:)\]]+$/, '') : null
+}
+
+/** A user message's content: plain text, or text followed by images read from their stored files. */
+async function userContent(text: string, attachments: ThreadAttachment[]): Promise<unknown> {
+  if (!attachments.length) return text
+  return [{ type: 'text', text }, ...(await Promise.all(attachments.map(async attachment => {
+    if (!attachment.path) throw Error('Attachment is unavailable')
+    return { type: 'image', source: { type: 'base64', media_type: attachment.mimeType, data: (await readFile(attachment.path)).toString('base64') } }
+  })))]
 }

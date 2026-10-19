@@ -343,3 +343,23 @@ describe('Claude session location', () => {
     expect(enteredWorktreePath('Switched to “/repo/.claude/worktrees/z”.')).toBe('/repo/.claude/worktrees/z')
   })
 })
+
+describe('Claude steering', () => {
+  it('adds a message to the running turn and refuses when no turn is running', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
+    await expect(f.adapter.steer('too early')).rejects.toThrow(/no active turn/)
+    await f.adapter.send('Run the checks')
+    f.emit(0, { type: 'system', subtype: 'init', session_id: 'native-steer' })
+    await f.adapter.steer('Also run lint')
+    const users = f.turns[0].writes.filter(value => (value as { type?: string }).type === 'user') as Array<{ session_id: string; message: { content: unknown } }>
+    expect(users.map(user => user.message.content)).toEqual(['Run the checks', 'Also run lint'])
+    expect(users[1].session_id).toBe('native-steer')
+    // Nothing new is started: steering never opens another process or turn.
+    expect(f.turns).toHaveLength(1)
+    f.emit(0, { type: 'result', subtype: 'success', result: 'Checks and lint pass', session_id: 'native-steer' })
+    await expect(f.adapter.steer('after the end')).rejects.toThrow(/no active turn/)
+    expect(f.adapter.capabilities.steering).toBe(true)
+    await f.adapter.dispose()
+  })
+})

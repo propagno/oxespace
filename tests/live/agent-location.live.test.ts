@@ -137,6 +137,26 @@ describe.skipIf(!live)('live agents report where they work', () => {
     } finally { await manager.stop(); db.close() }
   }, 300_000)
 
+  it('Claude: a message steered into a running turn is answered in that same turn', async () => {
+    const repo = repository()
+    const events: ThreadEvent[] = []
+    const adapter = new ClaudeConversationAdapter((args, cwd) => new AgentProcessTransport('claude', args, cwd))
+    try {
+      await adapter.start({ rootPath: repo, nativeSessionId: null, access: 'full-access' }, event => events.push(event))
+      await adapter.send('Run this Bash command exactly: for i in 1 2 3 4 5; do echo tick $i; sleep 2; done. Then reply with the word FIRST.')
+      const until = Date.now() + 60_000
+      while (Date.now() < until && !events.some(event => event.type === 'session')) await new Promise(resolve => setTimeout(resolve, 200))
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      await adapter.steer('Also, end your reply with the word SECOND.')
+      await untilCompleted(events, 240_000)
+    } finally { await adapter.dispose() }
+    const answer = events.filter(event => event.type === 'message' && event.role === 'assistant').map(event => event.type === 'message' ? event.text : '').join('\n')
+    console.log('Steered answer:', answer.trim().slice(0, 200))
+    expect(answer).toContain('FIRST')
+    expect(answer).toContain('SECOND')
+    expect(events.filter(event => event.type === 'completed')).toHaveLength(1)
+  }, 300_000)
+
   it('Claude: the init directory and an EnterWorktree move are reported and resolve to the worktree', async () => {
     const repo = repository()
     const events: ThreadEvent[] = []
