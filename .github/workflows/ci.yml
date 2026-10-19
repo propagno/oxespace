@@ -260,7 +260,16 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          npm run test:e2e
+          npm run test:e2e -- --trace retain-on-failure
+
+      - name: Upload E2E traces (Windows failures)
+        if: failure() && runner.os == 'Windows'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: e2e-traces-windows
+          if-no-files-found: ignore
+          retention-days: 7
+          path: test-results/**/trace.zip
 
       # Electron needs a display; the wrapper owns a private Xvfb lifecycle so
       # repeated Playwright launches cannot leave the CI job waiting on Xvfb.
