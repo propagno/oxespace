@@ -584,6 +584,15 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.locator('.thread-message-user').filter({ hasText: /^Review message 120$/ })).toBeInViewport()
     await find.press('Escape')
     await expect(find).toHaveCount(0)
+    // Alt+Up and Alt+Down move between prompts from the composer, through rows not yet mounted.
+    const promptTop = () => page.locator('.thread-timeline').evaluate(el => el.scrollTop)
+    const before = await promptTop()
+    await page.getByRole('textbox', { name: 'Message', exact: true }).focus()
+    await page.keyboard.press('Alt+ArrowUp')
+    await expect.poll(promptTop).toBeLessThan(before)
+    const afterUp = await promptTop()
+    await page.keyboard.press('Alt+ArrowDown')
+    await expect.poll(promptTop).toBeGreaterThan(afterUp)
     await page.locator('.thread-timeline').evaluate(el => { el.scrollTop = el.scrollHeight })
     await expect.poll(visibleMessages).toBeGreaterThan(0)
     await page.locator('.thread-timeline').hover()
@@ -809,6 +818,14 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(fold).toHaveAttribute('aria-expanded', 'true')
     await expect(page.locator('.thread-activity-group, .thread-activity-single').first()).toBeVisible()
     await page.screenshot({ path: 'test-results/thread-view-normal.png' })
+    // Once a turn's prompt scrolls away while its work is read, it stays at the top edge and leads back.
+    const sticky = page.getByTestId('thread-sticky-prompt')
+    await page.locator('.thread-timeline').evaluate(el => { el.scrollTop = 0 })
+    await expect(sticky).toHaveCount(0)
+    await page.locator('.thread-timeline').evaluate(el => { el.scrollTop = 260 })
+    await expect(sticky).toContainText('Show the files updated in this conversation')
+    await sticky.click()
+    await expect(sticky).toHaveCount(0)
     if (process.env.OXESPACE_README_SHOTS) {
       // Marketing capture for the README: Normal view, no side panel.
       await page.getByRole('button', { name: 'Close workbench panel' }).click()
