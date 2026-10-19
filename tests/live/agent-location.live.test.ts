@@ -4,10 +4,12 @@
  * It spends a little of the person's subscription and needs network, so it never runs in CI.
  */
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
+import { openInMemoryDatabase } from '../../electron/main/db'
+import { ThreadManager } from '../../electron/main/services/conversation/thread-manager'
 import { ClaudeConversationAdapter } from '../../electron/main/services/conversation/claude-conversation'
 import { CodexConversationAdapter } from '../../electron/main/services/conversation/codex-conversation'
 import { AgentProcessTransport } from '../../electron/main/services/conversation/process-transport'
@@ -99,6 +101,40 @@ describe.skipIf(!live)('live agents report where they work', () => {
     console.log('Branch seen by the agent:', answer.trim())
     expect(answer).toContain('thread/live-check')
     expect(events.find(event => event.type === 'location')).toMatchObject({ cwd: created.rootPath })
+  }, 300_000)
+
+  it('a Thread turn spent in a worktree Claude entered can be reviewed and undone there', async () => {
+    const repo = repository()
+    const db = openInMemoryDatabase()
+    db.prepare("INSERT INTO workspaces (id, name, root_path, layout, default_shell_profile_id) VALUES ('A', 'A', ?, '1x1', 'builtin-claude')").run(repo)
+    const models = { list: async () => ({ defaultModel: 'm', models: [] }), stop: async () => {} }
+    const seen: string[] = []
+    const manager = new ThreadManager(db, async () => {
+      const adapter = new ClaudeConversationAdapter((args, cwd) => new AgentProcessTransport('claude', args, cwd))
+      const start = adapter.start.bind(adapter)
+      adapter.start = (context, emit) => start(context, event => { if (event.type === 'location' || event.type === 'session') seen.push(`${event.type} ${event.type === 'location' ? event.cwd : ''}`); emit(event) })
+      return adapter
+    }, () => {}, undefined, undefined, undefined, models as never)
+    try {
+      const id = manager.create({ workspaceId: 'A', projectId: 'p', rootPath: repo, provider: 'claude' }).thread.id
+      await manager.configure(id, { access: 'full-access' }, manager.read(id).thread.revision ?? 0).catch(() => undefined)
+      await manager.send(id, 'Use the EnterWorktree tool to create and enter a worktree named undo. Then use the Write tool to create hello.txt in the current directory containing exactly: hi. Reply done.')
+      const end = Date.now() + 240_000
+      const turnDone = (): boolean => manager.read(id).turns?.at(-1)?.status !== 'running' && manager.read(id).thread.status !== 'running'
+      while (Date.now() < end && !turnDone()) await new Promise(resolve => setTimeout(resolve, 1000))
+      await new Promise(resolve => setTimeout(resolve, 3000))
+      const snapshot = manager.read(id)
+      const tree = join(repo, '.claude', 'worktrees', 'undo')
+      console.log('Observed:', snapshot.thread.observedLocation?.checkoutRoot, '| turn:', snapshot.turns?.at(-1)?.status, '| access:', snapshot.thread.access)
+      console.log('Seen:', JSON.stringify(seen))
+      expect(existsSync(join(tree, 'hello.txt'))).toBe(true)
+      const turnId = snapshot.turns!.at(-1)!.id
+      const files = await manager.turnFiles(id, turnId)
+      console.log('Turn files:', files.map(file => file.path))
+      expect(files.map(file => file.path)).toContain('hello.txt')
+      await manager.undoTurnFile(id, turnId, 'hello.txt')
+      expect(existsSync(join(tree, 'hello.txt'))).toBe(false)
+    } finally { await manager.stop(); db.close() }
   }, 300_000)
 
   it('Claude: the init directory and an EnterWorktree move are reported and resolve to the worktree', async () => {

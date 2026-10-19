@@ -79,6 +79,9 @@ export class ApprovalBroker {
     const key = this.key(executionKey, connectionId, request.tool, hash)
     const now = this.now()
     this.expireSessionReads(now)
+    // Expired grants and denials are dead entries; drop them so a long session does not accumulate them.
+    for (const [entry, until] of this.grants) if (until <= now) this.grants.delete(entry)
+    for (const [entry, until] of this.denials) if (until <= now) this.denials.delete(entry)
     if (request.risk === 'read' && this.sessionReads.has(`${executionKey}|${connectionId}|read`)) return { state: 'approved', via: 'session' }
     const granted = this.grants.get(key)
     if (granted !== undefined) {
@@ -109,7 +112,9 @@ export class ApprovalBroker {
       pending = { requestId, promise }
       this.pending.set(key, pending)
     }
-    const settled = await Promise.race([pending.promise, new Promise<'wait'>(resolve => setTimeout(() => resolve('wait'), waitMs))])
+    let waiting: ReturnType<typeof setTimeout> | undefined
+    const settled = await Promise.race([pending.promise, new Promise<'wait'>(resolve => { waiting = setTimeout(() => resolve('wait'), waitMs) })])
+    clearTimeout(waiting)
     if (settled === 'wait') return { state: 'pending', requestId: pending.requestId }
     if (settled === 'deny') return { state: 'denied' }
     // Approved while the caller was waiting: consume the grant now.

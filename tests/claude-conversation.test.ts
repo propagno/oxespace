@@ -337,5 +337,9 @@ describe('Claude session location', () => {
     const live = String.raw`Created worktree at C:\Users\Jane Doe\repo\.claude\worktrees\fix on branch worktree-fix. The session is now working in the worktree. Use ExitWorktree to leave mid-session, or exit the session to be prompted.`
     expect(enteredWorktreePath(live)).toBe(String.raw`C:\Users\Jane Doe\repo\.claude\worktrees\fix`)
     expect(enteredWorktreePath('Created worktree at /home/jane doe/repo/.claude/worktrees/x on branch worktree-x.')).toBe('/home/jane doe/repo/.claude/worktrees/x')
+    // Also seen live with the same version: the path in typographic quotes.
+    expect(enteredWorktreePath(String.raw`Created worktree at “C:\Users\Jane Doe\repo\.claude\worktrees\undo” on branch worktree-undo.`)).toBe(String.raw`C:\Users\Jane Doe\repo\.claude\worktrees\undo`)
+    expect(enteredWorktreePath('Created worktree at `/repo/.claude/worktrees/y` on branch worktree-y.')).toBe('/repo/.claude/worktrees/y')
+    expect(enteredWorktreePath('Switched to “/repo/.claude/worktrees/z”.')).toBe('/repo/.claude/worktrees/z')
   })
 })

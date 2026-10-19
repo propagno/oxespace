@@ -1,6 +1,7 @@
 import { BrowserWindow, ipcMain, Notification } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { AgentNotificationPayload } from '../../../shared/types/ipc'
+import { parseRecord, parseText, requireAppFrame } from './ipc-guards'
 
 /**
  * Native desktop notifications for agent state changes (Horizon 1 · item 1).
@@ -10,7 +11,10 @@ import type { AgentNotificationPayload } from '../../../shared/types/ipc'
  * the window and tells the renderer which pane to activate.
  */
 export function registerNotificationsIpc(): void {
-  ipcMain.handle(IPC_CHANNELS.notifications.notify, (_event, payload: AgentNotificationPayload) => {
+  ipcMain.handle(IPC_CHANNELS.notifications.notify, (event, value: unknown) => {
+    requireAppFrame(event, 'Notifications')
+    const input = parseRecord(value, 'Notification')
+    const payload: AgentNotificationPayload = { title: parseText(input.title, 'Title', 200), body: parseText(input.body, 'Body', 1000), paneId: parseText(input.paneId, 'Pane id', 200), workspaceId: parseText(input.workspaceId, 'Workspace id', 200) }
     if (!Notification.isSupported()) return false
     const notification = new Notification({
       title: payload.title,

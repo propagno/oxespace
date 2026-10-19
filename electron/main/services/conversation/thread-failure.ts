@@ -31,7 +31,9 @@ export function threadFailure(value: unknown): ThreadFailure {
   else if ((httpStatus && httpStatus >= 500) || /serverOverloaded|internalServerError/i.test(hint)) { code = 'server'; message = 'The provider reported a server failure. Retry later.' }
   else if (/sandboxError/i.test(hint)) { code = 'sandbox'; message = 'The agent could not run an operation in its sandbox.' }
   else if (/ConnectionFailed|StreamDisconnected|TooManyFailedAttempts|connection.*closed|timed out|network|ENOTFOUND|ECONN/i.test(hint)) { code = 'network'; message = 'The connection to the agent failed or timed out.' }
-  else if (httpStatus === 400 || /badRequest|ENOENT|executable|model.*(?:not found|unavailable|unsupported)/i.test(hint)) { code = 'configuration'; message = 'The agent rejected the configuration or could not start.' }
+  // A default model from the provider's own config (for example ~/.codex/config.toml) that the account cannot use.
+  else if (/model\b[^.\n]{0,80}\b(?:is not supported|not supported|isn't supported|unsupported|not available|unavailable|not found|does not exist)|unsupported model|model_not_found|invalid model/i.test(hint)) { code = 'configuration'; message = 'This model is not available for your account. Choose another model in the model picker below the message box, or change the default model in the provider\'s own settings.' }
+  else if (httpStatus === 400 || /badRequest|ENOENT|executable/i.test(hint)) { code = 'configuration'; message = 'The agent rejected the configuration or could not start.' }
   return { id: randomUUID(), occurredAt: Date.now(), code, message, ...(detail || extra ? { detail: [detail, extra].filter(Boolean).join('\n\n') } : {}), ...(providerCode && /^[a-zA-Z0-9_:-]{1,100}$/.test(providerCode) ? { providerCode } : {}), ...(httpStatus && httpStatus >= 100 && httpStatus <= 599 ? { httpStatus } : {}) }
 }
 

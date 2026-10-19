@@ -37,7 +37,7 @@ function safeDetail(input: RuntimeDetail): Record<string, string | number> {
   return result
 }
 
-export type RuntimeEvent = 'app-start' | 'app-stop' | 'process-start' | 'process-exit' | 'process-error' | 'process-stop' | 'child-gone' | 'renderer-gone' | 'turn-submit' | 'turn-accepted' | 'completed' | 'continuation-started' | 'connection-closed' | 'tool' | 'subagent' | 'approval' | 'request' | 'request-resolved' | 'approval-resolved' | 'turn-interrupt' | 'thread-suspend'
+export type RuntimeEvent = 'app-start' | 'app-stop' | 'process-start' | 'process-exit' | 'process-error' | 'process-stop' | 'child-gone' | 'renderer-gone' | 'turn-submit' | 'turn-accepted' | 'completed' | 'continuation-started' | 'connection-closed' | 'tool' | 'subagent' | 'approval' | 'request' | 'request-resolved' | 'approval-resolved' | 'turn-interrupt' | 'thread-suspend' | 'checkpoint-failed'
 
 /** Small local flight recorder: bounded files, rate, deduplication and memory; no console output. */
 export class RuntimeDiagnostics {

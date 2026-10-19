@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { openDatabase } from './db/index'
 import { registerAgentIpc } from './ipc/agent.ipc'
 import { registerFileSystemIpc } from './ipc/file-system.ipc'
@@ -51,7 +52,7 @@ import { AutomationService } from './services/automations/service'
 import { AutomationStore } from './services/automations/store'
 import { runHook } from './services/repo-config/hook-runner'
 import { fallbackShellProfiles } from './services/shell-profile.defaults'
-import { isLoopbackHttpUrl, isSafeExternalUrl } from './utils/external-url'
+import { isAppNavigation, isLoopbackHttpUrl, isSafeExternalUrl } from './utils/external-url'
 import { applyLoginShellPath } from './utils/login-shell-path'
 import { securePreviewGuest, securePreviewSession, WEB_PREVIEW_PARTITION_PREFIX } from './services/browser-preview-security'
 import { registerBrowserPreviewIpc } from './services/browser-preview.service'
@@ -77,8 +78,27 @@ try {
 // app or vanish silently. These are last-resort catches — handlers should still
 // deal with their own errors; this just keeps a single bug from taking the app
 // down and gives us a forensic trail.
+let unexpectedErrorShown = false
 process.on('uncaughtException', (error) => {
   log.error('[main] uncaughtException', error)
+  recordRuntime('process-error', { kind: 'main', state: error instanceof Error ? error.message.slice(0, 200) : String(error).slice(0, 200) })
+  // The app keeps running, but its state is no longer known: say so once, and offer a clean restart.
+  if (unexpectedErrorShown || !app.isReady() || !app.isPackaged) return
+  unexpectedErrorShown = true
+  const window = BrowserWindow.getAllWindows()[0]
+  const options: Electron.MessageBoxOptions = {
+    type: 'error',
+    title: 'OXESpace hit an unexpected error',
+    message: 'Something went wrong in the background.',
+    detail: 'Your terminals and agents may still be running, but OXESpace can no longer guarantee them. Restart to continue safely. Diagnostics can be exported from Settings > Diagnostics.',
+    buttons: ['Restart OXESpace', 'Keep working'],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true
+  }
+  void (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options)).then(({ response }) => {
+    if (response === 0) { app.relaunch(); app.quit() }
+  }).catch(() => {})
 })
 process.on('unhandledRejection', (reason) => {
   log.error('[main] unhandledRejection', reason)
@@ -824,6 +844,20 @@ function createMainWindow(): BrowserWindow {
     if (isSafeExternalUrl(url)) void shell.openExternal(url)
     return { action: 'deny' }
   })
+
+  // The window that holds the preload API only ever shows the app itself. A dropped link, a link in
+  // agent output or a redirect would otherwise load a remote page that keeps that API.
+  const appUrl = isDev && process.env.ELECTRON_RENDERER_URL
+    ? new URL(process.env.ELECTRON_RENDERER_URL).origin
+    : pathToFileURL(join(app.getAppPath(), 'out', 'renderer', 'index.html')).href
+  const keepInApp = (event: Electron.Event, url: string): void => {
+    if (isAppNavigation(url, appUrl)) return
+    event.preventDefault()
+    log.warn('[main] blocked navigation of the main window', url.slice(0, 200))
+    if (isSafeExternalUrl(url)) void shell.openExternal(url)
+  }
+  mainWindow.webContents.on('will-navigate', keepInApp)
+  mainWindow.webContents.on('will-redirect', keepInApp)
 
   mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
     log.error('Renderer failed to load', { errorCode, errorDescription, validatedURL })

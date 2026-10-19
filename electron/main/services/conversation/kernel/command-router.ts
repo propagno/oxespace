@@ -9,6 +9,7 @@ import { threadConfirmation } from '../../../../../shared/threadConfirmations'
 import type { AppDatabase } from '../../../db'
 import type { AgentConversationAdapter, ConversationCapabilities, ConversationThread, ThreadCommandResult, ThreadConfiguration, ThreadRewindResult, ThreadSnapshot } from '../../../../../shared/types/thread'
 import { hasDesktopCommand } from '../../../../../shared/threadDesktopCommands'
+import { THREAD_MESSAGE_MAX_CHARS } from '../../../../../shared/threadLimits'
 import { PARTIAL_NATIVE_HISTORY_NOTICE } from '../../../../../shared/threadHistoryNotice'
 import type { ThreadCheckpointService } from '../thread-checkpoints'
 import type { ThreadNativeCli } from '../thread-cli'
@@ -44,7 +45,7 @@ export interface CommandHost {
 
 export async function runThreadCommand(host: CommandHost, id: string, text: string): Promise<ThreadCommandResult> {
     const match = text.trim().match(/^\/([a-z0-9][a-z0-9_:-]*)(?:\s+([\s\S]*))?$/i)
-    if (!match || text.length > 65536) throw Error('Invalid command')
+    if (!match || text.length > THREAD_MESSAGE_MAX_CHARS) throw Error('Invalid command')
     let name = match[1].toLowerCase()
     const argument = match[2]?.trim() ?? '', snapshot = host.read(id), thread = snapshot.thread
     const aliases: Record<string, string> = { delegation: 'delegations', approvals: 'permissions', 'allowed-tools': 'permissions', name: 'rename', clear: 'new', reset: 'new', cwd: 'pwd', plugin: 'plugins', config: 'settings', login: 'accounts', exit: 'quit' }

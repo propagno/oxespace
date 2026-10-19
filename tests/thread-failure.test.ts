@@ -18,6 +18,12 @@ describe('thread failure diagnostics', () => {
     expect(diagnosticText('x'.repeat(20000))).toHaveLength(4000)
     expect(diagnosticText({ accessToken: 'secret' })).toBe('')
   })
+  it('points an unavailable default model to the model picker', () => {
+    for (const message of ['The model `gpt-6-astra` is not supported when using Codex with a ChatGPT account.', 'model not supported', 'unsupported model: o9']) {
+      expect(threadFailure({ codexErrorInfo: { badRequest: { httpStatusCode: 400 } }, message })).toMatchObject({ code: 'configuration', message: expect.stringContaining('model picker') })
+    }
+    expect(threadFailure({ codexErrorInfo: { badRequest: { httpStatusCode: 400 } }, message: 'Invalid request body' }).message).toBe('The agent rejected the configuration or could not start.')
+  })
   it('identifies an active native writer as a session conflict rather than a usage or account failure', () => {
     expect(threadFailure({ message: 'thread 01a0 already has an active writer' })).toMatchObject({
       code: 'session-busy', message: expect.stringContaining('active elsewhere')

@@ -27,6 +27,7 @@ import { threadCapabilityManifest } from './thread-capabilities'
 import { splitThreadPatch } from '../../../../shared/threadPatch'
 import { settleVolatileThreadSnapshot } from './thread-recovery.service'
 import { ThreadSessionSupervisor } from './thread-session-supervisor'
+import { pruneThreadData } from './thread-retention'
 import { ThreadExportService } from './thread-export.service'
 import { ThreadPortableService } from './thread-portable'
 import { ThreadCheckpointService } from './thread-checkpoints'
@@ -43,8 +44,23 @@ import { explainMissingFolder, ThreadFolderMissingError } from './thread-worktre
 // Canonical comparison: a Windows short name and its long form are the same folder.
 const sameCheckout = (a: string, b: string): boolean => canonicalPath(a) === canonicalPath(b)
 
+/** The checkout a conversation works in: a worktree of its repository the provider moved into, else its root. */
+const workingRootOf = (thread: ConversationThread): string =>
+  thread.observedLocation?.sameRepository && thread.observedLocation.checkoutRoot ? thread.observedLocation.checkoutRoot : thread.rootPath
+
+/** Conversations a restart may have left mid-operation: live status, an open connection, or a task still marked running. */
+const THREADS_NEEDING_RECOVERY = `SELECT id FROM conversation_threads t WHERE
+  json_extract(data_json, '$.status') IN ('running', 'approval')
+  OR json_extract(data_json, '$.cliActive') = 1
+  OR coalesce(json_extract(data_json, '$.connection.state'), 'closed') != 'closed'
+  OR json_extract(data_json, '$.connection.suspendedAt') IS NOT NULL
+  OR EXISTS (SELECT 1 FROM conversation_events e WHERE e.thread_id = t.id
+    AND json_extract(e.data_json, '$.type') = 'subagent' AND json_extract(e.data_json, '$.state') = 'running')`
+
 /** How often idle conversations are checked for suspension. */
 const IDLE_SWEEP_MS = 60_000
+/** Full histories kept in memory for conversations with no work in flight. */
+const MAX_IDLE_SNAPSHOTS = 12
 
 /** Repair older histories whose provider ended a turn without a matching tool result. */
 function settleCompletedHistoryTools(events: ThreadEvent[]): number {
@@ -98,12 +114,15 @@ export class ThreadOrchestrator {
   private readonly usage: ThreadUsageLedger
   /** Agent Work: plans a supervising conversation runs through worker conversations. */
   readonly work: WorkService
-  private readonly turnCheckpoints = new Map<string, string>()
+  /** Checkpoints of a running turn: one per checkout the turn worked in (its root, then any worktree it moved into). */
+  private readonly turnCheckpoints = new Map<string, string[]>()
+  /** Checkouts a running turn has a checkpoint and a baseline in, by thread (canonical paths). */
+  private readonly turnRoots = new Map<string, { turnId: string; roots: Set<string> }>()
   private readonly busy = new Set<string>()
   private readonly nativePageLoads = new Map<string, Promise<void>>()
   private readonly finalizing = new Set<string>()
   private readonly finalizationTasks = new Set<Promise<void>>()
-  private readonly workingTreeBaselines = new Map<string, { patch: string; untracked: Set<string> }>()
+  private readonly workingTreeBaselines = new Map<string, Array<{ root: string; patch: string; untracked: Set<string> }>>()
   private stopping = false
   private readonly configuring = new Set<string>()
   /** Last provider event, message or connection per live adapter; drives idle suspension. */
@@ -111,7 +130,13 @@ export class ThreadOrchestrator {
   /** Live sessions holding "allow for the session" grants, which a restarted process would forget. */
   private readonly sessionGrants = new Set<string>()
   private readonly suspending = new Map<string, Promise<void>>()
+  /** A send that is starting a turn and has not reserved the conversation as busy yet. */
+  private readonly starting = new Set<string>()
+  /** Provider connections being opened, so two callers share one process instead of orphaning one. */
+  private readonly connecting = new Map<string, Promise<AgentConversationAdapter>>()
   private readonly idleSweep: ReturnType<typeof setInterval>
+  /** Daily retention pass for an app left open for days. */
+  private readonly retentionSweep: ReturnType<typeof setInterval>
 
   constructor(private readonly db: AppDatabase,
     private readonly factory: (thread: ConversationThread) => Promise<AgentConversationAdapter>,
@@ -132,8 +157,11 @@ export class ThreadOrchestrator {
     this.permissions = new ThreadPermissionStore(db)
     this.usage = new ThreadUsageLedger(db)
     try { this.permissions.prune() } catch { /* Audit retention is best effort. */ }
+    try { pruneThreadData(db) } catch { /* Retention is best effort; nothing is lost by skipping it once. */ }
     // A persisted running state is not proof that its process survived a restart.
-    for (const row of db.prepare('SELECT id FROM conversation_threads').all() as { id: string }[]) {
+    // Only conversations whose saved state says something was still live are read in full; the rest stay on disk.
+    this.checkpoints.failAllOpen('OXESpace restarted before this checkpoint could be finalized.')
+    for (const row of db.prepare(THREADS_NEEDING_RECOVERY).all() as { id: string }[]) {
       const snapshot = this.history.read(row.id)
       let recovered = false
       let eventsFrom = snapshot.events.length
@@ -142,7 +170,6 @@ export class ThreadOrchestrator {
         this.history.settleOpenOperations(snapshot.thread.id, 'unknown', 'OXESpace restarted before the provider result was confirmed.')
         recovered = true; eventsFrom = 0
       }
-      this.checkpoints.failOpen(row.id, 'OXESpace restarted before this checkpoint could be finalized.')
       if (snapshot.thread.connection && (snapshot.thread.connection.state !== 'closed' || snapshot.thread.connection.suspendedAt)) { snapshot.thread.connection = this.sessions.close(row.id); recovered = true }
       if (recovered) this.save(snapshot, { eventsFrom })
       this.snapshots.delete(row.id)
@@ -157,6 +184,8 @@ export class ThreadOrchestrator {
     queueMicrotask(() => { try { this.work.resume() } catch { /* Agent Work recovery is best effort. */ } })
     this.idleSweep = setInterval(() => { void this.suspendIdle().catch(() => {}) }, IDLE_SWEEP_MS)
     this.idleSweep.unref?.()
+    this.retentionSweep = setInterval(() => { try { pruneThreadData(this.db) } catch { /* best effort */ } }, 24 * 60 * 60 * 1000)
+    this.retentionSweep.unref?.()
   }
 
   /** Minutes without activity before an idle conversation's agent process is closed; 0 keeps it open. */
@@ -245,6 +274,7 @@ export class ThreadOrchestrator {
         .run(snapshot.thread.id, context.workspaceId, context.projectId, JSON.stringify(snapshot.thread), '[]')
     })()
     this.snapshots.set(snapshot.thread.id, snapshot)
+    this.trimSnapshots()
     this.changed(snapshot.thread.id)
     return snapshot
   }
@@ -253,7 +283,11 @@ export class ThreadOrchestrator {
     this.flushDeltas(id)
     const cached = this.snapshots.get(id)
     if (cached) {
-      if (this.db.prepare('SELECT 1 FROM conversation_threads WHERE id = ?').get(id)) return cached
+      if (this.db.prepare('SELECT 1 FROM conversation_threads WHERE id = ?').get(id)) {
+        // Most recently used last, so trimming drops the conversations nobody touched for longest.
+        this.snapshots.delete(id); this.snapshots.set(id, cached)
+        return cached
+      }
       this.snapshots.delete(id)
       throw Error('Thread not found')
     }
@@ -261,7 +295,31 @@ export class ThreadOrchestrator {
     const firstRepairedEvent = settleCompletedHistoryTools(snapshot.events)
     if (firstRepairedEvent < snapshot.events.length) this.history.persistFrom(snapshot, firstRepairedEvent)
     this.snapshots.set(id, snapshot)
+    this.trimSnapshots()
     return snapshot
+  }
+
+  /**
+   * Full snapshots hold a conversation's whole history in memory. Conversations with work in flight keep theirs;
+   * the others are dropped beyond a small set, and the next read loads them again from the database.
+   */
+  private trimSnapshots(): void {
+    let idle = 0
+    for (const id of [...this.snapshots.keys()].reverse()) {
+      if (this.busy.has(id) || this.starting.has(id) || this.finalizing.has(id) || this.configuring.has(id) || this.observations.has(id) || this.nativePageLoads.has(id) || this.deltaBuffers.has(id)) continue
+      if (++idle > MAX_IDLE_SNAPSHOTS) this.snapshots.delete(id)
+    }
+  }
+
+  /** In-memory state of a conversation that no longer exists. */
+  private forget(id: string): void {
+    this.snapshots.delete(id)
+    this.lastActivity.delete(id)
+    this.sessionGrants.delete(id)
+    this.workingTreeBaselines.delete(id)
+    this.turnRoots.delete(id)
+    clearTimeout(this.deltaTimers.get(id)); this.deltaTimers.delete(id); this.deltaBuffers.delete(id)
+    this.requests.invalidate(id)
   }
 
   readForRenderer(id: string): ThreadSnapshot {
@@ -459,9 +517,27 @@ export class ThreadOrchestrator {
     assertThreadMessage(text)
     if (this.configuring.has(id)) throw new Error('Configuration is already being updated')
     if (this.read(id).thread.cliActive) throw Error('The native CLI already owns this conversation')
+    // Decide queue or new turn before the first await: two sends arriving together must not both start a turn.
+    const queue = this.busy.has(id) || this.finalizing.has(id) || this.starting.has(id)
+    if (!queue) this.starting.add(id)
+    let done = false
+    try {
+      await this.sendReserved(id, text, attachmentIds, queue)
+      done = true
+    } finally {
+      if (!queue) {
+        this.starting.delete(id)
+        // Input queued behind a slash command that ran without a turn still has to run. After a failure
+        // the queue waits, as it always has, instead of failing every queued message in turn.
+        if (done && !this.busy.has(id)) queueMicrotask(() => void this.drainQueue(id).catch(() => {}))
+      }
+    }
+  }
+
+  private async sendReserved(id: string, text: string, attachmentIds: string[], queue: boolean): Promise<void> {
     const attachments = attachmentIds.length ? await this.resolveAttachments(id, attachmentIds) : []
     recordRuntime('turn-submit', { thread: id, kind: 'thread' })
-    if (this.busy.has(id) || this.finalizing.has(id)) {
+    if (queue) {
       const snapshot = this.read(id), adapter = this.adapters.get(id)
       const operation = this.history.beginOperation({ threadId: id, generation: snapshot.thread.generation ?? 1, kind: 'queue' })
       const item: ThreadQueuedInput = { id: randomUUID(), operationId: operation.id, text, attachmentIds,
@@ -531,12 +607,8 @@ export class ThreadOrchestrator {
     try {
       // Publish the accepted prompt before repository snapshots or agent startup can block the UI.
       // Both reads must finish before the agent can modify files, but they are independent.
-      const [checkpointId, baseline] = await Promise.all([
-        this.checkpoints.begin({ threadId: id, turnId, rootPath: snapshot.thread.rootPath, label: text.trim().slice(0, 80) }).catch(() => undefined),
-        this.workingState(snapshot.thread.rootPath)
-      ])
-      if (checkpointId) this.turnCheckpoints.set(turnId, checkpointId)
-      if (baseline !== undefined) this.workingTreeBaselines.set(id, baseline)
+      // In the checkout the conversation works in: a worktree it moved into, else its own root.
+      await this.beginTurnIn(id, turnId, workingRootOf(snapshot.thread), text.trim().slice(0, 80))
       this.event(id, { type: 'activity', id: `activity:${turnId}:connecting`, phase: 'connecting', at: Date.now() })
       const adapter = await this.connectAdapter(id, snapshot.thread, false)
       this.history.transitionOperation(id, operation.id, 'sent')
@@ -564,7 +636,7 @@ export class ThreadOrchestrator {
     for (const [id, adapter] of this.adapters) {
       if (this.busy.has(id)) continue
       try { if (this.read(id).thread.provider !== provider) continue } catch { /* deleted */ }
-      this.adapters.delete(id); await adapter.dispose()
+      this.adapters.delete(id); await adapter.dispose().catch(() => {})
       try { const snapshot = this.read(id); snapshot.thread.connection = this.sessions.close(id); this.save(snapshot, { eventsFrom: snapshot.events.length }) } catch { /* deleted */ }
     }
   }
@@ -906,7 +978,7 @@ export class ThreadOrchestrator {
       disposeAdapter: async id => { const adapter = this.adapters.get(id); this.adapters.delete(id); await adapter?.dispose() },
       deleteThread: async id => {
         this.db.prepare('DELETE FROM conversation_threads WHERE id = ?').run(id)
-        this.snapshots.delete(id)
+        this.forget(id)
         await this.attachmentStore?.removeThread(id)
         this.changed(id)
       }
@@ -917,6 +989,7 @@ export class ThreadOrchestrator {
     for (const id of this.deltaBuffers.keys()) this.flushDeltas(id)
     this.stopping = true
     clearInterval(this.idleSweep)
+    clearInterval(this.retentionSweep)
     this.work.stop()
     const observations = Promise.allSettled([...this.observations.values()])
     await this.stateReader?.stop()
@@ -940,6 +1013,7 @@ export class ThreadOrchestrator {
     this.finalizing.clear()
     this.workingTreeBaselines.clear()
     this.turnCheckpoints.clear()
+    this.turnRoots.clear()
     for (const id of this.adapters.keys()) {
       try { const snapshot = this.read(id); snapshot.thread.connection = this.sessions.close(id); this.save(snapshot, { eventsFrom: snapshot.events.length }) } catch { /* deleted */ }
     }
@@ -993,6 +1067,12 @@ export class ThreadOrchestrator {
       if (next) snapshot.thread.observedLocation = next
       else delete snapshot.thread.observedLocation
       this.save(snapshot, { eventsFrom: snapshot.events.length })
+      // A move during a running turn: that checkout gets its own checkpoint and baseline, so what the turn
+      // changes there can be reviewed and undone like changes in the root.
+      const turn = snapshot.turns?.at(-1)
+      if (this.busy.has(id) && turn?.status === 'running' && next?.sameRepository && next.checkoutRoot) {
+        void this.beginTurnIn(id, turn.id, next.checkoutRoot, 'In a worktree').catch(() => undefined)
+      }
     } catch { /* Thread may have been deleted while the provider was reporting. */ }
   }
 
@@ -1206,7 +1286,8 @@ export class ThreadOrchestrator {
     if (!options) this.history.rewriteHistory(snapshot)
     else if (options.eventsFrom === snapshot.events.length && !options.operationId) this.history.updateThreadMetadata(snapshot.thread)
     else this.history.persistFrom(snapshot, options.eventsFrom ?? 0, options.operationId)
-    this.snapshots.set(snapshot.thread.id, snapshot)
+    this.snapshots.delete(snapshot.thread.id); this.snapshots.set(snapshot.thread.id, snapshot)
+    this.trimSnapshots()
     this.changed(snapshot.thread.id)
   }
 
@@ -1237,40 +1318,81 @@ export class ThreadOrchestrator {
   }
 
   private async captureWorkingTreeDiff(id: string, status: 'completed' | 'interrupted' | 'failed', turnId?: string): Promise<void> {
-    const before = this.workingTreeBaselines.get(id)
+    const baselines = this.workingTreeBaselines.get(id) ?? []
     this.workingTreeBaselines.delete(id)
     try {
       const snapshot = this.read(id)
-      if (before !== undefined) {
-        const after = await this.workingState(snapshot.thread.rootPath)
-        if (after !== undefined && (after.patch !== before.patch || [...after.untracked].some(path => !before.untracked.has(path)))) {
-          const turnStart = snapshot.events.findIndex(event => event.type === 'message' && event.id === turnId)
-          const pathKey = (path: string): string => process.platform === 'win32' ? path.replace(/\\/g, '/').toLowerCase() : path
-          const reportedPaths = new Set(snapshot.events.slice(Math.max(0, turnStart)).flatMap(event => event.type === 'turn-diff' && event.id.startsWith('turn-diff:') ? event.files.map(file => pathKey(file.path)) : []))
-          const previous = new Map(splitThreadPatch(before.patch).map(file => [file.path, file.patch]))
-          const files: import('../../../../shared/types/thread').ThreadFileChange[] = splitThreadPatch(after.patch)
-            .filter(file => previous.get(file.path) !== file.patch && !reportedPaths.has(pathKey(file.path)))
-            .map(file => ({ ...file, source: 'working-tree-observation', authorship: 'indeterminate', state: status === 'completed' ? 'completed' as const : 'failed' as const }))
-          for (const path of after.untracked) if (!before.untracked.has(path) && !reportedPaths.has(pathKey(path))) files.push({ path, kind: 'add', source: 'working-tree-observation', authorship: 'indeterminate', state: status === 'completed' ? 'completed' : 'failed' })
-          if (files.length) this.event(id, { type: 'turn-diff', id: `verified-diff:${turnId ?? randomUUID()}`, turnId: turnId ?? '', files })
-        }
+      const turnStart = snapshot.events.findIndex(event => event.type === 'message' && event.id === turnId)
+      const pathKey = (path: string): string => process.platform === 'win32' ? path.replace(/\\/g, '/').toLowerCase() : path
+      const reportedPaths = new Set(snapshot.events.slice(Math.max(0, turnStart)).flatMap(event => event.type === 'turn-diff' && event.id.startsWith('turn-diff:') ? event.files.map(file => pathKey(file.path)) : []))
+      const files: import('../../../../shared/types/thread').ThreadFileChange[] = []
+      // Every checkout the turn worked in: its root, and any worktree it moved into during the turn.
+      for (const before of baselines) {
+        const after = await this.workingState(before.root)
+        if (after === undefined || (after.patch === before.patch && ![...after.untracked].some(path => !before.untracked.has(path)))) continue
+        const previous = new Map(splitThreadPatch(before.patch).map(file => [file.path, file.patch]))
+        files.push(...splitThreadPatch(after.patch)
+          .filter(file => previous.get(file.path) !== file.patch && !reportedPaths.has(pathKey(file.path)))
+          .map(file => ({ ...file, source: 'working-tree-observation' as const, authorship: 'indeterminate' as const, state: status === 'completed' ? 'completed' as const : 'failed' as const })))
+        for (const path of after.untracked) if (!before.untracked.has(path) && !reportedPaths.has(pathKey(path))) files.push({ path, kind: 'add', source: 'working-tree-observation', authorship: 'indeterminate', state: status === 'completed' ? 'completed' : 'failed' })
       }
+      if (files.length) this.event(id, { type: 'turn-diff', id: `verified-diff:${turnId ?? randomUUID()}`, turnId: turnId ?? '', files })
     } catch { /* Repository may have been removed after the turn. */ }
   }
 
+  /**
+   * Takes a turn's checkpoint and working-tree baseline in one checkout. Called when the turn starts and
+   * again when the provider moves into another checkout of the repository during the turn, so changes made
+   * there are reviewable and undoable too. Both reads finish before the caller lets the agent continue.
+   */
+  private async beginTurnIn(id: string, turnId: string, root: string, label: string, baseline = true): Promise<void> {
+    const key = canonicalPath(root)
+    const current = this.turnRoots.get(id)
+    const roots = current?.turnId === turnId ? current.roots : new Set<string>()
+    if (roots.has(key)) return
+    roots.add(key)
+    this.turnRoots.set(id, { turnId, roots })
+    const [checkpointId, state] = await Promise.all([
+      // No checkpoint means this turn cannot be undone; say so in diagnostics instead of dropping the reason.
+      this.checkpoints.begin({ threadId: id, turnId, rootPath: root, label }).catch((error: unknown) => { recordRuntime('checkpoint-failed', { thread: id, turn: turnId, state: error instanceof Error ? error.message.slice(0, 200) : 'unknown' }); return undefined }),
+      baseline ? this.workingState(root) : Promise.resolve(undefined)
+    ])
+    // The turn may have finished while these reads ran (a move reported right before completion). Its records
+    // were already finalized, so this late pair must not leak into the next turn.
+    if (this.turnRoots.get(id)?.turnId !== turnId) {
+      if (checkpointId) await this.checkpoints.finalize(checkpointId).catch(() => undefined)
+      return
+    }
+    if (checkpointId) this.turnCheckpoints.set(turnId, [...this.turnCheckpoints.get(turnId) ?? [], checkpointId])
+    if (state !== undefined) this.workingTreeBaselines.set(id, [...this.workingTreeBaselines.get(id) ?? [], { root, ...state }])
+  }
+
   private async finalizeTurnThenDrain(id: string, status: 'completed' | 'interrupted' | 'failed', turnId: string | undefined, captureDiff: boolean, drain = true): Promise<void> {
+    // The turn is over from here: a checkout reported while this runs belongs to no turn.
+    if (turnId && this.turnRoots.get(id)?.turnId === turnId) this.turnRoots.delete(id)
     try {
       if (captureDiff) await this.captureWorkingTreeDiff(id, status, turnId)
-      const checkpointId = turnId ? this.turnCheckpoints.get(turnId) : undefined
-      if (checkpointId) await this.checkpoints.finalize(checkpointId)
+      for (const checkpointId of turnId ? this.turnCheckpoints.get(turnId) ?? [] : []) await this.checkpoints.finalize(checkpointId)
     } finally {
       if (turnId) this.turnCheckpoints.delete(turnId)
+      if (turnId && this.turnRoots.get(id)?.turnId === turnId) this.turnRoots.delete(id)
       this.finalizing.delete(id)
       if (drain) await this.drainQueue(id)
     }
   }
 
-  private async connectAdapter(id: string, thread: ConversationThread, runPreflight = true): Promise<AgentConversationAdapter> {
+  /** One provider process per conversation: callers that arrive while it is opening share that connection. */
+  private connectAdapter(id: string, thread: ConversationThread, runPreflight = true): Promise<AgentConversationAdapter> {
+    const pending = this.connecting.get(id)
+    if (pending) return pending
+    const opening = this.openAdapter(id, thread, runPreflight)
+    this.connecting.set(id, opening)
+    const release = (): void => { if (this.connecting.get(id) === opening) this.connecting.delete(id) }
+    opening.then(release, release)
+    return opening
+  }
+
+  private async openAdapter(id: string, thread: ConversationThread, runPreflight: boolean): Promise<AgentConversationAdapter> {
     // An idle suspension still closing this conversation's process finishes first.
     await this.suspending.get(id)
     const existing = this.adapters.get(id)
@@ -1335,8 +1457,7 @@ export class ThreadOrchestrator {
         latest.events.push({ type: 'message', id: item.id, role: 'user', text: item.text, ...(attachments.length ? { attachments: attachments.map(({ path: _path, ...attachment }) => attachment) } : {}) })
         latest.turns ??= []
         latest.turns.push({ id: item.id, ...(item.operationId ? { operationId: item.operationId } : {}), sequence: latest.turns.length + 1, startedAt: Date.now(), status: 'running', configuration: turnConfiguration(latest.thread), ...(item.attachmentIds?.length ? { attachmentIds: [...item.attachmentIds] } : {}) })
-        const checkpointId = await this.checkpoints.begin({ threadId: id, turnId: item.id, rootPath: latest.thread.rootPath, label: item.text.trim().slice(0, 80) }).catch(() => undefined)
-        if (checkpointId) this.turnCheckpoints.set(item.id, checkpointId)
+        await this.beginTurnIn(id, item.id, workingRootOf(latest.thread), item.text.trim().slice(0, 80), false)
         if (item.operationId) this.history.transitionOperation(id, item.operationId, 'running')
         this.busy.add(id); this.save(latest, { eventsFrom: latest.events.length - 1, ...(item.operationId ? { operationId: item.operationId } : {}) })
         await adapter.startQueued(item.nativeId)
