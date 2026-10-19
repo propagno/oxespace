@@ -728,7 +728,7 @@ export function App(): ReactElement {
     // View
     { id: 'balance-pane-layout', title: 'Balance terminal panes', subtitle: 'Restore equal sizes within each split', icon: Columns2, category: 'View', disabled: !activeWorkspace, run: () => { if (activeWorkspace) usePaneLayoutStore.getState().balance(activeWorkspace.id) } },
     { id: 'find-in-files', title: 'Search files & commands', subtitle: 'Ctrl+K / Ctrl+J · unified search', icon: Search, category: 'View', keywords: ['search', 'grep', 'ripgrep', 'rg', 'find', 'text', 'regex', 'command'], disabled: !activeWorkspace, run: openCommandMenu },
-    { id: 'toggle-split-layout', title: 'Toggle Split Layout', subtitle: 'F2 · recursive resizable panes (default on)', icon: Columns2, category: 'View', keywords: ['split', 'pane', 'layout', 'f2', 'tree'], disabled: !activeWorkspace, run: () => useUIStore.getState().toggleSplitLayout() },
+    { id: 'toggle-split-layout', title: 'Toggle split layout', subtitle: 'F2 · recursive resizable panes (default on)', icon: Columns2, category: 'View', keywords: ['split', 'pane', 'layout', 'f2', 'tree'], disabled: !activeWorkspace, run: () => useUIStore.getState().toggleSplitLayout() },
     { id: 'open-usage', title: 'Usage & Rate Limits', subtitle: 'Claude, Codex & Copilot quota + resets', icon: Activity, category: 'AI & Agents', keywords: ['usage', 'quota', 'credits', 'rate', 'limit', 'tokens'], run: () => useUIStore.getState().openUsage() },
     { id: 'design-system', title: 'Design System: Open Viewer', subtitle: 'Tokens and components in light and dark', icon: Palette, category: 'View', run: () => { setDesignSystemOpen(true) } },
 

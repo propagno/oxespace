@@ -129,7 +129,7 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
       <header className="mcp-panel-header">
         <div className="mcp-panel-title">
           <Brain size={14} aria-hidden="true" />
-          <strong>Semantic Activity</strong>
+          <strong>Semantic activity</strong>
           <span className="mcp-panel-scope" data-testid="semantic-status-label">{statusLabel}</span>
         </div>
         <div className="mcp-panel-actions">

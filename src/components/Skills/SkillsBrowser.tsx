@@ -138,7 +138,7 @@ export function SkillsBrowser({ activePaneId, onClose, onOpenEditor, workspaceId
       <header className="skills-browser-header">
         <div className="skills-browser-title">
           <Sparkles size={14} aria-hidden="true" />
-          <strong>Agent Skills</strong>
+          <strong>Agent skills</strong>
           <span className="skills-browser-count">{skills.length} total</span>
         </div>
         <div className="skills-browser-actions">

@@ -157,11 +157,11 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
   return (
     <ToolPanel
       className={`mcp-panel${view === 'catalog' ? ' is-catalog' : ''}`}
-      label="Connections" onClose={onClose}>
+      label="MCP servers" onClose={onClose}>
       <header className="mcp-panel-header">
         <div className="mcp-panel-title">
           <Activity size={14} aria-hidden="true" />
-          <strong>Connections</strong>
+          <strong>MCP servers</strong>
           <span className="mcp-panel-scope">{workspaceId ? 'workspace' : 'global'}</span>
         </div>
         <div className="mcp-panel-actions">
@@ -218,7 +218,7 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
         </>
       )}
 
-      <div className="mcp-view-tabs" role="tablist" aria-label="Connections view">
+      <div className="mcp-view-tabs" role="tablist" aria-label="MCP servers view">
         {conversationServers?.length ? <button type="button" role="tab" aria-selected={view === 'conversation'} onClick={() => setView('conversation')}>This conversation<small>{conversationServers.filter(server => server.status === 'connected').length}</small></button> : null}
         <button type="button" role="tab" aria-selected={view === 'catalog'} onClick={() => setView('catalog')}>Catalog</button>
         <button type="button" role="tab" aria-selected={view === 'installed'} onClick={() => setView('installed')}>Installed<small>{otherServers.length + (builtInServer ? 1 : 0)}</small></button>

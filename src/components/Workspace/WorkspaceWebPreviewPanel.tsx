@@ -17,9 +17,9 @@ export function WorkspaceWebPreviewPanel({ isExpanded, onCollapse, onRunCommand,
       <header className="workspace-editor-header">
         <div className="workspace-editor-title">
           <MonitorPlay size={12} aria-hidden="true" />
-          <span>Web Preview</span>
+          <span>Browser</span>
         </div>
-        <div className="workspace-editor-actions" aria-label="Web Preview panel actions">
+        <div className="workspace-editor-actions" aria-label="Browser panel actions">
           <button type="button" className="tile-btn" aria-label={isExpanded ? 'Restore panel width' : 'Expand panel'} onClick={onToggleExpanded}>
             {isExpanded ? <Minimize2 size={12} aria-hidden="true" /> : <Maximize2 size={12} aria-hidden="true" />}
           </button>

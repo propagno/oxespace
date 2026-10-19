@@ -201,7 +201,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
       <header className="web-preview-header">
         <div className="web-preview-title">
           <MonitorPlay size={14} aria-hidden="true" />
-          <strong>Web Preview</strong>
+          <strong>Browser</strong>
           <span>{workspace.name}</span>
         </div>
         <div className="web-preview-actions">
@@ -308,7 +308,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
         {(!url || externalPageBlocked || pageError) && (
           <div className="web-preview-empty-state">
             {pageError && !externalPageBlocked ? <AlertCircle size={42} aria-hidden="true" /> : <MonitorPlay size={56} aria-hidden="true" />}
-            <strong>{externalPageBlocked ? 'External access required' : pageError ? 'Page unavailable' : 'Web Preview'}</strong>
+            <strong>{externalPageBlocked ? 'External access required' : pageError ? 'Page unavailable' : 'Browser'}</strong>
             <span>{externalPageBlocked ? 'Enable External to reopen this website.' : pageError ? 'The preview could not load this page.' : 'Enter a URL above to preview a website'}</span>
             {externalPageBlocked ? null : pageError ? <><small>{pageError}</small><button type="button" className="web-preview-retry" onClick={open}>Retry</button></> : <small>Tip: create a "server" script with a preview URL to auto-open this panel</small>}
           </div>
@@ -336,7 +336,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
   }
 
   return (
-    <ToolPanel className="web-preview-panel" label="Web Preview" data-browser-owner={previewKey} data-agent-automation={String(agentDocumentation)} onEscape={() => { if (designMode) setDesignMode(false); else onClose() }} onClose={onClose}>
+    <ToolPanel className="web-preview-panel" label="Browser" data-browser-owner={previewKey} data-agent-automation={String(agentDocumentation)} onEscape={() => { if (designMode) setDesignMode(false); else onClose() }} onClose={onClose}>
       {content}
     </ToolPanel>
   )

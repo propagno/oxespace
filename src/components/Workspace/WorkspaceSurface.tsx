@@ -489,8 +489,8 @@ function WorkspaceSurfaceComponent({
       {panels?.filter(item => CODE_BAR_PANELS.includes(item.id)).map(item => <WorkbenchPanelToggle key={item.id} item={item} className="workspace-topbar-action" />)}
       {panels && <WorkbenchPanelMenu items={panels.filter(item => CODE_MENU_PANELS.includes(item.id))} testId="workspace-panels-menu"
         trigger={<button type="button" className="workspace-topbar-action" aria-label="More panels" title="More panels"><PanelsTopLeft size={14} aria-hidden="true" /><span>Panels</span></button>} />}
-      <button type="button" className="workspace-topbar-action" aria-label="Open connections" title="Connections and MCP servers" onClick={openConnections}>
-        <PlugZap size={14} aria-hidden="true" /><span>Connections</span>
+      <button type="button" className="workspace-topbar-action" aria-label="Open MCP servers" title="MCP servers and connectors" onClick={openConnections}>
+        <PlugZap size={14} aria-hidden="true" /><span>MCP</span>
       </button>
       <button type="button" className="workspace-topbar-action" aria-label="Toggle background activity" title="Local jobs and delegated work" aria-pressed={backgroundVisible} onClick={() => onUpdateBackgroundState({ workspaceId: workspace.id, backgroundPanelVisible: !backgroundVisible, backgroundPanelExpanded: false })}>
         <Activity size={14} aria-hidden="true" /><span>Activity</span>

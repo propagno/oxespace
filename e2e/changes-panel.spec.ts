@@ -79,7 +79,7 @@ test('Changes panel lists branch changes, switches base and shows a side-by-side
     await expect(panel.getByText('No changes')).toBeVisible()
     if (process.env.OXESPACE_README_SHOTS) {
       await openConnections(page)
-      await expect(page.getByRole('dialog', { name: 'Connections' })).toBeVisible()
+      await expect(page.getByRole('dialog', { name: 'MCP servers' })).toBeVisible()
       await page.waitForTimeout(600)
       await page.screenshot({ path: 'docs/assets/screenshots/mcp-catalog.png' })
     }
