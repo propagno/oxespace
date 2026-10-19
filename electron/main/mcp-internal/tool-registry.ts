@@ -36,6 +36,7 @@ import { WORK_TOOLS } from './work-tools'
 import { GIT_TOOLS } from './git-tools'
 import { APP_READ_TOOLS } from './app-read-tools'
 import { APP_WRITE_TOOLS } from './app-write-tools'
+import { APP_MANAGE_TOOLS } from './app-manage-tools'
 
 export interface ToolContext {
   captureRoot?: string
@@ -89,6 +90,7 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   ...GIT_TOOLS,
   ...APP_READ_TOOLS,
   ...APP_WRITE_TOOLS,
+  ...APP_MANAGE_TOOLS,
   {
     descriptor: {
       name: 'oxespace_list_workspaces',

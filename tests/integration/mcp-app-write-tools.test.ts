@@ -4,6 +4,7 @@ import { TOOL_REGISTRY, type ToolContext } from '../../electron/main/mcp-interna
 import { APP_WRITE_TOOLS, APP_WRITE_TOOL_NAMES } from '../../electron/main/mcp-internal/app-write-tools'
 import { APP_READ_TOOLS } from '../../electron/main/mcp-internal/app-read-tools'
 import { GIT_TOOLS } from '../../electron/main/mcp-internal/git-tools'
+import { APP_MANAGE_TOOLS } from '../../electron/main/mcp-internal/app-manage-tools'
 import { AgentActions } from '../../electron/main/services/agent-actions/agent-actions'
 import { ApprovalBroker, type ApprovalDecision, type ApprovalRequest } from '../../electron/main/services/agent-actions/approval-broker'
 import { THREAD_MCP_TOOLS, THREAD_READ_ONLY_MCP_TOOLS } from '../../electron/main/services/conversation/thread-mcp'
@@ -43,7 +44,7 @@ describe('write tools', () => {
   it('expose nothing that belongs to the person', () => {
     // The app tools only; oxespace_delegation_control's "approve" accepts a delegated result, not a permission.
     const forbidden = /approve|respond|permission|access|login|logout|sign|token|secret|trust|credential|hook|update_app|quit|clipboard|voice|delete_workspace|write_terminal|type_into|auto_approve/i
-    for (const entry of [...GIT_TOOLS, ...APP_READ_TOOLS, ...APP_WRITE_TOOLS]) {
+    for (const entry of [...GIT_TOOLS, ...APP_READ_TOOLS, ...APP_WRITE_TOOLS, ...APP_MANAGE_TOOLS]) {
       const action = (entry.descriptor.inputSchema as { properties?: { action?: { enum?: string[] } } }).properties?.action
       for (const name of action?.enum ?? []) expect(name, `${entry.descriptor.name}.${name}`).not.toMatch(forbidden)
     }
