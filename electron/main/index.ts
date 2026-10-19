@@ -28,6 +28,7 @@ import { SkillService } from './services/skill.service'
 import { McpManager } from './services/mcp.service'
 import { WorkspaceService } from './services/workspace.service'
 import { SemanticService } from './services/semantic.service'
+import { SemanticModelStore } from './services/semantic-model-store'
 import { createInternalMcpHandle, type InternalMcpHandle } from './mcp-internal/bootstrap'
 import { startRpcServer, type RpcServerHandle } from './runtime/rpc/server'
 import { registerTaskIpc } from './ipc/task.ipc'
@@ -238,7 +239,9 @@ async function registerIpcHandlers(): Promise<() => void> {
       for (const window of BrowserWindow.getAllWindows()) {
         if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.semantic.onLog, entry)
       }
-    }
+    },
+    // Optional embedding model (not in the installer), downloaded or imported on demand.
+    modelStore: new SemanticModelStore(join(app.getPath('userData'), 'models'))
   })
 
   registerWorkspaceIpc(db, semanticService, terminalManager)

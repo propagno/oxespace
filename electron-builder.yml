@@ -13,8 +13,9 @@ files:
   - package.json
   - from: electron/main/db/migrations
     to: out/main/migrations
-  # Dead weight: transformers.js download cache (MiniLM / e5-small leftovers).
-  # The shipped model is resources/models → multilingual-e5-base only.
+  # Dead weight: transformers.js download cache from dev runs. No model ships in
+  # the installer: the optional semantic index downloads or imports it into
+  # userData (services/semantic-model-store.ts).
   - "!**/node_modules/@xenova/transformers/.cache/**"
 # NOTE: pruning the ONNX Runtime prebuilds for other platforms is done by
 # scripts/slim-pack-deps.mjs (which both `dist:win` and `dist:linux` run before
@@ -73,12 +74,6 @@ win:
     # the feature hides itself where the binary is absent.
     - from: resources/whisper/win-x64
       to: whisper
-    # Semantic search model (multilingual-e5-base) bundled so it loads OFFLINE —
-    # no huggingface.co download at runtime (fails on locked-down networks). Lands
-    # at <resourcesPath>/models/Xenova/multilingual-e5-base/. Populated at build
-    # time by `npm run prepare:model` (scripts/fetch-semantic-model.mjs).
-    - from: resources/models
-      to: models
 nsis:
   oneClick: false
   perMachine: false
@@ -115,8 +110,6 @@ linux:
       to: icon.png
     - from: resources/mcp-bridge
       to: mcp-bridge
-    - from: resources/models
-      to: models
 appImage:
   # electron-builder renders ${arch} as "x86_64" for AppImage, while the
   # cross-platform release contract uses "x64". Keep the public name stable.

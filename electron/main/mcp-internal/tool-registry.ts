@@ -239,7 +239,7 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   {
     descriptor: {
       name: 'oxespace_semantic_search',
-      description: 'Token-budgeted local hybrid search combining vector meaning and exact FTS5 repository terms. Returns source windows, confidence, coverage and explicit truncation warnings. Use mode=explore for navigation and mode=exhaustive for refactors/completeness-sensitive work.',
+      description: 'Token-budgeted local repository search over exact FTS5 terms (identifiers, strings, tests, config), fused with vector meaning when the optional semantic index is on. The result names the sources that answered. Returns source windows, confidence, coverage and explicit truncation warnings. Use mode=explore for navigation and mode=exhaustive for refactors/completeness-sensitive work.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -258,7 +258,7 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   {
     descriptor: {
       name: 'oxespace_hybrid_explore',
-      description: 'Adaptive repository retrieval for development. Fuses local vector embeddings, exact FTS5 terms (including tests/config), and structural AST traversal, then returns budgeted verbatim source with confidence and coverage. mode=explore is token-first and ranked best-effort; mode=exhaustive searches the full local lexical index for refactors/renames/completeness-sensitive work. Runtime-only dynamic dispatch and ignored/generated/binary files remain explicitly disclosed.',
+      description: 'Adaptive repository retrieval for development. Fuses exact FTS5 terms (including tests/config) and structural AST traversal (CodeGraph), plus local vector embeddings when the optional semantic index is on, then returns budgeted verbatim source with confidence and coverage. mode=explore is token-first and ranked best-effort; mode=exhaustive searches the full local lexical index for refactors/renames/completeness-sensitive work. Runtime-only dynamic dispatch and ignored/generated/binary files remain explicitly disclosed.',
       inputSchema: {
         type: 'object',
         properties: {

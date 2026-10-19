@@ -359,7 +359,13 @@ export const IPC_CHANNELS = {
     reindex: 'semantic:reindex',
     getLogs: 'semantic:get-logs',
     onLog: 'semantic:log',
-    query: 'semantic:query'
+    query: 'semantic:query',
+    getVectorStatus: 'semantic:get-vector-status',
+    setVectorIndex: 'semantic:set-vector-index',
+    downloadModel: 'semantic:download-model',
+    importModel: 'semantic:import-model',
+    removeModel: 'semantic:remove-model',
+    getUsage: 'semantic:get-usage'
   },
   diagnostics: {
     getSnapshot: 'diagnostics:get-snapshot',
@@ -764,6 +770,41 @@ export interface SemanticStatus {
   mode: SemanticSearchMode
   coverage: SemanticIndexCoverage
   lastQuery: SemanticLastQuery | null
+  vector?: SemanticVectorStatus
+}
+
+/** A retrieval source that answered a query: the optional vector index, or exact terms. */
+export type SemanticRetrievalSource = 'vector' | 'fts5'
+
+/**
+ * The optional vector index (Settings › Agents › Semantic index). The model is
+ * not in the installer: it is downloaded or imported into userData on demand.
+ */
+export interface SemanticVectorStatus {
+  /** The user turned the index on. */
+  enabled: boolean
+  /** The model files are present in userData. */
+  installed: boolean
+  state: 'off' | 'not-installed' | 'downloading' | 'loading' | 'ready' | 'error'
+  /** Bytes fetched so far, while downloading. */
+  progress: { loaded: number; total: number } | null
+  modelId: string
+  error: string | null
+  /** False when this build has no model store (tests). */
+  available: boolean
+}
+
+export interface SemanticUsageBucket {
+  calls: number
+  answered: number
+  results: number
+  estimatedTokens: number
+}
+
+/** Local-only counts of retrieval tool calls, split by whether vectors took part. */
+export interface SemanticUsage {
+  since: number
+  tools: Record<string, { withVector: SemanticUsageBucket; withoutVector: SemanticUsageBucket }>
 }
 
 export type SemanticSearchMode = 'auto' | 'explore' | 'exhaustive'
@@ -815,6 +856,13 @@ export interface SemanticApi {
   getLogs(): Promise<SemanticLogEntry[]>
   onLog(callback: (entry: SemanticLogEntry) => void): () => void
   query(input: { workspaceId: string; text: string; limit?: number }): Promise<SemanticQueryHit[]>
+  getVectorStatus(): Promise<SemanticVectorStatus>
+  setVectorIndex(enabled: boolean): Promise<SemanticVectorStatus>
+  downloadModel(): Promise<SemanticVectorStatus>
+  /** Opens a folder picker; resolves unchanged when the user cancels. */
+  importModel(): Promise<SemanticVectorStatus>
+  removeModel(): Promise<SemanticVectorStatus>
+  getUsage(): Promise<SemanticUsage>
 }
 
 export interface McpInternalApi {

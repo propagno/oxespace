@@ -4,6 +4,7 @@ import { copyText, Button, Select } from '../../ui'
 import { ToolPanel } from '../../ui'
 import type { SemanticLogEntry, SemanticLogLevel, SemanticSearchMode, SemanticStatus } from '../../../shared/types/ipc'
 import { useTerminalPrefsStore } from '../../store/terminal-prefs.store'
+import { summarizeSemanticStatus, vectorStateLabel } from './semanticStatusSummary'
 
 interface SemanticActivityPanelProps {
   workspaceId: string | null
@@ -86,19 +87,14 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
 
   const statusLabel = !status
     ? 'no active workspace'
-    : status.lastError
-      ? `error: ${status.lastError}`
-      : !status.enabled
-        ? 'disabled · enable the Semantic chip'
-        : !status.workerReady
-          ? 'loading model…'
-          : status.indexing
-            ? `indexing… · ${status.count} files`
-            : status.count === 0
-              ? 'ready · empty index (waiting for files)'
-              : `ready · ${status.count} files`
+    : !status.enabled && !status.lastError
+      ? 'disabled · enable the Semantic chip'
+      : summarizeSemanticStatus(status, true).label
 
-  const modelLabel = status?.modelId ?? 'Xenova/multilingual-e5-base'
+  const vectorLabel = vectorStateLabel(status?.vector)
+  const modelLabel = status?.vector?.state === 'ready'
+    ? `exact terms (FTS5) + vectors (${status.vector.modelId})`
+    : 'exact terms (FTS5)'
 
   const handleReindex = async (): Promise<void> => {
     if (!workspaceId || reindexing) return
@@ -167,8 +163,10 @@ export function SemanticActivityPanel({ workspaceId, onClose }: SemanticActivity
       </header>
 
       <div className="semantic-activity-meta" data-testid="semantic-model-label">
-        <span>Model: <strong>{modelLabel}</strong></span>
-        <span className="semantic-activity-meta-hint">offline · local embeddings + FTS5</span>
+        <span>Sources: <strong>{modelLabel}</strong></span>
+        <span className="semantic-activity-meta-hint">
+          {vectorLabel && status?.vector?.state !== 'ready' ? `local · ${vectorLabel}` : 'local · nothing leaves this machine'}
+        </span>
         <label className="semantic-mode-control">
           Retrieval mode
           <Select
