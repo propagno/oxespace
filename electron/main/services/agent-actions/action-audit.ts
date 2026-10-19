@@ -19,7 +19,7 @@ export interface ActionAuditRecord {
   errorCode?: string
 }
 
-export interface ActionAuditEntry extends ActionAuditRecord { id: number; ts: number }
+export type ActionAuditEntry = import('../../../../shared/types/mcp-internal').AgentActionEntry
 
 interface Row {
   id: number; ts: number; actor: string; workspace_id: string | null; tool: string; action: string; level: string

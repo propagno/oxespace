@@ -27,6 +27,7 @@ import type { SemanticUsage, SemanticVectorStatus } from '../../../shared/types/
 import type { AgentHookAgent, AgentHooksStatus } from '../../../shared/types/agent-hooks'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { AutomationsSettings } from './AutomationsSettings'
+import { AgentActivitySettings } from './AgentActivitySettings'
 import { useAgentStore } from '../../store/agent.store'
 import { useVoiceStore } from '../../store/voice.store'
 import { useSettingsStore, VISITED_WORKSPACES_CAP_MAX, VISITED_WORKSPACES_CAP_MIN } from '../../store/settings.store'
@@ -208,6 +209,8 @@ function DiagnosticsSettingsSection({ onClose }: { onClose: () => void }): React
             <Download size={14} aria-hidden="true" /> Export report
           </Button>
         </div>
+
+        <AgentActivitySettings />
       </div>
     </section>
   )

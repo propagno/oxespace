@@ -75,6 +75,25 @@ export interface InternalMcpToolCallResult {
 }
 
 /** Renderer-facing status of the internal server. */
+/** One change an agent made (or asked to make) through the OXESpace MCP tools; reads are not recorded. */
+export interface AgentActionEntry {
+  id: number
+  ts: number
+  /** `pane:<id>` or `thread:<id>`. */
+  actor: string
+  workspaceId?: string | null
+  tool: string
+  action: string
+  level: 'read' | 'write' | 'confirm'
+  textHash?: string
+  /** What the person was shown, or what was asked; clipped. */
+  text?: string
+  decision: 'auto' | 'approved' | 'denied' | 'refused' | 'pending'
+  outcome: 'ok' | 'error' | 'skipped'
+  durationMs?: number
+  errorCode?: string
+}
+
 export interface InternalMcpStatus {
   running: boolean
   port: number | null
