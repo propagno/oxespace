@@ -30,7 +30,15 @@ const SSH_PASSWORD = 'oxe-ssh-pw'
 
 // The engine under test: Docker by default, Podman with OXE_CONTAINER_ENGINE=podman (CI runs both).
 const ENGINE = process.env.OXE_CONTAINER_ENGINE === 'podman' ? 'podman' : 'docker'
-const docker = (...args: string[]): string => execFileSync(ENGINE, args, { encoding: 'utf8' }).trim()
+const docker = (...args: string[]): string => {
+  try { return execFileSync(ENGINE, args, { encoding: 'utf8' }).trim() } catch (error) {
+    // A server that exits at start-up only says why in its own log.
+    if ((args[0] === 'port' || args[0] === 'exec') && args[1]) {
+      try { console.error(`[live] ${args[1]} log:\n${execFileSync(ENGINE, ['logs', '--tail', '40', args[1]], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })}`) } catch { /* container already gone */ }
+    }
+    throw error
+  }
+}
 const hostPort = (name: string, inner: number): number => Number(docker('port', name, String(inner)).split('\n')[0].split(':').pop())
 
 async function freePort(): Promise<number> {

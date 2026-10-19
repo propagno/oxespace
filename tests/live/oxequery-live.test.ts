@@ -27,7 +27,15 @@ const workerPath = join(process.cwd(), 'out', 'main', 'oxequery-worker.js')
 
 // The engine under test: Docker by default, Podman with OXE_CONTAINER_ENGINE=podman (CI runs both).
 const ENGINE = process.env.OXE_CONTAINER_ENGINE === 'podman' ? 'podman' : 'docker'
-const docker = (...args: string[]): string => execFileSync(ENGINE, args, { encoding: 'utf8' }).trim()
+const docker = (...args: string[]): string => {
+  try { return execFileSync(ENGINE, args, { encoding: 'utf8' }).trim() } catch (error) {
+    // A server that exits at start-up only says why in its own log.
+    if ((args[0] === 'port' || args[0] === 'exec') && args[1]) {
+      try { console.error(`[live] ${args[1]} log:\n${execFileSync(ENGINE, ['logs', '--tail', '40', args[1]], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })}`) } catch { /* container already gone */ }
+    }
+    throw error
+  }
+}
 
 describe.skipIf(!live)('OxeQuery against real Docker, PostgreSQL and MongoDB', () => {
   const events: OxeQueryEvent[] = []
