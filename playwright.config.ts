@@ -1,4 +1,6 @@
 import { defineConfig } from '@playwright/test'
+// Workers import this config: makes every spec's Electron close() finish on Windows (see the helper).
+import './e2e/helpers/electron-close'
 
 export default defineConfig({
   testDir: './e2e',
