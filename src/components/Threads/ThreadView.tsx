@@ -14,7 +14,9 @@ import { useFileMentions } from './useFileMentions'
 import { PrStatusBar } from '../GitHub/PrStatusBar'
 import { ThreadLiveActivity } from './ThreadLiveActivity'
 import { threadQuickReplies } from './threadQuickReplies'
-import { buildThreadTimeline, flattenThreadTimeline } from './threadTimelineModel'
+import { buildThreadTimeline, flattenThreadTimeline, foldFinishedTurns } from './threadTimelineModel'
+
+const EMPTY_FOLDS: ReadonlySet<string> = new Set()
 import { useThreadViewModeStore } from '../../store/thread-view-mode.store'
 import { ThreadTimelineWindow } from './ThreadTimeline'
 import { deriveThreadComposerState } from './threadComposerState'
@@ -105,7 +107,22 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   const running = snapshot?.thread.status === 'running' || snapshot?.thread.status === 'approval'
   const pendingRequests = running ? (snapshot?.pendingRequests ?? snapshot?.events.flatMap(event => event.type === 'request' && event.request.state === 'pending' ? [event.request] : []) ?? []) : []
   const viewMode = useThreadViewModeStore(state => state.mode)
-  const turns = useMemo(() => buildThreadTimeline(snapshot?.events ?? [], viewMode), [snapshot?.events, viewMode])
+  // A stable key, so the timeline is not rebuilt on every render only because this array is new.
+  const pendingRequestKey = pendingRequests.map(request => request.id).join('\n')
+  // Finished turns fold their intermediate work ("Completed N steps in Xs"), except in the verbose view and
+  // while Find is open, so a search never misses a hidden row. The open folds reset with the conversation.
+  const [openFolds, setOpenFolds] = useState<{ threadId: string | undefined; turns: Set<string> }>({ threadId: undefined, turns: new Set() })
+  const expandedFolds = openFolds.threadId === snapshot?.thread.id ? openFolds.turns : EMPTY_FOLDS
+  const toggleFold = useCallback((turnId: string) => setOpenFolds(current => {
+    const turns = new Set(current.threadId === snapshot?.thread.id ? current.turns : [])
+    if (turns.has(turnId)) turns.delete(turnId); else turns.add(turnId)
+    return { threadId: snapshot?.thread.id, turns }
+  }), [snapshot?.thread.id])
+  const turns = useMemo(() => {
+    const built = buildThreadTimeline(snapshot?.events ?? [], viewMode)
+    if (viewMode === 'verbose' || finding) return built
+    return foldFinishedTurns(built, expandedFolds, new Set(pendingRequestKey ? pendingRequestKey.split('\n') : []))
+  }, [snapshot?.events, viewMode, finding, expandedFolds, pendingRequestKey])
   const timelineRows = useMemo(() => flattenThreadTimeline(turns), [turns])
   const pendingMessage = outgoing && snapshot?.thread.id === outgoing.threadId && !snapshot.events.some(event => event.type === 'message' && event.role === 'user' && event.text === outgoing.text && !outgoing.knownEvents.has(event.id)) ? outgoing : null
   const lastResult = snapshot?.events.filter(e => e.type === 'completed').at(-1)
@@ -246,7 +263,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
         <ThreadTimelineWindow key={snapshot?.thread.id ?? 'empty'} rows={timelineRows} scrollRef={timeline} followingRef={scroll.following} onViewportUpdateRef={scroll.updateTimelineViewport} scrollToRef={scrollToRow}>{row => <ThreadTimelineEntry row={row} snapshot={snapshot} viewMode={viewMode} running={running} pending={pending} pendingRequests={pendingRequests}
           lastResult={lastResult} lastMessageId={lastConversationMessage?.id} quickReplies={quickReplies} copiedMessageId={copiedMessageId} action={action} runCommand={runCommand} onAccounts={onAccounts}
           onCopy={(id, text) => void copyMessage(id, text)} onPermissions={() => setOpenControl('permissions')} onQuote={text => appendToConversation(quoteMarkdown(text))} onDraft={appendToConversation}
-          onQuickReply={value => { useThreadStore.getState().setDraft(snapshot!.thread.id, value); requestAnimationFrame(() => textarea.current?.focus()) }} />}</ThreadTimelineWindow>
+          onQuickReply={value => { useThreadStore.getState().setDraft(snapshot!.thread.id, value); requestAnimationFrame(() => textarea.current?.focus()) }} onToggleFold={toggleFold} />}</ThreadTimelineWindow>
         {pendingMessage && <article className="thread-message thread-message-user thread-message-outgoing" aria-label="Sending message">{pendingMessage.attachments.length > 0 && <ul className="thread-sent-attachments" aria-label="Message attachments">{pendingMessage.attachments.map(attachment => <li key={attachment.id} title={attachment.name}><ImageIcon size={14} aria-hidden="true" /><span>{attachment.name}</span><small>{Math.ceil(attachment.bytes / 1024)} KB</small></li>)}</ul>}<ThreadMessageBody text={pendingMessage.text} role="user" /><small className="thread-message-outgoing-status">Sending…</small></article>}
         {snapshot && <ThreadLiveActivity snapshot={snapshot} />}
       </div>

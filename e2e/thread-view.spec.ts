@@ -801,6 +801,12 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.getByRole('button', { name: 'More actions' }).click()
     await page.getByRole('menuitemradio', { name: 'Normal view' }).click()
     await expect(inlineRows).toHaveCount(0)
+    // A finished turn folds its work under one line; opening it shows the one-line action summaries.
+    const fold = page.getByTestId('thread-turn-fold').first()
+    await expect(fold).toHaveText(/^Completed \d+ steps?/)
+    await expect(fold).toHaveAttribute('aria-expanded', 'false')
+    await fold.click()
+    await expect(fold).toHaveAttribute('aria-expanded', 'true')
     await expect(page.locator('.thread-activity-group, .thread-activity-single').first()).toBeVisible()
     await page.screenshot({ path: 'test-results/thread-view-normal.png' })
     if (process.env.OXESPACE_README_SHOTS) {

@@ -140,3 +140,11 @@
 .thread-change-summary .thread-change-confirm { display: inline-flex; gap: 6px; }
 .thread-change-summary .thread-change-view.is-danger { border-color: var(--dot-red); color: var(--dot-red); }
 .thread-change-summary .thread-change-error { margin: 0; padding: 6px 12px; border-top: 1px solid var(--wb-border); color: var(--tx-status-failure); font-size: var(--fs-xs); }
+
+/* A finished turn's intermediate work, folded under one line ("Completed 7 steps in 1m 3s"). */
+.thread-turn-fold { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0; padding: 4px 8px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--tx-muted); font: inherit; font-size: var(--fs-xs); cursor: pointer; }
+.thread-turn-fold:hover { background: var(--nav-hover); color: var(--tx-primary); }
+.thread-turn-fold:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.thread-turn-fold-chevron { transition: transform 120ms ease; }
+.thread-turn-fold[aria-expanded='true'] .thread-turn-fold-chevron { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .thread-turn-fold-chevron { transition: none; } }

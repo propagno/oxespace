@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ThreadEvent } from '../shared/types/thread'
-import { buildThreadTimeline, flattenThreadTimeline } from '../src/components/Threads/threadTimelineModel'
+import { buildThreadTimeline, flattenThreadTimeline, foldFinishedTurns } from '../src/components/Threads/threadTimelineModel'
+import { turnFoldLabel } from '../src/components/Threads/ThreadTurnFold'
 import { computeThreadVirtualRange } from '../src/components/Threads/useThreadVirtualizer'
 
 describe('Thread timeline model', () => {
@@ -62,5 +63,48 @@ describe('Thread timeline model', () => {
     expect(range.end - range.start).toBeLessThanOrEqual(80)
     expect(range.start).toBeLessThan(5_000)
     expect(range.end).toBeGreaterThan(5_000)
+  })
+})
+
+describe('folding finished turns', () => {
+  const tool = (id: string): ThreadEvent => ({ type: 'tool', id, name: 'Read', state: 'completed', detail: id, turnId: 't' })
+  const turn = (prompt: string, middle: ThreadEvent[], end: ThreadEvent[]): ThreadEvent[] => [
+    { type: 'message', id: prompt, role: 'user', text: prompt }, ...middle, ...end
+  ]
+  const keysOf = (events: ThreadEvent[], expanded: string[] = [], unresolved: string[] = []): string[] =>
+    flattenThreadTimeline(foldFinishedTurns(buildThreadTimeline(events, 'normal'), new Set(expanded), new Set(unresolved))).map(row => row.key)
+  const plan: ThreadEvent = { type: 'plan', id: 'plan-1', steps: [{ label: 'Read', status: 'completed' }] }
+  const draft: ThreadEvent = { type: 'message', id: 'draft', role: 'assistant', text: 'Looking' }
+  const answer: ThreadEvent = { type: 'message', id: 'answer', role: 'assistant', text: 'Done' }
+
+  it('keeps the prompt and the final answer and folds the work between them', () => {
+    const keys = keysOf(turn('ask', [draft, tool('a'), plan, tool('b')], [answer, { type: 'completed', status: 'completed' }]))
+    expect(keys).toEqual(['ask:message:ask', 'ask:turn-fold', 'ask:message:answer', 'ask:completed:6'])
+  })
+
+  it('shows every row again, after the fold line, once the turn is opened', () => {
+    const keys = keysOf(turn('ask', [draft, tool('a'), plan, tool('b')], [answer, { type: 'completed', status: 'completed' }]), ['ask'])
+    expect(keys[1]).toBe('ask:turn-fold')
+    expect(keys).toContain('ask:message:draft')
+    expect(keys).toContain('ask:plan:plan-1')
+  })
+
+  it('leaves failed, interrupted, running and short turns open, and any turn with an unresolved request', () => {
+    const work = [draft, tool('a'), plan]
+    const has = (keys: string[]): boolean => keys.some(key => key.endsWith(':turn-fold'))
+    expect(has(keysOf(turn('f', work, [answer, { type: 'completed', status: 'failed', error: 'x' }])))).toBe(false)
+    expect(has(keysOf(turn('i', work, [answer, { type: 'completed', status: 'interrupted' }])))).toBe(false)
+    expect(has(keysOf(turn('r', work, [answer])))).toBe(false)
+    expect(has(keysOf(turn('s', [tool('a')], [answer, { type: 'completed', status: 'completed' }])))).toBe(false)
+    const request: ThreadEvent = { type: 'request', id: 'q', request: { id: 'q', nativeId: 'q', nativeMethod: 'm', kind: 'question', title: 'Which?', generation: 1, createdAt: 1, state: 'pending' } }
+    expect(has(keysOf(turn('q', [...work, request], [answer, { type: 'completed', status: 'completed' }]), [], ['q']))).toBe(false)
+  })
+
+  it('counts each action of a group as a step and names the duration', () => {
+    const folded = foldFinishedTurns(buildThreadTimeline(turn('ask', [draft, tool('a'), tool('b'), tool('c')], [answer, { type: 'completed', status: 'completed' }]), 'normal'), new Set())
+    const fold = folded[0].rows.find(row => row.event.type === 'turn-fold')!.event as { steps: number }
+    expect(fold.steps).toBe(4)
+    expect(turnFoldLabel(4, { id: 'ask', sequence: 1, status: 'completed', startedAt: 0, completedAt: 63_000, configuration: {} as never })).toBe('Completed 4 steps in 1m 3s')
+    expect(turnFoldLabel(1)).toBe('Completed 1 step')
   })
 })

@@ -13,6 +13,7 @@ import { ThreadPlan } from './ThreadPlan'
 import { ThreadRequestCard } from './ThreadRequestCard'
 import { ThreadSubagentActivity } from './ThreadSubagentActivity'
 import { ThreadTurnTiming } from './ThreadTurnTiming'
+import { ThreadTurnFoldRow } from './ThreadTurnFold'
 import { threadFileLabel, threadFileScope, threadWorkingRoot, type ThreadChangeEntry } from './threadChanges'
 import type { ThreadTimelineItem } from './threadTimelineModel'
 
@@ -32,7 +33,7 @@ async function undoTurnChanges(threadId: string, turnId: string): Promise<void> 
 }
 
 /** One virtual row of the conversation, plus the turn's changes and timing after its last row. */
-export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending, pendingRequests, lastResult, lastMessageId, quickReplies, copiedMessageId, action, runCommand, onCopy, onQuickReply, onQuote, onDraft, onAccounts, onPermissions }: {
+export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending, pendingRequests, lastResult, lastMessageId, quickReplies, copiedMessageId, action, runCommand, onCopy, onQuickReply, onQuote, onDraft, onAccounts, onPermissions, onToggleFold }: {
   row: ThreadTimelineItem
   snapshot: ThreadSnapshot | null
   viewMode: ThreadViewMode
@@ -52,6 +53,8 @@ export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending,
   onDraft: (text: string) => void
   onAccounts?: () => void
   onPermissions: () => void
+  /** Opens or closes the folded work of a finished turn. */
+  onToggleFold?: (turnId: string) => void
 }) {
   const { event, key, turnId, turnEvents, firstInTurn, lastInTurn } = row
   const api = window.oxe?.thread
@@ -64,6 +67,7 @@ export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending,
     useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'files' })
   }
   const body = (() => {
+    if (event.type === 'turn-fold') return <ThreadTurnFoldRow key={key} fold={event} turn={snapshot?.turns?.find(value => value.id === turnId)} onToggle={() => onToggleFold?.(turnId)} />
     if (event.type === 'activity-group') return <ThreadActivityGroup key={key} events={event.events} mode={viewMode} />
     if (event.type === 'plan') return <ThreadPlan key={key} event={event} />
     if (event.type === 'subagent') return <ThreadSubagentActivity key={key} event={event} compact stopping={pending} onStop={snapshot?.thread.capabilities?.features.subagentLifecycle?.enabled && api?.stopTask && event.receiverThreadIds[0] ? () => void action(() => api.stopTask!(snapshot.thread.id, event.receiverThreadIds[0])) : undefined} />
