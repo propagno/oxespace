@@ -69,7 +69,9 @@ export function parseConnectionUrl(input: string): { ok: true; value: ParsedConn
   const sslMode: SslMode = srv && tls === '' ? 'require'
     : tls === 'verify-full' ? 'verify-full'
       : tls === 'verify-ca' ? 'verify-ca'
-        : ['require', 'true'].includes(tls) ? 'require' : 'disable'
+        : ['require', 'true'].includes(tls) ? 'require'
+          // PostgreSQL without sslmode means "prefer" (libpq's default): TLS when the server offers it.
+          : engine === 'postgres' && (tls === '' || tls === 'prefer' || tls === 'allow') ? 'prefer' : 'disable'
   const direct = query.get('directConnection')
   const replicaSet = query.get('replicaSet') ?? ''
 

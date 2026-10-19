@@ -6,7 +6,9 @@ export interface Endpoint { host: string; port: number }
 
 /**
  * TLS for node-postgres.
- *   disable / prefer  no TLS
+ *   disable           no TLS
+ *   prefer            TLS without verifying the certificate; the caller retries
+ *                     without TLS when the server has none (libpq's default)
  *   require           encrypted, certificate NOT verified
  *   verify-ca         chain verified against the CA, host name not checked
  *   verify-full       chain and host name verified
@@ -14,9 +16,9 @@ export interface Endpoint { host: string; port: number }
  */
 export function pgSsl(connection: ResolvedConnection): false | ConnectionOptions {
   const { sslMode, tls } = connection
-  if (sslMode === 'disable' || sslMode === 'prefer') return false
+  if (sslMode === 'disable') return false
   const material: ConnectionOptions = { ...(tls?.ca ? { ca: tls.ca } : {}), ...(tls?.cert && tls.key ? { cert: tls.cert, key: tls.key } : {}) }
-  if (sslMode === 'require') return { ...material, rejectUnauthorized: false }
+  if (sslMode === 'require' || sslMode === 'prefer') return { ...material, rejectUnauthorized: false }
   if (sslMode === 'verify-ca') return { ...material, rejectUnauthorized: true, checkServerIdentity: () => undefined }
   return { ...material, rejectUnauthorized: true, servername: connection.host }
 }

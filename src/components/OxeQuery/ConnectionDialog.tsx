@@ -8,6 +8,7 @@ import { Button } from '../../ui/Button'
 import { Dialog } from '../../ui/Overlay'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { Select, SegmentedControl, Switch } from '../../ui/Field'
+import { splitHostInput } from '../../../shared/oxequeryHost'
 
 const DEFAULT_PORT: Record<DatabaseEngine, number> = { postgres: 5432, mongodb: 27017 }
 const ENGINES: { id: DatabaseEngine; label: string; hint: string; Icon: typeof Database }[] = [
@@ -16,6 +17,7 @@ const ENGINES: { id: DatabaseEngine; label: string; hint: string; Icon: typeof D
 ]
 const ENVIRONMENTS: { id: ConnectionEnvironment; label: string }[] = [{ id: 'local', label: 'Local' }, { id: 'dev', label: 'Development' }, { id: 'prod', label: 'Production' }]
 const TLS_MODES: { id: SslMode; label: string }[] = [
+  { id: 'prefer', label: 'When the server offers it (default)' },
   { id: 'disable', label: 'Off' },
   { id: 'require', label: 'Encrypted — certificate NOT verified' },
   { id: 'verify-ca', label: 'Verify the certificate chain' },
@@ -78,7 +80,8 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
   // MongoDB users usually hold a URI, PostgreSQL users usually fill in a host.
   const [mode, setMode] = useState<'host' | 'url'>('host')
 
-  const [sslMode, setSslMode] = useState<SslMode>(editing?.sslMode ?? 'disable')
+  // libpq's default: try TLS and fall back to a plain connection only when the server has none.
+  const [sslMode, setSslMode] = useState<SslMode>(editing?.sslMode ?? 'prefer')
   const [ca, setCa] = useState<Picked | null>(null)
   const [clearCa, setClearCa] = useState(false)
   const [cert, setCert] = useState<Picked | null>(null)
@@ -110,7 +113,7 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
   const [keepalive, setKeepalive] = useState(String(editing?.keepaliveSeconds ?? 30))
   const groups = useOxeQueryStore(state => [...new Set(state.connections.map(item => item.group).filter(Boolean))].sort())
 
-  const [open, setOpen] = useState({ tls: sslMode !== 'disable', ssh: Boolean(editing?.ssh), mongo: Boolean(editing && (editing.mongo.authSource || editing.mongo.replicaSet || editing.mongo.srv || editing.mongo.extraHosts.length)), limits: false })
+  const [open, setOpen] = useState({ tls: sslMode !== 'disable' && sslMode !== 'prefer', ssh: Boolean(editing?.ssh), mongo: Boolean(editing && (editing.mongo.authSource || editing.mongo.replicaSet || editing.mongo.srv || editing.mongo.extraHosts.length)), limits: false })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [outcome, setOutcome] = useState<Outcome>(null)
@@ -126,7 +129,7 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
     if (value.password) { setPassword(value.password); setClearPassword(false) }
     setSslMode(value.sslMode)
     setAuthSource(value.mongo.authSource); setReplicaSet(value.mongo.replicaSet); setExtraHosts(value.mongo.extraHosts.join('\n')); setSrv(value.mongo.srv); setDirect(value.mongo.directConnection)
-    setOpen(current => ({ ...current, tls: value.sslMode !== 'disable' || current.tls, mongo: value.engine === 'mongodb' && Boolean(value.mongo.authSource || value.mongo.replicaSet || value.mongo.srv || value.mongo.extraHosts.length) || current.mongo }))
+    setOpen(current => ({ ...current, tls: (value.sslMode !== 'disable' && value.sslMode !== 'prefer') || current.tls, mongo: value.engine === 'mongodb' && Boolean(value.mongo.authSource || value.mongo.replicaSet || value.mongo.srv || value.mongo.extraHosts.length) || current.mongo }))
     setName(current => current || `${value.username ? `${value.username}@` : ''}${value.host}${value.database ? `/${value.database}` : ''}`)
   }
 
@@ -257,7 +260,12 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
           {CONNECTION_COLORS.map(item => <button key={item} type="button" role="radio" aria-checked={color === item} aria-label={item} data-color={item} onClick={() => setColor(item)} />)}</div>
           <label className="oq-check"><input type="checkbox" checked={favorite} onChange={event => setFavorite(event.target.checked)} />Favorite</label></div>
         {mode === 'host' && <>
-        <label>{srv ? 'Seed list host' : 'Host'}<input value={host} onChange={event => setHost(event.target.value)} required spellCheck={false} /></label>
+        <label>{srv ? 'Seed list host' : 'Host'}<input value={host} onChange={event => setHost(event.target.value)} onBlur={() => {
+          // A host pasted as a URL keeps only its name; a port written after it fills the Port field.
+          const pasted = splitHostInput(host)
+          if (pasted.host !== host) setHost(pasted.host)
+          if (pasted.port && !srv) setPort(String(pasted.port))
+        }} required spellCheck={false} /></label>
         {!srv && <label>Port<input type="number" min={1} max={65535} value={port} onChange={event => setPort(event.target.value)} required /></label>}
         <label>User<input value={username} onChange={event => setUsername(event.target.value)} autoComplete="off" spellCheck={false} /></label>
         <label>Password<input type="password" value={password} onChange={event => setPassword(event.target.value)} autoComplete="new-password"
@@ -277,7 +285,7 @@ function ConnectionForm({ editing }: { editing: OxeQueryConnection | null }): Re
         {environment === 'prod' && !readOnly && <p className="oq-warning" role="note"><ShieldAlert size={14} aria-hidden="true" /> This is a production connection with writes enabled. Destructive statements will still ask first.</p>}
       </section>
 
-      <Section title="Security (TLS)" hint={sslMode === 'disable' ? 'off' : sslMode === 'require' ? 'not verified' : 'verified'} open={open.tls} onToggle={() => toggle('tls')}>
+      <Section title="Security (TLS)" hint={sslMode === 'disable' ? 'off' : sslMode === 'prefer' ? 'when offered' : sslMode === 'require' ? 'not verified' : 'verified'} open={open.tls} onToggle={() => toggle('tls')}>
         <label className="oq-form-wide">Encryption<Select className="oq-select" value={sslMode} onChange={event => setSslMode(event.target.value as SslMode)}>
           {TLS_MODES.map(mode => <option key={mode.id} value={mode.id}>{mode.label}</option>)}</Select></label>
         {sslMode === 'require' && <p className="oq-warning" role="note"><ShieldAlert size={14} aria-hidden="true" /> The connection is encrypted but the server is not authenticated, so someone in the middle could impersonate it.</p>}

@@ -145,7 +145,10 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
     if (copied) setCopiedMessageId(id)
     else setError('Could not copy this message.')
   }
-  useLayoutEffect(() => { const el = textarea.current; if (el) { el.style.height = '0px'; el.style.height = `${Math.min(144, Math.max(40, el.scrollHeight))}px` } }, [draft])
+  // The composer sizes itself to its text (CSS field-sizing). Collapsing it to 0px to measure, as before, made the
+  // conversation taller for an instant, clamped its scroll, and left the end hidden under the composer on each line.
+  // When the composer grows while the conversation is followed, the end stays in view before the frame is painted.
+  useLayoutEffect(() => { const el = timeline.current; if (el && scroll.following.current) el.scrollTop = el.scrollHeight }, [draft, timeline, scroll.following])
   const action = async (run: () => Promise<unknown>, onSettled?: (success: boolean) => void): Promise<void> => {
     if (actionInFlight.current) return
     actionInFlight.current = true
