@@ -490,16 +490,22 @@ async function registerIpcHandlers(): Promise<() => void> {
     if (memoryShutdownStarted) return
     memoryShutdownStarted = true
     terminalManager.stopAll()
+    // Quitting can still stall after the drain, for example on a native handle a terminal left
+    // open on Windows; the window is gone by then, so end the process instead of lingering.
+    const quit = (): void => {
+      app.quit()
+      setTimeout(() => app.exit(0), 5000).unref()
+    }
     // An optional service or a long-running MCP request must not trap app shutdown.
     const shutdownDeadline = setTimeout(() => {
       memoryShutdownComplete = true
-      app.quit()
+      quit()
     }, 10000)
     void Promise.allSettled([threadManager.stop(), memoryService.stop(), delegationService?.stop()]).then(() => internalMcp.stop()).catch(() => {}).finally(() => {
       clearTimeout(shutdownDeadline)
       if (memoryShutdownComplete) return
       memoryShutdownComplete = true
-      app.quit()
+      quit()
     })
   })
   app.once('before-quit', () => {
