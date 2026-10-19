@@ -5,8 +5,13 @@ export type PanelLabel = 'Changes' | 'Browser' | 'Commit & pull request' | 'File
 
 /** Opens or closes a Code panel through the rail's Panels menu, which lists every panel. */
 export async function togglePanel(page: Page, label: PanelLabel): Promise<void> {
-  await page.locator('[data-testid="btn-open-tools"]:visible').click()
-  await page.getByRole('menuitemcheckbox', { name: label, exact: true }).click()
+  const item = page.getByRole('menuitemcheckbox', { name: label, exact: true })
+  // A click that lands while the previous menu is still closing does not open a new one; open it again then.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.locator('[data-testid="btn-open-tools"]:visible').click()
+    if (await item.waitFor({ state: 'visible', timeout: 3_000 }).then(() => true, () => false)) break
+  }
+  await item.click()
 }
 
 /** Opens the command palette filtered to one entry and returns that entry, without choosing it. */
