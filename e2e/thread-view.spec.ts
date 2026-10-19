@@ -669,8 +669,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     // Font and virtual-row measurements can settle a few pixels differently
     // after remounting Thread; a large reading-position jump still fails.
     await expectReadingAnchor(4)
-    await liveActivity.locator('details').evaluate((el: HTMLDetailsElement) => { el.open = true })
-    await expect(liveActivity).toContainText('Checking project files.')
+    // The provider's summary is a reasoning block in the conversation, not repeated in the live status.
+    await expect(liveActivity.locator('details')).toHaveCount(0)
     await page.screenshot({ path: 'test-results/thread-reading.png' })
     await app.evaluate(() => (globalThis as Record<string, () => void>).silenceThreadFixture())
     await expect(liveActivity).toContainText('Execution outcome is not confirmed. Your message was not resent.')
@@ -824,6 +824,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(sticky).toHaveCount(0)
     await page.locator('.thread-timeline').evaluate(el => { el.scrollTop = 260 })
     await expect(sticky).toContainText('Show the files updated in this conversation')
+    // An opaque strip: the conversation text scrolling under it must not show through.
+    expect(await sticky.evaluate(element => getComputedStyle(element).backgroundColor)).toMatch(/^rgb\(/)
     await sticky.click()
     await expect(sticky).toHaveCount(0)
     if (process.env.OXESPACE_README_SHOTS) {

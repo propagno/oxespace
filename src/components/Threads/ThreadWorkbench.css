@@ -166,10 +166,11 @@
 
 /* The prompt of the turn being read, kept at the top edge once it has scrolled away. */
 .thread-sticky-prompt-anchor { position: sticky; top: 0; z-index: 2; height: 0; }
-.thread-sticky-prompt { position: absolute; top: 4px; right: 0; left: 0; display: flex; align-items: center; gap: 8px; max-width: 100%; min-height: 28px; padding: 0 10px; border: 1px solid var(--bd-subtle, var(--wb-border)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--bg-elevated) 94%, transparent); box-shadow: var(--shadow-sm, 0 1px 3px rgb(0 0 0 / 0.08)); color: var(--tx-secondary); font: inherit; font-size: var(--fs-xs); text-align: left; cursor: pointer; }
-.thread-sticky-prompt span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.thread-sticky-prompt:hover { color: var(--tx-primary); }
-.thread-sticky-prompt:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* Prefixed: `.thread-view button` would otherwise strip the strip's border and fill, and the text under it showed through. */
+.thread-view .thread-sticky-prompt { position: absolute; top: 4px; right: 0; left: 0; display: flex; align-items: center; gap: 8px; max-width: 100%; min-height: 28px; padding: 0 10px; border: 1px solid var(--bd-subtle, var(--wb-border)); border-radius: var(--radius-md); background: var(--bg-elevated); box-shadow: var(--shadow-sm, 0 1px 3px rgb(0 0 0 / 0.08)); color: var(--tx-secondary); font: inherit; font-size: var(--fs-xs); text-align: left; cursor: pointer; }
+.thread-view .thread-sticky-prompt span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thread-view .thread-sticky-prompt:hover { color: var(--tx-primary); background: var(--bg-elevated); border-color: var(--bd-base); }
+.thread-view .thread-sticky-prompt:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* Files the agent changed that are not reviewed yet, across turns, above the composer. */
 .thread-dock-changes { margin: 0 0 6px; border: 1px solid var(--bd-subtle, var(--wb-border)); border-radius: var(--radius-md); background: var(--bg-elevated); font-size: var(--fs-xs); }
