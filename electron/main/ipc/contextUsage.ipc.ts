@@ -8,7 +8,7 @@ import { parseRecord, parseText, parseToken, requireAppFrame } from './ipc-guard
  * Renderer-facing IPC for the live context-window % chip.
  *   - `context-usage:get` — current `/context` fill for a pane's provider.
  */
-export function registerContextUsageIpc(service = new ContextUsageService()): void {
+export function registerContextUsageIpc(service = new ContextUsageService()): ContextUsageService {
   ipcMain.handle(IPC_CHANNELS.contextUsage.get, (event, value: unknown) => {
     requireAppFrame(event, 'Context usage')
     const input = parseRecord(value, 'Context usage request')
@@ -17,4 +17,5 @@ export function registerContextUsageIpc(service = new ContextUsageService()): vo
     const sessionId = input.sessionId === undefined || input.sessionId === null ? input.sessionId : parseToken(input.sessionId, 'Session id')
     return service.get(parseToken(input.provider, 'Provider', 40) as ContextUsageInput['provider'], rootPath, sessionId)
   })
+  return service
 }

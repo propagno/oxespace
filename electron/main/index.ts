@@ -50,6 +50,7 @@ import { AgentHookServer } from './services/agent-hooks/server'
 import { resolveSessionLocation } from './services/git-common-dir'
 import { registerAutomationsIpc } from './ipc/automations.ipc'
 import { AutomationService } from './services/automations/service'
+import { SearchService } from './services/search.service'
 import { AutomationStore } from './services/automations/store'
 import { runHook } from './services/repo-config/hook-runner'
 import { fallbackShellProfiles } from './services/shell-profile.defaults'
@@ -248,7 +249,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   registerSemanticIpc(semanticService)
   registerTerminalIpc(terminalManager)
   registerAgentIpc(db)
-  registerTaskIpc(db, terminalManager)
+  const taskService = registerTaskIpc(db, terminalManager)
   // Source-control/search/integration surfaces are not required to create the
   // first window. Load them as one deferred group so their implementation does
   // not inflate the main entry or block startup parsing.
@@ -263,10 +264,13 @@ async function registerIpcHandlers(): Promise<() => void> {
   ])
   const gitService = registerGitIpc()
   registerSearchIpc()
+  // Agents search with their own instance: a new search cancels the previous one of the same service.
+  const agentSearch = new SearchService()
   const gitHubService = registerGitHubIpc(db)
   gitHubService.configureWorktreeLifecycle({ stopTerminalsWithin: (dir) => terminalManager.stopWithin(dir) })
   // Scheduled automations. Their own SQLite file keeps them independent of the
   // application schema; a store that cannot open only disables this feature.
+  let automationService: AutomationService | undefined
   try {
     const automations = new AutomationService({
       store: new AutomationStore(join(app.getPath('userData'), 'automations.sqlite3')),
@@ -280,12 +284,13 @@ async function registerIpcHandlers(): Promise<() => void> {
       }
     })
     registerAutomationsIpc(automations)
+    automationService = automations
     automations.start()
     app.once('before-quit', () => automations.stop())
   } catch (error) {
     log.warn('Automations unavailable', error)
   }
-  registerLinearIpc(db, gitHubService)
+  const linearService = registerLinearIpc(db, gitHubService)
   registerIntegrationIpc(db)
   const backgroundManager = new BackgroundManager(db, {
     emitOutput: (event) => {
@@ -390,8 +395,8 @@ async function registerIpcHandlers(): Promise<() => void> {
   registerVoiceIpc()
   registerNotificationsIpc()
   registerCopilotIpc()
-  registerAgentCreditsIpc()
-  registerContextUsageIpc()
+  const creditsService = registerAgentCreditsIpc()
+  const contextUsageService = registerContextUsageIpc()
   const oxeService = registerOxeIpc()
   const fileSystemService = registerFileSystemIpc(db)
   // Internal oxespace MCP server — auto-starts on app boot, registers a
@@ -461,6 +466,10 @@ async function registerIpcHandlers(): Promise<() => void> {
     oxeQuery: () => oxeQueryAgent,
     oxeQueryError: () => oxeQueryStartupError,
     git: gitService,
+    app: {
+      github: gitHubService, tasks: taskService, skills: skillService, automations: () => automationService, linear: linearService,
+      terminal: terminalManager, mcpServers: mcpManager, search: agentSearch, contextUsage: contextUsageService, credits: creditsService
+    },
     db,
     mcpManager,
     workspaceServ: internalMcpWorkspaceServ,
