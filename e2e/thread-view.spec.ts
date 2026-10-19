@@ -75,7 +75,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
         changed(); return observation
       })
       ipcMain.removeHandler('git:get-status')
-      ipcMain.handle('git:get-status', () => ({ branch: 'feature/thread', ahead: 1, behind: 0, checkedAt: Date.now(), files: [
+      ipcMain.handle('git:get-status', () => ({ branch: 'feature/thread', upstream: 'origin/feature/thread', ahead: 1, behind: 0, checkedAt: Date.now(), files: [
         { path: 'README.md', staged: false, unstaged: true, untracked: false, conflicted: false, status: '.M' },
         { path: 'docs/new.md', staged: false, unstaged: true, untracked: true, conflicted: false, status: '?' }
       ] }))
@@ -862,6 +862,19 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.getByRole('navigation', { name: 'Workspace files' })).toBeVisible()
     await page.getByRole('treeitem', { name: 'README.md', exact: true }).click()
     await expect(page.getByRole('region', { name: 'Editor' })).toContainText('README.md')
+    // Commit & pull request fills the workbench, and its final action reads as the primary one.
+    await page.getByRole('button', { name: 'Select workbench panel' }).click()
+    await page.getByRole('menuitemradio', { name: 'Commit & pull request', exact: true }).click()
+    const gitControl = page.locator('.thread-tool-surface > .git-control')
+    await expect(gitControl).toBeVisible()
+    expect(await gitControl.evaluate(element => Math.abs(element.getBoundingClientRect().width - element.parentElement!.getBoundingClientRect().width) <= 1)).toBe(true)
+    await gitControl.getByText('Pull request', { exact: true }).click()
+    const createPr = gitControl.getByRole('button', { name: 'Create pull request' })
+    await expect(createPr).toBeVisible()
+    expect(await createPr.evaluate(element => getComputedStyle(element).backgroundColor)).not.toMatch(/rgba\(0, 0, 0, 0\)|transparent/)
+    await page.screenshot({ path: 'test-results/thread-git-control.png' })
+    await page.getByRole('button', { name: 'Select workbench panel' }).click()
+    await page.getByRole('menuitemradio', { name: 'Files', exact: true }).click()
     await page.setViewportSize({ width: 900, height: 720 })
     await expect(page.locator('.thread-workbench')).toHaveClass(/is-drawer/)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)

@@ -27,7 +27,8 @@ const IDLE = { status: 'idle' as const, error: null, lastActivityAt: null, lastO
 export function useAttentionSummary(): AttentionSummary {
   const workspaces = useWorkspaceStore(state => state.workspaces)
   const paneStates = useTerminalStore(useShallow(state => workspaces.flatMap(workspace => workspace.panes.filter(pane => pane.type === 'terminal').map(pane => state.panes[pane.id] ?? IDLE))))
-  const threadStatuses = useThreadStore(useShallow(state => state.threads.map(thread => thread.status)))
+  // A failure counts until the person opens that conversation; one already seen stays in the list, not on the rail.
+  const threadStatuses = useThreadStore(useShallow(state => state.threads.map(thread => thread.status === 'failed' && !state.unreadIds.includes(thread.id) ? 'seen-failure' : thread.status)))
   return useMemo(() => {
     const code: AttentionCounts = { needsYou: 0, failed: 0, working: 0 }
     for (const entry of paneStates) {
