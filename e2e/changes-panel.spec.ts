@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { togglePanel, openConnections } from './helpers/panels'
+import { togglePanel } from './helpers/panels'
 
 test('Changes panel lists branch changes, switches base and shows a side-by-side diff', async () => {
   const root = mkdtempSync(join(tmpdir(), 'oxe-changes-'))
@@ -66,7 +66,6 @@ test('Changes panel lists branch changes, switches base and shows a side-by-side
     await expect(panel.getByRole('group', { name: 'Review comments' })).toContainText('1 comment')
     await expect(panel.locator('.oxe-line-comment')).toContainText('Please rename this value')
     await page.screenshot({ path: test.info().outputPath('changes-comment.png') })
-    if (process.env.OXESPACE_README_SHOTS) await page.screenshot({ path: 'docs/assets/screenshots/code-review.png' })
     await panel.locator('.oxe-line-comment-remove').click()
     await expect(panel.getByRole('group', { name: 'Review comments' })).toHaveCount(0)
 
@@ -77,12 +76,6 @@ test('Changes panel lists branch changes, switches base and shows a side-by-side
     await panel.getByRole('button', { name: 'Change scope' }).click()
     await page.getByRole('menuitemcheckbox', { name: 'Uncommitted changes' }).click()
     await expect(panel.getByText('No changes')).toBeVisible()
-    if (process.env.OXESPACE_README_SHOTS) {
-      await openConnections(page)
-      await expect(page.getByRole('dialog', { name: 'Connections' })).toBeVisible()
-      await page.waitForTimeout(600)
-      await page.screenshot({ path: 'docs/assets/screenshots/mcp-catalog.png' })
-    }
   } finally { await app.close() }
 })
 
