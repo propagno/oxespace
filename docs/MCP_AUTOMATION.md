@@ -62,6 +62,18 @@ Read tools available now (all `read`):
 | `oxespace_search` | `text` (ripgrep), `files` |
 | `oxespace_usage` | `context`, `credits` |
 
+Change tools (separate from the read tools, so a read-only Thread never gets them and the bridge never retries them):
+
+| Tool | `write` (runs, recorded) | `confirm` (a person approves the exact text) |
+|---|---|---|
+| `oxespace_git_change` | `stage`, `stage_all`, `unstage`, `commit` (local), `create_branch` (no switch), `fetch`, `pull` (fast-forward only), `create_checkpoint` | `checkout`, `push`, `restore_checkpoint` |
+| `oxespace_github_change` | — | `create_pull_request`, `set_auto_merge`, `create_release`, `run_workflow`, `rerun` |
+| `oxespace_threads_change` | `send`, `steer`, `interrupt`, `configure` (model and effort only), `rename` on a Thread the caller created (handoff or Agent Work) | the same on any other Thread of the project, and `archive` |
+| `oxespace_tasks_change` | `create`, `update`, `reorder`, `add_dependency`, `remove_dependency` | `verify` (shows the command), `delete` |
+
+Branch, tag and ref arguments that git could read as an option are refused. A Thread cannot act on itself.
+Starting a task in an agent's terminal (`tasks.run`) is not a tool: it types into another agent's terminal.
+
 Calls apply to the caller's own directory (the pane's or Thread's root); a caller without an execution
 gets the workspace it names or the active one. Refusals have a stable `code`: `invalid`, `no-execution`,
 `no-workspace`, `rate-limited`, `too-long`, `denied`, `approval-pending`, `unavailable`, `failed`.
