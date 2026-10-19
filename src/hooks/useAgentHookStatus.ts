@@ -19,6 +19,11 @@ export function useAgentHookStatus(): void {
       useTerminalStore.getState().setLocation(event.paneId, { cwd: event.cwd, checkoutRoot: event.checkoutRoot, sameRepository: event.sameRepository })
       if (event.checkoutRoot) invalidateGitBranch(event.checkoutRoot)
     })
-    return () => { unsubscribe?.(); unsubscribeLocation?.() }
+    // Lifecycle state read in the main process from hooks and the screen; it outranks the hook-only and timing guesses.
+    const unsubscribeState = window.oxe?.agentState?.onChanged?.((event) => {
+      useTerminalStore.getState().setAgentState(event.paneId, 'cleared' in event ? null : event.state)
+    })
+    void window.oxe?.agentState?.list?.().then(states => { for (const state of states ?? []) useTerminalStore.getState().setAgentState(state.paneId, state.state) }).catch(() => undefined)
+    return () => { unsubscribe?.(); unsubscribeLocation?.(); unsubscribeState?.() }
   }, [])
 }

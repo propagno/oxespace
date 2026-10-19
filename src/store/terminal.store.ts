@@ -18,6 +18,8 @@ export interface TerminalStateEntry {
   /** Last status the agent reported through its own lifecycle hooks. */
   hookState: 'working' | 'waiting' | 'done' | null
   hookAt: number | null
+  /** The lifecycle state the main process reads from the agent's hooks and screen (herdr's vocabulary). */
+  agentState: import('../../shared/types/agent-state').AgentLifecycleState | null
   /** Where the pane's agent reports working; null until it reports, and again once it ends. */
   location: SessionLocation | null
   /**
@@ -43,6 +45,7 @@ interface TerminalState {
   markRead: (paneId: string) => void
   /** Status reported by the agent's own hooks; `ended` clears it. */
   setHookStatus: (paneId: string, state: 'working' | 'waiting' | 'done' | 'ended', at: number) => void
+  setAgentState: (paneId: string, state: import('../../shared/types/agent-state').AgentLifecycleState | null) => void
   /** Directory the pane's agent reports working in. */
   setLocation: (paneId: string, location: SessionLocation | null) => void
   /** The view unmounted but the shell keeps running (workspace left the MRU). */
@@ -64,6 +67,7 @@ const DEFAULT_STATE: TerminalStateEntry = {
   isWorking: false,
   hasUnread: false,
   hookState: null,
+  agentState: null,
   hookAt: null,
   location: null,
   detached: false
@@ -112,6 +116,8 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   getStatus: (paneId) => get().panes[paneId] ?? DEFAULT_STATE,
 
   setActivePaneId: (paneId) => {
+    // Looking at a pane makes its finished turn "seen" everywhere (sidebar, notifications, MCP).
+    if (paneId && get().panes[paneId]?.agentState === 'done') void window.oxe?.agentState?.markSeen(paneId)
     set((state) => {
       if (state.activePaneId === paneId) return state
       const nextPanes = paneId && state.panes[paneId]?.hasUnread
@@ -227,6 +233,15 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
           }
         }
       }
+    })
+  },
+
+  setAgentState: (paneId, state) => {
+    clearAwaitingTimer(paneId)
+    set(current => {
+      const entry = current.panes[paneId] ?? DEFAULT_STATE
+      if (entry.agentState === state) return current
+      return { panes: { ...current.panes, [paneId]: { ...entry, agentState: state } } }
     })
   },
 

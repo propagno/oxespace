@@ -435,6 +435,12 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       callTool: (input) => ipc.invoke(IPC_CHANNELS.mcp.callTool, input) as Promise<import('../../shared/types/mcp').McpCallToolResult>,
       onHealth: (listener) => subscribe<import('../../shared/types/mcp').McpServerHealthEvent>(ipc, IPC_CHANNELS.mcp.onHealth, listener)
     },
+    agentState: {
+      list: (workspaceId) => ipc.invoke(IPC_CHANNELS.agentState.list, workspaceId) as Promise<import('../../shared/types/agent-state').PaneAgentState[]>,
+      markSeen: (paneId) => ipc.invoke(IPC_CHANNELS.agentState.markSeen, paneId) as Promise<void>,
+      explain: (paneId) => ipc.invoke(IPC_CHANNELS.agentState.explain, paneId) as Promise<unknown>,
+      onChanged: (listener) => subscribe<import('../../shared/types/agent-state').PaneAgentStateEvent>(ipc, IPC_CHANNELS.agentState.onChanged, listener)
+    },
     mcpInternal: {
       getStatus: () => ipc.invoke(IPC_CHANNELS.mcpInternal.getStatus) as Promise<import('../../shared/types/mcp-internal').InternalMcpStatus>,
       regenerateToken: () => ipc.invoke(IPC_CHANNELS.mcpInternal.regenerateToken) as Promise<import('../../shared/types/mcp-internal').InternalMcpStatus>,

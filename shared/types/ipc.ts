@@ -332,6 +332,12 @@ export const IPC_CHANNELS = {
     updateHandoff: 'integration:update-handoff',
     buildContext: 'integration:build-context'
   },
+  agentState: {
+    list: 'agent-state:list',
+    markSeen: 'agent-state:mark-seen',
+    explain: 'agent-state:explain',
+    onChanged: 'agent-state:changed'
+  },
   mcpInternal: {
     getStatus: 'mcp-internal:get-status',
     regenerateToken: 'mcp-internal:regenerate-token',
@@ -764,6 +770,7 @@ export interface OxeApi {
   skill: SkillApi
   mcp: McpApi
   mcpInternal: McpInternalApi
+  agentState: import('./agent-state').AgentStateApi
   browserPreview: import('./browser-preview').BrowserPreviewApi
   oxeContext: OxeContextApi
   semantic: SemanticApi

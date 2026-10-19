@@ -38,6 +38,15 @@ interface TerminalManagerOptions {
   isManagedPane?: (paneId: string) => boolean
   /** Main-process-registered container shells (`oxequery-shell:*`); the renderer never supplies the command. */
   oxeQueryShell?: (paneId: string) => { file: string; args: string[] } | undefined
+  /** Sees every terminal's lifecycle and output, e.g. to read what an agent shows on screen. */
+  observer?: TerminalObserver
+}
+
+export interface TerminalObserver {
+  start(paneId: string, workspaceId: string, cols: number, rows: number, command: string | null): void
+  output(paneId: string, data: string): void
+  resize(paneId: string, cols: number, rows: number): void
+  exit(paneId: string): void
 }
 
 export interface ManagedTerminalStart extends TerminalStartInput {
@@ -115,6 +124,7 @@ export class TerminalManager {
   private readonly agentMcpArgs?: TerminalManagerOptions['agentMcpArgs']
   private readonly isManagedPane?: TerminalManagerOptions['isManagedPane']
   private readonly oxeQueryShell?: TerminalManagerOptions['oxeQueryShell']
+  private readonly observer?: TerminalObserver
   private readonly sessions = new Map<string, TerminalSession>()
   private readonly pty: PtyModule
   private readonly launchContextStatement: ReturnType<AppDatabase['prepare']>
@@ -135,6 +145,7 @@ export class TerminalManager {
     this.agentMcpArgs = options.agentMcpArgs
     this.isManagedPane = options.isManagedPane
     this.oxeQueryShell = options.oxeQueryShell
+    this.observer = options.observer
     this.pty = options.pty ?? { spawn }
     this.env = options.env ?? process.env
     this.platform = options.platform ?? process.platform
@@ -342,7 +353,11 @@ export class TerminalManager {
       activityNotifiedAt: 0
     })
 
-    ptyProcess.onData((data) => this.sessions.get(input.paneId)?.outputBatcher.push(data))
+    this.observer?.start(input.paneId, input.workspaceId, cols, rows, input.launch ? [input.launch.executable, ...input.launch.args].join(' ') : input.agentCommand ?? executable)
+    ptyProcess.onData((data) => {
+      this.sessions.get(input.paneId)?.outputBatcher.push(data)
+      this.observer?.output(input.paneId, data)
+    })
     ptyProcess.onExit(({ exitCode }) => {
       recordRuntime('process-exit', { pane: input.paneId, pid: ptyProcess.pid, exitCode })
       const session = this.sessions.get(input.paneId)
@@ -351,6 +366,7 @@ export class TerminalManager {
       if (session) this.rememberExit(session, exitCode)
       this.sessions.delete(input.paneId)
       this.notifyLaunchExit(input.paneId)
+      this.observer?.exit(input.paneId)
       this.emitExit({ paneId: input.paneId, exitCode })
     })
 
@@ -382,6 +398,7 @@ export class TerminalManager {
     const unchanged = session.cols === input.cols && session.rows === input.rows
     session.cols = input.cols
     session.rows = input.rows
+    this.observer?.resize(input.paneId, input.cols, input.rows)
     // A restored full-screen TUI needs a fresh frame after the renderer has
     // installed its alternate buffer. A same-size resize is that handshake.
     if (unchanged && session.attached && session.modes.altScreen) this.nudgeRedraw(session)
@@ -543,6 +560,7 @@ export class TerminalManager {
     killProcess(session.pty)
     this.sessions.delete(input.paneId)
     this.notifyLaunchExit(input.paneId)
+    this.observer?.exit(input.paneId)
     // An explicit stop is not a crash to be explained on return.
     this.exitedSessions.delete(input.paneId)
   }

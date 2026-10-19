@@ -173,6 +173,21 @@ async function registerIpcHandlers(): Promise<() => void> {
   const executions = new ExecutionRegistry()
   registerMemoryIpc(memoryService)
   registerAgentHooksIpc(app.getPath('userData'))
+  // What each pane's agent is doing (working, blocked, done...), from its hooks and its screen.
+  const [{ AgentStateService }, { loadManifests }, { BUNDLED_MANIFESTS }, { registerAgentStateIpc, broadcastAgentState }] = await Promise.all([
+    import('./services/agent-state/agent-state.service'), import('./services/agent-state/manifest'),
+    import('./services/agent-state/bundled-manifests'), import('./ipc/agent-state.ipc')
+  ])
+  const agentManifests = loadManifests(BUNDLED_MANIFESTS, join(app.getPath('userData'), 'agent-detection'))
+  for (const warning of agentManifests.warnings) log.warn(`[agent-state] ${warning}`)
+  // eslint-disable-next-line prefer-const -- assigned below; the history callback runs only after terminals start
+  let terminalForHistory: { peek(paneId: string): { data: string } | null } | undefined
+  const agentState = new AgentStateService({
+    manifests: () => agentManifests.manifests,
+    emit: broadcastAgentState,
+    history: paneId => terminalForHistory?.peek(paneId)?.data ?? null
+  })
+  registerAgentStateIpc(agentState)
   // Agents' own lifecycle hooks report here. Deliveries authenticate with the
   // same per-pane execution credentials the terminal already carries, so a
   // hook script outside an OXESpace terminal is simply inert.
@@ -186,6 +201,7 @@ async function registerIpcHandlers(): Promise<() => void> {
       }
     },
     onStatus: (event) => {
+      agentState.hook(event.paneId, event.agent === 'codex' ? 'codex' : 'claude', event.state)
       for (const window of BrowserWindow.getAllWindows()) {
         window.webContents.send(IPC_CHANNELS.agentHooks.onStatus, event)
       }
@@ -203,6 +219,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   const oxeQueryShells: { shellFor?: (paneId: string) => { file: string; args: string[] } | undefined } = {}
   const terminalManager: TerminalManager = new TerminalManager(db, {
     oxeQueryShell: paneId => oxeQueryShells.shellFor?.(paneId),
+    observer: agentState,
     prepareLaunch: (input) => memoryService.prepareLaunch(input),
     isManagedPane: paneId => delegationService?.ownsPane(paneId) ?? false,
     onLaunchExit: (paneId) => { memoryService.endLaunch(paneId); executions.end(paneId); delegationService?.exited(paneId) },
@@ -233,6 +250,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     userDataPath: app.getPath('userData')
   })
   
+  terminalForHistory = terminalManager
   // Semantic search service. emitLog broadcasts each activity-log line to every
   // renderer window so Tools → Semantic Activity can show processing live.
   const semanticService = new SemanticService(db, {
