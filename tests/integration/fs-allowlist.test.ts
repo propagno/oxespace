@@ -37,6 +37,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/memory/memory-storage.ts',
   // Reads one small JSON flag file (<userData>/experimental.json); no workspace path involved.
   'electron/main/services/experimental-features.ts',
+  // Stat only: confirms that a project root sent by the renderer is an existing directory before a process
+  // (the oxe CLI, a dashboard server) starts in it. Reads, lists and writes nothing.
+  'electron/main/ipc/ipc-guards.ts',
   // Streams the RTK archive the app itself downloaded to hash it before extraction.
   'electron/main/services/rtk-checksum.ts',
   // Documentation owns generated artifacts under userData/documentation only.
