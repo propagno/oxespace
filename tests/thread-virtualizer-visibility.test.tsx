@@ -29,3 +29,24 @@ it('preserves the reading window while the Thread container is hidden', () => {
   expect(result.current.items.map(item => item.key)).toEqual(visible)
   unmount()
 })
+
+it('does not re-render while scrolling within the mounted rows, only when the window moves', () => {
+  const scroll = document.createElement('div'), space = document.createElement('div')
+  Object.defineProperty(scroll, 'clientHeight', { get: () => 400 })
+  const keys = Array.from({ length: 1000 }, (_, index) => String(index))
+  let renders = 0
+  const { result, unmount } = renderHook(() => { renders++; return useThreadVirtualizer(keys, { current: scroll }, { current: false }) })
+  act(() => {
+    result.current.spaceRef.current = space
+    scroll.scrollTop = 66050
+    result.current.updateViewport()
+  })
+  const settled = renders
+  // Rows are 132 px (the estimate): a few pixels stay on the same rows.
+  for (const top of [66051, 66055, 66062, 66070]) act(() => { scroll.scrollTop = top; result.current.updateViewport() })
+  expect(renders).toBe(settled)
+  act(() => { scroll.scrollTop = 67000; result.current.updateViewport() })
+  expect(renders).toBeGreaterThan(settled)
+  expect(result.current.items.map(item => item.key)).toContain(String(Math.floor(67000 / 132)))
+  unmount()
+})

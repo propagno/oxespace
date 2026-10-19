@@ -19,6 +19,7 @@ export function useThreadScrollAnchor(snapshot: ThreadSnapshot | null, selectedI
   const restoreTop = useRef<number | null>(null)
   const lastTop = useRef(0)
   const restoreTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingSave = useRef<{ timer: ReturnType<typeof setTimeout>; save: () => void } | null>(null)
   const visibleThread = useRef(selectedId)
   visibleThread.current = selectedId
   const [showEnd, setShowEnd] = useState(false), [newMessages, setNewMessages] = useState(0), [loadingEarlier, setLoadingEarlier] = useState(false)
@@ -26,6 +27,8 @@ export function useThreadScrollAnchor(snapshot: ThreadSnapshot | null, selectedI
   useEffect(() => () => {
     if (restoreTimer.current) clearTimeout(restoreTimer.current)
     if (scrollIntentTimer.current) clearTimeout(scrollIntentTimer.current)
+    // Leaving the conversation keeps where the person was, even mid-scroll.
+    if (pendingSave.current) { clearTimeout(pendingSave.current.timer); pendingSave.current.save() }
   }, [])
 
   const cancelScrollRestore = (direction?: 'up' | 'down') => {
@@ -124,7 +127,11 @@ export function useThreadScrollAnchor(snapshot: ThreadSnapshot | null, selectedI
       following.current = atEnd && !(lastScrollDirection.current === 'up' && !following.current)
       if (following.current) lastScrollDirection.current = null
       setShowEnd(!following.current); if (following.current) setNewMessages(0)
-      useThreadStore.getState().setScroll(snapshot.thread.id, el.scrollTop, following.current)
+      // Saved once the scroll settles: a store write per scroll event re-rendered its subscribers each frame.
+      const threadId = snapshot.thread.id, top = el.scrollTop, follow = following.current
+      if (pendingSave.current) clearTimeout(pendingSave.current.timer)
+      const save = () => { pendingSave.current = null; useThreadStore.getState().setScroll(threadId, top, follow) }
+      pendingSave.current = { timer: setTimeout(save, 150), save }
     }
   }
 

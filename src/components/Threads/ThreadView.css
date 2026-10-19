@@ -79,7 +79,8 @@
 .thread-native-link label, .thread-native-link small { display: block; margin-bottom: 8px; }
 .thread-native-link input { display: block; width: 100%; margin-top: 6px; padding: 8px; background: var(--bg-input); border: 1px solid var(--bd-base); border-radius: var(--radius-sm); color: var(--tx-primary); }
 .thread-native-link button { padding: 6px 10px; margin-bottom: 8px; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); color: var(--tx-primary); }
-.thread-timeline { overflow-y: auto; overflow-x: hidden; min-height: 0; min-width: 0; overscroll-behavior: contain; scrollbar-gutter: stable; }
+/* The virtualizer and "Load earlier" correct scrollTop themselves; native anchoring added the same correction again and made scrolling up jump. */
+.thread-timeline { overflow-y: auto; overflow-x: hidden; min-height: 0; min-width: 0; overscroll-behavior: contain; scrollbar-gutter: stable; overflow-anchor: none; }
 .thread-timeline:focus-visible { outline: 1px solid var(--accent); outline-offset: -2px; }
 .thread-reading-column { width: min(100%, var(--thread-canvas-max)); max-width: none; padding: 16px clamp(20px, 3vw, 48px); margin: 0 auto; }
 .thread-virtual-space { width: 100%; min-height: 1px; }

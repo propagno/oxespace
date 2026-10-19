@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { Button, ConfirmDialog, Dialog, Menu, cx, TextField } from '../../ui'
 import styles from './ThreadSidebar.module.css'
@@ -25,7 +26,10 @@ function relativeTime(timestamp: number): string {
 export function ThreadSidebar({ onCreate, onModeChange, onSelectMode, onAccounts, onAddProject, onOpenInCode }: {
   onCreate: (projectId: string, rootPath?: string) => void; onModeChange?: () => void; onSelectMode?: (mode: 'code' | 'thread' | 'data') => void; onAccounts?: () => void; onAddProject?: () => void; onOpenInCode?: (rootPath: string) => Promise<void>
 }) {
-  const { threads, projects, unavailableProjects, selectedId, secondaryId, expanded, errors, loading, select, openSecondary, toggle, hiddenProjects, unreadIds, markRead, markUnread } = useThreadStore()
+  // Only these fields: the store also changes for drafts, snapshots and scroll positions, which the list never shows.
+  const { threads, projects, unavailableProjects, selectedId, secondaryId, expanded, errors, loading, select, openSecondary, toggle, hiddenProjects, unreadIds, markRead, markUnread } = useThreadStore(useShallow(state => ({
+    threads: state.threads, projects: state.projects, unavailableProjects: state.unavailableProjects, selectedId: state.selectedId, secondaryId: state.secondaryId, expanded: state.expanded, errors: state.errors, loading: state.loading,
+    select: state.select, openSecondary: state.openSecondary, toggle: state.toggle, hiddenProjects: state.hiddenProjects, unreadIds: state.unreadIds, markRead: state.markRead, markUnread: state.markUnread })))
   const [confirmation, setConfirmation] = useState<{ kind: 'thread' | 'archive' | 'project'; id: string; title: string } | null>(null)
   const [actionError, setActionError] = useState(''), [acting, setActing] = useState(false)
   const [showArchived, setShowArchived] = useState(false)

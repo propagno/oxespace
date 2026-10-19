@@ -59,6 +59,8 @@ export function useThreadVirtualizer(keys: string[], scrollRef: RefObject<HTMLEl
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keys, estimateSize, measurementVersion])
   const range = useMemo(() => computeThreadVirtualRange(geometry.offsets, geometry.sizes, viewport.start, viewport.size), [geometry, viewport])
+  const geometryRef = useRef(geometry)
+  geometryRef.current = geometry
   // Measurements from overscan rows above the viewport must also compensate
   // scrollTop. Using the mounted range start here lets those rows move the
   // reader's anchor while they settle from estimates to their real height.
@@ -70,7 +72,13 @@ export function useThreadVirtualizer(keys: string[], scrollRef: RefObject<HTMLEl
     if (!scroll || !space || !scroll.clientHeight) return
     setViewport(current => {
       const next = { start: Math.max(0, scroll.scrollTop - space.offsetTop), size: scroll.clientHeight || current.size }
-      return next.start === current.start && next.size === current.size ? current : next
+      if (next.start === current.start && next.size === current.size) return current
+      // Scrolling inside the mounted window changes nothing on screen; re-rendering every row for each
+      // scroll event (markdown included) is what made the conversation stutter.
+      const { offsets, sizes } = geometryRef.current
+      const before = computeThreadVirtualRange(offsets, sizes, current.start, current.size)
+      const after = computeThreadVirtualRange(offsets, sizes, next.start, next.size)
+      return next.size === current.size && before.start === after.start && before.end === after.end && before.visibleStart === after.visibleStart ? current : next
     })
   }, [scrollRef])
   useLayoutEffect(() => {
