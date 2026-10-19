@@ -45,4 +45,4 @@
 .git-control-pr input:not([type="checkbox"]), .git-control-pr textarea { min-width: 0; width: 100%; resize: vertical; padding: 8px; color: var(--tx-primary); background: var(--bg-app); border: 1px solid var(--bd-base); border-radius: var(--radius-sm); font: inherit; }
 .git-control-pr .git-control-check { flex-direction: row; align-items: center; }
 .git-control-pr button { align-self: flex-start; }
-.git-control-submit { align-self: flex-end !important; margin-top: 4px; }
+:is(.git-control-commit, .git-control-pr) .git-control-submit { align-self: flex-end; margin-top: 4px; }
