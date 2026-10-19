@@ -176,6 +176,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     },
     workspace: {
       list: () => ipc.invoke(IPC_CHANNELS.workspace.list) as Promise<Workspace[]>,
+      onChanged: (listener) => subscribe<Workspace>(ipc, IPC_CHANNELS.workspace.onChanged, listener),
       create: (input) => ipc.invoke(IPC_CHANNELS.workspace.create, input) as Promise<Workspace>,
       setActive: (id) => ipc.invoke(IPC_CHANNELS.workspace.setActive, id) as Promise<Workspace>,
       delete: (id) => ipc.invoke(IPC_CHANNELS.workspace.delete, id) as Promise<void>,

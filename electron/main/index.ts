@@ -494,7 +494,15 @@ async function registerIpcHandlers(): Promise<() => void> {
     app: {
       github: gitHubService, tasks: taskService, skills: skillService, automations: () => automationService, linear: linearService,
       terminal: terminalManager, mcpServers: mcpManager, search: agentSearch, contextUsage: contextUsageService, credits: creditsService,
-      notify: (title, body) => { if (!Notification.isSupported()) return false; new Notification({ title, body, silent: false }).show(); return true }
+      notify: (title, body) => { if (!Notification.isSupported()) return false; new Notification({ title, body, silent: false }).show(); return true },
+      agents: {
+        state: agentState, terminal: terminalManager, profiles: () => delegationAgents.list(), resolve: id => launcher.resolve(id),
+        mcpArgs: provider => agentMcpArguments(provider, join(app.getPath('userData'), 'bin', 'oxespace-mcp.cjs')),
+        createPane: workspaceId => internalMcpWorkspaceServ.createPane(workspaceId),
+        setPaneAgent: (paneId, profileId, name) => internalMcpWorkspaceServ.setPaneAgent(paneId, profileId, name),
+        closePane: paneId => internalMcpWorkspaceServ.closePane(paneId),
+        workspaceChanged: workspace => { for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.workspace.onChanged, workspace) }
+      }
     },
     db,
     mcpManager,

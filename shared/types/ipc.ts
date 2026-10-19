@@ -94,6 +94,8 @@ export const IPC_CHANNELS = {
     closePane: 'workspace:close-pane',
     splitPane: 'workspace:split-pane',
     createPane: 'workspace:create-pane',
+    /** Main changed a workspace on its own (an agent opened or closed a pane): the new state. */
+    onChanged: 'workspace:on-changed',
     updatePaneType: 'workspace:update-pane-type',
     updatePaneName: 'workspace:update-pane-name',
     setPaneAgent: 'workspace:set-pane-agent',
@@ -493,6 +495,7 @@ export interface UpdatePaneNameInput {
 
 export interface WorkspaceApi {
   list(): Promise<Workspace[]>
+  onChanged(listener: (workspace: Workspace) => void): () => void
   create(input: CreateWorkspaceInput): Promise<Workspace>
   setActive(id: string): Promise<Workspace>
   delete(id: string): Promise<void>

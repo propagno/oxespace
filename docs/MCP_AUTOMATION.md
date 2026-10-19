@@ -82,6 +82,23 @@ OxeQuery keeps its own policy (per-connection agent access, approval of each dat
 `oxespace_db_activity` (its audit, statement text redacted). Connections, credentials, host keys, import and
 export stay with the person.
 
+### Agents in panes
+
+After herdr's automation primitives (Apache-2.0, see `NOTICE`). Code workspaces only.
+
+| Tool | Actions |
+|---|---|
+| `oxespace_agents` (read) | `list` (state of every agent pane: `working`, `blocked`, `done`, `idle`, `unknown`, and `completionSeq`), `read`, `explain`, `wait` (until a state, at most 100 s; call again on timeout) |
+| `oxespace_agents_change` | `start` (write: a new pane with Claude Code or Codex from the person's profile, optional model; no other arguments), `prompt` and `interrupt` (no question on a pane the caller started, approval on any other), `close_pane` (confirm, own panes only) |
+
+Nothing is ever written to an agent that is `blocked` (`agent_blocked`), there is no free key input, and an
+agent never prompts its own pane. A prompt from a resting agent that shows no activity within 5 s returns
+`stalled: true`: read the pane before sending it again.
+
+Agent state comes from the agents' hooks (Claude Code, Codex) and from herdr's screen-detection manifests
+for Claude Code, Codex, Copilot, Cursor, Gemini, Grok, OpenCode, Qwen, Kimi, Amp and Droid; a file in
+`userData/agent-detection/<agent>.toml` replaces a bundled manifest.
+
 Branch, tag and ref arguments that git could read as an option are refused. A Thread cannot act on itself.
 Starting a task in an agent's terminal (`tasks.run`) is not a tool: it types into another agent's terminal.
 

@@ -408,6 +408,30 @@ export class TerminalManager {
     await session.inputQueue.enqueue(input.data)
   }
 
+  /**
+   * Submits a prompt to an interactive agent: pasted as one block when the app
+   * asked for bracketed paste (so a multi-line prompt is not sent line by line),
+   * then Enter a moment later, as herdr does. False when the pane is not running.
+   */
+  async submit(paneId: string, text: string): Promise<boolean> {
+    const session = this.sessions.get(paneId)
+    if (!session) return false
+    const body = text.replace(/\r\n?/g, '\n')
+    await session.inputQueue.enqueue(session.modes.bracketedPaste ? `\x1b[200~${body}\x1b[201~` : body)
+    await new Promise(resolve => setTimeout(resolve, 80))
+    if (this.sessions.get(paneId) !== session) return false
+    await session.inputQueue.enqueue('\r')
+    return true
+  }
+
+  /** Sends Escape, which interrupts the running turn in Claude Code and Codex. */
+  async interrupt(paneId: string): Promise<boolean> {
+    const session = this.sessions.get(paneId)
+    if (!session) return false
+    await session.inputQueue.enqueue('\x1b')
+    return true
+  }
+
   resize(input: TerminalResizeInput): void {
     const session = this.sessions.get(input.paneId)
     if (!session) return
