@@ -169,3 +169,24 @@
 .thread-sticky-prompt span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-sticky-prompt:hover { color: var(--tx-primary); }
 .thread-sticky-prompt:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* Files the agent changed that are not reviewed yet, across turns, above the composer. */
+.thread-dock-changes { margin: 0 0 6px; border: 1px solid var(--bd-subtle, var(--wb-border)); border-radius: var(--radius-md); background: var(--bg-elevated); font-size: var(--fs-xs); }
+.thread-dock-changes-header { display: flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 6px 0 4px; }
+.thread-dock-changes button.thread-dock-changes-toggle { flex: 1; min-width: 0; justify-content: flex-start; gap: 8px; border-color: transparent; border-radius: var(--radius-sm); }
+.thread-dock-changes-toggle strong { color: var(--tx-primary); font-weight: 600; white-space: nowrap; }
+.thread-dock-changes-hint { overflow: hidden; color: var(--tx-muted); text-overflow: ellipsis; white-space: nowrap; }
+.thread-dock-changes-actions { display: inline-flex; flex: none; gap: 4px; }
+.thread-dock-changes button { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border: 1px solid var(--bd-subtle, var(--wb-border)); border-radius: var(--radius-pill); background: transparent; color: var(--tx-secondary); font: inherit; cursor: pointer; }
+.thread-dock-changes button:hover:not(:disabled) { background: var(--nav-hover); color: var(--tx-primary); }
+.thread-dock-changes button:disabled { opacity: .5; cursor: default; }
+.thread-dock-changes button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.thread-dock-changes-chevron { flex: none; margin-left: auto; transition: transform 120ms ease; }
+.thread-dock-changes[data-open='true'] .thread-dock-changes-chevron { transform: rotate(180deg); }
+.thread-dock-changes ul { display: grid; gap: 2px; max-height: 168px; margin: 0; padding: 2px 6px 8px 10px; overflow: auto; list-style: none; }
+.thread-dock-changes li { display: flex; align-items: center; gap: 4px; min-height: 26px; }
+.thread-dock-changes li button { width: 24px; padding: 0; justify-content: center; border-color: transparent; }
+.thread-dock-changes-path { flex: 1; min-width: 0; overflow: hidden; color: var(--tx-primary); font-family: var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.thread-dock-changes-error { margin: 0 10px 8px; color: var(--tx-status-failure, var(--dot-red)); }
+@container (max-width: 520px) { .thread-dock-changes-hint { display: none; } }
+@media (prefers-reduced-motion: reduce) { .thread-dock-changes-chevron { transition: none; } }
