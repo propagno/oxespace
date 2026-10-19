@@ -3,7 +3,7 @@ import type { DelegationSnapshot } from '../../../shared/types/delegation'
 import type { ThreadProjectSummary } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
 import { Button, Checkbox, Dialog, TextField } from '../../ui'
-import { humanizeError } from '../../utils/humanizeError'
+import { errorText, humanizeError } from '../../utils/humanizeError'
 
 export function ThreadProjectSettingsDialog({ project, unavailable, onClose, returnFocusTo }: { project: ThreadProjectSummary; unavailable: boolean; onClose(): void; returnFocusTo?: () => HTMLElement | null }) {
   const scope = `thread:${project.projectId}`
@@ -21,9 +21,8 @@ export function ThreadProjectSettingsDialog({ project, unavailable, onClose, ret
     void window.oxe.delegation.status(scope).then(value => { if (active) setSnapshot(value) })
       .catch(cause => {
         if (!active) return
-        const message = humanizeError(cause)
-        if (message.includes('ENOENT')) { setDirectoryMissing(true); setSnapshot(null) }
-        else setError(message)
+        if (errorText(cause).includes('ENOENT')) { setDirectoryMissing(true); setSnapshot(null) }
+        else setError(humanizeError(cause))
       })
     return () => { active = false }
   }, [scope, unavailable])
