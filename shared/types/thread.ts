@@ -361,6 +361,11 @@ export interface ConversationThread {
   updatedAt: number
   /** A native interactive CLI exclusively owns this conversation until it exits. */
   cliActive?: boolean
+  /**
+   * A rewind waiting for confirmation: the turns from `turnId` on are still shown (greyed, with Redo) and
+   * leave the conversation, and the provider's history, when the next message is sent.
+   */
+  rewind?: { turnId: string; at: number; removedTurns: number; redoCheckpointIds?: string[] }
   cliNotice?: string
   model?: string
   reasoningEffort?: string
@@ -570,6 +575,8 @@ export interface ThreadApi {
   workRuns?(id: string): Promise<import('./work').WorkRun[]>
   cancelWork?(id: string, runId: string): Promise<import('./work').WorkRun>
   rewind?(id: string, turnId: string, options?: { restoreFiles?: boolean }): Promise<ThreadRewindResult>
+  /** Brings back the turns (and files) of a rewind not confirmed by a new message yet. */
+  redoRewind?(id: string): Promise<ThreadSnapshot>
   /** Sends a finished turn's prompt again, after undoing that turn's file changes when `restoreFiles` is set. */
   retryTurn?(id: string, turnId: string, options?: { restoreFiles?: boolean }): Promise<{ restoredFiles: number }>
   readSince?(id: string, cursor: ThreadSyncCursor): Promise<ThreadDelta>

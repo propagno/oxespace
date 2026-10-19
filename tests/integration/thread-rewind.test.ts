@@ -35,30 +35,48 @@ function fixture(rewind: AgentConversationAdapter['rewind'], provider: 'codex' |
 }
 
 describe('verified conversation rewind', () => {
-  it('rewinds the provider first, then truncates local history and cancels nothing that completed', async () => {
+  const prompts = (f: ReturnType<typeof fixture>): string[] => f.manager.read(f.id).events.flatMap(event => event.type === 'message' && event.role === 'user' ? [event.text] : [])
+
+  it('sets the later turns aside, brings them back on Redo, and applies the rewind only at the next send', async () => {
     const rewind = vi.fn(async () => {})
     const f = fixture(rewind)
     await f.turn('One', 'n1'); await f.turn('Two', 'n2'); await f.turn('Three', 'n3')
     const second = f.manager.read(f.id).turns![1]
     const operation = second.operationId!
+
     const result = await f.manager.rewind(f.id, second.id)
-    expect(rewind).toHaveBeenCalledWith('n2')
     expect(result.removedTurns).toBe(2)
-    const after = f.manager.read(f.id)
-    expect(after.turns!.map(turn => turn.nativeId)).toEqual(['n1'])
-    expect(after.events.filter(event => event.type === 'message' && event.role === 'user').map(event => event.type === 'message' && event.text)).toEqual(['One'])
+    // Nothing leaves yet, and the provider is not touched: the turns are only marked.
+    expect(rewind).not.toHaveBeenCalled()
+    expect(prompts(f)).toEqual(['One', 'Two', 'Three'])
+    expect(f.manager.read(f.id).thread.rewind).toMatchObject({ turnId: second.id, removedTurns: 2 })
+    await expect(f.manager.rewind(f.id, second.id)).rejects.toMatchObject({ code: 'unavailable' })
+
+    await f.manager.redoRewind(f.id)
+    expect(f.manager.read(f.id).thread.rewind).toBeUndefined()
+    expect(prompts(f)).toEqual(['One', 'Two', 'Three'])
+    expect(rewind).not.toHaveBeenCalled()
+
+    // Rewound again and confirmed by the next message: the provider first, then the local history.
+    await f.manager.rewind(f.id, second.id)
+    await f.manager.send(f.id, 'Two, differently')
+    expect(rewind).toHaveBeenCalledWith('n2')
+    expect(prompts(f)).toEqual(['One', 'Two, differently'])
+    expect(f.manager.read(f.id).thread.rewind).toBeUndefined()
     expect(new ThreadHistory(f.db).operations(f.id).find(value => value.id === operation)?.state).toBe('completed')
     await f.manager.stop()
   })
 
-  it('leaves local history untouched when the provider refuses or cannot prove it', async () => {
+  it('leaves local history untouched, and the rewind pending, when the provider refuses at send', async () => {
     const f = fixture(vi.fn(async () => { throw new ThreadRewindError('proof-mismatch', 'history differs') }))
     await f.turn('One', 'n1'); await f.turn('Two', 'n2')
     const before = JSON.stringify(f.manager.read(f.id).events)
     const second = f.manager.read(f.id).turns![1]
-    await expect(f.manager.rewind(f.id, second.id)).rejects.toMatchObject({ code: 'proof-mismatch' })
+    await f.manager.rewind(f.id, second.id)
+    await expect(f.manager.send(f.id, 'Again')).rejects.toMatchObject({ code: 'proof-mismatch' })
     expect(JSON.stringify(f.manager.read(f.id).events)).toBe(before)
     expect(f.manager.read(f.id).turns).toHaveLength(2)
+    expect(f.manager.read(f.id).thread.rewind).toMatchObject({ turnId: second.id })
     await f.manager.stop()
   })
 
@@ -88,12 +106,17 @@ describe('verified conversation rewind', () => {
       writeFileSync(path, transcript)
       const second = f.manager.read(f.id).turns![1]
       const result = await f.manager.rewind(f.id, second.id)
-      const after = f.manager.read(f.id)
       expect(result.removedTurns).toBe(1)
+      // The fork is written when the next message confirms the rewind, not before.
+      expect(f.manager.read(f.id).thread.nativeSessionId).toBe(session)
+      await f.manager.send(f.id, 'Two, again')
+      const after = f.manager.read(f.id)
       expect(after.thread.nativeSessionId).not.toBe(session)
       expect(readFileSync(path, 'utf8')).toBe(transcript)
       expect(readFileSync(claudeTranscriptPath('/project-A', after.thread.nativeSessionId!), 'utf8')).toBe(transcript.split('\n').slice(0, 2).join('\n') + '\n')
-      expect(after.turns).toHaveLength(1)
+      // The first turn, and the new one that confirmed the rewind.
+      expect(after.turns).toHaveLength(2)
+      expect(after.events.flatMap(event => event.type === 'message' && event.role === 'user' ? [event.text] : [])).toEqual(['One', 'Two, again'])
       await f.manager.stop()
     } finally {
       if (previous === undefined) delete process.env.CLAUDE_CONFIG_DIR; else process.env.CLAUDE_CONFIG_DIR = previous

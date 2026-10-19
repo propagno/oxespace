@@ -4,8 +4,8 @@ import { Checkbox } from '../../ui'
 
 /**
  * Rewind the conversation to just before a user message, optionally to edit and
- * resend it. Destructive, so it is a two-step inline confirmation that says how
- * many turns will be removed.
+ * resend it. The later turns are set aside until the next message is sent, so a
+ * Redo can still bring them back; the inline confirmation says how many.
  */
 export function ThreadRewindControl({ laterTurns, disabled, onRewind, onEdit }: {
   /** Turns removed, including the one this message opened. */
@@ -20,11 +20,11 @@ export function ThreadRewindControl({ laterTurns, disabled, onRewind, onEdit }: 
   const [busy, setBusy] = useState(false)
   if (!mode) return <span className="thread-rewind-triggers">
     {onEdit && <button type="button" className="thread-rewind-trigger" disabled={disabled} title="Rewind to before this message and edit it" onClick={() => setMode('edit')}><Pencil size={12} aria-hidden="true" />Edit</button>}
-    <button type="button" className="thread-rewind-trigger" disabled={disabled} title="Remove this message and everything after it from the conversation" onClick={() => setMode('rewind')}><History size={12} aria-hidden="true" />Rewind to here</button>
+    <button type="button" className="thread-rewind-trigger" disabled={disabled} title="Set this message and everything after it aside; your next message confirms it" onClick={() => setMode('rewind')}><History size={12} aria-hidden="true" />Rewind to here</button>
   </span>
   const run = mode === 'edit' && onEdit ? onEdit : onRewind
   return <div className="thread-rewind-confirm" role="group" aria-label={mode === 'edit' ? 'Confirm edit' : 'Confirm rewind'}>
-    <p>{mode === 'edit' ? 'To edit this message, it and ' : 'Removes this message and '}{laterTurns === 1 ? 'its reply' : `${laterTurns} turns`} {mode === 'edit' ? 'are removed from the conversation, in the provider\'s history too, and the text returns to the composer.' : 'from the conversation, in the provider\'s history too.'} This can't be undone.</p>
+    <p>{mode === 'edit' ? 'To edit this message, it and ' : 'Rewinds to before this message: it and '}{laterTurns === 1 ? 'its reply' : `${laterTurns} turns`} {mode === 'edit' ? 'are set aside and the text returns to the composer.' : 'are set aside.'} They leave the conversation, and the provider's history, when you send your next message; until then, Redo brings them back.</p>
     <Checkbox checked={restoreFiles} onChange={event => setRestoreFiles(event.target.checked)} label="Also restore files changed by those turns" />
     <span>
       <button type="button" disabled={busy || disabled} onClick={() => { setBusy(true); void run({ restoreFiles }).finally(() => { setBusy(false); setMode(null) }) }}>{mode === 'edit' ? 'Rewind and edit' : 'Rewind'}</button>

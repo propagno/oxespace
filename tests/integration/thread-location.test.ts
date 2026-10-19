@@ -46,7 +46,8 @@ function fixture(root: string, options: { realWorkingState?: boolean } = {}) {
   return { db, manager, callbacks, id, read: () => new ThreadHistory(db).read(id) }
 }
 
-describe('Thread working location', () => {
+// Real git runs several times per case; on a loaded Windows runner that exceeds the 5 s default.
+describe('Thread working location', { timeout: 30_000 }, () => {
   // Settles the asynchronous turn bookkeeping (checkpoint, baseline, finalization) between steps.
   const settle = (): Promise<void> => new Promise(resolve => setTimeout(resolve, 400))
   const verifiedPaths = (f: ReturnType<typeof fixture>): string[] => f.read().events.flatMap(event => event.type === 'turn-diff' && event.id.startsWith('verified-diff:') ? event.files.map(file => file.path) : [])
@@ -113,6 +114,28 @@ describe('Thread working location', () => {
     f.db.prepare('DELETE FROM conversation_checkpoints WHERE thread_id = ?').run(f.id)
     const lastTurn = f.read().turns!.at(-1)!.id
     await expect(f.manager.retryTurn(f.id, lastTurn, { restoreFiles: true })).rejects.toThrow(/no checkpoint/)
+  })
+
+  it('a rewind that restored files gives them back on Redo', async () => {
+    const { repo } = repository()
+    const f = fixture(repo, { realWorkingState: true })
+    await f.manager.send(f.id, 'First')
+    f.callbacks[0]({ type: 'session', nativeSessionId: 'native-1' })
+    f.callbacks[0]({ type: 'completed', status: 'completed' })
+    await settle()
+    await f.manager.send(f.id, 'Edit a.txt')
+    await settle()
+    writeFileSync(join(repo, 'a.txt'), 'edited by the turn\n')
+    f.callbacks.at(-1)!({ type: 'completed', status: 'completed' })
+    await finalized(f)
+    const editTurn = f.read().turns!.at(-1)!.id
+
+    const result = await f.manager.rewind(f.id, editTurn, { restoreFiles: true })
+    expect(result.restoredFiles).toBe(1)
+    expect(readFileSync(join(repo, 'a.txt'), 'utf8')).toBe('a\n')
+    await f.manager.redoRewind(f.id)
+    expect(readFileSync(join(repo, 'a.txt'), 'utf8')).toBe('edited by the turn\n')
+    expect(f.read().thread.rewind).toBeUndefined()
   })
 
   it('a move into a worktree during a turn adds a checkpoint and baseline there', async () => {

@@ -194,3 +194,11 @@
 /* Retrying a failed turn that changed files: undo them first, or keep them. */
 .thread-retry-choice { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .thread-retry-choice > span { color: var(--tx-secondary); font-size: var(--fs-xs); }
+
+/* Turns set aside by a pending rewind: readable, greyed and inert until the next message confirms it. */
+.thread-turn.is-superseded { opacity: .45; }
+.thread-dock-rewind { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; padding: 6px 6px 6px 10px; border: 1px solid var(--bd-subtle, var(--wb-border)); border-radius: var(--radius-md); background: var(--bg-elevated); color: var(--tx-secondary); font-size: var(--fs-xs); }
+.thread-dock-rewind > span { flex: 1; min-width: 0; }
+.thread-dock-rewind button { display: inline-flex; flex: none; align-items: center; gap: 4px; height: 24px; padding: 0 10px; border: 1px solid var(--bd-subtle, var(--wb-border)); border-radius: var(--radius-pill); background: transparent; color: var(--tx-primary); font: inherit; cursor: pointer; }
+.thread-dock-rewind button:hover:not(:disabled) { background: var(--nav-hover); }
+.thread-dock-rewind button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
