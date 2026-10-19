@@ -1,6 +1,6 @@
 {
   "name": "oxespace",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "An open source, AI-native workspace and terminal",
   "license": "MIT",
   "repository": {
@@ -39,8 +39,8 @@
     "prepare:model": "node scripts/fetch-semantic-model.mjs",
     "postinstall": "npm run rebuild:native",
     "dist": "node scripts/dist-host.mjs",
-    "dist:win": "npm run prepare:model && npm run build && npm run fix:native && npm run slim:pack -- --platform=win32 --arch=x64 && electron-builder --win --config.npmRebuild=false --publish never",
-    "dist:linux": "npm run prepare:model && npm run build && npm run fix:native && npm run slim:pack -- --platform=linux --arch=x64 && electron-builder --linux --config.npmRebuild=false --publish never",
+    "dist:win": "npm run build && npm run fix:native && npm run slim:pack -- --platform=win32 --arch=x64 && electron-builder --win --config.npmRebuild=false --publish never",
+    "dist:linux": "npm run build && npm run fix:native && npm run slim:pack -- --platform=linux --arch=x64 && electron-builder --linux --config.npmRebuild=false --publish never",
     "rebuild:native": "node scripts/fix-native-modules.mjs",
     "rebuild:native:electron": "node scripts/fix-native-modules.mjs",
     "rebuild:native:node": "npm rebuild better-sqlite3 node-pty",

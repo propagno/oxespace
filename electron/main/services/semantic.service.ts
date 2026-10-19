@@ -1,6 +1,5 @@
 import { Worker } from 'node:worker_threads'
 import path from 'node:path'
-import { mkdirSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import { app } from 'electron'
 import type { AppDatabase } from '../db'
@@ -8,11 +7,13 @@ import chokidar, { FSWatcher } from 'chokidar'
 import { makeIgnoreFilter } from './semantic-ignore'
 import { bestChunkScore, bestChunkScoreBlobWithIndex, CHUNK_CHARS, CHUNK_OVERLAP, chunkSourceText, encodeEmbeddings, type SemanticSourceChunk } from './semantic-chunk'
 import { PASSAGE_PREFIX, QUERY_PREFIX, SEMANTIC_MODEL_ID } from './semantic-model'
-import type { SemanticConfidence, SemanticLastQuery, SemanticLogEntry, SemanticLogLevel, SemanticSearchMode } from '../../../shared/types/ipc'
+import type { SemanticConfidence, SemanticLastQuery, SemanticLogEntry, SemanticLogLevel, SemanticRetrievalSource, SemanticSearchMode, SemanticVectorStatus } from '../../../shared/types/ipc'
+import { emptyUsageBucket, type SemanticModelStore, type SemanticUsage } from './semantic-model-store'
 import {
   buildFtsQuery,
   buildLexicalDocument,
   classifySemanticFile,
+  estimateLexicalConfidence,
   estimateRetrievalConfidence,
   fuseRetrievalCandidates,
   resolveSemanticSearchMode,
@@ -38,6 +39,7 @@ export interface SemanticStatus {
     byCategory: { source: number; test: number; config: number; docs: number; other: number }
   }
   lastQuery: SemanticLastQuery | null
+  vector: SemanticVectorStatus
 }
 
 export interface SemanticQueryOptions {
@@ -45,6 +47,8 @@ export interface SemanticQueryOptions {
   mode?: SemanticSearchMode
   /** Hard ceiling for source context returned to the agent. */
   maxTokens?: number
+  /** MCP tool that asked, counted locally for the vector-index decision. */
+  caller?: string
 }
 
 export interface SemanticQueryMatch extends FusedRetrievalCandidate {
@@ -63,6 +67,8 @@ export interface SemanticQueryReport {
   expanded: boolean
   expansionReason: string | null
   results: SemanticQueryMatch[]
+  /** Retrieval sources that actually ran for this query. */
+  sources: SemanticRetrievalSource[]
   coverage: {
     indexedFiles: number
     semanticCandidates: number
@@ -81,7 +87,15 @@ export interface SemanticQueryReport {
 export interface SemanticServiceOptions {
   /** Broadcast a log line to the renderer (see registerSemanticIpc / index.ts). */
   emitLog?: (entry: SemanticLogEntry) => void
+  /**
+   * Where the optional embedding model and its settings live (userData/models).
+   * Without one, the service runs on exact-term (FTS5) retrieval only.
+   */
+  modelStore?: SemanticModelStore
 }
+
+/** Usage counters are flushed at most this often. */
+const USAGE_FLUSH_MS = 10_000
 
 /** How many recent log lines to retain for the Tools → Semantic Activity panel. */
 const LOG_RING_SIZE = 1000
@@ -155,7 +169,10 @@ export class SemanticService {
   /** Serializes file indexing so the single worker isn't flooded (see startWatching). */
   private indexChain: Promise<void> = Promise.resolve();
   private workerReady = false;
+  /** Index/database failures; reported on the integration chip. */
   private lastError: string | null = null;
+  /** Failure to download or load the optional model. Exact-term search is unaffected. */
+  private modelError: string | null = null;
   /** Callers blocked in getEmbedding waiting for the model to finish loading. */
   private readyWaiters: { resolve: () => void; reject: (err: Error) => void }[] = [];
   /** Rolling activity log surfaced via Tools → Semantic Activity. */
@@ -165,11 +182,29 @@ export class SemanticService {
   private bootstrapTimer: ReturnType<typeof setTimeout> | null = null;
   /** Set in destroy() so the deferred bootstrap can't touch a closed DB. */
   private destroyed = false;
+  private readonly modelStore?: SemanticModelStore;
+  /** The user's "Semantic index (beta)" setting. Off: exact-term retrieval only. */
+  private vectorSetting = false;
+  private modelInstalled = false;
+  /** Set while the worker is fetching the model from huggingface.co. */
+  private downloading = false;
+  private downloadProgress = new Map<string, { loaded: number; total: number }>();
+  private usage: SemanticUsage | null = null;
+  private usageTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private readonly db: AppDatabase, options: SemanticServiceOptions = {}) {
     this.emitLog = options.emitLog;
-    this.log('info', `Semantic engine starting · model ${SEMANTIC_MODEL_ID}`);
-    this.initWorker();
+    this.modelStore = options.modelStore;
+    this.vectorSetting = this.modelStore?.readSettings().vectorIndex ?? false;
+    this.modelInstalled = this.modelStore?.isInstalled() ?? false;
+    if (this.vectorSetting && this.modelInstalled) {
+      this.log('info', `Semantic engine starting · exact terms (FTS5) + vector index (${SEMANTIC_MODEL_ID})`);
+      this.initWorker(false);
+    } else {
+      this.log('info', this.vectorSetting
+        ? `Semantic engine starting · exact terms (FTS5). The vector index is on but ${SEMANTIC_MODEL_ID} is not installed.`
+        : 'Semantic engine starting · exact terms (FTS5). The vector index is off.');
+    }
     // Start indexing the already-active workspace on boot. The renderer only
     // calls workspace.setActive when the user *switches* workspaces, so without
     // this the active workspace on launch would never get watched and the index
@@ -219,7 +254,14 @@ export class SemanticService {
     }
   }
 
-  private initWorker() {
+  /**
+   * Start the embedding worker. Only called when the vector index is on: the
+   * worker is what pulls in transformers.js and onnxruntime, so a user who never
+   * turns the index on never loads them. allowRemote is true only for the
+   * user-requested download.
+   */
+  private initWorker(allowRemote: boolean) {
+    if (this.worker || !this.modelStore) return;
     try {
       // Resolve the worker via app.getAppPath() (= app root in dev, app.asar in
       // prod) rather than __dirname: the main bundle is ESM (package.json
@@ -229,35 +271,45 @@ export class SemanticService {
       // under the app path in both dev and packaged builds.
       const workerPath = path.join(app.getAppPath(), 'out', 'main', 'semantic-worker.js');
 
-      // The transformers.js model cache must live somewhere writable. Inside a
-      // packaged build node_modules sits in a read-only asar, so point the cache
-      // at userData and pass it to the worker (a plain Node thread with no access
-      // to electron's `app`).
-      const cacheDir = path.join(app.getPath('userData'), 'models');
-      try { mkdirSync(cacheDir, { recursive: true }); } catch { /* best effort */ }
+      // The model lives under userData (downloaded or imported, see
+      // semantic-model-store.ts), never in the installer. The worker is a plain
+      // Node thread with no access to electron's `app`, so pass the folder.
+      const modelRoot = this.modelStore.root;
+      this.modelError = null;
+      this.downloading = allowRemote;
+      this.downloadProgress.clear();
+      const worker = new Worker(workerPath, { workerData: { modelRoot, allowRemote } });
+      this.worker = worker;
+      this.log('info', allowRemote
+        ? `Downloading ${SEMANTIC_MODEL_ID} into ${modelRoot} …`
+        : `Loading embedding model from ${modelRoot} …`);
 
-      // Model bundled with the app (offline-first). Packaged: <resources>/models;
-      // dev: <repo>/resources/models (populated by scripts/fetch-semantic-model.mjs).
-      const localModelPath = app.isPackaged
-        ? path.join(process.resourcesPath, 'models')
-        : path.join(app.getAppPath(), 'resources', 'models');
-
-      this.worker = new Worker(workerPath, { workerData: { cacheDir, localModelPath } });
-      this.log('info', `Loading embedding model (bundled at ${localModelPath}; cache ${cacheDir}) …`);
-
-      this.worker.on('message', (msg) => {
-        if (msg.type === 'ready') {
+      worker.on('message', (msg) => {
+        if (msg.type === 'progress') {
+          this.downloadProgress.set(msg.file, { loaded: msg.loaded, total: msg.total });
+        } else if (msg.type === 'ready') {
           this.workerReady = true;
-          this.lastError = null;
+          this.modelError = null;
+          if (this.downloading) {
+            this.downloading = false;
+            this.modelInstalled = this.modelStore?.isInstalled() ?? true;
+            this.log('info', 'Model downloaded.');
+          }
           this.flushReadyWaiters();
           this.log('info', 'Model loaded and ready.');
+          // Files indexed while the model was absent have exact-term rows only;
+          // a fresh crawl embeds them (unchanged files with vectors are skipped).
+          this.recrawlEnabledWorkspaces();
         } else if (msg.type === 'result' || msg.type === 'error') {
           if (msg.type === 'error' && !msg.id) {
             // An init-time error (e.g. model failed to load) carries no request id.
-            this.lastError = msg.error;
+            this.modelError = msg.error;
             this.workerReady = false;
+            this.downloading = false;
             this.rejectReadyWaiters(new Error(msg.error));
             this.log('error', `Model failed to load: ${msg.error}`);
+            // Drop the worker so a retry (download/import) can start a new one.
+            this.stopWorker();
             return;
           }
           const pending = this.pendingRequests.get(msg.id);
@@ -270,30 +322,170 @@ export class SemanticService {
         }
       });
 
-      this.worker.on('error', (err) => {
+      worker.on('error', (err) => {
         this.workerReady = false;
-        this.lastError = err instanceof Error ? err.message : String(err);
+        this.downloading = false;
+        this.modelError = err instanceof Error ? err.message : String(err);
         const error = err instanceof Error ? err : new Error(String(err));
         this.rejectAllPending(error);
         this.rejectReadyWaiters(error);
-        this.log('error', `Worker error: ${this.lastError}`);
+        this.log('error', `Worker error: ${this.modelError}`);
       });
 
-      this.worker.on('exit', (code) => {
-        this.workerReady = false;
+      worker.on('exit', (code) => {
+        if (this.worker === worker) {
+          this.worker = null;
+          this.workerReady = false;
+          this.downloading = false;
+        }
         const error = new Error(`Semantic worker exited (code ${code})`);
         this.rejectAllPending(error);
         this.rejectReadyWaiters(error);
-        this.log('warn', `Worker stopped (exit code ${code}).`);
+        this.log('debug', `Worker stopped (exit code ${code}).`);
       });
 
       // Send init command
-      this.worker.postMessage({ type: 'init' });
+      worker.postMessage({ type: 'init' });
 
     } catch (err) {
-      this.lastError = err instanceof Error ? err.message : String(err);
-      this.log('error', `Failed to initialize worker: ${this.lastError}`);
+      this.downloading = false;
+      this.modelError = err instanceof Error ? err.message : String(err);
+      this.log('error', `Failed to initialize worker: ${this.modelError}`);
     }
+  }
+
+  private stopWorker(): void {
+    const worker = this.worker;
+    this.worker = null;
+    this.workerReady = false;
+    this.downloading = false;
+    this.rejectAllPending(new Error('The vector index was turned off'));
+    this.rejectReadyWaiters(new Error('The vector index was turned off'));
+    if (worker) void worker.terminate();
+  }
+
+  /** Vectors take part in indexing and queries only when on, installed and loaded. */
+  private vectorReady(): boolean {
+    return this.vectorSetting && this.workerReady && this.worker !== null;
+  }
+
+  private recrawlEnabledWorkspaces(): void {
+    for (const workspaceId of [...this.watchers.keys()]) {
+      const root = this.resolveRoot(workspaceId);
+      this.stopWatching(workspaceId);
+      if (root && this.isEnabled(workspaceId)) this.startWatching(workspaceId, root);
+    }
+  }
+
+  public getVectorStatus(): SemanticVectorStatus {
+    let loaded = 0;
+    let total = 0;
+    for (const file of this.downloadProgress.values()) { loaded += file.loaded; total += file.total; }
+    const state: SemanticVectorStatus['state'] = !this.vectorSetting
+      ? 'off'
+      : this.downloading
+        ? 'downloading'
+        : !this.modelInstalled
+          ? (this.modelError ? 'error' : 'not-installed')
+          : this.workerReady
+            ? 'ready'
+            : this.modelError
+              ? 'error'
+              : 'loading';
+    return {
+      enabled: this.vectorSetting,
+      installed: this.modelInstalled,
+      state,
+      progress: this.downloading && total > 0 ? { loaded, total } : null,
+      modelId: SEMANTIC_MODEL_ID,
+      error: state === 'error' ? this.modelError : null,
+      available: this.modelStore !== undefined
+    };
+  }
+
+  /**
+   * Turn the optional vector index on or off. On loads an installed model
+   * (never downloads by itself: the user asks for that with downloadModel);
+   * off stops the worker and frees its memory. Existing vectors stay in the
+   * database, so turning it back on does not re-embed unchanged files.
+   */
+  public setVectorIndex(enabled: boolean): SemanticVectorStatus {
+    if (!this.modelStore) return this.getVectorStatus();
+    this.vectorSetting = enabled;
+    this.modelStore.writeSettings({ vectorIndex: enabled });
+    this.modelError = null;
+    this.modelInstalled = this.modelStore.isInstalled();
+    if (!enabled) {
+      this.stopWorker();
+      this.log('info', 'Vector index turned off · retrieval uses exact terms (FTS5).');
+    } else if (this.modelInstalled) {
+      this.initWorker(false);
+    } else {
+      this.log('info', `Vector index turned on · ${SEMANTIC_MODEL_ID} is not installed yet (download or import it).`);
+    }
+    return this.getVectorStatus();
+  }
+
+  /** Fetch the model from huggingface.co into userData. Turns the index on. */
+  public downloadModel(): SemanticVectorStatus {
+    if (!this.modelStore) return this.getVectorStatus();
+    if (!this.vectorSetting) {
+      this.vectorSetting = true;
+      this.modelStore.writeSettings({ vectorIndex: true });
+    }
+    if (this.downloading || this.workerReady) return this.getVectorStatus();
+    this.stopWorker();
+    this.initWorker(true);
+    return this.getVectorStatus();
+  }
+
+  /** Copy a model from a local folder (networks without internet access). Turns the index on. */
+  public importModel(source: string): SemanticVectorStatus {
+    if (!this.modelStore) throw new Error('The vector index is unavailable in this build.');
+    if (this.downloading) throw new Error('Wait for the download to finish before importing.');
+    this.stopWorker();
+    this.modelStore.importFrom(source);
+    this.log('info', `Model imported from ${source}.`);
+    this.modelInstalled = true;
+    return this.setVectorIndex(true);
+  }
+
+  /** Delete the downloaded model and turn the index off. */
+  public removeModel(): SemanticVectorStatus {
+    if (!this.modelStore) return this.getVectorStatus();
+    this.setVectorIndex(false);
+    this.modelStore.remove();
+    this.modelInstalled = false;
+    this.log('info', 'Model removed from disk.');
+    return this.getVectorStatus();
+  }
+
+  public getUsage(): SemanticUsage {
+    return this.loadUsage();
+  }
+
+  private loadUsage(): SemanticUsage {
+    if (!this.usage) this.usage = this.modelStore?.readUsage() ?? { since: Date.now(), tools: {} };
+    return this.usage;
+  }
+
+  private recordUsage(caller: string, withVector: boolean, results: number, estimatedTokens: number): void {
+    const usage = this.loadUsage();
+    const tool = usage.tools[caller] ??= { withVector: emptyUsageBucket(), withoutVector: emptyUsageBucket() };
+    const bucket = withVector ? tool.withVector : tool.withoutVector;
+    bucket.calls++;
+    if (results > 0) bucket.answered++;
+    bucket.results += results;
+    bucket.estimatedTokens += estimatedTokens;
+    if (!this.modelStore || this.usageTimer) return;
+    this.usageTimer = setTimeout(() => this.flushUsage(), USAGE_FLUSH_MS);
+    this.usageTimer.unref?.();
+  }
+
+  private flushUsage(): void {
+    if (this.usageTimer) { clearTimeout(this.usageTimer); this.usageTimer = null; }
+    if (!this.usage || !this.modelStore) return;
+    try { this.modelStore.writeUsage(this.usage); } catch { /* counters are best effort */ }
   }
 
   private rejectAllPending(err: Error) {
@@ -324,7 +516,7 @@ export class SemanticService {
    */
   private waitForReady(): Promise<void> {
     if (this.workerReady) return Promise.resolve();
-    if (this.lastError) return Promise.reject(new Error(this.lastError));
+    if (this.modelError) return Promise.reject(new Error(this.modelError));
     return new Promise<void>((resolve, reject) => {
       this.readyWaiters.push({ resolve, reject });
     });
@@ -493,7 +685,8 @@ export class SemanticService {
       modelId: SEMANTIC_MODEL_ID,
       mode: this.getMode(workspaceId),
       coverage,
-      lastQuery: this.lastQueries.get(workspaceId) ?? null
+      lastQuery: this.lastQueries.get(workspaceId) ?? null,
+      vector: this.getVectorStatus()
     };
   }
 
@@ -540,6 +733,12 @@ export class SemanticService {
       const stat = await fs.stat(filePath);
       if (!stat.isFile() || stat.size > MAX_INDEXABLE_BYTES) return;
 
+      const embed = this.vectorReady();
+      const lexicalExisting = this.db.prepare('SELECT updated_at FROM semantic_documents WHERE workspace_id = ? AND file_path = ?').get(workspaceId, filePath) as { updated_at?: number } | undefined;
+      // Exact-term only: a document written after the file's last change is
+      // current, so a launch doesn't re-read and rewrite the whole FTS index.
+      if (!embed && lexicalExisting?.updated_at !== undefined && lexicalExisting.updated_at >= stat.mtimeMs) return;
+
       const content = await fs.readFile(filePath, 'utf-8');
       const safeContent = sanitizeSemanticContent(filePath, content);
 
@@ -553,9 +752,7 @@ export class SemanticService {
         .update(content)
         .digest('hex');
       const existing = this.db.prepare('SELECT checksum FROM semantic_embeddings WHERE workspace_id = ? AND file_path = ?').get(workspaceId, filePath) as { checksum: string } | undefined;
-
-      const lexicalExisting = this.db.prepare('SELECT 1 AS present FROM semantic_documents WHERE workspace_id = ? AND file_path = ?').get(workspaceId, filePath) as { present?: number } | undefined;
-      if (existing && existing.checksum === checksum && lexicalExisting?.present) return;
+      if (existing && existing.checksum === checksum && lexicalExisting) return;
 
       // Backfill the lexical side after migration 043, or update it whenever
       // content changes. Unchanged launches avoid rewriting the FTS index.
@@ -568,7 +765,7 @@ export class SemanticService {
       `).run(workspaceId, filePath, buildLexicalDocument(filePath, safeContent), Date.now());
       this.coverageCache.delete(workspaceId)
 
-      if (existing && existing.checksum === checksum) return; // Skip if unchanged
+      if (!embed || (existing && existing.checksum === checksum)) return; // Exact terms only, or vectors unchanged
 
       this.indexingCount.set(workspaceId, (this.indexingCount.get(workspaceId) ?? 0) + 1);
       try {
@@ -625,17 +822,29 @@ export class SemanticService {
     const requestedMode = options.mode ?? this.getMode(workspaceId)
     let resolvedMode = resolveSemanticSearchMode(text, requestedMode)
 
-    const rows = this.db.prepare('SELECT file_path, embedding_json, embedding_blob, dim, chunk_metadata_json FROM semantic_embeddings WHERE workspace_id = ?').all(workspaceId) as Array<{
-      file_path: string
-      embedding_json: string
-      embedding_blob: Buffer | null
-      dim: number | null
-      chunk_metadata_json: string
-    }>
+    // Vectors join the fusion only when the optional index is on and its model
+    // is loaded; otherwise this is exact-term (FTS5) retrieval, which needs no
+    // model and loads no embedding rows.
+    const useVector = this.vectorReady()
+    const rows = useVector
+      ? this.db.prepare('SELECT file_path, embedding_json, embedding_blob, dim, chunk_metadata_json FROM semantic_embeddings WHERE workspace_id = ?').all(workspaceId) as Array<{
+        file_path: string
+        embedding_json: string
+        embedding_blob: Buffer | null
+        dim: number | null
+        chunk_metadata_json: string
+      }>
+      : []
+    let indexedFiles = rows.length
+    if (!useVector) {
+      try {
+        indexedFiles = (this.db.prepare('SELECT COUNT(*) AS n FROM semantic_documents WHERE workspace_id = ?').get(workspaceId) as { n?: number } | undefined)?.n ?? 0
+      } catch { /* table may be absent during early boot */ }
+    }
 
     const semanticCandidates: Array<{ filePath: string; score: number; bestChunkIndex?: number; bestChunkStart?: number; bestChunkEnd?: number; bestChunkLineStart?: number; bestChunkLineEnd?: number; bestChunkKind?: SemanticSourceChunk['kind']; bestChunkName?: string }> = []
     let semanticSearchCompleted = false
-    try {
+    if (useVector) try {
       const queryEmbedding = await this.getEmbedding(QUERY_PREFIX + text)
       const queryF32 = Float32Array.from(queryEmbedding)
       for (const row of rows) {
@@ -697,13 +906,16 @@ export class SemanticService {
       semanticCandidates.slice(0, resolvedMode === 'exhaustive' ? exhaustivePoolLimit : explorePoolLimit),
       lexicalCandidates.slice(0, resolvedMode === 'exhaustive' ? exhaustivePoolLimit : explorePoolLimit)
     )
-    let confidence = semanticSearchCompleted ? estimateRetrievalConfidence(fused) : 'low'
+    const estimate = (candidates: FusedRetrievalCandidate[]): SemanticConfidence => semanticSearchCompleted
+      ? estimateRetrievalConfidence(candidates)
+      : useVector ? 'low' : estimateLexicalConfidence(candidates)
+    let confidence = estimate(fused)
     const expanded = shouldExpandAutomaticRetrieval(requestedMode, resolvedMode, confidence)
     const expansionReason = expanded ? 'The token-first pass had low confidence, so auto mode searched the broader candidate pool.' : null
     if (expanded) {
       resolvedMode = 'exhaustive'
       fused = fuseRetrievalCandidates(semanticCandidates.slice(0, exhaustivePoolLimit), lexicalCandidates.slice(0, exhaustivePoolLimit))
-      confidence = semanticSearchCompleted ? estimateRetrievalConfidence(fused) : 'low'
+      confidence = estimate(fused)
     }
     // Auto expansion broadens candidate coverage, not the amount of source
     // injected into context. Keep the token-first output budget unless the
@@ -723,7 +935,17 @@ export class SemanticService {
     }
 
     const truncated = fused.length > results.length || lexicalTotal > lexicalCandidates.length
-    const vectorWarning = semanticSearchCompleted ? '' : ' Vector embeddings were unavailable for this query.'
+    // Exact-term retrieval without the optional index is the normal mode, not a
+    // degradation; only say something when the index is on but did not answer.
+    const vectorWarning = !this.vectorSetting || semanticSearchCompleted
+      ? ''
+      : useVector
+        ? ' Vector embeddings were unavailable for this query.'
+        : ' The vector index is still loading; this answer used exact terms only.'
+    const sources: SemanticRetrievalSource[] = [
+      ...(semanticSearchCompleted ? ['vector' as const] : []),
+      ...(lexicalSearchCompleted ? ['fts5' as const] : [])
+    ]
     const warning = resolvedMode === 'exhaustive'
       ? `${lexicalSearchCompleted ? 'Full local lexical index searched.' : 'Lexical index was unavailable; vector results are not exhaustive.'} Results can still omit generated/binary files, ignored directories, runtime dispatch and references unsupported by the structural parser.${truncated ? ' Output was capped by the result/context budget.' : ''}`
       : confidence === 'low' || truncated
@@ -742,8 +964,9 @@ export class SemanticService {
       expanded,
       expansionReason,
       results,
+      sources,
       coverage: {
-        indexedFiles: rows.length,
+        indexedFiles,
         semanticCandidates: semanticCandidates.length,
         lexicalCandidates: lexicalTotal,
         searchedFullLexicalIndex: lexicalSearchCompleted && resolvedMode === 'exhaustive',
@@ -771,8 +994,9 @@ export class SemanticService {
       estimatedSavingsPercent,
       truncated
     })
+    if (options.caller) this.recordUsage(options.caller, semanticSearchCompleted, results.length, estimatedTokens)
     const querySnippet = text.length > 60 ? `${text.slice(0, 60)}…` : text
-    this.log('info', `Hybrid ${resolvedMode} query${expanded ? ' (auto-expanded)' : ''} "${querySnippet}" → ${results.length} result(s), ${estimatedTokens} estimated tokens, ${confidence} confidence in ${durationMs}ms${truncated ? ' (capped)' : ''}.`, { workspaceId })
+    this.log('info', `${sources.join('+') || 'no-source'} ${resolvedMode} query${expanded ? ' (auto-expanded)' : ''} "${querySnippet}" → ${results.length} result(s), ${estimatedTokens} estimated tokens, ${confidence} confidence in ${durationMs}ms${truncated ? ' (capped)' : ''}.`, { workspaceId })
     return report
   }
 
@@ -831,6 +1055,7 @@ export class SemanticService {
     for (const watcher of this.watchers.values()) watcher.close();
     this.watchers.clear();
     this.rejectAllPending(new Error('Semantic service destroyed'));
+    this.flushUsage();
 
     if (this.worker) {
       this.worker.terminate();

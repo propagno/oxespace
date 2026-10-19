@@ -2,6 +2,7 @@ import { Github, Zap, Server, Activity, Brain, ChevronDown } from 'lucide-react'
 import { useState, useEffect, useCallback, useRef, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import type { SemanticStatus } from '../../../shared/types/ipc'
+import { summarizeSemanticStatus } from '../Semantic/semanticStatusSummary'
 import { useResolvedTerminalPrefs, useTerminalPrefsStore } from '../../store/terminal-prefs.store'
 import { selectMcpServers, useMcpStore } from '../../store/mcp.store'
 import { useUpdaterStore } from '../../store/updater.store'
@@ -124,27 +125,13 @@ export function IntegrationsStatusChips({ workspace, isActive = true }: Integrat
 
   const totalRunningMcp = runningMcpServers + (builtInMcpRunning ? 1 : 0)
 
-  // Derive the Semantic chip's visual state + tooltip from enabled + worker health.
-  const modelHint = semanticStatus?.modelId ?? 'multilingual-e5-base'
-  let semanticClass = 'activity-idle'
-  let semanticTitle = `Semantic search: off · model ${modelHint}`
-  if (semanticEnabled) {
-    if (semanticStatus?.lastError) {
-      semanticClass = 'activity-idle'
-      semanticTitle = `Semantic: error — ${semanticStatus.lastError}`
-    } else if (semanticStatus && (semanticStatus.indexing || !semanticStatus.workerReady)) {
-      semanticClass = 'activity-awaiting'
-      semanticTitle = semanticStatus.workerReady
-        ? `Semantic: indexing… (${semanticStatus.count} files) · ${modelHint}`
-        : `Semantic: loading model… · ${modelHint}`
-    } else {
-      semanticClass = 'activity-thinking'
-      const n = semanticStatus?.count ?? 0
-      semanticTitle = n === 0
-        ? `Semantic: ready · empty index · ${modelHint}`
-        : `Semantic: ready · ${n} files · ${semanticStatus?.mode ?? semanticMode} mode · ${semanticStatus?.coverage?.byCategory.test ?? 0} tests · ${semanticStatus?.coverage?.byCategory.config ?? 0} config · ${modelHint}`
-    }
-  }
+  // Derive the Semantic chip's visual state + tooltip. Exact-term search needs no
+  // model; the optional vector index only adds a note while it loads.
+  const semanticSummary = summarizeSemanticStatus(semanticStatus, semanticEnabled)
+  const semanticClass = semanticSummary.tone === 'ready' ? 'activity-thinking' : semanticSummary.tone === 'busy' ? 'activity-awaiting' : 'activity-idle'
+  const semanticTitle = semanticSummary.tone === 'off'
+    ? 'Semantic search: off'
+    : `Semantic: ${semanticSummary.label}${semanticSummary.tone === 'ready' ? ` · ${semanticStatus?.mode ?? semanticMode} mode` : ''}`
 
   const semanticHealthy = semanticEnabled && !semanticStatus?.lastError
   const activeCount = Number(githubStatus?.loggedIn === true) + Number(totalRunningMcp > 0) + Number(rtkActive) + Number(cavemanActive) + Number(semanticHealthy)

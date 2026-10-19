@@ -35,6 +35,7 @@ export function summarizeThreadEvent(event: ThreadEvent): ThreadEventSummary {
     case 'delta': return { label: clip(event.text), text: event.text }
     case 'tool': return { label: `${event.name} ${clip(event.detail, 100)}`.trim(), state: event.state, durationMs: span(event.startedAt, event.completedAt), exitCode: event.exitCode, text: `${event.name}\n${event.detail}\n${event.output ?? ''}` }
     case 'subagent': return { label: `${event.action}${event.model ? ` · ${event.model}` : ''}`, state: event.state, durationMs: span(event.startedAt, event.completedAt), text: `${event.action}\n${event.prompt ?? ''}\n${event.agents.map((agent) => JSON.stringify(agent)).join('\n')}` }
+    case 'reasoning': return { label: clip(event.text), durationMs: span(event.startedAt, event.completedAt), text: event.text }
     case 'activity': return { label: event.summary ? `${event.phase}: ${clip(event.summary)}` : event.phase, text: event.summary ?? '' }
     case 'approval': return { label: event.title, text: `${event.title}\n${event.detail}` }
     case 'approval-resolved': return { label: event.id, text: '' }

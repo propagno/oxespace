@@ -1218,6 +1218,12 @@
   transition: width var(--duration-fast) var(--ease-standard);
 }
 
+.settings-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 /* Terminal preview */
 .settings-term-preview {
   display: flex;

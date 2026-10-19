@@ -45,6 +45,7 @@ export class ThreadExportService {
         for (const file of event.files) lines.push(`- ${file.kind}: \`${safe(file.path)}\`${file.artifactId ? ` · evidence \`${file.artifactId}\`` : ' · evidence unavailable'}`)
         lines.push('')
       } else if (event.type === 'request') lines.push(`### Request · ${safe(event.request.title)} · ${event.request.state}`, '', ...(event.request.questions ?? []).map(question => `- ${safe(question.question)}`), '')
+      else if (event.type === 'reasoning' && event.text.trim()) lines.push('### Reasoning', '', ...safe(event.text).split('\n').map(line => `> ${line}`), '')
       else if (event.type === 'plan') lines.push('### Plan', '', ...event.steps.map(step => `- [${step.status === 'completed' ? 'x' : ' '}] ${safe(step.label)} (${step.status})`), '')
       else if (event.type === 'completed') lines.push(`### Turn ${event.status}`, ...(event.failure ? ['', `${safe(event.failure.message)}${event.failure.detail ? `\n\n${safe(event.failure.detail)}` : ''}`] : []), '')
     }

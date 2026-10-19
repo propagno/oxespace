@@ -137,6 +137,42 @@ describe.skipIf(!live)('live agents report where they work', () => {
     } finally { await manager.stop(); db.close() }
   }, 300_000)
 
+  it('Claude: a message steered into a running turn is answered in that same turn', async () => {
+    const repo = repository()
+    const events: ThreadEvent[] = []
+    const adapter = new ClaudeConversationAdapter((args, cwd) => new AgentProcessTransport('claude', args, cwd))
+    try {
+      await adapter.start({ rootPath: repo, nativeSessionId: null, access: 'full-access' }, event => events.push(event))
+      await adapter.send('Run this Bash command exactly: for i in 1 2 3 4 5; do echo tick $i; sleep 2; done. Then reply with the word FIRST.')
+      const until = Date.now() + 60_000
+      while (Date.now() < until && !events.some(event => event.type === 'session')) await new Promise(resolve => setTimeout(resolve, 200))
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      await adapter.steer('Also, end your reply with the word SECOND.')
+      await untilCompleted(events, 240_000)
+    } finally { await adapter.dispose() }
+    const answer = events.filter(event => event.type === 'message' && event.role === 'assistant').map(event => event.type === 'message' ? event.text : '').join('\n')
+    console.log('Steered answer:', answer.trim().slice(0, 200))
+    expect(answer).toContain('FIRST')
+    expect(answer).toContain('SECOND')
+    expect(events.filter(event => event.type === 'completed')).toHaveLength(1)
+  }, 300_000)
+
+  it('Claude: its thinking streams into a reasoning block that closes before the turn ends', async () => {
+    const repo = repository()
+    const events: ThreadEvent[] = []
+    const adapter = new ClaudeConversationAdapter((args, cwd) => new AgentProcessTransport('claude', args, cwd))
+    try {
+      await adapter.start({ rootPath: repo, nativeSessionId: null, access: 'read-only', reasoningEffort: 'high' }, event => events.push(event))
+      await adapter.send('Think it through step by step before answering: how many primes are there below 120? Reply with just the number.')
+      await untilCompleted(events, 180_000)
+    } finally { await adapter.dispose() }
+    const reasoning = events.filter((event): event is Extract<ThreadEvent, { type: 'reasoning' }> => event.type === 'reasoning')
+    console.log('Reasoning:', reasoning.at(-1)?.text.slice(0, 160))
+    expect(reasoning.at(-1)?.text.trim()).toBeTruthy()
+    expect(reasoning.at(-1)?.completedAt).toBeGreaterThanOrEqual(reasoning.at(-1)!.startedAt)
+    expect(events.findIndex(event => event.type === 'reasoning' && event.completedAt !== undefined)).toBeLessThan(events.findIndex(event => event.type === 'completed'))
+  }, 240_000)
+
   it('Claude: the init directory and an EnterWorktree move are reported and resolve to the worktree', async () => {
     const repo = repository()
     const events: ThreadEvent[] = []

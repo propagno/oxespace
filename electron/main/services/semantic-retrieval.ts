@@ -199,6 +199,19 @@ export function estimateRetrievalConfidence(results: FusedRetrievalCandidate[]):
   return 'low'
 }
 
+/**
+ * Confidence for exact-term retrieval alone (no vector index). BM25 cannot
+ * vouch for meaning, so it never reports high; a clear lead over the runner-up,
+ * or a single matching file, is medium.
+ */
+export function estimateLexicalConfidence(results: FusedRetrievalCandidate[]): SemanticConfidence {
+  if (results.length === 0) return 'low'
+  const top = results[0].lexicalScore ?? 0
+  if (results.length === 1) return top > 0 ? 'medium' : 'low'
+  const second = results[1].lexicalScore ?? 0
+  return top > 0 && (top - second) / top >= 0.25 ? 'medium' : 'low'
+}
+
 export function classifySemanticFile(filePath: string): 'source' | 'test' | 'config' | 'docs' | 'other' {
   const normalized = filePath.replace(/\\/g, '/').toLowerCase()
   const base = path.basename(normalized)

@@ -76,6 +76,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       create: input => ipc.invoke(IPC_CHANNELS.thread.create, input) as ReturnType<import('../../shared/types/thread').ThreadApi['create']>,
       read: id => ipc.invoke(IPC_CHANNELS.thread.read, id) as ReturnType<import('../../shared/types/thread').ThreadApi['read']>,
       rewind: (id, turnId, options) => ipc.invoke(IPC_CHANNELS.thread.rewind, id, turnId, options) as Promise<import('../../shared/types/thread').ThreadRewindResult>,
+      redoRewind: (id) => ipc.invoke(IPC_CHANNELS.thread.redoRewind, id) as Promise<import('../../shared/types/thread').ThreadSnapshot>,
+      retryTurn: (id, turnId, options) => ipc.invoke(IPC_CHANNELS.thread.retryTurn, id, turnId, options) as Promise<{ restoredFiles: number }>,
       readSince: (id, cursor) => ipc.invoke(IPC_CHANNELS.thread.readSince, id, cursor) as Promise<import('../../shared/types/thread').ThreadDelta>,
       history: (id, before, limit) => ipc.invoke(IPC_CHANNELS.thread.history, id, before, limit) as Promise<import('../../shared/types/thread').ThreadHistoryPage>,
       attach: (id, input) => ipc.invoke(IPC_CHANNELS.thread.attach, id, input) as Promise<import('../../shared/types/thread').ThreadAttachment>,
@@ -460,7 +462,13 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       reindex: (workspaceId) => ipc.invoke(IPC_CHANNELS.semantic.reindex, workspaceId) as Promise<import('../../shared/types/ipc').SemanticStatus>,
       getLogs: () => ipc.invoke(IPC_CHANNELS.semantic.getLogs) as Promise<import('../../shared/types/ipc').SemanticLogEntry[]>,
       onLog: (listener) => subscribe<import('../../shared/types/ipc').SemanticLogEntry>(ipc, IPC_CHANNELS.semantic.onLog, listener),
-      query: (input) => ipc.invoke(IPC_CHANNELS.semantic.query, input) as Promise<import('../../shared/types/ipc').SemanticQueryHit[]>
+      query: (input) => ipc.invoke(IPC_CHANNELS.semantic.query, input) as Promise<import('../../shared/types/ipc').SemanticQueryHit[]>,
+      getVectorStatus: () => ipc.invoke(IPC_CHANNELS.semantic.getVectorStatus) as Promise<import('../../shared/types/ipc').SemanticVectorStatus>,
+      setVectorIndex: (enabled) => ipc.invoke(IPC_CHANNELS.semantic.setVectorIndex, enabled) as Promise<import('../../shared/types/ipc').SemanticVectorStatus>,
+      downloadModel: () => ipc.invoke(IPC_CHANNELS.semantic.downloadModel) as Promise<import('../../shared/types/ipc').SemanticVectorStatus>,
+      importModel: () => ipc.invoke(IPC_CHANNELS.semantic.importModel) as Promise<import('../../shared/types/ipc').SemanticVectorStatus>,
+      removeModel: () => ipc.invoke(IPC_CHANNELS.semantic.removeModel) as Promise<import('../../shared/types/ipc').SemanticVectorStatus>,
+      getUsage: () => ipc.invoke(IPC_CHANNELS.semantic.getUsage) as Promise<import('../../shared/types/ipc').SemanticUsage>
     },
     diagnostics: {
       getSnapshot: () => ipc.invoke(IPC_CHANNELS.diagnostics.getSnapshot) as Promise<import('../../shared/types/diagnostics').DiagnosticsSnapshot>,

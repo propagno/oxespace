@@ -75,7 +75,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
         changed(); return observation
       })
       ipcMain.removeHandler('git:get-status')
-      ipcMain.handle('git:get-status', () => ({ branch: 'feature/thread', ahead: 1, behind: 0, checkedAt: Date.now(), files: [
+      ipcMain.handle('git:get-status', () => ({ branch: 'feature/thread', upstream: 'origin/feature/thread', ahead: 1, behind: 0, checkedAt: Date.now(), files: [
         { path: 'README.md', staged: false, unstaged: true, untracked: false, conflicted: false, status: '.M' },
         { path: 'docs/new.md', staged: false, unstaged: true, untracked: true, conflicted: false, status: '?' }
       ] }))
@@ -584,6 +584,15 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.locator('.thread-message-user').filter({ hasText: /^Review message 120$/ })).toBeInViewport()
     await find.press('Escape')
     await expect(find).toHaveCount(0)
+    // Alt+Up and Alt+Down move between prompts from the composer, through rows not yet mounted.
+    const promptTop = () => page.locator('.thread-timeline').evaluate(el => el.scrollTop)
+    const before = await promptTop()
+    await page.getByRole('textbox', { name: 'Message', exact: true }).focus()
+    await page.keyboard.press('Alt+ArrowUp')
+    await expect.poll(promptTop).toBeLessThan(before)
+    const afterUp = await promptTop()
+    await page.keyboard.press('Alt+ArrowDown')
+    await expect.poll(promptTop).toBeGreaterThan(afterUp)
     await page.locator('.thread-timeline').evaluate(el => { el.scrollTop = el.scrollHeight })
     await expect.poll(visibleMessages).toBeGreaterThan(0)
     await page.locator('.thread-timeline').hover()
@@ -660,8 +669,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     // Font and virtual-row measurements can settle a few pixels differently
     // after remounting Thread; a large reading-position jump still fails.
     await expectReadingAnchor(4)
-    await liveActivity.locator('details').evaluate((el: HTMLDetailsElement) => { el.open = true })
-    await expect(liveActivity).toContainText('Checking project files.')
+    // The provider's summary is a reasoning block in the conversation, not repeated in the live status.
+    await expect(liveActivity.locator('details')).toHaveCount(0)
     await page.screenshot({ path: 'test-results/thread-reading.png' })
     await app.evaluate(() => (globalThis as Record<string, () => void>).silenceThreadFixture())
     await expect(liveActivity).toContainText('Execution outcome is not confirmed. Your message was not resent.')
@@ -801,8 +810,42 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.getByRole('button', { name: 'More actions' }).click()
     await page.getByRole('menuitemradio', { name: 'Normal view' }).click()
     await expect(inlineRows).toHaveCount(0)
+    // A finished turn folds its work under one line; opening it shows the one-line action summaries.
+    const fold = page.getByTestId('thread-turn-fold').first()
+    await expect(fold).toHaveText(/^Completed \d+ steps?/)
+    await expect(fold).toHaveAttribute('aria-expanded', 'false')
+    await fold.click()
+    await expect(fold).toHaveAttribute('aria-expanded', 'true')
     await expect(page.locator('.thread-activity-group, .thread-activity-single').first()).toBeVisible()
     await page.screenshot({ path: 'test-results/thread-view-normal.png' })
+    // Once a turn's prompt scrolls away while its work is read, it stays at the top edge and leads back.
+    const sticky = page.getByTestId('thread-sticky-prompt')
+    await page.locator('.thread-timeline').evaluate(el => { el.scrollTop = 0 })
+    await expect(sticky).toHaveCount(0)
+    await page.locator('.thread-timeline').evaluate(el => { el.scrollTop = 260 })
+    await expect(sticky).toContainText('Show the files updated in this conversation')
+    // The conversation's provider usage, live in the bottom bar, which sits below the composer instead of over it.
+    const usage = page.getByTestId('usage-status')
+    await expect(usage).toContainText('5h 40% · wk 30%')
+    expect(await page.evaluate(() => {
+      const bar = document.querySelector('.app-statusbar')!.getBoundingClientRect()
+      const composer = document.querySelector('.thread-composer-dock')!.getBoundingClientRect()
+      return composer.bottom <= bar.top + 1
+    })).toBe(true)
+    // An opaque strip: the conversation text scrolling under it must not show through.
+    expect(await sticky.evaluate(element => getComputedStyle(element).backgroundColor)).toMatch(/^rgb\(/)
+    await sticky.click()
+    await expect(sticky).toHaveCount(0)
+    if (process.env.OXESPACE_README_SHOTS) {
+      // Marketing capture for the README: Normal view, no side panel.
+      await page.getByRole('button', { name: 'Close workbench panel' }).click()
+      // The fixture lists 70 history rows; show just a few so the capture reads as a real project.
+      const trim = await page.addStyleTag({ content: '.thread-project-rows .thread-navigation-row:nth-child(n+4), .thread-show-more { display: none !important }' })
+      await page.screenshot({ path: 'docs/assets/screenshots/thread.png' })
+      await trim.evaluate(node => node.remove())
+      await page.getByRole('button', { name: 'More actions' }).click()
+      await page.getByRole('menuitemradio', { name: 'Files', exact: true }).click()
+    }
     await page.keyboard.press('Control+o') // normal → verbose
     await expect(inlineRows.first()).toBeVisible()
     await page.keyboard.press('Control+o') // verbose → summary
@@ -829,6 +872,19 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.getByRole('navigation', { name: 'Workspace files' })).toBeVisible()
     await page.getByRole('treeitem', { name: 'README.md', exact: true }).click()
     await expect(page.getByRole('region', { name: 'Editor' })).toContainText('README.md')
+    // Commit & pull request fills the workbench, and its final action reads as the primary one.
+    await page.getByRole('button', { name: 'Select workbench panel' }).click()
+    await page.getByRole('menuitemradio', { name: 'Commit & pull request', exact: true }).click()
+    const gitControl = page.locator('.thread-tool-surface > .git-control')
+    await expect(gitControl).toBeVisible()
+    expect(await gitControl.evaluate(element => Math.abs(element.getBoundingClientRect().width - element.parentElement!.getBoundingClientRect().width) <= 1)).toBe(true)
+    await gitControl.getByText('Pull request', { exact: true }).click()
+    const createPr = gitControl.getByRole('button', { name: 'Create pull request' })
+    await expect(createPr).toBeVisible()
+    expect(await createPr.evaluate(element => getComputedStyle(element).backgroundColor)).not.toMatch(/rgba\(0, 0, 0, 0\)|transparent/)
+    await page.screenshot({ path: 'test-results/thread-git-control.png' })
+    await page.getByRole('button', { name: 'Select workbench panel' }).click()
+    await page.getByRole('menuitemradio', { name: 'Files', exact: true }).click()
     await page.setViewportSize({ width: 900, height: 720 })
     await expect(page.locator('.thread-workbench')).toHaveClass(/is-drawer/)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)

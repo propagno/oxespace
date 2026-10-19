@@ -10,9 +10,11 @@ import { ThreadFailureCard } from './ThreadFailureCard'
 import { ThreadFileActivity, ThreadTurnChanges } from './ThreadFileActivity'
 import { ThreadMessageRow } from './ThreadMessageRow'
 import { ThreadPlan } from './ThreadPlan'
+import { ThreadReasoning } from './ThreadReasoning'
 import { ThreadRequestCard } from './ThreadRequestCard'
 import { ThreadSubagentActivity } from './ThreadSubagentActivity'
 import { ThreadTurnTiming } from './ThreadTurnTiming'
+import { ThreadTurnFoldRow } from './ThreadTurnFold'
 import { threadFileLabel, threadFileScope, threadWorkingRoot, type ThreadChangeEntry } from './threadChanges'
 import type { ThreadTimelineItem } from './threadTimelineModel'
 
@@ -32,7 +34,7 @@ async function undoTurnChanges(threadId: string, turnId: string): Promise<void> 
 }
 
 /** One virtual row of the conversation, plus the turn's changes and timing after its last row. */
-export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending, pendingRequests, lastResult, lastMessageId, quickReplies, copiedMessageId, action, runCommand, onCopy, onQuickReply, onQuote, onDraft, onAccounts, onPermissions }: {
+export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending, pendingRequests, lastResult, lastMessageId, quickReplies, copiedMessageId, action, runCommand, onCopy, onQuickReply, onQuote, onDraft, onAccounts, onPermissions, onToggleFold, superseded }: {
   row: ThreadTimelineItem
   snapshot: ThreadSnapshot | null
   viewMode: ThreadViewMode
@@ -52,6 +54,10 @@ export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending,
   onDraft: (text: string) => void
   onAccounts?: () => void
   onPermissions: () => void
+  /** Opens or closes the folded work of a finished turn. */
+  onToggleFold?: (turnId: string) => void
+  /** Set aside by a pending rewind. */
+  superseded?: boolean
 }) {
   const { event, key, turnId, turnEvents, firstInTurn, lastInTurn } = row
   const api = window.oxe?.thread
@@ -64,8 +70,10 @@ export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending,
     useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'files' })
   }
   const body = (() => {
+    if (event.type === 'turn-fold') return <ThreadTurnFoldRow key={key} fold={event} turn={snapshot?.turns?.find(value => value.id === turnId)} events={turnEvents} onToggle={() => onToggleFold?.(turnId)} />
     if (event.type === 'activity-group') return <ThreadActivityGroup key={key} events={event.events} mode={viewMode} />
     if (event.type === 'plan') return <ThreadPlan key={key} event={event} />
+    if (event.type === 'reasoning') return event.text.trim() ? <ThreadReasoning key={key} event={event} running={running && snapshot?.turns?.at(-1)?.id === turnId} /> : null
     if (event.type === 'subagent') return <ThreadSubagentActivity key={key} event={event} compact stopping={pending} onStop={snapshot?.thread.capabilities?.features.subagentLifecycle?.enabled && api?.stopTask && event.receiverThreadIds[0] ? () => void action(() => api.stopTask!(snapshot.thread.id, event.receiverThreadIds[0])) : undefined} />
     if (event.type === 'tool' && event.files?.length) return <ThreadFileActivity key={key} event={event} root={snapshot?.thread.rootPath ?? ''} threadId={snapshot!.thread.id} onOpen={openFile} />
     if (event.type === 'message') return <ThreadMessageRow key={key} event={event} turnEvents={turnEvents} snapshot={snapshot} running={running} pending={pending} copied={copiedMessageId === event.id} action={action} onCopy={onCopy}
@@ -77,7 +85,14 @@ export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending,
       const unresolved = snapshot?.thread.status === 'approval' && !snapshot.events.some(e => e.type === 'approval-resolved' && e.id === event.id)
       return <details key={key} className="thread-approval" open={Boolean(unresolved)}><summary><AlertCircle size={14} />{event.title}</summary><ThreadApprovalDetails command={event.detail} fileChanges={event.title === 'Approve file changes'} />{unresolved && <div className="thread-approval-actions"><button type="button" disabled={pending} onClick={() => void action(() => api!.approve(snapshot!.thread.id, event.id, 'accept'))}>Approve</button><button type="button" disabled={pending} onClick={() => void action(() => api!.approve(snapshot!.thread.id, event.id, 'decline'))}>Decline</button></div>}</details>
     }
-    if (event.type === 'completed') return event.status === 'failed' ? <ThreadFailureCard key={key} event={event} latest={event === lastResult} onAccounts={onAccounts} disabled={pending} onCompact={() => void action(() => runCommand('/compact'))} onPermissions={onPermissions} onRetry={(() => { const prompt = turnEvents.find(value => value.type === 'message' && value.role === 'user'); return prompt?.type === 'message' ? () => void action(() => api!.send(snapshot!.thread.id, prompt.text, prompt.attachments?.map(attachment => attachment.id) ?? [])) : undefined })()} refreshUsage={snapshot?.thread.provider === 'codex' && api?.command ? async () => {
+    if (event.type === 'completed') return event.status === 'failed' ? <ThreadFailureCard key={key} event={event} latest={event === lastResult} onAccounts={onAccounts} disabled={pending} onCompact={() => void action(() => runCommand('/compact'))} onPermissions={onPermissions} onRetry={(() => {
+      const prompt = turnEvents.find(value => value.type === 'message' && value.role === 'user')
+      if (prompt?.type !== 'message') return undefined
+      // The orchestrator can undo the failed turn's files first; older builds only resend.
+      return (restoreFiles: boolean) => void action(() => api!.retryTurn
+        ? api!.retryTurn(snapshot!.thread.id, turnId, { restoreFiles })
+        : api!.send(snapshot!.thread.id, prompt.text, prompt.attachments?.map(attachment => attachment.id) ?? []))
+    })()} hasChanges={turnEvents.some(value => (value.type === 'turn-diff' || value.type === 'tool') && Boolean(value.files?.length))} refreshUsage={snapshot?.thread.provider === 'codex' && api?.command ? async () => {
       const result = await api.command!(snapshot.thread.id, '/usage')
       if (!result.usage) throw Error('Usage unavailable')
       return result.usage
@@ -85,7 +100,8 @@ export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending,
     return null
   })()
   const finished = lastInTurn && turnEvents.some(value => value.type === 'completed')
-  return <section className={`thread-turn thread-virtual-turn${firstInTurn ? ' is-turn-start' : ''}${lastInTurn ? ' is-turn-end' : ''}`} data-turn-id={turnId}>{body}
+  // A turn set aside by a pending rewind stays readable, greyed and inert, until the next message confirms it.
+  return <section className={`thread-turn thread-virtual-turn${firstInTurn ? ' is-turn-start' : ''}${lastInTurn ? ' is-turn-end' : ''}${superseded ? ' is-superseded' : ''}`} data-turn-id={turnId} inert={superseded || undefined}>{body}
     {finished && <ThreadTurnChanges events={turnEvents} root={snapshot?.thread.rootPath ?? ''} onOpen={openFile} onViewChanges={() => { if (snapshot) useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'changes' }) }} onUndo={snapshot && !running && turnId ? () => undoTurnChanges(snapshot.thread.id, turnId) : undefined} loadFileStates={snapshot && turnId && api?.turnFiles ? () => api.turnFiles!(snapshot.thread.id, turnId) : undefined} onUndoFile={snapshot && !running && turnId && api?.undoTurnFile ? async path => { await api.undoTurnFile!(snapshot.thread.id, turnId, path); await useThreadStore.getState().refresh(snapshot.thread.id) } : undefined}
       loadHunks={snapshot && turnId && api?.turnFileHunks ? path => api.turnFileHunks!(snapshot.thread.id, turnId, path) : undefined}
       onUndoHunk={snapshot && !running && turnId && api?.undoTurnHunk ? async (path, hunkId) => { await api.undoTurnHunk!(snapshot.thread.id, turnId, path, hunkId); await useThreadStore.getState().refresh(snapshot.thread.id) } : undefined}

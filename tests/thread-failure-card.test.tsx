@@ -63,3 +63,31 @@ describe('Thread failure card', () => {
     expect(screen.queryByRole('button', { name: 'Retry turn' })).not.toBeInTheDocument()
   })
 })
+
+describe('retrying a failed turn', () => {
+  const network: ThreadFailure = { id: 'net', occurredAt: 1790000000000, code: 'network', message: 'The connection dropped.' }
+
+  it('retries at once when the turn changed no file', () => {
+    const onRetry = vi.fn()
+    render(<ThreadFailureCard event={{ type: 'completed', status: 'failed', failure: network }} latest onRetry={onRetry} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Retry turn' }))
+    expect(onRetry).toHaveBeenCalledWith(false)
+  })
+
+  it('offers to undo the turn\'s changes first when it changed files', () => {
+    const onRetry = vi.fn()
+    render(<ThreadFailureCard event={{ type: 'completed', status: 'failed', failure: network }} latest hasChanges onRetry={onRetry} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Retry turn' }))
+    expect(onRetry).not.toHaveBeenCalled()
+    const choice = screen.getByRole('group', { name: 'Retry this turn' })
+    expect(choice).toHaveTextContent('This turn changed files.')
+    fireEvent.click(screen.getByRole('button', { name: 'Undo its changes and retry' }))
+    expect(onRetry).toHaveBeenCalledWith(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Retry turn' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Retry without undoing' }))
+    expect(onRetry).toHaveBeenLastCalledWith(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Retry turn' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(onRetry).toHaveBeenCalledTimes(2)
+  })
+})

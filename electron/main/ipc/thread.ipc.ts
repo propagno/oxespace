@@ -119,6 +119,15 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
     const restoreFiles = Boolean(options && typeof options === 'object' && (options as Record<string, unknown>).restoreFiles === true)
     return manager.then(service => service.rewind(string(id), string(turnId), { restoreFiles }))
   })
+  ipcMain.handle(IPC_CHANNELS.thread.redoRewind, (event, id: unknown) => {
+    sender(event)
+    return manager.then(service => service.redoRewind(string(id)))
+  })
+  ipcMain.handle(IPC_CHANNELS.thread.retryTurn, (event, id: unknown, turnId: unknown, options: unknown) => {
+    sender(event)
+    const restoreFiles = Boolean(options && typeof options === 'object' && (options as Record<string, unknown>).restoreFiles === true)
+    return manager.then(service => service.retryTurn(string(id), string(turnId), { restoreFiles }))
+  })
   ipcMain.handle(IPC_CHANNELS.thread.readSince, (event, id: unknown, cursor: unknown) => {
     sender(event)
     const input = cursor && typeof cursor === 'object' ? cursor as Record<string, unknown> : {}

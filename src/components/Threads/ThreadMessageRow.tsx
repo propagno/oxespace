@@ -51,7 +51,7 @@ export function ThreadMessageRow({ event, turnEvents, snapshot, running, pending
     {event.role === 'user' && event.context?.length ? <ul className="thread-sent-context" aria-label="Attached file context">{event.context.map(file => <li key={file.path} title={`${file.bytes} bytes attached${file.truncated ? ' (truncated)' : ''}`}><FileText size={12} aria-hidden="true" /><span>{file.path}</span>{file.truncated && <small>truncated</small>}</li>)}</ul> : null}
     {event.role === 'user' && event.brief ? <details className="thread-sent-brief"><summary>Project brief attached</summary><pre>{event.brief}</pre></details> : null}
     {event.role === 'user' && snapshot?.deliveries?.[event.id] && snapshot.deliveries[event.id].state !== 'delivered' ? <ThreadDeliveryNote delivery={snapshot.deliveries[event.id]} disabled={pending} onResend={() => void action(() => api!.send(snapshot.thread.id, event.text, event.attachments?.map(attachment => attachment.id) ?? []))} /> : null}
-    {event.role === 'user' && snapshot && !running && api?.rewind && snapshot.thread.capabilities?.features.rewind?.enabled && (() => {
+    {event.role === 'user' && snapshot && !running && !snapshot.thread.rewind && api?.rewind && snapshot.thread.capabilities?.features.rewind?.enabled && (() => {
       const turns = snapshot.turns ?? [], index = turns.findIndex(turn => turn.id === event.id)
       const rewind = (options: { restoreFiles: boolean }, edit: boolean) => action(async () => {
         const result = await api.rewind!(snapshot.thread.id, event.id, options)

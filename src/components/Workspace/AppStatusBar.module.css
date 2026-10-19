@@ -39,6 +39,25 @@
 
 @media (max-width: 760px) {
   .group:first-child .strong,
-  .group:last-child .item:not(.connected):not(.action) { display: none; }
+  .group:last-child .item:not(.connected):not(.action):not(.usage) { display: none; }
   .group { gap: var(--space-2); }
 }
+
+/* In Thread the bar is a row of the surface, not laid over its bottom edge. */
+.docked { position: static; flex: none; }
+
+/* Subscription usage: quiet while there is room, warning from 80%, critical at the limit. */
+.usage {
+  padding: 1px var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.usage:hover { background: var(--fill-hover); }
+.usage:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.usageWarning { color: var(--intent-warning-fg); }
+.usageCritical { color: var(--intent-danger-fg); }

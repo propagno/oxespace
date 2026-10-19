@@ -28,6 +28,7 @@ import { SkillService } from './services/skill.service'
 import { McpManager } from './services/mcp.service'
 import { WorkspaceService } from './services/workspace.service'
 import { SemanticService } from './services/semantic.service'
+import { SemanticModelStore } from './services/semantic-model-store'
 import { createInternalMcpHandle, type InternalMcpHandle } from './mcp-internal/bootstrap'
 import { startRpcServer, type RpcServerHandle } from './runtime/rpc/server'
 import { registerTaskIpc } from './ipc/task.ipc'
@@ -238,7 +239,9 @@ async function registerIpcHandlers(): Promise<() => void> {
       for (const window of BrowserWindow.getAllWindows()) {
         if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.semantic.onLog, entry)
       }
-    }
+    },
+    // Optional embedding model (not in the installer), downloaded or imported on demand.
+    modelStore: new SemanticModelStore(join(app.getPath('userData'), 'models'))
   })
 
   registerWorkspaceIpc(db, semanticService, terminalManager)
@@ -487,16 +490,22 @@ async function registerIpcHandlers(): Promise<() => void> {
     if (memoryShutdownStarted) return
     memoryShutdownStarted = true
     terminalManager.stopAll()
+    // Quitting can still stall after the drain, for example on a native handle a terminal left
+    // open on Windows; the window is gone by then, so end the process instead of lingering.
+    const quit = (): void => {
+      app.quit()
+      setTimeout(() => app.exit(0), 5000).unref()
+    }
     // An optional service or a long-running MCP request must not trap app shutdown.
     const shutdownDeadline = setTimeout(() => {
       memoryShutdownComplete = true
-      app.quit()
+      quit()
     }, 10000)
     void Promise.allSettled([threadManager.stop(), memoryService.stop(), delegationService?.stop()]).then(() => internalMcp.stop()).catch(() => {}).finally(() => {
       clearTimeout(shutdownDeadline)
       if (memoryShutdownComplete) return
       memoryShutdownComplete = true
-      app.quit()
+      quit()
     })
   })
   app.once('before-quit', () => {

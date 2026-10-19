@@ -361,6 +361,11 @@ export interface ConversationThread {
   updatedAt: number
   /** A native interactive CLI exclusively owns this conversation until it exits. */
   cliActive?: boolean
+  /**
+   * A rewind waiting for confirmation: the turns from `turnId` on are still shown (greyed, with Redo) and
+   * leave the conversation, and the provider's history, when the next message is sent.
+   */
+  rewind?: { turnId: string; at: number; removedTurns: number; redoCheckpointIds?: string[] }
   cliNotice?: string
   model?: string
   reasoningEffort?: string
@@ -415,6 +420,8 @@ export type ThreadEvent =
   | { type: 'activity'; id: string; phase: 'preparing' | 'connecting' | 'reasoning' | 'responding'; at: number; summary?: string }
   | { type: 'message'; id: string; role: 'user' | 'assistant'; text: string; historicalQuestions?: { title: string; options: string[] | null }[]; attachments?: Omit<ThreadAttachment, 'path'>[]; context?: { path: string; bytes: number; truncated?: boolean }[]; brief?: string }
   | { type: 'delta'; id: string; text: string }
+  /** The agent's visible reasoning (Claude thinking, Codex summaries), re-emitted whole as it grows. */
+  | { type: 'reasoning'; id: string; text: string; startedAt: number; completedAt?: number }
   | { type: 'tool'; id: string; name: string; state: 'running' | 'completed' | 'failed' | 'unknown'; detail: string; output?: string; exitCode?: number; startedAt?: number; completedAt?: number; turnId?: string; files?: ThreadFileChange[] }
   | { type: 'subagent'; id: string; action: string; state: 'running' | 'completed' | 'failed' | 'interrupted' | 'unknown'; senderThreadId?: string; receiverThreadIds: string[]; agents: ThreadSubagent[]; prompt?: string; model?: string; reasoningEffort?: string; startedAt?: number; completedAt?: number; turnId?: string }
   | { type: 'approval'; id: string; title: string; detail: string }
@@ -570,6 +577,10 @@ export interface ThreadApi {
   workRuns?(id: string): Promise<import('./work').WorkRun[]>
   cancelWork?(id: string, runId: string): Promise<import('./work').WorkRun>
   rewind?(id: string, turnId: string, options?: { restoreFiles?: boolean }): Promise<ThreadRewindResult>
+  /** Brings back the turns (and files) of a rewind not confirmed by a new message yet. */
+  redoRewind?(id: string): Promise<ThreadSnapshot>
+  /** Sends a finished turn's prompt again, after undoing that turn's file changes when `restoreFiles` is set. */
+  retryTurn?(id: string, turnId: string, options?: { restoreFiles?: boolean }): Promise<{ restoredFiles: number }>
   readSince?(id: string, cursor: ThreadSyncCursor): Promise<ThreadDelta>
   resumeQueue?(id: string): Promise<void>
   sendQueuedNow?(id: string, itemId: string): Promise<void>

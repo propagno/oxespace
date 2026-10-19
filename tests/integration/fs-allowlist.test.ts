@@ -40,6 +40,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Stat only: confirms that a project root sent by the renderer is an existing directory before a process
   // (the oxe CLI, a dashboard server) starts in it. Reads, lists and writes nothing.
   'electron/main/ipc/ipc-guards.ts',
+  // The optional semantic model and its settings/usage counters under userData/models only; an import copies
+  // the four model files from the folder the user picked in a native dialog. Never touches workspace files.
+  'electron/main/services/semantic-model-store.ts',
   // Streams the RTK archive the app itself downloaded to hash it before extraction.
   'electron/main/services/rtk-checksum.ts',
   // Documentation owns generated artifacts under userData/documentation only.

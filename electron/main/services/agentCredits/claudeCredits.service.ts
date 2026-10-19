@@ -22,10 +22,13 @@ import type { AgentCreditsProvider } from './types'
  *
  * Note: Anthropic restricts OAuth tokens to its official clients — this is a
  * deliberate, user-approved grey-area use. We send the correct User-Agent and
- * cache for 60s to avoid hammering the endpoint.
+ * cache for 60s to avoid hammering the endpoint; a 429 backs off (Retry-After,
+ * else doubling from 2 to 15 minutes) and `force` never bypasses that.
  */
 
-const TTL_MS = 5 * 60_000
+const TTL_MS = 60_000
+const BACKOFF_MIN_MS = 2 * 60_000
+const BACKOFF_MAX_MS = 15 * 60_000
 const TIMEOUT_MS = 15_000
 const USAGE_URL = 'https://api.anthropic.com/api/oauth/usage'
 const OAUTH_BETA = 'oauth-2025-04-20'
@@ -41,6 +44,9 @@ interface ClaudeCredentialsFile {
 export class ClaudeCreditsService implements AgentCreditsProvider {
   readonly provider = 'claude' as const
   private cache: { value: AgentCreditsSnapshot; at: number } | null = null
+  /** Set by a 429: no request before this time, and the next backoff doubles. */
+  private blockedUntil = 0
+  private backoffMs = 0
 
   constructor(private readonly credentialsPath: string = join(homedir(), '.claude', '.credentials.json')) {}
 
@@ -48,6 +54,8 @@ export class ClaudeCreditsService implements AgentCreditsProvider {
     if (!force && this.cache && Date.now() - this.cache.at < TTL_MS) {
       return this.cache.value
     }
+    // Rate limited: answer from the last reading (the dispatcher marks it stale) until the window passes.
+    if (Date.now() < this.blockedUntil && this.cache) return this.cache.value
     const value = await this.fetchUsage()
     this.cache = { value, at: Date.now() }
     return value
@@ -72,6 +80,13 @@ export class ClaudeCreditsService implements AgentCreditsProvider {
           'User-Agent': `claude-code/${app.getVersion()}`
         }
       })
+      if (res.status === 429) {
+        const retryAfter = Number(res.headers.get('retry-after'))
+        this.backoffMs = Math.min(BACKOFF_MAX_MS, this.backoffMs ? this.backoffMs * 2 : BACKOFF_MIN_MS)
+        this.blockedUntil = Date.now() + (Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(BACKOFF_MAX_MS, retryAfter * 1000) : this.backoffMs)
+        return { ...base, error: 'usage endpoint 429' }
+      }
+      this.backoffMs = 0
       if (!res.ok) {
         // 401 (expired/rejected token) or other — keep it quiet, hide the chip.
         return { ...base, error: `usage endpoint ${res.status}` }

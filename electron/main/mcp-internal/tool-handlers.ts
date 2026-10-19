@@ -288,7 +288,7 @@ async function semanticSearch(args: unknown, ctx: ToolContext): Promise<Internal
   const maxTokens = typeof input.maxTokens === 'number' ? input.maxTokens : undefined
 
   try {
-    const report = await ctx.semantic.queryDetailed(id, query, { limit, mode, maxTokens })
+    const report = await ctx.semantic.queryDetailed(id, query, { limit, mode, maxTokens, caller: 'oxespace_semantic_search' })
     if (report.results.length === 0) {
       return textResult('No semantic matches found.')
     }
@@ -298,9 +298,15 @@ async function semanticSearch(args: unknown, ctx: ToolContext): Promise<Internal
   }
 }
 
+function describeSources(sources: Awaited<ReturnType<ToolContext['semantic']['queryDetailed']>>['sources']): string {
+  if (sources.length === 0) return 'none answered'
+  return sources.map((source) => source === 'vector' ? 'vector index (meaning)' : 'FTS5 (exact repository terms)').join(' + ')
+}
+
 function formatSemanticReport(report: Awaited<ReturnType<ToolContext['semantic']['queryDetailed']>>): string {
   const header = [
     `[OXESpace Retrieval] mode=${report.resolvedMode}${report.expanded ? ' (auto-expanded after low confidence)' : ''} · confidence=${report.confidence} · context≈${report.estimatedTokens} tokens · saved≈${report.estimatedSavingsPercent}% vs full matched files · ${report.durationMs}ms`,
+    `Sources: ${describeSources(report.sources)}`,
     `Coverage: ${report.coverage.indexedFiles} indexed files · ${report.coverage.semanticCandidates} vector candidates · ${report.coverage.lexicalCandidates} lexical candidates${report.coverage.truncated ? ' · OUTPUT CAPPED' : ''}`,
     report.warning ? `CAUTION: ${report.warning}` : ''
   ].filter(Boolean).join('\n')
@@ -397,7 +403,7 @@ async function hybridExplore(args: unknown, ctx: ToolContext): Promise<InternalM
   try {
     // Structural search below needs only the checkout; the semantic half needs an index.
     if (!ws.id || !ctx.semantic.isEnabled(ws.id)) throw new Error('no semantic index for this project')
-    const semanticReport = await ctx.semantic.queryDetailed(ws.id, query, { limit: Math.min(maxFiles, 20), mode, maxTokens })
+    const semanticReport = await ctx.semantic.queryDetailed(ws.id, query, { limit: Math.min(maxFiles, 20), mode, maxTokens, caller: 'oxespace_hybrid_explore' })
     if (semanticReport.results.length > 0) {
       text += `${formatSemanticReport(semanticReport)}\n\n`
     }

@@ -1,17 +1,17 @@
 /**
  * Strip packaging dead weight before electron-builder runs.
  *
- * Semantic search uses ONLY Xenova/multilingual-e5-base from
- * resources/models (extraResources). The transformers.js download cache under
- * node_modules often still holds leftover models from older experiments
- * (all-MiniLM-L6-v2, multilingual-e5-small) — those must never ship.
+ * No semantic model ships in the installer: the optional vector index downloads
+ * or imports Xenova/multilingual-e5-base into userData at runtime. The
+ * transformers.js download cache under node_modules often still holds models
+ * from dev runs and older experiments — those must never ship.
  *
  * onnxruntime-node ships prebuilds for every OS; a build only needs the one
  * matching its target. This is the ONLY place that prunes them — electron-builder
  * `files` filters cannot vary by target, so a hardcoded filter there would strip
  * the binaries a Linux build needs and break semantic search silently.
  *
- * Safe to re-run; missing paths are ignored. Does not touch resources/models.
+ * Safe to re-run; missing paths are ignored.
  *
  * Usage: node scripts/slim-pack-deps.mjs [--platform=linux] [--arch=x64]
  *        (both default to the host)
@@ -61,7 +61,7 @@ console.log(`slim-pack-deps: stripping unused packaging weight for ${TARGET_PLAT
 // 1) transformers.js HuggingFace cache (dev leftovers, not the offline bundle)
 remove(
   'node_modules/@xenova/transformers/.cache',
-  'unused MiniLM / e5-small cache; app uses resources/models/e5-base'
+  'transformers.js dev cache; the app downloads its model into userData'
 )
 
 // 2) ONNX Runtime — keep only the prebuild matching the build target.

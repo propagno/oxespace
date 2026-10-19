@@ -10,6 +10,7 @@ import { readClaudeResultCost, stepFromProcessTotal } from './thread-cost'
 import { createApiRetryTracker } from './claude-api-retry'
 import { describePermissionRequest } from './claude-permission-request'
 import { toolResultText } from './tool-result-text'
+import { ReasoningStream } from './reasoning-stream'
 
 /** How long a cooperative interrupt may take before the process is ended instead. */
 const INTERRUPT_GRACE_MS = 2_000
@@ -28,7 +29,7 @@ function record(value: unknown): Record<string, unknown> {
 
 /** Official persistent print+stream-json transport, explicit resume after disconnection. */
 export class ClaudeConversationAdapter implements AgentConversationAdapter {
-  readonly capabilities = { resume: true, approvals: true, attachments: true, modelSelection: true, questions: true, permissions: false, elicitation: false, queue: false, steering: false, nativeSessions: true, stopTasks: true }
+  readonly capabilities = { resume: true, approvals: true, attachments: true, modelSelection: true, questions: true, permissions: false, elicitation: false, queue: false, steering: true, nativeSessions: true, stopTasks: true }
   readonly evidence: ConversationProtocolEvidence = { transport: 'claude-print-stream-json', verified: 'fixture' }
   private context: ({ rootPath: string; nativeSessionId: string | null } & ThreadConfiguration) | null = null
   private approvals = new Map<string, { input: Record<string, unknown>; toolName: string; questions?: Map<string, string>; suggestions?: unknown[]; toolUseId?: string }>()
@@ -49,6 +50,10 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
   private interruptWaiter: (() => void) | null = null
   private readonly seenMessages = new Set<string>()
   private streamMessageId = ''
+  /** Thinking blocks of the streaming message by content index, and the messages whose thinking streamed. */
+  private readonly thinkingBlocks = new Map<number, string>()
+  private readonly streamedThinking = new Set<string>()
+  private readonly reasoning = new ReasoningStream(event => this.emit(event))
   private disposed = false
   /** `total_cost_usd` of the last `result` of the running process; `result` reports a process total. */
   private processCostUsd = 0
@@ -64,6 +69,21 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
     if (this.context || this.disposed) throw new Error('Conversation adapter cannot be started twice')
     this.context = { ...context }
     this.emit = emit
+  }
+
+  /**
+   * Adds a message to the running turn. Claude Code reads stream-json input while it works and applies a
+   * message that arrives mid-turn to that same turn (verified live with 2.1.301: one result, both requests
+   * answered). A message that lands just after the turn ended starts a native continuation, which the
+   * adapter already reports as such.
+   */
+  async steer(text: string, attachments: ThreadAttachment[] = []): Promise<void> {
+    if (!this.context || this.disposed || !this.transport || !this.busy || this.completed) throw new Error('There is no active turn to steer')
+    if (!text.trim() || text.length > THREAD_PROMPT_MAX_CHARS) throw new Error('Invalid conversation input')
+    const sessionId = this.context.nativeSessionId
+    if (!sessionId) throw new Error('The turn has not started yet; try again in a moment')
+    const content = await userContent(text, attachments)
+    this.transport.write(JSON.stringify({ type: 'user', session_id: sessionId, parent_tool_use_id: null, message: { role: 'user', content } }) + '\n')
   }
 
   async send(text: string, _skill?: ThreadAgentInput['skill'], attachments: ThreadAttachment[] = []): Promise<void> {
@@ -92,7 +112,10 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
       : this.context.hooksEnabled ? undefined : '{"disableAllHooks":true}'
     // Read-only is a restricted tool surface, not a claim of OS sandboxing.
     // Exclude shell, skills, agents and external MCPs that could mutate state.
-    const runtimeArgs = ['--print', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--include-partial-messages', '--permission-mode', permissionMode, '--permission-prompts', 'host', '--permission-prompt-tool', 'stdio', '--tools', writable ? 'default' : 'Read,Glob,Grep,AskUserQuestion', ...(!writable ? ['--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}'] : []), ...(settings ? ['--settings', settings] : [])]
+    // Without --thinking-display the CLI streams thinking blocks with empty text; "summarized" carries the summary.
+    // With full access, plan mode must be able to hand over to bypass once the plan is approved
+    // (see respondRequest); the CLI refuses that switch unless the session allowed it at launch.
+    const runtimeArgs = ['--print', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--include-partial-messages', '--thinking-display', 'summarized', '--permission-mode', permissionMode, ...(this.context.access === 'full-access' ? ['--allow-dangerously-skip-permissions'] : []), '--permission-prompts', 'host', '--permission-prompt-tool', 'stdio', '--tools', writable ? 'default' : 'Read,Glob,Grep,AskUserQuestion', ...(!writable ? ['--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}'] : []), ...(settings ? ['--settings', settings] : [])]
     const args = [...runtimeArgs,
       ...(this.context.model ? ['--model', this.context.model] : []),
       ...(this.context.reasoningEffort ? ['--effort', this.context.reasoningEffort] : []),
@@ -102,6 +125,9 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
     this.authenticationFailed = false
     this.diagnostic = ''
     this.streamMessageId = ''
+    this.thinkingBlocks.clear()
+    this.streamedThinking.clear()
+    this.reasoning.clear()
     this.localPlanId = localPlanId
     this.selectedModel = text.trim().match(/^\/model\s+([a-z0-9][a-z0-9._:/\[\]-]*)$/i)?.[1]
     try {
@@ -140,10 +166,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
         catch (error) { this.initialized.reject(error instanceof Error ? error : Error('Agent initialization failed')) }
       })
       if (this.disposed || this.transport !== transport) throw Error('Agent connection ended before input could be sent')
-      const content: unknown = attachments.length ? [{ type: 'text', text }, ...(await Promise.all(attachments.map(async attachment => {
-        if (!attachment.path) throw Error('Attachment is unavailable')
-        return { type: 'image', source: { type: 'base64', media_type: attachment.mimeType, data: (await readFile(attachment.path)).toString('base64') } }
-      })))] : text
+      const content = await userContent(text, attachments)
       transport.write(JSON.stringify({ type: 'user', session_id: this.context.nativeSessionId ?? sessionId, parent_tool_use_id: null, message: { role: 'user', content } }) + '\n')
     } catch (error) {
       this.diagnostic = error instanceof Error ? error.message : this.diagnostic
@@ -221,6 +244,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
         this.context!.model = this.selectedModel
         this.emit({ type: 'configuration', model: this.selectedModel })
       }
+      this.reasoning.completeAll()
       const failure = status === 'failed' ? threadFailure({ message: this.diagnostic, ...(this.authenticationFailed ? { codexErrorInfo: 'authentication_failed' } : {}) }) : undefined
       this.emit({ type: 'completed', status, ...(failure ? { error: failure.message, errorCode: failure.code, failure } : {}) })
     }
@@ -325,7 +349,26 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
           if (typeof event.cwd === 'string') this.emit({ type: 'location', cwd: event.cwd })
         } else if (event.type === 'stream_event') {
           const streamed = record(event.event)
-          if (streamed.type === 'message_start') this.streamMessageId = typeof record(streamed.message).id === 'string' ? String(record(streamed.message).id) : randomUUID()
+          if (streamed.type === 'message_start') {
+            this.streamMessageId = typeof record(streamed.message).id === 'string' ? String(record(streamed.message).id) : randomUUID()
+            this.thinkingBlocks.clear()
+          }
+          const index = typeof streamed.index === 'number' ? streamed.index : 0
+          if (streamed.type === 'content_block_start' && record(streamed.content_block).type === 'thinking') {
+            if (!this.streamMessageId) this.streamMessageId = randomUUID()
+            const id = `thinking:${this.streamMessageId}:${index}`
+            this.thinkingBlocks.set(index, id)
+            this.streamedThinking.add(this.streamMessageId)
+            this.reasoning.begin(id)
+          }
+          if (streamed.type === 'content_block_delta' && record(streamed.delta).type === 'thinking_delta' && typeof record(streamed.delta).thinking === 'string') {
+            const id = this.thinkingBlocks.get(index)
+            if (id) this.reasoning.append(id, String(record(streamed.delta).thinking))
+          }
+          if (streamed.type === 'content_block_stop' && this.thinkingBlocks.has(index)) {
+            this.reasoning.complete(this.thinkingBlocks.get(index)!)
+            this.thinkingBlocks.delete(index)
+          }
           if (streamed.type === 'content_block_delta' && record(streamed.delta).type === 'text_delta' && typeof record(streamed.delta).text === 'string') {
             if (!this.streamMessageId) this.streamMessageId = randomUUID()
             this.emit({ type: 'delta', id: this.streamMessageId, text: String(record(streamed.delta).text) })
@@ -344,6 +387,11 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
             this.diagnostic = answer
             return
           }
+          // Without partial messages the thinking arrives only here, whole.
+          const messageId = typeof record(event.message).id === 'string' ? record(event.message).id as string : ''
+          if (messageId && !this.streamedThinking.has(messageId)) content.map(record).forEach((block, position) => {
+            if (block.type === 'thinking' && typeof block.thinking === 'string' && block.thinking.trim()) this.reasoning.complete(`thinking:${messageId}:${position}`, block.thinking)
+          })
           if (answer) { this.answerShown = true; this.emit({ type: 'message', id: typeof record(event.message).id === 'string' ? record(event.message).id as string : randomUUID(), role: 'assistant', text: answer }) }
           for (const block of content.map(record)) {
             if (block.type === 'tool_use' && typeof block.id === 'string') {
@@ -457,7 +505,13 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
     if (pending.questions && response.answers && [...pending.questions.keys()].some(id => !response.answers![id]?.some(value => value.trim()))) throw Error('Answer every question before sending.')
     const updatedInput = pending.toolName === 'AskUserQuestion' ? { ...pending.input, answers: Object.fromEntries(answers) } : pending.input
     const accept = response.decision ? ['accept', 'acceptForSession'].includes(response.decision) : Boolean(response.answers)
-    this.transport.write(JSON.stringify({ type: 'control_response', response: { subtype: 'success', request_id: requestId, response: accept ? { behavior: 'allow', updatedInput, ...(response.decision === 'acceptForSession' && pending.suggestions?.length ? { updatedPermissions: pending.suggestions } : {}), ...(pending.toolUseId ? { toolUseID: pending.toolUseId } : {}) } : { behavior: 'deny', message: response.reason?.slice(0, 1000) || (response.decision === 'cancel' ? 'Cancelled by the user' : 'Declined by the user') } } }) + '\n')
+    // An approved plan leaves plan mode for the CLI's default mode, which asks before every
+    // command. With full access the conversation goes back to bypass, as it was before planning.
+    const afterPlan = pending.toolName === 'ExitPlanMode' && this.context?.access === 'full-access'
+      ? [{ type: 'setMode', mode: 'bypassPermissions', destination: 'session' }]
+      : []
+    const updatedPermissions = [...(response.decision === 'acceptForSession' ? pending.suggestions ?? [] : []), ...afterPlan]
+    this.transport.write(JSON.stringify({ type: 'control_response', response: { subtype: 'success', request_id: requestId, response: accept ? { behavior: 'allow', updatedInput, ...(updatedPermissions.length ? { updatedPermissions } : {}), ...(pending.toolUseId ? { toolUseID: pending.toolUseId } : {}) } : { behavior: 'deny', message: response.reason?.slice(0, 1000) || (response.decision === 'cancel' ? 'Cancelled by the user' : 'Declined by the user') } } }) + '\n')
     this.approvals.delete(requestId)
     this.emit({ type: 'request-resolved', id: requestId, ...requestOutcome(pending.toolName === 'AskUserQuestion' ? 'question' : 'approval', response), resolvedAt: Date.now() })
     this.emit({ type: 'approval-resolved', id: requestId })
@@ -513,4 +567,13 @@ export function enteredWorktreePath(text: string): string | null {
   if (stated) return unquote(stated[1])
   const match = /([A-Za-z]:[\\/][^\s"'`“”‘’<>|]+|(?<![\w.])\/[^\s"'`“”‘’<>|]+)/.exec(text)
   return match ? match[1].replace(/[.,;:)\]]+$/, '') : null
+}
+
+/** A user message's content: plain text, or text followed by images read from their stored files. */
+async function userContent(text: string, attachments: ThreadAttachment[]): Promise<unknown> {
+  if (!attachments.length) return text
+  return [{ type: 'text', text }, ...(await Promise.all(attachments.map(async attachment => {
+    if (!attachment.path) throw Error('Attachment is unavailable')
+    return { type: 'image', source: { type: 'base64', media_type: attachment.mimeType, data: (await readFile(attachment.path)).toString('base64') } }
+  })))]
 }

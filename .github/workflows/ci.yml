@@ -260,7 +260,16 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          npm run test:e2e
+          npm run test:e2e -- --trace retain-on-failure
+
+      - name: Upload E2E traces (Windows failures)
+        if: failure() && runner.os == 'Windows'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: e2e-traces-windows
+          if-no-files-found: ignore
+          retention-days: 7
+          path: test-results/**/trace.zip
 
       # Electron needs a display; the wrapper owns a private Xvfb lifecycle so
       # repeated Playwright launches cannot leave the CI job waiting on Xvfb.
@@ -307,9 +316,10 @@ jobs:
         continue-on-error: true
         run: npx vitest bench --run tests/bench/hotpaths.bench.ts
 
-      # prepare:model pulls @xenova/transformers → sharp. npm ci --ignore-scripts
-      # leaves the sharp native binary missing; rebuild it for the Node ABI only.
-      - name: Install sharp native bindings for model prepare
+      # @xenova/transformers imports sharp when the optional semantic index loads.
+      # npm ci --ignore-scripts leaves the sharp native binary missing; rebuild it
+      # (N-API, so the Node build also loads under Electron) before packaging.
+      - name: Install sharp native bindings
         if: (steps.plan.outputs.should_release == 'true' || steps.plan.outputs.packaged_smoke == 'true')
         shell: pwsh
         run: |
@@ -323,8 +333,8 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          # build + fix:native already ran above; only prepare model, slim, package.
-          npm run prepare:model
+          # build + fix:native already ran above; only slim and package. The
+          # semantic model is not bundled (downloaded on demand into userData).
           # slim:pack keeps ONLY the target's ONNX prebuild; passing the target
           # explicitly matters because it is what a Linux build needs to KEEP.
           node scripts/slim-pack-deps.mjs --platform=${{ matrix.slim_platform }} --arch=x64
@@ -332,6 +342,9 @@ jobs:
           # prerelease versions. Set it explicitly so beta builds emit beta.yml
           # (and beta-linux.yml) instead of overwriting the stable latest feed.
           npx electron-builder ${{ matrix.builder_flag }} --config.npmRebuild=false --config.publish.channel=${{ steps.plan.outputs.channel }} --publish never
+          # Installer size in every run log, so a dependency that bloats the package shows up in review.
+          Get-ChildItem dist -File | Where-Object { $_.Extension -in '.exe', '.deb', '.AppImage' } |
+            ForEach-Object { '[installer-size] {0} {1:N1} MB' -f $_.Name, ($_.Length / 1MB) }
 
       - name: E2E packaged Linux build
         if: (steps.plan.outputs.should_release == 'true' || steps.plan.outputs.packaged_smoke == 'true') && runner.os == 'Linux'
