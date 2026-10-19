@@ -252,6 +252,26 @@ describe('Claude print conversation', () => {
     await expect(f.adapter.approve()).rejects.toThrow('no longer pending')
     await f.adapter.dispose()
   })
+  it('returns a full-access conversation to bypass when its plan is approved, and only then', async () => {
+    const full = fixture()
+    await full.adapter.start({ rootPath: '/project', nativeSessionId: null, access: 'full-access', mode: 'plan' }, event => full.events.push(event))
+    await full.adapter.send('Plan, then implement')
+    expect(full.turns[0].args).toEqual(expect.arrayContaining(['--permission-mode', 'plan', '--allow-dangerously-skip-permissions']))
+    full.emit(0, { type: 'control_request', request_id: 'plan', request: { subtype: 'can_use_tool', tool_name: 'ExitPlanMode', input: { plan: 'Run echo hi' } } })
+    await full.adapter.respondRequest!('plan', { decision: 'accept' })
+    expect(full.turns[0].writes.at(-1)).toMatchObject({ response: { request_id: 'plan', response: { behavior: 'allow', updatedPermissions: [{ type: 'setMode', mode: 'bypassPermissions', destination: 'session' }] } } })
+    await full.adapter.dispose()
+
+    // Without full access an approved plan keeps the CLI's own (asking) mode and the launch flag is absent.
+    const writable = fixture()
+    await writable.adapter.start({ rootPath: '/project', nativeSessionId: null, access: 'workspace-write', mode: 'plan' }, event => writable.events.push(event))
+    await writable.adapter.send('Plan, then implement')
+    expect(writable.turns[0].args).not.toContain('--allow-dangerously-skip-permissions')
+    writable.emit(0, { type: 'control_request', request_id: 'plan', request: { subtype: 'can_use_tool', tool_name: 'ExitPlanMode', input: { plan: 'Run echo hi' } } })
+    await writable.adapter.respondRequest!('plan', { decision: 'accept' })
+    expect((writable.turns[0].writes.at(-1) as { response: { response: Record<string, unknown> } }).response.response).not.toHaveProperty('updatedPermissions')
+    await writable.adapter.dispose()
+  })
   it('answers AskUserQuestion in-process and maps full access to the native bypass mode', async () => {
     const f = fixture()
     await f.adapter.start({ rootPath: '/project', nativeSessionId: null, access: 'full-access' }, event => f.events.push(event))

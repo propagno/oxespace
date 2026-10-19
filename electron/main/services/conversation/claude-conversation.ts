@@ -113,7 +113,9 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
     // Read-only is a restricted tool surface, not a claim of OS sandboxing.
     // Exclude shell, skills, agents and external MCPs that could mutate state.
     // Without --thinking-display the CLI streams thinking blocks with empty text; "summarized" carries the summary.
-    const runtimeArgs = ['--print', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--include-partial-messages', '--thinking-display', 'summarized', '--permission-mode', permissionMode, '--permission-prompts', 'host', '--permission-prompt-tool', 'stdio', '--tools', writable ? 'default' : 'Read,Glob,Grep,AskUserQuestion', ...(!writable ? ['--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}'] : []), ...(settings ? ['--settings', settings] : [])]
+    // With full access, plan mode must be able to hand over to bypass once the plan is approved
+    // (see respondRequest); the CLI refuses that switch unless the session allowed it at launch.
+    const runtimeArgs = ['--print', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--include-partial-messages', '--thinking-display', 'summarized', '--permission-mode', permissionMode, ...(this.context.access === 'full-access' ? ['--allow-dangerously-skip-permissions'] : []), '--permission-prompts', 'host', '--permission-prompt-tool', 'stdio', '--tools', writable ? 'default' : 'Read,Glob,Grep,AskUserQuestion', ...(!writable ? ['--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}'] : []), ...(settings ? ['--settings', settings] : [])]
     const args = [...runtimeArgs,
       ...(this.context.model ? ['--model', this.context.model] : []),
       ...(this.context.reasoningEffort ? ['--effort', this.context.reasoningEffort] : []),
@@ -503,7 +505,13 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
     if (pending.questions && response.answers && [...pending.questions.keys()].some(id => !response.answers![id]?.some(value => value.trim()))) throw Error('Answer every question before sending.')
     const updatedInput = pending.toolName === 'AskUserQuestion' ? { ...pending.input, answers: Object.fromEntries(answers) } : pending.input
     const accept = response.decision ? ['accept', 'acceptForSession'].includes(response.decision) : Boolean(response.answers)
-    this.transport.write(JSON.stringify({ type: 'control_response', response: { subtype: 'success', request_id: requestId, response: accept ? { behavior: 'allow', updatedInput, ...(response.decision === 'acceptForSession' && pending.suggestions?.length ? { updatedPermissions: pending.suggestions } : {}), ...(pending.toolUseId ? { toolUseID: pending.toolUseId } : {}) } : { behavior: 'deny', message: response.reason?.slice(0, 1000) || (response.decision === 'cancel' ? 'Cancelled by the user' : 'Declined by the user') } } }) + '\n')
+    // An approved plan leaves plan mode for the CLI's default mode, which asks before every
+    // command. With full access the conversation goes back to bypass, as it was before planning.
+    const afterPlan = pending.toolName === 'ExitPlanMode' && this.context?.access === 'full-access'
+      ? [{ type: 'setMode', mode: 'bypassPermissions', destination: 'session' }]
+      : []
+    const updatedPermissions = [...(response.decision === 'acceptForSession' ? pending.suggestions ?? [] : []), ...afterPlan]
+    this.transport.write(JSON.stringify({ type: 'control_response', response: { subtype: 'success', request_id: requestId, response: accept ? { behavior: 'allow', updatedInput, ...(updatedPermissions.length ? { updatedPermissions } : {}), ...(pending.toolUseId ? { toolUseID: pending.toolUseId } : {}) } : { behavior: 'deny', message: response.reason?.slice(0, 1000) || (response.decision === 'cancel' ? 'Cancelled by the user' : 'Declined by the user') } } }) + '\n')
     this.approvals.delete(requestId)
     this.emit({ type: 'request-resolved', id: requestId, ...requestOutcome(pending.toolName === 'AskUserQuestion' ? 'question' : 'approval', response), resolvedAt: Date.now() })
     this.emit({ type: 'approval-resolved', id: requestId })
