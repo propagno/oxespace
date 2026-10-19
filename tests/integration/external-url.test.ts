@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isLoopbackHttpUrl, isSafeExternalUrl } from '../../electron/main/utils/external-url'
+import { isAppNavigation, isLoopbackHttpUrl, isSafeExternalUrl } from '../../electron/main/utils/external-url'
 
 describe('external URL allowlist', () => {
   it('allows only browser-safe external protocols', () => {
@@ -18,5 +18,19 @@ describe('external URL allowlist', () => {
     expect(isLoopbackHttpUrl('http://[::1]:5173')).toBe(true)
     expect(isLoopbackHttpUrl('https://example.com')).toBe(false)
     expect(isLoopbackHttpUrl('file:///C:/secret.txt')).toBe(false)
+  })
+})
+
+describe('main window navigation', () => {
+  const packaged = 'file:///C:/Program%20Files/OXESpace/resources/app.asar/out/renderer/index.html'
+  it('stays on the renderer file or the dev server', () => {
+    expect(isAppNavigation(`${packaged}#/thread`, packaged)).toBe(true)
+    expect(isAppNavigation('http://localhost:5173/src/main.tsx', 'http://localhost:5173')).toBe(true)
+  })
+  it('refuses remote pages, other local files and other dev ports', () => {
+    expect(isAppNavigation('https://example.com/', packaged)).toBe(false)
+    expect(isAppNavigation('file:///C:/Users/me/evil.html', packaged)).toBe(false)
+    expect(isAppNavigation('http://localhost:3000/', 'http://localhost:5173')).toBe(false)
+    expect(isAppNavigation('not a url', packaged)).toBe(false)
   })
 })

@@ -256,6 +256,11 @@ export class ThreadCheckpointService {
     if (!result.changes) throw Error('Checkpoint not found')
   }
 
+  /** After a restart no checkpoint can still be capturing: every open one, in every conversation, failed. */
+  failAllOpen(error: string): void {
+    this.db.prepare("UPDATE conversation_checkpoints SET state = 'failed', finalized_at = ?, error = ? WHERE state = 'open'").run(Date.now(), error)
+  }
+
   failOpen(threadId: string, error: string): void {
     this.db.prepare("UPDATE conversation_checkpoints SET state = 'failed', finalized_at = ?, error = ? WHERE thread_id = ? AND state = 'open'").run(Date.now(), error, threadId)
   }

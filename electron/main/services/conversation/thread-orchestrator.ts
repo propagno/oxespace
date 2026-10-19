@@ -27,6 +27,7 @@ import { threadCapabilityManifest } from './thread-capabilities'
 import { splitThreadPatch } from '../../../../shared/threadPatch'
 import { settleVolatileThreadSnapshot } from './thread-recovery.service'
 import { ThreadSessionSupervisor } from './thread-session-supervisor'
+import { pruneThreadData } from './thread-retention'
 import { ThreadExportService } from './thread-export.service'
 import { ThreadPortableService } from './thread-portable'
 import { ThreadCheckpointService } from './thread-checkpoints'
@@ -47,8 +48,19 @@ const sameCheckout = (a: string, b: string): boolean => canonicalPath(a) === can
 const workingRootOf = (thread: ConversationThread): string =>
   thread.observedLocation?.sameRepository && thread.observedLocation.checkoutRoot ? thread.observedLocation.checkoutRoot : thread.rootPath
 
+/** Conversations a restart may have left mid-operation: live status, an open connection, or a task still marked running. */
+const THREADS_NEEDING_RECOVERY = `SELECT id FROM conversation_threads t WHERE
+  json_extract(data_json, '$.status') IN ('running', 'approval')
+  OR json_extract(data_json, '$.cliActive') = 1
+  OR coalesce(json_extract(data_json, '$.connection.state'), 'closed') != 'closed'
+  OR json_extract(data_json, '$.connection.suspendedAt') IS NOT NULL
+  OR EXISTS (SELECT 1 FROM conversation_events e WHERE e.thread_id = t.id
+    AND json_extract(e.data_json, '$.type') = 'subagent' AND json_extract(e.data_json, '$.state') = 'running')`
+
 /** How often idle conversations are checked for suspension. */
 const IDLE_SWEEP_MS = 60_000
+/** Full histories kept in memory for conversations with no work in flight. */
+const MAX_IDLE_SNAPSHOTS = 12
 
 /** Repair older histories whose provider ended a turn without a matching tool result. */
 function settleCompletedHistoryTools(events: ThreadEvent[]): number {
@@ -118,7 +130,13 @@ export class ThreadOrchestrator {
   /** Live sessions holding "allow for the session" grants, which a restarted process would forget. */
   private readonly sessionGrants = new Set<string>()
   private readonly suspending = new Map<string, Promise<void>>()
+  /** A send that is starting a turn and has not reserved the conversation as busy yet. */
+  private readonly starting = new Set<string>()
+  /** Provider connections being opened, so two callers share one process instead of orphaning one. */
+  private readonly connecting = new Map<string, Promise<AgentConversationAdapter>>()
   private readonly idleSweep: ReturnType<typeof setInterval>
+  /** Daily retention pass for an app left open for days. */
+  private readonly retentionSweep: ReturnType<typeof setInterval>
 
   constructor(private readonly db: AppDatabase,
     private readonly factory: (thread: ConversationThread) => Promise<AgentConversationAdapter>,
@@ -139,8 +157,11 @@ export class ThreadOrchestrator {
     this.permissions = new ThreadPermissionStore(db)
     this.usage = new ThreadUsageLedger(db)
     try { this.permissions.prune() } catch { /* Audit retention is best effort. */ }
+    try { pruneThreadData(db) } catch { /* Retention is best effort; nothing is lost by skipping it once. */ }
     // A persisted running state is not proof that its process survived a restart.
-    for (const row of db.prepare('SELECT id FROM conversation_threads').all() as { id: string }[]) {
+    // Only conversations whose saved state says something was still live are read in full; the rest stay on disk.
+    this.checkpoints.failAllOpen('OXESpace restarted before this checkpoint could be finalized.')
+    for (const row of db.prepare(THREADS_NEEDING_RECOVERY).all() as { id: string }[]) {
       const snapshot = this.history.read(row.id)
       let recovered = false
       let eventsFrom = snapshot.events.length
@@ -149,7 +170,6 @@ export class ThreadOrchestrator {
         this.history.settleOpenOperations(snapshot.thread.id, 'unknown', 'OXESpace restarted before the provider result was confirmed.')
         recovered = true; eventsFrom = 0
       }
-      this.checkpoints.failOpen(row.id, 'OXESpace restarted before this checkpoint could be finalized.')
       if (snapshot.thread.connection && (snapshot.thread.connection.state !== 'closed' || snapshot.thread.connection.suspendedAt)) { snapshot.thread.connection = this.sessions.close(row.id); recovered = true }
       if (recovered) this.save(snapshot, { eventsFrom })
       this.snapshots.delete(row.id)
@@ -164,6 +184,8 @@ export class ThreadOrchestrator {
     queueMicrotask(() => { try { this.work.resume() } catch { /* Agent Work recovery is best effort. */ } })
     this.idleSweep = setInterval(() => { void this.suspendIdle().catch(() => {}) }, IDLE_SWEEP_MS)
     this.idleSweep.unref?.()
+    this.retentionSweep = setInterval(() => { try { pruneThreadData(this.db) } catch { /* best effort */ } }, 24 * 60 * 60 * 1000)
+    this.retentionSweep.unref?.()
   }
 
   /** Minutes without activity before an idle conversation's agent process is closed; 0 keeps it open. */
@@ -252,6 +274,7 @@ export class ThreadOrchestrator {
         .run(snapshot.thread.id, context.workspaceId, context.projectId, JSON.stringify(snapshot.thread), '[]')
     })()
     this.snapshots.set(snapshot.thread.id, snapshot)
+    this.trimSnapshots()
     this.changed(snapshot.thread.id)
     return snapshot
   }
@@ -260,7 +283,11 @@ export class ThreadOrchestrator {
     this.flushDeltas(id)
     const cached = this.snapshots.get(id)
     if (cached) {
-      if (this.db.prepare('SELECT 1 FROM conversation_threads WHERE id = ?').get(id)) return cached
+      if (this.db.prepare('SELECT 1 FROM conversation_threads WHERE id = ?').get(id)) {
+        // Most recently used last, so trimming drops the conversations nobody touched for longest.
+        this.snapshots.delete(id); this.snapshots.set(id, cached)
+        return cached
+      }
       this.snapshots.delete(id)
       throw Error('Thread not found')
     }
@@ -268,7 +295,31 @@ export class ThreadOrchestrator {
     const firstRepairedEvent = settleCompletedHistoryTools(snapshot.events)
     if (firstRepairedEvent < snapshot.events.length) this.history.persistFrom(snapshot, firstRepairedEvent)
     this.snapshots.set(id, snapshot)
+    this.trimSnapshots()
     return snapshot
+  }
+
+  /**
+   * Full snapshots hold a conversation's whole history in memory. Conversations with work in flight keep theirs;
+   * the others are dropped beyond a small set, and the next read loads them again from the database.
+   */
+  private trimSnapshots(): void {
+    let idle = 0
+    for (const id of [...this.snapshots.keys()].reverse()) {
+      if (this.busy.has(id) || this.starting.has(id) || this.finalizing.has(id) || this.configuring.has(id) || this.observations.has(id) || this.nativePageLoads.has(id) || this.deltaBuffers.has(id)) continue
+      if (++idle > MAX_IDLE_SNAPSHOTS) this.snapshots.delete(id)
+    }
+  }
+
+  /** In-memory state of a conversation that no longer exists. */
+  private forget(id: string): void {
+    this.snapshots.delete(id)
+    this.lastActivity.delete(id)
+    this.sessionGrants.delete(id)
+    this.workingTreeBaselines.delete(id)
+    this.turnRoots.delete(id)
+    clearTimeout(this.deltaTimers.get(id)); this.deltaTimers.delete(id); this.deltaBuffers.delete(id)
+    this.requests.invalidate(id)
   }
 
   readForRenderer(id: string): ThreadSnapshot {
@@ -466,9 +517,27 @@ export class ThreadOrchestrator {
     assertThreadMessage(text)
     if (this.configuring.has(id)) throw new Error('Configuration is already being updated')
     if (this.read(id).thread.cliActive) throw Error('The native CLI already owns this conversation')
+    // Decide queue or new turn before the first await: two sends arriving together must not both start a turn.
+    const queue = this.busy.has(id) || this.finalizing.has(id) || this.starting.has(id)
+    if (!queue) this.starting.add(id)
+    let done = false
+    try {
+      await this.sendReserved(id, text, attachmentIds, queue)
+      done = true
+    } finally {
+      if (!queue) {
+        this.starting.delete(id)
+        // Input queued behind a slash command that ran without a turn still has to run. After a failure
+        // the queue waits, as it always has, instead of failing every queued message in turn.
+        if (done && !this.busy.has(id)) queueMicrotask(() => void this.drainQueue(id).catch(() => {}))
+      }
+    }
+  }
+
+  private async sendReserved(id: string, text: string, attachmentIds: string[], queue: boolean): Promise<void> {
     const attachments = attachmentIds.length ? await this.resolveAttachments(id, attachmentIds) : []
     recordRuntime('turn-submit', { thread: id, kind: 'thread' })
-    if (this.busy.has(id) || this.finalizing.has(id)) {
+    if (queue) {
       const snapshot = this.read(id), adapter = this.adapters.get(id)
       const operation = this.history.beginOperation({ threadId: id, generation: snapshot.thread.generation ?? 1, kind: 'queue' })
       const item: ThreadQueuedInput = { id: randomUUID(), operationId: operation.id, text, attachmentIds,
@@ -567,7 +636,7 @@ export class ThreadOrchestrator {
     for (const [id, adapter] of this.adapters) {
       if (this.busy.has(id)) continue
       try { if (this.read(id).thread.provider !== provider) continue } catch { /* deleted */ }
-      this.adapters.delete(id); await adapter.dispose()
+      this.adapters.delete(id); await adapter.dispose().catch(() => {})
       try { const snapshot = this.read(id); snapshot.thread.connection = this.sessions.close(id); this.save(snapshot, { eventsFrom: snapshot.events.length }) } catch { /* deleted */ }
     }
   }
@@ -909,7 +978,7 @@ export class ThreadOrchestrator {
       disposeAdapter: async id => { const adapter = this.adapters.get(id); this.adapters.delete(id); await adapter?.dispose() },
       deleteThread: async id => {
         this.db.prepare('DELETE FROM conversation_threads WHERE id = ?').run(id)
-        this.snapshots.delete(id)
+        this.forget(id)
         await this.attachmentStore?.removeThread(id)
         this.changed(id)
       }
@@ -920,6 +989,7 @@ export class ThreadOrchestrator {
     for (const id of this.deltaBuffers.keys()) this.flushDeltas(id)
     this.stopping = true
     clearInterval(this.idleSweep)
+    clearInterval(this.retentionSweep)
     this.work.stop()
     const observations = Promise.allSettled([...this.observations.values()])
     await this.stateReader?.stop()
@@ -1216,7 +1286,8 @@ export class ThreadOrchestrator {
     if (!options) this.history.rewriteHistory(snapshot)
     else if (options.eventsFrom === snapshot.events.length && !options.operationId) this.history.updateThreadMetadata(snapshot.thread)
     else this.history.persistFrom(snapshot, options.eventsFrom ?? 0, options.operationId)
-    this.snapshots.set(snapshot.thread.id, snapshot)
+    this.snapshots.delete(snapshot.thread.id); this.snapshots.set(snapshot.thread.id, snapshot)
+    this.trimSnapshots()
     this.changed(snapshot.thread.id)
   }
 
@@ -1282,7 +1353,8 @@ export class ThreadOrchestrator {
     roots.add(key)
     this.turnRoots.set(id, { turnId, roots })
     const [checkpointId, state] = await Promise.all([
-      this.checkpoints.begin({ threadId: id, turnId, rootPath: root, label }).catch(() => undefined),
+      // No checkpoint means this turn cannot be undone; say so in diagnostics instead of dropping the reason.
+      this.checkpoints.begin({ threadId: id, turnId, rootPath: root, label }).catch((error: unknown) => { recordRuntime('checkpoint-failed', { thread: id, turn: turnId, state: error instanceof Error ? error.message.slice(0, 200) : 'unknown' }); return undefined }),
       baseline ? this.workingState(root) : Promise.resolve(undefined)
     ])
     // The turn may have finished while these reads ran (a move reported right before completion). Its records
@@ -1309,7 +1381,18 @@ export class ThreadOrchestrator {
     }
   }
 
-  private async connectAdapter(id: string, thread: ConversationThread, runPreflight = true): Promise<AgentConversationAdapter> {
+  /** One provider process per conversation: callers that arrive while it is opening share that connection. */
+  private connectAdapter(id: string, thread: ConversationThread, runPreflight = true): Promise<AgentConversationAdapter> {
+    const pending = this.connecting.get(id)
+    if (pending) return pending
+    const opening = this.openAdapter(id, thread, runPreflight)
+    this.connecting.set(id, opening)
+    const release = (): void => { if (this.connecting.get(id) === opening) this.connecting.delete(id) }
+    opening.then(release, release)
+    return opening
+  }
+
+  private async openAdapter(id: string, thread: ConversationThread, runPreflight: boolean): Promise<AgentConversationAdapter> {
     // An idle suspension still closing this conversation's process finishes first.
     await this.suspending.get(id)
     const existing = this.adapters.get(id)
