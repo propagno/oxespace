@@ -10,6 +10,8 @@ describe('a host as people paste it', () => {
     expect(splitHostInput('[::1]:5433')).toEqual({ host: '::1', port: 5433 })
     expect(splitHostInput('10.0.0.5')).toEqual({ host: '10.0.0.5' })
     expect(splitHostInput('::1')).toEqual({ host: '::1' })
+    // Typed as a host, a user name is not silently dropped: it is refused when saved.
+    expect(splitHostInput('user@db.example.com')).toEqual({ host: 'user@db.example.com' })
   })
 
   it('is applied when a connection is saved', () => {
