@@ -1,6 +1,6 @@
 /* Code-specific project tree; shared chrome lives in NavigationChrome.css. */
 .sidebar-redesign { position: relative; }
-.sidebar-width-handle { position: absolute; z-index: 5; top: 0; bottom: 0; right: 0; width: 4px; cursor: col-resize; touch-action: none; }
+.sidebar-width-handle { position: absolute; z-index: calc(var(--layer-raised) + 4); top: 0; bottom: 0; right: 0; width: 4px; cursor: col-resize; touch-action: none; }
 .sidebar-width-handle:hover, .sidebar-width-handle:focus-visible { background: color-mix(in srgb, var(--accent) 35%, transparent); }
 .sidebar-workspace-tree { border: 1px solid transparent; border-radius: var(--nav-radius); margin-bottom: 4px; overflow: visible; }
 .sidebar-workspace-tree .ws-group { border: 0; background: transparent; margin: 0; }

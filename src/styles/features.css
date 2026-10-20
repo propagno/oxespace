@@ -1859,7 +1859,7 @@
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
-  z-index: 90;
+  z-index: var(--layer-dropdown);
   min-width: 144px;
   background: var(--surface-sunken);
   border: 1px solid var(--border-default);
@@ -2466,7 +2466,7 @@
   position: absolute;
   top: 8px;
   right: 8px;
-  z-index: 20;
+  z-index: calc(var(--layer-raised) + 19);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -2602,7 +2602,7 @@
   position: absolute;
   right: 0;
   bottom: calc(100% + 4px);
-  z-index: 40;
+  z-index: var(--layer-dropdown);
   min-width: 168px;
   padding: 4px;
   border-radius: var(--radius-md);
@@ -2841,7 +2841,7 @@
   left: 12px;
   right: 12px;
   bottom: 12px;
-  z-index: 3;
+  z-index: calc(var(--layer-raised) + 2);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -4147,7 +4147,7 @@
   background: var(--bg-tile-header);
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: var(--layer-sticky);
 }
 .review-card-collapse-btn {
   display: inline-flex;
@@ -5292,7 +5292,7 @@
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
-  z-index: 20;
+  z-index: var(--layer-dropdown);
   min-width: 220px;
   display: flex;
   flex-direction: column;

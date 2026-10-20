@@ -237,7 +237,7 @@
   border-radius: var(--radius-xs);
   box-shadow: 0 0 6px rgba(0, 214, 201, 0.6);
   pointer-events: none;
-  z-index: 5;
+  z-index: calc(var(--layer-raised) + 4);
 }
 
 .ws-group.drop-before::before { top: -1px; }
@@ -1623,7 +1623,7 @@
 .resize-handle {
   background: var(--ov-3);
   transition: background var(--duration-fast) var(--ease-standard);
-  z-index: 2;
+  z-index: calc(var(--layer-raised) + 1);
 }
 .resize-handle[data-resize-handle-active],
 .resize-handle:hover {
