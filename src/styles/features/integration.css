@@ -1,0 +1,1110 @@
+/* Integration command center and panel. Split out of the former features.css; imported in order from styles.css. */
+
+/* Integration Command Center */
+.workspace-integration-panel {
+  background: var(--bg-app);
+}
+
+.integration-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+  padding: 10px;
+  color: var(--tx-secondary);
+}
+
+.integration-create-card,
+.integration-create-card {
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-quiet);
+  padding: 10px;
+}
+
+.integration-create-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: var(--space-md);
+}
+
+.integration-create-intro strong {
+  color: var(--tx-primary);
+  font-size: var(--fs-sm);
+}
+
+.integration-create-intro span,
+.integration-member-editor-help {
+  color: var(--tx-muted);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+}
+
+.integration-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.integration-field > span {
+  color: var(--tx-secondary);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+.integration-create-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.integration-create-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+}
+
+.integration-create-grid .primary-btn {
+  justify-content: center;
+}
+
+.integration-panel input,
+.integration-panel select,
+.integration-panel textarea {
+  min-width: 0;
+  width: 100%;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-app);
+  color: var(--tx-primary);
+  padding: 8px 10px;
+  font: inherit;
+  font-size: var(--fs-xs);
+}
+
+.integration-panel textarea {
+  min-height: 86px;
+  resize: vertical;
+}
+
+.integration-error,
+.integration-notice {
+  border: 1px solid var(--intent-danger-border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  color: var(--intent-danger-fg);
+  background: var(--intent-danger-bg);
+  font-size: var(--fs-xs);
+}
+
+.integration-notice {
+  border-color: var(--accent-border);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.integration-group-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.integration-group-tabs button,
+.integration-actions button {
+  white-space: nowrap;
+}
+
+.integration-group-tabs button {
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-quiet);
+  color: var(--tx-secondary);
+  padding: 7px 10px;
+  font-size: var(--fs-xs);
+}
+
+.integration-group-tabs button.active {
+  color: var(--accent);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+
+.integration-empty {
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  min-height: 150px;
+  color: var(--tx-muted);
+  text-align: center;
+  font-size: var(--fs-xs);
+}
+
+.integration-member-edit-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--tx-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition-base), background var(--transition-base), color var(--transition-base);
+}
+
+.integration-member-row:hover .integration-member-edit-btn,
+.integration-member-edit-btn.active,
+.integration-member-edit-btn:focus {
+  opacity: 1;
+}
+
+.integration-member-edit-btn:hover {
+  background: var(--surface-active);
+  color: var(--tx-primary);
+}
+
+.integration-member-edit-btn.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* Inline editor sits beneath the card, sharing its left+right borders so the
+   pair reads as a single expanded element. */
+.integration-member-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border: 1px solid var(--accent-border);
+  border-top: none;
+  border-bottom-left-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-sm);
+  background: var(--surface-quiet);
+}
+
+.integration-member-editor-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 130px;
+  gap: var(--space-sm);
+}
+
+.integration-member-editor-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.integration-member-editor-field > span {
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tx-muted);
+}
+
+.integration-member-editor-field input,
+.integration-member-editor-field select,
+.integration-member-editor-field textarea {
+  width: 100%;
+  padding: 6px 9px;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-app);
+  color: var(--tx-primary);
+  font-size: var(--fs-xs);
+  font-family: inherit;
+  outline: none;
+  transition: border-color var(--transition-base);
+}
+
+.integration-member-editor-field input:focus,
+.integration-member-editor-field select:focus,
+.integration-member-editor-field textarea:focus {
+  border-color: var(--bd-input-focus);
+}
+
+.integration-member-editor-field textarea {
+  resize: vertical;
+  min-height: 48px;
+  line-height: 1.5;
+}
+
+.integration-member-editor-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-xs);
+}
+
+.integration-member-remove-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: auto;
+  padding: 5px 8px;
+  border: 1px solid var(--intent-danger-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--tx-muted);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+
+.integration-member-remove-btn:hover,
+.integration-member-remove-btn.confirming {
+  border-color: var(--intent-danger-border);
+  background: var(--intent-danger-bg);
+  color: var(--dot-red);
+}
+
+.integration-member-remove-btn:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+/* Status filter chips above the group tabs. Active chip gets the brand
+   accent so the user always knows which subset of groups is in view. */
+.integration-status-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-quiet);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-pill);
+}
+
+.integration-status-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--tx-muted);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-base), color var(--transition-base);
+}
+
+.integration-status-filter-chip:hover {
+  color: var(--tx-secondary);
+}
+
+.integration-status-filter-chip.active {
+  background: var(--surface-active);
+  color: var(--tx-primary);
+}
+
+.integration-status-filter-count {
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+
+/* Group tab status pill — a lowercase chip next to the group name so the
+   tab list reads "Feature X · active". */
+.integration-group-tab-status {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-quiet);
+  color: var(--tx-muted);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.integration-group-tab-status.status-active { color: var(--dot-green); background: var(--intent-success-bg); }
+.integration-group-tab-status.status-paused { color: var(--dot-yellow); background: var(--intent-warning-bg); }
+.integration-group-tab-status.status-done { color: var(--tx-muted); background: var(--ov-1); }
+
+/* Handoff inbox layout. */
+.integration-handoff-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.integration-handoff-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+}
+
+.integration-handoff-composer-header strong {
+  display: block;
+  color: var(--tx-primary);
+  font-size: var(--fs-sm);
+}
+
+.integration-handoff-composer-header span,
+.integration-handoff-composer-hint {
+  display: block;
+  margin: 2px 0 0;
+  color: var(--tx-muted);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+}
+
+.integration-handoff-composer-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm);
+}
+
+.integration-handoff-composer textarea {
+  min-height: 74px;
+}
+
+.integration-handoff-composer-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.integration-handoff-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.integration-handoff-history {
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px dashed var(--bd-subtle);
+  opacity: 0.85;
+}
+
+.integration-handoff-toggle {
+  align-self: flex-start;
+  margin-top: var(--space-sm);
+}
+
+.integration-handoff-row {
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-quiet);
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.integration-handoff-row.status-sent {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+
+.integration-handoff-row.status-saved {
+  opacity: 0.7;
+}
+
+.integration-handoff-row.for-you {
+  /* Brand left edge for "this is yours to act on". */
+  box-shadow: inset 3px 0 0 var(--brand);
+}
+
+.integration-handoff-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: var(--fs-2xs);
+}
+
+.integration-handoff-pill {
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-active);
+  border: 1px solid transparent;
+  color: var(--tx-primary);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: background var(--transition-base);
+}
+
+.integration-handoff-pill:hover {
+  background: var(--surface-hover);
+  border-color: var(--bd-base);
+}
+
+.integration-handoff-arrow {
+  color: var(--tx-muted);
+  font-size: var(--fs-xs);
+}
+
+.integration-handoff-status {
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-quiet);
+  color: var(--tx-muted);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.integration-handoff-row.status-sent .integration-handoff-status {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+
+.integration-handoff-time {
+  margin-left: auto;
+  color: var(--tx-muted);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.integration-handoff-title {
+  color: var(--tx-primary);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+.integration-handoff-body {
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  background: var(--bg-app);
+  color: var(--tx-secondary);
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.integration-handoff-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+.integration-handoff-hint {
+  margin-right: auto;
+  color: var(--tx-muted);
+  font-size: var(--fs-2xs);
+  font-style: italic;
+}
+
+.integration-empty-inline {
+  padding: var(--space-md);
+  text-align: left;
+  border: 1px dashed var(--bd-subtle);
+  border-radius: var(--radius-md);
+  color: var(--tx-muted);
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+}
+
+.integration-empty-inline code {
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-active);
+  color: var(--tx-primary);
+  font-size: var(--fs-2xs);
+}
+
+.integration-handoff-list strong {
+  display: block;
+  min-width: 0;
+  color: var(--tx-primary);
+  font-size: var(--fs-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.integration-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.integration-context-preview {
+  min-height: 120px;
+  width: 100%;
+  max-height: 260px;
+  overflow: auto;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-app);
+  color: var(--tx-secondary);
+  padding: 10px;
+  resize: vertical;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+}
+
+.integration-context-preview:focus {
+  border-color: var(--accent-border);
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(0, 214, 201, 0.16);
+}
+
+@media (max-width: 900px) {
+  .integration-create-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Integration member status row — pairs the activity dot with the
+   provider/state label so a glance reads "claude · Awaiting". Sits inside
+   the existing member card layout, no extra wrapping. */
+.integration-member-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--tx-muted);
+  min-width: 0;
+  font-size: var(--fs-2xs);
+}
+
+.integration-member-status > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ─── IntegrationPanel — compact redesign ─────────────────────────────── */
+
+.integration-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.integration-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.integration-toolbar-spacer {
+  flex: 1;
+}
+
+.integration-toolbar-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--surface-quiet);
+  color: var(--tx-secondary);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
+}
+
+.integration-toolbar-action:hover {
+  background: var(--surface-hover);
+  color: var(--tx-primary);
+  border-color: var(--bd-base);
+}
+
+.integration-toolbar-action.active {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--accent-hover);
+}
+
+/* No overflow:hidden here — the native <select> popover inside the
+   add-member row needs to escape; we clip rounded corners on the first
+   and last children instead. */
+.integration-active-group {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-quiet);
+}
+
+.integration-active-group > :first-child {
+  border-top-left-radius: var(--radius-md);
+  border-top-right-radius: var(--radius-md);
+}
+
+.integration-active-group > :last-child {
+  border-bottom-left-radius: var(--radius-md);
+  border-bottom-right-radius: var(--radius-md);
+}
+
+.integration-active-group .integration-member-rows {
+  background: var(--surface-quiet);
+}
+
+.integration-active-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--bd-subtle);
+}
+
+.integration-active-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.integration-active-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.integration-active-title-row strong {
+  color: var(--tx-primary);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.integration-active-icon {
+  color: var(--brand);
+  flex-shrink: 0;
+}
+
+.integration-active-goal {
+  color: var(--tx-muted);
+  font-size: var(--fs-2xs);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.integration-active-actions {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.integration-icon-btn {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--tx-muted);
+  cursor: pointer;
+  transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
+}
+
+.integration-icon-btn:hover {
+  background: var(--surface-hover);
+  color: var(--tx-primary);
+  border-color: var(--bd-base);
+}
+
+.integration-icon-btn.active {
+  background: var(--surface-active);
+  color: var(--tx-primary);
+  border-color: var(--bd-base);
+}
+
+.integration-active-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: var(--layer-dropdown);
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid var(--bd-base);
+  border-radius: var(--radius-md);
+  background: var(--bg-app);
+  box-shadow: var(--elevation-3);
+}
+
+.integration-active-menu-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 6px 8px;
+  border-bottom: 1px solid var(--bd-subtle);
+  margin-bottom: 2px;
+}
+
+.integration-active-menu-label {
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tx-muted);
+}
+
+.integration-status-segments {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--surface-quiet);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-pill);
+}
+
+.integration-status-segment {
+  flex: 1;
+  padding: 3px 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--tx-muted);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background var(--transition-base), color var(--transition-base);
+}
+
+.integration-status-segment:hover {
+  color: var(--tx-secondary);
+}
+
+.integration-status-segment.active.status-active {
+  background: var(--intent-success-bg);
+  color: var(--dot-green);
+}
+
+.integration-status-segment.active.status-paused {
+  background: var(--intent-warning-bg);
+  color: var(--dot-yellow);
+}
+
+.integration-status-segment.active.status-done {
+  background: var(--surface-active);
+  color: var(--tx-primary);
+}
+
+.integration-active-menu-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--tx-secondary);
+  font-size: var(--fs-xs);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-base), color var(--transition-base);
+}
+
+.integration-active-menu-item:hover {
+  background: var(--surface-hover);
+  color: var(--tx-primary);
+}
+
+.integration-active-menu-item.danger {
+  color: var(--tx-muted);
+}
+
+.integration-active-menu-item.danger:hover,
+.integration-active-menu-item.danger.confirming {
+  background: var(--intent-danger-bg);
+  color: var(--dot-red);
+}
+
+.integration-member-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.integration-member-row {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--bd-subtle);
+  transition: background var(--transition-base);
+}
+
+.integration-member-row:last-child {
+  border-bottom: none;
+}
+
+.integration-member-row:hover {
+  background: var(--surface-hover);
+}
+
+.integration-member-row.current {
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--brand);
+}
+
+.integration-member-row.editing {
+  background: var(--accent-soft);
+}
+
+.integration-member-trigger {
+  flex: 1;
+  display: grid;
+  /* role | alias | branch | status — alias gets the most room, branch and
+     status get equal share but with a min so the activity dot isn't pushed
+     into the branch label. Right padding leaves the edit-pencil's area
+     untouched. */
+  grid-template-columns: auto minmax(0, 1.6fr) minmax(70px, 1fr) minmax(80px, auto);
+  align-items: center;
+  gap: 12px;
+  padding: 9px 36px 9px 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.integration-member-role {
+  min-width: 38px;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.integration-member-name {
+  color: var(--tx-primary);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.integration-member-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--tx-muted);
+  font-size: var(--fs-2xs);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.integration-member-row .integration-member-edit-btn {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+}
+
+.integration-member-blockers-strip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 12px 8px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--intent-warning-bg);
+  color: var(--dot-yellow);
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.integration-member-row .integration-member-editor {
+  margin: 0;
+  border-left: 0;
+  border-right: 0;
+  border-radius: 0;
+  background: var(--surface-quiet);
+  border-top: 1px solid var(--accent-border);
+  border-bottom: 1px solid var(--bd-subtle);
+  width: 100%;
+}
+
+.integration-add-member-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1.4fr) minmax(132px, 1fr) minmax(150px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px dashed var(--bd-subtle);
+  background: transparent;
+}
+
+.integration-add-icon {
+  color: var(--tx-muted);
+}
+
+.integration-add-select {
+  /* Use min-height + auto so the select grows to fit the selected option
+     instead of clipping descenders. Native <select> on Chromium/Windows
+     ignores explicit height in odd ways when font-size doesn't match the
+     control's internal padding — letting it auto-size avoids that. */
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-app);
+  color: var(--tx-secondary);
+  font-size: var(--fs-xs);
+  line-height: 20px;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.integration-add-select:focus {
+  border-color: var(--bd-input-focus);
+}
+
+.integration-add-select.compact {
+  font-weight: 600;
+}
+
+.integration-add-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+  padding: 4px 12px;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-quiet);
+  color: var(--tx-primary);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-base), border-color var(--transition-base);
+}
+
+.integration-add-action:hover {
+  background: var(--surface-hover);
+  border-color: var(--bd-base);
+}
+
+.integration-disclosure {
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-quiet);
+  overflow: hidden;
+}
+
+.integration-disclosure-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--tx-secondary);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition-base), color var(--transition-base);
+}
+
+.integration-disclosure-header:hover {
+  background: var(--surface-hover);
+  color: var(--tx-primary);
+}
+
+.integration-disclosure.open .integration-disclosure-header {
+  border-bottom: 1px solid var(--bd-subtle);
+}
+
+.integration-disclosure-badge {
+  margin-left: auto;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+}
+
+.integration-disclosure-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+@media (max-width: 720px) {
+  .integration-create-grid,
+  .integration-handoff-composer-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .integration-add-member-row {
+    grid-template-columns: auto minmax(0, 1fr) minmax(125px, 0.8fr);
+  }
+
+  .integration-add-action {
+    grid-column: 2 / -1;
+    justify-content: center;
+  }
+}
+
+.integration-empty-link {
+  border: 0;
+  background: transparent;
+  color: var(--accent-hover);
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* ─── End IntegrationPanel redesign ───────────────────────────────────── */

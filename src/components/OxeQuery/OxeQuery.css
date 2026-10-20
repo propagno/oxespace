@@ -130,8 +130,8 @@
 .oq-grid-index { width: 56px; color: var(--text-muted); text-align: right; }
 .oq-grid-row .is-null { color: var(--text-muted); font-style: italic; }
 
-.oq-mongo-inputs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 8px 10px; }
-.oq-mongo-inputs label { display: grid; gap: 4px; font-size: var(--text-2xs); color: var(--text-muted); }
+.oq-mongo-inputs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; gap: 8px; padding: 8px 10px; }
+.oq-mongo-inputs label { display: grid; align-content: start; gap: 4px; font-size: var(--text-2xs); color: var(--text-muted); }
 .oq-mongo-inputs textarea { padding: 6px 8px; font-family: var(--font-mono, ui-monospace, monospace); resize: vertical; }
 .oq-mongo-wide { grid-column: 1 / -1; }
 .oq-documents { flex: 1; min-height: 0; overflow: auto; padding: 0 10px 12px; }
@@ -221,7 +221,7 @@
 .oq-query-error { margin: 8px 10px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--intent-danger-solid) 50%, transparent); border-radius: var(--radius-md); background: color-mix(in srgb, var(--intent-danger-solid) 8%, transparent); font-size: var(--text-xs); }
 .oq-query-error pre { margin: 6px 0 0; white-space: pre-wrap; font-family: var(--font-mono, ui-monospace, monospace); color: var(--text-primary); }
 .oq-notice { margin: 0 10px 4px; }
-.oq-row-detail { width: 320px; flex-shrink: 0; overflow: auto; border-left: 1px solid var(--border-default); background: var(--surface-raised); font-size: var(--text-xs); }
+.oq-row-detail { width: clamp(220px, 34%, 320px); flex-shrink: 0; overflow: auto; border-left: 1px solid var(--border-default); background: var(--surface-raised); font-size: var(--text-xs); }
 .oq-row-detail header { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; position: sticky; top: 0; background: var(--surface-raised); }
 .oq-row-detail header button { border: 0; color: var(--text-muted); background: transparent; cursor: pointer; }
 .oq-row-detail dl { margin: 0; padding: 0 12px 12px; display: grid; gap: 10px; }

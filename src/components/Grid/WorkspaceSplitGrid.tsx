@@ -201,7 +201,7 @@ export function WorkspaceSplitGrid({
                 top: PANE_OUTER_GUTTER_PX,
                 width: `calc(100% - ${PANE_OUTER_GUTTER_PX * 2}px)`,
                 height: `calc(100% - ${PANE_OUTER_GUTTER_PX * 2}px)`,
-                zIndex: 2
+                zIndex: 'calc(var(--layer-raised) + 1)'
               }
             : { ...insetPaneRect(r), visibility: 'hidden', pointerEvents: 'none' }
           : insetPaneRect(r)
