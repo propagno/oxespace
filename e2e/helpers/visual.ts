@@ -20,6 +20,10 @@ const HIDDEN_WHEN_LIVE = [
   '.xterm',
   // Pane resize grips fade in with focus and pointer state, which no fixed wait settles.
   '.resize-handle',
+  // A terminal's status dot (pane header, sidebar row) turns from starting to running when its
+  // shell is up, which no fixed wait settles; the dot has a fixed size, so hiding it moves nothing.
+  '.pane-status-dot',
+  '[data-testid="pane-session-row"] .pane-activity-dot',
   // The top bar's path names a temporary folder.
   '.workspace-topbar-path',
   // The app version changes every release; it must not make every baseline stale.
