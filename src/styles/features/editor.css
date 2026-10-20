@@ -1,0 +1,234 @@
+/* Editor pane. Split out of the former features.css; imported in order from styles.css. */
+
+/* ─── Editor pane ───────────────────────────────────────────────────────── */
+.editor-pane {
+  display: flex;
+  align-items: stretch;
+  flex: 1 1 0;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg-tile);
+}
+
+.editor-sidebar {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 240px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-right: 1px solid var(--bd-subtle);
+  background: var(--bg-elevated);
+}
+
+.editor-sidebar-title {
+  flex: 0 0 auto;
+  padding: 12px 14px;
+  color: var(--tx-muted);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.editor-browser {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 1px;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: auto;
+  min-width: 0;
+  padding: 0 6px 8px;
+  overscroll-behavior: contain;
+}
+
+.editor-browser-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.editor-browser-directory,
+.editor-browser-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: max-content;
+  height: 26px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  color: var(--tx-secondary);
+  background: transparent;
+  font-size: var(--fs-xs);
+  text-align: left;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  border-left: 2px solid transparent;
+  margin: 1px 0;
+}
+
+.editor-browser-directory:hover,
+.editor-browser-file:hover {
+  color: var(--tx-primary);
+  background: var(--surface-hover);
+  border-left-color: var(--ov-3);
+}
+
+.editor-browser-file.active {
+  color: var(--brand-light);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--brand) 12%, transparent) 0%, transparent 100%);
+  border-left-color: var(--brand);
+}
+
+.editor-browser-directory span,
+.editor-browser-file span {
+  /* No ellipsis any more — the scroll container handles overflow. nowrap
+     keeps the row a single line so vertical density stays predictable. */
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.editor-browser-children {
+  margin-left: 18px;
+  padding-left: 6px;
+  border-left: 1px solid var(--ov-2);
+  min-width: max-content;
+}
+
+.editor-browser-empty,
+.editor-empty,
+.editor-loading {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+  color: var(--tx-muted);
+  font-size: var(--fs-xs);
+}
+
+.editor-main {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 40px;
+  flex-shrink: 0;
+  min-width: 0;
+  border-bottom: 1px solid var(--bd-subtle);
+  padding: 0 14px;
+  background: var(--bg-elevated);
+}
+
+.editor-path {
+  overflow: hidden;
+  color: var(--tx-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--ov-1);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--ov-1);
+  box-shadow: inset 0 1px 0 var(--ov-1);
+}
+
+.editor-dirty {
+  flex: 0 0 auto;
+  border: 1px solid var(--bd-subtle);
+  background: var(--ov-1);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  color: var(--tx-muted);
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  transition: all var(--transition-base);
+}
+
+.editor-dirty.active {
+  border-color: var(--intent-warning-border);
+  background: var(--intent-warning-bg);
+  color: var(--intent-warning-fg);
+  box-shadow: 0 0 8px rgba(249, 115, 22, 0.2);
+}
+
+.editor-body {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.editor-monaco-host {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.editor-monaco-host > .monaco-editor {
+  min-width: 0;
+  min-height: 0;
+}
+
+.editor-error {
+  margin: 8px;
+  border: 1px solid var(--intent-danger-solid);
+  border-radius: var(--radius-xs);
+  padding: 8px;
+  color: var(--text-primary);
+  background: var(--surface-canvas);
+  font-size: var(--fs-xs);
+}
+
+.editor-conflict {
+  border-bottom: 1px solid var(--intent-warning-solid);
+  background: var(--surface-sunken);
+}
+
+.editor-conflict-header {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  color: var(--intent-warning-fg);
+  font-size: var(--fs-xs);
+}
+
+.editor-conflict-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.editor-conflict pre {
+  margin: 0;
+  padding: 8px 10px;
+  overflow: auto;
+  background: var(--surface-sunken);
+  color: var(--tx-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  white-space: pre-wrap;
+}

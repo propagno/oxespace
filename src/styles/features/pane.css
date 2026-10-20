@@ -1,0 +1,465 @@
+/* Agents hub, pane tile, pane header and type switcher. Split out of the former features.css; imported in order from styles.css. */
+
+/* ─── Agents Hub Panel ────────────────────────────────────────────────────── */
+
+/* ─── Pane tile ─────────────────────────────────────────────────────────── */
+/* Terminal workbench: a pane is the single elevated object. The xterm surface
+   stays flush inside it, avoiding the old card-within-card treatment. */
+.pane-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--pane-border);
+  border-radius: var(--pane-radius);
+  background: var(--pane-surface);
+  box-shadow: var(--pane-shadow);
+  isolation: isolate;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-base), transform var(--transition-base);
+}
+.pane-container:focus-within {
+  border-color: var(--wb-focus);
+}
+.pane-container.active {
+  border-color: var(--pane-border-active) !important;
+  box-shadow: inset 0 2px 0 var(--wb-focus) !important;
+}
+.pane-container.active > .pane-header {
+  background: var(--wb-chrome);
+  border-bottom-color: var(--wb-border);
+  box-shadow: none;
+}
+.pane-container.active > .pane-header .pane-header-left {
+  border-color: transparent;
+  background: transparent;
+}
+.pane-container.active > .pane-header .pane-status-dot {
+  box-shadow: none;
+}
+
+.pane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 36px;
+  padding: 4px 8px 4px 10px;
+  background: var(--wb-chrome);
+  border-bottom: 1px solid var(--pane-border);
+  flex-shrink: 0;
+  gap: 8px;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.pane-header-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  flex: 1;
+  height: 28px;
+  max-width: 100%;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.pane-branch-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--tx-secondary);
+  font-size: var(--fs-2xs);
+  white-space: nowrap;
+}
+.pane-branch-badge > svg { flex-shrink: 0; }
+.pane-branch-badge > span + span { flex-shrink: 0; }
+.pane-branch-badge > span:first-of-type {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pane-header .pane-branch-badge { max-width: 35%; flex-shrink: 1; }
+/* The agent moved into another worktree: the branch shown is not the terminal's own directory. */
+.pane-branch-badge.is-moved { color: var(--accent); }
+
+.pane-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--dot-gray);
+}
+.pane-status-dot.running  { background: var(--accent); box-shadow: 0 0 6px rgba(16, 185, 129, 0.5); }
+.pane-status-dot.starting { background: var(--dot-yellow); }
+.pane-status-dot.error    { background: var(--dot-red); }
+.pane-status-dot.exited   { background: var(--dot-gray); }
+
+.pane-title {
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- PANE TYPE SWITCHER --- */
+.pane-type-switcher { position: relative; }
+
+.pane-type-switcher-label { text-transform: capitalize; }
+
+.pane-type-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: var(--layer-dropdown);
+  min-width: 144px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elevation-3);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.pane-type-popover-item {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: none;
+  color: var(--tx-secondary);
+  font-size: var(--fs-xs);
+  text-transform: capitalize;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background 0.1s, color 0.1s;
+}
+.pane-type-popover-item:hover { background: var(--surface-canvas); color: var(--tx-primary); }
+.pane-type-popover-item.active { color: var(--accent); }
+
+.pane-type-popover-check {
+  width: 18px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  color: var(--accent);
+}
+
+.pane-agent-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  max-width: 16ch;
+  min-width: 0;
+  height: 24px;
+  padding: 0 8px 0 5px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--text-primary) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 8%, transparent);
+  color: var(--text-primary);
+  font-size: var(--fs-2xs);
+  font-weight: 620;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.pane-agent-chip .agent-provider-icon {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-xs);
+  flex-shrink: 0;
+}
+
+.pane-agent-chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pane-agent-chip.provider-claude {
+  background: var(--intent-warning-bg);
+  border-color: var(--intent-warning-border);
+  color: var(--intent-warning-fg);
+}
+.pane-agent-chip.provider-copilot {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--text-accent);
+}
+.pane-agent-chip.provider-antigravity {
+  background: var(--intent-info-bg);
+  border-color: var(--intent-info-border);
+  color: var(--intent-info-fg);
+}
+.pane-agent-chip.provider-codex {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--text-accent);
+}
+.pane-agent-chip.provider-cursor {
+  background: var(--intent-info-bg);
+  border-color: var(--intent-info-border);
+  color: var(--intent-info-fg);
+}
+.pane-agent-chip.provider-grok {
+  background: color-mix(in srgb, var(--surface-sunken) 55%, transparent);
+  border-color: color-mix(in srgb, var(--text-primary) 35%, transparent);
+  color: var(--text-primary);
+}
+.pane-agent-chip.provider-custom {
+  background: color-mix(in srgb, var(--surface-sunken) 15%, transparent);
+  border-color: color-mix(in srgb, var(--surface-sunken) 30%, transparent);
+  color: var(--text-secondary);
+}
+.pane-agent-chip.provider-shell,
+.pane-agent-chip.provider-local {
+  background: var(--ov-1);
+  border-color: var(--ov-2);
+  color: var(--tx-muted);
+}
+
+.pane-header-divider {
+  color: var(--tx-muted);
+  opacity: 0.22;
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  user-select: none;
+}
+
+/* The user's last typed prompt — what this pane is currently working on.
+   This is the headline of the pane: bigger than the chip, primary text colour,
+   and allowed to occupy the rest of the row so vibe coders can scan 4 panes
+   and instantly read "what is each agent doing right now". */
+/* A narrow pane keeps its name readable: the branch goes first, then the
+   agent's label (its icon stays), instead of the name shrinking to "…". */
+.pane-header { container-type: inline-size; }
+@container (max-width: 360px) {
+  .pane-header .pane-branch-badge,
+  .pane-header .pane-header-divider { display: none; }
+}
+@container (max-width: 260px) {
+  .pane-header .pane-agent-chip-label { display: none; }
+  .pane-header .pane-agent-chip { padding: 0 5px; }
+}
+
+.pane-intent {
+  min-width: min(8ch, 100%);
+  flex: 1;
+  color: var(--tx-secondary);
+  font-size: var(--fs-xs);
+  font-weight: 480;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Button variant of pane-intent — same look as the static label but lets
+   the user double-click to rename. The pencil icon only shows on hover so
+   the resting state stays clean. */
+.pane-intent-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: text;
+}
+
+.pane-intent-button .pane-intent-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pane-intent-edit-hint {
+  color: var(--tx-muted);
+  opacity: 0;
+  flex-shrink: 0;
+  transition: opacity var(--transition-base);
+}
+
+.pane-header:hover .pane-intent-edit-hint,
+.pane-intent-button:focus-visible .pane-intent-edit-hint {
+  opacity: 0.7;
+}
+
+.pane-intent-input {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 6px;
+  margin: -2px 0;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-app);
+  color: var(--tx-primary);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  font-family: inherit;
+  outline: none;
+}
+
+.pane-intent-input:focus {
+  border-color: var(--bd-input-focus);
+  box-shadow: 0 0 0 1px rgba(0, 214, 201, 0.18);
+}
+
+/* When the sidebar row shows the user's intent instead of raw output we lift
+   the colour and slightly bump the weight so it reads as a task, not as noise. */
+.pane-row-preview.pane-row-intent {
+  color: var(--tx-primary);
+  font-weight: 500;
+}
+
+.pane-actions {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  height: 28px;
+  border: 1px solid var(--ov-2);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--surface-sunken) 12%, transparent);
+  padding: 0 4px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.pane-actions-menu {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.pane-actions-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: calc(var(--layer-dropdown) + 20);
+  min-width: 176px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elevation-3);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.pane-actions-popover-item {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: none;
+  color: var(--tx-secondary);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background 0.1s, color 0.1s;
+}
+
+.pane-actions-popover-item:hover:not(:disabled) {
+  background: var(--surface-canvas);
+  color: var(--tx-primary);
+}
+
+.pane-actions-popover-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.pane-actions-popover-item.danger {
+  color: var(--intent-danger-fg);
+}
+
+.pane-actions-popover-item.danger:hover:not(:disabled) {
+  background: var(--intent-danger-bg);
+  color: var(--intent-danger-fg);
+}
+
+.pane-actions-popover-sep {
+  height: 1px;
+  margin: 3px 6px;
+  background: var(--ov-2);
+}
+
+.tile-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-pill);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--tx-muted);
+  transition: color 80ms, background 80ms;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+.tile-btn:hover:not(:disabled) { color: var(--text-primary); background: var(--ov-2); }
+.tile-btn.active { color: var(--text-primary); background: var(--ov-3); }
+.tile-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.tile-btn.close:hover:not(:disabled) { color: var(--dot-red); }
+
+.tile-btn.pane-editor-button {
+  width: auto;
+  min-width: 70px;
+  padding: 0 9px;
+  gap: 5px;
+  color: var(--text-primary);
+  background: var(--surface-canvas);
+  border: 1px solid var(--intent-info-solid);
+}
+
+.tile-btn.pane-editor-button:hover {
+  color: var(--text-on-solid);
+  background: var(--intent-info-solid);
+  border-color: var(--intent-info-solid);
+}
+
+.tile-btn.pane-editor-button span {
+  font-size: var(--fs-2xs);
+  font-weight: 650;
+  line-height: 1;
+}
+
+.pane-placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--tx-muted);
+  text-align: center;
+}
+.pane-placeholder strong { font-size: var(--fs-xs); color: var(--tx-secondary); }
+.pane-placeholder span   { font-size: var(--fs-2xs); }

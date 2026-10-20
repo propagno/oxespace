@@ -1,0 +1,520 @@
+/* Terminal pane, terminal search, voice HUD and voice settings. Split out of the former features.css; imported in order from styles.css. */
+
+/* ─── Terminal pane ─────────────────────────────────────────────────────── */
+.terminal-pane {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+  background: var(--pane-surface);
+}
+
+.terminal-content {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--bg-tile-content);
+  padding: 0;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.terminal-search {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: calc(var(--layer-raised) + 19);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-sunken) 95%, transparent);
+  border: 1px solid var(--bd-subtle);
+  box-shadow: var(--elevation-2);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.terminal-search-input {
+  width: 160px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-quiet);
+  border: 1px solid var(--bd-subtle);
+  color: var(--tx-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  outline: none;
+}
+
+.terminal-search-input:focus {
+  border-color: var(--brand-light);
+}
+
+.terminal-search-count {
+  font-size: var(--fs-2xs);
+  font-family: var(--font-mono);
+  color: var(--tx-muted);
+  min-width: 40px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.terminal-search-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--tx-muted);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.terminal-search-btn:hover {
+  background: var(--surface-quiet);
+  color: var(--tx-secondary);
+}
+
+/* A compact session footer below the canvas. It belongs to the pane surface,
+   so it stays flat instead of introducing another card inside the terminal. */
+.terminal-statusbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 27px;
+  margin: 0;
+  padding: 0 10px;
+  background: color-mix(in srgb, var(--pane-surface-raised) 82%, transparent);
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--pane-border) 82%, transparent);
+  border-radius: 0;
+  box-shadow: 0 1px 0 var(--ov-1) inset;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  flex-shrink: 0;
+  container-type: inline-size;
+  container-name: statusbar;
+  position: relative;
+  z-index: var(--layer-sticky);
+}
+
+.statusbar-text {
+  font-size: var(--fs-2xs);
+  font-family: var(--font-ui);
+  font-weight: 560;
+  letter-spacing: 0.025em;
+  text-transform: capitalize;
+  color: var(--tx-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Agent/shell identity — source of truth is agentProfileId, not shell profile. */
+
+.statusbar-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--tx-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 80ms, background 80ms, border-color 80ms;
+}
+
+.statusbar-icon-btn:hover:not(:disabled) {
+  color: var(--tx-primary);
+  background: var(--ov-2);
+  border-color: var(--ov-2);
+}
+
+.statusbar-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.statusbar-icon-btn.open {
+  color: var(--tx-primary);
+  background: var(--ov-2);
+  border-color: var(--ov-2);
+}
+
+.statusbar-more {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.statusbar-more-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 4px);
+  z-index: var(--layer-dropdown);
+  min-width: 168px;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--ov-3);
+  background: var(--surface-sunken);
+  box-shadow: var(--elevation-3);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.statusbar-more-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--tx-secondary);
+  font-size: var(--fs-xs);
+  font-weight: 550;
+  text-align: left;
+  cursor: pointer;
+}
+
+.statusbar-more-menu button:hover:not(:disabled) {
+  background: var(--ov-2);
+  color: var(--tx-primary);
+}
+
+.statusbar-more-menu button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.statusbar-more-label {
+  flex: 1;
+}
+
+.statusbar-more-check {
+  color: var(--brand-light, var(--text-accent));
+  flex-shrink: 0;
+}
+
+.statusbar-more-menu button[aria-checked='true'] {
+  color: var(--tx-primary);
+  background: var(--ov-1);
+}
+
+.editor-tree-resize {
+  flex: 0 0 5px;
+  cursor: col-resize;
+  background: var(--bd-subtle);
+  touch-action: none;
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+.editor-tree-resize:hover,
+.editor-tree-resize:focus-visible {
+  background: var(--accent);
+  outline: none;
+}
+.workspace-editor-content:has(.editor-pane) { container-type: inline-size; }
+@container (max-width: 620px) {
+  .editor-pane { flex-direction: column; }
+  .editor-sidebar { flex: 0 0 min(36%, 240px); width: 100%; border-right: 0; border-bottom: 1px solid var(--bd-subtle); }
+}
+
+.terminal-restore-dialog > label { display: grid; gap: 7px; color: var(--tx-secondary); font-size: var(--fs-xs); }
+.terminal-restore-list { min-height: 0; overflow: auto; display: grid; align-content: start; gap: 7px; }
+.terminal-restore-list button { display: grid; gap: 4px; width: 100%; padding: 11px 12px; text-align: left; color: var(--tx-primary); background: var(--bg-elevated); border: 1px solid var(--bd-base); border-radius: var(--radius-md); cursor: pointer; }
+.terminal-restore-list button:hover:not(:disabled) { border-color: var(--brand-light, var(--accent)); }
+.terminal-restore-list button:disabled { opacity: .5; cursor: default; }
+.terminal-restore-list button span, .terminal-restore-list button small { color: var(--tx-secondary); overflow-wrap: anywhere; }
+.terminal-restore-dialog [role='alert'] { color: var(--error, var(--intent-danger-fg)); }
+
+.statusbar-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--dot-gray);
+}
+.statusbar-dot.green  { background: var(--dot-green); box-shadow: 0 0 4px rgba(52, 212, 116, 0.7); }
+.statusbar-dot.orange { background: var(--dot-orange); }
+.statusbar-dot.yellow { background: var(--dot-yellow); }
+.statusbar-dot.red    { background: var(--dot-red); }
+
+.statusbar-action {
+  padding: 0 7px;
+  height: 18px;
+  font-size: var(--fs-2xs);
+  color: var(--tx-muted);
+  background: transparent;
+  border: 1px solid var(--ov-2);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  line-height: 16px;
+  transition: all 80ms;
+}
+.statusbar-action:hover { color: var(--tx-secondary); border-color: color-mix(in srgb, var(--text-primary) 16%, transparent); }
+
+.terminal-statusbar-spacer {
+  flex: 1;
+}
+
+.statusbar-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 7px;
+  height: 21px;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  letter-spacing: 0.2px;
+  transition: color 80ms, background 80ms, border-color 80ms;
+  box-shadow: none;
+}
+
+.statusbar-chip:hover {
+  color: var(--text-primary);
+  background: var(--ov-2);
+  border-color: var(--ov-2);
+  transform: none;
+  box-shadow: none;
+}
+
+.statusbar-chip svg {
+  opacity: 0.75;
+}
+
+.statusbar-chip .chip-label {
+  display: inline;
+}
+
+/* AI-Credits indicators (Copilot + per-provider Claude/Codex) — passive status
+   chips (not buttons). */
+.statusbar-chip.copilot-credits-chip,
+.statusbar-chip.agent-credits-chip,
+.statusbar-chip.context-usage-chip { cursor: default; font-variant-numeric: tabular-nums; }
+.statusbar-chip.copilot-credits-chip:hover,
+.statusbar-chip.agent-credits-chip:hover,
+.statusbar-chip.context-usage-chip:hover { background: var(--surface-quiet); border-color: var(--bd-subtle); }
+.statusbar-chip.copilot-credits-chip.tone-warning,
+.statusbar-chip.copilot-credits-chip.tone-warning:hover,
+.statusbar-chip.agent-credits-chip.tone-warning,
+.statusbar-chip.agent-credits-chip.tone-warning:hover,
+.statusbar-chip.context-usage-chip.tone-warning,
+.statusbar-chip.context-usage-chip.tone-warning:hover { color: var(--dot-yellow); }
+.statusbar-chip.copilot-credits-chip.tone-critical,
+.statusbar-chip.copilot-credits-chip.tone-critical:hover,
+.statusbar-chip.agent-credits-chip.tone-critical,
+.statusbar-chip.agent-credits-chip.tone-critical:hover,
+.statusbar-chip.context-usage-chip.tone-critical,
+.statusbar-chip.context-usage-chip.tone-critical:hover { color: var(--dot-red); }
+.statusbar-chip.copilot-credits-chip.tone-idle,
+.statusbar-chip.agent-credits-chip.tone-idle { opacity: 0.7; text-transform: capitalize; }
+
+.voice-chip:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--intent-info-bg);
+  border-color: var(--intent-info-border);
+}
+
+/* MCP servers chip in the pane statusbar — tells the user how many MCPs
+   the agent CLI in this pane can see via .mcp.json. Click opens the panel. */
+.mcp-chip {
+  color: var(--intent-info-fg);
+}
+
+.mcp-chip:hover {
+  color: var(--text-primary);
+  background: var(--intent-info-bg);
+  border-color: var(--intent-info-border);
+}
+
+.mcp-chip.empty {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.mcp-chip.empty:hover {
+  color: var(--text-secondary);
+  background: var(--ov-1);
+  border-color: var(--ov-3);
+}
+
+.terminal-idle {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  background: var(--bg-tile-content);
+}
+
+.btn-start-terminal {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 20px;
+  background: var(--intent-success-bg);
+  border: 1px solid var(--intent-success-border);
+  border-radius: var(--radius-md);
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  transition: all 120ms;
+}
+.btn-start-terminal:hover {
+  background: var(--intent-success-bg);
+  border-color: var(--intent-success-border);
+}
+.btn-start-terminal:disabled { opacity: 0.5; cursor: default; }
+
+.terminal-error-bar {
+  padding: 5px 10px;
+  background: var(--intent-danger-bg);
+  border-top: 1px solid var(--intent-danger-border);
+  color: var(--intent-danger-fg);
+  font-size: var(--fs-2xs);
+  flex-shrink: 0;
+}
+
+.oxe-voice-hud {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  z-index: calc(var(--layer-raised) + 2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(520px, calc(100% - 24px));
+  padding: 8px 10px;
+  border: 1px solid var(--intent-info-border);
+  border-radius: var(--radius-sm);
+  background: var(--scrim);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  line-height: 1.35;
+  box-shadow: var(--elevation-3);
+  pointer-events: none;
+}
+
+.oxe-voice-hud.error {
+  color: var(--intent-danger-fg);
+  border-color: var(--intent-danger-border);
+}
+
+.oxe-voice-dismiss {
+  pointer-events: auto;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  margin-left: auto;
+  padding: 0;
+  color: inherit;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  cursor: pointer;
+}
+.oxe-voice-dismiss:hover { background: var(--ov-3); }
+.oxe-voice-dismiss:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+.oxe-voice-pulse {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--intent-info-solid);
+  box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.16);
+}
+
+.oxe-voice-hud.listening .oxe-voice-pulse,
+.oxe-voice-hud.downloading .oxe-voice-pulse {
+  animation: voice-pulse 1s ease-in-out infinite;
+}
+
+.oxe-voice-pulse.spin {
+  animation: voice-spin 0.7s linear infinite;
+  border-radius: 50%;
+  background: transparent;
+  border: 2px solid var(--intent-info-border);
+  border-top-color: var(--intent-info-solid);
+  box-shadow: none;
+}
+
+.oxe-voice-hud.error .oxe-voice-pulse {
+  background: var(--intent-danger-solid);
+  box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.14);
+}
+
+/* Live mic level meter (5 bars driven by inline scaleY from the hook). */
+.oxe-voice-meter {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+.oxe-voice-bar {
+  width: 3px;
+  height: 14px;
+  border-radius: var(--radius-xs);
+  background: var(--intent-info-solid);
+  transform-origin: center;
+  transform: scaleY(0.18);
+  transition: transform 60ms linear;
+}
+
+@keyframes voice-pulse {
+  0%, 100% { transform: scale(0.8); opacity: 0.65; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+
+@keyframes voice-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Voice settings section */
+/* Settings form primitives live in components.css (Agent Settings modal). */
+
+.ws-terminal-overrides {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+  padding-left: 4px;
+  border-left: 2px solid var(--bd-subtle, var(--ov-2));
+  padding-inline-start: 12px;
+}
+
+.ws-settings-hint {
+  margin: 6px 0 0;
+  font-size: var(--fs-2xs);
+  color: var(--tx-muted);
+  font-style: italic;
+}

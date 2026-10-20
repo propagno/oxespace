@@ -40,7 +40,7 @@ export const TERMINAL_PREFS_DEFAULTS: TerminalPrefs = {
   fontFamily: 'Cascadia Mono, JetBrains Mono, DejaVu Sans Mono, Consolas, monospace',
   fontSize: 16,
   // Looser leading + a non-blinking bar caret make the terminal read like a
-  // chat/editor surface rather than a raw console. See features.css for the
+  // chat/editor surface rather than a raw console. See styles/features/terminal.css for the
   // matching padded, lifted, rounded panel treatment.
   lineHeight: 1.4,
   letterSpacing: 0,
