@@ -357,6 +357,11 @@ export interface ConversationThread {
   status: ThreadStatus
   /** Last finished turn, used to distinguish a new idle thread from completed work in navigation. */
   lastTurnStatus?: ThreadTurn['status']
+  /**
+   * Background tasks (shells, agents) the provider reported as started and not yet finished, so lists that
+   * do not read the events still know the conversation is busy after its turn ended.
+   */
+  background?: { running: number; since: number }
   createdAt: number
   updatedAt: number
   /** A native interactive CLI exclusively owns this conversation until it exits. */
