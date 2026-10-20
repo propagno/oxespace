@@ -197,7 +197,7 @@ export function ReviewPane({ workspaceId, rootPath }: ReviewPaneProps): ReactEle
         <div className="review-pane-split">
           <aside className="review-pane-tree">
             <div className="review-search">
-              <Search size={12} style={{ color: 'var(--tx-muted)', flexShrink: 0 }} aria-hidden="true" />
+              <Search size={12} style={{ color: 'var(--text-muted)', flexShrink: 0 }} aria-hidden="true" />
               <input
                 type="text"
                 className="review-search-input"
