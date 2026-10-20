@@ -17,6 +17,7 @@ import type {
   UpdateMcpServerInput
 } from '../../../shared/types/mcp'
 import { McpConfigSync } from './mcp-sync.service'
+import { upgradeRetiredMcpEndpoints } from './mcp-retired-endpoints'
 
 interface McpServerRow {
   id: string
@@ -104,6 +105,13 @@ export class McpManager {
    * live-port rewrite of its own row lands last.
    */
   primeConfigs(): void {
+    try {
+      // Before the sync, so the rewritten .mcp.json files already carry the current endpoints.
+      upgradeRetiredMcpEndpoints(this.db)
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('[mcp] could not update retired endpoints:', err instanceof Error ? err.message : err)
+    }
     try {
       this.configSync.syncAll()
     } catch (err) {
