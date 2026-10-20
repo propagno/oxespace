@@ -20,16 +20,20 @@ const HIDDEN_WHEN_LIVE = [
   '.xterm',
   // Pane resize grips fade in with focus and pointer state, which no fixed wait settles.
   '.resize-handle',
-  // In the top bar, the agent count and integration chips follow real PTY activity and
-  // change width, and the path names a temporary folder. Only those are hidden (visibility
-  // keeps their space, so nothing shifts); the title and actions are compared.
-  '.workspace-topbar .workspace-status-summary',
-  '.workspace-topbar .workspace-integrations',
+  // The top bar's path names a temporary folder.
   '.workspace-topbar-path',
   // The app version changes every release; it must not make every baseline stale.
   '[data-app-version]',
   '.split-resize-handle'
 ]
+
+/**
+ * Removed from layout rather than hidden: the top bar's agent count and integration chips
+ * follow real PTY activity and change width, and as hidden boxes they would still move the
+ * actions next to them. Without them the title and the Panels, MCP and Activity actions sit
+ * in the same place every run and are compared.
+ */
+const REMOVED_FROM_LAYOUT = ['.workspace-topbar .workspace-status-summary', '.workspace-topbar .workspace-integrations']
 
 const VOLATILE_SELECTORS = [
   '[data-visual-volatile]',
@@ -60,7 +64,7 @@ export async function expectSurface(page: Page, name: string, options: SurfaceOp
   // Two animation frames let layout and transitions settle without a fixed sleep.
   await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
   await page.addStyleTag({
-    content: `*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}*{scrollbar-width:none!important}*::-webkit-scrollbar{display:none!important}${[...HIDDEN_WHEN_LIVE, '[data-visual-hidden]'].map(selector => `${selector}{visibility:hidden!important}`).join('')}`
+    content: `*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}*{scrollbar-width:none!important}*::-webkit-scrollbar{display:none!important}${[...HIDDEN_WHEN_LIVE, '[data-visual-hidden]'].map(selector => `${selector}{visibility:hidden!important}`).join('')}${REMOVED_FROM_LAYOUT.map(selector => `${selector}{display:none!important}`).join('')}`
   })
   for (const locator of options.hide ?? []) {
     await locator.evaluateAll(elements => elements.forEach(element => element.setAttribute('data-visual-hidden', '')))
