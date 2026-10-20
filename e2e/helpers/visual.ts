@@ -20,10 +20,14 @@ const HIDDEN_WHEN_LIVE = [
   '.xterm',
   // Pane resize grips fade in with focus and pointer state, which no fixed wait settles.
   '.resize-handle',
-  // The agent count / status chips follow real PTY activity and change width, and the
-  // right-aligned group then shifts its neighbours. The whole strip is hidden; it has no
-  // visual coverage until agents come from a fixture instead of live terminals.
-  '.workspace-topbar > *',
+  // In the top bar, the agent count and integration chips follow real PTY activity and
+  // change width, and the path names a temporary folder. Only those are hidden (visibility
+  // keeps their space, so nothing shifts); the title and actions are compared.
+  '.workspace-topbar .workspace-status-summary',
+  '.workspace-topbar .workspace-integrations',
+  '.workspace-topbar-path',
+  // The app version changes every release; it must not make every baseline stale.
+  '[data-app-version]',
   '.split-resize-handle'
 ]
 
