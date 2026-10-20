@@ -87,7 +87,8 @@
 .thread-virtual-row { display: flow-root; width: 100%; }
 .thread-virtual-turn { margin-bottom: 0; }
 .thread-virtual-turn.is-turn-start { margin-top: 10px; padding-top: 14px; border-top: 1px solid var(--border-default); }
-.thread-virtual-row:first-child .thread-virtual-turn.is-turn-start { margin-top: 0; padding-top: 0; border-top: 0; }
+/* The very first row of the conversation, not the first mounted one: a row whose height changed with its mount position fed the virtualizer a new size on every scroll, and the conversation shook. */
+.thread-virtual-row[data-row-index="0"] .thread-virtual-turn.is-turn-start { margin-top: 0; padding-top: 0; border-top: 0; }
 .thread-virtual-turn.is-turn-end { margin-bottom: 12px; }
 .thread-load-earlier { display: flex; align-items: center; gap: 6px; min-height: 30px; margin: 0 auto 14px; padding: 0 10px; border: 1px solid var(--border-default) !important; border-radius: var(--radius-md) !important; color: var(--text-secondary) !important; background: var(--surface-raised) !important; font-size: var(--fs-2xs) !important; }
 .thread-load-earlier:hover:not(:disabled) { color: var(--text-primary) !important; background: var(--fill-hover) !important; }
@@ -271,7 +272,7 @@
 .thread-composer footer .thread-command-trigger { width: 28px; height: 28px; padding: 0; justify-content: center; color: var(--text-muted); }
 .thread-composer { padding: 12px; border: 1px solid var(--border-default); border-radius: var(--surface-radius); background: var(--surface-raised); }
 .thread-composer:focus-within { border-color: var(--border-focus); box-shadow: 0 0 0 1px var(--border-focus); }
-.thread-composer textarea { display: block; width: 100%; border: 0; padding: 0; resize: none; min-height: 40px; max-height: 144px; overflow-y: auto; outline: none; background: transparent; color: var(--text-primary); font: inherit; font-size: var(--fs-base); line-height: 1.5; }
+.thread-composer textarea { display: block; width: 100%; border: 0; padding: 0; resize: none; field-sizing: content; min-height: 40px; max-height: 144px; overflow-y: auto; outline: none; background: transparent; color: var(--text-primary); font: inherit; font-size: var(--fs-base); line-height: 1.5; }
 .thread-composer textarea::placeholder { color: var(--text-muted); }
 .thread-composer footer { display: flex; align-items: center; gap: 10px; margin-top: 8px; min-height: 28px; }
 .thread-composer footer small { color: var(--text-muted); font-size: var(--fs-2xs); }

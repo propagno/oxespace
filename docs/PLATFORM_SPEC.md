@@ -2,7 +2,7 @@
 
 This document describes what OXESpace is, where it runs, what it depends on and
 what it does and does not promise. It is written from the code and the release
-pipeline, and is updated with each release. Version described: **0.17.x**.
+pipeline, and is updated with each release. Version described: **1.0.x**.
 
 ## 1. Product definition
 
@@ -175,11 +175,11 @@ packaged application. See [Release pipeline](RELEASE_PIPELINE.md).
 
 ## 11. Versioning
 
-Semantic versioning. While the major version is `0`, minor releases may change
-behaviour and storage; every release that changes the database says so in its
-notes, and a verified backup is taken before any migration. Release notes live
-in [`docs/releases`](releases/) and are used as the GitHub Release body.
+Semantic versioning. `1.0.0` is the first stable release (releases before it, `0.x`,
+could change behaviour and storage in a minor version). Every release that changes the
+database says so in its notes, and a verified backup is taken before any migration.
+Release notes live in [`docs/releases`](releases/) and are used as the GitHub Release body.
 
-What changes at `1.0` (compatibility of the database, the MCP tool surface and
-permission rules, support windows and supported agent CLI versions) is drafted in
-[Compatibility](COMPATIBILITY.md).
+The long-term compatibility rules (database, MCP tool surface and permission rules,
+support windows and supported agent CLI versions) are still a draft in
+[Compatibility](COMPATIBILITY.md); until its status changes, treat them as intent, not a promise.

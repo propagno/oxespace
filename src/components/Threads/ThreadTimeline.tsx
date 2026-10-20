@@ -12,7 +12,7 @@ function MeasuredTimelineRow({ item, onMeasure, children }: { item: ThreadVirtua
     observer?.observe(node)
     return () => observer?.disconnect()
   }, [item.index, item.key, onMeasure])
-  return <div ref={ref} className="thread-virtual-row" data-thread-row={item.key}>{children}</div>
+  return <div ref={ref} className="thread-virtual-row" data-thread-row={item.key} data-row-index={item.index}>{children}</div>
 }
 
 export function ThreadTimelineWindow<T extends { key: string }>({ rows, scrollRef, followingRef, onViewportUpdateRef, scrollToRef, children }: {

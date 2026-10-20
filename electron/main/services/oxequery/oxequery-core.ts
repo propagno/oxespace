@@ -193,12 +193,21 @@ export class OxeQueryCore {
     if (existing?.key === key) { existing.lastUsed = Date.now(); return existing }
     if (existing) await this.closeConnection(connection.id)
     const { endpoint, tunnel } = await this.reach(connection)
-    const client = new Client(this.pgConfig(connection, endpoint))
-    client.on('error', () => { if (this.pg.get(connection.id)?.client === client) { this.pg.delete(connection.id); void tunnel?.close() } })
-    try { await client.connect() } catch (error) {
+    // An 'error' event with no listener would crash the worker; the session's own listener is added below.
+    const quiet = (candidate: Client): Client => { candidate.on('error', () => undefined); return candidate }
+    let client = quiet(new Client(this.pgConfig(connection, endpoint)))
+    try {
+      try { await client.connect() } catch (error) {
+        // "prefer" tries TLS first; a server without TLS says so, and gets a plain connection like libpq gives it.
+        if (connection.sslMode !== 'prefer' || !/does not support SSL|SSL is not enabled|SSL not supported/i.test(error instanceof Error ? error.message : '')) throw error
+        client = quiet(new Client({ ...this.pgConfig(connection, endpoint), ssl: false }))
+        await client.connect()
+      }
+    } catch (error) {
       await tunnel?.close()
       throw new OxeQueryError('connect', withConnectionHint(redact(error instanceof Error ? error.message : 'Connection failed', connection.password, connection.ssh?.password, connection.ssh?.passphrase), connection))
     }
+    client.on('error', () => { if (this.pg.get(connection.id)?.client === client) { this.pg.delete(connection.id); void tunnel?.close() } })
     const session: PgSession = { key, client, running: false, lastUsed: Date.now(), endpoint, tx: 'none', txStatements: 0, ...(tunnel ? { tunnel } : {}) }
     // A tunnel that drops under a live session would leave a client talking to nothing.
     tunnel?.onClose(() => { if (this.pg.get(connection.id) === session) this.pg.delete(connection.id) })
