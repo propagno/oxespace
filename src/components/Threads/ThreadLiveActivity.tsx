@@ -21,8 +21,8 @@ function runningToolLabel(tool: Tool, verbose = true): string {
   return `Using ${tool.name}`
 }
 
-/** How long a background task may be reported as running without ever being reported finished. */
-export const BACKGROUND_TRUST_MS = 2 * 60 * 60 * 1000
+export { BACKGROUND_TRUST_MS } from '../../../shared/threadBackground'
+import { BACKGROUND_TRUST_MS } from '../../../shared/threadBackground'
 
 export interface LiveActivity {
   label: string
