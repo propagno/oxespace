@@ -3,6 +3,8 @@ import { existsSync } from 'node:fs'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { DelegationTask } from '../../../shared/types/delegation'
 import type { TerminalManager } from './terminal.service'
+import type { AppDatabase } from '../db/index'
+import { codexMcpArguments, readManagedMcp } from './conversation/thread-managed-mcp'
 
 const forwarded = ['OXESPACE_MCP_PORT','OXESPACE_MCP_TOKEN','OXESPACE_WORKSPACE_ID','OXESPACE_EXECUTION_ID','OXESPACE_EXECUTION_TOKEN','OXESPACE_MEMORY_RUN_ID']
 export function agentMcpArguments(provider: string, bridge: string): string[] {
@@ -10,6 +12,24 @@ export function agentMcpArguments(provider: string, bridge: string): string[] {
   if (provider === 'codex') return ['-c', 'mcp_servers.oxespace-delegation.command="node"', '-c', `mcp_servers.oxespace-delegation.args=${JSON.stringify([bridge])}`,
     '-c', `mcp_servers.oxespace-delegation.env_vars=${JSON.stringify(forwarded)}`]
   return []
+}
+/**
+ * MCP arguments for an agent started in a Code terminal. Claude Code and Copilot
+ * read the workspace's `.mcp.json`; Codex reads only its own configuration, so
+ * the servers configured in OXESpace travel as `-c` overrides for this launch.
+ * Nothing is written to ~/.codex/config.toml, and a `codex` started outside
+ * OXESpace does not see them. Secrets go in `env`, referenced by name.
+ */
+export function codeAgentMcpLaunch(db: AppDatabase, provider: string, bridge: string, workspaceId: string, args: string[]): { args: string[]; env?: Record<string, string> } {
+  const own = agentMcpArguments(provider, bridge)
+  if (provider !== 'codex') return { args: [...own, ...args] }
+  try {
+    const managed = readManagedMcp(db, workspaceId)
+    return { args: [...own, ...codexMcpArguments(managed), ...args], env: managed.env }
+  } catch {
+    // The launch never fails over the extra servers.
+    return { args: [...own, ...args] }
+  }
 }
 export class AgentLaunchService {
   constructor(private terminal: TerminalManager, private profiles: () => AgentProfile[], private directory: string) {}

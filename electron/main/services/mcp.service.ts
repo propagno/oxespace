@@ -8,6 +8,7 @@ import type {
   McpCallToolInput,
   McpCallToolResult,
   McpHealthStatus,
+  McpHttpConfig,
   McpServer,
   McpServerConfig,
   McpServerHealthEvent,
@@ -17,7 +18,8 @@ import type {
   UpdateMcpServerInput
 } from '../../../shared/types/mcp'
 import { McpConfigSync } from './mcp-sync.service'
-import { upgradeRetiredMcpEndpoints } from './mcp-retired-endpoints'
+import { unbridgeRemoteMcpServers, upgradeRetiredMcpEndpoints } from './mcp-retired-endpoints'
+import { probeHttpServer } from './mcp-http-probe'
 
 interface McpServerRow {
   id: string
@@ -52,6 +54,9 @@ interface RuntimeServer {
   sleepTimer?: NodeJS.Timeout
 }
 
+/** The outcome of the last test, kept for this run of the app only. */
+interface TestResult { health: McpHealthStatus; message: string | null; tools: McpToolDescriptor[]; at: number }
+
 const STDERR_RING_SIZE = 10
 const STDERR_LINE_MAX = 240
 
@@ -85,6 +90,7 @@ export class McpManager {
   private readonly runtimes = new Map<string, RuntimeServer>()
   /** Starts in flight, so a second click joins the first instead of killing a sign-in half way. */
   private readonly starting = new Map<string, Promise<McpToolDescriptor[]>>()
+  private readonly tested = new Map<string, TestResult>()
   private readonly emitHealth: (event: McpServerHealthEvent) => void
   private readonly configSync: McpConfigSync
 
@@ -108,6 +114,7 @@ export class McpManager {
     try {
       // Before the sync, so the rewritten .mcp.json files already carry the current endpoints.
       upgradeRetiredMcpEndpoints(this.db)
+      unbridgeRemoteMcpServers(this.db)
     } catch (err) {
       // eslint-disable-next-line no-console
       console.warn('[mcp] could not update retired endpoints:', err instanceof Error ? err.message : err)
@@ -189,6 +196,7 @@ export class McpManager {
       )
     // If runtime is running, restart so changes take effect
     this.stopRuntime(input.id)
+    this.tested.delete(input.id)
     this.syncFile(current.workspaceId)
     return this.get(input.id)!
   }
@@ -196,6 +204,7 @@ export class McpManager {
   delete(id: string): void {
     const current = this.get(id)
     this.stopRuntime(id)
+    this.tested.delete(id)
     this.db.prepare('DELETE FROM mcp_servers WHERE id = ?').run(id)
     if (current) this.syncFile(current.workspaceId)
   }
@@ -214,6 +223,41 @@ export class McpManager {
     const run = this.startStdio(server).finally(() => { this.starting.delete(id) })
     this.starting.set(id, run)
     return run
+  }
+
+  /**
+   * Checks that a server answers and lists its tools, then lets it go. The agent
+   * runs its own connection to the server; OXESpace does not keep a second copy
+   * alive, so this is a check on request, not a status. Never throws: the
+   * outcome is on the returned server.
+   */
+  async test(id: string): Promise<McpServer> {
+    const server = this.get(id)
+    if (!server) throw new Error(`MCP server ${id} not found`)
+    const record = (health: McpHealthStatus, message: string | null, tools: McpToolDescriptor[] = []): McpServer => {
+      this.tested.set(id, { health, message, tools, at: Date.now() })
+      this.emitHealth({ serverId: id, status: health, message })
+      return this.get(id)!
+    }
+    if (!server.trusted) return record('unhealthy', 'Not trusted yet. Review its command and trust it before testing.')
+    if (server.transport !== 'stdio') {
+      this.emitHealth({ serverId: id, status: 'starting', message: null })
+      try {
+        const result = await probeHttpServer(server.config as McpHttpConfig)
+        if (result.status === 'needs-auth') return record('needs-auth', 'Answers and asks for a sign-in. The agent opens it on first use.')
+        if (result.status === 'reachable') return record('healthy', 'Answers. Its tools show once the agent connects.')
+        return record('healthy', `${result.tools.length} tool(s)`, result.tools)
+      } catch (err) {
+        return record('unhealthy', err instanceof Error ? err.message : String(err))
+      }
+    }
+    try {
+      const tools = await this.start(id)
+      this.stopRuntime(id, true)
+      return record('healthy', `${tools.length} tool(s)`, tools)
+    } catch (err) {
+      return record('unhealthy', err instanceof Error ? err.message : String(err))
+    }
   }
 
   /** Reopens the browser sign-in page of a server that is waiting for authentication. */
@@ -238,15 +282,17 @@ export class McpManager {
     }, SLEEP_TIMEOUT_MS)
   }
 
-  stopRuntime(id: string): void {
+  /** `quiet`: the caller reports the outcome itself (a finished test). */
+  stopRuntime(id: string, quiet = false): void {
     const runtime = this.runtimes.get(id)
     if (!runtime) return
     if (runtime.sleepTimer) clearTimeout(runtime.sleepTimer)
+    // Detach first: the exit handler of a process stopped on purpose must not report it as a crash.
+    this.runtimes.delete(id)
     killProcessTree(runtime.process)
     runtime.pending.forEach(({ reject }) => reject(new Error('MCP server stopped')))
     runtime.pending.clear()
-    this.runtimes.delete(id)
-    this.emitHealth({ serverId: id, status: 'unknown', message: null })
+    if (!quiet) this.emitHealth({ serverId: id, status: 'unknown', message: null })
   }
 
   async callTool(input: McpCallToolInput): Promise<McpCallToolResult> {
@@ -332,6 +378,7 @@ export class McpManager {
       }
     })
     child.on('exit', (code) => {
+      if (this.runtimes.get(server.id) !== runtime) return
       runtime.pending.forEach(({ reject }) => reject(new Error(`MCP server exited with code ${code}`)))
       runtime.pending.clear()
       this.runtimes.delete(server.id)
@@ -406,7 +453,8 @@ export class McpManager {
     if (runtime) {
       return { ...server, health: 'starting' }
     }
-    return server
+    const tested = this.tested.get(server.id)
+    return tested ? { ...server, health: tested.health, healthMessage: tested.message, tools: tested.tools, testedAtMs: tested.at } : server
   }
 
   private request<T>(runtime: RuntimeServer, method: string, params: unknown, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {

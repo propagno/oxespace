@@ -17,6 +17,8 @@ interface McpStoreState {
   update: (input: UpdateMcpServerInput) => Promise<McpServer>
   remove: (id: string) => Promise<void>
   start: (id: string) => Promise<void>
+  /** Checks the server answers and lists its tools; OXESpace does not keep it running. */
+  test: (id: string) => Promise<McpServer>
   stop: (id: string) => Promise<void>
   applyHealth: (event: McpServerHealthEvent) => void
   subscribe: () => () => void
@@ -94,6 +96,24 @@ export const useMcpStore = create<McpStoreState>((set, get) => ({
       })
       throw err
     }
+  },
+
+  test: async (id) => {
+    let server: McpServer
+    try {
+      server = await window.oxe.mcp.test(id)
+    } catch (err) {
+      set({ error: sanitizeMcpError(err) })
+      throw err
+    }
+    set((s) => {
+      const next: Record<string, McpServer[]> = {}
+      for (const [k, list] of Object.entries(s.serversByWorkspace)) {
+        next[k] = list.map((srv) => srv.id === id ? server : srv)
+      }
+      return { serversByWorkspace: next }
+    })
+    return server
   },
 
   stop: async (id) => {

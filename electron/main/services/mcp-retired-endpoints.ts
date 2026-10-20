@@ -32,3 +32,29 @@ export function upgradeRetiredMcpEndpoints(db: AppDatabase, now: number = Date.n
   }
   return changed
 }
+
+/**
+ * Servers saved as nothing more than an `mcp-remote` bridge (`npx -y mcp-remote
+ * <url>`, no extra flags or variables) become the remote server they bridge.
+ * The agent then reaches the URL and signs in itself, instead of depending on a
+ * second process that headless agents cannot complete a sign-in through. A
+ * bridge with options of its own is left alone. Returns how many changed.
+ */
+export function unbridgeRemoteMcpServers(db: AppDatabase, now: number = Date.now()): number {
+  const rows = db.prepare(`SELECT id, config_json FROM mcp_servers WHERE transport = 'stdio'`).all() as Row[]
+  const update = db.prepare('UPDATE mcp_servers SET transport = ?, config_json = ?, updated_at = ? WHERE id = ?')
+  let changed = 0
+  for (const row of rows) {
+    let config: { command?: unknown; args?: unknown; env?: unknown }
+    try { config = JSON.parse(row.config_json) as typeof config } catch { continue }
+    const args = Array.isArray(config.args) ? config.args : []
+    const env = config.env && typeof config.env === 'object' ? Object.keys(config.env) : []
+    if (config.command !== 'npx' || env.length || args.length !== 3 || args[0] !== '-y' || args[1] !== 'mcp-remote') continue
+    const url = String(args[2])
+    if (!/^https:\/\/\S+$/i.test(url)) continue
+    const transport = /\/sse\/?$/i.test(url) ? 'sse' : 'http'
+    update.run(transport, JSON.stringify({ transport, url, headers: {} }), now, row.id)
+    changed += 1
+  }
+  return changed
+}

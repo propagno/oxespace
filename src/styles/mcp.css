@@ -324,6 +324,11 @@
 .mcp-server-tag.scope-ws,
 .mcp-server-tag.scope-global { background: var(--surface-quiet); color: var(--tx-secondary); }
 
+/* Whether the agent connected: the one state that decides if the tools work. */
+.mcp-agent-state.is-connected { background: var(--intent-success-bg); color: var(--intent-success-fg); }
+.mcp-agent-state.is-failed { background: var(--intent-danger-bg); color: var(--intent-danger-fg); }
+.mcp-agent-state.is-needs-auth { background: var(--intent-warning-bg); color: var(--intent-warning-fg); }
+
 .mcp-server-err {
   color: var(--intent-danger-fg);
   font-size: var(--fs-2xs);

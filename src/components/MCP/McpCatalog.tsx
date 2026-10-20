@@ -1,4 +1,4 @@
-import { KeyRound, Loader2, LogIn, Play, Plus, SlidersHorizontal, Square, Terminal } from 'lucide-react'
+import { KeyRound, Loader2, LogIn, PlugZap, Plus, SlidersHorizontal, Terminal } from 'lucide-react'
 import { useMemo, type ReactElement } from 'react'
 import type { McpServer } from '../../../shared/types/mcp'
 import { isDarkBrand, MCP_CATALOG, MCP_CATALOG_CATEGORIES, searchCatalog, type McpCatalogEntry } from './connectorCatalog'
@@ -13,27 +13,29 @@ export function McpBrandTile({ entry, size = 40 }: { entry: McpCatalogEntry; siz
   </span>
 }
 
-type ServerActions = { onStart(server: McpServer): void; onStop(server: McpServer): void }
+type ServerActions = { onTest(server: McpServer): void }
 
-const STATE_LABEL: Record<McpServer['health'], string> = { healthy: 'Running', starting: 'Starting', unhealthy: 'Error', unknown: 'Stopped' }
+/** What OXESpace's test found. Agents keep their own connection, so nothing here is "running". */
+const STATE_LABEL: Record<McpServer['health'], string> = { healthy: 'Answers', starting: 'Testing', 'needs-auth': 'Added', unhealthy: 'Error', unknown: 'Added' }
 
 const waitingForSignIn = (server: McpServer): boolean => server.health === 'starting' && /sign in/i.test(server.healthMessage ?? '')
 
-function CatalogRow({ entry, server, busy, onAdd, onStart, onStop }: { entry: McpCatalogEntry; server: McpServer | undefined; busy: boolean; onAdd(entry: McpCatalogEntry): void } & ServerActions): ReactElement {
+function CatalogRow({ entry, server, busy, onAdd, onTest }: { entry: McpCatalogEntry; server: McpServer | undefined; busy: boolean; onAdd(entry: McpCatalogEntry): void } & ServerActions): ReactElement {
   const hint = entry.signIn ? { icon: <LogIn size={12} aria-hidden="true" />, text: 'Browser sign-in' } : entry.requiredEnv?.length ? { icon: <KeyRound size={12} aria-hidden="true" />, text: 'Token' }
-    : entry.configure ? { icon: <SlidersHorizontal size={12} aria-hidden="true" />, text: 'Setup' } : entry.command === 'uvx' ? { icon: <Terminal size={12} aria-hidden="true" />, text: 'Needs uv' } : null
-  const running = server?.health === 'healthy' || server?.health === 'starting'
+    : entry.configure ? { icon: <SlidersHorizontal size={12} aria-hidden="true" />, text: 'Setup' } : entry.transport === 'stdio' && entry.command === 'uvx' ? { icon: <Terminal size={12} aria-hidden="true" />, text: 'Needs uv' } : null
+  const testing = server?.health === 'starting'
+  const signInByAgent = server?.health === 'needs-auth'
   return <li className="mcp-catalog-row">
     <McpBrandTile entry={entry} />
     <span className="mcp-catalog-text">
       <strong>{entry.name}{server && <i className={`mcp-catalog-state is-${server.health}`} title={server.healthMessage ?? STATE_LABEL[server.health]}>{waitingForSignIn(server) ? 'Signing in…' : STATE_LABEL[server.health]}</i>}</strong>
-      <small title={server?.health === 'unhealthy' && server.healthMessage ? server.healthMessage : entry.description}>{server && waitingForSignIn(server) ? 'Finish the sign-in in your browser to connect.' : server?.health === 'unhealthy' && server.healthMessage ? server.healthMessage : entry.description}</small>
+      <small title={server?.health === 'unhealthy' && server.healthMessage ? server.healthMessage : entry.description}>{server && waitingForSignIn(server) ? 'Finish the sign-in in your browser to connect.' : signInByAgent ? 'The agent opens the sign-in in your browser the first time it connects.' : server?.health === 'unhealthy' && server.healthMessage ? server.healthMessage : entry.description}</small>
     </span>
     {server && waitingForSignIn(server) && <button type="button" className="mcp-catalog-hint is-action" onClick={() => void window.oxe.mcp.openSignIn(server.id)}><LogIn size={12} aria-hidden="true" />Open sign-in page</button>}
-    {!server && hint && <span className="mcp-catalog-hint" title={entry.signIn ? 'Signs in with your browser' : entry.requiredEnv?.length ? 'Needs an access token' : entry.configure ? 'Needs a value before it can start' : 'Runs with uv (uvx), which must be installed'}>{hint.icon}{hint.text}</span>}
+    {!server && hint && <span className="mcp-catalog-hint" title={entry.signIn ? 'The agent signs in with your browser on first use' : entry.requiredEnv?.length ? 'Needs an access token' : entry.configure ? 'Needs a value before it can start' : 'Runs with uv (uvx), which must be installed'}>{hint.icon}{hint.text}</span>}
     {server
-      ? <button type="button" className="mcp-catalog-add" aria-label={`${running ? 'Stop' : 'Start'} ${entry.name}`} title={`${running ? 'Stop' : 'Start'} ${entry.name}`} disabled={busy} onClick={() => running ? onStop(server) : onStart(server)}>
-        {busy ? <Loader2 size={14} className="usage-spin" aria-hidden="true" /> : running ? <Square size={14} aria-hidden="true" /> : <Play size={14} aria-hidden="true" />}
+      ? <button type="button" className="mcp-catalog-add" aria-label={`Test ${entry.name}`} title={`Check that ${entry.name} answers`} disabled={busy || testing} onClick={() => onTest(server)}>
+        {busy || testing ? <Loader2 size={14} className="usage-spin" aria-hidden="true" /> : <PlugZap size={14} aria-hidden="true" />}
       </button>
       : <button type="button" className="mcp-catalog-add" aria-label={`Add ${entry.name}`} title={`Add ${entry.name}`} disabled={busy} onClick={() => onAdd(entry)}>
         {busy ? <Loader2 size={14} className="usage-spin" aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
@@ -45,7 +47,7 @@ function CatalogRow({ entry, server, busy, onAdd, onStart, onStop }: { entry: Mc
  * Connector catalog: brand tiles grouped by category, one `+` per server.
  * Servers that need no secrets are added directly; the rest open the form.
  */
-export function McpCatalog({ servers, query, busyId, onAdd, onStart, onStop }: {
+export function McpCatalog({ servers, query, busyId, onAdd, onTest }: {
   servers: McpServer[]; query: string; busyId: string | null; onAdd(entry: McpCatalogEntry): void
 } & ServerActions): ReactElement {
   const byName = useMemo(() => new Map(servers.map(server => [server.name.toLowerCase(), server])), [servers])
@@ -63,7 +65,7 @@ export function McpCatalog({ servers, query, busyId, onAdd, onStart, onStop }: {
       <h3>{section.title}</h3>
       <ul>{section.entries.map(entry => {
         const server = byName.get(entry.id) ?? byName.get(entry.name.toLowerCase())
-        return <CatalogRow key={`${section.title}:${entry.id}`} entry={entry} server={server} busy={busyId === entry.id || (server !== undefined && busyId === server.id)} onAdd={onAdd} onStart={onStart} onStop={onStop} />
+        return <CatalogRow key={`${section.title}:${entry.id}`} entry={entry} server={server} busy={busyId === entry.id || (server !== undefined && busyId === server.id)} onAdd={onAdd} onTest={onTest} />
       })}</ul>
     </section>)}
     <p className="mcp-catalog-count">{MCP_CATALOG.length} connectors</p>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AppDatabase } from '../../electron/main/db/index'
-import { upgradeRetiredMcpEndpoints } from '../../electron/main/services/mcp-retired-endpoints'
+import { unbridgeRemoteMcpServers, upgradeRetiredMcpEndpoints } from '../../electron/main/services/mcp-retired-endpoints'
 
 function dbWith(rows: Array<{ id: string; config: unknown }>) {
   const updates: Array<{ id: string; config: unknown; at: number }> = []
@@ -26,6 +26,28 @@ describe('retired MCP endpoints', () => {
     expect(updates).toEqual([
       { id: 'linear', at: 42, config: { transport: 'stdio', command: 'npx', args: ['-y', 'mcp-remote', 'https://mcp.linear.app/mcp'], env: { A: '1' } } },
       { id: 'cloudflare', at: 42, config: { transport: 'stdio', command: 'npx', args: ['-y', 'mcp-remote', 'https://docs.mcp.cloudflare.com/mcp'] } }
+    ])
+  })
+
+  it('turns a bare mcp-remote bridge into the remote server it bridges', () => {
+    const updates: unknown[][] = []
+    const rows = [
+      { id: 'linear', config: { transport: 'stdio', command: 'npx', args: ['-y', 'mcp-remote', 'https://mcp.linear.app/mcp'], env: {} } },
+      { id: 'asana', config: { transport: 'stdio', command: 'npx', args: ['-y', 'mcp-remote', 'https://mcp.asana.com/sse'] } },
+      // A bridge with its own flags or variables (a static token, a port) is kept as the person set it up.
+      { id: 'flags', config: { transport: 'stdio', command: 'npx', args: ['-y', 'mcp-remote', 'https://x.test/mcp', '--header', 'A:b'] } },
+      { id: 'env', config: { transport: 'stdio', command: 'npx', args: ['-y', 'mcp-remote', 'https://x.test/mcp'], env: { TOKEN: 't' } } },
+      { id: 'plain', config: { transport: 'stdio', command: 'npx', args: ['-y', '@playwright/mcp@latest'] } }
+    ]
+    const db = {
+      prepare: (sql: string) => sql.startsWith('SELECT')
+        ? { all: () => rows.map(row => ({ id: row.id, config_json: JSON.stringify(row.config) })) }
+        : { run: (...args: unknown[]) => { updates.push(args) } }
+    } as unknown as AppDatabase
+    expect(unbridgeRemoteMcpServers(db, 7)).toBe(2)
+    expect(updates).toEqual([
+      ['http', JSON.stringify({ transport: 'http', url: 'https://mcp.linear.app/mcp', headers: {} }), 7, 'linear'],
+      ['sse', JSON.stringify({ transport: 'sse', url: 'https://mcp.asana.com/sse', headers: {} }), 7, 'asana']
     ])
   })
 })
